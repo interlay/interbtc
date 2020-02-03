@@ -1,8 +1,15 @@
+import subprocess
+from subprocess import CalledProcessError
+from os import path
 import bitcoin.rpc
-import json 
 import time
+import simplejson as json
 
 from decimal import *
+
+DIRNAME = path.dirname(__file__)
+# FILENAME = path.join(DIRNAME, 'blocks.json')
+FILENAME = path.join(DIRNAME, 'test.json')
 
 bitcoin.SelectParams('regtest')
 
@@ -68,8 +75,62 @@ def generate_block_with_transactions(num_transactions, amount_per_transaction, o
         transaction = proxy.gettransaction(tx_id)
         transactions.append(transaction)
     
-    block_hash = generate_block(addr_1)
+    block_hash = generate_block(addr_1)[0]
     return (block_hash, transactions)
+
+def export_blocks(blockhashes_with_transactions):
+    out = []
+    for (blockhash, transactions) in blockhashes_with_transactions:
+        block = proxy.getblock(blockhash) 
+
+        # convert to hex as wanted by solc (only fields used in relay)
+        block["hash"] = "0x" + block["hash"]
+        block["merkleroot"] = "0x" + block["merkleroot"]
+        block["chainwork"] = "0x" + block["chainwork"]
+        txs = block["tx"]
+        headerBytes = proxy.getblockheader(blockhash, False)
+        block["header"] = "0x" + headerBytes
+        
+        proofs = []
+        for i in range(len(txs)):
+            # print("TX_INDEX {}".format(i))
+            try:
+                tx_id = txs[i]
+                # print("TX {}".format(tx_id))
+                output = subprocess.run(["bitcoin-cli", "-regtest", "gettxoutproof", str(json.dumps([tx_id])), blockhash], stdout=subprocess.PIPE, check=True)
+
+                proof = output.stdout.rstrip()
+                # Proof is
+                # 160 block header
+                # 8 number of transactionSs
+                # 2 no hashes
+                number_hashes = int(proof[168:170], 16)
+
+                merklePath = []
+                for h in range(number_hashes):
+                    start = 170 + 64*h
+                    end = 170 + 64*(h+1)
+                    hash = proof[start:end]
+                    merklePath.append("0x" + hash.decode("utf-8"))
+
+                block["tx"][i] = {"tx_id": "0x" + str(tx_id), "merklePath": merklePath, "tx_index": i}
+
+            except CalledProcessError as e:
+                print(e.stderr)
+            
+        
+        out.append((block, transactions))
+    
+    with open(FILENAME, 'w', encoding='utf-8') as f:
+        to_dump = []
+        for i in range(len(out)):
+            to_dump.append({"block": out[i][0], "transactions": out[i][1]})
+
+        #f.write(str(to_dump))
+        #f.write(json.dumps(to_dump, use_decimal=True))
+        json.dump(to_dump, f, ensure_ascii=False, indent=4, use_decimal=True)
+
+    print("### Exported {} blocks to {} ###".format(len(out), FILENAME))
 
 if __name__ == "__main__":
     address_1 = proxy.getnewaddress()
@@ -79,7 +140,8 @@ if __name__ == "__main__":
     blockhashes_with_transactions = []
 
     # add blocks
-    for i in range(5):
-        blockhashes_with_transactions.append(generate_block_with_transactions(5, 0.001, '0x10', address_1, address_2))
+    for i in range(1):
+        blockhashes_with_transactions.append(generate_block_with_transactions(1, 0.001, '0x10', address_1, address_2))
 
     # export blocks to json
+    export_blocks(blockhashes_with_transactions)
