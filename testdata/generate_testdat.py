@@ -146,5 +146,7 @@ if __name__ == "__main__":
     for i in range(1):
         blockhashes_with_transactions.append(generate_block_with_transactions(1, 0.01, '0x10', address_1, address_2))
 
+    generate_empty_blocks(6, address_2)
+
     # export blocks to json
     export_blocks(blockhashes_with_transactions)
