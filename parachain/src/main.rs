@@ -15,10 +15,10 @@ fn main() -> Result<(), cli::error::Error> {
 		name: "Substrate Node",
 		commit: env!("VERGEN_SHA_SHORT"),
 		version: env!("CARGO_PKG_VERSION"),
-		executable_name: "node-template",
-		author: "Anonymous",
-		description: "Template Node",
-		support_url: "support.anonymous.an",
+		executable_name: "btc-parachain",
+		author: "Interlay Ltd",
+		description: "BTC Parachain connects Bitcoin and Polkadot",
+		support_url: "interlay.io",
 	};
 
 	cli::run(std::env::args(), cli::Exit, version)
