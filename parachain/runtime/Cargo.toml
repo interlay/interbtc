@@ -1,3 +1,7 @@
+[dependencies.btc-relay]
+default-features = false
+path = '../../crates/btc-relay'
+
 [dependencies.aura]
 default-features = false
 git = 'https://github.com/paritytech/substrate.git'
@@ -161,6 +165,7 @@ version = '2.0.0'
 [features]
 default = ['std']
 std = [
+    'btc-relay/std',
     'aura/std',
     'balances/std',
     'codec/std',
@@ -190,10 +195,11 @@ std = [
 ]
 
 [package]
-authors = ['Anonymous']
+authors = ['Interlay Ltd']
 edition = '2018'
-name = 'node-template-runtime'
+name = 'btc-parachain-runtime'
 version = '2.0.0'
+
 [build-dependencies.wasm-builder-runner]
 git = 'https://github.com/paritytech/substrate.git'
 package = 'substrate-wasm-builder-runner'
