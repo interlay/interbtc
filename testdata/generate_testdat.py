@@ -4,6 +4,7 @@ from os import path
 import bitcoin.rpc
 import time
 import simplejson as json
+import asyncio
 
 from decimal import *
 
@@ -53,7 +54,7 @@ def generate_block_with_transactions(num_transactions, amount_per_transaction, o
         scriptPubKey = unspent["scriptPubKey"]
         redeemScript = unspent["redeemScript"]
         amount = str(unspent["amount"])
-        change = str(unspent["amount"] - Decimal(0.0015))[:6]
+        change = str(unspent["amount"] - Decimal(0.015))[:6]
 
         tx_in = {
             "txid": txid,
@@ -63,9 +64,9 @@ def generate_block_with_transactions(num_transactions, amount_per_transaction, o
             "amount": amount
         }
 
-        tx_out = {addr_2 : 0.001}
-        tx_out2 = {addr_1 : change}
-        tx_out3 = {"data" : 0x1000}
+        tx_out = {addr_2 : amount_per_transaction}
+        tx_out3 = {addr_1 : change}
+        tx_out2 = {"data" : 0x1000}
 
         tx_hash = proxy.createrawtransaction([tx_in],[tx_out, tx_out2, tx_out3])
                 
@@ -96,7 +97,7 @@ def export_blocks(blockhashes_with_transactions):
             # print("TX_INDEX {}".format(i))
             try:
                 tx_id = txs[i]
-                # print("TX {}".format(tx_id))
+                # print("TX {}".format(tx_id)
                 output = subprocess.run(["bitcoin-cli", "-regtest", "gettxoutproof", str(json.dumps([tx_id])), blockhash], stdout=subprocess.PIPE, check=True)
 
                 proof = output.stdout.rstrip()
@@ -113,7 +114,9 @@ def export_blocks(blockhashes_with_transactions):
                     hash = proof[start:end]
                     merklePath.append("0x" + hash.decode("utf-8"))
 
-                block["tx"][i] = {"tx_id": "0x" + str(tx_id), "merklePath": merklePath, "tx_index": i}
+                verbose_transaction = proxy.getrawtransaction(tx_id, True)
+
+                block["tx"][i] = {"tx_id": "0x" + str(tx_id), "merklePath": merklePath, "tx_index": i, "verboseTransaction": verbose_transaction}
 
             except CalledProcessError as e:
                 print(e.stderr)
@@ -141,7 +144,7 @@ if __name__ == "__main__":
 
     # add blocks
     for i in range(1):
-        blockhashes_with_transactions.append(generate_block_with_transactions(1, 0.001, '0x10', address_1, address_2))
+        blockhashes_with_transactions.append(generate_block_with_transactions(1, 0.01, '0x10', address_1, address_2))
 
     # export blocks to json
     export_blocks(blockhashes_with_transactions)
