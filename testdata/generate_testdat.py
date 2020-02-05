@@ -4,7 +4,6 @@ from os import path
 import bitcoin.rpc
 import time
 import simplejson as json
-import asyncio
 
 from decimal import *
 
@@ -23,7 +22,6 @@ def generate_empty_blocks(number, address):
 def generate_block(address):
     return proxy.generatetoaddress(1, address)
 
-# TODO: fix op_return usage
 def generate_block_with_transactions(num_transactions, amount_per_transaction, op_return, addr_1, addr_2):
     transactions = []
     block_hash = None
@@ -95,10 +93,8 @@ def export_blocks(blockhashes_with_transactions):
         
         proofs = []
         for i in range(len(txs)):
-            # print("TX_INDEX {}".format(i))
             try:
                 tx_id = txs[i]
-                # print("TX {}".format(tx_id)
                 output = subprocess.run(["bitcoin-cli", "-regtest", "gettxoutproof", str(json.dumps([tx_id])), blockhash], stdout=subprocess.PIPE, check=True)
 
                 proof = output.stdout.rstrip()
@@ -132,8 +128,6 @@ def export_blocks(blockhashes_with_transactions):
             #to_dump.append({"block": out[i][0], "transactions": out[i][1]})
             to_dump.append({"block": out[i][0]})
 
-        #f.write(str(to_dump))
-        #f.write(json.dumps(to_dump, use_decimal=True))
         json.dump(to_dump, f, ensure_ascii=False, indent=4, use_decimal=True)
 
     print("### Exported {} blocks to {} ###".format(len(out), FILENAME))
