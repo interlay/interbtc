@@ -5,7 +5,7 @@
 In your prefered way install the required python packages:
 
 ### packages
-python-bitcoinlib
+python-bitcoinlib  
 simplejson
 
 ### requires
