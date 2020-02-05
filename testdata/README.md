@@ -3,18 +3,12 @@
 ## Python requirements
 
 In your prefered way install the required python packages:
-[[source]]
-url = "https://pypi.python.org/simple"
-verify_ssl = true
-name = "pypi"
 
-[packages]
-python-bitcoinlib = "*"
-simplejson = "*"
+### packages
+python-bitcoinlib
+simplejson
 
-[dev-packages]
-
-[requires]
+### requires
 python_version = "3.7"
 
 ## Install Bitcoin Core client
