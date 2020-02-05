@@ -1,0 +1,98 @@
+
+
+
+
+
+2020-02-05T11:21:10Z Bitcoin Core version v0.19.0.1 (release build)
+2020-02-05T11:21:10Z Validating signatures for all blocks.
+2020-02-05T11:21:10Z Setting nMinimumChainWork=0000000000000000000000000000000000000000000000000000000000000000
+2020-02-05T11:21:10Z Using the 'sse4(1way),sse41(4way),avx2(8way)' SHA256 implementation
+2020-02-05T11:21:10Z Using RdSeed as additional entropy source
+2020-02-05T11:21:10Z Using RdRand as an additional entropy source
+2020-02-05T11:21:10Z Default data directory /home/gf4417/.bitcoin
+2020-02-05T11:21:10Z Using data directory /home/gf4417/Projects/Substrate/btc-parachain/testdata/./bitcoinNode/regtest
+2020-02-05T11:21:10Z Config file: /home/gf4417/Projects/Substrate/btc-parachain/testdata/./bitcoinNode/bitcoin.conf (not found, skipping)
+2020-02-05T11:21:10Z Using at most 125 automatic connections (1024 file descriptors available)
+2020-02-05T11:21:10Z Warning: relative datadir option './bitcoinNode/' specified, which will be interpreted relative to the current working directory '/home/gf4417/Projects/Substrate/btc-parachain/testdata'. This is fragile, because if bitcoin is started in the future from a different location, it will be unable to locate the current data files. There could also be data loss if bitcoin is started while in a temporary directory.
+2020-02-05T11:21:10Z Using 16 MiB out of 32/2 requested for signature cache, able to store 524288 elements
+2020-02-05T11:21:10Z Using 16 MiB out of 32/2 requested for script execution cache, able to store 524288 elements
+2020-02-05T11:21:10Z Using 8 threads for script verification
+2020-02-05T11:21:10Z scheduler thread start
+2020-02-05T11:21:10Z HTTP: creating work queue of depth 16
+2020-02-05T11:21:10Z No rpcpassword set - using random cookie authentication.
+2020-02-05T11:21:10Z Generated RPC authentication cookie /home/gf4417/Projects/Substrate/btc-parachain/testdata/./bitcoinNode/regtest/.cookie
+2020-02-05T11:21:10Z HTTP: starting 4 worker threads
+2020-02-05T11:21:10Z Using wallet directory /home/gf4417/Projects/Substrate/btc-parachain/testdata/./bitcoinNode/regtest/wallets
+2020-02-05T11:21:10Z init message: Verifying wallet(s)...
+2020-02-05T11:21:10Z Using BerkeleyDB version Berkeley DB 4.8.30: (April  9, 2010)
+2020-02-05T11:21:10Z Using wallet /home/gf4417/Projects/Substrate/btc-parachain/testdata/./bitcoinNode/regtest/wallets
+2020-02-05T11:21:10Z BerkeleyEnvironment::Open: LogDir=/home/gf4417/Projects/Substrate/btc-parachain/testdata/./bitcoinNode/regtest/wallets/database ErrorFile=/home/gf4417/Projects/Substrate/btc-parachain/testdata/./bitcoinNode/regtest/wallets/db.log
+2020-02-05T11:21:10Z init message: Loading banlist...
+2020-02-05T11:21:10Z ERROR: DeserializeFileDB: Failed to open file /home/gf4417/Projects/Substrate/btc-parachain/testdata/./bitcoinNode/regtest/banlist.dat
+2020-02-05T11:21:10Z Invalid or missing banlist.dat; recreating
+2020-02-05T11:21:10Z Cache configuration:
+2020-02-05T11:21:10Z * Using 2.0 MiB for block index database
+2020-02-05T11:21:10Z * Using 56.0 MiB for transaction index database
+2020-02-05T11:21:10Z * Using 8.0 MiB for chain state database
+2020-02-05T11:21:10Z * Using 384.0 MiB for in-memory UTXO set (plus up to 286.1 MiB of unused mempool space)
+2020-02-05T11:21:10Z init message: Loading block index...
+2020-02-05T11:21:10Z Opening LevelDB in /home/gf4417/Projects/Substrate/btc-parachain/testdata/./bitcoinNode/regtest/blocks/index
+2020-02-05T11:21:10Z Opened LevelDB successfully
+2020-02-05T11:21:10Z Using obfuscation key for /home/gf4417/Projects/Substrate/btc-parachain/testdata/./bitcoinNode/regtest/blocks/index: 0000000000000000
+2020-02-05T11:21:10Z LoadBlockIndexDB: last block file = 0
+2020-02-05T11:21:10Z LoadBlockIndexDB: last block file info: CBlockFileInfo(blocks=0, size=0, heights=0...0, time=1970-01-01...1970-01-01)
+2020-02-05T11:21:10Z Checking all blk files are present...
+2020-02-05T11:21:10Z Initializing databases...
+2020-02-05T11:21:10Z Pre-allocating up to position 0x1000000 in blk00000.dat
+2020-02-05T11:21:10Z Opening LevelDB in /home/gf4417/Projects/Substrate/btc-parachain/testdata/./bitcoinNode/regtest/chainstate
+2020-02-05T11:21:10Z Opened LevelDB successfully
+2020-02-05T11:21:10Z Wrote new obfuscate key for /home/gf4417/Projects/Substrate/btc-parachain/testdata/./bitcoinNode/regtest/chainstate: 091bfe7b98d42494
+2020-02-05T11:21:10Z Using obfuscation key for /home/gf4417/Projects/Substrate/btc-parachain/testdata/./bitcoinNode/regtest/chainstate: 091bfe7b98d42494
+2020-02-05T11:21:10Z init message: Rewinding blocks...
+2020-02-05T11:21:10Z  block index              23ms
+2020-02-05T11:21:10Z Opening LevelDB in /home/gf4417/Projects/Substrate/btc-parachain/testdata/./bitcoinNode/regtest/indexes/txindex
+2020-02-05T11:21:10Z Opened LevelDB successfully
+2020-02-05T11:21:10Z Using obfuscation key for /home/gf4417/Projects/Substrate/btc-parachain/testdata/./bitcoinNode/regtest/indexes/txindex: 0000000000000000
+2020-02-05T11:21:10Z init message: Loading wallet...
+2020-02-05T11:21:10Z txindex thread start
+2020-02-05T11:21:10Z txindex is enabled
+2020-02-05T11:21:10Z txindex thread exit
+2020-02-05T11:21:10Z BerkeleyEnvironment::Open: LogDir=/home/gf4417/Projects/Substrate/btc-parachain/testdata/./bitcoinNode/regtest/wallets/database ErrorFile=/home/gf4417/Projects/Substrate/btc-parachain/testdata/./bitcoinNode/regtest/wallets/db.log
+2020-02-05T11:21:10Z [default wallet] Wallet File Version = 10500
+2020-02-05T11:21:10Z [default wallet] Keys: 0 plaintext, 0 encrypted, 0 w/ metadata, 0 total. Unknown wallet records: 0
+2020-02-05T11:21:10Z [default wallet] Performing wallet upgrade to 169900
+2020-02-05T11:21:11Z [default wallet] keypool added 2000 keys (1000 internal), size=2000 (1000 internal)
+2020-02-05T11:21:11Z [default wallet] Wallet completed loading in            1074ms
+2020-02-05T11:21:11Z [default wallet] setKeyPool.size() = 2000
+2020-02-05T11:21:11Z [default wallet] mapWallet.size() = 0
+2020-02-05T11:21:11Z [default wallet] mapAddressBook.size() = 0
+2020-02-05T11:21:11Z UpdateTip: new best=0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206 height=0 version=0x00000001 log2_work=1 tx=1 date='2011-02-02T23:16:42Z' progress=1.000000 cache=0.0MiB(0txo)
+2020-02-05T11:21:11Z block tree size = 1
+2020-02-05T11:21:11Z nBestHeight = 0
+2020-02-05T11:21:11Z Failed to open mempool file from disk. Continuing anyway.
+2020-02-05T11:21:11Z torcontrol thread start
+2020-02-05T11:21:11Z Bound to [::]:18444
+2020-02-05T11:21:11Z Bound to 0.0.0.0:18444
+2020-02-05T11:21:11Z init message: Loading P2P addresses...
+2020-02-05T11:21:11Z ERROR: DeserializeFileDB: Failed to open file /home/gf4417/Projects/Substrate/btc-parachain/testdata/./bitcoinNode/regtest/peers.dat
+2020-02-05T11:21:11Z Invalid or missing peers.dat; recreating
+2020-02-05T11:21:11Z init message: Starting network threads...
+2020-02-05T11:21:11Z net thread start
+2020-02-05T11:21:11Z dnsseed thread start
+2020-02-05T11:21:11Z addcon thread start
+2020-02-05T11:21:11Z 0 addresses found from DNS seeds
+2020-02-05T11:21:11Z opencon thread start
+2020-02-05T11:21:11Z init message: Done loading
+2020-02-05T11:21:11Z dnsseed thread exit
+2020-02-05T11:21:11Z msghand thread start
+2020-02-05T11:21:15Z tor: Thread interrupt
+2020-02-05T11:21:15Z Shutdown: In progress...
+2020-02-05T11:21:15Z addcon thread exit
+2020-02-05T11:21:15Z torcontrol thread exit
+2020-02-05T11:21:15Z opencon thread exit
+2020-02-05T11:21:15Z msghand thread exit
+2020-02-05T11:21:15Z net thread exit
+2020-02-05T11:21:15Z scheduler thread interrupt
+2020-02-05T11:21:15Z Dumped mempool: 2e-06s to copy, 0.002358s to dump
+2020-02-05T11:21:16Z [default wallet] Releasing wallet
+2020-02-05T11:21:16Z Shutdown: done
