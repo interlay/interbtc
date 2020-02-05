@@ -39,9 +39,11 @@ def generate_block_with_transactions(num_transactions, amount_per_transaction, o
             time.sleep(1)
             if len(u) != 0:
                 break
+        
+        min_required = Decimal(amount_per_transaction) + Decimal(0.001)
 
         for element in u:
-            if element["amount"] > 0.0015:
+            if element["amount"] > min_required:
                 unspent = element
 
         if unspent is None:
@@ -53,7 +55,7 @@ def generate_block_with_transactions(num_transactions, amount_per_transaction, o
         scriptPubKey = unspent["scriptPubKey"]
         redeemScript = unspent["redeemScript"]
         amount = str(unspent["amount"])
-        change = str(unspent["amount"] - Decimal(amount_per_transaction) - Decimal(0.001))[:6]
+        change = str(unspent["amount"] - min_required)[:6]
 
         tx_in = {
             "txid": txid,
@@ -143,6 +145,7 @@ if __name__ == "__main__":
     for i in range(5):
         blockhashes_with_transactions.append(generate_block_with_transactions(2, 0.01, "1000", address_1, address_2))
 
+    # adding confirmations
     generate_empty_blocks(6, address_2)
 
     # export blocks to json
