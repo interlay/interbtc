@@ -13,13 +13,13 @@ test:cargo:
     - rustc --version && cargo --version  # Print version info for debugging
     - cargo test --all --verbose
 
-
-
+# Declare stages
 stages:
-  - build
-  - test
-  - deploy
+  - build     # for crates and pallets
+  - test      # for tests in dev
+  - deploy    # for deployment in master
 
+# master branch
 btc-parachain-native:
   stage: deploy
   image: rustlang/rust:nightly
@@ -38,10 +38,10 @@ btc-parachain-build:
     - cd parachain
     - ./scripts/init.sh
     - cargo build --release --verbose
-    - cargo test --all --verbose
   only:
     - dev
 
+# dev branch
 btc-parachain-test:
   stage: test
   image: rustlang/rust:nightly
@@ -52,6 +52,7 @@ btc-parachain-test:
   only:
     - dev
 
+# pallets and crates
 btc-relay:
   stage: build
   image: rustlang/rust:nightly
@@ -64,5 +65,3 @@ btc-relay:
   except:
     - dev
     - master
-
-
