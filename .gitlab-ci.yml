@@ -4,8 +4,8 @@ image: "rust:latest"
 
 # Install a C compiler, cmake and git into the container.
 before_script:
-  - apt-get update -yqq
-  - apt-get install -yqq --no-install-recommends build-essential cmake pkg-config libssl-dev
+  - apt-get -y update
+  - apt-get install -y build-essential cmake pkg-config libssl-devi clang libclang-dev llvm
   - rustc --version && cargo --version  # Print version info for debugging
 
 # Declare stages
