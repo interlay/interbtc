@@ -1,0 +1,68 @@
+# Official language image. Look for the different tagged releases at:
+# https://hub.docker.com/r/library/rust/tags/
+image: "rust:latest"
+
+# Install a C compiler, cmake and git into the container.
+before_script:
+  - apt-get update -yqq
+  - apt-get install -yqq --no-install-recommends build-essential cmake pkg-config libssl-dev
+
+# Use cargo to test the project
+test:cargo:
+  script:
+    - rustc --version && cargo --version  # Print version info for debugging
+    - cargo test --all --verbose
+
+
+
+stages:
+  - build
+  - test
+  - deploy
+
+btc-parachain-native:
+  stage: deploy
+  image: rustlang/rust:nightly
+  script:
+    - cd parachain
+    - ./scripts/init.sh
+    - cargo build --release --verbose
+    - cargo test --all --verbose
+  only:
+    - master
+
+btc-parachain-build:
+  stage: test
+  image: rustlang/rust:nightly
+  script:
+    - cd parachain
+    - ./scripts/init.sh
+    - cargo build --release --verbose
+    - cargo test --all --verbose
+  only:
+    - dev
+
+btc-parachain-test:
+  stage: test
+  image: rustlang/rust:nightly
+  script:
+    - cd parachain
+    - ./scripts/init.sh
+    - cargo test --all --verbose
+  only:
+    - dev
+
+btc-relay:
+  stage: build
+  image: rustlang/rust:nightly
+  script:
+    - cd crates/btc-relay
+    - cargo build --release
+    - cargo test --verbose
+  only:
+    - branches
+  except:
+    - dev
+    - master
+
+
