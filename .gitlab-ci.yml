@@ -5,7 +5,7 @@ image: "rust:latest"
 # Install a C compiler, cmake and git into the container.
 before_script:
   - apt-get -y update
-  - apt-get install -y build-essential cmake pkg-config libssl-devi clang libclang-dev llvm
+  - apt-get install -y build-essential cmake pkg-config libssl-dev clang libclang-dev llvm
   - rustc --version && cargo --version  # Print version info for debugging
 
 # Declare stages
@@ -15,13 +15,12 @@ stages:
   - deploy    # for deployment in master
 
 # master branch
-btc-parachain-native:
+btc-parachain-test:
   stage: deploy
   image: rustlang/rust:nightly
   script:
     - cd parachain
     - ./scripts/init.sh
-    - cargo build --release --verbose
     - cargo test --all --verbose
   only:
     - master
@@ -36,7 +35,17 @@ btc-parachain-build:
   only:
     - dev
 
-# dev branch
+# merge requests
+btc-parachain-build:
+  stage: test
+  image: rustlang/rust:nightly
+  script:
+    - cd parachain
+    - ./scripts/init.sh
+    - cargo build --release --verbose
+  only:
+    - merge_requests
+
 btc-parachain-test:
   stage: test
   image: rustlang/rust:nightly
@@ -45,7 +54,7 @@ btc-parachain-test:
     - ./scripts/init.sh
     - cargo test --all --verbose
   only:
-    - dev
+    - merge_requests
 
 # pallets and crates
 btc-relay:
