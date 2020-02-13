@@ -143,9 +143,17 @@ decl_module! {
             <Chains>::put(blockchain);
             
             // Insert a pointer to BlockChain in ChainsIndex
-            //
+
             // Store a new BlockHeader struct in BlockHeaders
-            //
+            let block_header = BlockHeader {
+                block_height: block_height,
+                merkle_root: merkle_root,
+                target: target,
+                timestamp: timestamp,
+                chain_ref: chain_id,
+                no_data: false,
+                invalid: false,
+            }; 
             // Set BestBlock and BestBlockHeight to the submitted block
             <BestBlockHeight>::mutate(|n| *n = block_height);
             // Emit a Initialized Event
