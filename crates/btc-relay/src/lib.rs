@@ -50,9 +50,9 @@ pub struct BlockHeader<U256, H256, Moment> {
       no_data: bool,
       invalid: bool,
       // Optional fields
-      version: u32,
-      hash_prev_lock: H256,
-      nonce: u32
+      version: Option<u32>,
+      hash_prev_block: Option<H256>,
+      nonce: Option<u32>
 }
 
 /// Representation of a Bitcoin blockchain
@@ -122,8 +122,8 @@ decl_module! {
                         
             // Parse the block header bytes to extract the required info
             let merkle_root: H256 = H256::zero();
-            let timestamp: T::Moment;
-            let n_bits_to_target: u32 = 0;
+            let timestamp = 240;
+            let n_bits_to_target = 0;
             let target: U256 = U256::max_value();
             let hash_current_block: H256 = H256::zero();
 
@@ -153,6 +153,9 @@ decl_module! {
                 chain_ref: chain_id,
                 no_data: false,
                 invalid: false,
+                version: None,
+                nonce: None,
+                hash_prev_block: None
             }; 
             // Set BestBlock and BestBlockHeight to the submitted block
             <BestBlockHeight>::mutate(|n| *n = block_height);
