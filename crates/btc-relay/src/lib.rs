@@ -10,11 +10,7 @@
 use frame_support::{decl_module, decl_storage, decl_event, decl_error, dispatch::DispatchResult, ensure};
 use {system::ensure_signed, timestamp};
 use sp_core::{U256, H256, H160};
-use codec::{Encode, Decode};
-
-/// ## Custom Types
-/// Bitcoin Raw Block Header type
-pub type RawBlockHeader = [u8; 80];
+use bitcoin::{RawBlockHeader, BlockHeader, BlockChain};
 
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
@@ -34,40 +30,6 @@ pub trait Trait: timestamp::Trait + system::Trait {
     /// 0x00000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
     const UNROUNDED_MAX_TARGET: U256 = U256([0x00000000ffffffffu64, <u64>::max_value(), <u64>::max_value(), <u64>::max_value()]);
 }
-
-
-/// ## Structs
-/// Bitcoin Block Headers
-// TODO: Figure out how to set a pointer to the ChainIndex mapping instead
-#[derive(Encode, Decode, Default, Clone, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
-pub struct BlockHeader<U256, H256, Moment> {
-      block_height: U256,
-      merkle_root: H256,
-      target: U256,
-      timestamp: Moment,
-      chain_ref: U256,
-      no_data: bool,
-      invalid: bool,
-      // Optional fields
-      version: Option<u32>,
-      hash_prev_block: Option<H256>,
-      nonce: Option<u32>
-}
-
-/// Representation of a Bitcoin blockchain
-// Note: the chain representation is for now a vector
-// TODO: ask if there is a "mapping" type in structs
-#[derive(Encode, Decode, Default, Clone, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
-pub struct BlockChain<U256, H256> {
-    chain_id: U256,
-    chain: Vec<H256>,
-    max_height: U256,
-    no_data: bool,
-    invalid: bool,
-}
-
 
 // This pallet's storage items.
 decl_storage! {
@@ -91,10 +53,6 @@ decl_storage! {
 
         /// Track existing BlockChain entries
         ChainCounter get(fn chaincounter): U256;
-		// Just a dummy storage item.
-		// Here we are declaring a StorageValue, `Something` as a Option<u32>
-		// `get(fn something)` is the default getter which returns either the stored `u32` or `None` if nothing stored
-		// Something get(fn something): Option<u32>;
 	}
 }
 
@@ -110,7 +68,7 @@ decl_module! {
 
         fn initialize(
             origin,
-            //block_header_bytes: RawBlockHeader,
+            // block_header_bytes: RawBlockHeader,
             block_height: U256) 
             // -> Result<U256, Error<T>> {
         {
@@ -119,14 +77,14 @@ decl_module! {
             // Check if BTC-Relay was already initialized
             let bestblock = Self::bestblock();
             ensure!(bestblock.is_zero(), Error::<T>::AlreadyInitialized);
-                        
+
             // Parse the block header bytes to extract the required info
             let merkle_root: H256 = H256::zero();
             let timestamp = 240;
-            let n_bits_to_target = 0;
+            let n_bits_to_target: u32 = 0;
             let target: U256 = U256::max_value();
             let hash_current_block: H256 = H256::zero();
-
+  
             // Store the new BlockChain in Chains
             let chain_id: U256 = U256::zero(); 
             let mut chain: Vec<H256> = Vec::new();
@@ -139,11 +97,11 @@ decl_module! {
                 no_data: false,
                 invalid: false,
             });
-
+  
             <Chains>::put(blockchain);
             
             // Insert a pointer to BlockChain in ChainsIndex
-
+  
             // Store a new BlockHeader struct in BlockHeaders
             let block_header = BlockHeader {
                 block_height: block_height,
@@ -164,21 +122,6 @@ decl_module! {
             // Ok(Self::bestblockheight())
         }
 
-		// Just a dummy entry point.
-		// function that can be called by the external world as an extrinsics call
-		// takes a parameter of the type `AccountId`, stores it and emits an event
-		// pub fn do_something(origin, something: u32) -> DispatchResult {
-			// TODO: You only need this if you want to check it was signed.
-			// let who = ensure_signed(origin)?;
-
-			// TODO: Code to execute when something calls this.
-			// For example: the following line stores the passed in u32 in the storage
-			// Something::put(something);
-
-			// here we are raising the Something event
-			// Self::deposit_event(RawEvent::SomethingStored(something, who));
-			//Ok(())
-		// }
 	}
 }
 
@@ -187,7 +130,6 @@ decl_event! {
         AccountId = <T as system::Trait>::AccountId,
         H256 = H256,
         U256 = U256,
-
     {
         Initialized(U256, H256),
         StoreMainChainHeader(U256, H256),
@@ -195,9 +137,6 @@ decl_event! {
         ChainReorg(H256, U256, U256),
         VerifyTransaction(H256, U256, U256),
         ValidateTransaction(H256, U256, H160, H256),
-		// Just a dummy event.
-		// Event `Something` is declared with a parameter of the type `u32` and `AccountId`
-		// To emit this event, we call the deposit funtion, from our runtime funtions
 		SomethingStored(u32, AccountId),
 	}
 }

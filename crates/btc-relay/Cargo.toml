@@ -4,6 +4,19 @@ version = "0.0.1"
 authors = ["Interlay Ltd"]
 edition = "2018"
 
+[features]
+default = ['std']
+std = [
+    'serde',
+    'codec/std',
+    'frame-support/std',
+    'sp-runtime/std',
+    'sp-io/std',
+    'system/std',
+    'timestamp/std',
+    'sp-core/std',
+]
+
 [dependencies.serde]
 features = ['derive']
 optional = true
@@ -53,21 +66,8 @@ package = 'pallet-timestamp'
 rev = '3e651110aa06aa835790df63410a29676243fc54'
 version = '2.0.0'
 
-[dependencies.bitcoin-spv]
+[dependencies.bitcoin]
 default-features = false
-git = 'https://gitlab.com/interlay/bitcoin-spv.git'
-package = 'bitcoin-spv'
+path = '../bitcoin'
 version = '0.1.0'
 
-[features]
-default = ['std']
-std = [
-    'serde',
-    'codec/std',
-    'frame-support/std',
-    'sp-runtime/std',
-    'sp-io/std',
-    'system/std',
-    'timestamp/std',
-    'sp-core/std',
-]
