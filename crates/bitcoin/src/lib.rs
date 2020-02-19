@@ -1,6 +1,10 @@
-use codec::{Encode, Decode};
+// Summa Bitcoin SPV lib
 use bitcoin_spv::types::{RawHeader};
 use bitcoin_spv::validatespv::{parse_header};
+
+// Substrate imports
+use codec::{Encode, Decode};
+use sp_core::{U256, H256}
 
 /// Custom Types
 /// Bitcoin Raw Block Header type
@@ -11,18 +15,18 @@ pub type RawBlockHeader = RawHeader;
 // TODO: Figure out how to set a pointer to the ChainIndex mapping instead
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct BlockHeader<U256, H256, Moment> {
-      pub block_height: U256,
-      pub merkle_root: H256,
-      pub target: U256,
-      pub timestamp: Moment,
-      pub chain_ref: U256,
-      pub no_data: bool,
-      pub invalid: bool,
-      // Optional fields
-      pub version: Option<u32>,
-      pub hash_prev_block: Option<H256>,
-      pub nonce: Option<u32>
+pub struct BlockHeader<U256, H256, Timestamp> {
+    pub block_hash: H256, 
+    pub block_height: U256,
+    pub merkle_root: H256,
+    pub target: U256,
+    pub timestamp: Timestamp,
+    pub chain_ref: Option<U256>,
+    pub no_data: bool,
+    pub invalid: bool,
+    pub version: Option<u32>,
+    pub hash_prev_block: Option<H256>,
+    pub nonce: Option<u32>
 }
 
 /// Representation of a Bitcoin blockchain
@@ -36,6 +40,30 @@ pub struct BlockChain<U256, H256> {
     pub max_height: U256,
     pub no_data: bool,
     pub invalid: bool,
+}
+
+
+pub fn parse_block_header(block_header_bytes: Vec<u8>, block_height: U256) -> BlockHeader {
+    let merkle_root: H256 = H256::zero();
+    let timestamp: T::Moment = <timestamp::Module<T>>::get();
+    let target: U256 = U256::max_value();
+    let hash_current_block: H256 = H256::zero();
+    // returns a new BlockHeader struct
+    let block_header = BlockHeader {
+        block_hash: hash_current_block,
+        block_height: block_height,
+        merkle_root: merkle_root,
+        target: target,
+        timestamp: timestamp,
+        chain_ref: None,
+        no_data: false,
+        invalid: false,
+        version: None,
+        nonce: None,
+        hash_prev_block: None
+    };    
+
+    block_header
 }
 
 
