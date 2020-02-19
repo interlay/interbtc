@@ -10,7 +10,7 @@
 use frame_support::{decl_module, decl_storage, decl_event, decl_error, dispatch::DispatchResult, ensure};
 use {system::ensure_signed, timestamp};
 use sp_core::{U256, H256, H160};
-use bitcoin::{RawBlockHeader, BlockHeader, BlockChain, parse_block_header};
+use bitcoin::{RawBlockHeader, BlockHeader, BlockChain};
 
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
@@ -68,7 +68,7 @@ decl_module! {
 
         fn initialize(
             origin,
-            block_header_bytes: Vec<u8>,
+            // block_header_bytes: RawBlockHeader,
             block_height: U256) 
             -> DispatchResult
         {
@@ -79,16 +79,14 @@ decl_module! {
             ensure!(bestblock.is_zero(), Error::<T>::AlreadyInitialized);
 
             // Parse the block header bytes to extract the required info
-            let mut block_header = parse_block_header(block_header_bytes, block_height);
-
+            let merkle_root: H256 = H256::zero();
+            let timestamp: T::Moment = <timestamp::Module<T>>::get();
+            let target: U256 = U256::max_value();
+            let hash_current_block: H256 = H256::zero();
+ 
             // get a new chain id
             let chain_id: U256 = Self::increment_chain_counter(); 
-            // set the chain id as a reference in the block_header
-            block_header.chain_ref = Some(chain_id);
-
-            // Store a new BlockHeader struct in BlockHeaders
-            Self::store_main_header(block_header);
-
+            
             // construct the BlockChain struct
             // TODO: change this to a mapping
             let mut chain: Vec<H256> = Vec::new();
@@ -108,6 +106,21 @@ decl_module! {
             vec_blockchain.push(blockchain);
   
             <Chains>::put(vec_blockchain);
+            
+            // Store a new BlockHeader struct in BlockHeaders
+            let block_header = BlockHeader {
+                block_height: block_height,
+                merkle_root: merkle_root,
+                target: target,
+                timestamp: timestamp,
+                chain_ref: chain_id,
+                no_data: false,
+                invalid: false,
+                version: None,
+                nonce: None,
+                hash_prev_block: None
+            };
+            <BlockHeaders<T>>::insert(hash_current_block, block_header);
 
             // Set BestBlock and BestBlockHeight to the submitted block
             <BestBlockHeight>::mutate(|n| *n = block_height);
@@ -117,9 +130,7 @@ decl_module! {
             Ok(())
         }
     
-        fn store_block_header(origin, block_header_bytes: Vec<u8>)
-        -> DispatchResult {
-            let _ = ensure_signed(origin)?;
+        fn store_block_header(origin, blockHeaderBytes: RawBlockHeader) {
             // TODO: Check if BTC _Parachain is in shutdown state.
 
             // TODO: call verify_block_header
@@ -130,41 +141,11 @@ decl_module! {
             let timestamp: T::Moment = <timestamp::Module<T>>::get();
             let target: U256 = U256::max_value();
             let hash_current_block: H256 = H256::zero();
-            let hash_prev_block: H256 = H256::zero();
+            let hash_previous_block: H256 = H256::zero();
             
-            // get the previous block header by the hash
-            let prev_block_header = Self::blockheader(hash_prev_block); 
-            
-            // get the block chain of the previous header
-            let blockchain = Self::chainindex(prev_block_header.chain_ref);
-            
-            // check if the prev block is the highest block in the chain
-            // extend the chain or store a new fork
-            match prev_block_header.block_height {
-                blockchain.max_height => store_main_header(), 
-                _ => store_fork_header(),
-            }
-            
-            
-
-
-            Ok(())
+            let previous_block = Self::blockheader(hash_previous_block); 
         }
 	}
-}
-
-/// Utility functions
-impl<T: Trait> Module<T> {
-    fn increment_chain_counter() -> U256 {
-        let new_counter = <ChainCounter>::get() + 1;
-        <ChainCounter>::put(new_counter);
-
-        return new_counter;
-    }
-    fn store_main_header(block_hash: H256, block_header: BlockHeader) {
-        <BlockHeaders<T>>::insert(block_hash, block_header);
-    }
-    fn store_fork_header()
 }
 
 decl_event! {
@@ -213,6 +194,15 @@ decl_error! {
     }
 }
 
+/// Utility functions
+impl<T: Trait> Module<T> {
+    fn increment_chain_counter() -> U256 {
+        let new_counter = <ChainCounter>::get() + 1;
+        <ChainCounter>::put(new_counter);
+
+        return new_counter;
+    }
+}
 
 /// tests for this pallet
 #[cfg(test)]
