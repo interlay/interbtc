@@ -1,14 +1,19 @@
 [package]
-name = "bitcoin"
-version = "0.1.0"
-authors = ["Interlay Ltd <dominik@interlay.io>"]
-edition = "2018"
+name = 'bitcoin'
+version = '0.1.0'
+authors = ['Interlay Ltd <dominik@interlay.io>']
+edition = '2018'
 
 [features]
 default = ['std']
 std = [
 	'codec/std',
-	'sp-core/std',
+	'primitive-types/std',
+	'primitive-types/serde',
+	'primitive-types/byteorder',
+	'primitive-types/rustc-hex',
+	'primitive-types/libc',
+	'node-primitives/std'
 ]
 
 [dependencies.codec]
@@ -17,11 +22,16 @@ features = ['derive']
 package = 'parity-scale-codec'
 version = '1.0.0'
 
-[dependencies.sp-core]
+[dependencies.primitive-types]
 default-features = false
+version = '0.6.2'
+features= ['codec']
+
+[dependencies.node-primitives]
+default-features = false
+version = '2.0.0'
 git = 'https://github.com/paritytech/substrate.git'
 rev = '3e651110aa06aa835790df63410a29676243fc54'
-version = '2.0.0'
 
 [dependencies.bitcoin-spv]
 default-features = false

@@ -4,7 +4,8 @@ use bitcoin_spv::validatespv::{parse_header};
 
 // Substrate imports
 use codec::{Encode, Decode};
-use sp_core::{U256, H256}
+use primitive_types::{U256, H256};
+use node_primitives::{Moment};
 
 /// Custom Types
 /// Bitcoin Raw Block Header type
@@ -43,9 +44,9 @@ pub struct BlockChain<U256, H256> {
 }
 
 
-pub fn parse_block_header(block_header_bytes: Vec<u8>, block_height: U256) -> BlockHeader {
+pub fn parse_block_header(block_header_bytes: Vec<u8>, block_height: U256) -> BlockHeader<U256, H256, Moment> {
     let merkle_root: H256 = H256::zero();
-    let timestamp: T::Moment = <timestamp::Module<T>>::get();
+    let timestamp: Moment = 0; 
     let target: U256 = U256::max_value();
     let hash_current_block: H256 = H256::zero();
     // returns a new BlockHeader struct
