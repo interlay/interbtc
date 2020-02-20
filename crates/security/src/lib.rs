@@ -1,38 +1,37 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::{decl_module, decl_storage, decl_event, dispatch::DispatchResult};
+use frame_support::{decl_module, decl_storage, decl_event, decl_error, dispatch::DispatchResult, ensure};
 use system::ensure_signed;
 use frame_support::traits::Currency;
 use codec::{Encode, Decode};
-
-#[derive(Encode, Decode, Default, Clone, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
-pub struct StakedRelayer<DOT> {
-      stake: DOT,
-}
 
 /// The pallet's configuration trait.
 pub trait Trait: system::Trait {
 	/// The overarching event type.
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
-    
+
     /// Dot currency
-    type DOT: Currency<Self::AccountId>;
+    type Currency: Currency<Self::AccountId>;
 
     /// Voter threshold
     const STAKED_RELAYER_VOTE_THRESHOLD: u8 = 0;
+   
+    // /// Minimum stake
+    const MINIMUM_STAKE: Self::Currency;
+}
 
-    /// Minimum stake
-    const MINIMUM_STAKE: Self::DOT;
+pub type DOT<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
+
+#[derive(Encode, Decode, Default, Clone, PartialEq)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct StakedRelayer<Currency> {
+      stake: Currency,
 }
 
 // This pallet's storage items.
 decl_storage! {
-	trait Store for Module<T: Trait> as TemplateModule {
-		// Just a dummy storage item.
-		// Here we are declaring a StorageValue, `Something` as a Option<u32>
-		// `get(fn something)` is the default getter which returns either the stored `u32` or `None` if nothing stored
-		Something get(fn something): Option<u32>;
+	trait Store for Module<T: Trait> as SecurityModule {
+        StakedRelayers get(fn stakedrelayer): map T::AccountId => StakedRelayer<DOT<T>>; 
 	}
 }
 
@@ -40,23 +39,49 @@ decl_storage! {
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 		// Initializing events
-		// this is needed only if you are using events in your pallet
 		fn deposit_event() = default;
+        
+        // Initialize errors
+        type Error = Error<T>;
 
-        fn register_stakerd_relayer(origin, stake: T::DOT) -> DispatchResult {
-           Ok(()) 
+        fn register_staked_relayer(origin, stake: DOT<T>) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            
+            // TODO: How does this check behave when a relayer de-registered?
+            // Does Substrate delete the set and this check will pass?
+            ensure!(!<StakedRelayers<T>>::exists(&sender), Error::<T>::AlreadyRegistered);
+          
+            // ensure!(stake >= Self::MINIMUM_STAKE, Error::<T>::InsufficientStake);
+
+            // lock stake in the collateral module
+            // track the stake in the StakedRelayers mapping
+            let relayer = StakedRelayer {stake: stake};
+            <StakedRelayers<T>>::insert(&sender, relayer);
+            
+            // Emit the event
+            Self::deposit_event(RawEvent::RegisterStakedRelayer(sender, stake));
+            Ok(()) 
         }
 	}
 }
 
 decl_event!(
-	pub enum Event<T> where AccountId = <T as system::Trait>::AccountId {
-		// Just a dummy event.
-		// Event `Something` is declared with a parameter of the type `u32` and `AccountId`
-		// To emit this event, we call the deposit funtion, from our runtime funtions
-		SomethingStored(u32, AccountId),
+	pub enum Event<T> where 
+        AccountId = <T as system::Trait>::AccountId,
+        DOT = DOT<T>
+    {
+        RegisterStakedRelayer(AccountId, DOT),
 	}
 );
+
+decl_error! {
+    pub enum Error for Module<T: Trait> {
+        /// This AccountId is already registered as a Staked Relayer
+        AlreadyRegistered,
+        /// Insufficient stake provided
+        InsufficientStake,
+    }
+}
 
 /// tests for this pallet
 #[cfg(test)]
