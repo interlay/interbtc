@@ -7,10 +7,15 @@
 /// This is the implementation of the BTC-Relay following the spec at:
 /// https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/
 
+// Substrate
 use frame_support::{decl_module, decl_storage, decl_event, decl_error, dispatch::DispatchResult, ensure};
 use {system::ensure_signed, timestamp};
+use node_primitives::{Moment};
 use sp_core::{U256, H256, H160};
-use bitcoin::{RawBlockHeader, BlockHeader, BlockChain, parse_block_header};
+use sp_std::collections::btree_map::BTreeMap;
+
+// Crates
+use bitcoin::{BlockHeader, BlockChain, parse_block_header};
 
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
@@ -20,15 +25,6 @@ pub trait Trait: timestamp::Trait + system::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
     
-    /// Difficulty Adjustment Interval
-    const DIFFICULTY_ADJUSTMENT_INTERVAL: u16 = 2016;
-
-    /// Target Timespan
-    const TARGET_TIMESPAN: u64 = 1209600;
-    
-    /// Unrounded Maximum Target
-    /// 0x00000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-    const UNROUNDED_MAX_TARGET: U256 = U256([0x00000000ffffffffu64, <u64>::max_value(), <u64>::max_value(), <u64>::max_value()]);
 }
 
 // This pallet's storage items.
@@ -36,14 +32,14 @@ decl_storage! {
 	trait Store for Module<T: Trait> as BTCRelay {
     /// ## Storage
         /// Store Bitcoin block headers
-        BlockHeaders get(fn blockheader): map H256 => BlockHeader<U256, H256, T::Moment>;
+        BlockHeaders get(fn blockheader): map H256 => BlockHeader<U256, H256, Moment>;
         
         // TODO: Chains implementation with priority queue
         /// Priority queue of BlockChain elements
-        Chains get(fn chain): Vec<BlockChain<U256, H256>>;
+        Chains get(fn chain): Vec<BlockChain<U256, BTreeMap<U256, H256>>>;
 
         /// Store the index for each tracked blockchain
-        ChainsIndex get(fn chainindex): map U256 => BlockChain<U256, H256>;
+        ChainsIndex get(fn chainindex): map U256 => BlockChain<U256, BTreeMap<U256, H256>>;
         
         /// Store the current blockchain tip
         BestBlock get(fn bestblock): H256;
@@ -60,11 +56,20 @@ decl_storage! {
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 		// Initializing events
-		// this is needed only if you are using events in your pallet
 		fn deposit_event() = default;
         
         // Initialize errors
         type Error = Error<T>;
+
+        /// Difficulty Adjustment Interval
+        const DIFFICULTY_ADJUSTMENT_INTERVAL: u16 = 2016;
+
+        /// Target Timespan
+        const TARGET_TIMESPAN: u64 = 1209600;
+        
+        /// Unrounded Maximum Target
+        /// 0x00000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+        const UNROUNDED_MAX_TARGET: U256 = U256([0x00000000ffffffffu64, <u64>::max_value(), <u64>::max_value(), <u64>::max_value()]);
 
         fn initialize(
             origin,
@@ -72,14 +77,16 @@ decl_module! {
             block_height: U256) 
             -> DispatchResult
         {
-            let sender = ensure_signed(origin)?;
+            let _ = ensure_signed(origin)?;
             
             // Check if BTC-Relay was already initialized
             let bestblock = Self::bestblock();
             ensure!(bestblock.is_zero(), Error::<T>::AlreadyInitialized);
 
             // Parse the block header bytes to extract the required info
-            let mut block_header = parse_block_header(block_header_bytes, block_height);
+            let mut block_header: BlockHeader<U256, H256, Moment> = parse_block_header(block_header_bytes);
+            // Set the height of the block header
+            block_header.block_height = Some(block_height);
 
             // get a new chain id
             let chain_id: U256 = Self::increment_chain_counter(); 
@@ -87,32 +94,35 @@ decl_module! {
             block_header.chain_ref = Some(chain_id);
 
             // Store a new BlockHeader struct in BlockHeaders
-            Self::store_main_header(block_header);
+            Self::store_main_header(&block_header);
 
             // construct the BlockChain struct
-            // TODO: change this to a mapping
-            let mut chain: Vec<H256> = Vec::new();
-            chain.push(hash_current_block);
-            let blockchain = BlockChain {
-                chain_id: chain_id,
-                chain: chain,
-                max_height: block_height,
-                no_data: false,
-                invalid: false,
-            };
-            // Insert a pointer to BlockChain in ChainsIndex
-            <ChainsIndex>::insert(chain_id, &blockchain); 
+            let mut chain: BTreeMap<U256, H256> = BTreeMap::new();
+            match chain.insert(block_height, block_header.block_hash) {
+                None => {
+                    let blockchain = BlockChain {
+                        chain_id: chain_id,
+                        chain: chain,
+                        max_height: block_height,
+                        no_data: false,
+                        invalid: false,
+                    };
+                    // Insert a pointer to BlockChain in ChainsIndex
+                    <ChainsIndex>::insert(chain_id, &blockchain); 
            
-            // Store the new BlockChain in Chains
-            let mut vec_blockchain: Vec<BlockChain<U256, H256>> = Vec::new();
-            vec_blockchain.push(blockchain);
+                    // Store the new BlockChain in Chains
+                    let mut vec_blockchain: Vec<&BlockChain<U256, BTreeMap<U256, H256>>> = Vec::new();
+                    vec_blockchain.push(&blockchain);
   
-            <Chains>::put(vec_blockchain);
+                    <Chains>::put(vec_blockchain);
+                }
+                Some(_) => ()
+            }
 
             // Set BestBlock and BestBlockHeight to the submitted block
             <BestBlockHeight>::mutate(|n| *n = block_height);
             // Emit a Initialized Event
-            Self::deposit_event(RawEvent::Initialized(block_height, hash_current_block));
+            Self::deposit_event(RawEvent::Initialized(block_height, block_header.block_hash));
             
             Ok(())
         }
@@ -126,24 +136,20 @@ decl_module! {
             
             // TODO: call the parse block header function
             // Parse the block header bytes to extract the required info
-            let merkle_root: H256 = H256::zero();
-            let timestamp: T::Moment = <timestamp::Module<T>>::get();
-            let target: U256 = U256::max_value();
-            let hash_current_block: H256 = H256::zero();
-            let hash_prev_block: H256 = H256::zero();
+            let mut block_header: BlockHeader<U256, H256, Moment> = parse_block_header(block_header_bytes);
             
             // get the previous block header by the hash
-            let prev_block_header = Self::blockheader(hash_prev_block); 
+            // let prev_block_header = Self::blockheader(block_header.hash_prev_block);
             
             // get the block chain of the previous header
-            let blockchain = Self::chainindex(prev_block_header.chain_ref);
+            // let blockchain = Self::chainindex(prev_block_header.chain_ref);
             
             // check if the prev block is the highest block in the chain
             // extend the chain or store a new fork
-            match prev_block_header.block_height {
-                blockchain.max_height => store_main_header(), 
-                _ => store_fork_header(),
-            }
+            // match prev_block_header.block_height {
+            //     blockchain.max_height => store_main_header(), 
+            //     _ => store_fork_header(),
+            // }
             
             
 
@@ -161,10 +167,9 @@ impl<T: Trait> Module<T> {
 
         return new_counter;
     }
-    fn store_main_header(block_hash: H256, block_header: BlockHeader) {
-        <BlockHeaders<T>>::insert(block_hash, block_header);
+    fn store_main_header(block_header: &BlockHeader<U256, H256, Moment>) {
+        <BlockHeaders>::insert(block_header.block_hash, block_header);
     }
-    fn store_fork_header()
 }
 
 decl_event! {
