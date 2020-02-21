@@ -1,4 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
+#[cfg(test)]
+mod tests;
 
 /// For more guidance on FRAME pallets, see the example.
 /// https://github.com/paritytech/substrate/blob/master/frame/example/src/lib.rs
@@ -9,7 +11,7 @@
 
 // Substrate
 use frame_support::{decl_module, decl_storage, decl_event, decl_error, dispatch::DispatchResult, ensure};
-use {system::ensure_signed, timestamp};
+use {system::ensure_signed};
 use node_primitives::{Moment};
 use sp_core::{U256, H256, H160};
 use sp_std::collections::btree_map::BTreeMap;
@@ -21,7 +23,7 @@ use bitcoin::{BlockHeader, BlockChain, parse_block_header};
 /// The pallet's configuration trait.
 /// For further reference, see: 
 /// https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/spec/data-model.html
-pub trait Trait: timestamp::Trait + system::Trait {
+pub trait Trait: system::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
     
@@ -34,8 +36,7 @@ decl_storage! {
         /// Store Bitcoin block headers
         BlockHeaders get(fn blockheader): map H256 => BlockHeader<U256, H256, Moment>;
         
-        // TODO: Chains implementation with priority queue
-        /// Priority queue of BlockChain elements
+        /// Vector of BlockChain elements
         Chains get(fn chain): Vec<BlockChain<U256, BTreeMap<U256, H256>>>;
 
         /// Store the index for each tracked blockchain
@@ -80,8 +81,7 @@ decl_module! {
             let _ = ensure_signed(origin)?;
             
             // Check if BTC-Relay was already initialized
-            let bestblock = Self::bestblock();
-            ensure!(bestblock.is_zero(), Error::<T>::AlreadyInitialized);
+            ensure!(!<BestBlock>::exists(), Error::<T>::AlreadyInitialized);
 
             // Parse the block header bytes to extract the required info
             let mut block_header: BlockHeader<U256, H256, Moment> = parse_block_header(block_header_bytes);
@@ -93,34 +93,33 @@ decl_module! {
             // set the chain id as a reference in the block_header
             block_header.chain_ref = Some(chain_id);
 
-            // Store a new BlockHeader struct in BlockHeaders
-            Self::store_main_header(&block_header);
-
             // construct the BlockChain struct
             let mut chain: BTreeMap<U256, H256> = BTreeMap::new();
-            match chain.insert(block_height, block_header.block_hash) {
-                None => {
-                    let blockchain = BlockChain {
+            if let Some(_) = chain.insert(block_height, block_header.block_hash) {
+                return Err(<Error<T>>::AlreadyInitialized.into())
+            }
+                    
+            let blockchain = BlockChain {
                         chain_id: chain_id,
                         chain: chain,
                         max_height: block_height,
                         no_data: false,
                         invalid: false,
-                    };
-                    // Insert a pointer to BlockChain in ChainsIndex
-                    <ChainsIndex>::insert(chain_id, &blockchain); 
-           
-                    // Store the new BlockChain in Chains
-                    let mut vec_blockchain: Vec<&BlockChain<U256, BTreeMap<U256, H256>>> = Vec::new();
-                    vec_blockchain.push(&blockchain);
+            };
+            
+            // Store a new BlockHeader struct in BlockHeaders
+            <BlockHeaders>::insert(&block_header.block_hash, &block_header);
+
+            // Store a pointer to BlockChain in ChainsIndex
+            <ChainsIndex>::insert(&chain_id, &blockchain); 
   
-                    <Chains>::put(vec_blockchain);
-                }
-                Some(_) => ()
-            }
+            // Store the new BlockChain in Chains
+            <Chains>::put(vec!(&blockchain));
 
             // Set BestBlock and BestBlockHeight to the submitted block
-            <BestBlockHeight>::mutate(|n| *n = block_height);
+            <BestBlock>::put(&block_header.block_hash);
+            <BestBlockHeight>::put(&block_height);
+
             // Emit a Initialized Event
             Self::deposit_event(RawEvent::Initialized(block_height, block_header.block_hash));
             
@@ -218,70 +217,3 @@ decl_error! {
     }
 }
 
-
-/// tests for this pallet
-#[cfg(test)]
-mod tests {
-	use super::*;
-
-	use sp_core::H256;
-	use frame_support::{impl_outer_origin, assert_ok, parameter_types, weights::Weight};
-	use sp_runtime::{
-		traits::{BlakeTwo256, IdentityLookup}, testing::Header, Perbill,
-	};
-
-	impl_outer_origin! {
-		pub enum Origin for Test {}
-	}
-
-	// For testing the pallet, we construct most of a mock runtime. This means
-	// first constructing a configuration type (`Test`) which `impl`s each of the
-	// configuration traits of modules we want to use.
-	#[derive(Clone, Eq, PartialEq)]
-	pub struct Test;
-	parameter_types! {
-		pub const BlockHashCount: u64 = 250;
-		pub const MaximumBlockWeight: Weight = 1024;
-		pub const MaximumBlockLength: u32 = 2 * 1024;
-		pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
-	}
-	impl system::Trait for Test {
-		type Origin = Origin;
-		type Call = ();
-		type Index = u64;
-		type BlockNumber = u64;
-		type Hash = H256;
-		type Hashing = BlakeTwo256;
-		type AccountId = u64;
-		type Lookup = IdentityLookup<Self::AccountId>;
-		type Header = Header;
-		type Event = ();
-		type BlockHashCount = BlockHashCount;
-		type MaximumBlockWeight = MaximumBlockWeight;
-		type MaximumBlockLength = MaximumBlockLength;
-		type AvailableBlockRatio = AvailableBlockRatio;
-		type Version = ();
-		type ModuleToIndex = ();
-	}
-	impl Trait for Test {
-		type Event = ();
-	}
-	type TemplateModule = Module<Test>;
-
-	// This function basically just builds a genesis storage key/value store according to
-	// our desired mockup.
-	fn new_test_ext() -> sp_io::TestExternalities {
-		system::GenesisConfig::default().build_storage::<Test>().unwrap().into()
-	}
-
-	#[test]
-	fn it_works_for_default_value() {
-		new_test_ext().execute_with(|| {
-			// Just a dummy test for the dummy funtion `do_something`
-			// calling the `do_something` function with a value 42
-			assert_ok!(TemplateModule::do_something(Origin::signed(1), 42));
-			// asserting that the stored value is equal to what we stored
-			assert_eq!(TemplateModule::something(), Some(42));
-		});
-	}
-}
