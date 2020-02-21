@@ -1,6 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #[cfg(test)]
-mod tests;
+mod tests; 
 
 /// For more guidance on FRAME pallets, see the example.
 /// https://github.com/paritytech/substrate/blob/master/frame/example/src/lib.rs
