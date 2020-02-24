@@ -1,6 +1,6 @@
 // Summa Bitcoin SPV lib
 use bitcoin_spv::types::{RawHeader};
-use bitcoin_spv::validatespv::{parse_header};
+use bitcoin_spv::btcspv;
 
 // Substrate imports
 use codec::{Encode, Decode};
@@ -33,11 +33,9 @@ pub struct BlockHeader<U256, H256, Timestamp> {
     pub target: U256,
     pub timestamp: Timestamp,
     pub chain_ref: Option<U256>,
-    pub no_data: bool,
-    pub invalid: bool,
-    pub version: Option<u32>,
-    pub hash_prev_block: Option<H256>,
-    pub nonce: Option<u32>
+    pub version: u32,
+    pub hash_prev_block: H256,
+    pub nonce: u32
 }
 
 /// Representation of a Bitcoin blockchain
@@ -54,25 +52,80 @@ pub struct BlockChain<U256, Map> {
 }
 
 
-pub fn parse_block_header(block_header_bytes: Vec<u8>) -> BlockHeader<U256, H256, Moment> {
-    let merkle_root: H256 = H256::zero();
-    let timestamp: Moment = Moment::default(); 
-    let target: U256 = U256::max_value();
+/// Extracts the nonce from a block header.
+///
+/// # Arguments
+///
+/// * `header` - An 80-byte Bitcoin header
+pub fn extract_nonce(header: RawHeader) -> u32 {
+    let mut nonce: [u8; 4] = Default::default();
+    nonce.copy_from_slice(&header[76..80]);
+    u32::from_le_bytes(nonce)
+}
+
+/// Extracts the version from a block header.
+///
+/// # Arguments
+///
+/// * `header` - An 80-byte Bitcoin header
+pub fn extract_version(header: RawHeader) -> u32 {
+    let mut version: [u8; 4] = Default::default();
+    version.copy_from_slice(&header[0..4]);
+    u32::from_le_bytes(version)
+}
+
+/// Extracts the target from a block header.
+///
+/// # Arguments
+///
+/// * `header` - An 80-byte Bitcoin header
+pub fn extract_target(header: RawHeader) -> U256 {
+    let target = btcspv::extract_target(header);
+    U256::from_little_endian(&target.to_bytes_le()[..])
+}
+
+/// Extracts the timestamp from a block header.
+///
+/// # Arguments
+///
+/// * `header` - An 80-byte Bitcoin header
+pub fn extract_timestamp(header: RawHeader) -> Moment {
+    btcspv::extract_timestamp(header) as u64
+}
+
+/// Extracts the previous block hash from a block header.
+///
+/// # Arguments
+///
+/// * `header` - An 80-byte Bitcoin header
+pub fn extract_previous_block_hash(header: RawHeader) -> H256 {
+    H256::from_slice(&btcspv::extract_prev_block_hash_le(header)[..])
+}
+
+/// Extracts the merkle root from a block header.
+///
+/// # Arguments
+///
+/// * `header` - An 80-byte Bitcoin header
+pub fn extract_merkle_root(header: RawHeader) -> H256 {
+    H256::from_slice(&btcspv::extract_merkle_root_le(header)[..])
+}
+
+
+pub fn parse_block_header(raw_header: RawBlockHeader) -> BlockHeader<U256, H256, Moment> {
     let hash_current_block: H256 = H256::zero();
-    // returns a new BlockHeader struct
+
     let block_header = BlockHeader {
         block_hash: hash_current_block,
         block_height: None,
-        merkle_root: merkle_root,
-        target: target,
-        timestamp: timestamp,
+        merkle_root: extract_merkle_root(raw_header),
+        target: extract_target(raw_header),
+        timestamp: extract_timestamp(raw_header),
         chain_ref: None,
-        no_data: false,
-        invalid: false,
-        version: None,
-        nonce: None,
-        hash_prev_block: None
-    };    
+        version: extract_version(raw_header),
+        nonce: extract_nonce(raw_header),
+        hash_prev_block: extract_previous_block_hash(raw_header),
+    };
 
     return block_header
 }

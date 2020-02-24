@@ -35,7 +35,7 @@ rev = '3e651110aa06aa835790df63410a29676243fc54'
 
 [dependencies.bitcoin-spv]
 default-features = false
-git = 'https://gitlab.com/interlay/bitcoin-spv.git'
+git = 'https://github.com/summa-tx/bitcoin-spv.git'
 package = 'bitcoin-spv'
 version = '0.1.0'
 
