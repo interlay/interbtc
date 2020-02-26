@@ -1,14 +1,24 @@
 /// Tests for BTC-Relay
 
-use crate::{Module, Trait, Error, Event};
+use crate::{Module, Trait, Error, RawEvent};
 use sp_core::{U256, H256};
-use frame_support::{impl_outer_origin, assert_ok, assert_err, parameter_types, weights::Weight};
+use frame_support::{impl_outer_origin, impl_outer_event, assert_ok, assert_err, parameter_types, weights::Weight};
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup}, testing::Header, Perbill,
 };
 
 impl_outer_origin! {
 	pub enum Origin for Test {}
+}
+
+mod test_events {
+    pub use crate::Event;
+}
+
+impl_outer_event! {
+    pub enum TestEvent for Test {
+        test_events<T>,
+    }
 }
 
 // For testing the pallet, we construct most of a mock runtime. This means
@@ -32,7 +42,7 @@ impl system::Trait for Test {
 	type AccountId = u64;
 	type Lookup = IdentityLookup<Self::AccountId>;
 	type Header = Header;
-	type Event = ();
+	type Event = TestEvent;
 	type BlockHashCount = BlockHashCount;
 	type MaximumBlockWeight = MaximumBlockWeight;
 	type MaximumBlockLength = MaximumBlockLength;
@@ -40,28 +50,60 @@ impl system::Trait for Test {
 	type Version = ();
 	type ModuleToIndex = ();
 }
+
 impl Trait for Test {
-	type Event = ();
-}
-type BTCRelay = Module<Test>;
-
-// This function basically just builds a genesis storage key/value store according to
-// our desired mockup.
-fn new_test_ext() -> sp_io::TestExternalities {
-	system::GenesisConfig::default().build_storage::<Test>().unwrap().into()
+	type Event = TestEvent;
 }
 
+pub type System = system::Module<Test>;
+pub type BTCRelay = Module<Test>;
+
+pub struct ExtBuilder;
+
+impl ExtBuilder {
+    pub fn build() -> sp_io::TestExternalities {
+        let mut storage = system::GenesisConfig::default()
+            .build_storage::<Test>()
+            .unwrap();
+        sp_io::TestExternalities::from(storage)
+    }
+}
+
+
+// fn ExtBuilder::build() -> sp_io::TestExternalities {
+// 	system::GenesisConfig::default().build_storage::<Test>().unwrap().into()
+// }
+
+
+/// Initialize Function
 #[test]
 fn initialize_once_suceeds() {
-    new_test_ext().execute_with(|| {
-        assert_ok!(BTCRelay::initialize(Origin::signed(3),vec![0u8; 80], U256::zero()))
+    ExtBuilder::build().execute_with(|| {
+        let block_height = U256::zero();
+        let block_header = vec![0u8; 80];
+        let block_header_hash = H256::zero();
+        assert_ok!(BTCRelay::initialize(Origin::signed(3), block_header, block_height));
+       
+        let init_event = TestEvent::test_events(
+            RawEvent::Initialized(block_height, block_header_hash),
+        );
+        assert!(System::events().iter().any(|a| a.event == init_event));
     })
 }
 
 #[test]
 fn initialize_twice_fails() {
-    new_test_ext().execute_with(|| {
-        assert_ok!(BTCRelay::initialize(Origin::signed(3),vec![0u8; 80], U256::zero()));
-//        assert_err!(BTCRelay::initialize(Origin::signed(3),vec![0u8; 80], U256::zero()), Error::<T>::AlreadyInitialized);
+    ExtBuilder::build().execute_with(|| {
+        let block_height = U256::zero();
+        let block_header = vec![0u8; 80];
+        let block_header_hash = H256::zero();
+        assert_ok!(BTCRelay::initialize(Origin::signed(3), block_header, block_height));
+
+        
+        let block_height_2 = U256::zero();
+        let block_header_2 = vec![1u8; 80];
+        assert_err!(BTCRelay::initialize(Origin::signed(3), block_header_2, block_height_2), Error::<Test>::AlreadyInitialized);
     })
 }
+
+
