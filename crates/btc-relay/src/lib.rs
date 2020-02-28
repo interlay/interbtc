@@ -25,7 +25,7 @@ use bitcoin::{BlockHeader, BlockChain, parse_block_header};
 /// https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/spec/data-model.html
 pub trait Trait: system::Trait {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event> + Into<<Self as system::Trait>::Event>;
     
 }
 
@@ -111,7 +111,7 @@ decl_module! {
             <BestBlockHeight>::put(&block_height);
 
             // Emit a Initialized Event
-            Self::deposit_event(RawEvent::Initialized(block_height, block_header.block_hash));
+            Self::deposit_event(Event::Initialized(block_height, block_header.block_hash));
             
             Ok(())
         }
@@ -184,7 +184,7 @@ decl_module! {
                 // extended the chain
                 prev_chain_id => {
                     // Update the pointer to BlockChain in ChainsIndex
-                    <ChainsIndex>::try_mutate(&current_chain_id, &blockchain); 
+                    <ChainsIndex>::mutate(&current_chain_id, &blockchain); 
 
                     // TODO: call checkAndDoReorg
                 }
@@ -198,9 +198,9 @@ decl_module! {
             let longest_chain_height = Self::bestblockheight();
             match current_block_height {
                 longest_chain_height => Self::deposit_event(
-                    RawEvent::StoreMainChainHeader(current_block_height, block_header.block_hash)),
+                    Event::StoreMainChainHeader(current_block_height, block_header.block_hash)),
                 _ => Self::deposit_event(
-                    RawEvent::StoreForkHeader(current_chain_id, current_block_height, block_header.block_hash)),
+                    Event::StoreForkHeader(current_chain_id, current_block_height, block_header.block_hash)),
             };
 
             Ok(())
@@ -258,18 +258,13 @@ impl<T: Trait> Module<T> {
 }
 
 decl_event! {
-	pub enum Event<T> where 
-        AccountId = <T as system::Trait>::AccountId,
-        H256 = H256,
-        U256 = U256,
-    {
+	pub enum Event {
         Initialized(U256, H256),
         StoreMainChainHeader(U256, H256),
         StoreForkHeader(U256, U256, H256),
         ChainReorg(H256, U256, U256),
         VerifyTransaction(H256, U256, U256),
         ValidateTransaction(H256, U256, H160, H256),
-		SomethingStored(u32, AccountId),
 	}
 }
 

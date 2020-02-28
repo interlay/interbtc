@@ -1,6 +1,6 @@
 /// Tests for BTC-Relay
 
-use crate::{Module, Trait, Error, RawEvent};
+use crate::{Module, Trait, Error, Event};
 use sp_core::{U256, H256};
 use frame_support::{impl_outer_origin, impl_outer_event, assert_ok, assert_err, parameter_types, weights::Weight};
 use sp_runtime::{
@@ -17,7 +17,7 @@ mod test_events {
 
 impl_outer_event! {
     pub enum TestEvent for Test {
-        test_events<T>,
+        test_events,
     }
 }
 
@@ -85,7 +85,7 @@ fn initialize_once_suceeds() {
         assert_ok!(BTCRelay::initialize(Origin::signed(3), block_header, block_height));
        
         let init_event = TestEvent::test_events(
-            RawEvent::Initialized(block_height, block_header_hash),
+            Event::Initialized(block_height, block_header_hash),
         );
         assert!(System::events().iter().any(|a| a.event == init_event));
     })
