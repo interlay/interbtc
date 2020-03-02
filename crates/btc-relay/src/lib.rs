@@ -205,6 +205,26 @@ decl_module! {
 
             Ok(())
         }
+
+        fn verify_transaction_inclusion(
+            origin,
+            tx_id: H256,
+            tx_block_height: U256,
+            tx_index: u64,
+            merkle_proof: Vec<u8>,
+            confirmations: U256)
+        -> DispatchResult {
+            let _ = ensure_signed(origin)?;
+
+            // TODO: check if Parachain is in error status
+            
+            // TODO: check no data blocks
+
+            Ok(())
+
+        }
+
+
 	}
 }
 
