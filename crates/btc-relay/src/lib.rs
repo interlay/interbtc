@@ -17,7 +17,8 @@ use sp_core::{U256, H256, H160};
 use sp_std::collections::btree_map::BTreeMap;
 
 // Crates
-use bitcoin::{BlockHeader, BlockChain, parse_block_header};
+use bitcoin::{BlockHeader, RichBlockHeader, BlockChain};
+use bitcoin::{header_from_bytes, parse_block_header};
 
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
@@ -34,7 +35,7 @@ decl_storage! {
 	trait Store for Module<T: Trait> as BTCRelay {
     /// ## Storage
         /// Store Bitcoin block headers
-        BlockHeaders get(fn blockheader): map H256 => BlockHeader<U256, H256, Moment>;
+        BlockHeaders get(fn blockheader): map H256 => RichBlockHeader<H256, U256, Moment>;
         
         /// Sorted mapping of BlockChain elements
         Chains get(fn chain): map U256 => BlockChain<U256, BTreeMap<U256, H256>>;
@@ -84,21 +85,26 @@ decl_module! {
             ensure!(!<BestBlock>::exists(), Error::<T>::AlreadyInitialized);
 
             // Parse the block header bytes to extract the required info
-            let mut block_header: BlockHeader<U256, H256, Moment> = parse_block_header(block_header_bytes);
-            // Set the height of the block header
-            block_header.block_height = Some(block_height);
+            let raw_block_header = header_from_bytes(block_header_bytes);
+            let basic_block_header = parse_block_header(raw_block_header);
+            let block_header_hash = basic_block_header.block_hash; 
 
             // get a new chain id
             let chain_id: U256 = Self::increment_chain_counter(); 
-            // set the chain id as a reference in the block_header
-            block_header.chain_ref = Some(chain_id);
+            
+            // Create rich block header
+            let block_header = RichBlockHeader {
+                block_header: basic_block_header,
+                block_height: block_height,
+                chain_ref: chain_id
+            };
 
             // construct the BlockChain struct
-            let blockchain = Self::create_chain(&chain_id, &block_height, &block_header.block_hash)
+            let blockchain = Self::create_chain(&chain_id, &block_height, &block_header_hash)
                 .map_err(|_e| <Error<T>>::AlreadyInitialized)?;
             
             // Store a new BlockHeader struct in BlockHeaders
-            <BlockHeaders>::insert(&block_header.block_hash, &block_header);
+            <BlockHeaders>::insert(&block_header_hash, &block_header);
 
             // Store a pointer to BlockChain in ChainsIndex
             <ChainsIndex>::insert(&chain_id, &blockchain); 
@@ -107,11 +113,11 @@ decl_module! {
             <Chains>::insert(U256::zero(), &blockchain);
 
             // Set BestBlock and BestBlockHeight to the submitted block
-            <BestBlock>::put(&block_header.block_hash);
+            <BestBlock>::put(&block_header_hash);
             <BestBlockHeight>::put(&block_height);
 
             // Emit a Initialized Event
-            Self::deposit_event(Event::Initialized(block_height, block_header.block_hash));
+            Self::deposit_event(Event::Initialized(block_height, block_header_hash));
             
             Ok(())
         }
@@ -122,33 +128,29 @@ decl_module! {
             // TODO: Check if BTC _Parachain is in shutdown state.
 
             // Parse the block header bytes to extract the required info
-            let mut block_header = parse_block_header(block_header_bytes);
+            let raw_block_header = header_from_bytes(block_header_bytes);
+            let basic_block_header = parse_block_header(raw_block_header);
+            let block_header_hash = basic_block_header.block_hash; 
            
             // TODO: call verify_block_header
             
 
             // get the block header of the previous block
-            ensure!(<BlockHeaders>::exists(block_header.hash_prev_block), Error::<T>::PrevBlock);
-            let prev_header = Self::blockheader(block_header.hash_prev_block);
+            ensure!(<BlockHeaders>::exists(basic_block_header.hash_prev_block), Error::<T>::PrevBlock);
+            let prev_header = Self::blockheader(basic_block_header.hash_prev_block);
 
             // get the block chain of the previous header
-            let prev_chain_id = match prev_header.chain_ref {
-                Some(r) => r,
-                None => return Err(<Error<T>>::ForkIdNotFound.into()),
-            };
-            let prev_blockchain = Self::chainindex(prev_chain_id);
+            let prev_blockchain = Self::chainindex(prev_header.chain_ref);
               
             // Update the current block header
             // check if the prev block is the highest block in the chain
             // load the previous block header block height
-            let prev_block_height = match prev_header.block_height {
-                Some(h) => h,
-                None => return Err(<Error<T>>::MissingBlockHeight.into()),
-            };
+            let prev_block_height = prev_header.block_height;
+            
             // compare the prev header block height with the max height of the chain
             let current_chain_id = match prev_blockchain.max_height {
                 // if the max height of that chain is the prev header, extend on this chain
-                prev_block_height => prev_chain_id,
+                prev_block_height => prev_header.chain_ref,
                 // if not, create a new chain id
                 _ => Self::increment_chain_counter(),
             };
@@ -158,33 +160,36 @@ decl_module! {
             let current_block_height = prev_block_height
                 .checked_add(U256::from("1"))
                 .ok_or("Overflow on block height")?;
-            block_header.block_height = Some(current_block_height);
-
-            // set the chain id as a reference in the block_header
-            block_header.chain_ref = Some(current_chain_id);
-
+            
+            // Create rich block header
+            let block_header = RichBlockHeader {
+                block_header: basic_block_header,
+                block_height: current_block_height,
+                chain_ref: current_chain_id
+            };
+            
             // Update the blockchain
             // check if we create a new blockchain or extend the existing one
             let blockchain = match current_chain_id {
                 // extend the current chain
                 prev_chain_id => Self::extend_chain(
-                    &current_block_height, &block_header.block_hash, prev_blockchain)
+                    &current_block_height, &block_header_hash, prev_blockchain)
                     .map_err(|_e| <Error<T>>::DuplicateBlock)?,
                 // create new blockchain element
                 _ => Self::create_chain(
-                    &current_chain_id, &current_block_height, &block_header.block_hash)
+                    &current_chain_id, &current_block_height, &block_header_hash)
                     .map_err(|_e| <Error<T>>::DuplicateBlock)?,
             };
 
             // Store a new BlockHeader struct in BlockHeaders
-            <BlockHeaders>::insert(&block_header.block_hash, &block_header);
+            <BlockHeaders>::insert(&block_header_hash, &block_header);
 
             // Storing the blockchain depends if we extend or create a new chain
             match current_chain_id {
                 // extended the chain
                 prev_chain_id => {
                     // Update the pointer to BlockChain in ChainsIndex
-                    <ChainsIndex>::mutate(&current_chain_id, &blockchain); 
+                    <ChainsIndex>::mutate(&current_chain_id, |_b| blockchain); 
 
                     // TODO: call checkAndDoReorg
                 }
@@ -198,9 +203,9 @@ decl_module! {
             let longest_chain_height = Self::bestblockheight();
             match current_block_height {
                 longest_chain_height => Self::deposit_event(
-                    Event::StoreMainChainHeader(current_block_height, block_header.block_hash)),
+                    Event::StoreMainChainHeader(current_block_height, block_header_hash)),
                 _ => Self::deposit_event(
-                    Event::StoreForkHeader(current_chain_id, current_block_height, block_header.block_hash)),
+                    Event::StoreForkHeader(current_chain_id, current_block_height, block_header_hash)),
             };
 
             Ok(())

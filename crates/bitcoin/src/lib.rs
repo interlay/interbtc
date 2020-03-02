@@ -26,7 +26,7 @@ pub type RawBlockHeader = RawHeader;
 // TODO: Figure out how to set a pointer to the ChainIndex mapping instead
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct BlockHeader<U256, H256, Timestamp> {
+pub struct BlockHeader<H256, U256, Timestamp> {
     pub block_hash: H256, 
     pub merkle_root: H256,
     pub target: U256,
@@ -39,10 +39,34 @@ pub struct BlockHeader<U256, H256, Timestamp> {
 /// Bitcoin Enriched Block Headers
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct RichBlockHeader<U256, H256, Timestamp> {
-    pub block_header: BlockHeader<U256, H256, Timestamp>,
+pub struct RichBlockHeader<H256, U256, Timestamp> {
+    pub block_header: BlockHeader<H256, U256, Timestamp>,
     pub block_height: U256,
     pub chain_ref: U256,
+}
+
+impl RichBlockHeader<H256, U256, Moment> {
+    fn block_hash(&self) -> H256 {
+        self.block_header.block_hash
+    }
+    fn merkle_root(&self) -> H256 {
+        self.block_header.merkle_root
+    }
+    fn target(&self) -> U256 {
+        self.block_header.target
+    }
+    fn timestamp(&self) -> Moment {
+        self.block_header.timestamp
+    }
+    fn version(&self) -> u32 {
+        self.block_header.version
+    }
+    fn hash_prev_block(&self) -> H256 {
+        self.block_header.hash_prev_block
+    }
+    fn nonce(&self) -> u32 {
+        self.block_header.nonce
+    }
 }
 
 /// Representation of a Bitcoin blockchain
@@ -128,7 +152,7 @@ pub fn extract_merkle_root(header: RawHeader) -> H256 {
 }
 
 
-pub fn parse_block_header(raw_header: RawBlockHeader) -> BlockHeader<U256, H256, Moment> {
+pub fn parse_block_header(raw_header: RawBlockHeader) -> BlockHeader<H256, U256, Moment> {
     let hash_current_block: H256 = H256::zero();
 
     let block_header = BlockHeader {
