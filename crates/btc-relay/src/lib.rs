@@ -1,33 +1,56 @@
 #![cfg_attr(not(feature = "std"), no_std)]
-
-/// A pallet template with necessary imports
-
-/// Feel free to remove or edit this file as needed.
-/// If you change the name of this file, make sure to update its references in runtime/src/lib.rs
-/// If you remove this file, you can remove those references
-
+#[cfg(test)]
+mod tests; 
 
 /// For more guidance on FRAME pallets, see the example.
 /// https://github.com/paritytech/substrate/blob/master/frame/example/src/lib.rs
 
-use frame_support::{decl_module, decl_storage, decl_event, dispatch::DispatchResult};
-use system::ensure_signed;
+/// # BTC-Relay implementation
+/// This is the implementation of the BTC-Relay following the spec at:
+/// https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/
 
+// Substrate
+use frame_support::{decl_module, decl_storage, decl_event, decl_error, dispatch::DispatchResult, ensure};
+use {system::ensure_signed};
+use node_primitives::{Moment};
+use sp_core::{U256, H256, H160};
+use sp_std::collections::btree_map::BTreeMap;
+
+// Crates
+use bitcoin::{BlockHeader, RichBlockHeader, BlockChain};
+use bitcoin::{header_from_bytes, parse_block_header};
+
+/// ## Configuration and Constants
 /// The pallet's configuration trait.
+/// For further reference, see: 
+/// https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/spec/data-model.html
 pub trait Trait: system::Trait {
-	// TODO: Add other types and constants required configure this pallet.
-
-	/// The overarching event type.
-	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    /// The overarching event type.
+    type Event: From<Event> + Into<<Self as system::Trait>::Event>;
+    
 }
 
 // This pallet's storage items.
 decl_storage! {
-	trait Store for Module<T: Trait> as TemplateModule {
-		// Just a dummy storage item.
-		// Here we are declaring a StorageValue, `Something` as a Option<u32>
-		// `get(fn something)` is the default getter which returns either the stored `u32` or `None` if nothing stored
-		Something get(fn something): Option<u32>;
+	trait Store for Module<T: Trait> as BTCRelay {
+    /// ## Storage
+        /// Store Bitcoin block headers
+        BlockHeaders get(fn blockheader): map H256 => RichBlockHeader<H256, U256, Moment>;
+        
+        /// Sorted mapping of BlockChain elements
+        Chains get(fn chain): map U256 => BlockChain<U256, BTreeMap<U256, H256>>;
+
+        /// Store the index for each tracked blockchain
+        ChainsIndex get(fn chainindex): map U256 => BlockChain<U256, BTreeMap<U256, H256>>;
+        
+        /// Store the current blockchain tip
+        BestBlock get(fn bestblock): H256;
+
+        /// Store the height of the best block
+        BestBlockHeight get(fn bestblockheight): U256;
+
+        /// Track existing BlockChain entries
+        ChainCounter get(fn chaincounter): U256;
 	}
 }
 
@@ -35,99 +58,269 @@ decl_storage! {
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 		// Initializing events
-		// this is needed only if you are using events in your pallet
 		fn deposit_event() = default;
+        
+        // Initialize errors
+        type Error = Error<T>;
 
-		// Just a dummy entry point.
-		// function that can be called by the external world as an extrinsics call
-		// takes a parameter of the type `AccountId`, stores it and emits an event
-		pub fn do_something(origin, something: u32) -> DispatchResult {
-			// TODO: You only need this if you want to check it was signed.
-			let who = ensure_signed(origin)?;
+        /// Difficulty Adjustment Interval
+        const DIFFICULTY_ADJUSTMENT_INTERVAL: u16 = 2016;
 
-			// TODO: Code to execute when something calls this.
-			// For example: the following line stores the passed in u32 in the storage
-			Something::put(something);
+        /// Target Timespan
+        const TARGET_TIMESPAN: u64 = 1209600;
+        
+        /// Unrounded Maximum Target
+        /// 0x00000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+        const UNROUNDED_MAX_TARGET: U256 = U256([0x00000000ffffffffu64, <u64>::max_value(), <u64>::max_value(), <u64>::max_value()]);
 
-			// here we are raising the Something event
-			Self::deposit_event(RawEvent::SomethingStored(something, who));
-			Ok(())
-		}
+        fn initialize(
+            origin,
+            block_header_bytes: Vec<u8>,
+            block_height: U256) 
+            -> DispatchResult
+        {
+            let _ = ensure_signed(origin)?;
+            
+            // Check if BTC-Relay was already initialized
+            ensure!(!<BestBlock>::exists(), Error::<T>::AlreadyInitialized);
+
+            // Parse the block header bytes to extract the required info
+            let raw_block_header = header_from_bytes(block_header_bytes);
+            let basic_block_header = parse_block_header(raw_block_header);
+            let block_header_hash = basic_block_header.block_hash; 
+
+            // get a new chain id
+            let chain_id: U256 = Self::increment_chain_counter(); 
+            
+            // Create rich block header
+            let block_header = RichBlockHeader {
+                block_header: basic_block_header,
+                block_height: block_height,
+                chain_ref: chain_id
+            };
+
+            // construct the BlockChain struct
+            let blockchain = Self::create_chain(&chain_id, &block_height, &block_header_hash)
+                .map_err(|_e| <Error<T>>::AlreadyInitialized)?;
+            
+            // Store a new BlockHeader struct in BlockHeaders
+            <BlockHeaders>::insert(&block_header_hash, &block_header);
+
+            // Store a pointer to BlockChain in ChainsIndex
+            <ChainsIndex>::insert(&chain_id, &blockchain); 
+  
+            // Store the new BlockChain in Chains
+            <Chains>::insert(U256::zero(), &blockchain);
+
+            // Set BestBlock and BestBlockHeight to the submitted block
+            <BestBlock>::put(&block_header_hash);
+            <BestBlockHeight>::put(&block_height);
+
+            // Emit a Initialized Event
+            Self::deposit_event(Event::Initialized(block_height, block_header_hash));
+            
+            Ok(())
+        }
+    
+        fn store_block_header(origin, block_header_bytes: Vec<u8>)
+        -> DispatchResult {
+            let _ = ensure_signed(origin)?;
+            // TODO: Check if BTC _Parachain is in shutdown state.
+
+            // Parse the block header bytes to extract the required info
+            let raw_block_header = header_from_bytes(block_header_bytes);
+            let basic_block_header = parse_block_header(raw_block_header);
+            let block_header_hash = basic_block_header.block_hash; 
+           
+            // TODO: call verify_block_header
+            
+
+            // get the block header of the previous block
+            ensure!(<BlockHeaders>::exists(basic_block_header.hash_prev_block), Error::<T>::PrevBlock);
+            let prev_header = Self::blockheader(basic_block_header.hash_prev_block);
+
+            // get the block chain of the previous header
+            let prev_blockchain = Self::chainindex(prev_header.chain_ref);
+              
+            // Update the current block header
+            // check if the prev block is the highest block in the chain
+            // load the previous block header block height
+            let prev_block_height = prev_header.block_height;
+            
+            // compare the prev header block height with the max height of the chain
+            let current_chain_id = match prev_blockchain.max_height {
+                // if the max height of that chain is the prev header, extend on this chain
+                prev_block_height => prev_header.chain_ref,
+                // if not, create a new chain id
+                _ => Self::increment_chain_counter(),
+            };
+            
+            // update the current block header structure with height and chain ref
+            // Set the height of the block header
+            let current_block_height = prev_block_height
+                .checked_add(U256::from("1"))
+                .ok_or("Overflow on block height")?;
+            
+            // Create rich block header
+            let block_header = RichBlockHeader {
+                block_header: basic_block_header,
+                block_height: current_block_height,
+                chain_ref: current_chain_id
+            };
+            
+            // Update the blockchain
+            // check if we create a new blockchain or extend the existing one
+            let blockchain = match current_chain_id {
+                // extend the current chain
+                prev_chain_id => Self::extend_chain(
+                    &current_block_height, &block_header_hash, prev_blockchain)
+                    .map_err(|_e| <Error<T>>::DuplicateBlock)?,
+                // create new blockchain element
+                _ => Self::create_chain(
+                    &current_chain_id, &current_block_height, &block_header_hash)
+                    .map_err(|_e| <Error<T>>::DuplicateBlock)?,
+            };
+
+            // Store a new BlockHeader struct in BlockHeaders
+            <BlockHeaders>::insert(&block_header_hash, &block_header);
+
+            // Storing the blockchain depends if we extend or create a new chain
+            match current_chain_id {
+                // extended the chain
+                prev_chain_id => {
+                    // Update the pointer to BlockChain in ChainsIndex
+                    <ChainsIndex>::mutate(&current_chain_id, |_b| blockchain); 
+
+                    // TODO: call checkAndDoReorg
+                }
+                _ => {
+                    // Store a pointer to BlockChain in ChainsIndex
+                    <ChainsIndex>::insert(&current_chain_id, &blockchain); 
+                }
+            };
+
+            // Emit a block store event
+            let longest_chain_height = Self::bestblockheight();
+            match current_block_height {
+                longest_chain_height => Self::deposit_event(
+                    Event::StoreMainChainHeader(current_block_height, block_header_hash)),
+                _ => Self::deposit_event(
+                    Event::StoreForkHeader(current_chain_id, current_block_height, block_header_hash)),
+            };
+
+            Ok(())
+        }
+
+        fn verify_transaction_inclusion(
+            origin,
+            tx_id: H256,
+            tx_block_height: U256,
+            tx_index: u64,
+            merkle_proof: Vec<u8>,
+            confirmations: U256)
+        -> DispatchResult {
+            let _ = ensure_signed(origin)?;
+
+            // TODO: check if Parachain is in error status
+            
+            // TODO: check no data blocks
+
+            Ok(())
+
+        }
+
+
 	}
 }
 
-decl_event!(
-	pub enum Event<T> where AccountId = <T as system::Trait>::AccountId {
-		// Just a dummy event.
-		// Event `Something` is declared with a parameter of the type `u32` and `AccountId`
-		// To emit this event, we call the deposit funtion, from our runtime funtions
-		SomethingStored(u32, AccountId),
-	}
-);
+/// Utility functions
+impl<T: Trait> Module<T> {
+    fn increment_chain_counter() -> U256 {
+        let new_counter = <ChainCounter>::get() + 1;
+        <ChainCounter>::put(new_counter);
 
-/// tests for this pallet
-#[cfg(test)]
-mod tests {
-	use super::*;
+        return new_counter;
+    }
+    fn create_chain(
+        chain_id: &U256,
+        block_height: &U256,
+        block_hash: &H256)
+        -> Result<BlockChain<U256, BTreeMap<U256, H256>>, Error<T>> 
+    {
+        let mut chain = BTreeMap::new();
 
-	use sp_core::H256;
-	use frame_support::{impl_outer_origin, assert_ok, parameter_types, weights::Weight};
-	use sp_runtime::{
-		traits::{BlakeTwo256, IdentityLookup}, testing::Header, Perbill,
-	};
+        if let Some(_) = chain.insert(*block_height, *block_hash) {
+            return Err(<Error<T>>::DuplicateBlock.into())
+        }
+                
+        let blockchain = BlockChain {
+                    chain_id: *chain_id,
+                    chain: chain,
+                    max_height: *block_height,
+                    no_data: false,
+                    invalid: false,
+        };
+        Ok(blockchain)
+    }
+    fn extend_chain(
+        block_height: &U256,
+        block_hash: &H256,
+        prev_blockchain: BlockChain<U256, BTreeMap<U256, H256>>) 
+        -> Result<BlockChain<U256, BTreeMap<U256, H256>>, Error<T>> 
+    {
 
-	impl_outer_origin! {
-		pub enum Origin for Test {}
-	}
+        let mut blockchain = prev_blockchain;
+        
+        if let Some(_) = blockchain.chain.insert(*block_height, *block_hash) {
+            return Err(<Error<T>>::DuplicateBlock.into())
+        }
+                
+        blockchain.max_height = *block_height;
 
-	// For testing the pallet, we construct most of a mock runtime. This means
-	// first constructing a configuration type (`Test`) which `impl`s each of the
-	// configuration traits of modules we want to use.
-	#[derive(Clone, Eq, PartialEq)]
-	pub struct Test;
-	parameter_types! {
-		pub const BlockHashCount: u64 = 250;
-		pub const MaximumBlockWeight: Weight = 1024;
-		pub const MaximumBlockLength: u32 = 2 * 1024;
-		pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
-	}
-	impl system::Trait for Test {
-		type Origin = Origin;
-		type Call = ();
-		type Index = u64;
-		type BlockNumber = u64;
-		type Hash = H256;
-		type Hashing = BlakeTwo256;
-		type AccountId = u64;
-		type Lookup = IdentityLookup<Self::AccountId>;
-		type Header = Header;
-		type Event = ();
-		type BlockHashCount = BlockHashCount;
-		type MaximumBlockWeight = MaximumBlockWeight;
-		type MaximumBlockLength = MaximumBlockLength;
-		type AvailableBlockRatio = AvailableBlockRatio;
-		type Version = ();
-		type ModuleToIndex = ();
-	}
-	impl Trait for Test {
-		type Event = ();
-	}
-	type TemplateModule = Module<Test>;
+        Ok(blockchain)
+    }
+            
+}
 
-	// This function basically just builds a genesis storage key/value store according to
-	// our desired mockup.
-	fn new_test_ext() -> sp_io::TestExternalities {
-		system::GenesisConfig::default().build_storage::<Test>().unwrap().into()
-	}
-
-	#[test]
-	fn it_works_for_default_value() {
-		new_test_ext().execute_with(|| {
-			// Just a dummy test for the dummy funtion `do_something`
-			// calling the `do_something` function with a value 42
-			assert_ok!(TemplateModule::do_something(Origin::signed(1), 42));
-			// asserting that the stored value is equal to what we stored
-			assert_eq!(TemplateModule::something(), Some(42));
-		});
+decl_event! {
+	pub enum Event {
+        Initialized(U256, H256),
+        StoreMainChainHeader(U256, H256),
+        StoreForkHeader(U256, U256, H256),
+        ChainReorg(H256, U256, U256),
+        VerifyTransaction(H256, U256, U256),
+        ValidateTransaction(H256, U256, H160, H256),
 	}
 }
+
+// TODO: how to include message in errors?
+decl_error! {
+    pub enum Error for Module<T: Trait> {
+        AlreadyInitialized,
+        NotMainChain,
+        ForkPrevBlock,
+        NotFork,
+        InvalidForkId,
+        MissingBlockHeight,
+        InvalidHeaderSize,
+        DuplicateBlock,
+        PrevBlock,
+        LowDiff,
+        DiffTargetHeader,
+        MalformedTxid,
+        Confirmations,
+        InvalidMerkleProof,
+        ForkIdNotFound,
+        Partial,
+        Invalid,
+        Shutdown,
+        InvalidTxid,
+        InsufficientValue,
+        TxFormat,
+        WrongRecipient,
+        InvalidOpreturn,
+        InvalidTxVersion,
+        NotOpReturn,
+    }
+}
+
