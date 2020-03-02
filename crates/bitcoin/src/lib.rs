@@ -45,30 +45,6 @@ pub struct RichBlockHeader<H256, U256, Timestamp> {
     pub chain_ref: U256,
 }
 
-impl RichBlockHeader<H256, U256, Moment> {
-    fn block_hash(&self) -> H256 {
-        self.block_header.block_hash
-    }
-    fn merkle_root(&self) -> H256 {
-        self.block_header.merkle_root
-    }
-    fn target(&self) -> U256 {
-        self.block_header.target
-    }
-    fn timestamp(&self) -> Moment {
-        self.block_header.timestamp
-    }
-    fn version(&self) -> u32 {
-        self.block_header.version
-    }
-    fn hash_prev_block(&self) -> H256 {
-        self.block_header.hash_prev_block
-    }
-    fn nonce(&self) -> u32 {
-        self.block_header.nonce
-    }
-}
-
 /// Representation of a Bitcoin blockchain
 // Note: the chain representation is for now a vector
 // TODO: ask if there is a "mapping" type in structs
