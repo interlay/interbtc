@@ -22,20 +22,27 @@ pub type RawBlockHeader = RawHeader;
 // pub type Map<K, V> = IndexMap<K, V, BuildHasherDefault<XxHash64>>;
 
 /// Structs
-/// Bitcoin Block Headers
+/// Bitcoin Basic Block Headers
 // TODO: Figure out how to set a pointer to the ChainIndex mapping instead
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct BlockHeader<U256, H256, Timestamp> {
     pub block_hash: H256, 
-    pub block_height: Option<U256>,
     pub merkle_root: H256,
     pub target: U256,
     pub timestamp: Timestamp,
-    pub chain_ref: Option<U256>,
     pub version: u32,
     pub hash_prev_block: H256,
     pub nonce: u32
+}
+
+/// Bitcoin Enriched Block Headers
+#[derive(Encode, Decode, Default, Clone, PartialEq)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct RichBlockHeader<U256, H256, Timestamp> {
+    pub block_header: BlockHeader<U256, H256, Timestamp>,
+    pub block_height: U256,
+    pub chain_ref: U256,
 }
 
 /// Representation of a Bitcoin blockchain
@@ -133,8 +140,6 @@ pub fn parse_block_header(raw_header: RawBlockHeader) -> BlockHeader<U256, H256,
         hash_prev_block: extract_previous_block_hash(raw_header),
 
         block_hash: hash_current_block,
-        block_height: None,
-        chain_ref: None,
     };
 
     return block_header
