@@ -112,7 +112,7 @@ pub mod test_utils {
     }
 
     pub fn setup() -> serde_json::Value {
-        let mut file = File::open("../testVectors.json").unwrap();
+        let mut file = File::open("./testVectors.json").unwrap();
         let mut data = String::new();
         file.read_to_string(&mut data).unwrap();
 

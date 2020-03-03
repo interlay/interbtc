@@ -474,7 +474,7 @@ mod tests {
     }
 
     fn setup() -> TestCases {
-        let mut file = File::open("../testProofs.json").unwrap();
+        let mut file = File::open("./testProofs.json").unwrap();
         let mut data = String::new();
         file.read_to_string(&mut data).unwrap();
 

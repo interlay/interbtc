@@ -474,9 +474,8 @@ pub fn extract_merkle_root_le(header: RawHeader) -> Hash256Digest {
 /// * `header` - An 80-byte Bitcoin header
 pub fn extract_target(header: RawHeader) -> BigUint {
     let mantissa = BigUint::from_bytes_le(&header[72..75]);
-    let exponent = header[75] - 3 as u8;
+    let exponent = if header[75] >= 3 { header[75] - 3 } else { 0 } as u8;
     let offset = BigUint::from(256 as u64).pow(exponent);
-
     mantissa * offset
 }
 
