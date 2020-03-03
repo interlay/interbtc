@@ -28,6 +28,12 @@ pub struct StakedRelayer<Currency> {
       stake: Currency,
 }
 
+#[derive(Encode, Decode, Debug, Clone, PartialEq)]
+pub enum ErrorCodes {
+    NoDataBTCRelay,
+    InvalidBTCRelay,
+}
+
 // This pallet's storage items.
 decl_storage! {
 	trait Store for Module<T: Trait> as SecurityModule {
