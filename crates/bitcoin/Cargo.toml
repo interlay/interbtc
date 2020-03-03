@@ -34,10 +34,7 @@ git = 'https://github.com/paritytech/substrate.git'
 rev = '3e651110aa06aa835790df63410a29676243fc54'
 
 [dependencies.bitcoin-spv]
-default-features = false
-git = 'https://github.com/summa-tx/bitcoin-spv.git'
-package = 'bitcoin-spv'
-version = '0.1.0'
+path = '../bitcoin-spv'
 
 [dependencies.indexmap]
 default-features = false
