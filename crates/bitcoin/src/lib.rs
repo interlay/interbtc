@@ -53,9 +53,10 @@ pub struct RichBlockHeader<H256, U256, Timestamp> {
 pub struct BlockChain<U256, Map> {
     pub chain_id: U256,
     pub chain: Map,
+    pub start_height: U256,
     pub max_height: U256,
-    pub no_data: bool,
-    pub invalid: bool,
+    pub no_data: Vec<U256>,
+    pub invalid: Vec<U256>,
 }
 
 
