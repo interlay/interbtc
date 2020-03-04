@@ -28,7 +28,7 @@ pub struct StakedRelayer<Currency> {
       stake: Currency,
 }
 
-#[derive(Encode, Decode, Debug, Clone, PartialEq)]
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 pub enum ErrorCodes {
     NoDataBTCRelay,
     InvalidBTCRelay,
