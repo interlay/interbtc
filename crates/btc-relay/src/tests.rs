@@ -99,7 +99,6 @@ fn initialize_twice_fails() {
         let block_header_hash = H256::zero();
         assert_ok!(BTCRelay::initialize(Origin::signed(3), block_header, block_height));
 
-        
         let block_height_2 = U256::zero();
         let block_header_2 = vec![1u8; 80];
         assert_err!(BTCRelay::initialize(Origin::signed(3), block_header_2, block_height_2), Error::<Test>::AlreadyInitialized);

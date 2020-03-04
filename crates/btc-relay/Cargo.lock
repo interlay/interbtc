@@ -158,6 +158,7 @@ dependencies = [
  "node-primitives 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=3e651110aa06aa835790df63410a29676243fc54)",
  "pallet-timestamp 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=3e651110aa06aa835790df63410a29676243fc54)",
  "parity-scale-codec 1.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "security 0.1.0",
  "serde 1.0.104 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-core 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=3e651110aa06aa835790df63410a29676243fc54)",
  "sp-io 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=3e651110aa06aa835790df63410a29676243fc54)",
@@ -1170,6 +1171,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "scopeguard"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "security"
+version = "0.1.0"
+dependencies = [
+ "frame-support 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=3e651110aa06aa835790df63410a29676243fc54)",
+ "frame-system 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=3e651110aa06aa835790df63410a29676243fc54)",
+ "parity-scale-codec 1.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "sp-io 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=3e651110aa06aa835790df63410a29676243fc54)",
+ "sp-runtime 2.0.0 (git+https://github.com/paritytech/substrate.git?rev=3e651110aa06aa835790df63410a29676243fc54)",
+]
 
 [[package]]
 name = "semver"
