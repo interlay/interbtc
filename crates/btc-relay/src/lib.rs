@@ -19,6 +19,7 @@ use sp_std::collections::btree_map::BTreeMap;
 // Crates
 use bitcoin::{BlockHeader, RichBlockHeader, BlockChain};
 use bitcoin::{header_from_bytes, parse_block_header};
+use security::{ErrorCodes};
 
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
@@ -228,7 +229,80 @@ decl_module! {
             Ok(())
 
         }
+        
+        fn flag_block_error(origin, block_hash: H256, error: ErrorCodes)
+            -> DispatchResult {
+           
+            // TODO: ensure this is a staked relayer
+            let _ = ensure_signed(origin)?;
+            
+            // Get the chain id of the block header
+            ensure!(<BlockHeaders>::exists(block_hash), Error::<T>::BlockNotFound);
+            let block_header = Self::blockheader(block_hash);
+            let chain_id = block_header.chain_ref;
 
+            // Get the blockchain element for the chain id
+            let mut blockchain = Self::chainindex(&chain_id);
+
+            // Flag errors in the blockchain entry
+            // Check which error we are dealing with
+            match error {
+                ErrorCodes::NoDataBTCRelay => blockchain
+                    .no_data
+                    .push(block_header.block_height),
+                ErrorCodes::InvalidBTCRelay => blockchain
+                    .invalid
+                    .push(block_header.block_height),
+                _ => return Err(<Error<T>>::UnknownErrorcode.into()),
+            };
+
+            // Store the updated blockchain entry
+            <ChainsIndex>::mutate(&chain_id, |_b| blockchain);
+
+            Self::deposit_event(Event::FlagBlockError(block_hash, chain_id, error));
+            Ok (())
+        }
+        
+        fn clear_block_error(origin, block_hash: H256, error: ErrorCodes)
+            -> DispatchResult {
+           
+            // TODO: ensure this is a staked relayer
+            let _ = ensure_signed(origin)?;
+            
+            // Get the chain id of the block header
+            ensure!(<BlockHeaders>::exists(block_hash), Error::<T>::BlockNotFound);
+            let block_header = Self::blockheader(block_hash);
+            let chain_id = block_header.chain_ref;
+
+            // Get the blockchain element for the chain id
+            let mut blockchain = Self::chainindex(&chain_id);
+
+            // Clear errors in the blockchain entry
+            // Check which error we are dealing with
+            match error {
+                ErrorCodes::NoDataBTCRelay => {
+                    let index = blockchain.no_data
+                        .iter()
+                        .position(|x| *x == block_header.block_height)
+                        .unwrap();
+                    blockchain.no_data.remove(index);
+                },
+                ErrorCodes::InvalidBTCRelay => {
+                    let index = blockchain.invalid
+                        .iter()
+                        .position(|x| *x == block_header.block_height)
+                        .unwrap();
+                    blockchain.invalid.remove(index);
+                },
+                _ => return Err(<Error<T>>::UnknownErrorcode.into()),
+            };
+
+            // Store the updated blockchain entry
+            <ChainsIndex>::mutate(&chain_id, |_b| blockchain);
+
+            Self::deposit_event(Event::ClearBlockError(block_hash, chain_id, error));
+            Ok (())
+        }
 
 	}
 }
@@ -256,9 +330,10 @@ impl<T: Trait> Module<T> {
         let blockchain = BlockChain {
                     chain_id: *chain_id,
                     chain: chain,
+                    start_height: *block_height,
                     max_height: *block_height,
-                    no_data: false,
-                    invalid: false,
+                    no_data: vec![],
+                    invalid: vec![],
         };
         Ok(blockchain)
     }
@@ -290,6 +365,8 @@ decl_event! {
         ChainReorg(H256, U256, U256),
         VerifyTransaction(H256, U256, U256),
         ValidateTransaction(H256, U256, H160, H256),
+        FlagBlockError(H256, U256, ErrorCodes),
+        ClearBlockError(H256, U256, ErrorCodes),
 	}
 }
 
@@ -321,6 +398,9 @@ decl_error! {
         InvalidOpreturn,
         InvalidTxVersion,
         NotOpReturn,
+        UnknownErrorcode,
+        BlockNotFound,
+        AlreadyReported,
     }
 }
 
