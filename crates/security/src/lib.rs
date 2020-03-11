@@ -183,6 +183,16 @@ decl_module! {
 	}
 }
 
+//FIXME: check where to place these functions to be callable from other modules
+pub fn check_parachain_status(status_code: StatusCode) -> bool {
+	return status_code == <ParachainStatus>::get();
+}
+
+pub fn check_parachain_errors(error_code: ErrorCode) -> bool {
+	return <Errors>::get().contains(&(error_code as u8));
+}
+
+
 decl_event!(
 	pub enum Event<T> where
         AccountId = <T as system::Trait>::AccountId
