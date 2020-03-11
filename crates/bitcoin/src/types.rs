@@ -1,6 +1,8 @@
-use bitcoin_spv::types::{RawHeader};
-
+use primitive_types::{U256, H256};
 use codec::{Encode, Decode};
+use node_primitives::{Moment};
+
+use bitcoin_spv::types::{RawHeader};
 
 /// Custom Types
 /// Bitcoin Raw Block Header type
@@ -12,11 +14,11 @@ pub type RawBlockHeader = RawHeader;
 // TODO: Figure out how to set a pointer to the ChainIndex mapping instead
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct BlockHeader<H256, U256, Timestamp> {
+pub struct BlockHeader {
     pub block_hash: H256,
     pub merkle_root: H256,
     pub target: U256,
-    pub timestamp: Timestamp,
+    pub timestamp: Moment,
     pub version: u32,
     pub hash_prev_block: H256,
     pub nonce: u32
@@ -25,8 +27,8 @@ pub struct BlockHeader<H256, U256, Timestamp> {
 /// Bitcoin Enriched Block Headers
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct RichBlockHeader<H256, U256, Timestamp> {
-    pub block_header: BlockHeader<H256, U256, Timestamp>,
+pub struct RichBlockHeader {
+    pub block_header: BlockHeader,
     pub block_height: U256,
     pub chain_ref: U256,
 }

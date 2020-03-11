@@ -5,7 +5,11 @@ use node_primitives::{Moment};
 
 use bitcoin_spv::btcspv;
 
-
+/// Returns a raw block header from a bytes slice
+///
+/// # Arguments
+///
+/// * `bytes` - A slice containing the header
 pub fn header_from_bytes(bytes: &[u8]) -> RawBlockHeader {
     let mut result: RawBlockHeader = [0; 80];
     result.copy_from_slice(&bytes[..]);
@@ -73,8 +77,12 @@ pub fn extract_merkle_root(header: RawBlockHeader) -> H256 {
     H256::from_slice(&bitcoin_spv::utils::reverse_endianness(root_le)[..])
 }
 
-
-pub fn parse_block_header(raw_header: RawBlockHeader) -> BlockHeader<H256, U256, Moment> {
+/// Parses the raw bitcoin header into a Rust struct
+///
+/// # Arguments
+///
+/// * `header` - An 80-byte Bitcoin header
+pub fn parse_block_header(raw_header: RawBlockHeader) -> BlockHeader {
     let hash_current_block: H256 = H256::zero();
 
     let block_header = BlockHeader {
@@ -90,6 +98,34 @@ pub fn parse_block_header(raw_header: RawBlockHeader) -> BlockHeader<H256, U256,
 
     return block_header
 }
+
+/// Returns the value of the varint
+///
+/// # Arguments
+///
+/// * `varint` - A slice containing the header
+pub fn parse_varint(varint: &[u8]) -> (usize, u64) {
+    match varint[0] {
+        0xfd => {
+            let mut num_bytes: [u8; 2] = Default::default();
+            num_bytes.copy_from_slice(&varint[1..3]);
+            println!("{} {} {}", num_bytes[0], num_bytes[1], u16::from_le_bytes(num_bytes));
+            (3, u16::from_le_bytes(num_bytes) as u64)
+        },
+        0xfe => {
+            let mut num_bytes: [u8; 4] = Default::default();
+            num_bytes.copy_from_slice(&varint[1..5]);
+            (5, u32::from_le_bytes(num_bytes) as u64)
+        },
+        0xff => {
+            let mut num_bytes: [u8; 8] = Default::default();
+            num_bytes.copy_from_slice(&varint[1..9]);
+            (9, u64::from_le_bytes(num_bytes) as u64)
+        },
+        _    => (1, varint[0] as u64)
+    }
+}
+
 
 
 #[cfg(test)]
@@ -118,5 +154,18 @@ mod tests {
                    "00000000000000000cca48eb4b330d91e8d946d344ca302a86a280161b0bffb6");
         let expected_target = String::from("680733321990486529407107157001552378184394215934016880640");
         assert_eq!(parsed_header.target.to_string(), expected_target);
+    }
+
+    #[test]
+    fn test_parse_varint() {
+        let cases = [
+            (&[1, 2, 3][..], (1, 1)),
+            (&[253, 2, 3][..], (3, 770)),
+            (&[254, 2, 3, 8, 1, 8][..], (5, 17302274)),
+            (&[255, 6, 0xa, 3, 8, 1, 0xb, 2, 7, 8][..], (9, 504978207276206598)),
+        ];
+        for (input, expected) in cases.iter() {
+            assert_eq!(parse_varint(input), *expected);
+        }
     }
 }

@@ -178,14 +178,14 @@ impl PartialEq for BitcoinHeader {
     /// * `self` - The Bitcoin header
     /// * ` other` - The second Bitcoin header
     fn eq(&self, other: &Self) -> bool {
-        (self.raw[..] == other.raw[..]
+        self.raw[..] == other.raw[..]
             && self.hash == other.hash
             && self.hash_le == other.hash_le
             && self.height == other.height
             && self.prevhash == other.prevhash
             && self.prevhash_le == other.prevhash_le
             && self.merkle_root == other.merkle_root
-            && self.merkle_root_le == other.merkle_root_le)
+            && self.merkle_root_le == other.merkle_root_le
     }
 }
 
