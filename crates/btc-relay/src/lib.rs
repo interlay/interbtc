@@ -31,6 +31,19 @@ pub trait Trait: system::Trait {
     
 }
 
+/// Difficulty Adjustment Interval
+pub const DIFFICULTY_ADJUSTMENT_INTERVAL: u16 = 2016;
+
+/// Target Timespan
+pub const TARGET_TIMESPAN: u64 = 1209600;
+
+/// Unrounded Maximum Target
+/// 0x00000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+pub const UNROUNDED_MAX_TARGET: U256 = U256([0x00000000ffffffffu64, <u64>::max_value(), <u64>::max_value(), <u64>::max_value()]);
+
+/// Main chain id
+pub const MAIN_CHAIN_ID: U256 = U256([0u64, 0u64, 0u64, 0u64]);
+
 // This pallet's storage items.
 decl_storage! {
 	trait Store for Module<T: Trait> as BTCRelay {
@@ -38,8 +51,8 @@ decl_storage! {
         /// Store Bitcoin block headers
         BlockHeaders get(fn blockheader): map H256 => RichBlockHeader<H256, U256, Moment>;
         
-        /// Sorted mapping of BlockChain elements
-        Chains get(fn chain): map U256 => BlockChain<U256, BTreeMap<U256, H256>>;
+        /// Sorted mapping of BlockChain elements with reference to ChainsIndex
+        Chains get(fn chain): map U256 => U256;
 
         /// Store the index for each tracked blockchain
         ChainsIndex get(fn chainindex): map U256 => BlockChain<U256, BTreeMap<U256, H256>>;
@@ -63,16 +76,6 @@ decl_module! {
         
         // Initialize errors
         type Error = Error<T>;
-
-        /// Difficulty Adjustment Interval
-        const DIFFICULTY_ADJUSTMENT_INTERVAL: u16 = 2016;
-
-        /// Target Timespan
-        const TARGET_TIMESPAN: u64 = 1209600;
-        
-        /// Unrounded Maximum Target
-        /// 0x00000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
-        const UNROUNDED_MAX_TARGET: U256 = U256([0x00000000ffffffffu64, <u64>::max_value(), <u64>::max_value(), <u64>::max_value()]);
 
         fn initialize(
             origin,
@@ -111,7 +114,7 @@ decl_module! {
             <ChainsIndex>::insert(&chain_id, &blockchain); 
   
             // Store the new BlockChain in Chains
-            <Chains>::insert(U256::zero(), &blockchain);
+            <Chains>::insert(MAIN_CHAIN_ID, &chain_id);
 
             // Set BestBlock and BestBlockHeight to the submitted block
             <BestBlock>::put(&block_header_hash);
