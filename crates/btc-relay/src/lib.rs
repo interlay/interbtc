@@ -114,7 +114,7 @@ decl_module! {
             <ChainsIndex>::insert(&chain_id, &blockchain); 
   
             // Store the new BlockChain in Chains
-            <Chains>::insert(MAIN_CHAIN_ID, &chain_id);
+            <Chains>::insert(&MAIN_CHAIN_ID, &chain_id);
 
             // Set BestBlock and BestBlockHeight to the submitted block
             <BestBlock>::put(&block_header_hash);
@@ -162,7 +162,7 @@ decl_module! {
             // update the current block header structure with height and chain ref
             // Set the height of the block header
             let current_block_height = prev_block_height
-                .checked_add(U256::from("1"))
+                .checked_add(U256::from(1))
                 .ok_or("Overflow on block height")?;
             
             // Create rich block header
@@ -189,28 +189,42 @@ decl_module! {
             <BlockHeaders>::insert(&block_header_hash, &block_header);
 
             // Storing the blockchain depends if we extend or create a new chain
+            // NOTE: this can be an extension of an existing fork
+            //       and might not be the main chain.
             match current_chain_id {
                 // extended the chain
                 prev_chain_id => {
                     // Update the pointer to BlockChain in ChainsIndex
                     <ChainsIndex>::mutate(&current_chain_id, |_b| blockchain); 
-
-                    // TODO: call checkAndDoReorg
+                    // TODO: call check and do reorg
                 }
+                // create a new chain
                 _ => {
                     // Store a pointer to BlockChain in ChainsIndex
                     <ChainsIndex>::insert(&current_chain_id, &blockchain); 
                 }
             };
-
-            // Emit a block store event
-            let longest_chain_height = Self::bestblockheight();
-            match current_block_height {
-                longest_chain_height => Self::deposit_event(
-                    Event::StoreMainChainHeader(current_block_height, block_header_hash)),
-                _ => Self::deposit_event(
-                    Event::StoreForkHeader(current_chain_id, current_block_height, block_header_hash)),
+            
+            // Determine if we are extending the main chain 
+            // or if the new fork would be the new main chain
+            match current_chain_id {
+                // extends the main chain
+                MAIN_CHAIN_ID => {
+                    Self::deposit_event(
+                    Event::StoreMainChainHeader(
+                        current_block_height,
+                        block_header_hash));
+                }
+                // created a new fork or updated an existing one
+                _ => {
+                    Self::deposit_event(
+                    Event::StoreForkHeader(
+                        current_chain_id, 
+                        current_block_height, 
+                        block_header_hash));
+                }
             };
+                
 
             Ok(())
         }
@@ -356,6 +370,24 @@ impl<T: Trait> Module<T> {
         blockchain.max_height = *block_height;
 
         Ok(blockchain)
+    }
+    fn check_and_do_reorg(fork: &BlockChain<U256, BTreeMap<U256, H256>>) {
+        // maybe find the position of the current fork in the sorted chain mapping
+        // get the current chain counter
+        let max_chain_id = Self::chaincounter(); 
+        let chain_position: U256;
+        // search all chain elements for the chain_id
+        for i in MAIN_CHAIN_ID..(max_chain_id+1) {
+            // if we find the chain_id store it
+            if Self::chain(i) == fork.chain_id {
+                chain_position = U256::from(i);
+                break;
+            // else append the chain_id as the last element
+            } else if i == max_chain_id {
+                <Chains>::insert(&max_chain_id, &fork.chain_id);
+            }
+        }
+
     }
             
 }
