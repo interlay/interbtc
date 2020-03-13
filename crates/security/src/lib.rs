@@ -130,7 +130,7 @@ decl_storage! {
 
 		/// Set of ErrorCodes, indicating the reason for an "Error" ParachainStatus
 		/// FIXME: type casting to enum necessary!
-		Errors get(fn error): BTreeSet<u8>;
+		Errors get(fn error): EnumSet<ErrorCode>;
 
 		/// Integer increment-only counter used to track status updates.
 		StatusCounter get(fn status_counter): U256;
@@ -183,15 +183,29 @@ decl_module! {
 	}
 }
 
-//FIXME: check where to place these functions to be callable from other modules
-pub fn check_parachain_status(status_code: StatusCode) -> bool {
-	return status_code == <ParachainStatus>::get();
-}
 
-pub fn check_parachain_errors(error_code: ErrorCode) -> bool {
-	return <Errors>::get().contains(&(error_code as u8));
-}
 
+
+impl<T: Trait> Module<T> {
+
+	/// Checks if the ParachainStatus matches the provided StatusCoce
+	///
+	/// # Arguments
+	///
+	/// * `status_code` - to-be-checked StatusCode enum
+	fn check_parachain_status(status_code: StatusCode) -> bool {
+		return status_code == <ParachainStatus>::get();
+	}
+
+	/// Checks if the given ErrorCode is contains in Errors
+	///
+	/// # Arguments
+	///
+	/// * `error_code` - to-be-checked ErrorCode enum
+	fn check_parachain_error(error_code: ErrorCode) -> bool {
+		return <Errors>::get().contains(&(error_code as u8));
+	}
+}
 
 decl_event!(
 	pub enum Event<T> where
