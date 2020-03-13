@@ -17,13 +17,17 @@ use sp_core::{U256, H256, H160};
 use sp_std::collections::btree_map::BTreeMap;
 
 // Crates
-use bitcoin::{BlockHeader, RichBlockHeader, BlockChain};
+use bitcoin::{BlockHeader, RichBlockHeader, BlockChain, RawBlockHeader};
 use bitcoin::{header_from_bytes, parse_block_header};
-use security::{ErrorCodes};
+use security::{ErrorCode, StatusCode};
+
+// Summa Bitcoin SPV lib
+use bitcoin_spv::btcspv;
+
 
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
-/// For further reference, see: 
+/// For further reference, see:
 /// https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/spec/data-model.html
 pub trait Trait: system::Trait {
     /// The overarching event type.
@@ -133,11 +137,14 @@ decl_module! {
 
             // Parse the block header bytes to extract the required info
             let raw_block_header = header_from_bytes(block_header_bytes);
-            let basic_block_header = parse_block_header(raw_block_header);
-            let block_header_hash = basic_block_header.block_hash; 
-           
-            // TODO: call verify_block_header
+
+            //TODO:  Replace this with call to verify_block_header() which returns a PureBlockHeader
+            //let basic_block_header = parse_block_header(raw_block_header);
             
+            let basic_block_header = Self::verify_block_header(raw_block_header)?;
+
+            let block_header_hash = basic_block_header.block_hash; 
+                       
 
             // get the block header of the previous block
             ensure!(<BlockHeaders>::exists(basic_block_header.hash_prev_block), Error::<T>::PrevBlock);
@@ -215,6 +222,9 @@ decl_module! {
             Ok(())
         }
 
+    
+
+
         fn verify_transaction_inclusion(
             origin,
             tx_id: H256,
@@ -226,14 +236,14 @@ decl_module! {
             let _ = ensure_signed(origin)?;
 
             // TODO: check if Parachain is in error status
-            
+
             // TODO: check no data blocks
 
             Ok(())
 
         }
         
-        fn flag_block_error(origin, block_hash: H256, error: ErrorCodes)
+        fn flag_block_error(origin, block_hash: H256, error: ErrorCode)
             -> DispatchResult {
            
             // TODO: ensure this is a staked relayer
@@ -250,10 +260,10 @@ decl_module! {
             // Flag errors in the blockchain entry
             // Check which error we are dealing with
             match error {
-                ErrorCodes::NoDataBTCRelay => blockchain
+                ErrorCode::NoDataBTCRelay => blockchain
                     .no_data
                     .push(block_header.block_height),
-                ErrorCodes::InvalidBTCRelay => blockchain
+                ErrorCode::InvalidBTCRelay => blockchain
                     .invalid
                     .push(block_header.block_height),
                 _ => return Err(<Error<T>>::UnknownErrorcode.into()),
@@ -266,7 +276,7 @@ decl_module! {
             Ok (())
         }
         
-        fn clear_block_error(origin, block_hash: H256, error: ErrorCodes)
+        fn clear_block_error(origin, block_hash: H256, error: ErrorCode)
             -> DispatchResult {
            
             // TODO: ensure this is a staked relayer
@@ -283,14 +293,14 @@ decl_module! {
             // Clear errors in the blockchain entry
             // Check which error we are dealing with
             match error {
-                ErrorCodes::NoDataBTCRelay => {
+                ErrorCode::NoDataBTCRelay => {
                     let index = blockchain.no_data
                         .iter()
                         .position(|x| *x == block_header.block_height)
                         .unwrap();
                     blockchain.no_data.remove(index);
                 },
-                ErrorCodes::InvalidBTCRelay => {
+                ErrorCode::InvalidBTCRelay => {
                     let index = blockchain.invalid
                         .iter()
                         .position(|x| *x == block_header.block_height)
@@ -357,6 +367,40 @@ impl<T: Trait> Module<T> {
 
         Ok(blockchain)
     }
+
+
+    /// Parses and verifies a raw Bitcoin block header.
+        /// # Arguments
+        /// * block_header` - 80-byte block header
+        ///
+        /// # Returns
+        /// * `pure_block_header` - PureBlockHeader representation of the 80-byte block header
+        ///
+        /// # Panics
+        /// If ParachainStatus in Security module is not set to RUNNING
+        fn verify_block_header(
+            raw_block_header: RawBlockHeader) 
+            -> Result<BlockHeader<H256, U256, Moment>, Error<T>> 
+        {
+
+            let mut basic_block_header = parse_block_header(raw_block_header);
+            
+            // Check that the block header is not yet stored in BTC-Relay
+            ensure!(!<BlockHeaders>::exists(basic_block_header.block_hash), Error::<T>::DuplicateBlock);
+            
+            // Check that the referenced previous block header exists in BTC-Relay
+            ensure!(!<BlockHeaders>::exists(basic_block_header.hash_prev_block), Error::<T>::PrevBlock);
+            let prev_block_header = Self::blockheader(basic_block_header.hash_prev_block);
+
+             /*
+            TODO:
+            -) Check that the Proof-of-Work hash (hashCurrentBlock) is below the pureBlockHeader.target. Return ERR_LOW_DIFF otherwise.
+
+            -) Check that the pureBlockHeader.target is correct by calling checkCorrectTarget passing pureBlockHeader.hashPrevBlock, prevBlock.blockHeight and pureBlockHeader.target as parameters (as per Bitcoin’s difficulty adjustment mechanism, see here). If this call returns False, return ERR_DIFF_TARGET_HEADER.
+            */
+            Ok(basic_block_header)
+
+        }
             
 }
 
@@ -368,8 +412,8 @@ decl_event! {
         ChainReorg(H256, U256, U256),
         VerifyTransaction(H256, U256, U256),
         ValidateTransaction(H256, U256, H160, H256),
-        FlagBlockError(H256, U256, ErrorCodes),
-        ClearBlockError(H256, U256, ErrorCodes),
+        FlagBlockError(H256, U256, ErrorCode),
+        ClearBlockError(H256, U256, ErrorCode),
 	}
 }
 
@@ -391,7 +435,6 @@ decl_error! {
         Confirmations,
         InvalidMerkleProof,
         ForkIdNotFound,
-        Partial,
         Invalid,
         Shutdown,
         InvalidTxid,

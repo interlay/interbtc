@@ -10,6 +10,7 @@ use frame_support::{decl_module, decl_storage, decl_event, decl_error, dispatch:
 use system::ensure_signed;
 use frame_support::traits::Currency;
 use codec::{Encode, Decode, Codec};
+use codec::alloc::string::{String};
 use node_primitives::{BlockNumber, AccountId};
 use sp_core::{U256, H256};
 use sp_runtime::traits::{Member, SimpleArithmetic, MaybeSerializeDeserialize};
@@ -52,7 +53,7 @@ impl Default for StatusCode {
 }
 
 /// Enum specifying errors which lead to the Error status, tacked in Errors
-#[derive(Encode, Decode, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub enum ErrorCode {
 	/// No error. Used as default value
@@ -130,7 +131,7 @@ decl_storage! {
 
 		/// Set of ErrorCodes, indicating the reason for an "Error" ParachainStatus
 		/// FIXME: type casting to enum necessary!
-		Errors get(fn error): EnumSet<ErrorCode>;
+		Errors get(fn error): BTreeSet<u8>;
 
 		/// Integer increment-only counter used to track status updates.
 		StatusCounter get(fn status_counter): U256;
@@ -213,11 +214,11 @@ decl_event!(
     {
         RegisterStakedRelayer(AccountId, u64),
         DeRegisterStakedRelayer(AccountId),
-        StatusUpdateSuggested(StatusCode, BTreeSet<u8>, BTreeSet<u8>, String, AccountId),
+        StatusUpdateSuggested(u8, BTreeSet<u8>, BTreeSet<u8>, String, AccountId),
 		VoteOnStatusUpdate(U256, AccountId, bool),
-		ExecuteStatusUpdate(StatusCode, BTreeSet<u8>, BTreeSet<u8>, String),
-		RejectStatusUpdate(StatusCode, BTreeSet<u8>, BTreeSet<u8>, String),
-		ForceStatusUpdate(StatusCode, BTreeSet<u8>, BTreeSet<u8>, String),
+		ExecuteStatusUpdate(u8, BTreeSet<u8>, BTreeSet<u8>, String),
+		RejectStatusUpdate(u8, BTreeSet<u8>, BTreeSet<u8>, String),
+		ForceStatusUpdate(u8, BTreeSet<u8>, BTreeSet<u8>, String),
 		SlashStakedRelayer(AccountId),
 		ReportVaultTheft(AccountId),
 	}

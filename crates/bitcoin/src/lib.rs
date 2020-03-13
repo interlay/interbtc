@@ -140,7 +140,7 @@ pub fn parse_block_header(raw_header: RawBlockHeader) -> BlockHeader<H256, U256,
         nonce: extract_nonce(raw_header),
         hash_prev_block: extract_previous_block_hash(raw_header),
 
-        block_hash: hash_current_block,
+        block_hash: H256::from_slice(&btcspv::hash256(&raw_header)),
     };
 
     return block_header
