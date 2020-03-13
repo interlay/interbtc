@@ -14,6 +14,7 @@ pub struct MerkleProof {
 struct MerkleProofTraversal {
     bits_used: usize,
     hashes_used: usize,
+    position: Option<u32>,
 }
 
 impl MerkleProof {
@@ -46,8 +47,9 @@ impl MerkleProof {
         if height == 0 || !parent_of_hash {
             let hash = self.hashes[traversal.hashes_used];
             traversal.hashes_used += 1;
+
             if height == 0 && parent_of_hash {
-                println!("{}", pos);
+                traversal.position = Some(pos);
             }
             return hash;
         }
@@ -64,12 +66,15 @@ impl MerkleProof {
     }
 
     /// Computes the merkle root of the proof partial merkle tree
-    pub fn compute_merkle_root(&self) -> H256Le {
+    pub fn verify_proof(&self) -> (H256Le, u32) {
         let mut traversal = MerkleProofTraversal {
             bits_used: 0,
             hashes_used: 0,
+            position: None,
         };
-        self.traverse_and_extract(self.compute_tree_height(), 0, &mut traversal)
+        // TODO: error handling
+        let root = self.traverse_and_extract(self.compute_tree_height(), 0, &mut traversal);
+        (root, traversal.position.unwrap())
     }
 
     /// Parses a merkle proof as produced by the bitcoin client gettxoutproof
@@ -110,8 +115,7 @@ impl MerkleProof {
         for i in 0..flag_bits_count {
             let byte = merkle_proof[current_index + i as usize];
             for i in 0..8 {
-                let bit_index = i; // least significant bit first
-                let mask = 1 << bit_index;
+                let mask = 1 << i;
                 let bit = (byte & mask) != 0;
                 flag_bits.push(bit);
             }
@@ -180,6 +184,8 @@ mod tests {
     fn test_extract_hash() {
         let proof = MerkleProof::parse(&deserialize_hex(&PROOF_HEX[..]).unwrap());
         let merkle_root = H256Le::from_bytes_be(proof.block_header.merkle_root.as_bytes());
-        assert_eq!(proof.compute_merkle_root(), merkle_root);
+        let (computed_root, position) = proof.verify_proof();
+        assert_eq!(computed_root, merkle_root);
+        assert_eq!(position, 48);
     }
 }
