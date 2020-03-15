@@ -18,9 +18,9 @@ use sp_core::{U256, H256, H160};
 use sp_std::collections::btree_map::BTreeMap;
 
 // Crates
-use bitcoin::{BlockHeader, RichBlockHeader, BlockChain, RawBlockHeader};
-use bitcoin::{header_from_bytes, parse_block_header};
-use security::{ErrorCode, StatusCode};
+use bitcoin::types::{RawBlockHeader, BlockHeader, RichBlockHeader, BlockChain};
+use bitcoin::parser::{header_from_bytes, parse_block_header};
+use security::{ErrorCode};
 
 // Summa Bitcoin SPV lib
 use bitcoin_spv::btcspv;
@@ -59,7 +59,7 @@ decl_storage! {
 	trait Store for Module<T: Trait> as BTCRelay {
     /// ## Storage
         /// Store Bitcoin block headers
-        BlockHeaders get(fn blockheader): map H256 => RichBlockHeader<H256, U256, Moment>;
+        BlockHeaders get(fn blockheader): map H256 => RichBlockHeader;
         
         /// Sorted mapping of BlockChain elements with reference to ChainsIndex
         Chains get(fn chain): map U256 => U256;
@@ -90,16 +90,16 @@ decl_module! {
         fn initialize(
             origin,
             block_header_bytes: Vec<u8>,
-            block_height: U256) 
+            block_height: U256)
             -> DispatchResult
         {
             let _ = ensure_signed(origin)?;
-            
+
             // Check if BTC-Relay was already initialized
             ensure!(!<BestBlock>::exists(), Error::<T>::AlreadyInitialized);
 
             // Parse the block header bytes to extract the required info
-            let raw_block_header = header_from_bytes(block_header_bytes);
+            let raw_block_header = header_from_bytes(&block_header_bytes);
             let basic_block_header = parse_block_header(raw_block_header);
             let block_header_hash = basic_block_header.block_hash; 
 
@@ -142,7 +142,7 @@ decl_module! {
             // TODO: Check if BTC _Parachain is in shutdown state.
 
             // Parse the block header bytes to extract the required info
-            let raw_block_header = header_from_bytes(block_header_bytes);
+            let raw_block_header = header_from_bytes(&block_header_bytes);
 
             //TODO:  Replace this with call to verify_block_header() which returns a PureBlockHeader
             //let basic_block_header = parse_block_header(raw_block_header);
@@ -386,7 +386,7 @@ impl<T: Trait> Module<T> {
         /// If ParachainStatus in Security module is not set to RUNNING
         fn verify_block_header(
             raw_block_header: RawBlockHeader) 
-            -> Result<BlockHeader<H256, U256, Moment>, Error<T>> 
+            -> Result<BlockHeader, Error<T>> 
         {
 
             let mut basic_block_header = parse_block_header(raw_block_header);
@@ -411,7 +411,7 @@ impl<T: Trait> Module<T> {
         }
 
         fn check_correct_target(
-            prev_block_header: BlockHeader<H256, U256, Moment>,
+            prev_block_header: BlockHeader,
             block_height: &U256,
             target: &U256
         ) -> bool {
@@ -423,7 +423,7 @@ impl<T: Trait> Module<T> {
         }
 
         fn retarget(
-            prev_header: BlockHeader<H256, U256, Moment>,
+            prev_header: BlockHeader,
             block_height: &U256
         ) -> U256 {
             // FIXME: stuck since Blockchain.chain is not specified?
