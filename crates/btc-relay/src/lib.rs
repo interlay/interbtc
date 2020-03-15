@@ -17,8 +17,8 @@ use sp_core::{U256, H256, H160};
 use sp_std::collections::btree_map::BTreeMap;
 
 // Crates
-use bitcoin::{BlockHeader, RichBlockHeader, BlockChain};
-use bitcoin::{header_from_bytes, parse_block_header};
+use bitcoin::types::{RichBlockHeader, BlockChain};
+use bitcoin::parser::{header_from_bytes, parse_block_header};
 use security::{ErrorCodes};
 
 /// ## Configuration and Constants
@@ -80,16 +80,16 @@ decl_module! {
         fn initialize(
             origin,
             block_header_bytes: Vec<u8>,
-            block_height: U256) 
+            block_height: U256)
             -> DispatchResult
         {
             let _ = ensure_signed(origin)?;
-            
+
             // Check if BTC-Relay was already initialized
             ensure!(!<BestBlock>::exists(), Error::<T>::AlreadyInitialized);
 
             // Parse the block header bytes to extract the required info
-            let raw_block_header = header_from_bytes(block_header_bytes);
+            let raw_block_header = header_from_bytes(&block_header_bytes);
             let basic_block_header = parse_block_header(raw_block_header);
             let block_header_hash = basic_block_header.block_hash; 
 
@@ -132,7 +132,7 @@ decl_module! {
             // TODO: Check if BTC _Parachain is in shutdown state.
 
             // Parse the block header bytes to extract the required info
-            let raw_block_header = header_from_bytes(block_header_bytes);
+            let raw_block_header = header_from_bytes(&block_header_bytes);
             let basic_block_header = parse_block_header(raw_block_header);
             let block_header_hash = basic_block_header.block_hash; 
            
