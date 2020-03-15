@@ -2,6 +2,7 @@
 #[cfg(test)]
 mod tests; 
 
+
 /// For more guidance on FRAME pallets, see the example.
 /// https://github.com/paritytech/substrate/blob/master/frame/example/src/lib.rs
 
@@ -23,6 +24,11 @@ use security::{ErrorCode, StatusCode};
 
 // Summa Bitcoin SPV lib
 use bitcoin_spv::btcspv;
+
+// External crates
+extern crate num_bigint as bigint;
+
+use bigint::BigUint;
 
 
 /// ## Configuration and Constants
@@ -392,14 +398,39 @@ impl<T: Trait> Module<T> {
             ensure!(!<BlockHeaders>::exists(basic_block_header.hash_prev_block), Error::<T>::PrevBlock);
             let prev_block_header = Self::blockheader(basic_block_header.hash_prev_block);
 
+            
+            ensure!(U256::from_little_endian(basic_block_header.block_hash.as_bytes()) < basic_block_header.target, Error::<T>::LowDiff);
+
              /*
             TODO:
-            -) Check that the Proof-of-Work hash (hashCurrentBlock) is below the pureBlockHeader.target. Return ERR_LOW_DIFF otherwise.
 
             -) Check that the pureBlockHeader.target is correct by calling checkCorrectTarget passing pureBlockHeader.hashPrevBlock, prevBlock.blockHeight and pureBlockHeader.target as parameters (as per Bitcoin’s difficulty adjustment mechanism, see here). If this call returns False, return ERR_DIFF_TARGET_HEADER.
             */
             Ok(basic_block_header)
 
+        }
+
+        fn check_correct_target(
+            prev_block_header: BlockHeader<H256, U256, Moment>,
+            block_height: &U256,
+            target: &U256
+        ) -> bool {
+            
+            let ratarget = match(block_height.as_u32() % u32::from(DIFFICULTY_ADJUSTMENT_INTERVAL) == 0) {
+                true => return target.eq(&prev_block_header.target),
+                false => return target.eq(&Self::retarget(prev_block_header, block_height))
+            };
+        }
+
+        fn retarget(
+            prev_header: BlockHeader<H256, U256, Moment>,
+            block_height: &U256
+        ) -> U256 {
+            // FIXME: stuck since Blockchain.chain is not specified?
+            // TODO: get BlockHeader using chain.get() H256 return and from that get the timestamp 
+            let last_retarget_time = Self::chainindex(MAIN_CHAIN_ID).chain.get(block_height);
+            //let time_diff = prev_time - 
+            return U256::zero();
         }
             
 }

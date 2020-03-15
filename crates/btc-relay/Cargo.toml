@@ -80,6 +80,9 @@ version = '2.0.0'
 git = 'https://github.com/paritytech/substrate.git'
 rev = '3e651110aa06aa835790df63410a29676243fc54'
 
+[dependencies]
+num-bigint = "0.2"
+
 [dependencies.bitcoin]
 default-features = false
 path = '../bitcoin'
