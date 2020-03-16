@@ -105,4 +105,20 @@ fn initialize_twice_fails() {
     })
 }
 
+/// StoreBlockHeader Function
+#[test]
+fn store_fork_once_suceeds() {
+    ExtBuilder::build().execute_with(|| {
+        let block_height = U256::from(1);
+        let block_header = vec![1u8; 80];
+        let block_header_hash = H256::zero();
+        let chain_id = U256::from(2);
+        assert_ok!(BTCRelay::store_block_header(Origin::signed(3), block_header));
+       
+        let store_event = TestEvent::test_events(
+            Event::StoreForkHeader(chain_id, block_height, block_header_hash),
+        );
+        assert!(System::events().iter().any(|a| a.event == store_event));
+    })
+}
 
