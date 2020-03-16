@@ -407,7 +407,6 @@ impl<T: Trait> Module<T> {
 
         let last_retarget_time = Self::blockheader(Self::chainindex(prev_block_header.chain_ref).chain.get(&block_height).unwrap()).block_header.timestamp;
 
-        // BigUint::from_bytes_be(
         let target_correct = match block_height.as_u32() % u32::from(DIFFICULTY_ADJUSTMENT_INTERVAL) == 0 {
             true => basic_block_header.target.eq(&prev_block_header.block_header.target),
             false => basic_block_header.target.eq(&Self::retarget(last_retarget_time, basic_block_header.timestamp, &prev_block_header.block_header.target))
@@ -423,7 +422,7 @@ impl<T: Trait> Module<T> {
     ///  * `prev_header`: previous block header (rich)
     /// * ``block_height`: block height for PoW retarget calculation
     /// 
-    /// FIXME: call btcspv.rs and type-cast instead?
+    /// FIXME: call retarget_algorithm in btcspv.rs and type-cast to BigUint instead?
     fn retarget(
         last_retarget_time: Moment,
         current_time: Moment, 
@@ -435,14 +434,12 @@ impl<T: Trait> Module<T> {
             false => TARGET_TIMESPAN * u64::from(TARGET_TIMESPAN_DIVISOR)
         };
 
-        let mut new_target = (U256::from(actual_timespan) * prev_target / U256::from(TARGET_TIMESPAN));
+        let mut new_target = U256::from(actual_timespan) * prev_target / U256::from(TARGET_TIMESPAN);
 
-        new_target = match new_target > UNROUNDED_MAX_TARGET {
-            true => UNROUNDED_MAX_TARGET,
-            false => new_target,
+        match new_target > UNROUNDED_MAX_TARGET {
+            true => return UNROUNDED_MAX_TARGET,
+            false => return new_target,
         };
-
-        return U256::from(new_target);
     }
             
 }
