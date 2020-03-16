@@ -22,8 +22,11 @@ use bitcoin::types::{RawBlockHeader, BlockHeader, RichBlockHeader, BlockChain};
 use bitcoin::parser::{header_from_bytes, parse_block_header};
 use security::{ErrorCode};
 
+// External Crates
 // Summa Bitcoin SPV lib
 use bitcoin_spv::btcspv;
+
+use num_bigint::BigUint;
 
 
 /// ## Configuration and Constants
@@ -374,77 +377,73 @@ impl<T: Trait> Module<T> {
 
 
     /// Parses and verifies a raw Bitcoin block header.
-        /// # Arguments
-        /// * block_header` - 80-byte block header
-        ///
-        /// # Returns
-        /// * `pure_block_header` - PureBlockHeader representation of the 80-byte block header
-        ///
-        /// # Panics
-        /// If ParachainStatus in Security module is not set to RUNNING
-        fn verify_block_header(
-            raw_block_header: RawBlockHeader) 
-            -> Result<BlockHeader, Error<T>> 
-        {
+    /// # Arguments
+    /// * block_header` - 80-byte block header
+    ///
+    /// # Returns
+    /// * `pure_block_header` - PureBlockHeader representation of the 80-byte block header
+    ///
+    /// # Panics
+    /// If ParachainStatus in Security module is not set to RUNNING
+    fn verify_block_header(
+        raw_block_header: RawBlockHeader) 
+        -> Result<BlockHeader, Error<T>> 
+    {
 
-            let basic_block_header = parse_block_header(raw_block_header);
-            
-            // Check that the block header is not yet stored in BTC-Relay
-            ensure!(!<BlockHeaders>::exists(basic_block_header.block_hash), Error::<T>::DuplicateBlock);
-            
-            // Check that the referenced previous block header exists in BTC-Relay
-            ensure!(!<BlockHeaders>::exists(basic_block_header.hash_prev_block), Error::<T>::PrevBlock);
-            let prev_block_header = Self::blockheader(basic_block_header.hash_prev_block);
+        let basic_block_header = parse_block_header(raw_block_header);
+        
+        // Check that the block header is not yet stored in BTC-Relay
+        ensure!(!<BlockHeaders>::exists(basic_block_header.block_hash), Error::<T>::DuplicateBlock);
+        
+        // Check that the referenced previous block header exists in BTC-Relay
+        ensure!(!<BlockHeaders>::exists(basic_block_header.hash_prev_block), Error::<T>::PrevBlock);
+        let prev_block_header = Self::blockheader(basic_block_header.hash_prev_block);
 
-            // Check that the PoW hash satisfies the target set in the block header
-            ensure!(U256::from_little_endian(basic_block_header.block_hash.as_bytes()) < basic_block_header.target, Error::<T>::LowDiff);
+        // Check that the PoW hash satisfies the target set in the block header
+        ensure!(U256::from_little_endian(basic_block_header.block_hash.as_bytes()) < basic_block_header.target, Error::<T>::LowDiff);
 
-            // Check that the diff. target is indeed correctly set in the block header, i.e., check for re-target.
-            let block_height = prev_block_header.block_height + 1;
-            ensure!(!Self::check_correct_target(prev_block_header, &block_height, &basic_block_header.target), Error::<T>::DiffTargetHeader);
-             /*
-            TODO:
+        // Check that the diff. target is indeed correctly set in the block header, i.e., check for re-target.
+        let block_height = prev_block_header.block_height + 1;
 
-            -) Check that the pureBlockHeader.target is correct by calling checkCorrectTarget passing pureBlockHeader.hashPrevBlock, prevBlock.blockHeight and pureBlockHeader.target as parameters (as per Bitcoin’s difficulty adjustment mechanism, see here). If this call returns False, return ERR_DIFF_TARGET_HEADER.
-            */
-            Ok(basic_block_header)
+        let last_retarget_time = Self::blockheader(Self::chainindex(prev_block_header.chain_ref).chain.get(&block_height).unwrap()).block_header.timestamp;
 
-        }
+        // BigUint::from_bytes_be(
+        let target_correct = match block_height.as_u32() % u32::from(DIFFICULTY_ADJUSTMENT_INTERVAL) == 0 {
+            true => basic_block_header.target.eq(&prev_block_header.block_header.target),
+            false => basic_block_header.target.eq(&Self::retarget(last_retarget_time, basic_block_header.timestamp, &prev_block_header.block_header.target))
+        };
 
-        fn check_correct_target(
-            prev_block_header: RichBlockHeader,
-            block_height: &U256,
-            target: &U256
-        ) -> bool {
-            
-            let retarget = match block_height.as_u32() % u32::from(DIFFICULTY_ADJUSTMENT_INTERVAL) == 0 {
-                true => return target.eq(&prev_block_header.block_header.target),
-                false => return target.eq(&Self::retarget(prev_block_header, block_height))
-            };
-        }
+        ensure!(target_correct, Error::<T>::DiffTargetHeader);
 
-        fn retarget(
-            prev_header: RichBlockHeader,
-            block_height: &U256
-        ) -> U256 {
-            let last_retarget_time = Self::blockheader(Self::chainindex(prev_header.chain_ref).chain.get(block_height).unwrap()).block_header.timestamp;
-            
-            let time_diff = prev_header.block_header.timestamp - last_retarget_time;
-            
-            let actual_timespan = match time_diff < (TARGET_TIMESPAN / u64::from(TARGET_TIMESPAN_DIVISOR)) {
-                true => TARGET_TIMESPAN / u64::from(TARGET_TIMESPAN_DIVISOR),
-                false => TARGET_TIMESPAN * u64::from(TARGET_TIMESPAN_DIVISOR)
-            };
+        Ok(basic_block_header)
+    }
 
-            let mut new_target = (actual_timespan * prev_header.block_header.target.as_u64()) / TARGET_TIMESPAN;
+    /// Computes Bitcoin's PoW retarget algorithm for a given block height
+    /// # Argument
+    ///  * `prev_header`: previous block header (rich)
+    /// * ``block_height`: block height for PoW retarget calculation
+    /// 
+    /// FIXME: call btcspv.rs and type-cast instead?
+    fn retarget(
+        last_retarget_time: Moment,
+        current_time: Moment, 
+        prev_target: &U256
+    ) -> U256 {
+    
+        let actual_timespan = match (current_time - last_retarget_time) < (TARGET_TIMESPAN / u64::from(TARGET_TIMESPAN_DIVISOR)) {
+            true => TARGET_TIMESPAN / u64::from(TARGET_TIMESPAN_DIVISOR),
+            false => TARGET_TIMESPAN * u64::from(TARGET_TIMESPAN_DIVISOR)
+        };
 
-            new_target = match new_target > UNROUNDED_MAX_TARGET.as_u64() {
-                true => UNROUNDED_MAX_TARGET.as_u64(),
-                false => new_target,
-            };
+        let mut new_target = (U256::from(actual_timespan) * prev_target / U256::from(TARGET_TIMESPAN));
 
-            return U256::from(new_target);
-        }
+        new_target = match new_target > UNROUNDED_MAX_TARGET {
+            true => UNROUNDED_MAX_TARGET,
+            false => new_target,
+        };
+
+        return U256::from(new_target);
+    }
             
 }
 
