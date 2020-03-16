@@ -25,11 +25,6 @@ use security::{ErrorCode};
 // Summa Bitcoin SPV lib
 use bitcoin_spv::btcspv;
 
-// External crates
-extern crate num_bigint as bigint;
-
-use bigint::BigUint;
-
 
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
@@ -46,6 +41,9 @@ pub const DIFFICULTY_ADJUSTMENT_INTERVAL: u16 = 2016;
 
 /// Target Timespan
 pub const TARGET_TIMESPAN: u64 = 1209600;
+
+// Used in Bitcoin's retarget algorithm
+pub const TARGET_TIMESPAN_DIVISOR: u8 = 4;
 
 /// Unrounded Maximum Target
 /// 0x00000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
@@ -65,7 +63,7 @@ decl_storage! {
         Chains get(fn chain): map U256 => U256;
 
         /// Store the index for each tracked blockchain
-        ChainsIndex get(fn chainindex): map U256 => BlockChain<U256, BTreeMap<U256, H256>>;
+        ChainsIndex get(fn chainindex): map U256 => BlockChain;
         
         /// Store the current blockchain tip
         BestBlock get(fn bestblock): H256;
@@ -338,7 +336,7 @@ impl<T: Trait> Module<T> {
         chain_id: &U256,
         block_height: &U256,
         block_hash: &H256)
-        -> Result<BlockChain<U256, BTreeMap<U256, H256>>, Error<T>> 
+        -> Result<BlockChain, Error<T>> 
     {
         let mut chain = BTreeMap::new();
 
@@ -359,8 +357,8 @@ impl<T: Trait> Module<T> {
     fn extend_chain(
         block_height: &U256,
         block_hash: &H256,
-        prev_blockchain: BlockChain<U256, BTreeMap<U256, H256>>) 
-        -> Result<BlockChain<U256, BTreeMap<U256, H256>>, Error<T>> 
+        prev_blockchain: BlockChain) 
+        -> Result<BlockChain, Error<T>> 
     {
 
         let mut blockchain = prev_blockchain;
@@ -389,7 +387,7 @@ impl<T: Trait> Module<T> {
             -> Result<BlockHeader, Error<T>> 
         {
 
-            let mut basic_block_header = parse_block_header(raw_block_header);
+            let basic_block_header = parse_block_header(raw_block_header);
             
             // Check that the block header is not yet stored in BTC-Relay
             ensure!(!<BlockHeaders>::exists(basic_block_header.block_hash), Error::<T>::DuplicateBlock);
@@ -398,9 +396,12 @@ impl<T: Trait> Module<T> {
             ensure!(!<BlockHeaders>::exists(basic_block_header.hash_prev_block), Error::<T>::PrevBlock);
             let prev_block_header = Self::blockheader(basic_block_header.hash_prev_block);
 
-            
+            // Check that the PoW hash satisfies the target set in the block header
             ensure!(U256::from_little_endian(basic_block_header.block_hash.as_bytes()) < basic_block_header.target, Error::<T>::LowDiff);
 
+            // Check that the diff. target is indeed correctly set in the block header, i.e., check for re-target.
+            let block_height = prev_block_header.block_height + 1;
+            ensure!(!Self::check_correct_target(prev_block_header, &block_height, &basic_block_header.target), Error::<T>::DiffTargetHeader);
              /*
             TODO:
 
@@ -411,26 +412,38 @@ impl<T: Trait> Module<T> {
         }
 
         fn check_correct_target(
-            prev_block_header: BlockHeader,
+            prev_block_header: RichBlockHeader,
             block_height: &U256,
             target: &U256
         ) -> bool {
             
-            let ratarget = match(block_height.as_u32() % u32::from(DIFFICULTY_ADJUSTMENT_INTERVAL) == 0) {
-                true => return target.eq(&prev_block_header.target),
+            let retarget = match block_height.as_u32() % u32::from(DIFFICULTY_ADJUSTMENT_INTERVAL) == 0 {
+                true => return target.eq(&prev_block_header.block_header.target),
                 false => return target.eq(&Self::retarget(prev_block_header, block_height))
             };
         }
 
         fn retarget(
-            prev_header: BlockHeader,
+            prev_header: RichBlockHeader,
             block_height: &U256
         ) -> U256 {
-            // FIXME: stuck since Blockchain.chain is not specified?
-            // TODO: get BlockHeader using chain.get() H256 return and from that get the timestamp 
-            let last_retarget_time = Self::chainindex(MAIN_CHAIN_ID).chain.get(block_height);
-            //let time_diff = prev_time - 
-            return U256::zero();
+            let last_retarget_time = Self::blockheader(Self::chainindex(prev_header.chain_ref).chain.get(block_height).unwrap()).block_header.timestamp;
+            
+            let time_diff = prev_header.block_header.timestamp - last_retarget_time;
+            
+            let actual_timespan = match time_diff < (TARGET_TIMESPAN / u64::from(TARGET_TIMESPAN_DIVISOR)) {
+                true => TARGET_TIMESPAN / u64::from(TARGET_TIMESPAN_DIVISOR),
+                false => TARGET_TIMESPAN * u64::from(TARGET_TIMESPAN_DIVISOR)
+            };
+
+            let mut new_target = (actual_timespan * prev_header.block_header.target.as_u64()) / TARGET_TIMESPAN;
+
+            new_target = match new_target > UNROUNDED_MAX_TARGET.as_u64() {
+                true => UNROUNDED_MAX_TARGET.as_u64(),
+                false => new_target,
+            };
+
+            return U256::from(new_target);
         }
             
 }
