@@ -26,8 +26,6 @@ use security::{ErrorCode};
 // Summa Bitcoin SPV lib
 use bitcoin_spv::btcspv;
 
-use num_bigint::BigUint;
-
 
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
