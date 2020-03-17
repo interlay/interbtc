@@ -79,7 +79,7 @@ impl ExtBuilder {
 #[test]
 fn initialize_once_suceeds() {
     ExtBuilder::build().execute_with(|| {
-        let block_height = U256::zero();
+        let block_height: u32 = 0;
         let block_header = vec![0u8; 80];
         let block_header_hash = H256::zero();
         assert_ok!(BTCRelay::initialize(Origin::signed(3), block_header, block_height));
@@ -94,15 +94,31 @@ fn initialize_once_suceeds() {
 #[test]
 fn initialize_twice_fails() {
     ExtBuilder::build().execute_with(|| {
-        let block_height = U256::zero();
+        let block_height: u32 = 0;
         let block_header = vec![0u8; 80];
         let block_header_hash = H256::zero();
         assert_ok!(BTCRelay::initialize(Origin::signed(3), block_header, block_height));
 
-        let block_height_2 = U256::zero();
+        let block_height_2: u32 = 0;
         let block_header_2 = vec![1u8; 80];
         assert_err!(BTCRelay::initialize(Origin::signed(3), block_header_2, block_height_2), Error::<Test>::AlreadyInitialized);
     })
 }
 
+/// StoreBlockHeader Function
+#[test]
+fn store_fork_once_suceeds() {
+    ExtBuilder::build().execute_with(|| {
+        let block_height: u32 = 1;
+        let block_header = vec![1u8; 80];
+        let block_header_hash = H256::zero();
+        let chain_id: u32 = 2;
+        assert_ok!(BTCRelay::store_block_header(Origin::signed(3), block_header));
+       
+        let store_event = TestEvent::test_events(
+            Event::StoreForkHeader(chain_id, block_height, block_header_hash),
+        );
+        assert!(System::events().iter().any(|a| a.event == store_event));
+    })
+}
 

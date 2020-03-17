@@ -30,22 +30,20 @@ pub struct BlockHeader {
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct RichBlockHeader {
     pub block_header: BlockHeader,
-    pub block_height: U256,
-    pub chain_ref: U256,
+    pub block_height: u32,
+    pub chain_ref: u32,
 }
 
 /// Representation of a Bitcoin blockchain
-// Note: the chain representation is for now a vector
-// TODO: ask if there is a "mapping" type in structs
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct BlockChain{
-    pub chain_id: U256,
-    pub chain: BTreeMap<U256,H256>,
-    pub start_height: U256,
-    pub max_height: U256,
-    pub no_data: Vec<U256>,
-    pub invalid: Vec<U256>,
+pub struct BlockChain {
+    pub chain_id: u32,
+    pub chain: BTreeMap<u32,H256>,
+    pub start_height: u32,
+    pub max_height: u32,
+    pub no_data: Vec<u32>,
+    pub invalid: Vec<u32>,
 }
 
 /// Represents a bitcoin 32 bytes hash digest encoded in little-endian
