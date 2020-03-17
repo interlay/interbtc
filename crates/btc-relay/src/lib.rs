@@ -49,13 +49,13 @@ decl_storage! {
 	trait Store for Module<T: Trait> as BTCRelay {
     /// ## Storage
         /// Store Bitcoin block headers
-        BlockHeaders get(fn blockheader): map H256 => RichBlockHeader<H256, U256, Moment>;
+        BlockHeaders get(fn blockheader): map H256 => RichBlockHeader;
         
         /// Sorted mapping of BlockChain elements with reference to ChainsIndex
         Chains get(fn chain): linked_map u32 => u32;
 
         /// Store the index for each tracked blockchain
-        ChainsIndex get(fn chainindex): map u32 => BlockChain<u32, BTreeMap<u32, H256>>;
+        ChainsIndex get(fn chainindex): map u32 => BlockChain<BTreeMap<u32, H256>>;
         
         /// Store the current blockchain tip
         BestBlock get(fn bestblock): H256;
@@ -329,7 +329,7 @@ impl<T: Trait> Module<T> {
     fn initialize_blockchain(
         block_height: &u32,
         block_hash: &H256)
-        -> Result<BlockChain<u32, BTreeMap<u32, H256>>, Error<T>> 
+        -> Result<BlockChain<BTreeMap<u32, H256>>, Error<T>> 
     {
         let chain_id = MAIN_CHAIN_ID;
 
@@ -342,7 +342,7 @@ impl<T: Trait> Module<T> {
     fn create_blockchain(
         block_height: &u32,
         block_hash: &H256)
-        -> Result<BlockChain<u32, BTreeMap<u32, H256>>, Error<T>> 
+        -> Result<BlockChain<BTreeMap<u32, H256>>, Error<T>> 
     {
         // get a new chain id
         let chain_id: u32 = Self::increment_chain_counter()?; 
@@ -357,7 +357,7 @@ impl<T: Trait> Module<T> {
         chain_id: &u32,
         block_height: &u32,
         block_hash: &H256)
-        -> Result<BlockChain<u32, BTreeMap<u32, H256>>, Error<T>> 
+        -> Result<BlockChain<BTreeMap<u32, H256>>, Error<T>> 
     {
         // initialize an empty chain
         let mut chain = BTreeMap::new();
@@ -379,8 +379,8 @@ impl<T: Trait> Module<T> {
     fn extend_blockchain(
         block_height: &u32,
         block_hash: &H256,
-        prev_blockchain: BlockChain<u32, BTreeMap<u32, H256>>) 
-        -> Result<BlockChain<u32, BTreeMap<u32, H256>>, Error<T>> 
+        prev_blockchain: BlockChain<BTreeMap<u32, H256>>) 
+        -> Result<BlockChain<BTreeMap<u32, H256>>, Error<T>> 
     {
 
         let mut blockchain = prev_blockchain;
@@ -393,7 +393,7 @@ impl<T: Trait> Module<T> {
 
         Ok(blockchain)
     }
-    fn swap_main_blockchain(fork: &BlockChain<u32, BTreeMap<u32, H256>>) -> Option<Error<T>> {
+    fn swap_main_blockchain(fork: &BlockChain<BTreeMap<u32, H256>>) -> Option<Error<T>> {
         // load the main chain
         let mut main_chain = <ChainsIndex>::get(MAIN_CHAIN_ID);
       
@@ -433,7 +433,7 @@ impl<T: Trait> Module<T> {
 
         // store the main chain part that is going to be replaced by the new fork
         // into the forked_main_chain element
-        let forked_main_chain: BlockChain<u32, BTreeMap<u32, H256>> = BlockChain {
+        let forked_main_chain: BlockChain<BTreeMap<u32, H256>> = BlockChain {
             chain_id: chain_id, 
             chain: forked_chain.clone(),
             start_height: *start_height,
@@ -494,7 +494,7 @@ impl<T: Trait> Module<T> {
         None
     }
 
-    fn check_and_do_reorg(fork: &BlockChain<u32, BTreeMap<u32, H256>>) -> Option<Error<T>> {
+    fn check_and_do_reorg(fork: &BlockChain<BTreeMap<u32, H256>>) -> Option<Error<T>> {
         // Check if the ordering needs updating
         // if the fork is the main chain, we don't need to update the ordering
         if fork.chain_id == MAIN_CHAIN_ID {
@@ -532,6 +532,17 @@ impl<T: Trait> Module<T> {
                             Some(err) => return Some(err),
                             None => break,
                         };
+
+                        // announce the new main chain
+                        let new_chain_tip = <BestBlock>::get();
+                        let block_height = <BestBlockHeight>::get();
+                        let fork_depth = &fork.max_height - &fork.start_height;
+                        Self::deposit_event(
+                            Event::ChainReorg(
+                                new_chain_tip, 
+                                block_height, 
+                                fork_depth)
+                            );
                     },
                     // else, simply swap the chain_id ordering in Chains
                     _ => <Chains>::swap(prev_position, current_position),
@@ -549,7 +560,7 @@ impl<T: Trait> Module<T> {
 
     }
     fn insert_sorted(
-        blockchain: &BlockChain<u32, BTreeMap<u32, H256>>) {
+        blockchain: &BlockChain<BTreeMap<u32, H256>>) {
         // get a sorted vector over the Chains elements
         // NOTE: LinkedStorageMap iterators are not sorted over the keys
         let mut chains = <Chains>::enumerate().collect::<Vec<(u32, u32)>>();
