@@ -41,8 +41,8 @@ pub struct BlockHeader<H256, U256, Timestamp> {
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct RichBlockHeader<H256, U256, Timestamp> {
     pub block_header: BlockHeader<H256, U256, Timestamp>,
-    pub block_height: U256,
-    pub chain_ref: U256,
+    pub block_height: u32,
+    pub chain_ref: u32,
 }
 
 /// Representation of a Bitcoin blockchain
@@ -50,13 +50,13 @@ pub struct RichBlockHeader<H256, U256, Timestamp> {
 // TODO: ask if there is a "mapping" type in structs
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct BlockChain<U256, Map> {
-    pub chain_id: U256,
+pub struct BlockChain<u32, Map> {
+    pub chain_id: u32,
     pub chain: Map,
-    pub start_height: U256,
-    pub max_height: U256,
-    pub no_data: Vec<U256>,
-    pub invalid: Vec<U256>,
+    pub start_height: u32,
+    pub max_height: u32,
+    pub no_data: Vec<u32>,
+    pub invalid: Vec<u32>,
 }
 
 
