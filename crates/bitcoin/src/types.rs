@@ -1,6 +1,7 @@
 use primitive_types::{U256, H256};
 use codec::{Encode, Decode};
 use node_primitives::{Moment};
+use sp_std::collections::btree_map::BTreeMap;
 
 use bitcoin_spv::types::{RawHeader};
 
@@ -36,9 +37,9 @@ pub struct RichBlockHeader {
 /// Representation of a Bitcoin blockchain
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct BlockChain<Map> {
+pub struct BlockChain {
     pub chain_id: u32,
-    pub chain: Map,
+    pub chain: BTreeMap<u32,H256>,
     pub start_height: u32,
     pub max_height: u32,
     pub no_data: Vec<u32>,

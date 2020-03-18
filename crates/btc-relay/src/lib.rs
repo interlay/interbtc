@@ -2,6 +2,7 @@
 #[cfg(test)]
 mod tests; 
 
+
 /// For more guidance on FRAME pallets, see the example.
 /// https://github.com/paritytech/substrate/blob/master/frame/example/src/lib.rs
 
@@ -17,13 +18,18 @@ use sp_core::{U256, H256, H160};
 use sp_std::collections::btree_map::BTreeMap;
 
 // Crates
-use bitcoin::types::{RichBlockHeader, BlockChain};
+use bitcoin::types::{RawBlockHeader, BlockHeader, RichBlockHeader, BlockChain};
 use bitcoin::parser::{header_from_bytes, parse_block_header};
-use security::{ErrorCodes};
+use security::{ErrorCode};
+
+// External Crates
+// Summa Bitcoin SPV lib
+use bitcoin_spv::btcspv;
+
 
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
-/// For further reference, see: 
+/// For further reference, see:
 /// https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/spec/data-model.html
 pub trait Trait: system::Trait {
     /// The overarching event type.
@@ -32,10 +38,13 @@ pub trait Trait: system::Trait {
 }
 
 /// Difficulty Adjustment Interval
-pub const DIFFICULTY_ADJUSTMENT_INTERVAL: u16 = 2016;
+pub const DIFFICULTY_ADJUSTMENT_INTERVAL: u32 = 2016;
 
 /// Target Timespan
 pub const TARGET_TIMESPAN: u64 = 1209600;
+
+// Used in Bitcoin's retarget algorithm
+pub const TARGET_TIMESPAN_DIVISOR: u8 = 4;
 
 /// Unrounded Maximum Target
 /// 0x00000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
@@ -55,7 +64,7 @@ decl_storage! {
         Chains get(fn chain): linked_map u32 => u32;
 
         /// Store the index for each tracked blockchain
-        ChainsIndex get(fn chainindex): map u32 => BlockChain<BTreeMap<u32, H256>>;
+        ChainsIndex get(fn chainindex): map u32 => BlockChain;
         
         /// Store the current blockchain tip
         BestBlock get(fn bestblock): H256;
@@ -130,11 +139,14 @@ decl_module! {
 
             // Parse the block header bytes to extract the required info
             let raw_block_header = header_from_bytes(&block_header_bytes);
-            let basic_block_header = parse_block_header(raw_block_header);
-            let block_header_hash = basic_block_header.block_hash; 
-           
-            // TODO: call verify_block_header
+
+            //TODO:  Replace this with call to verify_block_header() which returns a PureBlockHeader
+            //let basic_block_header = parse_block_header(raw_block_header);
             
+            let basic_block_header = Self::verify_block_header(raw_block_header)?;
+
+            let block_header_hash = basic_block_header.block_hash; 
+                       
 
             // get the block header of the previous block
             ensure!(<BlockHeaders>::exists(basic_block_header.hash_prev_block), Error::<T>::PrevBlock);
@@ -221,6 +233,9 @@ decl_module! {
             Ok(())
         }
 
+    
+
+
         fn verify_transaction_inclusion(
             origin,
             tx_id: H256,
@@ -232,14 +247,14 @@ decl_module! {
             let _ = ensure_signed(origin)?;
 
             // TODO: check if Parachain is in error status
-            
+
             // TODO: check no data blocks
 
             Ok(())
 
         }
         
-        fn flag_block_error(origin, block_hash: H256, error: ErrorCodes)
+        fn flag_block_error(origin, block_hash: H256, error: ErrorCode)
             -> DispatchResult {
            
             // TODO: ensure this is a staked relayer
@@ -256,10 +271,10 @@ decl_module! {
             // Flag errors in the blockchain entry
             // Check which error we are dealing with
             match error {
-                ErrorCodes::NoDataBTCRelay => blockchain
+                ErrorCode::NoDataBTCRelay => blockchain
                     .no_data
                     .push(block_header.block_height),
-                ErrorCodes::InvalidBTCRelay => blockchain
+                ErrorCode::InvalidBTCRelay => blockchain
                     .invalid
                     .push(block_header.block_height),
                 _ => return Err(<Error<T>>::UnknownErrorcode.into()),
@@ -272,7 +287,7 @@ decl_module! {
             Ok (())
         }
         
-        fn clear_block_error(origin, block_hash: H256, error: ErrorCodes)
+        fn clear_block_error(origin, block_hash: H256, error: ErrorCode)
             -> DispatchResult {
            
             // TODO: ensure this is a staked relayer
@@ -289,14 +304,14 @@ decl_module! {
             // Clear errors in the blockchain entry
             // Check which error we are dealing with
             match error {
-                ErrorCodes::NoDataBTCRelay => {
+                ErrorCode::NoDataBTCRelay => {
                     let index = blockchain.no_data
                         .iter()
                         .position(|x| *x == block_header.block_height)
                         .unwrap();
                     blockchain.no_data.remove(index);
                 },
-                ErrorCodes::InvalidBTCRelay => {
+                ErrorCode::InvalidBTCRelay => {
                     let index = blockchain.invalid
                         .iter()
                         .position(|x| *x == block_header.block_height)
@@ -329,7 +344,7 @@ impl<T: Trait> Module<T> {
     fn initialize_blockchain(
         block_height: &u32,
         block_hash: &H256)
-        -> Result<BlockChain<BTreeMap<u32, H256>>, Error<T>> 
+        -> Result<BlockChain, Error<T>> 
     {
         let chain_id = MAIN_CHAIN_ID;
 
@@ -342,7 +357,7 @@ impl<T: Trait> Module<T> {
     fn create_blockchain(
         block_height: &u32,
         block_hash: &H256)
-        -> Result<BlockChain<BTreeMap<u32, H256>>, Error<T>> 
+        -> Result<BlockChain, Error<T>> 
     {
         // get a new chain id
         let chain_id: u32 = Self::increment_chain_counter()?; 
@@ -357,7 +372,7 @@ impl<T: Trait> Module<T> {
         chain_id: &u32,
         block_height: &u32,
         block_hash: &H256)
-        -> Result<BlockChain<BTreeMap<u32, H256>>, Error<T>> 
+        -> Result<BlockChain, Error<T>> 
     {
         // initialize an empty chain
         let mut chain = BTreeMap::new();
@@ -379,8 +394,8 @@ impl<T: Trait> Module<T> {
     fn extend_blockchain(
         block_height: &u32,
         block_hash: &H256,
-        prev_blockchain: BlockChain<BTreeMap<u32, H256>>) 
-        -> Result<BlockChain<BTreeMap<u32, H256>>, Error<T>> 
+        prev_blockchain: BlockChain) 
+        -> Result<BlockChain, Error<T>> 
     {
 
         let mut blockchain = prev_blockchain;
@@ -393,7 +408,75 @@ impl<T: Trait> Module<T> {
 
         Ok(blockchain)
     }
-    fn swap_main_blockchain(fork: &BlockChain<BTreeMap<u32, H256>>) -> Option<Error<T>> {
+
+
+    /// Parses and verifies a raw Bitcoin block header.
+    /// # Arguments
+    /// * block_header` - 80-byte block header
+    ///
+    /// # Returns
+    /// * `pure_block_header` - PureBlockHeader representation of the 80-byte block header
+    ///
+    /// # Panics
+    /// If ParachainStatus in Security module is not set to RUNNING
+    fn verify_block_header(
+        raw_block_header: RawBlockHeader) 
+        -> Result<BlockHeader, Error<T>> 
+    {
+
+        let basic_block_header = parse_block_header(raw_block_header);
+        
+        // Check that the block header is not yet stored in BTC-Relay
+        ensure!(!<BlockHeaders>::exists(basic_block_header.block_hash), Error::<T>::DuplicateBlock);
+        
+        // Check that the referenced previous block header exists in BTC-Relay
+        ensure!(!<BlockHeaders>::exists(basic_block_header.hash_prev_block), Error::<T>::PrevBlock);
+        let prev_block_header = Self::blockheader(basic_block_header.hash_prev_block);
+
+        // Check that the PoW hash satisfies the target set in the block header
+        ensure!(U256::from_little_endian(basic_block_header.block_hash.as_bytes()) < basic_block_header.target, Error::<T>::LowDiff);
+
+        // Check that the diff. target is indeed correctly set in the block header, i.e., check for re-target.
+        let block_height = prev_block_header.block_height + 1;
+
+        let last_retarget_time = Self::blockheader(Self::chainindex(prev_block_header.chain_ref).chain.get(&block_height).unwrap()).block_header.timestamp;
+
+        let target_correct = match block_height % DIFFICULTY_ADJUSTMENT_INTERVAL == 0 {
+            true => basic_block_header.target.eq(&prev_block_header.block_header.target),
+            false => basic_block_header.target.eq(&Self::retarget(last_retarget_time, basic_block_header.timestamp, &prev_block_header.block_header.target))
+        };
+
+        ensure!(target_correct, Error::<T>::DiffTargetHeader);
+
+        Ok(basic_block_header)
+    }
+
+    /// Computes Bitcoin's PoW retarget algorithm for a given block height
+    /// # Argument
+    ///  * `prev_header`: previous block header (rich)
+    /// * ``block_height`: block height for PoW retarget calculation
+    /// 
+    /// FIXME: call retarget_algorithm in btcspv.rs and type-cast to BigUint instead?
+    fn retarget(
+        last_retarget_time: Moment,
+        current_time: Moment, 
+        prev_target: &U256
+    ) -> U256 {
+    
+        let actual_timespan = match (current_time - last_retarget_time) < (TARGET_TIMESPAN / u64::from(TARGET_TIMESPAN_DIVISOR)) {
+            true => TARGET_TIMESPAN / u64::from(TARGET_TIMESPAN_DIVISOR),
+            false => TARGET_TIMESPAN * u64::from(TARGET_TIMESPAN_DIVISOR)
+        };
+
+        let new_target = U256::from(actual_timespan) * prev_target / U256::from(TARGET_TIMESPAN);
+
+        match new_target > UNROUNDED_MAX_TARGET {
+            true => return UNROUNDED_MAX_TARGET,
+            false => return new_target,
+        };
+    }
+            
+    fn swap_main_blockchain(fork: &BlockChain) -> Option<Error<T>> {
         // load the main chain
         let mut main_chain = <ChainsIndex>::get(MAIN_CHAIN_ID);
       
@@ -433,7 +516,7 @@ impl<T: Trait> Module<T> {
 
         // store the main chain part that is going to be replaced by the new fork
         // into the forked_main_chain element
-        let forked_main_chain: BlockChain<BTreeMap<u32, H256>> = BlockChain {
+        let forked_main_chain: BlockChain = BlockChain {
             chain_id: chain_id, 
             chain: forked_chain.clone(),
             start_height: *start_height,
@@ -494,7 +577,7 @@ impl<T: Trait> Module<T> {
         None
     }
 
-    fn check_and_do_reorg(fork: &BlockChain<BTreeMap<u32, H256>>) -> Option<Error<T>> {
+    fn check_and_do_reorg(fork: &BlockChain) -> Option<Error<T>> {
         // Check if the ordering needs updating
         // if the fork is the main chain, we don't need to update the ordering
         if fork.chain_id == MAIN_CHAIN_ID {
@@ -560,7 +643,7 @@ impl<T: Trait> Module<T> {
 
     }
     fn insert_sorted(
-        blockchain: &BlockChain<BTreeMap<u32, H256>>) {
+        blockchain: &BlockChain) {
         // get a sorted vector over the Chains elements
         // NOTE: LinkedStorageMap iterators are not sorted over the keys
         let mut chains = <Chains>::enumerate().collect::<Vec<(u32, u32)>>();
@@ -619,8 +702,8 @@ decl_event! {
         ChainReorg(H256, u32, u32),
         VerifyTransaction(H256, u32, u32),
         ValidateTransaction(H256, u32, H160, H256),
-        FlagBlockError(H256, u32, ErrorCodes),
-        ClearBlockError(H256, u32, ErrorCodes),
+        FlagBlockError(H256, u32, ErrorCode),
+        ClearBlockError(H256, u32, ErrorCode),
 	}
 }
 
