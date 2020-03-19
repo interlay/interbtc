@@ -63,7 +63,8 @@ test-pallets-and-crates:
   script:
     - scripts/test_modified.py
   cache:
+    key: build-cache
     paths:
-      - crates/btc-relay/target
-      - crates/bitcoin/target
-      - crates/bitcoin/security
+      - crates/btc-relay/target/
+      - crates/bitcoin/target/
+      - crates/security/target/
