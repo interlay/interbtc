@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 from typing import List
 import os
@@ -51,6 +51,14 @@ class Test:
 
 TESTS = [
     Test("bitcoin", "crates/bitcoin", [
+        "cargo build --release",
+        "cargo test --verbose",
+    ]),
+    Test("btc-relay", "crates/btc-relay", [
+        "cargo build --release",
+        "cargo test --verbose",
+    ]),
+    Test("security", "crates/security", [
         "cargo build --release",
         "cargo test --verbose",
     ]),
