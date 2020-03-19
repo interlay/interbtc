@@ -20,7 +20,8 @@ use sp_std::collections::btree_map::BTreeMap;
 // Crates
 use bitcoin::types::{RawBlockHeader, BlockHeader, RichBlockHeader, BlockChain};
 use bitcoin::parser::{header_from_bytes, parse_block_header};
-use security::{ErrorCode};
+use security::{StatusCode, ErrorCode};
+use security;
 
 // External Crates
 // Summa Bitcoin SPV lib
@@ -31,10 +32,9 @@ use bitcoin_spv::btcspv;
 /// The pallet's configuration trait.
 /// For further reference, see:
 /// https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/spec/data-model.html
-pub trait Trait: system::Trait {
+pub trait Trait: system::Trait + security::Trait {
     /// The overarching event type.
     type Event: From<Event> + Into<<Self as system::Trait>::Event>;
-    
 }
 
 /// Difficulty Adjustment Interval
@@ -135,21 +135,26 @@ decl_module! {
         fn store_block_header(origin, block_header_bytes: Vec<u8>)
         -> DispatchResult {
             let _ = ensure_signed(origin)?;
-            // TODO: Check if BTC _Parachain is in shutdown state.
+            // Check if BTC _Parachain is in shutdown state.
+            ensure!(
+                !<security::Module<T>>::check_parachain_status(
+                    StatusCode::Shutdown), 
+                Error::<T>::Shutdown
+            ); 
 
             // Parse the block header bytes to extract the required info
             let raw_block_header = header_from_bytes(&block_header_bytes);
 
-            //TODO:  Replace this with call to verify_block_header() which returns a PureBlockHeader
-            //let basic_block_header = parse_block_header(raw_block_header);
-            
             let basic_block_header = Self::verify_block_header(raw_block_header)?;
 
             let block_header_hash = basic_block_header.block_hash; 
                        
 
             // get the block header of the previous block
-            ensure!(<BlockHeaders>::exists(basic_block_header.hash_prev_block), Error::<T>::PrevBlock);
+            ensure!(
+                <BlockHeaders>::exists(basic_block_header.hash_prev_block), 
+                Error::<T>::PrevBlock
+            );
             let prev_header = Self::blockheader(basic_block_header.hash_prev_block);
 
             // get the block chain of the previous header
@@ -257,8 +262,12 @@ decl_module! {
         fn flag_block_error(origin, block_hash: H256, error: ErrorCode)
             -> DispatchResult {
            
-            // TODO: ensure this is a staked relayer
-            let _ = ensure_signed(origin)?;
+            // ensure this is a staked relayer
+            let relayer = ensure_signed(origin)?;
+            ensure!(
+                <security::Module<T>>::check_relayer_registered(relayer), 
+                Error::<T>::UnauthorizedRelayer
+            ); 
             
             // Get the chain id of the block header
             ensure!(<BlockHeaders>::exists(block_hash), Error::<T>::BlockNotFound);
@@ -290,8 +299,12 @@ decl_module! {
         fn clear_block_error(origin, block_hash: H256, error: ErrorCode)
             -> DispatchResult {
            
-            // TODO: ensure this is a staked relayer
-            let _ = ensure_signed(origin)?;
+            // ensure this is a staked relayer
+            let relayer = ensure_signed(origin)?;
+            ensure!(
+                <security::Module<T>>::check_relayer_registered(relayer), 
+                Error::<T>::UnauthorizedRelayer
+            ); 
             
             // Get the chain id of the block header
             ensure!(<BlockHeaders>::exists(block_hash), Error::<T>::BlockNotFound);
@@ -739,6 +752,7 @@ decl_error! {
         UnknownErrorcode,
         BlockNotFound,
         AlreadyReported,
+        UnauthorizedRelayer,
         ChainCounterOverflow,
         BlockHeightOverflow,
         ChainsUnderflow,
