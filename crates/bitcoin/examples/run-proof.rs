@@ -16,7 +16,7 @@ fn main() {
     let proof = MerkleProof::parse(&raw_proof);
     let (computed_merkle_root, position) = proof.verify_proof();
     println!(
-        "proof: tx count = {}, hash count = {}, tree height = {}, merkle root = {:?}, hashes count = {}, flags={:?}, computed merkle root = {}, position = {}",
+        "proof: transactions count = {}, hash count = {}, tree height = {}, merkle root = {:?}, hashes count = {}, flags={:?}, computed merkle root = {}, position = {}",
         proof.transactions_count,
         proof.hashes.len(),
         proof.compute_tree_height(),
