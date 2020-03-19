@@ -53,7 +53,7 @@ impl Default for StatusCode {
 }
 
 /// Enum specifying errors which lead to the Error status, tacked in Errors
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub enum ErrorCode {
 	/// No error. Used as default value
@@ -194,7 +194,7 @@ impl<T: Trait> Module<T> {
 	/// # Arguments
 	///
 	/// * `status_code` - to-be-checked StatusCode enum
-	fn check_parachain_status(status_code: StatusCode) -> bool {
+	pub fn check_parachain_status(status_code: StatusCode) -> bool {
 		return status_code == <ParachainStatus>::get();
 	}
 
@@ -206,6 +206,14 @@ impl<T: Trait> Module<T> {
 	fn check_parachain_error(error_code: ErrorCode) -> bool {
 		return <Errors>::get().contains(&(error_code as u8));
 	}
+    /// Checks if a staked relayer is registered
+    ///
+    /// # Arguments
+    ///
+    /// * `relayer` - account id of the relayer
+    pub fn check_relayer_registered(relayer: T::AccountId) -> bool {
+        return <StakedRelayers<T>>::exists(relayer);
+    }
 }
 
 decl_event!(
