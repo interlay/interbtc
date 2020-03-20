@@ -26,11 +26,15 @@ def execute_command(command: str):
 
 
 class Test:
-    def __init__(self, name: str, root_dir: str, test_commands: List[str]):
+    def __init__(self, name: str, root_dir: str,
+                 test_commands: List[str], extra_dirs: List[str] = None):
         self.name = name
         self.root_dir = path.abspath(root_dir)
         self.test_commands = test_commands
         self._executed = False
+        if extra_dirs is None:
+            extra_dirs = []
+        self.extra_dirs = [path.abspath(directory) for directory in extra_dirs]
 
     def run(self):
         logging.info("running test %s", self.name)
@@ -46,7 +50,11 @@ class Test:
     def should_run(self, modified_files: List[str]):
         if self._executed:
             return False
-        return any(filename.startswith(self.root_dir) for filename in modified_files)
+        directories_to_check = [self.root_dir] + self.extra_dirs
+        for directory in directories_to_check:
+            if any(filename.startswith(directory) for filename in modified_files):
+                return True
+        return False
 
 
 TESTS = [
@@ -57,7 +65,7 @@ TESTS = [
     Test("btc-relay", "crates/btc-relay", [
         "cargo build --release",
         "cargo test --verbose",
-    ]),
+    ], ["crates/security"]),
     Test("security", "crates/security", [
         "cargo build --release",
         "cargo test --verbose",
