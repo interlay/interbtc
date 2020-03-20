@@ -13,7 +13,7 @@ const PROOF_HEX: &str = "010000006fd2c5a8fac33dbe89bb2a2947a73eed2afc3b1d4f88694
 
 fn main() {
     let raw_proof = deserialize_hex(&PROOF_HEX[..]).unwrap();
-    let proof = MerkleProof::parse(&raw_proof);
+    let proof = MerkleProof::parse(&raw_proof).unwrap();
     let result = proof.verify_proof().unwrap();
     println!(
         "proof: transactions count = {}, hash count = {}, tree height = {},\nmerkle root = {:?}, hashes count = {}, flags={:?},\ncomputed merkle root = {}, position = {}",

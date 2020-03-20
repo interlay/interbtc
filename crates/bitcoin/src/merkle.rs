@@ -1,5 +1,5 @@
-use crate::parser;
-use crate::types::{BlockHeader, Error, H256Le};
+use crate::parser::BytesParser;
+use crate::types::{BlockHeader, Error, H256Le, VarInt};
 
 use bitcoin_spv::btcspv::hash256_merkle_step;
 
@@ -140,42 +140,31 @@ impl MerkleProof {
     /// # Arguments
     ///
     /// * `merkle_proof` - Raw bytes of the merkle proof
-    pub fn parse(merkle_proof: &[u8]) -> MerkleProof {
-        let header = parser::parse_block_header(parser::header_from_bytes(&merkle_proof[0..80]));
-        let mut transactions_count: [u8; 4] = Default::default();
-        transactions_count.copy_from_slice(&merkle_proof[80..84]);
-        let (bytes_consumed, hashes_count) = parser::parse_varint(&merkle_proof[84..87]);
-        let mut current_index = bytes_consumed + 84;
+    pub fn parse(merkle_proof: &[u8]) -> Result<MerkleProof, Error> {
+        let mut proof_parser = BytesParser::new(merkle_proof);
+        let header = proof_parser.parse()?;
+        let transactions_count = proof_parser.parse()?;
 
-        let mut hashes = Vec::new();
+        let hashes_count = proof_parser.parse::<VarInt>()?.value;
+
+        let mut hashes = Vec::<H256Le>::new();
         for _ in 0..hashes_count {
-            let raw_hash = &merkle_proof[current_index..current_index + 32];
-            hashes.push(H256Le::from_bytes_le(raw_hash));
-            current_index += 32;
+            hashes.push(proof_parser.parse()?);
         }
 
-        let last_byte = std::cmp::min(current_index + 3, merkle_proof.len());
-        let (bytes_consumed, flag_bits_count) =
-            parser::parse_varint(&merkle_proof[current_index..last_byte]);
-        current_index += bytes_consumed;
+        let flag_bits_count = proof_parser.parse::<VarInt>()?.value;
 
         let mut flag_bits = Vec::new();
-
-        for i in 0..flag_bits_count {
-            let byte = merkle_proof[current_index + i as usize];
-            for i in 0..8 {
-                let mask = 1 << i;
-                let bit = (byte & mask) != 0;
-                flag_bits.push(bit);
-            }
+        for _ in 0..flag_bits_count {
+            flag_bits.extend(proof_parser.parse::<Vec<bool>>()?);
         }
 
-        MerkleProof {
+        Ok(MerkleProof {
             block_header: header,
-            transactions_count: u32::from_le_bytes(transactions_count),
+            transactions_count: transactions_count,
             hashes: hashes,
             flag_bits: flag_bits,
-        }
+        })
     }
 }
 
@@ -201,7 +190,7 @@ mod tests {
     #[test]
     fn test_parse_proof() {
         let raw_proof = deserialize_hex(&PROOF_HEX[..]).unwrap();
-        let proof = MerkleProof::parse(&raw_proof);
+        let proof = MerkleProof::parse(&raw_proof).unwrap();
         let expected_merkle_root =
             H256::from_str("a0e8ab249b25ef31da538262ab8b2885ce63ca82a22fd0efdce76ea6920d1f90")
                 .unwrap();
@@ -217,7 +206,7 @@ mod tests {
 
     #[test]
     fn test_compute_tree_width() {
-        let proof = MerkleProof::parse(&deserialize_hex(&PROOF_HEX[..]).unwrap());
+        let proof = MerkleProof::parse(&deserialize_hex(&PROOF_HEX[..]).unwrap()).unwrap();
         assert_eq!(proof.compute_tree_width(0), proof.transactions_count);
         assert_eq!(
             proof.compute_tree_width(1),
@@ -228,13 +217,13 @@ mod tests {
 
     #[test]
     fn test_compute_tree_height() {
-        let proof = MerkleProof::parse(&deserialize_hex(&PROOF_HEX[..]).unwrap());
+        let proof = MerkleProof::parse(&deserialize_hex(&PROOF_HEX[..]).unwrap()).unwrap();
         assert_eq!(proof.compute_tree_height(), 12);
     }
 
     #[test]
     fn test_extract_hash() {
-        let proof = MerkleProof::parse(&deserialize_hex(&PROOF_HEX[..]).unwrap());
+        let proof = MerkleProof::parse(&deserialize_hex(&PROOF_HEX[..]).unwrap()).unwrap();
         let merkle_root = H256Le::from_bytes_be(proof.block_header.merkle_root.as_bytes());
         let result = proof.verify_proof().unwrap();
         assert_eq!(result.extracted_root, merkle_root);

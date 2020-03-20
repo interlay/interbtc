@@ -1,9 +1,104 @@
-use crate::types::{RawBlockHeader, BlockHeader};
+use crate::types::*;
 
 use primitive_types::{U256, H256};
 use node_primitives::{Moment};
 
 use bitcoin_spv::btcspv;
+
+
+pub(crate) trait Parsable: Sized {
+    fn parse(raw_bytes: &[u8], position: usize) -> Result<(Self, usize), Error>;
+}
+
+/// Macro to generate `Parsable` implementation of uint types
+macro_rules! make_uint_parsable {
+    ($type:ty, $bytes:expr) => (
+        impl Parsable for $type {
+            fn parse(raw_bytes: &[u8], position: usize) -> Result<($type, usize), Error> {
+                if position + $bytes > raw_bytes.len() {
+                    return Err(Error::EOS);
+                }
+                let mut value_bytes: [u8; $bytes] = Default::default();
+                value_bytes.copy_from_slice(&raw_bytes[position..position + $bytes]);
+                Ok((<$type>::from_le_bytes(value_bytes), $bytes))
+            }
+        }
+    );
+}
+
+make_uint_parsable!(u8, 1);
+make_uint_parsable!(u16, 2);
+make_uint_parsable!(u32, 4);
+make_uint_parsable!(u64, 8);
+
+impl Parsable for VarInt {
+    fn parse(raw_bytes: &[u8], position: usize) -> Result<(VarInt, usize), Error> {
+        let last_byte = std::cmp::min(position + 3, raw_bytes.len());
+        let (value, bytes_consumed) = parse_varint(&raw_bytes[position..last_byte]);
+        Ok((VarInt { value }, bytes_consumed))
+    }
+}
+
+impl Parsable for BlockHeader {
+    fn parse(raw_bytes: &[u8], position: usize) -> Result<(BlockHeader, usize), Error> {
+        if position + 80 > raw_bytes.len() {
+            return Err(Error::EOS);
+        }
+        let header_bytes = header_from_bytes(&raw_bytes[position..position + 80]);
+        let block_header = parse_block_header(header_bytes);
+        Ok((block_header, 80))
+    }
+}
+
+impl Parsable for H256Le {
+    fn parse(raw_bytes: &[u8], position: usize) -> Result<(H256Le, usize), Error> {
+        if position + 32 > raw_bytes.len() {
+            return Err(Error::EOS);
+        }
+        Ok((H256Le::from_bytes_le(&raw_bytes[position..position + 32]), 32))
+    }
+}
+
+impl Parsable for Vec<bool> {
+    fn parse(raw_bytes: &[u8], position: usize) -> Result<(Vec<bool>, usize), Error> {
+        let byte = raw_bytes[position];
+        let mut flag_bits = Vec::new();
+        for i in 0..8 {
+            let mask = 1 << i;
+            let bit = (byte & mask) != 0;
+            flag_bits.push(bit);
+        }
+        Ok((flag_bits, 1))
+    }
+}
+
+/// BytesParser is a stateful parser for raw bytes
+/// The head of the parser is updated for each `read` or `parse` operation
+pub(crate) struct BytesParser {
+    raw_bytes: Vec<u8>,
+    position: usize,
+}
+
+impl BytesParser {
+    /// Creates a new `BytesParser` to parse the given raw bytes
+    pub(crate) fn new(bytes: &[u8]) -> BytesParser {
+        BytesParser {
+            raw_bytes: Vec::from(bytes),
+            position: 0,
+        }
+    }
+
+    /// Parses a `Parsable` object and updates the parser head
+    /// to the next byte after the parsed object
+    /// Fails if there are not enough bytes to read or if the
+    /// underlying `Parsable` parse function fails
+    pub(crate) fn parse<T: Parsable> (&mut self) -> Result<T, Error> {
+        let (result, bytes_consumed) = T::parse(&self.raw_bytes, self.position)?;
+        self.position += bytes_consumed;
+        Ok(result)
+    }
+}
+
 
 /// Returns a raw block header from a bytes slice
 ///
@@ -104,28 +199,31 @@ pub fn parse_block_header(raw_header: RawBlockHeader) -> BlockHeader {
 /// # Arguments
 ///
 /// * `varint` - A slice containing the header
-pub fn parse_varint(varint: &[u8]) -> (usize, u64) {
+pub fn parse_varint(varint: &[u8]) -> (u64, usize) {
     match varint[0] {
         0xfd => {
             let mut num_bytes: [u8; 2] = Default::default();
             num_bytes.copy_from_slice(&varint[1..3]);
-            println!("{} {} {}", num_bytes[0], num_bytes[1], u16::from_le_bytes(num_bytes));
-            (3, u16::from_le_bytes(num_bytes) as u64)
+            (u16::from_le_bytes(num_bytes) as u64, 3)
         },
         0xfe => {
             let mut num_bytes: [u8; 4] = Default::default();
             num_bytes.copy_from_slice(&varint[1..5]);
-            (5, u32::from_le_bytes(num_bytes) as u64)
+            (u32::from_le_bytes(num_bytes) as u64, 5)
         },
         0xff => {
             let mut num_bytes: [u8; 8] = Default::default();
             num_bytes.copy_from_slice(&varint[1..9]);
-            (9, u64::from_le_bytes(num_bytes) as u64)
+            (u64::from_le_bytes(num_bytes) as u64, 9)
         },
-        _    => (1, varint[0] as u64)
+        _    => (varint[0] as u64, 1)
     }
 }
 
+
+pub fn parse_transaction(_raw_transaction: &[u8]) -> Result<Transaction, Error> {
+    Err(Error::InvalidProof)
+}
 
 
 #[cfg(test)]
@@ -160,9 +258,9 @@ mod tests {
     fn test_parse_varint() {
         let cases = [
             (&[1, 2, 3][..], (1, 1)),
-            (&[253, 2, 3][..], (3, 770)),
-            (&[254, 2, 3, 8, 1, 8][..], (5, 17302274)),
-            (&[255, 6, 0xa, 3, 8, 1, 0xb, 2, 7, 8][..], (9, 504978207276206598)),
+            (&[253, 2, 3][..], (770, 3)),
+            (&[254, 2, 3, 8, 1, 8][..], (17302274, 5)),
+            (&[255, 6, 0xa, 3, 8, 1, 0xb, 2, 7, 8][..], (504978207276206598, 9)),
         ];
         for (input, expected) in cases.iter() {
             assert_eq!(parse_varint(input), *expected);

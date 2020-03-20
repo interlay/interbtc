@@ -25,6 +25,24 @@ pub struct BlockHeader {
     pub nonce: u32
 }
 
+
+/// Bitcoin transaction input
+#[derive(PartialEq)]
+pub struct TransactionInput {}
+
+/// Bitcoin transaction output
+#[derive(PartialEq)]
+pub struct TransactionOutput {}
+
+/// Bitcoin transaction
+#[derive(PartialEq)]
+pub struct Transaction {
+    pub inputs: Vec<TransactionInput>,
+    pub outputs: Vec<TransactionOutput>,
+    pub block_height: Option<u32>,
+    pub locktime: Option<u64>,
+}
+
 /// Bitcoin Enriched Block Headers
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
@@ -112,20 +130,28 @@ impl std::fmt::Display for H256Le {
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub enum Error {
+    /// Reached EOS without finishing to parse bytes
+    EOS,
+
     /// Format of the proof is not correct
     MalformedProof,
 
     /// Format of the proof is correct but does not yield the correct
     /// merkle root
-    InvalidProof
+    InvalidProof,
+
+    /// Format of the transaction is invalid
+    MalformedTransaction,
 }
 
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Error::EOS => write!(f, "reached EOS before parsing end"),
             Error::MalformedProof => write!(f, "merkle proof is malformed"),
-            Error::InvalidProof => write!(f, "invalid merkle proof")
+            Error::InvalidProof => write!(f, "invalid merkle proof"),
+            Error::MalformedTransaction => write!(f, "invalid transaction format"),
         }
     }
 }
@@ -143,6 +169,9 @@ impl PartialEq<H256> for H256Le {
     }
 }
 
+pub(crate) struct VarInt {
+    pub(crate) value: u64,
+}
 
 #[cfg(test)]
 mod tests {
