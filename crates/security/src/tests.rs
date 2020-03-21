@@ -3,7 +3,6 @@
 use crate::{Module, Trait, Error, Event};
 use sp_core::{U256, H256};
 use frame_support::{impl_outer_origin, impl_outer_event, assert_ok, assert_err, parameter_types, weights::Weight};
-use frame_support::traits::Currency;
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup}, testing::Header, Perbill,
 };
@@ -19,7 +18,6 @@ mod test_events {
 impl_outer_event! {
     pub enum TestEvent for Test {
         test_events,
-        system<T>
     }
 }
 
