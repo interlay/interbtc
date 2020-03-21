@@ -14,16 +14,16 @@ const PROOF_HEX: &str = "010000006fd2c5a8fac33dbe89bb2a2947a73eed2afc3b1d4f88694
 fn main() {
     let raw_proof = deserialize_hex(&PROOF_HEX[..]).unwrap();
     let proof = MerkleProof::parse(&raw_proof);
-    let (computed_merkle_root, position) = proof.verify_proof();
+    let result = proof.verify_proof().unwrap();
     println!(
-        "proof: tx count = {}, hash count = {}, tree height = {}, merkle root = {:?}, hashes count = {}, flags={:?}, computed merkle root = {}, position = {}",
+        "proof: transactions count = {}, hash count = {}, tree height = {},\nmerkle root = {:?}, hashes count = {}, flags={:?},\ncomputed merkle root = {}, position = {}",
         proof.transactions_count,
         proof.hashes.len(),
         proof.compute_tree_height(),
         proof.block_header.merkle_root,
         proof.hashes.len(),
         proof.flag_bits,
-        computed_merkle_root,
-        position
+        result.extracted_root,
+        result.transaction_position
     );
 }

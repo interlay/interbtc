@@ -20,12 +20,10 @@ use sp_std::collections::btree_map::BTreeMap;
 // Crates
 use bitcoin::types::{RawBlockHeader, BlockHeader, RichBlockHeader, BlockChain};
 use bitcoin::parser::{header_from_bytes, parse_block_header};
+use bitcoin::merkle::MerkleProof;
 use security::{StatusCode, ErrorCode};
 use security;
 
-// External Crates
-// Summa Bitcoin SPV lib
-use bitcoin_spv::btcspv;
 
 
 /// ## Configuration and Constants
@@ -238,25 +236,46 @@ decl_module! {
             Ok(())
         }
 
-    
-
-
+        /// Verifies the inclusion of `tx_id` in block at height `tx_block_height`
+        /// # Arguments
+        ///
+        /// * `tx_id` - The hash of the transaction to check for
+        /// * `tx_block_height` - The height of the block in which the transaction should be included
+        /// * `raw_merkle_proof` - The raw merkle proof as returned by bitcoin `gettxoutproof`
+        /// * `confirmations` - The number of confirmations needed to accept the proof
         fn verify_transaction_inclusion(
             origin,
             tx_id: H256,
-            tx_block_height: u32,
-            tx_index: u64,
-            merkle_proof: Vec<u8>,
+            block_height: u32,
+            raw_merkle_proof: Vec<u8>,
             confirmations: u32)
         -> DispatchResult {
             let _ = ensure_signed(origin)?;
 
-            // TODO: check if Parachain is in error status
+            // fail if parachain is not in running state.
+            ensure!(<security::Module<T>>::check_parachain_status(StatusCode::Running),
+                Error::<T>::Shutdown);
 
-            // TODO: check no data blocks
+            let blockchain = <ChainsIndex>::get(MAIN_CHAIN_ID);
+
+            // fail if not enough confirmations
+            ensure!(block_height + confirmations <= blockchain.max_height,
+                Error::<T>::Confirmations);
+
+            let merkle_proof = MerkleProof::parse(&raw_merkle_proof);
+            let proof_result = merkle_proof.verify_proof().map_err(|_e| Error::<T>::InvalidMerkleProof)?;
+
+            let rich_header = Self::get_block_header_from_height(&blockchain, block_height)?;
+
+            // fail if the transaction hash is invalid
+            ensure!(proof_result.transaction_hash == tx_id,
+                    Error::<T>::InvalidMerkleProof);
+
+            // fail if the merkle root is invalid
+            ensure!(proof_result.extracted_root == rich_header.block_header.merkle_root,
+                    Error::<T>::InvalidMerkleProof);
 
             Ok(())
-
         }
         
         fn flag_block_error(origin, block_hash: H256, error: ErrorCode)
@@ -341,11 +360,38 @@ decl_module! {
             Ok (())
         }
 
-	}
+    }
 }
 
 /// Utility functions
 impl<T: Trait> Module<T> {
+    fn get_block_hash(
+        blockchain: &BlockChain,
+        block_height: u32
+    ) -> Result<H256, Error<T>> {
+        match blockchain.chain.get(&block_height) {
+            Some(hash) => Ok(*hash),
+            None => return Err(Error::<T>::MissingBlockHeight.into()),
+        }
+    }
+
+    fn get_block_header_from_hash(
+        block_hash: H256
+    ) -> Result<RichBlockHeader, Error<T>> {
+        if <BlockHeaders>::exists(block_hash) {
+            return Ok(<BlockHeaders>::get(block_hash));
+        }
+        Err(Error::<T>::HeaderNotFound)
+    }
+
+    fn get_block_header_from_height(
+        blockchain: &BlockChain,
+        block_height: u32,
+    ) -> Result<RichBlockHeader, Error<T>> {
+        let block_hash = Self::get_block_hash(blockchain, block_height)?;
+        Self::get_block_header_from_hash(block_hash)
+    }
+
     fn increment_chain_counter() -> Result<u32, Error<T>> {
         let new_counter = <ChainCounter>::get()
             .checked_add(1)
