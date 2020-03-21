@@ -57,15 +57,14 @@ btc-parachain-test:
     - merge_requests
 
 # pallets and crates
-btc-relay:
-  stage: build
+test-pallets-and-crates:
+  stage: test
   image: rustlang/rust:nightly
   script:
-    - cd crates/btc-relay
-    - cargo build --release
-    - cargo test --verbose
-  only:
-    - branches
-  except:
-    - dev
-    - master
+    - scripts/test_modified.py
+  cache:
+    key: build-cache
+    paths:
+      - crates/btc-relay/target/
+      - crates/bitcoin/target/
+      - crates/security/target/
