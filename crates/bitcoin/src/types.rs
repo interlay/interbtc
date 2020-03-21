@@ -107,6 +107,43 @@ impl std::fmt::Display for H256Le {
     }
 }
 
+
+/// Errors which can be returned by the bitcoin crate
+#[derive(Clone, Copy)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub enum Error {
+    /// Format of the proof is not correct
+    MalformedProof,
+
+    /// Format of the proof is correct but does not yield the correct
+    /// merkle root
+    InvalidProof
+}
+
+
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Error::MalformedProof => write!(f, "merkle proof is malformed"),
+            Error::InvalidProof => write!(f, "invalid merkle proof")
+        }
+    }
+}
+
+impl PartialEq<H256Le> for H256 {
+    fn eq(&self, other: &H256Le) -> bool {
+        let bytes_le = H256Le::from_bytes_be(self.as_bytes());
+        bytes_le == *other
+    }
+}
+
+impl PartialEq<H256> for H256Le {
+    fn eq(&self, other: &H256) -> bool {
+        *other == *self
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -123,5 +160,16 @@ mod tests {
         assert_eq!(bytes_be[30], 10);
         let content_be = H256Le::from_bytes_be(&bytes);
         assert_eq!(content_be.to_bytes_be(), bytes);
+    }
+
+    #[test]
+    fn test_partial_eq() {
+        let mut bytes: [u8; 32] = [0; 32];
+        bytes[0] = 5;
+        bytes[1] = 10;
+        let h256 = H256::from_slice(&bytes);
+        let h256_le = H256Le::from_bytes_be(&bytes);
+        assert_eq!(h256, h256_le);
+        assert_eq!(h256_le, h256);
     }
 }
