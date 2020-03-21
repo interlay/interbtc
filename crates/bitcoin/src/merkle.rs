@@ -1,5 +1,5 @@
 use crate::parser::BytesParser;
-use crate::types::{BlockHeader, Error, H256Le, VarInt};
+use crate::types::{BlockHeader, Error, H256Le, CompactUint};
 
 use bitcoin_spv::btcspv::hash256_merkle_step;
 
@@ -145,17 +145,17 @@ impl MerkleProof {
         let header = proof_parser.parse()?;
         let transactions_count = proof_parser.parse()?;
 
-        let hashes_count = proof_parser.parse::<VarInt>()?.value;
+        let hashes_count: CompactUint = proof_parser.parse()?;
 
         let mut hashes = Vec::<H256Le>::new();
-        for _ in 0..hashes_count {
+        for _ in 0..hashes_count.value {
             hashes.push(proof_parser.parse()?);
         }
 
-        let flag_bits_count = proof_parser.parse::<VarInt>()?.value;
+        let flag_bits_count: CompactUint = proof_parser.parse()?;
 
         let mut flag_bits = Vec::new();
-        for _ in 0..flag_bits_count {
+        for _ in 0..flag_bits_count.value {
             flag_bits.extend(proof_parser.parse::<Vec<bool>>()?);
         }
 

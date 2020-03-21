@@ -28,7 +28,14 @@ pub struct BlockHeader {
 
 /// Bitcoin transaction input
 #[derive(PartialEq)]
-pub struct TransactionInput {}
+pub struct TransactionInput {
+    pub previous_hash: H256Le,
+    pub previous_index: u32,
+    pub coinbase: bool,
+    pub height: Option<Vec<u8>>,
+    pub script: Vec<u8>,
+    pub sequence: u32,
+}
 
 /// Bitcoin transaction output
 #[derive(PartialEq)]
@@ -72,6 +79,11 @@ pub struct H256Le {
 }
 
 impl H256Le {
+    /// Creates a new H256Le hash equals to zero
+    pub fn zero() -> H256Le {
+        H256Le { content: [0; 32] }
+    }
+
     /// Creates a H256Le from little endian bytes
     pub fn from_bytes_le(bytes: &[u8]) -> H256Le {
         let mut content: [u8; 32] = Default::default();
@@ -169,7 +181,7 @@ impl PartialEq<H256> for H256Le {
     }
 }
 
-pub(crate) struct VarInt {
+pub(crate) struct CompactUint {
     pub(crate) value: u64,
 }
 
