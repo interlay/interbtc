@@ -8,7 +8,6 @@ mod tests;
 ///
 use frame_support::{decl_module, decl_storage, decl_event, decl_error, dispatch::DispatchResult, ensure, Parameter};
 use system::ensure_signed;
-use frame_support::traits::Currency;
 use codec::{Encode, Decode, Codec};
 use codec::alloc::string::{String};
 use node_primitives::{BlockNumber, AccountId};
@@ -53,8 +52,7 @@ impl Default for StatusCode {
 }
 
 /// Enum specifying errors which lead to the Error status, tacked in Errors
-#[derive(Encode, Decode, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
 pub enum ErrorCode {
 	/// No error. Used as default value
 	None = 0,
