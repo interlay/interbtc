@@ -162,7 +162,7 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
 
-	/// Checks if the ParachainStatus matches the provided StatusCoce
+	/// Checks if the ParachainStatus matches the provided StatusCode
 	///
 	/// # Arguments
 	///
