@@ -21,12 +21,11 @@ use sp_std::collections::btree_set::BTreeSet;
 /// The pallet's configuration trait.
 pub trait Trait: system::Trait {
 	/// The overarching event type.
-	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event> + Into<<Self as system::Trait>::Event>;
 
-	/// Dot currency
+	// Dot currency
 	// FIXME: Check if correct. DOT currently emulated, until DOT bridge becomes available
-	type DotBalance: Parameter + Member + SimpleArithmetic + Codec + Default + Copy +
-	MaybeSerializeDeserialize + Debug + From<Self::BlockNumber>;
+	// type DotBalance: Parameter + Member + SimpleArithmetic + Codec + Default + Copy + MaybeSerializeDeserialize + Debug + From<Self::BlockNumber>;
 }
 
 /// ## Constants
@@ -53,8 +52,8 @@ impl Default for StatusCode {
 }
 
 /// Enum specifying errors which lead to the Error status, tacked in Errors
-#[derive(Encode, Decode, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+//#[cfg_attr(feature = "std", derive(Debug))]
 pub enum ErrorCode {
 	/// No error. Used as default value
 	None = 0,
@@ -157,30 +156,6 @@ decl_storage! {
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 
-		// Initializing events
-		fn deposit_event() = default;
-        
-        // Initialize errors
-        type Error = Error<T>;
-
-        fn register_staked_relayer(origin, stake: u64) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            
-            // TODO: How does this check behave when a relayer de-registered?
-            // Does Substrate delete the set and this check will pass?
-            ensure!(!<StakedRelayers<T>>::exists(&sender), Error::<T>::AlreadyRegistered);
-          
-            // ensure!(stake >= Self::MINIMUM_STAKE, Error::<T>::InsufficientStake);
-
-            // lock stake in the collateral module
-            // track the stake in the StakedRelayers mapping
-            let relayer = StakedRelayer {stake: stake};
-            <StakedRelayers<T>>::insert(&sender, relayer);
-            
-            // Emit the event
-            Self::deposit_event(RawEvent::RegisterStakedRelayer(sender, stake));
-            Ok(()) 
-        }
 	}
 }
 
@@ -217,9 +192,7 @@ impl<T: Trait> Module<T> {
 }
 
 decl_event!(
-	pub enum Event<T> where
-        AccountId = <T as system::Trait>::AccountId
-    {
+	pub enum Event {
         RegisterStakedRelayer(AccountId, u64),
         DeRegisterStakedRelayer(AccountId),
         StatusUpdateSuggested(u8, BTreeSet<u8>, BTreeSet<u8>, String, AccountId),
