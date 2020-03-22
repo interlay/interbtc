@@ -89,7 +89,6 @@ impl Parsable for Vec<bool> {
     }
 }
 
-
 impl ParsableMeta<i32> for TransactionInput {
     fn parse_with(
         raw_bytes: &[u8],
@@ -97,6 +96,12 @@ impl ParsableMeta<i32> for TransactionInput {
         version: i32,
     ) -> Result<(TransactionInput, usize), Error> {
         parse_transaction_input(&raw_bytes[position..], version)
+    }
+}
+
+impl Parsable for TransactionOutput {
+    fn parse(raw_bytes: &[u8], position: usize) -> Result<(TransactionOutput, usize), Error> {
+        parse_transaction_output(&raw_bytes[position..])
     }
 }
 
@@ -244,7 +249,7 @@ pub fn parse_block_header(raw_header: RawBlockHeader) -> BlockHeader {
     return block_header;
 }
 
-/// Returns the value of the varint
+/// Returns the value of a compactly encoded uint and the number of bytes consumed
 ///
 /// # Arguments
 ///
@@ -289,8 +294,32 @@ pub fn parse_transaction(raw_transaction: &[u8]) -> Result<Transaction, Error> {
         inputs.push(parser.parse_with(version)?);
     }
 
-    // parser.parse()
-    Err(Error::MalformedTransaction)
+    let tx_out_count: CompactUint = parser.parse()?;
+
+    let mut outputs: Vec<TransactionOutput> = Vec::new();
+    for _ in 0..tx_out_count.value {
+        outputs.push(parser.parse()?);
+    }
+
+    let locktime_or_blockheight: u32 = parser.parse()?;
+    let (locktime, block_height) = if locktime_or_blockheight < 500_000_000 {
+        (None, Some(locktime_or_blockheight))
+    } else {
+        (Some(locktime_or_blockheight), None)
+    };
+
+    // fail if all bytes have not been consumed
+    if parser.position != raw_transaction.len() {
+        return Err(Error::MalformedTransaction);
+    }
+
+    Ok(Transaction {
+        version: version,
+        inputs: inputs,
+        outputs: outputs,
+        block_height: block_height,
+        locktime: locktime,
+    })
 }
 
 /// Parses a transaction input
@@ -341,13 +370,31 @@ pub fn parse_transaction_input(
     ))
 }
 
+pub fn parse_transaction_output(raw_output: &[u8]) -> Result<(TransactionOutput, usize), Error> {
+    let mut parser = BytesParser::new(raw_output);
+    let value: i64 = parser.parse()?;
+    let script_size: CompactUint = parser.parse()?;
+    if script_size.value > 10_000 {
+        return Err(Error::MalformedTransaction);
+    }
+    let script = parser.read(script_size.value as usize)?;
+    Ok((
+        TransactionOutput {
+            value: value,
+            script: Vec::from(script),
+        },
+        parser.position,
+    ))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    // examples from https://bitcoin.org/en/developer-reference#block-headers
+
     #[test]
     fn test_parse_block_header() {
-        // example from https://bitcoin.org/en/developer-reference#block-headers
         let hex_header = "02000000".to_owned() + // ............... Block version: 2
             "b6ff0b1b1680a2862a30ca44d346d9e8" + //
             "910d334beb48ca0c0000000000000000" + // ... Hash of previous block's header
@@ -389,7 +436,7 @@ mod tests {
         }
     }
 
-    fn coinbase_transaction_input() -> String {
+    fn sample_coinbase_transaction_input() -> String {
         "00000000000000000000000000000000".to_owned() +
         "00000000000000000000000000000000" + // Previous outpoint TXID
         "ffffffff"                         + // Previous outpoint index
@@ -399,10 +446,10 @@ mod tests {
         "062f503253482f0472d35454085fffed" +
         "f2400000f90f54696d65202620486561" +
         "6c74682021"                       + // Arbitrary data
-        "00000000"                           // Sequence
+        "00000000" // Sequence
     }
 
-    fn transaction_input() -> String {
+    fn sample_transaction_input() -> String {
         "7b1eabe0209b1fe794124575ef807057".to_owned() +
         "c77ada2138ae4fa8d6c4de0398a14f3f" +   // Outpoint TXID
         "00000000" +                           // Outpoint index number
@@ -413,12 +460,34 @@ mod tests {
         "b388ab8935022079656090d7f6bac4c9" +
         "a94e0aad311a4268e082a725f8aeae05" +
         "73fb12ff866a5f01" +                   // Secp256k1 signature
-        "ffffffff"                             // Sequence number: UINT32_MAX
+        "ffffffff" // Sequence number: UINT32_MAX
+    }
+
+    fn sample_transaction_output() -> String {
+        "f0ca052a01000000".to_owned() +      // Satoshis (49.99990000 BTC)
+        "19" +                               // Bytes in pubkey script: 25
+        "76" +                               // OP_DUP
+        "a9" +                               // OP_HASH160
+        "14" +                               // Push 20 bytes as data
+        "cbc20a7664f2f69e5355aa427045bc15" +
+        "e7c6c772" +                         // PubKey hash
+        "88" +                               // OP_EQUALVERIFY
+        "ac"                                 // OP_CHECKSIG
+    }
+
+    fn sample_transaction() -> String {
+        "01000000".to_owned() +               // Version
+        "02"                  +               // Number of inputs
+        &sample_coinbase_transaction_input() +
+        &sample_transaction_input() +
+        "01" +                                // Number of outputs
+        &sample_transaction_output() +
+        "00000000"
     }
 
     #[test]
     fn test_parse_coinbase_transaction_input() {
-        let raw_input = coinbase_transaction_input();
+        let raw_input = sample_coinbase_transaction_input();
         let input_bytes = bitcoin_spv::utils::deserialize_hex(&raw_input[..]).unwrap();
         let mut parser = BytesParser::new(&input_bytes);
         let input: TransactionInput = parser.parse_with(2).unwrap();
@@ -433,7 +502,7 @@ mod tests {
 
     #[test]
     fn test_parse_transaction_input() {
-        let raw_input = transaction_input();
+        let raw_input = sample_transaction_input();
         let input_bytes = bitcoin_spv::utils::deserialize_hex(&raw_input[..]).unwrap();
         let mut parser = BytesParser::new(&input_bytes);
         let input: TransactionInput = parser.parse_with(2).unwrap();
@@ -443,7 +512,34 @@ mod tests {
         assert_eq!(input.height, None);
         assert_eq!(input.script.len(), 73);
 
-        let previous_hash = H256Le::from_hex_le("7b1eabe0209b1fe794124575ef807057c77ada2138ae4fa8d6c4de0398a14f3f");
+        let previous_hash =
+            H256Le::from_hex_le("7b1eabe0209b1fe794124575ef807057c77ada2138ae4fa8d6c4de0398a14f3f");
         assert_eq!(input.previous_hash, previous_hash);
+    }
+
+    #[test]
+    fn test_parse_transaction_output() {
+        let raw_output = sample_transaction_output();
+        let output_bytes = bitcoin_spv::utils::deserialize_hex(&raw_output[..]).unwrap();
+        let mut parser = BytesParser::new(&output_bytes);
+        let output: TransactionOutput = parser.parse().unwrap();
+        assert_eq!(output.value, 4999990000);
+        assert_eq!(output.script.len(), 25);
+    }
+
+    #[test]
+    fn test_parse_transaction() {
+        let raw_tx = sample_transaction();
+        let tx_bytes = bitcoin_spv::utils::deserialize_hex(&raw_tx[..]).unwrap();
+        let transaction = parse_transaction(&tx_bytes).unwrap();
+        let inputs = transaction.inputs;
+        let outputs = transaction.outputs;
+        assert_eq!(transaction.version, 1);
+        assert_eq!(inputs.len(), 2);
+        assert_eq!(inputs[0].coinbase, true);
+        assert_eq!(inputs[1].coinbase, false);
+        assert_eq!(outputs.len(), 1);
+        assert_eq!(transaction.locktime, None);
+        assert_eq!(transaction.block_height, Some(0));
     }
 }

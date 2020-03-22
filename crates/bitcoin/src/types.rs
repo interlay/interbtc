@@ -39,15 +39,19 @@ pub struct TransactionInput {
 
 /// Bitcoin transaction output
 #[derive(PartialEq)]
-pub struct TransactionOutput {}
+pub struct TransactionOutput {
+    pub value: i64,
+    pub script: Vec<u8>,
+}
 
 /// Bitcoin transaction
 #[derive(PartialEq)]
 pub struct Transaction {
+    pub version: i32,
     pub inputs: Vec<TransactionInput>,
     pub outputs: Vec<TransactionOutput>,
     pub block_height: Option<u32>,
-    pub locktime: Option<u64>,
+    pub locktime: Option<u32>,
 }
 
 /// Bitcoin Enriched Block Headers
