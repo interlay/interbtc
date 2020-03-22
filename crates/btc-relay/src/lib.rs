@@ -19,7 +19,7 @@ use sp_std::collections::btree_map::BTreeMap;
 
 // Crates
 use bitcoin::types::{RawBlockHeader, BlockHeader, RichBlockHeader, BlockChain};
-use bitcoin::parser::{header_from_bytes, parse_block_header};
+use bitcoin::parser::{header_from_bytes, parse_block_header, parse_transaction};
 use bitcoin::merkle::MerkleProof;
 use security::{StatusCode, ErrorCode};
 use security;
@@ -30,7 +30,9 @@ use security;
 /// The pallet's configuration trait.
 /// For further reference, see:
 /// https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/spec/data-model.html
-pub trait Trait: system::Trait + security::Trait {
+pub trait Trait: system::Trait 
+//+ security::Trait 
+{
     /// The overarching event type.
     type Event: From<Event> + Into<<Self as system::Trait>::Event>;
 }
@@ -133,12 +135,14 @@ decl_module! {
         fn store_block_header(origin, block_header_bytes: Vec<u8>)
         -> DispatchResult {
             let _ = ensure_signed(origin)?;
-            // Check if BTC _Parachain is in shutdown state.
+            // Check if BTC _Parachain is in shutdown state.+
+            /*
             ensure!(
                 !<security::Module<T>>::check_parachain_status(
                     StatusCode::Shutdown), 
                 Error::<T>::Shutdown
-            ); 
+            );
+            */ 
 
             // Parse the block header bytes to extract the required info
             let raw_block_header = header_from_bytes(&block_header_bytes);
@@ -253,16 +257,17 @@ decl_module! {
             let _ = ensure_signed(origin)?;
 
             // fail if parachain is not in running state.
+            /*
             ensure!(<security::Module<T>>::check_parachain_status(StatusCode::Running),
                 Error::<T>::Shutdown);
-
+            */
             let blockchain = <ChainsIndex>::get(MAIN_CHAIN_ID);
 
             // fail if not enough confirmations
             ensure!(block_height + confirmations <= blockchain.max_height,
                 Error::<T>::Confirmations);
 
-            let merkle_proof = MerkleProof::parse(&raw_merkle_proof);
+            let merkle_proof = MerkleProof::parse(&raw_merkle_proof).map_err(|_e| Error::<T>::InvalidMerkleProof)?;
             let proof_result = merkle_proof.verify_proof().map_err(|_e| Error::<T>::InvalidMerkleProof)?;
 
             let rich_header = Self::get_block_header_from_height(&blockchain, block_height)?;
@@ -278,16 +283,39 @@ decl_module! {
             Ok(())
         }
         
+        fn validate_transaction(
+            origin,
+            tx_id: H256,
+            raw_tx: String, 
+            paymentValue: u64, 
+            recipientBtcAddress: H160, 
+            opReturnId: H256
+        ) -> DispatchResult {
+            // fail if parachain is in shutdown state.
+            /*
+            ensure!(!<security::Module<T>>::check_parachain_status(StatusCode::SHUTDOWN),
+                Error::<T>::Shutdown);
+            
+            // fail if BTC Relay is in invalid state
+            ensure!(!(<security::Module<T>>::check_parachain_status(StatusCode::Error) && <security::Module<T>>::check_parachain_error(ErrorCode::InvalidBTCRelay)),
+                Error::<T>::InvalidBTCRelay);
+            */
+
+            let transaction = parse_transaction(&raw_tx.as_bytes());
+            Ok(())
+        }
+
         fn flag_block_error(origin, block_hash: H256, error: ErrorCode)
             -> DispatchResult {
            
             // ensure this is a staked relayer
             let relayer = ensure_signed(origin)?;
+            /*
             ensure!(
                 <security::Module<T>>::check_relayer_registered(relayer), 
                 Error::<T>::UnauthorizedRelayer
             ); 
-            
+            */
             // Get the chain id of the block header
             ensure!(<BlockHeaders>::exists(block_hash), Error::<T>::BlockNotFound);
             let block_header = Self::blockheader(block_hash);
@@ -320,11 +348,12 @@ decl_module! {
            
             // ensure this is a staked relayer
             let relayer = ensure_signed(origin)?;
+            /*
             ensure!(
                 <security::Module<T>>::check_relayer_registered(relayer), 
                 Error::<T>::UnauthorizedRelayer
             ); 
-            
+            */
             // Get the chain id of the block header
             ensure!(<BlockHeaders>::exists(block_hash), Error::<T>::BlockNotFound);
             let block_header = Self::blockheader(block_hash);
