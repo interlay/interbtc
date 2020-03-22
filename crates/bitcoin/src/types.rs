@@ -25,6 +25,35 @@ pub struct BlockHeader {
     pub nonce: u32
 }
 
+
+/// Bitcoin transaction input
+#[derive(PartialEq)]
+pub struct TransactionInput {
+    pub previous_hash: H256Le,
+    pub previous_index: u32,
+    pub coinbase: bool,
+    pub height: Option<Vec<u8>>,
+    pub script: Vec<u8>,
+    pub sequence: u32,
+}
+
+/// Bitcoin transaction output
+#[derive(PartialEq)]
+pub struct TransactionOutput {
+    pub value: i64,
+    pub script: Vec<u8>,
+}
+
+/// Bitcoin transaction
+#[derive(PartialEq)]
+pub struct Transaction {
+    pub version: i32,
+    pub inputs: Vec<TransactionInput>,
+    pub outputs: Vec<TransactionOutput>,
+    pub block_height: Option<u32>,
+    pub locktime: Option<u32>,
+}
+
 /// Bitcoin Enriched Block Headers
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
@@ -54,6 +83,11 @@ pub struct H256Le {
 }
 
 impl H256Le {
+    /// Creates a new H256Le hash equals to zero
+    pub fn zero() -> H256Le {
+        H256Le { content: [0; 32] }
+    }
+
     /// Creates a H256Le from little endian bytes
     pub fn from_bytes_le(bytes: &[u8]) -> H256Le {
         let mut content: [u8; 32] = Default::default();
@@ -112,20 +146,28 @@ impl std::fmt::Display for H256Le {
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub enum Error {
+    /// Reached EOS without finishing to parse bytes
+    EOS,
+
     /// Format of the proof is not correct
     MalformedProof,
 
     /// Format of the proof is correct but does not yield the correct
     /// merkle root
-    InvalidProof
+    InvalidProof,
+
+    /// Format of the transaction is invalid
+    MalformedTransaction,
 }
 
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Error::EOS => write!(f, "reached EOS before parsing end"),
             Error::MalformedProof => write!(f, "merkle proof is malformed"),
-            Error::InvalidProof => write!(f, "invalid merkle proof")
+            Error::InvalidProof => write!(f, "invalid merkle proof"),
+            Error::MalformedTransaction => write!(f, "invalid transaction format"),
         }
     }
 }
@@ -143,6 +185,9 @@ impl PartialEq<H256> for H256Le {
     }
 }
 
+pub(crate) struct CompactUint {
+    pub(crate) value: u64,
+}
 
 #[cfg(test)]
 mod tests {
