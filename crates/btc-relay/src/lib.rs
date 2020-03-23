@@ -21,9 +21,13 @@ use sp_std::collections::btree_map::BTreeMap;
 use bitcoin::types::{RawBlockHeader, BlockHeader, RichBlockHeader, BlockChain};
 use bitcoin::parser::{header_from_bytes, parse_block_header, parse_transaction};
 use bitcoin::merkle::MerkleProof;
+use bitcoin::utils::{sha256d, extract_value, extract_address_hash, extract_op_return_data};
 use security::{StatusCode, ErrorCode};
 use security;
 
+// External
+// Summa's Bitcoin-SPV
+use bitcoin_spv::btcspv;
 
 
 /// ## Configuration and Constants
@@ -148,9 +152,9 @@ decl_module! {
             let raw_block_header = header_from_bytes(&block_header_bytes);
 
             let basic_block_header = Self::verify_block_header(raw_block_header)?;
-
+            
+            // FIXME: block_hash will be dropped from (basic) BlockHeader
             let block_header_hash = basic_block_header.block_hash; 
-                       
 
             // get the block header of the previous block
             ensure!(
@@ -283,13 +287,21 @@ decl_module! {
             Ok(())
         }
         
+        /// Validates a given raw Bitcoin transaction, according to the supported transaction format (see https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/intro/accepted-format.html)
+        /// 
+        /// # Arguments
+        /// * `tx_id` - 32 byte hash identifier of the transaction.
+        /// * `raw_tx` - raw Bitcoin transaction 
+        /// * `paymentValue` - value of BTC sent in the 1st / payment UTXO of the transaction
+        /// * `recipientBtcAddress` - 20 byte Bitcoin address of recipient of the BTC in the 1st  / payment UTXO
+        /// * `op_return_id` - 32 byte hash identifier expected in OP_RETURN (replay protection)
         fn validate_transaction(
             origin,
             tx_id: H256,
-            raw_tx: String, 
-            paymentValue: u64, 
-            recipientBtcAddress: H160, 
-            opReturnId: H256
+            raw_tx: Vec<u8>, 
+            payment_value: u64, 
+            recipient_btc_address: Vec<u8>, 
+            op_return_id: Vec<u8>
         ) -> DispatchResult {
             // fail if parachain is in shutdown state.
             /*
@@ -300,8 +312,25 @@ decl_module! {
             ensure!(!(<security::Module<T>>::check_parachain_status(StatusCode::Error) && <security::Module<T>>::check_parachain_error(ErrorCode::InvalidBTCRelay)),
                 Error::<T>::InvalidBTCRelay);
             */
+            let transaction = parse_transaction(&raw_tx).map_err(|_e| Error::<T>::TxFormat)?;
+            
+            // Check that the tx_id is indeed that of the raw_tx
+            ensure!(sha256d(&raw_tx) != tx_id, Error::<T>::InvalidTxid);
 
-            let transaction = parse_transaction(&raw_tx.as_bytes());
+            ensure!(transaction.outputs.len() == 2, Error::<T>::TxFormat);
+
+            // Check if 1st / payment UTXO transfers sufficient value
+            let extr_payment_value = extract_value(&transaction.outputs[0].script);
+            ensure!(extr_payment_value == payment_value, Error::<T>::InsufficientValue);
+
+            // Check if 1st / payment UTXO sends to correct address
+            let extr_recipient_address = extract_address_hash(&transaction.outputs[0].script).map_err(|_e| Error::<T>::InvalidOutputFormat)?;
+            ensure!(extr_recipient_address == recipient_btc_address, Error::<T>::WrongRecipient);
+
+            // Check uf 2nd / data UTXO has correct OP_RETURN value 
+            let extr_op_return_value = extract_op_return_data(&transaction.outputs[1].script).map_err(|_e| Error::<T>::InvalidOpreturn)?;
+            ensure!(extr_op_return_value == op_return_id, Error::<T>::InvalidOpreturn);
+
             Ok(())
         }
 
@@ -512,6 +541,7 @@ impl<T: Trait> Module<T> {
         -> Result<BlockHeader, Error<T>> 
     {
 
+        // FIXME: block_hash will no longer be included in (basic)BlockHeader. Needs to be computed here directly.
         let basic_block_header = parse_block_header(raw_block_header);
         
         // Check that the block header is not yet stored in BTC-Relay
@@ -821,6 +851,7 @@ decl_error! {
         InsufficientValue,
         TxFormat,
         WrongRecipient,
+        InvalidOutputFormat,
         InvalidOpreturn,
         InvalidTxVersion,
         NotOpReturn,

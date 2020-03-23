@@ -158,6 +158,21 @@ pub enum Error {
 
     /// Format of the transaction is invalid
     MalformedTransaction,
+
+    /// Format of the BIP141 witness transaction output is invalid
+    MalformedWitnessOutput,
+
+    // Format of the P2PKH transaction output is invalid
+    MalformedP2PKHOutput,
+
+    // Format of the P2SH transaction output is invalid
+    MalformedP2SHOutput,
+
+    /// Format of the OP_RETURN transaction output is invalid
+    MalformedOpReturnOutput,
+
+    // Output does not match format of supported output types (Witness, P2PKH, P2SH)
+    UnsupportedOutputFormat
 }
 
 
@@ -168,6 +183,11 @@ impl std::fmt::Display for Error {
             Error::MalformedProof => write!(f, "merkle proof is malformed"),
             Error::InvalidProof => write!(f, "invalid merkle proof"),
             Error::MalformedTransaction => write!(f, "invalid transaction format"),
+            Error::MalformedWitnessOutput => write!(f, "invalid witness output format"),
+            Error::MalformedP2PKHOutput => write!(f, "invalid P2PKH output format"),
+            Error::MalformedP2SHOutput => write!(f, "invalid P2SH output format"),
+            Error::MalformedOpReturnOutput => write!(f, "invalid OP_RETURN output format"),
+            Error::UnsupportedOutputFormat => write!(f, "unsupported output type. Currently supported: Witness, P2PKH, P2SH")
         }
     }
 }

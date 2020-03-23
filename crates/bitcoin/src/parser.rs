@@ -387,6 +387,8 @@ pub fn parse_transaction_output(raw_output: &[u8]) -> Result<(TransactionOutput,
     ))
 }
 
+
+
 #[cfg(test)]
 mod tests {
     use super::*;

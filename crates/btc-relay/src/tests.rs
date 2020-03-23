@@ -123,6 +123,5 @@ fn store_fork_once_suceeds() {
 }
 
 
-/// StoreBlockHeader Function
 
 
