@@ -25,10 +25,6 @@ use bitcoin::utils::{sha256d, extract_value, extract_address_hash, extract_op_re
 use security::{StatusCode, ErrorCode};
 use security;
 
-// External
-// Summa's Bitcoin-SPV
-use bitcoin_spv::btcspv;
-
 
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
