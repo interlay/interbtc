@@ -100,7 +100,7 @@ decl_module! {
             // Parse the block header bytes to extract the required info
             let raw_block_header = header_from_bytes(&block_header_bytes);
             let basic_block_header = parse_block_header(raw_block_header);
-            let block_header_hash = basic_block_header.block_hash; 
+            let block_header_hash = sha256d(&raw_block_header);
             
             // construct the BlockChain struct
             let blockchain = Self::initialize_blockchain(&block_height, &block_header_hash)
@@ -108,6 +108,7 @@ decl_module! {
             // Create rich block header
             
             let block_header = RichBlockHeader {
+                block_hash: block_header_hash,
                 block_header: basic_block_header,
                 block_height: block_height,
                 chain_ref: blockchain.chain_id
@@ -146,11 +147,8 @@ decl_module! {
 
             // Parse the block header bytes to extract the required info
             let raw_block_header = header_from_bytes(&block_header_bytes);
-
             let basic_block_header = Self::verify_block_header(raw_block_header)?;
-            
-            // FIXME: block_hash will be dropped from (basic) BlockHeader
-            let block_header_hash = basic_block_header.block_hash; 
+            let block_header_hash = sha256d(&raw_block_header);
 
             // get the block header of the previous block
             ensure!(
@@ -188,6 +186,7 @@ decl_module! {
             
             // Create rich block header
             let block_header = RichBlockHeader {
+                block_hash: block_header_hash,
                 block_header: basic_block_header,
                 block_height: current_block_height,
                 chain_ref: blockchain.chain_id
@@ -540,15 +539,17 @@ impl<T: Trait> Module<T> {
         // FIXME: block_hash will no longer be included in (basic)BlockHeader. Needs to be computed here directly.
         let basic_block_header = parse_block_header(raw_block_header);
         
+        let block_header_hash = sha256d(&raw_block_header);
+
         // Check that the block header is not yet stored in BTC-Relay
-        ensure!(!<BlockHeaders>::exists(basic_block_header.block_hash), Error::<T>::DuplicateBlock);
+        ensure!(!<BlockHeaders>::exists(block_header_hash), Error::<T>::DuplicateBlock);
         
         // Check that the referenced previous block header exists in BTC-Relay
         ensure!(!<BlockHeaders>::exists(basic_block_header.hash_prev_block), Error::<T>::PrevBlock);
         let prev_block_header = Self::blockheader(basic_block_header.hash_prev_block);
 
         // Check that the PoW hash satisfies the target set in the block header
-        ensure!(U256::from_little_endian(basic_block_header.block_hash.as_bytes()) < basic_block_header.target, Error::<T>::LowDiff);
+        ensure!(U256::from_little_endian(block_header_hash.as_bytes()) < basic_block_header.target, Error::<T>::LowDiff);
 
         // Check that the diff. target is indeed correctly set in the block header, i.e., check for re-target.
         let block_height = prev_block_header.block_height + 1;

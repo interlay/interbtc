@@ -16,7 +16,6 @@ pub type RawBlockHeader = RawHeader;
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct BlockHeader {
-    pub block_hash: H256,
     pub merkle_root: H256,
     pub target: U256,
     pub timestamp: Moment,
@@ -58,6 +57,7 @@ pub struct Transaction {
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct RichBlockHeader {
+    pub block_hash: H256,
     pub block_header: BlockHeader,
     pub block_height: u32,
     pub chain_ref: u32,

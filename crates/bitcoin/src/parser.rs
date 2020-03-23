@@ -233,7 +233,6 @@ pub fn extract_merkle_root(header: RawBlockHeader) -> H256 {
 ///
 /// * `header` - An 80-byte Bitcoin header
 pub fn parse_block_header(raw_header: RawBlockHeader) -> BlockHeader {
-    let hash_current_block: H256 = H256::zero();
 
     let block_header = BlockHeader {
         merkle_root: extract_merkle_root(raw_header),
@@ -242,8 +241,6 @@ pub fn parse_block_header(raw_header: RawBlockHeader) -> BlockHeader {
         version: extract_version(raw_header),
         nonce: extract_nonce(raw_header),
         hash_prev_block: extract_previous_block_hash(raw_header),
-
-        block_hash: hash_current_block,
     };
 
     return block_header;
