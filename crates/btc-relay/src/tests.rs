@@ -6,6 +6,7 @@ use frame_support::{impl_outer_origin, impl_outer_event, assert_ok, assert_err, 
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup}, testing::Header, Perbill,
 };
+use bitcoin::types::*;
 
 impl_outer_origin! {
 	pub enum Origin for Test {}
@@ -81,7 +82,7 @@ fn initialize_once_suceeds() {
     ExtBuilder::build().execute_with(|| {
         let block_height: u32 = 0;
         let block_header = vec![0u8; 80];
-        let block_header_hash = H256::zero();
+        let block_header_hash = H256Le::zero();
         assert_ok!(BTCRelay::initialize(Origin::signed(3), block_header, block_height));
        
         let init_event = TestEvent::test_events(
@@ -96,7 +97,7 @@ fn initialize_twice_fails() {
     ExtBuilder::build().execute_with(|| {
         let block_height: u32 = 0;
         let block_header = vec![0u8; 80];
-        let block_header_hash = H256::zero();
+        let block_header_hash = H256Le::zero();
         assert_ok!(BTCRelay::initialize(Origin::signed(3), block_header, block_height));
 
         let block_height_2: u32 = 0;
@@ -111,7 +112,7 @@ fn store_fork_once_suceeds() {
     ExtBuilder::build().execute_with(|| {
         let block_height: u32 = 1;
         let block_header = vec![1u8; 80];
-        let block_header_hash = H256::zero();
+        let block_header_hash = H256Le::zero();
         let chain_id: u32 = 2;
         assert_ok!(BTCRelay::store_block_header(Origin::signed(3), block_header));
        
@@ -120,6 +121,21 @@ fn store_fork_once_suceeds() {
         );
         assert!(System::events().iter().any(|a| a.event == store_event));
     })
+}
+
+
+fn sample_block_header() -> String {
+    "02000000".to_owned() + // ............... Block version: 2
+    "b6ff0b1b1680a2862a30ca44d346d9e8" + //
+    "910d334beb48ca0c0000000000000000" + // ... Hash of previous block's header
+    "9d10aa52ee949386ca9385695f04ede2" + //
+    "70dda20810decd12bc9b048aaab31471" + // ... Merkle root
+    "24d95a54" + // ........................... Unix time: 1415239972
+    "30c31b18" + // ........................... Target: 0x1bc330 * 256**(0x18-3)
+    "fe9f0864"
+}
+fn test_verify_block_header_succeeds() {
+
 }
 
 

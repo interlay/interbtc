@@ -2,11 +2,8 @@ use primitive_types::{U256, H256};
 use codec::{Encode, Decode};
 use node_primitives::{Moment};
 use sp_std::collections::btree_map::BTreeMap;
-
-use crate::utils::{sha256d};
-
 use bitcoin_spv::types::{RawHeader};
-
+use crate::utils::*;
 /// Custom Types
 /// Bitcoin Raw Block Header type
 pub type RawBlockHeader = RawHeader;
@@ -22,14 +19,24 @@ pub const HASH160_SIZE_HEX: u8 = 0x14;
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct BlockHeader {
-    pub merkle_root: H256,
+    pub merkle_root: H256Le,
     pub target: U256,
     pub timestamp: Moment,
     pub version: u32,
-    pub hash_prev_block: H256,
+    pub hash_prev_block: H256Le,
     pub nonce: u32
 }
 
+impl BlockHeader {
+
+    pub fn block_hash_le(bytes: &[u8]) -> H256Le{
+        sha256d_le(bytes)
+    }
+
+    pub fn block_hash_be(bytes: &[u8]) -> H256{
+        sha256d_be(bytes)
+    }
+}
 
 /// Bitcoin transaction input
 #[derive(PartialEq)]
@@ -61,8 +68,8 @@ pub struct Transaction {
 
 
 impl Transaction {
-    pub fn tx_id(raw_tx: &[u8]) -> H256 {
-        sha256d(&raw_tx)
+    pub fn tx_id(raw_tx: &[u8]) -> H256Le {
+        sha256d_le(&raw_tx)
     }
 }
 
@@ -70,7 +77,7 @@ impl Transaction {
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct RichBlockHeader {
-    pub block_hash: H256,
+    pub block_hash: H256Le,
     pub block_header: BlockHeader,
     pub block_height: u32,
     pub chain_ref: u32,
@@ -81,7 +88,7 @@ pub struct RichBlockHeader {
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct BlockChain {
     pub chain_id: u32,
-    pub chain: BTreeMap<u32,H256>,
+    pub chain: BTreeMap<u32,H256Le>,
     pub start_height: u32,
     pub max_height: u32,
     pub no_data: Vec<u32>,
@@ -89,8 +96,8 @@ pub struct BlockChain {
 }
 
 /// Represents a bitcoin 32 bytes hash digest encoded in little-endian
-#[derive(Default, PartialEq, Clone, Copy)]
-#[cfg_attr(feature="std", derive(Debug))]
+#[derive(Encode, Decode, Default, PartialEq, Eq, Clone, Copy, Debug)]
+//#[cfg_attr(feature="std", derive(Debug))]
 pub struct H256Le {
     content: [u8; 32]
 }

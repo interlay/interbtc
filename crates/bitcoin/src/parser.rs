@@ -1,7 +1,7 @@
 use crate::types::*;
 
 use node_primitives::Moment;
-use primitive_types::{H256, U256};
+use primitive_types::{U256};
 
 use bitcoin_spv::btcspv;
 
@@ -212,9 +212,8 @@ pub fn extract_timestamp(header: RawBlockHeader) -> Moment {
 /// # Arguments
 ///
 /// * `header` - An 80-byte Bitcoin header
-pub fn extract_previous_block_hash(header: RawBlockHeader) -> H256 {
-    let hash_le = &btcspv::extract_prev_block_hash_le(header)[..];
-    H256::from_slice(&bitcoin_spv::utils::reverse_endianness(hash_le)[..])
+pub fn extract_previous_block_hash(header: RawBlockHeader) -> H256Le {
+    H256Le::from_bytes_le(&btcspv::extract_prev_block_hash_le(header)[..])
 }
 
 /// Extracts the merkle root from a block header.
@@ -222,9 +221,8 @@ pub fn extract_previous_block_hash(header: RawBlockHeader) -> H256 {
 /// # Arguments
 ///
 /// * `header` - An 80-byte Bitcoin header
-pub fn extract_merkle_root(header: RawBlockHeader) -> H256 {
-    let root_le = &btcspv::extract_merkle_root_le(header)[..];
-    H256::from_slice(&bitcoin_spv::utils::reverse_endianness(root_le)[..])
+pub fn extract_merkle_root(header: RawBlockHeader) -> H256Le {
+    H256Le::from_bytes_le(&btcspv::extract_merkle_root_le(header)[..])
 }
 
 /// Parses the raw bitcoin header into a Rust struct
