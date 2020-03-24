@@ -1,7 +1,7 @@
 use crate::types::*;
 
 use node_primitives::Moment;
-use primitive_types::{H256, U256};
+use primitive_types::{U256};
 
 use bitcoin_spv::btcspv;
 
@@ -212,9 +212,8 @@ pub fn extract_timestamp(header: RawBlockHeader) -> Moment {
 /// # Arguments
 ///
 /// * `header` - An 80-byte Bitcoin header
-pub fn extract_previous_block_hash(header: RawBlockHeader) -> H256 {
-    let hash_le = &btcspv::extract_prev_block_hash_le(header)[..];
-    H256::from_slice(&bitcoin_spv::utils::reverse_endianness(hash_le)[..])
+pub fn extract_previous_block_hash(header: RawBlockHeader) -> H256Le {
+    H256Le::from_bytes_le(&btcspv::extract_prev_block_hash_le(header)[..])
 }
 
 /// Extracts the merkle root from a block header.
@@ -222,9 +221,8 @@ pub fn extract_previous_block_hash(header: RawBlockHeader) -> H256 {
 /// # Arguments
 ///
 /// * `header` - An 80-byte Bitcoin header
-pub fn extract_merkle_root(header: RawBlockHeader) -> H256 {
-    let root_le = &btcspv::extract_merkle_root_le(header)[..];
-    H256::from_slice(&bitcoin_spv::utils::reverse_endianness(root_le)[..])
+pub fn extract_merkle_root(header: RawBlockHeader) -> H256Le {
+    H256Le::from_bytes_le(&btcspv::extract_merkle_root_le(header)[..])
 }
 
 /// Parses the raw bitcoin header into a Rust struct
@@ -233,7 +231,6 @@ pub fn extract_merkle_root(header: RawBlockHeader) -> H256 {
 ///
 /// * `header` - An 80-byte Bitcoin header
 pub fn parse_block_header(raw_header: RawBlockHeader) -> BlockHeader {
-    let hash_current_block: H256 = H256::zero();
 
     let block_header = BlockHeader {
         merkle_root: extract_merkle_root(raw_header),
@@ -242,8 +239,6 @@ pub fn parse_block_header(raw_header: RawBlockHeader) -> BlockHeader {
         version: extract_version(raw_header),
         nonce: extract_nonce(raw_header),
         hash_prev_block: extract_previous_block_hash(raw_header),
-
-        block_hash: hash_current_block,
     };
 
     return block_header;
@@ -385,6 +380,54 @@ pub fn parse_transaction_output(raw_output: &[u8]) -> Result<(TransactionOutput,
         },
         parser.position,
     ))
+}
+
+pub fn extract_value(raw_output: &[u8]) -> u64 {
+    return btcspv::extract_value(raw_output);
+}
+
+pub fn extract_address_hash(output_script: &[u8]) -> Result<Vec<u8>, Error> {
+
+    let script_len = output_script.len();
+    
+    // Witness
+    if output_script[0] == 0 {
+        if script_len < 2 {
+            return Err(Error::MalformedWitnessOutput);
+        }
+        if output_script[1] == (script_len - 2) as u8 {
+            return Ok(output_script[2..].to_vec());
+        } else {
+            return Err(Error::MalformedWitnessOutput);
+        }
+    }
+
+    // P2PKH
+    // 25 bytes
+    // Format:
+    // 0x76 (OP_DUP) - 0xa9 (OP_HASH160) - 0x14 (20 bytes len) - <20 bytes pubkey hash> - 0x88 (OP_EQUALVERIFY) - 0xac (OP_CHECKSIG)
+    if script_len as u32 == P2PKH_SCRIPT_SIZE && output_script[0..=2] == [OpCode::OpDup as u8, OpCode::OpHash160 as u8, HASH160_SIZE_HEX] {
+        if output_script[script_len - 2..] != [OpCode::OpEqualVerify as u8, OpCode::OpCheckSig as u8] {
+            return Err(Error::MalformedP2PKHOutput);
+        }
+        return Ok(output_script[3..script_len-2].to_vec());
+    }
+
+    // P2SH
+    // 23 bytes
+    // Format: 
+    // 0xa9 (OP_HASH160) - 0x14 (20 bytes hash) - <20 bytes script hash> - 0x87 (OP_EQUAL)
+    if script_len as u32 == P2SH_SCRIPT_SIZE && output_script[0..=1] == [OpCode::OpHash160 as u8, HASH160_SIZE_HEX] {
+        if output_script[script_len-1] != OpCode::OpEqual as u8 {
+            return Err(Error::MalformedP2SHOutput)
+        }
+        return Ok(output_script[2..(script_len-1)].to_vec())
+    }
+    return Err(Error::UnsupportedOutputFormat)
+}
+
+pub fn extract_op_return_data(raw_output: &[u8]) -> Result<Vec<u8>, Error> {
+    return btcspv::extract_op_return_data(raw_output).map_err(|_e| Error::MalformedOpReturnOutput);
 }
 
 #[cfg(test)]

@@ -79,3 +79,8 @@ default-features = false
 version = '2.0.0'
 git = 'https://github.com/paritytech/substrate.git'
 rev = '3e651110aa06aa835790df63410a29676243fc54'
+
+[dependencies.bitcoin]
+default-features = false
+path = '../bitcoin'
+version = '0.1.0'

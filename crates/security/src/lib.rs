@@ -6,15 +6,15 @@ mod tests;
 /// This is the implementation of the BTC Parachain Security module following the spec at:
 /// https://interlay.gitlab.io/polkabtc-spec/spec/security
 ///
-use frame_support::{decl_module, decl_storage, decl_event, decl_error, dispatch::DispatchResult, ensure, Parameter};
-use system::ensure_signed;
+use frame_support::{decl_module, decl_storage, decl_event, decl_error};
 use codec::{Encode, Decode, Codec};
 use codec::alloc::string::{String};
 use node_primitives::{BlockNumber, AccountId};
 use sp_core::{U256, H256};
-use sp_runtime::traits::{Member, SimpleArithmetic, MaybeSerializeDeserialize};
 use sp_std::fmt::Debug;
 use sp_std::collections::btree_set::BTreeSet;
+
+use bitcoin::types::*;
 
 /// ## Configuration
 /// The pallet's configuration trait.
@@ -104,8 +104,8 @@ pub struct StatusUpdate{
 	proposal_status: ProposalStatus,
 	/// Message providing more details on the change of status (detailed error message or recovery reason).
 	msg: String,
-	/// Block hash of the Bitcoin block where the error was detected, if related to BTC-Relay.
-	btc_block_hash: H256,
+	/// LE Block hash of the Bitcoin block where the error was detected, if related to BTC-Relay.
+	btc_block_hash: H256Le,
 	/// Set of accounts which have voted FOR this status update. This can be either Staked Relayers or the Governance Mechanism.
 	votes_yes: BTreeSet<AccountId>,
 	/// Set of accounts which have voted AGAINST this status update. This can be either Staked Relayers or the Governance Mechanism.
@@ -145,7 +145,7 @@ decl_storage! {
 
 		/// Mapping of Bitcoin transaction identifiers (SHA256 hashes) to account
 		/// identifiers of Vaults accused of theft
-		TheftReports get(fn theft_report): map H256 => BTreeSet<AccountId>;
+		TheftReports get(fn theft_report): map H256Le => BTreeSet<AccountId>;
 	}
 }
 

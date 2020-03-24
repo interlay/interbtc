@@ -224,7 +224,7 @@ mod tests {
     #[test]
     fn test_extract_hash() {
         let proof = MerkleProof::parse(&deserialize_hex(&PROOF_HEX[..]).unwrap()).unwrap();
-        let merkle_root = H256Le::from_bytes_be(proof.block_header.merkle_root.as_bytes());
+        let merkle_root = H256Le::from_bytes_le(&proof.block_header.merkle_root.to_bytes_le());
         let result = proof.verify_proof().unwrap();
         assert_eq!(result.extracted_root, merkle_root);
         assert_eq!(result.transaction_position, 48);

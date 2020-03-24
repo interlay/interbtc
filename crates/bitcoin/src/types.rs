@@ -1,14 +1,19 @@
+extern crate hex;
+
 use primitive_types::{U256, H256};
 use codec::{Encode, Decode};
 use node_primitives::{Moment};
 use sp_std::collections::btree_map::BTreeMap;
-
 use bitcoin_spv::types::{RawHeader};
-
+use crate::utils::*;
 /// Custom Types
 /// Bitcoin Raw Block Header type
 pub type RawBlockHeader = RawHeader;
 
+// Constants
+pub const P2PKH_SCRIPT_SIZE: u32 = 25;
+pub const P2SH_SCRIPT_SIZE: u32 = 23;
+pub const HASH160_SIZE_HEX: u8 = 0x14;
 
 /// Structs
 /// Bitcoin Basic Block Headers
@@ -16,15 +21,24 @@ pub type RawBlockHeader = RawHeader;
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct BlockHeader {
-    pub block_hash: H256,
-    pub merkle_root: H256,
+    pub merkle_root: H256Le,
     pub target: U256,
     pub timestamp: Moment,
     pub version: u32,
-    pub hash_prev_block: H256,
+    pub hash_prev_block: H256Le,
     pub nonce: u32
 }
 
+impl BlockHeader {
+
+    pub fn block_hash_le(bytes: &[u8]) -> H256Le{
+        sha256d_le(bytes)
+    }
+
+    pub fn block_hash_be(bytes: &[u8]) -> H256{
+        sha256d_be(bytes)
+    }
+}
 
 /// Bitcoin transaction input
 #[derive(PartialEq)]
@@ -54,10 +68,18 @@ pub struct Transaction {
     pub locktime: Option<u32>,
 }
 
+
+impl Transaction {
+    pub fn tx_id(raw_tx: &[u8]) -> H256Le {
+        sha256d_le(&raw_tx)
+    }
+}
+
 /// Bitcoin Enriched Block Headers
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct RichBlockHeader {
+    pub block_hash: H256Le,
     pub block_header: BlockHeader,
     pub block_height: u32,
     pub chain_ref: u32,
@@ -68,7 +90,7 @@ pub struct RichBlockHeader {
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct BlockChain {
     pub chain_id: u32,
-    pub chain: BTreeMap<u32,H256>,
+    pub chain: BTreeMap<u32,H256Le>,
     pub start_height: u32,
     pub max_height: u32,
     pub no_data: Vec<u32>,
@@ -76,8 +98,8 @@ pub struct BlockChain {
 }
 
 /// Represents a bitcoin 32 bytes hash digest encoded in little-endian
-#[derive(Default, PartialEq, Clone, Copy)]
-#[cfg_attr(feature="std", derive(Debug))]
+#[derive(Encode, Decode, Default, PartialEq, Eq, Clone, Copy, Debug)]
+//#[cfg_attr(feature="std", derive(Debug))]
 pub struct H256Le {
     content: [u8; 32]
 }
@@ -130,12 +152,18 @@ impl H256Le {
 
     /// Returns the content of the H256Le encoded in big endian hex
     pub fn to_hex_be(&self) -> String {
-        bitcoin_spv::utils::serialize_hex(&self.to_bytes_be())
+        hex::encode(&self.to_bytes_be())
     }
 }
 
 #[cfg(feature="std")]
 impl std::fmt::Display for H256Le {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "0x{}", self.to_hex_be())
+    }
+}
+
+impl std::fmt::LowerHex for H256Le {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.to_hex_be())
     }
@@ -158,6 +186,21 @@ pub enum Error {
 
     /// Format of the transaction is invalid
     MalformedTransaction,
+
+    /// Format of the BIP141 witness transaction output is invalid
+    MalformedWitnessOutput,
+
+    // Format of the P2PKH transaction output is invalid
+    MalformedP2PKHOutput,
+
+    // Format of the P2SH transaction output is invalid
+    MalformedP2SHOutput,
+
+    /// Format of the OP_RETURN transaction output is invalid
+    MalformedOpReturnOutput,
+
+    // Output does not match format of supported output types (Witness, P2PKH, P2SH)
+    UnsupportedOutputFormat
 }
 
 
@@ -168,8 +211,22 @@ impl std::fmt::Display for Error {
             Error::MalformedProof => write!(f, "merkle proof is malformed"),
             Error::InvalidProof => write!(f, "invalid merkle proof"),
             Error::MalformedTransaction => write!(f, "invalid transaction format"),
+            Error::MalformedWitnessOutput => write!(f, "invalid witness output format"),
+            Error::MalformedP2PKHOutput => write!(f, "invalid P2PKH output format"),
+            Error::MalformedP2SHOutput => write!(f, "invalid P2SH output format"),
+            Error::MalformedOpReturnOutput => write!(f, "invalid OP_RETURN output format"),
+            Error::UnsupportedOutputFormat => write!(f, "unsupported output type. Currently supported: Witness, P2PKH, P2SH")
         }
     }
+}
+
+// Bitcoin Script OpCodes
+pub enum OpCode {
+    OpDup = 0x76,
+    OpHash160 = 0xa9,
+    OpEqualVerify = 0x88,
+    OpCheckSig = 0xac, 
+    OpEqual = 0x87
 }
 
 impl PartialEq<H256Le> for H256 {
@@ -184,6 +241,7 @@ impl PartialEq<H256> for H256Le {
         *other == *self
     }
 }
+
 
 pub(crate) struct CompactUint {
     pub(crate) value: u64,
