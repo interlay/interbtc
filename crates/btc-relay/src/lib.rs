@@ -19,9 +19,10 @@ use sp_std::collections::btree_map::BTreeMap;
 
 // Crates
 use bitcoin::types::{RawBlockHeader, BlockHeader, RichBlockHeader, BlockChain};
-use bitcoin::parser::{header_from_bytes, parse_block_header, parse_transaction};
+use bitcoin::parser::{header_from_bytes, parse_block_header, parse_transaction, extract_value, extract_address_hash, extract_op_return_data};
 use bitcoin::merkle::MerkleProof;
-use bitcoin::utils::{sha256d, extract_value, extract_address_hash, extract_op_return_data};
+use bitcoin::types::Transaction;
+use bitcoin::utils::{sha256d};
 use security::{StatusCode, ErrorCode};
 use security;
 
@@ -310,7 +311,7 @@ decl_module! {
             let transaction = parse_transaction(&raw_tx).map_err(|_e| Error::<T>::TxFormat)?;
             
             // Check that the tx_id is indeed that of the raw_tx
-            ensure!(sha256d(&raw_tx) != tx_id, Error::<T>::InvalidTxid);
+            ensure!(Transaction::tx_id(&raw_tx) != tx_id, Error::<T>::InvalidTxid);
 
             ensure!(transaction.outputs.len() == 2, Error::<T>::TxFormat);
 
@@ -536,9 +537,8 @@ impl<T: Trait> Module<T> {
         -> Result<BlockHeader, Error<T>> 
     {
 
-        // FIXME: block_hash will no longer be included in (basic)BlockHeader. Needs to be computed here directly.
         let basic_block_header = parse_block_header(raw_block_header);
-        
+
         let block_header_hash = sha256d(&raw_block_header);
 
         // Check that the block header is not yet stored in BTC-Relay

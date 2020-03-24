@@ -3,12 +3,18 @@ use codec::{Encode, Decode};
 use node_primitives::{Moment};
 use sp_std::collections::btree_map::BTreeMap;
 
+use crate::utils::{sha256d};
+
 use bitcoin_spv::types::{RawHeader};
 
 /// Custom Types
 /// Bitcoin Raw Block Header type
 pub type RawBlockHeader = RawHeader;
 
+// Constants
+pub const P2PKH_SCRIPT_SIZE: u32 = 25;
+pub const P2SH_SCRIPT_SIZE: u32 = 23;
+pub const HASH160_SIZE_HEX: u8 = 0x14;
 
 /// Structs
 /// Bitcoin Basic Block Headers
@@ -51,6 +57,13 @@ pub struct Transaction {
     pub outputs: Vec<TransactionOutput>,
     pub block_height: Option<u32>,
     pub locktime: Option<u32>,
+}
+
+
+impl Transaction {
+    pub fn tx_id(raw_tx: &[u8]) -> H256 {
+        sha256d(&raw_tx)
+    }
 }
 
 /// Bitcoin Enriched Block Headers
@@ -190,6 +203,15 @@ impl std::fmt::Display for Error {
             Error::UnsupportedOutputFormat => write!(f, "unsupported output type. Currently supported: Witness, P2PKH, P2SH")
         }
     }
+}
+
+// Bitcoin Script OpCodes
+pub enum OpCode {
+    OpDup = 0x76,
+    OpHash160 = 0xa9,
+    OpEqualVerify = 0x88,
+    OpCheckSig = 0xac, 
+    OpEqual = 0x87
 }
 
 impl PartialEq<H256Le> for H256 {
