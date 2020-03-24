@@ -1,3 +1,5 @@
+extern crate hex;
+
 use primitive_types::{U256, H256};
 use codec::{Encode, Decode};
 use node_primitives::{Moment};
@@ -150,12 +152,18 @@ impl H256Le {
 
     /// Returns the content of the H256Le encoded in big endian hex
     pub fn to_hex_be(&self) -> String {
-        bitcoin_spv::utils::serialize_hex(&self.to_bytes_be())
+        hex::encode(&self.to_bytes_be())
     }
 }
 
 #[cfg(feature="std")]
 impl std::fmt::Display for H256Le {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "0x{}", self.to_hex_be())
+    }
+}
+
+impl std::fmt::LowerHex for H256Le {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.to_hex_be())
     }
@@ -233,6 +241,7 @@ impl PartialEq<H256> for H256Le {
         *other == *self
     }
 }
+
 
 pub(crate) struct CompactUint {
     pub(crate) value: u64,
