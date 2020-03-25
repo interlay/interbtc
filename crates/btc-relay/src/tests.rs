@@ -1,12 +1,13 @@
 /// Tests for BTC-Relay
 
-use crate::{Module, Trait, Error, Event};
+use crate::{Module, Trait, Event};
 use sp_core::{U256, H256};
 use frame_support::{impl_outer_origin, impl_outer_event, assert_ok, assert_err, parameter_types, weights::Weight};
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup}, testing::Header, Perbill,
 };
 use bitcoin::types::*;
+use btc_core::Error;
 
 impl_outer_origin! {
 	pub enum Origin for Test {}
@@ -102,7 +103,7 @@ fn initialize_twice_fails() {
 
         let block_height_2: u32 = 0;
         let block_header_2 = vec![1u8; 80];
-        assert_err!(BTCRelay::initialize(Origin::signed(3), block_header_2, block_height_2), Error::<Test>::AlreadyInitialized);
+        assert_err!(BTCRelay::initialize(Origin::signed(3), block_header_2, block_height_2), Error::AlreadyInitialized);
     })
 }
 
