@@ -124,18 +124,23 @@ fn store_fork_once_suceeds() {
 }
 
 
-fn sample_block_header() -> String {
-    "02000000".to_owned() + // ............... Block version: 2
-    "b6ff0b1b1680a2862a30ca44d346d9e8" + //
-    "910d334beb48ca0c0000000000000000" + // ... Hash of previous block's header
-    "9d10aa52ee949386ca9385695f04ede2" + //
-    "70dda20810decd12bc9b048aaab31471" + // ... Merkle root
-    "24d95a54" + // ........................... Unix time: 1415239972
-    "30c31b18" + // ........................... Target: 0x1bc330 * 256**(0x18-3)
-    "fe9f0864"
+fn sample_genesis_header() -> String {
+    "01000000a7c3299ed2475e1d6ea5ed18d5bfe243224add249cce99c5c67cc9fb00000000601c73862a0a7238e376f497783c8ecca2cf61a4f002ec8898024230787f399cb575d949ffff001d3a5de07f".to_string()
 }
-fn test_verify_block_header_succeeds() {
 
+fn sample_genesis_height() -> u32 {
+    10_000
+}
+
+fn sample_first_header() -> String {
+    "01000000cb60e68ead74025dcfd4bf4673f3f71b1e678be9c6e6585f4544c79900000000c7f42be7f83eddf2005272412b01204352a5fddbca81942c115468c3c4ec2fff827ad949ffff001d21e05e45".to_string()
+}
+
+#[test]
+fn test_verify_block_header_succeeds() {
+    let genesis_header = bitcoin_spv::utils::deserialize_hex(&sample_first_header()[..]).unwrap();
+    let genesis_height = sample_genesis_height();
+    assert_ok!(BTCRelay::initialize(Origin::signed(3), genesis_header, genesis_height));
 }
 
 
