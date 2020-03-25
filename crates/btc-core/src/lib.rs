@@ -3,10 +3,6 @@ use frame_support::dispatch::DispatchError;
 #[derive(Clone, Copy)]
 pub enum Error {
     AlreadyInitialized,
-    NotMainChain,
-    ForkPrevBlock,
-    NotFork,
-    InvalidForkId,
     MissingBlockHeight, //not in spec
     InvalidHeaderSize,
     DuplicateBlock,
@@ -16,7 +12,6 @@ pub enum Error {
     MalformedTxid,
     Confirmations, // TODO: rename to self-explanatory
     InvalidMerkleProof,
-    ForkIdNotFound,
     HeaderNotFound,
     Invalid,
     Shutdown,
@@ -41,7 +36,17 @@ impl Error {
     pub fn message(&self) -> &'static str {
         match self {
             Error::AlreadyInitialized => "Already initialized",
-            Error::NotMainChain => "Main chain submission indicated, but submitted block is on a fork",
+            Error::InvalidHeaderSize => "Invalid block header size",
+            Error::DuplicateBlock => "Block already stored", 
+            Error::PrevBlock => "Previous block hash not found", 
+            Error::LowDiff => "PoW hash does not meet difficulty target of header",
+            Error::DiffTargetHeader => "Incorrect difficulty target specified in block header",
+            Error::MalformedTxid => "Malformed transaction identifier", 
+            Error::Confirmations => "Transaction has less confirmations than requested",
+            Error::InvalidMerkleProof => "Invalid Merkle Proof",
+            Error::HeaderNotFound => "Block header not found for given hash",
+            
+            
             // TODO: add other error messages
             _ => "internal error",
         }
