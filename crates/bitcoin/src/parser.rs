@@ -155,6 +155,17 @@ impl BytesParser {
     }
 }
 
+/// Allows to parse the given structure from little-endian encoded bytes
+pub trait FromLeBytes: Sized {
+    fn from_le_bytes(bytes: &[u8]) -> Self;
+}
+
+impl FromLeBytes for BlockHeader {
+    fn from_le_bytes(bytes: &[u8]) -> BlockHeader {
+        parse_block_header(header_from_bytes(bytes))
+    }
+}
+
 /// Returns a raw block header from a bytes slice
 ///
 /// # Arguments
