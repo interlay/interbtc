@@ -1,12 +1,15 @@
 /// Tests for BTC-Relay
 
-use crate::{Module, Trait, Error, Event};
-use sp_core::{U256, H256};
+use crate::{Module, Trait, Event};
+use sp_core::H256;
 use frame_support::{impl_outer_origin, impl_outer_event, assert_ok, assert_err, parameter_types, weights::Weight};
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup}, testing::Header, Perbill,
 };
 use bitcoin::types::*;
+use bitcoin::parser::FromLeBytes;
+
+use mocktopus::mocking::*;
 
 impl_outer_origin! {
 	pub enum Origin for Test {}
@@ -56,6 +59,8 @@ impl Trait for Test {
 	type Event = TestEvent;
 }
 
+type Error = crate::Error<Test>;
+
 pub type System = system::Module<Test>;
 pub type BTCRelay = Module<Test>;
 
@@ -63,7 +68,7 @@ pub struct ExtBuilder;
 
 impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
-        let mut storage = system::GenesisConfig::default()
+        let storage = system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
         sp_io::TestExternalities::from(storage)
@@ -82,11 +87,11 @@ fn initialize_once_suceeds() {
     ExtBuilder::build().execute_with(|| {
         let block_height: u32 = 0;
         let block_header = vec![0u8; 80];
-        let block_header_hash = H256Le::zero();
+        let block_header_hash = BlockHeader::block_hash_le(&block_header);
         assert_ok!(BTCRelay::initialize(Origin::signed(3), block_header, block_height));
        
         let init_event = TestEvent::test_events(
-            Event::Initialized(block_height, block_header_hash),
+            Event::Initialized(block_height, block_header_hash)
         );
         assert!(System::events().iter().any(|a| a.event == init_event));
     })
@@ -95,29 +100,36 @@ fn initialize_once_suceeds() {
 #[test]
 fn initialize_twice_fails() {
     ExtBuilder::build().execute_with(|| {
+        BTCRelay::generate_blockchain.mock_safe(|_, _, _| MockResult::Return(Err(Error::DuplicateBlock.into())));
         let block_height: u32 = 0;
         let block_header = vec![0u8; 80];
-        let block_header_hash = H256Le::zero();
-        assert_ok!(BTCRelay::initialize(Origin::signed(3), block_header, block_height));
-
-        let block_height_2: u32 = 0;
-        let block_header_2 = vec![1u8; 80];
-        assert_err!(BTCRelay::initialize(Origin::signed(3), block_header_2, block_height_2), Error::<Test>::AlreadyInitialized);
+        assert_err!(BTCRelay::initialize(Origin::signed(3), block_header, block_height), Error::AlreadyInitialized);
     })
 }
 
 /// StoreBlockHeader Function
 #[test]
-fn store_fork_once_suceeds() {
+fn store_block_header_on_mainchain_suceeds() {
     ExtBuilder::build().execute_with(|| {
-        let block_height: u32 = 1;
-        let block_header = vec![1u8; 80];
+        BTCRelay::verify_block_header.mock_safe(|h| MockResult::Return(Ok(BlockHeader::from_le_bytes(&h))));
+        BTCRelay::block_exists.mock_safe(|_| MockResult::Return(true));
+
+        let block_height: u32 = 100;
+        let block_header = hex::decode(sample_block_header()).unwrap();
+
+        let rich_header = RichBlockHeader {
+            block_hash: H256Le::zero(),
+            block_header: BlockHeader::from_le_bytes(&block_header),
+            block_height: block_height,
+            chain_ref: 1,
+        };
+        BTCRelay::get_block_header_from_hash.mock_safe(move |_| MockResult::Return(Ok(rich_header)));
+
         let block_header_hash = H256Le::zero();
-        let chain_id: u32 = 2;
         assert_ok!(BTCRelay::store_block_header(Origin::signed(3), block_header));
        
         let store_event = TestEvent::test_events(
-            Event::StoreForkHeader(chain_id, block_height, block_header_hash),
+            Event::StoreMainChainHeader(block_height + 1, block_header_hash),
         );
         assert!(System::events().iter().any(|a| a.event == store_event));
     })
@@ -134,10 +146,3 @@ fn sample_block_header() -> String {
     "30c31b18" + // ........................... Target: 0x1bc330 * 256**(0x18-3)
     "fe9f0864"
 }
-fn test_verify_block_header_succeeds() {
-
-}
-
-
-
-

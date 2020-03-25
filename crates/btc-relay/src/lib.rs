@@ -1,6 +1,13 @@
+#![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 #[cfg(test)]
 mod tests; 
+
+#[cfg(test)]
+extern crate mocktopus;
+
+#[cfg(test)]
+use mocktopus::macros::mockable;
 
 
 /// For more guidance on FRAME pallets, see the example.
@@ -14,14 +21,14 @@ mod tests;
 use frame_support::{decl_module, decl_storage, decl_event, decl_error, dispatch::DispatchResult, ensure};
 use {system::ensure_signed};
 use node_primitives::{Moment};
-use sp_core::{U256, H256, H160};
+use sp_core::{U256, H160};
 use sp_std::collections::btree_map::BTreeMap;
 
 // Crates
 use bitcoin::types::{RawBlockHeader, BlockHeader, RichBlockHeader, BlockChain, Transaction, H256Le};
 use bitcoin::parser::{header_from_bytes, parse_block_header, parse_transaction, extract_value, extract_address_hash, extract_op_return_data};
 use bitcoin::merkle::MerkleProof;
-use security::{StatusCode, ErrorCode};
+use security::ErrorCode;
 use security;
 
 
@@ -151,10 +158,10 @@ decl_module! {
 
             // get the block header of the previous block
             ensure!(
-                <BlockHeaders>::exists(basic_block_header.hash_prev_block), 
+                Self::block_exists(basic_block_header.hash_prev_block),
                 Error::<T>::PrevBlock
             );
-            let prev_header = Self::blockheader(basic_block_header.hash_prev_block);
+            let prev_header = Self::get_block_header_from_hash(basic_block_header.hash_prev_block)?;
 
             // get the block chain of the previous header
             let prev_blockchain = Self::chainindex(prev_header.chain_ref);
@@ -174,7 +181,7 @@ decl_module! {
             // check if we create a new blockchain or extend the existing one
             let blockchain = match prev_blockchain.max_height {
                 // extend the current chain
-                prev_block_height => Self::extend_blockchain(
+                height if height == prev_block_height => Self::extend_blockchain(
                     &current_block_height, &block_header_hash, prev_blockchain)
                     .map_err(|_e| <Error<T>>::DuplicateBlock)?,
                 // create new blockchain element
@@ -416,7 +423,9 @@ decl_module! {
 }
 
 /// Utility functions
+#[cfg_attr(test, mockable)]
 impl<T: Trait> Module<T> {
+
     fn get_block_hash(
         blockchain: &BlockChain,
         block_height: u32
@@ -434,6 +443,10 @@ impl<T: Trait> Module<T> {
             return Ok(<BlockHeaders>::get(block_hash));
         }
         Err(Error::<T>::HeaderNotFound)
+    }
+
+    fn block_exists(block_hash: H256Le) -> bool {
+        <BlockHeaders>::exists(block_hash)
     }
 
     fn get_block_header_from_height(
@@ -479,6 +492,7 @@ impl<T: Trait> Module<T> {
         
         Ok(blockchain)
     }
+
     fn generate_blockchain(
         chain_id: &u32,
         block_height: &u32,
@@ -502,6 +516,7 @@ impl<T: Trait> Module<T> {
         };
         Ok(blockchain)
     }
+
     fn extend_blockchain(
         block_height: &u32,
         block_hash: &H256Le,
