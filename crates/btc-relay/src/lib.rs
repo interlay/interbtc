@@ -31,6 +31,8 @@ use bitcoin::merkle::MerkleProof;
 use security::ErrorCode;
 use security;
 
+use btc_core::Error;
+
 
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
@@ -90,7 +92,7 @@ decl_module! {
 		fn deposit_event() = default;
         
         // Initialize errors
-        type Error = Error<T>;
+        // type Error = Error<T>;
 
         fn initialize(
             origin,
@@ -101,7 +103,7 @@ decl_module! {
             let _ = ensure_signed(origin)?;
 
             // Check if BTC-Relay was already initialized
-            ensure!(!<BestBlock>::exists(), Error::<T>::AlreadyInitialized);
+            ensure!(!<BestBlock>::exists(), Error::AlreadyInitialized);
 
             // Parse the block header bytes to extract the required info
             let raw_block_header = header_from_bytes(&block_header_bytes);
@@ -110,7 +112,7 @@ decl_module! {
             
             // construct the BlockChain struct
             let blockchain = Self::initialize_blockchain(&block_height, &block_header_hash)
-                .map_err(|_e| <Error<T>>::AlreadyInitialized)?;
+                .map_err(|_e| Error::AlreadyInitialized)?;
             // Create rich block header
             
             let block_header = RichBlockHeader {
@@ -175,7 +177,7 @@ decl_module! {
             // Set the height of the block header
             let current_block_height = prev_block_height
                 .checked_add(1)
-                .ok_or(<Error<T>>::BlockHeightOverflow)?;
+                .ok_or(Error::BlockHeightOverflow)?;
             
             // Update the blockchain
             // check if we create a new blockchain or extend the existing one
@@ -183,11 +185,11 @@ decl_module! {
                 // extend the current chain
                 height if height == prev_block_height => Self::extend_blockchain(
                     &current_block_height, &block_header_hash, prev_blockchain)
-                    .map_err(|_e| <Error<T>>::DuplicateBlock)?,
+                    .map_err(|_e| Error::DuplicateBlock)?,
                 // create new blockchain element
                 _ => Self::create_blockchain(
                     &current_block_height, &block_header_hash)
-                    .map_err(|_e| <Error<T>>::DuplicateBlock)?,
+                    .map_err(|_e| Error::DuplicateBlock)?,
             };
             
             // Create rich block header
@@ -270,20 +272,20 @@ decl_module! {
 
             // fail if not enough confirmations
             ensure!(block_height + confirmations <= blockchain.max_height,
-                Error::<T>::Confirmations);
+                Error::Confirmations);
 
-            let merkle_proof = MerkleProof::parse(&raw_merkle_proof).map_err(|_e| Error::<T>::InvalidMerkleProof)?;
-            let proof_result = merkle_proof.verify_proof().map_err(|_e| Error::<T>::InvalidMerkleProof)?;
+            let merkle_proof = MerkleProof::parse(&raw_merkle_proof).map_err(|_e| Error::InvalidMerkleProof)?;
+            let proof_result = merkle_proof.verify_proof().map_err(|_e| Error::InvalidMerkleProof)?;
 
             let rich_header = Self::get_block_header_from_height(&blockchain, block_height)?;
 
             // fail if the transaction hash is invalid
             ensure!(proof_result.transaction_hash == tx_id,
-                    Error::<T>::InvalidMerkleProof);
+                    Error::InvalidMerkleProof);
 
             // fail if the merkle root is invalid
             ensure!(proof_result.extracted_root == rich_header.block_header.merkle_root,
-                    Error::<T>::InvalidMerkleProof);
+                    Error::InvalidMerkleProof);
 
             Ok(())
         }
@@ -313,24 +315,24 @@ decl_module! {
             ensure!(!(<security::Module<T>>::check_parachain_status(StatusCode::Error) && <security::Module<T>>::check_parachain_error(ErrorCode::InvalidBTCRelay)),
                 Error::<T>::InvalidBTCRelay);
             */
-            let transaction = parse_transaction(&raw_tx).map_err(|_e| Error::<T>::TxFormat)?;
+            let transaction = parse_transaction(&raw_tx).map_err(|_e| Error::TxFormat)?;
             
             // Check that the tx_id is indeed that of the raw_tx
-            ensure!(Transaction::tx_id(&raw_tx) != tx_id, Error::<T>::InvalidTxid);
+            ensure!(Transaction::tx_id(&raw_tx) != tx_id, Error::InvalidTxid);
 
-            ensure!(transaction.outputs.len() == 2, Error::<T>::TxFormat);
+            ensure!(transaction.outputs.len() == 2, Error::TxFormat);
 
             // Check if 1st / payment UTXO transfers sufficient value
             let extr_payment_value = extract_value(&transaction.outputs[0].script);
-            ensure!(extr_payment_value == payment_value, Error::<T>::InsufficientValue);
+            ensure!(extr_payment_value == payment_value, Error::InsufficientValue);
 
             // Check if 1st / payment UTXO sends to correct address
-            let extr_recipient_address = extract_address_hash(&transaction.outputs[0].script).map_err(|_e| Error::<T>::InvalidOutputFormat)?;
-            ensure!(extr_recipient_address == recipient_btc_address, Error::<T>::WrongRecipient);
+            let extr_recipient_address = extract_address_hash(&transaction.outputs[0].script).map_err(|_e| Error::InvalidOutputFormat)?;
+            ensure!(extr_recipient_address == recipient_btc_address, Error::WrongRecipient);
 
             // Check uf 2nd / data UTXO has correct OP_RETURN value 
-            let extr_op_return_value = extract_op_return_data(&transaction.outputs[1].script).map_err(|_e| Error::<T>::InvalidOpreturn)?;
-            ensure!(extr_op_return_value == op_return_id, Error::<T>::InvalidOpreturn);
+            let extr_op_return_value = extract_op_return_data(&transaction.outputs[1].script).map_err(|_e| Error::InvalidOpreturn)?;
+            ensure!(extr_op_return_value == op_return_id, Error::InvalidOpreturn);
 
             Ok(())
         }
@@ -347,7 +349,7 @@ decl_module! {
             ); 
             */
             // Get the chain id of the block header
-            ensure!(<BlockHeaders>::exists(block_hash), Error::<T>::BlockNotFound);
+            ensure!(<BlockHeaders>::exists(block_hash), Error::BlockNotFound);
             let block_header = Self::blockheader(block_hash);
             let chain_id = block_header.chain_ref;
 
@@ -363,7 +365,7 @@ decl_module! {
                 ErrorCode::InvalidBTCRelay => blockchain
                     .invalid
                     .push(block_header.block_height),
-                _ => return Err(<Error<T>>::UnknownErrorcode.into()),
+                _ => return Err(Error::UnknownErrorcode.into()),
             };
 
             // Store the updated blockchain entry
@@ -385,7 +387,7 @@ decl_module! {
             ); 
             */
             // Get the chain id of the block header
-            ensure!(<BlockHeaders>::exists(block_hash), Error::<T>::BlockNotFound);
+            ensure!(<BlockHeaders>::exists(block_hash), Error::BlockNotFound);
             let block_header = Self::blockheader(block_hash);
             let chain_id = block_header.chain_ref;
 
@@ -409,7 +411,7 @@ decl_module! {
                         .unwrap();
                     blockchain.invalid.remove(index);
                 },
-                _ => return Err(<Error<T>>::UnknownErrorcode.into()),
+                _ => return Err(Error::UnknownErrorcode.into()),
             };
 
             // Store the updated blockchain entry
@@ -429,20 +431,20 @@ impl<T: Trait> Module<T> {
     fn get_block_hash(
         blockchain: &BlockChain,
         block_height: u32
-    ) -> Result<H256Le, Error<T>> {
+    ) -> Result<H256Le, Error> {
         match blockchain.chain.get(&block_height) {
             Some(hash) => Ok(*hash),
-            None => return Err(Error::<T>::MissingBlockHeight.into()),
+            None => return Err(Error::MissingBlockHeight.into()),
         }
     }
 
     fn get_block_header_from_hash(
         block_hash: H256Le
-    ) -> Result<RichBlockHeader, Error<T>> {
+    ) -> Result<RichBlockHeader, Error> {
         if <BlockHeaders>::exists(block_hash) {
             return Ok(<BlockHeaders>::get(block_hash));
         }
-        Err(Error::<T>::HeaderNotFound)
+        Err(Error::HeaderNotFound)
     }
 
     fn block_exists(block_hash: H256Le) -> bool {
@@ -452,15 +454,15 @@ impl<T: Trait> Module<T> {
     fn get_block_header_from_height(
         blockchain: &BlockChain,
         block_height: u32,
-    ) -> Result<RichBlockHeader, Error<T>> {
+    ) -> Result<RichBlockHeader, Error> {
         let block_hash = Self::get_block_hash(blockchain, block_height)?;
         Self::get_block_header_from_hash(block_hash)
     }
 
-    fn increment_chain_counter() -> Result<u32, Error<T>> {
+    fn increment_chain_counter() -> Result<u32, Error> {
         let new_counter = <ChainCounter>::get()
             .checked_add(1)
-            .ok_or(<Error<T>>::ChainCounterOverflow)?;
+            .ok_or(Error::ChainCounterOverflow)?;
         <ChainCounter>::put(new_counter);
 
         Ok(new_counter)
@@ -468,7 +470,7 @@ impl<T: Trait> Module<T> {
     fn initialize_blockchain(
         block_height: &u32,
         block_hash: &H256Le)
-        -> Result<BlockChain, Error<T>> 
+        -> Result<BlockChain, Error> 
     {
         let chain_id = MAIN_CHAIN_ID;
 
@@ -481,7 +483,7 @@ impl<T: Trait> Module<T> {
     fn create_blockchain(
         block_height: &u32,
         block_hash: &H256Le)
-        -> Result<BlockChain, Error<T>> 
+        -> Result<BlockChain, Error> 
     {
         // get a new chain id
         let chain_id: u32 = Self::increment_chain_counter()?; 
@@ -497,13 +499,13 @@ impl<T: Trait> Module<T> {
         chain_id: &u32,
         block_height: &u32,
         block_hash: &H256Le)
-        -> Result<BlockChain, Error<T>> 
+        -> Result<BlockChain, Error> 
     {
         // initialize an empty chain
         let mut chain = BTreeMap::new();
 
         if let Some(_) = chain.insert(*block_height, *block_hash) {
-            return Err(<Error<T>>::DuplicateBlock.into())
+            return Err(Error::DuplicateBlock.into())
         }
                 
         let blockchain = BlockChain {
@@ -521,13 +523,13 @@ impl<T: Trait> Module<T> {
         block_height: &u32,
         block_hash: &H256Le,
         prev_blockchain: BlockChain) 
-        -> Result<BlockChain, Error<T>> 
+        -> Result<BlockChain, Error> 
     {
 
         let mut blockchain = prev_blockchain;
         
         if let Some(_) = blockchain.chain.insert(*block_height, *block_hash) {
-            return Err(<Error<T>>::DuplicateBlock.into())
+            return Err(Error::DuplicateBlock.into())
         }
                 
         blockchain.max_height = *block_height;
@@ -547,7 +549,7 @@ impl<T: Trait> Module<T> {
     /// If ParachainStatus in Security module is not set to RUNNING
     fn verify_block_header(
         raw_block_header: RawBlockHeader) 
-        -> Result<BlockHeader, Error<T>> 
+        -> Result<BlockHeader, Error> 
     {
 
         let basic_block_header = parse_block_header(raw_block_header);
@@ -555,14 +557,14 @@ impl<T: Trait> Module<T> {
         let block_header_hash = BlockHeader::block_hash_le(&raw_block_header);
 
         // Check that the block header is not yet stored in BTC-Relay
-        ensure!(!<BlockHeaders>::exists(block_header_hash), Error::<T>::DuplicateBlock);
+        ensure!(!<BlockHeaders>::exists(block_header_hash), Error::DuplicateBlock);
         
         // Check that the referenced previous block header exists in BTC-Relay
-        ensure!(!<BlockHeaders>::exists(basic_block_header.hash_prev_block), Error::<T>::PrevBlock);
+        ensure!(!<BlockHeaders>::exists(basic_block_header.hash_prev_block), Error::PrevBlock);
         let prev_block_header = Self::blockheader(basic_block_header.hash_prev_block);
 
         // Check that the PoW hash satisfies the target set in the block header
-        ensure!(U256::from_little_endian(&block_header_hash.to_bytes_le()) < basic_block_header.target, Error::<T>::LowDiff);
+        ensure!(U256::from_little_endian(&block_header_hash.to_bytes_le()) < basic_block_header.target, Error::LowDiff);
 
         // Check that the diff. target is indeed correctly set in the block header, i.e., check for re-target.
         let block_height = prev_block_header.block_height + 1;
@@ -574,7 +576,7 @@ impl<T: Trait> Module<T> {
             false => basic_block_header.target.eq(&Self::retarget(last_retarget_time, basic_block_header.timestamp, &prev_block_header.block_header.target))
         };
 
-        ensure!(target_correct, Error::<T>::DiffTargetHeader);
+        ensure!(target_correct, Error::DiffTargetHeader);
 
         Ok(basic_block_header)
     }
@@ -604,7 +606,7 @@ impl<T: Trait> Module<T> {
         };
     }
             
-    fn swap_main_blockchain(fork: &BlockChain) -> Option<Error<T>> {
+    fn swap_main_blockchain(fork: &BlockChain) -> Option<Error> {
         // load the main chain
         let mut main_chain = <ChainsIndex>::get(MAIN_CHAIN_ID);
       
@@ -662,13 +664,13 @@ impl<T: Trait> Module<T> {
         // get the best block hash
         let best_block = match main_chain.chain.get(&main_chain.max_height) {
             Some(block) => block,
-            None => return Some(<Error<T>>::HeaderNotFound),
+            None => return Some(Error::HeaderNotFound),
         };
 
         // get the position of the fork in Chains
         let position: u32 = match <Chains>::enumerate().position(|(_k,v)| v == fork.chain_id) {
             Some(pos) => pos as u32,
-            None => return Some(<Error<T>>::ForkIdNotFound),
+            None => return Some(Error::ForkIdNotFound),
         };
 
         // Update the stored main chain
@@ -705,7 +707,7 @@ impl<T: Trait> Module<T> {
         None
     }
 
-    fn check_and_do_reorg(fork: &BlockChain) -> Option<Error<T>> {
+    fn check_and_do_reorg(fork: &BlockChain) -> Option<Error> {
         // Check if the ordering needs updating
         // if the fork is the main chain, we don't need to update the ordering
         if fork.chain_id == MAIN_CHAIN_ID {
@@ -715,7 +717,7 @@ impl<T: Trait> Module<T> {
         // get the position of the fork in Chains
         let fork_position: u32 = match <Chains>::enumerate().position(|(_k,v)| v == fork.chain_id) {
             Some(pos) => pos as u32,
-            None => return Some(<Error<T>>::ForkIdNotFound),
+            None => return Some(Error::ForkIdNotFound),
         };
         
         // check if the previous element in Chains has a lower block_height
@@ -834,44 +836,3 @@ decl_event! {
         ClearBlockError(H256Le, u32, ErrorCode),
 	}
 }
-
-// TODO: how to include message in errors?
-decl_error! {
-    pub enum Error for Module<T: Trait> {
-        AlreadyInitialized,
-        NotMainChain,
-        ForkPrevBlock,
-        NotFork,
-        InvalidForkId,
-        MissingBlockHeight,
-        InvalidHeaderSize,
-        DuplicateBlock,
-        PrevBlock,
-        LowDiff,
-        DiffTargetHeader,
-        MalformedTxid,
-        Confirmations,
-        InvalidMerkleProof,
-        ForkIdNotFound,
-        HeaderNotFound,
-        Partial,
-        Invalid,
-        Shutdown,
-        InvalidTxid,
-        InsufficientValue,
-        TxFormat,
-        WrongRecipient,
-        InvalidOutputFormat,
-        InvalidOpreturn,
-        InvalidTxVersion,
-        NotOpReturn,
-        UnknownErrorcode,
-        BlockNotFound,
-        AlreadyReported,
-        UnauthorizedRelayer,
-        ChainCounterOverflow,
-        BlockHeightOverflow,
-        ChainsUnderflow,
-    }
-}
-
