@@ -7,35 +7,34 @@ pub enum Error {
     ForkPrevBlock,
     NotFork,
     InvalidForkId,
-    MissingBlockHeight,
+    MissingBlockHeight, //not in spec
     InvalidHeaderSize,
     DuplicateBlock,
-    PrevBlock,
+    PrevBlock, // TODO: rename to self-explanatory
     LowDiff,
-    DiffTargetHeader,
+    DiffTargetHeader, // TODO: rename to self-explanatory
     MalformedTxid,
-    Confirmations,
+    Confirmations, // TODO: rename to self-explanatory
     InvalidMerkleProof,
     ForkIdNotFound,
     HeaderNotFound,
-    Partial,
     Invalid,
     Shutdown,
     InvalidTxid,
     InsufficientValue,
     TxFormat,
     WrongRecipient,
-    InvalidOutputFormat,
+    InvalidOutputFormat, // not in spec
     InvalidOpreturn,
     InvalidTxVersion,
     NotOpReturn,
     UnknownErrorcode,
-    BlockNotFound,
-    AlreadyReported,
-    UnauthorizedRelayer,
-    ChainCounterOverflow,
-    BlockHeightOverflow,
-    ChainsUnderflow,
+    BlockNotFound, // not in spec
+    AlreadyReported, // not in spec
+    UnauthorizedRelayer, // not in spec
+    ChainCounterOverflow, // not in spec
+    BlockHeightOverflow, // not in spec
+    ChainsUnderflow, // not in spec
 }
 
 impl Error {
