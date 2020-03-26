@@ -7,10 +7,10 @@ mod tests;
 /// https://interlay.gitlab.io/polkabtc-spec/spec/security
 ///
 use frame_support::{decl_module, decl_storage, decl_event, decl_error};
-use codec::{Encode, Decode, Codec};
+use codec::{Encode, Decode};
 use codec::alloc::string::{String};
 use node_primitives::{BlockNumber, AccountId};
-use sp_core::{U256, H256};
+use sp_core::{U256};
 use sp_std::fmt::Debug;
 use sp_std::collections::btree_set::BTreeSet;
 
