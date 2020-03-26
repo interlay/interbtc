@@ -1,18 +1,21 @@
 /// Tests for BTC-Relay
-
-use crate::{Module, Trait, Event};
-use sp_core::H256;
-use frame_support::{impl_outer_origin, impl_outer_event, assert_ok, assert_err, parameter_types, weights::Weight};
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup}, testing::Header, Perbill,
-};
-use bitcoin::types::*;
+use crate::{Event, Module, Trait};
 use bitcoin::parser::FromLeBytes;
+use bitcoin::types::*;
+use frame_support::{
+    assert_err, assert_ok, impl_outer_event, impl_outer_origin, parameter_types, weights::Weight,
+};
+use sp_core::H256;
+use sp_runtime::{
+    testing::Header,
+    traits::{BlakeTwo256, IdentityLookup},
+    Perbill,
+};
 
 use mocktopus::mocking::*;
 
 impl_outer_origin! {
-	pub enum Origin for Test {}
+    pub enum Origin for Test {}
 }
 
 mod test_events {
@@ -31,35 +34,35 @@ impl_outer_event! {
 #[derive(Clone, Eq, PartialEq)]
 pub struct Test;
 parameter_types! {
-	pub const BlockHashCount: u64 = 250;
-	pub const MaximumBlockWeight: Weight = 1024;
-	pub const MaximumBlockLength: u32 = 2 * 1024;
-	pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
+    pub const BlockHashCount: u64 = 250;
+    pub const MaximumBlockWeight: Weight = 1024;
+    pub const MaximumBlockLength: u32 = 2 * 1024;
+    pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
 }
 impl system::Trait for Test {
-	type Origin = Origin;
-	type Call = ();
-	type Index = u64;
-	type BlockNumber = u64;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	type Header = Header;
-	type Event = TestEvent;
-	type BlockHashCount = BlockHashCount;
-	type MaximumBlockWeight = MaximumBlockWeight;
-	type MaximumBlockLength = MaximumBlockLength;
-	type AvailableBlockRatio = AvailableBlockRatio;
-	type Version = ();
-	type ModuleToIndex = ();
+    type Origin = Origin;
+    type Call = ();
+    type Index = u64;
+    type BlockNumber = u64;
+    type Hash = H256;
+    type Hashing = BlakeTwo256;
+    type AccountId = u64;
+    type Lookup = IdentityLookup<Self::AccountId>;
+    type Header = Header;
+    type Event = TestEvent;
+    type BlockHashCount = BlockHashCount;
+    type MaximumBlockWeight = MaximumBlockWeight;
+    type MaximumBlockLength = MaximumBlockLength;
+    type AvailableBlockRatio = AvailableBlockRatio;
+    type Version = ();
+    type ModuleToIndex = ();
 }
 
 impl Trait for Test {
-	type Event = TestEvent;
+    type Event = TestEvent;
 }
 
-type Error = crate::Error<Test>;
+type Error = crate::Error;
 
 pub type System = system::Module<Test>;
 pub type BTCRelay = Module<Test>;
@@ -75,11 +78,9 @@ impl ExtBuilder {
     }
 }
 
-
 // fn ExtBuilder::build() -> sp_io::TestExternalities {
 // 	system::GenesisConfig::default().build_storage::<Test>().unwrap().into()
 // }
-
 
 /// Initialize Function
 #[test]
@@ -88,11 +89,14 @@ fn initialize_once_suceeds() {
         let block_height: u32 = 0;
         let block_header = vec![0u8; 80];
         let block_header_hash = BlockHeader::block_hash_le(&block_header);
-        assert_ok!(BTCRelay::initialize(Origin::signed(3), block_header, block_height));
-       
-        let init_event = TestEvent::test_events(
-            Event::Initialized(block_height, block_header_hash)
-        );
+        assert_ok!(BTCRelay::initialize(
+            Origin::signed(3),
+            block_header,
+            block_height
+        ));
+
+        let init_event =
+            TestEvent::test_events(Event::Initialized(block_height, block_header_hash));
         assert!(System::events().iter().any(|a| a.event == init_event));
     })
 }
@@ -100,10 +104,14 @@ fn initialize_once_suceeds() {
 #[test]
 fn initialize_twice_fails() {
     ExtBuilder::build().execute_with(|| {
-        BTCRelay::generate_blockchain.mock_safe(|_, _, _| MockResult::Return(Err(Error::DuplicateBlock.into())));
+        BTCRelay::generate_blockchain
+            .mock_safe(|_, _, _| MockResult::Return(Err(Error::DuplicateBlock.into())));
         let block_height: u32 = 0;
         let block_header = vec![0u8; 80];
-        assert_err!(BTCRelay::initialize(Origin::signed(3), block_header, block_height), Error::AlreadyInitialized);
+        assert_err!(
+            BTCRelay::initialize(Origin::signed(3), block_header, block_height),
+            Error::AlreadyInitialized
+        );
     })
 }
 
@@ -111,7 +119,8 @@ fn initialize_twice_fails() {
 #[test]
 fn store_block_header_on_mainchain_suceeds() {
     ExtBuilder::build().execute_with(|| {
-        BTCRelay::verify_block_header.mock_safe(|h| MockResult::Return(Ok(BlockHeader::from_le_bytes(&h))));
+        BTCRelay::verify_block_header
+            .mock_safe(|h| MockResult::Return(Ok(BlockHeader::from_le_bytes(&h))));
         BTCRelay::block_exists.mock_safe(|_| MockResult::Return(true));
 
         let block_height: u32 = 100;
@@ -123,18 +132,22 @@ fn store_block_header_on_mainchain_suceeds() {
             block_height: block_height,
             chain_ref: 1,
         };
-        BTCRelay::get_block_header_from_hash.mock_safe(move |_| MockResult::Return(Ok(rich_header)));
+        BTCRelay::get_block_header_from_hash
+            .mock_safe(move |_| MockResult::Return(Ok(rich_header)));
 
         let block_header_hash = H256Le::zero();
-        assert_ok!(BTCRelay::store_block_header(Origin::signed(3), block_header));
-       
-        let store_event = TestEvent::test_events(
-            Event::StoreMainChainHeader(block_height + 1, block_header_hash),
-        );
+        assert_ok!(BTCRelay::store_block_header(
+            Origin::signed(3),
+            block_header
+        ));
+
+        let store_event = TestEvent::test_events(Event::StoreMainChainHeader(
+            block_height + 1,
+            block_header_hash,
+        ));
         assert!(System::events().iter().any(|a| a.event == store_event));
     })
 }
-
 
 fn sample_block_header() -> String {
     "02000000".to_owned() + // ............... Block version: 2
