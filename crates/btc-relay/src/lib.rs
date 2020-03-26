@@ -73,22 +73,22 @@ decl_storage! {
     trait Store for Module<T: Trait> as BTCRelay {
     /// ## Storage
         /// Store Bitcoin block headers
-        BlockHeaders get(fn blockheader): map H256Le => RichBlockHeader;
+        BlockHeaders: map H256Le => RichBlockHeader;
 
         /// Sorted mapping of BlockChain elements with reference to ChainsIndex
-        Chains get(fn chain): linked_map u32 => u32;
+        Chains: linked_map u32 => u32;
 
         /// Store the index for each tracked blockchain
-        ChainsIndex get(fn chainindex): map u32 => BlockChain;
+        ChainsIndex: map u32 => BlockChain;
 
         /// Store the current blockchain tip
-        BestBlock get(fn bestblock): H256Le;
+        BestBlock: H256Le;
 
         /// Store the height of the best block
-        BestBlockHeight get(fn bestblockheight): u32;
+        BestBlockHeight: u32;
 
         /// Track existing BlockChain entries
-        ChainCounter get(fn chaincounter): u32;
+        ChainCounter: u32;
     }
 }
 
@@ -189,7 +189,7 @@ decl_module! {
             )?;
 
             // get the block chain of the previous header
-            let prev_blockchain = Self::chainindex(&prev_header.chain_ref);
+            let prev_blockchain = Self::chainindex(prev_header.chain_ref);
 
             // Update the current block header
             // check if the prev block is the highest block in the chain
@@ -401,7 +401,7 @@ decl_module! {
             let chain_id = block_header.chain_ref;
 
             // Get the blockchain element for the chain id
-            let mut blockchain = Self::chainindex(&chain_id);
+            let mut blockchain = Self::chainindex(chain_id);
 
             // Flag errors in the blockchain entry
             // Check which error we are dealing with
@@ -439,7 +439,7 @@ decl_module! {
             let chain_id = block_header.chain_ref;
 
             // Get the blockchain element for the chain id
-            let mut blockchain = Self::chainindex(&chain_id);
+            let mut blockchain = Self::chainindex(chain_id);
 
             // Clear errors in the blockchain entry
             // Check which error we are dealing with
@@ -476,6 +476,26 @@ decl_module! {
 /// Utility functions
 #[cfg_attr(test, mockable)]
 impl<T: Trait> Module<T> {
+    /// Storage getter functions
+    fn blockheader(header: H256Le) -> RichBlockHeader {
+        <BlockHeaders>::get(header)
+    }
+    fn chain(position: u32) -> u32 {
+        <Chains>::get(position)
+    }
+    fn chainindex(chain_id: u32) -> BlockChain {
+        <ChainsIndex>::get(chain_id)
+    }
+    fn bestblock() -> H256Le {
+        <BestBlock>::get()
+    }
+    fn bestblockheight() -> u32 {
+        <BestBlockHeight>::get()
+    }
+    fn chaincounter() -> u32 {
+        <ChainCounter>::get()
+    }
+    
     /// Get a block hash from a blockchain
     /// # Arguments
     ///
@@ -617,15 +637,17 @@ impl<T: Trait> Module<T> {
 
         // Check that the diff. target is indeed correctly set in the block header, i.e., check for re-target.
         let block_height = prev_block_header.block_height + 1;
+        
+        let chain_index = Self::chainindex(prev_block_header.chain_ref);
+        
+        let block_header_hash = match chain_index.chain.get(&block_height) {
+            Some(hash) => hash,
+            None => return Err(Error::HeaderNotFound.into()),            
+        };
 
-        let last_retarget_time = Self::blockheader(
-            Self::chainindex(prev_block_header.chain_ref)
-                .chain
-                .get(&block_height)
-                .unwrap(),
-        )
-        .block_header
-        .timestamp;
+        let rich_block_header = Self::blockheader(*block_header_hash);
+
+        let last_retarget_time = rich_block_header.block_header.timestamp;
 
         let target_correct = match block_height % DIFFICULTY_ADJUSTMENT_INTERVAL == 0 {
             true => basic_block_header
