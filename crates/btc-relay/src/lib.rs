@@ -18,7 +18,7 @@ use mocktopus::macros::mockable;
 /// https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/
 
 // Substrate
-use frame_support::{decl_module, decl_storage, decl_event, decl_error, dispatch::DispatchResult, ensure};
+use frame_support::{decl_module, decl_storage, decl_event, dispatch::DispatchResult, ensure};
 use {system::ensure_signed};
 use node_primitives::{Moment};
 use sp_core::{U256, H160};
@@ -161,7 +161,7 @@ decl_module! {
             // get the block header of the previous block
             ensure!(
                 Self::block_exists(basic_block_header.hash_prev_block),
-                Error::<T>::PrevBlock
+                Error::PrevBlock
             );
             let prev_header = Self::get_block_header_from_hash(basic_block_header.hash_prev_block)?;
 
@@ -743,7 +743,7 @@ impl<T: Trait> Module<T> {
                     MAIN_CHAIN_ID => {
                         match Self::swap_main_blockchain(&fork) {
                             Some(err) => return Some(err),
-                            None => break,
+                            None => (),
                         };
 
                         // announce the new main chain
@@ -756,6 +756,8 @@ impl<T: Trait> Module<T> {
                                 block_height, 
                                 fork_depth)
                             );
+                        // break the while loop
+                        break;
                     },
                     // else, simply swap the chain_id ordering in Chains
                     _ => <Chains>::swap(prev_position, current_position),
