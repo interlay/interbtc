@@ -24,6 +24,7 @@ pub enum Error {
     InvalidTxVersion,
     NotOpReturn,
     UnknownErrorcode,
+    ForkIdNotFound, // not in spec
     BlockNotFound, // not in spec
     AlreadyReported, // not in spec
     UnauthorizedRelayer, // not in spec
