@@ -4,11 +4,23 @@ use primitive_types::{U256, H256};
 use codec::{Encode, Decode};
 use node_primitives::{Moment};
 use sp_std::collections::btree_map::BTreeMap;
+use sp_std::collections::btree_set::BTreeSet;
 use bitcoin_spv::types::{RawHeader};
 use crate::utils::*;
 /// Custom Types
 /// Bitcoin Raw Block Header type
+
+
 pub type RawBlockHeader = RawHeader;
+
+// #[derive(Encode, Decode, Default, Copy, Clone, PartialEq)]
+// struct RawBlockHeader(pub [u8; 32]);
+
+// impl RawBlockHeader {
+//     fn hash(&self) -> H256Le {
+
+//     }
+// }
 
 // Constants
 pub const P2PKH_SCRIPT_SIZE: u32 = 25;
@@ -93,8 +105,8 @@ pub struct BlockChain {
     pub chain: BTreeMap<u32,H256Le>,
     pub start_height: u32,
     pub max_height: u32,
-    pub no_data: Vec<u32>,
-    pub invalid: Vec<u32>,
+    pub no_data: BTreeSet<u32>,
+    pub invalid: BTreeSet<u32>,
 }
 
 /// Represents a bitcoin 32 bytes hash digest encoded in little-endian
@@ -153,6 +165,10 @@ impl H256Le {
     /// Returns the content of the H256Le encoded in big endian hex
     pub fn to_hex_be(&self) -> String {
         hex::encode(&self.to_bytes_be())
+    }
+
+    pub fn as_u256(&self) -> U256 {
+        U256::from_little_endian(&self.to_bytes_le())
     }
 }
 
