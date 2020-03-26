@@ -204,6 +204,7 @@ decl_module! {
 
             // Update the blockchain
             // check if we create a new blockchain or extend the existing one
+            print!("Prev max height: {:?} \n", prev_blockchain.max_height);
             let blockchain = match prev_blockchain.max_height {
                 // extend the current chain
                 height if height == prev_block_height => Self::extend_blockchain(
@@ -245,6 +246,10 @@ decl_module! {
 
             // Determine if this block extends the main chain or a fork
             let current_best_block = <BestBlock>::get();
+
+            print!("Best block hash: {:?} \n", current_best_block);
+            print!("Current block hash: {:?} \n", block_header_hash);
+            
             if current_best_block == block_header_hash {
                 // extends the main chain
                 Self::deposit_event(
@@ -514,20 +519,26 @@ impl<T: Trait> Module<T> {
 
         Ok(new_counter)
     }
-    fn initialize_blockchain(block_height: &u32, block_hash: &H256Le) -> Result<BlockChain, Error> {
+    fn initialize_blockchain(
+        block_height: &u32, block_hash: &H256Le
+    ) -> Result<BlockChain, Error> {
         let chain_id = MAIN_CHAIN_ID;
 
         // generate an empty blockchain
-        let blockchain = Self::generate_blockchain(&chain_id, &block_height, &block_hash)?;
+        let blockchain = Self::generate_blockchain(
+            &chain_id, &block_height, &block_hash)?;
 
         Ok(blockchain)
     }
-    fn create_blockchain(block_height: &u32, block_hash: &H256Le) -> Result<BlockChain, Error> {
+    fn create_blockchain(
+        block_height: &u32, block_hash: &H256Le
+    ) -> Result<BlockChain, Error> {
         // get a new chain id
         let chain_id: u32 = Self::increment_chain_counter()?;
 
         // generate an empty blockchain
-        let blockchain = Self::generate_blockchain(&chain_id, &block_height, &block_hash)?;
+        let blockchain = Self::generate_blockchain(
+            &chain_id, &block_height, &block_hash)?;
 
         Ok(blockchain)
     }
