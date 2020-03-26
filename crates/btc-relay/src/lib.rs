@@ -161,8 +161,9 @@ decl_module! {
         ///
         /// # Arguments
         /// * `block_header_bytes` - 80 byte raw Bitcoin block header.
-        fn store_block_header(origin, block_header_bytes: Vec<u8>)
-        -> DispatchResult {
+        fn store_block_header(
+            origin, block_header_bytes: Vec<u8>
+        ) -> DispatchResult {
             let _ = ensure_signed(origin)?;
             // Check if BTC _Parachain is in shutdown state.+
             /*
@@ -271,9 +272,12 @@ decl_module! {
         /// # Arguments
         ///
         /// * `tx_id` - The hash of the transaction to check for
-        /// * `tx_block_height` - The height of the block in which the transaction should be included
-        /// * `raw_merkle_proof` - The raw merkle proof as returned by bitcoin `gettxoutproof`
-        /// * `confirmations` - The number of confirmations needed to accept the proof
+        /// * `tx_block_height` - The height of the block in which the 
+        /// transaction should be included
+        /// * `raw_merkle_proof` - The raw merkle proof as returned by 
+        /// bitcoin `gettxoutproof`
+        /// * `confirmations` - The number of confirmations needed to accept 
+        /// the proof
         fn verify_transaction_inclusion(
             origin,
             tx_id: H256Le,
@@ -294,10 +298,14 @@ decl_module! {
             ensure!(block_height + confirmations <= blockchain.max_height,
                 Error::Confirmations);
 
-            let merkle_proof = MerkleProof::parse(&raw_merkle_proof).map_err(|_e| Error::InvalidMerkleProof)?;
-            let proof_result = merkle_proof.verify_proof().map_err(|_e| Error::InvalidMerkleProof)?;
+            let merkle_proof = MerkleProof::parse(&raw_merkle_proof)
+                .map_err(|_e| Error::InvalidMerkleProof)?;
+            let proof_result = merkle_proof
+                .verify_proof()
+                .map_err(|_e| Error::InvalidMerkleProof)?;
 
-            let rich_header = Self::get_block_header_from_height(&blockchain, block_height)?;
+            let rich_header = Self::get_block_header_from_height(
+                &blockchain, block_height)?;
 
             // fail if the transaction hash is invalid
             ensure!(proof_result.transaction_hash == tx_id,
@@ -343,7 +351,8 @@ decl_module! {
             ensure!(!(<security::Module<T>>::check_parachain_status(StatusCode::Error) && <security::Module<T>>::check_parachain_error(ErrorCode::InvalidBTCRelay)),
                 Error::<T>::InvalidBTCRelay);
             */
-            let transaction = parse_transaction(&raw_tx).map_err(|_e| Error::TxFormat)?;
+            let transaction = parse_transaction(&raw_tx)
+                .map_err(|_e| Error::TxFormat)?;
 
             // Check that the tx_id is indeed that of the raw_tx
             ensure!(Transaction::tx_id(&raw_tx) != tx_id, Error::InvalidTxid);
@@ -355,11 +364,16 @@ decl_module! {
             ensure!(extr_payment_value == payment_value, Error::InsufficientValue);
 
             // Check if 1st / payment UTXO sends to correct address
-            let extr_recipient_address = extract_address_hash(&transaction.outputs[0].script).map_err(|_e| Error::InvalidOutputFormat)?;
-            ensure!(extr_recipient_address == recipient_btc_address, Error::WrongRecipient);
+            let extr_recipient_address = extract_address_hash(
+                    &transaction.outputs[0].script
+                ).map_err(|_e| Error::InvalidOutputFormat)?;
+            ensure!(extr_recipient_address == recipient_btc_address, 
+                Error::WrongRecipient);
 
             // Check if 2nd / data UTXO has correct OP_RETURN value
-            let extr_op_return_value = extract_op_return_data(&transaction.outputs[1].script).map_err(|_e| Error::InvalidOpreturn)?;
+            let extr_op_return_value = extract_op_return_data(
+                    &transaction.outputs[1].script
+                ).map_err(|_e| Error::InvalidOpreturn)?;
             ensure!(extr_op_return_value == op_return_id, Error::InvalidOpreturn);
 
             Ok(())
@@ -445,7 +459,9 @@ decl_module! {
             // Store the updated blockchain entry
             <ChainsIndex>::mutate(&chain_id, |_b| blockchain);
 
-            Self::deposit_event(Event::ClearBlockError(block_hash, chain_id, error));
+            Self::deposit_event(
+                Event::ClearBlockError(block_hash, chain_id, error)
+            );
             Ok (())
         }
 
@@ -455,14 +471,23 @@ decl_module! {
 /// Utility functions
 #[cfg_attr(test, mockable)]
 impl<T: Trait> Module<T> {
-    fn get_block_hash(blockchain: &BlockChain, block_height: u32) -> Result<H256Le, Error> {
+    /// Get a block hash from a blockchain
+    /// # Arguments
+    ///
+    /// * `blockchain`: the blockchian struct to search in
+    /// * `block_height`: the height if the block header
+    fn get_block_hash(
+        blockchain: &BlockChain, block_height: u32
+    ) -> Result<H256Le, Error> {
         match blockchain.chain.get(&block_height) {
             Some(hash) => Ok(*hash),
             None => return Err(Error::MissingBlockHeight.into()),
         }
     }
 
-    fn get_block_header_from_hash(block_hash: H256Le) -> Result<RichBlockHeader, Error> {
+    fn get_block_header_from_hash(
+        block_hash: H256Le
+    ) -> Result<RichBlockHeader, Error> {
         if <BlockHeaders>::exists(block_hash) {
             return Ok(<BlockHeaders>::get(block_hash));
         }
