@@ -115,7 +115,7 @@ decl_module! {
             let _ = ensure_signed(origin)?;
 
             // Check if BTC-Relay was already initialized
-            ensure!(!<BestBlock>::exists(), Error::AlreadyInitialized);
+            ensure!(!Self::best_block_exists(), Error::AlreadyInitialized);
 
             // Parse the block header bytes to extract the required info
             let raw_block_header = header_from_bytes(&block_header_bytes);
@@ -189,7 +189,7 @@ decl_module! {
             )?;
 
             // get the block chain of the previous header
-            let prev_blockchain = Self::chainindex(prev_header.chain_ref);
+            let prev_blockchain = Self::get_block_chain_from_id(prev_header.chain_ref);
 
             // Update the current block header
             // check if the prev block is the highest block in the chain
@@ -245,7 +245,7 @@ decl_module! {
             };
 
             // Determine if this block extends the main chain or a fork
-            let current_best_block = <BestBlock>::get();
+            let current_best_block = Self::get_best_block();
 
             print!("Best block hash: {:?} \n", current_best_block);
             print!("Current block hash: {:?} \n", block_header_hash);
@@ -297,7 +297,7 @@ decl_module! {
          sha256d  ensure!(<security::Module<T>>::check_parachain_status(StatusCode::Running),
                 Error::<T>::Shutdown);
             */
-            let blockchain = <ChainsIndex>::get(MAIN_CHAIN_ID);
+            let blockchain = Self::get_block_chain_from_id(MAIN_CHAIN_ID);
 
             // fail if not enough confirmations
             ensure!(block_height + confirmations <= blockchain.max_height,
@@ -396,12 +396,12 @@ decl_module! {
             );
             */
             // Get the chain id of the block header
-            ensure!(<BlockHeaders>::exists(block_hash), Error::BlockNotFound);
-            let block_header = Self::blockheader(block_hash);
+            let block_header = Self::get_block_header_from_hash(block_hash)
+                .map_err(|_| Error::BlockNotFound)?;
             let chain_id = block_header.chain_ref;
 
             // Get the blockchain element for the chain id
-            let mut blockchain = Self::chainindex(chain_id);
+            let mut blockchain = Self::get_block_chain_from_id(chain_id);
 
             // Flag errors in the blockchain entry
             // Check which error we are dealing with
@@ -434,12 +434,12 @@ decl_module! {
             );
             */
             // Get the chain id of the block header
-            ensure!(<BlockHeaders>::exists(block_hash), Error::BlockNotFound);
-            let block_header = Self::blockheader(block_hash);
+            let block_header = Self::get_block_header_from_hash(block_hash)
+                .map_err(|_| Error::BlockNotFound)?;
             let chain_id = block_header.chain_ref;
 
             // Get the blockchain element for the chain id
-            let mut blockchain = Self::chainindex(chain_id);
+            let mut blockchain = Self::get_block_chain_from_id(chain_id);
 
             // Clear errors in the blockchain entry
             // Check which error we are dealing with
@@ -473,27 +473,41 @@ decl_module! {
     }
 }
 
-/// Utility functions
 #[cfg_attr(test, mockable)]
 impl<T: Trait> Module<T> {
     /// Storage getter functions
-    fn blockheader(header: H256Le) -> RichBlockHeader {
-        <BlockHeaders>::get(header)
-    }
-    fn chain(position: u32) -> u32 {
+    /// Get chain id from position (sorted by max block height) 
+    fn get_chain_id_from_position(position: u32) -> u32 {
         <Chains>::get(position)
     }
-    fn chainindex(chain_id: u32) -> BlockChain {
+    /// Get a blockchain from the id
+    fn get_block_chain_from_id(chain_id: u32) -> BlockChain {
         <ChainsIndex>::get(chain_id)
     }
-    fn bestblock() -> H256Le {
+    /// Get the current best block hash
+    fn get_best_block() -> H256Le {
         <BestBlock>::get()
     }
-    fn bestblockheight() -> u32 {
+    /// Check if a best block hash is set
+    fn best_block_exists() -> bool {
+        <BestBlock>::exists()
+    }
+    /// get the best block height 
+    fn get_best_block_height() -> u32 {
         <BestBlockHeight>::get()
     }
-    fn chaincounter() -> u32 {
+    /// Get the current chain counter
+    fn get_chain_counter() -> u32 {
         <ChainCounter>::get()
+    }
+    /// Set a new chain counter
+    fn increment_chain_counter() -> Result<u32, Error> {
+        let new_counter = Self::get_chain_counter()
+            .checked_add(1)
+            .ok_or(Error::ChainCounterOverflow)?;
+        <ChainCounter>::put(new_counter);
+
+        Ok(new_counter)
     }
     
     /// Get a block hash from a blockchain
@@ -509,7 +523,6 @@ impl<T: Trait> Module<T> {
             None => return Err(Error::MissingBlockHeight.into()),
         }
     }
-
     fn get_block_header_from_hash(
         block_hash: H256Le
     ) -> Result<RichBlockHeader, Error> {
@@ -530,15 +543,7 @@ impl<T: Trait> Module<T> {
         let block_hash = Self::get_block_hash(blockchain, block_height)?;
         Self::get_block_header_from_hash(block_hash)
     }
-
-    fn increment_chain_counter() -> Result<u32, Error> {
-        let new_counter = <ChainCounter>::get()
-            .checked_add(1)
-            .ok_or(Error::ChainCounterOverflow)?;
-        <ChainCounter>::put(new_counter);
-
-        Ok(new_counter)
-    }
+    /// Initialize a new blockchain with a single block
     fn initialize_blockchain(
         block_height: &u32, block_hash: &H256Le
     ) -> Result<BlockChain, Error> {
@@ -623,12 +628,13 @@ impl<T: Trait> Module<T> {
         );
 
         // Check that the referenced previous block header exists in BTC-Relay
-        ensure!(
-            !<BlockHeaders>::exists(basic_block_header.hash_prev_block),
-            Error::PrevBlock
-        );
-        let prev_block_header = Self::blockheader(basic_block_header.hash_prev_block);
-
+        //  ensure!(
+        //      !<BlockHeaders>::exists(basic_block_header.hash_prev_block),
+        //      Error::PrevBlock
+        //  );
+        let prev_block_header = Self::get_block_header_from_hash(
+            basic_block_header.hash_prev_block)
+            .map_err(|_| Error::PrevBlock)?;
         // Check that the PoW hash satisfies the target set in the block header
         ensure!(
             U256::from_little_endian(&block_header_hash.to_bytes_le()) < basic_block_header.target,
@@ -638,14 +644,16 @@ impl<T: Trait> Module<T> {
         // Check that the diff. target is indeed correctly set in the block header, i.e., check for re-target.
         let block_height = prev_block_header.block_height + 1;
         
-        let chain_index = Self::chainindex(prev_block_header.chain_ref);
+        let chain_index = Self::get_block_chain_from_id(prev_block_header.chain_ref);
         
         let block_header_hash = match chain_index.chain.get(&block_height) {
             Some(hash) => hash,
             None => return Err(Error::HeaderNotFound.into()),            
         };
 
-        let rich_block_header = Self::blockheader(*block_header_hash);
+        let rich_block_header = Self::get_block_header_from_hash(
+            *block_header_hash)
+            .map_err(|_| Error::PrevBlock)?;
 
         let last_retarget_time = rich_block_header.block_header.timestamp;
 

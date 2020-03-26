@@ -85,7 +85,7 @@ impl ExtBuilder {
 
 /// Initialize Function
 #[test]
-fn initialize_once_suceeds() {
+fn initialize_once_succeeds() {
     ExtBuilder::build().execute_with(|| {
         let block_height: u32 = 1;
         let block_header = vec![0u8; 80];
@@ -117,13 +117,12 @@ fn initialize_twice_fails() {
 }
 
 #[test]
-fn initialize_best_block_set_fails() {
+fn initialize_best_block_already_set_fails() {
     ExtBuilder::build().execute_with(|| {
         let block_height: u32 = 1;
         let block_header = vec![0u8; 80];
-        let block_header_hash = H256Le::zero();
 
-        <BestBlock>::put(&block_header_hash);
+        BTCRelay::best_block_exists.mock_safe(|| MockResult::Return(true));
 
         assert_err!(
             BTCRelay::initialize(Origin::signed(3), block_header, block_height),
@@ -134,7 +133,7 @@ fn initialize_best_block_set_fails() {
 
 /// StoreBlockHeader Function
 #[test]
-fn store_block_header_on_mainchain_suceeds() {
+fn store_block_header_on_mainchain_succeeds() {
     ExtBuilder::build().execute_with(|| {
         BTCRelay::verify_block_header
             .mock_safe(|h| MockResult::Return(Ok(BlockHeader::from_le_bytes(&h))));
@@ -164,7 +163,7 @@ fn store_block_header_on_mainchain_suceeds() {
             invalid: vec![]
         };
 
-        BTCRelay::chainindex
+        BTCRelay::get_block_chain_from_id
             .mock_safe(move |_: u32| MockResult::Return(prev_blockchain.clone()));
 
         let block_header_hash = H256Le::zero();
