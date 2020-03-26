@@ -14,47 +14,47 @@ stages:
   - test      # for tests in dev
   - deploy    # for deployment in master
 
-# master branch
-btc-parachain-test:
-  stage: deploy
-  image: rustlang/rust:nightly
-  script:
-    - cd parachain
-    - ./scripts/init.sh
-    - cargo test --all --verbose
-  only:
-    - master
+# # master branch
+# btc-parachain-test:
+#   stage: deploy
+#   image: rustlang/rust:nightly
+#   script:
+#     - cd parachain
+#     - ./scripts/init.sh
+#     - cargo test --all --verbose
+#   only:
+#     - master
 
-btc-parachain-build:
-  stage: test
-  image: rustlang/rust:nightly
-  script:
-    - cd parachain
-    - ./scripts/init.sh
-    - cargo build --release --verbose
-  only:
-    - dev
+# btc-parachain-build:
+#   stage: test
+#   image: rustlang/rust:nightly
+#   script:
+#     - cd parachain
+#     - ./scripts/init.sh
+#     - cargo build --release --verbose
+#   only:
+#     - dev
 
-# merge requests
-btc-parachain-build:
-  stage: test
-  image: rustlang/rust:nightly
-  script:
-    - cd parachain
-    - ./scripts/init.sh
-    - cargo build --release --verbose
-  only:
-    - merge_requests
+# # merge requests
+# btc-parachain-build:
+#   stage: test
+#   image: rustlang/rust:nightly
+#   script:
+#     - cd parachain
+#     - ./scripts/init.sh
+#     - cargo build --release --verbose
+#   only:
+#     - merge_requests
 
-btc-parachain-test:
-  stage: test
-  image: rustlang/rust:nightly
-  script:
-    - cd parachain
-    - ./scripts/init.sh
-    - cargo test --all --verbose
-  only:
-    - merge_requests
+# btc-parachain-test:
+#   stage: test
+#   image: rustlang/rust:nightly
+#   script:
+#     - cd parachain
+#     - ./scripts/init.sh
+#     - cargo test --all --verbose
+#   only:
+#     - merge_requests
 
 # pallets and crates
 test-pallets-and-crates:
