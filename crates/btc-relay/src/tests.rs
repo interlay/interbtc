@@ -1,15 +1,23 @@
 /// Tests for BTC-Relay
-
-use crate::{Module, Trait, Error, Event};
-use sp_core::{U256, H256};
-use frame_support::{impl_outer_origin, impl_outer_event, assert_ok, assert_err, parameter_types, weights::Weight};
-use sp_runtime::{
-	traits::{BlakeTwo256, IdentityLookup}, testing::Header, Perbill,
-};
+use crate::{Event, Module, Trait};
+use sp_std::collections::btree_map::BTreeMap;
+use sp_std::collections::btree_set::BTreeSet;
+use bitcoin::parser::FromLeBytes;
 use bitcoin::types::*;
+use frame_support::{
+    assert_err, assert_ok, impl_outer_event, impl_outer_origin, parameter_types, weights::Weight,
+};
+use sp_core::H256;
+use sp_runtime::{
+    testing::Header,
+    traits::{BlakeTwo256, IdentityLookup},
+    Perbill,
+};
+
+use mocktopus::mocking::*;
 
 impl_outer_origin! {
-	pub enum Origin for Test {}
+    pub enum Origin for Test {}
 }
 
 mod test_events {
@@ -28,33 +36,35 @@ impl_outer_event! {
 #[derive(Clone, Eq, PartialEq)]
 pub struct Test;
 parameter_types! {
-	pub const BlockHashCount: u64 = 250;
-	pub const MaximumBlockWeight: Weight = 1024;
-	pub const MaximumBlockLength: u32 = 2 * 1024;
-	pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
+    pub const BlockHashCount: u64 = 250;
+    pub const MaximumBlockWeight: Weight = 1024;
+    pub const MaximumBlockLength: u32 = 2 * 1024;
+    pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
 }
 impl system::Trait for Test {
-	type Origin = Origin;
-	type Call = ();
-	type Index = u64;
-	type BlockNumber = u64;
-	type Hash = H256;
-	type Hashing = BlakeTwo256;
-	type AccountId = u64;
-	type Lookup = IdentityLookup<Self::AccountId>;
-	type Header = Header;
-	type Event = TestEvent;
-	type BlockHashCount = BlockHashCount;
-	type MaximumBlockWeight = MaximumBlockWeight;
-	type MaximumBlockLength = MaximumBlockLength;
-	type AvailableBlockRatio = AvailableBlockRatio;
-	type Version = ();
-	type ModuleToIndex = ();
+    type Origin = Origin;
+    type Call = ();
+    type Index = u64;
+    type BlockNumber = u64;
+    type Hash = H256;
+    type Hashing = BlakeTwo256;
+    type AccountId = u64;
+    type Lookup = IdentityLookup<Self::AccountId>;
+    type Header = Header;
+    type Event = TestEvent;
+    type BlockHashCount = BlockHashCount;
+    type MaximumBlockWeight = MaximumBlockWeight;
+    type MaximumBlockLength = MaximumBlockLength;
+    type AvailableBlockRatio = AvailableBlockRatio;
+    type Version = ();
+    type ModuleToIndex = ();
 }
 
 impl Trait for Test {
-	type Event = TestEvent;
+    type Event = TestEvent;
 }
+
+type Error = crate::Error;
 
 pub type System = system::Module<Test>;
 pub type BTCRelay = Module<Test>;
@@ -63,86 +73,183 @@ pub struct ExtBuilder;
 
 impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
-        let mut storage = system::GenesisConfig::default()
+        let storage = system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
         sp_io::TestExternalities::from(storage)
     }
 }
 
-
 // fn ExtBuilder::build() -> sp_io::TestExternalities {
 // 	system::GenesisConfig::default().build_storage::<Test>().unwrap().into()
 // }
 
-
 /// Initialize Function
 #[test]
-fn initialize_once_suceeds() {
+fn initialize_once_succeeds() {
     ExtBuilder::build().execute_with(|| {
-        let block_height: u32 = 0;
+        let block_height: u32 = 1;
         let block_header = vec![0u8; 80];
-        let block_header_hash = H256Le::zero();
-        assert_ok!(BTCRelay::initialize(Origin::signed(3), block_header, block_height));
-       
-        let init_event = TestEvent::test_events(
-            Event::Initialized(block_height, block_header_hash),
-        );
+        let block_header_hash = BlockHeader::block_hash_le(&block_header);
+        assert_ok!(BTCRelay::initialize(
+            Origin::signed(3),
+            block_header,
+            block_height
+        ));
+
+        let init_event =
+            TestEvent::test_events(Event::Initialized(block_height, block_header_hash));
         assert!(System::events().iter().any(|a| a.event == init_event));
     })
 }
 
-#[test]
-fn initialize_twice_fails() {
-    ExtBuilder::build().execute_with(|| {
-        let block_height: u32 = 0;
-        let block_header = vec![0u8; 80];
-        let block_header_hash = H256Le::zero();
-        assert_ok!(BTCRelay::initialize(Origin::signed(3), block_header, block_height));
 
-        let block_height_2: u32 = 0;
-        let block_header_2 = vec![1u8; 80];
-        assert_err!(BTCRelay::initialize(Origin::signed(3), block_header_2, block_height_2), Error::<Test>::AlreadyInitialized);
+#[test]
+fn initialize_best_block_already_set_fails() {
+    ExtBuilder::build().execute_with(|| {
+        let block_height: u32 = 1;
+        let block_header = vec![0u8; 80];
+
+        BTCRelay::best_block_exists.mock_safe(|| MockResult::Return(true));
+
+        assert_err!(
+            BTCRelay::initialize(Origin::signed(3), block_header, block_height),
+            Error::AlreadyInitialized
+        );
     })
 }
 
 /// StoreBlockHeader Function
 #[test]
-fn store_fork_once_suceeds() {
+fn store_block_header_on_mainchain_succeeds() {
     ExtBuilder::build().execute_with(|| {
-        let block_height: u32 = 1;
-        let block_header = vec![1u8; 80];
-        let block_header_hash = H256Le::zero();
-        let chain_id: u32 = 2;
-        assert_ok!(BTCRelay::store_block_header(Origin::signed(3), block_header));
+        BTCRelay::verify_block_header
+            .mock_safe(|h| MockResult::Return(Ok(BlockHeader::from_le_bytes(&h))));
+        BTCRelay::block_exists.mock_safe(|_| MockResult::Return(true));
+
+        let chain_ref: u32 = 0;
+        let block_height: u32 = 100;
+        let block_header = hex::decode(sample_block_header()).unwrap();
+
+        let rich_header = RichBlockHeader {
+            block_hash: H256Le::zero(),
+            block_header: BlockHeader::from_le_bytes(&block_header),
+            block_height: block_height,
+            chain_ref: chain_ref,
+        };
+        BTCRelay::get_block_header_from_hash
+            .mock_safe(move |_| MockResult::Return(Ok(rich_header)));
        
-        let store_event = TestEvent::test_events(
-            Event::StoreForkHeader(chain_id, block_height, block_header_hash),
-        );
-        assert!(System::events().iter().any(|a| a.event == store_event));
+        let chain = BTreeMap::new();
+
+        let prev_blockchain = BlockChain {
+            chain_id: chain_ref,
+            chain: chain,
+            start_height: 0,
+            max_height: block_height,
+            no_data: BTreeSet::new(),
+            invalid: BTreeSet::new(),
+        };
+
+        BTCRelay::get_block_chain_from_id
+            .mock_safe(move |_: u32| MockResult::Return(prev_blockchain.clone()));
+
+        let block_header_hash = BlockHeader::block_hash_le(&block_header);
+        assert_ok!(BTCRelay::store_block_header(
+            Origin::signed(3),
+            block_header
+        ));
+
+        let store_main_event = TestEvent::test_events(Event::StoreMainChainHeader(
+            block_height + 1,
+            block_header_hash,
+        ));
+        assert!(System::events().iter().any(|a| a.event == store_main_event));
+    })
+}
+
+// verify_block_header  
+#[test]
+fn test_verify_block_header_succeeds() {
+    ExtBuilder::build().execute_with(|| {
+
+        let chain_ref: u32 = 0;
+        let block_height: u32 = 100;
+        let raw_genesis_header =  hex::decode(sample_raw_first_header()).unwrap();
+        let genesis_header = sample_parsed_genesis_header(chain_ref, block_height);
+
+        // Prev block is genesis
+        BTCRelay::get_block_header_from_hash
+            .mock_safe(move |_| MockResult::Return(Ok(genesis_header)));
+        // block does not yet exist
+        BTCRelay::block_exists
+            .mock_safe(move |_| MockResult::Return(false));
+        // 
+
+        let chain = BTreeMap::new();
+
+        let prev_blockchain = BlockChain {
+            chain_id: chain_ref,
+            chain: chain,
+            start_height: 0,
+            max_height: block_height,
+            no_data: BTreeSet::new(),
+            invalid: BTreeSet::new(),
+        };
+
+        BTCRelay::get_block_chain_from_id
+            .mock_safe(move |_: u32| MockResult::Return(prev_blockchain.clone()));
+
+        let block_header_hash = BlockHeader::block_hash_le(&raw_genesis_header);
+
+
+        // TODO
+        
     })
 }
 
 
-fn sample_genesis_header() -> String {
+fn sample_raw_genesis_header() -> String {
     "01000000a7c3299ed2475e1d6ea5ed18d5bfe243224add249cce99c5c67cc9fb00000000601c73862a0a7238e376f497783c8ecca2cf61a4f002ec8898024230787f399cb575d949ffff001d3a5de07f".to_string()
 }
 
-fn sample_genesis_height() -> u32 {
-    10_000
+fn sample_parsed_genesis_header(chain_ref: u32, block_height: u32) -> RichBlockHeader {
+    let genesis_header = hex::decode(sample_raw_genesis_header()).unwrap();
+    
+    RichBlockHeader {
+        block_hash: BlockHeader::block_hash_le(&genesis_header),
+        block_header: BlockHeader::from_le_bytes(&genesis_header),
+        block_height: block_height,
+        chain_ref: chain_ref,
+    }
 }
 
-fn sample_first_header() -> String {
+fn sample_genesis_height() -> u32 {
+    100
+}
+
+fn sample_raw_first_header() -> String {
     "01000000cb60e68ead74025dcfd4bf4673f3f71b1e678be9c6e6585f4544c79900000000c7f42be7f83eddf2005272412b01204352a5fddbca81942c115468c3c4ec2fff827ad949ffff001d21e05e45".to_string()
 }
 
-#[test]
-fn test_verify_block_header_succeeds() {
-    let genesis_header = bitcoin_spv::utils::deserialize_hex(&sample_first_header()[..]).unwrap();
-    let genesis_height = sample_genesis_height();
-    assert_ok!(BTCRelay::initialize(Origin::signed(3), genesis_header, genesis_height));
+fn sample_parsed_first_block(chain_ref: u32, block_height: u32) -> RichBlockHeader {
+    let block_header = hex::decode(sample_raw_first_header()).unwrap();
+    
+    RichBlockHeader {
+        block_hash: BlockHeader::block_hash_le(&block_header),
+        block_header: BlockHeader::from_le_bytes(&block_header),
+        block_height: block_height,
+        chain_ref: chain_ref,
+    }
 }
 
-
-
-
+fn sample_block_header() -> String {
+    "02000000".to_owned() + // ............... Block version: 2
+    "b6ff0b1b1680a2862a30ca44d346d9e8" + //
+    "910d334beb48ca0c0000000000000000" + // ... Hash of previous block's header
+    "9d10aa52ee949386ca9385695f04ede2" + //
+    "70dda20810decd12bc9b048aaab31471" + // ... Merkle root
+    "24d95a54" + // ........................... Unix time: 1415239972
+    "30c31b18" + // ........................... Target: 0x1bc330 * 256**(0x18-3)
+    "fe9f0864"
+}

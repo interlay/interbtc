@@ -1,0 +1,24 @@
+[package]
+name = "btc-core"
+version = "0.1.0"
+authors = ["Daniel Perez <daniel@perez.sh>"]
+edition = "2018"
+
+[features]
+default = ['std']
+std = [
+  'sp-runtime/std',
+  'frame-support/std',
+]
+
+[dependencies.sp-runtime]
+default-features = false
+git = 'https://github.com/paritytech/substrate.git'
+rev = '3e651110aa06aa835790df63410a29676243fc54'
+version = '2.0.0'
+
+[dependencies.frame-support]
+default-features = false
+git = 'https://github.com/paritytech/substrate.git'
+rev = '3e651110aa06aa835790df63410a29676243fc54'
+version = '2.0.0'
