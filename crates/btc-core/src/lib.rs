@@ -12,7 +12,6 @@ pub enum Error {
     MalformedTxid,
     Confirmations, // TODO: rename to self-explanatory
     InvalidMerkleProof,
-    HeaderNotFound,
     Invalid,
     Shutdown,
     InvalidTxid,
@@ -45,7 +44,7 @@ impl Error {
             Error::MalformedTxid => "Malformed transaction identifier", 
             Error::Confirmations => "Transaction has less confirmations than requested",
             Error::InvalidMerkleProof => "Invalid Merkle Proof",
-            Error::HeaderNotFound => "Block header not found for given hash",
+            Error::BlockNotFound => "Block header not found for given hash",
             
             
             // TODO: add other error messages

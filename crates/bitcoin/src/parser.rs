@@ -173,7 +173,7 @@ impl FromLeBytes for BlockHeader {
 /// * `bytes` - A slice containing the header
 pub fn header_from_bytes(bytes: &[u8]) -> RawBlockHeader {
     let mut result: RawBlockHeader = [0; 80];
-    result.copy_from_slice(&bytes[..]);
+    result.copy_from_slice(&bytes);
     result
 }
 
@@ -206,7 +206,7 @@ pub fn extract_version(header: RawBlockHeader) -> u32 {
 /// * `header` - An 80-byte Bitcoin header
 pub fn extract_target(header: RawBlockHeader) -> U256 {
     let target = btcspv::extract_target(header);
-    U256::from_little_endian(&target.to_bytes_le()[..])
+    U256::from_little_endian(&target.to_bytes_le())
 }
 
 /// Extracts the timestamp from a block header.
@@ -224,7 +224,7 @@ pub fn extract_timestamp(header: RawBlockHeader) -> Moment {
 ///
 /// * `header` - An 80-byte Bitcoin header
 pub fn extract_previous_block_hash(header: RawBlockHeader) -> H256Le {
-    H256Le::from_bytes_le(&btcspv::extract_prev_block_hash_le(header)[..])
+    H256Le::from_bytes_le(&btcspv::extract_prev_block_hash_le(header))
 }
 
 /// Extracts the merkle root from a block header.
@@ -233,7 +233,7 @@ pub fn extract_previous_block_hash(header: RawBlockHeader) -> H256Le {
 ///
 /// * `header` - An 80-byte Bitcoin header
 pub fn extract_merkle_root(header: RawBlockHeader) -> H256Le {
-    H256Le::from_bytes_le(&btcspv::extract_merkle_root_le(header)[..])
+    H256Le::from_bytes_le(&btcspv::extract_merkle_root_le(header))
 }
 
 /// Parses the raw bitcoin header into a Rust struct
@@ -542,7 +542,7 @@ mod tests {
     #[test]
     fn test_parse_coinbase_transaction_input() {
         let raw_input = sample_coinbase_transaction_input();
-        let input_bytes = bitcoin_spv::utils::deserialize_hex(&raw_input[..]).unwrap();
+        let input_bytes = bitcoin_spv::utils::deserialize_hex(&raw_input).unwrap();
         let mut parser = BytesParser::new(&input_bytes);
         let input: TransactionInput = parser.parse_with(2).unwrap();
         assert_eq!(input.coinbase, true);
@@ -557,7 +557,7 @@ mod tests {
     #[test]
     fn test_parse_transaction_input() {
         let raw_input = sample_transaction_input();
-        let input_bytes = bitcoin_spv::utils::deserialize_hex(&raw_input[..]).unwrap();
+        let input_bytes = bitcoin_spv::utils::deserialize_hex(&raw_input).unwrap();
         let mut parser = BytesParser::new(&input_bytes);
         let input: TransactionInput = parser.parse_with(2).unwrap();
         assert_eq!(input.coinbase, false);
@@ -574,7 +574,7 @@ mod tests {
     #[test]
     fn test_parse_transaction_output() {
         let raw_output = sample_transaction_output();
-        let output_bytes = bitcoin_spv::utils::deserialize_hex(&raw_output[..]).unwrap();
+        let output_bytes = bitcoin_spv::utils::deserialize_hex(&raw_output).unwrap();
         let mut parser = BytesParser::new(&output_bytes);
         let output: TransactionOutput = parser.parse().unwrap();
         assert_eq!(output.value, 4999990000);
@@ -584,7 +584,7 @@ mod tests {
     #[test]
     fn test_parse_transaction() {
         let raw_tx = sample_transaction();
-        let tx_bytes = bitcoin_spv::utils::deserialize_hex(&raw_tx[..]).unwrap();
+        let tx_bytes = bitcoin_spv::utils::deserialize_hex(&raw_tx).unwrap();
         let transaction = parse_transaction(&tx_bytes).unwrap();
         let inputs = transaction.inputs;
         let outputs = transaction.outputs;

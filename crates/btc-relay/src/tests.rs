@@ -1,6 +1,7 @@
 /// Tests for BTC-Relay
 use crate::{Event, Module, Trait};
 use sp_std::collections::btree_map::BTreeMap;
+use sp_std::collections::btree_set::BTreeSet;
 use bitcoin::parser::FromLeBytes;
 use bitcoin::types::*;
 use frame_support::{
@@ -102,19 +103,6 @@ fn initialize_once_succeeds() {
     })
 }
 
-#[test]
-fn initialize_twice_fails() {
-    ExtBuilder::build().execute_with(|| {
-        BTCRelay::generate_blockchain
-            .mock_safe(|_, _, _| MockResult::Return(Err(Error::DuplicateBlock.into())));
-        let block_height: u32 = 1;
-        let block_header = vec![0u8; 80];
-        assert_err!(
-            BTCRelay::initialize(Origin::signed(3), block_header, block_height),
-            Error::AlreadyInitialized
-        );
-    })
-}
 
 #[test]
 fn initialize_best_block_already_set_fails() {
@@ -159,14 +147,14 @@ fn store_block_header_on_mainchain_succeeds() {
             chain: chain,
             start_height: 0,
             max_height: block_height,
-            no_data: vec![],
-            invalid: vec![]
+            no_data: BTreeSet::new(),
+            invalid: BTreeSet::new(),
         };
 
         BTCRelay::get_block_chain_from_id
             .mock_safe(move |_: u32| MockResult::Return(prev_blockchain.clone()));
 
-        let block_header_hash = H256Le::zero();
+        let block_header_hash = BlockHeader::block_hash_le(&block_header);
         assert_ok!(BTCRelay::store_block_header(
             Origin::signed(3),
             block_header
@@ -176,7 +164,6 @@ fn store_block_header_on_mainchain_succeeds() {
             block_height + 1,
             block_header_hash,
         ));
-        System::events().iter().for_each(|a| print!("{:?}", a.event));
         assert!(System::events().iter().any(|a| a.event == store_main_event));
     })
 }
