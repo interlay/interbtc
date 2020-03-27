@@ -222,13 +222,13 @@ decl_module! {
 
 
             // Store a new BlockHeader struct in BlockHeaders
-            <BlockHeaders>::insert(&block_header_hash, &block_header);
+            Self::set_block_header_from_hash(block_header_hash, &block_header);
 
             // Storing the blockchain depends if we extend or create a new chain
             if is_fork {
                 // create a new chain
                 // Store a pointer to BlockChain in ChainsIndex
-                <ChainsIndex>::insert(blockchain.chain_id, &blockchain);
+                Self::set_chainindex_from_id_and_blockchain(blockchain.chain_id, &blockchain);
                 // Store the reference to the blockchain in Chains
                 Self::insert_sorted(&blockchain);
             } else {
@@ -240,8 +240,8 @@ decl_module! {
                 Self::check_and_do_reorg(&blockchain)?;
 
                 if blockchain.chain_id == MAIN_CHAIN_ID {
-                    <BestBlock>::put(&block_header_hash);
-                    <BestBlockHeight>::put(current_block_height)
+                    Self::set_best_block(block_header_hash);
+                    Self::set_best_block_height(current_block_height)
                 }
             };
 
@@ -388,7 +388,7 @@ impl<T: Trait> Module<T> {
     }
     /// Get the position of the fork in Chains
     fn get_chain_position_from_chain_id(chain_id: u32) -> Result<u32, Error> {
-        let position: u32 = match <Chains>::enumerate()
+        match <Chains>::enumerate()
             .position(|(_k, v)| v == chain_id)
         {
             Some(pos) => return Ok(pos as u32),
@@ -415,35 +415,6 @@ impl<T: Trait> Module<T> {
     fn get_chain_counter() -> u32 {
         <ChainCounter>::get()
     }
-    /// Storage setter functions
-    /// Set a new chain with position and id
-    fn set_chain_from_position_and_id(position: u32, id: u32) {
-        <Chains>::insert(position, id);
-    }
-    /// Set a new blockchain in ChainsIndex
-    fn set_chainindex_from_id_and_blockchain(id: u32, chain: &BlockChain) {
-        <ChainsIndex>::insert(id, &chain);
-    }
-    /// Set a new block header
-    fn set_block_header_from_hash(hash: H256Le, header: &RichBlockHeader) {
-        <BlockHeaders>::insert(hash, header);
-    }
-    /// Set a new best block
-    fn set_best_block(hash: H256Le) {
-        <BestBlock>::put(hash);
-    }
-    /// Set a new best block height
-    fn set_best_block_height(height: u32) {
-        <BestBlockHeight>::put(height);
-    }
-    /// Set a new chain counter
-    fn increment_chain_counter() -> u32 {
-        let new_counter = Self::get_chain_counter() + 1;
-        <ChainCounter>::put(new_counter);
-
-        new_counter
-    }
-    
     /// Get a block hash from a blockchain
     /// # Arguments
     ///
@@ -477,6 +448,36 @@ impl<T: Trait> Module<T> {
         let block_hash = Self::get_block_hash(blockchain, block_height)?;
         Self::get_block_header_from_hash(block_hash)
     }
+    
+    /// Storage setter functions
+    /// Set a new chain with position and id
+    fn set_chain_from_position_and_id(position: u32, id: u32) {
+        <Chains>::insert(position, id);
+    }
+    /// Set a new blockchain in ChainsIndex
+    fn set_chainindex_from_id_and_blockchain(id: u32, chain: &BlockChain) {
+        <ChainsIndex>::insert(id, &chain);
+    }
+    /// Set a new block header
+    fn set_block_header_from_hash(hash: H256Le, header: &RichBlockHeader) {
+        <BlockHeaders>::insert(hash, header);
+    }
+    /// Set a new best block
+    fn set_best_block(hash: H256Le) {
+        <BestBlock>::put(hash);
+    }
+    /// Set a new best block height
+    fn set_best_block_height(height: u32) {
+        <BestBlockHeight>::put(height);
+    }
+    /// Set a new chain counter
+    fn increment_chain_counter() -> u32 {
+        let new_counter = Self::get_chain_counter() + 1;
+        <ChainCounter>::put(new_counter);
+
+        new_counter
+    }
+    
     /// Initialize a new blockchain with a single block
     fn initialize_blockchain(
         block_height: u32, block_hash: H256Le
@@ -647,14 +648,20 @@ impl<T: Trait> Module<T> {
         // maybe split off the no data elements
         // check if there is a no_data block element
         // that is greater than start_height
-        let index_no_data = main_chain.no_data.iter().position(|&h| h >= start_height).map(|v| v as u32);
+        let index_no_data = main_chain.no_data
+            .iter()
+            .position(|&h| h >= start_height)
+            .map(|v| v as u32);
         let no_data = match index_no_data {
             Some(index) => main_chain.no_data.split_off(&index),
             None => BTreeSet::new(),
         };
 
         // maybe split off the invalid elements
-        let index_invalid = main_chain.invalid.iter().position(|&h| h >= start_height).map(|v| v as u32);
+        let index_invalid = main_chain.invalid
+            .iter()
+            .position(|&h| h >= start_height)
+            .map(|v| v as u32);
         let invalid = match index_invalid {
             Some(index) => main_chain.invalid.split_off(&index),
             None => BTreeSet::new(),
@@ -690,18 +697,19 @@ impl<T: Trait> Module<T> {
         };
 
         // Update the stored main chain
-        <ChainsIndex>::insert(MAIN_CHAIN_ID, &main_chain);
+        Self::set_chainindex_from_id_and_blockchain(MAIN_CHAIN_ID, &main_chain);
 
         // Set BestBlock and BestBlockHeight to the submitted block
-        <BestBlock>::put(&best_block);
-        <BestBlockHeight>::put(main_chain.max_height);
+        Self::set_best_block(best_block.clone());
+        Self::set_best_block_height(main_chain.max_height);
 
         // remove the fork from storage
-        <ChainsIndex>::remove(fork.chain_id);
-        Self::remove_blockchain(position);
+        Self::remove_blockchain_from_chainindex(fork.chain_id);
+        Self::remove_blockchain_from_chain(position);
 
         // store the forked main chain
-        <ChainsIndex>::insert(forked_main_chain.chain_id, &forked_main_chain);
+        Self::set_chainindex_from_id_and_blockchain(
+            forked_main_chain.chain_id, &forked_main_chain);
 
         // insert the reference to the forked main chain in Chains
         Self::insert_sorted(&forked_main_chain);
@@ -812,7 +820,8 @@ impl<T: Trait> Module<T> {
         }
 
         // insert the new fork into the chains element
-        <Chains>::insert(&max_chain_element, &blockchain.chain_id);
+        Self::set_chain_from_position_and_id(
+            max_chain_element, blockchain.chain_id);
         // starting from the last element swap the positions until
         // the new blockchain is at the position_blockchain
         for curr_position in (position_blockchain..max_chain_element).rev() {
@@ -826,7 +835,10 @@ impl<T: Trait> Module<T> {
             <Chains>::swap(curr_position, prev_position);
         }
     }
-    fn remove_blockchain(position: u32) {
+    fn remove_blockchain_from_chainindex(id: u32) {
+        <ChainsIndex>::remove(id);
+    }
+    fn remove_blockchain_from_chain(position: u32) {
         // swap the element with the last element in the mapping
         let head_index = <Chains>::head().unwrap();
         <Chains>::swap(position, head_index);
