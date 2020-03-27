@@ -158,6 +158,46 @@ fn check_and_do_reorg_fork_id_not_found() {
     })
 }
 
+#[test]
+fn check_and_do_reorg_swap_fork_position() {
+    ExtBuilder::build().execute_with(|| {
+        let fork_chain_ref: u32 = 3;
+        let fork_block_height: u32 = 100;
+        let fork_position: u32 = 3;
+
+        let swap_chain_ref: u32 = 2;
+        let swap_block_height: u32 = 99;
+        let swap_position: u32 = 2;
+
+        let fork = get_empty_block_chain_from_chain_id_and_height(
+            fork_chain_ref, fork_block_height
+        );
+        let swap = get_empty_block_chain_from_chain_id_and_height(
+            swap_chain_ref, swap_block_height
+        );
+        
+        // insert the swap chain
+        
+
+        BTCRelay::get_chain_position_from_chain_id
+            .mock_safe(move |_| MockResult::Return(Ok(fork_position))); 
+
+        BTCRelay::get_chain_id_from_position
+            .mock_safe(move |_| MockResult::Return(swap_position.clone()));
+
+        BTCRelay::get_block_chain_from_id
+            .mock_safe(move |_| MockResult::Return(swap.clone()));
+
+        assert_ok!(BTCRelay::check_and_do_reorg(&fork));
+        
+        // assert that positions have been swapped
+        let new_position = BTCRelay::get_chain_position_from_chain_id(
+            fork_chain_ref
+            ).unwrap();
+        assert_eq!(new_position, swap_position);
+    })
+}
+
 /// verify_block_header  
 #[test]
 fn test_verify_block_header_no_retarget_succeeds() {

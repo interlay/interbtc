@@ -139,17 +139,18 @@ decl_module! {
             };
 
             // Store a new BlockHeader struct in BlockHeaders
-            <BlockHeaders>::insert(block_header_hash, &block_header);
+            Self::set_block_header_from_hash(block_header_hash, &block_header);
 
             // Store a pointer to BlockChain in ChainsIndex
-            <ChainsIndex>::insert(MAIN_CHAIN_ID, &blockchain);
+            Self::set_chainindex_from_id_and_blockchain(
+                MAIN_CHAIN_ID, &blockchain);
 
             // Store the reference to the new BlockChain in Chains
-            <Chains>::insert(0, MAIN_CHAIN_ID);
+            Self::set_chain_from_position_and_id(0, MAIN_CHAIN_ID);
 
             // Set BestBlock and BestBlockHeight to the submitted block
-            <BestBlock>::put(block_header_hash);
-            <BestBlockHeight>::put(block_height);
+            Self::set_best_block(block_header_hash);
+            Self::set_best_block_height(block_height);
 
             // Emit a Initialized Event
             Self::deposit_event(Event::Initialized(
@@ -414,6 +415,27 @@ impl<T: Trait> Module<T> {
     fn get_chain_counter() -> u32 {
         <ChainCounter>::get()
     }
+    /// Storage setter functions
+    /// Set a new chain with position and id
+    fn set_chain_from_position_and_id(position: u32, id: u32) {
+        <Chains>::insert(position, id);
+    }
+    /// Set a new blockchain in ChainsIndex
+    fn set_chainindex_from_id_and_blockchain(id: u32, chain: &BlockChain) {
+        <ChainsIndex>::insert(id, &chain);
+    }
+    /// Set a new block header
+    fn set_block_header_from_hash(hash: H256Le, header: &RichBlockHeader) {
+        <BlockHeaders>::insert(hash, header);
+    }
+    /// Set a new best block
+    fn set_best_block(hash: H256Le) {
+        <BestBlock>::put(hash);
+    }
+    /// Set a new best block height
+    fn set_best_block_height(height: u32) {
+        <BestBlockHeight>::put(height);
+    }
     /// Set a new chain counter
     fn increment_chain_counter() -> u32 {
         let new_counter = Self::get_chain_counter() + 1;
@@ -609,7 +631,7 @@ impl<T: Trait> Module<T> {
 
     fn swap_main_blockchain(fork: &BlockChain) -> Result<(), Error> {
         // load the main chain
-        let mut main_chain = <ChainsIndex>::get(MAIN_CHAIN_ID);
+        let mut main_chain = Self::get_block_chain_from_id(MAIN_CHAIN_ID);
 
         // the start height of the fork
         let start_height = fork.start_height;
@@ -721,9 +743,11 @@ impl<T: Trait> Module<T> {
             // get the previous position
             let prev_position = current_position - 1;
             // get the blockchain id
-            let prev_blockchain_id = <Chains>::get(&prev_position);
+            let prev_blockchain_id = Self::get_chain_id_from_position(
+                prev_position);
             // get the previous blockchain height
-            let prev_height = <ChainsIndex>::get(&prev_blockchain_id).max_height;
+            let prev_height = Self::get_block_chain_from_id(prev_blockchain_id)
+                .max_height;
             // swap elements if block height is greater
             if prev_height < current_height {
                 // Check if swap occurs on the main chain element
@@ -775,7 +799,9 @@ impl<T: Trait> Module<T> {
         // NOTE: we never want to insert a new main chain through this function
         for (curr_position, curr_chain_id) in chains.iter().skip(1) {
             // get the height of the current chain_id
-            let curr_height = <ChainsIndex>::get(curr_chain_id).max_height;
+            let curr_height = Self::get_block_chain_from_id(
+                curr_chain_id.clone())
+                .max_height;
 
             // if the height of the current blockchain is lower than
             // the new blockchain, it should be inserted at that position
@@ -882,7 +908,6 @@ impl<T: Trait> Module<T> {
 
         Ok (())
     }
-
 }
 
 decl_event! {
