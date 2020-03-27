@@ -30,8 +30,8 @@ pub const HASH160_SIZE_HEX: u8 = 0x14;
 /// Structs
 /// Bitcoin Basic Block Headers
 // TODO: Figure out how to set a pointer to the ChainIndex mapping instead
-#[derive(Encode, Decode, Default, Copy, Clone, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Encode, Decode, Default, Copy, Clone, PartialEq, Debug)]
+//#[cfg_attr(feature = "std", derive(Debug))]
 pub struct BlockHeader {
     pub merkle_root: H256Le,
     pub target: U256,

@@ -2,7 +2,7 @@
 use crate::{Event, Module, Trait};
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
-use bitcoin::parser::FromLeBytes;
+use bitcoin::parser::*;
 use bitcoin::types::*;
 use frame_support::{
     assert_err, assert_ok, impl_outer_event, impl_outer_origin, parameter_types, weights::Weight,
@@ -170,47 +170,88 @@ fn store_block_header_on_mainchain_succeeds() {
 
 // verify_block_header  
 #[test]
-fn test_verify_block_header_succeeds() {
+fn test_verify_block_header_no_retarget_succeeds() {
     ExtBuilder::build().execute_with(|| {
 
         let chain_ref: u32 = 0;
+        // no retarget at block 100
         let block_height: u32 = 100;
-        let raw_genesis_header =  hex::decode(sample_raw_first_header()).unwrap();
         let genesis_header = sample_parsed_genesis_header(chain_ref, block_height);
+        
+        let raw_first_header = header_from_bytes(&(hex::decode(sample_raw_first_header()).unwrap()));
+        let rich_first_header = sample_parsed_first_block(chain_ref, block_height + 1);
 
         // Prev block is genesis
         BTCRelay::get_block_header_from_hash
             .mock_safe(move |_| MockResult::Return(Ok(genesis_header)));
-        // block does not yet exist
+        // submitted block does not yet exist
+        BTCRelay::block_exists
+            .mock_safe(move |raw_first_header| MockResult::Return(false));
+
+        let verified_header = BTCRelay::verify_block_header(
+                raw_first_header
+            ).unwrap();
+        
+        assert_eq!(verified_header, rich_first_header.block_header)
+    })
+}
+
+#[test]
+fn test_verify_block_header_duplicate_fails() {
+    ExtBuilder::build().execute_with(|| {
+
+        let chain_ref: u32 = 0;
+        // no retarget at block 100
+        let block_height: u32 = 100;
+        let genesis_header = sample_parsed_genesis_header(chain_ref, block_height);
+
+        let raw_first_header = header_from_bytes(&(hex::decode(sample_raw_first_header()).unwrap()));
+        let rich_first_header = sample_parsed_first_block(chain_ref, 101);
+
+        // Prev block is genesis
+        BTCRelay::get_block_header_from_hash
+            .mock_safe(move |_| MockResult::Return(Ok(genesis_header)));
+        // submitted block ALREADY EXISTS
+        BTCRelay::block_exists
+            .mock_safe(move |raw_first_header| MockResult::Return(true));
+        
+        
+        let raw_first_header = header_from_bytes(&(hex::decode(sample_raw_first_header()).unwrap()));
+
+        assert_err!(
+            BTCRelay::verify_block_header(raw_first_header),
+            Error::DuplicateBlock
+        );
+    })
+}
+
+
+#[test]
+fn test_verify_block_header_no_prev_block_fails() {
+    ExtBuilder::build().execute_with(|| {
+
+        let chain_ref: u32 = 0;
+        // Prev block is MISSING
+        BTCRelay::get_block_header_from_hash
+            .mock_safe(move |_| MockResult::Return(Err(Error::PrevBlock)));
+        // submitted block does not yet exist
         BTCRelay::block_exists
             .mock_safe(move |_| MockResult::Return(false));
-        // 
-
-        let chain = BTreeMap::new();
-
-        let prev_blockchain = BlockChain {
-            chain_id: chain_ref,
-            chain: chain,
-            start_height: 0,
-            max_height: block_height,
-            no_data: BTreeSet::new(),
-            invalid: BTreeSet::new(),
-        };
-
-        BTCRelay::get_block_chain_from_id
-            .mock_safe(move |_: u32| MockResult::Return(prev_blockchain.clone()));
-
-        let block_header_hash = BlockHeader::block_hash_le(&raw_genesis_header);
-
-
-        // TODO
         
+        
+        let raw_first_header = header_from_bytes(&(hex::decode(sample_raw_first_header()).unwrap()));
+        let rich_first_header = sample_parsed_first_block(chain_ref, 101);
+
+        assert_err!(
+            BTCRelay::verify_block_header(raw_first_header),
+            Error::PrevBlock
+        );    
     })
 }
 
 
 fn sample_raw_genesis_header() -> String {
-    "01000000a7c3299ed2475e1d6ea5ed18d5bfe243224add249cce99c5c67cc9fb00000000601c73862a0a7238e376f497783c8ecca2cf61a4f002ec8898024230787f399cb575d949ffff001d3a5de07f".to_string()
+    "01000000".to_owned() + "a7c3299ed2475e1d6ea5ed18d5bfe243224add249cce99c5c67cc9fb00000000601c73862a0a7238e376f497783c8ecca2cf61a4f002ec8898024230787f399cb575d949ffff001d3a5de07f"
 }
 
 fn sample_parsed_genesis_header(chain_ref: u32, block_height: u32) -> RichBlockHeader {
@@ -229,7 +270,7 @@ fn sample_genesis_height() -> u32 {
 }
 
 fn sample_raw_first_header() -> String {
-    "01000000cb60e68ead74025dcfd4bf4673f3f71b1e678be9c6e6585f4544c79900000000c7f42be7f83eddf2005272412b01204352a5fddbca81942c115468c3c4ec2fff827ad949ffff001d21e05e45".to_string()
+    "01000000".to_owned() + "cb60e68ead74025dcfd4bf4673f3f71b1e678be9c6e6585f4544c79900000000c7f42be7f83eddf2005272412b01204352a5fddbca81942c115468c3c4ec2fff827ad949ffff001d21e05e45"
 }
 
 fn sample_parsed_first_block(chain_ref: u32, block_height: u32) -> RichBlockHeader {
@@ -240,6 +281,17 @@ fn sample_parsed_first_block(chain_ref: u32, block_height: u32) -> RichBlockHead
         block_header: BlockHeader::from_le_bytes(&block_header),
         block_height: block_height,
         chain_ref: chain_ref,
+    }
+}
+
+fn sample_main_blockchain(chain_ref: u32, max_height: u32) -> BlockChain {
+    BlockChain {
+        chain_id: chain_ref,
+        chain: BTreeMap::new(),
+        start_height: 0,
+        max_height: max_height,
+        no_data: BTreeSet::new(),
+        invalid: BTreeSet::new(),
     }
 }
 

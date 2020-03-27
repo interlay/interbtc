@@ -1,6 +1,6 @@
 use frame_support::dispatch::DispatchError;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Error {
     AlreadyInitialized,
     MissingBlockHeight, //not in spec
