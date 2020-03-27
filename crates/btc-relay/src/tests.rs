@@ -159,6 +159,7 @@ fn check_and_do_reorg_fork_id_not_found() {
 }
 
 #[test]
+#[ignore]
 fn check_and_do_reorg_swap_fork_position() {
     ExtBuilder::build().execute_with(|| {
         let fork_chain_ref: u32 = 4;
