@@ -385,6 +385,15 @@ impl<T: Trait> Module<T> {
     fn get_chain_id_from_position(position: u32) -> u32 {
         <Chains>::get(position)
     }
+    /// Get the position of the fork in Chains
+    fn get_chain_position_from_chain_id(chain_id: u32) -> Result<u32, Error> {
+        let position: u32 = match <Chains>::enumerate()
+            .position(|(_k, v)| v == chain_id)
+        {
+            Some(pos) => return Ok(pos as u32),
+            None => return Err(Error::ForkIdNotFound),
+        };
+    }
     /// Get a blockchain from the id
     fn get_block_chain_from_id(chain_id: u32) -> BlockChain {
         <ChainsIndex>::get(chain_id)
@@ -700,11 +709,8 @@ impl<T: Trait> Module<T> {
         }
 
         // get the position of the fork in Chains
-        let fork_position: u32 = match <Chains>::enumerate().position(|(_k, v)| v == fork.chain_id)
-        {
-            Some(pos) => pos as u32,
-            None => return Err(Error::ForkIdNotFound),
-        };
+        let fork_position: u32 = Self::get_chain_position_from_chain_id(
+            fork.chain_id)?;
 
         // check if the previous element in Chains has a lower block_height
         let mut current_position = fork_position;

@@ -62,17 +62,10 @@ fn store_block_header_on_mainchain_succeeds() {
         };
         BTCRelay::get_block_header_from_hash
             .mock_safe(move |_| MockResult::Return(Ok(rich_header)));
-       
-        let chain = BTreeMap::new();
 
-        let prev_blockchain = BlockChain {
-            chain_id: chain_ref,
-            chain: chain,
-            start_height: 0,
-            max_height: block_height,
-            no_data: BTreeSet::new(),
-            invalid: BTreeSet::new(),
-        };
+        let prev_blockchain = get_empty_block_chain_from_chain_id_and_height(
+            chain_ref, block_height
+        );
 
         BTCRelay::get_block_chain_from_id
             .mock_safe(move |_: u32| MockResult::Return(prev_blockchain.clone()));
@@ -111,16 +104,9 @@ fn store_block_header_on_fork_succeeds() {
         BTCRelay::get_block_header_from_hash
             .mock_safe(move |_| MockResult::Return(Ok(rich_header)));
        
-        let chain = BTreeMap::new();
-
-        let prev_blockchain = BlockChain {
-            chain_id: 0,
-            chain: chain,
-            start_height: 0,
-            max_height: block_height,
-            no_data: BTreeSet::new(),
-            invalid: BTreeSet::new(),
-        };
+        let prev_blockchain = get_empty_block_chain_from_chain_id_and_height(
+            chain_ref, block_height
+        );
 
         BTCRelay::get_block_chain_from_id
             .mock_safe(move |_: u32| MockResult::Return(prev_blockchain.clone()));
@@ -140,6 +126,37 @@ fn store_block_header_on_fork_succeeds() {
     })
 }
 
+/// check_and_do_reorg function
+#[test]
+fn check_and_do_reorg_is_main_chain_succeeds() {
+    ExtBuilder::build().execute_with(|| {
+        let chain_ref: u32 = 0;
+        let block_height: u32 = 10;
+
+        let blockchain = get_empty_block_chain_from_chain_id_and_height(
+            chain_ref, block_height
+        );
+
+        assert_ok!(BTCRelay::check_and_do_reorg(&blockchain));
+    })
+}
+
+#[test]
+fn check_and_do_reorg_fork_id_not_found() {
+    ExtBuilder::build().execute_with(|| {
+        let chain_ref: u32 = 99;
+        let block_height: u32 = 10;
+
+        let blockchain = get_empty_block_chain_from_chain_id_and_height(
+            chain_ref, block_height
+        );
+
+        assert_err!(
+            BTCRelay::check_and_do_reorg(&blockchain), 
+            Error::ForkIdNotFound
+        );
+    })
+}
 
 /// verify_block_header  
 #[test]
@@ -222,6 +239,23 @@ fn test_verify_block_header_no_prev_block_fails() {
     })
 }
 
+fn get_empty_block_chain_from_chain_id_and_height(
+    chain_id: u32,
+    block_height: u32,
+) -> BlockChain {
+    let chain = BTreeMap::new();
+
+    let blockchain = BlockChain {
+        chain_id: chain_id,
+        chain: chain,
+        start_height: 0,
+        max_height: block_height,
+        no_data: BTreeSet::new(),
+        invalid: BTreeSet::new(),
+    };
+
+    blockchain
+}
 
 fn sample_raw_genesis_header() -> String {
     "01000000".to_owned() + "a7c3299ed2475e1d6ea5ed18d5bfe243224add249cce99c5c67cc9fb00000000601c73862a0a7238e376f497783c8ecca2cf61a4f002ec8898024230787f399cb575d949ffff001d3a5de07f"
