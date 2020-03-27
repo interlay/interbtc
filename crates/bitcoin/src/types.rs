@@ -7,6 +7,7 @@ use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
 use bitcoin_spv::types::{RawHeader};
 use crate::utils::*;
+use crate::parser::*;
 /// Custom Types
 /// Bitcoin Raw Block Header type
 
@@ -95,6 +96,19 @@ pub struct RichBlockHeader {
     pub block_header: BlockHeader,
     pub block_height: u32,
     pub chain_ref: u32,
+}
+
+impl RichBlockHeader {
+    
+    // Creates a RichBlockHeader given a RawBlockHeader, Blockchain identifier and block height
+    pub fn construct_rich_block_header(raw_block_header: RawBlockHeader, chain_ref: u32, block_height: u32) -> RichBlockHeader {
+        RichBlockHeader {
+            block_hash: BlockHeader::block_hash_le(&raw_block_header),
+            block_header: BlockHeader::from_le_bytes(&raw_block_header),
+            block_height: block_height,
+            chain_ref: chain_ref,
+        }
+    }
 }
 
 /// Representation of a Bitcoin blockchain
@@ -187,7 +201,7 @@ impl std::fmt::LowerHex for H256Le {
 
 
 /// Errors which can be returned by the bitcoin crate
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub enum Error {
     /// Reached EOS without finishing to parse bytes

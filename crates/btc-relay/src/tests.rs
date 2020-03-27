@@ -223,9 +223,9 @@ fn test_verify_block_header_no_retarget_succeeds() {
         // Prev block is genesis
         BTCRelay::get_block_header_from_hash
             .mock_safe(move |_| MockResult::Return(Ok(genesis_header)));
-        // submitted block does not yet exist
+        // Not duplicate block
         BTCRelay::block_exists
-            .mock_safe(move |raw_first_header| MockResult::Return(false));
+            .mock_safe(move |_| MockResult::Return(false));
 
         let verified_header = BTCRelay::verify_block_header(
                 raw_first_header
@@ -233,6 +233,131 @@ fn test_verify_block_header_no_retarget_succeeds() {
         
         assert_eq!(verified_header, rich_first_header.block_header)
     })
+}
+
+#[test]
+fn test_verify_block_header_correct_retarget_increase_succeeds() {
+    ExtBuilder::build().execute_with(|| {
+
+        let chain_ref: u32 = 0;
+        // Next block requires retarget
+        let block_height: u32 = 2015;
+        // Sample interval with INCREASING target
+        let retarget_headers = sample_retarget_interval_increase();
+
+        let prev_block_header_rich = RichBlockHeader::construct_rich_block_header(
+            retarget_headers[1], 
+            chain_ref, 
+            block_height);
+        
+        let curr_block_header = BlockHeader::from_le_bytes(&retarget_headers[2]); 
+
+        // Prev block exists
+        BTCRelay::get_block_header_from_hash
+             .mock_safe(move |_| MockResult::Return(Ok(prev_block_header_rich)));
+        // Not duplicate block
+        BTCRelay::block_exists
+             .mock_safe(move |_| MockResult::Return(false));
+        // Compute new target returns target of submitted header (i.e., correct)    
+        BTCRelay::compute_new_target.mock_safe(move |_,_| MockResult::Return(Ok(curr_block_header.target)));
+
+        let verified_header = BTCRelay::verify_block_header(
+            retarget_headers[2]
+        ).unwrap();
+    
+        assert_eq!(verified_header, curr_block_header)
+    })
+}
+
+#[test]
+fn test_verify_block_header_correct_retarget_decrease_succeeds() {
+    ExtBuilder::build().execute_with(|| {
+
+        let chain_ref: u32 = 0;
+        // Next block requires retarget
+        let block_height: u32 = 2015;
+        // Sample interval with DECREASING target
+        let retarget_headers = sample_retarget_interval_decrease();
+
+        let prev_block_header_rich = RichBlockHeader::construct_rich_block_header(
+            retarget_headers[1], 
+            chain_ref, 
+            block_height);
+        
+        let curr_block_header = BlockHeader::from_le_bytes(&retarget_headers[2]); 
+
+        // Prev block exists
+        BTCRelay::get_block_header_from_hash
+             .mock_safe(move |_| MockResult::Return(Ok(prev_block_header_rich)));
+        // Not duplicate block
+        BTCRelay::block_exists
+             .mock_safe(move |_| MockResult::Return(false));
+        // Compute new target returns target of submitted header (i.e., correct)    
+        BTCRelay::compute_new_target.mock_safe(move |_,_| MockResult::Return(Ok(curr_block_header.target)));
+
+        let verified_header = BTCRelay::verify_block_header(
+            retarget_headers[2]
+        ).unwrap();
+    
+        assert_eq!(verified_header, curr_block_header)
+    })
+}
+
+
+
+#[test]
+fn test_verify_block_header_missing_retarget_succeeds() {
+    ExtBuilder::build().execute_with(|| {
+
+        let chain_ref: u32 = 0;
+        // Next block requires retarget
+        let block_height: u32 = 2015;
+        let retarget_headers = sample_retarget_interval_increase();
+
+        let prev_block_header_rich = RichBlockHeader::construct_rich_block_header(
+            retarget_headers[1], 
+            chain_ref, 
+            block_height);
+        
+        let curr_block_header = BlockHeader::from_le_bytes(&retarget_headers[2]); 
+
+        // Prev block exists
+        BTCRelay::get_block_header_from_hash
+             .mock_safe(move |_| MockResult::Return(Ok(prev_block_header_rich)));
+        // Not duplicate block
+        BTCRelay::block_exists
+             .mock_safe(move |_| MockResult::Return(false));
+        // Compute new target returns HIGHER target    
+        BTCRelay::compute_new_target.mock_safe(move |_,_| MockResult::Return(Ok(curr_block_header.target+1)));
+
+        assert_err!(
+            BTCRelay::verify_block_header(retarget_headers[2]), Error::DiffTargetHeader
+        );
+    })
+}
+
+#[test]
+fn test_compute_new_target() {
+    let chain_ref: u32 = 0;
+    // no retarget at block 100
+    let block_height: u32 = 2016;
+    let retarget_headers = sample_retarget_interval_increase();
+
+    let last_retarget_time = BlockHeader::from_le_bytes(&retarget_headers[0]).timestamp;
+    let prev_block_header = RichBlockHeader::construct_rich_block_header(
+        retarget_headers[1], 
+        chain_ref, 
+        block_height);
+    
+    let curr_block_header = BlockHeader::from_le_bytes(&retarget_headers[2]); 
+
+    BTCRelay::get_last_retarget_time.mock_safe(move |_,_| MockResult::Return(Ok(last_retarget_time)));
+
+    let new_target = BTCRelay::compute_new_target(
+        &prev_block_header,
+        block_height).unwrap();
+    
+    assert_eq!(new_target,curr_block_header.target);
 }
 
 #[test]
@@ -244,7 +369,6 @@ fn test_verify_block_header_duplicate_fails() {
         let block_height: u32 = 100;
         let genesis_header = sample_parsed_genesis_header(chain_ref, block_height);
 
-        let raw_first_header = header_from_bytes(&(hex::decode(sample_raw_first_header()).unwrap()));
         let rich_first_header = sample_parsed_first_block(chain_ref, 101);
 
         // Prev block is genesis
@@ -252,8 +376,10 @@ fn test_verify_block_header_duplicate_fails() {
             .mock_safe(move |_| MockResult::Return(Ok(genesis_header)));
         // submitted block ALREADY EXISTS
         BTCRelay::block_exists
-            .mock_safe(move |raw_first_header| MockResult::Return(true));
-        
+            .mock_safe(move |block_hash| {
+                assert_eq!(&block_hash, &rich_first_header.block_hash);
+                MockResult::Return(true)
+            });
         
         let raw_first_header = header_from_bytes(&(hex::decode(sample_raw_first_header()).unwrap()));
 
@@ -276,10 +402,8 @@ fn test_verify_block_header_no_prev_block_fails() {
         // submitted block does not yet exist
         BTCRelay::block_exists
             .mock_safe(move |_| MockResult::Return(false));
-        
-        
+                
         let raw_first_header = header_from_bytes(&(hex::decode(sample_raw_first_header()).unwrap()));
-        let rich_first_header = sample_parsed_first_block(chain_ref, 101);
 
         assert_err!(
             BTCRelay::verify_block_header(raw_first_header),
@@ -287,6 +411,60 @@ fn test_verify_block_header_no_prev_block_fails() {
         );    
     })
 }
+
+#[test]
+fn test_verify_block_header_low_diff_fails() {
+    ExtBuilder::build().execute_with(|| {  
+
+    let chain_ref: u32 = 0;
+    // no retarget at block 100
+    let block_height: u32 = 100;
+    let genesis_header = sample_parsed_genesis_header(chain_ref, block_height);
+    
+    // block header with high target but weak hash
+    let raw_first_header_weak = header_from_bytes(&(hex::decode(sample_raw_first_header_low_diff()).unwrap()));
+
+    // Prev block is genesis
+    BTCRelay::get_block_header_from_hash
+        .mock_safe(move |_| MockResult::Return(Ok(genesis_header)));
+    // submitted block does not yet exist
+    BTCRelay::block_exists
+        .mock_safe(move |_| MockResult::Return(false));
+
+
+    assert_err!(
+        BTCRelay::verify_block_header(raw_first_header_weak), 
+        Error::LowDiff
+    );
+
+    });
+}
+
+
+
+// TODO: this currently fails with TX_FORMAT error in parser
+/*
+#[test]
+fn test_validate_transaction_succeeds() {
+    ExtBuilder::build().execute_with(|| {  
+
+        //let raw_tx = bitcoin_spv::utils::reverse_endianness(&hex::decode(sample_accepted_transaction()).unwrap());
+        let raw_tx = hex::decode(sample_accepted_transaction()).unwrap();
+        let payment_value: u64 =  1;//2500200000;
+        let recipient_btc_address = hex::decode("a91466c7060feb882664ae62ffad0051fe843e318e8587".to_owned()).unwrap();
+        let op_return_id = hex::decode("aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned()).unwrap();
+
+        assert_ok!(BTCRelay::validate_transaction(
+            Origin::signed(3),
+            raw_tx, 
+            payment_value, 
+            recipient_btc_address, 
+            op_return_id
+        ))
+
+    });
+}
+*/
 
 fn get_empty_block_chain_from_chain_id_and_height(
     chain_id: u32,
@@ -321,8 +499,13 @@ fn sample_parsed_genesis_header(chain_ref: u32, block_height: u32) -> RichBlockH
     }
 }
 
-fn sample_genesis_height() -> u32 {
-    100
+fn sample_raw_first_header_low_diff() -> String {
+    "01000000".to_owned() + 
+    "cb60e68ead74025dcfd4bf4673f3f71b1e678be9c6e6585f4544c79900000000" +
+    "c7f42be7f83eddf2005272412b01204352a5fddbca81942c115468c3c4ec2fff" + 
+    "827ad949" + 
+    "413b1417" +  // high target 
+    "21e05e45"
 }
 
 fn sample_raw_first_header() -> String {
@@ -351,6 +534,37 @@ fn sample_main_blockchain(chain_ref: u32, max_height: u32) -> BlockChain {
     }
 }
 
+
+
+fn sample_retarget_interval_increase() -> [RawBlockHeader; 3] {
+    // block height 66528
+    let last_retarget_header = header_from_bytes(&hex::decode("01000000".to_owned() + "4e8e5cf3c4e4b8f63a9cf88beb2dbaba1949182101ae4e5cf54ad100000000009f2a2344e8112b0d7bd8089414106ee5f17bb6cd64078883e1b661fa251aac6bed1d3c4cf4a3051c4dcd2b02").unwrap());
+    // block height 66543
+    let prev_block_header = header_from_bytes(&hex::decode("01000000".to_owned()  + "1e321d88cb25946c4ca521eece3752803c021f9403fc4e0171203a0500000000317057f8b50414848a5a3a26d9eb8ace3d6f5495df456d0104dd1421159faf5029293c4cf4a3051c73199005").unwrap());
+    // block height 68544
+    let curr_header =  header_from_bytes(&hex::decode("01000000".to_owned() + "fb57c71ccd211b3de4ccc2e23b50a7cdb72aab91e60737b3a2bfdf030000000088a88ad9df68925e880e5d52b7e50cef225871c68b40a2cd0bca1084cd436037f388404cfd68011caeb1f801").unwrap());
+
+    [last_retarget_header, prev_block_header, curr_header]
+}
+
+
+fn sample_retarget_interval_decrease() -> [RawBlockHeader; 3] {
+    // block height 558432
+    let last_retarget_header = header_from_bytes(&hex::decode("00c0ff2f".to_owned() + "6550b5dae76559589e3e3e135237072b6bc498949da6280000000000000000005988783435f506d2ccfbadb484e56d6f1d5dfdd480650acae1e3b43d3464ea73caf13b5c33d62f171d508fdb").unwrap());
+    // block height 560447
+    let prev_block_header = header_from_bytes(&hex::decode("00000020".to_owned()  + "d8e8e54ca5e33522b94fbba5de736efc55ff75e832cf2300000000000000000007b395f80858ee022c9c3c2f0f5cee4bd807039f0729b0559ae4326c3ba77d6b209f4e5c33d62f1746ee356d").unwrap());
+    // block height 560448
+    let curr_header =  header_from_bytes(&hex::decode("00000020".to_owned() + "6b05bd2c4a06b3d8503a033c2593396a25a79e1dcadb140000000000000000001b08df3d42cd9a38d8b66adf9dc5eb464f503633bd861085ffff723634531596a1a24e5c35683017bf67b72a").unwrap());
+
+    [last_retarget_header, prev_block_header, curr_header]
+}
+
+
+fn sample_accepted_transaction() -> String {
+    "020000000001010000000000000000000000000000000000000000000000000000000000000000ffffffff0502cb000101ffffffff02400606950000000017a91466c7060feb882664ae62ffad0051fe843e318e85870000000000000000266a24aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb46750120000000000000000000000000000000000000000000000000000000000000000000000000".to_owned()
+}
+
+
 fn sample_block_header() -> String {
     "02000000".to_owned() + // ............... Block version: 2
     "b6ff0b1b1680a2862a30ca44d346d9e8" + //
@@ -361,3 +575,4 @@ fn sample_block_header() -> String {
     "30c31b18" + // ........................... Target: 0x1bc330 * 256**(0x18-3)
     "fe9f0864"
 }
+

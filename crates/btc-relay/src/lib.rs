@@ -566,8 +566,8 @@ impl<T: Trait> Module<T> {
 
         // Check that the diff. target is indeed correctly set in the block header, i.e., check for re-target.
         let block_height = prev_block_header.block_height + 1;
-        
-        let expected_target = match block_height > 2016 && block_height % DIFFICULTY_ADJUSTMENT_INTERVAL == 0 {
+
+        let expected_target = match block_height >= 2016 && block_height % DIFFICULTY_ADJUSTMENT_INTERVAL == 0 {
             true => Self::compute_new_target(
                 &prev_block_header, 
                 block_height)?, 
@@ -581,16 +581,13 @@ impl<T: Trait> Module<T> {
 
 
     /// Computes Bitcoin's PoW retarget algorithm for a given block height
-    /// # Argument
+    /// # Arguments
     ///  * `prev_block_header`: previous block header
     ///  * `block_height` : block height of new target
     fn compute_new_target(prev_block_header: &RichBlockHeader, block_height: u32) -> Result<U256, Error> {
 
         // get time of last retarget
-        let block_chain = Self::get_block_chain_from_id(prev_block_header.chain_ref);
-        let last_retarget_header = Self::get_block_header_from_height(&block_chain, block_height - DIFFICULTY_ADJUSTMENT_INTERVAL)?;
-        let last_retarget_time = last_retarget_header.block_header.timestamp;
-
+        let last_retarget_time = Self::get_last_retarget_time(prev_block_header.chain_ref, block_height)?;
         // Compute new target
         let actual_timespan = match ((prev_block_header.block_header.timestamp - last_retarget_time) as u32) < (TARGET_TIMESPAN / TARGET_TIMESPAN_DIVISOR) {
             true => TARGET_TIMESPAN / TARGET_TIMESPAN_DIVISOR,
@@ -608,26 +605,15 @@ impl<T: Trait> Module<T> {
         Ok(new_target)
     }
 
-    /// Computes Bitcoin's PoW retarget algorithm for a given block height
-    /// # Argument
-    ///  * `last_retarget_time`: timestamp of last retarget
-    ///  * `prev_time` : timestamp of previous block header
-    /// * ``prev_target`: PoW target of previous block header
-    ///
-    fn retarget(last_retarget_time: Moment, prev_time: Moment, prev_target: &U256) -> U256 {
-        let actual_timespan = match ((prev_time - last_retarget_time) as u32)
-            < (TARGET_TIMESPAN / TARGET_TIMESPAN_DIVISOR)
-        {
-            true => TARGET_TIMESPAN / TARGET_TIMESPAN_DIVISOR,
-            false => TARGET_TIMESPAN * TARGET_TIMESPAN_DIVISOR,
-        };
-
-        let new_target = U256::from(actual_timespan) * prev_target / U256::from(TARGET_TIMESPAN);
-
-        match new_target > UNROUNDED_MAX_TARGET {
-            true => UNROUNDED_MAX_TARGET,
-            false => new_target,
-        }
+    /// Returns the timestamp of the last difficulty retarget on the specified BlockChain, given the current block height
+    /// 
+    /// # Arguments
+    /// * `chain_ref` - BlockChain identifier
+    /// * `block_height` - current block height
+    fn get_last_retarget_time(chain_ref: u32, block_height: u32) -> Result<u64, Error> {
+        let block_chain = Self::get_block_chain_from_id(chain_ref);          
+        let last_retarget_header = Self::get_block_header_from_height(&block_chain, block_height - DIFFICULTY_ADJUSTMENT_INTERVAL)?;
+        Ok(last_retarget_header.block_header.timestamp)
     }
 
     fn swap_main_blockchain(fork: &BlockChain) -> Result<(), Error> {

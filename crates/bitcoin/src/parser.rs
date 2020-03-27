@@ -2,8 +2,8 @@ use crate::types::*;
 
 use node_primitives::Moment;
 use primitive_types::{U256};
-
 use bitcoin_spv::btcspv;
+
 
 /// Type to be parsed from a bytes array
 pub(crate) trait Parsable: Sized {
@@ -313,12 +313,11 @@ pub fn parse_transaction(raw_transaction: &[u8]) -> Result<Transaction, Error> {
     } else {
         (Some(locktime_or_blockheight), None)
     };
-
     // fail if all bytes have not been consumed
     if parser.position != raw_transaction.len() {
         return Err(Error::MalformedTransaction);
     }
-
+    println!("Ok");
     Ok(Transaction {
         version: version,
         inputs: inputs,
@@ -539,6 +538,34 @@ mod tests {
         "00000000"
     }
 
+    /*
+    fn sample_malformed_witness_output() -> String {
+        "00000000220017".to_owned()
+    }
+
+    fn sample_malformed_witness_output_large() -> String {
+        "0000000".to_owned() + "0000000000100FF111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111"
+    }
+   
+
+    fn sample_malformed_p2sh_output() -> String {
+        "0000000017a914FF".to_owned()
+    }
+
+    fn sample_malformed_p2pkh_output() -> String { 
+        "000000001976a914FFFF".to_owned()
+    }
+    */
+
+
+    fn sample_valid_p2pkh() -> String {
+        "76a914000000000000000000000000000000000000000088ac".to_owned()
+    }
+
+    fn sample_valid_p2sh() -> String {
+        "a914000000000000000000000000000000000000000087".to_owned()
+    }
+
     #[test]
     fn test_parse_coinbase_transaction_input() {
         let raw_input = sample_coinbase_transaction_input();
@@ -596,4 +623,36 @@ mod tests {
         assert_eq!(transaction.locktime, None);
         assert_eq!(transaction.block_height, Some(0));
     }
+
+
+    #[test]
+    fn test_extract_address_hash_valid_p2pkh(){
+        let p2pkh_script = bitcoin_spv::utils::deserialize_hex(&sample_valid_p2pkh()).unwrap();
+
+        let p2pkh_address: [u8; 20] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+
+        let extr_p2pkh = extract_address_hash(&p2pkh_script).unwrap();
+
+        assert_eq!(&extr_p2pkh, &p2pkh_address);
+    }
+
+    #[test]
+    fn test_extract_address_hash_valid_p2sh(){
+        let p2sh_script = bitcoin_spv::utils::deserialize_hex(&sample_valid_p2sh()).unwrap();
+
+        let p2sh_address: [u8; 20] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+
+        let extr_p2sh = extract_address_hash(&p2sh_script).unwrap();
+
+        assert_eq!(&extr_p2sh, &p2sh_address);
+    }
+
+    /*
+    #[test]
+    fn test_extract_address_invalid_p2pkh_fails() {
+        let p2pkh_script = bitcoin_spv::utils::deserialize_hex(&sample_malformed_p2pkh_output()).unwrap();
+
+        assert_eq!(extract_address_hash(&p2pkh_script).err(), Some(Error::MalformedP2PKHOutput));
+    }
+    */
 }

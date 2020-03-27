@@ -143,7 +143,7 @@ if __name__ == "__main__":
 
     # add blocks
     for i in range(5):
-        blockhashes_with_transactions.append(generate_block_with_transactions(2, 0.01, "1000", address_1, address_2))
+        blockhashes_with_transactions.append(generate_block_with_transactions(2, 0.01, "TEST", address_1, address_2))
 
     # adding confirmations
     generate_empty_blocks(6, address_2)

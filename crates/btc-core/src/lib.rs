@@ -45,7 +45,12 @@ impl Error {
             Error::Confirmations => "Transaction has less confirmations than requested",
             Error::InvalidMerkleProof => "Invalid Merkle Proof",
             Error::BlockNotFound => "Block header not found for given hash",
-            
+            Error::TxFormat => "Transaction has incorrect format",
+            Error::InsufficientValue => "Value of payment below requested amount",
+            Error::WrongRecipient => "Incorrect recipient Bitcoin address",
+            Error::InvalidTxid => "Transaction hash does not match given txid", 
+            Error::InvalidOpreturn => "Incorrect identifier in OP_RETURN field",
+            Error::NotOpReturn => "Expecting OP_RETURN output, but got another type",
             
             // TODO: add other error messages
             _ => "internal error",
