@@ -4,6 +4,9 @@
 mod tests;
 
 #[cfg(test)]
+mod mock;
+
+#[cfg(test)]
 extern crate mocktopus;
 
 #[cfg(test)]
