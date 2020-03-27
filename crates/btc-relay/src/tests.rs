@@ -84,7 +84,7 @@ impl ExtBuilder {
 // 	system::GenesisConfig::default().build_storage::<Test>().unwrap().into()
 // }
 
-/// Initialize Function
+/// initialize function
 #[test]
 fn initialize_once_succeeds() {
     ExtBuilder::build().execute_with(|| {
@@ -119,7 +119,7 @@ fn initialize_best_block_already_set_fails() {
     })
 }
 
-/// StoreBlockHeader Function
+/// store_block_header function
 #[test]
 fn store_block_header_on_mainchain_succeeds() {
     ExtBuilder::build().execute_with(|| {
@@ -168,7 +168,55 @@ fn store_block_header_on_mainchain_succeeds() {
     })
 }
 
-// verify_block_header  
+#[test]
+fn store_block_header_on_fork_succeeds() {
+    ExtBuilder::build().execute_with(|| {
+        BTCRelay::verify_block_header
+            .mock_safe(|h| MockResult::Return(Ok(BlockHeader::from_le_bytes(&h))));
+        BTCRelay::block_exists.mock_safe(|_| MockResult::Return(true));
+
+        let chain_ref: u32 = 1;
+        let block_height: u32 = 100;
+        let block_header = hex::decode(sample_block_header()).unwrap();
+
+        let rich_header = RichBlockHeader {
+            block_hash: H256Le::zero(),
+            block_header: BlockHeader::from_le_bytes(&block_header),
+            block_height: block_height - 1,
+            chain_ref: chain_ref,
+        };
+        BTCRelay::get_block_header_from_hash
+            .mock_safe(move |_| MockResult::Return(Ok(rich_header)));
+       
+        let chain = BTreeMap::new();
+
+        let prev_blockchain = BlockChain {
+            chain_id: 0,
+            chain: chain,
+            start_height: 0,
+            max_height: block_height,
+            no_data: BTreeSet::new(),
+            invalid: BTreeSet::new(),
+        };
+
+        BTCRelay::get_block_chain_from_id
+            .mock_safe(move |_: u32| MockResult::Return(prev_blockchain.clone()));
+
+        let block_header_hash = BlockHeader::block_hash_le(&block_header);
+        assert_ok!(BTCRelay::store_block_header(
+            Origin::signed(3),
+            block_header
+        ));
+
+        let store_fork_event = TestEvent::test_events(Event::StoreForkHeader(
+            chain_ref,
+            block_height,
+            block_header_hash,
+        ));
+        assert!(System::events().iter().any(|a| a.event == store_fork_event));
+    })
+}
+/// verify_block_header  
 #[test]
 fn test_verify_block_header_no_retarget_succeeds() {
     ExtBuilder::build().execute_with(|| {
