@@ -54,7 +54,7 @@ impl BlockHeader {
 }
 
 /// Bitcoin transaction input
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone, Debug)]
 pub struct TransactionInput {
     pub previous_hash: H256Le,
     pub previous_index: u32,
@@ -62,17 +62,24 @@ pub struct TransactionInput {
     pub height: Option<Vec<u8>>,
     pub script: Vec<u8>,
     pub sequence: u32,
+    pub witness: Option<Vec<u8>>,
+}
+
+impl TransactionInput {
+    pub fn with_witness(&mut self, witness: Vec<u8>) -> () {
+        self.witness = Some(witness);
+    }
 }
 
 /// Bitcoin transaction output
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub struct TransactionOutput {
     pub value: i64,
     pub script: Vec<u8>,
 }
 
 /// Bitcoin transaction
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub struct Transaction {
     pub version: i32,
     pub inputs: Vec<TransactionInput>,
