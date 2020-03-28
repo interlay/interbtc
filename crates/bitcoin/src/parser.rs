@@ -4,6 +4,8 @@ use node_primitives::Moment;
 use primitive_types::{U256};
 use bitcoin_spv::btcspv;
 
+const SERIALIZE_TRANSACTION_NO_WITNESS: i32 = 0x40000000;
+
 
 /// Type to be parsed from a bytes array
 pub(crate) trait Parsable: Sized {
@@ -73,6 +75,30 @@ impl Parsable for H256Le {
             H256Le::from_bytes_le(&raw_bytes[position..position + 32]),
             32,
         ))
+    }
+}
+
+impl<T: Parsable> Parsable for Vec<T> {
+    fn parse(raw_bytes: &[u8], position: usize) -> Result<(Vec<T>, usize), Error> {
+        let mut result: Vec<T> = Vec::new();
+        let mut parser = BytesParser::new(&raw_bytes[position..]);
+        let count: CompactUint = parser.parse()?;
+        for _ in 0..count.value {
+            result.push(parser.parse()?);
+        }
+        Ok((result, parser.position))
+    }
+}
+
+impl<T, U: Copy> ParsableMeta<U> for Vec<T> where T: ParsableMeta<U> {
+    fn parse_with(raw_bytes: &[u8], position: usize, extra: U) -> Result<(Vec<T>, usize), Error> {
+        let mut result: Vec<T> = Vec::new();
+        let mut parser = BytesParser::new(&raw_bytes[position..]);
+        let count: CompactUint = parser.parse()?;
+        for _ in 0..count.value {
+            result.push(parser.parse_with(extra)?);
+        }
+        Ok((result, parser.position))
     }
 }
 
@@ -282,6 +308,8 @@ pub fn parse_compact_uint(varint: &[u8]) -> (u64, usize) {
 }
 
 /// Parses a single bitcoin transaction
+/// Serialization format is documented below
+/// https://github.com/bitcoin/bitcoin/blob/master/src/primitives/transaction.h#L182
 /// # Arguments
 ///
 /// * `raw_transaction` - the raw bytes of the transaction
@@ -294,17 +322,23 @@ pub fn parse_transaction(raw_transaction: &[u8]) -> Result<Transaction, Error> {
         return Err(Error::MalformedTransaction);
     }
 
-    let tx_in_count: CompactUint = parser.parse()?;
-    let mut inputs: Vec<TransactionInput> = Vec::new();
-    for _ in 0..tx_in_count.value {
-        inputs.push(parser.parse_with(version)?);
+    let allow_witness = (version & SERIALIZE_TRANSACTION_NO_WITNESS) == 0;
+
+    let mut inputs: Vec<TransactionInput> = parser.parse_with(version)?;
+
+    let mut flags: u8 = 0;
+    if inputs.len() == 0 && allow_witness {
+        flags = parser.parse()?;
+        inputs = parser.parse_with(version)?;
     }
 
-    let tx_out_count: CompactUint = parser.parse()?;
+    let outputs: Vec<TransactionOutput> = parser.parse()?;
 
-    let mut outputs: Vec<TransactionOutput> = Vec::new();
-    for _ in 0..tx_out_count.value {
-        outputs.push(parser.parse()?);
+    if (flags & 1) != 0 && allow_witness {
+        flags ^= 1;
+        for input in &mut inputs {
+            input.with_witness(parser.parse()?);
+        }
     }
 
     let locktime_or_blockheight: u32 = parser.parse()?;
@@ -313,11 +347,11 @@ pub fn parse_transaction(raw_transaction: &[u8]) -> Result<Transaction, Error> {
     } else {
         (Some(locktime_or_blockheight), None)
     };
-    // fail if all bytes have not been consumed
-    if parser.position != raw_transaction.len() {
+
+    if flags != 0 {
         return Err(Error::MalformedTransaction);
     }
-    println!("Ok");
+
     Ok(Transaction {
         version: version,
         inputs: inputs,
@@ -370,6 +404,7 @@ pub fn parse_transaction_input(
             height: height,
             script: script,
             sequence: sequence,
+            witness: None,
         },
         consumed_bytes,
     ))
@@ -611,7 +646,7 @@ mod tests {
     #[test]
     fn test_parse_transaction() {
         let raw_tx = sample_transaction();
-        let tx_bytes = bitcoin_spv::utils::deserialize_hex(&raw_tx).unwrap();
+        let tx_bytes = hex::decode(&raw_tx).unwrap();
         let transaction = parse_transaction(&tx_bytes).unwrap();
         let inputs = transaction.inputs;
         let outputs = transaction.outputs;
@@ -624,6 +659,23 @@ mod tests {
         assert_eq!(transaction.block_height, Some(0));
     }
 
+    #[test]
+    fn test_parse_transaction_extended_format() {
+        let raw_tx = "020000000001010000000000000000000000000000000000000000000000000000000000000000ffffffff0502cb000101ffffffff02400606950000000017a91466c7060feb882664ae62ffad0051fe843e318e85870000000000000000266a24aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb46750120000000000000000000000000000000000000000000000000000000000000000000000000";
+        let tx_bytes = hex::decode(&raw_tx).unwrap();
+        let transaction = parse_transaction(&tx_bytes).unwrap();
+        let inputs = transaction.inputs;
+        let outputs = transaction.outputs;
+        assert_eq!(transaction.version, 2);
+        assert_eq!(inputs.len(), 1);
+        assert_eq!(inputs[0].coinbase, true);
+        assert_eq!(inputs[0].witness.is_some(), true);
+        assert_eq!(outputs.len(), 2);
+        assert_eq!(&hex::encode(&outputs[0].script), "a91466c7060feb882664ae62ffad0051fe843e318e8587");
+        assert_eq!(&hex::encode(&outputs[1].script), "6a24aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675");
+        assert_eq!(transaction.block_height, Some(0));
+        assert_eq!(transaction.locktime, None);
+    }
 
     #[test]
     fn test_extract_address_hash_valid_p2pkh(){

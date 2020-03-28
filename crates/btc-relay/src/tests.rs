@@ -176,7 +176,9 @@ fn check_and_do_reorg_swap_fork_position() {
         let swap = get_empty_block_chain_from_chain_id_and_height(
             swap_chain_ref, swap_block_height
         );
-        
+
+        // make sure the main chain is set
+        BTCRelay::set_chain_from_position_and_id(0, 0);  
         // insert the swap chain in Chains
         BTCRelay::set_chain_from_position_and_id(swap_position, swap_chain_ref);
         // insert the fork chain in Chains
@@ -204,6 +206,28 @@ fn check_and_do_reorg_swap_fork_position() {
             fork_chain_ref
             ).unwrap();
         assert_eq!(new_position, swap_position);
+    })
+}
+
+/// get_chain_position_from_chain_id 
+#[test]
+fn get_chain_position_from_chain_id_succeeds() {
+    ExtBuilder::build().execute_with(|| {
+        // position and id of chains
+        let mut chains_pos_id: Vec<(u32,u32)> = Vec::new();
+        chains_pos_id.append(&mut vec![(0,0),(1,1),(2,3),(3,6)]);
+
+        for (pos, id) in chains_pos_id.iter() {
+            // insert chain
+            BTCRelay::set_chain_from_position_and_id(*pos, *id);
+        
+            // check that chain is in right position
+            let curr_pos = BTCRelay::get_chain_position_from_chain_id(*id)
+                .unwrap();
+
+            assert_eq!(curr_pos, *pos);
+        }
+        
     })
 }
 
