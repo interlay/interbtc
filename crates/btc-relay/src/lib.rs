@@ -388,13 +388,20 @@ impl<T: Trait> Module<T> {
     }
     /// Get the position of the fork in Chains
     fn get_chain_position_from_chain_id(chain_id: u32) -> Result<u32, Error> {
-        match <Chains>::enumerate()
-            .position(|(_k, v)| v == chain_id)
-        {
-            Some(pos) => return Ok(pos as u32),
-            None => return Err(Error::ForkIdNotFound),
-        };
+        for (k,v) in <Chains>::enumerate() {
+            if v == chain_id {
+                return Ok(k);
+            }
+        }
+        Err(Error::ForkIdNotFound)
     }
+    //    match <Chains>::enumerate()
+    //        .position(|(_k, v)| v == chain_id)
+    //    {
+    //        Some(pos) => return Ok(pos as u32),
+    //        None => return Err(Error::ForkIdNotFound),
+    //    };
+    //}
     /// Get a blockchain from the id
     fn get_block_chain_from_id(chain_id: u32) -> BlockChain {
         <ChainsIndex>::get(chain_id)
