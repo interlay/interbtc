@@ -576,3 +576,29 @@ fn sample_block_header() -> String {
     "fe9f0864"
 }
 
+/*
+fn sample_accepted_transaction_parsed() -> Transaction {
+    let mut outputs: Vec<TransactionOutput> = Vec::new();
+    let mut inputs: Vec<TransactionInput> = Vec::new();
+
+    let spent_output_txid = hex::decode("b28f1e58af1d4db02d1b9f0cf8d51ece3dd5f5013fd108647821ea255ae5daff".to_owned()).unwrap();
+    let input = TransactionInput(
+        previous_hash: H256Le::from_bytes_le(&spent_output_txid),
+        previous_index: 0 as u32, 
+        coinbase: false,
+        height: Vec<u8>::new(), // Vec<u8> type here seems weird
+        script: hex::decode("16001443feac9ca9d20883126e30e962ca11fda07f808b".to_owned()),
+        sequence: 4294967295
+    );
+
+    inputs.push(input);
+
+    Transaction(
+        version: 2 as i32,
+        inputs: inputs, 
+        outputs: outputs,
+        block_height: 203, 
+        locktime: 0
+    )
+}
+*/
