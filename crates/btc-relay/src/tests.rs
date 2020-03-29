@@ -467,15 +467,15 @@ fn test_verify_block_header_low_diff_fails() {
 
 
 // TODO: this currently fails with TX_FORMAT error in parser
-/*
+
 #[test]
 fn test_validate_transaction_succeeds() {
     ExtBuilder::build().execute_with(|| {  
 
         //let raw_tx = bitcoin_spv::utils::reverse_endianness(&hex::decode(sample_accepted_transaction()).unwrap());
         let raw_tx = hex::decode(sample_accepted_transaction()).unwrap();
-        let payment_value: u64 =  1;//2500200000;
-        let recipient_btc_address = hex::decode("a91466c7060feb882664ae62ffad0051fe843e318e8587".to_owned()).unwrap();
+        let payment_value: i64 =  2500200000;
+        let recipient_btc_address = hex::decode("66c7060feb882664ae62ffad0051fe843e318e85".to_owned()).unwrap();
         let op_return_id = hex::decode("aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned()).unwrap();
 
         assert_ok!(BTCRelay::validate_transaction(
@@ -488,7 +488,7 @@ fn test_validate_transaction_succeeds() {
 
     });
 }
-*/
+
 
 fn get_empty_block_chain_from_chain_id_and_height(
     chain_id: u32,

@@ -27,7 +27,7 @@ pub type RawBlockHeader = RawHeader;
 pub const P2PKH_SCRIPT_SIZE: u32 = 25;
 pub const P2SH_SCRIPT_SIZE: u32 = 23;
 pub const HASH160_SIZE_HEX: u8 = 0x14;
-
+pub const MAX_OPRETURN_SIZE: usize = 83;
 /// Structs
 /// Bitcoin Basic Block Headers
 // TODO: Figure out how to set a pointer to the ChainIndex mapping instead
@@ -263,7 +263,8 @@ pub enum OpCode {
     OpHash160 = 0xa9,
     OpEqualVerify = 0x88,
     OpCheckSig = 0xac, 
-    OpEqual = 0x87
+    OpEqual = 0x87,
+    OpReturn = 0x6a
 }
 
 impl PartialEq<H256Le> for H256 {

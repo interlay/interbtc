@@ -345,7 +345,7 @@ decl_module! {
         fn validate_transaction(
             origin,
             raw_tx: Vec<u8>,
-            payment_value: u64,
+            payment_value: i64,
             recipient_btc_address: Vec<u8>,
             op_return_id: Vec<u8>
         ) -> DispatchResult {
@@ -358,8 +358,9 @@ decl_module! {
             ensure!(transaction.outputs.len() >= 2, Error::TxFormat);
 
             // Check if 1st / payment UTXO transfers sufficient value
-            let extr_payment_value = extract_value(&transaction.outputs[0].script);
-            ensure!(extr_payment_value == payment_value, Error::InsufficientValue);
+            // FIXME: returns incorrect value (too large: 9865995930474779817)
+            let extr_payment_value = transaction.outputs[0].value;
+            ensure!(extr_payment_value >= payment_value, Error::InsufficientValue);
 
             // Check if 1st / payment UTXO sends to correct address
             let extr_recipient_address = extract_address_hash(
