@@ -393,6 +393,37 @@ fn insert_sorted_succeeds() {
     })
 }
 
+/// swap_main_blockchain 
+#[test]
+fn swap_main_blockchain_succeeds() {
+    ExtBuilder::build().execute_with(|| {
+        // insert the main chain in Chains and ChainsIndex
+        let main_chain_ref: u32 = 0;
+        let main_block_height: u32 = 110;
+        let main_position: u32 = 0;
+        let main = get_empty_block_chain_from_chain_id_and_height(
+            main_chain_ref, main_block_height
+        );
+        BTCRelay::set_block_chain_from_id(main_chain_ref, &main);
+        BTCRelay::set_block_chain_from_id(main_chain_ref, &main);
+
+        // create and insert main chain headers
+
+        // insert the fork chain in Chains and ChainsIndex
+        let fork_chain_ref: u32 = 4;
+        let fork_block_height: u32 = 117;
+        let fork_position: u32 = 1;
+        let fork = get_empty_block_chain_from_chain_id_and_height(
+            fork_chain_ref, fork_block_height
+        );
+        BTCRelay::set_chain_from_position_and_id(fork_position, fork_chain_ref);
+        BTCRelay::set_block_chain_from_id(fork_chain_ref, &fork);
+
+        assert!(true);
+        
+    })
+}
+
 /// verify_block_header  
 #[test]
 fn test_verify_block_header_no_retarget_succeeds() {
