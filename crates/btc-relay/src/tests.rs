@@ -623,6 +623,85 @@ fn flag_block_error_fails() {
             Error::UnknownErrorcode);
     })
 }
+
+/// clear_block_error
+#[test]
+fn clear_block_error_succeeds() {
+    ExtBuilder::build().execute_with(|| {
+        let chain_ref: u32 = 1;
+        let block_height: u32 = 100;
+        let block_header = hex::decode(sample_block_header()).unwrap();
+
+        let rich_header = RichBlockHeader {
+            block_hash: H256Le::zero(),
+            block_header: BlockHeader::from_le_bytes(&block_header),
+            block_height: block_height,
+            chain_ref: chain_ref,
+        };
+
+        BTCRelay::set_block_header_from_hash(rich_header.block_hash, &rich_header);
+       
+        let mut blockchain = get_empty_block_chain_from_chain_id_and_height(
+            chain_ref, block_height
+        );
+
+        blockchain.no_data.insert(block_height);
+        blockchain.invalid.insert(block_height);
+
+        BTCRelay::set_block_chain_from_id(chain_ref, &blockchain);
+
+        let error_codes = vec![ErrorCode::NoDataBTCRelay, ErrorCode::InvalidBTCRelay];
+
+        for error in error_codes.iter() {
+            assert_ok!(BTCRelay::clear_block_error(rich_header.block_hash, error.clone()));
+            
+            let curr_chain = BTCRelay::get_block_chain_from_id(chain_ref);
+
+            if *error == ErrorCode::NoDataBTCRelay {
+                assert!(!curr_chain.no_data.contains(&block_height));
+            } else if *error == ErrorCode::InvalidBTCRelay {
+                assert!(!curr_chain.invalid.contains(&block_height));
+            };
+        
+            let error_event = TestEvent::test_events(Event::ClearBlockError(
+                rich_header.block_hash,
+                chain_ref,
+                error.clone(),
+            ));
+            assert!(System::events().iter().any(|a| a.event == error_event));
+        }
+    })
+}
+
+#[test]
+fn clear_block_error_fails() {
+    ExtBuilder::build().execute_with(|| {
+        let chain_ref: u32 = 1;
+        let block_height: u32 = 100;
+        let block_header = hex::decode(sample_block_header()).unwrap();
+
+        let rich_header = RichBlockHeader {
+            block_hash: H256Le::zero(),
+            block_header: BlockHeader::from_le_bytes(&block_header),
+            block_height: block_height,
+            chain_ref: chain_ref,
+        };
+
+        BTCRelay::set_block_header_from_hash(rich_header.block_hash, &rich_header);
+       
+        let blockchain = get_empty_block_chain_from_chain_id_and_height(
+            chain_ref, block_height
+        );
+
+        BTCRelay::set_block_chain_from_id(chain_ref, &blockchain);
+
+        // not a valid error code
+        let error = ErrorCode::Liquidation;
+
+        assert_err!(BTCRelay::clear_block_error(rich_header.block_hash, error),
+            Error::UnknownErrorcode);
+    })
+}
 /// # Util functions
 ///
 fn get_empty_block_chain_from_chain_id_and_height(

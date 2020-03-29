@@ -925,25 +925,17 @@ impl<T: Trait> Module<T> {
         // Check which error we are dealing with
         let block_exists = match error {
             ErrorCode::NoDataBTCRelay => {
-                let index = blockchain.no_data
-                    .iter()
-                    .position(|x| *x == block_header.block_height)
-                    .unwrap() as u32;
-                blockchain.no_data.remove(&index)
+                blockchain.no_data.remove(&block_header.block_height)
             },
             ErrorCode::InvalidBTCRelay => {
-                let index = blockchain.invalid
-                    .iter()
-                    .position(|x| *x == block_header.block_height)
-                    .unwrap() as u32;
-                blockchain.invalid.remove(&index)
+                blockchain.invalid.remove(&block_header.block_height)
             },
-            _ => return Err(Error::UnknownErrorcode.into()),
+            _ => return Err(Error::UnknownErrorcode),
         };
 
         if block_exists {
             // Store the updated blockchain entry
-            <ChainsIndex>::mutate(&chain_id, |_b| blockchain);
+            Self::mutate_block_chain_from_id(chain_id, blockchain);
 
             Self::deposit_event(
                 Event::ClearBlockError(block_hash, chain_id, error)
