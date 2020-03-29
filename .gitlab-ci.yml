@@ -68,3 +68,5 @@ test-pallets-and-crates:
       - crates/btc-relay/target/
       - crates/bitcoin/target/
       - crates/security/target/
+  only:
+    - merge_requests

@@ -5,10 +5,91 @@ use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
 use bitcoin::parser::*;
 use bitcoin::types::*;
+use security::ErrorCode;
 use frame_support::{assert_err, assert_ok};
 use mocktopus::mocking::*;
 
-/// initialize function
+/// # Getters and setters
+///
+/// get_chain_position_from_chain_id 
+/// set_chain_from_position_and_id
+#[test]
+fn get_chain_position_from_chain_id_succeeds() {
+    ExtBuilder::build().execute_with(|| {
+        // position and id of chains
+        let mut chains_pos_id: Vec<(u32,u32)> = Vec::new();
+        chains_pos_id.append(&mut vec![(0,0),(1,1),(2,3),(3,6)]);
+
+        for (pos, id) in chains_pos_id.iter() {
+            // insert chain
+            BTCRelay::set_chain_from_position_and_id(*pos, *id);
+        
+            // check that chain is in right position
+            let curr_pos = BTCRelay::get_chain_position_from_chain_id(*id)
+                .unwrap();
+
+            assert_eq!(curr_pos, *pos);
+        }
+        
+    })
+}
+
+/// get_block_header_from_hash
+/// set_block_header_from_hash
+#[test]
+fn get_block_header_from_hash_succeeds() {
+    ExtBuilder::build().execute_with(|| {
+        let chain_ref: u32 = 2;
+        let block_height: u32 = 100;
+        let block_header = hex::decode(sample_block_header()).unwrap();
+
+        let rich_header = RichBlockHeader {
+            block_hash: H256Le::zero(),
+            block_header: BlockHeader::from_le_bytes(&block_header),
+            block_height: block_height,
+            chain_ref: chain_ref,
+        };
+
+        BTCRelay::set_block_header_from_hash(rich_header.block_hash, &rich_header);
+
+        let curr_header = BTCRelay::get_block_header_from_hash(rich_header.block_hash).unwrap();
+        assert_eq!(rich_header, curr_header); 
+    })
+}
+
+#[test]
+fn get_block_header_from_hash_fails() {
+    ExtBuilder::build().execute_with(|| {
+        let block_hash = H256Le::zero();
+
+        assert_err!(BTCRelay::get_block_header_from_hash(block_hash),
+            Error::BlockNotFound);
+    })
+}
+
+/// get_block_chain_from_id
+/// set_block_chain_from_id
+#[test]
+fn get_block_chain_from_id_succeeds() {
+    ExtBuilder::build().execute_with(|| {
+        let chain_ref: u32 = 1;
+        let block_height: u32 = 100;
+
+        let blockchain = get_empty_block_chain_from_chain_id_and_height(
+            chain_ref, block_height
+        );
+
+        BTCRelay::set_block_chain_from_id(chain_ref, &blockchain);
+
+        let curr_blockchain = BTCRelay::get_block_chain_from_id(chain_ref);
+
+        assert_eq!(curr_blockchain, blockchain);
+    })
+}
+
+/// # Main functions
+///
+/// initialize 
 #[test]
 fn initialize_once_succeeds() {
     ExtBuilder::build().execute_with(|| {
@@ -48,7 +129,7 @@ fn store_block_header_on_mainchain_succeeds() {
     ExtBuilder::build().execute_with(|| {
         BTCRelay::verify_block_header
             .mock_safe(|h| MockResult::Return(Ok(BlockHeader::from_le_bytes(&h))));
-        BTCRelay::block_exists.mock_safe(|_| MockResult::Return(true));
+        BTCRelay::block_header_exists.mock_safe(|_| MockResult::Return(true));
 
         let chain_ref: u32 = 0;
         let block_height: u32 = 100;
@@ -89,7 +170,7 @@ fn store_block_header_on_fork_succeeds() {
     ExtBuilder::build().execute_with(|| {
         BTCRelay::verify_block_header
             .mock_safe(|h| MockResult::Return(Ok(BlockHeader::from_le_bytes(&h))));
-        BTCRelay::block_exists.mock_safe(|_| MockResult::Return(true));
+        BTCRelay::block_header_exists.mock_safe(|_| MockResult::Return(true));
 
         let chain_ref: u32 = 1;
         let block_height: u32 = 100;
@@ -159,45 +240,43 @@ fn check_and_do_reorg_fork_id_not_found() {
 }
 
 #[test]
-#[ignore]
 fn check_and_do_reorg_swap_fork_position() {
     ExtBuilder::build().execute_with(|| {
+        // insert the main chain in Chains and ChainsIndex
+        let main_chain_ref: u32 = 0;
+        let main_block_height: u32 = 110;
+        let main_position: u32 = 0;
+        let main = get_empty_block_chain_from_chain_id_and_height(
+            main_chain_ref, main_block_height
+        );
+        BTCRelay::set_chain_from_position_and_id(main_position, main_chain_ref);  
+        BTCRelay::set_block_chain_from_id(main_chain_ref, &main);
+
+        // insert the fork chain in Chains and ChainsIndex
         let fork_chain_ref: u32 = 4;
         let fork_block_height: u32 = 100;
         let fork_position: u32 = 2;
-
-        let swap_chain_ref: u32 = 3;
-        let swap_block_height: u32 = 99;
-        let swap_position: u32 = 1;
-
         let fork = get_empty_block_chain_from_chain_id_and_height(
             fork_chain_ref, fork_block_height
         );
+        BTCRelay::set_chain_from_position_and_id(fork_position, fork_chain_ref);
+        BTCRelay::set_block_chain_from_id(fork_chain_ref, &fork);
+
+        // insert the swap chain in Chains and ChainsIndex
+        let swap_chain_ref: u32 = 3;
+        let swap_block_height: u32 = 99;
+        let swap_position: u32 = 1;
         let swap = get_empty_block_chain_from_chain_id_and_height(
             swap_chain_ref, swap_block_height
         );
-
-        // make sure the main chain is set
-        BTCRelay::set_chain_from_position_and_id(0, 0);  
-        // insert the swap chain in Chains
         BTCRelay::set_chain_from_position_and_id(swap_position, swap_chain_ref);
-        // insert the fork chain in Chains
-        BTCRelay::set_chain_from_position_and_id(fork_position, fork_chain_ref);
-        
+        BTCRelay::set_block_chain_from_id(swap_chain_ref, &swap);
+
         // check that fork is at its initial position
         let current_position = BTCRelay::get_chain_position_from_chain_id(
             fork_chain_ref).unwrap();
 
         assert_eq!(current_position, fork_position);
-
-        BTCRelay::get_chain_position_from_chain_id
-            .mock_safe(move |_| MockResult::Return(Ok(fork_position))); 
-
-        BTCRelay::get_chain_id_from_position
-            .mock_safe(move |_| MockResult::Return(swap_position.clone()));
-
-        BTCRelay::get_block_chain_from_id
-            .mock_safe(move |_| MockResult::Return(swap.clone()));
 
         assert_ok!(BTCRelay::check_and_do_reorg(&fork));
         
@@ -206,27 +285,141 @@ fn check_and_do_reorg_swap_fork_position() {
             fork_chain_ref
             ).unwrap();
         assert_eq!(new_position, swap_position);
+
+        // assert the main chain has not changed
+        let curr_main_chain = BTCRelay::get_block_chain_from_id(main_chain_ref);
+        assert_eq!(curr_main_chain, main);
     })
 }
 
-/// get_chain_position_from_chain_id 
 #[test]
-fn get_chain_position_from_chain_id_succeeds() {
+fn check_and_do_reorg_new_fork_is_main_chain() {
     ExtBuilder::build().execute_with(|| {
-        // position and id of chains
-        let mut chains_pos_id: Vec<(u32,u32)> = Vec::new();
-        chains_pos_id.append(&mut vec![(0,0),(1,1),(2,3),(3,6)]);
+        // insert the main chain in Chains and ChainsIndex
+        let main_chain_ref: u32 = 0;
+        let main_block_height: u32 = 110;
+        let main_position: u32 = 0;
+        let main = get_empty_block_chain_from_chain_id_and_height(
+            main_chain_ref, main_block_height
+        );
+        BTCRelay::set_chain_from_position_and_id(main_position, main_chain_ref);  
+        BTCRelay::set_block_chain_from_id(main_chain_ref, &main);
 
-        for (pos, id) in chains_pos_id.iter() {
-            // insert chain
-            BTCRelay::set_chain_from_position_and_id(*pos, *id);
+        // insert the fork chain in Chains and ChainsIndex
+        let fork_chain_ref: u32 = 4;
+        let fork_block_height: u32 = 111;
+        let fork_position: u32 = 1;
+        let fork = get_empty_block_chain_from_chain_id_and_height(
+            fork_chain_ref, fork_block_height
+        );
+        BTCRelay::set_chain_from_position_and_id(fork_position, fork_chain_ref);
+        BTCRelay::set_block_chain_from_id(fork_chain_ref, &fork);
+
+        // set the best block
+        let best_block_hash = H256Le::zero();
+        BTCRelay::set_best_block(best_block_hash);
+        BTCRelay::set_best_block_height(fork_block_height);
+
+        // check that fork is at its initial position
+        let current_position = BTCRelay::get_chain_position_from_chain_id(
+            fork_chain_ref).unwrap();
+
+        assert_eq!(current_position, fork_position);
+
+        BTCRelay::swap_main_blockchain.mock_safe(|_| MockResult::Return(Ok(())));
+
+        assert_ok!(BTCRelay::check_and_do_reorg(&fork));
         
-            // check that chain is in right position
-            let curr_pos = BTCRelay::get_chain_position_from_chain_id(*id)
-                .unwrap();
+        // assert that the new main chain is set
+        let reorg_event = TestEvent::test_events(Event::ChainReorg(
+            best_block_hash,
+            fork_block_height,
+            (fork.max_height - fork.start_height),
+        ));
+        assert!(System::events().iter().any(|a| a.event == reorg_event));
+    })
+}
 
-            assert_eq!(curr_pos, *pos);
-        }
+/// insert_sorted
+#[test]
+fn insert_sorted_succeeds() {
+    ExtBuilder::build().execute_with(|| {
+        // insert the main chain in Chains and ChainsIndex
+        let main_chain_ref: u32 = 0;
+        let main_block_height: u32 = 110;
+        let main_position: u32 = 0;
+        let main = get_empty_block_chain_from_chain_id_and_height(
+            main_chain_ref, main_block_height
+        );
+        BTCRelay::set_block_chain_from_id(main_chain_ref, &main);
+        BTCRelay::insert_sorted(&main);
+
+        let curr_main_pos = BTCRelay::get_chain_position_from_chain_id(
+            main_chain_ref).unwrap();
+        assert_eq!(curr_main_pos, main_position);
+        
+        // insert the swap chain in Chains and ChainsIndex
+        let swap_chain_ref: u32 = 3;
+        let swap_block_height: u32 = 99;
+        let swap_position: u32 = 1;
+        let swap = get_empty_block_chain_from_chain_id_and_height(
+            swap_chain_ref, swap_block_height
+        );
+        BTCRelay::set_block_chain_from_id(swap_chain_ref, &swap);
+        BTCRelay::insert_sorted(&swap); 
+
+        let curr_swap_pos = BTCRelay::get_chain_position_from_chain_id(
+            swap_chain_ref).unwrap();
+        assert_eq!(curr_swap_pos, swap_position);
+
+        // insert the fork chain in Chains and ChainsIndex
+        let fork_chain_ref: u32 = 4;
+        let fork_block_height: u32 = 100;
+        let fork_position: u32 = 1;
+        let new_swap_pos: u32 = 2;
+        let fork = get_empty_block_chain_from_chain_id_and_height(
+            fork_chain_ref, fork_block_height
+        );
+        BTCRelay::set_block_chain_from_id(fork_chain_ref, &fork);
+        BTCRelay::insert_sorted(&fork);
+
+        let curr_fork_pos = BTCRelay::get_chain_position_from_chain_id(
+            fork_chain_ref).unwrap();
+        assert_eq!(curr_fork_pos, fork_position);
+        let curr_swap_pos = BTCRelay::get_chain_position_from_chain_id(
+            swap_chain_ref).unwrap();
+        assert_eq!(curr_swap_pos, new_swap_pos);
+
+    })
+}
+
+/// swap_main_blockchain 
+#[test]
+fn swap_main_blockchain_succeeds() {
+    ExtBuilder::build().execute_with(|| {
+        // insert the main chain in Chains and ChainsIndex
+        let main_chain_ref: u32 = 0;
+        let main_block_height: u32 = 110;
+        let main_position: u32 = 0;
+        let main = get_empty_block_chain_from_chain_id_and_height(
+            main_chain_ref, main_block_height
+        );
+        BTCRelay::set_block_chain_from_id(main_chain_ref, &main);
+        BTCRelay::set_block_chain_from_id(main_chain_ref, &main);
+
+        // create and insert main chain headers
+
+        // insert the fork chain in Chains and ChainsIndex
+        let fork_chain_ref: u32 = 4;
+        let fork_block_height: u32 = 117;
+        let fork_position: u32 = 1;
+        let fork = get_empty_block_chain_from_chain_id_and_height(
+            fork_chain_ref, fork_block_height
+        );
+        BTCRelay::set_chain_from_position_and_id(fork_position, fork_chain_ref);
+        BTCRelay::set_block_chain_from_id(fork_chain_ref, &fork);
+
+        assert!(true);
         
     })
 }
@@ -248,7 +441,7 @@ fn test_verify_block_header_no_retarget_succeeds() {
         BTCRelay::get_block_header_from_hash
             .mock_safe(move |_| MockResult::Return(Ok(genesis_header)));
         // Not duplicate block
-        BTCRelay::block_exists
+        BTCRelay::block_header_exists
             .mock_safe(move |_| MockResult::Return(false));
 
         let verified_header = BTCRelay::verify_block_header(
@@ -280,7 +473,7 @@ fn test_verify_block_header_correct_retarget_increase_succeeds() {
         BTCRelay::get_block_header_from_hash
              .mock_safe(move |_| MockResult::Return(Ok(prev_block_header_rich)));
         // Not duplicate block
-        BTCRelay::block_exists
+        BTCRelay::block_header_exists
              .mock_safe(move |_| MockResult::Return(false));
         // Compute new target returns target of submitted header (i.e., correct)    
         BTCRelay::compute_new_target.mock_safe(move |_,_| MockResult::Return(Ok(curr_block_header.target)));
@@ -314,7 +507,7 @@ fn test_verify_block_header_correct_retarget_decrease_succeeds() {
         BTCRelay::get_block_header_from_hash
              .mock_safe(move |_| MockResult::Return(Ok(prev_block_header_rich)));
         // Not duplicate block
-        BTCRelay::block_exists
+        BTCRelay::block_header_exists
              .mock_safe(move |_| MockResult::Return(false));
         // Compute new target returns target of submitted header (i.e., correct)    
         BTCRelay::compute_new_target.mock_safe(move |_,_| MockResult::Return(Ok(curr_block_header.target)));
@@ -349,7 +542,7 @@ fn test_verify_block_header_missing_retarget_succeeds() {
         BTCRelay::get_block_header_from_hash
              .mock_safe(move |_| MockResult::Return(Ok(prev_block_header_rich)));
         // Not duplicate block
-        BTCRelay::block_exists
+        BTCRelay::block_header_exists
              .mock_safe(move |_| MockResult::Return(false));
         // Compute new target returns HIGHER target    
         BTCRelay::compute_new_target.mock_safe(move |_,_| MockResult::Return(Ok(curr_block_header.target+1)));
@@ -399,7 +592,7 @@ fn test_verify_block_header_duplicate_fails() {
         BTCRelay::get_block_header_from_hash
             .mock_safe(move |_| MockResult::Return(Ok(genesis_header)));
         // submitted block ALREADY EXISTS
-        BTCRelay::block_exists
+        BTCRelay::block_header_exists
             .mock_safe(move |block_hash| {
                 assert_eq!(&block_hash, &rich_first_header.block_hash);
                 MockResult::Return(true)
@@ -424,7 +617,7 @@ fn test_verify_block_header_no_prev_block_fails() {
         BTCRelay::get_block_header_from_hash
             .mock_safe(move |_| MockResult::Return(Err(Error::PrevBlock)));
         // submitted block does not yet exist
-        BTCRelay::block_exists
+        BTCRelay::block_header_exists
             .mock_safe(move |_| MockResult::Return(false));
                 
         let raw_first_header = header_from_bytes(&(hex::decode(sample_raw_first_header()).unwrap()));
@@ -452,7 +645,7 @@ fn test_verify_block_header_low_diff_fails() {
     BTCRelay::get_block_header_from_hash
         .mock_safe(move |_| MockResult::Return(Ok(genesis_header)));
     // submitted block does not yet exist
-    BTCRelay::block_exists
+    BTCRelay::block_header_exists
         .mock_safe(move |_| MockResult::Return(false));
 
 
@@ -490,6 +683,162 @@ fn test_validate_transaction_succeeds() {
 }
 
 
+/// flag_block_error
+#[test]
+fn flag_block_error_succeeds() {
+    ExtBuilder::build().execute_with(|| {
+        let chain_ref: u32 = 1;
+        let block_height: u32 = 100;
+        let block_header = hex::decode(sample_block_header()).unwrap();
+
+        let rich_header = RichBlockHeader {
+            block_hash: H256Le::zero(),
+            block_header: BlockHeader::from_le_bytes(&block_header),
+            block_height: block_height,
+            chain_ref: chain_ref,
+        };
+
+        BTCRelay::set_block_header_from_hash(rich_header.block_hash, &rich_header);
+       
+        let blockchain = get_empty_block_chain_from_chain_id_and_height(
+            chain_ref, block_height
+        );
+
+        BTCRelay::set_block_chain_from_id(chain_ref, &blockchain);
+
+        let error_codes = vec![ErrorCode::NoDataBTCRelay, ErrorCode::InvalidBTCRelay];
+
+        for error in error_codes.iter() {
+            assert_ok!(BTCRelay::flag_block_error(rich_header.block_hash, error.clone()));
+            
+            let curr_chain = BTCRelay::get_block_chain_from_id(chain_ref);
+
+            if *error == ErrorCode::NoDataBTCRelay {
+                assert!(curr_chain.no_data.contains(&block_height));
+            } else if *error == ErrorCode::InvalidBTCRelay {
+                assert!(curr_chain.invalid.contains(&block_height));
+            };
+        
+            let error_event = TestEvent::test_events(Event::FlagBlockError(
+                rich_header.block_hash,
+                chain_ref,
+                error.clone(),
+            ));
+            assert!(System::events().iter().any(|a| a.event == error_event));
+        }
+    })
+}
+
+#[test]
+fn flag_block_error_fails() {
+    ExtBuilder::build().execute_with(|| {
+        let chain_ref: u32 = 1;
+        let block_height: u32 = 100;
+        let block_header = hex::decode(sample_block_header()).unwrap();
+
+        let rich_header = RichBlockHeader {
+            block_hash: H256Le::zero(),
+            block_header: BlockHeader::from_le_bytes(&block_header),
+            block_height: block_height,
+            chain_ref: chain_ref,
+        };
+
+        BTCRelay::set_block_header_from_hash(rich_header.block_hash, &rich_header);
+       
+        let blockchain = get_empty_block_chain_from_chain_id_and_height(
+            chain_ref, block_height
+        );
+
+        BTCRelay::set_block_chain_from_id(chain_ref, &blockchain);
+
+        // not a valid error code
+        let error = ErrorCode::Liquidation;
+
+        assert_err!(BTCRelay::flag_block_error(rich_header.block_hash, error),
+            Error::UnknownErrorcode);
+    })
+}
+
+/// clear_block_error
+#[test]
+fn clear_block_error_succeeds() {
+    ExtBuilder::build().execute_with(|| {
+        let chain_ref: u32 = 1;
+        let block_height: u32 = 100;
+        let block_header = hex::decode(sample_block_header()).unwrap();
+
+        let rich_header = RichBlockHeader {
+            block_hash: H256Le::zero(),
+            block_header: BlockHeader::from_le_bytes(&block_header),
+            block_height: block_height,
+            chain_ref: chain_ref,
+        };
+
+        BTCRelay::set_block_header_from_hash(rich_header.block_hash, &rich_header);
+       
+        let mut blockchain = get_empty_block_chain_from_chain_id_and_height(
+            chain_ref, block_height
+        );
+
+        blockchain.no_data.insert(block_height);
+        blockchain.invalid.insert(block_height);
+
+        BTCRelay::set_block_chain_from_id(chain_ref, &blockchain);
+
+        let error_codes = vec![ErrorCode::NoDataBTCRelay, ErrorCode::InvalidBTCRelay];
+
+        for error in error_codes.iter() {
+            assert_ok!(BTCRelay::clear_block_error(rich_header.block_hash, error.clone()));
+            
+            let curr_chain = BTCRelay::get_block_chain_from_id(chain_ref);
+
+            if *error == ErrorCode::NoDataBTCRelay {
+                assert!(!curr_chain.no_data.contains(&block_height));
+            } else if *error == ErrorCode::InvalidBTCRelay {
+                assert!(!curr_chain.invalid.contains(&block_height));
+            };
+        
+            let error_event = TestEvent::test_events(Event::ClearBlockError(
+                rich_header.block_hash,
+                chain_ref,
+                error.clone(),
+            ));
+            assert!(System::events().iter().any(|a| a.event == error_event));
+        }
+    })
+}
+
+#[test]
+fn clear_block_error_fails() {
+    ExtBuilder::build().execute_with(|| {
+        let chain_ref: u32 = 1;
+        let block_height: u32 = 100;
+        let block_header = hex::decode(sample_block_header()).unwrap();
+
+        let rich_header = RichBlockHeader {
+            block_hash: H256Le::zero(),
+            block_header: BlockHeader::from_le_bytes(&block_header),
+            block_height: block_height,
+            chain_ref: chain_ref,
+        };
+
+        BTCRelay::set_block_header_from_hash(rich_header.block_hash, &rich_header);
+       
+        let blockchain = get_empty_block_chain_from_chain_id_and_height(
+            chain_ref, block_height
+        );
+
+        BTCRelay::set_block_chain_from_id(chain_ref, &blockchain);
+
+        // not a valid error code
+        let error = ErrorCode::Liquidation;
+
+        assert_err!(BTCRelay::clear_block_error(rich_header.block_hash, error),
+            Error::UnknownErrorcode);
+    })
+}
+/// # Util functions
+///
 fn get_empty_block_chain_from_chain_id_and_height(
     chain_id: u32,
     block_height: u32,

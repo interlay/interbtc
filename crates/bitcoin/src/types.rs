@@ -96,8 +96,8 @@ impl Transaction {
 }
 
 /// Bitcoin Enriched Block Headers
-#[derive(Encode, Decode, Default, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug)]
+// #[cfg_attr(feature = "std", derive(Debug))]
 pub struct RichBlockHeader {
     pub block_hash: H256Le,
     pub block_header: BlockHeader,
@@ -119,8 +119,8 @@ impl RichBlockHeader {
 }
 
 /// Representation of a Bitcoin blockchain
-#[derive(Encode, Decode, Default, Clone, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
+//#[cfg_attr(feature = "std", derive(Debug))]
 pub struct BlockChain {
     pub chain_id: u32,
     pub chain: BTreeMap<u32,H256Le>,

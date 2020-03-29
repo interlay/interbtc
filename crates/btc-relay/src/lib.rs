@@ -142,7 +142,7 @@ decl_module! {
             Self::set_block_header_from_hash(block_header_hash, &block_header);
 
             // Store a pointer to BlockChain in ChainsIndex
-            Self::set_chainindex_from_id_and_blockchain(
+            Self::set_block_chain_from_id(
                 MAIN_CHAIN_ID, &blockchain);
 
             // Store the reference to the new BlockChain in Chains
@@ -164,6 +164,7 @@ decl_module! {
         /// Stores a single new block header
         ///
         /// # Arguments
+        ///
         /// * `block_header_bytes` - 80 byte raw Bitcoin block header.
         fn store_block_header(
             origin, block_header_bytes: Vec<u8>
@@ -228,7 +229,7 @@ decl_module! {
             if is_fork {
                 // create a new chain
                 // Store a pointer to BlockChain in ChainsIndex
-                Self::set_chainindex_from_id_and_blockchain(blockchain.chain_id, &blockchain);
+                Self::set_block_chain_from_id(blockchain.chain_id, &blockchain);
                 // Store the reference to the blockchain in Chains
                 Self::insert_sorted(&blockchain);
             } else {
@@ -436,6 +437,7 @@ impl<T: Trait> Module<T> {
             None => return Err(Error::MissingBlockHeight.into()),
         }
     }
+    /// Get a block header from its hash
     fn get_block_header_from_hash(
         block_hash: H256Le
     ) -> Result<RichBlockHeader, Error> {
@@ -444,11 +446,11 @@ impl<T: Trait> Module<T> {
         }
         Err(Error::BlockNotFound)
     }
-
-    fn block_exists(block_hash: H256Le) -> bool {
+    /// Check if a block header exists
+    fn block_header_exists(block_hash: H256Le) -> bool {
         <BlockHeaders>::exists(block_hash)
     }
-
+    /// Get a block header from  
     fn get_block_header_from_height(
         blockchain: &BlockChain,
         block_height: u32,
@@ -462,9 +464,17 @@ impl<T: Trait> Module<T> {
     fn set_chain_from_position_and_id(position: u32, id: u32) {
         <Chains>::insert(position, id);
     }
+    /// Swap chain elements
+    fn swap_chain(pos_1: u32, pos_2: u32) {
+        <Chains>::swap(pos_1, pos_2)
+    }
     /// Set a new blockchain in ChainsIndex
-    fn set_chainindex_from_id_and_blockchain(id: u32, chain: &BlockChain) {
+    fn set_block_chain_from_id(id: u32, chain: &BlockChain) {
         <ChainsIndex>::insert(id, &chain);
+    }
+    /// Update a blockchain in ChainsIndex 
+    fn mutate_block_chain_from_id(id: u32, chain: BlockChain) {
+        <ChainsIndex>::mutate(id, |b| {*b = chain});
     }
     /// Set a new block header
     fn set_block_header_from_hash(hash: H256Le, header: &RichBlockHeader) {
@@ -486,7 +496,7 @@ impl<T: Trait> Module<T> {
         new_counter
     }
     
-    /// Initialize a new blockchain with a single block
+    /// Initialize the new main blockchain with a single block
     fn initialize_blockchain(
         block_height: u32, block_hash: H256Le
     ) -> BlockChain {
@@ -495,6 +505,7 @@ impl<T: Trait> Module<T> {
         // generate an empty blockchain
         Self::generate_blockchain(chain_id, block_height, block_hash)
     }
+    /// Create a new blockchain element with a new chain id
     fn create_blockchain(
         block_height: u32, block_hash: H256Le
     ) -> BlockChain {
@@ -504,7 +515,7 @@ impl<T: Trait> Module<T> {
         // generate an empty blockchain
         Self::generate_blockchain(chain_id, block_height, block_hash)
     }
-
+    /// Generate the raw blockchain from a chain Id and with a single block 
     fn generate_blockchain(
         chain_id: u32,
         block_height: u32,
@@ -525,7 +536,7 @@ impl<T: Trait> Module<T> {
         };
         blockchain
     }
-
+    /// Add a new block header to an existing blockchain
     fn extend_blockchain(
         block_height: u32,
         block_hash: &H256Le,
@@ -558,7 +569,7 @@ impl<T: Trait> Module<T> {
 
         // Check that the block header is not yet stored in BTC-Relay
         ensure!(
-            !Self::block_exists(block_header_hash),
+            !Self::block_header_exists(block_header_hash),
             Error::DuplicateBlock
         );
 
@@ -623,7 +634,17 @@ impl<T: Trait> Module<T> {
         let last_retarget_header = Self::get_block_header_from_height(&block_chain, block_height - DIFFICULTY_ADJUSTMENT_INTERVAL)?;
         Ok(last_retarget_header.block_header.timestamp)
     }
-
+    /// Swap the main chain with a fork. This method takes the starting height 
+    /// of the fork and replaces each block in the main chain with the blocks
+    /// in the fork. It moves the replaced blocks in the main chain to a new 
+    /// fork. 
+    /// Last, it replaces the chain_ref of each block header in the new main
+    /// chain to the MAIN_CHAIN_ID and each block header in the new fork to the
+    /// new chain id.
+    ///
+    /// # Arguments
+    ///
+    /// * `fork` - the fork that is going to become the main chain
     fn swap_main_blockchain(fork: &BlockChain) -> Result<(), Error> {
         // load the main chain
         let mut main_chain = Self::get_block_chain_from_id(MAIN_CHAIN_ID);
@@ -691,7 +712,7 @@ impl<T: Trait> Module<T> {
         };
 
         // Update the stored main chain
-        Self::set_chainindex_from_id_and_blockchain(MAIN_CHAIN_ID, &main_chain);
+        Self::set_block_chain_from_id(MAIN_CHAIN_ID, &main_chain);
 
         // Set BestBlock and BestBlockHeight to the submitted block
         Self::set_best_block(best_block.clone());
@@ -699,10 +720,10 @@ impl<T: Trait> Module<T> {
 
         // remove the fork from storage
         Self::remove_blockchain_from_chainindex(fork.chain_id);
-        Self::remove_blockchain_from_chain(position);
+        Self::remove_blockchain_from_chain(position)?;
 
         // store the forked main chain
-        Self::set_chainindex_from_id_and_blockchain(
+        Self::set_block_chain_from_id(
             forked_main_chain.chain_id, &forked_main_chain);
 
         // insert the reference to the forked main chain in Chains
@@ -724,7 +745,13 @@ impl<T: Trait> Module<T> {
 
         Ok(())
     }
-
+    /// Checks if a newly inserted fork results in an update to the sorted
+    /// Chains mapping. This happens when the max height of the fork is greater
+    /// than the max height of the previous element in the Chains mapping.
+    ///
+    /// # Arguments
+    ///
+    /// * `fork` - the blockchain element that may cause a reorg
     fn check_and_do_reorg(fork: &BlockChain) -> Result<(), Error> {
         // Check if the ordering needs updating
         // if the fork is the main chain, we don't need to update the ordering
@@ -735,7 +762,7 @@ impl<T: Trait> Module<T> {
         // get the position of the fork in Chains
         let fork_position: u32 = Self::get_chain_position_from_chain_id(
             fork.chain_id)?;
-
+        // print!("fork position {:?}\n", fork_position);
         // check if the previous element in Chains has a lower block_height
         let mut current_position = fork_position;
         let mut current_height = fork.max_height;
@@ -751,9 +778,12 @@ impl<T: Trait> Module<T> {
             let prev_height = Self::get_block_chain_from_id(prev_blockchain_id)
                 .max_height;
             // swap elements if block height is greater
+            // print!("curr height {:?}\n", current_height);
+            // print!("prev height {:?}\n", prev_height);
             if prev_height < current_height {
                 // Check if swap occurs on the main chain element
-                if prev_position == MAIN_CHAIN_ID {
+                // print!("prev chain id {:?}\n", prev_blockchain_id);
+                if prev_blockchain_id == MAIN_CHAIN_ID {
                     // if the previous position is the top element,
                     // we are swapping the main chain
                     Self::swap_main_blockchain(&fork)?;
@@ -762,6 +792,9 @@ impl<T: Trait> Module<T> {
                     let new_chain_tip = <BestBlock>::get();
                     let block_height = <BestBlockHeight>::get();
                     let fork_depth = fork.max_height - fork.start_height;
+                    // print!("tip {:?}\n", new_chain_tip);
+                    // print!("block height {:?}\n", block_height);
+                    // print!("depth {:?}\n", fork_depth);
                     Self::deposit_event(Event::ChainReorg(
                         new_chain_tip,
                         block_height,
@@ -771,7 +804,7 @@ impl<T: Trait> Module<T> {
                     break;
                 } else {
                     // else, simply swap the chain_id ordering in Chains
-                    <Chains>::swap(prev_position, current_position)
+                    Self::swap_chain(prev_position, current_position);
                 }
 
                 // update the current chain to the previous one
@@ -784,7 +817,13 @@ impl<T: Trait> Module<T> {
 
         Ok(())
     }
+    /// Insert a new fork into the Chains mapping sorted by its max height
+    ///
+    /// # Arguments
+    ///
+    /// * `blockchain` - new blockchain element
     fn insert_sorted(blockchain: &BlockChain) {
+        // print!("Chain id: {:?}\n", blockchain.chain_id);
         // get a sorted vector over the Chains elements
         // NOTE: LinkedStorageMap iterators are not sorted over the keys
         let mut chains = <Chains>::enumerate().collect::<Vec<(u32, u32)>>();
@@ -818,35 +857,46 @@ impl<T: Trait> Module<T> {
             max_chain_element, blockchain.chain_id);
         // starting from the last element swap the positions until
         // the new blockchain is at the position_blockchain
-        for curr_position in (position_blockchain..max_chain_element).rev() {
+        // print!("max element {:?}\n", max_chain_element);
+        // print!("position blockchain {:?}\n", position_blockchain);
+        for curr_position in (position_blockchain+1..max_chain_element+1).rev() {
             // stop when the blockchain element is at it's
             // designated position
+            // print!("current position {:?}\n", curr_position);
             if curr_position < position_blockchain {
                 break;
             };
             let prev_position = curr_position - 1;
             // swap the current element with the previous one
-            <Chains>::swap(curr_position, prev_position);
+            // print!("Swapping pos {:?} with pos {:?}\n", curr_position, prev_position);
+            Self::swap_chain(curr_position, prev_position);
         }
     }
+    /// Remove a blockchain element from chainindex
     fn remove_blockchain_from_chainindex(id: u32) {
         <ChainsIndex>::remove(id);
     }
-    fn remove_blockchain_from_chain(position: u32) {
+    /// Remove a chain id from chains
+    fn remove_blockchain_from_chain(position: u32) -> Result<(), Error> {
         // swap the element with the last element in the mapping
-        let head_index = <Chains>::head().unwrap();
+        let head_index = match <Chains>::head() {
+            Some(head) => head,
+            None => return Err(Error::ForkIdNotFound),
+        };
         <Chains>::swap(position, head_index);
         // remove the header (now the value at the initial position)
         <Chains>::remove(head_index);
+        Ok(())
     }
-
-    pub fn flag_block_error(block_hash: H256Le, error: ErrorCode) -> DispatchResult {
-        /*
-        ensure!(
-            <security::Module<T>>::check_relayer_registered(relayer),
-            Error::<T>::UnauthorizedRelayer
-        );
-        */
+    /// Flag an error in a block header. This function is called by the 
+    /// security pallet.
+    ///
+    /// # Arguments
+    ///
+    /// * `block_hash` - the hash of the block header with the error
+    /// * `error` - the error code for the block header
+    pub fn flag_block_error(block_hash: H256Le, error: ErrorCode) 
+    -> Result<(), Error> {
         // Get the chain id of the block header
         let block_header = Self::get_block_header_from_hash(block_hash)?;
         let chain_id = block_header.chain_ref;
@@ -863,19 +913,27 @@ impl<T: Trait> Module<T> {
             ErrorCode::InvalidBTCRelay => blockchain
                 .invalid
                 .insert(block_header.block_height),
-            _ => return Err(Error::UnknownErrorcode.into()),
+            _ => return Err(Error::UnknownErrorcode),
         };
 
         // If the block was not already flagged, store the updated blockchain entry
         if newly_flagged {
-            <ChainsIndex>::mutate(chain_id, |_b| blockchain);
+            Self::mutate_block_chain_from_id(chain_id, blockchain);
             Self::deposit_event(Event::FlagBlockError(block_hash, chain_id, error));
         }
 
         Ok (())
     }
 
-    pub fn clear_block_error(block_hash: H256Le, error: ErrorCode) -> DispatchResult {
+    /// Clear an error from a block header. This function is called by the 
+    /// security pallet.
+    ///
+    /// # Arguments
+    ///
+    /// * `block_hash` - the hash of the block header being cleared
+    /// * `error` - the error code for the block header
+    pub fn clear_block_error(block_hash: H256Le, error: ErrorCode) 
+    -> Result<(), Error> {
         // Get the chain id of the block header
         let block_header = Self::get_block_header_from_hash(block_hash)?;
         let chain_id = block_header.chain_ref;
@@ -885,27 +943,19 @@ impl<T: Trait> Module<T> {
 
         // Clear errors in the blockchain entry
         // Check which error we are dealing with
-        let block_existed = match error {
+        let block_exists = match error {
             ErrorCode::NoDataBTCRelay => {
-                let index = blockchain.no_data
-                    .iter()
-                    .position(|x| *x == block_header.block_height)
-                    .unwrap() as u32;
-                blockchain.no_data.remove(&index)
+                blockchain.no_data.remove(&block_header.block_height)
             },
             ErrorCode::InvalidBTCRelay => {
-                let index = blockchain.invalid
-                    .iter()
-                    .position(|x| *x == block_header.block_height)
-                    .unwrap() as u32;
-                blockchain.invalid.remove(&index)
+                blockchain.invalid.remove(&block_header.block_height)
             },
-            _ => return Err(Error::UnknownErrorcode.into()),
+            _ => return Err(Error::UnknownErrorcode),
         };
 
-        if block_existed {
+        if block_exists {
             // Store the updated blockchain entry
-            <ChainsIndex>::mutate(&chain_id, |_b| blockchain);
+            Self::mutate_block_chain_from_id(chain_id, blockchain);
 
             Self::deposit_event(
                 Event::ClearBlockError(block_hash, chain_id, error)
