@@ -242,42 +242,41 @@ fn check_and_do_reorg_fork_id_not_found() {
 #[test]
 fn check_and_do_reorg_swap_fork_position() {
     ExtBuilder::build().execute_with(|| {
+        // insert the main chain in Chains and ChainsIndex
+        let main_chain_ref: u32 = 0;
+        let main_block_height: u32 = 110;
+        let main_position: u32 = 0;
+        let main = get_empty_block_chain_from_chain_id_and_height(
+            main_chain_ref, main_block_height
+        );
+        BTCRelay::set_chain_from_position_and_id(main_position, main_chain_ref);  
+        BTCRelay::set_block_chain_from_id(main_chain_ref, &main);
+
+        // insert the fork chain in Chains and ChainsIndex
         let fork_chain_ref: u32 = 4;
         let fork_block_height: u32 = 100;
         let fork_position: u32 = 2;
-
-        let swap_chain_ref: u32 = 3;
-        let swap_block_height: u32 = 99;
-        let swap_position: u32 = 1;
-
         let fork = get_empty_block_chain_from_chain_id_and_height(
             fork_chain_ref, fork_block_height
         );
+        BTCRelay::set_chain_from_position_and_id(fork_position, fork_chain_ref);
+        BTCRelay::set_block_chain_from_id(fork_chain_ref, &fork);
+
+        // insert the swap chain in Chains and ChainsIndex
+        let swap_chain_ref: u32 = 3;
+        let swap_block_height: u32 = 99;
+        let swap_position: u32 = 1;
         let swap = get_empty_block_chain_from_chain_id_and_height(
             swap_chain_ref, swap_block_height
         );
-
-        // make sure the main chain is set
-        BTCRelay::set_chain_from_position_and_id(0, 0);  
-        // insert the swap chain in Chains
         BTCRelay::set_chain_from_position_and_id(swap_position, swap_chain_ref);
-        // insert the fork chain in Chains
-        BTCRelay::set_chain_from_position_and_id(fork_position, fork_chain_ref);
-        
+        BTCRelay::set_block_chain_from_id(swap_chain_ref, &swap);
+
         // check that fork is at its initial position
         let current_position = BTCRelay::get_chain_position_from_chain_id(
             fork_chain_ref).unwrap();
 
         assert_eq!(current_position, fork_position);
-
-        BTCRelay::get_chain_position_from_chain_id
-            .mock_safe(move |_| MockResult::Return(Ok(fork_position))); 
-
-        BTCRelay::get_chain_id_from_position
-            .mock_safe(move |_| MockResult::Return(swap_position.clone()));
-
-        BTCRelay::get_block_chain_from_id
-            .mock_safe(move |_| MockResult::Return(swap.clone()));
 
         assert_ok!(BTCRelay::check_and_do_reorg(&fork));
         
@@ -286,6 +285,10 @@ fn check_and_do_reorg_swap_fork_position() {
             fork_chain_ref
             ).unwrap();
         assert_eq!(new_position, swap_position);
+
+        // assert the main chain has not changed
+        let curr_main_chain = BTCRelay::get_block_chain_from_id(main_chain_ref);
+        assert_eq!(curr_main_chain, main);
     })
 }
 

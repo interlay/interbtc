@@ -463,6 +463,10 @@ impl<T: Trait> Module<T> {
     fn set_chain_from_position_and_id(position: u32, id: u32) {
         <Chains>::insert(position, id);
     }
+    /// Swap chain elements
+    fn swap_chain(pos_1: u32, pos_2: u32) {
+        <Chains>::swap(pos_1, pos_2)
+    }
     /// Set a new blockchain in ChainsIndex
     fn set_block_chain_from_id(id: u32, chain: &BlockChain) {
         <ChainsIndex>::insert(id, &chain);
@@ -757,7 +761,7 @@ impl<T: Trait> Module<T> {
         // get the position of the fork in Chains
         let fork_position: u32 = Self::get_chain_position_from_chain_id(
             fork.chain_id)?;
-
+        print!("fork position {:?}\n", fork_position);
         // check if the previous element in Chains has a lower block_height
         let mut current_position = fork_position;
         let mut current_height = fork.max_height;
@@ -773,9 +777,12 @@ impl<T: Trait> Module<T> {
             let prev_height = Self::get_block_chain_from_id(prev_blockchain_id)
                 .max_height;
             // swap elements if block height is greater
+            print!("curr height {:?}\n", current_height);
+            print!("prev height {:?}\n", prev_height);
             if prev_height < current_height {
                 // Check if swap occurs on the main chain element
-                if prev_position == MAIN_CHAIN_ID {
+                print!("prev chain id {:?}\n", prev_blockchain_id);
+                if prev_blockchain_id == MAIN_CHAIN_ID {
                     // if the previous position is the top element,
                     // we are swapping the main chain
                     Self::swap_main_blockchain(&fork)?;
@@ -793,7 +800,7 @@ impl<T: Trait> Module<T> {
                     break;
                 } else {
                     // else, simply swap the chain_id ordering in Chains
-                    <Chains>::swap(prev_position, current_position)
+                    Self::swap_chain(prev_position, current_position);
                 }
 
                 // update the current chain to the previous one
