@@ -719,7 +719,7 @@ impl<T: Trait> Module<T> {
 
         // remove the fork from storage
         Self::remove_blockchain_from_chainindex(fork.chain_id);
-        Self::remove_blockchain_from_chain(position);
+        Self::remove_blockchain_from_chain(position)?;
 
         // store the forked main chain
         Self::set_block_chain_from_id(
@@ -868,12 +868,16 @@ impl<T: Trait> Module<T> {
         <ChainsIndex>::remove(id);
     }
     /// Remove a chain id from chains
-    fn remove_blockchain_from_chain(position: u32) {
+    fn remove_blockchain_from_chain(position: u32) -> Result<(), Error> {
         // swap the element with the last element in the mapping
-        let head_index = <Chains>::head().unwrap();
+        let head_index = match <Chains>::head() {
+            Some(head) => head,
+            None => return Err(Error::ForkIdNotFound),
+        };
         <Chains>::swap(position, head_index);
         // remove the header (now the value at the initial position)
         <Chains>::remove(head_index);
+        Ok(())
     }
     /// Flag an error in a block header. This function is called by the 
     /// security pallet.
