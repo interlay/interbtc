@@ -292,6 +292,107 @@ fn check_and_do_reorg_swap_fork_position() {
     })
 }
 
+#[test]
+fn check_and_do_reorg_new_fork_is_main_chain() {
+    ExtBuilder::build().execute_with(|| {
+        // insert the main chain in Chains and ChainsIndex
+        let main_chain_ref: u32 = 0;
+        let main_block_height: u32 = 110;
+        let main_position: u32 = 0;
+        let main = get_empty_block_chain_from_chain_id_and_height(
+            main_chain_ref, main_block_height
+        );
+        BTCRelay::set_chain_from_position_and_id(main_position, main_chain_ref);  
+        BTCRelay::set_block_chain_from_id(main_chain_ref, &main);
+
+        // insert the fork chain in Chains and ChainsIndex
+        let fork_chain_ref: u32 = 4;
+        let fork_block_height: u32 = 111;
+        let fork_position: u32 = 1;
+        let fork = get_empty_block_chain_from_chain_id_and_height(
+            fork_chain_ref, fork_block_height
+        );
+        BTCRelay::set_chain_from_position_and_id(fork_position, fork_chain_ref);
+        BTCRelay::set_block_chain_from_id(fork_chain_ref, &fork);
+
+        // set the best block
+        let best_block_hash = H256Le::zero();
+        BTCRelay::set_best_block(best_block_hash);
+        BTCRelay::set_best_block_height(fork_block_height);
+
+        // check that fork is at its initial position
+        let current_position = BTCRelay::get_chain_position_from_chain_id(
+            fork_chain_ref).unwrap();
+
+        assert_eq!(current_position, fork_position);
+
+        BTCRelay::swap_main_blockchain.mock_safe(|_| MockResult::Return(Ok(())));
+
+        assert_ok!(BTCRelay::check_and_do_reorg(&fork));
+        
+        // assert that the new main chain is set
+        let reorg_event = TestEvent::test_events(Event::ChainReorg(
+            best_block_hash,
+            fork_block_height,
+            (fork.max_height - fork.start_height),
+        ));
+        assert!(System::events().iter().any(|a| a.event == reorg_event));
+    })
+}
+
+/// insert_sorted
+#[test]
+fn insert_sorted_succeeds() {
+    ExtBuilder::build().execute_with(|| {
+        // insert the main chain in Chains and ChainsIndex
+        let main_chain_ref: u32 = 0;
+        let main_block_height: u32 = 110;
+        let main_position: u32 = 0;
+        let main = get_empty_block_chain_from_chain_id_and_height(
+            main_chain_ref, main_block_height
+        );
+        BTCRelay::set_block_chain_from_id(main_chain_ref, &main);
+        BTCRelay::insert_sorted(&main);
+
+        let curr_main_pos = BTCRelay::get_chain_position_from_chain_id(
+            main_chain_ref).unwrap();
+        assert_eq!(curr_main_pos, main_position);
+        
+        // insert the swap chain in Chains and ChainsIndex
+        let swap_chain_ref: u32 = 3;
+        let swap_block_height: u32 = 99;
+        let swap_position: u32 = 1;
+        let swap = get_empty_block_chain_from_chain_id_and_height(
+            swap_chain_ref, swap_block_height
+        );
+        BTCRelay::set_block_chain_from_id(swap_chain_ref, &swap);
+        BTCRelay::insert_sorted(&swap); 
+
+        let curr_swap_pos = BTCRelay::get_chain_position_from_chain_id(
+            swap_chain_ref).unwrap();
+        assert_eq!(curr_swap_pos, swap_position);
+
+        // insert the fork chain in Chains and ChainsIndex
+        let fork_chain_ref: u32 = 4;
+        let fork_block_height: u32 = 100;
+        let fork_position: u32 = 1;
+        let new_swap_pos: u32 = 2;
+        let fork = get_empty_block_chain_from_chain_id_and_height(
+            fork_chain_ref, fork_block_height
+        );
+        BTCRelay::set_block_chain_from_id(fork_chain_ref, &fork);
+        BTCRelay::insert_sorted(&fork);
+
+        let curr_fork_pos = BTCRelay::get_chain_position_from_chain_id(
+            fork_chain_ref).unwrap();
+        assert_eq!(curr_fork_pos, fork_position);
+        let curr_swap_pos = BTCRelay::get_chain_position_from_chain_id(
+            swap_chain_ref).unwrap();
+        assert_eq!(curr_swap_pos, new_swap_pos);
+
+    })
+}
+
 /// verify_block_header  
 #[test]
 fn test_verify_block_header_no_retarget_succeeds() {

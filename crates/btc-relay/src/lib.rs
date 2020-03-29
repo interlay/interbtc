@@ -761,7 +761,7 @@ impl<T: Trait> Module<T> {
         // get the position of the fork in Chains
         let fork_position: u32 = Self::get_chain_position_from_chain_id(
             fork.chain_id)?;
-        print!("fork position {:?}\n", fork_position);
+        // print!("fork position {:?}\n", fork_position);
         // check if the previous element in Chains has a lower block_height
         let mut current_position = fork_position;
         let mut current_height = fork.max_height;
@@ -777,11 +777,11 @@ impl<T: Trait> Module<T> {
             let prev_height = Self::get_block_chain_from_id(prev_blockchain_id)
                 .max_height;
             // swap elements if block height is greater
-            print!("curr height {:?}\n", current_height);
-            print!("prev height {:?}\n", prev_height);
+            // print!("curr height {:?}\n", current_height);
+            // print!("prev height {:?}\n", prev_height);
             if prev_height < current_height {
                 // Check if swap occurs on the main chain element
-                print!("prev chain id {:?}\n", prev_blockchain_id);
+                // print!("prev chain id {:?}\n", prev_blockchain_id);
                 if prev_blockchain_id == MAIN_CHAIN_ID {
                     // if the previous position is the top element,
                     // we are swapping the main chain
@@ -791,6 +791,9 @@ impl<T: Trait> Module<T> {
                     let new_chain_tip = <BestBlock>::get();
                     let block_height = <BestBlockHeight>::get();
                     let fork_depth = fork.max_height - fork.start_height;
+                    // print!("tip {:?}\n", new_chain_tip);
+                    // print!("block height {:?}\n", block_height);
+                    // print!("depth {:?}\n", fork_depth);
                     Self::deposit_event(Event::ChainReorg(
                         new_chain_tip,
                         block_height,
@@ -819,6 +822,7 @@ impl<T: Trait> Module<T> {
     ///
     /// * `blockchain` - new blockchain element
     fn insert_sorted(blockchain: &BlockChain) {
+        // print!("Chain id: {:?}\n", blockchain.chain_id);
         // get a sorted vector over the Chains elements
         // NOTE: LinkedStorageMap iterators are not sorted over the keys
         let mut chains = <Chains>::enumerate().collect::<Vec<(u32, u32)>>();
@@ -852,15 +856,19 @@ impl<T: Trait> Module<T> {
             max_chain_element, blockchain.chain_id);
         // starting from the last element swap the positions until
         // the new blockchain is at the position_blockchain
-        for curr_position in (position_blockchain..max_chain_element).rev() {
+        // print!("max element {:?}\n", max_chain_element);
+        // print!("position blockchain {:?}\n", position_blockchain);
+        for curr_position in (position_blockchain+1..max_chain_element+1).rev() {
             // stop when the blockchain element is at it's
             // designated position
+            // print!("current position {:?}\n", curr_position);
             if curr_position < position_blockchain {
                 break;
             };
             let prev_position = curr_position - 1;
             // swap the current element with the previous one
-            <Chains>::swap(curr_position, prev_position);
+            // print!("Swapping pos {:?} with pos {:?}\n", curr_position, prev_position);
+            Self::swap_chain(curr_position, prev_position);
         }
     }
     /// Remove a blockchain element from chainindex
