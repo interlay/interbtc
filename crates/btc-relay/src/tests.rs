@@ -5,10 +5,91 @@ use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
 use bitcoin::parser::*;
 use bitcoin::types::*;
+use security::ErrorCode;
 use frame_support::{assert_err, assert_ok};
 use mocktopus::mocking::*;
 
-/// initialize function
+/// # Getters and setters
+///
+/// get_chain_position_from_chain_id 
+/// set_chain_from_position_and_id
+#[test]
+fn get_chain_position_from_chain_id_succeeds() {
+    ExtBuilder::build().execute_with(|| {
+        // position and id of chains
+        let mut chains_pos_id: Vec<(u32,u32)> = Vec::new();
+        chains_pos_id.append(&mut vec![(0,0),(1,1),(2,3),(3,6)]);
+
+        for (pos, id) in chains_pos_id.iter() {
+            // insert chain
+            BTCRelay::set_chain_from_position_and_id(*pos, *id);
+        
+            // check that chain is in right position
+            let curr_pos = BTCRelay::get_chain_position_from_chain_id(*id)
+                .unwrap();
+
+            assert_eq!(curr_pos, *pos);
+        }
+        
+    })
+}
+
+/// get_block_header_from_hash
+/// set_block_header_from_hash
+#[test]
+fn get_block_header_from_hash_succeeds() {
+    ExtBuilder::build().execute_with(|| {
+        let chain_ref: u32 = 2;
+        let block_height: u32 = 100;
+        let block_header = hex::decode(sample_block_header()).unwrap();
+
+        let rich_header = RichBlockHeader {
+            block_hash: H256Le::zero(),
+            block_header: BlockHeader::from_le_bytes(&block_header),
+            block_height: block_height,
+            chain_ref: chain_ref,
+        };
+
+        BTCRelay::set_block_header_from_hash(rich_header.block_hash, &rich_header);
+
+        let curr_header = BTCRelay::get_block_header_from_hash(rich_header.block_hash).unwrap();
+        assert_eq!(rich_header, curr_header); 
+    })
+}
+
+#[test]
+fn get_block_header_from_hash_fails() {
+    ExtBuilder::build().execute_with(|| {
+        let block_hash = H256Le::zero();
+
+        assert_err!(BTCRelay::get_block_header_from_hash(block_hash),
+            Error::BlockNotFound);
+    })
+}
+
+/// get_block_chain_from_id
+/// set_block_chain_from_id
+#[test]
+fn get_block_chain_from_id_succeeds() {
+    ExtBuilder::build().execute_with(|| {
+        let chain_ref: u32 = 1;
+        let block_height: u32 = 100;
+
+        let blockchain = get_empty_block_chain_from_chain_id_and_height(
+            chain_ref, block_height
+        );
+
+        BTCRelay::set_block_chain_from_id(chain_ref, &blockchain);
+
+        let curr_blockchain = BTCRelay::get_block_chain_from_id(chain_ref);
+
+        assert_eq!(curr_blockchain, blockchain);
+    })
+}
+
+/// # Main functions
+///
+/// initialize 
 #[test]
 fn initialize_once_succeeds() {
     ExtBuilder::build().execute_with(|| {
@@ -205,28 +286,6 @@ fn check_and_do_reorg_swap_fork_position() {
             fork_chain_ref
             ).unwrap();
         assert_eq!(new_position, swap_position);
-    })
-}
-
-/// get_chain_position_from_chain_id 
-#[test]
-fn get_chain_position_from_chain_id_succeeds() {
-    ExtBuilder::build().execute_with(|| {
-        // position and id of chains
-        let mut chains_pos_id: Vec<(u32,u32)> = Vec::new();
-        chains_pos_id.append(&mut vec![(0,0),(1,1),(2,3),(3,6)]);
-
-        for (pos, id) in chains_pos_id.iter() {
-            // insert chain
-            BTCRelay::set_chain_from_position_and_id(*pos, *id);
-        
-            // check that chain is in right position
-            let curr_pos = BTCRelay::get_chain_position_from_chain_id(*id)
-                .unwrap();
-
-            assert_eq!(curr_pos, *pos);
-        }
-        
     })
 }
 
@@ -489,6 +548,83 @@ fn test_validate_transaction_succeeds() {
 }
 */
 
+/// flag_block_error
+#[test]
+fn flag_block_error_succeeds() {
+    ExtBuilder::build().execute_with(|| {
+        let chain_ref: u32 = 1;
+        let block_height: u32 = 100;
+        let block_header = hex::decode(sample_block_header()).unwrap();
+
+        let rich_header = RichBlockHeader {
+            block_hash: H256Le::zero(),
+            block_header: BlockHeader::from_le_bytes(&block_header),
+            block_height: block_height,
+            chain_ref: chain_ref,
+        };
+
+        BTCRelay::set_block_header_from_hash(rich_header.block_hash, &rich_header);
+       
+        let blockchain = get_empty_block_chain_from_chain_id_and_height(
+            chain_ref, block_height
+        );
+
+        BTCRelay::set_block_chain_from_id(chain_ref, &blockchain);
+
+        let error_codes = vec![ErrorCode::NoDataBTCRelay, ErrorCode::InvalidBTCRelay];
+
+        for error in error_codes.iter() {
+            assert_ok!(BTCRelay::flag_block_error(rich_header.block_hash, error.clone()));
+            
+            let curr_chain = BTCRelay::get_block_chain_from_id(chain_ref);
+
+            if *error == ErrorCode::NoDataBTCRelay {
+                assert!(curr_chain.no_data.contains(&block_height));
+            } else if *error == ErrorCode::InvalidBTCRelay {
+                assert!(curr_chain.invalid.contains(&block_height));
+            };
+        
+            let error_event = TestEvent::test_events(Event::FlagBlockError(
+                rich_header.block_hash,
+                chain_ref,
+                error.clone(),
+            ));
+            assert!(System::events().iter().any(|a| a.event == error_event));
+        }
+    })
+}
+
+#[test]
+fn flag_block_error_fails() {
+    ExtBuilder::build().execute_with(|| {
+        let chain_ref: u32 = 1;
+        let block_height: u32 = 100;
+        let block_header = hex::decode(sample_block_header()).unwrap();
+
+        let rich_header = RichBlockHeader {
+            block_hash: H256Le::zero(),
+            block_header: BlockHeader::from_le_bytes(&block_header),
+            block_height: block_height,
+            chain_ref: chain_ref,
+        };
+
+        BTCRelay::set_block_header_from_hash(rich_header.block_hash, &rich_header);
+       
+        let blockchain = get_empty_block_chain_from_chain_id_and_height(
+            chain_ref, block_height
+        );
+
+        BTCRelay::set_block_chain_from_id(chain_ref, &blockchain);
+
+        // not a valid error code
+        let error = ErrorCode::Liquidation;
+
+        assert_err!(BTCRelay::flag_block_error(rich_header.block_hash, error),
+            Error::UnknownErrorcode);
+    })
+}
+/// # Util functions
+///
 fn get_empty_block_chain_from_chain_id_and_height(
     chain_id: u32,
     block_height: u32,

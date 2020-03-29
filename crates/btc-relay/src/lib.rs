@@ -142,7 +142,7 @@ decl_module! {
             Self::set_block_header_from_hash(block_header_hash, &block_header);
 
             // Store a pointer to BlockChain in ChainsIndex
-            Self::set_chainindex_from_id_and_blockchain(
+            Self::set_block_chain_from_id(
                 MAIN_CHAIN_ID, &blockchain);
 
             // Store the reference to the new BlockChain in Chains
@@ -229,7 +229,7 @@ decl_module! {
             if is_fork {
                 // create a new chain
                 // Store a pointer to BlockChain in ChainsIndex
-                Self::set_chainindex_from_id_and_blockchain(blockchain.chain_id, &blockchain);
+                Self::set_block_chain_from_id(blockchain.chain_id, &blockchain);
                 // Store the reference to the blockchain in Chains
                 Self::insert_sorted(&blockchain);
             } else {
@@ -464,8 +464,12 @@ impl<T: Trait> Module<T> {
         <Chains>::insert(position, id);
     }
     /// Set a new blockchain in ChainsIndex
-    fn set_chainindex_from_id_and_blockchain(id: u32, chain: &BlockChain) {
+    fn set_block_chain_from_id(id: u32, chain: &BlockChain) {
         <ChainsIndex>::insert(id, &chain);
+    }
+    /// Update a blockchain in ChainsIndex 
+    fn mutate_block_chain_from_id(id: u32, chain: BlockChain) {
+        <ChainsIndex>::mutate(id, |b| {*b = chain});
     }
     /// Set a new block header
     fn set_block_header_from_hash(hash: H256Le, header: &RichBlockHeader) {
@@ -703,7 +707,7 @@ impl<T: Trait> Module<T> {
         };
 
         // Update the stored main chain
-        Self::set_chainindex_from_id_and_blockchain(MAIN_CHAIN_ID, &main_chain);
+        Self::set_block_chain_from_id(MAIN_CHAIN_ID, &main_chain);
 
         // Set BestBlock and BestBlockHeight to the submitted block
         Self::set_best_block(best_block.clone());
@@ -714,7 +718,7 @@ impl<T: Trait> Module<T> {
         Self::remove_blockchain_from_chain(position);
 
         // store the forked main chain
-        Self::set_chainindex_from_id_and_blockchain(
+        Self::set_block_chain_from_id(
             forked_main_chain.chain_id, &forked_main_chain);
 
         // insert the reference to the forked main chain in Chains
@@ -873,12 +877,6 @@ impl<T: Trait> Module<T> {
     /// * `error` - the error code for the block header
     pub fn flag_block_error(block_hash: H256Le, error: ErrorCode) 
     -> Result<(), Error> {
-        /*
-        ensure!(
-            <security::Module<T>>::check_relayer_registered(relayer),
-            Error::<T>::UnauthorizedRelayer
-        );
-        */
         // Get the chain id of the block header
         let block_header = Self::get_block_header_from_hash(block_hash)?;
         let chain_id = block_header.chain_ref;
@@ -895,12 +893,12 @@ impl<T: Trait> Module<T> {
             ErrorCode::InvalidBTCRelay => blockchain
                 .invalid
                 .insert(block_header.block_height),
-            _ => return Err(Error::UnknownErrorcode.into()),
+            _ => return Err(Error::UnknownErrorcode),
         };
 
         // If the block was not already flagged, store the updated blockchain entry
         if newly_flagged {
-            <ChainsIndex>::mutate(chain_id, |_b| blockchain);
+            Self::mutate_block_chain_from_id(chain_id, blockchain);
             Self::deposit_event(Event::FlagBlockError(block_hash, chain_id, error));
         }
 
@@ -925,7 +923,7 @@ impl<T: Trait> Module<T> {
 
         // Clear errors in the blockchain entry
         // Check which error we are dealing with
-        let block_existed = match error {
+        let block_exists = match error {
             ErrorCode::NoDataBTCRelay => {
                 let index = blockchain.no_data
                     .iter()
@@ -943,7 +941,7 @@ impl<T: Trait> Module<T> {
             _ => return Err(Error::UnknownErrorcode.into()),
         };
 
-        if block_existed {
+        if block_exists {
             // Store the updated blockchain entry
             <ChainsIndex>::mutate(&chain_id, |_b| blockchain);
 
