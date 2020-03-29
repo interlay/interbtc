@@ -475,7 +475,6 @@ pub fn extract_op_return_data(output_script: &[u8]) -> Result<Vec<u8>, Error> {
     if output_script[0] != OpCode::OpReturn as u8 {
         return Err(Error::MalformedOpReturnOutput);
     }
-    let data_length = output_script[1] as u64;
     // Check for max OP_RETURN size
     // 83 in total, see here: https://github.com/bitcoin/bitcoin/blob/f018d0c9cd7f408dac016b6bfc873670de713d27/src/script/standard.h#L30
     if output_script.len() > MAX_OPRETURN_SIZE {
