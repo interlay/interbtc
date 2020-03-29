@@ -164,6 +164,7 @@ decl_module! {
         /// Stores a single new block header
         ///
         /// # Arguments
+        ///
         /// * `block_header_bytes` - 80 byte raw Bitcoin block header.
         fn store_block_header(
             origin, block_header_bytes: Vec<u8>
@@ -435,6 +436,7 @@ impl<T: Trait> Module<T> {
             None => return Err(Error::MissingBlockHeight.into()),
         }
     }
+    /// Get a block header from its hash
     fn get_block_header_from_hash(
         block_hash: H256Le
     ) -> Result<RichBlockHeader, Error> {
@@ -443,11 +445,11 @@ impl<T: Trait> Module<T> {
         }
         Err(Error::BlockNotFound)
     }
-
-    fn block_exists(block_hash: H256Le) -> bool {
+    /// Check if a block header exists
+    fn block_header_exists(block_hash: H256Le) -> bool {
         <BlockHeaders>::exists(block_hash)
     }
-
+    /// Get a block header from  
     fn get_block_header_from_height(
         blockchain: &BlockChain,
         block_height: u32,
@@ -485,7 +487,7 @@ impl<T: Trait> Module<T> {
         new_counter
     }
     
-    /// Initialize a new blockchain with a single block
+    /// Initialize the new main blockchain with a single block
     fn initialize_blockchain(
         block_height: u32, block_hash: H256Le
     ) -> BlockChain {
@@ -494,6 +496,7 @@ impl<T: Trait> Module<T> {
         // generate an empty blockchain
         Self::generate_blockchain(chain_id, block_height, block_hash)
     }
+    /// Create a new blockchain element with a new chain id
     fn create_blockchain(
         block_height: u32, block_hash: H256Le
     ) -> BlockChain {
@@ -503,7 +506,7 @@ impl<T: Trait> Module<T> {
         // generate an empty blockchain
         Self::generate_blockchain(chain_id, block_height, block_hash)
     }
-
+    /// Generate the raw blockchain from a chain Id and with a single block 
     fn generate_blockchain(
         chain_id: u32,
         block_height: u32,
@@ -524,7 +527,7 @@ impl<T: Trait> Module<T> {
         };
         blockchain
     }
-
+    /// Add a new block header to an existing blockchain
     fn extend_blockchain(
         block_height: u32,
         block_hash: &H256Le,
@@ -557,7 +560,7 @@ impl<T: Trait> Module<T> {
 
         // Check that the block header is not yet stored in BTC-Relay
         ensure!(
-            !Self::block_exists(block_header_hash),
+            !Self::block_header_exists(block_header_hash),
             Error::DuplicateBlock
         );
 
@@ -622,7 +625,17 @@ impl<T: Trait> Module<T> {
         let last_retarget_header = Self::get_block_header_from_height(&block_chain, block_height - DIFFICULTY_ADJUSTMENT_INTERVAL)?;
         Ok(last_retarget_header.block_header.timestamp)
     }
-
+    /// Swap the main chain with a fork. This method takes the starting height 
+    /// of the fork and replaces each block in the main chain with the blocks
+    /// in the fork. It moves the replaced blocks in the main chain to a new 
+    /// fork. 
+    /// Last, it replaces the chain_ref of each block header in the new main
+    /// chain to the MAIN_CHAIN_ID and each block header in the new fork to the
+    /// new chain id.
+    ///
+    /// # Arguments
+    ///
+    /// * `fork` - the fork that is going to become the main chain
     fn swap_main_blockchain(fork: &BlockChain) -> Result<(), Error> {
         // load the main chain
         let mut main_chain = Self::get_block_chain_from_id(MAIN_CHAIN_ID);
@@ -723,7 +736,13 @@ impl<T: Trait> Module<T> {
 
         Ok(())
     }
-
+    /// Checks if a newly inserted fork results in an update to the sorted
+    /// Chains mapping. This happens when the max height of the fork is greater
+    /// than the max height of the previous element in the Chains mapping.
+    ///
+    /// # Arguments
+    ///
+    /// * `fork` - the blockchain element that may cause a reorg
     fn check_and_do_reorg(fork: &BlockChain) -> Result<(), Error> {
         // Check if the ordering needs updating
         // if the fork is the main chain, we don't need to update the ordering
@@ -783,6 +802,11 @@ impl<T: Trait> Module<T> {
 
         Ok(())
     }
+    /// Insert a new fork into the Chains mapping sorted by its max height
+    ///
+    /// # Arguments
+    ///
+    /// * `blockchain` - new blockchain element
     fn insert_sorted(blockchain: &BlockChain) {
         // get a sorted vector over the Chains elements
         // NOTE: LinkedStorageMap iterators are not sorted over the keys
@@ -828,9 +852,11 @@ impl<T: Trait> Module<T> {
             <Chains>::swap(curr_position, prev_position);
         }
     }
+    /// Remove a blockchain element from chainindex
     fn remove_blockchain_from_chainindex(id: u32) {
         <ChainsIndex>::remove(id);
     }
+    /// Remove a chain id from chains
     fn remove_blockchain_from_chain(position: u32) {
         // swap the element with the last element in the mapping
         let head_index = <Chains>::head().unwrap();
@@ -838,8 +864,15 @@ impl<T: Trait> Module<T> {
         // remove the header (now the value at the initial position)
         <Chains>::remove(head_index);
     }
-
-    pub fn flag_block_error(block_hash: H256Le, error: ErrorCode) -> DispatchResult {
+    /// Flag an error in a block header. This function is called by the 
+    /// security pallet.
+    ///
+    /// # Arguments
+    ///
+    /// * `block_hash` - the hash of the block header with the error
+    /// * `error` - the error code for the block header
+    pub fn flag_block_error(block_hash: H256Le, error: ErrorCode) 
+    -> Result<(), Error> {
         /*
         ensure!(
             <security::Module<T>>::check_relayer_registered(relayer),
@@ -874,7 +907,15 @@ impl<T: Trait> Module<T> {
         Ok (())
     }
 
-    pub fn clear_block_error(block_hash: H256Le, error: ErrorCode) -> DispatchResult {
+    /// Clear an error from a block header. This function is called by the 
+    /// security pallet.
+    ///
+    /// # Arguments
+    ///
+    /// * `block_hash` - the hash of the block header being cleared
+    /// * `error` - the error code for the block header
+    pub fn clear_block_error(block_hash: H256Le, error: ErrorCode) 
+    -> Result<(), Error> {
         // Get the chain id of the block header
         let block_header = Self::get_block_header_from_hash(block_hash)?;
         let chain_id = block_header.chain_ref;

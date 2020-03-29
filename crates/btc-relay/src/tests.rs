@@ -48,7 +48,7 @@ fn store_block_header_on_mainchain_succeeds() {
     ExtBuilder::build().execute_with(|| {
         BTCRelay::verify_block_header
             .mock_safe(|h| MockResult::Return(Ok(BlockHeader::from_le_bytes(&h))));
-        BTCRelay::block_exists.mock_safe(|_| MockResult::Return(true));
+        BTCRelay::block_header_exists.mock_safe(|_| MockResult::Return(true));
 
         let chain_ref: u32 = 0;
         let block_height: u32 = 100;
@@ -89,7 +89,7 @@ fn store_block_header_on_fork_succeeds() {
     ExtBuilder::build().execute_with(|| {
         BTCRelay::verify_block_header
             .mock_safe(|h| MockResult::Return(Ok(BlockHeader::from_le_bytes(&h))));
-        BTCRelay::block_exists.mock_safe(|_| MockResult::Return(true));
+        BTCRelay::block_header_exists.mock_safe(|_| MockResult::Return(true));
 
         let chain_ref: u32 = 1;
         let block_height: u32 = 100;
@@ -159,7 +159,6 @@ fn check_and_do_reorg_fork_id_not_found() {
 }
 
 #[test]
-#[ignore]
 fn check_and_do_reorg_swap_fork_position() {
     ExtBuilder::build().execute_with(|| {
         let fork_chain_ref: u32 = 4;
@@ -248,7 +247,7 @@ fn test_verify_block_header_no_retarget_succeeds() {
         BTCRelay::get_block_header_from_hash
             .mock_safe(move |_| MockResult::Return(Ok(genesis_header)));
         // Not duplicate block
-        BTCRelay::block_exists
+        BTCRelay::block_header_exists
             .mock_safe(move |_| MockResult::Return(false));
 
         let verified_header = BTCRelay::verify_block_header(
@@ -280,7 +279,7 @@ fn test_verify_block_header_correct_retarget_increase_succeeds() {
         BTCRelay::get_block_header_from_hash
              .mock_safe(move |_| MockResult::Return(Ok(prev_block_header_rich)));
         // Not duplicate block
-        BTCRelay::block_exists
+        BTCRelay::block_header_exists
              .mock_safe(move |_| MockResult::Return(false));
         // Compute new target returns target of submitted header (i.e., correct)    
         BTCRelay::compute_new_target.mock_safe(move |_,_| MockResult::Return(Ok(curr_block_header.target)));
@@ -314,7 +313,7 @@ fn test_verify_block_header_correct_retarget_decrease_succeeds() {
         BTCRelay::get_block_header_from_hash
              .mock_safe(move |_| MockResult::Return(Ok(prev_block_header_rich)));
         // Not duplicate block
-        BTCRelay::block_exists
+        BTCRelay::block_header_exists
              .mock_safe(move |_| MockResult::Return(false));
         // Compute new target returns target of submitted header (i.e., correct)    
         BTCRelay::compute_new_target.mock_safe(move |_,_| MockResult::Return(Ok(curr_block_header.target)));
@@ -349,7 +348,7 @@ fn test_verify_block_header_missing_retarget_succeeds() {
         BTCRelay::get_block_header_from_hash
              .mock_safe(move |_| MockResult::Return(Ok(prev_block_header_rich)));
         // Not duplicate block
-        BTCRelay::block_exists
+        BTCRelay::block_header_exists
              .mock_safe(move |_| MockResult::Return(false));
         // Compute new target returns HIGHER target    
         BTCRelay::compute_new_target.mock_safe(move |_,_| MockResult::Return(Ok(curr_block_header.target+1)));
@@ -399,7 +398,7 @@ fn test_verify_block_header_duplicate_fails() {
         BTCRelay::get_block_header_from_hash
             .mock_safe(move |_| MockResult::Return(Ok(genesis_header)));
         // submitted block ALREADY EXISTS
-        BTCRelay::block_exists
+        BTCRelay::block_header_exists
             .mock_safe(move |block_hash| {
                 assert_eq!(&block_hash, &rich_first_header.block_hash);
                 MockResult::Return(true)
@@ -424,7 +423,7 @@ fn test_verify_block_header_no_prev_block_fails() {
         BTCRelay::get_block_header_from_hash
             .mock_safe(move |_| MockResult::Return(Err(Error::PrevBlock)));
         // submitted block does not yet exist
-        BTCRelay::block_exists
+        BTCRelay::block_header_exists
             .mock_safe(move |_| MockResult::Return(false));
                 
         let raw_first_header = header_from_bytes(&(hex::decode(sample_raw_first_header()).unwrap()));
@@ -452,7 +451,7 @@ fn test_verify_block_header_low_diff_fails() {
     BTCRelay::get_block_header_from_hash
         .mock_safe(move |_| MockResult::Return(Ok(genesis_header)));
     // submitted block does not yet exist
-    BTCRelay::block_exists
+    BTCRelay::block_header_exists
         .mock_safe(move |_| MockResult::Return(false));
 
 
