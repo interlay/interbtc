@@ -73,10 +73,11 @@ fn get_block_header_from_hash_fails() {
 fn get_block_chain_from_id_succeeds() {
     ExtBuilder::build().execute_with(|| {
         let chain_ref: u32 = 1;
+        let start_height: u32 = 10;
         let block_height: u32 = 100;
 
         let blockchain = get_empty_block_chain_from_chain_id_and_height(
-            chain_ref, block_height
+            chain_ref, start_height, block_height
         );
 
         BTCRelay::set_block_chain_from_id(chain_ref, &blockchain);
@@ -96,6 +97,9 @@ fn initialize_once_succeeds() {
         let block_height: u32 = 1;
         let block_header = vec![0u8; 80];
         let block_header_hash = BlockHeader::block_hash_le(&block_header);
+       
+        BTCRelay::best_block_exists.mock_safe(|| MockResult::Return(false));
+
         assert_ok!(BTCRelay::initialize(
             Origin::signed(3),
             block_header,
@@ -103,7 +107,9 @@ fn initialize_once_succeeds() {
         ));
 
         let init_event =
-            TestEvent::test_events(Event::Initialized(block_height, block_header_hash));
+            TestEvent::test_events(
+                Event::Initialized(block_height, block_header_hash)
+        );
         assert!(System::events().iter().any(|a| a.event == init_event));
     })
 }
@@ -132,6 +138,7 @@ fn store_block_header_on_mainchain_succeeds() {
         BTCRelay::block_header_exists.mock_safe(|_| MockResult::Return(true));
 
         let chain_ref: u32 = 0;
+        let start_height: u32 = 0;
         let block_height: u32 = 100;
         let block_header = hex::decode(sample_block_header()).unwrap();
 
@@ -145,7 +152,7 @@ fn store_block_header_on_mainchain_succeeds() {
             .mock_safe(move |_| MockResult::Return(Ok(rich_header)));
 
         let prev_blockchain = get_empty_block_chain_from_chain_id_and_height(
-            chain_ref, block_height
+            chain_ref, start_height, block_height
         );
 
         BTCRelay::get_block_chain_from_id
@@ -173,6 +180,7 @@ fn store_block_header_on_fork_succeeds() {
         BTCRelay::block_header_exists.mock_safe(|_| MockResult::Return(true));
 
         let chain_ref: u32 = 1;
+        let start_height: u32 = 20;
         let block_height: u32 = 100;
         let block_header = hex::decode(sample_block_header()).unwrap();
 
@@ -186,7 +194,7 @@ fn store_block_header_on_fork_succeeds() {
             .mock_safe(move |_| MockResult::Return(Ok(rich_header)));
        
         let prev_blockchain = get_empty_block_chain_from_chain_id_and_height(
-            chain_ref, block_height
+            chain_ref, start_height, block_height
         );
 
         BTCRelay::get_block_chain_from_id
@@ -212,10 +220,11 @@ fn store_block_header_on_fork_succeeds() {
 fn check_and_do_reorg_is_main_chain_succeeds() {
     ExtBuilder::build().execute_with(|| {
         let chain_ref: u32 = 0;
+        let start_height: u32 = 3;
         let block_height: u32 = 10;
 
         let blockchain = get_empty_block_chain_from_chain_id_and_height(
-            chain_ref, block_height
+            chain_ref, start_height, block_height
         );
 
         assert_ok!(BTCRelay::check_and_do_reorg(&blockchain));
@@ -226,10 +235,11 @@ fn check_and_do_reorg_is_main_chain_succeeds() {
 fn check_and_do_reorg_fork_id_not_found() {
     ExtBuilder::build().execute_with(|| {
         let chain_ref: u32 = 99;
+        let start_height: u32 = 3;
         let block_height: u32 = 10;
 
         let blockchain = get_empty_block_chain_from_chain_id_and_height(
-            chain_ref, block_height
+            chain_ref, start_height, block_height
         );
 
         assert_err!(
@@ -244,30 +254,33 @@ fn check_and_do_reorg_swap_fork_position() {
     ExtBuilder::build().execute_with(|| {
         // insert the main chain in Chains and ChainsIndex
         let main_chain_ref: u32 = 0;
+        let main_start_height: u32 = 3;
         let main_block_height: u32 = 110;
         let main_position: u32 = 0;
         let main = get_empty_block_chain_from_chain_id_and_height(
-            main_chain_ref, main_block_height
+            main_chain_ref, main_start_height, main_block_height
         );
         BTCRelay::set_chain_from_position_and_id(main_position, main_chain_ref);  
         BTCRelay::set_block_chain_from_id(main_chain_ref, &main);
 
         // insert the fork chain in Chains and ChainsIndex
         let fork_chain_ref: u32 = 4;
+        let fork_start_height: u32 = 20;
         let fork_block_height: u32 = 100;
         let fork_position: u32 = 2;
         let fork = get_empty_block_chain_from_chain_id_and_height(
-            fork_chain_ref, fork_block_height
+            fork_chain_ref, fork_start_height, fork_block_height
         );
         BTCRelay::set_chain_from_position_and_id(fork_position, fork_chain_ref);
         BTCRelay::set_block_chain_from_id(fork_chain_ref, &fork);
 
         // insert the swap chain in Chains and ChainsIndex
         let swap_chain_ref: u32 = 3;
+        let swap_start_height: u32 = 43;
         let swap_block_height: u32 = 99;
         let swap_position: u32 = 1;
         let swap = get_empty_block_chain_from_chain_id_and_height(
-            swap_chain_ref, swap_block_height
+            swap_chain_ref, swap_start_height, swap_block_height
         );
         BTCRelay::set_chain_from_position_and_id(swap_position, swap_chain_ref);
         BTCRelay::set_block_chain_from_id(swap_chain_ref, &swap);
@@ -297,20 +310,22 @@ fn check_and_do_reorg_new_fork_is_main_chain() {
     ExtBuilder::build().execute_with(|| {
         // insert the main chain in Chains and ChainsIndex
         let main_chain_ref: u32 = 0;
+        let main_start_height: u32 = 4;
         let main_block_height: u32 = 110;
         let main_position: u32 = 0;
         let main = get_empty_block_chain_from_chain_id_and_height(
-            main_chain_ref, main_block_height
+            main_chain_ref, main_start_height, main_block_height
         );
         BTCRelay::set_chain_from_position_and_id(main_position, main_chain_ref);  
         BTCRelay::set_block_chain_from_id(main_chain_ref, &main);
 
         // insert the fork chain in Chains and ChainsIndex
         let fork_chain_ref: u32 = 4;
+        let fork_start_height: u32 = 33;
         let fork_block_height: u32 = 111;
         let fork_position: u32 = 1;
         let fork = get_empty_block_chain_from_chain_id_and_height(
-            fork_chain_ref, fork_block_height
+            fork_chain_ref, main_start_height, fork_block_height
         );
         BTCRelay::set_chain_from_position_and_id(fork_position, fork_chain_ref);
         BTCRelay::set_block_chain_from_id(fork_chain_ref, &fork);
@@ -334,7 +349,7 @@ fn check_and_do_reorg_new_fork_is_main_chain() {
         let reorg_event = TestEvent::test_events(Event::ChainReorg(
             best_block_hash,
             fork_block_height,
-            (fork.max_height - fork.start_height),
+            fork.max_height - fork.start_height,
         ));
         assert!(System::events().iter().any(|a| a.event == reorg_event));
     })
@@ -346,10 +361,11 @@ fn insert_sorted_succeeds() {
     ExtBuilder::build().execute_with(|| {
         // insert the main chain in Chains and ChainsIndex
         let main_chain_ref: u32 = 0;
+        let main_start_height: u32 = 60;
         let main_block_height: u32 = 110;
         let main_position: u32 = 0;
         let main = get_empty_block_chain_from_chain_id_and_height(
-            main_chain_ref, main_block_height
+            main_chain_ref, main_start_height, main_block_height
         );
         BTCRelay::set_block_chain_from_id(main_chain_ref, &main);
         BTCRelay::insert_sorted(&main);
@@ -360,10 +376,11 @@ fn insert_sorted_succeeds() {
         
         // insert the swap chain in Chains and ChainsIndex
         let swap_chain_ref: u32 = 3;
+        let swap_start_height: u32 = 70;
         let swap_block_height: u32 = 99;
         let swap_position: u32 = 1;
         let swap = get_empty_block_chain_from_chain_id_and_height(
-            swap_chain_ref, swap_block_height
+            swap_chain_ref, swap_start_height, swap_block_height
         );
         BTCRelay::set_block_chain_from_id(swap_chain_ref, &swap);
         BTCRelay::insert_sorted(&swap); 
@@ -374,11 +391,12 @@ fn insert_sorted_succeeds() {
 
         // insert the fork chain in Chains and ChainsIndex
         let fork_chain_ref: u32 = 4;
+        let fork_start_height: u32 = 77;
         let fork_block_height: u32 = 100;
         let fork_position: u32 = 1;
         let new_swap_pos: u32 = 2;
         let fork = get_empty_block_chain_from_chain_id_and_height(
-            fork_chain_ref, fork_block_height
+            fork_chain_ref, fork_start_height, fork_block_height
         );
         BTCRelay::set_block_chain_from_id(fork_chain_ref, &fork);
         BTCRelay::insert_sorted(&fork);
@@ -397,30 +415,86 @@ fn insert_sorted_succeeds() {
 #[test]
 fn swap_main_blockchain_succeeds() {
     ExtBuilder::build().execute_with(|| {
-        // insert the main chain in Chains and ChainsIndex
+        // insert main chain and headers
         let main_chain_ref: u32 = 0;
-        let main_block_height: u32 = 110;
+        let main_start: u32 = 0;
+        let main_height: u32 = 10;
         let main_position: u32 = 0;
-        let main = get_empty_block_chain_from_chain_id_and_height(
-            main_chain_ref, main_block_height
-        );
-        BTCRelay::set_block_chain_from_id(main_chain_ref, &main);
-        BTCRelay::set_block_chain_from_id(main_chain_ref, &main);
-
-        // create and insert main chain headers
-
-        // insert the fork chain in Chains and ChainsIndex
-        let fork_chain_ref: u32 = 4;
-        let fork_block_height: u32 = 117;
-        let fork_position: u32 = 1;
-        let fork = get_empty_block_chain_from_chain_id_and_height(
-            fork_chain_ref, fork_block_height
-        );
-        BTCRelay::set_chain_from_position_and_id(fork_position, fork_chain_ref);
-        BTCRelay::set_block_chain_from_id(fork_chain_ref, &fork);
-
-        assert!(true);
         
+        let main = store_blockchain_and_random_headers(
+            main_chain_ref, main_start, main_height, main_position
+        );
+
+        // insert the fork chain and headers
+        let fork_chain_ref: u32 = 4;
+        let fork_start: u32 = 5;
+        let fork_height: u32 = 17;
+        let fork_position: u32 = 1;
+
+        let fork = store_blockchain_and_random_headers(
+            fork_chain_ref, fork_start, fork_height, fork_position
+        );
+
+        let old_main_ref = fork_chain_ref + 1;
+        // mock the chain counter
+        BTCRelay::increment_chain_counter.mock_safe(
+            move || MockResult::Return(old_main_ref)
+        );
+
+        // swap the main and fork
+        assert_ok!(BTCRelay::swap_main_blockchain(&fork));
+      
+        let mut main_chain_map = main.chain.clone();
+        for (height, hash) in fork.chain.iter() {
+            main_chain_map.insert(height.clone(), hash.clone());
+        };
+        // check that the new main chain is correct
+        let new_main = BTCRelay::get_block_chain_from_id(main_chain_ref);
+        assert_eq!(fork_height, new_main.max_height);
+        assert_eq!(main_start, new_main.start_height);
+        assert_eq!(main_chain_ref, new_main.chain_id);
+        assert_eq!(main_chain_map.len(), new_main.chain.len());
+        for (height, hash) in new_main.chain.iter() {
+            assert_eq!(main_chain_map.get(height), new_main.chain.get(height));
+        };
+        assert_eq!(main.no_data, new_main.no_data);
+        assert_eq!(main.invalid, new_main.invalid);
+
+        // check that the fork is deleted
+        let empty_fork = BTCRelay::get_block_chain_from_id(fork_chain_ref); 
+        assert_eq!(empty_fork.max_height, 0);
+
+        // check that the old main chain is stored in a old fork
+        let old_main = BTCRelay::get_block_chain_from_id(old_main_ref);
+        assert_eq!(main_height, old_main.max_height);
+        assert_eq!(fork_start, old_main.start_height);
+        assert_eq!(old_main_ref, old_main.chain_id);
+        assert_eq!(main_height - fork_start + 1, old_main.chain.len() as u32);
+        for (height, hash) in old_main.chain.iter() {
+            assert_eq!(main.chain.get(height), old_main.chain.get(height));
+        };
+        assert_eq!(main.no_data, old_main.no_data);
+        assert_eq!(main.invalid, old_main.invalid);
+
+        // check that the best block is set
+        assert_eq!(
+            fork.chain.get(&fork_height), Some(&BTCRelay::get_best_block())
+        );
+
+        // check that the best block height is correct
+        assert_eq!(fork_height, BTCRelay::get_best_block_height());
+        
+        // check that all fork headers are updated
+        for (height, hash) in fork.chain.iter() {
+            let header = BTCRelay::get_block_header_from_hash(hash.clone()).unwrap();
+            assert_eq!(header.chain_ref, main_chain_ref);
+        };
+
+        // check that all main headers are updated
+        for (height, hash) in main.chain.iter().skip(fork_start as usize) {
+            let header = BTCRelay::get_block_header_from_hash(hash.clone()).unwrap();
+            assert_eq!(header.chain_ref, old_main_ref);
+        };
     })
 }
 
@@ -688,6 +762,7 @@ fn test_validate_transaction_succeeds() {
 fn flag_block_error_succeeds() {
     ExtBuilder::build().execute_with(|| {
         let chain_ref: u32 = 1;
+        let start_height: u32 = 10;
         let block_height: u32 = 100;
         let block_header = hex::decode(sample_block_header()).unwrap();
 
@@ -701,7 +776,7 @@ fn flag_block_error_succeeds() {
         BTCRelay::set_block_header_from_hash(rich_header.block_hash, &rich_header);
        
         let blockchain = get_empty_block_chain_from_chain_id_and_height(
-            chain_ref, block_height
+            chain_ref, start_height, block_height
         );
 
         BTCRelay::set_block_chain_from_id(chain_ref, &blockchain);
@@ -733,6 +808,7 @@ fn flag_block_error_succeeds() {
 fn flag_block_error_fails() {
     ExtBuilder::build().execute_with(|| {
         let chain_ref: u32 = 1;
+        let start_height: u32 = 20;
         let block_height: u32 = 100;
         let block_header = hex::decode(sample_block_header()).unwrap();
 
@@ -746,7 +822,7 @@ fn flag_block_error_fails() {
         BTCRelay::set_block_header_from_hash(rich_header.block_hash, &rich_header);
        
         let blockchain = get_empty_block_chain_from_chain_id_and_height(
-            chain_ref, block_height
+            chain_ref, start_height, block_height
         );
 
         BTCRelay::set_block_chain_from_id(chain_ref, &blockchain);
@@ -764,6 +840,7 @@ fn flag_block_error_fails() {
 fn clear_block_error_succeeds() {
     ExtBuilder::build().execute_with(|| {
         let chain_ref: u32 = 1;
+        let start_height: u32 = 15;
         let block_height: u32 = 100;
         let block_header = hex::decode(sample_block_header()).unwrap();
 
@@ -777,7 +854,7 @@ fn clear_block_error_succeeds() {
         BTCRelay::set_block_header_from_hash(rich_header.block_hash, &rich_header);
        
         let mut blockchain = get_empty_block_chain_from_chain_id_and_height(
-            chain_ref, block_height
+            chain_ref, start_height, block_height
         );
 
         blockchain.no_data.insert(block_height);
@@ -812,6 +889,7 @@ fn clear_block_error_succeeds() {
 fn clear_block_error_fails() {
     ExtBuilder::build().execute_with(|| {
         let chain_ref: u32 = 1;
+        let start_height: u32 = 20;
         let block_height: u32 = 100;
         let block_header = hex::decode(sample_block_header()).unwrap();
 
@@ -825,7 +903,7 @@ fn clear_block_error_fails() {
         BTCRelay::set_block_header_from_hash(rich_header.block_hash, &rich_header);
        
         let blockchain = get_empty_block_chain_from_chain_id_and_height(
-            chain_ref, block_height
+            chain_ref, start_height, block_height
         );
 
         BTCRelay::set_block_chain_from_id(chain_ref, &blockchain);
@@ -841,6 +919,7 @@ fn clear_block_error_fails() {
 ///
 fn get_empty_block_chain_from_chain_id_and_height(
     chain_id: u32,
+    start_height: u32,
     block_height: u32,
 ) -> BlockChain {
     let chain = BTreeMap::new();
@@ -848,13 +927,49 @@ fn get_empty_block_chain_from_chain_id_and_height(
     let blockchain = BlockChain {
         chain_id: chain_id,
         chain: chain,
-        start_height: 0,
+        start_height: start_height,
         max_height: block_height,
         no_data: BTreeSet::new(),
         invalid: BTreeSet::new(),
     };
 
     blockchain
+}
+
+fn store_blockchain_and_random_headers(
+    id: u32, 
+    start_height: u32,
+    max_height: u32, 
+    position: u32
+) -> BlockChain {
+    let mut chain = get_empty_block_chain_from_chain_id_and_height(
+        id, start_height, max_height
+    );
+
+    // create and insert main chain headers
+    for height in chain.start_height..chain.max_height+1 {
+           
+        let block_header = hex::decode(sample_block_header()).unwrap();
+        let mut fake_block = height.to_be_bytes().repeat(7);
+        fake_block.append(&mut id.to_be_bytes().to_vec());
+        let block_hash = H256Le::from_bytes_be(fake_block.as_slice());
+
+        let rich_header = RichBlockHeader {
+            block_hash: block_hash,
+            block_header: BlockHeader::from_le_bytes(&block_header),
+            block_height: height,
+            chain_ref: id,
+        };
+
+        BTCRelay::set_block_header_from_hash(block_hash, &rich_header);
+        chain = BTCRelay::extend_blockchain(height, &block_hash, chain).unwrap();
+    }
+     
+    // insert the main chain in Chains and ChainsIndex
+    BTCRelay::set_chain_from_position_and_id(position, id);
+    BTCRelay::set_block_chain_from_id(id, &chain);
+
+    chain
 }
 
 fn sample_raw_genesis_header() -> String {

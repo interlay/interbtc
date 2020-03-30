@@ -20,7 +20,6 @@ use mocktopus::macros::mockable;
 use frame_support::{
     decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure
 };
-use node_primitives::Moment;
 use sp_core::{H160, U256};
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
@@ -188,7 +187,9 @@ decl_module! {
             )?;
 
             // get the block chain of the previous header
-            let prev_blockchain = Self::get_block_chain_from_id(prev_header.chain_ref);
+            let prev_blockchain = Self::get_block_chain_from_id(
+                prev_header.chain_ref
+            );
 
             // Update the current block header
             // check if the prev block is the highest block in the chain
@@ -405,6 +406,8 @@ impl<T: Trait> Module<T> {
     //    };
     //}
     /// Get a blockchain from the id
+    // TODO: the return of this element can an empty element when it was deleted
+    // Function should be changed to return a Result or Option
     fn get_block_chain_from_id(chain_id: u32) -> BlockChain {
         <ChainsIndex>::get(chain_id)
     }
@@ -468,6 +471,18 @@ impl<T: Trait> Module<T> {
     fn swap_chain(pos_1: u32, pos_2: u32) {
         <Chains>::swap(pos_1, pos_2)
     }
+    /// Remove a chain id from chains
+    fn remove_blockchain_from_chain(position: u32) -> Result<(), Error> {
+        // swap the element with the last element in the mapping
+        let head_index = match <Chains>::head() {
+            Some(head) => head,
+            None => return Err(Error::ForkIdNotFound),
+        };
+        <Chains>::swap(position, head_index);
+        // remove the header (now the value at the initial position)
+        <Chains>::remove(head_index);
+        Ok(())
+    }
     /// Set a new blockchain in ChainsIndex
     fn set_block_chain_from_id(id: u32, chain: &BlockChain) {
         <ChainsIndex>::insert(id, &chain);
@@ -476,10 +491,21 @@ impl<T: Trait> Module<T> {
     fn mutate_block_chain_from_id(id: u32, chain: BlockChain) {
         <ChainsIndex>::mutate(id, |b| {*b = chain});
     }
+    /// Remove a blockchain element from chainindex
+    fn remove_blockchain_from_chainindex(id: u32) {
+        <ChainsIndex>::remove(id);
+    }
     /// Set a new block header
     fn set_block_header_from_hash(hash: H256Le, header: &RichBlockHeader) {
         <BlockHeaders>::insert(hash, header);
     }
+    /// update the chain_ref of a block header
+    fn mutate_block_header_from_chain_id(hash: &H256Le, chain_ref: u32) {
+        <BlockHeaders>::mutate(&hash, |header| {
+            header.chain_ref = chain_ref
+        });
+    }
+
     /// Set a new best block
     fn set_best_block(hash: H256Le) {
         <BestBlock>::put(hash);
@@ -706,10 +732,7 @@ impl<T: Trait> Module<T> {
         };
 
         // get the position of the fork in Chains
-        let position: u32 = match <Chains>::enumerate().position(|(_k, v)| v == fork.chain_id) {
-            Some(pos) => pos as u32,
-            None => return Err(Error::ForkIdNotFound),
-        };
+        let position: u32 = Self::get_chain_position_from_chain_id(fork.chain_id)?;
 
         // Update the stored main chain
         Self::set_block_chain_from_id(MAIN_CHAIN_ID, &main_chain);
@@ -732,15 +755,14 @@ impl<T: Trait> Module<T> {
         // get an iterator of all forked block headers
         // update all the forked block headers
         for (_height, block) in forked_chain.iter() {
-            <BlockHeaders>::mutate(&block, |header| {
-                header.chain_ref = forked_main_chain.chain_id
-            });
+            Self::mutate_block_header_from_chain_id(
+                &block, forked_main_chain.chain_id);
         }
 
         // get an iterator of all new main chain block headers
         // update all new main chain block headers
         for (_height, block) in fork.chain.iter() {
-            <BlockHeaders>::mutate(&block, |header| header.chain_ref = MAIN_CHAIN_ID);
+            Self::mutate_block_header_from_chain_id(&block, MAIN_CHAIN_ID);
         }
 
         Ok(())
@@ -871,22 +893,6 @@ impl<T: Trait> Module<T> {
             // print!("Swapping pos {:?} with pos {:?}\n", curr_position, prev_position);
             Self::swap_chain(curr_position, prev_position);
         }
-    }
-    /// Remove a blockchain element from chainindex
-    fn remove_blockchain_from_chainindex(id: u32) {
-        <ChainsIndex>::remove(id);
-    }
-    /// Remove a chain id from chains
-    fn remove_blockchain_from_chain(position: u32) -> Result<(), Error> {
-        // swap the element with the last element in the mapping
-        let head_index = match <Chains>::head() {
-            Some(head) => head,
-            None => return Err(Error::ForkIdNotFound),
-        };
-        <Chains>::swap(position, head_index);
-        // remove the header (now the value at the initial position)
-        <Chains>::remove(head_index);
-        Ok(())
     }
     /// Flag an error in a block header. This function is called by the 
     /// security pallet.
