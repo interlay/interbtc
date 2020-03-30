@@ -3,6 +3,11 @@ use crate::types::{BlockHeader, Error, H256Le, CompactUint};
 
 use bitcoin_spv::btcspv::hash256_merkle_step;
 
+#[cfg(test)]
+extern crate mocktopus;
+#[cfg(test)]
+use mocktopus::macros::mockable;
+
 /// Values taken from https://github.com/bitcoin/bitcoin/blob/78dae8caccd82cfbfd76557f1fb7d7557c7b5edb/src/consensus/consensus.h
 const MAX_BLOCK_WEIGHT: u32 = 4000000;
 const WITNESS_SCALE_FACTOR: u32 = 4;
@@ -10,6 +15,7 @@ const MIN_TRANSACTION_WEIGHT: u32 = WITNESS_SCALE_FACTOR * 60;
 const MAX_TRANSACTIONS_IN_PROOF: u32 = MAX_BLOCK_WEIGHT / MIN_TRANSACTION_WEIGHT;
 
 /// Struct to store the content of a merkle proof
+#[derive(Clone)]
 pub struct MerkleProof {
     pub block_header: BlockHeader,
     pub transactions_count: u32,
@@ -24,12 +30,14 @@ struct MerkleProofTraversal {
     hash_position: Option<usize>,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ProofResult {
     pub extracted_root: H256Le,
     pub transaction_hash: H256Le,
     pub transaction_position: u32,
 }
 
+#[cfg_attr(test, mockable)]
 impl MerkleProof {
     fn compute_tree_width(&self, height: u32) -> u32 {
         (self.transactions_count + (1 << height) - 1) >> height
@@ -175,6 +183,7 @@ mod tests {
     use bitcoin_spv::utils::deserialize_hex;
     use primitive_types::H256;
     use std::str::FromStr;
+    use mocktopus::mocking::*;
 
     // curl -s -H 'content-type: application/json' http://satoshi.doc.ic.ac.uk:8332 -d '{
     //   "jsonrpc": "1.0",
@@ -186,6 +195,29 @@ mod tests {
     // block: https://www.blockchain.com/btc/block/0000000000000000007962066dcd6675830883516bcf40047d42740a85eb2919
 
     const PROOF_HEX: &str = "00000020ecf348128755dbeea5deb8eddf64566d9d4e59bc65d485000000000000000000901f0d92a66ee7dcefd02fa282ca63ce85288bab628253da31ef259b24abe8a0470a385a45960018e8d672f8a90a00000d0bdabada1fb6e3cef7f5c6e234621e3230a2f54efc1cba0b16375d9980ecbc023cbef3ba8d8632ea220927ec8f95190b30769eb35d87618f210382c9445f192504074f56951b772efa43b89320d9c430b0d156b93b7a1ff316471e715151a0619a39392657f25289eb713168818bd5b37476f1bc59b166deaa736d8a58756f9d7ce2aef46d8004c5fe3293d883838f87b5f1da03839878895b71530e9ff89338bb6d4578b3c3135ff3e8671f9a64d43b22e14c2893e8271cecd420f11d2359307403bb1f3128885b3912336045269ef909d64576b93e816fa522c8c027fe408700dd4bdee0254c069ccb728d3516fe1e27578b31d70695e3e35483da448f3a951273e018de7f2a8f657064b013c6ede75c74bbd7f98fdae1c2ac6789ee7b21a791aa29d60e89fff2d1d2b1ada50aa9f59f403823c8c58bb092dc58dc09b28158ca15447da9c3bedb0b160f3fe1668d5a27716e27661bcb75ddbf3468f5c76b7bed1004c6b4df4da2ce80b831a7c260b515e6355e1c306373d2233e8de6fda3674ed95d17a01a1f64b27ba88c3676024fbf8d5dd962ffc4d5e9f3b1700763ab88047f7d0000";
+
+    fn sample_valid_proof_result() -> ProofResult {
+        let tx_id = H256Le::from_bytes_le(&hex::decode("c8589f304d3b9df1d4d8b3d15eb6edaaa2af9d796e9d9ace12b31f293705c5e9".to_owned()).unwrap());
+        let merkle_root = H256Le::from_bytes_le(&hex::decode("90d079ef103a8b7d3d9315126468f78b456690ba6628d1dcd5a16c9990fbe11e".to_owned()).unwrap());
+    
+        ProofResult {
+            extracted_root: merkle_root,
+            transaction_hash: tx_id,
+            transaction_position: 0,
+        }
+    }
+
+    #[test]
+    fn test_mock_verify_proof() {
+        let mock_proof_result = sample_valid_proof_result();
+
+        let proof = MerkleProof::parse(&deserialize_hex(&PROOF_HEX[..]).unwrap()).unwrap();
+        MerkleProof::verify_proof.
+            mock_safe(move |_| MockResult::Return(Ok(mock_proof_result)));
+
+        let res = MerkleProof::verify_proof(&proof).unwrap();
+        assert_eq!(res, mock_proof_result);
+    }
 
     #[test]
     fn test_parse_proof() {
