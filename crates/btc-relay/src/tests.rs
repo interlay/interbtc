@@ -96,6 +96,9 @@ fn initialize_once_succeeds() {
         let block_height: u32 = 1;
         let block_header = vec![0u8; 80];
         let block_header_hash = BlockHeader::block_hash_le(&block_header);
+       
+        BTCRelay::best_block_exists.mock_safe(|| MockResult::Return(false));
+
         assert_ok!(BTCRelay::initialize(
             Origin::signed(3),
             block_header,
