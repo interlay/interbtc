@@ -28,12 +28,12 @@ use system::ensure_signed;
 // Crates
 use bitcoin::merkle::MerkleProof;
 use bitcoin::parser::{
-    extract_address_hash, extract_op_return_data, extract_value, 
+    extract_address_hash, extract_op_return_data, 
     header_from_bytes, parse_block_header, parse_transaction,
 };
 use bitcoin::types::{
     BlockChain, BlockHeader, H256Le, 
-    RawBlockHeader, RichBlockHeader
+    RawBlockHeader, RichBlockHeader, Transaction
 };
 use security;
 use security::ErrorCode;
@@ -353,7 +353,7 @@ decl_module! {
         ) -> DispatchResult {
             let _ = ensure_signed(origin)?;
 
-            let transaction = parse_transaction(&raw_tx)
+            let transaction = Self::parse_transaction(&raw_tx)
                 .map_err(|_e| Error::TxFormat)?;
 
             // TODO: make 2 a constant
@@ -577,6 +577,12 @@ impl<T: Trait> Module<T> {
         blockchain.max_height = block_height;
 
         Ok(blockchain)
+    }
+
+
+    fn parse_transaction(raw_tx: &[u8]) -> Result<Transaction, Error> {
+        parse_transaction(&raw_tx)
+                .map_err(|_e| Error::TxFormat)
     }
 
     /// Parses and verifies a raw Bitcoin block header.

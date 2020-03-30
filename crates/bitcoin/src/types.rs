@@ -59,7 +59,7 @@ pub struct TransactionInput {
     pub previous_hash: H256Le,
     pub previous_index: u32,
     pub coinbase: bool,
-    pub height: Option<Vec<u8>>,
+    pub height: Option<Vec<u8>>, // FIXME: Vec<u8> type here seems weird
     pub script: Vec<u8>,
     pub sequence: u32,
     pub witness: Option<Vec<u8>>,
@@ -72,7 +72,7 @@ impl TransactionInput {
 }
 
 /// Bitcoin transaction output
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct TransactionOutput {
     pub value: i64,
     pub script: Vec<u8>,
@@ -84,8 +84,8 @@ pub struct Transaction {
     pub version: i32,
     pub inputs: Vec<TransactionInput>,
     pub outputs: Vec<TransactionOutput>,
-    pub block_height: Option<u32>,
-    pub locktime: Option<u32>,
+    pub block_height: Option<u32>, //FIXME: why is this optional?
+    pub locktime: Option<u32>, //FIXME: why is this optional?
 }
 
 
