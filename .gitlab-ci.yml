@@ -1,0 +1,72 @@
+# Official language image. Look for the different tagged releases at:
+# https://hub.docker.com/r/library/rust/tags/
+image: "rust:latest"
+
+# Install a C compiler, cmake and git into the container.
+before_script:
+  - apt-get -y update
+  - apt-get install -y build-essential cmake pkg-config libssl-dev clang libclang-dev llvm
+  - rustc --version && cargo --version  # Print version info for debugging
+
+# Declare stages
+stages:
+  - build     # for crates and pallets
+  - test      # for tests in dev
+  - deploy    # for deployment in master
+
+# # master branch
+# btc-parachain-test:
+#   stage: deploy
+#   image: rustlang/rust:nightly
+#   script:
+#     - cd parachain
+#     - ./scripts/init.sh
+#     - cargo test --all --verbose
+#   only:
+#     - master
+
+# btc-parachain-build:
+#   stage: test
+#   image: rustlang/rust:nightly
+#   script:
+#     - cd parachain
+#     - ./scripts/init.sh
+#     - cargo build --release --verbose
+#   only:
+#     - dev
+
+# # merge requests
+# btc-parachain-build:
+#   stage: test
+#   image: rustlang/rust:nightly
+#   script:
+#     - cd parachain
+#     - ./scripts/init.sh
+#     - cargo build --release --verbose
+#   only:
+#     - merge_requests
+
+# btc-parachain-test:
+#   stage: test
+#   image: rustlang/rust:nightly
+#   script:
+#     - cd parachain
+#     - ./scripts/init.sh
+#     - cargo test --all --verbose
+#   only:
+#     - merge_requests
+
+# pallets and crates
+test-pallets-and-crates:
+  stage: test
+  image: rustlang/rust:nightly
+  script:
+    - scripts/test_modified.py
+  cache:
+    key: build-cache
+    paths:
+      - crates/btc-relay/target/
+      - crates/bitcoin/target/
+      - crates/security/target/
+  only:
+    - merge_requests

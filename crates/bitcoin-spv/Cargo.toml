@@ -1,0 +1,29 @@
+[package]
+name = "bitcoin-spv"
+version = "0.1.0"
+authors = ["James Prestwich <james@prestwi.ch>"]
+edition = "2018"
+license="LGPL-3.0-or-later"
+description="Bitcoin SPV Proof evaluation"
+homepage="https://github.com/summa-tx/bitcoin-spv"
+repository="https://github.com/summa-tx/bitcoin-spv"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies.sp-std]
+default-features = false
+version = '2.0.0'
+git = 'https://github.com/paritytech/substrate.git'
+rev = '3e651110aa06aa835790df63410a29676243fc54'
+
+[dependencies]
+num = "0.2.0"
+num-bigint = "0.2"
+ripemd160 = "0.8.0"
+sha2 = "0.8.0"
+serde = { version = "1.0.99", features = ["derive"] }
+serde_json = "1.0"
+hex = "0.4.0"

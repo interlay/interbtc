@@ -92,8 +92,8 @@ pub mod opaque {
 
 /// This runtime version.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("node-template"),
-	impl_name: create_runtime_str!("node-template"),
+	spec_name: create_runtime_str!("btc-parachain"),
+	impl_name: create_runtime_str!("btc-parachain"),
 	authoring_version: 1,
 	spec_version: 1,
 	impl_version: 1,
@@ -235,10 +235,16 @@ impl sudo::Trait for Runtime {
 	type Proposal = Call;
 }
 
+/// Integrating the BTC-Relay pallet
+impl btc_relay::Trait for Runtime {
+    type Event = Event;
+}
+
 /// Used for the module template in `./template.rs`
 impl template::Trait for Runtime {
 	type Event = Event;
 }
+
 
 construct_runtime!(
 	pub enum Runtime where
@@ -254,8 +260,8 @@ construct_runtime!(
 		Balances: balances,
 		TransactionPayment: transaction_payment::{Module, Storage},
 		Sudo: sudo,
-		// Used for the module template in `./template.rs`
-		TemplateModule: template::{Module, Call, Storage, Event<T>},
+        // BTC-Relay pallet
+        BTCRelay: btc_relay::{Module, Call, Storage, Event<T>},
 		RandomnessCollectiveFlip: randomness_collective_flip::{Module, Call, Storage},
 	}
 );
