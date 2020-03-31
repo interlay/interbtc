@@ -13,6 +13,14 @@ PolkaBTC is backed by Bitcoin 1:1 and allows redeeming of the equivalent amount 
 The project uses the concept of [Cryptocurrency-backed Assets](https://xclaim.io) to lock Bitcoin on the Bitcoin blockchain and issue BTC-backed tokens on the BTC Parachain.
 The implementation is based on the [BTC Parachain specification](https://interlay.gitlab.io/polkabtc-spec/).
 
+## Substrate chain
+
+The Substrate runtime can configuration is in the [parachain](./parachain) folder.
+
+## Pallets and crates
+
+The Substrate runtime makes use of various custom pallets and crates that are found in the [crates](./crates) folder.
+
 ## Contributions
 
 If you would like to contribute, please file an issue on GitLab or reach out to us.
