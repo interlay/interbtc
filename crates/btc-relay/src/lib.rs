@@ -28,12 +28,12 @@ use system::ensure_signed;
 // Crates
 use bitcoin::merkle::MerkleProof;
 use bitcoin::parser::{
-    extract_address_hash, extract_op_return_data, extract_value, 
+    extract_address_hash, extract_op_return_data, 
     header_from_bytes, parse_block_header, parse_transaction,
 };
 use bitcoin::types::{
     BlockChain, BlockHeader, H256Le, 
-    RawBlockHeader, RichBlockHeader
+    RawBlockHeader, RichBlockHeader, Transaction
 };
 use security;
 use security::ErrorCode;
@@ -347,21 +347,22 @@ decl_module! {
         fn validate_transaction(
             origin,
             raw_tx: Vec<u8>,
-            payment_value: u64,
+            payment_value: i64,
             recipient_btc_address: Vec<u8>,
             op_return_id: Vec<u8>
         ) -> DispatchResult {
             let _ = ensure_signed(origin)?;
 
-            let transaction = parse_transaction(&raw_tx)
+            let transaction = Self::parse_transaction(&raw_tx)
                 .map_err(|_e| Error::TxFormat)?;
 
             // TODO: make 2 a constant
             ensure!(transaction.outputs.len() >= 2, Error::TxFormat);
 
             // Check if 1st / payment UTXO transfers sufficient value
-            let extr_payment_value = extract_value(&transaction.outputs[0].script);
-            ensure!(extr_payment_value == payment_value, Error::InsufficientValue);
+            // FIXME: returns incorrect value (too large: 9865995930474779817)
+            let extr_payment_value = transaction.outputs[0].value;
+            ensure!(extr_payment_value >= payment_value, Error::InsufficientValue);
 
             // Check if 1st / payment UTXO sends to correct address
             let extr_recipient_address = extract_address_hash(
@@ -576,6 +577,12 @@ impl<T: Trait> Module<T> {
         blockchain.max_height = block_height;
 
         Ok(blockchain)
+    }
+
+
+    fn parse_transaction(raw_tx: &[u8]) -> Result<Transaction, Error> {
+        parse_transaction(&raw_tx)
+                .map_err(|_e| Error::TxFormat)
     }
 
     /// Parses and verifies a raw Bitcoin block header.

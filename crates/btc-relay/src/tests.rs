@@ -321,7 +321,6 @@ fn check_and_do_reorg_new_fork_is_main_chain() {
 
         // insert the fork chain in Chains and ChainsIndex
         let fork_chain_ref: u32 = 4;
-        let fork_start_height: u32 = 33;
         let fork_block_height: u32 = 111;
         let fork_position: u32 = 1;
         let fork = get_empty_block_chain_from_chain_id_and_height(
@@ -454,7 +453,7 @@ fn swap_main_blockchain_succeeds() {
         assert_eq!(main_start, new_main.start_height);
         assert_eq!(main_chain_ref, new_main.chain_id);
         assert_eq!(main_chain_map.len(), new_main.chain.len());
-        for (height, hash) in new_main.chain.iter() {
+        for (height, _hash) in new_main.chain.iter() {
             assert_eq!(main_chain_map.get(height), new_main.chain.get(height));
         };
         assert_eq!(main.no_data, new_main.no_data);
@@ -470,7 +469,7 @@ fn swap_main_blockchain_succeeds() {
         assert_eq!(fork_start, old_main.start_height);
         assert_eq!(old_main_ref, old_main.chain_id);
         assert_eq!(main_height - fork_start + 1, old_main.chain.len() as u32);
-        for (height, hash) in old_main.chain.iter() {
+        for (height, _hash) in old_main.chain.iter() {
             assert_eq!(main.chain.get(height), old_main.chain.get(height));
         };
         assert_eq!(main.no_data, old_main.no_data);
@@ -485,13 +484,13 @@ fn swap_main_blockchain_succeeds() {
         assert_eq!(fork_height, BTCRelay::get_best_block_height());
         
         // check that all fork headers are updated
-        for (height, hash) in fork.chain.iter() {
+        for (_height, hash) in fork.chain.iter() {
             let header = BTCRelay::get_block_header_from_hash(hash.clone()).unwrap();
             assert_eq!(header.chain_ref, main_chain_ref);
         };
 
         // check that all main headers are updated
-        for (height, hash) in main.chain.iter().skip(fork_start as usize) {
+        for (_height, hash) in main.chain.iter().skip(fork_start as usize) {
             let header = BTCRelay::get_block_header_from_hash(hash.clone()).unwrap();
             assert_eq!(header.chain_ref, old_main_ref);
         };
@@ -686,7 +685,6 @@ fn test_verify_block_header_duplicate_fails() {
 fn test_verify_block_header_no_prev_block_fails() {
     ExtBuilder::build().execute_with(|| {
 
-        let chain_ref: u32 = 0;
         // Prev block is MISSING
         BTCRelay::get_block_header_from_hash
             .mock_safe(move |_| MockResult::Return(Err(Error::PrevBlock)));
@@ -734,16 +732,19 @@ fn test_verify_block_header_low_diff_fails() {
 
 
 // TODO: this currently fails with TX_FORMAT error in parser
-/*
+
 #[test]
 fn test_validate_transaction_succeeds() {
     ExtBuilder::build().execute_with(|| {  
 
-        //let raw_tx = bitcoin_spv::utils::reverse_endianness(&hex::decode(sample_accepted_transaction()).unwrap());
         let raw_tx = hex::decode(sample_accepted_transaction()).unwrap();
-        let payment_value: u64 =  1;//2500200000;
-        let recipient_btc_address = hex::decode("a91466c7060feb882664ae62ffad0051fe843e318e8587".to_owned()).unwrap();
+        let payment_value: i64 =  2500200000;
+        let recipient_btc_address = hex::decode("66c7060feb882664ae62ffad0051fe843e318e85".to_owned()).unwrap();
         let op_return_id = hex::decode("aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned()).unwrap();
+
+        let outputs = vec![sample_valid_payment_output(), sample_valid_data_output()];
+
+        BTCRelay::parse_transaction.mock_safe(move |_| MockResult::Return(Ok(sample_transaction_parsed(&outputs))));
 
         assert_ok!(BTCRelay::validate_transaction(
             Origin::signed(3),
@@ -755,7 +756,118 @@ fn test_validate_transaction_succeeds() {
 
     });
 }
-*/
+
+#[test]
+fn test_validate_transaction_invalid_no_outputs_fails() {
+    ExtBuilder::build().execute_with(|| {  
+
+        // Simulate input (we mock the parsed transaction)
+        let raw_tx = hex::decode(sample_accepted_transaction()).unwrap();
+        
+        let payment_value: i64 =  2500200000;
+        let recipient_btc_address = hex::decode("66c7060feb882664ae62ffad0051fe843e318e85".to_owned()).unwrap();
+        let op_return_id = hex::decode("aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned()).unwrap();
+
+        // missing required data output
+        let outputs = vec![sample_valid_payment_output()];
+
+        BTCRelay::parse_transaction.mock_safe(move |_| MockResult::Return(Ok(sample_transaction_parsed(&outputs))));
+
+        assert_err!(BTCRelay::validate_transaction(
+            Origin::signed(3),
+            raw_tx, 
+            payment_value, 
+            recipient_btc_address, 
+            op_return_id),
+            Error::TxFormat
+        )
+
+    });
+}
+
+#[test]
+fn test_validate_transaction_insufficient_payment_value_fails() {
+    ExtBuilder::build().execute_with(|| {  
+
+        // Simulate input (we mock the parsed transaction)
+        let raw_tx = vec![0u8; 342];
+        
+        let payment_value: i64 =  2500200000;
+        let recipient_btc_address = hex::decode("66c7060feb882664ae62ffad0051fe843e318e85".to_owned()).unwrap();
+        let op_return_id = hex::decode("aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned()).unwrap();
+
+
+        let outputs = vec![sample_insufficient_value_payment_output(), sample_valid_data_output()];
+
+        BTCRelay::parse_transaction.mock_safe(move |_| MockResult::Return(Ok(sample_transaction_parsed(&outputs))));
+
+        assert_err!(BTCRelay::validate_transaction(
+            Origin::signed(3),
+            raw_tx, 
+            payment_value, 
+            recipient_btc_address, 
+            op_return_id),
+            Error::InsufficientValue
+        )
+
+    });
+}
+
+#[test]
+fn test_validate_transaction_wrong_recipient_fails() {
+    ExtBuilder::build().execute_with(|| {  
+
+        // Simulate input (we mock the parsed transaction)
+        let raw_tx = vec![0u8; 342];
+        
+        let payment_value: i64 =  2500200000;
+        let recipient_btc_address = hex::decode("66c7060feb882664ae62ffad0051fe843e318e85".to_owned()).unwrap();
+        let op_return_id = hex::decode("aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned()).unwrap();
+
+
+        let outputs = vec![sample_wrong_recipient_payment_output(), sample_valid_data_output()];
+
+        BTCRelay::parse_transaction.mock_safe(move |_| MockResult::Return(Ok(sample_transaction_parsed(&outputs))));
+
+        assert_err!(BTCRelay::validate_transaction(
+            Origin::signed(3),
+            raw_tx, 
+            payment_value, 
+            recipient_btc_address, 
+            op_return_id),
+            Error::WrongRecipient
+        )
+
+    });
+}
+
+#[test]
+fn test_validate_transaction_incorrect_opreturn_fails() {
+    ExtBuilder::build().execute_with(|| {  
+
+        // Simulate input (we mock the parsed transaction)
+        let raw_tx = vec![0u8; 342];
+        
+        let payment_value: i64 =  2500200000;
+        let recipient_btc_address = hex::decode("66c7060feb882664ae62ffad0051fe843e318e85".to_owned()).unwrap();
+        let op_return_id = hex::decode("6a24aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned()).unwrap();
+
+
+        let outputs = vec![sample_valid_payment_output(), sample_incorrect_data_output()];
+
+        BTCRelay::parse_transaction.mock_safe(move |_| MockResult::Return(Ok(sample_transaction_parsed(&outputs))));
+
+        assert_err!(BTCRelay::validate_transaction(
+            Origin::signed(3),
+            raw_tx, 
+            payment_value, 
+            recipient_btc_address, 
+            op_return_id),
+            Error::InvalidOpreturn
+        )
+
+    });
+}
 
 /// flag_block_error
 #[test]
@@ -1011,17 +1123,6 @@ fn sample_parsed_first_block(chain_ref: u32, block_height: u32) -> RichBlockHead
     }
 }
 
-fn sample_main_blockchain(chain_ref: u32, max_height: u32) -> BlockChain {
-    BlockChain {
-        chain_id: chain_ref,
-        chain: BTreeMap::new(),
-        start_height: 0,
-        max_height: max_height,
-        no_data: BTreeSet::new(),
-        invalid: BTreeSet::new(),
-    }
-}
-
 
 
 fn sample_retarget_interval_increase() -> [RawBlockHeader; 3] {
@@ -1062,5 +1163,66 @@ fn sample_block_header() -> String {
     "24d95a54" + // ........................... Unix time: 1415239972
     "30c31b18" + // ........................... Target: 0x1bc330 * 256**(0x18-3)
     "fe9f0864"
+}
+
+
+fn sample_valid_payment_output() -> TransactionOutput {
+    TransactionOutput {
+        value: 2500200000,
+        script: hex::decode("a91466c7060feb882664ae62ffad0051fe843e318e8587".to_owned()).unwrap()
+    }
+}
+
+fn sample_insufficient_value_payment_output() -> TransactionOutput {
+    TransactionOutput {
+        value: 100,
+        script: hex::decode("a91466c7060feb882664ae62ffad0051fe843e318e8587".to_owned()).unwrap()
+    }
+}
+
+fn sample_wrong_recipient_payment_output() -> TransactionOutput {
+    TransactionOutput {
+        value: 2500200000,
+        script: hex::decode("a914000000000000000000000000000000000000000087".to_owned()).unwrap()
+    }
+}
+
+fn sample_valid_data_output() -> TransactionOutput {
+    TransactionOutput {
+        value: 0,
+        script: hex::decode("6a24aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned()).unwrap()
+    }
+}
+
+fn sample_incorrect_data_output() -> TransactionOutput {
+    TransactionOutput {
+        value: 0,
+        script: hex::decode("6a24000000000000000000000000000000000000000000000000000000000000000000000000".to_owned()).unwrap()
+    }
+}
+
+fn sample_transaction_parsed(outputs: &Vec<TransactionOutput>) -> Transaction {
+    let mut inputs: Vec<TransactionInput> = Vec::new();
+
+    let spent_output_txid = hex::decode("b28f1e58af1d4db02d1b9f0cf8d51ece3dd5f5013fd108647821ea255ae5daff".to_owned()).unwrap();
+    let input = TransactionInput {
+        previous_hash: H256Le::from_bytes_le(&spent_output_txid),
+        previous_index: 0, 
+        coinbase: false,
+        height: None, 
+        script: hex::decode("16001443feac9ca9d20883126e30e962ca11fda07f808b".to_owned()).unwrap(),
+        sequence: 4294967295,
+        witness: None
+    };
+
+    inputs.push(input);
+
+    Transaction {
+        version: 2,
+        inputs: inputs, 
+        outputs: outputs.to_vec(),
+        block_height: Some(203), 
+        locktime: Some(0)
+    }
 }
 
