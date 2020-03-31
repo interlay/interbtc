@@ -36,3 +36,12 @@ std = [
     'bitcoin/std',
 ]
 ```
+
+## Reference Docs
+
+You can view the reference docs for this pallet by running:
+
+```
+cargo doc --open
+```
+
