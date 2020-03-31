@@ -29,3 +29,9 @@ If you would like to contribute, please file an issue on GitLab or reach out to 
 - [Riot](https://matrix.to/#/!nZablWWaicZyVTWyZk:matrix.org?via=matrix.org)
 
 We are [hiring](https://www.interlay.io/careers/)!
+
+## Copyright and License
+
+(C) Copyright 2020 Interlay Ltd
+
+BTC-Parachain is currently licensed under the terms of the Apache License (Version 2.0). See LICENSE
