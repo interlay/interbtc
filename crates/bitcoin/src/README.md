@@ -1,6 +1,6 @@
 # Bitcoin library
 
-Handles BTC-Relay and Bitcoin specific data types and provides parsing and verficaition functionality.
+Library handling BTC-Relay and Bitcoin specific data types and provides parsing and verficaition functionality.
 
 * types.rs: BTC-Relay / Bitcoin data model
 * parser.rs: Parsing Bitcoin block headers and transactions
