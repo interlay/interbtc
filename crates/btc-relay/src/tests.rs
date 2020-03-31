@@ -1083,8 +1083,11 @@ fn test_clear_block_error_fails() {
 fn test_verify_transaction_inclusion_succeeds() {
     ExtBuilder::build().execute_with(|| {
     let chain_ref = 0;
+    let fork_ref = 1;
     let block_height = 203;
+    let start = 10;
     let main_chain_height = 300;
+    let fork_chain_height = 280;
     // Random init since we mock this
     let raw_merkle_proof = vec![0u8; 100];
     let confirmations = 0;
@@ -1094,6 +1097,20 @@ fn test_verify_transaction_inclusion_succeeds() {
     let proof_result = sample_valid_proof_result();
 
     let merkle_proof = sample_dummy_merkle_proof().unwrap();
+
+    let main = get_empty_block_chain_from_chain_id_and_height(chain_ref, start, main_chain_height);
+
+    let fork = get_empty_block_chain_from_chain_id_and_height(fork_ref, start, fork_chain_height);
+
+    BTCRelay::get_chain_id_from_position.mock_safe(move |_| MockResult::Return(fork_ref.clone()));
+    BTCRelay::get_block_chain_from_id.mock_safe(move |id| { 
+        if id == chain_ref.clone() {
+            return MockResult::Return(main.clone());
+        } else {
+            return MockResult::Return(fork.clone());
+        }
+    });
+
     MerkleProof::parse.
         mock_safe(move |_| MockResult::Return(Ok(merkle_proof.clone())));
     MerkleProof::verify_proof.
