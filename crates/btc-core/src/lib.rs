@@ -11,8 +11,8 @@ pub enum Error {
     DiffTargetHeader, // TODO: rename to self-explanatory
     MalformedTxid,
     Confirmations, // TODO: rename to self-explanatory
-    InsufficientStableConfirmations,
-    OngoingFork,
+    InsufficientStableConfirmations, //not in spec
+    OngoingFork, //not in spec
     InvalidMerkleProof,
     Invalid,
     Shutdown,
@@ -24,7 +24,7 @@ pub enum Error {
     InvalidOpreturn,
     InvalidTxVersion,
     NotOpReturn,
-    UnknownErrorcode,
+    UnknownErrorcode, // not in spec
     ForkIdNotFound, // not in spec
     BlockNotFound, // not in spec
     AlreadyReported, // not in spec
@@ -38,6 +38,7 @@ impl Error {
     pub fn message(&self) -> &'static str {
         match self {
             Error::AlreadyInitialized => "Already initialized",
+            Error::MissingBlockHeight => "Missing the block at this height",
             Error::InvalidHeaderSize => "Invalid block header size",
             Error::DuplicateBlock => "Block already stored", 
             Error::PrevBlock => "Previous block hash not found", 
@@ -48,16 +49,24 @@ impl Error {
             Error::InsufficientStableConfirmations => "Transaction has less confirmations than the global STABLE_TRANSACTION_CONFIRMATIONS parameter",
             Error::OngoingFork => "Current fork ongoing",
             Error::InvalidMerkleProof => "Invalid Merkle Proof",
-            Error::BlockNotFound => "Block header not found for given hash",
-            Error::TxFormat => "Transaction has incorrect format",
-            Error::InsufficientValue => "Value of payment below requested amount",
-            Error::WrongRecipient => "Incorrect recipient Bitcoin address",
+            Error::Invalid => "BTC Parachain is halted",
+            Error::Shutdown => "BTC Parachain has shut down",
             Error::InvalidTxid => "Transaction hash does not match given txid", 
+            Error::InsufficientValue => "Value of payment below requested amount",
+            Error::TxFormat => "Transaction has incorrect format",
+            Error::WrongRecipient => "Incorrect recipient Bitcoin address",
+            Error::InvalidOutputFormat => "Incorrect transaction output format",
             Error::InvalidOpreturn => "Incorrect identifier in OP_RETURN field",
+            Error::InvalidTxVersion => "Invalid transaction version",
             Error::NotOpReturn => "Expecting OP_RETURN output, but got another type",
-            
-            // TODO: add other error messages
-            _ => "internal error",
+            Error::UnknownErrorcode => "Error code not applicable to blocks",
+            Error::ForkIdNotFound => "Blockchain with requested ID not found",
+            Error::BlockNotFound => "Block header not found for given hash",
+            Error::AlreadyReported => "Error code already reported", 
+            Error::UnauthorizedRelayer => "Unauthorized staked relayer", 
+            Error::ChainCounterOverflow => "Overflow of chain counter", 
+            Error::BlockHeightOverflow => "Overflow of block height", 
+            Error::ChainsUnderflow => "Underflow of stored blockchains counter", 
         }
     }
 }
