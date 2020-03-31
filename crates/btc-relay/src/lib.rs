@@ -308,6 +308,16 @@ decl_module! {
                 Error::<T>::Shutdown);
             */
             let main_chain = Self::get_block_chain_from_id(MAIN_CHAIN_ID);
+            
+            let next_best_fork_id = Self::get_chain_id_from_position(1);
+            let next_best_fork_height = Self::get_block_chain_from_id(
+                next_best_fork_id
+                ).max_height;
+
+            // fail if there is an ongoing fork
+            ensure!(main_chain.max_height 
+                    >= next_best_fork_height + STABLE_TRANSACTION_CONFIRMATIONS,
+                    Error::OngoingFork);
 
             // fail if not enough confirmations
             ensure!(Self::check_confirmations(
@@ -833,22 +843,33 @@ impl<T: Trait> Module<T> {
                 // Check if swap occurs on the main chain element
                 // print!("prev chain id {:?}\n", prev_blockchain_id);
                 if prev_blockchain_id == MAIN_CHAIN_ID {
-                    // if the previous position is the top element,
+                    // if the previous position is the top element
+                    // and the current height is more than the
+                    // STABLE_TRANSACTION_CONFIRMATIONS ahead
                     // we are swapping the main chain
-                    Self::swap_main_blockchain(&fork)?;
+                    if prev_height + STABLE_TRANSACTION_CONFIRMATIONS 
+                        < current_height {
+                        Self::swap_main_blockchain(&fork)?;
 
-                    // announce the new main chain
-                    let new_chain_tip = <BestBlock>::get();
-                    let block_height = <BestBlockHeight>::get();
-                    let fork_depth = fork.max_height - fork.start_height;
-                    // print!("tip {:?}\n", new_chain_tip);
-                    // print!("block height {:?}\n", block_height);
-                    // print!("depth {:?}\n", fork_depth);
-                    Self::deposit_event(Event::ChainReorg(
-                        new_chain_tip,
-                        block_height,
-                        fork_depth,
-                    ));
+                        // announce the new main chain
+                        let new_chain_tip = <BestBlock>::get();
+                        let block_height = <BestBlockHeight>::get();
+                        let fork_depth = fork.max_height - fork.start_height;
+                        // print!("tip {:?}\n", new_chain_tip);
+                        // print!("block height {:?}\n", block_height);
+                        // print!("depth {:?}\n", fork_depth);
+                        Self::deposit_event(Event::ChainReorg(
+                            new_chain_tip,
+                            block_height,
+                            fork_depth,
+                        ));
+                    } else {
+                        Self::deposit_event(Event::ForkAheadOfMainChain(
+                            prev_height, // main chain height
+                            fork.max_height, // fork height
+                            fork.chain_id, // fork id
+                        ));
+                    }
                     // break the while loop
                     break;
                 } else {
@@ -1021,6 +1042,7 @@ decl_event! {
         StoreMainChainHeader(u32, H256Le),
         StoreForkHeader(u32, u32, H256Le),
         ChainReorg(H256Le, u32, u32),
+        ForkAheadOfMainChain(u32, u32, u32),
         VerifyTransaction(H256Le, u32, u32),
         ValidateTransaction(H256Le, u32, H160, H256Le),
         FlagBlockError(H256Le, u32, ErrorCode),
