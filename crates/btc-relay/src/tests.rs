@@ -323,7 +323,7 @@ fn check_and_do_reorg_new_fork_is_main_chain() {
 
         // insert the fork chain in Chains and ChainsIndex
         let fork_chain_ref: u32 = 4;
-        let fork_block_height: u32 = 111;
+        let fork_block_height: u32 = 117;
         let fork_position: u32 = 1;
         let fork = get_empty_block_chain_from_chain_id_and_height(
             fork_chain_ref, main_start_height, fork_block_height
@@ -353,6 +353,54 @@ fn check_and_do_reorg_new_fork_is_main_chain() {
             fork.max_height - fork.start_height,
         ));
         assert!(System::events().iter().any(|a| a.event == reorg_event));
+    })
+}
+#[test]
+fn check_and_do_reorg_new_fork_below_stable_transaction_confirmations() {
+    ExtBuilder::build().execute_with(|| {
+        // insert the main chain in Chains and ChainsIndex
+        let main_chain_ref: u32 = 0;
+        let main_start_height: u32 = 4;
+        let main_block_height: u32 = 110;
+        let main_position: u32 = 0;
+        let main = get_empty_block_chain_from_chain_id_and_height(
+            main_chain_ref, main_start_height, main_block_height
+        );
+        BTCRelay::set_chain_from_position_and_id(main_position, main_chain_ref);  
+        BTCRelay::set_block_chain_from_id(main_chain_ref, &main);
+
+        // insert the fork chain in Chains and ChainsIndex
+        let fork_chain_ref: u32 = 4;
+        let fork_block_height: u32 = 113;
+        let fork_position: u32 = 1;
+        let fork = get_empty_block_chain_from_chain_id_and_height(
+            fork_chain_ref, main_start_height, fork_block_height
+        );
+        BTCRelay::set_chain_from_position_and_id(fork_position, fork_chain_ref);
+        BTCRelay::set_block_chain_from_id(fork_chain_ref, &fork);
+
+        // set the best block
+        let best_block_hash = H256Le::zero();
+        BTCRelay::set_best_block(best_block_hash);
+        BTCRelay::set_best_block_height(fork_block_height);
+
+        // check that fork is at its initial position
+        let current_position = BTCRelay::get_chain_position_from_chain_id(
+            fork_chain_ref).unwrap();
+
+        assert_eq!(current_position, fork_position);
+
+        BTCRelay::swap_main_blockchain.mock_safe(|_| MockResult::Return(Ok(())));
+
+        assert_ok!(BTCRelay::check_and_do_reorg(&fork));
+        
+        // assert that the fork has not overtaken the main chain
+        let ahead_event = TestEvent::test_events(Event::ForkAheadOfMainChain(
+            main_block_height,
+            fork_block_height,
+            fork_chain_ref,
+        ));
+        assert!(System::events().iter().any(|a| a.event == ahead_event));
     })
 }
 
@@ -1035,8 +1083,11 @@ fn test_clear_block_error_fails() {
 fn test_verify_transaction_inclusion_succeeds() {
     ExtBuilder::build().execute_with(|| {
     let chain_ref = 0;
+    let fork_ref = 1;
     let block_height = 203;
+    let start = 10;
     let main_chain_height = 300;
+    let fork_chain_height = 280;
     // Random init since we mock this
     let raw_merkle_proof = vec![0u8; 100];
     let confirmations = 0;
@@ -1046,6 +1097,20 @@ fn test_verify_transaction_inclusion_succeeds() {
     let proof_result = sample_valid_proof_result();
 
     let merkle_proof = sample_dummy_merkle_proof().unwrap();
+
+    let main = get_empty_block_chain_from_chain_id_and_height(chain_ref, start, main_chain_height);
+
+    let fork = get_empty_block_chain_from_chain_id_and_height(fork_ref, start, fork_chain_height);
+
+    BTCRelay::get_chain_id_from_position.mock_safe(move |_| MockResult::Return(fork_ref.clone()));
+    BTCRelay::get_block_chain_from_id.mock_safe(move |id| { 
+        if id == chain_ref.clone() {
+            return MockResult::Return(main.clone());
+        } else {
+            return MockResult::Return(fork.clone());
+        }
+    });
+
     MerkleProof::parse.
         mock_safe(move |_| MockResult::Return(Ok(merkle_proof.clone())));
     MerkleProof::verify_proof.
@@ -1065,6 +1130,40 @@ fn test_verify_transaction_inclusion_succeeds() {
         confirmations, 
         insecure
     ));
+    });
+}
+
+#[test]
+fn test_verify_transaction_inclusion_fails_with_ongoing_fork() {
+    ExtBuilder::build().execute_with(|| {
+    let tx_id = sample_valid_proof_result().transaction_hash;
+    let block_height = 203;
+    let raw_merkle_proof = vec![0u8; 100];
+    let confirmations = 0;
+    let insecure = false;
+
+    let main_ref = 0;
+    let main_start = 10;
+    let main_height = 300;
+    let main_pos = 0;
+    let main = store_blockchain_and_random_headers(
+        main_ref, main_start, main_height, main_pos);
+    
+    let fork_ref = 4;
+    let fork_start = 15;
+    let fork_height = 298;
+    let fork_pos = 1;
+    let fork = store_blockchain_and_random_headers(
+        fork_ref, fork_start, fork_height, fork_pos);
+
+    assert_err!(BTCRelay::verify_transaction_inclusion(
+            Origin::signed(3),
+            tx_id,
+            block_height, 
+            raw_merkle_proof, 
+            confirmations, 
+            insecure
+        ), Error::OngoingFork); 
     });
 }
 
