@@ -25,7 +25,7 @@ The Substrate runtime makes use of various custom pallets and crates that are fo
 
 If you would like to contribute, please file an issue on GitLab or reach out to us.
 
-- [Telegram]()
+- [Telegram](https://t.me/joinchat/G9FaYhNbJK9v-6DN3IyhJw)
 - [Riot](https://matrix.to/#/!nZablWWaicZyVTWyZk:matrix.org?via=matrix.org)
 
 We are [hiring](https://www.interlay.io/careers/)!
