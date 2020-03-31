@@ -1,37 +1,26 @@
-# substrate-pallet-template
+# BTC Relay
 
-This is a template for a Substrate pallet which lives as its own crate so it can be imported into multiple other runtimes. It is based on the ["template" pallet](https://github.com/paritytech/substrate/tree/master/bin/node-template/runtime/src/template.rs) which is included with the [Substrate node template](https://github.com/paritytech/substrate/tree/master/bin/node-template).
-
-Check out the [HOWTO](HOWTO.md) to learn how to use this for your own runtime module.
-
-This README should act as a general template for distributing your module to others.
-
-## Purpose
-
-This pallet acts as a template for building other pallets.
-
-It currently allows a user to put a `u32` value into storage, which triggers a runtime event.
-
-## Dependencies
-
-### Traits
-
-This pallet does not depend on any externally defined traits.
-
-### Pallets
-
-This pallet does not depend on any other FRAME pallet or externally developed modules.
+Based on the BTC Relay specification [https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/index.html](https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/index.html).
 
 ## Installation
+
+Run `cargo build` from the root folder of this directory.
+
+## Testing
+
+Run `cargo test` from the root folder of this directory.
+
+
+## Integration into Runtimes 
 
 ### Runtime `Cargo.toml`
 
 To add this pallet to your runtime, simply include the following to your runtime's `Cargo.toml` file:
 
 ```TOML
-[dependencies.substrate-pallet-template]
+[dependencies.btc-relay]
 default_features = false
-git = 'https://github.com/substrate-developer-hub/substrate-pallet-template.git'
+git = '../creates/btc-relay'
 ```
 
 and update your runtime's `std` feature to include this pallet:
@@ -39,7 +28,7 @@ and update your runtime's `std` feature to include this pallet:
 ```TOML
 std = [
     # --snip--
-    'example_pallet/std',
+    'btc-relay/std',
 ]
 ```
 
@@ -49,7 +38,7 @@ You should implement it's trait like so:
 
 ```rust
 /// Used for test_module
-impl example_pallet::Trait for Runtime {
+impl BTCRelay::Trait for Runtime {
 	type Event = Event;
 }
 ```
@@ -57,12 +46,8 @@ impl example_pallet::Trait for Runtime {
 and include it in your `construct_runtime!` macro:
 
 ```rust
-ExamplePallet: substrate_pallet_template::{Module, Call, Storage, Event<T>},
+BTCRelay: btc-relay::{Module, Call, Storage, Event},
 ```
-
-### Genesis Configuration
-
-This template pallet does not have any genesis configuration.
 
 ## Reference Docs
 
@@ -72,4 +57,3 @@ You can view the reference docs for this pallet by running:
 cargo doc --open
 ```
 
-or by visiting this site: <Add Your Link>
