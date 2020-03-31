@@ -4,6 +4,11 @@ use node_primitives::Moment;
 use primitive_types::{U256};
 use bitcoin_spv::btcspv;
 
+#[cfg(test)]
+extern crate mocktopus;
+#[cfg(test)]
+use mocktopus::macros::mockable;
+
 const SERIALIZE_TRANSACTION_NO_WITNESS: i32 = 0x40000000;
 
 
@@ -313,6 +318,7 @@ pub fn parse_compact_uint(varint: &[u8]) -> (u64, usize) {
 /// # Arguments
 ///
 /// * `raw_transaction` - the raw bytes of the transaction
+#[cfg_attr(test, mockable)]
 pub fn parse_transaction(raw_transaction: &[u8]) -> Result<Transaction, Error> {
     let mut parser = BytesParser::new(raw_transaction);
     let version: i32 = parser.parse()?;
@@ -491,6 +497,7 @@ mod tests {
 
     // examples from https://bitcoin.org/en/developer-reference#block-headers
 
+
     #[test]
     fn test_parse_block_header() {
         let hex_header = "02000000".to_owned() + // ............... Block version: 2
@@ -582,26 +589,6 @@ mod tests {
         &sample_transaction_output() +
         "00000000"
     }
-
-    /*
-    fn sample_malformed_witness_output() -> String {
-        "00000000220017".to_owned()
-    }
-
-    fn sample_malformed_witness_output_large() -> String {
-        "0000000".to_owned() + "0000000000100FF111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111"
-    }
-   
-
-    fn sample_malformed_p2sh_output() -> String {
-        "0000000017a914FF".to_owned()
-    }
-
-    fn sample_malformed_p2pkh_output() -> String { 
-        "000000001976a914FFFF".to_owned()
-    }
-    */
-
 
     fn sample_valid_p2pkh() -> String {
         "76a914000000000000000000000000000000000000000088ac".to_owned()

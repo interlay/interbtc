@@ -71,6 +71,9 @@ pub const UNROUNDED_MAX_TARGET: U256 = U256([
 /// Main chain id
 pub const MAIN_CHAIN_ID: u32 = 0;
 
+/// Global security parameter k for stable transactions
+pub const STABLE_TRANSACTION_CONFIRMATIONS: u32 = 6;
+
 // This pallet's storage items.
 decl_storage! {
     trait Store for Module<T: Trait> as BTCRelay {
@@ -286,12 +289,14 @@ decl_module! {
         /// bitcoin `gettxoutproof`
         /// * `confirmations` - The number of confirmations needed to accept 
         /// the proof
+        /// * `insecure` - determines if checks against recommended global transaction confirmation are to be executed. Recommended: set to `true` 
         fn verify_transaction_inclusion(
             origin,
             tx_id: H256Le,
             block_height: u32,
             raw_merkle_proof: Vec<u8>,
-            confirmations: u32)
+            confirmations: u32,
+            insecure: bool)
         -> DispatchResult {
             let _ = ensure_signed(origin)?;
 
@@ -305,15 +310,20 @@ decl_module! {
             let main_chain = Self::get_block_chain_from_id(MAIN_CHAIN_ID);
 
             // fail if not enough confirmations
-            ensure!(block_height + confirmations <= main_chain.max_height,
+            ensure!(Self::check_confirmations(
+                main_chain.max_height, 
+                confirmations, 
+                block_height, 
+                insecure),
                 Error::Confirmations);
 
             let merkle_proof = MerkleProof::parse(&raw_merkle_proof)
                 .map_err(|_e| Error::InvalidMerkleProof)?;
+
             let proof_result = merkle_proof
                 .verify_proof()
                 .map_err(|_e| Error::InvalidMerkleProof)?;
-
+            
             let rich_header = Self::get_block_header_from_height(
                 &main_chain, block_height)?;
 
@@ -384,7 +394,10 @@ decl_module! {
 
 #[cfg_attr(test, mockable)]
 impl<T: Trait> Module<T> {
-    /// Storage getter functions
+    // ********************************
+    // START: Storage getter functions
+    // ********************************
+
     /// Get chain id from position (sorted by max block height) 
     fn get_chain_id_from_position(position: u32) -> u32 {
         <Chains>::get(position)
@@ -579,6 +592,13 @@ impl<T: Trait> Module<T> {
         Ok(blockchain)
     }
 
+    // Get require conformations for stable transactions
+    fn get_stable_transaction_confirmations() -> u32 {
+        STABLE_TRANSACTION_CONFIRMATIONS
+    }
+    // *********************************
+    // END: Storage getter functions
+    // *********************************
 
     fn parse_transaction(raw_tx: &[u8]) -> Result<Transaction, Error> {
         parse_transaction(&raw_tx)
@@ -666,6 +686,7 @@ impl<T: Trait> Module<T> {
         let last_retarget_header = Self::get_block_header_from_height(&block_chain, block_height - DIFFICULTY_ADJUSTMENT_INTERVAL)?;
         Ok(last_retarget_header.block_header.timestamp)
     }
+
     /// Swap the main chain with a fork. This method takes the starting height 
     /// of the fork and replaces each block in the main chain with the blocks
     /// in the fork. It moves the replaced blocks in the main chain to a new 
@@ -975,6 +996,22 @@ impl<T: Trait> Module<T> {
         }
 
         Ok (())
+    }
+
+    /// Checks if the given transaction confirmations are greater/equal to the
+    /// requested confirmations (and/or the global k security parameter)
+    /// 
+    /// # Arguments
+    /// * `block_height` - current main chain block height
+    /// * `req_confs` - confirmations requested by the caller
+    /// * `tx_block_height` - block height of checked transaction
+    /// * `insecure` -  determines if checks against recommended global transaction confirmation are to be executed. Recommended: set to `true` 
+    /// 
+    pub fn check_confirmations(main_chain_height: u32, req_confs: u32, tx_block_height: u32, insecure: bool) -> bool {
+        match insecure {
+            true => return tx_block_height + req_confs <= main_chain_height,
+            false => return tx_block_height + u32::max(req_confs, Self::get_stable_transaction_confirmations()) <= main_chain_height
+        };
     }
 }
 
