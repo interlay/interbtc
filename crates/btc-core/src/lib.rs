@@ -11,6 +11,8 @@ pub enum Error {
     DiffTargetHeader, // TODO: rename to self-explanatory
     MalformedTxid,
     Confirmations, // TODO: rename to self-explanatory
+    InsufficientStableConfirmations,
+    OngoingFork,
     InvalidMerkleProof,
     Invalid,
     Shutdown,
@@ -43,6 +45,8 @@ impl Error {
             Error::DiffTargetHeader => "Incorrect difficulty target specified in block header",
             Error::MalformedTxid => "Malformed transaction identifier", 
             Error::Confirmations => "Transaction has less confirmations than requested",
+            Error::InsufficientStableConfirmations => "Transaction has less confirmations than the global STABLE_TRANSACTION_CONFIRMATIONS parameter",
+            Error::OngoingFork => "Current fork ongoing",
             Error::InvalidMerkleProof => "Invalid Merkle Proof",
             Error::BlockNotFound => "Block header not found for given hash",
             Error::TxFormat => "Transaction has incorrect format",
