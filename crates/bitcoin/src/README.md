@@ -23,7 +23,7 @@ Run `cargo test` from the root folder of this directory.
 To add this pallet to your runtime, simply include the following to your runtime's `Cargo.toml` file:
 
 ```TOML
-[dependencies.btc-relay]
+[dependencies.bitcoin]
 default_features = false
 git = '../creates/bitcoin'
 ```
