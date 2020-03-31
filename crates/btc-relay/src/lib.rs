@@ -26,7 +26,7 @@ use sp_std::collections::btree_set::BTreeSet;
 use system::ensure_signed;
 
 // Crates
-use bitcoin::merkle::MerkleProof;
+use bitcoin::merkle::{MerkleProof, ProofResult};
 use bitcoin::parser::{
     extract_address_hash, extract_op_return_data, 
     header_from_bytes, parse_block_header, parse_transaction,
@@ -300,46 +300,43 @@ decl_module! {
         -> DispatchResult {
             let _ = ensure_signed(origin)?;
 
-            // TODO: check for the k security parameter
 
             // fail if parachain is not in running state.
             /*
-         sha256d  ensure!(<security::Module<T>>::check_parachain_status(StatusCode::Running),
+            ensure!(<security::Module<T>>::check_parachain_status(StatusCode::Running),
                 Error::<T>::Shutdown);
             */
-            let main_chain = Self::get_block_chain_from_id(MAIN_CHAIN_ID);
             
+            //let main_chain = Self::get_block_chain_from_id(MAIN_CHAIN_ID);
+            let best_block_height = Self::get_best_block_height();
+
             let next_best_fork_id = Self::get_chain_id_from_position(1);
             let next_best_fork_height = Self::get_block_chain_from_id(
                 next_best_fork_id
                 ).max_height;
 
             // fail if there is an ongoing fork
-            ensure!(main_chain.max_height 
+            ensure!(best_block_height 
                     >= next_best_fork_height + STABLE_TRANSACTION_CONFIRMATIONS,
                     Error::OngoingFork);
 
-            // fail if not enough confirmations
-            ensure!(Self::check_confirmations(
-                main_chain.max_height, 
+            // This call fails if not enough confirmations
+            Self::check_confirmations(
+                best_block_height, 
                 confirmations, 
                 block_height, 
-                insecure),
-                Error::Confirmations);
-
-            let merkle_proof = MerkleProof::parse(&raw_merkle_proof)
-                .map_err(|_e| Error::InvalidMerkleProof)?;
-
-            let proof_result = merkle_proof
-                .verify_proof()
-                .map_err(|_e| Error::InvalidMerkleProof)?;
+                insecure)?;
+            
+            let proof_result = Self::verify_merkle_proof(&raw_merkle_proof)?;
             
             let rich_header = Self::get_block_header_from_height(
-                &main_chain, block_height)?;
+                &Self::get_block_chain_from_id(MAIN_CHAIN_ID), 
+                block_height
+            )?;
 
             // fail if the transaction hash is invalid
             ensure!(proof_result.transaction_hash == tx_id,
-                    Error::InvalidMerkleProof);
+                    Error::InvalidTxid);
 
             // fail if the merkle root is invalid
             ensure!(proof_result.extracted_root == rich_header.block_header.merkle_root,
@@ -610,11 +607,23 @@ impl<T: Trait> Module<T> {
     // END: Storage getter functions
     // *********************************
 
+
+    // Wrapper functions around bitcoin lib for testing purposes
+    
     fn parse_transaction(raw_tx: &[u8]) -> Result<Transaction, Error> {
         parse_transaction(&raw_tx)
                 .map_err(|_e| Error::TxFormat)
     }
 
+    fn verify_merkle_proof(raw_merkle_proof: &[u8]) -> Result<ProofResult, Error> {
+
+        let merkle_proof = MerkleProof::parse(&raw_merkle_proof)
+            .map_err(|_e| Error::InvalidMerkleProof)?;
+
+        merkle_proof
+            .verify_proof()
+            .map_err(|_e| Error::InvalidMerkleProof)
+    }
     /// Parses and verifies a raw Bitcoin block header.
     /// # Arguments
     /// * block_header` - 80-byte block header
@@ -1028,11 +1037,29 @@ impl<T: Trait> Module<T> {
     /// * `tx_block_height` - block height of checked transaction
     /// * `insecure` -  determines if checks against recommended global transaction confirmation are to be executed. Recommended: set to `true` 
     /// 
-    pub fn check_confirmations(main_chain_height: u32, req_confs: u32, tx_block_height: u32, insecure: bool) -> bool {
-        match insecure {
-            true => return tx_block_height + req_confs <= main_chain_height,
-            false => return tx_block_height + u32::max(req_confs, Self::get_stable_transaction_confirmations()) <= main_chain_height
-        };
+    pub fn check_confirmations(main_chain_height: u32, req_confs: u32, tx_block_height: u32, insecure: bool) -> Result<(),Error> {
+        // insecure call: only checks against user parameter
+        if insecure {
+            match  tx_block_height + req_confs <= main_chain_height {
+                true => Ok(()),
+                false => Err(Error::Confirmations)
+            }
+        } else {
+            // secure call: checks against max of user- and global security parameter
+            let global_confs = Self::get_stable_transaction_confirmations();
+
+            if global_confs > req_confs {
+                match tx_block_height + global_confs <= main_chain_height {
+                    true => Ok(()),
+                    false => Err(Error::InsufficientStableConfirmations)
+                }
+            } else {
+                match tx_block_height + req_confs <= main_chain_height {
+                    true => Ok(()),
+                    false => Err(Error::Confirmations)
+                }
+            } 
+        }
     }
 }
 
