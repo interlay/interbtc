@@ -262,8 +262,6 @@ construct_runtime!(
 		Sudo: sudo,
         // BTC-Relay pallet
         BTCRelay: btc_relay::{Module, Call, Storage, Event<T>},
-		// Used for the module template in `./template.rs`
-		TemplateModule: template::{Module, Call, Storage, Event<T>},
 		RandomnessCollectiveFlip: randomness_collective_flip::{Module, Call, Storage},
 	}
 );
