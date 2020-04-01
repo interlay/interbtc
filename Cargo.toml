@@ -2,6 +2,7 @@
 members = [
   "crates/bitcoin-spv",
   "crates/btc-core",
+  "crates/xclaim-core",
   "crates/bitcoin",
   "crates/btc-relay",
   "crates/security",
