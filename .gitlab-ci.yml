@@ -61,12 +61,11 @@ test-pallets-and-crates:
   stage: test
   image: rustlang/rust:nightly
   script:
-    - scripts/test_modified.py
+    - cargo build --release --verbose
+    - cargo test --all --release
   cache:
     key: build-cache
     paths:
-      - crates/btc-relay/target/
-      - crates/bitcoin/target/
-      - crates/security/target/
+      - target
   only:
     - merge_requests
