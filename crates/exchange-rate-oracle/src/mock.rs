@@ -7,6 +7,7 @@ use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup},
     Perbill,
 };
+use mocktopus::mocking::clear_mocks;
 
 impl_outer_origin! {
     pub enum Origin for Test {}
@@ -70,4 +71,12 @@ impl ExtBuilder {
             .unwrap();
         sp_io::TestExternalities::from(storage)
     }
+}
+
+pub fn run_test<T>(test: T) -> ()
+where
+    T: FnOnce() -> (),
+{
+    clear_mocks();
+    ExtBuilder::build().execute_with(test);
 }
