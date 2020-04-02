@@ -13,6 +13,8 @@ PolkaBTC is backed by Bitcoin 1:1 and allows redeeming of the equivalent amount 
 The project uses the concept of [Cryptocurrency-backed Assets](https://xclaim.io) to lock Bitcoin on the Bitcoin blockchain and issue BTC-backed tokens on the BTC Parachain.
 The implementation is based on the [BTC Parachain specification](https://interlay.gitlab.io/polkabtc-spec/).
 
+*This project is currently under development.* 
+
 ## Substrate chain
 
 The Substrate runtime can configuration is in the [parachain](./parachain) folder.
@@ -21,6 +23,17 @@ The Substrate runtime can configuration is in the [parachain](./parachain) folde
 
 The Substrate runtime makes use of various custom pallets and crates that are found in the [crates](./crates) folder.
 
+### Development Progess
+
+- [bitcoin](crates/bitcoin): library for Bitcoin type, parsing and verification functions 
+- [bitcoin-spv](crates/bitcoin-spv): Bitcoin parser implementations, included for legacy maintainance (see [Summa's Bitcoin-SPV library](https://github.com/summa-tx/bitcoin-spv))  
+- [btc-core](crates/btc-core): Error types used in BTC-Relay and Bitcoin 
+- [priority-map](crates/priority-map): WIP for a priority queue based on a mapping 
+- [exchange-rate-oracle](crates/exchange-rate-oracle): Exchange rate oracle. Integration with external provider pending.
+- [security](crates/security): WIP. Security module, handling BTC Parachain status changes (error handling), Staked Relayers.
+- [xclaim-core](crates/xclaim-core): WIP Error types used in the XCLAIM component (Issue, Redeem, Replace, Vault Registry, Collateral, etc.)
+- see [specification](https://interlay.gitlab.io/polkabtc-spec/index.html) for outstanding modules.
+- 
 ## Contributions
 
 If you would like to contribute, please file an issue on GitLab or reach out to us.
