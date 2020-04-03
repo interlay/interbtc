@@ -125,7 +125,7 @@ decl_module! {
 
             // Parse the block header bytes to extract the required info
             let raw_block_header = header_from_bytes(&block_header_bytes);
-            let basic_block_header = parse_block_header(raw_block_header);
+            let basic_block_header = parse_block_header(raw_block_header).map_err(|_e| Error::InvalidHeaderSize)?;
             let block_header_hash = BlockHeader::block_hash_le(&raw_block_header);
 
             // construct the BlockChain struct
@@ -634,7 +634,7 @@ impl<T: Trait> Module<T> {
     /// # Panics
     /// If ParachainStatus in Security module is not set to RUNNING
     fn verify_block_header(raw_block_header: RawBlockHeader) -> Result<BlockHeader, Error> {
-        let basic_block_header = parse_block_header(raw_block_header);
+        let basic_block_header = parse_block_header(raw_block_header).map_err(|_e| Error::InvalidHeaderSize)?;
 
         let block_header_hash = BlockHeader::block_hash_le(&raw_block_header);
 

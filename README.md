@@ -27,7 +27,6 @@ The Substrate runtime makes use of various custom pallets and crates that are fo
 ### Development Progess
 
 - [bitcoin](crates/bitcoin): [Beta] library for Bitcoin type, parsing and verification functions.
-- [bitcoin-spv](crates/bitcoin-spv):  [Beta] Bitcoin parser implementations, included for legacy maintainance (see [Summa's Bitcoin-SPV library](https://github.com/summa-tx/bitcoin-spv)).
 - [btc-core](crates/btc-core):  [Beta] Error types used in BTC-Relay and Bitcoin.
 - [priority-map](crates/priority-map): [WIP] Priority queue based on a mapping. Used to efficiently track ongoing forks and handle re-orgs.
 - [exchange-rate-oracle](crates/exchange-rate-oracle): [Beta] Exchange rate oracle. Integration with external provider pending.
