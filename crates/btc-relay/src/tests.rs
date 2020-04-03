@@ -44,7 +44,7 @@ fn get_block_header_from_hash_succeeds() {
 
         let rich_header = RichBlockHeader {
             block_hash: H256Le::zero(),
-            block_header: BlockHeader::from_le_bytes(&block_header),
+            block_header: BlockHeader::from_le_bytes(&block_header).unwrap(),
             block_height: block_height,
             chain_ref: chain_ref,
         };
@@ -95,7 +95,7 @@ fn get_block_chain_from_id_succeeds() {
 fn initialize_once_succeeds() {
     run_test(|| {
         let block_height: u32 = 1;
-        let block_header = vec![0u8; 80];
+        let block_header = hex::decode(sample_block_header()).unwrap();
         let block_header_hash = BlockHeader::block_hash_le(&block_header);
         BTCRelay::best_block_exists.mock_safe(|| MockResult::Return(false));
 
@@ -115,7 +115,7 @@ fn initialize_once_succeeds() {
 fn initialize_best_block_already_set_fails() {
     run_test(|| {
         let block_height: u32 = 1;
-        let block_header = vec![0u8; 80];
+        let block_header = hex::decode(sample_block_header()).unwrap();
 
         BTCRelay::best_block_exists.mock_safe(|| MockResult::Return(true));
 
@@ -131,7 +131,7 @@ fn initialize_best_block_already_set_fails() {
 fn store_block_header_on_mainchain_succeeds() {
     run_test(|| {
         BTCRelay::verify_block_header
-            .mock_safe(|h| MockResult::Return(Ok(BlockHeader::from_le_bytes(&h))));
+            .mock_safe(|h| MockResult::Return(Ok(BlockHeader::from_le_bytes(&h).unwrap())));
         BTCRelay::block_header_exists.mock_safe(|_| MockResult::Return(true));
 
         let chain_ref: u32 = 0;
@@ -141,7 +141,7 @@ fn store_block_header_on_mainchain_succeeds() {
 
         let rich_header = RichBlockHeader {
             block_hash: H256Le::zero(),
-            block_header: BlockHeader::from_le_bytes(&block_header),
+            block_header: BlockHeader::from_le_bytes(&block_header).unwrap(),
             block_height: block_height,
             chain_ref: chain_ref,
         };
@@ -172,7 +172,7 @@ fn store_block_header_on_mainchain_succeeds() {
 fn store_block_header_on_fork_succeeds() {
     run_test(|| {
         BTCRelay::verify_block_header
-            .mock_safe(|h| MockResult::Return(Ok(BlockHeader::from_le_bytes(&h))));
+            .mock_safe(|h| MockResult::Return(Ok(BlockHeader::from_le_bytes(&h).unwrap())));
         BTCRelay::block_header_exists.mock_safe(|_| MockResult::Return(true));
 
         let chain_ref: u32 = 1;
@@ -182,7 +182,7 @@ fn store_block_header_on_fork_succeeds() {
 
         let rich_header = RichBlockHeader {
             block_hash: H256Le::zero(),
-            block_header: BlockHeader::from_le_bytes(&block_header),
+            block_header: BlockHeader::from_le_bytes(&block_header).unwrap(),
             block_height: block_height - 1,
             chain_ref: chain_ref,
         };
@@ -582,9 +582,9 @@ fn test_verify_block_header_correct_retarget_increase_succeeds() {
             retarget_headers[1],
             chain_ref,
             block_height,
-        );
+        ).unwrap();
 
-        let curr_block_header = BlockHeader::from_le_bytes(&retarget_headers[2]);
+        let curr_block_header = BlockHeader::from_le_bytes(&retarget_headers[2]).unwrap();
         // Prev block exists
         BTCRelay::get_block_header_from_hash
             .mock_safe(move |_| MockResult::Return(Ok(prev_block_header_rich)));
@@ -612,9 +612,9 @@ fn test_verify_block_header_correct_retarget_decrease_succeeds() {
             retarget_headers[1],
             chain_ref,
             block_height,
-        );
+        ).unwrap();
 
-        let curr_block_header = BlockHeader::from_le_bytes(&retarget_headers[2]);
+        let curr_block_header = BlockHeader::from_le_bytes(&retarget_headers[2]).unwrap();
         // Prev block exists
         BTCRelay::get_block_header_from_hash
             .mock_safe(move |_| MockResult::Return(Ok(prev_block_header_rich)));
@@ -641,9 +641,9 @@ fn test_verify_block_header_missing_retarget_succeeds() {
             retarget_headers[1],
             chain_ref,
             block_height,
-        );
+        ).unwrap();
 
-        let curr_block_header = BlockHeader::from_le_bytes(&retarget_headers[2]);
+        let curr_block_header = BlockHeader::from_le_bytes(&retarget_headers[2]).unwrap();
         // Prev block exists
         BTCRelay::get_block_header_from_hash
             .mock_safe(move |_| MockResult::Return(Ok(prev_block_header_rich)));
@@ -667,11 +667,11 @@ fn test_compute_new_target() {
     let block_height: u32 = 2016;
     let retarget_headers = sample_retarget_interval_increase();
 
-    let last_retarget_time = BlockHeader::from_le_bytes(&retarget_headers[0]).timestamp;
+    let last_retarget_time = BlockHeader::from_le_bytes(&retarget_headers[0]).unwrap().timestamp;
     let prev_block_header =
-        RichBlockHeader::construct_rich_block_header(retarget_headers[1], chain_ref, block_height);
+        RichBlockHeader::construct_rich_block_header(retarget_headers[1], chain_ref, block_height).unwrap();
 
-    let curr_block_header = BlockHeader::from_le_bytes(&retarget_headers[2]);
+    let curr_block_header = BlockHeader::from_le_bytes(&retarget_headers[2]).unwrap();
 
     BTCRelay::get_last_retarget_time
         .mock_safe(move |_, _| MockResult::Return(Ok(last_retarget_time)));
@@ -930,7 +930,7 @@ fn test_flag_block_error_succeeds() {
 
         let rich_header = RichBlockHeader {
             block_hash: H256Le::zero(),
-            block_header: BlockHeader::from_le_bytes(&block_header),
+            block_header: BlockHeader::from_le_bytes(&block_header).unwrap(),
             block_height: block_height,
             chain_ref: chain_ref,
         };
@@ -975,7 +975,7 @@ fn test_flag_block_error_fails() {
 
         let rich_header = RichBlockHeader {
             block_hash: H256Le::zero(),
-            block_header: BlockHeader::from_le_bytes(&block_header),
+            block_header: BlockHeader::from_le_bytes(&block_header).unwrap(),
             block_height: block_height,
             chain_ref: chain_ref,
         };
@@ -1007,7 +1007,7 @@ fn test_clear_block_error_succeeds() {
 
         let rich_header = RichBlockHeader {
             block_hash: H256Le::zero(),
-            block_header: BlockHeader::from_le_bytes(&block_header),
+            block_header: BlockHeader::from_le_bytes(&block_header).unwrap(),
             block_height: block_height,
             chain_ref: chain_ref,
         };
@@ -1055,7 +1055,7 @@ fn test_clear_block_error_fails() {
 
         let rich_header = RichBlockHeader {
             block_hash: H256Le::zero(),
-            block_header: BlockHeader::from_le_bytes(&block_header),
+            block_header: BlockHeader::from_le_bytes(&block_header).unwrap(),
             block_height: block_height,
             chain_ref: chain_ref,
         };
@@ -1454,7 +1454,7 @@ fn store_blockchain_and_random_headers(
 
         let rich_header = RichBlockHeader {
             block_hash: block_hash,
-            block_header: BlockHeader::from_le_bytes(&block_header),
+            block_header: BlockHeader::from_le_bytes(&block_header).unwrap(),
             block_height: height,
             chain_ref: id,
         };
@@ -1477,7 +1477,7 @@ fn sample_parsed_genesis_header(chain_ref: u32, block_height: u32) -> RichBlockH
     let genesis_header = hex::decode(sample_raw_genesis_header()).unwrap();
     RichBlockHeader {
         block_hash: BlockHeader::block_hash_le(&genesis_header),
-        block_header: BlockHeader::from_le_bytes(&genesis_header),
+        block_header: BlockHeader::from_le_bytes(&genesis_header).unwrap(),
         block_height: block_height,
         chain_ref: chain_ref,
     }
@@ -1500,7 +1500,7 @@ fn sample_parsed_first_block(chain_ref: u32, block_height: u32) -> RichBlockHead
     let block_header = hex::decode(sample_raw_first_header()).unwrap();
     RichBlockHeader {
         block_hash: BlockHeader::block_hash_le(&block_header),
-        block_header: BlockHeader::from_le_bytes(&block_header),
+        block_header: BlockHeader::from_le_bytes(&block_header).unwrap(),
         block_height: block_height,
         chain_ref: chain_ref,
     }
@@ -1547,7 +1547,7 @@ fn sample_rich_tx_block_header(chain_ref: u32, block_height: u32) -> RichBlockHe
     let raw_header = hex::decode("0000003096cb3d93696c4f56c10da153963d35abf4692c07b2b3bf0702fb4cb32a8682211ee1fb90996ca1d5dcd12866ba9066458bf768641215933d7d8b3a10ef79d090e8a13a5effff7f2005000000".to_owned()).unwrap();
     RichBlockHeader {
         block_hash: BlockHeader::block_hash_le(&raw_header),
-        block_header: BlockHeader::from_le_bytes(&raw_header),
+        block_header: BlockHeader::from_le_bytes(&raw_header).unwrap(),
         block_height: block_height,
         chain_ref: chain_ref,
     }

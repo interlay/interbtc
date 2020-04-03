@@ -1,6 +1,5 @@
 [workspace]
 members = [
-  "crates/bitcoin-spv",
   "crates/btc-core",
   "crates/xclaim-core",
   "crates/bitcoin",

@@ -24,6 +24,32 @@ pub fn sha256d(bytes: &[u8]) -> [u8; 32] {
     ret
 }
 
+/// Concatenates and hashes two inputs for merkle proving.
+///
+/// # Arguments
+///
+/// * `a` - The first hash
+/// * `b` - The second hash
+pub fn hash256_merkle_step(a: &[u8], b: &[u8]) -> H256Le {
+    let mut res: Vec<u8> = vec![];
+    res.extend(a);
+    res.extend(b);
+    H256Le::from_bytes_le(&sha256d(&res))
+}
+
+
+/// Reverses endianness of the value
+/// ```
+/// let bytes = bitcoin::utils::reverse_endianness(&[1, 2, 3]);
+/// assert_eq!(&bytes, &[3, 2, 1])
+/// ```
+pub fn reverse_endianness(bytes: &[u8]) -> Vec<u8> {
+    let mut vec = Vec::from(bytes);
+    vec.reverse();
+    vec
+}
+
+
 // FIXME: maybe use sp_core sha2_256?
 pub fn sha256d_be(bytes: &[u8]) -> H256 {
     return H256::from_slice(&sha256d(bytes)[..]);

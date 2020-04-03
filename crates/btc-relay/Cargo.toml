@@ -90,9 +90,6 @@ default-features = false
 path = '../security'
 version = '0.1.0'
 
-[dependencies.bitcoin-spv]
-path = '../bitcoin-spv'
-
 [dependencies.btc-core]
 path = '../btc-core'
 
