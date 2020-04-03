@@ -1,8 +1,8 @@
 /// Tests for Security Module
 
-use crate::{Module, Trait, Error, Event};
-use sp_core::{U256, H256};
-use frame_support::{impl_outer_origin, impl_outer_event, assert_ok, assert_err, parameter_types, weights::Weight};
+use crate::{Trait};
+use sp_core::{H256};
+use frame_support::{impl_outer_origin, impl_outer_event, parameter_types, weights::Weight};
 use sp_runtime::{
 	traits::{BlakeTwo256, IdentityLookup}, testing::Header, Perbill,
 };
@@ -55,14 +55,14 @@ impl Trait for Test {
 	type Event = TestEvent;
 }
 
-pub type System = system::Module<Test>;
-pub type Security = Module<Test>;
+// pub type System = system::Module<Test>;
+// pub type Security = Module<Test>;
 
 pub struct ExtBuilder;
 
 impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
-        let mut storage = system::GenesisConfig::default()
+        let storage = system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
         sp_io::TestExternalities::from(storage)

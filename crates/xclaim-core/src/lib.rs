@@ -1,3 +1,4 @@
+#![deny(warnings)]
 use frame_support::dispatch::DispatchError;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
