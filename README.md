@@ -2,6 +2,8 @@
 
 This repository is hosted on GitLab: [https://gitlab.com/interlay/btc-parachain](https://gitlab.com/interlay/btc-parachain) with a mirror on GitHub.
 
+*This project is currently under active development*. 
+
 ## Overview
 
 This is a proof of concept implementation of a BTC Parachain to bring Bitcoin into the Polkadot universe.
@@ -13,7 +15,6 @@ PolkaBTC is backed by Bitcoin 1:1 and allows redeeming of the equivalent amount 
 The project uses the concept of [Cryptocurrency-backed Assets](https://xclaim.io) to lock Bitcoin on the Bitcoin blockchain and issue BTC-backed tokens on the BTC Parachain.
 The implementation is based on the [BTC Parachain specification](https://interlay.gitlab.io/polkabtc-spec/).
 
-*This project is currently under development.* 
 
 ## Substrate chain
 
@@ -25,15 +26,16 @@ The Substrate runtime makes use of various custom pallets and crates that are fo
 
 ### Development Progess
 
-- [bitcoin](crates/bitcoin): library for Bitcoin type, parsing and verification functions 
-- [bitcoin-spv](crates/bitcoin-spv): Bitcoin parser implementations, included for legacy maintainance (see [Summa's Bitcoin-SPV library](https://github.com/summa-tx/bitcoin-spv))  
-- [btc-core](crates/btc-core): Error types used in BTC-Relay and Bitcoin 
-- [priority-map](crates/priority-map): WIP for a priority queue based on a mapping 
-- [exchange-rate-oracle](crates/exchange-rate-oracle): Exchange rate oracle. Integration with external provider pending.
-- [security](crates/security): WIP. Security module, handling BTC Parachain status changes (error handling), Staked Relayers.
-- [xclaim-core](crates/xclaim-core): WIP Error types used in the XCLAIM component (Issue, Redeem, Replace, Vault Registry, Collateral, etc.)
+- [bitcoin](crates/bitcoin): [Beta] library for Bitcoin type, parsing and verification functions.
+- [bitcoin-spv](crates/bitcoin-spv):  [Beta] Bitcoin parser implementations, included for legacy maintainance (see [Summa's Bitcoin-SPV library](https://github.com/summa-tx/bitcoin-spv)).
+- [btc-core](crates/btc-core):  [Beta] Error types used in BTC-Relay and Bitcoin.
+- [priority-map](crates/priority-map): [WIP] Priority queue based on a mapping. Used to efficiently track ongoing forks and handle re-orgs.
+- [exchange-rate-oracle](crates/exchange-rate-oracle): [Beta] Exchange rate oracle. Integration with external provider pending.
+- [security](crates/security): [WIP] Security module, handling BTC Parachain status changes (error handling), Staked Relayers.
+- [xclaim-core](crates/xclaim-core): [WIP] Error types used in the XCLAIM component (Issue, Redeem, Replace, Vault Registry, Collateral, etc.).
 - see [specification](https://interlay.gitlab.io/polkabtc-spec/index.html) for outstanding modules.
-- 
+
+
 ## Contributions
 
 If you would like to contribute, please file an issue on GitLab or reach out to us.
