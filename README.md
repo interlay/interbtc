@@ -50,3 +50,12 @@ We are [hiring](https://www.interlay.io/careers/)!
 (C) Copyright 2020 [Interlay](https://www.interlay.io) Ltd
 
 BTC-Parachain is currently licensed under the terms of the Apache License (Version 2.0). See LICENSE
+
+
+## Acknowledgements
+
+This project is supported by a Web3 Foundation grant. 
+
+[<img src="/docs/web3_foundation_grants_badge_black.png" width="500">](/docs/web3_foundation_grants_badge_black.png)
+
+
