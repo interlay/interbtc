@@ -174,7 +174,7 @@ impl H256Le {
 
     /// Returns the content of the H256Le encoded in little endian
     pub fn to_bytes_le(&self) -> [u8; 32] {
-        self.content.clone()
+        self.content
     }
 
     /// Returns the content of the H256Le encoded in little endian hex
