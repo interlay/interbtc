@@ -126,13 +126,12 @@ decl_module! {
 
             // Parse the block header bytes to extract the required info
             let raw_block_header = header_from_bytes(&block_header_bytes);
-            let basic_block_header = parse_block_header(raw_block_header).map_err(|_e| Error::InvalidHeaderSize)?;
+            let basic_block_header = parse_block_header(raw_block_header)?;
             let block_header_hash = BlockHeader::block_hash_le(&raw_block_header);
 
             // construct the BlockChain struct
             let blockchain = Self::initialize_blockchain(
                     block_height, block_header_hash);
-            
             // Create rich block header
             let block_header = RichBlockHeader {
                 block_hash: block_header_hash,
@@ -256,7 +255,6 @@ decl_module! {
 
             // print!("Best block hash: {:?} \n", current_best_block);
             // print!("Current block hash: {:?} \n", block_header_hash);
-            
             if current_best_block == block_header_hash {
                 // extends the main chain
                 Self::deposit_event(
@@ -371,11 +369,10 @@ decl_module! {
         ) -> DispatchResult {
             let _ = ensure_signed(origin)?;
 
-            let transaction = Self::parse_transaction(&raw_tx)
-                .map_err(|_e| Error::TxFormat)?;
+            let transaction = Self::parse_transaction(&raw_tx)?;
 
             // TODO: make 2 a constant
-            ensure!(transaction.outputs.len() >= 2, Error::TxFormat);
+            ensure!(transaction.outputs.len() >= 2, Error::MalformedTransaction);
 
             // Check if 1st / payment UTXO transfers sufficient value
             // FIXME: returns incorrect value (too large: 9865995930474779817)
@@ -385,14 +382,14 @@ decl_module! {
             // Check if 1st / payment UTXO sends to correct address
             let extr_recipient_address = extract_address_hash(
                     &transaction.outputs[0].script
-                ).map_err(|_e| Error::InvalidOutputFormat)?;
-            ensure!(extr_recipient_address == recipient_btc_address, 
+                )?;
+            ensure!(extr_recipient_address == recipient_btc_address,
                 Error::WrongRecipient);
 
             // Check if 2nd / data UTXO has correct OP_RETURN value
             let extr_op_return_value = extract_op_return_data(
                     &transaction.outputs[1].script
-                ).map_err(|_e| Error::InvalidOpreturn)?;
+                )?;
             ensure!(extr_op_return_value == op_return_id, Error::InvalidOpreturn);
 
             Ok(())
@@ -608,22 +605,15 @@ impl<T: Trait> Module<T> {
     // END: Storage getter functions
     // *********************************
 
-
     // Wrapper functions around bitcoin lib for testing purposes
-    
     fn parse_transaction(raw_tx: &[u8]) -> Result<Transaction, Error> {
         parse_transaction(&raw_tx)
-                .map_err(|_e| Error::TxFormat)
     }
 
     fn verify_merkle_proof(raw_merkle_proof: &[u8]) -> Result<ProofResult, Error> {
+        let merkle_proof = MerkleProof::parse(&raw_merkle_proof)?;
 
-        let merkle_proof = MerkleProof::parse(&raw_merkle_proof)
-            .map_err(|_e| Error::InvalidMerkleProof)?;
-
-        merkle_proof
-            .verify_proof()
-            .map_err(|_e| Error::InvalidMerkleProof)
+        merkle_proof.verify_proof()
     }
     /// Parses and verifies a raw Bitcoin block header.
     /// # Arguments
@@ -635,7 +625,7 @@ impl<T: Trait> Module<T> {
     /// # Panics
     /// If ParachainStatus in Security module is not set to RUNNING
     fn verify_block_header(raw_block_header: RawBlockHeader) -> Result<BlockHeader, Error> {
-        let basic_block_header = parse_block_header(raw_block_header).map_err(|_e| Error::InvalidHeaderSize)?;
+        let basic_block_header = parse_block_header(raw_block_header)?;
 
         let block_header_hash = BlockHeader::block_hash_le(&raw_block_header);
 
@@ -646,9 +636,8 @@ impl<T: Trait> Module<T> {
         );
 
         // Check that the referenced previous block header exists in BTC-Relay
-        let prev_block_header = Self::get_block_header_from_hash(
-            basic_block_header.hash_prev_block)
-            .map_err(|_| Error::PrevBlock)?;
+        let prev_block_header =
+            Self::get_block_header_from_hash(basic_block_header.hash_prev_block)?;
         // Check that the PoW hash satisfies the target set in the block header
         ensure!(
             block_header_hash.as_u256() < basic_block_header.target,

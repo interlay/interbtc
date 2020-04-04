@@ -808,7 +808,7 @@ fn test_validate_transaction_invalid_no_outputs_fails() {
                 recipient_btc_address,
                 op_return_id
             ),
-            Error::TxFormat
+            Error::MalformedTransaction
         )
     });
 }
