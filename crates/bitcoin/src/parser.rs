@@ -390,7 +390,7 @@ pub fn parse_transaction_output(raw_output: &[u8]) -> Result<(TransactionOutput,
     Ok((
         TransactionOutput {
             value,
-            script: Vec::from(script),
+            script,
         },
         parser.position,
     ))
