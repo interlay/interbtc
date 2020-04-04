@@ -25,8 +25,7 @@ use system::ensure_signed;
 // Crates
 use bitcoin::merkle::{MerkleProof, ProofResult};
 use bitcoin::parser::{
-    extract_address_hash, extract_op_return_data, header_from_bytes, parse_block_header,
-    parse_transaction,
+    extract_address_hash, extract_op_return_data, parse_block_header, parse_transaction,
 };
 use bitcoin::types::{
     BlockChain, BlockHeader, H256Le, RawBlockHeader, RichBlockHeader, Transaction,
@@ -112,7 +111,7 @@ decl_module! {
         /// block header.
         fn initialize(
             origin,
-            block_header_bytes: Vec<u8>,
+            raw_block_header: RawBlockHeader,
             block_height: u32)
             -> DispatchResult
         {
@@ -122,14 +121,12 @@ decl_module! {
             ensure!(!Self::best_block_exists(), Error::AlreadyInitialized);
 
             // Parse the block header bytes to extract the required info
-            let raw_block_header = header_from_bytes(&block_header_bytes);
-            let basic_block_header = parse_block_header(raw_block_header)?;
-            let block_header_hash = BlockHeader::block_hash_le(&raw_block_header);
+            let basic_block_header = parse_block_header(&raw_block_header)?;
+            let block_header_hash = raw_block_header.hash();
 
             // construct the BlockChain struct
             let blockchain = Self::initialize_blockchain(
                     block_height, block_header_hash);
-
             // Create rich block header
             let block_header = RichBlockHeader {
                 block_hash: block_header_hash,
@@ -165,9 +162,9 @@ decl_module! {
         ///
         /// # Arguments
         ///
-        /// * `block_header_bytes` - 80 byte raw Bitcoin block header.
+        /// * `raw_block_header` - 80 byte raw Bitcoin block header.
         fn store_block_header(
-            origin, block_header_bytes: Vec<u8>
+            origin, raw_block_header: RawBlockHeader
         ) -> DispatchResult {
             let _ = ensure_signed(origin)?;
             // Check if BTC _Parachain is in shutdown state.+
@@ -179,9 +176,8 @@ decl_module! {
             // );
 
             // Parse the block header bytes to extract the required info
-            let raw_block_header = header_from_bytes(&block_header_bytes);
-            let basic_block_header = Self::verify_block_header(raw_block_header)?;
-            let block_header_hash = BlockHeader::block_hash_le(&raw_block_header);
+            let basic_block_header = Self::verify_block_header(&raw_block_header)?;
+            let block_header_hash = raw_block_header.hash();
 
             let prev_header = Self::get_block_header_from_hash(
                 basic_block_header.hash_prev_block
@@ -620,10 +616,10 @@ impl<T: Trait> Module<T> {
     ///
     /// # Panics
     /// If ParachainStatus in Security module is not set to RUNNING
-    fn verify_block_header(raw_block_header: RawBlockHeader) -> Result<BlockHeader, Error> {
-        let basic_block_header = parse_block_header(raw_block_header)?;
+    fn verify_block_header(raw_block_header: &RawBlockHeader) -> Result<BlockHeader, Error> {
+        let basic_block_header = parse_block_header(&raw_block_header)?;
 
-        let block_header_hash = BlockHeader::block_hash_le(&raw_block_header);
+        let block_header_hash = raw_block_header.hash();
 
         // Check that the block header is not yet stored in BTC-Relay
         ensure!(
