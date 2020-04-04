@@ -296,7 +296,7 @@ pub fn parse_transaction(raw_transaction: &[u8]) -> Result<Transaction, Error> {
     let mut inputs: Vec<TransactionInput> = parser.parse_with(version)?;
 
     let mut flags: u8 = 0;
-    if inputs.len() == 0 && allow_witness {
+    if inputs.is_empty() && allow_witness {
         flags = parser.parse()?;
         inputs = parser.parse_with(version)?;
     }
