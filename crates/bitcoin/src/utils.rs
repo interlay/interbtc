@@ -52,9 +52,9 @@ pub fn reverse_endianness(bytes: &[u8]) -> Vec<u8> {
 
 // FIXME: maybe use sp_core sha2_256?
 pub fn sha256d_be(bytes: &[u8]) -> H256 {
-    return H256::from_slice(&sha256d(bytes)[..]);
+    H256::from_slice(&sha256d(bytes)[..])
 }
 
 pub fn sha256d_le(bytes: &[u8]) -> H256Le {
-    return H256Le::from_bytes_le(&sha256d(bytes));
+    H256Le::from_bytes_le(&sha256d(bytes))
 }
