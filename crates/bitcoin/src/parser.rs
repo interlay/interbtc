@@ -231,19 +231,19 @@ pub fn header_from_bytes(bytes: &[u8]) -> RawBlockHeader {
 pub fn parse_block_header(raw_header: RawBlockHeader) -> Result<BlockHeader, Error> {
     let mut parser = BytesParser::new(&raw_header);
     let version: i32 = parser.parse()?;
-    let previous_block_hash: H256Le = parser.parse()?;
+    let hash_prev_block: H256Le = parser.parse()?;
     let merkle_root: H256Le = parser.parse()?;
     let timestamp: u32 = parser.parse()?;
     let target: U256 = parser.parse()?;
     let nonce: u32 = parser.parse()?;
 
     let block_header = BlockHeader {
-        merkle_root: merkle_root,
-        target: target,
+        merkle_root,
+        target,
         timestamp: timestamp as u64,
-        version: version,
-        nonce: nonce,
-        hash_prev_block: previous_block_hash,
+        version,
+        nonce,
+        hash_prev_block,
     };
 
     Ok(block_header)
@@ -322,11 +322,11 @@ pub fn parse_transaction(raw_transaction: &[u8]) -> Result<Transaction, Error> {
     }
 
     Ok(Transaction {
-        version: version,
-        inputs: inputs,
-        outputs: outputs,
-        block_height: block_height,
-        locktime: locktime,
+        version,
+        inputs,
+        outputs,
+        block_height,
+        locktime,
     })
 }
 
@@ -337,14 +337,14 @@ pub fn parse_transaction_input(
 ) -> Result<(TransactionInput, usize), Error> {
     let mut parser = BytesParser::new(raw_input);
     let previous_hash: H256Le = parser.parse()?;
-    let pervious_index: u32 = parser.parse()?;
+    let previous_index: u32 = parser.parse()?;
 
     // coinbase input has no previous hash
     let is_coinbase = previous_hash == H256Le::zero();
 
     // fail if transaction is coinbase and previous index is not 0xffffffff
     // previous_hash
-    if is_coinbase && pervious_index != u32::max_value() {
+    if is_coinbase && previous_index != u32::max_value() {
         return Err(Error::MalformedTransaction);
     }
 
@@ -367,12 +367,12 @@ pub fn parse_transaction_input(
 
     Ok((
         TransactionInput {
-            previous_hash: previous_hash,
-            previous_index: pervious_index,
+            previous_hash,
+            previous_index,
             coinbase: is_coinbase,
-            height: height,
-            script: script,
-            sequence: sequence,
+            height,
+            script,
+            sequence,
             witness: None,
         },
         consumed_bytes,
@@ -389,7 +389,7 @@ pub fn parse_transaction_output(raw_output: &[u8]) -> Result<(TransactionOutput,
     let script = parser.read(script_size.value as usize)?;
     Ok((
         TransactionOutput {
-            value: value,
+            value,
             script: Vec::from(script),
         },
         parser.position,

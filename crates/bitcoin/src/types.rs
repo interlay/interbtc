@@ -111,8 +111,8 @@ impl RichBlockHeader {
         Ok(RichBlockHeader {
             block_hash: BlockHeader::block_hash_le(&raw_block_header),
             block_header: BlockHeader::from_le_bytes(&raw_block_header)?,
-            block_height: block_height,
-            chain_ref: chain_ref,
+            block_height,
+            chain_ref,
         })
     }
 }
@@ -146,7 +146,7 @@ impl H256Le {
     pub fn from_bytes_le(bytes: &[u8]) -> H256Le {
         let mut content: [u8; 32] = Default::default();
         content.copy_from_slice(&bytes);
-        H256Le { content: content }
+        H256Le { content }
     }
 
     /// Creates a H256Le from big endian bytes
@@ -154,7 +154,7 @@ impl H256Le {
         let bytes_le = reverse_endianness(bytes);
         let mut content: [u8; 32] = Default::default();
         content.copy_from_slice(&bytes_le);
-        H256Le { content: content }
+        H256Le { content }
     }
 
     pub fn from_hex_le(hex: &str) -> H256Le {

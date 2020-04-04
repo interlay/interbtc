@@ -149,7 +149,7 @@ impl MerkleProof {
     /// * `merkle_proof` - Raw bytes of the merkle proof
     pub fn parse(merkle_proof: &[u8]) -> Result<MerkleProof, Error> {
         let mut proof_parser = BytesParser::new(merkle_proof);
-        let header = proof_parser.parse()?;
+        let block_header = proof_parser.parse()?;
         let transactions_count = proof_parser.parse()?;
 
         let hashes_count: CompactUint = proof_parser.parse()?;
@@ -167,10 +167,10 @@ impl MerkleProof {
         }
 
         Ok(MerkleProof {
-            block_header: header,
-            transactions_count: transactions_count,
-            hashes: hashes,
-            flag_bits: flag_bits,
+            block_header,
+            transactions_count,
+            hashes,
+            flag_bits,
         })
     }
 }
