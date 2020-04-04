@@ -12,7 +12,7 @@ pub enum Error {
 }
 
 impl Error {
-    pub fn message(&self) -> &'static str {
+    pub fn message(self) -> &'static str {
         match self {
             Error::MissingExchangeRate => "Exchange rate not set",
             Error::InvalidOracleSource => "Invalid oracle account",
