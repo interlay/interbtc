@@ -65,7 +65,7 @@ pub struct TransactionInput {
 }
 
 impl TransactionInput {
-    pub fn with_witness(&mut self, witness: Vec<u8>) -> () {
+    pub fn with_witness(&mut self, witness: Vec<u8>) {
         self.witness = Some(witness);
     }
 }
