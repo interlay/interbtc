@@ -8,7 +8,7 @@ extern crate mocktopus;
 use mocktopus::macros::mockable;
 
 /// Values taken from https://github.com/bitcoin/bitcoin/blob/78dae8caccd82cfbfd76557f1fb7d7557c7b5edb/src/consensus/consensus.h
-const MAX_BLOCK_WEIGHT: u32 = 4000000;
+const MAX_BLOCK_WEIGHT: u32 = 4_000_000;
 const WITNESS_SCALE_FACTOR: u32 = 4;
 const MIN_TRANSACTION_WEIGHT: u32 = WITNESS_SCALE_FACTOR * 60;
 const MAX_TRANSACTIONS_IN_PROOF: u32 = MAX_BLOCK_WEIGHT / MIN_TRANSACTION_WEIGHT;

@@ -7,7 +7,7 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-const SERIALIZE_TRANSACTION_NO_WITNESS: i32 = 0x40000000;
+const SERIALIZE_TRANSACTION_NO_WITNESS: i32 = 0x4000_0000;
 
 
 /// Type to be parsed from a bytes array
@@ -246,7 +246,7 @@ pub fn parse_block_header(raw_header: RawBlockHeader) -> Result<BlockHeader, Err
         hash_prev_block: previous_block_hash,
     };
 
-    return Ok(block_header);
+    Ok(block_header)
 }
 
 /// Returns the value of a compactly encoded uint and the number of bytes consumed
@@ -439,7 +439,7 @@ pub fn extract_address_hash(output_script: &[u8]) -> Result<Vec<u8>, Error> {
         }
         return Ok(output_script[2..(script_len-1)].to_vec())
     }
-    return Err(Error::UnsupportedOutputFormat);
+    Err(Error::UnsupportedOutputFormat)
 }
 
 pub fn extract_op_return_data(output_script: &[u8]) -> Result<Vec<u8>, Error> {
