@@ -1,19 +1,19 @@
-#![deny(warnings)]
+//#![deny(warnings)]
 #![cfg_attr(not(feature = "std"), no_std)]
 #[cfg(test)]
 mod tests;
 
+use codec::alloc::string::String;
+use codec::{Decode, Encode};
 /// # Security module implementation
 /// This is the implementation of the BTC Parachain Security module following the spec at:
 /// https://interlay.gitlab.io/polkabtc-spec/spec/security
 ///
-use frame_support::{decl_module, decl_storage, decl_event, decl_error};
-use codec::{Encode, Decode};
-use codec::alloc::string::{String};
-use node_primitives::{BlockNumber, AccountId};
-use sp_core::{U256};
-use sp_std::fmt::Debug;
+use frame_support::{decl_error, decl_event, decl_module, decl_storage};
+use node_primitives::{AccountId, BlockNumber};
+use sp_core::U256;
 use sp_std::collections::btree_set::BTreeSet;
+use sp_std::fmt::Debug;
 
 use bitcoin::types::*;
 
@@ -21,7 +21,7 @@ use bitcoin::types::*;
 /// The pallet's configuration trait.
 pub trait Trait: system::Trait {
 	/// The overarching event type.
-    type Event: From<Event> + Into<<Self as system::Trait>::Event>;
+	type Event: From<Event> + Into<<Self as system::Trait>::Event>;
 
 	// Dot currency
 	// FIXME: Check if correct. DOT currently emulated, until DOT bridge becomes available
@@ -45,10 +45,12 @@ pub enum StatusCode {
 	/// An error has occurred. See Errors for more details.
 	Error = 1,
 	/// BTC Parachain operation has been fully suspended
-	Shutdown = 2
+	Shutdown = 2,
 }
 impl Default for StatusCode {
-	fn default() -> Self { StatusCode::Running }
+	fn default() -> Self {
+		StatusCode::Running
+	}
 }
 
 /// Enum specifying errors which lead to the Error status, tacked in Errors
@@ -57,16 +59,18 @@ pub enum ErrorCode {
 	/// No error. Used as default value
 	None = 0,
 	/// Missing transactional data for a block header submitted to BTC-Relay
-    NoDataBTCRelay = 1,
+	NoDataBTCRelay = 1,
 	/// Invalid transaction was detected in a block header submitted to BTC-Relay
 	InvalidBTCRelay = 2,
 	/// The exchangeRateOracle experienced a liveness failure (no up-to-date exchange rate available)
 	OracleOffline = 3,
 	/// At least one Vault is being liquidated. Redeem requests paid out partially in collateral (DOT).
-	Liquidation = 4
+	Liquidation = 4,
 }
 impl Default for ErrorCode {
-	fn default() -> Self { ErrorCode::None }
+	fn default() -> Self {
+		ErrorCode::None
+	}
 }
 
 // Indicates the state of a proposed StatusUpdate.
@@ -78,17 +82,19 @@ pub enum ProposalStatus {
 	/// StatusUpdate has been accepted
 	Accepted = 1,
 	/// StatusUpdate has been rejected
-	Rejected = 2
+	Rejected = 2,
 }
 impl Default for ProposalStatus {
-	fn default() -> Self { ProposalStatus::Pending }
+	fn default() -> Self {
+		ProposalStatus::Pending
+	}
 }
 
 /// ## Structs
 /// Struct storing information on a proposed parachain status update
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct StatusUpdate{
+pub struct StatusUpdate {
 	/// New status of the BTC Parachain.
 	new_status_code: StatusCode,
 	/// Previous status of the BTC Parachain.
@@ -110,15 +116,14 @@ pub struct StatusUpdate{
 	/// Set of accounts which have voted FOR this status update. This can be either Staked Relayers or the Governance Mechanism.
 	votes_yes: BTreeSet<AccountId>,
 	/// Set of accounts which have voted AGAINST this status update. This can be either Staked Relayers or the Governance Mechanism.
-	votes_no: BTreeSet<AccountId>
+	votes_no: BTreeSet<AccountId>,
 }
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct StakedRelayer {
-      stake: u64
+	stake: u64,
 }
-
 
 // This pallet's storage items.
 decl_storage! {
@@ -150,7 +155,6 @@ decl_storage! {
 	}
 }
 
-
 // The pallet's dispatchable functions.
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
@@ -158,18 +162,14 @@ decl_module! {
 	}
 }
 
-
-
-
 impl<T: Trait> Module<T> {
-
 	/// Checks if the ParachainStatus matches the provided StatusCode
 	///
 	/// # Arguments
 	///
 	/// * `status_code` - to-be-checked StatusCode enum
 	pub fn check_parachain_status(status_code: StatusCode) -> bool {
-		return status_code == <ParachainStatus>::get();
+		status_code == <ParachainStatus>::get()
 	}
 
 	/// Checks if the given ErrorCode is contains in Errors
@@ -178,23 +178,23 @@ impl<T: Trait> Module<T> {
 	///
 	/// * `error_code` - to-be-checked ErrorCode enum
 	pub fn check_parachain_error(error_code: ErrorCode) -> bool {
-		return <Errors>::get().contains(&(error_code as u8));
+		<Errors>::get().contains(&(error_code as u8))
 	}
-    /// Checks if a staked relayer is registered
-    ///
-    /// # Arguments
-    ///
-    /// * `relayer` - account id of the relayer
-    pub fn check_relayer_registered(relayer: T::AccountId) -> bool {
-        return <StakedRelayers<T>>::exists(relayer);
-    }
+	/// Checks if a staked relayer is registered
+	///
+	/// # Arguments
+	///
+	/// * `relayer` - account id of the relayer
+	pub fn check_relayer_registered(relayer: T::AccountId) -> bool {
+		<StakedRelayers<T>>::exists(relayer)
+	}
 }
 
 decl_event!(
 	pub enum Event {
-        RegisterStakedRelayer(AccountId, u64),
-        DeRegisterStakedRelayer(AccountId),
-        StatusUpdateSuggested(u8, BTreeSet<u8>, BTreeSet<u8>, String, AccountId),
+		RegisterStakedRelayer(AccountId, u64),
+		DeRegisterStakedRelayer(AccountId),
+		StatusUpdateSuggested(u8, BTreeSet<u8>, BTreeSet<u8>, String, AccountId),
 		VoteOnStatusUpdate(U256, AccountId, bool),
 		ExecuteStatusUpdate(u8, BTreeSet<u8>, BTreeSet<u8>, String),
 		RejectStatusUpdate(u8, BTreeSet<u8>, BTreeSet<u8>, String),
@@ -205,21 +205,21 @@ decl_event!(
 );
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
-    AlreadyRegistered,
-    InsufficientStake,
-    NotRegistered,
-    GovernanceOnly,
-    StakedRelayersOnly,
-    StatusUpdateNotFound,
-    InsufficientYesVotes,
-    InsufficientNoVotes,
-    VaultAlreadyReported,
-    VaultNotFound,
-    VaultAlreadyLiquidated,
-    ValidRedeemOrReplace,
-    ValidMergeTransaction,
-    CollateralOk,
-    OracleOnline
-    }
+	pub enum Error for Module<T: Trait> {
+	AlreadyRegistered,
+	InsufficientStake,
+	NotRegistered,
+	GovernanceOnly,
+	StakedRelayersOnly,
+	StatusUpdateNotFound,
+	InsufficientYesVotes,
+	InsufficientNoVotes,
+	VaultAlreadyReported,
+	VaultNotFound,
+	VaultAlreadyLiquidated,
+	ValidRedeemOrReplace,
+	ValidMergeTransaction,
+	CollateralOk,
+	OracleOnline
+	}
 }

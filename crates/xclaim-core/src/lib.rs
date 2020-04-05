@@ -27,7 +27,6 @@ impl ToString for Error {
     }
 }
 
-
 impl std::convert::From<Error> for DispatchError {
     fn from(error: Error) -> Self {
         DispatchError::Module {

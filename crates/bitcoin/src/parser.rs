@@ -9,7 +9,6 @@ use mocktopus::macros::mockable;
 
 const SERIALIZE_TRANSACTION_NO_WITNESS: i32 = 0x4000_0000;
 
-
 /// Type to be parsed from a bytes array
 pub(crate) trait Parsable: Sized {
     fn parse(raw_bytes: &[u8], position: usize) -> Result<(Self, usize), Error>;
@@ -93,7 +92,10 @@ impl<T: Parsable> Parsable for Vec<T> {
     }
 }
 
-impl<T, U: Copy> ParsableMeta<U> for Vec<T> where T: ParsableMeta<U> {
+impl<T, U: Copy> ParsableMeta<U> for Vec<T>
+where
+    T: ParsableMeta<U>,
+{
     fn parse_with(raw_bytes: &[u8], position: usize, extra: U) -> Result<(Vec<T>, usize), Error> {
         let mut result: Vec<T> = Vec::new();
         let mut parser = BytesParser::new(&raw_bytes[position..]);
@@ -137,7 +139,7 @@ impl Parsable for TransactionOutput {
 impl Parsable for U256 {
     fn parse(raw_bytes: &[u8], position: usize) -> Result<(U256, usize), Error> {
         if position + 4 > raw_bytes.len() {
-            return Err(Error::EOS)
+            return Err(Error::EOS);
         }
         let raw_exponent = raw_bytes[position + 3];
         if raw_exponent < 3 {
@@ -221,7 +223,6 @@ pub fn header_from_bytes(bytes: &[u8]) -> RawBlockHeader {
     result.copy_from_slice(&bytes);
     result
 }
-
 
 /// Parses the raw bitcoin header into a Rust struct
 ///
@@ -387,13 +388,7 @@ pub fn parse_transaction_output(raw_output: &[u8]) -> Result<(TransactionOutput,
         return Err(Error::MalformedTransaction);
     }
     let script = parser.read(script_size.value as usize)?;
-    Ok((
-        TransactionOutput {
-            value,
-            script,
-        },
-        parser.position,
-    ))
+    Ok((TransactionOutput { value, script }, parser.position))
 }
 
 pub fn extract_value(raw_output: &[u8]) -> u64 {
@@ -403,9 +398,7 @@ pub fn extract_value(raw_output: &[u8]) -> u64 {
 }
 
 pub fn extract_address_hash(output_script: &[u8]) -> Result<Vec<u8>, Error> {
-
     let script_len = output_script.len();
-    
     // Witness
     if output_script[0] == 0 {
         if script_len < 2 {
@@ -422,22 +415,33 @@ pub fn extract_address_hash(output_script: &[u8]) -> Result<Vec<u8>, Error> {
     // 25 bytes
     // Format:
     // 0x76 (OP_DUP) - 0xa9 (OP_HASH160) - 0x14 (20 bytes len) - <20 bytes pubkey hash> - 0x88 (OP_EQUALVERIFY) - 0xac (OP_CHECKSIG)
-    if script_len as u32 == P2PKH_SCRIPT_SIZE && output_script[0..=2] == [OpCode::OpDup as u8, OpCode::OpHash160 as u8, HASH160_SIZE_HEX] {
-        if output_script[script_len - 2..] != [OpCode::OpEqualVerify as u8, OpCode::OpCheckSig as u8] {
+    if script_len as u32 == P2PKH_SCRIPT_SIZE
+        && output_script[0..=2]
+            == [
+                OpCode::OpDup as u8,
+                OpCode::OpHash160 as u8,
+                HASH160_SIZE_HEX,
+            ]
+    {
+        if output_script[script_len - 2..]
+            != [OpCode::OpEqualVerify as u8, OpCode::OpCheckSig as u8]
+        {
             return Err(Error::MalformedP2PKHOutput);
         }
-        return Ok(output_script[3..script_len-2].to_vec());
+        return Ok(output_script[3..script_len - 2].to_vec());
     }
 
     // P2SH
     // 23 bytes
-    // Format: 
+    // Format:
     // 0xa9 (OP_HASH160) - 0x14 (20 bytes hash) - <20 bytes script hash> - 0x87 (OP_EQUAL)
-    if script_len as u32 == P2SH_SCRIPT_SIZE && output_script[0..=1] == [OpCode::OpHash160 as u8, HASH160_SIZE_HEX] {
-        if output_script[script_len-1] != OpCode::OpEqual as u8 {
-            return Err(Error::MalformedP2SHOutput)
+    if script_len as u32 == P2SH_SCRIPT_SIZE
+        && output_script[0..=1] == [OpCode::OpHash160 as u8, HASH160_SIZE_HEX]
+    {
+        if output_script[script_len - 1] != OpCode::OpEqual as u8 {
+            return Err(Error::MalformedP2SHOutput);
         }
-        return Ok(output_script[2..(script_len-1)].to_vec())
+        return Ok(output_script[2..(script_len - 1)].to_vec());
     }
     Err(Error::UnsupportedOutputFormat)
 }
@@ -455,13 +459,11 @@ pub fn extract_op_return_data(output_script: &[u8]) -> Result<Vec<u8>, Error> {
     Ok(output_script[2..].to_vec())
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     // examples from https://bitcoin.org/en/developer-reference#block-headers
-
 
     #[test]
     fn test_parse_block_header() {
@@ -542,7 +544,7 @@ mod tests {
         "cbc20a7664f2f69e5355aa427045bc15" +
         "e7c6c772" +                         // PubKey hash
         "88" +                               // OP_EQUALVERIFY
-        "ac"                                 // OP_CHECKSIG
+        "ac" // OP_CHECKSIG
     }
 
     fn sample_transaction() -> String {
@@ -633,17 +635,23 @@ mod tests {
         assert_eq!(inputs[0].coinbase, true);
         assert_eq!(inputs[0].witness.is_some(), true);
         assert_eq!(outputs.len(), 2);
-        assert_eq!(&hex::encode(&outputs[0].script), "a91466c7060feb882664ae62ffad0051fe843e318e8587");
-        assert_eq!(&hex::encode(&outputs[1].script), "6a24aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675");
+        assert_eq!(
+            &hex::encode(&outputs[0].script),
+            "a91466c7060feb882664ae62ffad0051fe843e318e8587"
+        );
+        assert_eq!(
+            &hex::encode(&outputs[1].script),
+            "6a24aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675"
+        );
         assert_eq!(transaction.block_height, Some(0));
         assert_eq!(transaction.locktime, None);
     }
 
     #[test]
-    fn test_extract_address_hash_valid_p2pkh(){
+    fn test_extract_address_hash_valid_p2pkh() {
         let p2pkh_script = hex::decode(&sample_valid_p2pkh()).unwrap();
 
-        let p2pkh_address: [u8; 20] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+        let p2pkh_address: [u8; 20] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
         let extr_p2pkh = extract_address_hash(&p2pkh_script).unwrap();
 
@@ -651,10 +659,10 @@ mod tests {
     }
 
     #[test]
-    fn test_extract_address_hash_valid_p2sh(){
+    fn test_extract_address_hash_valid_p2sh() {
         let p2sh_script = hex::decode(&sample_valid_p2sh()).unwrap();
 
-        let p2sh_address: [u8; 20] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+        let p2sh_address: [u8; 20] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
         let extr_p2sh = extract_address_hash(&p2sh_script).unwrap();
 

@@ -1,14 +1,12 @@
-
-use sha2::{Sha256, Digest};
 use crate::types::H256Le;
 use primitive_types::H256;
-
+use sha2::{Digest, Sha256};
 
 /// Computes Bitcoin's double SHA256 hash over a LE byte encoded input
-/// 
+///
 /// # Arguments
 /// * data: LE bytes encoded input
-/// 
+///
 /// # Returns
 /// * The double SHA256 hash encoded as LE bytes from data
 pub fn sha256d(bytes: &[u8]) -> [u8; 32] {
@@ -37,7 +35,6 @@ pub fn hash256_merkle_step(a: &[u8], b: &[u8]) -> H256Le {
     H256Le::from_bytes_le(&sha256d(&res))
 }
 
-
 /// Reverses endianness of the value
 /// ```
 /// let bytes = bitcoin::utils::reverse_endianness(&[1, 2, 3]);
@@ -48,7 +45,6 @@ pub fn reverse_endianness(bytes: &[u8]) -> Vec<u8> {
     vec.reverse();
     vec
 }
-
 
 // FIXME: maybe use sp_core sha2_256?
 pub fn sha256d_be(bytes: &[u8]) -> H256 {

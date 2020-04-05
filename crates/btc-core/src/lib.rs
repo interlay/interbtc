@@ -11,9 +11,9 @@ pub enum Error {
     LowDiff,
     DiffTargetHeader, // TODO: rename to self-explanatory
     MalformedTxid,
-    Confirmations, // TODO: rename to self-explanatory
+    Confirmations,                   // TODO: rename to self-explanatory
     InsufficientStableConfirmations, //not in spec
-    OngoingFork, //not in spec
+    OngoingFork,                     //not in spec
     InvalidMerkleProof,
     Invalid,
     Shutdown,
@@ -25,14 +25,14 @@ pub enum Error {
     InvalidOpreturn,
     InvalidTxVersion,
     NotOpReturn,
-    UnknownErrorcode, // not in spec
-    ForkIdNotFound, // not in spec
-    BlockNotFound, // not in spec
-    AlreadyReported, // not in spec
-    UnauthorizedRelayer, // not in spec
+    UnknownErrorcode,     // not in spec
+    ForkIdNotFound,       // not in spec
+    BlockNotFound,        // not in spec
+    AlreadyReported,      // not in spec
+    UnauthorizedRelayer,  // not in spec
     ChainCounterOverflow, // not in spec
-    BlockHeightOverflow, // not in spec
-    ChainsUnderflow, // not in spec
+    BlockHeightOverflow,  // not in spec
+    ChainsUnderflow,      // not in spec
 }
 
 impl Error {
