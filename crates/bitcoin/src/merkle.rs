@@ -1,11 +1,14 @@
-use crate::parser::BytesParser;
-use crate::types::{BlockHeader, Error, H256Le, CompactUint};
-use crate::utils::hash256_merkle_step;
-
 #[cfg(test)]
 extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
+
+use btc_core::Error;
+
+use crate::parser::BytesParser;
+use crate::types::{BlockHeader, H256Le, CompactUint};
+use crate::utils::hash256_merkle_step;
+
 
 /// Values taken from https://github.com/bitcoin/bitcoin/blob/78dae8caccd82cfbfd76557f1fb7d7557c7b5edb/src/consensus/consensus.h
 const MAX_BLOCK_WEIGHT: u32 = 4000000;
@@ -66,7 +69,7 @@ impl MerkleProof {
 
         if height == 0 || !parent_of_hash {
             if traversal.hashes_used >= self.hashes.len() {
-                return Err(Error::MalformedProof);
+                return Err(Error::MalformedMerkleProof);
             }
             let hash = self.hashes[traversal.hashes_used];
             if height == 0 && parent_of_hash {
@@ -99,31 +102,31 @@ impl MerkleProof {
 
         // fail if no transactions
         if self.transactions_count == 0 {
-            return Err(Error::MalformedProof);
+            return Err(Error::MalformedMerkleProof);
         }
 
         // fail if too many transactions
         if self.transactions_count > MAX_TRANSACTIONS_IN_PROOF {
-            return Err(Error::MalformedProof);
+            return Err(Error::MalformedMerkleProof);
         }
 
         // fail if not at least one bit per hash
         if self.flag_bits.len() < self.hashes.len() {
-            return Err(Error::MalformedProof);
+            return Err(Error::MalformedMerkleProof);
         }
 
         let root = self.traverse_and_extract(self.compute_tree_height(), 0, &mut traversal)?;
-        let merkle_position = traversal.merkle_position.ok_or(Error::InvalidProof)?;
-        let hash_position = traversal.hash_position.ok_or(Error::InvalidProof)?;
+        let merkle_position = traversal.merkle_position.ok_or(Error::InvalidMerkleProof)?;
+        let hash_position = traversal.hash_position.ok_or(Error::InvalidMerkleProof)?;
 
         // fail if all hashes are not used
         if traversal.hashes_used != self.hashes.len() {
-            return Err(Error::MalformedProof);
+            return Err(Error::MalformedMerkleProof);
         }
 
         // fail if all bits are not used
         if (traversal.bits_used + 7) / 8 != (self.flag_bits.len() + 7) / 8 {
-            return Err(Error::MalformedProof);
+            return Err(Error::MalformedMerkleProof);
         }
 
         Ok(ProofResult {

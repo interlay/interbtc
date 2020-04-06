@@ -5,6 +5,9 @@ use codec::{Encode, Decode};
 use node_primitives::{Moment};
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
+
+use btc_core::Error;
+
 use crate::utils::*;
 use crate::parser::*;
 /// Custom Types
@@ -211,61 +214,6 @@ impl std::fmt::LowerHex for H256Le {
     }
 }
 
-
-/// Errors which can be returned by the bitcoin crate
-#[derive(Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
-pub enum Error {
-    /// Reached EOS without finishing to parse bytes
-    EOS,
-
-    /// Format of the proof is not correct
-    MalformedProof,
-
-
-    /// Malformed header
-    MalformedHeader,
-
-    /// Format of the proof is correct but does not yield the correct
-    /// merkle root
-    InvalidProof,
-
-    /// Format of the transaction is invalid
-    MalformedTransaction,
-
-    /// Format of the BIP141 witness transaction output is invalid
-    MalformedWitnessOutput,
-
-    // Format of the P2PKH transaction output is invalid
-    MalformedP2PKHOutput,
-
-    // Format of the P2SH transaction output is invalid
-    MalformedP2SHOutput,
-
-    /// Format of the OP_RETURN transaction output is invalid
-    MalformedOpReturnOutput,
-
-    // Output does not match format of supported output types (Witness, P2PKH, P2SH)
-    UnsupportedOutputFormat
-}
-
-
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Error::EOS => write!(f, "reached EOS before parsing end"),
-            Error::MalformedHeader => write!(f, "block header is malformed"),
-            Error::MalformedProof => write!(f, "merkle proof is malformed"),
-            Error::InvalidProof => write!(f, "invalid merkle proof"),
-            Error::MalformedTransaction => write!(f, "invalid transaction format"),
-            Error::MalformedWitnessOutput => write!(f, "invalid witness output format"),
-            Error::MalformedP2PKHOutput => write!(f, "invalid P2PKH output format"),
-            Error::MalformedP2SHOutput => write!(f, "invalid P2SH output format"),
-            Error::MalformedOpReturnOutput => write!(f, "invalid OP_RETURN output format"),
-            Error::UnsupportedOutputFormat => write!(f, "unsupported output type. Currently supported: Witness, P2PKH, P2SH")
-        }
-    }
-}
 
 // Bitcoin Script OpCodes
 pub enum OpCode {
