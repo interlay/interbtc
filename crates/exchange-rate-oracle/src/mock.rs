@@ -7,7 +7,6 @@ use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup},
     Perbill,
 };
-
 use mocktopus::mocking::clear_mocks;
 
 impl_outer_origin! {
@@ -20,7 +19,7 @@ mod test_events {
 
 impl_outer_event! {
     pub enum TestEvent for Test {
-        test_events,
+        test_events<T>,
     }
 }
 
@@ -58,10 +57,10 @@ impl Trait for Test {
     type Event = TestEvent;
 }
 
-pub type Error = crate::Error;
+// pub type Error = crate::Error;
 
 pub type System = system::Module<Test>;
-pub type BTCRelay = Module<Test>;
+pub type ExchangeRateOracle = Module<Test>;
 
 pub struct ExtBuilder;
 

@@ -39,9 +39,6 @@ version = '2.0.0'
 git = 'https://github.com/paritytech/substrate.git'
 rev = '3e651110aa06aa835790df63410a29676243fc54'
 
-[dependencies.bitcoin-spv]
-path = '../bitcoin-spv'
-
 [dependencies.indexmap]
 default-features = false
 version = '1.3.2'
@@ -60,6 +57,9 @@ default-features = false
 git = 'https://github.com/paritytech/substrate.git'
 rev = '3e651110aa06aa835790df63410a29676243fc54'
 version = '2.0.0'
+
+[dependencies.btc-core]
+path = '../btc-core'
 
 [dependencies.hex]
 version = '0.4.0'

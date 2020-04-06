@@ -1,13 +1,14 @@
 use crate::types::*;
 
-use node_primitives::Moment;
-use primitive_types::{U256};
-use bitcoin_spv::btcspv;
+use primitive_types::U256;
 
 #[cfg(test)]
 extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
+
+
+use btc_core::Error;
 
 const SERIALIZE_TRANSACTION_NO_WITNESS: i32 = 0x40000000;
 
@@ -66,7 +67,7 @@ impl Parsable for BlockHeader {
             return Err(Error::EOS);
         }
         let header_bytes = header_from_bytes(&raw_bytes[position..position + 80]);
-        let block_header = parse_block_header(header_bytes);
+        let block_header = parse_block_header(header_bytes)?;
         Ok((block_header, 80))
     }
 }
@@ -136,6 +137,22 @@ impl Parsable for TransactionOutput {
     }
 }
 
+impl Parsable for U256 {
+    fn parse(raw_bytes: &[u8], position: usize) -> Result<(U256, usize), Error> {
+        if position + 4 > raw_bytes.len() {
+            return Err(Error::EOS)
+        }
+        let raw_exponent = raw_bytes[position + 3];
+        if raw_exponent < 3 {
+            return Err(Error::MalformedHeader);
+        }
+        let exponent = raw_exponent - 3;
+        let mantissa = U256::from_little_endian(&raw_bytes[position..position + 3]);
+        let offset = U256::from(256).pow(U256::from(exponent));
+        Ok((mantissa * offset, 4))
+    }
+}
+
 /// BytesParser is a stateful parser for raw bytes
 /// The head of the parser is updated for each `read` or `parse` operation
 pub(crate) struct BytesParser {
@@ -188,11 +205,11 @@ impl BytesParser {
 
 /// Allows to parse the given structure from little-endian encoded bytes
 pub trait FromLeBytes: Sized {
-    fn from_le_bytes(bytes: &[u8]) -> Self;
+    fn from_le_bytes(bytes: &[u8]) -> Result<Self, Error>;
 }
 
 impl FromLeBytes for BlockHeader {
-    fn from_le_bytes(bytes: &[u8]) -> BlockHeader {
+    fn from_le_bytes(bytes: &[u8]) -> Result<BlockHeader, Error> {
         parse_block_header(header_from_bytes(bytes))
     }
 }
@@ -208,82 +225,31 @@ pub fn header_from_bytes(bytes: &[u8]) -> RawBlockHeader {
     result
 }
 
-/// Extracts the nonce from a block header.
-///
-/// # Arguments
-///
-/// * `header` - An 80-byte Bitcoin header
-pub fn extract_nonce(header: RawBlockHeader) -> u32 {
-    let mut nonce: [u8; 4] = Default::default();
-    nonce.copy_from_slice(&header[76..80]);
-    u32::from_le_bytes(nonce)
-}
-
-/// Extracts the version from a block header.
-///
-/// # Arguments
-///
-/// * `header` - An 80-byte Bitcoin header
-pub fn extract_version(header: RawBlockHeader) -> u32 {
-    let mut version: [u8; 4] = Default::default();
-    version.copy_from_slice(&header[0..4]);
-    u32::from_le_bytes(version)
-}
-
-/// Extracts the target from a block header.
-///
-/// # Arguments
-///
-/// * `header` - An 80-byte Bitcoin header
-pub fn extract_target(header: RawBlockHeader) -> U256 {
-    let target = btcspv::extract_target(header);
-    U256::from_little_endian(&target.to_bytes_le())
-}
-
-/// Extracts the timestamp from a block header.
-///
-/// # Arguments
-///
-/// * `header` - An 80-byte Bitcoin header
-pub fn extract_timestamp(header: RawBlockHeader) -> Moment {
-    btcspv::extract_timestamp(header) as u64
-}
-
-/// Extracts the previous block hash from a block header.
-///
-/// # Arguments
-///
-/// * `header` - An 80-byte Bitcoin header
-pub fn extract_previous_block_hash(header: RawBlockHeader) -> H256Le {
-    H256Le::from_bytes_le(&btcspv::extract_prev_block_hash_le(header))
-}
-
-/// Extracts the merkle root from a block header.
-///
-/// # Arguments
-///
-/// * `header` - An 80-byte Bitcoin header
-pub fn extract_merkle_root(header: RawBlockHeader) -> H256Le {
-    H256Le::from_bytes_le(&btcspv::extract_merkle_root_le(header))
-}
 
 /// Parses the raw bitcoin header into a Rust struct
 ///
 /// # Arguments
 ///
 /// * `header` - An 80-byte Bitcoin header
-pub fn parse_block_header(raw_header: RawBlockHeader) -> BlockHeader {
+pub fn parse_block_header(raw_header: RawBlockHeader) -> Result<BlockHeader, Error> {
+    let mut parser = BytesParser::new(&raw_header);
+    let version: i32 = parser.parse()?;
+    let previous_block_hash: H256Le = parser.parse()?;
+    let merkle_root: H256Le = parser.parse()?;
+    let timestamp: u32 = parser.parse()?;
+    let target: U256 = parser.parse()?;
+    let nonce: u32 = parser.parse()?;
 
     let block_header = BlockHeader {
-        merkle_root: extract_merkle_root(raw_header),
-        target: extract_target(raw_header),
-        timestamp: extract_timestamp(raw_header),
-        version: extract_version(raw_header),
-        nonce: extract_nonce(raw_header),
-        hash_prev_block: extract_previous_block_hash(raw_header),
+        merkle_root: merkle_root,
+        target: target,
+        timestamp: timestamp as u64,
+        version: version,
+        nonce: nonce,
+        hash_prev_block: previous_block_hash,
     };
 
-    return block_header;
+    return Ok(block_header);
 }
 
 /// Returns the value of a compactly encoded uint and the number of bytes consumed
@@ -434,7 +400,9 @@ pub fn parse_transaction_output(raw_output: &[u8]) -> Result<(TransactionOutput,
 }
 
 pub fn extract_value(raw_output: &[u8]) -> u64 {
-    return btcspv::extract_value(raw_output);
+    let mut arr: [u8; 8] = Default::default();
+    arr.copy_from_slice(&raw_output[..8]);
+    u64::from_le_bytes(arr)
 }
 
 pub fn extract_address_hash(output_script: &[u8]) -> Result<Vec<u8>, Error> {
@@ -508,8 +476,8 @@ mod tests {
             "24d95a54" + // ........................... Unix time: 1415239972
             "30c31b18" + // ........................... Target: 0x1bc330 * 256**(0x18-3)
             "fe9f0864";
-        let raw_header = bitcoin_spv::utils::deserialize_hex(&hex_header[..]).unwrap();
-        let parsed_header = parse_block_header(header_from_bytes(&raw_header));
+        let raw_header = hex::decode(&hex_header[..]).unwrap();
+        let parsed_header = parse_block_header(header_from_bytes(&raw_header)).unwrap();
         assert_eq!(parsed_header.version, 2);
         assert_eq!(parsed_header.timestamp, 1415239972);
         assert_eq!(
@@ -601,7 +569,7 @@ mod tests {
     #[test]
     fn test_parse_coinbase_transaction_input() {
         let raw_input = sample_coinbase_transaction_input();
-        let input_bytes = bitcoin_spv::utils::deserialize_hex(&raw_input).unwrap();
+        let input_bytes = hex::decode(&raw_input).unwrap();
         let mut parser = BytesParser::new(&input_bytes);
         let input: TransactionInput = parser.parse_with(2).unwrap();
         assert_eq!(input.coinbase, true);
@@ -616,7 +584,7 @@ mod tests {
     #[test]
     fn test_parse_transaction_input() {
         let raw_input = sample_transaction_input();
-        let input_bytes = bitcoin_spv::utils::deserialize_hex(&raw_input).unwrap();
+        let input_bytes = hex::decode(&raw_input).unwrap();
         let mut parser = BytesParser::new(&input_bytes);
         let input: TransactionInput = parser.parse_with(2).unwrap();
         assert_eq!(input.coinbase, false);
@@ -633,7 +601,7 @@ mod tests {
     #[test]
     fn test_parse_transaction_output() {
         let raw_output = sample_transaction_output();
-        let output_bytes = bitcoin_spv::utils::deserialize_hex(&raw_output).unwrap();
+        let output_bytes = hex::decode(&raw_output).unwrap();
         let mut parser = BytesParser::new(&output_bytes);
         let output: TransactionOutput = parser.parse().unwrap();
         assert_eq!(output.value, 4999990000);
@@ -676,7 +644,7 @@ mod tests {
 
     #[test]
     fn test_extract_address_hash_valid_p2pkh(){
-        let p2pkh_script = bitcoin_spv::utils::deserialize_hex(&sample_valid_p2pkh()).unwrap();
+        let p2pkh_script = hex::decode(&sample_valid_p2pkh()).unwrap();
 
         let p2pkh_address: [u8; 20] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
 
@@ -687,7 +655,7 @@ mod tests {
 
     #[test]
     fn test_extract_address_hash_valid_p2sh(){
-        let p2sh_script = bitcoin_spv::utils::deserialize_hex(&sample_valid_p2sh()).unwrap();
+        let p2sh_script = hex::decode(&sample_valid_p2sh()).unwrap();
 
         let p2sh_address: [u8; 20] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
 
@@ -699,7 +667,7 @@ mod tests {
     /*
     #[test]
     fn test_extract_address_invalid_p2pkh_fails() {
-        let p2pkh_script = bitcoin_spv::utils::deserialize_hex(&sample_malformed_p2pkh_output()).unwrap();
+        let p2pkh_script = hex::decode(&sample_malformed_p2pkh_output()).unwrap();
 
         assert_eq!(extract_address_hash(&p2pkh_script).err(), Some(Error::MalformedP2PKHOutput));
     }

@@ -1,5 +1,5 @@
 [package]
-name = "btc-relay"
+name = "exchange-rate-oracle"
 version = "0.0.1"
 authors = ["Interlay Ltd"]
 edition = "2018"
@@ -7,7 +7,6 @@ edition = "2018"
 [features]
 default = ['std']
 std = [
-    'serde',
     'codec/std',
     'frame-support/std',
     'sp-runtime/std',
@@ -15,14 +14,7 @@ std = [
     'system/std',
     'timestamp/std',
     'sp-core/std',
-	'node-primitives/std',
-	'sp-std/std',
 ]
-
-[dependencies.serde]
-features = ['derive']
-optional = true
-version = '1.0.101'
 
 [dependencies.codec]
 default-features = false
@@ -68,38 +60,8 @@ package = 'pallet-timestamp'
 rev = '3e651110aa06aa835790df63410a29676243fc54'
 version = '2.0.0'
 
-[dependencies.node-primitives]
-default-features = false
-version = '2.0.0'
-git = 'https://github.com/paritytech/substrate.git'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-
-[dependencies.sp-std]
-default-features = false
-version = '2.0.0'
-git = 'https://github.com/paritytech/substrate.git'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-
-[dependencies.bitcoin]
-default-features = false
-path = '../bitcoin'
-version = '0.1.0'
-
-[dependencies.security]
-default-features = false
-path = '../security'
-version = '0.1.0'
-
-[dependencies.btc-core]
-path = '../btc-core'
-
-[dependencies.indexmap]
-default-features = false
-version = '1.3.2'
-
-[dependencies.hex]
-version = "0.4.0"
+[dependencies.xclaim-core]
+path = '../xclaim-core'
 
 [dev-dependencies]
 mocktopus = "0.7.0"
-

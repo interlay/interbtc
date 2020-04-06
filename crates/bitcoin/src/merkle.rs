@@ -1,12 +1,14 @@
-use crate::parser::BytesParser;
-use crate::types::{BlockHeader, Error, H256Le, CompactUint};
-
-use bitcoin_spv::btcspv::hash256_merkle_step;
-
 #[cfg(test)]
 extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
+
+use btc_core::Error;
+
+use crate::parser::BytesParser;
+use crate::types::{BlockHeader, H256Le, CompactUint};
+use crate::utils::hash256_merkle_step;
+
 
 /// Values taken from https://github.com/bitcoin/bitcoin/blob/78dae8caccd82cfbfd76557f1fb7d7557c7b5edb/src/consensus/consensus.h
 const MAX_BLOCK_WEIGHT: u32 = 4000000;
@@ -67,7 +69,7 @@ impl MerkleProof {
 
         if height == 0 || !parent_of_hash {
             if traversal.hashes_used >= self.hashes.len() {
-                return Err(Error::MalformedProof);
+                return Err(Error::MalformedMerkleProof);
             }
             let hash = self.hashes[traversal.hashes_used];
             if height == 0 && parent_of_hash {
@@ -86,7 +88,7 @@ impl MerkleProof {
         };
 
         let hashed_bytes = hash256_merkle_step(&left.to_bytes_le(), &right.to_bytes_le());
-        Ok(H256Le::from_bytes_le(&hashed_bytes))
+        Ok(hashed_bytes)
     }
 
     /// Computes the merkle root of the proof partial merkle tree
@@ -100,31 +102,31 @@ impl MerkleProof {
 
         // fail if no transactions
         if self.transactions_count == 0 {
-            return Err(Error::MalformedProof);
+            return Err(Error::MalformedMerkleProof);
         }
 
         // fail if too many transactions
         if self.transactions_count > MAX_TRANSACTIONS_IN_PROOF {
-            return Err(Error::MalformedProof);
+            return Err(Error::MalformedMerkleProof);
         }
 
         // fail if not at least one bit per hash
         if self.flag_bits.len() < self.hashes.len() {
-            return Err(Error::MalformedProof);
+            return Err(Error::MalformedMerkleProof);
         }
 
         let root = self.traverse_and_extract(self.compute_tree_height(), 0, &mut traversal)?;
-        let merkle_position = traversal.merkle_position.ok_or(Error::InvalidProof)?;
-        let hash_position = traversal.hash_position.ok_or(Error::InvalidProof)?;
+        let merkle_position = traversal.merkle_position.ok_or(Error::InvalidMerkleProof)?;
+        let hash_position = traversal.hash_position.ok_or(Error::InvalidMerkleProof)?;
 
         // fail if all hashes are not used
         if traversal.hashes_used != self.hashes.len() {
-            return Err(Error::MalformedProof);
+            return Err(Error::MalformedMerkleProof);
         }
 
         // fail if all bits are not used
         if (traversal.bits_used + 7) / 8 != (self.flag_bits.len() + 7) / 8 {
-            return Err(Error::MalformedProof);
+            return Err(Error::MalformedMerkleProof);
         }
 
         Ok(ProofResult {
@@ -180,7 +182,6 @@ impl MerkleProof {
 mod tests {
     use super::*;
 
-    use bitcoin_spv::utils::deserialize_hex;
     use primitive_types::H256;
     use std::str::FromStr;
     use mocktopus::mocking::*;
@@ -211,7 +212,7 @@ mod tests {
     fn test_mock_verify_proof() {
         let mock_proof_result = sample_valid_proof_result();
 
-        let proof = MerkleProof::parse(&deserialize_hex(&PROOF_HEX[..]).unwrap()).unwrap();
+        let proof = MerkleProof::parse(&hex::decode(&PROOF_HEX[..]).unwrap()).unwrap();
         MerkleProof::verify_proof.
             mock_safe(move |_| MockResult::Return(Ok(mock_proof_result)));
 
@@ -221,7 +222,7 @@ mod tests {
 
     #[test]
     fn test_parse_proof() {
-        let raw_proof = deserialize_hex(&PROOF_HEX[..]).unwrap();
+        let raw_proof = hex::decode(&PROOF_HEX[..]).unwrap();
         let proof = MerkleProof::parse(&raw_proof).unwrap();
         let expected_merkle_root =
             H256::from_str("a0e8ab249b25ef31da538262ab8b2885ce63ca82a22fd0efdce76ea6920d1f90")
@@ -238,7 +239,7 @@ mod tests {
 
     #[test]
     fn test_compute_tree_width() {
-        let proof = MerkleProof::parse(&deserialize_hex(&PROOF_HEX[..]).unwrap()).unwrap();
+        let proof = MerkleProof::parse(&hex::decode(&PROOF_HEX[..]).unwrap()).unwrap();
         assert_eq!(proof.compute_tree_width(0), proof.transactions_count);
         assert_eq!(
             proof.compute_tree_width(1),
@@ -249,13 +250,13 @@ mod tests {
 
     #[test]
     fn test_compute_tree_height() {
-        let proof = MerkleProof::parse(&deserialize_hex(&PROOF_HEX[..]).unwrap()).unwrap();
+        let proof = MerkleProof::parse(&hex::decode(&PROOF_HEX[..]).unwrap()).unwrap();
         assert_eq!(proof.compute_tree_height(), 12);
     }
 
     #[test]
     fn test_extract_hash() {
-        let proof = MerkleProof::parse(&deserialize_hex(&PROOF_HEX[..]).unwrap()).unwrap();
+        let proof = MerkleProof::parse(&hex::decode(&PROOF_HEX[..]).unwrap()).unwrap();
         let merkle_root = H256Le::from_bytes_le(&proof.block_header.merkle_root.to_bytes_le());
         let result = proof.verify_proof().unwrap();
         assert_eq!(result.extracted_root, merkle_root);

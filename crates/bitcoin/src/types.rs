@@ -5,14 +5,16 @@ use codec::{Encode, Decode};
 use node_primitives::{Moment};
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
-use bitcoin_spv::types::{RawHeader};
+
+use btc_core::Error;
+
 use crate::utils::*;
 use crate::parser::*;
 /// Custom Types
 /// Bitcoin Raw Block Header type
 
 
-pub type RawBlockHeader = RawHeader;
+pub type RawBlockHeader = [u8; 80];
 
 // #[derive(Encode, Decode, Default, Copy, Clone, PartialEq)]
 // struct RawBlockHeader(pub [u8; 32]);
@@ -37,7 +39,7 @@ pub struct BlockHeader {
     pub merkle_root: H256Le,
     pub target: U256,
     pub timestamp: Moment,
-    pub version: u32,
+    pub version: i32,
     pub hash_prev_block: H256Le,
     pub nonce: u32
 }
@@ -108,13 +110,13 @@ pub struct RichBlockHeader {
 impl RichBlockHeader {
     
     // Creates a RichBlockHeader given a RawBlockHeader, Blockchain identifier and block height
-    pub fn construct_rich_block_header(raw_block_header: RawBlockHeader, chain_ref: u32, block_height: u32) -> RichBlockHeader {
-        RichBlockHeader {
+    pub fn construct_rich_block_header(raw_block_header: RawBlockHeader, chain_ref: u32, block_height: u32) -> Result<RichBlockHeader, Error> {
+        Ok(RichBlockHeader {
             block_hash: BlockHeader::block_hash_le(&raw_block_header),
-            block_header: BlockHeader::from_le_bytes(&raw_block_header),
+            block_header: BlockHeader::from_le_bytes(&raw_block_header)?,
             block_height: block_height,
             chain_ref: chain_ref,
-        }
+        })
     }
 }
 
@@ -152,24 +154,24 @@ impl H256Le {
 
     /// Creates a H256Le from big endian bytes
     pub fn from_bytes_be(bytes: &[u8]) -> H256Le {
-        let bytes_le = bitcoin_spv::utils::reverse_endianness(bytes);
+        let bytes_le = reverse_endianness(bytes);
         let mut content: [u8; 32] = Default::default();
         content.copy_from_slice(&bytes_le);
         H256Le { content: content }
     }
 
     pub fn from_hex_le(hex: &str) -> H256Le {
-        H256Le::from_bytes_le(&bitcoin_spv::utils::deserialize_hex(hex).unwrap())
+        H256Le::from_bytes_le(&hex::decode(hex).unwrap())
     }
 
     pub fn from_hex_be(hex: &str) -> H256Le {
-        H256Le::from_bytes_be(&bitcoin_spv::utils::deserialize_hex(hex).unwrap())
+        H256Le::from_bytes_be(&hex::decode(hex).unwrap())
     }
 
     /// Returns the content of the H256Le encoded in big endian
     pub fn to_bytes_be(&self) -> [u8; 32] {
         let mut content: [u8; 32] = Default::default();
-        content.copy_from_slice(&bitcoin_spv::utils::reverse_endianness(&self.content[..]));
+        content.copy_from_slice(&reverse_endianness(&self.content[..]));
         content
     }
 
@@ -180,7 +182,7 @@ impl H256Le {
 
     /// Returns the content of the H256Le encoded in little endian hex
     pub fn to_hex_le(&self) -> String {
-        bitcoin_spv::utils::serialize_hex(&self.to_bytes_le())
+        hex::encode(&self.to_bytes_le())
     }
 
     /// Returns the content of the H256Le encoded in big endian hex
@@ -188,8 +190,14 @@ impl H256Le {
         hex::encode(&self.to_bytes_be())
     }
 
+    /// Returns the value as a U256
     pub fn as_u256(&self) -> U256 {
         U256::from_little_endian(&self.to_bytes_le())
+    }
+
+    /// Hashes the value a single time using sha256
+    pub fn sha256d(&self) -> Self {
+        Self::from_bytes_le(&sha256d(&self.to_bytes_le()))
     }
 }
 
@@ -206,56 +214,6 @@ impl std::fmt::LowerHex for H256Le {
     }
 }
 
-
-/// Errors which can be returned by the bitcoin crate
-#[derive(Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
-pub enum Error {
-    /// Reached EOS without finishing to parse bytes
-    EOS,
-
-    /// Format of the proof is not correct
-    MalformedProof,
-
-    /// Format of the proof is correct but does not yield the correct
-    /// merkle root
-    InvalidProof,
-
-    /// Format of the transaction is invalid
-    MalformedTransaction,
-
-    /// Format of the BIP141 witness transaction output is invalid
-    MalformedWitnessOutput,
-
-    // Format of the P2PKH transaction output is invalid
-    MalformedP2PKHOutput,
-
-    // Format of the P2SH transaction output is invalid
-    MalformedP2SHOutput,
-
-    /// Format of the OP_RETURN transaction output is invalid
-    MalformedOpReturnOutput,
-
-    // Output does not match format of supported output types (Witness, P2PKH, P2SH)
-    UnsupportedOutputFormat
-}
-
-
-impl std::fmt::Display for Error {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Error::EOS => write!(f, "reached EOS before parsing end"),
-            Error::MalformedProof => write!(f, "merkle proof is malformed"),
-            Error::InvalidProof => write!(f, "invalid merkle proof"),
-            Error::MalformedTransaction => write!(f, "invalid transaction format"),
-            Error::MalformedWitnessOutput => write!(f, "invalid witness output format"),
-            Error::MalformedP2PKHOutput => write!(f, "invalid P2PKH output format"),
-            Error::MalformedP2SHOutput => write!(f, "invalid P2SH output format"),
-            Error::MalformedOpReturnOutput => write!(f, "invalid OP_RETURN output format"),
-            Error::UnsupportedOutputFormat => write!(f, "unsupported output type. Currently supported: Witness, P2PKH, P2SH")
-        }
-    }
-}
 
 // Bitcoin Script OpCodes
 pub enum OpCode {

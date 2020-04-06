@@ -1,0 +1,9 @@
+[workspace]
+members = [
+  "crates/btc-core",
+  "crates/xclaim-core",
+  "crates/bitcoin",
+  "crates/btc-relay",
+  "crates/security",
+  "crates/exchange-rate-oracle",
+]

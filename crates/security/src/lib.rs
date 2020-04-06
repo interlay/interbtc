@@ -1,3 +1,4 @@
+#![deny(warnings)]
 #![cfg_attr(not(feature = "std"), no_std)]
 #[cfg(test)]
 mod tests;
@@ -176,7 +177,7 @@ impl<T: Trait> Module<T> {
 	/// # Arguments
 	///
 	/// * `error_code` - to-be-checked ErrorCode enum
-	fn check_parachain_error(error_code: ErrorCode) -> bool {
+	pub fn check_parachain_error(error_code: ErrorCode) -> bool {
 		return <Errors>::get().contains(&(error_code as u8));
 	}
     /// Checks if a staked relayer is registered
