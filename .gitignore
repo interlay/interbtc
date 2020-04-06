@@ -2,4 +2,5 @@
 */*/target/*
 .idea
 *.vscode
+/target/*
 
