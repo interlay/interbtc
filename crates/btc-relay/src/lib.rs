@@ -677,12 +677,11 @@ impl<T: Trait> Module<T> {
         let new_target = U256::from(actual_timespan) * prev_block_header.block_header.target / U256::from(TARGET_TIMESPAN);
 
         // ensure target does not exceed max. target
-        match new_target > UNROUNDED_MAX_TARGET {
-            true => UNROUNDED_MAX_TARGET,
-            false => new_target
-        };
-
-        Ok(new_target)
+        Ok(if new_target > UNROUNDED_MAX_TARGET {
+            UNROUNDED_MAX_TARGET
+        } else {
+            new_target
+        })
     }
 
     /// Returns the timestamp of the last difficulty retarget on the specified BlockChain, given the current block height
