@@ -5,6 +5,8 @@ use frame_support::dispatch::DispatchError;
 pub enum Error {
     MissingExchangeRate,
     InvalidOracleSource,
+    InsufficientFunds,
+    InsufficientLockedFunds,
 
     /// use only for errors which means something
     ///  going very wrong and which do not match any other error
@@ -16,6 +18,8 @@ impl Error {
         match self {
             Error::MissingExchangeRate => "Exchange rate not set",
             Error::InvalidOracleSource => "Invalid oracle account",
+            Error::InsufficientFunds => "The balance of this account is insufficient to complete the transaction.",
+            Error::InsufficientLockedFunds => "The locked token balance of this account is insufficient to burn the tokens.",
             Error::RuntimeError => "Runtim error",
         }
     }
