@@ -20,7 +20,7 @@ use mocktopus::macros::mockable;
 
 // Substrate
 use frame_support::{
-    decl_module, decl_storage, decl_event, 
+    decl_module, decl_event, 
     dispatch::DispatchResult, ensure
 };
 use system::ensure_signed;
@@ -33,24 +33,22 @@ use xclaim_core::Error;
 type BalanceOf<T> = <<T as Trait>::PolkaBTC as Currency<<T as system::Trait>::AccountId>>::Balance;
 
 /// The treasury's module id, used for deriving its sovereign account ID.
-const MODULE_ID: ModuleId = ModuleId(*b"ily/trsy");
+const _MODULE_ID: ModuleId = ModuleId(*b"ily/trsy");
 
 /// The pallet's configuration trait.
 pub trait Trait: system::Trait {
     /// The PolkaBTC currency
     type PolkaBTC: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>; 
-
+    
 	/// The overarching event type.
 	type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
 
 // This pallet's storage items.
-decl_storage! {
-	trait Store for Module<T: Trait> as Treasury {
-        // locked balances
-        // LockedBalances: map hasher(blake2_128_concat) T::AccountId => T::Currency;
-	}
-}
+// decl_storage! {
+// 	trait Store for Module<T: Trait> as Treasury {
+// 	}
+// }
 
 // The pallet's events
 decl_event!(
@@ -86,10 +84,13 @@ decl_module! {
         {
             let sender = ensure_signed(origin)?;
            
-            T::PolkaBTC::transfer(&sender, &receiver, amount, KeepAlive)?;
-
-            Self::deposit_event(RawEvent::Transfer(sender, receiver, amount));
-            Ok(())
+            match T::PolkaBTC::transfer(&sender, &receiver, amount, KeepAlive) {
+                Err(_) => return Err(Error::InsufficientFunds),
+                _ => {
+                    Self::deposit_event(RawEvent::Transfer(sender, receiver, amount));
+                    return Ok(());
+                }
+            }
         }
 	}
 }

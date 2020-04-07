@@ -13,6 +13,7 @@ std = [
     'frame-support/std',
     'safe-mix/std',
     'system/std',
+	'pallet-balances/std',
 ]
 
 [dependencies.codec]
@@ -46,8 +47,14 @@ default-features = false
 package = 'frame-system'
 version = '2.0.0-alpha.5'
 
+[dependencies.pallet-balances]
+default-features = false
+package = 'pallet-balances'
+version = '2.0.0-alpha.5'
+
 [dependencies.xclaim-core]
 path = '../xclaim-core'
 
 [dev-dependencies]
 mocktopus = "0.7.0"
+
