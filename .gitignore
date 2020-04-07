@@ -11,4 +11,5 @@
 ### Editors ###
 .idea
 *.vscode
+/target/*
 
