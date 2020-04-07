@@ -1,18 +1,17 @@
 extern crate hex;
 
-use primitive_types::{U256, H256};
-use codec::{Encode, Decode};
-use node_primitives::{Moment};
+use crate::parser::*;
+use crate::utils::*;
+use codec::{Decode, Encode};
+use node_primitives::Moment;
+use primitive_types::{H256, U256};
 use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
 
 use btc_core::Error;
 
-use crate::utils::*;
-use crate::parser::*;
 /// Custom Types
 /// Bitcoin Raw Block Header type
-
 
 pub type RawBlockHeader = [u8; 80];
 
@@ -41,16 +40,15 @@ pub struct BlockHeader {
     pub timestamp: Moment,
     pub version: i32,
     pub hash_prev_block: H256Le,
-    pub nonce: u32
+    pub nonce: u32,
 }
 
 impl BlockHeader {
-
-    pub fn block_hash_le(bytes: &[u8]) -> H256Le{
+    pub fn block_hash_le(bytes: &[u8]) -> H256Le {
         sha256d_le(bytes)
     }
 
-    pub fn block_hash_be(bytes: &[u8]) -> H256{
+    pub fn block_hash_be(bytes: &[u8]) -> H256 {
         sha256d_be(bytes)
     }
 }
@@ -68,7 +66,7 @@ pub struct TransactionInput {
 }
 
 impl TransactionInput {
-    pub fn with_witness(&mut self, witness: Vec<u8>) -> () {
+    pub fn with_witness(&mut self, witness: Vec<u8>) {
         self.witness = Some(witness);
     }
 }
@@ -87,9 +85,8 @@ pub struct Transaction {
     pub inputs: Vec<TransactionInput>,
     pub outputs: Vec<TransactionOutput>,
     pub block_height: Option<u32>, //FIXME: why is this optional?
-    pub locktime: Option<u32>, //FIXME: why is this optional?
+    pub locktime: Option<u32>,     //FIXME: why is this optional?
 }
-
 
 impl Transaction {
     pub fn tx_id(raw_tx: &[u8]) -> H256Le {
@@ -108,14 +105,17 @@ pub struct RichBlockHeader {
 }
 
 impl RichBlockHeader {
-    
     // Creates a RichBlockHeader given a RawBlockHeader, Blockchain identifier and block height
-    pub fn construct_rich_block_header(raw_block_header: RawBlockHeader, chain_ref: u32, block_height: u32) -> Result<RichBlockHeader, Error> {
+    pub fn construct_rich_block_header(
+        raw_block_header: RawBlockHeader,
+        chain_ref: u32,
+        block_height: u32,
+    ) -> Result<RichBlockHeader, Error> {
         Ok(RichBlockHeader {
             block_hash: BlockHeader::block_hash_le(&raw_block_header),
             block_header: BlockHeader::from_le_bytes(&raw_block_header)?,
-            block_height: block_height,
-            chain_ref: chain_ref,
+            block_height,
+            chain_ref,
         })
     }
 }
@@ -125,7 +125,7 @@ impl RichBlockHeader {
 //#[cfg_attr(feature = "std", derive(Debug))]
 pub struct BlockChain {
     pub chain_id: u32,
-    pub chain: BTreeMap<u32,H256Le>,
+    pub chain: BTreeMap<u32, H256Le>,
     pub start_height: u32,
     pub max_height: u32,
     pub no_data: BTreeSet<u32>,
@@ -136,7 +136,7 @@ pub struct BlockChain {
 #[derive(Encode, Decode, Default, PartialEq, Eq, Clone, Copy, Debug)]
 //#[cfg_attr(feature="std", derive(Debug))]
 pub struct H256Le {
-    content: [u8; 32]
+    content: [u8; 32],
 }
 
 impl H256Le {
@@ -149,7 +149,7 @@ impl H256Le {
     pub fn from_bytes_le(bytes: &[u8]) -> H256Le {
         let mut content: [u8; 32] = Default::default();
         content.copy_from_slice(&bytes);
-        H256Le { content: content }
+        H256Le { content }
     }
 
     /// Creates a H256Le from big endian bytes
@@ -157,7 +157,7 @@ impl H256Le {
         let bytes_le = reverse_endianness(bytes);
         let mut content: [u8; 32] = Default::default();
         content.copy_from_slice(&bytes_le);
-        H256Le { content: content }
+        H256Le { content }
     }
 
     pub fn from_hex_le(hex: &str) -> H256Le {
@@ -177,7 +177,7 @@ impl H256Le {
 
     /// Returns the content of the H256Le encoded in little endian
     pub fn to_bytes_le(&self) -> [u8; 32] {
-        self.content.clone()
+        self.content
     }
 
     /// Returns the content of the H256Le encoded in little endian hex
@@ -201,7 +201,7 @@ impl H256Le {
     }
 }
 
-#[cfg(feature="std")]
+#[cfg(feature = "std")]
 impl std::fmt::Display for H256Le {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "0x{}", self.to_hex_be())
@@ -220,9 +220,9 @@ pub enum OpCode {
     OpDup = 0x76,
     OpHash160 = 0xa9,
     OpEqualVerify = 0x88,
-    OpCheckSig = 0xac, 
+    OpCheckSig = 0xac,
     OpEqual = 0x87,
-    OpReturn = 0x6a
+    OpReturn = 0x6a,
 }
 
 impl PartialEq<H256Le> for H256 {
@@ -237,7 +237,6 @@ impl PartialEq<H256> for H256Le {
         *other == *self
     }
 }
-
 
 pub(crate) struct CompactUint {
     pub(crate) value: u64,

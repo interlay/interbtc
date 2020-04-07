@@ -53,7 +53,7 @@ pub enum Error {
 }
 
 impl Error {
-    pub fn message(&self) -> &'static str {
+    pub fn message(self) -> &'static str {
         match self {
             Error::AlreadyInitialized => "Already initialized",
             Error::MissingBlockHeight => "Missing the block at this height",
