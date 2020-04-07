@@ -214,7 +214,6 @@ impl std::fmt::LowerHex for H256Le {
     }
 }
 
-
 // Bitcoin Script OpCodes
 pub enum OpCode {
     OpDup = 0x76,

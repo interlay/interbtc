@@ -6,9 +6,8 @@ use mocktopus::macros::mockable;
 use btc_core::Error;
 
 use crate::parser::BytesParser;
-use crate::types::{BlockHeader, H256Le, CompactUint};
+use crate::types::{BlockHeader, CompactUint, H256Le};
 use crate::utils::hash256_merkle_step;
-
 
 /// Values taken from https://github.com/bitcoin/bitcoin/blob/78dae8caccd82cfbfd76557f1fb7d7557c7b5edb/src/consensus/consensus.h
 const MAX_BLOCK_WEIGHT: u32 = 4_000_000;

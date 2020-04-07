@@ -7,7 +7,6 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-
 use btc_core::Error;
 
 const SERIALIZE_TRANSACTION_NO_WITNESS: i32 = 0x4000_0000;
