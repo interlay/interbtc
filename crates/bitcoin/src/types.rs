@@ -5,7 +5,6 @@ use crate::utils::*;
 use codec::{Decode, Encode};
 use node_primitives::Moment;
 use primitive_types::{H256, U256};
-use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
 
 use btc_core::Error;
@@ -125,7 +124,6 @@ impl RichBlockHeader {
 //#[cfg_attr(feature = "std", derive(Debug))]
 pub struct BlockChain {
     pub chain_id: u32,
-    pub chain: BTreeMap<u32, H256Le>,
     pub start_height: u32,
     pub max_height: u32,
     pub no_data: BTreeSet<u32>,
@@ -213,7 +211,6 @@ impl std::fmt::LowerHex for H256Le {
         write!(f, "{}", self.to_hex_be())
     }
 }
-
 
 // Bitcoin Script OpCodes
 pub enum OpCode {
