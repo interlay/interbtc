@@ -84,13 +84,12 @@ decl_module! {
         {
             let sender = ensure_signed(origin)?;
            
-            match T::PolkaBTC::transfer(&sender, &receiver, amount, KeepAlive) {
-                Err(_) => return Err(Error::InsufficientFunds),
-                _ => {
-                    Self::deposit_event(RawEvent::Transfer(sender, receiver, amount));
-                    return Ok(());
-                }
-            }
+            T::PolkaBTC::transfer(&sender, &receiver, amount, KeepAlive)
+                .map_err(|_| Error::InsufficientFunds)?;
+            
+            Self::deposit_event(RawEvent::Transfer(sender, receiver, amount));
+            
+            Ok(())
         }
 	}
 }
