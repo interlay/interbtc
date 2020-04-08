@@ -19,6 +19,7 @@ mod test_events {
 
 impl_outer_event! {
     pub enum TestEvent for Test {
+        system<T>,
         test_events<T>,
     }
 }
@@ -51,6 +52,9 @@ impl system::Trait for Test {
     type AvailableBlockRatio = AvailableBlockRatio;
     type Version = ();
     type ModuleToIndex = ();
+	type AccountData = ();
+	type OnNewAccount = ();
+	type OnKilledAccount = ();
 }
 
 impl Trait for Test {
