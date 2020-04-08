@@ -32,6 +32,8 @@ The Substrate runtime makes use of various custom pallets and crates that are fo
 - [exchange-rate-oracle](crates/exchange-rate-oracle): [Beta] Exchange rate oracle. Integration with external provider pending.
 - [security](crates/security): [WIP] Security module, handling BTC Parachain status changes (error handling), Staked Relayers.
 - [xclaim-core](crates/xclaim-core): [WIP] Error types used in the XCLAIM component (Issue, Redeem, Replace, Vault Registry, Collateral, etc.).
+- [treasury](crates/treasury): [WIP] Exposes functions related to handling of the PolkaBTC currency (mint, transfer, lock, burn)
+- [collateral](crates/collateral) [WIP] Handles locking, releasing and slashing of collateral (e.g. DOT). 
 - see [specification](https://interlay.gitlab.io/polkabtc-spec/index.html) for outstanding modules.
 
 

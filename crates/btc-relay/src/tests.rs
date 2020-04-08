@@ -6,7 +6,6 @@ use bitcoin::parser::*;
 use bitcoin::types::*;
 use frame_support::{assert_err, assert_ok};
 use security::ErrorCode;
-use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
 
 use mocktopus::mocking::*;
@@ -491,19 +490,14 @@ fn swap_main_blockchain_succeeds() {
 
         // swap the main and fork
         assert_ok!(BTCRelay::swap_main_blockchain(&fork));
-        let mut main_chain_map = main.chain.clone();
-        for (height, hash) in fork.chain.iter() {
-            main_chain_map.insert(height.clone(), hash.clone());
-        }
+
         // check that the new main chain is correct
         let new_main = BTCRelay::get_block_chain_from_id(main_chain_ref);
         assert_eq!(fork_height, new_main.max_height);
         assert_eq!(main_start, new_main.start_height);
         assert_eq!(main_chain_ref, new_main.chain_id);
-        assert_eq!(main_chain_map.len(), new_main.chain.len());
-        for (height, _hash) in new_main.chain.iter() {
-            assert_eq!(main_chain_map.get(height), new_main.chain.get(height));
-        }
+        assert_eq!(fork_height + 1, BTCRelay::_blocks_count(main_chain_ref) as u32);
+
         assert_eq!(main.no_data, new_main.no_data);
         assert_eq!(main.invalid, new_main.invalid);
 
@@ -516,30 +510,31 @@ fn swap_main_blockchain_succeeds() {
         assert_eq!(main_height, old_main.max_height);
         assert_eq!(fork_start, old_main.start_height);
         assert_eq!(old_main_ref, old_main.chain_id);
-        assert_eq!(main_height - fork_start + 1, old_main.chain.len() as u32);
-        for (height, _hash) in old_main.chain.iter() {
-            assert_eq!(main.chain.get(height), old_main.chain.get(height));
-        }
+        let old_main_length = BTCRelay::_blocks_count(old_main.chain_id);
+        assert_eq!(main_height - fork_start + 1, old_main_length as u32);
+
         assert_eq!(main.no_data, old_main.no_data);
         assert_eq!(main.invalid, old_main.invalid);
 
         // check that the best block is set
         assert_eq!(
-            fork.chain.get(&fork_height),
-            Some(&BTCRelay::get_best_block())
+            BTCRelay::get_block_hash(new_main.chain_id, fork_height).unwrap(),
+            BTCRelay::get_best_block()
         );
 
         // check that the best block height is correct
         assert_eq!(fork_height, BTCRelay::get_best_block_height());
         // check that all fork headers are updated
-        for (_height, hash) in fork.chain.iter() {
-            let header = BTCRelay::get_block_header_from_hash(hash.clone()).unwrap();
+        for height in fork_start..=fork_height {
+            let block_hash = BTCRelay::get_block_hash(main_chain_ref, height).unwrap();
+            let header = BTCRelay::get_block_header_from_hash(block_hash).unwrap();
             assert_eq!(header.chain_ref, main_chain_ref);
         }
 
         // check that all main headers are updated
-        for (_height, hash) in main.chain.iter().skip(fork_start as usize) {
-            let header = BTCRelay::get_block_header_from_hash(hash.clone()).unwrap();
+        for height in fork_start..=main_height {
+            let block_hash = BTCRelay::get_block_hash(old_main_ref, height).unwrap();
+            let header = BTCRelay::get_block_header_from_hash(block_hash).unwrap();
             assert_eq!(header.chain_ref, old_main_ref);
         }
     })
@@ -582,7 +577,8 @@ fn test_verify_block_header_correct_retarget_increase_succeeds() {
             retarget_headers[1],
             chain_ref,
             block_height,
-        ).unwrap();
+        )
+        .unwrap();
 
         let curr_block_header = BlockHeader::from_le_bytes(&retarget_headers[2]).unwrap();
         // Prev block exists
@@ -612,7 +608,8 @@ fn test_verify_block_header_correct_retarget_decrease_succeeds() {
             retarget_headers[1],
             chain_ref,
             block_height,
-        ).unwrap();
+        )
+        .unwrap();
 
         let curr_block_header = BlockHeader::from_le_bytes(&retarget_headers[2]).unwrap();
         // Prev block exists
@@ -641,7 +638,8 @@ fn test_verify_block_header_missing_retarget_succeeds() {
             retarget_headers[1],
             chain_ref,
             block_height,
-        ).unwrap();
+        )
+        .unwrap();
 
         let curr_block_header = BlockHeader::from_le_bytes(&retarget_headers[2]).unwrap();
         // Prev block exists
@@ -667,9 +665,12 @@ fn test_compute_new_target() {
     let block_height: u32 = 2016;
     let retarget_headers = sample_retarget_interval_increase();
 
-    let last_retarget_time = BlockHeader::from_le_bytes(&retarget_headers[0]).unwrap().timestamp;
+    let last_retarget_time = BlockHeader::from_le_bytes(&retarget_headers[0])
+        .unwrap()
+        .timestamp;
     let prev_block_header =
-        RichBlockHeader::construct_rich_block_header(retarget_headers[1], chain_ref, block_height).unwrap();
+        RichBlockHeader::construct_rich_block_header(retarget_headers[1], chain_ref, block_height)
+            .unwrap();
 
     let curr_block_header = BlockHeader::from_le_bytes(&retarget_headers[2]).unwrap();
 
@@ -808,7 +809,7 @@ fn test_validate_transaction_invalid_no_outputs_fails() {
                 recipient_btc_address,
                 op_return_id
             ),
-            Error::TxFormat
+            Error::MalformedTransaction
         )
     });
 }
@@ -1423,11 +1424,8 @@ fn get_empty_block_chain_from_chain_id_and_height(
     start_height: u32,
     block_height: u32,
 ) -> BlockChain {
-    let chain = BTreeMap::new();
-
     let blockchain = BlockChain {
         chain_id: chain_id,
-        chain: chain,
         start_height: start_height,
         max_height: block_height,
         no_data: BTreeSet::new(),

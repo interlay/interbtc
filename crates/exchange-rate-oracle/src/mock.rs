@@ -1,13 +1,13 @@
 /// Mocking the test environment
 use crate::{Module, Trait};
 use frame_support::{impl_outer_event, impl_outer_origin, parameter_types, weights::Weight};
+use mocktopus::mocking::clear_mocks;
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
     Perbill,
 };
-use mocktopus::mocking::clear_mocks;
 
 impl_outer_origin! {
     pub enum Origin for Test {}

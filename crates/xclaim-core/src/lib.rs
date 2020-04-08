@@ -14,7 +14,7 @@ pub enum Error {
 }
 
 impl Error {
-    pub fn message(&self) -> &'static str {
+    pub fn message(self) -> &'static str {
         match self {
             Error::MissingExchangeRate => "Exchange rate not set",
             Error::InvalidOracleSource => "Invalid oracle account",
@@ -30,7 +30,6 @@ impl ToString for Error {
         String::from(self.message())
     }
 }
-
 
 impl std::convert::From<Error> for DispatchError {
     fn from(error: Error) -> Self {
