@@ -582,7 +582,8 @@ fn test_verify_block_header_correct_retarget_increase_succeeds() {
             retarget_headers[1],
             chain_ref,
             block_height,
-        ).unwrap();
+        )
+        .unwrap();
 
         let curr_block_header = BlockHeader::from_le_bytes(&retarget_headers[2]).unwrap();
         // Prev block exists
@@ -612,7 +613,8 @@ fn test_verify_block_header_correct_retarget_decrease_succeeds() {
             retarget_headers[1],
             chain_ref,
             block_height,
-        ).unwrap();
+        )
+        .unwrap();
 
         let curr_block_header = BlockHeader::from_le_bytes(&retarget_headers[2]).unwrap();
         // Prev block exists
@@ -641,7 +643,8 @@ fn test_verify_block_header_missing_retarget_succeeds() {
             retarget_headers[1],
             chain_ref,
             block_height,
-        ).unwrap();
+        )
+        .unwrap();
 
         let curr_block_header = BlockHeader::from_le_bytes(&retarget_headers[2]).unwrap();
         // Prev block exists
@@ -667,9 +670,12 @@ fn test_compute_new_target() {
     let block_height: u32 = 2016;
     let retarget_headers = sample_retarget_interval_increase();
 
-    let last_retarget_time = BlockHeader::from_le_bytes(&retarget_headers[0]).unwrap().timestamp;
+    let last_retarget_time = BlockHeader::from_le_bytes(&retarget_headers[0])
+        .unwrap()
+        .timestamp;
     let prev_block_header =
-        RichBlockHeader::construct_rich_block_header(retarget_headers[1], chain_ref, block_height).unwrap();
+        RichBlockHeader::construct_rich_block_header(retarget_headers[1], chain_ref, block_height)
+            .unwrap();
 
     let curr_block_header = BlockHeader::from_le_bytes(&retarget_headers[2]).unwrap();
 

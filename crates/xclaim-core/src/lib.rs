@@ -18,8 +18,12 @@ impl Error {
         match self {
             Error::MissingExchangeRate => "Exchange rate not set",
             Error::InvalidOracleSource => "Invalid oracle account",
-            Error::InsufficientFunds => "The balance of this account is insufficient to complete the transaction.",
-            Error::InsufficientLockedFunds => "The locked token balance of this account is insufficient to burn the tokens.",
+            Error::InsufficientFunds => {
+                "The balance of this account is insufficient to complete the transaction."
+            }
+            Error::InsufficientLockedFunds => {
+                "The locked token balance of this account is insufficient to burn the tokens."
+            }
             Error::RuntimeError => "Runtim error",
         }
     }
@@ -30,7 +34,6 @@ impl ToString for Error {
         String::from(self.message())
     }
 }
-
 
 impl std::convert::From<Error> for DispatchError {
     fn from(error: Error) -> Self {
