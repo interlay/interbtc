@@ -8,7 +8,10 @@ use bitcoin::parser::parse_transaction;
 fn main() {
     let raw_tx = hex::decode(RAW_TRANSACTION).unwrap();
     let tx = parse_transaction(&raw_tx).unwrap();
-    println!("height {}", hex::encode(&tx.inputs[0].height.as_ref().unwrap()));
+    println!(
+        "height {}",
+        hex::encode(&tx.inputs[0].height.as_ref().unwrap())
+    );
     println!("ouptut 1 script {}", hex::encode(&tx.outputs[0].script));
     println!("ouptut 2 script {}", hex::encode(&tx.outputs[1].script));
 }
