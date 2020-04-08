@@ -19,7 +19,6 @@ use mocktopus::macros::mockable;
 // Substrate
 use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
 use sp_core::{H160, U256};
-use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
 use system::ensure_signed;
 
@@ -82,6 +81,9 @@ decl_storage! {
 
         /// Store the index for each tracked blockchain
         ChainsIndex: map u32 => BlockChain;
+
+        /// Stores a mapping from (chain_index, block height) to block hash
+        ChainsHashes: double_map u32, blake2_256(u32) => H256Le;
 
         /// Store the current blockchain tip
         BestBlock: H256Le;
@@ -440,14 +442,15 @@ impl<T: Trait> Module<T> {
     /// Get a block hash from a blockchain
     /// # Arguments
     ///
-    /// * `blockchain`: the blockchian struct to search in
+    /// * `chain_id`: the id of the blockchain to search in
     /// * `block_height`: the height if the block header
-    fn get_block_hash(blockchain: &BlockChain, block_height: u32) -> Result<H256Le, Error> {
-        match blockchain.chain.get(&block_height) {
-            Some(hash) => Ok(*hash),
-            None => Err(Error::MissingBlockHeight),
+    fn get_block_hash(chain_id: u32, block_height: u32) -> Result<H256Le, Error> {
+        if !Self::block_exists(chain_id, block_height) {
+            return Err(Error::MissingBlockHeight);
         }
+        Ok(<ChainsHashes>::get(chain_id, block_height))
     }
+
     /// Get a block header from its hash
     fn get_block_header_from_hash(block_hash: H256Le) -> Result<RichBlockHeader, Error> {
         if <BlockHeaders>::exists(block_hash) {
@@ -464,7 +467,7 @@ impl<T: Trait> Module<T> {
         blockchain: &BlockChain,
         block_height: u32,
     ) -> Result<RichBlockHeader, Error> {
-        let block_hash = Self::get_block_hash(blockchain, block_height)?;
+        let block_hash = Self::get_block_hash(blockchain.chain_id, block_height)?;
         Self::get_block_header_from_hash(block_hash)
     }
     /// Storage setter functions
@@ -542,19 +545,34 @@ impl<T: Trait> Module<T> {
     /// Generate the raw blockchain from a chain Id and with a single block
     fn generate_blockchain(chain_id: u32, block_height: u32, block_hash: H256Le) -> BlockChain {
         // initialize an empty chain
-        let mut chain = BTreeMap::new();
 
-        chain.insert(block_height, block_hash);
+        Self::insert_block_hash(chain_id, block_height, block_hash);
 
         BlockChain {
             chain_id,
-            chain,
             start_height: block_height,
             max_height: block_height,
             no_data: BTreeSet::new(),
             invalid: BTreeSet::new(),
         }
     }
+
+    fn insert_block_hash(chain_id: u32, block_height: u32, block_hash: H256Le) {
+        <ChainsHashes>::insert(chain_id, block_height, block_hash);
+    }
+
+    fn remove_block_hash(chain_id: u32, block_height: u32) {
+        <ChainsHashes>::remove(chain_id, block_height);
+    }
+
+    fn block_exists(chain_id: u32, block_height: u32) -> bool {
+        <ChainsHashes>::exists(chain_id, block_height)
+    }
+
+    fn _blocks_count(chain_id: u32) -> usize {
+        <ChainsHashes>::iter_prefix(chain_id).count()
+    }
+
     /// Add a new block header to an existing blockchain
     fn extend_blockchain(
         block_height: u32,
@@ -563,9 +581,10 @@ impl<T: Trait> Module<T> {
     ) -> Result<BlockChain, Error> {
         let mut blockchain = prev_blockchain;
 
-        if blockchain.chain.insert(block_height, *block_hash).is_some() {
+        if Self::block_exists(blockchain.chain_id, block_height) {
             return Err(Error::DuplicateBlock);
         }
+        Self::insert_block_hash(blockchain.chain_id, block_height, *block_hash);
 
         blockchain.max_height = block_height;
 
@@ -706,9 +725,6 @@ impl<T: Trait> Module<T> {
         // generate a chain id
         let chain_id = Self::increment_chain_counter();
 
-        // split off the chain
-        let forked_chain = main_chain.chain.split_off(&start_height);
-
         // maybe split off the no data elements
         // check if there is a no_data block element
         // that is greater than start_height
@@ -737,24 +753,18 @@ impl<T: Trait> Module<T> {
         // into the forked_main_chain element
         let forked_main_chain: BlockChain = BlockChain {
             chain_id,
-            chain: forked_chain.clone(),
             start_height,
             max_height: main_chain.max_height,
             no_data,
             invalid,
         };
 
-        // append the fork to the main chain
-        main_chain.chain.append(&mut fork.chain.clone());
         main_chain.max_height = fork.max_height;
         main_chain.no_data.append(&mut fork.no_data.clone());
         main_chain.invalid.append(&mut fork.invalid.clone());
 
         // get the best block hash
-        let best_block = match main_chain.chain.get(&main_chain.max_height) {
-            Some(block) => block,
-            None => return Err(Error::BlockNotFound),
-        };
+        let best_block = Self::get_block_hash(fork.chain_id, fork.max_height)?;
 
         // get the position of the fork in Chains
         let position: u32 = Self::get_chain_position_from_chain_id(fork.chain_id)?;
@@ -763,7 +773,7 @@ impl<T: Trait> Module<T> {
         Self::set_block_chain_from_id(MAIN_CHAIN_ID, &main_chain);
 
         // Set BestBlock and BestBlockHeight to the submitted block
-        Self::set_best_block(*best_block);
+        Self::set_best_block(best_block);
         Self::set_best_block_height(main_chain.max_height);
 
         // remove the fork from storage
@@ -776,17 +786,21 @@ impl<T: Trait> Module<T> {
         // insert the reference to the forked main chain in Chains
         Self::insert_sorted(&forked_main_chain);
 
-        // get an iterator of all forked block headers
         // update all the forked block headers
-        for (_height, block) in forked_chain.iter() {
-            Self::mutate_block_header_from_chain_id(&block, forked_main_chain.chain_id);
+        for height in fork.start_height..=forked_main_chain.max_height {
+            let block_hash = Self::get_block_hash(main_chain.chain_id, height)?;
+            Self::insert_block_hash(forked_main_chain.chain_id, height, block_hash);
+            Self::mutate_block_header_from_chain_id(&block_hash, forked_main_chain.chain_id);
+            Self::remove_block_hash(MAIN_CHAIN_ID, height);
         }
 
-        // get an iterator of all new main chain block headers
         // update all new main chain block headers
-        for (_height, block) in fork.chain.iter() {
+        for height in fork.start_height..=fork.max_height {
+            let block = Self::get_block_hash(fork.chain_id, height)?;
             Self::mutate_block_header_from_chain_id(&block, MAIN_CHAIN_ID);
+            Self::insert_block_hash(MAIN_CHAIN_ID, height, block);
         }
+        <ChainsHashes>::remove_prefix(fork.chain_id);
 
         Ok(())
     }
