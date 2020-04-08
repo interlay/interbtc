@@ -3,7 +3,7 @@ use crate::mock::*;
 use crate::RawEvent;
 use frame_support::{assert_err, assert_ok};
 
-use mocktopus::mocking::*;
+// use mocktopus::mocking::*;
 
 #[test]
 fn test_transfer_succeeds() {
