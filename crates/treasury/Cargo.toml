@@ -1,32 +1,51 @@
 [package]
-name = "exchange-rate-oracle"
-version = "0.0.1"
-authors = ["Interlay Ltd"]
-edition = "2018"
+authors = ['Interlay']
+description = 'Treasury module'
+edition = '2018'
+name = 'treasury'
+version = '0.1.0'
 
 [features]
 default = ['std']
 std = [
     'codec/std',
     'frame-support/std',
-    'sp-runtime/std',
-    'sp-io/std',
+	'sp-runtime/std',
+	'sp-io/std',
+	'sp-core/std',
+    'safe-mix/std',
     'system/std',
-    'timestamp/std',
-    'sp-core/std',
+	'sp-std/std',
+	'pallet-balances/std',
 ]
 
 [dependencies.codec]
 default-features = false
 features = ['derive']
 package = 'parity-scale-codec'
+version = '1.3.0'
+
+[dependencies.frame-support]
+default-features = false
+version = '2.0.0-alpha.5'
+
+[dependencies.safe-mix]
+default-features = false
 version = '1.0.0'
+
+[dependencies.sp-core]
+default-features = false
+version = '2.0.0-alpha.5'
+
+[dependencies.sp-io]
+default-features = false
+version = '2.0.0-alpha.5'
 
 [dependencies.sp-runtime]
 default-features = false
 version = '2.0.0-alpha.5'
 
-[dependencies.frame-support]
+[dependencies.sp-std]
 default-features = false
 version = '2.0.0-alpha.5'
 
@@ -35,17 +54,9 @@ default-features = false
 package = 'frame-system'
 version = '2.0.0-alpha.5'
 
-[dependencies.sp-io]
+[dependencies.pallet-balances]
 default-features = false
-version = '2.0.0-alpha.5'
-
-[dependencies.sp-core]
-default-features = false
-version = '2.0.0-alpha.5'
-
-[dependencies.timestamp]
-default-features = false
-package = 'pallet-timestamp'
+package = 'pallet-balances'
 version = '2.0.0-alpha.5'
 
 [dependencies.xclaim-core]
@@ -53,3 +64,4 @@ path = '../xclaim-core'
 
 [dev-dependencies]
 mocktopus = "0.7.0"
+

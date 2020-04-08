@@ -1,13 +1,15 @@
 /// Mocking the test environment
 use crate::{Module, Trait};
 use frame_support::{impl_outer_event, impl_outer_origin, parameter_types, weights::Weight};
-use mocktopus::mocking::clear_mocks;
+use pallet_balances as balances;
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
     Perbill,
 };
+
+use mocktopus::mocking::clear_mocks;
 
 impl_outer_origin! {
     pub enum Origin for Test {}
@@ -21,12 +23,17 @@ impl_outer_event! {
     pub enum TestEvent for Test {
         system<T>,
         test_events<T>,
+        balances<T>,
     }
 }
 
 // For testing the pallet, we construct most of a mock runtime. This means
 // first constructing a configuration type (`Test`) which `impl`s each of the
-// configuration traits of modules we want to use.
+// configuration traits of pallets we want to use.
+
+pub type AccountId = u64;
+pub type Balance = u64;
+
 #[derive(Clone, Eq, PartialEq)]
 pub struct Test;
 parameter_types! {
@@ -42,7 +49,7 @@ impl system::Trait for Test {
     type BlockNumber = u64;
     type Hash = H256;
     type Hashing = BlakeTwo256;
-    type AccountId = u64;
+    type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
     type Event = TestEvent;
@@ -52,28 +59,54 @@ impl system::Trait for Test {
     type AvailableBlockRatio = AvailableBlockRatio;
     type Version = ();
     type ModuleToIndex = ();
-    type AccountData = ();
+    type AccountData = pallet_balances::AccountData<u64>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
 }
+parameter_types! {
+    pub const ExistentialDeposit: u64 = 1;
+}
+impl pallet_balances::Trait for Test {
+    type Balance = Balance;
+    type Event = TestEvent;
+    type DustRemoval = ();
+    type ExistentialDeposit = ExistentialDeposit;
+    type AccountStore = System;
+}
 
 impl Trait for Test {
+    type PolkaBTC = Balances;
     type Event = TestEvent;
 }
 
-// pub type Error = crate::Error;
+pub type Error = crate::Error;
 
 pub type System = system::Module<Test>;
-pub type ExchangeRateOracle = Module<Test>;
+pub type Balances = pallet_balances::Module<Test>;
+pub type Treasury = Module<Test>;
+
+pub const ALICE: AccountId = 1;
+pub const BOB: AccountId = 2;
+pub const ALICE_BALANCE: u64 = 1_000_000;
+pub const BOB_BALANCE: u64 = 1_000_000;
 
 pub struct ExtBuilder;
 
 impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
-        let storage = system::GenesisConfig::default()
+        let mut storage = system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
-        sp_io::TestExternalities::from(storage)
+
+        pallet_balances::GenesisConfig::<Test> {
+            balances: vec![(ALICE, ALICE_BALANCE), (BOB, BOB_BALANCE)],
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
+        storage.into()
+
+        // sp_io::TestExternalities::from(storage)
     }
 }
 

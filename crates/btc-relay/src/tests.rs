@@ -496,7 +496,10 @@ fn swap_main_blockchain_succeeds() {
         assert_eq!(fork_height, new_main.max_height);
         assert_eq!(main_start, new_main.start_height);
         assert_eq!(main_chain_ref, new_main.chain_id);
-        assert_eq!(fork_height + 1, BTCRelay::_blocks_count(main_chain_ref) as u32);
+        assert_eq!(
+            fork_height + 1,
+            BTCRelay::_blocks_count(main_chain_ref) as u32
+        );
 
         assert_eq!(main.no_data, new_main.no_data);
         assert_eq!(main.invalid, new_main.invalid);

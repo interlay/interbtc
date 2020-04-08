@@ -129,6 +129,7 @@ decl_module! {
             // construct the BlockChain struct
             let blockchain = Self::initialize_blockchain(
                     block_height, block_header_hash);
+
             // Create rich block header
             let block_header = RichBlockHeader {
                 block_hash: block_header_hash,
@@ -321,6 +322,7 @@ decl_module! {
                 confirmations,
                 block_height,
                 insecure)?;
+
             let proof_result = Self::verify_merkle_proof(&raw_merkle_proof)?;
             let rich_header = Self::get_block_header_from_height(
                 &Self::get_block_chain_from_id(MAIN_CHAIN_ID),
@@ -462,7 +464,7 @@ impl<T: Trait> Module<T> {
     fn block_header_exists(block_hash: H256Le) -> bool {
         <BlockHeaders>::exists(block_hash)
     }
-    /// Get a block header from  
+    /// Get a block header from
     fn get_block_header_from_height(
         blockchain: &BlockChain,
         block_height: u32,

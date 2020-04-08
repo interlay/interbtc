@@ -1,19 +1,18 @@
 [package]
-name = "exchange-rate-oracle"
-version = "0.0.1"
-authors = ["Interlay Ltd"]
-edition = "2018"
+authors = ['Interlay']
+description = 'Collateral module'
+edition = '2018'
+homepage = 'https://interlay.gitlab.io/polkabtc-spec/spec/collateral.html'
+name = 'collateral'
+version = '0.1.0'
 
 [features]
 default = ['std']
 std = [
     'codec/std',
     'frame-support/std',
-    'sp-runtime/std',
-    'sp-io/std',
+    'safe-mix/std',
     'system/std',
-    'timestamp/std',
-    'sp-core/std',
 ]
 
 [dependencies.codec]
@@ -22,11 +21,23 @@ features = ['derive']
 package = 'parity-scale-codec'
 version = '1.0.0'
 
-[dependencies.sp-runtime]
+[dependencies.frame-support]
 default-features = false
 version = '2.0.0-alpha.5'
 
-[dependencies.frame-support]
+[dependencies.safe-mix]
+default-features = false
+version = '1.0.0'
+
+[dependencies.sp-core]
+default-features = false
+version = '2.0.0-alpha.5'
+
+[dependencies.sp-io]
+default-features = false
+version = '2.0.0-alpha.5'
+
+[dependencies.sp-runtime]
 default-features = false
 version = '2.0.0-alpha.5'
 
@@ -34,22 +45,3 @@ version = '2.0.0-alpha.5'
 default-features = false
 package = 'frame-system'
 version = '2.0.0-alpha.5'
-
-[dependencies.sp-io]
-default-features = false
-version = '2.0.0-alpha.5'
-
-[dependencies.sp-core]
-default-features = false
-version = '2.0.0-alpha.5'
-
-[dependencies.timestamp]
-default-features = false
-package = 'pallet-timestamp'
-version = '2.0.0-alpha.5'
-
-[dependencies.xclaim-core]
-path = '../xclaim-core'
-
-[dev-dependencies]
-mocktopus = "0.7.0"

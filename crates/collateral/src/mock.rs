@@ -1,7 +1,7 @@
-/// Mocking the test environment
+// Creating mock runtime here
+
 use crate::{Module, Trait};
-use frame_support::{impl_outer_event, impl_outer_origin, parameter_types, weights::Weight};
-use mocktopus::mocking::clear_mocks;
+use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
@@ -13,20 +13,9 @@ impl_outer_origin! {
     pub enum Origin for Test {}
 }
 
-mod test_events {
-    pub use crate::Event;
-}
-
-impl_outer_event! {
-    pub enum TestEvent for Test {
-        system<T>,
-        test_events<T>,
-    }
-}
-
 // For testing the pallet, we construct most of a mock runtime. This means
 // first constructing a configuration type (`Test`) which `impl`s each of the
-// configuration traits of modules we want to use.
+// configuration traits of pallets we want to use.
 #[derive(Clone, Eq, PartialEq)]
 pub struct Test;
 parameter_types! {
@@ -45,7 +34,7 @@ impl system::Trait for Test {
     type AccountId = u64;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = TestEvent;
+    type Event = ();
     type BlockHashCount = BlockHashCount;
     type MaximumBlockWeight = MaximumBlockWeight;
     type MaximumBlockLength = MaximumBlockLength;
@@ -56,31 +45,16 @@ impl system::Trait for Test {
     type OnNewAccount = ();
     type OnKilledAccount = ();
 }
-
 impl Trait for Test {
-    type Event = TestEvent;
+    type Event = ();
 }
+pub type TemplateModule = Module<Test>;
 
-// pub type Error = crate::Error;
-
-pub type System = system::Module<Test>;
-pub type ExchangeRateOracle = Module<Test>;
-
-pub struct ExtBuilder;
-
-impl ExtBuilder {
-    pub fn build() -> sp_io::TestExternalities {
-        let storage = system::GenesisConfig::default()
-            .build_storage::<Test>()
-            .unwrap();
-        sp_io::TestExternalities::from(storage)
-    }
-}
-
-pub fn run_test<T>(test: T) -> ()
-where
-    T: FnOnce() -> (),
-{
-    clear_mocks();
-    ExtBuilder::build().execute_with(test);
+// This function basically just builds a genesis storage key/value store according to
+// our desired mockup.
+pub fn new_test_ext() -> sp_io::TestExternalities {
+    system::GenesisConfig::default()
+        .build_storage::<Test>()
+        .unwrap()
+        .into()
 }
