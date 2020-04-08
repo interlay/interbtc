@@ -14,13 +14,7 @@ std = [
 [dependencies.sp-runtime]
 default-features = false
 version = '2.0.0-alpha.5'
-# git = 'https://github.com/paritytech/substrate.git'
-# rev = '3e651110aa06aa835790df63410a29676243fc54'
-# version = '2.0.0'
 
 [dependencies.frame-support]
 default-features = false
 version = '2.0.0-alpha.5'
-# git = 'https://github.com/paritytech/substrate.git'
-# rev = '3e651110aa06aa835790df63410a29676243fc54'
-# version = '2.0.0'
