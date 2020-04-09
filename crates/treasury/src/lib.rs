@@ -90,8 +90,16 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
     /// Total supply of PolkaBTC
-    pub fn total_supply() -> BalanceOf<T> {
+    pub fn get_total_supply() -> BalanceOf<T> {
         T::PolkaBTC::total_issuance()
+    }
+    /// Balance of an account (wrapper)
+    pub fn get_balance_from_account(account: T::AccountId) -> BalanceOf<T> {
+        T::PolkaBTC::free_balance(&account)
+    }
+    /// Locked balance of an account (wrapper)
+    pub fn get_locked_balance_from_account(account: T::AccountId) -> BalanceOf<T> {
+        T::PolkaBTC::reserved_balance(&account)
     }
     /// Mint new tokens
     ///
