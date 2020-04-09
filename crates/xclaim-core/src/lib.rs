@@ -7,6 +7,7 @@ pub enum Error {
     InvalidOracleSource,
     InsufficientFunds,
     InsufficientLockedFunds,
+    InsufficientCollateralAvailable,
 
     /// use only for errors which means something
     ///  going very wrong and which do not match any other error
@@ -24,7 +25,10 @@ impl Error {
             Error::InsufficientLockedFunds => {
                 "The locked token balance of this account is insufficient to burn the tokens."
             }
-            Error::RuntimeError => "Runtim error",
+            Error::InsufficientCollateralAvailable => {
+                "The sender’s collateral balance is below the requested amount."
+            }
+            Error::RuntimeError => "Runtime error",
         }
     }
 }
