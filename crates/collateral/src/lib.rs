@@ -1,19 +1,29 @@
+#![deny(warnings)]
+#![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
-
-/// The Collateral module according to the specification at
-/// https://interlay.gitlab.io/polkabtc-spec/spec/collateral.html
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch};
-use system::ensure_signed;
-
 #[cfg(test)]
 mod mock;
 
 #[cfg(test)]
 mod tests;
 
+use frame_support::traits::{Currency, ReservableCurrency};
+/// The Collateral module according to the specification at
+/// https://interlay.gitlab.io/polkabtc-spec/spec/collateral.html
+use frame_support::{decl_event, decl_module, decl_storage, ensure};
+use sp_runtime::ModuleId;
+
+use xclaim_core::Error;
+
+type BalanceOf<T> = <<T as Trait>::DOT as Currency<<T as system::Trait>::AccountId>>::Balance;
+
+/// The collateral's module id, used for deriving its sovereign account ID.
+const _MODULE_ID: ModuleId = ModuleId(*b"ily/cltl");
+
 /// The pallet's configuration trait.
 pub trait Trait: system::Trait {
-    // Add other types and constants required to configure this pallet.
+    /// The DOT currency
+    type DOT: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
 
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
@@ -21,14 +31,13 @@ pub trait Trait: system::Trait {
 
 // This pallet's storage items.
 decl_storage! {
-    // It is important to update your storage name so that your pallet's
-    // storage items are isolated from other pallets.
-    // ---------------------------------vvvvvvvvvvvvvv
-    trait Store for Module<T: Trait> as TemplateModule {
-        // Just a dummy storage item.
-        // Here we are declaring a StorageValue, `Something` as a Option<u32>
-        // `get(fn something)` is the default getter which returns either the stored `u32` or `None` if nothing stored
-        Something get(fn something): Option<u32>;
+    trait Store for Module<T: Trait> as Collateral {
+        /// ## Storage
+        /// Note that account's balances and locked balances are handled
+        /// through the Balances module.
+        ///
+        /// Total locked DOT collateral
+        TotalCollateral: BalanceOf<T>;
     }
 }
 
@@ -37,67 +46,108 @@ decl_event!(
     pub enum Event<T>
     where
         AccountId = <T as system::Trait>::AccountId,
+        Balance = BalanceOf<T>,
     {
-        /// Just a dummy event.
-        /// Event `Something` is declared with a parameter of the type `u32` and `AccountId`
-        /// To emit this event, we call the deposit function, from our runtime functions
-        SomethingStored(u32, AccountId),
+        LockCollateral(AccountId, Balance),
+        ReleaseCollateral(AccountId, Balance),
+        SlashCollateral(AccountId, AccountId, Balance),
     }
 );
 
-// The pallet's errors
-decl_error! {
-    pub enum Error for Module<T: Trait> {
-        /// Value was None
-        NoneValue,
-        /// Value reached maximum and cannot be incremented further
-        StorageOverflow,
-    }
-}
-
-// The pallet's dispatchable functions.
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-        // Initializing errors
-        // this includes information about your errors in the node's metadata.
-        // it is needed only if you are using errors in your pallet
-        type Error = Error<T>;
-
         // Initializing events
-        // this is needed only if you are using events in your pallet
         fn deposit_event() = default;
+    }
+}
 
-        /// Just a dummy entry point.
-        /// function that can be called by the external world as an extrinsics call
-        /// takes a parameter of the type `AccountId`, stores it, and emits an event
-        pub fn do_something(origin, something: u32) -> dispatch::DispatchResult {
-            // Check it was signed and get the signer. See also: ensure_root and ensure_none
-            let who = ensure_signed(origin)?;
+impl<T: Trait> Module<T> {
+    /// Total supply of DOT
+    pub fn get_total_supply() -> BalanceOf<T> {
+        T::DOT::total_issuance()
+    }
+    /// Total locked DOT collateral
+    pub fn get_total_collateral() -> BalanceOf<T> {
+        <TotalCollateral<T>>::get()
+    }
+    /// Increase the locked collateral
+    pub fn increase_total_collateral(amount: BalanceOf<T>) {
+        let new_collateral = Self::get_total_collateral() + amount;
+        <TotalCollateral<T>>::put(new_collateral);
+    }
+    /// Decrease the locked collateral
+    pub fn decrease_total_collateral(amount: BalanceOf<T>) {
+        let new_collateral = Self::get_total_collateral() - amount;
+        <TotalCollateral<T>>::put(new_collateral);
+    }
+    /// Locked balance of account
+    pub fn get_collateral_from_account(account: T::AccountId) -> BalanceOf<T> {
+        T::DOT::reserved_balance(&account)
+    }
+    /// Lock DOT collateral
+    ///
+    /// # Arguments
+    ///
+    /// * `sender` - the account locking tokens
+    /// * `amount` - to be locked amount of DOT
+    pub fn lock_collateral(sender: T::AccountId, amount: BalanceOf<T>) -> Result<(), Error> {
+        T::DOT::reserve(&sender, amount).map_err(|_| Error::InsufficientFunds)?;
 
-            // Code to execute when something calls this.
-            // For example: the following line stores the passed in u32 in the storage
-            Something::put(something);
+        Self::increase_total_collateral(amount);
 
-            // Here we are raising the Something event
-            Self::deposit_event(RawEvent::SomethingStored(something, who));
-            Ok(())
-        }
+        Self::deposit_event(RawEvent::LockCollateral(sender, amount));
+        Ok(())
+    }
+    /// Release DOT collateral
+    ///
+    /// # Arguments
+    ///
+    /// * `sender` - the account releasing tokens
+    /// * `amount` - the to be released amount of DOT
+    pub fn release_collateral(sender: T::AccountId, amount: BalanceOf<T>) -> Result<(), Error> {
+        ensure!(
+            T::DOT::reserved_balance(&sender) == amount,
+            Error::InsufficientCollateralAvailable
+        );
+        T::DOT::unreserve(&sender, amount);
 
-        /// Another dummy entry point.
-        /// takes no parameters, attempts to increment storage value, and possibly throws an error
-        pub fn cause_error(origin) -> dispatch::DispatchResult {
-            // Check it was signed and get the signer. See also: ensure_root and ensure_none
-            let _who = ensure_signed(origin)?;
+        Self::decrease_total_collateral(amount);
 
-            match Something::get() {
-                None => Err(Error::<T>::NoneValue)?,
-                Some(old) => {
-                    let new = old.checked_add(1).ok_or(Error::<T>::StorageOverflow)?;
-                    Something::put(new);
-                    Ok(())
-                },
-            }
-        }
+        Self::deposit_event(RawEvent::ReleaseCollateral(sender, amount));
+
+        Ok(())
+    }
+    /// Slash DOT collateral and assign to a receiver. Can only fail if
+    /// the sender account has too low collateral.
+    ///
+    /// # Arguments
+    ///
+    /// * `sender` - the account being slashed
+    /// * `receiver` - the receiver of the amount
+    /// * `amount` - the to be slashed amount
+    pub fn slash_collateral(
+        sender: T::AccountId,
+        receiver: T::AccountId,
+        amount: BalanceOf<T>,
+    ) -> Result<(), Error> {
+        ensure!(
+            T::DOT::reserved_balance(&sender) == amount,
+            Error::InsufficientCollateralAvailable
+        );
+
+        // slash the sender's collateral
+        // remainder should always be 0 and is checked above
+        let (slashed, _remainder) = T::DOT::slash_reserved(&sender, amount);
+
+        // add slashed amount to receiver and create account if it does not exists
+        T::DOT::resolve_creating(&receiver, slashed);
+
+        // reserve the created amount for the receiver
+        T::DOT::reserve(&receiver, amount).map_err(|_| Error::InsufficientFunds)?;
+
+        Self::deposit_event(RawEvent::SlashCollateral(sender, receiver, amount));
+
+        Ok(())
     }
 }
