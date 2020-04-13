@@ -107,7 +107,7 @@ impl<T: Trait> Module<T> {
     /// * `amount` - the to be released amount of DOT
     pub fn release_collateral(sender: T::AccountId, amount: BalanceOf<T>) -> Result<(), Error> {
         ensure!(
-            T::DOT::reserved_balance(&sender) == amount,
+            T::DOT::reserved_balance(&sender) >= amount,
             Error::InsufficientCollateralAvailable
         );
         T::DOT::unreserve(&sender, amount);
@@ -132,7 +132,7 @@ impl<T: Trait> Module<T> {
         amount: BalanceOf<T>,
     ) -> Result<(), Error> {
         ensure!(
-            T::DOT::reserved_balance(&sender) == amount,
+            T::DOT::reserved_balance(&sender) >= amount,
             Error::InsufficientCollateralAvailable
         );
 
