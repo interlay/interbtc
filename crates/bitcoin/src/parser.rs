@@ -64,8 +64,8 @@ impl Parsable for BlockHeader {
         if position + 80 > raw_bytes.len() {
             return Err(Error::EOS);
         }
-        let header_bytes = header_from_bytes(&raw_bytes[position..position + 80]);
-        let block_header = parse_block_header(header_bytes)?;
+        let header_bytes = RawBlockHeader::from_bytes(&raw_bytes[position..position + 80])?;
+        let block_header = parse_block_header(&header_bytes)?;
         Ok((block_header, 80))
     }
 }
@@ -211,19 +211,8 @@ pub trait FromLeBytes: Sized {
 
 impl FromLeBytes for BlockHeader {
     fn from_le_bytes(bytes: &[u8]) -> Result<BlockHeader, Error> {
-        parse_block_header(header_from_bytes(bytes))
+        parse_block_header(&RawBlockHeader::from_bytes(bytes)?)
     }
-}
-
-/// Returns a raw block header from a bytes slice
-///
-/// # Arguments
-///
-/// * `bytes` - A slice containing the header
-pub fn header_from_bytes(bytes: &[u8]) -> RawBlockHeader {
-    let mut result: RawBlockHeader = [0; 80];
-    result.copy_from_slice(&bytes);
-    result
 }
 
 /// Parses the raw bitcoin header into a Rust struct
@@ -231,8 +220,8 @@ pub fn header_from_bytes(bytes: &[u8]) -> RawBlockHeader {
 /// # Arguments
 ///
 /// * `header` - An 80-byte Bitcoin header
-pub fn parse_block_header(raw_header: RawBlockHeader) -> Result<BlockHeader, Error> {
-    let mut parser = BytesParser::new(&raw_header);
+pub fn parse_block_header(raw_header: &RawBlockHeader) -> Result<BlockHeader, Error> {
+    let mut parser = BytesParser::new(raw_header.as_slice());
     let version: i32 = parser.parse()?;
     let hash_prev_block: H256Le = parser.parse()?;
     let merkle_root: H256Le = parser.parse()?;
@@ -334,7 +323,7 @@ pub fn parse_transaction(raw_transaction: &[u8]) -> Result<Transaction, Error> {
 }
 
 /// Parses a transaction input
-pub fn parse_transaction_input(
+fn parse_transaction_input(
     raw_input: &[u8],
     version: i32,
 ) -> Result<(TransactionInput, usize), Error> {
@@ -382,7 +371,7 @@ pub fn parse_transaction_input(
     ))
 }
 
-pub fn parse_transaction_output(raw_output: &[u8]) -> Result<(TransactionOutput, usize), Error> {
+fn parse_transaction_output(raw_output: &[u8]) -> Result<(TransactionOutput, usize), Error> {
     let mut parser = BytesParser::new(raw_output);
     let value: i64 = parser.parse()?;
     let script_size: CompactUint = parser.parse()?;
@@ -391,12 +380,6 @@ pub fn parse_transaction_output(raw_output: &[u8]) -> Result<(TransactionOutput,
     }
     let script = parser.read(script_size.value as usize)?;
     Ok((TransactionOutput { value, script }, parser.position))
-}
-
-pub fn extract_value(raw_output: &[u8]) -> u64 {
-    let mut arr: [u8; 8] = Default::default();
-    arr.copy_from_slice(&raw_output[..8]);
-    u64::from_le_bytes(arr)
 }
 
 pub fn extract_address_hash(output_script: &[u8]) -> Result<Vec<u8>, Error> {
@@ -477,8 +460,8 @@ mod tests {
             "24d95a54" + // ........................... Unix time: 1415239972
             "30c31b18" + // ........................... Target: 0x1bc330 * 256**(0x18-3)
             "fe9f0864";
-        let raw_header = hex::decode(&hex_header[..]).unwrap();
-        let parsed_header = parse_block_header(header_from_bytes(&raw_header)).unwrap();
+        let raw_header = RawBlockHeader::from_hex(&hex_header).unwrap();
+        let parsed_header = parse_block_header(&raw_header).unwrap();
         assert_eq!(parsed_header.version, 2);
         assert_eq!(parsed_header.timestamp, 1415239972);
         assert_eq!(
