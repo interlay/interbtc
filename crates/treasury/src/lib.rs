@@ -18,7 +18,7 @@ use frame_support::traits::{Currency, ExistenceRequirement::KeepAlive, Reservabl
 /// The Treasury module according to the specification at
 /// https://interlay.gitlab.io/polkabtc-spec/spec/treasury.html
 // Substrate
-use frame_support::{decl_event, decl_module, dispatch::DispatchResult, ensure};
+use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
 use sp_runtime::ModuleId;
 use system::ensure_signed;
 
@@ -39,10 +39,16 @@ pub trait Trait: system::Trait {
 }
 
 // This pallet's storage items.
-// decl_storage! {
-// 	trait Store for Module<T: Trait> as Treasury {
-// 	}
-// }
+decl_storage! {
+    trait Store for Module<T: Trait> as Treasury {
+        /// ## Storage
+        /// Note that account's balances and locked balances are handled
+        /// through the Balances module.
+        ///
+        /// Total locked PolkaDOT
+        TotalLocked: BalanceOf<T>;
+    }
+}
 
 // The pallet's events
 decl_event!(
@@ -101,6 +107,16 @@ impl<T: Trait> Module<T> {
     pub fn get_locked_balance_from_account(account: T::AccountId) -> BalanceOf<T> {
         T::PolkaBTC::reserved_balance(&account)
     }
+    /// Increase the supply of locked PolkaBTC
+    pub fn increase_total_locked(amount: BalanceOf<T>) {
+        let new_locked = <TotalLocked<T>>::get() + amount;
+        <TotalLocked<T>>::put(new_locked);
+    }
+    /// Decrease the supply of locked PolkaBTC
+    pub fn decrease_total_locked(amount: BalanceOf<T>) {
+        let new_locked = <TotalLocked<T>>::get() - amount;
+        <TotalLocked<T>>::put(new_locked);
+    }
     /// Mint new tokens
     ///
     /// # Arguments
@@ -115,7 +131,8 @@ impl<T: Trait> Module<T> {
 
         Self::deposit_event(RawEvent::Mint(requester, amount));
     }
-    /// Lock PolkaBTC tokens to burn them
+    /// Lock PolkaBTC tokens to burn them. Note: this removes them from the
+    /// free balance of PolkaBTC and adds them to the locked supply of PolkaBTC.
     ///
     /// # Arguments
     ///
@@ -124,10 +141,13 @@ impl<T: Trait> Module<T> {
     pub fn lock(redeemer: T::AccountId, amount: BalanceOf<T>) -> Result<(), Error> {
         T::PolkaBTC::reserve(&redeemer, amount).map_err(|_| Error::InsufficientFunds)?;
 
+        // update total locked balance
+        Self::increase_total_locked(amount);
+
         Self::deposit_event(RawEvent::Lock(redeemer, amount));
         Ok(())
     }
-    /// Burn a previously locked PolkaBTC tokens
+    /// Burn previously locked PolkaBTC tokens
     ///
     /// # Arguments
     ///
@@ -135,14 +155,16 @@ impl<T: Trait> Module<T> {
     /// * `amount` - the to be burned amount of PolkaBTC
     pub fn burn(redeemer: T::AccountId, amount: BalanceOf<T>) -> Result<(), Error> {
         ensure!(
-            T::PolkaBTC::reserved_balance(&redeemer) == amount,
+            T::PolkaBTC::reserved_balance(&redeemer) >= amount,
             Error::InsufficientLockedFunds
         );
 
-        // burn the tokens from the global balance
-        let _burned_tokens = T::PolkaBTC::burn(amount);
+        // burn the tokens from the locked balance
+        Self::decrease_total_locked(amount);
+
         // burn the tokens for the redeemer
-        let (_burned_tokens, _mismatch_tokens) = T::PolkaBTC::slash_reserved(&redeemer, amount);
+        // remainder should always be 0 and is checked above
+        let (_burned_tokens, _remainder) = T::PolkaBTC::slash_reserved(&redeemer, amount);
 
         Self::deposit_event(RawEvent::Burn(redeemer, amount));
 

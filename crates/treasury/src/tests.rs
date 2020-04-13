@@ -191,3 +191,31 @@ fn test_burn_fails() {
         assert_eq!(total_supply, init_total_supply);
     })
 }
+
+#[test]
+fn test_burn_partially_succeeds() {
+    run_test(|| {
+        let redeemer = ALICE;
+        let amount = ALICE_BALANCE;
+        let burn_amount = amount - 10;
+
+        let init_balance = Treasury::get_balance_from_account(ALICE);
+        let init_locked_balance = Treasury::get_locked_balance_from_account(ALICE);
+        let init_total_supply = Treasury::get_total_supply();
+
+        assert_ok!(Treasury::lock(redeemer, amount));
+        assert_ok!(Treasury::burn(redeemer, burn_amount));
+        let burn_event = TestEvent::test_events(RawEvent::Burn(ALICE, burn_amount));
+
+        assert!(System::events().iter().any(|a| a.event == burn_event));
+
+        let balance = Treasury::get_balance_from_account(ALICE);
+        let locked_balance = Treasury::get_locked_balance_from_account(ALICE);
+        let total_supply = Treasury::get_total_supply();
+
+        assert_eq!(balance, init_balance - amount); // balance is locked
+                                                    // part of the balance is still locked
+        assert_eq!(locked_balance, init_locked_balance + (amount - burn_amount));
+        assert_eq!(total_supply, init_total_supply - burn_amount);
+    })
+}
