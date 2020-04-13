@@ -30,6 +30,11 @@ type BalanceOf<T> = <<T as Trait>::PolkaBTC as Currency<<T as system::Trait>::Ac
 const _MODULE_ID: ModuleId = ModuleId(*b"ily/trsy");
 
 /// The pallet's configuration trait.
+/// Instantiation of this pallet requires the existence of a module that
+/// implements Currency and ReservableCurrency. The Balances module can be used
+/// for this. The Balances module then gives functions for total supply, balances
+/// of accounts, and any function defined by the Currency and ReservableCurrency
+/// traits.
 pub trait Trait: system::Trait {
     /// The PolkaBTC currency
     type PolkaBTC: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
