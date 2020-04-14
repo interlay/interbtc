@@ -26,7 +26,8 @@ The Substrate runtime makes use of various custom pallets and crates that are fo
 
 ### Development Progess
 
-- [bitcoin](crates/bitcoin): [Beta] library for Bitcoin type, parsing and verification functions.
+- [bitcoin](crates/bitcoin): [Beta] Library for Bitcoin type, parsing and verification functions.
+- [btc-relay](creates/btc-relay): [Beta] Stateful SPV client for Bitcoin. Stores Bitcoin main chain, tracks forks, verifies Merkle proofs and validates specific transaction formats. 
 - [btc-core](crates/btc-core):  [Beta] Error types used in BTC-Relay and Bitcoin.
 - [priority-map](crates/priority-map): [WIP] Priority queue based on a mapping. Used to efficiently track ongoing forks and handle re-orgs.
 - [exchange-rate-oracle](crates/exchange-rate-oracle): [Beta] Exchange rate oracle. Integration with external provider pending.
