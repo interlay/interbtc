@@ -137,7 +137,6 @@ impl<T: Trait> Module<T> {
         );
 
         // slash the sender's collateral
-        // remainder should always be 0 and is checked above
         let (slashed, _remainder) = T::DOT::slash_reserved(&sender, amount);
 
         // add slashed amount to receiver and create account if it does not exists
