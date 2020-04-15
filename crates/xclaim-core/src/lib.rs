@@ -5,6 +5,9 @@ use frame_support::dispatch::DispatchError;
 pub enum Error {
     MissingExchangeRate,
     InvalidOracleSource,
+    InsufficientFunds,
+    InsufficientLockedFunds,
+    InsufficientCollateralAvailable,
 
     /// use only for errors which means something
     ///  going very wrong and which do not match any other error
@@ -12,11 +15,20 @@ pub enum Error {
 }
 
 impl Error {
-    pub fn message(&self) -> &'static str {
+    pub fn message(self) -> &'static str {
         match self {
             Error::MissingExchangeRate => "Exchange rate not set",
             Error::InvalidOracleSource => "Invalid oracle account",
-            Error::RuntimeError => "Runtim error",
+            Error::InsufficientFunds => {
+                "The balance of this account is insufficient to complete the transaction."
+            }
+            Error::InsufficientLockedFunds => {
+                "The locked token balance of this account is insufficient to burn the tokens."
+            }
+            Error::InsufficientCollateralAvailable => {
+                "The sender’s collateral balance is below the requested amount."
+            }
+            Error::RuntimeError => "Runtime error",
         }
     }
 }
@@ -26,7 +38,6 @@ impl ToString for Error {
         String::from(self.message())
     }
 }
-
 
 impl std::convert::From<Error> for DispatchError {
     fn from(error: Error) -> Self {

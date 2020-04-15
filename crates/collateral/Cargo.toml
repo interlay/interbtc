@@ -1,0 +1,56 @@
+[package]
+authors = ['Interlay']
+description = 'Collateral module'
+edition = '2018'
+homepage = 'https://interlay.gitlab.io/polkabtc-spec/spec/collateral.html'
+name = 'collateral'
+version = '0.1.0'
+
+[features]
+default = ['std']
+std = [
+  'codec/std',
+  'frame-support/std',
+  'safe-mix/std',
+  'system/std',
+	'pallet-balances/std',
+]
+
+[dependencies.codec]
+default-features = false
+features = ['derive']
+package = 'parity-scale-codec'
+version = '1.0.0'
+
+[dependencies.frame-support]
+default-features = false
+version = '2.0.0-alpha.5'
+
+[dependencies.safe-mix]
+default-features = false
+version = '1.0.0'
+
+[dependencies.sp-core]
+default-features = false
+version = '2.0.0-alpha.5'
+
+[dependencies.sp-io]
+default-features = false
+version = '2.0.0-alpha.5'
+
+[dependencies.sp-runtime]
+default-features = false
+version = '2.0.0-alpha.5'
+
+[dependencies.system]
+default-features = false
+package = 'frame-system'
+version = '2.0.0-alpha.5'
+
+[dependencies.pallet-balances]
+default-features = false
+package = 'pallet-balances'
+version = '2.0.0-alpha.5'
+
+[dependencies.xclaim-core]
+path = '../xclaim-core'

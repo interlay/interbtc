@@ -7,11 +7,9 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-
 use btc_core::Error;
 
-const SERIALIZE_TRANSACTION_NO_WITNESS: i32 = 0x40000000;
-
+const SERIALIZE_TRANSACTION_NO_WITNESS: i32 = 0x4000_0000;
 
 /// Type to be parsed from a bytes array
 pub(crate) trait Parsable: Sized {
@@ -66,8 +64,8 @@ impl Parsable for BlockHeader {
         if position + 80 > raw_bytes.len() {
             return Err(Error::EOS);
         }
-        let header_bytes = header_from_bytes(&raw_bytes[position..position + 80]);
-        let block_header = parse_block_header(header_bytes)?;
+        let header_bytes = RawBlockHeader::from_bytes(&raw_bytes[position..position + 80])?;
+        let block_header = parse_block_header(&header_bytes)?;
         Ok((block_header, 80))
     }
 }
@@ -96,7 +94,10 @@ impl<T: Parsable> Parsable for Vec<T> {
     }
 }
 
-impl<T, U: Copy> ParsableMeta<U> for Vec<T> where T: ParsableMeta<U> {
+impl<T, U: Copy> ParsableMeta<U> for Vec<T>
+where
+    T: ParsableMeta<U>,
+{
     fn parse_with(raw_bytes: &[u8], position: usize, extra: U) -> Result<(Vec<T>, usize), Error> {
         let mut result: Vec<T> = Vec::new();
         let mut parser = BytesParser::new(&raw_bytes[position..]);
@@ -140,7 +141,7 @@ impl Parsable for TransactionOutput {
 impl Parsable for U256 {
     fn parse(raw_bytes: &[u8], position: usize) -> Result<(U256, usize), Error> {
         if position + 4 > raw_bytes.len() {
-            return Err(Error::EOS)
+            return Err(Error::EOS);
         }
         let raw_exponent = raw_bytes[position + 3];
         if raw_exponent < 3 {
@@ -210,46 +211,34 @@ pub trait FromLeBytes: Sized {
 
 impl FromLeBytes for BlockHeader {
     fn from_le_bytes(bytes: &[u8]) -> Result<BlockHeader, Error> {
-        parse_block_header(header_from_bytes(bytes))
+        parse_block_header(&RawBlockHeader::from_bytes(bytes)?)
     }
 }
-
-/// Returns a raw block header from a bytes slice
-///
-/// # Arguments
-///
-/// * `bytes` - A slice containing the header
-pub fn header_from_bytes(bytes: &[u8]) -> RawBlockHeader {
-    let mut result: RawBlockHeader = [0; 80];
-    result.copy_from_slice(&bytes);
-    result
-}
-
 
 /// Parses the raw bitcoin header into a Rust struct
 ///
 /// # Arguments
 ///
 /// * `header` - An 80-byte Bitcoin header
-pub fn parse_block_header(raw_header: RawBlockHeader) -> Result<BlockHeader, Error> {
-    let mut parser = BytesParser::new(&raw_header);
+pub fn parse_block_header(raw_header: &RawBlockHeader) -> Result<BlockHeader, Error> {
+    let mut parser = BytesParser::new(raw_header.as_slice());
     let version: i32 = parser.parse()?;
-    let previous_block_hash: H256Le = parser.parse()?;
+    let hash_prev_block: H256Le = parser.parse()?;
     let merkle_root: H256Le = parser.parse()?;
     let timestamp: u32 = parser.parse()?;
     let target: U256 = parser.parse()?;
     let nonce: u32 = parser.parse()?;
 
     let block_header = BlockHeader {
-        merkle_root: merkle_root,
-        target: target,
+        merkle_root,
+        target,
         timestamp: timestamp as u64,
-        version: version,
-        nonce: nonce,
-        hash_prev_block: previous_block_hash,
+        version,
+        nonce,
+        hash_prev_block,
     };
 
-    return Ok(block_header);
+    Ok(block_header)
 }
 
 /// Returns the value of a compactly encoded uint and the number of bytes consumed
@@ -299,7 +288,7 @@ pub fn parse_transaction(raw_transaction: &[u8]) -> Result<Transaction, Error> {
     let mut inputs: Vec<TransactionInput> = parser.parse_with(version)?;
 
     let mut flags: u8 = 0;
-    if inputs.len() == 0 && allow_witness {
+    if inputs.is_empty() && allow_witness {
         flags = parser.parse()?;
         inputs = parser.parse_with(version)?;
     }
@@ -325,29 +314,29 @@ pub fn parse_transaction(raw_transaction: &[u8]) -> Result<Transaction, Error> {
     }
 
     Ok(Transaction {
-        version: version,
-        inputs: inputs,
-        outputs: outputs,
-        block_height: block_height,
-        locktime: locktime,
+        version,
+        inputs,
+        outputs,
+        block_height,
+        locktime,
     })
 }
 
 /// Parses a transaction input
-pub fn parse_transaction_input(
+fn parse_transaction_input(
     raw_input: &[u8],
     version: i32,
 ) -> Result<(TransactionInput, usize), Error> {
     let mut parser = BytesParser::new(raw_input);
     let previous_hash: H256Le = parser.parse()?;
-    let pervious_index: u32 = parser.parse()?;
+    let previous_index: u32 = parser.parse()?;
 
     // coinbase input has no previous hash
     let is_coinbase = previous_hash == H256Le::zero();
 
     // fail if transaction is coinbase and previous index is not 0xffffffff
     // previous_hash
-    if is_coinbase && pervious_index != u32::max_value() {
+    if is_coinbase && previous_index != u32::max_value() {
         return Err(Error::MalformedTransaction);
     }
 
@@ -370,19 +359,19 @@ pub fn parse_transaction_input(
 
     Ok((
         TransactionInput {
-            previous_hash: previous_hash,
-            previous_index: pervious_index,
+            previous_hash,
+            previous_index,
             coinbase: is_coinbase,
-            height: height,
-            script: script,
-            sequence: sequence,
+            height,
+            script,
+            sequence,
             witness: None,
         },
         consumed_bytes,
     ))
 }
 
-pub fn parse_transaction_output(raw_output: &[u8]) -> Result<(TransactionOutput, usize), Error> {
+fn parse_transaction_output(raw_output: &[u8]) -> Result<(TransactionOutput, usize), Error> {
     let mut parser = BytesParser::new(raw_output);
     let value: i64 = parser.parse()?;
     let script_size: CompactUint = parser.parse()?;
@@ -390,25 +379,11 @@ pub fn parse_transaction_output(raw_output: &[u8]) -> Result<(TransactionOutput,
         return Err(Error::MalformedTransaction);
     }
     let script = parser.read(script_size.value as usize)?;
-    Ok((
-        TransactionOutput {
-            value: value,
-            script: Vec::from(script),
-        },
-        parser.position,
-    ))
-}
-
-pub fn extract_value(raw_output: &[u8]) -> u64 {
-    let mut arr: [u8; 8] = Default::default();
-    arr.copy_from_slice(&raw_output[..8]);
-    u64::from_le_bytes(arr)
+    Ok((TransactionOutput { value, script }, parser.position))
 }
 
 pub fn extract_address_hash(output_script: &[u8]) -> Result<Vec<u8>, Error> {
-
     let script_len = output_script.len();
-    
     // Witness
     if output_script[0] == 0 {
         if script_len < 2 {
@@ -425,24 +400,35 @@ pub fn extract_address_hash(output_script: &[u8]) -> Result<Vec<u8>, Error> {
     // 25 bytes
     // Format:
     // 0x76 (OP_DUP) - 0xa9 (OP_HASH160) - 0x14 (20 bytes len) - <20 bytes pubkey hash> - 0x88 (OP_EQUALVERIFY) - 0xac (OP_CHECKSIG)
-    if script_len as u32 == P2PKH_SCRIPT_SIZE && output_script[0..=2] == [OpCode::OpDup as u8, OpCode::OpHash160 as u8, HASH160_SIZE_HEX] {
-        if output_script[script_len - 2..] != [OpCode::OpEqualVerify as u8, OpCode::OpCheckSig as u8] {
+    if script_len as u32 == P2PKH_SCRIPT_SIZE
+        && output_script[0..=2]
+            == [
+                OpCode::OpDup as u8,
+                OpCode::OpHash160 as u8,
+                HASH160_SIZE_HEX,
+            ]
+    {
+        if output_script[script_len - 2..]
+            != [OpCode::OpEqualVerify as u8, OpCode::OpCheckSig as u8]
+        {
             return Err(Error::MalformedP2PKHOutput);
         }
-        return Ok(output_script[3..script_len-2].to_vec());
+        return Ok(output_script[3..script_len - 2].to_vec());
     }
 
     // P2SH
     // 23 bytes
-    // Format: 
+    // Format:
     // 0xa9 (OP_HASH160) - 0x14 (20 bytes hash) - <20 bytes script hash> - 0x87 (OP_EQUAL)
-    if script_len as u32 == P2SH_SCRIPT_SIZE && output_script[0..=1] == [OpCode::OpHash160 as u8, HASH160_SIZE_HEX] {
-        if output_script[script_len-1] != OpCode::OpEqual as u8 {
-            return Err(Error::MalformedP2SHOutput)
+    if script_len as u32 == P2SH_SCRIPT_SIZE
+        && output_script[0..=1] == [OpCode::OpHash160 as u8, HASH160_SIZE_HEX]
+    {
+        if output_script[script_len - 1] != OpCode::OpEqual as u8 {
+            return Err(Error::MalformedP2SHOutput);
         }
-        return Ok(output_script[2..(script_len-1)].to_vec())
+        return Ok(output_script[2..(script_len - 1)].to_vec());
     }
-    return Err(Error::UnsupportedOutputFormat);
+    Err(Error::UnsupportedOutputFormat)
 }
 
 pub fn extract_op_return_data(output_script: &[u8]) -> Result<Vec<u8>, Error> {
@@ -458,13 +444,11 @@ pub fn extract_op_return_data(output_script: &[u8]) -> Result<Vec<u8>, Error> {
     Ok(output_script[2..].to_vec())
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     // examples from https://bitcoin.org/en/developer-reference#block-headers
-
 
     #[test]
     fn test_parse_block_header() {
@@ -476,8 +460,8 @@ mod tests {
             "24d95a54" + // ........................... Unix time: 1415239972
             "30c31b18" + // ........................... Target: 0x1bc330 * 256**(0x18-3)
             "fe9f0864";
-        let raw_header = hex::decode(&hex_header[..]).unwrap();
-        let parsed_header = parse_block_header(header_from_bytes(&raw_header)).unwrap();
+        let raw_header = RawBlockHeader::from_hex(&hex_header).unwrap();
+        let parsed_header = parse_block_header(&raw_header).unwrap();
         assert_eq!(parsed_header.version, 2);
         assert_eq!(parsed_header.timestamp, 1415239972);
         assert_eq!(
@@ -545,7 +529,7 @@ mod tests {
         "cbc20a7664f2f69e5355aa427045bc15" +
         "e7c6c772" +                         // PubKey hash
         "88" +                               // OP_EQUALVERIFY
-        "ac"                                 // OP_CHECKSIG
+        "ac" // OP_CHECKSIG
     }
 
     fn sample_transaction() -> String {
@@ -636,17 +620,23 @@ mod tests {
         assert_eq!(inputs[0].coinbase, true);
         assert_eq!(inputs[0].witness.is_some(), true);
         assert_eq!(outputs.len(), 2);
-        assert_eq!(&hex::encode(&outputs[0].script), "a91466c7060feb882664ae62ffad0051fe843e318e8587");
-        assert_eq!(&hex::encode(&outputs[1].script), "6a24aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675");
+        assert_eq!(
+            &hex::encode(&outputs[0].script),
+            "a91466c7060feb882664ae62ffad0051fe843e318e8587"
+        );
+        assert_eq!(
+            &hex::encode(&outputs[1].script),
+            "6a24aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675"
+        );
         assert_eq!(transaction.block_height, Some(0));
         assert_eq!(transaction.locktime, None);
     }
 
     #[test]
-    fn test_extract_address_hash_valid_p2pkh(){
+    fn test_extract_address_hash_valid_p2pkh() {
         let p2pkh_script = hex::decode(&sample_valid_p2pkh()).unwrap();
 
-        let p2pkh_address: [u8; 20] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+        let p2pkh_address: [u8; 20] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
         let extr_p2pkh = extract_address_hash(&p2pkh_script).unwrap();
 
@@ -654,10 +644,10 @@ mod tests {
     }
 
     #[test]
-    fn test_extract_address_hash_valid_p2sh(){
+    fn test_extract_address_hash_valid_p2sh() {
         let p2sh_script = hex::decode(&sample_valid_p2sh()).unwrap();
 
-        let p2sh_address: [u8; 20] = [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
+        let p2sh_address: [u8; 20] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
         let extr_p2sh = extract_address_hash(&p2sh_script).unwrap();
 

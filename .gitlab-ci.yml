@@ -4,15 +4,18 @@ image: "rust:latest"
 
 # Install a C compiler, cmake and git into the container.
 before_script:
-  - apt-get -y update
-  - apt-get install -y build-essential cmake pkg-config libssl-dev clang libclang-dev llvm
-  - rustc --version && cargo --version  # Print version info for debugging
+    - apt-get -y update
+    - apt-get install -y build-essential cmake pkg-config libssl-dev clang libclang-dev llvm
+    - rustup toolchain install nightly-2020-03-01 # rustc version 1.43.0-nightly
+    - rustup default nightly-2020-03-01
+    - rustup component add rustfmt
+    - rustc --version && rustfmt --version && cargo --version  # Print version info for debugging
 
 # Declare stages
 stages:
-  - build     # for crates and pallets
-  - test      # for tests in dev
-  - deploy    # for deployment in master
+    - build     # for crates and pallets
+    - test      # for tests in dev
+    - deploy    # for deployment in master
 
 # # master branch
 # btc-parachain-test:
@@ -58,14 +61,14 @@ stages:
 
 # pallets and crates
 test-pallets-and-crates:
-  stage: test
-  image: rustlang/rust:nightly
-  script:
-    - cargo build --release --verbose
-    - cargo test --all --release
-  cache:
-    key: build-cache
-    paths:
-      - target
-  only:
-    - merge_requests
+    stage: test
+    script:
+        - cargo build --release --verbose
+        - cargo fmt -- --check
+        - cargo test --all --release
+    cache:
+        key: build-cache
+        paths:
+            - target
+    only:
+        - merge_requests
