@@ -2732,6 +2732,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "826e7639553986605ec5979c7dd957c7895e93eabed50ab2ffa7f6128a75097c"
 
 [[package]]
+name = "vault-registry"
+version = "0.0.1"
+dependencies = [
+ "frame-support 2.0.0-alpha.5",
+ "frame-system 2.0.0-alpha.5",
+ "mocktopus",
+ "node-primitives",
+ "pallet-balances",
+ "pallet-timestamp 2.0.0-alpha.5",
+ "parity-scale-codec",
+ "sp-core 2.0.0-alpha.5",
+ "sp-io 2.0.0-alpha.5",
+ "sp-runtime 2.0.0-alpha.5",
+ "xclaim-core",
+]
+
+[[package]]
 name = "wasi"
 version = "0.9.0+wasi-snapshot-preview1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

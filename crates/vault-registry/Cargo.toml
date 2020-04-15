@@ -1,0 +1,68 @@
+[package]
+name = "vault-registry"
+version = "0.0.1"
+authors = ["Interlay Ltd"]
+edition = "2018"
+
+[features]
+default = ['std']
+std = [
+  'codec/std',
+  'frame-support/std',
+  'sp-runtime/std',
+  'sp-io/std',
+  'system/std',
+  'timestamp/std',
+  'sp-core/std',
+  'pallet-balances/std',
+  'node-primitives/std'
+]
+
+[dependencies.codec]
+default-features = false
+features = ['derive']
+package = 'parity-scale-codec'
+version = '1.0.0'
+
+[dependencies.sp-runtime]
+default-features = false
+version = '2.0.0-alpha.5'
+
+[dependencies.frame-support]
+default-features = false
+version = '2.0.0-alpha.5'
+
+[dependencies.system]
+default-features = false
+package = 'frame-system'
+version = '2.0.0-alpha.5'
+
+[dependencies.sp-io]
+default-features = false
+version = '2.0.0-alpha.5'
+
+[dependencies.sp-core]
+default-features = false
+version = '2.0.0-alpha.5'
+
+[dependencies.timestamp]
+default-features = false
+package = 'pallet-timestamp'
+version = '2.0.0-alpha.5'
+
+[dependencies.pallet-balances]
+default-features = false
+package = 'pallet-balances'
+version = '2.0.0-alpha.5'
+
+[dependencies.node-primitives]
+default-features = false
+version = '2.0.0'
+git = 'https://github.com/paritytech/substrate.git'
+rev = '3e651110aa06aa835790df63410a29676243fc54'
+
+[dependencies.xclaim-core]
+path = '../xclaim-core'
+
+[dev-dependencies]
+mocktopus = "0.7.0"
