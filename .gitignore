@@ -12,3 +12,5 @@
 .idea
 /target/*
 
+*/launch.json
+

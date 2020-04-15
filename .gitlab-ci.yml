@@ -6,7 +6,10 @@ image: "rust:latest"
 before_script:
     - apt-get -y update
     - apt-get install -y build-essential cmake pkg-config libssl-dev clang libclang-dev llvm
-    - rustc --version && cargo --version  # Print version info for debugging
+    - rustup toolchain install nightly-2020-03-01 # rustc version 1.43.0-nightly
+    - rustup default nightly-2020-03-01
+    - rustup component add rustfmt
+    - rustc --version && rustfmt --version && cargo --version  # Print version info for debugging
 
 # Declare stages
 stages:
@@ -59,7 +62,6 @@ stages:
 # pallets and crates
 test-pallets-and-crates:
     stage: test
-    image: rustlang/rust:nightly
     script:
         - cargo build --release --verbose
         - cargo fmt -- --check
