@@ -269,11 +269,13 @@ version = "0.1.0"
 dependencies = [
  "frame-support 2.0.0-alpha.5",
  "frame-system 2.0.0-alpha.5",
+ "pallet-balances",
  "parity-scale-codec",
  "safe-mix",
  "sp-core 2.0.0-alpha.5",
  "sp-io 2.0.0-alpha.5",
  "sp-runtime 2.0.0-alpha.5",
+ "xclaim-core",
 ]
 
 [[package]]
