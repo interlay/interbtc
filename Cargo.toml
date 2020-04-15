@@ -6,6 +6,7 @@ members = [
   "crates/btc-relay",
   "crates/security",
   "crates/exchange-rate-oracle",
+  "crates/vault-registry",
   "crates/treasury",
   "crates/collateral",
 ]

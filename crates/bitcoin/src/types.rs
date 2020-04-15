@@ -12,16 +12,58 @@ use btc_core::Error;
 /// Custom Types
 /// Bitcoin Raw Block Header type
 
-pub type RawBlockHeader = [u8; 80];
+#[derive(Encode, Decode, Copy, Clone)]
+pub struct RawBlockHeader([u8; 80]);
 
-// #[derive(Encode, Decode, Default, Copy, Clone, PartialEq)]
-// struct RawBlockHeader(pub [u8; 32]);
+impl RawBlockHeader {
+    /// Returns a raw block header from a bytes slice
+    ///
+    /// # Arguments
+    ///
+    /// * `bytes` - A slice containing the header
+    pub fn from_bytes(bytes: &[u8]) -> Result<RawBlockHeader, Error> {
+        if bytes.len() != 80 {
+            return Err(Error::InvalidHeaderSize);
+        }
+        let mut result: [u8; 80] = [0; 80];
+        result.copy_from_slice(&bytes);
+        Ok(RawBlockHeader(result))
+    }
 
-// impl RawBlockHeader {
-//     fn hash(&self) -> H256Le {
+    /// Returns a raw block header from a bytes slice
+    ///
+    /// # Arguments
+    ///
+    /// * `bytes` - A slice containing the header
+    pub fn from_hex<T: AsRef<[u8]>>(hex_string: T) -> Result<RawBlockHeader, Error> {
+        let bytes = hex::decode(hex_string).map_err(|_e| Error::MalformedHeader)?;
+        Self::from_bytes(&bytes)
+    }
 
-//     }
-// }
+    /// Returns the hash of the block header using Bitcoin's double sha256
+    pub fn hash(&self) -> H256Le {
+        H256Le::from_bytes_le(&sha256d(self.as_slice()))
+    }
+
+    /// Returns the block header as a slice
+    pub fn as_slice(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl PartialEq for RawBlockHeader {
+    fn eq(&self, other: &Self) -> bool {
+        let self_bytes = &self.0[..];
+        let other_bytes = &other.0[..];
+        self_bytes == other_bytes
+    }
+}
+
+impl std::fmt::Debug for RawBlockHeader {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_list().entries(self.0.iter()).finish()
+    }
+}
 
 // Constants
 pub const P2PKH_SCRIPT_SIZE: u32 = 25;
@@ -40,16 +82,6 @@ pub struct BlockHeader {
     pub version: i32,
     pub hash_prev_block: H256Le,
     pub nonce: u32,
-}
-
-impl BlockHeader {
-    pub fn block_hash_le(bytes: &[u8]) -> H256Le {
-        sha256d_le(bytes)
-    }
-
-    pub fn block_hash_be(bytes: &[u8]) -> H256 {
-        sha256d_be(bytes)
-    }
 }
 
 /// Bitcoin transaction input
@@ -95,7 +127,6 @@ impl Transaction {
 
 /// Bitcoin Enriched Block Headers
 #[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug)]
-// #[cfg_attr(feature = "std", derive(Debug))]
 pub struct RichBlockHeader {
     pub block_hash: H256Le,
     pub block_header: BlockHeader,
@@ -105,23 +136,22 @@ pub struct RichBlockHeader {
 
 impl RichBlockHeader {
     // Creates a RichBlockHeader given a RawBlockHeader, Blockchain identifier and block height
-    pub fn construct_rich_block_header(
+    pub fn construct(
         raw_block_header: RawBlockHeader,
         chain_ref: u32,
         block_height: u32,
     ) -> Result<RichBlockHeader, Error> {
         Ok(RichBlockHeader {
-            block_hash: BlockHeader::block_hash_le(&raw_block_header),
-            block_header: BlockHeader::from_le_bytes(&raw_block_header)?,
-            block_height,
-            chain_ref,
+            block_hash: raw_block_header.hash(),
+            block_header: BlockHeader::from_le_bytes(raw_block_header.as_slice())?,
+            block_height: block_height,
+            chain_ref: chain_ref,
         })
     }
 }
 
 /// Representation of a Bitcoin blockchain
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
-//#[cfg_attr(feature = "std", derive(Debug))]
 pub struct BlockChain {
     pub chain_id: u32,
     pub start_height: u32,
@@ -132,7 +162,6 @@ pub struct BlockChain {
 
 /// Represents a bitcoin 32 bytes hash digest encoded in little-endian
 #[derive(Encode, Decode, Default, PartialEq, Eq, Clone, Copy, Debug)]
-//#[cfg_attr(feature="std", derive(Debug))]
 pub struct H256Le {
     content: [u8; 32],
 }
