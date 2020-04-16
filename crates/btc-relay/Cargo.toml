@@ -17,6 +17,7 @@ std = [
     'sp-core/std',
 	'node-primitives/std',
 	'sp-std/std',
+	'primitive-types/std',
 ]
 
 [dependencies.serde]
@@ -32,34 +33,24 @@ version = '1.0.0'
 
 [dependencies.sp-runtime]
 default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-version = '2.0.0'
+version = '2.0.0-alpha.5'
 
 [dependencies.frame-support]
 default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-version = '2.0.0'
+version = '2.0.0-alpha.5'
 
 [dependencies.system]
 default-features = false
-git = 'https://github.com/paritytech/substrate.git'
 package = 'frame-system'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-version = '2.0.0'
+version = '2.0.0-alpha.5'
 
 [dependencies.sp-io]
 default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-version = '2.0.0'
+version = '2.0.0-alpha.5'
 
 [dependencies.sp-core]
 default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-version = '2.0.0'
+version = '2.0.0-alpha.5'
 
 [dependencies.timestamp]
 default-features = false
@@ -76,9 +67,7 @@ rev = '3e651110aa06aa835790df63410a29676243fc54'
 
 [dependencies.sp-std]
 default-features = false
-version = '2.0.0'
-git = 'https://github.com/paritytech/substrate.git'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
+version = '2.0.0-alpha.5'
 
 [dependencies.bitcoin]
 default-features = false
@@ -103,3 +92,7 @@ version = "0.4.0"
 [dev-dependencies]
 mocktopus = "0.7.0"
 
+[dependencies.primitive-types]
+default-features = false
+version = '0.6.2'
+features= ['codec']

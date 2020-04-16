@@ -17,8 +17,11 @@ use mocktopus::macros::mockable;
 /// This is the implementation of the BTC-Relay following the spec at:
 /// https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/
 // Substrate
-use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
-use sp_core::{H160, U256};
+use frame_support::{
+    decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure, IterableStorageMap,
+};
+use primitive_types::U256;
+use sp_core::H160;
 use sp_std::collections::btree_set::BTreeSet;
 use system::ensure_signed;
 
@@ -73,16 +76,16 @@ decl_storage! {
     trait Store for Module<T: Trait> as BTCRelay {
     /// ## Storage
         /// Store Bitcoin block headers
-        BlockHeaders: map H256Le => RichBlockHeader;
+        BlockHeaders: map hasher(blake2_128_concat) H256Le => RichBlockHeader;
 
         /// Sorted mapping of BlockChain elements with reference to ChainsIndex
-        Chains: linked_map u32 => u32;
+        Chains: map hasher(blake2_128_concat) u32 => u32;
 
         /// Store the index for each tracked blockchain
-        ChainsIndex: map u32 => BlockChain;
+        ChainsIndex: map hasher(blake2_128_concat) u32 => BlockChain;
 
         /// Stores a mapping from (chain_index, block height) to block hash
-        ChainsHashes: double_map u32, blake2_256(u32) => H256Le;
+        ChainsHashes: double_map hasher(blake2_128_concat) u32, hasher(blake2_128_concat) u32 => H256Le;
 
         /// Store the current blockchain tip
         BestBlock: H256Le;
@@ -401,7 +404,7 @@ impl<T: Trait> Module<T> {
     }
     /// Get the position of the fork in Chains
     fn get_chain_position_from_chain_id(chain_id: u32) -> Result<u32, Error> {
-        for (k, v) in <Chains>::enumerate() {
+        for (k, v) in <Chains>::iter() {
             if v == chain_id {
                 return Ok(k);
             }
@@ -451,14 +454,14 @@ impl<T: Trait> Module<T> {
 
     /// Get a block header from its hash
     fn get_block_header_from_hash(block_hash: H256Le) -> Result<RichBlockHeader, Error> {
-        if <BlockHeaders>::exists(block_hash) {
+        if <BlockHeaders>::contains_key(block_hash) {
             return Ok(<BlockHeaders>::get(block_hash));
         }
         Err(Error::BlockNotFound)
     }
     /// Check if a block header exists
     fn block_header_exists(block_hash: H256Le) -> bool {
-        <BlockHeaders>::exists(block_hash)
+        <BlockHeaders>::contains_key(block_hash)
     }
     /// Get a block header from
     fn get_block_header_from_height(
@@ -480,8 +483,8 @@ impl<T: Trait> Module<T> {
     /// Remove a chain id from chains
     fn remove_blockchain_from_chain(position: u32) -> Result<(), Error> {
         // swap the element with the last element in the mapping
-        let head_index = match <Chains>::head() {
-            Some(head) => head,
+        let head_index = match <Chains>::iter().nth(0) {
+            Some(head) => head.0,
             None => return Err(Error::ForkIdNotFound),
         };
         <Chains>::swap(position, head_index);
@@ -564,7 +567,7 @@ impl<T: Trait> Module<T> {
     }
 
     fn block_exists(chain_id: u32, block_height: u32) -> bool {
-        <ChainsHashes>::exists(chain_id, block_height)
+        <ChainsHashes>::contains_key(chain_id, block_height)
     }
 
     fn _blocks_count(chain_id: u32) -> usize {
@@ -890,7 +893,7 @@ impl<T: Trait> Module<T> {
         // print!("Chain id: {:?}\n", blockchain.chain_id);
         // get a sorted vector over the Chains elements
         // NOTE: LinkedStorageMap iterators are not sorted over the keys
-        let mut chains = <Chains>::enumerate().collect::<Vec<(u32, u32)>>();
+        let mut chains = <Chains>::iter().collect::<Vec<(u32, u32)>>();
         chains.sort_by_key(|k| k.0);
 
         let max_chain_element = chains.len() as u32;
