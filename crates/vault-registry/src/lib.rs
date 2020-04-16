@@ -150,6 +150,23 @@ impl<T: Trait> Module<T> {
     pub fn insert_vault(id: AccountId, vault: Vault) {
         <Vaults>::insert(id, vault)
     }
+
+    pub fn increase_to_be_issued_tokens(id: &AccountId, tokens: &Balance) -> Result<H160, Error> {
+        <Vaults>::mutate(id, |v| v.to_be_issued_tokens += tokens);
+        Ok(<Vaults>::get(id).btc_address)
+    }
+
+    pub fn decrease_to_be_issued_tokens(id: &AccountId, tokens: &Balance) -> Result<(), Error> {
+        <Vaults>::mutate(id, |v| v.to_be_issued_tokens -= tokens);
+        Ok(())
+    }
+
+    pub fn issue_tokens(id: &AccountId, tokens: &Balance) -> Result<(), Error> {
+        Self::decrease_to_be_issued_tokens(id, tokens)?;
+        <Vaults>::mutate(id, |v| v.issued_tokens += tokens);
+        Ok(())
+    }
+
     /// Private getters and setters
 
     /// Other helpers
