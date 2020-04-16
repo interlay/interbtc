@@ -121,8 +121,8 @@ dependencies = [
  "parity-scale-codec",
  "primitive-types 0.6.2",
  "sha2",
- "sp-core 2.0.0",
- "sp-std 2.0.0",
+ "sp-core 2.0.0-alpha.5",
+ "sp-std 2.0.0-alpha.5",
  "twox-hash",
 ]
 
@@ -183,8 +183,8 @@ dependencies = [
 name = "btc-core"
 version = "0.1.0"
 dependencies = [
- "frame-support 2.0.0",
- "sp-runtime 2.0.0",
+ "frame-support 2.0.0-alpha.5",
+ "sp-runtime 2.0.0-alpha.5",
 ]
 
 [[package]]
@@ -193,20 +193,21 @@ version = "0.0.1"
 dependencies = [
  "bitcoin",
  "btc-core",
- "frame-support 2.0.0",
- "frame-system 2.0.0",
+ "frame-support 2.0.0-alpha.5",
+ "frame-system 2.0.0-alpha.5",
  "hex",
  "indexmap",
  "mocktopus",
  "node-primitives",
  "pallet-timestamp 2.0.0",
  "parity-scale-codec",
+ "primitive-types 0.6.2",
  "security",
  "serde",
- "sp-core 2.0.0",
- "sp-io 2.0.0",
- "sp-runtime 2.0.0",
- "sp-std 2.0.0",
+ "sp-core 2.0.0-alpha.5",
+ "sp-io 2.0.0-alpha.5",
+ "sp-runtime 2.0.0-alpha.5",
+ "sp-std 2.0.0-alpha.5",
 ]
 
 [[package]]
