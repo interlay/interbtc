@@ -2738,6 +2738,7 @@ checksum = "826e7639553986605ec5979c7dd957c7895e93eabed50ab2ffa7f6128a75097c"
 name = "vault-registry"
 version = "0.0.1"
 dependencies = [
+ "collateral",
  "frame-support 2.0.0-alpha.5",
  "frame-system 2.0.0-alpha.5",
  "mocktopus",
@@ -2748,6 +2749,7 @@ dependencies = [
  "sp-core 2.0.0-alpha.5",
  "sp-io 2.0.0-alpha.5",
  "sp-runtime 2.0.0-alpha.5",
+ "treasury",
  "xclaim-core",
 ]
 
