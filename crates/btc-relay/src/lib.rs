@@ -296,46 +296,12 @@ decl_module! {
         -> DispatchResult {
             let _ = ensure_signed(origin)?;
 
-
             // fail if parachain is not in running state.
             /*
             ensure!(<security::Module<T>>::check_parachain_status(StatusCode::Running),
                 Error::<T>::Shutdown);
             */
-            //let main_chain = Self::get_block_chain_from_id(MAIN_CHAIN_ID);
-            let best_block_height = Self::get_best_block_height();
-
-            let next_best_fork_id = Self::get_chain_id_from_position(1);
-            let next_best_fork_height = Self::get_block_chain_from_id(
-                next_best_fork_id
-                ).max_height;
-
-            // fail if there is an ongoing fork
-            ensure!(best_block_height
-                    >= next_best_fork_height + STABLE_TRANSACTION_CONFIRMATIONS,
-                    Error::OngoingFork);
-
-            // This call fails if not enough confirmations
-            Self::check_confirmations(
-                best_block_height,
-                confirmations,
-                block_height,
-                insecure)?;
-
-            let proof_result = Self::verify_merkle_proof(&raw_merkle_proof)?;
-            let rich_header = Self::get_block_header_from_height(
-                &Self::get_block_chain_from_id(MAIN_CHAIN_ID),
-                block_height
-            )?;
-
-            // fail if the transaction hash is invalid
-            ensure!(proof_result.transaction_hash == tx_id,
-                    Error::InvalidTxid);
-
-            // fail if the merkle root is invalid
-            ensure!(proof_result.extracted_root == rich_header.block_header.merkle_root,
-                    Error::InvalidMerkleProof);
-
+            Self::_verify_transaction_inclusion(tx_id, block_height, raw_merkle_proof, confirmations, insecure)?;
             Ok(())
         }
 
@@ -363,30 +329,7 @@ decl_module! {
             op_return_id: Vec<u8>
         ) -> DispatchResult {
             let _ = ensure_signed(origin)?;
-
-            let transaction = Self::parse_transaction(&raw_tx)?;
-
-            // TODO: make 2 a constant
-            ensure!(transaction.outputs.len() >= 2, Error::MalformedTransaction);
-
-            // Check if 1st / payment UTXO transfers sufficient value
-            // FIXME: returns incorrect value (too large: 9865995930474779817)
-            let extr_payment_value = transaction.outputs[0].value;
-            ensure!(extr_payment_value >= payment_value, Error::InsufficientValue);
-
-            // Check if 1st / payment UTXO sends to correct address
-            let extr_recipient_address = extract_address_hash(
-                    &transaction.outputs[0].script
-                )?;
-            ensure!(extr_recipient_address == recipient_btc_address,
-                Error::WrongRecipient);
-
-            // Check if 2nd / data UTXO has correct OP_RETURN value
-            let extr_op_return_value = extract_op_return_data(
-                    &transaction.outputs[1].script
-                )?;
-            ensure!(extr_op_return_value == op_return_id, Error::InvalidOpreturn);
-
+            Self::_validate_transaction(raw_tx, payment_value, recipient_btc_address, op_return_id)?;
             Ok(())
         }
     }
@@ -394,6 +337,78 @@ decl_module! {
 
 #[cfg_attr(test, mockable)]
 impl<T: Trait> Module<T> {
+    pub fn _verify_transaction_inclusion(
+        tx_id: H256Le,
+        block_height: u32,
+        raw_merkle_proof: Vec<u8>,
+        confirmations: u32,
+        insecure: bool,
+    ) -> Result<(), Error> {
+        //let main_chain = Self::get_block_chain_from_id(MAIN_CHAIN_ID);
+        let best_block_height = Self::get_best_block_height();
+
+        let next_best_fork_id = Self::get_chain_id_from_position(1);
+        let next_best_fork_height = Self::get_block_chain_from_id(next_best_fork_id).max_height;
+
+        // fail if there is an ongoing fork
+        ensure!(
+            best_block_height >= next_best_fork_height + STABLE_TRANSACTION_CONFIRMATIONS,
+            Error::OngoingFork
+        );
+
+        // This call fails if not enough confirmations
+        Self::check_confirmations(best_block_height, confirmations, block_height, insecure)?;
+
+        let proof_result = Self::verify_merkle_proof(&raw_merkle_proof)?;
+        let rich_header = Self::get_block_header_from_height(
+            &Self::get_block_chain_from_id(MAIN_CHAIN_ID),
+            block_height,
+        )?;
+
+        // fail if the transaction hash is invalid
+        ensure!(proof_result.transaction_hash == tx_id, Error::InvalidTxid);
+
+        // fail if the merkle root is invalid
+        ensure!(
+            proof_result.extracted_root == rich_header.block_header.merkle_root,
+            Error::InvalidMerkleProof
+        );
+        Ok(())
+    }
+
+    pub fn _validate_transaction(
+        raw_tx: Vec<u8>,
+        payment_value: i64,
+        recipient_btc_address: Vec<u8>,
+        op_return_id: Vec<u8>,
+    ) -> DispatchResult {
+        let transaction = Self::parse_transaction(&raw_tx)?;
+
+        // TODO: make 2 a constant
+        ensure!(transaction.outputs.len() >= 2, Error::MalformedTransaction);
+
+        // Check if 1st / payment UTXO transfers sufficient value
+        // FIXME: returns incorrect value (too large: 9865995930474779817)
+        let extr_payment_value = transaction.outputs[0].value;
+        ensure!(
+            extr_payment_value >= payment_value,
+            Error::InsufficientValue
+        );
+
+        // Check if 1st / payment UTXO sends to correct address
+        let extr_recipient_address = extract_address_hash(&transaction.outputs[0].script)?;
+        ensure!(
+            extr_recipient_address == recipient_btc_address,
+            Error::WrongRecipient
+        );
+
+        // Check if 2nd / data UTXO has correct OP_RETURN value
+        let extr_op_return_value = extract_op_return_data(&transaction.outputs[1].script)?;
+        ensure!(extr_op_return_value == op_return_id, Error::InvalidOpreturn);
+
+        Ok(())
+    }
+
     // ********************************
     // START: Storage getter functions
     // ********************************
