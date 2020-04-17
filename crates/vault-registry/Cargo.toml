@@ -64,5 +64,11 @@ rev = '3e651110aa06aa835790df63410a29676243fc54'
 [dependencies.xclaim-core]
 path = '../xclaim-core'
 
+[dependencies.collateral]
+path = '../collateral'
+
+[dependencies.treasury]
+path = '../treasury'
+
 [dev-dependencies]
 mocktopus = "0.7.0"

@@ -22,6 +22,8 @@ impl_outer_event! {
         system<T>,
         test_events<T>,
         pallet_balances<T>,
+        collateral<T>,
+        treasury<T>,
     }
 }
 
@@ -72,10 +74,18 @@ impl pallet_balances::Trait for Test {
     type AccountStore = System;
 }
 
+impl collateral::Trait for Test {
+    type DOT = Balances;
+    type Event = TestEvent;
+}
+
+impl treasury::Trait for Test {
+    type PolkaBTC = Balances;
+    type Event = TestEvent;
+}
+
 impl Trait for Test {
     type Event = TestEvent;
-    type PolkaBTC = Balances;
-    type DOT = Balances;
 }
 
 pub type Balances = pallet_balances::Module<Test>;
