@@ -1,37 +1,75 @@
-// use crate::mock::{run_test, Origin, System, Test, TestEvent, VaultRegistry};
-use crate::mock::run_test;
-// use crate::Error;
+use frame_support::{assert_err, assert_ok};
+use sp_core::H160;
 
-// use frame_support::{assert_err, assert_ok};
-// use mocktopus::mocking::*;
+use mocktopus::mocking::*;
 
-// type Event = crate::Event<Test>;
+use crate::mock::{run_test, Origin, System, Test, TestEvent, VaultRegistry};
+use crate::Error;
 
-// // use macro to avoid messing up stack trace
-// macro_rules! assert_emitted {
-//     ($event:expr) => {
-//         let test_event = TestEvent::test_events($event);
-//         assert!(System::events().iter().any(|a| a.event == test_event));
-//     };
-// }
+type Event = crate::Event<Test>;
 
-// macro_rules! assert_not_emitted {
-//     ($event:expr) => {
-//         let test_event = TestEvent::test_events($event);
-//         assert!(!System::events().iter().any(|a| a.event == test_event));
-//     };
-// }
+// use macro to avoid messing up stack trace
+macro_rules! assert_emitted {
+    ($event:expr) => {
+        let test_event = TestEvent::test_events($event);
+        assert!(System::events().iter().any(|a| a.event == test_event));
+    };
+    ($event:expr, $times:expr) => {
+        let test_event = TestEvent::test_events($event);
+        assert_eq!(
+            System::events()
+                .iter()
+                .filter(|a| a.event == test_event)
+                .count(),
+            $times
+        );
+    };
+}
+
+macro_rules! assert_not_emitted {
+    ($event:expr) => {
+        let test_event = TestEvent::test_events($event);
+        assert!(!System::events().iter().any(|a| a.event == test_event));
+    };
+}
 
 #[test]
-fn set_exchange_rate_success() {
+fn register_vault_succeeds() {
     run_test(|| {
-        // VaultRegistry::get_authorized_oracle.mock_safe(|| MockResult::Return(3));
-        // let result = ExchangeRateOracle::set_exchange_rate(Origin::signed(3), 100);
-        // assert_ok!(result);
+        VaultRegistry::get_minimum_collateral_vault.mock_safe(|| MockResult::Return(100));
+        let id = 3;
+        let collateral = 100;
+        let origin = Origin::signed(id);
+        let result = VaultRegistry::register_vault(origin, collateral, H160::zero());
+        assert_ok!(result);
+        assert_emitted!(Event::RegisterVault(id, collateral));
+    });
+}
 
-        // let exchange_rate = ExchangeRateOracle::get_exchange_rate().unwrap();
-        // assert_eq!(exchange_rate, 100);
+#[test]
+fn register_vault_fails_when_collateral_too_low() {
+    run_test(|| {
+        VaultRegistry::get_minimum_collateral_vault.mock_safe(|| MockResult::Return(200));
+        let id = 3;
+        let collateral = 100;
+        let origin = Origin::signed(id);
+        let result = VaultRegistry::register_vault(origin, collateral, H160::zero());
+        assert_err!(result, Error::InsuficientVaultCollateralAmount);
+        assert_not_emitted!(Event::RegisterVault(id, collateral));
+    });
+}
 
-        // assert_emitted!(Event::SetExchangeRate(3, 100));
+#[test]
+fn register_vault_fails_when_already_registered() {
+    run_test(|| {
+        VaultRegistry::get_minimum_collateral_vault.mock_safe(|| MockResult::Return(100));
+        let id = 3;
+        let collateral = 100;
+        let origin = Origin::signed(id);
+        let result = VaultRegistry::register_vault(origin.clone(), collateral, H160::zero());
+        assert_ok!(result);
+        let next_result = VaultRegistry::register_vault(origin, collateral, H160::zero());
+        assert_err!(next_result, Error::VaultAlreadyRegistered);
+        assert_emitted!(Event::RegisterVault(id, collateral), 1);
     });
 }

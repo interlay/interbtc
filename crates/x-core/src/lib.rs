@@ -70,6 +70,10 @@ pub enum Error {
     InvalidVaultID,
     VaultNotFound,
     VaultBanned,
+    /// Returned if the collateral amount to register a vault was too low
+    InsuficientVaultCollateralAmount, // FIXME: ERR_MIN_AMOUNT in spec
+    /// Returned if a vault tries to register while already being registered
+    VaultAlreadyRegistered,
     InsufficientCollateral,
     ExceedingVaultLimit,
     IssueIdNotFound,
@@ -141,6 +145,8 @@ impl Error {
             Error::InvalidVaultID => "Invalid vault ID",
             Error::VaultNotFound => "There exists no Vault with the given account id",
             Error::VaultBanned => "The selected Vault has been temporarily banned",
+            Error::InsuficientVaultCollateralAmount => "The provided collateral was insufficient",
+            Error::VaultAlreadyRegistered => "This vault is already registered",
             Error::InsufficientCollateral => "User provided collateral below limit",
             Error::ExceedingVaultLimit => "The requested Vault has not locked enough collateral",
             Error::IssueIdNotFound => "Requested issue id not found",
@@ -148,6 +154,7 @@ impl Error {
             Error::UnauthorizedUser => "Unauthorized: Caller must be associated user",
             Error::TimeNotExpired => "Time to issue PolkaBTC not yet expired",
             Error::IssueCompleted => "Issue completed and cannot be cancelled",
+
             Error::RuntimeError => "Runtime error",
         }
     }

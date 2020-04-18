@@ -8,6 +8,7 @@ edition = "2018"
 default = ['std']
 std = [
   'codec/std',
+  'primitive-types/std',
   'frame-support/std',
   'sp-runtime/std',
   'sp-io/std',
@@ -25,6 +26,11 @@ default-features = false
 features = ['derive']
 package = 'parity-scale-codec'
 version = '1.0.0'
+
+[dependencies.primitive-types]
+default-features = false
+version = '0.6.2'
+features= ['codec']
 
 [dependencies.sp-runtime]
 default-features = false

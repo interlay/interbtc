@@ -93,7 +93,7 @@ pub type Balances = pallet_balances::Module<Test>;
 // pub type Error = crate::Error;
 
 pub type System = system::Module<Test>;
-pub type _VaultRegistry = Module<Test>;
+pub type VaultRegistry = Module<Test>;
 
 pub struct ExtBuilder;
 

@@ -60,7 +60,7 @@ fn create_test_vault() {
     <vault_registry::Module<Test>>::insert_vault(
         BOB,
         vault_registry::Vault {
-            vault: BOB,
+            id: BOB,
             to_be_issued_tokens: 0,
             issued_tokens: 0,
             to_be_redeemed_tokens: 0,
@@ -78,7 +78,7 @@ fn test_request_issue_banned_fails() {
         <vault_registry::Module<Test>>::insert_vault(
             BOB,
             vault_registry::Vault {
-                vault: BOB,
+                id: BOB,
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,

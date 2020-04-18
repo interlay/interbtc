@@ -1,6 +1,11 @@
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
+
+/// # Vault Registry implementation
+/// This is the implementation of the Vault Registry following the spec at:
+/// https://interlay.gitlab.io/polkabtc-spec/spec/vaultregistry.html
+
 #[cfg(test)]
 mod tests;
 
@@ -13,21 +18,14 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-/// # Vault Registry implementation
-/// This is the implementation of the Vault Registry following the spec at:
-/// https://interlay.gitlab.io/polkabtc-spec/spec/vaultregistry.html
-// Substrate
-use frame_support::{decl_event, decl_module, decl_storage /*, ensure */};
-// use std::time::SystemTime;
-// use system::ensure_signed;
-// use frame_support::dispatch::DispatchResult;
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, HasCompact};
+use frame_support::dispatch::DispatchResult;
 use frame_support::traits::Currency;
+use frame_support::{decl_event, decl_module, decl_storage /*, ensure */};
+use primitive_types::H256;
 use sp_core::H160;
+use system::ensure_signed;
 
-type DOT<T> = <<T as collateral::Trait>::DOT as Currency<<T as system::Trait>::AccountId>>::Balance;
-type PolkaBTC<T> =
-    <<T as treasury::Trait>::PolkaBTC as Currency<<T as system::Trait>::AccountId>>::Balance;
 use x_core::Error;
 
 /// ## Configuration and Constants
@@ -41,24 +39,65 @@ pub trait Trait: system::Trait + collateral::Trait + treasury::Trait {
 /// `LiquidationCollateralThreshold`, and `PunishmentFee`
 pub const GRANULARITY: u128 = 5;
 
+type DOT<T> = <T as collateral::Trait>::DOT;
+type DOTBalance<T> = <DOT<T> as Currency<<T as system::Trait>::AccountId>>::Balance;
+
+type PolkaBTC<T> = <T as treasury::Trait>::PolkaBTC;
+type PolkaBTCBalance<T> = <PolkaBTC<T> as Currency<<T as system::Trait>::AccountId>>::Balance;
+
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct Vault<AccountId, BlockNumber, PolkaBTC, DOT> {
+pub struct Vault<AccountId, BlockNumber, PolkaBTCBalance: HasCompact, DOTBalance: HasCompact> {
     // Account identifier of the Vault
-    pub vault: AccountId,
+    pub id: AccountId,
     // Number of PolkaBTC tokens pending issue
-    pub to_be_issued_tokens: PolkaBTC,
+    pub to_be_issued_tokens: PolkaBTCBalance,
     // Number of issued PolkaBTC tokens
-    pub issued_tokens: PolkaBTC,
+    pub issued_tokens: PolkaBTCBalance,
     // Number of PolkaBTC tokens pending redeem
-    pub to_be_redeemed_tokens: PolkaBTC,
+    pub to_be_redeemed_tokens: PolkaBTCBalance,
     // DOT collateral locked by this Vault
-    pub collateral: DOT,
+    pub collateral: DOTBalance,
     // Bitcoin address of this Vault (P2PKH, P2SH, P2PKH, P2WSH)
     pub btc_address: H160,
     // Block height until which this Vault is banned from being
     // used for Issue, Redeem (except during automatic liquidation) and Replace .
     pub banned_until: Option<BlockNumber>,
+}
+
+impl<AccountId, BlockNumber, PolkaBTCBalance: HasCompact + Default, DOTBalance: HasCompact>
+    Vault<AccountId, BlockNumber, PolkaBTCBalance, DOTBalance>
+{
+    fn new(
+        id: AccountId,
+        collateral: DOTBalance,
+        btc_address: H160,
+    ) -> Vault<AccountId, BlockNumber, PolkaBTCBalance, DOTBalance> {
+        Vault {
+            id,
+            collateral,
+            btc_address,
+            to_be_issued_tokens: Default::default(),
+            issued_tokens: Default::default(),
+            to_be_redeemed_tokens: Default::default(),
+            banned_until: None,
+        }
+    }
+}
+
+type DefaultVault<T> = Vault<
+    <T as system::Trait>::AccountId,
+    <T as system::Trait>::BlockNumber,
+    PolkaBTCBalance<T>,
+    DOTBalance<T>,
+>;
+
+#[derive(Encode, Decode, Default, Clone, PartialEq)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct RegisterRequest<AccountId, DateTime> {
+    registration_id: H256,
+    vault: AccountId,
+    timeout: DateTime,
 }
 
 // This pallet's storage items.
@@ -67,7 +106,7 @@ decl_storage! {
     /// ## Storage
         /// The minimum collateral (DOT) a Vault needs to provide
         /// to participate in the issue process.
-        MinimumCollateralVault: DOT<T>;
+        MinimumCollateralVault: DOTBalance<T>;
 
         /// If a Vault misbehaves in either the redeem or replace protocol by
         /// failing to prove that it sent the correct amount of BTC to the
@@ -117,7 +156,7 @@ decl_storage! {
         LiquidationVault: T::AccountId;
 
         /// Mapping of Vaults, using the respective Vault account identifier as key.
-        Vaults: map hasher(blake2_128_concat) T::AccountId => Option<Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>>;
+        Vaults: map hasher(blake2_128_concat) T::AccountId => Vault<T::AccountId, T::BlockNumber, PolkaBTCBalance<T>, DOTBalance<T>>;
     }
 }
 
@@ -126,6 +165,23 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         // Initializing events
         fn deposit_event() = default;
+
+        fn register_vault(origin, collateral: DOTBalance<T>, btc_address: H160) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            Self::_ensure_parachain_running()?;
+            if collateral < Self::get_minimum_collateral_vault() {
+                return Err(Error::InsuficientVaultCollateralAmount.into());
+            }
+            if Self::vault_exists(&sender) {
+                return Err(Error::VaultAlreadyRegistered.into());
+            }
+            let vault: DefaultVault<T> = Vault::new(sender.clone(), collateral, btc_address);
+            Self::insert_vault(sender.clone(), vault);
+
+            Self::deposit_event(Event::<T>::RegisterVault(sender.clone(), collateral));
+
+            Ok(())
+        }
     }
 }
 
@@ -133,56 +189,52 @@ decl_module! {
 impl<T: Trait> Module<T> {
     /// Public getters
 
-    pub fn get_vault_from_id(
-        id: T::AccountId,
-    ) -> Result<Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, Error> {
-        <Vaults<T>>::get(id).ok_or(Error::InvalidVaultID)
+    pub fn get_vault_from_id(id: &T::AccountId) -> Result<DefaultVault<T>, Error> {
+        if Self::vault_exists(&id) {
+            Ok(<Vaults<T>>::get(id))
+        } else {
+            Err(Error::VaultNotFound)
+        }
     }
 
-    pub fn mutate_vault_from_id(
-        id: T::AccountId,
-        vault: Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
-    ) {
-        <Vaults<T>>::mutate(id, |v| *v = Some(vault))
-    }
-
-    pub fn insert_vault(
-        id: T::AccountId,
-        vault: Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
-    ) {
-        <Vaults<T>>::insert(id, vault)
-    }
-
-    pub fn increase_to_be_issued_tokens(
-        id: T::AccountId,
-        tokens: PolkaBTC<T>,
-    ) -> Result<H160, Error> {
-        let mut vault = Self::get_vault_from_id(id.clone())?;
-        vault.to_be_issued_tokens += tokens;
-        let btc_address = vault.btc_address;
-        <Vaults<T>>::insert(id, vault);
-        Ok(btc_address)
-    }
-
-    pub fn decrease_to_be_issued_tokens(
-        id: T::AccountId,
-        tokens: PolkaBTC<T>,
-    ) -> Result<(), Error> {
-        let mut vault = Self::get_vault_from_id(id.clone())?;
-        vault.to_be_issued_tokens -= tokens;
-        <Vaults<T>>::insert(id, vault);
-        Ok(())
-    }
-
-    pub fn issue_tokens(id: T::AccountId, tokens: PolkaBTC<T>) -> Result<(), Error> {
-        Self::decrease_to_be_issued_tokens(id.clone(), tokens.clone())?;
-        let mut vault = Self::get_vault_from_id(id.clone())?;
-        vault.to_be_issued_tokens += tokens;
-        <Vaults<T>>::insert(id, vault);
-        Ok(())
+    pub fn vault_exists(id: &T::AccountId) -> bool {
+        <Vaults<T>>::contains_key(id)
     }
 
     /// Private getters and setters
+    fn _mutate_vault_from_id(id: T::AccountId, vault: DefaultVault<T>) {
+        <Vaults<T>>::mutate(id, |v| *v = vault)
+    }
+
+    pub fn increase_to_be_issued_tokens(
+        id: &T::AccountId,
+        tokens: PolkaBTCBalance<T>,
+    ) -> Result<H160, Error> {
+        <Vaults<T>>::mutate(id.clone(), |v| v.to_be_issued_tokens += tokens);
+        Ok(<Vaults<T>>::get(id).btc_address)
+    }
+
+    pub fn decrease_to_be_issued_tokens(
+        id: &T::AccountId,
+        tokens: PolkaBTCBalance<T>,
+    ) -> Result<(), Error> {
+        <Vaults<T>>::mutate(id, |v| v.to_be_issued_tokens -= tokens);
+        Ok(())
+    }
+
+    pub fn issue_tokens(id: &T::AccountId, tokens: PolkaBTCBalance<T>) -> Result<(), Error> {
+        Self::decrease_to_be_issued_tokens(id, tokens)?;
+        <Vaults<T>>::mutate(id, |v| v.issued_tokens += tokens);
+        Ok(())
+    }
+
+    fn get_minimum_collateral_vault() -> DOTBalance<T> {
+        <MinimumCollateralVault<T>>::get()
+    }
+
+    pub fn insert_vault(id: T::AccountId, vault: DefaultVault<T>) {
+        <Vaults<T>>::insert(id, vault)
+    }
 
     /// Other helpers
     /// Returns an error if the parachain is not in running state
@@ -201,7 +253,7 @@ decl_event! {
     /// ## Events
     pub enum Event<T> where
             AccountId = <T as system::Trait>::AccountId,
-            Balance = PolkaBTC<T> {
+            Balance = DOTBalance<T> {
         RegisterVault(AccountId, Balance),
     }
 }
