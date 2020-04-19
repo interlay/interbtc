@@ -47,7 +47,7 @@ type PolkaBTCBalance<T> = <PolkaBTC<T> as Currency<<T as system::Trait>::Account
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct Vault<AccountId, BlockNumber, PolkaBTCBalance: HasCompact, DOTBalance: HasCompact> {
+pub struct Vault<AccountId, BlockNumber, PolkaBTCBalance: HasCompact> {
     // Account identifier of the Vault
     pub id: AccountId,
     // Number of PolkaBTC tokens pending issue
@@ -57,7 +57,7 @@ pub struct Vault<AccountId, BlockNumber, PolkaBTCBalance: HasCompact, DOTBalance
     // Number of PolkaBTC tokens pending redeem
     pub to_be_redeemed_tokens: PolkaBTCBalance,
     // DOT collateral locked by this Vault
-    pub collateral: DOTBalance,
+    // collateral: DOTBalance,
     // Bitcoin address of this Vault (P2PKH, P2SH, P2PKH, P2WSH)
     pub btc_address: H160,
     // Block height until which this Vault is banned from being
@@ -65,17 +65,12 @@ pub struct Vault<AccountId, BlockNumber, PolkaBTCBalance: HasCompact, DOTBalance
     pub banned_until: Option<BlockNumber>,
 }
 
-impl<AccountId, BlockNumber, PolkaBTCBalance: HasCompact + Default, DOTBalance: HasCompact>
-    Vault<AccountId, BlockNumber, PolkaBTCBalance, DOTBalance>
+impl<AccountId, BlockNumber, PolkaBTCBalance: HasCompact + Default>
+    Vault<AccountId, BlockNumber, PolkaBTCBalance>
 {
-    fn new(
-        id: AccountId,
-        collateral: DOTBalance,
-        btc_address: H160,
-    ) -> Vault<AccountId, BlockNumber, PolkaBTCBalance, DOTBalance> {
+    fn new(id: AccountId, btc_address: H160) -> Vault<AccountId, BlockNumber, PolkaBTCBalance> {
         Vault {
             id,
-            collateral,
             btc_address,
             to_be_issued_tokens: Default::default(),
             issued_tokens: Default::default(),
@@ -85,12 +80,8 @@ impl<AccountId, BlockNumber, PolkaBTCBalance: HasCompact + Default, DOTBalance: 
     }
 }
 
-type DefaultVault<T> = Vault<
-    <T as system::Trait>::AccountId,
-    <T as system::Trait>::BlockNumber,
-    PolkaBTCBalance<T>,
-    DOTBalance<T>,
->;
+type DefaultVault<T> =
+    Vault<<T as system::Trait>::AccountId, <T as system::Trait>::BlockNumber, PolkaBTCBalance<T>>;
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
@@ -156,7 +147,7 @@ decl_storage! {
         LiquidationVault: T::AccountId;
 
         /// Mapping of Vaults, using the respective Vault account identifier as key.
-        Vaults: map hasher(blake2_128_concat) T::AccountId => Vault<T::AccountId, T::BlockNumber, PolkaBTCBalance<T>, DOTBalance<T>>;
+        Vaults: map hasher(blake2_128_concat) T::AccountId => Vault<T::AccountId, T::BlockNumber, PolkaBTCBalance<T>>;
     }
 }
 
@@ -175,8 +166,9 @@ decl_module! {
             if Self::vault_exists(&sender) {
                 return Err(Error::VaultAlreadyRegistered.into());
             }
-            let vault: DefaultVault<T> = Vault::new(sender.clone(), collateral, btc_address);
-            Self::insert_vault(sender.clone(), vault);
+            Self::lock_collateral(&sender, collateral)?;
+            let vault: DefaultVault<T> = Vault::new(sender.clone(), btc_address);
+            Self::insert_vault(&sender, vault);
 
             Self::deposit_event(Event::<T>::RegisterVault(sender.clone(), collateral));
 
@@ -187,6 +179,12 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             Self::ensure_parachain_running()?;
             Self::increase_collateral(&sender, amount)?;
+            Self::deposit_event(Event::<T>::LockAdditionalCollateral(
+                sender.clone(),
+                amount,
+                Self::get_total_collateral(),
+                Self::get_total_collateral(), // FIXME: use free collateral
+            ));
             Ok(())
         }
     }
@@ -204,20 +202,12 @@ impl<T: Trait> Module<T> {
         }
     }
 
+    pub fn get_vault_collateral(id: &T::AccountId) -> DOTBalance<T> {
+        <collateral::Module<T>>::get_collateral_from_account(id)
+    }
+
     pub fn vault_exists(id: &T::AccountId) -> bool {
         <Vaults<T>>::contains_key(id)
-    }
-
-    /// Private getters and setters
-    fn _mutate_vault_from_id(id: T::AccountId, vault: DefaultVault<T>) {
-        <Vaults<T>>::mutate(id, |v| *v = vault)
-    }
-
-    fn increase_collateral(id: &T::AccountId, collateral: DOTBalance<T>) -> Result<(), Error> {
-        if !Self::vault_exists(id) {
-            return Err(Error::VaultNotFound);
-        }
-        Ok(<Vaults<T>>::mutate(id, |v| v.collateral += collateral))
     }
 
     pub fn increase_to_be_issued_tokens(
@@ -236,6 +226,26 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Private getters and setters
+    fn _mutate_vault_from_id(id: T::AccountId, vault: DefaultVault<T>) {
+        <Vaults<T>>::mutate(id, |v| *v = vault)
+    }
+
+    fn increase_collateral(id: &T::AccountId, collateral: DOTBalance<T>) -> Result<(), Error> {
+        if !Self::vault_exists(id) {
+            return Err(Error::VaultNotFound);
+        }
+        Self::lock_collateral(id, collateral)
+    }
+
+    fn lock_collateral(sender: &T::AccountId, amount: DOTBalance<T>) -> Result<(), Error> {
+        <collateral::Module<T>>::lock_collateral(sender, amount)
+    }
+
+    fn get_total_collateral() -> DOTBalance<T> {
+        <collateral::Module<T>>::get_total_collateral()
+    }
+
     pub fn issue_tokens(id: &T::AccountId, tokens: PolkaBTCBalance<T>) -> Result<(), Error> {
         Self::decrease_to_be_issued_tokens(id, tokens)?;
         <Vaults<T>>::mutate(id, |v| v.issued_tokens += tokens);
@@ -246,7 +256,7 @@ impl<T: Trait> Module<T> {
         <MinimumCollateralVault<T>>::get()
     }
 
-    pub fn insert_vault(id: T::AccountId, vault: DefaultVault<T>) {
+    pub fn insert_vault(id: &T::AccountId, vault: DefaultVault<T>) {
         <Vaults<T>>::insert(id, vault)
     }
 
@@ -269,5 +279,7 @@ decl_event! {
             AccountId = <T as system::Trait>::AccountId,
             Balance = DOTBalance<T> {
         RegisterVault(AccountId, Balance),
+        /// id, new collateral, total collateral, free collateral
+        LockAdditionalCollateral(AccountId, Balance, Balance, Balance),
     }
 }

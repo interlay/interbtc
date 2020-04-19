@@ -44,15 +44,15 @@ fn test_lock_collateral_succeeds() {
         let sender = ALICE;
         let amount: Balance = 5;
 
-        let init_collateral = Collateral::get_collateral_from_account(ALICE);
+        let init_collateral = Collateral::get_collateral_from_account(&ALICE);
         let init_total = Collateral::get_total_collateral();
 
-        assert_ok!(Collateral::lock_collateral(sender, amount));
+        assert_ok!(Collateral::lock_collateral(&sender, amount));
         let lock_event = TestEvent::test_events(RawEvent::LockCollateral(ALICE, amount));
 
         assert!(System::events().iter().any(|a| a.event == lock_event));
 
-        let collateral = Collateral::get_collateral_from_account(ALICE);
+        let collateral = Collateral::get_collateral_from_account(&ALICE);
         let total = Collateral::get_total_collateral();
 
         assert_eq!(collateral, init_collateral + amount);
@@ -66,15 +66,15 @@ fn test_lock_collateral_fails() {
         let sender = ALICE;
         let amount = ALICE_BALANCE + 5;
 
-        let init_collateral = Collateral::get_collateral_from_account(ALICE);
+        let init_collateral = Collateral::get_collateral_from_account(&ALICE);
         let init_total = Collateral::get_total_collateral();
 
         assert_err!(
-            Collateral::lock_collateral(sender, amount),
+            Collateral::lock_collateral(&sender, amount),
             Error::InsufficientFunds
         );
 
-        let collateral = Collateral::get_collateral_from_account(ALICE);
+        let collateral = Collateral::get_collateral_from_account(&ALICE);
         let total = Collateral::get_total_collateral();
 
         assert_eq!(collateral, init_collateral);
@@ -89,9 +89,9 @@ fn test_release_collateral_succeeds() {
         let sender = ALICE;
         let amount = ALICE_BALANCE;
 
-        assert_ok!(Collateral::lock_collateral(sender, amount));
+        assert_ok!(Collateral::lock_collateral(&sender, amount));
 
-        let init_collateral = Collateral::get_collateral_from_account(ALICE);
+        let init_collateral = Collateral::get_collateral_from_account(&ALICE);
         let init_total = Collateral::get_total_collateral();
 
         assert_ok!(Collateral::release_collateral(sender, amount));
@@ -99,7 +99,7 @@ fn test_release_collateral_succeeds() {
 
         assert!(System::events().iter().any(|a| a.event == release_event));
 
-        let collateral = Collateral::get_collateral_from_account(ALICE);
+        let collateral = Collateral::get_collateral_from_account(&ALICE);
         let total = Collateral::get_total_collateral();
 
         assert_eq!(collateral, init_collateral - amount);
@@ -113,7 +113,7 @@ fn test_release_collateral_fails() {
         let sender = ALICE;
         let lock_amount = ALICE_BALANCE;
 
-        let init_collateral = Collateral::get_collateral_from_account(ALICE);
+        let init_collateral = Collateral::get_collateral_from_account(&ALICE);
         let init_total = Collateral::get_total_collateral();
 
         assert_err!(
@@ -121,7 +121,7 @@ fn test_release_collateral_fails() {
             Error::InsufficientCollateralAvailable
         );
 
-        let collateral = Collateral::get_collateral_from_account(ALICE);
+        let collateral = Collateral::get_collateral_from_account(&ALICE);
         let total = Collateral::get_total_collateral();
 
         assert_eq!(collateral, init_collateral);
@@ -136,9 +136,9 @@ fn test_release_collateral_partially_succeeds() {
         let amount = ALICE_BALANCE;
         let release_amount = ALICE_BALANCE - 10;
 
-        assert_ok!(Collateral::lock_collateral(sender, amount));
+        assert_ok!(Collateral::lock_collateral(&sender, amount));
 
-        let init_collateral = Collateral::get_collateral_from_account(ALICE);
+        let init_collateral = Collateral::get_collateral_from_account(&ALICE);
         let init_total = Collateral::get_total_collateral();
 
         assert_ok!(Collateral::release_collateral(sender, release_amount));
@@ -147,7 +147,7 @@ fn test_release_collateral_partially_succeeds() {
 
         assert!(System::events().iter().any(|a| a.event == release_event));
 
-        let collateral = Collateral::get_collateral_from_account(ALICE);
+        let collateral = Collateral::get_collateral_from_account(&ALICE);
         let total = Collateral::get_total_collateral();
 
         assert_eq!(collateral, init_collateral - release_amount);
@@ -163,10 +163,10 @@ fn test_slash_collateral_succeeds() {
         let receiver = BOB;
         let amount = ALICE_BALANCE;
 
-        assert_ok!(Collateral::lock_collateral(sender, amount));
+        assert_ok!(Collateral::lock_collateral(&sender, amount));
 
-        let init_collateral_alice = Collateral::get_collateral_from_account(ALICE);
-        let init_collateral_bob = Collateral::get_collateral_from_account(BOB);
+        let init_collateral_alice = Collateral::get_collateral_from_account(&ALICE);
+        let init_collateral_bob = Collateral::get_collateral_from_account(&BOB);
         let init_total = Collateral::get_total_collateral();
 
         assert_ok!(Collateral::slash_collateral(sender, receiver, amount));
@@ -174,8 +174,8 @@ fn test_slash_collateral_succeeds() {
 
         assert!(System::events().iter().any(|a| a.event == slash_event));
 
-        let collateral_alice = Collateral::get_collateral_from_account(ALICE);
-        let collateral_bob = Collateral::get_collateral_from_account(BOB);
+        let collateral_alice = Collateral::get_collateral_from_account(&ALICE);
+        let collateral_bob = Collateral::get_collateral_from_account(&BOB);
         let total = Collateral::get_total_collateral();
 
         assert_eq!(collateral_alice, init_collateral_alice - amount);
@@ -191,8 +191,8 @@ fn test_slash_collateral_fails() {
         let receiver = BOB;
         let amount = ALICE_BALANCE;
 
-        let init_collateral_alice = Collateral::get_collateral_from_account(ALICE);
-        let init_collateral_bob = Collateral::get_collateral_from_account(BOB);
+        let init_collateral_alice = Collateral::get_collateral_from_account(&ALICE);
+        let init_collateral_bob = Collateral::get_collateral_from_account(&BOB);
         let init_total = Collateral::get_total_collateral();
 
         assert_err!(
@@ -200,8 +200,8 @@ fn test_slash_collateral_fails() {
             Error::InsufficientCollateralAvailable
         );
 
-        let collateral_alice = Collateral::get_collateral_from_account(ALICE);
-        let collateral_bob = Collateral::get_collateral_from_account(BOB);
+        let collateral_alice = Collateral::get_collateral_from_account(&ALICE);
+        let collateral_bob = Collateral::get_collateral_from_account(&BOB);
         let total = Collateral::get_total_collateral();
 
         assert_eq!(collateral_alice, init_collateral_alice);
@@ -218,10 +218,10 @@ fn test_slash_collateral_partially_succeeds() {
         let amount = ALICE_BALANCE;
         let slash_amount = ALICE_BALANCE;
 
-        assert_ok!(Collateral::lock_collateral(sender, amount));
+        assert_ok!(Collateral::lock_collateral(&sender, amount));
 
-        let init_collateral_alice = Collateral::get_collateral_from_account(ALICE);
-        let init_collateral_bob = Collateral::get_collateral_from_account(BOB);
+        let init_collateral_alice = Collateral::get_collateral_from_account(&ALICE);
+        let init_collateral_bob = Collateral::get_collateral_from_account(&BOB);
         let init_total = Collateral::get_total_collateral();
 
         assert_ok!(Collateral::slash_collateral(sender, receiver, slash_amount));
@@ -230,8 +230,8 @@ fn test_slash_collateral_partially_succeeds() {
 
         assert!(System::events().iter().any(|a| a.event == slash_event));
 
-        let collateral_alice = Collateral::get_collateral_from_account(ALICE);
-        let collateral_bob = Collateral::get_collateral_from_account(BOB);
+        let collateral_alice = Collateral::get_collateral_from_account(&ALICE);
+        let collateral_bob = Collateral::get_collateral_from_account(&BOB);
         let total = Collateral::get_total_collateral();
 
         assert_eq!(collateral_alice, init_collateral_alice - slash_amount);

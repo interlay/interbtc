@@ -158,7 +158,7 @@ impl<T: Trait> Module<T> {
             Error::InsufficientCollateral
         );
 
-        <collateral::Module<T>>::lock_collateral(requester.clone(), griefing_collateral)?;
+        <collateral::Module<T>>::lock_collateral(&requester, griefing_collateral)?;
 
         let btc_address =
             <vault_registry::Module<T>>::increase_to_be_issued_tokens(&vault_id, amount.clone())?;

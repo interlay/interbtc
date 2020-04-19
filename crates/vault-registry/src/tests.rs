@@ -1,10 +1,11 @@
+use frame_support::traits::Currency;
 use frame_support::{assert_err, assert_ok};
 use sp_core::H160;
 
 use mocktopus::mocking::*;
 
 use crate::mock::{run_test, Origin, System, Test, TestEvent, VaultRegistry};
-use crate::Error;
+use crate::{Error, DOT};
 
 type Event = crate::Event<Test>;
 
@@ -33,13 +34,15 @@ macro_rules! assert_not_emitted {
     };
 }
 
+const DEFAULT_ID: u64 = 3;
 const DEFAULT_COLLATERAL: u64 = 100;
 
 fn create_sample_vault() -> <Test as system::Trait>::AccountId {
     VaultRegistry::get_minimum_collateral_vault
         .mock_safe(|| MockResult::Return(DEFAULT_COLLATERAL));
-    let id = 3;
+    let id = DEFAULT_ID;
     let collateral = DEFAULT_COLLATERAL;
+    let _ = <DOT<Test>>::deposit_creating(&id, collateral);
     let origin = Origin::signed(id);
     let result = VaultRegistry::register_vault(origin, collateral, H160::zero());
     assert_ok!(result);
@@ -55,7 +58,7 @@ fn register_vault_succeeds() {
 }
 
 #[test]
-fn register_vault_fails_when_collateral_too_low() {
+fn register_vault_fails_when_given_collateral_too_low() {
     run_test(|| {
         VaultRegistry::get_minimum_collateral_vault.mock_safe(|| MockResult::Return(200));
         let id = 3;
@@ -63,6 +66,17 @@ fn register_vault_fails_when_collateral_too_low() {
         let result = VaultRegistry::register_vault(Origin::signed(id), collateral, H160::zero());
         assert_err!(result, Error::InsuficientVaultCollateralAmount);
         assert_not_emitted!(Event::RegisterVault(id, collateral));
+    });
+}
+
+#[test]
+fn register_vault_fails_when_account_funds_too_low() {
+    run_test(|| {
+        let collateral = DEFAULT_COLLATERAL + 1;
+        let result =
+            VaultRegistry::register_vault(Origin::signed(DEFAULT_ID), collateral, H160::zero());
+        assert_err!(result, Error::InsufficientFunds);
+        assert_not_emitted!(Event::RegisterVault(DEFAULT_ID, collateral));
     });
 }
 
@@ -81,10 +95,12 @@ fn register_vault_fails_when_already_registered() {
 fn lock_additional_collateral_succeeds() -> Result<(), Error> {
     run_test(|| {
         let id = create_sample_vault();
+        let _ = <DOT<Test>>::deposit_creating(&id, 50);
         let res = VaultRegistry::lock_additional_collateral(Origin::signed(id), 50);
         assert_ok!(res);
-        let vault = VaultRegistry::get_vault_from_id(&id)?;
-        assert_eq!(vault.collateral, DEFAULT_COLLATERAL + 50);
+        let new_collateral = VaultRegistry::get_vault_collateral(&id);
+        assert_eq!(new_collateral, DEFAULT_COLLATERAL + 50);
+        assert_emitted!(Event::LockAdditionalCollateral(id, 50, 150, 150));
 
         Ok(())
     })

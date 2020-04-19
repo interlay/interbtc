@@ -20,13 +20,12 @@ fn request_issue(
 
 fn insert_vault(id: AccountId) {
     <vault_registry::Module<Test>>::insert_vault(
-        id,
+        &id,
         vault_registry::Vault {
             id: id,
             to_be_issued_tokens: 0,
             issued_tokens: 0,
             to_be_redeemed_tokens: 0,
-            collateral: 0,
             btc_address: H160([0; 20]),
             banned_until: None,
         },
@@ -98,13 +97,12 @@ fn test_request_issue_banned_fails() {
     run_test(|| {
         <system::Module<Test>>::set_block_number(0);
         <vault_registry::Module<Test>>::insert_vault(
-            BOB,
+            &BOB,
             vault_registry::Vault {
                 id: BOB,
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
-                collateral: 0,
                 btc_address: H160([0; 20]),
                 banned_until: Some(1),
             },
