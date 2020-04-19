@@ -106,10 +106,10 @@ impl ExtBuilder {
     }
 }
 
-pub fn run_test<T>(test: T) -> ()
+pub fn run_test<T, U>(test: T) -> U
 where
-    T: FnOnce() -> (),
+    T: FnOnce() -> U,
 {
     clear_mocks();
-    ExtBuilder::build().execute_with(test);
+    ExtBuilder::build().execute_with(test)
 }

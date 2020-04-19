@@ -168,7 +168,7 @@ decl_module! {
 
         fn register_vault(origin, collateral: DOTBalance<T>, btc_address: H160) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            Self::_ensure_parachain_running()?;
+            Self::ensure_parachain_running()?;
             if collateral < Self::get_minimum_collateral_vault() {
                 return Err(Error::InsuficientVaultCollateralAmount.into());
             }
@@ -180,6 +180,13 @@ decl_module! {
 
             Self::deposit_event(Event::<T>::RegisterVault(sender.clone(), collateral));
 
+            Ok(())
+        }
+
+        fn lock_additional_collateral(origin, amount: DOTBalance<T>) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            Self::ensure_parachain_running()?;
+            Self::increase_collateral(&sender, amount)?;
             Ok(())
         }
     }
@@ -204,6 +211,13 @@ impl<T: Trait> Module<T> {
     /// Private getters and setters
     fn _mutate_vault_from_id(id: T::AccountId, vault: DefaultVault<T>) {
         <Vaults<T>>::mutate(id, |v| *v = vault)
+    }
+
+    fn increase_collateral(id: &T::AccountId, collateral: DOTBalance<T>) -> Result<(), Error> {
+        if !Self::vault_exists(id) {
+            return Err(Error::VaultNotFound);
+        }
+        Ok(<Vaults<T>>::mutate(id, |v| v.collateral += collateral))
     }
 
     pub fn increase_to_be_issued_tokens(
@@ -238,7 +252,7 @@ impl<T: Trait> Module<T> {
 
     /// Other helpers
     /// Returns an error if the parachain is not in running state
-    fn _ensure_parachain_running() -> Result<(), Error> {
+    fn ensure_parachain_running() -> Result<(), Error> {
         // TODO: integrate security module
         // ensure!(
         //     !<security::Module<T>>::check_parachain_status(

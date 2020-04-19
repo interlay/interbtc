@@ -18,12 +18,34 @@ fn request_issue(
     Issue::_request_issue(origin, amount, vault, collateral)
 }
 
+fn insert_vault(id: AccountId) {
+    <vault_registry::Module<Test>>::insert_vault(
+        id,
+        vault_registry::Vault {
+            id: id,
+            to_be_issued_tokens: 0,
+            issued_tokens: 0,
+            to_be_redeemed_tokens: 0,
+            collateral: 0,
+            btc_address: H160([0; 20]),
+            banned_until: None,
+        },
+    );
+}
+
+fn insert_vaults(ids: &[AccountId]) {
+    for id in ids {
+        insert_vault(*id);
+    }
+}
+
 fn request_issue_ok(
     origin: AccountId,
     amount: Balance,
     vault: AccountId,
     collateral: Balance,
 ) -> H256 {
+    insert_vaults(&[ALICE, BOB]);
     match Issue::_request_issue(origin, amount, vault, collateral) {
         Ok(act) => act,
         Err(err) => {
@@ -94,6 +116,7 @@ fn test_request_issue_banned_fails() {
 #[test]
 fn test_request_issue_insufficient_collateral_fails() {
     run_test(|| {
+        insert_vaults(&[ALICE, BOB]);
         Issue::set_issue_griefing_collateral(10);
         create_test_vault();
         assert_noop!(
