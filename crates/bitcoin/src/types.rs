@@ -2,12 +2,12 @@ extern crate hex;
 
 use crate::parser::*;
 use crate::utils::*;
+use btc_core::Error;
+use codec::alloc::string::String;
 use codec::{Decode, Encode};
-use node_primitives::Moment;
 use primitive_types::{H256, U256};
 use sp_std::collections::btree_set::BTreeSet;
-
-use btc_core::Error;
+use sp_std::prelude::*;
 
 /// Custom Types
 /// Bitcoin Raw Block Header type
@@ -59,8 +59,8 @@ impl PartialEq for RawBlockHeader {
     }
 }
 
-impl std::fmt::Debug for RawBlockHeader {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl sp_std::fmt::Debug for RawBlockHeader {
+    fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
         f.debug_list().entries(self.0.iter()).finish()
     }
 }
@@ -78,7 +78,7 @@ pub const MAX_OPRETURN_SIZE: usize = 83;
 pub struct BlockHeader {
     pub merkle_root: H256Le,
     pub target: U256,
-    pub timestamp: Moment,
+    pub timestamp: u64,
     pub version: i32,
     pub hash_prev_block: H256Le,
     pub nonce: u32,
@@ -229,14 +229,14 @@ impl H256Le {
 }
 
 #[cfg(feature = "std")]
-impl std::fmt::Display for H256Le {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl sp_std::fmt::Display for H256Le {
+    fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
         write!(f, "0x{}", self.to_hex_be())
     }
 }
 
-impl std::fmt::LowerHex for H256Le {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl sp_std::fmt::LowerHex for H256Le {
+    fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
         write!(f, "{}", self.to_hex_be())
     }
 }

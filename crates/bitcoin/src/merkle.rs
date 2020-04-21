@@ -1,13 +1,14 @@
 #[cfg(test)]
 extern crate mocktopus;
+
 #[cfg(test)]
 use mocktopus::macros::mockable;
-
-use btc_core::Error;
 
 use crate::parser::BytesParser;
 use crate::types::{BlockHeader, CompactUint, H256Le};
 use crate::utils::hash256_merkle_step;
+use btc_core::Error;
+use sp_std::prelude::*;
 
 /// Values taken from https://github.com/bitcoin/bitcoin/blob/78dae8caccd82cfbfd76557f1fb7d7557c7b5edb/src/consensus/consensus.h
 const MAX_BLOCK_WEIGHT: u32 = 4_000_000;
@@ -183,7 +184,7 @@ mod tests {
 
     use mocktopus::mocking::*;
     use primitive_types::H256;
-    use std::str::FromStr;
+    use sp_std::str::FromStr;
 
     // curl -s -H 'content-type: application/json' http://satoshi.doc.ic.ac.uk:8332 -d '{
     //   "jsonrpc": "1.0",

@@ -18,7 +18,15 @@ The implementation is based on the [BTC Parachain specification](https://interla
 
 ## Substrate chain
 
-The Substrate runtime can configuration is in the [parachain](./parachain) folder.
+The Substrate runtime configuration is in the [parachain](./parachain) folder.
+
+### Custom Types
+
+```json
+{
+  "H256Le": "Hash"
+}
+```
 
 ## Pallets and crates
 
@@ -52,7 +60,6 @@ We are [hiring](https://www.interlay.io/careers/)!
 (C) Copyright 2020 [Interlay](https://www.interlay.io) Ltd
 
 BTC-Parachain is currently licensed under the terms of the Apache License (Version 2.0). See LICENSE
-
 
 ## Acknowledgements
 

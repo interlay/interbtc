@@ -13,6 +13,7 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
+use codec::{Decode, Encode};
 /// # BTC-Relay implementation
 /// This is the implementation of the BTC-Relay following the spec at:
 /// https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/
@@ -23,6 +24,7 @@ use frame_support::{
 use primitive_types::U256;
 use sp_core::H160;
 use sp_std::collections::btree_set::BTreeSet;
+use sp_std::prelude::*;
 use system::ensure_signed;
 
 // Crates
@@ -33,9 +35,22 @@ use bitcoin::parser::{
 use bitcoin::types::{
     BlockChain, BlockHeader, H256Le, RawBlockHeader, RichBlockHeader, Transaction,
 };
-use security::ErrorCode;
-
 use btc_core::Error;
+
+// TODO: move to security module
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+pub enum ErrorCode {
+    /// No error. Used as default value
+    None = 0,
+    /// Missing transactional data for a block header submitted to BTC-Relay
+    NoDataBTCRelay = 1,
+    /// Invalid transaction was detected in a block header submitted to BTC-Relay
+    InvalidBTCRelay = 2,
+    /// The exchangeRateOracle experienced a liveness failure (no up-to-date exchange rate available)
+    OracleOffline = 3,
+    /// At least one Vault is being liquidated. Redeem requests paid out partially in collateral (DOT).
+    Liquidation = 4,
+}
 
 /// ## Configuration and Constants
 /// The pallet's configuration trait.

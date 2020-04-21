@@ -1,13 +1,13 @@
-use crate::types::*;
-
-use primitive_types::U256;
-
 #[cfg(test)]
 extern crate mocktopus;
+
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
+use crate::types::*;
 use btc_core::Error;
+use primitive_types::U256;
+use sp_std::prelude::*;
 
 const SERIALIZE_TRANSACTION_NO_WITNESS: i32 = 0x4000_0000;
 
@@ -53,7 +53,7 @@ make_parsable_int!(i64, 8);
 
 impl Parsable for CompactUint {
     fn parse(raw_bytes: &[u8], position: usize) -> Result<(CompactUint, usize), Error> {
-        let last_byte = std::cmp::min(position + 3, raw_bytes.len());
+        let last_byte = sp_std::cmp::min(position + 3, raw_bytes.len());
         let (value, bytes_consumed) = parse_compact_uint(&raw_bytes[position..last_byte]);
         Ok((CompactUint { value }, bytes_consumed))
     }

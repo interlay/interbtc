@@ -4,17 +4,24 @@ version = "0.1.0"
 authors = ["Interlay Ltd"]
 edition = "2018"
 
-[features]
-default = ['std']
-std = [
-  'sp-runtime/std',
-  'frame-support/std',
-]
-
-[dependencies.sp-runtime]
+[dependencies.sp-std]
 default-features = false
 version = '2.0.0-alpha.5'
 
 [dependencies.frame-support]
 default-features = false
 version = '2.0.0-alpha.5'
+
+[dependencies.codec]
+default-features = false
+features = ['derive']
+package = 'parity-scale-codec'
+version = '1.2.0'
+
+[features]
+default = ['std']
+std = [
+  'sp-std/std',
+  'frame-support/std',
+  'codec/std',
+]
