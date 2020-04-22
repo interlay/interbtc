@@ -18,10 +18,15 @@ features = ['derive']
 package = 'parity-scale-codec'
 version = '1.0.0'
 
+[dependencies.btc-core]
+default-features = false
+path = '../btc-core'
+
 [features]
 default = ['std']
 std = [
   'sp-std/std',
   'frame-support/std',
   'codec/std',
+  'btc-core/std',
 ]

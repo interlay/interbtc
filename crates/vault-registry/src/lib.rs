@@ -23,14 +23,12 @@ use frame_support::{decl_event, decl_module, decl_storage /*, ensure */};
 // use frame_support::dispatch::DispatchResult;
 use codec::{Decode, Encode};
 use frame_support::traits::Currency;
-use node_primitives::{AccountId, BlockNumber};
 use sp_core::H160;
-
-use xclaim_core::Error;
 
 type DOT<T> = <<T as collateral::Trait>::DOT as Currency<<T as system::Trait>::AccountId>>::Balance;
 type PolkaBTC<T> =
     <<T as treasury::Trait>::PolkaBTC as Currency<<T as system::Trait>::AccountId>>::Balance;
+use xclaim_core::Error;
 
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
@@ -45,22 +43,22 @@ pub const GRANULARITY: u128 = 5;
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct Vault<PolkaBTC, DOT> {
+pub struct Vault<AccountId, BlockNumber, PolkaBTC, DOT> {
     // Account identifier of the Vault
-    vault: AccountId,
+    pub vault: AccountId,
     // Number of PolkaBTC tokens pending issue
-    to_be_issued_tokens: PolkaBTC,
+    pub to_be_issued_tokens: PolkaBTC,
     // Number of issued PolkaBTC tokens
-    issued_tokens: PolkaBTC,
+    pub issued_tokens: PolkaBTC,
     // Number of PolkaBTC tokens pending redeem
-    to_be_redeemed_tokens: PolkaBTC,
+    pub to_be_redeemed_tokens: PolkaBTC,
     // DOT collateral locked by this Vault
-    collateral: DOT,
+    pub collateral: DOT,
     // Bitcoin address of this Vault (P2PKH, P2SH, P2PKH, P2WSH)
-    btc_address: H160,
+    pub btc_address: H160,
     // Block height until which this Vault is banned from being
     // used for Issue, Redeem (except during automatic liquidation) and Replace .
-    banned_until: BlockNumber,
+    pub banned_until: Option<BlockNumber>,
 }
 
 // This pallet's storage items.
@@ -119,7 +117,7 @@ decl_storage! {
         LiquidationVault: T::AccountId;
 
         /// Mapping of Vaults, using the respective Vault account identifier as key.
-        Vaults: map hasher(blake2_128_concat) AccountId => Vault<PolkaBTC<T>, DOT<T>>;
+        Vaults: map hasher(blake2_128_concat) T::AccountId => Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>;
     }
 }
 
@@ -135,33 +133,44 @@ decl_module! {
 impl<T: Trait> Module<T> {
     /// Public getters
 
-    pub fn get_vault_from_id(id: AccountId) -> Vault<PolkaBTC<T>, DOT<T>> {
+    pub fn get_vault_from_id(
+        id: T::AccountId,
+    ) -> Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>> {
         <Vaults<T>>::get(id)
     }
 
-    pub fn mutate_vault_from_id(id: AccountId, vault: Vault<PolkaBTC<T>, DOT<T>>) {
+    pub fn mutate_vault_from_id(
+        id: T::AccountId,
+        vault: Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
+    ) {
         <Vaults<T>>::mutate(id, |v| *v = vault)
     }
 
-    pub fn insert_vault(id: AccountId, vault: Vault<PolkaBTC<T>, DOT<T>>) {
+    pub fn insert_vault(
+        id: T::AccountId,
+        vault: Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
+    ) {
         <Vaults<T>>::insert(id, vault)
     }
 
     pub fn increase_to_be_issued_tokens(
-        id: &AccountId,
+        id: T::AccountId,
         tokens: PolkaBTC<T>,
     ) -> Result<H160, Error> {
-        <Vaults<T>>::mutate(id, |v| v.to_be_issued_tokens += tokens);
+        <Vaults<T>>::mutate(id.clone(), |v| v.to_be_issued_tokens += tokens);
         Ok(<Vaults<T>>::get(id).btc_address)
     }
 
-    pub fn decrease_to_be_issued_tokens(id: &AccountId, tokens: PolkaBTC<T>) -> Result<(), Error> {
+    pub fn decrease_to_be_issued_tokens(
+        id: T::AccountId,
+        tokens: PolkaBTC<T>,
+    ) -> Result<(), Error> {
         <Vaults<T>>::mutate(id, |v| v.to_be_issued_tokens -= tokens);
         Ok(())
     }
 
-    pub fn issue_tokens(id: &AccountId, tokens: PolkaBTC<T>) -> Result<(), Error> {
-        Self::decrease_to_be_issued_tokens(id, tokens)?;
+    pub fn issue_tokens(id: T::AccountId, tokens: PolkaBTC<T>) -> Result<(), Error> {
+        Self::decrease_to_be_issued_tokens(id.clone(), tokens.clone())?;
         <Vaults<T>>::mutate(id, |v| v.issued_tokens += tokens);
         Ok(())
     }

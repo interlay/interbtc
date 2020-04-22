@@ -1,0 +1,100 @@
+[package]
+authors = ['Interlay']
+description = 'Issue module'
+edition = '2018'
+name = 'issue'
+version = '0.1.0'
+
+[dependencies.serde]
+version = '1.0.101'
+features = ['derive']
+optional = true
+
+[dependencies.codec]
+default-features = false
+features = ['derive']
+package = 'parity-scale-codec'
+version = '1.3.0'
+
+[dependencies.frame-support]
+default-features = false
+version = '2.0.0-alpha.5'
+
+[dependencies.sp-core]
+default-features = false
+version = '2.0.0-alpha.5'
+
+[dependencies.sp-io]
+default-features = false
+version = '2.0.0-alpha.5'
+
+[dependencies.sp-runtime]
+default-features = false
+version = '2.0.0-alpha.5'
+
+[dependencies.sp-std]
+default-features = false
+version = '2.0.0-alpha.5'
+
+[dependencies.system]
+default-features = false
+package = 'frame-system'
+version = '2.0.0-alpha.5'
+
+[dependencies.pallet-balances]
+default-features = false
+package = 'pallet-balances'
+version = '2.0.0-alpha.5'
+
+[dependencies.xclaim-core]
+path = '../xclaim-core'
+
+[dev-dependencies]
+mocktopus = '0.7.0'
+
+[dependencies.primitive-types]
+default-features = false
+version = '0.6.2'
+features= ['codec']
+
+[dependencies.vault-registry]
+path = '../vault-registry'
+
+[dependencies.collateral]
+path = '../collateral'
+
+[dependencies.btc-relay]
+path = '../btc-relay'
+
+[dependencies.treasury]
+path = '../treasury'
+
+[dependencies.sha2]
+default-features = false
+version = '0.8.0'
+
+[dependencies.bitcoin]
+default-features = false
+path = '../bitcoin'
+version = '0.1.0'
+
+[dependencies.btc-core]
+path = '../btc-core'
+
+[dependencies.hex]
+version = '0.4.0'
+
+[features]
+default = ['std']
+std = [
+	'serde',
+	'codec/std',
+	'frame-support/std',
+	'sp-runtime/std',
+	'sp-io/std',
+	'sp-core/std',
+	'system/std',
+	'sp-std/std',
+	'pallet-balances/std',
+	'primitive-types/std',
+]

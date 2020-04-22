@@ -381,7 +381,7 @@ impl<T: Trait> Module<T> {
         payment_value: i64,
         recipient_btc_address: Vec<u8>,
         op_return_id: Vec<u8>,
-    ) -> DispatchResult {
+    ) -> Result<(), Error> {
         let transaction = Self::parse_transaction(&raw_tx)?;
 
         // TODO: make 2 a constant
