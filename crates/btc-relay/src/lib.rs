@@ -34,8 +34,8 @@ use bitcoin::parser::{
 use bitcoin::types::{
     BlockChain, BlockHeader, H256Le, RawBlockHeader, RichBlockHeader, Transaction,
 };
-use security::ErrorCode;
 use btc_core::Error;
+use security::ErrorCode;
 
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
