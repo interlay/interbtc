@@ -54,6 +54,10 @@ path = '../bitcoin'
 default-features = false
 path = '../btc-core'
 
+[dependencies.security]
+default-features = false
+path = '../security'
+
 [dependencies.hex]
 default-features = false
 version = "0.4.0"
@@ -79,5 +83,6 @@ std = [
     'primitive-types/std',
     'bitcoin/std',
     'btc-core/std',
+    'security/std',
     'hex/std',
 ]
