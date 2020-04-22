@@ -7,16 +7,17 @@ edition = "2018"
 [features]
 default = ['std']
 std = [
-    'serde',
-    'codec/std',
-    'frame-support/std',
-    'sp-runtime/std',
-    'sp-io/std',
-    'system/std',
-    'timestamp/std',
-    'sp-core/std',
-    'node-primitives/std',
+  'serde',
+  'codec/std',
+  'frame-support/std',
+  'sp-runtime/std',
+  'sp-io/std',
+  'system/std',
+  'timestamp/std',
+  'sp-core/std',
 	'sp-std/std',
+  'primitive-types/std',
+  'pallet-balances/std',
 ]
 
 [dependencies.serde]
@@ -32,55 +33,51 @@ version = '1.0.0'
 
 [dependencies.sp-runtime]
 default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-version = '2.0.0'
+version = '2.0.0-alpha.5'
 
 [dependencies.frame-support]
 default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-version = '2.0.0'
+version = '2.0.0-alpha.5'
 
 [dependencies.system]
 default-features = false
-git = 'https://github.com/paritytech/substrate.git'
 package = 'frame-system'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-version = '2.0.0'
+version = '2.0.0-alpha.5'
 
 [dependencies.sp-io]
 default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-version = '2.0.0'
+version = '2.0.0-alpha.5'
 
 [dependencies.sp-core]
 default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-version = '2.0.0'
+version = '2.0.0-alpha.5'
 
 [dependencies.timestamp]
 default-features = false
-git = 'https://github.com/paritytech/substrate.git'
 package = 'pallet-timestamp'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-version = '2.0.0'
-
-[dependencies.node-primitives]
-default-features = false
-version = '2.0.0'
-git = 'https://github.com/paritytech/substrate.git'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
+version = '2.0.0-alpha.5'
 
 [dependencies.sp-std]
 default-features = false
-version = '2.0.0'
-git = 'https://github.com/paritytech/substrate.git'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
+version = '2.0.0-alpha.5'
+
+[dependencies.indexmap]
+version = '1.3.2'
+
+[dependencies.primitive-types]
+default-features = false
+version = '0.6.2'
+features= ['codec']
 
 [dependencies.bitcoin]
 default-features = false
 path = '../bitcoin'
 version = '0.1.0'
+
+[dependencies.collateral]
+path = '../collateral'
+
+[dev-dependencies.pallet-balances]
+default-features = false
+package = 'pallet-balances'
+version = '2.0.0-alpha.5'

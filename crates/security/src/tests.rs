@@ -1,6 +1,7 @@
 /// Tests for Security Module
-use crate::Trait;
+use crate::{Module, Trait, RawEvent};
 use frame_support::{impl_outer_event, impl_outer_origin, parameter_types, weights::Weight};
+use pallet_balances as balances;
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
@@ -18,9 +19,15 @@ mod test_events {
 
 impl_outer_event! {
     pub enum TestEvent for Test {
-        test_events,
+        system<T>,
+        test_events<T>,
+        balances<T>,
+        collateral<T>,
     }
 }
+
+pub type AccountId = u64;
+pub type Balance = u64;
 
 // For testing the pallet, we construct most of a mock runtime. This means
 // first constructing a configuration type (`Test`) which `impl`s each of the
@@ -50,14 +57,35 @@ impl system::Trait for Test {
     type AvailableBlockRatio = AvailableBlockRatio;
     type Version = ();
     type ModuleToIndex = ();
+    type AccountData = pallet_balances::AccountData<u64>;
+    type OnNewAccount = ();
+    type OnKilledAccount = ();
+}
+
+parameter_types! {
+    pub const ExistentialDeposit: u64 = 1;
+}
+
+impl pallet_balances::Trait for Test {
+    type Balance = Balance;
+    type Event = TestEvent;
+    type DustRemoval = ();
+    type ExistentialDeposit = ExistentialDeposit;
+    type AccountStore = System;
+}
+
+impl collateral::Trait for Test {
+    type Event = TestEvent;
+    type DOT = Balances;
 }
 
 impl Trait for Test {
     type Event = TestEvent;
 }
 
-// pub type System = system::Module<Test>;
-// pub type Security = Module<Test>;
+pub type System = system::Module<Test>;
+pub type Balances = pallet_balances::Module<Test>;
+pub type Security = Module<Test>;
 
 pub struct ExtBuilder;
 
