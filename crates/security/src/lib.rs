@@ -18,7 +18,7 @@ use sp_std::fmt::Debug;
 use bitcoin::types::*;
 
 // Dot currency
-type DOT<T> = <<T as collateral::Trait>::DOT as Currency<<T as system::Trait>::AccountId>>::Balance;
+type _DOT<T> = <<T as collateral::Trait>::DOT as Currency<<T as system::Trait>::AccountId>>::Balance;
 
 /// ## Configuration
 /// The pallet's configuration trait.

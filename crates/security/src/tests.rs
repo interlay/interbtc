@@ -47,7 +47,7 @@ impl system::Trait for Test {
     type BlockNumber = u64;
     type Hash = H256;
     type Hashing = BlakeTwo256;
-    type AccountId = u64;
+    type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
     type Event = TestEvent;
@@ -85,7 +85,7 @@ impl Trait for Test {
 
 pub type System = system::Module<Test>;
 pub type Balances = pallet_balances::Module<Test>;
-pub type Security = Module<Test>;
+pub type _Security = Module<Test>;
 
 pub struct ExtBuilder;
 
