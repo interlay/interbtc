@@ -9,13 +9,15 @@ before_script:
     - rustup toolchain install nightly-2020-03-01 # rustc version 1.43.0-nightly
     - rustup default nightly-2020-03-01
     - rustup component add rustfmt
-    - rustc --version && rustfmt --version && cargo --version  # Print version info for debugging
+    - rustup toolchain install nightly
+    - rustup target add wasm32-unknown-unknown --toolchain nightly-2020-03-01
+    - rustc --version && rustfmt --version && cargo --version # Print version info for debugging
 
 # Declare stages
 stages:
-    - build     # for crates and pallets
-    - test      # for tests in dev
-    - deploy    # for deployment in master
+    - build # for crates and pallets
+    - test # for tests in dev
+    - deploy # for deployment in master
 
 # # master branch
 # btc-parachain-test:

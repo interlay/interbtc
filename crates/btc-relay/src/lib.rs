@@ -23,6 +23,7 @@ use frame_support::{
 use primitive_types::U256;
 use sp_core::H160;
 use sp_std::collections::btree_set::BTreeSet;
+use sp_std::prelude::*;
 use system::ensure_signed;
 
 // Crates
@@ -33,9 +34,8 @@ use bitcoin::parser::{
 use bitcoin::types::{
     BlockChain, BlockHeader, H256Le, RawBlockHeader, RichBlockHeader, Transaction,
 };
-use security::ErrorCode;
-
 use btc_core::Error;
+use security::ErrorCode;
 
 /// ## Configuration and Constants
 /// The pallet's configuration trait.

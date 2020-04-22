@@ -9,4 +9,6 @@ members = [
   "crates/vault-registry",
   "crates/treasury",
   "crates/collateral",
+  "parachain",
+  "parachain/runtime",
 ]

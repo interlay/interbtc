@@ -3,29 +3,28 @@
 #[cfg(test)]
 mod tests;
 
-use codec::alloc::string::String;
 use codec::{Decode, Encode};
 /// # Security module implementation
 /// This is the implementation of the BTC Parachain Security module following the spec at:
 /// https://interlay.gitlab.io/polkabtc-spec/spec/security
 ///
+use frame_support::traits::Currency;
 use frame_support::{decl_error, decl_event, decl_module, decl_storage};
-use node_primitives::{AccountId, BlockNumber};
 use sp_core::U256;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::fmt::Debug;
 
 use bitcoin::types::*;
 
+// Dot currency
+type _DOT<T> =
+    <<T as collateral::Trait>::DOT as Currency<<T as system::Trait>::AccountId>>::Balance;
+
 /// ## Configuration
 /// The pallet's configuration trait.
-pub trait Trait: system::Trait {
+pub trait Trait: system::Trait + collateral::Trait {
     /// The overarching event type.
-    type Event: From<Event> + Into<<Self as system::Trait>::Event>;
-
-    // Dot currency
-    // FIXME: Check if correct. DOT currently emulated, until DOT bridge becomes available
-    // type DotBalance: Parameter + Member + SimpleArithmetic + Codec + Default + Copy + MaybeSerializeDeserialize + Debug + From<Self::BlockNumber>;
+    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
 
 /// ## Constants
@@ -94,7 +93,7 @@ impl Default for ProposalStatus {
 /// Struct storing information on a proposed parachain status update
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct StatusUpdate {
+pub struct StatusUpdate<BlockNumber> {
     /// New status of the BTC Parachain.
     new_status_code: StatusCode,
     /// Previous status of the BTC Parachain.
@@ -109,14 +108,14 @@ pub struct StatusUpdate {
     time: BlockNumber,
     /// Status of the proposed status update. See ProposalStatus.
     proposal_status: ProposalStatus,
-    /// Message providing more details on the change of status (detailed error message or recovery reason).
-    msg: String,
     /// LE Block hash of the Bitcoin block where the error was detected, if related to BTC-Relay.
     btc_block_hash: H256Le,
     /// Set of accounts which have voted FOR this status update. This can be either Staked Relayers or the Governance Mechanism.
-    votes_yes: BTreeSet<AccountId>,
+    // FIXME: will need casting AccountId
+    votes_yes: BTreeSet<u64>,
     /// Set of accounts which have voted AGAINST this status update. This can be either Staked Relayers or the Governance Mechanism.
-    votes_no: BTreeSet<AccountId>,
+    // FIXME: will need casting AccountId
+    votes_no: BTreeSet<u64>,
 }
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
@@ -144,14 +143,14 @@ decl_storage! {
         Nonce get(fn nonce): U256;
 
         /// Mapping from accounts of staked relayers to the StakedRelayer struct
-        StakedRelayers get(fn staked_relayer): map T::AccountId => StakedRelayer;
+        StakedRelayers get(fn staked_relayer): map hasher(blake2_128_concat) T::AccountId => StakedRelayer;
 
         /// Map of StatusUpdates, identified by an integer key
-        StatusUpdates get(fn status_update): map U256 => StatusUpdate;
+        StatusUpdates get(fn status_update): map hasher(blake2_128_concat) U256 => StatusUpdate<T::BlockNumber>;
 
         /// Mapping of Bitcoin transaction identifiers (SHA256 hashes) to account
         /// identifiers of Vaults accused of theft
-        TheftReports get(fn theft_report): map H256Le => BTreeSet<AccountId>;
+        TheftReports get(fn theft_report): map hasher(blake2_128_concat) H256Le => BTreeSet<T::AccountId>;
     }
 }
 
@@ -186,19 +185,22 @@ impl<T: Trait> Module<T> {
     ///
     /// * `relayer` - account id of the relayer
     pub fn check_relayer_registered(relayer: T::AccountId) -> bool {
-        <StakedRelayers<T>>::exists(relayer)
+        <StakedRelayers<T>>::contains_key(relayer)
     }
 }
 
 decl_event!(
-    pub enum Event {
+    pub enum Event<T>
+    where
+        AccountId = <T as system::Trait>::AccountId,
+    {
         RegisterStakedRelayer(AccountId, u64),
         DeRegisterStakedRelayer(AccountId),
-        StatusUpdateSuggested(u8, BTreeSet<u8>, BTreeSet<u8>, String, AccountId),
+        StatusUpdateSuggested(u8, BTreeSet<u8>, BTreeSet<u8>, AccountId),
         VoteOnStatusUpdate(U256, AccountId, bool),
-        ExecuteStatusUpdate(u8, BTreeSet<u8>, BTreeSet<u8>, String),
-        RejectStatusUpdate(u8, BTreeSet<u8>, BTreeSet<u8>, String),
-        ForceStatusUpdate(u8, BTreeSet<u8>, BTreeSet<u8>, String),
+        ExecuteStatusUpdate(u8, BTreeSet<u8>, BTreeSet<u8>),
+        RejectStatusUpdate(u8, BTreeSet<u8>, BTreeSet<u8>),
+        ForceStatusUpdate(u8, BTreeSet<u8>, BTreeSet<u8>),
         SlashStakedRelayer(AccountId),
         ReportVaultTheft(AccountId),
     }
