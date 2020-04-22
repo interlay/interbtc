@@ -1,7 +1,7 @@
 use crate::types::H256Le;
 use primitive_types::H256;
 use sha2::{Digest, Sha256};
-use sp_std::prelude::*;
+use sp_std::{prelude::*, vec};
 
 /// Computes Bitcoin's double SHA256 hash over a LE byte encoded input
 ///
