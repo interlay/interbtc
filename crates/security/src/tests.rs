@@ -1,5 +1,5 @@
 /// Tests for Security Module
-use crate::{Module, Trait, RawEvent};
+use crate::{Module, Trait};
 use frame_support::{impl_outer_event, impl_outer_origin, parameter_types, weights::Weight};
 use pallet_balances as balances;
 use sp_core::H256;
