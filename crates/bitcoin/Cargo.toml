@@ -4,17 +4,10 @@ version = '0.1.0'
 authors = ['Interlay Ltd <dominik@interlay.io>']
 edition = '2018'
 
-[features]
-default = ['std']
-std = [
-	'codec/std',
-	'primitive-types/std',
-	'primitive-types/serde',
-	'primitive-types/byteorder',
-	'primitive-types/rustc-hex',
-	'primitive-types/libc',
-	'node-primitives/std',
-]
+[dependencies.serde]
+features = ['derive']
+optional = true
+version = '1.0.101'
 
 [dependencies.codec]
 default-features = false
@@ -27,37 +20,38 @@ default-features = false
 version = '0.6.2'
 features= ['codec']
 
-[dependencies.node-primitives]
-default-features = false
-version = '2.0.0'
-git = 'https://github.com/paritytech/substrate.git'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-
 [dependencies.sp-std]
 default-features = false
 version = '2.0.0-alpha.5'
-
-[dependencies.indexmap]
-default-features = false
-version = '1.3.2'
-
-[dependencies.twox-hash]
-default-features = false
-version = '1.5.0'
-
-[dependencies.sha2]
-default-features = false
-version = "0.8.0"
 
 [dependencies.sp-core]
 default-features = false
 version = '2.0.0-alpha.5'
 
+[dependencies.sha2]
+default-features = false
+version = "0.8.1"
+
 [dependencies.btc-core]
+default-features = false
 path = '../btc-core'
 
 [dependencies.hex]
-version = '0.4.0'
+default-features = false
+version = '0.4.2'
 
 [dev-dependencies]
 mocktopus = "0.7.0"
+
+[features]
+default = ['std']
+std = [
+	'serde',
+	'codec/std',
+	'primitive-types/std',
+	'sp-std/std',
+	'sp-core/std',
+	'sha2/std',
+	'btc-core/std',
+	'hex/std',
+]

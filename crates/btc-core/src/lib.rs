@@ -1,5 +1,8 @@
+#![cfg_attr(not(feature = "std"), no_std)]
 #![deny(warnings)]
+use codec::alloc::string::{String, ToString};
 use frame_support::dispatch::DispatchError;
+use sp_std::prelude::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Error {
@@ -103,7 +106,7 @@ impl ToString for Error {
     }
 }
 
-impl std::convert::From<Error> for DispatchError {
+impl sp_std::convert::From<Error> for DispatchError {
     fn from(error: Error) -> Self {
         DispatchError::Module {
             // FIXME: this should be set to the module returning the error
