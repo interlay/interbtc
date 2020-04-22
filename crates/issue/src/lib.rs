@@ -26,8 +26,7 @@ use sha2::{Digest, Sha256};
 use sp_core::H160;
 use sp_runtime::ModuleId;
 use system::ensure_signed;
-
-use xclaim_core::Error;
+use x_core::Error;
 
 type DOT<T> = <<T as collateral::Trait>::DOT as Currency<<T as system::Trait>::AccountId>>::Balance;
 type PolkaBTC<T> =

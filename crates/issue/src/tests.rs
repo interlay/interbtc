@@ -2,7 +2,7 @@ use crate::mock::*;
 use crate::RawEvent;
 use frame_support::{assert_noop, assert_ok};
 /// Tests for Issue
-use xclaim_core::Error;
+use x_core::Error;
 
 use bitcoin::types::H256Le;
 use mocktopus::mocking::*;

@@ -15,7 +15,9 @@ std = [
   'timestamp/std',
   'sp-core/std',
   'pallet-balances/std',
-  'node-primitives/std'
+  'x-core/std',
+  'collateral/std',
+  'treasury/std',
 ]
 
 [dependencies.codec]
@@ -55,19 +57,16 @@ default-features = false
 package = 'pallet-balances'
 version = '2.0.0-alpha.5'
 
-[dependencies.node-primitives]
+[dependencies.x-core]
 default-features = false
-version = '2.0.0'
-git = 'https://github.com/paritytech/substrate.git'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-
-[dependencies.xclaim-core]
-path = '../xclaim-core'
+path = '../x-core'
 
 [dependencies.collateral]
+default-features = false
 path = '../collateral'
 
 [dependencies.treasury]
+default-features = false
 path = '../treasury'
 
 [dev-dependencies]

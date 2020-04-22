@@ -14,6 +14,7 @@ std = [
     'system/std',
     'timestamp/std',
     'sp-core/std',
+    'x-core/std',
 ]
 
 [dependencies.codec]
@@ -48,8 +49,9 @@ default-features = false
 package = 'pallet-timestamp'
 version = '2.0.0-alpha.5'
 
-[dependencies.xclaim-core]
-path = '../xclaim-core'
+[dependencies.x-core]
+default-features = false
+path = '../x-core'
 
 [dev-dependencies]
 mocktopus = "0.7.0"

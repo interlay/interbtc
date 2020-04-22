@@ -28,7 +28,7 @@ use sp_core::H160;
 type DOT<T> = <<T as collateral::Trait>::DOT as Currency<<T as system::Trait>::AccountId>>::Balance;
 type PolkaBTC<T> =
     <<T as treasury::Trait>::PolkaBTC as Currency<<T as system::Trait>::AccountId>>::Balance;
-use xclaim_core::Error;
+use x_core::Error;
 
 /// ## Configuration and Constants
 /// The pallet's configuration trait.

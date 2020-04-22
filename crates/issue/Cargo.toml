@@ -46,9 +46,6 @@ default-features = false
 package = 'pallet-balances'
 version = '2.0.0-alpha.5'
 
-[dependencies.xclaim-core]
-path = '../xclaim-core'
-
 [dev-dependencies]
 mocktopus = '0.7.0'
 
@@ -58,31 +55,33 @@ version = '0.6.2'
 features= ['codec']
 
 [dependencies.vault-registry]
+default-features = false
 path = '../vault-registry'
 
 [dependencies.collateral]
+default-features = false
 path = '../collateral'
 
 [dependencies.btc-relay]
+default-features = false
 path = '../btc-relay'
 
 [dependencies.treasury]
-path = '../treasury'
-
-[dependencies.sha2]
 default-features = false
-version = '0.8.0'
+path = '../treasury'
 
 [dependencies.bitcoin]
 default-features = false
 path = '../bitcoin'
 version = '0.1.0'
 
-[dependencies.btc-core]
-path = '../btc-core'
+[dependencies.x-core]
+default-features = false
+path = '../x-core'
 
-[dependencies.hex]
-version = '0.4.0'
+[dependencies.sha2]
+default-features = false
+version = '0.8.0'
 
 [features]
 default = ['std']
@@ -97,4 +96,11 @@ std = [
 	'sp-std/std',
 	'pallet-balances/std',
 	'primitive-types/std',
+	'vault-registry/std',
+	'collateral/std',
+	'btc-relay/std',
+	'treasury/std',
+	'bitcoin/std',
+	'x-core/std',
+	'sha2/std',
 ]
