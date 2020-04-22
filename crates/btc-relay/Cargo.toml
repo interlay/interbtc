@@ -58,6 +58,9 @@ path = '../btc-core'
 default-features = false
 version = "0.4.0"
 
+[dev-dependencies]
+mocktopus = '0.7.0'
+
 [dev-dependencies.sp-runtime]
 default-features = false
 version = '2.0.0-alpha.5'

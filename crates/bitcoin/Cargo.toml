@@ -30,7 +30,7 @@ version = '2.0.0-alpha.5'
 
 [dependencies.sha2]
 default-features = false
-version = "0.8.1"
+version = '0.8.1'
 
 [dependencies.btc-core]
 default-features = false
@@ -39,6 +39,9 @@ path = '../btc-core'
 [dependencies.hex]
 default-features = false
 version = '0.4.2'
+
+[dev-dependencies]
+mocktopus = '0.7.0'
 
 [features]
 default = ['std']
