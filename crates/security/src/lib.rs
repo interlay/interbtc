@@ -3,7 +3,6 @@
 #[cfg(test)]
 mod tests;
 
-use codec::alloc::string::String;
 use codec::{Decode, Encode};
 /// # Security module implementation
 /// This is the implementation of the BTC Parachain Security module following the spec at:
@@ -18,7 +17,8 @@ use sp_std::fmt::Debug;
 use bitcoin::types::*;
 
 // Dot currency
-type _DOT<T> = <<T as collateral::Trait>::DOT as Currency<<T as system::Trait>::AccountId>>::Balance;
+type _DOT<T> =
+    <<T as collateral::Trait>::DOT as Currency<<T as system::Trait>::AccountId>>::Balance;
 
 /// ## Configuration
 /// The pallet's configuration trait.
@@ -108,8 +108,6 @@ pub struct StatusUpdate<BlockNumber> {
     time: BlockNumber,
     /// Status of the proposed status update. See ProposalStatus.
     proposal_status: ProposalStatus,
-    /// Message providing more details on the change of status (detailed error message or recovery reason).
-    msg: String,
     /// LE Block hash of the Bitcoin block where the error was detected, if related to BTC-Relay.
     btc_block_hash: H256Le,
     /// Set of accounts which have voted FOR this status update. This can be either Staked Relayers or the Governance Mechanism.
@@ -192,14 +190,17 @@ impl<T: Trait> Module<T> {
 }
 
 decl_event!(
-    pub enum Event<T> where AccountId = <T as system::Trait>::AccountId {
+    pub enum Event<T>
+    where
+        AccountId = <T as system::Trait>::AccountId,
+    {
         RegisterStakedRelayer(AccountId, u64),
         DeRegisterStakedRelayer(AccountId),
-        StatusUpdateSuggested(u8, BTreeSet<u8>, BTreeSet<u8>, String, AccountId),
+        StatusUpdateSuggested(u8, BTreeSet<u8>, BTreeSet<u8>, AccountId),
         VoteOnStatusUpdate(U256, AccountId, bool),
-        ExecuteStatusUpdate(u8, BTreeSet<u8>, BTreeSet<u8>, String),
-        RejectStatusUpdate(u8, BTreeSet<u8>, BTreeSet<u8>, String),
-        ForceStatusUpdate(u8, BTreeSet<u8>, BTreeSet<u8>, String),
+        ExecuteStatusUpdate(u8, BTreeSet<u8>, BTreeSet<u8>),
+        RejectStatusUpdate(u8, BTreeSet<u8>, BTreeSet<u8>),
+        ForceStatusUpdate(u8, BTreeSet<u8>, BTreeSet<u8>),
         SlashStakedRelayer(AccountId),
         ReportVaultTheft(AccountId),
     }

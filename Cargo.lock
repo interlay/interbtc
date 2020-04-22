@@ -4866,7 +4866,6 @@ dependencies = [
  "collateral",
  "frame-support",
  "frame-system",
- "indexmap",
  "pallet-balances",
  "pallet-timestamp",
  "parity-scale-codec",

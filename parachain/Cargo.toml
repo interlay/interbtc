@@ -5,9 +5,6 @@ edition = '2018'
 name = 'btc-parachain'
 version = '2.0.0-alpha.5'
 
-[profile.release]
-panic = 'unwind'
-
 [build-dependencies]
 vergen = '3.0.4'
 
