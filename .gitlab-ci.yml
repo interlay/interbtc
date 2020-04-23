@@ -1,17 +1,21 @@
 # Official language image. Look for the different tagged releases at:
 # https://hub.docker.com/r/library/rust/tags/
-image: "rust:latest"
+image: "registry.gitlab.com/interlay/btc-parachain:ci"
 
-# Install a C compiler, cmake and git into the container.
+variables:
+    CARGO_HOME: $CI_PROJECT_DIR/.cargo
+    RUSTC_WRAPPER: sccache
+    SCCACHE_GCS_RW_MODE: READ_WRITE
+
 before_script:
-    - apt-get -y update
-    - apt-get install -y build-essential cmake pkg-config libssl-dev clang libclang-dev llvm
-    - rustup toolchain install nightly-2020-03-01 # rustc version 1.43.0-nightly
-    - rustup default nightly-2020-03-01
-    - rustup component add rustfmt
-    - rustup toolchain install nightly
-    - rustup target add wasm32-unknown-unknown --toolchain nightly-2020-03-01
-    - rustc --version && rustfmt --version && cargo --version # Print version info for debugging
+    - rustc --version
+    - rustfmt --version
+    - cargo --version
+    - SCCACHE_START_SERVER=1 SCCACHE_NO_DAEMON=1 sccache &
+    - sccache -s
+
+after_script:
+    - sccache -s
 
 # Declare stages
 stages:
@@ -69,9 +73,9 @@ test-pallets-and-crates:
         - cargo fmt -- --check
         - cargo test --all --release
     cache:
-        key: build-cache
+        key: cargo
         paths:
-            - target
+            - .cargo
     only:
         - merge_requests
 
