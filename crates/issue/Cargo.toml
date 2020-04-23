@@ -51,7 +51,7 @@ mocktopus = '0.7.0'
 
 [dependencies.primitive-types]
 default-features = false
-version = '0.6.2'
+version = '0.7.0'
 features= ['codec']
 
 [dependencies.vault-registry]
