@@ -21,8 +21,7 @@ use frame_support::dispatch::DispatchResult;
 use frame_support::{decl_event, decl_module, decl_storage, ensure};
 use std::time::SystemTime;
 use system::ensure_signed;
-
-use xclaim_core::Error;
+use x_core::Error;
 
 /// ## Configuration and Constants
 /// The pallet's configuration trait.

@@ -32,9 +32,9 @@ version = '2.0.0-alpha.5'
 default-features = false
 version = '0.8.1'
 
-[dependencies.btc-core]
+[dependencies.x-core]
 default-features = false
-path = '../btc-core'
+path = '../x-core'
 
 [dependencies.hex]
 default-features = false
@@ -52,6 +52,6 @@ std = [
 	'sp-std/std',
 	'sp-core/std',
 	'sha2/std',
-	'btc-core/std',
+	'x-core/std',
 	'hex/std',
 ]

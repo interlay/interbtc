@@ -5,9 +5,9 @@ extern crate mocktopus;
 use mocktopus::macros::mockable;
 
 use crate::types::*;
-use btc_core::Error;
 use primitive_types::U256;
 use sp_std::prelude::*;
+use x_core::Error;
 
 const SERIALIZE_TRANSACTION_NO_WITNESS: i32 = 0x4000_0000;
 

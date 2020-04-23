@@ -12,7 +12,7 @@ use frame_support::traits::{Currency, ReservableCurrency};
 /// The Collateral module according to the specification at
 /// https://interlay.gitlab.io/polkabtc-spec/spec/collateral.html
 use frame_support::{decl_event, decl_module, decl_storage, ensure, sp_runtime::ModuleId};
-use xclaim_core::Error;
+use x_core::Error;
 
 type BalanceOf<T> = <<T as Trait>::DOT as Currency<<T as system::Trait>::AccountId>>::Balance;
 

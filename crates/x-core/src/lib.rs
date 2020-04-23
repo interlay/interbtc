@@ -6,6 +6,9 @@ use sp_std::prelude::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Error {
+    // ----------
+    // BTC Errors
+    // ----------
     AlreadyInitialized,
     MissingBlockHeight, //not in spec
     InvalidHeaderSize,
@@ -53,6 +56,29 @@ pub enum Error {
     MalformedOpReturnOutput,
     // Output does not match format of supported output types (Witness, P2PKH, P2SH)
     UnsupportedOutputFormat,
+
+    // -------------
+    // XClaim Errors
+    // -------------
+    MissingExchangeRate,
+    InvalidOracleSource,
+    InsufficientFunds,
+    InsufficientLockedFunds,
+    InsufficientCollateralAvailable,
+
+    VaultNotFound,
+    VaultBanned,
+    InsufficientCollateral,
+    ExceedingVaultLimit,
+    IssueIdNotFound,
+    CommitPeriodExpired,
+    UnauthorizedUser,
+    TimeNotExpired,
+    IssueCompleted,
+
+    /// use only for errors which means something
+    /// going very wrong and which do not match any other error
+    RuntimeError,
 }
 
 impl Error {
@@ -96,6 +122,30 @@ impl Error {
             Error::MalformedP2SHOutput => "Format of the P2SH output is invalid",
             Error::MalformedOpReturnOutput => "Format of the OP_RETURN transaction output is invalid",
             Error::UnsupportedOutputFormat => "Unsupported output format. Currently supported: Witness, P2PKH, P2SH,",
+
+            Error::MissingExchangeRate => "Exchange rate not set",
+            Error::InvalidOracleSource => "Invalid oracle account",
+            Error::InsufficientFunds => {
+                "The balance of this account is insufficient to complete the transaction."
+            }
+            Error::InsufficientLockedFunds => {
+                "The locked token balance of this account is insufficient to burn the tokens."
+            }
+            Error::InsufficientCollateralAvailable => {
+                "The sender’s collateral balance is below the requested amount."
+            }
+
+            Error::VaultNotFound => "There exists no Vault with the given account id",
+            Error::VaultBanned => "The selected Vault has been temporarily banned",
+            Error::InsufficientCollateral => "User provided collateral below limit",
+            Error::ExceedingVaultLimit => "The requested Vault has not locked enough collateral",
+            Error::IssueIdNotFound => "Requested issue id not found",
+            Error::CommitPeriodExpired => "Time to issue PolkaBTC expired",
+            Error::UnauthorizedUser => "Unauthorized: Caller must be associated user",
+            Error::TimeNotExpired => "Time to issue PolkaBTC not yet expired",
+            Error::IssueCompleted => "Issue completed and cannot be cancelled",
+
+            Error::RuntimeError => "Runtime error",
         }
     }
 }
@@ -106,7 +156,7 @@ impl ToString for Error {
     }
 }
 
-impl sp_std::convert::From<Error> for DispatchError {
+impl From<Error> for DispatchError {
     fn from(error: Error) -> Self {
         DispatchError::Module {
             // FIXME: this should be set to the module returning the error

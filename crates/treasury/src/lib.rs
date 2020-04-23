@@ -21,8 +21,7 @@ use frame_support::traits::{Currency, ExistenceRequirement::KeepAlive, Reservabl
 use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
 use sp_runtime::ModuleId;
 use system::ensure_signed;
-
-use xclaim_core::Error;
+use x_core::Error;
 
 type BalanceOf<T> = <<T as Trait>::PolkaBTC as Currency<<T as system::Trait>::AccountId>>::Balance;
 

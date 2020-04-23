@@ -1,7 +1,6 @@
 [workspace]
 members = [
-  "crates/btc-core",
-  "crates/xclaim-core",
+  "crates/x-core",
   "crates/bitcoin",
   "crates/btc-relay",
   "crates/security",
@@ -9,6 +8,7 @@ members = [
   "crates/vault-registry",
   "crates/treasury",
   "crates/collateral",
+  "crates/issue",
   "parachain",
   "parachain/runtime",
 ]

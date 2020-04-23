@@ -2,12 +2,12 @@ extern crate hex;
 
 use crate::parser::*;
 use crate::utils::*;
-use btc_core::Error;
 use codec::alloc::string::String;
 use codec::{Decode, Encode};
 use primitive_types::{H256, U256};
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::*;
+use x_core::Error;
 
 /// Custom Types
 /// Bitcoin Raw Block Header type

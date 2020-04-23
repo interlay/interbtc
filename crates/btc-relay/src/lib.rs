@@ -34,8 +34,8 @@ use bitcoin::parser::{
 use bitcoin::types::{
     BlockChain, BlockHeader, H256Le, RawBlockHeader, RichBlockHeader, Transaction,
 };
-use btc_core::Error;
 use security::ErrorCode;
+use x_core::Error;
 
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
@@ -381,7 +381,7 @@ impl<T: Trait> Module<T> {
         payment_value: i64,
         recipient_btc_address: Vec<u8>,
         op_return_id: Vec<u8>,
-    ) -> DispatchResult {
+    ) -> Result<(), Error> {
         let transaction = Self::parse_transaction(&raw_tx)?;
 
         // TODO: make 2 a constant
