@@ -74,3 +74,19 @@ test-pallets-and-crates:
             - target
     only:
         - merge_requests
+
+docker-publish:
+    stage: deploy
+    image: docker:19.03.8
+    variables:
+        DOCKER_HOST: tcp://docker:2376
+        DOCKER_TLS_CERTDIR: "/certs"
+    services:
+        - docker:19.03.8-dind
+    before_script:
+        - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    script:
+        - docker build . -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+        - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+    only:
+        - master
