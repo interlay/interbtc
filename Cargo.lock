@@ -3790,6 +3790,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "replace"
+version = "0.1.0"
+dependencies = [
+ "bitcoin",
+ "btc-relay",
+ "collateral",
+ "frame-support",
+ "frame-system",
+ "mocktopus",
+ "pallet-balances",
+ "parity-scale-codec",
+ "primitive-types",
+ "serde",
+ "sha2",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "treasury",
+ "vault-registry",
+ "x-core",
+]
+
+[[package]]
 name = "ring"
 version = "0.16.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
