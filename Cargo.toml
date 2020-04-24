@@ -9,6 +9,7 @@ members = [
   "crates/treasury",
   "crates/collateral",
   "crates/issue",
+  "crates/replace",
   "parachain",
   "parachain/runtime",
 ]
