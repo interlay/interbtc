@@ -155,7 +155,7 @@ decl_module! {
         fn withdraw_collateral(origin, amount: DOTBalance<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             Self::ensure_parachain_running()?;
-            let vault: RichVault<T> = Self::rich_vault_from_id(&sender)?;
+            let vault = Self::rich_vault_from_id(&sender)?;
             vault.withdraw_collateral(amount)?;
             Self::deposit_event(Event::<T>::WithdrawCollateral(
                 sender.clone(),
@@ -166,14 +166,59 @@ decl_module! {
         }
 
         pub fn increase_to_be_issued_tokens(origin, tokens: PolkaBTCBalance<T>) -> DispatchResult {
+            Self::ensure_parachain_running()?;
             let sender = ensure_signed(origin)?;
             Self::internal_increase_to_be_issued_tokens(&sender, tokens)?;
+            Self::deposit_event(Event::<T>::IncreaseToBeIssuedTokens(
+                sender.clone(),
+                tokens,
+            ));
             Ok(())
         }
 
         pub fn decrease_to_be_issued_tokens(origin, tokens: PolkaBTCBalance<T>) -> DispatchResult {
+            Self::ensure_parachain_running()?;
             let sender = ensure_signed(origin)?;
             Self::internal_decrease_to_be_issued_tokens(&sender, tokens)?;
+            Self::deposit_event(Event::<T>::DecreaseToBeIssuedTokens(
+                sender.clone(),
+                tokens,
+            ));
+            Ok(())
+        }
+
+        pub fn issue_tokens(origin, tokens: PolkaBTCBalance<T>) -> DispatchResult {
+            Self::ensure_parachain_running()?;
+            let sender = ensure_signed(origin)?;
+            Self::internal_issue_tokens(&sender, tokens)?;
+            Self::deposit_event(Event::<T>::IssueTokens(sender.clone(), tokens));
+
+            Ok(())
+        }
+
+        pub fn increase_to_be_redeemed_tokens(origin, tokens: PolkaBTCBalance<T>) -> DispatchResult {
+            Self::ensure_parachain_running()?;
+            let sender = ensure_signed(origin)?;
+            let vault = Self::get_vault_from_id(&sender)?;
+            ensure!(vault.issued_tokens - vault.to_be_redeemed_tokens >= tokens,
+                    Error::InsufficientTokensCommitted);
+            <Vaults<T>>::mutate(&sender, |v| v.to_be_redeemed_tokens += tokens);
+            Self::deposit_event(Event::<T>::IncreaseToBeRedeemedTokens(
+                sender.clone(),
+                tokens,
+            ));
+            Ok(())
+        }
+
+        pub fn decrease_to_be_redeemed_tokens(origin, tokens: PolkaBTCBalance<T>) -> DispatchResult {
+            Self::ensure_parachain_running()?;
+            let sender = ensure_signed(origin)?;
+            let mut vault = Self::rich_vault_from_id(&sender)?;
+            vault.decrease_to_be_redeemed(tokens)?;
+            Self::deposit_event(Event::<T>::DecreaseToBeRedeemedTokens(
+                sender.clone(),
+                tokens,
+            ));
             Ok(())
         }
     }
@@ -201,36 +246,52 @@ impl<T: Trait> Module<T> {
         id: &T::AccountId,
         tokens: PolkaBTCBalance<T>,
     ) -> Result<H160, Error> {
-        let vault: RichVault<T> = Self::rich_vault_from_id(&id)?;
-        ensure!(
-            vault.issuable_tokens()? >= tokens,
-            Error::ExceedingVaultLimit
-        );
-        <Vaults<T>>::mutate(&id, |v| v.to_be_issued_tokens += tokens);
-        Ok(<Vaults<T>>::get(&id).btc_address)
+        let mut vault = Self::rich_vault_from_id(&id)?;
+        vault.increase_to_be_issued(tokens)?;
+        Ok(vault.data.btc_address)
     }
 
     pub fn internal_decrease_to_be_issued_tokens(
         id: &T::AccountId,
         tokens: PolkaBTCBalance<T>,
     ) -> Result<(), Error> {
-        let vault: RichVault<T> = Self::rich_vault_from_id(&id)?;
+        let vault = Self::rich_vault_from_id(&id)?;
         ensure!(
             vault.data.to_be_issued_tokens >= tokens,
             Error::InsufficientTokensCommitted
         );
 
-        ensure!(Self::vault_exists(&id), Error::VaultNotFound);
         <Vaults<T>>::mutate(id, |v| v.to_be_issued_tokens -= tokens);
         Ok(())
     }
 
-    /// Private getters and setters
-    fn _mutate_vault_from_id(id: T::AccountId, vault: DefaultVault<T>) {
-        <Vaults<T>>::mutate(id, |v| *v = vault)
+    pub fn decrease_tokens(
+        vault_id: &T::AccountId,
+        user_id: &T::AccountId,
+        tokens: PolkaBTCBalance<T>,
+        _collateral: DOTBalance<T>,
+    ) -> Result<(), Error> {
+        let mut vault: RichVault<T> = Self::rich_vault_from_id(&vault_id)?;
+        vault.decrease_to_be_redeemed(tokens)?;
+        vault.decrease_issued(tokens)?;
+
+        let to_slash = ext::oracle::btc_to_dots::<T>(tokens)?;
+
+        // FIXME: find how to work with balance types
+        // if vault.get_collateral() - to_slash < <SecureCollateralThreshold>::get() {
+        //     to_slash = <SecureCollateralThreshold>::get();
+        // }
+
+        // TODO: add punishment fee
+        ext::collateral::slash::<T>(&vault_id, &user_id, to_slash)?;
+        Ok(())
     }
 
-    pub fn issue_tokens(id: &T::AccountId, tokens: PolkaBTCBalance<T>) -> Result<(), Error> {
+    /// Private getters and setters
+    pub fn internal_issue_tokens(
+        id: &T::AccountId,
+        tokens: PolkaBTCBalance<T>,
+    ) -> Result<(), Error> {
         Self::internal_decrease_to_be_issued_tokens(id, tokens)?;
         <Vaults<T>>::mutate(id, |v| v.issued_tokens += tokens);
         Ok(())
@@ -262,11 +323,19 @@ decl_event! {
     /// ## Events
     pub enum Event<T> where
             AccountId = <T as system::Trait>::AccountId,
-            Balance = DOTBalance<T> {
+            Balance = DOTBalance<T>,
+            BTCBalance = PolkaBTCBalance<T> {
         RegisterVault(AccountId, Balance),
         /// id, new collateral, total collateral, free collateral
         LockAdditionalCollateral(AccountId, Balance, Balance, Balance),
         /// id, withdrawn collateral, total collateral
         WithdrawCollateral(AccountId, Balance, Balance),
+
+        IncreaseToBeIssuedTokens(AccountId, BTCBalance),
+        DecreaseToBeIssuedTokens(AccountId, BTCBalance),
+        IssueTokens(AccountId, BTCBalance),
+        IncreaseToBeRedeemedTokens(AccountId, BTCBalance),
+        DecreaseToBeRedeemedTokens(AccountId, BTCBalance),
+
     }
 }

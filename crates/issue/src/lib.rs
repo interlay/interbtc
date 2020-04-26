@@ -226,7 +226,7 @@ impl<T: Trait> Module<T> {
             issue_id.clone().as_bytes().to_vec(),
         )?;
 
-        <vault_registry::Module<T>>::issue_tokens(&issue.vault, issue.amount)?;
+        <vault_registry::Module<T>>::internal_issue_tokens(&issue.vault, issue.amount)?;
         <treasury::Module<T>>::mint(issue.requester, issue.amount);
         <IssueRequests<T>>::remove(issue_id);
 

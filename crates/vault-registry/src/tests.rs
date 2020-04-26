@@ -155,6 +155,7 @@ fn increase_to_be_issued_tokens_succeeds() -> Result<(), Error> {
         assert_ok!(res);
         let vault = VaultRegistry::get_vault_from_id(&id)?;
         assert_eq!(vault.to_be_issued_tokens, 50);
+        assert_emitted!(Event::IncreaseToBeIssuedTokens(id, 50));
 
         Ok(())
     })
@@ -187,6 +188,7 @@ fn decrease_to_be_issued_tokens_succeeds() -> Result<(), Error> {
         assert_ok!(res);
         let vault = VaultRegistry::get_vault_from_id(&id)?;
         assert_eq!(vault.to_be_issued_tokens, 0);
+        assert_emitted!(Event::DecreaseToBeIssuedTokens(id, 50));
 
         Ok(())
     })
@@ -198,6 +200,105 @@ fn decrease_to_be_issued_tokens_fails_with_insufficient_tokens() -> Result<(), E
         let id = create_sample_vault();
 
         let res = VaultRegistry::decrease_to_be_issued_tokens(Origin::signed(id), 50);
+        assert_err!(res, Error::InsufficientTokensCommitted);
+
+        Ok(())
+    })
+}
+
+#[test]
+fn issue_tokens_succeeds() -> Result<(), Error> {
+    run_test(|| {
+        let id = create_sample_vault();
+        assert_ok!(VaultRegistry::increase_to_be_issued_tokens(
+            Origin::signed(id),
+            50
+        ));
+        let res = VaultRegistry::issue_tokens(Origin::signed(id), 50);
+        assert_ok!(res);
+        let vault = VaultRegistry::get_vault_from_id(&id)?;
+        assert_eq!(vault.to_be_issued_tokens, 0);
+        assert_eq!(vault.issued_tokens, 50);
+        assert_emitted!(Event::IssueTokens(id, 50));
+
+        Ok(())
+    })
+}
+
+#[test]
+fn issue_tokens_fails_with_insufficient_tokens() -> Result<(), Error> {
+    run_test(|| {
+        let id = create_sample_vault();
+
+        let res = VaultRegistry::issue_tokens(Origin::signed(id), 50);
+        assert_err!(res, Error::InsufficientTokensCommitted);
+
+        Ok(())
+    })
+}
+
+#[test]
+fn increase_to_be_redeemed_tokens_succeeds() -> Result<(), Error> {
+    run_test(|| {
+        let id = create_sample_vault();
+        assert_ok!(VaultRegistry::increase_to_be_issued_tokens(
+            Origin::signed(id),
+            50
+        ));
+        assert_ok!(VaultRegistry::issue_tokens(Origin::signed(id), 50));
+        let res = VaultRegistry::increase_to_be_redeemed_tokens(Origin::signed(id), 50);
+        assert_ok!(res);
+        let vault = VaultRegistry::get_vault_from_id(&id)?;
+        assert_eq!(vault.issued_tokens, 50);
+        assert_eq!(vault.to_be_redeemed_tokens, 50);
+        assert_emitted!(Event::IncreaseToBeRedeemedTokens(id, 50));
+
+        Ok(())
+    })
+}
+
+#[test]
+fn increase_to_be_redeemed_tokens_fails_with_insufficient_tokens() -> Result<(), Error> {
+    run_test(|| {
+        let id = create_sample_vault();
+
+        let res = VaultRegistry::increase_to_be_redeemed_tokens(Origin::signed(id), 50);
+        assert_err!(res, Error::InsufficientTokensCommitted);
+
+        Ok(())
+    })
+}
+
+#[test]
+fn decrease_to_be_redeemed_tokens_succeeds() -> Result<(), Error> {
+    run_test(|| {
+        let id = create_sample_vault();
+        assert_ok!(VaultRegistry::increase_to_be_issued_tokens(
+            Origin::signed(id),
+            50
+        ));
+        assert_ok!(VaultRegistry::issue_tokens(Origin::signed(id), 50));
+        assert_ok!(VaultRegistry::increase_to_be_redeemed_tokens(
+            Origin::signed(id),
+            50
+        ));
+        let res = VaultRegistry::decrease_to_be_redeemed_tokens(Origin::signed(id), 50);
+        assert_ok!(res);
+        let vault = VaultRegistry::get_vault_from_id(&id)?;
+        assert_eq!(vault.issued_tokens, 50);
+        assert_eq!(vault.to_be_redeemed_tokens, 0);
+        assert_emitted!(Event::DecreaseToBeRedeemedTokens(id, 50));
+
+        Ok(())
+    })
+}
+
+#[test]
+fn decrease_to_be_redeemed_tokens_fails_with_insufficient_tokens() -> Result<(), Error> {
+    run_test(|| {
+        let id = create_sample_vault();
+
+        let res = VaultRegistry::decrease_to_be_redeemed_tokens(Origin::signed(id), 50);
         assert_err!(res, Error::InsufficientTokensCommitted);
 
         Ok(())
