@@ -5,6 +5,9 @@
 /// # Vault Registry implementation
 /// This is the implementation of the Vault Registry following the spec at:
 /// https://interlay.gitlab.io/polkabtc-spec/spec/vaultregistry.html
+mod ext;
+mod types;
+pub mod vault;
 
 #[cfg(test)]
 mod tests;
@@ -18,70 +21,22 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use codec::{Decode, Encode, HasCompact};
+use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchResult;
-use frame_support::traits::Currency;
-use frame_support::{decl_event, decl_module, decl_storage /*, ensure */};
+use frame_support::{decl_event, decl_module, decl_storage, ensure};
 use primitive_types::H256;
 use sp_core::H160;
 use system::ensure_signed;
 
 use x_core::Error;
 
-/// ## Configuration and Constants
-/// The pallet's configuration trait.
-pub trait Trait: system::Trait + collateral::Trait + treasury::Trait {
-    /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
-}
+use crate::types::{DOTBalance, PolkaBTCBalance};
+use crate::vault::DefaultVault;
+pub use crate::vault::{RichVault, Vault};
 
 /// Granularity of `SecureCollateralThreshold`, `AuctionCollateralThreshold`,
 /// `LiquidationCollateralThreshold`, and `PunishmentFee`
 pub const GRANULARITY: u128 = 5;
-
-type DOT<T> = <T as collateral::Trait>::DOT;
-type DOTBalance<T> = <DOT<T> as Currency<<T as system::Trait>::AccountId>>::Balance;
-
-type PolkaBTC<T> = <T as treasury::Trait>::PolkaBTC;
-type PolkaBTCBalance<T> = <PolkaBTC<T> as Currency<<T as system::Trait>::AccountId>>::Balance;
-
-#[derive(Encode, Decode, Default, Clone, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
-pub struct Vault<AccountId, BlockNumber, PolkaBTCBalance: HasCompact> {
-    // Account identifier of the Vault
-    pub id: AccountId,
-    // Number of PolkaBTC tokens pending issue
-    pub to_be_issued_tokens: PolkaBTCBalance,
-    // Number of issued PolkaBTC tokens
-    pub issued_tokens: PolkaBTCBalance,
-    // Number of PolkaBTC tokens pending redeem
-    pub to_be_redeemed_tokens: PolkaBTCBalance,
-    // DOT collateral locked by this Vault
-    // collateral: DOTBalance,
-    // Bitcoin address of this Vault (P2PKH, P2SH, P2PKH, P2WSH)
-    pub btc_address: H160,
-    // Block height until which this Vault is banned from being
-    // used for Issue, Redeem (except during automatic liquidation) and Replace .
-    pub banned_until: Option<BlockNumber>,
-}
-
-impl<AccountId, BlockNumber, PolkaBTCBalance: HasCompact + Default>
-    Vault<AccountId, BlockNumber, PolkaBTCBalance>
-{
-    fn new(id: AccountId, btc_address: H160) -> Vault<AccountId, BlockNumber, PolkaBTCBalance> {
-        Vault {
-            id,
-            btc_address,
-            to_be_issued_tokens: Default::default(),
-            issued_tokens: Default::default(),
-            to_be_redeemed_tokens: Default::default(),
-            banned_until: None,
-        }
-    }
-}
-
-type DefaultVault<T> =
-    Vault<<T as system::Trait>::AccountId, <T as system::Trait>::BlockNumber, PolkaBTCBalance<T>>;
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
@@ -89,6 +44,15 @@ pub struct RegisterRequest<AccountId, DateTime> {
     registration_id: H256,
     vault: AccountId,
     timeout: DateTime,
+}
+
+/// ## Configuration and Constants
+/// The pallet's configuration trait.
+pub trait Trait:
+    system::Trait + collateral::Trait + treasury::Trait + exchange_rate_oracle::Trait
+{
+    /// The overarching event type.
+    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
 
 // This pallet's storage items.
@@ -160,15 +124,14 @@ decl_module! {
         fn register_vault(origin, collateral: DOTBalance<T>, btc_address: H160) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             Self::ensure_parachain_running()?;
-            if collateral < Self::get_minimum_collateral_vault() {
-                return Err(Error::InsuficientVaultCollateralAmount.into());
-            }
-            if Self::vault_exists(&sender) {
-                return Err(Error::VaultAlreadyRegistered.into());
-            }
-            Self::lock_collateral(&sender, collateral)?;
-            let vault: DefaultVault<T> = Vault::new(sender.clone(), btc_address);
-            Self::insert_vault(&sender, vault);
+
+            ensure!(collateral >= Self::get_minimum_collateral_vault(),
+                    Error::InsuficientVaultCollateralAmount);
+            ensure!(!Self::vault_exists(&sender), Error::VaultAlreadyRegistered);
+
+            ext::collateral::lock::<T>(&sender, collateral)?;
+            let vault = RichVault::<T>::new(sender.clone(), btc_address);
+            Self::insert_vault(&sender, &vault);
 
             Self::deposit_event(Event::<T>::RegisterVault(sender.clone(), collateral));
 
@@ -178,13 +141,39 @@ decl_module! {
         fn lock_additional_collateral(origin, amount: DOTBalance<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             Self::ensure_parachain_running()?;
-            Self::increase_collateral(&sender, amount)?;
+            let vault = Self::rich_vault_from_id(&sender)?;
+            vault.increase_collateral(amount)?;
             Self::deposit_event(Event::<T>::LockAdditionalCollateral(
                 sender.clone(),
                 amount,
-                Self::get_total_collateral(),
-                Self::get_total_collateral(), // FIXME: use free collateral
+                vault.get_collateral(),
+                vault.get_free_collateral()?,
             ));
+            Ok(())
+        }
+
+        fn withdraw_collateral(origin, amount: DOTBalance<T>) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            Self::ensure_parachain_running()?;
+            let vault: RichVault<T> = Self::rich_vault_from_id(&sender)?;
+            vault.withdraw_collateral(amount)?;
+            Self::deposit_event(Event::<T>::WithdrawCollateral(
+                sender.clone(),
+                amount,
+                vault.get_collateral(),
+            ));
+            Ok(())
+        }
+
+        pub fn increase_to_be_issued_tokens(origin, tokens: PolkaBTCBalance<T>) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            Self::internal_increase_to_be_issued_tokens(&sender, tokens)?;
+            Ok(())
+        }
+
+        pub fn decrease_to_be_issued_tokens(origin, tokens: PolkaBTCBalance<T>) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            Self::internal_decrease_to_be_issued_tokens(&sender, tokens)?;
             Ok(())
         }
     }
@@ -195,33 +184,43 @@ impl<T: Trait> Module<T> {
     /// Public getters
 
     pub fn get_vault_from_id(id: &T::AccountId) -> Result<DefaultVault<T>, Error> {
-        if Self::vault_exists(&id) {
-            Ok(<Vaults<T>>::get(id))
-        } else {
-            Err(Error::VaultNotFound)
-        }
+        ensure!(Self::vault_exists(&id), Error::VaultNotFound);
+        Ok(<Vaults<T>>::get(id))
     }
 
-    pub fn get_vault_collateral(id: &T::AccountId) -> DOTBalance<T> {
-        <collateral::Module<T>>::get_collateral_from_account(id)
+    pub fn rich_vault_from_id(id: &T::AccountId) -> Result<RichVault<T>, Error> {
+        let vault = Self::get_vault_from_id(id)?;
+        Ok(vault.into())
     }
 
     pub fn vault_exists(id: &T::AccountId) -> bool {
         <Vaults<T>>::contains_key(id)
     }
 
-    pub fn increase_to_be_issued_tokens(
+    pub fn internal_increase_to_be_issued_tokens(
         id: &T::AccountId,
         tokens: PolkaBTCBalance<T>,
     ) -> Result<H160, Error> {
-        <Vaults<T>>::mutate(id.clone(), |v| v.to_be_issued_tokens += tokens);
-        Ok(<Vaults<T>>::get(id).btc_address)
+        let vault: RichVault<T> = Self::rich_vault_from_id(&id)?;
+        ensure!(
+            vault.issuable_tokens()? >= tokens,
+            Error::ExceedingVaultLimit
+        );
+        <Vaults<T>>::mutate(&id, |v| v.to_be_issued_tokens += tokens);
+        Ok(<Vaults<T>>::get(&id).btc_address)
     }
 
-    pub fn decrease_to_be_issued_tokens(
+    pub fn internal_decrease_to_be_issued_tokens(
         id: &T::AccountId,
         tokens: PolkaBTCBalance<T>,
     ) -> Result<(), Error> {
+        let vault: RichVault<T> = Self::rich_vault_from_id(&id)?;
+        ensure!(
+            vault.data.to_be_issued_tokens >= tokens,
+            Error::InsufficientTokensCommitted
+        );
+
+        ensure!(Self::vault_exists(&id), Error::VaultNotFound);
         <Vaults<T>>::mutate(id, |v| v.to_be_issued_tokens -= tokens);
         Ok(())
     }
@@ -231,23 +230,8 @@ impl<T: Trait> Module<T> {
         <Vaults<T>>::mutate(id, |v| *v = vault)
     }
 
-    fn increase_collateral(id: &T::AccountId, collateral: DOTBalance<T>) -> Result<(), Error> {
-        if !Self::vault_exists(id) {
-            return Err(Error::VaultNotFound);
-        }
-        Self::lock_collateral(id, collateral)
-    }
-
-    fn lock_collateral(sender: &T::AccountId, amount: DOTBalance<T>) -> Result<(), Error> {
-        <collateral::Module<T>>::lock_collateral(sender, amount)
-    }
-
-    fn get_total_collateral() -> DOTBalance<T> {
-        <collateral::Module<T>>::get_total_collateral()
-    }
-
     pub fn issue_tokens(id: &T::AccountId, tokens: PolkaBTCBalance<T>) -> Result<(), Error> {
-        Self::decrease_to_be_issued_tokens(id, tokens)?;
+        Self::internal_decrease_to_be_issued_tokens(id, tokens)?;
         <Vaults<T>>::mutate(id, |v| v.issued_tokens += tokens);
         Ok(())
     }
@@ -256,7 +240,8 @@ impl<T: Trait> Module<T> {
         <MinimumCollateralVault<T>>::get()
     }
 
-    pub fn insert_vault(id: &T::AccountId, vault: DefaultVault<T>) {
+    pub fn insert_vault<V: Into<DefaultVault<T>>>(id: &T::AccountId, rich_vault: V) {
+        let vault: DefaultVault<T> = rich_vault.into();
         <Vaults<T>>::insert(id, vault)
     }
 
@@ -281,5 +266,7 @@ decl_event! {
         RegisterVault(AccountId, Balance),
         /// id, new collateral, total collateral, free collateral
         LockAdditionalCollateral(AccountId, Balance, Balance, Balance),
+        /// id, withdrawn collateral, total collateral
+        WithdrawCollateral(AccountId, Balance, Balance),
     }
 }

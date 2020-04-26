@@ -1851,6 +1851,7 @@ dependencies = [
  "bitcoin",
  "btc-relay",
  "collateral",
+ "exchange-rate-oracle",
  "frame-support",
  "frame-system",
  "mocktopus",
@@ -6309,6 +6310,7 @@ name = "vault-registry"
 version = "0.0.1"
 dependencies = [
  "collateral",
+ "exchange-rate-oracle",
  "frame-support",
  "frame-system",
  "mocktopus",

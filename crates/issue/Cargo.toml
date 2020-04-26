@@ -62,6 +62,10 @@ path = '../vault-registry'
 default-features = false
 path = '../collateral'
 
+[dependencies.exchange-rate-oracle]
+default-features = false
+path = '../exchange-rate-oracle'
+
 [dependencies.btc-relay]
 default-features = false
 path = '../btc-relay'

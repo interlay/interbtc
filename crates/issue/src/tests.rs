@@ -95,6 +95,7 @@ fn create_test_vault() {
 #[test]
 fn test_request_issue_banned_fails() {
     run_test(|| {
+        assert_ok!(<exchange_rate_oracle::Module<Test>>::internal_set_rate(1));
         <system::Module<Test>>::set_block_number(0);
         <vault_registry::Module<Test>>::insert_vault(
             &BOB,

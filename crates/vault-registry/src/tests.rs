@@ -4,8 +4,10 @@ use sp_core::H160;
 
 use mocktopus::mocking::*;
 
+use crate::ext;
 use crate::mock::{run_test, Origin, System, Test, TestEvent, VaultRegistry};
-use crate::{Error, DOT};
+use crate::types::DOT;
+use crate::Error;
 
 type Event = crate::Event<Test>;
 
@@ -98,7 +100,7 @@ fn lock_additional_collateral_succeeds() -> Result<(), Error> {
         let _ = <DOT<Test>>::deposit_creating(&id, 50);
         let res = VaultRegistry::lock_additional_collateral(Origin::signed(id), 50);
         assert_ok!(res);
-        let new_collateral = VaultRegistry::get_vault_collateral(&id);
+        let new_collateral = ext::collateral::for_account::<Test>(&id);
         assert_eq!(new_collateral, DEFAULT_COLLATERAL + 50);
         assert_emitted!(Event::LockAdditionalCollateral(id, 50, 150, 150));
 
@@ -111,5 +113,93 @@ fn lock_additional_collateral_fails_when_vault_does_not_exist() {
     run_test(|| {
         let res = VaultRegistry::lock_additional_collateral(Origin::signed(3), 50);
         assert_err!(res, Error::VaultNotFound);
+    })
+}
+
+#[test]
+fn withdraw_collateral_succeeds() -> Result<(), Error> {
+    run_test(|| {
+        let id = create_sample_vault();
+        let res = VaultRegistry::withdraw_collateral(Origin::signed(id), 50);
+        assert_ok!(res);
+        let new_collateral = ext::collateral::for_account::<Test>(&id);
+        assert_eq!(new_collateral, DEFAULT_COLLATERAL - 50);
+        assert_emitted!(Event::WithdrawCollateral(id, 50, DEFAULT_COLLATERAL - 50));
+
+        Ok(())
+    })
+}
+
+#[test]
+fn withdraw_collateral_fails_when_vault_does_not_exist() {
+    run_test(|| {
+        let res = VaultRegistry::withdraw_collateral(Origin::signed(3), 50);
+        assert_err!(res, Error::VaultNotFound);
+    })
+}
+
+#[test]
+fn withdraw_collateral_fails_when_not_enough_collateral() {
+    run_test(|| {
+        let id = create_sample_vault();
+        let res = VaultRegistry::withdraw_collateral(Origin::signed(id), DEFAULT_COLLATERAL + 1);
+        assert_err!(res, Error::InsufficientCollateralAvailable);
+    })
+}
+
+#[test]
+fn increase_to_be_issued_tokens_succeeds() -> Result<(), Error> {
+    run_test(|| {
+        let id = create_sample_vault();
+        let res = VaultRegistry::increase_to_be_issued_tokens(Origin::signed(id), 50);
+        assert_ok!(res);
+        let vault = VaultRegistry::get_vault_from_id(&id)?;
+        assert_eq!(vault.to_be_issued_tokens, 50);
+
+        Ok(())
+    })
+}
+
+#[test]
+fn increase_to_be_issued_tokens_fails_with_insufficient_collateral() -> Result<(), Error> {
+    run_test(|| {
+        let id = create_sample_vault();
+        let vault = VaultRegistry::rich_vault_from_id(&id)?;
+        let res = VaultRegistry::increase_to_be_issued_tokens(
+            Origin::signed(id),
+            vault.issuable_tokens()? + 1,
+        );
+        assert_err!(res, Error::ExceedingVaultLimit);
+
+        Ok(())
+    })
+}
+
+#[test]
+fn decrease_to_be_issued_tokens_succeeds() -> Result<(), Error> {
+    run_test(|| {
+        let id = create_sample_vault();
+        assert_ok!(VaultRegistry::increase_to_be_issued_tokens(
+            Origin::signed(id),
+            50
+        ));
+        let res = VaultRegistry::decrease_to_be_issued_tokens(Origin::signed(id), 50);
+        assert_ok!(res);
+        let vault = VaultRegistry::get_vault_from_id(&id)?;
+        assert_eq!(vault.to_be_issued_tokens, 0);
+
+        Ok(())
+    })
+}
+
+#[test]
+fn decrease_to_be_issued_tokens_fails_with_insufficient_tokens() -> Result<(), Error> {
+    run_test(|| {
+        let id = create_sample_vault();
+
+        let res = VaultRegistry::decrease_to_be_issued_tokens(Origin::signed(id), 50);
+        assert_err!(res, Error::InsufficientTokensCommitted);
+
+        Ok(())
     })
 }

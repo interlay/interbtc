@@ -94,7 +94,7 @@ fn test_release_collateral_succeeds() {
         let init_collateral = Collateral::get_collateral_from_account(&ALICE);
         let init_total = Collateral::get_total_collateral();
 
-        assert_ok!(Collateral::release_collateral(sender, amount));
+        assert_ok!(Collateral::release_collateral(&sender, amount));
         let release_event = TestEvent::test_events(RawEvent::ReleaseCollateral(ALICE, amount));
 
         assert!(System::events().iter().any(|a| a.event == release_event));
@@ -117,7 +117,7 @@ fn test_release_collateral_fails() {
         let init_total = Collateral::get_total_collateral();
 
         assert_err!(
-            Collateral::release_collateral(sender, lock_amount),
+            Collateral::release_collateral(&sender, lock_amount),
             Error::InsufficientCollateralAvailable
         );
 
@@ -141,7 +141,7 @@ fn test_release_collateral_partially_succeeds() {
         let init_collateral = Collateral::get_collateral_from_account(&ALICE);
         let init_total = Collateral::get_total_collateral();
 
-        assert_ok!(Collateral::release_collateral(sender, release_amount));
+        assert_ok!(Collateral::release_collateral(&sender, release_amount));
         let release_event =
             TestEvent::test_events(RawEvent::ReleaseCollateral(ALICE, release_amount));
 

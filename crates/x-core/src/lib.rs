@@ -81,6 +81,7 @@ pub enum Error {
     UnauthorizedUser,
     TimeNotExpired,
     IssueCompleted,
+    InsufficientTokensCommitted,
 
     /// use only for errors which means something
     /// going very wrong and which do not match any other error
@@ -154,6 +155,7 @@ impl Error {
             Error::UnauthorizedUser => "Unauthorized: Caller must be associated user",
             Error::TimeNotExpired => "Time to issue PolkaBTC not yet expired",
             Error::IssueCompleted => "Issue completed and cannot be cancelled",
+            Error::InsufficientTokensCommitted => "The requested amount of tokens exceeds the toBeIssuedTokens by this vault.",
 
             Error::RuntimeError => "Runtime error",
         }

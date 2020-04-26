@@ -75,5 +75,9 @@ path = '../collateral'
 default-features = false
 path = '../treasury'
 
+[dependencies.exchange-rate-oracle]
+default-features = false
+path = '../exchange-rate-oracle'
+
 [dev-dependencies]
 mocktopus = "0.7.0"

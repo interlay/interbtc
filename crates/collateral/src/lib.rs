@@ -104,16 +104,16 @@ impl<T: Trait> Module<T> {
     ///
     /// * `sender` - the account releasing tokens
     /// * `amount` - the to be released amount of DOT
-    pub fn release_collateral(sender: T::AccountId, amount: BalanceOf<T>) -> Result<(), Error> {
+    pub fn release_collateral(sender: &T::AccountId, amount: BalanceOf<T>) -> Result<(), Error> {
         ensure!(
             T::DOT::reserved_balance(&sender) >= amount,
             Error::InsufficientCollateralAvailable
         );
-        T::DOT::unreserve(&sender, amount);
+        T::DOT::unreserve(sender, amount);
 
         Self::decrease_total_collateral(amount);
 
-        Self::deposit_event(RawEvent::ReleaseCollateral(sender, amount));
+        Self::deposit_event(RawEvent::ReleaseCollateral(sender.clone(), amount));
 
         Ok(())
     }

@@ -160,8 +160,10 @@ impl<T: Trait> Module<T> {
 
         <collateral::Module<T>>::lock_collateral(&requester, griefing_collateral)?;
 
-        let btc_address =
-            <vault_registry::Module<T>>::increase_to_be_issued_tokens(&vault_id, amount.clone())?;
+        let btc_address = <vault_registry::Module<T>>::internal_increase_to_be_issued_tokens(
+            &vault_id,
+            amount.clone(),
+        )?;
 
         let mut hasher = Sha256::default();
         // TODO: nonce from security module
@@ -241,7 +243,10 @@ impl<T: Trait> Module<T> {
         ensure!(issue.opentime + period > height, Error::TimeNotExpired);
         ensure!(!issue.completed, Error::IssueCompleted);
 
-        <vault_registry::Module<T>>::decrease_to_be_issued_tokens(&issue.vault, issue.amount)?;
+        <vault_registry::Module<T>>::internal_decrease_to_be_issued_tokens(
+            &issue.vault,
+            issue.amount,
+        )?;
         <collateral::Module<T>>::slash_collateral(
             issue.requester.clone(),
             issue.vault.clone(),
