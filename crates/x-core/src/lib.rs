@@ -79,6 +79,7 @@ pub enum Error {
     /// use only for errors which means something
     /// going very wrong and which do not match any other error
     RuntimeError,
+    InvalidChainID,
 }
 
 impl Error {
@@ -87,11 +88,11 @@ impl Error {
             Error::AlreadyInitialized => "Already initialized",
             Error::MissingBlockHeight => "Missing the block at this height",
             Error::InvalidHeaderSize => "Invalid block header size",
-            Error::DuplicateBlock => "Block already stored", 
-            Error::PrevBlock => "Previous block hash not found", 
+            Error::DuplicateBlock => "Block already stored",
+            Error::PrevBlock => "Previous block hash not found",
             Error::LowDiff => "PoW hash does not meet difficulty target of header",
             Error::DiffTargetHeader => "Incorrect difficulty target specified in block header",
-            Error::MalformedTxid => "Malformed transaction identifier", 
+            Error::MalformedTxid => "Malformed transaction identifier",
             Error::Confirmations => "Transaction has less confirmations than requested",
             Error::InsufficientStableConfirmations => "Transaction has less confirmations than the global STABLE_TRANSACTION_CONFIRMATIONS parameter",
             Error::OngoingFork => "Current fork ongoing",
@@ -99,7 +100,7 @@ impl Error {
             Error::InvalidMerkleProof => "Invalid Merkle Proof",
             Error::Invalid => "BTC Parachain is halted",
             Error::Shutdown => "BTC Parachain has shut down",
-            Error::InvalidTxid => "Transaction hash does not match given txid", 
+            Error::InvalidTxid => "Transaction hash does not match given txid",
             Error::InsufficientValue => "Value of payment below requested amount",
             Error::MalformedTransaction => "Transaction has incorrect format",
             Error::WrongRecipient => "Incorrect recipient Bitcoin address",
@@ -110,11 +111,11 @@ impl Error {
             Error::UnknownErrorcode => "Error code not applicable to blocks",
             Error::ForkIdNotFound => "Blockchain with requested ID not found",
             Error::BlockNotFound => "Block header not found for given hash",
-            Error::AlreadyReported => "Error code already reported", 
-            Error::UnauthorizedRelayer => "Unauthorized staked relayer", 
-            Error::ChainCounterOverflow => "Overflow of chain counter", 
-            Error::BlockHeightOverflow => "Overflow of block height", 
-            Error::ChainsUnderflow => "Underflow of stored blockchains counter", 
+            Error::AlreadyReported => "Error code already reported",
+            Error::UnauthorizedRelayer => "Unauthorized staked relayer",
+            Error::ChainCounterOverflow => "Overflow of chain counter",
+            Error::BlockHeightOverflow => "Overflow of block height",
+            Error::ChainsUnderflow => "Underflow of stored blockchains counter",
             Error::EOS => "EOS reached while parsing",
             Error::MalformedHeader => "Format of the header is invalid",
             Error::MalformedWitnessOutput => "Format of the witness output is invalid",
@@ -144,7 +145,7 @@ impl Error {
             Error::UnauthorizedUser => "Unauthorized: Caller must be associated user",
             Error::TimeNotExpired => "Time to issue PolkaBTC not yet expired",
             Error::IssueCompleted => "Issue completed and cannot be cancelled",
-
+            Error::InvalidChainID => "Invalid chain ID",
             Error::RuntimeError => "Runtime error",
         }
     }
