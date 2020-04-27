@@ -56,6 +56,21 @@ fn cancel_issue(origin: AccountId, issue_id: &H256) -> Result<(), Error> {
     Issue::_cancel_issue(origin, *issue_id)
 }
 
+fn create_test_vault() {
+    <vault_registry::Module<Test>>::insert_vault(
+        BOB,
+        vault_registry::Vault {
+            vault: BOB,
+            to_be_issued_tokens: 0,
+            issued_tokens: 0,
+            to_be_redeemed_tokens: 0,
+            collateral: 0,
+            btc_address: H160([0; 20]),
+            banned_until: None,
+        },
+    );
+}
+
 #[test]
 fn test_request_issue_banned_fails() {
     run_test(|| {
@@ -80,6 +95,7 @@ fn test_request_issue_banned_fails() {
 fn test_request_issue_insufficient_collateral_fails() {
     run_test(|| {
         Issue::set_issue_griefing_collateral(10);
+        create_test_vault();
         assert_noop!(
             request_issue(ALICE, 3, BOB, 0),
             Error::InsufficientCollateral,
@@ -93,7 +109,7 @@ fn test_request_issue_succeeds() {
         let origin = ALICE;
         let vault = BOB;
         let amount: Balance = 3;
-
+        create_test_vault();
         let issue_id = request_issue_ok(origin, amount, vault, 0);
 
         let request_issue_event = TestEvent::test_events(RawEvent::RequestIssue(
@@ -112,6 +128,7 @@ fn test_request_issue_succeeds() {
 #[test]
 fn test_execute_issue_not_found_fails() {
     run_test(|| {
+        create_test_vault();
         assert_noop!(execute_issue(ALICE, &H256([0; 32])), Error::IssueIdNotFound);
     })
 }
@@ -119,6 +136,7 @@ fn test_execute_issue_not_found_fails() {
 #[test]
 fn test_execute_issue_unauthorized_fails() {
     run_test(|| {
+        create_test_vault();
         let issue_id = request_issue_ok(ALICE, 3, BOB, 0);
         assert_noop!(execute_issue(CAROL, &issue_id), Error::UnauthorizedUser);
     })
@@ -127,6 +145,7 @@ fn test_execute_issue_unauthorized_fails() {
 #[test]
 fn test_execute_issue_commit_period_expired_fails() {
     run_test(|| {
+        create_test_vault();
         let issue_id = request_issue_ok(ALICE, 3, BOB, 0);
         assert_noop!(execute_issue(ALICE, &issue_id), Error::CommitPeriodExpired);
     })
@@ -135,6 +154,7 @@ fn test_execute_issue_commit_period_expired_fails() {
 #[test]
 fn test_execute_issue_succeeds() {
     run_test(|| {
+        create_test_vault();
         let issue_id = request_issue_ok(ALICE, 3, BOB, 0);
         <system::Module<Test>>::set_block_number(20);
         Issue::set_issue_period(10);
@@ -160,6 +180,7 @@ fn test_cancel_issue_not_found_fails() {
 #[test]
 fn test_cancel_issue_not_expired_fails() {
     run_test(|| {
+        create_test_vault();
         let issue_id = request_issue_ok(ALICE, 3, BOB, 0);
         Issue::set_issue_period(2);
         <system::Module<Test>>::set_block_number(99);
@@ -172,7 +193,7 @@ fn test_cancel_issue_succeeds() {
     run_test(|| {
         Issue::set_issue_period(10);
         <system::Module<Test>>::set_block_number(20);
-
+        create_test_vault();
         let issue_id = request_issue_ok(ALICE, 3, BOB, 0);
         assert_ok!(cancel_issue(ALICE, &issue_id));
     })

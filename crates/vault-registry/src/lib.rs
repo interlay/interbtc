@@ -117,7 +117,7 @@ decl_storage! {
         LiquidationVault: T::AccountId;
 
         /// Mapping of Vaults, using the respective Vault account identifier as key.
-        Vaults: map hasher(blake2_128_concat) T::AccountId => Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>;
+        Vaults: map hasher(blake2_128_concat) T::AccountId => Option<Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>>;
     }
 }
 
@@ -135,15 +135,15 @@ impl<T: Trait> Module<T> {
 
     pub fn get_vault_from_id(
         id: T::AccountId,
-    ) -> Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>> {
-        <Vaults<T>>::get(id)
+    ) -> Result<Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, Error> {
+        <Vaults<T>>::get(id).ok_or(Error::InvalidVaultID)
     }
 
     pub fn mutate_vault_from_id(
         id: T::AccountId,
         vault: Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
     ) {
-        <Vaults<T>>::mutate(id, |v| *v = vault)
+        <Vaults<T>>::mutate(id, |v| *v = Some(vault))
     }
 
     pub fn insert_vault(
@@ -157,21 +157,28 @@ impl<T: Trait> Module<T> {
         id: T::AccountId,
         tokens: PolkaBTC<T>,
     ) -> Result<H160, Error> {
-        <Vaults<T>>::mutate(id.clone(), |v| v.to_be_issued_tokens += tokens);
-        Ok(<Vaults<T>>::get(id).btc_address)
+        let mut vault = Self::get_vault_from_id(id.clone())?;
+        vault.to_be_issued_tokens += tokens;
+        let btc_address = vault.btc_address;
+        <Vaults<T>>::insert(id, vault);
+        Ok(btc_address)
     }
 
     pub fn decrease_to_be_issued_tokens(
         id: T::AccountId,
         tokens: PolkaBTC<T>,
     ) -> Result<(), Error> {
-        <Vaults<T>>::mutate(id, |v| v.to_be_issued_tokens -= tokens);
+        let mut vault = Self::get_vault_from_id(id.clone())?;
+        vault.to_be_issued_tokens -= tokens;
+        <Vaults<T>>::insert(id, vault);
         Ok(())
     }
 
     pub fn issue_tokens(id: T::AccountId, tokens: PolkaBTC<T>) -> Result<(), Error> {
         Self::decrease_to_be_issued_tokens(id.clone(), tokens.clone())?;
-        <Vaults<T>>::mutate(id, |v| v.issued_tokens += tokens);
+        let mut vault = Self::get_vault_from_id(id.clone())?;
+        vault.to_be_issued_tokens += tokens;
+        <Vaults<T>>::insert(id, vault);
         Ok(())
     }
 
