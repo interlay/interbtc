@@ -1389,6 +1389,36 @@ fn test_check_confirmations_secure_insufficient_user_confs_succeeds() {
         )
     });
 }
+
+#[test]
+fn get_chain_from_id_err() {
+    run_test(|| {
+        assert_eq!(
+            Err(Error::InvalidChainID),
+            BTCRelay::get_block_chain_from_id(0)
+        );
+    });
+}
+
+#[test]
+fn get_chain_from_id_ok() {
+    run_test(|| {
+        // insert the main chain in Chains and ChainsIndex
+        let main_chain_ref: u32 = 0;
+        let main_start_height: u32 = 3;
+        let main_block_height: u32 = 110;
+        let main_position: u32 = 0;
+        let main = get_empty_block_chain_from_chain_id_and_height(
+            main_chain_ref,
+            main_start_height,
+            main_block_height,
+        );
+        BTCRelay::set_chain_from_position_and_id(main_position, main_chain_ref);
+        BTCRelay::set_block_chain_from_id(main_chain_ref, &main);
+
+        assert_eq!(Ok(main), BTCRelay::get_block_chain_from_id(main_chain_ref));
+    });
+}
 /// # Util functions
 
 fn sample_valid_proof_result() -> ProofResult {
