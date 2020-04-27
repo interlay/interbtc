@@ -14,6 +14,7 @@ pub enum Error {
     InvalidHeaderSize,
     DuplicateBlock,
     PrevBlock, // TODO: rename to self-explanatory
+    InvalidChainID,
     LowDiff,
     DiffTargetHeader, // TODO: rename to self-explanatory
     MalformedTxid,
@@ -79,7 +80,6 @@ pub enum Error {
     /// use only for errors which means something
     /// going very wrong and which do not match any other error
     RuntimeError,
-    InvalidChainID,
 }
 
 impl Error {
@@ -90,6 +90,7 @@ impl Error {
             Error::InvalidHeaderSize => "Invalid block header size",
             Error::DuplicateBlock => "Block already stored",
             Error::PrevBlock => "Previous block hash not found",
+            Error::InvalidChainID => "Invalid chain ID",
             Error::LowDiff => "PoW hash does not meet difficulty target of header",
             Error::DiffTargetHeader => "Incorrect difficulty target specified in block header",
             Error::MalformedTxid => "Malformed transaction identifier",
@@ -145,7 +146,6 @@ impl Error {
             Error::UnauthorizedUser => "Unauthorized: Caller must be associated user",
             Error::TimeNotExpired => "Time to issue PolkaBTC not yet expired",
             Error::IssueCompleted => "Issue completed and cannot be cancelled",
-            Error::InvalidChainID => "Invalid chain ID",
             Error::RuntimeError => "Runtime error",
         }
     }
