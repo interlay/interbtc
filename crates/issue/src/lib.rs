@@ -148,7 +148,7 @@ impl<T: Trait> Module<T> {
         // TODO: check precondition
         let height = <system::Module<T>>::block_number();
         // TODO: check vault exists
-        let vault = <vault_registry::Module<T>>::get_vault_from_id(vault_id.clone());
+        let vault = <vault_registry::Module<T>>::get_vault_from_id(vault_id.clone())?;
         match vault.banned_until {
             Some(until) => ensure!(until < height, Error::VaultBanned),
             None => (),
