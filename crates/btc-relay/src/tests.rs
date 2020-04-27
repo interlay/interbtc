@@ -81,7 +81,7 @@ fn next_best_fork_chain_succeeds() {
 
         BTCRelay::set_block_chain_from_id(chain_ref, &blockchain);
 
-        let curr_blockchain = BTCRelay::next_best_fork_chain(chain_ref).unwrap();
+        let curr_blockchain = BTCRelay::get_block_chain_from_id(chain_ref).unwrap();
 
         assert_eq!(curr_blockchain, blockchain);
     })
@@ -150,7 +150,7 @@ fn store_block_header_on_mainchain_succeeds() {
 
         let prev_blockchain =
             get_empty_block_chain_from_chain_id_and_height(chain_ref, start_height, block_height);
-        BTCRelay::next_best_fork_chain
+        BTCRelay::get_block_chain_from_id
             .mock_safe(move |_: u32| MockResult::Return(Ok(prev_blockchain.clone())));
 
         let block_header_hash = block_header.hash();
@@ -189,7 +189,7 @@ fn store_block_header_on_fork_succeeds() {
 
         let prev_blockchain =
             get_empty_block_chain_from_chain_id_and_height(chain_ref, start_height, block_height);
-        BTCRelay::next_best_fork_chain
+        BTCRelay::get_block_chain_from_id
             .mock_safe(move |_: u32| MockResult::Return(Ok(prev_blockchain.clone())));
 
         let block_header_hash = block_header.hash();
@@ -292,7 +292,7 @@ fn check_and_do_reorg_swap_fork_position() {
         assert_eq!(new_position, swap_position);
 
         // assert the main chain has not changed
-        let curr_main_chain = BTCRelay::next_best_fork_chain(main_chain_ref);
+        let curr_main_chain = BTCRelay::get_block_chain_from_id(main_chain_ref);
         assert_eq!(curr_main_chain, Ok(main));
     })
 }
@@ -491,7 +491,7 @@ fn swap_main_blockchain_succeeds() {
         assert_ok!(BTCRelay::swap_main_blockchain(&fork));
 
         // check that the new main chain is correct
-        let new_main = BTCRelay::next_best_fork_chain(main_chain_ref).unwrap();
+        let new_main = BTCRelay::get_block_chain_from_id(main_chain_ref).unwrap();
         assert_eq!(fork_height, new_main.max_height);
         assert_eq!(main_start, new_main.start_height);
         assert_eq!(main_chain_ref, new_main.chain_id);
@@ -506,11 +506,11 @@ fn swap_main_blockchain_succeeds() {
         // check that the fork is deleted
         assert_eq!(
             Err(Error::InvalidChainID),
-            BTCRelay::next_best_fork_chain(fork_chain_ref)
+            BTCRelay::get_block_chain_from_id(fork_chain_ref)
         );
 
         // check that the old main chain is stored in a old fork
-        let old_main = BTCRelay::next_best_fork_chain(old_main_ref).unwrap();
+        let old_main = BTCRelay::get_block_chain_from_id(old_main_ref).unwrap();
         assert_eq!(main_height, old_main.max_height);
         assert_eq!(fork_start, old_main.start_height);
         assert_eq!(old_main_ref, old_main.chain_id);
@@ -935,7 +935,7 @@ fn test_flag_block_error_succeeds() {
                 rich_header.block_hash,
                 error.clone()
             ));
-            let curr_chain = BTCRelay::next_best_fork_chain(chain_ref).unwrap();
+            let curr_chain = BTCRelay::get_block_chain_from_id(chain_ref).unwrap();
 
             if *error == ErrorCode::NoDataBTCRelay {
                 assert!(curr_chain.no_data.contains(&block_height));
@@ -1015,7 +1015,7 @@ fn test_clear_block_error_succeeds() {
                 rich_header.block_hash,
                 error.clone()
             ));
-            let curr_chain = BTCRelay::next_best_fork_chain(chain_ref).unwrap();
+            let curr_chain = BTCRelay::get_block_chain_from_id(chain_ref).unwrap();
 
             if *error == ErrorCode::NoDataBTCRelay {
                 assert!(!curr_chain.no_data.contains(&block_height));
@@ -1088,7 +1088,7 @@ fn test_verify_transaction_inclusion_succeeds() {
 
         BTCRelay::get_chain_id_from_position
             .mock_safe(move |_| MockResult::Return(fork_ref.clone()));
-        BTCRelay::next_best_fork_chain.mock_safe(move |id| {
+        BTCRelay::get_block_chain_from_id.mock_safe(move |id| {
             if id == chain_ref.clone() {
                 return MockResult::Return(Ok(main.clone()));
             } else {
@@ -1149,7 +1149,7 @@ fn test_verify_transaction_inclusion_invalid_tx_id_fails() {
 
         BTCRelay::get_chain_id_from_position
             .mock_safe(move |_| MockResult::Return(fork_ref.clone()));
-        BTCRelay::next_best_fork_chain.mock_safe(move |id| {
+        BTCRelay::get_block_chain_from_id.mock_safe(move |id| {
             if id == chain_ref.clone() {
                 return MockResult::Return(Ok(main.clone()));
             } else {
@@ -1214,7 +1214,7 @@ fn test_verify_transaction_inclusion_invalid_merkle_root_fails() {
 
         BTCRelay::get_chain_id_from_position
             .mock_safe(move |_| MockResult::Return(fork_ref.clone()));
-        BTCRelay::next_best_fork_chain.mock_safe(move |id| {
+        BTCRelay::get_block_chain_from_id.mock_safe(move |id| {
             if id == chain_ref.clone() {
                 return MockResult::Return(Ok(main.clone()));
             } else {
@@ -1248,7 +1248,8 @@ fn test_verify_transaction_inclusion_invalid_merkle_root_fails() {
 #[test]
 fn test_verify_transaction_inclusion_fails_with_ongoing_fork() {
     run_test(|| {
-        BTCRelay::next_best_fork_chain.mock_safe(|_| MockResult::Return(Ok(BlockChain::default())));
+        BTCRelay::get_block_chain_from_id
+            .mock_safe(|_| MockResult::Return(Ok(BlockChain::default())));
 
         let tx_id = sample_valid_proof_result().transaction_hash;
         let block_height = 203;

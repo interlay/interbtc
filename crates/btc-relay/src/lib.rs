@@ -187,7 +187,7 @@ decl_module! {
             )?;
 
             // get the block chain of the previous header
-            let prev_blockchain = Self::next_best_fork_chain(
+            let prev_blockchain = Self::get_block_chain_from_id(
                 prev_header.chain_ref
             )?;
 
@@ -344,12 +344,12 @@ impl<T: Trait> Module<T> {
         confirmations: u32,
         insecure: bool,
     ) -> Result<(), Error> {
-        //let main_chain = Self::next_best_fork_chain(MAIN_CHAIN_ID);
+        //let main_chain = Self::get_block_chain_from_id(MAIN_CHAIN_ID);
         let best_block_height = Self::get_best_block_height();
 
         let next_best_fork_id = Self::get_chain_id_from_position(1);
-        let chain = Self::next_best_fork_chain(next_best_fork_id)?;
-        let next_best_fork_height = chain.max_height;
+        let next_best_fork_chain = Self::get_block_chain_from_id(next_best_fork_id)?;
+        let next_best_fork_height = next_best_fork_chain.max_height;
 
         // fail if there is an ongoing fork
         ensure!(
@@ -362,7 +362,7 @@ impl<T: Trait> Module<T> {
 
         let proof_result = Self::verify_merkle_proof(&raw_merkle_proof)?;
         let rich_header = Self::get_block_header_from_height(
-            &Self::next_best_fork_chain(MAIN_CHAIN_ID)?,
+            &Self::get_block_chain_from_id(MAIN_CHAIN_ID)?,
             block_height,
         )?;
 
@@ -437,7 +437,7 @@ impl<T: Trait> Module<T> {
     /// Get a blockchain from the id
     // TODO: the return of this element can an empty element when it was deleted
     // Function should be changed to return a Result or Option
-    fn next_best_fork_chain(chain_id: u32) -> Result<BlockChain, Error> {
+    fn get_block_chain_from_id(chain_id: u32) -> Result<BlockChain, Error> {
         <ChainsIndex>::get(chain_id).ok_or(Error::InvalidChainID)
     }
     /// Get the current best block hash
@@ -711,7 +711,7 @@ impl<T: Trait> Module<T> {
     /// * `chain_ref` - BlockChain identifier
     /// * `block_height` - current block height
     fn get_last_retarget_time(chain_ref: u32, block_height: u32) -> Result<u64, Error> {
-        let block_chain = Self::next_best_fork_chain(chain_ref)?;
+        let block_chain = Self::get_block_chain_from_id(chain_ref)?;
         let last_retarget_header = Self::get_block_header_from_height(
             &block_chain,
             block_height - DIFFICULTY_ADJUSTMENT_INTERVAL,
@@ -732,7 +732,7 @@ impl<T: Trait> Module<T> {
     /// * `fork` - the fork that is going to become the main chain
     fn swap_main_blockchain(fork: &BlockChain) -> Result<(), Error> {
         // load the main chain
-        let mut main_chain = Self::next_best_fork_chain(MAIN_CHAIN_ID)?;
+        let mut main_chain = Self::get_block_chain_from_id(MAIN_CHAIN_ID)?;
 
         // the start height of the fork
         let start_height = fork.start_height;
@@ -849,7 +849,7 @@ impl<T: Trait> Module<T> {
             // get the blockchain id
             let prev_blockchain_id = Self::get_chain_id_from_position(prev_position);
             // get the previous blockchain height
-            let prev_height = Self::next_best_fork_chain(prev_blockchain_id)?.max_height;
+            let prev_height = Self::get_block_chain_from_id(prev_blockchain_id)?.max_height;
             // swap elements if block height is greater
             // print!("curr height {:?}\n", current_height);
             // print!("prev height {:?}\n", prev_height);
@@ -923,7 +923,7 @@ impl<T: Trait> Module<T> {
         // NOTE: we never want to insert a new main chain through this function
         for (curr_position, curr_chain_id) in chains.iter().skip(1) {
             // get the height of the current chain_id
-            let curr_height = Self::next_best_fork_chain(*curr_chain_id)?.max_height;
+            let curr_height = Self::get_block_chain_from_id(*curr_chain_id)?.max_height;
 
             // if the height of the current blockchain is lower than
             // the new blockchain, it should be inserted at that position
@@ -966,7 +966,7 @@ impl<T: Trait> Module<T> {
         let chain_id = block_header.chain_ref;
 
         // Get the blockchain element for the chain id
-        let mut blockchain = Self::next_best_fork_chain(chain_id)?;
+        let mut blockchain = Self::get_block_chain_from_id(chain_id)?;
 
         // Flag errors in the blockchain entry
         // Check which error we are dealing with
@@ -998,7 +998,7 @@ impl<T: Trait> Module<T> {
         let chain_id = block_header.chain_ref;
 
         // Get the blockchain element for the chain id
-        let mut blockchain = Self::next_best_fork_chain(chain_id)?;
+        let mut blockchain = Self::get_block_chain_from_id(chain_id)?;
 
         // Clear errors in the blockchain entry
         // Check which error we are dealing with
