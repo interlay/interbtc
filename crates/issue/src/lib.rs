@@ -145,10 +145,10 @@ impl<T: Trait> Module<T> {
         vault_id: T::AccountId,
         griefing_collateral: DOT<T>,
     ) -> Result<H256, Error> {
-        // TODO: check precondition
-        let height = <system::Module<T>>::block_number();
-        // TODO: check vault exists
+        // heck precondition
+        // check vault exists and it not banned
         let vault = <vault_registry::Module<T>>::get_vault_from_id(vault_id.clone())?;
+        let height = <system::Module<T>>::block_number();
         match vault.banned_until {
             Some(until) => ensure!(until < height, Error::VaultBanned),
             None => (),

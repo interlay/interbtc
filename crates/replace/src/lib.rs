@@ -93,11 +93,11 @@ decl_module! {
         /// * `amount` - amount of PolkaBTC
         /// * `vault` - address of the vault
         /// * `griefing_collateral` - amount of DOT
-        fn request_replace(origin, vault_id: T::AccountId, amount: PolkaBTC<T>, timeout: T::BlockNumber, griefing_collateral: DOT<T>)
+        fn request_replace(origin, amount: PolkaBTC<T>, timeout: T::BlockNumber, griefing_collateral: DOT<T>)
             -> DispatchResult
         {
-            let _requester = ensure_signed(origin)?;
-            Self::_request_replace(vault_id, amount, timeout, griefing_collateral)?;
+            let requester = ensure_signed(origin)?;
+            Self::_request_replace(requester, amount, timeout, griefing_collateral)?;
             Ok(())
         }
 
@@ -155,15 +155,28 @@ decl_module! {
 #[cfg_attr(test, mockable)]
 impl<T: Trait> Module<T> {
     fn _request_replace(
-        _vault_id: T::AccountId,
+        vault_id: T::AccountId,
         amount: PolkaBTC<T>,
-        _timeout: T::BlockNumber,
+        timeout: T::BlockNumber,
         _griefing_collateral: DOT<T>,
     ) -> Result<H256, Error> {
         // check preconditions
+        // check amount is non zero
         let zero: PolkaBTC<T> = 0u32.into();
         if amount == zero {
             return Err(Error::InvalidAmount);
+        }
+        // check timeout
+        let zero: T::BlockNumber = 0.into();
+        if timeout == zero {
+            return Err(Error::InvalidTimeout);
+        }
+        // check vault exists
+        let vault = <vault_registry::Module<T>>::get_vault_from_id(vault_id.clone())?;
+        // check vault is not banned
+        let height = <system::Module<T>>::block_number();
+        if vault.is_banned(height) {
+            return Err(Error::VaultBanned);
         }
 
         unimplemented!()
@@ -176,14 +189,13 @@ impl<T: Trait> Module<T> {
         vault_id: T::AccountId,
         griefing_collateral: DOT<T>,
     ) -> Result<H256, Error> {
-        // TODO: check precondition
-        let height = <system::Module<T>>::block_number();
-        // TODO: check vault exists
+        // check vault exists
         let vault = <vault_registry::Module<T>>::get_vault_from_id(vault_id.clone())?;
-        match vault.banned_until {
-            Some(until) => ensure!(until < height, Error::VaultBanned),
-            None => (),
-        };
+        // check vault is not banned
+        let height = <system::Module<T>>::block_number();
+        if vault.is_banned(height) {
+            return Err(Error::VaultBanned);
+        }
 
         ensure!(
             griefing_collateral >= <ReplaceGriefingCollateral<T>>::get(),

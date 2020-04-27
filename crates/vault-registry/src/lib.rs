@@ -61,6 +61,18 @@ pub struct Vault<AccountId, BlockNumber, PolkaBTC, DOT> {
     pub banned_until: Option<BlockNumber>,
 }
 
+impl<AccountId, BlockNumber, PolkaBTC, DOT> Vault<AccountId, BlockNumber, PolkaBTC, DOT>
+where
+    BlockNumber: PartialOrd,
+{
+    pub fn is_banned(&self, height: BlockNumber) -> bool {
+        match &self.banned_until {
+            Some(until) => *until < height,
+            None => false,
+        }
+    }
+}
+
 // This pallet's storage items.
 decl_storage! {
     trait Store for Module<T: Trait> as VaultRegistry {
