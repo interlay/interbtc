@@ -144,8 +144,8 @@ impl RichBlockHeader {
         Ok(RichBlockHeader {
             block_hash: raw_block_header.hash(),
             block_header: BlockHeader::from_le_bytes(raw_block_header.as_slice())?,
-            block_height: block_height,
-            chain_ref: chain_ref,
+            block_height,
+            chain_ref,
         })
     }
 }

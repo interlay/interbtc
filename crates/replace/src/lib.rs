@@ -85,6 +85,22 @@ decl_module! {
         // this is needed only if you are using events in your pallet
         fn deposit_event() = default;
 
+        /// Request the replacement of a new vault ownership
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - sender of the transaction
+        /// * `amount` - amount of PolkaBTC
+        /// * `vault` - address of the vault
+        /// * `griefing_collateral` - amount of DOT
+        fn request_replace(origin, vault_id: T::AccountId, amount: PolkaBTC<T>, timeout: T::BlockNumber, griefing_collateral: DOT<T>)
+            -> DispatchResult
+        {
+            let _requester = ensure_signed(origin)?;
+            Self::_request_replace(vault_id, amount, timeout, griefing_collateral)?;
+            Ok(())
+        }
+
         /// Request the issuance of PolkaBTC
         ///
         /// # Arguments
@@ -138,6 +154,21 @@ decl_module! {
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
 impl<T: Trait> Module<T> {
+    fn _request_replace(
+        _vault_id: T::AccountId,
+        amount: PolkaBTC<T>,
+        _timeout: T::BlockNumber,
+        _griefing_collateral: DOT<T>,
+    ) -> Result<H256, Error> {
+        // check preconditions
+        let zero: PolkaBTC<T> = 0u32.into();
+        if amount == zero {
+            return Err(Error::InvalidAmount);
+        }
+
+        unimplemented!()
+    }
+
     /// Requests CBA issuance, returns unique tracking ID.
     fn _request_issue(
         requester: T::AccountId,
@@ -148,7 +179,7 @@ impl<T: Trait> Module<T> {
         // TODO: check precondition
         let height = <system::Module<T>>::block_number();
         // TODO: check vault exists
-        let vault = <vault_registry::Module<T>>::get_vault_from_id(vault_id.clone());
+        let vault = <vault_registry::Module<T>>::get_vault_from_id(vault_id.clone())?;
         match vault.banned_until {
             Some(until) => ensure!(until < height, Error::VaultBanned),
             None => (),

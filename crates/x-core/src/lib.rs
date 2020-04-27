@@ -15,6 +15,7 @@ pub enum Error {
     DuplicateBlock,
     PrevBlock, // TODO: rename to self-explanatory
     InvalidVaultID,
+    InvalidAmount,
     LowDiff,
     DiffTargetHeader, // TODO: rename to self-explanatory
     MalformedTxid,
@@ -91,6 +92,7 @@ impl Error {
             Error::DuplicateBlock => "Block already stored",
             Error::PrevBlock => "Previous block hash not found",
             Error::InvalidVaultID => "Invalid vault ID",
+            Error::InvalidAmount => "Invalid amount",
             Error::LowDiff => "PoW hash does not meet difficulty target of header",
             Error::DiffTargetHeader => "Incorrect difficulty target specified in block header",
             Error::MalformedTxid => "Malformed transaction identifier",
