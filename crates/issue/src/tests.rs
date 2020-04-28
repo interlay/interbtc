@@ -79,13 +79,12 @@ fn cancel_issue(origin: AccountId, issue_id: &H256) -> Result<(), Error> {
 
 fn create_test_vault() {
     <vault_registry::Module<Test>>::insert_vault(
-        BOB,
+        &BOB,
         vault_registry::Vault {
             id: BOB,
             to_be_issued_tokens: 0,
             issued_tokens: 0,
             to_be_redeemed_tokens: 0,
-            collateral: 0,
             btc_address: H160([0; 20]),
             banned_until: None,
         },
