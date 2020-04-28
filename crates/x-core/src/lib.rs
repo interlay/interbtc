@@ -69,8 +69,6 @@ pub enum Error {
     InsufficientFunds,
     InsufficientLockedFunds,
     InsufficientCollateralAvailable,
-
-    InvalidVaultID,
     VaultNotFound,
     VaultBanned,
     InsufficientCollateral,
@@ -144,7 +142,6 @@ impl Error {
                 "The sender’s collateral balance is below the requested amount."
             }
 
-            Error::InvalidVaultID => "Invalid vault ID",
             Error::VaultNotFound => "There exists no Vault with the given account id",
             Error::VaultBanned => "The selected Vault has been temporarily banned",
             Error::InsufficientCollateral => "User provided collateral below limit",
