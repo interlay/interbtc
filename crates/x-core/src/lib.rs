@@ -14,7 +14,7 @@ pub enum Error {
     InvalidHeaderSize,
     DuplicateBlock,
     PrevBlock, // TODO: rename to self-explanatory
-    InvalidVaultID,
+    InvalidChainID,
     LowDiff,
     DiffTargetHeader, // TODO: rename to self-explanatory
     MalformedTxid,
@@ -67,6 +67,7 @@ pub enum Error {
     InsufficientLockedFunds,
     InsufficientCollateralAvailable,
 
+    InvalidVaultID,
     VaultNotFound,
     VaultBanned,
     InsufficientCollateral,
@@ -90,7 +91,7 @@ impl Error {
             Error::InvalidHeaderSize => "Invalid block header size",
             Error::DuplicateBlock => "Block already stored",
             Error::PrevBlock => "Previous block hash not found",
-            Error::InvalidVaultID => "Invalid vault ID",
+            Error::InvalidChainID => "Invalid chain ID",
             Error::LowDiff => "PoW hash does not meet difficulty target of header",
             Error::DiffTargetHeader => "Incorrect difficulty target specified in block header",
             Error::MalformedTxid => "Malformed transaction identifier",
@@ -137,6 +138,7 @@ impl Error {
                 "The sender’s collateral balance is below the requested amount."
             }
 
+            Error::InvalidVaultID => "Invalid vault ID",
             Error::VaultNotFound => "There exists no Vault with the given account id",
             Error::VaultBanned => "The selected Vault has been temporarily banned",
             Error::InsufficientCollateral => "User provided collateral below limit",
@@ -146,7 +148,6 @@ impl Error {
             Error::UnauthorizedUser => "Unauthorized: Caller must be associated user",
             Error::TimeNotExpired => "Time to issue PolkaBTC not yet expired",
             Error::IssueCompleted => "Issue completed and cannot be cancelled",
-
             Error::RuntimeError => "Runtime error",
         }
     }
