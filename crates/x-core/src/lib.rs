@@ -66,7 +66,7 @@ pub enum Error {
     InsufficientFunds,
     InsufficientLockedFunds,
     InsufficientCollateralAvailable,
-    
+
     InvalidVaultID,
     VaultNotFound,
     VaultBanned,
