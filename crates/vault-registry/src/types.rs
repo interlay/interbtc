@@ -6,3 +6,5 @@ pub(crate) type DOTBalance<T> = <DOT<T> as Currency<<T as system::Trait>::Accoun
 pub(crate) type PolkaBTC<T> = <T as treasury::Trait>::PolkaBTC;
 pub(crate) type PolkaBTCBalance<T> =
     <PolkaBTC<T> as Currency<<T as system::Trait>::AccountId>>::Balance;
+
+pub(crate) type UnitResult = Result<(), x_core::Error>;

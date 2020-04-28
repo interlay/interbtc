@@ -19,7 +19,7 @@ fn request_issue(
 }
 
 fn insert_vault(id: AccountId) {
-    <vault_registry::Module<Test>>::insert_vault(
+    <vault_registry::Module<Test>>::_insert_vault(
         &id,
         vault_registry::Vault {
             id: id,
@@ -78,7 +78,7 @@ fn cancel_issue(origin: AccountId, issue_id: &H256) -> Result<(), Error> {
 }
 
 fn create_test_vault() {
-    <vault_registry::Module<Test>>::insert_vault(
+    <vault_registry::Module<Test>>::_insert_vault(
         &BOB,
         vault_registry::Vault {
             id: BOB,
@@ -96,7 +96,7 @@ fn test_request_issue_banned_fails() {
     run_test(|| {
         assert_ok!(<exchange_rate_oracle::Module<Test>>::_set_exchange_rate(1));
         <system::Module<Test>>::set_block_number(0);
-        <vault_registry::Module<Test>>::insert_vault(
+        <vault_registry::Module<Test>>::_insert_vault(
             &BOB,
             vault_registry::Vault {
                 id: BOB,

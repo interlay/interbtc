@@ -30,7 +30,7 @@ use system::ensure_signed;
 
 use x_core::Error;
 
-use crate::types::{DOTBalance, PolkaBTCBalance};
+use crate::types::{DOTBalance, PolkaBTCBalance, UnitResult};
 use crate::vault::DefaultVault;
 pub use crate::vault::{RichVault, Vault};
 
@@ -131,9 +131,9 @@ decl_module! {
 
             ext::collateral::lock::<T>(&sender, collateral)?;
             let vault = RichVault::<T>::new(sender.clone(), btc_address);
-            Self::insert_vault(&sender, &vault);
+            Self::_insert_vault(&sender, &vault);
 
-            Self::deposit_event(Event::<T>::RegisterVault(sender.clone(), collateral));
+            Self::deposit_event(Event::<T>::RegisterVault(vault.id(), collateral));
 
             Ok(())
         }
@@ -144,7 +144,7 @@ decl_module! {
             let vault = Self::rich_vault_from_id(&sender)?;
             vault.increase_collateral(amount)?;
             Self::deposit_event(Event::<T>::LockAdditionalCollateral(
-                sender.clone(),
+                vault.id(),
                 amount,
                 vault.get_collateral(),
                 vault.get_free_collateral()?,
@@ -164,113 +164,81 @@ decl_module! {
             ));
             Ok(())
         }
-
-        pub fn increase_to_be_issued_tokens(origin, tokens: PolkaBTCBalance<T>) -> DispatchResult {
-            Self::ensure_parachain_running()?;
-            let sender = ensure_signed(origin)?;
-            Self::internal_increase_to_be_issued_tokens(&sender, tokens)?;
-            Self::deposit_event(Event::<T>::IncreaseToBeIssuedTokens(
-                sender.clone(),
-                tokens,
-            ));
-            Ok(())
-        }
-
-        pub fn decrease_to_be_issued_tokens(origin, tokens: PolkaBTCBalance<T>) -> DispatchResult {
-            Self::ensure_parachain_running()?;
-            let sender = ensure_signed(origin)?;
-            Self::internal_decrease_to_be_issued_tokens(&sender, tokens)?;
-            Self::deposit_event(Event::<T>::DecreaseToBeIssuedTokens(
-                sender.clone(),
-                tokens,
-            ));
-            Ok(())
-        }
-
-        pub fn issue_tokens(origin, tokens: PolkaBTCBalance<T>) -> DispatchResult {
-            Self::ensure_parachain_running()?;
-            let sender = ensure_signed(origin)?;
-            Self::internal_issue_tokens(&sender, tokens)?;
-            Self::deposit_event(Event::<T>::IssueTokens(sender.clone(), tokens));
-
-            Ok(())
-        }
-
-        pub fn increase_to_be_redeemed_tokens(origin, tokens: PolkaBTCBalance<T>) -> DispatchResult {
-            Self::ensure_parachain_running()?;
-            let sender = ensure_signed(origin)?;
-            let vault = Self::get_vault_from_id(&sender)?;
-            ensure!(vault.issued_tokens - vault.to_be_redeemed_tokens >= tokens,
-                    Error::InsufficientTokensCommitted);
-            <Vaults<T>>::mutate(&sender, |v| v.to_be_redeemed_tokens += tokens);
-            Self::deposit_event(Event::<T>::IncreaseToBeRedeemedTokens(
-                sender.clone(),
-                tokens,
-            ));
-            Ok(())
-        }
-
-        pub fn decrease_to_be_redeemed_tokens(origin, tokens: PolkaBTCBalance<T>) -> DispatchResult {
-            Self::ensure_parachain_running()?;
-            let sender = ensure_signed(origin)?;
-            let mut vault = Self::rich_vault_from_id(&sender)?;
-            vault.decrease_to_be_redeemed(tokens)?;
-            Self::deposit_event(Event::<T>::DecreaseToBeRedeemedTokens(
-                sender.clone(),
-                tokens,
-            ));
-            Ok(())
-        }
     }
 }
 
 #[cfg_attr(test, mockable)]
 impl<T: Trait> Module<T> {
-    /// Public getters
-
-    pub fn get_vault_from_id(id: &T::AccountId) -> Result<DefaultVault<T>, Error> {
-        ensure!(Self::vault_exists(&id), Error::VaultNotFound);
-        Ok(<Vaults<T>>::get(id))
+    /// Public functions
+    pub fn _get_vault_from_id(vault_id: &T::AccountId) -> Result<DefaultVault<T>, Error> {
+        ensure!(Self::vault_exists(&vault_id), Error::VaultNotFound);
+        Ok(<Vaults<T>>::get(vault_id))
     }
 
-    pub fn rich_vault_from_id(id: &T::AccountId) -> Result<RichVault<T>, Error> {
-        let vault = Self::get_vault_from_id(id)?;
-        Ok(vault.into())
-    }
-
-    pub fn vault_exists(id: &T::AccountId) -> bool {
-        <Vaults<T>>::contains_key(id)
-    }
-
-    pub fn internal_increase_to_be_issued_tokens(
-        id: &T::AccountId,
+    pub fn _increase_to_be_issued_tokens(
+        vault_id: &T::AccountId,
         tokens: PolkaBTCBalance<T>,
     ) -> Result<H160, Error> {
-        let mut vault = Self::rich_vault_from_id(&id)?;
+        Self::ensure_parachain_running()?;
+        let mut vault = Self::rich_vault_from_id(&vault_id)?;
         vault.increase_to_be_issued(tokens)?;
+        Self::deposit_event(Event::<T>::IncreaseToBeIssuedTokens(vault.id(), tokens));
         Ok(vault.data.btc_address)
     }
 
-    pub fn internal_decrease_to_be_issued_tokens(
-        id: &T::AccountId,
+    pub fn _decrease_to_be_issued_tokens(
+        vault_id: &T::AccountId,
         tokens: PolkaBTCBalance<T>,
-    ) -> Result<(), Error> {
-        let vault = Self::rich_vault_from_id(&id)?;
-        ensure!(
-            vault.data.to_be_issued_tokens >= tokens,
-            Error::InsufficientTokensCommitted
-        );
-
-        <Vaults<T>>::mutate(id, |v| v.to_be_issued_tokens -= tokens);
+    ) -> UnitResult {
+        Self::ensure_parachain_running()?;
+        let mut vault = Self::rich_vault_from_id(&vault_id)?;
+        vault.decrease_to_be_issued(tokens)?;
+        Self::deposit_event(Event::<T>::DecreaseToBeIssuedTokens(vault.id(), tokens));
         Ok(())
     }
 
-    pub fn decrease_tokens(
+    pub fn _issue_tokens(vault_id: &T::AccountId, tokens: PolkaBTCBalance<T>) -> UnitResult {
+        Self::ensure_parachain_running()?;
+        let mut vault = Self::rich_vault_from_id(&vault_id)?;
+        vault.issue_tokens(tokens)?;
+        Self::deposit_event(Event::<T>::IssueTokens(vault.id(), tokens));
+        Ok(())
+    }
+
+    pub fn _increase_to_be_redeemed_tokens(
+        vault_id: &T::AccountId,
+        tokens: PolkaBTCBalance<T>,
+    ) -> UnitResult {
+        Self::ensure_parachain_running()?;
+        let mut vault = Self::rich_vault_from_id(&vault_id)?;
+        vault.increase_to_be_redeemed(tokens)?;
+        Self::deposit_event(Event::<T>::IncreaseToBeRedeemedTokens(
+            vault_id.clone(),
+            tokens,
+        ));
+        Ok(())
+    }
+
+    pub fn _decrease_to_be_redeemed_tokens(
+        vault_id: &T::AccountId,
+        tokens: PolkaBTCBalance<T>,
+    ) -> UnitResult {
+        Self::ensure_parachain_running()?;
+        let mut vault = Self::rich_vault_from_id(&vault_id)?;
+        vault.decrease_to_be_redeemed(tokens)?;
+        Self::deposit_event(Event::<T>::DecreaseToBeRedeemedTokens(
+            vault_id.clone(),
+            tokens,
+        ));
+        Ok(())
+    }
+
+    pub fn _decrease_tokens(
         vault_id: &T::AccountId,
         user_id: &T::AccountId,
         tokens: PolkaBTCBalance<T>,
         _collateral: DOTBalance<T>,
-    ) -> Result<(), Error> {
+    ) -> UnitResult {
         let mut vault: RichVault<T> = Self::rich_vault_from_id(&vault_id)?;
         vault.decrease_to_be_redeemed(tokens)?;
         vault.decrease_issued(tokens)?;
@@ -287,23 +255,24 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    pub fn _insert_vault<V: Into<DefaultVault<T>>>(id: &T::AccountId, rich_vault: V) {
+        let vault: DefaultVault<T> = rich_vault.into();
+        <Vaults<T>>::insert(id, vault)
+    }
+
     /// Private getters and setters
-    pub fn internal_issue_tokens(
-        id: &T::AccountId,
-        tokens: PolkaBTCBalance<T>,
-    ) -> Result<(), Error> {
-        Self::internal_decrease_to_be_issued_tokens(id, tokens)?;
-        <Vaults<T>>::mutate(id, |v| v.issued_tokens += tokens);
-        Ok(())
+
+    fn rich_vault_from_id(vault_id: &T::AccountId) -> Result<RichVault<T>, Error> {
+        let vault = Self::_get_vault_from_id(vault_id)?;
+        Ok(vault.into())
+    }
+
+    fn vault_exists(id: &T::AccountId) -> bool {
+        <Vaults<T>>::contains_key(id)
     }
 
     fn get_minimum_collateral_vault() -> DOTBalance<T> {
         <MinimumCollateralVault<T>>::get()
-    }
-
-    pub fn insert_vault<V: Into<DefaultVault<T>>>(id: &T::AccountId, rich_vault: V) {
-        let vault: DefaultVault<T> = rich_vault.into();
-        <Vaults<T>>::insert(id, vault)
     }
 
     /// Other helpers

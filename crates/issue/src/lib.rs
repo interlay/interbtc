@@ -147,7 +147,7 @@ impl<T: Trait> Module<T> {
     ) -> Result<H256, Error> {
         // TODO: check precondition
         let height = <system::Module<T>>::block_number();
-        let vault = <vault_registry::Module<T>>::get_vault_from_id(&vault_id)?;
+        let vault = <vault_registry::Module<T>>::_get_vault_from_id(&vault_id)?;
         match vault.banned_until {
             Some(until) => ensure!(until < height, Error::VaultBanned),
             None => (),
@@ -160,10 +160,8 @@ impl<T: Trait> Module<T> {
 
         <collateral::Module<T>>::lock_collateral(&requester, griefing_collateral)?;
 
-        let btc_address = <vault_registry::Module<T>>::internal_increase_to_be_issued_tokens(
-            &vault_id,
-            amount.clone(),
-        )?;
+        let btc_address =
+            <vault_registry::Module<T>>::_increase_to_be_issued_tokens(&vault_id, amount.clone())?;
 
         let mut hasher = Sha256::default();
         // TODO: nonce from security module
@@ -226,7 +224,7 @@ impl<T: Trait> Module<T> {
             issue_id.clone().as_bytes().to_vec(),
         )?;
 
-        <vault_registry::Module<T>>::internal_issue_tokens(&issue.vault, issue.amount)?;
+        <vault_registry::Module<T>>::_issue_tokens(&issue.vault, issue.amount)?;
         <treasury::Module<T>>::mint(issue.requester, issue.amount);
         <IssueRequests<T>>::remove(issue_id);
 
@@ -243,10 +241,7 @@ impl<T: Trait> Module<T> {
         ensure!(issue.opentime + period > height, Error::TimeNotExpired);
         ensure!(!issue.completed, Error::IssueCompleted);
 
-        <vault_registry::Module<T>>::internal_decrease_to_be_issued_tokens(
-            &issue.vault,
-            issue.amount,
-        )?;
+        <vault_registry::Module<T>>::_decrease_to_be_issued_tokens(&issue.vault, issue.amount)?;
         <collateral::Module<T>>::slash_collateral(
             issue.requester.clone(),
             issue.vault.clone(),

@@ -151,9 +151,9 @@ fn withdraw_collateral_fails_when_not_enough_collateral() {
 fn increase_to_be_issued_tokens_succeeds() -> Result<(), Error> {
     run_test(|| {
         let id = create_sample_vault();
-        let res = VaultRegistry::increase_to_be_issued_tokens(Origin::signed(id), 50);
-        assert_ok!(res);
-        let vault = VaultRegistry::get_vault_from_id(&id)?;
+        let res = VaultRegistry::_increase_to_be_issued_tokens(&id, 50);
+        let vault = VaultRegistry::_get_vault_from_id(&id)?;
+        assert_ok!(res, vault.btc_address);
         assert_eq!(vault.to_be_issued_tokens, 50);
         assert_emitted!(Event::IncreaseToBeIssuedTokens(id, 50));
 
@@ -166,10 +166,7 @@ fn increase_to_be_issued_tokens_fails_with_insufficient_collateral() -> Result<(
     run_test(|| {
         let id = create_sample_vault();
         let vault = VaultRegistry::rich_vault_from_id(&id)?;
-        let res = VaultRegistry::increase_to_be_issued_tokens(
-            Origin::signed(id),
-            vault.issuable_tokens()? + 1,
-        );
+        let res = VaultRegistry::_increase_to_be_issued_tokens(&id, vault.issuable_tokens()? + 1);
         assert_err!(res, Error::ExceedingVaultLimit);
 
         Ok(())
@@ -180,13 +177,14 @@ fn increase_to_be_issued_tokens_fails_with_insufficient_collateral() -> Result<(
 fn decrease_to_be_issued_tokens_succeeds() -> Result<(), Error> {
     run_test(|| {
         let id = create_sample_vault();
-        assert_ok!(VaultRegistry::increase_to_be_issued_tokens(
-            Origin::signed(id),
-            50
-        ));
-        let res = VaultRegistry::decrease_to_be_issued_tokens(Origin::signed(id), 50);
+        let mut vault = VaultRegistry::_get_vault_from_id(&id)?;
+        assert_ok!(
+            VaultRegistry::_increase_to_be_issued_tokens(&id, 50),
+            vault.btc_address
+        );
+        let res = VaultRegistry::_decrease_to_be_issued_tokens(&id, 50);
         assert_ok!(res);
-        let vault = VaultRegistry::get_vault_from_id(&id)?;
+        vault = VaultRegistry::_get_vault_from_id(&id)?;
         assert_eq!(vault.to_be_issued_tokens, 0);
         assert_emitted!(Event::DecreaseToBeIssuedTokens(id, 50));
 
@@ -199,7 +197,7 @@ fn decrease_to_be_issued_tokens_fails_with_insufficient_tokens() -> Result<(), E
     run_test(|| {
         let id = create_sample_vault();
 
-        let res = VaultRegistry::decrease_to_be_issued_tokens(Origin::signed(id), 50);
+        let res = VaultRegistry::_decrease_to_be_issued_tokens(&id, 50);
         assert_err!(res, Error::InsufficientTokensCommitted);
 
         Ok(())
@@ -210,13 +208,14 @@ fn decrease_to_be_issued_tokens_fails_with_insufficient_tokens() -> Result<(), E
 fn issue_tokens_succeeds() -> Result<(), Error> {
     run_test(|| {
         let id = create_sample_vault();
-        assert_ok!(VaultRegistry::increase_to_be_issued_tokens(
-            Origin::signed(id),
-            50
-        ));
-        let res = VaultRegistry::issue_tokens(Origin::signed(id), 50);
+        let mut vault = VaultRegistry::_get_vault_from_id(&id)?;
+        assert_ok!(
+            VaultRegistry::_increase_to_be_issued_tokens(&id, 50),
+            vault.btc_address
+        );
+        let res = VaultRegistry::_issue_tokens(&id, 50);
         assert_ok!(res);
-        let vault = VaultRegistry::get_vault_from_id(&id)?;
+        vault = VaultRegistry::_get_vault_from_id(&id)?;
         assert_eq!(vault.to_be_issued_tokens, 0);
         assert_eq!(vault.issued_tokens, 50);
         assert_emitted!(Event::IssueTokens(id, 50));
@@ -230,7 +229,7 @@ fn issue_tokens_fails_with_insufficient_tokens() -> Result<(), Error> {
     run_test(|| {
         let id = create_sample_vault();
 
-        let res = VaultRegistry::issue_tokens(Origin::signed(id), 50);
+        let res = VaultRegistry::_issue_tokens(&id, 50);
         assert_err!(res, Error::InsufficientTokensCommitted);
 
         Ok(())
@@ -241,14 +240,15 @@ fn issue_tokens_fails_with_insufficient_tokens() -> Result<(), Error> {
 fn increase_to_be_redeemed_tokens_succeeds() -> Result<(), Error> {
     run_test(|| {
         let id = create_sample_vault();
-        assert_ok!(VaultRegistry::increase_to_be_issued_tokens(
-            Origin::signed(id),
-            50
-        ));
-        assert_ok!(VaultRegistry::issue_tokens(Origin::signed(id), 50));
-        let res = VaultRegistry::increase_to_be_redeemed_tokens(Origin::signed(id), 50);
+        let mut vault = VaultRegistry::_get_vault_from_id(&id)?;
+        assert_ok!(
+            VaultRegistry::_increase_to_be_issued_tokens(&id, 50),
+            vault.btc_address
+        );
+        assert_ok!(VaultRegistry::_issue_tokens(&id, 50));
+        let res = VaultRegistry::_increase_to_be_redeemed_tokens(&id, 50);
         assert_ok!(res);
-        let vault = VaultRegistry::get_vault_from_id(&id)?;
+        vault = VaultRegistry::_get_vault_from_id(&id)?;
         assert_eq!(vault.issued_tokens, 50);
         assert_eq!(vault.to_be_redeemed_tokens, 50);
         assert_emitted!(Event::IncreaseToBeRedeemedTokens(id, 50));
@@ -262,7 +262,7 @@ fn increase_to_be_redeemed_tokens_fails_with_insufficient_tokens() -> Result<(),
     run_test(|| {
         let id = create_sample_vault();
 
-        let res = VaultRegistry::increase_to_be_redeemed_tokens(Origin::signed(id), 50);
+        let res = VaultRegistry::_increase_to_be_redeemed_tokens(&id, 50);
         assert_err!(res, Error::InsufficientTokensCommitted);
 
         Ok(())
@@ -273,18 +273,16 @@ fn increase_to_be_redeemed_tokens_fails_with_insufficient_tokens() -> Result<(),
 fn decrease_to_be_redeemed_tokens_succeeds() -> Result<(), Error> {
     run_test(|| {
         let id = create_sample_vault();
-        assert_ok!(VaultRegistry::increase_to_be_issued_tokens(
-            Origin::signed(id),
-            50
-        ));
-        assert_ok!(VaultRegistry::issue_tokens(Origin::signed(id), 50));
-        assert_ok!(VaultRegistry::increase_to_be_redeemed_tokens(
-            Origin::signed(id),
-            50
-        ));
-        let res = VaultRegistry::decrease_to_be_redeemed_tokens(Origin::signed(id), 50);
+        let mut vault = VaultRegistry::_get_vault_from_id(&id)?;
+        assert_ok!(
+            VaultRegistry::_increase_to_be_issued_tokens(&id, 50),
+            vault.btc_address
+        );
+        assert_ok!(VaultRegistry::_issue_tokens(&id, 50));
+        assert_ok!(VaultRegistry::_increase_to_be_redeemed_tokens(&id, 50));
+        let res = VaultRegistry::_decrease_to_be_redeemed_tokens(&id, 50);
         assert_ok!(res);
-        let vault = VaultRegistry::get_vault_from_id(&id)?;
+        vault = VaultRegistry::_get_vault_from_id(&id)?;
         assert_eq!(vault.issued_tokens, 50);
         assert_eq!(vault.to_be_redeemed_tokens, 0);
         assert_emitted!(Event::DecreaseToBeRedeemedTokens(id, 50));
@@ -298,7 +296,7 @@ fn decrease_to_be_redeemed_tokens_fails_with_insufficient_tokens() -> Result<(),
     run_test(|| {
         let id = create_sample_vault();
 
-        let res = VaultRegistry::decrease_to_be_redeemed_tokens(Origin::signed(id), 50);
+        let res = VaultRegistry::_decrease_to_be_redeemed_tokens(&id, 50);
         assert_err!(res, Error::InsufficientTokensCommitted);
 
         Ok(())

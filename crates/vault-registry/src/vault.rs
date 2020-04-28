@@ -7,7 +7,7 @@ use mocktopus::macros::mockable;
 
 use x_core::Error;
 
-use crate::types::{DOTBalance, PolkaBTCBalance};
+use crate::types::{DOTBalance, PolkaBTCBalance, UnitResult};
 use crate::{ext, Trait};
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
@@ -55,13 +55,15 @@ pub struct RichVault<T: Trait> {
     pub(crate) data: DefaultVault<T>,
 }
 
-type UnitResult = Result<(), Error>;
-
 #[cfg_attr(test, mockable)]
 impl<T: Trait> RichVault<T> {
     pub(crate) fn new(id: T::AccountId, btc_address: H160) -> RichVault<T> {
         let vault = Vault::new(id, btc_address);
         RichVault { data: vault }
+    }
+
+    pub(crate) fn id(&self) -> T::AccountId {
+        self.data.id.clone()
     }
 
     pub(crate) fn get_collateral(&self) -> DOTBalance<T> {
@@ -87,25 +89,42 @@ impl<T: Trait> RichVault<T> {
     pub(crate) fn increase_to_be_issued(&mut self, tokens: PolkaBTCBalance<T>) -> UnitResult {
         let issuable_tokens = self.issuable_tokens()?;
         ensure!(issuable_tokens >= tokens, Error::ExceedingVaultLimit);
-        <crate::Vaults<T>>::mutate(&self.data.id, |v| v.to_be_issued_tokens += tokens);
-        self.data.to_be_issued_tokens += tokens;
-        Ok(())
+        Ok(self.update(|v| v.to_be_issued_tokens += tokens))
+    }
+
+    pub(crate) fn decrease_to_be_issued(&mut self, tokens: PolkaBTCBalance<T>) -> UnitResult {
+        ensure!(
+            self.data.to_be_issued_tokens >= tokens,
+            Error::InsufficientTokensCommitted
+        );
+        Ok(self.update(|v| v.to_be_issued_tokens -= tokens))
+    }
+
+    pub(crate) fn issue_tokens(&mut self, tokens: PolkaBTCBalance<T>) -> UnitResult {
+        self.decrease_to_be_issued(tokens)?;
+        Ok(self.update(|v| v.issued_tokens += tokens))
+    }
+
+    pub(crate) fn increase_to_be_redeemed(&mut self, tokens: PolkaBTCBalance<T>) -> UnitResult {
+        let redeemable = self.redeemable_tokens();
+        ensure!(redeemable >= tokens, Error::InsufficientTokensCommitted);
+        Ok(self.update(|v| v.to_be_redeemed_tokens += tokens))
+    }
+
+    fn redeemable_tokens(&self) -> PolkaBTCBalance<T> {
+        self.data.issued_tokens - self.data.to_be_redeemed_tokens
     }
 
     pub(crate) fn decrease_to_be_redeemed(&mut self, tokens: PolkaBTCBalance<T>) -> UnitResult {
         let to_be_redeemed = self.data.to_be_redeemed_tokens;
         ensure!(to_be_redeemed >= tokens, Error::InsufficientTokensCommitted);
-        <crate::Vaults<T>>::mutate(&self.data.id, |v| v.to_be_redeemed_tokens -= tokens);
-        self.data.to_be_redeemed_tokens -= tokens;
-        Ok(())
+        Ok(self.update(|v| v.to_be_redeemed_tokens -= tokens))
     }
 
     pub(crate) fn decrease_issued(&mut self, tokens: PolkaBTCBalance<T>) -> UnitResult {
         let issued_tokens = self.data.issued_tokens;
         ensure!(issued_tokens >= tokens, Error::InsufficientTokensCommitted);
-        <crate::Vaults<T>>::mutate(&self.data.id, |v| v.issued_tokens -= tokens);
-        self.data.issued_tokens -= tokens;
-        Ok(())
+        Ok(self.update(|v| v.issued_tokens -= tokens))
     }
 
     pub(crate) fn get_free_collateral(&self) -> Result<DOTBalance<T>, Error> {
@@ -119,6 +138,14 @@ impl<T: Trait> RichVault<T> {
 
     pub(crate) fn withdraw_collateral(&self, collateral: DOTBalance<T>) -> UnitResult {
         ext::collateral::release::<T>(&self.data.id, collateral)
+    }
+
+    fn update<F>(&mut self, func: F) -> ()
+    where
+        F: Fn(&mut DefaultVault<T>) -> (),
+    {
+        func(&mut self.data);
+        <crate::Vaults<T>>::mutate(&self.data.id, func);
     }
 }
 
