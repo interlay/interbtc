@@ -18,6 +18,7 @@ pub enum Error {
     InvalidAmount,
     InvalidTimeout,
     InvalidChainID,
+    InvalidReplaceID,
     LowDiff,
     DiffTargetHeader, // TODO: rename to self-explanatory
     MalformedTxid,
@@ -96,6 +97,7 @@ impl Error {
             Error::InvalidAmount => "Invalid amount",
             Error::InvalidTimeout => "Invalid timeout",
             Error::InvalidChainID => "Invalid chain ID",
+            Error::InvalidReplaceID => "Invalid request ID",
             Error::LowDiff => "PoW hash does not meet difficulty target of header",
             Error::DiffTargetHeader => "Incorrect difficulty target specified in block header",
             Error::MalformedTxid => "Malformed transaction identifier",

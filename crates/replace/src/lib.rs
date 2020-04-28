@@ -13,7 +13,7 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-//use bitcoin::types::H256Le;
+use bitcoin::types::H256Le;
 use codec::{Decode, Encode};
 use frame_support::traits::Currency;
 /// # PolkaBTC Replace implementation
@@ -61,7 +61,7 @@ decl_storage! {
     trait Store for Module<T: Trait> as Replace {
         ReplaceGriefingCollateral: DOT<T>;
         ReplacePeriod: T::BlockNumber;
-        ReplaceRequests: map hasher(blake2_128_concat) H256 => Replace<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>;
+        ReplaceRequests: map hasher(blake2_128_concat) H256 => Option<Replace<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>>;
     }
 }
 
@@ -100,6 +100,63 @@ decl_module! {
         {
             let requester = ensure_signed(origin)?;
             Self::_request_replace(requester, amount, timeout, griefing_collateral)?;
+            Ok(())
+        }
+
+        /// Withdraw a request of vault replacement
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - sender of the transaction
+        /// * `vault_id` - the of the vault to cancel the request
+        /// * `replace_id` - the unique identifier for the specific request
+        fn withdraw_replace_request(origin, vault_id: T::AccountId, replace_id: H256)
+            -> DispatchResult
+        {
+            let _ = ensure_signed(origin)?;
+            Self::_withdraw_replace_request(vault_id, replace_id)?;
+            Ok(())
+        }
+
+        /// Accept request of vault replacement
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - sender of the transaction
+        /// * `vault_id` - the of the vault to cancel the request
+        /// * `replace_id` - the unique identifier for the specific request
+        fn accept_replace(origin, new_vault_id: T::AccountId, replace_id: H256, collateral: DOT<T>)
+            -> DispatchResult
+        {
+            let _ = ensure_signed(origin)?;
+            Self::_accept_replace(new_vault_id, replace_id, collateral)?;
+            Ok(())
+        }
+
+        /// Accept request of vault replacement
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - sender of the transaction
+        /// * `vault_id` - the of the vault to cancel the request
+        /// * `replace_id` - the unique identifier for the specific request
+        fn auction_replace(origin, old_vault_id: T::AccountId, new_vault_id: T::AccountId, btc_amount: PolkaBTC<T>, collateral: DOT<T>)
+            -> DispatchResult
+        {
+            let _ = ensure_signed(origin)?;
+            Self::_auction_replace(old_vault_id, new_vault_id, btc_amount, collateral)?;
+            Ok(())
+        }
+
+        fn execute_replace(origin, new_vault_id: T::AccountId, replace_id: H256, tx_id: H256Le, tx_block_height: u32, tx_index: H256, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
+            let _ = ensure_signed(origin)?;
+            Self::_execute_replace(new_vault_id, replace_id, tx_id, tx_block_height, tx_index, merkle_proof, raw_tx)?;
+            Ok(())
+        }
+
+        fn cancel_replace(origin, new_vault_id: T::AccountId, replace_id: H256) -> DispatchResult {
+            let _ = ensure_signed(origin)?;
+            Self::_cancel_replace(new_vault_id, replace_id)?;
             Ok(())
         }
     }
@@ -159,11 +216,60 @@ impl<T: Trait> Module<T> {
         let key = H256(result);
 
         //TODO(jaupe) should we store timeout period?
-        //TODO(jaupe) what should the collateral value be?
+        //TODO(jaupe) is the collateral value correct?
         Self::insert_replace_request(key, replace);
 
         Self::deposit_event(<Event<T>>::RequestReplace(vault_id, amount, timeout, key));
         Ok(key)
+    }
+
+    fn _withdraw_replace_request(vault_id: T::AccountId, request_id: H256) -> Result<(), Error> {
+        // check vault exists
+        let _ = <vault_registry::Module<T>>::get_vault_from_id(vault_id.clone())?;
+        let _req = Self::get_replace_request(request_id)?;
+        Ok(())
+    }
+
+    fn _accept_replace(
+        new_vault_id: T::AccountId,
+        replace_id: H256,
+        _collateral: DOT<T>,
+    ) -> Result<(), Error> {
+        // check new vault exists
+        let _ = <vault_registry::Module<T>>::get_vault_from_id(new_vault_id.clone())?;
+        let _req = Self::get_replace_request(replace_id)?;
+        Ok(())
+    }
+
+    fn _auction_replace(
+        _old_vault_id: T::AccountId,
+        _new_vault_id: T::AccountId,
+        _btc_amount: PolkaBTC<T>,
+        _collateral: DOT<T>,
+    ) -> Result<(), Error> {
+        unimplemented!()
+    }
+
+    fn _execute_replace(
+        _new_vault: T::AccountId,
+        _replace_id: H256,
+        _tx_id: H256Le,
+        _tx_block_height: u32,
+        _tx_index: H256,
+        _merkle_proof: Vec<u8>,
+        _raw_tx: Vec<u8>,
+    ) -> Result<(), Error> {
+        unimplemented!()
+    }
+
+    fn _cancel_replace(_new_vault_id: T::AccountId, _replace_id: H256) -> Result<(), Error> {
+        unimplemented!()
+    }
+
+    fn get_replace_request(
+        id: H256,
+    ) -> Result<Replace<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, Error> {
+        <ReplaceRequests<T>>::get(id).ok_or(Error::InvalidReplaceID)
     }
 
     fn insert_replace_request(

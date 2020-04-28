@@ -46,7 +46,7 @@ fn store_authorised_vault() {
 }
 
 #[test]
-fn request_replace_invalid_amount() {
+fn test_request_replace_invalid_amount() {
     run_test(|| {
         <system::Module<Test>>::set_block_number(0);
         assert_noop!(request_replace(ALICE, 0, 0, BOB), Error::InvalidAmount);
@@ -54,7 +54,7 @@ fn request_replace_invalid_amount() {
 }
 
 #[test]
-fn request_replace_invalid_timeout() {
+fn test_request_replace_invalid_timeout() {
     run_test(|| {
         <system::Module<Test>>::set_block_number(0);
         let amount = 1;
@@ -66,7 +66,7 @@ fn request_replace_invalid_timeout() {
 }
 
 #[test]
-fn request_replace_invalid_vault_id() {
+fn test_request_replace_invalid_vault_id() {
     run_test(|| {
         <system::Module<Test>>::set_block_number(0);
         let amount = 1;
@@ -79,7 +79,7 @@ fn request_replace_invalid_vault_id() {
 }
 
 #[test]
-fn request_replace_vault_banned() {
+fn test_request_replace_vault_banned() {
     run_test(|| {
         <system::Module<Test>>::set_block_number(0);
         let amount = 1;
@@ -93,7 +93,7 @@ fn request_replace_vault_banned() {
 }
 
 #[test]
-fn request_replace_insufficient_griefing_amount() {
+fn test_request_replace_insufficient_griefing_amount_err() {
     run_test(|| {
         <system::Module<Test>>::set_block_number(0);
         Replace::set_issue_griefing_collateral(1);
@@ -108,7 +108,7 @@ fn request_replace_insufficient_griefing_amount() {
 }
 
 #[test]
-fn request_replace_ok() {
+fn test_request_replace_ok() {
     run_test(|| {
         <system::Module<Test>>::set_block_number(0);
         let amount = 100;
