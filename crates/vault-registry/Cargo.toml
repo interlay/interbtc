@@ -68,6 +68,10 @@ version = '2.0.0-alpha.5'
 default-features = false
 path = '../x-core'
 
+[dependencies.security]
+default-features = false
+path = '../security'
+
 [dependencies.collateral]
 default-features = false
 path = '../collateral'

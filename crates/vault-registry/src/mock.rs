@@ -29,6 +29,7 @@ impl_outer_event! {
         collateral<T>,
         treasury<T>,
         exchange_rate_oracle<T>,
+        security<T>,
     }
 }
 
@@ -103,6 +104,10 @@ impl exchange_rate_oracle::Trait for Test {
 }
 
 impl Trait for Test {
+    type Event = TestEvent;
+}
+
+impl security::Trait for Test {
     type Event = TestEvent;
 }
 

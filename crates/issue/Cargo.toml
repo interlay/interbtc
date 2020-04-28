@@ -88,6 +88,10 @@ version = '0.1.0'
 default-features = false
 path = '../x-core'
 
+[dependencies.security]
+default-features = false
+path = '../security'
+
 [dependencies.sha2]
 default-features = false
 version = '0.8.0'
