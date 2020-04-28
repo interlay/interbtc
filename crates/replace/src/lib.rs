@@ -13,7 +13,7 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use bitcoin::types::H256Le;
+//use bitcoin::types::H256Le;
 use codec::{Decode, Encode};
 use frame_support::traits::Currency;
 /// # PolkaBTC Replace implementation
@@ -46,13 +46,14 @@ pub trait Trait:
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct Replace<AccountId, BlockNumber, PolkaBTC, DOT> {
-    vault: AccountId,
-    opentime: BlockNumber,
-    griefing_collateral: DOT,
+    old_vault: AccountId,
+    open_time: BlockNumber,
     amount: PolkaBTC,
-    requester: AccountId,
+    griefing_collateral: DOT,
+    new_vault: Option<AccountId>,
+    collateral: DOT,
+    accept_time: Option<BlockNumber>,
     btc_address: H160,
-    completed: bool,
 }
 
 // The pallet's storage items.
@@ -70,8 +71,9 @@ decl_event!(
     where
         AccountId = <T as system::Trait>::AccountId,
         PolkaBTC = PolkaBTC<T>,
+        BlockNumber = <T as system::Trait>::BlockNumber,
     {
-        RequestReplace(H256, AccountId, PolkaBTC, AccountId, H160),
+        RequestReplace(AccountId, PolkaBTC, BlockNumber, H256),
         ExecuteReplace(H256, AccountId, AccountId),
         CancelReplace(H256, AccountId),
     }
@@ -100,54 +102,6 @@ decl_module! {
             Self::_request_replace(requester, amount, timeout, griefing_collateral)?;
             Ok(())
         }
-
-        /// Request the issuance of PolkaBTC
-        ///
-        /// # Arguments
-        ///
-        /// * `origin` - sender of the transaction
-        /// * `amount` - amount of PolkaBTC
-        /// * `vault` - address of the vault
-        /// * `griefing_collateral` - amount of DOT
-        fn request_issue(origin, amount: PolkaBTC<T>, vault_id: T::AccountId, griefing_collateral: DOT<T>)
-            -> DispatchResult
-        {
-            let requester = ensure_signed(origin)?;
-            Self::_request_issue(requester, amount, vault_id, griefing_collateral)?;
-            Ok(())
-        }
-
-        /// Finalize the issuance of PolkaBTC
-        ///
-        /// # Arguments
-        ///
-        /// * `origin` - sender of the transaction
-        /// * `issue_id` - identifier of issue request as output from request_issue
-        /// * `tx_id` - transaction hash
-        /// * `tx_block_height` - block number of backing chain
-        /// * `merkle_proof` - raw bytes
-        /// * `raw_tx` - raw bytes
-        fn execute_issue(origin, issue_id: H256, tx_id: H256Le, tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
-            -> DispatchResult
-        {
-            let requester = ensure_signed(origin)?;
-            Self::_execute_issue(requester, issue_id, tx_id, tx_block_height, merkle_proof, raw_tx)?;
-            Ok(())
-        }
-
-        /// Cancel the issuance of PolkaBTC if expired
-        ///
-        /// # Arguments
-        ///
-        /// * `origin` - sender of the transaction
-        /// * `issue_id` - identifier of issue request as output from request_issue
-        fn cancel_issue(origin, issue_id: H256)
-            -> DispatchResult
-        {
-            let requester = ensure_signed(origin)?;
-            Self::_cancel_issue(requester, issue_id)?;
-            Ok(())
-        }
     }
 }
 
@@ -158,7 +112,7 @@ impl<T: Trait> Module<T> {
         vault_id: T::AccountId,
         amount: PolkaBTC<T>,
         timeout: T::BlockNumber,
-        _griefing_collateral: DOT<T>,
+        griefing_collateral: DOT<T>,
     ) -> Result<H256, Error> {
         // check preconditions
         // check amount is non zero
@@ -179,139 +133,40 @@ impl<T: Trait> Module<T> {
             return Err(Error::VaultBanned);
         }
 
-        unimplemented!()
-    }
-
-    /// Requests CBA issuance, returns unique tracking ID.
-    fn _request_issue(
-        requester: T::AccountId,
-        amount: PolkaBTC<T>,
-        vault_id: T::AccountId,
-        griefing_collateral: DOT<T>,
-    ) -> Result<H256, Error> {
-        // check vault exists
-        let vault = <vault_registry::Module<T>>::get_vault_from_id(vault_id.clone())?;
-        // check vault is not banned
-        let height = <system::Module<T>>::block_number();
-        if vault.is_banned(height) {
-            return Err(Error::VaultBanned);
-        }
-
+        // check sufficient griefing amount
         ensure!(
             griefing_collateral >= <ReplaceGriefingCollateral<T>>::get(),
             Error::InsufficientCollateral
         );
 
-        <collateral::Module<T>>::lock_collateral(requester.clone(), griefing_collateral)?;
-
-        let btc_address = <vault_registry::Module<T>>::increase_to_be_issued_tokens(
-            vault_id.clone(),
-            amount.clone(),
-        )?;
-
+        let replace = Replace {
+            old_vault: vault_id.clone(),
+            open_time: height,
+            amount,
+            griefing_collateral,
+            new_vault: None,
+            collateral: vault.collateral,
+            accept_time: None,
+            btc_address: vault.btc_address,
+        };
         let mut hasher = Sha256::default();
         // TODO: nonce from security module
-        hasher.input(requester.encode());
+        // TODO: test if this is correct hash input
+        hasher.input(replace.encode());
 
         let mut result = [0; 32];
         result.copy_from_slice(&hasher.result()[..]);
         let key = H256(result);
 
-        Self::insert_issue_request(
-            key,
-            Replace {
-                vault: vault_id.clone(),
-                opentime: height,
-                griefing_collateral: griefing_collateral,
-                amount: amount,
-                requester: requester.clone(),
-                btc_address: btc_address,
-                completed: false,
-            },
-        );
+        //TODO(jaupe) should we store timeout period?
+        //TODO(jaupe) what should the collateral value be?
+        Self::insert_replace_request(key, replace);
 
-        Self::deposit_event(<Event<T>>::RequestReplace(
-            key,
-            requester,
-            amount,
-            vault_id,
-            btc_address,
-        ));
+        Self::deposit_event(<Event<T>>::RequestReplace(vault_id, amount, timeout, key));
         Ok(key)
     }
 
-    /// Completes CBA issuance, removing request from storage and minting token.
-    fn _execute_issue(
-        requester: T::AccountId,
-        issue_id: H256,
-        tx_id: H256Le,
-        tx_block_height: u32,
-        merkle_proof: Vec<u8>,
-        raw_tx: Vec<u8>,
-    ) -> Result<(), Error> {
-        // TODO: check precondition
-        let issue = Self::get_issue_request_from_id(&issue_id)?;
-        ensure!(requester == issue.requester, Error::UnauthorizedUser);
-
-        let height = <system::Module<T>>::block_number();
-        let period = <ReplacePeriod<T>>::get();
-        ensure!(
-            period < height && issue.opentime < height - period,
-            Error::CommitPeriodExpired
-        );
-
-        Self::verify_inclusion_and_validate_transaction(
-            tx_id,
-            tx_block_height,
-            merkle_proof,
-            raw_tx,
-            0, // TODO: issue.amount,
-            issue.btc_address.as_bytes().to_vec(),
-            issue_id.clone().as_bytes().to_vec(),
-        )?;
-
-        <vault_registry::Module<T>>::issue_tokens(issue.vault.clone(), issue.amount.clone())?;
-        <treasury::Module<T>>::mint(issue.requester, issue.amount);
-        <ReplaceRequests<T>>::remove(issue_id);
-
-        Self::deposit_event(<Event<T>>::ExecuteReplace(issue_id, requester, issue.vault));
-        Ok(())
-    }
-
-    /// Cancels CBA issuance if time has expired and slashes collateral.
-    fn _cancel_issue(requester: T::AccountId, issue_id: H256) -> Result<(), Error> {
-        let issue = Self::get_issue_request_from_id(&issue_id)?;
-        let height = <system::Module<T>>::block_number();
-        let period = <ReplacePeriod<T>>::get();
-
-        ensure!(issue.opentime + period > height, Error::TimeNotExpired);
-        ensure!(!issue.completed, Error::IssueCompleted);
-
-        <vault_registry::Module<T>>::decrease_to_be_issued_tokens(
-            issue.vault.clone(),
-            issue.amount.clone(),
-        )?;
-        <collateral::Module<T>>::slash_collateral(
-            issue.requester.clone(),
-            issue.vault.clone(),
-            issue.griefing_collateral,
-        )?;
-
-        Self::deposit_event(<Event<T>>::CancelReplace(issue_id, requester));
-        Ok(())
-    }
-
-    fn get_issue_request_from_id(
-        issue_id: &H256,
-    ) -> Result<Replace<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, Error> {
-        ensure!(
-            <ReplaceRequests<T>>::contains_key(*issue_id),
-            Error::IssueIdNotFound
-        );
-        Ok(<ReplaceRequests<T>>::get(*issue_id))
-    }
-
-    fn insert_issue_request(
+    fn insert_replace_request(
         key: H256,
         value: Replace<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
     ) {
@@ -326,28 +181,5 @@ impl<T: Trait> Module<T> {
     #[allow(dead_code)]
     fn set_issue_period(value: T::BlockNumber) {
         <ReplacePeriod<T>>::set(value);
-    }
-
-    // Note: the calls here are combined to simplify mocking
-    fn verify_inclusion_and_validate_transaction(
-        tx_id: H256Le,
-        tx_block_height: u32,
-        merkle_proof: Vec<u8>,
-        raw_tx: Vec<u8>,
-        amount: i64,
-        btc_address: Vec<u8>,
-        issue_id: Vec<u8>,
-    ) -> Result<(), Error> {
-        <btc_relay::Module<T>>::_verify_transaction_inclusion(
-            tx_id,
-            tx_block_height,
-            merkle_proof,
-            0,
-            false,
-        )?;
-
-        <btc_relay::Module<T>>::_validate_transaction(raw_tx, amount, btc_address, issue_id)?;
-
-        Ok(())
     }
 }
