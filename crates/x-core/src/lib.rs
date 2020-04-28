@@ -141,7 +141,6 @@ impl Error {
             Error::InsufficientCollateralAvailable => {
                 "The sender’s collateral balance is below the requested amount."
             }
-
             Error::VaultNotFound => "There exists no Vault with the given account id",
             Error::VaultBanned => "The selected Vault has been temporarily banned",
             Error::InsufficientCollateral => "User provided collateral below limit",
