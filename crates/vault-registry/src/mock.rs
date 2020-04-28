@@ -1,5 +1,4 @@
 /// Mocking the test environment
-use crate::{Module, Trait};
 use frame_support::{impl_outer_event, impl_outer_origin, parameter_types, weights::Weight};
 use mocktopus::mocking::clear_mocks;
 use sp_core::H256;
@@ -8,6 +7,11 @@ use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup},
     Perbill,
 };
+
+use mocktopus::mocking::{MockResult, Mockable};
+
+use crate::ext;
+use crate::{Module, Trait};
 
 impl_outer_origin! {
     pub enum Origin for Test {}
@@ -24,6 +28,7 @@ impl_outer_event! {
         pallet_balances<T>,
         collateral<T>,
         treasury<T>,
+        exchange_rate_oracle<T>,
     }
 }
 
@@ -84,6 +89,10 @@ impl treasury::Trait for Test {
     type Event = TestEvent;
 }
 
+impl exchange_rate_oracle::Trait for Test {
+    type Event = TestEvent;
+}
+
 impl Trait for Test {
     type Event = TestEvent;
 }
@@ -93,7 +102,7 @@ pub type Balances = pallet_balances::Module<Test>;
 // pub type Error = crate::Error;
 
 pub type System = system::Module<Test>;
-pub type _VaultRegistry = Module<Test>;
+pub type VaultRegistry = Module<Test>;
 
 pub struct ExtBuilder;
 
@@ -106,10 +115,11 @@ impl ExtBuilder {
     }
 }
 
-pub fn run_test<T>(test: T) -> ()
+pub fn run_test<T, U>(test: T) -> U
 where
-    T: FnOnce() -> (),
+    T: FnOnce() -> U,
 {
     clear_mocks();
-    ExtBuilder::build().execute_with(test);
+    ext::oracle::get_exchange_rate::<Test>.mock_safe(|| MockResult::Return(Ok(1)));
+    ExtBuilder::build().execute_with(test)
 }

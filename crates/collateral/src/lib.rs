@@ -81,8 +81,8 @@ impl<T: Trait> Module<T> {
         <TotalCollateral<T>>::put(new_collateral);
     }
     /// Locked balance of account
-    pub fn get_collateral_from_account(account: T::AccountId) -> BalanceOf<T> {
-        T::DOT::reserved_balance(&account)
+    pub fn get_collateral_from_account(account: &T::AccountId) -> BalanceOf<T> {
+        T::DOT::reserved_balance(account)
     }
     /// Lock DOT collateral
     ///
@@ -90,12 +90,12 @@ impl<T: Trait> Module<T> {
     ///
     /// * `sender` - the account locking tokens
     /// * `amount` - to be locked amount of DOT
-    pub fn lock_collateral(sender: T::AccountId, amount: BalanceOf<T>) -> Result<(), Error> {
-        T::DOT::reserve(&sender, amount).map_err(|_| Error::InsufficientFunds)?;
+    pub fn lock_collateral(sender: &T::AccountId, amount: BalanceOf<T>) -> Result<(), Error> {
+        T::DOT::reserve(sender, amount).map_err(|_| Error::InsufficientFunds)?;
 
         Self::increase_total_collateral(amount);
 
-        Self::deposit_event(RawEvent::LockCollateral(sender, amount));
+        Self::deposit_event(RawEvent::LockCollateral(sender.clone(), amount));
         Ok(())
     }
     /// Release DOT collateral
@@ -104,16 +104,16 @@ impl<T: Trait> Module<T> {
     ///
     /// * `sender` - the account releasing tokens
     /// * `amount` - the to be released amount of DOT
-    pub fn release_collateral(sender: T::AccountId, amount: BalanceOf<T>) -> Result<(), Error> {
+    pub fn release_collateral(sender: &T::AccountId, amount: BalanceOf<T>) -> Result<(), Error> {
         ensure!(
             T::DOT::reserved_balance(&sender) >= amount,
             Error::InsufficientCollateralAvailable
         );
-        T::DOT::unreserve(&sender, amount);
+        T::DOT::unreserve(sender, amount);
 
         Self::decrease_total_collateral(amount);
 
-        Self::deposit_event(RawEvent::ReleaseCollateral(sender, amount));
+        Self::deposit_event(RawEvent::ReleaseCollateral(sender.clone(), amount));
 
         Ok(())
     }

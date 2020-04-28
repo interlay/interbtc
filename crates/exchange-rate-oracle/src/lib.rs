@@ -37,7 +37,7 @@ pub const GRANULARITY: u128 = 5;
 decl_storage! {
     trait Store for Module<T: Trait> as ExchangeRateOracle {
     /// ## Storage
-        /// Current exchange rate
+        /// Current BTC/DOT exchange rate
         ExchangeRate: u128;
 
         /// Last exchange rate time
@@ -55,7 +55,7 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         // Initializing events
         fn deposit_event() = default;
-        fn set_exchange_rate(origin, rate: u128) -> DispatchResult {
+        pub fn set_exchange_rate(origin, rate: u128) -> DispatchResult {
             Self::ensure_parachain_running()?;
 
             let sender = ensure_signed(origin)?;
@@ -63,13 +63,7 @@ decl_module! {
             // fail if the sender is not the authorized oracle
             ensure!(sender == Self::get_authorized_oracle(), Error::InvalidOracleSource);
 
-            Self::set_current_rate(rate);
-            // recover if the max delay was already passed
-            if Self::is_max_delay_passed()? {
-                Self::recover_from_oracle_offline()?;
-            }
-            let now = Self::seconds_since_epoch()?;
-            Self::set_last_exchange_rate_time(now);
+            Self::internal_set_rate(rate)?;
 
             Self::deposit_event(Event::<T>::SetExchangeRate(sender, rate));
 
@@ -96,7 +90,18 @@ impl<T: Trait> Module<T> {
         <MaxDelay>::get()
     }
 
-    fn set_current_rate(rate: u128) {
+    pub fn internal_set_rate(rate: u128) -> Result<(), Error> {
+        Self::set_current_rate(rate);
+        // recover if the max delay was already passed
+        if Self::is_max_delay_passed()? {
+            Self::recover_from_oracle_offline()?;
+        }
+        let now = Self::seconds_since_epoch()?;
+        Self::set_last_exchange_rate_time(now);
+        Ok(())
+    }
+
+    pub fn set_current_rate(rate: u128) {
         <ExchangeRate>::put(rate);
     }
 
