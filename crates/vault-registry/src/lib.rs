@@ -67,7 +67,7 @@ where
 {
     pub fn is_banned(&self, height: BlockNumber) -> bool {
         match &self.banned_until {
-            Some(until) => *until < height,
+            Some(until) => height <= *until,
             None => false,
         }
     }
