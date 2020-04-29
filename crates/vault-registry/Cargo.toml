@@ -19,6 +19,7 @@ std = [
   'x-core/std',
   'collateral/std',
   'treasury/std',
+  'exchange-rate-oracle/std',
 ]
 
 [dependencies.codec]
