@@ -31,6 +31,7 @@ impl_outer_event! {
         btc_relay,
         treasury<T>,
         exchange_rate_oracle<T>,
+        security<T>,
     }
 }
 
@@ -94,6 +95,10 @@ impl collateral::Trait for Test {
 }
 
 impl btc_relay::Trait for Test {
+    type Event = TestEvent;
+}
+
+impl security::Trait for Test {
     type Event = TestEvent;
 }
 
