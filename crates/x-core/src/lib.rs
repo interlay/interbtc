@@ -180,3 +180,6 @@ impl From<Error> for DispatchError {
         }
     }
 }
+
+pub type Result<T> = sp_std::result::Result<T, Error>;
+pub type UnitResult = Result<()>;

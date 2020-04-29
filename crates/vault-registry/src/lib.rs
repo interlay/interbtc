@@ -6,8 +6,7 @@
 /// This is the implementation of the Vault Registry following the spec at:
 /// https://interlay.gitlab.io/polkabtc-spec/spec/vaultregistry.html
 mod ext;
-mod types;
-pub mod vault;
+pub mod types;
 
 #[cfg(test)]
 mod tests;
@@ -28,11 +27,10 @@ use primitive_types::H256;
 use sp_core::H160;
 use system::ensure_signed;
 
-use x_core::Error;
+use x_core::{Error, Result, UnitResult};
 
-use crate::types::{DOTBalance, PolkaBTCBalance, Result, UnitResult};
-pub use crate::vault::Vault;
-use crate::vault::{DefaultVault, RichVault};
+pub use crate::types::Vault;
+use crate::types::{DefaultVault, PolkaBTC, RichVault, DOT};
 
 /// Granularity of `SecureCollateralThreshold`, `AuctionCollateralThreshold`,
 /// `LiquidationCollateralThreshold`, and `PunishmentFee`
@@ -61,7 +59,7 @@ decl_storage! {
     /// ## Storage
         /// The minimum collateral (DOT) a Vault needs to provide
         /// to participate in the issue process.
-        MinimumCollateralVault: DOTBalance<T>;
+        MinimumCollateralVault: DOT<T>;
 
         /// If a Vault misbehaves in either the redeem or replace protocol by
         /// failing to prove that it sent the correct amount of BTC to the
@@ -111,7 +109,7 @@ decl_storage! {
         LiquidationVault: T::AccountId;
 
         /// Mapping of Vaults, using the respective Vault account identifier as key.
-        Vaults: map hasher(blake2_128_concat) T::AccountId => Vault<T::AccountId, T::BlockNumber, PolkaBTCBalance<T>>;
+        Vaults: map hasher(blake2_128_concat) T::AccountId => Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>>;
     }
 }
 
@@ -121,7 +119,7 @@ decl_module! {
         // Initializing events
         fn deposit_event() = default;
 
-        fn register_vault(origin, collateral: DOTBalance<T>, btc_address: H160) -> DispatchResult {
+        fn register_vault(origin, collateral: DOT<T>, btc_address: H160) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             Self::ensure_parachain_running()?;
 
@@ -129,6 +127,7 @@ decl_module! {
                     Error::InsuficientVaultCollateralAmount);
             ensure!(!Self::vault_exists(&sender), Error::VaultAlreadyRegistered);
 
+            println!("[lib] {:?} locks {:?}", sender, collateral);
             ext::collateral::lock::<T>(&sender, collateral)?;
             let vault = RichVault::<T>::new(sender.clone(), btc_address);
             Self::_insert_vault(&sender, &vault);
@@ -138,7 +137,7 @@ decl_module! {
             Ok(())
         }
 
-        fn lock_additional_collateral(origin, amount: DOTBalance<T>) -> DispatchResult {
+        fn lock_additional_collateral(origin, amount: DOT<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             Self::ensure_parachain_running()?;
             let vault = Self::rich_vault_from_id(&sender)?;
@@ -152,7 +151,7 @@ decl_module! {
             Ok(())
         }
 
-        fn withdraw_collateral(origin, amount: DOTBalance<T>) -> DispatchResult {
+        fn withdraw_collateral(origin, amount: DOT<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             Self::ensure_parachain_running()?;
             let vault = Self::rich_vault_from_id(&sender)?;
@@ -177,7 +176,7 @@ impl<T: Trait> Module<T> {
 
     pub fn _increase_to_be_issued_tokens(
         vault_id: &T::AccountId,
-        tokens: PolkaBTCBalance<T>,
+        tokens: PolkaBTC<T>,
     ) -> Result<H160> {
         Self::ensure_parachain_running()?;
         let mut vault = Self::rich_vault_from_id(&vault_id)?;
@@ -188,7 +187,7 @@ impl<T: Trait> Module<T> {
 
     pub fn _decrease_to_be_issued_tokens(
         vault_id: &T::AccountId,
-        tokens: PolkaBTCBalance<T>,
+        tokens: PolkaBTC<T>,
     ) -> UnitResult {
         Self::ensure_parachain_running()?;
         let mut vault = Self::rich_vault_from_id(&vault_id)?;
@@ -197,7 +196,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    pub fn _issue_tokens(vault_id: &T::AccountId, tokens: PolkaBTCBalance<T>) -> UnitResult {
+    pub fn _issue_tokens(vault_id: &T::AccountId, tokens: PolkaBTC<T>) -> UnitResult {
         Self::ensure_parachain_running()?;
         let mut vault = Self::rich_vault_from_id(&vault_id)?;
         vault.issue_tokens(tokens)?;
@@ -207,7 +206,7 @@ impl<T: Trait> Module<T> {
 
     pub fn _increase_to_be_redeemed_tokens(
         vault_id: &T::AccountId,
-        tokens: PolkaBTCBalance<T>,
+        tokens: PolkaBTC<T>,
     ) -> UnitResult {
         Self::ensure_parachain_running()?;
         let mut vault = Self::rich_vault_from_id(&vault_id)?;
@@ -218,7 +217,7 @@ impl<T: Trait> Module<T> {
 
     pub fn _decrease_to_be_redeemed_tokens(
         vault_id: &T::AccountId,
-        tokens: PolkaBTCBalance<T>,
+        tokens: PolkaBTC<T>,
     ) -> UnitResult {
         Self::ensure_parachain_running()?;
         let mut vault = Self::rich_vault_from_id(&vault_id)?;
@@ -230,7 +229,7 @@ impl<T: Trait> Module<T> {
     pub fn _decrease_tokens(
         vault_id: &T::AccountId,
         user_id: &T::AccountId,
-        tokens: PolkaBTCBalance<T>,
+        tokens: PolkaBTC<T>,
     ) -> UnitResult {
         Self::ensure_parachain_running()?;
         let mut vault = Self::rich_vault_from_id(&vault_id)?;
@@ -243,7 +242,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    pub fn _redeem_tokens(vault_id: &T::AccountId, tokens: PolkaBTCBalance<T>) -> UnitResult {
+    pub fn _redeem_tokens(vault_id: &T::AccountId, tokens: PolkaBTC<T>) -> UnitResult {
         Self::ensure_parachain_running()?;
         let mut vault = Self::rich_vault_from_id(&vault_id)?;
         vault.redeem_tokens(tokens)?;
@@ -253,8 +252,8 @@ impl<T: Trait> Module<T> {
 
     pub fn _redeem_tokens_premium(
         vault_id: &T::AccountId,
-        tokens: PolkaBTCBalance<T>,
-        premium: DOTBalance<T>,
+        tokens: PolkaBTC<T>,
+        premium: DOT<T>,
         redeemer_id: &T::AccountId,
     ) -> UnitResult {
         Self::ensure_parachain_running()?;
@@ -275,7 +274,7 @@ impl<T: Trait> Module<T> {
 
     pub fn _redeem_tokens_liquidation(
         redeemer_id: &T::AccountId,
-        tokens: PolkaBTCBalance<T>,
+        tokens: PolkaBTC<T>,
     ) -> UnitResult {
         Self::ensure_parachain_running()?;
         let vault_id = <LiquidationVault<T>>::get();
@@ -299,8 +298,8 @@ impl<T: Trait> Module<T> {
     pub fn _replace_tokens(
         old_vault_id: &T::AccountId,
         new_vault_id: &T::AccountId,
-        tokens: PolkaBTCBalance<T>,
-        collateral: DOTBalance<T>,
+        tokens: PolkaBTC<T>,
+        collateral: DOT<T>,
     ) -> UnitResult {
         Self::ensure_parachain_running()?;
 
@@ -345,7 +344,7 @@ impl<T: Trait> Module<T> {
         <Vaults<T>>::contains_key(id)
     }
 
-    fn get_minimum_collateral_vault() -> DOTBalance<T> {
+    fn get_minimum_collateral_vault() -> DOT<T> {
         <MinimumCollateralVault<T>>::get()
     }
 
@@ -366,13 +365,13 @@ decl_event! {
     /// ## Events
     pub enum Event<T> where
             AccountId = <T as system::Trait>::AccountId,
-            DOTBalance = DOTBalance<T>,
-            BTCBalance = PolkaBTCBalance<T> {
-        RegisterVault(AccountId, DOTBalance),
+            DOT = DOT<T>,
+            BTCBalance = PolkaBTC<T> {
+        RegisterVault(AccountId, DOT),
         /// id, new collateral, total collateral, free collateral
-        LockAdditionalCollateral(AccountId, DOTBalance, DOTBalance, DOTBalance),
+        LockAdditionalCollateral(AccountId, DOT, DOT, DOT),
         /// id, withdrawn collateral, total collateral
-        WithdrawCollateral(AccountId, DOTBalance, DOTBalance),
+        WithdrawCollateral(AccountId, DOT, DOT),
 
         IncreaseToBeIssuedTokens(AccountId, BTCBalance),
         DecreaseToBeIssuedTokens(AccountId, BTCBalance),
@@ -381,9 +380,9 @@ decl_event! {
         DecreaseToBeRedeemedTokens(AccountId, BTCBalance),
         DecreaseTokens(AccountId, AccountId, BTCBalance),
         RedeemTokens(AccountId, BTCBalance),
-        RedeemTokensPremium(AccountId, BTCBalance, DOTBalance, AccountId),
+        RedeemTokensPremium(AccountId, BTCBalance, DOT, AccountId),
         RedeemTokensLiquidation(AccountId, BTCBalance),
-        ReplaceTokens(AccountId, AccountId, BTCBalance, DOTBalance),
+        ReplaceTokens(AccountId, AccountId, BTCBalance, DOT),
         LiquidateVault(AccountId),
     }
 }

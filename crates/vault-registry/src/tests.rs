@@ -1,13 +1,14 @@
-use frame_support::traits::Currency;
 use frame_support::{assert_err, assert_ok, StorageValue};
 use sp_core::H160;
 
 use mocktopus::mocking::*;
 
 use crate::ext;
-use crate::mock::{run_test, Origin, System, Test, TestEvent, VaultRegistry};
-use crate::types::{UnitResult, DOT};
-use crate::Error;
+use crate::mock::{
+    run_test, Origin, System, Test, TestEvent, VaultRegistry, DEFAULT_COLLATERAL, DEFAULT_ID,
+    RICH_COLLATERAL, RICH_ID,
+};
+use x_core::{Error, UnitResult};
 
 type Event = crate::Event<Test>;
 
@@ -36,14 +37,10 @@ macro_rules! assert_not_emitted {
     };
 }
 
-const DEFAULT_ID: u64 = 3;
-const DEFAULT_COLLATERAL: u64 = 100;
-
 fn create_vault(id: u64) -> <Test as system::Trait>::AccountId {
     VaultRegistry::get_minimum_collateral_vault
         .mock_safe(|| MockResult::Return(DEFAULT_COLLATERAL));
     let collateral = DEFAULT_COLLATERAL;
-    let _ = <DOT<Test>>::deposit_creating(&id, collateral);
     let origin = Origin::signed(id);
     let result = VaultRegistry::register_vault(origin, collateral, H160::zero());
     assert_ok!(result);
@@ -99,13 +96,18 @@ fn register_vault_fails_when_already_registered() {
 #[test]
 fn lock_additional_collateral_succeeds() -> UnitResult {
     run_test(|| {
-        let id = create_sample_vault();
-        let _ = <DOT<Test>>::deposit_creating(&id, 50);
-        let res = VaultRegistry::lock_additional_collateral(Origin::signed(id), 50);
+        let id = create_vault(RICH_ID);
+        let additional = RICH_COLLATERAL - DEFAULT_COLLATERAL;
+        let res = VaultRegistry::lock_additional_collateral(Origin::signed(id), additional);
         assert_ok!(res);
         let new_collateral = ext::collateral::for_account::<Test>(&id);
-        assert_eq!(new_collateral, DEFAULT_COLLATERAL + 50);
-        assert_emitted!(Event::LockAdditionalCollateral(id, 50, 150, 150));
+        assert_eq!(new_collateral, DEFAULT_COLLATERAL + additional);
+        assert_emitted!(Event::LockAdditionalCollateral(
+            id,
+            additional,
+            RICH_COLLATERAL,
+            RICH_COLLATERAL
+        ));
 
         Ok(())
     })

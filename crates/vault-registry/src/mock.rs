@@ -120,11 +120,28 @@ pub type VaultRegistry = Module<Test>;
 
 pub struct ExtBuilder;
 
+pub const DEFAULT_ID: u64 = 3;
+pub const OTHER_ID: u64 = 4;
+pub const RICH_ID: u64 = 5;
+pub const DEFAULT_COLLATERAL: u64 = 100;
+pub const RICH_COLLATERAL: u64 = DEFAULT_COLLATERAL + 50;
+
 impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
-        let storage = system::GenesisConfig::default()
+        let mut storage = system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
+
+        pallet_balances::GenesisConfig::<Test> {
+            balances: vec![
+                (DEFAULT_ID, DEFAULT_COLLATERAL),
+                (OTHER_ID, DEFAULT_COLLATERAL),
+                (RICH_ID, RICH_COLLATERAL),
+            ],
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
         sp_io::TestExternalities::from(storage)
     }
 }
@@ -135,5 +152,7 @@ where
 {
     clear_mocks();
     ext::oracle::get_exchange_rate::<Test>.mock_safe(|| MockResult::Return(Ok(1)));
+    ext::oracle::dots_to_btc::<Test>.mock_safe(|v| MockResult::Return(Ok(v)));
+    ext::oracle::btc_to_dots::<Test>.mock_safe(|v| MockResult::Return(Ok(v)));
     ExtBuilder::build().execute_with(test)
 }
