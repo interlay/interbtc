@@ -33,7 +33,7 @@ type PolkaBTC<T> =
     <<T as treasury::Trait>::PolkaBTC as Currency<<T as system::Trait>::AccountId>>::Balance;
 
 /// The issue module id, used for deriving its sovereign account ID.
-const _MODULE_ID: ModuleId = ModuleId(*b"issuemod");
+const _MODULE_ID: ModuleId = ModuleId(*b"replacem");
 
 /// The pallet's configuration trait.
 pub trait Trait:

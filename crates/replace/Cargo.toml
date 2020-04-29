@@ -58,6 +58,10 @@ features= ['codec']
 default-features = false
 path = '../vault-registry'
 
+[dependencies.exchange-rate-oracle]
+default-features = false
+path = '../exchange-rate-oracle'
+
 [dependencies.collateral]
 default-features = false
 path = '../collateral'
@@ -82,6 +86,10 @@ path = '../x-core'
 [dependencies.sha2]
 default-features = false
 version = '0.8.0'
+
+[dependencies.rand]
+default-features = false
+version = '0.7.3'
 
 [features]
 default = ['std']

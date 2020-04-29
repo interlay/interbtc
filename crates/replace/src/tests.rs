@@ -5,13 +5,16 @@ use sp_core::H160;
 /// Tests for Replace
 use x_core::Error;
 
+// TODO(jaupe) mock crate wrappers
+
 fn request_replace(
     origin: AccountId,
+    vault_id: AccountId,
     amount: Balance,
-    vault: AccountId,
+    timeout: u64,
     collateral: Balance,
 ) -> Result<H256, Error> {
-    Replace::_request_replace(origin, amount, vault, collateral)
+    Replace::_request_replace(origin, vault_id, amount, timeout, collateral)
 }
 
 fn store_banned_vault() {
@@ -49,7 +52,11 @@ fn store_authorised_vault() {
 fn test_request_replace_invalid_amount() {
     run_test(|| {
         <system::Module<Test>>::set_block_number(0);
-        assert_noop!(request_replace(ALICE, 0, 0, BOB), Error::InvalidAmount);
+        let vault_id = 1;
+        assert_noop!(
+            request_replace(ALICE, vault_id, 0, 0, BOB),
+            Error::InvalidAmount
+        );
     })
 }
 
@@ -58,8 +65,9 @@ fn test_request_replace_invalid_timeout() {
     run_test(|| {
         <system::Module<Test>>::set_block_number(0);
         let amount = 1;
+        let vault_id = 1;
         assert_noop!(
-            request_replace(ALICE, amount, 0, BOB),
+            request_replace(ALICE, vault_id, amount, 0, BOB),
             Error::InvalidTimeout
         );
     })
@@ -71,8 +79,9 @@ fn test_request_replace_invalid_vault_id() {
         <system::Module<Test>>::set_block_number(0);
         let amount = 1;
         let timeout = 1;
+        let vault_id = 1;
         assert_noop!(
-            request_replace(ALICE, amount, timeout, BOB),
+            request_replace(ALICE, vault_id, amount, timeout, BOB),
             Error::InvalidVaultID
         );
     })
@@ -85,8 +94,9 @@ fn test_request_replace_vault_banned() {
         let amount = 1;
         let timeout = 1;
         store_banned_vault();
+        let vault_id = 1;
         assert_noop!(
-            request_replace(BOB, amount, timeout, BOB),
+            request_replace(BOB, vault_id, amount, timeout, BOB),
             Error::VaultBanned
         );
     })
@@ -100,8 +110,9 @@ fn test_request_replace_insufficient_griefing_amount_err() {
         let amount = 1;
         let timeout = 1;
         store_authorised_vault();
+        let vault_id = 1;
         assert_noop!(
-            request_replace(BOB, amount, timeout, 1),
+            request_replace(BOB, vault_id, amount, timeout, 1),
             Error::InsufficientCollateral
         );
     })
@@ -114,8 +125,9 @@ fn test_request_replace_ok() {
         let amount = 100;
         let timeout = 1;
         let collateral = 0;
+        let vault_id = BOB;
         store_authorised_vault();
         //TODO(jaupe) test key is correctly hashed
-        assert!(request_replace(BOB, amount, timeout, collateral).is_ok());
+        assert!(request_replace(BOB, vault_id, amount, timeout, collateral).is_ok());
     })
 }

@@ -24,6 +24,7 @@ use frame_support::{decl_event, decl_module, decl_storage /*, ensure */};
 use codec::{Decode, Encode};
 use frame_support::traits::Currency;
 use sp_core::H160;
+use std::ops::Sub;
 
 type DOT<T> = <<T as collateral::Trait>::DOT as Currency<<T as system::Trait>::AccountId>>::Balance;
 type PolkaBTC<T> =
@@ -64,12 +65,29 @@ pub struct Vault<AccountId, BlockNumber, PolkaBTC, DOT> {
 impl<AccountId, BlockNumber, PolkaBTC, DOT> Vault<AccountId, BlockNumber, PolkaBTC, DOT>
 where
     BlockNumber: PartialOrd,
+    PolkaBTC: Sub<Output = PolkaBTC> + Copy,
 {
     pub fn is_banned(&self, height: BlockNumber) -> bool {
         match &self.banned_until {
             Some(until) => height <= *until,
             None => false,
         }
+    }
+
+    pub fn ensure_not_banned(&self, height: BlockNumber) -> Result<(), Error> {
+        if self.is_banned(height) {
+            Err(Error::VaultBanned)
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn ensure_collateral(&self, _btc_amount: DOT) -> Result<(), Error> {
+        unimplemented!()
+    }
+
+    pub fn collateral_u64(&self) -> u64 {
+        unimplemented!()
     }
 }
 
@@ -79,7 +97,7 @@ decl_storage! {
     /// ## Storage
         /// The minimum collateral (DOT) a Vault needs to provide
         /// to participate in the issue process.
-        MinimumCollateralVault: DOT<T>;
+        MinimumCollateral: DOT<T>;
 
         /// If a Vault misbehaves in either the redeem or replace protocol by
         /// failing to prove that it sent the correct amount of BTC to the
@@ -143,7 +161,17 @@ decl_module! {
 
 #[cfg_attr(test, mockable)]
 impl<T: Trait> Module<T> {
-    /// Public getters
+    pub fn minimum_collateral() -> DOT<T> {
+        <MinimumCollateral<T>>::get()
+    }
+
+    pub fn auction_collateral_threshold() -> u128 {
+        AuctionCollateralThreshold::get()
+    }
+
+    pub fn secure_collateral_threshold() -> u128 {
+        SecureCollateralThreshold::get()
+    }
 
     pub fn get_vault_from_id(
         id: T::AccountId,
@@ -174,6 +202,21 @@ impl<T: Trait> Module<T> {
         let btc_address = vault.btc_address;
         <Vaults<T>>::insert(id, vault);
         Ok(btc_address)
+    }
+
+    pub fn increase_to_be_redeemed_tokens(
+        id: T::AccountId,
+        tokens: PolkaBTC<T>,
+    ) -> Result<H160, Error> {
+        let mut vault = Self::get_vault_from_id(id.clone())?;
+        let available_tokens = vault.issued_tokens - vault.to_be_redeemed_tokens;
+        if tokens > available_tokens {
+            return Err(Error::InsufficientTokensComitted);
+        }
+        vault.to_be_redeemed_tokens += tokens;
+        let address = vault.btc_address;
+        <Vaults<T>>::insert(id, vault);
+        Ok(address)
     }
 
     pub fn decrease_to_be_issued_tokens(
