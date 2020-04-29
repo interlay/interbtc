@@ -92,6 +92,11 @@ path = '../x-core'
 default-features = false
 path = '../security'
 
+[dependencies.timestamp]
+default-features = false
+package = 'pallet-timestamp'
+version = '2.0.0-alpha.5'
+
 [dependencies.sha2]
 default-features = false
 version = '0.8.0'
@@ -116,4 +121,6 @@ std = [
 	'bitcoin/std',
 	'x-core/std',
 	'sha2/std',
+	'security/std',
+	'timestamp/std',
 ]
