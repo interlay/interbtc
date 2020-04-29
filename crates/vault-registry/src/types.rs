@@ -77,6 +77,7 @@ impl<T: Trait> RichVault<T> {
     pub fn withdraw_collateral(&self, collateral: DOT<T>) -> UnitResult {
         ext::collateral::release::<T>(&self.data.id, collateral)
         // TODO: add checks for SecureCollateralThreshold
+        // collateral < vault.get_collateral() - vault.issued_tokens * SecureCollateralThreshold
     }
 
     pub fn get_collateral(&self) -> DOT<T> {
