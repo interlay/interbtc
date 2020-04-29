@@ -158,7 +158,7 @@ impl<T: Trait> RichVault<T> {
     pub fn decrease_tokens(&mut self, tokens: PolkaBTC<T>) -> UnitResult {
         self.decrease_to_be_redeemed(tokens)?;
         self.decrease_issued(tokens)
-        // FIXME: add punishment logic
+        // Note: slashing of collateral must be called where this function is called (e.g. in Redeem)
     }
 
     pub fn redeem_tokens(&mut self, tokens: PolkaBTC<T>) -> UnitResult {
