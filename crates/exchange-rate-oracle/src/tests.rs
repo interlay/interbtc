@@ -91,7 +91,7 @@ fn is_max_delay_passed() {
     run_test(|| {
         let now = 1585776145;
 
-        ExchangeRateOracle::seconds_since_epoch.mock_safe(move || MockResult::Return(Ok(now)));
+        ExchangeRateOracle::get_current_time.mock_safe(move || MockResult::Return(now));
         ExchangeRateOracle::get_last_exchange_rate_time
             .mock_safe(move || MockResult::Return(now - 3600));
 
@@ -102,18 +102,5 @@ fn is_max_delay_passed() {
         // max delay is 2 hours and 1 hour passed
         ExchangeRateOracle::get_max_delay.mock_safe(|| MockResult::Return(7200));
         assert!(!ExchangeRateOracle::is_max_delay_passed().unwrap());
-    });
-}
-
-#[test]
-fn seconds_since_epoch() {
-    run_test(|| {
-        let now = 1585776145;
-        let ten_years = 3600 * 24 * 365;
-        let timestamp = ExchangeRateOracle::seconds_since_epoch().unwrap();
-        // check that the value of timestamp looks reasonable
-        // this test will start failing in 2030 or so
-        assert!(now - ten_years < timestamp);
-        assert!(timestamp < now + ten_years);
     });
 }

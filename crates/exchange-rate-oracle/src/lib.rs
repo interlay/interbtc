@@ -19,13 +19,12 @@ use frame_support::dispatch::DispatchResult;
 /// https://interlay.gitlab.io/polkabtc-spec/spec/oracle.html
 // Substrate
 use frame_support::{decl_event, decl_module, decl_storage, ensure};
-use std::time::SystemTime;
 use system::ensure_signed;
 use x_core::Error;
 
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
-pub trait Trait: system::Trait {
+pub trait Trait: system::Trait + timestamp::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
@@ -41,10 +40,10 @@ decl_storage! {
         ExchangeRate: u128;
 
         /// Last exchange rate time
-        LastExchangeRateTime: u64;
+        LastExchangeRateTime: T::Moment;
 
         /// Maximum delay for the exchange rate to be used
-        MaxDelay: u64;
+        MaxDelay: T::Moment;
 
         // Oracle allowed to set the exchange rate
         AuthorizedOracle: T::AccountId;
@@ -63,7 +62,7 @@ decl_module! {
             // fail if the sender is not the authorized oracle
             ensure!(sender == Self::get_authorized_oracle(), Error::InvalidOracleSource);
 
-            Self::internal_set_rate(rate)?;
+            Self::_set_exchange_rate(rate)?;
 
             Self::deposit_event(Event::<T>::SetExchangeRate(sender, rate));
 
@@ -81,22 +80,22 @@ impl<T: Trait> Module<T> {
         Ok(<ExchangeRate>::get())
     }
 
-    pub fn get_last_exchange_rate_time() -> u64 {
-        <LastExchangeRateTime>::get()
+    pub fn get_last_exchange_rate_time() -> T::Moment {
+        <LastExchangeRateTime<T>>::get()
     }
 
     /// Private getters and setters
-    fn get_max_delay() -> u64 {
-        <MaxDelay>::get()
+    fn get_max_delay() -> T::Moment {
+        <MaxDelay<T>>::get()
     }
 
-    pub fn internal_set_rate(rate: u128) -> Result<(), Error> {
+    pub fn _set_exchange_rate(rate: u128) -> Result<(), Error> {
         Self::set_current_rate(rate);
         // recover if the max delay was already passed
         if Self::is_max_delay_passed()? {
             Self::recover_from_oracle_offline()?;
         }
-        let now = Self::seconds_since_epoch()?;
+        let now = Self::get_current_time();
         Self::set_last_exchange_rate_time(now);
         Ok(())
     }
@@ -105,8 +104,8 @@ impl<T: Trait> Module<T> {
         <ExchangeRate>::put(rate);
     }
 
-    fn set_last_exchange_rate_time(time: u64) {
-        <LastExchangeRateTime>::put(time);
+    fn set_last_exchange_rate_time(time: T::Moment) {
+        <LastExchangeRateTime<T>>::put(time);
     }
 
     fn get_authorized_oracle() -> T::AccountId {
@@ -133,19 +132,15 @@ impl<T: Trait> Module<T> {
     /// Returns true if the last update to the exchange rate
     /// was before the maximum allowed delay
     fn is_max_delay_passed() -> Result<bool, Error> {
-        let timestamp = Self::seconds_since_epoch()?;
+        let timestamp = Self::get_current_time();
         let last_update = Self::get_last_exchange_rate_time();
         let max_delay = Self::get_max_delay();
         Ok(timestamp - last_update > max_delay)
     }
 
-    /// Returns the number of seconds ellapsed since UNIX epoch
-    fn seconds_since_epoch() -> Result<u64, Error> {
-        let now = SystemTime::now();
-        let epoch_duration = now
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .map_err(|_e| Error::RuntimeError)?;
-        Ok(epoch_duration.as_secs())
+    /// Returns the current timestamp
+    fn get_current_time() -> T::Moment {
+        <timestamp::Module<T>>::get()
     }
 }
 

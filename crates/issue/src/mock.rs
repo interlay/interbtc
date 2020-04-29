@@ -102,6 +102,15 @@ impl treasury::Trait for Test {
     type Event = TestEvent;
 }
 
+parameter_types! {
+    pub const MinimumPeriod: u64 = 5;
+}
+impl timestamp::Trait for Test {
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = MinimumPeriod;
+}
+
 impl exchange_rate_oracle::Trait for Test {
     type Event = TestEvent;
 }
@@ -150,7 +159,7 @@ where
 {
     clear_mocks();
     ExtBuilder::build().execute_with(|| {
-        assert_ok!(<exchange_rate_oracle::Module<Test>>::internal_set_rate(1));
+        assert_ok!(<exchange_rate_oracle::Module<Test>>::_set_exchange_rate(1));
         test();
     });
 }
