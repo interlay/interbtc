@@ -61,7 +61,14 @@ impl Trait for Test {
     type Event = TestEvent;
 }
 
-// pub type Error = crate::Error;
+parameter_types! {
+    pub const MinimumPeriod: u64 = 5;
+}
+impl timestamp::Trait for Test {
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = MinimumPeriod;
+}
 
 pub type System = system::Module<Test>;
 pub type ExchangeRateOracle = Module<Test>;

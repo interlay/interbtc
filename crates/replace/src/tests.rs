@@ -32,7 +32,7 @@ fn store_banned_vault() {
     );
 }
 
-fn authorised_vault() -> vault_registry::Vault<u64, u64, u64, u64> {
+fn authorised_vault() -> vault_registry::Vault<u64, u64, u64> {
     vault_registry::Vault {
         vault: BOB,
         to_be_issued_tokens: 0,

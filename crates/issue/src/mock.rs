@@ -1,6 +1,8 @@
 /// Mocking the test environment
 use crate::{Module, Trait};
-use frame_support::{impl_outer_event, impl_outer_origin, parameter_types, weights::Weight};
+use frame_support::{
+    assert_ok, impl_outer_event, impl_outer_origin, parameter_types, weights::Weight,
+};
 use pallet_balances as balances;
 use sp_core::H256;
 use sp_runtime::{
@@ -28,6 +30,8 @@ impl_outer_event! {
         collateral<T>,
         btc_relay,
         treasury<T>,
+        exchange_rate_oracle<T>,
+        security<T>,
     }
 }
 
@@ -94,8 +98,25 @@ impl btc_relay::Trait for Test {
     type Event = TestEvent;
 }
 
+impl security::Trait for Test {
+    type Event = TestEvent;
+}
+
 impl treasury::Trait for Test {
     type PolkaBTC = Balances;
+    type Event = TestEvent;
+}
+
+parameter_types! {
+    pub const MinimumPeriod: u64 = 5;
+}
+impl timestamp::Trait for Test {
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = MinimumPeriod;
+}
+
+impl exchange_rate_oracle::Trait for Test {
     type Event = TestEvent;
 }
 
@@ -142,5 +163,8 @@ where
     T: FnOnce() -> (),
 {
     clear_mocks();
-    ExtBuilder::build().execute_with(test);
+    ExtBuilder::build().execute_with(|| {
+        assert_ok!(<exchange_rate_oracle::Module<Test>>::_set_exchange_rate(1));
+        test();
+    });
 }

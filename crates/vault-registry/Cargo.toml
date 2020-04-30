@@ -8,6 +8,7 @@ edition = "2018"
 default = ['std']
 std = [
   'codec/std',
+  'primitive-types/std',
   'frame-support/std',
   'sp-runtime/std',
   'sp-io/std',
@@ -18,6 +19,7 @@ std = [
   'x-core/std',
   'collateral/std',
   'treasury/std',
+  'exchange-rate-oracle/std',
 ]
 
 [dependencies.codec]
@@ -25,6 +27,11 @@ default-features = false
 features = ['derive']
 package = 'parity-scale-codec'
 version = '1.0.0'
+
+[dependencies.primitive-types]
+default-features = false
+version = '0.7.0'
+features= ['codec']
 
 [dependencies.sp-runtime]
 default-features = false
@@ -61,6 +68,10 @@ version = '2.0.0-alpha.5'
 default-features = false
 path = '../x-core'
 
+[dependencies.security]
+default-features = false
+path = '../security'
+
 [dependencies.collateral]
 default-features = false
 path = '../collateral'
@@ -68,6 +79,10 @@ path = '../collateral'
 [dependencies.treasury]
 default-features = false
 path = '../treasury'
+
+[dependencies.exchange-rate-oracle]
+default-features = false
+path = '../exchange-rate-oracle'
 
 [dev-dependencies]
 mocktopus = "0.7.0"

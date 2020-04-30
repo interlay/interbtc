@@ -7,6 +7,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+use sha2::Digest
 #[cfg(test)]
 extern crate mocktopus;
 
@@ -22,7 +23,7 @@ use frame_support::traits::Currency;
 // Substrate
 use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
 use primitive_types::H256;
-use sha2::{Digest, Sha256};
+use sha2::Sha256;
 use sp_core::H160;
 use sp_runtime::ModuleId;
 use system::ensure_signed;
@@ -145,10 +146,9 @@ impl<T: Trait> Module<T> {
         vault_id: T::AccountId,
         griefing_collateral: DOT<T>,
     ) -> Result<H256, Error> {
-        // heck precondition
-        // check vault exists and it not banned
-        let vault = <vault_registry::Module<T>>::get_vault_from_id(vault_id.clone())?;
+        // TODO: check precondition
         let height = <system::Module<T>>::block_number();
+        let vault = <vault_registry::Module<T>>::_get_vault_from_id(&vault_id)?;
         match vault.banned_until {
             Some(until) => ensure!(until < height, Error::VaultBanned),
             None => (),
@@ -159,19 +159,18 @@ impl<T: Trait> Module<T> {
             Error::InsufficientCollateral
         );
 
-        <collateral::Module<T>>::lock_collateral(requester.clone(), griefing_collateral)?;
+        <collateral::Module<T>>::lock_collateral(&requester, griefing_collateral)?;
 
-        let btc_address = <vault_registry::Module<T>>::increase_to_be_issued_tokens(
-            vault_id.clone(),
-            amount.clone(),
-        )?;
+        let btc_address =
+            <vault_registry::Module<T>>::_increase_to_be_issued_tokens(&vault_id, amount.clone())?;
 
         let mut hasher = Sha256::default();
         // TODO: nonce from security module
         hasher.input(requester.encode());
 
         let mut result = [0; 32];
-        result.copy_from_slice(&hasher.result()[..]);
+        // TODO(jaupe) pull changes from greg
+        //result.copy_from_slice(&hasher.result()[..]);
         let key = H256(result);
 
         Self::insert_issue_request(
@@ -227,7 +226,7 @@ impl<T: Trait> Module<T> {
             issue_id.clone().as_bytes().to_vec(),
         )?;
 
-        <vault_registry::Module<T>>::issue_tokens(issue.vault.clone(), issue.amount.clone())?;
+        <vault_registry::Module<T>>::_issue_tokens(&issue.vault, issue.amount)?;
         <treasury::Module<T>>::mint(issue.requester, issue.amount);
         <IssueRequests<T>>::remove(issue_id);
 
@@ -244,10 +243,7 @@ impl<T: Trait> Module<T> {
         ensure!(issue.opentime + period > height, Error::TimeNotExpired);
         ensure!(!issue.completed, Error::IssueCompleted);
 
-        <vault_registry::Module<T>>::decrease_to_be_issued_tokens(
-            issue.vault.clone(),
-            issue.amount.clone(),
-        )?;
+        <vault_registry::Module<T>>::_decrease_to_be_issued_tokens(&issue.vault, issue.amount)?;
         <collateral::Module<T>>::slash_collateral(
             issue.requester.clone(),
             issue.vault.clone(),

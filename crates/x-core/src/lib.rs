@@ -75,6 +75,10 @@ pub enum Error {
     InsufficientCollateralAvailable,
     VaultNotFound,
     VaultBanned,
+    /// Returned if the collateral amount to register a vault was too low
+    InsuficientVaultCollateralAmount, // FIXME: ERR_MIN_AMOUNT in spec
+    /// Returned if a vault tries to register while already being registered
+    VaultAlreadyRegistered,
     InsufficientCollateral,
     ExceedingVaultLimit,
     IssueIdNotFound,
@@ -82,6 +86,7 @@ pub enum Error {
     UnauthorizedUser,
     TimeNotExpired,
     IssueCompleted,
+    InsufficientTokensCommitted,
 
     /// use only for errors which means something
     /// going very wrong and which do not match any other error
@@ -151,6 +156,8 @@ impl Error {
             }
             Error::VaultNotFound => "There exists no Vault with the given account id",
             Error::VaultBanned => "The selected Vault has been temporarily banned",
+            Error::InsuficientVaultCollateralAmount => "The provided collateral was insufficient",
+            Error::VaultAlreadyRegistered => "This vault is already registered",
             Error::InsufficientCollateral => "User provided collateral below limit",
             Error::ExceedingVaultLimit => "The requested Vault has not locked enough collateral",
             Error::IssueIdNotFound => "Requested issue id not found",
@@ -158,6 +165,8 @@ impl Error {
             Error::UnauthorizedUser => "Unauthorized: Caller must be associated user",
             Error::TimeNotExpired => "Time to issue PolkaBTC not yet expired",
             Error::IssueCompleted => "Issue completed and cannot be cancelled",
+            Error::InsufficientTokensCommitted => "The requested amount of tokens exceeds the toBeIssuedTokens by this vault.",
+
             Error::RuntimeError => "Runtime error",
         }
     }
@@ -181,3 +190,6 @@ impl From<Error> for DispatchError {
         }
     }
 }
+
+pub type Result<T> = sp_std::result::Result<T, Error>;
+pub type UnitResult = Result<()>;

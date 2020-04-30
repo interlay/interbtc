@@ -256,9 +256,10 @@ impl<T: Trait> Module<T> {
             return Err(Error::InvalidTimeout);
         }
         // check vault exists
-        let vault = <vault_registry::Module<T>>::get_vault_from_id(vault_id.clone())?;
+        let vault = <vault_registry::Module<T>>::_get_vault_from_id(&vault_id)?;
         // check vault is not banned
         let height = Self::current_height();
+        //TODO(jaupe) implement this function ensure_not_banned
         vault.ensure_not_banned(height)?;
         // check amount is available for replacing
         if amount > vault.issued_tokens {
@@ -285,12 +286,10 @@ impl<T: Trait> Module<T> {
         );
 
         // lock griefing collateral
-        <collateral::Module<T>>::lock_collateral(requester.clone(), griefing_collateral)?;
+        <collateral::Module<T>>::lock_collateral(&requester, griefing_collateral)?;
 
-        let _btc_address = <vault_registry::Module<T>>::increase_to_be_issued_tokens(
-            vault_id.clone(),
-            amount.clone(),
-        )?;
+        let _btc_address =
+            <vault_registry::Module<T>>::_increase_to_be_issued_tokens(&vault_id, amount.clone())?;
 
         let replace = Replace {
             old_vault: vault_id.clone(),
@@ -314,7 +313,7 @@ impl<T: Trait> Module<T> {
 
     fn _withdraw_replace_request(vault_id: T::AccountId, request_id: H256) -> Result<(), Error> {
         // check vault exists
-        let vault = <vault_registry::Module<T>>::get_vault_from_id(vault_id.clone())?;
+        let vault = <vault_registry::Module<T>>::_get_vault_from_id(&vault_id)?;
         let req = Self::get_replace_request(request_id)?;
         if req.old_vault != vault_id {
             return Err(Error::InvalidVaultID); // TODO(jaupe) is this the correct error code? should it call ensure! macro?
@@ -322,20 +321,24 @@ impl<T: Trait> Module<T> {
         //let threshold = <vault_registry::Module<T>>::auction_collateral_threshold();
         // check collateral is below the threshold
         // TODO(jaupe) investigate if availabe tokens need to be checked too
+
+        // TODO(jaupe) get collateral from collateral module
+        /*
         let threshold: DOT<T> = 1_000_000u32.into(); // TODO(jaupe) convert this correctly
         if vault.collateral < threshold {
             return Err(Error::InsufficientCollateral);
         }
+        */
         // check that a new vault owner hasn't already comitted to replacing
         if req.new_vault.is_some() {
             return Err(Error::CancelAcceptedRequest);
         }
         <collateral::Module<T>>::release_collateral(
-            req.old_vault.clone(),
+            &req.old_vault,
             req.griefing_collateral.clone(),
         )?;
-        <vault_registry::Module<T>>::decrease_to_be_issued_tokens(
-            req.old_vault.clone(),
+        <vault_registry::Module<T>>::_decrease_to_be_issued_tokens(
+            &req.old_vault,
             req.amount.clone(),
         )?;
         Self::remove_replace_request(request_id);
@@ -349,7 +352,7 @@ impl<T: Trait> Module<T> {
         collateral: DOT<T>,
     ) -> Result<(), Error> {
         // check new vault exists
-        let vault = <vault_registry::Module<T>>::get_vault_from_id(new_vault_id.clone())?;
+        let vault = <vault_registry::Module<T>>::_get_vault_from_id(&new_vault_id)?;
         let mut req = Self::get_replace_request(replace_id)?;
         // ensure vault is not banned
         let height = <system::Module<T>>::block_number();
@@ -357,7 +360,7 @@ impl<T: Trait> Module<T> {
         // ensure sufficient collateral
         vault.ensure_collateral(collateral)?;
         // lock collateral
-        <collateral::Module<T>>::lock_collateral(new_vault_id.clone(), collateral)?;
+        <collateral::Module<T>>::lock_collateral(&new_vault_id, collateral)?;
         // update request data
         req.add_new_vault(new_vault_id.clone(), height, collateral, vault.btc_address);
         Self::insert_replace_request(replace_id, req);
@@ -376,27 +379,28 @@ impl<T: Trait> Module<T> {
         btc_amount: PolkaBTC<T>,
         collateral: DOT<T>,
     ) -> Result<(), Error> {
-        let new_vault = <vault_registry::Module<T>>::get_vault_from_id(new_vault_id.clone())?;
-        let old_vault = <vault_registry::Module<T>>::get_vault_from_id(old_vault_id.clone())?;
+        let new_vault = <vault_registry::Module<T>>::_get_vault_from_id(&new_vault_id)?;
+        let old_vault = <vault_registry::Module<T>>::_get_vault_from_id(&old_vault_id)?;
         // check collateral is below the minimin auction threshold
         // TODO(jaupe) investigate if availabe tokens need to be checked too
         //let threshold = <vault_registry::Module<T>>::auction_collateral_threshold();
         let threshold: DOT<T> = 1_000_000u32.into(); // TODO(jaupe) convert this correctly
-        if old_vault.collateral < threshold {
-            return Err(Error::InsufficientCollateral);
-        }
-        // check collateral exceeds secure threshold
-        let threshold = <vault_registry::Module<T>>::secure_collateral_threshold();
-        if (old_vault.collateral_u64() as u128) < threshold {
-            return Err(Error::InsufficientCollateral);
-        }
+                                                     // TODO(jaupe) get colllateral
+                                                     //if old_vault.collateral < threshold {
+                                                     //    return Err(Error::InsufficientCollateral);
+                                                     //}
+                                                     // TODO(jaupe) check collateral exceeds secure threshold
+                                                     /*
+                                                     let threshold = <vault_registry::Module<T>>::secure_collateral_threshold();
+
+                                                     if (old_vault.collateral_u64() as u128) < threshold {
+                                                         return Err(Error::InsufficientCollateral);
+                                                     }
+                                                     */
         // lock collateral
-        <collateral::Module<T>>::lock_collateral(new_vault_id.clone(), collateral)?;
+        <collateral::Module<T>>::lock_collateral(&new_vault_id, collateral)?;
         // increase to be redeemed tokens
-        <vault_registry::Module<T>>::increase_to_be_redeemed_tokens(
-            old_vault_id.clone(),
-            btc_amount.clone(),
-        )?;
+        <vault_registry::Module<T>>::_increase_to_be_redeemed_tokens(&old_vault_id, btc_amount)?;
         // generate request
         let height = <system::Module<T>>::block_number();
         //TODO(jaupe) populate nonce
@@ -440,7 +444,7 @@ impl<T: Trait> Module<T> {
         if req.open_time >= height - replace_period {
             return Err(Error::ReplacePeriodExpired);
         }
-        let new_vault = <vault_registry::Module<T>>::get_vault_from_id(new_vault_id.clone())?;
+        let new_vault = <vault_registry::Module<T>>::_get_vault_from_id(&new_vault_id)?;
         // verify transaction is included
         // TODO(jaupe) work out what confirmations and insecure should be
         let confirmations = 0;
@@ -465,7 +469,7 @@ impl<T: Trait> Module<T> {
 
     fn _cancel_replace(new_vault_id: T::AccountId, replace_id: H256) -> Result<(), Error> {
         let req = Self::get_replace_request(replace_id)?;
-        let _vault = <vault_registry::Module<T>>::get_vault_from_id(new_vault_id.clone())?;
+        let _vault = <vault_registry::Module<T>>::_get_vault_from_id(&new_vault_id)?;
         let _current_height = Self::current_height();
         let _replace_period = Self::replace_period();
         //TODO(jaupe) ensure timeout period has not expired

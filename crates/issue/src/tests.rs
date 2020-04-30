@@ -18,12 +18,33 @@ fn request_issue(
     Issue::_request_issue(origin, amount, vault, collateral)
 }
 
+fn insert_vault(id: AccountId) {
+    <vault_registry::Module<Test>>::_insert_vault(
+        &id,
+        vault_registry::Vault {
+            id: id,
+            to_be_issued_tokens: 0,
+            issued_tokens: 0,
+            to_be_redeemed_tokens: 0,
+            btc_address: H160([0; 20]),
+            banned_until: None,
+        },
+    );
+}
+
+fn insert_vaults(ids: &[AccountId]) {
+    for id in ids {
+        insert_vault(*id);
+    }
+}
+
 fn request_issue_ok(
     origin: AccountId,
     amount: Balance,
     vault: AccountId,
     collateral: Balance,
 ) -> H256 {
+    insert_vaults(&[ALICE, BOB]);
     match Issue::_request_issue(origin, amount, vault, collateral) {
         Ok(act) => act,
         Err(err) => {
@@ -57,14 +78,13 @@ fn cancel_issue(origin: AccountId, issue_id: &H256) -> Result<(), Error> {
 }
 
 fn create_test_vault() {
-    <vault_registry::Module<Test>>::insert_vault(
-        BOB,
+    <vault_registry::Module<Test>>::_insert_vault(
+        &BOB,
         vault_registry::Vault {
-            vault: BOB,
+            id: BOB,
             to_be_issued_tokens: 0,
             issued_tokens: 0,
             to_be_redeemed_tokens: 0,
-            collateral: 0,
             btc_address: H160([0; 20]),
             banned_until: None,
         },
@@ -74,15 +94,15 @@ fn create_test_vault() {
 #[test]
 fn test_request_issue_banned_fails() {
     run_test(|| {
+        assert_ok!(<exchange_rate_oracle::Module<Test>>::_set_exchange_rate(1));
         <system::Module<Test>>::set_block_number(0);
-        <vault_registry::Module<Test>>::insert_vault(
-            BOB,
+        <vault_registry::Module<Test>>::_insert_vault(
+            &BOB,
             vault_registry::Vault {
-                vault: BOB,
+                id: BOB,
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
-                collateral: 0,
                 btc_address: H160([0; 20]),
                 banned_until: Some(1),
             },
@@ -94,6 +114,7 @@ fn test_request_issue_banned_fails() {
 #[test]
 fn test_request_issue_insufficient_collateral_fails() {
     run_test(|| {
+        insert_vaults(&[ALICE, BOB]);
         Issue::set_issue_griefing_collateral(10);
         create_test_vault();
         assert_noop!(
