@@ -29,6 +29,7 @@ pub(crate) mod collateral {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod oracle {
+
     use crate::types::{PolkaBTC, DOT};
     use x_core::Result;
 
@@ -41,20 +42,12 @@ pub(crate) mod oracle {
     {
     }
 
-    pub fn get_exchange_rate<T: exchange_rate_oracle::Trait>() -> Result<u128> {
-        <exchange_rate_oracle::Module<T>>::get_exchange_rate()
+    pub fn btc_to_dots<T: Exchangeable>(amount: PolkaBTC<T>) -> Result<DOT<T>> {
+        <exchange_rate_oracle::Module<T>>::btc_to_dots(amount)
     }
 
-    pub fn btc_to_dots<T: Exchangeable>(_amount: PolkaBTC<T>) -> Result<DOT<T>> {
-        // FIXME: use rate
-        let _rate = get_exchange_rate::<T>()?;
-        Ok(Default::default())
-    }
-
-    pub fn dots_to_btc<T: Exchangeable>(_amount: DOT<T>) -> Result<PolkaBTC<T>> {
-        // FIXME: use rate
-        let _rate = get_exchange_rate::<T>()?;
-        Ok(Default::default())
+    pub fn dots_to_btc<T: Exchangeable>(amount: DOT<T>) -> Result<PolkaBTC<T>> {
+        <exchange_rate_oracle::Module<T>>::dots_to_btc(amount)
     }
 }
 

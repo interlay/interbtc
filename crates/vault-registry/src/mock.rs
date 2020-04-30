@@ -151,7 +151,6 @@ where
     T: FnOnce() -> U,
 {
     clear_mocks();
-    ext::oracle::get_exchange_rate::<Test>.mock_safe(|| MockResult::Return(Ok(1)));
     ext::oracle::dots_to_btc::<Test>.mock_safe(|v| MockResult::Return(Ok(v)));
     ext::oracle::btc_to_dots::<Test>.mock_safe(|v| MockResult::Return(Ok(v)));
     ExtBuilder::build().execute_with(test)

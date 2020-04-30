@@ -10,9 +10,11 @@ std = [
     'codec/std',
     'frame-support/std',
     'sp-runtime/std',
+    'sp-std/std',
     'sp-io/std',
     'system/std',
     'timestamp/std',
+    'pallet-balances/std',
     'sp-core/std',
     'x-core/std',
 ]
@@ -36,6 +38,10 @@ default-features = false
 package = 'frame-system'
 version = '2.0.0-alpha.5'
 
+[dependencies.sp-std]
+default-features = false
+version = '2.0.0-alpha.5'
+
 [dependencies.sp-io]
 default-features = false
 version = '2.0.0-alpha.5'
@@ -49,9 +55,22 @@ default-features = false
 package = 'pallet-timestamp'
 version = '2.0.0-alpha.5'
 
+[dependencies.pallet-balances]
+default-features = false
+package = 'pallet-balances'
+version = '2.0.0-alpha.5'
+
 [dependencies.x-core]
 default-features = false
 path = '../x-core'
+
+[dependencies.collateral]
+default-features = false
+path = '../collateral'
+
+[dependencies.treasury]
+default-features = false
+path = '../treasury'
 
 [dev-dependencies]
 mocktopus = "0.7.0"
