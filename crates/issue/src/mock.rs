@@ -41,6 +41,7 @@ impl_outer_event! {
 
 pub type AccountId = u64;
 pub type Balance = u64;
+pub type BlockNumber = u64;
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Test;
@@ -55,7 +56,7 @@ impl system::Trait for Test {
     type Origin = Origin;
     type Call = ();
     type Index = u64;
-    type BlockNumber = u64;
+    type BlockNumber = BlockNumber;
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = AccountId;

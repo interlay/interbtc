@@ -13,9 +13,12 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
+mod ext;
+pub mod types;
+
+use crate::types::{PolkaBTC, DOT};
 use bitcoin::types::H256Le;
 use codec::{Decode, Encode};
-use frame_support::traits::Currency;
 /// # PolkaBTC Issue implementation
 /// The Issue module according to the specification at
 /// https://interlay.gitlab.io/polkabtc-spec/spec/issue.html
@@ -27,10 +30,6 @@ use sp_core::H160;
 use sp_runtime::ModuleId;
 use system::ensure_signed;
 use x_core::Error;
-
-type DOT<T> = <<T as collateral::Trait>::DOT as Currency<<T as system::Trait>::AccountId>>::Balance;
-type PolkaBTC<T> =
-    <<T as treasury::Trait>::PolkaBTC as Currency<<T as system::Trait>::AccountId>>::Balance;
 
 /// The issue module id, used for deriving its sovereign account ID.
 const _MODULE_ID: ModuleId = ModuleId(*b"issuemod");
@@ -147,7 +146,7 @@ impl<T: Trait> Module<T> {
     ) -> Result<H256, Error> {
         // TODO: check precondition
         let height = <system::Module<T>>::block_number();
-        let vault = <vault_registry::Module<T>>::_get_vault_from_id(&vault_id)?;
+        let vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
         match vault.banned_until {
             Some(until) => ensure!(until < height, Error::VaultBanned),
             None => (),
@@ -158,10 +157,10 @@ impl<T: Trait> Module<T> {
             Error::InsufficientCollateral
         );
 
-        <collateral::Module<T>>::lock_collateral(&requester, griefing_collateral)?;
+        ext::collateral::lock_collateral::<T>(&requester, griefing_collateral)?;
 
         let btc_address =
-            <vault_registry::Module<T>>::_increase_to_be_issued_tokens(&vault_id, amount.clone())?;
+            ext::vault_registry::increase_to_be_issued_tokens::<T>(&vault_id, amount)?;
 
         let mut hasher = Sha256::default();
         // TODO: nonce from security module
@@ -214,18 +213,17 @@ impl<T: Trait> Module<T> {
             Error::CommitPeriodExpired
         );
 
-        Self::verify_inclusion_and_validate_transaction(
-            tx_id,
-            tx_block_height,
-            merkle_proof,
+        ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, tx_block_height, merkle_proof)?;
+        // TODO: issue.amount
+        ext::btc_relay::validate_transaction::<T>(
             raw_tx,
-            0, // TODO: issue.amount,
+            0,
             issue.btc_address.as_bytes().to_vec(),
             issue_id.clone().as_bytes().to_vec(),
         )?;
 
-        <vault_registry::Module<T>>::_issue_tokens(&issue.vault, issue.amount)?;
-        <treasury::Module<T>>::mint(issue.requester, issue.amount);
+        ext::vault_registry::issue_tokens::<T>(&issue.vault, issue.amount)?;
+        ext::treasury::mint::<T>(issue.requester, issue.amount);
         <IssueRequests<T>>::remove(issue_id);
 
         Self::deposit_event(<Event<T>>::ExecuteIssue(issue_id, requester, issue.vault));
@@ -241,10 +239,10 @@ impl<T: Trait> Module<T> {
         ensure!(issue.opentime + period > height, Error::TimeNotExpired);
         ensure!(!issue.completed, Error::IssueCompleted);
 
-        <vault_registry::Module<T>>::_decrease_to_be_issued_tokens(&issue.vault, issue.amount)?;
-        <collateral::Module<T>>::slash_collateral(
-            issue.requester.clone(),
-            issue.vault.clone(),
+        ext::vault_registry::decrease_to_be_issued_tokens::<T>(&issue.vault, issue.amount)?;
+        ext::collateral::slash_collateral::<T>(
+            &issue.requester,
+            &issue.vault,
             issue.griefing_collateral,
         )?;
 
@@ -277,28 +275,5 @@ impl<T: Trait> Module<T> {
     #[allow(dead_code)]
     fn set_issue_period(value: T::BlockNumber) {
         <IssuePeriod<T>>::set(value);
-    }
-
-    // Note: the calls here are combined to simplify mocking
-    fn verify_inclusion_and_validate_transaction(
-        tx_id: H256Le,
-        tx_block_height: u32,
-        merkle_proof: Vec<u8>,
-        raw_tx: Vec<u8>,
-        amount: i64,
-        btc_address: Vec<u8>,
-        issue_id: Vec<u8>,
-    ) -> Result<(), Error> {
-        <btc_relay::Module<T>>::_verify_transaction_inclusion(
-            tx_id,
-            tx_block_height,
-            merkle_proof,
-            0,
-            false,
-        )?;
-
-        <btc_relay::Module<T>>::_validate_transaction(raw_tx, amount, btc_address, issue_id)?;
-
-        Ok(())
     }
 }

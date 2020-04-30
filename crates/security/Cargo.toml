@@ -17,7 +17,6 @@ std = [
   'sp-core/std',
 	'sp-std/std',
   'primitive-types/std',
-  'pallet-balances/std',
   'collateral/std',
 ]
 
