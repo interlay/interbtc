@@ -29,8 +29,10 @@ pub(crate) mod collateral {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod oracle {
+    use sp_std::convert::TryInto;
+
     use crate::types::{PolkaBTC, DOT};
-    use x_core::Result;
+    use x_core::{Error, Result};
 
     pub trait Exchangeable:
         exchange_rate_oracle::Trait + ::treasury::Trait + ::collateral::Trait
@@ -45,16 +47,22 @@ pub(crate) mod oracle {
         <exchange_rate_oracle::Module<T>>::get_exchange_rate()
     }
 
-    pub fn btc_to_dots<T: Exchangeable>(_amount: PolkaBTC<T>) -> Result<DOT<T>> {
-        // FIXME: use rate
-        let _rate = get_exchange_rate::<T>()?;
-        Ok(Default::default())
+    pub fn btc_to_dots<T: Exchangeable>(amount: PolkaBTC<T>) -> Result<DOT<T>> {
+        let rate = get_exchange_rate::<T>()?;
+        // XXX: for some reason amount.try_into() returns Result<usize, ...>
+        // instead of doing type inference properly
+        let raw_amount = TryInto::<u128>::try_into(amount).map_err(|_e| Error::RuntimeError)?;
+        let converted = rate.checked_mul(raw_amount).ok_or(Error::RuntimeError)?;
+        let result = converted.try_into().map_err(|_e| Error::RuntimeError)?;
+        Ok(result)
     }
 
-    pub fn dots_to_btc<T: Exchangeable>(_amount: DOT<T>) -> Result<PolkaBTC<T>> {
-        // FIXME: use rate
-        let _rate = get_exchange_rate::<T>()?;
-        Ok(Default::default())
+    pub fn dots_to_btc<T: Exchangeable>(amount: DOT<T>) -> Result<PolkaBTC<T>> {
+        let rate = get_exchange_rate::<T>()?;
+        let raw_amount = TryInto::<u128>::try_into(amount).map_err(|_e| Error::RuntimeError)?;
+        let converted = raw_amount.checked_div(rate).ok_or(Error::RuntimeError)?;
+        let result = converted.try_into().map_err(|_e| Error::RuntimeError)?;
+        Ok(result)
     }
 }
 
