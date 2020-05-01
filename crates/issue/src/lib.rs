@@ -7,7 +7,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-use sha2::Digest
+use sha2::Digest;
 #[cfg(test)]
 extern crate mocktopus;
 
@@ -148,10 +148,10 @@ impl<T: Trait> Module<T> {
         // TODO: check precondition
         let height = <system::Module<T>>::block_number();
         let vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
-        match vault.banned_until {
-            Some(until) => ensure!(until < height, Error::VaultBanned),
-            None => (),
-        };
+        // Check that the vault is currently not banned
+        if vault.is_banned(height) {
+            return Err(Error::VaultBanned);
+        }
 
         ensure!(
             griefing_collateral >= <IssueGriefingCollateral<T>>::get(),
@@ -167,7 +167,7 @@ impl<T: Trait> Module<T> {
         // TODO: nonce from security module
         hasher.input(requester.encode());
 
-        let mut result = [0; 32];
+        let result = [0; 32];
         // TODO(jaupe) pull changes from greg
         //result.copy_from_slice(&hasher.result()[..]);
         let key = H256(result);

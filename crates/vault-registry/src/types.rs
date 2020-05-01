@@ -3,6 +3,7 @@ use frame_support::traits::Currency;
 use codec::{Decode, Encode, HasCompact};
 use frame_support::{ensure, StorageMap};
 use sp_core::H160;
+use std::ops::Sub;
 
 #[cfg(test)]
 use mocktopus::macros::mockable;
@@ -35,6 +36,32 @@ pub struct Vault<AccountId, BlockNumber, PolkaBTC: HasCompact> {
     // Block height until which this Vault is banned from being
     // used for Issue, Redeem (except during automatic liquidation) and Replace .
     pub banned_until: Option<BlockNumber>,
+}
+
+impl<
+        AccountId,
+        BlockNumber: Copy + PartialOrd,
+        PolkaBTC: Copy + HasCompact + Sub<Output = PolkaBTC>,
+    > Vault<AccountId, BlockNumber, PolkaBTC>
+{
+    pub fn is_banned(&self, height: BlockNumber) -> bool {
+        match self.banned_until {
+            None => false,
+            Some(until) => height <= until,
+        }
+    }
+
+    pub fn ensure_not_banned(&self, height: BlockNumber) -> UnitResult {
+        if self.is_banned(height) {
+            Err(Error::VaultBanned)
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn no_issuable_tokens(&self) -> PolkaBTC {
+        self.issued_tokens - self.to_be_redeemed_tokens
+    }
 }
 
 impl<AccountId, BlockNumber, PolkaBTC: HasCompact + Default>

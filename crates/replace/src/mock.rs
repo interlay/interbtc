@@ -1,6 +1,9 @@
+/*
 /// Mocking the test environment
 use crate::{Module, Trait};
-use frame_support::{impl_outer_event, impl_outer_origin, parameter_types, weights::Weight};
+use frame_support::{
+    assert_ok, impl_outer_event, impl_outer_origin, parameter_types, weights::Weight,
+};
 use pallet_balances as balances;
 use sp_core::H256;
 use sp_runtime::{
@@ -29,6 +32,7 @@ impl_outer_event! {
         btc_relay,
         treasury<T>,
         exchange_rate_oracle<T>,
+        security<T>,
     }
 }
 
@@ -38,6 +42,7 @@ impl_outer_event! {
 
 pub type AccountId = u64;
 pub type Balance = u64;
+pub type BlockNumber = u64;
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Test;
@@ -52,7 +57,7 @@ impl system::Trait for Test {
     type Origin = Origin;
     type Call = ();
     type Index = u64;
-    type BlockNumber = u64;
+    type BlockNumber = BlockNumber;
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = AccountId;
@@ -95,9 +100,22 @@ impl btc_relay::Trait for Test {
     type Event = TestEvent;
 }
 
+impl security::Trait for Test {
+    type Event = TestEvent;
+}
+
 impl treasury::Trait for Test {
     type PolkaBTC = Balances;
     type Event = TestEvent;
+}
+
+parameter_types! {
+    pub const MinimumPeriod: u64 = 5;
+}
+impl timestamp::Trait for Test {
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = MinimumPeriod;
 }
 
 impl exchange_rate_oracle::Trait for Test {
@@ -147,5 +165,9 @@ where
     T: FnOnce() -> (),
 {
     clear_mocks();
-    ExtBuilder::build().execute_with(test);
+    ExtBuilder::build().execute_with(|| {
+        assert_ok!(<exchange_rate_oracle::Module<Test>>::_set_exchange_rate(1));
+        test();
+    });
 }
+*/
