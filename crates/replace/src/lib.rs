@@ -25,6 +25,7 @@ use primitive_types::H256;
 use sha2::{Digest, Sha256};
 use sp_core::H160;
 use sp_runtime::ModuleId;
+use sp_std::convert::TryInto;
 use system::ensure_signed;
 use x_core::Error;
 
@@ -319,14 +320,18 @@ impl<T: Trait> Module<T> {
             return Err(Error::InvalidVaultID); // TODO(jaupe) is this the correct error code? should it call ensure! macro?
         }
         // step 2: Check that caller of the function is indeed the to-be-replaced Vault as specified in the ReplaceRequest. Return ERR_UNAUTHORIZED error if this check fails.
-        let vault = <vault_registry::Module<T>>::_get_vault_from_id(&vault_id)?;
+        let _vault = <vault_registry::Module<T>>::_get_vault_from_id(&vault_id)?;
         if vault_id != req.old_vault {
             return Err(Error::UnauthorizedUser);
         }
         // step 3: Check that the collateral rate of the vault is not under the AuctionCollateralThreshold as defined in the VaultRegistry. If it is under the AuctionCollateralThreshold return ERR_UNAUTHORIZED
-        let threshold: DOT<T> = <vault_registry::Module<T>>::auction_collateral_threshold().into();
-        let collateral: DOT<T> =
-            <collateral::Module<T>>::get_collateral_from_account(&vault_id).into();
+        let threshold: u128 =
+            TryInto::<u128>::try_into(<vault_registry::Module<T>>::auction_collateral_threshold())
+                .map_err(|_e| Error::RuntimeError)?;
+        let collateral: u128 = TryInto::<u128>::try_into(
+            <collateral::Module<T>>::get_collateral_from_account(&vault_id),
+        )
+        .map_err(|_e| Error::RuntimeError)?;
         if collateral < threshold {
             return Err(Error::UnauthorizedUser);
         }
@@ -366,8 +371,11 @@ impl<T: Trait> Module<T> {
             return Err(Error::VaultBanned);
         }
         // step 4: Check that the provided collateral exceeds the necessary amount
-        let secure_collateral_theshold = <vault_registry::Module<T>>::secure_collateral_threshold();
-        if collateral < (secure_collateral_theshold * req.amount) {
+        let secure_collateral_theshold: u128 =
+            <vault_registry::Module<T>>::secure_collateral_threshold();
+        let amount: u128 = Self::polkabtc_to_u128(req.amount)?;
+        let raw_collateral = Self::dot_to_u128(collateral)?;
+        if raw_collateral < (secure_collateral_theshold * amount) {
             return Err(Error::InsufficientCollateral);
         }
         // step 5: Lock the newVault’s collateral by calling lockCollateral
@@ -393,12 +401,13 @@ impl<T: Trait> Module<T> {
         // step 1: Retrieve the newVault as per the newVault parameter from Vaults in the VaultRegistry
         let new_vault = <vault_registry::Module<T>>::_get_vault_from_id(&new_vault_id)?;
         // step 2: Retrieve the oldVault as per the oldVault parameter from Vaults in the VaultRegistry
-        let old_vault = <vault_registry::Module<T>>::_get_vault_from_id(&old_vault_id)?;
+        let _old_vault = <vault_registry::Module<T>>::_get_vault_from_id(&old_vault_id)?;
         // step 4: Check that the oldVault is below the AuctionCollateralThreshold by calculating his current oldVault.issuedTokens and the oldVault.collateral
-        let btcdot_rate = <exchange_rate_oracle::Module<T>>::get_exchange_rate();
-        let auction_threshold = <vault_registry::Module<T>>::auction_collateral_threshold();
-        let auction_rate = collateral * btcdot_rate / auction_threshold;
-        if collateral >= auction_rate {
+        let btcdot_rate: u128 = <exchange_rate_oracle::Module<T>>::get_exchange_rate()?;
+        let auction_threshold: u128 = <vault_registry::Module<T>>::auction_collateral_threshold();
+        let raw_collateral: u128 = Self::dot_to_u128(collateral)?;
+        let auction_rate: u128 = raw_collateral * btcdot_rate / auction_threshold;
+        if raw_collateral >= auction_rate {
             return Err(Error::InsufficientCollateral);
         }
         // step 5:Lock the newVault’s collateral by calling lockCollateral and providing newVault and collateral as parameters.
@@ -410,7 +419,7 @@ impl<T: Trait> Module<T> {
         let replace_id = replace_key(ReplaceRngSeed::default(), nonce, new_vault.btc_address);
         // step 8: Create a new ReplaceRequest named replace entry:
         //TODO(jaupe) populate nonce from security module (not ready yet)
-        let nonce = 0;
+        let _nonce = 0;
         let height = <system::Module<T>>::block_number();
         Self::insert_replace_request(
             replace_id,
@@ -501,7 +510,7 @@ impl<T: Trait> Module<T> {
             return Err(Error::ReplacePeriodNotExpired);
         }
         // step 3: Retrieve the Vault as per the newVault parameter from Vaults in the VaultRegistry
-        let new_vault = <vault_registry::Module<T>>::_get_vault_from_id(&new_vault_id)?;
+        let _new_vault = <vault_registry::Module<T>>::_get_vault_from_id(&new_vault_id)?;
         // step 4: Transfer the oldVault’s griefing collateral associated with this ReplaceRequests to the newVault by calling slashCollateral
         <collateral::Module<T>>::slash_collateral(
             req.old_vault.clone(),
@@ -509,7 +518,8 @@ impl<T: Trait> Module<T> {
             req.griefing_collateral,
         )?;
         // step 5: Call the decreaseToBeRedeemedTokens function in the VaultRegistry for the oldVault.
-        // Todo(jaupe) confirm with alex and update spec this is correct
+        // Todo(jaupe) confirm with alex and update spec that it's griefing collateral
+        let tokens = req.amount;
         <vault_registry::Module<T>>::_decrease_to_be_redeemed_tokens(&req.old_vault, tokens)?;
         // step 6: Remove the ReplaceRequest from ReplaceRequests
         Self::remove_replace_request(replace_id.clone());
@@ -555,5 +565,13 @@ impl<T: Trait> Module<T> {
 
     fn current_height() -> T::BlockNumber {
         <system::Module<T>>::block_number()
+    }
+
+    fn dot_to_u128(x: DOT<T>) -> Result<u128, Error> {
+        TryInto::<u128>::try_into(x).map_err(|_| Error::RuntimeError)
+    }
+
+    fn polkabtc_to_u128(x: PolkaBTC<T>) -> Result<u128, Error> {
+        TryInto::<u128>::try_into(x).map_err(|_| Error::RuntimeError)
     }
 }
