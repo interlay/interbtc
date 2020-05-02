@@ -32,8 +32,7 @@ pub(crate) mod btc_relay {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
-    use crate::types::PolkaBTC;
-    use sp_core::H160;
+    use crate::types::{PolkaBTC, DOT};
     use x_core::{Result, UnitResult};
 
     pub fn get_vault_from_id<T: vault_registry::Trait>(
@@ -49,32 +48,35 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::_increase_to_be_redeemed_tokens(vault_id, amount)
     }
 
-    pub fn redeem_tokens_liquidation<T: vault_registry::Trait>(
-        redeemer: &T::AccountId,
-        redeem_dot_in_btc: PolkaBTC<T>
+    pub fn redeem_tokens<T: vault_registry::Trait>(
+        vault_id: &T::AccountId,
+        tokens: PolkaBTC<T>,
     ) -> UnitResult {
-        <vault_registry::Module<T>>::_redeem_tokens_liquidation(redeemer, redeem_dot_in_btc)
+        <vault_registry::Module<T>>::_redeem_tokens(vault_id, tokens)
     }
 
-    pub fn decrease_to_be_redeemed_tokens<T: vault_registry::Trait>(
+    pub fn redeem_tokens_premium<T: vault_registry::Trait>(
         vault_id: &T::AccountId,
-        amount: PolkaBTC<T>,
+        tokens: PolkaBTC<T>,
+        premium: DOT<T>,
+        redeemer_id: &T::AccountId,
     ) -> UnitResult {
-        <vault_registry::Module<T>>::_decrease_to_be_redeemed_tokens(vault_id, amount)
+        <vault_registry::Module<T>>::_redeem_tokens_premium(vault_id, tokens, premium, redeemer_id)
     }
 
-    pub fn issue_tokens<T: vault_registry::Trait>(
-        vault_id: &T::AccountId,
-        amount: PolkaBTC<T>,
-    ) -> UnitResult {
-        <vault_registry::Module<T>>::_issue_tokens(vault_id, amount)
-    }
+    // pub fn redeem_tokens_liquidation<T: vault_registry::Trait>(
+    //     redeemer: &T::AccountId,
+    //     redeem_dot_in_btc: PolkaBTC<T>,
+    // ) -> UnitResult {
+    //     <vault_registry::Module<T>>::_redeem_tokens_liquidation(redeemer, redeem_dot_in_btc)
+    // }
 
-    pub fn decrease_to_be_issued_tokens<T: vault_registry::Trait>(
+    pub fn _decrease_tokens<T: vault_registry::Trait>(
         vault_id: &T::AccountId,
-        amount: PolkaBTC<T>,
+        user_id: &T::AccountId,
+        tokens: PolkaBTC<T>,
     ) -> UnitResult {
-        <vault_registry::Module<T>>::_decrease_to_be_issued_tokens(vault_id, amount)
+        <vault_registry::Module<T>>::_decrease_tokens(vault_id, user_id, tokens)
     }
 }
 
@@ -82,13 +84,6 @@ pub(crate) mod vault_registry {
 pub(crate) mod collateral {
     use crate::types::DOT;
     use x_core::UnitResult;
-
-    pub fn lock_collateral<T: collateral::Trait>(
-        sender: &T::AccountId,
-        amount: DOT<T>,
-    ) -> UnitResult {
-        <collateral::Module<T>>::lock_collateral(sender, amount)
-    }
 
     pub fn slash_collateral<T: collateral::Trait>(
         sender: &T::AccountId,
@@ -108,23 +103,11 @@ pub(crate) mod treasury {
         <treasury::Module<T>>::get_balance_from_account(account)
     }
 
-    pub fn get_locked_balance<T: treasury::Trait>(
-        account: T::AccountId
-    ) -> PolkaBTC <T> {
-        <treasury::Module<T>>::get_locked_balance_from_account(account)
-    }
-
-    pub fn lock<T: treasury::Trait>(
-        redeemer: T::AccountId,
-        amount: PolkaBTC<T>
-    ) -> UnitResult {
+    pub fn lock<T: treasury::Trait>(redeemer: T::AccountId, amount: PolkaBTC<T>) -> UnitResult {
         <treasury::Module<T>>::lock(redeemer, amount)
     }
 
-    pub fn burn<T: treasury::Trait>(
-        redeemer: T::AccountId,
-        amount: PolkaBTC<T>
-    ) -> UnitResult {
+    pub fn burn<T: treasury::Trait>(redeemer: T::AccountId, amount: PolkaBTC<T>) -> UnitResult {
         <treasury::Module<T>>::burn(redeemer, amount)
     }
 }
