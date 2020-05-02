@@ -6326,9 +6326,11 @@ dependencies = [
  "parity-scale-codec",
  "primitive-types",
  "security",
+ "sp-arithmetic",
  "sp-core",
  "sp-io",
  "sp-runtime",
+ "sp-std",
  "treasury",
  "x-core",
 ]

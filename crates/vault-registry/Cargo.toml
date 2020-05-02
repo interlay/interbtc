@@ -11,6 +11,8 @@ std = [
   'primitive-types/std',
   'frame-support/std',
   'sp-runtime/std',
+  'sp-arithmetic/std',
+  'sp-std/std',
   'sp-io/std',
   'system/std',
   'timestamp/std',
@@ -33,7 +35,16 @@ default-features = false
 version = '0.7.0'
 features= ['codec']
 
+
+[dependencies.sp-std]
+default-features = false
+version = '2.0.0-alpha.5'
+
 [dependencies.sp-runtime]
+default-features = false
+version = '2.0.0-alpha.5'
+
+[dependencies.sp-arithmetic]
 default-features = false
 version = '2.0.0-alpha.5'
 
