@@ -169,6 +169,22 @@ decl_module! {
 #[cfg_attr(test, mockable)]
 impl<T: Trait> Module<T> {
     /// Public functions
+    pub fn _punishment_fee() -> u128 {
+        PunishmentFee::get()
+    }
+
+    pub fn _premium_redeem_threshold() -> u128 {
+        PremiumRedeemThreshold::get()
+    }
+
+    pub fn _redeem_premium_fee() -> u128 {
+        RedeemPremiumFee::get()
+    }
+
+    pub fn _ban_vault(vault_id: T::AccountId, height: T::BlockNumber) {
+        <crate::Vaults<T>>::mutate(vault_id, |v| v.banned_until = Some(height));
+    }
+
     pub fn _get_vault_from_id(vault_id: &T::AccountId) -> Result<DefaultVault<T>> {
         ensure!(Self::vault_exists(&vault_id), Error::VaultNotFound);
         Ok(<Vaults<T>>::get(vault_id))
