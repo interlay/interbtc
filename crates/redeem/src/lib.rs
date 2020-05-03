@@ -172,7 +172,7 @@ impl<T: Trait> Module<T> {
                 let btcdot_rate: u128 = <exchange_rate_oracle::Module<T>>::get_exchange_rate()?;
                 let raw_amount_polka_btc = Self::btc_to_u128(amount_polka_btc)?;
                 let amount_dot_in_btc: u128 =
-                    raw_amount_polka_btc * (Self::partial_redeem_factor() / 100000u128);
+                    raw_amount_polka_btc * (Self::_partial_redeem_factor()? / 100_000u128);
                 let amount_btc: u128 = raw_amount_polka_btc - amount_dot_in_btc;
                 let amount_dot: u128 = amount_dot_in_btc * btcdot_rate;
                 (
@@ -230,8 +230,12 @@ impl<T: Trait> Module<T> {
         Ok(key)
     }
 
-    fn partial_redeem_factor() -> u128 {
-        unimplemented!()
+    fn _partial_redeem_factor() -> Result<u128, Error> {
+        // Step 1: Get the current exchange rate (exchangeRate) using getExchangeRate.
+        // Step 2: Calculate totalLiquidationValue
+        let total_liquidation_value = <vault_registry::Module<T>>::total_liquidation_value()?;
+        let total_supply = Self::btc_to_u128(<treasury::Module<T>>::get_total_supply())?;
+        Ok(total_liquidation_value / total_supply)
     }
 
     fn gen_redeem_key(redeemer: T::AccountId) -> H256 {
