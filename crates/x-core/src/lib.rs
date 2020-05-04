@@ -14,6 +14,8 @@ pub enum Error {
     InvalidHeaderSize,
     DuplicateBlock,
     PrevBlock, // TODO: rename to self-explanatory
+    ReplacePeriodExpired,
+    UnauthorizedVault,
     ReplacePeriodNotExpired,
     InsufficientTokensComitted,
     InvalidVaultID,
@@ -101,6 +103,8 @@ impl Error {
             Error::InvalidHeaderSize => "Invalid block header size",
             Error::DuplicateBlock => "Block already stored",
             Error::PrevBlock => "Prev.ious block hash not found",
+            Error::ReplacePeriodExpired => "Replace period expired",
+            Error::UnauthorizedVault => "Unauthorised vault",
             Error::ReplacePeriodNotExpired => "Replace period not expired",
             Error::InsufficientTokensComitted => "Insufficient tokens comitted",
             Error::InvalidVaultID => "Invalid vault ID",

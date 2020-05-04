@@ -33,7 +33,7 @@ use system::ensure_signed;
 use x_core::Error;
 
 /// The issue module id, used for deriving its sovereign account ID.
-const _MODULE_ID: ModuleId = ModuleId(*b"replacem");
+const _MODULE_ID: ModuleId = ModuleId(*b"issuemod");
 
 /// The pallet's configuration trait.
 pub trait Trait:

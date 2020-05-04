@@ -100,7 +100,6 @@ fn test_request_replace_vault_not_found() {
 fn test_request_replace_vault_banned() {
     run_test(|| {
         //TODO(jaupe) work out why this is not mocking correctly
-
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,

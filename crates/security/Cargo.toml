@@ -75,6 +75,10 @@ version = '0.1.0'
 default-features = false
 path = '../collateral'
 
+[dependencies.exchange-rate-oracle]
+default-features = false
+path = '../exchange-rate-oracle'
+
 [dev-dependencies.pallet-balances]
 default-features = false
 package = 'pallet-balances'

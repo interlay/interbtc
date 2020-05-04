@@ -25,7 +25,6 @@ use frame_support::traits::Currency;
 // Substrate
 use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
 use primitive_types::H256;
-use sha2::{Digest, Sha256};
 use sp_core::H160;
 use sp_runtime::ModuleId;
 use sp_std::convert::TryInto;
@@ -37,8 +36,8 @@ pub(crate) type DOT<T> =
 pub(crate) type PolkaBTC<T> =
     <<T as treasury::Trait>::PolkaBTC as Currency<<T as system::Trait>::AccountId>>::Balance;
 
-/// The issue module id, used for deriving its sovereign account ID.
-const _MODULE_ID: ModuleId = ModuleId(*b"issuemod");
+/// The replace module id, used for deriving its sovereign account ID.
+const _MODULE_ID: ModuleId = ModuleId(*b"replacem");
 
 /// The pallet's configuration trait.
 pub trait Trait:
@@ -110,6 +109,7 @@ pub struct ReplaceKey {
     btc_address: H160,
 }
 
+/*
 fn replace_key(seed: ReplaceRngSeed, nonce: u64, btc_address: H160) -> H256 {
     let key = ReplaceKey {
         seed,
@@ -123,6 +123,7 @@ fn replace_key(seed: ReplaceRngSeed, nonce: u64, btc_address: H160) -> H256 {
     result.copy_from_slice(&hasher.result()[..]);
     H256(result)
 }
+*/
 
 // The pallet's storage items.
 decl_storage! {
@@ -220,9 +221,9 @@ decl_module! {
             Ok(())
         }
 
-        fn execute_replace(origin, new_vault_id: T::AccountId, replace_id: H256, tx_id: H256Le, tx_block_height: u32, tx_index: H256, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
+        fn execute_replace(origin, new_vault_id: T::AccountId, replace_id: H256, tx_id: H256Le, tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
             let _ = ensure_signed(origin)?;
-            Self::_execute_replace(new_vault_id, replace_id, tx_id, tx_block_height, tx_index, merkle_proof, raw_tx)?;
+            Self::_execute_replace(new_vault_id, replace_id, tx_id, tx_block_height, merkle_proof, raw_tx)?;
             Ok(())
         }
 
@@ -261,87 +262,77 @@ impl<T: Trait> Module<T> {
         let height = Self::current_height();
         vault.ensure_not_banned(height)?;
         // step 4: check that the amount doesn't exceed the remaining available tokens
-        // TODO(jaupe) investigate if it would better to throw an error if over
         if amount > vault.no_issuable_tokens() {
             amount = vault.no_issuable_tokens();
         }
         // step 5: If the request is not for the entire BTC holdings, check that the remaining DOT collateral of the Vault is higher than MinimumCollateralVault
-        //TODO(jaupe) implement when daniel's currency type conversions are ready
-        /*
-        let over_threshold = <vault_registry::Module<T>>::_is_over_minimum_collateral(amount);
-        if amount != vault.no_issuable_tokens() && !over_threshold {
-            return Err(Error::InsufficientCollateral);
-        }
-        */
+        let vault_collateral = ext::collateral::get_collateral_from_account::<T>(vault_id.clone());
+        let over_threshold = ext::vault_registry::is_over_minimum_collateral::<T>(vault_collateral);
+        ensure!(
+            amount != vault.no_issuable_tokens() && !over_threshold,
+            Error::InsufficientCollateral
+        );
         // step 6: Check that the griefingCollateral is greater or equal ReplaceGriefingCollateral
         ensure!(
             griefing_collateral >= <ReplaceGriefingCollateral<T>>::get(),
             Error::InsufficientCollateral
         );
         // step 7: Lock the oldVault’s griefing collateral
-        <collateral::Module<T>>::lock_collateral(&requester, griefing_collateral)?;
+        ext::collateral::lock_collateral::<T>(requester.clone(), griefing_collateral)?;
         // step 8: Call the increaseToBeRedeemedTokens function with the oldVault and the btcAmount to ensure that the oldVault’s tokens cannot be redeemed when a replace procedure is happening.
-        let _btc_address =
-            <vault_registry::Module<T>>::_increase_to_be_issued_tokens(&vault_id, amount.clone())?;
+        ext::vault_registry::increase_to_be_redeemed_tokens::<T>(&vault_id, amount.clone())?;
         // step 9: Generate a replaceId by hashing a random seed, a nonce, and the address of the Requester.
-        //TODO(jaupe) populate nonce
-        let nonce = 0;
-        let key = replace_key(ReplaceRngSeed::default(), nonce, vault.btc_address);
+        let replace_id = ext::security::gen_secure_id::<T>(requester);
         // step 10: Create new ReplaceRequest entry:
-        //TODO(jaupe) populate collateral once type conversion wrappers are ready
-        let collateral = <collateral::Module<T>>::get_collateral_from_account(&vault_id);
         let replace = Replace {
             old_vault: vault_id.clone(),
             open_time: height,
             amount,
             griefing_collateral,
             new_vault: None,
-            collateral,
+            collateral: vault_collateral,
             accept_time: None,
             btc_address: vault.btc_address,
         };
-        Self::insert_replace_request(key, replace);
+        Self::insert_replace_request(replace_id, replace);
         // step 11: Emit RequestReplace(vault, btcAmount, timeout, replaceId)
-        Self::deposit_event(<Event<T>>::RequestReplace(vault_id, amount, timeout, key));
+        Self::deposit_event(<Event<T>>::RequestReplace(
+            vault_id, amount, timeout, replace_id,
+        ));
         // step 12: return replace key
-        Ok(key)
+        Ok(replace_id)
     }
 
     fn _withdraw_replace_request(vault_id: T::AccountId, request_id: H256) -> Result<(), Error> {
         // check vault exists
         // step 1: Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
         let req = Self::get_replace_request(request_id)?;
-        if req.old_vault != vault_id {
-            return Err(Error::InvalidVaultID); // TODO(jaupe) is this the correct error code? should it call ensure! macro?
-        }
+        ensure!(req.old_vault == vault_id, Error::UnauthorizedVault);
         // step 2: Check that caller of the function is indeed the to-be-replaced Vault as specified in the ReplaceRequest. Return ERR_UNAUTHORIZED error if this check fails.
         let _vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
-        if vault_id != req.old_vault {
-            return Err(Error::UnauthorizedUser);
-        }
+        ensure!(vault_id == req.old_vault, Error::UnauthorizedUser);
         // step 3: Check that the collateral rate of the vault is not under the AuctionCollateralThreshold as defined in the VaultRegistry. If it is under the AuctionCollateralThreshold return ERR_UNAUTHORIZED
         let threshold: u128 =
-            TryInto::<u128>::try_into(<vault_registry::Module<T>>::auction_collateral_threshold())
+            TryInto::<u128>::try_into(ext::vault_registry::auction_collateral_threshold::<T>())
                 .map_err(|_e| Error::RuntimeError)?;
-        let collateral: u128 = TryInto::<u128>::try_into(
-            <collateral::Module<T>>::get_collateral_from_account(&vault_id),
-        )
-        .map_err(|_e| Error::RuntimeError)?;
+        let collateral: DOT<T> =
+            ext::collateral::get_collateral_from_account::<T>(vault_id.clone());
+        let collateral: u128 = Self::dot_to_u128(collateral)?;
         if collateral < threshold {
             return Err(Error::UnauthorizedUser);
         }
         // step 4: Check that the ReplaceRequest was not yet accepted by another Vault
         if req.has_new_owner() {
-            return Err(Error::UnauthorizedUser);
+            return Err(Error::CancelAcceptedRequest);
         }
         // step 5: Release the oldVault’s griefing collateral associated with this ReplaceRequests
-        <collateral::Module<T>>::release_collateral(
-            &req.old_vault,
+        ext::collateral::release_collateral::<T>(
+            req.old_vault.clone(),
             req.griefing_collateral.clone(),
         )?;
         // step 6: Call the decreaseToBeRedeemedTokens function in the VaultRegistry to allow the vault to be part of other redeem or replace requests again
-        <vault_registry::Module<T>>::_decrease_to_be_issued_tokens(
-            &req.old_vault,
+        ext::vault_registry::decrease_to_be_redeemed_tokens::<T>(
+            req.old_vault,
             req.amount.clone(),
         )?;
         // step 7: Remove the ReplaceRequest from ReplaceRequests
@@ -367,14 +358,14 @@ impl<T: Trait> Module<T> {
         }
         // step 4: Check that the provided collateral exceeds the necessary amount
         let secure_collateral_theshold: u128 =
-            <vault_registry::Module<T>>::secure_collateral_threshold();
+            ext::vault_registry::secure_collateral_threshold::<T>();
         let amount: u128 = Self::polkabtc_to_u128(req.amount)?;
         let raw_collateral = Self::dot_to_u128(collateral)?;
         if raw_collateral < (secure_collateral_theshold * amount) {
             return Err(Error::InsufficientCollateral);
         }
         // step 5: Lock the newVault’s collateral by calling lockCollateral
-        <collateral::Module<T>>::lock_collateral(&new_vault_id, collateral)?;
+        ext::collateral::lock_collateral::<T>(new_vault_id.clone(), collateral)?;
         // step 6: Update the ReplaceRequest entry
         req.add_new_vault(new_vault_id.clone(), height, collateral, vault.btc_address);
         Self::insert_replace_request(replace_id, req);
@@ -397,24 +388,33 @@ impl<T: Trait> Module<T> {
         let new_vault = ext::vault_registry::get_vault_from_id::<T>(&new_vault_id)?;
         // step 2: Retrieve the oldVault as per the oldVault parameter from Vaults in the VaultRegistry
         let _old_vault = ext::vault_registry::get_vault_from_id::<T>(&old_vault_id)?;
-        // step 4: Check that the oldVault is below the AuctionCollateralThreshold by calculating his current oldVault.issuedTokens and the oldVault.collateral
-        let btcdot_rate: u128 = <exchange_rate_oracle::Module<T>>::get_exchange_rate()?;
-        let auction_threshold: u128 = <vault_registry::Module<T>>::auction_collateral_threshold();
-        let raw_collateral: u128 = Self::dot_to_u128(collateral)?;
+        // step 3: Check that the oldVault is below the AuctionCollateralThreshold by calculating his current oldVault.issuedTokens and the oldVault.collateral
+        let btcdot_rate: u128 = ext::exchange_rate_oracle::get_exchange_rate::<T>()?;
+        let auction_threshold: u128 = ext::vault_registry::auction_collateral_threshold::<T>();
+        let old_vault_collateral =
+            ext::collateral::get_collateral_from_account::<T>(old_vault_id.clone());
+        let raw_collateral: u128 = Self::dot_to_u128(old_vault_collateral)?;
         let auction_rate: u128 = raw_collateral * btcdot_rate / auction_threshold;
-        if raw_collateral >= auction_rate {
-            return Err(Error::InsufficientCollateral);
-        }
-        // step 5:Lock the newVault’s collateral by calling lockCollateral and providing newVault and collateral as parameters.
-        <collateral::Module<T>>::lock_collateral(&new_vault_id, collateral)?;
+        ensure!(raw_collateral < auction_rate, Error::InsufficientCollateral);
+        // step 4: Check that the provided collateral exceeds the necessary amount
+        let secure_collateral_theshold: u128 =
+            ext::vault_registry::secure_collateral_threshold::<T>();
+        let raw_collateral = Self::dot_to_u128(collateral)?;
+        let spot_rate: u128 = ext::exchange_rate_oracle::get_exchange_rate::<T>()?;
+        //let raw_amount = Self::polkabtc_to_u128(btc_amount)?;
+        // TODO(alex/dom) check if this correct as I'm not sure the range for secure_collateral_theshold is
+        let secure_amount = raw_collateral * spot_rate / secure_collateral_theshold; //TODO(jaupe) ask alex or dom i
+        ensure!(
+            raw_collateral >= secure_amount,
+            Error::InsufficientCollateral
+        );
+        // step 5: Lock the newVault’s collateral by calling lockCollateral and providing newVault and collateral as parameters.
+        ext::collateral::lock_collateral::<T>(new_vault_id.clone(), collateral)?;
         // step 6: Call the increaseToBeRedeemedTokens function with the oldVault and the btcAmount
-        <vault_registry::Module<T>>::_increase_to_be_redeemed_tokens(&old_vault_id, btc_amount)?;
+        ext::vault_registry::increase_to_be_redeemed_tokens::<T>(&old_vault_id, btc_amount)?;
         // step 7: Generate a replaceId by hashing a random seed, a nonce, and the address of the newVault
-        let nonce = 0; // Todo(jaupe) call API function from security module once the call is ready
-        let replace_id = replace_key(ReplaceRngSeed::default(), nonce, new_vault.btc_address);
-        // step 8: Create a new ReplaceRequest named replace entry:
-        //TODO(jaupe) populate nonce from security module (not ready yet)
-        let _nonce = 0;
+        let replace_id = ext::security::gen_secure_id::<T>(new_vault_id.clone()); //replace_key(ReplaceRngSeed::default(), nonce, new_vault.btc_address);
+                                                                                  // step 8: Create a new ReplaceRequest named replace entry:
         let height = <system::Module<T>>::block_number();
         Self::insert_replace_request(
             replace_id,
@@ -435,6 +435,15 @@ impl<T: Trait> Module<T> {
             replace_id,
             collateral,
         ));
+        // TODO(jaupe) let alex and dom agree on if this is needed or not
+        /*
+        Self::deposit_event(<Event<T>>::RequestReplace(
+            old_vault_id,
+            btc_amount,
+            BlockNumber,
+            replace_id,
+        ));]
+        */
         Ok(())
     }
 
@@ -444,7 +453,6 @@ impl<T: Trait> Module<T> {
         replace_id: H256,
         tx_id: H256Le,
         tx_block_height: u32,
-        _tx_index: H256,
         merkle_proof: Vec<u8>,
         raw_tx: Vec<u8>,
     ) -> Result<(), Error> {
@@ -453,14 +461,13 @@ impl<T: Trait> Module<T> {
         // step 2: Check that the current Parachain block height minus the ReplacePeriod is smaller than the opentime of the ReplaceRequest
         let replace_period = Self::replace_period();
         let height = Self::current_height();
-        if req.open_time >= height - replace_period {
-            return Err(Error::ReplacePeriodNotExpired);
+        if req.open_time > height - replace_period {
+            return Err(Error::ReplacePeriodExpired);
         }
         // step 3: Retrieve the Vault as per the newVault parameter from Vaults in the VaultRegistry
         let new_vault = ext::vault_registry::get_vault_from_id::<T>(&new_vault_id)?;
         // step 4: Call verifyTransactionInclusion in BTC-Relay, providing txid, txBlockHeight, txIndex, and merkleProof as parameters
-        // TODO(jaupe) work out what confirmations and insecure should be
-        let confirmations = 0;
+        let confirmations = 6;
         let insecure = false;
         <btc_relay::Module<T>>::_verify_transaction_inclusion(
             tx_id,
@@ -478,20 +485,22 @@ impl<T: Trait> Module<T> {
             replace_id.as_bytes().to_vec(),
         )?;
         // step 6: Call the replaceTokens
-        <vault_registry::Module<T>>::_replace_tokens(
-            &req.old_vault,
-            &new_vault_id,
-            req.amount,
-            req.collateral,
+        ext::vault_registry::replace_tokens::<T>(
+            req.old_vault.clone(),
+            new_vault_id.clone(),
+            req.amount.clone(),
+            req.collateral.clone(),
         )?;
         // step 7: Call the releaseCollateral function to release the oldVaults griefing collateral griefingCollateral
-        <collateral::Module<T>>::release_collateral(&req.old_vault, req.collateral)?;
+        ext::collateral::release_collateral::<T>(req.old_vault.clone(), req.griefing_collateral)?;
         // step 8: Emit the ExecuteReplace(oldVault, newVault, replaceId) event.
         Self::deposit_event(<Event<T>>::ExecuteReplace(
             req.old_vault,
             new_vault_id,
             replace_id,
         ));
+        // step 9: Remove replace request
+        Self::remove_replace_request(replace_id.clone());
         Ok(())
     }
 
@@ -501,13 +510,11 @@ impl<T: Trait> Module<T> {
         // step 2: Check that the current Parachain block height minus the ReplacePeriod is greater than the opentime of the ReplaceRequest
         let current_height = Self::current_height();
         let replace_period = Self::replace_period();
-        if current_height - replace_period <= req.open_time {
+        if current_height - replace_period > req.open_time {
             return Err(Error::ReplacePeriodNotExpired);
         }
-        // step 3: Retrieve the Vault as per the newVault parameter from Vaults in the VaultRegistry
-        let _new_vault = ext::vault_registry::get_vault_from_id::<T>(&new_vault_id)?;
         // step 4: Transfer the oldVault’s griefing collateral associated with this ReplaceRequests to the newVault by calling slashCollateral
-        <collateral::Module<T>>::slash_collateral(
+        ext::collateral::slash_collateral::<T>(
             req.old_vault.clone(),
             new_vault_id.clone(),
             req.griefing_collateral,
@@ -515,7 +522,7 @@ impl<T: Trait> Module<T> {
         // step 5: Call the decreaseToBeRedeemedTokens function in the VaultRegistry for the oldVault.
         // Todo(jaupe) confirm with alex and update spec that it's griefing collateral
         let tokens = req.amount;
-        <vault_registry::Module<T>>::_decrease_to_be_redeemed_tokens(&req.old_vault, tokens)?;
+        ext::vault_registry::decrease_to_be_redeemed_tokens::<T>(req.old_vault.clone(), tokens)?;
         // step 6: Remove the ReplaceRequest from ReplaceRequests
         Self::remove_replace_request(replace_id.clone());
         // step 7: Emit a CancelReplace(newVault, oldVault, replaceId)
