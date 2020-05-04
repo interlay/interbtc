@@ -31,7 +31,7 @@ pub(crate) mod collateral {
 pub(crate) mod oracle {
 
     use crate::types::{PolkaBTC, DOT};
-    use x_core::{Error, Result};
+    use x_core::Result;
 
     pub trait Exchangeable:
         exchange_rate_oracle::Trait + ::treasury::Trait + ::collateral::Trait

@@ -80,7 +80,6 @@ impl<AccountId, BlockNumber, PolkaBTC, DOT> Replace<AccountId, BlockNumber, Polk
         self.new_vault.is_some()
     }
 }
-use rand::SeedableRng;
 
 #[derive(Encode, Debug, Decode, Clone)]
 pub struct ReplaceRngSeed(pub Vec<u8>);
