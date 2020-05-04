@@ -36,14 +36,14 @@ pub trait Trait: system::Trait {}
 decl_storage! {
     trait Store for Module<T: Trait> as SecurityModule {
         /// Integer/Enum defining the current state of the BTC-Parachain.
-        ParachainStatus get(parachain_status): StatusCode;
+        ParachainStatus get(fn status): StatusCode;
 
         /// Set of ErrorCodes, indicating the reason for an "Error" ParachainStatus.
-        Errors get(fn error): BTreeSet<ErrorCode>;
+        Errors get(fn errors): BTreeSet<ErrorCode>;
 
         /// Integer increment-only counter, used to prevent collisions when generating identifiers
         /// for e.g. issue, redeem or replace requests (for OP_RETURN field in Bitcoin).
-        Nonce get(fn nonce): U256;
+        Nonce: U256;
     }
 }
 
@@ -95,7 +95,8 @@ impl<T: Trait> Module<T> {
         })
     }
 
-    /// Generates a unique ID using an account identifier and the `Nonce`.
+    /// Generates a 256-bit unique hash from an `AccountId` and the
+    /// internal (auto-incrementing) `Nonce` to prevent replay attacks.
     ///
     /// # Arguments
     ///

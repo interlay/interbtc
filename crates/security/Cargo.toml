@@ -60,7 +60,7 @@ std = [
   'frame-support/std',
   'system/std',
   'sp-core/std',
-	'sp-std/std',
+  'sp-std/std',
   'primitive-types/std',
   'sha2/std',
 ]

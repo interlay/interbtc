@@ -82,10 +82,18 @@ fn test_register_staked_relayer_succeeds() {
 
         assert_err!(
             Staking::try_bond_staked_relayer(&ALICE, amount, 0, 10),
-            TestError::NotMatured,
+            TestError::NotMatured
+        );
+        assert_err!(
+            Staking::get_active_staked_relayer(&ALICE),
+            TestError::NotRegistered,
         );
 
         assert_ok!(Staking::try_bond_staked_relayer(&ALICE, amount, 20, 10));
+        assert_ok!(
+            Staking::get_active_staked_relayer(&ALICE),
+            ActiveStakedRelayer { stake: amount }
+        );
     })
 }
 
@@ -107,6 +115,39 @@ fn inject_active_staked_relayer(id: &AccountId, amount: Balance) {
         Staking::get_active_staked_relayer(id),
         ActiveStakedRelayer { stake: amount }
     );
+}
+
+fn inject_status_update(proposer: AccountId) -> U256 {
+    let mut tally = Tally::default();
+    tally.aye.insert(proposer.clone());
+
+    Staking::insert_status_update(StatusUpdate {
+        new_status_code: StatusCode::Error,
+        old_status_code: StatusCode::Running,
+        add_error: None,
+        remove_error: None,
+        time: 0,
+        proposal_status: ProposalStatus::Pending,
+        btc_block_hash: None,
+        proposer: proposer,
+        deposit: 10,
+        tally: tally,
+    })
+}
+
+#[test]
+fn test_deregister_staked_relayer_fails_with_status_update_found() {
+    run_test(|| {
+        let relayer = Origin::signed(ALICE);
+        let amount: Balance = 3;
+        inject_active_staked_relayer(&ALICE, amount);
+        let _ = inject_status_update(ALICE);
+
+        assert_err!(
+            Staking::deregister_staked_relayer(relayer),
+            TestError::StatusUpdateFound,
+        );
+    })
 }
 
 #[test]
@@ -338,72 +379,80 @@ fn test_vote_on_status_update_succeeds() {
         inject_active_staked_relayer(&ALICE, amount);
         inject_active_staked_relayer(&BOB, amount);
         inject_active_staked_relayer(&CAROL, amount);
+        inject_active_staked_relayer(&DAVE, amount);
+        inject_active_staked_relayer(&EVE, amount);
 
-        let status_update_id = Staking::put_status_update(StatusUpdate {
-            new_status_code: StatusCode::Error,
-            old_status_code: StatusCode::Running,
-            add_error: None,
-            remove_error: None,
-            time: 0,
-            proposal_status: ProposalStatus::Pending,
-            btc_block_hash: Some(H256Le::zero()),
-            proposer: ALICE,
-            deposit: 10,
-            tally: Tally::default(),
-        });
+        ext::collateral::release_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+
+        let status_update_id = inject_status_update(ALICE);
+        assert_err!(
+            Staking::vote_on_status_update(Origin::signed(ALICE), status_update_id, true),
+            TestError::VoteAlreadyCast
+        );
+        assert_ok!(Staking::end_block());
+        assert_not_emitted!(Event::ExecuteStatusUpdate(StatusCode::Error, None, None));
+        assert_not_emitted!(Event::RejectStatusUpdate(StatusCode::Error, None, None));
 
         assert_ok!(Staking::vote_on_status_update(
-            Origin::signed(ALICE),
+            Origin::signed(CAROL),
             status_update_id,
             true
         ));
-
+        assert_ok!(Staking::end_block());
         assert_not_emitted!(Event::ExecuteStatusUpdate(StatusCode::Error, None, None));
-
         assert_not_emitted!(Event::RejectStatusUpdate(StatusCode::Error, None, None));
 
-        ext::collateral::release_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         assert_ok!(Staking::vote_on_status_update(
             Origin::signed(BOB),
             status_update_id,
             true
         ));
-
+        assert_ok!(Staking::end_block());
         assert_emitted!(Event::ExecuteStatusUpdate(StatusCode::Error, None, None));
     })
 }
 
 #[test]
-fn test_vote_on_status_update_fails_with_already_cast() {
-    run_test(|| {
-        let amount: Balance = 3;
-        inject_active_staked_relayer(&ALICE, amount);
-        let status_update_id = Staking::put_status_update(StatusUpdate::default());
-
-        assert_ok!(Staking::vote_on_status_update(
-            Origin::signed(ALICE),
-            status_update_id,
-            false
-        ));
-
-        assert_err!(
-            Staking::vote_on_status_update(Origin::signed(ALICE), status_update_id, false),
-            TestError::VoteAlreadyCast
-        )
-    })
-}
-
-#[test]
-fn test_execute_status_update_fails_with_insufficient_no_votes() {
+fn test_vote_on_status_update_fails_with_vote_already_cast() {
     run_test(|| {
         let amount: Balance = 3;
         inject_active_staked_relayer(&ALICE, amount);
         inject_active_staked_relayer(&BOB, amount);
         inject_active_staked_relayer(&CAROL, amount);
 
+        let status_update_id = inject_status_update(ALICE);
+
+        assert_err!(
+            Staking::vote_on_status_update(Origin::signed(ALICE), status_update_id, false),
+            TestError::VoteAlreadyCast
+        );
+
+        assert_ok!(Staking::vote_on_status_update(
+            Origin::signed(BOB),
+            status_update_id,
+            false
+        ));
+
+        assert_err!(
+            Staking::vote_on_status_update(Origin::signed(BOB), status_update_id, false),
+            TestError::VoteAlreadyCast
+        );
+    })
+}
+
+#[test]
+fn test_execute_status_update_fails_with_insufficient_yes_votes() {
+    run_test(|| {
+        let amount: Balance = 3;
+        inject_active_staked_relayer(&ALICE, amount);
+        inject_active_staked_relayer(&BOB, amount);
+        inject_active_staked_relayer(&CAROL, amount);
+        inject_active_staked_relayer(&DAVE, amount);
+        inject_active_staked_relayer(&EVE, amount);
+
         let mut status_update = StatusUpdate::default();
         status_update.tally.nay = account_id_set!(1, 2, 3);
-        let status_update_id = Staking::put_status_update(status_update);
+        let status_update_id = Staking::insert_status_update(status_update);
 
         assert_err!(
             Staking::execute_status_update(status_update_id),
@@ -425,8 +474,10 @@ fn test_execute_status_update_fails_with_no_block_hash() {
         inject_active_staked_relayer(&ALICE, amount);
         inject_active_staked_relayer(&BOB, amount);
         inject_active_staked_relayer(&CAROL, amount);
+        inject_active_staked_relayer(&DAVE, amount);
+        inject_active_staked_relayer(&EVE, amount);
 
-        let status_update_id = Staking::put_status_update(StatusUpdate {
+        let status_update_id = Staking::insert_status_update(StatusUpdate {
             new_status_code: StatusCode::Error,
             old_status_code: StatusCode::Running,
             add_error: Some(ErrorCode::NoDataBTCRelay),
@@ -456,8 +507,10 @@ fn test_execute_status_update_succeeds() {
         inject_active_staked_relayer(&ALICE, amount);
         inject_active_staked_relayer(&BOB, amount);
         inject_active_staked_relayer(&CAROL, amount);
+        inject_active_staked_relayer(&DAVE, amount);
+        inject_active_staked_relayer(&EVE, amount);
 
-        let status_update_id = Staking::put_status_update(StatusUpdate {
+        let status_update_id = Staking::insert_status_update(StatusUpdate {
             new_status_code: StatusCode::Error,
             old_status_code: StatusCode::Running,
             add_error: Some(ErrorCode::OracleOffline),
@@ -491,10 +544,12 @@ fn test_reject_status_update_fails_with_insufficient_no_votes() {
         inject_active_staked_relayer(&ALICE, amount);
         inject_active_staked_relayer(&BOB, amount);
         inject_active_staked_relayer(&CAROL, amount);
+        inject_active_staked_relayer(&DAVE, amount);
+        inject_active_staked_relayer(&EVE, amount);
 
         let mut status_update = StatusUpdate::default();
         status_update.tally.aye = account_id_set!(1, 2, 3);
-        let status_update_id = Staking::put_status_update(status_update);
+        let status_update_id = Staking::insert_status_update(status_update);
 
         assert_err!(
             Staking::reject_status_update(status_update_id),
@@ -512,10 +567,12 @@ fn test_reject_status_update_succeeds() {
         inject_active_staked_relayer(&ALICE, amount);
         inject_active_staked_relayer(&BOB, amount);
         inject_active_staked_relayer(&CAROL, amount);
+        inject_active_staked_relayer(&DAVE, amount);
+        inject_active_staked_relayer(&EVE, amount);
 
         let mut status_update = StatusUpdate::default();
         status_update.tally.nay = account_id_set!(1, 2, 3);
-        let status_update_id = Staking::put_status_update(status_update);
+        let status_update_id = Staking::insert_status_update(status_update);
 
         assert_ok!(Staking::reject_status_update(status_update_id));
 
@@ -628,11 +685,27 @@ fn test_report_vault_theft_fails_with_staked_relayers_only() {
     })
 }
 
+// #[test]
+// fn test_report_vault_theft_succeeds() {
+//     run_test(|| {
+//         let relayer = Origin::signed(ALICE);
+//         let amount: Balance = 3;
+//         inject_active_staked_relayer(&ALICE, amount);
+
+//         assert_ok!(Staking::report_vault_theft(relayer));
+//         assert_emitted!(Event::ExecuteStatusUpdate(
+//             StatusCode::Error,
+//             Some(ErrorCode::Liquidation),
+//             None,
+//         ));
+//     })
+// }
+
 #[test]
-fn test_report_vault_undercollateralized_fails_with_staked_relayers_only() {
+fn test_report_vault_under_liquidation_threshold_fails_with_staked_relayers_only() {
     run_test(|| {
         assert_err!(
-            Staking::report_vault_undercollateralized(Origin::signed(ALICE), CAROL),
+            Staking::report_vault_under_liquidation_threshold(Origin::signed(ALICE), CAROL),
             TestError::StakedRelayersOnly,
         );
     })

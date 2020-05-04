@@ -119,6 +119,7 @@ parameter_types! {
     pub const MaturityPeriod: u64 = 10;
     pub const MinimumDeposit: u64 = 10;
     pub const MinimumStake: u64 = 10;
+    pub const MinimumParticipants: u64 = 3;
     pub const VoteThreshold: u64 = 50;
 }
 impl Trait for Test {
@@ -126,6 +127,7 @@ impl Trait for Test {
     type MaturityPeriod = MaturityPeriod;
     type MinimumDeposit = MinimumDeposit;
     type MinimumStake = MinimumStake;
+    type MinimumParticipants = MinimumParticipants;
     type VoteThreshold = VoteThreshold;
 }
 
@@ -138,10 +140,14 @@ pub type TestError = Error<Test>;
 pub const ALICE: AccountId = 1;
 pub const BOB: AccountId = 2;
 pub const CAROL: AccountId = 3;
+pub const DAVE: AccountId = 4;
+pub const EVE: AccountId = 5;
 
 pub const ALICE_BALANCE: u64 = 1_000_000;
 pub const BOB_BALANCE: u64 = 1_000_000;
 pub const CAROL_BALANCE: u64 = 1_000_000;
+pub const DAVE_BALANCE: u64 = 1_000_000;
+pub const EVE_BALANCE: u64 = 1_000_000;
 
 pub struct ExtBuilder;
 
@@ -156,6 +162,8 @@ impl ExtBuilder {
                 (ALICE, ALICE_BALANCE),
                 (BOB, BOB_BALANCE),
                 (CAROL, CAROL_BALANCE),
+                (DAVE, DAVE_BALANCE),
+                (EVE, EVE_BALANCE),
             ],
         }
         .assimilate_storage(&mut storage)

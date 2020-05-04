@@ -13,6 +13,15 @@ fn test_get_and_set_parachain_status() {
 }
 
 #[test]
+fn test_get_nonce() {
+    run_test(|| {
+        let left = Security::get_nonce();
+        let right = Security::get_nonce();
+        assert_eq!(right, left + 1);
+    })
+}
+
+#[test]
 fn test_get_secure_id() {
     run_test(|| {
         let left = Security::get_secure_id(&1);

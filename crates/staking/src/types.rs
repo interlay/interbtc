@@ -57,6 +57,8 @@ pub struct StatusUpdate<AccountId: Ord + Clone, BlockNumber, DOT> {
     pub(crate) tally: Tally<AccountId>,
 }
 
+/// Record keeping for yes and no votes. Based loosely on the
+/// democracy pallet in FRAME with restricted functionality.
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct Tally<AccountId: Ord> {
@@ -67,6 +69,7 @@ pub struct Tally<AccountId: Ord> {
 }
 
 impl<AccountId: Ord + Clone> Tally<AccountId> {
+    /// Returns true if the majority of votes are in favour.
     pub(crate) fn is_approved(&self, total: u64, threshold: u64) -> bool {
         let n = self.aye.len() as u64;
         if n == total {
@@ -77,6 +80,7 @@ impl<AccountId: Ord + Clone> Tally<AccountId> {
         false
     }
 
+    /// Returns true if the majority of votes are against.
     pub(crate) fn is_rejected(&self, total: u64, threshold: u64) -> bool {
         if (self.nay.len() as u64) * 100 / total > 100 - threshold {
             return true;
@@ -84,8 +88,15 @@ impl<AccountId: Ord + Clone> Tally<AccountId> {
         false
     }
 
+    /// Checks if the account has already voted in this poll.
+    pub(crate) fn contains(&self, id: &AccountId) -> bool {
+        self.nay.contains(&id) || self.aye.contains(&id)
+    }
+
+    /// Casts a vote on the poll, returns true if successful.
+    /// Returns false if the account has already voted.
     pub(crate) fn vote(&mut self, id: AccountId, approve: bool) -> bool {
-        if self.nay.contains(&id) || self.aye.contains(&id) {
+        if self.contains(&id) {
             return false;
         } else if approve {
             self.aye.insert(id);
@@ -97,18 +108,20 @@ impl<AccountId: Ord + Clone> Tally<AccountId> {
     }
 }
 
+/// Online staked relayers who are able to participate in votes.
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct ActiveStakedRelayer<DOT> {
     pub(crate) stake: DOT,
 }
 
+/// Reason for unavailability, chilled or maturing.
 #[derive(Encode, Decode, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub enum StakedRelayerStatus<BlockNumber> {
     Unknown,
-    Idle,
-    Bonding(BlockNumber),
+    Idle,                 // deregistered
+    Bonding(BlockNumber), // (height + MaturityPeriod)
 }
 
 impl<BlockNumber> Default for StakedRelayerStatus<BlockNumber> {
@@ -117,6 +130,7 @@ impl<BlockNumber> Default for StakedRelayerStatus<BlockNumber> {
     }
 }
 
+/// Offline staked relayers who are not able to participate in a vote.
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct InactiveStakedRelayer<BlockNumber, DOT> {
