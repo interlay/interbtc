@@ -1,4 +1,3 @@
-/*
 /// Mocking the test environment
 use crate::{Module, Trait};
 use frame_support::{
@@ -170,4 +169,3 @@ where
         test();
     });
 }
-*/

@@ -1,28 +1,26 @@
-/*
 use crate::mock::*;
-use crate::types::PolkaBTC;
-use crate::RawEvent;
-use crate::{ext, Trait};
-use bitcoin::types::H256Le;
-use frame_support::{assert_noop, assert_ok};
+
+//use crate::RawEvent;
+use crate::DOT;
+//use bitcoin::types::H256Le;
+use frame_support::assert_noop;
 use mocktopus::mocking::*;
 use primitive_types::H256;
 use sp_core::H160;
 use vault_registry::Vault;
 use x_core::Error;
 
-fn request_issue(
+fn request_replace(
     origin: AccountId,
-    amount: Balance,
     vault: AccountId,
-    collateral: Balance,
+    amount: Balance,
+    timeout: BlockNumber,
+    griefing_collateral: DOT<Test>,
 ) -> Result<H256, Error> {
-    ext::vault_registry::increase_to_be_issued_tokens::<Test>
-        .mock_safe(|_, _| MockResult::Return(Ok(H160::from_slice(&[0; 20]))));
-
-    Issue::_request_issue(origin, amount, vault, collateral)
+    Replace::_request_replace(origin, vault, amount, timeout, griefing_collateral)
 }
 
+/*
 fn request_issue_ok(
     origin: AccountId,
     amount: Balance,
@@ -41,6 +39,7 @@ fn request_issue_ok(
     }
 }
 
+
 fn execute_issue(origin: AccountId, issue_id: &H256) -> Result<(), Error> {
     Issue::_execute_issue(
         origin,
@@ -51,7 +50,9 @@ fn execute_issue(origin: AccountId, issue_id: &H256) -> Result<(), Error> {
         vec![0u8; 100],
     )
 }
+*/
 
+/*
 fn execute_issue_ok(origin: AccountId, issue_id: &H256) {
     ext::btc_relay::verify_transaction_inclusion::<Test>
         .mock_safe(|_, _, _| MockResult::Return(Ok(())));
@@ -65,32 +66,56 @@ fn cancel_issue(origin: AccountId, issue_id: &H256) -> Result<(), Error> {
     Issue::_cancel_issue(origin, *issue_id)
 }
 
+
 fn init_zero_vault<T: Trait>(id: T::AccountId) -> Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>> {
     let mut vault = Vault::default();
     vault.id = id;
     vault
 }
+*/
 
 #[test]
-fn test_request_issue_banned_fails() {
+fn test_request_replace_transfer_zero() {
     run_test(|| {
-        assert_ok!(<exchange_rate_oracle::Module<Test>>::_set_exchange_rate(1));
-        <system::Module<Test>>::set_block_number(0);
-        <vault_registry::Module<Test>>::_insert_vault(
-            &BOB,
-            vault_registry::Vault {
+        assert_noop!(request_replace(0, BOB, 0, 0, 0), Error::InvalidAmount);
+    })
+}
+
+#[test]
+fn test_request_replace_timeout_zero() {
+    run_test(|| {
+        assert_noop!(request_replace(0, BOB, 1, 0, 0), Error::InvalidTimeout);
+    })
+}
+
+#[test]
+fn test_request_replace_vault_not_found() {
+    run_test(|| {
+        assert_noop!(request_replace(0, 10_000, 1, 1, 0), Error::VaultNotFound);
+    })
+}
+
+#[test]
+fn test_request_replace_vault_banned() {
+    run_test(|| {
+        //TODO(jaupe) work out why this is not mocking correctly
+        <vault_registry::Module<Test>>::_get_vault_from_id.mock_safe(|_| {
+            MockResult::Return(Ok(Vault {
                 id: BOB,
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
-                btc_address: H160([0; 20]),
-                banned_until: Some(1),
-            },
+                btc_address: H160::zero(),
+                banned_until: Some(10),
+            }))
+        });
+        assert_noop!(
+            Replace::_request_replace(ALICE, BOB, 1, 1, 0),
+            Error::VaultBanned
         );
-        assert_noop!(request_issue(ALICE, 3, BOB, 0), Error::VaultBanned);
     })
 }
-
+/*
 #[test]
 fn test_request_issue_insufficient_collateral_fails() {
     run_test(|| {
