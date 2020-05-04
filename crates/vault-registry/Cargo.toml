@@ -21,6 +21,7 @@ std = [
   'x-core/std',
   'collateral/std',
   'treasury/std',
+  'security/std',
   'exchange-rate-oracle/std',
 ]
 
