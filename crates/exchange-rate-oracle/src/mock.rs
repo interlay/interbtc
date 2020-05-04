@@ -21,6 +21,9 @@ impl_outer_event! {
     pub enum TestEvent for Test {
         system<T>,
         test_events<T>,
+        pallet_balances<T>,
+        collateral<T>,
+        treasury<T>,
     }
 }
 
@@ -52,10 +55,13 @@ impl system::Trait for Test {
     type AvailableBlockRatio = AvailableBlockRatio;
     type Version = ();
     type ModuleToIndex = ();
-    type AccountData = ();
+    type AccountData = pallet_balances::AccountData<u64>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
 }
+
+pub type Balances = pallet_balances::Module<Test>;
+pub type Balance = u64;
 
 impl Trait for Test {
     type Event = TestEvent;
@@ -63,11 +69,31 @@ impl Trait for Test {
 
 parameter_types! {
     pub const MinimumPeriod: u64 = 5;
+    pub const ExistentialDeposit: u64 = 1;
 }
+
 impl timestamp::Trait for Test {
     type Moment = u64;
     type OnTimestampSet = ();
     type MinimumPeriod = MinimumPeriod;
+}
+
+impl pallet_balances::Trait for Test {
+    type Balance = Balance;
+    type Event = TestEvent;
+    type DustRemoval = ();
+    type ExistentialDeposit = ExistentialDeposit;
+    type AccountStore = System;
+}
+
+impl collateral::Trait for Test {
+    type DOT = Balances;
+    type Event = TestEvent;
+}
+
+impl treasury::Trait for Test {
+    type PolkaBTC = Balances;
+    type Event = TestEvent;
 }
 
 pub type System = system::Module<Test>;

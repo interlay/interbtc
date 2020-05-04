@@ -954,14 +954,18 @@ dependencies = [
 name = "exchange-rate-oracle"
 version = "0.0.1"
 dependencies = [
+ "collateral",
  "frame-support",
  "frame-system",
  "mocktopus",
+ "pallet-balances",
  "pallet-timestamp",
  "parity-scale-codec",
  "sp-core",
  "sp-io",
  "sp-runtime",
+ "sp-std",
+ "treasury",
  "x-core",
 ]
 

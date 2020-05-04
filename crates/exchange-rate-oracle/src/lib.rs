@@ -14,17 +14,25 @@ extern crate mocktopus;
 use mocktopus::macros::mockable;
 
 use frame_support::dispatch::DispatchResult;
+use frame_support::traits::Currency;
 /// # Exchange Rate Oracle implementation
 /// This is the implementation of the Exchange Rate Oracle following the spec at:
 /// https://interlay.gitlab.io/polkabtc-spec/spec/oracle.html
 // Substrate
 use frame_support::{decl_event, decl_module, decl_storage, ensure};
+use sp_std::convert::TryInto;
 use system::ensure_signed;
-use x_core::Error;
+use x_core::{Error, Result};
+
+pub(crate) type DOT<T> =
+    <<T as collateral::Trait>::DOT as Currency<<T as system::Trait>::AccountId>>::Balance;
+
+pub(crate) type PolkaBTC<T> =
+    <<T as treasury::Trait>::PolkaBTC as Currency<<T as system::Trait>::AccountId>>::Balance;
 
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
-pub trait Trait: system::Trait + timestamp::Trait {
+pub trait Trait: system::Trait + timestamp::Trait + treasury::Trait + collateral::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
@@ -74,10 +82,31 @@ decl_module! {
 #[cfg_attr(test, mockable)]
 impl<T: Trait> Module<T> {
     /// Public getters
-    pub fn get_exchange_rate() -> Result<u128, Error> {
+    pub fn get_exchange_rate() -> Result<u128> {
         let max_delay_passed = Self::is_max_delay_passed()?;
         ensure!(!max_delay_passed, Error::MissingExchangeRate);
         Ok(<ExchangeRate>::get())
+    }
+
+    pub fn btc_to_dots(amount: PolkaBTC<T>) -> Result<DOT<T>> {
+        let rate = Self::get_exchange_rate()?;
+        // XXX: for some reason amount.try_into() returns Result<usize, ...>
+        // instead of doing type inference properly
+        let raw_amount = TryInto::<u128>::try_into(amount).map_err(|_e| Error::RuntimeError)?;
+        let converted = rate.checked_mul(raw_amount).ok_or(Error::RuntimeError)?;
+        let result = converted.try_into().map_err(|_e| Error::RuntimeError)?;
+        Ok(result)
+    }
+
+    pub fn dots_to_btc(amount: DOT<T>) -> Result<PolkaBTC<T>> {
+        let rate = Self::get_exchange_rate()?;
+        let raw_amount = TryInto::<u128>::try_into(amount).map_err(|_e| Error::RuntimeError)?;
+        if raw_amount == 0 {
+            return Ok(0.into());
+        }
+        let converted = raw_amount.checked_div(rate).ok_or(Error::RuntimeError)?;
+        let result = converted.try_into().map_err(|_e| Error::RuntimeError)?;
+        Ok(result)
     }
 
     pub fn get_last_exchange_rate_time() -> T::Moment {
@@ -89,7 +118,7 @@ impl<T: Trait> Module<T> {
         <MaxDelay<T>>::get()
     }
 
-    pub fn _set_exchange_rate(rate: u128) -> Result<(), Error> {
+    pub fn _set_exchange_rate(rate: u128) -> Result<()> {
         Self::set_current_rate(rate);
         // recover if the max delay was already passed
         if Self::is_max_delay_passed()? {
@@ -114,7 +143,7 @@ impl<T: Trait> Module<T> {
 
     /// Other helpers
     /// Returns an error if the parachain is not in running state
-    fn ensure_parachain_running() -> Result<(), Error> {
+    fn ensure_parachain_running() -> Result<()> {
         // TODO: integrate security module
         // ensure!(
         //     !<security::Module<T>>::check_parachain_status(
@@ -124,14 +153,14 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn recover_from_oracle_offline() -> Result<(), Error> {
+    fn recover_from_oracle_offline() -> Result<()> {
         // TODO: call recoverFromORACLEOFFLINE in security module
         Ok(())
     }
 
     /// Returns true if the last update to the exchange rate
     /// was before the maximum allowed delay
-    fn is_max_delay_passed() -> Result<bool, Error> {
+    fn is_max_delay_passed() -> Result<bool> {
         let timestamp = Self::get_current_time();
         let last_update = Self::get_last_exchange_rate_time();
         let max_delay = Self::get_max_delay();

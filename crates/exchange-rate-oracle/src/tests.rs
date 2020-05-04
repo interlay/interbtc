@@ -87,6 +87,30 @@ fn get_exchange_rate_after_delay() {
 }
 
 #[test]
+fn btc_to_dots() {
+    run_test(|| {
+        ExchangeRateOracle::get_exchange_rate.mock_safe(|| MockResult::Return(Ok(2)));
+        let test_cases = [(0, 0), (2, 4), (10, 20)];
+        for (input, expected) in test_cases.iter() {
+            let result = ExchangeRateOracle::btc_to_dots(*input);
+            assert_ok!(result, *expected);
+        }
+    });
+}
+
+#[test]
+fn dots_to_btc() {
+    run_test(|| {
+        ExchangeRateOracle::get_exchange_rate.mock_safe(|| MockResult::Return(Ok(2)));
+        let test_cases = [(0, 0), (4, 2), (20, 10), (21, 10)];
+        for (input, expected) in test_cases.iter() {
+            let result = ExchangeRateOracle::dots_to_btc(*input);
+            assert_ok!(result, *expected);
+        }
+    });
+}
+
+#[test]
 fn is_max_delay_passed() {
     run_test(|| {
         let now = 1585776145;
