@@ -89,7 +89,6 @@ pub enum Error {
     UnauthorizedVault,
     RedeemPeriodNotExpired,
 
-
     /// use only for errors which means something
     /// going very wrong and which do not match any other error
     RuntimeError,
