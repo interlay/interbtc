@@ -1,6 +1,7 @@
 use crate::mock::*;
 
 //use crate::RawEvent;
+use crate::ext;
 use crate::DOT;
 //use bitcoin::types::H256Le;
 use frame_support::assert_noop;
@@ -99,14 +100,15 @@ fn test_request_replace_vault_not_found() {
 fn test_request_replace_vault_banned() {
     run_test(|| {
         //TODO(jaupe) work out why this is not mocking correctly
-        <vault_registry::Module<Test>>::_get_vault_from_id.mock_safe(|_| {
+
+        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
-                btc_address: H160::zero(),
-                banned_until: Some(10),
+                btc_address: H160([0; 20]),
+                banned_until: Some(1),
             }))
         });
         assert_noop!(
@@ -115,6 +117,7 @@ fn test_request_replace_vault_banned() {
         );
     })
 }
+
 /*
 #[test]
 fn test_request_issue_insufficient_collateral_fails() {

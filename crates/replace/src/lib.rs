@@ -1,6 +1,9 @@
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
+
+mod ext;
+
 #[cfg(test)]
 mod mock;
 
@@ -29,8 +32,9 @@ use sp_std::convert::TryInto;
 use system::ensure_signed;
 use x_core::Error;
 
-type DOT<T> = <<T as collateral::Trait>::DOT as Currency<<T as system::Trait>::AccountId>>::Balance;
-type PolkaBTC<T> =
+pub(crate) type DOT<T> =
+    <<T as collateral::Trait>::DOT as Currency<<T as system::Trait>::AccountId>>::Balance;
+pub(crate) type PolkaBTC<T> =
     <<T as treasury::Trait>::PolkaBTC as Currency<<T as system::Trait>::AccountId>>::Balance;
 
 /// The issue module id, used for deriving its sovereign account ID.
@@ -252,7 +256,7 @@ impl<T: Trait> Module<T> {
             return Err(Error::InvalidTimeout);
         }
         // check vault exists
-        let vault = <vault_registry::Module<T>>::_get_vault_from_id(&vault_id)?;
+        let vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
         // step 3: check vault is not banned
         let height = Self::current_height();
         vault.ensure_not_banned(height)?;
@@ -311,7 +315,7 @@ impl<T: Trait> Module<T> {
             return Err(Error::InvalidVaultID); // TODO(jaupe) is this the correct error code? should it call ensure! macro?
         }
         // step 2: Check that caller of the function is indeed the to-be-replaced Vault as specified in the ReplaceRequest. Return ERR_UNAUTHORIZED error if this check fails.
-        let _vault = <vault_registry::Module<T>>::_get_vault_from_id(&vault_id)?;
+        let _vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
         if vault_id != req.old_vault {
             return Err(Error::UnauthorizedUser);
         }
@@ -355,7 +359,7 @@ impl<T: Trait> Module<T> {
         // step 1: Retrieve the ReplaceRequest as per the replaceId parameter from ReplaceRequests. Return ERR_REPLACE_ID_NOT_FOUND error if no such ReplaceRequest was found.
         let mut req = Self::get_replace_request(replace_id)?;
         // step 2: Retrieve the Vault as per the newVault parameter from Vaults in the VaultRegistry
-        let vault = <vault_registry::Module<T>>::_get_vault_from_id(&new_vault_id)?;
+        let vault = ext::vault_registry::get_vault_from_id::<T>(&new_vault_id)?;
         // step 3: Check that the newVault is currently not banned
         let height = Self::current_height();
         if vault.is_banned(height) {
@@ -390,9 +394,9 @@ impl<T: Trait> Module<T> {
         collateral: DOT<T>,
     ) -> Result<(), Error> {
         // step 1: Retrieve the newVault as per the newVault parameter from Vaults in the VaultRegistry
-        let new_vault = <vault_registry::Module<T>>::_get_vault_from_id(&new_vault_id)?;
+        let new_vault = ext::vault_registry::get_vault_from_id::<T>(&new_vault_id)?;
         // step 2: Retrieve the oldVault as per the oldVault parameter from Vaults in the VaultRegistry
-        let _old_vault = <vault_registry::Module<T>>::_get_vault_from_id(&old_vault_id)?;
+        let _old_vault = ext::vault_registry::get_vault_from_id::<T>(&old_vault_id)?;
         // step 4: Check that the oldVault is below the AuctionCollateralThreshold by calculating his current oldVault.issuedTokens and the oldVault.collateral
         let btcdot_rate: u128 = <exchange_rate_oracle::Module<T>>::get_exchange_rate()?;
         let auction_threshold: u128 = <vault_registry::Module<T>>::auction_collateral_threshold();
@@ -453,7 +457,7 @@ impl<T: Trait> Module<T> {
             return Err(Error::ReplacePeriodNotExpired);
         }
         // step 3: Retrieve the Vault as per the newVault parameter from Vaults in the VaultRegistry
-        let new_vault = <vault_registry::Module<T>>::_get_vault_from_id(&new_vault_id)?;
+        let new_vault = ext::vault_registry::get_vault_from_id::<T>(&new_vault_id)?;
         // step 4: Call verifyTransactionInclusion in BTC-Relay, providing txid, txBlockHeight, txIndex, and merkleProof as parameters
         // TODO(jaupe) work out what confirmations and insecure should be
         let confirmations = 0;
@@ -501,7 +505,7 @@ impl<T: Trait> Module<T> {
             return Err(Error::ReplacePeriodNotExpired);
         }
         // step 3: Retrieve the Vault as per the newVault parameter from Vaults in the VaultRegistry
-        let _new_vault = <vault_registry::Module<T>>::_get_vault_from_id(&new_vault_id)?;
+        let _new_vault = ext::vault_registry::get_vault_from_id::<T>(&new_vault_id)?;
         // step 4: Transfer the oldVault’s griefing collateral associated with this ReplaceRequests to the newVault by calling slashCollateral
         <collateral::Module<T>>::slash_collateral(
             req.old_vault.clone(),
