@@ -98,14 +98,6 @@ impl AsMut<[u8]> for ReplaceRngSeed {
     }
 }
 
-impl SeedableRng for ReplaceRng {
-    type Seed = ReplaceRngSeed;
-
-    fn from_seed(seed: ReplaceRngSeed) -> ReplaceRng {
-        ReplaceRng(seed)
-    }
-}
-
 #[derive(Encode, Decode, Default, Clone)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct ReplaceKey {

@@ -87,10 +87,6 @@ path = '../x-core'
 default-features = false
 version = '0.8.0'
 
-[dependencies.rand]
-default-features = false
-version = '0.7.3'
-
 [dependencies.security]
 default-features = false
 path = '../security'
