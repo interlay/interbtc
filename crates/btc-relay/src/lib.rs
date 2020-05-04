@@ -35,6 +35,7 @@ use bitcoin::types::{
     BlockChain, BlockHeader, H256Le, RawBlockHeader, RichBlockHeader, Transaction,
 };
 use security::types::ErrorCode;
+use security::ErrorCode;
 use x_core::Error;
 
 /// ## Configuration and Constants
@@ -70,6 +71,10 @@ pub const MAIN_CHAIN_ID: u32 = 0;
 
 /// Global security parameter k for stable transactions
 pub const STABLE_TRANSACTION_CONFIRMATIONS: u32 = 6;
+
+/// Number of outputs expected in the accepted transaction format
+/// See: https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/intro/accepted-format.html
+pub const ACCEPTED_NO_TRANSACTION_OUTPUTS: u32 = 2;
 
 // This pallet's storage items.
 decl_storage! {
@@ -275,6 +280,61 @@ decl_module! {
             Ok(())
         }
 
+        /// Verifies the inclusion of `tx_id` in block at height `tx_block_height` and validates the given raw Bitcoin transaction, according to the
+        /// supported transaction format (see
+        /// https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/intro/
+        /// accepted-format.html).
+        /// # Arguments
+        ///
+        /// * `tx_id` - The hash of the transaction to check for
+        /// * `tx_block_height` - The height of the block in which the
+        /// transaction should be included
+        /// * `raw_merkle_proof` - The raw merkle proof as returned by
+        /// bitcoin `gettxoutproof`
+        /// * `confirmations` - The number of confirmations needed to accept
+        /// the proof
+        /// * `insecure` - determines if checks against recommended global transaction confirmation are to be executed. Recommended: set to `true`
+        /// * `raw_tx` - raw Bitcoin transaction
+        /// * `paymentValue` - value of BTC sent in the 1st /
+        /// payment UTXO of the transaction
+        /// * `recipientBtcAddress` - 20 byte Bitcoin address of recipient
+        /// of the BTC in the 1st  / payment UTXO
+        /// * `op_return_id` - 32 byte hash identifier expected in
+        /// OP_RETURN (replay protection)
+        fn verify_and_validate_transaction(
+            origin,
+            tx_id: H256Le,
+            block_height: u32,
+            raw_merkle_proof: Vec<u8>,
+            confirmations: u32,
+            insecure: bool,
+            raw_tx: Vec<u8>,
+            payment_value: i64,
+            recipient_btc_address: Vec<u8>,
+            op_return_id: Vec<u8>)
+        -> DispatchResult {
+            let _ = ensure_signed(origin)?;
+
+            // fail if parachain is not in running state.
+            /*
+            ensure!(<security::Module<T>>::check_parachain_status(StatusCode::Running),
+                Error::<T>::Shutdown);
+            */
+
+            // Check that the passed raw_tx indeed matches the tx_id used for
+            // transaction inclusion verification
+            ensure!(tx_id == sha256d_le(&raw_tx),Error::InvalidTxid);
+
+            // Verify that the transaction is indeed included in the main chain
+            Self::_verify_transaction_inclusion(tx_id, block_height, raw_merkle_proof, confirmations, insecure)?;
+
+            // Parse transaction and check that it matches the given parameters
+            Self::_validate_transaction(raw_tx, payment_value, recipient_btc_address, op_return_id)?;
+
+            Ok(())
+        }
+
+
         /// Verifies the inclusion of `tx_id` in block at height `tx_block_height`
         /// # Arguments
         ///
@@ -385,11 +445,12 @@ impl<T: Trait> Module<T> {
     ) -> Result<(), Error> {
         let transaction = Self::parse_transaction(&raw_tx)?;
 
-        // TODO: make 2 a constant
-        ensure!(transaction.outputs.len() >= 2, Error::MalformedTransaction);
+        ensure!(
+            transaction.outputs.len() >= ACCEPTED_NO_TRANSACTION_OUTPUTS as usize,
+            Error::MalformedTransaction
+        );
 
         // Check if 1st / payment UTXO transfers sufficient value
-        // FIXME: returns incorrect value (too large: 9865995930474779817)
         let extr_payment_value = transaction.outputs[0].value;
         ensure!(
             extr_payment_value >= payment_value,
