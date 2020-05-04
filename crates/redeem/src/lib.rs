@@ -164,7 +164,7 @@ impl<T: Trait> Module<T> {
         // Step 4: Check if the amountPolkaBTC is less or equal to the issuedTokens by the selected vault in the VaultRegistry
         ensure!(
             amount_polka_btc <= vault.issued_tokens,
-            Error::AmountExceedsVaultBalanace
+            Error::AmountExceedsVaultBalance
         );
         // Step 5: Check if ParachainState in Security is ERROR with LIQUIDATION in Errors
         let (amount_btc, amount_dot): (u128, u128) =
