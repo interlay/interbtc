@@ -510,7 +510,7 @@ impl<T: Trait> Module<T> {
         // step 2: Check that the current Parachain block height minus the ReplacePeriod is greater than the opentime of the ReplaceRequest
         let current_height = Self::current_height();
         let replace_period = Self::replace_period();
-        if current_height - replace_period > req.open_time {
+        if current_height - replace_period >= req.open_time {
             return Err(Error::ReplacePeriodNotExpired);
         }
         // step 4: Transfer the oldVault’s griefing collateral associated with this ReplaceRequests to the newVault by calling slashCollateral
