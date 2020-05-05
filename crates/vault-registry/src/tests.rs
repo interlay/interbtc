@@ -561,3 +561,59 @@ fn liquidate_succeeds() -> UnitResult {
         Ok(())
     })
 }
+
+#[test]
+fn is_collateral_below_threshold_true_succeeds() {
+    run_test(|| {
+        let collateral = DEFAULT_COLLATERAL;
+        let btc_amount = 50;
+        let threshold = 201000; // 201%
+
+        ext::oracle::dots_to_btc::<Test>
+            .mock_safe(move |_| MockResult::Return(Ok(collateral.clone())));
+
+        assert_eq!(
+            VaultRegistry::is_collateral_below_threshold(collateral, btc_amount, threshold),
+            Ok(true)
+        );
+    })
+}
+
+#[test]
+fn is_collateral_below_threshold_false_succeeds() {
+    run_test(|| {
+        let collateral = DEFAULT_COLLATERAL;
+        let btc_amount = 50;
+        let threshold = 200000; // 200%
+
+        ext::oracle::dots_to_btc::<Test>
+            .mock_safe(move |_| MockResult::Return(Ok(collateral.clone())));
+
+        assert_eq!(
+            VaultRegistry::is_collateral_below_threshold(collateral, btc_amount, threshold),
+            Ok(false)
+        );
+    })
+}
+
+#[test]
+fn _is_vault_below_auction_threshold_false_succeeds() {
+    run_test(|| {
+        // vault has 200% collateral ratio
+        let id = create_sample_vault();
+
+        let vault = VaultRegistry::_get_vault_from_id(&id).unwrap();
+        assert_ok!(
+            VaultRegistry::_increase_to_be_issued_tokens(&id, 50),
+            vault.btc_address
+        );
+        let res = VaultRegistry::_issue_tokens(&id, 50);
+        assert_ok!(res);
+
+        ext::collateral::for_account::<Test>.mock_safe(|_| MockResult::Return(DEFAULT_COLLATERAL));
+        ext::oracle::dots_to_btc::<Test>.mock_safe(|_| MockResult::Return(Ok(DEFAULT_COLLATERAL)));
+
+        // FIXME: add a setter to configure all thresholds
+        // assert_eq!(VaultRegistry::_is_vault_below_auction_threshold(&id), Ok(false));
+    })
+}

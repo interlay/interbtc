@@ -25,6 +25,7 @@ use frame_support::dispatch::DispatchResult;
 use frame_support::{decl_event, decl_module, decl_storage, ensure};
 use primitive_types::H256;
 use sp_core::H160;
+use sp_std::convert::TryInto;
 use system::ensure_signed;
 
 use x_core::{Error, Result, UnitResult};
@@ -34,7 +35,7 @@ use crate::types::{DefaultVault, PolkaBTC, RichVault, DOT};
 
 /// Granularity of `SecureCollateralThreshold`, `AuctionCollateralThreshold`,
 /// `LiquidationCollateralThreshold`, and `PunishmentFee`
-pub const GRANULARITY: u128 = 5;
+pub const GRANULARITY: u32 = 5;
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
@@ -333,6 +334,32 @@ impl<T: Trait> Module<T> {
         <Vaults<T>>::insert(id, vault)
     }
 
+    /// Threshold checks
+
+    pub fn _is_vault_below_secure_threshold(vault_id: &T::AccountId) -> Result<bool> {
+        Self::is_vault_below_threshold(&vault_id, <SecureCollateralThreshold>::get())
+    }
+
+    pub fn _is_vault_below_auction_threshold(vault_id: &T::AccountId) -> Result<bool> {
+        Self::is_vault_below_threshold(&vault_id, <AuctionCollateralThreshold>::get())
+    }
+
+    pub fn _is_vault_below_premium_threshold(vault_id: &T::AccountId) -> Result<bool> {
+        Self::is_vault_below_threshold(&vault_id, <PremiumRedeemThreshold>::get())
+    }
+
+    pub fn _is_vault_below_liquidation_threshold(vault_id: &T::AccountId) -> Result<bool> {
+        Self::is_vault_below_threshold(&vault_id, <LiquidationCollateralThreshold>::get())
+    }
+
+    pub fn _is_collateral_below_secure_threshold(
+        collateral: DOT<T>,
+        btc_amount: PolkaBTC<T>,
+    ) -> Result<bool> {
+        let threshold = <SecureCollateralThreshold>::get();
+        Self::is_collateral_below_threshold(collateral, btc_amount, threshold)
+    }
+
     /// Private getters and setters
 
     fn rich_vault_from_id(vault_id: &T::AccountId) -> Result<RichVault<T>> {
@@ -358,6 +385,48 @@ impl<T: Trait> Module<T> {
         //     Error::Shutdown
         // );
         Ok(())
+    }
+
+    fn is_vault_below_threshold(vault_id: &T::AccountId, threshold: u128) -> Result<bool> {
+        let vault = Self::rich_vault_from_id(&vault_id)?;
+
+        // the currently issued tokens in PolkaBTC
+        let issued_tokens = vault.data.issued_tokens;
+
+        // the current locked collateral by the vault
+        let collateral = ext::collateral::for_account::<T>(&vault_id);
+
+        Self::is_collateral_below_threshold(collateral, issued_tokens, threshold)
+    }
+
+    fn is_collateral_below_threshold(
+        collateral: DOT<T>,
+        btc_amount: PolkaBTC<T>,
+        threshold: u128,
+    ) -> Result<bool> {
+        let raw_btc_amount = Self::polkabtc_to_u128(btc_amount)?;
+
+        // convert the collateral to polkabtc
+        let collateral_in_polka_btc = ext::oracle::dots_to_btc::<T>(collateral)?;
+        let raw_collateral_in_polka_btc = Self::polkabtc_to_u128(collateral_in_polka_btc)?;
+
+        // calculate how many tokens should be maximally issued given the threshold
+        let raw_scaled_collateral_in_polka_btc =
+            match raw_collateral_in_polka_btc.checked_mul(10u32.pow(GRANULARITY) as u128) {
+                Some(v) => v,
+                None => return Err(Error::RuntimeError),
+            };
+        let raw_max_tokens = match raw_scaled_collateral_in_polka_btc.checked_div(threshold) {
+            Some(v) => v,
+            None => 0,
+        };
+
+        // check if the max_tokens are below the issued tokens
+        Ok(raw_max_tokens < raw_btc_amount)
+    }
+
+    fn polkabtc_to_u128(x: PolkaBTC<T>) -> Result<u128> {
+        TryInto::<u128>::try_into(x).map_err(|_| Error::RuntimeError)
     }
 }
 
