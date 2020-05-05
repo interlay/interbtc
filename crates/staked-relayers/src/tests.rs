@@ -10,6 +10,8 @@ use security::types::{ErrorCode, StatusCode};
 use sp_core::U256;
 use sp_std::collections::btree_set::BTreeSet;
 
+use vault_registry::Vault;
+
 type Event = crate::Event<Test>;
 
 macro_rules! assert_emitted {
@@ -36,6 +38,14 @@ macro_rules! assert_not_emitted {
     };
 }
 
+/// Mocking functions
+fn init_zero_vault<Test>(id: AccountId) -> Vault<AccountId, BlockNumber, u64> {
+    let mut vault = Vault::default();
+    vault.id = id;
+    vault
+}
+
+/// Tests
 #[test]
 fn test_register_staked_relayer_fails_with_insufficient_stake() {
     run_test(|| {
@@ -700,6 +710,50 @@ fn test_report_vault_theft_fails_with_staked_relayers_only() {
 //         ));
 //     })
 // }
+
+#[test]
+fn test_report_vault_under_liquidation_threshold_succeeds() {
+    run_test(|| {
+        let relayer = ALICE;
+        let vault = BOB;
+        let collateral_in_dot = 10;
+        let amount_btc_in_dot = 12;
+        let liquidation_collateral_threshold = 110000;
+
+        Staking::check_relayer_registered.mock_safe(|_| MockResult::Return(true));
+
+        ext::vault_registry::get_vault_from_id::<Test>
+            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault::<Test>(vault.clone()))));
+
+        ext::collateral::get_collateral_from_account::<Test>
+            .mock_safe(move |_| MockResult::Return(collateral_in_dot.clone()));
+
+        ext::vault_registry::get_liquidation_collateral_threshold::<Test>
+            .mock_safe(move || MockResult::Return(liquidation_collateral_threshold.clone()));
+
+        ext::oracle::btc_to_dots::<Test>
+            .mock_safe(move |_| MockResult::Return(Ok(amount_btc_in_dot.clone())));
+
+        ext::vault_registry::liquidate_vault::<Test>
+            .mock_safe(|_| MockResult::Return(Ok(())));
+
+        assert_ok!(
+            Staking::report_vault_under_liquidation_threshold(
+                Origin::signed(relayer),
+                vault
+            )
+        );
+
+         assert_emitted!(Event::ExecuteStatusUpdate(
+             StatusCode::Error,
+             Some(ErrorCode::Liquidation),
+             None,
+         ));
+
+         let parachain_status = ext::security::get_parachain_status::<Test>();
+         assert_eq!(parachain_status, StatusCode::Error);
+    })
+}
 
 #[test]
 fn test_report_vault_under_liquidation_threshold_fails_with_staked_relayers_only() {
