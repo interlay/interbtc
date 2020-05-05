@@ -734,24 +734,21 @@ fn test_report_vault_under_liquidation_threshold_succeeds() {
         ext::oracle::btc_to_dots::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(amount_btc_in_dot.clone())));
 
-        ext::vault_registry::liquidate_vault::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(())));
+        ext::vault_registry::liquidate_vault::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
 
-        assert_ok!(
-            Staking::report_vault_under_liquidation_threshold(
-                Origin::signed(relayer),
-                vault
-            )
-        );
+        assert_ok!(Staking::report_vault_under_liquidation_threshold(
+            Origin::signed(relayer),
+            vault
+        ));
 
-         assert_emitted!(Event::ExecuteStatusUpdate(
-             StatusCode::Error,
-             Some(ErrorCode::Liquidation),
-             None,
-         ));
+        assert_emitted!(Event::ExecuteStatusUpdate(
+            StatusCode::Error,
+            Some(ErrorCode::Liquidation),
+            None,
+        ));
 
-         let parachain_status = ext::security::get_parachain_status::<Test>();
-         assert_eq!(parachain_status, StatusCode::Error);
+        let parachain_status = ext::security::get_parachain_status::<Test>();
+        assert_eq!(parachain_status, StatusCode::Error);
     })
 }
 
