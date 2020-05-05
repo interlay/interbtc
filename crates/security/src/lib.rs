@@ -187,11 +187,6 @@ impl<T: Trait> Module<T> {
     pub fn check_relayer_registered(relayer: T::AccountId) -> bool {
         <StakedRelayers<T>>::contains_key(relayer)
     }
-
-    pub fn get_nonce() -> U256 {
-        //TODO(jaupe) check if this already incremented for use or must make a further call
-        <Nonce>::get()
-    }
 }
 
 decl_event!(
