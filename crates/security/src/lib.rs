@@ -27,6 +27,7 @@ use primitive_types::H256;
 use sha2::{Digest, Sha256};
 use sp_core::U256;
 use sp_std::collections::btree_set::BTreeSet;
+use x_core::{Error, UnitResult};
 
 /// ## Configuration
 /// The pallet's configuration trait.
@@ -56,6 +57,15 @@ decl_module! {
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
 impl<T: Trait> Module<T> {
+    /// Checks if the Parachain status is set to running
+    pub fn _ensure_parachain_status_running() -> UnitResult {
+        if <ParachainStatus>::get() == StatusCode::Running {
+            return Ok(());
+        } else {
+            return Err(Error::ParachainNotRunning);
+        }
+    }
+
     /// Gets the current `StatusCode`.
     pub fn get_parachain_status() -> StatusCode {
         <ParachainStatus>::get()
@@ -101,7 +111,7 @@ impl<T: Trait> Module<T> {
     /// # Arguments
     ///
     /// * `id`: Parachain account identifier.
-    pub fn get_secure_id(id: &T::AccountId) -> H256 {
+    pub fn _get_secure_id(id: &T::AccountId) -> H256 {
         let mut hasher = Sha256::default();
         hasher.input(id.encode());
         hasher.input(Self::get_nonce().encode());

@@ -16,6 +16,9 @@ fn request_issue(
     vault: AccountId,
     collateral: Balance,
 ) -> Result<H256, Error> {
+    // Default: Parachain status is "RUNNING". Set manually for failure testing
+    ext::security::ensure_parachain_status_running::<Test>.mock_safe(|| MockResult::Return(Ok(())));
+
     ext::vault_registry::increase_to_be_issued_tokens::<Test>
         .mock_safe(|_, _| MockResult::Return(Ok(H160::from_slice(&[0; 20]))));
 
@@ -28,6 +31,9 @@ fn request_issue_ok(
     vault: AccountId,
     collateral: Balance,
 ) -> H256 {
+    // Default: Parachain status is "RUNNING". Set manually for failure testing
+    ext::security::ensure_parachain_status_running::<Test>.mock_safe(|| MockResult::Return(Ok(())));
+    
     ext::vault_registry::increase_to_be_issued_tokens::<Test>
         .mock_safe(|_, _| MockResult::Return(Ok(H160::from_slice(&[0; 20]))));
 
@@ -41,6 +47,8 @@ fn request_issue_ok(
 }
 
 fn execute_issue(origin: AccountId, issue_id: &H256) -> Result<(), Error> {
+    ext::security::ensure_parachain_status_running::<Test>.mock_safe(|| MockResult::Return(Ok(())));
+
     Issue::_execute_issue(
         origin,
         *issue_id,
@@ -52,6 +60,8 @@ fn execute_issue(origin: AccountId, issue_id: &H256) -> Result<(), Error> {
 }
 
 fn execute_issue_ok(origin: AccountId, issue_id: &H256) {
+    ext::security::ensure_parachain_status_running::<Test>.mock_safe(|| MockResult::Return(Ok(())));
+
     ext::btc_relay::verify_transaction_inclusion::<Test>
         .mock_safe(|_, _, _| MockResult::Return(Ok(())));
 
@@ -212,5 +222,38 @@ fn test_cancel_issue_succeeds() {
 
         let issue_id = request_issue_ok(ALICE, 3, BOB, 0);
         assert_ok!(cancel_issue(ALICE, &issue_id));
+    })
+}
+
+#[test]
+fn test_request_issue_parachain_not_running_fails() {
+    run_test(|| {
+        let origin = ALICE;
+        let vault = BOB;
+        let amount: Balance = 3;
+
+        ext::security::ensure_parachain_status_running::<Test>
+            .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
+
+        assert_noop!(Issue::_request_issue(origin, amount, vault, 0), Error::ParachainNotRunning);
+    })
+}
+
+#[test]
+fn test_execute_issue_parachain_not_running_fails() {
+    run_test(|| {
+        let origin = ALICE;
+
+        ext::security::ensure_parachain_status_running::<Test>
+            .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
+
+        assert_noop!(Issue::_execute_issue(
+            origin,
+            H256::zero(),
+            H256Le::zero(),
+            0,
+            vec![0u8; 100],
+            vec![0u8; 100],
+        ), Error::ParachainNotRunning);
     })
 }

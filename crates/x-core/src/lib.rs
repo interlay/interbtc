@@ -83,6 +83,8 @@ pub enum Error {
     IssueCompleted,
     InsufficientTokensCommitted,
 
+    /// Parachain Status Errors (Security module)
+    ParachainNotRunning,
     /// use only for errors which means something
     /// going very wrong and which do not match any other error
     RuntimeError,
@@ -157,6 +159,9 @@ impl Error {
             Error::IssueCompleted => "Issue completed and cannot be cancelled",
             Error::InsufficientTokensCommitted => "The requested amount of tokens exceeds the toBeIssuedTokens by this vault.",
 
+
+            Error::ParachainNotRunning => "Function disabled. Reason: the Parachain status is not 'RUNNING'.",
+            
             Error::RuntimeError => "Runtime error",
         }
     }
