@@ -1,5 +1,6 @@
 extern crate hex;
 
+use crate::formatter::Formattable;
 use crate::parser::*;
 use crate::utils::*;
 use codec::alloc::string::String;
@@ -8,6 +9,8 @@ use primitive_types::{H256, U256};
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::*;
 use x_core::Error;
+
+pub(crate) const SERIALIZE_TRANSACTION_NO_WITNESS: i32 = 0x4000_0000;
 
 /// Custom Types
 /// Bitcoin Raw Block Header type
@@ -93,12 +96,12 @@ pub struct TransactionInput {
     pub height: Option<Vec<u8>>, // FIXME: Vec<u8> type here seems weird
     pub script: Vec<u8>,
     pub sequence: u32,
-    pub witness: Option<Vec<u8>>,
+    pub witness: Vec<Vec<u8>>,
 }
 
 impl TransactionInput {
-    pub fn with_witness(&mut self, witness: Vec<u8>) {
-        self.witness = Some(witness);
+    pub fn with_witness(&mut self, witness: Vec<Vec<u8>>) {
+        self.witness = witness;
     }
 }
 
@@ -120,8 +123,12 @@ pub struct Transaction {
 }
 
 impl Transaction {
-    pub fn tx_id(raw_tx: &[u8]) -> H256Le {
-        sha256d_le(&raw_tx)
+    pub fn tx_id(&self) -> H256Le {
+        sha256d_le(&self.format())
+    }
+
+    pub fn hash(&self) -> H256Le {
+        sha256d_le(&self.format_with(false))
     }
 }
 
@@ -266,6 +273,14 @@ impl PartialEq<H256> for H256Le {
 
 pub(crate) struct CompactUint {
     pub(crate) value: u64,
+}
+
+impl CompactUint {
+    pub(crate) fn from_usize(value: usize) -> CompactUint {
+        CompactUint {
+            value: value as u64,
+        }
+    }
 }
 
 #[cfg(test)]

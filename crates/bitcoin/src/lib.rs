@@ -11,6 +11,7 @@ pub mod merkle;
 
 pub mod types;
 
+pub mod formatter;
 #[cfg_attr(test, mockable)]
 pub mod parser;
 

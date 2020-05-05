@@ -1626,7 +1626,7 @@ fn sample_transaction_parsed(outputs: &Vec<TransactionOutput>) -> Transaction {
         height: None,
         script: hex::decode("16001443feac9ca9d20883126e30e962ca11fda07f808b".to_owned()).unwrap(),
         sequence: 4294967295,
-        witness: None,
+        witness: vec![],
     };
 
     inputs.push(input);
