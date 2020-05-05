@@ -4746,7 +4746,6 @@ version = "0.1.0"
 dependencies = [
  "bitcoin",
  "collateral",
- "exchange-rate-oracle",
  "frame-support",
  "frame-system",
  "pallet-balances",

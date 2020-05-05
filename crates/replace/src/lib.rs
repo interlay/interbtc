@@ -41,12 +41,7 @@ const _MODULE_ID: ModuleId = ModuleId(*b"replacem");
 
 /// The pallet's configuration trait.
 pub trait Trait:
-    system::Trait
-    + vault_registry::Trait
-    + collateral::Trait
-    + btc_relay::Trait
-    + treasury::Trait
-    + exchange_rate_oracle::Trait
+    system::Trait + vault_registry::Trait + collateral::Trait + btc_relay::Trait + treasury::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;

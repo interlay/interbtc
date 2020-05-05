@@ -41,7 +41,7 @@ default-features = false
 package = 'frame-system'
 version = '2.0.0-alpha.5'
 
-[dependencies.pallet-balances]
+[dev-dependencies.pallet-balances]
 default-features = false
 package = 'pallet-balances'
 version = '2.0.0-alpha.5'
@@ -58,7 +58,7 @@ features= ['codec']
 default-features = false
 path = '../vault-registry'
 
-[dependencies.exchange-rate-oracle]
+[dev-dependencies.exchange-rate-oracle]
 default-features = false
 path = '../exchange-rate-oracle'
 
@@ -91,7 +91,7 @@ version = '0.8.0'
 default-features = false
 path = '../security'
 
-[dependencies.timestamp]
+[dev-dependencies.timestamp]
 default-features = false
 package = 'pallet-timestamp'
 version = '2.0.0-alpha.5'
