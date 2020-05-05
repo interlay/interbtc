@@ -349,15 +349,9 @@ impl<T: Trait> Module<T> {
     }
 
     /// Other helpers
-    /// Returns an error if the parachain is not in running state
-    fn ensure_parachain_running() -> UnitResult {
-        // TODO: integrate security module
-        // ensure!(
-        //     !<security::Module<T>>::check_parachain_status(
-        //         StatusCode::Shutdown),
-        //     Error::Shutdown
-        // );
-        Ok(())
+    /// Returns an error if the parachain is not in RUNNING state
+    fn ensure_parachain_running() -> UnitResult 
+        ext::security::ensure_parachain_status_running();
     }
 }
 

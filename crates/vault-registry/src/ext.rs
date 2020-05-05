@@ -58,4 +58,8 @@ pub(crate) mod security {
     pub fn recover_from_liquidation<T: security::Trait>() -> UnitResult {
         Ok(())
     }
+
+    pub fn ensure_parachain_status_running<T: security::Trait>() -> UnitResult {
+        <security::Module<T>>::_ensure_parachain_status_running()
+    }
 }
