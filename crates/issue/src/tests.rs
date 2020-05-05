@@ -17,7 +17,8 @@ fn request_issue(
     collateral: Balance,
 ) -> Result<H256, Error> {
     // Default: Parachain status is "RUNNING". Set manually for failure testing
-    ext::security::ensure_parachain_status_running::<Test>.mock_safe(|| MockResult::Return(Ok(())));
+    ext::security::ensure_parachain_status_running::<Test>
+        .mock_safe(|| MockResult::Return(Ok(())));
 
     ext::vault_registry::increase_to_be_issued_tokens::<Test>
         .mock_safe(|_, _| MockResult::Return(Ok(H160::from_slice(&[0; 20]))));
@@ -32,7 +33,8 @@ fn request_issue_ok(
     collateral: Balance,
 ) -> H256 {
     // Default: Parachain status is "RUNNING". Set manually for failure testing
-    ext::security::ensure_parachain_status_running::<Test>.mock_safe(|| MockResult::Return(Ok(())));
+    ext::security::ensure_parachain_status_running::<Test>
+        .mock_safe(|| MockResult::Return(Ok(())));
     
     ext::vault_registry::increase_to_be_issued_tokens::<Test>
         .mock_safe(|_, _| MockResult::Return(Ok(H160::from_slice(&[0; 20]))));

@@ -25,7 +25,6 @@ use codec::{Decode, Encode};
 // Substrate
 use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
 use primitive_types::H256;
-use sha2::{Digest, Sha256};
 use sp_core::H160;
 use sp_runtime::ModuleId;
 use system::ensure_signed;
@@ -165,13 +164,15 @@ impl<T: Trait> Module<T> {
         let btc_address =
             ext::vault_registry::increase_to_be_issued_tokens::<T>(&vault_id, amount)?;
 
-        let mut hasher = Sha256::default();
+        
+        //let mut hasher = Sha256::default();
         // TODO: nonce from security module
-        hasher.input(requester.encode());
+        //hasher.input(requester.encode());
+        //let mut result = [0; 32];
+        //result.copy_from_slice(&hasher.result()[..]);
+        //let key = H256(result);
 
-        let mut result = [0; 32];
-        result.copy_from_slice(&hasher.result()[..]);
-        let key = H256(result);
+        let key = ext::security::get_secure_id::<T>(&requester);
 
         Self::insert_issue_request(
             key,
