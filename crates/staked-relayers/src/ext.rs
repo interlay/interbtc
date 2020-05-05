@@ -41,6 +41,7 @@ pub(crate) mod oracle {
     use x_core::Result;
 
     pub(crate) fn is_max_delay_passed<T: exchange_rate_oracle::Trait>() -> Result<bool> {
+        // FIXME
         // <exchange_rate_oracle::Module<T>>::is_max_delay_passed()
         Ok(true)
     }
@@ -62,11 +63,8 @@ pub(crate) mod vault_registry {
     }
 
     pub fn get_liquidation_collateral_threshold<T: vault_registry::Trait>() -> u128 {
-        1
-    }
-
-    pub fn get_secure_collateral_threshold<T: vault_registry::Trait>() -> u128 {
-        1
+        // FIXME: add function to vault registry
+        110000
     }
 
     pub fn liquidate_vault<T: vault_registry::Trait>(vault_id: &T::AccountId) -> UnitResult {
@@ -125,6 +123,7 @@ pub(crate) mod btc_relay {
 #[cfg_attr(test, mockable)]
 pub(crate) mod redeem {
     pub(crate) fn get_redeem_request_by_id(_id: &Vec<u8>) -> bool {
+        // FIXME
         true
     }
 }
@@ -132,6 +131,7 @@ pub(crate) mod redeem {
 #[cfg_attr(test, mockable)]
 pub(crate) mod replace {
     pub(crate) fn get_replace_request_by_id(_id: &Vec<u8>) -> bool {
+        // FIXME
         true
     }
 }
