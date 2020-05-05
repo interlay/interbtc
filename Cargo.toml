@@ -4,6 +4,7 @@ members = [
   "crates/bitcoin",
   "crates/btc-relay",
   "crates/security",
+  "crates/staked-relayers",
   "crates/exchange-rate-oracle",
   "crates/vault-registry",
   "crates/treasury",

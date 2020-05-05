@@ -34,7 +34,7 @@ use bitcoin::parser::{
 use bitcoin::types::{
     BlockChain, BlockHeader, H256Le, RawBlockHeader, RichBlockHeader, Transaction,
 };
-use security::ErrorCode;
+use security::types::ErrorCode;
 use x_core::Error;
 
 /// ## Configuration and Constants
