@@ -224,6 +224,7 @@ impl<T: Trait> Module<T> {
 
         ext::vault_registry::issue_tokens::<T>(&issue.vault, issue.amount)?;
         ext::treasury::mint::<T>(issue.requester, issue.amount);
+        // Remove issue request from storage
         <IssueRequests<T>>::remove(issue_id);
 
         Self::deposit_event(<Event<T>>::ExecuteIssue(issue_id, requester, issue.vault));
@@ -245,6 +246,9 @@ impl<T: Trait> Module<T> {
             &issue.vault,
             issue.griefing_collateral,
         )?;
+
+        // Remove issue request from storage
+        <IssueRequests<T>>::remove(issue_id);
 
         Self::deposit_event(<Event<T>>::CancelIssue(issue_id, requester));
         Ok(())
