@@ -406,13 +406,11 @@ impl<T: Trait> Module<T> {
             insecure,
         )?;
         // step 5: Call validateTransaction in BTC-Relay
-        let amount = 0i64; //TODO(jaupe) work out how to convert substrate currency type to i64
-        <btc_relay::Module<T>>::_validate_transaction(
-            raw_tx,
-            amount,
-            new_vault.btc_address.as_bytes().to_vec(),
-            replace_id.as_bytes().to_vec(),
-        )?;
+        let amount = req
+            .amount_btc
+            .try_into()
+            .map_err(|_e| Error::RuntimeError)?;
+
         // step 6: Call the replaceTokens
         ext::vault_registry::replace_tokens::<T>(
             req.old_vault.clone(),
