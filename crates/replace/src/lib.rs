@@ -221,11 +221,11 @@ impl<T: Trait> Module<T> {
         }
         // step 5: If the request is not for the entire BTC holdings, check that the remaining DOT collateral of the Vault is higher than MinimumCollateralVault
         let vault_collateral = ext::collateral::get_collateral_from_account::<T>(vault_id.clone());
-        let over_threshold = ext::vault_registry::is_over_minimum_collateral::<T>(vault_collateral);
-        ensure!(
-            amount != vault.no_issuable_tokens() && !over_threshold,
-            Error::InsufficientCollateral
-        );
+        if amount != vault.no_issuable_tokens() {
+            let over_threshold =
+                ext::vault_registry::is_over_minimum_collateral::<T>(vault_collateral);
+            ensure!(!over_threshold, Error::InsufficientCollateral);
+        }
         // step 6: Check that the griefingCollateral is greater or equal ReplaceGriefingCollateral
         ensure!(
             griefing_collateral >= <ReplaceGriefingCollateral<T>>::get(),
