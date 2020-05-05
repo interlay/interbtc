@@ -390,10 +390,11 @@ impl<T: Trait> Module<T> {
         let replace = Self::get_replace_request(replace_id)?;
         // step 2: Check that the current Parachain block height minus the ReplacePeriod is smaller than the opentime of the ReplaceRequest
         let replace_period = Self::replace_period();
-        let height = Self::current_height();
-        if replace.open_time > height - replace_period {
-            return Err(Error::ReplacePeriodExpired);
-        }
+        let current_height = Self::current_height();
+        ensure!(
+            replace.open_time + replace_period <= current_height,
+            Error::ReplacePeriodExpired
+        );
         // step 3: Retrieve the Vault as per the newVault parameter from Vaults in the VaultRegistry
         let _new_vault = ext::vault_registry::get_vault_from_id::<T>(&new_vault_id)?;
         // step 4: Call verifyTransactionInclusion in BTC-Relay, providing txid, txBlockHeight, txIndex, and merkleProof as parameters
@@ -437,9 +438,13 @@ impl<T: Trait> Module<T> {
         // step 2: Check that the current Parachain block height minus the ReplacePeriod is greater than the opentime of the ReplaceRequest
         let current_height = Self::current_height();
         let replace_period = Self::replace_period();
-        if current_height - replace_period >= replace.open_time {
-            return Err(Error::ReplacePeriodNotExpired);
-        }
+        println!("current_height = {:?}", current_height);
+        println!("replace_period = {:?}", replace_period);
+        println!("replace.open_time = {:?}", replace.open_time);
+        ensure!(
+            current_height > replace.open_time + replace_period,
+            Error::ReplacePeriodNotExpired
+        );
         // step 4: Transfer the oldVault’s griefing collateral associated with this ReplaceRequests to the newVault by calling slashCollateral
         ext::collateral::slash_collateral::<T>(
             replace.old_vault.clone(),
