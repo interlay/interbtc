@@ -2,6 +2,35 @@
 use mocktopus::macros::mockable;
 
 #[cfg_attr(test, mockable)]
+pub(crate) mod btc_relay {
+    use bitcoin::types::H256Le;
+    use x_core::UnitResult;
+
+    pub fn verify_transaction_inclusion<T: btc_relay::Trait>(
+        tx_id: H256Le,
+        tx_block_height: u32,
+        merkle_proof: Vec<u8>,
+    ) -> UnitResult {
+        <btc_relay::Module<T>>::_verify_transaction_inclusion(
+            tx_id,
+            tx_block_height,
+            merkle_proof,
+            0,
+            false,
+        )
+    }
+
+    pub fn validate_transaction<T: btc_relay::Trait>(
+        raw_tx: Vec<u8>,
+        amount: i64,
+        btc_address: Vec<u8>,
+        issue_id: Vec<u8>,
+    ) -> UnitResult {
+        <btc_relay::Module<T>>::_validate_transaction(raw_tx, amount, btc_address, issue_id)
+    }
+}
+
+#[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
     use crate::{PolkaBTC, DOT};
     use x_core::{Result, UnitResult};
@@ -51,8 +80,9 @@ pub(crate) mod vault_registry {
         unimplemented!()
     }
 
-    pub fn is_collateral_below_secure_threshold<T: collateral::Trait>(
+    pub fn is_collateral_below_secure_threshold<T: vault_registry::Trait>(
         _collateral: DOT<T>,
+        _btc_amount_btc: PolkaBTC<T>,
     ) -> Result<bool> {
         //FIXME:
         unimplemented!()

@@ -27,6 +27,7 @@ use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchRes
 use primitive_types::H256;
 use sp_core::H160;
 use sp_runtime::ModuleId;
+use std::convert::TryInto;
 use system::ensure_signed;
 use x_core::Error;
 
@@ -309,7 +310,10 @@ impl<T: Trait> Module<T> {
             return Err(Error::VaultBanned);
         }
         // step 4: Check that the provided collateral exceeds the necessary amount
-        let is_below = ext::vault_registry::is_collateral_below_secure_threshold::<T>(collateral)?;
+        let is_below = ext::vault_registry::is_collateral_below_secure_threshold::<T>(
+            collateral,
+            replace.amount,
+        )?;
         ensure!(!is_below, Error::InsufficientCollateral);
         // step 5: Lock the newVault’s collateral by calling lockCollateral
         ext::collateral::lock_collateral::<T>(new_vault_id.clone(), collateral)?;
@@ -342,7 +346,9 @@ impl<T: Trait> Module<T> {
         );
         // step 4: Check that the provided collateral exceeds the necessary amount
         ensure!(
-            !ext::vault_registry::is_collateral_below_secure_threshold::<T>(collateral)?,
+            !ext::vault_registry::is_collateral_below_secure_threshold::<T>(
+                collateral, btc_amount
+            )?,
             Error::InsufficientCollateral
         );
         // step 5: Lock the newVault’s collateral by calling lockCollateral and providing newVault and collateral as parameters.
@@ -383,7 +389,7 @@ impl<T: Trait> Module<T> {
         tx_id: H256Le,
         tx_block_height: u32,
         merkle_proof: Vec<u8>,
-        _raw_tx: Vec<u8>,
+        raw_tx: Vec<u8>,
     ) -> Result<(), Error> {
         // step 1: Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
         let replace = Self::get_replace_request(replace_id)?;
@@ -396,16 +402,17 @@ impl<T: Trait> Module<T> {
         // step 3: Retrieve the Vault as per the newVault parameter from Vaults in the VaultRegistry
         let _new_vault = ext::vault_registry::get_vault_from_id::<T>(&new_vault_id)?;
         // step 4: Call verifyTransactionInclusion in BTC-Relay, providing txid, txBlockHeight, txIndex, and merkleProof as parameters
-        let confirmations = 6;
-        let insecure = false;
-        <btc_relay::Module<T>>::_verify_transaction_inclusion(
-            tx_id,
-            tx_block_height,
-            merkle_proof,
-            confirmations,
-            insecure,
+        ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, tx_block_height, merkle_proof)?;
+        // step 5: Call validateTransaction in BTC-Relay
+        let amount =
+            TryInto::<u64>::try_into(replace.amount).map_err(|_e| Error::RuntimeError)? as i64;
+
+        ext::btc_relay::validate_transaction::<T>(
+            raw_tx,
+            amount,
+            replace.btc_address.as_bytes().to_vec(),
+            replace_id.clone().as_bytes().to_vec(),
         )?;
-        // step 5: Call validateTransaction in BTC-Relay (but now removed)
         // step 6: Call the replaceTokens
         ext::vault_registry::replace_tokens::<T>(
             replace.old_vault.clone(),
