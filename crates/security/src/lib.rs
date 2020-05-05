@@ -66,6 +66,15 @@ impl<T: Trait> Module<T> {
         }
     }
 
+    /// Checks if the Parachain status is set to RUNNING
+    pub fn _ensure_parachain_status_not_shutdown() -> UnitResult {
+        if <ParachainStatus>::get() != StatusCode::Shutdown {
+            return Ok(());
+        } else {
+            return Err(Error::ParachainShutdown);
+        }
+    }
+
     /// Checks if the Parachain has a NoDataBTCRelay Error state
     pub fn _is_parachain_error_no_data_btcrelay() -> bool {
         <ParachainStatus>::get() == StatusCode::Error
