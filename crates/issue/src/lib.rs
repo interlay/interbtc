@@ -28,6 +28,7 @@ use primitive_types::H256;
 use sha2::{Digest, Sha256};
 use sp_core::H160;
 use sp_runtime::ModuleId;
+use sp_std::convert::TryInto;
 use system::ensure_signed;
 use x_core::Error;
 
@@ -214,10 +215,9 @@ impl<T: Trait> Module<T> {
         );
 
         ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, tx_block_height, merkle_proof)?;
-        // TODO: issue.amount
         ext::btc_relay::validate_transaction::<T>(
             raw_tx,
-            0,
+            TryInto::<u64>::try_into(issue.amount).map_err(|_e| Error::RuntimeError)? as i64,
             issue.btc_address.as_bytes().to_vec(),
             issue_id.clone().as_bytes().to_vec(),
         )?;
