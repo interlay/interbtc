@@ -69,14 +69,15 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::_increase_to_be_redeemed_tokens(vault_id, tokens)
     }
 
-    pub fn is_over_minimum_collateral<T: vault_registry::Trait>(collateral: DOT<T>) -> bool {
-        <vault_registry::Module<T>>::_is_over_minimum_collateral(collateral)
+    pub fn is_over_minimum_collateral<T: vault_registry::Trait>(_collateral: DOT<T>) -> bool {
+        // FIXME: call from vault registry when ready
+        unimplemented!()
     }
 
     pub fn is_vault_below_auction_threshold<T: vault_registry::Trait>(
         _vault_id: T::AccountId,
     ) -> Result<bool> {
-        // FIXME: call from vault registry
+        // FIXME: call from vault registry when ready
         unimplemented!()
     }
 

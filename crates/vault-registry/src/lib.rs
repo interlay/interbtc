@@ -332,9 +332,6 @@ impl<T: Trait> Module<T> {
         let vault: DefaultVault<T> = rich_vault.into();
         <Vaults<T>>::insert(id, vault)
     }
-    pub fn _is_over_minimum_collateral(amount: DOT<T>) -> bool {
-        amount > Self::get_minimum_collateral_vault()
-    }
 
     /// Private getters and setters
 

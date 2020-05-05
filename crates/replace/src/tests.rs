@@ -145,6 +145,8 @@ fn test_request_replace_insufficient_collateral_fails() {
                 banned_until: None,
             }))
         });
+        ext::vault_registry::is_over_minimum_collateral::<Test>
+            .mock_safe(|_| MockResult::Return(true));
         ext::collateral::get_collateral_from_account::<Test>.mock_safe(|_| MockResult::Return(1));
         assert_noop!(
             Replace::_request_replace(ALICE, BOB, 1, 1, 0),
