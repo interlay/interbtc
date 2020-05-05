@@ -34,7 +34,6 @@ use bitcoin::parser::{
 use bitcoin::types::{
     BlockChain, BlockHeader, H256Le, RawBlockHeader, RichBlockHeader, Transaction,
 };
-use security::types::ErrorCode;
 use security::ErrorCode;
 use x_core::Error;
 
@@ -320,10 +319,11 @@ decl_module! {
             ensure!(<security::Module<T>>::check_parachain_status(StatusCode::Running),
                 Error::<T>::Shutdown);
             */
+            let transaction = Self::parse_transaction(&raw_tx)?;
 
             // Check that the passed raw_tx indeed matches the tx_id used for
             // transaction inclusion verification
-            ensure!(tx_id == sha256d_le(&raw_tx),Error::InvalidTxid);
+            ensure!(tx_id == transaction.tx_id(), Error::InvalidTxid);
 
             // Verify that the transaction is indeed included in the main chain
             Self::_verify_transaction_inclusion(tx_id, block_height, raw_merkle_proof, confirmations, insecure)?;
@@ -444,7 +444,6 @@ impl<T: Trait> Module<T> {
         op_return_id: Vec<u8>,
     ) -> Result<(), Error> {
         let transaction = Self::parse_transaction(&raw_tx)?;
-
         ensure!(
             transaction.outputs.len() >= ACCEPTED_NO_TRANSACTION_OUTPUTS as usize,
             Error::MalformedTransaction
