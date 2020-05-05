@@ -264,28 +264,28 @@ impl<T: Trait> Module<T> {
     fn _withdraw_replace_request(vault_id: T::AccountId, request_id: H256) -> Result<(), Error> {
         // check vault exists
         // step 1: Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
-        let req = Self::get_replace_request(request_id)?;
+        let replace = Self::get_replace_request(request_id)?;
         // step 2: Check that caller of the function is indeed the to-be-replaced Vault as specified in the ReplaceRequest. Return ERR_UNAUTHORIZED error if this check fails.
         let _vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
-        ensure!(vault_id == req.old_vault, Error::UnauthorizedVault);
+        ensure!(vault_id == replace.old_vault, Error::UnauthorizedVault);
         // step 3: Check that the collateral rate of the vault is not under the AuctionCollateralThreshold as defined in the VaultRegistry. If it is under the AuctionCollateralThreshold return ERR_UNAUTHORIZED
         ensure!(
             !ext::vault_registry::is_vault_below_auction_threshold::<T>(vault_id.clone())?,
             Error::UnauthorizedVault
         );
         // step 4: Check that the ReplaceRequest was not yet accepted by another Vault
-        if req.has_new_owner() {
+        if replace.has_new_owner() {
             return Err(Error::CancelAcceptedRequest);
         }
         // step 5: Release the oldVault’s griefing collateral associated with this ReplaceRequests
         ext::collateral::release_collateral::<T>(
-            req.old_vault.clone(),
-            req.griefing_collateral.clone(),
+            replace.old_vault.clone(),
+            replace.griefing_collateral.clone(),
         )?;
         // step 6: Call the decreaseToBeRedeemedTokens function in the VaultRegistry to allow the vault to be part of other redeem or replace requests again
         ext::vault_registry::decrease_to_be_redeemed_tokens::<T>(
-            req.old_vault,
-            req.amount.clone(),
+            replace.old_vault,
+            replace.amount.clone(),
         )?;
         // step 7: Remove the ReplaceRequest from ReplaceRequests
         Self::remove_replace_request(request_id);
@@ -314,7 +314,7 @@ impl<T: Trait> Module<T> {
         // step 5: Lock the newVault’s collateral by calling lockCollateral
         ext::collateral::lock_collateral::<T>(new_vault_id.clone(), collateral)?;
         // step 6: Update the ReplaceRequest entry
-        req.add_new_vault(new_vault_id.clone(), height, collateral, vault.btc_address);
+        replace.add_new_vault(new_vault_id.clone(), height, collateral, vault.btc_address);
         Self::insert_replace_request(replace_id, req);
         // step 7: Emit a AcceptReplace(newVault, replaceId, collateral) event
         Self::deposit_event(<Event<T>>::AcceptReplace(
@@ -386,11 +386,11 @@ impl<T: Trait> Module<T> {
         raw_tx: Vec<u8>,
     ) -> Result<(), Error> {
         // step 1: Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
-        let req = Self::get_replace_request(replace_id)?;
+        let replace = Self::get_replace_request(replace_id)?;
         // step 2: Check that the current Parachain block height minus the ReplacePeriod is smaller than the opentime of the ReplaceRequest
         let replace_period = Self::replace_period();
         let height = Self::current_height();
-        if req.open_time > height - replace_period {
+        if replace.open_time > height - replace_period {
             return Err(Error::ReplacePeriodExpired);
         }
         // step 3: Retrieve the Vault as per the newVault parameter from Vaults in the VaultRegistry
@@ -413,16 +413,19 @@ impl<T: Trait> Module<T> {
 
         // step 6: Call the replaceTokens
         ext::vault_registry::replace_tokens::<T>(
-            req.old_vault.clone(),
+            replace.old_vault.clone(),
             new_vault_id.clone(),
-            req.amount.clone(),
-            req.collateral.clone(),
+            replace.amount.clone(),
+            replace.collateral.clone(),
         )?;
         // step 7: Call the releaseCollateral function to release the oldVaults griefing collateral griefingCollateral
-        ext::collateral::release_collateral::<T>(req.old_vault.clone(), req.griefing_collateral)?;
+        ext::collateral::release_collateral::<T>(
+            replace.old_vault.clone(),
+            replace.griefing_collateral,
+        )?;
         // step 8: Emit the ExecuteReplace(oldVault, newVault, replaceId) event.
         Self::deposit_event(<Event<T>>::ExecuteReplace(
-            req.old_vault,
+            replace.old_vault,
             new_vault_id,
             replace_id,
         ));
@@ -433,28 +436,31 @@ impl<T: Trait> Module<T> {
 
     fn _cancel_replace(new_vault_id: T::AccountId, replace_id: H256) -> Result<(), Error> {
         // step 1: Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
-        let req = Self::get_replace_request(replace_id)?;
+        let replace = Self::get_replace_request(replace_id)?;
         // step 2: Check that the current Parachain block height minus the ReplacePeriod is greater than the opentime of the ReplaceRequest
         let current_height = Self::current_height();
         let replace_period = Self::replace_period();
-        if current_height - replace_period >= req.open_time {
+        if current_height - replace_period >= replace.open_time {
             return Err(Error::ReplacePeriodNotExpired);
         }
         // step 4: Transfer the oldVault’s griefing collateral associated with this ReplaceRequests to the newVault by calling slashCollateral
         ext::collateral::slash_collateral::<T>(
-            req.old_vault.clone(),
+            replace.old_vault.clone(),
             new_vault_id.clone(),
-            req.griefing_collateral,
+            replace.griefing_collateral,
         )?;
         // step 5: Call the decreaseToBeRedeemedTokens function in the VaultRegistry for the oldVault.
-        let tokens = req.amount;
-        ext::vault_registry::decrease_to_be_redeemed_tokens::<T>(req.old_vault.clone(), tokens)?;
+        let tokens = replace.amount;
+        ext::vault_registry::decrease_to_be_redeemed_tokens::<T>(
+            replace.old_vault.clone(),
+            tokens,
+        )?;
         // step 6: Remove the ReplaceRequest from ReplaceRequests
         Self::remove_replace_request(replace_id.clone());
         // step 7: Emit a CancelReplace(newVault, oldVault, replaceId)
         Self::deposit_event(<Event<T>>::CancelReplace(
             new_vault_id,
-            req.old_vault,
+            replace.old_vault,
             replace_id,
         ));
         Ok(())
