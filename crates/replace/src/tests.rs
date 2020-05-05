@@ -92,28 +92,28 @@ fn cancel_replace(new_vault_id: AccountId, replace_id: H256) -> Result<(), Error
 }
 
 #[test]
-fn test_request_replace_transfer_zero() {
+fn test_request_replace_transfer_zero_fails() {
     run_test(|| {
         assert_noop!(request_replace(0, BOB, 0, 0, 0), Error::InvalidAmount);
     })
 }
 
 #[test]
-fn test_request_replace_timeout_zero() {
+fn test_request_replace_timeout_zero_fails() {
     run_test(|| {
         assert_noop!(request_replace(0, BOB, 1, 0, 0), Error::InvalidTimeout);
     })
 }
 
 #[test]
-fn test_request_replace_vault_not_found() {
+fn test_request_replace_vault_not_found_fails() {
     run_test(|| {
         assert_noop!(request_replace(0, 10_000, 1, 1, 0), Error::VaultNotFound);
     })
 }
 
 #[test]
-fn test_request_replace_vault_banned() {
+fn test_request_replace_vault_banned_fails() {
     run_test(|| {
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(Vault {
@@ -133,7 +133,7 @@ fn test_request_replace_vault_banned() {
 }
 
 #[test]
-fn test_request_replace_insufficient_collateral() {
+fn test_request_replace_insufficient_collateral_fails() {
     run_test(|| {
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(Vault {
@@ -154,7 +154,7 @@ fn test_request_replace_insufficient_collateral() {
 }
 
 #[test]
-fn test_withdraw_replace_request_invalid_replace_id() {
+fn test_withdraw_replace_request_invalid_replace_id_fails() {
     run_test(|| {
         Replace::get_replace_request
             .mock_safe(|_| MockResult::Return(Err(Error::InvalidReplaceID)));
@@ -166,7 +166,7 @@ fn test_withdraw_replace_request_invalid_replace_id() {
 }
 
 #[test]
-fn test_withdraw_replace_request_invalid_vault_id() {
+fn test_withdraw_replace_request_invalid_vault_id_fails() {
     run_test(|| {
         Replace::get_replace_request.mock_safe(|_| MockResult::Return(Ok(test_request())));
         ext::vault_registry::get_vault_from_id::<Test>
@@ -179,7 +179,7 @@ fn test_withdraw_replace_request_invalid_vault_id() {
 }
 
 #[test]
-fn test_withdraw_replace_req_vault_id_mismatch() {
+fn test_withdraw_replace_req_vault_id_mismatch_fails() {
     run_test(|| {
         Replace::get_replace_request.mock_safe(|_| MockResult::Return(Ok(test_request())));
         // TODO(jaupe): work out why this is not mocking correctly
@@ -193,7 +193,7 @@ fn test_withdraw_replace_req_vault_id_mismatch() {
 }
 
 #[test]
-fn test_withdraw_replace_req_under_secure_threshold() {
+fn test_withdraw_replace_req_under_secure_threshold_fails() {
     run_test(|| {
         Replace::get_replace_request.mock_safe(|_| MockResult::Return(Ok(test_request())));
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_id| {
@@ -214,7 +214,7 @@ fn test_withdraw_replace_req_under_secure_threshold() {
 }
 
 #[test]
-fn test_withdraw_replace_req_has_new_owner() {
+fn test_withdraw_replace_req_has_new_owner_fails() {
     run_test(|| {
         Replace::get_replace_request.mock_safe(|_| {
             let mut r = test_request();
@@ -241,7 +241,7 @@ fn test_withdraw_replace_req_has_new_owner() {
 }
 
 #[test]
-fn test_accept_replace_bad_replace_id() {
+fn test_accept_replace_bad_replace_id_fails() {
     run_test(|| {
         Replace::get_replace_request.mock_safe(|_| {
             let mut r = test_request();
@@ -269,7 +269,7 @@ fn test_accept_replace_bad_replace_id() {
 }
 
 #[test]
-fn test_accept_replace_bad_vault_id() {
+fn test_accept_replace_bad_vault_id_fails() {
     run_test(|| {
         Replace::get_replace_request.mock_safe(|_| {
             let mut r = test_request();
@@ -292,7 +292,7 @@ fn test_accept_replace_bad_vault_id() {
 }
 
 #[test]
-fn test_accept_replace_vault_banned() {
+fn test_accept_replace_vault_banned_fails() {
     run_test(|| {
         Replace::get_replace_request.mock_safe(|_| {
             let mut r = test_request();
@@ -318,7 +318,7 @@ fn test_accept_replace_vault_banned() {
 }
 
 #[test]
-fn test_accept_replace_insufficient_collateral() {
+fn test_accept_replace_insufficient_collateral_fails() {
     run_test(|| {
         Replace::get_replace_request.mock_safe(|_| {
             let mut r = test_request();
@@ -342,7 +342,7 @@ fn test_accept_replace_insufficient_collateral() {
 }
 
 #[test]
-fn test_auction_replace_bad_old_vault_id() {
+fn test_auction_replace_bad_old_vault_id_fails() {
     run_test(|| {
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|id| {
             MockResult::Return(if *id == ALICE {
@@ -365,7 +365,7 @@ fn test_auction_replace_bad_old_vault_id() {
 }
 
 #[test]
-fn test_auction_replace_bad_new_vault_id() {
+fn test_auction_replace_bad_new_vault_id_fails() {
     run_test(|| {
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|id| {
             MockResult::Return(if *id == ALICE {
@@ -388,7 +388,7 @@ fn test_auction_replace_bad_new_vault_id() {
 }
 
 #[test]
-fn test_auction_replace_insufficient_collateral() {
+fn test_auction_replace_insufficient_collateral_fails() {
     run_test(|| {
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|id| {
             MockResult::Return(if *id == ALICE {
@@ -437,7 +437,7 @@ fn test_auction_replace_ok() {
 */
 
 #[test]
-fn test_execute_replace_bad_replace_id() {
+fn test_execute_replace_bad_replace_id_fails() {
     run_test(|| {
         Replace::get_replace_request
             .mock_safe(|_| MockResult::Return(Err(Error::InvalidReplaceID)));
@@ -463,7 +463,7 @@ fn test_execute_replace_bad_replace_id() {
 }
 
 #[test]
-fn test_execute_replace_replace_period_expired() {
+fn test_execute_replace_replace_period_expired_fails() {
     run_test(|| {
         Replace::get_replace_request.mock_safe(|_| {
             let mut req = test_request();
@@ -492,7 +492,7 @@ fn test_execute_replace_replace_period_expired() {
 }
 
 #[test]
-fn test_cancel_replace_invalid_replace_id() {
+fn test_cancel_replace_invalid_replace_id_fails() {
     run_test(|| {
         Replace::get_replace_request
             .mock_safe(|_| MockResult::Return(Err(Error::InvalidReplaceID)));
@@ -508,7 +508,7 @@ fn test_cancel_replace_invalid_replace_id() {
 }
 
 #[test]
-fn test_cancel_replace_period_not_expired() {
+fn test_cancel_replace_period_not_expired_fails() {
     run_test(|| {
         Replace::get_replace_request.mock_safe(|_| MockResult::Return(Ok(test_request())));
         Replace::current_height.mock_safe(|| MockResult::Return(10));
