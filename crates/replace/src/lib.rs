@@ -300,7 +300,7 @@ impl<T: Trait> Module<T> {
         collateral: DOT<T>,
     ) -> Result<(), Error> {
         // step 1: Retrieve the ReplaceRequest as per the replaceId parameter from ReplaceRequests. Return ERR_REPLACE_ID_NOT_FOUND error if no such ReplaceRequest was found.
-        let mut req = Self::get_replace_request(replace_id)?;
+        let mut replace = Self::get_replace_request(replace_id)?;
         // step 2: Retrieve the Vault as per the newVault parameter from Vaults in the VaultRegistry
         let vault = ext::vault_registry::get_vault_from_id::<T>(&new_vault_id)?;
         // step 3: Check that the newVault is currently not banned
@@ -315,7 +315,7 @@ impl<T: Trait> Module<T> {
         ext::collateral::lock_collateral::<T>(new_vault_id.clone(), collateral)?;
         // step 6: Update the ReplaceRequest entry
         replace.add_new_vault(new_vault_id.clone(), height, collateral, vault.btc_address);
-        Self::insert_replace_request(replace_id, req);
+        Self::insert_replace_request(replace_id, replace);
         // step 7: Emit a AcceptReplace(newVault, replaceId, collateral) event
         Self::deposit_event(<Event<T>>::AcceptReplace(
             new_vault_id,
@@ -383,7 +383,7 @@ impl<T: Trait> Module<T> {
         tx_id: H256Le,
         tx_block_height: u32,
         merkle_proof: Vec<u8>,
-        raw_tx: Vec<u8>,
+        _raw_tx: Vec<u8>,
     ) -> Result<(), Error> {
         // step 1: Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
         let replace = Self::get_replace_request(replace_id)?;
@@ -394,7 +394,7 @@ impl<T: Trait> Module<T> {
             return Err(Error::ReplacePeriodExpired);
         }
         // step 3: Retrieve the Vault as per the newVault parameter from Vaults in the VaultRegistry
-        let new_vault = ext::vault_registry::get_vault_from_id::<T>(&new_vault_id)?;
+        let _new_vault = ext::vault_registry::get_vault_from_id::<T>(&new_vault_id)?;
         // step 4: Call verifyTransactionInclusion in BTC-Relay, providing txid, txBlockHeight, txIndex, and merkleProof as parameters
         let confirmations = 6;
         let insecure = false;
@@ -405,12 +405,7 @@ impl<T: Trait> Module<T> {
             confirmations,
             insecure,
         )?;
-        // step 5: Call validateTransaction in BTC-Relay
-        let amount = req
-            .amount_btc
-            .try_into()
-            .map_err(|_e| Error::RuntimeError)?;
-
+        // step 5: Call validateTransaction in BTC-Relay (but now removed)
         // step 6: Call the replaceTokens
         ext::vault_registry::replace_tokens::<T>(
             replace.old_vault.clone(),
