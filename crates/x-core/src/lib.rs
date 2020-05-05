@@ -14,16 +14,7 @@ pub enum Error {
     InvalidHeaderSize,
     DuplicateBlock,
     PrevBlock, // TODO: rename to self-explanatory
-    ReplacePeriodExpired,
-    UnauthorizedVault,
-    ReplacePeriodNotExpired,
-    InsufficientTokensComitted,
-    InvalidVaultID,
-    InvalidAmount,
-    InvalidTimeout,
     InvalidChainID,
-    InvalidReplaceID,
-    CancelAcceptedRequest,
     LowDiff,
     DiffTargetHeader, // TODO: rename to self-explanatory
     MalformedTxid,
@@ -70,6 +61,15 @@ pub enum Error {
     // -------------
     // XClaim Errors
     // -------------
+    CancelAcceptedRequest,
+    InvalidReplaceID,
+    ReplacePeriodExpired,
+    UnauthorizedVault,
+    ReplacePeriodNotExpired,
+    InsufficientTokensComitted,
+    InvalidVaultID,
+    InvalidAmount,
+    InvalidTimeout,
     MissingExchangeRate,
     InvalidOracleSource,
     InsufficientFunds,
