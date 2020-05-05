@@ -25,6 +25,7 @@ pub enum Error {
     MalformedMerkleProof, // not in the spec
     /// Format of the proof is correct but does not yield the correct merkle root
     InvalidMerkleProof,
+    NoData,
     Invalid,
     Shutdown,
     InvalidTxid,
@@ -57,7 +58,8 @@ pub enum Error {
     MalformedOpReturnOutput,
     // Output does not match format of supported output types (Witness, P2PKH, P2SH)
     UnsupportedOutputFormat,
-
+    /// There are no NO_DATA blocks in this BlockChain
+    NoDataEmpty, // not in spec
     // -------------
     // XClaim Errors
     // -------------
@@ -108,7 +110,8 @@ impl Error {
             Error::OngoingFork => "Current fork ongoing",
             Error::MalformedMerkleProof => "Merkle proof is malformed",
             Error::InvalidMerkleProof => "Invalid Merkle Proof",
-            Error::Invalid => "BTC Parachain is halted",
+            Error::NoData => "Feature disabled. Reason: a main chain block with a lower height is flagged with NO_DATA.",
+            Error::Invalid => "Feature disabled. Reason: a main chain block is flagged as INVALID.",
             Error::Shutdown => "BTC Parachain has shut down",
             Error::InvalidTxid => "Transaction hash does not match given txid",
             Error::InsufficientValue => "Value of payment below requested amount",
@@ -133,6 +136,7 @@ impl Error {
             Error::MalformedP2SHOutput => "Format of the P2SH output is invalid",
             Error::MalformedOpReturnOutput => "Format of the OP_RETURN transaction output is invalid",
             Error::UnsupportedOutputFormat => "Unsupported output format. Currently supported: Witness, P2PKH, P2SH,",
+            Error::NoDataEmpty => "There are no NO_DATA blocks in this BlockChain.",
 
             Error::MissingExchangeRate => "Exchange rate not set",
             Error::InvalidOracleSource => "Invalid oracle account",

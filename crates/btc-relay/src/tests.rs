@@ -1,5 +1,8 @@
-use crate::mock::{run_test, BTCRelay, Error, Origin, System, TestEvent};
 /// Tests for BTC-Relay
+
+use crate::mock::{run_test, BTCRelay, Origin, System, TestEvent, Test};
+use crate::{ext};
+
 use crate::Event;
 use bitcoin::merkle::*;
 use bitcoin::parser::*;
@@ -7,6 +10,7 @@ use bitcoin::types::*;
 use frame_support::{assert_err, assert_ok};
 use security::ErrorCode;
 use sp_std::collections::btree_set::BTreeSet;
+use x_core::Error;
 
 use mocktopus::mocking::*;
 
@@ -207,6 +211,21 @@ fn store_block_header_on_fork_succeeds() {
     })
 }
 
+#[test]
+fn store_block_header_parachain_shutdown_fails() {
+    run_test(|| {
+        let block_header = RawBlockHeader::from_hex(sample_block_header_hex()).unwrap();
+
+        ext::security::ensure_parachain_status_not_shutdown::<Test>
+            .mock_safe(|| MockResult::Return(Err(Error::ParachainShutdown)));
+
+        assert_err!(BTCRelay::store_block_header(
+            Origin::signed(3),
+            block_header),
+            Error::ParachainShutdown,  
+        );
+    })
+}
 /// check_and_do_reorg function
 #[test]
 fn check_and_do_reorg_is_main_chain_succeeds() {
@@ -1063,6 +1082,65 @@ fn test_clear_block_error_fails() {
     })
 }
 
+
+#[test]
+fn test_transaction_verification_allowed_succeeds() {
+    run_test(|| {  
+        let main_start: u32 = 0;
+        let main_height: u32 = 10;
+        BTCRelay::get_block_chain_from_id.
+            mock_safe(move |_| MockResult::Return(
+                Ok(get_empty_block_chain_from_chain_id_and_height(1, main_start, main_height)))
+            );
+        assert_ok!(BTCRelay::transaction_verification_allowed(main_start +1));
+    })
+}
+
+#[test]
+fn test_transaction_verification_allowed_invalid_fails() {
+    run_test(|| {  
+        let main_start: u32 = 0;
+        let main_height: u32 = 10;
+        BTCRelay::get_block_chain_from_id.
+            mock_safe(move |_| MockResult::Return(
+                Ok(get_invalid_empty_block_chain_from_chain_id_and_height(1, main_start, main_height)))
+            );
+        assert_err!(BTCRelay::transaction_verification_allowed(main_start +1), Error::Invalid);
+    })
+}
+
+
+#[test]
+fn test_transaction_verification_allowed_no_data_fails() {
+    run_test(|| {  
+        let main_start: u32 = 0;
+        let main_height: u32 = 10;
+        BTCRelay::get_block_chain_from_id.
+            mock_safe(move |_| MockResult::Return(
+                Ok(get_nodata_empty_block_chain_from_chain_id_and_height(1, main_start, main_height)))
+            );
+        // NO_DATA height is main_height - 1
+        assert_err!(BTCRelay::transaction_verification_allowed(main_height), Error::NoData);
+    })
+}
+
+#[test]
+fn test_transaction_verification_allowed_no_data_succeeds() {
+    run_test(|| {  
+        let main_start: u32 = 0;
+        let main_height: u32 = 10;
+        BTCRelay::get_block_chain_from_id.
+            mock_safe(move |_| MockResult::Return(
+                Ok(get_nodata_empty_block_chain_from_chain_id_and_height(1, main_start, main_height)))
+            );
+        // NO_DATA height is main_height - 1
+        assert_ok!(BTCRelay::transaction_verification_allowed(main_start + 1));
+    })
+}
+
+
+
+
 #[test]
 fn test_verify_transaction_inclusion_succeeds() {
     run_test(|| {
@@ -1450,6 +1528,28 @@ fn get_empty_block_chain_from_chain_id_and_height(
         no_data: BTreeSet::new(),
         invalid: BTreeSet::new(),
     };
+
+    blockchain
+}
+
+fn get_invalid_empty_block_chain_from_chain_id_and_height(
+    chain_id: u32,
+    start_height: u32,
+    block_height: u32,
+) -> BlockChain {
+    let mut blockchain = get_empty_block_chain_from_chain_id_and_height(chain_id, start_height, block_height);
+    blockchain.invalid.insert(block_height-1);
+
+    blockchain
+}
+
+fn get_nodata_empty_block_chain_from_chain_id_and_height(
+    chain_id: u32,
+    start_height: u32,
+    block_height: u32,
+) -> BlockChain {
+    let mut blockchain = get_empty_block_chain_from_chain_id_and_height(chain_id, start_height, block_height);
+    blockchain.no_data.insert(block_height-1);
 
     blockchain
 }

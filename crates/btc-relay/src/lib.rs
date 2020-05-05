@@ -1,6 +1,15 @@
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
+
+
+/// # BTC-Relay implementation
+/// This is the implementation of the BTC-Relay following the spec at:
+/// https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/
+// Substrate
+
+mod ext;
+
 #[cfg(test)]
 mod tests;
 
@@ -13,10 +22,7 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-/// # BTC-Relay implementation
-/// This is the implementation of the BTC-Relay following the spec at:
-/// https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/
-// Substrate
+
 use frame_support::{
     decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure, IterableStorageMap,
 };
@@ -35,13 +41,13 @@ use bitcoin::types::{
     BlockChain, BlockHeader, H256Le, RawBlockHeader, RichBlockHeader, Transaction,
 };
 use security::types::ErrorCode;
-use x_core::Error;
+use x_core::{Error, UnitResult};
 
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
 /// For further reference, see:
 /// https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/spec/data-model.html
-pub trait Trait: system::Trait //+ security::Trait
+pub trait Trait: system::Trait + security::Trait
 {
     /// The overarching event type.
     type Event: From<Event> + Into<<Self as system::Trait>::Event>;
@@ -55,6 +61,9 @@ pub const TARGET_TIMESPAN: u32 = 1_209_600;
 
 // Used in Bitcoin's retarget algorithm
 pub const TARGET_TIMESPAN_DIVISOR: u32 = 4;
+
+// Accepted minimum number of transaction outputs for validation
+pub const ACCEPTED_MIN_TRANSACTION_OUTPUTS: u32 = 2;
 
 /// Unrounded Maximum Target
 /// 0x00000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
@@ -170,13 +179,8 @@ decl_module! {
             origin, raw_block_header: RawBlockHeader
         ) -> DispatchResult {
             let _ = ensure_signed(origin)?;
-            // Check if BTC _Parachain is in shutdown state.+
-
-            // ensure!(
-            //     !<security::Module<T>>::check_parachain_status(
-            //         StatusCode::Shutdown),
-            //     Error::Shutdown
-            // );
+            // Make sure Parachain is not shutdown
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
             // Parse the block header bytes to extract the required info
             let basic_block_header = Self::verify_block_header(&raw_block_header)?;
@@ -296,11 +300,6 @@ decl_module! {
         -> DispatchResult {
             let _ = ensure_signed(origin)?;
 
-            // fail if parachain is not in running state.
-            /*
-            ensure!(<security::Module<T>>::check_parachain_status(StatusCode::Running),
-                Error::<T>::Shutdown);
-            */
             Self::_verify_transaction_inclusion(tx_id, block_height, raw_merkle_proof, confirmations, insecure)?;
             Ok(())
         }
@@ -344,6 +343,9 @@ impl<T: Trait> Module<T> {
         confirmations: u32,
         insecure: bool,
     ) -> Result<(), Error> {
+
+        Self::transaction_verification_allowed(block_height)?;
+        
         //let main_chain = Self::get_block_chain_from_id(MAIN_CHAIN_ID);
         let best_block_height = Self::get_best_block_height();
 
@@ -385,11 +387,9 @@ impl<T: Trait> Module<T> {
     ) -> Result<(), Error> {
         let transaction = Self::parse_transaction(&raw_tx)?;
 
-        // TODO: make 2 a constant
-        ensure!(transaction.outputs.len() >= 2, Error::MalformedTransaction);
+        ensure!(transaction.outputs.len() >= ACCEPTED_MIN_TRANSACTION_OUTPUTS as usize, Error::MalformedTransaction);
 
         // Check if 1st / payment UTXO transfers sufficient value
-        // FIXME: returns incorrect value (too large: 9865995930474779817)
         let extr_payment_value = transaction.outputs[0].value;
         ensure!(
             extr_payment_value >= payment_value,
@@ -1056,6 +1056,32 @@ impl<T: Trait> Module<T> {
                 Err(Error::Confirmations)
             }
         }
+    }
+
+    /// Checks if transaction verification is enabled for this block height
+    /// Returs an error if: 
+    ///   * Parachain is shutdown
+    ///   * the main chain contains an invalid block
+    ///   * the main chain contains a "NO_DATA" block at a lower height than `block_height`
+    /// # Arguments
+    ///   * `block_height` - block height of the to-be-verified transaction
+    fn transaction_verification_allowed(block_height: u32) -> UnitResult {
+        // Make sure Parachain is not shutdown
+        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
+
+        // Ensure main chain has no invalid block     
+        let main_chain = Self::get_block_chain_from_id(MAIN_CHAIN_ID)?;
+        ensure!(!main_chain.is_invalid(), Error::Invalid);
+
+        // Check if a NO_DATA block exists at a lower height than block_height
+        if main_chain.is_no_data() {
+            match main_chain.no_data.iter().next_back() {
+                Some(no_data_height) => ensure!(block_height < *no_data_height, Error::NoData),
+                None => ()
+            }
+            
+        }
+        Ok(())
     }
 }
 
