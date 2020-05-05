@@ -225,7 +225,7 @@ impl<T: Trait> Module<T> {
         ext::vault_registry::issue_tokens::<T>(&issue.vault, issue.amount)?;
         ext::treasury::mint::<T>(issue.requester, issue.amount);
         // Remove issue request from storage
-        <IssueRequests<T>>::remove(issue_id);
+        Self::remove_issue_request(issue_id);
 
         Self::deposit_event(<Event<T>>::ExecuteIssue(issue_id, requester, issue.vault));
         Ok(())
@@ -248,7 +248,7 @@ impl<T: Trait> Module<T> {
         )?;
 
         // Remove issue request from storage
-        <IssueRequests<T>>::remove(issue_id);
+        Self::remove_issue_request(issue_id);
 
         Self::deposit_event(<Event<T>>::CancelIssue(issue_id, requester));
         Ok(())
@@ -279,5 +279,9 @@ impl<T: Trait> Module<T> {
     #[allow(dead_code)]
     fn set_issue_period(value: T::BlockNumber) {
         <IssuePeriod<T>>::set(value);
+    }
+
+    fn remove_issue_request(id: H256) {
+        <IssueRequests<T>>::remove(id);
     }
 }
