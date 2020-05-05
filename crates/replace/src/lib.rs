@@ -84,47 +84,6 @@ impl<AccountId, BlockNumber, PolkaBTC, DOT> Replace<AccountId, BlockNumber, Polk
     }
 }
 
-#[derive(Encode, Debug, Decode, Clone)]
-pub struct ReplaceRngSeed(pub Vec<u8>);
-#[derive(Encode, Debug, Decode, Clone)]
-pub struct ReplaceRng(ReplaceRngSeed);
-
-impl Default for ReplaceRngSeed {
-    fn default() -> ReplaceRngSeed {
-        ReplaceRngSeed([1u8; 64].to_vec())
-    }
-}
-
-impl AsMut<[u8]> for ReplaceRngSeed {
-    fn as_mut(&mut self) -> &mut [u8] {
-        &mut self.0
-    }
-}
-
-#[derive(Encode, Decode, Default, Clone)]
-#[cfg_attr(feature = "std", derive(Debug))]
-pub struct ReplaceKey {
-    seed: ReplaceRngSeed,
-    nonce: u64,
-    btc_address: H160,
-}
-
-/*
-fn replace_key(seed: ReplaceRngSeed, nonce: u64, btc_address: H160) -> H256 {
-    let key = ReplaceKey {
-        seed,
-        nonce,
-        btc_address,
-    };
-    let mut hasher = Sha256::default();
-    hasher.input(key.encode());
-
-    let mut result = [0; 32];
-    result.copy_from_slice(&hasher.result()[..]);
-    H256(result)
-}
-*/
-
 // The pallet's storage items.
 decl_storage! {
     trait Store for Module<T: Trait> as Replace {
@@ -147,7 +106,7 @@ decl_event!(
         WithdrawReplace(AccountId, H256),
         AcceptReplace(AccountId, H256, DOT),
         ExecuteReplace(AccountId, AccountId, H256),
-        AuctionReplace(AccountId, H256, DOT),
+        AuctionReplace(AccountId, AccountId, H256, PolkaBTC, DOT, BlockNumber),
         CancelReplace(AccountId, AccountId, H256),
     }
 );
@@ -307,7 +266,6 @@ impl<T: Trait> Module<T> {
         // check vault exists
         // step 1: Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
         let req = Self::get_replace_request(request_id)?;
-        ensure!(req.old_vault == vault_id, Error::UnauthorizedVault);
         // step 2: Check that caller of the function is indeed the to-be-replaced Vault as specified in the ReplaceRequest. Return ERR_UNAUTHORIZED error if this check fails.
         let _vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
         ensure!(vault_id == req.old_vault, Error::UnauthorizedUser);
@@ -402,8 +360,7 @@ impl<T: Trait> Module<T> {
         let raw_collateral = Self::dot_to_u128(collateral)?;
         let spot_rate: u128 = ext::exchange_rate_oracle::get_exchange_rate::<T>()?;
         //let raw_amount = Self::polkabtc_to_u128(btc_amount)?;
-        // TODO(alex/dom) check if this correct as I'm not sure the range for secure_collateral_theshold is
-        let secure_amount = raw_collateral * spot_rate / secure_collateral_theshold; //TODO(jaupe) ask alex or dom i
+        let secure_amount = raw_collateral * spot_rate / secure_collateral_theshold;
         ensure!(
             raw_collateral >= secure_amount,
             Error::InsufficientCollateral
@@ -431,23 +388,16 @@ impl<T: Trait> Module<T> {
         );
         // step 9: Emit a AuctionReplace(newVault, replaceId, collateral) event.
         Self::deposit_event(<Event<T>>::AuctionReplace(
+            old_vault_id,
             new_vault_id,
             replace_id,
-            collateral,
-        ));
-        // TODO(jaupe) let alex and dom agree on if this is needed or not
-        /*
-        Self::deposit_event(<Event<T>>::RequestReplace(
-            old_vault_id,
             btc_amount,
-            BlockNumber,
-            replace_id,
-        ));]
-        */
+            collateral,
+            height,
+        ));
         Ok(())
     }
 
-    //TODO(jaupe) work out what tx index is for
     fn _execute_replace(
         new_vault_id: T::AccountId,
         replace_id: H256,
@@ -520,7 +470,6 @@ impl<T: Trait> Module<T> {
             req.griefing_collateral,
         )?;
         // step 5: Call the decreaseToBeRedeemedTokens function in the VaultRegistry for the oldVault.
-        // Todo(jaupe) confirm with alex and update spec that it's griefing collateral
         let tokens = req.amount;
         ext::vault_registry::decrease_to_be_redeemed_tokens::<T>(req.old_vault.clone(), tokens)?;
         // step 6: Remove the ReplaceRequest from ReplaceRequests
