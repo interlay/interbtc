@@ -94,6 +94,7 @@ pub enum Error {
     /// Parachain Status Errors (Security module)
     ParachainNotRunning,
     ParachainShutdown,
+    ParachainNotRunningOrLiquidation,
     /// use only for errors which means something
     /// going very wrong and which do not match any other error
     RuntimeError,
@@ -179,6 +180,8 @@ impl Error {
 
             Error::ParachainNotRunning => "Function disabled. Reason: the Parachain status is not 'RUNNING'.",
             Error::ParachainShutdown => "Function disabled. Reason: the Parachain is shutdown",
+            Error::ParachainNotRunningOrLiquidation => "Function disabled. Reason: Parachain must be in RUNNING or ERROR/LIQUIDATION state.",
+
             Error::RuntimeError => "Runtime error",
         }
     }

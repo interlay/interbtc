@@ -388,8 +388,8 @@ impl<T: Trait> Module<T> {
 
     /// Other helpers
     /// Returns an error if the parachain is not in RUNNING state
-    fn ensure_parachain_running() -> UnitResult 
-        ext::security::ensure_parachain_status_running();
+    fn ensure_parachain_running() -> UnitResult {
+        ext::security::ensure_parachain_status_running::<T>()
     }
 }
 

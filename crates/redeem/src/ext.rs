@@ -133,6 +133,7 @@ pub(crate) mod security {
     use primitive_types::H256;
     use security::{ErrorCode, StatusCode};
     use sp_std::collections::btree_set::BTreeSet;
+    use x_core::UnitResult;
 
     pub fn get_parachain_status<T: security::Trait>() -> StatusCode {
         <security::Module<T>>::get_parachain_status()
@@ -143,7 +144,11 @@ pub(crate) mod security {
     }
 
     pub fn get_secure_id<T: security::Trait>(id: &T::AccountId) -> H256 {
-        <security::Module<T>>::get_secure_id(id)
+        <security::Module<T>>::_get_secure_id(id)
+    }
+
+    pub fn ensure_parachain_status_running<T: security::Trait>() -> UnitResult {
+        <security::Module<T>>::_ensure_parachain_status_running()
     }
 }
 

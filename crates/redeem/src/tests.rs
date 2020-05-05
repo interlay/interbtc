@@ -45,7 +45,7 @@ fn test_ensure_parachain_running_or_error_liquidated_fails() {
 
         assert_err!(
             Redeem::ensure_parachain_running_or_error_liquidated(),
-            Error::RuntimeError
+            Error::ParachainNotRunningOrLiquidation
         );
 
         ext::security::get_parachain_status::<Test>
@@ -55,7 +55,7 @@ fn test_ensure_parachain_running_or_error_liquidated_fails() {
 
         assert_err!(
             Redeem::ensure_parachain_running_or_error_liquidated(),
-            Error::RuntimeError
+            Error::ParachainNotRunningOrLiquidation
         );
     })
 }

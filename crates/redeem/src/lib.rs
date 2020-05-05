@@ -314,11 +314,7 @@ impl<T: Trait> Module<T> {
 
     /// Ensure that the security module reports the parachain is healthy.
     fn ensure_parachain_running() -> Result<(), Error> {
-        ensure!(
-            ext::security::get_parachain_status::<T>() == StatusCode::Running,
-            Error::RuntimeError,
-        );
-        Ok(())
+        ext::security::ensure_parachain_status_running::<T>()
     }
 
     /// Ensure that the parachain is running or vault is liquidated.
@@ -326,13 +322,13 @@ impl<T: Trait> Module<T> {
         let status_code = ext::security::get_parachain_status::<T>();
         ensure!(
             status_code == StatusCode::Running || status_code == StatusCode::Error,
-            Error::RuntimeError,
+            Error::ParachainNotRunningOrLiquidation,
         );
         let errors = ext::security::get_errors::<T>();
         if status_code == StatusCode::Error {
             ensure!(
                 errors.len() == 1 && errors.contains(&ErrorCode::Liquidation),
-                Error::RuntimeError,
+                Error::ParachainNotRunningOrLiquidation,
             );
         }
         Ok(())
