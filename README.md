@@ -16,6 +16,16 @@ The project uses the concept of [Cryptocurrency-backed Assets](https://xclaim.io
 The implementation is based on the [BTC Parachain specification](https://interlay.gitlab.io/polkabtc-spec/).
 
 
+## Getting started
+```
+rustup toolchain install nightly-2020-03-01
+rustup default nightly-2020-03-01
+rustup component add rustfmt
+rustup component add rls
+rustup toolchain install nightly
+rustup target add wasm32-unknown-unknown --toolchain nightly-2020-03-01
+```
+
 ## Substrate chain
 
 The Substrate runtime configuration is in the [parachain](./parachain) folder.

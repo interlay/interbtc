@@ -3,7 +3,7 @@ use frame_support::traits::Currency;
 use codec::{Decode, Encode, HasCompact};
 use frame_support::{ensure, StorageMap};
 use sp_core::H160;
-use std::ops::Sub;
+use sp_std::ops::Sub;
 
 #[cfg(test)]
 use mocktopus::macros::mockable;
@@ -61,6 +61,10 @@ impl<
 
     pub fn no_issuable_tokens(&self) -> PolkaBTC {
         self.issued_tokens - self.to_be_redeemed_tokens
+    }
+
+    pub fn ban_until(&mut self, height: BlockNumber) {
+        self.banned_until = Some(height);
     }
 }
 

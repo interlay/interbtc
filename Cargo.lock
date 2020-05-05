@@ -3764,6 +3764,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "redeem"
+version = "0.1.0"
+dependencies = [
+ "bitcoin",
+ "btc-relay",
+ "collateral",
+ "exchange-rate-oracle",
+ "frame-support",
+ "frame-system",
+ "mocktopus",
+ "pallet-balances",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "primitive-types",
+ "security",
+ "serde",
+ "sha2",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "treasury",
+ "vault-registry",
+ "x-core",
+]
+
+[[package]]
 name = "redox_syscall"
 version = "0.1.56"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4744,15 +4771,13 @@ dependencies = [
 name = "security"
 version = "0.1.0"
 dependencies = [
- "bitcoin",
- "collateral",
  "frame-support",
  "frame-system",
- "pallet-balances",
- "pallet-timestamp",
+ "mocktopus",
  "parity-scale-codec",
  "primitive-types",
  "serde",
+ "sha2",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -5537,6 +5562,33 @@ name = "stable_deref_trait"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dba1a27d3efae4351c8051072d619e3ade2820635c3958d826bfea39d59b54c8"
+
+[[package]]
+name = "staked-relayers"
+version = "0.1.0"
+dependencies = [
+ "bitcoin",
+ "btc-relay",
+ "collateral",
+ "exchange-rate-oracle",
+ "frame-support",
+ "frame-system",
+ "mocktopus",
+ "pallet-balances",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "primitive-types",
+ "security",
+ "serde",
+ "sha2",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "treasury",
+ "vault-registry",
+ "x-core",
+]
 
 [[package]]
 name = "static_assertions"

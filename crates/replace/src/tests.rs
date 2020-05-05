@@ -551,6 +551,8 @@ fn test_request_replace_ok() {
     })
 }
 
+/*
+// TODO(jaupe) uncomment this when ready
 #[test]
 fn test_withdraw_replace_ok() {
     run_test(|| {
@@ -578,3 +580,4 @@ fn test_withdraw_replace_ok() {
         assert_eq!(withdraw_replace(vault_id, replace_id), Ok(()));
     })
 }
+*/

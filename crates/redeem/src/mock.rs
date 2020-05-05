@@ -124,7 +124,7 @@ impl Trait for Test {
 
 pub type System = system::Module<Test>;
 pub type Balances = pallet_balances::Module<Test>;
-pub type Replace = Module<Test>;
+pub type Redeem = Module<Test>;
 
 pub const ALICE: AccountId = 1;
 pub const BOB: AccountId = 2;

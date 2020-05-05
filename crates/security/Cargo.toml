@@ -4,22 +4,6 @@ version = "0.1.0"
 authors = ["Interlay Ltd"]
 edition = "2018"
 
-[features]
-default = ['std']
-std = [
-  'serde',
-  'codec/std',
-  'frame-support/std',
-  'sp-runtime/std',
-  'sp-io/std',
-  'system/std',
-  'timestamp/std',
-  'sp-core/std',
-	'sp-std/std',
-  'primitive-types/std',
-  'collateral/std',
-]
-
 [dependencies.serde]
 features = ['derive']
 optional = true
@@ -31,10 +15,6 @@ features = ['derive']
 package = 'parity-scale-codec'
 version = '1.0.0'
 
-[dependencies.sp-runtime]
-default-features = false
-version = '2.0.0-alpha.5'
-
 [dependencies.frame-support]
 default-features = false
 version = '2.0.0-alpha.5'
@@ -44,17 +24,8 @@ default-features = false
 package = 'frame-system'
 version = '2.0.0-alpha.5'
 
-[dependencies.sp-io]
-default-features = false
-version = '2.0.0-alpha.5'
-
 [dependencies.sp-core]
 default-features = false
-version = '2.0.0-alpha.5'
-
-[dependencies.timestamp]
-default-features = false
-package = 'pallet-timestamp'
 version = '2.0.0-alpha.5'
 
 [dependencies.sp-std]
@@ -66,16 +37,30 @@ default-features = false
 version = '0.7.0'
 features= ['codec']
 
-[dependencies.bitcoin]
+[dependencies.sha2]
 default-features = false
-path = '../bitcoin'
-version = '0.1.0'
+version = '0.8.0'
 
-[dependencies.collateral]
+[dev-dependencies.sp-runtime]
 default-features = false
-path = '../collateral'
-
-[dev-dependencies.pallet-balances]
-default-features = false
-package = 'pallet-balances'
 version = '2.0.0-alpha.5'
+
+[dev-dependencies.sp-io]
+default-features = false
+version = '2.0.0-alpha.5'
+
+[dev-dependencies]
+mocktopus = '0.7.0'
+
+[features]
+default = ['std']
+std = [
+  'serde',
+  'codec/std',
+  'frame-support/std',
+  'system/std',
+  'sp-core/std',
+  'sp-std/std',
+  'primitive-types/std',
+  'sha2/std',
+]

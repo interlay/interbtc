@@ -29,7 +29,6 @@ impl_outer_event! {
         collateral<T>,
         treasury<T>,
         exchange_rate_oracle<T>,
-        security<T>,
     }
 }
 
@@ -107,9 +106,7 @@ impl Trait for Test {
     type Event = TestEvent;
 }
 
-impl security::Trait for Test {
-    type Event = TestEvent;
-}
+impl security::Trait for Test {}
 
 pub type Balances = pallet_balances::Module<Test>;
 

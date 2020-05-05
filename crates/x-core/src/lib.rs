@@ -89,6 +89,11 @@ pub enum Error {
     TimeNotExpired,
     IssueCompleted,
     InsufficientTokensCommitted,
+    AmountExceedsUserBalance,
+    AmountExceedsVaultBalance,
+    RedeemIdNotFound,
+    RedeemPeriodExpired,
+    RedeemPeriodNotExpired,
 
     /// use only for errors which means something
     /// going very wrong and which do not match any other error
@@ -139,7 +144,6 @@ impl Error {
             Error::UnsupportedOutputFormat => "Unsupported output format. Currently supported: Witness, P2PKH, P2SH,",
 
             Error::ReplacePeriodExpired => "Replace period expired",
-            Error::UnauthorizedVault => "Unauthorised vault",
             Error::ReplacePeriodNotExpired => "Replace period not expired",
             Error::InsufficientTokensComitted => "Insufficient tokens comitted",
             Error::InvalidVaultID => "Invalid vault ID",
@@ -170,6 +174,12 @@ impl Error {
             Error::TimeNotExpired => "Time to issue PolkaBTC not yet expired",
             Error::IssueCompleted => "Issue completed and cannot be cancelled",
             Error::InsufficientTokensCommitted => "The requested amount of tokens exceeds the toBeIssuedTokens by this vault.",
+            Error::AmountExceedsUserBalance => "The requested amount exceeds the user’s balance.",
+            Error::AmountExceedsVaultBalance => "The requested amount exceeds the vault’s balance.",
+            Error::RedeemIdNotFound => "The redeemId cannot be found.",
+            Error::RedeemPeriodExpired => "The redeem period expired.",
+            Error::UnauthorizedVault => "Unauthorized: Caller must be associated vault.",
+            Error::RedeemPeriodNotExpired => "The period to complete the redeem request is not yet expired.",
 
             Error::RuntimeError => "Runtime error",
         }
