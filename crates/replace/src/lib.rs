@@ -27,7 +27,6 @@ use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchRes
 use primitive_types::H256;
 use sp_core::H160;
 use sp_runtime::ModuleId;
-use sp_std::convert::TryInto;
 use system::ensure_signed;
 use x_core::Error;
 
@@ -268,17 +267,12 @@ impl<T: Trait> Module<T> {
         let req = Self::get_replace_request(request_id)?;
         // step 2: Check that caller of the function is indeed the to-be-replaced Vault as specified in the ReplaceRequest. Return ERR_UNAUTHORIZED error if this check fails.
         let _vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
-        ensure!(vault_id == req.old_vault, Error::UnauthorizedUser);
+        ensure!(vault_id == req.old_vault, Error::UnauthorizedVault);
         // step 3: Check that the collateral rate of the vault is not under the AuctionCollateralThreshold as defined in the VaultRegistry. If it is under the AuctionCollateralThreshold return ERR_UNAUTHORIZED
-        let threshold: u128 =
-            TryInto::<u128>::try_into(ext::vault_registry::auction_collateral_threshold::<T>())
-                .map_err(|_e| Error::RuntimeError)?;
-        let collateral: DOT<T> =
-            ext::collateral::get_collateral_from_account::<T>(vault_id.clone());
-        let collateral: u128 = Self::dot_to_u128(collateral)?;
-        if collateral < threshold {
-            return Err(Error::UnauthorizedUser);
-        }
+        ensure!(
+            !ext::vault_registry::is_vault_below_auction_threshold::<T>(vault_id.clone())?,
+            Error::UnauthorizedVault
+        );
         // step 4: Check that the ReplaceRequest was not yet accepted by another Vault
         if req.has_new_owner() {
             return Err(Error::CancelAcceptedRequest);
@@ -315,13 +309,8 @@ impl<T: Trait> Module<T> {
             return Err(Error::VaultBanned);
         }
         // step 4: Check that the provided collateral exceeds the necessary amount
-        let secure_collateral_theshold: u128 =
-            ext::vault_registry::secure_collateral_threshold::<T>();
-        let amount: u128 = Self::polkabtc_to_u128(req.amount)?;
-        let raw_collateral = Self::dot_to_u128(collateral)?;
-        if raw_collateral < (secure_collateral_theshold * amount) {
-            return Err(Error::InsufficientCollateral);
-        }
+        let is_below = ext::vault_registry::is_collateral_below_secure_threshold::<T>(collateral)?;
+        ensure!(!is_below, Error::InsufficientCollateral);
         // step 5: Lock the newVault’s collateral by calling lockCollateral
         ext::collateral::lock_collateral::<T>(new_vault_id.clone(), collateral)?;
         // step 6: Update the ReplaceRequest entry
@@ -347,31 +336,21 @@ impl<T: Trait> Module<T> {
         // step 2: Retrieve the oldVault as per the oldVault parameter from Vaults in the VaultRegistry
         let _old_vault = ext::vault_registry::get_vault_from_id::<T>(&old_vault_id)?;
         // step 3: Check that the oldVault is below the AuctionCollateralThreshold by calculating his current oldVault.issuedTokens and the oldVault.collateral
-        let btcdot_rate: u128 = ext::exchange_rate_oracle::get_exchange_rate::<T>()?;
-        let auction_threshold: u128 = ext::vault_registry::auction_collateral_threshold::<T>();
-        let old_vault_collateral =
-            ext::collateral::get_collateral_from_account::<T>(old_vault_id.clone());
-        let raw_collateral: u128 = Self::dot_to_u128(old_vault_collateral)?;
-        let auction_rate: u128 = raw_collateral * btcdot_rate / auction_threshold;
-        ensure!(raw_collateral < auction_rate, Error::InsufficientCollateral);
-        // step 4: Check that the provided collateral exceeds the necessary amount
-        let secure_collateral_theshold: u128 =
-            ext::vault_registry::secure_collateral_threshold::<T>();
-        let raw_collateral = Self::dot_to_u128(collateral)?;
-        let spot_rate: u128 = ext::exchange_rate_oracle::get_exchange_rate::<T>()?;
-        //let raw_amount = Self::polkabtc_to_u128(btc_amount)?;
-        let secure_amount = raw_collateral * spot_rate / secure_collateral_theshold;
         ensure!(
-            raw_collateral >= secure_amount,
+            ext::vault_registry::is_vault_below_auction_threshold::<T>(old_vault_id.clone())?,
+            Error::InsufficientCollateral
+        );
+        // step 4: Check that the provided collateral exceeds the necessary amount
+        ensure!(
+            !ext::vault_registry::is_collateral_below_secure_threshold::<T>(collateral)?,
             Error::InsufficientCollateral
         );
         // step 5: Lock the newVault’s collateral by calling lockCollateral and providing newVault and collateral as parameters.
         ext::collateral::lock_collateral::<T>(new_vault_id.clone(), collateral)?;
         // step 6: Call the increaseToBeRedeemedTokens function with the oldVault and the btcAmount
         ext::vault_registry::increase_to_be_redeemed_tokens::<T>(&old_vault_id, btc_amount)?;
-        // step 7: Generate a replaceId by hashing a random seed, a nonce, and the address of the newVault
-        let replace_id = ext::security::gen_secure_id::<T>(new_vault_id.clone()); //replace_key(ReplaceRngSeed::default(), nonce, new_vault.btc_address);
-                                                                                  // step 8: Create a new ReplaceRequest named replace entry:
+        // step 8: Create a new ReplaceRequest named replace entry:
+        let replace_id = ext::security::gen_secure_id::<T>(new_vault_id.clone());
         let height = <system::Module<T>>::block_number();
         Self::insert_replace_request(
             replace_id,
@@ -516,13 +495,5 @@ impl<T: Trait> Module<T> {
 
     fn current_height() -> T::BlockNumber {
         <system::Module<T>>::block_number()
-    }
-
-    fn dot_to_u128(x: DOT<T>) -> Result<u128, Error> {
-        TryInto::<u128>::try_into(x).map_err(|_| Error::RuntimeError)
-    }
-
-    fn polkabtc_to_u128(x: PolkaBTC<T>) -> Result<u128, Error> {
-        TryInto::<u128>::try_into(x).map_err(|_| Error::RuntimeError)
     }
 }

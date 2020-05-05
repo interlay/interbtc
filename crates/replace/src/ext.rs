@@ -44,36 +44,19 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::_is_over_minimum_collateral(collateral)
     }
 
-    pub fn secure_collateral_threshold<T: vault_registry::Trait>() -> u128 {
-        <vault_registry::Module<T>>::secure_collateral_threshold()
+    pub fn is_vault_below_auction_threshold<T: vault_registry::Trait>(
+        _vault_id: T::AccountId,
+    ) -> Result<bool> {
+        // FIXME: call from vault registry
+        unimplemented!()
     }
 
-    pub fn auction_collateral_threshold<T: vault_registry::Trait>() -> u128 {
-        <vault_registry::Module<T>>::auction_collateral_threshold()
+    pub fn is_collateral_below_secure_threshold<T: collateral::Trait>(
+        _collateral: DOT<T>,
+    ) -> Result<bool> {
+        //FIXME:
+        unimplemented!()
     }
-
-    /*
-    pub fn increase_to_be_issued_tokens<T: vault_registry::Trait>(
-        vault_id: &T::AccountId,
-        amount: PolkaBTC<T>,
-    ) -> Result<H160> {
-        <vault_registry::Module<T>>::_increase_to_be_issued_tokens(vault_id, amount)
-    }
-
-    pub fn issue_tokens<T: vault_registry::Trait>(
-        vault_id: &T::AccountId,
-        amount: PolkaBTC<T>,
-    ) -> UnitResult {
-        <vault_registry::Module<T>>::_issue_tokens(vault_id, amount)
-    }
-
-    pub fn decrease_to_be_issued_tokens<T: vault_registry::Trait>(
-        vault_id: &T::AccountId,
-        amount: PolkaBTC<T>,
-    ) -> UnitResult {
-        <vault_registry::Module<T>>::_decrease_to_be_issued_tokens(vault_id, amount)
-    }
-    */
 }
 
 #[cfg_attr(test, mockable)]
@@ -113,13 +96,5 @@ pub(crate) mod security {
     use primitive_types::H256;
     pub fn gen_secure_id<T: security::Trait>(_id: T::AccountId) -> H256 {
         unimplemented!()
-    }
-}
-
-#[cfg_attr(test, mockable)]
-pub(crate) mod exchange_rate_oracle {
-    use x_core::Result;
-    pub fn get_exchange_rate<T: exchange_rate_oracle::Trait>() -> Result<u128> {
-        <exchange_rate_oracle::Module<T>>::get_exchange_rate()
     }
 }
