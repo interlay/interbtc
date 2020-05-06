@@ -537,7 +537,7 @@ fn test_cancel_redeem_succeeds() {
         ext::vault_registry::ban_vault::<Test>.mock_safe(|vault, height| {
             assert_eq!(vault, BOB);
             assert_eq!(height, 0);
-            MockResult::Return(())
+            MockResult::Return(Ok(()))
         });
 
         assert_ok!(Redeem::cancel_redeem(

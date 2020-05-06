@@ -346,8 +346,10 @@ impl<T: Trait> Module<T> {
         <Vaults<T>>::insert(id, vault)
     }
 
-    pub fn _ban_vault(vault_id: T::AccountId, height: T::BlockNumber) {
-         <crate::Vaults<T>>::mutate(vault_id, |v| v.banned_until = Some(height));
+    pub fn _ban_vault(vault_id: T::AccountId, height: T::BlockNumber) -> UnitResult {
+        let mut vault = Self::rich_vault_from_id(&vault_id)?;
+        vault.ban_until(height);
+        Ok(())
     }
 
 

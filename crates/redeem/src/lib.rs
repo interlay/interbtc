@@ -272,7 +272,7 @@ decl_module! {
                 let slash_amount: DOT<T> = slash_in_btc.try_into().map_err(|_| Error::RuntimeError)?;
                 ext::collateral::slash_collateral::<T>(&redeem.redeemer, &redeem.vault, slash_amount)?;
             }
-            ext::vault_registry::ban_vault::<T>(redeem.vault, height);
+            ext::vault_registry::ban_vault::<T>(redeem.vault, height)?;
             <RedeemRequests<T>>::remove(redeem_id);
             Self::deposit_event(<Event<T>>::CancelRedeem(redeem_id, redeemer));
 

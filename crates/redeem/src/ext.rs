@@ -79,7 +79,7 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::_decrease_tokens(vault_id, user_id, tokens)
     }
 
-    pub fn ban_vault<T: vault_registry::Trait>(vault_id: T::AccountId, height: T::BlockNumber) {
+    pub fn ban_vault<T: vault_registry::Trait>(vault_id: T::AccountId, height: T::BlockNumber) -> UnitResult {
         <vault_registry::Module<T>>::_ban_vault(vault_id, height)
     }
 
