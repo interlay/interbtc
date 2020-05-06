@@ -123,9 +123,15 @@ impl Formattable for Script {
     }
 }
 
+impl Formattable for &[u8] {
+    fn format(&self) -> Vec<u8> {
+        Vec::from(*self)
+    }
+}
+
 impl Formattable for Address {
     fn format(&self) -> Vec<u8> {
-        Vec::from(self.as_bytes()).format()
+        Vec::from(self.as_bytes())
     }
 }
 

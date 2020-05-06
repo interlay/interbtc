@@ -446,7 +446,13 @@ pub(crate) fn extract_op_return_data(output_script: &[u8]) -> Result<Vec<u8>, Er
         return Err(Error::MalformedOpReturnOutput);
     }
 
-    Ok(output_script[2..].to_vec())
+    let result = &output_script[2..];
+
+    if result.len() != output_script[1] as usize {
+        return Err(Error::MalformedOpReturnOutput);
+    }
+
+    Ok(result.to_vec())
 }
 
 #[cfg(test)]

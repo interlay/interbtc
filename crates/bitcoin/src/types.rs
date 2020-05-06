@@ -240,6 +240,14 @@ impl TryFrom<&[u8]> for Address {
     }
 }
 
+impl TryFrom<&str> for Address {
+    type Error = x_core::Error;
+    fn try_from(hex_address: &str) -> Result<Address, Self::Error> {
+        let bytes = hex::decode(hex_address).map_err(|_e| Error::RuntimeError)?;
+        Address::try_from(&bytes[..])
+    }
+}
+
 // Constants
 pub const P2PKH_SCRIPT_SIZE: u32 = 25;
 pub const P2SH_SCRIPT_SIZE: u32 = 23;
@@ -314,6 +322,14 @@ impl Script {
         script
     }
 
+    pub fn op_return(return_content: &[u8]) -> Script {
+        let mut script = Script::new();
+        script.append(OpCode::OpReturn);
+        script.append(return_content.len() as u8);
+        script.append(return_content);
+        script
+    }
+
     pub fn append<T: Formattable<U>, U>(&mut self, value: T) {
         self.bytes.extend(&value.format())
     }
@@ -361,8 +377,31 @@ pub struct TransactionOutput {
     pub script: Script,
 }
 
+impl TransactionOutput {
+    pub fn p2pkh(value: i64, address: &Address) -> TransactionOutput {
+        TransactionOutput {
+            value: value,
+            script: Script::p2pkh(address),
+        }
+    }
+
+    pub fn p2sh(value: i64, address: &Address) -> TransactionOutput {
+        TransactionOutput {
+            value: value,
+            script: Script::p2sh(address),
+        }
+    }
+
+    pub fn op_return(value: i64, return_content: &[u8]) -> TransactionOutput {
+        TransactionOutput {
+            value: value,
+            script: Script::op_return(return_content),
+        }
+    }
+}
+
 /// Bitcoin transaction
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct Transaction {
     pub version: i32,
     pub inputs: Vec<TransactionInput>,
@@ -496,6 +535,30 @@ impl H256Le {
     }
 }
 
+macro_rules! impl_h256le_from_integer {
+    ($type:ty) => {
+        impl From<$type> for H256Le {
+            fn from(value: $type) -> H256Le {
+                let mut bytes: [u8; 32] = Default::default();
+                let le_bytes = value.to_le_bytes();
+                for i in 0..le_bytes.len() {
+                    bytes[i] = le_bytes[i];
+                }
+                H256Le { content: bytes }
+            }
+        }
+    };
+}
+
+impl_h256le_from_integer!(u8);
+impl_h256le_from_integer!(u16);
+impl_h256le_from_integer!(u32);
+impl_h256le_from_integer!(u64);
+impl_h256le_from_integer!(i8);
+impl_h256le_from_integer!(i16);
+impl_h256le_from_integer!(i32);
+impl_h256le_from_integer!(i64);
+
 #[cfg(feature = "std")]
 impl sp_std::fmt::Display for H256Le {
     fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
@@ -534,9 +597,118 @@ impl CompactUint {
     }
 }
 
+pub struct TransactionBuilder {
+    transaction: Transaction,
+}
+
+impl TransactionBuilder {
+    pub fn new() -> TransactionBuilder {
+        TransactionBuilder {
+            transaction: Transaction {
+                version: 2,
+                inputs: vec![],
+                outputs: vec![],
+                block_height: Some(0),
+                locktime: None,
+            },
+        }
+    }
+
+    pub fn with_version(&mut self, version: i32) -> &mut Self {
+        self.transaction.version = version;
+        self
+    }
+
+    pub fn with_block_height(&mut self, block_height: u32) -> &mut Self {
+        self.transaction.block_height = Some(block_height);
+        self.transaction.locktime = None;
+        self
+    }
+
+    pub fn with_locktime(&mut self, locktime: u32) -> &mut Self {
+        self.transaction.locktime = Some(locktime);
+        self.transaction.block_height = None;
+        self
+    }
+
+    pub fn add_input(&mut self, input: TransactionInput) -> &mut Self {
+        self.transaction.inputs.push(input);
+        self
+    }
+
+    pub fn add_output(&mut self, output: TransactionOutput) -> &mut Self {
+        self.transaction.outputs.push(output);
+        self
+    }
+
+    pub fn build(&self) -> Transaction {
+        self.transaction.clone()
+    }
+}
+
+pub struct TransactionInputBuilder {
+    trasaction_input: TransactionInput,
+}
+
+impl TransactionInputBuilder {
+    pub fn new() -> TransactionInputBuilder {
+        TransactionInputBuilder {
+            trasaction_input: TransactionInput {
+                previous_hash: H256Le::zero(),
+                previous_index: 0,
+                coinbase: true,
+                height: None,
+                script: vec![],
+                sequence: 0,
+                witness: vec![],
+            },
+        }
+    }
+
+    pub fn with_previous_hash(&mut self, previous_hash: H256Le) -> &mut Self {
+        self.trasaction_input.previous_hash = previous_hash;
+        self
+    }
+
+    pub fn with_previous_index(&mut self, previous_index: u32) -> &mut Self {
+        self.trasaction_input.previous_index = previous_index;
+        self
+    }
+
+    pub fn with_coinbase(&mut self, coinbase: bool) -> &mut Self {
+        self.trasaction_input.coinbase = coinbase;
+        self
+    }
+
+    pub fn with_script(&mut self, script: &[u8]) -> &mut Self {
+        self.trasaction_input.script = Vec::from(script);
+        self
+    }
+
+    pub fn with_height(&mut self, height: &[u8]) -> &mut Self {
+        self.trasaction_input.height = Some(Vec::from(height));
+        self
+    }
+
+    pub fn with_sequence(&mut self, sequence: u32) -> &mut Self {
+        self.trasaction_input.sequence = sequence;
+        self
+    }
+
+    pub fn add_witness(&mut self, witness: &[u8]) -> &mut Self {
+        self.trasaction_input.witness.push(Vec::from(witness));
+        self
+    }
+
+    pub fn build(&self) -> TransactionInput {
+        self.trasaction_input.clone()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sp_std::convert::TryInto;
 
     use crate::parser::parse_transaction;
 
@@ -591,5 +763,47 @@ mod tests {
         let transaction = parse_transaction(&raw_tx).unwrap();
         let expected_txid = H256Le::from_hex_be(&sample_example_real_txid());
         assert_eq!(transaction.tx_id(), expected_txid);
+    }
+
+    #[test]
+    fn test_transaction_input_builder() {
+        let input = TransactionInputBuilder::new()
+            .with_sequence(10)
+            .with_previous_hash(100.into())
+            .build();
+        assert_eq!(input.sequence, 10);
+        let mut bytes: [u8; 32] = Default::default();
+        bytes[0] = 100;
+        assert_eq!(input.previous_hash, H256Le::from_bytes_le(&bytes));
+    }
+
+    #[test]
+    fn test_transaction_builder() {
+        let address: Address = "66c7060feb882664ae62ffad0051fe843e318e85"
+            .try_into()
+            .unwrap();
+        let return_data = hex::decode("01a0").unwrap();
+        let transaction = TransactionBuilder::new()
+            .with_version(2)
+            .add_input(TransactionInputBuilder::new().with_coinbase(false).build())
+            .add_output(TransactionOutput::p2pkh(100, &address))
+            .add_output(TransactionOutput::op_return(0, &return_data))
+            .build();
+        assert_eq!(transaction.version, 2);
+        assert_eq!(transaction.inputs.len(), 1);
+        assert_eq!(transaction.outputs.len(), 2);
+        assert_eq!(transaction.outputs[0].value, 100);
+        assert_eq!(
+            transaction.outputs[0].script.extract_address().unwrap(),
+            address.as_bytes()
+        );
+        assert_eq!(transaction.outputs[1].value, 0);
+        assert_eq!(
+            transaction.outputs[1]
+                .script
+                .extract_op_return_data()
+                .unwrap(),
+            return_data
+        );
     }
 }
