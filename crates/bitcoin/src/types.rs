@@ -263,7 +263,7 @@ pub const MAX_OPRETURN_SIZE: usize = 83;
 pub struct BlockHeader {
     pub merkle_root: H256Le,
     pub target: U256,
-    pub timestamp: u64,
+    pub timestamp: u32,
     pub version: i32,
     pub hash_prev_block: H256Le,
     pub nonce: u32,

@@ -1,10 +1,8 @@
+use primitive_types::U256;
 use sp_std::vec::Vec;
 use sp_std::{prelude::*, vec};
 
-use crate::types::{
-    Address, CompactUint, H256Le, OpCode, Script, Transaction, TransactionInput, TransactionOutput,
-    SERIALIZE_TRANSACTION_NO_WITNESS,
-};
+use crate::types::*;
 
 const WITNESS_FLAG: u8 = 0x01;
 const WITNESS_MARKER: u8 = 0x00;
@@ -188,6 +186,45 @@ impl Formattable<bool> for Transaction {
     }
 }
 
+fn log_256(value: &U256) -> u8 {
+    let mut current = value.clone();
+    let mut result: u8 = 0;
+    while current > 0.into() {
+        current = current >> 8;
+        result += 1;
+    }
+    result
+}
+
+impl Formattable<bool> for U256 {
+    fn format(&self) -> Vec<u8> {
+        let mut bytes: [u8; 4] = Default::default();
+        let exponent = log_256(&self);
+        bytes[3] = exponent;
+        let mantissa = self / U256::from(256).pow(U256::from(exponent) - 3);
+        let mut mantissa_bytes: [u8; 32] = Default::default();
+        mantissa.to_little_endian(&mut mantissa_bytes);
+        for i in 0..=2 {
+            // only three first bytes should be set because of the division
+            bytes[i] = mantissa_bytes[i];
+        }
+        Vec::from(&bytes[..])
+    }
+}
+
+impl Formattable for BlockHeader {
+    fn format(&self) -> Vec<u8> {
+        let mut formatter = Formatter::new();
+        formatter.format(self.version);
+        formatter.format(self.hash_prev_block);
+        formatter.format(self.merkle_root);
+        formatter.format(self.timestamp);
+        formatter.format(self.target);
+        formatter.format(self.nonce);
+        formatter.result()
+    }
+}
+
 pub(crate) struct Formatter {
     bytes: Vec<u8>,
 }
@@ -297,5 +334,31 @@ mod tests {
         let formatted_no_witness = transaction.format_with(false);
         let computed_txid = sha256d_le(&formatted_no_witness);
         assert_eq!(computed_txid, expected_txid);
+    }
+
+    #[test]
+    fn test_format_block_header() {
+        let hex_header = parser::tests::sample_block_header();
+        let raw_header = RawBlockHeader::from_hex(&hex_header).unwrap();
+        let parsed_header = parser::parse_block_header(&raw_header).unwrap();
+        assert_eq!(parsed_header.format(), raw_header.as_bytes());
+    }
+
+    // taken from https://bitcoin.org/en/developer-reference#block-headers
+    #[test]
+    fn test_log_256() {
+        let value = U256::from_dec_str("680733321990486529407107157001552378184394215934016880640")
+            .unwrap();
+        let result = log_256(&value);
+        assert_eq!(result, 24);
+    }
+
+    #[test]
+    fn test_format_u256() {
+        let value = U256::from_dec_str("680733321990486529407107157001552378184394215934016880640")
+            .unwrap();
+        let result = value.format();
+        let expected = hex::decode("30c31b18").unwrap();
+        assert_eq!(result, expected);
     }
 }

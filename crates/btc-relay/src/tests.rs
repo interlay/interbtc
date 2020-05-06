@@ -674,7 +674,7 @@ fn test_compute_new_target() {
     let block_height: u32 = 2016;
     let retarget_headers = sample_retarget_interval_increase();
 
-    let last_retarget_time = parse_block_header(&retarget_headers[0]).unwrap().timestamp;
+    let last_retarget_time = parse_block_header(&retarget_headers[0]).unwrap().timestamp as u64;
     let prev_block_header =
         RichBlockHeader::construct(retarget_headers[1], chain_ref, block_height).unwrap();
 

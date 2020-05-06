@@ -738,7 +738,7 @@ impl<T: Trait> Module<T> {
         let last_retarget_time =
             Self::get_last_retarget_time(prev_block_header.chain_ref, block_height)?;
         // Compute new target
-        let actual_timespan = if ((prev_block_header.block_header.timestamp - last_retarget_time)
+        let actual_timespan = if ((prev_block_header.block_header.timestamp as u64 - last_retarget_time)
             as u32)
             < (TARGET_TIMESPAN / TARGET_TIMESPAN_DIVISOR)
         {
@@ -769,7 +769,7 @@ impl<T: Trait> Module<T> {
             &block_chain,
             block_height - DIFFICULTY_ADJUSTMENT_INTERVAL,
         )?;
-        Ok(last_retarget_header.block_header.timestamp)
+        Ok(last_retarget_header.block_header.timestamp as u64)
     }
 
     /// Swap the main chain with a fork. This method takes the starting height

@@ -231,7 +231,7 @@ pub fn parse_block_header(raw_header: &RawBlockHeader) -> Result<BlockHeader, Er
     let block_header = BlockHeader {
         merkle_root,
         target,
-        timestamp: timestamp as u64,
+        timestamp: timestamp,
         version,
         nonce,
         hash_prev_block,
@@ -463,14 +463,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_parse_block_header() {
-        let hex_header = "02000000".to_owned() + // ............... Block version: 2
-            "b6ff0b1b1680a2862a30ca44d346d9e8" + //
-            "910d334beb48ca0c0000000000000000" + // ... Hash of previous block's header
-            "9d10aa52ee949386ca9385695f04ede2" + //
-            "70dda20810decd12bc9b048aaab31471" + // ... Merkle root
-            "24d95a54" + // ........................... Unix time: 1415239972
-            "30c31b18" + // ........................... Target: 0x1bc330 * 256**(0x18-3)
-            "fe9f0864";
+        let hex_header = sample_block_header();
         let raw_header = RawBlockHeader::from_hex(&hex_header).unwrap();
         let parsed_header = parse_block_header(&raw_header).unwrap();
         assert_eq!(parsed_header.version, 2);
@@ -564,6 +557,17 @@ pub(crate) mod tests {
 
     fn sample_valid_p2sh() -> String {
         "a914000000000000000000000000000000000000000087".to_owned()
+    }
+
+    pub fn sample_block_header() -> String {
+        "02000000".to_owned() + // ............... Block version: 2
+            "b6ff0b1b1680a2862a30ca44d346d9e8" + //
+            "910d334beb48ca0c0000000000000000" + // ... Hash of previous block's header
+            "9d10aa52ee949386ca9385695f04ede2" + //
+            "70dda20810decd12bc9b048aaab31471" + // ... Merkle root
+            "24d95a54" + // ........................... Unix time: 1415239972
+            "30c31b18" + // ........................... Target: 0x1bc330 * 256**(0x18-3)
+            "fe9f0864"
     }
 
     #[test]
