@@ -267,8 +267,13 @@ impl exchange_rate_oracle::Trait for Runtime {
     type Event = Event;
 }
 
+parameter_types! {
+    pub const IssuePeriod: BlockNumber = 10;
+}
+
 impl issue::Trait for Runtime {
     type Event = Event;
+    type IssuePeriod = IssuePeriod;
 }
 
 impl redeem::Trait for Runtime {
@@ -299,7 +304,7 @@ construct_runtime!(
         Security: security::{Module, Call, Storage, Event},
         StakedRelayers: staked_relayers::{Module, Call, Config<T>, Storage, Event<T>},
         VaultRegistry: vault_registry::{Module, Call, Storage, Event<T>},
-        Oracle: exchange_rate_oracle::{Module, Call, Storage, Event<T>},
+        ExchangeRateOracle: exchange_rate_oracle::{Module, Call, Config<T>, Storage, Event<T>},
         Issue: issue::{Module, Call, Storage, Event<T>},
         Redeem: redeem::{Module, Call, Storage, Event<T>},
         Replace: replace::{Module, Call, Storage, Event<T>},

@@ -1,5 +1,5 @@
 /// Mocking the test environment
-use crate::{Module, Trait};
+use crate::{GenesisConfig, Module, Trait};
 use frame_support::{impl_outer_event, impl_outer_origin, parameter_types, weights::Weight};
 use mocktopus::mocking::clear_mocks;
 use sp_core::H256;
@@ -108,9 +108,14 @@ pub struct ExtBuilder;
 
 impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
-        let storage = system::GenesisConfig::default()
+        let mut storage = system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
+
+        GenesisConfig::<Test> { admin: 0 }
+            .assimilate_storage(&mut storage)
+            .unwrap();
+
         sp_io::TestExternalities::from(storage)
     }
 }
