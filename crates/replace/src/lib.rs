@@ -100,7 +100,7 @@ decl_module! {
         ///
         /// * `origin` - sender of the transaction: the old vault
         /// * `replace_id` - the unique identifier of the replace request
-        fn withdraw_replace_request(origin, replace_id: H256)
+        fn withdraw_replace(origin, replace_id: H256)
             -> DispatchResult
         {
             let old_vault = ensure_signed(origin)?;
@@ -123,7 +123,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Accept request of vault replacement
+        /// Auction forces vault replacement
         ///
         /// # Arguments
         ///
