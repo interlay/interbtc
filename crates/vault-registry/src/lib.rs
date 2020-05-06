@@ -360,6 +360,22 @@ impl<T: Trait> Module<T> {
         Self::is_collateral_below_threshold(collateral, btc_amount, threshold)
     }
 
+    pub fn _set_secure_collateral_threshold(threshold: u128) {
+        <SecureCollateralThreshold>::set(threshold);
+    }
+
+    pub fn _set_auction_collateral_threshold(threshold: u128) {
+        <AuctionCollateralThreshold>::set(threshold);
+    }
+
+    pub fn _set_premium_redeem_threshold(threshold: u128) {
+        <PremiumRedeemThreshold>::set(threshold);
+    }
+
+    pub fn _set_liquidation_collateral_threshold(threshold: u128) {
+        <LiquidationCollateralThreshold>::set(threshold);
+    }
+
     /// Private getters and setters
 
     fn rich_vault_from_id(vault_id: &T::AccountId) -> Result<RichVault<T>> {
@@ -411,9 +427,12 @@ impl<T: Trait> Module<T> {
         let raw_collateral_in_polka_btc = Self::polkabtc_to_u128(collateral_in_polka_btc)?;
 
         // calculate how many tokens should be maximally issued given the threshold
-        let raw_scaled_collateral_in_polka_btc =
-            raw_collateral_in_polka_btc.checked_mul(10u32.pow(GRANULARITY) as u128).ok_or(Error::RuntimeError)?;
-        let raw_max_tokens = raw_scaled_collateral_in_polka_btc.checked_div(threshold).unwrap_or(0);
+        let raw_scaled_collateral_in_polka_btc = raw_collateral_in_polka_btc
+            .checked_mul(10u32.pow(GRANULARITY) as u128)
+            .ok_or(Error::RuntimeError)?;
+        let raw_max_tokens = raw_scaled_collateral_in_polka_btc
+            .checked_div(threshold)
+            .unwrap_or(0);
 
         // check if the max_tokens are below the issued tokens
         Ok(raw_max_tokens < raw_btc_amount)

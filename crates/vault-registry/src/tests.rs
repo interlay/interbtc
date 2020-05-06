@@ -37,6 +37,18 @@ macro_rules! assert_not_emitted {
     };
 }
 
+fn set_default_thresholds() {
+    let secure = 200_000; // 200%
+    let auction = 150_000; // 150%
+    let premium = 120_000; // 120%
+    let liquidation = 110_000; // 110%
+
+    VaultRegistry::_set_secure_collateral_threshold(secure);
+    VaultRegistry::_set_auction_collateral_threshold(auction);
+    VaultRegistry::_set_premium_redeem_threshold(premium);
+    VaultRegistry::_set_liquidation_collateral_threshold(liquidation);
+}
+
 fn create_vault(id: u64) -> <Test as system::Trait>::AccountId {
     VaultRegistry::get_minimum_collateral_vault
         .mock_safe(|| MockResult::Return(DEFAULT_COLLATERAL));
@@ -602,6 +614,8 @@ fn _is_vault_below_auction_threshold_false_succeeds() {
         // vault has 200% collateral ratio
         let id = create_sample_vault();
 
+        set_default_thresholds();
+
         let vault = VaultRegistry::_get_vault_from_id(&id).unwrap();
         assert_ok!(
             VaultRegistry::_increase_to_be_issued_tokens(&id, 50),
@@ -613,7 +627,35 @@ fn _is_vault_below_auction_threshold_false_succeeds() {
         ext::collateral::for_account::<Test>.mock_safe(|_| MockResult::Return(DEFAULT_COLLATERAL));
         ext::oracle::dots_to_btc::<Test>.mock_safe(|_| MockResult::Return(Ok(DEFAULT_COLLATERAL)));
 
-        // FIXME: add a setter to configure all thresholds
-        // assert_eq!(VaultRegistry::_is_vault_below_auction_threshold(&id), Ok(false));
+        assert_eq!(
+            VaultRegistry::_is_vault_below_auction_threshold(&id),
+            Ok(false)
+        );
+    })
+}
+
+#[test]
+fn _is_vault_below_liquidation_threshold_true_succeeds() {
+    run_test(|| {
+        // vault has 100% collateral ratio
+        let id = create_sample_vault();
+
+        set_default_thresholds();
+
+        let vault = VaultRegistry::_get_vault_from_id(&id).unwrap();
+        assert_ok!(
+            VaultRegistry::_increase_to_be_issued_tokens(&id, 100),
+            vault.btc_address
+        );
+        let res = VaultRegistry::_issue_tokens(&id, 100);
+        assert_ok!(res);
+
+        ext::collateral::for_account::<Test>.mock_safe(|_| MockResult::Return(DEFAULT_COLLATERAL));
+        ext::oracle::dots_to_btc::<Test>.mock_safe(|_| MockResult::Return(Ok(DEFAULT_COLLATERAL)));
+
+        assert_eq!(
+            VaultRegistry::_is_vault_below_liquidation_threshold(&id),
+            Ok(true)
+        );
     })
 }
