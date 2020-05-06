@@ -1,4 +1,5 @@
 use sp_std::vec::Vec;
+use sp_std::{prelude::*, vec};
 
 use crate::types::{
     Address, CompactUint, H256Le, OpCode, Script, Transaction, TransactionInput, TransactionOutput,
