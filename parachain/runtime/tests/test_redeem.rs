@@ -38,7 +38,7 @@ fn redeem_polka_btc() {
             Event::redeem(RedeemEvent::RequestRedeem(_, _, _, _, _)) => true,
             _ => false,
         });
-        let id = if let Event::redeem(RedeemEvent::RequestRedeem(id, _, _, _, _)) =
+        let _id = if let Event::redeem(RedeemEvent::RequestRedeem(id, _, _, _, _)) =
             record.unwrap().event
         {
             id

@@ -23,14 +23,14 @@ fn issue_polka_btc() {
             Event::issue(IssueEvent::RequestIssue(_, _, _, _, _)) => true,
             _ => false,
         });
-        let id =
+        let _id =
             if let Event::issue(IssueEvent::RequestIssue(id, _, _, _, _)) = record.unwrap().event {
                 id
             } else {
                 panic!("request issue event not found")
             };
 
-        SystemModule::set_block_number(5);
+        // SystemModule::set_block_number(5);
 
         // btc_relay::Module::<Runtime>::_verify_transaction_inclusion
         //     .mock_safe(|_, _, _, _, _| MockResult::Return(Ok(())));
