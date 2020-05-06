@@ -2,7 +2,6 @@ use codec::{Decode, Encode};
 use frame_support::traits::Currency;
 use sp_core::H160;
 
-
 pub(crate) type DOT<T> =
     <<T as collateral::Trait>::DOT as Currency<<T as system::Trait>::AccountId>>::Balance;
 pub(crate) type PolkaBTC<T> =

@@ -141,10 +141,7 @@ fn test_request_replace_vault_banned_fails() {
                 banned_until: Some(1),
             }))
         });
-        assert_noop!(
-            Replace::_request_replace(BOB, 1, 1, 0),
-            Error::VaultBanned
-        );
+        assert_noop!(Replace::_request_replace(BOB, 1, 1, 0), Error::VaultBanned);
     })
 }
 
@@ -593,7 +590,12 @@ fn test_request_replace_with_amount_exceed_vault_issued_tokens_succeeds() {
             .mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::security::gen_secure_id::<Test>.mock_safe(|_| MockResult::Return(H256::zero()));
 
-        assert_ok!(request_replace(vault_id, amount, timeout, griefing_collateral));
+        assert_ok!(request_replace(
+            vault_id,
+            amount,
+            timeout,
+            griefing_collateral
+        ));
 
         let event = Event::RequestReplace(vault_id, replace_amount, timeout, replace_id);
         assert_emitted!(event);
@@ -625,7 +627,12 @@ fn test_request_replace_with_amount_less_than_vault_issued_tokens_succeeds() {
             .mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::security::gen_secure_id::<Test>.mock_safe(|_| MockResult::Return(H256::zero()));
 
-        assert_ok!(request_replace(vault_id, amount, timeout, griefing_collateral));
+        assert_ok!(request_replace(
+            vault_id,
+            amount,
+            timeout,
+            griefing_collateral
+        ));
 
         let event = Event::RequestReplace(vault_id, replace_amount, timeout, replace_id);
         assert_emitted!(event);
@@ -649,8 +656,7 @@ fn test_withdraw_replace_succeeds() {
             .mock_safe(|_| MockResult::Return(Ok(false)));
         ext::vault_registry::increase_to_be_redeemed_tokens::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(())));
-        ext::collateral::release_collateral::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::collateral::release_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::decrease_to_be_redeemed_tokens::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(())));
 
@@ -732,7 +738,7 @@ fn test_auction_replace_succeeds() {
             replace_id,
             btc_amount,
             collateral,
-            height
+            height,
         );
         assert_emitted!(event);
     })

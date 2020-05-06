@@ -27,10 +27,10 @@ use sp_runtime::ModuleId;
 use std::convert::TryInto;
 use system::ensure_signed;
 
-use x_core::{Error, UnitResult};
 use bitcoin::types::H256Le;
+use x_core::{Error, UnitResult};
 
-use crate::types::{Replace, DOT, PolkaBTC};
+use crate::types::{PolkaBTC, Replace, DOT};
 
 /// The replace module id, used for deriving its sovereign account ID.
 const _MODULE_ID: ModuleId = ModuleId(*b"replacem");
@@ -42,7 +42,6 @@ pub trait Trait:
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
-
 
 // The pallet's storage items.
 decl_storage! {
