@@ -473,6 +473,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "issue",
+ "mocktopus",
  "pallet-aura",
  "pallet-balances",
  "pallet-grandpa",
