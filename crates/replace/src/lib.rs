@@ -24,7 +24,8 @@ use mocktopus::macros::mockable;
 use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
 use primitive_types::H256;
 use sp_runtime::ModuleId;
-use std::convert::TryInto;
+use sp_std::convert::TryInto;
+use sp_std::vec::Vec;
 use system::ensure_signed;
 
 use bitcoin::types::H256Le;
@@ -218,7 +219,6 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(<Event<T>>::RequestReplace(
             vault_id, amount, timeout, replace_id,
         ));
-        println!("Emitted event");
         // step 12
         Ok(())
     }

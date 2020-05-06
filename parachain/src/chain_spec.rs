@@ -1,6 +1,6 @@
 use btc_parachain_runtime::{
-    AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, Signature, SudoConfig,
-    SystemConfig, WASM_BINARY,
+    AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, Signature,
+    StakedRelayersConfig, SudoConfig, SystemConfig, WASM_BINARY,
 };
 use grandpa_primitives::AuthorityId as GrandpaId;
 use sc_service;
@@ -146,6 +146,9 @@ fn testnet_genesis(
                 .collect(),
         }),
         sudo: Some(SudoConfig { key: root_key }),
+        staked_relayers: Some(StakedRelayersConfig {
+            gov_id: get_account_id_from_seed::<sr25519::Public>("Alice"),
+        }),
     }
 }
 

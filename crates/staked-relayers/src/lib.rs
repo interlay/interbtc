@@ -40,6 +40,7 @@ use security::types::{ErrorCode, StatusCode};
 use sp_core::{H160, U256};
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::convert::TryInto;
+use sp_std::vec::Vec;
 use system::ensure_signed;
 
 /// ## Configuration
