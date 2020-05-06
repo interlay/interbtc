@@ -1,7 +1,7 @@
 use sp_std::vec::Vec;
 
 use crate::types::{
-    CompactUint, H256Le, Script, Transaction, TransactionInput, TransactionOutput,
+    Address, CompactUint, H256Le, OpCode, Script, Transaction, TransactionInput, TransactionOutput,
     SERIALIZE_TRANSACTION_NO_WITNESS,
 };
 
@@ -120,6 +120,18 @@ impl Formattable<bool> for TransactionInput {
 impl Formattable for Script {
     fn format(&self) -> Vec<u8> {
         self.bytes.format()
+    }
+}
+
+impl Formattable for Address {
+    fn format(&self) -> Vec<u8> {
+        Vec::from(self.as_bytes()).format()
+    }
+}
+
+impl Formattable for OpCode {
+    fn format(&self) -> Vec<u8> {
+        vec![*self as u8]
     }
 }
 

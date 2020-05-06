@@ -220,7 +220,7 @@ impl FromLeBytes for BlockHeader {
 ///
 /// * `header` - An 80-byte Bitcoin header
 pub fn parse_block_header(raw_header: &RawBlockHeader) -> Result<BlockHeader, Error> {
-    let mut parser = BytesParser::new(raw_header.as_slice());
+    let mut parser = BytesParser::new(raw_header.as_bytes());
     let version: i32 = parser.parse()?;
     let hash_prev_block: H256Le = parser.parse()?;
     let merkle_root: H256Le = parser.parse()?;
@@ -387,7 +387,7 @@ fn parse_transaction_output(raw_output: &[u8]) -> Result<(TransactionOutput, usi
     ))
 }
 
-pub fn extract_address_hash(output_script: &[u8]) -> Result<Vec<u8>, Error> {
+pub(crate) fn extract_address_hash(output_script: &[u8]) -> Result<Vec<u8>, Error> {
     let script_len = output_script.len();
     // Witness
     if output_script[0] == 0 {
@@ -436,7 +436,7 @@ pub fn extract_address_hash(output_script: &[u8]) -> Result<Vec<u8>, Error> {
     Err(Error::UnsupportedOutputFormat)
 }
 
-pub fn extract_op_return_data(output_script: &[u8]) -> Result<Vec<u8>, Error> {
+pub(crate) fn extract_op_return_data(output_script: &[u8]) -> Result<Vec<u8>, Error> {
     if output_script[0] != OpCode::OpReturn as u8 {
         return Err(Error::MalformedOpReturnOutput);
     }

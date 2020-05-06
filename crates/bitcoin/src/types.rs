@@ -16,6 +16,7 @@ pub(crate) const SERIALIZE_TRANSACTION_NO_WITNESS: i32 = 0x4000_0000;
 
 // Bitcoin Script OpCodes
 // https://github.com/bitcoin/bitcoin/blob/master/src/script/script.h
+#[derive(Copy, Clone)]
 pub enum OpCode {
     // push value
     Op0 = 0x00,
@@ -183,11 +184,11 @@ impl RawBlockHeader {
 
     /// Returns the hash of the block header using Bitcoin's double sha256
     pub fn hash(&self) -> H256Le {
-        sha256d_le(self.as_slice())
+        sha256d_le(self.as_bytes())
     }
 
     /// Returns the block header as a slice
-    pub fn as_slice(&self) -> &[u8] {
+    pub fn as_bytes(&self) -> &[u8] {
         &self.0
     }
 }
@@ -203,6 +204,39 @@ impl PartialEq for RawBlockHeader {
 impl sp_std::fmt::Debug for RawBlockHeader {
     fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
         f.debug_list().entries(self.0.iter()).finish()
+    }
+}
+
+#[derive(Encode, Decode, PartialEq, Copy, Clone)]
+pub struct Address([u8; 20]);
+
+impl Address {
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl From<[u8; 20]> for Address {
+    fn from(bytes: [u8; 20]) -> Address {
+        Address(bytes)
+    }
+}
+
+impl From<Address> for [u8; 20] {
+    fn from(address: Address) -> [u8; 20] {
+        address.0.clone()
+    }
+}
+
+impl TryFrom<&[u8]> for Address {
+    type Error = x_core::Error;
+    fn try_from(bytes: &[u8]) -> Result<Address, Self::Error> {
+        if bytes.len() != 20 {
+            return Err(Error::RuntimeError);
+        }
+        let mut address: [u8; 20] = Default::default();
+        address.copy_from_slice(bytes);
+        Ok(Address(address))
     }
 }
 
@@ -254,6 +288,30 @@ pub struct Script {
 impl Script {
     pub fn new() -> Script {
         Script { bytes: vec![] }
+    }
+
+    // Format:
+    // 0x76 (OP_DUP) - 0xa9 (OP_HASH160) - 0x14 (20 bytes len) - <20 bytes pubkey hash> - 0x88 (OP_EQUALVERIFY) - 0xac (OP_CHECKSIG)
+    pub fn p2pkh(address: &Address) -> Script {
+        let mut script = Script::new();
+        script.append(OpCode::OpDup);
+        script.append(OpCode::OpHash160);
+        script.append(HASH160_SIZE_HEX);
+        script.append(address);
+        script.append(OpCode::OpEqualVerify);
+        script.append(OpCode::OpCheckSig);
+        script
+    }
+
+    // Format:
+    // 0xa9 (OP_HASH160) - 0x14 (20 bytes hash) - <20 bytes script hash> - 0x87 (OP_EQUAL)
+    pub fn p2sh(address: &Address) -> Script {
+        let mut script = Script::new();
+        script.append(OpCode::OpHash160);
+        script.append(HASH160_SIZE_HEX);
+        script.append(address);
+        script.append(OpCode::OpEqual);
+        script
     }
 
     pub fn append<T: Formattable<U>, U>(&mut self, value: T) {
@@ -341,7 +399,7 @@ impl RichBlockHeader {
     ) -> Result<RichBlockHeader, Error> {
         Ok(RichBlockHeader {
             block_hash: raw_block_header.hash(),
-            block_header: BlockHeader::from_le_bytes(raw_block_header.as_slice())?,
+            block_header: BlockHeader::from_le_bytes(raw_block_header.as_bytes())?,
             block_height,
             chain_ref,
         })

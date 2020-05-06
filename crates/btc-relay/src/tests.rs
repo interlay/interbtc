@@ -134,7 +134,7 @@ fn initialize_best_block_already_set_fails() {
 fn store_block_header_on_mainchain_succeeds() {
     run_test(|| {
         BTCRelay::verify_block_header.mock_safe(|h| {
-            MockResult::Return(Ok(BlockHeader::from_le_bytes(h.as_slice()).unwrap()))
+            MockResult::Return(Ok(BlockHeader::from_le_bytes(h.as_bytes()).unwrap()))
         });
         BTCRelay::block_header_exists.mock_safe(|_| MockResult::Return(true));
 
