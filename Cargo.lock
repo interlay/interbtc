@@ -465,6 +465,7 @@ dependencies = [
 name = "btc-parachain-runtime"
 version = "2.0.0-alpha.5"
 dependencies = [
+ "bitcoin",
  "btc-relay",
  "collateral",
  "exchange-rate-oracle",
@@ -971,6 +972,7 @@ dependencies = [
  "pallet-timestamp",
  "parity-scale-codec",
  "security",
+ "serde",
  "sp-core",
  "sp-io",
  "sp-runtime",

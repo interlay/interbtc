@@ -121,8 +121,12 @@ impl exchange_rate_oracle::Trait for Test {
     type Event = TestEvent;
 }
 
+parameter_types! {
+    pub const IssuePeriod: BlockNumber = 10;
+}
 impl Trait for Test {
     type Event = TestEvent;
+    type IssuePeriod = IssuePeriod;
 }
 
 pub type System = system::Module<Test>;

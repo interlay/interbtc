@@ -188,7 +188,6 @@ fn test_execute_issue_succeeds() {
 
         let issue_id = request_issue_ok(ALICE, 3, BOB, 0);
         <system::Module<Test>>::set_block_number(20);
-        Issue::set_issue_period(10);
         execute_issue_ok(ALICE, &issue_id);
 
         let execute_issue_event =
@@ -215,7 +214,6 @@ fn test_cancel_issue_not_expired_fails() {
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
 
         let issue_id = request_issue_ok(ALICE, 3, BOB, 0);
-        Issue::set_issue_period(2);
         <system::Module<Test>>::set_block_number(99);
         assert_noop!(cancel_issue(ALICE, &issue_id), Error::TimeNotExpired,);
     })
@@ -224,7 +222,6 @@ fn test_cancel_issue_not_expired_fails() {
 #[test]
 fn test_cancel_issue_succeeds() {
     run_test(|| {
-        Issue::set_issue_period(10);
         <system::Module<Test>>::set_block_number(20);
         ext::vault_registry::get_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
