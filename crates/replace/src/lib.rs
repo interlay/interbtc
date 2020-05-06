@@ -85,13 +85,13 @@ decl_module! {
         ///
         /// * `origin` - sender of the transaction
         /// * `amount` - amount of PolkaBTC
-        /// * `vault` - address of the vault
+        /// * `timeout` - Time in blocks after which this request expires.
         /// * `griefing_collateral` - amount of DOT
-        fn request_replace(origin, old_vault: T::AccountId, amount: PolkaBTC<T>, timeout: T::BlockNumber, griefing_collateral: DOT<T>)
+        fn request_replace(origin, amount: PolkaBTC<T>, timeout: T::BlockNumber, griefing_collateral: DOT<T>)
             -> DispatchResult
         {
-            let requester = ensure_signed(origin)?;
-            Self::_request_replace(requester, old_vault, amount, timeout, griefing_collateral)?;
+            let old_vault = ensure_signed(origin)?;
+            Self::_request_replace(old_vault, amount, timeout, griefing_collateral)?;
             Ok(())
         }
 
@@ -158,7 +158,6 @@ decl_module! {
 #[cfg_attr(test, mockable)]
 impl<T: Trait> Module<T> {
     fn _request_replace(
-        requester: T::AccountId,
         vault_id: T::AccountId,
         mut amount: PolkaBTC<T>,
         timeout: T::BlockNumber,
@@ -181,8 +180,8 @@ impl<T: Trait> Module<T> {
         let height = Self::current_height();
         vault.ensure_not_banned(height)?;
         // step 4: check that the amount doesn't exceed the remaining available tokens
-        if amount > vault.no_issuable_tokens() {
-            amount = vault.no_issuable_tokens();
+        if amount > vault.issued_tokens {
+            amount = vault.issued_tokens;
         }
         // step 5: If the request is not for the entire BTC holdings, check that the remaining DOT collateral of the Vault is higher than MinimumCollateralVault
         let vault_collateral = ext::collateral::get_collateral_from_account::<T>(vault_id.clone());
@@ -197,11 +196,11 @@ impl<T: Trait> Module<T> {
             Error::InsufficientCollateral
         );
         // step 7: Lock the oldVault’s griefing collateral
-        ext::collateral::lock_collateral::<T>(requester.clone(), griefing_collateral)?;
+        ext::collateral::lock_collateral::<T>(vault_id.clone(), griefing_collateral)?;
         // step 8: Call the increaseToBeRedeemedTokens function with the oldVault and the btcAmount to ensure that the oldVault’s tokens cannot be redeemed when a replace procedure is happening.
         ext::vault_registry::increase_to_be_redeemed_tokens::<T>(&vault_id, amount.clone())?;
         // step 9: Generate a replaceId by hashing a random seed, a nonce, and the address of the Requester.
-        let replace_id = ext::security::gen_secure_id::<T>(requester);
+        let replace_id = ext::security::gen_secure_id::<T>(vault_id.clone());
         // step 10: Create new ReplaceRequest entry:
         let replace = Replace {
             old_vault: vault_id.clone(),
@@ -218,6 +217,7 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(<Event<T>>::RequestReplace(
             vault_id, amount, timeout, replace_id,
         ));
+        println!("Emitted event");
         // step 12
         Ok(())
     }
@@ -317,14 +317,14 @@ impl<T: Trait> Module<T> {
         ext::vault_registry::increase_to_be_redeemed_tokens::<T>(&old_vault_id, btc_amount)?;
         // step 8: Create a new ReplaceRequest named replace entry:
         let replace_id = ext::security::gen_secure_id::<T>(new_vault_id.clone());
-        let height = <system::Module<T>>::block_number();
+        let current_height = Self::current_height();
         Self::insert_replace_request(
             replace_id,
             Replace {
                 new_vault: Some(new_vault_id.clone()),
                 old_vault: old_vault_id.clone(),
-                open_time: height,
-                accept_time: Some(height),
+                open_time: current_height,
+                accept_time: Some(current_height),
                 amount: btc_amount,
                 griefing_collateral: 0.into(),
                 btc_address: new_vault.btc_address,
@@ -338,7 +338,7 @@ impl<T: Trait> Module<T> {
             replace_id,
             btc_amount,
             collateral,
-            height,
+            current_height,
         ));
         Ok(())
     }
@@ -403,9 +403,6 @@ impl<T: Trait> Module<T> {
         // step 2: Check that the current Parachain block height minus the ReplacePeriod is greater than the opentime of the ReplaceRequest
         let current_height = Self::current_height();
         let replace_period = Self::replace_period();
-        println!("current_height = {:?}", current_height);
-        println!("replace_period = {:?}", replace_period);
-        println!("replace.open_time = {:?}", replace.open_time);
         ensure!(
             current_height > replace.open_time + replace_period,
             Error::ReplacePeriodNotExpired
@@ -455,7 +452,7 @@ impl<T: Trait> Module<T> {
     }
 
     #[allow(dead_code)]
-    fn set_issue_griefing_collateral(amount: DOT<T>) {
+    fn set_replace_griefing_collateral(amount: DOT<T>) {
         <ReplaceGriefingCollateral<T>>::set(amount);
     }
 
