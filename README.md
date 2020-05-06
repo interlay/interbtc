@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://gitlab.com/interlay/btc-parachain">
-    <img src="https://assets.gitlab-static.net/uploads/-/system/project/avatar/16523866/gitlab-impl-btc-parachain.png?width=64" alt="Logo" width="500">
+    <img src="https://assets.gitlab-static.net/uploads/-/system/project/avatar/16523866/gitlab-impl-btc-parachain.png?width=64" alt="Logo" width="300">
   </a>
   <a href="https://web3.foundation/grants/">
     <img src="/docs/web3_foundation_grants_badge_black.png" width="500">
