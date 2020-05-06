@@ -102,6 +102,7 @@ pub enum Error {
     ParachainShutdown,
     ParachainNotRunningOrLiquidation,
     ParachainOracleOfflineError,
+    ParachainLiquidationError,
     /// use only for errors which means something
     /// going very wrong and which do not match any other error
     RuntimeError,
@@ -195,7 +196,7 @@ impl Error {
             Error::ParachainShutdown => "Function disabled. Reason: the Parachain is shutdown",
             Error::ParachainNotRunningOrLiquidation => "Function disabled. Reason: Parachain must be in RUNNING or ERROR/LIQUIDATION state.",
             Error::ParachainOracleOfflineError => "Function disabled. Reason: Parachain is in ERROR state - exchange rate oracle is offline.",
-
+            Error::ParachainLiquidationError => "Function disabled. Reason Parachain is in ERROR state - at least one vault is being liquidated.",
             Error::RuntimeError => "Runtime error",
         }
     }

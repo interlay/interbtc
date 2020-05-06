@@ -75,13 +75,37 @@ impl<T: Trait> Module<T> {
         }
     }
 
+    /// Ensures that the parachain DOES NOT have the given errors
+    ///
+    /// # Arguments
+    ///
+    ///   * `error_codes` - list of `ErrorCode` to be checked
+    ///
+    /// Returns the first error that is encountered, or Ok(()) if none of the errors were found
+    pub fn _ensure_parachain_status_has_not_specific_errors(error_codes: Vec<ErrorCode>) -> UnitResult {
+        if <ParachainStatus>::get() == StatusCode::Error {
+            for error_code in error_codes {
+                if <Errors>::get().contains(&error_code) {
+                    match error_code {
+                        ErrorCode::NoDataBTCRelay => return Err(Error::NoData),
+                        ErrorCode::InvalidBTCRelay => return Err(Error::Invalid),
+                        ErrorCode::OracleOffline => return Err(Error::ParachainOracleOfflineError),
+                        ErrorCode::Liquidation => return Err(Error::ParachainLiquidationError),
+                        _ => return Err(Error::RuntimeError),
+                    };
+                }
+            }
+        }
+        return Ok(());
+    }
 
     /// Ensures the Parachain is not in an ERROR state due to OracleOffline error
     pub fn _ensure_parachain_status_not_error_oracle_offline() -> UnitResult {
         if <ParachainStatus>::get() == StatusCode::Error
-            && <Errors>::get().contains(&ErrorCode::OracleOffline) {
-                return Err(Error::ParachainOracleOfflineError);
-            }
+            && <Errors>::get().contains(&ErrorCode::OracleOffline)
+        {
+            return Err(Error::ParachainOracleOfflineError);
+        }
         Ok(())
     }
 

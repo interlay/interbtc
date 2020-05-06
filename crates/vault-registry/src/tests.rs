@@ -587,3 +587,5 @@ fn lock_additional_collateral_parachain_not_running_fails() {
         assert_noop!(VaultRegistry::lock_additional_collateral(Origin::signed(id), additional), Error::ParachainShutdown);
     })
 }
+
+//TODO: write tests for all combinations of Parachain ErrorCodes and vault-registry functions

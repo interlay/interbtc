@@ -54,6 +54,7 @@ pub(crate) mod oracle {
 #[cfg_attr(test, mockable)]
 pub(crate) mod security {
     use x_core::UnitResult;
+    use security::ErrorCode;
 
     pub fn recover_from_liquidation<T: security::Trait>() -> UnitResult {
         Ok(())
@@ -70,4 +71,9 @@ pub(crate) mod security {
     pub fn ensure_parachain_status_not_error_oracle_offline<T: security::Trait>() -> UnitResult {
         <security::Module<T>>::_ensure_parachain_status_not_error_oracle_offline()
     }
+
+    pub fn ensure_parachain_status_has_not_specific_errors<T: security::Trait>(error_codes : Vec<ErrorCode>) -> UnitResult {
+        <security::Module<T>>::_ensure_parachain_status_has_not_specific_errors(error_codes)
+    }
+    
 }
