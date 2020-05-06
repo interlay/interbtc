@@ -132,12 +132,11 @@ pub(crate) mod treasury {
 #[cfg_attr(test, mockable)]
 pub(crate) mod security {
     use primitive_types::H256;
-    use security::{ErrorCode, StatusCode};
-    use sp_std::collections::btree_set::BTreeSet;
+    use security::{ErrorCode};
     use x_core::UnitResult;
 
-    pub fn get_parachain_status<T: security::Trait>() -> StatusCode {
-        <security::Module<T>>::get_parachain_status()
+    pub fn is_parachain_error_liquidation<T: security::Trait>() -> bool {
+        <security::Module<T>>::_is_parachain_error_liquidation()
     }
 
     pub fn get_secure_id<T: security::Trait>(id: &T::AccountId) -> H256 {
@@ -146,14 +145,6 @@ pub(crate) mod security {
 
     pub fn ensure_parachain_status_running<T: security::Trait>() -> UnitResult {
         <security::Module<T>>::_ensure_parachain_status_running()
-    }
-
-    pub fn ensure_parachain_status_not_shutdown<T: security::Trait>() -> UnitResult {
-        <security::Module<T>>::_ensure_parachain_status_not_shutdown()
-    }
-
-    pub fn ensure_parachain_status_has_not_specific_errors<T: security::Trait>(error_codes : Vec<ErrorCode>) -> UnitResult {
-        <security::Module<T>>::_ensure_parachain_status_has_not_specific_errors(error_codes)
     }
 
     pub fn ensure_parachain_status_has_only_specific_errors<T: security::Trait>(error_codes : Vec<ErrorCode>) -> UnitResult {
