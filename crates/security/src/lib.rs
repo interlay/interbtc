@@ -86,17 +86,47 @@ impl<T: Trait> Module<T> {
         if <ParachainStatus>::get() == StatusCode::Error {
             for error_code in error_codes {
                 if <Errors>::get().contains(&error_code) {
-                    match error_code {
-                        ErrorCode::NoDataBTCRelay => return Err(Error::NoData),
-                        ErrorCode::InvalidBTCRelay => return Err(Error::Invalid),
-                        ErrorCode::OracleOffline => return Err(Error::ParachainOracleOfflineError),
-                        ErrorCode::Liquidation => return Err(Error::ParachainLiquidationError),
-                        _ => return Err(Error::RuntimeError),
-                    };
+                   return Self::match_error_code_to_error(&error_code);
                 }
             }
         }
         return Ok(());
+    }
+
+    /// Ensures that the parachain HAS ONLY SPECIFIC errors or NO error AT ALL
+    ///
+    /// # Arguments
+    ///
+    ///   * `error_codes` - list of `ErrorCode` to be checked
+    ///
+    /// Returns the first unexpected error that is encountered, 
+    /// or Ok(()) if only expected errors / no errors at all were found 
+    pub fn _ensure_parachain_status_has_only_specific_errors(error_codes: Vec<ErrorCode>) -> UnitResult {
+        if <ParachainStatus>::get() == StatusCode::Error {
+            let mut temp_errors = <Errors>::get().clone();
+
+            for error_code in error_codes {
+                if <Errors>::get().contains(&error_code) {
+                    temp_errors.remove(&error_code);
+                }
+            }
+
+            match temp_errors.iter().next() {
+                Some(error_code) =>  return Self::match_error_code_to_error(error_code),
+                None => return Ok(()) 
+            }
+        }
+        return Ok(())
+    }
+
+    fn match_error_code_to_error(error_code: &ErrorCode) -> UnitResult{
+        match error_code {
+            ErrorCode::NoDataBTCRelay => return Err(Error::NoData),
+            ErrorCode::InvalidBTCRelay => return Err(Error::Invalid),
+            ErrorCode::OracleOffline => return Err(Error::ParachainOracleOfflineError),
+            ErrorCode::Liquidation => return Err(Error::ParachainLiquidationError),
+            _ => return Err(Error::RuntimeError),
+        };
     }
 
     /// Ensures the Parachain is not in an ERROR state due to OracleOffline error

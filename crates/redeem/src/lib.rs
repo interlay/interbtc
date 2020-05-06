@@ -30,7 +30,7 @@ use sp_runtime::ModuleId;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
 use system::ensure_signed;
-use x_core::Error;
+use x_core::{Error, UnitResult};
 
 /// The redeem module id, used for deriving its sovereign account ID.
 const _MODULE_ID: ModuleId = ModuleId(*b"i/redeem");
@@ -318,21 +318,10 @@ impl<T: Trait> Module<T> {
         ext::security::ensure_parachain_status_running::<T>()
     }
 
-    /// Ensure that the parachain is running or vault is liquidated.
-    fn ensure_parachain_running_or_error_liquidated() -> Result<(), Error> {
-        let status_code = ext::security::get_parachain_status::<T>();
-        ensure!(
-            status_code == StatusCode::Running || status_code == StatusCode::Error,
-            Error::ParachainNotRunningOrLiquidation,
-        );
-        let errors = ext::security::get_errors::<T>();
-        if status_code == StatusCode::Error {
-            ensure!(
-                errors.len() == 1 && errors.contains(&ErrorCode::Liquidation),
-                Error::ParachainNotRunningOrLiquidation,
-            );
-        }
-        Ok(())
+    /// Ensure that the parachain is running or a vault is being liquidated.
+    fn ensure_parachain_running_or_error_liquidated() -> UnitResult {
+        ext::security::ensure_parachain_status_running::<T>()?;
+        ext::security::ensure_parachain_status_has_only_specific_errors::<T>([ErrorCode::Liquidation].to_vec())
     }
 
     /// Calculates the fraction of BTC to be redeemed in DOT when the

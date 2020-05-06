@@ -140,16 +140,24 @@ pub(crate) mod security {
         <security::Module<T>>::get_parachain_status()
     }
 
-    pub fn get_errors<T: security::Trait>() -> BTreeSet<ErrorCode> {
-        BTreeSet::<ErrorCode>::new()
-    }
-
     pub fn get_secure_id<T: security::Trait>(id: &T::AccountId) -> H256 {
         <security::Module<T>>::_get_secure_id(id)
     }
 
     pub fn ensure_parachain_status_running<T: security::Trait>() -> UnitResult {
         <security::Module<T>>::_ensure_parachain_status_running()
+    }
+
+    pub fn ensure_parachain_status_not_shutdown<T: security::Trait>() -> UnitResult {
+        <security::Module<T>>::_ensure_parachain_status_not_shutdown()
+    }
+
+    pub fn ensure_parachain_status_has_not_specific_errors<T: security::Trait>(error_codes : Vec<ErrorCode>) -> UnitResult {
+        <security::Module<T>>::_ensure_parachain_status_has_not_specific_errors(error_codes)
+    }
+
+    pub fn ensure_parachain_status_has_only_specific_errors<T: security::Trait>(error_codes : Vec<ErrorCode>) -> UnitResult {
+        <security::Module<T>>::_ensure_parachain_status_has_only_specific_errors(error_codes)
     }
 }
 
