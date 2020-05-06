@@ -57,7 +57,7 @@ decl_module! {
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
 impl<T: Trait> Module<T> {
-    /// Checks if the Parachain status is set to RUNNING
+    /// Ensures the Parachain is RUNNING
     pub fn _ensure_parachain_status_running() -> UnitResult {
         if <ParachainStatus>::get() == StatusCode::Running {
             return Ok(());
@@ -66,13 +66,23 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    /// Checks if the Parachain status is set to RUNNING
+    /// Ensures the Parachain is not SHUTDOWN
     pub fn _ensure_parachain_status_not_shutdown() -> UnitResult {
         if <ParachainStatus>::get() != StatusCode::Shutdown {
             return Ok(());
         } else {
             return Err(Error::ParachainShutdown);
         }
+    }
+
+
+    /// Ensures the Parachain is not in an ERROR state due to OracleOffline error
+    pub fn _ensure_parachain_status_not_error_oracle_offline() -> UnitResult {
+        if <ParachainStatus>::get() == StatusCode::Error
+            && <Errors>::get().contains(&ErrorCode::OracleOffline) {
+                return Err(Error::ParachainOracleOfflineError);
+            }
+        Ok(())
     }
 
     /// Checks if the Parachain has a NoDataBTCRelay Error state
@@ -98,6 +108,7 @@ impl<T: Trait> Module<T> {
         <ParachainStatus>::get() == StatusCode::Error
             && <Errors>::get().contains(&ErrorCode::Liquidation)
     }
+
     /// Gets the current `StatusCode`.
     pub fn get_parachain_status() -> StatusCode {
         <ParachainStatus>::get()

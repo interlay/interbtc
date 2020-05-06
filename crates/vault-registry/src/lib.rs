@@ -123,8 +123,9 @@ decl_module! {
 
         fn register_vault(origin, collateral: DOT<T>, btc_address: H160) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            Self::ensure_parachain_running()?;
-
+            ext::security::ensure_parachain_status_running::<T>()?;
+            ext::security::ensure_parachain_status_running::<T>()?;
+            
             ensure!(collateral >= Self::get_minimum_collateral_vault(),
                     Error::InsuficientVaultCollateralAmount);
             ensure!(!Self::vault_exists(&sender), Error::VaultAlreadyRegistered);
@@ -141,7 +142,12 @@ decl_module! {
 
         fn lock_additional_collateral(origin, amount: DOT<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            Self::ensure_parachain_running()?;
+
+            // Parchain must not have OracleOffline error
+            ext::security::ensure_parachain_status_not_error_oracle_offline::<T>()?;
+            // Parachain must not be shutdown
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
+
             let vault = Self::rich_vault_from_id(&sender)?;
             vault.increase_collateral(amount)?;
             Self::deposit_event(Event::<T>::LockAdditionalCollateral(
@@ -155,7 +161,7 @@ decl_module! {
 
         fn withdraw_collateral(origin, amount: DOT<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            Self::ensure_parachain_running()?;
+            ext::security::ensure_parachain_status_running::<T>()?;
             let vault = Self::rich_vault_from_id(&sender)?;
             vault.withdraw_collateral(amount)?;
             Self::deposit_event(Event::<T>::WithdrawCollateral(
@@ -196,7 +202,7 @@ impl<T: Trait> Module<T> {
         vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
     ) -> Result<H160> {
-        Self::ensure_parachain_running()?;
+        ext::security::ensure_parachain_status_running::<T>()?;
         let mut vault = Self::rich_vault_from_id(&vault_id)?;
         vault.increase_to_be_issued(tokens)?;
         Self::deposit_event(Event::<T>::IncreaseToBeIssuedTokens(vault.id(), tokens));
@@ -207,7 +213,7 @@ impl<T: Trait> Module<T> {
         vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
     ) -> UnitResult {
-        Self::ensure_parachain_running()?;
+        ext::security::ensure_parachain_status_running::<T>()?;
         let mut vault = Self::rich_vault_from_id(&vault_id)?;
         vault.decrease_to_be_issued(tokens)?;
         Self::deposit_event(Event::<T>::DecreaseToBeIssuedTokens(vault.id(), tokens));
@@ -215,7 +221,7 @@ impl<T: Trait> Module<T> {
     }
 
     pub fn _issue_tokens(vault_id: &T::AccountId, tokens: PolkaBTC<T>) -> UnitResult {
-        Self::ensure_parachain_running()?;
+        ext::security::ensure_parachain_status_running::<T>()?;
         let mut vault = Self::rich_vault_from_id(&vault_id)?;
         vault.issue_tokens(tokens)?;
         Self::deposit_event(Event::<T>::IssueTokens(vault.id(), tokens));
@@ -226,7 +232,7 @@ impl<T: Trait> Module<T> {
         vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
     ) -> UnitResult {
-        Self::ensure_parachain_running()?;
+        ext::security::ensure_parachain_status_running::<T>()?;
         let mut vault = Self::rich_vault_from_id(&vault_id)?;
         vault.increase_to_be_redeemed(tokens)?;
         Self::deposit_event(Event::<T>::IncreaseToBeRedeemedTokens(vault.id(), tokens));
@@ -237,7 +243,7 @@ impl<T: Trait> Module<T> {
         vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
     ) -> UnitResult {
-        Self::ensure_parachain_running()?;
+        ext::security::ensure_parachain_status_running::<T>()?;
         let mut vault = Self::rich_vault_from_id(&vault_id)?;
         vault.decrease_to_be_redeemed(tokens)?;
         Self::deposit_event(Event::<T>::DecreaseToBeRedeemedTokens(vault.id(), tokens));
@@ -249,7 +255,7 @@ impl<T: Trait> Module<T> {
         user_id: &T::AccountId,
         tokens: PolkaBTC<T>,
     ) -> UnitResult {
-        Self::ensure_parachain_running()?;
+        ext::security::ensure_parachain_status_running::<T>()?;
         let mut vault = Self::rich_vault_from_id(&vault_id)?;
         vault.decrease_tokens(tokens)?;
         Self::deposit_event(Event::<T>::DecreaseTokens(
@@ -261,7 +267,7 @@ impl<T: Trait> Module<T> {
     }
 
     pub fn _redeem_tokens(vault_id: &T::AccountId, tokens: PolkaBTC<T>) -> UnitResult {
-        Self::ensure_parachain_running()?;
+        ext::security::ensure_parachain_status_running::<T>()?;
         let mut vault = Self::rich_vault_from_id(&vault_id)?;
         vault.redeem_tokens(tokens)?;
         Self::deposit_event(Event::<T>::RedeemTokens(vault.id(), tokens));
@@ -274,7 +280,7 @@ impl<T: Trait> Module<T> {
         premium: DOT<T>,
         redeemer_id: &T::AccountId,
     ) -> UnitResult {
-        Self::ensure_parachain_running()?;
+        ext::security::ensure_parachain_status_running::<T>()?;
         let mut vault = Self::rich_vault_from_id(&vault_id)?;
         vault.redeem_tokens(tokens)?;
         if premium > 0.into() {
@@ -294,7 +300,7 @@ impl<T: Trait> Module<T> {
         redeemer_id: &T::AccountId,
         tokens: PolkaBTC<T>,
     ) -> UnitResult {
-        Self::ensure_parachain_running()?;
+        ext::security::ensure_parachain_status_running::<T>()?;
         let vault_id = <LiquidationVault<T>>::get();
         let mut vault = Self::rich_vault_from_id(&vault_id)?;
         vault.decrease_issued(tokens)?;
@@ -319,7 +325,7 @@ impl<T: Trait> Module<T> {
         tokens: PolkaBTC<T>,
         collateral: DOT<T>,
     ) -> UnitResult {
-        Self::ensure_parachain_running()?;
+        ext::security::ensure_parachain_status_running::<T>()?;
 
         let mut old_vault = Self::rich_vault_from_id(&old_vault_id)?;
         let mut new_vault = Self::rich_vault_from_id(&new_vault_id)?;
@@ -392,12 +398,6 @@ impl<T: Trait> Module<T> {
 
     pub fn secure_collateral_threshold() -> u128 {
         SecureCollateralThreshold::get()
-    }
-
-    /// Other helpers
-    /// Returns an error if the parachain is not in RUNNING state
-    fn ensure_parachain_running() -> UnitResult {
-        ext::security::ensure_parachain_status_running::<T>()
     }
 }
 

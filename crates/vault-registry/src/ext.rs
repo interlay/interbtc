@@ -62,4 +62,12 @@ pub(crate) mod security {
     pub fn ensure_parachain_status_running<T: security::Trait>() -> UnitResult {
         <security::Module<T>>::_ensure_parachain_status_running()
     }
+
+    pub fn ensure_parachain_status_not_shutdown<T: security::Trait>() -> UnitResult {
+        <security::Module<T>>::_ensure_parachain_status_not_shutdown()
+    }
+
+    pub fn ensure_parachain_status_not_error_oracle_offline<T: security::Trait>() -> UnitResult {
+        <security::Module<T>>::_ensure_parachain_status_not_error_oracle_offline()
+    }
 }

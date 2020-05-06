@@ -1,4 +1,4 @@
-use frame_support::{assert_err, assert_ok, StorageValue};
+use frame_support::{assert_err, assert_ok, StorageValue, assert_noop};
 use sp_core::H160;
 
 use mocktopus::mocking::*;
@@ -58,6 +58,7 @@ fn register_vault_succeeds() {
         assert_emitted!(Event::RegisterVault(id, DEFAULT_COLLATERAL));
     });
 }
+
 
 #[test]
 fn register_vault_fails_when_given_collateral_too_low() {
@@ -559,5 +560,30 @@ fn liquidate_succeeds() -> UnitResult {
         assert_emitted!(Event::LiquidateVault(id));
 
         Ok(())
+    })
+}
+
+
+// Security integration tests
+#[test]
+fn register_vault_parachain_not_running_fails() {
+    run_test(|| {
+        ext::security::ensure_parachain_status_running::<Test>
+            .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
+
+        assert_noop!( VaultRegistry::register_vault(Origin::signed(DEFAULT_ID), DEFAULT_COLLATERAL, H160::zero()), Error::ParachainNotRunning);
+    });
+}
+
+
+#[test]
+fn lock_additional_collateral_parachain_not_running_fails() {
+    run_test(|| {
+        let id = create_vault(RICH_ID);
+        let additional = RICH_COLLATERAL - DEFAULT_COLLATERAL;
+        ext::security::ensure_parachain_status_not_shutdown::<Test>
+            .mock_safe(|| MockResult::Return(Err(Error::ParachainShutdown)));
+
+        assert_noop!(VaultRegistry::lock_additional_collateral(Origin::signed(id), additional), Error::ParachainShutdown);
     })
 }

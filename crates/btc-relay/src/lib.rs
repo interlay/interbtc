@@ -318,11 +318,7 @@ decl_module! {
         -> DispatchResult {
             let _ = ensure_signed(origin)?;
 
-            // fail if parachain is not in running state.
-            /*
-            ensure!(<security::Module<T>>::check_parachain_status(StatusCode::Running),
-                Error::<T>::Shutdown);
-            */
+
             let transaction = Self::parse_transaction(&raw_tx)?;
 
             // Check that the passed raw_tx indeed matches the tx_id used for
@@ -330,6 +326,7 @@ decl_module! {
             ensure!(tx_id == transaction.tx_id(), Error::InvalidTxid);
 
             // Verify that the transaction is indeed included in the main chain
+            // Check for Parachain RUNNING state is performed here
             Self::_verify_transaction_inclusion(tx_id, block_height, raw_merkle_proof, confirmations, insecure)?;
 
             // Parse transaction and check that it matches the given parameters
