@@ -28,6 +28,7 @@ use security::{ErrorCode, StatusCode};
 use sp_core::H160;
 use sp_runtime::ModuleId;
 use sp_std::convert::TryInto;
+use sp_std::vec::Vec;
 use system::ensure_signed;
 use x_core::Error;
 

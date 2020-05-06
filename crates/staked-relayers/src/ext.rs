@@ -122,6 +122,8 @@ pub(crate) mod btc_relay {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod redeem {
+    use sp_std::vec::Vec;
+
     pub(crate) fn get_redeem_request_by_id(_id: &Vec<u8>) -> bool {
         // FIXME
         true
@@ -130,6 +132,8 @@ pub(crate) mod redeem {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod replace {
+    use sp_std::vec::Vec;
+
     pub(crate) fn get_replace_request_by_id(_id: &Vec<u8>) -> bool {
         // FIXME
         true

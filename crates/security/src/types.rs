@@ -3,8 +3,7 @@ use sp_std::cmp::Ord;
 use sp_std::fmt::Debug;
 
 /// Enum indicating the status of the BTC Parachain.
-#[derive(Encode, Decode, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
 pub enum StatusCode {
     /// BTC Parachain is fully operational.
     Running = 0,
