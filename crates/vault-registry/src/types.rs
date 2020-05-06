@@ -3,7 +3,6 @@ use frame_support::traits::Currency;
 use codec::{Decode, Encode, HasCompact};
 use frame_support::{ensure, StorageMap};
 use sp_core::H160;
-use sp_std::ops::Sub;
 
 #[cfg(test)]
 use mocktopus::macros::mockable;
@@ -36,36 +35,6 @@ pub struct Vault<AccountId, BlockNumber, PolkaBTC: HasCompact> {
     // Block height until which this Vault is banned from being
     // used for Issue, Redeem (except during automatic liquidation) and Replace .
     pub banned_until: Option<BlockNumber>,
-}
-
-impl<
-        AccountId,
-        BlockNumber: Copy + PartialOrd,
-        PolkaBTC: Copy + HasCompact + Sub<Output = PolkaBTC>,
-    > Vault<AccountId, BlockNumber, PolkaBTC>
-{
-    pub fn is_banned(&self, height: BlockNumber) -> bool {
-        match self.banned_until {
-            None => false,
-            Some(until) => height <= until,
-        }
-    }
-
-    pub fn ensure_not_banned(&self, height: BlockNumber) -> UnitResult {
-        if self.is_banned(height) {
-            Err(Error::VaultBanned)
-        } else {
-            Ok(())
-        }
-    }
-
-    pub fn no_issuable_tokens(&self) -> PolkaBTC {
-        self.issued_tokens - self.to_be_redeemed_tokens
-    }
-
-    pub fn ban_until(&mut self, height: BlockNumber) {
-        self.banned_until = Some(height);
-    }
 }
 
 impl<AccountId, BlockNumber, PolkaBTC: HasCompact + Default>
@@ -106,9 +75,25 @@ impl<T: Trait> RichVault<T> {
     }
 
     pub fn withdraw_collateral(&self, collateral: DOT<T>) -> UnitResult {
+        let current_collateral = ext::collateral::for_account::<T>(&self.data.id);
+
+        let raw_current_collateral = crate::Module::<T>::dot_to_u128(current_collateral)?;
+        let raw_collateral = crate::Module::<T>::dot_to_u128(collateral)?;
+        let raw_new_collateral = raw_current_collateral
+            .checked_sub(raw_collateral)
+            .unwrap_or(0);
+
+        let new_collateral = crate::Module::<T>::u128_to_dot(raw_new_collateral)?;
+
+        ensure!(
+            !crate::Module::<T>::_is_collateral_below_secure_threshold(
+                new_collateral,
+                self.data.issued_tokens
+            )?,
+            Error::InsufficientCollateral
+        );
+
         ext::collateral::release::<T>(&self.data.id, collateral)
-        // TODO: add checks for SecureCollateralThreshold
-        // collateral < vault.get_collateral() - vault.issued_tokens * SecureCollateralThreshold
     }
 
     pub fn get_collateral(&self) -> DOT<T> {
@@ -121,20 +106,33 @@ impl<T: Trait> RichVault<T> {
     }
 
     pub fn get_used_collateral(&self) -> Result<DOT<T>> {
-        // FIXME: figure out how to multiply these two
-        // and transform it to a DOT<T>
-        let issued_tokens = self.data.issued_tokens;
-        let _used_collateral = ext::oracle::btc_to_dots::<T>(issued_tokens)?;
-        Ok(Default::default())
+        let issued_tokens = self.data.issued_tokens + self.data.to_be_issued_tokens;
+        let issued_tokens_in_dot = ext::oracle::btc_to_dots::<T>(issued_tokens)?;
+
+        let raw_issued_tokens_in_dot = crate::Module::<T>::dot_to_u128(issued_tokens_in_dot)?;
+
+        let secure_threshold = crate::Module::<T>::_get_secure_collateral_threshold();
+
+        let raw_used_collateral = raw_issued_tokens_in_dot
+            .checked_mul(secure_threshold)
+            .ok_or(Error::RuntimeError)?;
+
+        let used_collateral = crate::Module::<T>::u128_to_dot(raw_used_collateral)?;
+
+        Ok(used_collateral)
     }
 
     pub fn issuable_tokens(&self) -> Result<PolkaBTC<T>> {
-        let collateral = self.get_collateral();
-        let btc_collateral = ext::oracle::dots_to_btc::<T>(collateral)?;
-        let _issuable = btc_collateral - self.data.issued_tokens - self.data.to_be_issued_tokens;
-        // FIXME: use real value
-        // Ok(issuable)
-        Ok(1000.into())
+        let free_collateral = self.get_free_collateral()?;
+
+        let secure_threshold = crate::Module::<T>::_get_secure_collateral_threshold();
+
+        let issuable = crate::Module::<T>::calculate_max_polkabtc_from_collateral_for_threshold(
+            free_collateral,
+            secure_threshold,
+        )?;
+
+        Ok(issuable)
     }
 
     pub fn increase_to_be_issued(&mut self, tokens: PolkaBTC<T>) -> UnitResult {
@@ -208,6 +206,23 @@ impl<T: Trait> RichVault<T> {
         liquidation_vault.force_increase_to_be_redeemed(self.data.to_be_redeemed_tokens);
         <crate::Vaults<T>>::remove(&self.id());
         Ok(())
+    }
+
+    pub fn ensure_not_banned(&self, height: T::BlockNumber) -> UnitResult {
+        let is_banned = match self.data.banned_until {
+            None => false,
+            Some(until) => height <= until,
+        };
+
+        if is_banned {
+            Err(Error::VaultBanned)
+        } else {
+            Ok(())
+        }
+    }
+
+    pub fn ban_until(&mut self, height: T::BlockNumber) {
+        self.update(|v| v.banned_until = Some(height));
     }
 
     fn update<F>(&mut self, func: F) -> ()

@@ -149,11 +149,9 @@ impl<T: Trait> Module<T> {
         ext::security::ensure_parachain_status_running::<T>()?;
 
         let height = <system::Module<T>>::block_number();
-        let vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
+        let _vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
         // Check that the vault is currently not banned
-        if vault.is_banned(height) {
-            return Err(Error::VaultBanned);
-        }
+        ext::vault_registry::ensure_not_banned::<T>(&vault_id, height)?;
 
         ensure!(
             griefing_collateral >= <IssueGriefingCollateral<T>>::get(),

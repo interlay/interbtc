@@ -32,13 +32,12 @@ use system::ensure_signed;
 use security::ErrorCode;
 use x_core::{Error, Result, UnitResult};
 
-use crate::sp_api_hidden_includes_decl_storage::hidden_include::IterableStorageMap;
 pub use crate::types::Vault;
 use crate::types::{DefaultVault, PolkaBTC, RichVault, DOT};
 
 /// Granularity of `SecureCollateralThreshold`, `AuctionCollateralThreshold`,
 /// `LiquidationCollateralThreshold`, and `PunishmentFee`
-pub const GRANULARITY: u128 = 5;
+pub const GRANULARITY: u32 = 5;
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
@@ -210,20 +209,12 @@ decl_module! {
 #[cfg_attr(test, mockable)]
 impl<T: Trait> Module<T> {
     /// Public functions
-    pub fn _punishment_fee() -> u128 {
-        PunishmentFee::get()
+    pub fn _punishment_fee() -> Result<DOT<T>> {
+        Self::u128_to_dot(PunishmentFee::get())
     }
 
-    pub fn _premium_redeem_threshold() -> u128 {
-        PremiumRedeemThreshold::get()
-    }
-
-    pub fn _redeem_premium_fee() -> u128 {
-        RedeemPremiumFee::get()
-    }
-
-    pub fn _ban_vault(vault_id: T::AccountId, height: T::BlockNumber) {
-        <crate::Vaults<T>>::mutate(vault_id, |v| v.banned_until = Some(height));
+    pub fn _get_redeem_premium_fee() -> Result<DOT<T>> {
+        Self::u128_to_dot(RedeemPremiumFee::get())
     }
 
     pub fn _get_vault_from_id(vault_id: &T::AccountId) -> Result<DefaultVault<T>> {
@@ -579,24 +570,93 @@ impl<T: Trait> Module<T> {
         <Vaults<T>>::insert(id, vault)
     }
 
+    pub fn _ban_vault(vault_id: T::AccountId, height: T::BlockNumber) -> UnitResult {
+        let mut vault = Self::rich_vault_from_id(&vault_id)?;
+        vault.ban_until(height);
+        Ok(())
+    }
+
+    pub fn _ensure_not_banned(vault_id: &T::AccountId, height: T::BlockNumber) -> UnitResult {
+        let vault = Self::rich_vault_from_id(&vault_id)?;
+        vault.ensure_not_banned(height)
+    }
+
+    /// Threshold checks
+    pub fn _is_vault_below_secure_threshold(vault_id: &T::AccountId) -> Result<bool> {
+        Self::is_vault_below_threshold(&vault_id, <SecureCollateralThreshold>::get())
+    }
+
+    pub fn _is_vault_below_auction_threshold(vault_id: &T::AccountId) -> Result<bool> {
+        Self::is_vault_below_threshold(&vault_id, <AuctionCollateralThreshold>::get())
+    }
+
+    pub fn _is_vault_below_premium_threshold(vault_id: &T::AccountId) -> Result<bool> {
+        Self::is_vault_below_threshold(&vault_id, <PremiumRedeemThreshold>::get())
+    }
+
+    pub fn _is_vault_below_liquidation_threshold(vault_id: &T::AccountId) -> Result<bool> {
+        Self::is_vault_below_threshold(&vault_id, <LiquidationCollateralThreshold>::get())
+    }
+
+    pub fn _is_collateral_below_secure_threshold(
+        collateral: DOT<T>,
+        btc_amount: PolkaBTC<T>,
+    ) -> Result<bool> {
+        let threshold = <SecureCollateralThreshold>::get();
+        Self::is_collateral_below_threshold(collateral, btc_amount, threshold)
+    }
+
+    pub fn _get_secure_collateral_threshold() -> u128 {
+        <SecureCollateralThreshold>::get()
+    }
+
+    pub fn _get_auction_collateral_threshold() -> u128 {
+        <AuctionCollateralThreshold>::get()
+    }
+
+    pub fn _get_premium_redeem_threshold() -> u128 {
+        <PremiumRedeemThreshold>::get()
+    }
+
+    pub fn _get_liquidation_collateral_threshold() -> u128 {
+        <LiquidationCollateralThreshold>::get()
+    }
+
+    pub fn _set_secure_collateral_threshold(threshold: u128) {
+        <SecureCollateralThreshold>::set(threshold);
+    }
+
+    pub fn _set_auction_collateral_threshold(threshold: u128) {
+        <AuctionCollateralThreshold>::set(threshold);
+    }
+
+    pub fn _set_premium_redeem_threshold(threshold: u128) {
+        <PremiumRedeemThreshold>::set(threshold);
+    }
+
+    pub fn _set_liquidation_collateral_threshold(threshold: u128) {
+        <LiquidationCollateralThreshold>::set(threshold);
+    }
+
     pub fn _is_over_minimum_collateral(amount: DOT<T>) -> bool {
         amount > Self::get_minimum_collateral_vault()
     }
 
-    pub fn total_liquidation_value() -> Result<u128> {
-        let btcdot_spot_rate = <exchange_rate_oracle::Module<T>>::get_exchange_rate()?;
-        let mut total = 0u128;
-        for (vault_id, vault) in <Vaults<T>>::iter() {
-            let raw_issued_tokens: u128 =
-                TryInto::<u128>::try_into(vault.issued_tokens).map_err(|_| Error::RuntimeError)?;
-            let collateral: u128 = TryInto::<u128>::try_into(
-                <collateral::Module<T>>::get_collateral_from_account(&vault_id),
-            )
-            .map_err(|_| Error::RuntimeError)?;
-            let liquidation_val = raw_issued_tokens * btcdot_spot_rate - collateral;
-            total += liquidation_val;
-        }
-        Ok(total)
+    pub fn _get_total_liquidation_value() -> Result<u128> {
+        let liquidation_vault_id = <LiquidationVault<T>>::get();
+
+        let liquidation_vault = Self::rich_vault_from_id(&liquidation_vault_id)?;
+
+        let liquidated_polka_btc_in_dot =
+            ext::oracle::btc_to_dots::<T>(liquidation_vault.data.issued_tokens)?;
+
+        let raw_collateral =
+            Self::dot_to_u128(ext::collateral::for_account::<T>(&liquidation_vault_id))?;
+
+        let raw_liquidated_polka_btc_in_dot = Self::dot_to_u128(liquidated_polka_btc_in_dot)?;
+
+        let total_liquidation_value = raw_liquidated_polka_btc_in_dot - raw_collateral;
+        Ok(total_liquidation_value)
     }
 
     /// Private getters and setters
@@ -614,14 +674,6 @@ impl<T: Trait> Module<T> {
         <MinimumCollateralVault<T>>::get()
     }
 
-    pub fn auction_collateral_threshold() -> u128 {
-        AuctionCollateralThreshold::get()
-    }
-
-    pub fn secure_collateral_threshold() -> u128 {
-        SecureCollateralThreshold::get()
-    }
-
     // Other helpers
     /// Ensure that the parachain is NOT shutdown and DOES NOT have the given errors
     ///
@@ -634,6 +686,66 @@ impl<T: Trait> Module<T> {
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
         // There must not be in InvalidBTCRelay, OracleOffline or Liquidation error state
         ext::security::ensure_parachain_status_has_not_specific_errors::<T>(error_codes)
+    }
+
+    fn is_vault_below_threshold(vault_id: &T::AccountId, threshold: u128) -> Result<bool> {
+        let vault = Self::rich_vault_from_id(&vault_id)?;
+
+        // the currently issued tokens in PolkaBTC
+        let issued_tokens = vault.data.issued_tokens;
+
+        // the current locked collateral by the vault
+        let collateral = ext::collateral::for_account::<T>(&vault_id);
+
+        Self::is_collateral_below_threshold(collateral, issued_tokens, threshold)
+    }
+
+    fn is_collateral_below_threshold(
+        collateral: DOT<T>,
+        btc_amount: PolkaBTC<T>,
+        threshold: u128,
+    ) -> Result<bool> {
+        let max_tokens =
+            Self::calculate_max_polkabtc_from_collateral_for_threshold(collateral, threshold)?;
+
+        // check if the max_tokens are below the issued tokens
+        Ok(max_tokens < btc_amount)
+    }
+
+    fn calculate_max_polkabtc_from_collateral_for_threshold(
+        collateral: DOT<T>,
+        threshold: u128,
+    ) -> Result<PolkaBTC<T>> {
+        // convert the collateral to polkabtc
+        let collateral_in_polka_btc = ext::oracle::dots_to_btc::<T>(collateral)?;
+        let raw_collateral_in_polka_btc = Self::polkabtc_to_u128(collateral_in_polka_btc)?;
+
+        // calculate how many tokens should be maximally issued given the threshold
+        let raw_scaled_collateral_in_polka_btc = raw_collateral_in_polka_btc
+            .checked_mul(10u32.pow(GRANULARITY) as u128)
+            .ok_or(Error::RuntimeError)?;
+        let raw_max_tokens = raw_scaled_collateral_in_polka_btc
+            .checked_div(threshold)
+            .unwrap_or(0);
+
+        let max_tokens = Self::u128_to_polkabtc(raw_max_tokens)?;
+        Ok(max_tokens)
+    }
+
+    fn polkabtc_to_u128(x: PolkaBTC<T>) -> Result<u128> {
+        TryInto::<u128>::try_into(x).map_err(|_| Error::RuntimeError)
+    }
+
+    fn dot_to_u128(x: DOT<T>) -> Result<u128> {
+        TryInto::<u128>::try_into(x).map_err(|_| Error::RuntimeError)
+    }
+
+    fn u128_to_dot(x: u128) -> Result<DOT<T>> {
+        TryInto::<DOT<T>>::try_into(x).map_err(|_| Error::RuntimeError)
+    }
+
+    fn u128_to_polkabtc(x: u128) -> Result<PolkaBTC<T>> {
+        TryInto::<PolkaBTC<T>>::try_into(x).map_err(|_| Error::RuntimeError)
     }
 }
 

@@ -33,6 +33,8 @@ fn request_issue_ok(
     vault: AccountId,
     collateral: Balance,
 ) -> H256 {
+    ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+
     // Default: Parachain status is "RUNNING". Set manually for failure testing
     ext::security::ensure_parachain_status_running::<Test>.mock_safe(|| MockResult::Return(Ok(())));
 
@@ -115,6 +117,7 @@ fn test_request_issue_insufficient_collateral_fails() {
         ext::vault_registry::get_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
 
+        ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         assert_noop!(
             request_issue(ALICE, 3, BOB, 0),
             Error::InsufficientCollateral,

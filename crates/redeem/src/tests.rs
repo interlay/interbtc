@@ -123,6 +123,8 @@ fn test_request_redeem_fails_with_vault_banned() {
                 banned_until: Some(1),
             }))
         });
+        ext::vault_registry::ensure_not_banned::<Test>
+            .mock_safe(|_, _| MockResult::Return(Err(Error::VaultBanned)));
 
         assert_err!(
             Redeem::request_redeem(Origin::signed(ALICE), 0, H160::from_slice(&[0; 20]), BOB),
@@ -148,6 +150,7 @@ fn test_request_redeem_fails_with_amount_exceeds_vault_balance() {
         });
         <treasury::Module<Test>>::mint(ALICE, 2);
 
+        ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         let amount = 11;
         assert_err!(
             Redeem::request_redeem(
@@ -528,7 +531,7 @@ fn test_cancel_redeem_succeeds() {
         ext::vault_registry::ban_vault::<Test>.mock_safe(|vault, height| {
             assert_eq!(vault, BOB);
             assert_eq!(height, 0);
-            MockResult::Return(())
+            MockResult::Return(Ok(()))
         });
 
         assert_ok!(Redeem::cancel_redeem(
