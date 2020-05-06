@@ -126,7 +126,13 @@ pub(crate) mod collateral {
 #[cfg_attr(test, mockable)]
 pub(crate) mod security {
     use primitive_types::H256;
-    pub fn gen_secure_id<T: security::Trait>(_id: T::AccountId) -> H256 {
-        unimplemented!()
+    use x_core::UnitResult;
+
+    pub fn get_secure_id<T: security::Trait>(id: &T::AccountId) -> H256 {
+        <security::Module<T>>::_get_secure_id(id)
+    }
+
+    pub fn ensure_parachain_status_running<T: security::Trait>() -> UnitResult {
+        <security::Module<T>>::_ensure_parachain_status_running()
     }
 }

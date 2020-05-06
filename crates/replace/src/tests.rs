@@ -579,7 +579,7 @@ fn test_request_replace_with_amount_exceed_vault_issued_tokens_succeeds() {
 
         ext::vault_registry::increase_to_be_redeemed_tokens::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(())));
-        ext::security::gen_secure_id::<Test>.mock_safe(|_| MockResult::Return(H256::zero()));
+        ext::security::get_secure_id::<Test>.mock_safe(|_| MockResult::Return(H256::zero()));
 
         assert_ok!(request_replace(vault_id, amount, griefing_collateral));
 
@@ -610,7 +610,7 @@ fn test_request_replace_with_amount_less_than_vault_issued_tokens_succeeds() {
 
         ext::vault_registry::increase_to_be_redeemed_tokens::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(())));
-        ext::security::gen_secure_id::<Test>.mock_safe(|_| MockResult::Return(H256::zero()));
+        ext::security::get_secure_id::<Test>.mock_safe(|_| MockResult::Return(H256::zero()));
 
         assert_ok!(request_replace(vault_id, amount, griefing_collateral));
 
@@ -703,7 +703,7 @@ fn test_auction_replace_succeeds() {
         ext::vault_registry::increase_to_be_redeemed_tokens::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(())));
 
-        ext::security::gen_secure_id::<Test>.mock_safe(|_| MockResult::Return(H256::zero()));
+        ext::security::get_secure_id::<Test>.mock_safe(|_| MockResult::Return(H256::zero()));
 
         Replace::current_height.mock_safe(move || MockResult::Return(height.clone()));
 
@@ -798,6 +798,105 @@ fn test_cancel_replace_succeeds() {
         assert_eq!(cancel_replace(new_vault_id, replace_id,), Ok(()));
 
         let event = Event::CancelReplace(new_vault_id, old_vault_id, replace_id);
+        assert_emitted!(event);
+    })
+}
+
+// Security module integration tests
+#[test]
+fn test_request_replace_parachain_not_running_fails() {
+    run_test(|| {
+        ext::security::ensure_parachain_status_running::<Test>
+            .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
+        assert_noop!(request_replace(10_000, 1, 1, 0), Error::ParachainNotRunning);
+    })
+}
+
+#[test]
+fn test_accept_replace_parachain_not_running_fails() {
+    run_test(|| {
+        ext::security::ensure_parachain_status_running::<Test>
+            .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
+        assert_noop!(
+            accept_replace(BOB, H256::zero(), 1),
+            Error::ParachainNotRunning
+        );
+    })
+}
+
+#[test]
+fn test_auction_replace_parachain_not_running_fails() {
+    run_test(|| {
+        ext::security::ensure_parachain_status_running::<Test>
+            .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
+        assert_noop!(
+            auction_replace(ALICE, BOB, 1, 1),
+            Error::ParachainNotRunning
+        );
+    })
+}
+
+#[test]
+fn test_execute_replace_parachain_not_running_fails() {
+    run_test(|| {
+        ext::security::ensure_parachain_status_running::<Test>
+            .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
+        assert_noop!(
+            execute_replace(
+                ALICE,
+                H256::zero(),
+                H256Le::zero(),
+                1,
+                Vec::new(),
+                Vec::new()
+            ),
+            Error::ParachainNotRunning
+        );
+    })
+}
+
+#[test]
+fn test_cancel_replace_parachain_not_running_fails() {
+    run_test(|| {
+        ext::security::ensure_parachain_status_running::<Test>
+            .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
+        assert_noop!(
+            cancel_replace(ALICE, H256::zero()),
+            Error::ParachainNotRunning
+        );
+    })
+}
+
+#[test]
+fn test_withdraw_replace_parachain_not_running_succeeds() {
+    run_test(|| {
+        let vault_id = BOB;
+        let replace_id = H256::zero();
+
+        Replace::get_replace_request.mock_safe(|_| {
+            let mut replace = test_request();
+            replace.old_vault = BOB;
+            MockResult::Return(Ok(replace))
+        });
+
+        ext::vault_registry::get_vault_from_id::<Test>
+            .mock_safe(|_| MockResult::Return(Ok(test_vault())));
+        ext::vault_registry::is_vault_below_auction_threshold::<Test>
+            .mock_safe(|_| MockResult::Return(Ok(false)));
+        ext::vault_registry::increase_to_be_redeemed_tokens::<Test>
+            .mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::collateral::release_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::decrease_to_be_redeemed_tokens::<Test>
+            .mock_safe(|_, _| MockResult::Return(Ok(())));
+
+        ext::security::ensure_parachain_status_running::<Test>
+            .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
+
+        Replace::remove_replace_request.mock_safe(|_| MockResult::Return(()));
+
+        assert_eq!(withdraw_replace(vault_id, replace_id), Ok(()));
+
+        let event = Event::WithdrawReplace(vault_id, replace_id);
         assert_emitted!(event);
     })
 }

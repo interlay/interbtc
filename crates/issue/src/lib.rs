@@ -7,7 +7,6 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-use sha2::Digest;
 #[cfg(test)]
 extern crate mocktopus;
 
@@ -26,7 +25,6 @@ use codec::{Decode, Encode};
 // Substrate
 use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
 use primitive_types::H256;
-use sha2::Sha256;
 use sp_core::H160;
 use sp_runtime::ModuleId;
 use sp_std::convert::TryInto;
@@ -147,7 +145,9 @@ impl<T: Trait> Module<T> {
         vault_id: T::AccountId,
         griefing_collateral: DOT<T>,
     ) -> Result<H256, Error> {
-        // TODO: check precondition
+        // Check that Parachain is RUNNING
+        ext::security::ensure_parachain_status_running::<T>()?;
+
         let height = <system::Module<T>>::block_number();
         let vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
         // Check that the vault is currently not banned
@@ -165,14 +165,14 @@ impl<T: Trait> Module<T> {
         let btc_address =
             ext::vault_registry::increase_to_be_issued_tokens::<T>(&vault_id, amount)?;
 
-        let mut hasher = Sha256::default();
+        //let mut hasher = Sha256::default();
         // TODO: nonce from security module
-        hasher.input(requester.encode());
-
-        let result = [0; 32];
-        // TODO(jaupe) pull changes from greg
+        //hasher.input(requester.encode());
+        //let mut result = [0; 32];
         //result.copy_from_slice(&hasher.result()[..]);
-        let key = H256(result);
+        //let key = H256(result);
+
+        let key = ext::security::get_secure_id::<T>(&requester);
 
         Self::insert_issue_request(
             key,
@@ -206,7 +206,9 @@ impl<T: Trait> Module<T> {
         merkle_proof: Vec<u8>,
         raw_tx: Vec<u8>,
     ) -> Result<(), Error> {
-        // TODO: check precondition
+        // Check that Parachain is RUNNING
+        ext::security::ensure_parachain_status_running::<T>()?;
+
         let issue = Self::get_issue_request_from_id(&issue_id)?;
         ensure!(requester == issue.requester, Error::UnauthorizedUser);
 

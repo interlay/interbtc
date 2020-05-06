@@ -64,7 +64,7 @@ impl Trait for Test {
     type Event = TestEvent;
 }
 
-pub type Error = crate::Error;
+impl security::Trait for Test {}
 
 pub type System = system::Module<Test>;
 pub type BTCRelay = Module<Test>;

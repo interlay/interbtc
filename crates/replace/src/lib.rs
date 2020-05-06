@@ -177,7 +177,9 @@ impl<T: Trait> Module<T> {
         mut amount: PolkaBTC<T>,
         griefing_collateral: DOT<T>,
     ) -> UnitResult {
-        // check preconditions
+        // Check that Parachain status is RUNNING
+        ext::security::ensure_parachain_status_running::<T>()?;
+
         // check amount is non zero
         let zero: PolkaBTC<T> = 0u32.into();
         if amount == zero {
@@ -209,7 +211,7 @@ impl<T: Trait> Module<T> {
         // step 8: Call the increaseToBeRedeemedTokens function with the oldVault and the btcAmount to ensure that the oldVault’s tokens cannot be redeemed when a replace procedure is happening.
         ext::vault_registry::increase_to_be_redeemed_tokens::<T>(&vault_id, amount.clone())?;
         // step 9: Generate a replaceId by hashing a random seed, a nonce, and the address of the Requester.
-        let replace_id = ext::security::gen_secure_id::<T>(vault_id.clone());
+        let replace_id = ext::security::get_secure_id::<T>(&vault_id);
         // step 10: Create new ReplaceRequest entry:
         let replace = Replace {
             old_vault: vault_id.clone(),
@@ -266,6 +268,8 @@ impl<T: Trait> Module<T> {
         replace_id: H256,
         collateral: DOT<T>,
     ) -> Result<(), Error> {
+        // Check that Parachain status is RUNNING
+        ext::security::ensure_parachain_status_running::<T>()?;
         // step 1: Retrieve the ReplaceRequest as per the replaceId parameter from ReplaceRequests. Return ERR_REPLACE_ID_NOT_FOUND error if no such ReplaceRequest was found.
         let mut replace = Self::get_replace_request(replace_id)?;
         // step 2: Retrieve the Vault as per the newVault parameter from Vaults in the VaultRegistry
@@ -301,6 +305,8 @@ impl<T: Trait> Module<T> {
         btc_amount: PolkaBTC<T>,
         collateral: DOT<T>,
     ) -> Result<(), Error> {
+        // Check that Parachain status is RUNNING
+        ext::security::ensure_parachain_status_running::<T>()?;
         // step 1: Retrieve the newVault as per the newVault parameter from Vaults in the VaultRegistry
         let new_vault = ext::vault_registry::get_vault_from_id::<T>(&new_vault_id)?;
         // step 2: Retrieve the oldVault as per the oldVault parameter from Vaults in the VaultRegistry
@@ -322,7 +328,7 @@ impl<T: Trait> Module<T> {
         // step 6: Call the increaseToBeRedeemedTokens function with the oldVault and the btcAmount
         ext::vault_registry::increase_to_be_redeemed_tokens::<T>(&old_vault_id, btc_amount)?;
         // step 8: Create a new ReplaceRequest named replace entry:
-        let replace_id = ext::security::gen_secure_id::<T>(new_vault_id.clone());
+        let replace_id = ext::security::get_secure_id::<T>(&new_vault_id);
         let current_height = Self::current_height();
         Self::insert_replace_request(
             replace_id,
@@ -357,6 +363,8 @@ impl<T: Trait> Module<T> {
         merkle_proof: Vec<u8>,
         raw_tx: Vec<u8>,
     ) -> Result<(), Error> {
+        // Check that Parachain status is RUNNING
+        ext::security::ensure_parachain_status_running::<T>()?;
         // step 1: Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
         let replace = Self::get_replace_request(replace_id)?;
         // step 2: Check that the current Parachain block height minus the ReplacePeriod is smaller than the opentime of the ReplaceRequest
@@ -404,6 +412,8 @@ impl<T: Trait> Module<T> {
     }
 
     fn _cancel_replace(new_vault_id: T::AccountId, replace_id: H256) -> Result<(), Error> {
+        // Check that Parachain status is RUNNING
+        ext::security::ensure_parachain_status_running::<T>()?;
         // step 1: Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
         let replace = Self::get_replace_request(replace_id)?;
         // step 2: Check that the current Parachain block height minus the ReplacePeriod is greater than the opentime of the ReplaceRequest

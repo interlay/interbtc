@@ -24,13 +24,13 @@ use bitcoin::types::H256Le;
 // Substrate
 use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
 use primitive_types::H256;
-use security::{ErrorCode, StatusCode};
+use security::ErrorCode;
 use sp_core::H160;
 use sp_runtime::ModuleId;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
 use system::ensure_signed;
-use x_core::Error;
+use x_core::{Error, UnitResult};
 
 /// The redeem module id, used for deriving its sovereign account ID.
 const _MODULE_ID: ModuleId = ModuleId(*b"i/redeem");
@@ -106,7 +106,7 @@ decl_module! {
                 Error::AmountExceedsVaultBalance
             );
             let (amount_btc, amount_dot): (u128, u128) =
-                if ext::security::get_parachain_status::<T>() == StatusCode::Error {
+                if ext::security::is_parachain_error_liquidation::<T>() {
                     let btcdot_rate: u128 = ext::oracle::get_exchange_rate::<T>()?;
                     let raw_amount_polka_btc = Self::btc_to_u128(amount_polka_btc)?;
                     let amount_dot_in_btc: u128 = raw_amount_polka_btc
@@ -183,7 +183,7 @@ decl_module! {
         {
             let vault_id = ensure_signed(origin)?;
 
-            Self::ensure_parachain_running()?;
+            ext::security::ensure_parachain_status_running::<T>()?;
 
             let redeem = Self::get_redeem_request_from_id(&redeem_id)?;
             ensure!(vault_id == redeem.vault, Error::UnauthorizedVault);
@@ -313,30 +313,12 @@ impl<T: Trait> Module<T> {
         Ok(<RedeemRequests<T>>::get(*key))
     }
 
-    /// Ensure that the security module reports the parachain is healthy.
-    fn ensure_parachain_running() -> Result<(), Error> {
-        ensure!(
-            ext::security::get_parachain_status::<T>() == StatusCode::Running,
-            Error::RuntimeError,
-        );
-        Ok(())
-    }
-
-    /// Ensure that the parachain is running or vault is liquidated.
-    fn ensure_parachain_running_or_error_liquidated() -> Result<(), Error> {
-        let status_code = ext::security::get_parachain_status::<T>();
-        ensure!(
-            status_code == StatusCode::Running || status_code == StatusCode::Error,
-            Error::RuntimeError,
-        );
-        let errors = ext::security::get_errors::<T>();
-        if status_code == StatusCode::Error {
-            ensure!(
-                errors.len() == 1 && errors.contains(&ErrorCode::Liquidation),
-                Error::RuntimeError,
-            );
-        }
-        Ok(())
+    /// Ensure that the parachain is running or a vault is being liquidated.
+    fn ensure_parachain_running_or_error_liquidated() -> UnitResult {
+        ext::security::ensure_parachain_status_has_only_specific_errors::<T>(
+            [ErrorCode::Liquidation].to_vec(),
+        )?;
+        ext::security::ensure_parachain_status_running::<T>()
     }
 
     /// Calculates the fraction of BTC to be redeemed in DOT when the
