@@ -79,7 +79,10 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::_decrease_tokens(vault_id, user_id, tokens)
     }
 
-    pub fn ban_vault<T: vault_registry::Trait>(vault_id: T::AccountId, height: T::BlockNumber) -> UnitResult {
+    pub fn ban_vault<T: vault_registry::Trait>(
+        vault_id: T::AccountId,
+        height: T::BlockNumber,
+    ) -> UnitResult {
         <vault_registry::Module<T>>::_ban_vault(vault_id, height)
     }
 
@@ -102,10 +105,11 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::_get_redeem_premium_fee()
     }
 
-    pub fn is_vault_below_premium_threshold<T: vault_registry::Trait>(vault_id: &T::AccountId) -> Result<bool> {
+    pub fn is_vault_below_premium_threshold<T: vault_registry::Trait>(
+        vault_id: &T::AccountId,
+    ) -> Result<bool> {
         <vault_registry::Module<T>>::_is_vault_below_premium_threshold(&vault_id)
     }
-
 }
 
 #[cfg_attr(test, mockable)]

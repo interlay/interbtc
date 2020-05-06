@@ -671,7 +671,8 @@ fn _is_vault_below_liquidation_threshold_true_succeeds() {
         assert_ok!(res);
 
         ext::collateral::for_account::<Test>.mock_safe(|_| MockResult::Return(DEFAULT_COLLATERAL));
-        ext::oracle::dots_to_btc::<Test>.mock_safe(|_| MockResult::Return(Ok(DEFAULT_COLLATERAL/2)));
+        ext::oracle::dots_to_btc::<Test>
+            .mock_safe(|_| MockResult::Return(Ok(DEFAULT_COLLATERAL / 2)));
 
         assert_eq!(
             VaultRegistry::_is_vault_below_liquidation_threshold(&id),

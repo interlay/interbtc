@@ -156,8 +156,7 @@ fn test_request_redeem_fails_with_amount_exceeds_vault_balance() {
         });
         <treasury::Module<Test>>::mint(ALICE, 2);
 
-        ext::vault_registry::ensure_not_banned::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         let amount = 11;
         assert_err!(
             Redeem::request_redeem(

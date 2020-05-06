@@ -79,7 +79,9 @@ impl<T: Trait> RichVault<T> {
 
         let raw_current_collateral = crate::Module::<T>::dot_to_u128(current_collateral)?;
         let raw_collateral = crate::Module::<T>::dot_to_u128(collateral)?;
-        let raw_new_collateral = raw_current_collateral.checked_sub(raw_collateral).unwrap_or(0);
+        let raw_new_collateral = raw_current_collateral
+            .checked_sub(raw_collateral)
+            .unwrap_or(0);
 
         let new_collateral = crate::Module::<T>::u128_to_dot(raw_new_collateral)?;
 
@@ -111,7 +113,9 @@ impl<T: Trait> RichVault<T> {
 
         let secure_threshold = crate::Module::<T>::_get_secure_collateral_threshold();
 
-        let raw_used_collateral = raw_issued_tokens_in_dot.checked_mul(secure_threshold).ok_or(Error::RuntimeError)?;
+        let raw_used_collateral = raw_issued_tokens_in_dot
+            .checked_mul(secure_threshold)
+            .ok_or(Error::RuntimeError)?;
 
         let used_collateral = crate::Module::<T>::u128_to_dot(raw_used_collateral)?;
 
@@ -123,7 +127,10 @@ impl<T: Trait> RichVault<T> {
 
         let secure_threshold = crate::Module::<T>::_get_secure_collateral_threshold();
 
-        let issuable = crate::Module::<T>::calculate_max_polkabtc_from_collateral_for_threshold(free_collateral, secure_threshold)?;
+        let issuable = crate::Module::<T>::calculate_max_polkabtc_from_collateral_for_threshold(
+            free_collateral,
+            secure_threshold,
+        )?;
 
         Ok(issuable)
     }

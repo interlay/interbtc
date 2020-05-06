@@ -348,7 +348,6 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-
     pub fn _ensure_not_banned(vault_id: &T::AccountId, height: T::BlockNumber) -> UnitResult {
         let vault = Self::rich_vault_from_id(&vault_id)?;
         vault.ensure_not_banned(height)
@@ -420,9 +419,11 @@ impl<T: Trait> Module<T> {
 
         let liquidation_vault = Self::rich_vault_from_id(&liquidation_vault_id)?;
 
-        let liquidated_polka_btc_in_dot = ext::oracle::btc_to_dots::<T>(liquidation_vault.data.issued_tokens)?;
+        let liquidated_polka_btc_in_dot =
+            ext::oracle::btc_to_dots::<T>(liquidation_vault.data.issued_tokens)?;
 
-        let raw_collateral = Self::dot_to_u128(ext::collateral::for_account::<T>(&liquidation_vault_id))?;
+        let raw_collateral =
+            Self::dot_to_u128(ext::collateral::for_account::<T>(&liquidation_vault_id))?;
 
         let raw_liquidated_polka_btc_in_dot = Self::dot_to_u128(liquidated_polka_btc_in_dot)?;
 
@@ -474,7 +475,8 @@ impl<T: Trait> Module<T> {
         btc_amount: PolkaBTC<T>,
         threshold: u128,
     ) -> Result<bool> {
-        let max_tokens = Self::calculate_max_polkabtc_from_collateral_for_threshold(collateral, threshold)?;
+        let max_tokens =
+            Self::calculate_max_polkabtc_from_collateral_for_threshold(collateral, threshold)?;
 
         // check if the max_tokens are below the issued tokens
         Ok(max_tokens < btc_amount)
@@ -499,7 +501,6 @@ impl<T: Trait> Module<T> {
         let max_tokens = Self::u128_to_polkabtc(raw_max_tokens)?;
         Ok(max_tokens)
     }
-
 
     fn polkabtc_to_u128(x: PolkaBTC<T>) -> Result<u128> {
         TryInto::<u128>::try_into(x).map_err(|_| Error::RuntimeError)

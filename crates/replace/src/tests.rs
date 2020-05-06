@@ -156,8 +156,7 @@ fn test_request_replace_insufficient_griefing_collateral_fails() {
 
         let amount = 1;
 
-        ext::vault_registry::ensure_not_banned::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(Vault {
@@ -356,8 +355,7 @@ fn test_accept_replace_insufficient_collateral_fails() {
             r.new_vault = Some(3);
             MockResult::Return(Ok(r))
         });
-        ext::vault_registry::ensure_not_banned::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_id| {
             let mut vault = test_vault();
             vault.banned_until = None;
@@ -586,8 +584,7 @@ fn test_request_replace_with_amount_exceed_vault_issued_tokens_succeeds() {
         let vault = test_vault();
         let replace_amount = vault.issued_tokens;
 
-        ext::vault_registry::ensure_not_banned::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
         ext::vault_registry::get_vault_from_id::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(vault.clone())));
@@ -626,8 +623,7 @@ fn test_request_replace_with_amount_less_than_vault_issued_tokens_succeeds() {
         let vault = test_vault();
         let replace_amount = amount;
 
-        ext::vault_registry::ensure_not_banned::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
         ext::vault_registry::get_vault_from_id::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(vault.clone())));
@@ -697,8 +693,7 @@ fn test_accept_replace_succeeds() {
             MockResult::Return(Ok(replace))
         });
 
-        ext::vault_registry::ensure_not_banned::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
         ext::vault_registry::get_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(test_vault())));
