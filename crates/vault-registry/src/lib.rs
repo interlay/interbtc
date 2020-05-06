@@ -674,17 +674,6 @@ impl<T: Trait> Module<T> {
         <MinimumCollateralVault<T>>::get()
     }
 
-    /// Other helpers
-    /// Returns an error if the parachain is not in running state
-    fn ensure_parachain_running() -> UnitResult {
-        // TODO: integrate security module
-        // ensure!(
-        //     !<security::Module<T>>::check_parachain_status(
-        //         StatusCode::Shutdown),
-        //     Error::Shutdown
-        // );
-        Ok(())
-
     // Other helpers
     /// Ensure that the parachain is NOT shutdown and DOES NOT have the given errors
     ///

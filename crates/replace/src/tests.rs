@@ -821,7 +821,7 @@ fn test_request_replace_parachain_not_running_fails() {
     run_test(|| {
         ext::security::ensure_parachain_status_running::<Test>
             .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
-        assert_noop!(request_replace(10_000, 1, 1, 0), Error::ParachainNotRunning);
+        assert_noop!(request_replace(10_000, 1, 0), Error::ParachainNotRunning);
     })
 }
 
