@@ -123,6 +123,18 @@ decl_module! {
         // Initializing events
         fn deposit_event() = default;
 
+        /// Initiates the registration procedure for a new Vault.
+        /// The Vault provides its BTC address and locks up DOT collateral,
+        /// which is to be used to the issuing process.
+        ///
+        /// # Arguments
+        /// * `collateral` - the amount of collateral to lock
+        /// * `btc_address` - the BTC address of the vault to register
+        ///
+        /// # Errors
+        /// * `InsuficientVaultCollateralAmount` - if the collateral is below the minimum threshold
+        /// * `VaultAlreadyRegistered` - if a vault is already registered for the origin account
+        /// * `InsufficientCollateralAvailable` - if the vault does not own enough collateral
         fn register_vault(origin, collateral: DOT<T>, btc_address: H160) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ext::security::ensure_parachain_status_running::<T>()?;
@@ -141,6 +153,15 @@ decl_module! {
             Ok(())
         }
 
+        /// Locks additional collateral as a security against stealing the
+        /// Bitcoin locked with it.
+        ///
+        /// # Arguments
+        /// * `amount` - the amount of extra collateral to lock
+        ///
+        /// # Errors
+        /// * `VaultNotFound` - if no vault exists for the origin account
+        /// * `InsufficientCollateralAvailable` - if the vault does not own enough collateral
         fn lock_additional_collateral(origin, amount: DOT<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
@@ -157,6 +178,20 @@ decl_module! {
             Ok(())
         }
 
+        /// Withdraws `amount` of the collateral from the amount locked by
+        /// the vault corresponding to the origin account
+        /// The collateral left after withdrawal must be more
+        /// (free or used in backing issued PolkaBTC) than MinimumCollateralVault
+        /// and above the SecureCollateralThreshold. Collateral that is currently
+        /// being used to back issued PolkaBTC remains locked until the Vault
+        /// is used for a redeem request (full release can take multiple redeem requests).
+        ///
+        /// # Arguments
+        /// * `amount` - the amount of collateral to withdraw
+        ///
+        /// # Errors
+        /// * `VaultNotFound` - if no vault exists for the origin account
+        /// * `InsufficientCollateralAvailable` - if the vault does not own enough collateral
         fn withdraw_collateral(origin, amount: DOT<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ext::security::ensure_parachain_status_running::<T>()?;
@@ -196,6 +231,15 @@ impl<T: Trait> Module<T> {
         Ok(<Vaults<T>>::get(vault_id))
     }
 
+    /// Increases the amount of tokens to be issued in the next issue request
+    ///
+    /// # Arguments
+    /// * `vault_id` - the id of the vault from which to increase to-be-issued tokens
+    /// * `tokens` - the amount of tokens to be reserved
+    ///
+    /// # Errors
+    /// * `VaultNotFound` - if no vault exists for the given `vault_id`
+    /// * `ExceedingVaultLimit` - if the amount of tokens to be issued is higher than the issuable amount by the vault
     pub fn _increase_to_be_issued_tokens(
         vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
@@ -207,6 +251,15 @@ impl<T: Trait> Module<T> {
         Ok(vault.data.btc_address)
     }
 
+    /// Decreases the amount of tokens to be issued in the next issue request
+    ///
+    /// # Arguments
+    /// * `vault_id` - the id of the vault from which to decrease to-be-issued tokens
+    /// * `tokens` - the amount of tokens to be unreserved
+    ///
+    /// # Errors
+    /// * `VaultNotFound` - if no vault exists for the given `vault_id`
+    /// * `InsufficientTokensCommitted` - if the amount of tokens reserved is too low
     pub fn _decrease_to_be_issued_tokens(
         vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
@@ -226,6 +279,17 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Issues an amount of `tokens` tokens for the given `vault_id`
+    /// At this point, the to-be-issued tokens assigned to a vault are decreased
+    /// and the issued tokens balance is increased by the amount of issued tokens.
+    ///
+    /// # Arguments
+    /// * `vault_id` - the id of the vault from which to issue tokens
+    /// * `tokens` - the amount of tokens to issue
+    ///
+    /// # Errors
+    /// * `VaultNotFound` - if no vault exists for the given `vault_id`
+    /// * `InsufficientTokensCommitted` - if the amount of tokens reserved is too low
     pub fn _issue_tokens(vault_id: &T::AccountId, tokens: PolkaBTC<T>) -> UnitResult {
         Self::check_parachain_not_shutdown_or_has_errors(
             [
@@ -241,6 +305,20 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Adds an amount tokens to the to-be-redeemed tokens balance of a vault.
+    /// This function serves as a prevention against race conditions in the
+    /// redeem and replace procedures. If, for example, a vault would receive
+    /// two redeem requests at the same time that have a higher amount of tokens
+    ///  to be issued than his issuedTokens balance, one of the two redeem
+    /// requests should be rejected.
+    ///
+    /// # Arguments
+    /// * `vault_id` - the id of the vault from which to increase to-be-redeemed tokens
+    /// * `tokens` - the amount of tokens to be redeemed
+    ///
+    /// # Errors
+    /// * `VaultNotFound` - if no vault exists for the given `vault_id`
+    /// * `InsufficientTokensCommitted` - if the amount of redeemable tokens is too low
     pub fn _increase_to_be_redeemed_tokens(
         vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
@@ -259,6 +337,15 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Subtracts an amount tokens from the to-be-redeemed tokens balance of a vault.
+    ///
+    /// # Arguments
+    /// * `vault_id` - the id of the vault from which to decrease to-be-redeemed tokens
+    /// * `tokens` - the amount of tokens to be redeemed
+    ///
+    /// # Errors
+    /// * `VaultNotFound` - if no vault exists for the given `vault_id`
+    /// * `InsufficientTokensCommitted` - if the amount of to-be-redeemed tokens is too low
     pub fn _decrease_to_be_redeemed_tokens(
         vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
@@ -277,6 +364,20 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Decreases the amount of tokens f a redeem request is not fulfilled
+    /// Removes the amount of tokens assigned to the to-be-redeemed tokens.
+    /// At this point, we consider the tokens lost and the issued tokens are
+    /// removed from the vault
+    ///
+    /// # Arguments
+    /// * `vault_id` - the id of the vault from which to decrease tokens
+    /// * `tokens` - the amount of tokens to be decreased
+    /// * `user_id` - the id of the user making the redeem request
+    ///
+    /// # Errors
+    /// * `VaultNotFound` - if no vault exists for the given `vault_id`
+    /// * `InsufficientTokensCommitted` - if the amount of to-be-redeemed tokens
+    ///                                   or issued tokens is too low
     pub fn _decrease_tokens(
         vault_id: &T::AccountId,
         user_id: &T::AccountId,
@@ -300,6 +401,16 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Reduces the to-be-redeemed tokens when a redeem request successfully completes
+    ///
+    /// # Arguments
+    /// * `vault_id` - the id of the vault from which to redeem tokens
+    /// * `tokens` - the amount of tokens to be decreased
+    ///
+    /// # Errors
+    /// * `VaultNotFound` - if no vault exists for the given `vault_id`
+    /// * `InsufficientTokensCommitted` - if the amount of to-be-redeemed tokens
+    ///                                   or issued tokens is too low
     pub fn _redeem_tokens(vault_id: &T::AccountId, tokens: PolkaBTC<T>) -> UnitResult {
         Self::check_parachain_not_shutdown_or_has_errors(
             [
@@ -315,6 +426,22 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Handles a redeem request, where a user is paid a premium in DOT.
+    /// Calls redeem_tokens and then allocates the corresponding amount of DOT
+    /// to the redeemer using the Vault’s free collateral
+    ///
+    /// # Arguments
+    /// * `vault_id` - the id of the vault from which to redeem premiums
+    /// * `tokens` - the amount of tokens redeemed
+    /// * `premium` - the amount of DOT to be paid to the user as a premium
+    ///               using the Vault’s released collateral.
+    /// * `user` - the user redeeming at a premium
+    ///
+    /// # Errors
+    /// * `VaultNotFound` - if no vault exists for the given `vault_id`
+    /// * `InsufficientTokensCommitted` - if the amount of to-be-redeemed tokens
+    ///                                   or issued tokens is too low
+    /// * `InsufficientFunds` - if the vault does not have `premium` amount of collateral
     pub fn _redeem_tokens_premium(
         vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
@@ -344,6 +471,20 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Handles redeem requests which are executed during a LIQUIDATION recover.
+    /// Reduces the issued token of the LiquidationVault and slashes the
+    /// corresponding amount of DOT collateral.
+    /// Once LiquidationVault has not more issuedToken left,
+    /// removes the LIQUIDATION error from the BTC Parachain status.
+    ///
+    /// # Arguments
+    /// * `redeemer_id` - the account of the user redeeming PolkaBTC
+    /// * `tokens` - the amount of PolkaBTC to be redeemed in DOT with the
+    ///              LiquidationVault, denominated in BTC
+    ///
+    /// # Errors
+    /// * `InsufficientTokensCommitted` - if the amount of tokens issued by the liquidation vault is too low
+    /// * `InsufficientFunds` - if the liquidation vault does not have enough collateral to transfer
     pub fn _redeem_tokens_liquidation(
         redeemer_id: &T::AccountId,
         tokens: PolkaBTC<T>,
@@ -369,6 +510,19 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Replaces the old vault by the new vault by transfering tokens
+    /// from the old vault to the new one
+    ///
+    /// # Arguments
+    /// * `old_vault_id` - the id of the old vault
+    /// * `new_vault_id` - the id of the new vault
+    /// * `tokens` - the amount of tokens to be transfered from the old to the new vault
+    /// * `colalteral` - the collateral to be locked by the new vault
+    ///
+    /// # Errors
+    /// * `VaultNotFound` - if either the old or new vault does not exist
+    /// * `InsufficientTokensCommitted` - if the amount of tokens of the old vault is too low
+    /// * `InsufficientFunds` - if the new vault does not have enough collateral to lock
     pub fn _replace_tokens(
         old_vault_id: &T::AccountId,
         new_vault_id: &T::AccountId,
@@ -398,6 +552,14 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Liquidates a vault, transferring all of its token balances to the
+    /// `LiquidationVault`, as well as the DOT collateral
+    ///
+    /// # Arguments
+    /// * `vault_id` - the id of the vault to liquidate
+    ///
+    /// # Errors
+    /// * `VaultNotFound` - if the vault to liquidate does not exist
     pub fn _liquidate_vault(vault_id: &T::AccountId) -> UnitResult {
         // Parachain must not be shutdown
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
