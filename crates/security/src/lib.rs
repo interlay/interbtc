@@ -28,6 +28,7 @@ use sha2::{Digest, Sha256};
 use sp_core::U256;
 use sp_std::collections::btree_set::BTreeSet;
 use x_core::{Error, UnitResult};
+use sp_std::vec::Vec;
 
 /// ## Configuration
 /// The pallet's configuration trait.

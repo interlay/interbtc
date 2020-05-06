@@ -134,6 +134,7 @@ pub(crate) mod security {
     use primitive_types::H256;
     use security::{ErrorCode};
     use x_core::UnitResult;
+    use sp_std::vec::Vec;
 
     pub fn is_parachain_error_liquidation<T: security::Trait>() -> bool {
         <security::Module<T>>::_is_parachain_error_liquidation()

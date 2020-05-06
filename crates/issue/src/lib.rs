@@ -7,7 +7,6 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-use sha2::Digest;
 #[cfg(test)]
 extern crate mocktopus;
 

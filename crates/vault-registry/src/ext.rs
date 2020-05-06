@@ -55,6 +55,7 @@ pub(crate) mod oracle {
 pub(crate) mod security {
     use x_core::UnitResult;
     use security::ErrorCode;
+    use sp_std::vec::Vec;
 
     pub fn recover_from_liquidation<T: security::Trait>() -> UnitResult {
         Ok(())

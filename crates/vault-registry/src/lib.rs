@@ -27,6 +27,7 @@ use primitive_types::H256;
 use sp_core::H160;
 use sp_std::convert::TryInto;
 use system::ensure_signed;
+use sp_std::vec::Vec;
 
 use x_core::{Error, Result, UnitResult};
 use security::ErrorCode;
