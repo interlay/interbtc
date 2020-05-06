@@ -75,9 +75,23 @@ impl<T: Trait> RichVault<T> {
     }
 
     pub fn withdraw_collateral(&self, collateral: DOT<T>) -> UnitResult {
+        let current_collateral = ext::collateral::for_account::<T>(&self.data.id);
+
+        let raw_current_collateral = crate::Module::<T>::dot_to_u128(current_collateral)?;
+        let raw_collateral = crate::Module::<T>::dot_to_u128(collateral)?;
+        let raw_new_collateral = raw_current_collateral.checked_sub(raw_collateral).unwrap_or(0);
+
+        let new_collateral = crate::Module::<T>::u128_to_dot(raw_new_collateral)?;
+
+        ensure!(
+            !crate::Module::<T>::_is_collateral_below_secure_threshold(
+                new_collateral,
+                self.data.issued_tokens
+            )?,
+            Error::InsufficientCollateral
+        );
+
         ext::collateral::release::<T>(&self.data.id, collateral)
-        // TODO: add checks for SecureCollateralThreshold
-        // collateral < vault.get_collateral() - vault.issued_tokens * SecureCollateralThreshold
     }
 
     pub fn get_collateral(&self) -> DOT<T> {
@@ -90,20 +104,28 @@ impl<T: Trait> RichVault<T> {
     }
 
     pub fn get_used_collateral(&self) -> Result<DOT<T>> {
-        // FIXME: figure out how to multiply these two
-        // and transform it to a DOT<T>
-        let issued_tokens = self.data.issued_tokens;
-        let _used_collateral = ext::oracle::btc_to_dots::<T>(issued_tokens)?;
-        Ok(Default::default())
+        let issued_tokens = self.data.issued_tokens + self.data.to_be_issued_tokens;
+        let issued_tokens_in_dot = ext::oracle::btc_to_dots::<T>(issued_tokens)?;
+
+        let raw_issued_tokens_in_dot = crate::Module::<T>::dot_to_u128(issued_tokens_in_dot)?;
+
+        let secure_threshold = crate::Module::<T>::_get_secure_collateral_threshold();
+
+        let raw_used_collateral = raw_issued_tokens_in_dot.checked_mul(secure_threshold).ok_or(Error::RuntimeError)?;
+
+        let used_collateral = crate::Module::<T>::u128_to_dot(raw_used_collateral)?;
+
+        Ok(used_collateral)
     }
 
     pub fn issuable_tokens(&self) -> Result<PolkaBTC<T>> {
-        let collateral = self.get_collateral();
-        let btc_collateral = ext::oracle::dots_to_btc::<T>(collateral)?;
-        let _issuable = btc_collateral - self.data.issued_tokens - self.data.to_be_issued_tokens;
-        // FIXME: use real value
-        // Ok(issuable)
-        Ok(1000.into())
+        let free_collateral = self.get_free_collateral()?;
+
+        let secure_threshold = crate::Module::<T>::_get_secure_collateral_threshold();
+
+        let issuable = crate::Module::<T>::calculate_max_polkabtc_from_collateral_for_threshold(free_collateral, secure_threshold)?;
+
+        Ok(issuable)
     }
 
     pub fn increase_to_be_issued(&mut self, tokens: PolkaBTC<T>) -> UnitResult {

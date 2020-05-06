@@ -383,6 +383,22 @@ impl<T: Trait> Module<T> {
         Self::is_collateral_below_threshold(collateral, btc_amount, threshold)
     }
 
+    pub fn _get_secure_collateral_threshold() -> u128 {
+        <SecureCollateralThreshold>::get()
+    }
+
+    pub fn _get_auction_collateral_threshold() -> u128 {
+        <AuctionCollateralThreshold>::get()
+    }
+
+    pub fn _get_premium_redeem_threshold() -> u128 {
+        <PremiumRedeemThreshold>::get()
+    }
+
+    pub fn _get_liquidation_collateral_threshold() -> u128 {
+        <LiquidationCollateralThreshold>::get()
+    }
+
     pub fn _set_secure_collateral_threshold(threshold: u128) {
         <SecureCollateralThreshold>::set(threshold);
     }
@@ -462,8 +478,16 @@ impl<T: Trait> Module<T> {
         btc_amount: PolkaBTC<T>,
         threshold: u128,
     ) -> Result<bool> {
-        let raw_btc_amount = Self::polkabtc_to_u128(btc_amount)?;
+        let max_tokens = Self::calculate_max_polkabtc_from_collateral_for_threshold(collateral, threshold)?;
 
+        // check if the max_tokens are below the issued tokens
+        Ok(max_tokens < btc_amount)
+    }
+
+    fn calculate_max_polkabtc_from_collateral_for_threshold(
+        collateral: DOT<T>,
+        threshold: u128,
+    ) -> Result<PolkaBTC<T>> {
         // convert the collateral to polkabtc
         let collateral_in_polka_btc = ext::oracle::dots_to_btc::<T>(collateral)?;
         let raw_collateral_in_polka_btc = Self::polkabtc_to_u128(collateral_in_polka_btc)?;
@@ -476,9 +500,10 @@ impl<T: Trait> Module<T> {
             .checked_div(threshold)
             .unwrap_or(0);
 
-        // check if the max_tokens are below the issued tokens
-        Ok(raw_max_tokens < raw_btc_amount)
+        let max_tokens = Self::u128_to_polkabtc(raw_max_tokens)?;
+        Ok(max_tokens)
     }
+
 
     fn polkabtc_to_u128(x: PolkaBTC<T>) -> Result<u128> {
         TryInto::<u128>::try_into(x).map_err(|_| Error::RuntimeError)
@@ -486,6 +511,14 @@ impl<T: Trait> Module<T> {
 
     fn dot_to_u128(x: DOT<T>) -> Result<u128> {
         TryInto::<u128>::try_into(x).map_err(|_| Error::RuntimeError)
+    }
+
+    fn u128_to_dot(x: u128) -> Result<DOT<T>> {
+        TryInto::<DOT<T>>::try_into(x).map_err(|_| Error::RuntimeError)
+    }
+
+    fn u128_to_polkabtc(x: u128) -> Result<PolkaBTC<T>> {
+        TryInto::<PolkaBTC<T>>::try_into(x).map_err(|_| Error::RuntimeError)
     }
 }
 
