@@ -453,7 +453,6 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-
     /// Replaces the old vault by the new vault by transfering tokens
     /// from the old vault to the new one
     ///
