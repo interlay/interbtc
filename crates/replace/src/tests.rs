@@ -4,12 +4,32 @@ use crate::PolkaBTC;
 use crate::Replace as R;
 use crate::DOT;
 use bitcoin::types::H256Le;
-use frame_support::assert_noop;
+use frame_support::{assert_noop, assert_ok};
 use mocktopus::mocking::*;
 use primitive_types::H256;
 use sp_core::H160;
 use vault_registry::Vault;
-use x_core::Error;
+use x_core::{Error, UnitResult};
+
+type Event = crate::Event<Test>;
+
+// use macro to avoid messing up stack trace
+macro_rules! assert_emitted {
+    ($event:expr) => {
+        let test_event = TestEvent::test_events($event);
+        assert!(System::events().iter().any(|a| a.event == test_event));
+    };
+    ($event:expr, $times:expr) => {
+        let test_event = TestEvent::test_events($event);
+        assert_eq!(
+            System::events()
+                .iter()
+                .filter(|a| a.event == test_event)
+                .count(),
+            $times
+        );
+    };
+}
 
 fn test_request() -> R<u64, u64, u64, u64> {
     R {
@@ -41,7 +61,7 @@ fn request_replace(
     amount: Balance,
     timeout: BlockNumber,
     griefing_collateral: DOT<Test>,
-) -> Result<H256, Error> {
+) -> UnitResult {
     Replace::_request_replace(origin, vault, amount, timeout, griefing_collateral)
 }
 
@@ -466,7 +486,7 @@ fn test_execute_replace_replace_period_expired_fails() {
     run_test(|| {
         Replace::get_replace_request.mock_safe(|_| {
             let mut req = test_request();
-            req.open_time = 100000;
+            req.open_time = 100_000;
             MockResult::Return(Ok(req))
         });
 
@@ -476,6 +496,9 @@ fn test_execute_replace_replace_period_expired_fails() {
         let tx_block_height = 1;
         let merkle_proof = Vec::new();
         let raw_tx = Vec::new();
+
+        Replace::current_height.mock_safe(|| MockResult::Return(110_000));
+        Replace::replace_period.mock_safe(|| MockResult::Return(2));
         assert_eq!(
             execute_replace(
                 new_vault_id,
@@ -539,16 +562,20 @@ fn test_request_replace_succeeds() {
         ext::collateral::get_collateral_from_account::<Test>
             .mock_safe(|_| MockResult::Return(100_000));
         ext::vault_registry::is_over_minimum_collateral::<Test>
-            .mock_safe(|_| MockResult::Return(false));
+            .mock_safe(|_| MockResult::Return(true));
         ext::collateral::lock_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
         ext::vault_registry::increase_to_be_redeemed_tokens::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::security::gen_secure_id::<Test>.mock_safe(|_| MockResult::Return(H256::zero()));
-        assert_eq!(
-            request_replace(origin, vault, amount, timeout, griefing_collateral),
-            Ok(replace_id),
-        );
+
+        assert_ok!(Replace::_request_replace(origin, vault, amount, timeout, griefing_collateral));
+        // assert_eq!(
+        //     request_replace(origin, vault, amount, timeout, griefing_collateral),
+        //     Ok(replace_id),
+        // );
+
+        assert_emitted!(Event::RequestReplace(vault, amount, timeout, replace_id));
     })
 }
 

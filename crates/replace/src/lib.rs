@@ -2,7 +2,11 @@
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+/// # PolkaBTC Replace implementation
+/// The Replace module according to the specification at
+/// https://interlay.gitlab.io/polkabtc-spec/spec/replace.html
 mod ext;
+pub mod types;
 
 #[cfg(test)]
 mod mock;
@@ -16,25 +20,17 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use bitcoin::types::H256Le;
-use codec::{Decode, Encode};
-use frame_support::traits::Currency;
-/// # PolkaBTC Replace implementation
-/// The Replace module according to the specification at
-/// https://interlay.gitlab.io/polkabtc-spec/spec/issue.html
 // Substrate
 use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
 use primitive_types::H256;
-use sp_core::H160;
 use sp_runtime::ModuleId;
 use std::convert::TryInto;
 use system::ensure_signed;
-use x_core::Error;
 
-pub(crate) type DOT<T> =
-    <<T as collateral::Trait>::DOT as Currency<<T as system::Trait>::AccountId>>::Balance;
-pub(crate) type PolkaBTC<T> =
-    <<T as treasury::Trait>::PolkaBTC as Currency<<T as system::Trait>::AccountId>>::Balance;
+use x_core::{Error, UnitResult};
+use bitcoin::types::H256Le;
+
+use crate::types::{Replace, DOT, PolkaBTC};
 
 /// The replace module id, used for deriving its sovereign account ID.
 const _MODULE_ID: ModuleId = ModuleId(*b"replacem");
@@ -47,37 +43,6 @@ pub trait Trait:
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
 
-#[derive(Encode, Decode, Default, Clone, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
-pub struct Replace<AccountId, BlockNumber, PolkaBTC, DOT> {
-    old_vault: AccountId,
-    open_time: BlockNumber,
-    amount: PolkaBTC,
-    griefing_collateral: DOT,
-    new_vault: Option<AccountId>,
-    collateral: DOT,
-    accept_time: Option<BlockNumber>,
-    btc_address: H160,
-}
-
-impl<AccountId, BlockNumber, PolkaBTC, DOT> Replace<AccountId, BlockNumber, PolkaBTC, DOT> {
-    fn add_new_vault(
-        &mut self,
-        new_vault_id: AccountId,
-        accept_time: BlockNumber,
-        collateral: DOT,
-        btc_address: H160,
-    ) {
-        self.new_vault = Some(new_vault_id);
-        self.accept_time = Some(accept_time);
-        self.collateral = collateral;
-        self.btc_address = btc_address;
-    }
-
-    fn has_new_owner(&self) -> bool {
-        self.new_vault.is_some()
-    }
-}
 
 // The pallet's storage items.
 decl_storage! {
@@ -198,7 +163,7 @@ impl<T: Trait> Module<T> {
         mut amount: PolkaBTC<T>,
         timeout: T::BlockNumber,
         griefing_collateral: DOT<T>,
-    ) -> Result<H256, Error> {
+    ) -> UnitResult {
         // check preconditions
         // check amount is non zero
         let zero: PolkaBTC<T> = 0u32.into();
@@ -221,10 +186,10 @@ impl<T: Trait> Module<T> {
         }
         // step 5: If the request is not for the entire BTC holdings, check that the remaining DOT collateral of the Vault is higher than MinimumCollateralVault
         let vault_collateral = ext::collateral::get_collateral_from_account::<T>(vault_id.clone());
-        if amount != vault.no_issuable_tokens() {
+        if amount != vault.issued_tokens {
             let over_threshold =
                 ext::vault_registry::is_over_minimum_collateral::<T>(vault_collateral);
-            ensure!(!over_threshold, Error::InsufficientCollateral);
+            ensure!(over_threshold, Error::InsufficientCollateral);
         }
         // step 6: Check that the griefingCollateral is greater or equal ReplaceGriefingCollateral
         ensure!(
@@ -253,8 +218,8 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(<Event<T>>::RequestReplace(
             vault_id, amount, timeout, replace_id,
         ));
-        // step 12: return replace key
-        Ok(replace_id)
+        // step 12
+        Ok(())
     }
 
     fn _withdraw_replace_request(vault_id: T::AccountId, request_id: H256) -> Result<(), Error> {
@@ -392,7 +357,7 @@ impl<T: Trait> Module<T> {
         let replace_period = Self::replace_period();
         let current_height = Self::current_height();
         ensure!(
-            replace.open_time + replace_period <= current_height,
+            current_height <= replace.open_time + replace_period,
             Error::ReplacePeriodExpired
         );
         // step 3: Retrieve the Vault as per the newVault parameter from Vaults in the VaultRegistry
