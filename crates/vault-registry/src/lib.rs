@@ -170,16 +170,12 @@ decl_module! {
 #[cfg_attr(test, mockable)]
 impl<T: Trait> Module<T> {
     /// Public functions
-    pub fn _punishment_fee() -> u128 {
-        PunishmentFee::get()
+    pub fn _punishment_fee() -> Result<DOT<T>> {
+        Self::u128_to_dot(PunishmentFee::get())
     }
 
-    pub fn _premium_redeem_threshold() -> u128 {
-        PremiumRedeemThreshold::get()
-    }
-
-    pub fn _redeem_premium_fee() -> u128 {
-        RedeemPremiumFee::get()
+    pub fn _get_redeem_premium_fee() -> Result<DOT<T>> {
+        Self::u128_to_dot(RedeemPremiumFee::get())
     }
 
     pub fn _get_vault_from_id(vault_id: &T::AccountId) -> Result<DefaultVault<T>> {
