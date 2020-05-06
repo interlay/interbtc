@@ -7,6 +7,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+use sha2::Digest;
 #[cfg(test)]
 extern crate mocktopus;
 
@@ -25,7 +26,7 @@ use codec::{Decode, Encode};
 // Substrate
 use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
 use primitive_types::H256;
-use sha2::{Digest, Sha256};
+use sha2::Sha256;
 use sp_core::H160;
 use sp_runtime::ModuleId;
 use sp_std::convert::TryInto;
@@ -148,10 +149,10 @@ impl<T: Trait> Module<T> {
         // TODO: check precondition
         let height = <system::Module<T>>::block_number();
         let vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
-        match vault.banned_until {
-            Some(until) => ensure!(until < height, Error::VaultBanned),
-            None => (),
-        };
+        // Check that the vault is currently not banned
+        if vault.is_banned(height) {
+            return Err(Error::VaultBanned);
+        }
 
         ensure!(
             griefing_collateral >= <IssueGriefingCollateral<T>>::get(),
@@ -167,8 +168,9 @@ impl<T: Trait> Module<T> {
         // TODO: nonce from security module
         hasher.input(requester.encode());
 
-        let mut result = [0; 32];
-        result.copy_from_slice(&hasher.result()[..]);
+        let result = [0; 32];
+        // TODO(jaupe) pull changes from greg
+        //result.copy_from_slice(&hasher.result()[..]);
         let key = H256(result);
 
         Self::insert_issue_request(

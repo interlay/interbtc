@@ -386,6 +386,14 @@ impl<T: Trait> Module<T> {
         <MinimumCollateralVault<T>>::get()
     }
 
+    pub fn auction_collateral_threshold() -> u128 {
+        AuctionCollateralThreshold::get()
+    }
+
+    pub fn secure_collateral_threshold() -> u128 {
+        SecureCollateralThreshold::get()
+    }
+
     /// Other helpers
     /// Returns an error if the parachain is not in running state
     fn ensure_parachain_running() -> UnitResult {

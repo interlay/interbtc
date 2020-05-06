@@ -61,13 +61,20 @@ pub enum Error {
     // -------------
     // XClaim Errors
     // -------------
+    CancelAcceptedRequest,
+    InvalidReplaceID,
+    ReplacePeriodExpired,
+    UnauthorizedVault,
+    ReplacePeriodNotExpired,
+    InsufficientTokensComitted,
+    InvalidVaultID,
+    InvalidAmount,
+    InvalidTimeout,
     MissingExchangeRate,
     InvalidOracleSource,
     InsufficientFunds,
     InsufficientLockedFunds,
     InsufficientCollateralAvailable,
-
-    InvalidVaultID,
     VaultNotFound,
     VaultBanned,
     /// Returned if the collateral amount to register a vault was too low
@@ -86,7 +93,6 @@ pub enum Error {
     AmountExceedsVaultBalance,
     RedeemIdNotFound,
     RedeemPeriodExpired,
-    UnauthorizedVault,
     RedeemPeriodNotExpired,
 
     /// use only for errors which means something
@@ -137,6 +143,14 @@ impl Error {
             Error::MalformedOpReturnOutput => "Format of the OP_RETURN transaction output is invalid",
             Error::UnsupportedOutputFormat => "Unsupported output format. Currently supported: Witness, P2PKH, P2SH,",
 
+            Error::ReplacePeriodExpired => "Replace period expired",
+            Error::ReplacePeriodNotExpired => "Replace period not expired",
+            Error::InsufficientTokensComitted => "Insufficient tokens comitted",
+            Error::InvalidVaultID => "Invalid vault ID",
+            Error::InvalidAmount => "Invalid amount",
+            Error::InvalidTimeout => "Invalid timeout",
+            Error::InvalidReplaceID => "Invalid request ID",
+            Error::CancelAcceptedRequest => "Cannot cancel an already accepted request",
             Error::MissingExchangeRate => "Exchange rate not set",
             Error::InvalidOracleSource => "Invalid oracle account",
             Error::InsufficientFunds => {
@@ -148,8 +162,6 @@ impl Error {
             Error::InsufficientCollateralAvailable => {
                 "The sender’s collateral balance is below the requested amount."
             }
-
-            Error::InvalidVaultID => "Invalid vault ID",
             Error::VaultNotFound => "There exists no Vault with the given account id",
             Error::VaultBanned => "The selected Vault has been temporarily banned",
             Error::InsuficientVaultCollateralAmount => "The provided collateral was insufficient",
