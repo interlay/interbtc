@@ -36,6 +36,12 @@ pub use sp_runtime::{Perbill, Permill};
 pub use timestamp::Call as TimestampCall;
 
 pub use btc_relay;
+pub use collateral;
+pub use exchange_rate_oracle;
+pub use security;
+pub use staked_relayers;
+pub use treasury;
+pub use vault_registry;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -222,6 +228,55 @@ impl btc_relay::Trait for Runtime {
     type Event = Event;
 }
 
+impl collateral::Trait for Runtime {
+    type Event = Event;
+    type DOT = balances::Module<Runtime>;
+}
+
+impl treasury::Trait for Runtime {
+    type Event = Event;
+    type PolkaBTC = balances::Module<Runtime>;
+}
+
+impl security::Trait for Runtime {}
+
+parameter_types! {
+    pub const MaturityPeriod: u32 = 10;
+    pub const MinimumDeposit: u32 = 10;
+    pub const MinimumStake: u32 = 10;
+    pub const MinimumParticipants: u32 = 3;
+    pub const VoteThreshold: u32 = 50;
+}
+
+impl staked_relayers::Trait for Runtime {
+    type Event = Event;
+    type MaturityPeriod = MaturityPeriod;
+    type MinimumDeposit = MinimumDeposit;
+    type MinimumStake = MinimumStake;
+    type MinimumParticipants = MinimumParticipants;
+    type VoteThreshold = VoteThreshold;
+}
+
+impl vault_registry::Trait for Runtime {
+    type Event = Event;
+}
+
+impl exchange_rate_oracle::Trait for Runtime {
+    type Event = Event;
+}
+
+impl issue::Trait for Runtime {
+    type Event = Event;
+}
+
+impl redeem::Trait for Runtime {
+    type Event = Event;
+}
+
+impl replace::Trait for Runtime {
+    type Event = Event;
+}
+
 construct_runtime!(
     pub enum Runtime where
         Block = Block,
@@ -237,6 +292,15 @@ construct_runtime!(
         TransactionPayment: transaction_payment::{Module, Storage},
         Sudo: sudo::{Module, Call, Config<T>, Storage, Event<T>},
         BTCRelay: btc_relay::{Module, Call, Storage, Event},
+        Collateral: collateral::{Module, Call, Storage, Event<T>},
+        Treasury: treasury::{Module, Call, Storage, Event<T>},
+        Security: security::{Module, Call, Storage},
+        StakedRelayers: staked_relayers::{Module, Call, Config<T>, Storage, Event<T>},
+        VaultRegistry: vault_registry::{Module, Call, Storage, Event<T>},
+        Oracle: exchange_rate_oracle::{Module, Call, Storage, Event<T>},
+        Issue: issue::{Module, Call, Storage, Event<T>},
+        Redeem: redeem::{Module, Call, Storage, Event<T>},
+        Replace: replace::{Module, Call, Storage, Event<T>},
     }
 );
 

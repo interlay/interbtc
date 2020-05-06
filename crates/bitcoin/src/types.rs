@@ -167,6 +167,18 @@ pub struct BlockChain {
     pub invalid: BTreeSet<u32>,
 }
 
+impl BlockChain {
+    // Checks if there is a NO_DATA block in the BlockChain
+    pub fn is_no_data(&self) -> bool {
+        self.no_data.len() > 0
+    }
+
+    // Checks if there is an INVALID block in the BlockChain
+    pub fn is_invalid(&self) -> bool {
+        self.invalid.len() > 0
+    }
+}
+
 /// Represents a bitcoin 32 bytes hash digest encoded in little-endian
 #[derive(Encode, Decode, Default, PartialEq, Eq, Clone, Copy, Debug)]
 pub struct H256Le {

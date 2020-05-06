@@ -25,6 +25,7 @@ pub enum Error {
     MalformedMerkleProof, // not in the spec
     /// Format of the proof is correct but does not yield the correct merkle root
     InvalidMerkleProof,
+    NoData,
     Invalid,
     Shutdown,
     InvalidTxid,
@@ -57,7 +58,8 @@ pub enum Error {
     MalformedOpReturnOutput,
     // Output does not match format of supported output types (Witness, P2PKH, P2SH)
     UnsupportedOutputFormat,
-
+    /// There are no NO_DATA blocks in this BlockChain
+    NoDataEmpty, // not in spec
     // -------------
     // XClaim Errors
     // -------------
@@ -95,6 +97,12 @@ pub enum Error {
     RedeemPeriodExpired,
     RedeemPeriodNotExpired,
 
+    /// Parachain Status Errors (Security module)
+    ParachainNotRunning,
+    ParachainShutdown,
+    ParachainNotRunningOrLiquidation,
+    ParachainOracleOfflineError,
+    ParachainLiquidationError,
     /// use only for errors which means something
     /// going very wrong and which do not match any other error
     RuntimeError,
@@ -117,7 +125,8 @@ impl Error {
             Error::OngoingFork => "Current fork ongoing",
             Error::MalformedMerkleProof => "Merkle proof is malformed",
             Error::InvalidMerkleProof => "Invalid Merkle Proof",
-            Error::Invalid => "BTC Parachain is halted",
+            Error::NoData => "Feature disabled. Reason: a main chain block with a lower height is flagged with NO_DATA.",
+            Error::Invalid => "Feature disabled. Reason: a main chain block is flagged as INVALID.",
             Error::Shutdown => "BTC Parachain has shut down",
             Error::InvalidTxid => "Transaction hash does not match given txid",
             Error::InsufficientValue => "Value of payment below requested amount",
@@ -142,6 +151,7 @@ impl Error {
             Error::MalformedP2SHOutput => "Format of the P2SH output is invalid",
             Error::MalformedOpReturnOutput => "Format of the OP_RETURN transaction output is invalid",
             Error::UnsupportedOutputFormat => "Unsupported output format. Currently supported: Witness, P2PKH, P2SH,",
+            Error::NoDataEmpty => "There are no NO_DATA blocks in this BlockChain.",
 
             Error::ReplacePeriodExpired => "Replace period expired",
             Error::ReplacePeriodNotExpired => "Replace period not expired",
@@ -181,6 +191,12 @@ impl Error {
             Error::UnauthorizedVault => "Unauthorized: Caller must be associated vault.",
             Error::RedeemPeriodNotExpired => "The period to complete the redeem request is not yet expired.",
 
+
+            Error::ParachainNotRunning => "Function disabled. Reason: the Parachain status is not 'RUNNING'.",
+            Error::ParachainShutdown => "Function disabled. Reason: the Parachain is shutdown",
+            Error::ParachainNotRunningOrLiquidation => "Function disabled. Reason: Parachain must be in RUNNING or ERROR/LIQUIDATION state.",
+            Error::ParachainOracleOfflineError => "Function disabled. Reason: Parachain is in ERROR state - exchange rate oracle is offline.",
+            Error::ParachainLiquidationError => "Function disabled. Reason Parachain is in ERROR state - at least one vault is being liquidated.",
             Error::RuntimeError => "Runtime error",
         }
     }

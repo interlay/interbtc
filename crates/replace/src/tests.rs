@@ -58,10 +58,9 @@ fn test_vault() -> Vault<u64, u64, u64> {
 fn request_replace(
     vault: AccountId,
     amount: Balance,
-    timeout: BlockNumber,
     griefing_collateral: DOT<Test>,
 ) -> UnitResult {
-    Replace::_request_replace(vault, amount, timeout, griefing_collateral)
+    Replace::_request_replace(vault, amount, griefing_collateral)
 }
 
 fn withdraw_replace(vault_id: AccountId, replace_id: H256) -> Result<(), Error> {
@@ -110,21 +109,14 @@ fn cancel_replace(new_vault_id: AccountId, replace_id: H256) -> Result<(), Error
 #[test]
 fn test_request_replace_transfer_zero_fails() {
     run_test(|| {
-        assert_noop!(request_replace(BOB, 0, 0, 0), Error::InvalidAmount);
-    })
-}
-
-#[test]
-fn test_request_replace_timeout_zero_fails() {
-    run_test(|| {
-        assert_noop!(request_replace(BOB, 1, 0, 0), Error::InvalidTimeout);
+        assert_noop!(request_replace(BOB, 0, 0), Error::InvalidAmount);
     })
 }
 
 #[test]
 fn test_request_replace_vault_not_found_fails() {
     run_test(|| {
-        assert_noop!(request_replace(10_000, 1, 1, 0), Error::VaultNotFound);
+        assert_noop!(request_replace(10_000, 1, 0), Error::VaultNotFound);
     })
 }
 
@@ -143,7 +135,7 @@ fn test_request_replace_vault_banned_fails() {
                 banned_until: Some(1),
             }))
         });
-        assert_noop!(Replace::_request_replace(BOB, 1, 1, 0), Error::VaultBanned);
+        assert_noop!(Replace::_request_replace(BOB, 1, 0), Error::VaultBanned);
     })
 }
 
@@ -174,7 +166,7 @@ fn test_request_replace_insufficient_griefing_collateral_fails() {
 
         Replace::set_replace_griefing_collateral(desired_griefing_collateral);
         assert_noop!(
-            Replace::_request_replace(old_vault, amount, 1, griefing_collateral),
+            Replace::_request_replace(old_vault, amount, griefing_collateral),
             Error::InsufficientCollateral
         );
     })
@@ -577,7 +569,6 @@ fn test_request_replace_with_amount_exceed_vault_issued_tokens_succeeds() {
     run_test(|| {
         let vault_id = BOB;
         let amount = 6;
-        let timeout = 10;
         let replace_id = H256::zero();
         let griefing_collateral = 10_000;
 
@@ -597,16 +588,11 @@ fn test_request_replace_with_amount_exceed_vault_issued_tokens_succeeds() {
 
         ext::vault_registry::increase_to_be_redeemed_tokens::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(())));
-        ext::security::gen_secure_id::<Test>.mock_safe(|_| MockResult::Return(H256::zero()));
+        ext::security::get_secure_id::<Test>.mock_safe(|_| MockResult::Return(H256::zero()));
 
-        assert_ok!(request_replace(
-            vault_id,
-            amount,
-            timeout,
-            griefing_collateral
-        ));
+        assert_ok!(request_replace(vault_id, amount, griefing_collateral));
 
-        let event = Event::RequestReplace(vault_id, replace_amount, timeout, replace_id);
+        let event = Event::RequestReplace(vault_id, replace_amount, replace_id);
         assert_emitted!(event);
     })
 }
@@ -616,7 +602,6 @@ fn test_request_replace_with_amount_less_than_vault_issued_tokens_succeeds() {
     run_test(|| {
         let vault_id = BOB;
         let amount = 3;
-        let timeout = 10;
         let replace_id = H256::zero();
         let griefing_collateral = 10_000;
 
@@ -636,16 +621,11 @@ fn test_request_replace_with_amount_less_than_vault_issued_tokens_succeeds() {
 
         ext::vault_registry::increase_to_be_redeemed_tokens::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(())));
-        ext::security::gen_secure_id::<Test>.mock_safe(|_| MockResult::Return(H256::zero()));
+        ext::security::get_secure_id::<Test>.mock_safe(|_| MockResult::Return(H256::zero()));
 
-        assert_ok!(request_replace(
-            vault_id,
-            amount,
-            timeout,
-            griefing_collateral
-        ));
+        assert_ok!(request_replace(vault_id, amount, griefing_collateral));
 
-        let event = Event::RequestReplace(vault_id, replace_amount, timeout, replace_id);
+        let event = Event::RequestReplace(vault_id, replace_amount, replace_id);
         assert_emitted!(event);
     })
 }
@@ -736,7 +716,7 @@ fn test_auction_replace_succeeds() {
         ext::vault_registry::increase_to_be_redeemed_tokens::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(())));
 
-        ext::security::gen_secure_id::<Test>.mock_safe(|_| MockResult::Return(H256::zero()));
+        ext::security::get_secure_id::<Test>.mock_safe(|_| MockResult::Return(H256::zero()));
 
         Replace::current_height.mock_safe(move || MockResult::Return(height.clone()));
 
@@ -831,6 +811,105 @@ fn test_cancel_replace_succeeds() {
         assert_eq!(cancel_replace(new_vault_id, replace_id,), Ok(()));
 
         let event = Event::CancelReplace(new_vault_id, old_vault_id, replace_id);
+        assert_emitted!(event);
+    })
+}
+
+// Security module integration tests
+#[test]
+fn test_request_replace_parachain_not_running_fails() {
+    run_test(|| {
+        ext::security::ensure_parachain_status_running::<Test>
+            .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
+        assert_noop!(request_replace(10_000, 1, 1, 0), Error::ParachainNotRunning);
+    })
+}
+
+#[test]
+fn test_accept_replace_parachain_not_running_fails() {
+    run_test(|| {
+        ext::security::ensure_parachain_status_running::<Test>
+            .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
+        assert_noop!(
+            accept_replace(BOB, H256::zero(), 1),
+            Error::ParachainNotRunning
+        );
+    })
+}
+
+#[test]
+fn test_auction_replace_parachain_not_running_fails() {
+    run_test(|| {
+        ext::security::ensure_parachain_status_running::<Test>
+            .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
+        assert_noop!(
+            auction_replace(ALICE, BOB, 1, 1),
+            Error::ParachainNotRunning
+        );
+    })
+}
+
+#[test]
+fn test_execute_replace_parachain_not_running_fails() {
+    run_test(|| {
+        ext::security::ensure_parachain_status_running::<Test>
+            .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
+        assert_noop!(
+            execute_replace(
+                ALICE,
+                H256::zero(),
+                H256Le::zero(),
+                1,
+                Vec::new(),
+                Vec::new()
+            ),
+            Error::ParachainNotRunning
+        );
+    })
+}
+
+#[test]
+fn test_cancel_replace_parachain_not_running_fails() {
+    run_test(|| {
+        ext::security::ensure_parachain_status_running::<Test>
+            .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
+        assert_noop!(
+            cancel_replace(ALICE, H256::zero()),
+            Error::ParachainNotRunning
+        );
+    })
+}
+
+#[test]
+fn test_withdraw_replace_parachain_not_running_succeeds() {
+    run_test(|| {
+        let vault_id = BOB;
+        let replace_id = H256::zero();
+
+        Replace::get_replace_request.mock_safe(|_| {
+            let mut replace = test_request();
+            replace.old_vault = BOB;
+            MockResult::Return(Ok(replace))
+        });
+
+        ext::vault_registry::get_vault_from_id::<Test>
+            .mock_safe(|_| MockResult::Return(Ok(test_vault())));
+        ext::vault_registry::is_vault_below_auction_threshold::<Test>
+            .mock_safe(|_| MockResult::Return(Ok(false)));
+        ext::vault_registry::increase_to_be_redeemed_tokens::<Test>
+            .mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::collateral::release_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::decrease_to_be_redeemed_tokens::<Test>
+            .mock_safe(|_, _| MockResult::Return(Ok(())));
+
+        ext::security::ensure_parachain_status_running::<Test>
+            .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
+
+        Replace::remove_replace_request.mock_safe(|_| MockResult::Return(()));
+
+        assert_eq!(withdraw_replace(vault_id, replace_id), Ok(()));
+
+        let event = Event::WithdrawReplace(vault_id, replace_id);
         assert_emitted!(event);
     })
 }

@@ -4,6 +4,7 @@ use mocktopus::macros::mockable;
 #[cfg_attr(test, mockable)]
 pub(crate) mod btc_relay {
     use bitcoin::types::H256Le;
+    use sp_std::vec::Vec;
     use x_core::UnitResult;
 
     pub fn verify_transaction_inclusion<T: btc_relay::Trait>(
@@ -129,7 +130,13 @@ pub(crate) mod collateral {
 #[cfg_attr(test, mockable)]
 pub(crate) mod security {
     use primitive_types::H256;
-    pub fn gen_secure_id<T: security::Trait>(_id: T::AccountId) -> H256 {
-        unimplemented!()
+    use x_core::UnitResult;
+
+    pub fn get_secure_id<T: security::Trait>(id: &T::AccountId) -> H256 {
+        <security::Module<T>>::_get_secure_id(id)
+    }
+
+    pub fn ensure_parachain_status_running<T: security::Trait>() -> UnitResult {
+        <security::Module<T>>::_ensure_parachain_status_running()
     }
 }

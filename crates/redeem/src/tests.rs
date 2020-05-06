@@ -5,9 +5,7 @@ use bitcoin::types::H256Le;
 use frame_support::{assert_err, assert_ok};
 use mocktopus::mocking::*;
 use primitive_types::H256;
-use security::{error_set, ErrorCode, StatusCode};
 use sp_core::H160;
-use sp_std::collections::btree_set::BTreeSet;
 use vault_registry::Vault;
 use x_core::Error;
 
@@ -40,22 +38,20 @@ fn inject_redeem_request(
 #[test]
 fn test_ensure_parachain_running_or_error_liquidated_fails() {
     run_test(|| {
-        ext::security::get_parachain_status::<Test>
-            .mock_safe(|| MockResult::Return(StatusCode::Shutdown));
+        ext::security::ensure_parachain_status_running::<Test>
+            .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
 
         assert_err!(
             Redeem::ensure_parachain_running_or_error_liquidated(),
-            Error::RuntimeError
+            Error::ParachainNotRunning
         );
 
-        ext::security::get_parachain_status::<Test>
-            .mock_safe(|| MockResult::Return(StatusCode::Error));
-        ext::security::get_errors::<Test>
-            .mock_safe(|| MockResult::Return(error_set!(ErrorCode::InvalidBTCRelay)));
+        ext::security::ensure_parachain_status_has_only_specific_errors::<Test>
+            .mock_safe(|_| MockResult::Return(Err(Error::Invalid)));
 
         assert_err!(
             Redeem::ensure_parachain_running_or_error_liquidated(),
-            Error::RuntimeError
+            Error::Invalid
         );
     })
 }
@@ -63,15 +59,13 @@ fn test_ensure_parachain_running_or_error_liquidated_fails() {
 #[test]
 fn test_ensure_parachain_running_or_error_liquidated_succeeds() {
     run_test(|| {
-        ext::security::get_parachain_status::<Test>
-            .mock_safe(|| MockResult::Return(StatusCode::Running));
+        ext::security::ensure_parachain_status_running::<Test>
+            .mock_safe(|| MockResult::Return(Ok(())));
 
         assert_ok!(Redeem::ensure_parachain_running_or_error_liquidated());
 
-        ext::security::get_parachain_status::<Test>
-            .mock_safe(|| MockResult::Return(StatusCode::Error));
-        ext::security::get_errors::<Test>
-            .mock_safe(|| MockResult::Return(error_set!(ErrorCode::Liquidation)));
+        ext::security::ensure_parachain_status_has_only_specific_errors::<Test>
+            .mock_safe(|_| MockResult::Return(Ok(())));
 
         assert_ok!(Redeem::ensure_parachain_running_or_error_liquidated());
     })
@@ -252,10 +246,11 @@ fn test_partial_redeem_factor() {
 #[test]
 fn test_request_redeem_succeeds_in_error_state() {
     run_test(|| {
-        ext::security::get_parachain_status::<Test>
-            .mock_safe(|| MockResult::Return(StatusCode::Error));
-        ext::security::get_errors::<Test>
-            .mock_safe(|| MockResult::Return(error_set!(ErrorCode::Liquidation)));
+        ext::security::ensure_parachain_status_has_only_specific_errors::<Test>
+            .mock_safe(|_| MockResult::Return(Ok(())));
+
+        ext::security::is_parachain_error_liquidation::<Test>
+            .mock_safe(|| MockResult::Return(true));
 
         Redeem::get_partial_redeem_factor.mock_safe(|| MockResult::Return(Ok(50_000)));
 

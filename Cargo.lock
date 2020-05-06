@@ -466,9 +466,12 @@ name = "btc-parachain-runtime"
 version = "2.0.0-alpha.5"
 dependencies = [
  "btc-relay",
+ "collateral",
+ "exchange-rate-oracle",
  "frame-executive",
  "frame-support",
  "frame-system",
+ "issue",
  "pallet-aura",
  "pallet-balances",
  "pallet-grandpa",
@@ -477,6 +480,9 @@ dependencies = [
  "pallet-timestamp",
  "pallet-transaction-payment",
  "parity-scale-codec",
+ "redeem",
+ "replace",
+ "security",
  "serde",
  "sp-api",
  "sp-block-builder",
@@ -490,7 +496,10 @@ dependencies = [
  "sp-std",
  "sp-transaction-pool",
  "sp-version",
+ "staked-relayers",
  "substrate-wasm-builder-runner",
+ "treasury",
+ "vault-registry",
 ]
 
 [[package]]
@@ -4782,6 +4791,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+ "x-core",
 ]
 
 [[package]]

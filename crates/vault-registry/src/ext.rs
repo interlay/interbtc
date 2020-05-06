@@ -53,9 +53,25 @@ pub(crate) mod oracle {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod security {
+    use security::ErrorCode;
+    use sp_std::vec::Vec;
     use x_core::UnitResult;
 
     pub fn recover_from_liquidation<T: security::Trait>() -> UnitResult {
         Ok(())
+    }
+
+    pub fn ensure_parachain_status_running<T: security::Trait>() -> UnitResult {
+        <security::Module<T>>::_ensure_parachain_status_running()
+    }
+
+    pub fn ensure_parachain_status_not_shutdown<T: security::Trait>() -> UnitResult {
+        <security::Module<T>>::_ensure_parachain_status_not_shutdown()
+    }
+
+    pub fn ensure_parachain_status_has_not_specific_errors<T: security::Trait>(
+        error_codes: Vec<ErrorCode>,
+    ) -> UnitResult {
+        <security::Module<T>>::_ensure_parachain_status_has_not_specific_errors(error_codes)
     }
 }

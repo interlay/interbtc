@@ -24,7 +24,8 @@ use mocktopus::macros::mockable;
 use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
 use primitive_types::H256;
 use sp_runtime::ModuleId;
-use std::convert::TryInto;
+use sp_std::convert::TryInto;
+use sp_std::vec::Vec;
 use system::ensure_signed;
 
 use bitcoin::types::H256Le;
@@ -61,7 +62,7 @@ decl_event!(
         DOT = DOT<T>,
         BlockNumber = <T as system::Trait>::BlockNumber,
     {
-        RequestReplace(AccountId, PolkaBTC, BlockNumber, H256),
+        RequestReplace(AccountId, PolkaBTC, H256),
         WithdrawReplace(AccountId, H256),
         AcceptReplace(AccountId, H256, DOT),
         ExecuteReplace(AccountId, AccountId, H256),
@@ -84,13 +85,12 @@ decl_module! {
         ///
         /// * `origin` - sender of the transaction
         /// * `amount` - amount of PolkaBTC
-        /// * `timeout` - Time in blocks after which this request expires.
         /// * `griefing_collateral` - amount of DOT
-        fn request_replace(origin, amount: PolkaBTC<T>, timeout: T::BlockNumber, griefing_collateral: DOT<T>)
+        fn request_replace(origin, amount: PolkaBTC<T>, griefing_collateral: DOT<T>)
             -> DispatchResult
         {
             let old_vault = ensure_signed(origin)?;
-            Self::_request_replace(old_vault, amount, timeout, griefing_collateral)?;
+            Self::_request_replace(old_vault, amount, griefing_collateral)?;
             Ok(())
         }
 
@@ -98,14 +98,13 @@ decl_module! {
         ///
         /// # Arguments
         ///
-        /// * `origin` - sender of the transaction
-        /// * `vault_id` - the of the vault to cancel the request
-        /// * `replace_id` - the unique identifier for the specific request
-        fn withdraw_replace_request(origin, vault_id: T::AccountId, replace_id: H256)
+        /// * `origin` - sender of the transaction: the old vault
+        /// * `replace_id` - the unique identifier of the replace request
+        fn withdraw_replace_request(origin, replace_id: H256)
             -> DispatchResult
         {
-            let _ = ensure_signed(origin)?;
-            Self::_withdraw_replace_request(vault_id, replace_id)?;
+            let old_vault = ensure_signed(origin)?;
+            Self::_withdraw_replace_request(old_vault, replace_id)?;
             Ok(())
         }
 
@@ -113,14 +112,14 @@ decl_module! {
         ///
         /// # Arguments
         ///
-        /// * `origin` - sender of the transaction
-        /// * `vault_id` - the of the vault to cancel the request
+        /// * `origin` - the initiator of the transaction: the new vault
         /// * `replace_id` - the unique identifier for the specific request
-        fn accept_replace(origin, new_vault_id: T::AccountId, replace_id: H256, collateral: DOT<T>)
+        /// * `collateral` - the collateral for replacement
+        fn accept_replace(origin, replace_id: H256, collateral: DOT<T>)
             -> DispatchResult
         {
-            let _ = ensure_signed(origin)?;
-            Self::_accept_replace(new_vault_id, replace_id, collateral)?;
+            let new_vault = ensure_signed(origin)?;
+            Self::_accept_replace(new_vault, replace_id, collateral)?;
             Ok(())
         }
 
@@ -128,26 +127,43 @@ decl_module! {
         ///
         /// # Arguments
         ///
-        /// * `origin` - sender of the transaction
-        /// * `vault_id` - the of the vault to cancel the request
-        /// * `replace_id` - the unique identifier for the specific request
-        fn auction_replace(origin, old_vault_id: T::AccountId, new_vault_id: T::AccountId, btc_amount: PolkaBTC<T>, collateral: DOT<T>)
+        /// * `origin` - sender of the transaction: the new vault
+        /// * `old_vault` - the old vault of the replacement request
+        /// * `btc_amount` - the btc amount to be transferred over from old to new
+        /// * `collateral` - the collateral to be transferred over from old to new
+        fn auction_replace(origin, old_vault: T::AccountId, btc_amount: PolkaBTC<T>, collateral: DOT<T>)
             -> DispatchResult
         {
-            let _ = ensure_signed(origin)?;
-            Self::_auction_replace(old_vault_id, new_vault_id, btc_amount, collateral)?;
+            let new_vault = ensure_signed(origin)?;
+            Self::_auction_replace(old_vault, new_vault, btc_amount, collateral)?;
             Ok(())
         }
 
-        fn execute_replace(origin, new_vault_id: T::AccountId, replace_id: H256, tx_id: H256Le, tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
-            let _ = ensure_signed(origin)?;
-            Self::_execute_replace(new_vault_id, replace_id, tx_id, tx_block_height, merkle_proof, raw_tx)?;
+        /// Execute vault replacement
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - sender of the transaction: the new vault
+        /// * `replace_id` - the ID of the replacement request
+        /// * `tx_id` - the backing chain transaction id
+        /// * `tx_block_height` - the blocked height of the backing transaction
+        /// * 'merkle_proof' - the merkle root of the block
+        /// * `raw_tx` - the transaction id in bytes
+        fn execute_replace(origin, replace_id: H256, tx_id: H256Le, tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
+            let new_vault = ensure_signed(origin)?;
+            Self::_execute_replace(new_vault, replace_id, tx_id, tx_block_height, merkle_proof, raw_tx)?;
             Ok(())
         }
 
-        fn cancel_replace(origin, new_vault_id: T::AccountId, replace_id: H256) -> DispatchResult {
-            let _ = ensure_signed(origin)?;
-            Self::_cancel_replace(new_vault_id, replace_id)?;
+        /// Cancel vault replacement
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - sender of the transaction: the new vault
+        /// * `replace_id` - the ID of the replacement request
+        fn cancel_replace(origin, replace_id: H256) -> DispatchResult {
+            let new_vault = ensure_signed(origin)?;
+            Self::_cancel_replace(new_vault, replace_id)?;
             Ok(())
         }
     }
@@ -159,19 +175,15 @@ impl<T: Trait> Module<T> {
     fn _request_replace(
         vault_id: T::AccountId,
         mut amount: PolkaBTC<T>,
-        timeout: T::BlockNumber,
         griefing_collateral: DOT<T>,
     ) -> UnitResult {
-        // check preconditions
+        // Check that Parachain status is RUNNING
+        ext::security::ensure_parachain_status_running::<T>()?;
+
         // check amount is non zero
         let zero: PolkaBTC<T> = 0u32.into();
         if amount == zero {
             return Err(Error::InvalidAmount);
-        }
-        // check timeout
-        let zero: T::BlockNumber = 0.into();
-        if timeout == zero {
-            return Err(Error::InvalidTimeout);
         }
         // check vault exists
         let vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
@@ -199,7 +211,7 @@ impl<T: Trait> Module<T> {
         // step 8: Call the increaseToBeRedeemedTokens function with the oldVault and the btcAmount to ensure that the oldVault’s tokens cannot be redeemed when a replace procedure is happening.
         ext::vault_registry::increase_to_be_redeemed_tokens::<T>(&vault_id, amount.clone())?;
         // step 9: Generate a replaceId by hashing a random seed, a nonce, and the address of the Requester.
-        let replace_id = ext::security::gen_secure_id::<T>(vault_id.clone());
+        let replace_id = ext::security::get_secure_id::<T>(&vault_id);
         // step 10: Create new ReplaceRequest entry:
         let replace = Replace {
             old_vault: vault_id.clone(),
@@ -212,11 +224,8 @@ impl<T: Trait> Module<T> {
             btc_address: vault.btc_address,
         };
         Self::insert_replace_request(replace_id, replace);
-        // step 11: Emit RequestReplace(vault, btcAmount, timeout, replaceId)
-        Self::deposit_event(<Event<T>>::RequestReplace(
-            vault_id, amount, timeout, replace_id,
-        ));
-        println!("Emitted event");
+        // step 11: Emit RequestReplace event
+        Self::deposit_event(<Event<T>>::RequestReplace(vault_id, amount, replace_id));
         // step 12
         Ok(())
     }
@@ -259,6 +268,8 @@ impl<T: Trait> Module<T> {
         replace_id: H256,
         collateral: DOT<T>,
     ) -> Result<(), Error> {
+        // Check that Parachain status is RUNNING
+        ext::security::ensure_parachain_status_running::<T>()?;
         // step 1: Retrieve the ReplaceRequest as per the replaceId parameter from ReplaceRequests. Return ERR_REPLACE_ID_NOT_FOUND error if no such ReplaceRequest was found.
         let mut replace = Self::get_replace_request(replace_id)?;
         // step 2: Retrieve the Vault as per the newVault parameter from Vaults in the VaultRegistry
@@ -292,6 +303,8 @@ impl<T: Trait> Module<T> {
         btc_amount: PolkaBTC<T>,
         collateral: DOT<T>,
     ) -> Result<(), Error> {
+        // Check that Parachain status is RUNNING
+        ext::security::ensure_parachain_status_running::<T>()?;
         // step 1: Retrieve the newVault as per the newVault parameter from Vaults in the VaultRegistry
         let new_vault = ext::vault_registry::get_vault_from_id::<T>(&new_vault_id)?;
         // step 2: Retrieve the oldVault as per the oldVault parameter from Vaults in the VaultRegistry
@@ -313,7 +326,7 @@ impl<T: Trait> Module<T> {
         // step 6: Call the increaseToBeRedeemedTokens function with the oldVault and the btcAmount
         ext::vault_registry::increase_to_be_redeemed_tokens::<T>(&old_vault_id, btc_amount)?;
         // step 8: Create a new ReplaceRequest named replace entry:
-        let replace_id = ext::security::gen_secure_id::<T>(new_vault_id.clone());
+        let replace_id = ext::security::get_secure_id::<T>(&new_vault_id);
         let current_height = Self::current_height();
         Self::insert_replace_request(
             replace_id,
@@ -348,6 +361,8 @@ impl<T: Trait> Module<T> {
         merkle_proof: Vec<u8>,
         raw_tx: Vec<u8>,
     ) -> Result<(), Error> {
+        // Check that Parachain status is RUNNING
+        ext::security::ensure_parachain_status_running::<T>()?;
         // step 1: Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
         let replace = Self::get_replace_request(replace_id)?;
         // step 2: Check that the current Parachain block height minus the ReplacePeriod is smaller than the opentime of the ReplaceRequest
@@ -395,6 +410,8 @@ impl<T: Trait> Module<T> {
     }
 
     fn _cancel_replace(new_vault_id: T::AccountId, replace_id: H256) -> Result<(), Error> {
+        // Check that Parachain status is RUNNING
+        ext::security::ensure_parachain_status_running::<T>()?;
         // step 1: Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
         let replace = Self::get_replace_request(replace_id)?;
         // step 2: Check that the current Parachain block height minus the ReplacePeriod is greater than the opentime of the ReplaceRequest

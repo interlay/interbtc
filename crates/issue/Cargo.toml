@@ -82,7 +82,6 @@ path = '../treasury'
 [dependencies.bitcoin]
 default-features = false
 path = '../bitcoin'
-version = '0.1.0'
 
 [dependencies.x-core]
 default-features = false
