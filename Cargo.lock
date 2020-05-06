@@ -3764,6 +3764,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "redeem"
+version = "0.1.0"
+dependencies = [
+ "bitcoin",
+ "btc-relay",
+ "collateral",
+ "exchange-rate-oracle",
+ "frame-support",
+ "frame-system",
+ "mocktopus",
+ "pallet-balances",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "primitive-types",
+ "security",
+ "serde",
+ "sha2",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "treasury",
+ "vault-registry",
+ "x-core",
+]
+
+[[package]]
 name = "redox_syscall"
 version = "0.1.56"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3794,6 +3821,33 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4a83fa3702a688b9359eccba92d153ac33fd2e8462f9e0e3fdf155239ea7792e"
 dependencies = [
  "winapi 0.3.8",
+]
+
+[[package]]
+name = "replace"
+version = "0.1.0"
+dependencies = [
+ "bitcoin",
+ "btc-relay",
+ "collateral",
+ "exchange-rate-oracle",
+ "frame-support",
+ "frame-system",
+ "mocktopus",
+ "pallet-balances",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "primitive-types",
+ "security",
+ "serde",
+ "sha2",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "treasury",
+ "vault-registry",
+ "x-core",
 ]
 
 [[package]]

@@ -739,8 +739,6 @@ fn test_verify_block_header_low_diff_fails() {
     });
 }
 
-// TODO: this currently fails with TX_FORMAT error in parser
-
 #[test]
 fn test_validate_transaction_succeeds() {
     run_test(|| {
@@ -903,6 +901,53 @@ fn test_validate_transaction_incorrect_opreturn_fails() {
             ),
             Error::InvalidOpreturn
         )
+    });
+}
+
+#[test]
+fn test_verify_and_validate_transaction_succeeds() {
+    run_test(|| {
+        BTCRelay::get_block_chain_from_id
+            .mock_safe(|_| MockResult::Return(Ok(BlockChain::default())));
+
+        let raw_tx = hex::decode(sample_example_real_rawtx()).unwrap();
+        let transaction = parse_transaction(&raw_tx).unwrap();
+        // txid are returned by Bitcoin-core
+        let real_txid = H256Le::from_hex_be(&sample_example_real_txid());
+        let real_tx_hash = H256Le::from_hex_be(&sample_example_real_transaction_hash());
+
+        // see https://learnmeabitcoin.com/explorer/transaction/json.php?txid=c586389e5e4b3acb9d6c8be1c19ae8ab2795397633176f5a6442a261bbdefc3a
+        assert_eq!(transaction.hash(), real_tx_hash);
+        assert_eq!(transaction.tx_id(), real_txid);
+
+        // rest are example values -- not checked in this test.
+        let block_height = 0;
+        let raw_merkle_proof = vec![0u8; 100];
+        let confirmations = 0;
+        let insecure = false;
+        let payment_value: i64 = 0;
+        let recipient_btc_address =
+            hex::decode("66c7060feb882664ae62ffad0051fe843e318e85".to_owned()).unwrap();
+        let op_return_id = hex::decode(
+            "aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned(),
+        )
+        .unwrap();
+        BTCRelay::_validate_transaction.mock_safe(move |_, _, _, _| MockResult::Return(Ok(())));
+        BTCRelay::_verify_transaction_inclusion
+            .mock_safe(move |_, _, _, _, _| MockResult::Return(Ok(())));
+
+        assert_ok!(BTCRelay::verify_and_validate_transaction(
+            Origin::signed(3),
+            real_txid,
+            block_height,
+            raw_merkle_proof,
+            confirmations,
+            insecure,
+            raw_tx,
+            payment_value,
+            recipient_btc_address,
+            op_return_id
+        ));
     });
 }
 
@@ -1626,7 +1671,7 @@ fn sample_transaction_parsed(outputs: &Vec<TransactionOutput>) -> Transaction {
         height: None,
         script: hex::decode("16001443feac9ca9d20883126e30e962ca11fda07f808b".to_owned()).unwrap(),
         sequence: 4294967295,
-        witness: None,
+        witness: vec![],
     };
 
     inputs.push(input);
@@ -1638,4 +1683,16 @@ fn sample_transaction_parsed(outputs: &Vec<TransactionOutput>) -> Transaction {
         block_height: Some(203),
         locktime: Some(0),
     }
+}
+
+fn sample_example_real_rawtx() -> String {
+    "0200000000010140d43a99926d43eb0e619bf0b3d83b4a31f60c176beecfb9d35bf45e54d0f7420100000017160014a4b4ca48de0b3fffc15404a1acdc8dbaae226955ffffffff0100e1f5050000000017a9144a1154d50b03292b3024370901711946cb7cccc387024830450221008604ef8f6d8afa892dee0f31259b6ce02dd70c545cfcfed8148179971876c54a022076d771d6e91bed212783c9b06e0de600fab2d518fad6f15a2b191d7fbd262a3e0121039d25ab79f41f75ceaf882411fd41fa670a4c672c23ffaf0e361a969cde0692e800000000".to_owned()
+}
+
+fn sample_example_real_txid() -> String {
+    "c586389e5e4b3acb9d6c8be1c19ae8ab2795397633176f5a6442a261bbdefc3a".to_owned()
+}
+
+fn sample_example_real_transaction_hash() -> String {
+    "b759d39a8596b70b3a46700b83e1edb247e17ba58df305421864fe7a9ac142ea".to_owned()
 }

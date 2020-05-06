@@ -30,6 +30,7 @@ use system::ensure_signed;
 
 use x_core::{Error, Result, UnitResult};
 
+use crate::sp_api_hidden_includes_decl_storage::hidden_include::IterableStorageMap;
 pub use crate::types::Vault;
 use crate::types::{DefaultVault, PolkaBTC, RichVault, DOT};
 
@@ -170,6 +171,22 @@ decl_module! {
 #[cfg_attr(test, mockable)]
 impl<T: Trait> Module<T> {
     /// Public functions
+    pub fn _punishment_fee() -> u128 {
+        PunishmentFee::get()
+    }
+
+    pub fn _premium_redeem_threshold() -> u128 {
+        PremiumRedeemThreshold::get()
+    }
+
+    pub fn _redeem_premium_fee() -> u128 {
+        RedeemPremiumFee::get()
+    }
+
+    pub fn _ban_vault(vault_id: T::AccountId, height: T::BlockNumber) {
+        <crate::Vaults<T>>::mutate(vault_id, |v| v.banned_until = Some(height));
+    }
+
     pub fn _get_vault_from_id(vault_id: &T::AccountId) -> Result<DefaultVault<T>> {
         ensure!(Self::vault_exists(&vault_id), Error::VaultNotFound);
         Ok(<Vaults<T>>::get(vault_id))
@@ -335,7 +352,6 @@ impl<T: Trait> Module<T> {
     }
 
     /// Threshold checks
-
     pub fn _is_vault_below_secure_threshold(vault_id: &T::AccountId) -> Result<bool> {
         Self::is_vault_below_threshold(&vault_id, <SecureCollateralThreshold>::get())
     }
@@ -374,6 +390,25 @@ impl<T: Trait> Module<T> {
 
     pub fn _set_liquidation_collateral_threshold(threshold: u128) {
         <LiquidationCollateralThreshold>::set(threshold);
+
+    pub fn _is_over_minimum_collateral(amount: DOT<T>) -> bool {
+        amount > Self::get_minimum_collateral_vault()
+    }
+
+    pub fn total_liquidation_value() -> Result<u128> {
+        let btcdot_spot_rate = <exchange_rate_oracle::Module<T>>::get_exchange_rate()?;
+        let mut total = 0u128;
+        for (vault_id, vault) in <Vaults<T>>::iter() {
+            let raw_issued_tokens: u128 =
+                TryInto::<u128>::try_into(vault.issued_tokens).map_err(|_| Error::RuntimeError)?;
+            let collateral: u128 = TryInto::<u128>::try_into(
+                <collateral::Module<T>>::get_collateral_from_account(&vault_id),
+            )
+            .map_err(|_| Error::RuntimeError)?;
+            let liquidation_val = raw_issued_tokens * btcdot_spot_rate - collateral;
+            total += liquidation_val;
+        }
+        Ok(total)
     }
 
     /// Private getters and setters
@@ -389,6 +424,14 @@ impl<T: Trait> Module<T> {
 
     fn get_minimum_collateral_vault() -> DOT<T> {
         <MinimumCollateralVault<T>>::get()
+    }
+
+    pub fn auction_collateral_threshold() -> u128 {
+        AuctionCollateralThreshold::get()
+    }
+
+    pub fn secure_collateral_threshold() -> u128 {
+        SecureCollateralThreshold::get()
     }
 
     /// Other helpers
