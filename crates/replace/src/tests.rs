@@ -827,18 +827,20 @@ fn test_cancel_replace_succeeds() {
 fn test_request_replace_parachain_not_running_fails() {
     run_test(|| {
         ext::security::ensure_parachain_status_running::<Test>
-        .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
+            .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
         assert_noop!(request_replace(10_000, 1, 1, 0), Error::ParachainNotRunning);
     })
 }
-
 
 #[test]
 fn test_accept_replace_parachain_not_running_fails() {
     run_test(|| {
         ext::security::ensure_parachain_status_running::<Test>
-        .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
-        assert_noop!(accept_replace(BOB, H256::zero(), 1), Error::ParachainNotRunning);
+            .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
+        assert_noop!(
+            accept_replace(BOB, H256::zero(), 1),
+            Error::ParachainNotRunning
+        );
     })
 }
 
@@ -846,8 +848,11 @@ fn test_accept_replace_parachain_not_running_fails() {
 fn test_auction_replace_parachain_not_running_fails() {
     run_test(|| {
         ext::security::ensure_parachain_status_running::<Test>
-        .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
-        assert_noop!(auction_replace(ALICE, BOB, 1, 1), Error::ParachainNotRunning);
+            .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
+        assert_noop!(
+            auction_replace(ALICE, BOB, 1, 1),
+            Error::ParachainNotRunning
+        );
     })
 }
 
@@ -855,15 +860,18 @@ fn test_auction_replace_parachain_not_running_fails() {
 fn test_execute_replace_parachain_not_running_fails() {
     run_test(|| {
         ext::security::ensure_parachain_status_running::<Test>
-        .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
-        assert_noop!(execute_replace(
-            ALICE, 
-            H256::zero(), 
-            H256Le::zero(),
-            1,
-            Vec::new(), 
-            Vec::new()),
-            Error::ParachainNotRunning);
+            .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
+        assert_noop!(
+            execute_replace(
+                ALICE,
+                H256::zero(),
+                H256Le::zero(),
+                1,
+                Vec::new(),
+                Vec::new()
+            ),
+            Error::ParachainNotRunning
+        );
     })
 }
 
@@ -871,8 +879,11 @@ fn test_execute_replace_parachain_not_running_fails() {
 fn test_cancel_replace_parachain_not_running_fails() {
     run_test(|| {
         ext::security::ensure_parachain_status_running::<Test>
-        .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
-        assert_noop!(cancel_replace(ALICE, H256::zero()), Error::ParachainNotRunning);
+            .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
+        assert_noop!(
+            cancel_replace(ALICE, H256::zero()),
+            Error::ParachainNotRunning
+        );
     })
 }
 
@@ -899,7 +910,7 @@ fn test_withdraw_replace_parachain_not_running_succeeds() {
             .mock_safe(|_, _| MockResult::Return(Ok(())));
 
         ext::security::ensure_parachain_status_running::<Test>
-        .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
+            .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
 
         Replace::remove_replace_request.mock_safe(|_| MockResult::Return(()));
 

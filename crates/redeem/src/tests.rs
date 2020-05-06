@@ -243,7 +243,6 @@ fn test_partial_redeem_factor() {
 #[test]
 fn test_request_redeem_succeeds_in_error_state() {
     run_test(|| {
-
         ext::security::ensure_parachain_status_has_only_specific_errors::<Test>
             .mock_safe(|_| MockResult::Return(Ok(())));
 

@@ -27,8 +27,8 @@ use primitive_types::H256;
 use sha2::{Digest, Sha256};
 use sp_core::U256;
 use sp_std::collections::btree_set::BTreeSet;
-use x_core::{Error, UnitResult};
 use sp_std::vec::Vec;
+use x_core::{Error, UnitResult};
 
 /// ## Configuration
 /// The pallet's configuration trait.
@@ -83,11 +83,13 @@ impl<T: Trait> Module<T> {
     ///   * `error_codes` - list of `ErrorCode` to be checked
     ///
     /// Returns the first error that is encountered, or Ok(()) if none of the errors were found
-    pub fn _ensure_parachain_status_has_not_specific_errors(error_codes: Vec<ErrorCode>) -> UnitResult {
+    pub fn _ensure_parachain_status_has_not_specific_errors(
+        error_codes: Vec<ErrorCode>,
+    ) -> UnitResult {
         if <ParachainStatus>::get() == StatusCode::Error {
             for error_code in error_codes {
                 if <Errors>::get().contains(&error_code) {
-                   return Self::match_error_code_to_error(&error_code);
+                    return Self::match_error_code_to_error(&error_code);
                 }
             }
         }
@@ -100,9 +102,11 @@ impl<T: Trait> Module<T> {
     ///
     ///   * `error_codes` - list of `ErrorCode` to be checked
     ///
-    /// Returns the first unexpected error that is encountered, 
-    /// or Ok(()) if only expected errors / no errors at all were found 
-    pub fn _ensure_parachain_status_has_only_specific_errors(error_codes: Vec<ErrorCode>) -> UnitResult {
+    /// Returns the first unexpected error that is encountered,
+    /// or Ok(()) if only expected errors / no errors at all were found
+    pub fn _ensure_parachain_status_has_only_specific_errors(
+        error_codes: Vec<ErrorCode>,
+    ) -> UnitResult {
         if <ParachainStatus>::get() == StatusCode::Error {
             let mut temp_errors = <Errors>::get().clone();
 
@@ -113,14 +117,14 @@ impl<T: Trait> Module<T> {
             }
 
             match temp_errors.iter().next() {
-                Some(error_code) =>  return Self::match_error_code_to_error(error_code),
-                None => return Ok(()) 
+                Some(error_code) => return Self::match_error_code_to_error(error_code),
+                None => return Ok(()),
             }
         }
-        return Ok(())
+        return Ok(());
     }
 
-    fn match_error_code_to_error(error_code: &ErrorCode) -> UnitResult{
+    fn match_error_code_to_error(error_code: &ErrorCode) -> UnitResult {
         match error_code {
             ErrorCode::NoDataBTCRelay => return Err(Error::NoData),
             ErrorCode::InvalidBTCRelay => return Err(Error::Invalid),

@@ -17,11 +17,9 @@ fn request_issue(
     collateral: Balance,
 ) -> Result<H256, Error> {
     // Default: Parachain status is "RUNNING". Set manually for failure testing
-    ext::security::ensure_parachain_status_running::<Test>
-        .mock_safe(|| MockResult::Return(Ok(())));
+    ext::security::ensure_parachain_status_running::<Test>.mock_safe(|| MockResult::Return(Ok(())));
 
-    ext::security::get_secure_id::<Test>
-        .mock_safe(|_| MockResult::Return(get_dummy_request_id()));
+    ext::security::get_secure_id::<Test>.mock_safe(|_| MockResult::Return(get_dummy_request_id()));
 
     ext::vault_registry::increase_to_be_issued_tokens::<Test>
         .mock_safe(|_, _| MockResult::Return(Ok(H160::from_slice(&[0; 20]))));
@@ -36,12 +34,10 @@ fn request_issue_ok(
     collateral: Balance,
 ) -> H256 {
     // Default: Parachain status is "RUNNING". Set manually for failure testing
-    ext::security::ensure_parachain_status_running::<Test>
-        .mock_safe(|| MockResult::Return(Ok(())));
+    ext::security::ensure_parachain_status_running::<Test>.mock_safe(|| MockResult::Return(Ok(())));
 
-    ext::security::get_secure_id::<Test>
-        .mock_safe(|_| MockResult::Return(get_dummy_request_id()));
-    
+    ext::security::get_secure_id::<Test>.mock_safe(|_| MockResult::Return(get_dummy_request_id()));
+
     ext::vault_registry::increase_to_be_issued_tokens::<Test>
         .mock_safe(|_, _| MockResult::Return(Ok(H160::from_slice(&[0; 20]))));
 
@@ -247,7 +243,10 @@ fn test_request_issue_parachain_not_running_fails() {
         ext::security::ensure_parachain_status_running::<Test>
             .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
 
-        assert_noop!(Issue::_request_issue(origin, amount, vault, 0), Error::ParachainNotRunning);
+        assert_noop!(
+            Issue::_request_issue(origin, amount, vault, 0),
+            Error::ParachainNotRunning
+        );
     })
 }
 
@@ -259,13 +258,16 @@ fn test_execute_issue_parachain_not_running_fails() {
         ext::security::ensure_parachain_status_running::<Test>
             .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
 
-        assert_noop!(Issue::_execute_issue(
-            origin,
-            H256::zero(),
-            H256Le::zero(),
-            0,
-            vec![0u8; 100],
-            vec![0u8; 100],
-        ), Error::ParachainNotRunning);
+        assert_noop!(
+            Issue::_execute_issue(
+                origin,
+                H256::zero(),
+                H256Le::zero(),
+                0,
+                vec![0u8; 100],
+                vec![0u8; 100],
+            ),
+            Error::ParachainNotRunning
+        );
     })
 }

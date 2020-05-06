@@ -145,10 +145,9 @@ impl<T: Trait> Module<T> {
         vault_id: T::AccountId,
         griefing_collateral: DOT<T>,
     ) -> Result<H256, Error> {
-
         // Check that Parachain is RUNNING
         ext::security::ensure_parachain_status_running::<T>()?;
-        
+
         let height = <system::Module<T>>::block_number();
         let vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
         // Check that the vault is currently not banned
@@ -166,7 +165,6 @@ impl<T: Trait> Module<T> {
         let btc_address =
             ext::vault_registry::increase_to_be_issued_tokens::<T>(&vault_id, amount)?;
 
-        
         //let mut hasher = Sha256::default();
         // TODO: nonce from security module
         //hasher.input(requester.encode());

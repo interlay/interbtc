@@ -1,12 +1,10 @@
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-
-
 #[cfg_attr(test, mockable)]
 pub(crate) mod security {
+    use security::types::StatusCode;
     use x_core::UnitResult;
-    use security::types::{StatusCode};
 
     pub fn _ensure_parachain_status_running<T: security::Trait>() -> UnitResult {
         <security::Module<T>>::_ensure_parachain_status_running()

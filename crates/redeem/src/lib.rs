@@ -24,7 +24,7 @@ use bitcoin::types::H256Le;
 // Substrate
 use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
 use primitive_types::H256;
-use security::{ErrorCode};
+use security::ErrorCode;
 use sp_core::H160;
 use sp_runtime::ModuleId;
 use sp_std::convert::TryInto;
@@ -315,7 +315,9 @@ impl<T: Trait> Module<T> {
 
     /// Ensure that the parachain is running or a vault is being liquidated.
     fn ensure_parachain_running_or_error_liquidated() -> UnitResult {
-        ext::security::ensure_parachain_status_has_only_specific_errors::<T>([ErrorCode::Liquidation].to_vec())?;
+        ext::security::ensure_parachain_status_has_only_specific_errors::<T>(
+            [ErrorCode::Liquidation].to_vec(),
+        )?;
         ext::security::ensure_parachain_status_running::<T>()
     }
 

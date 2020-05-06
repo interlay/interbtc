@@ -132,9 +132,9 @@ pub(crate) mod treasury {
 #[cfg_attr(test, mockable)]
 pub(crate) mod security {
     use primitive_types::H256;
-    use security::{ErrorCode};
-    use x_core::UnitResult;
+    use security::ErrorCode;
     use sp_std::vec::Vec;
+    use x_core::UnitResult;
 
     pub fn is_parachain_error_liquidation<T: security::Trait>() -> bool {
         <security::Module<T>>::_is_parachain_error_liquidation()
@@ -148,7 +148,9 @@ pub(crate) mod security {
         <security::Module<T>>::_ensure_parachain_status_running()
     }
 
-    pub fn ensure_parachain_status_has_only_specific_errors<T: security::Trait>(error_codes : Vec<ErrorCode>) -> UnitResult {
+    pub fn ensure_parachain_status_has_only_specific_errors<T: security::Trait>(
+        error_codes: Vec<ErrorCode>,
+    ) -> UnitResult {
         <security::Module<T>>::_ensure_parachain_status_has_only_specific_errors(error_codes)
     }
 }
