@@ -4,6 +4,7 @@ use mocktopus::macros::mockable;
 #[cfg_attr(test, mockable)]
 pub(crate) mod btc_relay {
     use bitcoin::types::H256Le;
+    use sp_std::vec::Vec;
     use x_core::UnitResult;
 
     pub fn verify_transaction_inclusion<T: btc_relay::Trait>(

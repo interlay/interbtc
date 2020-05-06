@@ -129,7 +129,6 @@ decl_module! {
                     Error::InsuficientVaultCollateralAmount);
             ensure!(!Self::vault_exists(&sender), Error::VaultAlreadyRegistered);
 
-            println!("[lib] {:?} locks {:?}", sender, collateral);
             ext::collateral::lock::<T>(&sender, collateral)?;
             let vault = RichVault::<T>::new(sender.clone(), btc_address);
             Self::_insert_vault(&sender, &vault);

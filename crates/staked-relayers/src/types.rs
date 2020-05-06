@@ -13,8 +13,7 @@ pub(crate) type PolkaBTC<T> =
     <<T as treasury::Trait>::PolkaBTC as Currency<<T as system::Trait>::AccountId>>::Balance;
 
 // Indicates the state of a proposed StatusUpdate.
-#[derive(Encode, Decode, Clone, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Encode, Decode, Clone, PartialEq, Debug)]
 pub enum ProposalStatus {
     /// StatusUpdate is current under review and is being voted upon
     Pending = 0,
@@ -32,8 +31,7 @@ impl Default for ProposalStatus {
 
 /// ## Structs
 /// Struct storing information on a proposed parachain status update
-#[derive(Encode, Decode, Default, Clone, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
 pub struct StatusUpdate<AccountId: Ord + Clone, BlockNumber, DOT> {
     /// New status of the BTC Parachain.
     pub(crate) new_status_code: StatusCode,
@@ -59,8 +57,7 @@ pub struct StatusUpdate<AccountId: Ord + Clone, BlockNumber, DOT> {
 
 /// Record keeping for yes and no votes. Based loosely on the
 /// democracy pallet in FRAME with restricted functionality.
-#[derive(Encode, Decode, Default, Clone, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
 pub struct Tally<AccountId: Ord> {
     /// Set of accounts which have voted FOR this status update. This can be either Staked Relayers or the Governance Mechanism.
     pub(crate) aye: BTreeSet<AccountId>,
@@ -109,15 +106,13 @@ impl<AccountId: Ord + Clone> Tally<AccountId> {
 }
 
 /// Online staked relayers who are able to participate in votes.
-#[derive(Encode, Decode, Default, Clone, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
 pub struct ActiveStakedRelayer<DOT> {
     pub(crate) stake: DOT,
 }
 
 /// Reason for unavailability, chilled or maturing.
-#[derive(Encode, Decode, Clone, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Encode, Decode, Clone, PartialEq, Debug)]
 pub enum StakedRelayerStatus<BlockNumber> {
     Unknown,
     Idle,                 // deregistered
@@ -131,8 +126,7 @@ impl<BlockNumber> Default for StakedRelayerStatus<BlockNumber> {
 }
 
 /// Offline staked relayers who are not able to participate in a vote.
-#[derive(Encode, Decode, Default, Clone, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
 pub struct InactiveStakedRelayer<BlockNumber, DOT> {
     pub(crate) stake: DOT,
     pub(crate) status: StakedRelayerStatus<BlockNumber>,
