@@ -170,6 +170,11 @@ default-features = false
 package = 'bitcoin'
 path = '../../crates/bitcoin'
 
+[dev-dependencies.primitive-types]
+default-features = false
+version = '0.7.0'
+features= ['codec']
+
 [dev-dependencies]
 mocktopus = '0.7.0'
 x-core = { path = '../../crates/x-core' }

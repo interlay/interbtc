@@ -482,6 +482,7 @@ dependencies = [
  "pallet-timestamp",
  "pallet-transaction-payment",
  "parity-scale-codec",
+ "primitive-types",
  "redeem",
  "replace",
  "security",
