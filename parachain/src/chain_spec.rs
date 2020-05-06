@@ -129,7 +129,14 @@ fn testnet_genesis(
             code: WASM_BINARY.to_vec(),
             changes_trie_config: Default::default(),
         }),
-        balances: Some(BalancesConfig {
+        balances_Instance1: Some(DOTConfig {
+            balances: endowed_accounts
+                .iter()
+                .cloned()
+                .map(|k| (k, 1 << 60))
+                .collect(),
+        }),
+        balances_Instance2: Some(PolkaBTCConfig {
             balances: endowed_accounts
                 .iter()
                 .cloned()
