@@ -4,10 +4,11 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use crate::types::*;
 use primitive_types::U256;
 use sp_std::prelude::*;
 use x_core::Error;
+
+use crate::types::*;
 
 /// Type to be parsed from a bytes array
 pub(crate) trait Parsable: Sized {
@@ -377,7 +378,13 @@ fn parse_transaction_output(raw_output: &[u8]) -> Result<(TransactionOutput, usi
         return Err(Error::MalformedTransaction);
     }
     let script = parser.read(script_size.value as usize)?;
-    Ok((TransactionOutput { value, script }, parser.position))
+    Ok((
+        TransactionOutput {
+            value,
+            script: script.into(),
+        },
+        parser.position,
+    ))
 }
 
 pub fn extract_address_hash(output_script: &[u8]) -> Result<Vec<u8>, Error> {
@@ -627,7 +634,7 @@ pub(crate) mod tests {
         assert_eq!(outputs.len(), 1);
         assert_eq!(outputs[0].value, 100000000);
         assert_eq!(
-            &hex::encode(&outputs[0].script),
+            &outputs[0].script.as_hex(),
             "a9144a1154d50b03292b3024370901711946cb7cccc387"
         );
         assert_eq!(transaction.block_height, Some(0));

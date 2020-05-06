@@ -1,16 +1,154 @@
 extern crate hex;
 
-use crate::formatter::Formattable;
-use crate::parser::*;
-use crate::utils::*;
 use codec::alloc::string::String;
 use codec::{Decode, Encode};
 use primitive_types::{H256, U256};
 use sp_std::collections::btree_set::BTreeSet;
+use sp_std::convert::TryFrom;
 use sp_std::prelude::*;
 use x_core::Error;
 
+use crate::formatter::Formattable;
+use crate::parser::{extract_address_hash, extract_op_return_data, FromLeBytes};
+use crate::utils::{reverse_endianness, sha256d_le};
+
 pub(crate) const SERIALIZE_TRANSACTION_NO_WITNESS: i32 = 0x4000_0000;
+
+// Bitcoin Script OpCodes
+// https://github.com/bitcoin/bitcoin/blob/master/src/script/script.h
+pub enum OpCode {
+    // push value
+    Op0 = 0x00,
+    OpPushData1 = 0x4c,
+    OpPushData2 = 0x4d,
+    OpPushData4 = 0x4e,
+    Op1Negate = 0x4f,
+    OpReserved = 0x50,
+    Op1 = 0x51,
+    Op2 = 0x52,
+    Op3 = 0x53,
+    Op4 = 0x54,
+    Op5 = 0x55,
+    Op6 = 0x56,
+    Op7 = 0x57,
+    Op8 = 0x58,
+    Op9 = 0x59,
+    Op10 = 0x5a,
+    Op11 = 0x5b,
+    Op12 = 0x5c,
+    Op13 = 0x5d,
+    Op14 = 0x5e,
+    Op15 = 0x5f,
+    Op16 = 0x60,
+
+    // control
+    OpNop = 0x61,
+    OpVer = 0x62,
+    OpIf = 0x63,
+    OpNotIf = 0x64,
+    OpVerIf = 0x65,
+    OpVerNotIf = 0x66,
+    OpElse = 0x67,
+    OpEndIf = 0x68,
+    OpVerify = 0x69,
+    OpReturn = 0x6a,
+
+    // stack ops
+    OpToaltStack = 0x6b,
+    OpFromAltStack = 0x6c,
+    Op2Drop = 0x6d,
+    Op2Dup = 0x6e,
+    Op3Dup = 0x6f,
+    Op2Over = 0x70,
+    Op2Rot = 0x71,
+    Op2Swap = 0x72,
+    OpIfdup = 0x73,
+    OpDepth = 0x74,
+    OpDrop = 0x75,
+    OpDup = 0x76,
+    OpNip = 0x77,
+    OpOver = 0x78,
+    OpPick = 0x79,
+    OpRoll = 0x7a,
+    OpRot = 0x7b,
+    OpSwap = 0x7c,
+    OpTuck = 0x7d,
+
+    // splice ops
+    OpCat = 0x7e,
+    OpSubstr = 0x7f,
+    OpLeft = 0x80,
+    OpRight = 0x81,
+    OpSize = 0x82,
+
+    // bit logic
+    OpInvert = 0x83,
+    OpAnd = 0x84,
+    OpOr = 0x85,
+    OpXor = 0x86,
+    OpEqual = 0x87,
+    OpEqualVerify = 0x88,
+    OpReserved1 = 0x89,
+    OpReserved2 = 0x8a,
+
+    // numeric
+    Op1Add = 0x8b,
+    Op1Sub = 0x8c,
+    Op2Mul = 0x8d,
+    Op2Div = 0x8e,
+    OpNegate = 0x8f,
+    OpAbs = 0x90,
+    OpNot = 0x91,
+    Op0NotEqual = 0x92,
+
+    OpAdd = 0x93,
+    OpSub = 0x94,
+    OpMul = 0x95,
+    OpDiv = 0x96,
+    OpMod = 0x97,
+    OpLshift = 0x98,
+    OpRshift = 0x99,
+
+    OpBooland = 0x9a,
+    OpBoolor = 0x9b,
+    OpNumEqual = 0x9c,
+    OpNumEqualVerify = 0x9d,
+    OpNumNotEqual = 0x9e,
+    OpLessThan = 0x9f,
+    OpGreaterThan = 0xa0,
+    OpLessThanOrEqual = 0xa1,
+    OpGreaterThanOrEqual = 0xa2,
+    OpMin = 0xa3,
+    OpMax = 0xa4,
+
+    OpWithin = 0xa5,
+
+    // crypto
+    OpRipemd160 = 0xa6,
+    OpSha1 = 0xa7,
+    OpSha256 = 0xa8,
+    OpHash160 = 0xa9,
+    OpHash256 = 0xaa,
+    OpCodeSeparator = 0xab,
+    OpCheckSig = 0xac,
+    OpCheckSigverify = 0xad,
+    OpCheckMultisig = 0xae,
+    OpCheckMultisigVerify = 0xaf,
+
+    // expansion
+    OpNop1 = 0xb0,
+    OpCheckLocktimeVerify = 0xb1,
+    OpCheckSequenceVerify = 0xb2,
+    OpNop4 = 0xb3,
+    OpNop5 = 0xb4,
+    OpNop6 = 0xb5,
+    OpNop7 = 0xb6,
+    OpNop8 = 0xb7,
+    OpNop9 = 0xb8,
+    OpNop10 = 0xb9,
+
+    OpInvalidOpcode,
+}
 
 /// Custom Types
 /// Bitcoin Raw Block Header type
@@ -45,7 +183,7 @@ impl RawBlockHeader {
 
     /// Returns the hash of the block header using Bitcoin's double sha256
     pub fn hash(&self) -> H256Le {
-        H256Le::from_bytes_le(&sha256d(self.as_slice()))
+        sha256d_le(self.as_slice())
     }
 
     /// Returns the block header as a slice
@@ -73,7 +211,9 @@ pub const P2PKH_SCRIPT_SIZE: u32 = 25;
 pub const P2SH_SCRIPT_SIZE: u32 = 23;
 pub const HASH160_SIZE_HEX: u8 = 0x14;
 pub const MAX_OPRETURN_SIZE: usize = 83;
+
 /// Structs
+
 /// Bitcoin Basic Block Headers
 // TODO: Figure out how to set a pointer to the ChainIndex mapping instead
 #[derive(Encode, Decode, Default, Copy, Clone, PartialEq, Debug)]
@@ -105,11 +245,62 @@ impl TransactionInput {
     }
 }
 
+/// Bitcoin script
+#[derive(PartialEq, Debug, Clone)]
+pub struct Script {
+    pub(crate) bytes: Vec<u8>,
+}
+
+impl Script {
+    pub fn new() -> Script {
+        Script { bytes: vec![] }
+    }
+
+    pub fn append<T: Formattable<U>, U>(&mut self, value: T) {
+        self.bytes.extend(&value.format())
+    }
+
+    pub fn extract_address(&self) -> Result<Vec<u8>, Error> {
+        extract_address_hash(&self.bytes)
+    }
+
+    pub fn extract_op_return_data(&self) -> Result<Vec<u8>, Error> {
+        extract_op_return_data(&self.bytes)
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+
+    pub fn as_hex(&self) -> String {
+        hex::encode(&self.bytes)
+    }
+
+    pub fn len(&self) -> usize {
+        self.bytes.len()
+    }
+}
+
+impl From<Vec<u8>> for Script {
+    fn from(bytes: Vec<u8>) -> Script {
+        Script { bytes: bytes }
+    }
+}
+
+impl TryFrom<&str> for Script {
+    type Error = x_core::Error;
+
+    fn try_from(hex_string: &str) -> Result<Script, Self::Error> {
+        let bytes = hex::decode(hex_string).map_err(|_e| Error::RuntimeError)?;
+        Ok(Script { bytes: bytes })
+    }
+}
+
 /// Bitcoin transaction output
 #[derive(PartialEq, Debug, Clone)]
 pub struct TransactionOutput {
     pub value: i64,
-    pub script: Vec<u8>,
+    pub script: Script,
 }
 
 /// Bitcoin transaction
@@ -243,7 +434,7 @@ impl H256Le {
 
     /// Hashes the value a single time using sha256
     pub fn sha256d(&self) -> Self {
-        Self::from_bytes_le(&sha256d(&self.to_bytes_le()))
+        sha256d_le(&self.to_bytes_le())
     }
 }
 
@@ -258,16 +449,6 @@ impl sp_std::fmt::LowerHex for H256Le {
     fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
         write!(f, "{}", self.to_hex_be())
     }
-}
-
-// Bitcoin Script OpCodes
-pub enum OpCode {
-    OpDup = 0x76,
-    OpHash160 = 0xa9,
-    OpEqualVerify = 0x88,
-    OpCheckSig = 0xac,
-    OpEqual = 0x87,
-    OpReturn = 0x6a,
 }
 
 impl PartialEq<H256Le> for H256 {
@@ -298,6 +479,8 @@ impl CompactUint {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    use crate::parser::parse_transaction;
 
     fn sample_example_real_rawtx() -> String {
         "0200000000010140d43a99926d43eb0e619bf0b3d83b4a31f60c176beecfb9d35bf45e54d0f7420100000017160014a4b4ca48de0b3fffc15404a1acdc8dbaae226955ffffffff0100e1f5050000000017a9144a1154d50b03292b3024370901711946cb7cccc387024830450221008604ef8f6d8afa892dee0f31259b6ce02dd70c545cfcfed8148179971876c54a022076d771d6e91bed212783c9b06e0de600fab2d518fad6f15a2b191d7fbd262a3e0121039d25ab79f41f75ceaf882411fd41fa670a4c672c23ffaf0e361a969cde0692e800000000".to_owned()

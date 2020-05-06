@@ -9,6 +9,7 @@ use bitcoin::types::*;
 use frame_support::{assert_err, assert_ok};
 use security::ErrorCode;
 use sp_std::collections::btree_set::BTreeSet;
+use sp_std::convert::TryInto;
 use x_core::Error;
 
 use mocktopus::mocking::*;
@@ -1731,43 +1732,45 @@ fn sample_rich_tx_block_header(chain_ref: u32, block_height: u32) -> RichBlockHe
 fn sample_valid_payment_output() -> TransactionOutput {
     TransactionOutput {
         value: 2500200000,
-        script: hex::decode("a91466c7060feb882664ae62ffad0051fe843e318e8587".to_owned()).unwrap(),
+        script: "a91466c7060feb882664ae62ffad0051fe843e318e8587"
+            .try_into()
+            .unwrap(),
     }
 }
 
 fn sample_insufficient_value_payment_output() -> TransactionOutput {
     TransactionOutput {
         value: 100,
-        script: hex::decode("a91466c7060feb882664ae62ffad0051fe843e318e8587".to_owned()).unwrap(),
+        script: "a91466c7060feb882664ae62ffad0051fe843e318e8587"
+            .try_into()
+            .unwrap(),
     }
 }
 
 fn sample_wrong_recipient_payment_output() -> TransactionOutput {
     TransactionOutput {
         value: 2500200000,
-        script: hex::decode("a914000000000000000000000000000000000000000087".to_owned()).unwrap(),
+        script: "a914000000000000000000000000000000000000000087"
+            .try_into()
+            .unwrap(),
     }
 }
 
 fn sample_valid_data_output() -> TransactionOutput {
     TransactionOutput {
         value: 0,
-        script: hex::decode(
-            "6a24aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675"
-                .to_owned(),
-        )
-        .unwrap(),
+        script: "6a24aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675"
+            .try_into()
+            .unwrap(),
     }
 }
 
 fn sample_incorrect_data_output() -> TransactionOutput {
     TransactionOutput {
         value: 0,
-        script: hex::decode(
-            "6a24000000000000000000000000000000000000000000000000000000000000000000000000"
-                .to_owned(),
-        )
-        .unwrap(),
+        script: "6a24000000000000000000000000000000000000000000000000000000000000000000000000"
+            .try_into()
+            .unwrap(),
     }
 }
 

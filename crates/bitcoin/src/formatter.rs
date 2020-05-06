@@ -1,7 +1,7 @@
 use sp_std::vec::Vec;
 
 use crate::types::{
-    CompactUint, H256Le, Transaction, TransactionInput, TransactionOutput,
+    CompactUint, H256Le, Script, Transaction, TransactionInput, TransactionOutput,
     SERIALIZE_TRANSACTION_NO_WITNESS,
 };
 
@@ -9,7 +9,7 @@ const WITNESS_FLAG: u8 = 0x01;
 const WITNESS_MARKER: u8 = 0x00;
 
 /// Type to be formatted as a bytes array
-pub(crate) trait Formattable<Options = ()> {
+pub trait Formattable<Options = ()> {
     fn format(&self) -> Vec<u8>;
     fn format_with(&self, _options: Options) -> Vec<u8> {
         self.format()
@@ -114,6 +114,12 @@ impl Formattable<bool> for TransactionInput {
         formatter.output(&self.script); // we already formatted the length
         formatter.format(self.sequence);
         formatter.result()
+    }
+}
+
+impl Formattable for Script {
+    fn format(&self) -> Vec<u8> {
+        self.bytes.format()
     }
 }
 

@@ -31,9 +31,7 @@ use system::ensure_signed;
 
 // Crates
 use bitcoin::merkle::{MerkleProof, ProofResult};
-use bitcoin::parser::{
-    extract_address_hash, extract_op_return_data, parse_block_header, parse_transaction,
-};
+use bitcoin::parser::{parse_block_header, parse_transaction};
 use bitcoin::types::{
     BlockChain, BlockHeader, H256Le, RawBlockHeader, RichBlockHeader, Transaction,
 };
@@ -452,14 +450,14 @@ impl<T: Trait> Module<T> {
         );
 
         // Check if 1st / payment UTXO sends to correct address
-        let extr_recipient_address = extract_address_hash(&transaction.outputs[0].script)?;
+        let extr_recipient_address = transaction.outputs[0].script.extract_address()?;
         ensure!(
             extr_recipient_address == recipient_btc_address,
             Error::WrongRecipient
         );
 
         // Check if 2nd / data UTXO has correct OP_RETURN value
-        let extr_op_return_value = extract_op_return_data(&transaction.outputs[1].script)?;
+        let extr_op_return_value = transaction.outputs[1].script.extract_op_return_data()?;
         ensure!(extr_op_return_value == op_return_id, Error::InvalidOpreturn);
 
         Ok(())
