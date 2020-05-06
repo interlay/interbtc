@@ -58,10 +58,9 @@ fn test_vault() -> Vault<u64, u64, u64> {
 fn request_replace(
     vault: AccountId,
     amount: Balance,
-    timeout: BlockNumber,
     griefing_collateral: DOT<Test>,
 ) -> UnitResult {
-    Replace::_request_replace(vault, amount, timeout, griefing_collateral)
+    Replace::_request_replace(vault, amount, griefing_collateral)
 }
 
 fn withdraw_replace(vault_id: AccountId, replace_id: H256) -> Result<(), Error> {
@@ -110,21 +109,14 @@ fn cancel_replace(new_vault_id: AccountId, replace_id: H256) -> Result<(), Error
 #[test]
 fn test_request_replace_transfer_zero_fails() {
     run_test(|| {
-        assert_noop!(request_replace(BOB, 0, 0, 0), Error::InvalidAmount);
-    })
-}
-
-#[test]
-fn test_request_replace_timeout_zero_fails() {
-    run_test(|| {
-        assert_noop!(request_replace(BOB, 1, 0, 0), Error::InvalidTimeout);
+        assert_noop!(request_replace(BOB, 0, 0), Error::InvalidAmount);
     })
 }
 
 #[test]
 fn test_request_replace_vault_not_found_fails() {
     run_test(|| {
-        assert_noop!(request_replace(10_000, 1, 1, 0), Error::VaultNotFound);
+        assert_noop!(request_replace(10_000, 1, 0), Error::VaultNotFound);
     })
 }
 
@@ -141,7 +133,7 @@ fn test_request_replace_vault_banned_fails() {
                 banned_until: Some(1),
             }))
         });
-        assert_noop!(Replace::_request_replace(BOB, 1, 1, 0), Error::VaultBanned);
+        assert_noop!(Replace::_request_replace(BOB, 1, 0), Error::VaultBanned);
     })
 }
 
@@ -170,7 +162,7 @@ fn test_request_replace_insufficient_griefing_collateral_fails() {
 
         Replace::set_replace_griefing_collateral(desired_griefing_collateral);
         assert_noop!(
-            Replace::_request_replace(old_vault, amount, 1, griefing_collateral),
+            Replace::_request_replace(old_vault, amount, griefing_collateral),
             Error::InsufficientCollateral
         );
     })
@@ -570,7 +562,6 @@ fn test_request_replace_with_amount_exceed_vault_issued_tokens_succeeds() {
     run_test(|| {
         let vault_id = BOB;
         let amount = 6;
-        let timeout = 10;
         let replace_id = H256::zero();
         let griefing_collateral = 10_000;
 
@@ -590,14 +581,9 @@ fn test_request_replace_with_amount_exceed_vault_issued_tokens_succeeds() {
             .mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::security::gen_secure_id::<Test>.mock_safe(|_| MockResult::Return(H256::zero()));
 
-        assert_ok!(request_replace(
-            vault_id,
-            amount,
-            timeout,
-            griefing_collateral
-        ));
+        assert_ok!(request_replace(vault_id, amount, griefing_collateral));
 
-        let event = Event::RequestReplace(vault_id, replace_amount, timeout, replace_id);
+        let event = Event::RequestReplace(vault_id, replace_amount, replace_id);
         assert_emitted!(event);
     })
 }
@@ -607,7 +593,6 @@ fn test_request_replace_with_amount_less_than_vault_issued_tokens_succeeds() {
     run_test(|| {
         let vault_id = BOB;
         let amount = 3;
-        let timeout = 10;
         let replace_id = H256::zero();
         let griefing_collateral = 10_000;
 
@@ -627,14 +612,9 @@ fn test_request_replace_with_amount_less_than_vault_issued_tokens_succeeds() {
             .mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::security::gen_secure_id::<Test>.mock_safe(|_| MockResult::Return(H256::zero()));
 
-        assert_ok!(request_replace(
-            vault_id,
-            amount,
-            timeout,
-            griefing_collateral
-        ));
+        assert_ok!(request_replace(vault_id, amount, griefing_collateral));
 
-        let event = Event::RequestReplace(vault_id, replace_amount, timeout, replace_id);
+        let event = Event::RequestReplace(vault_id, replace_amount, replace_id);
         assert_emitted!(event);
     })
 }
