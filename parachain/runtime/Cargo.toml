@@ -170,6 +170,9 @@ default-features = false
 package = 'bitcoin'
 path = '../../crates/bitcoin'
 
+[dev-dependencies]
+mocktopus = '0.7.0'
+
 [features]
 default = ['std']
 std = [

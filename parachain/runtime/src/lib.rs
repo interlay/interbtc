@@ -26,7 +26,6 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
 // A few exports that help ease life for downstream crates.
-pub use balances::Call as BalancesCall;
 pub use frame_support::{
     construct_runtime, parameter_types, traits::Randomness, weights::Weight, StorageValue,
 };
@@ -195,6 +194,7 @@ parameter_types! {
     pub const ExistentialDeposit: u128 = 500;
 }
 
+/// DOT
 impl balances::Trait<balances::Instance1> for Runtime {
     /// The type for recording an account's balance.
     type Balance = Balance;
@@ -205,6 +205,7 @@ impl balances::Trait<balances::Instance1> for Runtime {
     type AccountStore = System;
 }
 
+/// PolkaBTC
 impl balances::Trait<balances::Instance2> for Runtime {
     type Balance = Balance;
     type Event = Event;
