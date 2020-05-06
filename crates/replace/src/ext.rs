@@ -75,18 +75,23 @@ pub(crate) mod vault_registry {
     }
 
     pub fn is_vault_below_auction_threshold<T: vault_registry::Trait>(
-        _vault_id: T::AccountId,
+        vault_id: T::AccountId,
     ) -> Result<bool> {
-        // FIXME: call from vault registry when ready
-        unimplemented!()
+        <vault_registry::Module<T>>::_is_vault_below_auction_threshold(&vault_id)
     }
 
     pub fn is_collateral_below_secure_threshold<T: vault_registry::Trait>(
-        _collateral: DOT<T>,
-        _btc_amount_btc: PolkaBTC<T>,
+        collateral: DOT<T>,
+        btc_amount: PolkaBTC<T>,
     ) -> Result<bool> {
-        //FIXME:
-        unimplemented!()
+        <vault_registry::Module<T>>::_is_collateral_below_secure_threshold(collateral, btc_amount)
+    }
+
+    pub fn ensure_not_banned<T: vault_registry::Trait>(
+        vault: &T::AccountId,
+        height: T::BlockNumber,
+    ) -> UnitResult {
+        <vault_registry::Module<T>>::_ensure_not_banned(vault, height)
     }
 }
 

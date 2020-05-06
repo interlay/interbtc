@@ -83,8 +83,15 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::_ban_vault(vault_id, height)
     }
 
+    pub fn ensure_not_banned<T: vault_registry::Trait>(
+        vault: &T::AccountId,
+        height: T::BlockNumber,
+    ) -> UnitResult {
+        <vault_registry::Module<T>>::_ensure_not_banned(vault, height)
+    }
+
     pub fn total_liquidation_value<T: vault_registry::Trait>() -> Result<u128> {
-        <vault_registry::Module<T>>::total_liquidation_value()
+        <vault_registry::Module<T>>::_get_total_liquidation_value()
     }
 
     pub fn punishment_fee<T: vault_registry::Trait>() -> u128 {

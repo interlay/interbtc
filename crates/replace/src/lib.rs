@@ -177,7 +177,7 @@ impl<T: Trait> Module<T> {
         let vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
         // step 3: check vault is not banned
         let height = Self::current_height();
-        vault.ensure_not_banned(height)?;
+        ext::vault_registry::ensure_not_banned::<T>(&vault_id, height)?;
         // step 4: check that the amount doesn't exceed the remaining available tokens
         if amount > vault.issued_tokens {
             amount = vault.issued_tokens;
@@ -265,9 +265,7 @@ impl<T: Trait> Module<T> {
         let vault = ext::vault_registry::get_vault_from_id::<T>(&new_vault_id)?;
         // step 3: Check that the newVault is currently not banned
         let height = Self::current_height();
-        if vault.is_banned(height) {
-            return Err(Error::VaultBanned);
-        }
+        ext::vault_registry::ensure_not_banned::<T>(&new_vault_id, height)?;
         // step 4: Check that the provided collateral exceeds the necessary amount
         let is_below = ext::vault_registry::is_collateral_below_secure_threshold::<T>(
             collateral,

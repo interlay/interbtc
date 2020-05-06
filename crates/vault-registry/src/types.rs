@@ -3,7 +3,6 @@ use frame_support::traits::Currency;
 use codec::{Decode, Encode, HasCompact};
 use frame_support::{ensure, StorageMap};
 use sp_core::H160;
-use sp_std::ops::Sub;
 
 #[cfg(test)]
 use mocktopus::macros::mockable;
@@ -38,35 +37,35 @@ pub struct Vault<AccountId, BlockNumber, PolkaBTC: HasCompact> {
     pub banned_until: Option<BlockNumber>,
 }
 
-impl<
-        AccountId,
-        BlockNumber: Copy + PartialOrd,
-        PolkaBTC: Copy + HasCompact + Sub<Output = PolkaBTC>,
-    > Vault<AccountId, BlockNumber, PolkaBTC>
-{
-    pub fn is_banned(&self, height: BlockNumber) -> bool {
-        match self.banned_until {
-            None => false,
-            Some(until) => height <= until,
-        }
-    }
-
-    pub fn ensure_not_banned(&self, height: BlockNumber) -> UnitResult {
-        if self.is_banned(height) {
-            Err(Error::VaultBanned)
-        } else {
-            Ok(())
-        }
-    }
-
-    pub fn no_issuable_tokens(&self) -> PolkaBTC {
-        self.issued_tokens - self.to_be_redeemed_tokens
-    }
-
-    pub fn ban_until(&mut self, height: BlockNumber) {
-        self.banned_until = Some(height);
-    }
-}
+// impl<
+//         AccountId,
+//         BlockNumber: Copy + PartialOrd,
+//         PolkaBTC: Copy + HasCompact + Sub<Output = PolkaBTC>,
+//     > Vault<AccountId, BlockNumber, PolkaBTC>
+// {
+//     pub fn is_banned(&self, height: BlockNumber) -> bool {
+//         match self.banned_until {
+//             None => false,
+//             Some(until) => height <= until,
+//         }
+//     }
+//
+//     pub fn ensure_not_banned(&self, height: BlockNumber) -> UnitResult {
+//         if self.is_banned(height) {
+//             Err(Error::VaultBanned)
+//         } else {
+//             Ok(())
+//         }
+//     }
+//
+//     pub fn no_issuable_tokens(&self) -> PolkaBTC {
+//         self.issued_tokens - self.to_be_redeemed_tokens
+//     }
+//
+//     pub fn ban_until(&mut self, height: BlockNumber) {
+//         self.banned_until = Some(height);
+//     }
+// }
 
 impl<AccountId, BlockNumber, PolkaBTC: HasCompact + Default>
     Vault<AccountId, BlockNumber, PolkaBTC>
@@ -208,6 +207,19 @@ impl<T: Trait> RichVault<T> {
         liquidation_vault.force_increase_to_be_redeemed(self.data.to_be_redeemed_tokens);
         <crate::Vaults<T>>::remove(&self.id());
         Ok(())
+    }
+
+    pub fn ensure_not_banned(&self, height: T::BlockNumber) -> UnitResult {
+        let is_banned = match self.data.banned_until {
+            None => false,
+            Some(until) => height <= until,
+        };
+
+        if is_banned {
+            Err(Error::VaultBanned)
+        } else {
+            Ok(())
+        }
     }
 
     fn update<F>(&mut self, func: F) -> ()

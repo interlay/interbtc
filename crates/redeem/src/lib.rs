@@ -99,7 +99,7 @@ decl_module! {
             );
             let vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
             let height = <system::Module<T>>::block_number();
-            vault.ensure_not_banned(height)?;
+            ext::vault_registry::ensure_not_banned::<T>(&vault_id, height)?;
             ensure!(
                 amount_polka_btc <= vault.issued_tokens,
                 Error::AmountExceedsVaultBalance

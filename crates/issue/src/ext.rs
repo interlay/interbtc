@@ -62,6 +62,13 @@ pub(crate) mod vault_registry {
     ) -> UnitResult {
         <vault_registry::Module<T>>::_decrease_to_be_issued_tokens(vault_id, amount)
     }
+
+    pub fn ensure_not_banned<T: vault_registry::Trait>(
+        vault: &T::AccountId,
+        height: T::BlockNumber,
+    ) -> UnitResult {
+        <vault_registry::Module<T>>::_ensure_not_banned(vault, height)
+    }
 }
 
 #[cfg_attr(test, mockable)]
