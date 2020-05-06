@@ -94,9 +94,18 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::_get_total_liquidation_value()
     }
 
-    pub fn punishment_fee<T: vault_registry::Trait>() -> u128 {
+    pub fn punishment_fee<T: vault_registry::Trait>() -> Result<DOT<T>> {
         <vault_registry::Module<T>>::_punishment_fee()
     }
+
+    pub fn get_redeem_premium_fee<T: vault_registry::Trait>() -> Result<DOT<T>> {
+        <vault_registry::Module<T>>::_get_redeem_premium_fee()
+    }
+
+    pub fn is_vault_below_premium_threshold<T: vault_registry::Trait>(vault_id: &T::AccountId) -> Result<bool> {
+        <vault_registry::Module<T>>::_is_vault_below_premium_threshold(&vault_id)
+    }
+
 }
 
 #[cfg_attr(test, mockable)]
