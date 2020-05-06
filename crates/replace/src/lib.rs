@@ -62,7 +62,7 @@ decl_event!(
         DOT = DOT<T>,
         BlockNumber = <T as system::Trait>::BlockNumber,
     {
-        RequestReplace(AccountId, PolkaBTC, BlockNumber, H256),
+        RequestReplace(AccountId, PolkaBTC, H256),
         WithdrawReplace(AccountId, H256),
         AcceptReplace(AccountId, H256, DOT),
         ExecuteReplace(AccountId, AccountId, H256),
@@ -85,13 +85,12 @@ decl_module! {
         ///
         /// * `origin` - sender of the transaction
         /// * `amount` - amount of PolkaBTC
-        /// * `timeout` - Time in blocks after which this request expires.
         /// * `griefing_collateral` - amount of DOT
-        fn request_replace(origin, amount: PolkaBTC<T>, timeout: T::BlockNumber, griefing_collateral: DOT<T>)
+        fn request_replace(origin, amount: PolkaBTC<T>, griefing_collateral: DOT<T>)
             -> DispatchResult
         {
             let old_vault = ensure_signed(origin)?;
-            Self::_request_replace(old_vault, amount, timeout, griefing_collateral)?;
+            Self::_request_replace(old_vault, amount, griefing_collateral)?;
             Ok(())
         }
 
@@ -160,7 +159,6 @@ impl<T: Trait> Module<T> {
     fn _request_replace(
         vault_id: T::AccountId,
         mut amount: PolkaBTC<T>,
-        timeout: T::BlockNumber,
         griefing_collateral: DOT<T>,
     ) -> UnitResult {
         // check preconditions
@@ -168,11 +166,6 @@ impl<T: Trait> Module<T> {
         let zero: PolkaBTC<T> = 0u32.into();
         if amount == zero {
             return Err(Error::InvalidAmount);
-        }
-        // check timeout
-        let zero: T::BlockNumber = 0.into();
-        if timeout == zero {
-            return Err(Error::InvalidTimeout);
         }
         // check vault exists
         let vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
@@ -213,10 +206,8 @@ impl<T: Trait> Module<T> {
             btc_address: vault.btc_address,
         };
         Self::insert_replace_request(replace_id, replace);
-        // step 11: Emit RequestReplace(vault, btcAmount, timeout, replaceId)
-        Self::deposit_event(<Event<T>>::RequestReplace(
-            vault_id, amount, timeout, replace_id,
-        ));
+        // step 11: Emit RequestReplace event
+        Self::deposit_event(<Event<T>>::RequestReplace(vault_id, amount, replace_id));
         // step 12
         Ok(())
     }
