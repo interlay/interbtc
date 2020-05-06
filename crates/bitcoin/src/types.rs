@@ -269,6 +269,12 @@ pub struct BlockHeader {
     pub nonce: u32,
 }
 
+impl BlockHeader {
+    pub fn hash(&self) -> H256Le {
+        sha256d_le(&self.format())
+    }
+}
+
 /// Bitcoin transaction input
 #[derive(PartialEq, Clone, Debug)]
 pub struct TransactionInput {
@@ -442,6 +448,84 @@ impl RichBlockHeader {
             block_height,
             chain_ref,
         })
+    }
+}
+
+#[derive(Default, Clone, PartialEq, Debug)]
+pub struct Block {
+    pub header: BlockHeader,
+    pub transactions: Vec<Transaction>,
+}
+
+/// Generates a new block
+/// mined with the given difficulty
+///
+/// # Example
+/// ```ignore
+/// let block = BlockBuilder::new()
+///     .with_version(4) // or whatever version
+///     .with_timestamp(some_timestamp)
+///     .with_previous_hash(previous_hash)
+///     .with_coinbase(some_address)   // will add the coinbase transaction
+///     .add_transaction(some_transaction)
+///     .mine(difficulty);
+/// ```
+pub struct BlockBuilder {
+    block: Block,
+}
+
+impl BlockBuilder {
+    pub fn new() -> BlockBuilder {
+        BlockBuilder {
+            block: Default::default(),
+        }
+    }
+
+    pub fn with_timestamp(&mut self, timestamp: u32) -> &mut Self {
+        self.block.header.timestamp = timestamp;
+        self
+    }
+
+    pub fn with_previous_hash(&mut self, previous_hash: H256Le) -> &mut Self {
+        self.block.header.hash_prev_block = previous_hash;
+        self
+    }
+
+    pub fn with_version(&mut self, version: i32) -> &mut Self {
+        self.block.header.version = version;
+        self
+    }
+
+    pub fn mine(&mut self, difficulty: U256) -> Block {
+        self.block.header.target = difficulty;
+        self.block.header.merkle_root = self.compute_merkle_root();
+        let mut nonce: u32 = 0;
+        // NOTE: this is inefficient because we are serializing the header
+        // over and over again but it should not matter because
+        // this is meant to be used only for very low difficulty
+        // and not for any sort of real-world mining
+        while self.block.header.hash().as_u256() >= difficulty {
+            self.block.header.nonce = nonce;
+            nonce += 1;
+        }
+        self.block.clone()
+    }
+
+    pub fn add_transaction(&mut self, transaction: Transaction) -> &mut Self {
+        self.block.transactions.push(transaction);
+        self
+    }
+
+    pub fn with_coinbase(&mut self, _address: Address) -> &mut Self {
+        // TODO: generate coinbase transcation
+        // let transaction = ....
+        // self.block.transactions.insert(0, transaction);
+        self
+    }
+
+    fn compute_merkle_root(&self) -> H256Le {
+        // TODO: compute using self.block.transactions
+        H256Le::zero()
     }
 }
 

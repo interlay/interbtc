@@ -225,6 +225,15 @@ impl Formattable for BlockHeader {
     }
 }
 
+impl Formattable for Block {
+    fn format(&self) -> Vec<u8> {
+        let mut formatter = Formatter::new();
+        formatter.format(self.header);
+        formatter.format(&self.transactions);
+        formatter.result()
+    }
+}
+
 pub(crate) struct Formatter {
     bytes: Vec<u8>,
 }
