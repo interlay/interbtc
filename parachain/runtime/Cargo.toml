@@ -172,6 +172,7 @@ path = '../../crates/bitcoin'
 
 [dev-dependencies]
 mocktopus = '0.7.0'
+x-core = { path = '../../crates/x-core' }
 
 [features]
 default = ['std']

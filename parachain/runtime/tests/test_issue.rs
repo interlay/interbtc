@@ -1,9 +1,34 @@
 mod mock;
 
 use mock::*;
+use sp_core::H256;
 
 type IssueCall = issue::Call<Runtime>;
 type IssueEvent = issue::Event<Runtime>;
+
+#[test]
+fn should_fail_if_not_running() {
+    ExtBuilder::build().execute_with(|| {
+        SecurityModule::set_parachain_status(StatusCode::Shutdown);
+
+        assert_err!(
+            IssueCall::request_issue(0, account_of(BOB), 0).dispatch(origin_of(account_of(ALICE))),
+            Error::ParachainNotRunning,
+        );
+
+        assert_err!(
+            IssueCall::execute_issue(
+                H256([0; 32]),
+                H256Le::zero(),
+                0,
+                vec![0u8; 32],
+                vec![0u8; 32]
+            )
+            .dispatch(origin_of(account_of(ALICE))),
+            Error::ParachainNotRunning,
+        );
+    });
+}
 
 #[test]
 fn issue_polka_btc() {

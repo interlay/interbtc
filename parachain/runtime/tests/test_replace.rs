@@ -6,6 +6,18 @@ type ReplaceCall = replace::Call<Runtime>;
 type ReplaceEvent = replace::Event<Runtime>;
 
 #[test]
+fn should_fail_if_not_running() {
+    ExtBuilder::build().execute_with(|| {
+        SecurityModule::set_parachain_status(StatusCode::Shutdown);
+
+        assert_err!(
+            ReplaceCall::request_replace(0, 0).dispatch(origin_of(account_of(BOB))),
+            Error::ParachainNotRunning,
+        );
+    });
+}
+
+#[test]
 fn replace_request() {
     ExtBuilder::build().execute_with(|| {
         SystemModule::set_block_number(1);
