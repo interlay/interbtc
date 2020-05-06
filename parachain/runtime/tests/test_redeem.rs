@@ -6,6 +6,19 @@ type RedeemCall = redeem::Call<Runtime>;
 type RedeemEvent = redeem::Event<Runtime>;
 
 #[test]
+fn should_fail_if_not_running() {
+    ExtBuilder::build().execute_with(|| {
+        SecurityModule::set_parachain_status(StatusCode::Shutdown);
+
+        assert_err!(
+            RedeemCall::request_redeem(1000, H160([0; 20]), account_of(BOB))
+                .dispatch(origin_of(account_of(ALICE))),
+            Error::ParachainNotRunning,
+        );
+    });
+}
+
+#[test]
 fn redeem_polka_btc() {
     ExtBuilder::build().execute_with(|| {
         SystemModule::set_block_number(1);

@@ -502,6 +502,7 @@ dependencies = [
  "substrate-wasm-builder-runner",
  "treasury",
  "vault-registry",
+ "x-core",
 ]
 
 [[package]]

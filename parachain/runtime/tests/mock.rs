@@ -1,9 +1,11 @@
 pub use btc_parachain_runtime::{AccountId, Event, Runtime};
 pub use btc_relay::H256Le;
-pub use frame_support::assert_ok;
+pub use frame_support::{assert_err, assert_ok};
 pub use mocktopus::mocking::*;
+pub use security::StatusCode;
 pub use sp_core::H160;
 pub use sp_runtime::traits::Dispatchable;
+pub use x_core::Error;
 
 pub const ALICE: [u8; 32] = [0u8; 32];
 pub const BOB: [u8; 32] = [1u8; 32];
@@ -16,6 +18,7 @@ pub fn account_of(address: [u8; 32]) -> AccountId {
     AccountId::from(address)
 }
 
+pub type SecurityModule = security::Module<Runtime>;
 pub type SystemModule = system::Module<Runtime>;
 
 pub type VaultRegistryCall = vault_registry::Call<Runtime>;
