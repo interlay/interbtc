@@ -7,6 +7,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+use sha2::Digest;
 #[cfg(test)]
 extern crate mocktopus;
 
@@ -150,10 +151,10 @@ impl<T: Trait> Module<T> {
         
         let height = <system::Module<T>>::block_number();
         let vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
-        match vault.banned_until {
-            Some(until) => ensure!(until < height, Error::VaultBanned),
-            None => (),
-        };
+        // Check that the vault is currently not banned
+        if vault.is_banned(height) {
+            return Err(Error::VaultBanned);
+        }
 
         ensure!(
             griefing_collateral >= <IssueGriefingCollateral<T>>::get(),

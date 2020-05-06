@@ -1,8 +1,8 @@
 [package]
 authors = ['Interlay']
-description = 'Issue module'
+description = 'Replace module'
 edition = '2018'
-name = 'issue'
+name = 'replace'
 version = '0.1.0'
 
 [dependencies.serde]
@@ -41,18 +41,13 @@ default-features = false
 package = 'frame-system'
 version = '2.0.0-alpha.5'
 
-[dependencies.pallet-balances]
+[dev-dependencies.pallet-balances]
 default-features = false
 package = 'pallet-balances'
 version = '2.0.0-alpha.5'
 
 [dev-dependencies]
 mocktopus = '0.7.0'
-
-[dev-dependencies.timestamp]
-default-features = false
-package = 'pallet-timestamp'
-version = '2.0.0-alpha.5'
 
 [dependencies.primitive-types]
 default-features = false
@@ -63,13 +58,13 @@ features= ['codec']
 default-features = false
 path = '../vault-registry'
 
-[dependencies.collateral]
-default-features = false
-path = '../collateral'
-
 [dev-dependencies.exchange-rate-oracle]
 default-features = false
 path = '../exchange-rate-oracle'
+
+[dependencies.collateral]
+default-features = false
+path = '../collateral'
 
 [dependencies.btc-relay]
 default-features = false
@@ -82,23 +77,24 @@ path = '../treasury'
 [dependencies.bitcoin]
 default-features = false
 path = '../bitcoin'
+version = '0.1.0'
 
 [dependencies.x-core]
 default-features = false
 path = '../x-core'
 
+[dependencies.sha2]
+default-features = false
+version = '0.8.0'
+
 [dependencies.security]
 default-features = false
 path = '../security'
 
-[dependencies.timestamp]
+[dev-dependencies.timestamp]
 default-features = false
 package = 'pallet-timestamp'
 version = '2.0.0-alpha.5'
-
-[dependencies.sha2]
-default-features = false
-version = '0.8.0'
 
 [features]
 default = ['std']
@@ -120,6 +116,6 @@ std = [
 	'bitcoin/std',
 	'x-core/std',
 	'sha2/std',
-	'security/std',
+  'security/std',
 	'timestamp/std',
 ]

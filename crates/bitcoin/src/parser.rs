@@ -9,8 +9,6 @@ use primitive_types::U256;
 use sp_std::prelude::*;
 use x_core::Error;
 
-const SERIALIZE_TRANSACTION_NO_WITNESS: i32 = 0x4000_0000;
-
 /// Type to be parsed from a bytes array
 pub(crate) trait Parsable: Sized {
     fn parse(raw_bytes: &[u8], position: usize) -> Result<(Self, usize), Error>;
@@ -365,7 +363,7 @@ fn parse_transaction_input(
             height,
             script,
             sequence,
-            witness: None,
+            witness: vec![],
         },
         consumed_bytes,
     ))
@@ -445,7 +443,7 @@ pub fn extract_op_return_data(output_script: &[u8]) -> Result<Vec<u8>, Error> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     // examples from https://bitcoin.org/en/developer-reference#block-headers
@@ -493,7 +491,7 @@ mod tests {
         }
     }
 
-    fn sample_coinbase_transaction_input() -> String {
+    pub fn sample_coinbase_transaction_input() -> String {
         "00000000000000000000000000000000".to_owned() +
         "00000000000000000000000000000000" + // Previous outpoint TXID
         "ffffffff"                         + // Previous outpoint index
@@ -506,7 +504,7 @@ mod tests {
         "00000000" // Sequence
     }
 
-    fn sample_transaction_input() -> String {
+    pub fn sample_transaction_input() -> String {
         "7b1eabe0209b1fe794124575ef807057".to_owned() +
         "c77ada2138ae4fa8d6c4de0398a14f3f" +   // Outpoint TXID
         "00000000" +                           // Outpoint index number
@@ -520,7 +518,7 @@ mod tests {
         "ffffffff" // Sequence number: UINT32_MAX
     }
 
-    fn sample_transaction_output() -> String {
+    pub fn sample_transaction_output() -> String {
         "f0ca052a01000000".to_owned() +      // Satoshis (49.99990000 BTC)
         "19" +                               // Bytes in pubkey script: 25
         "76" +                               // OP_DUP
@@ -532,7 +530,7 @@ mod tests {
         "ac" // OP_CHECKSIG
     }
 
-    fn sample_transaction() -> String {
+    pub fn sample_transaction() -> String {
         "01000000".to_owned() +               // Version
         "02"                  +               // Number of inputs
         &sample_coinbase_transaction_input() +
@@ -540,6 +538,11 @@ mod tests {
         "01" +                                // Number of outputs
         &sample_transaction_output() +
         "00000000"
+    }
+
+    pub fn sample_extended_transaction() -> String {
+        // id: c586389e5e4b3acb9d6c8be1c19ae8ab2795397633176f5a6442a261bbdefc3a
+        "0200000000010140d43a99926d43eb0e619bf0b3d83b4a31f60c176beecfb9d35bf45e54d0f7420100000017160014a4b4ca48de0b3fffc15404a1acdc8dbaae226955ffffffff0100e1f5050000000017a9144a1154d50b03292b3024370901711946cb7cccc387024830450221008604ef8f6d8afa892dee0f31259b6ce02dd70c545cfcfed8148179971876c54a022076d771d6e91bed212783c9b06e0de600fab2d518fad6f15a2b191d7fbd262a3e0121039d25ab79f41f75ceaf882411fd41fa670a4c672c23ffaf0e361a969cde0692e800000000".to_owned()
     }
 
     fn sample_valid_p2pkh() -> String {
@@ -610,23 +613,22 @@ mod tests {
 
     #[test]
     fn test_parse_transaction_extended_format() {
-        let raw_tx = "020000000001010000000000000000000000000000000000000000000000000000000000000000ffffffff0502cb000101ffffffff02400606950000000017a91466c7060feb882664ae62ffad0051fe843e318e85870000000000000000266a24aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb46750120000000000000000000000000000000000000000000000000000000000000000000000000";
+        let raw_tx = sample_extended_transaction();
         let tx_bytes = hex::decode(&raw_tx).unwrap();
         let transaction = parse_transaction(&tx_bytes).unwrap();
         let inputs = transaction.inputs;
         let outputs = transaction.outputs;
         assert_eq!(transaction.version, 2);
         assert_eq!(inputs.len(), 1);
-        assert_eq!(inputs[0].coinbase, true);
-        assert_eq!(inputs[0].witness.is_some(), true);
-        assert_eq!(outputs.len(), 2);
+        assert_eq!(inputs[0].coinbase, false);
+        assert_eq!(inputs[0].witness.len(), 2);
+        assert_eq!(inputs[0].witness[0].len(), 72);
+        assert_eq!(inputs[0].witness[1].len(), 33);
+        assert_eq!(outputs.len(), 1);
+        assert_eq!(outputs[0].value, 100000000);
         assert_eq!(
             &hex::encode(&outputs[0].script),
-            "a91466c7060feb882664ae62ffad0051fe843e318e8587"
-        );
-        assert_eq!(
-            &hex::encode(&outputs[1].script),
-            "6a24aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675"
+            "a9144a1154d50b03292b3024370901711946cb7cccc387"
         );
         assert_eq!(transaction.block_height, Some(0));
         assert_eq!(transaction.locktime, None);
