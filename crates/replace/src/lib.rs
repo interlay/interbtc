@@ -102,11 +102,11 @@ decl_module! {
         /// * `origin` - sender of the transaction
         /// * `vault_id` - the of the vault to cancel the request
         /// * `replace_id` - the unique identifier for the specific request
-        fn withdraw_replace_request(origin, vault_id: T::AccountId, replace_id: H256)
+        fn withdraw_replace_request(origin, replace_id: H256)
             -> DispatchResult
         {
-            let _ = ensure_signed(origin)?;
-            Self::_withdraw_replace_request(vault_id, replace_id)?;
+            let old_vault = ensure_signed(origin)?;
+            Self::_withdraw_replace_request(old_vault, replace_id)?;
             Ok(())
         }
 
@@ -117,11 +117,11 @@ decl_module! {
         /// * `origin` - sender of the transaction
         /// * `vault_id` - the of the vault to cancel the request
         /// * `replace_id` - the unique identifier for the specific request
-        fn accept_replace(origin, new_vault_id: T::AccountId, replace_id: H256, collateral: DOT<T>)
+        fn accept_replace(origin, replace_id: H256, collateral: DOT<T>)
             -> DispatchResult
         {
-            let _ = ensure_signed(origin)?;
-            Self::_accept_replace(new_vault_id, replace_id, collateral)?;
+            let new_vault = ensure_signed(origin)?;
+            Self::_accept_replace(new_vault, replace_id, collateral)?;
             Ok(())
         }
 
@@ -132,23 +132,23 @@ decl_module! {
         /// * `origin` - sender of the transaction
         /// * `vault_id` - the of the vault to cancel the request
         /// * `replace_id` - the unique identifier for the specific request
-        fn auction_replace(origin, old_vault_id: T::AccountId, new_vault_id: T::AccountId, btc_amount: PolkaBTC<T>, collateral: DOT<T>)
+        fn auction_replace(origin, old_vault: T::AccountId, new_vault_id: T::AccountId, btc_amount: PolkaBTC<T>, collateral: DOT<T>)
             -> DispatchResult
         {
-            let _ = ensure_signed(origin)?;
-            Self::_auction_replace(old_vault_id, new_vault_id, btc_amount, collateral)?;
+            let new_vault = ensure_signed(origin)?;
+            Self::_auction_replace(old_vault, new_vault, btc_amount, collateral)?;
             Ok(())
         }
 
-        fn execute_replace(origin, new_vault_id: T::AccountId, replace_id: H256, tx_id: H256Le, tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
-            let _ = ensure_signed(origin)?;
-            Self::_execute_replace(new_vault_id, replace_id, tx_id, tx_block_height, merkle_proof, raw_tx)?;
+        fn execute_replace(origin, replace_id: H256, tx_id: H256Le, tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
+            let new_vault = ensure_signed(origin)?;
+            Self::_execute_replace(new_vault, replace_id, tx_id, tx_block_height, merkle_proof, raw_tx)?;
             Ok(())
         }
 
-        fn cancel_replace(origin, new_vault_id: T::AccountId, replace_id: H256) -> DispatchResult {
-            let _ = ensure_signed(origin)?;
-            Self::_cancel_replace(new_vault_id, replace_id)?;
+        fn cancel_replace(origin, replace_id: H256) -> DispatchResult {
+            let new_vault = ensure_signed(origin)?;
+            Self::_cancel_replace(new_vault, replace_id)?;
             Ok(())
         }
     }
