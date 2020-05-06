@@ -124,11 +124,11 @@ pub struct Transaction {
 
 impl Transaction {
     pub fn tx_id(&self) -> H256Le {
-        sha256d_le(&self.format())
+        sha256d_le(&self.format_with(false))
     }
 
     pub fn hash(&self) -> H256Le {
-        sha256d_le(&self.format_with(false))
+        sha256d_le(&self.format_with(true))
     }
 }
 
@@ -287,6 +287,18 @@ impl CompactUint {
 mod tests {
     use super::*;
 
+    fn sample_example_real_rawtx() -> String {
+        "0200000000010140d43a99926d43eb0e619bf0b3d83b4a31f60c176beecfb9d35bf45e54d0f7420100000017160014a4b4ca48de0b3fffc15404a1acdc8dbaae226955ffffffff0100e1f5050000000017a9144a1154d50b03292b3024370901711946cb7cccc387024830450221008604ef8f6d8afa892dee0f31259b6ce02dd70c545cfcfed8148179971876c54a022076d771d6e91bed212783c9b06e0de600fab2d518fad6f15a2b191d7fbd262a3e0121039d25ab79f41f75ceaf882411fd41fa670a4c672c23ffaf0e361a969cde0692e800000000".to_owned()
+    }
+
+    fn sample_example_real_txid() -> String {
+        "c586389e5e4b3acb9d6c8be1c19ae8ab2795397633176f5a6442a261bbdefc3a".to_owned()
+    }
+
+    fn sample_example_real_transaction_hash() -> String {
+        "b759d39a8596b70b3a46700b83e1edb247e17ba58df305421864fe7a9ac142ea".to_owned()
+    }
+
     #[test]
     fn test_h256() {
         let mut bytes: [u8; 32] = [0; 32];
@@ -310,5 +322,21 @@ mod tests {
         let h256_le = H256Le::from_bytes_be(&bytes);
         assert_eq!(h256, h256_le);
         assert_eq!(h256_le, h256);
+    }
+
+    #[test]
+    fn test_transaction_hash() {
+        let raw_tx = hex::decode(&sample_example_real_rawtx()).unwrap();
+        let transaction = parse_transaction(&raw_tx).unwrap();
+        let expected_hash = H256Le::from_hex_be(&sample_example_real_transaction_hash());
+        assert_eq!(transaction.hash(), expected_hash);
+    }
+
+    #[test]
+    fn test_transaction_txid() {
+        let raw_tx = hex::decode(&sample_example_real_rawtx()).unwrap();
+        let transaction = parse_transaction(&raw_tx).unwrap();
+        let expected_txid = H256Le::from_hex_be(&sample_example_real_txid());
+        assert_eq!(transaction.tx_id(), expected_txid);
     }
 }
