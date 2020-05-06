@@ -143,10 +143,7 @@ decl_module! {
         fn lock_additional_collateral(origin, amount: DOT<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
-            // Parchain must not have OracleOffline error
-            ext::security::ensure_parachain_status_not_error_oracle_offline::<T>()?;
-            // Parachain must not be shutdown
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
+            Self::check_parachain_not_shutdown_or_has_errors([ErrorCode::OracleOffline].to_vec())?;
 
             let vault = Self::rich_vault_from_id(&sender)?;
             vault.increase_collateral(amount)?;
