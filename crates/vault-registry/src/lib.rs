@@ -413,10 +413,7 @@ impl<T: Trait> Module<T> {
         // calculate how many tokens should be maximally issued given the threshold
         let raw_scaled_collateral_in_polka_btc =
             raw_collateral_in_polka_btc.checked_mul(10u32.pow(GRANULARITY) as u128).ok_or(Error::RuntimeError)?;
-        let raw_max_tokens = match raw_scaled_collateral_in_polka_btc.checked_div(threshold) {
-            Some(v) => v,
-            None => 0,
-        };
+        let raw_max_tokens = raw_scaled_collateral_in_polka_btc.checked_div(threshold).unwrap_or(0);
 
         // check if the max_tokens are below the issued tokens
         Ok(raw_max_tokens < raw_btc_amount)
