@@ -1,6 +1,6 @@
 use btc_parachain_runtime::{
-    AccountId, AuraConfig, BalancesConfig, ExchangeRateOracleConfig, GenesisConfig, GrandpaConfig,
-    Signature, StakedRelayersConfig, SudoConfig, SystemConfig, WASM_BINARY,
+    AccountId, AuraConfig, DOTConfig, ExchangeRateOracleConfig, GenesisConfig, GrandpaConfig,
+    PolkaBTCConfig, Signature, StakedRelayersConfig, SudoConfig, SystemConfig, WASM_BINARY,
 };
 use grandpa_primitives::AuthorityId as GrandpaId;
 use sc_service;
