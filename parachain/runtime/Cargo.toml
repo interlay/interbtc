@@ -14,6 +14,10 @@ default-features = false
 package = 'pallet-balances'
 version = '2.0.0-alpha.5'
 
+[dependencies.bitcoin]
+default-features = false
+path = '../../crates/bitcoin'
+
 [dependencies.codec]
 default-features = false
 features = ['derive']
