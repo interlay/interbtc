@@ -508,15 +508,15 @@ impl BlockBuilder {
         self
     }
 
-    pub fn mine(&mut self, difficulty: U256) -> Block {
-        self.block.header.target = difficulty;
+    pub fn mine(&mut self, target: U256) -> Block {
+        self.block.header.target = target;
         self.block.header.merkle_root = self.compute_merkle_root();
         let mut nonce: u32 = 0;
         // NOTE: this is inefficient because we are serializing the header
         // over and over again but it should not matter because
         // this is meant to be used only for very low difficulty
         // and not for any sort of real-world mining
-        while self.block.header.hash().as_u256() >= difficulty {
+        while self.block.header.hash().as_u256() >= target {
             self.block.header.nonce = nonce;
             nonce += 1;
         }
@@ -1018,5 +1018,21 @@ mod tests {
         let expected =
             H256Le::from_hex_be("5766798857e436d6243b46b5c1e0af5b6806aa9c2320b3ffd4ecff7b31fd4647");
         assert_eq!(merkle_root, expected);
+    }
+
+    #[test]
+    fn test_mine_block() {
+        let address: Address = "66c7060feb882664ae62ffad0051fe843e318e85"
+            .try_into()
+            .unwrap();
+        let block = BlockBuilder::new()
+            .with_version(2)
+            .with_coinbase(&address, 50, 3)
+            .with_timestamp(1588814835)
+            .mine(U256::from(2).pow(254.into()));
+        assert_eq!(block.header.version, 2);
+        assert_eq!(block.header.merkle_root, block.transactions[0].tx_id());
+        // should be 3, might change if block is changed
+        assert!(block.header.nonce > 0);
     }
 }

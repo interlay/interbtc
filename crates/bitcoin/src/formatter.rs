@@ -192,7 +192,11 @@ impl Formattable<bool> for U256 {
         let mut bytes: [u8; 4] = Default::default();
         let exponent = log256(&self);
         bytes[3] = exponent;
-        let mantissa = self / U256::from(256).pow(U256::from(exponent) - 3);
+        let mantissa = if exponent > 3 {
+            self / U256::from(256).pow(U256::from(exponent) - 3)
+        } else {
+            self.clone()
+        };
         let mut mantissa_bytes: [u8; 32] = Default::default();
         mantissa.to_little_endian(&mut mantissa_bytes);
         for i in 0..=2 {
