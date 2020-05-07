@@ -15,9 +15,14 @@ impl_outer_origin! {
     pub enum Origin for Test {}
 }
 
+mod test_events {
+    pub use crate::Event;
+}
+
 impl_outer_event! {
     pub enum TestEvent for Test {
         system<T>,
+        test_events,
     }
 }
 
@@ -59,15 +64,12 @@ impl system::Trait for Test {
     type OnKilledAccount = ();
 }
 
-parameter_types! {
-    pub const MinimumStake: u64 = 1;
-    pub const VoteThreshold: u64 = 50;
+impl Trait for Test {
+    type Event = TestEvent;
 }
-impl Trait for Test {}
 
 pub type Security = Module<Test>;
-
-// pub type TestError = Error<Test>;
+pub type System = system::Module<Test>;
 
 pub struct ExtBuilder;
 

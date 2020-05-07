@@ -4,7 +4,7 @@ use crate::types::{
 };
 use crate::{ext, mock::*};
 use bitcoin::types::H256Le;
-use frame_support::{assert_err, assert_ok, dispatch::DispatchResult};
+use frame_support::{assert_err, assert_ok};
 use mocktopus::mocking::*;
 use security::types::{ErrorCode, StatusCode};
 use sp_core::U256;
@@ -802,82 +802,6 @@ fn test_report_oracle_offline_succeeds() {
             StatusCode::Error,
             Some(ErrorCode::OracleOffline),
             None,
-        ));
-    })
-}
-
-fn test_recover_from_<F>(recover: F, error_code: ErrorCode)
-where
-    F: FnOnce() -> DispatchResult,
-{
-    assert_ok!(ext::security::mutate_errors::<Test, _>(|errors| {
-        errors.insert(error_code.clone());
-        Ok(())
-    }));
-
-    assert_ok!(recover());
-    assert_eq!(
-        ext::security::get_errors::<Test>().contains(&error_code),
-        false
-    );
-    assert_eq!(
-        ext::security::get_parachain_status::<Test>(),
-        StatusCode::Running
-    );
-    assert_emitted!(Event::ExecuteStatusUpdate(
-        StatusCode::Running,
-        None,
-        Some(error_code),
-    ));
-}
-
-#[test]
-fn test_recover_from_liquidation_succeeds() {
-    run_test(|| {
-        test_recover_from_(Staking::recover_from_liquidation, ErrorCode::Liquidation);
-    })
-}
-
-#[test]
-fn test_recover_from_oracle_offline_succeeds() {
-    run_test(|| {
-        test_recover_from_(
-            Staking::recover_from_oracle_offline,
-            ErrorCode::OracleOffline,
-        );
-    })
-}
-
-#[test]
-fn test_recover_from_btc_relay_failure_succeeds() {
-    run_test(|| {
-        assert_ok!(ext::security::mutate_errors::<Test, _>(|errors| {
-            errors.insert(ErrorCode::InvalidBTCRelay);
-            errors.insert(ErrorCode::NoDataBTCRelay);
-            Ok(())
-        }));
-        assert_ok!(Staking::recover_from_btc_relay_failure());
-        assert_eq!(
-            ext::security::get_errors::<Test>().contains(&ErrorCode::InvalidBTCRelay),
-            false
-        );
-        assert_eq!(
-            ext::security::get_errors::<Test>().contains(&ErrorCode::NoDataBTCRelay),
-            false
-        );
-        assert_eq!(
-            ext::security::get_parachain_status::<Test>(),
-            StatusCode::Running
-        );
-        assert_emitted!(Event::ExecuteStatusUpdate(
-            StatusCode::Running,
-            None,
-            Some(ErrorCode::InvalidBTCRelay),
-        ));
-        assert_emitted!(Event::ExecuteStatusUpdate(
-            StatusCode::Running,
-            None,
-            Some(ErrorCode::NoDataBTCRelay),
         ));
     })
 }

@@ -31,6 +31,7 @@ impl_outer_event! {
         btc_relay,
         redeem<T>,
         replace<T>,
+        security,
     }
 }
 
@@ -93,7 +94,9 @@ impl timestamp::Trait for Test {
     type MinimumPeriod = MinimumPeriod;
 }
 
-impl security::Trait for Test {}
+impl security::Trait for Test {
+    type Event = TestEvent;
+}
 
 impl vault_registry::Trait for Test {
     type Event = TestEvent;

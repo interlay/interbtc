@@ -94,6 +94,7 @@ pub(crate) mod security {
         <security::Module<T>>::mutate_errors(f)
     }
 
+    #[cfg(test)]
     pub(crate) fn get_errors<T: security::Trait>() -> BTreeSet<ErrorCode> {
         <security::Module<T>>::get_errors()
     }

@@ -873,66 +873,6 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn recover_from_(error_code: ErrorCode) -> DispatchResult {
-        ext::security::mutate_errors::<T, _>(|errors| {
-            errors.remove(&error_code);
-            Ok(())
-        })?;
-
-        if ext::security::get_errors::<T>().len() == 0 {
-            ext::security::set_parachain_status::<T>(StatusCode::Running);
-        }
-
-        Self::deposit_event(<Event<T>>::ExecuteStatusUpdate(
-            ext::security::get_parachain_status::<T>(),
-            None,
-            Some(error_code),
-        ));
-
-        Ok(())
-    }
-
-    /// Recovers the BTC Parachain state from a `LIQUIDATION` error
-    /// and sets ParachainStatus to `RUNNING` if there are no other errors.
-    pub fn recover_from_liquidation() -> DispatchResult {
-        Self::recover_from_(ErrorCode::Liquidation)
-    }
-
-    /// Recovers the BTC Parachain state from an `ORACLE_OFFLINE` error
-    /// and sets ParachainStatus to `RUNNING` if there are no other errors.
-    pub fn recover_from_oracle_offline() -> DispatchResult {
-        Self::recover_from_(ErrorCode::OracleOffline)
-    }
-
-    /// Recovers the BTC Parachain state from a `NO_DATA_BTC_RELAY` or `INVALID_BTC_RELAY` error
-    /// (when a chain reorganization occurs and the new main chain has no errors)
-    /// and sets ParachainStatus to `RUNNING` if there are no other errors.
-    pub fn recover_from_btc_relay_failure() -> DispatchResult {
-        ext::security::mutate_errors::<T, _>(|errors| {
-            errors.remove(&ErrorCode::InvalidBTCRelay);
-            errors.remove(&ErrorCode::NoDataBTCRelay);
-            Ok(())
-        })?;
-
-        if ext::security::get_errors::<T>().len() == 0 {
-            ext::security::set_parachain_status::<T>(StatusCode::Running);
-        }
-
-        Self::deposit_event(<Event<T>>::ExecuteStatusUpdate(
-            ext::security::get_parachain_status::<T>(),
-            None,
-            Some(ErrorCode::InvalidBTCRelay),
-        ));
-
-        Self::deposit_event(<Event<T>>::ExecuteStatusUpdate(
-            ext::security::get_parachain_status::<T>(),
-            None,
-            Some(ErrorCode::NoDataBTCRelay),
-        ));
-
-        Ok(())
-    }
-
     /// Increments the current `StatusCounter` and returns the new value.
     pub fn get_status_counter() -> U256 {
         <StatusCounter>::mutate(|c| {

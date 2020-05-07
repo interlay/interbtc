@@ -31,6 +31,7 @@ impl_outer_event! {
         btc_relay,
         treasury<T>,
         exchange_rate_oracle<T>,
+        security,
     }
 }
 
@@ -98,7 +99,9 @@ impl btc_relay::Trait for Test {
     type Event = TestEvent;
 }
 
-impl security::Trait for Test {}
+impl security::Trait for Test {
+    type Event = TestEvent;
+}
 
 impl treasury::Trait for Test {
     type PolkaBTC = Balances;
