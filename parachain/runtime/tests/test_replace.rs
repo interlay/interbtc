@@ -1,10 +1,27 @@
-mod mock;
+use primitive_types::H256;
 
 use mock::*;
-use primitive_types::H256;
+
+mod mock;
 
 type ReplaceCall = replace::Call<Runtime>;
 type ReplaceEvent = replace::Event<Runtime>;
+
+// asserts request event happen and extracts its id for further testing
+fn assert_request_event() -> H256 {
+    let events = SystemModule::events();
+    let ids = events
+        .iter()
+        .filter_map(|r| match r.event {
+            Event::replace(ReplaceEvent::RequestReplace(_, _, id)) => Some(id.clone()),
+            _ => None,
+        })
+        .collect::<Vec<H256>>();
+    assert_eq!(ids.len(), 1);
+    ids[0].clone()
+}
+
+fn assert_request_storage(request_id: H256) {}
 
 #[test]
 fn integration_test_replace_should_fail_if_not_running() {
@@ -25,24 +42,16 @@ fn integration_test_replace_request_replace() {
         let amount = 1000;
         let griefing_collateral = 200;
 
+        // peg spot rate
         assert_ok!(OracleCall::set_exchange_rate(1).dispatch(origin_of(account_of(BOB))));
+        // bob creates a vault
         assert_ok!(VaultRegistryCall::register_vault(amount, H160([0; 20]))
             .dispatch(origin_of(account_of(BOB))));
+        // bob requests a replace
         assert_ok!(ReplaceCall::request_replace(amount, griefing_collateral)
             .dispatch(origin_of(account_of(BOB))));
-
-        let events = SystemModule::events();
-        let record = events.iter().find(|record| match record.event {
-            Event::replace(ReplaceEvent::RequestReplace(_, _, _)) => true,
-            _ => false,
-        });
-        let _id = if let Event::replace(ReplaceEvent::RequestReplace(id, _, _)) =
-            record.unwrap().event.clone()
-        {
-            id
-        } else {
-            panic!("request replace event not found")
-        };
+        // assert request event
+        let _request_id = assert_request_event();
     });
 }
 
@@ -50,34 +59,23 @@ fn integration_test_replace_request_replace() {
 fn integration_test_replace_withdraw_replace() {
     ExtBuilder::build().execute_with(|| {
         SystemModule::set_block_number(1);
-        let amount = 1000;
+        let balance = 500_000;
+        let amount = 100_000;
         let griefing_collateral = 200;
+        let collateral = 100_000;
 
+        let bob = origin_of(account_of(BOB));
+        // peg spot rate
         assert_ok!(OracleCall::set_exchange_rate(1).dispatch(origin_of(account_of(BOB))));
-        assert_ok!(VaultRegistryCall::register_vault(amount, H160([0; 20]))
+        // bob creates a vault
+        assert_ok!(VaultRegistryCall::register_vault(collateral, H160([0; 20]))
             .dispatch(origin_of(account_of(BOB))));
-        assert_ok!(ReplaceCall::request_replace(amount, griefing_collateral)
+        // bob requests a replace
+        assert_ok!(ReplaceCall::request_replace(5000, griefing_collateral)
             .dispatch(origin_of(account_of(BOB))));
-
-        let events = SystemModule::events();
-        let record = events.iter().find(|record| match record.event {
-            Event::replace(ReplaceEvent::RequestReplace(_, _, _)) => true,
-            _ => false,
-        });
-        let replace_id = if let Event::replace(ReplaceEvent::RequestReplace(_, _, id)) =
-            record.unwrap().event.clone()
-        {
-            id
-        } else {
-            panic!("request replace event not found")
-        };
-
-        assert_ok!(ReplaceCall::withdraw_replace(replace_id).dispatch(origin_of(account_of(BOB))));
-        let event_found = events.iter().find(|record| match record.event {
-            Event::replace(ReplaceEvent::WithdrawReplace(_, _)) => true,
-            _ => false,
-        });
-        assert!(event_found.is_some());
+        // bob withdraws his replace
+        let replace_id = assert_request_event();
+        assert_ok!(ReplaceCall::withdraw_replace(replace_id).dispatch(bob));
     });
 }
 
@@ -88,7 +86,6 @@ fn integration_test_replace_accept_replace() {
         let amount = 1000;
         let griefing_collateral = 500;
         let collateral = amount * 2;
-        let replace_id = H256::zero();
 
         // peg spot rate
         assert_ok!(OracleCall::set_exchange_rate(1).dispatch(origin_of(account_of(BOB))));
@@ -101,6 +98,7 @@ fn integration_test_replace_accept_replace() {
         // bob requests a replace
         assert_ok!(ReplaceCall::request_replace(amount, griefing_collateral)
             .dispatch(origin_of(account_of(BOB))));
+        let replace_id = assert_request_event();
         // alice accept bob's request
         assert_ok!(ReplaceCall::accept_replace(replace_id, collateral)
             .dispatch(origin_of(account_of(ALICE))));
@@ -126,7 +124,7 @@ fn integration_test_replace_auction_replace() {
         // bob requests a replace
         assert_ok!(ReplaceCall::request_replace(amount, griefing_collateral)
             .dispatch(origin_of(account_of(BOB))));
-        // alice auctions bob's vault
+        // alice snaps up bob's vault
         assert_ok!(
             ReplaceCall::auction_replace(account_of(BOB), amount, collateral)
                 .dispatch(origin_of(account_of(ALICE)))
@@ -138,7 +136,7 @@ fn integration_test_replace_auction_replace() {
 fn integration_test_replace_execute_replace() {
     ExtBuilder::build().execute_with(|| {
         SystemModule::set_block_number(1);
-        let amount = 1000;
+        let amount = 1_000_000;
         let griefing_collateral = 200;
         let replace_id = H256::zero();
 
@@ -173,9 +171,7 @@ fn integration_test_replace_execute_replace() {
 #[test]
 fn integration_test_replace_cancel_replace() {
     ExtBuilder::build().execute_with(|| {
-        SystemModule::set_block_number(1);
         let amount = 1000;
-        let replace_id = H256::default();
         //FIXME: get this from storage
         let griefing_collateral = 200;
         let collateral = amount * 2;
@@ -191,8 +187,10 @@ fn integration_test_replace_cancel_replace() {
         assert_ok!(ReplaceCall::request_replace(amount, griefing_collateral)
             .dispatch(origin_of(account_of(BOB))));
         // alice accepts bob's request
+        let replace_id = assert_request_event();
         assert_ok!(ReplaceCall::accept_replace(replace_id, collateral)
             .dispatch(origin_of(account_of(BOB))));
+        // set block height
         // alice cancels replacement
         assert_ok!(ReplaceCall::cancel_replace(replace_id).dispatch(origin_of(account_of(BOB))));
     });
