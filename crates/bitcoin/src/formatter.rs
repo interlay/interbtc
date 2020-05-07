@@ -3,6 +3,7 @@ use sp_std::vec::Vec;
 use sp_std::{prelude::*, vec};
 
 use crate::types::*;
+use crate::utils::log256;
 
 const WITNESS_FLAG: u8 = 0x01;
 const WITNESS_MARKER: u8 = 0x00;
@@ -186,20 +187,10 @@ impl Formattable<bool> for Transaction {
     }
 }
 
-fn log_256(value: &U256) -> u8 {
-    let mut current = value.clone();
-    let mut result: u8 = 0;
-    while current > 0.into() {
-        current = current >> 8;
-        result += 1;
-    }
-    result
-}
-
 impl Formattable<bool> for U256 {
     fn format(&self) -> Vec<u8> {
         let mut bytes: [u8; 4] = Default::default();
-        let exponent = log_256(&self);
+        let exponent = log256(&self);
         bytes[3] = exponent;
         let mantissa = self / U256::from(256).pow(U256::from(exponent) - 3);
         let mut mantissa_bytes: [u8; 32] = Default::default();
@@ -354,14 +345,6 @@ mod tests {
     }
 
     // taken from https://bitcoin.org/en/developer-reference#block-headers
-    #[test]
-    fn test_log_256() {
-        let value = U256::from_dec_str("680733321990486529407107157001552378184394215934016880640")
-            .unwrap();
-        let result = log_256(&value);
-        assert_eq!(result, 24);
-    }
-
     #[test]
     fn test_format_u256() {
         let value = U256::from_dec_str("680733321990486529407107157001552378184394215934016880640")

@@ -13,7 +13,7 @@ use x_core::Error;
 
 use crate::formatter::Formattable;
 use crate::parser::{extract_address_hash, extract_op_return_data, FromLeBytes};
-use crate::utils::{hash256_merkle_step, reverse_endianness, sha256d_le};
+use crate::utils::{hash256_merkle_step, log2, reverse_endianness, sha256d_le};
 
 pub(crate) const SERIALIZE_TRANSACTION_NO_WITNESS: i32 = 0x4000_0000;
 
@@ -551,16 +551,15 @@ impl BlockBuilder {
     }
 
     fn compute_merkle_root(&self) -> H256Le {
-        let tx_count = self.block.transactions.len() as f64;
-        let height = tx_count.log(2.0).ceil() as u32;
+        let height = log2(self.block.transactions.len() as u64);
         self.rec_compute_merkle_root(0, height)
     }
 
-    fn compute_tree_width(&self, height: u32) -> usize {
+    fn compute_tree_width(&self, height: u8) -> usize {
         (self.block.transactions.len() as usize + (1 << height) - 1) >> height
     }
 
-    fn rec_compute_merkle_root(&self, index: usize, height: u32) -> H256Le {
+    fn rec_compute_merkle_root(&self, index: usize, height: u8) -> H256Le {
         if height == 0 {
             return self.block.transactions[index].tx_id();
         }
