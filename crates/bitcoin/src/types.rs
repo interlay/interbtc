@@ -1,5 +1,8 @@
 extern crate hex;
 
+#[cfg(test)]
+use mocktopus::macros::mockable;
+
 use codec::alloc::string::String;
 use codec::{Decode, Encode};
 use primitive_types::{H256, U256};
@@ -10,7 +13,7 @@ use x_core::Error;
 
 use crate::formatter::Formattable;
 use crate::parser::{extract_address_hash, extract_op_return_data, FromLeBytes};
-use crate::utils::{reverse_endianness, sha256d_le};
+use crate::utils::{hash256_merkle_step, reverse_endianness, sha256d_le};
 
 pub(crate) const SERIALIZE_TRANSACTION_NO_WITNESS: i32 = 0x4000_0000;
 
@@ -416,6 +419,7 @@ pub struct Transaction {
     pub locktime: Option<u32>,     //FIXME: why is this optional?
 }
 
+#[cfg_attr(test, mockable)]
 impl Transaction {
     pub fn tx_id(&self) -> H256Le {
         sha256d_le(&self.format_with(false))
@@ -524,8 +528,26 @@ impl BlockBuilder {
     }
 
     fn compute_merkle_root(&self) -> H256Le {
-        // TODO: compute using self.block.transactions
-        H256Le::zero()
+        let tx_count = self.block.transactions.len() as f64;
+        let height = tx_count.log(2.0).ceil() as u32;
+        self.rec_compute_merkle_root(0, height)
+    }
+
+    fn compute_tree_width(&self, height: u32) -> usize {
+        (self.block.transactions.len() as usize + (1 << height) - 1) >> height
+    }
+
+    fn rec_compute_merkle_root(&self, index: usize, height: u32) -> H256Le {
+        if height == 0 {
+            return self.block.transactions[index].tx_id();
+        }
+        let left = self.rec_compute_merkle_root(index * 2, height - 1);
+        let right = if index * 2 + 1 < self.compute_tree_width(height - 1) {
+            self.rec_compute_merkle_root(index * 2 + 1, height - 1)
+        } else {
+            left
+        };
+        hash256_merkle_step(&left.to_bytes_le(), &right.to_bytes_le())
     }
 }
 
@@ -791,6 +813,8 @@ impl TransactionInputBuilder {
 
 #[cfg(test)]
 mod tests {
+    use mocktopus::mocking::*;
+
     use super::*;
     use sp_std::convert::TryInto;
 
@@ -889,5 +913,83 @@ mod tests {
                 .unwrap(),
             return_data
         );
+    }
+
+    #[test]
+    fn test_compute_merkle_root_balanced() {
+        // https://www.blockchain.com/btc/block/100000
+        let transactions = vec![
+            TransactionBuilder::new().with_version(1).build(),
+            TransactionBuilder::new().with_version(2).build(),
+            TransactionBuilder::new().with_version(3).build(),
+            TransactionBuilder::new().with_version(4).build(),
+        ];
+        Transaction::tx_id.mock_safe(|tx| {
+            let txid = match tx.version {
+                1 => H256Le::from_hex_be(
+                    "8c14f0db3df150123e6f3dbbf30f8b955a8249b62ac1d1ff16284aefa3d06d87",
+                ),
+                2 => H256Le::from_hex_be(
+                    "fff2525b8931402dd09222c50775608f75787bd2b87e56995a7bdd30f79702c4",
+                ),
+                3 => H256Le::from_hex_be(
+                    "6359f0868171b1d194cbee1af2f16ea598ae8fad666d9b012c8ed2b79a236ec4",
+                ),
+                4 => H256Le::from_hex_be(
+                    "e9a66845e05d5abc0ad04ec80f774a7e585c6e8db975962d069a522137b80c1d",
+                ),
+                _ => panic!("should not happen"),
+            };
+            MockResult::Return(txid)
+        });
+        let mut builder = BlockBuilder::new();
+        for tx in transactions {
+            builder.add_transaction(tx);
+        }
+        let merkle_root = builder.compute_merkle_root();
+        let expected =
+            H256Le::from_hex_be("f3e94742aca4b5ef85488dc37c06c3282295ffec960994b2c0d5ac2a25a95766");
+        assert_eq!(merkle_root, expected);
+    }
+
+    #[test]
+    fn test_compute_merkle_root_inbalanced() {
+        // https://www.blockchain.com/btc/block/100018
+        let transactions = vec![
+            TransactionBuilder::new().with_version(1).build(),
+            TransactionBuilder::new().with_version(2).build(),
+            TransactionBuilder::new().with_version(3).build(),
+            TransactionBuilder::new().with_version(4).build(),
+            TransactionBuilder::new().with_version(5).build(),
+        ];
+        Transaction::tx_id.mock_safe(|tx| {
+            let txid = match tx.version {
+                1 => H256Le::from_hex_be(
+                    "a335b243f5e343049fccac2cf4d70578ad705831940d3eef48360b0ea3829ed4",
+                ),
+                2 => H256Le::from_hex_be(
+                    "d5fd11cb1fabd91c75733f4cf8ff2f91e4c0d7afa4fd132f792eacb3ef56a46c",
+                ),
+                3 => H256Le::from_hex_be(
+                    "0441cb66ef0cbf78c9ecb3d5a7d0acf878bfdefae8a77541b3519a54df51e7fd",
+                ),
+                4 => H256Le::from_hex_be(
+                    "1a8a27d690889b28d6cb4dacec41e354c62f40d85a7f4b2d7a54ffc736c6ff35",
+                ),
+                5 => H256Le::from_hex_be(
+                    "1d543d550676f82bf8bf5b0cc410b16fc6fc353b2a4fd9a0d6a2312ed7338701",
+                ),
+                _ => panic!("should not happen"),
+            };
+            MockResult::Return(txid)
+        });
+        let mut builder = BlockBuilder::new();
+        for tx in transactions {
+            builder.add_transaction(tx);
+        }
+        let merkle_root = builder.compute_merkle_root();
+        let expected =
+            H256Le::from_hex_be("5766798857e436d6243b46b5c1e0af5b6806aa9c2320b3ffd4ecff7b31fd4647");
+        assert_eq!(merkle_root, expected);
     }
 }
