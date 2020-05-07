@@ -1,8 +1,27 @@
 use crate::mock::*;
 use crate::ErrorCode;
 use crate::StatusCode;
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{assert_noop, assert_ok, dispatch::DispatchResult};
 use x_core::Error;
+
+type Event = crate::Event;
+
+macro_rules! assert_emitted {
+    ($event:expr) => {
+        let test_event = TestEvent::test_events($event);
+        assert!(System::events().iter().any(|a| a.event == test_event));
+    };
+    ($event:expr, $times:expr) => {
+        let test_event = TestEvent::test_events($event);
+        assert_eq!(
+            System::events()
+                .iter()
+                .filter(|a| a.event == test_event)
+                .count(),
+            $times
+        );
+    };
+}
 
 #[test]
 fn test_get_and_set_parachain_status() {
@@ -107,6 +126,51 @@ fn test_is_parachain_error_liquidation() {
             Ok(())
         }));
         assert_eq!(Security::_is_parachain_error_liquidation(), true);
+    })
+}
+
+fn test_recover_from_<F>(recover: F, error_codes: Vec<ErrorCode>)
+where
+    F: FnOnce() -> DispatchResult,
+{
+    for err in &error_codes {
+        Security::insert_error(err.clone());
+    }
+    assert_ok!(recover());
+    for err in &error_codes {
+        assert_eq!(Security::get_errors().contains(&err), false);
+    }
+    assert_eq!(Security::get_parachain_status(), StatusCode::Running);
+    assert_emitted!(Event::RecoverFromErrors(StatusCode::Running, error_codes));
+}
+
+#[test]
+fn test_recover_from_liquidation_succeeds() {
+    run_test(|| {
+        test_recover_from_(
+            Security::recover_from_liquidation,
+            vec![ErrorCode::Liquidation],
+        );
+    })
+}
+
+#[test]
+fn test_recover_from_oracle_offline_succeeds() {
+    run_test(|| {
+        test_recover_from_(
+            Security::recover_from_oracle_offline,
+            vec![ErrorCode::OracleOffline],
+        );
+    })
+}
+
+#[test]
+fn test_recover_from_btc_relay_failure_succeeds() {
+    run_test(|| {
+        test_recover_from_(
+            Security::recover_from_btc_relay_failure,
+            vec![ErrorCode::InvalidBTCRelay, ErrorCode::NoDataBTCRelay],
+        );
     })
 }
 

@@ -24,6 +24,7 @@ impl_outer_event! {
         pallet_balances<T>,
         collateral<T>,
         treasury<T>,
+        security,
     }
 }
 
@@ -93,6 +94,10 @@ impl collateral::Trait for Test {
 
 impl treasury::Trait for Test {
     type PolkaBTC = Balances;
+    type Event = TestEvent;
+}
+
+impl security::Trait for Test {
     type Event = TestEvent;
 }
 

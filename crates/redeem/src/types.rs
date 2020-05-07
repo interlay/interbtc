@@ -11,12 +11,12 @@ pub(crate) type PolkaBTC<T> =
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct Redeem<AccountId, BlockNumber, PolkaBTC, DOT> {
-    pub(crate) vault: AccountId,
-    pub(crate) opentime: BlockNumber,
-    pub(crate) amount_polka_btc: PolkaBTC,
-    pub(crate) amount_btc: PolkaBTC,
-    pub(crate) amount_dot: DOT,
-    pub(crate) premium_dot: DOT,
-    pub(crate) redeemer: AccountId,
-    pub(crate) btc_address: H160,
+    pub vault: AccountId,
+    pub opentime: BlockNumber,
+    pub amount_polka_btc: PolkaBTC,
+    pub amount_btc: PolkaBTC,
+    pub amount_dot: DOT,
+    pub premium_dot: DOT,
+    pub redeemer: AccountId,
+    pub btc_address: H160,
 }

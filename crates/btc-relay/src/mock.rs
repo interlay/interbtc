@@ -22,6 +22,7 @@ impl_outer_event! {
     pub enum TestEvent for Test {
         system<T>,
         test_events,
+        security,
     }
 }
 
@@ -64,7 +65,9 @@ impl Trait for Test {
     type Event = TestEvent;
 }
 
-impl security::Trait for Test {}
+impl security::Trait for Test {
+    type Event = TestEvent;
+}
 
 pub type System = system::Module<Test>;
 pub type BTCRelay = Module<Test>;

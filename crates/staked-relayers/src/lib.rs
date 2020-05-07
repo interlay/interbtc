@@ -23,7 +23,7 @@ use crate::types::{
     ActiveStakedRelayer, InactiveStakedRelayer, ProposalStatus, StakedRelayerStatus, StatusUpdate,
     Tally, DOT,
 };
-use bitcoin::parser::{extract_address_hash, extract_op_return_data, parse_transaction};
+use bitcoin::parser::parse_transaction;
 use bitcoin::types::*;
 /// # Security module implementation
 /// This is the implementation of the BTC Parachain Security module following the spec at:
@@ -36,6 +36,7 @@ use frame_support::{
     traits::Get,
     IterableStorageMap,
 };
+use primitive_types::H256;
 use security::types::{ErrorCode, StatusCode};
 use sp_core::{H160, U256};
 use sp_std::collections::btree_set::BTreeSet;
@@ -46,7 +47,13 @@ use system::ensure_signed;
 /// ## Configuration
 /// The pallet's configuration trait.
 pub trait Trait:
-    system::Trait + security::Trait + collateral::Trait + vault_registry::Trait + btc_relay::Trait
+    system::Trait
+    + security::Trait
+    + collateral::Trait
+    + vault_registry::Trait
+    + btc_relay::Trait
+    + redeem::Trait
+    + replace::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
@@ -363,14 +370,34 @@ decl_module! {
             if tx.outputs.len() <= 2 {
                 let out = &tx.outputs[0];
                 // check if migration
-                if let Ok(out_addr) = extract_address_hash(out.script.as_slice()) {
+                if let Ok(out_addr) = out.script.extract_address() {
                     ensure!(H160::from_slice(&out_addr) != vault.btc_address, Error::<T>::ValidMergeTransaction);
+                    let out_val = out.value;
                     if tx.outputs.len() == 2 {
                         let out = &tx.outputs[1];
                         // check if redeem / replace
-                        if let Ok(out_ret) = extract_op_return_data(out.script.as_slice()) {
-                            if ext::redeem::get_redeem_request_by_id(&out_ret) || ext::replace::get_replace_request_by_id(&out_ret) {
-                                // TODO: check payment value
+                        if let Ok(out_ret) = out.script.extract_op_return_data() {
+                            let id = H256::from_slice(&out_ret);
+                            let addr = H160::from_slice(&out_addr);
+                            match ext::redeem::get_redeem_request_from_id::<T>(&id) {
+                                Ok(req) => {
+                                    let amount = TryInto::<u64>::try_into(req.amount_btc).map_err(|_e| Error::<T>::RuntimeError)? as i64;
+                                    ensure!(
+                                        out_val < amount && addr != req.btc_address,
+                                        Error::<T>::ValidRedeemOrReplace
+                                    )
+                                },
+                                Err(_) => (),
+                            }
+                            match ext::replace::get_replace_request::<T>(&id) {
+                                Ok(req) => {
+                                    let amount = TryInto::<u64>::try_into(req.amount).map_err(|_e| Error::<T>::RuntimeError)? as i64;
+                                    ensure!(
+                                        out_val < amount && addr != req.btc_address,
+                                        Error::<T>::ValidRedeemOrReplace
+                                    )
+                                },
+                                Err(_) => (),
                             }
                         }
                     }
@@ -843,66 +870,6 @@ impl<T: Trait> Module<T> {
             update.add_error,
             update.remove_error,
         ));
-        Ok(())
-    }
-
-    fn recover_from_(error_code: ErrorCode) -> DispatchResult {
-        ext::security::mutate_errors::<T, _>(|errors| {
-            errors.remove(&error_code);
-            Ok(())
-        })?;
-
-        if ext::security::get_errors::<T>().len() == 0 {
-            ext::security::set_parachain_status::<T>(StatusCode::Running);
-        }
-
-        Self::deposit_event(<Event<T>>::ExecuteStatusUpdate(
-            ext::security::get_parachain_status::<T>(),
-            None,
-            Some(error_code),
-        ));
-
-        Ok(())
-    }
-
-    /// Recovers the BTC Parachain state from a `LIQUIDATION` error
-    /// and sets ParachainStatus to `RUNNING` if there are no other errors.
-    pub fn recover_from_liquidation() -> DispatchResult {
-        Self::recover_from_(ErrorCode::Liquidation)
-    }
-
-    /// Recovers the BTC Parachain state from an `ORACLE_OFFLINE` error
-    /// and sets ParachainStatus to `RUNNING` if there are no other errors.
-    pub fn recover_from_oracle_offline() -> DispatchResult {
-        Self::recover_from_(ErrorCode::OracleOffline)
-    }
-
-    /// Recovers the BTC Parachain state from a `NO_DATA_BTC_RELAY` or `INVALID_BTC_RELAY` error
-    /// (when a chain reorganization occurs and the new main chain has no errors)
-    /// and sets ParachainStatus to `RUNNING` if there are no other errors.
-    pub fn recover_from_btc_relay_failure() -> DispatchResult {
-        ext::security::mutate_errors::<T, _>(|errors| {
-            errors.remove(&ErrorCode::InvalidBTCRelay);
-            errors.remove(&ErrorCode::NoDataBTCRelay);
-            Ok(())
-        })?;
-
-        if ext::security::get_errors::<T>().len() == 0 {
-            ext::security::set_parachain_status::<T>(StatusCode::Running);
-        }
-
-        Self::deposit_event(<Event<T>>::ExecuteStatusUpdate(
-            ext::security::get_parachain_status::<T>(),
-            None,
-            Some(ErrorCode::InvalidBTCRelay),
-        ));
-
-        Self::deposit_event(<Event<T>>::ExecuteStatusUpdate(
-            ext::security::get_parachain_status::<T>(),
-            None,
-            Some(ErrorCode::NoDataBTCRelay),
-        ));
-
         Ok(())
     }
 

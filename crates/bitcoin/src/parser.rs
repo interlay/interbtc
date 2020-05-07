@@ -4,10 +4,11 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use crate::types::*;
 use primitive_types::U256;
 use sp_std::prelude::*;
 use x_core::Error;
+
+use crate::types::*;
 
 /// Type to be parsed from a bytes array
 pub(crate) trait Parsable: Sized {
@@ -219,7 +220,7 @@ impl FromLeBytes for BlockHeader {
 ///
 /// * `header` - An 80-byte Bitcoin header
 pub fn parse_block_header(raw_header: &RawBlockHeader) -> Result<BlockHeader, Error> {
-    let mut parser = BytesParser::new(raw_header.as_slice());
+    let mut parser = BytesParser::new(raw_header.as_bytes());
     let version: i32 = parser.parse()?;
     let hash_prev_block: H256Le = parser.parse()?;
     let merkle_root: H256Le = parser.parse()?;
@@ -230,7 +231,7 @@ pub fn parse_block_header(raw_header: &RawBlockHeader) -> Result<BlockHeader, Er
     let block_header = BlockHeader {
         merkle_root,
         target,
-        timestamp: timestamp as u64,
+        timestamp: timestamp,
         version,
         nonce,
         hash_prev_block,
@@ -377,10 +378,16 @@ fn parse_transaction_output(raw_output: &[u8]) -> Result<(TransactionOutput, usi
         return Err(Error::MalformedTransaction);
     }
     let script = parser.read(script_size.value as usize)?;
-    Ok((TransactionOutput { value, script }, parser.position))
+    Ok((
+        TransactionOutput {
+            value,
+            script: script.into(),
+        },
+        parser.position,
+    ))
 }
 
-pub fn extract_address_hash(output_script: &[u8]) -> Result<Vec<u8>, Error> {
+pub(crate) fn extract_address_hash(output_script: &[u8]) -> Result<Vec<u8>, Error> {
     let script_len = output_script.len();
     // Witness
     if output_script[0] == 0 {
@@ -429,7 +436,7 @@ pub fn extract_address_hash(output_script: &[u8]) -> Result<Vec<u8>, Error> {
     Err(Error::UnsupportedOutputFormat)
 }
 
-pub fn extract_op_return_data(output_script: &[u8]) -> Result<Vec<u8>, Error> {
+pub(crate) fn extract_op_return_data(output_script: &[u8]) -> Result<Vec<u8>, Error> {
     if output_script[0] != OpCode::OpReturn as u8 {
         return Err(Error::MalformedOpReturnOutput);
     }
@@ -439,7 +446,13 @@ pub fn extract_op_return_data(output_script: &[u8]) -> Result<Vec<u8>, Error> {
         return Err(Error::MalformedOpReturnOutput);
     }
 
-    Ok(output_script[2..].to_vec())
+    let result = &output_script[2..];
+
+    if result.len() != output_script[1] as usize {
+        return Err(Error::MalformedOpReturnOutput);
+    }
+
+    Ok(result.to_vec())
 }
 
 #[cfg(test)]
@@ -450,14 +463,7 @@ pub(crate) mod tests {
 
     #[test]
     fn test_parse_block_header() {
-        let hex_header = "02000000".to_owned() + // ............... Block version: 2
-            "b6ff0b1b1680a2862a30ca44d346d9e8" + //
-            "910d334beb48ca0c0000000000000000" + // ... Hash of previous block's header
-            "9d10aa52ee949386ca9385695f04ede2" + //
-            "70dda20810decd12bc9b048aaab31471" + // ... Merkle root
-            "24d95a54" + // ........................... Unix time: 1415239972
-            "30c31b18" + // ........................... Target: 0x1bc330 * 256**(0x18-3)
-            "fe9f0864";
+        let hex_header = sample_block_header();
         let raw_header = RawBlockHeader::from_hex(&hex_header).unwrap();
         let parsed_header = parse_block_header(&raw_header).unwrap();
         assert_eq!(parsed_header.version, 2);
@@ -553,6 +559,17 @@ pub(crate) mod tests {
         "a914000000000000000000000000000000000000000087".to_owned()
     }
 
+    pub fn sample_block_header() -> String {
+        "02000000".to_owned() + // ............... Block version: 2
+            "b6ff0b1b1680a2862a30ca44d346d9e8" + //
+            "910d334beb48ca0c0000000000000000" + // ... Hash of previous block's header
+            "9d10aa52ee949386ca9385695f04ede2" + //
+            "70dda20810decd12bc9b048aaab31471" + // ... Merkle root
+            "24d95a54" + // ........................... Unix time: 1415239972
+            "30c31b18" + // ........................... Target: 0x1bc330 * 256**(0x18-3)
+            "fe9f0864"
+    }
+
     #[test]
     fn test_parse_coinbase_transaction_input() {
         let raw_input = sample_coinbase_transaction_input();
@@ -627,7 +644,7 @@ pub(crate) mod tests {
         assert_eq!(outputs.len(), 1);
         assert_eq!(outputs[0].value, 100000000);
         assert_eq!(
-            &hex::encode(&outputs[0].script),
+            &outputs[0].script.as_hex(),
             "a9144a1154d50b03292b3024370901711946cb7cccc387"
         );
         assert_eq!(transaction.block_height, Some(0));
