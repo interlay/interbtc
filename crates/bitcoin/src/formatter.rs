@@ -1,15 +1,15 @@
+use primitive_types::U256;
 use sp_std::vec::Vec;
+use sp_std::{prelude::*, vec};
 
-use crate::types::{
-    CompactUint, H256Le, Transaction, TransactionInput, TransactionOutput,
-    SERIALIZE_TRANSACTION_NO_WITNESS,
-};
+use crate::types::*;
+use crate::utils::log256;
 
 const WITNESS_FLAG: u8 = 0x01;
 const WITNESS_MARKER: u8 = 0x00;
 
 /// Type to be formatted as a bytes array
-pub(crate) trait Formattable<Options = ()> {
+pub trait Formattable<Options = ()> {
     fn format(&self) -> Vec<u8>;
     fn format_with(&self, _options: Options) -> Vec<u8> {
         self.format()
@@ -117,6 +117,30 @@ impl Formattable<bool> for TransactionInput {
     }
 }
 
+impl Formattable for Script {
+    fn format(&self) -> Vec<u8> {
+        self.bytes.format()
+    }
+}
+
+impl Formattable for &[u8] {
+    fn format(&self) -> Vec<u8> {
+        Vec::from(*self)
+    }
+}
+
+impl Formattable for Address {
+    fn format(&self) -> Vec<u8> {
+        Vec::from(self.as_bytes())
+    }
+}
+
+impl Formattable for OpCode {
+    fn format(&self) -> Vec<u8> {
+        vec![*self as u8]
+    }
+}
+
 impl Formattable for TransactionOutput {
     fn format(&self) -> Vec<u8> {
         let mut formatter = Formatter::new();
@@ -159,6 +183,48 @@ impl Formattable<bool> for Transaction {
             .iter()
             .for_each(|b| formatter.format(b));
 
+        formatter.result()
+    }
+}
+
+impl Formattable<bool> for U256 {
+    fn format(&self) -> Vec<u8> {
+        let mut bytes: [u8; 4] = Default::default();
+        let exponent = log256(&self);
+        bytes[3] = exponent;
+        let mantissa = if exponent > 3 {
+            self / U256::from(256).pow(U256::from(exponent) - 3)
+        } else {
+            self.clone()
+        };
+        let mut mantissa_bytes: [u8; 32] = Default::default();
+        mantissa.to_little_endian(&mut mantissa_bytes);
+        for i in 0..=2 {
+            // only three first bytes should be set because of the division
+            bytes[i] = mantissa_bytes[i];
+        }
+        Vec::from(&bytes[..])
+    }
+}
+
+impl Formattable for BlockHeader {
+    fn format(&self) -> Vec<u8> {
+        let mut formatter = Formatter::new();
+        formatter.format(self.version);
+        formatter.format(self.hash_prev_block);
+        formatter.format(self.merkle_root);
+        formatter.format(self.timestamp);
+        formatter.format(self.target);
+        formatter.format(self.nonce);
+        formatter.result()
+    }
+}
+
+impl Formattable for Block {
+    fn format(&self) -> Vec<u8> {
+        let mut formatter = Formatter::new();
+        formatter.format(self.header);
+        formatter.format(&self.transactions);
         formatter.result()
     }
 }
@@ -272,5 +338,23 @@ mod tests {
         let formatted_no_witness = transaction.format_with(false);
         let computed_txid = sha256d_le(&formatted_no_witness);
         assert_eq!(computed_txid, expected_txid);
+    }
+
+    #[test]
+    fn test_format_block_header() {
+        let hex_header = parser::tests::sample_block_header();
+        let raw_header = RawBlockHeader::from_hex(&hex_header).unwrap();
+        let parsed_header = parser::parse_block_header(&raw_header).unwrap();
+        assert_eq!(parsed_header.format(), raw_header.as_bytes());
+    }
+
+    // taken from https://bitcoin.org/en/developer-reference#block-headers
+    #[test]
+    fn test_format_u256() {
+        let value = U256::from_dec_str("680733321990486529407107157001552378184394215934016880640")
+            .unwrap();
+        let result = value.format();
+        let expected = hex::decode("30c31b18").unwrap();
+        assert_eq!(result, expected);
     }
 }

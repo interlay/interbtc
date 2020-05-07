@@ -23,7 +23,7 @@ use crate::types::{
     ActiveStakedRelayer, InactiveStakedRelayer, ProposalStatus, StakedRelayerStatus, StatusUpdate,
     Tally, DOT,
 };
-use bitcoin::parser::{extract_address_hash, extract_op_return_data, parse_transaction};
+use bitcoin::parser::parse_transaction;
 use bitcoin::types::*;
 /// # Security module implementation
 /// This is the implementation of the BTC Parachain Security module following the spec at:
@@ -363,12 +363,12 @@ decl_module! {
             if tx.outputs.len() <= 2 {
                 let out = &tx.outputs[0];
                 // check if migration
-                if let Ok(out_addr) = extract_address_hash(out.script.as_slice()) {
+                if let Ok(out_addr) = out.script.extract_address() {
                     ensure!(H160::from_slice(&out_addr) != vault.btc_address, Error::<T>::ValidMergeTransaction);
                     if tx.outputs.len() == 2 {
                         let out = &tx.outputs[1];
                         // check if redeem / replace
-                        if let Ok(out_ret) = extract_op_return_data(out.script.as_slice()) {
+                        if let Ok(out_ret) = out.script.extract_op_return_data() {
                             if ext::redeem::get_redeem_request_by_id(&out_ret) || ext::replace::get_replace_request_by_id(&out_ret) {
                                 // TODO: check payment value
                             }
