@@ -7,7 +7,7 @@ type ReplaceCall = replace::Call<Runtime>;
 type ReplaceEvent = replace::Event<Runtime>;
 
 #[test]
-fn should_fail_if_not_running() {
+fn integration_test_replace_should_fail_if_not_running() {
     ExtBuilder::build().execute_with(|| {
         SecurityModule::set_parachain_status(StatusCode::Shutdown);
 
@@ -19,7 +19,7 @@ fn should_fail_if_not_running() {
 }
 
 #[test]
-fn request_replace() {
+fn integration_test_replace_request_replace() {
     ExtBuilder::build().execute_with(|| {
         SystemModule::set_block_number(1);
         let amount = 1000;
@@ -47,7 +47,7 @@ fn request_replace() {
 }
 
 #[test]
-fn withdraw_replace() {
+fn integration_test_replace_withdraw_replace() {
     ExtBuilder::build().execute_with(|| {
         SystemModule::set_block_number(1);
         let amount = 1000;
@@ -82,7 +82,7 @@ fn withdraw_replace() {
 }
 
 #[test]
-fn accept_replace() {
+fn integration_test_replace_accept_replace() {
     ExtBuilder::build().execute_with(|| {
         SystemModule::set_block_number(1);
         let amount = 1000;
@@ -108,7 +108,7 @@ fn accept_replace() {
 }
 
 #[test]
-fn auction_replace() {
+fn integration_test_replace_auction_replace() {
     ExtBuilder::build().execute_with(|| {
         SystemModule::set_block_number(1);
         let amount = 1000;
@@ -135,7 +135,7 @@ fn auction_replace() {
 }
 
 #[test]
-fn execute_replace() {
+fn integration_test_replace_execute_replace() {
     ExtBuilder::build().execute_with(|| {
         SystemModule::set_block_number(1);
         let amount = 1000;
@@ -171,7 +171,7 @@ fn execute_replace() {
 }
 
 #[test]
-fn cancel_replace() {
+fn integration_test_replace_cancel_replace() {
     ExtBuilder::build().execute_with(|| {
         SystemModule::set_block_number(1);
         let amount = 1000;

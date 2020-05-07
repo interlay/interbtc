@@ -7,7 +7,7 @@ type IssueCall = issue::Call<Runtime>;
 type IssueEvent = issue::Event<Runtime>;
 
 #[test]
-fn should_fail_if_not_running() {
+fn integration_test_issue_should_fail_if_not_running() {
     ExtBuilder::build().execute_with(|| {
         SecurityModule::set_parachain_status(StatusCode::Shutdown);
 
@@ -31,7 +31,7 @@ fn should_fail_if_not_running() {
 }
 
 #[test]
-fn issue_polka_btc() {
+fn integration_test_issue_issue_polka_btc() {
     ExtBuilder::build().execute_with(|| {
         SystemModule::set_block_number(1);
 
@@ -68,4 +68,4 @@ fn issue_polka_btc() {
         //         .dispatch(origin_of(account_of(ALICE)))
         // );
     });
-}
+ }
