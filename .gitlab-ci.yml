@@ -69,8 +69,8 @@ stages:
 test-pallets-and-crates:
     stage: test
     script:
-        - cargo build --release --verbose
         - cargo fmt -- --check
+        - cargo build --release --verbose
         - cargo test --all --release
     cache:
         key: cargo
