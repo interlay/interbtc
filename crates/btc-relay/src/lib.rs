@@ -738,8 +738,8 @@ impl<T: Trait> Module<T> {
         let last_retarget_time =
             Self::get_last_retarget_time(prev_block_header.chain_ref, block_height)?;
         // Compute new target
-        let actual_timespan = if ((prev_block_header.block_header.timestamp as u64 - last_retarget_time)
-            as u32)
+        let actual_timespan = if ((prev_block_header.block_header.timestamp as u64
+            - last_retarget_time) as u32)
             < (TARGET_TIMESPAN / TARGET_TIMESPAN_DIVISOR)
         {
             TARGET_TIMESPAN / TARGET_TIMESPAN_DIVISOR
