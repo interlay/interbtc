@@ -889,6 +889,7 @@ mod tests {
 
     #[test]
     fn test_transaction_txid() {
+        clear_mocks();
         let raw_tx = hex::decode(&sample_example_real_rawtx()).unwrap();
         let transaction = parse_transaction(&raw_tx).unwrap();
         let expected_txid = H256Le::from_hex_be(&sample_example_real_txid());
@@ -1022,6 +1023,7 @@ mod tests {
 
     #[test]
     fn test_mine_block() {
+        clear_mocks();
         let address: Address = "66c7060feb882664ae62ffad0051fe843e318e85"
             .try_into()
             .unwrap();
@@ -1033,6 +1035,7 @@ mod tests {
         assert_eq!(block.header.version, 2);
         assert_eq!(block.header.merkle_root, block.transactions[0].tx_id());
         // should be 3, might change if block is changed
+        assert_eq!(block.header.nonce, 3);
         assert!(block.header.nonce > 0);
     }
 }
