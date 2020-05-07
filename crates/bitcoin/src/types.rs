@@ -307,6 +307,14 @@ impl Script {
         Script { bytes: vec![] }
     }
 
+    pub fn height(height: u32) -> Script {
+        let mut script = Script::new();
+        script.append(OpCode::Op3);
+        let bytes = height.to_le_bytes();
+        script.append(&bytes[0..=2]);
+        script
+    }
+
     // Format:
     // 0x76 (OP_DUP) - 0xa9 (OP_HASH160) - 0x14 (20 bytes len) - <20 bytes pubkey hash> - 0x88 (OP_EQUALVERIFY) - 0xac (OP_CHECKSIG)
     pub fn p2pkh(address: &Address) -> Script {
@@ -520,10 +528,25 @@ impl BlockBuilder {
         self
     }
 
-    pub fn with_coinbase(&mut self, _address: Address) -> &mut Self {
-        // TODO: generate coinbase transcation
-        // let transaction = ....
-        // self.block.transactions.insert(0, transaction);
+    // TODO: double check this works
+    // the output of real-world transactions
+    // seem to finish with OP_CHECKSIG
+    // need to check format
+    pub fn with_coinbase(&mut self, address: &Address, reward: i64, height: u32) -> &mut Self {
+        let input = TransactionInputBuilder::new()
+            .with_coinbase(true)
+            .with_previous_index(u32::max_value())
+            .with_previous_hash(H256Le::zero())
+            .with_height(Script::height(height).as_bytes())
+            .with_sequence(0)
+            .build();
+        // FIXME: this is most likely not what real-world transactions look like
+        let output = TransactionOutput::p2pkh(reward, &address);
+        let transaction = TransactionBuilder::new()
+            .add_input(input)
+            .add_output(output)
+            .build();
+        self.block.transactions.insert(0, transaction);
         self
     }
 
@@ -871,6 +894,11 @@ mod tests {
         let transaction = parse_transaction(&raw_tx).unwrap();
         let expected_txid = H256Le::from_hex_be(&sample_example_real_txid());
         assert_eq!(transaction.tx_id(), expected_txid);
+    }
+
+    #[test]
+    fn test_script_height() {
+        assert_eq!(Script::height(100).len(), 4);
     }
 
     #[test]
