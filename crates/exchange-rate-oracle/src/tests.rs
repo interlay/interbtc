@@ -1,7 +1,7 @@
 use crate::mock::{run_test, ExchangeRateOracle, Origin, System, Test, TestEvent};
 use crate::Error;
 
-use frame_support::{assert_err, assert_ok};
+use frame_support::{assert_err, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
 
 type Event = crate::Event<Test>;
@@ -46,7 +46,7 @@ fn set_exchange_rate_max_delay_passed() {
         // kind of feature yet
         ExchangeRateOracle::recover_from_oracle_offline.mock_safe(move || {
             MockResult::Return(if first_call_to_recover {
-                Err(Error::RuntimeError)
+                Err(DispatchError::BadOrigin)
             } else {
                 first_call_to_recover = true;
                 Ok(())
@@ -56,7 +56,7 @@ fn set_exchange_rate_max_delay_passed() {
         assert_ok!(first_res);
 
         let second_res = ExchangeRateOracle::set_exchange_rate(Origin::signed(3), 100);
-        assert_err!(second_res, Error::RuntimeError);
+        assert_err!(second_res, DispatchError::BadOrigin);
     });
 }
 

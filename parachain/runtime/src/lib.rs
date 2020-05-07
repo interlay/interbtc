@@ -238,7 +238,9 @@ impl treasury::Trait for Runtime {
     type PolkaBTC = balances::Module<Runtime>;
 }
 
-impl security::Trait for Runtime {}
+impl security::Trait for Runtime {
+    type Event = Event;
+}
 
 parameter_types! {
     pub const MaturityPeriod: u32 = 10;
@@ -294,7 +296,7 @@ construct_runtime!(
         BTCRelay: btc_relay::{Module, Call, Storage, Event},
         Collateral: collateral::{Module, Call, Storage, Event<T>},
         Treasury: treasury::{Module, Call, Storage, Event<T>},
-        Security: security::{Module, Call, Storage},
+        Security: security::{Module, Call, Storage, Event},
         StakedRelayers: staked_relayers::{Module, Call, Config<T>, Storage, Event<T>},
         VaultRegistry: vault_registry::{Module, Call, Storage, Event<T>},
         Oracle: exchange_rate_oracle::{Module, Call, Storage, Event<T>},

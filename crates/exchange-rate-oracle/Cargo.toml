@@ -8,15 +8,18 @@ edition = "2018"
 default = ['std']
 std = [
     'codec/std',
-    'frame-support/std',
     'sp-runtime/std',
+    'frame-support/std',
+    'system/std',
     'sp-std/std',
     'sp-io/std',
-    'system/std',
+    'sp-core/std',
     'timestamp/std',
     'pallet-balances/std',
-    'sp-core/std',
     'x-core/std',
+    'collateral/std',
+    'treasury/std',
+    'security/std',
 ]
 
 [dependencies.codec]
@@ -71,6 +74,10 @@ path = '../collateral'
 [dependencies.treasury]
 default-features = false
 path = '../treasury'
+
+[dependencies.security]
+default-features = false
+path = '../security'
 
 [dev-dependencies]
 mocktopus = "0.7.0"
