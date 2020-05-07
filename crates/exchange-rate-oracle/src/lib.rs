@@ -1,6 +1,9 @@
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
+
+mod ext;
+
 #[cfg(test)]
 mod tests;
 
@@ -32,7 +35,9 @@ pub(crate) type PolkaBTC<T> =
 
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
-pub trait Trait: system::Trait + timestamp::Trait + treasury::Trait + collateral::Trait {
+pub trait Trait:
+    system::Trait + timestamp::Trait + treasury::Trait + collateral::Trait + security::Trait
+{
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 }
@@ -63,7 +68,8 @@ decl_module! {
         // Initializing events
         fn deposit_event() = default;
         pub fn set_exchange_rate(origin, rate: u128) -> DispatchResult {
-            Self::ensure_parachain_running()?;
+            // Check that Parachain is RUNNING
+            ext::security::ensure_parachain_status_running::<T>()?;
 
             let sender = ensure_signed(origin)?;
 
@@ -118,7 +124,7 @@ impl<T: Trait> Module<T> {
         <MaxDelay<T>>::get()
     }
 
-    pub fn _set_exchange_rate(rate: u128) -> Result<()> {
+    pub fn _set_exchange_rate(rate: u128) -> DispatchResult {
         Self::set_current_rate(rate);
         // recover if the max delay was already passed
         if Self::is_max_delay_passed()? {
@@ -141,21 +147,8 @@ impl<T: Trait> Module<T> {
         <AuthorizedOracle<T>>::get()
     }
 
-    /// Other helpers
-    /// Returns an error if the parachain is not in running state
-    fn ensure_parachain_running() -> Result<()> {
-        // TODO: integrate security module
-        // ensure!(
-        //     !<security::Module<T>>::check_parachain_status(
-        //         StatusCode::Shutdown),
-        //     Error::Shutdown
-        // );
-        Ok(())
-    }
-
-    fn recover_from_oracle_offline() -> Result<()> {
-        // TODO: call recoverFromORACLEOFFLINE in security module
-        Ok(())
+    fn recover_from_oracle_offline() -> DispatchResult {
+        ext::security::recover_from_oracle_offline::<T>()
     }
 
     /// Returns true if the last update to the exchange rate

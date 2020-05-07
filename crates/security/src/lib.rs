@@ -22,17 +22,20 @@ use codec::Encode;
 /// This is the implementation of the BTC Parachain Security module following the spec at:
 /// https://interlay.gitlab.io/polkabtc-spec/spec/security
 ///
-use frame_support::{decl_module, decl_storage, dispatch::DispatchResult};
+use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult};
 use primitive_types::H256;
 use sha2::{Digest, Sha256};
 use sp_core::U256;
 use sp_std::collections::btree_set::BTreeSet;
-use sp_std::vec::Vec;
+use sp_std::prelude::*;
 use x_core::{Error, UnitResult};
 
 /// ## Configuration
 /// The pallet's configuration trait.
-pub trait Trait: system::Trait {}
+pub trait Trait: system::Trait {
+    /// The overarching event type.
+    type Event: From<Event> + Into<<Self as system::Trait>::Event>;
+}
 
 // This pallet's storage items.
 decl_storage! {
@@ -52,6 +55,8 @@ decl_storage! {
 // The pallet's dispatchable functions.
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+        fn deposit_event() = default;
+
     }
 }
 
@@ -199,6 +204,56 @@ impl<T: Trait> Module<T> {
         <Errors>::get()
     }
 
+    /// Inserts the given `ErrorCode`.
+    ///
+    /// # Arguments
+    ///
+    /// * `error_code` - the error to insert.
+    pub fn insert_error(error_code: ErrorCode) {
+        <Errors>::mutate(|errors| {
+            errors.insert(error_code);
+        })
+    }
+
+    fn recover_from_(error_codes: Vec<ErrorCode>) -> DispatchResult {
+        Self::mutate_errors(|errors| {
+            for err in error_codes.clone() {
+                errors.remove(&err);
+            }
+            Ok(())
+        })?;
+
+        if Self::get_errors().len() == 0 {
+            Self::set_parachain_status(StatusCode::Running);
+        }
+
+        Self::deposit_event(Event::RecoverFromErrors(
+            Self::get_parachain_status(),
+            error_codes,
+        ));
+
+        Ok(())
+    }
+
+    /// Recovers the BTC Parachain state from a `LIQUIDATION` error
+    /// and sets ParachainStatus to `RUNNING` if there are no other errors.
+    pub fn recover_from_liquidation() -> DispatchResult {
+        Self::recover_from_(vec![ErrorCode::Liquidation])
+    }
+
+    /// Recovers the BTC Parachain state from an `ORACLE_OFFLINE` error
+    /// and sets ParachainStatus to `RUNNING` if there are no other errors.
+    pub fn recover_from_oracle_offline() -> DispatchResult {
+        Self::recover_from_(vec![ErrorCode::OracleOffline])
+    }
+
+    /// Recovers the BTC Parachain state from a `NO_DATA_BTC_RELAY` or `INVALID_BTC_RELAY` error
+    /// (when a chain reorganization occurs and the new main chain has no errors)
+    /// and sets ParachainStatus to `RUNNING` if there are no other errors.
+    pub fn recover_from_btc_relay_failure() -> DispatchResult {
+        Self::recover_from_(vec![ErrorCode::InvalidBTCRelay, ErrorCode::NoDataBTCRelay])
+    }
+
     /// Increment and return the `Nonce`.
     fn get_nonce() -> U256 {
         <Nonce>::mutate(|n| {
@@ -222,3 +277,9 @@ impl<T: Trait> Module<T> {
         H256(result)
     }
 }
+
+decl_event!(
+    pub enum Event {
+        RecoverFromErrors(StatusCode, Vec<ErrorCode>),
+    }
+);
