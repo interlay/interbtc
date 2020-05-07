@@ -81,6 +81,7 @@ pub enum Error {
     VaultNotFound,
     VaultBanned,
     VaultOverAuctionThreshold,
+    CollateralBelowSecureThreshold,
     /// Returned if the collateral amount to register a vault was too low
     InsuficientVaultCollateralAmount,
     // FIXME: ERR_MIN_AMOUNT in spec
@@ -178,6 +179,7 @@ impl Error {
             Error::VaultNotFound => "There exists no Vault with the given account id",
             Error::VaultBanned => "The selected Vault has been temporarily banned",
             Error::VaultOverAuctionThreshold => "Vault over auction threshold",
+            Error::CollateralBelowSecureThreshold => "Collateral below secure threshold",
             Error::InsuficientVaultCollateralAmount => "The provided collateral was insufficient",
             Error::VaultAlreadyRegistered => "This vault is already registered",
             Error::InsufficientCollateral => "User provided collateral below limit",

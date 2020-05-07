@@ -1,11 +1,19 @@
-use primitive_types::H256;
-
-use mock::*;
-
 mod mock;
 
+use bitcoin::types::H256Le;
+use mock::*;
+use primitive_types::H256;
+
+type IssueCall = issue::Call<Runtime>;
 type ReplaceCall = replace::Call<Runtime>;
 type ReplaceEvent = replace::Event<Runtime>;
+
+fn _set_default_thresholds() {
+    let secure = 200_000; // 200%
+    let auction = 150_000; // 150%
+    let premium = 120_000; // 120%
+    let liquidation = 110_000; // 110%
+}
 
 // asserts request event happen and extracts its id for further testing
 fn assert_request_event() -> H256 {
@@ -109,26 +117,25 @@ fn integration_test_replace_accept_replace() {
 fn integration_test_replace_auction_replace() {
     ExtBuilder::build().execute_with(|| {
         SystemModule::set_block_number(1);
-        let amount = 1000;
-        let griefing_collateral = 200;
-        let collateral = amount * 2;
+        let griefing_collateral = 50;
+        let collateral = 100;
 
         // peg spot rate
         assert_ok!(OracleCall::set_exchange_rate(1).dispatch(origin_of(account_of(BOB))));
         // bob creates a vault
-        assert_ok!(VaultRegistryCall::register_vault(amount, H160([0; 20]))
+        assert_ok!(VaultRegistryCall::register_vault(collateral, H160([0; 20]))
             .dispatch(origin_of(account_of(ALICE))));
         // alice creates a vault
-        assert_ok!(VaultRegistryCall::register_vault(10, H160([0; 20]))
+        assert_ok!(VaultRegistryCall::register_vault(collateral, H160([0; 20]))
             .dispatch(origin_of(account_of(BOB))));
         // bob requests a replace
-        assert_ok!(ReplaceCall::request_replace(amount, griefing_collateral)
-            .dispatch(origin_of(account_of(BOB))));
-        // alice snaps up bob's vault
         assert_ok!(
-            ReplaceCall::auction_replace(account_of(BOB), amount, collateral)
-                .dispatch(origin_of(account_of(ALICE)))
+            ReplaceCall::request_replace(collateral, griefing_collateral)
+                .dispatch(origin_of(account_of(BOB)))
         );
+        // alice snaps up bob's vault
+        assert_ok!(ReplaceCall::auction_replace(account_of(BOB), 0, 0)
+            .dispatch(origin_of(account_of(ALICE))));
     });
 }
 
@@ -136,9 +143,8 @@ fn integration_test_replace_auction_replace() {
 fn integration_test_replace_execute_replace() {
     ExtBuilder::build().execute_with(|| {
         SystemModule::set_block_number(1);
-        let amount = 1_000_000;
+        let amount = 1_000;
         let griefing_collateral = 200;
-        let replace_id = H256::zero();
 
         // peg spot rate
         assert_ok!(OracleCall::set_exchange_rate(1).dispatch(origin_of(account_of(BOB))));
@@ -146,17 +152,19 @@ fn integration_test_replace_execute_replace() {
         assert_ok!(VaultRegistryCall::register_vault(amount, H160([0; 20]))
             .dispatch(origin_of(account_of(ALICE))));
         // alice creates a vault
-        assert_ok!(VaultRegistryCall::register_vault(10, H160([0; 20]))
+        assert_ok!(VaultRegistryCall::register_vault(amount, H160([0; 20]))
             .dispatch(origin_of(account_of(BOB))));
         // bob requests a replace
         assert_ok!(ReplaceCall::request_replace(amount, griefing_collateral)
             .dispatch(origin_of(account_of(BOB))));
+        let replace_id = assert_request_event();
         // alice accepts bob's request
+
         assert_ok!(ReplaceCall::accept_replace(replace_id, griefing_collateral)
             .dispatch(origin_of(account_of(BOB))));
         // alice excutes replacement of bob's vault
         // TODO(jaupe) populate the bitcoin data correctly
-        let replace_id = H256::zero();
+        let replace_id = assert_request_event();
         let tx_id = H256Le::zero();
         let tx_block_height = 0;
         let merkle_proof = Vec::new();
@@ -171,6 +179,7 @@ fn integration_test_replace_execute_replace() {
 #[test]
 fn integration_test_replace_cancel_replace() {
     ExtBuilder::build().execute_with(|| {
+        SystemModule::set_block_number(1);
         let amount = 1000;
         //FIXME: get this from storage
         let griefing_collateral = 200;
@@ -192,6 +201,7 @@ fn integration_test_replace_cancel_replace() {
             .dispatch(origin_of(account_of(BOB))));
         // set block height
         // alice cancels replacement
+        SystemModule::set_block_number(30);
         assert_ok!(ReplaceCall::cancel_replace(replace_id).dispatch(origin_of(account_of(BOB))));
     });
 }

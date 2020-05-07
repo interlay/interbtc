@@ -18,7 +18,7 @@ use system::ensure_signed;
 use bitcoin::types::H256Le;
 use x_core::{Error, UnitResult};
 
-use crate::types::{DOT, PolkaBTC, Replace};
+use crate::types::{PolkaBTC, Replace, DOT};
 
 /// # PolkaBTC Replace implementation
 /// The Replace module according to the specification at
@@ -311,14 +311,14 @@ impl<T: Trait> Module<T> {
         // step 3: Check that the oldVault is below the AuctionCollateralThreshold by calculating his current oldVault.issuedTokens and the oldVault.collateral
         ensure!(
             ext::vault_registry::is_vault_below_auction_threshold::<T>(old_vault_id.clone())?,
-            Error::InsufficientCollateral
+            Error::VaultOverAuctionThreshold
         );
         // step 4: Check that the provided collateral exceeds the necessary amount
         ensure!(
             !ext::vault_registry::is_collateral_below_secure_threshold::<T>(
                 collateral, btc_amount
             )?,
-            Error::InsufficientCollateral
+            Error::CollateralBelowSecureThreshold
         );
         // step 5: Lock the newVault’s collateral by calling lockCollateral and providing newVault and collateral as parameters.
         ext::collateral::lock_collateral::<T>(new_vault_id.clone(), collateral)?;
