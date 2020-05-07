@@ -36,6 +36,7 @@ use frame_support::{
     traits::Get,
     IterableStorageMap,
 };
+use primitive_types::H256;
 use security::types::{ErrorCode, StatusCode};
 use sp_core::{H160, U256};
 use sp_std::collections::btree_set::BTreeSet;
@@ -46,7 +47,13 @@ use system::ensure_signed;
 /// ## Configuration
 /// The pallet's configuration trait.
 pub trait Trait:
-    system::Trait + security::Trait + collateral::Trait + vault_registry::Trait + btc_relay::Trait
+    system::Trait
+    + security::Trait
+    + collateral::Trait
+    + vault_registry::Trait
+    + btc_relay::Trait
+    + redeem::Trait
+    + replace::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
@@ -365,12 +372,32 @@ decl_module! {
                 // check if migration
                 if let Ok(out_addr) = out.script.extract_address() {
                     ensure!(H160::from_slice(&out_addr) != vault.btc_address, Error::<T>::ValidMergeTransaction);
+                    let out_val = out.value;
                     if tx.outputs.len() == 2 {
                         let out = &tx.outputs[1];
                         // check if redeem / replace
                         if let Ok(out_ret) = out.script.extract_op_return_data() {
-                            if ext::redeem::get_redeem_request_by_id(&out_ret) || ext::replace::get_replace_request_by_id(&out_ret) {
-                                // TODO: check payment value
+                            let id = H256::from_slice(&out_ret);
+                            let addr = H160::from_slice(&out_addr);
+                            match ext::redeem::get_redeem_request_from_id::<T>(&id) {
+                                Ok(req) => {
+                                    let amount = TryInto::<u64>::try_into(req.amount_btc).map_err(|_e| Error::<T>::RuntimeError)? as i64;
+                                    ensure!(
+                                        out_val < amount && addr != req.btc_address,
+                                        Error::<T>::ValidRedeemOrReplace
+                                    )
+                                },
+                                Err(_) => (),
+                            }
+                            match ext::replace::get_replace_request::<T>(&id) {
+                                Ok(req) => {
+                                    let amount = TryInto::<u64>::try_into(req.amount).map_err(|_e| Error::<T>::RuntimeError)? as i64;
+                                    ensure!(
+                                        out_val < amount && addr != req.btc_address,
+                                        Error::<T>::ValidRedeemOrReplace
+                                    )
+                                },
+                                Err(_) => (),
                             }
                         }
                     }

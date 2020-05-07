@@ -83,6 +83,14 @@ path = '../x-core'
 default-features = false
 path = '../btc-relay'
 
+[dependencies.redeem]
+default-features = false
+path = '../redeem'
+
+[dependencies.replace]
+default-features = false
+path = '../replace'
+
 [dependencies.sha2]
 default-features = false
 version = '0.8.0'
@@ -115,5 +123,7 @@ std = [
   'exchange-rate-oracle/std',
   'x-core/std',
   'btc-relay/std',
+  'redeem/std',
+  'replace/std',
   'sha2/std',
 ]

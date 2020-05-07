@@ -5589,6 +5589,8 @@ dependencies = [
  "pallet-timestamp",
  "parity-scale-codec",
  "primitive-types",
+ "redeem",
+ "replace",
  "security",
  "serde",
  "sha2",

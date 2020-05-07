@@ -304,7 +304,7 @@ impl<T: Trait> Module<T> {
     /// # Arguments
     ///
     /// * `key` - 256-bit identifier of the redeem request
-    fn get_redeem_request_from_id(
+    pub fn get_redeem_request_from_id(
         key: &H256,
     ) -> Result<Redeem<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, Error> {
         ensure!(
