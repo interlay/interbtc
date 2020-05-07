@@ -36,7 +36,7 @@ pub(crate) mod btc_relay {
 pub(crate) mod vault_registry {
     use x_core::{Result, UnitResult};
 
-    use crate::{DOT, PolkaBTC};
+    use crate::{PolkaBTC, DOT};
 
     pub fn replace_tokens<T: vault_registry::Trait>(
         old_vault_id: T::AccountId,
@@ -72,27 +72,28 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::_increase_to_be_redeemed_tokens(vault_id, tokens)
     }
 
-    pub fn is_over_minimum_collateral<T: vault_registry::Trait>(_collateral: DOT<T>) -> bool {
-        true
-        // FIXME: call from vault registry when ready
-        //unimplemented!()
+    pub fn is_over_minimum_collateral<T: vault_registry::Trait>(collateral: DOT<T>) -> bool {
+        <vault_registry::Module<T>>::_is_over_minimum_collateral(collateral)
     }
 
     pub fn is_vault_below_auction_threshold<T: vault_registry::Trait>(
         vault_id: T::AccountId,
     ) -> Result<bool> {
-        Ok(false)
-        // FIXME: call from vault registry when ready
-        //unimplemented!()
+        <vault_registry::Module<T>>::_is_vault_below_auction_threshold(&vault_id)
     }
 
     pub fn is_collateral_below_secure_threshold<T: vault_registry::Trait>(
         collateral: DOT<T>,
         btc_amount: PolkaBTC<T>,
     ) -> Result<bool> {
-        Ok(false)
-        //FIXME:
-        //unimplemented!()
+        <vault_registry::Module<T>>::_is_collateral_below_secure_threshold(collateral, btc_amount)
+    }
+
+    pub fn ensure_not_banned<T: vault_registry::Trait>(
+        vault: &T::AccountId,
+        height: T::BlockNumber,
+    ) -> UnitResult {
+        <vault_registry::Module<T>>::_ensure_not_banned(vault, height)
     }
 }
 
