@@ -1,5 +1,5 @@
+pub use bitcoin::types::H256Le;
 pub use btc_parachain_runtime::{AccountId, Event, Runtime};
-pub use btc_relay::H256Le;
 pub use frame_support::{assert_err, assert_ok};
 pub use mocktopus::mocking::*;
 pub use security::StatusCode;
