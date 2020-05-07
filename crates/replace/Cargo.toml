@@ -41,7 +41,7 @@ default-features = false
 package = 'frame-system'
 version = '2.0.0-alpha.5'
 
-[dev-dependencies.pallet-balances]
+[dependencies.pallet-balances]
 default-features = false
 package = 'pallet-balances'
 version = '2.0.0-alpha.5'
@@ -91,7 +91,7 @@ version = '0.8.0'
 default-features = false
 path = '../security'
 
-[dev-dependencies.timestamp]
+[dependencies.timestamp]
 default-features = false
 package = 'pallet-timestamp'
 version = '2.0.0-alpha.5'
@@ -116,6 +116,6 @@ std = [
 	'bitcoin/std',
 	'x-core/std',
 	'sha2/std',
-  'security/std',
+	'security/std',
 	'timestamp/std',
 ]

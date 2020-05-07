@@ -122,20 +122,28 @@ pub(crate) mod btc_relay {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod redeem {
-    use sp_std::vec::Vec;
+    use crate::types::{PolkaBTC, DOT};
+    use primitive_types::H256;
+    use redeem::types::Redeem;
+    use x_core::Error;
 
-    pub(crate) fn get_redeem_request_by_id(_id: &Vec<u8>) -> bool {
-        // FIXME
-        true
+    pub(crate) fn get_redeem_request_from_id<T: redeem::Trait>(
+        id: &H256,
+    ) -> Result<Redeem<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, Error> {
+        <redeem::Module<T>>::get_redeem_request_from_id(id)
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod replace {
-    use sp_std::vec::Vec;
+    use crate::types::{PolkaBTC, DOT};
+    use primitive_types::H256;
+    use replace::types::Replace;
+    use x_core::Error;
 
-    pub(crate) fn get_replace_request_by_id(_id: &Vec<u8>) -> bool {
-        // FIXME
-        true
+    pub(crate) fn get_replace_request<T: replace::Trait>(
+        id: &H256,
+    ) -> Result<Replace<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, Error> {
+        <replace::Module<T>>::get_replace_request(id)
     }
 }

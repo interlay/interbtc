@@ -233,7 +233,7 @@ impl<T: Trait> Module<T> {
     fn _withdraw_replace_request(vault_id: T::AccountId, request_id: H256) -> Result<(), Error> {
         // check vault exists
         // step 1: Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
-        let replace = Self::get_replace_request(request_id)?;
+        let replace = Self::get_replace_request(&request_id)?;
         // step 2: Check that caller of the function is indeed the to-be-replaced Vault as specified in the ReplaceRequest. Return ERR_UNAUTHORIZED error if this check fails.
         let _vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
         ensure!(vault_id == replace.old_vault, Error::UnauthorizedVault);
@@ -271,7 +271,7 @@ impl<T: Trait> Module<T> {
         // Check that Parachain status is RUNNING
         ext::security::ensure_parachain_status_running::<T>()?;
         // step 1: Retrieve the ReplaceRequest as per the replaceId parameter from ReplaceRequests. Return ERR_REPLACE_ID_NOT_FOUND error if no such ReplaceRequest was found.
-        let mut replace = Self::get_replace_request(replace_id)?;
+        let mut replace = Self::get_replace_request(&replace_id)?;
         // step 2: Retrieve the Vault as per the newVault parameter from Vaults in the VaultRegistry
         let vault = ext::vault_registry::get_vault_from_id::<T>(&new_vault_id)?;
         // step 3: Check that the newVault is currently not banned
@@ -364,7 +364,7 @@ impl<T: Trait> Module<T> {
         // Check that Parachain status is RUNNING
         ext::security::ensure_parachain_status_running::<T>()?;
         // step 1: Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
-        let replace = Self::get_replace_request(replace_id)?;
+        let replace = Self::get_replace_request(&replace_id)?;
         // step 2: Check that the current Parachain block height minus the ReplacePeriod is smaller than the opentime of the ReplaceRequest
         let replace_period = Self::replace_period();
         let current_height = Self::current_height();
@@ -413,7 +413,7 @@ impl<T: Trait> Module<T> {
         // Check that Parachain status is RUNNING
         ext::security::ensure_parachain_status_running::<T>()?;
         // step 1: Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
-        let replace = Self::get_replace_request(replace_id)?;
+        let replace = Self::get_replace_request(&replace_id)?;
         // step 2: Check that the current Parachain block height minus the ReplacePeriod is greater than the opentime of the ReplaceRequest
         let current_height = Self::current_height();
         let replace_period = Self::replace_period();
@@ -444,8 +444,8 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn get_replace_request(
-        id: H256,
+    pub fn get_replace_request(
+        id: &H256,
     ) -> Result<Replace<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, Error> {
         <ReplaceRequests<T>>::get(id).ok_or(Error::InvalidReplaceID)
     }
