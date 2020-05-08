@@ -175,6 +175,7 @@ fn test_execute_issue_commit_period_expired_fails() {
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
 
         let issue_id = request_issue_ok(ALICE, 3, BOB, 0);
+        <system::Module<Test>>::set_block_number(20);
         assert_noop!(execute_issue(ALICE, &issue_id), Error::CommitPeriodExpired);
     })
 }
@@ -187,7 +188,7 @@ fn test_execute_issue_succeeds() {
         ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
         let issue_id = request_issue_ok(ALICE, 3, BOB, 0);
-        <system::Module<Test>>::set_block_number(20);
+        <system::Module<Test>>::set_block_number(5);
         execute_issue_ok(ALICE, &issue_id);
 
         let execute_issue_event =
