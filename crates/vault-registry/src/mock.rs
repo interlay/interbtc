@@ -11,7 +11,7 @@ use sp_runtime::{
 use mocktopus::mocking::{MockResult, Mockable};
 
 use crate::ext;
-use crate::{Module, Trait};
+use crate::{GenesisConfig, Module, Trait};
 
 impl_outer_origin! {
     pub enum Origin for Test {}
@@ -138,6 +138,12 @@ impl ExtBuilder {
                 (OTHER_ID, DEFAULT_COLLATERAL),
                 (RICH_ID, RICH_COLLATERAL),
             ],
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
+        GenesisConfig {
+            secure_collateral_threshold: 100000,
         }
         .assimilate_storage(&mut storage)
         .unwrap();

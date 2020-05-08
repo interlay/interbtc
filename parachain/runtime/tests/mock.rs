@@ -154,6 +154,12 @@ impl ExtBuilder {
             .assimilate_storage(&mut storage)
             .unwrap();
 
+        vault_registry::GenesisConfig {
+            secure_collateral_threshold: 100000,
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
         sp_io::TestExternalities::from(storage)
     }
 }

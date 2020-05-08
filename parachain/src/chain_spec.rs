@@ -1,7 +1,7 @@
 use btc_parachain_runtime::{
     AccountId, AuraConfig, BTCRelayConfig, DOTConfig, ExchangeRateOracleConfig, GenesisConfig,
     GrandpaConfig, PolkaBTCConfig, Signature, StakedRelayersConfig, SudoConfig, SystemConfig,
-    WASM_BINARY,
+    VaultRegistryConfig, WASM_BINARY,
 };
 use grandpa_primitives::AuthorityId as GrandpaId;
 use sc_service;
@@ -161,6 +161,9 @@ fn testnet_genesis(
             admin: get_account_id_from_seed::<sr25519::Public>("BOB"),
         }),
         btc_relay: Some(BTCRelayConfig { confirmations: 6 }),
+        vault_registry: Some(VaultRegistryConfig {
+            secure_collateral_threshold: 100000,
+        }),
     }
 }
 
