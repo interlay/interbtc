@@ -79,7 +79,7 @@ pub fn log256(value: &U256) -> u8 {
     let mut current = value - 1;
     let mut result: u8 = 0;
     while current > 0.into() {
-        current = current >> 8;
+        current >>= 8;
         result += 1;
     }
     result
