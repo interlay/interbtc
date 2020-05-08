@@ -1,7 +1,8 @@
 mod mock;
 
 use mock::*;
-use sp_core::H256;
+use primitive_types::{H256, U256};
+use sp_std::convert::TryInto;
 
 type IssueCall = issue::Call<Runtime>;
 type IssueEvent = issue::Event<Runtime>;
@@ -30,17 +31,24 @@ fn integration_test_issue_should_fail_if_not_running() {
     });
 }
 
-#[ignore]
+#[test]
 fn integration_test_issue_issue_polka_btc() {
     ExtBuilder::build().execute_with(|| {
         SystemModule::set_block_number(1);
 
+        let address = H160::from_slice(
+            hex::decode("66c7060feb882664ae62ffad0051fe843e318e85")
+                .unwrap()
+                .as_slice(),
+        );
+        let amount = 100;
+
         assert_ok!(OracleCall::set_exchange_rate(1).dispatch(origin_of(account_of(BOB))));
 
-        assert_ok!(VaultRegistryCall::register_vault(1000, H160([0; 20]))
+        assert_ok!(VaultRegistryCall::register_vault(1000000, address.clone())
             .dispatch(origin_of(account_of(BOB))));
 
-        assert_ok!(IssueCall::request_issue(1000, account_of(BOB), 100)
+        assert_ok!(IssueCall::request_issue(amount, account_of(BOB), 100)
             .dispatch(origin_of(account_of(ALICE))));
 
         let events = SystemModule::events();
@@ -48,24 +56,18 @@ fn integration_test_issue_issue_polka_btc() {
             Event::issue(IssueEvent::RequestIssue(_, _, _, _, _)) => true,
             _ => false,
         });
-        let _id =
+        let id =
             if let Event::issue(IssueEvent::RequestIssue(id, _, _, _, _)) = record.unwrap().event {
                 id
             } else {
                 panic!("request issue event not found")
             };
 
-        // SystemModule::set_block_number(5);
+        SystemModule::set_block_number(5);
 
-        // btc_relay::Module::<Runtime>::_verify_transaction_inclusion
-        //     .mock_safe(|_, _, _, _, _| MockResult::Return(Ok(())));
+        let (tx_id, height, proof, raw_tx) = generate_transaction_and_mine(address, amount, id);
 
-        // btc_relay::Module::<Runtime>::_validate_transaction
-        //     .mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
-
-        // assert_ok!(
-        //     IssueCall::execute_issue(id, H256Le::zero(), 0, vec![0u8; 32], vec![0u8; 32])
-        //         .dispatch(origin_of(account_of(ALICE)))
-        // );
+        assert_ok!(IssueCall::execute_issue(id, tx_id, height, proof, raw_tx)
+            .dispatch(origin_of(account_of(ALICE))));
     });
- }
+}

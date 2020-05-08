@@ -308,7 +308,7 @@ construct_runtime!(
         PolkaBTC: balances::<Instance2>::{Module, Call, Storage, Config<T>, Event<T>},
         TransactionPayment: transaction_payment::{Module, Storage},
         Sudo: sudo::{Module, Call, Config<T>, Storage, Event<T>},
-        BTCRelay: btc_relay::{Module, Call, Storage, Event},
+        BTCRelay: btc_relay::{Module, Call, Config, Storage, Event},
         Collateral: collateral::{Module, Call, Storage, Event<T>},
         Treasury: treasury::{Module, Call, Storage, Event<T>},
         Security: security::{Module, Call, Storage, Event},

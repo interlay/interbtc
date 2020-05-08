@@ -1,6 +1,7 @@
 use btc_parachain_runtime::{
-    AccountId, AuraConfig, DOTConfig, ExchangeRateOracleConfig, GenesisConfig, GrandpaConfig,
-    PolkaBTCConfig, Signature, StakedRelayersConfig, SudoConfig, SystemConfig, WASM_BINARY,
+    AccountId, AuraConfig, BTCRelayConfig, DOTConfig, ExchangeRateOracleConfig, GenesisConfig,
+    GrandpaConfig, PolkaBTCConfig, Signature, StakedRelayersConfig, SudoConfig, SystemConfig,
+    WASM_BINARY,
 };
 use grandpa_primitives::AuthorityId as GrandpaId;
 use sc_service;
@@ -159,6 +160,7 @@ fn testnet_genesis(
         exchange_rate_oracle: Some(ExchangeRateOracleConfig {
             admin: get_account_id_from_seed::<sr25519::Public>("BOB"),
         }),
+        btc_relay: Some(BTCRelayConfig { confirmations: 6 }),
     }
 }
 
