@@ -1,14 +1,13 @@
 extern crate hex;
 
-pub use bitcoin::types::{BlockBuilder, TransactionBuilder, TransactionInputBuilder, TransactionOutput};
-pub use bitcoin::types::{H256Le, Address};
 pub use bitcoin::formatter::Formattable;
+pub use bitcoin::types::*;
 pub use btc_parachain_runtime::{AccountId, Event, Runtime};
 pub use frame_support::{assert_err, assert_ok};
 pub use mocktopus::mocking::*;
+use primitive_types::{H256, U256};
 pub use security::StatusCode;
 pub use sp_core::H160;
-use primitive_types::{H256, U256};
 pub use sp_runtime::traits::Dispatchable;
 pub use x_core::Error;
 
@@ -42,7 +41,7 @@ pub fn force_issue_tokens(
     vault: [u8; 32],
     collateral: u128,
     tokens: u128,
-    btc_address: H160
+    btc_address: H160,
 ) {
     // register the vault
     VaultRegistryCall::register_vault(collateral, btc_address)
@@ -61,10 +60,11 @@ pub fn force_issue_tokens(
 pub fn generate_transaction_and_mine(
     dest_address: H160,
     amount: u128,
-    return_data: H256
+    return_data: H256,
 ) -> (H256Le, u32, Vec<u8>, Vec<u8>) {
+    let address = Address::from(*dest_address.as_fixed_bytes());
+
     let mut height = 1;
-    let confirmations = 6;
     // initialize BTC Relay with one block
     let init_block = BlockBuilder::new()
         .with_version(2)
@@ -73,18 +73,23 @@ pub fn generate_transaction_and_mine(
         .mine(U256::from(2).pow(254.into()));
 
     let init_block_hash = init_block.header.hash();
-    let raw_init_block_header = Formattable::format(&init_block.header);
-
-    BTCRelayCall::initialize(raw_init_block_header.into(), height)
-        .dispatch(origin_of(account_of(ALICE)));
+    let raw_init_block_header = RawBlockHeader::from_bytes(&init_block.header.format())
+        .expect("could not serialize block header");
+    BTCRelayCall::initialize(raw_init_block_header, height)
+        .dispatch(origin_of(account_of(ALICE)))
+        .expect("could not store block header");
 
     height += 1;
 
-    let address = Address::from(*dest_address.as_fixed_bytes());
     let value = amount as i64;
     let transaction = TransactionBuilder::new()
         .with_version(2)
-        .add_input(TransactionInputBuilder::new().with_coinbase(false).build())
+        .add_input(
+            TransactionInputBuilder::new()
+                .with_coinbase(false)
+                .with_previous_hash(init_block.transactions[0].hash())
+                .build(),
+        )
         .add_output(TransactionOutput::p2pkh(value.into(), &address))
         .add_output(TransactionOutput::op_return(0, return_data.as_bytes()))
         .build();
@@ -97,37 +102,21 @@ pub fn generate_transaction_and_mine(
         .add_transaction(transaction.clone())
         .mine(U256::from(2).pow(254.into()));
 
-    let raw_block_header = Formattable::format(&block.header);
+    let raw_block_header = RawBlockHeader::from_bytes(&block.header.format())
+        .expect("could not serialize block header");
 
     let tx_id = transaction.tx_id();
     let tx_block_height = height;
     let proof = block.merkle_proof(&vec![tx_id]);
     let bytes_proof = proof.format();
-    let raw_tx = Formattable::format_with(&transaction, true);
+    let raw_tx = transaction.format_with(true);
 
-    BTCRelayCall::store_block_header(raw_block_header.into())
-        .dispatch(origin_of(account_of(ALICE)));
-
-    // FIXME: mine six new blocks to get over required confirmations
-    let mut prev_block_hash = block.header.hash();
-    for 0..confirmations {
-        let conf_block = BlockBuilder::new()
-            .with_previous_hash(prev_block_hash)
-            .with_version(2)
-            .with_coinbase(&address, 50, 3)
-            .with_timestamp(1588813835)
-            .mine(U256::from(2).pow(254.into()));
-
-        let raw_conf_block_header = Formattable::format(&conf_block.header);
-        btc_relay::Call<Runtime>::store_block_header(raw_conf_block_header)
-            .dispatch(origin_of(account_of(ALICE)));
-        prev_block_hash = conf_block.header.hash();
-    }
+    BTCRelayCall::store_block_header(raw_block_header)
+        .dispatch(origin_of(account_of(ALICE)))
+        .expect("could not store block header");
 
     return (tx_id, height, bytes_proof, raw_tx);
 }
-
-
 
 pub type SecurityModule = security::Module<Runtime>;
 pub type SystemModule = system::Module<Runtime>;
@@ -150,7 +139,7 @@ impl ExtBuilder {
         .unwrap();
 
         balances::GenesisConfig::<Runtime, balances::Instance2> {
-            balances: vec![(account_of(ALICE), 500_000), (account_of(BOB), 500_000)],
+            balances: vec![(account_of(ALICE), 1_000_000), (account_of(BOB), 1_000_000)],
         }
         .assimilate_storage(&mut storage)
         .unwrap();
@@ -160,6 +149,10 @@ impl ExtBuilder {
         }
         .assimilate_storage(&mut storage)
         .unwrap();
+
+        btc_relay::GenesisConfig { confirmations: 0 }
+            .assimilate_storage(&mut storage)
+            .unwrap();
 
         sp_io::TestExternalities::from(storage)
     }
