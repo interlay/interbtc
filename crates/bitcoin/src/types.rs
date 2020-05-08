@@ -161,18 +161,27 @@ pub enum OpCode {
 #[derive(Encode, Decode, Copy, Clone)]
 pub struct RawBlockHeader([u8; 80]);
 
+impl TryFrom<Vec<u8>> for RawBlockHeader {
+    type Error = Error;
+
+    fn try_from(v: Vec<u8>) -> Result<Self, Self::Error> {
+        RawBlockHeader::from_bytes(v)
+    }
+}
+
 impl RawBlockHeader {
     /// Returns a raw block header from a bytes slice
     ///
     /// # Arguments
     ///
     /// * `bytes` - A slice containing the header
-    pub fn from_bytes(bytes: &[u8]) -> Result<RawBlockHeader, Error> {
-        if bytes.len() != 80 {
+    pub fn from_bytes<B: AsRef<[u8]>>(bytes: B) -> Result<RawBlockHeader, Error> {
+        let slice = bytes.as_ref();
+        if slice.len() != 80 {
             return Err(Error::InvalidHeaderSize);
         }
-        let mut result: [u8; 80] = [0; 80];
-        result.copy_from_slice(&bytes);
+        let mut result = [0u8; 80];
+        result.copy_from_slice(slice);
         Ok(RawBlockHeader(result))
     }
 

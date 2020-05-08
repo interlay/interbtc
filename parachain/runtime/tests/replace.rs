@@ -5,16 +5,8 @@ use mock::*;
 use bitcoin::types::H256Le;
 use primitive_types::H256;
 
-type IssueCall = issue::Call<Runtime>;
 type ReplaceCall = replace::Call<Runtime>;
 type ReplaceEvent = replace::Event<Runtime>;
-
-fn _set_default_thresholds() {
-    let secure = 200_000; // 200%
-    let auction = 150_000; // 150%
-    let premium = 120_000; // 120%
-    let liquidation = 110_000; // 110%
-}
 
 // asserts request event happen and extracts its id for further testing
 fn assert_request_event() -> H256 {
@@ -114,7 +106,7 @@ fn integration_test_replace_accept_replace() {
     });
 }
 
-#[ignore]
+#[test]
 fn integration_test_replace_auction_replace() {
     ExtBuilder::build().execute_with(|| {
         SystemModule::set_block_number(1);
@@ -140,7 +132,7 @@ fn integration_test_replace_auction_replace() {
     });
 }
 
-#[ignore]
+#[test]
 fn integration_test_replace_execute_replace() {
     ExtBuilder::build().execute_with(|| {
         SystemModule::set_block_number(1);
