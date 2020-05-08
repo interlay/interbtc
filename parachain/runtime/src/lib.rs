@@ -26,7 +26,6 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
 // A few exports that help ease life for downstream crates.
-pub use balances::Call as BalancesCall;
 pub use frame_support::{
     construct_runtime, parameter_types, traits::Randomness, weights::Weight, StorageValue,
 };
@@ -195,10 +194,20 @@ parameter_types! {
     pub const ExistentialDeposit: u128 = 500;
 }
 
-impl balances::Trait for Runtime {
+/// DOT
+impl balances::Trait<balances::Instance1> for Runtime {
     /// The type for recording an account's balance.
     type Balance = Balance;
     /// The ubiquitous event type.
+    type Event = Event;
+    type DustRemoval = ();
+    type ExistentialDeposit = ExistentialDeposit;
+    type AccountStore = System;
+}
+
+/// PolkaBTC
+impl balances::Trait<balances::Instance2> for Runtime {
+    type Balance = Balance;
     type Event = Event;
     type DustRemoval = ();
     type ExistentialDeposit = ExistentialDeposit;
@@ -211,7 +220,7 @@ parameter_types! {
 }
 
 impl transaction_payment::Trait for Runtime {
-    type Currency = balances::Module<Runtime>;
+    type Currency = balances::Module<Runtime, balances::Instance1>;
     type OnTransactionPayment = ();
     type TransactionBaseFee = TransactionBaseFee;
     type TransactionByteFee = TransactionByteFee;
@@ -230,12 +239,12 @@ impl btc_relay::Trait for Runtime {
 
 impl collateral::Trait for Runtime {
     type Event = Event;
-    type DOT = balances::Module<Runtime>;
+    type DOT = balances::Module<Runtime, balances::Instance1>;
 }
 
 impl treasury::Trait for Runtime {
     type Event = Event;
-    type PolkaBTC = balances::Module<Runtime>;
+    type PolkaBTC = balances::Module<Runtime, balances::Instance2>;
 }
 
 impl security::Trait for Runtime {
@@ -267,8 +276,13 @@ impl exchange_rate_oracle::Trait for Runtime {
     type Event = Event;
 }
 
+parameter_types! {
+    pub const IssuePeriod: BlockNumber = 10;
+}
+
 impl issue::Trait for Runtime {
     type Event = Event;
+    type IssuePeriod = IssuePeriod;
 }
 
 impl redeem::Trait for Runtime {
@@ -290,16 +304,17 @@ construct_runtime!(
         Timestamp: timestamp::{Module, Call, Storage, Inherent},
         Aura: aura::{Module, Config<T>, Inherent(Timestamp)},
         Grandpa: grandpa::{Module, Call, Storage, Config, Event},
-        Balances: balances::{Module, Call, Storage, Config<T>, Event<T>},
+        DOT: balances::<Instance1>::{Module, Call, Storage, Config<T>, Event<T>},
+        PolkaBTC: balances::<Instance2>::{Module, Call, Storage, Config<T>, Event<T>},
         TransactionPayment: transaction_payment::{Module, Storage},
         Sudo: sudo::{Module, Call, Config<T>, Storage, Event<T>},
-        BTCRelay: btc_relay::{Module, Call, Storage, Event},
+        BTCRelay: btc_relay::{Module, Call, Config, Storage, Event},
         Collateral: collateral::{Module, Call, Storage, Event<T>},
         Treasury: treasury::{Module, Call, Storage, Event<T>},
         Security: security::{Module, Call, Storage, Event},
         StakedRelayers: staked_relayers::{Module, Call, Config<T>, Storage, Event<T>},
-        VaultRegistry: vault_registry::{Module, Call, Storage, Event<T>},
-        Oracle: exchange_rate_oracle::{Module, Call, Storage, Event<T>},
+        VaultRegistry: vault_registry::{Module, Call, Config, Storage, Event<T>},
+        ExchangeRateOracle: exchange_rate_oracle::{Module, Call, Config<T>, Storage, Event<T>},
         Issue: issue::{Module, Call, Storage, Event<T>},
         Redeem: redeem::{Module, Call, Storage, Event<T>},
         Replace: replace::{Module, Call, Storage, Event<T>},

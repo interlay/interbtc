@@ -20,6 +20,7 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
+use frame_support::debug;
 use frame_support::{
     decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure, IterableStorageMap,
 };
@@ -71,9 +72,6 @@ pub const UNROUNDED_MAX_TARGET: U256 = U256([
 /// Main chain id
 pub const MAIN_CHAIN_ID: u32 = 0;
 
-/// Global security parameter k for stable transactions
-pub const STABLE_TRANSACTION_CONFIRMATIONS: u32 = 6;
-
 /// Number of outputs expected in the accepted transaction format
 /// See: https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/intro/accepted-format.html
 pub const ACCEPTED_NO_TRANSACTION_OUTPUTS: u32 = 2;
@@ -102,6 +100,9 @@ decl_storage! {
 
         /// Track existing BlockChain entries
         ChainCounter: u32;
+
+        /// Global security parameter k for stable transactions
+        StableTransactionConfirmations get(fn confirmations) config(): u32;
     }
 }
 
@@ -204,8 +205,10 @@ decl_module! {
 
             // Update the blockchain
             // check if we create a new blockchain or extend the existing one
-            // print!("Prev max height: {:?} \n", prev_blockchain.max_height);
+            debug::print!("Prev max height: {:?}\n", prev_blockchain.max_height);
+            debug::print!("Prev block height: {:?}\n", prev_block_height);
             let is_fork = prev_blockchain.max_height != prev_block_height;
+            debug::print!("Fork detected: {:?}\n", is_fork);
 
             let blockchain = if is_fork {
                 // create new blockchain element
@@ -405,7 +408,7 @@ impl<T: Trait> Module<T> {
 
         // fail if there is an ongoing fork
         ensure!(
-            best_block_height >= next_best_fork_height + STABLE_TRANSACTION_CONFIRMATIONS,
+            best_block_height >= next_best_fork_height + Self::confirmations(),
             Error::OngoingFork
         );
 
@@ -663,7 +666,7 @@ impl<T: Trait> Module<T> {
 
     // Get require conformations for stable transactions
     fn get_stable_transaction_confirmations() -> u32 {
-        STABLE_TRANSACTION_CONFIRMATIONS
+        Self::confirmations()
     }
     // *********************************
     // END: Storage getter functions
@@ -914,7 +917,7 @@ impl<T: Trait> Module<T> {
                     // and the current height is more than the
                     // STABLE_TRANSACTION_CONFIRMATIONS ahead
                     // we are swapping the main chain
-                    if prev_height + STABLE_TRANSACTION_CONFIRMATIONS < current_height {
+                    if prev_height + Self::confirmations() < current_height {
                         Self::swap_main_blockchain(&fork)?;
 
                         // announce the new main chain

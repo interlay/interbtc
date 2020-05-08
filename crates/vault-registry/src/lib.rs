@@ -88,7 +88,7 @@ decl_storage! {
         /// Determines the over-collateralization rate for DOT collateral locked
         /// by Vaults, necessary for issuing PolkaBTC. Must to be strictly
         /// greater than 100000 and LiquidationCollateralThreshold.
-        SecureCollateralThreshold: u128;
+        SecureCollateralThreshold get(fn secure_collateral_threshold) config(): u128;
 
         /// Determines the rate for the collateral rate of Vaults, at which the
         /// BTC backed by the Vault are opened up for auction to other Vaults
@@ -707,7 +707,6 @@ impl<T: Trait> Module<T> {
     ) -> Result<bool> {
         let max_tokens =
             Self::calculate_max_polkabtc_from_collateral_for_threshold(collateral, threshold)?;
-
         // check if the max_tokens are below the issued tokens
         Ok(max_tokens < btc_amount)
     }

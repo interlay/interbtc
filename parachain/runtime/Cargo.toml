@@ -14,6 +14,10 @@ default-features = false
 package = 'pallet-balances'
 version = '2.0.0-alpha.5'
 
+[dependencies.bitcoin]
+default-features = false
+path = '../../crates/bitcoin'
+
 [dependencies.codec]
 default-features = false
 features = ['derive']
@@ -165,6 +169,21 @@ version = '2.0.0-alpha.5'
 package = 'substrate-wasm-builder-runner'
 version = '1.0.5'
 
+[dev-dependencies.bitcoin]
+default-features = false
+package = 'bitcoin'
+path = '../../crates/bitcoin'
+
+[dev-dependencies.primitive-types]
+default-features = false
+version = '0.7.0'
+features= ['codec']
+
+[dev-dependencies]
+mocktopus = '0.7.0'
+x-core = { path = '../../crates/x-core' }
+hex = '0.4.2'
+
 [features]
 default = ['std']
 std = [
@@ -201,4 +220,5 @@ std = [
     'exchange-rate-oracle/std',
     'issue/std',
     'redeem/std',
+    'replace/std',
 ]

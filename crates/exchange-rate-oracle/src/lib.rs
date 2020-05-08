@@ -59,7 +59,7 @@ decl_storage! {
         MaxDelay: T::Moment;
 
         // Oracle allowed to set the exchange rate
-        AuthorizedOracle: T::AccountId;
+        AuthorizedOracle get(fn admin) config(): T::AccountId;
     }
 }
 

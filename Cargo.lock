@@ -465,13 +465,16 @@ dependencies = [
 name = "btc-parachain-runtime"
 version = "2.0.0-alpha.5"
 dependencies = [
+ "bitcoin",
  "btc-relay",
  "collateral",
  "exchange-rate-oracle",
  "frame-executive",
  "frame-support",
  "frame-system",
+ "hex",
  "issue",
+ "mocktopus",
  "pallet-aura",
  "pallet-balances",
  "pallet-grandpa",
@@ -480,6 +483,7 @@ dependencies = [
  "pallet-timestamp",
  "pallet-transaction-payment",
  "parity-scale-codec",
+ "primitive-types",
  "redeem",
  "replace",
  "security",
@@ -500,6 +504,7 @@ dependencies = [
  "substrate-wasm-builder-runner",
  "treasury",
  "vault-registry",
+ "x-core",
 ]
 
 [[package]]
@@ -971,6 +976,7 @@ dependencies = [
  "pallet-timestamp",
  "parity-scale-codec",
  "security",
+ "serde",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -6394,6 +6400,7 @@ dependencies = [
  "parity-scale-codec",
  "primitive-types",
  "security",
+ "serde",
  "sp-arithmetic",
  "sp-core",
  "sp-io",

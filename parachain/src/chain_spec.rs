@@ -1,6 +1,7 @@
 use btc_parachain_runtime::{
-    AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, Signature,
-    StakedRelayersConfig, SudoConfig, SystemConfig, WASM_BINARY,
+    AccountId, AuraConfig, BTCRelayConfig, DOTConfig, ExchangeRateOracleConfig, GenesisConfig,
+    GrandpaConfig, PolkaBTCConfig, Signature, StakedRelayersConfig, SudoConfig, SystemConfig,
+    VaultRegistryConfig, WASM_BINARY,
 };
 use grandpa_primitives::AuthorityId as GrandpaId;
 use sc_service;
@@ -129,7 +130,14 @@ fn testnet_genesis(
             code: WASM_BINARY.to_vec(),
             changes_trie_config: Default::default(),
         }),
-        balances: Some(BalancesConfig {
+        balances_Instance1: Some(DOTConfig {
+            balances: endowed_accounts
+                .iter()
+                .cloned()
+                .map(|k| (k, 1 << 60))
+                .collect(),
+        }),
+        balances_Instance2: Some(PolkaBTCConfig {
             balances: endowed_accounts
                 .iter()
                 .cloned()
@@ -148,6 +156,13 @@ fn testnet_genesis(
         sudo: Some(SudoConfig { key: root_key }),
         staked_relayers: Some(StakedRelayersConfig {
             gov_id: get_account_id_from_seed::<sr25519::Public>("Alice"),
+        }),
+        exchange_rate_oracle: Some(ExchangeRateOracleConfig {
+            admin: get_account_id_from_seed::<sr25519::Public>("BOB"),
+        }),
+        btc_relay: Some(BTCRelayConfig { confirmations: 6 }),
+        vault_registry: Some(VaultRegistryConfig {
+            secure_collateral_threshold: 100000,
         }),
     }
 }
