@@ -66,18 +66,18 @@ impl<T: Trait> Module<T> {
     /// Ensures the Parachain is RUNNING
     pub fn _ensure_parachain_status_running() -> UnitResult {
         if <ParachainStatus>::get() == StatusCode::Running {
-            return Ok(());
+            Ok(())
         } else {
-            return Err(Error::ParachainNotRunning);
+            Err(Error::ParachainNotRunning)
         }
     }
 
     /// Ensures the Parachain is not SHUTDOWN
     pub fn _ensure_parachain_status_not_shutdown() -> UnitResult {
         if <ParachainStatus>::get() != StatusCode::Shutdown {
-            return Ok(());
+            Ok(())
         } else {
-            return Err(Error::ParachainShutdown);
+            Err(Error::ParachainShutdown)
         }
     }
 
@@ -98,7 +98,7 @@ impl<T: Trait> Module<T> {
                 }
             }
         }
-        return Ok(());
+        Ok(())
     }
 
     /// Ensures that the parachain HAS ONLY SPECIFIC errors or NO error AT ALL
@@ -126,17 +126,17 @@ impl<T: Trait> Module<T> {
                 None => return Ok(()),
             }
         }
-        return Ok(());
+        Ok(())
     }
 
     fn match_error_code_to_error(error_code: &ErrorCode) -> UnitResult {
         match error_code {
-            ErrorCode::NoDataBTCRelay => return Err(Error::NoData),
-            ErrorCode::InvalidBTCRelay => return Err(Error::Invalid),
-            ErrorCode::OracleOffline => return Err(Error::ParachainOracleOfflineError),
-            ErrorCode::Liquidation => return Err(Error::ParachainLiquidationError),
-            _ => return Err(Error::RuntimeError),
-        };
+            ErrorCode::NoDataBTCRelay => Err(Error::NoData),
+            ErrorCode::InvalidBTCRelay => Err(Error::Invalid),
+            ErrorCode::OracleOffline => Err(Error::ParachainOracleOfflineError),
+            ErrorCode::Liquidation => Err(Error::ParachainLiquidationError),
+            _ => Err(Error::RuntimeError),
+        }
     }
 
     /// Ensures the Parachain is not in an ERROR state due to OracleOffline error
