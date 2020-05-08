@@ -7,6 +7,20 @@ use sp_std::convert::TryInto;
 type IssueCall = issue::Call<Runtime>;
 type IssueEvent = issue::Event<Runtime>;
 
+fn assert_issue_request_event() -> H256 {
+    let events = SystemModule::events();
+    let record = events.iter().find(|record| match record.event {
+        Event::issue(IssueEvent::RequestIssue(_, _, _, _, _)) => true,
+        _ => false,
+    });
+    let id = if let Event::issue(IssueEvent::RequestIssue(id, _, _, _, _)) = record.unwrap().event {
+        id
+    } else {
+        panic!("request issue event not found")
+    };
+    id
+}
+
 #[test]
 fn integration_test_issue_should_fail_if_not_running() {
     ExtBuilder::build().execute_with(|| {
@@ -32,7 +46,7 @@ fn integration_test_issue_should_fail_if_not_running() {
 }
 
 #[test]
-fn integration_test_issue_issue_polka_btc() {
+fn integration_test_issue_polka_btc() {
     ExtBuilder::build().execute_with(|| {
         SystemModule::set_block_number(1);
 
@@ -44,28 +58,19 @@ fn integration_test_issue_issue_polka_btc() {
         let amount = 100;
 
         assert_ok!(OracleCall::set_exchange_rate(1).dispatch(origin_of(account_of(BOB))));
-
         assert_ok!(VaultRegistryCall::register_vault(1000000, address.clone())
             .dispatch(origin_of(account_of(BOB))));
 
+        // alice requests polka_btc by locking btc with bob
         assert_ok!(IssueCall::request_issue(amount, account_of(BOB), 100)
             .dispatch(origin_of(account_of(ALICE))));
 
-        let events = SystemModule::events();
-        let record = events.iter().find(|record| match record.event {
-            Event::issue(IssueEvent::RequestIssue(_, _, _, _, _)) => true,
-            _ => false,
-        });
-        let id =
-            if let Event::issue(IssueEvent::RequestIssue(id, _, _, _, _)) = record.unwrap().event {
-                id
-            } else {
-                panic!("request issue event not found")
-            };
+        let id = assert_issue_request_event();
+
+        // send the btc from the user to the vault
+        let (tx_id, height, proof, raw_tx) = generate_transaction_and_mine(address, amount, id);
 
         SystemModule::set_block_number(5);
-
-        let (tx_id, height, proof, raw_tx) = generate_transaction_and_mine(address, amount, id);
 
         assert_ok!(IssueCall::execute_issue(id, tx_id, height, proof, raw_tx)
             .dispatch(origin_of(account_of(ALICE))));
