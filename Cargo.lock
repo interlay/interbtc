@@ -472,6 +472,7 @@ dependencies = [
  "frame-executive",
  "frame-support",
  "frame-system",
+ "hex",
  "issue",
  "mocktopus",
  "pallet-aura",

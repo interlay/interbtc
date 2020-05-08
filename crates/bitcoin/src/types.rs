@@ -12,6 +12,7 @@ use sp_std::prelude::*;
 use x_core::Error;
 
 use crate::formatter::Formattable;
+use crate::merkle::MerkleProof;
 use crate::parser::{extract_address_hash, extract_op_return_data, FromLeBytes};
 use crate::utils::{hash256_merkle_step, log2, reverse_endianness, sha256d_le};
 
@@ -467,6 +468,32 @@ impl RichBlockHeader {
 pub struct Block {
     pub header: BlockHeader,
     pub transactions: Vec<Transaction>,
+}
+
+impl Block {
+    pub fn merkle_proof(&self, include: &[H256Le]) -> MerkleProof {
+        let mut proof = MerkleProof {
+            block_header: self.header,
+            transactions_count: self.transactions.len() as u32,
+            flag_bits: Vec::with_capacity(include.len()),
+            hashes: vec![],
+        };
+
+        let mut tx_ids = Vec::with_capacity(self.transactions.len());
+        for tx in self.transactions.iter() {
+            tx_ids.push(tx.tx_id());
+        }
+
+        let matches: Vec<bool> = self
+            .transactions
+            .iter()
+            .map(|tx| include.contains(&tx.tx_id()))
+            .collect();
+
+        let height = proof.compute_tree_height();
+        proof.traverse_and_build(height as u32, 0, &tx_ids, &matches);
+        proof
+    }
 }
 
 /// Generates a new block
@@ -1037,5 +1064,31 @@ mod tests {
         // should be 3, might change if block is changed
         assert_eq!(block.header.nonce, 3);
         assert!(block.header.nonce > 0);
+    }
+
+    #[test]
+    fn test_merkle_proof() {
+        clear_mocks();
+        let address: Address = "66c7060feb882664ae62ffad0051fe843e318e85"
+            .try_into()
+            .unwrap();
+
+        let transaction = TransactionBuilder::new()
+            .with_version(2)
+            .add_input(TransactionInputBuilder::new().with_coinbase(false).build())
+            .add_output(TransactionOutput::p2pkh(100, &address))
+            .build();
+
+        let block = BlockBuilder::new()
+            .with_version(2)
+            .with_coinbase(&address, 50, 3)
+            .with_timestamp(1588814835)
+            .add_transaction(transaction.clone())
+            .mine(U256::from(2).pow(254.into()));
+
+        // FIXME: flag_bits incorrect
+        let proof = block.merkle_proof(&vec![transaction.tx_id()]);
+        let bytes = proof.format();
+        MerkleProof::parse(&bytes).unwrap();
     }
 }

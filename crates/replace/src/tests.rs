@@ -427,36 +427,10 @@ fn test_auction_replace_insufficient_collateral_fails() {
         let btc_amount = 100;
         assert_noop!(
             auction_replace(ALICE, BOB, btc_amount, collateral),
-            Error::InsufficientCollateral
+            Error::VaultOverAuctionThreshold
         );
     })
 }
-
-//TODO(jaupe) uncomment this once the threshold calcs are centralised by dom
-/*
-#[test]
-fn test_auction_replace_succeeds() {
-    run_test(|| {
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|id| {
-            MockResult::Return(if *id == ALICE {
-                Ok(test_vault())
-            } else {
-                Ok(test_vault())
-            })
-        });
-        ext::vault_registry::auction_collateral_threshold::<Test>
-            .mock_safe(|| MockResult::Return(1000));
-        ext::vault_registry::secure_collateral_threshold::<Test>
-            .mock_safe(|| MockResult::Return(1000));
-        ext::collateral::get_collateral_from_account::<Test>
-            .mock_safe(|_| MockResult::Return(50_000_000));
-        let collateral = 100_000_000_000;
-        let btc_amount = 100_000_000_000;
-        assert_eq!(auction_replace(ALICE, BOB, btc_amount, collateral), Ok(()));
-        //TODO(jaupe) test persistent state
-    })
-}
-*/
 
 #[test]
 fn test_execute_replace_bad_replace_id_fails() {

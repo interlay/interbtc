@@ -224,7 +224,7 @@ impl<T: Trait> Module<T> {
 
         let height = <system::Module<T>>::block_number();
         let period = T::IssuePeriod::get();
-        ensure!(height < issue.opentime + period, Error::CommitPeriodExpired);
+        ensure!(height <= issue.opentime + period, Error::CommitPeriodExpired);
 
         ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, tx_block_height, merkle_proof)?;
         ext::btc_relay::validate_transaction::<T>(

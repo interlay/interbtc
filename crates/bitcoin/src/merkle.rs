@@ -18,6 +18,7 @@ const MAX_TRANSACTIONS_IN_PROOF: u32 = MAX_BLOCK_WEIGHT / MIN_TRANSACTION_WEIGHT
 
 /// Struct to store the content of a merkle proof
 #[derive(Clone)]
+#[cfg_attr(feature = "std", derive(Debug))]
 pub struct MerkleProof {
     pub block_header: BlockHeader,
     pub transactions_count: u32,
@@ -154,19 +155,17 @@ impl MerkleProof {
         let mut proof_parser = BytesParser::new(merkle_proof);
         let block_header = proof_parser.parse()?;
         let transactions_count = proof_parser.parse()?;
-
-        let hashes_count: CompactUint = proof_parser.parse()?;
-
-        let mut hashes = Vec::<H256Le>::new();
-        for _ in 0..hashes_count.value {
-            hashes.push(proof_parser.parse()?);
-        }
+        let hashes: Vec<H256Le> = proof_parser.parse()?;
 
         let flag_bits_count: CompactUint = proof_parser.parse()?;
-
-        let mut flag_bits = Vec::new();
+        let mut bytes: Vec<u8> = Vec::new();
         for _ in 0..flag_bits_count.value {
-            flag_bits.extend(proof_parser.parse::<Vec<bool>>()?);
+            bytes.push(proof_parser.parse()?);
+        }
+
+        let mut flag_bits: Vec<bool> = vec![false; bytes.len() * 8];
+        for (p, bit) in flag_bits.iter_mut().enumerate() {
+            *bit = (bytes[p / 8] & (1 << (p % 8) as u8)) != 0;
         }
 
         Ok(MerkleProof {
@@ -175,6 +174,48 @@ impl MerkleProof {
             hashes,
             flag_bits,
         })
+    }
+
+    pub(crate) fn traverse_and_build(
+        &mut self,
+        height: u32,
+        pos: u32,
+        tx_ids: &[H256Le],
+        matches: &[bool],
+    ) {
+        let mut parent_of_match = false;
+        let mut p = pos << height;
+        while p < (pos + 1) << height && p < self.transactions_count {
+            parent_of_match |= matches[p as usize];
+            p += 1;
+        }
+
+        self.flag_bits.push(parent_of_match);
+
+        if height == 0 || !parent_of_match {
+            let hash = self.compute_hash(height, pos, tx_ids);
+            self.hashes.push(hash);
+        } else {
+            self.traverse_and_build(height - 1, pos * 2, tx_ids, matches);
+            if pos * 2 + 1 < self.compute_tree_width(height - 1) {
+                self.traverse_and_build(height - 1, pos * 2 + 1, tx_ids, matches);
+            }
+        }
+    }
+
+    // TODO: This seems to be exactly the same logic as compute_merkle_root in impl BlockBuilder. Extract this as a helper and reuse the logic.
+    fn compute_hash(&self, height: u32, pos: u32, tx_ids: &[H256Le]) -> H256Le {
+        if height == 0 {
+            return tx_ids[pos as usize];
+        } else {
+            let left = self.compute_hash(height - 1, pos * 2, tx_ids);
+            let right = if pos * 2 + 1 < self.compute_tree_width(height - 1) {
+                self.compute_hash(height - 1, pos * 2 + 1, tx_ids)
+            } else {
+                left
+            };
+            hash256_merkle_step(&left.to_bytes_le(), &right.to_bytes_le())
+        }
     }
 }
 
