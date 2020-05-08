@@ -151,6 +151,7 @@ fn integration_test_replace_execute_replace() {
         // bob creates a vault
         assert_ok!(VaultRegistryCall::register_vault(amount, H160([0; 20]))
             .dispatch(origin_of(account_of(ALICE))));
+        assert_eq!(VaultRegistryCall::vault_exists(&account_of(ALICE)), true);
         // alice creates a vault
         assert_ok!(VaultRegistryCall::register_vault(amount, H160([0; 20]))
             .dispatch(origin_of(account_of(BOB))));
