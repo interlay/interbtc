@@ -59,23 +59,23 @@ The BTC-Parachain is built with:
 
 The Substrate runtime makes use of various custom pallets and crates that are found in the [crates](./crates) folder.
 
-**Development status**: Proof-of-concept
+**Development status**: Proof-of-concept - Aplha release
 
 ### Development Progess
 
-- [bitcoin](crates/bitcoin): [Beta] Library for Bitcoin type, parsing and verification functions.
-- [btc-relay](crates/btc-relay): [Beta] Stateful SPV client for Bitcoin. Stores Bitcoin main chain, tracks forks, verifies Merkle proofs and validates specific transaction formats. 
-- [collateral](crates/collateral) [Beta] Handles locking, releasing and slashing of collateral (e.g. DOT). 
-- [exchange-rate-oracle](crates/exchange-rate-oracle): [Beta] Exchange rate oracle. Integration with external provider pending.
-- [issue](crates/issue): [Beta] Handles issuing of PolkaBTC.
+- [bitcoin](crates/bitcoin): [Alpha] Library for Bitcoin type, parsing and verification functions.
+- [btc-relay](crates/btc-relay): [Alpha] Stateful SPV client for Bitcoin. Stores Bitcoin main chain, tracks forks, verifies Merkle proofs and validates specific transaction formats. 
+- [collateral](crates/collateral) [Alpha] Handles locking, releasing and slashing of collateral (e.g. DOT). 
+- [exchange-rate-oracle](crates/exchange-rate-oracle): [Alpha] Exchange rate oracle. Integration with external provider pending.
+- [issue](crates/issue): [Alpha] Handles issuing of PolkaBTC.
 - [priority-map](crates/priority-map): [WIP] Priority queue based on a mapping. Used to efficiently track ongoing forks and handle re-orgs.
-- [redeem](crates/redeem) [Beta] Handles redeeming of PolkaBTC for BTC on Bitcoin.
-- [replace](crates/replace) [Beta] Handles replacing vaults.
-- [security](crates/security): [Beta] Security module, handling BTC Parachain status changes (error handling).
-- [staked-relayers](crates/staked-relayers): [Beta] Handles registration and stake of Staked Relayers, as well as voting on Parachain status changes.
-- [treasury](crates/treasury): [Beta] Exposes functions related to handling of the PolkaBTC currency (mint, transfer, lock, burn)
-- [vault-registry](crate/vault-registry): [Beta] Handles registration, collateral and liquidation of Vaults.
-- [x-core](crates/xclaim-core): [Beta] Error types and other shared types/functions used across BTC-Parachain components. 
+- [redeem](crates/redeem) [Alpha] Handles redeeming of PolkaBTC for BTC on Bitcoin.
+- [replace](crates/replace) [Alpha] Handles replacing vaults.
+- [security](crates/security): [Alpha] Security module, handling BTC Parachain status changes (error handling).
+- [staked-relayers](crates/staked-relayers): [Alpha] Handles registration and stake of Staked Relayers, as well as voting on Parachain status changes.
+- [treasury](crates/treasury): [Alpha] Exposes functions related to handling of the PolkaBTC currency (mint, transfer, lock, burn)
+- [vault-registry](crate/vault-registry): [Alpha] Handles registration, collateral and liquidation of Vaults.
+- [x-core](crates/xclaim-core): [Alpha] Error types and other shared types/functions used across BTC-Parachain components. 
 
 
 
@@ -113,11 +113,18 @@ cargo build
 cargo test
 ```
 
-To run with coverage: 
+To run with coverage, using [cargo-cov](https://github.com/kennytm/cov):
 ```
-cargo install cargo-tarpaulin
+cargo install cargo-cov
 
-cargo tarpaulin -v
+# clean up previous coverage result
+cargo cov clean
+
+# test the code
+cargo cov test
+
+# open the coverage report
+cargo cov report --open
 ```
 
 #### Test coverage
