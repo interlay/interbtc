@@ -2,7 +2,6 @@ mod mock;
 
 use mock::*;
 
-use bitcoin::types::H256Le;
 use primitive_types::H256;
 
 type ReplaceCall = replace::Call<Runtime>;
@@ -21,8 +20,6 @@ fn assert_request_event() -> H256 {
     assert_eq!(ids.len(), 1);
     ids[0].clone()
 }
-
-fn assert_request_storage(request_id: H256) {}
 
 #[test]
 fn integration_test_replace_should_fail_if_not_running() {
@@ -60,8 +57,6 @@ fn integration_test_replace_request_replace() {
 fn integration_test_replace_withdraw_replace() {
     ExtBuilder::build().execute_with(|| {
         SystemModule::set_block_number(1);
-        let balance = 500_000;
-        let amount = 100_000;
         let griefing_collateral = 200;
         let collateral = 100_000;
 
@@ -106,65 +101,80 @@ fn integration_test_replace_accept_replace() {
     });
 }
 
-#[ignore]
+#[test]
 fn integration_test_replace_auction_replace() {
     ExtBuilder::build().execute_with(|| {
         SystemModule::set_block_number(1);
-        let griefing_collateral = 50;
-        let collateral = 100;
+        let user = CLAIRE;
+        let old_vault = ALICE;
+        let new_vault = BOB;
+        let collateral = 4_000;
+        let polkabtc = 1_000;
+        let vault_btc_address = H160([0u8; 20]);
 
+        set_default_thresholds();
         // peg spot rate
         assert_ok!(OracleCall::set_exchange_rate(1).dispatch(origin_of(account_of(BOB))));
-        // bob creates a vault
-        assert_ok!(VaultRegistryCall::register_vault(collateral, H160([0; 20]))
-            .dispatch(origin_of(account_of(ALICE))));
-        // alice creates a vault
-        assert_ok!(VaultRegistryCall::register_vault(collateral, H160([0; 20]))
-            .dispatch(origin_of(account_of(BOB))));
-        // bob requests a replace
+
+        // old vault has issued some tokens with the user
+        force_issue_tokens(user, old_vault, collateral, polkabtc, vault_btc_address);
+
+        // new vault joins
         assert_ok!(
-            ReplaceCall::request_replace(collateral, griefing_collateral)
-                .dispatch(origin_of(account_of(BOB)))
+            VaultRegistryCall::register_vault(collateral, vault_btc_address)
+                .dispatch(origin_of(account_of(new_vault)))
         );
-        // alice snaps up bob's vault
-        assert_ok!(ReplaceCall::auction_replace(account_of(BOB), 0, 0)
-            .dispatch(origin_of(account_of(ALICE))));
+        // exchange rate drops and vault is not collateralized any more
+        assert_ok!(OracleCall::set_exchange_rate(3).dispatch(origin_of(account_of(BOB))));
+        // new_vault takes over old_vault's position
+        assert_ok!(
+            ReplaceCall::auction_replace(account_of(old_vault), polkabtc, 2 * collateral)
+                .dispatch(origin_of(account_of(new_vault)))
+        );
     });
 }
 
-#[ignore]
+#[test]
 fn integration_test_replace_execute_replace() {
     ExtBuilder::build().execute_with(|| {
-        SystemModule::set_block_number(1);
-        let amount = 1_000;
-        let griefing_collateral = 200;
+        let user = CLAIRE;
+        let old_vault = ALICE;
+        let new_vault = BOB;
+        let griefing_collateral = 50;
+        let collateral = 4_000;
+        let polkabtc = 1_000;
+        let vault_btc_address = H160([0u8; 20]);
+
+        set_default_thresholds();
 
         // peg spot rate
         assert_ok!(OracleCall::set_exchange_rate(1).dispatch(origin_of(account_of(BOB))));
-        // bob creates a vault
-        assert_ok!(VaultRegistryCall::register_vault(amount, H160([0; 20]))
-            .dispatch(origin_of(account_of(ALICE))));
-        // alice creates a vault
-        assert_ok!(VaultRegistryCall::register_vault(amount, H160([0; 20]))
-            .dispatch(origin_of(account_of(BOB))));
-        // bob requests a replace
-        assert_ok!(ReplaceCall::request_replace(amount, griefing_collateral)
-            .dispatch(origin_of(account_of(BOB))));
-        let replace_id = assert_request_event();
-        // alice accepts bob's request
 
-        assert_ok!(ReplaceCall::accept_replace(replace_id, griefing_collateral)
-            .dispatch(origin_of(account_of(BOB))));
-        // alice excutes replacement of bob's vault
-        // TODO(jaupe) populate the bitcoin data correctly
+        // old vault has issued some tokens with the user
+        force_issue_tokens(user, old_vault, collateral, polkabtc, vault_btc_address);
+
+        // new vault joins
+        assert_ok!(
+            VaultRegistryCall::register_vault(collateral, vault_btc_address)
+                .dispatch(origin_of(account_of(new_vault)))
+        );
+
+        assert_ok!(ReplaceCall::request_replace(polkabtc, griefing_collateral)
+            .dispatch(origin_of(account_of(old_vault))));
+
         let replace_id = assert_request_event();
-        let tx_id = H256Le::zero();
-        let tx_block_height = 0;
-        let merkle_proof = Vec::new();
-        let raw_tx = Vec::new();
+
+        // alice accepts bob's request
+        assert_ok!(ReplaceCall::accept_replace(replace_id, collateral)
+            .dispatch(origin_of(account_of(new_vault))));
+
+        // send the btc from the old_vault to the new_vault
+        let (tx_id, tx_block_height, merkle_proof, raw_tx) =
+            generate_transaction_and_mine(vault_btc_address, polkabtc, replace_id);
+
         let r =
             ReplaceCall::execute_replace(replace_id, tx_id, tx_block_height, merkle_proof, raw_tx)
-                .dispatch(origin_of(account_of(BOB)));
+                .dispatch(origin_of(account_of(old_vault)));
         assert_ok!(r);
     });
 }

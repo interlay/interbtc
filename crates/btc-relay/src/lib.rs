@@ -20,6 +20,7 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
+use frame_support::debug;
 use frame_support::{
     decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure, IterableStorageMap,
 };
@@ -204,8 +205,10 @@ decl_module! {
 
             // Update the blockchain
             // check if we create a new blockchain or extend the existing one
-            // print!("Prev max height: {:?} \n", prev_blockchain.max_height);
+            debug::print!("Prev max height: {:?}\n", prev_blockchain.max_height);
+            debug::print!("Prev block height: {:?}\n", prev_block_height);
             let is_fork = prev_blockchain.max_height != prev_block_height;
+            debug::print!("Fork detected: {:?}\n", is_fork);
 
             let blockchain = if is_fork {
                 // create new blockchain element

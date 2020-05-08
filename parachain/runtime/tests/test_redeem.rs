@@ -2,7 +2,6 @@ mod mock;
 
 use mock::*;
 
-use bitcoin::types::H256Le;
 use primitive_types::H256;
 
 type RedeemCall = redeem::Call<Runtime>;
@@ -44,7 +43,6 @@ fn integration_test_redeem_polka_btc() {
         let polkabtc = 1_000;
         let vault_btc_address = H160([0u8; 20]);
         let user_btc_address = H160([0u8; 20]);
-        let griefing_collateral = 10;
 
         SystemModule::set_block_number(1);
 

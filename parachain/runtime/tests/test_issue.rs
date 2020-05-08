@@ -1,8 +1,7 @@
 mod mock;
 
 use mock::*;
-use primitive_types::{H256, U256};
-use sp_std::convert::TryInto;
+use primitive_types::H256;
 
 type IssueCall = issue::Call<Runtime>;
 type IssueEvent = issue::Event<Runtime>;
@@ -45,7 +44,7 @@ fn integration_test_issue_should_fail_if_not_running() {
     });
 }
 
-#[ignore]
+#[test]
 fn integration_test_issue_polka_btc() {
     ExtBuilder::build().execute_with(|| {
         SystemModule::set_block_number(1);
