@@ -64,6 +64,8 @@ fn integration_test_redeem_polka_btc() {
         // assert that request happened and extract the id
         let redeem_id = assert_redeem_request_event();
 
+        SystemModule::set_block_number(5);
+
         // send the btc from the vault to the user
         let (tx_id, tx_block_height, merkle_proof, raw_tx) =
             generate_transaction_and_mine(user_btc_address, polkabtc, redeem_id);

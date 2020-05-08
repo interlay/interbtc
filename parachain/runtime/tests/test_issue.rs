@@ -45,7 +45,7 @@ fn integration_test_issue_should_fail_if_not_running() {
     });
 }
 
-#[test]
+#[ignore]
 fn integration_test_issue_polka_btc() {
     ExtBuilder::build().execute_with(|| {
         SystemModule::set_block_number(1);

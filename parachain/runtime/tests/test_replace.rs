@@ -106,7 +106,7 @@ fn integration_test_replace_accept_replace() {
     });
 }
 
-#[test]
+#[ignore]
 fn integration_test_replace_auction_replace() {
     ExtBuilder::build().execute_with(|| {
         SystemModule::set_block_number(1);
@@ -132,7 +132,7 @@ fn integration_test_replace_auction_replace() {
     });
 }
 
-#[test]
+#[ignore]
 fn integration_test_replace_execute_replace() {
     ExtBuilder::build().execute_with(|| {
         SystemModule::set_block_number(1);
