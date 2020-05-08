@@ -62,7 +62,7 @@ pub fn log2(value: u64) -> u8 {
     let mut current = value - 1;
     let mut result: u8 = 0;
     while current > 0 {
-        current = current >> 1;
+        current >>= 1;
         result += 1;
     }
     result
