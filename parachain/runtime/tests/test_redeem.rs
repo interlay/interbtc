@@ -36,7 +36,7 @@ fn integration_test_redeem_should_fail_if_not_running() {
 }
 
 #[test]
-fn integration_test_redeem_normal_redeem_polka_btc() {
+fn integration_test_redeem_polka_btc() {
     ExtBuilder::build().execute_with(|| {
         let user = ALICE;
         let vault = BOB;
@@ -65,15 +65,14 @@ fn integration_test_redeem_normal_redeem_polka_btc() {
         let redeem_id = assert_redeem_request_event();
 
         // send the btc from the vault to the user
-        generate_transaction_and_mine(user_btc_address, polkabtc, redeem_id);
+        let (tx_id, height, proof, raw_tx) =
+            generate_transaction_and_mine(user_btc_address, polkabtc, redeem_id);
 
-        assert_ok!(RedeemCall::execute_redeem(
-            redeem_id,
-            tx_id,
-            tx_block_height,
-            merkle_proof,
-            raw_tx
-        )
-        .dispatch(origin_of(account_of(vault))));
+        SystemModule::set_block_number(5);
+
+        assert_ok!(
+            RedeemCall::execute_redeem(redeem_id, tx_id, height, proof, raw_tx)
+                .dispatch(origin_of(account_of(vault)))
+        );
     });
 }
