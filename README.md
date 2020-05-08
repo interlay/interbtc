@@ -122,20 +122,7 @@ cargo tarpaulin -v
 
 #### Test coverage
 
-Overall coverage: 91.04% 
-
-- [bitcoin](crates/bitcoin): 
-- [btc-relay](crates/btc-relay):
-- [collateral](crates/collateral)
-- [exchange-rate-oracle](crates/exchange-rate-oracle):
-- [issue](crates/issue): 
-- [priority-map](crates/priority-map):
-- [redeem](crates/redeem) 
-- [security](crates/security): 
-- [staked-relayers](crates/staked-relayers): 
-- [treasury](crates/treasury): 
-- [vault-registry](crate/vault-registry): 
-- [x-core](crates/xclaim-core): 
+Test coverage reports available under [docs/testcoverage.html](https://gitlab.com/interlay/btc-parachain/-/blob/dev/docs/testcoverage.html)
 
 ### Substrate Chain Configuration
 
