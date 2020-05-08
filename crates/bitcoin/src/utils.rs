@@ -1,6 +1,8 @@
-use crate::types::H256Le;
-use primitive_types::H256;
+use primitive_types::{H256, U256};
 use sha2::{Digest, Sha256};
+use sp_std::{prelude::*, vec};
+
+use crate::types::H256Le;
 
 /// Computes Bitcoin's double SHA256 hash over a LE byte encoded input
 ///
@@ -46,6 +48,43 @@ pub fn reverse_endianness(bytes: &[u8]) -> Vec<u8> {
     vec
 }
 
+/// Returns the (ceiled) log base 2 of the value
+/// ```
+/// assert_eq!(bitcoin::utils::log2(4), 2);
+/// assert_eq!(bitcoin::utils::log2(5), 3);
+/// assert_eq!(bitcoin::utils::log2(8), 3);
+/// assert_eq!(bitcoin::utils::log2(256), 8);
+/// assert_eq!(bitcoin::utils::log2(257), 9);
+/// assert_eq!(bitcoin::utils::log2(65536), 16);
+/// assert_eq!(bitcoin::utils::log2(65537), 17);
+/// ```
+pub fn log2(value: u64) -> u8 {
+    let mut current = value - 1;
+    let mut result: u8 = 0;
+    while current > 0 {
+        current = current >> 1;
+        result += 1;
+    }
+    result
+}
+
+/// Returns the (ceiled) log base 256 of the value
+/// ```
+/// assert_eq!(bitcoin::utils::log256(&256u32.into()), 1);
+/// assert_eq!(bitcoin::utils::log256(&257u32.into()), 2);
+/// assert_eq!(bitcoin::utils::log256(&65536u32.into()), 2);
+/// assert_eq!(bitcoin::utils::log256(&65537u32.into()), 3);
+/// ```
+pub fn log256(value: &U256) -> u8 {
+    let mut current = (value - 1).clone();
+    let mut result: u8 = 0;
+    while current > 0.into() {
+        current = current >> 8;
+        result += 1;
+    }
+    result
+}
+
 // FIXME: maybe use sp_core sha2_256?
 pub fn sha256d_be(bytes: &[u8]) -> H256 {
     H256::from_slice(&sha256d(bytes)[..])
@@ -53,4 +92,17 @@ pub fn sha256d_be(bytes: &[u8]) -> H256 {
 
 pub fn sha256d_le(bytes: &[u8]) -> H256Le {
     H256Le::from_bytes_le(&sha256d(bytes))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_log256() {
+        let value = U256::from_dec_str("680733321990486529407107157001552378184394215934016880640")
+            .unwrap();
+        let result = log256(&value);
+        assert_eq!(result, 24);
+    }
 }

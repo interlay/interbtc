@@ -1,82 +1,193 @@
-/// Tests for Security Module
-use crate::Trait;
-use frame_support::{impl_outer_event, impl_outer_origin, parameter_types, weights::Weight};
-use sp_core::H256;
-use sp_runtime::{
-    testing::Header,
-    traits::{BlakeTwo256, IdentityLookup},
-    Perbill,
-};
+use crate::mock::*;
+use crate::ErrorCode;
+use crate::StatusCode;
+use frame_support::{assert_noop, assert_ok, dispatch::DispatchResult};
+use x_core::Error;
 
-impl_outer_origin! {
-    pub enum Origin for Test {}
+type Event = crate::Event;
+
+macro_rules! assert_emitted {
+    ($event:expr) => {
+        let test_event = TestEvent::test_events($event);
+        assert!(System::events().iter().any(|a| a.event == test_event));
+    };
+    ($event:expr, $times:expr) => {
+        let test_event = TestEvent::test_events($event);
+        assert_eq!(
+            System::events()
+                .iter()
+                .filter(|a| a.event == test_event)
+                .count(),
+            $times
+        );
+    };
 }
-
-mod test_events {
-    pub use crate::Event;
-}
-
-impl_outer_event! {
-    pub enum TestEvent for Test {
-        test_events,
-    }
-}
-
-// For testing the pallet, we construct most of a mock runtime. This means
-// first constructing a configuration type (`Test`) which `impl`s each of the
-// configuration traits of modules we want to use.
-#[derive(Clone, Eq, PartialEq)]
-pub struct Test;
-parameter_types! {
-    pub const BlockHashCount: u64 = 250;
-    pub const MaximumBlockWeight: Weight = 1024;
-    pub const MaximumBlockLength: u32 = 2 * 1024;
-    pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
-}
-impl system::Trait for Test {
-    type Origin = Origin;
-    type Call = ();
-    type Index = u64;
-    type BlockNumber = u64;
-    type Hash = H256;
-    type Hashing = BlakeTwo256;
-    type AccountId = u64;
-    type Lookup = IdentityLookup<Self::AccountId>;
-    type Header = Header;
-    type Event = TestEvent;
-    type BlockHashCount = BlockHashCount;
-    type MaximumBlockWeight = MaximumBlockWeight;
-    type MaximumBlockLength = MaximumBlockLength;
-    type AvailableBlockRatio = AvailableBlockRatio;
-    type Version = ();
-    type ModuleToIndex = ();
-}
-
-impl Trait for Test {
-    type Event = TestEvent;
-}
-
-// pub type System = system::Module<Test>;
-// pub type Security = Module<Test>;
-
-pub struct ExtBuilder;
-
-impl ExtBuilder {
-    pub fn build() -> sp_io::TestExternalities {
-        let storage = system::GenesisConfig::default()
-            .build_storage::<Test>()
-            .unwrap();
-        sp_io::TestExternalities::from(storage)
-    }
-}
-
-// fn ExtBuilder::build() -> sp_io::TestExternalities {
-// 	system::GenesisConfig::default().build_storage::<Test>().unwrap().into()
-// }
-
-/// Initialize Function
 
 #[test]
-fn dummy_test() {
-    ExtBuilder::build().execute_with(|| {});
+fn test_get_and_set_parachain_status() {
+    run_test(|| {
+        let status_code = Security::get_parachain_status();
+        assert_eq!(status_code, StatusCode::Running);
+        Security::set_parachain_status(StatusCode::Shutdown);
+        let status_code = Security::get_parachain_status();
+        assert_eq!(status_code, StatusCode::Shutdown);
+    })
+}
+
+#[test]
+fn test_is_ensure_parachain_running_succeeds() {
+    run_test(|| {
+        Security::set_parachain_status(StatusCode::Running);
+        assert_ok!(Security::_ensure_parachain_status_running());
+    })
+}
+
+#[test]
+fn test_is_ensure_parachain_running_fails() {
+    run_test(|| {
+        Security::set_parachain_status(StatusCode::Error);
+        assert_noop!(
+            Security::_ensure_parachain_status_running(),
+            Error::ParachainNotRunning
+        );
+
+        Security::set_parachain_status(StatusCode::Shutdown);
+        assert_noop!(
+            Security::_ensure_parachain_status_running(),
+            Error::ParachainNotRunning
+        );
+    })
+}
+
+#[test]
+fn test_is_ensure_parachain_not_shutdown_succeeds() {
+    run_test(|| {
+        Security::set_parachain_status(StatusCode::Running);
+        assert_ok!(Security::_ensure_parachain_status_not_shutdown());
+
+        Security::set_parachain_status(StatusCode::Error);
+        assert_ok!(Security::_ensure_parachain_status_not_shutdown());
+    })
+}
+
+#[test]
+fn test_is_ensure_parachain_not_shutdown_fails() {
+    run_test(|| {
+        Security::set_parachain_status(StatusCode::Shutdown);
+        assert_noop!(
+            Security::_ensure_parachain_status_not_shutdown(),
+            Error::ParachainShutdown
+        );
+    })
+}
+
+#[test]
+fn test_is_parachain_error_no_data_btcrelay() {
+    run_test(|| {
+        Security::set_parachain_status(StatusCode::Error);
+        assert_ok!(Security::mutate_errors(|errors| {
+            errors.insert(ErrorCode::NoDataBTCRelay);
+            Ok(())
+        }));
+        assert_eq!(Security::_is_parachain_error_no_data_btcrelay(), true);
+    })
+}
+
+#[test]
+fn test_is_parachain_error_invalid_btcrelay() {
+    run_test(|| {
+        Security::set_parachain_status(StatusCode::Error);
+        assert_ok!(Security::mutate_errors(|errors| {
+            errors.insert(ErrorCode::InvalidBTCRelay);
+            Ok(())
+        }));
+        assert_eq!(Security::_is_parachain_error_invalid_btcrelay(), true);
+    })
+}
+
+#[test]
+fn test_is_parachain_error_oracle_offline() {
+    run_test(|| {
+        Security::set_parachain_status(StatusCode::Error);
+        assert_ok!(Security::mutate_errors(|errors| {
+            errors.insert(ErrorCode::OracleOffline);
+            Ok(())
+        }));
+        assert_eq!(Security::_is_parachain_error_oracle_offline(), true);
+    })
+}
+
+#[test]
+fn test_is_parachain_error_liquidation() {
+    run_test(|| {
+        Security::set_parachain_status(StatusCode::Error);
+        assert_ok!(Security::mutate_errors(|errors| {
+            errors.insert(ErrorCode::Liquidation);
+            Ok(())
+        }));
+        assert_eq!(Security::_is_parachain_error_liquidation(), true);
+    })
+}
+
+fn test_recover_from_<F>(recover: F, error_codes: Vec<ErrorCode>)
+where
+    F: FnOnce() -> DispatchResult,
+{
+    for err in &error_codes {
+        Security::insert_error(err.clone());
+    }
+    assert_ok!(recover());
+    for err in &error_codes {
+        assert_eq!(Security::get_errors().contains(&err), false);
+    }
+    assert_eq!(Security::get_parachain_status(), StatusCode::Running);
+    assert_emitted!(Event::RecoverFromErrors(StatusCode::Running, error_codes));
+}
+
+#[test]
+fn test_recover_from_liquidation_succeeds() {
+    run_test(|| {
+        test_recover_from_(
+            Security::recover_from_liquidation,
+            vec![ErrorCode::Liquidation],
+        );
+    })
+}
+
+#[test]
+fn test_recover_from_oracle_offline_succeeds() {
+    run_test(|| {
+        test_recover_from_(
+            Security::recover_from_oracle_offline,
+            vec![ErrorCode::OracleOffline],
+        );
+    })
+}
+
+#[test]
+fn test_recover_from_btc_relay_failure_succeeds() {
+    run_test(|| {
+        test_recover_from_(
+            Security::recover_from_btc_relay_failure,
+            vec![ErrorCode::InvalidBTCRelay, ErrorCode::NoDataBTCRelay],
+        );
+    })
+}
+
+#[test]
+fn test_get_nonce() {
+    run_test(|| {
+        let left = Security::get_nonce();
+        let right = Security::get_nonce();
+        assert_eq!(right, left + 1);
+    })
+}
+
+#[test]
+fn test_get_secure_id() {
+    run_test(|| {
+        let left = Security::_get_secure_id(&1);
+        let right = Security::_get_secure_id(&1);
+        assert_ne!(left, right);
+    })
 }

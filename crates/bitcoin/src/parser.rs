@@ -1,15 +1,14 @@
-use crate::types::*;
-
-use primitive_types::U256;
-
 #[cfg(test)]
 extern crate mocktopus;
+
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use btc_core::Error;
+use primitive_types::U256;
+use sp_std::prelude::*;
+use x_core::Error;
 
-const SERIALIZE_TRANSACTION_NO_WITNESS: i32 = 0x4000_0000;
+use crate::types::*;
 
 /// Type to be parsed from a bytes array
 pub(crate) trait Parsable: Sized {
@@ -53,7 +52,7 @@ make_parsable_int!(i64, 8);
 
 impl Parsable for CompactUint {
     fn parse(raw_bytes: &[u8], position: usize) -> Result<(CompactUint, usize), Error> {
-        let last_byte = std::cmp::min(position + 3, raw_bytes.len());
+        let last_byte = sp_std::cmp::min(position + 3, raw_bytes.len());
         let (value, bytes_consumed) = parse_compact_uint(&raw_bytes[position..last_byte]);
         Ok((CompactUint { value }, bytes_consumed))
     }
@@ -221,7 +220,7 @@ impl FromLeBytes for BlockHeader {
 ///
 /// * `header` - An 80-byte Bitcoin header
 pub fn parse_block_header(raw_header: &RawBlockHeader) -> Result<BlockHeader, Error> {
-    let mut parser = BytesParser::new(raw_header.as_slice());
+    let mut parser = BytesParser::new(raw_header.as_bytes());
     let version: i32 = parser.parse()?;
     let hash_prev_block: H256Le = parser.parse()?;
     let merkle_root: H256Le = parser.parse()?;
@@ -232,7 +231,7 @@ pub fn parse_block_header(raw_header: &RawBlockHeader) -> Result<BlockHeader, Er
     let block_header = BlockHeader {
         merkle_root,
         target,
-        timestamp: timestamp as u64,
+        timestamp: timestamp,
         version,
         nonce,
         hash_prev_block,
@@ -365,7 +364,7 @@ fn parse_transaction_input(
             height,
             script,
             sequence,
-            witness: None,
+            witness: vec![],
         },
         consumed_bytes,
     ))
@@ -379,10 +378,16 @@ fn parse_transaction_output(raw_output: &[u8]) -> Result<(TransactionOutput, usi
         return Err(Error::MalformedTransaction);
     }
     let script = parser.read(script_size.value as usize)?;
-    Ok((TransactionOutput { value, script }, parser.position))
+    Ok((
+        TransactionOutput {
+            value,
+            script: script.into(),
+        },
+        parser.position,
+    ))
 }
 
-pub fn extract_address_hash(output_script: &[u8]) -> Result<Vec<u8>, Error> {
+pub(crate) fn extract_address_hash(output_script: &[u8]) -> Result<Vec<u8>, Error> {
     let script_len = output_script.len();
     // Witness
     if output_script[0] == 0 {
@@ -431,7 +436,7 @@ pub fn extract_address_hash(output_script: &[u8]) -> Result<Vec<u8>, Error> {
     Err(Error::UnsupportedOutputFormat)
 }
 
-pub fn extract_op_return_data(output_script: &[u8]) -> Result<Vec<u8>, Error> {
+pub(crate) fn extract_op_return_data(output_script: &[u8]) -> Result<Vec<u8>, Error> {
     if output_script[0] != OpCode::OpReturn as u8 {
         return Err(Error::MalformedOpReturnOutput);
     }
@@ -441,25 +446,24 @@ pub fn extract_op_return_data(output_script: &[u8]) -> Result<Vec<u8>, Error> {
         return Err(Error::MalformedOpReturnOutput);
     }
 
-    Ok(output_script[2..].to_vec())
+    let result = &output_script[2..];
+
+    if result.len() != output_script[1] as usize {
+        return Err(Error::MalformedOpReturnOutput);
+    }
+
+    Ok(result.to_vec())
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
 
     // examples from https://bitcoin.org/en/developer-reference#block-headers
 
     #[test]
     fn test_parse_block_header() {
-        let hex_header = "02000000".to_owned() + // ............... Block version: 2
-            "b6ff0b1b1680a2862a30ca44d346d9e8" + //
-            "910d334beb48ca0c0000000000000000" + // ... Hash of previous block's header
-            "9d10aa52ee949386ca9385695f04ede2" + //
-            "70dda20810decd12bc9b048aaab31471" + // ... Merkle root
-            "24d95a54" + // ........................... Unix time: 1415239972
-            "30c31b18" + // ........................... Target: 0x1bc330 * 256**(0x18-3)
-            "fe9f0864";
+        let hex_header = sample_block_header();
         let raw_header = RawBlockHeader::from_hex(&hex_header).unwrap();
         let parsed_header = parse_block_header(&raw_header).unwrap();
         assert_eq!(parsed_header.version, 2);
@@ -493,7 +497,7 @@ mod tests {
         }
     }
 
-    fn sample_coinbase_transaction_input() -> String {
+    pub fn sample_coinbase_transaction_input() -> String {
         "00000000000000000000000000000000".to_owned() +
         "00000000000000000000000000000000" + // Previous outpoint TXID
         "ffffffff"                         + // Previous outpoint index
@@ -506,7 +510,7 @@ mod tests {
         "00000000" // Sequence
     }
 
-    fn sample_transaction_input() -> String {
+    pub fn sample_transaction_input() -> String {
         "7b1eabe0209b1fe794124575ef807057".to_owned() +
         "c77ada2138ae4fa8d6c4de0398a14f3f" +   // Outpoint TXID
         "00000000" +                           // Outpoint index number
@@ -520,7 +524,7 @@ mod tests {
         "ffffffff" // Sequence number: UINT32_MAX
     }
 
-    fn sample_transaction_output() -> String {
+    pub fn sample_transaction_output() -> String {
         "f0ca052a01000000".to_owned() +      // Satoshis (49.99990000 BTC)
         "19" +                               // Bytes in pubkey script: 25
         "76" +                               // OP_DUP
@@ -532,7 +536,7 @@ mod tests {
         "ac" // OP_CHECKSIG
     }
 
-    fn sample_transaction() -> String {
+    pub fn sample_transaction() -> String {
         "01000000".to_owned() +               // Version
         "02"                  +               // Number of inputs
         &sample_coinbase_transaction_input() +
@@ -542,12 +546,28 @@ mod tests {
         "00000000"
     }
 
+    pub fn sample_extended_transaction() -> String {
+        // id: c586389e5e4b3acb9d6c8be1c19ae8ab2795397633176f5a6442a261bbdefc3a
+        "0200000000010140d43a99926d43eb0e619bf0b3d83b4a31f60c176beecfb9d35bf45e54d0f7420100000017160014a4b4ca48de0b3fffc15404a1acdc8dbaae226955ffffffff0100e1f5050000000017a9144a1154d50b03292b3024370901711946cb7cccc387024830450221008604ef8f6d8afa892dee0f31259b6ce02dd70c545cfcfed8148179971876c54a022076d771d6e91bed212783c9b06e0de600fab2d518fad6f15a2b191d7fbd262a3e0121039d25ab79f41f75ceaf882411fd41fa670a4c672c23ffaf0e361a969cde0692e800000000".to_owned()
+    }
+
     fn sample_valid_p2pkh() -> String {
         "76a914000000000000000000000000000000000000000088ac".to_owned()
     }
 
     fn sample_valid_p2sh() -> String {
         "a914000000000000000000000000000000000000000087".to_owned()
+    }
+
+    pub fn sample_block_header() -> String {
+        "02000000".to_owned() + // ............... Block version: 2
+            "b6ff0b1b1680a2862a30ca44d346d9e8" + //
+            "910d334beb48ca0c0000000000000000" + // ... Hash of previous block's header
+            "9d10aa52ee949386ca9385695f04ede2" + //
+            "70dda20810decd12bc9b048aaab31471" + // ... Merkle root
+            "24d95a54" + // ........................... Unix time: 1415239972
+            "30c31b18" + // ........................... Target: 0x1bc330 * 256**(0x18-3)
+            "fe9f0864"
     }
 
     #[test]
@@ -610,26 +630,49 @@ mod tests {
 
     #[test]
     fn test_parse_transaction_extended_format() {
-        let raw_tx = "020000000001010000000000000000000000000000000000000000000000000000000000000000ffffffff0502cb000101ffffffff02400606950000000017a91466c7060feb882664ae62ffad0051fe843e318e85870000000000000000266a24aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb46750120000000000000000000000000000000000000000000000000000000000000000000000000";
+        let raw_tx = sample_extended_transaction();
         let tx_bytes = hex::decode(&raw_tx).unwrap();
         let transaction = parse_transaction(&tx_bytes).unwrap();
         let inputs = transaction.inputs;
         let outputs = transaction.outputs;
         assert_eq!(transaction.version, 2);
         assert_eq!(inputs.len(), 1);
-        assert_eq!(inputs[0].coinbase, true);
-        assert_eq!(inputs[0].witness.is_some(), true);
-        assert_eq!(outputs.len(), 2);
+        assert_eq!(inputs[0].coinbase, false);
+        assert_eq!(inputs[0].witness.len(), 2);
+        assert_eq!(inputs[0].witness[0].len(), 72);
+        assert_eq!(inputs[0].witness[1].len(), 33);
+        assert_eq!(outputs.len(), 1);
+        assert_eq!(outputs[0].value, 100000000);
         assert_eq!(
-            &hex::encode(&outputs[0].script),
-            "a91466c7060feb882664ae62ffad0051fe843e318e8587"
-        );
-        assert_eq!(
-            &hex::encode(&outputs[1].script),
-            "6a24aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675"
+            &outputs[0].script.as_hex(),
+            "a9144a1154d50b03292b3024370901711946cb7cccc387"
         );
         assert_eq!(transaction.block_height, Some(0));
         assert_eq!(transaction.locktime, None);
+    }
+
+    #[test]
+    fn test_parse_transaction_multi_inputs() {
+        let raw_tx = "02000000000105a6f0d82981c7d7fd424c97548be1b246161097532e102c0457f46ad5870698910000000000ffffffffa6f0d82981c7d7fd424c97548be1b246161097532e102c0457f46ad5870698910d00000000ffffffffa6f0d82981c7d7fd424c97548be1b246161097532e102c0457f46ad5870698914c00000000ffffffffa6f0d82981c7d7fd424c97548be1b246161097532e102c0457f46ad5870698912e00000000ffffffffa6f0d82981c7d7fd424c97548be1b246161097532e102c0457f46ad5870698913500000000ffffffff01a032eb0500000000160014c97ec9439f77c079983582847a09b6b5e6fd2e86024830450221008bf5d1ea3868a10a7acd5e793fd5f8a2468b5546d1f1e721d77f7666d457a786022065c9167fd6300be52f593267b3af49be1c8b87c333063cc0f6412e9902b80520012103eec785a16054b40bfe15c287beca7f214f88742501fabbe18251502c0ea0588f02483045022100d4c7892b69a49a44163c9d61d89ea1e9273247bd6c8f332d57abbb30257c2f5c022035b96a00ae2a7fece639af849e281238bc98bc7d971fe906af15a874a4eb1844012103eec785a16054b40bfe15c287beca7f214f88742501fabbe18251502c0ea0588f0247304402204336575b363780eb2b4c7bdee9b0109d3b92965f9ba431beae1c4803d0e0704a0220667228268d99dff834dc4d372063d6dd4f80e0df2b3a0168bd4748e16c70aeec012103eec785a16054b40bfe15c287beca7f214f88742501fabbe18251502c0ea0588f0247304402203b5e9dcca5937a6bae4b844ad598316ef30ad82512a2a08e534b9a2af58dceea02202bef0b6d1f421b6416d3dc0e2d99f78e5e4892933dd5973cdcab005109917ffd012103eec785a16054b40bfe15c287beca7f214f88742501fabbe18251502c0ea0588f0248304502210092f9f9eaecf35f7b11d7f12026874fd2e0f595fb216885110ae53ea94fd5744502203867f4e1af5b4ea84721ea16443d25126e917ab52fc50eb7613ab90423f3df25012103eec785a16054b40bfe15c287beca7f214f88742501fabbe18251502c0ea0588f00000000";
+        let tx_bytes = hex::decode(&raw_tx).unwrap();
+        let transaction = parse_transaction(&tx_bytes).unwrap();
+        let inputs = transaction.inputs;
+        let outputs = transaction.outputs;
+        assert_eq!(transaction.version, 2);
+        assert_eq!(inputs.len(), 5);
+        assert_eq!(outputs.len(), 1);
+    }
+
+    #[test]
+    fn test_parse_transaction_multi_outputs() {
+        let raw_tx = "01000000000101109d2e41430bfdec7e6dfb02bf78b5827eeb717ef25210ff3203b0db8c76c9260000000000ffffffff0a1085970000000000160014bbef244bcad13cffb68b5cef3017c742367555221085970000000000160014bbef244bcad13cffb68b5cef3017c742367555221085970000000000160014bbef244bcad13cffb68b5cef3017c742367555221085970000000000160014bbef244bcad13cffb68b5cef3017c742367555221085970000000000160014bbef244bcad13cffb68b5cef3017c742367555221085970000000000160014bbef244bcad13cffb68b5cef3017c742367555221085970000000000160014bbef244bcad13cffb68b5cef3017c742367555221085970000000000160014bbef244bcad13cffb68b5cef3017c742367555221085970000000000160014bbef244bcad13cffb68b5cef3017c742367555221085970000000000160014bbef244bcad13cffb68b5cef3017c7423675552202473044022078d531212bf562a403d8469f78e684d8de5b7998abadba48272f659f73326c6502207f45a0e0b3463940fd30f39fde95464af3549bd0e793ee07c2407311d6fadbaf0121026ccfb8061f235cc110697c0bfb3afb99d82c886672f6b9b5393b25a434c0cbf300000000";
+        let tx_bytes = hex::decode(&raw_tx).unwrap();
+        let transaction = parse_transaction(&tx_bytes).unwrap();
+        let inputs = transaction.inputs;
+        let outputs = transaction.outputs;
+        assert_eq!(transaction.version, 1);
+        assert_eq!(inputs.len(), 1);
+        assert_eq!(outputs.len(), 10);
     }
 
     #[test]

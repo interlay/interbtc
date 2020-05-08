@@ -1,5 +1,5 @@
 /// Mocking the test environment
-use crate::{Module, Trait};
+use crate::{GenesisConfig, Module, Trait};
 use frame_support::{impl_outer_event, impl_outer_origin, parameter_types, weights::Weight};
 use sp_core::H256;
 use sp_runtime::{
@@ -20,9 +20,13 @@ mod test_events {
 
 impl_outer_event! {
     pub enum TestEvent for Test {
+        system<T>,
         test_events,
+        security,
     }
 }
+
+pub type AccountId = u64;
 
 // For testing the pallet, we construct most of a mock runtime. This means
 // first constructing a configuration type (`Test`) which `impl`s each of the
@@ -42,7 +46,7 @@ impl system::Trait for Test {
     type BlockNumber = u64;
     type Hash = H256;
     type Hashing = BlakeTwo256;
-    type AccountId = u64;
+    type AccountId = AccountId;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
     type Event = TestEvent;
@@ -52,13 +56,18 @@ impl system::Trait for Test {
     type AvailableBlockRatio = AvailableBlockRatio;
     type Version = ();
     type ModuleToIndex = ();
+    type AccountData = ();
+    type OnNewAccount = ();
+    type OnKilledAccount = ();
 }
 
 impl Trait for Test {
     type Event = TestEvent;
 }
 
-pub type Error = crate::Error;
+impl security::Trait for Test {
+    type Event = TestEvent;
+}
 
 pub type System = system::Module<Test>;
 pub type BTCRelay = Module<Test>;
@@ -67,9 +76,14 @@ pub struct ExtBuilder;
 
 impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
-        let storage = system::GenesisConfig::default()
+        let mut storage = system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
+
+        GenesisConfig { confirmations: 6 }
+            .assimilate_storage(&mut storage)
+            .unwrap();
+
         sp_io::TestExternalities::from(storage)
     }
 }

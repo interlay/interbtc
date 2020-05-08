@@ -1,5 +1,7 @@
-use crate::mock::{run_test, BTCRelay, Error, Origin, System, TestEvent};
+use crate::ext;
 /// Tests for BTC-Relay
+use crate::mock::{run_test, BTCRelay, Origin, System, Test, TestEvent};
+
 use crate::Event;
 use bitcoin::merkle::*;
 use bitcoin::parser::*;
@@ -7,6 +9,8 @@ use bitcoin::types::*;
 use frame_support::{assert_err, assert_ok};
 use security::ErrorCode;
 use sp_std::collections::btree_set::BTreeSet;
+use sp_std::convert::TryInto;
+use x_core::Error;
 
 use mocktopus::mocking::*;
 
@@ -67,10 +71,10 @@ fn get_block_header_from_hash_fails() {
     })
 }
 
-/// get_block_chain_from_id
+/// next_best_fork_chain
 /// set_block_chain_from_id
 #[test]
-fn get_block_chain_from_id_succeeds() {
+fn next_best_fork_chain_succeeds() {
     run_test(|| {
         let chain_ref: u32 = 1;
         let start_height: u32 = 10;
@@ -81,7 +85,7 @@ fn get_block_chain_from_id_succeeds() {
 
         BTCRelay::set_block_chain_from_id(chain_ref, &blockchain);
 
-        let curr_blockchain = BTCRelay::get_block_chain_from_id(chain_ref);
+        let curr_blockchain = BTCRelay::get_block_chain_from_id(chain_ref).unwrap();
 
         assert_eq!(curr_blockchain, blockchain);
     })
@@ -130,7 +134,7 @@ fn initialize_best_block_already_set_fails() {
 fn store_block_header_on_mainchain_succeeds() {
     run_test(|| {
         BTCRelay::verify_block_header.mock_safe(|h| {
-            MockResult::Return(Ok(BlockHeader::from_le_bytes(h.as_slice()).unwrap()))
+            MockResult::Return(Ok(BlockHeader::from_le_bytes(h.as_bytes()).unwrap()))
         });
         BTCRelay::block_header_exists.mock_safe(|_| MockResult::Return(true));
 
@@ -150,9 +154,8 @@ fn store_block_header_on_mainchain_succeeds() {
 
         let prev_blockchain =
             get_empty_block_chain_from_chain_id_and_height(chain_ref, start_height, block_height);
-
         BTCRelay::get_block_chain_from_id
-            .mock_safe(move |_: u32| MockResult::Return(prev_blockchain.clone()));
+            .mock_safe(move |_: u32| MockResult::Return(Ok(prev_blockchain.clone())));
 
         let block_header_hash = block_header.hash();
         assert_ok!(BTCRelay::store_block_header(
@@ -191,7 +194,7 @@ fn store_block_header_on_fork_succeeds() {
         let prev_blockchain =
             get_empty_block_chain_from_chain_id_and_height(chain_ref, start_height, block_height);
         BTCRelay::get_block_chain_from_id
-            .mock_safe(move |_: u32| MockResult::Return(prev_blockchain.clone()));
+            .mock_safe(move |_: u32| MockResult::Return(Ok(prev_blockchain.clone())));
 
         let block_header_hash = block_header.hash();
         assert_ok!(BTCRelay::store_block_header(
@@ -208,6 +211,20 @@ fn store_block_header_on_fork_succeeds() {
     })
 }
 
+#[test]
+fn store_block_header_parachain_shutdown_fails() {
+    run_test(|| {
+        let block_header = RawBlockHeader::from_hex(sample_block_header_hex()).unwrap();
+
+        ext::security::ensure_parachain_status_not_shutdown::<Test>
+            .mock_safe(|| MockResult::Return(Err(Error::ParachainShutdown)));
+
+        assert_err!(
+            BTCRelay::store_block_header(Origin::signed(3), block_header),
+            Error::ParachainShutdown,
+        );
+    })
+}
 /// check_and_do_reorg function
 #[test]
 fn check_and_do_reorg_is_main_chain_succeeds() {
@@ -294,7 +311,7 @@ fn check_and_do_reorg_swap_fork_position() {
 
         // assert the main chain has not changed
         let curr_main_chain = BTCRelay::get_block_chain_from_id(main_chain_ref);
-        assert_eq!(curr_main_chain, main);
+        assert_eq!(curr_main_chain, Ok(main));
     })
 }
 
@@ -414,7 +431,7 @@ fn insert_sorted_succeeds() {
             main_block_height,
         );
         BTCRelay::set_block_chain_from_id(main_chain_ref, &main);
-        BTCRelay::insert_sorted(&main);
+        assert_eq!(Ok(()), BTCRelay::insert_sorted(&main));
 
         let curr_main_pos = BTCRelay::get_chain_position_from_chain_id(main_chain_ref).unwrap();
         assert_eq!(curr_main_pos, main_position);
@@ -429,7 +446,7 @@ fn insert_sorted_succeeds() {
             swap_block_height,
         );
         BTCRelay::set_block_chain_from_id(swap_chain_ref, &swap);
-        BTCRelay::insert_sorted(&swap);
+        assert_eq!(Ok(()), BTCRelay::insert_sorted(&swap));
 
         let curr_swap_pos = BTCRelay::get_chain_position_from_chain_id(swap_chain_ref).unwrap();
         assert_eq!(curr_swap_pos, swap_position);
@@ -446,7 +463,7 @@ fn insert_sorted_succeeds() {
             fork_block_height,
         );
         BTCRelay::set_block_chain_from_id(fork_chain_ref, &fork);
-        BTCRelay::insert_sorted(&fork);
+        assert_eq!(Ok(()), BTCRelay::insert_sorted(&fork));
 
         let curr_fork_pos = BTCRelay::get_chain_position_from_chain_id(fork_chain_ref).unwrap();
         assert_eq!(curr_fork_pos, fork_position);
@@ -492,7 +509,7 @@ fn swap_main_blockchain_succeeds() {
         assert_ok!(BTCRelay::swap_main_blockchain(&fork));
 
         // check that the new main chain is correct
-        let new_main = BTCRelay::get_block_chain_from_id(main_chain_ref);
+        let new_main = BTCRelay::get_block_chain_from_id(main_chain_ref).unwrap();
         assert_eq!(fork_height, new_main.max_height);
         assert_eq!(main_start, new_main.start_height);
         assert_eq!(main_chain_ref, new_main.chain_id);
@@ -505,11 +522,13 @@ fn swap_main_blockchain_succeeds() {
         assert_eq!(main.invalid, new_main.invalid);
 
         // check that the fork is deleted
-        let empty_fork = BTCRelay::get_block_chain_from_id(fork_chain_ref);
-        assert_eq!(empty_fork.max_height, 0);
+        assert_eq!(
+            Err(Error::InvalidChainID),
+            BTCRelay::get_block_chain_from_id(fork_chain_ref)
+        );
 
         // check that the old main chain is stored in a old fork
-        let old_main = BTCRelay::get_block_chain_from_id(old_main_ref);
+        let old_main = BTCRelay::get_block_chain_from_id(old_main_ref).unwrap();
         assert_eq!(main_height, old_main.max_height);
         assert_eq!(fork_start, old_main.start_height);
         assert_eq!(old_main_ref, old_main.chain_id);
@@ -655,7 +674,7 @@ fn test_compute_new_target() {
     let block_height: u32 = 2016;
     let retarget_headers = sample_retarget_interval_increase();
 
-    let last_retarget_time = parse_block_header(&retarget_headers[0]).unwrap().timestamp;
+    let last_retarget_time = parse_block_header(&retarget_headers[0]).unwrap().timestamp as u64;
     let prev_block_header =
         RichBlockHeader::construct(retarget_headers[1], chain_ref, block_height).unwrap();
 
@@ -737,8 +756,6 @@ fn test_verify_block_header_low_diff_fails() {
         );
     });
 }
-
-// TODO: this currently fails with TX_FORMAT error in parser
 
 #[test]
 fn test_validate_transaction_succeeds() {
@@ -905,6 +922,53 @@ fn test_validate_transaction_incorrect_opreturn_fails() {
     });
 }
 
+#[test]
+fn test_verify_and_validate_transaction_succeeds() {
+    run_test(|| {
+        BTCRelay::get_block_chain_from_id
+            .mock_safe(|_| MockResult::Return(Ok(BlockChain::default())));
+
+        let raw_tx = hex::decode(sample_example_real_rawtx()).unwrap();
+        let transaction = parse_transaction(&raw_tx).unwrap();
+        // txid are returned by Bitcoin-core
+        let real_txid = H256Le::from_hex_be(&sample_example_real_txid());
+        let real_tx_hash = H256Le::from_hex_be(&sample_example_real_transaction_hash());
+
+        // see https://learnmeabitcoin.com/explorer/transaction/json.php?txid=c586389e5e4b3acb9d6c8be1c19ae8ab2795397633176f5a6442a261bbdefc3a
+        assert_eq!(transaction.hash(), real_tx_hash);
+        assert_eq!(transaction.tx_id(), real_txid);
+
+        // rest are example values -- not checked in this test.
+        let block_height = 0;
+        let raw_merkle_proof = vec![0u8; 100];
+        let confirmations = 0;
+        let insecure = false;
+        let payment_value: i64 = 0;
+        let recipient_btc_address =
+            hex::decode("66c7060feb882664ae62ffad0051fe843e318e85".to_owned()).unwrap();
+        let op_return_id = hex::decode(
+            "aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned(),
+        )
+        .unwrap();
+        BTCRelay::_validate_transaction.mock_safe(move |_, _, _, _| MockResult::Return(Ok(())));
+        BTCRelay::_verify_transaction_inclusion
+            .mock_safe(move |_, _, _, _, _| MockResult::Return(Ok(())));
+
+        assert_ok!(BTCRelay::verify_and_validate_transaction(
+            Origin::signed(3),
+            real_txid,
+            block_height,
+            raw_merkle_proof,
+            confirmations,
+            insecure,
+            raw_tx,
+            payment_value,
+            recipient_btc_address,
+            op_return_id
+        ));
+    });
+}
+
 /// flag_block_error
 #[test]
 fn test_flag_block_error_succeeds() {
@@ -934,7 +998,7 @@ fn test_flag_block_error_succeeds() {
                 rich_header.block_hash,
                 error.clone()
             ));
-            let curr_chain = BTCRelay::get_block_chain_from_id(chain_ref);
+            let curr_chain = BTCRelay::get_block_chain_from_id(chain_ref).unwrap();
 
             if *error == ErrorCode::NoDataBTCRelay {
                 assert!(curr_chain.no_data.contains(&block_height));
@@ -1014,7 +1078,7 @@ fn test_clear_block_error_succeeds() {
                 rich_header.block_hash,
                 error.clone()
             ));
-            let curr_chain = BTCRelay::get_block_chain_from_id(chain_ref);
+            let curr_chain = BTCRelay::get_block_chain_from_id(chain_ref).unwrap();
 
             if *error == ErrorCode::NoDataBTCRelay {
                 assert!(!curr_chain.no_data.contains(&block_height));
@@ -1063,6 +1127,78 @@ fn test_clear_block_error_fails() {
 }
 
 #[test]
+fn test_transaction_verification_allowed_succeeds() {
+    run_test(|| {
+        let main_start: u32 = 0;
+        let main_height: u32 = 10;
+        BTCRelay::get_block_chain_from_id.mock_safe(move |_| {
+            MockResult::Return(Ok(get_empty_block_chain_from_chain_id_and_height(
+                1,
+                main_start,
+                main_height,
+            )))
+        });
+        assert_ok!(BTCRelay::transaction_verification_allowed(main_start + 1));
+    })
+}
+
+#[test]
+fn test_transaction_verification_allowed_invalid_fails() {
+    run_test(|| {
+        let main_start: u32 = 0;
+        let main_height: u32 = 10;
+        BTCRelay::get_block_chain_from_id.mock_safe(move |_| {
+            MockResult::Return(Ok(get_invalid_empty_block_chain_from_chain_id_and_height(
+                1,
+                main_start,
+                main_height,
+            )))
+        });
+        assert_err!(
+            BTCRelay::transaction_verification_allowed(main_start + 1),
+            Error::Invalid
+        );
+    })
+}
+
+#[test]
+fn test_transaction_verification_allowed_no_data_fails() {
+    run_test(|| {
+        let main_start: u32 = 0;
+        let main_height: u32 = 10;
+        BTCRelay::get_block_chain_from_id.mock_safe(move |_| {
+            MockResult::Return(Ok(get_nodata_empty_block_chain_from_chain_id_and_height(
+                1,
+                main_start,
+                main_height,
+            )))
+        });
+        // NO_DATA height is main_height - 1
+        assert_err!(
+            BTCRelay::transaction_verification_allowed(main_height),
+            Error::NoData
+        );
+    })
+}
+
+#[test]
+fn test_transaction_verification_allowed_no_data_succeeds() {
+    run_test(|| {
+        let main_start: u32 = 0;
+        let main_height: u32 = 10;
+        BTCRelay::get_block_chain_from_id.mock_safe(move |_| {
+            MockResult::Return(Ok(get_nodata_empty_block_chain_from_chain_id_and_height(
+                1,
+                main_start,
+                main_height,
+            )))
+        });
+        // NO_DATA height is main_height - 1
+        assert_ok!(BTCRelay::transaction_verification_allowed(main_start + 1));
+    })
+}
+
+#[test]
 fn test_verify_transaction_inclusion_succeeds() {
     run_test(|| {
         let chain_ref = 0;
@@ -1089,9 +1225,9 @@ fn test_verify_transaction_inclusion_succeeds() {
             .mock_safe(move |_| MockResult::Return(fork_ref.clone()));
         BTCRelay::get_block_chain_from_id.mock_safe(move |id| {
             if id == chain_ref.clone() {
-                return MockResult::Return(main.clone());
+                return MockResult::Return(Ok(main.clone()));
             } else {
-                return MockResult::Return(fork.clone());
+                return MockResult::Return(Ok(fork.clone()));
             }
         });
 
@@ -1150,9 +1286,9 @@ fn test_verify_transaction_inclusion_invalid_tx_id_fails() {
             .mock_safe(move |_| MockResult::Return(fork_ref.clone()));
         BTCRelay::get_block_chain_from_id.mock_safe(move |id| {
             if id == chain_ref.clone() {
-                return MockResult::Return(main.clone());
+                return MockResult::Return(Ok(main.clone()));
             } else {
-                return MockResult::Return(fork.clone());
+                return MockResult::Return(Ok(fork.clone()));
             }
         });
 
@@ -1215,9 +1351,9 @@ fn test_verify_transaction_inclusion_invalid_merkle_root_fails() {
             .mock_safe(move |_| MockResult::Return(fork_ref.clone()));
         BTCRelay::get_block_chain_from_id.mock_safe(move |id| {
             if id == chain_ref.clone() {
-                return MockResult::Return(main.clone());
+                return MockResult::Return(Ok(main.clone()));
             } else {
-                return MockResult::Return(fork.clone());
+                return MockResult::Return(Ok(fork.clone()));
             }
         });
 
@@ -1247,6 +1383,9 @@ fn test_verify_transaction_inclusion_invalid_merkle_root_fails() {
 #[test]
 fn test_verify_transaction_inclusion_fails_with_ongoing_fork() {
     run_test(|| {
+        BTCRelay::get_block_chain_from_id
+            .mock_safe(|_| MockResult::Return(Ok(BlockChain::default())));
+
         let tx_id = sample_valid_proof_result().transaction_hash;
         let block_height = 203;
         let raw_merkle_proof = vec![0u8; 100];
@@ -1385,6 +1524,36 @@ fn test_check_confirmations_secure_insufficient_user_confs_succeeds() {
         )
     });
 }
+
+#[test]
+fn get_chain_from_id_err() {
+    run_test(|| {
+        assert_eq!(
+            Err(Error::InvalidChainID),
+            BTCRelay::get_block_chain_from_id(0)
+        );
+    });
+}
+
+#[test]
+fn get_chain_from_id_ok() {
+    run_test(|| {
+        // insert the main chain in Chains and ChainsIndex
+        let main_chain_ref: u32 = 0;
+        let main_start_height: u32 = 3;
+        let main_block_height: u32 = 110;
+        let main_position: u32 = 0;
+        let main = get_empty_block_chain_from_chain_id_and_height(
+            main_chain_ref,
+            main_start_height,
+            main_block_height,
+        );
+        BTCRelay::set_chain_from_position_and_id(main_position, main_chain_ref);
+        BTCRelay::set_block_chain_from_id(main_chain_ref, &main);
+
+        assert_eq!(Ok(main), BTCRelay::get_block_chain_from_id(main_chain_ref));
+    });
+}
 /// # Util functions
 
 fn sample_valid_proof_result() -> ProofResult {
@@ -1416,6 +1585,30 @@ fn get_empty_block_chain_from_chain_id_and_height(
         no_data: BTreeSet::new(),
         invalid: BTreeSet::new(),
     };
+
+    blockchain
+}
+
+fn get_invalid_empty_block_chain_from_chain_id_and_height(
+    chain_id: u32,
+    start_height: u32,
+    block_height: u32,
+) -> BlockChain {
+    let mut blockchain =
+        get_empty_block_chain_from_chain_id_and_height(chain_id, start_height, block_height);
+    blockchain.invalid.insert(block_height - 1);
+
+    blockchain
+}
+
+fn get_nodata_empty_block_chain_from_chain_id_and_height(
+    chain_id: u32,
+    start_height: u32,
+    block_height: u32,
+) -> BlockChain {
+    let mut blockchain =
+        get_empty_block_chain_from_chain_id_and_height(chain_id, start_height, block_height);
+    blockchain.no_data.insert(block_height - 1);
 
     blockchain
 }
@@ -1539,43 +1732,45 @@ fn sample_rich_tx_block_header(chain_ref: u32, block_height: u32) -> RichBlockHe
 fn sample_valid_payment_output() -> TransactionOutput {
     TransactionOutput {
         value: 2500200000,
-        script: hex::decode("a91466c7060feb882664ae62ffad0051fe843e318e8587".to_owned()).unwrap(),
+        script: "a91466c7060feb882664ae62ffad0051fe843e318e8587"
+            .try_into()
+            .unwrap(),
     }
 }
 
 fn sample_insufficient_value_payment_output() -> TransactionOutput {
     TransactionOutput {
         value: 100,
-        script: hex::decode("a91466c7060feb882664ae62ffad0051fe843e318e8587".to_owned()).unwrap(),
+        script: "a91466c7060feb882664ae62ffad0051fe843e318e8587"
+            .try_into()
+            .unwrap(),
     }
 }
 
 fn sample_wrong_recipient_payment_output() -> TransactionOutput {
     TransactionOutput {
         value: 2500200000,
-        script: hex::decode("a914000000000000000000000000000000000000000087".to_owned()).unwrap(),
+        script: "a914000000000000000000000000000000000000000087"
+            .try_into()
+            .unwrap(),
     }
 }
 
 fn sample_valid_data_output() -> TransactionOutput {
     TransactionOutput {
         value: 0,
-        script: hex::decode(
-            "6a24aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675"
-                .to_owned(),
-        )
-        .unwrap(),
+        script: "6a24aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675"
+            .try_into()
+            .unwrap(),
     }
 }
 
 fn sample_incorrect_data_output() -> TransactionOutput {
     TransactionOutput {
         value: 0,
-        script: hex::decode(
-            "6a24000000000000000000000000000000000000000000000000000000000000000000000000"
-                .to_owned(),
-        )
-        .unwrap(),
+        script: "6a24000000000000000000000000000000000000000000000000000000000000000000000000"
+            .try_into()
+            .unwrap(),
     }
 }
 
@@ -1592,7 +1787,7 @@ fn sample_transaction_parsed(outputs: &Vec<TransactionOutput>) -> Transaction {
         height: None,
         script: hex::decode("16001443feac9ca9d20883126e30e962ca11fda07f808b".to_owned()).unwrap(),
         sequence: 4294967295,
-        witness: None,
+        witness: vec![],
     };
 
     inputs.push(input);
@@ -1604,4 +1799,16 @@ fn sample_transaction_parsed(outputs: &Vec<TransactionOutput>) -> Transaction {
         block_height: Some(203),
         locktime: Some(0),
     }
+}
+
+fn sample_example_real_rawtx() -> String {
+    "0200000000010140d43a99926d43eb0e619bf0b3d83b4a31f60c176beecfb9d35bf45e54d0f7420100000017160014a4b4ca48de0b3fffc15404a1acdc8dbaae226955ffffffff0100e1f5050000000017a9144a1154d50b03292b3024370901711946cb7cccc387024830450221008604ef8f6d8afa892dee0f31259b6ce02dd70c545cfcfed8148179971876c54a022076d771d6e91bed212783c9b06e0de600fab2d518fad6f15a2b191d7fbd262a3e0121039d25ab79f41f75ceaf882411fd41fa670a4c672c23ffaf0e361a969cde0692e800000000".to_owned()
+}
+
+fn sample_example_real_txid() -> String {
+    "c586389e5e4b3acb9d6c8be1c19ae8ab2795397633176f5a6442a261bbdefc3a".to_owned()
+}
+
+fn sample_example_real_transaction_hash() -> String {
+    "b759d39a8596b70b3a46700b83e1edb247e17ba58df305421864fe7a9ac142ea".to_owned()
 }

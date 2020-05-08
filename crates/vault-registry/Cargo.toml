@@ -7,16 +7,29 @@ edition = "2018"
 [features]
 default = ['std']
 std = [
+  'serde',
   'codec/std',
+  'primitive-types/std',
   'frame-support/std',
   'sp-runtime/std',
+  'sp-arithmetic/std',
+  'sp-std/std',
   'sp-io/std',
   'system/std',
   'timestamp/std',
   'sp-core/std',
   'pallet-balances/std',
-  'node-primitives/std'
+  'x-core/std',
+  'collateral/std',
+  'treasury/std',
+  'security/std',
+  'exchange-rate-oracle/std',
 ]
+
+[dependencies.serde]
+version = '1.0.101'
+features = ['derive']
+optional = true
 
 [dependencies.codec]
 default-features = false
@@ -24,7 +37,20 @@ features = ['derive']
 package = 'parity-scale-codec'
 version = '1.0.0'
 
+[dependencies.primitive-types]
+default-features = false
+version = '0.7.0'
+features= ['codec']
+
+[dependencies.sp-std]
+default-features = false
+version = '2.0.0-alpha.5'
+
 [dependencies.sp-runtime]
+default-features = false
+version = '2.0.0-alpha.5'
+
+[dependencies.sp-arithmetic]
 default-features = false
 version = '2.0.0-alpha.5'
 
@@ -55,14 +81,25 @@ default-features = false
 package = 'pallet-balances'
 version = '2.0.0-alpha.5'
 
-[dependencies.node-primitives]
+[dependencies.x-core]
 default-features = false
-version = '2.0.0'
-git = 'https://github.com/paritytech/substrate.git'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
+path = '../x-core'
 
-[dependencies.xclaim-core]
-path = '../xclaim-core'
+[dependencies.security]
+default-features = false
+path = '../security'
+
+[dependencies.collateral]
+default-features = false
+path = '../collateral'
+
+[dependencies.treasury]
+default-features = false
+path = '../treasury'
+
+[dependencies.exchange-rate-oracle]
+default-features = false
+path = '../exchange-rate-oracle'
 
 [dev-dependencies]
 mocktopus = "0.7.0"

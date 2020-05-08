@@ -1,63 +1,46 @@
-[dependencies.btc-relay]
-default-features = false
-path = '../../crates/btc-relay'
+[package]
+authors = ['Interlay Ltd']
+edition = '2018'
+name = 'btc-parachain-runtime'
+version = '2.0.0-alpha.5'
 
 [dependencies.aura]
 default-features = false
-git = 'https://github.com/paritytech/substrate.git'
 package = 'pallet-aura'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-version = '2.0.0'
+version = '2.0.0-alpha.5'
 
 [dependencies.balances]
 default-features = false
-git = 'https://github.com/paritytech/substrate.git'
 package = 'pallet-balances'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-version = '2.0.0'
+version = '2.0.0-alpha.5'
+
+[dependencies.bitcoin]
+default-features = false
+path = '../../crates/bitcoin'
 
 [dependencies.codec]
 default-features = false
 features = ['derive']
 package = 'parity-scale-codec'
-version = '1.0.0'
+version = '1.2.0'
 
 [dependencies.frame-executive]
 default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-version = '2.0.0'
+version = '2.0.0-alpha.5'
 
 [dependencies.frame-support]
 default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-version = '2.0.0'
+version = '2.0.0-alpha.5'
 
 [dependencies.grandpa]
 default-features = false
-git = 'https://github.com/paritytech/substrate.git'
 package = 'pallet-grandpa'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-version = '2.0.0'
-
-[dependencies.indices]
-default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-package = 'pallet-indices'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-version = '2.0.0'
+version = '2.0.0-alpha.5'
 
 [dependencies.randomness-collective-flip]
 default-features = false
-git = 'https://github.com/paritytech/substrate.git'
 package = 'pallet-randomness-collective-flip'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-version = '2.0.0'
-
-[dependencies.safe-mix]
-default-features = false
-version = '1.0.0'
+version = '2.0.0-alpha.5'
 
 [dependencies.serde]
 features = ['derive']
@@ -66,115 +49,151 @@ version = '1.0.101'
 
 [dependencies.sp-api]
 default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-version = '2.0.0'
+version = '2.0.0-alpha.5'
 
 [dependencies.sp-block-builder]
 default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
+version = '2.0.0-alpha.5'
 
 [dependencies.sp-consensus-aura]
 default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-version = '0.8'
+version = '0.8.0-alpha.5'
 
 [dependencies.sp-core]
 default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-version = '2.0.0'
+version = '2.0.0-alpha.5'
 
 [dependencies.sp-inherents]
 default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
+version = '2.0.0-alpha.5'
 
 [dependencies.sp-io]
 default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-version = '2.0.0'
+version = '2.0.0-alpha.5'
 
 [dependencies.sp-offchain]
 default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-version = '2.0.0'
+version = '2.0.0-alpha.5'
 
 [dependencies.sp-runtime]
 default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-version = '2.0.0'
+version = '2.0.0-alpha.5'
 
 [dependencies.sp-session]
 default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-version = '2.0.0'
+version = '2.0.0-alpha.5'
 
 [dependencies.sp-std]
 default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-version = '2.0.0'
+version = '2.0.0-alpha.5'
 
 [dependencies.sp-transaction-pool]
 default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-version = '2.0.0'
+version = '2.0.0-alpha.5'
 
 [dependencies.sp-version]
 default-features = false
-git = 'https://github.com/paritytech/substrate.git'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-version = '2.0.0'
+version = '2.0.0-alpha.5'
 
 [dependencies.sudo]
 default-features = false
-git = 'https://github.com/paritytech/substrate.git'
 package = 'pallet-sudo'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-version = '2.0.0'
+version = '2.0.0-alpha.5'
 
 [dependencies.system]
 default-features = false
-git = 'https://github.com/paritytech/substrate.git'
 package = 'frame-system'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-version = '2.0.0'
+version = '2.0.0-alpha.5'
+
+[dependencies.btc-relay]
+default-features = false
+package = 'btc-relay'
+path = '../../crates/btc-relay'
+
+[dependencies.collateral]
+default-features = false
+package = 'collateral'
+path = '../../crates/collateral'
+
+[dependencies.treasury]
+default-features = false
+package = 'treasury'
+path = '../../crates/treasury'
+
+[dependencies.security]
+default-features = false
+package = 'security'
+path = '../../crates/security'
+
+[dependencies.staked-relayers]
+default-features = false
+package = 'staked-relayers'
+path = '../../crates/staked-relayers'
+
+[dependencies.vault-registry]
+default-features = false
+package = 'vault-registry'
+path = '../../crates/vault-registry'
+
+[dependencies.exchange-rate-oracle]
+default-features = false
+package = 'exchange-rate-oracle'
+path = '../../crates/exchange-rate-oracle'
+
+[dependencies.issue]
+default-features = false
+package = 'issue'
+path = '../../crates/issue'
+
+[dependencies.redeem]
+default-features = false
+package = 'redeem'
+path = '../../crates/redeem'
+
+[dependencies.replace]
+default-features = false
+package = 'replace'
+path = '../../crates/replace'
 
 [dependencies.timestamp]
 default-features = false
-git = 'https://github.com/paritytech/substrate.git'
 package = 'pallet-timestamp'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-version = '2.0.0'
+version = '2.0.0-alpha.5'
 
 [dependencies.transaction-payment]
 default-features = false
-git = 'https://github.com/paritytech/substrate.git'
 package = 'pallet-transaction-payment'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-version = '2.0.0'
+version = '2.0.0-alpha.5'
+
+[build-dependencies.wasm-builder-runner]
+package = 'substrate-wasm-builder-runner'
+version = '1.0.5'
+
+[dev-dependencies.bitcoin]
+default-features = false
+package = 'bitcoin'
+path = '../../crates/bitcoin'
+
+[dev-dependencies.primitive-types]
+default-features = false
+version = '0.7.0'
+features= ['codec']
+
+[dev-dependencies]
+mocktopus = '0.7.0'
+x-core = { path = '../../crates/x-core' }
+hex = '0.4.2'
 
 [features]
 default = ['std']
 std = [
-    'btc-relay/std',
     'aura/std',
     'balances/std',
     'codec/std',
     'frame-executive/std',
     'frame-support/std',
     'grandpa/std',
-    'indices/std',
     'randomness-collective-flip/std',
-    'safe-mix/std',
     'serde',
     'sp-api/std',
     'sp-block-builder/std',
@@ -192,16 +211,14 @@ std = [
     'system/std',
     'timestamp/std',
     'transaction-payment/std',
+    'btc-relay/std',
+    'collateral/std',
+    'treasury/std',
+    'security/std',
+    'staked-relayers/std',
+    'vault-registry/std',
+    'exchange-rate-oracle/std',
+    'issue/std',
+    'redeem/std',
+    'replace/std',
 ]
-
-[package]
-authors = ['Interlay Ltd']
-edition = '2018'
-name = 'btc-parachain-runtime'
-version = '2.0.0'
-
-[build-dependencies.wasm-builder-runner]
-git = 'https://github.com/paritytech/substrate.git'
-package = 'substrate-wasm-builder-runner'
-rev = '3e651110aa06aa835790df63410a29676243fc54'
-version = '1.0.4'

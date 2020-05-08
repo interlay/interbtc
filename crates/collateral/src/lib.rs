@@ -1,6 +1,7 @@
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
+
 #[cfg(test)]
 mod mock;
 
@@ -10,10 +11,8 @@ mod tests;
 use frame_support::traits::{Currency, ReservableCurrency};
 /// The Collateral module according to the specification at
 /// https://interlay.gitlab.io/polkabtc-spec/spec/collateral.html
-use frame_support::{decl_event, decl_module, decl_storage, ensure};
-use sp_runtime::ModuleId;
-
-use xclaim_core::Error;
+use frame_support::{decl_event, decl_module, decl_storage, ensure, sp_runtime::ModuleId};
+use x_core::Error;
 
 type BalanceOf<T> = <<T as Trait>::DOT as Currency<<T as system::Trait>::AccountId>>::Balance;
 
@@ -82,8 +81,8 @@ impl<T: Trait> Module<T> {
         <TotalCollateral<T>>::put(new_collateral);
     }
     /// Locked balance of account
-    pub fn get_collateral_from_account(account: T::AccountId) -> BalanceOf<T> {
-        T::DOT::reserved_balance(&account)
+    pub fn get_collateral_from_account(account: &T::AccountId) -> BalanceOf<T> {
+        T::DOT::reserved_balance(account)
     }
     /// Lock DOT collateral
     ///
@@ -91,12 +90,12 @@ impl<T: Trait> Module<T> {
     ///
     /// * `sender` - the account locking tokens
     /// * `amount` - to be locked amount of DOT
-    pub fn lock_collateral(sender: T::AccountId, amount: BalanceOf<T>) -> Result<(), Error> {
-        T::DOT::reserve(&sender, amount).map_err(|_| Error::InsufficientFunds)?;
+    pub fn lock_collateral(sender: &T::AccountId, amount: BalanceOf<T>) -> Result<(), Error> {
+        T::DOT::reserve(sender, amount).map_err(|_| Error::InsufficientFunds)?;
 
         Self::increase_total_collateral(amount);
 
-        Self::deposit_event(RawEvent::LockCollateral(sender, amount));
+        Self::deposit_event(RawEvent::LockCollateral(sender.clone(), amount));
         Ok(())
     }
     /// Release DOT collateral
@@ -105,16 +104,16 @@ impl<T: Trait> Module<T> {
     ///
     /// * `sender` - the account releasing tokens
     /// * `amount` - the to be released amount of DOT
-    pub fn release_collateral(sender: T::AccountId, amount: BalanceOf<T>) -> Result<(), Error> {
+    pub fn release_collateral(sender: &T::AccountId, amount: BalanceOf<T>) -> Result<(), Error> {
         ensure!(
             T::DOT::reserved_balance(&sender) >= amount,
             Error::InsufficientCollateralAvailable
         );
-        T::DOT::unreserve(&sender, amount);
+        T::DOT::unreserve(sender, amount);
 
         Self::decrease_total_collateral(amount);
 
-        Self::deposit_event(RawEvent::ReleaseCollateral(sender, amount));
+        Self::deposit_event(RawEvent::ReleaseCollateral(sender.clone(), amount));
 
         Ok(())
     }

@@ -12,6 +12,6 @@ fn main() {
         "height {}",
         hex::encode(&tx.inputs[0].height.as_ref().unwrap())
     );
-    println!("ouptut 1 script {}", hex::encode(&tx.outputs[0].script));
-    println!("ouptut 2 script {}", hex::encode(&tx.outputs[1].script));
+    println!("ouptut 1 script {}", tx.outputs[0].script.as_hex());
+    println!("ouptut 2 script {}", tx.outputs[1].script.as_hex());
 }

@@ -1,6 +1,8 @@
 # Security Module
 
-Based on the Security specification [https://interlay.gitlab.io/polkabtc-spec/spec/security.html](https://interlay.gitlab.io/polkabtc-spec/spec/security.html).
+The parachain's kernel, stores the status and associated error codes.
+
+Based in part on the Security specification [https://interlay.gitlab.io/polkabtc-spec/spec/security.html](https://interlay.gitlab.io/polkabtc-spec/spec/security.html).
 
 ## Installation
 

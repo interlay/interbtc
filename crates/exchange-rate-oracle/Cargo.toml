@@ -7,14 +7,26 @@ edition = "2018"
 [features]
 default = ['std']
 std = [
+	'serde',
     'codec/std',
-    'frame-support/std',
     'sp-runtime/std',
-    'sp-io/std',
+    'frame-support/std',
     'system/std',
-    'timestamp/std',
+    'sp-std/std',
+    'sp-io/std',
     'sp-core/std',
+    'timestamp/std',
+    'pallet-balances/std',
+    'x-core/std',
+    'collateral/std',
+    'treasury/std',
+    'security/std',
 ]
+
+[dependencies.serde]
+version = '1.0.101'
+features = ['derive']
+optional = true
 
 [dependencies.codec]
 default-features = false
@@ -35,6 +47,10 @@ default-features = false
 package = 'frame-system'
 version = '2.0.0-alpha.5'
 
+[dependencies.sp-std]
+default-features = false
+version = '2.0.0-alpha.5'
+
 [dependencies.sp-io]
 default-features = false
 version = '2.0.0-alpha.5'
@@ -48,8 +64,26 @@ default-features = false
 package = 'pallet-timestamp'
 version = '2.0.0-alpha.5'
 
-[dependencies.xclaim-core]
-path = '../xclaim-core'
+[dependencies.pallet-balances]
+default-features = false
+package = 'pallet-balances'
+version = '2.0.0-alpha.5'
+
+[dependencies.x-core]
+default-features = false
+path = '../x-core'
+
+[dependencies.collateral]
+default-features = false
+path = '../collateral'
+
+[dependencies.treasury]
+default-features = false
+path = '../treasury'
+
+[dependencies.security]
+default-features = false
+path = '../security'
 
 [dev-dependencies]
 mocktopus = "0.7.0"

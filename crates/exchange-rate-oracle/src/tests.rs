@@ -1,7 +1,7 @@
 use crate::mock::{run_test, ExchangeRateOracle, Origin, System, Test, TestEvent};
 use crate::Error;
 
-use frame_support::{assert_err, assert_ok};
+use frame_support::{assert_err, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
 
 type Event = crate::Event<Test>;
@@ -46,7 +46,7 @@ fn set_exchange_rate_max_delay_passed() {
         // kind of feature yet
         ExchangeRateOracle::recover_from_oracle_offline.mock_safe(move || {
             MockResult::Return(if first_call_to_recover {
-                Err(Error::RuntimeError)
+                Err(DispatchError::BadOrigin)
             } else {
                 first_call_to_recover = true;
                 Ok(())
@@ -56,7 +56,7 @@ fn set_exchange_rate_max_delay_passed() {
         assert_ok!(first_res);
 
         let second_res = ExchangeRateOracle::set_exchange_rate(Origin::signed(3), 100);
-        assert_err!(second_res, Error::RuntimeError);
+        assert_err!(second_res, DispatchError::BadOrigin);
     });
 }
 
@@ -87,11 +87,35 @@ fn get_exchange_rate_after_delay() {
 }
 
 #[test]
+fn btc_to_dots() {
+    run_test(|| {
+        ExchangeRateOracle::get_exchange_rate.mock_safe(|| MockResult::Return(Ok(2)));
+        let test_cases = [(0, 0), (2, 4), (10, 20)];
+        for (input, expected) in test_cases.iter() {
+            let result = ExchangeRateOracle::btc_to_dots(*input);
+            assert_ok!(result, *expected);
+        }
+    });
+}
+
+#[test]
+fn dots_to_btc() {
+    run_test(|| {
+        ExchangeRateOracle::get_exchange_rate.mock_safe(|| MockResult::Return(Ok(2)));
+        let test_cases = [(0, 0), (4, 2), (20, 10), (21, 10)];
+        for (input, expected) in test_cases.iter() {
+            let result = ExchangeRateOracle::dots_to_btc(*input);
+            assert_ok!(result, *expected);
+        }
+    });
+}
+
+#[test]
 fn is_max_delay_passed() {
     run_test(|| {
         let now = 1585776145;
 
-        ExchangeRateOracle::seconds_since_epoch.mock_safe(move || MockResult::Return(Ok(now)));
+        ExchangeRateOracle::get_current_time.mock_safe(move || MockResult::Return(now));
         ExchangeRateOracle::get_last_exchange_rate_time
             .mock_safe(move || MockResult::Return(now - 3600));
 
@@ -102,18 +126,5 @@ fn is_max_delay_passed() {
         // max delay is 2 hours and 1 hour passed
         ExchangeRateOracle::get_max_delay.mock_safe(|| MockResult::Return(7200));
         assert!(!ExchangeRateOracle::is_max_delay_passed().unwrap());
-    });
-}
-
-#[test]
-fn seconds_since_epoch() {
-    run_test(|| {
-        let now = 1585776145;
-        let ten_years = 3600 * 24 * 365;
-        let timestamp = ExchangeRateOracle::seconds_since_epoch().unwrap();
-        // check that the value of timestamp looks reasonable
-        // this test will start failing in 2030 or so
-        assert!(now - ten_years < timestamp);
-        assert!(timestamp < now + ten_years);
     });
 }

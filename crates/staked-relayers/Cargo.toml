@@ -1,0 +1,129 @@
+[package]
+name = "staked-relayers"
+version = "0.1.0"
+authors = ["Interlay Ltd"]
+edition = "2018"
+
+[dependencies.serde]
+features = ['derive']
+optional = true
+version = '1.0.101'
+
+[dependencies.codec]
+default-features = false
+features = ['derive']
+package = 'parity-scale-codec'
+version = '1.0.0'
+
+[dependencies.sp-runtime]
+default-features = false
+version = '2.0.0-alpha.5'
+
+[dependencies.frame-support]
+default-features = false
+version = '2.0.0-alpha.5'
+
+[dependencies.system]
+default-features = false
+package = 'frame-system'
+version = '2.0.0-alpha.5'
+
+[dependencies.sp-io]
+default-features = false
+version = '2.0.0-alpha.5'
+
+[dependencies.sp-core]
+default-features = false
+version = '2.0.0-alpha.5'
+
+[dependencies.timestamp]
+default-features = false
+package = 'pallet-timestamp'
+version = '2.0.0-alpha.5'
+
+[dependencies.sp-std]
+default-features = false
+version = '2.0.0-alpha.5'
+
+[dependencies.primitive-types]
+default-features = false
+version = '0.7.0'
+features= ['codec']
+
+[dependencies.bitcoin]
+default-features = false
+path = '../bitcoin'
+version = '0.1.0'
+
+[dependencies.collateral]
+default-features = false
+path = '../collateral'
+
+[dependencies.vault-registry]
+default-features = false
+path = '../vault-registry'
+
+[dependencies.security]
+default-features = false
+path = '../security'
+
+[dependencies.treasury]
+default-features = false
+path = '../treasury'
+
+[dependencies.exchange-rate-oracle]
+default-features = false
+path = '../exchange-rate-oracle'
+
+[dependencies.x-core]
+default-features = false
+path = '../x-core'
+
+[dependencies.btc-relay]
+default-features = false
+path = '../btc-relay'
+
+[dependencies.redeem]
+default-features = false
+path = '../redeem'
+
+[dependencies.replace]
+default-features = false
+path = '../replace'
+
+[dependencies.sha2]
+default-features = false
+version = '0.8.0'
+
+[dev-dependencies.balances]
+default-features = false
+package = 'pallet-balances'
+version = '2.0.0-alpha.5'
+
+[dev-dependencies]
+mocktopus = '0.7.0'
+
+[features]
+default = ['std']
+std = [
+  'serde',
+  'codec/std',
+  'frame-support/std',
+  'sp-runtime/std',
+  'sp-io/std',
+  'system/std',
+  'timestamp/std',
+  'sp-core/std',
+	'sp-std/std',
+  'primitive-types/std',
+  'collateral/std',
+  'vault-registry/std',
+  'security/std',
+  'treasury/std',
+  'exchange-rate-oracle/std',
+  'x-core/std',
+  'btc-relay/std',
+  'redeem/std',
+  'replace/std',
+  'sha2/std',
+]
