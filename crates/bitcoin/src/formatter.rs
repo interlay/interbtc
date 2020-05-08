@@ -273,7 +273,7 @@ impl Formatter {
         Formatter { bytes: Vec::new() }
     }
 
-    fn output(&mut self, bytes: &Vec<u8>) {
+    fn output(&mut self, bytes: &[u8]) {
         self.bytes.extend(bytes);
     }
 
