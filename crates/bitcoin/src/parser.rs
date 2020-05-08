@@ -231,7 +231,7 @@ pub fn parse_block_header(raw_header: &RawBlockHeader) -> Result<BlockHeader, Er
     let block_header = BlockHeader {
         merkle_root,
         target,
-        timestamp: timestamp,
+        timestamp,
         version,
         nonce,
         hash_prev_block,

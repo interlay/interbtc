@@ -113,7 +113,7 @@ impl<T: Trait> Module<T> {
         error_codes: Vec<ErrorCode>,
     ) -> UnitResult {
         if <ParachainStatus>::get() == StatusCode::Error {
-            let mut temp_errors = <Errors>::get().clone();
+            let mut temp_errors = <Errors>::get();
 
             for error_code in error_codes {
                 if <Errors>::get().contains(&error_code) {
@@ -223,7 +223,7 @@ impl<T: Trait> Module<T> {
             Ok(())
         })?;
 
-        if Self::get_errors().len() == 0 {
+        if Self::get_errors().is_empty() {
             Self::set_parachain_status(StatusCode::Running);
         }
 
