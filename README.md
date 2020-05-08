@@ -70,6 +70,7 @@ The Substrate runtime makes use of various custom pallets and crates that are fo
 - [issue](crates/issue): [Beta] Handles issuing of PolkaBTC.
 - [priority-map](crates/priority-map): [WIP] Priority queue based on a mapping. Used to efficiently track ongoing forks and handle re-orgs.
 - [redeem](crates/redeem) [Beta] Handles redeeming of PolkaBTC for BTC on Bitcoin.
+- [replace](crates/replace) [Beta] Handles replacing vaults.
 - [security](crates/security): [Beta] Security module, handling BTC Parachain status changes (error handling).
 - [staked-relayers](crates/staked-relayers): [Beta] Handles registration and stake of Staked Relayers, as well as voting on Parachain status changes.
 - [treasury](crates/treasury): [Beta] Exposes functions related to handling of the PolkaBTC currency (mint, transfer, lock, burn)
