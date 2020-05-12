@@ -190,7 +190,7 @@ decl_module! {
             let height = <system::Module<T>>::block_number();
             let period = Self::redeem_period();
             ensure!(
-                period < height && redeem.opentime < height - period,
+                redeem.opentime + period < height,
                 Error::CommitPeriodExpired
             );
             let amount: usize = redeem

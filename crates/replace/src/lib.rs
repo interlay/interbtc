@@ -2,6 +2,24 @@
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(test)]
+extern crate mocktopus;
+
+// Substrate
+use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
+#[cfg(test)]
+use mocktopus::macros::mockable;
+use primitive_types::H256;
+use sp_runtime::ModuleId;
+use sp_std::convert::TryInto;
+use sp_std::vec::Vec;
+use system::ensure_signed;
+
+use bitcoin::types::H256Le;
+use x_core::{Error, UnitResult};
+
+use crate::types::{PolkaBTC, Replace, DOT};
+
 /// # PolkaBTC Replace implementation
 /// The Replace module according to the specification at
 /// https://interlay.gitlab.io/polkabtc-spec/spec/replace.html
@@ -13,25 +31,6 @@ mod mock;
 
 #[cfg(test)]
 mod tests;
-
-#[cfg(test)]
-extern crate mocktopus;
-
-#[cfg(test)]
-use mocktopus::macros::mockable;
-
-// Substrate
-use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
-use primitive_types::H256;
-use sp_runtime::ModuleId;
-use sp_std::convert::TryInto;
-use sp_std::vec::Vec;
-use system::ensure_signed;
-
-use bitcoin::types::H256Le;
-use x_core::{Error, UnitResult};
-
-use crate::types::{PolkaBTC, Replace, DOT};
 
 /// The replace module id, used for deriving its sovereign account ID.
 const _MODULE_ID: ModuleId = ModuleId(*b"replacem");
@@ -100,7 +99,7 @@ decl_module! {
         ///
         /// * `origin` - sender of the transaction: the old vault
         /// * `replace_id` - the unique identifier of the replace request
-        fn withdraw_replace_request(origin, replace_id: H256)
+        fn withdraw_replace(origin, replace_id: H256)
             -> DispatchResult
         {
             let old_vault = ensure_signed(origin)?;
@@ -123,7 +122,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Accept request of vault replacement
+        /// Auction forces vault replacement
         ///
         /// # Arguments
         ///
@@ -240,7 +239,7 @@ impl<T: Trait> Module<T> {
         // step 3: Check that the collateral rate of the vault is not under the AuctionCollateralThreshold as defined in the VaultRegistry. If it is under the AuctionCollateralThreshold return ERR_UNAUTHORIZED
         ensure!(
             !ext::vault_registry::is_vault_below_auction_threshold::<T>(vault_id.clone())?,
-            Error::UnauthorizedVault
+            Error::VaultOverAuctionThreshold
         );
         // step 4: Check that the ReplaceRequest was not yet accepted by another Vault
         if replace.has_new_owner() {
@@ -312,14 +311,14 @@ impl<T: Trait> Module<T> {
         // step 3: Check that the oldVault is below the AuctionCollateralThreshold by calculating his current oldVault.issuedTokens and the oldVault.collateral
         ensure!(
             ext::vault_registry::is_vault_below_auction_threshold::<T>(old_vault_id.clone())?,
-            Error::InsufficientCollateral
+            Error::VaultOverAuctionThreshold
         );
         // step 4: Check that the provided collateral exceeds the necessary amount
         ensure!(
             !ext::vault_registry::is_collateral_below_secure_threshold::<T>(
                 collateral, btc_amount
             )?,
-            Error::InsufficientCollateral
+            Error::CollateralBelowSecureThreshold
         );
         // step 5: Lock the newVault’s collateral by calling lockCollateral and providing newVault and collateral as parameters.
         ext::collateral::lock_collateral::<T>(new_vault_id.clone(), collateral)?;

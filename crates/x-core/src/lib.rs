@@ -1,5 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![deny(warnings)]
+
 use codec::alloc::string::{String, ToString};
 use frame_support::dispatch::DispatchError;
 use sp_std::prelude::*;
@@ -79,8 +80,11 @@ pub enum Error {
     InsufficientCollateralAvailable,
     VaultNotFound,
     VaultBanned,
+    VaultOverAuctionThreshold,
+    CollateralBelowSecureThreshold,
     /// Returned if the collateral amount to register a vault was too low
-    InsuficientVaultCollateralAmount, // FIXME: ERR_MIN_AMOUNT in spec
+    InsuficientVaultCollateralAmount,
+    // FIXME: ERR_MIN_AMOUNT in spec
     /// Returned if a vault tries to register while already being registered
     VaultAlreadyRegistered,
     InsufficientCollateral,
@@ -174,6 +178,8 @@ impl Error {
             }
             Error::VaultNotFound => "There exists no Vault with the given account id",
             Error::VaultBanned => "The selected Vault has been temporarily banned",
+            Error::VaultOverAuctionThreshold => "Vault over auction threshold",
+            Error::CollateralBelowSecureThreshold => "Collateral below secure threshold",
             Error::InsuficientVaultCollateralAmount => "The provided collateral was insufficient",
             Error::VaultAlreadyRegistered => "This vault is already registered",
             Error::InsufficientCollateral => "User provided collateral below limit",

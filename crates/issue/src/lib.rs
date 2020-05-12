@@ -23,7 +23,9 @@ use codec::{Decode, Encode};
 /// The Issue module according to the specification at
 /// https://interlay.gitlab.io/polkabtc-spec/spec/issue.html
 // Substrate
-use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
+use frame_support::{
+    decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure, traits::Get,
+};
 use primitive_types::H256;
 use sp_core::H160;
 use sp_runtime::ModuleId;
@@ -41,6 +43,11 @@ pub trait Trait:
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+
+    /// The time difference in number of blocks between an issue request is created
+    /// and required completion time by a user. The issue period has an upper limit
+    /// to prevent griefing of vault collateral.
+    type IssuePeriod: Get<Self::BlockNumber>;
 }
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
@@ -58,8 +65,11 @@ pub struct Issue<AccountId, BlockNumber, PolkaBTC, DOT> {
 // The pallet's storage items.
 decl_storage! {
     trait Store for Module<T: Trait> as Issue {
+        /// The minimum collateral (DOT) a user needs to provide as griefing protection.
         IssueGriefingCollateral: DOT<T>;
-        IssuePeriod: T::BlockNumber;
+
+        /// Users create issue requests to issue PolkaBTC. This mapping provides access
+        /// from a unique hash `IssueId` to an `Issue` struct.
         IssueRequests: map hasher(blake2_128_concat) H256 => Issue<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>;
     }
 }
@@ -84,6 +94,8 @@ decl_module! {
         // Initializing events
         // this is needed only if you are using events in your pallet
         fn deposit_event() = default;
+
+        const IssuePeriod: T::BlockNumber = T::IssuePeriod::get();
 
         /// Request the issuance of PolkaBTC
         ///
@@ -211,9 +223,9 @@ impl<T: Trait> Module<T> {
         ensure!(requester == issue.requester, Error::UnauthorizedUser);
 
         let height = <system::Module<T>>::block_number();
-        let period = <IssuePeriod<T>>::get();
+        let period = T::IssuePeriod::get();
         ensure!(
-            period < height && issue.opentime < height - period,
+            height <= issue.opentime + period,
             Error::CommitPeriodExpired
         );
 
@@ -238,7 +250,7 @@ impl<T: Trait> Module<T> {
     fn _cancel_issue(requester: T::AccountId, issue_id: H256) -> Result<(), Error> {
         let issue = Self::get_issue_request_from_id(&issue_id)?;
         let height = <system::Module<T>>::block_number();
-        let period = <IssuePeriod<T>>::get();
+        let period = T::IssuePeriod::get();
 
         ensure!(issue.opentime + period > height, Error::TimeNotExpired);
         ensure!(!issue.completed, Error::IssueCompleted);
@@ -277,11 +289,6 @@ impl<T: Trait> Module<T> {
     #[allow(dead_code)]
     fn set_issue_griefing_collateral(amount: DOT<T>) {
         <IssueGriefingCollateral<T>>::set(amount);
-    }
-
-    #[allow(dead_code)]
-    fn set_issue_period(value: T::BlockNumber) {
-        <IssuePeriod<T>>::set(value);
     }
 
     fn remove_issue_request(id: H256) {

@@ -107,7 +107,6 @@ std = [
 	'sp-core/std',
 	'system/std',
 	'sp-std/std',
-	'pallet-balances/std',
 	'primitive-types/std',
 	'vault-registry/std',
 	'collateral/std',

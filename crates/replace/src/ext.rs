@@ -3,8 +3,9 @@ use mocktopus::macros::mockable;
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod btc_relay {
-    use bitcoin::types::H256Le;
     use sp_std::vec::Vec;
+
+    use bitcoin::types::H256Le;
     use x_core::UnitResult;
 
     pub fn verify_transaction_inclusion<T: btc_relay::Trait>(
@@ -33,8 +34,9 @@ pub(crate) mod btc_relay {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
-    use crate::{PolkaBTC, DOT};
     use x_core::{Result, UnitResult};
+
+    use crate::{PolkaBTC, DOT};
 
     pub fn replace_tokens<T: vault_registry::Trait>(
         old_vault_id: T::AccountId,
@@ -97,8 +99,9 @@ pub(crate) mod vault_registry {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod collateral {
-    use crate::DOT;
     use x_core::UnitResult;
+
+    use crate::DOT;
 
     pub fn get_collateral_from_account<T: collateral::Trait>(account: T::AccountId) -> DOT<T> {
         <collateral::Module<T>>::get_collateral_from_account(&account)
@@ -130,6 +133,7 @@ pub(crate) mod collateral {
 #[cfg_attr(test, mockable)]
 pub(crate) mod security {
     use primitive_types::H256;
+
     use x_core::UnitResult;
 
     pub fn get_secure_id<T: security::Trait>(id: &T::AccountId) -> H256 {
