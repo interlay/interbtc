@@ -62,7 +62,7 @@ pub fn log2(value: u64) -> u8 {
     let mut current = value - 1;
     let mut result: u8 = 0;
     while current > 0 {
-        current = current >> 1;
+        current >>= 1;
         result += 1;
     }
     result
@@ -76,10 +76,10 @@ pub fn log2(value: u64) -> u8 {
 /// assert_eq!(bitcoin::utils::log256(&65537u32.into()), 3);
 /// ```
 pub fn log256(value: &U256) -> u8 {
-    let mut current = (value - 1).clone();
+    let mut current = value - 1;
     let mut result: u8 = 0;
     while current > 0.into() {
-        current = current >> 8;
+        current >>= 8;
         result += 1;
     }
     result

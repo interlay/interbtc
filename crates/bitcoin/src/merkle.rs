@@ -206,7 +206,7 @@ impl MerkleProof {
     // TODO: This seems to be exactly the same logic as compute_merkle_root in impl BlockBuilder. Extract this as a helper and reuse the logic.
     fn compute_hash(&self, height: u32, pos: u32, tx_ids: &[H256Le]) -> H256Le {
         if height == 0 {
-            return tx_ids[pos as usize];
+            tx_ids[pos as usize]
         } else {
             let left = self.compute_hash(height - 1, pos * 2, tx_ids);
             let right = if pos * 2 + 1 < self.compute_tree_width(height - 1) {
