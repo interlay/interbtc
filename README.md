@@ -10,7 +10,7 @@
   <h2 align="center">BTC-Parachain</h2>
 
   <p align="center">
-    A trust-minimized bridge from Bitcoin to Polkador
+    A trust-minimized bridge from Bitcoin to Polkadot.
     <br />
     <a href="https://interlay.gitlab.io/polkabtc-spec/"><strong>Explore the specification »</strong></a>
     <br />
