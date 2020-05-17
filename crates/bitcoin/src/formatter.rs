@@ -202,14 +202,11 @@ impl Formattable<bool> for U256 {
         let mantissa = if exponent > 3 {
             self / U256::from(256).pow(U256::from(exponent) - 3)
         } else {
-            self
+            *self
         };
         let mut mantissa_bytes: [u8; 32] = Default::default();
         mantissa.to_little_endian(&mut mantissa_bytes);
-        for i in 0..=2 {
-            // only three first bytes should be set because of the division
-            bytes[i] = mantissa_bytes[i];
-        }
+        bytes[..2 + 1].clone_from_slice(&mantissa_bytes[..2 + 1]);
         Vec::from(&bytes[..])
     }
 }

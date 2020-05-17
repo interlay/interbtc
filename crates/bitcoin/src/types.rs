@@ -237,7 +237,7 @@ impl From<[u8; 20]> for Address {
 
 impl From<Address> for [u8; 20] {
     fn from(address: Address) -> [u8; 20] {
-        address.0.clone()
+        address.0
     }
 }
 
@@ -312,9 +312,15 @@ pub struct Script {
     pub(crate) bytes: Vec<u8>,
 }
 
+impl Default for Script {
+    fn default() -> Self {
+        Script { bytes: vec![] }
+    }
+}
+
 impl Script {
     pub fn new() -> Script {
-        Script { bytes: vec![] }
+        Self::default()
     }
 
     pub fn height(height: u32) -> Script {
@@ -380,11 +386,15 @@ impl Script {
     pub fn len(&self) -> usize {
         self.bytes.len()
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 impl From<Vec<u8>> for Script {
     fn from(bytes: Vec<u8>) -> Script {
-        Script { bytes: bytes }
+        Script { bytes }
     }
 }
 
@@ -393,7 +403,7 @@ impl TryFrom<&str> for Script {
 
     fn try_from(hex_string: &str) -> Result<Script, Self::Error> {
         let bytes = hex::decode(hex_string).map_err(|_e| Error::RuntimeError)?;
-        Ok(Script { bytes: bytes })
+        Ok(Script { bytes })
     }
 }
 
@@ -407,21 +417,21 @@ pub struct TransactionOutput {
 impl TransactionOutput {
     pub fn p2pkh(value: i64, address: &Address) -> TransactionOutput {
         TransactionOutput {
-            value: value,
+            value,
             script: Script::p2pkh(address),
         }
     }
 
     pub fn p2sh(value: i64, address: &Address) -> TransactionOutput {
         TransactionOutput {
-            value: value,
+            value,
             script: Script::p2sh(address),
         }
     }
 
     pub fn op_return(value: i64, return_content: &[u8]) -> TransactionOutput {
         TransactionOutput {
-            value: value,
+            value,
             script: Script::op_return(return_content),
         }
     }
@@ -522,11 +532,17 @@ pub struct BlockBuilder {
     block: Block,
 }
 
-impl BlockBuilder {
-    pub fn new() -> BlockBuilder {
+impl Default for BlockBuilder {
+    fn default() -> Self {
         BlockBuilder {
             block: Default::default(),
         }
+    }
+}
+
+impl BlockBuilder {
+    pub fn new() -> BlockBuilder {
+        Self::default()
     }
 
     pub fn with_timestamp(&mut self, timestamp: u32) -> &mut Self {
@@ -622,12 +638,12 @@ pub struct BlockChain {
 impl BlockChain {
     // Checks if there is a NO_DATA block in the BlockChain
     pub fn is_no_data(&self) -> bool {
-        self.no_data.len() > 0
+        !self.no_data.is_empty()
     }
 
     // Checks if there is an INVALID block in the BlockChain
     pub fn is_invalid(&self) -> bool {
-        self.invalid.len() > 0
+        !self.invalid.is_empty()
     }
 }
 
@@ -765,8 +781,8 @@ pub struct TransactionBuilder {
     transaction: Transaction,
 }
 
-impl TransactionBuilder {
-    pub fn new() -> TransactionBuilder {
+impl Default for TransactionBuilder {
+    fn default() -> Self {
         TransactionBuilder {
             transaction: Transaction {
                 version: 2,
@@ -776,6 +792,12 @@ impl TransactionBuilder {
                 locktime: None,
             },
         }
+    }
+}
+
+impl TransactionBuilder {
+    pub fn new() -> TransactionBuilder {
+        Self::default()
     }
 
     pub fn with_version(&mut self, version: i32) -> &mut Self {
@@ -814,8 +836,8 @@ pub struct TransactionInputBuilder {
     trasaction_input: TransactionInput,
 }
 
-impl TransactionInputBuilder {
-    pub fn new() -> TransactionInputBuilder {
+impl Default for TransactionInputBuilder {
+    fn default() -> Self {
         TransactionInputBuilder {
             trasaction_input: TransactionInput {
                 previous_hash: H256Le::zero(),
@@ -827,6 +849,12 @@ impl TransactionInputBuilder {
                 witness: vec![],
             },
         }
+    }
+}
+
+impl TransactionInputBuilder {
+    pub fn new() -> TransactionInputBuilder {
+        Self::default()
     }
 
     pub fn with_previous_hash(&mut self, previous_hash: H256Le) -> &mut Self {
