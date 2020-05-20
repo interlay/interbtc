@@ -108,20 +108,17 @@ decl_module! {
 
             let (amount_btc, amount_dot): (u128, u128) =
                 if ext::security::is_parachain_error_liquidation::<T>() {
-                    let btcdot_rate: u128 = ext::oracle::get_exchange_rate::<T>()?;
                     let raw_amount_polka_btc = Self::btc_to_u128(amount_polka_btc)?;
-                    let amount_dot_in_btc: u128 = raw_amount_polka_btc
-                        .checked_mul(Self::get_partial_redeem_factor()?).ok_or(Error::RuntimeError)?
-                        .checked_div(100_000).ok_or(Error::RuntimeError)?;
+                    let amount_dot_in_btc = Self::partial_redeem(raw_amount_polka_btc)?;
                     let amount_btc: u128 = raw_amount_polka_btc - amount_dot_in_btc;
-                    let amount_dot: u128 = amount_dot_in_btc * btcdot_rate;
+                    let amount_dot: u128 = Self::rawbtc_to_rawdot(amount_dot_in_btc)?;
                     (
                         amount_btc,
                         amount_dot.try_into().map_err(|_e| Error::RuntimeError)?,
                     )
                 } else {
                     (Self::btc_to_u128(amount_polka_btc)?, 0)
-                };
+                };//how much you locked
             ext::vault_registry::increase_to_be_redeemed_tokens::<T>(
                 &vault_id,
                 amount_btc.try_into().map_err(|_e| Error::RuntimeError)?,
@@ -245,10 +242,10 @@ decl_module! {
             let period = Self::redeem_period();
             ensure!(redeem.opentime + period > height, Error::TimeNotExpired);
 
-            let btcdot_spot_rate = ext::oracle::get_exchange_rate::<T>()?;
             let punishment_fee = ext::vault_registry::punishment_fee::<T>()?;
             let raw_punishment_fee = Self::dot_to_u128(punishment_fee)?;
             let raw_amount_polka_btc = Self::btc_to_u128(redeem.amount_polka_btc)?;
+            let raw_amount_in_dot = Self::rawbtc_to_rawdot(raw_amount_polka_btc)?;
             if reimburse {
                 ext::vault_registry::decrease_tokens::<T>(
                     &redeem.vault,
@@ -256,8 +253,8 @@ decl_module! {
                     redeem.amount_polka_btc,
                 )?;
                 ext::treasury::burn::<T>(redeem.redeemer.clone(), redeem.amount_polka_btc)?;
-                let reimburse_in_dot = raw_amount_polka_btc
-                    .checked_mul(btcdot_spot_rate * (100_000 + raw_punishment_fee)).ok_or(Error::RuntimeError)?
+                let reimburse_in_dot = raw_amount_in_dot
+                    .checked_mul(100_000 + raw_punishment_fee).ok_or(Error::RuntimeError)?
                     .checked_div(100_000).ok_or(Error::RuntimeError)?;
                 let reimburse_amount: DOT<T> = reimburse_in_dot
                     .try_into()
@@ -268,10 +265,10 @@ decl_module! {
                     reimburse_amount,
                 )?;
             } else {
-                let slash_in_btc = raw_amount_polka_btc
-                    .checked_mul(btcdot_spot_rate * raw_punishment_fee).ok_or(Error::RuntimeError)?
+                let slash_in_dot = raw_amount_in_dot
+                    .checked_mul(raw_punishment_fee).ok_or(Error::RuntimeError)?
                     .checked_div(100_000).ok_or(Error::RuntimeError)?;
-                let slash_amount: DOT<T> = slash_in_btc.try_into().map_err(|_| Error::RuntimeError)?;
+                let slash_amount: DOT<T> = Self::u128_to_dot(slash_in_dot)?;
                 ext::collateral::slash_collateral::<T>(&redeem.redeemer, &redeem.vault, slash_amount)?;
             }
             ext::vault_registry::ban_vault::<T>(redeem.vault, height)?;
@@ -340,5 +337,22 @@ impl<T: Trait> Module<T> {
 
     fn u128_to_dot(x: u128) -> Result<DOT<T>, Error> {
         TryInto::<DOT<T>>::try_into(x).map_err(|_| Error::RuntimeError)
+    }
+
+    fn u128_to_btc(x: u128) -> Result<PolkaBTC<T>, Error> {
+        TryInto::<PolkaBTC<T>>::try_into(x).map_err(|_| Error::RuntimeError)
+    }
+
+    fn rawbtc_to_rawdot(btc: u128) -> Result<u128, Error> {
+        let dots: DOT<T> = ext::oracle::btc_to_dots::<T>(Self::u128_to_btc(btc)?)?;
+        Self::dot_to_u128(dots)
+    }
+
+    fn partial_redeem(raw_btc: u128) -> Result<u128, Error> {
+        raw_btc
+            .checked_mul(Self::get_partial_redeem_factor()?)
+            .ok_or(Error::RuntimeError)?
+            .checked_div(100_000)
+            .ok_or(Error::RuntimeError)
     }
 }

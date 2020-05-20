@@ -177,9 +177,10 @@ pub(crate) mod security {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod oracle {
+    use crate::types::{PolkaBTC, DOT};
     use x_core::Result;
 
-    pub fn get_exchange_rate<T: exchange_rate_oracle::Trait>() -> Result<u128> {
-        <exchange_rate_oracle::Module<T>>::get_exchange_rate()
+    pub fn btc_to_dots<T: exchange_rate_oracle::Trait>(amount: PolkaBTC<T>) -> Result<DOT<T>> {
+        <exchange_rate_oracle::Module<T>>::btc_to_dots(amount)
     }
 }
