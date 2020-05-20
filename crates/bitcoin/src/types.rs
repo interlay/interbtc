@@ -561,6 +561,12 @@ impl BlockBuilder {
     }
 
     pub fn mine(&mut self, target: U256) -> Block {
+        // NOTE: this function is used only for testing
+        // so we panic instead of returning a Result
+        // as this is a problem on the caller side
+        if self.block.transactions.is_empty() {
+            panic!("trying to mine a block without a coinbase");
+        }
         self.block.header.target = target;
         self.block.header.merkle_root = self.compute_merkle_root();
         let mut nonce: u32 = 0;
