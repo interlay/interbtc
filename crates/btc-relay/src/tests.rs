@@ -1,15 +1,18 @@
-use crate::ext;
 /// Tests for BTC-Relay
-use crate::mock::{run_test, BTCRelay, Origin, System, Test, TestEvent};
+use primitive_types::U256;
 
+use crate::ext;
+use crate::mock::{run_test, BTCRelay, Origin, System, Test, TestEvent};
 use crate::Event;
+
+use bitcoin::formatter::Formattable;
 use bitcoin::merkle::*;
 use bitcoin::parser::*;
 use bitcoin::types::*;
 use frame_support::{assert_err, assert_ok};
 use security::ErrorCode;
 use sp_std::collections::btree_set::BTreeSet;
-use sp_std::convert::TryInto;
+use sp_std::convert::{TryFrom, TryInto};
 use x_core::Error;
 
 use mocktopus::mocking::*;
@@ -1554,6 +1557,39 @@ fn get_chain_from_id_ok() {
         assert_eq!(Ok(main), BTCRelay::get_block_chain_from_id(main_chain_ref));
     });
 }
+
+#[test]
+fn store_generated_block_headers() {
+    let target = U256::from(2).pow(254.into());
+    let miner = Address::try_from("66c7060feb882664ae62ffad0051fe843e318e85").unwrap();
+    let get_header = |block: &Block| RawBlockHeader::from_bytes(&block.header.format()).unwrap();
+
+    run_test(|| {
+        let mut last_block = BlockBuilder::new()
+            .with_coinbase(&miner, 50, 0)
+            .mine(target);
+        assert_ok!(BTCRelay::initialize(
+            Origin::signed(3),
+            get_header(&last_block),
+            0
+        ));
+        for i in 1..20 {
+            last_block = BlockBuilder::new()
+                .with_coinbase(&miner, 50, i)
+                .with_previous_hash(last_block.header.hash())
+                .mine(target);
+            assert_ok!(BTCRelay::store_block_header(
+                Origin::signed(3),
+                get_header(&last_block)
+            ));
+        }
+        let main_chain: BlockChain =
+            BTCRelay::get_block_chain_from_id(crate::MAIN_CHAIN_ID).unwrap();
+        assert_eq!(main_chain.start_height, 0);
+        assert_eq!(main_chain.max_height, 19);
+    })
+}
+
 /// # Util functions
 
 fn sample_valid_proof_result() -> ProofResult {
