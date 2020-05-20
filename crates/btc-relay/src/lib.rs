@@ -660,6 +660,7 @@ impl<T: Trait> Module<T> {
         Self::insert_block_hash(blockchain.chain_id, block_height, *block_hash);
 
         blockchain.max_height = block_height;
+        Self::set_block_chain_from_id(blockchain.chain_id, &blockchain);
 
         Ok(blockchain)
     }
