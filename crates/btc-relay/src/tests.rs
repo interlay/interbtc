@@ -94,6 +94,13 @@ fn next_best_fork_chain_succeeds() {
     })
 }
 
+#[test]
+fn test_get_block_chain_from_id_empty_chain_fails() {
+    run_test(|| {
+        assert_err!(BTCRelay::get_block_chain_from_id(1), Error::InvalidChainID);
+    })
+}
+
 /// # Main functions
 ///
 /// initialize
@@ -1225,12 +1232,58 @@ fn test_verify_transaction_inclusion_succeeds() {
             get_empty_block_chain_from_chain_id_and_height(fork_ref, start, fork_chain_height);
 
         BTCRelay::get_chain_id_from_position
-            .mock_safe(move |_| MockResult::Return(fork_ref.clone()));
+            .mock_safe(move |_| MockResult::Return(Ok(fork_ref.clone())));
         BTCRelay::get_block_chain_from_id.mock_safe(move |id| {
             if id == chain_ref.clone() {
                 return MockResult::Return(Ok(main.clone()));
             } else {
                 return MockResult::Return(Ok(fork.clone()));
+            }
+        });
+
+        BTCRelay::get_best_block_height.mock_safe(move || MockResult::Return(main_chain_height));
+
+        BTCRelay::verify_merkle_proof.mock_safe(move |_| MockResult::Return(Ok(proof_result)));
+
+        BTCRelay::get_block_header_from_height
+            .mock_safe(move |_, _| MockResult::Return(Ok(rich_block_header)));
+
+        BTCRelay::check_confirmations.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
+
+        assert_ok!(BTCRelay::verify_transaction_inclusion(
+            Origin::signed(3),
+            proof_result.transaction_hash,
+            block_height,
+            raw_merkle_proof,
+            confirmations,
+            insecure
+        ));
+    });
+}
+
+#[test]
+fn test_verify_transaction_inclusion_empty_fork_succeeds() {
+    run_test(|| {
+        let chain_ref = 0;
+        let block_height = 203;
+        let start = 10;
+        let main_chain_height = 300;
+        // Random init since we mock this
+        let raw_merkle_proof = vec![0u8; 100];
+        let confirmations = 0;
+        let insecure = false;
+        let rich_block_header = sample_rich_tx_block_header(chain_ref, main_chain_height);
+
+        let proof_result = sample_valid_proof_result();
+
+        let main =
+            get_empty_block_chain_from_chain_id_and_height(chain_ref, start, main_chain_height);
+
+        BTCRelay::get_block_chain_from_id.mock_safe(move |id| {
+            if id == chain_ref.clone() {
+                return MockResult::Return(Ok(main.clone()));
+            } else {
+                return MockResult::Return(Err(Error::InvalidChainID));
             }
         });
 
@@ -1286,7 +1339,7 @@ fn test_verify_transaction_inclusion_invalid_tx_id_fails() {
             get_empty_block_chain_from_chain_id_and_height(fork_ref, start, fork_chain_height);
 
         BTCRelay::get_chain_id_from_position
-            .mock_safe(move |_| MockResult::Return(fork_ref.clone()));
+            .mock_safe(move |_| MockResult::Return(Ok(fork_ref.clone())));
         BTCRelay::get_block_chain_from_id.mock_safe(move |id| {
             if id == chain_ref.clone() {
                 return MockResult::Return(Ok(main.clone()));
@@ -1351,7 +1404,7 @@ fn test_verify_transaction_inclusion_invalid_merkle_root_fails() {
             get_empty_block_chain_from_chain_id_and_height(fork_ref, start, fork_chain_height);
 
         BTCRelay::get_chain_id_from_position
-            .mock_safe(move |_| MockResult::Return(fork_ref.clone()));
+            .mock_safe(move |_| MockResult::Return(Ok(fork_ref.clone())));
         BTCRelay::get_block_chain_from_id.mock_safe(move |id| {
             if id == chain_ref.clone() {
                 return MockResult::Return(Ok(main.clone()));
@@ -1386,6 +1439,7 @@ fn test_verify_transaction_inclusion_invalid_merkle_root_fails() {
 #[test]
 fn test_verify_transaction_inclusion_fails_with_ongoing_fork() {
     run_test(|| {
+        BTCRelay::get_chain_id_from_position.mock_safe(|_| MockResult::Return(Ok(1)));
         BTCRelay::get_block_chain_from_id
             .mock_safe(|_| MockResult::Return(Ok(BlockChain::default())));
 

@@ -84,7 +84,7 @@ decl_storage! {
         BlockHeaders: map hasher(blake2_128_concat) H256Le => RichBlockHeader;
 
         /// Sorted mapping of BlockChain elements with reference to ChainsIndex
-        Chains: map hasher(blake2_128_concat) u32 => u32;
+        Chains: map hasher(blake2_128_concat) u32 => Option<u32>;
 
         /// Store the index for each tracked blockchain
         ChainsIndex: map hasher(blake2_128_concat) u32 => Option<BlockChain>;
@@ -399,18 +399,9 @@ impl<T: Trait> Module<T> {
     ) -> Result<(), Error> {
         Self::transaction_verification_allowed(block_height)?;
 
-        //let main_chain = Self::get_block_chain_from_id(MAIN_CHAIN_ID);
         let best_block_height = Self::get_best_block_height();
 
-        let next_best_fork_id = Self::get_chain_id_from_position(1);
-        let next_best_fork_chain = Self::get_block_chain_from_id(next_best_fork_id)?;
-        let next_best_fork_height = next_best_fork_chain.max_height;
-
-        // fail if there is an ongoing fork
-        ensure!(
-            best_block_height >= next_best_fork_height + Self::confirmations(),
-            Error::OngoingFork
-        );
+        Self::ensure_no_ongoing_fork(best_block_height)?;
 
         // This call fails if not enough confirmations
         Self::check_confirmations(best_block_height, confirmations, block_height, insecure)?;
@@ -471,8 +462,8 @@ impl<T: Trait> Module<T> {
     // ********************************
 
     /// Get chain id from position (sorted by max block height)
-    fn get_chain_id_from_position(position: u32) -> u32 {
-        <Chains>::get(position)
+    fn get_chain_id_from_position(position: u32) -> Result<u32, Error> {
+        <Chains>::get(position).ok_or(Error::InvalidChainID)
     }
     /// Get the position of the fork in Chains
     fn get_chain_position_from_chain_id(chain_id: u32) -> Result<u32, Error> {
@@ -483,16 +474,7 @@ impl<T: Trait> Module<T> {
         }
         Err(Error::ForkIdNotFound)
     }
-    //    match <Chains>::enumerate()
-    //        .position(|(_k, v)| v == chain_id)
-    //    {
-    //        Some(pos) => return Ok(pos as u32),
-    //        None => return Err(Error::ForkIdNotFound),
-    //    };
-    //}
     /// Get a blockchain from the id
-    // TODO: the return of this element can an empty element when it was deleted
-    // Function should be changed to return a Result or Option
     fn get_block_chain_from_id(chain_id: u32) -> Result<BlockChain, Error> {
         <ChainsIndex>::get(chain_id).ok_or(Error::InvalidChainID)
     }
@@ -904,7 +886,7 @@ impl<T: Trait> Module<T> {
             // get the previous position
             let prev_position = current_position - 1;
             // get the blockchain id
-            let prev_blockchain_id = Self::get_chain_id_from_position(prev_position);
+            let prev_blockchain_id = Self::get_chain_id_from_position(prev_position)?;
             // get the previous blockchain height
             let prev_height = Self::get_block_chain_from_id(prev_blockchain_id)?.max_height;
             // swap elements if block height is greater
@@ -1136,6 +1118,27 @@ impl<T: Trait> Module<T> {
                 Some(no_data_height) => ensure!(block_height < *no_data_height, Error::NoData),
                 None => (),
             }
+        }
+        Ok(())
+    }
+
+    fn ensure_no_ongoing_fork(best_block_height: u32) -> UnitResult {
+        // check if there is a next best fork
+        match Self::get_chain_id_from_position(1) {
+            // if yes, check that the main chain is at least Self::confirmations() ahead
+            Ok(id) => {
+                let next_best_fork_height = Self::get_block_chain_from_id(id)?.max_height;
+
+                debug::print!("Best block height: {}", best_block_height);
+                debug::print!("Next best fork height: {}", next_best_fork_height);
+                // fail if there is an ongoing fork
+                ensure!(
+                    best_block_height >= next_best_fork_height + Self::confirmations(),
+                    Error::OngoingFork
+                );
+            }
+            // else, do nothing if there is no fork
+            Err(_) => {}
         }
         Ok(())
     }

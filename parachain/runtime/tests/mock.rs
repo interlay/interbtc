@@ -67,11 +67,12 @@ pub fn force_issue_tokens(
 }
 
 fn assert_store_main_chain_header_event(height: u32, hash: H256Le) {
-    let _store_event = Event::btc_relay(BTCRelayEvent::StoreMainChainHeader(height, hash));
-    let _events = SystemModule::events();
+    let store_event = Event::btc_relay(BTCRelayEvent::StoreMainChainHeader(height, hash));
+    let events = SystemModule::events();
 
-    // FIXME: store only main chain header
-    // assert!(events.iter().any(|a| a.event == store_event));
+    // store only main chain header
+    // events.iter().for_each(|a| println!("{:?}",a.event));
+    assert!(events.iter().any(|a| a.event == store_event));
 }
 
 #[allow(dead_code)]
@@ -208,7 +209,7 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage)
         .unwrap();
 
-        btc_relay::GenesisConfig { confirmations: 0 }
+        btc_relay::GenesisConfig { confirmations: 6 }
             .assimilate_storage(&mut storage)
             .unwrap();
 

@@ -71,6 +71,7 @@ fn integration_test_issue_polka_btc() {
 
         SystemModule::set_block_number(5);
 
+        // alice executes the issue by confirming the btc transaction
         assert_ok!(IssueCall::execute_issue(id, tx_id, height, proof, raw_tx)
             .dispatch(origin_of(account_of(ALICE))));
     });
