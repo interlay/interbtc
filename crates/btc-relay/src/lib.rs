@@ -401,22 +401,7 @@ impl<T: Trait> Module<T> {
 
         let best_block_height = Self::get_best_block_height();
 
-        // check if there is a next best fork
-        match Self::get_chain_id_from_position(1) {
-            Ok(id) => {
-                let next_best_fork_height = Self::get_block_chain_from_id(id)?.max_height;
-
-                debug::print!("Best block height: {}", best_block_height);
-                debug::print!("Next best fork height: {}", next_best_fork_height);
-                // fail if there is an ongoing fork
-                ensure!(
-                    best_block_height >= next_best_fork_height + Self::confirmations(),
-                    Error::OngoingFork
-                );
-            }
-            // do nothing if there is no fork
-            Err(_) => {}
-        }
+        Self::ensure_no_ongoing_fork(best_block_height)?;
 
         // This call fails if not enough confirmations
         Self::check_confirmations(best_block_height, confirmations, block_height, insecure)?;
@@ -1133,6 +1118,27 @@ impl<T: Trait> Module<T> {
                 Some(no_data_height) => ensure!(block_height < *no_data_height, Error::NoData),
                 None => (),
             }
+        }
+        Ok(())
+    }
+
+    fn ensure_no_ongoing_fork(best_block_height: u32) -> UnitResult {
+        // check if there is a next best fork
+        match Self::get_chain_id_from_position(1) {
+            // if yes, check that the main chain is at least Self::confirmations() ahead
+            Ok(id) => {
+                let next_best_fork_height = Self::get_block_chain_from_id(id)?.max_height;
+
+                debug::print!("Best block height: {}", best_block_height);
+                debug::print!("Next best fork height: {}", next_best_fork_height);
+                // fail if there is an ongoing fork
+                ensure!(
+                    best_block_height >= next_best_fork_height + Self::confirmations(),
+                    Error::OngoingFork
+                );
+            }
+            // else, do nothing if there is no fork
+            Err(_) => {}
         }
         Ok(())
     }
