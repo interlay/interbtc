@@ -175,13 +175,6 @@ impl<T: Trait> Module<T> {
         let btc_address =
             ext::vault_registry::increase_to_be_issued_tokens::<T>(&vault_id, amount)?;
 
-        //let mut hasher = Sha256::default();
-        // TODO: nonce from security module
-        //hasher.input(requester.encode());
-        //let mut result = [0; 32];
-        //result.copy_from_slice(&hasher.result()[..]);
-        //let key = H256(result);
-
         let key = ext::security::get_secure_id::<T>(&requester);
 
         Self::insert_issue_request(

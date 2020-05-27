@@ -509,7 +509,7 @@ dependencies = [
 
 [[package]]
 name = "btc-relay"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "bitcoin",
  "frame-support",
@@ -966,7 +966,7 @@ dependencies = [
 
 [[package]]
 name = "exchange-rate-oracle"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "collateral",
  "frame-support",
@@ -6388,7 +6388,7 @@ dependencies = [
 
 [[package]]
 name = "vault-registry"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "collateral",
  "exchange-rate-oracle",

@@ -1,15 +1,18 @@
-use crate::ext;
 /// Tests for BTC-Relay
-use crate::mock::{run_test, BTCRelay, Origin, System, Test, TestEvent};
+use primitive_types::U256;
 
+use crate::ext;
+use crate::mock::{run_test, BTCRelay, Origin, System, Test, TestEvent};
 use crate::Event;
+
+use bitcoin::formatter::Formattable;
 use bitcoin::merkle::*;
 use bitcoin::parser::*;
 use bitcoin::types::*;
 use frame_support::{assert_err, assert_ok};
 use security::ErrorCode;
 use sp_std::collections::btree_set::BTreeSet;
-use sp_std::convert::TryInto;
+use sp_std::convert::{TryFrom, TryInto};
 use x_core::Error;
 
 use mocktopus::mocking::*;
@@ -88,6 +91,13 @@ fn next_best_fork_chain_succeeds() {
         let curr_blockchain = BTCRelay::get_block_chain_from_id(chain_ref).unwrap();
 
         assert_eq!(curr_blockchain, blockchain);
+    })
+}
+
+#[test]
+fn test_get_block_chain_from_id_empty_chain_fails() {
+    run_test(|| {
+        assert_err!(BTCRelay::get_block_chain_from_id(1), Error::InvalidChainID);
     })
 }
 
@@ -1222,12 +1232,58 @@ fn test_verify_transaction_inclusion_succeeds() {
             get_empty_block_chain_from_chain_id_and_height(fork_ref, start, fork_chain_height);
 
         BTCRelay::get_chain_id_from_position
-            .mock_safe(move |_| MockResult::Return(fork_ref.clone()));
+            .mock_safe(move |_| MockResult::Return(Ok(fork_ref.clone())));
         BTCRelay::get_block_chain_from_id.mock_safe(move |id| {
             if id == chain_ref.clone() {
                 return MockResult::Return(Ok(main.clone()));
             } else {
                 return MockResult::Return(Ok(fork.clone()));
+            }
+        });
+
+        BTCRelay::get_best_block_height.mock_safe(move || MockResult::Return(main_chain_height));
+
+        BTCRelay::verify_merkle_proof.mock_safe(move |_| MockResult::Return(Ok(proof_result)));
+
+        BTCRelay::get_block_header_from_height
+            .mock_safe(move |_, _| MockResult::Return(Ok(rich_block_header)));
+
+        BTCRelay::check_confirmations.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
+
+        assert_ok!(BTCRelay::verify_transaction_inclusion(
+            Origin::signed(3),
+            proof_result.transaction_hash,
+            block_height,
+            raw_merkle_proof,
+            confirmations,
+            insecure
+        ));
+    });
+}
+
+#[test]
+fn test_verify_transaction_inclusion_empty_fork_succeeds() {
+    run_test(|| {
+        let chain_ref = 0;
+        let block_height = 203;
+        let start = 10;
+        let main_chain_height = 300;
+        // Random init since we mock this
+        let raw_merkle_proof = vec![0u8; 100];
+        let confirmations = 0;
+        let insecure = false;
+        let rich_block_header = sample_rich_tx_block_header(chain_ref, main_chain_height);
+
+        let proof_result = sample_valid_proof_result();
+
+        let main =
+            get_empty_block_chain_from_chain_id_and_height(chain_ref, start, main_chain_height);
+
+        BTCRelay::get_block_chain_from_id.mock_safe(move |id| {
+            if id == chain_ref.clone() {
+                return MockResult::Return(Ok(main.clone()));
+            } else {
+                return MockResult::Return(Err(Error::InvalidChainID));
             }
         });
 
@@ -1283,7 +1339,7 @@ fn test_verify_transaction_inclusion_invalid_tx_id_fails() {
             get_empty_block_chain_from_chain_id_and_height(fork_ref, start, fork_chain_height);
 
         BTCRelay::get_chain_id_from_position
-            .mock_safe(move |_| MockResult::Return(fork_ref.clone()));
+            .mock_safe(move |_| MockResult::Return(Ok(fork_ref.clone())));
         BTCRelay::get_block_chain_from_id.mock_safe(move |id| {
             if id == chain_ref.clone() {
                 return MockResult::Return(Ok(main.clone()));
@@ -1348,7 +1404,7 @@ fn test_verify_transaction_inclusion_invalid_merkle_root_fails() {
             get_empty_block_chain_from_chain_id_and_height(fork_ref, start, fork_chain_height);
 
         BTCRelay::get_chain_id_from_position
-            .mock_safe(move |_| MockResult::Return(fork_ref.clone()));
+            .mock_safe(move |_| MockResult::Return(Ok(fork_ref.clone())));
         BTCRelay::get_block_chain_from_id.mock_safe(move |id| {
             if id == chain_ref.clone() {
                 return MockResult::Return(Ok(main.clone()));
@@ -1383,6 +1439,7 @@ fn test_verify_transaction_inclusion_invalid_merkle_root_fails() {
 #[test]
 fn test_verify_transaction_inclusion_fails_with_ongoing_fork() {
     run_test(|| {
+        BTCRelay::get_chain_id_from_position.mock_safe(|_| MockResult::Return(Ok(1)));
         BTCRelay::get_block_chain_from_id
             .mock_safe(|_| MockResult::Return(Ok(BlockChain::default())));
 
@@ -1554,6 +1611,39 @@ fn get_chain_from_id_ok() {
         assert_eq!(Ok(main), BTCRelay::get_block_chain_from_id(main_chain_ref));
     });
 }
+
+#[test]
+fn store_generated_block_headers() {
+    let target = U256::from(2).pow(254.into());
+    let miner = Address::try_from("66c7060feb882664ae62ffad0051fe843e318e85").unwrap();
+    let get_header = |block: &Block| RawBlockHeader::from_bytes(&block.header.format()).unwrap();
+
+    run_test(|| {
+        let mut last_block = BlockBuilder::new()
+            .with_coinbase(&miner, 50, 0)
+            .mine(target);
+        assert_ok!(BTCRelay::initialize(
+            Origin::signed(3),
+            get_header(&last_block),
+            0
+        ));
+        for i in 1..20 {
+            last_block = BlockBuilder::new()
+                .with_coinbase(&miner, 50, i)
+                .with_previous_hash(last_block.header.hash())
+                .mine(target);
+            assert_ok!(BTCRelay::store_block_header(
+                Origin::signed(3),
+                get_header(&last_block)
+            ));
+        }
+        let main_chain: BlockChain =
+            BTCRelay::get_block_chain_from_id(crate::MAIN_CHAIN_ID).unwrap();
+        assert_eq!(main_chain.start_height, 0);
+        assert_eq!(main_chain.max_height, 19);
+    })
+}
+
 /// # Util functions
 
 fn sample_valid_proof_result() -> ProofResult {

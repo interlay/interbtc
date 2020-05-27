@@ -1,11 +1,13 @@
 use crate::ext;
 use crate::mock::*;
-use crate::types::Redeem as RedeemRequest;
+
+use crate::types::{PolkaBTC, Redeem as RedeemRequest, DOT};
 use bitcoin::types::H256Le;
 use frame_support::{assert_err, assert_ok};
 use mocktopus::mocking::*;
 use primitive_types::H256;
 use sp_core::H160;
+use sp_std::convert::TryInto;
 use vault_registry::Vault;
 use x_core::Error;
 
@@ -26,6 +28,19 @@ macro_rules! assert_emitted {
             $times
         );
     };
+}
+
+fn btc_to_u128(amount: PolkaBTC<Test>) -> Result<u128, Error> {
+    TryInto::<u128>::try_into(amount).map_err(|_e| Error::RuntimeError)
+}
+
+fn u128_to_dot(x: u128) -> Result<DOT<Test>, Error> {
+    TryInto::<DOT<Test>>::try_into(x).map_err(|_| Error::RuntimeError)
+}
+
+fn btcdot_parity(btc: PolkaBTC<Test>) -> Result<DOT<Test>, Error> {
+    let dot = btc_to_u128(btc)?;
+    u128_to_dot(dot)
 }
 
 fn inject_redeem_request(
@@ -136,7 +151,7 @@ fn test_request_redeem_fails_with_vault_banned() {
 #[test]
 fn test_request_redeem_fails_with_amount_exceeds_vault_balance() {
     run_test(|| {
-        ext::oracle::get_exchange_rate::<Test>.mock_safe(|| MockResult::Return(Ok(1)));
+        ext::oracle::btc_to_dots::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
         <system::Module<Test>>::set_block_number(0);
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(Vault {
@@ -167,7 +182,7 @@ fn test_request_redeem_fails_with_amount_exceeds_vault_balance() {
 #[test]
 fn test_request_redeem_succeeds_in_running_state() {
     run_test(|| {
-        ext::oracle::get_exchange_rate::<Test>.mock_safe(|| MockResult::Return(Ok(1)));
+        ext::oracle::btc_to_dots::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
         <system::Module<Test>>::set_block_number(0);
         <vault_registry::Module<Test>>::_insert_vault(
             &BOB,
@@ -254,7 +269,7 @@ fn test_request_redeem_succeeds_in_error_state() {
 
         Redeem::get_partial_redeem_factor.mock_safe(|| MockResult::Return(Ok(50_000)));
 
-        ext::oracle::get_exchange_rate::<Test>.mock_safe(|| MockResult::Return(Ok(1)));
+        ext::oracle::btc_to_dots::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
         <system::Module<Test>>::set_block_number(0);
 
         let redeemer = ALICE;
@@ -332,7 +347,7 @@ fn test_request_redeem_succeeds_in_error_state() {
 #[test]
 fn test_execute_redeem_fails_with_redeem_id_not_found() {
     run_test(|| {
-        ext::oracle::get_exchange_rate::<Test>.mock_safe(|| MockResult::Return(Ok(1)));
+        ext::oracle::btc_to_dots::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
         assert_err!(
             Redeem::execute_redeem(
                 Origin::signed(BOB),
@@ -412,7 +427,7 @@ fn test_execute_redeem_fails_with_commit_period_expired() {
 #[test]
 fn test_execute_redeem_succeeds() {
     run_test(|| {
-        ext::oracle::get_exchange_rate::<Test>.mock_safe(|| MockResult::Return(Ok(1)));
+        ext::oracle::btc_to_dots::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
         <system::Module<Test>>::set_block_number(40);
         <vault_registry::Module<Test>>::_insert_vault(
             &BOB,

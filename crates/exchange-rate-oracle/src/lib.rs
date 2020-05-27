@@ -94,11 +94,21 @@ impl<T: Trait> Module<T> {
         Ok(<ExchangeRate>::get())
     }
 
+    pub fn btc_to_u128(amount: PolkaBTC<T>) -> Result<u128> {
+        Self::into_u128(amount)
+    }
+
+    pub fn dot_to_u128(amount: DOT<T>) -> Result<u128> {
+        Self::into_u128(amount)
+    }
+
+    fn into_u128<I: TryInto<u128>>(x: I) -> Result<u128> {
+        TryInto::<u128>::try_into(x).map_err(|_e| Error::RuntimeError)
+    }
+
     pub fn btc_to_dots(amount: PolkaBTC<T>) -> Result<DOT<T>> {
         let rate = Self::get_exchange_rate()?;
-        // XXX: for some reason amount.try_into() returns Result<usize, ...>
-        // instead of doing type inference properly
-        let raw_amount = TryInto::<u128>::try_into(amount).map_err(|_e| Error::RuntimeError)?;
+        let raw_amount = Self::into_u128(amount)?;
         let converted = rate.checked_mul(raw_amount).ok_or(Error::RuntimeError)?;
         let result = converted.try_into().map_err(|_e| Error::RuntimeError)?;
         Ok(result)
@@ -106,7 +116,7 @@ impl<T: Trait> Module<T> {
 
     pub fn dots_to_btc(amount: DOT<T>) -> Result<PolkaBTC<T>> {
         let rate = Self::get_exchange_rate()?;
-        let raw_amount = TryInto::<u128>::try_into(amount).map_err(|_e| Error::RuntimeError)?;
+        let raw_amount = Self::into_u128(amount)?;
         if raw_amount == 0 {
             return Ok(0.into());
         }
