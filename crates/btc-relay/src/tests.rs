@@ -10,7 +10,7 @@ use bitcoin::merkle::*;
 use bitcoin::parser::*;
 use bitcoin::types::*;
 use frame_support::{assert_err, assert_ok};
-use security::ErrorCode;
+use security::{ErrorCode, StatusCode};
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::convert::{TryFrom, TryInto};
 use x_core::Error;
@@ -498,6 +498,11 @@ fn swap_main_blockchain_succeeds() {
             main_position,
         );
 
+        // simulate error
+        let header = BTCRelay::get_block_header_from_height(&main, 2).unwrap();
+        BTCRelay::flag_block_error(header.block_hash, ErrorCode::NoDataBTCRelay).unwrap();
+        set_parachain_nodata_error();
+
         // insert the fork chain and headers
         let fork_chain_ref: u32 = 4;
         let fork_start: u32 = 5;
@@ -528,7 +533,7 @@ fn swap_main_blockchain_succeeds() {
             BTCRelay::_blocks_count(main_chain_ref) as u32
         );
 
-        assert_eq!(main.no_data, new_main.no_data);
+        assert_eq!(main.no_data, BTreeSet::new());
         assert_eq!(main.invalid, new_main.invalid);
 
         // check that the fork is deleted
@@ -536,6 +541,10 @@ fn swap_main_blockchain_succeeds() {
             Err(Error::InvalidChainID),
             BTCRelay::get_block_chain_from_id(fork_chain_ref)
         );
+
+        // check that the parachain has recovered
+        assert_ok!(ext::security::_ensure_parachain_status_running::<Test>());
+        assert!(!ext::security::_is_parachain_error_no_data_btcrelay::<Test>());
 
         // check that the old main chain is stored in a old fork
         let old_main = BTCRelay::get_block_chain_from_id(old_main_ref).unwrap();
@@ -1078,21 +1087,21 @@ fn test_clear_block_error_succeeds() {
             get_empty_block_chain_from_chain_id_and_height(chain_ref, start_height, block_height);
         blockchain.no_data.insert(block_height);
         blockchain.invalid.insert(block_height);
+        set_parachain_nodata_error();
+        ext::security::insert_error::<Test>(ErrorCode::InvalidBTCRelay);
 
         BTCRelay::set_block_chain_from_id(chain_ref, &blockchain);
 
-        let error_codes = vec![ErrorCode::NoDataBTCRelay, ErrorCode::InvalidBTCRelay];
-
-        for error in error_codes.iter() {
+        let clear_error = move |error: ErrorCode| {
             assert_ok!(BTCRelay::clear_block_error(
                 rich_header.block_hash,
                 error.clone()
             ));
             let curr_chain = BTCRelay::get_block_chain_from_id(chain_ref).unwrap();
 
-            if *error == ErrorCode::NoDataBTCRelay {
+            if error == ErrorCode::NoDataBTCRelay {
                 assert!(!curr_chain.no_data.contains(&block_height));
-            } else if *error == ErrorCode::InvalidBTCRelay {
+            } else if error == ErrorCode::InvalidBTCRelay {
                 assert!(!curr_chain.invalid.contains(&block_height));
             };
             let error_event = TestEvent::test_events(Event::ClearBlockError(
@@ -1101,7 +1110,20 @@ fn test_clear_block_error_succeeds() {
                 error.clone(),
             ));
             assert!(System::events().iter().any(|a| a.event == error_event));
-        }
+        };
+
+        clear_error(ErrorCode::NoDataBTCRelay);
+        // ensure not recovered while there are still invalid blocks
+        assert_err!(
+            ext::security::_ensure_parachain_status_running::<Test>(),
+            Error::ParachainNotRunning
+        );
+        assert!(ext::security::_is_parachain_error_invalid_btcrelay::<Test>());
+        clear_error(ErrorCode::InvalidBTCRelay);
+
+        assert_ok!(ext::security::_ensure_parachain_status_running::<Test>());
+        assert!(!ext::security::_is_parachain_error_invalid_btcrelay::<Test>());
+        assert!(!ext::security::_is_parachain_error_no_data_btcrelay::<Test>());
     })
 }
 
@@ -1901,4 +1923,10 @@ fn sample_example_real_txid() -> String {
 
 fn sample_example_real_transaction_hash() -> String {
     "b759d39a8596b70b3a46700b83e1edb247e17ba58df305421864fe7a9ac142ea".to_owned()
+}
+
+fn set_parachain_nodata_error() {
+    ext::security::insert_error::<Test>(ErrorCode::NoDataBTCRelay);
+    ext::security::set_parachain_status::<Test>(StatusCode::Error);
+    assert!(ext::security::_is_parachain_error_no_data_btcrelay::<Test>());
 }
