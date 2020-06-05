@@ -15,6 +15,7 @@ pub use x_core::Error;
 pub const ALICE: [u8; 32] = [0u8; 32];
 pub const BOB: [u8; 32] = [1u8; 32];
 pub const CLAIRE: [u8; 32] = [2u8; 32];
+pub const CONFIRMATIONS: u32 = 6;
 
 pub type BTCRelayCall = btc_relay::Call<Runtime>;
 pub type BTCRelayEvent = btc_relay::Event;
@@ -66,12 +67,11 @@ pub fn force_issue_tokens(
     treasury::Module::<Runtime>::mint(user.into(), tokens);
 }
 
-fn assert_store_main_chain_header_event(height: u32, hash: H256Le) {
+pub fn assert_store_main_chain_header_event(height: u32, hash: H256Le) {
     let store_event = Event::btc_relay(BTCRelayEvent::StoreMainChainHeader(height, hash));
     let events = SystemModule::events();
 
     // store only main chain header
-    // events.iter().for_each(|a| println!("{:?}",a.event));
     assert!(events.iter().any(|a| a.event == store_event));
 }
 
@@ -169,10 +169,14 @@ pub fn generate_transaction_and_mine(
     (tx_id, tx_block_height, bytes_proof, raw_tx)
 }
 
+#[allow(dead_code)]
 pub type SecurityModule = security::Module<Runtime>;
+#[allow(dead_code)]
 pub type SystemModule = system::Module<Runtime>;
 
+#[allow(dead_code)]
 pub type VaultRegistryCall = vault_registry::Call<Runtime>;
+#[allow(dead_code)]
 pub type OracleCall = exchange_rate_oracle::Call<Runtime>;
 
 pub struct ExtBuilder;
@@ -209,9 +213,11 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage)
         .unwrap();
 
-        btc_relay::GenesisConfig { confirmations: 6 }
-            .assimilate_storage(&mut storage)
-            .unwrap();
+        btc_relay::GenesisConfig {
+            confirmations: CONFIRMATIONS,
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
 
         vault_registry::GenesisConfig {
             secure_collateral_threshold: 100000,

@@ -479,7 +479,7 @@ impl<T: Trait> Module<T> {
         <ChainsIndex>::get(chain_id).ok_or(Error::InvalidChainID)
     }
     /// Get the current best block hash
-    fn get_best_block() -> H256Le {
+    pub fn get_best_block() -> H256Le {
         <BestBlock>::get()
     }
     /// Check if a best block hash is set
@@ -487,7 +487,7 @@ impl<T: Trait> Module<T> {
         <BestBlock>::exists()
     }
     /// get the best block height
-    fn get_best_block_height() -> u32 {
+    pub fn get_best_block_height() -> u32 {
         <BestBlockHeight>::get()
     }
     /// Get the current chain counter
