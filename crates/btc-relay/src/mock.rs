@@ -27,6 +27,7 @@ impl_outer_event! {
 }
 
 pub type AccountId = u64;
+pub const CONFIRMATIONS: u32 = 6;
 
 // For testing the pallet, we construct most of a mock runtime. This means
 // first constructing a configuration type (`Test`) which `impl`s each of the
@@ -80,9 +81,11 @@ impl ExtBuilder {
             .build_storage::<Test>()
             .unwrap();
 
-        GenesisConfig { confirmations: 6 }
-            .assimilate_storage(&mut storage)
-            .unwrap();
+        GenesisConfig {
+            confirmations: CONFIRMATIONS,
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
 
         sp_io::TestExternalities::from(storage)
     }

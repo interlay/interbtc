@@ -488,6 +488,7 @@ dependencies = [
  "replace",
  "security",
  "serde",
+ "serde_json",
  "sp-api",
  "sp-block-builder",
  "sp-consensus-aura",
