@@ -13,6 +13,12 @@ pub struct Block {
     pub test_txs: Vec<Transaction>,
 }
 
+impl Block {
+    fn get_raw_header(&self) -> RawBlockHeader {
+        RawBlockHeader::from_hex(&self.raw_header).expect("invalid raw header")
+    }
+}
+
 #[derive(Clone, Debug, Deserialize)]
 pub struct Transaction {
     pub txid: String,
