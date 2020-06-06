@@ -1,3 +1,4 @@
+use bitcoin::types::{H256Le, RawBlockHeader};
 use serde::Deserialize;
 use std::fs;
 use std::path::PathBuf;
@@ -8,21 +9,35 @@ const ERR_JSON_FORMAT: &'static str = "JSON was not well-formatted";
 #[derive(Clone, Debug, Deserialize)]
 pub struct Block {
     pub height: u32,
-    pub hash: String,
-    pub raw_header: String,
+    hash: String,
+    raw_header: String,
     pub test_txs: Vec<Transaction>,
 }
 
 impl Block {
-    fn get_raw_header(&self) -> RawBlockHeader {
+    pub fn get_block_hash(&self) -> H256Le {
+        H256Le::from_hex_be(&self.hash)
+    }
+
+    pub fn get_raw_header(&self) -> RawBlockHeader {
         RawBlockHeader::from_hex(&self.raw_header).expect("invalid raw header")
     }
 }
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct Transaction {
-    pub txid: String,
-    pub raw_merkle_proof: String,
+    txid: String,
+    raw_merkle_proof: String,
+}
+
+impl Transaction {
+    pub fn get_txid(&self) -> H256Le {
+        H256Le::from_hex_be(&self.txid)
+    }
+
+    pub fn get_raw_merkle_proof(&self) -> Vec<u8> {
+        hex::decode(&self.raw_merkle_proof).expect("Error parsing merkle proof")
+    }
 }
 
 pub fn get_bitcoin_testdata() -> Vec<Block> {
