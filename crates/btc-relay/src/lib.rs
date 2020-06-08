@@ -857,6 +857,9 @@ impl<T: Trait> Module<T> {
             Self::insert_block_hash(MAIN_CHAIN_ID, height, block);
         }
         <ChainsHashes>::remove_prefix(fork.chain_id);
+        if !fork.is_invalid() && !fork.is_no_data() {
+            Self::recover_if_needed()?
+        }
 
         Ok(())
     }
@@ -1048,6 +1051,10 @@ impl<T: Trait> Module<T> {
         };
 
         if block_exists {
+            if !blockchain.is_invalid() && !blockchain.is_no_data() {
+                Self::recover_if_needed()?
+            }
+
             // Store the updated blockchain entry
             Self::mutate_block_chain_from_id(chain_id, blockchain);
 
@@ -1141,6 +1148,16 @@ impl<T: Trait> Module<T> {
             Err(_) => {}
         }
         Ok(())
+    }
+
+    fn recover_if_needed() -> Result<(), Error> {
+        if ext::security::_is_parachain_error_invalid_btcrelay::<T>()
+            || ext::security::_is_parachain_error_no_data_btcrelay::<T>()
+        {
+            ext::security::recover_from_btc_relay_failure::<T>()
+        } else {
+            Ok(())
+        }
     }
 }
 
