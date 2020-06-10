@@ -13,20 +13,22 @@ version = '1.0.101'
 default-features = false
 features = ['derive']
 package = 'parity-scale-codec'
-version = '1.0.0'
+version = '1.3.0'
 
 [dependencies.primitive-types]
 default-features = false
-version = '0.7.0'
+version = '0.7.2'
 features= ['codec']
 
 [dependencies.sp-std]
+git = 'https://github.com/paritytech/substrate.git'
 default-features = false
-version = '2.0.0-alpha.5'
+version = '2.0.0-alpha.7'
 
 [dependencies.sp-core]
+git = 'https://github.com/paritytech/substrate.git'
 default-features = false
-version = '2.0.0-alpha.5'
+version = '2.0.0-alpha.7'
 
 [dependencies.sha2]
 default-features = false

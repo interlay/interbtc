@@ -105,6 +105,7 @@ decl_module! {
         /// * `amount` - amount of PolkaBTC
         /// * `vault` - address of the vault
         /// * `griefing_collateral` - amount of DOT
+        #[weight = 1000]
         fn request_issue(origin, amount: PolkaBTC<T>, vault_id: T::AccountId, griefing_collateral: DOT<T>)
             -> DispatchResult
         {
@@ -123,6 +124,7 @@ decl_module! {
         /// * `tx_block_height` - block number of backing chain
         /// * `merkle_proof` - raw bytes
         /// * `raw_tx` - raw bytes
+        #[weight = 1000]
         fn execute_issue(origin, issue_id: H256, tx_id: H256Le, tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
             -> DispatchResult
         {
@@ -137,6 +139,7 @@ decl_module! {
         ///
         /// * `origin` - sender of the transaction
         /// * `issue_id` - identifier of issue request as output from request_issue
+        #[weight = 1000]
         fn cancel_issue(origin, issue_id: H256)
             -> DispatchResult
         {

@@ -85,6 +85,7 @@ decl_module! {
         /// * `origin` - sender of the transaction
         /// * `amount` - amount of PolkaBTC
         /// * `griefing_collateral` - amount of DOT
+        #[weight = 1000]
         fn request_replace(origin, amount: PolkaBTC<T>, griefing_collateral: DOT<T>)
             -> DispatchResult
         {
@@ -99,6 +100,7 @@ decl_module! {
         ///
         /// * `origin` - sender of the transaction: the old vault
         /// * `replace_id` - the unique identifier of the replace request
+        #[weight = 1000]
         fn withdraw_replace(origin, replace_id: H256)
             -> DispatchResult
         {
@@ -114,6 +116,7 @@ decl_module! {
         /// * `origin` - the initiator of the transaction: the new vault
         /// * `replace_id` - the unique identifier for the specific request
         /// * `collateral` - the collateral for replacement
+        #[weight = 1000]
         fn accept_replace(origin, replace_id: H256, collateral: DOT<T>)
             -> DispatchResult
         {
@@ -130,6 +133,7 @@ decl_module! {
         /// * `old_vault` - the old vault of the replacement request
         /// * `btc_amount` - the btc amount to be transferred over from old to new
         /// * `collateral` - the collateral to be transferred over from old to new
+        #[weight = 1000]
         fn auction_replace(origin, old_vault: T::AccountId, btc_amount: PolkaBTC<T>, collateral: DOT<T>)
             -> DispatchResult
         {
@@ -148,6 +152,7 @@ decl_module! {
         /// * `tx_block_height` - the blocked height of the backing transaction
         /// * 'merkle_proof' - the merkle root of the block
         /// * `raw_tx` - the transaction id in bytes
+        #[weight = 1000]
         fn execute_replace(origin, replace_id: H256, tx_id: H256Le, tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
             let new_vault = ensure_signed(origin)?;
             Self::_execute_replace(new_vault, replace_id, tx_id, tx_block_height, merkle_proof, raw_tx)?;
@@ -160,6 +165,7 @@ decl_module! {
         ///
         /// * `origin` - sender of the transaction: the new vault
         /// * `replace_id` - the ID of the replacement request
+        #[weight = 1000]
         fn cancel_replace(origin, replace_id: H256) -> DispatchResult {
             let new_vault = ensure_signed(origin)?;
             Self::_cancel_replace(new_vault, replace_id)?;

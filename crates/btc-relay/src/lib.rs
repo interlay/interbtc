@@ -31,6 +31,7 @@ use sp_std::prelude::*;
 use system::ensure_signed;
 
 // Crates
+pub use bitcoin;
 use bitcoin::merkle::{MerkleProof, ProofResult};
 use bitcoin::parser::{parse_block_header, parse_transaction};
 use bitcoin::types::{
@@ -120,6 +121,7 @@ decl_module! {
         /// * `block_header_bytes` - 80 byte raw Bitcoin block header.
         /// * `block_height` - Bitcoin block height of the submitted
         /// block header.
+        #[weight = 1000]
         fn initialize(
             origin,
             raw_block_header: RawBlockHeader,
@@ -174,6 +176,7 @@ decl_module! {
         /// # Arguments
         ///
         /// * `raw_block_header` - 80 byte raw Bitcoin block header.
+        #[weight = 1000]
         fn store_block_header(
             origin, raw_block_header: RawBlockHeader
         ) -> DispatchResult {
@@ -301,6 +304,7 @@ decl_module! {
         /// of the BTC in the 1st  / payment UTXO
         /// * `op_return_id` - 32 byte hash identifier expected in
         /// OP_RETURN (replay protection)
+        #[weight = 1000]
         fn verify_and_validate_transaction(
             origin,
             tx_id: H256Le,
@@ -344,6 +348,7 @@ decl_module! {
         /// * `confirmations` - The number of confirmations needed to accept
         /// the proof
         /// * `insecure` - determines if checks against recommended global transaction confirmation are to be executed. Recommended: set to `true`
+        #[weight = 1000]
         fn verify_transaction_inclusion(
             origin,
             tx_id: H256Le,
@@ -374,6 +379,7 @@ decl_module! {
         /// of the BTC in the 1st  / payment UTXO
         /// * `op_return_id` - 32 byte hash identifier expected in
         /// OP_RETURN (replay protection)
+        #[weight = 1000]
         fn validate_transaction(
             origin,
             raw_tx: Vec<u8>,
@@ -625,7 +631,7 @@ impl<T: Trait> Module<T> {
     }
 
     fn _blocks_count(chain_id: u32) -> usize {
-        <ChainsHashes>::iter_prefix(chain_id).count()
+        <ChainsHashes>::iter_prefix_values(chain_id).count()
     }
 
     /// Add a new block header to an existing blockchain

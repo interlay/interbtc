@@ -34,6 +34,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::Get,
+    weights::Weight,
     IterableStorageMap,
 };
 use primitive_types::H256;
@@ -117,24 +118,13 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        fn on_initialize(n: T::BlockNumber) {
-            if let Err(e) = Self::begin_block(n) {
-                sp_runtime::print(e);
-            }
-        }
-
-        fn on_finalize(_n: T::BlockNumber) {
-            if let Err(e) = Self::end_block() {
-                sp_runtime::print(e);
-            }
-        }
-
         /// Registers a new Staked Relayer, locking the provided collateral, which must exceed `STAKED_RELAYER_STAKE`.
         ///
         /// # Arguments
         ///
         /// * `origin`: The account of the Staked Relayer to be registered
         /// * `stake`: to-be-locked collateral/stake in DOT
+        #[weight = 1000]
         fn register_staked_relayer(origin, stake: DOT<T>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
 
@@ -166,6 +156,7 @@ decl_module! {
         /// # Arguments
         ///
         /// * `origin`: The account of the Staked Relayer to be deregistered
+        #[weight = 1000]
         fn deregister_staked_relayer(origin) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             let staked_relayer = Self::get_active_staked_relayer(&signer)?;
@@ -181,6 +172,7 @@ decl_module! {
         /// # Arguments
         ///
         /// * `origin`: The account of the Staked Relayer to be activated
+        #[weight = 1000]
         fn activate_staked_relayer(origin) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             let staked_relayer = Self::get_inactive_staked_relayer(&signer)?;
@@ -204,6 +196,7 @@ decl_module! {
         /// # Arguments
         ///
         /// * `origin`: The account of the Staked Relayer to be deactivated
+        #[weight = 1000]
         fn deactivate_staked_relayer(origin) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             let staked_relayer = Self::get_active_staked_relayer(&signer)?;
@@ -221,6 +214,7 @@ decl_module! {
         /// * `add_error`: If the suggested status is Error, this set of ErrorCode indicates which error is to be added to the Errors mapping.
         /// * `remove_error`: ErrorCode to be removed from the Errors list.
         /// * `block_hash`: [Optional] When reporting an error related to BTC-Relay, this field indicates the affected Bitcoin block (header).
+        #[weight = 1000]
         fn suggest_status_update(origin, deposit: DOT<T>, status_code: StatusCode, add_error: Option<ErrorCode>, remove_error: Option<ErrorCode>, block_hash: Option<H256Le>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
 
@@ -269,6 +263,7 @@ decl_module! {
         /// * `origin`: The AccountId of the Staked Relayer casting the vote.
         /// * `status_update_id`: Identifier of the `StatusUpdate` voted upon in `StatusUpdates`.
         /// * `approve`: `True` or `False`, depending on whether the Staked Relayer agrees or disagrees with the suggested `StatusUpdate`.
+        #[weight = 1000]
         fn vote_on_status_update(origin, status_update_id: U256, approve: bool) -> DispatchResult {
             let signer = ensure_signed(origin)?;
 
@@ -296,6 +291,7 @@ decl_module! {
         /// * `origin`: The AccountId of the Governance Mechanism.
         /// * `status_code`: Suggested BTC Parachain status (`StatusCode` enum).
         /// * `errors`: If the suggested status is `Error`, this set of `ErrorCode` entries provides details on the occurred errors.
+        #[weight = 1000]
         fn force_status_update(origin, status_code: StatusCode, add_error: Option<ErrorCode>, remove_error: Option<ErrorCode>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             Self::only_governance(&signer)?;
@@ -327,6 +323,7 @@ decl_module! {
         ///
         /// * `origin`: The AccountId of the Governance Mechanism.
         /// * `staked_relayer_id`: The account of the Staked Relayer to be slashed.
+        #[weight = 1000]
         fn slash_staked_relayer(origin, staked_relayer_id: T::AccountId) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             Self::only_governance(&signer)?;
@@ -348,6 +345,7 @@ decl_module! {
         ///
         /// * `origin`: The AccountId of the Governance Mechanism.
         /// * `staked_relayer_id`: The account of the Staked Relayer to be slashed.
+        #[weight = 1000]
         fn report_vault_theft(origin, vault_id: T::AccountId, tx_id: H256Le, _tx_block_height: U256, _tx_index: u64, _merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             ensure!(
@@ -422,6 +420,7 @@ decl_module! {
 
         /// A Staked Relayer reports that a Vault is undercollateralized (i.e. below the LiquidationCollateralThreshold as defined in Vault Registry).
         /// If the collateral falls below this rate, we flag the Vault for liquidation and update the ParachainStatus to ERROR - adding LIQUIDATION to Errors.
+        #[weight = 1000]
         fn report_vault_under_liquidation_threshold(origin, vault_id: T::AccountId)  -> DispatchResult {
             let signer = ensure_signed(origin)?;
             ensure!(
@@ -479,6 +478,7 @@ decl_module! {
 
         /// A Staked Relayer reports that the Exchange Rate Oracle is offline. This function checks if the last exchange
         /// rate data in the Exchange Rate Oracle is indeed older than the indicated threshold.
+        #[weight = 1000]
         fn report_oracle_offline(origin) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             ensure!(
@@ -504,6 +504,19 @@ decl_module! {
             ));
 
             Ok(())
+        }
+
+        fn on_initialize(n: T::BlockNumber) -> Weight {
+            if let Err(e) = Self::begin_block(n) {
+                sp_runtime::print(e);
+            }
+            0
+        }
+
+        fn on_finalize(_n: T::BlockNumber) {
+            if let Err(e) = Self::end_block() {
+                sp_runtime::print(e);
+            }
         }
     }
 }
