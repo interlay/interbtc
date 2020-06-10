@@ -43,52 +43,43 @@ version = '0.7.2'
 features= ['codec']
 
 [dependencies.sp-std]
-git = 'https://github.com/paritytech/substrate.git'
 default-features = false
-tag = 'v2.0.0-alpha.7'
+version = '2.0.0-alpha.7'
 
 [dependencies.sp-runtime]
-git = 'https://github.com/paritytech/substrate.git'
 default-features = false
-tag = 'v2.0.0-alpha.7'
+version = '2.0.0-alpha.7'
 
 [dependencies.sp-arithmetic]
-git = 'https://github.com/paritytech/substrate.git'
 default-features = false
-tag = 'v2.0.0-alpha.7'
+version = '2.0.0-alpha.7'
 
 [dependencies.frame-support]
-git = 'https://github.com/paritytech/substrate.git'
 default-features = false
-tag = 'v2.0.0-alpha.7'
+version = '2.0.0-alpha.7'
 
 [dependencies.system]
-git = 'https://github.com/paritytech/substrate.git'
 default-features = false
 package = 'frame-system'
-tag = 'v2.0.0-alpha.7'
+version = '2.0.0-alpha.7'
 
 [dependencies.sp-io]
-git = 'https://github.com/paritytech/substrate.git'
 default-features = false
-tag = 'v2.0.0-alpha.7'
+version = '2.0.0-alpha.7'
 
 [dependencies.sp-core]
-git = 'https://github.com/paritytech/substrate.git'
 default-features = false
-tag = 'v2.0.0-alpha.7'
+version = '2.0.0-alpha.7'
 
 [dependencies.timestamp]
-git = 'https://github.com/paritytech/substrate.git'
 default-features = false
 package = 'pallet-timestamp'
-tag = 'v2.0.0-alpha.7'
+version = '2.0.0-alpha.7'
 
 [dependencies.pallet-balances]
-git = 'https://github.com/paritytech/substrate.git'
 default-features = false
 package = 'pallet-balances'
-tag = 'v2.0.0-alpha.7'
+version = '2.0.0-alpha.7'
 
 [dependencies.x-core]
 default-features = false

@@ -5,14 +5,12 @@ authors = ["Interlay Ltd"]
 edition = "2018"
 
 [dependencies.sp-std]
-git = 'https://github.com/paritytech/substrate.git'
 default-features = false
-tag = 'v2.0.0-alpha.7'
+version = '2.0.0-alpha.7'
 
 [dependencies.frame-support]
-git = 'https://github.com/paritytech/substrate.git'
 default-features = false
-tag = 'v2.0.0-alpha.7'
+version = '2.0.0-alpha.7'
 
 [dependencies.codec]
 default-features = false

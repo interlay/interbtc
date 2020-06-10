@@ -6,7 +6,7 @@ use sc_consensus::LongestChain;
 use sc_executor::native_executor_instance;
 pub use sc_executor::NativeExecutor;
 use sc_finality_grandpa::{
-    self, FinalityProofProvider as GrandpaFinalityProofProvider, SharedVoterState,
+    FinalityProofProvider as GrandpaFinalityProofProvider, SharedVoterState,
     StorageAndProofProvider,
 };
 use sc_service::{error::Error as ServiceError, AbstractService, Configuration, ServiceBuilder};
