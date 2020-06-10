@@ -273,7 +273,7 @@ dependencies = [
 
 [[package]]
 name = "bitcoin"
-version = "0.1.0"
+version = "2.0.0-alpha.7"
 dependencies = [
  "hex",
  "mocktopus",
@@ -479,7 +479,7 @@ dependencies = [
 
 [[package]]
 name = "btc-relay"
-version = "0.1.0"
+version = "2.0.0-alpha.7"
 dependencies = [
  "bitcoin",
  "frame-support",
@@ -635,7 +635,7 @@ dependencies = [
 
 [[package]]
 name = "collateral"
-version = "0.1.0"
+version = "2.0.0-alpha.7"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -895,7 +895,7 @@ dependencies = [
 
 [[package]]
 name = "exchange-rate-oracle"
-version = "0.1.0"
+version = "2.0.0-alpha.7"
 dependencies = [
  "collateral",
  "frame-support",
@@ -1793,7 +1793,7 @@ checksum = "47be2f14c678be2fdcab04ab1171db51b2762ce6f0a8ee87c8dd4a04ed216135"
 
 [[package]]
 name = "issue"
-version = "0.1.0"
+version = "2.0.0-alpha.7"
 dependencies = [
  "bitcoin",
  "btc-relay",
@@ -3726,7 +3726,7 @@ dependencies = [
 
 [[package]]
 name = "redeem"
-version = "0.1.0"
+version = "2.0.0-alpha.7"
 dependencies = [
  "bitcoin",
  "btc-relay",
@@ -3806,7 +3806,7 @@ dependencies = [
 
 [[package]]
 name = "replace"
-version = "0.1.0"
+version = "2.0.0-alpha.7"
 dependencies = [
  "bitcoin",
  "btc-relay",
@@ -4720,7 +4720,7 @@ dependencies = [
 
 [[package]]
 name = "security"
-version = "0.1.0"
+version = "2.0.0-alpha.7"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -5537,7 +5537,7 @@ checksum = "dba1a27d3efae4351c8051072d619e3ade2820635c3958d826bfea39d59b54c8"
 
 [[package]]
 name = "staked-relayers"
-version = "0.1.0"
+version = "2.0.0-alpha.7"
 dependencies = [
  "bitcoin",
  "btc-relay",
@@ -6184,7 +6184,7 @@ dependencies = [
 
 [[package]]
 name = "treasury"
-version = "0.1.0"
+version = "2.0.0-alpha.7"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -6347,7 +6347,7 @@ dependencies = [
 
 [[package]]
 name = "vault-registry"
-version = "0.1.0"
+version = "2.0.0-alpha.7"
 dependencies = [
  "collateral",
  "exchange-rate-oracle",
@@ -6645,7 +6645,7 @@ dependencies = [
 
 [[package]]
 name = "x-core"
-version = "0.1.0"
+version = "2.0.0-alpha.7"
 dependencies = [
  "frame-support",
  "parity-scale-codec",

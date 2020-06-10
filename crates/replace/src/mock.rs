@@ -1,7 +1,11 @@
 /// Mocking the test environment
 use crate::{Module, Trait};
 use frame_support::{
-    assert_ok, impl_outer_event, impl_outer_origin, parameter_types, weights::Weight,
+    assert_ok, impl_outer_event, impl_outer_origin, parameter_types,
+    weights::{
+        constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight},
+        Weight,
+    },
 };
 use pallet_balances as balances;
 use sp_core::H256;
@@ -53,25 +57,28 @@ parameter_types! {
 }
 
 impl system::Trait for Test {
-    type Origin = Origin;
+    type AccountId = AccountId;
     type Call = ();
+    type Lookup = IdentityLookup<Self::AccountId>;
     type Index = u64;
     type BlockNumber = BlockNumber;
     type Hash = H256;
     type Hashing = BlakeTwo256;
-    type AccountId = AccountId;
-    type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
     type Event = TestEvent;
+    type Origin = Origin;
     type BlockHashCount = BlockHashCount;
     type MaximumBlockWeight = MaximumBlockWeight;
     type MaximumBlockLength = MaximumBlockLength;
     type AvailableBlockRatio = AvailableBlockRatio;
+    type BlockExecutionWeight = BlockExecutionWeight;
+    type DbWeight = RocksDbWeight;
+    type ExtrinsicBaseWeight = ExtrinsicBaseWeight;
     type Version = ();
     type ModuleToIndex = ();
-    type AccountData = pallet_balances::AccountData<u64>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
+    type AccountData = pallet_balances::AccountData<u64>;
 }
 
 parameter_types! {
