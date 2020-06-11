@@ -24,6 +24,7 @@ macro_rules! assert_not_emitted {
 #[test]
 fn set_exchange_rate_success() {
     run_test(|| {
+        System::set_block_number(1);
         ExchangeRateOracle::get_authorized_oracle.mock_safe(|| MockResult::Return(3));
         let result = ExchangeRateOracle::set_exchange_rate(Origin::signed(3), 100);
         assert_ok!(result);

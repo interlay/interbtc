@@ -541,6 +541,7 @@ fn test_cancel_replace_period_not_expired_current_height_0_fails() {
 #[test]
 fn test_request_replace_with_amount_exceed_vault_issued_tokens_succeeds() {
     run_test(|| {
+        System::set_block_number(1);
         let vault_id = BOB;
         let amount = 6;
         let replace_id = H256::zero();
@@ -574,6 +575,7 @@ fn test_request_replace_with_amount_exceed_vault_issued_tokens_succeeds() {
 #[test]
 fn test_request_replace_with_amount_less_than_vault_issued_tokens_succeeds() {
     run_test(|| {
+        System::set_block_number(1);
         let vault_id = BOB;
         let amount = 3;
         let replace_id = H256::zero();
@@ -606,6 +608,7 @@ fn test_request_replace_with_amount_less_than_vault_issued_tokens_succeeds() {
 #[test]
 fn test_withdraw_replace_succeeds() {
     run_test(|| {
+        System::set_block_number(1);
         let vault_id = BOB;
         let replace_id = H256::zero();
 
@@ -637,6 +640,7 @@ fn test_withdraw_replace_succeeds() {
 #[test]
 fn test_accept_replace_succeeds() {
     run_test(|| {
+        System::set_block_number(1);
         let vault_id = BOB;
         let replace_id = H256::zero();
         let collateral = 20_000;
@@ -667,6 +671,7 @@ fn test_accept_replace_succeeds() {
 #[test]
 fn test_auction_replace_succeeds() {
     run_test(|| {
+        System::set_block_number(1);
         let old_vault_id = ALICE;
         let new_vault_id = BOB;
         let btc_amount = 1000;
@@ -714,6 +719,7 @@ fn test_auction_replace_succeeds() {
 #[test]
 fn test_execute_replace_succeeds() {
     run_test(|| {
+        System::set_block_number(1);
         let old_vault_id = ALICE;
         let new_vault_id = BOB;
         let replace_id = H256::zero();
@@ -765,6 +771,7 @@ fn test_execute_replace_succeeds() {
 #[test]
 fn test_cancel_replace_succeeds() {
     run_test(|| {
+        System::set_block_number(1);
         let new_vault_id = BOB;
         let old_vault_id = ALICE;
         let replace_id = H256::zero();
@@ -857,6 +864,7 @@ fn test_cancel_replace_parachain_not_running_fails() {
 #[test]
 fn test_withdraw_replace_parachain_not_running_succeeds() {
     run_test(|| {
+        System::set_block_number(1);
         let vault_id = BOB;
         let replace_id = H256::zero();
 

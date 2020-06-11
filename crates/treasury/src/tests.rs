@@ -20,6 +20,7 @@ fn test_total_supply_correct() {
 #[test]
 fn test_transfer_succeeds() {
     run_test(|| {
+        System::set_block_number(1);
         let sender = Origin::signed(ALICE);
         let receiver = BOB;
         let amount: Balance = 3;
@@ -73,6 +74,7 @@ fn test_transfer_fails() {
 #[test]
 fn test_mint_succeeds() {
     run_test(|| {
+        System::set_block_number(1);
         let requester = ALICE;
         let amount: Balance = 5;
 
@@ -96,6 +98,7 @@ fn test_mint_succeeds() {
 #[test]
 fn test_lock_succeeds() {
     run_test(|| {
+        System::set_block_number(1);
         let redeemer = ALICE;
         let amount = ALICE_BALANCE;
 
@@ -144,6 +147,7 @@ fn test_lock_fails() {
 #[test]
 fn test_burn_succeeds() {
     run_test(|| {
+        System::set_block_number(1);
         let redeemer = ALICE;
         let amount = ALICE_BALANCE;
 
@@ -195,6 +199,7 @@ fn test_burn_fails() {
 #[test]
 fn test_burn_partially_succeeds() {
     run_test(|| {
+        System::set_block_number(1);
         let redeemer = ALICE;
         let amount = ALICE_BALANCE;
         let burn_amount = amount - 10;

@@ -10,6 +10,8 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
         // load blocks with transactions
         let test_data = get_bitcoin_testdata();
 
+        SystemModule::set_block_number(1);
+
         // store all block headers. parachain_genesis is the first block
         // known in the parachain. Any block before will be rejected
         let parachain_genesis_height = test_data[0].height;
