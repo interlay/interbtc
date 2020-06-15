@@ -66,7 +66,6 @@ fn create_sample_vault() -> <Test as system::Trait>::AccountId {
 #[test]
 fn register_vault_succeeds() {
     run_test(|| {
-        System::set_block_number(1);
         let id = create_sample_vault();
         assert_emitted!(Event::RegisterVault(id, DEFAULT_COLLATERAL));
     });
@@ -75,7 +74,6 @@ fn register_vault_succeeds() {
 #[test]
 fn register_vault_fails_when_given_collateral_too_low() {
     run_test(|| {
-        System::set_block_number(1);
         VaultRegistry::get_minimum_collateral_vault.mock_safe(|| MockResult::Return(200));
         let id = 3;
         let collateral = 100;
@@ -88,7 +86,6 @@ fn register_vault_fails_when_given_collateral_too_low() {
 #[test]
 fn register_vault_fails_when_account_funds_too_low() {
     run_test(|| {
-        System::set_block_number(1);
         let collateral = DEFAULT_COLLATERAL + 1;
         let result =
             VaultRegistry::register_vault(Origin::signed(DEFAULT_ID), collateral, H160::zero());
@@ -100,7 +97,6 @@ fn register_vault_fails_when_account_funds_too_low() {
 #[test]
 fn register_vault_fails_when_already_registered() {
     run_test(|| {
-        System::set_block_number(1);
         let id = create_sample_vault();
         let result =
             VaultRegistry::register_vault(Origin::signed(id), DEFAULT_COLLATERAL, H160::zero());
@@ -112,7 +108,6 @@ fn register_vault_fails_when_already_registered() {
 #[test]
 fn lock_additional_collateral_succeeds() -> UnitResult {
     run_test(|| {
-        System::set_block_number(1);
         let id = create_vault(RICH_ID);
         let additional = RICH_COLLATERAL - DEFAULT_COLLATERAL;
         let res = VaultRegistry::lock_additional_collateral(Origin::signed(id), additional);
@@ -141,7 +136,6 @@ fn lock_additional_collateral_fails_when_vault_does_not_exist() {
 #[test]
 fn withdraw_collateral_succeeds() -> UnitResult {
     run_test(|| {
-        System::set_block_number(1);
         let id = create_sample_vault();
         let res = VaultRegistry::withdraw_collateral(Origin::signed(id), 50);
         assert_ok!(res);
@@ -173,7 +167,6 @@ fn withdraw_collateral_fails_when_not_enough_collateral() {
 #[test]
 fn increase_to_be_issued_tokens_succeeds() -> UnitResult {
     run_test(|| {
-        System::set_block_number(1);
         let id = create_sample_vault();
         set_default_thresholds();
         let res = VaultRegistry::_increase_to_be_issued_tokens(&id, 50);
@@ -201,7 +194,6 @@ fn increase_to_be_issued_tokens_fails_with_insufficient_collateral() -> UnitResu
 #[test]
 fn decrease_to_be_issued_tokens_succeeds() -> UnitResult {
     run_test(|| {
-        System::set_block_number(1);
         let id = create_sample_vault();
         let mut vault = VaultRegistry::_get_vault_from_id(&id)?;
         set_default_thresholds();
@@ -234,7 +226,6 @@ fn decrease_to_be_issued_tokens_fails_with_insufficient_tokens() -> UnitResult {
 #[test]
 fn issue_tokens_succeeds() -> UnitResult {
     run_test(|| {
-        System::set_block_number(1);
         let id = create_sample_vault();
         let mut vault = VaultRegistry::_get_vault_from_id(&id)?;
         set_default_thresholds();
@@ -268,7 +259,6 @@ fn issue_tokens_fails_with_insufficient_tokens() -> UnitResult {
 #[test]
 fn increase_to_be_redeemed_tokens_succeeds() -> UnitResult {
     run_test(|| {
-        System::set_block_number(1);
         let id = create_sample_vault();
         let mut vault = VaultRegistry::_get_vault_from_id(&id)?;
 
@@ -305,7 +295,6 @@ fn increase_to_be_redeemed_tokens_fails_with_insufficient_tokens() -> UnitResult
 #[test]
 fn decrease_to_be_redeemed_tokens_succeeds() -> UnitResult {
     run_test(|| {
-        System::set_block_number(1);
         let id = create_sample_vault();
         let mut vault = VaultRegistry::_get_vault_from_id(&id)?;
         set_default_thresholds();
@@ -342,7 +331,6 @@ fn decrease_to_be_redeemed_tokens_fails_with_insufficient_tokens() -> UnitResult
 #[test]
 fn decrease_tokens_succeeds() -> UnitResult {
     run_test(|| {
-        System::set_block_number(1);
         let id = create_sample_vault();
         let user_id = 5;
         set_default_thresholds();
@@ -378,7 +366,6 @@ fn decrease_tokens_fails_with_insufficient_tokens() -> UnitResult {
 #[test]
 fn redeem_tokens_succeeds() -> UnitResult {
     run_test(|| {
-        System::set_block_number(1);
         let id = create_sample_vault();
         set_default_thresholds();
         VaultRegistry::_increase_to_be_issued_tokens(&id, 50)?;
@@ -412,7 +399,6 @@ fn redeem_tokens_fails_with_insufficient_tokens() -> UnitResult {
 #[test]
 fn redeem_tokens_premium_succeeds() -> UnitResult {
     run_test(|| {
-        System::set_block_number(1);
         let id = create_sample_vault();
         let user_id = 5;
         set_default_thresholds();
@@ -438,7 +424,6 @@ fn redeem_tokens_premium_succeeds() -> UnitResult {
 #[test]
 fn redeem_tokens_premium_fails_with_insufficient_tokens() -> UnitResult {
     run_test(|| {
-        System::set_block_number(1);
         let id = create_sample_vault();
         let user_id = 5;
         set_default_thresholds();
@@ -455,7 +440,6 @@ fn redeem_tokens_premium_fails_with_insufficient_tokens() -> UnitResult {
 #[test]
 fn redeem_tokens_liquidation_succeeds() -> UnitResult {
     run_test(|| {
-        System::set_block_number(1);
         let id = create_sample_vault();
         <crate::LiquidationVault<Test>>::put(id);
         let user_id = 5;
@@ -481,7 +465,6 @@ fn redeem_tokens_liquidation_succeeds() -> UnitResult {
 #[test]
 fn redeem_tokens_liquidation_does_not_call_recover_when_unnecessary() -> UnitResult {
     run_test(|| {
-        System::set_block_number(1);
         let id = create_sample_vault();
         <crate::LiquidationVault<Test>>::put(id);
         let user_id = 5;
@@ -509,7 +492,6 @@ fn redeem_tokens_liquidation_does_not_call_recover_when_unnecessary() -> UnitRes
 #[test]
 fn redeem_tokens_liquidation_fails_with_insufficient_tokens() -> UnitResult {
     run_test(|| {
-        System::set_block_number(1);
         let id = create_sample_vault();
         let user_id = 5;
         <crate::LiquidationVault<Test>>::put(id);
@@ -525,7 +507,6 @@ fn redeem_tokens_liquidation_fails_with_insufficient_tokens() -> UnitResult {
 #[test]
 fn replace_tokens_liquidation_succeeds() -> UnitResult {
     run_test(|| {
-        System::set_block_number(1);
         let old_id = create_sample_vault();
         let new_id = create_vault(DEFAULT_ID + 1);
         set_default_thresholds();
@@ -556,7 +537,6 @@ fn replace_tokens_liquidation_succeeds() -> UnitResult {
 #[test]
 fn replace_tokens_liquidation_fails_with_insufficient_tokens() -> UnitResult {
     run_test(|| {
-        System::set_block_number(1);
         let old_id = create_sample_vault();
         let new_id = create_vault(DEFAULT_ID + 1);
 
@@ -571,7 +551,6 @@ fn replace_tokens_liquidation_fails_with_insufficient_tokens() -> UnitResult {
 #[test]
 fn liquidate_succeeds() -> UnitResult {
     run_test(|| {
-        System::set_block_number(1);
         let id = create_sample_vault();
         let liquidation_id = create_vault(DEFAULT_ID + 1);
         <crate::LiquidationVault<Test>>::put(liquidation_id);

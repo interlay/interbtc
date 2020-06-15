@@ -273,7 +273,7 @@ dependencies = [
 
 [[package]]
 name = "bitcoin"
-version = "2.0.0-alpha.7"
+version = "0.1.1"
 dependencies = [
  "hex",
  "mocktopus",

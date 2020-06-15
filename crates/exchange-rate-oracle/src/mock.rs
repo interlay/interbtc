@@ -139,5 +139,8 @@ where
     T: FnOnce() -> (),
 {
     clear_mocks();
-    ExtBuilder::build().execute_with(test);
+    ExtBuilder::build().execute_with(|| {
+        System::set_block_number(1);
+        test();
+    });
 }

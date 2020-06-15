@@ -133,7 +133,6 @@ fn test_recover_from_<F>(recover: F, error_codes: Vec<ErrorCode>)
 where
     F: FnOnce() -> DispatchResult,
 {
-    System::set_block_number(1);
     for err in &error_codes {
         Security::insert_error(err.clone());
     }

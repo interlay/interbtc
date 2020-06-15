@@ -1,6 +1,6 @@
 [package]
 name = 'bitcoin'
-version = '2.0.0-alpha.7'
+version = '0.1.1'
 authors = ['Interlay Ltd <dominik@interlay.io>']
 edition = '2018'
 

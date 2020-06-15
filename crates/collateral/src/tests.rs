@@ -41,7 +41,6 @@ fn test_total_collateral_correct() {
 #[test]
 fn test_lock_collateral_succeeds() {
     run_test(|| {
-        System::set_block_number(1);
         let sender = ALICE;
         let amount: Balance = 5;
 
@@ -87,7 +86,6 @@ fn test_lock_collateral_fails() {
 #[test]
 fn test_release_collateral_succeeds() {
     run_test(|| {
-        System::set_block_number(1);
         let sender = ALICE;
         let amount = ALICE_BALANCE;
 
@@ -134,7 +132,6 @@ fn test_release_collateral_fails() {
 #[test]
 fn test_release_collateral_partially_succeeds() {
     run_test(|| {
-        System::set_block_number(1);
         let sender = ALICE;
         let amount = ALICE_BALANCE;
         let release_amount = ALICE_BALANCE - 10;
@@ -162,7 +159,6 @@ fn test_release_collateral_partially_succeeds() {
 #[test]
 fn test_slash_collateral_succeeds() {
     run_test(|| {
-        System::set_block_number(1);
         let sender = ALICE;
         let receiver = BOB;
         let amount = ALICE_BALANCE;
@@ -217,7 +213,6 @@ fn test_slash_collateral_fails() {
 #[test]
 fn test_slash_collateral_partially_succeeds() {
     run_test(|| {
-        System::set_block_number(1);
         let sender = ALICE;
         let receiver = BOB;
         let amount = ALICE_BALANCE;

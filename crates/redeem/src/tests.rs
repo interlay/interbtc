@@ -126,8 +126,6 @@ fn test_request_redeem_fails_with_vault_not_found() {
 #[test]
 fn test_request_redeem_fails_with_vault_banned() {
     run_test(|| {
-        System::set_block_number(1);
-
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
@@ -152,7 +150,6 @@ fn test_request_redeem_fails_with_vault_banned() {
 fn test_request_redeem_fails_with_amount_exceeds_vault_balance() {
     run_test(|| {
         ext::oracle::btc_to_dots::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
-        System::set_block_number(1);
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
@@ -183,7 +180,6 @@ fn test_request_redeem_fails_with_amount_exceeds_vault_balance() {
 fn test_request_redeem_succeeds_in_running_state() {
     run_test(|| {
         ext::oracle::btc_to_dots::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
-        System::set_block_number(1);
         <vault_registry::Module<Test>>::_insert_vault(
             &BOB,
             vault_registry::Vault {
@@ -270,7 +266,6 @@ fn test_request_redeem_succeeds_in_error_state() {
         Redeem::get_partial_redeem_factor.mock_safe(|| MockResult::Return(Ok(50_000)));
 
         ext::oracle::btc_to_dots::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
-        System::set_block_number(1);
 
         let redeemer = ALICE;
         let amount = 10 * 100_000_000;
@@ -527,8 +522,6 @@ fn test_cancel_redeem_fails_with_time_not_expired() {
 #[test]
 fn test_cancel_redeem_succeeds() {
     run_test(|| {
-        System::set_block_number(1);
-
         inject_redeem_request(
             H256([0u8; 32]),
             RedeemRequest {

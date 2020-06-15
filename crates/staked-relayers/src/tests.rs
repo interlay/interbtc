@@ -66,7 +66,6 @@ fn test_register_staked_relayer_succeeds() {
         let amount: Balance = 20;
 
         ext::collateral::lock_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-        System::set_block_number(1);
 
         assert_ok!(Staking::register_staked_relayer(relayer.clone(), amount));
         assert_emitted!(Event::RegisterStakedRelayer(ALICE, 11, amount));
@@ -163,7 +162,6 @@ fn test_deregister_staked_relayer_fails_with_status_update_found() {
 #[test]
 fn test_deregister_staked_relayer_succeeds() {
     run_test(|| {
-        System::set_block_number(1);
         let relayer = Origin::signed(ALICE);
         let amount: Balance = 3;
         inject_active_staked_relayer(&ALICE, amount);
@@ -293,7 +291,6 @@ fn test_suggest_status_update_fails_with_insufficient_deposit() {
 #[test]
 fn test_suggest_status_update_succeeds() {
     run_test(|| {
-        System::set_block_number(1);
         Staking::only_governance.mock_safe(|_| MockResult::Return(Ok(())));
         inject_active_staked_relayer(&ALICE, 20);
 
@@ -387,7 +384,6 @@ fn test_vote_on_status_update_fails_with_staked_relayers_only() {
 #[test]
 fn test_vote_on_status_update_succeeds() {
     run_test(|| {
-        System::set_block_number(1);
         let amount: Balance = 3;
         inject_active_staked_relayer(&ALICE, amount);
         inject_active_staked_relayer(&BOB, amount);
@@ -456,7 +452,6 @@ fn test_vote_on_status_update_fails_with_vote_already_cast() {
 #[test]
 fn test_execute_status_update_fails_with_insufficient_yes_votes() {
     run_test(|| {
-        System::set_block_number(1);
         let amount: Balance = 3;
         inject_active_staked_relayer(&ALICE, amount);
         inject_active_staked_relayer(&BOB, amount);
@@ -517,7 +512,6 @@ fn test_execute_status_update_fails_with_no_block_hash() {
 #[test]
 fn test_execute_status_update_succeeds() {
     run_test(|| {
-        System::set_block_number(1);
         let amount: Balance = 3;
         inject_active_staked_relayer(&ALICE, amount);
         inject_active_staked_relayer(&BOB, amount);
@@ -555,7 +549,6 @@ fn test_execute_status_update_succeeds() {
 #[test]
 fn test_reject_status_update_fails_with_insufficient_no_votes() {
     run_test(|| {
-        System::set_block_number(1);
         let amount: Balance = 3;
         inject_active_staked_relayer(&ALICE, amount);
         inject_active_staked_relayer(&BOB, amount);
@@ -579,7 +572,6 @@ fn test_reject_status_update_fails_with_insufficient_no_votes() {
 #[test]
 fn test_reject_status_update_succeeds() {
     run_test(|| {
-        System::set_block_number(1);
         let amount: Balance = 3;
         inject_active_staked_relayer(&ALICE, amount);
         inject_active_staked_relayer(&BOB, amount);
@@ -613,7 +605,6 @@ fn test_force_status_update_fails_with_governance_only() {
 #[test]
 fn test_force_status_update_succeeds() {
     run_test(|| {
-        System::set_block_number(1);
         Staking::only_governance.mock_safe(|_| MockResult::Return(Ok(())));
 
         assert_ok!(Staking::force_status_update(
@@ -666,7 +657,6 @@ fn test_slash_staked_relayer_fails_with_not_registered() {
 #[test]
 fn test_slash_staked_relayer_succeeds() {
     run_test(|| {
-        System::set_block_number(1);
         Staking::only_governance.mock_safe(|_| MockResult::Return(Ok(())));
         let amount: Balance = 5;
         inject_active_staked_relayer(&BOB, amount);
@@ -723,7 +713,6 @@ fn test_report_vault_theft_fails_with_staked_relayers_only() {
 #[test]
 fn test_report_vault_under_liquidation_threshold_succeeds() {
     run_test(|| {
-        System::set_block_number(1);
         let relayer = ALICE;
         let vault = BOB;
         let collateral_in_dot = 10;
@@ -801,7 +790,6 @@ fn test_report_oracle_offline_fails_with_oracle_online() {
 #[test]
 fn test_report_oracle_offline_succeeds() {
     run_test(|| {
-        System::set_block_number(1);
         let relayer = Origin::signed(ALICE);
         let amount: Balance = 3;
         inject_active_staked_relayer(&ALICE, amount);

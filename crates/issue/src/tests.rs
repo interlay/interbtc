@@ -128,7 +128,6 @@ fn test_request_issue_insufficient_collateral_fails() {
 #[test]
 fn test_request_issue_succeeds() {
     run_test(|| {
-        System::set_block_number(1);
         let origin = ALICE;
         let vault = BOB;
         let amount: Balance = 3;
@@ -184,7 +183,6 @@ fn test_execute_issue_commit_period_expired_fails() {
 #[test]
 fn test_execute_issue_succeeds() {
     run_test(|| {
-        System::set_block_number(1);
         ext::vault_registry::get_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
         ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));

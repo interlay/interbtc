@@ -107,7 +107,6 @@ fn test_get_block_chain_from_id_empty_chain_fails() {
 #[test]
 fn initialize_once_succeeds() {
     run_test(|| {
-        System::set_block_number(1);
         let block_height: u32 = 1;
         let block_header = RawBlockHeader::from_hex(sample_block_header_hex()).unwrap();
         let block_header_hash = block_header.hash();
@@ -144,7 +143,6 @@ fn initialize_best_block_already_set_fails() {
 #[test]
 fn store_block_header_on_mainchain_succeeds() {
     run_test(|| {
-        System::set_block_number(1);
         BTCRelay::verify_block_header.mock_safe(|h| {
             MockResult::Return(Ok(BlockHeader::from_le_bytes(h.as_bytes()).unwrap()))
         });
@@ -186,7 +184,6 @@ fn store_block_header_on_mainchain_succeeds() {
 #[test]
 fn store_block_header_on_fork_succeeds() {
     run_test(|| {
-        System::set_block_number(1);
         BTCRelay::verify_block_header.mock_safe(|h| MockResult::Return(parse_block_header(&h)));
         BTCRelay::block_header_exists.mock_safe(|_| MockResult::Return(true));
 
@@ -331,7 +328,6 @@ fn check_and_do_reorg_swap_fork_position() {
 #[test]
 fn check_and_do_reorg_new_fork_is_main_chain() {
     run_test(|| {
-        System::set_block_number(1);
         // insert the main chain in Chains and ChainsIndex
         let main_chain_ref: u32 = 0;
         let main_start_height: u32 = 4;
@@ -382,7 +378,6 @@ fn check_and_do_reorg_new_fork_is_main_chain() {
 #[test]
 fn check_and_do_reorg_new_fork_below_stable_transaction_confirmations() {
     run_test(|| {
-        System::set_block_number(1);
         // insert the main chain in Chains and ChainsIndex
         let main_chain_ref: u32 = 0;
         let main_start_height: u32 = 4;
@@ -997,7 +992,6 @@ fn test_verify_and_validate_transaction_succeeds() {
 #[test]
 fn test_flag_block_error_succeeds() {
     run_test(|| {
-        System::set_block_number(1);
         let chain_ref: u32 = 1;
         let start_height: u32 = 10;
         let block_height: u32 = 100;
@@ -1075,7 +1069,6 @@ fn test_flag_block_error_fails() {
 #[test]
 fn test_clear_block_error_succeeds() {
     run_test(|| {
-        System::set_block_number(1);
         let chain_ref: u32 = 1;
         let start_height: u32 = 15;
         let block_height: u32 = 100;

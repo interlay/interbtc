@@ -172,5 +172,8 @@ where
     clear_mocks();
     ext::oracle::dots_to_btc::<Test>.mock_safe(|v| MockResult::Return(Ok(v)));
     ext::oracle::btc_to_dots::<Test>.mock_safe(|v| MockResult::Return(Ok(v)));
-    ExtBuilder::build().execute_with(test)
+    ExtBuilder::build().execute_with(|| {
+        System::set_block_number(1);
+        test()
+    })
 }
