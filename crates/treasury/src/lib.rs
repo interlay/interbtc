@@ -83,6 +83,7 @@ decl_module! {
         /// * `origin` - sender of the transaction
         /// * `receiver` - receiver of the transaction
         /// * `amount` - amount of PolkaBTC
+        #[weight = 1000]
         fn transfer(origin, receiver: T::AccountId, amount: BalanceOf<T>)
             -> DispatchResult
         {

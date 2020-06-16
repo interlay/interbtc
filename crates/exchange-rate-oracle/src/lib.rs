@@ -67,6 +67,8 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         // Initializing events
         fn deposit_event() = default;
+
+        #[weight = 1000]
         pub fn set_exchange_rate(origin, rate: u128) -> DispatchResult {
             // Check that Parachain is RUNNING
             ext::security::ensure_parachain_status_running::<T>()?;

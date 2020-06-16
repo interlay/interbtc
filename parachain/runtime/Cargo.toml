@@ -1,46 +1,36 @@
-[package]
-authors = ['Interlay Ltd']
-edition = '2018'
-name = 'btc-parachain-runtime'
-version = '2.0.0-alpha.5'
-
 [dependencies.aura]
 default-features = false
 package = 'pallet-aura'
-version = '2.0.0-alpha.5'
+version = '2.0.0-alpha.7'
 
 [dependencies.balances]
 default-features = false
 package = 'pallet-balances'
-version = '2.0.0-alpha.5'
-
-[dependencies.bitcoin]
-default-features = false
-path = '../../crates/bitcoin'
+version = '2.0.0-alpha.7'
 
 [dependencies.codec]
 default-features = false
 features = ['derive']
 package = 'parity-scale-codec'
-version = '1.2.0'
+version = '1.3.0'
 
 [dependencies.frame-executive]
 default-features = false
-version = '2.0.0-alpha.5'
+version = '2.0.0-alpha.7'
 
 [dependencies.frame-support]
 default-features = false
-version = '2.0.0-alpha.5'
+version = '2.0.0-alpha.7'
 
 [dependencies.grandpa]
 default-features = false
 package = 'pallet-grandpa'
-version = '2.0.0-alpha.5'
+version = '2.0.0-alpha.7'
 
 [dependencies.randomness-collective-flip]
 default-features = false
 package = 'pallet-randomness-collective-flip'
-version = '2.0.0-alpha.5'
+version = '2.0.0-alpha.7'
 
 [dependencies.serde]
 features = ['derive']
@@ -49,61 +39,75 @@ version = '1.0.101'
 
 [dependencies.sp-api]
 default-features = false
-version = '2.0.0-alpha.5'
+version = '2.0.0-alpha.7'
 
 [dependencies.sp-block-builder]
 default-features = false
-version = '2.0.0-alpha.5'
+version = '2.0.0-alpha.7'
 
 [dependencies.sp-consensus-aura]
 default-features = false
-version = '0.8.0-alpha.5'
+version = '0.8.0-alpha.7'
 
 [dependencies.sp-core]
 default-features = false
-version = '2.0.0-alpha.5'
+version = '2.0.0-alpha.7'
 
 [dependencies.sp-inherents]
 default-features = false
-version = '2.0.0-alpha.5'
+version = '2.0.0-alpha.7'
 
 [dependencies.sp-io]
 default-features = false
-version = '2.0.0-alpha.5'
+version = '2.0.0-alpha.7'
 
 [dependencies.sp-offchain]
 default-features = false
-version = '2.0.0-alpha.5'
+version = '2.0.0-alpha.7'
 
 [dependencies.sp-runtime]
 default-features = false
-version = '2.0.0-alpha.5'
+version = '2.0.0-alpha.7'
 
 [dependencies.sp-session]
 default-features = false
-version = '2.0.0-alpha.5'
+version = '2.0.0-alpha.7'
 
 [dependencies.sp-std]
 default-features = false
-version = '2.0.0-alpha.5'
+version = '2.0.0-alpha.7'
 
 [dependencies.sp-transaction-pool]
 default-features = false
-version = '2.0.0-alpha.5'
+version = '2.0.0-alpha.7'
 
 [dependencies.sp-version]
 default-features = false
-version = '2.0.0-alpha.5'
+version = '2.0.0-alpha.7'
 
 [dependencies.sudo]
 default-features = false
 package = 'pallet-sudo'
-version = '2.0.0-alpha.5'
+version = '2.0.0-alpha.7'
 
 [dependencies.system]
 default-features = false
 package = 'frame-system'
-version = '2.0.0-alpha.5'
+version = '2.0.0-alpha.7'
+
+[dependencies.timestamp]
+default-features = false
+package = 'pallet-timestamp'
+version = '2.0.0-alpha.7'
+
+[dependencies.transaction-payment]
+default-features = false
+package = 'pallet-transaction-payment'
+version = '2.0.0-alpha.7'
+
+[build-dependencies.wasm-builder-runner]
+package = 'substrate-wasm-builder-runner'
+version = '1.0.5'
 
 [dependencies.btc-relay]
 default-features = false
@@ -155,20 +159,6 @@ default-features = false
 package = 'replace'
 path = '../../crates/replace'
 
-[dependencies.timestamp]
-default-features = false
-package = 'pallet-timestamp'
-version = '2.0.0-alpha.5'
-
-[dependencies.transaction-payment]
-default-features = false
-package = 'pallet-transaction-payment'
-version = '2.0.0-alpha.5'
-
-[build-dependencies.wasm-builder-runner]
-package = 'substrate-wasm-builder-runner'
-version = '1.0.5'
-
 [dev-dependencies.bitcoin]
 default-features = false
 package = 'bitcoin'
@@ -176,7 +166,7 @@ path = '../../crates/bitcoin'
 
 [dev-dependencies.primitive-types]
 default-features = false
-version = '0.7.0'
+version = '0.7.2'
 features= ['codec']
 
 [dev-dependencies]
@@ -184,6 +174,15 @@ mocktopus = '0.7.0'
 x-core = { path = '../../crates/x-core' }
 hex = '0.4.2'
 serde_json = "1.0"
+
+[package]
+authors = ['Interlay Ltd']
+edition = '2018'
+name = 'btc-parachain-runtime'
+version = '2.0.0-alpha.7'
+
+[package.metadata.docs.rs]
+targets = ['x86_64-unknown-linux-gnu']
 
 [features]
 default = ['std']

@@ -86,6 +86,7 @@ decl_module! {
         /// * `amount` - amount of PolkaBTC
         /// * `btc_address` - the address to receive BTC
         /// * `vault` - address of the vault
+        #[weight = 1000]
         fn request_redeem(origin, amount_polka_btc: PolkaBTC<T>, btc_address: H160, vault_id: T::AccountId)
             -> DispatchResult
         {
@@ -175,6 +176,7 @@ decl_module! {
         /// * `tx_block_height` - block number of backing chain
         /// * `merkle_proof` - raw bytes
         /// * `raw_tx` - raw bytes
+        #[weight = 1000]
         fn execute_redeem(origin, redeem_id: H256, tx_id: H256Le, tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
             -> DispatchResult
         {
@@ -232,6 +234,7 @@ decl_module! {
         /// * `reimburse` - specifying if the user wishes to be reimbursed in DOT
         /// and slash the Vault, or wishes to keep the PolkaBTC (and retry
         /// Redeem with another Vault)
+        #[weight = 1000]
         fn cancel_redeem(origin, redeem_id: H256, reimburse: bool)
             -> DispatchResult
         {

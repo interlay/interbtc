@@ -126,8 +126,6 @@ fn test_request_redeem_fails_with_vault_not_found() {
 #[test]
 fn test_request_redeem_fails_with_vault_banned() {
     run_test(|| {
-        <system::Module<Test>>::set_block_number(0);
-
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
@@ -152,7 +150,6 @@ fn test_request_redeem_fails_with_vault_banned() {
 fn test_request_redeem_fails_with_amount_exceeds_vault_balance() {
     run_test(|| {
         ext::oracle::btc_to_dots::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
-        <system::Module<Test>>::set_block_number(0);
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
@@ -183,7 +180,6 @@ fn test_request_redeem_fails_with_amount_exceeds_vault_balance() {
 fn test_request_redeem_succeeds_in_running_state() {
     run_test(|| {
         ext::oracle::btc_to_dots::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
-        <system::Module<Test>>::set_block_number(0);
         <vault_registry::Module<Test>>::_insert_vault(
             &BOB,
             vault_registry::Vault {
@@ -235,7 +231,7 @@ fn test_request_redeem_succeeds_in_running_state() {
             Redeem::get_redeem_request_from_id(&H256([0; 32])),
             RedeemRequest {
                 vault: BOB,
-                opentime: 0,
+                opentime: 1,
                 amount_polka_btc: amount,
                 amount_btc: amount,
                 amount_dot: 0,
@@ -270,7 +266,6 @@ fn test_request_redeem_succeeds_in_error_state() {
         Redeem::get_partial_redeem_factor.mock_safe(|| MockResult::Return(Ok(50_000)));
 
         ext::oracle::btc_to_dots::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
-        <system::Module<Test>>::set_block_number(0);
 
         let redeemer = ALICE;
         let amount = 10 * 100_000_000;
@@ -332,7 +327,7 @@ fn test_request_redeem_succeeds_in_error_state() {
             Redeem::get_redeem_request_from_id(&H256([0; 32])),
             RedeemRequest {
                 vault: BOB,
-                opentime: 0,
+                opentime: 1,
                 amount_polka_btc: amount,
                 amount_btc: amount / 2,
                 amount_dot: amount / 2,
@@ -428,7 +423,7 @@ fn test_execute_redeem_fails_with_commit_period_expired() {
 fn test_execute_redeem_succeeds() {
     run_test(|| {
         ext::oracle::btc_to_dots::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
-        <system::Module<Test>>::set_block_number(40);
+        System::set_block_number(40);
         <vault_registry::Module<Test>>::_insert_vault(
             &BOB,
             vault_registry::Vault {
@@ -502,7 +497,7 @@ fn test_cancel_redeem_fails_with_redeem_id_not_found() {
 #[test]
 fn test_cancel_redeem_fails_with_time_not_expired() {
     run_test(|| {
-        <system::Module<Test>>::set_block_number(20);
+        System::set_block_number(20);
 
         Redeem::get_redeem_request_from_id.mock_safe(|_| {
             MockResult::Return(Ok(RedeemRequest {
@@ -527,8 +522,6 @@ fn test_cancel_redeem_fails_with_time_not_expired() {
 #[test]
 fn test_cancel_redeem_succeeds() {
     run_test(|| {
-        <system::Module<Test>>::set_block_number(0);
-
         inject_redeem_request(
             H256([0u8; 32]),
             RedeemRequest {
@@ -545,7 +538,7 @@ fn test_cancel_redeem_succeeds() {
 
         ext::vault_registry::ban_vault::<Test>.mock_safe(|vault, height| {
             assert_eq!(vault, BOB);
-            assert_eq!(height, 0);
+            assert_eq!(height, 1);
             MockResult::Return(Ok(()))
         });
 

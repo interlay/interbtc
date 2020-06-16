@@ -17,7 +17,8 @@ use sp_runtime::traits::{
     BlakeTwo256, Block as BlockT, ConvertInto, IdentifyAccount, IdentityLookup, Verify,
 };
 use sp_runtime::{
-    create_runtime_str, generic, impl_opaque_keys, transaction_validity::TransactionValidity,
+    create_runtime_str, generic, impl_opaque_keys,
+    transaction_validity::{TransactionSource, TransactionValidity},
     ApplyExtrinsicResult, MultiSignature,
 };
 use sp_std::prelude::*;
@@ -26,21 +27,22 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
 // A few exports that help ease life for downstream crates.
+pub use balances::Call as BalancesCall;
+pub use btc_relay::bitcoin;
+pub use btc_relay::Call as RelayCall;
 pub use frame_support::{
-    construct_runtime, parameter_types, traits::Randomness, weights::Weight, StorageValue,
+    construct_runtime, parameter_types,
+    traits::Randomness,
+    weights::{
+        constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
+        Weight,
+    },
+    StorageValue,
 };
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 pub use timestamp::Call as TimestampCall;
-
-pub use btc_relay;
-pub use collateral;
-pub use exchange_rate_oracle;
-pub use security;
-pub use staked_relayers;
-pub use treasury;
-pub use vault_registry;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -99,6 +101,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     authoring_version: 1,
     spec_version: 1,
     impl_version: 1,
+    transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,
 };
 
@@ -122,7 +125,8 @@ pub fn native_version() -> NativeVersion {
 
 parameter_types! {
     pub const BlockHashCount: BlockNumber = 250;
-    pub const MaximumBlockWeight: Weight = 1_000_000_000;
+    /// We allow for 2 seconds of compute with a 6 second average block time.
+    pub const MaximumBlockWeight: Weight = 2 * WEIGHT_PER_SECOND;
     pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
     pub const MaximumBlockLength: u32 = 5 * 1024 * 1024;
     pub const Version: RuntimeVersion = VERSION;
@@ -157,6 +161,14 @@ impl system::Trait for Runtime {
     type MaximumBlockLength = MaximumBlockLength;
     /// Portion of the block weight that is available to all normal transactions.
     type AvailableBlockRatio = AvailableBlockRatio;
+    /// The weight of the overhead invoked on the block import process, independent of the
+    /// extrinsics included in that block.
+    type BlockExecutionWeight = BlockExecutionWeight;
+    /// The weight of database operations that the runtime can invoke.
+    type DbWeight = RocksDbWeight;
+    /// The base weight of any extrinsic processed by the runtime, independent of the
+    /// logic of that extrinsic. (Signature verification, nonce increment, fee, etc...)
+    type ExtrinsicBaseWeight = ExtrinsicBaseWeight;
     /// Version of the runtime.
     type Version = Version;
     /// Converts a module to the index of the module in `construct_runtime!`.
@@ -194,6 +206,23 @@ parameter_types! {
     pub const ExistentialDeposit: u128 = 500;
 }
 
+parameter_types! {
+    pub const TransactionByteFee: Balance = 1;
+}
+
+impl transaction_payment::Trait for Runtime {
+    type Currency = balances::Module<Runtime, balances::Instance1>;
+    type OnTransactionPayment = ();
+    type TransactionByteFee = TransactionByteFee;
+    type WeightToFee = ConvertInto;
+    type FeeMultiplierUpdate = ();
+}
+
+impl sudo::Trait for Runtime {
+    type Event = Event;
+    type Call = Call;
+}
+
 /// DOT
 impl balances::Trait<balances::Instance1> for Runtime {
     /// The type for recording an account's balance.
@@ -212,25 +241,6 @@ impl balances::Trait<balances::Instance2> for Runtime {
     type DustRemoval = ();
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
-}
-
-parameter_types! {
-    pub const TransactionBaseFee: Balance = 0;
-    pub const TransactionByteFee: Balance = 1;
-}
-
-impl transaction_payment::Trait for Runtime {
-    type Currency = balances::Module<Runtime, balances::Instance1>;
-    type OnTransactionPayment = ();
-    type TransactionBaseFee = TransactionBaseFee;
-    type TransactionByteFee = TransactionByteFee;
-    type WeightToFee = ConvertInto;
-    type FeeMultiplierUpdate = ();
-}
-
-impl sudo::Trait for Runtime {
-    type Event = Event;
-    type Call = Call;
 }
 
 impl btc_relay::Trait for Runtime {
@@ -304,10 +314,11 @@ construct_runtime!(
         Timestamp: timestamp::{Module, Call, Storage, Inherent},
         Aura: aura::{Module, Config<T>, Inherent(Timestamp)},
         Grandpa: grandpa::{Module, Call, Storage, Config, Event},
-        DOT: balances::<Instance1>::{Module, Call, Storage, Config<T>, Event<T>},
-        PolkaBTC: balances::<Instance2>::{Module, Call, Storage, Config<T>, Event<T>},
         TransactionPayment: transaction_payment::{Module, Storage},
         Sudo: sudo::{Module, Call, Config<T>, Storage, Event<T>},
+
+        DOT: balances::<Instance1>::{Module, Call, Storage, Config<T>, Event<T>},
+        PolkaBTC: balances::<Instance2>::{Module, Call, Storage, Config<T>, Event<T>},
         BTCRelay: btc_relay::{Module, Call, Config, Storage, Event},
         Collateral: collateral::{Module, Call, Storage, Event<T>},
         Treasury: treasury::{Module, Call, Storage, Event<T>},
@@ -395,8 +406,11 @@ impl_runtime_apis! {
     }
 
     impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
-        fn validate_transaction(tx: <Block as BlockT>::Extrinsic) -> TransactionValidity {
-            Executive::validate_transaction(tx)
+        fn validate_transaction(
+            source: TransactionSource,
+            tx: <Block as BlockT>::Extrinsic,
+        ) -> TransactionValidity {
+            Executive::validate_transaction(source, tx)
         }
     }
 

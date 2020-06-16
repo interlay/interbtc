@@ -3,76 +3,70 @@ authors = ['Interlay Ltd']
 build = 'build.rs'
 edition = '2018'
 name = 'btc-parachain'
-version = '2.0.0-alpha.5'
-
-[build-dependencies]
-vergen = '3.0.4'
-
-[build-dependencies.build-script-utils]
-package = 'substrate-build-script-utils'
-version = '2.0.0-alpha.5'
+version = '2.0.0-alpha.7'
 
 [dependencies]
-futures = '0.3.1'
+futures = '0.3.4'
 log = '0.4.8'
 structopt = '0.3.8'
 
-[dependencies.grandpa]
-package = 'sc-finality-grandpa'
-version = '0.8.0-alpha.5'
-
-[dependencies.grandpa-primitives]
-package = 'sp-finality-grandpa'
-version = '2.0.0-alpha.5'
-
 [dependencies.btc-parachain-runtime]
 path = './runtime'
-version = '2.0.0-alpha.5'
+version = '2.0.0-alpha.7'
 
 [dependencies.sc-basic-authorship]
-version = '0.8.0-alpha.5'
+version = '0.8.0-alpha.7'
 
 [dependencies.sc-cli]
-version = '0.8.0-alpha.5'
-
-[dependencies.sc-client]
-version = '0.8.0-alpha.5'
+version = '0.8.0-alpha.7'
 
 [dependencies.sc-client-api]
-version = '2.0.0-alpha.5'
+version = '2.0.0-alpha.7'
+
+[dependencies.sc-consensus]
+version = "0.8.0-alpha.7"
 
 [dependencies.sc-consensus-aura]
-version = '0.8.0-alpha.5'
+version = '0.8.0-alpha.7'
 
 [dependencies.sc-executor]
-version = '0.8.0-alpha.5'
+version = '0.8.0-alpha.7'
+
+[dependencies.sc-finality-grandpa]
+version = '0.8.0-alpha.7'
 
 [dependencies.sc-network]
-version = '0.8.0-alpha.5'
+version = '0.8.0-alpha.7'
 
 [dependencies.sc-service]
-version = '0.8.0-alpha.5'
+version = '0.8.0-alpha.7'
 
 [dependencies.sc-transaction-pool]
-version = '2.0.0-alpha.5'
+version = '2.0.0-alpha.7'
 
 [dependencies.sp-consensus]
-version = '0.8.0-alpha.5'
+version = '0.8.0-alpha.7'
 
 [dependencies.sp-consensus-aura]
-version = '0.8.0-alpha.5'
+version = '0.8.0-alpha.7'
 
 [dependencies.sp-core]
-version = '2.0.0-alpha.5'
+version = '2.0.0-alpha.7'
+
+[dependencies.sp-finality-grandpa]
+version = '2.0.0-alpha.7'
 
 [dependencies.sp-inherents]
-version = '2.0.0-alpha.5'
+version = '2.0.0-alpha.7'
 
 [dependencies.sp-runtime]
-version = '2.0.0-alpha.5'
+version = '2.0.0-alpha.7'
 
 [dependencies.sp-transaction-pool]
-version = '2.0.0-alpha.5'
+version = '2.0.0-alpha.7'
+
+[build-dependencies.substrate-build-script-utils]
+version = '2.0.0-alpha.7'
 
 [[bin]]
 name = 'btc-parachain'

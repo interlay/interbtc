@@ -66,10 +66,9 @@ fn test_register_staked_relayer_succeeds() {
         let amount: Balance = 20;
 
         ext::collateral::lock_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-        System::set_block_number(0);
 
         assert_ok!(Staking::register_staked_relayer(relayer.clone(), amount));
-        assert_emitted!(Event::RegisterStakedRelayer(ALICE, 10, amount));
+        assert_emitted!(Event::RegisterStakedRelayer(ALICE, 11, amount));
 
         // re-registration not allowed
         assert_err!(
@@ -86,12 +85,12 @@ fn test_register_staked_relayer_succeeds() {
             Staking::get_inactive_staked_relayer(&ALICE),
             InactiveStakedRelayer {
                 stake: amount,
-                status: StakedRelayerStatus::Bonding(10)
+                status: StakedRelayerStatus::Bonding(11)
             }
         );
 
         assert_err!(
-            Staking::try_bond_staked_relayer(&ALICE, amount, 0, 10),
+            Staking::try_bond_staked_relayer(&ALICE, amount, 0, 11),
             TestError::NotMatured
         );
         assert_err!(

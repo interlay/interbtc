@@ -799,7 +799,7 @@ fn test_validate_transaction_succeeds() {
             payment_value,
             recipient_btc_address,
             op_return_id
-        ))
+        ));
     });
 }
 
@@ -1498,7 +1498,7 @@ fn test_check_confirmations_insecure_succeeds() {
             req_confs,
             tx_block_height,
             insecure
-        ))
+        ));
     });
 }
 
@@ -1536,7 +1536,7 @@ fn test_check_confirmations_secure_stable_confs_succeeds() {
             req_confs,
             tx_block_height,
             insecure
-        ))
+        ));
     });
 }
 
@@ -1558,7 +1558,7 @@ fn test_check_confirmations_secure_user_confs_succeeds() {
             req_confs,
             tx_block_height,
             insecure
-        ))
+        ));
     });
 }
 

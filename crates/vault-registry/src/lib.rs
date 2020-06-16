@@ -134,6 +134,7 @@ decl_module! {
         /// * `InsuficientVaultCollateralAmount` - if the collateral is below the minimum threshold
         /// * `VaultAlreadyRegistered` - if a vault is already registered for the origin account
         /// * `InsufficientCollateralAvailable` - if the vault does not own enough collateral
+        #[weight = 1000]
         fn register_vault(origin, collateral: DOT<T>, btc_address: H160) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ext::security::ensure_parachain_status_running::<T>()?;
@@ -161,6 +162,7 @@ decl_module! {
         /// # Errors
         /// * `VaultNotFound` - if no vault exists for the origin account
         /// * `InsufficientCollateralAvailable` - if the vault does not own enough collateral
+        #[weight = 1000]
         fn lock_additional_collateral(origin, amount: DOT<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
@@ -191,6 +193,7 @@ decl_module! {
         /// # Errors
         /// * `VaultNotFound` - if no vault exists for the origin account
         /// * `InsufficientCollateralAvailable` - if the vault does not own enough collateral
+        #[weight = 1000]
         fn withdraw_collateral(origin, amount: DOT<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ext::security::ensure_parachain_status_running::<T>()?;
