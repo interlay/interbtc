@@ -197,15 +197,9 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage)
         .unwrap();
 
-        balances::GenesisConfig::<Runtime, balances::Instance2> {
-            balances: vec![
-                (account_of(ALICE), 1_000_000),
-                (account_of(BOB), 1_000_000),
-                (account_of(CLAIRE), 1_000_000),
-            ],
-        }
-        .assimilate_storage(&mut storage)
-        .unwrap();
+        balances::GenesisConfig::<Runtime, balances::Instance2> { balances: vec![] }
+            .assimilate_storage(&mut storage)
+            .unwrap();
 
         exchange_rate_oracle::GenesisConfig::<Runtime> {
             admin: account_of(BOB),

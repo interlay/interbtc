@@ -80,6 +80,10 @@ impl<T: Trait> Module<T> {
         let new_collateral = Self::get_total_collateral() - amount;
         <TotalCollateral<T>>::put(new_collateral);
     }
+    /// Balance of an account (wrapper)
+    pub fn get_balance_from_account(account: &T::AccountId) -> BalanceOf<T> {
+        T::DOT::free_balance(account)
+    }
     /// Locked balance of account
     pub fn get_collateral_from_account(account: &T::AccountId) -> BalanceOf<T> {
         T::DOT::reserved_balance(account)
