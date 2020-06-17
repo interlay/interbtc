@@ -54,15 +54,23 @@ fn integration_test_issue_polka_btc() {
                 .unwrap()
                 .as_slice(),
         );
-        let amount = 100;
+        let amount = 100000;
+        let collateral = 100;
+
+        let initial_dot_balance =
+            collateral::Module::<Runtime>::get_balance_from_account(&account_of(ALICE));
+        let initial_btc_balance =
+            treasury::Module::<Runtime>::get_balance_from_account(account_of(ALICE));
 
         assert_ok!(OracleCall::set_exchange_rate(1).dispatch(origin_of(account_of(BOB))));
         assert_ok!(VaultRegistryCall::register_vault(1000000, address.clone())
             .dispatch(origin_of(account_of(BOB))));
 
         // alice requests polka_btc by locking btc with bob
-        assert_ok!(IssueCall::request_issue(amount, account_of(BOB), 100)
-            .dispatch(origin_of(account_of(ALICE))));
+        assert_ok!(
+            IssueCall::request_issue(amount, account_of(BOB), collateral)
+                .dispatch(origin_of(account_of(ALICE)))
+        );
 
         let id = assert_issue_request_event();
 
@@ -74,5 +82,15 @@ fn integration_test_issue_polka_btc() {
         // alice executes the issue by confirming the btc transaction
         assert_ok!(IssueCall::execute_issue(id, tx_id, height, proof, raw_tx)
             .dispatch(origin_of(account_of(ALICE))));
+
+        SystemModule::set_block_number(6);
+
+        let final_dot_balance =
+            collateral::Module::<Runtime>::get_balance_from_account(&account_of(ALICE));
+        let final_btc_balance =
+            treasury::Module::<Runtime>::get_balance_from_account(account_of(ALICE));
+
+        assert_eq!(final_dot_balance, initial_dot_balance - collateral);
+        assert_eq!(final_btc_balance, initial_btc_balance + amount);
     });
 }

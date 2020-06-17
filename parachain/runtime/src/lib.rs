@@ -8,6 +8,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+use frame_support::traits::StorageMapShim;
 use grandpa::fg_primitives;
 use grandpa::AuthorityList as GrandpaAuthorityList;
 use sp_api::impl_runtime_apis;
@@ -231,7 +232,13 @@ impl balances::Trait<balances::Instance1> for Runtime {
     type Event = Event;
     type DustRemoval = ();
     type ExistentialDeposit = ExistentialDeposit;
-    type AccountStore = System;
+    type AccountStore = StorageMapShim<
+        balances::Account<Runtime, balances::Instance1>,
+        system::CallOnCreatedAccount<Runtime>,
+        system::CallKillAccount<Runtime>,
+        AccountId,
+        balances::AccountData<Balance>,
+    >;
 }
 
 /// PolkaBTC
@@ -240,7 +247,13 @@ impl balances::Trait<balances::Instance2> for Runtime {
     type Event = Event;
     type DustRemoval = ();
     type ExistentialDeposit = ExistentialDeposit;
-    type AccountStore = System;
+    type AccountStore = StorageMapShim<
+        balances::Account<Runtime, balances::Instance2>,
+        system::CallOnCreatedAccount<Runtime>,
+        system::CallKillAccount<Runtime>,
+        AccountId,
+        balances::AccountData<Balance>,
+    >;
 }
 
 impl btc_relay::Trait for Runtime {
