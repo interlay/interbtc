@@ -100,7 +100,6 @@ pub enum Error {
     RedeemIdNotFound,
     RedeemPeriodExpired,
     RedeemPeriodNotExpired,
-    RedeemCancelCallerNotRedeemer,
 
     /// Parachain Status Errors (Security module)
     ParachainNotRunning,
@@ -197,7 +196,6 @@ impl Error {
             Error::RedeemPeriodExpired => "The redeem period expired.",
             Error::UnauthorizedVault => "Unauthorized: Caller must be associated vault.",
             Error::RedeemPeriodNotExpired => "The period to complete the redeem request is not yet expired.",
-            Error::RedeemCancelCallerNotRedeemer => "The redeem cancellation was not called by the redeemer.",
 
 
             Error::ParachainNotRunning => "Function disabled. Reason: the Parachain status is not 'RUNNING'.",

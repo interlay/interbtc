@@ -238,9 +238,9 @@ decl_module! {
         fn cancel_redeem(origin, redeem_id: H256, reimburse: bool)
             -> DispatchResult
         {
-            let caller = ensure_signed(origin)?;
+            let redeemer = ensure_signed(origin)?;
             let redeem = Self::get_redeem_request_from_id(&redeem_id)?;
-            ensure!(caller == redeem.redeemer, Error::RedeemCancelCallerNotRedeemer);
+            ensure!(redeemer == redeem.redeemer, Error::UnauthorizedUser);
 
             let height = <system::Module<T>>::block_number();
             let period = Self::redeem_period();
@@ -277,7 +277,7 @@ decl_module! {
             }
             ext::vault_registry::ban_vault::<T>(redeem.vault, height)?;
             <RedeemRequests<T>>::remove(redeem_id);
-            Self::deposit_event(<Event<T>>::CancelRedeem(redeem_id, redeem.redeemer));
+            Self::deposit_event(<Event<T>>::CancelRedeem(redeem_id, redeemer));
 
             Ok(())
         }
