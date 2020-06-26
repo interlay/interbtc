@@ -692,7 +692,6 @@ fn test_report_vault_theft_fails_with_staked_relayers_only() {
                 Origin::signed(ALICE),
                 CAROL,
                 H256Le::zero(),
-                U256::from(0),
                 0,
                 vec![0u8; 32],
                 vec![0u8; 32]

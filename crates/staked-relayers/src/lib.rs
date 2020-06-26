@@ -346,7 +346,7 @@ decl_module! {
         /// * `origin`: The AccountId of the Governance Mechanism.
         /// * `staked_relayer_id`: The account of the Staked Relayer to be slashed.
         #[weight = 1000]
-        fn report_vault_theft(origin, vault_id: T::AccountId, tx_id: H256Le, _tx_block_height: U256, _tx_index: u64, _merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
+        fn report_vault_theft(origin, vault_id: T::AccountId, tx_id: H256Le, tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             ensure!(
                 Self::check_relayer_registered(&signer),
@@ -362,6 +362,8 @@ decl_module! {
                     Error::<T>::VaultAlreadyReported,
                 );
             }
+
+            ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, tx_block_height, merkle_proof)?;
 
             let tx = parse_transaction(raw_tx.as_slice())?;
 
