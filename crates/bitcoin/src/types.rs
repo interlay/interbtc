@@ -13,7 +13,7 @@ use x_core::Error;
 
 use crate::formatter::Formattable;
 use crate::merkle::MerkleProof;
-use crate::parser::{extract_address_hash, extract_op_return_data, FromLeBytes};
+use crate::parser::{extract_address_hash, extract_address_hash_input, extract_op_return_data, FromLeBytes};
 use crate::utils::{hash256_merkle_step, log2, reverse_endianness, sha256d_le};
 
 pub(crate) const SERIALIZE_TRANSACTION_NO_WITNESS: i32 = 0x4000_0000;
@@ -369,6 +369,10 @@ impl Script {
 
     pub fn extract_address(&self) -> Result<Vec<u8>, Error> {
         extract_address_hash(&self.bytes)
+    }
+
+    pub fn extract_address_input(&self) -> Result<Vec<u8>, Error> {
+        extract_address_hash_input(&self.bytes)
     }
 
     pub fn extract_op_return_data(&self) -> Result<Vec<u8>, Error> {
