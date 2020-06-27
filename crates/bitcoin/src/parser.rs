@@ -392,13 +392,16 @@ fn parse_transaction_output(raw_output: &[u8]) -> Result<(TransactionOutput, usi
 }
 
 pub(crate) fn extract_address_hash_input(input_script: &[u8]) -> Result<Vec<u8>, Error> {
-    let (sig_size, sig_varint_size) = parse_compact_uint(input_script);
-    let (redeem_size, redeem_varint_size) =
-        parse_compact_uint(&input_script[(sig_size as usize + sig_varint_size)..]);
-    if redeem_size == 33 {
-        let redeem_start = sig_varint_size + sig_size as usize + redeem_varint_size;
-        let address = bitcoin_hashes::hash160::Hash::hash(&input_script[(redeem_start)..]).to_vec();
-        Ok(address)
+    let mut parser = BytesParser::new(input_script);
+
+    let sig_size: u64 = parser.parse::<CompactUint>()?.value;
+    let _sig = parser.read(sig_size as usize)?;
+
+    let pk_size: u64 = parser.parse::<CompactUint>()?.value;
+
+    if pk_size == 33 {
+        let pk = parser.read(pk_size as usize)?;
+        return Ok(bitcoin_hashes::hash160::Hash::hash(&pk).to_vec());
     } else {
         Err(Error::UnsupportedInputFormat)
     }
