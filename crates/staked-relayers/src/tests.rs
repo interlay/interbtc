@@ -40,11 +40,14 @@ macro_rules! assert_not_emitted {
 }
 
 /// Mocking functions
-fn init_zero_vault<Test>(id: AccountId, btc_address: Option<H160>) -> Vault<AccountId, BlockNumber, u64> {
+fn init_zero_vault<Test>(
+    id: AccountId,
+    btc_address: Option<H160>,
+) -> Vault<AccountId, BlockNumber, u64> {
     let mut vault = Vault::default();
     vault.id = id;
     match btc_address {
-        Some(btc_address) => {vault.btc_address = btc_address},
+        Some(btc_address) => vault.btc_address = btc_address,
         None => {}
     }
     vault
@@ -708,24 +711,28 @@ fn test_report_vault_passes_with_vault_transaction() {
         inject_active_staked_relayer(&ALICE, amount);
         let vault = CAROL;
 
-        let btc_address = H160::from_slice(&[126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8, 50, 170]);
-        ext::vault_registry::get_vault_from_id::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault::<Test>(vault.clone(), Some(btc_address)))));
-
+        let btc_address = H160::from_slice(&[
+            126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8,
+            50, 170,
+        ]);
+        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(move |_| {
+            MockResult::Return(Ok(init_zero_vault::<Test>(
+                vault.clone(),
+                Some(btc_address),
+            )))
+        });
 
         ext::vault_registry::liquidate_vault::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
 
-        assert_ok!(
-            Staking::report_vault_theft(
-                Origin::signed(ALICE),
-                CAROL,
-                H256Le::zero(),
-                U256::from(0),
-                0,
-                vec![0u8; 32],
-                hex::decode(&raw_tx).unwrap()
-            ),
-        );
+        assert_ok!(Staking::report_vault_theft(
+            Origin::signed(ALICE),
+            CAROL,
+            H256Le::zero(),
+            U256::from(0),
+            0,
+            vec![0u8; 32],
+            hex::decode(&raw_tx).unwrap()
+        ),);
     })
 }
 
@@ -738,10 +745,16 @@ fn test_report_vault_fails_with_nonvault_transaction() {
         inject_active_staked_relayer(&ALICE, amount);
         let vault = CAROL;
 
-        let btc_address = H160::from_slice(&[125, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8, 50, 170]);
-        ext::vault_registry::get_vault_from_id::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault::<Test>(vault.clone(), Some(btc_address)))));
-
+        let btc_address = H160::from_slice(&[
+            125, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8,
+            50, 170,
+        ]);
+        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(move |_| {
+            MockResult::Return(Ok(init_zero_vault::<Test>(
+                vault.clone(),
+                Some(btc_address),
+            )))
+        });
 
         ext::vault_registry::liquidate_vault::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
 
@@ -786,8 +799,9 @@ fn test_report_vault_under_liquidation_threshold_succeeds() {
 
         Staking::check_relayer_registered.mock_safe(|_| MockResult::Return(true));
 
-        ext::vault_registry::get_vault_from_id::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault::<Test>(vault.clone(), None))));
+        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(move |_| {
+            MockResult::Return(Ok(init_zero_vault::<Test>(vault.clone(), None)))
+        });
 
         ext::collateral::get_collateral_from_account::<Test>
             .mock_safe(move |_| MockResult::Return(collateral_in_dot.clone()));
