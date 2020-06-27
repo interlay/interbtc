@@ -5552,6 +5552,7 @@ dependencies = [
  "exchange-rate-oracle",
  "frame-support",
  "frame-system",
+ "hex",
  "mocktopus",
  "pallet-balances",
  "pallet-timestamp",

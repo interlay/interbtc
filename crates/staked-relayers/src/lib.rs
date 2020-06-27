@@ -364,6 +364,20 @@ decl_module! {
             }
 
             let tx = parse_transaction(raw_tx.as_slice())?;
+
+            let input_addresses: Vec<_> = tx.inputs.into_iter().map(|input|
+                                                                    {let script: Script = input.script.into();
+                                                                     script.extract_address_input()}).collect();
+
+            ensure!(input_addresses
+                    .into_iter()
+                    .any(|address_result| {match address_result
+                                           {
+                                               Ok(address) => H160::from_slice(&address) == vault.btc_address,
+                                               _ => false
+                                           }
+                    }), Error::<T>::VaultNoInputToTransaction);
+
             // only check if correct format
             if tx.outputs.len() <= 2 {
                 let out = &tx.outputs[0];
@@ -938,6 +952,7 @@ decl_error! {
         VoteAlreadyCast,
         VaultAlreadyReported,
         VaultAlreadyLiquidated,
+        VaultNoInputToTransaction,
         ValidRedeemOrReplace,
         ValidMergeTransaction,
         OracleOnline,
