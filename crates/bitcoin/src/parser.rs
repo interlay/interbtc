@@ -1,6 +1,10 @@
 #[cfg(test)]
 extern crate mocktopus;
 
+extern crate bitcoin_hashes;
+
+use bitcoin_hashes::Hash;
+
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
@@ -387,6 +391,19 @@ fn parse_transaction_output(raw_output: &[u8]) -> Result<(TransactionOutput, usi
     ))
 }
 
+pub(crate) fn extract_address_hash_input(input_script: &[u8]) -> Result<Vec<u8>, Error> {
+    let (sig_size, sig_varint_size) = parse_compact_uint(input_script);
+    let (redeem_size, redeem_varint_size) =
+        parse_compact_uint(&input_script[(sig_size as usize + sig_varint_size)..]);
+    if redeem_size == 33 {
+        let redeem_start = sig_varint_size + sig_size as usize + redeem_varint_size;
+        let address = bitcoin_hashes::hash160::Hash::hash(&input_script[(redeem_start)..]).to_vec();
+        Ok(address)
+    } else {
+        Err(Error::UnsupportedInputFormat)
+    }
+}
+
 pub(crate) fn extract_address_hash(output_script: &[u8]) -> Result<Vec<u8>, Error> {
     let script_len = output_script.len();
     // Witness
@@ -695,6 +712,21 @@ pub(crate) mod tests {
         let extr_p2sh = extract_address_hash(&p2sh_script).unwrap();
 
         assert_eq!(&extr_p2sh, &p2sh_address);
+    }
+
+    #[test]
+    fn test_extract_address_hash_input() {
+        let raw_tx = "0100000001c15041a06deb6b3818b022fac558da4ce2097f0860c8f642105bbad9d29be02a010000006c493046022100cfd2a2d332b29adce119c55a9fadd3c073332024b7e272513e51623ca15993480221009b482d7f7b4d479aff62bdcdaea54667737d56f8d4d63dd03ec3ef651ed9a25401210325f8b039a11861659c9bf03f43fc4ea055f3a71cd60c7b1fd474ab578f9977faffffffff0290d94000000000001976a9148ed243a7be26080a1a8cf96b53270665f1b8dd2388ac4083086b000000001976a9147e7d94d0ddc21d83bfbcfc7798e4547edf0832aa88ac00000000";
+        let tx_bytes = hex::decode(&raw_tx).unwrap();
+        let transaction = parse_transaction(&tx_bytes).unwrap();
+
+        let address: [u8; 20] = [
+            126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8,
+            50, 170,
+        ];
+        let extr_address = extract_address_hash_input(&transaction.inputs[0].script).unwrap();
+
+        assert_eq!(&extr_address, &address);
     }
 
     /*
