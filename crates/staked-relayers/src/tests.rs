@@ -772,6 +772,41 @@ fn test_report_vault_fails_with_nonvault_transaction() {
         );
     })
 }
+
+#[test]
+fn test_report_vault_succeeds_with_segwit_transaction() {
+    run_test(|| {
+        let raw_tx = "0200000000010140d43a99926d43eb0e619bf0b3d83b4a31f60c176beecfb9d35bf45e54d0f7420100000017160014a4b4ca48de0b3fffc15404a1acdc8dbaae226955ffffffff0100e1f5050000000017a9144a1154d50b03292b3024370901711946cb7cccc387024830450221008604ef8f6d8afa892dee0f31259b6ce02dd70c545cfcfed8148179971876c54a022076d771d6e91bed212783c9b06e0de600fab2d518fad6f15a2b191d7fbd262a3e0121039d25ab79f41f75ceaf882411fd41fa670a4c672c23ffaf0e361a969cde0692e800000000";
+
+        let amount = 3;
+        inject_active_staked_relayer(&ALICE, amount);
+        let vault = CAROL;
+
+        let btc_address = H160::from_slice(&[
+            164, 180, 202, 72, 222, 11, 63, 255, 193, 84, 4, 161, 172, 220, 141, 186, 174, 34, 105,
+            85,
+        ]);
+        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(move |_| {
+            MockResult::Return(Ok(init_zero_vault::<Test>(
+                vault.clone(),
+                Some(btc_address),
+            )))
+        });
+
+        ext::vault_registry::liquidate_vault::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
+
+        assert_ok!(Staking::report_vault_theft(
+            Origin::signed(ALICE),
+            CAROL,
+            H256Le::zero(),
+            U256::from(0),
+            0,
+            vec![0u8; 32],
+            hex::decode(&raw_tx).unwrap()
+        ));
+    })
+}
+
 // #[test]
 // fn test_report_vault_theft_succeeds() {
 //     run_test(|| {
