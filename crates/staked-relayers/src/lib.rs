@@ -366,8 +366,7 @@ decl_module! {
             let tx = parse_transaction(raw_tx.as_slice())?;
 
             let input_addresses: Vec<_> = tx.inputs.into_iter().map(|input|
-                                                                    {let script: Script = input.script.into();
-                                                                     script.extract_address_input()}).collect();
+                                                                    input.extract_address_input()).collect();
 
             ensure!(input_addresses
                     .into_iter()

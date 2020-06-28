@@ -3,6 +3,8 @@ extern crate hex;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
+use bitcoin_hashes::Hash;
+
 use codec::alloc::string::String;
 use codec::{Decode, Encode};
 use primitive_types::{H256, U256};
@@ -14,7 +16,7 @@ use x_core::Error;
 use crate::formatter::Formattable;
 use crate::merkle::MerkleProof;
 use crate::parser::{
-    extract_address_hash, extract_address_hash_input, extract_op_return_data, FromLeBytes,
+    extract_address_hash, extract_address_hash_scriptsig, extract_op_return_data, FromLeBytes,
 };
 use crate::utils::{hash256_merkle_step, log2, reverse_endianness, sha256d_le};
 
@@ -306,6 +308,16 @@ impl TransactionInput {
     pub fn with_witness(&mut self, witness: Vec<Vec<u8>>) {
         self.witness = witness;
     }
+
+    pub fn extract_address_input(&self) -> Result<Vec<u8>, Error> {
+        // Witness
+        if !self.witness.is_empty() {
+            return Ok(bitcoin_hashes::hash160::Hash::hash(&self.witness[1]).to_vec());
+        }
+
+        // P2PKH
+        extract_address_hash_scriptsig(&self.script)
+    }
 }
 
 /// Bitcoin script
@@ -371,10 +383,6 @@ impl Script {
 
     pub fn extract_address(&self) -> Result<Vec<u8>, Error> {
         extract_address_hash(&self.bytes)
-    }
-
-    pub fn extract_address_input(&self) -> Result<Vec<u8>, Error> {
-        extract_address_hash_input(&self.bytes)
     }
 
     pub fn extract_op_return_data(&self) -> Result<Vec<u8>, Error> {
@@ -1139,5 +1147,21 @@ mod tests {
         let proof = block.merkle_proof(&vec![transaction.tx_id()]);
         let bytes = proof.format();
         MerkleProof::parse(&bytes).unwrap();
+    }
+
+    #[test]
+    fn extract_witness_address() {
+        let raw_tx = "0200000000010140d43a99926d43eb0e619bf0b3d83b4a31f60c176beecfb9d35bf45e54d0f7420100000017160014a4b4ca48de0b3fffc15404a1acdc8dbaae226955ffffffff0100e1f5050000000017a9144a1154d50b03292b3024370901711946cb7cccc387024830450221008604ef8f6d8afa892dee0f31259b6ce02dd70c545cfcfed8148179971876c54a022076d771d6e91bed212783c9b06e0de600fab2d518fad6f15a2b191d7fbd262a3e0121039d25ab79f41f75ceaf882411fd41fa670a4c672c23ffaf0e361a969cde0692e800000000";
+        let tx_bytes = hex::decode(&raw_tx).unwrap();
+        let transaction = parse_transaction(&tx_bytes).unwrap();
+
+        let address: [u8; 20] = [
+            164, 180, 202, 72, 222, 11, 63, 255, 193, 84, 4, 161, 172, 220, 141, 186, 174, 34, 105,
+            85,
+        ];
+
+        let extr_address = transaction.inputs[0].extract_address_input().unwrap();
+
+        assert_eq!(&extr_address, &address);
     }
 }
