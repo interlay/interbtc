@@ -450,7 +450,7 @@ impl<T: Trait> Module<T> {
         );
 
         // Check if 1st / payment UTXO sends to correct address
-        let extr_recipient_address = transaction.outputs[0].script.extract_address()?;
+        let extr_recipient_address = transaction.outputs[0].extract_address()?;
         ensure!(
             extr_recipient_address == recipient_btc_address,
             Error::WrongRecipient

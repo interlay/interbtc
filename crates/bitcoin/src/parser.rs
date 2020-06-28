@@ -407,7 +407,7 @@ pub(crate) fn extract_address_hash_scriptsig(input_script: &[u8]) -> Result<Vec<
     }
 }
 
-pub(crate) fn extract_address_hash(output_script: &[u8]) -> Result<Vec<u8>, Error> {
+pub(crate) fn extract_address_hash_scriptpubkey(output_script: &[u8]) -> Result<Vec<u8>, Error> {
     let script_len = output_script.len();
     // Witness
     if output_script[0] == 0 {
@@ -701,7 +701,7 @@ pub(crate) mod tests {
 
         let p2pkh_address: [u8; 20] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
-        let extr_p2pkh = extract_address_hash(&p2pkh_script).unwrap();
+        let extr_p2pkh = extract_address_hash_scriptpubkey(&p2pkh_script).unwrap();
 
         assert_eq!(&extr_p2pkh, &p2pkh_address);
     }
@@ -712,7 +712,7 @@ pub(crate) mod tests {
 
         let p2sh_address: [u8; 20] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
-        let extr_p2sh = extract_address_hash(&p2sh_script).unwrap();
+        let extr_p2sh = extract_address_hash_scriptpubkey(&p2sh_script).unwrap();
 
         assert_eq!(&extr_p2sh, &p2sh_address);
     }

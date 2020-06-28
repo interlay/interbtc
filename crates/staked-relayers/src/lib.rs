@@ -366,7 +366,7 @@ decl_module! {
             let tx = parse_transaction(raw_tx.as_slice())?;
 
             let input_addresses: Vec<_> = tx.inputs.into_iter().map(|input|
-                                                                    input.extract_address_input()).collect();
+                                                                    input.extract_address()).collect();
 
             ensure!(input_addresses
                     .into_iter()
@@ -381,7 +381,7 @@ decl_module! {
             if tx.outputs.len() <= 2 {
                 let out = &tx.outputs[0];
                 // check if migration
-                if let Ok(out_addr) = out.script.extract_address() {
+                if let Ok(out_addr) = out.extract_address() {
                     ensure!(H160::from_slice(&out_addr) != vault.btc_address, Error::<T>::ValidMergeTransaction);
                     let out_val = out.value;
                     if tx.outputs.len() == 2 {

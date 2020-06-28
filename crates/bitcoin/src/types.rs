@@ -16,7 +16,8 @@ use x_core::Error;
 use crate::formatter::Formattable;
 use crate::merkle::MerkleProof;
 use crate::parser::{
-    extract_address_hash, extract_address_hash_scriptsig, extract_op_return_data, FromLeBytes,
+    extract_address_hash_scriptpubkey, extract_address_hash_scriptsig, extract_op_return_data,
+    FromLeBytes,
 };
 use crate::utils::{hash256_merkle_step, log2, reverse_endianness, sha256d_le};
 
@@ -309,7 +310,7 @@ impl TransactionInput {
         self.witness = witness;
     }
 
-    pub fn extract_address_input(&self) -> Result<Vec<u8>, Error> {
+    pub fn extract_address(&self) -> Result<Vec<u8>, Error> {
         // Witness
         if !self.witness.is_empty() {
             return Ok(bitcoin_hashes::hash160::Hash::hash(&self.witness[1]).to_vec());
@@ -381,10 +382,6 @@ impl Script {
         self.bytes.extend(&value.format())
     }
 
-    pub fn extract_address(&self) -> Result<Vec<u8>, Error> {
-        extract_address_hash(&self.bytes)
-    }
-
     pub fn extract_op_return_data(&self) -> Result<Vec<u8>, Error> {
         extract_op_return_data(&self.bytes)
     }
@@ -448,6 +445,10 @@ impl TransactionOutput {
             value,
             script: Script::op_return(return_content),
         }
+    }
+
+    pub fn extract_address(&self) -> Result<Vec<u8>, Error> {
+        extract_address_hash_scriptpubkey(&self.script.bytes)
     }
 }
 
@@ -1014,7 +1015,7 @@ mod tests {
         assert_eq!(transaction.outputs.len(), 2);
         assert_eq!(transaction.outputs[0].value, 100);
         assert_eq!(
-            transaction.outputs[0].script.extract_address().unwrap(),
+            transaction.outputs[0].extract_address().unwrap(),
             address.as_bytes()
         );
         assert_eq!(transaction.outputs[1].value, 0);
@@ -1160,7 +1161,7 @@ mod tests {
             85,
         ];
 
-        let extr_address = transaction.inputs[0].extract_address_input().unwrap();
+        let extr_address = transaction.inputs[0].extract_address().unwrap();
 
         assert_eq!(&extr_address, &address);
     }
