@@ -25,9 +25,9 @@ use crate::types::{
 };
 use bitcoin::parser::parse_transaction;
 use bitcoin::types::*;
-/// # Security module implementation
-/// This is the implementation of the BTC Parachain Security module following the spec at:
-/// https://interlay.gitlab.io/polkabtc-spec/spec/security
+/// # Staked Relayers module implementation
+/// This is the implementation of the BTC Parachain Staked Relayers module following the spec at:
+/// https://interlay.gitlab.io/polkabtc-spec/spec/staked-relayers.html
 ///
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,

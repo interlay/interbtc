@@ -240,6 +240,7 @@ decl_module! {
         {
             let redeemer = ensure_signed(origin)?;
             let redeem = Self::get_redeem_request_from_id(&redeem_id)?;
+            ensure!(redeemer == redeem.redeemer, Error::UnauthorizedUser);
 
             let height = <system::Module<T>>::block_number();
             let period = Self::redeem_period();

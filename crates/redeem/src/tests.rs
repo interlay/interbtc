@@ -3,7 +3,7 @@ use crate::mock::*;
 
 use crate::types::{PolkaBTC, Redeem as RedeemRequest, DOT};
 use bitcoin::types::H256Le;
-use frame_support::{assert_err, assert_ok};
+use frame_support::{assert_err, assert_noop, assert_ok};
 use mocktopus::mocking::*;
 use primitive_types::H256;
 use sp_core::H160;
@@ -515,6 +515,31 @@ fn test_cancel_redeem_fails_with_time_not_expired() {
         assert_err!(
             Redeem::cancel_redeem(Origin::signed(ALICE), H256([0u8; 32]), false),
             Error::TimeNotExpired
+        );
+    })
+}
+
+#[test]
+fn test_cancel_redeem_fails_with_unauthorized_caller() {
+    run_test(|| {
+        <system::Module<Test>>::set_block_number(20);
+
+        Redeem::get_redeem_request_from_id.mock_safe(|_| {
+            MockResult::Return(Ok(RedeemRequest {
+                vault: BOB,
+                opentime: 0,
+                amount_polka_btc: 0,
+                amount_btc: 0,
+                amount_dot: 0,
+                premium_dot: 0,
+                redeemer: ALICE,
+                btc_address: H160([0; 20]),
+            }))
+        });
+
+        assert_noop!(
+            Redeem::cancel_redeem(Origin::signed(CAROL), H256([0u8; 32]), true),
+            Error::UnauthorizedUser
         );
     })
 }
