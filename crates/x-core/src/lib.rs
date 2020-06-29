@@ -59,7 +59,7 @@ pub enum Error {
     MalformedOpReturnOutput,
     // Output does not match format of supported output types (Witness, P2PKH, P2SH)
     UnsupportedOutputFormat,
-    // Input does not match format of supported input types (P2PKH)
+    // Input does not match format of supported input types (Witness, P2PKH, P2SH)
     UnsupportedInputFormat,
     /// There are no NO_DATA blocks in this BlockChain
     NoDataEmpty, // not in spec

@@ -393,18 +393,22 @@ fn parse_transaction_output(raw_output: &[u8]) -> Result<(TransactionOutput, usi
 
 pub(crate) fn extract_address_hash_scriptsig(input_script: &[u8]) -> Result<Vec<u8>, Error> {
     let mut parser = BytesParser::new(input_script);
+    let mut p2pkh = true;
+    if input_script[0] == OpCode::Op0 as u8 {
+        parser.parse::<u8>()?;
+        p2pkh = false;
+    }
 
     let sig_size: u64 = parser.parse::<CompactUint>()?.value;
     let _sig = parser.read(sig_size as usize)?;
 
-    let pk_size: u64 = parser.parse::<CompactUint>()?.value;
+    let redeem_script_size: u64 = parser.parse::<CompactUint>()?.value;
 
-    if pk_size == 33 {
-        let pk = parser.read(pk_size as usize)?;
-        return Ok(bitcoin_hashes::hash160::Hash::hash(&pk).to_vec());
-    } else {
-        Err(Error::UnsupportedInputFormat)
+    if p2pkh && redeem_script_size != 33 {
+        return Err(Error::UnsupportedInputFormat);
     }
+    let redeem_script = parser.read(redeem_script_size as usize)?;
+    return Ok(bitcoin_hashes::hash160::Hash::hash(&redeem_script).to_vec());
 }
 
 pub(crate) fn extract_address_hash_scriptpubkey(output_script: &[u8]) -> Result<Vec<u8>, Error> {
@@ -732,12 +736,27 @@ pub(crate) mod tests {
         assert_eq!(&extr_address, &address);
     }
 
+    #[test]
+    fn test_extract_address_hash_scriptsig_p2sh() {
+        let raw_tx = "0100000001c8cc2b56525e734ff63a13bc6ad06a9e5664df8c67632253a8e36017aee3ee40000000009000483045022100ad0851c69dd756b45190b5a8e97cb4ac3c2b0fa2f2aae23aed6ca97ab33bf88302200b248593abc1259512793e7dea61036c601775ebb23640a0120b0dba2c34b79001455141042f90074d7a5bf30c72cf3a8dfd1381bdbd30407010e878f3a11269d5f74a58788505cdca22ea6eab7cfb40dc0e07aba200424ab0d79122a653ad0c7ec9896bdf51aefeffffff0120f40e00000000001976a9141d30342095961d951d306845ef98ac08474b36a088aca7270400";
+        let tx_bytes = hex::decode(&raw_tx).unwrap();
+        let transaction = parse_transaction(&tx_bytes).unwrap();
+
+        let address: [u8; 20] = [
+            233, 195, 221, 12, 7, 170, 199, 97, 121, 235, 199, 106, 108, 120, 212, 214, 124, 108,
+            22, 10,
+        ];
+        let extr_address = extract_address_hash_scriptsig(&transaction.inputs[0].script).unwrap();
+
+        assert_eq!(&extr_address, &address);
+    }
+
     /*
     #[test]
     fn test_extract_address_invalid_p2pkh_fails() {
         let p2pkh_script = hex::decode(&sample_malformed_p2pkh_output()).unwrap();
 
-        assert_eq!(extract_address_hash(&p2pkh_script).err(), Some(Error::MalformedP2PKHOutput));
+        assert_eq!(extract_address_hash_scriptpubkey(&p2pkh_script).err(), Some(Error::MalformedP2PKHOutput));
     }
     */
 }
