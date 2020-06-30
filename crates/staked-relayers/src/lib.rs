@@ -20,8 +20,8 @@ use mocktopus::macros::mockable;
 pub use security;
 
 use crate::types::{
-    ActiveStakedRelayer, InactiveStakedRelayer, ProposalStatus, StakedRelayerStatus, StatusUpdate,
-    Tally, DOT,
+    ActiveStakedRelayer, InactiveStakedRelayer, PolkaBTC, ProposalStatus, StakedRelayerStatus,
+    StatusUpdate, Tally, DOT,
 };
 use bitcoin::parser::parse_transaction;
 use bitcoin::types::*;
@@ -398,7 +398,6 @@ decl_module! {
 
             Ok(())
         }
-
 
         /// A Staked Relayer reports that a Vault is undercollateralized (i.e. below the LiquidationCollateralThreshold as defined in Vault Registry).
         /// If the collateral falls below this rate, we flag the Vault for liquidation and update the ParachainStatus to ERROR - adding LIQUIDATION to Errors.
@@ -868,43 +867,46 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn check_invalid_merge_transaction(tx: &Transaction, vault_addr: H160) -> DispatchResult {
+    #[allow(dead_code)]
+    pub(crate) fn is_valid_merge_transaction(tx: &Transaction, vault_addr: H160) -> bool {
         for out in &tx.outputs {
             // return if address not extractable (i.e. op_return)
-            let out_addr = match out.script.extract_address() {
+            let out_addr = match out.extract_address() {
                 Ok(addr) => addr,
-                Err(_) => return Ok(()),
+                Err(_) => return false,
             };
             if H160::from_slice(&out_addr) != vault_addr {
-                return Ok(());
+                return false;
             }
         }
-        return Err(Error::<T>::ValidMergeTransaction.into());
+        return true;
     }
 
-    fn check_invalid_redeem_or_replace(
+    #[allow(dead_code)]
+    pub(crate) fn is_valid_request_transaction(
+        tx: &Transaction,
         out_val: i64,
-        amount: i64,
+        exp_val: PolkaBTC<T>,
         out_addr: H160,
         req_addr: H160,
         vault_addr: H160,
-        tx: Transaction,
-    ) -> DispatchResult {
-        if out_val >= amount && out_addr == req_addr {
+    ) -> Result<bool, DispatchError> {
+        let value =
+            TryInto::<u64>::try_into(exp_val).map_err(|_e| Error::<T>::RuntimeError)? as i64;
+
+        // tx here should only have at most three outputs
+        if out_val >= value && out_addr == req_addr {
             if tx.outputs.len() == 3 {
                 let out = &tx.outputs[2];
-                if let Ok(vault_out_addr) = out.script.extract_address() {
-                    ensure!(
-                        H160::from_slice(&vault_out_addr) != vault_addr,
-                        Error::<T>::ValidRedeemOrReplace
-                    );
+                if let Ok(vault_out_addr) = out.extract_address() {
+                    return Ok(H160::from_slice(&vault_out_addr) == vault_addr);
                 }
-                return Ok(());
+                return Ok(false);
             }
-            return Err(Error::<T>::ValidRedeemOrReplace.into());
+            return Ok(true);
         }
         // invalid if insufficient amount or wrong payout addr
-        return Ok(());
+        return Ok(false);
     }
 
     pub(crate) fn _check_invalid_transaction(
@@ -917,6 +919,7 @@ impl<T: Trait> Module<T> {
 
         // collect all addresses that feature in the inputs of the transaction
         let input_addresses: Vec<Result<Vec<u8>, _>> = tx
+            .clone()
             .inputs
             .into_iter()
             .map(|input| input.extract_address())
@@ -934,10 +937,13 @@ impl<T: Trait> Module<T> {
         );
 
         // check if the transaction is a "migration"
-        Self::check_invalid_merge_transaction(&tx, vault.btc_address)?;
+        ensure!(
+            !Self::is_valid_merge_transaction(&tx, vault.btc_address),
+            Error::<T>::ValidMergeTransaction
+        );
 
         // only check if correct format
-        if tx.outputs.len() <= 3 {
+        if tx.outputs.len() > 3 {
             return Ok(());
         }
 
@@ -946,7 +952,7 @@ impl<T: Trait> Module<T> {
         // 3) vault
 
         let out = &tx.outputs[0];
-        if let Ok(out_addr) = out.script.extract_address() {
+        if let Ok(out_addr) = out.extract_address() {
             let out_val = out.value;
             if tx.outputs.len() == 2 || tx.outputs.len() == 3 {
                 let out = &tx.outputs[1];
@@ -956,32 +962,32 @@ impl<T: Trait> Module<T> {
                     let addr = H160::from_slice(&out_addr);
                     match ext::redeem::get_redeem_request_from_id::<T>(&id) {
                         Ok(req) => {
-                            let amount = TryInto::<u64>::try_into(req.amount_btc)
-                                .map_err(|_e| Error::<T>::RuntimeError)?
-                                as i64;
-                            return Self::check_invalid_redeem_or_replace(
-                                out_val,
-                                amount,
-                                addr,
-                                req.btc_address,
-                                vault.btc_address,
-                                tx,
+                            ensure!(
+                                !Self::is_valid_request_transaction(
+                                    &tx,
+                                    out_val,
+                                    req.amount_btc,
+                                    addr,
+                                    req.btc_address,
+                                    vault.btc_address,
+                                )?,
+                                Error::<T>::ValidRedeemTransaction
                             );
                         }
                         Err(_) => (),
                     }
                     match ext::replace::get_replace_request::<T>(&id) {
                         Ok(req) => {
-                            let amount = TryInto::<u64>::try_into(req.amount)
-                                .map_err(|_e| Error::<T>::RuntimeError)?
-                                as i64;
-                            return Self::check_invalid_redeem_or_replace(
-                                out_val,
-                                amount,
-                                addr,
-                                req.btc_address,
-                                vault.btc_address,
-                                tx,
+                            ensure!(
+                                !Self::is_valid_request_transaction(
+                                    &tx,
+                                    out_val,
+                                    req.amount,
+                                    addr,
+                                    req.btc_address,
+                                    vault.btc_address,
+                                )?,
+                                Error::<T>::ValidReplaceTransaction
                             );
                         }
                         Err(_) => (),
@@ -1045,7 +1051,8 @@ decl_error! {
         VaultAlreadyReported,
         VaultAlreadyLiquidated,
         VaultNoInputToTransaction,
-        ValidRedeemOrReplace,
+        ValidRedeemTransaction,
+        ValidReplaceTransaction,
         ValidMergeTransaction,
         OracleOnline,
         NoBlockHash,
