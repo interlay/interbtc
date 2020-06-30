@@ -365,9 +365,11 @@ decl_module! {
 
             let tx = parse_transaction(raw_tx.as_slice())?;
 
-            let input_addresses: Vec<_> = tx.inputs.into_iter().map(|input|
+            // collect all addresses that feature in the inputs of the transaction
+            let input_addresses: Vec<Result<Vec<u8>, _>> = tx.inputs.into_iter().map(|input|
                                                                     input.extract_address()).collect();
 
+            // check if vault's btc address features in an input of the transaction
             ensure!(input_addresses
                     .into_iter()
                     .any(|address_result| {match address_result

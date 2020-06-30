@@ -394,6 +394,8 @@ fn parse_transaction_output(raw_output: &[u8]) -> Result<(TransactionOutput, usi
 pub(crate) fn extract_address_hash_scriptsig(input_script: &[u8]) -> Result<Vec<u8>, Error> {
     let mut parser = BytesParser::new(input_script);
     let mut p2pkh = true;
+
+    // Multisig OBOE hack -> p2sh
     if input_script[0] == OpCode::Op0 as u8 {
         parser.parse::<u8>()?;
         p2pkh = false;
@@ -404,6 +406,7 @@ pub(crate) fn extract_address_hash_scriptsig(input_script: &[u8]) -> Result<Vec<
 
     let redeem_script_size: u64 = parser.parse::<CompactUint>()?.value;
 
+    // if not p2sh, redeem script is just 33-byte pubkey
     if p2pkh && redeem_script_size != 33 {
         return Err(Error::UnsupportedInputFormat);
     }
