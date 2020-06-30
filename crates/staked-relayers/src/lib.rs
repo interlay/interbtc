@@ -338,13 +338,32 @@ decl_module! {
             Ok(())
         }
 
+        /// Helper function to check whether a given raw tx is invalid,
+        /// thus a reportable offense.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin`: Any signed user.
+        /// * `vault_id`: The account of the vault to check.
+        /// * `raw_tx`: The raw Bitcoin transaction.
+        #[weight = 1000]
+        fn check_invalid_transaction(origin, vault_id: T::AccountId, raw_tx: Vec<u8>) -> DispatchResult {
+            ensure_signed(origin)?;
+            Self::_check_invalid_transaction(vault_id, raw_tx)
+        }
+
+
         /// A Staked Relayer reports misbehavior by a Vault, providing a fraud proof
         /// (malicious Bitcoin transaction and the corresponding transaction inclusion proof).
         ///
         /// # Arguments
         ///
-        /// * `origin`: The AccountId of the Governance Mechanism.
-        /// * `staked_relayer_id`: The account of the Staked Relayer to be slashed.
+        /// * `origin`: Any signed user.
+        /// * `vault_id`: The account of the vault to check.
+        /// * `tx_id`: The hash of the transaction
+        /// * `tx_block_height`: Height rogue tx was included.
+        /// * `merkle_proof`: The proof of tx inclusion.
+        /// * `raw_tx`: The raw Bitcoin transaction.
         #[weight = 1000]
         fn report_vault_theft(origin, vault_id: T::AccountId, tx_id: H256Le, tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
@@ -352,8 +371,6 @@ decl_module! {
                 Self::check_relayer_registered(&signer),
                 Error::<T>::StakedRelayersOnly,
             );
-
-            let vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
 
             // throw if already reported
             if <TheftReports<T>>::contains_key(&tx_id) {
@@ -364,60 +381,8 @@ decl_module! {
             }
 
             ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, tx_block_height, merkle_proof)?;
+            Self::_check_invalid_transaction(vault_id.clone(), raw_tx)?;
 
-            let tx = parse_transaction(raw_tx.as_slice())?;
-
-            // collect all addresses that feature in the inputs of the transaction
-            let input_addresses: Vec<Result<Vec<u8>, _>> = tx.inputs.into_iter().map(|input|
-                                                                    input.extract_address()).collect();
-
-            // check if vault's btc address features in an input of the transaction
-            ensure!(input_addresses
-                    .into_iter()
-                    .any(|address_result| {match address_result
-                                           {
-                                               Ok(address) => H160::from_slice(&address) == vault.btc_address,
-                                               _ => false
-                                           }
-                    }), Error::<T>::VaultNoInputToTransaction);
-
-            // only check if correct format
-            if tx.outputs.len() <= 2 {
-                let out = &tx.outputs[0];
-                // check if migration
-                if let Ok(out_addr) = out.extract_address() {
-                    ensure!(H160::from_slice(&out_addr) != vault.btc_address, Error::<T>::ValidMergeTransaction);
-                    let out_val = out.value;
-                    if tx.outputs.len() == 2 {
-                        let out = &tx.outputs[1];
-                        // check if redeem / replace
-                        if let Ok(out_ret) = out.script.extract_op_return_data() {
-                            let id = H256::from_slice(&out_ret);
-                            let addr = H160::from_slice(&out_addr);
-                            match ext::redeem::get_redeem_request_from_id::<T>(&id) {
-                                Ok(req) => {
-                                    let amount = TryInto::<u64>::try_into(req.amount_btc).map_err(|_e| Error::<T>::RuntimeError)? as i64;
-                                    ensure!(
-                                        out_val < amount && addr != req.btc_address,
-                                        Error::<T>::ValidRedeemOrReplace
-                                    )
-                                },
-                                Err(_) => (),
-                            }
-                            match ext::replace::get_replace_request::<T>(&id) {
-                                Ok(req) => {
-                                    let amount = TryInto::<u64>::try_into(req.amount).map_err(|_e| Error::<T>::RuntimeError)? as i64;
-                                    ensure!(
-                                        out_val < amount && addr != req.btc_address,
-                                        Error::<T>::ValidRedeemOrReplace
-                                    )
-                                },
-                                Err(_) => (),
-                            }
-                        }
-                    }
-                }
-            }
             ext::vault_registry::liquidate_vault::<T>(&vault_id)?;
             ext::security::set_parachain_status::<T>(StatusCode::Error);
             ext::security::mutate_errors::<T, _>(|errors| {
@@ -900,6 +865,130 @@ impl<T: Trait> Module<T> {
             update.add_error,
             update.remove_error,
         ));
+        Ok(())
+    }
+
+    fn check_invalid_merge_transaction(tx: &Transaction, vault_addr: H160) -> DispatchResult {
+        for out in &tx.outputs {
+            // return if address not extractable (i.e. op_return)
+            let out_addr = match out.script.extract_address() {
+                Ok(addr) => addr,
+                Err(_) => return Ok(()),
+            };
+            if H160::from_slice(&out_addr) != vault_addr {
+                return Ok(());
+            }
+        }
+        return Err(Error::<T>::ValidMergeTransaction.into());
+    }
+
+    fn check_invalid_redeem_or_replace(
+        out_val: i64,
+        amount: i64,
+        out_addr: H160,
+        req_addr: H160,
+        vault_addr: H160,
+        tx: Transaction,
+    ) -> DispatchResult {
+        if out_val >= amount && out_addr == req_addr {
+            if tx.outputs.len() == 3 {
+                let out = &tx.outputs[2];
+                if let Ok(vault_out_addr) = out.script.extract_address() {
+                    ensure!(
+                        H160::from_slice(&vault_out_addr) != vault_addr,
+                        Error::<T>::ValidRedeemOrReplace
+                    );
+                }
+                return Ok(());
+            }
+            return Err(Error::<T>::ValidRedeemOrReplace.into());
+        }
+        // invalid if insufficient amount or wrong payout addr
+        return Ok(());
+    }
+
+    pub(crate) fn _check_invalid_transaction(
+        vault_id: T::AccountId,
+        raw_tx: Vec<u8>,
+    ) -> DispatchResult {
+        let vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
+
+        let tx = parse_transaction(raw_tx.as_slice())?;
+
+        // collect all addresses that feature in the inputs of the transaction
+        let input_addresses: Vec<Result<Vec<u8>, _>> = tx
+            .inputs
+            .into_iter()
+            .map(|input| input.extract_address())
+            .collect();
+
+        // check if vault's btc address features in an input of the transaction
+        ensure!(
+            input_addresses.into_iter().any(|address_result| {
+                match address_result {
+                    Ok(address) => H160::from_slice(&address) == vault.btc_address,
+                    _ => false,
+                }
+            }),
+            Error::<T>::VaultNoInputToTransaction
+        );
+
+        // check if the transaction is a "migration"
+        Self::check_invalid_merge_transaction(&tx, vault.btc_address)?;
+
+        // only check if correct format
+        if tx.outputs.len() <= 3 {
+            return Ok(());
+        }
+
+        // 1) recipient
+        // 2) op_return
+        // 3) vault
+
+        let out = &tx.outputs[0];
+        if let Ok(out_addr) = out.script.extract_address() {
+            let out_val = out.value;
+            if tx.outputs.len() == 2 || tx.outputs.len() == 3 {
+                let out = &tx.outputs[1];
+                // check if redeem / replace
+                if let Ok(out_ret) = out.script.extract_op_return_data() {
+                    let id = H256::from_slice(&out_ret);
+                    let addr = H160::from_slice(&out_addr);
+                    match ext::redeem::get_redeem_request_from_id::<T>(&id) {
+                        Ok(req) => {
+                            let amount = TryInto::<u64>::try_into(req.amount_btc)
+                                .map_err(|_e| Error::<T>::RuntimeError)?
+                                as i64;
+                            return Self::check_invalid_redeem_or_replace(
+                                out_val,
+                                amount,
+                                addr,
+                                req.btc_address,
+                                vault.btc_address,
+                                tx,
+                            );
+                        }
+                        Err(_) => (),
+                    }
+                    match ext::replace::get_replace_request::<T>(&id) {
+                        Ok(req) => {
+                            let amount = TryInto::<u64>::try_into(req.amount)
+                                .map_err(|_e| Error::<T>::RuntimeError)?
+                                as i64;
+                            return Self::check_invalid_redeem_or_replace(
+                                out_val,
+                                amount,
+                                addr,
+                                req.btc_address,
+                                vault.btc_address,
+                                tx,
+                            );
+                        }
+                        Err(_) => (),
+                    }
+                }
+            }
+        }
         Ok(())
     }
 
