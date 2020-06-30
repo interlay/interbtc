@@ -1151,7 +1151,7 @@ mod tests {
     }
 
     #[test]
-    fn extract_witness_address() {
+    fn extract_witness_address_p2wpkh() {
         let raw_tx = "0200000000010140d43a99926d43eb0e619bf0b3d83b4a31f60c176beecfb9d35bf45e54d0f7420100000017160014a4b4ca48de0b3fffc15404a1acdc8dbaae226955ffffffff0100e1f5050000000017a9144a1154d50b03292b3024370901711946cb7cccc387024830450221008604ef8f6d8afa892dee0f31259b6ce02dd70c545cfcfed8148179971876c54a022076d771d6e91bed212783c9b06e0de600fab2d518fad6f15a2b191d7fbd262a3e0121039d25ab79f41f75ceaf882411fd41fa670a4c672c23ffaf0e361a969cde0692e800000000";
         let tx_bytes = hex::decode(&raw_tx).unwrap();
         let transaction = parse_transaction(&tx_bytes).unwrap();
@@ -1159,6 +1159,22 @@ mod tests {
         let address: [u8; 20] = [
             164, 180, 202, 72, 222, 11, 63, 255, 193, 84, 4, 161, 172, 220, 141, 186, 174, 34, 105,
             85,
+        ];
+
+        let extr_address = transaction.inputs[0].extract_address().unwrap();
+
+        assert_eq!(&extr_address, &address);
+    }
+
+    #[test]
+    fn extract_witness_address_p2wsh() {
+        let raw_tx = "020000000001027113554199c88273f7f04d18a0dca69145ea863f31519a790b346579b9b55f090100000017160014d6ad6711da30f4349a0d8c387a515bff10ecd507fdffffff90a9eb7550a8308c629014f3f685d2d72e9e7de6bd199c3a9615b567206889430100000017160014cce6d8dffda77f56e237389f48417f10659c2e42fdffffff0228641c000000000017a914d980c4240e77b76d48051c791f68831d23ad3e8687400d03000000000017a914e9c3dd0c07aac76179ebc76a6c78d4d67c6c160a870248304502210088b0fb4b40af9620f785f265c2e2f7436018391d9db34eee3bc1ebd796fbce96022015151182eaa595e090c8030d9f979b920aae276c385dfc66ac2d77160a27453b01210266dd88be116711227e2e953daa008cca45ce5cc0aa4b584c20ae6ddb9ce0212d0247304402204b2fdd767ab93b30a43042c3287ae78d06d1418084fe88350b0aaf06bebe02fe02202d850fc5887d948307fdade871de3714d867610643f6507e511d14dad86fe3ce012102593012612326b4c07e6f0234bac5ff62b5ed12afe77e2900474ca36b3bfa528075f50700";
+        let tx_bytes = hex::decode(&raw_tx).unwrap();
+        let transaction = parse_transaction(&tx_bytes).unwrap();
+
+        let address: [u8; 20] = [
+            214, 173, 103, 17, 218, 48, 244, 52, 154, 13, 140, 56, 122, 81, 91, 255, 16, 236, 213,
+            7,
         ];
 
         let extr_address = transaction.inputs[0].extract_address().unwrap();
