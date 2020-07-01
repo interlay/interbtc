@@ -59,6 +59,8 @@ pub enum Error {
     MalformedOpReturnOutput,
     // Output does not match format of supported output types (Witness, P2PKH, P2SH)
     UnsupportedOutputFormat,
+    // Input does not match format of supported input types (Witness, P2PKH, P2SH)
+    UnsupportedInputFormat,
     /// There are no NO_DATA blocks in this BlockChain
     NoDataEmpty, // not in spec
     // -------------
@@ -155,6 +157,7 @@ impl Error {
             Error::MalformedP2SHOutput => "Format of the P2SH output is invalid",
             Error::MalformedOpReturnOutput => "Format of the OP_RETURN transaction output is invalid",
             Error::UnsupportedOutputFormat => "Unsupported output format. Currently supported: Witness, P2PKH, P2SH,",
+            Error::UnsupportedInputFormat => "Unsupported input format. Currently supported: Witness, P2PKH, P2SH",
             Error::NoDataEmpty => "There are no NO_DATA blocks in this BlockChain.",
 
             Error::ReplacePeriodExpired => "Replace period expired",

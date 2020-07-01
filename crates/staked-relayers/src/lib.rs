@@ -364,11 +364,26 @@ decl_module! {
             }
 
             let tx = parse_transaction(raw_tx.as_slice())?;
+
+            // collect all addresses that feature in the inputs of the transaction
+            let input_addresses: Vec<Result<Vec<u8>, _>> = tx.inputs.into_iter().map(|input|
+                                                                    input.extract_address()).collect();
+
+            // check if vault's btc address features in an input of the transaction
+            ensure!(input_addresses
+                    .into_iter()
+                    .any(|address_result| {match address_result
+                                           {
+                                               Ok(address) => H160::from_slice(&address) == vault.btc_address,
+                                               _ => false
+                                           }
+                    }), Error::<T>::VaultNoInputToTransaction);
+
             // only check if correct format
             if tx.outputs.len() <= 2 {
                 let out = &tx.outputs[0];
                 // check if migration
-                if let Ok(out_addr) = out.script.extract_address() {
+                if let Ok(out_addr) = out.extract_address() {
                     ensure!(H160::from_slice(&out_addr) != vault.btc_address, Error::<T>::ValidMergeTransaction);
                     let out_val = out.value;
                     if tx.outputs.len() == 2 {
@@ -938,6 +953,7 @@ decl_error! {
         VoteAlreadyCast,
         VaultAlreadyReported,
         VaultAlreadyLiquidated,
+        VaultNoInputToTransaction,
         ValidRedeemOrReplace,
         ValidMergeTransaction,
         OracleOnline,

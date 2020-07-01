@@ -40,6 +40,10 @@ path = '../x-core'
 default-features = false
 version = '0.4.2'
 
+[dependencies.bitcoin_hashes]
+default-features = false
+version = "0.7.3"
+
 [dev-dependencies]
 mocktopus = '0.7.0'
 

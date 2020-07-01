@@ -1,6 +1,10 @@
 #[cfg(test)]
 extern crate mocktopus;
 
+extern crate bitcoin_hashes;
+
+use bitcoin_hashes::Hash;
+
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
@@ -387,7 +391,30 @@ fn parse_transaction_output(raw_output: &[u8]) -> Result<(TransactionOutput, usi
     ))
 }
 
-pub(crate) fn extract_address_hash(output_script: &[u8]) -> Result<Vec<u8>, Error> {
+pub(crate) fn extract_address_hash_scriptsig(input_script: &[u8]) -> Result<Vec<u8>, Error> {
+    let mut parser = BytesParser::new(input_script);
+    let mut p2pkh = true;
+
+    // Multisig OBOE hack -> p2sh
+    if input_script[0] == OpCode::Op0 as u8 {
+        parser.parse::<u8>()?;
+        p2pkh = false;
+    }
+
+    let sig_size: u64 = parser.parse::<CompactUint>()?.value;
+    let _sig = parser.read(sig_size as usize)?;
+
+    let redeem_script_size: u64 = parser.parse::<CompactUint>()?.value;
+
+    // if not p2sh, redeem script is just 33-byte pubkey
+    if p2pkh && redeem_script_size != 33 {
+        return Err(Error::UnsupportedInputFormat);
+    }
+    let redeem_script = parser.read(redeem_script_size as usize)?;
+    return Ok(bitcoin_hashes::hash160::Hash::hash(&redeem_script).to_vec());
+}
+
+pub(crate) fn extract_address_hash_scriptpubkey(output_script: &[u8]) -> Result<Vec<u8>, Error> {
     let script_len = output_script.len();
     // Witness
     if output_script[0] == 0 {
@@ -681,7 +708,7 @@ pub(crate) mod tests {
 
         let p2pkh_address: [u8; 20] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
-        let extr_p2pkh = extract_address_hash(&p2pkh_script).unwrap();
+        let extr_p2pkh = extract_address_hash_scriptpubkey(&p2pkh_script).unwrap();
 
         assert_eq!(&extr_p2pkh, &p2pkh_address);
     }
@@ -692,9 +719,39 @@ pub(crate) mod tests {
 
         let p2sh_address: [u8; 20] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
-        let extr_p2sh = extract_address_hash(&p2sh_script).unwrap();
+        let extr_p2sh = extract_address_hash_scriptpubkey(&p2sh_script).unwrap();
 
         assert_eq!(&extr_p2sh, &p2sh_address);
+    }
+
+    #[test]
+    fn test_extract_address_hash_scriptsig() {
+        let raw_tx = "0100000001c15041a06deb6b3818b022fac558da4ce2097f0860c8f642105bbad9d29be02a010000006c493046022100cfd2a2d332b29adce119c55a9fadd3c073332024b7e272513e51623ca15993480221009b482d7f7b4d479aff62bdcdaea54667737d56f8d4d63dd03ec3ef651ed9a25401210325f8b039a11861659c9bf03f43fc4ea055f3a71cd60c7b1fd474ab578f9977faffffffff0290d94000000000001976a9148ed243a7be26080a1a8cf96b53270665f1b8dd2388ac4083086b000000001976a9147e7d94d0ddc21d83bfbcfc7798e4547edf0832aa88ac00000000";
+        let tx_bytes = hex::decode(&raw_tx).unwrap();
+        let transaction = parse_transaction(&tx_bytes).unwrap();
+
+        let address: [u8; 20] = [
+            126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8,
+            50, 170,
+        ];
+        let extr_address = extract_address_hash_scriptsig(&transaction.inputs[0].script).unwrap();
+
+        assert_eq!(&extr_address, &address);
+    }
+
+    #[test]
+    fn test_extract_address_hash_scriptsig_p2sh() {
+        let raw_tx = "0100000001c8cc2b56525e734ff63a13bc6ad06a9e5664df8c67632253a8e36017aee3ee40000000009000483045022100ad0851c69dd756b45190b5a8e97cb4ac3c2b0fa2f2aae23aed6ca97ab33bf88302200b248593abc1259512793e7dea61036c601775ebb23640a0120b0dba2c34b79001455141042f90074d7a5bf30c72cf3a8dfd1381bdbd30407010e878f3a11269d5f74a58788505cdca22ea6eab7cfb40dc0e07aba200424ab0d79122a653ad0c7ec9896bdf51aefeffffff0120f40e00000000001976a9141d30342095961d951d306845ef98ac08474b36a088aca7270400";
+        let tx_bytes = hex::decode(&raw_tx).unwrap();
+        let transaction = parse_transaction(&tx_bytes).unwrap();
+
+        let address: [u8; 20] = [
+            233, 195, 221, 12, 7, 170, 199, 97, 121, 235, 199, 106, 108, 120, 212, 214, 124, 108,
+            22, 10,
+        ];
+        let extr_address = extract_address_hash_scriptsig(&transaction.inputs[0].script).unwrap();
+
+        assert_eq!(&extr_address, &address);
     }
 
     /*
@@ -702,7 +759,7 @@ pub(crate) mod tests {
     fn test_extract_address_invalid_p2pkh_fails() {
         let p2pkh_script = hex::decode(&sample_malformed_p2pkh_output()).unwrap();
 
-        assert_eq!(extract_address_hash(&p2pkh_script).err(), Some(Error::MalformedP2PKHOutput));
+        assert_eq!(extract_address_hash_scriptpubkey(&p2pkh_script).err(), Some(Error::MalformedP2PKHOutput));
     }
     */
 }

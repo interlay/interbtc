@@ -275,6 +275,7 @@ dependencies = [
 name = "bitcoin"
 version = "0.1.1"
 dependencies = [
+ "bitcoin_hashes",
  "hex",
  "mocktopus",
  "parity-scale-codec",
@@ -285,6 +286,12 @@ dependencies = [
  "sp-std",
  "x-core",
 ]
+
+[[package]]
+name = "bitcoin_hashes"
+version = "0.7.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b375d62f341cef9cd9e77793ec8f1db3fc9ce2e4d57e982c8fe697a2c16af3b6"
 
 [[package]]
 name = "bitflags"
@@ -5545,6 +5552,7 @@ dependencies = [
  "exchange-rate-oracle",
  "frame-support",
  "frame-system",
+ "hex",
  "mocktopus",
  "pallet-balances",
  "pallet-timestamp",
