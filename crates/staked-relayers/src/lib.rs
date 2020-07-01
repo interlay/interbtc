@@ -372,6 +372,8 @@ decl_module! {
                 Error::<T>::StakedRelayersOnly,
             );
 
+            // liquidated vaults are removed, so no need for check here
+
             // throw if already reported
             if <TheftReports<T>>::contains_key(&tx_id) {
                 ensure!(
@@ -389,6 +391,10 @@ decl_module! {
                 errors.insert(ErrorCode::Liquidation);
                 Ok(())
             })?;
+
+            <TheftReports<T>>::mutate(&tx_id, |reports| {
+                reports.insert(vault_id);
+            });
 
             Self::deposit_event(<Event<T>>::ExecuteStatusUpdate(
                 StatusCode::Error,
