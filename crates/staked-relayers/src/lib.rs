@@ -349,7 +349,7 @@ decl_module! {
         #[weight = 1000]
         fn check_invalid_transaction(origin, vault_id: T::AccountId, raw_tx: Vec<u8>) -> DispatchResult {
             ensure_signed(origin)?;
-            Self::_check_invalid_transaction(vault_id, raw_tx)
+            Self::_check_invalid_transaction(&vault_id, raw_tx)
         }
 
 
@@ -381,7 +381,7 @@ decl_module! {
             }
 
             ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, tx_block_height, merkle_proof)?;
-            Self::_check_invalid_transaction(vault_id.clone(), raw_tx)?;
+            Self::_check_invalid_transaction(&vault_id, raw_tx)?;
 
             ext::vault_registry::liquidate_vault::<T>(&vault_id)?;
             ext::security::set_parachain_status::<T>(StatusCode::Error);
@@ -910,10 +910,10 @@ impl<T: Trait> Module<T> {
     }
 
     pub(crate) fn _check_invalid_transaction(
-        vault_id: T::AccountId,
+        vault_id: &T::AccountId,
         raw_tx: Vec<u8>,
     ) -> DispatchResult {
-        let vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
+        let vault = ext::vault_registry::get_vault_from_id::<T>(vault_id)?;
 
         let tx = parse_transaction(raw_tx.as_slice())?;
 

@@ -1132,7 +1132,7 @@ fn test_check_invalid_transaction_fails_with_valid_merge_transaction() {
             .build();
 
         assert_err!(
-            Staking::_check_invalid_transaction(BOB, transaction.format()),
+            Staking::_check_invalid_transaction(&BOB, transaction.format()),
             TestError::ValidMergeTransaction
         );
     })
@@ -1209,7 +1209,7 @@ fn test_check_invalid_transaction_fails_with_valid_request_or_redeem() {
             .build();
 
         assert_err!(
-            Staking::_check_invalid_transaction(BOB, transaction.format()),
+            Staking::_check_invalid_transaction(&BOB, transaction.format()),
             TestError::ValidRedeemTransaction
         );
 
@@ -1230,7 +1230,7 @@ fn test_check_invalid_transaction_fails_with_valid_request_or_redeem() {
         });
 
         assert_err!(
-            Staking::_check_invalid_transaction(BOB, transaction.format()),
+            Staking::_check_invalid_transaction(&BOB, transaction.format()),
             TestError::ValidReplaceTransaction
         );
     })
@@ -1281,7 +1281,7 @@ fn test_check_invalid_transaction_succeeds() {
             .build();
 
         assert_ok!(Staking::_check_invalid_transaction(
-            BOB,
+            &BOB,
             transaction.format()
         ));
     })
