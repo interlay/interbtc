@@ -953,9 +953,11 @@ impl<T: Trait> Module<T> {
             return Ok(());
         }
 
-        // 1) recipient
-        // 2) op_return
-        // 3) vault
+        // Vaults are required to move funds for redeem and replace operations.
+        // Each transaction MUST contain either two or three outputs as follows:
+        // 1) recipient: the first output is the recipient of the redeem/replace
+        // 2) op_return: the second output is the associated ID encoded in the OP_RETURN
+        // 3) vault: the third output is any "spare change" the vault is transferring
 
         let out = &tx.outputs[0];
         if let Ok(out_addr) = out.extract_address() {
