@@ -873,7 +873,8 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    #[allow(dead_code)]
+    /// Checks if the vault is doing a valid merge transaction to move funds between
+    /// addresses.
     pub(crate) fn is_valid_merge_transaction(tx: &Transaction, vault_addr: H160) -> bool {
         for out in &tx.outputs {
             // return if address not extractable (i.e. op_return)
@@ -888,7 +889,7 @@ impl<T: Trait> Module<T> {
         return true;
     }
 
-    #[allow(dead_code)]
+    /// Checks if the vault is sending a valid request transaction.
     pub(crate) fn is_valid_request_transaction(
         tx: &Transaction,
         out_val: i64,
@@ -915,6 +916,12 @@ impl<T: Trait> Module<T> {
         return Ok(false);
     }
 
+    /// Check if a vault transaction is invalid. Returns Ok() if invalid and Err otherwise.
+    ///
+    /// # Arguments
+    ///
+    /// `vault_id`: the vault.
+    /// `raw_tx`: the BTC transaction by the vault.
     pub(crate) fn _check_invalid_transaction(
         vault_id: &T::AccountId,
         raw_tx: Vec<u8>,
