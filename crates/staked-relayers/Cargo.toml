@@ -94,6 +94,10 @@ path = '../replace'
 default-features = false
 version = '0.8.0'
 
+[dependencies.hex]
+default-features = false
+version = '0.4.2'
+
 [dev-dependencies.balances]
 default-features = false
 package = 'pallet-balances'
