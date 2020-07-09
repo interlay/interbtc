@@ -67,6 +67,8 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         // Initializing events
         fn deposit_event() = default;
+
+        #[weight = 1000]
         pub fn set_exchange_rate(origin, rate: u128) -> DispatchResult {
             // Check that Parachain is RUNNING
             ext::security::ensure_parachain_status_running::<T>()?;
@@ -163,7 +165,7 @@ impl<T: Trait> Module<T> {
 
     /// Returns true if the last update to the exchange rate
     /// was before the maximum allowed delay
-    fn is_max_delay_passed() -> Result<bool> {
+    pub fn is_max_delay_passed() -> Result<bool> {
         let timestamp = Self::get_current_time();
         let last_update = Self::get_last_exchange_rate_time();
         let max_delay = Self::get_max_delay();

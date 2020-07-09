@@ -20,20 +20,21 @@ use mocktopus::macros::mockable;
 pub use security;
 
 use crate::types::{
-    ActiveStakedRelayer, InactiveStakedRelayer, ProposalStatus, StakedRelayerStatus, StatusUpdate,
-    Tally, DOT,
+    ActiveStakedRelayer, InactiveStakedRelayer, PolkaBTC, ProposalStatus, StakedRelayerStatus,
+    StatusUpdate, Tally, DOT,
 };
 use bitcoin::parser::parse_transaction;
 use bitcoin::types::*;
-/// # Security module implementation
-/// This is the implementation of the BTC Parachain Security module following the spec at:
-/// https://interlay.gitlab.io/polkabtc-spec/spec/security
+/// # Staked Relayers module implementation
+/// This is the implementation of the BTC Parachain Staked Relayers module following the spec at:
+/// https://interlay.gitlab.io/polkabtc-spec/spec/staked-relayers.html
 ///
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::Get,
+    weights::Weight,
     IterableStorageMap,
 };
 use primitive_types::H256;
@@ -117,24 +118,13 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        fn on_initialize(n: T::BlockNumber) {
-            if let Err(e) = Self::begin_block(n) {
-                sp_runtime::print(e);
-            }
-        }
-
-        fn on_finalize(_n: T::BlockNumber) {
-            if let Err(e) = Self::end_block() {
-                sp_runtime::print(e);
-            }
-        }
-
         /// Registers a new Staked Relayer, locking the provided collateral, which must exceed `STAKED_RELAYER_STAKE`.
         ///
         /// # Arguments
         ///
         /// * `origin`: The account of the Staked Relayer to be registered
         /// * `stake`: to-be-locked collateral/stake in DOT
+        #[weight = 1000]
         fn register_staked_relayer(origin, stake: DOT<T>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
 
@@ -166,6 +156,7 @@ decl_module! {
         /// # Arguments
         ///
         /// * `origin`: The account of the Staked Relayer to be deregistered
+        #[weight = 1000]
         fn deregister_staked_relayer(origin) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             let staked_relayer = Self::get_active_staked_relayer(&signer)?;
@@ -181,6 +172,7 @@ decl_module! {
         /// # Arguments
         ///
         /// * `origin`: The account of the Staked Relayer to be activated
+        #[weight = 1000]
         fn activate_staked_relayer(origin) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             let staked_relayer = Self::get_inactive_staked_relayer(&signer)?;
@@ -204,6 +196,7 @@ decl_module! {
         /// # Arguments
         ///
         /// * `origin`: The account of the Staked Relayer to be deactivated
+        #[weight = 1000]
         fn deactivate_staked_relayer(origin) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             let staked_relayer = Self::get_active_staked_relayer(&signer)?;
@@ -221,6 +214,7 @@ decl_module! {
         /// * `add_error`: If the suggested status is Error, this set of ErrorCode indicates which error is to be added to the Errors mapping.
         /// * `remove_error`: ErrorCode to be removed from the Errors list.
         /// * `block_hash`: [Optional] When reporting an error related to BTC-Relay, this field indicates the affected Bitcoin block (header).
+        #[weight = 1000]
         fn suggest_status_update(origin, deposit: DOT<T>, status_code: StatusCode, add_error: Option<ErrorCode>, remove_error: Option<ErrorCode>, block_hash: Option<H256Le>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
 
@@ -269,6 +263,7 @@ decl_module! {
         /// * `origin`: The AccountId of the Staked Relayer casting the vote.
         /// * `status_update_id`: Identifier of the `StatusUpdate` voted upon in `StatusUpdates`.
         /// * `approve`: `True` or `False`, depending on whether the Staked Relayer agrees or disagrees with the suggested `StatusUpdate`.
+        #[weight = 1000]
         fn vote_on_status_update(origin, status_update_id: U256, approve: bool) -> DispatchResult {
             let signer = ensure_signed(origin)?;
 
@@ -296,6 +291,7 @@ decl_module! {
         /// * `origin`: The AccountId of the Governance Mechanism.
         /// * `status_code`: Suggested BTC Parachain status (`StatusCode` enum).
         /// * `errors`: If the suggested status is `Error`, this set of `ErrorCode` entries provides details on the occurred errors.
+        #[weight = 1000]
         fn force_status_update(origin, status_code: StatusCode, add_error: Option<ErrorCode>, remove_error: Option<ErrorCode>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             Self::only_governance(&signer)?;
@@ -327,6 +323,7 @@ decl_module! {
         ///
         /// * `origin`: The AccountId of the Governance Mechanism.
         /// * `staked_relayer_id`: The account of the Staked Relayer to be slashed.
+        #[weight = 1000]
         fn slash_staked_relayer(origin, staked_relayer_id: T::AccountId) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             Self::only_governance(&signer)?;
@@ -341,21 +338,41 @@ decl_module! {
             Ok(())
         }
 
+        /// Helper function to check whether a given raw tx is invalid,
+        /// thus a reportable offense.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin`: Any signed user.
+        /// * `vault_id`: The account of the vault to check.
+        /// * `raw_tx`: The raw Bitcoin transaction.
+        #[weight = 1000]
+        fn check_invalid_transaction(origin, vault_id: T::AccountId, raw_tx: Vec<u8>) -> DispatchResult {
+            ensure_signed(origin)?;
+            Self::_check_invalid_transaction(&vault_id, raw_tx)
+        }
+
+
         /// A Staked Relayer reports misbehavior by a Vault, providing a fraud proof
         /// (malicious Bitcoin transaction and the corresponding transaction inclusion proof).
         ///
         /// # Arguments
         ///
-        /// * `origin`: The AccountId of the Governance Mechanism.
-        /// * `staked_relayer_id`: The account of the Staked Relayer to be slashed.
-        fn report_vault_theft(origin, vault_id: T::AccountId, tx_id: H256Le, _tx_block_height: U256, _tx_index: u64, _merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
+        /// * `origin`: Any signed user.
+        /// * `vault_id`: The account of the vault to check.
+        /// * `tx_id`: The hash of the transaction
+        /// * `tx_block_height`: Height rogue tx was included.
+        /// * `merkle_proof`: The proof of tx inclusion.
+        /// * `raw_tx`: The raw Bitcoin transaction.
+        #[weight = 1000]
+        fn report_vault_theft(origin, vault_id: T::AccountId, tx_id: H256Le, tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             ensure!(
                 Self::check_relayer_registered(&signer),
                 Error::<T>::StakedRelayersOnly,
             );
 
-            let vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
+            // liquidated vaults are removed, so no need for check here
 
             // throw if already reported
             if <TheftReports<T>>::contains_key(&tx_id) {
@@ -365,50 +382,19 @@ decl_module! {
                 );
             }
 
-            let tx = parse_transaction(raw_tx.as_slice())?;
-            // only check if correct format
-            if tx.outputs.len() <= 2 {
-                let out = &tx.outputs[0];
-                // check if migration
-                if let Ok(out_addr) = out.script.extract_address() {
-                    ensure!(H160::from_slice(&out_addr) != vault.btc_address, Error::<T>::ValidMergeTransaction);
-                    let out_val = out.value;
-                    if tx.outputs.len() == 2 {
-                        let out = &tx.outputs[1];
-                        // check if redeem / replace
-                        if let Ok(out_ret) = out.script.extract_op_return_data() {
-                            let id = H256::from_slice(&out_ret);
-                            let addr = H160::from_slice(&out_addr);
-                            match ext::redeem::get_redeem_request_from_id::<T>(&id) {
-                                Ok(req) => {
-                                    let amount = TryInto::<u64>::try_into(req.amount_btc).map_err(|_e| Error::<T>::RuntimeError)? as i64;
-                                    ensure!(
-                                        out_val < amount && addr != req.btc_address,
-                                        Error::<T>::ValidRedeemOrReplace
-                                    )
-                                },
-                                Err(_) => (),
-                            }
-                            match ext::replace::get_replace_request::<T>(&id) {
-                                Ok(req) => {
-                                    let amount = TryInto::<u64>::try_into(req.amount).map_err(|_e| Error::<T>::RuntimeError)? as i64;
-                                    ensure!(
-                                        out_val < amount && addr != req.btc_address,
-                                        Error::<T>::ValidRedeemOrReplace
-                                    )
-                                },
-                                Err(_) => (),
-                            }
-                        }
-                    }
-                }
-            }
+            ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, tx_block_height, merkle_proof)?;
+            Self::_check_invalid_transaction(&vault_id, raw_tx)?;
+
             ext::vault_registry::liquidate_vault::<T>(&vault_id)?;
             ext::security::set_parachain_status::<T>(StatusCode::Error);
             ext::security::mutate_errors::<T, _>(|errors| {
                 errors.insert(ErrorCode::Liquidation);
                 Ok(())
             })?;
+
+            <TheftReports<T>>::mutate(&tx_id, |reports| {
+                reports.insert(vault_id);
+            });
 
             Self::deposit_event(<Event<T>>::ExecuteStatusUpdate(
                 StatusCode::Error,
@@ -419,9 +405,9 @@ decl_module! {
             Ok(())
         }
 
-
         /// A Staked Relayer reports that a Vault is undercollateralized (i.e. below the LiquidationCollateralThreshold as defined in Vault Registry).
         /// If the collateral falls below this rate, we flag the Vault for liquidation and update the ParachainStatus to ERROR - adding LIQUIDATION to Errors.
+        #[weight = 1000]
         fn report_vault_under_liquidation_threshold(origin, vault_id: T::AccountId)  -> DispatchResult {
             let signer = ensure_signed(origin)?;
             ensure!(
@@ -479,6 +465,7 @@ decl_module! {
 
         /// A Staked Relayer reports that the Exchange Rate Oracle is offline. This function checks if the last exchange
         /// rate data in the Exchange Rate Oracle is indeed older than the indicated threshold.
+        #[weight = 1000]
         fn report_oracle_offline(origin) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             ensure!(
@@ -504,6 +491,19 @@ decl_module! {
             ));
 
             Ok(())
+        }
+
+        fn on_initialize(n: T::BlockNumber) -> Weight {
+            if let Err(e) = Self::begin_block(n) {
+                sp_runtime::print(e);
+            }
+            0
+        }
+
+        fn on_finalize(_n: T::BlockNumber) {
+            if let Err(e) = Self::end_block() {
+                sp_runtime::print(e);
+            }
         }
     }
 }
@@ -873,6 +873,146 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Checks if the vault is doing a valid merge transaction to move funds between
+    /// addresses.
+    pub(crate) fn is_valid_merge_transaction(tx: &Transaction, vault_addr: H160) -> bool {
+        for out in &tx.outputs {
+            // return if address not extractable (i.e. op_return)
+            let out_addr = match out.extract_address() {
+                Ok(addr) => addr,
+                Err(_) => return false,
+            };
+            if H160::from_slice(&out_addr) != vault_addr {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /// Checks if the vault is sending a valid request transaction.
+    pub(crate) fn is_valid_request_transaction(
+        tx: &Transaction,
+        out_val: i64,
+        exp_val: PolkaBTC<T>,
+        out_addr: H160,
+        req_addr: H160,
+        vault_addr: H160,
+    ) -> Result<bool, DispatchError> {
+        let value =
+            TryInto::<u64>::try_into(exp_val).map_err(|_e| Error::<T>::RuntimeError)? as i64;
+
+        // tx here should only have at most three outputs
+        if out_val >= value && out_addr == req_addr {
+            if tx.outputs.len() == 3 {
+                let out = &tx.outputs[2];
+                if let Ok(vault_out_addr) = out.extract_address() {
+                    return Ok(H160::from_slice(&vault_out_addr) == vault_addr);
+                }
+                return Ok(false);
+            }
+            return Ok(true);
+        }
+        // invalid if insufficient amount or wrong payout addr
+        return Ok(false);
+    }
+
+    /// Check if a vault transaction is invalid. Returns Ok() if invalid and Err otherwise.
+    ///
+    /// # Arguments
+    ///
+    /// `vault_id`: the vault.
+    /// `raw_tx`: the BTC transaction by the vault.
+    pub(crate) fn _check_invalid_transaction(
+        vault_id: &T::AccountId,
+        raw_tx: Vec<u8>,
+    ) -> DispatchResult {
+        let vault = ext::vault_registry::get_vault_from_id::<T>(vault_id)?;
+
+        let tx = parse_transaction(raw_tx.as_slice())?;
+
+        // collect all addresses that feature in the inputs of the transaction
+        let input_addresses: Vec<Result<Vec<u8>, _>> = tx
+            .clone()
+            .inputs
+            .into_iter()
+            .map(|input| input.extract_address())
+            .collect();
+
+        // check if vault's btc address features in an input of the transaction
+        ensure!(
+            input_addresses.into_iter().any(|address_result| {
+                match address_result {
+                    Ok(address) => H160::from_slice(&address) == vault.btc_address,
+                    _ => false,
+                }
+            }),
+            Error::<T>::VaultNoInputToTransaction
+        );
+
+        // check if the transaction is a "migration"
+        ensure!(
+            !Self::is_valid_merge_transaction(&tx, vault.btc_address),
+            Error::<T>::ValidMergeTransaction
+        );
+
+        // only check if correct format
+        if tx.outputs.len() > 3 {
+            return Ok(());
+        }
+
+        // Vaults are required to move funds for redeem and replace operations.
+        // Each transaction MUST contain either two or three outputs as follows:
+        // 1) recipient: the first output is the recipient of the redeem/replace
+        // 2) op_return: the second output is the associated ID encoded in the OP_RETURN
+        // 3) vault: the third output is any "spare change" the vault is transferring
+
+        let out = &tx.outputs[0];
+        if let Ok(out_addr) = out.extract_address() {
+            let out_val = out.value;
+            if tx.outputs.len() == 2 || tx.outputs.len() == 3 {
+                let out = &tx.outputs[1];
+                // check if redeem / replace
+                if let Ok(out_ret) = out.script.extract_op_return_data() {
+                    let id = H256::from_slice(&out_ret);
+                    let addr = H160::from_slice(&out_addr);
+                    match ext::redeem::get_redeem_request_from_id::<T>(&id) {
+                        Ok(req) => {
+                            ensure!(
+                                !Self::is_valid_request_transaction(
+                                    &tx,
+                                    out_val,
+                                    req.amount_btc,
+                                    addr,
+                                    req.btc_address,
+                                    vault.btc_address,
+                                )?,
+                                Error::<T>::ValidRedeemTransaction
+                            );
+                        }
+                        Err(_) => (),
+                    }
+                    match ext::replace::get_replace_request::<T>(&id) {
+                        Ok(req) => {
+                            ensure!(
+                                !Self::is_valid_request_transaction(
+                                    &tx,
+                                    out_val,
+                                    req.amount,
+                                    addr,
+                                    req.btc_address,
+                                    vault.btc_address,
+                                )?,
+                                Error::<T>::ValidReplaceTransaction
+                            );
+                        }
+                        Err(_) => (),
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Increments the current `StatusCounter` and returns the new value.
     pub fn get_status_counter() -> U256 {
         <StatusCounter>::mutate(|c| {
@@ -925,7 +1065,9 @@ decl_error! {
         VoteAlreadyCast,
         VaultAlreadyReported,
         VaultAlreadyLiquidated,
-        ValidRedeemOrReplace,
+        VaultNoInputToTransaction,
+        ValidRedeemTransaction,
+        ValidReplaceTransaction,
         ValidMergeTransaction,
         OracleOnline,
         NoBlockHash,

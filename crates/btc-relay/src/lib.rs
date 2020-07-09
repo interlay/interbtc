@@ -31,6 +31,7 @@ use sp_std::prelude::*;
 use system::ensure_signed;
 
 // Crates
+pub use bitcoin;
 use bitcoin::merkle::{MerkleProof, ProofResult};
 use bitcoin::parser::{parse_block_header, parse_transaction};
 use bitcoin::types::{
@@ -120,6 +121,7 @@ decl_module! {
         /// * `block_header_bytes` - 80 byte raw Bitcoin block header.
         /// * `block_height` - Bitcoin block height of the submitted
         /// block header.
+        #[weight = 1000]
         fn initialize(
             origin,
             raw_block_header: RawBlockHeader,
@@ -174,6 +176,7 @@ decl_module! {
         /// # Arguments
         ///
         /// * `raw_block_header` - 80 byte raw Bitcoin block header.
+        #[weight = 1000]
         fn store_block_header(
             origin, raw_block_header: RawBlockHeader
         ) -> DispatchResult {
@@ -301,6 +304,7 @@ decl_module! {
         /// of the BTC in the 1st  / payment UTXO
         /// * `op_return_id` - 32 byte hash identifier expected in
         /// OP_RETURN (replay protection)
+        #[weight = 1000]
         fn verify_and_validate_transaction(
             origin,
             tx_id: H256Le,
@@ -344,6 +348,7 @@ decl_module! {
         /// * `confirmations` - The number of confirmations needed to accept
         /// the proof
         /// * `insecure` - determines if checks against recommended global transaction confirmation are to be executed. Recommended: set to `true`
+        #[weight = 1000]
         fn verify_transaction_inclusion(
             origin,
             tx_id: H256Le,
@@ -374,6 +379,7 @@ decl_module! {
         /// of the BTC in the 1st  / payment UTXO
         /// * `op_return_id` - 32 byte hash identifier expected in
         /// OP_RETURN (replay protection)
+        #[weight = 1000]
         fn validate_transaction(
             origin,
             raw_tx: Vec<u8>,
@@ -444,7 +450,7 @@ impl<T: Trait> Module<T> {
         );
 
         // Check if 1st / payment UTXO sends to correct address
-        let extr_recipient_address = transaction.outputs[0].script.extract_address()?;
+        let extr_recipient_address = transaction.outputs[0].extract_address()?;
         ensure!(
             extr_recipient_address == recipient_btc_address,
             Error::WrongRecipient
@@ -625,7 +631,7 @@ impl<T: Trait> Module<T> {
     }
 
     fn _blocks_count(chain_id: u32) -> usize {
-        <ChainsHashes>::iter_prefix(chain_id).count()
+        <ChainsHashes>::iter_prefix_values(chain_id).count()
     }
 
     /// Add a new block header to an existing blockchain
@@ -857,6 +863,9 @@ impl<T: Trait> Module<T> {
             Self::insert_block_hash(MAIN_CHAIN_ID, height, block);
         }
         <ChainsHashes>::remove_prefix(fork.chain_id);
+        if !fork.is_invalid() && !fork.is_no_data() {
+            Self::recover_if_needed()?
+        }
 
         Ok(())
     }
@@ -1048,6 +1057,10 @@ impl<T: Trait> Module<T> {
         };
 
         if block_exists {
+            if !blockchain.is_invalid() && !blockchain.is_no_data() {
+                Self::recover_if_needed()?
+            }
+
             // Store the updated blockchain entry
             Self::mutate_block_chain_from_id(chain_id, blockchain);
 
@@ -1141,6 +1154,16 @@ impl<T: Trait> Module<T> {
             Err(_) => {}
         }
         Ok(())
+    }
+
+    fn recover_if_needed() -> Result<(), Error> {
+        if ext::security::_is_parachain_error_invalid_btcrelay::<T>()
+            || ext::security::_is_parachain_error_no_data_btcrelay::<T>()
+        {
+            ext::security::recover_from_btc_relay_failure::<T>()
+        } else {
+            Ok(())
+        }
     }
 }
 

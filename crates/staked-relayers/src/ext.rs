@@ -41,9 +41,7 @@ pub(crate) mod oracle {
     use x_core::Result;
 
     pub(crate) fn is_max_delay_passed<T: exchange_rate_oracle::Trait>() -> Result<bool> {
-        // FIXME
-        // <exchange_rate_oracle::Module<T>>::is_max_delay_passed()
-        Ok(true)
+        <exchange_rate_oracle::Module<T>>::is_max_delay_passed()
     }
 
     pub fn btc_to_dots<T: exchange_rate_oracle::Trait>(amount: PolkaBTC<T>) -> Result<DOT<T>> {
@@ -63,8 +61,7 @@ pub(crate) mod vault_registry {
     }
 
     pub fn get_liquidation_collateral_threshold<T: vault_registry::Trait>() -> u128 {
-        // FIXME: add function to vault registry
-        110000
+        <vault_registry::Module<T>>::_get_liquidation_collateral_threshold()
     }
 
     pub fn liquidate_vault<T: vault_registry::Trait>(vault_id: &T::AccountId) -> UnitResult {
@@ -104,6 +101,7 @@ pub(crate) mod security {
 pub(crate) mod btc_relay {
     use bitcoin::types::H256Le;
     use security::types::ErrorCode;
+    use sp_std::prelude::*;
     use x_core::UnitResult;
 
     pub(crate) fn flag_block_error<T: btc_relay::Trait>(
@@ -118,6 +116,20 @@ pub(crate) mod btc_relay {
         error: ErrorCode,
     ) -> UnitResult {
         <btc_relay::Module<T>>::clear_block_error(block_hash, error)
+    }
+
+    pub(crate) fn verify_transaction_inclusion<T: btc_relay::Trait>(
+        tx_id: H256Le,
+        block_height: u32,
+        raw_merkle_proof: Vec<u8>,
+    ) -> UnitResult {
+        <btc_relay::Module<T>>::_verify_transaction_inclusion(
+            tx_id,
+            block_height,
+            raw_merkle_proof,
+            0,
+            false,
+        )
     }
 }
 

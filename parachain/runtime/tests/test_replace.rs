@@ -146,6 +146,7 @@ fn integration_test_replace_execute_replace() {
         let vault_btc_address = H160([0u8; 20]);
 
         set_default_thresholds();
+        SystemModule::set_block_number(1);
 
         // peg spot rate
         assert_ok!(OracleCall::set_exchange_rate(1).dispatch(origin_of(account_of(BOB))));
