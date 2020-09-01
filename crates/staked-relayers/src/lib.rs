@@ -37,18 +37,18 @@ use frame_support::{
     weights::Weight,
     IterableStorageMap,
 };
+use frame_system::ensure_signed;
 use primitive_types::H256;
 use security::types::{ErrorCode, StatusCode};
 use sp_core::{H160, U256};
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
-use system::ensure_signed;
 
 /// ## Configuration
 /// The pallet's configuration trait.
 pub trait Trait:
-    system::Trait
+    frame_system::Trait
     + security::Trait
     + collateral::Trait
     + vault_registry::Trait
@@ -57,7 +57,7 @@ pub trait Trait:
     + replace::Trait
 {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 
     /// Number of blocks to wait until eligible to vote.
     type MaturityPeriod: Get<Self::BlockNumber>;
@@ -144,7 +144,7 @@ decl_module! {
             );
 
             ext::collateral::lock_collateral::<T>(&signer, stake)?;
-            let height = <system::Module<T>>::block_number();
+            let height = <frame_system::Module<T>>::block_number();
             let period = height + T::MaturityPeriod::get();
             Self::add_inactive_staked_relayer(&signer, stake, StakedRelayerStatus::Bonding(period));
             Self::deposit_event(<Event<T>>::RegisterStakedRelayer(signer, period, stake));
@@ -181,7 +181,7 @@ decl_module! {
                 StakedRelayerStatus::Bonding(period) => {
                     // on_initialize should catch all matured relayers
                     // but this is helpful for tests
-                    let height = <system::Module<T>>::block_number();
+                    let height = <frame_system::Module<T>>::block_number();
                     Self::try_bond_staked_relayer(&signer, staked_relayer.stake, height, period)?;
                 },
                 _ => Self::bond_staked_relayer(&signer, staked_relayer.stake),
@@ -237,7 +237,7 @@ decl_module! {
             let mut tally = Tally::default();
             tally.aye.insert(signer.clone());
 
-            let height = <system::Module<T>>::block_number();
+            let height = <frame_system::Module<T>>::block_number();
             let status_update_id = Self::insert_status_update(StatusUpdate{
                 new_status_code: status_code.clone(),
                 old_status_code: ext::security::get_parachain_status::<T>(),
@@ -1025,8 +1025,8 @@ impl<T: Trait> Module<T> {
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as system::Trait>::AccountId,
-        BlockNumber = <T as system::Trait>::BlockNumber,
+        AccountId = <T as frame_system::Trait>::AccountId,
+        BlockNumber = <T as frame_system::Trait>::BlockNumber,
         DOT = DOT<T>,
     {
         RegisterStakedRelayer(AccountId, BlockNumber, DOT),

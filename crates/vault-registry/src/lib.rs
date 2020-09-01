@@ -23,11 +23,11 @@ use mocktopus::macros::mockable;
 use codec::{Decode, Encode};
 use frame_support::dispatch::DispatchResult;
 use frame_support::{decl_event, decl_module, decl_storage, ensure};
+use frame_system::ensure_signed;
 use primitive_types::H256;
 use sp_core::H160;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
-use system::ensure_signed;
 
 use security::ErrorCode;
 use x_core::{Error, Result, UnitResult};
@@ -50,16 +50,20 @@ pub struct RegisterRequest<AccountId, DateTime> {
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
 pub trait Trait:
-    system::Trait + collateral::Trait + treasury::Trait + exchange_rate_oracle::Trait + security::Trait
+    frame_system::Trait
+    + collateral::Trait
+    + treasury::Trait
+    + exchange_rate_oracle::Trait
+    + security::Trait
 {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
 
 // This pallet's storage items.
 decl_storage! {
     trait Store for Module<T: Trait> as VaultRegistry {
-    /// ## Storage
+        /// ## Storage
         /// The minimum collateral (DOT) a Vault needs to provide
         /// to participate in the issue process.
         MinimumCollateralVault: DOT<T>;
@@ -754,7 +758,7 @@ impl<T: Trait> Module<T> {
 decl_event! {
     /// ## Events
     pub enum Event<T> where
-            AccountId = <T as system::Trait>::AccountId,
+            AccountId = <T as frame_system::Trait>::AccountId,
             DOT = DOT<T>,
             BTCBalance = PolkaBTC<T> {
         RegisterVault(AccountId, DOT),

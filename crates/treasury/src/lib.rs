@@ -19,11 +19,12 @@ use frame_support::traits::{Currency, ExistenceRequirement::KeepAlive, Reservabl
 /// https://interlay.gitlab.io/polkabtc-spec/spec/treasury.html
 // Substrate
 use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
+use frame_system::ensure_signed;
 use sp_runtime::ModuleId;
-use system::ensure_signed;
 use x_core::Error;
 
-type BalanceOf<T> = <<T as Trait>::PolkaBTC as Currency<<T as system::Trait>::AccountId>>::Balance;
+type BalanceOf<T> =
+    <<T as Trait>::PolkaBTC as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 
 /// The treasury's module id, used for deriving its sovereign account ID.
 const _MODULE_ID: ModuleId = ModuleId(*b"ily/trsy");
@@ -34,12 +35,12 @@ const _MODULE_ID: ModuleId = ModuleId(*b"ily/trsy");
 /// for this. The Balances module then gives functions for total supply, balances
 /// of accounts, and any function defined by the Currency and ReservableCurrency
 /// traits.
-pub trait Trait: system::Trait {
+pub trait Trait: frame_system::Trait {
     /// The PolkaBTC currency
     type PolkaBTC: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
 
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
 
 // This pallet's storage items.
@@ -58,7 +59,7 @@ decl_storage! {
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as system::Trait>::AccountId,
+        AccountId = <T as frame_system::Trait>::AccountId,
         Balance = BalanceOf<T>,
     {
         Transfer(AccountId, AccountId, Balance),

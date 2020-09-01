@@ -32,9 +32,9 @@ use x_core::{Error, UnitResult};
 
 /// ## Configuration
 /// The pallet's configuration trait.
-pub trait Trait: system::Trait {
+pub trait Trait: frame_system::Trait {
     /// The overarching event type.
-    type Event: From<Event> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
 }
 
 // This pallet's storage items.

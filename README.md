@@ -19,23 +19,22 @@
 
 This repository is hosted on GitLab: [https://gitlab.com/interlay/btc-parachain](https://gitlab.com/interlay/btc-parachain) with a mirror on GitHub.
 
-*This project is currently under active development*. 
+_This project is currently under active development_.
 
 ## Table of Contents
-* [About the Project](#about-the-project)
-  * [Built With](#built-with)
-* [Roadmap](#roadmap)
-* [Getting Started](#getting-started)
-  * [Prerequisites](#prerequisites)
-  * [Installation](#installation)
-* [Contributing](#contributing)
-* [License](#license)
-* [Contact](#contact)
-* [Acknowledgements](#acknowledgements)
 
+- [About the Project](#about-the-project)
+  - [Built With](#built-with)
+- [Roadmap](#roadmap)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+- [Contributing](#contributing)
+- [License](#license)
+- [Contact](#contact)
+- [Acknowledgements](#acknowledgements)
 
 ## About the Project
-
 
 This is a proof of concept implementation of a BTC Parachain to bring Bitcoin into the Polkadot universe.
 It allows the creation of **PolkaBTC**, a fungible token that represents Bitcoin in the Polkadot ecosystem.
@@ -45,9 +44,11 @@ The project uses the concept of [Cryptocurrency-backed Assets](https://xclaim.io
 The implementation is based on the [BTC Parachain specification](https://interlay.gitlab.io/polkabtc-spec/).
 
 ### Built with
-The BTC-Parachain is built with: 
-* [Rust](https://www.rust-lang.org/)
-* [Substrate](https://substrate.dev/)
+
+The BTC-Parachain is built with:
+
+- [Rust](https://www.rust-lang.org/)
+- [Substrate](https://substrate.dev/)
 
     <img src="https://interlay.gitlab.io/polkabtc-spec/_images/overview.png" alt="Logo" width="500">
 
@@ -60,8 +61,8 @@ The Substrate runtime makes use of various custom pallets and crates that are fo
 ### Development Progess
 
 - [bitcoin](crates/bitcoin): [Alpha] Library for Bitcoin type, parsing and verification functions.
-- [btc-relay](crates/btc-relay): [Alpha] Stateful SPV client for Bitcoin. Stores Bitcoin main chain, tracks forks, verifies Merkle proofs and validates specific transaction formats. 
-- [collateral](crates/collateral) [Alpha] Handles locking, releasing and slashing of collateral (e.g. DOT). 
+- [btc-relay](crates/btc-relay): [Alpha] Stateful SPV client for Bitcoin. Stores Bitcoin main chain, tracks forks, verifies Merkle proofs and validates specific transaction formats.
+- [collateral](crates/collateral) [Alpha] Handles locking, releasing and slashing of collateral (e.g. DOT).
 - [exchange-rate-oracle](crates/exchange-rate-oracle): [Alpha] Exchange rate oracle. Integration with external provider pending.
 - [issue](crates/issue): [Alpha] Handles issuing of PolkaBTC.
 - [priority-map](crates/priority-map): [WIP] Priority queue based on a mapping. Used to efficiently track ongoing forks and handle re-orgs.
@@ -71,21 +72,19 @@ The Substrate runtime makes use of various custom pallets and crates that are fo
 - [staked-relayers](crates/staked-relayers): [Alpha] Handles registration and stake of Staked Relayers, as well as voting on Parachain status changes.
 - [treasury](crates/treasury): [Alpha] Exposes functions related to handling of the PolkaBTC currency (mint, transfer, lock, burn)
 - [vault-registry](crate/vault-registry): [Alpha] Handles registration, collateral and liquidation of Vaults.
-- [x-core](crates/xclaim-core): [Alpha] Error types and other shared types/functions used across BTC-Parachain components. 
-
-
+- [x-core](crates/xclaim-core): [Alpha] Error types and other shared types/functions used across BTC-Parachain components.
 
 ## Getting started
 
 ### Prerequesites
- 
-* rustup
+
+- rustup
 
 ```
 curl https://sh.rustup.rs -sSf | sh
 ```
 
-### Installation 
+### Installation
 
 Building requires `nightly`. Run the following commands to set up:
 
@@ -98,7 +97,8 @@ rustup toolchain install nightly
 rustup target add wasm32-unknown-unknown --toolchain nightly-2020-03-01
 ```
 
-To build, run 
+To build, run
+
 ```
 cargo build
 ```
@@ -110,6 +110,7 @@ cargo test
 ```
 
 To run with coverage, using [cargo-cov](https://github.com/kennytm/cov):
+
 ```
 cargo install cargo-cov
 
@@ -135,10 +136,10 @@ The Substrate runtime configuration is in the [parachain](./parachain) folder.
 
 ```json
 {
-  "H256Le": "Hash"
+  "H256Le": "Hash",
+  "DOT": "Balance"
 }
 ```
-
 
 ## Contributing
 
@@ -163,19 +164,16 @@ Twitter: [@interlayHQ](https://twitter.com/InterlayHQ)
 
 Email: contact@interlay.io
 
-
 ## Acknowledgements
 
 This project is supported by a [Web3 Foundation grant](https://web3.foundation/grants/).
 
 We would also like to thank the following teams for their continuous support:
 
-* [Parity Technologies](https://www.parity.io/)
+- [Parity Technologies](https://www.parity.io/)
 
 <p align="center">
   <a href="https://web3.foundation/grants/">
     <img src="/docs/web3_foundation_grants_badge_black.png">
   </a>
 </p>
-
-

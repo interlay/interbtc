@@ -26,12 +26,12 @@ use codec::{Decode, Encode};
 use frame_support::{
     decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure, traits::Get,
 };
+use frame_system::ensure_signed;
 use primitive_types::H256;
 use sp_core::H160;
 use sp_runtime::ModuleId;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
-use system::ensure_signed;
 use x_core::Error;
 
 /// The issue module id, used for deriving its sovereign account ID.
@@ -39,10 +39,10 @@ const _MODULE_ID: ModuleId = ModuleId(*b"issuemod");
 
 /// The pallet's configuration trait.
 pub trait Trait:
-    system::Trait + vault_registry::Trait + collateral::Trait + btc_relay::Trait + treasury::Trait
+    frame_system::Trait + vault_registry::Trait + collateral::Trait + btc_relay::Trait + treasury::Trait
 {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 
     /// The time difference in number of blocks between an issue request is created
     /// and required completion time by a user. The issue period has an upper limit
@@ -78,7 +78,7 @@ decl_storage! {
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as system::Trait>::AccountId,
+        AccountId = <T as frame_system::Trait>::AccountId,
         PolkaBTC = PolkaBTC<T>,
     {
         RequestIssue(H256, AccountId, PolkaBTC, AccountId, H160),
@@ -163,7 +163,7 @@ impl<T: Trait> Module<T> {
         // Check that Parachain is RUNNING
         ext::security::ensure_parachain_status_running::<T>()?;
 
-        let height = <system::Module<T>>::block_number();
+        let height = <frame_system::Module<T>>::block_number();
         let _vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
         // Check that the vault is currently not banned
         ext::vault_registry::ensure_not_banned::<T>(&vault_id, height)?;
@@ -218,7 +218,7 @@ impl<T: Trait> Module<T> {
         let issue = Self::get_issue_request_from_id(&issue_id)?;
         ensure!(requester == issue.requester, Error::UnauthorizedUser);
 
-        let height = <system::Module<T>>::block_number();
+        let height = <frame_system::Module<T>>::block_number();
         let period = T::IssuePeriod::get();
         ensure!(
             height <= issue.opentime + period,
@@ -245,7 +245,7 @@ impl<T: Trait> Module<T> {
     /// Cancels CBA issuance if time has expired and slashes collateral.
     fn _cancel_issue(requester: T::AccountId, issue_id: H256) -> Result<(), Error> {
         let issue = Self::get_issue_request_from_id(&issue_id)?;
-        let height = <system::Module<T>>::block_number();
+        let height = <frame_system::Module<T>>::block_number();
         let period = T::IssuePeriod::get();
 
         ensure!(issue.opentime + period > height, Error::TimeNotExpired);

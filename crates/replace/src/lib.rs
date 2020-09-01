@@ -7,13 +7,13 @@ extern crate mocktopus;
 
 // Substrate
 use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
+use frame_system::ensure_signed;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 use primitive_types::H256;
 use sp_runtime::ModuleId;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
-use system::ensure_signed;
 
 use bitcoin::types::H256Le;
 use x_core::{Error, UnitResult};
@@ -37,10 +37,10 @@ const _MODULE_ID: ModuleId = ModuleId(*b"replacem");
 
 /// The pallet's configuration trait.
 pub trait Trait:
-    system::Trait + vault_registry::Trait + collateral::Trait + btc_relay::Trait + treasury::Trait
+    frame_system::Trait + vault_registry::Trait + collateral::Trait + btc_relay::Trait + treasury::Trait
 {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
 
 // The pallet's storage items.
@@ -56,10 +56,10 @@ decl_storage! {
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as system::Trait>::AccountId,
+        AccountId = <T as frame_system::Trait>::AccountId,
         PolkaBTC = PolkaBTC<T>,
         DOT = DOT<T>,
-        BlockNumber = <T as system::Trait>::BlockNumber,
+        BlockNumber = <T as frame_system::Trait>::BlockNumber,
     {
         RequestReplace(AccountId, PolkaBTC, H256),
         WithdrawReplace(AccountId, H256),
@@ -481,6 +481,6 @@ impl<T: Trait> Module<T> {
     }
 
     fn current_height() -> T::BlockNumber {
-        <system::Module<T>>::block_number()
+        <frame_system::Module<T>>::block_number()
     }
 }

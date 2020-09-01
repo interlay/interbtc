@@ -23,13 +23,13 @@ use bitcoin::types::H256Le;
 /// https://interlay.gitlab.io/polkabtc-spec/spec/redeem.html
 // Substrate
 use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
+use frame_system::ensure_signed;
 use primitive_types::H256;
 use security::ErrorCode;
 use sp_core::H160;
 use sp_runtime::ModuleId;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
-use system::ensure_signed;
 use x_core::{Error, UnitResult};
 
 /// The redeem module id, used for deriving its sovereign account ID.
@@ -37,10 +37,10 @@ const _MODULE_ID: ModuleId = ModuleId(*b"i/redeem");
 
 /// The pallet's configuration trait.
 pub trait Trait:
-    system::Trait + vault_registry::Trait + collateral::Trait + btc_relay::Trait + treasury::Trait
+    frame_system::Trait + vault_registry::Trait + collateral::Trait + btc_relay::Trait + treasury::Trait
 {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
 
 // The pallet's storage items.
@@ -60,7 +60,7 @@ decl_storage! {
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as system::Trait>::AccountId,
+        AccountId = <T as frame_system::Trait>::AccountId,
         PolkaBTC = PolkaBTC<T>,
     {
         RequestRedeem(H256, AccountId, PolkaBTC, AccountId, H160),
@@ -100,7 +100,7 @@ decl_module! {
                 Error::AmountExceedsUserBalance
             );
             let vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
-            let height = <system::Module<T>>::block_number();
+            let height = <frame_system::Module<T>>::block_number();
             ext::vault_registry::ensure_not_banned::<T>(&vault_id, height)?;
             ensure!(
                 amount_polka_btc <= vault.issued_tokens,
@@ -186,7 +186,7 @@ decl_module! {
 
             let redeem = Self::get_redeem_request_from_id(&redeem_id)?;
             ensure!(vault_id == redeem.vault, Error::UnauthorizedVault);
-            let height = <system::Module<T>>::block_number();
+            let height = <frame_system::Module<T>>::block_number();
             let period = Self::redeem_period();
             ensure!(
                 redeem.opentime + period < height,
@@ -242,7 +242,7 @@ decl_module! {
             let redeem = Self::get_redeem_request_from_id(&redeem_id)?;
             ensure!(redeemer == redeem.redeemer, Error::UnauthorizedUser);
 
-            let height = <system::Module<T>>::block_number();
+            let height = <frame_system::Module<T>>::block_number();
             let period = Self::redeem_period();
             ensure!(redeem.opentime + period > height, Error::TimeNotExpired);
 

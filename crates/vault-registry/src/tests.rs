@@ -49,7 +49,7 @@ fn set_default_thresholds() {
     VaultRegistry::_set_liquidation_collateral_threshold(liquidation);
 }
 
-fn create_vault(id: u64) -> <Test as system::Trait>::AccountId {
+fn create_vault(id: u64) -> <Test as frame_system::Trait>::AccountId {
     VaultRegistry::get_minimum_collateral_vault
         .mock_safe(|| MockResult::Return(DEFAULT_COLLATERAL));
     let collateral = DEFAULT_COLLATERAL;
@@ -59,7 +59,7 @@ fn create_vault(id: u64) -> <Test as system::Trait>::AccountId {
     id
 }
 
-fn create_sample_vault() -> <Test as system::Trait>::AccountId {
+fn create_sample_vault() -> <Test as frame_system::Trait>::AccountId {
     create_vault(DEFAULT_ID)
 }
 

@@ -3,9 +3,9 @@ use frame_support::traits::Currency;
 use sp_core::H160;
 
 pub(crate) type DOT<T> =
-    <<T as collateral::Trait>::DOT as Currency<<T as system::Trait>::AccountId>>::Balance;
+    <<T as collateral::Trait>::DOT as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 pub(crate) type PolkaBTC<T> =
-    <<T as treasury::Trait>::PolkaBTC as Currency<<T as system::Trait>::AccountId>>::Balance;
+    <<T as treasury::Trait>::PolkaBTC as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
