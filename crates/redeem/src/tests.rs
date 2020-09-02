@@ -390,7 +390,7 @@ fn test_execute_redeem_fails_with_unauthorized_vault() {
 #[test]
 fn test_execute_redeem_fails_with_commit_period_expired() {
     run_test(|| {
-        <system::Module<Test>>::set_block_number(20);
+        <frame_system::Module<Test>>::set_block_number(20);
 
         Redeem::get_redeem_request_from_id.mock_safe(|_| {
             MockResult::Return(Ok(RedeemRequest {
@@ -522,7 +522,7 @@ fn test_cancel_redeem_fails_with_time_not_expired() {
 #[test]
 fn test_cancel_redeem_fails_with_unauthorized_caller() {
     run_test(|| {
-        <system::Module<Test>>::set_block_number(20);
+        <frame_system::Module<Test>>::set_block_number(20);
 
         Redeem::get_redeem_request_from_id.mock_safe(|_| {
             MockResult::Return(Ok(RedeemRequest {

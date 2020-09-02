@@ -24,11 +24,11 @@ use frame_support::debug;
 use frame_support::{
     decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure, IterableStorageMap,
 };
+use frame_system::ensure_signed;
 use primitive_types::U256;
 use sp_core::H160;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::*;
-use system::ensure_signed;
 
 // Crates
 pub use bitcoin;
@@ -44,9 +44,9 @@ use x_core::{Error, UnitResult};
 /// The pallet's configuration trait.
 /// For further reference, see:
 /// https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/spec/data-model.html
-pub trait Trait: system::Trait + security::Trait {
+pub trait Trait: frame_system::Trait + security::Trait {
     /// The overarching event type.
-    type Event: From<Event> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
 }
 
 /// Difficulty Adjustment Interval

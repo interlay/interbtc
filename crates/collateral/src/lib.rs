@@ -14,18 +14,18 @@ use frame_support::traits::{Currency, ReservableCurrency};
 use frame_support::{decl_event, decl_module, decl_storage, ensure, sp_runtime::ModuleId};
 use x_core::Error;
 
-type BalanceOf<T> = <<T as Trait>::DOT as Currency<<T as system::Trait>::AccountId>>::Balance;
+type BalanceOf<T> = <<T as Trait>::DOT as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 
 /// The collateral's module id, used for deriving its sovereign account ID.
 const _MODULE_ID: ModuleId = ModuleId(*b"ily/cltl");
 
 /// The pallet's configuration trait.
-pub trait Trait: system::Trait {
+pub trait Trait: frame_system::Trait {
     /// The DOT currency
     type DOT: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
 
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
 
 // This pallet's storage items.
@@ -44,7 +44,7 @@ decl_storage! {
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as system::Trait>::AccountId,
+        AccountId = <T as frame_system::Trait>::AccountId,
         Balance = BalanceOf<T>,
     {
         LockCollateral(AccountId, Balance),

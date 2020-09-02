@@ -23,23 +23,23 @@ use frame_support::traits::Currency;
 /// https://interlay.gitlab.io/polkabtc-spec/spec/oracle.html
 // Substrate
 use frame_support::{decl_event, decl_module, decl_storage, ensure};
+use frame_system::ensure_signed;
 use sp_std::convert::TryInto;
-use system::ensure_signed;
 use x_core::{Error, Result};
 
 pub(crate) type DOT<T> =
-    <<T as collateral::Trait>::DOT as Currency<<T as system::Trait>::AccountId>>::Balance;
+    <<T as collateral::Trait>::DOT as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 
 pub(crate) type PolkaBTC<T> =
-    <<T as treasury::Trait>::PolkaBTC as Currency<<T as system::Trait>::AccountId>>::Balance;
+    <<T as treasury::Trait>::PolkaBTC as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
 pub trait Trait:
-    system::Trait + timestamp::Trait + treasury::Trait + collateral::Trait + security::Trait
+    frame_system::Trait + timestamp::Trait + treasury::Trait + collateral::Trait + security::Trait
 {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
 
 /// Granularity of exchange rate
@@ -181,7 +181,7 @@ impl<T: Trait> Module<T> {
 decl_event! {
     /// ## Events
     pub enum Event<T> where
-            AccountId = <T as system::Trait>::AccountId {
+            AccountId = <T as frame_system::Trait>::AccountId {
         /// Event emitted when exchange rate is set
         SetExchangeRate(AccountId, u128),
     }

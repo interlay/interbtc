@@ -26,7 +26,7 @@ mod test_events {
 
 impl_outer_event! {
     pub enum TestEvent for Test {
-        system<T>,
+        frame_system<T>,
         test_events,
         security,
     }
@@ -46,10 +46,10 @@ parameter_types! {
     pub const BlockHashCount: u64 = 250;
     pub const MaximumBlockWeight: Weight = 1024;
     pub const MaximumBlockLength: u32 = 2 * 1024;
-    pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
+    pub const AvailableBlockRatio: Perbill = Perbill::one();
 }
 
-impl system::Trait for Test {
+impl frame_system::Trait for Test {
     type AccountId = AccountId;
     type Call = ();
     type Lookup = IdentityLookup<Self::AccountId>;
@@ -72,6 +72,9 @@ impl system::Trait for Test {
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type AccountData = ();
+    type BaseCallFilter = ();
+    type MaximumExtrinsicWeight = MaximumBlockWeight;
+    type SystemWeightInfo = ();
 }
 
 impl Trait for Test {
@@ -82,14 +85,14 @@ impl security::Trait for Test {
     type Event = TestEvent;
 }
 
-pub type System = system::Module<Test>;
+pub type System = frame_system::Module<Test>;
 pub type BTCRelay = Module<Test>;
 
 pub struct ExtBuilder;
 
 impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
-        let mut storage = system::GenesisConfig::default()
+        let mut storage = frame_system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
 

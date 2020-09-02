@@ -4,7 +4,7 @@ description = 'Collateral module'
 edition = '2018'
 homepage = 'https://interlay.gitlab.io/polkabtc-spec/spec/collateral.html'
 name = 'collateral'
-version = '2.0.0-alpha.7'
+version = '2.0.0-rc6'
 
 [dependencies.serde]
 version = '1.0.101'
@@ -15,32 +15,31 @@ optional = true
 default-features = false
 features = ['derive']
 package = 'parity-scale-codec'
-version = '1.3.0'
+version = '1.3.4'
 
 [dependencies.frame-support]
 default-features = false
-version = '2.0.0-alpha.7'
+version = '2.0.0-rc6'
 
-[dependencies.system]
+[dependencies.frame-system]
 default-features = false
-package = 'frame-system'
-version = '2.0.0-alpha.7'
+version = '2.0.0-rc6'
 
 [dev-dependencies.sp-core]
 default-features = false
-version = '2.0.0-alpha.7'
+version = '2.0.0-rc6'
 
 [dev-dependencies.sp-io]
 default-features = false
-version = '2.0.0-alpha.7'
+version = '2.0.0-rc6'
 
 [dev-dependencies.sp-runtime]
 default-features = false
-version = '2.0.0-alpha.7'
+version = '2.0.0-rc6'
 
 [dependencies.pallet-balances]
 default-features = false
-version = '2.0.0-alpha.7'
+version = '2.0.0-rc6'
 
 [dependencies.x-core]
 default-features = false
@@ -52,7 +51,7 @@ std = [
   'serde',
   'codec/std',
   'frame-support/std',
-  'system/std',
+  'frame-system/std',
   'x-core/std',
   'pallet-balances/std',
 ]
