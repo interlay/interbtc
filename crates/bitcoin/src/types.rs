@@ -5,13 +5,13 @@ use mocktopus::macros::mockable;
 
 use bitcoin_hashes::Hash;
 
+use crate::Error;
 use codec::alloc::string::String;
 use codec::{Decode, Encode};
 use primitive_types::{H256, U256};
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::convert::TryFrom;
 use sp_std::prelude::*;
-use x_core::Error;
 
 use crate::formatter::Formattable;
 use crate::merkle::MerkleProof;
@@ -247,7 +247,7 @@ impl From<Address> for [u8; 20] {
 }
 
 impl TryFrom<&[u8]> for Address {
-    type Error = x_core::Error;
+    type Error = crate::Error;
     fn try_from(bytes: &[u8]) -> Result<Address, Self::Error> {
         if bytes.len() != 20 {
             return Err(Error::RuntimeError);
@@ -259,7 +259,7 @@ impl TryFrom<&[u8]> for Address {
 }
 
 impl TryFrom<&str> for Address {
-    type Error = x_core::Error;
+    type Error = crate::Error;
     fn try_from(hex_address: &str) -> Result<Address, Self::Error> {
         let bytes = hex::decode(hex_address).map_err(|_e| Error::RuntimeError)?;
         Address::try_from(&bytes[..])
@@ -276,7 +276,7 @@ pub const MAX_OPRETURN_SIZE: usize = 83;
 
 /// Bitcoin Basic Block Headers
 // TODO: Figure out how to set a pointer to the ChainIndex mapping instead
-#[derive(Encode, Decode, Default, Copy, Clone, PartialEq, Debug)]
+#[derive(Encode, Decode, Default, Copy, Clone, PartialEq, Eq, Debug)]
 //#[cfg_attr(feature = "std", derive(Debug))]
 pub struct BlockHeader {
     pub merkle_root: H256Le,
@@ -410,7 +410,7 @@ impl From<Vec<u8>> for Script {
 }
 
 impl TryFrom<&str> for Script {
-    type Error = x_core::Error;
+    type Error = crate::Error;
 
     fn try_from(hex_string: &str) -> Result<Script, Self::Error> {
         let bytes = hex::decode(hex_string).map_err(|_e| Error::RuntimeError)?;
@@ -474,7 +474,7 @@ impl Transaction {
 }
 
 /// Bitcoin Enriched Block Headers
-#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Debug)]
+#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Eq, Debug)]
 pub struct RichBlockHeader {
     pub block_hash: H256Le,
     pub block_header: BlockHeader,
@@ -678,6 +678,10 @@ impl H256Le {
     /// Creates a new H256Le hash equals to zero
     pub fn zero() -> H256Le {
         H256Le { content: [0; 32] }
+    }
+
+    pub fn is_zero(&self) -> bool {
+        self.content == [0; 32]
     }
 
     /// Creates a H256Le from little endian bytes

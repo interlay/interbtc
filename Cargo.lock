@@ -458,6 +458,7 @@ name = "bitcoin"
 version = "0.1.1"
 dependencies = [
  "bitcoin_hashes",
+ "frame-support",
  "hex",
  "mocktopus",
  "parity-scale-codec",
@@ -466,7 +467,6 @@ dependencies = [
  "sha2 0.8.2",
  "sp-core",
  "sp-std",
- "x-core",
 ]
 
 [[package]]
@@ -704,7 +704,6 @@ dependencies = [
  "substrate-wasm-builder-runner",
  "treasury",
  "vault-registry",
- "x-core",
 ]
 
 [[package]]
@@ -725,7 +724,6 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
- "x-core",
 ]
 
 [[package]]
@@ -901,7 +899,6 @@ dependencies = [
  "sp-core",
  "sp-io",
  "sp-runtime",
- "x-core",
 ]
 
 [[package]]
@@ -1396,7 +1393,6 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "treasury",
- "x-core",
 ]
 
 [[package]]
@@ -2428,7 +2424,6 @@ dependencies = [
  "sp-std",
  "treasury",
  "vault-registry",
- "x-core",
 ]
 
 [[package]]
@@ -4758,7 +4753,6 @@ dependencies = [
  "sp-std",
  "treasury",
  "vault-registry",
- "x-core",
 ]
 
 [[package]]
@@ -4903,7 +4897,6 @@ dependencies = [
  "sp-std",
  "treasury",
  "vault-registry",
- "x-core",
 ]
 
 [[package]]
@@ -5953,7 +5946,6 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
- "x-core",
 ]
 
 [[package]]
@@ -6870,7 +6862,6 @@ dependencies = [
  "sp-std",
  "treasury",
  "vault-registry",
- "x-core",
 ]
 
 [[package]]
@@ -7580,7 +7571,6 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
- "x-core",
 ]
 
 [[package]]
@@ -7771,7 +7761,6 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "treasury",
- "x-core",
 ]
 
 [[package]]
@@ -8257,15 +8246,6 @@ checksum = "d59cefebd0c892fa2dd6de581e937301d8552cb44489cdff035c6187cb63fa5e"
 dependencies = [
  "winapi 0.2.8",
  "winapi-build",
-]
-
-[[package]]
-name = "x-core"
-version = "2.0.0-rc6"
-dependencies = [
- "frame-support",
- "parity-scale-codec",
- "sp-std",
 ]
 
 [[package]]

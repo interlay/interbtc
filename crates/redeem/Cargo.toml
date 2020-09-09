@@ -77,10 +77,6 @@ path = '../treasury'
 default-features = false
 path = '../bitcoin'
 
-[dependencies.x-core]
-default-features = false
-path = '../x-core'
-
 [dependencies.security]
 default-features = false
 path = '../security'
@@ -113,7 +109,6 @@ std = [
 	'btc-relay/std',
 	'treasury/std',
 	'bitcoin/std',
-	'x-core/std',
 	'sha2/std',
 	'security/std',
 	'timestamp/std',

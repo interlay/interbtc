@@ -20,6 +20,10 @@ default-features = false
 version = '0.7.2'
 features= ['codec']
 
+[dependencies.frame-support]
+default-features = false
+version = '2.0.0-rc6'
+
 [dependencies.sp-std]
 default-features = false
 version = '2.0.0-rc6'
@@ -31,10 +35,6 @@ version = '2.0.0-rc6'
 [dependencies.sha2]
 default-features = false
 version = '0.8.1'
-
-[dependencies.x-core]
-default-features = false
-path = '../x-core'
 
 [dependencies.hex]
 default-features = false
@@ -53,9 +53,9 @@ std = [
 	'serde',
 	'codec/std',
 	'primitive-types/std',
+	'frame-support/std',
 	'sp-std/std',
 	'sp-core/std',
 	'sha2/std',
-	'x-core/std',
 	'hex/std',
 ]

@@ -105,6 +105,7 @@ decl_storage! {
 // The pallet's dispatchable functions.
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+        type Error = Error<T>;
 
         const MaturityPeriod: T::BlockNumber = T::MaturityPeriod::get();
 
@@ -1050,28 +1051,51 @@ decl_event!(
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
+        /// Staked relayer is already registered
         AlreadyRegistered,
+        /// Insufficient collateral staked
         InsufficientStake,
+        /// Insufficient deposit
         InsufficientDeposit,
+        /// Insufficient participants
         InsufficientParticipants,
+        /// Staked relayer is not registered
         NotRegistered,
+        /// Staked relayer has not bonded
         NotMatured,
+        /// Caller is not governance module
         GovernanceOnly,
+        /// Caller is not staked relayer
         StakedRelayersOnly,
+        /// Staked relayer is active
         StatusUpdateFound,
+        /// Status update does not exist
         StatusUpdateNotFound,
+        /// Status update has insufficient yes votes
         InsufficientYesVotes,
+        /// Status update has insufficient no votes
         InsufficientNoVotes,
+        /// Staked relayer has already cast vote
         VoteAlreadyCast,
+        /// Vault already reported
         VaultAlreadyReported,
+        /// Vault already liquidated
         VaultAlreadyLiquidated,
+        /// Vault BTC address not in transaction input
         VaultNoInputToTransaction,
+        /// Valid redeem transaction
         ValidRedeemTransaction,
+        /// Valid replace transaction
         ValidReplaceTransaction,
+        /// Valid merge transaction
         ValidMergeTransaction,
+        /// Oracle is online
         OracleOnline,
+        /// Cannot report vault theft without block hash
         NoBlockHash,
+        /// Vault has sufficient collateral
         CollateralOk,
+        /// Error converting value
         RuntimeError,
     }
 }

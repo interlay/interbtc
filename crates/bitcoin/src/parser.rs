@@ -8,9 +8,9 @@ use bitcoin_hashes::Hash;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
+use crate::Error;
 use primitive_types::U256;
 use sp_std::prelude::*;
-use x_core::Error;
 
 use crate::types::*;
 

@@ -73,10 +73,6 @@ path = '../treasury'
 default-features = false
 path = '../exchange-rate-oracle'
 
-[dependencies.x-core]
-default-features = false
-path = '../x-core'
-
 [dependencies.btc-relay]
 default-features = false
 path = '../btc-relay'
@@ -125,7 +121,6 @@ std = [
   'security/std',
   'treasury/std',
   'exchange-rate-oracle/std',
-  'x-core/std',
   'btc-relay/std',
   'redeem/std',
   'replace/std',

@@ -28,7 +28,7 @@ fn integration_test_issue_should_fail_if_not_running() {
         assert_err!(
             Call::Issue(IssueCall::request_issue(0, account_of(BOB), 0))
                 .dispatch(origin_of(account_of(ALICE))),
-            Error::ParachainNotRunning,
+            SecurityError::ParachainNotRunning,
         );
 
         assert_err!(
@@ -40,7 +40,7 @@ fn integration_test_issue_should_fail_if_not_running() {
                 vec![0u8; 32]
             ))
             .dispatch(origin_of(account_of(ALICE))),
-            Error::ParachainNotRunning,
+            SecurityError::ParachainNotRunning,
         );
     });
 }

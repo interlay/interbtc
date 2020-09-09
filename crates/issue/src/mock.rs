@@ -1,5 +1,5 @@
 /// Mocking the test environment
-use crate::{Module, Trait};
+use crate::{Error, Module, Trait};
 use frame_support::{
     assert_ok, impl_outer_event, impl_outer_origin, parameter_types,
     weights::{
@@ -140,6 +140,10 @@ impl Trait for Test {
     type Event = TestEvent;
     type IssuePeriod = IssuePeriod;
 }
+
+pub type TestError = Error<Test>;
+pub type SecurityError = security::Error<Test>;
+pub type VaultRegistryError = vault_registry::Error<Test>;
 
 pub type System = frame_system::Module<Test>;
 pub type Balances = pallet_balances::Module<Test>;

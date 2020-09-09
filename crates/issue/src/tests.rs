@@ -3,19 +3,18 @@ use crate::types::PolkaBTC;
 use crate::RawEvent;
 use crate::{ext, Trait};
 use bitcoin::types::H256Le;
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
 use primitive_types::H256;
 use sp_core::H160;
 use vault_registry::Vault;
-use x_core::Error;
 
 fn request_issue(
     origin: AccountId,
     amount: Balance,
     vault: AccountId,
     collateral: Balance,
-) -> Result<H256, Error> {
+) -> Result<H256, DispatchError> {
     // Default: Parachain status is "RUNNING". Set manually for failure testing
     ext::security::ensure_parachain_status_running::<Test>.mock_safe(|| MockResult::Return(Ok(())));
 
@@ -46,13 +45,12 @@ fn request_issue_ok(
     match Issue::_request_issue(origin, amount, vault, collateral) {
         Ok(act) => act,
         Err(err) => {
-            println!("{}", err.message());
             panic!(err);
         }
     }
 }
 
-fn execute_issue(origin: AccountId, issue_id: &H256) -> Result<(), Error> {
+fn execute_issue(origin: AccountId, issue_id: &H256) -> Result<(), DispatchError> {
     ext::security::ensure_parachain_status_running::<Test>.mock_safe(|| MockResult::Return(Ok(())));
 
     Issue::_execute_issue(
@@ -76,7 +74,7 @@ fn execute_issue_ok(origin: AccountId, issue_id: &H256) {
     assert_ok!(execute_issue(origin, issue_id));
 }
 
-fn cancel_issue(origin: AccountId, issue_id: &H256) -> Result<(), Error> {
+fn cancel_issue(origin: AccountId, issue_id: &H256) -> Result<(), DispatchError> {
     Issue::_cancel_issue(origin, *issue_id)
 }
 
@@ -106,7 +104,10 @@ fn test_request_issue_banned_fails() {
                 banned_until: Some(1),
             },
         );
-        assert_noop!(request_issue(ALICE, 3, BOB, 0), Error::VaultBanned);
+        assert_noop!(
+            request_issue(ALICE, 3, BOB, 0),
+            VaultRegistryError::VaultBanned
+        );
     })
 }
 
@@ -120,7 +121,7 @@ fn test_request_issue_insufficient_collateral_fails() {
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         assert_noop!(
             request_issue(ALICE, 3, BOB, 0),
-            Error::InsufficientCollateral,
+            TestError::InsufficientCollateral,
         );
     })
 }
@@ -154,7 +155,10 @@ fn test_execute_issue_not_found_fails() {
     run_test(|| {
         ext::vault_registry::get_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
-        assert_noop!(execute_issue(ALICE, &H256([0; 32])), Error::IssueIdNotFound);
+        assert_noop!(
+            execute_issue(ALICE, &H256([0; 32])),
+            TestError::IssueIdNotFound
+        );
     })
 }
 
@@ -164,7 +168,7 @@ fn test_execute_issue_unauthorized_fails() {
         ext::vault_registry::get_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
         let issue_id = request_issue_ok(ALICE, 3, BOB, 0);
-        assert_noop!(execute_issue(CAROL, &issue_id), Error::UnauthorizedUser);
+        assert_noop!(execute_issue(CAROL, &issue_id), TestError::UnauthorizedUser);
     })
 }
 
@@ -176,7 +180,10 @@ fn test_execute_issue_commit_period_expired_fails() {
 
         let issue_id = request_issue_ok(ALICE, 3, BOB, 0);
         <frame_system::Module<Test>>::set_block_number(20);
-        assert_noop!(execute_issue(ALICE, &issue_id), Error::CommitPeriodExpired);
+        assert_noop!(
+            execute_issue(ALICE, &issue_id),
+            TestError::CommitPeriodExpired
+        );
     })
 }
 
@@ -197,14 +204,17 @@ fn test_execute_issue_succeeds() {
             .iter()
             .any(|a| a.event == execute_issue_event));
 
-        assert_noop!(cancel_issue(ALICE, &issue_id), Error::IssueIdNotFound);
+        assert_noop!(cancel_issue(ALICE, &issue_id), TestError::IssueIdNotFound);
     })
 }
 
 #[test]
 fn test_cancel_issue_not_found_fails() {
     run_test(|| {
-        assert_noop!(cancel_issue(ALICE, &H256([0; 32])), Error::IssueIdNotFound,);
+        assert_noop!(
+            cancel_issue(ALICE, &H256([0; 32])),
+            TestError::IssueIdNotFound,
+        );
     })
 }
 
@@ -216,7 +226,7 @@ fn test_cancel_issue_not_expired_fails() {
 
         let issue_id = request_issue_ok(ALICE, 3, BOB, 0);
         <frame_system::Module<Test>>::set_block_number(99);
-        assert_noop!(cancel_issue(ALICE, &issue_id), Error::TimeNotExpired,);
+        assert_noop!(cancel_issue(ALICE, &issue_id), TestError::TimeNotExpired,);
     })
 }
 
@@ -242,11 +252,11 @@ fn test_request_issue_parachain_not_running_fails() {
         let amount: Balance = 3;
 
         ext::security::ensure_parachain_status_running::<Test>
-            .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
+            .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainNotRunning.into())));
 
         assert_noop!(
             Issue::_request_issue(origin, amount, vault, 0),
-            Error::ParachainNotRunning
+            SecurityError::ParachainNotRunning
         );
     })
 }
@@ -257,7 +267,7 @@ fn test_execute_issue_parachain_not_running_fails() {
         let origin = ALICE;
 
         ext::security::ensure_parachain_status_running::<Test>
-            .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
+            .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainNotRunning.into())));
 
         assert_noop!(
             Issue::_execute_issue(
@@ -268,7 +278,7 @@ fn test_execute_issue_parachain_not_running_fails() {
                 vec![0u8; 100],
                 vec![0u8; 100],
             ),
-            Error::ParachainNotRunning
+            SecurityError::ParachainNotRunning
         );
     })
 }

@@ -22,7 +22,9 @@ use mocktopus::macros::mockable;
 
 use frame_support::debug;
 use frame_support::{
-    decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure, IterableStorageMap,
+    decl_error, decl_event, decl_module, decl_storage,
+    dispatch::{DispatchError, DispatchResult},
+    ensure, IterableStorageMap,
 };
 use frame_system::ensure_signed;
 use primitive_types::U256;
@@ -37,8 +39,8 @@ use bitcoin::parser::{parse_block_header, parse_transaction};
 use bitcoin::types::{
     BlockChain, BlockHeader, H256Le, RawBlockHeader, RichBlockHeader, Transaction,
 };
+use bitcoin::Error as BitcoinError;
 use security::types::ErrorCode;
-use x_core::{Error, UnitResult};
 
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
@@ -109,11 +111,11 @@ decl_storage! {
 
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+        // Initialize errors
+        type Error = Error<T>;
+
         // Initializing events
         fn deposit_event() = default;
-
-        // Initialize errors
-        // type Error = Error<T>;
 
         /// One time function to initialize the BTC-Relay with the first block
         /// # Arguments
@@ -131,7 +133,7 @@ decl_module! {
             let _ = ensure_signed(origin)?;
 
             // Check if BTC-Relay was already initialized
-            ensure!(!Self::best_block_exists(), Error::AlreadyInitialized);
+            ensure!(!Self::best_block_exists(), Error::<T>::AlreadyInitialized);
 
             // Parse the block header bytes to extract the required info
             let basic_block_header = parse_block_header(&raw_block_header)?;
@@ -324,7 +326,7 @@ decl_module! {
 
             // Check that the passed raw_tx indeed matches the tx_id used for
             // transaction inclusion verification
-            ensure!(tx_id == transaction.tx_id(), Error::InvalidTxid);
+            ensure!(tx_id == transaction.tx_id(), Error::<T>::InvalidTxid);
 
             // Verify that the transaction is indeed included in the main chain
             // Check for Parachain RUNNING state is performed here
@@ -402,7 +404,7 @@ impl<T: Trait> Module<T> {
         raw_merkle_proof: Vec<u8>,
         confirmations: u32,
         insecure: bool,
-    ) -> Result<(), Error> {
+    ) -> Result<(), DispatchError> {
         Self::transaction_verification_allowed(block_height)?;
 
         let best_block_height = Self::get_best_block_height();
@@ -419,12 +421,15 @@ impl<T: Trait> Module<T> {
         )?;
 
         // fail if the transaction hash is invalid
-        ensure!(proof_result.transaction_hash == tx_id, Error::InvalidTxid);
+        ensure!(
+            proof_result.transaction_hash == tx_id,
+            Error::<T>::InvalidTxid
+        );
 
         // fail if the merkle root is invalid
         ensure!(
             proof_result.extracted_root == rich_header.block_header.merkle_root,
-            Error::InvalidMerkleProof
+            Error::<T>::InvalidMerkleProof
         );
         Ok(())
     }
@@ -434,31 +439,34 @@ impl<T: Trait> Module<T> {
         payment_value: i64,
         recipient_btc_address: Vec<u8>,
         op_return_id: Vec<u8>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), DispatchError> {
         let transaction = Self::parse_transaction(&raw_tx)?;
 
         ensure!(
             transaction.outputs.len() >= ACCEPTED_MIN_TRANSACTION_OUTPUTS as usize,
-            Error::MalformedTransaction
+            Error::<T>::MalformedTransaction
         );
 
         // Check if 1st / payment UTXO transfers sufficient value
         let extr_payment_value = transaction.outputs[0].value;
         ensure!(
             extr_payment_value >= payment_value,
-            Error::InsufficientValue
+            Error::<T>::InsufficientValue
         );
 
         // Check if 1st / payment UTXO sends to correct address
         let extr_recipient_address = transaction.outputs[0].extract_address()?;
         ensure!(
             extr_recipient_address == recipient_btc_address,
-            Error::WrongRecipient
+            Error::<T>::WrongRecipient
         );
 
         // Check if 2nd / data UTXO has correct OP_RETURN value
         let extr_op_return_value = transaction.outputs[1].script.extract_op_return_data()?;
-        ensure!(extr_op_return_value == op_return_id, Error::InvalidOpreturn);
+        ensure!(
+            extr_op_return_value == op_return_id,
+            Error::<T>::InvalidOpreturn
+        );
 
         Ok(())
     }
@@ -468,21 +476,21 @@ impl<T: Trait> Module<T> {
     // ********************************
 
     /// Get chain id from position (sorted by max block height)
-    fn get_chain_id_from_position(position: u32) -> Result<u32, Error> {
-        <Chains>::get(position).ok_or(Error::InvalidChainID)
+    fn get_chain_id_from_position(position: u32) -> Result<u32, DispatchError> {
+        <Chains>::get(position).ok_or(Error::<T>::InvalidChainID.into())
     }
     /// Get the position of the fork in Chains
-    fn get_chain_position_from_chain_id(chain_id: u32) -> Result<u32, Error> {
+    fn get_chain_position_from_chain_id(chain_id: u32) -> Result<u32, DispatchError> {
         for (k, v) in <Chains>::iter() {
             if v == chain_id {
                 return Ok(k);
             }
         }
-        Err(Error::ForkIdNotFound)
+        Err(Error::<T>::ForkIdNotFound.into())
     }
     /// Get a blockchain from the id
-    fn get_block_chain_from_id(chain_id: u32) -> Result<BlockChain, Error> {
-        <ChainsIndex>::get(chain_id).ok_or(Error::InvalidChainID)
+    fn get_block_chain_from_id(chain_id: u32) -> Result<BlockChain, DispatchError> {
+        <ChainsIndex>::get(chain_id).ok_or(Error::<T>::InvalidChainID.into())
     }
     /// Get the current best block hash
     pub fn get_best_block() -> H256Le {
@@ -505,19 +513,19 @@ impl<T: Trait> Module<T> {
     ///
     /// * `chain_id`: the id of the blockchain to search in
     /// * `block_height`: the height if the block header
-    fn get_block_hash(chain_id: u32, block_height: u32) -> Result<H256Le, Error> {
+    fn get_block_hash(chain_id: u32, block_height: u32) -> Result<H256Le, DispatchError> {
         if !Self::block_exists(chain_id, block_height) {
-            return Err(Error::MissingBlockHeight);
+            return Err(Error::<T>::MissingBlockHeight.into());
         }
         Ok(<ChainsHashes>::get(chain_id, block_height))
     }
 
     /// Get a block header from its hash
-    fn get_block_header_from_hash(block_hash: H256Le) -> Result<RichBlockHeader, Error> {
+    fn get_block_header_from_hash(block_hash: H256Le) -> Result<RichBlockHeader, DispatchError> {
         if <BlockHeaders>::contains_key(block_hash) {
             return Ok(<BlockHeaders>::get(block_hash));
         }
-        Err(Error::BlockNotFound)
+        Err(Error::<T>::BlockNotFound.into())
     }
     /// Check if a block header exists
     fn block_header_exists(block_hash: H256Le) -> bool {
@@ -527,7 +535,7 @@ impl<T: Trait> Module<T> {
     fn get_block_header_from_height(
         blockchain: &BlockChain,
         block_height: u32,
-    ) -> Result<RichBlockHeader, Error> {
+    ) -> Result<RichBlockHeader, DispatchError> {
         let block_hash = Self::get_block_hash(blockchain.chain_id, block_height)?;
         Self::get_block_header_from_hash(block_hash)
     }
@@ -541,11 +549,11 @@ impl<T: Trait> Module<T> {
         <Chains>::swap(pos_1, pos_2)
     }
     /// Remove a chain id from chains
-    fn remove_blockchain_from_chain(position: u32) -> Result<(), Error> {
+    fn remove_blockchain_from_chain(position: u32) -> Result<(), DispatchError> {
         // swap the element with the last element in the mapping
         let head_index = match <Chains>::iter().nth(0) {
             Some(head) => head.0,
-            None => return Err(Error::ForkIdNotFound),
+            None => return Err(Error::<T>::ForkIdNotFound.into()),
         };
         <Chains>::swap(position, head_index);
         // remove the header (now the value at the initial position)
@@ -639,11 +647,11 @@ impl<T: Trait> Module<T> {
         block_height: u32,
         block_hash: &H256Le,
         prev_blockchain: BlockChain,
-    ) -> Result<BlockChain, Error> {
+    ) -> Result<BlockChain, DispatchError> {
         let mut blockchain = prev_blockchain;
 
         if Self::block_exists(blockchain.chain_id, block_height) {
-            return Err(Error::DuplicateBlock);
+            return Err(Error::<T>::DuplicateBlock.into());
         }
         Self::insert_block_hash(blockchain.chain_id, block_height, *block_hash);
 
@@ -662,14 +670,14 @@ impl<T: Trait> Module<T> {
     // *********************************
 
     // Wrapper functions around bitcoin lib for testing purposes
-    fn parse_transaction(raw_tx: &[u8]) -> Result<Transaction, Error> {
-        parse_transaction(&raw_tx)
+    fn parse_transaction(raw_tx: &[u8]) -> Result<Transaction, DispatchError> {
+        Ok(parse_transaction(&raw_tx)?)
     }
 
-    fn verify_merkle_proof(raw_merkle_proof: &[u8]) -> Result<ProofResult, Error> {
+    fn verify_merkle_proof(raw_merkle_proof: &[u8]) -> Result<ProofResult, DispatchError> {
         let merkle_proof = MerkleProof::parse(&raw_merkle_proof)?;
 
-        merkle_proof.verify_proof()
+        Ok(merkle_proof.verify_proof()?)
     }
     /// Parses and verifies a raw Bitcoin block header.
     /// # Arguments
@@ -680,7 +688,9 @@ impl<T: Trait> Module<T> {
     ///
     /// # Panics
     /// If ParachainStatus in Security module is not set to RUNNING
-    fn verify_block_header(raw_block_header: &RawBlockHeader) -> Result<BlockHeader, Error> {
+    fn verify_block_header(
+        raw_block_header: &RawBlockHeader,
+    ) -> Result<BlockHeader, DispatchError> {
         let basic_block_header = parse_block_header(&raw_block_header)?;
 
         let block_header_hash = raw_block_header.hash();
@@ -688,7 +698,7 @@ impl<T: Trait> Module<T> {
         // Check that the block header is not yet stored in BTC-Relay
         ensure!(
             !Self::block_header_exists(block_header_hash),
-            Error::DuplicateBlock
+            Error::<T>::DuplicateBlock
         );
 
         // Check that the referenced previous block header exists in BTC-Relay
@@ -697,7 +707,7 @@ impl<T: Trait> Module<T> {
         // Check that the PoW hash satisfies the target set in the block header
         ensure!(
             block_header_hash.as_u256() < basic_block_header.target,
-            Error::LowDiff
+            Error::<T>::LowDiff
         );
 
         // Check that the diff. target is indeed correctly set in the block header, i.e., check for re-target.
@@ -712,7 +722,7 @@ impl<T: Trait> Module<T> {
 
         ensure!(
             basic_block_header.target == expected_target,
-            Error::DiffTargetHeader
+            Error::<T>::DiffTargetHeader
         );
 
         Ok(basic_block_header)
@@ -725,7 +735,7 @@ impl<T: Trait> Module<T> {
     fn compute_new_target(
         prev_block_header: &RichBlockHeader,
         block_height: u32,
-    ) -> Result<U256, Error> {
+    ) -> Result<U256, DispatchError> {
         // get time of last retarget
         let last_retarget_time =
             Self::get_last_retarget_time(prev_block_header.chain_ref, block_height)?;
@@ -755,7 +765,7 @@ impl<T: Trait> Module<T> {
     /// # Arguments
     /// * `chain_ref` - BlockChain identifier
     /// * `block_height` - current block height
-    fn get_last_retarget_time(chain_ref: u32, block_height: u32) -> Result<u64, Error> {
+    fn get_last_retarget_time(chain_ref: u32, block_height: u32) -> Result<u64, DispatchError> {
         let block_chain = Self::get_block_chain_from_id(chain_ref)?;
         let last_retarget_header = Self::get_block_header_from_height(
             &block_chain,
@@ -775,7 +785,7 @@ impl<T: Trait> Module<T> {
     /// # Arguments
     ///
     /// * `fork` - the fork that is going to become the main chain
-    fn swap_main_blockchain(fork: &BlockChain) -> Result<(), Error> {
+    fn swap_main_blockchain(fork: &BlockChain) -> Result<(), DispatchError> {
         // load the main chain
         let mut main_chain = Self::get_block_chain_from_id(MAIN_CHAIN_ID)?;
 
@@ -876,7 +886,7 @@ impl<T: Trait> Module<T> {
     /// # Arguments
     ///
     /// * `fork` - the blockchain element that may cause a reorg
-    fn check_and_do_reorg(fork: &BlockChain) -> Result<(), Error> {
+    fn check_and_do_reorg(fork: &BlockChain) -> Result<(), DispatchError> {
         // Check if the ordering needs updating
         // if the fork is the main chain, we don't need to update the ordering
         if fork.chain_id == MAIN_CHAIN_ID {
@@ -953,7 +963,7 @@ impl<T: Trait> Module<T> {
     /// # Arguments
     ///
     /// * `blockchain` - new blockchain element
-    fn insert_sorted(blockchain: &BlockChain) -> Result<(), Error> {
+    fn insert_sorted(blockchain: &BlockChain) -> Result<(), DispatchError> {
         // print!("Chain id: {:?}\n", blockchain.chain_id);
         // get a sorted vector over the Chains elements
         // NOTE: LinkedStorageMap iterators are not sorted over the keys
@@ -1008,7 +1018,7 @@ impl<T: Trait> Module<T> {
     ///
     /// * `block_hash` - the hash of the block header with the error
     /// * `error` - the error code for the block header
-    pub fn flag_block_error(block_hash: H256Le, error: ErrorCode) -> Result<(), Error> {
+    pub fn flag_block_error(block_hash: H256Le, error: ErrorCode) -> Result<(), DispatchError> {
         // Get the chain id of the block header
         let block_header = Self::get_block_header_from_hash(block_hash)?;
         let chain_id = block_header.chain_ref;
@@ -1021,7 +1031,7 @@ impl<T: Trait> Module<T> {
         let newly_flagged = match error {
             ErrorCode::NoDataBTCRelay => blockchain.no_data.insert(block_header.block_height),
             ErrorCode::InvalidBTCRelay => blockchain.invalid.insert(block_header.block_height),
-            _ => return Err(Error::UnknownErrorcode),
+            _ => return Err(Error::<T>::UnknownErrorcode.into()),
         };
 
         // If the block was not already flagged, store the updated blockchain entry
@@ -1040,7 +1050,7 @@ impl<T: Trait> Module<T> {
     ///
     /// * `block_hash` - the hash of the block header being cleared
     /// * `error` - the error code for the block header
-    pub fn clear_block_error(block_hash: H256Le, error: ErrorCode) -> Result<(), Error> {
+    pub fn clear_block_error(block_hash: H256Le, error: ErrorCode) -> Result<(), DispatchError> {
         // Get the chain id of the block header
         let block_header = Self::get_block_header_from_hash(block_hash)?;
         let chain_id = block_header.chain_ref;
@@ -1053,7 +1063,7 @@ impl<T: Trait> Module<T> {
         let block_exists = match error {
             ErrorCode::NoDataBTCRelay => blockchain.no_data.remove(&block_header.block_height),
             ErrorCode::InvalidBTCRelay => blockchain.invalid.remove(&block_header.block_height),
-            _ => return Err(Error::UnknownErrorcode),
+            _ => return Err(Error::<T>::UnknownErrorcode.into()),
         };
 
         if block_exists {
@@ -1084,13 +1094,13 @@ impl<T: Trait> Module<T> {
         req_confs: u32,
         tx_block_height: u32,
         insecure: bool,
-    ) -> Result<(), Error> {
+    ) -> Result<(), DispatchError> {
         // insecure call: only checks against user parameter
         if insecure {
             if tx_block_height + req_confs <= main_chain_height {
                 Ok(())
             } else {
-                Err(Error::Confirmations)
+                Err(Error::<T>::Confirmations.into())
             }
         } else {
             // secure call: checks against max of user- and global security parameter
@@ -1100,12 +1110,12 @@ impl<T: Trait> Module<T> {
                 if tx_block_height + global_confs <= main_chain_height {
                     Ok(())
                 } else {
-                    Err(Error::InsufficientStableConfirmations)
+                    Err(Error::<T>::InsufficientStableConfirmations.into())
                 }
             } else if tx_block_height + req_confs <= main_chain_height {
                 Ok(())
             } else {
-                Err(Error::Confirmations)
+                Err(Error::<T>::Confirmations.into())
             }
         }
     }
@@ -1117,25 +1127,25 @@ impl<T: Trait> Module<T> {
     ///   * the main chain contains a "NO_DATA" block at a lower height than `block_height`
     /// # Arguments
     ///   * `block_height` - block height of the to-be-verified transaction
-    fn transaction_verification_allowed(block_height: u32) -> UnitResult {
+    fn transaction_verification_allowed(block_height: u32) -> Result<(), DispatchError> {
         // Make sure Parachain is not shutdown
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
         // Ensure main chain has no invalid block
         let main_chain = Self::get_block_chain_from_id(MAIN_CHAIN_ID)?;
-        ensure!(!main_chain.is_invalid(), Error::Invalid);
+        ensure!(!main_chain.is_invalid(), Error::<T>::Invalid);
 
         // Check if a NO_DATA block exists at a lower height than block_height
         if main_chain.is_no_data() {
             match main_chain.no_data.iter().next_back() {
-                Some(no_data_height) => ensure!(block_height < *no_data_height, Error::NoData),
+                Some(no_data_height) => ensure!(block_height < *no_data_height, Error::<T>::NoData),
                 None => (),
             }
         }
         Ok(())
     }
 
-    fn ensure_no_ongoing_fork(best_block_height: u32) -> UnitResult {
+    fn ensure_no_ongoing_fork(best_block_height: u32) -> Result<(), DispatchError> {
         // check if there is a next best fork
         match Self::get_chain_id_from_position(1) {
             // if yes, check that the main chain is at least Self::confirmations() ahead
@@ -1147,7 +1157,7 @@ impl<T: Trait> Module<T> {
                 // fail if there is an ongoing fork
                 ensure!(
                     best_block_height >= next_best_fork_height + Self::confirmations(),
-                    Error::OngoingFork
+                    Error::<T>::OngoingFork
                 );
             }
             // else, do nothing if there is no fork
@@ -1156,11 +1166,11 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn recover_if_needed() -> Result<(), Error> {
+    fn recover_if_needed() -> Result<(), DispatchError> {
         if ext::security::_is_parachain_error_invalid_btcrelay::<T>()
             || ext::security::_is_parachain_error_no_data_btcrelay::<T>()
         {
-            ext::security::recover_from_btc_relay_failure::<T>()
+            Ok(ext::security::recover_from_btc_relay_failure::<T>()?)
         } else {
             Ok(())
         }
@@ -1178,5 +1188,116 @@ decl_event! {
         ValidateTransaction(H256Le, u32, H160, H256Le),
         FlagBlockError(H256Le, u32, ErrorCode),
         ClearBlockError(H256Le, u32, ErrorCode),
+    }
+}
+
+decl_error! {
+    pub enum Error for Module<T: Trait> {
+        /// Already initialized
+        AlreadyInitialized,
+        /// Missing the block at this height
+        MissingBlockHeight,
+        /// Invalid block header size
+        InvalidHeaderSize,
+        /// Block already stored
+        DuplicateBlock,
+        /// Previous block hash not found
+        PrevBlock,
+        /// Invalid chain ID
+        InvalidChainID,
+        /// PoW hash does not meet difficulty target of header
+        LowDiff,
+        /// Incorrect difficulty target specified in block header
+        DiffTargetHeader,
+        /// Malformed transaction identifier
+        MalformedTxid,
+        /// Transaction has less confirmations than requested
+        Confirmations,
+        /// Transaction has less confirmations than the global STABLE_TRANSACTION_CONFIRMATIONS parameter
+        InsufficientStableConfirmations,
+        /// Current fork ongoing
+        OngoingFork,
+        /// Merkle proof is malformed
+        MalformedMerkleProof,
+        /// Invalid merkle proof
+        InvalidMerkleProof,
+        /// Feature disabled. Reason: a main chain block with a lower height is flagged with NO_DATA.
+        NoData,
+        /// Feature disabled. Reason: a main chain block is flagged as INVALID.
+        Invalid,
+        /// BTC Parachain has shut down
+        Shutdown,
+        /// Transaction hash does not match given txid
+        InvalidTxid,
+        /// Value of payment below requested amount
+        InsufficientValue,
+        /// Transaction has incorrect format
+        MalformedTransaction,
+        /// Incorrect recipient Bitcoin address
+        WrongRecipient,
+        /// Incorrect transaction output format
+        InvalidOutputFormat,
+        /// Incorrect identifier in OP_RETURN field
+        InvalidOpreturn,
+        /// Invalid transaction version
+        InvalidTxVersion,
+        /// Expecting OP_RETURN output, but got another type
+        NotOpReturn,
+        /// Error code not applicable to blocks
+        UnknownErrorcode,
+        /// Blockchain with requested ID not found
+        ForkIdNotFound,
+        /// Block header not found for given hash
+        BlockNotFound,
+        /// Error code already reported
+        AlreadyReported,
+        /// Unauthorized staked relayer
+        UnauthorizedRelayer,
+        /// Overflow of chain counter
+        ChainCounterOverflow,
+        /// Overflow of block height
+        BlockHeightOverflow,
+        /// Underflow of stored blockchains counter
+        ChainsUnderflow,
+        /// EOS reached while parsing
+        EOS,
+        /// Format of the header is invalid
+        MalformedHeader,
+        /// Format of the BIP141 witness transaction output is invalid
+        MalformedWitnessOutput,
+        // Format of the P2PKH transaction output is invalid
+        MalformedP2PKHOutput,
+        // Format of the P2SH transaction output is invalid
+        MalformedP2SHOutput,
+        /// Format of the OP_RETURN transaction output is invalid
+        MalformedOpReturnOutput,
+        // Output does not match format of supported output types (Witness, P2PKH, P2SH)
+        UnsupportedOutputFormat,
+        // Input does not match format of supported input types (Witness, P2PKH, P2SH)
+        UnsupportedInputFormat,
+        /// There are no NO_DATA blocks in this BlockChain
+        NoDataEmpty,
+        // Something unexpected happened
+        RuntimeError,
+    }
+}
+
+impl<T: Trait> From<BitcoinError> for Error<T> {
+    fn from(err: BitcoinError) -> Self {
+        match err {
+            BitcoinError::MalformedMerkleProof => Self::MalformedMerkleProof,
+            BitcoinError::InvalidMerkleProof => Self::InvalidMerkleProof,
+            BitcoinError::EOS => Self::EOS,
+            BitcoinError::MalformedHeader => Self::MalformedHeader,
+            BitcoinError::MalformedTransaction => Self::MalformedTransaction,
+            BitcoinError::UnsupportedInputFormat => Self::UnsupportedInputFormat,
+            BitcoinError::MalformedWitnessOutput => Self::MalformedWitnessOutput,
+            BitcoinError::MalformedP2PKHOutput => Self::MalformedP2PKHOutput,
+            BitcoinError::MalformedP2SHOutput => Self::MalformedP2SHOutput,
+            BitcoinError::UnsupportedOutputFormat => Self::UnsupportedOutputFormat,
+            BitcoinError::MalformedOpReturnOutput => Self::MalformedOpReturnOutput,
+            BitcoinError::InvalidHeaderSize => Self::InvalidHeaderSize,
+            _ => Self::RuntimeError,
+        }
     }
 }

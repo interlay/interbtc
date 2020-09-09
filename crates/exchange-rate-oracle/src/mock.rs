@@ -1,5 +1,5 @@
 /// Mocking the test environment
-use crate::{GenesisConfig, Module, Trait};
+use crate::{Error, GenesisConfig, Module, Trait};
 use frame_support::{
     impl_outer_event, impl_outer_origin, parameter_types,
     weights::{
@@ -119,6 +119,8 @@ impl treasury::Trait for Test {
 impl security::Trait for Test {
     type Event = TestEvent;
 }
+
+pub type TestError = Error<Test>;
 
 pub type System = frame_system::Module<Test>;
 pub type ExchangeRateOracle = Module<Test>;

@@ -5,6 +5,9 @@
 #[cfg(test)]
 extern crate mocktopus;
 
+mod error;
+pub use error::Error;
+
 pub mod merkle;
 
 pub mod types;
