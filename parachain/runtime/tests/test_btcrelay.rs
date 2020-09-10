@@ -4,6 +4,8 @@ mod mock;
 use bitcoin_data::get_bitcoin_testdata;
 use mock::*;
 
+type BTCRelayError = btc_relay::Error<Runtime>;
+
 #[test]
 fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
     ExtBuilder::build().execute_with(|| {
@@ -55,7 +57,7 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
                             false
                         ))
                         .dispatch(origin_of(account_of(ALICE))),
-                        Error::Confirmations
+                        BTCRelayError::Confirmations
                     );
                 }
             }

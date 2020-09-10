@@ -1,15 +1,16 @@
 use frame_support::traits::Currency;
 
 use codec::{Decode, Encode, HasCompact};
-use frame_support::{ensure, StorageMap};
+use frame_support::{
+    dispatch::{DispatchError, DispatchResult},
+    ensure, StorageMap,
+};
 use sp_core::H160;
 
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use x_core::{Error, Result, UnitResult};
-
-use crate::{ext, Trait};
+use crate::{ext, Error, Trait};
 
 pub(crate) type DOT<T> =
     <<T as collateral::Trait>::DOT as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
@@ -19,7 +20,7 @@ pub(crate) type PolkaBTC<T> =
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct Vault<AccountId, BlockNumber, PolkaBTC: HasCompact> {
+pub struct Vault<AccountId, BlockNumber, PolkaBTC> {
     // Account identifier of the Vault
     pub id: AccountId,
     // Number of PolkaBTC tokens pending issue
@@ -73,11 +74,11 @@ impl<T: Trait> RichVault<T> {
         self.data.id.clone()
     }
 
-    pub fn increase_collateral(&self, collateral: DOT<T>) -> UnitResult {
+    pub fn increase_collateral(&self, collateral: DOT<T>) -> DispatchResult {
         ext::collateral::lock::<T>(&self.data.id, collateral)
     }
 
-    pub fn withdraw_collateral(&self, collateral: DOT<T>) -> UnitResult {
+    pub fn withdraw_collateral(&self, collateral: DOT<T>) -> DispatchResult {
         let current_collateral = ext::collateral::for_account::<T>(&self.data.id);
 
         let raw_current_collateral = crate::Module::<T>::dot_to_u128(current_collateral)?;
@@ -93,7 +94,7 @@ impl<T: Trait> RichVault<T> {
                 new_collateral,
                 self.data.issued_tokens
             )?,
-            Error::InsufficientCollateral
+            Error::<T>::InsufficientCollateral
         );
 
         ext::collateral::release::<T>(&self.data.id, collateral)
@@ -103,12 +104,12 @@ impl<T: Trait> RichVault<T> {
         ext::collateral::for_account::<T>(&self.data.id)
     }
 
-    pub fn get_free_collateral(&self) -> Result<DOT<T>> {
+    pub fn get_free_collateral(&self) -> Result<DOT<T>, DispatchError> {
         let used_collateral = self.get_used_collateral()?;
         Ok(self.get_collateral() - used_collateral)
     }
 
-    pub fn get_used_collateral(&self) -> Result<DOT<T>> {
+    pub fn get_used_collateral(&self) -> Result<DOT<T>, DispatchError> {
         let issued_tokens = self.data.issued_tokens + self.data.to_be_issued_tokens;
         let issued_tokens_in_dot = ext::oracle::btc_to_dots::<T>(issued_tokens)?;
 
@@ -118,14 +119,14 @@ impl<T: Trait> RichVault<T> {
 
         let raw_used_collateral = raw_issued_tokens_in_dot
             .checked_mul(secure_threshold)
-            .ok_or(Error::RuntimeError)?;
+            .ok_or(Error::<T>::ConversionError)?;
 
         let used_collateral = crate::Module::<T>::u128_to_dot(raw_used_collateral)?;
 
         Ok(used_collateral)
     }
 
-    pub fn issuable_tokens(&self) -> Result<PolkaBTC<T>> {
+    pub fn issuable_tokens(&self) -> Result<PolkaBTC<T>, DispatchError> {
         let free_collateral = self.get_free_collateral()?;
 
         let secure_threshold = crate::Module::<T>::_get_secure_collateral_threshold();
@@ -138,9 +139,9 @@ impl<T: Trait> RichVault<T> {
         Ok(issuable)
     }
 
-    pub fn increase_to_be_issued(&mut self, tokens: PolkaBTC<T>) -> UnitResult {
+    pub fn increase_to_be_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
         let issuable_tokens = self.issuable_tokens()?;
-        ensure!(issuable_tokens >= tokens, Error::ExceedingVaultLimit);
+        ensure!(issuable_tokens >= tokens, Error::<T>::ExceedingVaultLimit);
         Ok(self.force_increase_to_be_issued(tokens))
     }
 
@@ -148,15 +149,15 @@ impl<T: Trait> RichVault<T> {
         self.update(|v| v.to_be_issued_tokens += tokens);
     }
 
-    pub fn decrease_to_be_issued(&mut self, tokens: PolkaBTC<T>) -> UnitResult {
+    pub fn decrease_to_be_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
         ensure!(
             self.data.to_be_issued_tokens >= tokens,
-            Error::InsufficientTokensCommitted
+            Error::<T>::InsufficientTokensCommitted
         );
         Ok(self.update(|v| v.to_be_issued_tokens -= tokens))
     }
 
-    pub fn issue_tokens(&mut self, tokens: PolkaBTC<T>) -> UnitResult {
+    pub fn issue_tokens(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
         self.decrease_to_be_issued(tokens)?;
         Ok(self.force_issue_tokens(tokens))
     }
@@ -165,15 +166,21 @@ impl<T: Trait> RichVault<T> {
         self.update(|v| v.issued_tokens += tokens)
     }
 
-    pub fn decrease_issued(&mut self, tokens: PolkaBTC<T>) -> UnitResult {
+    pub fn decrease_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
         let issued_tokens = self.data.issued_tokens;
-        ensure!(issued_tokens >= tokens, Error::InsufficientTokensCommitted);
+        ensure!(
+            issued_tokens >= tokens,
+            Error::<T>::InsufficientTokensCommitted
+        );
         Ok(self.update(|v| v.issued_tokens -= tokens))
     }
 
-    pub fn increase_to_be_redeemed(&mut self, tokens: PolkaBTC<T>) -> UnitResult {
+    pub fn increase_to_be_redeemed(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
         let redeemable = self.data.issued_tokens - self.data.to_be_redeemed_tokens;
-        ensure!(redeemable >= tokens, Error::InsufficientTokensCommitted);
+        ensure!(
+            redeemable >= tokens,
+            Error::<T>::InsufficientTokensCommitted
+        );
         Ok(self.force_increase_to_be_redeemed(tokens))
     }
 
@@ -181,28 +188,31 @@ impl<T: Trait> RichVault<T> {
         self.update(|v| v.to_be_redeemed_tokens += tokens);
     }
 
-    pub fn decrease_to_be_redeemed(&mut self, tokens: PolkaBTC<T>) -> UnitResult {
+    pub fn decrease_to_be_redeemed(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
         let to_be_redeemed = self.data.to_be_redeemed_tokens;
-        ensure!(to_be_redeemed >= tokens, Error::InsufficientTokensCommitted);
+        ensure!(
+            to_be_redeemed >= tokens,
+            Error::<T>::InsufficientTokensCommitted
+        );
         Ok(self.update(|v| v.to_be_redeemed_tokens -= tokens))
     }
 
-    pub fn decrease_tokens(&mut self, tokens: PolkaBTC<T>) -> UnitResult {
+    pub fn decrease_tokens(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
         self.decrease_to_be_redeemed(tokens)?;
         self.decrease_issued(tokens)
         // Note: slashing of collateral must be called where this function is called (e.g. in Redeem)
     }
 
-    pub fn redeem_tokens(&mut self, tokens: PolkaBTC<T>) -> UnitResult {
+    pub fn redeem_tokens(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
         self.decrease_tokens(tokens)
     }
 
-    pub fn transfer(&mut self, other: &mut RichVault<T>, tokens: PolkaBTC<T>) -> UnitResult {
+    pub fn transfer(&mut self, other: &mut RichVault<T>, tokens: PolkaBTC<T>) -> DispatchResult {
         self.decrease_tokens(tokens)?;
         Ok(other.force_issue_tokens(tokens))
     }
 
-    pub fn liquidate(&self, liquidation_vault: &mut RichVault<T>) -> UnitResult {
+    pub fn liquidate(&self, liquidation_vault: &mut RichVault<T>) -> DispatchResult {
         ext::collateral::slash::<T>(&self.id(), &liquidation_vault.id(), self.get_collateral())?;
         liquidation_vault.force_issue_tokens(self.data.issued_tokens);
         liquidation_vault.force_increase_to_be_issued(self.data.to_be_issued_tokens);
@@ -211,14 +221,14 @@ impl<T: Trait> RichVault<T> {
         Ok(())
     }
 
-    pub fn ensure_not_banned(&self, height: T::BlockNumber) -> UnitResult {
+    pub fn ensure_not_banned(&self, height: T::BlockNumber) -> DispatchResult {
         let is_banned = match self.data.banned_until {
             None => false,
             Some(until) => height <= until,
         };
 
         if is_banned {
-            Err(Error::VaultBanned)
+            Err(Error::<T>::VaultBanned.into())
         } else {
             Ok(())
         }

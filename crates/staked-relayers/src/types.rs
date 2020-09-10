@@ -34,25 +34,25 @@ impl Default for ProposalStatus {
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
 pub struct StatusUpdate<AccountId: Ord + Clone, BlockNumber, DOT> {
     /// New status of the BTC Parachain.
-    pub(crate) new_status_code: StatusCode,
+    pub new_status_code: StatusCode,
     /// Previous status of the BTC Parachain.
-    pub(crate) old_status_code: StatusCode,
+    pub old_status_code: StatusCode,
     /// If new_status_code is Error, specifies which error is to be added to Errors
-    pub(crate) add_error: Option<ErrorCode>,
+    pub add_error: Option<ErrorCode>,
     /// Indicates which ErrorCode is to be removed from Errors (recovery).
-    pub(crate) remove_error: Option<ErrorCode>,
+    pub remove_error: Option<ErrorCode>,
     /// Parachain block number at which this status update was suggested.
-    pub(crate) time: BlockNumber,
+    pub time: BlockNumber,
     /// Status of the proposed status update. See ProposalStatus.
-    pub(crate) proposal_status: ProposalStatus,
+    pub proposal_status: ProposalStatus,
     /// LE Block hash of the Bitcoin block where the error was detected, if related to BTC-Relay.
-    pub(crate) btc_block_hash: Option<H256Le>,
+    pub btc_block_hash: Option<H256Le>,
     /// Origin of this proposal.
-    pub(crate) proposer: AccountId,
+    pub proposer: AccountId,
     /// Deposit paid to submit this proposal.
-    pub(crate) deposit: DOT,
+    pub deposit: DOT,
     /// Bookkeeping for this proposal.
-    pub(crate) tally: Tally<AccountId>,
+    pub tally: Tally<AccountId>,
 }
 
 /// Record keeping for yes and no votes. Based loosely on the

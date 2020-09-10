@@ -2,7 +2,6 @@ use crate::mock::*;
 use crate::ErrorCode;
 use crate::StatusCode;
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchResult};
-use x_core::Error;
 
 type Event = crate::Event;
 
@@ -48,13 +47,13 @@ fn test_is_ensure_parachain_running_fails() {
         Security::set_parachain_status(StatusCode::Error);
         assert_noop!(
             Security::_ensure_parachain_status_running(),
-            Error::ParachainNotRunning
+            TestError::ParachainNotRunning
         );
 
         Security::set_parachain_status(StatusCode::Shutdown);
         assert_noop!(
             Security::_ensure_parachain_status_running(),
-            Error::ParachainNotRunning
+            TestError::ParachainNotRunning
         );
     })
 }
@@ -76,7 +75,7 @@ fn test_is_ensure_parachain_not_shutdown_fails() {
         Security::set_parachain_status(StatusCode::Shutdown);
         assert_noop!(
             Security::_ensure_parachain_status_not_shutdown(),
-            Error::ParachainShutdown
+            TestError::ParachainShutdown
         );
     })
 }

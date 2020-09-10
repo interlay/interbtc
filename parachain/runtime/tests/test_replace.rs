@@ -28,7 +28,7 @@ fn integration_test_replace_should_fail_if_not_running() {
 
         assert_err!(
             Call::Replace(ReplaceCall::request_replace(0, 0)).dispatch(origin_of(account_of(BOB))),
-            Error::ParachainNotRunning,
+            SecurityError::ParachainNotRunning,
         );
     });
 }

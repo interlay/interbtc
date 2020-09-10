@@ -4,14 +4,14 @@ use mocktopus::macros::mockable;
 #[cfg_attr(test, mockable)]
 pub(crate) mod btc_relay {
     use bitcoin::types::H256Le;
+    use frame_support::dispatch::DispatchError;
     use sp_std::vec::Vec;
-    use x_core::UnitResult;
 
     pub fn verify_transaction_inclusion<T: btc_relay::Trait>(
         tx_id: H256Le,
         tx_block_height: u32,
         merkle_proof: Vec<u8>,
-    ) -> UnitResult {
+    ) -> Result<(), DispatchError> {
         <btc_relay::Module<T>>::_verify_transaction_inclusion(
             tx_id,
             tx_block_height,
@@ -26,7 +26,7 @@ pub(crate) mod btc_relay {
         amount: i64,
         btc_address: Vec<u8>,
         issue_id: Vec<u8>,
-    ) -> UnitResult {
+    ) -> Result<(), DispatchError> {
         <btc_relay::Module<T>>::_validate_transaction(raw_tx, amount, btc_address, issue_id)
     }
 }
@@ -34,40 +34,43 @@ pub(crate) mod btc_relay {
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
     use crate::types::PolkaBTC;
+    use frame_support::dispatch::{DispatchError, DispatchResult};
     use sp_core::H160;
-    use x_core::{Result, UnitResult};
 
     pub fn get_vault_from_id<T: vault_registry::Trait>(
         vault_id: &T::AccountId,
-    ) -> Result<vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>>> {
+    ) -> Result<
+        vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>>,
+        DispatchError,
+    > {
         <vault_registry::Module<T>>::_get_vault_from_id(vault_id)
     }
 
     pub fn increase_to_be_issued_tokens<T: vault_registry::Trait>(
         vault_id: &T::AccountId,
         amount: PolkaBTC<T>,
-    ) -> Result<H160> {
+    ) -> Result<H160, DispatchError> {
         <vault_registry::Module<T>>::_increase_to_be_issued_tokens(vault_id, amount)
     }
 
     pub fn issue_tokens<T: vault_registry::Trait>(
         vault_id: &T::AccountId,
         amount: PolkaBTC<T>,
-    ) -> UnitResult {
+    ) -> DispatchResult {
         <vault_registry::Module<T>>::_issue_tokens(vault_id, amount)
     }
 
     pub fn decrease_to_be_issued_tokens<T: vault_registry::Trait>(
         vault_id: &T::AccountId,
         amount: PolkaBTC<T>,
-    ) -> UnitResult {
+    ) -> DispatchResult {
         <vault_registry::Module<T>>::_decrease_to_be_issued_tokens(vault_id, amount)
     }
 
     pub fn ensure_not_banned<T: vault_registry::Trait>(
         vault: &T::AccountId,
         height: T::BlockNumber,
-    ) -> UnitResult {
+    ) -> DispatchResult {
         <vault_registry::Module<T>>::_ensure_not_banned(vault, height)
     }
 }
@@ -75,12 +78,12 @@ pub(crate) mod vault_registry {
 #[cfg_attr(test, mockable)]
 pub(crate) mod collateral {
     use crate::types::DOT;
-    use x_core::UnitResult;
+    use frame_support::dispatch::DispatchResult;
 
     pub fn lock_collateral<T: collateral::Trait>(
         sender: &T::AccountId,
         amount: DOT<T>,
-    ) -> UnitResult {
+    ) -> DispatchResult {
         <collateral::Module<T>>::lock_collateral(sender, amount)
     }
 
@@ -88,7 +91,7 @@ pub(crate) mod collateral {
         sender: &T::AccountId,
         receiver: &T::AccountId,
         amount: DOT<T>,
-    ) -> UnitResult {
+    ) -> DispatchResult {
         <collateral::Module<T>>::slash_collateral(sender.clone(), receiver.clone(), amount)
     }
 }
@@ -104,14 +107,14 @@ pub(crate) mod treasury {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod security {
+    use frame_support::dispatch::DispatchResult;
     use primitive_types::H256;
-    use x_core::UnitResult;
 
     pub fn get_secure_id<T: security::Trait>(id: &T::AccountId) -> H256 {
         <security::Module<T>>::_get_secure_id(id)
     }
 
-    pub fn ensure_parachain_status_running<T: security::Trait>() -> UnitResult {
+    pub fn ensure_parachain_status_running<T: security::Trait>() -> DispatchResult {
         <security::Module<T>>::_ensure_parachain_status_running()
     }
 }

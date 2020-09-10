@@ -18,10 +18,13 @@ use frame_support::traits::{Currency, ExistenceRequirement::KeepAlive, Reservabl
 /// The Treasury module according to the specification at
 /// https://interlay.gitlab.io/polkabtc-spec/spec/treasury.html
 // Substrate
-use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure};
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage,
+    dispatch::{DispatchError, DispatchResult},
+    ensure,
+};
 use frame_system::ensure_signed;
 use sp_runtime::ModuleId;
-use x_core::Error;
 
 type BalanceOf<T> =
     <<T as Trait>::PolkaBTC as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
@@ -73,6 +76,8 @@ decl_event!(
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+        type Error = Error<T>;
+
         // Initializing events
         // this is needed only if you are using events in your pallet
         fn deposit_event() = default;
@@ -91,7 +96,7 @@ decl_module! {
             let sender = ensure_signed(origin)?;
 
             T::PolkaBTC::transfer(&sender, &receiver, amount, KeepAlive)
-                .map_err(|_| Error::InsufficientFunds)?;
+                .map_err(|_| Error::<T>::InsufficientFunds)?;
 
             Self::deposit_event(RawEvent::Transfer(sender, receiver, amount));
 
@@ -144,8 +149,8 @@ impl<T: Trait> Module<T> {
     ///
     /// * `redeemer` - the account redeeming tokens
     /// * `amount` - to be locked amount of PolkaBTC
-    pub fn lock(redeemer: T::AccountId, amount: BalanceOf<T>) -> Result<(), Error> {
-        T::PolkaBTC::reserve(&redeemer, amount).map_err(|_| Error::InsufficientFunds)?;
+    pub fn lock(redeemer: T::AccountId, amount: BalanceOf<T>) -> Result<(), DispatchError> {
+        T::PolkaBTC::reserve(&redeemer, amount).map_err(|_| Error::<T>::InsufficientFunds)?;
 
         // update total locked balance
         Self::increase_total_locked(amount);
@@ -159,10 +164,10 @@ impl<T: Trait> Module<T> {
     ///
     /// * `redeemer` - the account redeeming tokens
     /// * `amount` - the to be burned amount of PolkaBTC
-    pub fn burn(redeemer: T::AccountId, amount: BalanceOf<T>) -> Result<(), Error> {
+    pub fn burn(redeemer: T::AccountId, amount: BalanceOf<T>) -> Result<(), DispatchError> {
         ensure!(
             T::PolkaBTC::reserved_balance(&redeemer) >= amount,
-            Error::InsufficientLockedFunds
+            Error::<T>::InsufficientLockedFunds
         );
 
         // burn the tokens from the locked balance
@@ -175,5 +180,12 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(RawEvent::Burn(redeemer, amount));
 
         Ok(())
+    }
+}
+
+decl_error! {
+    pub enum Error for Module<T: Trait> {
+        InsufficientFunds,
+        InsufficientLockedFunds,
     }
 }

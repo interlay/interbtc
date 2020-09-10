@@ -171,7 +171,6 @@ features= ['codec']
 
 [dev-dependencies]
 mocktopus = '0.7.0'
-x-core = { path = '../../crates/x-core' }
 hex = '0.4.2'
 serde_json = "1.0"
 

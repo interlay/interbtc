@@ -6,7 +6,9 @@ pub(crate) mod security {
     #[cfg(test)]
     use security::types::ErrorCode;
     use security::types::StatusCode;
-    use x_core::{Error, UnitResult};
+
+    use frame_support::dispatch::DispatchError;
+    type UnitResult = Result<(), DispatchError>;
 
     pub fn _ensure_parachain_status_running<T: security::Trait>() -> UnitResult {
         <security::Module<T>>::_ensure_parachain_status_running()
@@ -29,7 +31,7 @@ pub(crate) mod security {
     }
 
     pub fn recover_from_btc_relay_failure<T: security::Trait>() -> UnitResult {
-        <security::Module<T>>::recover_from_btc_relay_failure().map_err(|_e| Error::RuntimeError)
+        <security::Module<T>>::recover_from_btc_relay_failure()
     }
 
     #[cfg(test)]

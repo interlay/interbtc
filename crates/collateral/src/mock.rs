@@ -1,5 +1,5 @@
 /// Mocking the test environment
-use crate::{Module, Trait};
+use crate::{Error, Module, Trait};
 use frame_support::{
     impl_outer_event, impl_outer_origin, parameter_types,
     weights::{
@@ -94,7 +94,7 @@ impl Trait for Test {
     type Event = TestEvent;
 }
 
-pub type Error = crate::Error;
+pub type CollateralError = Error<Test>;
 
 pub type System = frame_system::Module<Test>;
 pub type Balances = pallet_balances::Module<Test>;

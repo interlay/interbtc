@@ -17,7 +17,6 @@ std = [
     'sp-core/std',
     'timestamp/std',
     'pallet-balances/std',
-    'x-core/std',
     'collateral/std',
     'treasury/std',
     'security/std',
@@ -67,10 +66,6 @@ version = '2.0.0-rc6'
 default-features = false
 package = 'pallet-balances'
 version = '2.0.0-rc6'
-
-[dependencies.x-core]
-default-features = false
-path = '../x-core'
 
 [dependencies.collateral]
 default-features = false

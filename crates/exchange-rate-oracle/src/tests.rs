@@ -1,5 +1,4 @@
-use crate::mock::{run_test, ExchangeRateOracle, Origin, System, Test, TestEvent};
-use crate::Error;
+use crate::mock::{run_test, ExchangeRateOracle, Origin, System, Test, TestError, TestEvent};
 
 use frame_support::{assert_err, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
@@ -67,7 +66,7 @@ fn set_exchange_rate_wrong_oracle() {
         assert_ok!(ExchangeRateOracle::set_exchange_rate(Origin::signed(4), 20));
 
         let result = ExchangeRateOracle::set_exchange_rate(Origin::signed(3), 100);
-        assert_err!(result, Error::InvalidOracleSource);
+        assert_err!(result, TestError::InvalidOracleSource);
 
         let exchange_rate = ExchangeRateOracle::get_exchange_rate().unwrap();
         assert_eq!(exchange_rate, 20);
@@ -82,7 +81,7 @@ fn get_exchange_rate_after_delay() {
     run_test(|| {
         ExchangeRateOracle::is_max_delay_passed.mock_safe(|| MockResult::Return(Ok(true)));
         let result = ExchangeRateOracle::get_exchange_rate();
-        assert_err!(result, Error::MissingExchangeRate);
+        assert_err!(result, TestError::MissingExchangeRate);
     });
 }
 

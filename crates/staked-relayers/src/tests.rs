@@ -1214,7 +1214,7 @@ fn test_check_invalid_transaction_fails_with_valid_request_or_redeem() {
         );
 
         ext::redeem::get_redeem_request_from_id::<Test>
-            .mock_safe(move |_| MockResult::Return(Err(x_core::Error::RedeemIdNotFound)));
+            .mock_safe(move |_| MockResult::Return(Err(RedeemError::RedeemIdNotFound.into())));
 
         ext::replace::get_replace_request::<Test>.mock_safe(move |_| {
             MockResult::Return(Ok(Replace {

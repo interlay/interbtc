@@ -49,10 +49,6 @@ features= ['codec']
 default-features = false
 path = '../bitcoin'
 
-[dependencies.x-core]
-default-features = false
-path = '../x-core'
-
 [dependencies.security]
 default-features = false
 path = '../security'
@@ -81,7 +77,6 @@ std = [
     'sp-std/std',
     'primitive-types/std',
     'bitcoin/std',
-    'x-core/std',
     'security/std',
     'hex/std',
 ]

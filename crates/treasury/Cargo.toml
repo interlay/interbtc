@@ -17,7 +17,6 @@ std = [
 	'sp-std/std',
     'frame-system/std',
 	'pallet-balances/std',
-	'x-core/std',
 ]
 
 [dependencies.codec]
@@ -58,10 +57,6 @@ version = '2.0.0-rc6'
 default-features = false
 package = 'pallet-balances'
 version = '2.0.0-rc6'
-
-[dependencies.x-core]
-default-features = false
-path = '../x-core'
 
 [dev-dependencies]
 mocktopus = "0.7.0"

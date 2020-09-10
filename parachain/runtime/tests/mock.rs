@@ -10,7 +10,6 @@ pub use security::StatusCode;
 pub use sp_core::H160;
 pub use sp_runtime::traits::Dispatchable;
 pub use sp_std::convert::TryInto;
-pub use x_core::Error;
 pub const ALICE: [u8; 32] = [0u8; 32];
 pub const BOB: [u8; 32] = [1u8; 32];
 pub const CLAIRE: [u8; 32] = [2u8; 32];
@@ -173,6 +172,8 @@ pub fn generate_transaction_and_mine(
 pub type SecurityModule = security::Module<Runtime>;
 #[allow(dead_code)]
 pub type SystemModule = frame_system::Module<Runtime>;
+#[allow(dead_code)]
+pub type SecurityError = security::Error<Runtime>;
 
 #[allow(dead_code)]
 pub type VaultRegistryCall = vault_registry::Call<Runtime>;

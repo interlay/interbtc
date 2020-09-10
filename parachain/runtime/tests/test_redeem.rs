@@ -33,7 +33,7 @@ fn integration_test_redeem_should_fail_if_not_running() {
                 account_of(BOB)
             ))
             .dispatch(origin_of(account_of(ALICE))),
-            Error::ParachainNotRunning,
+            SecurityError::ParachainNotRunning,
         );
     });
 }

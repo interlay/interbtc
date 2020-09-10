@@ -17,7 +17,7 @@ use sp_runtime::{
 use mocktopus::mocking::{MockResult, Mockable};
 
 use crate::ext;
-use crate::{GenesisConfig, Module, Trait};
+use crate::{Error, GenesisConfig, Module, Trait};
 
 impl_outer_origin! {
     pub enum Origin for Test {}
@@ -131,7 +131,9 @@ impl security::Trait for Test {
 
 pub type Balances = pallet_balances::Module<Test>;
 
-// pub type Error = crate::Error;
+pub type TestError = Error<Test>;
+pub type SecurityError = security::Error<Test>;
+pub type CollateralError = collateral::Error<Test>;
 
 pub type System = frame_system::Module<Test>;
 pub type VaultRegistry = Module<Test>;
@@ -170,9 +172,9 @@ impl ExtBuilder {
     }
 }
 
-pub fn run_test<T, U>(test: T) -> U
+pub fn run_test<T>(test: T) -> ()
 where
-    T: FnOnce() -> U,
+    T: FnOnce() -> (),
 {
     clear_mocks();
     ext::oracle::dots_to_btc::<Test>.mock_safe(|v| MockResult::Return(Ok(v)));

@@ -22,13 +22,15 @@ use codec::Encode;
 /// This is the implementation of the BTC Parachain Security module following the spec at:
 /// https://interlay.gitlab.io/polkabtc-spec/spec/security
 ///
-use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult};
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage,
+    dispatch::{DispatchError, DispatchResult},
+};
 use primitive_types::H256;
 use sha2::{Digest, Sha256};
 use sp_core::U256;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::*;
-use x_core::{Error, UnitResult};
 
 /// ## Configuration
 /// The pallet's configuration trait.
@@ -55,8 +57,9 @@ decl_storage! {
 // The pallet's dispatchable functions.
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-        fn deposit_event() = default;
+        type Error = Error<T>;
 
+        fn deposit_event() = default;
     }
 }
 
@@ -64,20 +67,20 @@ decl_module! {
 #[cfg_attr(test, mockable)]
 impl<T: Trait> Module<T> {
     /// Ensures the Parachain is RUNNING
-    pub fn _ensure_parachain_status_running() -> UnitResult {
+    pub fn _ensure_parachain_status_running() -> Result<(), DispatchError> {
         if <ParachainStatus>::get() == StatusCode::Running {
             Ok(())
         } else {
-            Err(Error::ParachainNotRunning)
+            Err(Error::<T>::ParachainNotRunning.into())
         }
     }
 
     /// Ensures the Parachain is not SHUTDOWN
-    pub fn _ensure_parachain_status_not_shutdown() -> UnitResult {
+    pub fn _ensure_parachain_status_not_shutdown() -> Result<(), DispatchError> {
         if <ParachainStatus>::get() != StatusCode::Shutdown {
             Ok(())
         } else {
-            Err(Error::ParachainShutdown)
+            Err(Error::<T>::ParachainShutdown.into())
         }
     }
 
@@ -90,7 +93,7 @@ impl<T: Trait> Module<T> {
     /// Returns the first error that is encountered, or Ok(()) if none of the errors were found
     pub fn _ensure_parachain_status_has_not_specific_errors(
         error_codes: Vec<ErrorCode>,
-    ) -> UnitResult {
+    ) -> Result<(), DispatchError> {
         if <ParachainStatus>::get() == StatusCode::Error {
             for error_code in error_codes {
                 if <Errors>::get().contains(&error_code) {
@@ -111,7 +114,7 @@ impl<T: Trait> Module<T> {
     /// or Ok(()) if only expected errors / no errors at all were found
     pub fn _ensure_parachain_status_has_only_specific_errors(
         error_codes: Vec<ErrorCode>,
-    ) -> UnitResult {
+    ) -> Result<(), DispatchError> {
         if <ParachainStatus>::get() == StatusCode::Error {
             let mut temp_errors = <Errors>::get();
 
@@ -129,22 +132,22 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn match_error_code_to_error(error_code: &ErrorCode) -> UnitResult {
+    fn match_error_code_to_error(error_code: &ErrorCode) -> Result<(), DispatchError> {
         match error_code {
-            ErrorCode::NoDataBTCRelay => Err(Error::NoData),
-            ErrorCode::InvalidBTCRelay => Err(Error::Invalid),
-            ErrorCode::OracleOffline => Err(Error::ParachainOracleOfflineError),
-            ErrorCode::Liquidation => Err(Error::ParachainLiquidationError),
-            _ => Err(Error::RuntimeError),
+            ErrorCode::NoDataBTCRelay => Err(Error::<T>::NoDataBTCRelay.into()),
+            ErrorCode::InvalidBTCRelay => Err(Error::<T>::InvalidBTCRelay.into()),
+            ErrorCode::OracleOffline => Err(Error::<T>::ParachainOracleOfflineError.into()),
+            ErrorCode::Liquidation => Err(Error::<T>::ParachainLiquidationError.into()),
+            _ => Err(Error::<T>::InvalidErrorCode.into()),
         }
     }
 
     /// Ensures the Parachain is not in an ERROR state due to OracleOffline error
-    pub fn _ensure_parachain_status_not_error_oracle_offline() -> UnitResult {
+    pub fn _ensure_parachain_status_not_error_oracle_offline() -> Result<(), DispatchError> {
         if <ParachainStatus>::get() == StatusCode::Error
             && <Errors>::get().contains(&ErrorCode::OracleOffline)
         {
-            return Err(Error::ParachainOracleOfflineError);
+            return Err(Error::<T>::ParachainOracleOfflineError.into());
         }
         Ok(())
     }
@@ -283,3 +286,16 @@ decl_event!(
         RecoverFromErrors(StatusCode, Vec<ErrorCode>),
     }
 );
+
+decl_error! {
+    pub enum Error for Module<T: Trait> {
+        NoDataBTCRelay,
+        InvalidBTCRelay,
+        ParachainNotRunning,
+        ParachainShutdown,
+        ParachainNotRunningOrLiquidation,
+        ParachainOracleOfflineError,
+        ParachainLiquidationError,
+        InvalidErrorCode,
+    }
+}

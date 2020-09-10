@@ -164,6 +164,7 @@ pub type Balances = balances::Module<Test>;
 pub type Staking = Module<Test>;
 
 pub type TestError = Error<Test>;
+pub type RedeemError = redeem::Error<Test>;
 
 pub const ALICE: AccountId = 1;
 pub const BOB: AccountId = 2;
