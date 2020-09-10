@@ -14,7 +14,8 @@ pub enum Error {
     UnsupportedOutputFormat,
     MalformedOpReturnOutput,
     InvalidHeaderSize,
-    RuntimeError,
+    InvalidAddress,
+    InvalidScript,
 }
 
 impl From<Error> for DispatchError {

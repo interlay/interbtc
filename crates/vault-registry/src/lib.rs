@@ -741,7 +741,7 @@ impl<T: Trait> Module<T> {
         // calculate how many tokens should be maximally issued given the threshold
         let raw_scaled_collateral_in_polka_btc = raw_collateral_in_polka_btc
             .checked_mul(10u32.pow(GRANULARITY) as u128)
-            .ok_or(Error::<T>::RuntimeError)?;
+            .ok_or(Error::<T>::ConversionError)?;
         let raw_max_tokens = raw_scaled_collateral_in_polka_btc
             .checked_div(threshold)
             .unwrap_or(0);
@@ -751,19 +751,19 @@ impl<T: Trait> Module<T> {
     }
 
     fn polkabtc_to_u128(x: PolkaBTC<T>) -> Result<u128, DispatchError> {
-        TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::RuntimeError.into())
+        TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::ConversionError.into())
     }
 
     fn dot_to_u128(x: DOT<T>) -> Result<u128, DispatchError> {
-        TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::RuntimeError.into())
+        TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::ConversionError.into())
     }
 
     fn u128_to_dot(x: u128) -> Result<DOT<T>, DispatchError> {
-        TryInto::<DOT<T>>::try_into(x).map_err(|_| Error::<T>::RuntimeError.into())
+        TryInto::<DOT<T>>::try_into(x).map_err(|_| Error::<T>::ConversionError.into())
     }
 
     fn u128_to_polkabtc(x: u128) -> Result<PolkaBTC<T>, DispatchError> {
-        TryInto::<PolkaBTC<T>>::try_into(x).map_err(|_| Error::<T>::RuntimeError.into())
+        TryInto::<PolkaBTC<T>>::try_into(x).map_err(|_| Error::<T>::ConversionError.into())
     }
 }
 
@@ -805,6 +805,6 @@ decl_error! {
         /// Returned if a vault tries to register while already being registered
         VaultAlreadyRegistered,
         VaultNotFound,
-        RuntimeError
+        ConversionError
     }
 }

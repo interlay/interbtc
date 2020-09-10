@@ -104,7 +104,7 @@ impl<T: Trait> Module<T> {
     }
 
     fn into_u128<I: TryInto<u128>>(x: I) -> Result<u128, DispatchError> {
-        TryInto::<u128>::try_into(x).map_err(|_e| Error::<T>::RuntimeError.into())
+        TryInto::<u128>::try_into(x).map_err(|_e| Error::<T>::ConversionError.into())
     }
 
     pub fn btc_to_dots(amount: PolkaBTC<T>) -> Result<DOT<T>, DispatchError> {
@@ -112,10 +112,10 @@ impl<T: Trait> Module<T> {
         let raw_amount = Self::into_u128(amount)?;
         let converted = rate
             .checked_mul(raw_amount)
-            .ok_or(Error::<T>::RuntimeError)?;
+            .ok_or(Error::<T>::ConversionError)?;
         let result = converted
             .try_into()
-            .map_err(|_e| Error::<T>::RuntimeError)?;
+            .map_err(|_e| Error::<T>::ConversionError)?;
         Ok(result)
     }
 
@@ -127,10 +127,10 @@ impl<T: Trait> Module<T> {
         }
         let converted = raw_amount
             .checked_div(rate)
-            .ok_or(Error::<T>::RuntimeError)?;
+            .ok_or(Error::<T>::ConversionError)?;
         let result = converted
             .try_into()
-            .map_err(|_e| Error::<T>::RuntimeError)?;
+            .map_err(|_e| Error::<T>::ConversionError)?;
         Ok(result)
     }
 
@@ -196,8 +196,11 @@ decl_event! {
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
+        /// Not authorized to set exchange rate
         InvalidOracleSource,
+        /// Exchange rate not specified or has expired
         MissingExchangeRate,
-        RuntimeError,
+        /// Failed to convert currency
+        ConversionError,
     }
 }

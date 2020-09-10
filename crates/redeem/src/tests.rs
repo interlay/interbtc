@@ -30,11 +30,11 @@ macro_rules! assert_emitted {
 }
 
 fn btc_to_u128(amount: PolkaBTC<Test>) -> Result<u128, DispatchError> {
-    TryInto::<u128>::try_into(amount).map_err(|_e| TestError::RuntimeError.into())
+    TryInto::<u128>::try_into(amount).map_err(|_e| TestError::ConversionError.into())
 }
 
 fn u128_to_dot(x: u128) -> Result<DOT<Test>, DispatchError> {
-    TryInto::<DOT<Test>>::try_into(x).map_err(|_| TestError::RuntimeError.into())
+    TryInto::<DOT<Test>>::try_into(x).map_err(|_| TestError::ConversionError.into())
 }
 
 fn btcdot_parity(btc: PolkaBTC<Test>) -> Result<DOT<Test>, DispatchError> {
@@ -61,11 +61,11 @@ fn test_ensure_parachain_running_or_error_liquidated_fails() {
         );
 
         ext::security::ensure_parachain_status_has_only_specific_errors::<Test>
-            .mock_safe(|_| MockResult::Return(Err(SecurityError::Invalid.into())));
+            .mock_safe(|_| MockResult::Return(Err(SecurityError::InvalidBTCRelay.into())));
 
         assert_err!(
             Redeem::ensure_parachain_running_or_error_liquidated(),
-            SecurityError::Invalid
+            SecurityError::InvalidBTCRelay
         );
     })
 }

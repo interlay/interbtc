@@ -587,7 +587,7 @@ impl<T: Trait> Module<T> {
     }
 
     fn dot_to_u128(amount: DOT<T>) -> Result<u128, Error<T>> {
-        TryInto::<u128>::try_into(amount).map_err(|_e| Error::RuntimeError)
+        TryInto::<u128>::try_into(amount).map_err(|_e| Error::ConversionError)
     }
 
     /// Should throw if not called by the governance account.
@@ -900,7 +900,7 @@ impl<T: Trait> Module<T> {
         vault_addr: H160,
     ) -> Result<bool, DispatchError> {
         let value =
-            TryInto::<u64>::try_into(exp_val).map_err(|_e| Error::<T>::RuntimeError)? as i64;
+            TryInto::<u64>::try_into(exp_val).map_err(|_e| Error::<T>::ConversionError)? as i64;
 
         // tx here should only have at most three outputs
         if out_val >= value && out_addr == req_addr {
@@ -1096,6 +1096,6 @@ decl_error! {
         /// Vault has sufficient collateral
         CollateralOk,
         /// Error converting value
-        RuntimeError,
+        ConversionError,
     }
 }

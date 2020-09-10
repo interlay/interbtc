@@ -1277,8 +1277,10 @@ decl_error! {
         UnsupportedInputFormat,
         /// There are no NO_DATA blocks in this BlockChain
         NoDataEmpty,
-        // Something unexpected happened
-        RuntimeError,
+        /// User supplied an invalid address
+        InvalidAddress,
+        /// User supplied an invalid script
+        InvalidScript,
     }
 }
 
@@ -1297,7 +1299,8 @@ impl<T: Trait> From<BitcoinError> for Error<T> {
             BitcoinError::UnsupportedOutputFormat => Self::UnsupportedOutputFormat,
             BitcoinError::MalformedOpReturnOutput => Self::MalformedOpReturnOutput,
             BitcoinError::InvalidHeaderSize => Self::InvalidHeaderSize,
-            _ => Self::RuntimeError,
+            BitcoinError::InvalidAddress => Self::InvalidAddress,
+            BitcoinError::InvalidScript => Self::InvalidScript,
         }
     }
 }

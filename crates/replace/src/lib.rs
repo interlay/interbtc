@@ -388,8 +388,8 @@ impl<T: Trait> Module<T> {
         // step 4: Call verifyTransactionInclusion in BTC-Relay, providing txid, txBlockHeight, txIndex, and merkleProof as parameters
         ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, tx_block_height, merkle_proof)?;
         // step 5: Call validateTransaction in BTC-Relay
-        let amount =
-            TryInto::<u64>::try_into(replace.amount).map_err(|_e| Error::<T>::RuntimeError)? as i64;
+        let amount = TryInto::<u64>::try_into(replace.amount)
+            .map_err(|_e| Error::<T>::ConversionError)? as i64;
 
         ext::btc_relay::validate_transaction::<T>(
             raw_tx,
@@ -502,6 +502,6 @@ decl_error! {
         ReplacePeriodExpired,
         ReplacePeriodNotExpired,
         InvalidReplaceID,
-        RuntimeError,
+        ConversionError,
     }
 }

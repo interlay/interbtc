@@ -134,11 +134,11 @@ impl<T: Trait> Module<T> {
 
     fn match_error_code_to_error(error_code: &ErrorCode) -> Result<(), DispatchError> {
         match error_code {
-            ErrorCode::NoDataBTCRelay => Err(Error::<T>::NoData.into()),
-            ErrorCode::InvalidBTCRelay => Err(Error::<T>::Invalid.into()),
+            ErrorCode::NoDataBTCRelay => Err(Error::<T>::NoDataBTCRelay.into()),
+            ErrorCode::InvalidBTCRelay => Err(Error::<T>::InvalidBTCRelay.into()),
             ErrorCode::OracleOffline => Err(Error::<T>::ParachainOracleOfflineError.into()),
             ErrorCode::Liquidation => Err(Error::<T>::ParachainLiquidationError.into()),
-            _ => Err(Error::<T>::RuntimeError.into()),
+            _ => Err(Error::<T>::InvalidErrorCode.into()),
         }
     }
 
@@ -289,13 +289,13 @@ decl_event!(
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        NoData,
-        Invalid,
+        NoDataBTCRelay,
+        InvalidBTCRelay,
         ParachainNotRunning,
         ParachainShutdown,
         ParachainNotRunningOrLiquidation,
         ParachainOracleOfflineError,
         ParachainLiquidationError,
-        RuntimeError,
+        InvalidErrorCode,
     }
 }

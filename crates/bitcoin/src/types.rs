@@ -250,7 +250,7 @@ impl TryFrom<&[u8]> for Address {
     type Error = crate::Error;
     fn try_from(bytes: &[u8]) -> Result<Address, Self::Error> {
         if bytes.len() != 20 {
-            return Err(Error::RuntimeError);
+            return Err(Error::InvalidAddress);
         }
         let mut address: [u8; 20] = Default::default();
         address.copy_from_slice(bytes);
@@ -261,7 +261,7 @@ impl TryFrom<&[u8]> for Address {
 impl TryFrom<&str> for Address {
     type Error = crate::Error;
     fn try_from(hex_address: &str) -> Result<Address, Self::Error> {
-        let bytes = hex::decode(hex_address).map_err(|_e| Error::RuntimeError)?;
+        let bytes = hex::decode(hex_address).map_err(|_e| Error::InvalidAddress)?;
         Address::try_from(&bytes[..])
     }
 }
@@ -413,7 +413,7 @@ impl TryFrom<&str> for Script {
     type Error = crate::Error;
 
     fn try_from(hex_string: &str) -> Result<Script, Self::Error> {
-        let bytes = hex::decode(hex_string).map_err(|_e| Error::RuntimeError)?;
+        let bytes = hex::decode(hex_string).map_err(|_e| Error::InvalidScript)?;
         Ok(Script { bytes })
     }
 }

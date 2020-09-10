@@ -166,7 +166,9 @@ impl<T: Trait> Module<T> {
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
+        /// Account has insufficient balance
         InsufficientFunds,
+        /// Account has insufficient collateral
         InsufficientCollateralAvailable,
     }
 }
