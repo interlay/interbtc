@@ -8,6 +8,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::StorageMapShim;
 use pallet_grandpa::fg_primitives;
 use pallet_grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
@@ -526,6 +527,25 @@ impl_runtime_apis! {
             len: u32,
         ) -> pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo<Balance> {
             TransactionPayment::query_info(uxt, len)
+        }
+    }
+
+    impl module_exchange_rate_oracle_rpc_runtime_api::ExchangeRateOracleApi<
+        Block,
+        Balance,
+        Balance,
+    > for Runtime {
+        fn btc_to_dots(amount: Balance) -> Result<Balance, DispatchError> {
+            ExchangeRateOracle::btc_to_dots(amount)
+        }
+    }
+
+    impl module_staked_relayers_rpc_runtime_api::StakedRelayersApi<
+        Block,
+        AccountId,
+    > for Runtime {
+        fn is_transaction_invalid(vault_id: AccountId, raw_tx: Vec<u8>) -> DispatchResult {
+            StakedRelayers::is_transaction_invalid(&vault_id, raw_tx)
         }
     }
 }

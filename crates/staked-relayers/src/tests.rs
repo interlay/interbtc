@@ -821,7 +821,7 @@ fn test_report_vault_theft_succeeds() {
 
         ext::btc_relay::verify_transaction_inclusion::<Test>
             .mock_safe(move |_, _, _| MockResult::Return(Ok(())));
-        Staking::_check_invalid_transaction.mock_safe(move |_, _| MockResult::Return(Ok(())));
+        Staking::is_transaction_invalid.mock_safe(move |_, _| MockResult::Return(Ok(())));
         ext::vault_registry::liquidate_vault::<Test>.mock_safe(move |_| MockResult::Return(Ok(())));
 
         assert_ok!(Staking::report_vault_theft(
@@ -1088,7 +1088,7 @@ fn test_is_valid_request_transaction_succeeds() {
 }
 
 #[test]
-fn test_check_invalid_transaction_fails_with_valid_merge_transaction() {
+fn test_is_transaction_invalid_fails_with_valid_merge_transaction() {
     run_test(|| {
         let address = Address::from([
             126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8,
@@ -1132,14 +1132,14 @@ fn test_check_invalid_transaction_fails_with_valid_merge_transaction() {
             .build();
 
         assert_err!(
-            Staking::_check_invalid_transaction(&BOB, transaction.format()),
+            Staking::is_transaction_invalid(&BOB, transaction.format()),
             TestError::ValidMergeTransaction
         );
     })
 }
 
 #[test]
-fn test_check_invalid_transaction_fails_with_valid_request_or_redeem() {
+fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
     run_test(|| {
         let address1 = Address::from([
             164, 180, 202, 72, 222, 11, 63, 255, 193, 84, 4, 161, 172, 220, 141, 186, 174, 34, 105,
@@ -1209,7 +1209,7 @@ fn test_check_invalid_transaction_fails_with_valid_request_or_redeem() {
             .build();
 
         assert_err!(
-            Staking::_check_invalid_transaction(&BOB, transaction.format()),
+            Staking::is_transaction_invalid(&BOB, transaction.format()),
             TestError::ValidRedeemTransaction
         );
 
@@ -1230,14 +1230,14 @@ fn test_check_invalid_transaction_fails_with_valid_request_or_redeem() {
         });
 
         assert_err!(
-            Staking::_check_invalid_transaction(&BOB, transaction.format()),
+            Staking::is_transaction_invalid(&BOB, transaction.format()),
             TestError::ValidReplaceTransaction
         );
     })
 }
 
 #[test]
-fn test_check_invalid_transaction_succeeds() {
+fn test_is_transaction_invalid_succeeds() {
     run_test(|| {
         let vault_address = Address::from([
             126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8,
@@ -1280,10 +1280,7 @@ fn test_check_invalid_transaction_succeeds() {
             .add_output(TransactionOutput::p2pkh(100, &address))
             .build();
 
-        assert_ok!(Staking::_check_invalid_transaction(
-            &BOB,
-            transaction.format()
-        ));
+        assert_ok!(Staking::is_transaction_invalid(&BOB, transaction.format()));
     })
 }
 

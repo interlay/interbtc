@@ -159,6 +159,14 @@ default-features = false
 package = 'replace'
 path = '../../crates/replace'
 
+[dependencies.module-exchange-rate-oracle-rpc-runtime-api]
+default-features = false
+path = '../../crates/exchange-rate-oracle/rpc/runtime-api'
+
+[dependencies.module-staked-relayers-rpc-runtime-api]
+default-features = false
+path = '../../crates/staked-relayers/rpc/runtime-api'
+
 [dev-dependencies.bitcoin]
 default-features = false
 package = 'bitcoin'
@@ -212,6 +220,8 @@ std = [
     'pallet-timestamp/std',
     'pallet-transaction-payment/std',
     'pallet-transaction-payment-rpc-runtime-api/std',
+    'module-exchange-rate-oracle-rpc-runtime-api/std',
+    'module-staked-relayers-rpc-runtime-api/std',
     'btc-relay/std',
     'collateral/std',
     'treasury/std',
