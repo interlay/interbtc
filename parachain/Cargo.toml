@@ -91,5 +91,11 @@ version = '2.0.0-rc6'
 [dependencies.substrate-frame-rpc-system]
 version = '2.0.0-rc6'
 
+[dependencies.module-exchange-rate-oracle-rpc]
+path = "../crates/exchange-rate-oracle/rpc"
+
+[dependencies.module-staked-relayers-rpc]
+path = "../crates/staked-relayers/rpc"
+
 [build-dependencies.substrate-build-script-utils]
 version = '2.0.0-rc6'

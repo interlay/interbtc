@@ -339,21 +339,6 @@ decl_module! {
             Ok(())
         }
 
-        /// Helper function to check whether a given raw tx is invalid,
-        /// thus a reportable offense.
-        ///
-        /// # Arguments
-        ///
-        /// * `origin`: Any signed user.
-        /// * `vault_id`: The account of the vault to check.
-        /// * `raw_tx`: The raw Bitcoin transaction.
-        #[weight = 1000]
-        fn check_invalid_transaction(origin, vault_id: T::AccountId, raw_tx: Vec<u8>) -> DispatchResult {
-            ensure_signed(origin)?;
-            Self::_check_invalid_transaction(&vault_id, raw_tx)
-        }
-
-
         /// A Staked Relayer reports misbehavior by a Vault, providing a fraud proof
         /// (malicious Bitcoin transaction and the corresponding transaction inclusion proof).
         ///
@@ -384,7 +369,7 @@ decl_module! {
             }
 
             ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, tx_block_height, merkle_proof)?;
-            Self::_check_invalid_transaction(&vault_id, raw_tx)?;
+            Self::is_transaction_invalid(&vault_id, raw_tx)?;
 
             ext::vault_registry::liquidate_vault::<T>(&vault_id)?;
             ext::security::set_parachain_status::<T>(StatusCode::Error);
@@ -917,18 +902,16 @@ impl<T: Trait> Module<T> {
         return Ok(false);
     }
 
-    /// Check if a vault transaction is invalid. Returns Ok() if invalid and Err otherwise.
+    /// Check if a vault transaction is invalid. Returns `Ok` if invalid or `Err` otherwise.
     ///
     /// # Arguments
     ///
     /// `vault_id`: the vault.
     /// `raw_tx`: the BTC transaction by the vault.
-    pub(crate) fn _check_invalid_transaction(
-        vault_id: &T::AccountId,
-        raw_tx: Vec<u8>,
-    ) -> DispatchResult {
+    pub fn is_transaction_invalid(vault_id: &T::AccountId, raw_tx: Vec<u8>) -> DispatchResult {
         let vault = ext::vault_registry::get_vault_from_id::<T>(vault_id)?;
 
+        // TODO: ensure this cannot fail on invalid
         let tx = parse_transaction(raw_tx.as_slice())?;
 
         // collect all addresses that feature in the inputs of the transaction

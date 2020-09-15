@@ -12,7 +12,7 @@ pub(crate) type DOT<T> =
 pub(crate) type PolkaBTC<T> =
     <<T as treasury::Trait>::PolkaBTC as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 
-// Indicates the state of a proposed StatusUpdate.
+/// Indicates the state of a proposed StatusUpdate.
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 pub enum ProposalStatus {
     /// StatusUpdate is current under review and is being voted upon

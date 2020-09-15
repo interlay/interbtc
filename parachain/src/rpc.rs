@@ -32,9 +32,13 @@ where
     C: Send + Sync + 'static,
     C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
     C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
+    C::Api: module_exchange_rate_oracle_rpc::ExchangeRateOracleRuntimeApi<Block, Balance, Balance>,
+    C::Api: module_staked_relayers_rpc::StakedRelayersRuntimeApi<Block, AccountId>,
     C::Api: BlockBuilder<Block>,
     P: TransactionPool + 'static,
 {
+    use module_exchange_rate_oracle_rpc::{ExchangeRateOracle, ExchangeRateOracleApi};
+    use module_staked_relayers_rpc::{StakedRelayers, StakedRelayersApi};
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
     use substrate_frame_rpc_system::{FullSystem, SystemApi};
 
@@ -55,10 +59,13 @@ where
         client.clone(),
     )));
 
-    // Extend this RPC with a custom API by using the following syntax.
-    // `YourRpcStruct` should have a reference to a client, which is needed
-    // to call into the runtime.
-    // `io.extend_with(YourRpcTrait::to_delegate(YourRpcStruct::new(ReferenceToClient, ...)));`
+    io.extend_with(ExchangeRateOracleApi::to_delegate(ExchangeRateOracle::new(
+        client.clone(),
+    )));
+
+    io.extend_with(StakedRelayersApi::to_delegate(StakedRelayers::new(
+        client.clone(),
+    )));
 
     io
 }
