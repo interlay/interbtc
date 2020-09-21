@@ -7,7 +7,7 @@ pub use sc_executor::NativeExecutor;
 use sc_finality_grandpa::{
     FinalityProofProvider as GrandpaFinalityProofProvider, SharedVoterState,
 };
-use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
+use sc_service::{error::Error as ServiceError, Configuration, RpcHandlers, TaskManager};
 use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
 use sp_inherents::InherentDataProviders;
 use std::sync::Arc;
@@ -97,7 +97,7 @@ pub fn new_partial(
 }
 
 /// Builds a new service for a full client.
-pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
+pub fn new_full(config: Configuration) -> Result<(TaskManager, RpcHandlers), ServiceError> {
     let sc_service::PartialComponents {
         client,
         backend,
@@ -158,7 +158,7 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
         })
     };
 
-    sc_service::spawn_tasks(sc_service::SpawnTasksParams {
+    let rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
         network: network.clone(),
         client: client.clone(),
         keystore: keystore.clone(),
@@ -251,11 +251,11 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
     }
 
     network_starter.start_network();
-    Ok(task_manager)
+    Ok((task_manager, rpc_handlers))
 }
 
 /// Builds a new service for a light client.
-pub fn new_light(config: Configuration) -> Result<TaskManager, ServiceError> {
+pub fn new_light(config: Configuration) -> Result<(TaskManager, RpcHandlers), ServiceError> {
     let (client, backend, keystore, mut task_manager, on_demand) =
         sc_service::new_light_parts::<Block, RuntimeApi, Executor>(&config)?;
 
@@ -315,7 +315,7 @@ pub fn new_light(config: Configuration) -> Result<TaskManager, ServiceError> {
         );
     }
 
-    sc_service::spawn_tasks(sc_service::SpawnTasksParams {
+    let rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
         remote_blockchain: Some(backend.remote_blockchain()),
         transaction_pool,
         task_manager: &mut task_manager,
@@ -333,5 +333,5 @@ pub fn new_light(config: Configuration) -> Result<TaskManager, ServiceError> {
 
     network_starter.start_network();
 
-    Ok(task_manager)
+    Ok((task_manager, rpc_handlers))
 }
