@@ -69,8 +69,11 @@ decl_module! {
 
         #[weight = 1000]
         pub fn set_exchange_rate(origin, rate: u128) -> DispatchResult {
-            // Check that Parachain is RUNNING
-            ext::security::ensure_parachain_status_running::<T>()?;
+            // Check that Parachain is not in SHUTDOWN
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
+            // Check that Parachain has not an INVALID error
+            ext::security::ensure_parachain_error_not_invalid::<T>()?;
+
 
             let sender = ensure_signed(origin)?;
 
