@@ -675,6 +675,23 @@ impl<T: Trait> Module<T> {
         Ok(total_liquidation_value)
     }
 
+    /// RPC
+    /// Get the first available vault with sufficient collateral to fulfil an issue request
+    /// with the specified amount of PolkaBTC.
+    pub fn get_first_vault_with_sufficient_collateral(
+        amount: PolkaBTC<T>,
+    ) -> Result<T::AccountId, DispatchError> {
+        Ok(())
+    }
+
+    /// Get the amount of tokens a vault can issue
+    pub fn get_issuable_tokens_from_vault(
+        vault_id: T::AccountId,
+    ) -> Result<PolkaBTC<T>, DispatchError> {
+        let vault = Self::rich_vault_from_id(&vault_id)?;
+        vault.issuable_tokens()
+    }
+
     /// Private getters and setters
 
     fn rich_vault_from_id(vault_id: &T::AccountId) -> Result<RichVault<T>, DispatchError> {
