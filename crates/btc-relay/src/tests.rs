@@ -1277,7 +1277,9 @@ fn test_verify_transaction_inclusion_succeeds() {
         BTCRelay::get_block_header_from_height
             .mock_safe(move |_, _| MockResult::Return(Ok(rich_block_header)));
 
-        BTCRelay::check_confirmations.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
+        BTCRelay::check_bitcoin_confirmations.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
+
+        BTCRelay::check_parachain_confirmations.mock_safe(|_| MockResult::Return(Ok(())));
 
         assert_ok!(BTCRelay::verify_transaction_inclusion(
             Origin::signed(3),
@@ -1323,7 +1325,9 @@ fn test_verify_transaction_inclusion_empty_fork_succeeds() {
         BTCRelay::get_block_header_from_height
             .mock_safe(move |_, _| MockResult::Return(Ok(rich_block_header)));
 
-        BTCRelay::check_confirmations.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
+        BTCRelay::check_bitcoin_confirmations.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
+
+        BTCRelay::check_parachain_confirmations.mock_safe(|_| MockResult::Return(Ok(())));
 
         assert_ok!(BTCRelay::verify_transaction_inclusion(
             Origin::signed(3),
@@ -1384,7 +1388,9 @@ fn test_verify_transaction_inclusion_invalid_tx_id_fails() {
         BTCRelay::get_block_header_from_height
             .mock_safe(move |_, _| MockResult::Return(Ok(rich_block_header)));
 
-        BTCRelay::check_confirmations.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
+        BTCRelay::check_bitcoin_confirmations.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
+
+        BTCRelay::check_parachain_confirmations.mock_safe(|_| MockResult::Return(Ok(())));
 
         assert_err!(
             BTCRelay::verify_transaction_inclusion(
@@ -1449,7 +1455,9 @@ fn test_verify_transaction_inclusion_invalid_merkle_root_fails() {
         BTCRelay::get_block_header_from_height
             .mock_safe(move |_, _| MockResult::Return(Ok(rich_block_header)));
 
-        BTCRelay::check_confirmations.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
+        BTCRelay::check_bitcoin_confirmations.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
+
+        BTCRelay::check_parachain_confirmations.mock_safe(|_| MockResult::Return(Ok(())));
 
         assert_err!(
             BTCRelay::verify_transaction_inclusion(
@@ -1493,14 +1501,14 @@ fn test_verify_transaction_inclusion_fails_with_ongoing_fork() {
 }
 
 #[test]
-fn test_check_confirmations_insecure_succeeds() {
+fn test_check_bitcoin_confirmations_insecure_succeeds() {
     run_test(|| {
         let main_chain_height = 100;
         let tx_block_height = 90;
         let insecure = true;
 
         let req_confs = 5;
-        assert_ok!(BTCRelay::check_confirmations(
+        assert_ok!(BTCRelay::check_bitcoin_confirmations(
             main_chain_height,
             req_confs,
             tx_block_height,
@@ -1510,7 +1518,7 @@ fn test_check_confirmations_insecure_succeeds() {
 }
 
 #[test]
-fn test_check_confirmations_insecure_insufficient_confs_fails() {
+fn test_check_bitcoin_confirmations_insecure_insufficient_confs_fails() {
     run_test(|| {
         let main_chain_height = 100;
         let tx_block_height = 99;
@@ -1519,14 +1527,19 @@ fn test_check_confirmations_insecure_insufficient_confs_fails() {
         let req_confs = 5;
 
         assert_err!(
-            BTCRelay::check_confirmations(main_chain_height, req_confs, tx_block_height, insecure),
+            BTCRelay::check_bitcoin_confirmations(
+                main_chain_height,
+                req_confs,
+                tx_block_height,
+                insecure
+            ),
             TestError::Confirmations
         )
     });
 }
 
 #[test]
-fn test_check_confirmations_secure_stable_confs_succeeds() {
+fn test_check_bitcoin_confirmations_secure_stable_confs_succeeds() {
     run_test(|| {
         let main_chain_height = 100;
         let tx_block_height = 90;
@@ -1538,7 +1551,7 @@ fn test_check_confirmations_secure_stable_confs_succeeds() {
 
         BTCRelay::get_stable_transaction_confirmations
             .mock_safe(move || MockResult::Return(stable_confs));
-        assert_ok!(BTCRelay::check_confirmations(
+        assert_ok!(BTCRelay::check_bitcoin_confirmations(
             main_chain_height,
             req_confs,
             tx_block_height,
@@ -1548,7 +1561,7 @@ fn test_check_confirmations_secure_stable_confs_succeeds() {
 }
 
 #[test]
-fn test_check_confirmations_secure_user_confs_succeeds() {
+fn test_check_bitcoin_confirmations_secure_user_confs_succeeds() {
     run_test(|| {
         let main_chain_height = 100;
         let tx_block_height = 85;
@@ -1560,7 +1573,7 @@ fn test_check_confirmations_secure_user_confs_succeeds() {
 
         BTCRelay::get_stable_transaction_confirmations
             .mock_safe(move || MockResult::Return(stable_confs));
-        assert_ok!(BTCRelay::check_confirmations(
+        assert_ok!(BTCRelay::check_bitcoin_confirmations(
             main_chain_height,
             req_confs,
             tx_block_height,
@@ -1570,7 +1583,7 @@ fn test_check_confirmations_secure_user_confs_succeeds() {
 }
 
 #[test]
-fn test_check_confirmations_secure_insufficient_stable_confs_succeeds() {
+fn test_check_bitcoin_confirmations_secure_insufficient_stable_confs_succeeds() {
     run_test(|| {
         let main_chain_height = 100;
         let tx_block_height = 91;
@@ -1584,14 +1597,19 @@ fn test_check_confirmations_secure_insufficient_stable_confs_succeeds() {
             .mock_safe(move || MockResult::Return(stable_confs));
 
         assert_err!(
-            BTCRelay::check_confirmations(main_chain_height, req_confs, tx_block_height, insecure),
+            BTCRelay::check_bitcoin_confirmations(
+                main_chain_height,
+                req_confs,
+                tx_block_height,
+                insecure
+            ),
             TestError::InsufficientStableConfirmations
         )
     });
 }
 
 #[test]
-fn test_check_confirmations_secure_insufficient_user_confs_succeeds() {
+fn test_check_bitcoin_confirmations_secure_insufficient_user_confs_succeeds() {
     run_test(|| {
         let main_chain_height = 100;
         let tx_block_height = 90;
@@ -1605,7 +1623,12 @@ fn test_check_confirmations_secure_insufficient_user_confs_succeeds() {
             .mock_safe(move || MockResult::Return(stable_confs));
 
         assert_err!(
-            BTCRelay::check_confirmations(main_chain_height, req_confs, tx_block_height, insecure),
+            BTCRelay::check_bitcoin_confirmations(
+                main_chain_height,
+                req_confs,
+                tx_block_height,
+                insecure
+            ),
             TestError::Confirmations
         )
     });

@@ -104,8 +104,14 @@ decl_storage! {
         /// Track existing BlockChain entries
         ChainCounter: u32;
 
-        /// Global security parameter k for stable transactions
-        StableTransactionConfirmations get(fn confirmations) config(): u32;
+        /// Registers the parachain height upon storing a block
+        ParachainHeight: map hasher(blake2_128_concat) H256Le => T::BlockNumber;
+
+        /// Global security parameter k for stable Bitcoin transactions
+        StableBitcoinConfirmations get(fn bitcoin_confirmations) config(): u32;
+
+        /// Global security parameter k for stable Parachain transactions
+        StableParachainConfirmations get(fn parachain_confirmations) config(): T::BlockNumber;
     }
 }
 
@@ -412,13 +418,21 @@ impl<T: Trait> Module<T> {
         Self::ensure_no_ongoing_fork(best_block_height)?;
 
         // This call fails if not enough confirmations
-        Self::check_confirmations(best_block_height, confirmations, block_height, insecure)?;
+        Self::check_bitcoin_confirmations(
+            best_block_height,
+            confirmations,
+            block_height,
+            insecure,
+        )?;
 
         let proof_result = Self::verify_merkle_proof(&raw_merkle_proof)?;
         let rich_header = Self::get_block_header_from_height(
             &Self::get_block_chain_from_id(MAIN_CHAIN_ID)?,
             block_height,
         )?;
+
+        // This call fails if the block was stored too recently
+        Self::check_parachain_confirmations(rich_header.block_hash)?;
 
         // fail if the transaction hash is invalid
         ensure!(
@@ -575,6 +589,10 @@ impl<T: Trait> Module<T> {
     /// Set a new block header
     fn set_block_header_from_hash(hash: H256Le, header: &RichBlockHeader) {
         <BlockHeaders>::insert(hash, header);
+
+        // register the current height to track stable parachain confirmations
+        let height = <frame_system::Module<T>>::block_number();
+        <ParachainHeight<T>>::insert(hash, height);
     }
     /// update the chain_ref of a block header
     fn mutate_block_header_from_chain_id(hash: &H256Le, chain_ref: u32) {
@@ -663,8 +681,9 @@ impl<T: Trait> Module<T> {
 
     // Get require conformations for stable transactions
     fn get_stable_transaction_confirmations() -> u32 {
-        Self::confirmations()
+        Self::bitcoin_confirmations()
     }
+
     // *********************************
     // END: Storage getter functions
     // *********************************
@@ -919,7 +938,7 @@ impl<T: Trait> Module<T> {
                     // and the current height is more than the
                     // STABLE_TRANSACTION_CONFIRMATIONS ahead
                     // we are swapping the main chain
-                    if prev_height + Self::confirmations() < current_height {
+                    if prev_height + Self::get_stable_transaction_confirmations() < current_height {
                         Self::swap_main_blockchain(&fork)?;
 
                         // announce the new main chain
@@ -1089,7 +1108,7 @@ impl<T: Trait> Module<T> {
     /// * `tx_block_height` - block height of checked transaction
     /// * `insecure` -  determines if checks against recommended global transaction confirmation are to be executed. Recommended: set to `true`
     ///
-    pub fn check_confirmations(
+    pub fn check_bitcoin_confirmations(
         main_chain_height: u32,
         req_confs: u32,
         tx_block_height: u32,
@@ -1118,6 +1137,24 @@ impl<T: Trait> Module<T> {
                 Err(Error::<T>::Confirmations.into())
             }
         }
+    }
+
+    /// Checks if the given bitcoin block has been stored for a sufficient
+    /// amount of blocks. This should give sufficient time for staked relayers
+    /// to flag potentially invalid blocks.
+    ///
+    /// # Arguments
+    /// * `block_hash` - hash of the block to check
+    pub fn check_parachain_confirmations(block_hash: H256Le) -> Result<(), DispatchError> {
+        let current_height = <frame_system::Module<T>>::block_number();
+        let submitted_height = <ParachainHeight<T>>::get(block_hash);
+
+        ensure!(
+            submitted_height + Self::parachain_confirmations() >= current_height,
+            Error::<T>::Confirmations
+        );
+
+        Ok(())
     }
 
     /// Checks if transaction verification is enabled for this block height
@@ -1156,7 +1193,8 @@ impl<T: Trait> Module<T> {
                 debug::print!("Next best fork height: {}", next_best_fork_height);
                 // fail if there is an ongoing fork
                 ensure!(
-                    best_block_height >= next_best_fork_height + Self::confirmations(),
+                    best_block_height
+                        >= next_best_fork_height + Self::get_stable_transaction_confirmations(),
                     Error::<T>::OngoingFork
                 );
             }
