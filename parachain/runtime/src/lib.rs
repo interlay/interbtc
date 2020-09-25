@@ -548,4 +548,18 @@ impl_runtime_apis! {
             StakedRelayers::is_transaction_invalid(&vault_id, raw_tx)
         }
     }
+
+    impl module_vault_registry_rpc_runtime_api::VaultRegistryApi<
+        Block,
+        AccountId,
+        Balance,
+    > for Runtime {
+        fn get_first_vault_with_sufficient_collateral(amount: Balance) -> Result<AccountId, DispatchError> {
+            VaultRegistry::get_first_vault_with_sufficient_collateral(amount)
+        }
+
+        fn get_issuable_tokens_from_vault(vault: AccountId) -> Result<Balance, DispatchError> {
+            VaultRegistry::get_issuable_tokens_from_vault(vault)
+        }
+    }
 }

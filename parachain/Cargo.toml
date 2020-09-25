@@ -97,5 +97,8 @@ path = "../crates/exchange-rate-oracle/rpc"
 [dependencies.module-staked-relayers-rpc]
 path = "../crates/staked-relayers/rpc"
 
+[dependencies.module-vault-registry-rpc]
+path = "../crates/vault-registry/rpc"
+
 [build-dependencies.substrate-build-script-utils]
 version = '2.0.0-rc6'

@@ -14,10 +14,18 @@ pub use module_vault_registry_rpc_runtime_api::VaultRegistryApi as VaultRegistry
 #[rpc]
 pub trait VaultRegistryApi<BlockHash, AccountId, PolkaBTC> {
     #[rpc(name = "vaultRegistry_getFirstVaultWithSufficientCollateral")]
-    fn get_first_vault_with_sufficient_collateral(&self, amount: PolkaBTC) -> Result<()>;
+    fn get_first_vault_with_sufficient_collateral(
+        &self,
+        amount: PolkaBTC,
+        at: Option<BlockHash>,
+    ) -> Result<AccountId>;
 
     #[rpc(name = "vaultRegistry_getIssueableTokensFromVault")]
-    fn get_issuable_tokens_from_vault(&self, vault: AccountId) -> Result<()>;
+    fn get_issuable_tokens_from_vault(
+        &self,
+        vault: AccountId,
+        at: Option<BlockHash>,
+    ) -> Result<PolkaBTC>;
 }
 
 /// A struct that implements the [`VaultRegistryApi`].
@@ -53,22 +61,59 @@ impl<C, Block, AccountId, PolkaBTC> VaultRegistryApi<<Block as BlockT>::Hash, Ac
 where
     Block: BlockT,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-    C::Api: VaultRegistryRuntimeApi<Block, AccountId>,
+    C::Api: VaultRegistryRuntimeApi<Block, AccountId, PolkaBTC>,
     AccountId: Codec,
     PolkaBTC: Codec,
 {
-    fn get_first_vault_with_sufficient_collateral(&self, amount: PolkaBTC) -> Result<AccountId> {
+    fn get_first_vault_with_sufficient_collateral(
+        &self,
+        amount: PolkaBTC,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<AccountId> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
-        let vault_id = api.get_first_vault_with_sufficient_collateral(&at, amount)?;
-        Ok(vault_id)
+        api.get_first_vault_with_sufficient_collateral(&at, amount)
+            .map_or_else(
+                |e| {
+                    Err(RpcError {
+                        code: ErrorCode::ServerError(Error::RuntimeError.into()),
+                        message: "Unable to find a vault with sufficient collateral.".into(),
+                        data: Some(format!("{:?}", e).into()),
+                    })
+                },
+                |result| {
+                    result.map_err(|e| RpcError {
+                        code: ErrorCode::ServerError(Error::RuntimeError.into()),
+                        message: "Unable to find a vault with sufficient collateral.".into(),
+                        data: Some(format!("{:?}", e).into()),
+                    })
+                },
+            )
     }
-    fn get_issuable_tokens_from_vault(&self, vault: AccountId) -> Result<PolkaBTC> {
+    fn get_issuable_tokens_from_vault(
+        &self,
+        vault: AccountId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<PolkaBTC> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
-        let issuable = api.get_issuable_tokens_from_vault(&at, vault)?;
-        Ok(issuable)
+        api.get_issuable_tokens_from_vault(&at, vault).map_or_else(
+            |e| {
+                Err(RpcError {
+                    code: ErrorCode::ServerError(Error::RuntimeError.into()),
+                    message: "Unable to get issuable tokens from vault.".into(),
+                    data: Some(format!("{:?}", e).into()),
+                })
+            },
+            |result| {
+                result.map_err(|e| RpcError {
+                    code: ErrorCode::ServerError(Error::RuntimeError.into()),
+                    message: "Unable to get issuable tokens from vault.".into(),
+                    data: Some(format!("{:?}", e).into()),
+                })
+            },
+        )
     }
 }

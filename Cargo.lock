@@ -633,6 +633,7 @@ dependencies = [
  "jsonrpc-core",
  "module-exchange-rate-oracle-rpc",
  "module-staked-relayers-rpc",
+ "module-vault-registry-rpc",
  "pallet-transaction-payment-rpc",
  "sc-basic-authorship",
  "sc-cli",
@@ -677,6 +678,7 @@ dependencies = [
  "mocktopus",
  "module-exchange-rate-oracle-rpc-runtime-api",
  "module-staked-relayers-rpc-runtime-api",
+ "module-vault-registry-rpc-runtime-api",
  "pallet-aura",
  "pallet-balances",
  "pallet-grandpa",
@@ -3532,6 +3534,31 @@ dependencies = [
 
 [[package]]
 name = "module-staked-relayers-rpc-runtime-api"
+version = "2.0.0-rc6"
+dependencies = [
+ "frame-support",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-std",
+]
+
+[[package]]
+name = "module-vault-registry-rpc"
+version = "2.0.0-rc6"
+dependencies = [
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "module-vault-registry-rpc-runtime-api",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime",
+]
+
+[[package]]
+name = "module-vault-registry-rpc-runtime-api"
 version = "2.0.0-rc6"
 dependencies = [
  "frame-support",
