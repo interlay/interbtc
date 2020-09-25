@@ -22,10 +22,11 @@ use mocktopus::macros::mockable;
 
 use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchError, DispatchResult};
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage, ensure, IterableStorageMap,
+};
 use frame_system::ensure_signed;
-use primitive_types::H256;
-use sp_core::H160;
+use sp_core::{H160, H256};
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
 
@@ -675,6 +676,34 @@ impl<T: Trait> Module<T> {
         Ok(total_liquidation_value)
     }
 
+    /// RPC
+
+    /// Get the first available vault with sufficient collateral to fulfil an issue request
+    /// with the specified amount of PolkaBTC.
+    pub fn get_first_vault_with_sufficient_collateral(
+        amount: PolkaBTC<T>,
+    ) -> Result<T::AccountId, DispatchError> {
+        // iterate through vaults to find the first one with sufficient collateral
+        let vault = <Vaults<T>>::iter()
+            .find(|v| {
+                // iterator returns tuple of (AccountId, Vault<T>), we only need the vault
+                let rich_vault: RichVault<T> = v.clone().1.into();
+                // if we have an error, default to 0
+                let issuable_tokens = rich_vault.issuable_tokens().unwrap_or(0.into());
+                issuable_tokens >= amount
+            })
+            .ok_or(Error::<T>::NoVaultWithSufficientCollateral)?;
+        Ok(vault.0)
+    }
+
+    /// Get the amount of tokens a vault can issue
+    pub fn get_issuable_tokens_from_vault(
+        vault_id: T::AccountId,
+    ) -> Result<PolkaBTC<T>, DispatchError> {
+        let vault = Self::rich_vault_from_id(&vault_id)?;
+        vault.issuable_tokens()
+    }
+
     /// Private getters and setters
 
     fn rich_vault_from_id(vault_id: &T::AccountId) -> Result<RichVault<T>, DispatchError> {
@@ -805,6 +834,7 @@ decl_error! {
         /// Returned if a vault tries to register while already being registered
         VaultAlreadyRegistered,
         VaultNotFound,
-        ConversionError
+        ConversionError,
+        NoVaultWithSufficientCollateral
     }
 }

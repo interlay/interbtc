@@ -167,6 +167,10 @@ path = '../../crates/exchange-rate-oracle/rpc/runtime-api'
 default-features = false
 path = '../../crates/staked-relayers/rpc/runtime-api'
 
+[dependencies.module-vault-registry-rpc-runtime-api]
+default-features = false
+path = '../../crates/vault-registry/rpc/runtime-api'
+
 [dev-dependencies.bitcoin]
 default-features = false
 package = 'bitcoin'
@@ -174,12 +178,12 @@ path = '../../crates/bitcoin'
 
 [dev-dependencies.primitive-types]
 default-features = false
+features = ['codec']
 version = '0.7.2'
-features= ['codec']
 
 [dev-dependencies]
-mocktopus = '0.7.0'
 hex = '0.4.2'
+mocktopus = '0.7.0'
 serde_json = "1.0"
 
 [package]
@@ -194,42 +198,43 @@ targets = ['x86_64-unknown-linux-gnu']
 [features]
 default = ['std']
 std = [
-    'pallet-aura/std',
-    'pallet-balances/std',
-    'codec/std',
-    'frame-executive/std',
-    'frame-support/std',
-    'pallet-grandpa/std',
-    'pallet-randomness-collective-flip/std',
-    'serde',
-    'sp-api/std',
-    'sp-block-builder/std',
-    'sp-consensus-aura/std',
-    'sp-core/std',
-    'sp-inherents/std',
-    'sp-io/std',
-    'sp-offchain/std',
-    'sp-runtime/std',
-    'sp-session/std',
-    'sp-std/std',
-    'sp-transaction-pool/std',
-    'sp-version/std',
-    'pallet-sudo/std',
-    'frame-system/std',
-    'frame-system-rpc-runtime-api/std',
-    'pallet-timestamp/std',
-    'pallet-transaction-payment/std',
-    'pallet-transaction-payment-rpc-runtime-api/std',
-    'module-exchange-rate-oracle-rpc-runtime-api/std',
-    'module-staked-relayers-rpc-runtime-api/std',
-    'btc-relay/std',
-    'collateral/std',
-    'treasury/std',
-    'security/std',
-    'staked-relayers/std',
-    'vault-registry/std',
-    'exchange-rate-oracle/std',
-    'issue/std',
-    'redeem/std',
-    'replace/std',
+  'pallet-aura/std',
+  'pallet-balances/std',
+  'codec/std',
+  'frame-executive/std',
+  'frame-support/std',
+  'pallet-grandpa/std',
+  'pallet-randomness-collective-flip/std',
+  'serde',
+  'sp-api/std',
+  'sp-block-builder/std',
+  'sp-consensus-aura/std',
+  'sp-core/std',
+  'sp-inherents/std',
+  'sp-io/std',
+  'sp-offchain/std',
+  'sp-runtime/std',
+  'sp-session/std',
+  'sp-std/std',
+  'sp-transaction-pool/std',
+  'sp-version/std',
+  'pallet-sudo/std',
+  'frame-system/std',
+  'frame-system-rpc-runtime-api/std',
+  'pallet-timestamp/std',
+  'pallet-transaction-payment/std',
+  'pallet-transaction-payment-rpc-runtime-api/std',
+  'module-exchange-rate-oracle-rpc-runtime-api/std',
+  'module-staked-relayers-rpc-runtime-api/std',
+  'module-vault-registry-rpc-runtime-api/std',
+  'btc-relay/std',
+  'collateral/std',
+  'treasury/std',
+  'security/std',
+  'staked-relayers/std',
+  'vault-registry/std',
+  'exchange-rate-oracle/std',
+  'issue/std',
+  'redeem/std',
+  'replace/std',
 ]
