@@ -741,11 +741,9 @@ impl<T: Trait> Module<T> {
         error: &Option<ErrorCode>,
         votes: &BTreeSet<T::AccountId>,
     ) -> DispatchResult {
-        if let Some(err) = error {
-            if err == &ErrorCode::NoDataBTCRelay {
-                // we don't slash partipants for this
-                return Ok(());
-            }
+        if let Some(ErrorCode::NoDataBTCRelay) = error {
+            // we don't slash participants for this
+            return Ok(());
         }
 
         for acc in votes.iter() {

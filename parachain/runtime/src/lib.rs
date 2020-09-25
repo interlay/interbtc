@@ -360,7 +360,7 @@ construct_runtime!(
 
         DOT: pallet_balances::<Instance1>::{Module, Call, Storage, Config<T>, Event<T>},
         PolkaBTC: pallet_balances::<Instance2>::{Module, Call, Storage, Config<T>, Event<T>},
-        BTCRelay: btc_relay::{Module, Call, Config, Storage, Event},
+        BTCRelay: btc_relay::{Module, Call, Config<T>, Storage, Event},
         Collateral: collateral::{Module, Call, Storage, Event<T>},
         Treasury: treasury::{Module, Call, Storage, Event<T>},
         Security: security::{Module, Call, Storage, Event},
