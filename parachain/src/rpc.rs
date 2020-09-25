@@ -72,4 +72,6 @@ where
     io.extend_with(VaultRegistryApi::to_delegate(VaultRegistry::new(
         client.clone(),
     )));
+
+    io
 }
