@@ -206,7 +206,8 @@ impl ExtBuilder {
             .unwrap();
 
         exchange_rate_oracle::GenesisConfig::<Runtime> {
-            admin: account_of(BOB),
+            oracle_account_id: account_of(BOB),
+            max_delay: 3600000, // one hour
         }
         .assimilate_storage(&mut storage)
         .unwrap();

@@ -460,7 +460,7 @@ decl_module! {
             );
 
             ensure!(
-                ext::oracle::is_max_delay_passed::<T>()?,
+                ext::oracle::is_max_delay_passed::<T>(),
                 Error::<T>::OracleOnline,
             );
 
