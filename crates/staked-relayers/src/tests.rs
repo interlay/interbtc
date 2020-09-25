@@ -317,10 +317,11 @@ fn test_suggest_status_update_succeeds() {
         ));
         assert_emitted!(Event::StatusUpdateSuggested(
             U256::from(1),
+            ALICE,
             StatusCode::Error,
             None,
             None,
-            ALICE
+            None
         ));
     })
 }
