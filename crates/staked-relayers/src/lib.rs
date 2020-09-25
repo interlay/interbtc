@@ -252,7 +252,7 @@ decl_module! {
                 tally: tally,
             });
 
-            Self::deposit_event(<Event<T>>::StatusUpdateSuggested(status_update_id, status_code, add_error, remove_error, signer));
+            Self::deposit_event(<Event<T>>::StatusUpdateSuggested(status_update_id, signer, status_code, add_error, remove_error, block_hash));
             Ok(())
         }
 
@@ -1019,10 +1019,11 @@ decl_event!(
         DeactivateStakedRelayer(AccountId),
         StatusUpdateSuggested(
             U256,
+            AccountId,
             StatusCode,
             Option<ErrorCode>,
             Option<ErrorCode>,
-            AccountId,
+            Option<H256Le>,
         ),
         VoteOnStatusUpdate(U256, AccountId, bool),
         ExecuteStatusUpdate(StatusCode, Option<ErrorCode>, Option<ErrorCode>),
