@@ -40,8 +40,7 @@ pub(crate) mod oracle {
     use crate::types::{PolkaBTC, DOT};
     use frame_support::dispatch::DispatchError;
 
-    pub(crate) fn is_max_delay_passed<T: exchange_rate_oracle::Trait>(
-    ) -> Result<bool, DispatchError> {
+    pub(crate) fn is_max_delay_passed<T: exchange_rate_oracle::Trait>() -> bool {
         <exchange_rate_oracle::Module<T>>::is_max_delay_passed()
     }
 

@@ -133,9 +133,12 @@ impl ExtBuilder {
             .build_storage::<Test>()
             .unwrap();
 
-        GenesisConfig::<Test> { admin: 0 }
-            .assimilate_storage(&mut storage)
-            .unwrap();
+        GenesisConfig::<Test> {
+            oracle_account_id: 0,
+            max_delay: 0,
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
 
         sp_io::TestExternalities::from(storage)
     }

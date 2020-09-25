@@ -39,7 +39,7 @@ fn set_exchange_rate_max_delay_passed() {
     run_test(|| {
         let mut first_call_to_recover = false;
         ExchangeRateOracle::get_authorized_oracle.mock_safe(|| MockResult::Return(3));
-        ExchangeRateOracle::is_max_delay_passed.mock_safe(|| MockResult::Return(Ok(true)));
+        ExchangeRateOracle::is_max_delay_passed.mock_safe(|| MockResult::Return(true));
         // XXX: hacky way to ensure that `recover_from_oracle_offline` was
         // indeed called. mocktopus does not seem to have a `assert_called`
         // kind of feature yet
@@ -79,7 +79,7 @@ fn set_exchange_rate_wrong_oracle() {
 #[test]
 fn get_exchange_rate_after_delay() {
     run_test(|| {
-        ExchangeRateOracle::is_max_delay_passed.mock_safe(|| MockResult::Return(Ok(true)));
+        ExchangeRateOracle::is_max_delay_passed.mock_safe(|| MockResult::Return(true));
         let result = ExchangeRateOracle::get_exchange_rate();
         assert_err!(result, TestError::MissingExchangeRate);
     });
@@ -120,10 +120,10 @@ fn is_max_delay_passed() {
 
         // max delay is 30 minutes but 1 hour passed
         ExchangeRateOracle::get_max_delay.mock_safe(|| MockResult::Return(1800));
-        assert!(ExchangeRateOracle::is_max_delay_passed().unwrap());
+        assert!(ExchangeRateOracle::is_max_delay_passed());
 
         // max delay is 2 hours and 1 hour passed
         ExchangeRateOracle::get_max_delay.mock_safe(|| MockResult::Return(7200));
-        assert!(!ExchangeRateOracle::is_max_delay_passed().unwrap());
+        assert!(!ExchangeRateOracle::is_max_delay_passed());
     });
 }

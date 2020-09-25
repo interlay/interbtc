@@ -911,7 +911,7 @@ fn test_report_oracle_offline_fails_with_oracle_online() {
         let amount: Balance = 3;
         inject_active_staked_relayer(&ALICE, amount);
 
-        ext::oracle::is_max_delay_passed::<Test>.mock_safe(|| MockResult::Return(Ok(false)));
+        ext::oracle::is_max_delay_passed::<Test>.mock_safe(|| MockResult::Return(false));
         assert_err!(
             Staking::report_oracle_offline(relayer),
             TestError::OracleOnline,
@@ -926,7 +926,7 @@ fn test_report_oracle_offline_succeeds() {
         let amount: Balance = 3;
         inject_active_staked_relayer(&ALICE, amount);
 
-        ext::oracle::is_max_delay_passed::<Test>.mock_safe(|| MockResult::Return(Ok(true)));
+        ext::oracle::is_max_delay_passed::<Test>.mock_safe(|| MockResult::Return(true));
 
         assert_ok!(Staking::report_oracle_offline(relayer));
         assert_emitted!(Event::ExecuteStatusUpdate(

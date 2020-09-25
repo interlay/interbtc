@@ -54,11 +54,11 @@ decl_storage! {
         /// Last exchange rate time
         LastExchangeRateTime: T::Moment;
 
-        /// Maximum delay for the exchange rate to be used
-        MaxDelay: T::Moment;
+        /// Maximum delay (milliseconds) for the exchange rate to be used
+        MaxDelay get(fn max_delay) config(): T::Moment;
 
         // Oracle allowed to set the exchange rate
-        AuthorizedOracle get(fn admin) config(): T::AccountId;
+        AuthorizedOracle get(fn oracle_account_id) config(): T::AccountId;
     }
 }
 
@@ -93,7 +93,7 @@ decl_module! {
 impl<T: Trait> Module<T> {
     /// Public getters
     pub fn get_exchange_rate() -> Result<u128, DispatchError> {
-        let max_delay_passed = Self::is_max_delay_passed()?;
+        let max_delay_passed = Self::is_max_delay_passed();
         ensure!(!max_delay_passed, Error::<T>::MissingExchangeRate);
         Ok(<ExchangeRate>::get())
     }
@@ -149,7 +149,7 @@ impl<T: Trait> Module<T> {
     pub fn _set_exchange_rate(rate: u128) -> DispatchResult {
         Self::set_current_rate(rate);
         // recover if the max delay was already passed
-        if Self::is_max_delay_passed()? {
+        if Self::is_max_delay_passed() {
             Self::recover_from_oracle_offline()?;
         }
         let now = Self::get_current_time();
@@ -175,11 +175,11 @@ impl<T: Trait> Module<T> {
 
     /// Returns true if the last update to the exchange rate
     /// was before the maximum allowed delay
-    pub fn is_max_delay_passed() -> Result<bool, DispatchError> {
+    pub fn is_max_delay_passed() -> bool {
         let timestamp = Self::get_current_time();
         let last_update = Self::get_last_exchange_rate_time();
         let max_delay = Self::get_max_delay();
-        Ok(timestamp - last_update > max_delay)
+        last_update + max_delay < timestamp
     }
 
     /// Returns the current timestamp

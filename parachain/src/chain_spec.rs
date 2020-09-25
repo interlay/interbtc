@@ -173,7 +173,8 @@ fn testnet_genesis(
             gov_id: get_account_id_from_seed::<sr25519::Public>("Alice"),
         }),
         exchange_rate_oracle: Some(ExchangeRateOracleConfig {
-            admin: get_account_id_from_seed::<sr25519::Public>("Bob"),
+            oracle_account_id: get_account_id_from_seed::<sr25519::Public>("Bob"),
+            max_delay: 3600000, // one hour
         }),
         btc_relay: Some(BTCRelayConfig { confirmations: 6 }),
         vault_registry: Some(VaultRegistryConfig {
