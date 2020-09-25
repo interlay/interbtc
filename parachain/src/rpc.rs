@@ -34,11 +34,13 @@ where
     C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
     C::Api: module_exchange_rate_oracle_rpc::ExchangeRateOracleRuntimeApi<Block, Balance, Balance>,
     C::Api: module_staked_relayers_rpc::StakedRelayersRuntimeApi<Block, AccountId>,
+    C::Api: module_vault_registry_rpc::VaultRegistryRuntimeApi<Block, AccountId, Balance>,
     C::Api: BlockBuilder<Block>,
     P: TransactionPool + 'static,
 {
     use module_exchange_rate_oracle_rpc::{ExchangeRateOracle, ExchangeRateOracleApi};
     use module_staked_relayers_rpc::{StakedRelayers, StakedRelayersApi};
+    use module_vault_registry_rpc::{VaultRegistry, VaultRegistryApi};
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
     use substrate_frame_rpc_system::{FullSystem, SystemApi};
 
@@ -67,5 +69,7 @@ where
         client.clone(),
     )));
 
-    io
+    io.extend_with(VaultRegistryApi::to_delegate(VaultRegistry::new(
+        client.clone(),
+    )));
 }
