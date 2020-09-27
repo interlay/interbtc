@@ -57,7 +57,7 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
                             false
                         ))
                         .dispatch(origin_of(account_of(ALICE))),
-                        BTCRelayError::Confirmations
+                        BTCRelayError::BitcoinConfirmations
                     );
                 }
             }
