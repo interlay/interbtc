@@ -1119,7 +1119,7 @@ impl<T: Trait> Module<T> {
             if tx_block_height + req_confs <= main_chain_height {
                 Ok(())
             } else {
-                Err(Error::<T>::Confirmations.into())
+                Err(Error::<T>::BitcoinConfirmations.into())
             }
         } else {
             // secure call: checks against max of user- and global security parameter
@@ -1134,7 +1134,7 @@ impl<T: Trait> Module<T> {
             } else if tx_block_height + req_confs <= main_chain_height {
                 Ok(())
             } else {
-                Err(Error::<T>::Confirmations.into())
+                Err(Error::<T>::BitcoinConfirmations.into())
             }
         }
     }
@@ -1151,7 +1151,7 @@ impl<T: Trait> Module<T> {
 
         ensure!(
             submitted_height + Self::parachain_confirmations() >= current_height,
-            Error::<T>::Confirmations
+            Error::<T>::ParachainConfirmations
         );
 
         Ok(())
@@ -1249,8 +1249,10 @@ decl_error! {
         DiffTargetHeader,
         /// Malformed transaction identifier
         MalformedTxid,
-        /// Transaction has less confirmations than requested
-        Confirmations,
+        /// Transaction has less confirmations of Bitcoin blocks than requested
+        BitcoinConfirmations,
+        /// Transaction has less confirmations of Parachain blocks than required
+        ParachainConfirmations,
         /// Transaction has less confirmations than the global STABLE_TRANSACTION_CONFIRMATIONS parameter
         InsufficientStableConfirmations,
         /// Current fork ongoing
