@@ -1533,7 +1533,7 @@ fn test_check_bitcoin_confirmations_insecure_insufficient_confs_fails() {
                 tx_block_height,
                 insecure
             ),
-            TestError::Confirmations
+            TestError::BitcoinConfirmations
         )
     });
 }
@@ -1629,7 +1629,7 @@ fn test_check_bitcoin_confirmations_secure_insufficient_user_confs_succeeds() {
                 tx_block_height,
                 insecure
             ),
-            TestError::Confirmations
+            TestError::BitcoinConfirmations
         )
     });
 }
