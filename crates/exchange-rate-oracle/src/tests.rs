@@ -127,3 +127,12 @@ fn is_max_delay_passed() {
         assert!(!ExchangeRateOracle::is_max_delay_passed());
     });
 }
+
+#[test]
+fn oracle_names_have_genesis_info() {
+    run_test(|| {
+        let actual = String::from_utf8(ExchangeRateOracle::oracle_names(0)).unwrap();
+        let expected = "test".to_owned();
+        assert_eq!(actual, expected);
+    });
+}

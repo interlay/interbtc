@@ -25,6 +25,7 @@ use frame_support::traits::Currency;
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
 use frame_system::ensure_signed;
 use sp_std::convert::TryInto;
+use sp_std::vec::Vec;
 
 pub(crate) type DOT<T> =
     <<T as collateral::Trait>::DOT as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
@@ -59,6 +60,9 @@ decl_storage! {
 
         // Oracle allowed to set the exchange rate
         AuthorizedOracle get(fn oracle_account_id) config(): T::AccountId;
+
+        // Mapping from account id to account names
+        OracleNames get(fn oracle_names) config(): map hasher(blake2_128_concat) T::AccountId => Vec<u8>;
     }
 }
 
