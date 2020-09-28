@@ -1,7 +1,7 @@
 use btc_parachain_runtime::{
     AccountId, AuraConfig, BTCRelayConfig, DOTConfig, ExchangeRateOracleConfig, GenesisConfig,
-    GrandpaConfig, PolkaBTCConfig, ReplaceConfig, Signature, StakedRelayersConfig, SudoConfig,
-    SystemConfig, VaultRegistryConfig, WASM_BINARY,
+    GrandpaConfig, PolkaBTCConfig, Signature, StakedRelayersConfig, SudoConfig, SystemConfig,
+    VaultRegistryConfig, WASM_BINARY,
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -185,6 +185,5 @@ fn testnet_genesis(
         vault_registry: Some(VaultRegistryConfig {
             secure_collateral_threshold: 100000,
         }),
-        replace: Some(ReplaceConfig),
     }
 }
