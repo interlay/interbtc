@@ -133,8 +133,13 @@ impl exchange_rate_oracle::Trait for Test {
     type Event = TestEvent;
 }
 
+parameter_types! {
+    pub const ReplacePeriod: BlockNumber = 10;
+}
+
 impl Trait for Test {
     type Event = TestEvent;
+    type ReplacePeriod = ReplacePeriod;
 }
 
 pub type TestError = Error<Test>;

@@ -340,8 +340,13 @@ impl redeem::Trait for Runtime {
     type Event = Event;
 }
 
+parameter_types! {
+    pub const ReplacePeriod: BlockNumber = 10;
+}
+
 impl replace::Trait for Runtime {
     type Event = Event;
+    type ReplacePeriod = ReplacePeriod;
 }
 
 construct_runtime!(
