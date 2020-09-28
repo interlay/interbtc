@@ -31,6 +31,7 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
 
             assert_store_main_chain_header_event(block.height, block.get_block_hash());
         }
+        SystemModule::set_block_number(1 + CONFIRMATIONS);
         // verify all transaction
         let current_height = btc_relay::Module::<Runtime>::get_best_block_height();
         for block in test_data.iter() {
