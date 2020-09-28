@@ -704,6 +704,30 @@ impl<T: Trait> Module<T> {
         vault.issuable_tokens()
     }
 
+    /// Get the current collateralization of a vault
+    pub fn get_collateralization_from_vault(vault_id: T::AccountId) -> Result<u128, DispatchError> {
+        let vault = Self::rich_vault_from_id(&vault_id)?;
+        let collateral = vault.get_collateral();
+        let issued_tokens = vault.data.issued_tokens;
+
+        // convert the collateral to polkabtc
+        let collateral_in_polka_btc = ext::oracle::dots_to_btc::<T>(collateral)?;
+        let raw_collateral_in_polka_btc = Self::polkabtc_to_u128(collateral_in_polka_btc)?;
+
+        // convert the issued_tokens to the raw amount
+        let raw_issued_tokens = Self::polkabtc_to_u128(issued_tokens)?;
+        // calculate the collateralization as a ratio of the issued tokens to the
+        // amount of provided collateral at the current exchange rate. The result is scaled
+        // by the GRANULARITY
+        let collateralization = raw_collateral_in_polka_btc
+            .checked_mul(10u128.pow(GRANULARITY))
+            .ok_or(Error::<T>::ConversionError)?
+            .checked_div(raw_issued_tokens)
+            .ok_or(Error::<T>::ConversionError)?;
+
+        Ok(collateralization)
+    }
+
     /// Private getters and setters
 
     fn rich_vault_from_id(vault_id: &T::AccountId) -> Result<RichVault<T>, DispatchError> {
@@ -769,7 +793,7 @@ impl<T: Trait> Module<T> {
 
         // calculate how many tokens should be maximally issued given the threshold
         let raw_scaled_collateral_in_polka_btc = raw_collateral_in_polka_btc
-            .checked_mul(10u32.pow(GRANULARITY) as u128)
+            .checked_mul(10u128.pow(GRANULARITY) as u128)
             .ok_or(Error::<T>::ConversionError)?;
         let raw_max_tokens = raw_scaled_collateral_in_polka_btc
             .checked_div(threshold)
