@@ -16,5 +16,8 @@ sp_api::decl_runtime_apis! {
 
         /// Get the amount of tokens a vault can issue
         fn get_issuable_tokens_from_vault(vault: AccountId) -> Result<PolkaBTC, DispatchError>;
+
+        /// Get the collateralization rate of a vault scaled by GRANULARITY
+        fn get_collateralization_from_vault(vault: AccountId) -> Result<u128, DispatchError>;
     }
 }

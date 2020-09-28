@@ -676,7 +676,7 @@ fn get_collateralization_from_vault_fails_with_no_tokens_issued() {
         let id = create_sample_vault();
 
         assert_err!(
-            VaultRegistry::get_collateralization_from_vault(vault_id),
+            VaultRegistry::get_collateralization_from_vault(id),
             TestError::NoTokensIssued
         );
     })

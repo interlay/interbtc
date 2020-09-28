@@ -26,6 +26,13 @@ pub trait VaultRegistryApi<BlockHash, AccountId, PolkaBTC> {
         vault: AccountId,
         at: Option<BlockHash>,
     ) -> Result<PolkaBTC>;
+
+    #[rpc(name = "vaultRegistry_getCollateralizationFromVault")]
+    fn get_collateralization_from_vault(
+        &self,
+        vault: AccountId,
+        at: Option<BlockHash>,
+    ) -> Result<u128>;
 }
 
 /// A struct that implements the [`VaultRegistryApi`].
@@ -115,5 +122,31 @@ where
                 })
             },
         )
+    }
+    fn get_collateralization_from_vault(
+        &self,
+        vault: AccountId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<u128> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        api.get_collateralization_from_vault(&at, vault)
+            .map_or_else(
+                |e| {
+                    Err(RpcError {
+                        code: ErrorCode::ServerError(Error::RuntimeError.into()),
+                        message: "Unable to get collateralization from vault.".into(),
+                        data: Some(format!("{:?}", e).into()),
+                    })
+                },
+                |result| {
+                    result.map_err(|e| RpcError {
+                        code: ErrorCode::ServerError(Error::RuntimeError.into()),
+                        message: "Unable to get collateralization from vault.".into(),
+                        data: Some(format!("{:?}", e).into()),
+                    })
+                },
+            )
     }
 }
