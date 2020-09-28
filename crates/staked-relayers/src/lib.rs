@@ -694,15 +694,6 @@ impl<T: Trait> Module<T> {
         status_id
     }
 
-    /// Remove a resolved status update.
-    ///
-    /// # Arguments
-    ///
-    /// * `status_update_id` - id of the `StatusUpdate` to delete.
-    pub(crate) fn remove_status_update(status_update_id: &U256) {
-        <StatusUpdates<T>>::remove(status_update_id);
-    }
-
     /// Get an existing `StatusUpdate` or throw.
     ///
     /// # Arguments
@@ -814,7 +805,6 @@ impl<T: Trait> Module<T> {
         ext::collateral::release_collateral::<T>(&update.proposer, update.deposit)?;
 
         Self::set_proposal_status(&status_update_id, ProposalStatus::Accepted);
-        Self::remove_status_update(&status_update_id);
 
         Self::slash_staked_relayers(&update.add_error, &update.tally.nay)?;
         Self::deposit_event(<Event<T>>::ExecuteStatusUpdate(
@@ -846,7 +836,6 @@ impl<T: Trait> Module<T> {
         );
 
         Self::set_proposal_status(&status_update_id, ProposalStatus::Rejected);
-        Self::remove_status_update(&status_update_id);
 
         Self::slash_staked_relayers(&update.add_error, &update.tally.aye)?;
         Self::deposit_event(<Event<T>>::RejectStatusUpdate(
