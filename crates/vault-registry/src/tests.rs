@@ -651,7 +651,6 @@ fn _is_vault_below_liquidation_threshold_true_succeeds() {
         set_default_thresholds();
 
         let vault = VaultRegistry::_get_vault_from_id(&id).unwrap();
-        println!("{:?}", vault);
         assert_ok!(
             VaultRegistry::_increase_to_be_issued_tokens(&id, 50),
             vault.btc_address
@@ -671,14 +670,40 @@ fn _is_vault_below_liquidation_threshold_true_succeeds() {
 }
 
 #[test]
-fn get_collateralization_from_vault_succeeds() {
+fn get_collateralization_from_vault_fails_with_no_tokens_issued() {
     run_test(|| {
-        // vault has 100% collateral ratio
+        // vault has no tokens issued yet
         let id = create_sample_vault();
 
+        assert_err!(
+            VaultRegistry::get_collateralization_from_vault(vault_id),
+            TestError::NoTokensIssued
+        );
+    })
+}
+
+#[test]
+fn get_collateralization_from_vault_succeeds() {
+    run_test(|| {
+        // vault has no tokens issued yet
+        let id = create_sample_vault();
+
+        // exchange rate 1 BTC = 20 DOT
+        let dots_to_btc_rate = GRANULARITY / 20;
+        ext::oracle::dots_to_btc::<Test>.mock_safe(|_| MockResult::Return(Ok(dots_to_btc_rate)));
+
+        // issue PolkaBTC with 200% collateralization of DEFAULT_COLLATERAL
+        let issue_tokens = DEFAULT_COLLATERAL / 5 / 2;
+        let vault = VaultRegistry::_get_vault_from_id(&id).unwrap();
+        assert_ok!(
+            VaultRegistry::_increase_to_be_issued_tokens(&id, issue_tokens),
+            vault.btc_address
+        );
+        let res = VaultRegistry::_issue_tokens(&id, issue_tokens);
+        assert_ok!(res);
         assert_eq!(
             VaultRegistry::get_collateralization_from_vault(id),
-            Ok(1 * GRANULARITY)
+            Ok((2 * GRANULARITY) as u128)
         );
     })
 }

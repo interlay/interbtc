@@ -707,15 +707,17 @@ impl<T: Trait> Module<T> {
     /// Get the current collateralization of a vault
     pub fn get_collateralization_from_vault(vault_id: T::AccountId) -> Result<u128, DispatchError> {
         let vault = Self::rich_vault_from_id(&vault_id)?;
-        let collateral = vault.get_collateral();
         let issued_tokens = vault.data.issued_tokens;
 
+        // convert the issued_tokens to the raw amount
+        let raw_issued_tokens = Self::polkabtc_to_u128(issued_tokens)?;
+        ensure!(raw_issued_tokens != 0, Error::<T>::NoTokensIssued);
+
+        let collateral = vault.get_collateral();
         // convert the collateral to polkabtc
         let collateral_in_polka_btc = ext::oracle::dots_to_btc::<T>(collateral)?;
         let raw_collateral_in_polka_btc = Self::polkabtc_to_u128(collateral_in_polka_btc)?;
 
-        // convert the issued_tokens to the raw amount
-        let raw_issued_tokens = Self::polkabtc_to_u128(issued_tokens)?;
         // calculate the collateralization as a ratio of the issued tokens to the
         // amount of provided collateral at the current exchange rate. The result is scaled
         // by the GRANULARITY
@@ -859,6 +861,8 @@ decl_error! {
         VaultAlreadyRegistered,
         VaultNotFound,
         ConversionError,
+        /// Collateralization is infinite if no tokens are issued
+        NoTokensIssued,
         NoVaultWithSufficientCollateral
     }
 }
