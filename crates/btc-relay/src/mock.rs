@@ -33,7 +33,8 @@ impl_outer_event! {
 }
 
 pub type AccountId = u64;
-pub const CONFIRMATIONS: u32 = 6;
+pub const BITCOIN_CONFIRMATIONS: u32 = 6;
+pub const PARACHAIN_CONFIRMATIONS: u64 = 20;
 pub type BlockNumber = u64;
 
 // For testing the pallet, we construct most of a mock runtime. This means
@@ -100,8 +101,8 @@ impl ExtBuilder {
             .unwrap();
 
         GenesisConfig::<Test> {
-            bitcoin_confirmations: CONFIRMATIONS,
-            parachain_confirmations: 0,
+            bitcoin_confirmations: BITCOIN_CONFIRMATIONS,
+            parachain_confirmations: PARACHAIN_CONFIRMATIONS,
         }
         .assimilate_storage(&mut storage)
         .unwrap();

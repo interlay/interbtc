@@ -589,8 +589,12 @@ impl<T: Trait> Module<T> {
     /// Set a new block header
     fn set_block_header_from_hash(hash: H256Le, header: &RichBlockHeader) {
         <BlockHeaders>::insert(hash, header);
-
         // register the current height to track stable parachain confirmations
+        Self::set_parachain_height_from_hash(hash);
+    }
+
+    /// Store the height of the parachain when storing a Bitcoin header
+    fn set_parachain_height_from_hash(hash: H256Le) {
         let height = <frame_system::Module<T>>::block_number();
         <ParachainHeight<T>>::insert(hash, height);
     }
@@ -1150,7 +1154,7 @@ impl<T: Trait> Module<T> {
         let submitted_height = <ParachainHeight<T>>::get(block_hash);
 
         ensure!(
-            submitted_height + Self::parachain_confirmations() >= current_height,
+            submitted_height + Self::parachain_confirmations() <= current_height,
             Error::<T>::ParachainConfirmations
         );
 
