@@ -8,6 +8,7 @@ use crate::mock::{
     run_test, CollateralError, Origin, SecurityError, System, Test, TestError, TestEvent,
     VaultRegistry, DEFAULT_COLLATERAL, DEFAULT_ID, RICH_COLLATERAL, RICH_ID,
 };
+use crate::GRANULARITY;
 
 type Event = crate::Event<Test>;
 
@@ -650,7 +651,6 @@ fn _is_vault_below_liquidation_threshold_true_succeeds() {
         set_default_thresholds();
 
         let vault = VaultRegistry::_get_vault_from_id(&id).unwrap();
-        println!("{:?}", vault);
         assert_ok!(
             VaultRegistry::_increase_to_be_issued_tokens(&id, 50),
             vault.btc_address
@@ -665,6 +665,46 @@ fn _is_vault_below_liquidation_threshold_true_succeeds() {
         assert_eq!(
             VaultRegistry::_is_vault_below_liquidation_threshold(&id),
             Ok(true)
+        );
+    })
+}
+
+#[test]
+fn get_collateralization_from_vault_fails_with_no_tokens_issued() {
+    run_test(|| {
+        // vault has no tokens issued yet
+        let id = create_sample_vault();
+
+        assert_err!(
+            VaultRegistry::get_collateralization_from_vault(id),
+            TestError::NoTokensIssued
+        );
+    })
+}
+
+#[test]
+fn get_collateralization_from_vault_succeeds() {
+    run_test(|| {
+        // vault has no tokens issued yet
+        let id = create_sample_vault();
+
+        // exchange rate 1 Satoshi = 10 Planck (smallest unit of DOT)
+        let dots: u64 = DEFAULT_COLLATERAL / 10;
+        ext::oracle::dots_to_btc::<Test>
+            .mock_safe(move |_| MockResult::Return(Ok(dots.clone().into())));
+
+        // issue PolkaBTC with 200% collateralization of DEFAULT_COLLATERAL
+        let issue_tokens = DEFAULT_COLLATERAL / 10 / 2; //  = 5
+        let vault = VaultRegistry::_get_vault_from_id(&id).unwrap();
+        assert_ok!(
+            VaultRegistry::_increase_to_be_issued_tokens(&id, issue_tokens),
+            vault.btc_address
+        );
+        let res = VaultRegistry::_issue_tokens(&id, issue_tokens);
+        assert_ok!(res);
+        assert_eq!(
+            VaultRegistry::get_collateralization_from_vault(id),
+            Ok(2 * 10u128.pow(GRANULARITY))
         );
     })
 }
