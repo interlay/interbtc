@@ -204,6 +204,7 @@ fn integration_test_replace_execute_replace() {
         let (tx_id, tx_block_height, merkle_proof, raw_tx) =
             generate_transaction_and_mine(vault_btc_address, polkabtc, replace_id);
 
+        SystemModule::set_block_number(1 + CONFIRMATIONS);
         let r = Call::Replace(ReplaceCall::execute_replace(
             replace_id,
             tx_id,
