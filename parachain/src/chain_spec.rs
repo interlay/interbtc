@@ -142,6 +142,7 @@ fn testnet_genesis(
     endowed_accounts: Vec<AccountId>,
     _enable_println: bool,
 ) -> GenesisConfig {
+    let bob_account_id = get_account_id_from_seed::<sr25519::Public>("Bob");
     GenesisConfig {
         frame_system: Some(SystemConfig {
             // Add Wasm runtime to storage.
@@ -173,7 +174,8 @@ fn testnet_genesis(
             gov_id: get_account_id_from_seed::<sr25519::Public>("Alice"),
         }),
         exchange_rate_oracle: Some(ExchangeRateOracleConfig {
-            oracle_account_id: get_account_id_from_seed::<sr25519::Public>("Bob"),
+            oracle_account_id: bob_account_id.clone(),
+            oracle_names: vec![(bob_account_id.clone(), "Bob".as_bytes().to_vec())],
             max_delay: 3600000, // one hour
         }),
         btc_relay: Some(BTCRelayConfig {
