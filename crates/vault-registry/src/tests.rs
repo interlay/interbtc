@@ -8,6 +8,7 @@ use crate::mock::{
     run_test, CollateralError, Origin, SecurityError, System, Test, TestError, TestEvent,
     VaultRegistry, DEFAULT_COLLATERAL, DEFAULT_ID, RICH_COLLATERAL, RICH_ID,
 };
+use crate::GRANULARITY;
 
 type Event = crate::Event<Test>;
 
@@ -665,6 +666,19 @@ fn _is_vault_below_liquidation_threshold_true_succeeds() {
         assert_eq!(
             VaultRegistry::_is_vault_below_liquidation_threshold(&id),
             Ok(true)
+        );
+    })
+}
+
+#[test]
+fn get_collateralization_from_vault_succeeds() {
+    run_test(|| {
+        // vault has 100% collateral ratio
+        let id = create_sample_vault();
+
+        assert_eq!(
+            VaultRegistry::get_collateralization_from_vault(id),
+            Ok(1 * GRANULARITY)
         );
     })
 }
