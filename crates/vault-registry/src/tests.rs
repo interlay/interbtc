@@ -688,12 +688,13 @@ fn get_collateralization_from_vault_succeeds() {
         // vault has no tokens issued yet
         let id = create_sample_vault();
 
-        // exchange rate 1 BTC = 20 DOT
-        let dots_to_btc_rate = GRANULARITY / 20;
-        ext::oracle::dots_to_btc::<Test>.mock_safe(|_| MockResult::Return(Ok(dots_to_btc_rate)));
+        // exchange rate 1 Satoshi = 10 Planck (smallest unit of DOT)
+        let dots: u64 = DEFAULT_COLLATERAL / 10;
+        ext::oracle::dots_to_btc::<Test>
+            .mock_safe(move |_| MockResult::Return(Ok(dots.clone().into())));
 
         // issue PolkaBTC with 200% collateralization of DEFAULT_COLLATERAL
-        let issue_tokens = DEFAULT_COLLATERAL / 5 / 2;
+        let issue_tokens = DEFAULT_COLLATERAL / 10 / 2; //  = 5
         let vault = VaultRegistry::_get_vault_from_id(&id).unwrap();
         assert_ok!(
             VaultRegistry::_increase_to_be_issued_tokens(&id, issue_tokens),
@@ -703,7 +704,7 @@ fn get_collateralization_from_vault_succeeds() {
         assert_ok!(res);
         assert_eq!(
             VaultRegistry::get_collateralization_from_vault(id),
-            Ok((2 * GRANULARITY) as u128)
+            Ok(2 * 10u128.pow(GRANULARITY))
         );
     })
 }
