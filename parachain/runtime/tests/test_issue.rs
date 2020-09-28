@@ -84,7 +84,7 @@ fn integration_test_issue_polka_btc() {
         // send the btc from the user to the vault
         let (tx_id, height, proof, raw_tx) = generate_transaction_and_mine(address, amount, id);
 
-        SystemModule::set_block_number(5);
+        SystemModule::set_block_number(1 + CONFIRMATIONS);
 
         // alice executes the issue by confirming the btc transaction
         assert_ok!(
