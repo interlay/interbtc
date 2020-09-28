@@ -2,7 +2,10 @@
 use primitive_types::U256;
 
 use crate::ext;
-use crate::mock::{run_test, BTCRelay, Origin, SecurityError, System, Test, TestError, TestEvent};
+use crate::mock::{
+    run_test, BTCRelay, Origin, SecurityError, System, Test, TestError, TestEvent,
+    PARACHAIN_CONFIRMATIONS,
+};
 use crate::Event;
 
 use bitcoin::formatter::Formattable;
@@ -1631,6 +1634,34 @@ fn test_check_bitcoin_confirmations_secure_insufficient_user_confs_succeeds() {
             ),
             TestError::BitcoinConfirmations
         )
+    });
+}
+
+#[test]
+fn test_check_parachain_confirmations_succeeds() {
+    run_test(|| {
+        let chain_ref = 0;
+        let block_height = 245;
+        let block_hash = sample_parsed_first_block(chain_ref, block_height).block_hash;
+        BTCRelay::set_parachain_height_from_hash(block_hash);
+        System::set_block_number(5 + PARACHAIN_CONFIRMATIONS);
+
+        assert_ok!(BTCRelay::check_parachain_confirmations(block_hash));
+    });
+}
+
+#[test]
+fn test_check_parachain_confirmations_insufficient_confs_fails() {
+    run_test(|| {
+        let chain_ref = 0;
+        let block_height = 245;
+        let block_hash = sample_parsed_first_block(chain_ref, block_height).block_hash;
+        BTCRelay::set_parachain_height_from_hash(block_hash);
+
+        assert_err!(
+            BTCRelay::check_parachain_confirmations(block_hash),
+            TestError::ParachainConfirmations
+        );
     });
 }
 

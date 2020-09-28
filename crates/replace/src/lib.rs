@@ -10,6 +10,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
+    traits::Get,
 };
 use frame_system::ensure_signed;
 #[cfg(test)]
@@ -44,13 +45,17 @@ pub trait Trait:
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+
+    /// The time difference in number of blocks between an issue request is created
+    /// and required completion time by a user. The issue period has an upper limit
+    /// to prevent griefing of vault collateral.
+    type ReplacePeriod: Get<Self::BlockNumber>;
 }
 
 // The pallet's storage items.
 decl_storage! {
     trait Store for Module<T: Trait> as Replace {
         ReplaceGriefingCollateral: DOT<T>;
-        ReplacePeriod: T::BlockNumber;
         ReplaceRequests: map hasher(blake2_128_concat) H256 => Option<Replace<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>>;
     }
 }
@@ -80,6 +85,8 @@ decl_module! {
         // Initializing events
         // this is needed only if you are using events in your pallet
         fn deposit_event() = default;
+
+        const ReplacePeriod: T::BlockNumber = T::ReplacePeriod::get();
 
         /// Request the replacement of a new vault ownership
         ///
@@ -469,7 +476,7 @@ impl<T: Trait> Module<T> {
     }
 
     fn replace_period() -> T::BlockNumber {
-        <ReplacePeriod<T>>::get()
+        T::ReplacePeriod::get()
     }
 
     fn remove_replace_request(key: H256) {
@@ -479,11 +486,6 @@ impl<T: Trait> Module<T> {
     #[allow(dead_code)]
     fn set_replace_griefing_collateral(amount: DOT<T>) {
         <ReplaceGriefingCollateral<T>>::set(amount);
-    }
-
-    #[allow(dead_code)]
-    fn set_replace_period(value: T::BlockNumber) {
-        <ReplacePeriod<T>>::set(value);
     }
 
     fn current_height() -> T::BlockNumber {
