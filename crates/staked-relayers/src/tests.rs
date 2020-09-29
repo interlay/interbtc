@@ -16,7 +16,7 @@ use security::types::{ErrorCode, StatusCode};
 use sp_core::{H160, H256, U256};
 use sp_std::collections::btree_set::BTreeSet;
 use std::convert::TryInto;
-use vault_registry::Vault;
+use vault_registry::{Vault, VaultStatus};
 
 type Event = crate::Event<Test>;
 
@@ -1104,6 +1104,7 @@ fn test_is_transaction_invalid_fails_with_valid_merge_transaction() {
                 to_be_redeemed_tokens: 0,
                 btc_address: H160::from_slice(address.as_bytes()),
                 banned_until: None,
+                status: VaultStatus::Active,
             }))
         });
 
@@ -1159,6 +1160,7 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
                 to_be_redeemed_tokens: 0,
                 btc_address: H160::from_slice(address1.as_bytes()),
                 banned_until: None,
+                status: VaultStatus::Active,
             }))
         });
 

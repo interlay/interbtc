@@ -11,7 +11,7 @@ use frame_support::{
 use mocktopus::mocking::*;
 use primitive_types::H256;
 use sp_core::H160;
-use vault_registry::Vault;
+use vault_registry::{Vault, VaultStatus};
 
 type Event = crate::Event<Test>;
 
@@ -54,6 +54,7 @@ fn test_vault() -> Vault<u64, u64, u64> {
         btc_address: H160([0; 20]),
         to_be_issued_tokens: 0,
         to_be_redeemed_tokens: 0,
+        status: VaultStatus::Active,
     }
 }
 
@@ -138,6 +139,7 @@ fn test_request_replace_vault_banned_fails() {
                 to_be_redeemed_tokens: 0,
                 btc_address: H160([0; 20]),
                 banned_until: Some(1),
+                status: VaultStatus::Active,
             }))
         });
         assert_noop!(
@@ -166,6 +168,7 @@ fn test_request_replace_insufficient_griefing_collateral_fails() {
                 to_be_redeemed_tokens: 0,
                 btc_address: H160([0; 20]),
                 banned_until: None,
+                status: VaultStatus::Active,
             }))
         });
         ext::vault_registry::is_over_minimum_collateral::<Test>

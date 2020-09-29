@@ -32,8 +32,8 @@ use sp_std::vec::Vec;
 
 use security::ErrorCode;
 
-pub use crate::types::Vault;
 use crate::types::{DefaultVault, PolkaBTC, RichVault, DOT};
+pub use crate::types::{Vault, VaultStatus};
 
 /// Granularity of `SecureCollateralThreshold`, `AuctionCollateralThreshold`,
 /// `LiquidationCollateralThreshold`, and `PunishmentFee`
@@ -228,7 +228,12 @@ impl<T: Trait> Module<T> {
 
     pub fn _get_vault_from_id(vault_id: &T::AccountId) -> Result<DefaultVault<T>, DispatchError> {
         ensure!(Self::vault_exists(&vault_id), Error::<T>::VaultNotFound);
-        Ok(<Vaults<T>>::get(vault_id))
+        let vault = <Vaults<T>>::get(vault_id);
+        ensure!(
+            vault.status == VaultStatus::Active,
+            Error::<T>::VaultNotFound
+        );
+        Ok(vault)
     }
 
     /// Increases the amount of tokens to be issued in the next issue request
@@ -565,7 +570,7 @@ impl<T: Trait> Module<T> {
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
         let liquidation_vault_id = <LiquidationVault<T>>::get();
-        let vault: RichVault<T> = Self::rich_vault_from_id(&vault_id)?;
+        let mut vault: RichVault<T> = Self::rich_vault_from_id(&vault_id)?;
         let mut liquidation_vault: RichVault<T> = Self::rich_vault_from_id(&liquidation_vault_id)?;
 
         vault.liquidate(&mut liquidation_vault)?;

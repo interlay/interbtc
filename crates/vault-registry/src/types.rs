@@ -18,6 +18,21 @@ pub(crate) type DOT<T> =
 pub(crate) type PolkaBTC<T> =
     <<T as treasury::Trait>::PolkaBTC as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 
+#[derive(Encode, Decode, Clone, PartialEq, Debug)]
+pub enum VaultStatus {
+    /// Vault is active
+    Active = 0,
+
+    /// Vault has been liquidated
+    Liquidated = 1,
+}
+
+impl Default for VaultStatus {
+    fn default() -> Self {
+        VaultStatus::Active
+    }
+}
+
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct Vault<AccountId, BlockNumber, PolkaBTC> {
@@ -36,6 +51,9 @@ pub struct Vault<AccountId, BlockNumber, PolkaBTC> {
     // Block height until which this Vault is banned from being
     // used for Issue, Redeem (except during automatic liquidation) and Replace .
     pub banned_until: Option<BlockNumber>,
+
+    /// Current status of the vault
+    pub status: VaultStatus,
 }
 
 impl<AccountId, BlockNumber, PolkaBTC: HasCompact + Default>
@@ -49,6 +67,7 @@ impl<AccountId, BlockNumber, PolkaBTC: HasCompact + Default>
             issued_tokens: Default::default(),
             to_be_redeemed_tokens: Default::default(),
             banned_until: None,
+            status: VaultStatus::Active,
         }
     }
 }
@@ -212,13 +231,12 @@ impl<T: Trait> RichVault<T> {
         Ok(other.force_issue_tokens(tokens))
     }
 
-    pub fn liquidate(&self, liquidation_vault: &mut RichVault<T>) -> DispatchResult {
+    pub fn liquidate(&mut self, liquidation_vault: &mut RichVault<T>) -> DispatchResult {
         ext::collateral::slash::<T>(&self.id(), &liquidation_vault.id(), self.get_collateral())?;
         liquidation_vault.force_issue_tokens(self.data.issued_tokens);
         liquidation_vault.force_increase_to_be_issued(self.data.to_be_issued_tokens);
         liquidation_vault.force_increase_to_be_redeemed(self.data.to_be_redeemed_tokens);
-        <crate::Vaults<T>>::remove(&self.id());
-        Ok(())
+        Ok(self.update(|v| v.status = VaultStatus::Liquidated))
     }
 
     pub fn ensure_not_banned(&self, height: T::BlockNumber) -> DispatchResult {
