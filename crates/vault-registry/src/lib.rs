@@ -710,7 +710,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Get the current collateralization of a vault
-    pub fn get_collateralization_from_vault(vault_id: T::AccountId) -> Result<u128, DispatchError> {
+    pub fn get_collateralization_from_vault(vault_id: T::AccountId) -> Result<u64, DispatchError> {
         let vault = Self::rich_vault_from_id(&vault_id)?;
         let issued_tokens = vault.data.issued_tokens;
 
@@ -726,11 +726,13 @@ impl<T: Trait> Module<T> {
         // calculate the collateralization as a ratio of the issued tokens to the
         // amount of provided collateral at the current exchange rate. The result is scaled
         // by the GRANULARITY
-        let collateralization = raw_collateral_in_polka_btc
+        let collateralization: u64 = raw_collateral_in_polka_btc
             .checked_mul(10u128.pow(GRANULARITY))
             .ok_or(Error::<T>::ConversionError)?
             .checked_div(raw_issued_tokens)
-            .ok_or(Error::<T>::ConversionError)?;
+            .ok_or(Error::<T>::ConversionError)?
+            .try_into()
+            .map_err(|_| Error::<T>::ConversionError)?;
 
         Ok(collateralization)
     }

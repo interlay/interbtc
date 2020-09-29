@@ -567,7 +567,7 @@ impl_runtime_apis! {
             VaultRegistry::get_issuable_tokens_from_vault(vault)
         }
 
-        fn get_collateralization_from_vault(vault: AccountId) -> Result<u128, DispatchError> {
+        fn get_collateralization_from_vault(vault: AccountId) -> Result<u64, DispatchError> {
             VaultRegistry::get_collateralization_from_vault(vault)
         }
     }
