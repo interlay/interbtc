@@ -8,7 +8,7 @@ use mocktopus::mocking::*;
 use primitive_types::H256;
 use sp_core::H160;
 use sp_std::convert::TryInto;
-use vault_registry::Vault;
+use vault_registry::{Vault, VaultStatus};
 
 type Event = crate::Event<Test>;
 
@@ -96,6 +96,7 @@ fn test_request_redeem_fails_with_amount_exceeds_user_balance() {
                 to_be_redeemed_tokens: 0,
                 btc_address: H160([0; 20]),
                 banned_until: None,
+                status: VaultStatus::Active,
             }))
         });
         <treasury::Module<Test>>::mint(ALICE, 2);
@@ -133,6 +134,7 @@ fn test_request_redeem_fails_with_vault_banned() {
                 to_be_redeemed_tokens: 0,
                 btc_address: H160([0; 20]),
                 banned_until: Some(1),
+                status: VaultStatus::Active,
             }))
         });
         ext::vault_registry::ensure_not_banned::<Test>
@@ -141,6 +143,29 @@ fn test_request_redeem_fails_with_vault_banned() {
         assert_err!(
             Redeem::request_redeem(Origin::signed(ALICE), 0, H160::from_slice(&[0; 20]), BOB),
             VaultRegistryError::VaultBanned
+        );
+    })
+}
+
+#[test]
+fn test_request_redeem_fails_with_vault_liquidated() {
+    run_test(|| {
+        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
+            MockResult::Return(Ok(Vault {
+                id: BOB,
+                to_be_issued_tokens: 0,
+                issued_tokens: 0,
+                to_be_redeemed_tokens: 0,
+                btc_address: H160([0; 20]),
+                banned_until: Some(1),
+                status: VaultStatus::Liquidated,
+            }))
+        });
+
+        ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+        assert_err!(
+            Redeem::request_redeem(Origin::signed(ALICE), 0, H160::from_slice(&[0; 20]), BOB),
+            VaultRegistryError::VaultNotFound
         );
     })
 }
@@ -157,6 +182,7 @@ fn test_request_redeem_fails_with_amount_exceeds_vault_balance() {
                 to_be_redeemed_tokens: 0,
                 btc_address: H160([0; 20]),
                 banned_until: None,
+                status: VaultStatus::Active,
             }))
         });
         <treasury::Module<Test>>::mint(ALICE, 2);
@@ -188,6 +214,7 @@ fn test_request_redeem_succeeds_in_running_state() {
                 to_be_redeemed_tokens: 0,
                 btc_address: H160([0; 20]),
                 banned_until: None,
+                status: VaultStatus::Active,
             },
         );
 
@@ -279,6 +306,7 @@ fn test_request_redeem_succeeds_in_error_state() {
                 to_be_redeemed_tokens: 0,
                 btc_address: H160([0; 20]),
                 banned_until: None,
+                status: VaultStatus::Active,
             },
         );
         ext::vault_registry::increase_to_be_redeemed_tokens::<Test>.mock_safe(
@@ -432,6 +460,7 @@ fn test_execute_redeem_succeeds() {
                 to_be_redeemed_tokens: 200,
                 btc_address: H160([0; 20]),
                 banned_until: None,
+                status: VaultStatus::Active,
             },
         );
         ext::btc_relay::verify_transaction_inclusion::<Test>

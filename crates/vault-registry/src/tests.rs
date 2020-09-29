@@ -1,4 +1,4 @@
-use frame_support::{assert_err, assert_noop, assert_ok, StorageValue};
+use frame_support::{assert_err, assert_noop, assert_ok, StorageMap, StorageValue};
 use sp_core::H160;
 
 use mocktopus::mocking::*;
@@ -8,6 +8,7 @@ use crate::mock::{
     run_test, CollateralError, Origin, SecurityError, System, Test, TestError, TestEvent,
     VaultRegistry, DEFAULT_COLLATERAL, DEFAULT_ID, RICH_COLLATERAL, RICH_ID,
 };
+use crate::types::VaultStatus;
 use crate::GRANULARITY;
 
 type Event = crate::Event<Test>;
@@ -526,10 +527,9 @@ fn liquidate_succeeds() {
         let res = VaultRegistry::_liquidate_vault(&id);
         assert_ok!(res);
         let liquidation_vault = VaultRegistry::_get_vault_from_id(&liquidation_id).unwrap();
-        assert_err!(
-            VaultRegistry::_get_vault_from_id(&id),
-            TestError::VaultNotFound
-        );
+
+        let liquidated_vault = <crate::Vaults<Test>>::get(&id);
+        assert_eq!(liquidated_vault.status, VaultStatus::Liquidated);
 
         assert_eq!(
             liquidation_vault.issued_tokens,
