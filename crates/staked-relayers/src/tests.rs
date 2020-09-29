@@ -728,7 +728,8 @@ fn test_report_vault_passes_with_vault_transaction() {
         });
         ext::btc_relay::verify_transaction_inclusion::<Test>
             .mock_safe(move |_, _, _| MockResult::Return(Ok(())));
-        ext::vault_registry::liquidate_vault::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
+        ext::vault_registry::liquidate_theft_vault::<Test>
+            .mock_safe(|_| MockResult::Return(Ok(())));
 
         assert_ok!(Staking::report_vault_theft(
             Origin::signed(ALICE),
@@ -800,7 +801,8 @@ fn test_report_vault_succeeds_with_segwit_transaction() {
         });
         ext::btc_relay::verify_transaction_inclusion::<Test>
             .mock_safe(move |_, _, _| MockResult::Return(Ok(())));
-        ext::vault_registry::liquidate_vault::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
+        ext::vault_registry::liquidate_theft_vault::<Test>
+            .mock_safe(|_| MockResult::Return(Ok(())));
 
         assert_ok!(Staking::report_vault_theft(
             Origin::signed(ALICE),
@@ -823,7 +825,8 @@ fn test_report_vault_theft_succeeds() {
         ext::btc_relay::verify_transaction_inclusion::<Test>
             .mock_safe(move |_, _, _| MockResult::Return(Ok(())));
         Staking::is_transaction_invalid.mock_safe(move |_, _| MockResult::Return(Ok(())));
-        ext::vault_registry::liquidate_vault::<Test>.mock_safe(move |_| MockResult::Return(Ok(())));
+        ext::vault_registry::liquidate_theft_vault::<Test>
+            .mock_safe(move |_| MockResult::Return(Ok(())));
 
         assert_ok!(Staking::report_vault_theft(
             relayer,

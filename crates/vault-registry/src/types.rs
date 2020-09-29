@@ -18,13 +18,16 @@ pub(crate) type DOT<T> =
 pub(crate) type PolkaBTC<T> =
     <<T as treasury::Trait>::PolkaBTC as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 
-#[derive(Encode, Decode, Clone, PartialEq, Debug)]
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Debug)]
 pub enum VaultStatus {
     /// Vault is active
     Active = 0,
 
     /// Vault has been liquidated
     Liquidated = 1,
+
+    /// Vault theft has been reported
+    CommittedTheft = 2,
 }
 
 impl Default for VaultStatus {
@@ -231,12 +234,16 @@ impl<T: Trait> RichVault<T> {
         Ok(other.force_issue_tokens(tokens))
     }
 
-    pub fn liquidate(&mut self, liquidation_vault: &mut RichVault<T>) -> DispatchResult {
+    pub fn liquidate(
+        &mut self,
+        liquidation_vault: &mut RichVault<T>,
+        status: VaultStatus,
+    ) -> DispatchResult {
         ext::collateral::slash::<T>(&self.id(), &liquidation_vault.id(), self.get_collateral())?;
         liquidation_vault.force_issue_tokens(self.data.issued_tokens);
         liquidation_vault.force_increase_to_be_issued(self.data.to_be_issued_tokens);
         liquidation_vault.force_increase_to_be_redeemed(self.data.to_be_redeemed_tokens);
-        Ok(self.update(|v| v.status = VaultStatus::Liquidated))
+        Ok(self.update(|v| v.status = status))
     }
 
     pub fn ensure_not_banned(&self, height: T::BlockNumber) -> DispatchResult {
