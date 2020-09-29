@@ -32,7 +32,7 @@ pub trait VaultRegistryApi<BlockHash, AccountId, PolkaBTC> {
         &self,
         vault: AccountId,
         at: Option<BlockHash>,
-    ) -> Result<u128>;
+    ) -> Result<u64>;
 }
 
 /// A struct that implements the [`VaultRegistryApi`].
@@ -127,7 +127,7 @@ where
         &self,
         vault: AccountId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<u128> {
+    ) -> Result<u64> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 

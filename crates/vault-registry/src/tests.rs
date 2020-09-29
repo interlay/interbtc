@@ -749,7 +749,7 @@ fn get_collateralization_from_vault_succeeds() {
         assert_ok!(res);
         assert_eq!(
             VaultRegistry::get_collateralization_from_vault(id),
-            Ok(2 * 10u128.pow(GRANULARITY))
+            Ok(2 * 10u64.pow(GRANULARITY))
         );
     })
 }
