@@ -712,7 +712,9 @@ impl<T: Trait> Module<T> {
     /// Get the current collateralization of a vault
     pub fn get_collateralization_from_vault(vault_id: T::AccountId) -> Result<u64, DispatchError> {
         let vault = Self::rich_vault_from_id(&vault_id)?;
-        let issued_tokens = vault.data.issued_tokens;
+        let issued_tokens = vault.data.issued_tokens
+            + vault.data.to_be_issued_tokens
+            + vault.data.to_be_redeemed_tokens;
 
         // convert the issued_tokens to the raw amount
         let raw_issued_tokens = Self::polkabtc_to_u128(issued_tokens)?;
