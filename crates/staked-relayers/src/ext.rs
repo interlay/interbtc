@@ -54,6 +54,7 @@ pub(crate) mod oracle {
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
     use crate::types::PolkaBTC;
+    use ::vault_registry::VaultStatus;
     use frame_support::dispatch::{DispatchError, DispatchResult};
 
     pub fn get_vault_from_id<T: vault_registry::Trait>(
@@ -71,6 +72,15 @@ pub(crate) mod vault_registry {
 
     pub fn liquidate_vault<T: vault_registry::Trait>(vault_id: &T::AccountId) -> DispatchResult {
         <vault_registry::Module<T>>::_liquidate_vault(vault_id)
+    }
+
+    pub fn liquidate_theft_vault<T: vault_registry::Trait>(
+        vault_id: &T::AccountId,
+    ) -> DispatchResult {
+        <vault_registry::Module<T>>::_liquidate_vault_with_status(
+            vault_id,
+            VaultStatus::CommittedTheft,
+        )
     }
 }
 

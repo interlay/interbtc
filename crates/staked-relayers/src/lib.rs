@@ -371,7 +371,7 @@ decl_module! {
             ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, tx_block_height, merkle_proof)?;
             Self::is_transaction_invalid(&vault_id, raw_tx)?;
 
-            ext::vault_registry::liquidate_vault::<T>(&vault_id)?;
+            ext::vault_registry::liquidate_theft_vault::<T>(&vault_id)?;
             ext::security::set_parachain_status::<T>(StatusCode::Error);
             ext::security::mutate_errors::<T, _>(|errors| {
                 errors.insert(ErrorCode::Liquidation);

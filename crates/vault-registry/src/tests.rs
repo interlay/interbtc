@@ -550,6 +550,51 @@ fn liquidate_succeeds() {
 }
 
 #[test]
+fn liquidate_with_status_succeeds() {
+    run_test(|| {
+        let id = create_sample_vault();
+        let liquidation_id = create_vault(DEFAULT_ID + 1);
+        <crate::LiquidationVault<Test>>::put(liquidation_id);
+        set_default_thresholds();
+
+        ext::collateral::slash::<Test>.mock_safe(move |sender, receiver, amount| {
+            assert_eq!(sender, &id);
+            assert_eq!(receiver, &liquidation_id);
+            assert_eq!(amount, DEFAULT_COLLATERAL);
+            MockResult::Return(Ok(()))
+        });
+
+        VaultRegistry::_increase_to_be_issued_tokens(&id, 50).unwrap();
+        assert_ok!(VaultRegistry::_issue_tokens(&id, 25));
+        assert_ok!(VaultRegistry::_increase_to_be_redeemed_tokens(&id, 10));
+
+        let old_liquidation_vault = VaultRegistry::_get_vault_from_id(&liquidation_id).unwrap();
+        let res = VaultRegistry::_liquidate_vault_with_status(&id, VaultStatus::CommittedTheft);
+        assert_ok!(res);
+        let liquidation_vault = VaultRegistry::_get_vault_from_id(&liquidation_id).unwrap();
+
+        let liquidated_vault = <crate::Vaults<Test>>::get(&id);
+        assert_eq!(liquidated_vault.status, VaultStatus::CommittedTheft);
+
+        assert_eq!(
+            liquidation_vault.issued_tokens,
+            old_liquidation_vault.issued_tokens + 25
+        );
+
+        assert_eq!(
+            liquidation_vault.to_be_issued_tokens,
+            old_liquidation_vault.to_be_issued_tokens + 25
+        );
+
+        assert_eq!(
+            liquidation_vault.to_be_redeemed_tokens,
+            old_liquidation_vault.to_be_redeemed_tokens + 10
+        );
+        assert_emitted!(Event::LiquidateVault(id));
+    });
+}
+
+#[test]
 fn is_collateral_below_threshold_true_succeeds() {
     run_test(|| {
         let collateral = DEFAULT_COLLATERAL;

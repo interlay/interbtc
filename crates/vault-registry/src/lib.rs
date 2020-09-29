@@ -558,14 +558,24 @@ impl<T: Trait> Module<T> {
     }
 
     /// Liquidates a vault, transferring all of its token balances to the
+    /// Delegates to `_liquidate_vault_with_status`, using `Liquidated` status
+    pub fn _liquidate_vault(vault_id: &T::AccountId) -> DispatchResult {
+        Self::_liquidate_vault_with_status(vault_id, VaultStatus::Liquidated)
+    }
+
+    /// Liquidates a vault, transferring all of its token balances to the
     /// `LiquidationVault`, as well as the DOT collateral
     ///
     /// # Arguments
     /// * `vault_id` - the id of the vault to liquidate
+    /// * `status` - status with which to liquidate the vault
     ///
     /// # Errors
     /// * `VaultNotFound` - if the vault to liquidate does not exist
-    pub fn _liquidate_vault(vault_id: &T::AccountId) -> DispatchResult {
+    pub fn _liquidate_vault_with_status(
+        vault_id: &T::AccountId,
+        status: VaultStatus,
+    ) -> DispatchResult {
         // Parachain must not be shutdown
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
@@ -573,7 +583,7 @@ impl<T: Trait> Module<T> {
         let mut vault: RichVault<T> = Self::rich_vault_from_id(&vault_id)?;
         let mut liquidation_vault: RichVault<T> = Self::rich_vault_from_id(&liquidation_vault_id)?;
 
-        vault.liquidate(&mut liquidation_vault)?;
+        vault.liquidate(&mut liquidation_vault, status)?;
 
         Self::deposit_event(Event::<T>::LiquidateVault(vault_id.clone()));
         Ok(())
