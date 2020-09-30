@@ -182,7 +182,7 @@ decl_module! {
         /// * `merkle_proof` - raw bytes
         /// * `raw_tx` - raw bytes
         #[weight = 1000]
-        fn execute_redeem(origin, redeem_id: H256, tx_id: H256Le, tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
+        fn execute_redeem(origin, redeem_id: H256, tx_id: H256Le, _tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
             -> DispatchResult
         {
             let vault_id = ensure_signed(origin)?;
@@ -201,7 +201,7 @@ decl_module! {
                 .amount_btc
                 .try_into()
                 .map_err(|_e| Error::<T>::ConversionError)?;
-            ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, tx_block_height, merkle_proof)?;
+            ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
             ext::btc_relay::validate_transaction::<T>(
                 raw_tx,
                 amount as i64,

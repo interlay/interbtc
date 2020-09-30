@@ -319,7 +319,6 @@ decl_module! {
         fn verify_and_validate_transaction(
             origin,
             tx_id: H256Le,
-            block_height: u32,
             raw_merkle_proof: Vec<u8>,
             confirmations: u32,
             insecure: bool,
@@ -339,7 +338,7 @@ decl_module! {
 
             // Verify that the transaction is indeed included in the main chain
             // Check for Parachain RUNNING state is performed here
-            Self::_verify_transaction_inclusion(tx_id, block_height, raw_merkle_proof, confirmations, insecure)?;
+            Self::_verify_transaction_inclusion(tx_id, raw_merkle_proof, confirmations, insecure)?;
 
             // Parse transaction and check that it matches the given parameters
             Self::_validate_transaction(raw_tx, payment_value, recipient_btc_address, op_return_id)?;
@@ -363,14 +362,13 @@ decl_module! {
         fn verify_transaction_inclusion(
             origin,
             tx_id: H256Le,
-            block_height: u32,
             raw_merkle_proof: Vec<u8>,
             confirmations: u32,
             insecure: bool)
         -> DispatchResult {
             let _ = ensure_signed(origin)?;
 
-            Self::_verify_transaction_inclusion(tx_id, block_height, raw_merkle_proof, confirmations, insecure)?;
+            Self::_verify_transaction_inclusion(tx_id, raw_merkle_proof, confirmations, insecure)?;
             Ok(())
         }
 
@@ -409,16 +407,25 @@ decl_module! {
 impl<T: Trait> Module<T> {
     pub fn _verify_transaction_inclusion(
         tx_id: H256Le,
-        block_height: u32,
         raw_merkle_proof: Vec<u8>,
         confirmations: u32,
         insecure: bool,
     ) -> Result<(), DispatchError> {
-        Self::transaction_verification_allowed(block_height)?;
-
         let best_block_height = Self::get_best_block_height();
-
         Self::ensure_no_ongoing_fork(best_block_height)?;
+
+        let merkle_proof = Self::parse_merkle_proof(&raw_merkle_proof)?;
+
+        let rich_header = Self::get_block_header_from_hash(merkle_proof.block_header.hash())?;
+
+        ensure!(
+            rich_header.chain_ref == MAIN_CHAIN_ID,
+            Error::<T>::InvalidChainID
+        );
+
+        let block_height = rich_header.block_height;
+
+        Self::transaction_verification_allowed(block_height)?;
 
         // This call fails if not enough confirmations
         Self::check_bitcoin_confirmations(
@@ -428,14 +435,10 @@ impl<T: Trait> Module<T> {
             insecure,
         )?;
 
-        let proof_result = Self::verify_merkle_proof(&raw_merkle_proof)?;
-        let rich_header = Self::get_block_header_from_height(
-            &Self::get_block_chain_from_id(MAIN_CHAIN_ID)?,
-            block_height,
-        )?;
-
         // This call fails if the block was stored too recently
         Self::check_parachain_confirmations(rich_header.block_hash)?;
+
+        let proof_result = Self::verify_merkle_proof(&merkle_proof)?;
 
         // fail if the transaction hash is invalid
         ensure!(
@@ -700,10 +703,12 @@ impl<T: Trait> Module<T> {
         Ok(parse_transaction(&raw_tx)?)
     }
 
-    fn verify_merkle_proof(raw_merkle_proof: &[u8]) -> Result<ProofResult, DispatchError> {
-        let merkle_proof = MerkleProof::parse(&raw_merkle_proof)?;
+    fn parse_merkle_proof(raw_merkle_proof: &[u8]) -> Result<MerkleProof, DispatchError> {
+        MerkleProof::parse(&raw_merkle_proof).map_err(|e| e.into())
+    }
 
-        Ok(merkle_proof.verify_proof()?)
+    fn verify_merkle_proof(merkle_proof: &MerkleProof) -> Result<ProofResult, DispatchError> {
+        merkle_proof.verify_proof().map_err(|e| e.into())
     }
     /// Parses and verifies a raw Bitcoin block header.
     /// # Arguments

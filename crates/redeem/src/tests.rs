@@ -464,7 +464,7 @@ fn test_execute_redeem_succeeds() {
             },
         );
         ext::btc_relay::verify_transaction_inclusion::<Test>
-            .mock_safe(|_, _, _| MockResult::Return(Ok(())));
+            .mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::btc_relay::validate_transaction::<Test>
             .mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
 

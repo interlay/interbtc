@@ -163,9 +163,9 @@ decl_module! {
         /// * 'merkle_proof' - the merkle root of the block
         /// * `raw_tx` - the transaction id in bytes
         #[weight = 1000]
-        fn execute_replace(origin, replace_id: H256, tx_id: H256Le, tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
+        fn execute_replace(origin, replace_id: H256, tx_id: H256Le, _tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
             let new_vault = ensure_signed(origin)?;
-            Self::_execute_replace(new_vault, replace_id, tx_id, tx_block_height, merkle_proof, raw_tx)?;
+            Self::_execute_replace(new_vault, replace_id, tx_id, merkle_proof, raw_tx)?;
             Ok(())
         }
 
@@ -375,7 +375,6 @@ impl<T: Trait> Module<T> {
         new_vault_id: T::AccountId,
         replace_id: H256,
         tx_id: H256Le,
-        tx_block_height: u32,
         merkle_proof: Vec<u8>,
         raw_tx: Vec<u8>,
     ) -> Result<(), DispatchError> {
@@ -393,7 +392,7 @@ impl<T: Trait> Module<T> {
         // step 3: Retrieve the Vault as per the newVault parameter from Vaults in the VaultRegistry
         let _new_vault = ext::vault_registry::get_vault_from_id::<T>(&new_vault_id)?;
         // step 4: Call verifyTransactionInclusion in BTC-Relay, providing txid, txBlockHeight, txIndex, and merkleProof as parameters
-        ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, tx_block_height, merkle_proof)?;
+        ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
         // step 5: Call validateTransaction in BTC-Relay
         let amount = TryInto::<u64>::try_into(replace.amount)
             .map_err(|_e| Error::<T>::ConversionError)? as i64;
