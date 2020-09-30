@@ -3,7 +3,7 @@ replicaCount: 1
 image:
     repository: "registry.gitlab.com/interlay/btc-parachain"
     pullPolicy: IfNotPresent
-    tag: "26302a8615a07416402e18e48e044fd6cd03d76f"
+    tag: "latest"
 
 imagePullSecrets: []
 nameOverride: ""
