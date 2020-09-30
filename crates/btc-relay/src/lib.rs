@@ -112,6 +112,9 @@ decl_storage! {
 
         /// Global security parameter k for stable Parachain transactions
         StableParachainConfirmations get(fn parachain_confirmations) config(): T::BlockNumber;
+
+        /// Whether the module should perform difficulty checks.
+        DifficultyCheck get(fn difficulty_check) config(): bool;
     }
 }
 
@@ -735,6 +738,10 @@ impl<T: Trait> Module<T> {
 
         // Check that the diff. target is indeed correctly set in the block header, i.e., check for re-target.
         let block_height = prev_block_header.block_height + 1;
+
+        if !Self::difficulty_check() {
+            return Ok(basic_block_header);
+        }
 
         let expected_target =
             if block_height >= 2016 && block_height % DIFFICULTY_ADJUSTMENT_INTERVAL == 0 {

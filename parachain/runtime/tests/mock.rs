@@ -216,6 +216,7 @@ impl ExtBuilder {
         btc_relay::GenesisConfig::<Runtime> {
             bitcoin_confirmations: CONFIRMATIONS,
             parachain_confirmations: CONFIRMATIONS,
+            difficulty_check: true,
         }
         .assimilate_storage(&mut storage)
         .unwrap();

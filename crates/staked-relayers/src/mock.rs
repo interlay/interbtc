@@ -155,6 +155,7 @@ parameter_types! {
     pub const MinimumParticipants: u64 = 3;
     pub const VoteThreshold: u64 = 50;
 }
+
 impl Trait for Test {
     type Event = TestEvent;
     type MaturityPeriod = MaturityPeriod;
