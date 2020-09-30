@@ -6,6 +6,8 @@ variables:
     CARGO_HOME: $CI_PROJECT_DIR/.cargo
     RUSTC_WRAPPER: sccache
     SCCACHE_GCS_RW_MODE: READ_WRITE
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
 
 before_script:
     - rustc --version
@@ -40,17 +42,16 @@ test-pallets-and-crates:
 
 docker-publish:
     stage: deploy
-    image: docker:19.03.8
-    variables:
-        DOCKER_HOST: tcp://docker:2376
-        DOCKER_TLS_CERTDIR: "/certs"
+    image: docker:19.03.12
     services:
-        - docker:19.03.8-dind
+        - docker:19.03.12-dind
     before_script:
         - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
     script:
-        - docker build . -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+        - docker pull $CI_REGISTRY_IMAGE:latest || true
+        - docker build --cache-from $CI_REGISTRY_IMAGE:latest --tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA --tag $CI_REGISTRY_IMAGE:latest .
         - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
+        - docker push $CI_REGISTRY_IMAGE:latest
     only:
         - master
         - dev
