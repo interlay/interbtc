@@ -103,6 +103,7 @@ impl ExtBuilder {
         GenesisConfig::<Test> {
             bitcoin_confirmations: BITCOIN_CONFIRMATIONS,
             parachain_confirmations: PARACHAIN_CONFIRMATIONS,
+            difficulty_check: true,
         }
         .assimilate_storage(&mut storage)
         .unwrap();

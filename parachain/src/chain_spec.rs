@@ -181,6 +181,7 @@ fn testnet_genesis(
         btc_relay: Some(BTCRelayConfig {
             bitcoin_confirmations: 6,
             parachain_confirmations: 0,
+            difficulty_check: false,
         }),
         vault_registry: Some(VaultRegistryConfig {
             secure_collateral_threshold: 100000,
