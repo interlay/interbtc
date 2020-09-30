@@ -129,11 +129,11 @@ decl_module! {
         /// * `merkle_proof` - raw bytes
         /// * `raw_tx` - raw bytes
         #[weight = 1000]
-        fn execute_issue(origin, issue_id: H256, tx_id: H256Le, tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
+        fn execute_issue(origin, issue_id: H256, tx_id: H256Le, _tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
             -> DispatchResult
         {
             let requester = ensure_signed(origin)?;
-            Self::_execute_issue(requester, issue_id, tx_id, tx_block_height, merkle_proof, raw_tx)?;
+            Self::_execute_issue(requester, issue_id, tx_id, merkle_proof, raw_tx)?;
             Ok(())
         }
 
@@ -212,7 +212,6 @@ impl<T: Trait> Module<T> {
         requester: T::AccountId,
         issue_id: H256,
         tx_id: H256Le,
-        tx_block_height: u32,
         merkle_proof: Vec<u8>,
         raw_tx: Vec<u8>,
     ) -> Result<(), DispatchError> {
@@ -229,7 +228,7 @@ impl<T: Trait> Module<T> {
             Error::<T>::CommitPeriodExpired
         );
 
-        ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, tx_block_height, merkle_proof)?;
+        ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
         ext::btc_relay::validate_transaction::<T>(
             raw_tx,
             TryInto::<u64>::try_into(issue.amount).map_err(|_e| Error::<T>::ConversionError)?

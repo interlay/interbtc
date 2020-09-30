@@ -968,7 +968,7 @@ fn test_verify_and_validate_transaction_succeeds() {
         assert_eq!(transaction.tx_id(), real_txid);
 
         // rest are example values -- not checked in this test.
-        let block_height = 0;
+        // let block_height = 0;
         let raw_merkle_proof = vec![0u8; 100];
         let confirmations = 0;
         let insecure = false;
@@ -981,12 +981,11 @@ fn test_verify_and_validate_transaction_succeeds() {
         .unwrap();
         BTCRelay::_validate_transaction.mock_safe(move |_, _, _, _| MockResult::Return(Ok(())));
         BTCRelay::_verify_transaction_inclusion
-            .mock_safe(move |_, _, _, _, _| MockResult::Return(Ok(())));
+            .mock_safe(move |_, _, _, _| MockResult::Return(Ok(())));
 
         assert_ok!(BTCRelay::verify_and_validate_transaction(
             Origin::signed(3),
             real_txid,
-            block_height,
             raw_merkle_proof,
             confirmations,
             insecure,
@@ -1245,7 +1244,6 @@ fn test_verify_transaction_inclusion_succeeds() {
     run_test(|| {
         let chain_ref = 0;
         let fork_ref = 1;
-        let block_height = 203;
         let start = 10;
         let main_chain_height = 300;
         let fork_chain_height = 280;
@@ -1255,6 +1253,7 @@ fn test_verify_transaction_inclusion_succeeds() {
         let insecure = false;
         let rich_block_header = sample_rich_tx_block_header(chain_ref, main_chain_height);
 
+        let proof = sample_merkle_proof();
         let proof_result = sample_valid_proof_result();
 
         let main =
@@ -1275,10 +1274,11 @@ fn test_verify_transaction_inclusion_succeeds() {
 
         BTCRelay::get_best_block_height.mock_safe(move || MockResult::Return(main_chain_height));
 
+        BTCRelay::parse_merkle_proof.mock_safe(move |_| MockResult::Return(Ok(proof.clone())));
         BTCRelay::verify_merkle_proof.mock_safe(move |_| MockResult::Return(Ok(proof_result)));
 
-        BTCRelay::get_block_header_from_height
-            .mock_safe(move |_, _| MockResult::Return(Ok(rich_block_header)));
+        BTCRelay::get_block_header_from_hash
+            .mock_safe(move |_| MockResult::Return(Ok(rich_block_header)));
 
         BTCRelay::check_bitcoin_confirmations.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
 
@@ -1287,7 +1287,6 @@ fn test_verify_transaction_inclusion_succeeds() {
         assert_ok!(BTCRelay::verify_transaction_inclusion(
             Origin::signed(3),
             proof_result.transaction_hash,
-            block_height,
             raw_merkle_proof,
             confirmations,
             insecure
@@ -1299,7 +1298,6 @@ fn test_verify_transaction_inclusion_succeeds() {
 fn test_verify_transaction_inclusion_empty_fork_succeeds() {
     run_test(|| {
         let chain_ref = 0;
-        let block_height = 203;
         let start = 10;
         let main_chain_height = 300;
         // Random init since we mock this
@@ -1308,6 +1306,7 @@ fn test_verify_transaction_inclusion_empty_fork_succeeds() {
         let insecure = false;
         let rich_block_header = sample_rich_tx_block_header(chain_ref, main_chain_height);
 
+        let proof = sample_merkle_proof();
         let proof_result = sample_valid_proof_result();
 
         let main =
@@ -1323,10 +1322,11 @@ fn test_verify_transaction_inclusion_empty_fork_succeeds() {
 
         BTCRelay::get_best_block_height.mock_safe(move || MockResult::Return(main_chain_height));
 
+        BTCRelay::parse_merkle_proof.mock_safe(move |_| MockResult::Return(Ok(proof.clone())));
         BTCRelay::verify_merkle_proof.mock_safe(move |_| MockResult::Return(Ok(proof_result)));
 
-        BTCRelay::get_block_header_from_height
-            .mock_safe(move |_, _| MockResult::Return(Ok(rich_block_header)));
+        BTCRelay::get_block_header_from_hash
+            .mock_safe(move |_| MockResult::Return(Ok(rich_block_header)));
 
         BTCRelay::check_bitcoin_confirmations.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
 
@@ -1335,7 +1335,6 @@ fn test_verify_transaction_inclusion_empty_fork_succeeds() {
         assert_ok!(BTCRelay::verify_transaction_inclusion(
             Origin::signed(3),
             proof_result.transaction_hash,
-            block_height,
             raw_merkle_proof,
             confirmations,
             insecure
@@ -1348,7 +1347,6 @@ fn test_verify_transaction_inclusion_invalid_tx_id_fails() {
     run_test(|| {
         let chain_ref = 0;
         let fork_ref = 1;
-        let block_height = 203;
         let start = 10;
         let main_chain_height = 300;
         let fork_chain_height = 280;
@@ -1366,6 +1364,7 @@ fn test_verify_transaction_inclusion_invalid_tx_id_fails() {
             .unwrap(),
         );
 
+        let proof = sample_merkle_proof();
         let proof_result = sample_valid_proof_result();
 
         let main =
@@ -1386,10 +1385,11 @@ fn test_verify_transaction_inclusion_invalid_tx_id_fails() {
 
         BTCRelay::get_best_block_height.mock_safe(move || MockResult::Return(main_chain_height));
 
+        BTCRelay::parse_merkle_proof.mock_safe(move |_| MockResult::Return(Ok(proof.clone())));
         BTCRelay::verify_merkle_proof.mock_safe(move |_| MockResult::Return(Ok(proof_result)));
 
-        BTCRelay::get_block_header_from_height
-            .mock_safe(move |_, _| MockResult::Return(Ok(rich_block_header)));
+        BTCRelay::get_block_header_from_hash
+            .mock_safe(move |_| MockResult::Return(Ok(rich_block_header)));
 
         BTCRelay::check_bitcoin_confirmations.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
 
@@ -1399,7 +1399,6 @@ fn test_verify_transaction_inclusion_invalid_tx_id_fails() {
             BTCRelay::verify_transaction_inclusion(
                 Origin::signed(3),
                 invalid_tx_id,
-                block_height,
                 raw_merkle_proof,
                 confirmations,
                 insecure
@@ -1414,7 +1413,6 @@ fn test_verify_transaction_inclusion_invalid_merkle_root_fails() {
     run_test(|| {
         let chain_ref = 0;
         let fork_ref = 1;
-        let block_height = 203;
         let start = 10;
         let main_chain_height = 300;
         let fork_chain_height = 280;
@@ -1433,6 +1431,7 @@ fn test_verify_transaction_inclusion_invalid_merkle_root_fails() {
         );
         rich_block_header.block_header.merkle_root = invalid_merkle_root;
 
+        let proof = sample_merkle_proof();
         let proof_result = sample_valid_proof_result();
 
         let main =
@@ -1453,10 +1452,10 @@ fn test_verify_transaction_inclusion_invalid_merkle_root_fails() {
 
         BTCRelay::get_best_block_height.mock_safe(move || MockResult::Return(main_chain_height));
 
-        BTCRelay::verify_merkle_proof.mock_safe(move |_| MockResult::Return(Ok(proof_result)));
+        BTCRelay::parse_merkle_proof.mock_safe(move |_| MockResult::Return(Ok(proof.clone())));
 
-        BTCRelay::get_block_header_from_height
-            .mock_safe(move |_, _| MockResult::Return(Ok(rich_block_header)));
+        BTCRelay::get_block_header_from_hash
+            .mock_safe(move |_| MockResult::Return(Ok(rich_block_header)));
 
         BTCRelay::check_bitcoin_confirmations.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
 
@@ -1466,7 +1465,6 @@ fn test_verify_transaction_inclusion_invalid_merkle_root_fails() {
             BTCRelay::verify_transaction_inclusion(
                 Origin::signed(3),
                 proof_result.transaction_hash,
-                block_height,
                 raw_merkle_proof,
                 confirmations,
                 insecure
@@ -1484,7 +1482,6 @@ fn test_verify_transaction_inclusion_fails_with_ongoing_fork() {
             .mock_safe(|_| MockResult::Return(Ok(BlockChain::default())));
 
         let tx_id = sample_valid_proof_result().transaction_hash;
-        let block_height = 203;
         let raw_merkle_proof = vec![0u8; 100];
         let confirmations = 0;
         let insecure = false;
@@ -1493,7 +1490,6 @@ fn test_verify_transaction_inclusion_fails_with_ongoing_fork() {
             BTCRelay::verify_transaction_inclusion(
                 Origin::signed(3),
                 tx_id,
-                block_height,
                 raw_merkle_proof,
                 confirmations,
                 insecure
@@ -1729,15 +1725,37 @@ fn store_generated_block_headers() {
 
 /// # Util functions
 
+const SAMPLE_TX_ID: &'static str =
+    "c8589f304d3b9df1d4d8b3d15eb6edaaa2af9d796e9d9ace12b31f293705c5e9";
+
+const SAMPLE_MERKLE_ROOT: &'static str =
+    "1EE1FB90996CA1D5DCD12866BA9066458BF768641215933D7D8B3A10EF79D090";
+
+fn sample_merkle_proof() -> MerkleProof {
+    MerkleProof {
+        block_header: sample_block_header(),
+        transactions_count: 1,
+        hashes: vec![H256Le::from_hex_le(SAMPLE_TX_ID)],
+        flag_bits: vec![true],
+    }
+}
+
+fn sample_block_header() -> BlockHeader {
+    BlockHeader {
+        merkle_root: H256Le::from_hex_le(SAMPLE_MERKLE_ROOT),
+        target: 123.into(),
+        timestamp: 1601494682,
+        version: 2,
+        hash_prev_block: H256Le::from_hex_be(
+            "0000000000000000000e84948eaacb9b03382782f16f2d8a354de69f2e5a2a68",
+        ),
+        nonce: 0,
+    }
+}
+
 fn sample_valid_proof_result() -> ProofResult {
-    let tx_id = H256Le::from_bytes_le(
-        &hex::decode("c8589f304d3b9df1d4d8b3d15eb6edaaa2af9d796e9d9ace12b31f293705c5e9".to_owned())
-            .unwrap(),
-    );
-    let merkle_root = H256Le::from_bytes_le(
-        &hex::decode("1EE1FB90996CA1D5DCD12866BA9066458BF768641215933D7D8B3A10EF79D090".to_owned())
-            .unwrap(),
-    );
+    let tx_id = H256Le::from_hex_le(SAMPLE_TX_ID);
+    let merkle_root = H256Le::from_hex_le(SAMPLE_MERKLE_ROOT);
 
     ProofResult {
         extracted_root: merkle_root,

@@ -57,7 +57,6 @@ fn execute_issue(origin: AccountId, issue_id: &H256) -> Result<(), DispatchError
         origin,
         *issue_id,
         H256Le::zero(),
-        0,
         vec![0u8; 100],
         vec![0u8; 100],
     )
@@ -67,7 +66,7 @@ fn execute_issue_ok(origin: AccountId, issue_id: &H256) {
     ext::security::ensure_parachain_status_running::<Test>.mock_safe(|| MockResult::Return(Ok(())));
 
     ext::btc_relay::verify_transaction_inclusion::<Test>
-        .mock_safe(|_, _, _| MockResult::Return(Ok(())));
+        .mock_safe(|_, _| MockResult::Return(Ok(())));
 
     ext::btc_relay::validate_transaction::<Test>.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
 
@@ -275,7 +274,6 @@ fn test_execute_issue_parachain_not_running_fails() {
                 origin,
                 H256::zero(),
                 H256Le::zero(),
-                0,
                 vec![0u8; 100],
                 vec![0u8; 100],
             ),

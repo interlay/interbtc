@@ -41,7 +41,6 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
                 if block.height <= current_height - CONFIRMATIONS {
                     assert_ok!(Call::BTCRelay(BTCRelayCall::verify_transaction_inclusion(
                         txid,
-                        block.height,
                         raw_merkle_proof,
                         CONFIRMATIONS,
                         false
@@ -52,7 +51,6 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
                     assert_err!(
                         Call::BTCRelay(BTCRelayCall::verify_transaction_inclusion(
                             txid,
-                            block.height,
                             raw_merkle_proof,
                             CONFIRMATIONS,
                             false

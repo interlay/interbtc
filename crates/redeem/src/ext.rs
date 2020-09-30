@@ -9,16 +9,9 @@ pub(crate) mod btc_relay {
 
     pub fn verify_transaction_inclusion<T: btc_relay::Trait>(
         tx_id: H256Le,
-        tx_block_height: u32,
         merkle_proof: Vec<u8>,
     ) -> DispatchResult {
-        <btc_relay::Module<T>>::_verify_transaction_inclusion(
-            tx_id,
-            tx_block_height,
-            merkle_proof,
-            0,
-            false,
-        )
+        <btc_relay::Module<T>>::_verify_transaction_inclusion(tx_id, merkle_proof, 0, false)
     }
 
     pub fn validate_transaction<T: btc_relay::Trait>(

@@ -351,7 +351,7 @@ decl_module! {
         /// * `merkle_proof`: The proof of tx inclusion.
         /// * `raw_tx`: The raw Bitcoin transaction.
         #[weight = 1000]
-        fn report_vault_theft(origin, vault_id: T::AccountId, tx_id: H256Le, tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
+        fn report_vault_theft(origin, vault_id: T::AccountId, tx_id: H256Le, _tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             ensure!(
                 Self::check_relayer_registered(&signer),
@@ -368,7 +368,7 @@ decl_module! {
                 );
             }
 
-            ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, tx_block_height, merkle_proof)?;
+            ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
             Self::is_transaction_invalid(&vault_id, raw_tx)?;
 
             ext::vault_registry::liquidate_theft_vault::<T>(&vault_id)?;
