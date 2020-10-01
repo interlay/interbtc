@@ -64,6 +64,27 @@ fn create_sample_vault() -> <Test as frame_system::Trait>::AccountId {
     create_vault(DEFAULT_ID)
 }
 
+fn create_sample_vault_and_issue_tokens(issue_tokens: u64) -> <Test as frame_system::Trait>::AccountId {
+    // vault has no tokens issued yet
+    let id = create_sample_vault();
+
+    // exchange rate 1 Satoshi = 10 Planck (smallest unit of DOT)
+    let dots: u64 = DEFAULT_COLLATERAL / 10;
+    ext::oracle::dots_to_btc::<Test>
+        .mock_safe(move |_| MockResult::Return(Ok(dots.clone().into())));
+
+    // issue PolkaBTC with 200% collateralization of DEFAULT_COLLATERAL
+    let vault = VaultRegistry::_get_vault_from_id(&id).unwrap();
+    assert_ok!(
+        VaultRegistry::_increase_to_be_issued_tokens(&id, issue_tokens),
+        vault.btc_address
+    );
+    let res = VaultRegistry::_issue_tokens(&id, issue_tokens);
+    assert_ok!(res);
+
+    id
+}
+
 #[test]
 fn register_vault_succeeds() {
     run_test(|| {
@@ -685,26 +706,40 @@ fn get_collateralization_from_vault_fails_with_no_tokens_issued() {
 #[test]
 fn get_collateralization_from_vault_succeeds() {
     run_test(|| {
-        // vault has no tokens issued yet
-        let id = create_sample_vault();
+        let issue_tokens: u64 = DEFAULT_COLLATERAL / 10 / 2; // = 5
+        let id = create_sample_vault_and_issue_tokens(issue_tokens);
 
-        // exchange rate 1 Satoshi = 10 Planck (smallest unit of DOT)
-        let dots: u64 = DEFAULT_COLLATERAL / 10;
-        ext::oracle::dots_to_btc::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(dots.clone().into())));
-
-        // issue PolkaBTC with 200% collateralization of DEFAULT_COLLATERAL
-        let issue_tokens = DEFAULT_COLLATERAL / 10 / 2; //  = 5
-        let vault = VaultRegistry::_get_vault_from_id(&id).unwrap();
-        assert_ok!(
-            VaultRegistry::_increase_to_be_issued_tokens(&id, issue_tokens),
-            vault.btc_address
-        );
-        let res = VaultRegistry::_issue_tokens(&id, issue_tokens);
-        assert_ok!(res);
         assert_eq!(
             VaultRegistry::get_collateralization_from_vault(id),
             Ok(2 * 10u64.pow(GRANULARITY))
         );
+    })
+}
+
+#[test]
+fn get_first_vault_with_sufficient_collateral_succeeds() {
+    run_test(|| {
+        let issue_tokens: u64 = DEFAULT_COLLATERAL / 10 / 2; // = 5
+        let id = create_sample_vault_and_issue_tokens(issue_tokens);
+
+        assert_eq!(
+            VaultRegistry::get_first_vault_with_sufficient_collateral(issue_tokens),
+            Ok(id)
+        );
+
+    })
+}
+
+#[test]
+fn get_first_vault_with_sufficient_tokens_succeeds() {
+    run_test(|| {
+        let issue_tokens: u64 = DEFAULT_COLLATERAL / 10 / 2; // = 5
+        let id = create_sample_vault_and_issue_tokens(issue_tokens);
+
+        assert_eq!(
+            VaultRegistry::get_first_vault_with_sufficient_tokens(issue_tokens),
+            Ok(id)
+        );
+
     })
 }

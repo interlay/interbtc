@@ -14,6 +14,9 @@ sp_api::decl_runtime_apis! {
         /// with the specified amount of PolkaBTC.
         fn get_first_vault_with_sufficient_collateral(amount: PolkaBTC) -> Result<AccountId, DispatchError>;
 
+        /// Get the first available vault with sufficient tokens to fulfil a redeem request
+        fn get_first_vault_with_sufficient_tokens(amount: PolkaBTC) -> Result<AccountId, DispatchError>;
+
         /// Get the amount of tokens a vault can issue
         fn get_issuable_tokens_from_vault(vault: AccountId) -> Result<PolkaBTC, DispatchError>;
 
