@@ -563,6 +563,10 @@ impl_runtime_apis! {
             VaultRegistry::get_first_vault_with_sufficient_collateral(amount)
         }
 
+        fn get_first_vault_with_sufficient_tokens(amount: Balance) -> Result<AccountId, DispatchError> {
+            VaultRegistry::get_first_vault_with_sufficient_tokens(amount)
+        }
+
         fn get_issuable_tokens_from_vault(vault: AccountId) -> Result<Balance, DispatchError> {
             VaultRegistry::get_issuable_tokens_from_vault(vault)
         }

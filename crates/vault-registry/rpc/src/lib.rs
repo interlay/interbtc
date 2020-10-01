@@ -20,6 +20,13 @@ pub trait VaultRegistryApi<BlockHash, AccountId, PolkaBTC> {
         at: Option<BlockHash>,
     ) -> Result<AccountId>;
 
+    #[rpc(name = "vaultRegistry_getFirstVaultWithSufficientTokens")]
+    fn get_first_vault_with_sufficient_tokens(
+        &self,
+        amount: PolkaBTC,
+        at: Option<BlockHash>,
+    ) -> Result<AccountId>;
+
     #[rpc(name = "vaultRegistry_getIssueableTokensFromVault")]
     fn get_issuable_tokens_from_vault(
         &self,
@@ -93,6 +100,32 @@ where
                     result.map_err(|e| RpcError {
                         code: ErrorCode::ServerError(Error::RuntimeError.into()),
                         message: "Unable to find a vault with sufficient collateral.".into(),
+                        data: Some(format!("{:?}", e).into()),
+                    })
+                },
+            )
+    }
+    fn get_first_vault_with_sufficient_tokens(
+        &self,
+        amount: PolkaBTC,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<AccountId> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        api.get_first_vault_with_sufficient_tokens(&at, amount)
+            .map_or_else(
+                |e| {
+                    Err(RpcError {
+                        code: ErrorCode::ServerError(Error::RuntimeError.into()),
+                        message: "Unable to find a vault with sufficient tokens.".into(),
+                        data: Some(format!("{:?}", e).into()),
+                    })
+                },
+                |result| {
+                    result.map_err(|e| RpcError {
+                        code: ErrorCode::ServerError(Error::RuntimeError.into()),
+                        message: "Unable to find a vault with sufficient tokens.".into(),
                         data: Some(format!("{:?}", e).into()),
                     })
                 },

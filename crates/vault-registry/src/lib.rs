@@ -711,6 +711,19 @@ impl<T: Trait> Module<T> {
         Ok(vault.0)
     }
 
+    /// Get the first available vault with sufficient locked PolkaBTC to fulfil a redeem request.
+    pub fn get_first_vault_with_sufficient_tokens(
+        amount: PolkaBTC<T>,
+    ) -> Result<T::AccountId, DispatchError> {
+        let vault = <Vaults<T>>::iter()
+            .find(|v| {
+                // iterator returns tuple of (AccountId, Vault<T>), we only need the vault
+                v.1.issued_tokens >= amount
+            })
+            .ok_or(Error::<T>::NoVaultWithSufficientTokens)?;
+        Ok(vault.0)
+    }
+
     /// Get the amount of tokens a vault can issue
     pub fn get_issuable_tokens_from_vault(
         vault_id: T::AccountId,
@@ -882,6 +895,7 @@ decl_error! {
         ConversionError,
         /// Collateralization is infinite if no tokens are issued
         NoTokensIssued,
-        NoVaultWithSufficientCollateral
+        NoVaultWithSufficientCollateral,
+        NoVaultWithSufficientTokens
     }
 }
