@@ -64,7 +64,9 @@ fn create_sample_vault() -> <Test as frame_system::Trait>::AccountId {
     create_vault(DEFAULT_ID)
 }
 
-fn create_sample_vault_and_issue_tokens(issue_tokens: u64) -> <Test as frame_system::Trait>::AccountId {
+fn create_sample_vault_and_issue_tokens(
+    issue_tokens: u64,
+) -> <Test as frame_system::Trait>::AccountId {
     // vault has no tokens issued yet
     let id = create_sample_vault();
 
@@ -726,7 +728,6 @@ fn get_first_vault_with_sufficient_collateral_succeeds() {
             VaultRegistry::get_first_vault_with_sufficient_collateral(issue_tokens),
             Ok(id)
         );
-
     })
 }
 
@@ -740,6 +741,5 @@ fn get_first_vault_with_sufficient_tokens_succeeds() {
             VaultRegistry::get_first_vault_with_sufficient_tokens(issue_tokens),
             Ok(id)
         );
-
     })
 }
