@@ -234,6 +234,37 @@ decl_module! {
             );
             ext::collateral::lock_collateral::<T>(&signer, deposit)?;
 
+            if let Some(add_error) = add_error {
+                match add_error {
+                    ErrorCode::NoDataBTCRelay => {
+                        ensure!(
+                            block_hash.is_some(),
+                            Error::<T>::ExpectedBlockHash
+                        );
+                    },
+                    ErrorCode::InvalidBTCRelay => {
+                        ensure!(
+                            block_hash.is_some(),
+                            Error::<T>::ExpectedBlockHash
+                        );
+                    }
+                    _ => {
+                        ensure!(
+                            block_hash.is_none(),
+                            Error::<T>::UnexpectedBlockHash
+                        );
+
+                    }
+                }
+            }
+
+            if let Some(block_hash) = block_hash {
+                ensure!(
+                    ext::btc_relay::block_header_exists::<T>(block_hash),
+                    Error::<T>::ExpectedBlockHash,
+                );
+            }
+
             // pre-approve
             let mut tally = Tally::default();
             tally.aye.insert(signer.clone());
@@ -781,7 +812,7 @@ impl<T: Trait> Module<T> {
             if let Some(err) = add_error {
                 if err == ErrorCode::NoDataBTCRelay || err == ErrorCode::InvalidBTCRelay {
                     ext::btc_relay::flag_block_error::<T>(
-                        btc_block_hash.ok_or(Error::<T>::NoBlockHash)?,
+                        btc_block_hash.ok_or(Error::<T>::ExpectedBlockHash)?,
                         err.clone(),
                     )?;
                 }
@@ -791,7 +822,7 @@ impl<T: Trait> Module<T> {
             if let Some(err) = remove_error {
                 if err == ErrorCode::NoDataBTCRelay || err == ErrorCode::InvalidBTCRelay {
                     ext::btc_relay::clear_block_error::<T>(
-                        btc_block_hash.ok_or(Error::<T>::NoBlockHash)?,
+                        btc_block_hash.ok_or(Error::<T>::ExpectedBlockHash)?,
                         err.clone(),
                     )?;
                 }
@@ -1063,7 +1094,9 @@ decl_error! {
         /// Oracle is online
         OracleOnline,
         /// Cannot report vault theft without block hash
-        NoBlockHash,
+        ExpectedBlockHash,
+        /// Status update should not contain block hash
+        UnexpectedBlockHash,
         /// Vault has sufficient collateral
         CollateralOk,
         /// Error converting value
