@@ -302,22 +302,21 @@ fn test_suggest_status_update_fails_with_insufficient_deposit() {
 }
 
 #[test]
-fn test_suggest_status_update_fails_with_no_block_hash() {
+fn test_suggest_status_update_fails_with_no_block_hash_found() {
     run_test(|| {
         Staking::only_governance.mock_safe(|_| MockResult::Return(Ok(())));
-        ext::btc_relay::block_header_exists::<Test>
-            .mock_safe(move |_, _| MockResult::Return(false));
+        ext::btc_relay::block_header_exists::<Test>.mock_safe(move |_| MockResult::Return(false));
         inject_active_staked_relayer(&ALICE, 20);
         assert_err!(
             Staking::suggest_status_update(
                 Origin::signed(ALICE),
                 20,
                 StatusCode::Error,
-                ErrorCode::InvalidBTCRelay,
+                Some(ErrorCode::InvalidBTCRelay),
                 None,
                 Some(H256Le::zero()),
             ),
-            TestError::NoBlockHash,
+            TestError::ExpectedBlockHash,
         );
     })
 }
@@ -539,7 +538,7 @@ fn test_execute_status_update_fails_with_no_block_hash() {
 
         assert_err!(
             Staking::execute_status_update(status_update_id),
-            TestError::NoBlockHash
+            TestError::ExpectedBlockHash
         );
     })
 }
