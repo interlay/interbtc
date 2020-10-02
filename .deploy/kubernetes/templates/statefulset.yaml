@@ -41,7 +41,9 @@ spec:
             - --rpc-external
             - --ws-external
             - --base-path
-            - {{ .Values.basePath }}-state
+            - {{ .Values.basePath }}
+            - --name
+            - development
           env:
             {{- include "settings" $ | nindent 10 }}
           ports:
