@@ -234,6 +234,13 @@ decl_module! {
             );
             ext::collateral::lock_collateral::<T>(&signer, deposit)?;
 
+            if let Some(block_hash) = block_hash {
+                ensure!(
+                    ext::btc_relay::block_header_exists::<T>(block_hash),
+                    Error::<T>::NoBlockHash,
+                );
+            }
+
             // pre-approve
             let mut tally = Tally::default();
             tally.aye.insert(signer.clone());

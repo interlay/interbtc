@@ -139,6 +139,10 @@ pub(crate) mod btc_relay {
     ) -> DispatchResult {
         <btc_relay::Module<T>>::_verify_transaction_inclusion(tx_id, raw_merkle_proof, 0, false)
     }
+
+    pub(crate) fn block_header_exists<T: btc_relay::Trait>(block_hash: H256Le) -> bool {
+        <btc_relay::Module<T>>::block_header_exists(block_hash)
+    }
 }
 
 #[cfg_attr(test, mockable)]

@@ -547,10 +547,12 @@ impl<T: Trait> Module<T> {
         }
         Err(Error::<T>::BlockNotFound.into())
     }
+
     /// Check if a block header exists
-    fn block_header_exists(block_hash: H256Le) -> bool {
+    pub fn block_header_exists(block_hash: H256Le) -> bool {
         <BlockHeaders>::contains_key(block_hash)
     }
+
     /// Get a block header from
     fn get_block_header_from_height(
         blockchain: &BlockChain,
