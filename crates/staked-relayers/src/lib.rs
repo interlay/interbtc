@@ -234,7 +234,7 @@ decl_module! {
             );
             ext::collateral::lock_collateral::<T>(&signer, deposit)?;
 
-            if let Some(add_error) = add_error {
+            if let Some(ref add_error) = add_error {
                 match add_error {
                     ErrorCode::NoDataBTCRelay => {
                         ensure!(
