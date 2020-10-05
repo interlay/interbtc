@@ -65,13 +65,13 @@ fn create_sample_vault() -> <Test as frame_system::Trait>::AccountId {
 }
 
 fn create_sample_vault_and_issue_tokens(
-    issue_tokens: u64,
+    issue_tokens: u128,
 ) -> <Test as frame_system::Trait>::AccountId {
     // vault has no tokens issued yet
     let id = create_sample_vault();
 
     // exchange rate 1 Satoshi = 10 Planck (smallest unit of DOT)
-    let dots: u64 = DEFAULT_COLLATERAL / 10;
+    let dots: u128 = DEFAULT_COLLATERAL / 10;
     ext::oracle::dots_to_btc::<Test>
         .mock_safe(move |_| MockResult::Return(Ok(dots.clone().into())));
 
@@ -652,6 +652,24 @@ fn is_collateral_below_threshold_false_succeeds() {
 }
 
 #[test]
+fn calculate_max_polkabtc_from_collateral_for_threshold_succeeds() {
+    run_test(|| {
+        let collateral: u128 = u128::MAX;
+        let threshold = 200000; // 200%
+
+        ext::oracle::dots_to_btc::<Test>
+            .mock_safe(move |_| MockResult::Return(Ok(collateral.clone())));
+
+        assert_eq!(
+            VaultRegistry::calculate_max_polkabtc_from_collateral_for_threshold(
+                collateral, threshold
+            ),
+            Ok(170141183460469231731687303715884105727)
+        );
+    })
+}
+
+#[test]
 fn _is_vault_below_auction_threshold_false_succeeds() {
     run_test(|| {
         // vault has 200% collateral ratio
@@ -753,7 +771,7 @@ fn get_collateralization_from_vault_fails_with_no_tokens_issued() {
 #[test]
 fn get_collateralization_from_vault_succeeds() {
     run_test(|| {
-        let issue_tokens: u64 = DEFAULT_COLLATERAL / 10 / 2; // = 5
+        let issue_tokens: u128 = DEFAULT_COLLATERAL / 10 / 2; // = 5
         let id = create_sample_vault_and_issue_tokens(issue_tokens);
 
         assert_eq!(
@@ -766,7 +784,7 @@ fn get_collateralization_from_vault_succeeds() {
 #[test]
 fn get_first_vault_with_sufficient_collateral_succeeds() {
     run_test(|| {
-        let issue_tokens: u64 = DEFAULT_COLLATERAL / 10 / 2; // = 5
+        let issue_tokens: u128 = DEFAULT_COLLATERAL / 10 / 2; // = 5
         let id = create_sample_vault_and_issue_tokens(issue_tokens);
 
         assert_eq!(
@@ -779,7 +797,7 @@ fn get_first_vault_with_sufficient_collateral_succeeds() {
 #[test]
 fn get_first_vault_with_sufficient_tokens_succeeds() {
     run_test(|| {
-        let issue_tokens: u64 = DEFAULT_COLLATERAL / 10 / 2; // = 5
+        let issue_tokens: u128 = DEFAULT_COLLATERAL / 10 / 2; // = 5
         let id = create_sample_vault_and_issue_tokens(issue_tokens);
 
         assert_eq!(

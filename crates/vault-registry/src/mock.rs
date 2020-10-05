@@ -40,7 +40,7 @@ impl_outer_event! {
 }
 
 pub type AccountId = u64;
-pub type Balance = u64;
+pub type Balance = u128;
 pub type BlockNumber = u64;
 
 // For testing the pallet, we construct most of a mock runtime. This means
@@ -78,7 +78,7 @@ impl frame_system::Trait for Test {
     type ModuleToIndex = ();
     type OnNewAccount = ();
     type OnKilledAccount = ();
-    type AccountData = pallet_balances::AccountData<u64>;
+    type AccountData = pallet_balances::AccountData<Balance>;
     type BaseCallFilter = ();
     type MaximumExtrinsicWeight = MaximumBlockWeight;
     type SystemWeightInfo = ();
@@ -143,8 +143,8 @@ pub struct ExtBuilder;
 pub const DEFAULT_ID: u64 = 3;
 pub const OTHER_ID: u64 = 4;
 pub const RICH_ID: u64 = 5;
-pub const DEFAULT_COLLATERAL: u64 = 100;
-pub const RICH_COLLATERAL: u64 = DEFAULT_COLLATERAL + 50;
+pub const DEFAULT_COLLATERAL: u128 = 100;
+pub const RICH_COLLATERAL: u128 = DEFAULT_COLLATERAL + 50;
 
 impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
