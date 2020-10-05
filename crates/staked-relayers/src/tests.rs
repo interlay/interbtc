@@ -154,6 +154,7 @@ fn inject_status_update(proposer: AccountId) -> U256 {
         proposer: proposer,
         deposit: 10,
         tally: tally,
+        message: vec![],
     })
 }
 
@@ -255,6 +256,7 @@ fn test_suggest_status_update_fails_with_staked_relayers_only() {
                 None,
                 None,
                 None,
+                vec![],
             ),
             TestError::StakedRelayersOnly,
         );
@@ -275,6 +277,7 @@ fn test_suggest_status_update_fails_with_governance_only() {
                 None,
                 None,
                 None,
+                vec![],
             ),
             TestError::GovernanceOnly,
         );
@@ -295,6 +298,7 @@ fn test_suggest_status_update_fails_with_insufficient_deposit() {
                 None,
                 None,
                 None,
+                vec![],
             ),
             TestError::InsufficientDeposit,
         );
@@ -315,6 +319,7 @@ fn test_suggest_status_update_fails_with_no_block_hash_found() {
                 Some(ErrorCode::InvalidBTCRelay),
                 None,
                 Some(H256Le::zero()),
+                vec![],
             ),
             TestError::ExpectedBlockHash,
         );
@@ -334,6 +339,7 @@ fn test_suggest_status_update_succeeds() {
             None,
             None,
             None,
+            vec![],
         ));
         assert_emitted!(Event::StatusUpdateSuggested(
             U256::from(1),
@@ -534,6 +540,7 @@ fn test_execute_status_update_fails_with_no_block_hash() {
                 aye: account_id_set!(1, 2, 3),
                 nay: account_id_set!(),
             },
+            message: vec![],
         });
 
         assert_err!(
@@ -567,6 +574,7 @@ fn test_execute_status_update_succeeds() {
                 aye: account_id_set!(1, 2, 3),
                 nay: account_id_set!(),
             },
+            message: vec![],
         });
 
         ext::collateral::release_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));

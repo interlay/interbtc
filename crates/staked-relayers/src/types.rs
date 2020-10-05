@@ -5,6 +5,7 @@ use security::types::{ErrorCode, StatusCode};
 use sp_std::cmp::Ord;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::fmt::Debug;
+use sp_std::prelude::Vec;
 
 pub(crate) type DOT<T> =
     <<T as collateral::Trait>::DOT as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
@@ -53,6 +54,8 @@ pub struct StatusUpdate<AccountId: Ord + Clone, BlockNumber, DOT> {
     pub deposit: DOT,
     /// Bookkeeping for this proposal.
     pub tally: Tally<AccountId>,
+    /// Message providing more details on the change of status (detailed error message or recovery reason).
+    pub message: Vec<u8>,
 }
 
 /// Record keeping for yes and no votes. Based loosely on the
