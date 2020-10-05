@@ -26,7 +26,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, ensure, IterableStorageMap,
 };
 use frame_system::ensure_signed;
-use sp_core::{H160, H256};
+use sp_core::{H160, H256, U256};
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
 
@@ -821,18 +821,18 @@ impl<T: Trait> Module<T> {
     ) -> Result<PolkaBTC<T>, DispatchError> {
         // convert the collateral to polkabtc
         let collateral_in_polka_btc = ext::oracle::dots_to_btc::<T>(collateral)?;
-        let raw_collateral_in_polka_btc = Self::polkabtc_to_u128(collateral_in_polka_btc)?;
+        let collateral_in_polka_btc = Self::polkabtc_to_u128(collateral_in_polka_btc)?;
+        let collateral_in_polka_btc = U256::from(collateral_in_polka_btc);
 
         // calculate how many tokens should be maximally issued given the threshold
-        let raw_scaled_collateral_in_polka_btc = raw_collateral_in_polka_btc
-            .checked_mul(10u128.pow(GRANULARITY) as u128)
-            .ok_or(Error::<T>::ConversionError)?;
-        let raw_max_tokens = raw_scaled_collateral_in_polka_btc
-            .checked_div(threshold)
-            .unwrap_or(0);
+        let scaled_collateral_in_polka_btc = collateral_in_polka_btc
+            .checked_mul(U256::from(10).pow(GRANULARITY.into()))
+            .ok_or(Error::<T>::ScaleConversionError)?;
+        let scaled_max_tokens = scaled_collateral_in_polka_btc
+            .checked_div(threshold.into())
+            .unwrap_or(0.into());
 
-        let max_tokens = Self::u128_to_polkabtc(raw_max_tokens)?;
-        Ok(max_tokens)
+        Ok(Self::u128_to_polkabtc(scaled_max_tokens.try_into()?)?)
     }
 
     fn polkabtc_to_u128(x: PolkaBTC<T>) -> Result<u128, DispatchError> {
@@ -890,6 +890,9 @@ decl_error! {
         /// Returned if a vault tries to register while already being registered
         VaultAlreadyRegistered,
         VaultNotFound,
+        /// Result is too big for type
+        ScaleConversionError,
+        /// Other conversion error
         ConversionError,
         /// Collateralization is infinite if no tokens are issued
         NoTokensIssued,
