@@ -212,11 +212,12 @@ decl_module! {
         ///
         /// * `origin`: The AccountId of the Staked Relayer suggesting the status change.
         /// * `status_code`: Suggested BTC Parachain status (StatusCode enum).
-        /// * `add_error`: If the suggested status is Error, this set of ErrorCode indicates which error is to be added to the Errors mapping.
-        /// * `remove_error`: ErrorCode to be removed from the Errors list.
+        /// * `add_error`: [Optional] If the suggested status is Error, this set of ErrorCode indicates which error is to be added to the Errors mapping.
+        /// * `remove_error`: [Optional] ErrorCode to be removed from the Errors list.
         /// * `block_hash`: [Optional] When reporting an error related to BTC-Relay, this field indicates the affected Bitcoin block (header).
+        /// * `message`: Message detailing reason for status update
         #[weight = 1000]
-        fn suggest_status_update(origin, deposit: DOT<T>, status_code: StatusCode, add_error: Option<ErrorCode>, remove_error: Option<ErrorCode>, block_hash: Option<H256Le>) -> DispatchResult {
+        fn suggest_status_update(origin, deposit: DOT<T>, status_code: StatusCode, add_error: Option<ErrorCode>, remove_error: Option<ErrorCode>, block_hash: Option<H256Le>, message: Vec<u8>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
 
             if status_code == StatusCode::Shutdown {
@@ -281,6 +282,8 @@ decl_module! {
                 proposer: signer.clone(),
                 deposit: deposit,
                 tally: tally,
+                // TODO: bound message size?
+                message: message,
             });
 
             Self::deposit_event(<Event<T>>::StatusUpdateSuggested(status_update_id, signer, status_code, add_error, remove_error, block_hash));
