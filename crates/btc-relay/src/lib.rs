@@ -346,7 +346,6 @@ decl_module! {
             Ok(())
         }
 
-
         /// Verifies the inclusion of `tx_id` in block at height `tx_block_height`
         /// # Arguments
         ///
@@ -463,30 +462,43 @@ impl<T: Trait> Module<T> {
         let transaction = Self::parse_transaction(&raw_tx)?;
 
         ensure!(
-            transaction.outputs.len() >= ACCEPTED_MIN_TRANSACTION_OUTPUTS as usize,
+            transaction.outputs.len() == ACCEPTED_MIN_TRANSACTION_OUTPUTS as usize,
             Error::<T>::MalformedTransaction
         );
 
-        // Check if 1st / payment UTXO transfers sufficient value
-        let extr_payment_value = transaction.outputs[0].value;
+        // NOTE: op_return UTXO should not contain any value
+        let (extr_payment_value, extr_recipient_address, extr_op_return) =
+            match transaction.outputs[0].extract_address() {
+                Ok(address) => (
+                    // 1) Payment Utxo
+                    // 2) OpReturn Utxo
+                    transaction.outputs[0].value,
+                    address,
+                    transaction.outputs[1].script.extract_op_return_data()?,
+                ),
+                Err(_) => (
+                    // 1) OpReturn Utxo
+                    // 2) Payment Utxo
+                    transaction.outputs[1].value,
+                    transaction.outputs[1].extract_address()?,
+                    transaction.outputs[0].script.extract_op_return_data()?,
+                ),
+            };
+
+        // Check if payment UTXO transfers sufficient value
         ensure!(
             extr_payment_value >= payment_value,
             Error::<T>::InsufficientValue
         );
 
-        // Check if 1st / payment UTXO sends to correct address
-        let extr_recipient_address = transaction.outputs[0].extract_address()?;
+        // Check payment UTXO sends to correct address
         ensure!(
             extr_recipient_address == recipient_btc_address,
             Error::<T>::WrongRecipient
         );
 
-        // Check if 2nd / data UTXO has correct OP_RETURN value
-        let extr_op_return_value = transaction.outputs[1].script.extract_op_return_data()?;
-        ensure!(
-            extr_op_return_value == op_return_id,
-            Error::<T>::InvalidOpreturn
-        );
+        // Check if data UTXO has correct OP_RETURN value
+        ensure!(extr_op_return == op_return_id, Error::<T>::InvalidOpReturn);
 
         Ok(())
     }
@@ -499,6 +511,7 @@ impl<T: Trait> Module<T> {
     fn get_chain_id_from_position(position: u32) -> Result<u32, DispatchError> {
         <Chains>::get(position).ok_or(Error::<T>::InvalidChainID.into())
     }
+
     /// Get the position of the fork in Chains
     fn get_chain_position_from_chain_id(chain_id: u32) -> Result<u32, DispatchError> {
         for (k, v) in <Chains>::iter() {
@@ -508,26 +521,32 @@ impl<T: Trait> Module<T> {
         }
         Err(Error::<T>::ForkIdNotFound.into())
     }
+
     /// Get a blockchain from the id
     fn get_block_chain_from_id(chain_id: u32) -> Result<BlockChain, DispatchError> {
         <ChainsIndex>::get(chain_id).ok_or(Error::<T>::InvalidChainID.into())
     }
+
     /// Get the current best block hash
     pub fn get_best_block() -> H256Le {
         <BestBlock>::get()
     }
+
     /// Check if a best block hash is set
     fn best_block_exists() -> bool {
         <BestBlock>::exists()
     }
+
     /// get the best block height
     pub fn get_best_block_height() -> u32 {
         <BestBlockHeight>::get()
     }
+
     /// Get the current chain counter
     fn get_chain_counter() -> u32 {
         <ChainCounter>::get()
     }
+
     /// Get a block hash from a blockchain
     /// # Arguments
     ///
@@ -561,15 +580,18 @@ impl<T: Trait> Module<T> {
         let block_hash = Self::get_block_hash(blockchain.chain_id, block_height)?;
         Self::get_block_header_from_hash(block_hash)
     }
+
     /// Storage setter functions
     /// Set a new chain with position and id
     fn set_chain_from_position_and_id(position: u32, id: u32) {
         <Chains>::insert(position, id);
     }
+
     /// Swap chain elements
     fn swap_chain(pos_1: u32, pos_2: u32) {
         <Chains>::swap(pos_1, pos_2)
     }
+
     /// Remove a chain id from chains
     fn remove_blockchain_from_chain(position: u32) -> Result<(), DispatchError> {
         // swap the element with the last element in the mapping
@@ -582,18 +604,22 @@ impl<T: Trait> Module<T> {
         <Chains>::remove(head_index);
         Ok(())
     }
+
     /// Set a new blockchain in ChainsIndex
     fn set_block_chain_from_id(id: u32, chain: &BlockChain) {
         <ChainsIndex>::insert(id, &chain);
     }
+
     /// Update a blockchain in ChainsIndex
     fn mutate_block_chain_from_id(id: u32, chain: BlockChain) {
         <ChainsIndex>::mutate(id, |b| *b = Some(chain));
     }
+
     /// Remove a blockchain element from chainindex
     fn remove_blockchain_from_chainindex(id: u32) {
         <ChainsIndex>::remove(id);
     }
+
     /// Set a new block header
     fn set_block_header_from_hash(hash: H256Le, header: &RichBlockHeader) {
         <BlockHeaders>::insert(hash, header);
@@ -606,6 +632,7 @@ impl<T: Trait> Module<T> {
         let height = <frame_system::Module<T>>::block_number();
         <ParachainHeight<T>>::insert(hash, height);
     }
+
     /// update the chain_ref of a block header
     fn mutate_block_header_from_chain_id(hash: &H256Le, chain_ref: u32) {
         <BlockHeaders>::mutate(&hash, |header| header.chain_ref = chain_ref);
@@ -615,10 +642,12 @@ impl<T: Trait> Module<T> {
     fn set_best_block(hash: H256Le) {
         <BestBlock>::put(hash);
     }
+
     /// Set a new best block height
     fn set_best_block_height(height: u32) {
         <BestBlockHeight>::put(height);
     }
+
     /// Set a new chain counter
     fn increment_chain_counter() -> u32 {
         let new_counter = Self::get_chain_counter() + 1;
@@ -626,6 +655,7 @@ impl<T: Trait> Module<T> {
 
         new_counter
     }
+
     /// Initialize the new main blockchain with a single block
     fn initialize_blockchain(block_height: u32, block_hash: H256Le) -> BlockChain {
         let chain_id = MAIN_CHAIN_ID;
@@ -633,6 +663,7 @@ impl<T: Trait> Module<T> {
         // generate an empty blockchain
         Self::generate_blockchain(chain_id, block_height, block_hash)
     }
+
     /// Create a new blockchain element with a new chain id
     fn create_blockchain(block_height: u32, block_hash: H256Le) -> BlockChain {
         // get a new chain id
@@ -641,6 +672,7 @@ impl<T: Trait> Module<T> {
         // generate an empty blockchain
         Self::generate_blockchain(chain_id, block_height, block_hash)
     }
+
     /// Generate the raw blockchain from a chain Id and with a single block
     fn generate_blockchain(chain_id: u32, block_height: u32, block_hash: H256Le) -> BlockChain {
         // initialize an empty chain
@@ -712,6 +744,7 @@ impl<T: Trait> Module<T> {
     fn verify_merkle_proof(merkle_proof: &MerkleProof) -> Result<ProofResult, DispatchError> {
         merkle_proof.verify_proof().map_err(|e| e.into())
     }
+
     /// Parses and verifies a raw Bitcoin block header.
     /// # Arguments
     /// * block_header` - 80-byte block header
@@ -916,6 +949,7 @@ impl<T: Trait> Module<T> {
 
         Ok(())
     }
+
     /// Checks if a newly inserted fork results in an update to the sorted
     /// Chains mapping. This happens when the max height of the fork is greater
     /// than the max height of the previous element in the Chains mapping.
@@ -995,6 +1029,7 @@ impl<T: Trait> Module<T> {
 
         Ok(())
     }
+
     /// Insert a new fork into the Chains mapping sorted by its max height
     ///
     /// # Arguments
@@ -1048,6 +1083,7 @@ impl<T: Trait> Module<T> {
         }
         Ok(())
     }
+
     /// Flag an error in a block header. This function is called by the
     /// security pallet.
     ///
@@ -1296,7 +1332,7 @@ decl_error! {
         /// Incorrect transaction output format
         InvalidOutputFormat,
         /// Incorrect identifier in OP_RETURN field
-        InvalidOpreturn,
+        InvalidOpReturn,
         /// Invalid transaction version
         InvalidTxVersion,
         /// Expecting OP_RETURN output, but got another type
