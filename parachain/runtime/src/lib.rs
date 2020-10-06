@@ -328,7 +328,7 @@ impl exchange_rate_oracle::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const IssuePeriod: BlockNumber = 10;
+    pub const IssuePeriod: BlockNumber = DAYS;
 }
 
 impl issue::Trait for Runtime {
