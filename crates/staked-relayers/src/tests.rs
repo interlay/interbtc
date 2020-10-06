@@ -20,6 +20,9 @@ use vault_registry::{Vault, VaultStatus};
 
 type Event = crate::Event<Test>;
 
+const DEFAULT_START_HEIGHT: u64 = 0;
+const DEFAULT_END_HEIGHT: u64 = 100;
+
 macro_rules! assert_emitted {
     ($event:expr) => {
         let test_event = TestEvent::test_events($event);
@@ -143,12 +146,13 @@ fn inject_status_update(proposer: AccountId) -> U256 {
     let mut tally = Tally::default();
     tally.aye.insert(proposer.clone());
 
-    Staking::insert_status_update(StatusUpdate {
+    Staking::insert_active_status_update(StatusUpdate {
         new_status_code: StatusCode::Error,
         old_status_code: StatusCode::Running,
         add_error: None,
         remove_error: None,
-        time: 0,
+        start: DEFAULT_START_HEIGHT,
+        end: DEFAULT_END_HEIGHT,
         proposal_status: ProposalStatus::Pending,
         btc_block_hash: None,
         proposer: proposer,
@@ -438,7 +442,7 @@ fn test_vote_on_status_update_succeeds() {
             Staking::vote_on_status_update(Origin::signed(ALICE), status_update_id, true),
             TestError::VoteAlreadyCast
         );
-        assert_ok!(Staking::end_block());
+        Staking::end_block(3);
         assert_not_emitted!(Event::ExecuteStatusUpdate(StatusCode::Error, None, None));
         assert_not_emitted!(Event::RejectStatusUpdate(StatusCode::Error, None, None));
 
@@ -447,7 +451,7 @@ fn test_vote_on_status_update_succeeds() {
             status_update_id,
             true
         ));
-        assert_ok!(Staking::end_block());
+        Staking::end_block(3);
         assert_not_emitted!(Event::ExecuteStatusUpdate(StatusCode::Error, None, None));
         assert_not_emitted!(Event::RejectStatusUpdate(StatusCode::Error, None, None));
 
@@ -456,8 +460,23 @@ fn test_vote_on_status_update_succeeds() {
             status_update_id,
             true
         ));
-        assert_ok!(Staking::end_block());
+        Staking::end_block(3);
         assert_emitted!(Event::ExecuteStatusUpdate(StatusCode::Error, None, None));
+
+        let status_update = Staking::inactive_status_update(status_update_id);
+        assert_eq!(status_update.proposal_status, ProposalStatus::Accepted);
+    })
+}
+#[test]
+fn test_end_block_status_update_expired() {
+    run_test(|| {
+        let status_update_id = inject_status_update(ALICE);
+        Staking::end_block(DEFAULT_END_HEIGHT + 100);
+        let status_update = Staking::inactive_status_update(&status_update_id);
+        assert_eq!(status_update.proposal_status, ProposalStatus::Expired);
+        assert_not_emitted!(Event::ExecuteStatusUpdate(StatusCode::Error, None, None));
+        assert_not_emitted!(Event::RejectStatusUpdate(StatusCode::Error, None, None));
+        assert_emitted!(Event::ExpireStatusUpdate(status_update_id));
     })
 }
 
@@ -500,11 +519,11 @@ fn test_execute_status_update_fails_with_insufficient_yes_votes() {
         inject_active_staked_relayer(&EVE, amount);
 
         let mut status_update = StatusUpdate::default();
-        status_update.tally.nay = account_id_set!(1, 2, 3);
-        let status_update_id = Staking::insert_status_update(status_update);
+        status_update.tally.nay = account_id_set!(ALICE, BOB, CAROL);
+        Staking::insert_active_status_update(status_update.clone());
 
         assert_err!(
-            Staking::execute_status_update(status_update_id),
+            Staking::execute_status_update(&mut status_update),
             TestError::InsufficientYesVotes
         );
 
@@ -526,25 +545,28 @@ fn test_execute_status_update_fails_with_no_block_hash() {
         inject_active_staked_relayer(&DAVE, amount);
         inject_active_staked_relayer(&EVE, amount);
 
-        let status_update_id = Staking::insert_status_update(StatusUpdate {
+        let mut status_update = StatusUpdate {
             new_status_code: StatusCode::Error,
             old_status_code: StatusCode::Running,
             add_error: Some(ErrorCode::NoDataBTCRelay),
             remove_error: None,
-            time: 0,
+            start: DEFAULT_START_HEIGHT,
+            end: DEFAULT_END_HEIGHT,
             proposal_status: ProposalStatus::Pending,
             btc_block_hash: None,
             proposer: ALICE,
             deposit: 10,
             tally: Tally {
-                aye: account_id_set!(1, 2, 3),
+                aye: account_id_set!(ALICE, BOB, CAROL),
                 nay: account_id_set!(),
             },
             message: vec![],
-        });
+        };
+
+        Staking::insert_active_status_update(status_update.clone());
 
         assert_err!(
-            Staking::execute_status_update(status_update_id),
+            Staking::execute_status_update(&mut status_update),
             TestError::ExpectedBlockHash
         );
     })
@@ -560,25 +582,27 @@ fn test_execute_status_update_succeeds() {
         inject_active_staked_relayer(&DAVE, amount);
         inject_active_staked_relayer(&EVE, amount);
 
-        let status_update_id = Staking::insert_status_update(StatusUpdate {
+        let mut status_update = StatusUpdate {
             new_status_code: StatusCode::Error,
             old_status_code: StatusCode::Running,
             add_error: Some(ErrorCode::OracleOffline),
             remove_error: None,
-            time: 0,
+            start: DEFAULT_START_HEIGHT,
+            end: DEFAULT_END_HEIGHT,
             proposal_status: ProposalStatus::Pending,
             btc_block_hash: Some(H256Le::zero()),
             proposer: ALICE,
             deposit: 10,
             tally: Tally {
-                aye: account_id_set!(1, 2, 3),
+                aye: account_id_set!(ALICE, BOB, CAROL),
                 nay: account_id_set!(),
             },
             message: vec![],
-        });
+        };
+        Staking::insert_active_status_update(status_update.clone());
 
         ext::collateral::release_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-        assert_ok!(Staking::execute_status_update(status_update_id));
+        assert_ok!(Staking::execute_status_update(&mut status_update));
 
         assert_emitted!(Event::ExecuteStatusUpdate(
             StatusCode::Error,
@@ -599,11 +623,11 @@ fn test_reject_status_update_fails_with_insufficient_no_votes() {
         inject_active_staked_relayer(&EVE, amount);
 
         let mut status_update = StatusUpdate::default();
-        status_update.tally.aye = account_id_set!(1, 2, 3);
-        let status_update_id = Staking::insert_status_update(status_update);
+        status_update.tally.aye = account_id_set!(ALICE, BOB, CAROL);
+        Staking::insert_active_status_update(status_update.clone());
 
         assert_err!(
-            Staking::reject_status_update(status_update_id),
+            Staking::reject_status_update(&mut status_update),
             TestError::InsufficientNoVotes
         );
 
@@ -622,10 +646,10 @@ fn test_reject_status_update_succeeds() {
         inject_active_staked_relayer(&EVE, amount);
 
         let mut status_update = StatusUpdate::default();
-        status_update.tally.nay = account_id_set!(1, 2, 3);
-        let status_update_id = Staking::insert_status_update(status_update);
+        status_update.tally.nay = account_id_set!(ALICE, BOB, CAROL);
+        Staking::insert_active_status_update(status_update.clone());
 
-        assert_ok!(Staking::reject_status_update(status_update_id));
+        assert_ok!(Staking::reject_status_update(&mut status_update));
 
         assert_emitted!(Event::RejectStatusUpdate(StatusCode::default(), None, None));
     })
