@@ -462,7 +462,7 @@ impl<T: Trait> Module<T> {
         let transaction = Self::parse_transaction(&raw_tx)?;
 
         ensure!(
-            transaction.outputs.len() == ACCEPTED_MIN_TRANSACTION_OUTPUTS as usize,
+            transaction.outputs.len() >= ACCEPTED_MIN_TRANSACTION_OUTPUTS as usize,
             Error::<T>::MalformedTransaction
         );
 
