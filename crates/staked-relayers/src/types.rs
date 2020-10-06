@@ -22,6 +22,8 @@ pub enum ProposalStatus {
     Accepted = 1,
     /// StatusUpdate has been rejected
     Rejected = 2,
+    /// StatusUpdate has expired
+    Expired = 3,
 }
 
 impl Default for ProposalStatus {
@@ -43,7 +45,9 @@ pub struct StatusUpdate<AccountId: Ord + Clone, BlockNumber, DOT> {
     /// Indicates which ErrorCode is to be removed from Errors (recovery).
     pub remove_error: Option<ErrorCode>,
     /// Parachain block number at which this status update was suggested.
-    pub time: BlockNumber,
+    pub start: BlockNumber,
+    /// Parachain block number at which this status update will expire.
+    pub end: BlockNumber,
     /// Status of the proposed status update. See ProposalStatus.
     pub proposal_status: ProposalStatus,
     /// LE Block hash of the Bitcoin block where the error was detected, if related to BTC-Relay.
@@ -74,7 +78,11 @@ impl<AccountId: Ord + Clone> Tally<AccountId> {
         let n = self.aye.len() as u64;
         if n == total {
             return true;
-        } else if (self.aye.len() as u64) * 100 / total > threshold {
+        } else if ((self.aye.len() as u64) * 100)
+            .checked_div(total)
+            .unwrap_or(0)
+            > threshold
+        {
             return true;
         }
         false
@@ -82,7 +90,11 @@ impl<AccountId: Ord + Clone> Tally<AccountId> {
 
     /// Returns true if the majority of votes are against.
     pub(crate) fn is_rejected(&self, total: u64, threshold: u64) -> bool {
-        if (self.nay.len() as u64) * 100 / total > 100 - threshold {
+        if ((self.nay.len() as u64) * 100)
+            .checked_div(total)
+            .unwrap_or(0)
+            > 100 - threshold
+        {
             return true;
         }
         false

@@ -154,6 +154,7 @@ parameter_types! {
     pub const MinimumStake: u64 = 10;
     pub const MinimumParticipants: u64 = 3;
     pub const VoteThreshold: u64 = 50;
+    pub const VotingPeriod: u64 = 100;
 }
 
 impl Trait for Test {
@@ -163,6 +164,7 @@ impl Trait for Test {
     type MinimumStake = MinimumStake;
     type MinimumParticipants = MinimumParticipants;
     type VoteThreshold = VoteThreshold;
+    type VotingPeriod = VotingPeriod;
 }
 
 pub type System = frame_system::Module<Test>;
