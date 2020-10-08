@@ -5,14 +5,15 @@ use security::types::{ErrorCode, StatusCode};
 use sp_std::cmp::Ord;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::fmt::Debug;
+use sp_std::prelude::Vec;
 
 pub(crate) type DOT<T> =
-    <<T as collateral::Trait>::DOT as Currency<<T as system::Trait>::AccountId>>::Balance;
+    <<T as collateral::Trait>::DOT as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 
 pub(crate) type PolkaBTC<T> =
-    <<T as treasury::Trait>::PolkaBTC as Currency<<T as system::Trait>::AccountId>>::Balance;
+    <<T as treasury::Trait>::PolkaBTC as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 
-// Indicates the state of a proposed StatusUpdate.
+/// Indicates the state of a proposed StatusUpdate.
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 pub enum ProposalStatus {
     /// StatusUpdate is current under review and is being voted upon
@@ -21,6 +22,8 @@ pub enum ProposalStatus {
     Accepted = 1,
     /// StatusUpdate has been rejected
     Rejected = 2,
+    /// StatusUpdate has expired
+    Expired = 3,
 }
 
 impl Default for ProposalStatus {
@@ -34,25 +37,29 @@ impl Default for ProposalStatus {
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
 pub struct StatusUpdate<AccountId: Ord + Clone, BlockNumber, DOT> {
     /// New status of the BTC Parachain.
-    pub(crate) new_status_code: StatusCode,
+    pub new_status_code: StatusCode,
     /// Previous status of the BTC Parachain.
-    pub(crate) old_status_code: StatusCode,
+    pub old_status_code: StatusCode,
     /// If new_status_code is Error, specifies which error is to be added to Errors
-    pub(crate) add_error: Option<ErrorCode>,
+    pub add_error: Option<ErrorCode>,
     /// Indicates which ErrorCode is to be removed from Errors (recovery).
-    pub(crate) remove_error: Option<ErrorCode>,
+    pub remove_error: Option<ErrorCode>,
     /// Parachain block number at which this status update was suggested.
-    pub(crate) time: BlockNumber,
+    pub start: BlockNumber,
+    /// Parachain block number at which this status update will expire.
+    pub end: BlockNumber,
     /// Status of the proposed status update. See ProposalStatus.
-    pub(crate) proposal_status: ProposalStatus,
+    pub proposal_status: ProposalStatus,
     /// LE Block hash of the Bitcoin block where the error was detected, if related to BTC-Relay.
-    pub(crate) btc_block_hash: Option<H256Le>,
+    pub btc_block_hash: Option<H256Le>,
     /// Origin of this proposal.
-    pub(crate) proposer: AccountId,
+    pub proposer: AccountId,
     /// Deposit paid to submit this proposal.
-    pub(crate) deposit: DOT,
+    pub deposit: DOT,
     /// Bookkeeping for this proposal.
-    pub(crate) tally: Tally<AccountId>,
+    pub tally: Tally<AccountId>,
+    /// Message providing more details on the change of status (detailed error message or recovery reason).
+    pub message: Vec<u8>,
 }
 
 /// Record keeping for yes and no votes. Based loosely on the
@@ -71,7 +78,11 @@ impl<AccountId: Ord + Clone> Tally<AccountId> {
         let n = self.aye.len() as u64;
         if n == total {
             return true;
-        } else if (self.aye.len() as u64) * 100 / total > threshold {
+        } else if ((self.aye.len() as u64) * 100)
+            .checked_div(total)
+            .unwrap_or(0)
+            > threshold
+        {
             return true;
         }
         false
@@ -79,7 +90,11 @@ impl<AccountId: Ord + Clone> Tally<AccountId> {
 
     /// Returns true if the majority of votes are against.
     pub(crate) fn is_rejected(&self, total: u64, threshold: u64) -> bool {
-        if (self.nay.len() as u64) * 100 / total > 100 - threshold {
+        if ((self.nay.len() as u64) * 100)
+            .checked_div(total)
+            .unwrap_or(0)
+            > 100 - threshold
+        {
             return true;
         }
         false

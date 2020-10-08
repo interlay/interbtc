@@ -3,13 +3,12 @@ use crate::mock::*;
 
 use crate::types::{PolkaBTC, Redeem as RedeemRequest, DOT};
 use bitcoin::types::H256Le;
-use frame_support::{assert_err, assert_noop, assert_ok};
+use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
 use primitive_types::H256;
 use sp_core::H160;
 use sp_std::convert::TryInto;
-use vault_registry::Vault;
-use x_core::Error;
+use vault_registry::{Vault, VaultStatus};
 
 type Event = crate::Event<Test>;
 
@@ -30,15 +29,15 @@ macro_rules! assert_emitted {
     };
 }
 
-fn btc_to_u128(amount: PolkaBTC<Test>) -> Result<u128, Error> {
-    TryInto::<u128>::try_into(amount).map_err(|_e| Error::RuntimeError)
+fn btc_to_u128(amount: PolkaBTC<Test>) -> Result<u128, DispatchError> {
+    TryInto::<u128>::try_into(amount).map_err(|_e| TestError::ConversionError.into())
 }
 
-fn u128_to_dot(x: u128) -> Result<DOT<Test>, Error> {
-    TryInto::<DOT<Test>>::try_into(x).map_err(|_| Error::RuntimeError)
+fn u128_to_dot(x: u128) -> Result<DOT<Test>, DispatchError> {
+    TryInto::<DOT<Test>>::try_into(x).map_err(|_| TestError::ConversionError.into())
 }
 
-fn btcdot_parity(btc: PolkaBTC<Test>) -> Result<DOT<Test>, Error> {
+fn btcdot_parity(btc: PolkaBTC<Test>) -> Result<DOT<Test>, DispatchError> {
     let dot = btc_to_u128(btc)?;
     u128_to_dot(dot)
 }
@@ -54,19 +53,19 @@ fn inject_redeem_request(
 fn test_ensure_parachain_running_or_error_liquidated_fails() {
     run_test(|| {
         ext::security::ensure_parachain_status_running::<Test>
-            .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
+            .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainNotRunning.into())));
 
         assert_err!(
             Redeem::ensure_parachain_running_or_error_liquidated(),
-            Error::ParachainNotRunning
+            SecurityError::ParachainNotRunning
         );
 
         ext::security::ensure_parachain_status_has_only_specific_errors::<Test>
-            .mock_safe(|_| MockResult::Return(Err(Error::Invalid)));
+            .mock_safe(|_| MockResult::Return(Err(SecurityError::InvalidBTCRelay.into())));
 
         assert_err!(
             Redeem::ensure_parachain_running_or_error_liquidated(),
-            Error::Invalid
+            SecurityError::InvalidBTCRelay
         );
     })
 }
@@ -97,6 +96,7 @@ fn test_request_redeem_fails_with_amount_exceeds_user_balance() {
                 to_be_redeemed_tokens: 0,
                 btc_address: H160([0; 20]),
                 banned_until: None,
+                status: VaultStatus::Active,
             }))
         });
         <treasury::Module<Test>>::mint(ALICE, 2);
@@ -108,7 +108,7 @@ fn test_request_redeem_fails_with_amount_exceeds_user_balance() {
                 H160::from_slice(&[0; 20]),
                 BOB
             ),
-            Error::AmountExceedsUserBalance
+            TestError::AmountExceedsUserBalance
         );
     })
 }
@@ -118,7 +118,7 @@ fn test_request_redeem_fails_with_vault_not_found() {
     run_test(|| {
         assert_err!(
             Redeem::request_redeem(Origin::signed(ALICE), 0, H160::from_slice(&[0; 20]), BOB),
-            Error::VaultNotFound
+            VaultRegistryError::VaultNotFound
         );
     })
 }
@@ -134,14 +134,38 @@ fn test_request_redeem_fails_with_vault_banned() {
                 to_be_redeemed_tokens: 0,
                 btc_address: H160([0; 20]),
                 banned_until: Some(1),
+                status: VaultStatus::Active,
             }))
         });
         ext::vault_registry::ensure_not_banned::<Test>
-            .mock_safe(|_, _| MockResult::Return(Err(Error::VaultBanned)));
+            .mock_safe(|_, _| MockResult::Return(Err(VaultRegistryError::VaultBanned.into())));
 
         assert_err!(
             Redeem::request_redeem(Origin::signed(ALICE), 0, H160::from_slice(&[0; 20]), BOB),
-            Error::VaultBanned
+            VaultRegistryError::VaultBanned
+        );
+    })
+}
+
+#[test]
+fn test_request_redeem_fails_with_vault_liquidated() {
+    run_test(|| {
+        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
+            MockResult::Return(Ok(Vault {
+                id: BOB,
+                to_be_issued_tokens: 0,
+                issued_tokens: 0,
+                to_be_redeemed_tokens: 0,
+                btc_address: H160([0; 20]),
+                banned_until: Some(1),
+                status: VaultStatus::Liquidated,
+            }))
+        });
+
+        ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+        assert_err!(
+            Redeem::request_redeem(Origin::signed(ALICE), 0, H160::from_slice(&[0; 20]), BOB),
+            VaultRegistryError::VaultNotFound
         );
     })
 }
@@ -158,6 +182,7 @@ fn test_request_redeem_fails_with_amount_exceeds_vault_balance() {
                 to_be_redeemed_tokens: 0,
                 btc_address: H160([0; 20]),
                 banned_until: None,
+                status: VaultStatus::Active,
             }))
         });
         <treasury::Module<Test>>::mint(ALICE, 2);
@@ -171,7 +196,7 @@ fn test_request_redeem_fails_with_amount_exceeds_vault_balance() {
                 H160::from_slice(&[0; 20]),
                 BOB
             ),
-            Error::AmountExceedsVaultBalance
+            TestError::AmountExceedsVaultBalance
         );
     })
 }
@@ -189,6 +214,7 @@ fn test_request_redeem_succeeds_in_running_state() {
                 to_be_redeemed_tokens: 0,
                 btc_address: H160([0; 20]),
                 banned_until: None,
+                status: VaultStatus::Active,
             },
         );
 
@@ -280,6 +306,7 @@ fn test_request_redeem_succeeds_in_error_state() {
                 to_be_redeemed_tokens: 0,
                 btc_address: H160([0; 20]),
                 banned_until: None,
+                status: VaultStatus::Active,
             },
         );
         ext::vault_registry::increase_to_be_redeemed_tokens::<Test>.mock_safe(
@@ -352,7 +379,7 @@ fn test_execute_redeem_fails_with_redeem_id_not_found() {
                 Vec::default(),
                 Vec::default()
             ),
-            Error::RedeemIdNotFound
+            TestError::RedeemIdNotFound
         );
     })
 }
@@ -382,7 +409,7 @@ fn test_execute_redeem_fails_with_unauthorized_vault() {
                 Vec::default(),
                 Vec::default()
             ),
-            Error::UnauthorizedVault
+            TestError::UnauthorizedVault
         );
     })
 }
@@ -390,7 +417,7 @@ fn test_execute_redeem_fails_with_unauthorized_vault() {
 #[test]
 fn test_execute_redeem_fails_with_commit_period_expired() {
     run_test(|| {
-        <system::Module<Test>>::set_block_number(20);
+        <frame_system::Module<Test>>::set_block_number(20);
 
         Redeem::get_redeem_request_from_id.mock_safe(|_| {
             MockResult::Return(Ok(RedeemRequest {
@@ -414,7 +441,7 @@ fn test_execute_redeem_fails_with_commit_period_expired() {
                 Vec::default(),
                 Vec::default()
             ),
-            Error::CommitPeriodExpired
+            TestError::CommitPeriodExpired
         );
     })
 }
@@ -433,10 +460,11 @@ fn test_execute_redeem_succeeds() {
                 to_be_redeemed_tokens: 200,
                 btc_address: H160([0; 20]),
                 banned_until: None,
+                status: VaultStatus::Active,
             },
         );
         ext::btc_relay::verify_transaction_inclusion::<Test>
-            .mock_safe(|_, _, _| MockResult::Return(Ok(())));
+            .mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::btc_relay::validate_transaction::<Test>
             .mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
 
@@ -479,7 +507,7 @@ fn test_execute_redeem_succeeds() {
         assert_emitted!(Event::ExecuteRedeem(H256([0; 32]), ALICE, BOB));
         assert_err!(
             Redeem::get_redeem_request_from_id(&H256([0u8; 32])),
-            Error::RedeemIdNotFound,
+            TestError::RedeemIdNotFound,
         );
     })
 }
@@ -489,7 +517,7 @@ fn test_cancel_redeem_fails_with_redeem_id_not_found() {
     run_test(|| {
         assert_err!(
             Redeem::cancel_redeem(Origin::signed(ALICE), H256([0u8; 32]), false),
-            Error::RedeemIdNotFound
+            TestError::RedeemIdNotFound
         );
     })
 }
@@ -514,7 +542,7 @@ fn test_cancel_redeem_fails_with_time_not_expired() {
 
         assert_err!(
             Redeem::cancel_redeem(Origin::signed(ALICE), H256([0u8; 32]), false),
-            Error::TimeNotExpired
+            TestError::TimeNotExpired
         );
     })
 }
@@ -522,7 +550,7 @@ fn test_cancel_redeem_fails_with_time_not_expired() {
 #[test]
 fn test_cancel_redeem_fails_with_unauthorized_caller() {
     run_test(|| {
-        <system::Module<Test>>::set_block_number(20);
+        <frame_system::Module<Test>>::set_block_number(20);
 
         Redeem::get_redeem_request_from_id.mock_safe(|_| {
             MockResult::Return(Ok(RedeemRequest {
@@ -539,7 +567,7 @@ fn test_cancel_redeem_fails_with_unauthorized_caller() {
 
         assert_noop!(
             Redeem::cancel_redeem(Origin::signed(CAROL), H256([0u8; 32]), true),
-            Error::UnauthorizedUser
+            TestError::UnauthorizedUser
         );
     })
 }
@@ -574,7 +602,7 @@ fn test_cancel_redeem_succeeds() {
         ));
         assert_err!(
             Redeem::get_redeem_request_from_id(&H256([0u8; 32])),
-            Error::RedeemIdNotFound,
+            TestError::RedeemIdNotFound,
         );
         assert_emitted!(Event::CancelRedeem(H256([0; 32]), ALICE));
     })

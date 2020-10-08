@@ -1,6 +1,5 @@
 [workspace]
 members = [
-  "crates/x-core",
   "crates/bitcoin",
   "crates/btc-relay",
   "crates/security",

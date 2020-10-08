@@ -1,0 +1,36 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "polkabtc.fullname" . }}-rpc
+  labels:
+    {{- include "polkabtc.labels" . | nindent 4 }}
+spec:
+  ports:
+    - port: 9933
+      name: http-rpc
+    - port: 9944
+      name: websocket-rpc
+      protocol: TCP
+  selector:
+    {{- include "polkabtc.selectorLabels" . | nindent 4 }}
+  sessionAffinity: None
+  type: ClusterIP
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "polkabtc.fullname" . }}
+  labels:
+    {{- include "polkabtc.labels" . | nindent 4 }}
+spec:
+  ports:
+  - port: 9944
+    name: websocket-rpc
+    nodePort: 30344
+    protocol: TCP
+  selector:
+    {{- include "polkabtc.selectorLabels" . | nindent 4 }}
+  sessionAffinity: None
+  type: NodePort

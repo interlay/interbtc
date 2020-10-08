@@ -2,7 +2,7 @@ extern crate hex;
 
 pub use bitcoin::formatter::Formattable;
 pub use bitcoin::types::*;
-pub use btc_parachain_runtime::{AccountId, Event, Runtime};
+pub use btc_parachain_runtime::{AccountId, Call, Event, Runtime};
 pub use frame_support::{assert_err, assert_ok};
 pub use mocktopus::mocking::*;
 use primitive_types::{H256, U256};
@@ -10,8 +10,6 @@ pub use security::StatusCode;
 pub use sp_core::H160;
 pub use sp_runtime::traits::Dispatchable;
 pub use sp_std::convert::TryInto;
-pub use x_core::Error;
-
 pub const ALICE: [u8; 32] = [0u8; 32];
 pub const BOB: [u8; 32] = [1u8; 32];
 pub const CLAIRE: [u8; 32] = [2u8; 32];
@@ -20,8 +18,8 @@ pub const CONFIRMATIONS: u32 = 6;
 pub type BTCRelayCall = btc_relay::Call<Runtime>;
 pub type BTCRelayEvent = btc_relay::Event;
 
-pub fn origin_of(account_id: AccountId) -> <Runtime as system::Trait>::Origin {
-    <Runtime as system::Trait>::Origin::signed(account_id)
+pub fn origin_of(account_id: AccountId) -> <Runtime as frame_system::Trait>::Origin {
+    <Runtime as frame_system::Trait>::Origin::signed(account_id)
 }
 
 pub fn account_of(address: [u8; 32]) -> AccountId {
@@ -35,10 +33,10 @@ pub fn set_default_thresholds() {
     let premium = 120_000; // 120%
     let liquidation = 110_000; // 110%
 
-    vault_registry::Module::<Runtime>::_set_secure_collateral_threshold(secure);
-    vault_registry::Module::<Runtime>::_set_auction_collateral_threshold(auction);
-    vault_registry::Module::<Runtime>::_set_premium_redeem_threshold(premium);
-    vault_registry::Module::<Runtime>::_set_liquidation_collateral_threshold(liquidation);
+    VaultRegistryModule::_set_secure_collateral_threshold(secure);
+    VaultRegistryModule::_set_auction_collateral_threshold(auction);
+    VaultRegistryModule::_set_premium_redeem_threshold(premium);
+    VaultRegistryModule::_set_liquidation_collateral_threshold(liquidation);
 }
 
 #[allow(dead_code)]
@@ -50,15 +48,16 @@ pub fn force_issue_tokens(
     btc_address: H160,
 ) {
     // register the vault
-    assert_ok!(VaultRegistryCall::register_vault(collateral, btc_address)
-        .dispatch(origin_of(account_of(vault))));
+    assert_ok!(
+        Call::VaultRegistry(VaultRegistryCall::register_vault(collateral, btc_address))
+            .dispatch(origin_of(account_of(vault)))
+    );
 
     // increase to be issued tokens
-    vault_registry::Module::<Runtime>::_increase_to_be_issued_tokens(&account_of(vault), tokens)
-        .unwrap();
+    VaultRegistryModule::_increase_to_be_issued_tokens(&account_of(vault), tokens).unwrap();
 
     // issue tokens
-    assert_ok!(vault_registry::Module::<Runtime>::_issue_tokens(
+    assert_ok!(VaultRegistryModule::_issue_tokens(
         &account_of(vault),
         tokens
     ));
@@ -97,10 +96,10 @@ pub fn generate_transaction_and_mine(
     let raw_init_block_header = RawBlockHeader::from_bytes(&init_block.header.format())
         .expect("could not serialize block header");
 
-    assert_ok!(BTCRelayCall::initialize(
+    assert_ok!(Call::BTCRelay(BTCRelayCall::initialize(
         raw_init_block_header.try_into().expect("bad block header"),
         height,
-    )
+    ))
     .dispatch(origin_of(account_of(ALICE))));
 
     height += 1;
@@ -135,9 +134,9 @@ pub fn generate_transaction_and_mine(
     let bytes_proof = proof.format();
     let raw_tx = transaction.format_with(true);
 
-    assert_ok!(BTCRelayCall::store_block_header(
+    assert_ok!(Call::BTCRelay(BTCRelayCall::store_block_header(
         raw_block_header.try_into().expect("bad block header")
-    )
+    ))
     .dispatch(origin_of(account_of(ALICE))));
     assert_store_main_chain_header_event(height, block.header.hash());
 
@@ -156,9 +155,9 @@ pub fn generate_transaction_and_mine(
 
         let raw_conf_block_header = RawBlockHeader::from_bytes(&conf_block.header.format())
             .expect("could not serialize block header");
-        assert_ok!(btc_relay::Call::<Runtime>::store_block_header(
+        assert_ok!(Call::BTCRelay(BTCRelayCall::store_block_header(
             raw_conf_block_header.try_into().expect("bad block header"),
-        )
+        ))
         .dispatch(origin_of(account_of(ALICE))));
 
         assert_store_main_chain_header_event(height, conf_block.header.hash());
@@ -172,10 +171,15 @@ pub fn generate_transaction_and_mine(
 #[allow(dead_code)]
 pub type SecurityModule = security::Module<Runtime>;
 #[allow(dead_code)]
-pub type SystemModule = system::Module<Runtime>;
+pub type SystemModule = frame_system::Module<Runtime>;
+#[allow(dead_code)]
+pub type SecurityError = security::Error<Runtime>;
 
 #[allow(dead_code)]
 pub type VaultRegistryCall = vault_registry::Call<Runtime>;
+#[allow(dead_code)]
+pub type VaultRegistryModule = vault_registry::Module<Runtime>;
+
 #[allow(dead_code)]
 pub type OracleCall = exchange_rate_oracle::Call<Runtime>;
 
@@ -183,11 +187,11 @@ pub struct ExtBuilder;
 
 impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
-        let mut storage = system::GenesisConfig::default()
+        let mut storage = frame_system::GenesisConfig::default()
             .build_storage::<Runtime>()
             .unwrap();
 
-        balances::GenesisConfig::<Runtime, balances::Instance1> {
+        pallet_balances::GenesisConfig::<Runtime, pallet_balances::Instance1> {
             balances: vec![
                 (account_of(ALICE), 1_000_000),
                 (account_of(BOB), 1_000_000),
@@ -197,18 +201,22 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage)
         .unwrap();
 
-        balances::GenesisConfig::<Runtime, balances::Instance2> { balances: vec![] }
+        pallet_balances::GenesisConfig::<Runtime, pallet_balances::Instance2> { balances: vec![] }
             .assimilate_storage(&mut storage)
             .unwrap();
 
         exchange_rate_oracle::GenesisConfig::<Runtime> {
-            admin: account_of(BOB),
+            oracle_account_id: account_of(BOB),
+            oracle_names: vec![(account_of(BOB), BOB.to_vec())],
+            max_delay: 3600000, // one hour
         }
         .assimilate_storage(&mut storage)
         .unwrap();
 
-        btc_relay::GenesisConfig {
-            confirmations: CONFIRMATIONS,
+        btc_relay::GenesisConfig::<Runtime> {
+            bitcoin_confirmations: CONFIRMATIONS,
+            parachain_confirmations: CONFIRMATIONS,
+            difficulty_check: true,
         }
         .assimilate_storage(&mut storage)
         .unwrap();

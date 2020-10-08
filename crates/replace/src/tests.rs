@@ -4,12 +4,14 @@ use crate::PolkaBTC;
 use crate::Replace as R;
 use crate::DOT;
 use bitcoin::types::H256Le;
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{
+    assert_err, assert_noop, assert_ok,
+    dispatch::{DispatchError, DispatchResult},
+};
 use mocktopus::mocking::*;
 use primitive_types::H256;
 use sp_core::H160;
-use vault_registry::Vault;
-use x_core::{Error, UnitResult};
+use vault_registry::{Vault, VaultStatus};
 
 type Event = crate::Event<Test>;
 
@@ -52,6 +54,7 @@ fn test_vault() -> Vault<u64, u64, u64> {
         btc_address: H160([0; 20]),
         to_be_issued_tokens: 0,
         to_be_redeemed_tokens: 0,
+        status: VaultStatus::Active,
     }
 }
 
@@ -59,11 +62,11 @@ fn request_replace(
     vault: AccountId,
     amount: Balance,
     griefing_collateral: DOT<Test>,
-) -> UnitResult {
+) -> DispatchResult {
     Replace::_request_replace(vault, amount, griefing_collateral)
 }
 
-fn withdraw_replace(vault_id: AccountId, replace_id: H256) -> Result<(), Error> {
+fn withdraw_replace(vault_id: AccountId, replace_id: H256) -> Result<(), DispatchError> {
     Replace::_withdraw_replace_request(vault_id, replace_id)
 }
 
@@ -71,7 +74,7 @@ fn accept_replace(
     vault_id: AccountId,
     replace_id: H256,
     collateral: DOT<Test>,
-) -> Result<(), Error> {
+) -> Result<(), DispatchError> {
     Replace::_accept_replace(vault_id, replace_id, collateral)
 }
 
@@ -80,7 +83,7 @@ fn auction_replace(
     new_vault_id: AccountId,
     btc_amount: PolkaBTC<Test>,
     collateral: DOT<Test>,
-) -> Result<(), Error> {
+) -> Result<(), DispatchError> {
     Replace::_auction_replace(old_vault_id, new_vault_id, btc_amount, collateral)
 }
 
@@ -88,35 +91,30 @@ fn execute_replace(
     new_vault_id: AccountId,
     replace_id: H256,
     tx_id: H256Le,
-    tx_block_height: u32,
     merkle_proof: Vec<u8>,
     raw_tx: Vec<u8>,
-) -> Result<(), Error> {
-    Replace::_execute_replace(
-        new_vault_id,
-        replace_id,
-        tx_id,
-        tx_block_height,
-        merkle_proof,
-        raw_tx,
-    )
+) -> Result<(), DispatchError> {
+    Replace::_execute_replace(new_vault_id, replace_id, tx_id, merkle_proof, raw_tx)
 }
 
-fn cancel_replace(new_vault_id: AccountId, replace_id: H256) -> Result<(), Error> {
+fn cancel_replace(new_vault_id: AccountId, replace_id: H256) -> Result<(), DispatchError> {
     Replace::_cancel_replace(new_vault_id, replace_id)
 }
 
 #[test]
 fn test_request_replace_transfer_zero_fails() {
     run_test(|| {
-        assert_noop!(request_replace(BOB, 0, 0), Error::InvalidAmount);
+        assert_noop!(request_replace(BOB, 0, 0), TestError::InvalidAmount);
     })
 }
 
 #[test]
 fn test_request_replace_vault_not_found_fails() {
     run_test(|| {
-        assert_noop!(request_replace(10_000, 1, 0), Error::VaultNotFound);
+        assert_noop!(
+            request_replace(10_000, 1, 0),
+            VaultRegistryError::VaultNotFound
+        );
     })
 }
 
@@ -124,7 +122,7 @@ fn test_request_replace_vault_not_found_fails() {
 fn test_request_replace_vault_banned_fails() {
     run_test(|| {
         ext::vault_registry::ensure_not_banned::<Test>
-            .mock_safe(|_, _| MockResult::Return(Err(Error::VaultBanned)));
+            .mock_safe(|_, _| MockResult::Return(Err(VaultRegistryError::VaultBanned.into())));
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
@@ -133,9 +131,13 @@ fn test_request_replace_vault_banned_fails() {
                 to_be_redeemed_tokens: 0,
                 btc_address: H160([0; 20]),
                 banned_until: Some(1),
+                status: VaultStatus::Active,
             }))
         });
-        assert_noop!(Replace::_request_replace(BOB, 1, 0), Error::VaultBanned);
+        assert_noop!(
+            Replace::_request_replace(BOB, 1, 0),
+            VaultRegistryError::VaultBanned
+        );
     })
 }
 
@@ -158,6 +160,7 @@ fn test_request_replace_insufficient_griefing_collateral_fails() {
                 to_be_redeemed_tokens: 0,
                 btc_address: H160([0; 20]),
                 banned_until: None,
+                status: VaultStatus::Active,
             }))
         });
         ext::vault_registry::is_over_minimum_collateral::<Test>
@@ -167,7 +170,7 @@ fn test_request_replace_insufficient_griefing_collateral_fails() {
         Replace::set_replace_griefing_collateral(desired_griefing_collateral);
         assert_noop!(
             Replace::_request_replace(old_vault, amount, griefing_collateral),
-            Error::InsufficientCollateral
+            TestError::InsufficientCollateral
         );
     })
 }
@@ -176,10 +179,10 @@ fn test_request_replace_insufficient_griefing_collateral_fails() {
 fn test_withdraw_replace_request_invalid_replace_id_fails() {
     run_test(|| {
         Replace::get_replace_request
-            .mock_safe(|_| MockResult::Return(Err(Error::InvalidReplaceID)));
+            .mock_safe(|_| MockResult::Return(Err(TestError::InvalidReplaceID.into())));
         assert_noop!(
             Replace::_withdraw_replace_request(ALICE, H256([0u8; 32])),
-            Error::InvalidReplaceID
+            TestError::InvalidReplaceID
         );
     })
 }
@@ -189,10 +192,10 @@ fn test_withdraw_replace_request_invalid_vault_id_fails() {
     run_test(|| {
         Replace::get_replace_request.mock_safe(|_| MockResult::Return(Ok(test_request())));
         ext::vault_registry::get_vault_from_id::<Test>
-            .mock_safe(|_| MockResult::Return(Err(Error::VaultNotFound)));
+            .mock_safe(|_| MockResult::Return(Err(VaultRegistryError::VaultNotFound.into())));
         assert_noop!(
             withdraw_replace(ALICE, H256([0u8; 32])),
-            Error::VaultNotFound
+            VaultRegistryError::VaultNotFound
         );
     })
 }
@@ -206,7 +209,7 @@ fn test_withdraw_replace_req_vault_id_mismatch_fails() {
             .mock_safe(|_id| MockResult::Return(Ok(test_vault())));
         assert_noop!(
             withdraw_replace(BOB, H256([0u8; 32])),
-            Error::UnauthorizedVault
+            TestError::UnauthorizedVault
         );
     })
 }
@@ -227,7 +230,7 @@ fn test_withdraw_replace_req_under_secure_threshold_fails() {
         ext::collateral::get_collateral_from_account::<Test>.mock_safe(|_| MockResult::Return(0));
         assert_noop!(
             withdraw_replace(BOB, H256([0u8; 32])),
-            Error::UnauthorizedVault
+            TestError::UnauthorizedVault
         );
     })
 }
@@ -254,7 +257,7 @@ fn test_withdraw_replace_req_has_new_owner_fails() {
             .mock_safe(|_| MockResult::Return(20_000_000));
         assert_noop!(
             withdraw_replace(ALICE, H256([0u8; 32])),
-            Error::CancelAcceptedRequest
+            TestError::CancelAcceptedRequest
         );
     })
 }
@@ -266,7 +269,7 @@ fn test_accept_replace_bad_replace_id_fails() {
             let mut r = test_request();
             r.old_vault = ALICE;
             r.new_vault = Some(3);
-            MockResult::Return(Err(Error::InvalidReplaceID))
+            MockResult::Return(Err(TestError::InvalidReplaceID.into()))
         });
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_id| {
             MockResult::Return(Ok({
@@ -282,7 +285,7 @@ fn test_accept_replace_bad_replace_id_fails() {
         let collateral = 100_000;
         assert_noop!(
             accept_replace(ALICE, H256([0u8; 32]), collateral),
-            Error::InvalidReplaceID
+            TestError::InvalidReplaceID
         );
     })
 }
@@ -297,7 +300,7 @@ fn test_accept_replace_bad_vault_id_fails() {
             MockResult::Return(Ok(r))
         });
         ext::vault_registry::get_vault_from_id::<Test>
-            .mock_safe(|_id| MockResult::Return(Err(Error::InvalidVaultID)));
+            .mock_safe(|_id| MockResult::Return(Err(VaultRegistryError::VaultNotFound.into())));
         ext::vault_registry::is_vault_below_auction_threshold::<Test>
             .mock_safe(|_| MockResult::Return(Ok(false)));
         ext::collateral::get_collateral_from_account::<Test>
@@ -305,7 +308,7 @@ fn test_accept_replace_bad_vault_id_fails() {
         let collateral = 100_000;
         assert_noop!(
             accept_replace(ALICE, H256([0u8; 32]), collateral),
-            Error::InvalidVaultID
+            VaultRegistryError::VaultNotFound
         );
     })
 }
@@ -320,7 +323,7 @@ fn test_accept_replace_vault_banned_fails() {
             MockResult::Return(Ok(r))
         });
         ext::vault_registry::ensure_not_banned::<Test>
-            .mock_safe(|_, _| MockResult::Return(Err(Error::VaultBanned)));
+            .mock_safe(|_, _| MockResult::Return(Err(VaultRegistryError::VaultBanned.into())));
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_id| {
             let mut vault = test_vault();
             vault.banned_until = Some(100);
@@ -333,7 +336,7 @@ fn test_accept_replace_vault_banned_fails() {
         let collateral = 100_000;
         assert_noop!(
             accept_replace(ALICE, H256([0u8; 32]), collateral),
-            Error::VaultBanned
+            VaultRegistryError::VaultBanned
         );
     })
 }
@@ -358,7 +361,7 @@ fn test_accept_replace_insufficient_collateral_fails() {
         let collateral = 100_000;
         assert_noop!(
             accept_replace(ALICE, H256([0u8; 32]), collateral),
-            Error::InsufficientCollateral
+            TestError::InsufficientCollateral
         );
     })
 }
@@ -368,7 +371,7 @@ fn test_auction_replace_bad_old_vault_id_fails() {
     run_test(|| {
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|id| {
             MockResult::Return(if *id == ALICE {
-                Err(Error::InvalidVaultID)
+                Err(VaultRegistryError::VaultNotFound.into())
             } else {
                 Ok(test_vault())
             })
@@ -381,7 +384,7 @@ fn test_auction_replace_bad_old_vault_id_fails() {
         let btc_amount = 100;
         assert_noop!(
             auction_replace(ALICE, BOB, btc_amount, collateral),
-            Error::InvalidVaultID
+            VaultRegistryError::VaultNotFound
         );
     })
 }
@@ -393,7 +396,7 @@ fn test_auction_replace_bad_new_vault_id_fails() {
             MockResult::Return(if *id == ALICE {
                 Ok(test_vault())
             } else {
-                Err(Error::InvalidVaultID)
+                Err(VaultRegistryError::VaultNotFound.into())
             })
         });
         ext::vault_registry::is_collateral_below_secure_threshold::<Test>
@@ -404,7 +407,7 @@ fn test_auction_replace_bad_new_vault_id_fails() {
         let btc_amount = 100;
         assert_noop!(
             auction_replace(ALICE, BOB, btc_amount, collateral),
-            Error::InvalidVaultID
+            VaultRegistryError::VaultNotFound
         );
     })
 }
@@ -427,7 +430,7 @@ fn test_auction_replace_insufficient_collateral_fails() {
         let btc_amount = 100;
         assert_noop!(
             auction_replace(ALICE, BOB, btc_amount, collateral),
-            Error::VaultOverAuctionThreshold
+            TestError::VaultOverAuctionThreshold
         );
     })
 }
@@ -436,24 +439,16 @@ fn test_auction_replace_insufficient_collateral_fails() {
 fn test_execute_replace_bad_replace_id_fails() {
     run_test(|| {
         Replace::get_replace_request
-            .mock_safe(|_| MockResult::Return(Err(Error::InvalidReplaceID)));
+            .mock_safe(|_| MockResult::Return(Err(TestError::InvalidReplaceID.into())));
 
         let new_vault_id = ALICE;
         let replace_id = H256::zero();
         let tx_id = H256Le::zero();
-        let tx_block_height = 1;
         let merkle_proof = Vec::new();
         let raw_tx = Vec::new();
-        assert_eq!(
-            execute_replace(
-                new_vault_id,
-                replace_id,
-                tx_id,
-                tx_block_height,
-                merkle_proof,
-                raw_tx
-            ),
-            Err(Error::InvalidReplaceID)
+        assert_err!(
+            execute_replace(new_vault_id, replace_id, tx_id, merkle_proof, raw_tx),
+            TestError::InvalidReplaceID
         );
     })
 }
@@ -470,22 +465,14 @@ fn test_execute_replace_replace_period_expired_fails() {
         let new_vault_id = ALICE;
         let replace_id = H256::zero();
         let tx_id = H256Le::zero();
-        let tx_block_height = 1;
         let merkle_proof = Vec::new();
         let raw_tx = Vec::new();
 
         Replace::current_height.mock_safe(|| MockResult::Return(110_000));
         Replace::replace_period.mock_safe(|| MockResult::Return(2));
-        assert_eq!(
-            execute_replace(
-                new_vault_id,
-                replace_id,
-                tx_id,
-                tx_block_height,
-                merkle_proof,
-                raw_tx
-            ),
-            Err(Error::ReplacePeriodExpired)
+        assert_err!(
+            execute_replace(new_vault_id, replace_id, tx_id, merkle_proof, raw_tx),
+            TestError::ReplacePeriodExpired
         );
     })
 }
@@ -494,14 +481,14 @@ fn test_execute_replace_replace_period_expired_fails() {
 fn test_cancel_replace_invalid_replace_id_fails() {
     run_test(|| {
         Replace::get_replace_request
-            .mock_safe(|_| MockResult::Return(Err(Error::InvalidReplaceID)));
+            .mock_safe(|_| MockResult::Return(Err(TestError::InvalidReplaceID.into())));
 
         let new_vault_id = ALICE;
         let replace_id = H256::zero();
 
-        assert_eq!(
+        assert_err!(
             cancel_replace(new_vault_id, replace_id),
-            Err(Error::InvalidReplaceID)
+            TestError::InvalidReplaceID
         );
     })
 }
@@ -515,9 +502,9 @@ fn test_cancel_replace_period_not_expired_fails() {
         let new_vault_id = ALICE;
         let replace_id = H256::zero();
 
-        assert_eq!(
+        assert_err!(
             cancel_replace(new_vault_id, replace_id),
-            Err(Error::ReplacePeriodNotExpired)
+            TestError::ReplacePeriodNotExpired
         );
     })
 }
@@ -531,9 +518,9 @@ fn test_cancel_replace_period_not_expired_current_height_0_fails() {
         let new_vault_id = ALICE;
         let replace_id = H256::zero();
 
-        assert_eq!(
+        assert_err!(
             cancel_replace(new_vault_id, replace_id),
-            Err(Error::ReplacePeriodNotExpired)
+            TestError::ReplacePeriodNotExpired
         );
     })
 }
@@ -718,7 +705,6 @@ fn test_execute_replace_succeeds() {
         let new_vault_id = BOB;
         let replace_id = H256::zero();
         let tx_id = H256Le::zero();
-        let tx_block_height = 1;
         let merkle_proof = Vec::new();
         let raw_tx = Vec::new();
 
@@ -737,7 +723,7 @@ fn test_execute_replace_succeeds() {
             .mock_safe(|_| MockResult::Return(Ok(test_vault())));
 
         ext::btc_relay::verify_transaction_inclusion::<Test>
-            .mock_safe(|_, _, _| MockResult::Return(Ok(())));
+            .mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::btc_relay::validate_transaction::<Test>
             .mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
         ext::vault_registry::replace_tokens::<Test>
@@ -746,14 +732,7 @@ fn test_execute_replace_succeeds() {
         Replace::remove_replace_request.mock_safe(|_| MockResult::Return(()));
 
         assert_eq!(
-            execute_replace(
-                new_vault_id,
-                replace_id,
-                tx_id,
-                tx_block_height,
-                merkle_proof,
-                raw_tx
-            ),
+            execute_replace(new_vault_id, replace_id, tx_id, merkle_proof, raw_tx),
             Ok(())
         );
 
@@ -794,8 +773,11 @@ fn test_cancel_replace_succeeds() {
 fn test_request_replace_parachain_not_running_fails() {
     run_test(|| {
         ext::security::ensure_parachain_status_running::<Test>
-            .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
-        assert_noop!(request_replace(10_000, 1, 0), Error::ParachainNotRunning);
+            .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainNotRunning.into())));
+        assert_noop!(
+            request_replace(10_000, 1, 0),
+            SecurityError::ParachainNotRunning
+        );
     })
 }
 
@@ -803,10 +785,10 @@ fn test_request_replace_parachain_not_running_fails() {
 fn test_accept_replace_parachain_not_running_fails() {
     run_test(|| {
         ext::security::ensure_parachain_status_running::<Test>
-            .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
+            .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainNotRunning.into())));
         assert_noop!(
             accept_replace(BOB, H256::zero(), 1),
-            Error::ParachainNotRunning
+            SecurityError::ParachainNotRunning
         );
     })
 }
@@ -815,10 +797,10 @@ fn test_accept_replace_parachain_not_running_fails() {
 fn test_auction_replace_parachain_not_running_fails() {
     run_test(|| {
         ext::security::ensure_parachain_status_running::<Test>
-            .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
+            .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainNotRunning.into())));
         assert_noop!(
             auction_replace(ALICE, BOB, 1, 1),
-            Error::ParachainNotRunning
+            SecurityError::ParachainNotRunning
         );
     })
 }
@@ -827,17 +809,10 @@ fn test_auction_replace_parachain_not_running_fails() {
 fn test_execute_replace_parachain_not_running_fails() {
     run_test(|| {
         ext::security::ensure_parachain_status_running::<Test>
-            .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
+            .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainNotRunning.into())));
         assert_noop!(
-            execute_replace(
-                ALICE,
-                H256::zero(),
-                H256Le::zero(),
-                1,
-                Vec::new(),
-                Vec::new()
-            ),
-            Error::ParachainNotRunning
+            execute_replace(ALICE, H256::zero(), H256Le::zero(), Vec::new(), Vec::new()),
+            SecurityError::ParachainNotRunning
         );
     })
 }
@@ -846,10 +821,10 @@ fn test_execute_replace_parachain_not_running_fails() {
 fn test_cancel_replace_parachain_not_running_fails() {
     run_test(|| {
         ext::security::ensure_parachain_status_running::<Test>
-            .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
+            .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainNotRunning.into())));
         assert_noop!(
             cancel_replace(ALICE, H256::zero()),
-            Error::ParachainNotRunning
+            SecurityError::ParachainNotRunning
         );
     })
 }
@@ -877,7 +852,7 @@ fn test_withdraw_replace_parachain_not_running_succeeds() {
             .mock_safe(|_, _| MockResult::Return(Ok(())));
 
         ext::security::ensure_parachain_status_running::<Test>
-            .mock_safe(|| MockResult::Return(Err(Error::ParachainNotRunning)));
+            .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainNotRunning.into())));
 
         Replace::remove_replace_request.mock_safe(|_| MockResult::Return(()));
 

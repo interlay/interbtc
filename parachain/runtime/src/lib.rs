@@ -8,14 +8,15 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::StorageMapShim;
-use grandpa::fg_primitives;
-use grandpa::AuthorityList as GrandpaAuthorityList;
+use pallet_grandpa::fg_primitives;
+use pallet_grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::OpaqueMetadata;
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::traits::{
-    BlakeTwo256, Block as BlockT, ConvertInto, IdentifyAccount, IdentityLookup, Verify,
+    BlakeTwo256, Block as BlockT, IdentifyAccount, IdentityLookup, NumberFor, Saturating, Verify,
 };
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
@@ -28,22 +29,22 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
 // A few exports that help ease life for downstream crates.
-pub use balances::Call as BalancesCall;
 pub use btc_relay::bitcoin;
 pub use btc_relay::Call as RelayCall;
 pub use frame_support::{
     construct_runtime, parameter_types,
-    traits::Randomness,
+    traits::{KeyOwnerProofSystem, Randomness},
     weights::{
         constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
-        Weight,
+        IdentityFee, Weight,
     },
     StorageValue,
 };
+pub use pallet_balances::Call as BalancesCall;
+pub use pallet_timestamp::Call as TimestampCall;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
-pub use timestamp::Call as TimestampCall;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -125,15 +126,20 @@ pub fn native_version() -> NativeVersion {
 }
 
 parameter_types! {
-    pub const BlockHashCount: BlockNumber = 250;
+    pub const BlockHashCount: BlockNumber = 2400;
     /// We allow for 2 seconds of compute with a 6 second average block time.
     pub const MaximumBlockWeight: Weight = 2 * WEIGHT_PER_SECOND;
-    pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
+    pub const AvailableBlockRatio: Perbill = Perbill::one();
+    /// Assume 10% of weight for average on_initialize calls.
+    pub MaximumExtrinsicWeight: Weight = AvailableBlockRatio::get()
+        .saturating_sub(Perbill::from_percent(10)) * MaximumBlockWeight::get();
     pub const MaximumBlockLength: u32 = 5 * 1024 * 1024;
     pub const Version: RuntimeVersion = VERSION;
 }
 
-impl system::Trait for Runtime {
+impl frame_system::Trait for Runtime {
+    /// The basic call filter to use in dispatchable.
+    type BaseCallFilter = ();
     /// The identifier used to distinguish between accounts.
     type AccountId = AccountId;
     /// The aggregated dispatch type that is available for extrinsics.
@@ -158,18 +164,22 @@ impl system::Trait for Runtime {
     type BlockHashCount = BlockHashCount;
     /// Maximum weight of each block.
     type MaximumBlockWeight = MaximumBlockWeight;
+    /// The weight of database operations that the runtime can invoke.
+    type DbWeight = RocksDbWeight;
+    /// The weight of the overhead invoked on the block import process, independent of the
+    /// extrinsics included in that block.
+    type BlockExecutionWeight = BlockExecutionWeight;
+    /// The base weight of any extrinsic processed by the runtime, independent of the
+    /// logic of that extrinsic. (Signature verification, nonce increment, fee, etc...)
+    type ExtrinsicBaseWeight = ExtrinsicBaseWeight;
+    /// The maximum weight that a single extrinsic of `Normal` dispatch class can have,
+    /// idependent of the logic of that extrinsics. (Roughly max block weight - average on
+    /// initialize cost).
+    type MaximumExtrinsicWeight = MaximumExtrinsicWeight;
     /// Maximum size of all encoded transactions (in bytes) that are allowed in one block.
     type MaximumBlockLength = MaximumBlockLength;
     /// Portion of the block weight that is available to all normal transactions.
     type AvailableBlockRatio = AvailableBlockRatio;
-    /// The weight of the overhead invoked on the block import process, independent of the
-    /// extrinsics included in that block.
-    type BlockExecutionWeight = BlockExecutionWeight;
-    /// The weight of database operations that the runtime can invoke.
-    type DbWeight = RocksDbWeight;
-    /// The base weight of any extrinsic processed by the runtime, independent of the
-    /// logic of that extrinsic. (Signature verification, nonce increment, fee, etc...)
-    type ExtrinsicBaseWeight = ExtrinsicBaseWeight;
     /// Version of the runtime.
     type Version = Version;
     /// Converts a module to the index of the module in `construct_runtime!`.
@@ -178,54 +188,70 @@ impl system::Trait for Runtime {
     type ModuleToIndex = ModuleToIndex;
     /// What to do if a new account is created.
     type OnNewAccount = ();
-    /// What to do if an account is fully reaped from the system.
+    /// What to do if an account is fully reaped from the frame_system.
     type OnKilledAccount = ();
     /// The data to be stored in an account.
-    type AccountData = balances::AccountData<Balance>;
+    type AccountData = pallet_balances::AccountData<Balance>;
+    /// Weight information for the extrinsics of this pallet.
+    type SystemWeightInfo = ();
 }
 
-impl aura::Trait for Runtime {
+impl pallet_aura::Trait for Runtime {
     type AuthorityId = AuraId;
 }
 
-impl grandpa::Trait for Runtime {
+impl pallet_grandpa::Trait for Runtime {
     type Event = Event;
+    type Call = Call;
+
+    type KeyOwnerProofSystem = ();
+
+    type KeyOwnerProof =
+        <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
+
+    type KeyOwnerIdentification = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
+        KeyTypeId,
+        GrandpaId,
+    )>>::IdentificationTuple;
+
+    type HandleEquivocation = ();
 }
 
 parameter_types! {
     pub const MinimumPeriod: u64 = SLOT_DURATION / 2;
 }
 
-impl timestamp::Trait for Runtime {
+impl pallet_timestamp::Trait for Runtime {
     /// A timestamp: milliseconds since the unix epoch.
     type Moment = u64;
     type OnTimestampSet = Aura;
     type MinimumPeriod = MinimumPeriod;
-}
-
-parameter_types! {
-    pub const ExistentialDeposit: u128 = 500;
+    type WeightInfo = ();
 }
 
 parameter_types! {
     pub const TransactionByteFee: Balance = 1;
 }
 
-impl transaction_payment::Trait for Runtime {
-    type Currency = balances::Module<Runtime, balances::Instance1>;
+impl pallet_transaction_payment::Trait for Runtime {
+    type Currency = pallet_balances::Module<Runtime, pallet_balances::Instance1>;
     type OnTransactionPayment = ();
     type TransactionByteFee = TransactionByteFee;
-    type WeightToFee = ConvertInto;
+    type WeightToFee = IdentityFee<Balance>;
     type FeeMultiplierUpdate = ();
 }
 
-impl sudo::Trait for Runtime {
+impl pallet_sudo::Trait for Runtime {
     type Event = Event;
     type Call = Call;
 }
 
+parameter_types! {
+    pub const ExistentialDeposit: u128 = 500;
+}
+
 /// DOT
-impl balances::Trait<balances::Instance1> for Runtime {
+impl pallet_balances::Trait<pallet_balances::Instance1> for Runtime {
     /// The type for recording an account's balance.
     type Balance = Balance;
     /// The ubiquitous event type.
@@ -233,27 +259,29 @@ impl balances::Trait<balances::Instance1> for Runtime {
     type DustRemoval = ();
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = StorageMapShim<
-        balances::Account<Runtime, balances::Instance1>,
-        system::CallOnCreatedAccount<Runtime>,
-        system::CallKillAccount<Runtime>,
+        pallet_balances::Account<Runtime, pallet_balances::Instance1>,
+        frame_system::CallOnCreatedAccount<Runtime>,
+        frame_system::CallKillAccount<Runtime>,
         AccountId,
-        balances::AccountData<Balance>,
+        pallet_balances::AccountData<Balance>,
     >;
+    type WeightInfo = ();
 }
 
 /// PolkaBTC
-impl balances::Trait<balances::Instance2> for Runtime {
+impl pallet_balances::Trait<pallet_balances::Instance2> for Runtime {
     type Balance = Balance;
     type Event = Event;
     type DustRemoval = ();
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = StorageMapShim<
-        balances::Account<Runtime, balances::Instance2>,
-        system::CallOnCreatedAccount<Runtime>,
-        system::CallKillAccount<Runtime>,
+        pallet_balances::Account<Runtime, pallet_balances::Instance2>,
+        frame_system::CallOnCreatedAccount<Runtime>,
+        frame_system::CallKillAccount<Runtime>,
         AccountId,
-        balances::AccountData<Balance>,
+        pallet_balances::AccountData<Balance>,
     >;
+    type WeightInfo = ();
 }
 
 impl btc_relay::Trait for Runtime {
@@ -262,12 +290,12 @@ impl btc_relay::Trait for Runtime {
 
 impl collateral::Trait for Runtime {
     type Event = Event;
-    type DOT = balances::Module<Runtime, balances::Instance1>;
+    type DOT = pallet_balances::Module<Runtime, pallet_balances::Instance1>;
 }
 
 impl treasury::Trait for Runtime {
     type Event = Event;
-    type PolkaBTC = balances::Module<Runtime, balances::Instance2>;
+    type PolkaBTC = pallet_balances::Module<Runtime, pallet_balances::Instance2>;
 }
 
 impl security::Trait for Runtime {
@@ -280,6 +308,7 @@ parameter_types! {
     pub const MinimumStake: u32 = 10;
     pub const MinimumParticipants: u32 = 3;
     pub const VoteThreshold: u32 = 50;
+    pub const VotingPeriod: BlockNumber = DAYS;
 }
 
 impl staked_relayers::Trait for Runtime {
@@ -289,6 +318,7 @@ impl staked_relayers::Trait for Runtime {
     type MinimumStake = MinimumStake;
     type MinimumParticipants = MinimumParticipants;
     type VoteThreshold = VoteThreshold;
+    type VotingPeriod = VotingPeriod;
 }
 
 impl vault_registry::Trait for Runtime {
@@ -300,7 +330,7 @@ impl exchange_rate_oracle::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const IssuePeriod: BlockNumber = 10;
+    pub const IssuePeriod: BlockNumber = DAYS;
 }
 
 impl issue::Trait for Runtime {
@@ -312,8 +342,13 @@ impl redeem::Trait for Runtime {
     type Event = Event;
 }
 
+parameter_types! {
+    pub const ReplacePeriod: BlockNumber = 10;
+}
+
 impl replace::Trait for Runtime {
     type Event = Event;
+    type ReplacePeriod = ReplacePeriod;
 }
 
 construct_runtime!(
@@ -322,17 +357,17 @@ construct_runtime!(
         NodeBlock = opaque::Block,
         UncheckedExtrinsic = UncheckedExtrinsic
     {
-        System: system::{Module, Call, Config, Storage, Event<T>},
-        RandomnessCollectiveFlip: randomness_collective_flip::{Module, Call, Storage},
-        Timestamp: timestamp::{Module, Call, Storage, Inherent},
-        Aura: aura::{Module, Config<T>, Inherent(Timestamp)},
-        Grandpa: grandpa::{Module, Call, Storage, Config, Event},
-        TransactionPayment: transaction_payment::{Module, Storage},
-        Sudo: sudo::{Module, Call, Config<T>, Storage, Event<T>},
+        System: frame_system::{Module, Call, Config, Storage, Event<T>},
+        RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
+        Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
+        Aura: pallet_aura::{Module, Config<T>, Inherent},
+        Grandpa: pallet_grandpa::{Module, Call, Storage, Config, Event},
+        TransactionPayment: pallet_transaction_payment::{Module, Storage},
+        Sudo: pallet_sudo::{Module, Call, Config<T>, Storage, Event<T>},
 
-        DOT: balances::<Instance1>::{Module, Call, Storage, Config<T>, Event<T>},
-        PolkaBTC: balances::<Instance2>::{Module, Call, Storage, Config<T>, Event<T>},
-        BTCRelay: btc_relay::{Module, Call, Config, Storage, Event},
+        DOT: pallet_balances::<Instance1>::{Module, Call, Storage, Config<T>, Event<T>},
+        PolkaBTC: pallet_balances::<Instance2>::{Module, Call, Storage, Config<T>, Event<T>},
+        BTCRelay: btc_relay::{Module, Call, Config<T>, Storage, Event},
         Collateral: collateral::{Module, Call, Storage, Event<T>},
         Treasury: treasury::{Module, Call, Storage, Event<T>},
         Security: security::{Module, Call, Storage, Event},
@@ -357,20 +392,26 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 pub type BlockId = generic::BlockId<Block>;
 /// The SignedExtension to the basic transaction logic.
 pub type SignedExtra = (
-    system::CheckVersion<Runtime>,
-    system::CheckGenesis<Runtime>,
-    system::CheckEra<Runtime>,
-    system::CheckNonce<Runtime>,
-    system::CheckWeight<Runtime>,
-    transaction_payment::ChargeTransactionPayment<Runtime>,
+    frame_system::CheckSpecVersion<Runtime>,
+    frame_system::CheckTxVersion<Runtime>,
+    frame_system::CheckGenesis<Runtime>,
+    frame_system::CheckEra<Runtime>,
+    frame_system::CheckNonce<Runtime>,
+    frame_system::CheckWeight<Runtime>,
+    pallet_transaction_payment::ChargeTransactionPayment<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
 pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signature, SignedExtra>;
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Call, SignedExtra>;
 /// Executive: handles dispatch to the various modules.
-pub type Executive =
-    frame_executive::Executive<Runtime, Block, system::ChainContext<Runtime>, Runtime, AllModules>;
+pub type Executive = frame_executive::Executive<
+    Runtime,
+    Block,
+    frame_system::ChainContext<Runtime>,
+    Runtime,
+    AllModules,
+>;
 
 impl_runtime_apis! {
     impl sp_api::Core<Block> for Runtime {
@@ -450,7 +491,7 @@ impl_runtime_apis! {
 
         fn decode_session_keys(
             encoded: Vec<u8>,
-        ) -> Option<Vec<(Vec<u8>, sp_core::crypto::KeyTypeId)>> {
+        ) -> Option<Vec<(Vec<u8>, KeyTypeId)>> {
             opaque::SessionKeys::decode_into_raw_public_keys(&encoded)
         }
     }
@@ -458,6 +499,82 @@ impl_runtime_apis! {
     impl fg_primitives::GrandpaApi<Block> for Runtime {
         fn grandpa_authorities() -> GrandpaAuthorityList {
             Grandpa::grandpa_authorities()
+        }
+
+        fn submit_report_equivocation_unsigned_extrinsic(
+            _equivocation_proof: fg_primitives::EquivocationProof<
+                <Block as BlockT>::Hash,
+                NumberFor<Block>,
+            >,
+            _key_owner_proof: fg_primitives::OpaqueKeyOwnershipProof,
+        ) -> Option<()> {
+            None
+        }
+
+        fn generate_key_ownership_proof(
+            _set_id: fg_primitives::SetId,
+            _authority_id: GrandpaId,
+        ) -> Option<fg_primitives::OpaqueKeyOwnershipProof> {
+            // NOTE: this is the only implementation possible since we've
+            // defined our key owner proof type as a bottom type (i.e. a type
+            // with no values).
+            None
+        }
+    }
+
+    impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Index> for Runtime {
+        fn account_nonce(account: AccountId) -> Index {
+            System::account_nonce(account)
+        }
+    }
+
+    impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance> for Runtime {
+        fn query_info(
+            uxt: <Block as BlockT>::Extrinsic,
+            len: u32,
+        ) -> pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo<Balance> {
+            TransactionPayment::query_info(uxt, len)
+        }
+    }
+
+    impl module_exchange_rate_oracle_rpc_runtime_api::ExchangeRateOracleApi<
+        Block,
+        Balance,
+        Balance,
+    > for Runtime {
+        fn btc_to_dots(amount: Balance) -> Result<Balance, DispatchError> {
+            ExchangeRateOracle::btc_to_dots(amount)
+        }
+    }
+
+    impl module_staked_relayers_rpc_runtime_api::StakedRelayersApi<
+        Block,
+        AccountId,
+    > for Runtime {
+        fn is_transaction_invalid(vault_id: AccountId, raw_tx: Vec<u8>) -> DispatchResult {
+            StakedRelayers::is_transaction_invalid(&vault_id, raw_tx)
+        }
+    }
+
+    impl module_vault_registry_rpc_runtime_api::VaultRegistryApi<
+        Block,
+        AccountId,
+        Balance,
+    > for Runtime {
+        fn get_first_vault_with_sufficient_collateral(amount: Balance) -> Result<AccountId, DispatchError> {
+            VaultRegistry::get_first_vault_with_sufficient_collateral(amount)
+        }
+
+        fn get_first_vault_with_sufficient_tokens(amount: Balance) -> Result<AccountId, DispatchError> {
+            VaultRegistry::get_first_vault_with_sufficient_tokens(amount)
+        }
+
+        fn get_issuable_tokens_from_vault(vault: AccountId) -> Result<Balance, DispatchError> {
+            VaultRegistry::get_issuable_tokens_from_vault(vault)
+        }
+
+        fn get_collateralization_from_vault(vault: AccountId) -> Result<u64, DispatchError> {
+            VaultRegistry::get_collateralization_from_vault(vault)
         }
     }
 }

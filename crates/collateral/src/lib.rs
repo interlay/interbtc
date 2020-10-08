@@ -8,24 +8,26 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+use frame_support::dispatch::DispatchError;
 use frame_support::traits::{Currency, ReservableCurrency};
 /// The Collateral module according to the specification at
 /// https://interlay.gitlab.io/polkabtc-spec/spec/collateral.html
-use frame_support::{decl_event, decl_module, decl_storage, ensure, sp_runtime::ModuleId};
-use x_core::Error;
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage, ensure, sp_runtime::ModuleId,
+};
 
-type BalanceOf<T> = <<T as Trait>::DOT as Currency<<T as system::Trait>::AccountId>>::Balance;
+type BalanceOf<T> = <<T as Trait>::DOT as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 
 /// The collateral's module id, used for deriving its sovereign account ID.
 const _MODULE_ID: ModuleId = ModuleId(*b"ily/cltl");
 
 /// The pallet's configuration trait.
-pub trait Trait: system::Trait {
+pub trait Trait: frame_system::Trait {
     /// The DOT currency
     type DOT: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
 
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
 
 // This pallet's storage items.
@@ -44,7 +46,7 @@ decl_storage! {
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as system::Trait>::AccountId,
+        AccountId = <T as frame_system::Trait>::AccountId,
         Balance = BalanceOf<T>,
     {
         LockCollateral(AccountId, Balance),
@@ -56,6 +58,8 @@ decl_event!(
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+        type Error = Error<T>;
+
         // Initializing events
         fn deposit_event() = default;
     }
@@ -94,8 +98,11 @@ impl<T: Trait> Module<T> {
     ///
     /// * `sender` - the account locking tokens
     /// * `amount` - to be locked amount of DOT
-    pub fn lock_collateral(sender: &T::AccountId, amount: BalanceOf<T>) -> Result<(), Error> {
-        T::DOT::reserve(sender, amount).map_err(|_| Error::InsufficientFunds)?;
+    pub fn lock_collateral(
+        sender: &T::AccountId,
+        amount: BalanceOf<T>,
+    ) -> Result<(), DispatchError> {
+        T::DOT::reserve(sender, amount).map_err(|_| Error::<T>::InsufficientFunds)?;
 
         Self::increase_total_collateral(amount);
 
@@ -108,10 +115,13 @@ impl<T: Trait> Module<T> {
     ///
     /// * `sender` - the account releasing tokens
     /// * `amount` - the to be released amount of DOT
-    pub fn release_collateral(sender: &T::AccountId, amount: BalanceOf<T>) -> Result<(), Error> {
+    pub fn release_collateral(
+        sender: &T::AccountId,
+        amount: BalanceOf<T>,
+    ) -> Result<(), DispatchError> {
         ensure!(
             T::DOT::reserved_balance(&sender) >= amount,
-            Error::InsufficientCollateralAvailable
+            Error::<T>::InsufficientCollateralAvailable
         );
         T::DOT::unreserve(sender, amount);
 
@@ -133,10 +143,10 @@ impl<T: Trait> Module<T> {
         sender: T::AccountId,
         receiver: T::AccountId,
         amount: BalanceOf<T>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), DispatchError> {
         ensure!(
             T::DOT::reserved_balance(&sender) >= amount,
-            Error::InsufficientCollateralAvailable
+            Error::<T>::InsufficientCollateralAvailable
         );
 
         // slash the sender's collateral
@@ -146,10 +156,19 @@ impl<T: Trait> Module<T> {
         T::DOT::resolve_creating(&receiver, slashed);
 
         // reserve the created amount for the receiver
-        T::DOT::reserve(&receiver, amount).map_err(|_| Error::InsufficientFunds)?;
+        T::DOT::reserve(&receiver, amount).map_err(|_| Error::<T>::InsufficientFunds)?;
 
         Self::deposit_event(RawEvent::SlashCollateral(sender, receiver, amount));
 
         Ok(())
+    }
+}
+
+decl_error! {
+    pub enum Error for Module<T: Trait> {
+        /// Account has insufficient balance
+        InsufficientFunds,
+        /// Account has insufficient collateral
+        InsufficientCollateralAvailable,
     }
 }

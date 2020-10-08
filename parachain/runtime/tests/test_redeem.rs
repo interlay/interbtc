@@ -27,9 +27,13 @@ fn integration_test_redeem_should_fail_if_not_running() {
         SecurityModule::set_parachain_status(StatusCode::Shutdown);
 
         assert_err!(
-            RedeemCall::request_redeem(1000, H160([0; 20]), account_of(BOB))
-                .dispatch(origin_of(account_of(ALICE))),
-            Error::ParachainNotRunning,
+            Call::Redeem(RedeemCall::request_redeem(
+                1000,
+                H160([0; 20]),
+                account_of(BOB)
+            ))
+            .dispatch(origin_of(account_of(ALICE))),
+            SecurityError::ParachainNotRunning,
         );
     });
 }
@@ -46,7 +50,8 @@ fn integration_test_redeem_polka_btc() {
 
         SystemModule::set_block_number(1);
 
-        assert_ok!(OracleCall::set_exchange_rate(1).dispatch(origin_of(account_of(BOB))));
+        assert_ok!(Call::ExchangeRateOracle(OracleCall::set_exchange_rate(1))
+            .dispatch(origin_of(account_of(BOB))));
 
         set_default_thresholds();
 
@@ -54,27 +59,29 @@ fn integration_test_redeem_polka_btc() {
         force_issue_tokens(user, vault, collateral_vault, polkabtc, vault_btc_address);
 
         // Alice requests to redeem polkabtc from Bob
-        assert_ok!(
-            RedeemCall::request_redeem(polkabtc, user_btc_address, account_of(vault))
-                .dispatch(origin_of(account_of(user)))
-        );
+        assert_ok!(Call::Redeem(RedeemCall::request_redeem(
+            polkabtc,
+            user_btc_address,
+            account_of(vault)
+        ))
+        .dispatch(origin_of(account_of(user))));
 
         // assert that request happened and extract the id
         let redeem_id = assert_redeem_request_event();
-
-        SystemModule::set_block_number(5);
 
         // send the btc from the vault to the user
         let (tx_id, tx_block_height, merkle_proof, raw_tx) =
             generate_transaction_and_mine(user_btc_address, polkabtc, redeem_id);
 
-        assert_ok!(RedeemCall::execute_redeem(
+        SystemModule::set_block_number(1 + CONFIRMATIONS);
+
+        assert_ok!(Call::Redeem(RedeemCall::execute_redeem(
             redeem_id,
             tx_id,
             tx_block_height,
             merkle_proof,
             raw_tx
-        )
+        ))
         .dispatch(origin_of(account_of(vault))));
     });
 }

@@ -24,25 +24,27 @@ use codec::{Decode, Encode};
 /// https://interlay.gitlab.io/polkabtc-spec/spec/issue.html
 // Substrate
 use frame_support::{
-    decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure, traits::Get,
+    decl_error, decl_event, decl_module, decl_storage,
+    dispatch::{DispatchError, DispatchResult},
+    ensure,
+    traits::Get,
 };
+use frame_system::ensure_signed;
 use primitive_types::H256;
 use sp_core::H160;
 use sp_runtime::ModuleId;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
-use system::ensure_signed;
-use x_core::Error;
 
 /// The issue module id, used for deriving its sovereign account ID.
 const _MODULE_ID: ModuleId = ModuleId(*b"issuemod");
 
 /// The pallet's configuration trait.
 pub trait Trait:
-    system::Trait + vault_registry::Trait + collateral::Trait + btc_relay::Trait + treasury::Trait
+    frame_system::Trait + vault_registry::Trait + collateral::Trait + btc_relay::Trait + treasury::Trait
 {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 
     /// The time difference in number of blocks between an issue request is created
     /// and required completion time by a user. The issue period has an upper limit
@@ -78,7 +80,7 @@ decl_storage! {
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as system::Trait>::AccountId,
+        AccountId = <T as frame_system::Trait>::AccountId,
         PolkaBTC = PolkaBTC<T>,
     {
         RequestIssue(H256, AccountId, PolkaBTC, AccountId, H160),
@@ -91,6 +93,8 @@ decl_event!(
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+        type Error = Error<T>;
+
         // Initializing events
         // this is needed only if you are using events in your pallet
         fn deposit_event() = default;
@@ -125,11 +129,11 @@ decl_module! {
         /// * `merkle_proof` - raw bytes
         /// * `raw_tx` - raw bytes
         #[weight = 1000]
-        fn execute_issue(origin, issue_id: H256, tx_id: H256Le, tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
+        fn execute_issue(origin, issue_id: H256, tx_id: H256Le, _tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
             -> DispatchResult
         {
             let requester = ensure_signed(origin)?;
-            Self::_execute_issue(requester, issue_id, tx_id, tx_block_height, merkle_proof, raw_tx)?;
+            Self::_execute_issue(requester, issue_id, tx_id, merkle_proof, raw_tx)?;
             Ok(())
         }
 
@@ -159,18 +163,18 @@ impl<T: Trait> Module<T> {
         amount: PolkaBTC<T>,
         vault_id: T::AccountId,
         griefing_collateral: DOT<T>,
-    ) -> Result<H256, Error> {
+    ) -> Result<H256, DispatchError> {
         // Check that Parachain is RUNNING
         ext::security::ensure_parachain_status_running::<T>()?;
 
-        let height = <system::Module<T>>::block_number();
+        let height = <frame_system::Module<T>>::block_number();
         let _vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
         // Check that the vault is currently not banned
         ext::vault_registry::ensure_not_banned::<T>(&vault_id, height)?;
 
         ensure!(
             griefing_collateral >= <IssueGriefingCollateral<T>>::get(),
-            Error::InsufficientCollateral
+            Error::<T>::InsufficientCollateral
         );
 
         ext::collateral::lock_collateral::<T>(&requester, griefing_collateral)?;
@@ -208,27 +212,27 @@ impl<T: Trait> Module<T> {
         requester: T::AccountId,
         issue_id: H256,
         tx_id: H256Le,
-        tx_block_height: u32,
         merkle_proof: Vec<u8>,
         raw_tx: Vec<u8>,
-    ) -> Result<(), Error> {
+    ) -> Result<(), DispatchError> {
         // Check that Parachain is RUNNING
         ext::security::ensure_parachain_status_running::<T>()?;
 
         let issue = Self::get_issue_request_from_id(&issue_id)?;
-        ensure!(requester == issue.requester, Error::UnauthorizedUser);
+        ensure!(requester == issue.requester, Error::<T>::UnauthorizedUser);
 
-        let height = <system::Module<T>>::block_number();
+        let height = <frame_system::Module<T>>::block_number();
         let period = T::IssuePeriod::get();
         ensure!(
             height <= issue.opentime + period,
-            Error::CommitPeriodExpired
+            Error::<T>::CommitPeriodExpired
         );
 
-        ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, tx_block_height, merkle_proof)?;
+        ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
         ext::btc_relay::validate_transaction::<T>(
             raw_tx,
-            TryInto::<u64>::try_into(issue.amount).map_err(|_e| Error::RuntimeError)? as i64,
+            TryInto::<u64>::try_into(issue.amount).map_err(|_e| Error::<T>::ConversionError)?
+                as i64,
             issue.btc_address.as_bytes().to_vec(),
             issue_id.clone().as_bytes().to_vec(),
         )?;
@@ -243,13 +247,13 @@ impl<T: Trait> Module<T> {
     }
 
     /// Cancels CBA issuance if time has expired and slashes collateral.
-    fn _cancel_issue(requester: T::AccountId, issue_id: H256) -> Result<(), Error> {
+    fn _cancel_issue(requester: T::AccountId, issue_id: H256) -> Result<(), DispatchError> {
         let issue = Self::get_issue_request_from_id(&issue_id)?;
-        let height = <system::Module<T>>::block_number();
+        let height = <frame_system::Module<T>>::block_number();
         let period = T::IssuePeriod::get();
 
-        ensure!(issue.opentime + period > height, Error::TimeNotExpired);
-        ensure!(!issue.completed, Error::IssueCompleted);
+        ensure!(issue.opentime + period > height, Error::<T>::TimeNotExpired);
+        ensure!(!issue.completed, Error::<T>::IssueCompleted);
 
         ext::vault_registry::decrease_to_be_issued_tokens::<T>(&issue.vault, issue.amount)?;
         ext::collateral::slash_collateral::<T>(
@@ -267,10 +271,10 @@ impl<T: Trait> Module<T> {
 
     fn get_issue_request_from_id(
         issue_id: &H256,
-    ) -> Result<Issue<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, Error> {
+    ) -> Result<Issue<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
         ensure!(
             <IssueRequests<T>>::contains_key(*issue_id),
-            Error::IssueIdNotFound
+            Error::<T>::IssueIdNotFound
         );
         Ok(<IssueRequests<T>>::get(*issue_id))
     }
@@ -289,5 +293,17 @@ impl<T: Trait> Module<T> {
 
     fn remove_issue_request(id: H256) {
         <IssueRequests<T>>::remove(id);
+    }
+}
+
+decl_error! {
+    pub enum Error for Module<T: Trait> {
+        InsufficientCollateral,
+        IssueIdNotFound,
+        CommitPeriodExpired,
+        UnauthorizedUser,
+        TimeNotExpired,
+        IssueCompleted,
+        ConversionError,
     }
 }

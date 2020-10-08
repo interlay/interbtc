@@ -21,19 +21,19 @@ extern crate mocktopus;
 use mocktopus::macros::mockable;
 
 use codec::{Decode, Encode};
-use frame_support::dispatch::DispatchResult;
-use frame_support::{decl_event, decl_module, decl_storage, ensure};
-use primitive_types::H256;
-use sp_core::H160;
+use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage, ensure, IterableStorageMap,
+};
+use frame_system::ensure_signed;
+use sp_core::{H160, H256, U256};
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
-use system::ensure_signed;
 
 use security::ErrorCode;
-use x_core::{Error, Result, UnitResult};
 
-pub use crate::types::Vault;
 use crate::types::{DefaultVault, PolkaBTC, RichVault, DOT};
+pub use crate::types::{Vault, VaultStatus};
 
 /// Granularity of `SecureCollateralThreshold`, `AuctionCollateralThreshold`,
 /// `LiquidationCollateralThreshold`, and `PunishmentFee`
@@ -50,16 +50,20 @@ pub struct RegisterRequest<AccountId, DateTime> {
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
 pub trait Trait:
-    system::Trait + collateral::Trait + treasury::Trait + exchange_rate_oracle::Trait + security::Trait
+    frame_system::Trait
+    + collateral::Trait
+    + treasury::Trait
+    + exchange_rate_oracle::Trait
+    + security::Trait
 {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 }
 
 // This pallet's storage items.
 decl_storage! {
     trait Store for Module<T: Trait> as VaultRegistry {
-    /// ## Storage
+        /// ## Storage
         /// The minimum collateral (DOT) a Vault needs to provide
         /// to participate in the issue process.
         MinimumCollateralVault: DOT<T>;
@@ -119,6 +123,8 @@ decl_storage! {
 // The pallet's dispatchable functions.
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+        type Error = Error<T>;
+
         // Initializing events
         fn deposit_event() = default;
 
@@ -131,7 +137,7 @@ decl_module! {
         /// * `btc_address` - the BTC address of the vault to register
         ///
         /// # Errors
-        /// * `InsuficientVaultCollateralAmount` - if the collateral is below the minimum threshold
+        /// * `InsufficientVaultCollateralAmount` - if the collateral is below the minimum threshold
         /// * `VaultAlreadyRegistered` - if a vault is already registered for the origin account
         /// * `InsufficientCollateralAvailable` - if the vault does not own enough collateral
         #[weight = 1000]
@@ -141,8 +147,8 @@ decl_module! {
             ext::security::ensure_parachain_status_running::<T>()?;
 
             ensure!(collateral >= Self::get_minimum_collateral_vault(),
-                    Error::InsuficientVaultCollateralAmount);
-            ensure!(!Self::vault_exists(&sender), Error::VaultAlreadyRegistered);
+                    Error::<T>::InsufficientVaultCollateralAmount);
+            ensure!(!Self::vault_exists(&sender), Error::<T>::VaultAlreadyRegistered);
 
             ext::collateral::lock::<T>(&sender, collateral)?;
             let vault = RichVault::<T>::new(sender.clone(), btc_address);
@@ -212,17 +218,22 @@ decl_module! {
 #[cfg_attr(test, mockable)]
 impl<T: Trait> Module<T> {
     /// Public functions
-    pub fn _punishment_fee() -> Result<DOT<T>> {
+    pub fn _punishment_fee() -> Result<DOT<T>, DispatchError> {
         Self::u128_to_dot(PunishmentFee::get())
     }
 
-    pub fn _get_redeem_premium_fee() -> Result<DOT<T>> {
+    pub fn _get_redeem_premium_fee() -> Result<DOT<T>, DispatchError> {
         Self::u128_to_dot(RedeemPremiumFee::get())
     }
 
-    pub fn _get_vault_from_id(vault_id: &T::AccountId) -> Result<DefaultVault<T>> {
-        ensure!(Self::vault_exists(&vault_id), Error::VaultNotFound);
-        Ok(<Vaults<T>>::get(vault_id))
+    pub fn _get_vault_from_id(vault_id: &T::AccountId) -> Result<DefaultVault<T>, DispatchError> {
+        ensure!(Self::vault_exists(&vault_id), Error::<T>::VaultNotFound);
+        let vault = <Vaults<T>>::get(vault_id);
+        ensure!(
+            vault.status == VaultStatus::Active,
+            Error::<T>::VaultNotFound
+        );
+        Ok(vault)
     }
 
     /// Increases the amount of tokens to be issued in the next issue request
@@ -237,7 +248,7 @@ impl<T: Trait> Module<T> {
     pub fn _increase_to_be_issued_tokens(
         vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
-    ) -> Result<H160> {
+    ) -> Result<H160, DispatchError> {
         ext::security::ensure_parachain_status_running::<T>()?;
         let mut vault = Self::rich_vault_from_id(&vault_id)?;
         vault.increase_to_be_issued(tokens)?;
@@ -257,7 +268,7 @@ impl<T: Trait> Module<T> {
     pub fn _decrease_to_be_issued_tokens(
         vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
-    ) -> UnitResult {
+    ) -> DispatchResult {
         Self::check_parachain_not_shutdown_or_has_errors(
             [
                 ErrorCode::InvalidBTCRelay,
@@ -284,7 +295,7 @@ impl<T: Trait> Module<T> {
     /// # Errors
     /// * `VaultNotFound` - if no vault exists for the given `vault_id`
     /// * `InsufficientTokensCommitted` - if the amount of tokens reserved is too low
-    pub fn _issue_tokens(vault_id: &T::AccountId, tokens: PolkaBTC<T>) -> UnitResult {
+    pub fn _issue_tokens(vault_id: &T::AccountId, tokens: PolkaBTC<T>) -> DispatchResult {
         Self::check_parachain_not_shutdown_or_has_errors(
             [
                 ErrorCode::InvalidBTCRelay,
@@ -316,7 +327,7 @@ impl<T: Trait> Module<T> {
     pub fn _increase_to_be_redeemed_tokens(
         vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
-    ) -> UnitResult {
+    ) -> DispatchResult {
         Self::check_parachain_not_shutdown_or_has_errors(
             [
                 ErrorCode::InvalidBTCRelay,
@@ -343,7 +354,7 @@ impl<T: Trait> Module<T> {
     pub fn _decrease_to_be_redeemed_tokens(
         vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
-    ) -> UnitResult {
+    ) -> DispatchResult {
         Self::check_parachain_not_shutdown_or_has_errors(
             [
                 ErrorCode::InvalidBTCRelay,
@@ -376,7 +387,7 @@ impl<T: Trait> Module<T> {
         vault_id: &T::AccountId,
         user_id: &T::AccountId,
         tokens: PolkaBTC<T>,
-    ) -> UnitResult {
+    ) -> DispatchResult {
         Self::check_parachain_not_shutdown_or_has_errors(
             [
                 ErrorCode::InvalidBTCRelay,
@@ -405,7 +416,7 @@ impl<T: Trait> Module<T> {
     /// * `VaultNotFound` - if no vault exists for the given `vault_id`
     /// * `InsufficientTokensCommitted` - if the amount of to-be-redeemed tokens
     ///                                   or issued tokens is too low
-    pub fn _redeem_tokens(vault_id: &T::AccountId, tokens: PolkaBTC<T>) -> UnitResult {
+    pub fn _redeem_tokens(vault_id: &T::AccountId, tokens: PolkaBTC<T>) -> DispatchResult {
         Self::check_parachain_not_shutdown_or_has_errors(
             [
                 ErrorCode::InvalidBTCRelay,
@@ -441,7 +452,7 @@ impl<T: Trait> Module<T> {
         tokens: PolkaBTC<T>,
         premium: DOT<T>,
         redeemer_id: &T::AccountId,
-    ) -> UnitResult {
+    ) -> DispatchResult {
         Self::check_parachain_not_shutdown_or_has_errors(
             [
                 ErrorCode::InvalidBTCRelay,
@@ -482,7 +493,7 @@ impl<T: Trait> Module<T> {
     pub fn _redeem_tokens_liquidation(
         redeemer_id: &T::AccountId,
         tokens: PolkaBTC<T>,
-    ) -> UnitResult {
+    ) -> DispatchResult {
         Self::check_parachain_not_shutdown_or_has_errors(
             [ErrorCode::InvalidBTCRelay, ErrorCode::OracleOffline].to_vec(),
         )?;
@@ -522,7 +533,7 @@ impl<T: Trait> Module<T> {
         new_vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
         collateral: DOT<T>,
-    ) -> UnitResult {
+    ) -> DispatchResult {
         Self::check_parachain_not_shutdown_or_has_errors(
             [
                 ErrorCode::InvalidBTCRelay,
@@ -547,22 +558,32 @@ impl<T: Trait> Module<T> {
     }
 
     /// Liquidates a vault, transferring all of its token balances to the
+    /// Delegates to `_liquidate_vault_with_status`, using `Liquidated` status
+    pub fn _liquidate_vault(vault_id: &T::AccountId) -> DispatchResult {
+        Self::_liquidate_vault_with_status(vault_id, VaultStatus::Liquidated)
+    }
+
+    /// Liquidates a vault, transferring all of its token balances to the
     /// `LiquidationVault`, as well as the DOT collateral
     ///
     /// # Arguments
     /// * `vault_id` - the id of the vault to liquidate
+    /// * `status` - status with which to liquidate the vault
     ///
     /// # Errors
     /// * `VaultNotFound` - if the vault to liquidate does not exist
-    pub fn _liquidate_vault(vault_id: &T::AccountId) -> UnitResult {
+    pub fn _liquidate_vault_with_status(
+        vault_id: &T::AccountId,
+        status: VaultStatus,
+    ) -> DispatchResult {
         // Parachain must not be shutdown
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
         let liquidation_vault_id = <LiquidationVault<T>>::get();
-        let vault: RichVault<T> = Self::rich_vault_from_id(&vault_id)?;
+        let mut vault: RichVault<T> = Self::rich_vault_from_id(&vault_id)?;
         let mut liquidation_vault: RichVault<T> = Self::rich_vault_from_id(&liquidation_vault_id)?;
 
-        vault.liquidate(&mut liquidation_vault)?;
+        vault.liquidate(&mut liquidation_vault, status)?;
 
         Self::deposit_event(Event::<T>::LiquidateVault(vault_id.clone()));
         Ok(())
@@ -573,38 +594,46 @@ impl<T: Trait> Module<T> {
         <Vaults<T>>::insert(id, vault)
     }
 
-    pub fn _ban_vault(vault_id: T::AccountId, height: T::BlockNumber) -> UnitResult {
+    pub fn _ban_vault(vault_id: T::AccountId, height: T::BlockNumber) -> DispatchResult {
         let mut vault = Self::rich_vault_from_id(&vault_id)?;
         vault.ban_until(height);
         Ok(())
     }
 
-    pub fn _ensure_not_banned(vault_id: &T::AccountId, height: T::BlockNumber) -> UnitResult {
+    pub fn _ensure_not_banned(vault_id: &T::AccountId, height: T::BlockNumber) -> DispatchResult {
         let vault = Self::rich_vault_from_id(&vault_id)?;
         vault.ensure_not_banned(height)
     }
 
     /// Threshold checks
-    pub fn _is_vault_below_secure_threshold(vault_id: &T::AccountId) -> Result<bool> {
+    pub fn _is_vault_below_secure_threshold(
+        vault_id: &T::AccountId,
+    ) -> Result<bool, DispatchError> {
         Self::is_vault_below_threshold(&vault_id, <SecureCollateralThreshold>::get())
     }
 
-    pub fn _is_vault_below_auction_threshold(vault_id: &T::AccountId) -> Result<bool> {
+    pub fn _is_vault_below_auction_threshold(
+        vault_id: &T::AccountId,
+    ) -> Result<bool, DispatchError> {
         Self::is_vault_below_threshold(&vault_id, <AuctionCollateralThreshold>::get())
     }
 
-    pub fn _is_vault_below_premium_threshold(vault_id: &T::AccountId) -> Result<bool> {
+    pub fn _is_vault_below_premium_threshold(
+        vault_id: &T::AccountId,
+    ) -> Result<bool, DispatchError> {
         Self::is_vault_below_threshold(&vault_id, <PremiumRedeemThreshold>::get())
     }
 
-    pub fn _is_vault_below_liquidation_threshold(vault_id: &T::AccountId) -> Result<bool> {
+    pub fn _is_vault_below_liquidation_threshold(
+        vault_id: &T::AccountId,
+    ) -> Result<bool, DispatchError> {
         Self::is_vault_below_threshold(&vault_id, <LiquidationCollateralThreshold>::get())
     }
 
     pub fn _is_collateral_below_secure_threshold(
         collateral: DOT<T>,
         btc_amount: PolkaBTC<T>,
-    ) -> Result<bool> {
+    ) -> Result<bool, DispatchError> {
         let threshold = <SecureCollateralThreshold>::get();
         Self::is_collateral_below_threshold(collateral, btc_amount, threshold)
     }
@@ -645,7 +674,7 @@ impl<T: Trait> Module<T> {
         amount > Self::get_minimum_collateral_vault()
     }
 
-    pub fn _get_total_liquidation_value() -> Result<u128> {
+    pub fn _get_total_liquidation_value() -> Result<u128, DispatchError> {
         let liquidation_vault_id = <LiquidationVault<T>>::get();
 
         let liquidation_vault = Self::rich_vault_from_id(&liquidation_vault_id)?;
@@ -662,9 +691,78 @@ impl<T: Trait> Module<T> {
         Ok(total_liquidation_value)
     }
 
+    /// RPC
+
+    /// Get the first available vault with sufficient collateral to fulfil an issue request
+    /// with the specified amount of PolkaBTC.
+    pub fn get_first_vault_with_sufficient_collateral(
+        amount: PolkaBTC<T>,
+    ) -> Result<T::AccountId, DispatchError> {
+        // iterate through vaults to find the first one with sufficient collateral
+        let vault = <Vaults<T>>::iter()
+            .find(|v| {
+                // iterator returns tuple of (AccountId, Vault<T>), we only need the vault
+                let rich_vault: RichVault<T> = v.clone().1.into();
+                // if we have an error, default to 0
+                let issuable_tokens = rich_vault.issuable_tokens().unwrap_or(0.into());
+                issuable_tokens >= amount
+            })
+            .ok_or(Error::<T>::NoVaultWithSufficientCollateral)?;
+        Ok(vault.0)
+    }
+
+    /// Get the first available vault with sufficient locked PolkaBTC to fulfil a redeem request.
+    pub fn get_first_vault_with_sufficient_tokens(
+        amount: PolkaBTC<T>,
+    ) -> Result<T::AccountId, DispatchError> {
+        let vault = <Vaults<T>>::iter()
+            .find(|v| {
+                // iterator returns tuple of (AccountId, Vault<T>), we only need the vault
+                v.1.issued_tokens >= amount
+            })
+            .ok_or(Error::<T>::NoVaultWithSufficientTokens)?;
+        Ok(vault.0)
+    }
+
+    /// Get the amount of tokens a vault can issue
+    pub fn get_issuable_tokens_from_vault(
+        vault_id: T::AccountId,
+    ) -> Result<PolkaBTC<T>, DispatchError> {
+        let vault = Self::rich_vault_from_id(&vault_id)?;
+        vault.issuable_tokens()
+    }
+
+    /// Get the current collateralization of a vault
+    pub fn get_collateralization_from_vault(vault_id: T::AccountId) -> Result<u64, DispatchError> {
+        let vault = Self::rich_vault_from_id(&vault_id)?;
+        let issued_tokens = vault.data.issued_tokens + vault.data.to_be_issued_tokens;
+
+        // convert the issued_tokens to the raw amount
+        let raw_issued_tokens = Self::polkabtc_to_u128(issued_tokens)?;
+        ensure!(raw_issued_tokens != 0, Error::<T>::NoTokensIssued);
+
+        let collateral = vault.get_collateral();
+        // convert the collateral to polkabtc
+        let collateral_in_polka_btc = ext::oracle::dots_to_btc::<T>(collateral)?;
+        let raw_collateral_in_polka_btc = Self::polkabtc_to_u128(collateral_in_polka_btc)?;
+
+        // calculate the collateralization as a ratio of the issued tokens to the
+        // amount of provided collateral at the current exchange rate. The result is scaled
+        // by the GRANULARITY
+        let collateralization: u64 = raw_collateral_in_polka_btc
+            .checked_mul(10u128.pow(GRANULARITY))
+            .ok_or(Error::<T>::ConversionError)?
+            .checked_div(raw_issued_tokens)
+            .ok_or(Error::<T>::ConversionError)?
+            .try_into()
+            .map_err(|_| Error::<T>::ConversionError)?;
+
+        Ok(collateralization)
+    }
+
     /// Private getters and setters
 
-    fn rich_vault_from_id(vault_id: &T::AccountId) -> Result<RichVault<T>> {
+    fn rich_vault_from_id(vault_id: &T::AccountId) -> Result<RichVault<T>, DispatchError> {
         let vault = Self::_get_vault_from_id(vault_id)?;
         Ok(vault.into())
     }
@@ -684,14 +782,17 @@ impl<T: Trait> Module<T> {
     ///
     ///   * `error_codes` - list of `ErrorCode` to be checked
     ///
-    fn check_parachain_not_shutdown_or_has_errors(error_codes: Vec<ErrorCode>) -> UnitResult {
+    fn check_parachain_not_shutdown_or_has_errors(error_codes: Vec<ErrorCode>) -> DispatchResult {
         // Parachain must not be shutdown
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
         // There must not be in InvalidBTCRelay, OracleOffline or Liquidation error state
         ext::security::ensure_parachain_status_has_not_specific_errors::<T>(error_codes)
     }
 
-    fn is_vault_below_threshold(vault_id: &T::AccountId, threshold: u128) -> Result<bool> {
+    fn is_vault_below_threshold(
+        vault_id: &T::AccountId,
+        threshold: u128,
+    ) -> Result<bool, DispatchError> {
         let vault = Self::rich_vault_from_id(&vault_id)?;
 
         // the currently issued tokens in PolkaBTC
@@ -707,7 +808,7 @@ impl<T: Trait> Module<T> {
         collateral: DOT<T>,
         btc_amount: PolkaBTC<T>,
         threshold: u128,
-    ) -> Result<bool> {
+    ) -> Result<bool, DispatchError> {
         let max_tokens =
             Self::calculate_max_polkabtc_from_collateral_for_threshold(collateral, threshold)?;
         // check if the max_tokens are below the issued tokens
@@ -717,44 +818,44 @@ impl<T: Trait> Module<T> {
     fn calculate_max_polkabtc_from_collateral_for_threshold(
         collateral: DOT<T>,
         threshold: u128,
-    ) -> Result<PolkaBTC<T>> {
+    ) -> Result<PolkaBTC<T>, DispatchError> {
         // convert the collateral to polkabtc
         let collateral_in_polka_btc = ext::oracle::dots_to_btc::<T>(collateral)?;
-        let raw_collateral_in_polka_btc = Self::polkabtc_to_u128(collateral_in_polka_btc)?;
+        let collateral_in_polka_btc = Self::polkabtc_to_u128(collateral_in_polka_btc)?;
+        let collateral_in_polka_btc = U256::from(collateral_in_polka_btc);
 
         // calculate how many tokens should be maximally issued given the threshold
-        let raw_scaled_collateral_in_polka_btc = raw_collateral_in_polka_btc
-            .checked_mul(10u32.pow(GRANULARITY) as u128)
-            .ok_or(Error::RuntimeError)?;
-        let raw_max_tokens = raw_scaled_collateral_in_polka_btc
-            .checked_div(threshold)
-            .unwrap_or(0);
+        let scaled_collateral_in_polka_btc = collateral_in_polka_btc
+            .checked_mul(U256::from(10).pow(GRANULARITY.into()))
+            .ok_or(Error::<T>::ScaleConversionError)?;
+        let scaled_max_tokens = scaled_collateral_in_polka_btc
+            .checked_div(threshold.into())
+            .unwrap_or(0.into());
 
-        let max_tokens = Self::u128_to_polkabtc(raw_max_tokens)?;
-        Ok(max_tokens)
+        Ok(Self::u128_to_polkabtc(scaled_max_tokens.try_into()?)?)
     }
 
-    fn polkabtc_to_u128(x: PolkaBTC<T>) -> Result<u128> {
-        TryInto::<u128>::try_into(x).map_err(|_| Error::RuntimeError)
+    fn polkabtc_to_u128(x: PolkaBTC<T>) -> Result<u128, DispatchError> {
+        TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::ConversionError.into())
     }
 
-    fn dot_to_u128(x: DOT<T>) -> Result<u128> {
-        TryInto::<u128>::try_into(x).map_err(|_| Error::RuntimeError)
+    fn dot_to_u128(x: DOT<T>) -> Result<u128, DispatchError> {
+        TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::ConversionError.into())
     }
 
-    fn u128_to_dot(x: u128) -> Result<DOT<T>> {
-        TryInto::<DOT<T>>::try_into(x).map_err(|_| Error::RuntimeError)
+    fn u128_to_dot(x: u128) -> Result<DOT<T>, DispatchError> {
+        TryInto::<DOT<T>>::try_into(x).map_err(|_| Error::<T>::ConversionError.into())
     }
 
-    fn u128_to_polkabtc(x: u128) -> Result<PolkaBTC<T>> {
-        TryInto::<PolkaBTC<T>>::try_into(x).map_err(|_| Error::RuntimeError)
+    fn u128_to_polkabtc(x: u128) -> Result<PolkaBTC<T>, DispatchError> {
+        TryInto::<PolkaBTC<T>>::try_into(x).map_err(|_| Error::<T>::ConversionError.into())
     }
 }
 
 decl_event! {
     /// ## Events
     pub enum Event<T> where
-            AccountId = <T as system::Trait>::AccountId,
+            AccountId = <T as frame_system::Trait>::AccountId,
             DOT = DOT<T>,
             BTCBalance = PolkaBTC<T> {
         RegisterVault(AccountId, DOT),
@@ -774,5 +875,28 @@ decl_event! {
         RedeemTokensLiquidation(AccountId, BTCBalance),
         ReplaceTokens(AccountId, AccountId, BTCBalance, DOT),
         LiquidateVault(AccountId),
+    }
+}
+
+decl_error! {
+    pub enum Error for Module<T: Trait> {
+        InsufficientCollateral,
+        ExceedingVaultLimit,
+        InsufficientTokensCommitted,
+        VaultBanned,
+        /// Returned if the collateral amount to register a vault was too low
+        InsufficientVaultCollateralAmount,
+        // FIXME: ERR_MIN_AMOUNT in spec
+        /// Returned if a vault tries to register while already being registered
+        VaultAlreadyRegistered,
+        VaultNotFound,
+        /// Result is too big for type
+        ScaleConversionError,
+        /// Other conversion error
+        ConversionError,
+        /// Collateralization is infinite if no tokens are issued
+        NoTokensIssued,
+        NoVaultWithSufficientCollateral,
+        NoVaultWithSufficientTokens
     }
 }

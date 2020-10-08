@@ -1,5 +1,5 @@
 /// Mocking the test environment
-use crate::{Module, Trait};
+use crate::{Error, Module, Trait};
 use frame_support::{
     assert_ok, impl_outer_event, impl_outer_origin, parameter_types,
     weights::{
@@ -27,7 +27,7 @@ mod test_events {
 
 impl_outer_event! {
     pub enum TestEvent for Test {
-        system<T>,
+        frame_system<T>,
         test_events<T>,
         balances<T>,
         vault_registry<T>,
@@ -53,10 +53,10 @@ parameter_types! {
     pub const BlockHashCount: u64 = 250;
     pub const MaximumBlockWeight: Weight = 1024;
     pub const MaximumBlockLength: u32 = 2 * 1024;
-    pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
+    pub const AvailableBlockRatio: Perbill = Perbill::one();
 }
 
-impl system::Trait for Test {
+impl frame_system::Trait for Test {
     type AccountId = AccountId;
     type Call = ();
     type Lookup = IdentityLookup<Self::AccountId>;
@@ -79,6 +79,9 @@ impl system::Trait for Test {
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type AccountData = pallet_balances::AccountData<u64>;
+    type BaseCallFilter = ();
+    type MaximumExtrinsicWeight = MaximumBlockWeight;
+    type SystemWeightInfo = ();
 }
 
 parameter_types! {
@@ -91,6 +94,7 @@ impl pallet_balances::Trait for Test {
     type DustRemoval = ();
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
+    type WeightInfo = ();
 }
 
 impl vault_registry::Trait for Test {
@@ -122,17 +126,27 @@ impl timestamp::Trait for Test {
     type Moment = u64;
     type OnTimestampSet = ();
     type MinimumPeriod = MinimumPeriod;
+    type WeightInfo = ();
 }
 
 impl exchange_rate_oracle::Trait for Test {
     type Event = TestEvent;
 }
 
-impl Trait for Test {
-    type Event = TestEvent;
+parameter_types! {
+    pub const ReplacePeriod: BlockNumber = 10;
 }
 
-pub type System = system::Module<Test>;
+impl Trait for Test {
+    type Event = TestEvent;
+    type ReplacePeriod = ReplacePeriod;
+}
+
+pub type TestError = Error<Test>;
+pub type SecurityError = security::Error<Test>;
+pub type VaultRegistryError = vault_registry::Error<Test>;
+
+pub type System = frame_system::Module<Test>;
 pub type Balances = pallet_balances::Module<Test>;
 pub type Replace = Module<Test>;
 
@@ -148,7 +162,7 @@ pub struct ExtBuilder;
 
 impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
-        let mut storage = system::GenesisConfig::default()
+        let mut storage = frame_system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
 

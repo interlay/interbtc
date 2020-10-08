@@ -26,20 +26,21 @@ fn integration_test_issue_should_fail_if_not_running() {
         SecurityModule::set_parachain_status(StatusCode::Shutdown);
 
         assert_err!(
-            IssueCall::request_issue(0, account_of(BOB), 0).dispatch(origin_of(account_of(ALICE))),
-            Error::ParachainNotRunning,
+            Call::Issue(IssueCall::request_issue(0, account_of(BOB), 0))
+                .dispatch(origin_of(account_of(ALICE))),
+            SecurityError::ParachainNotRunning,
         );
 
         assert_err!(
-            IssueCall::execute_issue(
+            Call::Issue(IssueCall::execute_issue(
                 H256([0; 32]),
                 H256Le::zero(),
                 0,
                 vec![0u8; 32],
                 vec![0u8; 32]
-            )
+            ))
             .dispatch(origin_of(account_of(ALICE))),
-            Error::ParachainNotRunning,
+            SecurityError::ParachainNotRunning,
         );
     });
 }
@@ -62,26 +63,34 @@ fn integration_test_issue_polka_btc() {
         let initial_btc_balance =
             treasury::Module::<Runtime>::get_balance_from_account(account_of(ALICE));
 
-        assert_ok!(OracleCall::set_exchange_rate(1).dispatch(origin_of(account_of(BOB))));
-        assert_ok!(VaultRegistryCall::register_vault(1000000, address.clone())
+        assert_ok!(Call::ExchangeRateOracle(OracleCall::set_exchange_rate(1))
             .dispatch(origin_of(account_of(BOB))));
+        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
+            1000000,
+            address.clone()
+        ))
+        .dispatch(origin_of(account_of(BOB))));
 
         // alice requests polka_btc by locking btc with bob
-        assert_ok!(
-            IssueCall::request_issue(amount, account_of(BOB), collateral)
-                .dispatch(origin_of(account_of(ALICE)))
-        );
+        assert_ok!(Call::Issue(IssueCall::request_issue(
+            amount,
+            account_of(BOB),
+            collateral
+        ))
+        .dispatch(origin_of(account_of(ALICE))));
 
         let id = assert_issue_request_event();
 
         // send the btc from the user to the vault
         let (tx_id, height, proof, raw_tx) = generate_transaction_and_mine(address, amount, id);
 
-        SystemModule::set_block_number(5);
+        SystemModule::set_block_number(1 + CONFIRMATIONS);
 
         // alice executes the issue by confirming the btc transaction
-        assert_ok!(IssueCall::execute_issue(id, tx_id, height, proof, raw_tx)
-            .dispatch(origin_of(account_of(ALICE))));
+        assert_ok!(
+            Call::Issue(IssueCall::execute_issue(id, tx_id, height, proof, raw_tx))
+                .dispatch(origin_of(account_of(ALICE)))
+        );
 
         SystemModule::set_block_number(6);
 
