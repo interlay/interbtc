@@ -1,11 +1,9 @@
-# Official language image. Look for the different tagged releases at:
-# https://hub.docker.com/r/library/rust/tags/
-image: "registry.gitlab.com/interlay/btc-parachain:ci"
+image: "registry.gitlab.com/interlay/btc-parachain:ci-nightly-2020-10-01"
 
 variables:
     CARGO_HOME: $CI_PROJECT_DIR/.cargo
-    RUSTC_WRAPPER: sccache
-    SCCACHE_GCS_RW_MODE: READ_WRITE
+    # RUSTC_WRAPPER: sccache
+    # SCCACHE_GCS_RW_MODE: READ_WRITE
     DOCKER_HOST: tcp://docker:2375
     DOCKER_TLS_CERTDIR: ""
 
