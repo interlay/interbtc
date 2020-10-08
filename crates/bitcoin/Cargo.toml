@@ -22,19 +22,19 @@ features= ['codec']
 
 [dependencies.frame-support]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.sp-std]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.sp-core]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.sha2]
 default-features = false
-version = '0.8.1'
+version = "0.8.2"
 
 [dependencies.hex]
 default-features = false

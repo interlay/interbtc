@@ -1,6 +1,6 @@
 [package]
 name = "vault-registry"
-version = "2.0.0-rc6"
+version = "2.0.0"
 authors = ["Interlay Ltd"]
 edition = "2018"
 
@@ -43,41 +43,41 @@ features= ['codec']
 
 [dependencies.sp-std]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.sp-runtime]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.sp-arithmetic]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.frame-support]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.frame-system]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.sp-io]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.sp-core]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.timestamp]
 default-features = false
 package = 'pallet-timestamp'
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.pallet-balances]
 default-features = false
 package = 'pallet-balances'
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.security]
 default-features = false
