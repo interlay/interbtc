@@ -314,6 +314,7 @@ parameter_types! {
     pub const MinimumParticipants: u32 = 3;
     pub const VoteThreshold: u32 = 50;
     pub const VotingPeriod: BlockNumber = DAYS;
+    pub const MaximumMessageSize: u32 = 256;
 }
 
 impl staked_relayers::Trait for Runtime {
@@ -324,6 +325,7 @@ impl staked_relayers::Trait for Runtime {
     type MinimumParticipants = MinimumParticipants;
     type VoteThreshold = VoteThreshold;
     type VotingPeriod = VotingPeriod;
+    type MaximumMessageSize = MaximumMessageSize;
 }
 
 impl vault_registry::Trait for Runtime {
