@@ -1,6 +1,6 @@
 [package]
 name = "staked-relayers"
-version = "2.0.0-rc6"
+version = "2.0.0"
 authors = ["Interlay Ltd"]
 edition = "2018"
 
@@ -17,32 +17,32 @@ version = '1.3.4'
 
 [dependencies.sp-runtime]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.frame-support]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.frame-system]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.sp-io]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.sp-core]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.timestamp]
 default-features = false
 package = 'pallet-timestamp'
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.sp-std]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.primitive-types]
 default-features = false
@@ -87,20 +87,18 @@ path = '../replace'
 
 [dependencies.sha2]
 default-features = false
-version = '0.8.0'
+version = "0.8.2"
 
 [dependencies.hex]
 default-features = false
 version = '0.4.2'
 
-[dev-dependencies.balances]
+[dev-dependencies.pallet-balances]
 default-features = false
-package = 'pallet-balances'
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dev-dependencies]
 mocktopus = '0.7.0'
-hex = '0.4.2'
 
 [features]
 default = ['std']
@@ -125,4 +123,5 @@ std = [
   'redeem/std',
   'replace/std',
   'sha2/std',
+  'hex/std',
 ]

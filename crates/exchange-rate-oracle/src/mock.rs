@@ -70,7 +70,7 @@ impl frame_system::Trait for Test {
     type DbWeight = RocksDbWeight;
     type ExtrinsicBaseWeight = ExtrinsicBaseWeight;
     type Version = ();
-    type ModuleToIndex = ();
+    type PalletInfo = ();
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type AccountData = pallet_balances::AccountData<u64>;
@@ -87,7 +87,6 @@ impl Trait for Test {
 
 parameter_types! {
     pub const MinimumPeriod: u64 = 5;
-    pub const ExistentialDeposit: u64 = 1;
 }
 
 impl timestamp::Trait for Test {
@@ -97,7 +96,13 @@ impl timestamp::Trait for Test {
     type WeightInfo = ();
 }
 
+parameter_types! {
+    pub const ExistentialDeposit: u64 = 1;
+    pub const MaxLocks: u32 = 50;
+}
+
 impl pallet_balances::Trait for Test {
+    type MaxLocks = MaxLocks;
     type Balance = Balance;
     type Event = TestEvent;
     type DustRemoval = ();
