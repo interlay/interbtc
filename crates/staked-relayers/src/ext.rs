@@ -150,11 +150,12 @@ pub(crate) mod redeem {
     use crate::types::{PolkaBTC, DOT};
     use frame_support::dispatch::DispatchError;
     use primitive_types::H256;
-    use redeem::types::Redeem;
+    use redeem::types::RedeemRequest;
 
     pub(crate) fn get_redeem_request_from_id<T: redeem::Trait>(
         id: &H256,
-    ) -> Result<Redeem<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
+    ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError>
+    {
         <redeem::Module<T>>::get_redeem_request_from_id(id)
     }
 }

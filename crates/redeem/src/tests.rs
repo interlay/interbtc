@@ -1,7 +1,7 @@
 use crate::ext;
 use crate::mock::*;
 
-use crate::types::{PolkaBTC, Redeem as RedeemRequest, DOT};
+use crate::types::{PolkaBTC, RedeemRequest, DOT};
 use bitcoin::types::H256Le;
 use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;

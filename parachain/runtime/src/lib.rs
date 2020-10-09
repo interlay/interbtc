@@ -14,6 +14,7 @@ use pallet_grandpa::fg_primitives;
 use pallet_grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_core::H256;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::traits::{
     BlakeTwo256, Block as BlockT, IdentifyAccount, IdentityLookup, NumberFor, Saturating, Verify,
@@ -338,10 +339,14 @@ parameter_types! {
     pub const IssuePeriod: BlockNumber = DAYS;
 }
 
+pub use issue::IssueRequest;
+
 impl issue::Trait for Runtime {
     type Event = Event;
     type IssuePeriod = IssuePeriod;
 }
+
+pub use redeem::RedeemRequest;
 
 impl redeem::Trait for Runtime {
     type Event = Event;
@@ -582,4 +587,27 @@ impl_runtime_apis! {
             VaultRegistry::get_collateralization_from_vault(vault)
         }
     }
+
+    impl module_issue_rpc_runtime_api::IssueApi<
+        Block,
+        AccountId,
+        H256,
+        IssueRequest<AccountId, BlockNumber, Balance, Balance>
+    > for Runtime {
+        fn get_issue_requests(account_id: AccountId) -> Vec<(H256, IssueRequest<AccountId, BlockNumber, Balance, Balance>)> {
+            Issue::get_issue_requests_for_account(account_id)
+        }
+    }
+
+    impl module_redeem_rpc_runtime_api::RedeemApi<
+        Block,
+        AccountId,
+        H256,
+        RedeemRequest<AccountId, BlockNumber, Balance, Balance>
+    > for Runtime {
+        fn get_redeem_requests(account_id: AccountId) -> Vec<(H256, RedeemRequest<AccountId, BlockNumber, Balance, Balance>)> {
+            Redeem::get_redeem_requests_for_account(account_id)
+        }
+    }
+
 }
