@@ -310,6 +310,27 @@ fn test_suggest_status_update_fails_with_insufficient_deposit() {
 }
 
 #[test]
+fn test_suggest_status_update_fails_with_message_too_big() {
+    run_test(|| {
+        Staking::only_governance.mock_safe(|_| MockResult::Return(Ok(())));
+        inject_active_staked_relayer(&ALICE, 20);
+
+        assert_err!(
+            Staking::suggest_status_update(
+                Origin::signed(ALICE),
+                20,
+                StatusCode::Error,
+                None,
+                None,
+                None,
+                Vec::from([0; 64]),
+            ),
+            TestError::MessageTooBig,
+        );
+    })
+}
+
+#[test]
 fn test_suggest_status_update_fails_with_no_block_hash_found() {
     run_test(|| {
         Staking::only_governance.mock_safe(|_| MockResult::Return(Ok(())));
@@ -470,6 +491,7 @@ fn test_vote_on_status_update_succeeds() {
 #[test]
 fn test_end_block_status_update_expired() {
     run_test(|| {
+        ext::collateral::release_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         let status_update_id = inject_status_update(ALICE);
         Staking::end_block(DEFAULT_END_HEIGHT + 100);
         let status_update = Staking::inactive_status_update(&status_update_id);

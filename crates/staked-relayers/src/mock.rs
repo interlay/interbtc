@@ -159,6 +159,7 @@ parameter_types! {
     pub const MinimumParticipants: u64 = 3;
     pub const VoteThreshold: u64 = 50;
     pub const VotingPeriod: u64 = 100;
+    pub const MaximumMessageSize: u32 = 32;
 }
 
 impl Trait for Test {
@@ -169,6 +170,7 @@ impl Trait for Test {
     type MinimumParticipants = MinimumParticipants;
     type VoteThreshold = VoteThreshold;
     type VotingPeriod = VotingPeriod;
+    type MaximumMessageSize = MaximumMessageSize;
 }
 
 pub type System = frame_system::Module<Test>;

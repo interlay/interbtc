@@ -76,6 +76,9 @@ pub trait Trait:
 
     /// How often (in blocks) to check for new votes.
     type VotingPeriod: Get<Self::BlockNumber>;
+
+    /// Maximum message size in bytes
+    type MaximumMessageSize: Get<u32>;
 }
 
 // This pallet's storage items.
@@ -124,6 +127,8 @@ decl_module! {
         const VoteThreshold: u64 = T::VoteThreshold::get();
 
         const VotingPeriod: T::BlockNumber = T::VotingPeriod::get();
+
+        const MaximumMessageSize: u32 = T::MaximumMessageSize::get();
 
         fn deposit_event() = default;
 
@@ -233,6 +238,11 @@ decl_module! {
             }
 
             ensure!(
+                message.len() as u32 <= T::MaximumMessageSize::get(),
+                Error::<T>::MessageTooBig,
+            );
+
+            ensure!(
                 <ActiveStakedRelayers<T>>::contains_key(&signer),
                 Error::<T>::StakedRelayersOnly,
             );
@@ -291,7 +301,6 @@ decl_module! {
                 proposer: signer.clone(),
                 deposit: deposit,
                 tally: tally,
-                // TODO: bound message size?
                 message: message,
             });
 
@@ -550,44 +559,61 @@ impl<T: Trait> Module<T> {
     fn end_block(height: T::BlockNumber) {
         <ActiveStatusUpdates<T>>::translate(
             |id, mut status_update: StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>| {
-                if status_update
-                    .tally
-                    .is_approved(<ActiveStakedRelayersCount>::get(), T::VoteThreshold::get())
-                {
-                    match Self::execute_status_update(&mut status_update) {
-                        Ok(_) => {
-                            Self::insert_inactive_status_update(id, status_update);
-                            None
-                        }
-                        Err(e) => {
-                            sp_runtime::print(e);
-                            Some(status_update)
-                        }
+                match Self::evaluate_status_update_at_height(id, &mut status_update, height) {
+                    // remove proposal
+                    Ok(true) => None,
+                    // proposal is not accepted, rejected or expired
+                    Ok(false) => Some(status_update),
+                    // something went wrong, keep the proposal
+                    Err(err) => {
+                        sp_runtime::print(err);
+                        Some(status_update)
                     }
-                } else if status_update
-                    .tally
-                    .is_rejected(<ActiveStakedRelayersCount>::get(), T::VoteThreshold::get())
-                {
-                    match Self::reject_status_update(&mut status_update) {
-                        Ok(_) => {
-                            Self::insert_inactive_status_update(id, status_update);
-                            None
-                        }
-                        Err(e) => {
-                            sp_runtime::print(e);
-                            Some(status_update)
-                        }
-                    }
-                } else if height >= status_update.end {
-                    status_update.proposal_status = ProposalStatus::Expired;
-                    Self::insert_inactive_status_update(id, status_update);
-                    Self::deposit_event(<Event<T>>::ExpireStatusUpdate(id));
-                    None
-                } else {
-                    Some(status_update)
                 }
             },
         );
+    }
+
+    /// Evaluates whether the `StatusUpdate` has been accepted, rejected or expired.
+    /// Returns true if the `StatusUpdate` should be garbage collected.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - id of the `StatusUpdate`
+    /// * `status_update` - `StatusUpdate` to evaluate
+    /// * `height` - current height of the chain.
+    fn evaluate_status_update_at_height(
+        id: U256,
+        mut status_update: &mut StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>,
+        height: T::BlockNumber,
+    ) -> Result<bool, DispatchError> {
+        if status_update
+            .tally
+            .is_approved(<ActiveStakedRelayersCount>::get(), T::VoteThreshold::get())
+        {
+            Self::execute_status_update(&mut status_update)?;
+            Self::insert_inactive_status_update(id, status_update);
+            Ok(true)
+        } else if status_update
+            .tally
+            .is_rejected(<ActiveStakedRelayersCount>::get(), T::VoteThreshold::get())
+        {
+            Self::reject_status_update(&mut status_update)?;
+            Self::insert_inactive_status_update(id, status_update);
+            Ok(true)
+        } else if height >= status_update.end {
+            // return the proposer's collateral
+            ext::collateral::release_collateral::<T>(
+                &status_update.proposer,
+                status_update.deposit,
+            )?;
+            status_update.proposal_status = ProposalStatus::Expired;
+            Self::insert_inactive_status_update(id, status_update);
+            Self::deposit_event(<Event<T>>::ExpireStatusUpdate(id));
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 
     /// Activate the staked relayer if mature.
@@ -768,7 +794,7 @@ impl<T: Trait> Module<T> {
     /// * `status_update` - `StatusUpdate` with the proposed changes.
     pub(crate) fn insert_inactive_status_update(
         status_id: U256,
-        status_update: StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>,
+        status_update: &StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>,
     ) {
         <InactiveStatusUpdates<T>>::insert(&status_id, status_update);
     }
@@ -1095,6 +1121,8 @@ decl_error! {
         InsufficientDeposit,
         /// Insufficient participants
         InsufficientParticipants,
+        /// Status update message is too big
+        MessageTooBig,
         /// Staked relayer is not registered
         NotRegistered,
         /// Staked relayer has not bonded
