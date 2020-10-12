@@ -169,7 +169,13 @@ fn testnet_genesis(
                 .map(|k| (k, 1 << 60))
                 .collect(),
         }),
-        pallet_balances_Instance2: Some(PolkaBTCConfig { balances: vec![] }),
+        pallet_balances_Instance2: Some(PolkaBTCConfig {
+            balances: endowed_accounts
+                .iter()
+                .cloned()
+                .map(|k| (k, 1 << 60))
+                .collect(),
+        }),
         staked_relayers: Some(StakedRelayersConfig {
             gov_id: get_account_id_from_seed::<sr25519::Public>("Alice"),
         }),
