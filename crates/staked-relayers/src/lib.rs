@@ -438,6 +438,7 @@ decl_module! {
                 StatusCode::Error,
                 Some(ErrorCode::Liquidation),
                 None,
+                Some(tx_id),
             ));
 
             Ok(())
@@ -496,6 +497,7 @@ decl_module! {
                 StatusCode::Error,
                 Some(ErrorCode::Liquidation),
                 None,
+                None,
             ));
 
             Ok(())
@@ -525,6 +527,7 @@ decl_module! {
             Self::deposit_event(<Event<T>>::ExecuteStatusUpdate(
                 StatusCode::Error,
                 Some(ErrorCode::OracleOffline),
+                None,
                 None,
             ));
 
@@ -902,6 +905,7 @@ impl<T: Trait> Module<T> {
             status_code.clone(),
             status_update.add_error.clone(),
             status_update.remove_error.clone(),
+            status_update.btc_block_hash.clone(),
         ));
         Ok(())
     }
@@ -1103,7 +1107,12 @@ decl_event!(
             Option<H256Le>,
         ),
         VoteOnStatusUpdate(U256, AccountId, bool),
-        ExecuteStatusUpdate(StatusCode, Option<ErrorCode>, Option<ErrorCode>),
+        ExecuteStatusUpdate(
+            StatusCode,
+            Option<ErrorCode>,
+            Option<ErrorCode>,
+            Option<H256Le>,
+        ),
         RejectStatusUpdate(StatusCode, Option<ErrorCode>, Option<ErrorCode>),
         ExpireStatusUpdate(U256),
         ForceStatusUpdate(StatusCode, Option<ErrorCode>, Option<ErrorCode>),

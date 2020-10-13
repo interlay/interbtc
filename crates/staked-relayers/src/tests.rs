@@ -464,7 +464,12 @@ fn test_vote_on_status_update_succeeds() {
             TestError::VoteAlreadyCast
         );
         Staking::end_block(3);
-        assert_not_emitted!(Event::ExecuteStatusUpdate(StatusCode::Error, None, None));
+        assert_not_emitted!(Event::ExecuteStatusUpdate(
+            StatusCode::Error,
+            None,
+            None,
+            None
+        ));
         assert_not_emitted!(Event::RejectStatusUpdate(StatusCode::Error, None, None));
 
         assert_ok!(Staking::vote_on_status_update(
@@ -473,7 +478,12 @@ fn test_vote_on_status_update_succeeds() {
             true
         ));
         Staking::end_block(3);
-        assert_not_emitted!(Event::ExecuteStatusUpdate(StatusCode::Error, None, None));
+        assert_not_emitted!(Event::ExecuteStatusUpdate(
+            StatusCode::Error,
+            None,
+            None,
+            None
+        ));
         assert_not_emitted!(Event::RejectStatusUpdate(StatusCode::Error, None, None));
 
         assert_ok!(Staking::vote_on_status_update(
@@ -482,7 +492,12 @@ fn test_vote_on_status_update_succeeds() {
             true
         ));
         Staking::end_block(3);
-        assert_emitted!(Event::ExecuteStatusUpdate(StatusCode::Error, None, None));
+        assert_emitted!(Event::ExecuteStatusUpdate(
+            StatusCode::Error,
+            None,
+            None,
+            None
+        ));
 
         let status_update = Staking::inactive_status_update(status_update_id);
         assert_eq!(status_update.proposal_status, ProposalStatus::Accepted);
@@ -496,7 +511,12 @@ fn test_end_block_status_update_expired() {
         Staking::end_block(DEFAULT_END_HEIGHT + 100);
         let status_update = Staking::inactive_status_update(&status_update_id);
         assert_eq!(status_update.proposal_status, ProposalStatus::Expired);
-        assert_not_emitted!(Event::ExecuteStatusUpdate(StatusCode::Error, None, None));
+        assert_not_emitted!(Event::ExecuteStatusUpdate(
+            StatusCode::Error,
+            None,
+            None,
+            None
+        ));
         assert_not_emitted!(Event::RejectStatusUpdate(StatusCode::Error, None, None));
         assert_emitted!(Event::ExpireStatusUpdate(status_update_id));
     })
@@ -551,6 +571,7 @@ fn test_execute_status_update_fails_with_insufficient_yes_votes() {
 
         assert_not_emitted!(Event::ExecuteStatusUpdate(
             StatusCode::default(),
+            None,
             None,
             None
         ));
@@ -629,7 +650,8 @@ fn test_execute_status_update_succeeds() {
         assert_emitted!(Event::ExecuteStatusUpdate(
             StatusCode::Error,
             Some(ErrorCode::OracleOffline),
-            None
+            None,
+            Some(H256Le::zero())
         ));
     })
 }
@@ -914,6 +936,7 @@ fn test_report_vault_theft_succeeds() {
             StatusCode::Error,
             Some(ErrorCode::Liquidation),
             None,
+            Some(H256Le::zero()),
         ));
     })
 }
@@ -952,6 +975,7 @@ fn test_report_vault_under_liquidation_threshold_succeeds() {
         assert_emitted!(Event::ExecuteStatusUpdate(
             StatusCode::Error,
             Some(ErrorCode::Liquidation),
+            None,
             None,
         ));
 
@@ -1009,6 +1033,7 @@ fn test_report_oracle_offline_succeeds() {
         assert_emitted!(Event::ExecuteStatusUpdate(
             StatusCode::Error,
             Some(ErrorCode::OracleOffline),
+            None,
             None,
         ));
     })
