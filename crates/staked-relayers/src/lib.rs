@@ -40,7 +40,7 @@ use frame_support::{
 use frame_system::ensure_signed;
 use primitive_types::H256;
 use security::types::{ErrorCode, StatusCode};
-use sp_core::{H160, U256};
+use sp_core::H160;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
@@ -94,13 +94,13 @@ decl_storage! {
         InactiveStakedRelayers: map hasher(blake2_128_concat) T::AccountId => InactiveStakedRelayer<T::BlockNumber, DOT<T>>;
 
         /// Map of active StatusUpdates, identified by an integer key.
-        ActiveStatusUpdates get(fn active_status_update): map hasher(blake2_128_concat) U256 => StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>;
+        ActiveStatusUpdates get(fn active_status_update): map hasher(blake2_128_concat) u64 => StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>;
 
         /// Map of expired, executed or rejected StatusUpdates, identified by an integer key.
-        InactiveStatusUpdates get(fn inactive_status_update): map hasher(blake2_128_concat) U256 => StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>;
+        InactiveStatusUpdates get(fn inactive_status_update): map hasher(blake2_128_concat) u64 => StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>;
 
         /// Integer increment-only counter used to track status updates.
-        StatusCounter get(fn status_counter): U256;
+        StatusCounter get(fn status_counter): u64;
 
         /// Mapping of Bitcoin transaction identifiers (SHA256 hashes) to account
         /// identifiers of Vaults accused of theft.
@@ -317,7 +317,7 @@ decl_module! {
         /// * `status_update_id`: Identifier of the `StatusUpdate` voted upon in `ActiveStatusUpdates`.
         /// * `approve`: `True` or `False`, depending on whether the Staked Relayer agrees or disagrees with the suggested `StatusUpdate`.
         #[weight = 1000]
-        fn vote_on_status_update(origin, status_update_id: U256, approve: bool) -> DispatchResult {
+        fn vote_on_status_update(origin, status_update_id: u64, approve: bool) -> DispatchResult {
             let signer = ensure_signed(origin)?;
 
             ensure!(
@@ -586,7 +586,7 @@ impl<T: Trait> Module<T> {
     /// * `status_update` - `StatusUpdate` to evaluate
     /// * `height` - current height of the chain.
     fn evaluate_status_update_at_height(
-        id: U256,
+        id: u64,
         mut status_update: &mut StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>,
         height: T::BlockNumber,
     ) -> Result<bool, DispatchError> {
@@ -784,7 +784,7 @@ impl<T: Trait> Module<T> {
     /// * `status_update` - `StatusUpdate` with the proposed changes.
     pub(crate) fn insert_active_status_update(
         status_update: StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>,
-    ) -> U256 {
+    ) -> u64 {
         let status_id = Self::get_status_counter();
         <ActiveStatusUpdates<T>>::insert(&status_id, status_update);
         status_id
@@ -796,7 +796,7 @@ impl<T: Trait> Module<T> {
     ///
     /// * `status_update` - `StatusUpdate` with the proposed changes.
     pub(crate) fn insert_inactive_status_update(
-        status_id: U256,
+        status_id: u64,
         status_update: &StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>,
     ) {
         <InactiveStatusUpdates<T>>::insert(&status_id, status_update);
@@ -808,7 +808,7 @@ impl<T: Trait> Module<T> {
     ///
     /// * `status_update_id` - id of the `StatusUpdate` to fetch.
     pub(crate) fn get_status_update(
-        status_update_id: &U256,
+        status_update_id: &u64,
     ) -> Result<StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>, DispatchError> {
         ensure!(
             <ActiveStatusUpdates<T>>::contains_key(status_update_id),
@@ -1079,9 +1079,9 @@ impl<T: Trait> Module<T> {
     }
 
     /// Increments the current `StatusCounter` and returns the new value.
-    pub fn get_status_counter() -> U256 {
+    pub fn get_status_counter() -> u64 {
         <StatusCounter>::mutate(|c| {
-            *c += U256::one();
+            *c += 1;
             *c
         })
     }
@@ -1099,14 +1099,14 @@ decl_event!(
         ActivateStakedRelayer(AccountId, DOT),
         DeactivateStakedRelayer(AccountId),
         StatusUpdateSuggested(
-            U256,
+            u64,
             AccountId,
             StatusCode,
             Option<ErrorCode>,
             Option<ErrorCode>,
             Option<H256Le>,
         ),
-        VoteOnStatusUpdate(U256, AccountId, bool),
+        VoteOnStatusUpdate(u64, AccountId, bool),
         ExecuteStatusUpdate(
             StatusCode,
             Option<ErrorCode>,
@@ -1114,7 +1114,7 @@ decl_event!(
             Option<H256Le>,
         ),
         RejectStatusUpdate(StatusCode, Option<ErrorCode>, Option<ErrorCode>),
-        ExpireStatusUpdate(U256),
+        ExpireStatusUpdate(u64),
         ForceStatusUpdate(StatusCode, Option<ErrorCode>, Option<ErrorCode>),
         SlashStakedRelayer(AccountId),
     }
