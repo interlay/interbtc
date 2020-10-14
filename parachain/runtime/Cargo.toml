@@ -171,6 +171,14 @@ path = '../../crates/staked-relayers/rpc/runtime-api'
 default-features = false
 path = '../../crates/vault-registry/rpc/runtime-api'
 
+[dependencies.module-issue-rpc-runtime-api]
+default-features = false
+path = '../../crates/issue/rpc/runtime-api'
+
+[dependencies.module-redeem-rpc-runtime-api]
+default-features = false
+path = '../../crates/redeem/rpc/runtime-api'
+
 [dev-dependencies.bitcoin]
 default-features = false
 package = 'bitcoin'
@@ -227,6 +235,8 @@ std = [
   'module-exchange-rate-oracle-rpc-runtime-api/std',
   'module-staked-relayers-rpc-runtime-api/std',
   'module-vault-registry-rpc-runtime-api/std',
+  'module-issue-rpc-runtime-api/std',
+  'module-redeem-rpc-runtime-api/std',
   'btc-relay/std',
   'collateral/std',
   'treasury/std',

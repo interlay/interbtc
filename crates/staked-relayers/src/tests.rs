@@ -10,7 +10,7 @@ use bitcoin::types::{
 };
 use frame_support::{assert_err, assert_ok};
 use mocktopus::mocking::*;
-use redeem::types::Redeem;
+use redeem::types::RedeemRequest;
 use replace::types::Replace;
 use security::types::{ErrorCode, StatusCode};
 use sp_core::{H160, H256, U256};
@@ -1242,7 +1242,7 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
         });
 
         ext::redeem::get_redeem_request_from_id::<Test>.mock_safe(move |_| {
-            MockResult::Return(Ok(Redeem {
+            MockResult::Return(Ok(RedeemRequest {
                 vault: BOB,
                 opentime: 0,
                 amount_polka_btc: 0,

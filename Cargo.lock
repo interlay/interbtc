@@ -605,6 +605,8 @@ dependencies = [
  "frame-benchmarking-cli",
  "jsonrpc-core",
  "module-exchange-rate-oracle-rpc",
+ "module-issue-rpc",
+ "module-redeem-rpc",
  "module-staked-relayers-rpc",
  "module-vault-registry-rpc",
  "pallet-transaction-payment-rpc",
@@ -650,6 +652,8 @@ dependencies = [
  "issue",
  "mocktopus",
  "module-exchange-rate-oracle-rpc-runtime-api",
+ "module-issue-rpc-runtime-api",
+ "module-redeem-rpc-runtime-api",
  "module-staked-relayers-rpc-runtime-api",
  "module-vault-registry-rpc-runtime-api",
  "pallet-aura",
@@ -3461,6 +3465,56 @@ dependencies = [
  "frame-support",
  "parity-scale-codec",
  "sp-api",
+]
+
+[[package]]
+name = "module-issue-rpc"
+version = "2.0.0"
+dependencies = [
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "module-issue-rpc-runtime-api",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime",
+]
+
+[[package]]
+name = "module-issue-rpc-runtime-api"
+version = "2.0.0"
+dependencies = [
+ "frame-support",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-std",
+]
+
+[[package]]
+name = "module-redeem-rpc"
+version = "2.0.0"
+dependencies = [
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "module-redeem-rpc-runtime-api",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime",
+]
+
+[[package]]
+name = "module-redeem-rpc-runtime-api"
+version = "2.0.0"
+dependencies = [
+ "frame-support",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-std",
 ]
 
 [[package]]

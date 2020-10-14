@@ -9,8 +9,8 @@ pub(crate) type PolkaBTC<T> =
     <<T as treasury::Trait>::PolkaBTC as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
-pub struct Redeem<AccountId, BlockNumber, PolkaBTC, DOT> {
+#[cfg_attr(feature = "std", derive(Debug, serde::Serialize))]
+pub struct RedeemRequest<AccountId, BlockNumber, PolkaBTC, DOT> {
     pub vault: AccountId,
     pub opentime: BlockNumber,
     pub amount_polka_btc: PolkaBTC,

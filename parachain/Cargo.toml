@@ -102,5 +102,11 @@ path = "../crates/staked-relayers/rpc"
 [dependencies.module-vault-registry-rpc]
 path = "../crates/vault-registry/rpc"
 
+[dependencies.module-issue-rpc]
+path = "../crates/issue/rpc"
+
+[dependencies.module-redeem-rpc]
+path = "../crates/redeem/rpc"
+
 [build-dependencies.substrate-build-script-utils]
 version = '2.0.0'

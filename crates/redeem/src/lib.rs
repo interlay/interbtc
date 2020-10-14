@@ -16,7 +16,8 @@ use mocktopus::macros::mockable;
 mod ext;
 pub mod types;
 
-use crate::types::{PolkaBTC, Redeem, DOT};
+pub use crate::types::RedeemRequest;
+use crate::types::{PolkaBTC, DOT};
 use bitcoin::types::H256Le;
 /// # PolkaBTC Redeem implementation
 /// The Redeem module according to the specification at
@@ -55,7 +56,7 @@ decl_storage! {
 
         /// Users create redeem requests to receive BTC in return for PolkaBTC.
         /// This mapping provides access from a unique hash redeemId to a Redeem struct.
-        RedeemRequests: map hasher(blake2_128_concat) H256 => Redeem<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>;
+        RedeemRequests: map hasher(blake2_128_concat) H256 => RedeemRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>;
     }
 }
 
@@ -147,7 +148,7 @@ decl_module! {
 
             Self::insert_redeem_request(
                 redeem_id,
-                Redeem {
+                RedeemRequest {
                     vault: vault_id.clone(),
                     opentime: height,
                     amount_polka_btc,
@@ -300,9 +301,25 @@ impl<T: Trait> Module<T> {
     /// * `value` - the redeem request
     fn insert_redeem_request(
         key: H256,
-        value: Redeem<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
+        value: RedeemRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
     ) {
         <RedeemRequests<T>>::insert(key, value)
+    }
+
+    /// Fetch all redeem requests for the specified account.
+    ///
+    /// # Arguments
+    ///
+    /// * `account_id` - user account id
+    pub fn get_redeem_requests_for_account(
+        account_id: T::AccountId,
+    ) -> Vec<(
+        H256,
+        RedeemRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
+    )> {
+        <RedeemRequests<T>>::iter()
+            .filter(|(_, request)| request.redeemer == account_id)
+            .collect::<Vec<_>>()
     }
 
     /// Fetch a pre-existing redeem request or throw.
@@ -312,7 +329,8 @@ impl<T: Trait> Module<T> {
     /// * `key` - 256-bit identifier of the redeem request
     pub fn get_redeem_request_from_id(
         key: &H256,
-    ) -> Result<Redeem<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
+    ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError>
+    {
         ensure!(
             <RedeemRequests<T>>::contains_key(*key),
             Error::<T>::RedeemIdNotFound

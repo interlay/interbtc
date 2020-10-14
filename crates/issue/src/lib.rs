@@ -53,8 +53,8 @@ pub trait Trait:
 }
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
-pub struct Issue<AccountId, BlockNumber, PolkaBTC, DOT> {
+#[cfg_attr(feature = "std", derive(Debug, serde::Serialize))]
+pub struct IssueRequest<AccountId, BlockNumber, PolkaBTC, DOT> {
     vault: AccountId,
     opentime: BlockNumber,
     griefing_collateral: DOT,
@@ -71,8 +71,8 @@ decl_storage! {
         IssueGriefingCollateral: DOT<T>;
 
         /// Users create issue requests to issue PolkaBTC. This mapping provides access
-        /// from a unique hash `IssueId` to an `Issue` struct.
-        IssueRequests: map hasher(blake2_128_concat) H256 => Issue<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>;
+        /// from a unique hash `IssueId` to an `IssueRequest` struct.
+        IssueRequests: map hasher(blake2_128_concat) H256 => IssueRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>;
     }
 }
 
@@ -186,7 +186,7 @@ impl<T: Trait> Module<T> {
 
         Self::insert_issue_request(
             key,
-            Issue {
+            IssueRequest {
                 vault: vault_id.clone(),
                 opentime: height,
                 griefing_collateral: griefing_collateral,
@@ -269,9 +269,26 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Fetch all issue requests for the specified account.
+    ///
+    /// # Arguments
+    ///
+    /// * `account_id` - user account id
+    pub fn get_issue_requests_for_account(
+        account_id: T::AccountId,
+    ) -> Vec<(
+        H256,
+        IssueRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
+    )> {
+        <IssueRequests<T>>::iter()
+            .filter(|(_, request)| request.requester == account_id)
+            .collect::<Vec<_>>()
+    }
+
     fn get_issue_request_from_id(
         issue_id: &H256,
-    ) -> Result<Issue<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
+    ) -> Result<IssueRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError>
+    {
         ensure!(
             <IssueRequests<T>>::contains_key(*issue_id),
             Error::<T>::IssueIdNotFound
@@ -281,7 +298,7 @@ impl<T: Trait> Module<T> {
 
     fn insert_issue_request(
         key: H256,
-        value: Issue<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
+        value: IssueRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
     ) {
         <IssueRequests<T>>::insert(key, value)
     }
