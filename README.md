@@ -65,7 +65,6 @@ The Substrate runtime makes use of various custom pallets and crates that are fo
 - [collateral](crates/collateral) [Alpha] Handles locking, releasing and slashing of collateral (e.g. DOT).
 - [exchange-rate-oracle](crates/exchange-rate-oracle): [Alpha] Exchange rate oracle. Integration with external provider pending.
 - [issue](crates/issue): [Alpha] Handles issuing of PolkaBTC.
-- [priority-map](crates/priority-map): [WIP] Priority queue based on a mapping. Used to efficiently track ongoing forks and handle re-orgs.
 - [redeem](crates/redeem) [Alpha] Handles redeeming of PolkaBTC for BTC on Bitcoin.
 - [replace](crates/replace) [Alpha] Handles replacing vaults.
 - [security](crates/security): [Alpha] Security module, handling BTC Parachain status changes (error handling).
