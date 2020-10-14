@@ -185,7 +185,7 @@ fn testnet_genesis(
             max_delay: 3600000, // one hour
         }),
         btc_relay: Some(BTCRelayConfig {
-            bitcoin_confirmations: 6,
+            bitcoin_confirmations: 0,
             parachain_confirmations: 0,
             difficulty_check: false,
         }),
