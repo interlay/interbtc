@@ -15,5 +15,4 @@ We are writing our own pallets to allow trustless issue and redeem of Bitcoin on
 We are also adding crates for helpers and libraries that can be used from within our pallets, but don't represent a runtime pallet.
 
 - Bitcoin: Bitcoin type, parsing and verification functions [bitcoin](./bitcoin)
-- Priority-map: a WIP for a priority queue based on a mapping [priority-map](./priority-map)
-- X-Core: Error types used across modules [x-core](./x-core) 
+- X-Core: Error types used across modules [x-core](./x-core)
