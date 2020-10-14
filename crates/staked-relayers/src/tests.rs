@@ -13,7 +13,7 @@ use mocktopus::mocking::*;
 use redeem::types::RedeemRequest;
 use replace::types::Replace;
 use security::types::{ErrorCode, StatusCode};
-use sp_core::{H160, H256, U256};
+use sp_core::{H160, H256};
 use sp_std::collections::btree_set::BTreeSet;
 use std::convert::TryInto;
 use vault_registry::{Vault, VaultStatus};
@@ -142,7 +142,7 @@ fn inject_active_staked_relayer(id: &AccountId, amount: Balance) {
     );
 }
 
-fn inject_status_update(proposer: AccountId) -> U256 {
+fn inject_status_update(proposer: AccountId) -> u64 {
     let mut tally = Tally::default();
     tally.aye.insert(proposer.clone());
 
@@ -367,7 +367,7 @@ fn test_suggest_status_update_succeeds() {
             vec![],
         ));
         assert_emitted!(Event::StatusUpdateSuggested(
-            U256::from(1),
+            1,
             ALICE,
             StatusCode::Error,
             None,
@@ -440,7 +440,7 @@ fn test_tally_vote() {
 fn test_vote_on_status_update_fails_with_staked_relayers_only() {
     run_test(|| {
         assert_err!(
-            Staking::vote_on_status_update(Origin::signed(ALICE), U256::from(0), false),
+            Staking::vote_on_status_update(Origin::signed(ALICE), 0, false),
             TestError::StakedRelayersOnly,
         );
     })
@@ -1392,7 +1392,7 @@ fn test_is_transaction_invalid_succeeds() {
 #[test]
 fn test_get_status_counter_success() {
     run_test(|| {
-        assert_eq!(Staking::get_status_counter().as_u64(), 1);
-        assert_eq!(Staking::get_status_counter().as_u64(), 2);
+        assert_eq!(Staking::get_status_counter(), 1);
+        assert_eq!(Staking::get_status_counter(), 2);
     })
 }
