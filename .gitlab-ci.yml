@@ -1,17 +1,18 @@
-image: "registry.gitlab.com/interlay/btc-parachain:ci-nightly-2020-10-01"
+image: "registry.gitlab.com/interlay/docker-rust:nightly-2020-10-01@sha256:46466ebb2d3a1cb481d0ede8d1bb099616117a3cef1eb5106d89e813b62b02ad"
 
 variables:
     CARGO_HOME: $CI_PROJECT_DIR/.cargo
-    # RUSTC_WRAPPER: sccache
-    # SCCACHE_GCS_RW_MODE: READ_WRITE
+    RUSTC_WRAPPER: /usr/local/bin/sccache
+    SCCACHE_GCS_RW_MODE: READ_WRITE
     DOCKER_HOST: tcp://docker:2375
     DOCKER_TLS_CERTDIR: ""
 
 before_script:
+    - rustup show
     - rustc --version
     - rustfmt --version
     - cargo --version
-    - SCCACHE_START_SERVER=1 SCCACHE_NO_DAEMON=1 sccache &
+    - SCCACHE_START_SERVER=1 SCCACHE_IDLE_TIMEOUT=0 sccache
     - sccache -s
 
 after_script:
