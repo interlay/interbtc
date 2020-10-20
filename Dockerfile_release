@@ -1,0 +1,15 @@
+FROM bitnami/minideb:stretch
+
+ARG PROFILE=release
+
+COPY target/${PROFILE}/btc-parachain /usr/local/bin
+
+# Checks
+RUN chmod +x /usr/local/bin/btc-parachain && \
+    ldd /usr/local/bin/btc-parachain && \
+    /usr/local/bin/btc-parachain --version
+
+EXPOSE 30333 9933 9944
+VOLUME ["/data"]
+
+CMD ["/usr/local/bin/btc-parachain"]
