@@ -27,7 +27,6 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
-    traits::Get,
 };
 use frame_system::ensure_signed;
 use primitive_types::H256;
@@ -45,11 +44,6 @@ pub trait Trait:
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-
-    /// The time difference in number of blocks between an issue request is created
-    /// and required completion time by a user. The issue period has an upper limit
-    /// to prevent griefing of vault collateral.
-    type IssuePeriod: Get<Self::BlockNumber>;
 }
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
@@ -67,12 +61,17 @@ pub struct IssueRequest<AccountId, BlockNumber, PolkaBTC, DOT> {
 // The pallet's storage items.
 decl_storage! {
     trait Store for Module<T: Trait> as Issue {
-        /// The minimum collateral (DOT) a user needs to provide as griefing protection.
-        IssueGriefingCollateral: DOT<T>;
-
         /// Users create issue requests to issue PolkaBTC. This mapping provides access
         /// from a unique hash `IssueId` to an `IssueRequest` struct.
         IssueRequests: map hasher(blake2_128_concat) H256 => IssueRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>;
+
+        /// The minimum collateral (DOT) a user needs to provide as griefing protection.
+        IssueGriefingCollateral get(fn issue_griefing_collateral) config(): DOT<T>;
+
+        /// The time difference in number of blocks between an issue request is created
+        /// and required completion time by a user. The issue period has an upper limit
+        /// to prevent griefing of vault collateral.
+        IssuePeriod get(fn issue_period) config(): T::BlockNumber;
     }
 }
 
@@ -98,8 +97,6 @@ decl_module! {
         // Initializing events
         // this is needed only if you are using events in your pallet
         fn deposit_event() = default;
-
-        const IssuePeriod: T::BlockNumber = T::IssuePeriod::get();
 
         /// Request the issuance of PolkaBTC
         ///
@@ -173,7 +170,7 @@ impl<T: Trait> Module<T> {
         ext::vault_registry::ensure_not_banned::<T>(&vault_id, height)?;
 
         ensure!(
-            griefing_collateral >= <IssueGriefingCollateral<T>>::get(),
+            griefing_collateral >= Self::issue_griefing_collateral(),
             Error::<T>::InsufficientCollateral
         );
 
@@ -222,7 +219,7 @@ impl<T: Trait> Module<T> {
         ensure!(requester == issue.requester, Error::<T>::UnauthorizedUser);
 
         let height = <frame_system::Module<T>>::block_number();
-        let period = T::IssuePeriod::get();
+        let period = Self::issue_period();
         ensure!(
             height <= issue.opentime + period,
             Error::<T>::CommitPeriodExpired
@@ -250,7 +247,7 @@ impl<T: Trait> Module<T> {
     fn _cancel_issue(requester: T::AccountId, issue_id: H256) -> Result<(), DispatchError> {
         let issue = Self::get_issue_request_from_id(&issue_id)?;
         let height = <frame_system::Module<T>>::block_number();
-        let period = T::IssuePeriod::get();
+        let period = Self::issue_period();
 
         ensure!(issue.opentime + period > height, Error::<T>::TimeNotExpired);
         ensure!(!issue.completed, Error::<T>::IssueCompleted);
@@ -301,11 +298,6 @@ impl<T: Trait> Module<T> {
         value: IssueRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
     ) {
         <IssueRequests<T>>::insert(key, value)
-    }
-
-    #[allow(dead_code)]
-    fn set_issue_griefing_collateral(amount: DOT<T>) {
-        <IssueGriefingCollateral<T>>::set(amount);
     }
 
     fn remove_issue_request(id: H256) {
