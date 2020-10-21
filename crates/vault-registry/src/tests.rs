@@ -67,6 +67,8 @@ fn create_sample_vault() -> <Test as frame_system::Trait>::AccountId {
 fn create_sample_vault_and_issue_tokens(
     issue_tokens: u128,
 ) -> <Test as frame_system::Trait>::AccountId {
+    set_default_thresholds();
+
     // vault has no tokens issued yet
     let id = create_sample_vault();
 

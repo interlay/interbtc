@@ -137,7 +137,7 @@ impl<T: Trait> RichVault<T> {
 
         let raw_issued_tokens_in_dot = crate::Module::<T>::dot_to_u128(issued_tokens_in_dot)?;
 
-        let secure_threshold = crate::Module::<T>::_get_secure_collateral_threshold();
+        let secure_threshold = crate::Module::<T>::secure_collateral_threshold();
 
         let raw_used_collateral = raw_issued_tokens_in_dot
             .checked_mul(secure_threshold)
@@ -153,7 +153,7 @@ impl<T: Trait> RichVault<T> {
     pub fn issuable_tokens(&self) -> Result<PolkaBTC<T>, DispatchError> {
         let free_collateral = self.get_free_collateral()?;
 
-        let secure_threshold = crate::Module::<T>::_get_secure_collateral_threshold();
+        let secure_threshold = crate::Module::<T>::secure_collateral_threshold();
 
         let issuable = crate::Module::<T>::calculate_max_polkabtc_from_collateral_for_threshold(
             free_collateral,

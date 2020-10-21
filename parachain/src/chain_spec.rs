@@ -194,7 +194,15 @@ fn testnet_genesis(
             issue_period: DAYS,
         }),
         vault_registry: Some(VaultRegistryConfig {
-            secure_collateral_threshold: 100000,
+            minimum_collateral_vault: 0,
+            punishment_fee: 20_000,
+            punishment_delay: 8,
+            redeem_premium_fee: 5000,
+            secure_collateral_threshold: 200_000,
+            auction_collateral_threshold: 150_000,
+            premium_redeem_threshold: 120_000,
+            liquidation_collateral_threshold: 110_000,
+            liquidation_vault: get_account_id_from_seed::<sr25519::Public>("Victor"),
         }),
     }
 }
