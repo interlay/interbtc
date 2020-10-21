@@ -66,7 +66,7 @@ decl_storage! {
         /// ## Storage
         /// The minimum collateral (DOT) a Vault needs to provide
         /// to participate in the issue process.
-        MinimumCollateralVault: DOT<T>;
+        MinimumCollateralVault get(fn minimum_collateral_vault) config(): DOT<T>;
 
         /// If a Vault misbehaves in either the redeem or replace protocol by
         /// failing to prove that it sent the correct amount of BTC to the
@@ -77,17 +77,17 @@ decl_storage! {
         /// to compensate the damaged party for its loss.
         /// For example, if the `PunishmentFee` is set to 50000,
         /// it is equivalent to 50%.
-        PunishmentFee: u128;
+        PunishmentFee get(fn punishment_fee) config(): DOT<T>;
 
         /// If a Vault fails to execute a correct redeem or replace,
         /// it is temporarily banned from further issue, redeem or replace requests.
-        PunishmentDelay: T::BlockNumber;
+        PunishmentDelay get(fn punishment_delay) config(): T::BlockNumber;
 
         /// If a Vault is running low on collateral and falls below
         /// `PremiumRedeemThreshold`, users are allocated a premium in DOT
         /// when redeeming with the Vault - as defined by this parameter.
         /// For example, if the RedeemPremiumFee is set to 5000, it is equivalent to 5%.
-        RedeemPremiumFee: u128;
+        RedeemPremiumFee get(fn redeem_premium_fee) config(): DOT<T>;
 
         /// Determines the over-collateralization rate for DOT collateral locked
         /// by Vaults, necessary for issuing PolkaBTC. Must to be strictly
@@ -96,24 +96,24 @@ decl_storage! {
 
         /// Determines the rate for the collateral rate of Vaults, at which the
         /// BTC backed by the Vault are opened up for auction to other Vaults
-        AuctionCollateralThreshold: u128;
+        AuctionCollateralThreshold get(fn auction_collateral_threshold) config(): u128;
 
         /// Determines the rate for the collateral rate of Vaults,
         /// at which users receive a premium in DOT, allocated from the
         /// Vault’s collateral, when performing a redeem with this Vault.
         /// Must to be strictly greater than 100000 and LiquidationCollateralThreshold.
-        PremiumRedeemThreshold: u128;
+        PremiumRedeemThreshold get(fn premium_redeem_threshold) config(): u128;
 
         /// Determines the lower bound for the collateral rate in PolkaBTC.
         /// Must be strictly greater than 100000. If a Vault’s collateral rate
         /// drops below this, automatic liquidation (forced Redeem) is triggered.
-        LiquidationCollateralThreshold: u128;
+        LiquidationCollateralThreshold get(fn liquidation_collateral_threshold) config(): u128;
 
         /// Account identifier of an artificial Vault maintained by the VaultRegistry
         /// to handle polkaBTC balances and DOT collateral of liquidated Vaults.
         /// That is, when a Vault is liquidated, its balances are transferred to
         /// LiquidationVault and claims are later handled via the LiquidationVault.
-        LiquidationVault: T::AccountId;
+        LiquidationVault get(fn liquidation_vault) config(): T::AccountId;
 
         /// Mapping of Vaults, using the respective Vault account identifier as key.
         Vaults: map hasher(blake2_128_concat) T::AccountId => Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>>;
@@ -218,13 +218,6 @@ decl_module! {
 #[cfg_attr(test, mockable)]
 impl<T: Trait> Module<T> {
     /// Public functions
-    pub fn _punishment_fee() -> Result<DOT<T>, DispatchError> {
-        Self::u128_to_dot(PunishmentFee::get())
-    }
-
-    pub fn _get_redeem_premium_fee() -> Result<DOT<T>, DispatchError> {
-        Self::u128_to_dot(RedeemPremiumFee::get())
-    }
 
     pub fn _get_vault_from_id(vault_id: &T::AccountId) -> Result<DefaultVault<T>, DispatchError> {
         ensure!(Self::vault_exists(&vault_id), Error::<T>::VaultNotFound);
@@ -636,22 +629,6 @@ impl<T: Trait> Module<T> {
     ) -> Result<bool, DispatchError> {
         let threshold = <SecureCollateralThreshold>::get();
         Self::is_collateral_below_threshold(collateral, btc_amount, threshold)
-    }
-
-    pub fn _get_secure_collateral_threshold() -> u128 {
-        <SecureCollateralThreshold>::get()
-    }
-
-    pub fn _get_auction_collateral_threshold() -> u128 {
-        <AuctionCollateralThreshold>::get()
-    }
-
-    pub fn _get_premium_redeem_threshold() -> u128 {
-        <PremiumRedeemThreshold>::get()
-    }
-
-    pub fn _get_liquidation_collateral_threshold() -> u128 {
-        <LiquidationCollateralThreshold>::get()
     }
 
     pub fn _set_secure_collateral_threshold(threshold: u128) {

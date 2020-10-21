@@ -141,7 +141,7 @@ decl_module! {
 
             let below_premium_redeem = ext::vault_registry::is_vault_below_premium_threshold::<T>(&vault_id)?;
             let premium_dot = if below_premium_redeem {
-                ext::vault_registry::get_redeem_premium_fee::<T>()?
+                ext::vault_registry::get_redeem_premium_fee::<T>()
             } else {
                 Self::u128_to_dot(0u128)?
             };
@@ -252,7 +252,7 @@ decl_module! {
             let period = Self::redeem_period();
             ensure!(redeem.opentime + period > height, Error::<T>::TimeNotExpired);
 
-            let punishment_fee = ext::vault_registry::punishment_fee::<T>()?;
+            let punishment_fee = ext::vault_registry::punishment_fee::<T>();
             let raw_punishment_fee = Self::dot_to_u128(punishment_fee)?;
             let raw_amount_polka_btc = Self::btc_to_u128(redeem.amount_polka_btc)?;
             let raw_amount_in_dot = Self::rawbtc_to_rawdot(raw_amount_polka_btc)?;
