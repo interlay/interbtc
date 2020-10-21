@@ -114,7 +114,6 @@ fn test_request_issue_banned_fails() {
 #[test]
 fn test_request_issue_insufficient_collateral_fails() {
     run_test(|| {
-        Issue::set_issue_griefing_collateral(10);
         ext::vault_registry::get_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
 
@@ -135,7 +134,7 @@ fn test_request_issue_succeeds() {
         ext::vault_registry::get_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
 
-        let issue_id = request_issue_ok(origin, amount, vault, 0);
+        let issue_id = request_issue_ok(origin, amount, vault, 20);
 
         let request_issue_event = TestEvent::test_events(RawEvent::RequestIssue(
             issue_id,
@@ -167,7 +166,7 @@ fn test_execute_issue_unauthorized_fails() {
     run_test(|| {
         ext::vault_registry::get_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
-        let issue_id = request_issue_ok(ALICE, 3, BOB, 0);
+        let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
         assert_noop!(execute_issue(CAROL, &issue_id), TestError::UnauthorizedUser);
     })
 }
@@ -178,7 +177,7 @@ fn test_execute_issue_commit_period_expired_fails() {
         ext::vault_registry::get_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
 
-        let issue_id = request_issue_ok(ALICE, 3, BOB, 0);
+        let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
         <frame_system::Module<Test>>::set_block_number(20);
         assert_noop!(
             execute_issue(ALICE, &issue_id),
@@ -194,7 +193,7 @@ fn test_execute_issue_succeeds() {
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
         ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
-        let issue_id = request_issue_ok(ALICE, 3, BOB, 0);
+        let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
         <frame_system::Module<Test>>::set_block_number(5);
         execute_issue_ok(ALICE, &issue_id);
 
@@ -224,7 +223,7 @@ fn test_cancel_issue_not_expired_fails() {
         ext::vault_registry::get_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
 
-        let issue_id = request_issue_ok(ALICE, 3, BOB, 0);
+        let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
         <frame_system::Module<Test>>::set_block_number(99);
         assert_noop!(cancel_issue(ALICE, &issue_id), TestError::TimeNotExpired,);
     })
@@ -239,7 +238,7 @@ fn test_cancel_issue_succeeds() {
         ext::vault_registry::decrease_to_be_issued_tokens::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(())));
 
-        let issue_id = request_issue_ok(ALICE, 3, BOB, 0);
+        let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
         assert_ok!(cancel_issue(ALICE, &issue_id));
     })
 }
