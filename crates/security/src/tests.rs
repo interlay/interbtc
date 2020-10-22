@@ -2,6 +2,7 @@ use crate::mock::*;
 use crate::ErrorCode;
 use crate::StatusCode;
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchResult};
+use sp_core::H256;
 
 type Event = crate::Event;
 
@@ -184,6 +185,20 @@ fn test_get_nonce() {
 
 #[test]
 fn test_get_secure_id() {
+    run_test(|| {
+        frame_system::Module::<Test>::set_parent_hash(H256::zero());
+        assert_eq!(
+            Security::_get_secure_id(&1),
+            H256::from_slice(&[
+                71, 121, 67, 63, 246, 65, 71, 242, 66, 184, 148, 234, 23, 56, 62, 52, 108, 82, 213,
+                33, 160, 200, 214, 1, 13, 46, 37, 138, 95, 245, 117, 109
+            ])
+        );
+    })
+}
+
+#[test]
+fn test_get_secure_ids_not_equal() {
     run_test(|| {
         let left = Security::_get_secure_id(&1);
         let right = Security::_get_secure_id(&1);
