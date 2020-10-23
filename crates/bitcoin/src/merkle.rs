@@ -287,6 +287,16 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_proof_testnet() {
+        let raw_proof = hex::decode("00000020b0b3d77b97015b519553423c96642b33ca534c50ecefd133640000000000000029a0a725684aeca24af83e3ba0a3e3ee56adfdf032d19e5acba6d0a262e1580ca354915fd4c8001ac42a7b3a1000000005df41db041b26536b5b7fd7aeea4ea6bdb64f7039e4a566b1fa138a07ed2d3705932955c94ee4755abec003054128b10e0fbcf8dedbbc6236e23286843f1f82a018dc7f5f6fba31aa618fab4acad7df5a5046b6383595798758d30d68c731a14043a50d7cb8560d771fad70c5e52f6d7df26df13ca457655afca2cbab2e3b135c0383525b28fca31296c809641205962eb353fb88a9f3602e98a93b1e9ffd469b023d00").unwrap();
+        let proof = MerkleProof::parse(&raw_proof).unwrap();
+        let expected_block_header =
+            H256Le::from_hex_be("000000000000002e59ed7b899b3f0f83c48d0548309a8fb7693297e3937fe1d3");
+
+        assert_eq!(proof.block_header.hash(), expected_block_header);
+    }
+
+    #[test]
     fn test_compute_tree_width() {
         let proof = MerkleProof::parse(&hex::decode(&PROOF_HEX[..]).unwrap()).unwrap();
         assert_eq!(proof.compute_tree_width(0), proof.transactions_count);
