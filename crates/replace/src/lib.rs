@@ -71,7 +71,7 @@ decl_event!(
     {
         RequestReplace(AccountId, PolkaBTC, H256),
         WithdrawReplace(AccountId, H256),
-        AcceptReplace(AccountId, H256, DOT),
+        AcceptReplace(AccountId, AccountId, H256, DOT, PolkaBTC),
         ExecuteReplace(AccountId, AccountId, H256),
         AuctionReplace(AccountId, AccountId, H256, PolkaBTC, DOT, BlockNumber),
         CancelReplace(AccountId, AccountId, H256),
@@ -305,12 +305,14 @@ impl<T: Trait> Module<T> {
         ext::collateral::lock_collateral::<T>(new_vault_id.clone(), collateral)?;
         // step 6: Update the ReplaceRequest entry
         replace.add_new_vault(new_vault_id.clone(), height, collateral, vault.btc_address);
-        Self::insert_replace_request(replace_id, replace);
+        Self::insert_replace_request(replace_id, replace.clone());
         // step 7: Emit a AcceptReplace(newVault, replaceId, collateral) event
         Self::deposit_event(<Event<T>>::AcceptReplace(
+            replace.old_vault,
             new_vault_id,
             replace_id,
             collateral,
+            replace.amount,
         ));
         Ok(())
     }
