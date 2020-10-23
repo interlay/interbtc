@@ -4,7 +4,6 @@ use sp_std::{prelude::*, vec};
 
 use crate::merkle::MerkleProof;
 use crate::types::*;
-use crate::utils::log256;
 
 const WITNESS_FLAG: u8 = 0x01;
 const WITNESS_MARKER: u8 = 0x00;
@@ -194,18 +193,26 @@ impl Formattable<bool> for Transaction {
     }
 }
 
+// https://developer.bitcoin.org/reference/block_chain.html#target-nbits
 impl Formattable<bool> for U256 {
     fn format(&self) -> Vec<u8> {
         let mut bytes: [u8; 4] = Default::default();
-        let exponent = log256(&self);
-        bytes[3] = exponent;
-        let mantissa = if exponent > 3 {
+        let mut exponent = (self.bits() + 7) / 8;
+        let mut mantissa = if exponent > 3 {
             self / U256::from(256).pow(U256::from(exponent) - 3)
         } else {
             *self
-        };
-        let mut mantissa_bytes: [u8; 32] = Default::default();
-        mantissa.to_little_endian(&mut mantissa_bytes);
+        }
+        .as_u32();
+
+        // checks if nBits will be interpreted as negative
+        if (mantissa & 0x00800000) != 0 {
+            mantissa >>= 8;
+            exponent += 1;
+        }
+
+        let mantissa_bytes = mantissa.to_le_bytes();
+        bytes[3] = exponent as u8;
         bytes[..2 + 1].clone_from_slice(&mantissa_bytes[..2 + 1]);
         Vec::from(&bytes[..])
     }
@@ -377,6 +384,34 @@ mod tests {
         let hex_header = parser::tests::sample_block_header();
         let raw_header = RawBlockHeader::from_hex(&hex_header).unwrap();
         let parsed_header = parser::parse_block_header(&raw_header).unwrap();
+        assert_eq!(parsed_header.format(), raw_header.as_bytes());
+    }
+
+    #[test]
+    fn test_format_block_header_testnet() {
+        let hex_header = "00000020b0b3d77b97015b519553423c96642b33ca534c50ecefd133640000000000000029a0a725684aeca24af83e3ba0a3e3ee56adfdf032d19e5acba6d0a262e1580ca354915fd4c8001ac42a7b3a".to_string();
+        let raw_header = RawBlockHeader::from_hex(&hex_header).unwrap();
+        let parsed_header = parser::parse_block_header(&raw_header).unwrap();
+
+        assert_eq!(
+            parsed_header,
+            BlockHeader {
+                merkle_root: H256Le::from_hex_be(
+                    "0c58e162a2d0a6cb5a9ed132f0fdad56eee3a3a03b3ef84aa2ec4a6825a7a029"
+                ),
+                target: U256::from_dec_str(
+                    "1260618571951953247774709397757627131971305851995253681160192"
+                )
+                .unwrap(),
+                timestamp: 1603359907,
+                version: 536870912,
+                hash_prev_block: H256Le::from_hex_be(
+                    "000000000000006433d1efec504c53ca332b64963c425395515b01977bd7b3b0"
+                ),
+                nonce: 981150404,
+            }
+        );
+
         assert_eq!(parsed_header.format(), raw_header.as_bytes());
     }
 
