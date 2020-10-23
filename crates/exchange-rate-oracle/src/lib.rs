@@ -71,6 +71,9 @@ decl_module! {
         // Initializing events
         fn deposit_event() = default;
 
+        // Errors must be initialized if they are used by the pallet.
+        type Error = Error<T>;
+
         #[weight = 1000]
         pub fn set_exchange_rate(origin, rate: u128) -> DispatchResult {
             // Check that Parachain is not in SHUTDOWN
