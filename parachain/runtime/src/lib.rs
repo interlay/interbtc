@@ -594,6 +594,10 @@ impl_runtime_apis! {
         fn get_issue_requests(account_id: AccountId) -> Vec<(H256, IssueRequest<AccountId, BlockNumber, Balance, Balance>)> {
             Issue::get_issue_requests_for_account(account_id)
         }
+
+        fn get_vault_issue_requests(account_id: AccountId) -> Vec<(H256, IssueRequest<AccountId, BlockNumber, Balance, Balance>)> {
+            Issue::get_issue_requests_for_vault(account_id)
+        }
     }
 
     impl module_redeem_rpc_runtime_api::RedeemApi<
