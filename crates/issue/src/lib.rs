@@ -282,6 +282,22 @@ impl<T: Trait> Module<T> {
             .collect::<Vec<_>>()
     }
 
+    /// Fetch all issue requests for the specified vault.
+    ///
+    /// # Arguments
+    ///
+    /// * `account_id` - vault account id
+    pub fn get_issue_requests_for_vault(
+        account_id: T::AccountId,
+    ) -> Vec<(
+        H256,
+        IssueRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
+    )> {
+        <IssueRequests<T>>::iter()
+            .filter(|(_, request)| request.vault == account_id)
+            .collect::<Vec<_>>()
+    }
+
     fn get_issue_request_from_id(
         issue_id: &H256,
     ) -> Result<IssueRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError>
