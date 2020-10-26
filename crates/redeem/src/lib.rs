@@ -322,6 +322,22 @@ impl<T: Trait> Module<T> {
             .collect::<Vec<_>>()
     }
 
+    /// Fetch all redeem requests for the specified vault.
+    ///
+    /// # Arguments
+    ///
+    /// * `account_id` - vault account id
+    pub fn get_redeem_requests_for_vault(
+        account_id: T::AccountId,
+    ) -> Vec<(
+        H256,
+        RedeemRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
+    )> {
+        <RedeemRequests<T>>::iter()
+            .filter(|(_, request)| request.vault == account_id)
+            .collect::<Vec<_>>()
+    }
+
     /// Fetch a pre-existing redeem request or throw.
     ///
     /// # Arguments

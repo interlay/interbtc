@@ -16,7 +16,14 @@ pub trait RedeemApi<BlockHash, AccountId, H256, RedeemRequest> {
     #[rpc(name = "redeem_getRedeemRequests")]
     fn get_redeem_requests(
         &self,
-        user: AccountId,
+        account_id: AccountId,
+        at: Option<BlockHash>,
+    ) -> Result<Vec<(H256, RedeemRequest)>>;
+
+    #[rpc(name = "redeem_getVaultRedeemRequests")]
+    fn get_vault_redeem_requests(
+        &self,
+        account_id: AccountId,
         at: Option<BlockHash>,
     ) -> Result<Vec<(H256, RedeemRequest)>>;
 }
@@ -68,6 +75,22 @@ where
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         api.get_redeem_requests(&at, account_id)
+            .map_err(|e| RpcError {
+                code: ErrorCode::ServerError(Error::RuntimeError.into()),
+                message: "Unable to fetch redeem requests.".into(),
+                data: Some(format!("{:?}", e).into()),
+            })
+    }
+
+    fn get_vault_redeem_requests(
+        &self,
+        account_id: AccountId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<Vec<(H256, RedeemRequest)>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        api.get_vault_redeem_requests(&at, account_id)
             .map_err(|e| RpcError {
                 code: ErrorCode::ServerError(Error::RuntimeError.into()),
                 message: "Unable to fetch redeem requests.".into(),

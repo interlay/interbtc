@@ -13,5 +13,8 @@ sp_api::decl_runtime_apis! {
     {
         /// Get all redeem requests for a particular account
         fn get_redeem_requests(account_id: AccountId) -> Vec<(H256, RedeemRequest)>;
+
+        /// Get all redeem requests for a particular vault
+        fn get_vault_redeem_requests(account_id: AccountId) -> Vec<(H256, RedeemRequest)>;
     }
 }
