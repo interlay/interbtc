@@ -605,6 +605,10 @@ impl_runtime_apis! {
         fn get_redeem_requests(account_id: AccountId) -> Vec<(H256, RedeemRequest<AccountId, BlockNumber, Balance, Balance>)> {
             Redeem::get_redeem_requests_for_account(account_id)
         }
+
+        fn get_vault_redeem_requests(account_id: AccountId) -> Vec<(H256, RedeemRequest<AccountId, BlockNumber, Balance, Balance>)> {
+            Redeem::get_redeem_requests_for_vault(account_id)
+        }
     }
 
 }
