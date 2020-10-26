@@ -624,13 +624,16 @@ fn test_withdraw_replace_succeeds() {
 #[test]
 fn test_accept_replace_succeeds() {
     run_test(|| {
-        let vault_id = BOB;
+        let old_vault_id = ALICE;
+        let new_vault_id = BOB;
         let replace_id = H256::zero();
         let collateral = 20_000;
+        let btc_amount = 100;
 
-        Replace::get_replace_request.mock_safe(|_| {
+        Replace::get_replace_request.mock_safe(move |_| {
             let mut replace = test_request();
-            replace.old_vault = BOB;
+            replace.old_vault = old_vault_id;
+            replace.amount = btc_amount;
             MockResult::Return(Ok(replace))
         });
 
@@ -644,9 +647,15 @@ fn test_accept_replace_succeeds() {
 
         ext::collateral::lock_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
-        assert_eq!(accept_replace(vault_id, replace_id, collateral), Ok(()));
+        assert_eq!(accept_replace(new_vault_id, replace_id, collateral), Ok(()));
 
-        let event = Event::AcceptReplace(vault_id, replace_id, collateral);
+        let event = Event::AcceptReplace(
+            old_vault_id,
+            new_vault_id,
+            replace_id,
+            collateral,
+            btc_amount,
+        );
         assert_emitted!(event);
     })
 }
