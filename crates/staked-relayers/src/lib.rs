@@ -514,6 +514,11 @@ decl_module! {
             );
 
             ensure!(
+                !ext::security::get_errors::<T>().contains(&ErrorCode::OracleOffline),
+                Error::<T>::OracleAlreadyReported,
+            );
+
+            ensure!(
                 ext::oracle::is_max_delay_passed::<T>(),
                 Error::<T>::OracleOnline,
             );
@@ -1162,6 +1167,8 @@ decl_error! {
         ValidReplaceTransaction,
         /// Valid merge transaction
         ValidMergeTransaction,
+        /// Oracle already reported
+        OracleAlreadyReported,
         /// Oracle is online
         OracleOnline,
         /// Cannot report vault theft without block hash

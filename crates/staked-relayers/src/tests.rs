@@ -1006,6 +1006,22 @@ fn test_report_oracle_offline_fails_with_staked_relayers_only() {
 }
 
 #[test]
+fn test_report_oracle_offline_fails_with_already_reported() {
+    run_test(|| {
+        let relayer = Origin::signed(ALICE);
+        let amount: Balance = 3;
+        inject_active_staked_relayer(&ALICE, amount);
+
+        ext::security::get_errors::<Test>
+            .mock_safe(|| MockResult::Return([ErrorCode::OracleOffline].iter().cloned().collect()));
+        assert_err!(
+            Staking::report_oracle_offline(relayer),
+            TestError::OracleAlreadyReported,
+        );
+    })
+}
+
+#[test]
 fn test_report_oracle_offline_fails_with_oracle_online() {
     run_test(|| {
         let relayer = Origin::signed(ALICE);
