@@ -568,6 +568,10 @@ impl_runtime_apis! {
         AccountId,
         Balance,
     > for Runtime {
+        fn get_total_collateralization() -> Result<u64, DispatchError> {
+            VaultRegistry::get_total_collateralization()
+        }
+
         fn get_first_vault_with_sufficient_collateral(amount: Balance) -> Result<AccountId, DispatchError> {
             VaultRegistry::get_first_vault_with_sufficient_collateral(amount)
         }

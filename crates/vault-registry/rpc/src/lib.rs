@@ -13,6 +13,9 @@ pub use module_vault_registry_rpc_runtime_api::VaultRegistryApi as VaultRegistry
 
 #[rpc]
 pub trait VaultRegistryApi<BlockHash, AccountId, PolkaBTC> {
+    #[rpc(name = "vaultRegistry_getTotalCollateralization")]
+    fn get_total_collateralization(&self, at: Option<BlockHash>) -> Result<u64>;
+
     #[rpc(name = "vaultRegistry_getFirstVaultWithSufficientCollateral")]
     fn get_first_vault_with_sufficient_collateral(
         &self,
@@ -79,6 +82,28 @@ where
     AccountId: Codec,
     PolkaBTC: Codec,
 {
+    fn get_total_collateralization(&self, at: Option<<Block as BlockT>::Hash>) -> Result<u64> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        api.get_total_collateralization(&at).map_or_else(
+            |e| {
+                Err(RpcError {
+                    code: ErrorCode::ServerError(Error::RuntimeError.into()),
+                    message: "Unable to get total collateralization.".into(),
+                    data: Some(format!("{:?}", e).into()),
+                })
+            },
+            |result| {
+                result.map_err(|e| RpcError {
+                    code: ErrorCode::ServerError(Error::RuntimeError.into()),
+                    message: "Unable to get total collateralization.".into(),
+                    data: Some(format!("{:?}", e).into()),
+                })
+            },
+        )
+    }
+
     fn get_first_vault_with_sufficient_collateral(
         &self,
         amount: PolkaBTC,

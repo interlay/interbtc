@@ -10,6 +10,8 @@ sp_api::decl_runtime_apis! {
         AccountId: Codec,
         PolkaBTC: Codec,
     {
+        /// Get the total collateralization of the system scaled by the GRANULARITY
+        fn get_total_collateralization() -> Result<u64, DispatchError>;
         /// Get the first available vault with sufficient collateral to fulfil an issue request
         /// with the specified amount of PolkaBTC.
         fn get_first_vault_with_sufficient_collateral(amount: PolkaBTC) -> Result<AccountId, DispatchError>;
