@@ -86,6 +86,9 @@ decl_module! {
         // this is needed only if you are using events in your pallet
         fn deposit_event() = default;
 
+        // Errors must be initialized if they are used by the pallet.
+        type Error = Error<T>;
+
         const ReplacePeriod: T::BlockNumber = T::ReplacePeriod::get();
 
         /// Request the replacement of a new vault ownership
