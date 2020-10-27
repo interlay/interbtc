@@ -82,7 +82,7 @@ pub const ACCEPTED_NO_TRANSACTION_OUTPUTS: u32 = 2;
 // This pallet's storage items.
 decl_storage! {
     trait Store for Module<T: Trait> as BTCRelay {
-    /// ## Storage
+        /// ## Storage
         /// Store Bitcoin block headers
         BlockHeaders: map hasher(blake2_128_concat) H256Le => RichBlockHeader;
 
@@ -115,6 +115,9 @@ decl_storage! {
 
         /// Whether the module should perform difficulty checks.
         DifficultyCheck get(fn difficulty_check) config(): bool;
+
+        /// Whether the module should perform inclusion checks.
+        InclusionCheck get(fn inclusion_check) config(): bool;
     }
 }
 
@@ -410,6 +413,10 @@ impl<T: Trait> Module<T> {
         confirmations: u32,
         insecure: bool,
     ) -> Result<(), DispatchError> {
+        if !Self::inclusion_check() {
+            return Ok(());
+        }
+
         let best_block_height = Self::get_best_block_height();
         Self::ensure_no_ongoing_fork(best_block_height)?;
 
@@ -569,6 +576,10 @@ impl<T: Trait> Module<T> {
 
     /// Check if a block header exists
     pub fn block_header_exists(block_hash: H256Le) -> bool {
+        if !Self::inclusion_check() {
+            return true;
+        }
+
         <BlockHeaders>::contains_key(block_hash)
     }
 

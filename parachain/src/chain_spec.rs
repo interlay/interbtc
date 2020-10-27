@@ -37,7 +37,7 @@ pub fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) {
     (get_from_seed::<AuraId>(s), get_from_seed::<GrandpaId>(s))
 }
 
-pub fn development_config() -> Result<ChainSpec, String> {
+pub fn development_config(inclusion_check: bool) -> Result<ChainSpec, String> {
     let wasm_binary = WASM_BINARY.ok_or("Development wasm binary not available".to_string())?;
 
     Ok(ChainSpec::from_genesis(
@@ -69,6 +69,7 @@ pub fn development_config() -> Result<ChainSpec, String> {
                     get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
                 ],
                 true,
+                inclusion_check,
             )
         },
         // Bootnodes
@@ -84,7 +85,7 @@ pub fn development_config() -> Result<ChainSpec, String> {
     ))
 }
 
-pub fn local_testnet_config() -> Result<ChainSpec, String> {
+pub fn local_testnet_config(inclusion_check: bool) -> Result<ChainSpec, String> {
     let wasm_binary = WASM_BINARY.ok_or("Development wasm binary not available".to_string())?;
 
     Ok(ChainSpec::from_genesis(
@@ -119,6 +120,7 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
                     get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
                 ],
                 true,
+                inclusion_check,
             )
         },
         // Bootnodes
@@ -141,6 +143,7 @@ fn testnet_genesis(
     root_key: AccountId,
     endowed_accounts: Vec<AccountId>,
     _enable_println: bool,
+    inclusion_check: bool,
 ) -> GenesisConfig {
     let bob_account_id = get_account_id_from_seed::<sr25519::Public>("Bob");
     GenesisConfig {
@@ -188,6 +191,7 @@ fn testnet_genesis(
             bitcoin_confirmations: 0,
             parachain_confirmations: 0,
             difficulty_check: false,
+            inclusion_check: inclusion_check,
         }),
         issue: Some(IssueConfig {
             issue_griefing_collateral: 10,
