@@ -10,7 +10,6 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
-    traits::Get,
 };
 use frame_system::ensure_signed;
 #[cfg(test)]
@@ -22,7 +21,8 @@ use sp_std::vec::Vec;
 
 use bitcoin::types::H256Le;
 
-use crate::types::{PolkaBTC, Replace, DOT};
+pub use crate::types::ReplaceRequest;
+use crate::types::{PolkaBTC, DOT};
 
 /// # PolkaBTC Replace implementation
 /// The Replace module according to the specification at
@@ -45,18 +45,22 @@ pub trait Trait:
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
-
-    /// The time difference in number of blocks between an issue request is created
-    /// and required completion time by a user. The issue period has an upper limit
-    /// to prevent griefing of vault collateral.
-    type ReplacePeriod: Get<Self::BlockNumber>;
 }
 
 // The pallet's storage items.
 decl_storage! {
     trait Store for Module<T: Trait> as Replace {
-        ReplaceGriefingCollateral: DOT<T>;
-        ReplaceRequests: map hasher(blake2_128_concat) H256 => Option<Replace<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>>;
+        /// Vaults create replace requests to transfer locked collateral.
+        /// This mapping provides access from a unique hash to a `ReplaceRequest`.
+        ReplaceRequests: map hasher(blake2_128_concat) H256 => Option<ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>>;
+
+        /// The minimum collateral (DOT) a user needs to provide as griefing protection.
+        ReplaceGriefingCollateral get(fn replace_griefing_collateral) config(): DOT<T>;
+
+        /// The time difference in number of blocks between when a replace request is created
+        /// and required completion time by a vault. The replace period has an upper limit
+        /// to prevent griefing of vault collateral.
+        ReplacePeriod get(fn replace_period) config(): T::BlockNumber;
     }
 }
 
@@ -88,8 +92,6 @@ decl_module! {
 
         // Errors must be initialized if they are used by the pallet.
         type Error = Error<T>;
-
-        const ReplacePeriod: T::BlockNumber = T::ReplacePeriod::get();
 
         /// Request the replacement of a new vault ownership
         ///
@@ -231,7 +233,7 @@ impl<T: Trait> Module<T> {
         // step 9: Generate a replaceId by hashing a random seed, a nonce, and the address of the Requester.
         let replace_id = ext::security::get_secure_id::<T>(&vault_id);
         // step 10: Create new ReplaceRequest entry:
-        let replace = Replace {
+        let replace = ReplaceRequest {
             old_vault: vault_id.clone(),
             open_time: height,
             amount,
@@ -353,7 +355,7 @@ impl<T: Trait> Module<T> {
         let current_height = Self::current_height();
         Self::insert_replace_request(
             replace_id,
-            Replace {
+            ReplaceRequest {
                 new_vault: Some(new_vault_id.clone()),
                 old_vault: old_vault_id.clone(),
                 open_time: current_height,
@@ -466,21 +468,56 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Fetch all replace requests from the specified vault.
+    ///
+    /// # Arguments
+    ///
+    /// * `account_id` - user account id
+    pub fn get_replace_requests_for_old_vault(
+        account_id: T::AccountId,
+    ) -> Vec<(
+        H256,
+        ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
+    )> {
+        <ReplaceRequests<T>>::iter()
+            .filter(|(_, request)| request.old_vault == account_id)
+            .collect::<Vec<_>>()
+    }
+
+    /// Fetch all replace requests to the specified vault.
+    ///
+    /// # Arguments
+    ///
+    /// * `account_id` - user account id
+    pub fn get_replace_requests_for_new_vault(
+        account_id: T::AccountId,
+    ) -> Vec<(
+        H256,
+        ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
+    )> {
+        <ReplaceRequests<T>>::iter()
+            .filter(|(_, request)| {
+                if let Some(vault_id) = &request.new_vault {
+                    vault_id == &account_id
+                } else {
+                    false
+                }
+            })
+            .collect::<Vec<_>>()
+    }
+
     pub fn get_replace_request(
         id: &H256,
-    ) -> Result<Replace<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
+    ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError>
+    {
         <ReplaceRequests<T>>::get(id).ok_or(Error::<T>::InvalidReplaceID.into())
     }
 
     fn insert_replace_request(
         key: H256,
-        value: Replace<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
+        value: ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
     ) {
         <ReplaceRequests<T>>::insert(key, value)
-    }
-
-    fn replace_period() -> T::BlockNumber {
-        T::ReplacePeriod::get()
     }
 
     fn remove_replace_request(key: H256) {

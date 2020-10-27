@@ -164,11 +164,12 @@ pub(crate) mod replace {
     use crate::types::{PolkaBTC, DOT};
     use frame_support::dispatch::DispatchError;
     use primitive_types::H256;
-    use replace::types::Replace;
+    use replace::types::ReplaceRequest;
 
     pub(crate) fn get_replace_request<T: replace::Trait>(
         id: &H256,
-    ) -> Result<Replace<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
+    ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError>
+    {
         <replace::Module<T>>::get_replace_request(id)
     }
 }

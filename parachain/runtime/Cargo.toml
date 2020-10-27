@@ -179,6 +179,10 @@ path = '../../crates/issue/rpc/runtime-api'
 default-features = false
 path = '../../crates/redeem/rpc/runtime-api'
 
+[dependencies.module-replace-rpc-runtime-api]
+default-features = false
+path = '../../crates/replace/rpc/runtime-api'
+
 [dev-dependencies.bitcoin]
 default-features = false
 package = 'bitcoin'
@@ -237,6 +241,7 @@ std = [
   'module-vault-registry-rpc-runtime-api/std',
   'module-issue-rpc-runtime-api/std',
   'module-redeem-rpc-runtime-api/std',
+  'module-replace-rpc-runtime-api/std',
   'btc-relay/std',
   'collateral/std',
   'treasury/std',

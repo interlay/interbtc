@@ -244,6 +244,13 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage)
         .unwrap();
 
+        replace::GenesisConfig::<Runtime> {
+            replace_griefing_collateral: 10,
+            replace_period: 10,
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
         sp_io::TestExternalities::from(storage)
     }
 }

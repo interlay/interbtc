@@ -349,13 +349,10 @@ impl redeem::Trait for Runtime {
     type Event = Event;
 }
 
-parameter_types! {
-    pub const ReplacePeriod: BlockNumber = 10;
-}
+pub use replace::ReplaceRequest;
 
 impl replace::Trait for Runtime {
     type Event = Event;
-    type ReplacePeriod = ReplacePeriod;
 }
 
 construct_runtime!(
@@ -383,7 +380,7 @@ construct_runtime!(
         ExchangeRateOracle: exchange_rate_oracle::{Module, Call, Config<T>, Storage, Event<T>},
         Issue: issue::{Module, Call, Config<T>, Storage, Event<T>},
         Redeem: redeem::{Module, Call, Storage, Event<T>},
-        Replace: replace::{Module, Call, Storage, Event<T>},
+        Replace: replace::{Module, Call, Config<T>, Storage, Event<T>},
     }
 );
 
@@ -612,6 +609,21 @@ impl_runtime_apis! {
 
         fn get_vault_redeem_requests(account_id: AccountId) -> Vec<(H256, RedeemRequest<AccountId, BlockNumber, Balance, Balance>)> {
             Redeem::get_redeem_requests_for_vault(account_id)
+        }
+    }
+
+    impl module_replace_rpc_runtime_api::ReplaceApi<
+        Block,
+        AccountId,
+        H256,
+        ReplaceRequest<AccountId, BlockNumber, Balance, Balance>
+    > for Runtime {
+        fn get_old_vault_replace_requests(account_id: AccountId) -> Vec<(H256, ReplaceRequest<AccountId, BlockNumber, Balance, Balance>)> {
+            Replace::get_replace_requests_for_old_vault(account_id)
+        }
+
+        fn get_new_vault_replace_requests(account_id: AccountId) -> Vec<(H256, ReplaceRequest<AccountId, BlockNumber, Balance, Balance>)> {
+            Replace::get_replace_requests_for_new_vault(account_id)
         }
     }
 

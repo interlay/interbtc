@@ -8,8 +8,8 @@ pub(crate) type PolkaBTC<T> =
     <<T as treasury::Trait>::PolkaBTC as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
-pub struct Replace<AccountId, BlockNumber, PolkaBTC, DOT> {
+#[cfg_attr(feature = "std", derive(Debug, serde::Serialize))]
+pub struct ReplaceRequest<AccountId, BlockNumber, PolkaBTC, DOT> {
     pub old_vault: AccountId,
     pub open_time: BlockNumber,
     pub amount: PolkaBTC,
@@ -20,7 +20,7 @@ pub struct Replace<AccountId, BlockNumber, PolkaBTC, DOT> {
     pub btc_address: H160,
 }
 
-impl<AccountId, BlockNumber, PolkaBTC, DOT> Replace<AccountId, BlockNumber, PolkaBTC, DOT> {
+impl<AccountId, BlockNumber, PolkaBTC, DOT> ReplaceRequest<AccountId, BlockNumber, PolkaBTC, DOT> {
     pub fn add_new_vault(
         &mut self,
         new_vault_id: AccountId,
