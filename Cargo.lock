@@ -645,11 +645,14 @@ dependencies = [
  "btc-relay",
  "collateral",
  "exchange-rate-oracle",
+ "frame-benchmarking",
  "frame-executive",
  "frame-support",
  "frame-system",
+ "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "hex",
+ "hex-literal",
  "issue",
  "mocktopus",
  "module-exchange-rate-oracle-rpc-runtime-api",
@@ -696,6 +699,7 @@ name = "btc-relay"
 version = "2.0.0"
 dependencies = [
  "bitcoin",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "hex",
@@ -1357,6 +1361,7 @@ name = "exchange-rate-oracle"
 version = "2.0.0"
 dependencies = [
  "collateral",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "mocktopus",
@@ -1648,6 +1653,21 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "sp-version",
+]
+
+[[package]]
+name = "frame-system-benchmarking"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "03e3a70ce89455777c5a93c60943e8a404c0be66bd3f53605c4a4e79baa80e91"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "sp-core",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -2406,6 +2426,7 @@ dependencies = [
  "btc-relay",
  "collateral",
  "exchange-rate-oracle",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "mocktopus",
@@ -4856,6 +4877,7 @@ dependencies = [
  "btc-relay",
  "collateral",
  "exchange-rate-oracle",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "mocktopus",
@@ -4979,6 +5001,7 @@ dependencies = [
  "btc-relay",
  "collateral",
  "exchange-rate-oracle",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "mocktopus",
@@ -6948,6 +6971,7 @@ dependencies = [
  "btc-relay",
  "collateral",
  "exchange-rate-oracle",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "hex",
@@ -7846,6 +7870,7 @@ version = "2.0.0"
 dependencies = [
  "collateral",
  "exchange-rate-oracle",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "mocktopus",

@@ -1,6 +1,12 @@
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
+
+#[cfg(any(feature = "runtime-benchmarks", test))]
+mod benchmarking;
+
+mod default_weights;
+
 #[cfg(test)]
 mod mock;
 
@@ -19,6 +25,7 @@ pub mod types;
 pub use crate::types::RedeemRequest;
 use crate::types::{PolkaBTC, DOT};
 use bitcoin::types::H256Le;
+use frame_support::weights::Weight;
 /// # PolkaBTC Redeem implementation
 /// The Redeem module according to the specification at
 /// https://interlay.gitlab.io/polkabtc-spec/spec/redeem.html
@@ -39,12 +46,21 @@ use sp_std::vec::Vec;
 /// The redeem module id, used for deriving its sovereign account ID.
 const _MODULE_ID: ModuleId = ModuleId(*b"i/redeem");
 
+pub trait WeightInfo {
+    fn request_redeem() -> Weight;
+    fn execute_redeem() -> Weight;
+    fn cancel_redeem() -> Weight;
+}
+
 /// The pallet's configuration trait.
 pub trait Trait:
     frame_system::Trait + vault_registry::Trait + collateral::Trait + btc_relay::Trait + treasury::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+
+    /// Weight information for the extrinsics in this module.
+    type WeightInfo: WeightInfo;
 }
 
 // The pallet's storage items.
@@ -92,7 +108,7 @@ decl_module! {
         /// * `amount` - amount of PolkaBTC
         /// * `btc_address` - the address to receive BTC
         /// * `vault` - address of the vault
-        #[weight = 1000]
+        #[weight = <T as Trait>::WeightInfo::request_redeem()]
         fn request_redeem(origin, amount_polka_btc: PolkaBTC<T>, btc_address: H160, vault_id: T::AccountId)
             -> DispatchResult
         {
@@ -182,7 +198,7 @@ decl_module! {
         /// * `tx_block_height` - block number of backing chain
         /// * `merkle_proof` - raw bytes
         /// * `raw_tx` - raw bytes
-        #[weight = 1000]
+        #[weight = <T as Trait>::WeightInfo::execute_redeem()]
         fn execute_redeem(origin, redeem_id: H256, tx_id: H256Le, _tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
             -> DispatchResult
         {
@@ -240,7 +256,7 @@ decl_module! {
         /// * `reimburse` - specifying if the user wishes to be reimbursed in DOT
         /// and slash the Vault, or wishes to keep the PolkaBTC (and retry
         /// Redeem with another Vault)
-        #[weight = 1000]
+        #[weight = <T as Trait>::WeightInfo::cancel_redeem()]
         fn cancel_redeem(origin, redeem_id: H256, reimburse: bool)
             -> DispatchResult
         {

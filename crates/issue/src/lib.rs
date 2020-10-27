@@ -1,6 +1,12 @@
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
+
+#[cfg(any(feature = "runtime-benchmarks", test))]
+mod benchmarking;
+
+mod default_weights;
+
 #[cfg(test)]
 mod mock;
 
@@ -19,6 +25,7 @@ pub mod types;
 use crate::types::{PolkaBTC, DOT};
 use bitcoin::types::H256Le;
 use codec::{Decode, Encode};
+use frame_support::weights::Weight;
 /// # PolkaBTC Issue implementation
 /// The Issue module according to the specification at
 /// https://interlay.gitlab.io/polkabtc-spec/spec/issue.html
@@ -38,12 +45,21 @@ use sp_std::vec::Vec;
 /// The issue module id, used for deriving its sovereign account ID.
 const _MODULE_ID: ModuleId = ModuleId(*b"issuemod");
 
+pub trait WeightInfo {
+    fn request_issue() -> Weight;
+    fn execute_issue() -> Weight;
+    fn cancel_issue() -> Weight;
+}
+
 /// The pallet's configuration trait.
 pub trait Trait:
     frame_system::Trait + vault_registry::Trait + collateral::Trait + btc_relay::Trait + treasury::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+
+    /// Weight information for the extrinsics in this module.
+    type WeightInfo: WeightInfo;
 }
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
@@ -106,7 +122,7 @@ decl_module! {
         /// * `amount` - amount of PolkaBTC
         /// * `vault` - address of the vault
         /// * `griefing_collateral` - amount of DOT
-        #[weight = 1000]
+        #[weight = <T as Trait>::WeightInfo::request_issue()]
         fn request_issue(origin, amount: PolkaBTC<T>, vault_id: T::AccountId, griefing_collateral: DOT<T>)
             -> DispatchResult
         {
@@ -125,7 +141,7 @@ decl_module! {
         /// * `tx_block_height` - block number of backing chain
         /// * `merkle_proof` - raw bytes
         /// * `raw_tx` - raw bytes
-        #[weight = 1000]
+        #[weight = <T as Trait>::WeightInfo::execute_issue()]
         fn execute_issue(origin, issue_id: H256, tx_id: H256Le, _tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
             -> DispatchResult
         {
@@ -140,7 +156,7 @@ decl_module! {
         ///
         /// * `origin` - sender of the transaction
         /// * `issue_id` - identifier of issue request as output from request_issue
-        #[weight = 1000]
+        #[weight = <T as Trait>::WeightInfo::cancel_issue()]
         fn cancel_issue(origin, issue_id: H256)
             -> DispatchResult
         {

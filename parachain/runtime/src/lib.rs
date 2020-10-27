@@ -292,6 +292,7 @@ impl pallet_balances::Trait<pallet_balances::Instance2> for Runtime {
 
 impl btc_relay::Trait for Runtime {
     type Event = Event;
+    type WeightInfo = ();
 }
 
 impl collateral::Trait for Runtime {
@@ -320,6 +321,7 @@ parameter_types! {
 
 impl staked_relayers::Trait for Runtime {
     type Event = Event;
+    type WeightInfo = ();
     type MaturityPeriod = MaturityPeriod;
     type MinimumDeposit = MinimumDeposit;
     type MinimumStake = MinimumStake;
@@ -331,28 +333,33 @@ impl staked_relayers::Trait for Runtime {
 
 impl vault_registry::Trait for Runtime {
     type Event = Event;
+    type WeightInfo = ();
 }
 
 impl exchange_rate_oracle::Trait for Runtime {
     type Event = Event;
+    type WeightInfo = ();
 }
 
 pub use issue::IssueRequest;
 
 impl issue::Trait for Runtime {
     type Event = Event;
+    type WeightInfo = ();
 }
 
 pub use redeem::RedeemRequest;
 
 impl redeem::Trait for Runtime {
     type Event = Event;
+    type WeightInfo = ();
 }
 
 pub use replace::ReplaceRequest;
 
 impl replace::Trait for Runtime {
     type Event = Event;
+    type WeightInfo = ();
 }
 
 construct_runtime!(
@@ -538,6 +545,45 @@ impl_runtime_apis! {
             len: u32,
         ) -> pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo<Balance> {
             TransactionPayment::query_info(uxt, len)
+        }
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    impl frame_benchmarking::Benchmark<Block> for Runtime {
+        fn dispatch_benchmark(
+            config: frame_benchmarking::BenchmarkConfig
+        ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
+            use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark, TrackedStorageKey};
+
+            // use frame_system_benchmarking::Module as SystemBench;
+            impl frame_system_benchmarking::Trait for Runtime {}
+
+            let whitelist: Vec<TrackedStorageKey> = vec![
+                // Block Number
+                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef702a5c1b19ab7a04f536c519aca4983ac").to_vec().into(),
+                // Total Issuance
+                hex_literal::hex!("c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80").to_vec().into(),
+                // Execution Phase
+                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef7ff553b5a9862a516939d82b3d3d8661a").to_vec().into(),
+                // Event Count
+                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef70a98fdbe9ce6c55837576c60c7af3850").to_vec().into(),
+                // System Events
+                hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef780d41e5e16056765bc8461851072c9d7").to_vec().into(),
+            ];
+
+            let mut batches = Vec::<BenchmarkBatch>::new();
+            let params = (&config, &whitelist);
+
+            add_benchmark!(params, batches, btc_relay, BTCRelay);
+            add_benchmark!(params, batches, exchange_rate_oracle, ExchangeRateOracle);
+            add_benchmark!(params, batches, issue, Issue);
+            add_benchmark!(params, batches, redeem, Redeem);
+            add_benchmark!(params, batches, replace, Replace);
+            add_benchmark!(params, batches, staked_relayers, StakedRelayers);
+            add_benchmark!(params, batches, vault_registry, VaultRegistry);
+
+            if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
+            Ok(batches)
         }
     }
 

@@ -8,6 +8,11 @@
 mod ext;
 pub mod types;
 
+#[cfg(any(feature = "runtime-benchmarks", test))]
+mod benchmarking;
+
+mod default_weights;
+
 #[cfg(test)]
 mod tests;
 
@@ -22,6 +27,7 @@ use mocktopus::macros::mockable;
 
 use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::weights::Weight;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, ensure, IterableStorageMap,
 };
@@ -47,6 +53,12 @@ pub struct RegisterRequest<AccountId, DateTime> {
     timeout: DateTime,
 }
 
+pub trait WeightInfo {
+    fn register_vault() -> Weight;
+    fn lock_additional_collateral() -> Weight;
+    fn withdraw_collateral() -> Weight;
+}
+
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
 pub trait Trait:
@@ -58,6 +70,9 @@ pub trait Trait:
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+
+    /// Weight information for the extrinsics in this module.
+    type WeightInfo: WeightInfo;
 }
 
 // This pallet's storage items.
@@ -140,7 +155,7 @@ decl_module! {
         /// * `InsufficientVaultCollateralAmount` - if the collateral is below the minimum threshold
         /// * `VaultAlreadyRegistered` - if a vault is already registered for the origin account
         /// * `InsufficientCollateralAvailable` - if the vault does not own enough collateral
-        #[weight = 1000]
+        #[weight = <T as Trait>::WeightInfo::register_vault()]
         fn register_vault(origin, collateral: DOT<T>, btc_address: H160) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ext::security::ensure_parachain_status_running::<T>()?;
@@ -168,7 +183,7 @@ decl_module! {
         /// # Errors
         /// * `VaultNotFound` - if no vault exists for the origin account
         /// * `InsufficientCollateralAvailable` - if the vault does not own enough collateral
-        #[weight = 1000]
+        #[weight = <T as Trait>::WeightInfo::lock_additional_collateral()]
         fn lock_additional_collateral(origin, amount: DOT<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
@@ -199,7 +214,7 @@ decl_module! {
         /// # Errors
         /// * `VaultNotFound` - if no vault exists for the origin account
         /// * `InsufficientCollateralAvailable` - if the vault does not own enough collateral
-        #[weight = 1000]
+        #[weight = <T as Trait>::WeightInfo::withdraw_collateral()]
         fn withdraw_collateral(origin, amount: DOT<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ext::security::ensure_parachain_status_running::<T>()?;
@@ -645,6 +660,10 @@ impl<T: Trait> Module<T> {
 
     pub fn _set_liquidation_collateral_threshold(threshold: u128) {
         <LiquidationCollateralThreshold>::set(threshold);
+    }
+
+    pub fn _set_liquidation_vault(vault_id: T::AccountId) {
+        <LiquidationVault<T>>::set(vault_id);
     }
 
     pub fn _is_over_minimum_collateral(amount: DOT<T>) -> bool {

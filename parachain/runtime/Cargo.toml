@@ -1,3 +1,17 @@
+[dependencies.hex-literal]
+optional = true
+version = '0.3.1'
+
+[dependencies.frame-benchmarking]
+version = "2.0.0"
+default-features = false
+optional = true
+
+[dependencies.frame-system-benchmarking]
+default-features = false
+optional = true
+version = '2.0.0'
+
 [dependencies.pallet-aura]
 default-features = false
 version = '2.0.0'
@@ -252,4 +266,21 @@ std = [
   'issue/std',
   'redeem/std',
   'replace/std',
+  'frame-benchmarking/std',
+]
+runtime-benchmarks = [
+  'hex-literal',
+
+	"frame-benchmarking",
+  'frame-system-benchmarking',
+  "frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+
+  "btc-relay/runtime-benchmarks",
+  "exchange-rate-oracle/runtime-benchmarks",
+  "issue/runtime-benchmarks",
+  "redeem/runtime-benchmarks",
+  "replace/runtime-benchmarks",
+  "staked-relayers/runtime-benchmarks",
+  "vault-registry/runtime-benchmarks",
 ]

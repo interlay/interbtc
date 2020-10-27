@@ -5,6 +5,11 @@
 mod ext;
 pub mod types;
 
+#[cfg(any(feature = "runtime-benchmarks", test))]
+mod benchmarking;
+
+mod default_weights;
+
 #[cfg(test)]
 mod mock;
 
@@ -45,6 +50,19 @@ use sp_std::collections::btree_set::BTreeSet;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
 
+pub trait WeightInfo {
+    fn register_staked_relayer() -> Weight;
+    fn deregister_staked_relayer() -> Weight;
+    fn activate_staked_relayer() -> Weight;
+    fn deactivate_staked_relayer() -> Weight;
+    fn suggest_status_update() -> Weight;
+    fn vote_on_status_update() -> Weight;
+    fn force_status_update() -> Weight;
+    fn slash_staked_relayer() -> Weight;
+    fn report_vault_theft() -> Weight;
+    fn report_vault_under_liquidation_threshold() -> Weight;
+}
+
 /// ## Configuration
 /// The pallet's configuration trait.
 pub trait Trait:
@@ -58,6 +76,9 @@ pub trait Trait:
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+
+    /// Weight information for the extrinsics in this module.
+    type WeightInfo: WeightInfo;
 
     /// Number of blocks to wait until eligible to vote.
     type MaturityPeriod: Get<Self::BlockNumber>;
@@ -138,7 +159,7 @@ decl_module! {
         ///
         /// * `origin`: The account of the Staked Relayer to be registered
         /// * `stake`: to-be-locked collateral/stake in DOT
-        #[weight = 1000]
+        #[weight = <T as Trait>::WeightInfo::register_staked_relayer()]
         fn register_staked_relayer(origin, stake: DOT<T>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
 
@@ -170,7 +191,7 @@ decl_module! {
         /// # Arguments
         ///
         /// * `origin`: The account of the Staked Relayer to be deregistered
-        #[weight = 1000]
+        #[weight = <T as Trait>::WeightInfo::deregister_staked_relayer()]
         fn deregister_staked_relayer(origin) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             let staked_relayer = Self::get_active_staked_relayer(&signer)?;
@@ -186,7 +207,7 @@ decl_module! {
         /// # Arguments
         ///
         /// * `origin`: The account of the Staked Relayer to be activated
-        #[weight = 1000]
+        #[weight = <T as Trait>::WeightInfo::activate_staked_relayer()]
         fn activate_staked_relayer(origin) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             let staked_relayer = Self::get_inactive_staked_relayer(&signer)?;
@@ -210,7 +231,7 @@ decl_module! {
         /// # Arguments
         ///
         /// * `origin`: The account of the Staked Relayer to be deactivated
-        #[weight = 1000]
+        #[weight = <T as Trait>::WeightInfo::deactivate_staked_relayer()]
         fn deactivate_staked_relayer(origin) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             let staked_relayer = Self::get_active_staked_relayer(&signer)?;
@@ -229,7 +250,7 @@ decl_module! {
         /// * `remove_error`: [Optional] ErrorCode to be removed from the Errors list.
         /// * `block_hash`: [Optional] When reporting an error related to BTC-Relay, this field indicates the affected Bitcoin block (header).
         /// * `message`: Message detailing reason for status update
-        #[weight = 1000]
+        #[weight = <T as Trait>::WeightInfo::suggest_status_update()]
         fn suggest_status_update(origin, deposit: DOT<T>, status_code: StatusCode, add_error: Option<ErrorCode>, remove_error: Option<ErrorCode>, block_hash: Option<H256Le>, message: Vec<u8>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
 
@@ -316,7 +337,7 @@ decl_module! {
         /// * `origin`: The AccountId of the Staked Relayer casting the vote.
         /// * `status_update_id`: Identifier of the `StatusUpdate` voted upon in `ActiveStatusUpdates`.
         /// * `approve`: `True` or `False`, depending on whether the Staked Relayer agrees or disagrees with the suggested `StatusUpdate`.
-        #[weight = 1000]
+        #[weight = <T as Trait>::WeightInfo::vote_on_status_update()]
         fn vote_on_status_update(origin, status_update_id: u64, approve: bool) -> DispatchResult {
             let signer = ensure_signed(origin)?;
 
@@ -344,7 +365,7 @@ decl_module! {
         /// * `origin`: The AccountId of the Governance Mechanism.
         /// * `status_code`: Suggested BTC Parachain status (`StatusCode` enum).
         /// * `errors`: If the suggested status is `Error`, this set of `ErrorCode` entries provides details on the occurred errors.
-        #[weight = 1000]
+        #[weight = <T as Trait>::WeightInfo::force_status_update()]
         fn force_status_update(origin, status_code: StatusCode, add_error: Option<ErrorCode>, remove_error: Option<ErrorCode>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             Self::only_governance(&signer)?;
@@ -376,7 +397,7 @@ decl_module! {
         ///
         /// * `origin`: The AccountId of the Governance Mechanism.
         /// * `staked_relayer_id`: The account of the Staked Relayer to be slashed.
-        #[weight = 1000]
+        #[weight = <T as Trait>::WeightInfo::slash_staked_relayer()]
         fn slash_staked_relayer(origin, staked_relayer_id: T::AccountId) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             Self::only_governance(&signer)?;
@@ -402,7 +423,7 @@ decl_module! {
         /// * `tx_block_height`: Height rogue tx was included.
         /// * `merkle_proof`: The proof of tx inclusion.
         /// * `raw_tx`: The raw Bitcoin transaction.
-        #[weight = 1000]
+        #[weight = <T as Trait>::WeightInfo::report_vault_theft()]
         fn report_vault_theft(origin, vault_id: T::AccountId, tx_id: H256Le, _tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             ensure!(
@@ -446,7 +467,7 @@ decl_module! {
 
         /// A Staked Relayer reports that a Vault is undercollateralized (i.e. below the LiquidationCollateralThreshold as defined in Vault Registry).
         /// If the collateral falls below this rate, we flag the Vault for liquidation and update the ParachainStatus to ERROR - adding LIQUIDATION to Errors.
-        #[weight = 1000]
+        #[weight = <T as Trait>::WeightInfo::report_vault_under_liquidation_threshold()]
         fn report_vault_under_liquidation_threshold(origin, vault_id: T::AccountId)  -> DispatchResult {
             let signer = ensure_signed(origin)?;
             ensure!(

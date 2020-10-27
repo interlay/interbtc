@@ -2,10 +2,16 @@
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(any(feature = "runtime-benchmarks", test))]
+mod benchmarking;
+
+mod default_weights;
+
 #[cfg(test)]
 extern crate mocktopus;
 
 // Substrate
+use frame_support::weights::Weight;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
@@ -39,12 +45,24 @@ mod tests;
 /// The replace module id, used for deriving its sovereign account ID.
 const _MODULE_ID: ModuleId = ModuleId(*b"replacem");
 
+pub trait WeightInfo {
+    fn request_replace() -> Weight;
+    fn withdraw_replace() -> Weight;
+    fn accept_replace() -> Weight;
+    fn auction_replace() -> Weight;
+    fn execute_replace() -> Weight;
+    fn cancel_replace() -> Weight;
+}
+
 /// The pallet's configuration trait.
 pub trait Trait:
     frame_system::Trait + vault_registry::Trait + collateral::Trait + btc_relay::Trait + treasury::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+
+    /// Weight information for the extrinsics in this module.
+    type WeightInfo: WeightInfo;
 }
 
 // The pallet's storage items.
@@ -100,7 +118,7 @@ decl_module! {
         /// * `origin` - sender of the transaction
         /// * `amount` - amount of PolkaBTC
         /// * `griefing_collateral` - amount of DOT
-        #[weight = 1000]
+        #[weight = <T as Trait>::WeightInfo::request_replace()]
         fn request_replace(origin, amount: PolkaBTC<T>, griefing_collateral: DOT<T>)
             -> DispatchResult
         {
@@ -115,7 +133,7 @@ decl_module! {
         ///
         /// * `origin` - sender of the transaction: the old vault
         /// * `replace_id` - the unique identifier of the replace request
-        #[weight = 1000]
+        #[weight = <T as Trait>::WeightInfo::withdraw_replace()]
         fn withdraw_replace(origin, replace_id: H256)
             -> DispatchResult
         {
@@ -131,7 +149,7 @@ decl_module! {
         /// * `origin` - the initiator of the transaction: the new vault
         /// * `replace_id` - the unique identifier for the specific request
         /// * `collateral` - the collateral for replacement
-        #[weight = 1000]
+        #[weight = <T as Trait>::WeightInfo::accept_replace()]
         fn accept_replace(origin, replace_id: H256, collateral: DOT<T>)
             -> DispatchResult
         {
@@ -148,7 +166,7 @@ decl_module! {
         /// * `old_vault` - the old vault of the replacement request
         /// * `btc_amount` - the btc amount to be transferred over from old to new
         /// * `collateral` - the collateral to be transferred over from old to new
-        #[weight = 1000]
+        #[weight = <T as Trait>::WeightInfo::auction_replace()]
         fn auction_replace(origin, old_vault: T::AccountId, btc_amount: PolkaBTC<T>, collateral: DOT<T>)
             -> DispatchResult
         {
@@ -167,7 +185,7 @@ decl_module! {
         /// * `tx_block_height` - the blocked height of the backing transaction
         /// * 'merkle_proof' - the merkle root of the block
         /// * `raw_tx` - the transaction id in bytes
-        #[weight = 1000]
+        #[weight = <T as Trait>::WeightInfo::execute_replace()]
         fn execute_replace(origin, replace_id: H256, tx_id: H256Le, _tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
             let new_vault = ensure_signed(origin)?;
             Self::_execute_replace(new_vault, replace_id, tx_id, merkle_proof, raw_tx)?;
@@ -180,7 +198,7 @@ decl_module! {
         ///
         /// * `origin` - sender of the transaction: the new vault
         /// * `replace_id` - the ID of the replacement request
-        #[weight = 1000]
+        #[weight = <T as Trait>::WeightInfo::cancel_replace()]
         fn cancel_replace(origin, replace_id: H256) -> DispatchResult {
             let new_vault = ensure_signed(origin)?;
             Self::_cancel_replace(new_vault, replace_id)?;

@@ -83,6 +83,7 @@ pub type Balances = pallet_balances::Module<Test>;
 
 impl Trait for Test {
     type Event = TestEvent;
+    type WeightInfo = ();
 }
 
 parameter_types! {

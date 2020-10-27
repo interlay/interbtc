@@ -9,6 +9,9 @@ use sp_core::{sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
+#[cfg(feature = "runtime-benchmarks")]
+use frame_benchmarking::account;
+
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
 
@@ -67,6 +70,10 @@ pub fn development_config(inclusion_check: bool) -> Result<ChainSpec, String> {
                     get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
                     get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
                     get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+                    #[cfg(feature = "runtime-benchmarks")]
+                    account("Origin", 0, 0),
+                    #[cfg(feature = "runtime-benchmarks")]
+                    account("Vault", 0, 0),
                 ],
                 true,
                 inclusion_check,
@@ -180,6 +187,9 @@ fn testnet_genesis(
                 .collect(),
         }),
         staked_relayers: Some(StakedRelayersConfig {
+            #[cfg(feature = "runtime-benchmarks")]
+            gov_id: account("Origin", 0, 0),
+            #[cfg(not(feature = "runtime-benchmarks"))]
             gov_id: get_account_id_from_seed::<sr25519::Public>("Alice"),
         }),
         exchange_rate_oracle: Some(ExchangeRateOracleConfig {

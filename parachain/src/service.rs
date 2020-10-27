@@ -18,6 +18,7 @@ native_executor_instance!(
     pub Executor,
     btc_parachain_runtime::api::dispatch,
     btc_parachain_runtime::native_version,
+    frame_benchmarking::benchmarking::HostFunctions,
 );
 
 type FullClient = sc_service::TFullClient<Block, RuntimeApi, Executor>;

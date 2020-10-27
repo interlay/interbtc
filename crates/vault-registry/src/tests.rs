@@ -6,7 +6,7 @@ use mocktopus::mocking::*;
 use crate::ext;
 use crate::mock::{
     run_test, CollateralError, Origin, SecurityError, System, Test, TestError, TestEvent,
-    VaultRegistry, DEFAULT_COLLATERAL, DEFAULT_ID, RICH_COLLATERAL, RICH_ID,
+    VaultRegistry, DEFAULT_COLLATERAL, DEFAULT_ID, OTHER_ID, RICH_COLLATERAL, RICH_ID,
 };
 use crate::types::VaultStatus;
 use crate::GRANULARITY;
@@ -493,7 +493,7 @@ fn redeem_tokens_liquidation_fails_with_insufficient_tokens() {
 fn replace_tokens_liquidation_succeeds() {
     run_test(|| {
         let old_id = create_sample_vault();
-        let new_id = create_vault(DEFAULT_ID + 1);
+        let new_id = create_vault(OTHER_ID);
         set_default_thresholds();
 
         ext::collateral::lock::<Test>.mock_safe(move |sender, amount| {
@@ -521,7 +521,7 @@ fn replace_tokens_liquidation_succeeds() {
 fn replace_tokens_liquidation_fails_with_insufficient_tokens() {
     run_test(|| {
         let old_id = create_sample_vault();
-        let new_id = create_vault(DEFAULT_ID + 1);
+        let new_id = create_vault(OTHER_ID);
 
         let res = VaultRegistry::_replace_tokens(&old_id, &new_id, 50, 20);
         assert_err!(res, TestError::InsufficientTokensCommitted);
@@ -533,7 +533,7 @@ fn replace_tokens_liquidation_fails_with_insufficient_tokens() {
 fn liquidate_succeeds() {
     run_test(|| {
         let id = create_sample_vault();
-        let liquidation_id = create_vault(DEFAULT_ID + 1);
+        let liquidation_id = create_vault(OTHER_ID);
         <crate::LiquidationVault<Test>>::put(liquidation_id);
         set_default_thresholds();
 
@@ -578,7 +578,7 @@ fn liquidate_succeeds() {
 fn liquidate_with_status_succeeds() {
     run_test(|| {
         let id = create_sample_vault();
-        let liquidation_id = create_vault(DEFAULT_ID + 1);
+        let liquidation_id = create_vault(OTHER_ID);
         <crate::LiquidationVault<Test>>::put(liquidation_id);
         set_default_thresholds();
 
