@@ -101,6 +101,7 @@ impl pallet_balances::Trait for Test {
 
 impl vault_registry::Trait for Test {
     type Event = TestEvent;
+    type WeightInfo = ();
 }
 
 impl collateral::Trait for Test {
@@ -110,6 +111,7 @@ impl collateral::Trait for Test {
 
 impl btc_relay::Trait for Test {
     type Event = TestEvent;
+    type WeightInfo = ();
 }
 
 impl security::Trait for Test {
@@ -134,10 +136,12 @@ impl timestamp::Trait for Test {
 
 impl exchange_rate_oracle::Trait for Test {
     type Event = TestEvent;
+    type WeightInfo = ();
 }
 
 impl Trait for Test {
     type Event = TestEvent;
+    type WeightInfo = ();
 }
 
 pub type TestError = Error<Test>;
@@ -159,20 +163,12 @@ pub const CAROL_BALANCE: u64 = 1_000_000;
 pub struct ExtBuilder;
 
 impl ExtBuilder {
-    pub fn build() -> sp_io::TestExternalities {
+    pub fn build_with(conf: pallet_balances::GenesisConfig<Test>) -> sp_io::TestExternalities {
         let mut storage = frame_system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
 
-        pallet_balances::GenesisConfig::<Test> {
-            balances: vec![
-                (ALICE, ALICE_BALANCE),
-                (BOB, BOB_BALANCE),
-                (CAROL, CAROL_BALANCE),
-            ],
-        }
-        .assimilate_storage(&mut storage)
-        .unwrap();
+        conf.assimilate_storage(&mut storage).unwrap();
 
         GenesisConfig::<Test> {
             replace_griefing_collateral: 10,
@@ -182,6 +178,16 @@ impl ExtBuilder {
         .unwrap();
 
         storage.into()
+    }
+
+    pub fn build() -> sp_io::TestExternalities {
+        ExtBuilder::build_with(pallet_balances::GenesisConfig::<Test> {
+            balances: vec![
+                (ALICE, ALICE_BALANCE),
+                (BOB, BOB_BALANCE),
+                (CAROL, CAROL_BALANCE),
+            ],
+        })
     }
 }
 

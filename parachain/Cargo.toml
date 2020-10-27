@@ -5,6 +5,11 @@ edition = '2018'
 name = 'btc-parachain'
 version = '2.0.0'
 
+[features]
+runtime-benchmarks = [
+    "btc-parachain-runtime/runtime-benchmarks",
+]
+
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']
 
@@ -14,7 +19,7 @@ name = 'btc-parachain'
 [dependencies]
 jsonrpc-core = '15.0.0'
 structopt = '0.3.8'
-frame-benchmarking = '2.0.0'
+frame-benchmarking = "2.0.0"
 frame-benchmarking-cli = '2.0.0'
 
 [dependencies.btc-parachain-runtime]

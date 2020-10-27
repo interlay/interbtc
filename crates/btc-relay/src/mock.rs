@@ -80,6 +80,7 @@ impl frame_system::Trait for Test {
 
 impl Trait for Test {
     type Event = TestEvent;
+    type WeightInfo = ();
 }
 
 impl security::Trait for Test {

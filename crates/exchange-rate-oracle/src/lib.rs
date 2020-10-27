@@ -4,6 +4,11 @@
 
 mod ext;
 
+#[cfg(any(feature = "runtime-benchmarks", test))]
+mod benchmarking;
+
+mod default_weights;
+
 #[cfg(test)]
 mod tests;
 
@@ -18,6 +23,7 @@ use mocktopus::macros::mockable;
 
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::Currency;
+use frame_support::weights::Weight;
 /// # Exchange Rate Oracle implementation
 /// This is the implementation of the Exchange Rate Oracle following the spec at:
 /// https://interlay.gitlab.io/polkabtc-spec/spec/oracle.html
@@ -33,6 +39,10 @@ pub(crate) type DOT<T> =
 pub(crate) type PolkaBTC<T> =
     <<T as treasury::Trait>::PolkaBTC as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 
+pub trait WeightInfo {
+    fn set_exchange_rate() -> Weight;
+}
+
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
 pub trait Trait:
@@ -40,6 +50,9 @@ pub trait Trait:
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+
+    /// Weight information for the extrinsics in this module.
+    type WeightInfo: WeightInfo;
 }
 
 /// Granularity of exchange rate
@@ -74,7 +87,7 @@ decl_module! {
         // Errors must be initialized if they are used by the pallet.
         type Error = Error<T>;
 
-        #[weight = 1000]
+        #[weight = <T as Trait>::WeightInfo::set_exchange_rate()]
         pub fn set_exchange_rate(origin, rate: u128) -> DispatchResult {
             // Check that Parachain is not in SHUTDOWN
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;

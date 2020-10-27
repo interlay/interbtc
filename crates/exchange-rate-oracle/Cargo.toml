@@ -20,7 +20,18 @@ std = [
     'collateral/std',
     'treasury/std',
     'security/std',
+    'frame-benchmarking/std',
 ]
+runtime-benchmarks = [
+	"frame-benchmarking",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+]
+
+[dependencies.frame-benchmarking]
+version = "2.0.0"
+default-features = false
+optional = true
 
 [dependencies.serde]
 version = '1.0.101'
@@ -81,3 +92,4 @@ path = '../security'
 
 [dev-dependencies]
 mocktopus = "0.7.0"
+frame-benchmarking = { version = "2.0.0" }
