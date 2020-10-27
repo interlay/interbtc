@@ -123,6 +123,27 @@ cargo cov test
 cargo cov report --open
 ```
 
+### Running
+
+To run a local development node, use the `dev` chain spec.
+
+```shell
+cargo run --release -- --dev
+```
+
+Clear the database using the `purge-chain` command.
+
+```shell
+cargo run --release -- purge-chain --dev
+```
+
+To disable all btc-relay block inclusion checks, use the special `dev-no-btc` chain spec.
+This is useful for testing without the overhead of running a block relayer.
+
+```shell
+cargo run --release -- --chain dev-no-btc
+```
+
 #### Test coverage
 
 Test coverage reports available under [docs/testcoverage.html](https://gitlab.com/interlay/btc-parachain/-/blob/dev/docs/testcoverage.html)

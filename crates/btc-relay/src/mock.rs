@@ -104,6 +104,7 @@ impl ExtBuilder {
             bitcoin_confirmations: BITCOIN_CONFIRMATIONS,
             parachain_confirmations: PARACHAIN_CONFIRMATIONS,
             difficulty_check: true,
+            inclusion_check: true,
         }
         .assimilate_storage(&mut storage)
         .unwrap();
