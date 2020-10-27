@@ -143,13 +143,8 @@ impl redeem::Trait for Test {
     type Event = TestEvent;
 }
 
-parameter_types! {
-    pub const ReplacePeriod: BlockNumber = 10;
-}
-
 impl replace::Trait for Test {
     type Event = TestEvent;
-    type ReplacePeriod = ReplacePeriod;
 }
 
 parameter_types! {

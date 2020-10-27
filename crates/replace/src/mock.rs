@@ -1,5 +1,5 @@
 /// Mocking the test environment
-use crate::{Error, Module, Trait};
+use crate::{Error, GenesisConfig, Module, Trait};
 use frame_support::{
     assert_ok, impl_outer_event, impl_outer_origin, parameter_types,
     weights::{
@@ -124,6 +124,7 @@ impl treasury::Trait for Test {
 parameter_types! {
     pub const MinimumPeriod: u64 = 5;
 }
+
 impl timestamp::Trait for Test {
     type Moment = u64;
     type OnTimestampSet = ();
@@ -135,13 +136,8 @@ impl exchange_rate_oracle::Trait for Test {
     type Event = TestEvent;
 }
 
-parameter_types! {
-    pub const ReplacePeriod: BlockNumber = 10;
-}
-
 impl Trait for Test {
     type Event = TestEvent;
-    type ReplacePeriod = ReplacePeriod;
 }
 
 pub type TestError = Error<Test>;
@@ -174,6 +170,13 @@ impl ExtBuilder {
                 (BOB, BOB_BALANCE),
                 (CAROL, CAROL_BALANCE),
             ],
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
+        GenesisConfig::<Test> {
+            replace_griefing_collateral: 10,
+            replace_period: 10,
         }
         .assimilate_storage(&mut storage)
         .unwrap();
