@@ -114,10 +114,10 @@ decl_storage! {
         StableParachainConfirmations get(fn parachain_confirmations) config(): T::BlockNumber;
 
         /// Whether the module should perform difficulty checks.
-        DifficultyCheck get(fn difficulty_check) config(): bool;
+        DisableDifficultyCheck get(fn disable_difficulty_check) config(): bool;
 
         /// Whether the module should perform inclusion checks.
-        InclusionCheck get(fn inclusion_check) config(): bool;
+        DisableInclusionCheck get(fn disable_inclusion_check) config(): bool;
     }
 }
 
@@ -413,7 +413,7 @@ impl<T: Trait> Module<T> {
         confirmations: u32,
         insecure: bool,
     ) -> Result<(), DispatchError> {
-        if !Self::inclusion_check() {
+        if Self::disable_inclusion_check() {
             return Ok(());
         }
 
@@ -576,10 +576,6 @@ impl<T: Trait> Module<T> {
 
     /// Check if a block header exists
     pub fn block_header_exists(block_hash: H256Le) -> bool {
-        if !Self::inclusion_check() {
-            return true;
-        }
-
         <BlockHeaders>::contains_key(block_hash)
     }
 
@@ -790,7 +786,7 @@ impl<T: Trait> Module<T> {
         // Check that the diff. target is indeed correctly set in the block header, i.e., check for re-target.
         let block_height = prev_block_header.block_height + 1;
 
-        if !Self::difficulty_check() {
+        if Self::disable_difficulty_check() {
             return Ok(basic_block_header);
         }
 

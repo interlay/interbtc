@@ -190,8 +190,8 @@ fn testnet_genesis(
         btc_relay: Some(BTCRelayConfig {
             bitcoin_confirmations: 0,
             parachain_confirmations: 0,
-            difficulty_check: false,
-            inclusion_check: inclusion_check,
+            disable_difficulty_check: true,
+            disable_inclusion_check: !inclusion_check,
         }),
         issue: Some(IssueConfig {
             issue_griefing_collateral: 10,
