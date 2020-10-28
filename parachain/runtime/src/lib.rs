@@ -10,6 +10,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::StorageMapShim;
+pub use module_vault_registry_rpc_runtime_api::BalanceWrapper;
 use pallet_grandpa::fg_primitives;
 use pallet_grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
 use sp_api::impl_runtime_apis;
@@ -610,6 +611,8 @@ impl_runtime_apis! {
         Block,
         AccountId,
         Balance,
+        Balance
+
     > for Runtime {
         fn get_first_vault_with_sufficient_collateral(amount: Balance) -> Result<AccountId, DispatchError> {
             VaultRegistry::get_first_vault_with_sufficient_collateral(amount)
@@ -625,6 +628,11 @@ impl_runtime_apis! {
 
         fn get_collateralization_from_vault(vault: AccountId) -> Result<u64, DispatchError> {
             VaultRegistry::get_collateralization_from_vault(vault)
+        }
+
+        fn get_required_collateral_for_polkabtc(amount_btc: BalanceWrapper<Balance>) -> Result<BalanceWrapper<Balance>, DispatchError> {
+            let result = VaultRegistry::get_required_collateral_for_polkabtc(amount_btc.amount)?;
+            Ok(BalanceWrapper{amount:result})
         }
     }
 

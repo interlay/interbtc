@@ -670,6 +670,39 @@ fn calculate_max_polkabtc_from_collateral_for_threshold_succeeds() {
         );
     })
 }
+#[test]
+fn get_required_collateral_for_polkabtc_with_threshold_succeeds() {
+    run_test(|| {
+        let threshold = 19999; // 199.99%
+        let random_start = 987529387592 as u128;
+        for btc in random_start..random_start + threshold {
+            ext::oracle::dots_to_btc::<Test>.mock_safe(move |x| MockResult::Return(Ok(x.clone())));
+            ext::oracle::btc_to_dots::<Test>.mock_safe(move |x| MockResult::Return(Ok(x.clone())));
+
+            let min_collateral =
+                VaultRegistry::get_required_collateral_for_polkabtc_with_threshold(btc, threshold)
+                    .unwrap();
+
+            let max_btc_for_min_collateral =
+                VaultRegistry::calculate_max_polkabtc_from_collateral_for_threshold(
+                    min_collateral,
+                    threshold,
+                )
+                .unwrap();
+
+            let max_btc_for_below_min_collateral =
+                VaultRegistry::calculate_max_polkabtc_from_collateral_for_threshold(
+                    min_collateral - 1,
+                    threshold,
+                )
+                .unwrap();
+
+            // Check that the amount we found is indeed the lowest amount that is sufficient for `btc`
+            assert!(max_btc_for_min_collateral >= btc);
+            assert!(max_btc_for_below_min_collateral < btc);
+        }
+    })
+}
 
 #[test]
 fn _is_vault_below_auction_threshold_false_succeeds() {
