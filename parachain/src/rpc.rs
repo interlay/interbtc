@@ -38,7 +38,7 @@ where
     C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
     C::Api: module_exchange_rate_oracle_rpc::ExchangeRateOracleRuntimeApi<Block, Balance, Balance>,
     C::Api: module_staked_relayers_rpc::StakedRelayersRuntimeApi<Block, AccountId>,
-    C::Api: module_vault_registry_rpc::VaultRegistryRuntimeApi<Block, AccountId, Balance>,
+    C::Api: module_vault_registry_rpc::VaultRegistryRuntimeApi<Block, AccountId, Balance, Balance>,
     C::Api: module_issue_rpc::IssueRuntimeApi<
         Block,
         AccountId,

@@ -756,6 +756,25 @@ impl<T: Trait> Module<T> {
         Ok(collateralization)
     }
 
+    /// Gets the minimum amount of collateral required for the given amount of btc
+    /// with the current threshold and exchange rate
+    ///
+    /// # Arguments
+    /// * `amount_btc` - the amount of polkabtc
+    ///
+    /// # Errors
+    /// * `ScaleConversionError` - if a math error occurs
+    pub fn get_required_collateral_for_polkabtc(
+        amount_btc: PolkaBTC<T>,
+    ) -> Result<DOT<T>, DispatchError> {
+        ext::security::ensure_parachain_status_running::<T>()?;
+
+        let threshold = <SecureCollateralThreshold>::get();
+        let collateral =
+            Self::get_required_collateral_for_polkabtc_with_threshold(amount_btc, threshold)?;
+        Ok(collateral)
+    }
+
     /// Private getters and setters
 
     fn rich_vault_from_id(vault_id: &T::AccountId) -> Result<RichVault<T>, DispatchError> {
@@ -809,6 +828,43 @@ impl<T: Trait> Module<T> {
             Self::calculate_max_polkabtc_from_collateral_for_threshold(collateral, threshold)?;
         // check if the max_tokens are below the issued tokens
         Ok(max_tokens < btc_amount)
+    }
+
+    /// Gets the minimum amount of collateral required for the given amount of btc
+    /// with the current exchange rate and the given threshold. This function is the
+    /// inverse of calculate_max_polkabtc_from_collateral_for_threshold
+    ///
+    /// # Arguments
+    /// * `amount_btc` - the amount of polkabtc
+    /// * `threshold` - the required secure collateral threshold
+    ///
+    /// # Errors
+    /// * `ScaleConversionError` - if a math error occurs
+    fn get_required_collateral_for_polkabtc_with_threshold(
+        btc: PolkaBTC<T>,
+        threshold: u128,
+    ) -> Result<DOT<T>, DispatchError> {
+        let btc = Self::polkabtc_to_u128(btc)?;
+        let btc = U256::from(btc);
+
+        // Step 1: inverse of the scaling applied in calculate_max_polkabtc_from_collateral_for_threshold
+
+        // inverse of the div
+        let btc = btc
+            .checked_mul(threshold.into())
+            .ok_or(Error::<T>::ScaleConversionError)?;
+
+        // To do the inverse of the multiplication, we need to do division, but
+        // we need to round up. To round up (a/b), we need to do ((a+b-1)/b):
+        let rounding_addition = U256::from(10).pow(GRANULARITY.into()) - U256::from(1);
+        let btc = (btc + rounding_addition)
+            .checked_div(U256::from(10).pow(GRANULARITY.into()))
+            .ok_or(Error::<T>::ScaleConversionError)?;
+
+        // Step 2: convert the amount to dots
+        let scaled = Self::u128_to_polkabtc(btc.try_into()?)?;
+        let amount_in_dot = ext::oracle::btc_to_dots::<T>(scaled)?;
+        Ok(amount_in_dot)
     }
 
     fn calculate_max_polkabtc_from_collateral_for_threshold(
