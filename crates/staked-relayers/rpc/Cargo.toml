@@ -1,6 +1,6 @@
 [package]
 name = "module-staked-relayers-rpc"
-version = "2.0.0"
+version = '0.2.1'
 authors = ["Interlay Ltd"]
 edition = "2018"
 
