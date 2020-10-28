@@ -138,6 +138,19 @@ decl_storage! {
     }
 }
 
+macro_rules! extract_op_return {
+    ($($tx:expr),*) => {
+        {
+            $(
+                if let Ok(data) = $tx.script.extract_op_return_data() {
+                    data
+                } else
+            )*
+            { return Err(Error::<T>::NotOpReturn.into()); }
+        }
+    };
+}
+
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         // Initialize errors
@@ -466,6 +479,60 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    fn extract_value_and_op_return(
+        transaction: Transaction,
+        recipient_btc_address: Vec<u8>,
+    ) -> Result<(i64, Vec<u8>), Error<T>> {
+        ensure!(
+            // We would typically expect three outputs (payment, op_return, refund) but
+            // exceptionally the input amount may be exact so we would only require two
+            transaction.outputs.len() >= ACCEPTED_MIN_TRANSACTION_OUTPUTS as usize,
+            Error::<T>::MalformedTransaction
+        );
+
+        // Check if payment is first output
+        match transaction.outputs[0].extract_address() {
+            Ok(extr_recipient_btc_address) => {
+                if recipient_btc_address == extr_recipient_btc_address {
+                    return Ok((
+                        transaction.outputs[0].value,
+                        extract_op_return!(transaction.outputs[1], transaction.outputs[2]),
+                    ));
+                }
+            }
+            Err(_) => (),
+        };
+
+        // Check if payment is second output
+        match transaction.outputs[1].extract_address() {
+            Ok(extr_recipient_btc_address) => {
+                if recipient_btc_address == extr_recipient_btc_address {
+                    return Ok((
+                        transaction.outputs[1].value,
+                        extract_op_return!(transaction.outputs[0], transaction.outputs[2]),
+                    ));
+                }
+            }
+            Err(_) => (),
+        };
+
+        // Check if payment is third output
+        match transaction.outputs[2].extract_address() {
+            Ok(extr_recipient_btc_address) => {
+                if recipient_btc_address == extr_recipient_btc_address {
+                    return Ok((
+                        transaction.outputs[2].value,
+                        extract_op_return!(transaction.outputs[0], transaction.outputs[1]),
+                    ));
+                }
+            }
+            Err(_) => (),
+        };
+
+        // Payment UTXO sends to incorrect address
+        Err(Error::<T>::WrongRecipient)
+    }
+
     pub fn _validate_transaction(
         raw_tx: Vec<u8>,
         payment_value: i64,
@@ -474,40 +541,14 @@ impl<T: Trait> Module<T> {
     ) -> Result<(), DispatchError> {
         let transaction = Self::parse_transaction(&raw_tx)?;
 
-        ensure!(
-            transaction.outputs.len() >= ACCEPTED_MIN_TRANSACTION_OUTPUTS as usize,
-            Error::<T>::MalformedTransaction
-        );
-
         // NOTE: op_return UTXO should not contain any value
-        let (extr_payment_value, extr_recipient_address, extr_op_return) =
-            match transaction.outputs[0].extract_address() {
-                Ok(address) => (
-                    // 1) Payment Utxo
-                    // 2) OpReturn Utxo
-                    transaction.outputs[0].value,
-                    address,
-                    transaction.outputs[1].script.extract_op_return_data()?,
-                ),
-                Err(_) => (
-                    // 1) OpReturn Utxo
-                    // 2) Payment Utxo
-                    transaction.outputs[1].value,
-                    transaction.outputs[1].extract_address()?,
-                    transaction.outputs[0].script.extract_op_return_data()?,
-                ),
-            };
+        let (extr_payment_value, extr_op_return) =
+            Self::extract_value_and_op_return(transaction, recipient_btc_address)?;
 
         // Check if payment UTXO transfers sufficient value
         ensure!(
             extr_payment_value >= payment_value,
             Error::<T>::InsufficientValue
-        );
-
-        // Check payment UTXO sends to correct address
-        ensure!(
-            extr_recipient_address == recipient_btc_address,
-            Error::<T>::WrongRecipient
         );
 
         // Check if data UTXO has correct OP_RETURN value
