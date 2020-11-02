@@ -1,6 +1,6 @@
 [package]
 name = "vault-registry"
-version = "2.0.0"
+version = '0.2.1'
 authors = ["Interlay Ltd"]
 edition = "2018"
 
@@ -23,6 +23,12 @@ std = [
   'treasury/std',
   'security/std',
   'exchange-rate-oracle/std',
+  'frame-benchmarking/std',
+]
+runtime-benchmarks = [
+	"frame-benchmarking",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
 ]
 
 [dependencies.serde]
@@ -95,5 +101,11 @@ path = '../treasury'
 default-features = false
 path = '../exchange-rate-oracle'
 
+[dependencies.frame-benchmarking]
+version = "2.0.0"
+default-features = false
+optional = true
+
 [dev-dependencies]
 mocktopus = "0.7.0"
+frame-benchmarking = { version = "2.0.0" }

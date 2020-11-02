@@ -1,7 +1,7 @@
 use crate::ext;
 use crate::mock::*;
 use crate::PolkaBTC;
-use crate::Replace as R;
+use crate::ReplaceRequest as R;
 use crate::DOT;
 use bitcoin::types::H256Le;
 use frame_support::{
@@ -764,7 +764,7 @@ fn test_cancel_replace_succeeds() {
             replace.open_time = 2;
             MockResult::Return(Ok(replace))
         });
-        Replace::current_height.mock_safe(|| MockResult::Return(10));
+        Replace::current_height.mock_safe(|| MockResult::Return(15));
         Replace::replace_period.mock_safe(|| MockResult::Return(2));
         ext::vault_registry::decrease_to_be_redeemed_tokens::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(())));

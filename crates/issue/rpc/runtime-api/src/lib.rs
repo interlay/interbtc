@@ -13,5 +13,8 @@ sp_api::decl_runtime_apis! {
     {
         /// Get all issue requests for a particular account
         fn get_issue_requests(account_id: AccountId) -> Vec<(H256, IssueRequest)>;
+
+        /// Get all issue requests for a particular vault
+        fn get_vault_issue_requests(account_id: AccountId) -> Vec<(H256, IssueRequest)>;
     }
 }

@@ -80,6 +80,7 @@ impl frame_system::Trait for Test {
 
 impl Trait for Test {
     type Event = TestEvent;
+    type WeightInfo = ();
 }
 
 impl security::Trait for Test {
@@ -103,7 +104,8 @@ impl ExtBuilder {
         GenesisConfig::<Test> {
             bitcoin_confirmations: BITCOIN_CONFIRMATIONS,
             parachain_confirmations: PARACHAIN_CONFIRMATIONS,
-            difficulty_check: true,
+            disable_difficulty_check: false,
+            disable_inclusion_check: false,
         }
         .assimilate_storage(&mut storage)
         .unwrap();

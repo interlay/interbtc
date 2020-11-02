@@ -3,7 +3,7 @@ authors = ['Interlay']
 description = 'Issue module'
 edition = '2018'
 name = 'issue'
-version = '2.0.0'
+version = '0.2.1'
 
 [dependencies.serde]
 version = '1.0.101'
@@ -83,12 +83,18 @@ version = '2.0.0'
 default-features = false
 version = '0.8.0'
 
-[dev-dependencies]
-mocktopus = '0.7.0'
-
-[dev-dependencies.exchange-rate-oracle]
+[dependencies.exchange-rate-oracle]
 default-features = false
 path = '../exchange-rate-oracle'
+
+[dependencies.frame-benchmarking]
+version = "2.0.0"
+default-features = false
+optional = true
+
+[dev-dependencies]
+mocktopus = '0.7.0'
+frame-benchmarking = { version = "2.0.0" }
 
 [features]
 default = ['std']
@@ -106,9 +112,16 @@ std = [
 	'vault-registry/std',
 	'collateral/std',
 	'btc-relay/std',
+	'exchange-rate-oracle/std',
 	'treasury/std',
 	'bitcoin/std',
 	'sha2/std',
 	'security/std',
 	'timestamp/std',
+    'frame-benchmarking/std',
+]
+runtime-benchmarks = [
+	"frame-benchmarking",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
 ]

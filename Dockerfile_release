@@ -1,4 +1,4 @@
-FROM bitnami/minideb:stretch
+FROM bitnami/minideb:buster
 
 ARG PROFILE=release
 

@@ -1,6 +1,6 @@
 [package]
 name = "staked-relayers"
-version = "2.0.0"
+version = '0.2.1'
 authors = ["Interlay Ltd"]
 edition = "2018"
 
@@ -35,9 +35,8 @@ version = '2.0.0'
 default-features = false
 version = '2.0.0'
 
-[dependencies.timestamp]
+[dependencies.pallet-timestamp]
 default-features = false
-package = 'pallet-timestamp'
 version = '2.0.0'
 
 [dependencies.sp-std]
@@ -97,8 +96,14 @@ version = '0.4.2'
 default-features = false
 version = '2.0.0'
 
+[dependencies.frame-benchmarking]
+version = "2.0.0"
+default-features = false
+optional = true
+
 [dev-dependencies]
-mocktopus = '0.7.0'
+mocktopus = "0.7.0"
+frame-benchmarking = { version = "2.0.0" }
 
 [features]
 default = ['std']
@@ -109,7 +114,7 @@ std = [
   'sp-runtime/std',
   'sp-io/std',
   'frame-system/std',
-  'timestamp/std',
+  'pallet-timestamp/std',
   'sp-core/std',
 	'sp-std/std',
   'primitive-types/std',
@@ -124,4 +129,10 @@ std = [
   'replace/std',
   'sha2/std',
   'hex/std',
+  'frame-benchmarking/std',
+]
+runtime-benchmarks = [
+	"frame-benchmarking",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
 ]

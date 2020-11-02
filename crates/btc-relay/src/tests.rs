@@ -841,6 +841,37 @@ fn test_validate_transaction_succeeds_with_op_return_and_payment() {
 }
 
 #[test]
+fn test_validate_transaction_succeeds_with_payment_and_refund_and_op_return() {
+    run_test(|| {
+        let raw_tx = hex::decode(sample_accepted_transaction()).unwrap();
+        let payment_value: i64 = 2500200000;
+        let recipient_btc_address =
+            hex::decode("66c7060feb882664ae62ffad0051fe843e318e85".to_owned()).unwrap();
+        let op_return_id = hex::decode(
+            "aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned(),
+        )
+        .unwrap();
+
+        let outputs = vec![
+            sample_valid_payment_output(),
+            sample_wrong_recipient_payment_output(),
+            sample_valid_data_output(),
+        ];
+
+        BTCRelay::parse_transaction
+            .mock_safe(move |_| MockResult::Return(Ok(sample_transaction_parsed(&outputs))));
+
+        assert_ok!(BTCRelay::validate_transaction(
+            Origin::signed(3),
+            raw_tx,
+            payment_value,
+            recipient_btc_address,
+            op_return_id
+        ));
+    });
+}
+
+#[test]
 fn test_validate_transaction_invalid_no_outputs_fails() {
     run_test(|| {
         // Simulate input (we mock the parsed transaction)
@@ -922,6 +953,7 @@ fn test_validate_transaction_wrong_recipient_fails() {
         .unwrap();
 
         let outputs = vec![
+            sample_wrong_recipient_payment_output(),
             sample_wrong_recipient_payment_output(),
             sample_valid_data_output(),
         ];

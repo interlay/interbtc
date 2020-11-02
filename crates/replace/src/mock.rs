@@ -1,5 +1,5 @@
 /// Mocking the test environment
-use crate::{Error, Module, Trait};
+use crate::{Error, GenesisConfig, Module, Trait};
 use frame_support::{
     assert_ok, impl_outer_event, impl_outer_origin, parameter_types,
     weights::{
@@ -101,6 +101,7 @@ impl pallet_balances::Trait for Test {
 
 impl vault_registry::Trait for Test {
     type Event = TestEvent;
+    type WeightInfo = ();
 }
 
 impl collateral::Trait for Test {
@@ -110,6 +111,7 @@ impl collateral::Trait for Test {
 
 impl btc_relay::Trait for Test {
     type Event = TestEvent;
+    type WeightInfo = ();
 }
 
 impl security::Trait for Test {
@@ -124,6 +126,7 @@ impl treasury::Trait for Test {
 parameter_types! {
     pub const MinimumPeriod: u64 = 5;
 }
+
 impl timestamp::Trait for Test {
     type Moment = u64;
     type OnTimestampSet = ();
@@ -133,15 +136,12 @@ impl timestamp::Trait for Test {
 
 impl exchange_rate_oracle::Trait for Test {
     type Event = TestEvent;
-}
-
-parameter_types! {
-    pub const ReplacePeriod: BlockNumber = 10;
+    type WeightInfo = ();
 }
 
 impl Trait for Test {
     type Event = TestEvent;
-    type ReplacePeriod = ReplacePeriod;
+    type WeightInfo = ();
 }
 
 pub type TestError = Error<Test>;
@@ -163,22 +163,31 @@ pub const CAROL_BALANCE: u64 = 1_000_000;
 pub struct ExtBuilder;
 
 impl ExtBuilder {
-    pub fn build() -> sp_io::TestExternalities {
+    pub fn build_with(conf: pallet_balances::GenesisConfig<Test>) -> sp_io::TestExternalities {
         let mut storage = frame_system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
 
-        pallet_balances::GenesisConfig::<Test> {
-            balances: vec![
-                (ALICE, ALICE_BALANCE),
-                (BOB, BOB_BALANCE),
-                (CAROL, CAROL_BALANCE),
-            ],
+        conf.assimilate_storage(&mut storage).unwrap();
+
+        GenesisConfig::<Test> {
+            replace_griefing_collateral: 10,
+            replace_period: 10,
         }
         .assimilate_storage(&mut storage)
         .unwrap();
 
         storage.into()
+    }
+
+    pub fn build() -> sp_io::TestExternalities {
+        ExtBuilder::build_with(pallet_balances::GenesisConfig::<Test> {
+            balances: vec![
+                (ALICE, ALICE_BALANCE),
+                (BOB, BOB_BALANCE),
+                (CAROL, CAROL_BALANCE),
+            ],
+        })
     }
 }
 

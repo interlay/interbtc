@@ -1,52 +1,7 @@
-image: "registry.gitlab.com/interlay/docker-rust:nightly-2020-10-01@sha256:46466ebb2d3a1cb481d0ede8d1bb099616117a3cef1eb5106d89e813b62b02ad"
+include:
+    - project: interlay/tools/ci-scripts
+      file: /gitlab-templates/rust-base-gitlab-ci.yaml
 
-# Declare stages
-stages:
-    - build   # for crates and pallets
-    - test    # for tests in dev
-    - deploy  # for deployment in master
+variables:
+    ARTIFACT_BIN_PATH: btc-parachain
 
-# pallets and crates
-test-pallets-and-crates:
-    stage: test
-    variables:
-        CARGO_HOME: $CI_PROJECT_DIR/.cargo
-        RUSTC_WRAPPER: /usr/local/bin/sccache
-        SCCACHE_GCS_RW_MODE: READ_WRITE
-    script:
-        - rustup show
-        - rustc --version
-        - rustfmt --version
-        - cargo --version
-        - SCCACHE_START_SERVER=1 SCCACHE_IDLE_TIMEOUT=0 sccache
-        - sccache -s
-
-        - cargo fmt -- --check
-        - cargo check --all
-        - cargo build --release
-        - cargo test --all --release
-
-        - sccache -s
-    cache:
-        key: cargo
-        paths:
-            - .cargo
-    artifacts:
-        paths:
-            - target/release/btc-parachain
-    only:
-        - merge_requests
-        - master
-        - dev
-
-docker-publish:
-    stage: deploy
-    image:
-        name: gcr.io/kaniko-project/executor:debug
-        entrypoint: [""]
-    script:
-        - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
-        - /kaniko/executor --context $CI_PROJECT_DIR --dockerfile $CI_PROJECT_DIR/Dockerfile_release --destination $CI_REGISTRY_IMAGE:$CI_COMMIT_SHORT_SHA --destination $CI_REGISTRY_IMAGE:$CI_COMMIT_BRANCH
-    only:
-        - master
-        - dev

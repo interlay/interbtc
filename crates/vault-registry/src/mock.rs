@@ -149,10 +149,12 @@ impl timestamp::Trait for Test {
 
 impl exchange_rate_oracle::Trait for Test {
     type Event = TestEvent;
+    type WeightInfo = ();
 }
 
 impl Trait for Test {
     type Event = TestEvent;
+    type WeightInfo = ();
 }
 
 impl security::Trait for Test {
@@ -175,7 +177,7 @@ pub const DEFAULT_COLLATERAL: u128 = 100;
 pub const RICH_COLLATERAL: u128 = DEFAULT_COLLATERAL + 50;
 
 impl ExtBuilder {
-    pub fn build() -> sp_io::TestExternalities {
+    pub fn build_with(conf: pallet_balances::GenesisConfig<Test>) -> sp_io::TestExternalities {
         let mut storage = frame_system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
@@ -210,6 +212,16 @@ impl ExtBuilder {
         .unwrap();
 
         sp_io::TestExternalities::from(storage)
+    }
+
+    pub fn build() -> sp_io::TestExternalities {
+        ExtBuilder::build_with(pallet_balances::GenesisConfig::<Test> {
+            balances: vec![
+                (DEFAULT_ID, DEFAULT_COLLATERAL),
+                (OTHER_ID, DEFAULT_COLLATERAL),
+                (RICH_ID, RICH_COLLATERAL),
+            ],
+        })
     }
 }
 

@@ -217,7 +217,8 @@ impl ExtBuilder {
         btc_relay::GenesisConfig::<Runtime> {
             bitcoin_confirmations: CONFIRMATIONS,
             parachain_confirmations: CONFIRMATIONS,
-            difficulty_check: true,
+            disable_difficulty_check: false,
+            disable_inclusion_check: false,
         }
         .assimilate_storage(&mut storage)
         .unwrap();
@@ -239,6 +240,13 @@ impl ExtBuilder {
         issue::GenesisConfig::<Runtime> {
             issue_griefing_collateral: 10,
             issue_period: 10,
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
+        replace::GenesisConfig::<Runtime> {
+            replace_griefing_collateral: 10,
+            replace_period: 10,
         }
         .assimilate_storage(&mut storage)
         .unwrap();

@@ -3,7 +3,7 @@ authors = ['Interlay']
 description = 'Issue module'
 edition = '2018'
 name = 'redeem'
-version = '2.0.0'
+version = '0.2.1'
 
 [dependencies.serde]
 version = '1.0.101'
@@ -44,9 +44,6 @@ version = '2.0.0'
 default-features = false
 package = 'pallet-balances'
 version = '2.0.0'
-
-[dev-dependencies]
-mocktopus = '0.7.0'
 
 [dependencies.primitive-types]
 default-features = false
@@ -90,6 +87,15 @@ version = '2.0.0'
 default-features = false
 version = "0.8.2"
 
+[dependencies.frame-benchmarking]
+version = "2.0.0"
+default-features = false
+optional = true
+
+[dev-dependencies]
+mocktopus = '0.7.0'
+frame-benchmarking = { version = "2.0.0" }
+
 [features]
 default = ['std']
 std = [
@@ -112,4 +118,10 @@ std = [
 	'sha2/std',
 	'security/std',
 	'timestamp/std',
+    'frame-benchmarking/std',
+]
+runtime-benchmarks = [
+	"frame-benchmarking",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
 ]

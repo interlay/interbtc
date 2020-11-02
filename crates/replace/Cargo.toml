@@ -3,7 +3,7 @@ authors = ['Interlay']
 description = 'Replace module'
 edition = '2018'
 name = 'replace'
-version = '2.0.0'
+version = '0.2.1'
 
 [dependencies.serde]
 version = '1.0.101'
@@ -53,6 +53,10 @@ features= ['codec']
 default-features = false
 path = '../vault-registry'
 
+[dependencies.exchange-rate-oracle]
+default-features = false
+path = '../exchange-rate-oracle'
+
 [dependencies.collateral]
 default-features = false
 path = '../collateral'
@@ -82,12 +86,14 @@ default-features = false
 package = 'pallet-timestamp'
 version = '2.0.0'
 
+[dependencies.frame-benchmarking]
+version = "2.0.0"
+default-features = false
+optional = true
+
 [dev-dependencies]
 mocktopus = '0.7.0'
-
-[dev-dependencies.exchange-rate-oracle]
-default-features = false
-path = '../exchange-rate-oracle'
+frame-benchmarking = { version = "2.0.0" }
 
 [features]
 default = ['std']
@@ -103,6 +109,7 @@ std = [
 	'sp-std/std',
 	'primitive-types/std',
 	'vault-registry/std',
+	'exchange-rate-oracle/std',
 	'collateral/std',
 	'btc-relay/std',
 	'treasury/std',
@@ -110,4 +117,10 @@ std = [
 	'sha2/std',
 	'security/std',
 	'timestamp/std',
+    'frame-benchmarking/std',
+]
+runtime-benchmarks = [
+	"frame-benchmarking",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
 ]

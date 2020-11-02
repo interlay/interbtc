@@ -8,6 +8,11 @@
 mod ext;
 pub mod types;
 
+#[cfg(any(feature = "runtime-benchmarks", test))]
+mod benchmarking;
+
+mod default_weights;
+
 #[cfg(test)]
 mod tests;
 
@@ -22,6 +27,7 @@ use mocktopus::macros::mockable;
 
 use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::weights::Weight;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, ensure, IterableStorageMap,
 };
@@ -47,6 +53,12 @@ pub struct RegisterRequest<AccountId, DateTime> {
     timeout: DateTime,
 }
 
+pub trait WeightInfo {
+    fn register_vault() -> Weight;
+    fn lock_additional_collateral() -> Weight;
+    fn withdraw_collateral() -> Weight;
+}
+
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
 pub trait Trait:
@@ -58,6 +70,9 @@ pub trait Trait:
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+
+    /// Weight information for the extrinsics in this module.
+    type WeightInfo: WeightInfo;
 }
 
 // This pallet's storage items.
@@ -140,7 +155,7 @@ decl_module! {
         /// * `InsufficientVaultCollateralAmount` - if the collateral is below the minimum threshold
         /// * `VaultAlreadyRegistered` - if a vault is already registered for the origin account
         /// * `InsufficientCollateralAvailable` - if the vault does not own enough collateral
-        #[weight = 1000]
+        #[weight = <T as Trait>::WeightInfo::register_vault()]
         fn register_vault(origin, collateral: DOT<T>, btc_address: H160) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ext::security::ensure_parachain_status_running::<T>()?;
@@ -168,7 +183,7 @@ decl_module! {
         /// # Errors
         /// * `VaultNotFound` - if no vault exists for the origin account
         /// * `InsufficientCollateralAvailable` - if the vault does not own enough collateral
-        #[weight = 1000]
+        #[weight = <T as Trait>::WeightInfo::lock_additional_collateral()]
         fn lock_additional_collateral(origin, amount: DOT<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
@@ -199,7 +214,7 @@ decl_module! {
         /// # Errors
         /// * `VaultNotFound` - if no vault exists for the origin account
         /// * `InsufficientCollateralAvailable` - if the vault does not own enough collateral
-        #[weight = 1000]
+        #[weight = <T as Trait>::WeightInfo::withdraw_collateral()]
         fn withdraw_collateral(origin, amount: DOT<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ext::security::ensure_parachain_status_running::<T>()?;
@@ -647,6 +662,10 @@ impl<T: Trait> Module<T> {
         <LiquidationCollateralThreshold>::set(threshold);
     }
 
+    pub fn _set_liquidation_vault(vault_id: T::AccountId) {
+        <LiquidationVault<T>>::set(vault_id);
+    }
+
     pub fn _is_over_minimum_collateral(amount: DOT<T>) -> bool {
         amount > Self::get_minimum_collateral_vault()
     }
@@ -742,6 +761,25 @@ impl<T: Trait> Module<T> {
         Self::get_collateralization(raw_collateral_in_polka_btc, raw_issued_tokens)
     }
 
+    /// Gets the minimum amount of collateral required for the given amount of btc
+    /// with the current threshold and exchange rate
+    ///
+    /// # Arguments
+    /// * `amount_btc` - the amount of polkabtc
+    ///
+    /// # Errors
+    /// * `ScaleConversionError` - if a math error occurs
+    pub fn get_required_collateral_for_polkabtc(
+        amount_btc: PolkaBTC<T>,
+    ) -> Result<DOT<T>, DispatchError> {
+        ext::security::ensure_parachain_status_running::<T>()?;
+
+        let threshold = <SecureCollateralThreshold>::get();
+        let collateral =
+            Self::get_required_collateral_for_polkabtc_with_threshold(amount_btc, threshold)?;
+        Ok(collateral)
+    }
+
     /// Private getters and setters
 
     fn rich_vault_from_id(vault_id: &T::AccountId) -> Result<RichVault<T>, DispatchError> {
@@ -813,6 +851,43 @@ impl<T: Trait> Module<T> {
             Self::calculate_max_polkabtc_from_collateral_for_threshold(collateral, threshold)?;
         // check if the max_tokens are below the issued tokens
         Ok(max_tokens < btc_amount)
+    }
+
+    /// Gets the minimum amount of collateral required for the given amount of btc
+    /// with the current exchange rate and the given threshold. This function is the
+    /// inverse of calculate_max_polkabtc_from_collateral_for_threshold
+    ///
+    /// # Arguments
+    /// * `amount_btc` - the amount of polkabtc
+    /// * `threshold` - the required secure collateral threshold
+    ///
+    /// # Errors
+    /// * `ScaleConversionError` - if a math error occurs
+    fn get_required_collateral_for_polkabtc_with_threshold(
+        btc: PolkaBTC<T>,
+        threshold: u128,
+    ) -> Result<DOT<T>, DispatchError> {
+        let btc = Self::polkabtc_to_u128(btc)?;
+        let btc = U256::from(btc);
+
+        // Step 1: inverse of the scaling applied in calculate_max_polkabtc_from_collateral_for_threshold
+
+        // inverse of the div
+        let btc = btc
+            .checked_mul(threshold.into())
+            .ok_or(Error::<T>::ScaleConversionError)?;
+
+        // To do the inverse of the multiplication, we need to do division, but
+        // we need to round up. To round up (a/b), we need to do ((a+b-1)/b):
+        let rounding_addition = U256::from(10).pow(GRANULARITY.into()) - U256::from(1);
+        let btc = (btc + rounding_addition)
+            .checked_div(U256::from(10).pow(GRANULARITY.into()))
+            .ok_or(Error::<T>::ScaleConversionError)?;
+
+        // Step 2: convert the amount to dots
+        let scaled = Self::u128_to_polkabtc(btc.try_into()?)?;
+        let amount_in_dot = ext::oracle::btc_to_dots::<T>(scaled)?;
+        Ok(amount_in_dot)
     }
 
     fn calculate_max_polkabtc_from_collateral_for_threshold(

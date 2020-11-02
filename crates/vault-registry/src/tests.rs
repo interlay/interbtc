@@ -6,7 +6,7 @@ use mocktopus::mocking::*;
 use crate::ext;
 use crate::mock::{
     run_test, CollateralError, Origin, SecurityError, System, Test, TestError, TestEvent,
-    VaultRegistry, DEFAULT_COLLATERAL, DEFAULT_ID, RICH_COLLATERAL, RICH_ID,
+    VaultRegistry, DEFAULT_COLLATERAL, DEFAULT_ID, OTHER_ID, RICH_COLLATERAL, RICH_ID,
 };
 use crate::types::VaultStatus;
 use crate::GRANULARITY;
@@ -496,7 +496,7 @@ fn redeem_tokens_liquidation_fails_with_insufficient_tokens() {
 fn replace_tokens_liquidation_succeeds() {
     run_test(|| {
         let old_id = create_sample_vault();
-        let new_id = create_vault(DEFAULT_ID + 1);
+        let new_id = create_vault(OTHER_ID);
         set_default_thresholds();
 
         ext::collateral::lock::<Test>.mock_safe(move |sender, amount| {
@@ -524,7 +524,7 @@ fn replace_tokens_liquidation_succeeds() {
 fn replace_tokens_liquidation_fails_with_insufficient_tokens() {
     run_test(|| {
         let old_id = create_sample_vault();
-        let new_id = create_vault(DEFAULT_ID + 1);
+        let new_id = create_vault(OTHER_ID);
 
         let res = VaultRegistry::_replace_tokens(&old_id, &new_id, 50, 20);
         assert_err!(res, TestError::InsufficientTokensCommitted);
@@ -536,7 +536,7 @@ fn replace_tokens_liquidation_fails_with_insufficient_tokens() {
 fn liquidate_succeeds() {
     run_test(|| {
         let id = create_sample_vault();
-        let liquidation_id = create_vault(DEFAULT_ID + 1);
+        let liquidation_id = create_vault(OTHER_ID);
         <crate::LiquidationVault<Test>>::put(liquidation_id);
         set_default_thresholds();
 
@@ -581,7 +581,7 @@ fn liquidate_succeeds() {
 fn liquidate_with_status_succeeds() {
     run_test(|| {
         let id = create_sample_vault();
-        let liquidation_id = create_vault(DEFAULT_ID + 1);
+        let liquidation_id = create_vault(OTHER_ID);
         <crate::LiquidationVault<Test>>::put(liquidation_id);
         set_default_thresholds();
 
@@ -671,6 +671,39 @@ fn calculate_max_polkabtc_from_collateral_for_threshold_succeeds() {
             ),
             Ok(170141183460469231731687303715884105727)
         );
+    })
+}
+#[test]
+fn get_required_collateral_for_polkabtc_with_threshold_succeeds() {
+    run_test(|| {
+        let threshold = 19999; // 199.99%
+        let random_start = 987529387592 as u128;
+        for btc in random_start..random_start + threshold {
+            ext::oracle::dots_to_btc::<Test>.mock_safe(move |x| MockResult::Return(Ok(x.clone())));
+            ext::oracle::btc_to_dots::<Test>.mock_safe(move |x| MockResult::Return(Ok(x.clone())));
+
+            let min_collateral =
+                VaultRegistry::get_required_collateral_for_polkabtc_with_threshold(btc, threshold)
+                    .unwrap();
+
+            let max_btc_for_min_collateral =
+                VaultRegistry::calculate_max_polkabtc_from_collateral_for_threshold(
+                    min_collateral,
+                    threshold,
+                )
+                .unwrap();
+
+            let max_btc_for_below_min_collateral =
+                VaultRegistry::calculate_max_polkabtc_from_collateral_for_threshold(
+                    min_collateral - 1,
+                    threshold,
+                )
+                .unwrap();
+
+            // Check that the amount we found is indeed the lowest amount that is sufficient for `btc`
+            assert!(max_btc_for_min_collateral >= btc);
+            assert!(max_btc_for_below_min_collateral < btc);
+        }
     })
 }
 

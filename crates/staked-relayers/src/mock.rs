@@ -106,7 +106,8 @@ impl pallet_balances::Trait for Test {
 parameter_types! {
     pub const MinimumPeriod: u64 = 5;
 }
-impl timestamp::Trait for Test {
+
+impl pallet_timestamp::Trait for Test {
     type Moment = u64;
     type OnTimestampSet = ();
     type MinimumPeriod = MinimumPeriod;
@@ -119,6 +120,7 @@ impl security::Trait for Test {
 
 impl vault_registry::Trait for Test {
     type Event = TestEvent;
+    type WeightInfo = ();
 }
 
 impl treasury::Trait for Test {
@@ -128,6 +130,7 @@ impl treasury::Trait for Test {
 
 impl exchange_rate_oracle::Trait for Test {
     type Event = TestEvent;
+    type WeightInfo = ();
 }
 
 impl collateral::Trait for Test {
@@ -137,19 +140,17 @@ impl collateral::Trait for Test {
 
 impl btc_relay::Trait for Test {
     type Event = TestEvent;
+    type WeightInfo = ();
 }
 
 impl redeem::Trait for Test {
     type Event = TestEvent;
-}
-
-parameter_types! {
-    pub const ReplacePeriod: BlockNumber = 10;
+    type WeightInfo = ();
 }
 
 impl replace::Trait for Test {
     type Event = TestEvent;
-    type ReplacePeriod = ReplacePeriod;
+    type WeightInfo = ();
 }
 
 parameter_types! {
@@ -164,6 +165,7 @@ parameter_types! {
 
 impl Trait for Test {
     type Event = TestEvent;
+    type WeightInfo = ();
     type MaturityPeriod = MaturityPeriod;
     type MinimumDeposit = MinimumDeposit;
     type MinimumStake = MinimumStake;
@@ -195,28 +197,37 @@ pub const EVE_BALANCE: u64 = 1_000_000;
 pub struct ExtBuilder;
 
 impl ExtBuilder {
-    pub fn build() -> sp_io::TestExternalities {
+    pub fn build_with<F>(conf: F) -> sp_io::TestExternalities
+    where
+        F: FnOnce(&mut sp_core::storage::Storage),
+    {
         let mut storage = frame_system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
 
-        balances::GenesisConfig::<Test> {
-            balances: vec![
-                (ALICE, ALICE_BALANCE),
-                (BOB, BOB_BALANCE),
-                (CAROL, CAROL_BALANCE),
-                (DAVE, DAVE_BALANCE),
-                (EVE, EVE_BALANCE),
-            ],
-        }
-        .assimilate_storage(&mut storage)
-        .unwrap();
-
-        GenesisConfig::<Test> { gov_id: CAROL }
-            .assimilate_storage(&mut storage)
-            .unwrap();
+        conf(&mut storage);
 
         storage.into()
+    }
+
+    pub fn build() -> sp_io::TestExternalities {
+        ExtBuilder::build_with(|storage| {
+            pallet_balances::GenesisConfig::<Test> {
+                balances: vec![
+                    (ALICE, ALICE_BALANCE),
+                    (BOB, BOB_BALANCE),
+                    (CAROL, CAROL_BALANCE),
+                    (DAVE, DAVE_BALANCE),
+                    (EVE, EVE_BALANCE),
+                ],
+            }
+            .assimilate_storage(storage)
+            .unwrap();
+
+            GenesisConfig::<Test> { gov_id: CAROL }
+                .assimilate_storage(storage)
+                .unwrap();
+        })
     }
 }
 

@@ -1,6 +1,6 @@
 [package]
 name = "btc-relay"
-version = "2.0.0"
+version = '0.2.1'
 authors = ["Interlay Ltd"]
 edition = "2018"
 
@@ -57,8 +57,14 @@ path = '../security'
 default-features = false
 version = '0.4.2'
 
+[dependencies.frame-benchmarking]
+version = "2.0.0"
+default-features = false
+optional = true
+
 [dev-dependencies]
 mocktopus = '0.7.0'
+frame-benchmarking = { version = "2.0.0" }
 
 [dev-dependencies.sp-runtime]
 default-features = false
@@ -66,6 +72,7 @@ version = '2.0.0'
 
 [features]
 default = ['std']
+no-btc = []
 std = [
     'serde',
     'codec/std',
@@ -79,4 +86,10 @@ std = [
     'bitcoin/std',
     'security/std',
     'hex/std',
+    'frame-benchmarking/std',
+]
+runtime-benchmarks = [
+	"frame-benchmarking",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
 ]

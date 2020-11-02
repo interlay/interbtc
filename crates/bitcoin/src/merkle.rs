@@ -155,17 +155,17 @@ impl MerkleProof {
         let mut proof_parser = BytesParser::new(merkle_proof);
         let block_header = proof_parser.parse()?;
         let transactions_count = proof_parser.parse()?;
-        let hashes: Vec<H256Le> = proof_parser.parse()?;
 
-        let flag_bits_count: CompactUint = proof_parser.parse()?;
-        let mut bytes: Vec<u8> = Vec::new();
-        for _ in 0..flag_bits_count.value {
-            bytes.push(proof_parser.parse()?);
+        let hashes_count: CompactUint = proof_parser.parse()?;
+        let mut hashes = Vec::<H256Le>::new();
+        for _ in 0..hashes_count.value {
+            hashes.push(proof_parser.parse()?);
         }
 
-        let mut flag_bits: Vec<bool> = vec![false; bytes.len() * 8];
-        for (p, bit) in flag_bits.iter_mut().enumerate() {
-            *bit = (bytes[p / 8] & (1 << (p % 8) as u8)) != 0;
+        let flag_bits_count: CompactUint = proof_parser.parse()?;
+        let mut flag_bits = Vec::new();
+        for _ in 0..flag_bits_count.value {
+            flag_bits.extend(proof_parser.parse::<Vec<bool>>()?);
         }
 
         Ok(MerkleProof {

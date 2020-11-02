@@ -11,7 +11,7 @@ use bitcoin::types::{
 use frame_support::{assert_err, assert_ok};
 use mocktopus::mocking::*;
 use redeem::types::RedeemRequest;
-use replace::types::Replace;
+use replace::types::ReplaceRequest;
 use security::types::{ErrorCode, StatusCode};
 use sp_core::{H160, H256};
 use sp_std::collections::btree_set::BTreeSet;
@@ -1338,7 +1338,7 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
             .mock_safe(move |_| MockResult::Return(Err(RedeemError::RedeemIdNotFound.into())));
 
         ext::replace::get_replace_request::<Test>.mock_safe(move |_| {
-            MockResult::Return(Ok(Replace {
+            MockResult::Return(Ok(ReplaceRequest {
                 old_vault: BOB,
                 open_time: 0,
                 amount: 100,
