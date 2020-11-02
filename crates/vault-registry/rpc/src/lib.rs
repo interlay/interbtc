@@ -56,6 +56,13 @@ where
         amount_btc: BalanceWrapper<PolkaBTC>,
         at: Option<BlockHash>,
     ) -> Result<BalanceWrapper<DOT>>;
+
+    #[rpc(name = "vaultRegistry_isVaultBelowAuctionThreshold")]
+    fn is_vault_below_auction_threshold(
+        &self,
+        vault: AccountId,
+        at: Option<BlockHash>,
+    ) -> Result<bool>;
 }
 
 /// A struct that implements the [`VaultRegistryApi`].
@@ -144,6 +151,7 @@ where
                 },
             )
     }
+
     fn get_first_vault_with_sufficient_tokens(
         &self,
         amount: PolkaBTC,
@@ -170,6 +178,7 @@ where
                 },
             )
     }
+
     fn get_issuable_tokens_from_vault(
         &self,
         vault: AccountId,
@@ -195,6 +204,7 @@ where
             },
         )
     }
+
     fn get_collateralization_from_vault(
         &self,
         vault: AccountId,
@@ -242,6 +252,33 @@ where
                     result.map_err(|e| RpcError {
                         code: ErrorCode::ServerError(Error::RuntimeError.into()),
                         message: "Unable to get required collateral for amount.".into(),
+                        data: Some(format!("{:?}", e).into()),
+                    })
+                },
+            )
+    }
+
+    fn is_vault_below_auction_threshold(
+        &self,
+        vault: AccountId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<bool> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        api.is_vault_below_auction_threshold(&at, vault)
+            .map_or_else(
+                |e| {
+                    Err(RpcError {
+                        code: ErrorCode::ServerError(Error::RuntimeError.into()),
+                        message: "Unable to check if vault is below auction threshold.".into(),
+                        data: Some(format!("{:?}", e).into()),
+                    })
+                },
+                |result| {
+                    result.map_err(|e| RpcError {
+                        code: ErrorCode::ServerError(Error::RuntimeError.into()),
+                        message: "Unable to check if vault is below auction threshold.".into(),
                         data: Some(format!("{:?}", e).into()),
                     })
                 },

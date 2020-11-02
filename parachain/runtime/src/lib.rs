@@ -612,7 +612,6 @@ impl_runtime_apis! {
         AccountId,
         Balance,
         Balance
-
     > for Runtime {
         fn get_total_collateralization() -> Result<u64, DispatchError> {
             VaultRegistry::get_total_collateralization()
@@ -637,6 +636,10 @@ impl_runtime_apis! {
         fn get_required_collateral_for_polkabtc(amount_btc: BalanceWrapper<Balance>) -> Result<BalanceWrapper<Balance>, DispatchError> {
             let result = VaultRegistry::get_required_collateral_for_polkabtc(amount_btc.amount)?;
             Ok(BalanceWrapper{amount:result})
+        }
+
+        fn is_vault_below_auction_threshold(vault: AccountId) -> Result<bool, DispatchError> {
+            VaultRegistry::is_vault_below_auction_threshold(&vault)
         }
     }
 

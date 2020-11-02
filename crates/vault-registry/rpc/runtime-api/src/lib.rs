@@ -45,6 +45,7 @@ sp_api::decl_runtime_apis! {
     {
         /// Get the total collateralization of the system scaled by the GRANULARITY
         fn get_total_collateralization() -> Result<u64, DispatchError>;
+
         /// Get the first available vault with sufficient collateral to fulfil an issue request
         /// with the specified amount of PolkaBTC.
         fn get_first_vault_with_sufficient_collateral(amount: PolkaBTC) -> Result<AccountId, DispatchError>;
@@ -61,5 +62,8 @@ sp_api::decl_runtime_apis! {
         /// Get the minimum amount of collateral required for the given amount of btc
         /// with the current threshold and exchange rate
         fn get_required_collateral_for_polkabtc(amount_btc: BalanceWrapper<PolkaBTC>) -> Result<BalanceWrapper<DOT>, DispatchError>;
+
+        /// Simple check to validate whether a vault is below the `AuctionThreshold`
+        fn is_vault_below_auction_threshold(vault: AccountId) -> Result<bool, DispatchError>;
     }
 }

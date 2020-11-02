@@ -727,7 +727,7 @@ fn _is_vault_below_auction_threshold_false_succeeds() {
         ext::oracle::dots_to_btc::<Test>.mock_safe(|_| MockResult::Return(Ok(DEFAULT_COLLATERAL)));
 
         assert_eq!(
-            VaultRegistry::_is_vault_below_auction_threshold(&id),
+            VaultRegistry::is_vault_below_auction_threshold(&id),
             Ok(false)
         )
     });
