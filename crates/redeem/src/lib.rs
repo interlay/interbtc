@@ -68,7 +68,7 @@ decl_storage! {
     trait Store for Module<T: Trait> as Redeem {
         /// The time difference in number of blocks between a redeem request is created and required completion time by a vault.
         /// The redeem period has an upper limit to ensure the user gets their BTC in time and to potentially punish a vault for inactivity or stealing BTC.
-        RedeemPeriod get(fn redeem_period): T::BlockNumber;
+        RedeemPeriod get(fn redeem_period) config(): T::BlockNumber;
 
         /// Users create redeem requests to receive BTC in return for PolkaBTC.
         /// This mapping provides access from a unique hash redeemId to a Redeem struct.

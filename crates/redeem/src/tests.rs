@@ -8,7 +8,7 @@ use mocktopus::mocking::*;
 use primitive_types::H256;
 use sp_core::H160;
 use sp_std::convert::TryInto;
-use vault_registry::{Vault, VaultStatus};
+use vault_registry::{Vault, VaultStatus, Wallet};
 
 type Event = crate::Event<Test>;
 
@@ -94,7 +94,7 @@ fn test_request_redeem_fails_with_amount_exceeds_user_balance() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
                 to_be_redeemed_tokens: 0,
-                btc_address: H160([0; 20]),
+                wallet: Wallet::new(H160::random()),
                 banned_until: None,
                 status: VaultStatus::Active,
             }))
@@ -132,7 +132,7 @@ fn test_request_redeem_fails_with_vault_banned() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
-                btc_address: H160([0; 20]),
+                wallet: Wallet::new(H160::random()),
                 banned_until: Some(1),
                 status: VaultStatus::Active,
             }))
@@ -156,7 +156,7 @@ fn test_request_redeem_fails_with_vault_liquidated() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
-                btc_address: H160([0; 20]),
+                wallet: Wallet::new(H160::random()),
                 banned_until: Some(1),
                 status: VaultStatus::Liquidated,
             }))
@@ -180,7 +180,7 @@ fn test_request_redeem_fails_with_amount_exceeds_vault_balance() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
                 to_be_redeemed_tokens: 0,
-                btc_address: H160([0; 20]),
+                wallet: Wallet::new(H160::random()),
                 banned_until: None,
                 status: VaultStatus::Active,
             }))
@@ -212,7 +212,7 @@ fn test_request_redeem_succeeds_in_running_state() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
                 to_be_redeemed_tokens: 0,
-                btc_address: H160([0; 20]),
+                wallet: Wallet::new(H160::random()),
                 banned_until: None,
                 status: VaultStatus::Active,
             },
@@ -304,7 +304,7 @@ fn test_request_redeem_succeeds_in_error_state() {
                 to_be_issued_tokens: 0,
                 issued_tokens: amount,
                 to_be_redeemed_tokens: 0,
-                btc_address: H160([0; 20]),
+                wallet: Wallet::new(H160::random()),
                 banned_until: None,
                 status: VaultStatus::Active,
             },
@@ -458,7 +458,7 @@ fn test_execute_redeem_succeeds() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 200,
                 to_be_redeemed_tokens: 200,
-                btc_address: H160([0; 20]),
+                wallet: Wallet::new(H160::random()),
                 banned_until: None,
                 status: VaultStatus::Active,
             },

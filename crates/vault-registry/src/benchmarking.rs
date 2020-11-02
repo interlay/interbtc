@@ -11,10 +11,10 @@ benchmarks! {
     register_vault {
         let origin: T::AccountId = account("Origin", 0, 0);
         let amount = 100;
-        let btc_address = H160::zero();
+        let btc_address = H160::random();
     }: _(RawOrigin::Signed(origin.clone()), amount.into(), btc_address)
     verify {
-        assert_eq!(Vaults::<T>::get(origin).btc_address, H160::zero());
+        assert_eq!(Vaults::<T>::get(origin).wallet.get_btc_address(), btc_address);
     }
 
     lock_additional_collateral {
@@ -22,6 +22,7 @@ benchmarks! {
         let u in 0 .. 100;
         let mut vault = Vault::default();
         vault.id = origin.clone();
+        vault.wallet = Wallet::new(H160::random());
         VaultRegistry::<T>::_insert_vault(&origin, vault);
     }: _(RawOrigin::Signed(origin), u.into())
     verify {
@@ -32,11 +33,21 @@ benchmarks! {
         let u in 0 .. 100;
         let mut vault = Vault::default();
         vault.id = origin.clone();
+        vault.wallet = Wallet::new(H160::random());
         VaultRegistry::<T>::_insert_vault(&origin, vault);
         collateral::Module::<T>::lock_collateral(&origin, u.into()).unwrap();
     }: _(RawOrigin::Signed(origin), u.into())
     verify {
     }
+
+    update_btc_address {
+        let origin: T::AccountId = account("Origin", 0, 0);
+        let mut vault = Vault::default();
+        vault.id = origin.clone();
+        vault.wallet = Wallet::new(H160::random());
+        VaultRegistry::<T>::_insert_vault(&origin, vault);
+    }: _(RawOrigin::Signed(origin), H160::zero())
+
 }
 
 #[cfg(test)]
@@ -56,6 +67,7 @@ mod tests {
             assert_ok!(test_benchmark_register_vault::<Test>());
             assert_ok!(test_benchmark_lock_additional_collateral::<Test>());
             assert_ok!(test_benchmark_withdraw_collateral::<Test>());
+            assert_ok!(test_benchmark_update_btc_address::<Test>());
         });
     }
 }

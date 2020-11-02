@@ -387,7 +387,7 @@ construct_runtime!(
         VaultRegistry: vault_registry::{Module, Call, Config<T>, Storage, Event<T>},
         ExchangeRateOracle: exchange_rate_oracle::{Module, Call, Config<T>, Storage, Event<T>},
         Issue: issue::{Module, Call, Config<T>, Storage, Event<T>},
-        Redeem: redeem::{Module, Call, Storage, Event<T>},
+        Redeem: redeem::{Module, Call, Config<T>, Storage, Event<T>},
         Replace: replace::{Module, Call, Config<T>, Storage, Event<T>},
     }
 );

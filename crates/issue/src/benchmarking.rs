@@ -12,7 +12,7 @@ use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
 use sp_core::{H256, U256};
 use sp_std::prelude::*;
-use vault_registry::types::Vault;
+use vault_registry::types::{Vault, Wallet};
 use vault_registry::Module as VaultRegistry;
 
 benchmarks! {
@@ -30,6 +30,7 @@ benchmarks! {
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
+        vault.wallet = Wallet::new(H160::random());
         VaultRegistry::<T>::_insert_vault(
             &vault_id,
             vault
@@ -57,7 +58,6 @@ benchmarks! {
             .mine(U256::from(2).pow(254.into()));
 
         let block_hash = block.header.hash();
-        println!("{:?}", block_hash);
         let block_header = RawBlockHeader::from_bytes(&block.header.format()).unwrap();
         BtcRelay::<T>::_initialize(block_header, height).unwrap();
 
@@ -84,8 +84,6 @@ benchmarks! {
             .add_transaction(transaction.clone())
             .mine(U256::from(2).pow(254.into()));
 
-        println!("{:?}", block.header.hash());
-
         let tx_id = transaction.tx_id();
         let tx_block_height = height;
         let proof = block.merkle_proof(&vec![tx_id]).format();
@@ -96,6 +94,7 @@ benchmarks! {
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
+        vault.wallet = Wallet::new(H160::random());
         VaultRegistry::<T>::_insert_vault(
             &vault_id,
             vault
@@ -115,6 +114,7 @@ benchmarks! {
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
+        vault.wallet = Wallet::new(H160::random());
         VaultRegistry::<T>::_insert_vault(
             &vault_id,
             vault

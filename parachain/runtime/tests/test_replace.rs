@@ -99,12 +99,12 @@ fn integration_test_replace_accept_replace() {
             .dispatch(origin_of(account_of(BOB))));
         // bob creates a vault
         assert_ok!(
-            Call::VaultRegistry(VaultRegistryCall::register_vault(amount, H160([0; 20])))
+            Call::VaultRegistry(VaultRegistryCall::register_vault(amount, H160::random()))
                 .dispatch(origin_of(account_of(ALICE)))
         );
         // alice creates a vault
         assert_ok!(
-            Call::VaultRegistry(VaultRegistryCall::register_vault(amount, H160([0; 20])))
+            Call::VaultRegistry(VaultRegistryCall::register_vault(amount, H160::random()))
                 .dispatch(origin_of(account_of(BOB)))
         );
         // bob requests a replace
@@ -130,7 +130,9 @@ fn integration_test_replace_auction_replace() {
         let new_vault = BOB;
         let collateral = 4_000;
         let polkabtc = 1_000;
-        let vault_btc_address = H160([0u8; 20]);
+
+        let old_vault_btc_address = H160::random();
+        let new_vault_btc_address = H160::random();
 
         set_default_thresholds();
         // peg spot rate
@@ -138,12 +140,12 @@ fn integration_test_replace_auction_replace() {
             .dispatch(origin_of(account_of(BOB))));
 
         // old vault has issued some tokens with the user
-        force_issue_tokens(user, old_vault, collateral, polkabtc, vault_btc_address);
+        force_issue_tokens(user, old_vault, collateral, polkabtc, old_vault_btc_address);
 
         // new vault joins
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
             collateral,
-            vault_btc_address
+            new_vault_btc_address
         ))
         .dispatch(origin_of(account_of(new_vault))));
         // exchange rate drops and vault is not collateralized any more
@@ -168,7 +170,9 @@ fn integration_test_replace_execute_replace() {
         let griefing_collateral = 50;
         let collateral = 4_000;
         let polkabtc = 1_000;
-        let vault_btc_address = H160([0u8; 20]);
+
+        let old_vault_btc_address = H160::random();
+        let new_vault_btc_address = H160::random();
 
         set_default_thresholds();
         SystemModule::set_block_number(1);
@@ -178,12 +182,12 @@ fn integration_test_replace_execute_replace() {
             .dispatch(origin_of(account_of(BOB))));
 
         // old vault has issued some tokens with the user
-        force_issue_tokens(user, old_vault, collateral, polkabtc, vault_btc_address);
+        force_issue_tokens(user, old_vault, collateral, polkabtc, old_vault_btc_address);
 
         // new vault joins
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
             collateral,
-            vault_btc_address
+            new_vault_btc_address
         ))
         .dispatch(origin_of(account_of(new_vault))));
 
@@ -202,7 +206,7 @@ fn integration_test_replace_execute_replace() {
 
         // send the btc from the old_vault to the new_vault
         let (tx_id, tx_block_height, merkle_proof, raw_tx) =
-            generate_transaction_and_mine(vault_btc_address, polkabtc, replace_id);
+            generate_transaction_and_mine(new_vault_btc_address, polkabtc, replace_id);
 
         SystemModule::set_block_number(1 + CONFIRMATIONS);
         let r = Call::Replace(ReplaceCall::execute_replace(
@@ -230,12 +234,12 @@ fn integration_test_replace_cancel_replace() {
             .dispatch(origin_of(account_of(BOB))));
         // bob creates a vault
         assert_ok!(
-            Call::VaultRegistry(VaultRegistryCall::register_vault(amount, H160([0; 20])))
+            Call::VaultRegistry(VaultRegistryCall::register_vault(amount, H160::random()))
                 .dispatch(origin_of(account_of(ALICE)))
         );
         // alice creates a vault
         assert_ok!(
-            Call::VaultRegistry(VaultRegistryCall::register_vault(10, H160([0; 20])))
+            Call::VaultRegistry(VaultRegistryCall::register_vault(10, H160::random()))
                 .dispatch(origin_of(account_of(BOB)))
         );
         // bob requests a replace

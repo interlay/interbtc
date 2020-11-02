@@ -10,7 +10,7 @@ use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
 use sp_core::{H160, H256, U256};
 use sp_std::prelude::*;
-use vault_registry::types::Vault;
+use vault_registry::types::{Vault, Wallet};
 use vault_registry::Module as VaultRegistry;
 
 benchmarks! {
@@ -24,6 +24,7 @@ benchmarks! {
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
+        vault.wallet = Wallet::new(H160::random());
         vault.issued_tokens = amount.into();
         VaultRegistry::<T>::_insert_vault(
             &vault_id,
@@ -43,6 +44,7 @@ benchmarks! {
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
+        vault.wallet = Wallet::new(H160::random());
         VaultRegistry::<T>::_insert_vault(
             &vault_id,
             vault
@@ -107,6 +109,7 @@ benchmarks! {
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
+        vault.wallet = Wallet::new(H160::random());
         VaultRegistry::<T>::_insert_vault(
             &vault_id,
             vault

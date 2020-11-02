@@ -39,7 +39,7 @@ use sp_std::vec::Vec;
 use security::ErrorCode;
 
 use crate::types::{DefaultVault, PolkaBTC, RichVault, DOT};
-pub use crate::types::{Vault, VaultStatus};
+pub use crate::types::{Vault, VaultStatus, Wallet};
 
 /// Granularity of `SecureCollateralThreshold`, `AuctionCollateralThreshold`,
 /// `LiquidationCollateralThreshold`, and `PunishmentFee`
@@ -57,6 +57,7 @@ pub trait WeightInfo {
     fn register_vault() -> Weight;
     fn lock_additional_collateral() -> Weight;
     fn withdraw_collateral() -> Weight;
+    fn update_btc_address() -> Weight;
 }
 
 /// ## Configuration and Constants
@@ -132,6 +133,9 @@ decl_storage! {
 
         /// Mapping of Vaults, using the respective Vault account identifier as key.
         Vaults: map hasher(blake2_128_concat) T::AccountId => Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>>;
+
+        /// Mapping of BTC addresses to Vault Ids
+        VaultsBtcAddress: map hasher(blake2_128_concat) H160 => T::AccountId;
     }
 }
 
@@ -159,11 +163,11 @@ decl_module! {
         fn register_vault(origin, collateral: DOT<T>, btc_address: H160) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ext::security::ensure_parachain_status_running::<T>()?;
-            ext::security::ensure_parachain_status_running::<T>()?;
 
             ensure!(collateral >= Self::get_minimum_collateral_vault(),
                     Error::<T>::InsufficientVaultCollateralAmount);
             ensure!(!Self::vault_exists(&sender), Error::<T>::VaultAlreadyRegistered);
+            ensure!(!<VaultsBtcAddress<T>>::contains_key(btc_address), Error::<T>::BtcAddressTaken);
 
             ext::collateral::lock::<T>(&sender, collateral)?;
             let vault = RichVault::<T>::new(sender.clone(), btc_address);
@@ -227,6 +231,28 @@ decl_module! {
             ));
             Ok(())
         }
+
+        /// Registers a new Bitcoin address for the vault.
+        ///
+        /// # Arguments
+        /// * `btc_address` - the BTC address of the vault to update
+        #[weight = <T as Trait>::WeightInfo::update_btc_address()]
+        fn update_btc_address(origin, btc_address: H160) -> DispatchResult {
+            let account_id = ensure_signed(origin)?;
+            ext::security::ensure_parachain_status_running::<T>()?;
+
+            ensure!(
+                !<VaultsBtcAddress<T>>::contains_key(btc_address),
+                Error::<T>::BtcAddressTaken,
+            );
+
+            let mut vault = Self::rich_vault_from_id(&account_id)?;
+            vault.update_btc_address(btc_address);
+            <VaultsBtcAddress<T>>::insert(btc_address, account_id.clone());
+
+            Self::deposit_event(Event::<T>::UpdateBtcAddress(account_id, btc_address));
+            Ok(())
+        }
     }
 }
 
@@ -261,7 +287,7 @@ impl<T: Trait> Module<T> {
         let mut vault = Self::rich_vault_from_id(&vault_id)?;
         vault.increase_to_be_issued(tokens)?;
         Self::deposit_event(Event::<T>::IncreaseToBeIssuedTokens(vault.id(), tokens));
-        Ok(vault.data.btc_address)
+        Ok(vault.data.wallet.get_btc_address())
     }
 
     /// Decreases the amount of tokens to be issued in the next issue request
@@ -523,14 +549,14 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    /// Replaces the old vault by the new vault by transfering tokens
+    /// Replaces the old vault by the new vault by transferring tokens
     /// from the old vault to the new one
     ///
     /// # Arguments
     /// * `old_vault_id` - the id of the old vault
     /// * `new_vault_id` - the id of the new vault
-    /// * `tokens` - the amount of tokens to be transfered from the old to the new vault
-    /// * `colalteral` - the collateral to be locked by the new vault
+    /// * `tokens` - the amount of tokens to be transferred from the old to the new vault
+    /// * `collateral` - the collateral to be locked by the new vault
     ///
     /// # Errors
     /// * `VaultNotFound` - if either the old or new vault does not exist
@@ -599,6 +625,7 @@ impl<T: Trait> Module<T> {
 
     pub fn _insert_vault<V: Into<DefaultVault<T>>>(id: &T::AccountId, rich_vault: V) {
         let vault: DefaultVault<T> = rich_vault.into();
+        <VaultsBtcAddress<T>>::insert(vault.wallet.get_btc_address(), id);
         <Vaults<T>>::insert(id, vault)
     }
 
@@ -938,7 +965,7 @@ decl_event! {
         LockAdditionalCollateral(AccountId, DOT, DOT, DOT),
         /// id, withdrawn collateral, total collateral
         WithdrawCollateral(AccountId, DOT, DOT),
-
+        UpdateBtcAddress(AccountId, H160),
         IncreaseToBeIssuedTokens(AccountId, BTCBalance),
         DecreaseToBeIssuedTokens(AccountId, BTCBalance),
         IssueTokens(AccountId, BTCBalance),
@@ -965,6 +992,8 @@ decl_error! {
         /// Returned if a vault tries to register while already being registered
         VaultAlreadyRegistered,
         VaultNotFound,
+        /// The Bitcoin Address has already been registered
+        BtcAddressTaken,
         /// Result is too big for type
         ScaleConversionError,
         /// Other conversion error
