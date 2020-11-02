@@ -647,7 +647,7 @@ impl<T: Trait> Module<T> {
         Self::is_vault_below_threshold(&vault_id, <SecureCollateralThreshold>::get())
     }
 
-    pub fn _is_vault_below_auction_threshold(
+    pub fn is_vault_below_auction_threshold(
         vault_id: &T::AccountId,
     ) -> Result<bool, DispatchError> {
         Self::is_vault_below_threshold(&vault_id, <AuctionCollateralThreshold>::get())

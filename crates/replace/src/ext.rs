@@ -73,7 +73,7 @@ pub(crate) mod vault_registry {
     pub fn is_vault_below_auction_threshold<T: vault_registry::Trait>(
         vault_id: T::AccountId,
     ) -> Result<bool, DispatchError> {
-        <vault_registry::Module<T>>::_is_vault_below_auction_threshold(&vault_id)
+        <vault_registry::Module<T>>::is_vault_below_auction_threshold(&vault_id)
     }
 
     pub fn is_collateral_below_secure_threshold<T: vault_registry::Trait>(
