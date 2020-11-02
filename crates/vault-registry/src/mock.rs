@@ -177,20 +177,14 @@ pub const DEFAULT_COLLATERAL: u128 = 100;
 pub const RICH_COLLATERAL: u128 = DEFAULT_COLLATERAL + 50;
 
 impl ExtBuilder {
-    pub fn build_with(conf: pallet_balances::GenesisConfig<Test>) -> sp_io::TestExternalities {
+    pub fn build_with(
+        conf: pallet_balances::GenesisConfig<Test, pallet_balances::Instance1>,
+    ) -> sp_io::TestExternalities {
         let mut storage = frame_system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
 
-        pallet_balances::GenesisConfig::<Test, pallet_balances::Instance1> {
-            balances: vec![
-                (DEFAULT_ID, DEFAULT_COLLATERAL),
-                (OTHER_ID, DEFAULT_COLLATERAL),
-                (RICH_ID, RICH_COLLATERAL),
-            ],
-        }
-        .assimilate_storage(&mut storage)
-        .unwrap();
+        conf.assimilate_storage(&mut storage).unwrap();
 
         pallet_balances::GenesisConfig::<Test, pallet_balances::Instance2> { balances: vec![] }
             .assimilate_storage(&mut storage)
@@ -213,15 +207,16 @@ impl ExtBuilder {
 
         sp_io::TestExternalities::from(storage)
     }
-
     pub fn build() -> sp_io::TestExternalities {
-        ExtBuilder::build_with(pallet_balances::GenesisConfig::<Test> {
-            balances: vec![
-                (DEFAULT_ID, DEFAULT_COLLATERAL),
-                (OTHER_ID, DEFAULT_COLLATERAL),
-                (RICH_ID, RICH_COLLATERAL),
-            ],
-        })
+        ExtBuilder::build_with(
+            pallet_balances::GenesisConfig::<Test, pallet_balances::Instance1> {
+                balances: vec![
+                    (DEFAULT_ID, DEFAULT_COLLATERAL),
+                    (OTHER_ID, DEFAULT_COLLATERAL),
+                    (RICH_ID, RICH_COLLATERAL),
+                ],
+            },
+        )
     }
 }
 
