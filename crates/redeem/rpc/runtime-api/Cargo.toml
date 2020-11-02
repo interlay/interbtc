@@ -1,6 +1,6 @@
 [package]
 name = "module-redeem-rpc-runtime-api"
-version = '0.2.1'
+version = '0.2.2'
 authors = ["Interlay Ltd"]
 edition = "2018"
 
