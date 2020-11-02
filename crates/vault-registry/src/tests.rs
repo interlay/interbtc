@@ -85,9 +85,9 @@ fn create_sample_vault_and_issue_tokens(
     );
     let res = VaultRegistry::_issue_tokens(&id, issue_tokens);
     assert_ok!(res);
-    
-    // mint tokens to the vault 
-    treasury::Module::<Test>::mint(id ,issue_tokens);
+
+    // mint tokens to the vault
+    treasury::Module::<Test>::mint(id, issue_tokens);
 
     id
 }
