@@ -58,9 +58,11 @@ mod tests {
 
     #[test]
     fn test_benchmarks() {
-        ExtBuilder::build_with(pallet_balances::GenesisConfig::<Test> {
-            balances: vec![(account("Origin", 0, 0), 1 << 64)],
-        })
+        ExtBuilder::build_with(
+            pallet_balances::GenesisConfig::<Test, pallet_balances::Instance1> {
+                balances: vec![(account("Origin", 0, 0), 1 << 64)],
+            },
+        )
         .execute_with(|| {
             assert_ok!(test_benchmark_register_vault::<Test>());
             assert_ok!(test_benchmark_lock_additional_collateral::<Test>());

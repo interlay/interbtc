@@ -86,6 +86,9 @@ fn create_sample_vault_and_issue_tokens(
     let res = VaultRegistry::_issue_tokens(&id, issue_tokens);
     assert_ok!(res);
 
+    // mint tokens to the vault
+    treasury::Module::<Test>::mint(id, issue_tokens);
+
     id
 }
 
@@ -838,6 +841,19 @@ fn get_first_vault_with_sufficient_tokens_succeeds() {
         assert_eq!(
             VaultRegistry::get_first_vault_with_sufficient_tokens(issue_tokens),
             Ok(id)
+        );
+    })
+}
+
+#[test]
+fn get_total_collateralization_with_tokens_issued() {
+    run_test(|| {
+        let issue_tokens: u128 = DEFAULT_COLLATERAL / 10 / 2; // = 5
+        let _id = create_sample_vault_and_issue_tokens(issue_tokens);
+
+        assert_eq!(
+            VaultRegistry::get_total_collateralization(),
+            Ok(2 * 10u64.pow(GRANULARITY))
         );
     })
 }

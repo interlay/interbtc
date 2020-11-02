@@ -6,6 +6,10 @@ pub(crate) mod collateral {
     use crate::types::DOT;
     use frame_support::dispatch::DispatchResult;
 
+    pub fn total_locked<T: collateral::Trait>() -> DOT<T> {
+        <collateral::Module<T>>::get_total_collateral()
+    }
+
     pub fn lock<T: collateral::Trait>(sender: &T::AccountId, amount: DOT<T>) -> DispatchResult {
         <collateral::Module<T>>::lock_collateral(sender, amount)
     }
@@ -28,8 +32,16 @@ pub(crate) mod collateral {
 }
 
 #[cfg_attr(test, mockable)]
-pub(crate) mod oracle {
+pub(crate) mod treasury {
+    use crate::types::PolkaBTC;
 
+    pub fn total_issued<T: treasury::Trait>() -> PolkaBTC<T> {
+        <treasury::Module<T>>::get_total_supply()
+    }
+}
+
+#[cfg_attr(test, mockable)]
+pub(crate) mod oracle {
     use crate::types::{PolkaBTC, DOT};
     use frame_support::dispatch::DispatchError;
 

@@ -1,3 +1,4 @@
+use frame_support::traits::StorageMapShim;
 /// Mocking the test environment
 use frame_support::{
     impl_outer_event, impl_outer_origin, parameter_types,
@@ -31,7 +32,8 @@ impl_outer_event! {
     pub enum TestEvent for Test {
         frame_system<T>,
         test_events<T>,
-        pallet_balances<T>,
+        pallet_balances Instance1<T>,
+        pallet_balances Instance2<T>,
         collateral<T>,
         treasury<T>,
         exchange_rate_oracle<T>,
@@ -89,24 +91,50 @@ parameter_types! {
     pub const MaxLocks: u32 = 50;
 }
 
-impl pallet_balances::Trait for Test {
+/// DOT
+impl pallet_balances::Trait<pallet_balances::Instance1> for Test {
+    type MaxLocks = MaxLocks;
+    /// The type for recording an account's balance.
+    type Balance = Balance;
+    /// The ubiquitous event type.
+    type Event = TestEvent;
+    type DustRemoval = ();
+    type ExistentialDeposit = ExistentialDeposit;
+    type AccountStore = StorageMapShim<
+        pallet_balances::Account<Test, pallet_balances::Instance1>,
+        frame_system::CallOnCreatedAccount<Test>,
+        frame_system::CallKillAccount<Test>,
+        AccountId,
+        pallet_balances::AccountData<Balance>,
+    >;
+    type WeightInfo = ();
+}
+
+/// PolkaBTC
+impl pallet_balances::Trait<pallet_balances::Instance2> for Test {
     type MaxLocks = MaxLocks;
     type Balance = Balance;
     type Event = TestEvent;
     type DustRemoval = ();
     type ExistentialDeposit = ExistentialDeposit;
-    type AccountStore = System;
+    type AccountStore = StorageMapShim<
+        pallet_balances::Account<Test, pallet_balances::Instance2>,
+        frame_system::CallOnCreatedAccount<Test>,
+        frame_system::CallKillAccount<Test>,
+        AccountId,
+        pallet_balances::AccountData<Balance>,
+    >;
     type WeightInfo = ();
 }
 
 impl collateral::Trait for Test {
-    type DOT = Balances;
     type Event = TestEvent;
+    type DOT = pallet_balances::Module<Test, pallet_balances::Instance1>;
 }
 
 impl treasury::Trait for Test {
-    type PolkaBTC = Balances;
     type Event = TestEvent;
+    type PolkaBTC = pallet_balances::Module<Test, pallet_balances::Instance2>;
 }
 
 parameter_types! {
@@ -133,8 +161,6 @@ impl security::Trait for Test {
     type Event = TestEvent;
 }
 
-pub type Balances = pallet_balances::Module<Test>;
-
 pub type TestError = Error<Test>;
 pub type SecurityError = security::Error<Test>;
 pub type CollateralError = collateral::Error<Test>;
@@ -151,12 +177,18 @@ pub const DEFAULT_COLLATERAL: u128 = 100;
 pub const RICH_COLLATERAL: u128 = DEFAULT_COLLATERAL + 50;
 
 impl ExtBuilder {
-    pub fn build_with(conf: pallet_balances::GenesisConfig<Test>) -> sp_io::TestExternalities {
+    pub fn build_with(
+        conf: pallet_balances::GenesisConfig<Test, pallet_balances::Instance1>,
+    ) -> sp_io::TestExternalities {
         let mut storage = frame_system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
 
         conf.assimilate_storage(&mut storage).unwrap();
+
+        pallet_balances::GenesisConfig::<Test, pallet_balances::Instance2> { balances: vec![] }
+            .assimilate_storage(&mut storage)
+            .unwrap();
 
         // Parameters to be set in tests
         GenesisConfig::<Test> {
@@ -175,15 +207,16 @@ impl ExtBuilder {
 
         sp_io::TestExternalities::from(storage)
     }
-
     pub fn build() -> sp_io::TestExternalities {
-        ExtBuilder::build_with(pallet_balances::GenesisConfig::<Test> {
-            balances: vec![
-                (DEFAULT_ID, DEFAULT_COLLATERAL),
-                (OTHER_ID, DEFAULT_COLLATERAL),
-                (RICH_ID, RICH_COLLATERAL),
-            ],
-        })
+        ExtBuilder::build_with(
+            pallet_balances::GenesisConfig::<Test, pallet_balances::Instance1> {
+                balances: vec![
+                    (DEFAULT_ID, DEFAULT_COLLATERAL),
+                    (OTHER_ID, DEFAULT_COLLATERAL),
+                    (RICH_ID, RICH_COLLATERAL),
+                ],
+            },
+        )
     }
 }
 

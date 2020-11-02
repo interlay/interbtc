@@ -716,6 +716,22 @@ impl<T: Trait> Module<T> {
 
     /// RPC
 
+    /// Get the total collateralization of the system.
+    pub fn get_total_collateralization() -> Result<u64, DispatchError> {
+        let issued_tokens = ext::treasury::total_issued::<T>();
+        let total_collateral = ext::collateral::total_locked::<T>();
+
+        // convert the issued_tokens to the raw amount
+        let raw_issued_tokens = Self::polkabtc_to_u128(issued_tokens)?;
+        ensure!(raw_issued_tokens != 0, Error::<T>::NoTokensIssued);
+
+        // convert the collateral to polkabtc
+        let collateral_in_polka_btc = ext::oracle::dots_to_btc::<T>(total_collateral)?;
+        let raw_collateral_in_polka_btc = Self::polkabtc_to_u128(collateral_in_polka_btc)?;
+
+        Self::get_collateralization(raw_collateral_in_polka_btc, raw_issued_tokens)
+    }
+
     /// Get the first available vault with sufficient collateral to fulfil an issue request
     /// with the specified amount of PolkaBTC.
     pub fn get_first_vault_with_sufficient_collateral(
@@ -769,18 +785,7 @@ impl<T: Trait> Module<T> {
         let collateral_in_polka_btc = ext::oracle::dots_to_btc::<T>(collateral)?;
         let raw_collateral_in_polka_btc = Self::polkabtc_to_u128(collateral_in_polka_btc)?;
 
-        // calculate the collateralization as a ratio of the issued tokens to the
-        // amount of provided collateral at the current exchange rate. The result is scaled
-        // by the GRANULARITY
-        let collateralization: u64 = raw_collateral_in_polka_btc
-            .checked_mul(10u128.pow(GRANULARITY))
-            .ok_or(Error::<T>::ConversionError)?
-            .checked_div(raw_issued_tokens)
-            .ok_or(Error::<T>::ConversionError)?
-            .try_into()
-            .map_err(|_| Error::<T>::ConversionError)?;
-
-        Ok(collateralization)
+        Self::get_collateralization(raw_collateral_in_polka_btc, raw_issued_tokens)
     }
 
     /// Gets the minimum amount of collateral required for the given amount of btc
@@ -829,6 +834,24 @@ impl<T: Trait> Module<T> {
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
         // There must not be in InvalidBTCRelay, OracleOffline or Liquidation error state
         ext::security::ensure_parachain_status_has_not_specific_errors::<T>(error_codes)
+    }
+
+    /// calculate the collateralization as a ratio of the issued tokens to the
+    /// amount of provided collateral at the current exchange rate. The result is scaled
+    /// by the GRANULARITY
+    fn get_collateralization(
+        raw_collateral_in_polka_btc: u128,
+        raw_issued_tokens: u128,
+    ) -> Result<u64, DispatchError> {
+        let collateralization: u64 = U256::from(raw_collateral_in_polka_btc)
+            .checked_mul(U256::from(10).pow(GRANULARITY.into()))
+            .ok_or(Error::<T>::ConversionError)?
+            .checked_div(raw_issued_tokens.into())
+            .ok_or(Error::<T>::ConversionError)?
+            .try_into()
+            .map_err(|_| Error::<T>::ConversionError)?;
+
+        Ok(collateralization)
     }
 
     fn is_vault_below_threshold(
