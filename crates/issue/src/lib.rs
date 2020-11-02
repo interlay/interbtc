@@ -265,7 +265,7 @@ impl<T: Trait> Module<T> {
         let height = <frame_system::Module<T>>::block_number();
         let period = Self::issue_period();
 
-        ensure!(issue.opentime + period > height, Error::<T>::TimeNotExpired);
+        ensure!(height > issue.opentime + period, Error::<T>::TimeNotExpired);
         ensure!(!issue.completed, Error::<T>::IssueCompleted);
 
         ext::vault_registry::decrease_to_be_issued_tokens::<T>(&issue.vault, issue.amount)?;
