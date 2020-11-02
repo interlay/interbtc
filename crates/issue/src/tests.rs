@@ -7,7 +7,7 @@ use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
 use primitive_types::H256;
 use sp_core::H160;
-use vault_registry::{Vault, VaultStatus};
+use vault_registry::{Vault, VaultStatus, Wallet};
 
 fn request_issue(
     origin: AccountId,
@@ -99,7 +99,7 @@ fn test_request_issue_banned_fails() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
-                btc_address: H160([0; 20]),
+                wallet: Wallet::new(H160::random()),
                 banned_until: Some(1),
                 status: VaultStatus::Active,
             },

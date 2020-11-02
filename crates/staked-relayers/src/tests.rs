@@ -16,7 +16,7 @@ use security::types::{ErrorCode, StatusCode};
 use sp_core::{H160, H256};
 use sp_std::collections::btree_set::BTreeSet;
 use std::convert::TryInto;
-use vault_registry::{Vault, VaultStatus};
+use vault_registry::{Vault, VaultStatus, Wallet};
 
 type Event = crate::Event<Test>;
 
@@ -55,7 +55,7 @@ fn init_zero_vault<Test>(
     let mut vault = Vault::default();
     vault.id = id;
     match btc_address {
-        Some(btc_address) => vault.btc_address = btc_address,
+        Some(btc_address) => vault.wallet = Wallet::new(btc_address),
         None => {}
     }
     vault
@@ -1086,7 +1086,7 @@ fn test_is_valid_merge_transaction_fails() {
         assert_eq!(
             Staking::is_valid_merge_transaction(
                 &transaction,
-                H160::from_slice(address2.as_bytes())
+                &Wallet::new(H160::from_slice(address2.as_bytes()))
             ),
             false
         );
@@ -1118,7 +1118,10 @@ fn test_is_valid_merge_transaction_succeeds() {
             .build();
 
         assert_eq!(
-            Staking::is_valid_merge_transaction(&transaction, H160::from_slice(address.as_bytes())),
+            Staking::is_valid_merge_transaction(
+                &transaction,
+                &Wallet::new(H160::from_slice(address.as_bytes()))
+            ),
             true
         );
     })
@@ -1158,7 +1161,7 @@ fn test_is_valid_request_transaction_fails() {
                 100,
                 H160::from_slice(address1.as_bytes()),
                 H160::from_slice(address1.as_bytes()),
-                H160::from_slice(address2.as_bytes()),
+                &Wallet::new(H160::from_slice(address2.as_bytes())),
             ),
             Ok(false)
         );
@@ -1199,7 +1202,7 @@ fn test_is_valid_request_transaction_succeeds() {
                 100,
                 H160::from_slice(address1.as_bytes()),
                 H160::from_slice(address1.as_bytes()),
-                H160::from_slice(address2.as_bytes()),
+                &Wallet::new(H160::from_slice(address2.as_bytes())),
             ),
             Ok(true)
         );
@@ -1220,7 +1223,7 @@ fn test_is_transaction_invalid_fails_with_valid_merge_transaction() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
-                btc_address: H160::from_slice(address.as_bytes()),
+                wallet: Wallet::new(H160::from_slice(address.as_bytes())),
                 banned_until: None,
                 status: VaultStatus::Active,
             }))
@@ -1276,7 +1279,7 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
-                btc_address: H160::from_slice(address1.as_bytes()),
+                wallet: Wallet::new(H160::from_slice(address1.as_bytes())),
                 banned_until: None,
                 status: VaultStatus::Active,
             }))

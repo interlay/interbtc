@@ -49,6 +49,7 @@ use sp_core::H160;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
+use vault_registry::Wallet;
 
 pub trait WeightInfo {
     fn register_staked_relayer() -> Weight;
@@ -968,14 +969,14 @@ impl<T: Trait> Module<T> {
 
     /// Checks if the vault is doing a valid merge transaction to move funds between
     /// addresses.
-    pub(crate) fn is_valid_merge_transaction(tx: &Transaction, vault_addr: H160) -> bool {
+    pub(crate) fn is_valid_merge_transaction(tx: &Transaction, wallet: &Wallet) -> bool {
         for out in &tx.outputs {
             // return if address not extractable (i.e. op_return)
             let out_addr = match out.extract_address() {
                 Ok(addr) => addr,
                 Err(_) => return false,
             };
-            if H160::from_slice(&out_addr) != vault_addr {
+            if !wallet.has_btc_address(&H160::from_slice(&out_addr)) {
                 return false;
             }
         }
@@ -989,7 +990,7 @@ impl<T: Trait> Module<T> {
         exp_val: PolkaBTC<T>,
         out_addr: H160,
         req_addr: H160,
-        vault_addr: H160,
+        wallet: &Wallet,
     ) -> Result<bool, DispatchError> {
         let value =
             TryInto::<u64>::try_into(exp_val).map_err(|_e| Error::<T>::ConversionError)? as i64;
@@ -997,9 +998,10 @@ impl<T: Trait> Module<T> {
         // tx here should only have at most three outputs
         if out_val >= value && out_addr == req_addr {
             if tx.outputs.len() == 3 {
+                // TODO: tx can have more than three outputs
                 let out = &tx.outputs[2];
                 if let Ok(vault_out_addr) = out.extract_address() {
-                    return Ok(H160::from_slice(&vault_out_addr) == vault_addr);
+                    return Ok(wallet.has_btc_address(&H160::from_slice(&vault_out_addr)));
                 }
                 return Ok(false);
             }
@@ -1033,7 +1035,7 @@ impl<T: Trait> Module<T> {
         ensure!(
             input_addresses.into_iter().any(|address_result| {
                 match address_result {
-                    Ok(address) => H160::from_slice(&address) == vault.btc_address,
+                    Ok(address) => vault.wallet.has_btc_address(&H160::from_slice(&address)),
                     _ => false,
                 }
             }),
@@ -1042,7 +1044,7 @@ impl<T: Trait> Module<T> {
 
         // check if the transaction is a "migration"
         ensure!(
-            !Self::is_valid_merge_transaction(&tx, vault.btc_address),
+            !Self::is_valid_merge_transaction(&tx, &vault.wallet),
             Error::<T>::ValidMergeTransaction
         );
 
@@ -1057,6 +1059,7 @@ impl<T: Trait> Module<T> {
         // 2) op_return: the second output is the associated ID encoded in the OP_RETURN
         // 3) vault: the third output is any "spare change" the vault is transferring
 
+        // TODO: we no longer this explicit ordering in btc-relay
         let out = &tx.outputs[0];
         if let Ok(out_addr) = out.extract_address() {
             let out_val = out.value;
@@ -1075,7 +1078,7 @@ impl<T: Trait> Module<T> {
                                     req.amount_btc,
                                     addr,
                                     req.btc_address,
-                                    vault.btc_address,
+                                    &vault.wallet,
                                 )?,
                                 Error::<T>::ValidRedeemTransaction
                             );
@@ -1091,7 +1094,7 @@ impl<T: Trait> Module<T> {
                                     req.amount,
                                     addr,
                                     req.btc_address,
-                                    vault.btc_address,
+                                    &vault.wallet,
                                 )?,
                                 Error::<T>::ValidReplaceTransaction
                             );
