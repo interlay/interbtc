@@ -141,6 +141,9 @@ mod tests {
         .execute_with(|| {
             assert_ok!(test_benchmark_request_issue::<Test>());
             assert_ok!(test_benchmark_execute_issue::<Test>());
+
+            // issue period is 10, we issued at block 1, so at block 15 the cancel should succeed
+            <frame_system::Module<Test>>::set_block_number(15);
             assert_ok!(test_benchmark_cancel_issue::<Test>());
         });
     }
