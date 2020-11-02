@@ -818,9 +818,6 @@ fn get_total_collateralization_with_tokens_issued() {
         let issue_tokens: u128 = DEFAULT_COLLATERAL / 10 / 2; // = 5
         let _id = create_sample_vault_and_issue_tokens(issue_tokens);
 
-        let total_issued = ext::treasury::total_issued::<Test>();
-        let total_locked = ext::collateral::total_locked::<Test>();
-
         assert_eq!(
             VaultRegistry::get_total_collateralization(),
             Ok(2 * 10u64.pow(GRANULARITY))
