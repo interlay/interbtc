@@ -32,7 +32,8 @@ impl_outer_event! {
     pub enum TestEvent for Test {
         frame_system<T>,
         test_events<T>,
-        pallet_balances<T>,
+        pallet_balances Instance1<T>,
+        pallet_balances Instance2<T>,
         collateral<T>,
         treasury<T>,
         exchange_rate_oracle<T>,
@@ -157,8 +158,6 @@ impl Trait for Test {
 impl security::Trait for Test {
     type Event = TestEvent;
 }
-
-pub type Balances = pallet_balances::Module<Test>;
 
 pub type TestError = Error<Test>;
 pub type SecurityError = security::Error<Test>;

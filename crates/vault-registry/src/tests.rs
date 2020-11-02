@@ -85,6 +85,9 @@ fn create_sample_vault_and_issue_tokens(
     );
     let res = VaultRegistry::_issue_tokens(&id, issue_tokens);
     assert_ok!(res);
+    
+    // mint tokens to the vault 
+    treasury::Module::<Test>::mint(id ,issue_tokens);
 
     id
 }
@@ -817,9 +820,6 @@ fn get_total_collateralization_with_tokens_issued() {
 
         let total_issued = ext::treasury::total_issued::<Test>();
         let total_locked = ext::collateral::total_locked::<Test>();
-
-        println!("PolkaBTC: {:?}", total_issued);
-        println!("DOT: {:?}", total_locked);
 
         assert_eq!(
             VaultRegistry::get_total_collateralization(),
