@@ -13,7 +13,7 @@ use frame_system::RawOrigin;
 // use pallet_timestamp::Now;
 use sp_core::U256;
 use sp_std::prelude::*;
-use vault_registry::types::Vault;
+use vault_registry::types::{Vault, Wallet};
 use vault_registry::Module as VaultRegistry;
 
 benchmarks! {
@@ -93,7 +93,7 @@ benchmarks! {
         let vault_id: T::AccountId = account("Vault", 0, 0);
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
-        vault.btc_address = H160::from_slice(vault_address.as_bytes());
+        vault.wallet = Wallet::new(H160::from_slice(vault_address.as_bytes()));
         VaultRegistry::<T>::_insert_vault(
             &vault_id,
             vault
@@ -168,6 +168,7 @@ benchmarks! {
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
         vault.issued_tokens = 100_000.into();
+        vault.wallet = Wallet::new(H160::zero());
         VaultRegistry::<T>::_insert_vault(
             &vault_id,
             vault

@@ -12,9 +12,9 @@ use exchange_rate_oracle::Module as ExchangeRateOracle;
 use frame_benchmarking::{account, benchmarks};
 use frame_system::Module as System;
 use frame_system::RawOrigin;
-use sp_core::{H256, U256};
+use sp_core::{H160, H256, U256};
 use sp_std::prelude::*;
-use vault_registry::types::Vault;
+use vault_registry::types::{Vault, Wallet};
 use vault_registry::Module as VaultRegistry;
 
 benchmarks! {
@@ -27,6 +27,7 @@ benchmarks! {
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
+        vault.wallet = Wallet::new(H160::random());
         VaultRegistry::<T>::_insert_vault(
             &vault_id,
             vault
@@ -39,6 +40,7 @@ benchmarks! {
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
+        vault.wallet = Wallet::new(H160::random());
         VaultRegistry::<T>::_insert_vault(
             &vault_id,
             vault
@@ -58,6 +60,7 @@ benchmarks! {
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
+        vault.wallet = Wallet::new(H160::random());
         VaultRegistry::<T>::_insert_vault(
             &vault_id,
             vault
@@ -83,6 +86,7 @@ benchmarks! {
 
         let mut old_vault = Vault::default();
         old_vault.id = old_vault_id.clone();
+        old_vault.wallet = Wallet::new(H160::random());
         old_vault.issued_tokens = 123897.into();
         VaultRegistry::<T>::_insert_vault(
             &old_vault_id,
@@ -91,6 +95,7 @@ benchmarks! {
 
         let mut new_vault = Vault::default();
         new_vault.id = new_vault_id.clone();
+        new_vault.wallet = Wallet::new(H160::random());
         VaultRegistry::<T>::_insert_vault(
             &new_vault_id,
             new_vault
@@ -103,20 +108,31 @@ benchmarks! {
     }: _(RawOrigin::Signed(new_vault_id), old_vault_id, btc_amount.into(), collateral.into())
 
     execute_replace {
-        let origin: T::AccountId = account("Origin", 0, 0);
-        let vault_id: T::AccountId = account("Vault", 0, 0);
+        let new_vault_id: T::AccountId = account("Origin", 0, 0);
+        let old_vault_id: T::AccountId = account("Vault", 0, 0);
 
         let replace_id = H256::zero();
         let mut replace_request = ReplaceRequest::default();
-        replace_request.old_vault = vault_id.clone();
+        replace_request.old_vault = old_vault_id.clone();
+        replace_request.new_vault = Some(new_vault_id.clone());
         Replace::<T>::insert_replace_request(replace_id, replace_request);
 
-        let mut vault = Vault::default();
-        vault.id = vault_id.clone();
+        let mut old_vault = Vault::default();
+        old_vault.id = old_vault_id.clone();
+        old_vault.wallet = Wallet::new(H160::random());
         VaultRegistry::<T>::_insert_vault(
-            &vault_id,
-            vault
+            &old_vault_id,
+            old_vault
         );
+
+        let mut new_vault = Vault::default();
+        new_vault.id = new_vault_id.clone();
+        new_vault.wallet = Wallet::new(H160::random());
+        VaultRegistry::<T>::_insert_vault(
+            &new_vault_id,
+            new_vault
+        );
+
 
         let address = Address::from([0; 20]);
         let mut height = 0;
@@ -162,7 +178,7 @@ benchmarks! {
         let block_header = RawBlockHeader::from_bytes(&block.header.format()).unwrap();
         BtcRelay::<T>::_store_block_header(block_header).unwrap();
 
-    }: _(RawOrigin::Signed(vault_id), replace_id, tx_id, tx_block_height, proof, raw_tx)
+    }: _(RawOrigin::Signed(old_vault_id), replace_id, tx_id, tx_block_height, proof, raw_tx)
 
     cancel_replace {
         let origin: T::AccountId = account("Origin", 0, 0);
@@ -177,6 +193,7 @@ benchmarks! {
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
+        vault.wallet = Wallet::new(H160::random());
         VaultRegistry::<T>::_insert_vault(
             &vault_id,
             vault

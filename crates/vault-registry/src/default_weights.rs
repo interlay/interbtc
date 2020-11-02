@@ -7,19 +7,23 @@ use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 
 impl crate::WeightInfo for () {
     fn register_vault() -> Weight {
-        (81_217_000 as Weight)
-            .saturating_add(DbWeight::get().reads(5 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
+        (91_914_000 as Weight)
+            .saturating_add(DbWeight::get().reads(6 as Weight))
+            .saturating_add(DbWeight::get().writes(4 as Weight))
     }
-    // WARNING! Some components were not used: ["u"]
     fn lock_additional_collateral() -> Weight {
-        (107_000_000 as Weight)
+        (109_095_000 as Weight)
             .saturating_add(DbWeight::get().reads(9 as Weight))
             .saturating_add(DbWeight::get().writes(2 as Weight))
     }
     fn withdraw_collateral() -> Weight {
-        (102_650_000 as Weight)
+        (107_035_000 as Weight)
             .saturating_add(DbWeight::get().reads(9 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
+    fn update_btc_address() -> Weight {
+        (48_413_000 as Weight)
+            .saturating_add(DbWeight::get().reads(2 as Weight))
             .saturating_add(DbWeight::get().writes(2 as Weight))
     }
 }

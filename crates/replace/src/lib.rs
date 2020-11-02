@@ -187,8 +187,8 @@ decl_module! {
         /// * `raw_tx` - the transaction id in bytes
         #[weight = <T as Trait>::WeightInfo::execute_replace()]
         fn execute_replace(origin, replace_id: H256, tx_id: H256Le, _tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
-            let new_vault = ensure_signed(origin)?;
-            Self::_execute_replace(new_vault, replace_id, tx_id, merkle_proof, raw_tx)?;
+            let old_vault = ensure_signed(origin)?;
+            Self::_execute_replace(old_vault, replace_id, tx_id, merkle_proof, raw_tx)?;
             Ok(())
         }
 
@@ -259,7 +259,7 @@ impl<T: Trait> Module<T> {
             new_vault: None,
             collateral: vault_collateral,
             accept_time: None,
-            btc_address: vault.btc_address,
+            btc_address: vault.wallet.get_btc_address(),
         };
         Self::insert_replace_request(replace_id, replace);
         // step 11: Emit RequestReplace event
@@ -311,24 +311,37 @@ impl<T: Trait> Module<T> {
     ) -> Result<(), DispatchError> {
         // Check that Parachain status is RUNNING
         ext::security::ensure_parachain_status_running::<T>()?;
-        // step 1: Retrieve the ReplaceRequest as per the replaceId parameter from ReplaceRequests. Return ERR_REPLACE_ID_NOT_FOUND error if no such ReplaceRequest was found.
+
+        // step 1: Retrieve the ReplaceRequest as per the replaceId parameter from ReplaceRequests.
+        // Return ERR_REPLACE_ID_NOT_FOUND error if no such ReplaceRequest was found.
         let mut replace = Self::get_replace_request(&replace_id)?;
+
         // step 2: Retrieve the Vault as per the newVault parameter from Vaults in the VaultRegistry
         let vault = ext::vault_registry::get_vault_from_id::<T>(&new_vault_id)?;
+
         // step 3: Check that the newVault is currently not banned
         let height = Self::current_height();
         ext::vault_registry::ensure_not_banned::<T>(&new_vault_id, height)?;
+
         // step 4: Check that the provided collateral exceeds the necessary amount
         let is_below = ext::vault_registry::is_collateral_below_secure_threshold::<T>(
             collateral,
             replace.amount,
         )?;
         ensure!(!is_below, Error::<T>::InsufficientCollateral);
+
         // step 5: Lock the newVault’s collateral by calling lockCollateral
         ext::collateral::lock_collateral::<T>(new_vault_id.clone(), collateral)?;
+
         // step 6: Update the ReplaceRequest entry
-        replace.add_new_vault(new_vault_id.clone(), height, collateral, vault.btc_address);
+        replace.add_new_vault(
+            new_vault_id.clone(),
+            height,
+            collateral,
+            vault.wallet.get_btc_address(),
+        );
         Self::insert_replace_request(replace_id, replace.clone());
+
         // step 7: Emit a AcceptReplace(newVault, replaceId, collateral) event
         Self::deposit_event(<Event<T>>::AcceptReplace(
             replace.old_vault,
@@ -380,7 +393,7 @@ impl<T: Trait> Module<T> {
                 accept_time: Some(current_height),
                 amount: btc_amount,
                 griefing_collateral: 0.into(),
-                btc_address: new_vault.btc_address,
+                btc_address: new_vault.wallet.get_btc_address(),
                 collateral: collateral,
             },
         );
@@ -397,7 +410,7 @@ impl<T: Trait> Module<T> {
     }
 
     fn _execute_replace(
-        new_vault_id: T::AccountId,
+        old_vault_id: T::AccountId,
         replace_id: H256,
         tx_id: H256Le,
         merkle_proof: Vec<u8>,
@@ -405,8 +418,21 @@ impl<T: Trait> Module<T> {
     ) -> Result<(), DispatchError> {
         // Check that Parachain status is RUNNING
         ext::security::ensure_parachain_status_running::<T>()?;
+
         // step 1: Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
         let replace = Self::get_replace_request(&replace_id)?;
+        // since the old vault makes the transfer they should also be responsible for execution
+        ensure!(
+            replace.old_vault == old_vault_id,
+            Error::<T>::UnauthorizedVault
+        );
+
+        if replace.new_vault.is_none() {
+            // cannot execute without a replacement
+            return Err(Error::<T>::NoReplacement.into());
+        }
+        let new_vault_id = replace.new_vault.unwrap();
+
         // step 2: Check that the current Parachain block height minus the ReplacePeriod is smaller than the opentime of the ReplaceRequest
         let replace_period = Self::replace_period();
         let current_height = Self::current_height();
@@ -414,10 +440,13 @@ impl<T: Trait> Module<T> {
             current_height <= replace.open_time + replace_period,
             Error::<T>::ReplacePeriodExpired
         );
+
         // step 3: Retrieve the Vault as per the newVault parameter from Vaults in the VaultRegistry
         let _new_vault = ext::vault_registry::get_vault_from_id::<T>(&new_vault_id)?;
+
         // step 4: Call verifyTransactionInclusion in BTC-Relay, providing txid, txBlockHeight, txIndex, and merkleProof as parameters
         ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
+
         // step 5: Call validateTransaction in BTC-Relay
         let amount = TryInto::<u64>::try_into(replace.amount)
             .map_err(|_e| Error::<T>::ConversionError)? as i64;
@@ -428,24 +457,28 @@ impl<T: Trait> Module<T> {
             replace.btc_address.as_bytes().to_vec(),
             replace_id.clone().as_bytes().to_vec(),
         )?;
+
         // step 6: Call the replaceTokens
         ext::vault_registry::replace_tokens::<T>(
-            replace.old_vault.clone(),
+            old_vault_id.clone(),
             new_vault_id.clone(),
             replace.amount.clone(),
             replace.collateral.clone(),
         )?;
+
         // step 7: Call the releaseCollateral function to release the oldVaults griefing collateral griefingCollateral
         ext::collateral::release_collateral::<T>(
-            replace.old_vault.clone(),
+            old_vault_id.clone(),
             replace.griefing_collateral,
         )?;
+
         // step 8: Emit the ExecuteReplace(oldVault, newVault, replaceId) event.
         Self::deposit_event(<Event<T>>::ExecuteReplace(
-            replace.old_vault,
+            old_vault_id,
             new_vault_id,
             replace_id,
         ));
+
         // step 9: Remove replace request
         Self::remove_replace_request(replace_id.clone());
         Ok(())
@@ -555,6 +588,7 @@ impl<T: Trait> Module<T> {
 decl_error! {
     pub enum Error for Module<T: Trait> {
         InvalidAmount,
+        NoReplacement,
         InsufficientCollateral,
         UnauthorizedVault,
         VaultOverAuctionThreshold,
