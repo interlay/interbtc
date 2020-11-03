@@ -3,7 +3,7 @@ authors = ['Interlay']
 description = 'Replace module'
 edition = '2018'
 name = 'replace'
-version = '0.2.2'
+version = '0.2.3'
 
 [dependencies.serde]
 version = '1.0.101'
