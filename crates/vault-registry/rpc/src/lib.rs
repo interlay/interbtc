@@ -57,6 +57,13 @@ where
         at: Option<BlockHash>,
     ) -> Result<BalanceWrapper<DOT>>;
 
+    #[rpc(name = "vaultRegistry_getRequiredCollateralForVault")]
+    fn get_required_collateral_for_vault(
+        &self,
+        vault_id: AccountId,
+        at: Option<BlockHash>,
+    ) -> Result<BalanceWrapper<DOT>>;
+
     #[rpc(name = "vaultRegistry_isVaultBelowAuctionThreshold")]
     fn is_vault_below_auction_threshold(
         &self,
@@ -252,6 +259,32 @@ where
                     result.map_err(|e| RpcError {
                         code: ErrorCode::ServerError(Error::RuntimeError.into()),
                         message: "Unable to get required collateral for amount.".into(),
+                        data: Some(format!("{:?}", e).into()),
+                    })
+                },
+            )
+    }
+
+    fn get_required_collateral_for_vault(
+        &self,
+        vault_id: AccountId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<BalanceWrapper<DOT>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        api.get_required_collateral_for_vault(&at, vault_id)
+            .map_or_else(
+                |e| {
+                    Err(RpcError {
+                        code: ErrorCode::ServerError(Error::RuntimeError.into()),
+                        message: "Unable to get required collateral for vault.".into(),
+                        data: Some(format!("{:?}", e).into()),
+                    })
+                },
+                |result| {
+                    result.map_err(|e| RpcError {
+                        code: ErrorCode::ServerError(Error::RuntimeError.into()),
+                        message: "Unable to get required collateral for vault.".into(),
                         data: Some(format!("{:?}", e).into()),
                     })
                 },

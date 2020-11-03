@@ -807,6 +807,21 @@ impl<T: Trait> Module<T> {
         Ok(collateral)
     }
 
+    /// Get the amount of collateral required for the given vault to be at the
+    /// current SecureCollateralThreshold with the current exchange rate
+    pub fn get_required_collateral_for_vault(
+        vault_id: T::AccountId,
+    ) -> Result<DOT<T>, DispatchError> {
+        ext::security::ensure_parachain_status_running::<T>()?;
+
+        let vault = Self::rich_vault_from_id(&vault_id)?;
+        let issued_tokens = vault.data.issued_tokens + vault.data.to_be_issued_tokens;
+
+        let required_collateral = Self::get_required_collateral_for_polkabtc(issued_tokens)?;
+
+        Ok(required_collateral)
+    }
+
     /// Private getters and setters
 
     fn rich_vault_from_id(vault_id: &T::AccountId) -> Result<RichVault<T>, DispatchError> {

@@ -63,6 +63,10 @@ sp_api::decl_runtime_apis! {
         /// with the current threshold and exchange rate
         fn get_required_collateral_for_polkabtc(amount_btc: BalanceWrapper<PolkaBTC>) -> Result<BalanceWrapper<DOT>, DispatchError>;
 
+        /// Get the amount of collateral required for the given vault to be at the
+        /// current SecureCollateralThreshold with the current exchange rate
+        fn get_required_collateral_for_vault(vault_id: AccountId) -> Result<BalanceWrapper<DOT>, DispatchError>;
+
         /// Simple check to validate whether a vault is below the `AuctionThreshold`
         fn is_vault_below_auction_threshold(vault: AccountId) -> Result<bool, DispatchError>;
     }
