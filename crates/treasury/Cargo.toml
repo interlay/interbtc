@@ -3,7 +3,7 @@ authors = ['Interlay']
 description = 'Treasury module'
 edition = '2018'
 name = 'treasury'
-version = '0.2.2'
+version = '0.2.3'
 
 [features]
 default = ['std']
