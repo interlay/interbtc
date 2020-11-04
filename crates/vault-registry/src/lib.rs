@@ -774,13 +774,21 @@ impl<T: Trait> Module<T> {
     /// Get the current collateralization of a vault
     pub fn get_collateralization_from_vault(vault_id: T::AccountId) -> Result<u64, DispatchError> {
         let vault = Self::rich_vault_from_id(&vault_id)?;
+        let collateral = vault.get_collateral();
+        Self::get_collateralization_from_vault_and_collateral(vault_id, collateral)
+    }
+
+    pub fn get_collateralization_from_vault_and_collateral(
+        vault_id: T::AccountId,
+        collateral: DOT<T>,
+    ) -> Result<u64, DispatchError> {
+        let vault = Self::rich_vault_from_id(&vault_id)?;
         let issued_tokens = vault.data.issued_tokens + vault.data.to_be_issued_tokens;
 
         // convert the issued_tokens to the raw amount
         let raw_issued_tokens = Self::polkabtc_to_u128(issued_tokens)?;
         ensure!(raw_issued_tokens != 0, Error::<T>::NoTokensIssued);
 
-        let collateral = vault.get_collateral();
         // convert the collateral to polkabtc
         let collateral_in_polka_btc = ext::oracle::dots_to_btc::<T>(collateral)?;
         let raw_collateral_in_polka_btc = Self::polkabtc_to_u128(collateral_in_polka_btc)?;

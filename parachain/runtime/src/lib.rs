@@ -633,6 +633,10 @@ impl_runtime_apis! {
             VaultRegistry::get_collateralization_from_vault(vault)
         }
 
+        fn get_collateralization_from_vault_and_collateral(vault: AccountId, collateral: Balance) -> Result<u64, DispatchError> {
+            VaultRegistry::get_collateralization_from_vault_and_collateral(vault, collateral)
+        }
+
         fn get_required_collateral_for_polkabtc(amount_btc: BalanceWrapper<Balance>) -> Result<BalanceWrapper<Balance>, DispatchError> {
             let result = VaultRegistry::get_required_collateral_for_polkabtc(amount_btc.amount)?;
             Ok(BalanceWrapper{amount:result})

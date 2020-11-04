@@ -59,6 +59,9 @@ sp_api::decl_runtime_apis! {
         /// Get the collateralization rate of a vault scaled by GRANULARITY
         fn get_collateralization_from_vault(vault: AccountId) -> Result<u64, DispatchError>;
 
+        /// Get the collateralization rate of a vault and collateral scaled by GRANULARITY
+        fn get_collateralization_from_vault_and_collateral(vault: AccountId, collateral: DOT) -> Result<u64, DispatchError>;
+
         /// Get the minimum amount of collateral required for the given amount of btc
         /// with the current threshold and exchange rate
         fn get_required_collateral_for_polkabtc(amount_btc: BalanceWrapper<PolkaBTC>) -> Result<BalanceWrapper<DOT>, DispatchError>;
