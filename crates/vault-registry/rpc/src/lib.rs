@@ -70,7 +70,7 @@ where
         &self,
         vault_id: AccountId,
         at: Option<BlockHash>,
-    ) -> Result<BalanceWrapper<DOT>>;
+    ) -> JsonRpcResult<BalanceWrapper<DOT>>;
 
     #[rpc(name = "vaultRegistry_isVaultBelowAuctionThreshold")]
     fn is_vault_below_auction_threshold(
@@ -242,7 +242,7 @@ where
         &self,
         vault_id: AccountId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<BalanceWrapper<DOT>> {
+    ) -> JsonRpcResult<BalanceWrapper<DOT>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
         api.get_required_collateral_for_vault(&at, vault_id)
