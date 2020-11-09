@@ -417,12 +417,12 @@ fn test_execute_redeem_fails_with_unauthorized_vault() {
 #[test]
 fn test_execute_redeem_fails_with_commit_period_expired() {
     run_test(|| {
-        <frame_system::Module<Test>>::set_block_number(20);
+        <frame_system::Module<Test>>::set_block_number(40);
 
         Redeem::get_redeem_request_from_id.mock_safe(|_| {
             MockResult::Return(Ok(RedeemRequest {
                 vault: BOB,
-                opentime: 30,
+                opentime: 20,
                 amount_polka_btc: 0,
                 amount_btc: 0,
                 amount_dot: 0,
@@ -472,7 +472,7 @@ fn test_execute_redeem_succeeds() {
             H256([0u8; 32]),
             RedeemRequest {
                 vault: BOB,
-                opentime: 20,
+                opentime: 40,
                 amount_polka_btc: 100,
                 amount_btc: 0,
                 amount_dot: 0,
