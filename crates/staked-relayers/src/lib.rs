@@ -302,7 +302,7 @@ decl_module! {
             if let Some(block_hash) = block_hash {
                 ensure!(
                     ext::btc_relay::block_header_exists::<T>(block_hash),
-                    Error::<T>::ExpectedBlockHash,
+                    Error::<T>::BlockNotFound,
                 );
             }
 
@@ -1195,6 +1195,8 @@ decl_error! {
         OracleAlreadyReported,
         /// Oracle is online
         OracleOnline,
+        /// Block not included by the relay
+        BlockNotFound,
         /// Cannot report vault theft without block hash
         ExpectedBlockHash,
         /// Status update should not contain block hash

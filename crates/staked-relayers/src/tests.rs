@@ -346,7 +346,7 @@ fn test_suggest_status_update_fails_with_no_block_hash_found() {
                 Some(H256Le::zero()),
                 vec![],
             ),
-            TestError::ExpectedBlockHash,
+            TestError::BlockNotFound,
         );
     })
 }
