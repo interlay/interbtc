@@ -244,6 +244,10 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage)
         .unwrap();
 
+        redeem::GenesisConfig::<Runtime> { redeem_period: 10 }
+            .assimilate_storage(&mut storage)
+            .unwrap();
+
         replace::GenesisConfig::<Runtime> {
             replace_griefing_collateral: 10,
             replace_period: 10,

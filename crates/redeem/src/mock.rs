@@ -1,5 +1,5 @@
 /// Mocking the test environment
-use crate::{Error, Module, Trait};
+use crate::{Error, GenesisConfig, Module, Trait};
 use frame_support::{
     assert_ok, impl_outer_event, impl_outer_origin, parameter_types,
     weights::{
@@ -168,6 +168,10 @@ impl ExtBuilder {
             .unwrap();
 
         conf.assimilate_storage(&mut storage).unwrap();
+
+        GenesisConfig::<Test> { redeem_period: 10 }
+            .assimilate_storage(&mut storage)
+            .unwrap();
 
         storage.into()
     }
