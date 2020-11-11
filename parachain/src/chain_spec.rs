@@ -202,6 +202,7 @@ fn testnet_genesis(
             parachain_confirmations: 0,
             disable_difficulty_check: true,
             disable_inclusion_check: !inclusion_check,
+            disable_op_return_check: false,
         }),
         issue: Some(IssueConfig {
             issue_griefing_collateral: 10,

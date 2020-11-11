@@ -787,6 +787,31 @@ fn test_verify_block_header_low_diff_fails() {
 }
 
 #[test]
+fn test_validate_transaction_succeeds_with_payment() {
+    run_test(|| {
+        let raw_tx = hex::decode(sample_accepted_transaction()).unwrap();
+        let payment_value: i64 = 2500200000;
+        let recipient_btc_address =
+            hex::decode("66c7060feb882664ae62ffad0051fe843e318e85".to_owned()).unwrap();
+
+        let outputs = vec![sample_valid_payment_output()];
+
+        BTCRelay::parse_transaction
+            .mock_safe(move |_| MockResult::Return(Ok(sample_transaction_parsed(&outputs))));
+
+        BTCRelay::is_op_return_disabled.mock_safe(move || MockResult::Return(true));
+
+        assert_ok!(BTCRelay::validate_transaction(
+            Origin::signed(3),
+            raw_tx,
+            payment_value,
+            recipient_btc_address,
+            vec![]
+        ));
+    });
+}
+
+#[test]
 fn test_validate_transaction_succeeds_with_payment_and_op_return() {
     run_test(|| {
         let raw_tx = hex::decode(sample_accepted_transaction()).unwrap();

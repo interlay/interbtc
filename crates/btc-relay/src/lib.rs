@@ -135,6 +135,9 @@ decl_storage! {
 
         /// Whether the module should perform inclusion checks.
         DisableInclusionCheck get(fn disable_inclusion_check) config(): bool;
+
+        /// Whether the module should perform OP_RETURN checks.
+        DisableOpReturnCheck get(fn disable_op_return_check) config(): bool;
     }
 }
 
@@ -479,6 +482,44 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    fn extract_value(
+        transaction: Transaction,
+        recipient_btc_address: Vec<u8>,
+    ) -> Result<i64, Error<T>> {
+        // Check if payment is first output
+        match transaction.outputs[0].extract_address() {
+            Ok(extr_recipient_btc_address) => {
+                if recipient_btc_address == extr_recipient_btc_address {
+                    return Ok(transaction.outputs[0].value);
+                }
+            }
+            Err(_) => (),
+        };
+
+        // Check if payment is second output
+        match transaction.outputs[1].extract_address() {
+            Ok(extr_recipient_btc_address) => {
+                if recipient_btc_address == extr_recipient_btc_address {
+                    return Ok(transaction.outputs[1].value);
+                }
+            }
+            Err(_) => (),
+        };
+
+        // Check if payment is third output
+        match transaction.outputs[2].extract_address() {
+            Ok(extr_recipient_btc_address) => {
+                if recipient_btc_address == extr_recipient_btc_address {
+                    return Ok(transaction.outputs[2].value);
+                }
+            }
+            Err(_) => (),
+        };
+
+        // Payment UTXO sends to incorrect address
+        Err(Error::<T>::WrongRecipient)
+    }
+
     fn extract_value_and_op_return(
         transaction: Transaction,
         recipient_btc_address: Vec<u8>,
@@ -533,6 +574,10 @@ impl<T: Trait> Module<T> {
         Err(Error::<T>::WrongRecipient)
     }
 
+    pub fn is_op_return_disabled() -> bool {
+        Self::disable_op_return_check()
+    }
+
     pub fn _validate_transaction(
         raw_tx: Vec<u8>,
         payment_value: i64,
@@ -541,18 +586,24 @@ impl<T: Trait> Module<T> {
     ) -> Result<(), DispatchError> {
         let transaction = Self::parse_transaction(&raw_tx)?;
 
-        // NOTE: op_return UTXO should not contain any value
-        let (extr_payment_value, extr_op_return) =
-            Self::extract_value_and_op_return(transaction, recipient_btc_address)?;
+        let extr_payment_value = if Self::is_op_return_disabled() {
+            Self::extract_value(transaction, recipient_btc_address)?
+        } else {
+            // NOTE: op_return UTXO should not contain any value
+            let (extr_payment_value, extr_op_return) =
+                Self::extract_value_and_op_return(transaction, recipient_btc_address)?;
+
+            // Check if data UTXO has correct OP_RETURN value
+            ensure!(extr_op_return == op_return_id, Error::<T>::InvalidOpReturn);
+
+            extr_payment_value
+        };
 
         // Check if payment UTXO transfers sufficient value
         ensure!(
             extr_payment_value >= payment_value,
             Error::<T>::InsufficientValue
         );
-
-        // Check if data UTXO has correct OP_RETURN value
-        ensure!(extr_op_return == op_return_id, Error::<T>::InvalidOpReturn);
 
         Ok(())
     }
