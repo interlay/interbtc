@@ -88,13 +88,12 @@ fn auction_replace(
 }
 
 fn execute_replace(
-    new_vault_id: AccountId,
     replace_id: H256,
     tx_id: H256Le,
     merkle_proof: Vec<u8>,
     raw_tx: Vec<u8>,
 ) -> Result<(), DispatchError> {
-    Replace::_execute_replace(new_vault_id, replace_id, tx_id, merkle_proof, raw_tx)
+    Replace::_execute_replace(replace_id, tx_id, merkle_proof, raw_tx)
 }
 
 fn cancel_replace(new_vault_id: AccountId, replace_id: H256) -> Result<(), DispatchError> {
@@ -441,13 +440,12 @@ fn test_execute_replace_bad_replace_id_fails() {
         Replace::get_replace_request
             .mock_safe(|_| MockResult::Return(Err(TestError::InvalidReplaceID.into())));
 
-        let new_vault_id = ALICE;
         let replace_id = H256::zero();
         let tx_id = H256Le::zero();
         let merkle_proof = Vec::new();
         let raw_tx = Vec::new();
         assert_err!(
-            execute_replace(new_vault_id, replace_id, tx_id, merkle_proof, raw_tx),
+            execute_replace(replace_id, tx_id, merkle_proof, raw_tx),
             TestError::InvalidReplaceID
         );
     })
@@ -456,7 +454,6 @@ fn test_execute_replace_bad_replace_id_fails() {
 #[test]
 fn test_execute_replace_replace_period_expired_fails() {
     run_test(|| {
-        let old_vault_id = ALICE;
         let new_vault_id = BOB;
         let replace_id = H256::zero();
         let tx_id = H256Le::zero();
@@ -473,7 +470,7 @@ fn test_execute_replace_replace_period_expired_fails() {
         Replace::current_height.mock_safe(|| MockResult::Return(110_000));
         Replace::replace_period.mock_safe(|| MockResult::Return(2));
         assert_err!(
-            execute_replace(old_vault_id, replace_id, tx_id, merkle_proof, raw_tx),
+            execute_replace(replace_id, tx_id, merkle_proof, raw_tx),
             TestError::ReplacePeriodExpired
         );
     })
@@ -746,7 +743,7 @@ fn test_execute_replace_succeeds() {
         Replace::remove_replace_request.mock_safe(|_| MockResult::Return(()));
 
         assert_eq!(
-            execute_replace(old_vault_id, replace_id, tx_id, merkle_proof, raw_tx),
+            execute_replace(replace_id, tx_id, merkle_proof, raw_tx),
             Ok(())
         );
 
@@ -825,7 +822,7 @@ fn test_execute_replace_parachain_not_running_fails() {
         ext::security::ensure_parachain_status_running::<Test>
             .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainNotRunning.into())));
         assert_noop!(
-            execute_replace(ALICE, H256::zero(), H256Le::zero(), Vec::new(), Vec::new()),
+            execute_replace(H256::zero(), H256Le::zero(), Vec::new(), Vec::new()),
             SecurityError::ParachainNotRunning
         );
     })
