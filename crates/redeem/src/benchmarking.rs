@@ -24,7 +24,7 @@ benchmarks! {
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
-        vault.wallet = Wallet::new(H160::random());
+        vault.wallet = Wallet::new(H160::from_slice(&[0; 20]));
         vault.issued_tokens = amount.into();
         VaultRegistry::<T>::_insert_vault(
             &vault_id,
@@ -44,7 +44,7 @@ benchmarks! {
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
-        vault.wallet = Wallet::new(H160::random());
+        vault.wallet = Wallet::new(H160::from_slice(&[0; 20]));
         VaultRegistry::<T>::_insert_vault(
             &vault_id,
             vault
@@ -109,7 +109,7 @@ benchmarks! {
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
-        vault.wallet = Wallet::new(H160::random());
+        vault.wallet = Wallet::new(H160::from_slice(&[0; 20]));
         VaultRegistry::<T>::_insert_vault(
             &vault_id,
             vault
