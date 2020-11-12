@@ -114,6 +114,42 @@ fn test_request_redeem_fails_with_amount_exceeds_user_balance() {
 }
 
 #[test]
+fn test_request_redeem_fails_with_amount_below_minimum() {
+    run_test(|| {
+        ext::oracle::btc_to_dots::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
+        <vault_registry::Module<Test>>::_insert_vault(
+            &BOB,
+            vault_registry::Vault {
+                id: BOB,
+                to_be_issued_tokens: 0,
+                issued_tokens: 10,
+                to_be_redeemed_tokens: 0,
+                wallet: Wallet::new(H160::random()),
+                banned_until: None,
+                status: VaultStatus::Active,
+            },
+        );
+
+        let redeemer = ALICE;
+        let amount = 9;
+
+        ext::vault_registry::increase_to_be_redeemed_tokens::<Test>.mock_safe(
+            move |vault_id, amount_btc| {
+                assert_eq!(vault_id, &BOB);
+                assert_eq!(amount_btc, amount);
+
+                MockResult::Return(Ok(()))
+            },
+        );
+
+        assert_err!(
+            Redeem::request_redeem(Origin::signed(redeemer.clone()), 1, H160([0; 20]), BOB),
+            TestError::InvalidAmount
+        );
+    })
+}
+
+#[test]
 fn test_request_redeem_fails_with_vault_not_found() {
     run_test(|| {
         assert_err!(
@@ -154,7 +190,7 @@ fn test_request_redeem_fails_with_vault_liquidated() {
             MockResult::Return(Ok(Vault {
                 id: BOB,
                 to_be_issued_tokens: 0,
-                issued_tokens: 0,
+                issued_tokens: 5,
                 to_be_redeemed_tokens: 0,
                 wallet: Wallet::new(H160::random()),
                 banned_until: Some(1),
@@ -164,7 +200,7 @@ fn test_request_redeem_fails_with_vault_liquidated() {
 
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         assert_err!(
-            Redeem::request_redeem(Origin::signed(ALICE), 0, H160::from_slice(&[0; 20]), BOB),
+            Redeem::request_redeem(Origin::signed(ALICE), 3, H160::from_slice(&[0; 20]), BOB),
             VaultRegistryError::VaultNotFound
         );
     })

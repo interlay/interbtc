@@ -204,10 +204,12 @@ fn testnet_genesis(
         }),
         redeem: Some(RedeemConfig {
             redeem_period: 7 * DAYS,
+            redeem_btc_dust_value: 1000,
         }),
         replace: Some(ReplaceConfig {
             replace_griefing_collateral: 10,
             replace_period: 7 * DAYS,
+            replace_btc_dust_value: 1000,
         }),
         vault_registry: Some(VaultRegistryConfig {
             minimum_collateral_vault: 0,
