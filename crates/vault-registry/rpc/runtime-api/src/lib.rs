@@ -48,19 +48,19 @@ sp_api::decl_runtime_apis! {
 
         /// Get the first available vault with sufficient collateral to fulfil an issue request
         /// with the specified amount of PolkaBTC.
-        fn get_first_vault_with_sufficient_collateral(amount: PolkaBTC) -> Result<AccountId, DispatchError>;
+        fn get_first_vault_with_sufficient_collateral(amount: BalanceWrapper<PolkaBTC>) -> Result<AccountId, DispatchError>;
 
         /// Get the first available vault with sufficient tokens to fulfil a redeem request
-        fn get_first_vault_with_sufficient_tokens(amount: PolkaBTC) -> Result<AccountId, DispatchError>;
+        fn get_first_vault_with_sufficient_tokens(amount: BalanceWrapper<PolkaBTC>) -> Result<AccountId, DispatchError>;
 
         /// Get the amount of tokens a vault can issue
-        fn get_issuable_tokens_from_vault(vault: AccountId) -> Result<PolkaBTC, DispatchError>;
+        fn get_issuable_tokens_from_vault(vault: AccountId) -> Result<BalanceWrapper<PolkaBTC>, DispatchError>;
 
         /// Get the collateralization rate of a vault scaled by GRANULARITY
         fn get_collateralization_from_vault(vault: AccountId) -> Result<u64, DispatchError>;
 
         /// Get the collateralization rate of a vault and collateral scaled by GRANULARITY
-        fn get_collateralization_from_vault_and_collateral(vault: AccountId, collateral: DOT) -> Result<u64, DispatchError>;
+        fn get_collateralization_from_vault_and_collateral(vault: AccountId, collateral: BalanceWrapper<DOT>) -> Result<u64, DispatchError>;
 
         /// Get the minimum amount of collateral required for the given amount of btc
         /// with the current threshold and exchange rate
