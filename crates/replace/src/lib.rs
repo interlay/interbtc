@@ -218,20 +218,22 @@ impl<T: Trait> Module<T> {
         // Check that Parachain status is RUNNING
         ext::security::ensure_parachain_status_running::<T>()?;
 
-        // check amount is non zero
-        let zero: PolkaBTC<T> = 0u32.into();
-        if amount == zero {
-            return Err(Error::<T>::InvalidAmount.into());
-        }
         // check vault exists
         let vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
+
         // step 3: check vault is not banned
         let height = Self::current_height();
         ext::vault_registry::ensure_not_banned::<T>(&vault_id, height)?;
+
         // step 4: check that the amount doesn't exceed the remaining available tokens
         if amount > vault.issued_tokens {
             amount = vault.issued_tokens;
         }
+        // check amount is non zero
+        if amount == 0u32.into() {
+            return Err(Error::<T>::InvalidAmount.into());
+        }
+
         // step 5: If the request is not for the entire BTC holdings, check that the remaining DOT collateral of the Vault is higher than MinimumCollateralVault
         let vault_collateral = ext::collateral::get_collateral_from_account::<T>(vault_id.clone());
         if amount != vault.issued_tokens {
@@ -239,17 +241,22 @@ impl<T: Trait> Module<T> {
                 ext::vault_registry::is_over_minimum_collateral::<T>(vault_collateral);
             ensure!(over_threshold, Error::<T>::InsufficientCollateral);
         }
+
         // step 6: Check that the griefingCollateral is greater or equal ReplaceGriefingCollateral
         ensure!(
             griefing_collateral >= <ReplaceGriefingCollateral<T>>::get(),
             Error::<T>::InsufficientCollateral
         );
+
         // step 7: Lock the oldVault’s griefing collateral
         ext::collateral::lock_collateral::<T>(vault_id.clone(), griefing_collateral)?;
+
         // step 8: Call the increaseToBeRedeemedTokens function with the oldVault and the btcAmount to ensure that the oldVault’s tokens cannot be redeemed when a replace procedure is happening.
         ext::vault_registry::increase_to_be_redeemed_tokens::<T>(&vault_id, amount.clone())?;
+
         // step 9: Generate a replaceId by hashing a random seed, a nonce, and the address of the Requester.
         let replace_id = ext::security::get_secure_id::<T>(&vault_id);
+
         // step 10: Create new ReplaceRequest entry:
         let replace = ReplaceRequest {
             old_vault: vault_id.clone(),
@@ -262,9 +269,9 @@ impl<T: Trait> Module<T> {
             btc_address: vault.wallet.get_btc_address(),
         };
         Self::insert_replace_request(replace_id, replace);
+
         // step 11: Emit RequestReplace event
         Self::deposit_event(<Event<T>>::RequestReplace(vault_id, amount, replace_id));
-        // step 12
         Ok(())
     }
 
@@ -275,30 +282,37 @@ impl<T: Trait> Module<T> {
         // check vault exists
         // step 1: Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
         let replace = Self::get_replace_request(&request_id)?;
+
         // step 2: Check that caller of the function is indeed the to-be-replaced Vault as specified in the ReplaceRequest. Return ERR_UNAUTHORIZED error if this check fails.
         let _vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
         ensure!(vault_id == replace.old_vault, Error::<T>::UnauthorizedVault);
+
         // step 3: Check that the collateral rate of the vault is not under the AuctionCollateralThreshold as defined in the VaultRegistry. If it is under the AuctionCollateralThreshold return ERR_UNAUTHORIZED
         ensure!(
             !ext::vault_registry::is_vault_below_auction_threshold::<T>(vault_id.clone())?,
             Error::<T>::VaultOverAuctionThreshold
         );
+
         // step 4: Check that the ReplaceRequest was not yet accepted by another Vault
         if replace.has_new_owner() {
             return Err(Error::<T>::CancelAcceptedRequest.into());
         }
+
         // step 5: Release the oldVault’s griefing collateral associated with this ReplaceRequests
         ext::collateral::release_collateral::<T>(
             replace.old_vault.clone(),
             replace.griefing_collateral.clone(),
         )?;
+
         // step 6: Call the decreaseToBeRedeemedTokens function in the VaultRegistry to allow the vault to be part of other redeem or replace requests again
         ext::vault_registry::decrease_to_be_redeemed_tokens::<T>(
             replace.old_vault,
             replace.amount.clone(),
         )?;
+
         // step 7: Remove the ReplaceRequest from ReplaceRequests
         Self::remove_replace_request(request_id);
+
         // step 8: Emit a WithdrawReplaceRequest(oldVault, replaceId) event.
         Self::deposit_event(<Event<T>>::WithdrawReplace(vault_id, request_id));
         Ok(())

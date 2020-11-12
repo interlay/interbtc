@@ -104,6 +104,18 @@ fn cancel_replace(new_vault_id: AccountId, replace_id: H256) -> Result<(), Dispa
 #[test]
 fn test_request_replace_transfer_zero_fails() {
     run_test(|| {
+        ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
+            MockResult::Return(Ok(Vault {
+                id: BOB,
+                to_be_issued_tokens: 0,
+                issued_tokens: 100,
+                to_be_redeemed_tokens: 0,
+                wallet: Wallet::new(H160([0; 20])),
+                banned_until: None,
+                status: VaultStatus::Active,
+            }))
+        });
         assert_noop!(request_replace(BOB, 0, 0), TestError::InvalidAmount);
     })
 }
