@@ -25,14 +25,14 @@ where
     #[rpc(name = "vaultRegistry_getFirstVaultWithSufficientCollateral")]
     fn get_first_vault_with_sufficient_collateral(
         &self,
-        amount: PolkaBTC,
+        amount: BalanceWrapper<PolkaBTC>,
         at: Option<BlockHash>,
     ) -> JsonRpcResult<AccountId>;
 
     #[rpc(name = "vaultRegistry_getFirstVaultWithSufficientTokens")]
     fn get_first_vault_with_sufficient_tokens(
         &self,
-        amount: PolkaBTC,
+        amount: BalanceWrapper<PolkaBTC>,
         at: Option<BlockHash>,
     ) -> JsonRpcResult<AccountId>;
 
@@ -41,7 +41,7 @@ where
         &self,
         vault: AccountId,
         at: Option<BlockHash>,
-    ) -> JsonRpcResult<PolkaBTC>;
+    ) -> JsonRpcResult<BalanceWrapper<PolkaBTC>>;
 
     #[rpc(name = "vaultRegistry_getCollateralizationFromVault")]
     fn get_collateralization_from_vault(
@@ -54,7 +54,7 @@ where
     fn get_collateralization_from_vault_and_collateral(
         &self,
         vault: AccountId,
-        collateral: DOT,
+        collateral: BalanceWrapper<DOT>,
         at: Option<BlockHash>,
     ) -> JsonRpcResult<u64>;
 
@@ -155,7 +155,7 @@ where
 
     fn get_first_vault_with_sufficient_collateral(
         &self,
-        amount: PolkaBTC,
+        amount: BalanceWrapper<PolkaBTC>,
         at: Option<<Block as BlockT>::Hash>,
     ) -> JsonRpcResult<AccountId> {
         let api = self.client.runtime_api();
@@ -169,7 +169,7 @@ where
 
     fn get_first_vault_with_sufficient_tokens(
         &self,
-        amount: PolkaBTC,
+        amount: BalanceWrapper<PolkaBTC>,
         at: Option<<Block as BlockT>::Hash>,
     ) -> JsonRpcResult<AccountId> {
         let api = self.client.runtime_api();
@@ -185,7 +185,7 @@ where
         &self,
         vault: AccountId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> JsonRpcResult<PolkaBTC> {
+    ) -> JsonRpcResult<BalanceWrapper<PolkaBTC>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
@@ -212,7 +212,7 @@ where
     fn get_collateralization_from_vault_and_collateral(
         &self,
         vault: AccountId,
-        collateral: DOT,
+        collateral: BalanceWrapper<DOT>,
         at: Option<<Block as BlockT>::Hash>,
     ) -> JsonRpcResult<u64> {
         let api = self.client.runtime_api();

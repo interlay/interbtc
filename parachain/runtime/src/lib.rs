@@ -617,24 +617,25 @@ impl_runtime_apis! {
             VaultRegistry::get_total_collateralization()
         }
 
-        fn get_first_vault_with_sufficient_collateral(amount: Balance) -> Result<AccountId, DispatchError> {
-            VaultRegistry::get_first_vault_with_sufficient_collateral(amount)
+        fn get_first_vault_with_sufficient_collateral(amount: BalanceWrapper<Balance>) -> Result<AccountId, DispatchError> {
+            VaultRegistry::get_first_vault_with_sufficient_collateral(amount.amount)
         }
 
-        fn get_first_vault_with_sufficient_tokens(amount: Balance) -> Result<AccountId, DispatchError> {
-            VaultRegistry::get_first_vault_with_sufficient_tokens(amount)
+        fn get_first_vault_with_sufficient_tokens(amount: BalanceWrapper<Balance>) -> Result<AccountId, DispatchError> {
+            VaultRegistry::get_first_vault_with_sufficient_tokens(amount.amount)
         }
 
-        fn get_issuable_tokens_from_vault(vault: AccountId) -> Result<Balance, DispatchError> {
-            VaultRegistry::get_issuable_tokens_from_vault(vault)
+        fn get_issuable_tokens_from_vault(vault: AccountId) -> Result<BalanceWrapper<Balance>, DispatchError> {
+            let result = VaultRegistry::get_issuable_tokens_from_vault(vault)?;
+            Ok(BalanceWrapper{amount:result})
         }
 
         fn get_collateralization_from_vault(vault: AccountId) -> Result<u64, DispatchError> {
             VaultRegistry::get_collateralization_from_vault(vault)
         }
 
-        fn get_collateralization_from_vault_and_collateral(vault: AccountId, collateral: Balance) -> Result<u64, DispatchError> {
-            VaultRegistry::get_collateralization_from_vault_and_collateral(vault, collateral)
+        fn get_collateralization_from_vault_and_collateral(vault: AccountId, collateral: BalanceWrapper<Balance>) -> Result<u64, DispatchError> {
+            VaultRegistry::get_collateralization_from_vault_and_collateral(vault, collateral.amount)
         }
 
         fn get_required_collateral_for_polkabtc(amount_btc: BalanceWrapper<Balance>) -> Result<BalanceWrapper<Balance>, DispatchError> {
