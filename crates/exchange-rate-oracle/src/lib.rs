@@ -2,6 +2,9 @@
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+/// # Exchange Rate Oracle implementation
+/// This is the implementation of the Exchange Rate Oracle following the spec at:
+/// https://interlay.gitlab.io/polkabtc-spec/spec/oracle.html
 mod ext;
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
@@ -21,13 +24,10 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
+use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::Currency;
 use frame_support::weights::Weight;
-/// # Exchange Rate Oracle implementation
-/// This is the implementation of the Exchange Rate Oracle following the spec at:
-/// https://interlay.gitlab.io/polkabtc-spec/spec/oracle.html
-// Substrate
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
 use frame_system::ensure_signed;
 use sp_std::convert::TryInto;
@@ -41,6 +41,7 @@ pub(crate) type PolkaBTC<T> =
 
 pub trait WeightInfo {
     fn set_exchange_rate() -> Weight;
+    fn set_btc_tx_fees_per_byte() -> Weight;
 }
 
 /// ## Configuration and Constants
@@ -58,6 +59,16 @@ pub trait Trait:
 /// Granularity of exchange rate
 pub const GRANULARITY: u128 = 5;
 
+#[derive(Encode, Decode, Default)]
+pub struct BtcTxFeesPerByte {
+    /// The estimated Satoshis per bytes to get included in the next block (~10 min)
+    pub fast: u32,
+    /// The estimated Satoshis per bytes to get included in the next 3 blocks (~half hour)
+    pub half: u32,
+    /// The estimated Satoshis per bytes to get included in the next 6 blocks (~hour)
+    pub hour: u32,
+}
+
 // This pallet's storage items.
 decl_storage! {
     trait Store for Module<T: Trait> as ExchangeRateOracle {
@@ -67,6 +78,8 @@ decl_storage! {
 
         /// Last exchange rate time
         LastExchangeRateTime: T::Moment;
+
+        SatoshiPerBytes get(fn satoshi_per_bytes): BtcTxFeesPerByte;
 
         /// Maximum delay (milliseconds) for the exchange rate to be used
         MaxDelay get(fn max_delay) config(): T::Moment;
@@ -100,6 +113,25 @@ decl_module! {
             Self::_set_exchange_rate(rate)?;
 
             Self::deposit_event(Event::<T>::SetExchangeRate(sender, rate));
+
+            Ok(())
+        }
+
+        #[weight = <T as Trait>::WeightInfo::set_btc_tx_fees_per_byte()]
+        pub fn set_btc_tx_fees_per_byte(origin, fast: u32, half: u32, hour: u32) -> DispatchResult {
+            // Check that Parachain is not in SHUTDOWN
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
+
+            let sender = ensure_signed(origin)?;
+
+            // fail if the sender is not the authorized oracle
+            ensure!(sender == Self::get_authorized_oracle(), Error::<T>::InvalidOracleSource);
+
+            // write the new values to storage
+            let fees = BtcTxFeesPerByte{fast, half, hour};
+            <SatoshiPerBytes>::put(fees);
+
+            Self::deposit_event(Event::<T>::SetBtcTxFeesPerByte(sender, fast, half, hour));
 
             Ok(())
         }
@@ -211,6 +243,8 @@ decl_event! {
             AccountId = <T as frame_system::Trait>::AccountId {
         /// Event emitted when exchange rate is set
         SetExchangeRate(AccountId, u128),
+        /// Event emitted when the btc tx fees are set
+        SetBtcTxFeesPerByte(AccountId, u32, u32, u32),
     }
 }
 

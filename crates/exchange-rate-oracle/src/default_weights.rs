@@ -12,4 +12,9 @@ impl crate::WeightInfo for () {
             .saturating_add(DbWeight::get().reads(5 as Weight))
             .saturating_add(DbWeight::get().writes(2 as Weight))
     }
+    fn set_btc_tx_fees_per_byte() -> Weight {
+        (30_015_705 as Weight)
+            .saturating_add(DbWeight::get().reads(2 as Weight))
+            .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
 }
