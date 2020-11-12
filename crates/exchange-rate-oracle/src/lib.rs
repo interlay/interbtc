@@ -2,6 +2,9 @@
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+/// # Exchange Rate Oracle implementation
+/// This is the implementation of the Exchange Rate Oracle following the spec at:
+/// https://interlay.gitlab.io/polkabtc-spec/spec/oracle.html
 mod ext;
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
@@ -21,18 +24,14 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
+use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::Currency;
 use frame_support::weights::Weight;
-/// # Exchange Rate Oracle implementation
-/// This is the implementation of the Exchange Rate Oracle following the spec at:
-/// https://interlay.gitlab.io/polkabtc-spec/spec/oracle.html
-// Substrate
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
 use frame_system::ensure_signed;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
-use codec::{Decode, Encode};
 
 pub(crate) type DOT<T> =
     <<T as collateral::Trait>::DOT as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
@@ -42,6 +41,7 @@ pub(crate) type PolkaBTC<T> =
 
 pub trait WeightInfo {
     fn set_exchange_rate() -> Weight;
+    fn set_btc_tx_fees_per_byte() -> Weight;
 }
 
 /// ## Configuration and Constants
@@ -117,7 +117,7 @@ decl_module! {
             Ok(())
         }
 
-        #[weight = 1000]
+        #[weight = <T as Trait>::WeightInfo::set_btc_tx_fees_per_byte()]
         pub fn set_btc_tx_fees_per_byte(origin, fast: u32, half: u32, hour: u32) -> DispatchResult {
             // Check that Parachain is not in SHUTDOWN
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
