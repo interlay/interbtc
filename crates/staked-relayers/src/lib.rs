@@ -128,6 +128,9 @@ decl_storage! {
         /// identifiers of Vaults accused of theft.
         TheftReports get(fn theft_report): map hasher(blake2_128_concat) H256Le => BTreeSet<T::AccountId>;
 
+        /// Mapping of Bitcoin block hashes to status update ids.
+        BlockReports get(fn block_report): map hasher(blake2_128_concat) H256Le => u64;
+
         /// AccountId of the governance mechanism, as specified in the genesis.
         GovernanceId get(fn gov_id) config(): T::AccountId;
     }
@@ -278,16 +281,30 @@ decl_module! {
             if let Some(ref add_error) = add_error {
                 match add_error {
                     ErrorCode::NoDataBTCRelay => {
-                        ensure!(
-                            block_hash.is_some(),
-                            Error::<T>::ExpectedBlockHash
-                        );
+                        match block_hash {
+                            Some(block_hash) => {
+                                ensure!(
+                                    !<BlockReports>::contains_key(block_hash),
+                                    Error::<T>::BlockAlreadyReported
+                                );
+                            }
+                            None => {
+                                return Err(Error::<T>::ExpectedBlockHash.into());
+                            }
+                        };
                     },
                     ErrorCode::InvalidBTCRelay => {
-                        ensure!(
-                            block_hash.is_some(),
-                            Error::<T>::ExpectedBlockHash
-                        );
+                        match block_hash {
+                            Some(block_hash) => {
+                                ensure!(
+                                    !<BlockReports>::contains_key(block_hash),
+                                    Error::<T>::BlockAlreadyReported
+                                );
+                            }
+                            None => {
+                                return Err(Error::<T>::ExpectedBlockHash.into());
+                            }
+                        };
                     }
                     _ => {
                         ensure!(
@@ -813,6 +830,10 @@ impl<T: Trait> Module<T> {
         status_update: StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>,
     ) -> u64 {
         let status_id = Self::get_status_counter();
+        if let Some(block_hash) = status_update.btc_block_hash {
+            // prevent duplicate blocks from being reported
+            <BlockReports>::insert(block_hash, status_id);
+        }
         <ActiveStatusUpdates<T>>::insert(&status_id, status_update);
         status_id
     }
@@ -1197,6 +1218,8 @@ decl_error! {
         OracleOnline,
         /// Block not included by the relay
         BlockNotFound,
+        /// Block already reported
+        BlockAlreadyReported,
         /// Cannot report vault theft without block hash
         ExpectedBlockHash,
         /// Status update should not contain block hash
