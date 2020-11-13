@@ -116,7 +116,7 @@ fn test_request_replace_transfer_zero_fails() {
                 status: VaultStatus::Active,
             }))
         });
-        assert_noop!(request_replace(BOB, 0, 0), TestError::InvalidAmount);
+        assert_noop!(request_replace(BOB, 0, 0), TestError::AmountBelowDustAmount);
     })
 }
 
@@ -124,7 +124,7 @@ fn test_request_replace_transfer_zero_fails() {
 fn test_request_replace_vault_not_found_fails() {
     run_test(|| {
         assert_noop!(
-            request_replace(10_000, 1, 0),
+            request_replace(10_000, 5, 0),
             VaultRegistryError::VaultNotFound
         );
     })
@@ -147,8 +147,41 @@ fn test_request_replace_vault_banned_fails() {
             }))
         });
         assert_noop!(
-            Replace::_request_replace(BOB, 1, 0),
+            Replace::_request_replace(BOB, 5, 0),
             VaultRegistryError::VaultBanned
+        );
+    })
+}
+#[test]
+fn test_request_replace_amount_below_dust_value_fails() {
+    run_test(|| {
+        let old_vault = BOB;
+        let griefing_collateral = 0;
+        let desired_griefing_collateral = 2;
+
+        let amount = 1;
+
+        ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+
+        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
+            MockResult::Return(Ok(Vault {
+                id: BOB,
+                to_be_issued_tokens: 0,
+                issued_tokens: 10,
+                to_be_redeemed_tokens: 0,
+                wallet: Wallet::new(H160([0; 20])),
+                banned_until: None,
+                status: VaultStatus::Active,
+            }))
+        });
+        ext::vault_registry::is_over_minimum_collateral::<Test>
+            .mock_safe(|_| MockResult::Return(true));
+        ext::collateral::get_collateral_from_account::<Test>.mock_safe(|_| MockResult::Return(1));
+
+        Replace::set_replace_griefing_collateral(desired_griefing_collateral);
+        assert_noop!(
+            Replace::_request_replace(old_vault, amount, griefing_collateral),
+            TestError::AmountBelowDustAmount
         );
     })
 }
@@ -160,7 +193,7 @@ fn test_request_replace_insufficient_griefing_collateral_fails() {
         let griefing_collateral = 0;
         let desired_griefing_collateral = 2;
 
-        let amount = 1;
+        let amount = 3;
 
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 

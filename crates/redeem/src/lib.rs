@@ -73,6 +73,10 @@ decl_storage! {
         /// Users create redeem requests to receive BTC in return for PolkaBTC.
         /// This mapping provides access from a unique hash redeemId to a Redeem struct.
         RedeemRequests: map hasher(blake2_128_concat) H256 => RedeemRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>;
+
+        /// The minimum amount of btc that is accepted for redeem requests; any lower values would
+        /// risk the bitcoin client to reject the payment
+        RedeemBtcDustValue get(fn redeem_btc_dust_value) config(): PolkaBTC<T>;
     }
 }
 
@@ -127,6 +131,13 @@ decl_module! {
             ensure!(
                 amount_polka_btc <= vault.issued_tokens,
                 Error::<T>::AmountExceedsVaultBalance
+            );
+
+            // only allow requests of amount above above the minimum
+            let dust_value = <RedeemBtcDustValue<T>>::get();
+            ensure!(
+                amount_polka_btc >= dust_value,
+                Error::<T>::AmountBelowDustAmount
             );
 
             let (amount_btc, amount_dot): (u128, u128) =
@@ -426,5 +437,6 @@ decl_error! {
         TimeNotExpired,
         RedeemIdNotFound,
         ConversionError,
+        AmountBelowDustAmount,
     }
 }

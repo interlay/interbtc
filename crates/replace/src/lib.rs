@@ -79,6 +79,10 @@ decl_storage! {
         /// and required completion time by a vault. The replace period has an upper limit
         /// to prevent griefing of vault collateral.
         ReplacePeriod get(fn replace_period) config(): T::BlockNumber;
+
+        /// The minimum amount of btc that is accepted for replace requests; any lower values would
+        /// risk the bitcoin client to reject the payment
+        ReplaceBtcDustValue get(fn replace_btc_dust_value) config(): PolkaBTC<T>;
     }
 }
 
@@ -215,7 +219,7 @@ impl<T: Trait> Module<T> {
         mut amount: PolkaBTC<T>,
         griefing_collateral: DOT<T>,
     ) -> DispatchResult {
-        // Check that Parachain status is RUNNING
+        // step 1: Check that Parachain status is RUNNING
         ext::security::ensure_parachain_status_running::<T>()?;
 
         // check vault exists
@@ -229,10 +233,9 @@ impl<T: Trait> Module<T> {
         if amount > vault.issued_tokens {
             amount = vault.issued_tokens;
         }
-        // check amount is non zero
-        if amount == 0u32.into() {
-            return Err(Error::<T>::InvalidAmount.into());
-        }
+        // check amount is above the minimum
+        let dust_value = <ReplaceBtcDustValue<T>>::get();
+        ensure!(amount >= dust_value, Error::<T>::AmountBelowDustAmount);
 
         // step 5: If the request is not for the entire BTC holdings, check that the remaining DOT collateral of the Vault is higher than MinimumCollateralVault
         let vault_collateral = ext::collateral::get_collateral_from_account::<T>(vault_id.clone());
@@ -601,7 +604,7 @@ impl<T: Trait> Module<T> {
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        InvalidAmount,
+        AmountBelowDustAmount,
         NoReplacement,
         InsufficientCollateral,
         UnauthorizedVault,

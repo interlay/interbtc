@@ -173,6 +173,7 @@ impl ExtBuilder {
         GenesisConfig::<Test> {
             replace_griefing_collateral: 10,
             replace_period: 10,
+            replace_btc_dust_value: 2,
         }
         .assimilate_storage(&mut storage)
         .unwrap();

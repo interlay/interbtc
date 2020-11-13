@@ -169,9 +169,12 @@ impl ExtBuilder {
 
         conf.assimilate_storage(&mut storage).unwrap();
 
-        GenesisConfig::<Test> { redeem_period: 10 }
-            .assimilate_storage(&mut storage)
-            .unwrap();
+        GenesisConfig::<Test> {
+            redeem_period: 10,
+            redeem_btc_dust_value: 2,
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
 
         storage.into()
     }
