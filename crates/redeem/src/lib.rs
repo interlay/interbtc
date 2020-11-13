@@ -137,7 +137,7 @@ decl_module! {
             let dust_value = <RedeemBtcDustValue<T>>::get();
             ensure!(
                 amount_polka_btc >= dust_value,
-                Error::<T>::InvalidAmount
+                Error::<T>::AmountBelowDustAmount
             );
 
             let (amount_btc, amount_dot): (u128, u128) =
@@ -437,6 +437,6 @@ decl_error! {
         TimeNotExpired,
         RedeemIdNotFound,
         ConversionError,
-        InvalidAmount,
+        AmountBelowDustAmount,
     }
 }

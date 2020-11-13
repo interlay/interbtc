@@ -116,7 +116,7 @@ fn test_request_replace_transfer_zero_fails() {
                 status: VaultStatus::Active,
             }))
         });
-        assert_noop!(request_replace(BOB, 0, 0), TestError::InvalidAmount);
+        assert_noop!(request_replace(BOB, 0, 0), TestError::AmountBelowDustAmount);
     })
 }
 
@@ -181,7 +181,7 @@ fn test_request_replace_amount_below_dust_value_fails() {
         Replace::set_replace_griefing_collateral(desired_griefing_collateral);
         assert_noop!(
             Replace::_request_replace(old_vault, amount, griefing_collateral),
-            TestError::InvalidAmount
+            TestError::AmountBelowDustAmount
         );
     })
 }

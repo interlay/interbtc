@@ -235,7 +235,7 @@ impl<T: Trait> Module<T> {
         }
         // check amount is above the minimum
         let dust_value = <ReplaceBtcDustValue<T>>::get();
-        ensure!(amount >= dust_value, Error::<T>::InvalidAmount);
+        ensure!(amount >= dust_value, Error::<T>::AmountBelowDustAmount);
 
         // step 5: If the request is not for the entire BTC holdings, check that the remaining DOT collateral of the Vault is higher than MinimumCollateralVault
         let vault_collateral = ext::collateral::get_collateral_from_account::<T>(vault_id.clone());
@@ -604,7 +604,7 @@ impl<T: Trait> Module<T> {
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        InvalidAmount,
+        AmountBelowDustAmount,
         NoReplacement,
         InsufficientCollateral,
         UnauthorizedVault,

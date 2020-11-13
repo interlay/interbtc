@@ -144,7 +144,7 @@ fn test_request_redeem_fails_with_amount_below_minimum() {
 
         assert_err!(
             Redeem::request_redeem(Origin::signed(redeemer.clone()), 1, H160([0; 20]), BOB),
-            TestError::InvalidAmount
+            TestError::AmountBelowDustAmount
         );
     })
 }
