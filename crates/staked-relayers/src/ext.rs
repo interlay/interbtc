@@ -67,7 +67,7 @@ pub(crate) mod vault_registry {
     }
 
     pub fn get_liquidation_collateral_threshold<T: vault_registry::Trait>() -> u128 {
-        <vault_registry::Module<T>>::_get_liquidation_collateral_threshold()
+        <vault_registry::Module<T>>::liquidation_collateral_threshold()
     }
 
     pub fn liquidate_vault<T: vault_registry::Trait>(vault_id: &T::AccountId) -> DispatchResult {
@@ -106,7 +106,6 @@ pub(crate) mod security {
         <security::Module<T>>::mutate_errors(f)
     }
 
-    #[cfg(test)]
     pub(crate) fn get_errors<T: security::Trait>() -> BTreeSet<ErrorCode> {
         <security::Module<T>>::get_errors()
     }
@@ -150,11 +149,12 @@ pub(crate) mod redeem {
     use crate::types::{PolkaBTC, DOT};
     use frame_support::dispatch::DispatchError;
     use primitive_types::H256;
-    use redeem::types::Redeem;
+    use redeem::types::RedeemRequest;
 
     pub(crate) fn get_redeem_request_from_id<T: redeem::Trait>(
         id: &H256,
-    ) -> Result<Redeem<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
+    ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError>
+    {
         <redeem::Module<T>>::get_redeem_request_from_id(id)
     }
 }
@@ -164,11 +164,12 @@ pub(crate) mod replace {
     use crate::types::{PolkaBTC, DOT};
     use frame_support::dispatch::DispatchError;
     use primitive_types::H256;
-    use replace::types::Replace;
+    use replace::types::ReplaceRequest;
 
     pub(crate) fn get_replace_request<T: replace::Trait>(
         id: &H256,
-    ) -> Result<Replace<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
+    ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError>
+    {
         <replace::Module<T>>::get_replace_request(id)
     }
 }

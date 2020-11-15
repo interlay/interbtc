@@ -1,14 +1,14 @@
 use crate::ext;
 use crate::mock::*;
 
-use crate::types::{PolkaBTC, Redeem as RedeemRequest, DOT};
+use crate::types::{PolkaBTC, RedeemRequest, DOT};
 use bitcoin::types::H256Le;
 use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
 use primitive_types::H256;
 use sp_core::H160;
 use sp_std::convert::TryInto;
-use vault_registry::{Vault, VaultStatus};
+use vault_registry::{Vault, VaultStatus, Wallet};
 
 type Event = crate::Event<Test>;
 
@@ -94,7 +94,7 @@ fn test_request_redeem_fails_with_amount_exceeds_user_balance() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
                 to_be_redeemed_tokens: 0,
-                btc_address: H160([0; 20]),
+                wallet: Wallet::new(H160::random()),
                 banned_until: None,
                 status: VaultStatus::Active,
             }))
@@ -109,6 +109,42 @@ fn test_request_redeem_fails_with_amount_exceeds_user_balance() {
                 BOB
             ),
             TestError::AmountExceedsUserBalance
+        );
+    })
+}
+
+#[test]
+fn test_request_redeem_fails_with_amount_below_minimum() {
+    run_test(|| {
+        ext::oracle::btc_to_dots::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
+        <vault_registry::Module<Test>>::_insert_vault(
+            &BOB,
+            vault_registry::Vault {
+                id: BOB,
+                to_be_issued_tokens: 0,
+                issued_tokens: 10,
+                to_be_redeemed_tokens: 0,
+                wallet: Wallet::new(H160::random()),
+                banned_until: None,
+                status: VaultStatus::Active,
+            },
+        );
+
+        let redeemer = ALICE;
+        let amount = 9;
+
+        ext::vault_registry::increase_to_be_redeemed_tokens::<Test>.mock_safe(
+            move |vault_id, amount_btc| {
+                assert_eq!(vault_id, &BOB);
+                assert_eq!(amount_btc, amount);
+
+                MockResult::Return(Ok(()))
+            },
+        );
+
+        assert_err!(
+            Redeem::request_redeem(Origin::signed(redeemer.clone()), 1, H160([0; 20]), BOB),
+            TestError::AmountBelowDustAmount
         );
     })
 }
@@ -132,7 +168,7 @@ fn test_request_redeem_fails_with_vault_banned() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
-                btc_address: H160([0; 20]),
+                wallet: Wallet::new(H160::random()),
                 banned_until: Some(1),
                 status: VaultStatus::Active,
             }))
@@ -154,9 +190,9 @@ fn test_request_redeem_fails_with_vault_liquidated() {
             MockResult::Return(Ok(Vault {
                 id: BOB,
                 to_be_issued_tokens: 0,
-                issued_tokens: 0,
+                issued_tokens: 5,
                 to_be_redeemed_tokens: 0,
-                btc_address: H160([0; 20]),
+                wallet: Wallet::new(H160::random()),
                 banned_until: Some(1),
                 status: VaultStatus::Liquidated,
             }))
@@ -164,7 +200,7 @@ fn test_request_redeem_fails_with_vault_liquidated() {
 
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         assert_err!(
-            Redeem::request_redeem(Origin::signed(ALICE), 0, H160::from_slice(&[0; 20]), BOB),
+            Redeem::request_redeem(Origin::signed(ALICE), 3, H160::from_slice(&[0; 20]), BOB),
             VaultRegistryError::VaultNotFound
         );
     })
@@ -180,7 +216,7 @@ fn test_request_redeem_fails_with_amount_exceeds_vault_balance() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
                 to_be_redeemed_tokens: 0,
-                btc_address: H160([0; 20]),
+                wallet: Wallet::new(H160::random()),
                 banned_until: None,
                 status: VaultStatus::Active,
             }))
@@ -212,7 +248,7 @@ fn test_request_redeem_succeeds_in_running_state() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
                 to_be_redeemed_tokens: 0,
-                btc_address: H160([0; 20]),
+                wallet: Wallet::new(H160::random()),
                 banned_until: None,
                 status: VaultStatus::Active,
             },
@@ -304,7 +340,7 @@ fn test_request_redeem_succeeds_in_error_state() {
                 to_be_issued_tokens: 0,
                 issued_tokens: amount,
                 to_be_redeemed_tokens: 0,
-                btc_address: H160([0; 20]),
+                wallet: Wallet::new(H160::random()),
                 banned_until: None,
                 status: VaultStatus::Active,
             },
@@ -417,12 +453,12 @@ fn test_execute_redeem_fails_with_unauthorized_vault() {
 #[test]
 fn test_execute_redeem_fails_with_commit_period_expired() {
     run_test(|| {
-        <frame_system::Module<Test>>::set_block_number(20);
+        <frame_system::Module<Test>>::set_block_number(40);
 
         Redeem::get_redeem_request_from_id.mock_safe(|_| {
             MockResult::Return(Ok(RedeemRequest {
                 vault: BOB,
-                opentime: 30,
+                opentime: 20,
                 amount_polka_btc: 0,
                 amount_btc: 0,
                 amount_dot: 0,
@@ -458,7 +494,7 @@ fn test_execute_redeem_succeeds() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 200,
                 to_be_redeemed_tokens: 200,
-                btc_address: H160([0; 20]),
+                wallet: Wallet::new(H160::random()),
                 banned_until: None,
                 status: VaultStatus::Active,
             },
@@ -472,7 +508,7 @@ fn test_execute_redeem_succeeds() {
             H256([0u8; 32]),
             RedeemRequest {
                 vault: BOB,
-                opentime: 20,
+                opentime: 40,
                 amount_polka_btc: 100,
                 amount_btc: 0,
                 amount_dot: 0,

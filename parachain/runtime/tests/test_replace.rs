@@ -38,16 +38,14 @@ fn integration_test_replace_request_replace() {
     ExtBuilder::build().execute_with(|| {
         SystemModule::set_block_number(1);
         let amount = 1000;
+        let collateral = amount * 2;
         let griefing_collateral = 200;
 
         // peg spot rate
         assert_ok!(Call::ExchangeRateOracle(OracleCall::set_exchange_rate(1))
             .dispatch(origin_of(account_of(BOB))));
         // bob creates a vault
-        assert_ok!(
-            Call::VaultRegistry(VaultRegistryCall::register_vault(amount, H160([0; 20])))
-                .dispatch(origin_of(account_of(BOB)))
-        );
+        force_issue_tokens(ALICE, BOB, collateral, amount, H160::random());
         // bob requests a replace
         assert_ok!(
             Call::Replace(ReplaceCall::request_replace(amount, griefing_collateral))
@@ -63,18 +61,15 @@ fn integration_test_replace_withdraw_replace() {
     ExtBuilder::build().execute_with(|| {
         SystemModule::set_block_number(1);
         let griefing_collateral = 200;
-        let collateral = 100_000;
+        let amount = 50_000;
+        let collateral = amount * 2;
 
         let bob = origin_of(account_of(BOB));
         // peg spot rate
         assert_ok!(Call::ExchangeRateOracle(OracleCall::set_exchange_rate(1))
             .dispatch(origin_of(account_of(BOB))));
         // bob creates a vault
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-            collateral,
-            H160([0; 20])
-        ))
-        .dispatch(origin_of(account_of(BOB))));
+        force_issue_tokens(ALICE, BOB, collateral, amount, H160::random());
         // bob requests a replace
         assert_ok!(
             Call::Replace(ReplaceCall::request_replace(5000, griefing_collateral))
@@ -97,16 +92,13 @@ fn integration_test_replace_accept_replace() {
         // peg spot rate
         assert_ok!(Call::ExchangeRateOracle(OracleCall::set_exchange_rate(1))
             .dispatch(origin_of(account_of(BOB))));
-        // bob creates a vault
-        assert_ok!(
-            Call::VaultRegistry(VaultRegistryCall::register_vault(amount, H160([0; 20])))
-                .dispatch(origin_of(account_of(ALICE)))
-        );
         // alice creates a vault
         assert_ok!(
-            Call::VaultRegistry(VaultRegistryCall::register_vault(amount, H160([0; 20])))
-                .dispatch(origin_of(account_of(BOB)))
+            Call::VaultRegistry(VaultRegistryCall::register_vault(amount, H160::random()))
+                .dispatch(origin_of(account_of(ALICE)))
         );
+        // bob creates a vault
+        force_issue_tokens(ALICE, BOB, collateral, amount, H160::random());
         // bob requests a replace
         assert_ok!(
             Call::Replace(ReplaceCall::request_replace(amount, griefing_collateral))
@@ -130,7 +122,9 @@ fn integration_test_replace_auction_replace() {
         let new_vault = BOB;
         let collateral = 4_000;
         let polkabtc = 1_000;
-        let vault_btc_address = H160([0u8; 20]);
+
+        let old_vault_btc_address = H160::random();
+        let new_vault_btc_address = H160::random();
 
         set_default_thresholds();
         // peg spot rate
@@ -138,12 +132,12 @@ fn integration_test_replace_auction_replace() {
             .dispatch(origin_of(account_of(BOB))));
 
         // old vault has issued some tokens with the user
-        force_issue_tokens(user, old_vault, collateral, polkabtc, vault_btc_address);
+        force_issue_tokens(user, old_vault, collateral, polkabtc, old_vault_btc_address);
 
         // new vault joins
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
             collateral,
-            vault_btc_address
+            new_vault_btc_address
         ))
         .dispatch(origin_of(account_of(new_vault))));
         // exchange rate drops and vault is not collateralized any more
@@ -168,7 +162,9 @@ fn integration_test_replace_execute_replace() {
         let griefing_collateral = 50;
         let collateral = 4_000;
         let polkabtc = 1_000;
-        let vault_btc_address = H160([0u8; 20]);
+
+        let old_vault_btc_address = H160::random();
+        let new_vault_btc_address = H160::random();
 
         set_default_thresholds();
         SystemModule::set_block_number(1);
@@ -178,12 +174,12 @@ fn integration_test_replace_execute_replace() {
             .dispatch(origin_of(account_of(BOB))));
 
         // old vault has issued some tokens with the user
-        force_issue_tokens(user, old_vault, collateral, polkabtc, vault_btc_address);
+        force_issue_tokens(user, old_vault, collateral, polkabtc, old_vault_btc_address);
 
         // new vault joins
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
             collateral,
-            vault_btc_address
+            new_vault_btc_address
         ))
         .dispatch(origin_of(account_of(new_vault))));
 
@@ -202,7 +198,7 @@ fn integration_test_replace_execute_replace() {
 
         // send the btc from the old_vault to the new_vault
         let (tx_id, tx_block_height, merkle_proof, raw_tx) =
-            generate_transaction_and_mine(vault_btc_address, polkabtc, replace_id);
+            generate_transaction_and_mine(new_vault_btc_address, polkabtc, replace_id);
 
         SystemModule::set_block_number(1 + CONFIRMATIONS);
         let r = Call::Replace(ReplaceCall::execute_replace(
@@ -228,16 +224,13 @@ fn integration_test_replace_cancel_replace() {
         // peg spot rate
         assert_ok!(Call::ExchangeRateOracle(OracleCall::set_exchange_rate(1))
             .dispatch(origin_of(account_of(BOB))));
-        // bob creates a vault
-        assert_ok!(
-            Call::VaultRegistry(VaultRegistryCall::register_vault(amount, H160([0; 20])))
-                .dispatch(origin_of(account_of(ALICE)))
-        );
         // alice creates a vault
         assert_ok!(
-            Call::VaultRegistry(VaultRegistryCall::register_vault(10, H160([0; 20])))
-                .dispatch(origin_of(account_of(BOB)))
+            Call::VaultRegistry(VaultRegistryCall::register_vault(amount, H160::random()))
+                .dispatch(origin_of(account_of(ALICE)))
         );
+        // bob creates a vault
+        force_issue_tokens(ALICE, BOB, collateral, amount, H160::random());
         // bob requests a replace
         assert_ok!(
             Call::Replace(ReplaceCall::request_replace(amount, griefing_collateral))

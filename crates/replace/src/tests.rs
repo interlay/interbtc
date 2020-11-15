@@ -1,7 +1,7 @@
 use crate::ext;
 use crate::mock::*;
 use crate::PolkaBTC;
-use crate::Replace as R;
+use crate::ReplaceRequest as R;
 use crate::DOT;
 use bitcoin::types::H256Le;
 use frame_support::{
@@ -11,7 +11,7 @@ use frame_support::{
 use mocktopus::mocking::*;
 use primitive_types::H256;
 use sp_core::H160;
-use vault_registry::{Vault, VaultStatus};
+use vault_registry::{Vault, VaultStatus, Wallet};
 
 type Event = crate::Event<Test>;
 
@@ -51,7 +51,7 @@ fn test_vault() -> Vault<u64, u64, u64> {
         id: BOB,
         banned_until: None,
         issued_tokens: 5,
-        btc_address: H160([0; 20]),
+        wallet: Wallet::new(H160([0; 20])),
         to_be_issued_tokens: 0,
         to_be_redeemed_tokens: 0,
         status: VaultStatus::Active,
@@ -104,7 +104,19 @@ fn cancel_replace(new_vault_id: AccountId, replace_id: H256) -> Result<(), Dispa
 #[test]
 fn test_request_replace_transfer_zero_fails() {
     run_test(|| {
-        assert_noop!(request_replace(BOB, 0, 0), TestError::InvalidAmount);
+        ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
+            MockResult::Return(Ok(Vault {
+                id: BOB,
+                to_be_issued_tokens: 0,
+                issued_tokens: 100,
+                to_be_redeemed_tokens: 0,
+                wallet: Wallet::new(H160([0; 20])),
+                banned_until: None,
+                status: VaultStatus::Active,
+            }))
+        });
+        assert_noop!(request_replace(BOB, 0, 0), TestError::AmountBelowDustAmount);
     })
 }
 
@@ -112,7 +124,7 @@ fn test_request_replace_transfer_zero_fails() {
 fn test_request_replace_vault_not_found_fails() {
     run_test(|| {
         assert_noop!(
-            request_replace(10_000, 1, 0),
+            request_replace(10_000, 5, 0),
             VaultRegistryError::VaultNotFound
         );
     })
@@ -129,20 +141,19 @@ fn test_request_replace_vault_banned_fails() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
-                btc_address: H160([0; 20]),
+                wallet: Wallet::new(H160([0; 20])),
                 banned_until: Some(1),
                 status: VaultStatus::Active,
             }))
         });
         assert_noop!(
-            Replace::_request_replace(BOB, 1, 0),
+            Replace::_request_replace(BOB, 5, 0),
             VaultRegistryError::VaultBanned
         );
     })
 }
-
 #[test]
-fn test_request_replace_insufficient_griefing_collateral_fails() {
+fn test_request_replace_amount_below_dust_value_fails() {
     run_test(|| {
         let old_vault = BOB;
         let griefing_collateral = 0;
@@ -158,7 +169,41 @@ fn test_request_replace_insufficient_griefing_collateral_fails() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
                 to_be_redeemed_tokens: 0,
-                btc_address: H160([0; 20]),
+                wallet: Wallet::new(H160([0; 20])),
+                banned_until: None,
+                status: VaultStatus::Active,
+            }))
+        });
+        ext::vault_registry::is_over_minimum_collateral::<Test>
+            .mock_safe(|_| MockResult::Return(true));
+        ext::collateral::get_collateral_from_account::<Test>.mock_safe(|_| MockResult::Return(1));
+
+        Replace::set_replace_griefing_collateral(desired_griefing_collateral);
+        assert_noop!(
+            Replace::_request_replace(old_vault, amount, griefing_collateral),
+            TestError::AmountBelowDustAmount
+        );
+    })
+}
+
+#[test]
+fn test_request_replace_insufficient_griefing_collateral_fails() {
+    run_test(|| {
+        let old_vault = BOB;
+        let griefing_collateral = 0;
+        let desired_griefing_collateral = 2;
+
+        let amount = 3;
+
+        ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+
+        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
+            MockResult::Return(Ok(Vault {
+                id: BOB,
+                to_be_issued_tokens: 0,
+                issued_tokens: 10,
+                to_be_redeemed_tokens: 0,
+                wallet: Wallet::new(H160([0; 20])),
                 banned_until: None,
                 status: VaultStatus::Active,
             }))
@@ -456,22 +501,24 @@ fn test_execute_replace_bad_replace_id_fails() {
 #[test]
 fn test_execute_replace_replace_period_expired_fails() {
     run_test(|| {
-        Replace::get_replace_request.mock_safe(|_| {
-            let mut req = test_request();
-            req.open_time = 100_000;
-            MockResult::Return(Ok(req))
-        });
-
-        let new_vault_id = ALICE;
+        let old_vault_id = ALICE;
+        let new_vault_id = BOB;
         let replace_id = H256::zero();
         let tx_id = H256Le::zero();
         let merkle_proof = Vec::new();
         let raw_tx = Vec::new();
 
+        Replace::get_replace_request.mock_safe(move |_| {
+            let mut req = test_request();
+            req.open_time = 100_000;
+            req.new_vault = Some(new_vault_id);
+            MockResult::Return(Ok(req))
+        });
+
         Replace::current_height.mock_safe(|| MockResult::Return(110_000));
         Replace::replace_period.mock_safe(|| MockResult::Return(2));
         assert_err!(
-            execute_replace(new_vault_id, replace_id, tx_id, merkle_proof, raw_tx),
+            execute_replace(old_vault_id, replace_id, tx_id, merkle_proof, raw_tx),
             TestError::ReplacePeriodExpired
         );
     })
@@ -624,13 +671,16 @@ fn test_withdraw_replace_succeeds() {
 #[test]
 fn test_accept_replace_succeeds() {
     run_test(|| {
-        let vault_id = BOB;
+        let old_vault_id = ALICE;
+        let new_vault_id = BOB;
         let replace_id = H256::zero();
         let collateral = 20_000;
+        let btc_amount = 100;
 
-        Replace::get_replace_request.mock_safe(|_| {
+        Replace::get_replace_request.mock_safe(move |_| {
             let mut replace = test_request();
-            replace.old_vault = BOB;
+            replace.old_vault = old_vault_id;
+            replace.amount = btc_amount;
             MockResult::Return(Ok(replace))
         });
 
@@ -644,9 +694,15 @@ fn test_accept_replace_succeeds() {
 
         ext::collateral::lock_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
-        assert_eq!(accept_replace(vault_id, replace_id, collateral), Ok(()));
+        assert_eq!(accept_replace(new_vault_id, replace_id, collateral), Ok(()));
 
-        let event = Event::AcceptReplace(vault_id, replace_id, collateral);
+        let event = Event::AcceptReplace(
+            old_vault_id,
+            new_vault_id,
+            replace_id,
+            collateral,
+            btc_amount,
+        );
         assert_emitted!(event);
     })
 }
@@ -726,13 +782,16 @@ fn test_execute_replace_succeeds() {
             .mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::btc_relay::validate_transaction::<Test>
             .mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
+
         ext::vault_registry::replace_tokens::<Test>
             .mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
+
         ext::collateral::release_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+
         Replace::remove_replace_request.mock_safe(|_| MockResult::Return(()));
 
         assert_eq!(
-            execute_replace(new_vault_id, replace_id, tx_id, merkle_proof, raw_tx),
+            execute_replace(old_vault_id, replace_id, tx_id, merkle_proof, raw_tx),
             Ok(())
         );
 
@@ -755,7 +814,7 @@ fn test_cancel_replace_succeeds() {
             replace.open_time = 2;
             MockResult::Return(Ok(replace))
         });
-        Replace::current_height.mock_safe(|| MockResult::Return(10));
+        Replace::current_height.mock_safe(|| MockResult::Return(15));
         Replace::replace_period.mock_safe(|| MockResult::Return(2));
         ext::vault_registry::decrease_to_be_redeemed_tokens::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(())));

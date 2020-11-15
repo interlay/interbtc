@@ -69,7 +69,7 @@ impl frame_system::Trait for Test {
     type DbWeight = RocksDbWeight;
     type ExtrinsicBaseWeight = ExtrinsicBaseWeight;
     type Version = ();
-    type ModuleToIndex = ();
+    type PalletInfo = ();
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type AccountData = ();
@@ -80,6 +80,7 @@ impl frame_system::Trait for Test {
 
 impl Trait for Test {
     type Event = TestEvent;
+    type WeightInfo = ();
 }
 
 impl security::Trait for Test {
@@ -103,7 +104,9 @@ impl ExtBuilder {
         GenesisConfig::<Test> {
             bitcoin_confirmations: BITCOIN_CONFIRMATIONS,
             parachain_confirmations: PARACHAIN_CONFIRMATIONS,
-            difficulty_check: true,
+            disable_difficulty_check: false,
+            disable_inclusion_check: false,
+            disable_op_return_check: false,
         }
         .assimilate_storage(&mut storage)
         .unwrap();

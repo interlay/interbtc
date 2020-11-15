@@ -1,10 +1,24 @@
+[dependencies.hex-literal]
+optional = true
+version = '0.3.1'
+
+[dependencies.frame-benchmarking]
+version = "2.0.0"
+default-features = false
+optional = true
+
+[dependencies.frame-system-benchmarking]
+default-features = false
+optional = true
+version = '2.0.0'
+
 [dependencies.pallet-aura]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.pallet-balances]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.codec]
 default-features = false
@@ -14,19 +28,19 @@ version = '1.3.4'
 
 [dependencies.frame-executive]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.frame-support]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.pallet-grandpa]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.pallet-randomness-collective-flip]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.serde]
 features = ['derive']
@@ -35,75 +49,75 @@ version = '1.0.101'
 
 [dependencies.sp-api]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.sp-block-builder]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.sp-consensus-aura]
 default-features = false
-version = '0.8.0-rc6'
+version = '0.8.0'
 
 [dependencies.sp-core]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.sp-inherents]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.sp-io]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.sp-offchain]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.sp-runtime]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.sp-session]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.sp-std]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.sp-transaction-pool]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.sp-version]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.pallet-sudo]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.frame-system]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.frame-system-rpc-runtime-api]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.pallet-timestamp]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.pallet-transaction-payment]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [dependencies.pallet-transaction-payment-rpc-runtime-api]
 default-features = false
-version = '2.0.0-rc6'
+version = '2.0.0'
 
 [build-dependencies.wasm-builder-runner]
 package = 'substrate-wasm-builder-runner'
@@ -171,6 +185,18 @@ path = '../../crates/staked-relayers/rpc/runtime-api'
 default-features = false
 path = '../../crates/vault-registry/rpc/runtime-api'
 
+[dependencies.module-issue-rpc-runtime-api]
+default-features = false
+path = '../../crates/issue/rpc/runtime-api'
+
+[dependencies.module-redeem-rpc-runtime-api]
+default-features = false
+path = '../../crates/redeem/rpc/runtime-api'
+
+[dependencies.module-replace-rpc-runtime-api]
+default-features = false
+path = '../../crates/replace/rpc/runtime-api'
+
 [dev-dependencies.bitcoin]
 default-features = false
 package = 'bitcoin'
@@ -190,7 +216,7 @@ serde_json = "1.0"
 authors = ['Interlay Ltd']
 edition = '2018'
 name = 'btc-parachain-runtime'
-version = '2.0.0-rc6'
+version = '0.2.3'
 
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']
@@ -227,6 +253,9 @@ std = [
   'module-exchange-rate-oracle-rpc-runtime-api/std',
   'module-staked-relayers-rpc-runtime-api/std',
   'module-vault-registry-rpc-runtime-api/std',
+  'module-issue-rpc-runtime-api/std',
+  'module-redeem-rpc-runtime-api/std',
+  'module-replace-rpc-runtime-api/std',
   'btc-relay/std',
   'collateral/std',
   'treasury/std',
@@ -237,4 +266,21 @@ std = [
   'issue/std',
   'redeem/std',
   'replace/std',
+  'frame-benchmarking/std',
+]
+runtime-benchmarks = [
+  'hex-literal',
+
+	"frame-benchmarking",
+  'frame-system-benchmarking',
+  "frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
+
+  "btc-relay/runtime-benchmarks",
+  "exchange-rate-oracle/runtime-benchmarks",
+  "issue/runtime-benchmarks",
+  "redeem/runtime-benchmarks",
+  "replace/runtime-benchmarks",
+  "staked-relayers/runtime-benchmarks",
+  "vault-registry/runtime-benchmarks",
 ]

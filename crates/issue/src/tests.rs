@@ -7,7 +7,7 @@ use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
 use primitive_types::H256;
 use sp_core::H160;
-use vault_registry::{Vault, VaultStatus};
+use vault_registry::{Vault, VaultStatus, Wallet};
 
 fn request_issue(
     origin: AccountId,
@@ -99,7 +99,7 @@ fn test_request_issue_banned_fails() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
-                btc_address: H160([0; 20]),
+                wallet: Wallet::new(H160::random()),
                 banned_until: Some(1),
                 status: VaultStatus::Active,
             },
@@ -114,7 +114,6 @@ fn test_request_issue_banned_fails() {
 #[test]
 fn test_request_issue_insufficient_collateral_fails() {
     run_test(|| {
-        Issue::set_issue_griefing_collateral(10);
         ext::vault_registry::get_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
 
@@ -135,7 +134,7 @@ fn test_request_issue_succeeds() {
         ext::vault_registry::get_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
 
-        let issue_id = request_issue_ok(origin, amount, vault, 0);
+        let issue_id = request_issue_ok(origin, amount, vault, 20);
 
         let request_issue_event = TestEvent::test_events(RawEvent::RequestIssue(
             issue_id,
@@ -167,7 +166,7 @@ fn test_execute_issue_unauthorized_fails() {
     run_test(|| {
         ext::vault_registry::get_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
-        let issue_id = request_issue_ok(ALICE, 3, BOB, 0);
+        let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
         assert_noop!(execute_issue(CAROL, &issue_id), TestError::UnauthorizedUser);
     })
 }
@@ -178,7 +177,7 @@ fn test_execute_issue_commit_period_expired_fails() {
         ext::vault_registry::get_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
 
-        let issue_id = request_issue_ok(ALICE, 3, BOB, 0);
+        let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
         <frame_system::Module<Test>>::set_block_number(20);
         assert_noop!(
             execute_issue(ALICE, &issue_id),
@@ -194,7 +193,7 @@ fn test_execute_issue_succeeds() {
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
         ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
-        let issue_id = request_issue_ok(ALICE, 3, BOB, 0);
+        let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
         <frame_system::Module<Test>>::set_block_number(5);
         execute_issue_ok(ALICE, &issue_id);
 
@@ -221,11 +220,14 @@ fn test_cancel_issue_not_found_fails() {
 #[test]
 fn test_cancel_issue_not_expired_fails() {
     run_test(|| {
+        <frame_system::Module<Test>>::set_block_number(1);
+
         ext::vault_registry::get_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
 
-        let issue_id = request_issue_ok(ALICE, 3, BOB, 0);
-        <frame_system::Module<Test>>::set_block_number(99);
+        let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
+        // issue period is 10, we issued at block 1, so at block 5 the cancel should fail
+        <frame_system::Module<Test>>::set_block_number(5);
         assert_noop!(cancel_issue(ALICE, &issue_id), TestError::TimeNotExpired,);
     })
 }
@@ -233,13 +235,16 @@ fn test_cancel_issue_not_expired_fails() {
 #[test]
 fn test_cancel_issue_succeeds() {
     run_test(|| {
-        <frame_system::Module<Test>>::set_block_number(20);
+        <frame_system::Module<Test>>::set_block_number(1);
+
         ext::vault_registry::get_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
         ext::vault_registry::decrease_to_be_issued_tokens::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(())));
 
-        let issue_id = request_issue_ok(ALICE, 3, BOB, 0);
+        let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
+        // issue period is 10, we issued at block 1, so at block 15 the cancel should succeed
+        <frame_system::Module<Test>>::set_block_number(15);
         assert_ok!(cancel_issue(ALICE, &issue_id));
     })
 }

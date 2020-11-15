@@ -1,45 +1,83 @@
 //! RPC interface for the Vault Registry.
 
+pub use self::gen_client::Client as VaultRegistryClient;
 use codec::Codec;
-use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
+use jsonrpc_core::{Error as RpcError, ErrorCode, Result as JsonRpcResult};
 use jsonrpc_derive::rpc;
+pub use module_vault_registry_rpc_runtime_api::{
+    BalanceWrapper, VaultRegistryApi as VaultRegistryRuntimeApi,
+};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT};
+use sp_runtime::traits::{MaybeDisplay, MaybeFromStr};
+use sp_runtime::{generic::BlockId, traits::Block as BlockT, DispatchError};
 use std::sync::Arc;
 
-pub use self::gen_client::Client as VaultRegistryClient;
-pub use module_vault_registry_rpc_runtime_api::VaultRegistryApi as VaultRegistryRuntimeApi;
-
 #[rpc]
-pub trait VaultRegistryApi<BlockHash, AccountId, PolkaBTC> {
+pub trait VaultRegistryApi<BlockHash, AccountId, PolkaBTC, DOT>
+where
+    PolkaBTC: Codec + MaybeDisplay + MaybeFromStr,
+    DOT: Codec + MaybeDisplay + MaybeFromStr,
+{
+    #[rpc(name = "vaultRegistry_getTotalCollateralization")]
+    fn get_total_collateralization(&self, at: Option<BlockHash>) -> JsonRpcResult<u64>;
+
     #[rpc(name = "vaultRegistry_getFirstVaultWithSufficientCollateral")]
     fn get_first_vault_with_sufficient_collateral(
         &self,
-        amount: PolkaBTC,
+        amount: BalanceWrapper<PolkaBTC>,
         at: Option<BlockHash>,
-    ) -> Result<AccountId>;
+    ) -> JsonRpcResult<AccountId>;
 
     #[rpc(name = "vaultRegistry_getFirstVaultWithSufficientTokens")]
     fn get_first_vault_with_sufficient_tokens(
         &self,
-        amount: PolkaBTC,
+        amount: BalanceWrapper<PolkaBTC>,
         at: Option<BlockHash>,
-    ) -> Result<AccountId>;
+    ) -> JsonRpcResult<AccountId>;
 
     #[rpc(name = "vaultRegistry_getIssueableTokensFromVault")]
     fn get_issuable_tokens_from_vault(
         &self,
         vault: AccountId,
         at: Option<BlockHash>,
-    ) -> Result<PolkaBTC>;
+    ) -> JsonRpcResult<BalanceWrapper<PolkaBTC>>;
 
     #[rpc(name = "vaultRegistry_getCollateralizationFromVault")]
     fn get_collateralization_from_vault(
         &self,
         vault: AccountId,
         at: Option<BlockHash>,
-    ) -> Result<u64>;
+    ) -> JsonRpcResult<u64>;
+
+    #[rpc(name = "vaultRegistry_getCollateralizationFromVaultAndCollateral")]
+    fn get_collateralization_from_vault_and_collateral(
+        &self,
+        vault: AccountId,
+        collateral: BalanceWrapper<DOT>,
+        at: Option<BlockHash>,
+    ) -> JsonRpcResult<u64>;
+
+    #[rpc(name = "vaultRegistry_getRequiredCollateralForPolkabtc")]
+    fn get_required_collateral_for_polkabtc(
+        &self,
+        amount_btc: BalanceWrapper<PolkaBTC>,
+        at: Option<BlockHash>,
+    ) -> JsonRpcResult<BalanceWrapper<DOT>>;
+
+    #[rpc(name = "vaultRegistry_getRequiredCollateralForVault")]
+    fn get_required_collateral_for_vault(
+        &self,
+        vault_id: AccountId,
+        at: Option<BlockHash>,
+    ) -> JsonRpcResult<BalanceWrapper<DOT>>;
+
+    #[rpc(name = "vaultRegistry_isVaultBelowAuctionThreshold")]
+    fn is_vault_below_auction_threshold(
+        &self,
+        vault: AccountId,
+        at: Option<BlockHash>,
+    ) -> JsonRpcResult<bool>;
 }
 
 /// A struct that implements the [`VaultRegistryApi`].
@@ -70,116 +108,173 @@ impl From<Error> for i64 {
     }
 }
 
-impl<C, Block, AccountId, PolkaBTC> VaultRegistryApi<<Block as BlockT>::Hash, AccountId, PolkaBTC>
-    for VaultRegistry<C, Block>
+fn handle_response<T, E: std::fmt::Debug>(
+    result: Result<Result<T, DispatchError>, E>,
+    msg: String,
+) -> JsonRpcResult<T> {
+    result.map_or_else(
+        |e| {
+            Err(RpcError {
+                code: ErrorCode::ServerError(Error::RuntimeError.into()),
+                message: msg.clone(),
+                data: Some(format!("{:?}", e).into()),
+            })
+        },
+        |result| {
+            result.map_err(|e| RpcError {
+                code: ErrorCode::ServerError(Error::RuntimeError.into()),
+                message: msg.clone(),
+                data: Some(format!("{:?}", e).into()),
+            })
+        },
+    )
+}
+
+impl<C, Block, AccountId, PolkaBTC, DOT>
+    VaultRegistryApi<<Block as BlockT>::Hash, AccountId, PolkaBTC, DOT> for VaultRegistry<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-    C::Api: VaultRegistryRuntimeApi<Block, AccountId, PolkaBTC>,
+    C::Api: VaultRegistryRuntimeApi<Block, AccountId, PolkaBTC, DOT>,
     AccountId: Codec,
-    PolkaBTC: Codec,
+    PolkaBTC: Codec + MaybeDisplay + MaybeFromStr,
+    DOT: Codec + MaybeDisplay + MaybeFromStr,
 {
+    fn get_total_collateralization(
+        &self,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> JsonRpcResult<u64> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        handle_response(
+            api.get_total_collateralization(&at),
+            "Unable to get total collateralization.".into(),
+        )
+    }
+
     fn get_first_vault_with_sufficient_collateral(
         &self,
-        amount: PolkaBTC,
+        amount: BalanceWrapper<PolkaBTC>,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<AccountId> {
+    ) -> JsonRpcResult<AccountId> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
-        api.get_first_vault_with_sufficient_collateral(&at, amount)
-            .map_or_else(
-                |e| {
-                    Err(RpcError {
-                        code: ErrorCode::ServerError(Error::RuntimeError.into()),
-                        message: "Unable to find a vault with sufficient collateral.".into(),
-                        data: Some(format!("{:?}", e).into()),
-                    })
-                },
-                |result| {
-                    result.map_err(|e| RpcError {
-                        code: ErrorCode::ServerError(Error::RuntimeError.into()),
-                        message: "Unable to find a vault with sufficient collateral.".into(),
-                        data: Some(format!("{:?}", e).into()),
-                    })
-                },
-            )
+        handle_response(
+            api.get_first_vault_with_sufficient_collateral(&at, amount),
+            "Unable to find a vault with sufficient collateral.".into(),
+        )
     }
+
     fn get_first_vault_with_sufficient_tokens(
         &self,
-        amount: PolkaBTC,
+        amount: BalanceWrapper<PolkaBTC>,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<AccountId> {
+    ) -> JsonRpcResult<AccountId> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
-        api.get_first_vault_with_sufficient_tokens(&at, amount)
-            .map_or_else(
-                |e| {
-                    Err(RpcError {
-                        code: ErrorCode::ServerError(Error::RuntimeError.into()),
-                        message: "Unable to find a vault with sufficient tokens.".into(),
-                        data: Some(format!("{:?}", e).into()),
-                    })
-                },
-                |result| {
-                    result.map_err(|e| RpcError {
-                        code: ErrorCode::ServerError(Error::RuntimeError.into()),
-                        message: "Unable to find a vault with sufficient tokens.".into(),
-                        data: Some(format!("{:?}", e).into()),
-                    })
-                },
-            )
+        handle_response(
+            api.get_first_vault_with_sufficient_tokens(&at, amount),
+            "Unable to find a vault with sufficient tokens.".into(),
+        )
     }
+
     fn get_issuable_tokens_from_vault(
         &self,
         vault: AccountId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<PolkaBTC> {
+    ) -> JsonRpcResult<BalanceWrapper<PolkaBTC>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
-        api.get_issuable_tokens_from_vault(&at, vault).map_or_else(
-            |e| {
-                Err(RpcError {
-                    code: ErrorCode::ServerError(Error::RuntimeError.into()),
-                    message: "Unable to get issuable tokens from vault.".into(),
-                    data: Some(format!("{:?}", e).into()),
-                })
-            },
-            |result| {
-                result.map_err(|e| RpcError {
-                    code: ErrorCode::ServerError(Error::RuntimeError.into()),
-                    message: "Unable to get issuable tokens from vault.".into(),
-                    data: Some(format!("{:?}", e).into()),
-                })
-            },
+        handle_response(
+            api.get_issuable_tokens_from_vault(&at, vault),
+            "Unable to get issuable tokens from vault.".into(),
         )
     }
+
     fn get_collateralization_from_vault(
         &self,
         vault: AccountId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<u64> {
+    ) -> JsonRpcResult<u64> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
-        api.get_collateralization_from_vault(&at, vault)
+        handle_response(
+            api.get_collateralization_from_vault(&at, vault),
+            "Unable to get collateralization from vault.".into(),
+        )
+    }
+
+    fn get_collateralization_from_vault_and_collateral(
+        &self,
+        vault: AccountId,
+        collateral: BalanceWrapper<DOT>,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> JsonRpcResult<u64> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        handle_response(
+            api.get_collateralization_from_vault_and_collateral(&at, vault, collateral),
+            "Unable to get collateralization from vault.".into(),
+        )
+    }
+
+    fn get_required_collateral_for_polkabtc(
+        &self,
+        amount_btc: BalanceWrapper<PolkaBTC>,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> JsonRpcResult<BalanceWrapper<DOT>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        handle_response(
+            api.get_required_collateral_for_polkabtc(&at, amount_btc),
+            "Unable to get required collateral for amount.".into(),
+        )
+    }
+
+    fn get_required_collateral_for_vault(
+        &self,
+        vault_id: AccountId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> JsonRpcResult<BalanceWrapper<DOT>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+        api.get_required_collateral_for_vault(&at, vault_id)
             .map_or_else(
                 |e| {
                     Err(RpcError {
                         code: ErrorCode::ServerError(Error::RuntimeError.into()),
-                        message: "Unable to get collateralization from vault.".into(),
+                        message: "Unable to get required collateral for vault.".into(),
                         data: Some(format!("{:?}", e).into()),
                     })
                 },
                 |result| {
                     result.map_err(|e| RpcError {
                         code: ErrorCode::ServerError(Error::RuntimeError.into()),
-                        message: "Unable to get collateralization from vault.".into(),
+                        message: "Unable to get required collateral for vault.".into(),
                         data: Some(format!("{:?}", e).into()),
                     })
                 },
             )
+    }
+
+    fn is_vault_below_auction_threshold(
+        &self,
+        vault: AccountId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> JsonRpcResult<bool> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        handle_response(
+            api.is_vault_below_auction_threshold(&at, vault),
+            "Unable to check if vault is below auction threshold.".into(),
+        )
     }
 }

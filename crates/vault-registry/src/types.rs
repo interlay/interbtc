@@ -6,6 +6,7 @@ use frame_support::{
     ensure, StorageMap,
 };
 use sp_core::H160;
+use sp_std::collections::btree_set::BTreeSet;
 
 #[cfg(test)]
 use mocktopus::macros::mockable;
@@ -17,6 +18,41 @@ pub(crate) type DOT<T> =
 
 pub(crate) type PolkaBTC<T> =
     <<T as treasury::Trait>::PolkaBTC as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
+pub struct Wallet {
+    // store all addresses for `report_vault_theft` checks
+    addresses: BTreeSet<H160>,
+    // we use the most recent address for issue / redeem requests
+    address: H160,
+}
+
+impl Wallet {
+    pub fn new(hash: H160) -> Self {
+        let mut addresses = BTreeSet::new();
+        addresses.insert(hash);
+        Self {
+            addresses,
+            address: hash,
+        }
+    }
+
+    pub fn has_btc_address(&self, hash: &H160) -> bool {
+        self.addresses.contains(hash)
+    }
+
+    pub fn add_btc_address(&mut self, hash: H160) {
+        // TODO: add maximum or griefing collateral
+        self.addresses.insert(hash);
+        // NOTE: updates primary address even if already contained in set
+        self.address = hash;
+    }
+
+    pub fn get_btc_address(&self) -> H160 {
+        // wallet should never be empty
+        self.address
+    }
+}
 
 #[derive(Encode, Decode, Clone, Copy, PartialEq, Debug)]
 pub enum VaultStatus {
@@ -50,11 +86,10 @@ pub struct Vault<AccountId, BlockNumber, PolkaBTC> {
     // DOT collateral locked by this Vault
     // collateral: DOT,
     // Bitcoin address of this Vault (P2PKH, P2SH, P2PKH, P2WSH)
-    pub btc_address: H160,
+    pub wallet: Wallet,
     // Block height until which this Vault is banned from being
     // used for Issue, Redeem (except during automatic liquidation) and Replace .
     pub banned_until: Option<BlockNumber>,
-
     /// Current status of the vault
     pub status: VaultStatus,
 }
@@ -63,9 +98,10 @@ impl<AccountId, BlockNumber, PolkaBTC: HasCompact + Default>
     Vault<AccountId, BlockNumber, PolkaBTC>
 {
     pub(crate) fn new(id: AccountId, btc_address: H160) -> Vault<AccountId, BlockNumber, PolkaBTC> {
+        let wallet = Wallet::new(btc_address);
         Vault {
             id,
-            btc_address,
+            wallet,
             to_be_issued_tokens: Default::default(),
             issued_tokens: Default::default(),
             to_be_redeemed_tokens: Default::default(),
@@ -137,7 +173,7 @@ impl<T: Trait> RichVault<T> {
 
         let raw_issued_tokens_in_dot = crate::Module::<T>::dot_to_u128(issued_tokens_in_dot)?;
 
-        let secure_threshold = crate::Module::<T>::_get_secure_collateral_threshold();
+        let secure_threshold = crate::Module::<T>::secure_collateral_threshold();
 
         let raw_used_collateral = raw_issued_tokens_in_dot
             .checked_mul(secure_threshold)
@@ -153,7 +189,7 @@ impl<T: Trait> RichVault<T> {
     pub fn issuable_tokens(&self) -> Result<PolkaBTC<T>, DispatchError> {
         let free_collateral = self.get_free_collateral()?;
 
-        let secure_threshold = crate::Module::<T>::_get_secure_collateral_threshold();
+        let secure_threshold = crate::Module::<T>::secure_collateral_threshold();
 
         let issuable = crate::Module::<T>::calculate_max_polkabtc_from_collateral_for_threshold(
             free_collateral,
@@ -263,6 +299,12 @@ impl<T: Trait> RichVault<T> {
 
     pub fn ban_until(&mut self, height: T::BlockNumber) {
         self.update(|v| v.banned_until = Some(height));
+    }
+
+    pub fn update_btc_address(&mut self, btc_address: H160) {
+        self.update(|v| {
+            v.wallet.add_btc_address(btc_address);
+        });
     }
 
     fn update<F>(&mut self, func: F) -> ()

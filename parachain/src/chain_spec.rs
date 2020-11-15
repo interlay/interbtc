@@ -1,13 +1,16 @@
 use btc_parachain_runtime::{
     AccountId, AuraConfig, BTCRelayConfig, DOTConfig, ExchangeRateOracleConfig, GenesisConfig,
-    GrandpaConfig, PolkaBTCConfig, Signature, StakedRelayersConfig, SudoConfig, SystemConfig,
-    VaultRegistryConfig, WASM_BINARY,
+    GrandpaConfig, IssueConfig, PolkaBTCConfig, RedeemConfig, ReplaceConfig, Signature,
+    StakedRelayersConfig, SudoConfig, SystemConfig, VaultRegistryConfig, DAYS, WASM_BINARY,
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::traits::{IdentifyAccount, Verify};
+
+#[cfg(feature = "runtime-benchmarks")]
+use frame_benchmarking::account;
 
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -37,7 +40,7 @@ pub fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) {
     (get_from_seed::<AuraId>(s), get_from_seed::<GrandpaId>(s))
 }
 
-pub fn development_config() -> Result<ChainSpec, String> {
+pub fn development_config(inclusion_check: bool) -> Result<ChainSpec, String> {
     let wasm_binary = WASM_BINARY.ok_or("Development wasm binary not available".to_string())?;
 
     Ok(ChainSpec::from_genesis(
@@ -67,8 +70,13 @@ pub fn development_config() -> Result<ChainSpec, String> {
                     get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
                     get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
                     get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+                    #[cfg(feature = "runtime-benchmarks")]
+                    account("Origin", 0, 0),
+                    #[cfg(feature = "runtime-benchmarks")]
+                    account("Vault", 0, 0),
                 ],
                 true,
+                inclusion_check,
             )
         },
         // Bootnodes
@@ -84,7 +92,7 @@ pub fn development_config() -> Result<ChainSpec, String> {
     ))
 }
 
-pub fn local_testnet_config() -> Result<ChainSpec, String> {
+pub fn local_testnet_config(inclusion_check: bool) -> Result<ChainSpec, String> {
     let wasm_binary = WASM_BINARY.ok_or("Development wasm binary not available".to_string())?;
 
     Ok(ChainSpec::from_genesis(
@@ -119,6 +127,7 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
                     get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
                 ],
                 true,
+                inclusion_check,
             )
         },
         // Bootnodes
@@ -141,6 +150,7 @@ fn testnet_genesis(
     root_key: AccountId,
     endowed_accounts: Vec<AccountId>,
     _enable_println: bool,
+    inclusion_check: bool,
 ) -> GenesisConfig {
     let bob_account_id = get_account_id_from_seed::<sr25519::Public>("Bob");
     GenesisConfig {
@@ -171,6 +181,9 @@ fn testnet_genesis(
         }),
         pallet_balances_Instance2: Some(PolkaBTCConfig { balances: vec![] }),
         staked_relayers: Some(StakedRelayersConfig {
+            #[cfg(feature = "runtime-benchmarks")]
+            gov_id: account("Origin", 0, 0),
+            #[cfg(not(feature = "runtime-benchmarks"))]
             gov_id: get_account_id_from_seed::<sr25519::Public>("Alice"),
         }),
         exchange_rate_oracle: Some(ExchangeRateOracleConfig {
@@ -181,10 +194,33 @@ fn testnet_genesis(
         btc_relay: Some(BTCRelayConfig {
             bitcoin_confirmations: 0,
             parachain_confirmations: 0,
-            difficulty_check: false,
+            disable_difficulty_check: true,
+            disable_inclusion_check: !inclusion_check,
+            disable_op_return_check: false,
+        }),
+        issue: Some(IssueConfig {
+            issue_griefing_collateral: 10,
+            issue_period: 7 * DAYS,
+        }),
+        redeem: Some(RedeemConfig {
+            redeem_period: 7 * DAYS,
+            redeem_btc_dust_value: 1000,
+        }),
+        replace: Some(ReplaceConfig {
+            replace_griefing_collateral: 10,
+            replace_period: 7 * DAYS,
+            replace_btc_dust_value: 1000,
         }),
         vault_registry: Some(VaultRegistryConfig {
-            secure_collateral_threshold: 100000,
+            minimum_collateral_vault: 0,
+            punishment_fee: 20_000,
+            punishment_delay: 8,
+            redeem_premium_fee: 5000,
+            secure_collateral_threshold: 200_000,
+            auction_collateral_threshold: 150_000,
+            premium_redeem_threshold: 120_000,
+            liquidation_collateral_threshold: 110_000,
+            liquidation_vault: get_account_id_from_seed::<sr25519::Public>("Victor"),
         }),
     }
 }

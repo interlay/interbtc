@@ -67,7 +67,7 @@ impl frame_system::Trait for Test {
     type DbWeight = RocksDbWeight;
     type ExtrinsicBaseWeight = ExtrinsicBaseWeight;
     type Version = ();
-    type ModuleToIndex = ();
+    type PalletInfo = ();
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type AccountData = ();

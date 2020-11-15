@@ -275,6 +275,7 @@ impl<T: Trait> Module<T> {
         let mut hasher = Sha256::default();
         hasher.input(id.encode());
         hasher.input(Self::get_nonce().encode());
+        hasher.input(frame_system::Module::<T>::parent_hash());
         let mut result = [0; 32];
         result.copy_from_slice(&hasher.result()[..]);
         H256(result)

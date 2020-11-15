@@ -13,6 +13,7 @@ pub use sp_std::convert::TryInto;
 pub const ALICE: [u8; 32] = [0u8; 32];
 pub const BOB: [u8; 32] = [1u8; 32];
 pub const CLAIRE: [u8; 32] = [2u8; 32];
+pub const VICTOR: [u8; 32] = [3u8; 32];
 pub const CONFIRMATIONS: u32 = 6;
 
 pub type BTCRelayCall = btc_relay::Call<Runtime>;
@@ -216,13 +217,45 @@ impl ExtBuilder {
         btc_relay::GenesisConfig::<Runtime> {
             bitcoin_confirmations: CONFIRMATIONS,
             parachain_confirmations: CONFIRMATIONS,
-            difficulty_check: true,
+            disable_difficulty_check: false,
+            disable_inclusion_check: false,
+            disable_op_return_check: false,
         }
         .assimilate_storage(&mut storage)
         .unwrap();
 
-        vault_registry::GenesisConfig {
-            secure_collateral_threshold: 100000,
+        vault_registry::GenesisConfig::<Runtime> {
+            minimum_collateral_vault: 0,
+            punishment_fee: 20_000,
+            punishment_delay: 8,
+            redeem_premium_fee: 5000,
+            secure_collateral_threshold: 100_000,
+            auction_collateral_threshold: 150_000,
+            premium_redeem_threshold: 120_000,
+            liquidation_collateral_threshold: 110_000,
+            liquidation_vault: account_of(VICTOR),
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
+        issue::GenesisConfig::<Runtime> {
+            issue_griefing_collateral: 10,
+            issue_period: 10,
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
+        redeem::GenesisConfig::<Runtime> {
+            redeem_period: 10,
+            redeem_btc_dust_value: 1,
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
+        replace::GenesisConfig::<Runtime> {
+            replace_griefing_collateral: 10,
+            replace_period: 10,
+            replace_btc_dust_value: 1,
         }
         .assimilate_storage(&mut storage)
         .unwrap();

@@ -7,11 +7,15 @@
 
 use std::sync::Arc;
 
-use btc_parachain_runtime::{opaque::Block, AccountId, Balance, Index};
+use btc_parachain_runtime::{
+    opaque::Block, AccountId, Balance, BlockNumber, Index, IssueRequest, RedeemRequest,
+    ReplaceRequest,
+};
 pub use sc_rpc_api::DenyUnsafe;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
+use sp_core::H256;
 use sp_transaction_pool::TransactionPool;
 
 /// Full client dependencies.
@@ -34,11 +38,32 @@ where
     C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
     C::Api: module_exchange_rate_oracle_rpc::ExchangeRateOracleRuntimeApi<Block, Balance, Balance>,
     C::Api: module_staked_relayers_rpc::StakedRelayersRuntimeApi<Block, AccountId>,
-    C::Api: module_vault_registry_rpc::VaultRegistryRuntimeApi<Block, AccountId, Balance>,
+    C::Api: module_vault_registry_rpc::VaultRegistryRuntimeApi<Block, AccountId, Balance, Balance>,
+    C::Api: module_issue_rpc::IssueRuntimeApi<
+        Block,
+        AccountId,
+        H256,
+        IssueRequest<AccountId, BlockNumber, Balance, Balance>,
+    >,
+    C::Api: module_redeem_rpc::RedeemRuntimeApi<
+        Block,
+        AccountId,
+        H256,
+        RedeemRequest<AccountId, BlockNumber, Balance, Balance>,
+    >,
+    C::Api: module_replace_rpc::ReplaceRuntimeApi<
+        Block,
+        AccountId,
+        H256,
+        ReplaceRequest<AccountId, BlockNumber, Balance, Balance>,
+    >,
     C::Api: BlockBuilder<Block>,
     P: TransactionPool + 'static,
 {
     use module_exchange_rate_oracle_rpc::{ExchangeRateOracle, ExchangeRateOracleApi};
+    use module_issue_rpc::{Issue, IssueApi};
+    use module_redeem_rpc::{Redeem, RedeemApi};
+    use module_replace_rpc::{Replace, ReplaceApi};
     use module_staked_relayers_rpc::{StakedRelayers, StakedRelayersApi};
     use module_vault_registry_rpc::{VaultRegistry, VaultRegistryApi};
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
@@ -72,6 +97,12 @@ where
     io.extend_with(VaultRegistryApi::to_delegate(VaultRegistry::new(
         client.clone(),
     )));
+
+    io.extend_with(IssueApi::to_delegate(Issue::new(client.clone())));
+
+    io.extend_with(RedeemApi::to_delegate(Redeem::new(client.clone())));
+
+    io.extend_with(ReplaceApi::to_delegate(Replace::new(client.clone())));
 
     io
 }

@@ -7,6 +7,7 @@ use frame_support::{
         Weight,
     },
 };
+use pallet_balances as balances;
 use sp_core::H256;
 use sp_io;
 use sp_runtime::{
@@ -78,7 +79,7 @@ impl frame_system::Trait for Test {
     type DbWeight = RocksDbWeight;
     type ExtrinsicBaseWeight = ExtrinsicBaseWeight;
     type Version = ();
-    type ModuleToIndex = ();
+    type PalletInfo = ();
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type AccountData = balances::AccountData<u64>;
@@ -89,8 +90,11 @@ impl frame_system::Trait for Test {
 
 parameter_types! {
     pub const ExistentialDeposit: u64 = 1;
+    pub const MaxLocks: u32 = 50;
 }
-impl balances::Trait for Test {
+
+impl pallet_balances::Trait for Test {
+    type MaxLocks = MaxLocks;
     type Balance = Balance;
     type Event = TestEvent;
     type DustRemoval = ();
@@ -102,7 +106,8 @@ impl balances::Trait for Test {
 parameter_types! {
     pub const MinimumPeriod: u64 = 5;
 }
-impl timestamp::Trait for Test {
+
+impl pallet_timestamp::Trait for Test {
     type Moment = u64;
     type OnTimestampSet = ();
     type MinimumPeriod = MinimumPeriod;
@@ -115,6 +120,7 @@ impl security::Trait for Test {
 
 impl vault_registry::Trait for Test {
     type Event = TestEvent;
+    type WeightInfo = ();
 }
 
 impl treasury::Trait for Test {
@@ -124,6 +130,7 @@ impl treasury::Trait for Test {
 
 impl exchange_rate_oracle::Trait for Test {
     type Event = TestEvent;
+    type WeightInfo = ();
 }
 
 impl collateral::Trait for Test {
@@ -133,19 +140,17 @@ impl collateral::Trait for Test {
 
 impl btc_relay::Trait for Test {
     type Event = TestEvent;
+    type WeightInfo = ();
 }
 
 impl redeem::Trait for Test {
     type Event = TestEvent;
-}
-
-parameter_types! {
-    pub const ReplacePeriod: BlockNumber = 10;
+    type WeightInfo = ();
 }
 
 impl replace::Trait for Test {
     type Event = TestEvent;
-    type ReplacePeriod = ReplacePeriod;
+    type WeightInfo = ();
 }
 
 parameter_types! {
@@ -155,16 +160,19 @@ parameter_types! {
     pub const MinimumParticipants: u64 = 3;
     pub const VoteThreshold: u64 = 50;
     pub const VotingPeriod: u64 = 100;
+    pub const MaximumMessageSize: u32 = 32;
 }
 
 impl Trait for Test {
     type Event = TestEvent;
+    type WeightInfo = ();
     type MaturityPeriod = MaturityPeriod;
     type MinimumDeposit = MinimumDeposit;
     type MinimumStake = MinimumStake;
     type MinimumParticipants = MinimumParticipants;
     type VoteThreshold = VoteThreshold;
     type VotingPeriod = VotingPeriod;
+    type MaximumMessageSize = MaximumMessageSize;
 }
 
 pub type System = frame_system::Module<Test>;
@@ -189,28 +197,37 @@ pub const EVE_BALANCE: u64 = 1_000_000;
 pub struct ExtBuilder;
 
 impl ExtBuilder {
-    pub fn build() -> sp_io::TestExternalities {
+    pub fn build_with<F>(conf: F) -> sp_io::TestExternalities
+    where
+        F: FnOnce(&mut sp_core::storage::Storage),
+    {
         let mut storage = frame_system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
 
-        balances::GenesisConfig::<Test> {
-            balances: vec![
-                (ALICE, ALICE_BALANCE),
-                (BOB, BOB_BALANCE),
-                (CAROL, CAROL_BALANCE),
-                (DAVE, DAVE_BALANCE),
-                (EVE, EVE_BALANCE),
-            ],
-        }
-        .assimilate_storage(&mut storage)
-        .unwrap();
-
-        GenesisConfig::<Test> { gov_id: CAROL }
-            .assimilate_storage(&mut storage)
-            .unwrap();
+        conf(&mut storage);
 
         storage.into()
+    }
+
+    pub fn build() -> sp_io::TestExternalities {
+        ExtBuilder::build_with(|storage| {
+            pallet_balances::GenesisConfig::<Test> {
+                balances: vec![
+                    (ALICE, ALICE_BALANCE),
+                    (BOB, BOB_BALANCE),
+                    (CAROL, CAROL_BALANCE),
+                    (DAVE, DAVE_BALANCE),
+                    (EVE, EVE_BALANCE),
+                ],
+            }
+            .assimilate_storage(storage)
+            .unwrap();
+
+            GenesisConfig::<Test> { gov_id: CAROL }
+                .assimilate_storage(storage)
+                .unwrap();
+        })
     }
 }
 

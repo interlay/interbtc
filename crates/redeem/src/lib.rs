@@ -1,6 +1,12 @@
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
+
+#[cfg(any(feature = "runtime-benchmarks", test))]
+mod benchmarking;
+
+mod default_weights;
+
 #[cfg(test)]
 mod mock;
 
@@ -16,8 +22,10 @@ use mocktopus::macros::mockable;
 mod ext;
 pub mod types;
 
-use crate::types::{PolkaBTC, Redeem, DOT};
+pub use crate::types::RedeemRequest;
+use crate::types::{PolkaBTC, DOT};
 use bitcoin::types::H256Le;
+use frame_support::weights::Weight;
 /// # PolkaBTC Redeem implementation
 /// The Redeem module according to the specification at
 /// https://interlay.gitlab.io/polkabtc-spec/spec/redeem.html
@@ -38,12 +46,21 @@ use sp_std::vec::Vec;
 /// The redeem module id, used for deriving its sovereign account ID.
 const _MODULE_ID: ModuleId = ModuleId(*b"i/redeem");
 
+pub trait WeightInfo {
+    fn request_redeem() -> Weight;
+    fn execute_redeem() -> Weight;
+    fn cancel_redeem() -> Weight;
+}
+
 /// The pallet's configuration trait.
 pub trait Trait:
     frame_system::Trait + vault_registry::Trait + collateral::Trait + btc_relay::Trait + treasury::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+
+    /// Weight information for the extrinsics in this module.
+    type WeightInfo: WeightInfo;
 }
 
 // The pallet's storage items.
@@ -51,11 +68,15 @@ decl_storage! {
     trait Store for Module<T: Trait> as Redeem {
         /// The time difference in number of blocks between a redeem request is created and required completion time by a vault.
         /// The redeem period has an upper limit to ensure the user gets their BTC in time and to potentially punish a vault for inactivity or stealing BTC.
-        RedeemPeriod get(fn redeem_period): T::BlockNumber;
+        RedeemPeriod get(fn redeem_period) config(): T::BlockNumber;
 
         /// Users create redeem requests to receive BTC in return for PolkaBTC.
         /// This mapping provides access from a unique hash redeemId to a Redeem struct.
-        RedeemRequests: map hasher(blake2_128_concat) H256 => Redeem<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>;
+        RedeemRequests: map hasher(blake2_128_concat) H256 => RedeemRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>;
+
+        /// The minimum amount of btc that is accepted for redeem requests; any lower values would
+        /// risk the bitcoin client to reject the payment
+        RedeemBtcDustValue get(fn redeem_btc_dust_value) config(): PolkaBTC<T>;
     }
 }
 
@@ -91,7 +112,7 @@ decl_module! {
         /// * `amount` - amount of PolkaBTC
         /// * `btc_address` - the address to receive BTC
         /// * `vault` - address of the vault
-        #[weight = 1000]
+        #[weight = <T as Trait>::WeightInfo::request_redeem()]
         fn request_redeem(origin, amount_polka_btc: PolkaBTC<T>, btc_address: H160, vault_id: T::AccountId)
             -> DispatchResult
         {
@@ -110,6 +131,13 @@ decl_module! {
             ensure!(
                 amount_polka_btc <= vault.issued_tokens,
                 Error::<T>::AmountExceedsVaultBalance
+            );
+
+            // only allow requests of amount above above the minimum
+            let dust_value = <RedeemBtcDustValue<T>>::get();
+            ensure!(
+                amount_polka_btc >= dust_value,
+                Error::<T>::AmountBelowDustAmount
             );
 
             let (amount_btc, amount_dot): (u128, u128) =
@@ -140,14 +168,14 @@ decl_module! {
 
             let below_premium_redeem = ext::vault_registry::is_vault_below_premium_threshold::<T>(&vault_id)?;
             let premium_dot = if below_premium_redeem {
-                ext::vault_registry::get_redeem_premium_fee::<T>()?
+                ext::vault_registry::get_redeem_premium_fee::<T>()
             } else {
                 Self::u128_to_dot(0u128)?
             };
 
             Self::insert_redeem_request(
                 redeem_id,
-                Redeem {
+                RedeemRequest {
                     vault: vault_id.clone(),
                     opentime: height,
                     amount_polka_btc,
@@ -181,7 +209,7 @@ decl_module! {
         /// * `tx_block_height` - block number of backing chain
         /// * `merkle_proof` - raw bytes
         /// * `raw_tx` - raw bytes
-        #[weight = 1000]
+        #[weight = <T as Trait>::WeightInfo::execute_redeem()]
         fn execute_redeem(origin, redeem_id: H256, tx_id: H256Le, _tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
             -> DispatchResult
         {
@@ -194,7 +222,7 @@ decl_module! {
             let height = <frame_system::Module<T>>::block_number();
             let period = Self::redeem_period();
             ensure!(
-                redeem.opentime + period < height,
+                height <= redeem.opentime + period,
                 Error::<T>::CommitPeriodExpired
             );
             let amount: usize = redeem
@@ -239,7 +267,7 @@ decl_module! {
         /// * `reimburse` - specifying if the user wishes to be reimbursed in DOT
         /// and slash the Vault, or wishes to keep the PolkaBTC (and retry
         /// Redeem with another Vault)
-        #[weight = 1000]
+        #[weight = <T as Trait>::WeightInfo::cancel_redeem()]
         fn cancel_redeem(origin, redeem_id: H256, reimburse: bool)
             -> DispatchResult
         {
@@ -251,7 +279,7 @@ decl_module! {
             let period = Self::redeem_period();
             ensure!(redeem.opentime + period > height, Error::<T>::TimeNotExpired);
 
-            let punishment_fee = ext::vault_registry::punishment_fee::<T>()?;
+            let punishment_fee = ext::vault_registry::punishment_fee::<T>();
             let raw_punishment_fee = Self::dot_to_u128(punishment_fee)?;
             let raw_amount_polka_btc = Self::btc_to_u128(redeem.amount_polka_btc)?;
             let raw_amount_in_dot = Self::rawbtc_to_rawdot(raw_amount_polka_btc)?;
@@ -300,9 +328,41 @@ impl<T: Trait> Module<T> {
     /// * `value` - the redeem request
     fn insert_redeem_request(
         key: H256,
-        value: Redeem<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
+        value: RedeemRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
     ) {
         <RedeemRequests<T>>::insert(key, value)
+    }
+
+    /// Fetch all redeem requests for the specified account.
+    ///
+    /// # Arguments
+    ///
+    /// * `account_id` - user account id
+    pub fn get_redeem_requests_for_account(
+        account_id: T::AccountId,
+    ) -> Vec<(
+        H256,
+        RedeemRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
+    )> {
+        <RedeemRequests<T>>::iter()
+            .filter(|(_, request)| request.redeemer == account_id)
+            .collect::<Vec<_>>()
+    }
+
+    /// Fetch all redeem requests for the specified vault.
+    ///
+    /// # Arguments
+    ///
+    /// * `account_id` - vault account id
+    pub fn get_redeem_requests_for_vault(
+        account_id: T::AccountId,
+    ) -> Vec<(
+        H256,
+        RedeemRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
+    )> {
+        <RedeemRequests<T>>::iter()
+            .filter(|(_, request)| request.vault == account_id)
+            .collect::<Vec<_>>()
     }
 
     /// Fetch a pre-existing redeem request or throw.
@@ -312,7 +372,8 @@ impl<T: Trait> Module<T> {
     /// * `key` - 256-bit identifier of the redeem request
     pub fn get_redeem_request_from_id(
         key: &H256,
-    ) -> Result<Redeem<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
+    ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError>
+    {
         ensure!(
             <RedeemRequests<T>>::contains_key(*key),
             Error::<T>::RedeemIdNotFound
@@ -376,5 +437,6 @@ decl_error! {
         TimeNotExpired,
         RedeemIdNotFound,
         ConversionError,
+        AmountBelowDustAmount,
     }
 }
