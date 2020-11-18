@@ -73,7 +73,7 @@ pub struct BtcTxFeesPerByte {
 decl_storage! {
     trait Store for Module<T: Trait> as ExchangeRateOracle {
         /// ## Storage
-        /// Current BTC/DOT exchange rate
+        /// Current DOT/BTC exchange rate scaled by the granularity
         ExchangeRate: u128;
 
         /// Last exchange rate time
@@ -164,6 +164,8 @@ impl<T: Trait> Module<T> {
         let raw_amount = Self::into_u128(amount)?;
         let converted = rate
             .checked_mul(raw_amount)
+            .ok_or(Error::<T>::ConversionError)?
+            .checked_div(10u128.pow(GRANULARITY as u32))
             .ok_or(Error::<T>::ConversionError)?;
         let result = converted
             .try_into()
@@ -178,6 +180,8 @@ impl<T: Trait> Module<T> {
             return Ok(0.into());
         }
         let converted = raw_amount
+            .checked_mul(10u128.pow(GRANULARITY as u32))
+            .ok_or(Error::<T>::ConversionError)?
             .checked_div(rate)
             .ok_or(Error::<T>::ConversionError)?;
         let result = converted
