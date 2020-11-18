@@ -141,8 +141,10 @@ fn integration_test_replace_auction_replace() {
         ))
         .dispatch(origin_of(account_of(new_vault))));
         // exchange rate drops and vault is not collateralized any more
-        assert_ok!(Call::ExchangeRateOracle(OracleCall::set_exchange_rate(3))
-            .dispatch(origin_of(account_of(BOB))));
+        assert_ok!(
+            Call::ExchangeRateOracle(OracleCall::set_exchange_rate(300000))
+                .dispatch(origin_of(account_of(BOB)))
+        );
         // new_vault takes over old_vault's position
         assert_ok!(Call::Replace(ReplaceCall::auction_replace(
             account_of(old_vault),
