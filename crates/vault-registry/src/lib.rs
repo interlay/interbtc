@@ -738,29 +738,57 @@ impl<T: Trait> Module<T> {
         amount: PolkaBTC<T>,
     ) -> Result<T::AccountId, DispatchError> {
         // iterate through vaults to find the first one with sufficient collateral
-        let vault = <Vaults<T>>::iter()
-            .find(|v| {
+
+        let mut total_randomness_source = Self::polkabtc_to_u128(amount).unwrap_or(0 as u128);
+
+        let suitable_vaults = <Vaults<T>>::iter()
+            .filter(|v| {
                 // iterator returns tuple of (AccountId, Vault<T>), we only need the vault
                 let rich_vault: RichVault<T> = v.clone().1.into();
                 // if we have an error, default to 0
                 let issuable_tokens = rich_vault.issuable_tokens().unwrap_or(0.into());
+                let raw_amount = Self::polkabtc_to_u128(issuable_tokens).unwrap_or(0 as u128);
+                total_randomness_source = total_randomness_source
+                    .checked_add(raw_amount)
+                    .unwrap_or(raw_amount);
                 issuable_tokens >= amount
             })
-            .ok_or(Error::<T>::NoVaultWithSufficientCollateral)?;
-        Ok(vault.0)
+            .collect::<Vec<_>>();
+
+        if suitable_vaults.is_empty() {
+            Err(Error::<T>::NoVaultWithSufficientCollateral.into())
+        } else {
+            let idx = total_randomness_source % (suitable_vaults.len() as u128);
+            Ok(suitable_vaults[idx as usize].clone().0)
+        }
     }
 
     /// Get the first available vault with sufficient locked PolkaBTC to fulfil a redeem request.
     pub fn get_first_vault_with_sufficient_tokens(
         amount: PolkaBTC<T>,
     ) -> Result<T::AccountId, DispatchError> {
-        let vault = <Vaults<T>>::iter()
-            .find(|v| {
+        let mut total_randomness_source = Self::polkabtc_to_u128(amount).unwrap_or(0 as u128);
+
+        let suitable_vaults = <Vaults<T>>::iter()
+            .filter(|v| {
+                let rich_vault: RichVault<T> = v.clone().1.into();
+                let issuable_tokens = rich_vault.issuable_tokens().unwrap_or(0.into());
+                let raw_amount = Self::polkabtc_to_u128(issuable_tokens).unwrap_or(0 as u128);
+                total_randomness_source = total_randomness_source
+                    .checked_add(raw_amount)
+                    .unwrap_or(raw_amount);
+
                 // iterator returns tuple of (AccountId, Vault<T>), we only need the vault
                 v.1.issued_tokens >= amount
             })
-            .ok_or(Error::<T>::NoVaultWithSufficientTokens)?;
-        Ok(vault.0)
+            .collect::<Vec<_>>();
+
+        if suitable_vaults.is_empty() {
+            Err(Error::<T>::NoVaultWithSufficientTokens.into())
+        } else {
+            let idx = total_randomness_source % (suitable_vaults.len() as u128);
+            Ok(suitable_vaults[idx as usize].clone().0)
+        }
     }
 
     /// Get the amount of tokens a vault can issue
