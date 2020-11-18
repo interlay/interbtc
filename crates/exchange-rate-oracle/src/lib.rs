@@ -73,7 +73,7 @@ pub struct BtcTxFeesPerByte {
 decl_storage! {
     trait Store for Module<T: Trait> as ExchangeRateOracle {
         /// ## Storage
-        /// Current BTC/DOT exchange rate
+        /// Current DOT/BTC exchange rate
         ExchangeRate: u128;
 
         /// Last exchange rate time
