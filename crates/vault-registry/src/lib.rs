@@ -27,6 +27,7 @@ use mocktopus::macros::mockable;
 
 use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchError, DispatchResult};
+use frame_support::traits::Randomness;
 use frame_support::weights::Weight;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, ensure, IterableStorageMap,
@@ -71,6 +72,8 @@ pub trait Trait:
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+
+    type RandomnessSource: Randomness<H256>;
 
     /// Weight information for the extrinsics in this module.
     type WeightInfo: WeightInfo;
@@ -737,29 +740,25 @@ impl<T: Trait> Module<T> {
     pub fn get_first_vault_with_sufficient_collateral(
         amount: PolkaBTC<T>,
     ) -> Result<T::AccountId, DispatchError> {
-        // iterate through vaults to find the first one with sufficient collateral
-
-        let mut total_randomness_source = Self::polkabtc_to_u128(amount).unwrap_or(0 as u128);
-
+        // find all vault accounts with sufficient collateral
         let suitable_vaults = <Vaults<T>>::iter()
-            .filter(|v| {
-                // iterator returns tuple of (AccountId, Vault<T>), we only need the vault
-                let rich_vault: RichVault<T> = v.clone().1.into();
-                // if we have an error, default to 0
-                let issuable_tokens = rich_vault.issuable_tokens().unwrap_or(0.into());
-                let raw_amount = Self::polkabtc_to_u128(issuable_tokens).unwrap_or(0 as u128);
-                total_randomness_source = total_randomness_source
-                    .checked_add(raw_amount)
-                    .unwrap_or(raw_amount);
-                issuable_tokens >= amount
+            .filter_map(|v| {
+                // iterator returns tuple of (AccountId, Vault<T>), we check the vault and return the accountid
+                let rich_vault: RichVault<T> = v.1.into();
+                let issuable_tokens = rich_vault.issuable_tokens().ok()?;
+                if issuable_tokens >= amount {
+                    Some(v.0)
+                } else {
+                    None
+                }
             })
             .collect::<Vec<_>>();
 
         if suitable_vaults.is_empty() {
             Err(Error::<T>::NoVaultWithSufficientCollateral.into())
         } else {
-            let idx = total_randomness_source % (suitable_vaults.len() as u128);
-            Ok(suitable_vaults[idx as usize].clone().0)
+            let idx = Self::pseudo_rand_index(amount, suitable_vaults.len());
+            Ok(suitable_vaults[idx].clone())
         }
     }
 
@@ -767,27 +766,23 @@ impl<T: Trait> Module<T> {
     pub fn get_first_vault_with_sufficient_tokens(
         amount: PolkaBTC<T>,
     ) -> Result<T::AccountId, DispatchError> {
-        let mut total_randomness_source = Self::polkabtc_to_u128(amount).unwrap_or(0 as u128);
-
+        // find all vault accounts with sufficient collateral
         let suitable_vaults = <Vaults<T>>::iter()
-            .filter(|v| {
-                let rich_vault: RichVault<T> = v.clone().1.into();
-                let issuable_tokens = rich_vault.issuable_tokens().unwrap_or(0.into());
-                let raw_amount = Self::polkabtc_to_u128(issuable_tokens).unwrap_or(0 as u128);
-                total_randomness_source = total_randomness_source
-                    .checked_add(raw_amount)
-                    .unwrap_or(raw_amount);
-
-                // iterator returns tuple of (AccountId, Vault<T>), we only need the vault
-                v.1.issued_tokens >= amount
+            .filter_map(|v| {
+                // iterator returns tuple of (AccountId, Vault<T>), we check the vault and return the accountid
+                if v.1.issued_tokens >= amount {
+                    Some(v.0)
+                } else {
+                    None
+                }
             })
             .collect::<Vec<_>>();
 
         if suitable_vaults.is_empty() {
             Err(Error::<T>::NoVaultWithSufficientTokens.into())
         } else {
-            let idx = total_randomness_source % (suitable_vaults.len() as u128);
-            Ok(suitable_vaults[idx as usize].clone().0)
+            let idx = Self::pseudo_rand_index(amount, suitable_vaults.len());
+            Ok(suitable_vaults[idx].clone())
         }
     }
 
@@ -874,6 +869,26 @@ impl<T: Trait> Module<T> {
     }
 
     // Other helpers
+
+    /// get a psuedorandom value between 0 (inclusive) and `limit` (exclusive), based on
+    /// the hashes of the last 81 blocks, and the given subject.
+    ///
+    /// # Arguments
+    ///
+    /// * `subject` - an extra value to feed into the pseudorandom number generator
+    /// * `limit` - the limit of the returned value
+    fn pseudo_rand_index(subject: PolkaBTC<T>, limit: usize) -> usize {
+        let raw_subject = Self::polkabtc_to_u128(subject).unwrap_or(0 as u128);
+
+        // convert into a slice. Endianness of the conversion function is arbitrary chosen
+        let bytes = &raw_subject.to_be_bytes();
+
+        let rand_hash = T::RandomnessSource::random(bytes);
+
+        let ret = rand_hash.to_low_u64_le() % (limit as u64);
+        ret as usize
+    }
+
     /// Ensure that the parachain is NOT shutdown and DOES NOT have the given errors
     ///
     /// # Arguments

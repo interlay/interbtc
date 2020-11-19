@@ -154,6 +154,7 @@ impl exchange_rate_oracle::Trait for Test {
 
 impl Trait for Test {
     type Event = TestEvent;
+    type RandomnessSource = pallet_randomness_collective_flip::Module<Test>;
     type WeightInfo = ();
 }
 
