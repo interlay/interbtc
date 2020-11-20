@@ -176,7 +176,8 @@ pub const OTHER_ID: u64 = 4;
 pub const RICH_ID: u64 = 5;
 pub const DEFAULT_COLLATERAL: u128 = 100;
 pub const RICH_COLLATERAL: u128 = DEFAULT_COLLATERAL + 50;
-
+pub const MULTI_VAULT_TEST_IDS: [u64; 4] = [100, 101, 102, 103];
+pub const MULTI_VAULT_TEST_COLLATERAL: u128 = 100000;
 impl ExtBuilder {
     pub fn build_with(
         conf: pallet_balances::GenesisConfig<Test, pallet_balances::Instance1>,
@@ -215,6 +216,10 @@ impl ExtBuilder {
                     (DEFAULT_ID, DEFAULT_COLLATERAL),
                     (OTHER_ID, DEFAULT_COLLATERAL),
                     (RICH_ID, RICH_COLLATERAL),
+                    (MULTI_VAULT_TEST_IDS[0], MULTI_VAULT_TEST_COLLATERAL),
+                    (MULTI_VAULT_TEST_IDS[1], MULTI_VAULT_TEST_COLLATERAL),
+                    (MULTI_VAULT_TEST_IDS[2], MULTI_VAULT_TEST_COLLATERAL),
+                    (MULTI_VAULT_TEST_IDS[3], MULTI_VAULT_TEST_COLLATERAL),
                 ],
             },
         )
