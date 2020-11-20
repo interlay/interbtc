@@ -200,15 +200,15 @@ fn testnet_genesis(
         }),
         issue: Some(IssueConfig {
             issue_griefing_collateral: 10,
-            issue_period: 7 * DAYS,
+            issue_period: DAYS,
         }),
         redeem: Some(RedeemConfig {
-            redeem_period: 7 * DAYS,
+            redeem_period: DAYS,
             redeem_btc_dust_value: 1000,
         }),
         replace: Some(ReplaceConfig {
             replace_griefing_collateral: 10,
-            replace_period: 7 * DAYS,
+            replace_period: DAYS,
             replace_btc_dust_value: 1000,
         }),
         vault_registry: Some(VaultRegistryConfig {
