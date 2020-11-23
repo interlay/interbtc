@@ -1,4 +1,5 @@
-use frame_support::dispatch::DispatchError;
+use bech32::Error as Bech32Error;
+use bs58::decode::Error as Base58Error;
 
 #[derive(Debug)]
 pub enum Error {
@@ -14,19 +15,25 @@ pub enum Error {
     UnsupportedOutputFormat,
     MalformedOpReturnOutput,
     InvalidHeaderSize,
-    InvalidAddress,
+    InvalidBtcHash,
     InvalidScript,
+    InvalidBtcAddress,
+    Base58(Base58Error),
+    Bech32(Bech32Error),
+    EmptyBech32Payload,
+    InvalidWitnessVersion(u8),
+    InvalidWitnessProgramLength(usize),
+    InvalidSegWitV0ProgramLength(usize),
 }
 
-impl From<Error> for DispatchError {
-    fn from(error: Error) -> Self {
-        DispatchError::Module {
-            // FIXME: this should be set to the module returning the error
-            // It should be super easy to do if Substrate has an "after request"
-            // kind of middleware but not sure if it does
-            index: 0,
-            error: error as u8,
-            message: None,
-        }
+impl From<Bech32Error> for Error {
+    fn from(error: Bech32Error) -> Self {
+        Error::Bech32(error)
+    }
+}
+
+impl From<Base58Error> for Error {
+    fn from(error: Base58Error) -> Self {
+        Error::Base58(error)
     }
 }

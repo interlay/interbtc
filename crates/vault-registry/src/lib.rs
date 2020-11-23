@@ -25,6 +25,7 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
+use btc_relay::BtcPayload;
 use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::Randomness;
@@ -33,11 +34,11 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, ensure, IterableStorageMap,
 };
 use frame_system::ensure_signed;
-use sp_core::{H160, H256, U256};
+use security::ErrorCode;
+use sp_core::H160;
+use sp_core::{H256, U256};
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
-
-use security::ErrorCode;
 
 use crate::types::{DefaultVault, PolkaBTC, RichVault, DOT};
 pub use crate::types::{Vault, VaultStatus, Wallet};
@@ -163,14 +164,14 @@ decl_module! {
         /// * `VaultAlreadyRegistered` - if a vault is already registered for the origin account
         /// * `InsufficientCollateralAvailable` - if the vault does not own enough collateral
         #[weight = <T as Trait>::WeightInfo::register_vault()]
-        fn register_vault(origin, collateral: DOT<T>, btc_address: H160) -> DispatchResult {
+        fn register_vault(origin, collateral: DOT<T>, btc_address: BtcPayload) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ext::security::ensure_parachain_status_running::<T>()?;
 
             ensure!(collateral >= Self::get_minimum_collateral_vault(),
                     Error::<T>::InsufficientVaultCollateralAmount);
             ensure!(!Self::vault_exists(&sender), Error::<T>::VaultAlreadyRegistered);
-            ensure!(!<VaultsBtcAddress<T>>::contains_key(btc_address), Error::<T>::BtcAddressTaken);
+            ensure!(!<VaultsBtcAddress<T>>::contains_key(btc_address.hash()), Error::<T>::BtcAddressTaken);
 
             ext::collateral::lock::<T>(&sender, collateral)?;
             let vault = RichVault::<T>::new(sender.clone(), btc_address);
@@ -240,18 +241,18 @@ decl_module! {
         /// # Arguments
         /// * `btc_address` - the BTC address of the vault to update
         #[weight = <T as Trait>::WeightInfo::update_btc_address()]
-        fn update_btc_address(origin, btc_address: H160) -> DispatchResult {
+        fn update_btc_address(origin, btc_address: BtcPayload) -> DispatchResult {
             let account_id = ensure_signed(origin)?;
             ext::security::ensure_parachain_status_running::<T>()?;
 
             ensure!(
-                !<VaultsBtcAddress<T>>::contains_key(btc_address),
+                !<VaultsBtcAddress<T>>::contains_key(btc_address.hash()),
                 Error::<T>::BtcAddressTaken,
             );
 
             let mut vault = Self::rich_vault_from_id(&account_id)?;
             vault.update_btc_address(btc_address);
-            <VaultsBtcAddress<T>>::insert(btc_address, account_id.clone());
+            <VaultsBtcAddress<T>>::insert(btc_address.hash(), account_id.clone());
 
             Self::deposit_event(Event::<T>::UpdateBtcAddress(account_id, btc_address));
             Ok(())
@@ -285,7 +286,7 @@ impl<T: Trait> Module<T> {
     pub fn _increase_to_be_issued_tokens(
         vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
-    ) -> Result<H160, DispatchError> {
+    ) -> Result<BtcPayload, DispatchError> {
         ext::security::ensure_parachain_status_running::<T>()?;
         let mut vault = Self::rich_vault_from_id(&vault_id)?;
         vault.increase_to_be_issued(tokens)?;
@@ -628,7 +629,7 @@ impl<T: Trait> Module<T> {
 
     pub fn _insert_vault<V: Into<DefaultVault<T>>>(id: &T::AccountId, rich_vault: V) {
         let vault: DefaultVault<T> = rich_vault.into();
-        <VaultsBtcAddress<T>>::insert(vault.wallet.get_btc_address(), id);
+        <VaultsBtcAddress<T>>::insert(vault.wallet.get_btc_address().hash(), id);
         <Vaults<T>>::insert(id, vault)
     }
 
@@ -1039,7 +1040,7 @@ decl_event! {
         LockAdditionalCollateral(AccountId, DOT, DOT, DOT),
         /// id, withdrawn collateral, total collateral
         WithdrawCollateral(AccountId, DOT, DOT),
-        UpdateBtcAddress(AccountId, H160),
+        UpdateBtcAddress(AccountId, BtcPayload),
         IncreaseToBeIssuedTokens(AccountId, BTCBalance),
         DecreaseToBeIssuedTokens(AccountId, BTCBalance),
         IssueTokens(AccountId, BTCBalance),

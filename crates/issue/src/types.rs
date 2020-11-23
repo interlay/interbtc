@@ -1,9 +1,8 @@
+use btc_relay::BtcPayload;
 use codec::{Decode, Encode};
+use frame_support::traits::Currency;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use sp_core::H160;
-
-use frame_support::traits::Currency;
 
 pub(crate) type DOT<T> =
     <<T as collateral::Trait>::DOT as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
@@ -35,7 +34,7 @@ pub struct IssueRequest<AccountId, BlockNumber, PolkaBTC, DOT> {
     #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
     pub amount: PolkaBTC,
     pub requester: AccountId,
-    pub btc_address: H160,
+    pub btc_address: BtcPayload,
     pub completed: bool,
 }
 

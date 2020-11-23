@@ -2,6 +2,7 @@ mod mock;
 
 use mock::*;
 use primitive_types::H256;
+use sp_std::str::FromStr;
 
 type IssueCall = issue::Call<Runtime>;
 type IssueEvent = issue::Event<Runtime>;
@@ -50,11 +51,9 @@ fn integration_test_issue_polka_btc() {
     ExtBuilder::build().execute_with(|| {
         SystemModule::set_block_number(1);
 
-        let address = H160::from_slice(
-            hex::decode("66c7060feb882664ae62ffad0051fe843e318e85")
-                .unwrap()
-                .as_slice(),
-        );
+        let address =
+            BtcPayload::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
+
         let amount = 100000;
         let collateral = 100;
 

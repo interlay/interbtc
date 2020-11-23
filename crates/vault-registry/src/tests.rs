@@ -1,8 +1,3 @@
-use frame_support::{assert_err, assert_noop, assert_ok, StorageMap, StorageValue};
-use sp_core::H160;
-
-use mocktopus::mocking::*;
-
 use crate::ext;
 use crate::mock::{
     run_test, CollateralError, Origin, SecurityError, System, Test, TestError, TestEvent,
@@ -13,7 +8,11 @@ use crate::sp_api_hidden_includes_decl_storage::hidden_include::traits::OnInitia
 use crate::GRANULARITY;
 use crate::H256;
 use crate::{Vault, VaultStatus, Wallet};
+use btc_relay::BtcPayload;
+use frame_support::{assert_err, assert_noop, assert_ok, StorageMap, StorageValue};
+use mocktopus::mocking::*;
 use sp_runtime::traits::Header;
+
 type Event = crate::Event<Test>;
 
 // use macro to avoid messing up stack trace
@@ -59,7 +58,7 @@ fn create_vault_with_collateral(
 ) -> <Test as frame_system::Trait>::AccountId {
     VaultRegistry::get_minimum_collateral_vault.mock_safe(move || MockResult::Return(collateral));
     let origin = Origin::signed(id);
-    let result = VaultRegistry::register_vault(origin, collateral, H160::random());
+    let result = VaultRegistry::register_vault(origin, collateral, BtcPayload::random());
     assert_ok!(result);
     id
 }
@@ -120,7 +119,8 @@ fn register_vault_fails_when_given_collateral_too_low() {
         VaultRegistry::get_minimum_collateral_vault.mock_safe(|| MockResult::Return(200));
         let id = 3;
         let collateral = 100;
-        let result = VaultRegistry::register_vault(Origin::signed(id), collateral, H160::zero());
+        let result =
+            VaultRegistry::register_vault(Origin::signed(id), collateral, BtcPayload::default());
         assert_err!(result, TestError::InsufficientVaultCollateralAmount);
         assert_not_emitted!(Event::RegisterVault(id, collateral));
     });
@@ -130,8 +130,11 @@ fn register_vault_fails_when_given_collateral_too_low() {
 fn register_vault_fails_when_account_funds_too_low() {
     run_test(|| {
         let collateral = DEFAULT_COLLATERAL + 1;
-        let result =
-            VaultRegistry::register_vault(Origin::signed(DEFAULT_ID), collateral, H160::zero());
+        let result = VaultRegistry::register_vault(
+            Origin::signed(DEFAULT_ID),
+            collateral,
+            BtcPayload::default(),
+        );
         assert_err!(result, CollateralError::InsufficientFunds);
         assert_not_emitted!(Event::RegisterVault(DEFAULT_ID, collateral));
     });
@@ -141,8 +144,11 @@ fn register_vault_fails_when_account_funds_too_low() {
 fn register_vault_fails_when_already_registered() {
     run_test(|| {
         let id = create_sample_vault();
-        let result =
-            VaultRegistry::register_vault(Origin::signed(id), DEFAULT_COLLATERAL, H160::zero());
+        let result = VaultRegistry::register_vault(
+            Origin::signed(id),
+            DEFAULT_COLLATERAL,
+            BtcPayload::default(),
+        );
         assert_err!(result, TestError::VaultAlreadyRegistered);
         assert_emitted!(Event::RegisterVault(id, DEFAULT_COLLATERAL), 1);
     });
@@ -758,7 +764,7 @@ fn register_vault_parachain_not_running_fails() {
             VaultRegistry::register_vault(
                 Origin::signed(DEFAULT_ID),
                 DEFAULT_COLLATERAL,
-                H160::zero()
+                BtcPayload::default()
             ),
             SecurityError::ParachainNotRunning
         );
@@ -913,9 +919,9 @@ fn get_total_collateralization_with_tokens_issued() {
 #[test]
 fn wallet_add_btc_address_succeeds() {
     run_test(|| {
-        let address1 = H160::random();
-        let address2 = H160::random();
-        let address3 = H160::random();
+        let address1 = BtcPayload::random();
+        let address2 = BtcPayload::random();
+        let address3 = BtcPayload::random();
 
         let mut wallet = Wallet::new(address1);
         assert_eq!(wallet.get_btc_address(), address1);
@@ -931,8 +937,8 @@ fn wallet_add_btc_address_succeeds() {
 #[test]
 fn wallet_has_btc_address_succeeds() {
     run_test(|| {
-        let address1 = H160::random();
-        let address2 = H160::random();
+        let address1 = BtcPayload::random();
+        let address2 = BtcPayload::random();
 
         let wallet = Wallet::new(address1);
         assert_eq!(wallet.has_btc_address(&address1), true);
@@ -944,7 +950,7 @@ fn wallet_has_btc_address_succeeds() {
 fn update_btc_address_fails_with_btc_address_taken() {
     run_test(|| {
         let origin = DEFAULT_ID;
-        let address = H160::random();
+        let address = BtcPayload::random();
 
         let mut vault = Vault::default();
         vault.id = origin;
@@ -962,8 +968,8 @@ fn update_btc_address_fails_with_btc_address_taken() {
 fn update_btc_address_succeeds() {
     run_test(|| {
         let origin = DEFAULT_ID;
-        let address1 = H160::random();
-        let address2 = H160::random();
+        let address1 = BtcPayload::random();
+        let address2 = BtcPayload::random();
 
         let mut vault = Vault::default();
         vault.id = origin;

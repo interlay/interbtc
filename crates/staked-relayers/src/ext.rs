@@ -114,6 +114,7 @@ pub(crate) mod security {
 #[cfg_attr(test, mockable)]
 pub(crate) mod btc_relay {
     use bitcoin::types::{H256Le, Transaction};
+    use btc_relay::BtcPayload;
     use frame_support::dispatch::DispatchResult;
     use security::types::ErrorCode;
     use sp_std::prelude::*;
@@ -145,7 +146,7 @@ pub(crate) mod btc_relay {
 
     pub(crate) fn extract_outputs<T: btc_relay::Trait>(
         tx: Transaction,
-    ) -> Result<(Vec<(i64, Vec<u8>)>, Vec<(i64, Vec<u8>)>), btc_relay::Error<T>> {
+    ) -> Result<(Vec<(i64, BtcPayload)>, Vec<(i64, Vec<u8>)>), btc_relay::Error<T>> {
         <btc_relay::Module<T>>::extract_outputs(tx)
     }
 }

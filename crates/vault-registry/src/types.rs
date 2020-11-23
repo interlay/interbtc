@@ -1,11 +1,11 @@
 use frame_support::traits::Currency;
 
+use btc_relay::BtcPayload;
 use codec::{Decode, Encode, HasCompact};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure, StorageMap,
 };
-use sp_core::H160;
 use sp_std::collections::btree_set::BTreeSet;
 
 #[cfg(test)]
@@ -22,33 +22,30 @@ pub(crate) type PolkaBTC<T> =
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
 pub struct Wallet {
     // store all addresses for `report_vault_theft` checks
-    addresses: BTreeSet<H160>,
+    addresses: BTreeSet<BtcPayload>,
     // we use the most recent address for issue / redeem requests
-    address: H160,
+    address: BtcPayload,
 }
 
 impl Wallet {
-    pub fn new(hash: H160) -> Self {
+    pub fn new(address: BtcPayload) -> Self {
         let mut addresses = BTreeSet::new();
-        addresses.insert(hash);
-        Self {
-            addresses,
-            address: hash,
-        }
+        addresses.insert(address);
+        Self { addresses, address }
     }
 
-    pub fn has_btc_address(&self, hash: &H160) -> bool {
-        self.addresses.contains(hash)
+    pub fn has_btc_address(&self, address: &BtcPayload) -> bool {
+        self.addresses.contains(address)
     }
 
-    pub fn add_btc_address(&mut self, hash: H160) {
+    pub fn add_btc_address(&mut self, address: BtcPayload) {
         // TODO: add maximum or griefing collateral
-        self.addresses.insert(hash);
+        self.addresses.insert(address);
         // NOTE: updates primary address even if already contained in set
-        self.address = hash;
+        self.address = address;
     }
 
-    pub fn get_btc_address(&self) -> H160 {
+    pub fn get_btc_address(&self) -> BtcPayload {
         // wallet should never be empty
         self.address
     }
@@ -97,7 +94,10 @@ pub struct Vault<AccountId, BlockNumber, PolkaBTC> {
 impl<AccountId, BlockNumber, PolkaBTC: HasCompact + Default>
     Vault<AccountId, BlockNumber, PolkaBTC>
 {
-    pub(crate) fn new(id: AccountId, btc_address: H160) -> Vault<AccountId, BlockNumber, PolkaBTC> {
+    pub(crate) fn new(
+        id: AccountId,
+        btc_address: BtcPayload,
+    ) -> Vault<AccountId, BlockNumber, PolkaBTC> {
         let wallet = Wallet::new(btc_address);
         Vault {
             id,
@@ -123,7 +123,7 @@ pub(crate) struct RichVault<T: Trait> {
 
 #[cfg_attr(test, mockable)]
 impl<T: Trait> RichVault<T> {
-    pub fn new(id: T::AccountId, btc_address: H160) -> RichVault<T> {
+    pub fn new(id: T::AccountId, btc_address: BtcPayload) -> RichVault<T> {
         let vault = Vault::new(id, btc_address);
         RichVault { data: vault }
     }
@@ -301,7 +301,7 @@ impl<T: Trait> RichVault<T> {
         self.update(|v| v.banned_until = Some(height));
     }
 
-    pub fn update_btc_address(&mut self, btc_address: H160) {
+    pub fn update_btc_address(&mut self, btc_address: BtcPayload) {
         self.update(|v| {
             v.wallet.add_btc_address(btc_address);
         });

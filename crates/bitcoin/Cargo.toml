@@ -44,6 +44,17 @@ version = '0.4.2'
 default-features = false
 version = "0.7.3"
 
+[dependencies.bs58]
+default-features = false
+version = "0.3.1"
+features = ['check']
+
+[dependencies.bech32]
+default-features = false
+version = "0.7.3"
+# TODO: change upstream when no_std supported
+package = "bech32-no_std"
+
 [dev-dependencies]
 mocktopus = '0.7.0'
 
@@ -58,4 +69,6 @@ std = [
 	'sp-core/std',
 	'sha2/std',
 	'hex/std',
+	'bs58/std',
+	'bech32/std'
 ]

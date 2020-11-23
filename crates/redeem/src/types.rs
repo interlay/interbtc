@@ -1,6 +1,6 @@
+use btc_relay::BtcPayload;
 use codec::{Decode, Encode};
 use frame_support::traits::Currency;
-use sp_core::H160;
 
 #[cfg(feature = "std")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -51,7 +51,7 @@ pub struct RedeemRequest<AccountId, BlockNumber, PolkaBTC, DOT> {
     #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
     pub premium_dot: DOT,
     pub redeemer: AccountId,
-    pub btc_address: H160,
+    pub btc_address: BtcPayload,
     pub completed: bool,
 }
 

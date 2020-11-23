@@ -25,6 +25,7 @@ pub mod types;
 pub use crate::types::RedeemRequest;
 use crate::types::{PolkaBTC, DOT};
 use bitcoin::types::H256Le;
+use btc_relay::BtcPayload;
 use frame_support::weights::Weight;
 /// # PolkaBTC Redeem implementation
 /// The Redeem module according to the specification at
@@ -38,7 +39,6 @@ use frame_support::{
 use frame_system::{ensure_root, ensure_signed};
 use primitive_types::H256;
 use security::ErrorCode;
-use sp_core::H160;
 use sp_runtime::ModuleId;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
@@ -88,7 +88,7 @@ decl_event!(
         AccountId = <T as frame_system::Trait>::AccountId,
         PolkaBTC = PolkaBTC<T>,
     {
-        RequestRedeem(H256, AccountId, PolkaBTC, AccountId, H160),
+        RequestRedeem(H256, AccountId, PolkaBTC, AccountId, BtcPayload),
         ExecuteRedeem(H256, AccountId, AccountId),
         CancelRedeem(H256, AccountId),
     }
@@ -114,7 +114,7 @@ decl_module! {
         /// * `btc_address` - the address to receive BTC
         /// * `vault` - address of the vault
         #[weight = <T as Trait>::WeightInfo::request_redeem()]
-        fn request_redeem(origin, amount_polka_btc: PolkaBTC<T>, btc_address: H160, vault_id: T::AccountId)
+        fn request_redeem(origin, amount_polka_btc: PolkaBTC<T>, btc_address: BtcPayload, vault_id: T::AccountId)
             -> DispatchResult
         {
             let redeemer = ensure_signed(origin)?;
@@ -184,7 +184,7 @@ decl_module! {
                     amount_dot: amount_dot.try_into().map_err(|_e| Error::<T>::ConversionError)?,
                     premium_dot,
                     redeemer: redeemer.clone(),
-                    btc_address,
+                    btc_address: btc_address.clone(),
                     completed: false,
                 },
             );
@@ -235,7 +235,7 @@ decl_module! {
             ext::btc_relay::validate_transaction::<T>(
                 raw_tx,
                 amount as i64,
-                redeem.btc_address.as_bytes().to_vec(),
+                redeem.btc_address,
                 redeem_id.clone().as_bytes().to_vec(),
             )?;
             ext::treasury::burn::<T>(redeem.redeemer.clone(), redeem.amount_polka_btc)?;

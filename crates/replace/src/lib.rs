@@ -491,7 +491,7 @@ impl<T: Trait> Module<T> {
         ext::btc_relay::validate_transaction::<T>(
             raw_tx,
             amount,
-            replace.btc_address.as_bytes().to_vec(),
+            replace.btc_address,
             replace_id.clone().as_bytes().to_vec(),
         )?;
 

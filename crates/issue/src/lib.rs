@@ -30,7 +30,12 @@ pub use crate::types::IssueRequest;
 
 use crate::types::{PolkaBTC, DOT};
 use bitcoin::types::H256Le;
+use btc_relay::BtcPayload;
 use frame_support::weights::Weight;
+/// # PolkaBTC Issue implementation
+/// The Issue module according to the specification at
+/// https://interlay.gitlab.io/polkabtc-spec/spec/issue.html
+// Substrate
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
@@ -38,7 +43,6 @@ use frame_support::{
 };
 use frame_system::{ensure_root, ensure_signed};
 use primitive_types::H256;
-use sp_core::H160;
 use sp_runtime::ModuleId;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
@@ -88,7 +92,7 @@ decl_event!(
         AccountId = <T as frame_system::Trait>::AccountId,
         PolkaBTC = PolkaBTC<T>,
     {
-        RequestIssue(H256, AccountId, PolkaBTC, AccountId, H160),
+        RequestIssue(H256, AccountId, PolkaBTC, AccountId, BtcPayload),
         ExecuteIssue(H256, AccountId, AccountId),
         CancelIssue(H256, AccountId),
     }
@@ -209,7 +213,7 @@ impl<T: Trait> Module<T> {
                 griefing_collateral: griefing_collateral,
                 amount: amount,
                 requester: requester.clone(),
-                btc_address: btc_address,
+                btc_address: btc_address.clone(),
                 completed: false,
             },
         );
@@ -250,7 +254,7 @@ impl<T: Trait> Module<T> {
             raw_tx,
             TryInto::<u64>::try_into(issue.amount).map_err(|_e| Error::<T>::ConversionError)?
                 as i64,
-            issue.btc_address.as_bytes().to_vec(),
+            issue.btc_address,
             issue_id.clone().as_bytes().to_vec(),
         )?;
 

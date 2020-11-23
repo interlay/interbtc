@@ -3,10 +3,10 @@ use crate::types::PolkaBTC;
 use crate::RawEvent;
 use crate::{ext, Trait};
 use bitcoin::types::H256Le;
+use btc_relay::BtcPayload;
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
 use primitive_types::H256;
-use sp_core::H160;
 use vault_registry::{Vault, VaultStatus, Wallet};
 
 fn request_issue(
@@ -21,7 +21,7 @@ fn request_issue(
     ext::security::get_secure_id::<Test>.mock_safe(|_| MockResult::Return(get_dummy_request_id()));
 
     ext::vault_registry::increase_to_be_issued_tokens::<Test>
-        .mock_safe(|_, _| MockResult::Return(Ok(H160::from_slice(&[0; 20]))));
+        .mock_safe(|_, _| MockResult::Return(Ok(BtcPayload::default())));
 
     Issue::_request_issue(origin, amount, vault, collateral)
 }
@@ -40,7 +40,7 @@ fn request_issue_ok(
     ext::security::get_secure_id::<Test>.mock_safe(|_| MockResult::Return(get_dummy_request_id()));
 
     ext::vault_registry::increase_to_be_issued_tokens::<Test>
-        .mock_safe(|_, _| MockResult::Return(Ok(H160::from_slice(&[0; 20]))));
+        .mock_safe(|_, _| MockResult::Return(Ok(BtcPayload::default())));
 
     match Issue::_request_issue(origin, amount, vault, collateral) {
         Ok(act) => act,
@@ -93,7 +93,7 @@ fn test_request_issue_banned_fails() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
-                wallet: Wallet::new(H160::random()),
+                wallet: Wallet::new(BtcPayload::random()),
                 banned_until: Some(1),
                 status: VaultStatus::Active,
             },
@@ -135,7 +135,7 @@ fn test_request_issue_succeeds() {
             origin,
             amount,
             vault,
-            H160([0; 20]),
+            BtcPayload::default(),
         ));
         assert!(System::events()
             .iter()

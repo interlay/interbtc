@@ -2,16 +2,17 @@ use super::*;
 use crate::Module as StakedRelayers;
 use bitcoin::formatter::Formattable;
 use bitcoin::types::{
-    Address, BlockBuilder, H256Le, RawBlockHeader, TransactionBuilder, TransactionInputBuilder,
+    BlockBuilder, H256Le, RawBlockHeader, TransactionBuilder, TransactionInputBuilder,
     TransactionOutput,
 };
+use btc_relay::BtcPayload;
 use btc_relay::Module as BtcRelay;
 use collateral::Module as Collateral;
 use exchange_rate_oracle::Module as ExchangeRateOracle;
 use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
 // use pallet_timestamp::Now;
-use sp_core::U256;
+use sp_core::{H160, U256};
 use sp_std::prelude::*;
 use vault_registry::types::{Vault, Wallet};
 use vault_registry::Module as VaultRegistry;
@@ -83,17 +84,17 @@ benchmarks! {
         let stake = 100;
         StakedRelayers::<T>::add_active_staked_relayer(&origin, stake.into());
 
-        let vault_address = Address::from([
+        let vault_address = BtcPayload::P2PKH(H160::from_slice(&[
             126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8,
             50, 170,
-        ]);
+        ]));
 
-        let address = Address::from([0; 20]);
+        let address = BtcPayload::P2PKH(H160([0; 20]));
 
         let vault_id: T::AccountId = account("Vault", 0, 0);
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
-        vault.wallet = Wallet::new(H160::from_slice(vault_address.as_bytes()));
+        vault.wallet = Wallet::new(vault_address);
         VaultRegistry::<T>::_insert_vault(
             &vault_id,
             vault
@@ -138,7 +139,7 @@ benchmarks! {
                     ])
                     .build(),
             )
-            .add_output(TransactionOutput::p2pkh(value.into(), &address))
+            .add_output(TransactionOutput::payment(value.into(), &address))
             .build();
 
         let block = BlockBuilder::new()
@@ -168,7 +169,7 @@ benchmarks! {
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
         vault.issued_tokens = 100_000.into();
-        vault.wallet = Wallet::new(H160::zero());
+        vault.wallet = Wallet::new(BtcPayload::P2SH(H160::zero()));
         VaultRegistry::<T>::_insert_vault(
             &vault_id,
             vault
