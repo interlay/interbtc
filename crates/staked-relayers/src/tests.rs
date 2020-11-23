@@ -1322,6 +1322,7 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: H160::from_slice(address2.as_bytes()),
+                completed: false,
             }))
         });
 
@@ -1377,6 +1378,7 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
                 collateral: 0,
                 accept_time: None,
                 btc_address: H160::from_slice(address2.as_bytes()),
+                completed: false,
             }))
         });
 

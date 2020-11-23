@@ -270,6 +270,7 @@ impl<T: Trait> Module<T> {
             collateral: vault_collateral,
             accept_time: None,
             btc_address: vault.wallet.get_btc_address(),
+            completed: false,
         };
         Self::insert_replace_request(replace_id, replace);
 
@@ -419,6 +420,7 @@ impl<T: Trait> Module<T> {
                 griefing_collateral: 0.into(),
                 btc_address: new_vault.wallet.get_btc_address(),
                 collateral: collateral,
+                completed: false,
             },
         );
 
@@ -587,7 +589,10 @@ impl<T: Trait> Module<T> {
         id: &H256,
     ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError>
     {
-        <ReplaceRequests<T>>::get(id).ok_or(Error::<T>::InvalidReplaceID.into())
+        let request = <ReplaceRequests<T>>::get(id).ok_or(Error::<T>::ReplaceIdNotFound)?;
+        // NOTE: temporary workaround until we delete
+        ensure!(!request.completed, Error::<T>::ReplaceCompleted);
+        Ok(request)
     }
 
     fn insert_replace_request(
@@ -598,7 +603,12 @@ impl<T: Trait> Module<T> {
     }
 
     fn remove_replace_request(key: H256) {
-        <ReplaceRequests<T>>::remove(key)
+        // TODO: delete replace request from storage
+        <ReplaceRequests<T>>::mutate(key, |request| {
+            if let Some(req) = request {
+                req.completed = true;
+            }
+        });
     }
 
     #[allow(dead_code)]
@@ -622,7 +632,8 @@ decl_error! {
         CollateralBelowSecureThreshold,
         ReplacePeriodExpired,
         ReplacePeriodNotExpired,
-        InvalidReplaceID,
+        ReplaceCompleted,
+        ReplaceIdNotFound,
         ConversionError,
     }
 }

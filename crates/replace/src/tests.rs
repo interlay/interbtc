@@ -1,7 +1,7 @@
 use crate::ext;
 use crate::mock::*;
 use crate::PolkaBTC;
-use crate::ReplaceRequest as R;
+use crate::ReplaceRequest;
 use crate::DOT;
 use bitcoin::types::H256Le;
 use frame_support::{
@@ -33,8 +33,8 @@ macro_rules! assert_emitted {
     };
 }
 
-fn test_request() -> R<u64, u64, u64, u64> {
-    R {
+fn test_request() -> ReplaceRequest<u64, u64, u64, u64> {
+    ReplaceRequest {
         new_vault: None,
         old_vault: ALICE,
         open_time: 0,
@@ -43,6 +43,7 @@ fn test_request() -> R<u64, u64, u64, u64> {
         griefing_collateral: 0,
         btc_address: H160([0; 20]),
         collateral: 20,
+        completed: false,
     }
 }
 
@@ -223,10 +224,10 @@ fn test_request_replace_insufficient_griefing_collateral_fails() {
 fn test_withdraw_replace_request_invalid_replace_id_fails() {
     run_test(|| {
         Replace::get_replace_request
-            .mock_safe(|_| MockResult::Return(Err(TestError::InvalidReplaceID.into())));
+            .mock_safe(|_| MockResult::Return(Err(TestError::ReplaceIdNotFound.into())));
         assert_noop!(
             Replace::_withdraw_replace_request(ALICE, H256([0u8; 32])),
-            TestError::InvalidReplaceID
+            TestError::ReplaceIdNotFound
         );
     })
 }
@@ -313,7 +314,7 @@ fn test_accept_replace_bad_replace_id_fails() {
             let mut r = test_request();
             r.old_vault = ALICE;
             r.new_vault = Some(3);
-            MockResult::Return(Err(TestError::InvalidReplaceID.into()))
+            MockResult::Return(Err(TestError::ReplaceIdNotFound.into()))
         });
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_id| {
             MockResult::Return(Ok({
@@ -329,7 +330,7 @@ fn test_accept_replace_bad_replace_id_fails() {
         let collateral = 100_000;
         assert_noop!(
             accept_replace(ALICE, H256([0u8; 32]), collateral),
-            TestError::InvalidReplaceID
+            TestError::ReplaceIdNotFound
         );
     })
 }
@@ -483,7 +484,7 @@ fn test_auction_replace_insufficient_collateral_fails() {
 fn test_execute_replace_bad_replace_id_fails() {
     run_test(|| {
         Replace::get_replace_request
-            .mock_safe(|_| MockResult::Return(Err(TestError::InvalidReplaceID.into())));
+            .mock_safe(|_| MockResult::Return(Err(TestError::ReplaceIdNotFound.into())));
 
         let replace_id = H256::zero();
         let tx_id = H256Le::zero();
@@ -491,7 +492,7 @@ fn test_execute_replace_bad_replace_id_fails() {
         let raw_tx = Vec::new();
         assert_err!(
             execute_replace(replace_id, tx_id, merkle_proof, raw_tx),
-            TestError::InvalidReplaceID
+            TestError::ReplaceIdNotFound
         );
     })
 }
@@ -525,14 +526,14 @@ fn test_execute_replace_replace_period_expired_fails() {
 fn test_cancel_replace_invalid_replace_id_fails() {
     run_test(|| {
         Replace::get_replace_request
-            .mock_safe(|_| MockResult::Return(Err(TestError::InvalidReplaceID.into())));
+            .mock_safe(|_| MockResult::Return(Err(TestError::ReplaceIdNotFound.into())));
 
         let new_vault_id = ALICE;
         let replace_id = H256::zero();
 
         assert_err!(
             cancel_replace(new_vault_id, replace_id),
-            TestError::InvalidReplaceID
+            TestError::ReplaceIdNotFound
         );
     })
 }

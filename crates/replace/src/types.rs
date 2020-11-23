@@ -41,6 +41,7 @@ pub struct ReplaceRequest<AccountId, BlockNumber, PolkaBTC, DOT> {
     pub collateral: DOT,
     pub accept_time: Option<BlockNumber>,
     pub btc_address: H160,
+    pub completed: bool,
 }
 
 // todo: serialize_as_string deserialize_from_string are defined multiple times

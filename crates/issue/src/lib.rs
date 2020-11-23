@@ -255,7 +255,6 @@ impl<T: Trait> Module<T> {
         let period = Self::issue_period();
 
         ensure!(height > issue.opentime + period, Error::<T>::TimeNotExpired);
-        ensure!(!issue.completed, Error::<T>::IssueCompleted);
 
         ext::vault_registry::decrease_to_be_issued_tokens::<T>(&issue.vault, issue.amount)?;
         ext::collateral::slash_collateral::<T>(
@@ -311,6 +310,11 @@ impl<T: Trait> Module<T> {
             <IssueRequests<T>>::contains_key(*issue_id),
             Error::<T>::IssueIdNotFound
         );
+        // NOTE: temporary workaround until we delete
+        ensure!(
+            !<IssueRequests<T>>::get(*issue_id).completed,
+            Error::<T>::IssueCompleted
+        );
         Ok(<IssueRequests<T>>::get(*issue_id))
     }
 
@@ -322,7 +326,10 @@ impl<T: Trait> Module<T> {
     }
 
     fn remove_issue_request(id: H256) {
-        <IssueRequests<T>>::remove(id);
+        // TODO: delete issue request from storage
+        <IssueRequests<T>>::mutate(id, |request| {
+            request.completed = true;
+        });
     }
 }
 

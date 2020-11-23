@@ -184,6 +184,7 @@ decl_module! {
                     premium_dot,
                     redeemer: redeemer.clone(),
                     btc_address,
+                    completed: false,
                 },
             );
             Self::deposit_event(<Event<T>>::RequestRedeem(
@@ -247,7 +248,7 @@ decl_module! {
             } else {
                 ext::vault_registry::redeem_tokens::<T>(&redeem.vault, redeem.amount_polka_btc)?;
             }
-            <RedeemRequests<T>>::remove(redeem_id);
+            Self::remove_redeem_request(redeem_id);
             Self::deposit_event(<Event<T>>::ExecuteRedeem(
                 redeem_id,
                 redeem.redeemer,
@@ -309,7 +310,7 @@ decl_module! {
                 ext::collateral::slash_collateral::<T>(&redeem.redeemer, &redeem.vault, slash_amount)?;
             }
             ext::vault_registry::ban_vault::<T>(redeem.vault, height)?;
-            <RedeemRequests<T>>::remove(redeem_id);
+            Self::remove_redeem_request(redeem_id);
             Self::deposit_event(<Event<T>>::CancelRedeem(redeem_id, redeemer));
 
             Ok(())
@@ -331,6 +332,13 @@ impl<T: Trait> Module<T> {
         value: RedeemRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
     ) {
         <RedeemRequests<T>>::insert(key, value)
+    }
+
+    fn remove_redeem_request(id: H256) {
+        // TODO: delete redeem request from storage
+        <RedeemRequests<T>>::mutate(id, |request| {
+            request.completed = true;
+        });
     }
 
     /// Fetch all redeem requests for the specified account.
@@ -369,16 +377,21 @@ impl<T: Trait> Module<T> {
     ///
     /// # Arguments
     ///
-    /// * `key` - 256-bit identifier of the redeem request
+    /// * `redeem_id` - 256-bit identifier of the redeem request
     pub fn get_redeem_request_from_id(
-        key: &H256,
+        redeem_id: &H256,
     ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError>
     {
         ensure!(
-            <RedeemRequests<T>>::contains_key(*key),
+            <RedeemRequests<T>>::contains_key(*redeem_id),
             Error::<T>::RedeemIdNotFound
         );
-        Ok(<RedeemRequests<T>>::get(*key))
+        // NOTE: temporary workaround until we delete
+        ensure!(
+            !<RedeemRequests<T>>::get(*redeem_id).completed,
+            Error::<T>::RedeemCompleted
+        );
+        Ok(<RedeemRequests<T>>::get(*redeem_id))
     }
 
     /// Ensure that the parachain is running or a vault is being liquidated.
@@ -435,6 +448,7 @@ decl_error! {
         CommitPeriodExpired,
         UnauthorizedUser,
         TimeNotExpired,
+        RedeemCompleted,
         RedeemIdNotFound,
         ConversionError,
         AmountBelowDustAmount,
