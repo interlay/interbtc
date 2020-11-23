@@ -631,12 +631,12 @@ impl_runtime_apis! {
             Ok(BalanceWrapper{amount:result})
         }
 
-        fn get_collateralization_from_vault(vault: AccountId) -> Result<u64, DispatchError> {
-            VaultRegistry::get_collateralization_from_vault(vault)
+        fn get_collateralization_from_vault(vault: AccountId, only_issued: bool) -> Result<u64, DispatchError> {
+            VaultRegistry::get_collateralization_from_vault(vault, only_issued)
         }
 
-        fn get_collateralization_from_vault_and_collateral(vault: AccountId, collateral: BalanceWrapper<Balance>) -> Result<u64, DispatchError> {
-            VaultRegistry::get_collateralization_from_vault_and_collateral(vault, collateral.amount)
+        fn get_collateralization_from_vault_and_collateral(vault: AccountId, collateral: BalanceWrapper<Balance>, only_issued: bool) -> Result<u64, DispatchError> {
+            VaultRegistry::get_collateralization_from_vault_and_collateral(vault, collateral.amount, only_issued)
         }
 
         fn get_required_collateral_for_polkabtc(amount_btc: BalanceWrapper<Balance>) -> Result<BalanceWrapper<Balance>, DispatchError> {

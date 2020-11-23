@@ -814,7 +814,7 @@ fn get_collateralization_from_vault_fails_with_no_tokens_issued() {
         let id = create_sample_vault();
 
         assert_err!(
-            VaultRegistry::get_collateralization_from_vault(id),
+            VaultRegistry::get_collateralization_from_vault(id, false),
             TestError::NoTokensIssued
         );
     })
@@ -827,8 +827,46 @@ fn get_collateralization_from_vault_succeeds() {
         let id = create_sample_vault_and_issue_tokens(issue_tokens);
 
         assert_eq!(
-            VaultRegistry::get_collateralization_from_vault(id),
+            VaultRegistry::get_collateralization_from_vault(id, false),
             Ok(2 * 10u64.pow(GRANULARITY))
+        );
+    })
+}
+
+#[test]
+fn get_unsettled_collateralization_from_vault_succeeds() {
+    run_test(|| {
+        let issue_tokens: u128 = DEFAULT_COLLATERAL / 10 / 4; // = 2
+        let id = create_sample_vault_and_issue_tokens(issue_tokens);
+
+        let vault = VaultRegistry::_get_vault_from_id(&id).unwrap();
+        assert_ok!(
+            VaultRegistry::_increase_to_be_issued_tokens(&id, issue_tokens),
+            vault.wallet.get_btc_address()
+        );
+
+        assert_eq!(
+            VaultRegistry::get_collateralization_from_vault(id, true),
+            Ok(5 * 10u64.pow(GRANULARITY))
+        );
+    })
+}
+
+#[test]
+fn get_settled_collateralization_from_vault_succeeds() {
+    run_test(|| {
+        let issue_tokens: u128 = DEFAULT_COLLATERAL / 10 / 4; // = 2
+        let id = create_sample_vault_and_issue_tokens(issue_tokens);
+
+        let vault = VaultRegistry::_get_vault_from_id(&id).unwrap();
+        assert_ok!(
+            VaultRegistry::_increase_to_be_issued_tokens(&id, issue_tokens),
+            vault.wallet.get_btc_address()
+        );
+
+        assert_eq!(
+            VaultRegistry::get_collateralization_from_vault(id, false),
+            Ok(25 * 10u64.pow(GRANULARITY - 1))
         );
     })
 }
