@@ -203,7 +203,7 @@ fn test_execute_issue_succeeds() {
             .iter()
             .any(|a| a.event == execute_issue_event));
 
-        assert_noop!(cancel_issue(ALICE, &issue_id), TestError::IssueIdNotFound);
+        assert_noop!(cancel_issue(ALICE, &issue_id), TestError::IssueCompleted);
     })
 }
 

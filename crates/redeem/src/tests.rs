@@ -300,6 +300,7 @@ fn test_request_redeem_succeeds_in_running_state() {
                 premium_dot: 0,
                 redeemer: redeemer.clone(),
                 btc_address: H160([0; 20]),
+                completed: false,
             }
         );
     })
@@ -397,6 +398,7 @@ fn test_request_redeem_succeeds_in_error_state() {
                 premium_dot: 0,
                 redeemer: redeemer.clone(),
                 btc_address: H160([0; 20]),
+                completed: false,
             }
         );
     })
@@ -433,6 +435,7 @@ fn test_execute_redeem_fails_with_unauthorized_vault() {
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: H160([0; 20]),
+                completed: false,
             }))
         });
 
@@ -465,6 +468,7 @@ fn test_execute_redeem_fails_with_commit_period_expired() {
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: H160([0; 20]),
+                completed: false,
             }))
         });
 
@@ -515,6 +519,7 @@ fn test_execute_redeem_succeeds() {
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: H160([0; 20]),
+                completed: false,
             },
         );
 
@@ -543,7 +548,7 @@ fn test_execute_redeem_succeeds() {
         assert_emitted!(Event::ExecuteRedeem(H256([0; 32]), ALICE, BOB));
         assert_err!(
             Redeem::get_redeem_request_from_id(&H256([0u8; 32])),
-            TestError::RedeemIdNotFound,
+            TestError::RedeemCompleted,
         );
     })
 }
@@ -573,6 +578,7 @@ fn test_cancel_redeem_fails_with_time_not_expired() {
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: H160([0; 20]),
+                completed: false,
             }))
         });
 
@@ -598,6 +604,7 @@ fn test_cancel_redeem_fails_with_unauthorized_caller() {
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: H160([0; 20]),
+                completed: false,
             }))
         });
 
@@ -622,6 +629,7 @@ fn test_cancel_redeem_succeeds() {
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: H160([0; 20]),
+                completed: false,
             },
         );
 
@@ -638,7 +646,7 @@ fn test_cancel_redeem_succeeds() {
         ));
         assert_err!(
             Redeem::get_redeem_request_from_id(&H256([0u8; 32])),
-            TestError::RedeemIdNotFound,
+            TestError::RedeemCompleted,
         );
         assert_emitted!(Event::CancelRedeem(H256([0; 32]), ALICE));
     })
