@@ -334,6 +334,7 @@ impl staked_relayers::Trait for Runtime {
 
 impl vault_registry::Trait for Runtime {
     type Event = Event;
+    type RandomnessSource = RandomnessCollectiveFlip;
     type WeightInfo = ();
 }
 

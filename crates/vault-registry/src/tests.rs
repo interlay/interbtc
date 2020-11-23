@@ -6,11 +6,14 @@ use mocktopus::mocking::*;
 use crate::ext;
 use crate::mock::{
     run_test, CollateralError, Origin, SecurityError, System, Test, TestError, TestEvent,
-    VaultRegistry, DEFAULT_COLLATERAL, DEFAULT_ID, OTHER_ID, RICH_COLLATERAL, RICH_ID,
+    VaultRegistry, DEFAULT_COLLATERAL, DEFAULT_ID, MULTI_VAULT_TEST_COLLATERAL,
+    MULTI_VAULT_TEST_IDS, OTHER_ID, RICH_COLLATERAL, RICH_ID,
 };
+use crate::sp_api_hidden_includes_decl_storage::hidden_include::traits::OnInitialize;
 use crate::GRANULARITY;
+use crate::H256;
 use crate::{Vault, VaultStatus, Wallet};
-
+use sp_runtime::traits::Header;
 type Event = crate::Event<Test>;
 
 // use macro to avoid messing up stack trace
@@ -50,32 +53,37 @@ fn set_default_thresholds() {
     VaultRegistry::_set_liquidation_collateral_threshold(liquidation);
 }
 
-fn create_vault(id: u64) -> <Test as frame_system::Trait>::AccountId {
-    VaultRegistry::get_minimum_collateral_vault
-        .mock_safe(|| MockResult::Return(DEFAULT_COLLATERAL));
-    let collateral = DEFAULT_COLLATERAL;
+fn create_vault_with_collateral(
+    id: u64,
+    collateral: u128,
+) -> <Test as frame_system::Trait>::AccountId {
+    VaultRegistry::get_minimum_collateral_vault.mock_safe(move || MockResult::Return(collateral));
     let origin = Origin::signed(id);
     let result = VaultRegistry::register_vault(origin, collateral, H160::random());
     assert_ok!(result);
     id
 }
 
+fn create_vault(id: u64) -> <Test as frame_system::Trait>::AccountId {
+    create_vault_with_collateral(id, DEFAULT_COLLATERAL)
+}
+
 fn create_sample_vault() -> <Test as frame_system::Trait>::AccountId {
     create_vault(DEFAULT_ID)
 }
 
-fn create_sample_vault_and_issue_tokens(
+fn create_vault_and_issue_tokens(
     issue_tokens: u128,
+    collateral: u128,
+    id: u64,
 ) -> <Test as frame_system::Trait>::AccountId {
     set_default_thresholds();
 
     // vault has no tokens issued yet
-    let id = create_sample_vault();
+    let id = create_vault_with_collateral(id, collateral);
 
     // exchange rate 1 Satoshi = 10 Planck (smallest unit of DOT)
-    let dots: u128 = DEFAULT_COLLATERAL / 10;
-    ext::oracle::dots_to_btc::<Test>
-        .mock_safe(move |_| MockResult::Return(Ok(dots.clone().into())));
+    ext::oracle::dots_to_btc::<Test>.mock_safe(move |x| MockResult::Return(Ok((x / 10).into())));
 
     // issue PolkaBTC with 200% collateralization of DEFAULT_COLLATERAL
     let vault = VaultRegistry::_get_vault_from_id(&id).unwrap();
@@ -90,6 +98,12 @@ fn create_sample_vault_and_issue_tokens(
     treasury::Module::<Test>::mint(id, issue_tokens);
 
     id
+}
+
+fn create_sample_vault_and_issue_tokens(
+    issue_tokens: u128,
+) -> <Test as frame_system::Trait>::AccountId {
+    create_vault_and_issue_tokens(issue_tokens, DEFAULT_COLLATERAL, DEFAULT_ID)
 }
 
 #[test]
@@ -822,7 +836,7 @@ fn get_collateralization_from_vault_succeeds() {
 #[test]
 fn get_first_vault_with_sufficient_collateral_succeeds() {
     run_test(|| {
-        let issue_tokens: u128 = DEFAULT_COLLATERAL / 10 / 2; // = 5
+        let issue_tokens: u128 = 4;
         let id = create_sample_vault_and_issue_tokens(issue_tokens);
 
         assert_eq!(
@@ -922,5 +936,134 @@ fn update_btc_address_succeeds() {
             Origin::signed(origin),
             address2
         ));
+    });
+}
+fn setup_block(i: u64, parent_hash: H256) -> H256 {
+    System::initialize(
+        &i,
+        &parent_hash,
+        &Default::default(),
+        &Default::default(),
+        frame_system::InitKind::Full,
+    );
+    <pallet_randomness_collective_flip::Module<Test>>::on_initialize(i);
+
+    let header = System::finalize();
+    System::set_block_number(*header.number());
+    header.hash()
+}
+fn setup_blocks(blocks: u64) {
+    let mut parent_hash = System::parent_hash();
+    for i in 1..(blocks + 1) {
+        parent_hash = setup_block(i, parent_hash);
+    }
+}
+
+#[test]
+fn get_first_vault_with_sufficient_tokens_returns_different_vaults_for_different_amounts() {
+    run_test(|| {
+        setup_blocks(100);
+
+        let vault_ids = MULTI_VAULT_TEST_IDS
+            .iter()
+            .map(|&i| {
+                create_vault_and_issue_tokens(
+                    MULTI_VAULT_TEST_COLLATERAL / 100,
+                    MULTI_VAULT_TEST_COLLATERAL,
+                    i,
+                )
+            })
+            .collect::<Vec<_>>();
+        let selected_ids = (1..50)
+            .map(|i| VaultRegistry::get_first_vault_with_sufficient_tokens(i).unwrap())
+            .collect::<Vec<_>>();
+
+        // check that all vaults have been selected at least once
+        assert!(vault_ids
+            .iter()
+            .all(|&x| selected_ids.iter().any(|&y| x == y)));
+    });
+}
+
+#[test]
+fn get_first_vault_with_sufficient_tokens_returns_different_vaults_for_different_blocks() {
+    run_test(|| {
+        setup_blocks(100);
+
+        let vault_ids = MULTI_VAULT_TEST_IDS
+            .iter()
+            .map(|&i| {
+                create_vault_and_issue_tokens(
+                    MULTI_VAULT_TEST_COLLATERAL / 100,
+                    MULTI_VAULT_TEST_COLLATERAL,
+                    i,
+                )
+            })
+            .collect::<Vec<_>>();
+        let selected_ids = (101..150)
+            .map(|i| {
+                setup_block(i, System::parent_hash());
+                VaultRegistry::get_first_vault_with_sufficient_tokens(5).unwrap()
+            })
+            .collect::<Vec<_>>();
+
+        // check that all vaults have been selected at least once
+        assert!(vault_ids
+            .iter()
+            .all(|&x| selected_ids.iter().any(|&y| x == y)));
+    });
+}
+#[test]
+fn get_first_vault_with_sufficient_collateral_returns_different_vaults_for_different_amounts() {
+    run_test(|| {
+        setup_blocks(100);
+
+        let vault_ids = MULTI_VAULT_TEST_IDS
+            .iter()
+            .map(|&i| {
+                create_vault_and_issue_tokens(
+                    MULTI_VAULT_TEST_COLLATERAL / 100,
+                    MULTI_VAULT_TEST_COLLATERAL,
+                    i,
+                )
+            })
+            .collect::<Vec<_>>();
+        let selected_ids = (1..50)
+            .map(|i| VaultRegistry::get_first_vault_with_sufficient_collateral(i).unwrap())
+            .collect::<Vec<_>>();
+
+        // check that all vaults have been selected at least once
+        assert!(vault_ids
+            .iter()
+            .all(|&x| selected_ids.iter().any(|&y| x == y)));
+    });
+}
+
+#[test]
+fn get_first_vault_with_sufficient_collateral_returns_different_vaults_for_different_blocks() {
+    run_test(|| {
+        setup_blocks(100);
+
+        let vault_ids = MULTI_VAULT_TEST_IDS
+            .iter()
+            .map(|&i| {
+                create_vault_and_issue_tokens(
+                    MULTI_VAULT_TEST_COLLATERAL / 100,
+                    MULTI_VAULT_TEST_COLLATERAL,
+                    i,
+                )
+            })
+            .collect::<Vec<_>>();
+        let selected_ids = (101..150)
+            .map(|i| {
+                setup_block(i, System::parent_hash());
+                VaultRegistry::get_first_vault_with_sufficient_collateral(5).unwrap()
+            })
+            .collect::<Vec<_>>();
+
+        // check that all vaults have been selected at least once
+        assert!(vault_ids
+            .iter()
+            .all(|&x| selected_ids.iter().any(|&y| x == y)));
     });
 }
