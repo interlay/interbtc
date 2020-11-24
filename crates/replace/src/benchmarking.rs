@@ -22,19 +22,19 @@ benchmarks! {
 
     request_replace {
         let vault_id: T::AccountId = account("Vault", 0, 0);
-        let amount = 100;
-        let griefing = 100;
+        let amount = Replace::<T>::replace_btc_dust_value() + 1000.into();
+        let griefing = Replace::<T>::replace_griefing_collateral() + 1000.into();
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
         vault.wallet = Wallet::new(H160::from_slice(&[0; 20]));
-        vault.issued_tokens = 100.into();
+        vault.issued_tokens = amount;
         VaultRegistry::<T>::_insert_vault(
             &vault_id,
             vault
         );
 
-    }: _(RawOrigin::Signed(vault_id), amount.into(), griefing.into())
+    }: _(RawOrigin::Signed(vault_id), amount, griefing)
 
     withdraw_replace {
         let vault_id: T::AccountId = account("Vault", 0, 0);
@@ -189,8 +189,7 @@ benchmarks! {
         let mut replace_request = ReplaceRequest::default();
         replace_request.old_vault = vault_id.clone();
         Replace::<T>::insert_replace_request(replace_id, replace_request);
-
-        System::<T>::set_block_number(100.into());
+        System::<T>::set_block_number(System::<T>::block_number() + Replace::<T>::replace_period() + 10.into());
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
@@ -201,6 +200,9 @@ benchmarks! {
         );
 
     }: _(RawOrigin::Signed(origin), replace_id)
+
+    set_replace_period {
+    }: _(RawOrigin::Root, 1.into())
 
 }
 
@@ -225,6 +227,7 @@ mod tests {
             assert_ok!(test_benchmark_auction_replace::<Test>());
             assert_ok!(test_benchmark_execute_replace::<Test>());
             assert_ok!(test_benchmark_cancel_replace::<Test>());
+            assert_ok!(test_benchmark_set_replace_period::<Test>());
         });
     }
 }

@@ -7,6 +7,7 @@ use bitcoin::types::{
 };
 use btc_relay::Module as BtcRelay;
 use frame_benchmarking::{account, benchmarks};
+use frame_system::Module as System;
 use frame_system::RawOrigin;
 use sp_core::{H160, H256, U256};
 use sp_std::prelude::*;
@@ -19,19 +20,19 @@ benchmarks! {
     request_redeem {
         let origin: T::AccountId = account("Origin", 0, 0);
         let vault_id: T::AccountId = account("Vault", 0, 0);
-        let amount = 100;
+        let amount = Redeem::<T>::redeem_btc_dust_value() + 1000.into();
         let btc_address = H160::zero();
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
         vault.wallet = Wallet::new(H160::from_slice(&[0; 20]));
-        vault.issued_tokens = amount.into();
+        vault.issued_tokens = amount;
         VaultRegistry::<T>::_insert_vault(
             &vault_id,
             vault
         );
 
-    }: _(RawOrigin::Signed(origin), amount.into(), btc_address, vault_id.clone())
+    }: _(RawOrigin::Signed(origin), amount, btc_address, vault_id.clone())
 
     execute_redeem {
         let origin: T::AccountId = account("Origin", 0, 0);
@@ -104,8 +105,9 @@ benchmarks! {
         let mut redeem_request = RedeemRequest::default();
         redeem_request.vault = vault_id.clone();
         redeem_request.redeemer = origin.clone();
-        redeem_request.opentime = 100.into();
+        redeem_request.opentime = System::<T>::block_number();
         Redeem::<T>::insert_redeem_request(redeem_id, redeem_request);
+        System::<T>::set_block_number(System::<T>::block_number() + Redeem::<T>::redeem_period() + 10.into());
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
@@ -116,6 +118,9 @@ benchmarks! {
         );
 
     }: _(RawOrigin::Signed(origin), redeem_id, true)
+
+    set_redeem_period {
+    }: _(RawOrigin::Root, 1.into())
 
 }
 
@@ -137,6 +142,7 @@ mod tests {
             assert_ok!(test_benchmark_request_redeem::<Test>());
             assert_ok!(test_benchmark_execute_redeem::<Test>());
             assert_ok!(test_benchmark_cancel_redeem::<Test>());
+            assert_ok!(test_benchmark_set_redeem_period::<Test>());
         });
     }
 }

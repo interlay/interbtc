@@ -36,7 +36,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
 };
-use frame_system::ensure_signed;
+use frame_system::{ensure_root, ensure_signed};
 use primitive_types::H256;
 use sp_core::H160;
 use sp_runtime::ModuleId;
@@ -50,6 +50,7 @@ pub trait WeightInfo {
     fn request_issue() -> Weight;
     fn execute_issue() -> Weight;
     fn cancel_issue() -> Weight;
+    fn set_issue_period() -> Weight;
 }
 
 /// The pallet's configuration trait.
@@ -152,6 +153,20 @@ decl_module! {
             let requester = ensure_signed(origin)?;
             Self::_cancel_issue(requester, issue_id)?;
             Ok(())
+        }
+
+        /// Set the default issue period for tx verification.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - the dispatch origin of this call (must be _Root_)
+        /// * `period` - default period for new requests
+        ///
+        /// # Weight: `O(1)`
+        #[weight = <T as Trait>::WeightInfo::set_issue_period()]
+        fn set_issue_period(origin, period: T::BlockNumber) {
+            ensure_root(origin)?;
+            <IssuePeriod<T>>::set(period);
         }
     }
 }

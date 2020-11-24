@@ -9,6 +9,7 @@ use btc_relay::Module as BtcRelay;
 use collateral::Module as Collateral;
 use exchange_rate_oracle::Module as ExchangeRateOracle;
 use frame_benchmarking::{account, benchmarks};
+use frame_system::Module as System;
 use frame_system::RawOrigin;
 use sp_core::{H256, U256};
 use sp_std::prelude::*;
@@ -111,6 +112,7 @@ benchmarks! {
         issue_request.requester = origin.clone();
         issue_request.vault = vault_id.clone();
         Issue::<T>::insert_issue_request(issue_id, issue_request);
+        System::<T>::set_block_number(System::<T>::block_number() + Issue::<T>::issue_period() + 10.into());
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
@@ -121,6 +123,9 @@ benchmarks! {
         );
 
     }: _(RawOrigin::Signed(origin), issue_id)
+
+    set_issue_period {
+    }: _(RawOrigin::Root, 1.into())
 
 }
 
@@ -141,10 +146,8 @@ mod tests {
         .execute_with(|| {
             assert_ok!(test_benchmark_request_issue::<Test>());
             assert_ok!(test_benchmark_execute_issue::<Test>());
-
-            // issue period is 10, we issued at block 1, so at block 15 the cancel should succeed
-            <frame_system::Module<Test>>::set_block_number(15);
             assert_ok!(test_benchmark_cancel_issue::<Test>());
+            assert_ok!(test_benchmark_set_issue_period::<Test>());
         });
     }
 }

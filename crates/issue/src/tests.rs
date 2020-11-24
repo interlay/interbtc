@@ -286,3 +286,14 @@ fn test_execute_issue_parachain_not_running_fails() {
         );
     })
 }
+
+#[test]
+fn test_set_issue_period_only_root() {
+    run_test(|| {
+        assert_noop!(
+            Issue::set_issue_period(Origin::signed(ALICE), 1),
+            DispatchError::BadOrigin
+        );
+        assert_ok!(Issue::set_issue_period(Origin::root(), 1));
+    })
+}

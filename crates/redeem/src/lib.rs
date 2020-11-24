@@ -35,7 +35,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
 };
-use frame_system::ensure_signed;
+use frame_system::{ensure_root, ensure_signed};
 use primitive_types::H256;
 use security::ErrorCode;
 use sp_core::H160;
@@ -50,6 +50,7 @@ pub trait WeightInfo {
     fn request_redeem() -> Weight;
     fn execute_redeem() -> Weight;
     fn cancel_redeem() -> Weight;
+    fn set_redeem_period() -> Weight;
 }
 
 /// The pallet's configuration trait.
@@ -278,7 +279,7 @@ decl_module! {
 
             let height = <frame_system::Module<T>>::block_number();
             let period = Self::redeem_period();
-            ensure!(redeem.opentime + period > height, Error::<T>::TimeNotExpired);
+            ensure!(height > redeem.opentime + period, Error::<T>::TimeNotExpired);
 
             let punishment_fee = ext::vault_registry::punishment_fee::<T>();
             let raw_punishment_fee = Self::dot_to_u128(punishment_fee)?;
@@ -314,6 +315,20 @@ decl_module! {
             Self::deposit_event(<Event<T>>::CancelRedeem(redeem_id, redeemer));
 
             Ok(())
+        }
+
+        /// Set the default redeem period for tx verification.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - the dispatch origin of this call (must be _Root_)
+        /// * `period` - default period for new requests
+        ///
+        /// # Weight: `O(1)`
+        #[weight = <T as Trait>::WeightInfo::set_redeem_period()]
+        fn set_redeem_period(origin, period: T::BlockNumber) {
+            ensure_root(origin)?;
+            <RedeemPeriod<T>>::set(period);
         }
     }
 }
