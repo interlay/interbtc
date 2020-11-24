@@ -21,4 +21,7 @@ impl crate::WeightInfo for () {
             .saturating_add(DbWeight::get().reads(14 as Weight))
             .saturating_add(DbWeight::get().writes(5 as Weight))
     }
+    fn set_redeem_period() -> Weight {
+        (3_376_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
+    }
 }

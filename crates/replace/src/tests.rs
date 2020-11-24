@@ -919,3 +919,14 @@ fn test_withdraw_replace_parachain_not_running_succeeds() {
         assert_emitted!(event);
     })
 }
+
+#[test]
+fn test_set_replace_period_only_root() {
+    run_test(|| {
+        assert_noop!(
+            Replace::set_replace_period(Origin::signed(ALICE), 1),
+            DispatchError::BadOrigin
+        );
+        assert_ok!(Replace::set_replace_period(Origin::root(), 1));
+    })
+}

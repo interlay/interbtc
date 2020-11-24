@@ -17,7 +17,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
 };
-use frame_system::ensure_signed;
+use frame_system::{ensure_root, ensure_signed};
 #[cfg(test)]
 use mocktopus::macros::mockable;
 use primitive_types::H256;
@@ -52,6 +52,7 @@ pub trait WeightInfo {
     fn auction_replace() -> Weight;
     fn execute_replace() -> Weight;
     fn cancel_replace() -> Weight;
+    fn set_replace_period() -> Weight;
 }
 
 /// The pallet's configuration trait.
@@ -207,6 +208,20 @@ decl_module! {
             let new_vault = ensure_signed(origin)?;
             Self::_cancel_replace(new_vault, replace_id)?;
             Ok(())
+        }
+
+        /// Set the default replace period for tx verification.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - the dispatch origin of this call (must be _Root_)
+        /// * `period` - default period for new requests
+        ///
+        /// # Weight: `O(1)`
+        #[weight = <T as Trait>::WeightInfo::set_replace_period()]
+        fn set_replace_period(origin, period: T::BlockNumber) {
+            ensure_root(origin)?;
+            <ReplacePeriod<T>>::set(period);
         }
     }
 }
