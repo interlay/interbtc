@@ -296,10 +296,14 @@ impl btc_relay::Trait for Runtime {
     type WeightInfo = ();
 }
 
+pub use collateral::RawEvent as CollateralEvent;
+
 impl collateral::Trait for Runtime {
     type Event = Event;
     type DOT = pallet_balances::Module<Runtime, pallet_balances::Instance1>;
 }
+
+pub use treasury::RawEvent as TreasuryEvent;
 
 impl treasury::Trait for Runtime {
     type Event = Event;
@@ -320,6 +324,8 @@ parameter_types! {
     pub const MaximumMessageSize: u32 = 256;
 }
 
+pub use staked_relayers::RawEvent as StakedRelayersEvent;
+
 impl staked_relayers::Trait for Runtime {
     type Event = Event;
     type WeightInfo = ();
@@ -332,32 +338,36 @@ impl staked_relayers::Trait for Runtime {
     type MaximumMessageSize = MaximumMessageSize;
 }
 
+pub use vault_registry::RawEvent as VaultRegistryEvent;
+
 impl vault_registry::Trait for Runtime {
     type Event = Event;
     type RandomnessSource = RandomnessCollectiveFlip;
     type WeightInfo = ();
 }
 
+pub use exchange_rate_oracle::RawEvent as RawExchangeRateOracleEvent;
+
 impl exchange_rate_oracle::Trait for Runtime {
     type Event = Event;
     type WeightInfo = ();
 }
 
-pub use issue::IssueRequest;
+pub use issue::{IssueRequest, RawEvent as RawIssueEvent};
 
 impl issue::Trait for Runtime {
     type Event = Event;
     type WeightInfo = ();
 }
 
-pub use redeem::RedeemRequest;
+pub use redeem::{RawEvent as RawRedeemEvent, RedeemRequest};
 
 impl redeem::Trait for Runtime {
     type Event = Event;
     type WeightInfo = ();
 }
 
-pub use replace::ReplaceRequest;
+pub use replace::{RawEvent as RawReplaceEvent, ReplaceRequest};
 
 impl replace::Trait for Runtime {
     type Event = Event;

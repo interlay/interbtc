@@ -639,7 +639,7 @@ dependencies = [
 
 [[package]]
 name = "btc-parachain-runtime"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "bitcoin",
  "btc-relay",
