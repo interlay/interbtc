@@ -29,7 +29,7 @@ use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::Currency;
 use frame_support::weights::Weight;
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
-use frame_system::ensure_signed;
+use frame_system::{ensure_root, ensure_signed};
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
 
@@ -42,6 +42,8 @@ pub(crate) type PolkaBTC<T> =
 pub trait WeightInfo {
     fn set_exchange_rate() -> Weight;
     fn set_btc_tx_fees_per_byte() -> Weight;
+    fn insert_authorized_oracle() -> Weight;
+    fn remove_authorized_oracle() -> Weight;
 }
 
 const BTC_DECIMALS: u32 = 8;
@@ -95,11 +97,8 @@ decl_storage! {
         /// Maximum delay (milliseconds) for the exchange rate to be used
         MaxDelay get(fn max_delay) config(): T::Moment;
 
-        // Oracle allowed to set the exchange rate
-        AuthorizedOracle get(fn oracle_account_id) config(): T::AccountId;
-
-        // Mapping from account id to account names
-        OracleNames get(fn oracle_names) config(): map hasher(blake2_128_concat) T::AccountId => Vec<u8>;
+        // Oracles allowed to set the exchange rate, maps to the name
+        AuthorizedOracles get(fn authorized_oracles) config(): map hasher(blake2_128_concat) T::AccountId => Vec<u8>;
     }
 }
 
@@ -116,15 +115,15 @@ decl_module! {
             // Check that Parachain is not in SHUTDOWN
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
-            let sender = ensure_signed(origin)?;
+            let signer = ensure_signed(origin)?;
 
-            // fail if the sender is not the authorized oracle
-            ensure!(sender == Self::get_authorized_oracle(), Error::<T>::InvalidOracleSource);
+            // fail if the signer is not an authorized oracle
+            ensure!(Self::is_authorized(&signer), Error::<T>::InvalidOracleSource);
 
             let satoshi_planck = Self::btc_dot_to_satoshi_planck(btc_dot)?;
             Self::_set_exchange_rate(satoshi_planck)?;
 
-            Self::deposit_event(Event::<T>::SetExchangeRate(sender, btc_dot));
+            Self::deposit_event(Event::<T>::SetExchangeRate(signer, btc_dot));
 
             Ok(())
         }
@@ -134,17 +133,31 @@ decl_module! {
             // Check that Parachain is not in SHUTDOWN
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
-            let sender = ensure_signed(origin)?;
+            let signer = ensure_signed(origin)?;
 
-            // fail if the sender is not the authorized oracle
-            ensure!(sender == Self::get_authorized_oracle(), Error::<T>::InvalidOracleSource);
+            // fail if the signer is not the authorized oracle
+            ensure!(Self::is_authorized(&signer), Error::<T>::InvalidOracleSource);
 
             // write the new values to storage
             let fees = BtcTxFeesPerByte{fast, half, hour};
             <SatoshiPerBytes>::put(fees);
 
-            Self::deposit_event(Event::<T>::SetBtcTxFeesPerByte(sender, fast, half, hour));
+            Self::deposit_event(Event::<T>::SetBtcTxFeesPerByte(signer, fast, half, hour));
 
+            Ok(())
+        }
+
+        #[weight = <T as Trait>::WeightInfo::insert_authorized_oracle()]
+        pub fn insert_authorized_oracle(origin, account_id: T::AccountId, name: Vec<u8>) -> DispatchResult {
+            ensure_root(origin)?;
+            Self::insert_oracle(account_id, name);
+            Ok(())
+        }
+
+        #[weight = <T as Trait>::WeightInfo::remove_authorized_oracle()]
+        pub fn remove_authorized_oracle(origin, account_id: T::AccountId) -> DispatchResult {
+            ensure_root(origin)?;
+            <AuthorizedOracles<T>>::remove(account_id);
             Ok(())
         }
     }
@@ -236,10 +249,6 @@ impl<T: Trait> Module<T> {
         <LastExchangeRateTime<T>>::put(time);
     }
 
-    fn get_authorized_oracle() -> T::AccountId {
-        <AuthorizedOracle<T>>::get()
-    }
-
     fn recover_from_oracle_offline() -> DispatchResult {
         ext::security::recover_from_oracle_offline::<T>()
     }
@@ -256,6 +265,16 @@ impl<T: Trait> Module<T> {
     /// Returns the current timestamp
     fn get_current_time() -> T::Moment {
         <timestamp::Module<T>>::get()
+    }
+
+    /// Add a new authorized oracle
+    fn insert_oracle(oracle: T::AccountId, name: Vec<u8>) {
+        <AuthorizedOracles<T>>::insert(oracle, name)
+    }
+
+    /// True if oracle is authorized
+    fn is_authorized(oracle: &T::AccountId) -> bool {
+        <AuthorizedOracles<T>>::contains_key(oracle)
     }
 }
 

@@ -187,8 +187,7 @@ fn testnet_genesis(
             gov_id: get_account_id_from_seed::<sr25519::Public>("Alice"),
         }),
         exchange_rate_oracle: Some(ExchangeRateOracleConfig {
-            oracle_account_id: bob_account_id.clone(),
-            oracle_names: vec![(bob_account_id.clone(), "Bob".as_bytes().to_vec())],
+            authorized_oracles: vec![(bob_account_id.clone(), "Bob".as_bytes().to_vec())],
             max_delay: 3600000, // one hour
         }),
         btc_relay: Some(BTCRelayConfig {

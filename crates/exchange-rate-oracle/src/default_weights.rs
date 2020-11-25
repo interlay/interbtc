@@ -17,4 +17,10 @@ impl crate::WeightInfo for () {
             .saturating_add(DbWeight::get().reads(2 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
     }
+    fn insert_authorized_oracle() -> Weight {
+        (6_788_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn remove_authorized_oracle() -> Weight {
+        (6_021_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
+    }
 }

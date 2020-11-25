@@ -140,8 +140,7 @@ impl ExtBuilder {
             .unwrap();
 
         GenesisConfig::<Test> {
-            oracle_account_id: 0,
-            oracle_names: vec![(0, "test".as_bytes().to_vec())],
+            authorized_oracles: vec![(0, "test".as_bytes().to_vec())],
             max_delay: 0,
         }
         .assimilate_storage(&mut storage)
