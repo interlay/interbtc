@@ -52,6 +52,7 @@ pub struct RedeemRequest<AccountId, BlockNumber, PolkaBTC, DOT> {
     pub premium_dot: DOT,
     pub redeemer: AccountId,
     pub btc_address: H160,
+    pub completed: bool,
 }
 
 #[cfg(feature = "std")]

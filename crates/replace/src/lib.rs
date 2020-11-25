@@ -17,7 +17,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
 };
-use frame_system::ensure_signed;
+use frame_system::{ensure_root, ensure_signed};
 #[cfg(test)]
 use mocktopus::macros::mockable;
 use primitive_types::H256;
@@ -52,6 +52,7 @@ pub trait WeightInfo {
     fn auction_replace() -> Weight;
     fn execute_replace() -> Weight;
     fn cancel_replace() -> Weight;
+    fn set_replace_period() -> Weight;
 }
 
 /// The pallet's configuration trait.
@@ -208,6 +209,20 @@ decl_module! {
             Self::_cancel_replace(new_vault, replace_id)?;
             Ok(())
         }
+
+        /// Set the default replace period for tx verification.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - the dispatch origin of this call (must be _Root_)
+        /// * `period` - default period for new requests
+        ///
+        /// # Weight: `O(1)`
+        #[weight = <T as Trait>::WeightInfo::set_replace_period()]
+        fn set_replace_period(origin, period: T::BlockNumber) {
+            ensure_root(origin)?;
+            <ReplacePeriod<T>>::set(period);
+        }
     }
 }
 
@@ -270,6 +285,7 @@ impl<T: Trait> Module<T> {
             collateral: vault_collateral,
             accept_time: None,
             btc_address: vault.wallet.get_btc_address(),
+            completed: false,
         };
         Self::insert_replace_request(replace_id, replace);
 
@@ -419,6 +435,7 @@ impl<T: Trait> Module<T> {
                 griefing_collateral: 0.into(),
                 btc_address: new_vault.wallet.get_btc_address(),
                 collateral: collateral,
+                completed: false,
             },
         );
 
@@ -587,7 +604,10 @@ impl<T: Trait> Module<T> {
         id: &H256,
     ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError>
     {
-        <ReplaceRequests<T>>::get(id).ok_or(Error::<T>::InvalidReplaceID.into())
+        let request = <ReplaceRequests<T>>::get(id).ok_or(Error::<T>::ReplaceIdNotFound)?;
+        // NOTE: temporary workaround until we delete
+        ensure!(!request.completed, Error::<T>::ReplaceCompleted);
+        Ok(request)
     }
 
     fn insert_replace_request(
@@ -598,7 +618,12 @@ impl<T: Trait> Module<T> {
     }
 
     fn remove_replace_request(key: H256) {
-        <ReplaceRequests<T>>::remove(key)
+        // TODO: delete replace request from storage
+        <ReplaceRequests<T>>::mutate(key, |request| {
+            if let Some(req) = request {
+                req.completed = true;
+            }
+        });
     }
 
     #[allow(dead_code)]
@@ -622,7 +647,8 @@ decl_error! {
         CollateralBelowSecureThreshold,
         ReplacePeriodExpired,
         ReplacePeriodNotExpired,
-        InvalidReplaceID,
+        ReplaceCompleted,
+        ReplaceIdNotFound,
         ConversionError,
     }
 }

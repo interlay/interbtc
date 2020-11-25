@@ -795,18 +795,26 @@ impl<T: Trait> Module<T> {
     }
 
     /// Get the current collateralization of a vault
-    pub fn get_collateralization_from_vault(vault_id: T::AccountId) -> Result<u64, DispatchError> {
+    pub fn get_collateralization_from_vault(
+        vault_id: T::AccountId,
+        only_issued: bool,
+    ) -> Result<u64, DispatchError> {
         let vault = Self::rich_vault_from_id(&vault_id)?;
         let collateral = vault.get_collateral();
-        Self::get_collateralization_from_vault_and_collateral(vault_id, collateral)
+        Self::get_collateralization_from_vault_and_collateral(vault_id, collateral, only_issued)
     }
 
     pub fn get_collateralization_from_vault_and_collateral(
         vault_id: T::AccountId,
         collateral: DOT<T>,
+        only_issued: bool,
     ) -> Result<u64, DispatchError> {
         let vault = Self::rich_vault_from_id(&vault_id)?;
-        let issued_tokens = vault.data.issued_tokens + vault.data.to_be_issued_tokens;
+        let issued_tokens = if only_issued {
+            vault.data.issued_tokens
+        } else {
+            vault.data.issued_tokens + vault.data.to_be_issued_tokens
+        };
 
         // convert the issued_tokens to the raw amount
         let raw_issued_tokens = Self::polkabtc_to_u128(issued_tokens)?;

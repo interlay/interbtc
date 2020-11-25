@@ -16,6 +16,13 @@ impl crate::WeightInfo for () {
             .saturating_add(DbWeight::get().reads(6 as Weight))
             .saturating_add(DbWeight::get().writes(6 as Weight))
     }
+    // NOTE: manually parameterized
+    fn store_block_headers(b: u32) -> Weight {
+        (113_143_000 as Weight)
+            .saturating_add(DbWeight::get().reads(8 as Weight))
+            .saturating_add(DbWeight::get().writes(9 as Weight))
+            .saturating_mul(b as Weight)
+    }
     fn verify_and_validate_transaction() -> Weight {
         (125_227_000 as Weight).saturating_add(DbWeight::get().reads(7 as Weight))
     }

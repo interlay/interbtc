@@ -47,6 +47,7 @@ where
     fn get_collateralization_from_vault(
         &self,
         vault: AccountId,
+        only_issued: bool,
         at: Option<BlockHash>,
     ) -> JsonRpcResult<u64>;
 
@@ -55,6 +56,7 @@ where
         &self,
         vault: AccountId,
         collateral: BalanceWrapper<DOT>,
+        only_issued: bool,
         at: Option<BlockHash>,
     ) -> JsonRpcResult<u64>;
 
@@ -198,13 +200,14 @@ where
     fn get_collateralization_from_vault(
         &self,
         vault: AccountId,
+        only_issued: bool,
         at: Option<<Block as BlockT>::Hash>,
     ) -> JsonRpcResult<u64> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         handle_response(
-            api.get_collateralization_from_vault(&at, vault),
+            api.get_collateralization_from_vault(&at, vault, only_issued),
             "Unable to get collateralization from vault.".into(),
         )
     }
@@ -213,13 +216,19 @@ where
         &self,
         vault: AccountId,
         collateral: BalanceWrapper<DOT>,
+        only_issued: bool,
         at: Option<<Block as BlockT>::Hash>,
     ) -> JsonRpcResult<u64> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         handle_response(
-            api.get_collateralization_from_vault_and_collateral(&at, vault, collateral),
+            api.get_collateralization_from_vault_and_collateral(
+                &at,
+                vault,
+                collateral,
+                only_issued,
+            ),
             "Unable to get collateralization from vault.".into(),
         )
     }
