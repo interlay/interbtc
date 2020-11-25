@@ -44,6 +44,17 @@ pub trait WeightInfo {
     fn set_btc_tx_fees_per_byte() -> Weight;
 }
 
+const BTC_DECIMALS: u32 = 8;
+const DOT_DECIMALS: u32 = 10;
+
+fn btc_to_satoshi(amount: u128) -> u128 {
+    amount * 10_u128.pow(BTC_DECIMALS)
+}
+
+fn dot_to_planck(amount: u128) -> u128 {
+    amount * 10_u128.pow(DOT_DECIMALS)
+}
+
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
 pub trait Trait:
@@ -101,7 +112,7 @@ decl_module! {
         type Error = Error<T>;
 
         #[weight = <T as Trait>::WeightInfo::set_exchange_rate()]
-        pub fn set_exchange_rate(origin, rate: u128) -> DispatchResult {
+        pub fn set_exchange_rate(origin, btc_dot: u128) -> DispatchResult {
             // Check that Parachain is not in SHUTDOWN
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
@@ -110,9 +121,10 @@ decl_module! {
             // fail if the sender is not the authorized oracle
             ensure!(sender == Self::get_authorized_oracle(), Error::<T>::InvalidOracleSource);
 
-            Self::_set_exchange_rate(rate)?;
+            let satoshi_planck = Self::btc_dot_to_satoshi_planck(btc_dot)?;
+            Self::_set_exchange_rate(satoshi_planck)?;
 
-            Self::deposit_event(Event::<T>::SetExchangeRate(sender, rate));
+            Self::deposit_event(Event::<T>::SetExchangeRate(sender, btc_dot));
 
             Ok(())
         }
@@ -145,6 +157,12 @@ impl<T: Trait> Module<T> {
         let max_delay_passed = Self::is_max_delay_passed();
         ensure!(!max_delay_passed, Error::<T>::MissingExchangeRate);
         Ok(<ExchangeRate>::get())
+    }
+
+    fn btc_dot_to_satoshi_planck(btc_dot: u128) -> Result<u128, DispatchError> {
+        dot_to_planck(btc_dot)
+            .checked_div(btc_to_satoshi(1))
+            .ok_or(Error::<T>::ConversionError.into())
     }
 
     pub fn btc_to_u128(amount: PolkaBTC<T>) -> Result<u128, DispatchError> {
@@ -199,8 +217,8 @@ impl<T: Trait> Module<T> {
         <MaxDelay<T>>::get()
     }
 
-    pub fn _set_exchange_rate(rate: u128) -> DispatchResult {
-        Self::set_current_rate(rate);
+    pub fn _set_exchange_rate(satoshi_planck: u128) -> DispatchResult {
+        Self::set_current_rate(satoshi_planck);
         // recover if the max delay was already passed
         if Self::is_max_delay_passed() {
             Self::recover_from_oracle_offline()?;

@@ -63,8 +63,7 @@ fn integration_test_issue_polka_btc() {
         let initial_btc_balance =
             treasury::Module::<Runtime>::get_balance_from_account(account_of(ALICE));
 
-        assert_ok!(Call::ExchangeRateOracle(OracleCall::set_exchange_rate(1))
-            .dispatch(origin_of(account_of(BOB))));
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(1));
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
             1000000,
             address.clone()

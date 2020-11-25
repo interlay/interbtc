@@ -50,8 +50,7 @@ fn integration_test_redeem_polka_btc() {
 
         SystemModule::set_block_number(1);
 
-        assert_ok!(Call::ExchangeRateOracle(OracleCall::set_exchange_rate(1))
-            .dispatch(origin_of(account_of(BOB))));
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(1));
 
         set_default_thresholds();
 
