@@ -81,6 +81,9 @@ pub const TARGET_TIMESPAN_DIVISOR: u32 = 4;
 // Accepted minimum number of transaction outputs for validation
 pub const ACCEPTED_MIN_TRANSACTION_OUTPUTS: u32 = 2;
 
+// Accepted maximum number of transaction outputs for validation
+pub const ACCEPTED_MAX_TRANSACTION_OUTPUTS: u32 = 32;
+
 /// Unrounded Maximum Target
 /// 0x00000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 pub const UNROUNDED_MAX_TARGET: U256 = U256([
@@ -500,6 +503,40 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Extract all payments and op_return outputs from a transaction.
+    /// Rejects transactions with too many outputs.
+    ///
+    /// # Arguments
+    ///
+    /// * `transaction` - Bitcoin transaction
+    pub fn extract_outputs(
+        transaction: Transaction,
+    ) -> Result<(Vec<(i64, Vec<u8>)>, Vec<(i64, Vec<u8>)>), Error<T>> {
+        ensure!(
+            transaction.outputs.len() <= ACCEPTED_MAX_TRANSACTION_OUTPUTS as usize,
+            Error::<T>::MalformedTransaction
+        );
+
+        let mut payments = Vec::new();
+        let mut op_returns = Vec::new();
+        for tx in transaction.outputs {
+            if let Ok(address) = tx.extract_address() {
+                payments.push((tx.value, address));
+            } else if let Ok(data) = tx.script.extract_op_return_data() {
+                op_returns.push((tx.value, data));
+            }
+        }
+
+        Ok((payments, op_returns))
+    }
+
+    /// Extract the payment value from the first output with an address
+    /// that matches the `recipient_btc_address`.
+    ///
+    /// # Arguments
+    ///
+    /// * `transaction` - Bitcoin transaction
+    /// * `recipient_btc_address` - expected payment recipient
     fn extract_value(
         transaction: Transaction,
         recipient_btc_address: Vec<u8>,
@@ -538,6 +575,13 @@ impl<T: Trait> Module<T> {
         Err(Error::<T>::WrongRecipient)
     }
 
+    /// Extract the payment value and `OP_RETURN` payload from the first
+    /// output with an address that matches the `recipient_btc_address`.
+    ///
+    /// # Arguments
+    ///
+    /// * `transaction` - Bitcoin transaction
+    /// * `recipient_btc_address` - expected payment recipient
     fn extract_value_and_op_return(
         transaction: Transaction,
         recipient_btc_address: Vec<u8>,

@@ -990,46 +990,69 @@ impl<T: Trait> Module<T> {
 
     /// Checks if the vault is doing a valid merge transaction to move funds between
     /// addresses.
-    pub(crate) fn is_valid_merge_transaction(tx: &Transaction, wallet: &Wallet) -> bool {
-        for out in &tx.outputs {
-            // return if address not extractable (i.e. op_return)
-            let out_addr = match out.extract_address() {
-                Ok(addr) => addr,
-                Err(_) => return false,
-            };
-            if !wallet.has_btc_address(&H160::from_slice(&out_addr)) {
+    ///
+    /// # Arguments
+    ///
+    /// * `payments` - all payment outputs extracted from tx
+    /// * `op_returns` - all op_return outputs extracted from tx
+    /// * `wallet` - vault btc addresses
+    pub(crate) fn is_valid_merge_transaction(
+        payments: &Vec<(i64, Vec<u8>)>,
+        op_returns: &Vec<(i64, Vec<u8>)>,
+        wallet: &Wallet,
+    ) -> bool {
+        if op_returns.len() > 0 {
+            // migration should only contain payments
+            return false;
+        }
+
+        for (_value, address) in payments {
+            let address = H160::from_slice(address);
+            if !wallet.has_btc_address(&address) {
                 return false;
             }
         }
+
         return true;
     }
 
     /// Checks if the vault is sending a valid request transaction.
+    ///
+    /// # Arguments
+    ///
+    /// * `request_value` - amount of btc as specified in the request
+    /// * `request_address` - recipient btc address
+    /// * `payments` - all payment outputs extracted from tx
+    /// * `wallet` - vault btc addresses
     pub(crate) fn is_valid_request_transaction(
-        tx: &Transaction,
-        out_val: i64,
-        exp_val: PolkaBTC<T>,
-        out_addr: H160,
-        req_addr: H160,
+        request_value: PolkaBTC<T>,
+        request_address: H160,
+        payments: &Vec<(i64, Vec<u8>)>,
         wallet: &Wallet,
-    ) -> Result<bool, DispatchError> {
-        let value =
-            TryInto::<u64>::try_into(exp_val).map_err(|_e| Error::<T>::ConversionError)? as i64;
+    ) -> bool {
+        let request_value = match TryInto::<u64>::try_into(request_value)
+            .map_err(|_e| Error::<T>::ConversionError)
+        {
+            Ok(value) => value as i64,
+            Err(_) => return false,
+        };
 
-        // tx here should only have at most three outputs
-        if out_val >= value && out_addr == req_addr {
-            if tx.outputs.len() == 3 {
-                // TODO: tx can have more than three outputs
-                let out = &tx.outputs[2];
-                if let Ok(vault_out_addr) = out.extract_address() {
-                    return Ok(wallet.has_btc_address(&H160::from_slice(&vault_out_addr)));
+        for (value, address) in payments {
+            let address = H160::from_slice(address);
+            if address == request_address {
+                if *value < request_value {
+                    // insufficient payment to recipient
+                    return false;
                 }
-                return Ok(false);
+            } else if !wallet.has_btc_address(&address) {
+                // payment to unknown address
+                return false;
             }
-            return Ok(true);
         }
-        // invalid if insufficient amount or wrong payout addr
-        return Ok(false);
+
+        // tx has sufficient payment to recipient and
+        // all refunds are to wallet addresses
+        return true;
     }
 
     /// Check if a vault transaction is invalid. Returns `Ok` if invalid or `Err` otherwise.
@@ -1063,68 +1086,63 @@ impl<T: Trait> Module<T> {
             Error::<T>::VaultNoInputToTransaction
         );
 
-        // check if the transaction is a "migration"
-        ensure!(
-            !Self::is_valid_merge_transaction(&tx, &vault.wallet),
-            Error::<T>::ValidMergeTransaction
-        );
-
-        // only check if correct format
-        if tx.outputs.len() > 3 {
-            return Ok(());
-        }
-
         // Vaults are required to move funds for redeem and replace operations.
-        // Each transaction MUST contain either two or three outputs as follows:
-        // 1) recipient: the first output is the recipient of the redeem/replace
-        // 2) op_return: the second output is the associated ID encoded in the OP_RETURN
-        // 3) vault: the third output is any "spare change" the vault is transferring
+        // Each transaction MUST feature at least two or three outputs as follows:
+        // * recipient: the recipient of the redeem/replace
+        // * op_return: the associated ID encoded in the OP_RETURN
+        // * vault: any "spare change" the vault is transferring
 
-        // TODO: we no longer this explicit ordering in btc-relay
-        let out = &tx.outputs[0];
-        if let Ok(out_addr) = out.extract_address() {
-            let out_val = out.value;
-            if tx.outputs.len() == 2 || tx.outputs.len() == 3 {
-                let out = &tx.outputs[1];
-                // check if redeem / replace
-                if let Ok(out_ret) = out.script.extract_op_return_data() {
-                    let id = H256::from_slice(&out_ret);
-                    let addr = H160::from_slice(&out_addr);
-                    match ext::redeem::get_redeem_request_from_id::<T>(&id) {
-                        Ok(req) => {
-                            ensure!(
-                                !Self::is_valid_request_transaction(
-                                    &tx,
-                                    out_val,
-                                    req.amount_btc,
-                                    addr,
-                                    req.btc_address,
-                                    &vault.wallet,
-                                )?,
-                                Error::<T>::ValidRedeemTransaction
-                            );
-                        }
-                        Err(_) => (),
-                    }
-                    match ext::replace::get_replace_request::<T>(&id) {
-                        Ok(req) => {
-                            ensure!(
-                                !Self::is_valid_request_transaction(
-                                    &tx,
-                                    out_val,
-                                    req.amount,
-                                    addr,
-                                    req.btc_address,
-                                    &vault.wallet,
-                                )?,
-                                Error::<T>::ValidReplaceTransaction
-                            );
-                        }
-                        Err(_) => (),
-                    }
-                }
+        // should only err if there are too many outputs
+        if let Ok((payments, op_returns)) = ext::btc_relay::extract_outputs::<T>(tx.clone()) {
+            // check if the transaction is a "migration"
+            ensure!(
+                !Self::is_valid_merge_transaction(&payments, &op_returns, &vault.wallet),
+                Error::<T>::ValidMergeTransaction
+            );
+
+            if op_returns.len() != 1 {
+                // we only expect one op_return output
+                return Ok(());
+            } else if op_returns[0].0 > 0 {
+                // op_return output should not burn value
+                return Ok(());
             }
+
+            let request_id = H256::from_slice(&op_returns[0].1);
+
+            // redeem requests
+            match ext::redeem::get_redeem_request_from_id::<T>(&request_id) {
+                Ok(req) => {
+                    ensure!(
+                        !Self::is_valid_request_transaction(
+                            req.amount_btc,
+                            req.btc_address,
+                            &payments,
+                            &vault.wallet,
+                        ),
+                        Error::<T>::ValidRedeemTransaction
+                    );
+                }
+                Err(_) => (),
+            };
+
+            // replace requests
+            match ext::replace::get_replace_request::<T>(&request_id) {
+                Ok(req) => {
+                    ensure!(
+                        !Self::is_valid_request_transaction(
+                            req.amount,
+                            req.btc_address,
+                            &payments,
+                            &vault.wallet,
+                        ),
+                        Error::<T>::ValidReplaceTransaction
+                    );
+                }
+                Err(_) => (),
+            };
         }
+
         Ok(())
     }
 

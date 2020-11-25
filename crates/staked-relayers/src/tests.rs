@@ -1098,24 +1098,25 @@ fn test_is_valid_merge_transaction_fails() {
             .try_into()
             .unwrap();
 
-        let transaction = TransactionBuilder::new()
-            .with_version(1)
-            .add_input(
-                TransactionInputBuilder::new()
-                    .with_coinbase(true)
-                    .with_height(&vec![0, 0, 0, 0])
-                    .with_previous_index(u32::max_value())
-                    .build(),
-            )
-            .add_output(TransactionOutput::p2pkh(100, &address1))
-            .build();
-
         assert_eq!(
             Staking::is_valid_merge_transaction(
-                &transaction,
+                &vec![(100, address1.as_bytes().to_vec())],
+                &vec![],
                 &Wallet::new(H160::from_slice(address2.as_bytes()))
             ),
-            false
+            false,
+            "payment to unknown recipient"
+        );
+
+        //
+        assert_eq!(
+            Staking::is_valid_merge_transaction(
+                &vec![(100, address2.as_bytes().to_vec())],
+                &vec![(0, vec![])],
+                &Wallet::new(H160::from_slice(address2.as_bytes()))
+            ),
+            false,
+            "migration should not have op_returns"
         );
     })
 }
@@ -1132,21 +1133,10 @@ fn test_is_valid_merge_transaction_succeeds() {
             .try_into()
             .unwrap();
 
-        let transaction = TransactionBuilder::new()
-            .with_version(1)
-            .add_input(
-                TransactionInputBuilder::new()
-                    .with_coinbase(true)
-                    .with_height(&vec![0, 0, 0, 0])
-                    .with_previous_index(u32::max_value())
-                    .build(),
-            )
-            .add_output(TransactionOutput::p2pkh(100, &address))
-            .build();
-
         assert_eq!(
             Staking::is_valid_merge_transaction(
-                &transaction,
+                &vec![(100, address.as_bytes().to_vec())],
+                &vec![],
                 &Wallet::new(H160::from_slice(address.as_bytes()))
             ),
             true
@@ -1170,27 +1160,22 @@ fn test_is_valid_request_transaction_fails() {
             .try_into()
             .unwrap();
 
-        let transaction = TransactionBuilder::new()
-            .with_version(1)
-            .add_input(
-                TransactionInputBuilder::new()
-                    .with_coinbase(true)
-                    .with_previous_index(u32::max_value())
-                    .build(),
-            )
-            .add_output(TransactionOutput::p2pkh(100, &address1))
-            .build();
+        let actual_value = 50;
+
+        let request_value = 100;
+        let request_address = H160::from_slice(address1.as_bytes());
 
         assert_eq!(
             Staking::is_valid_request_transaction(
-                &transaction,
-                50,
-                100,
-                H160::from_slice(address1.as_bytes()),
-                H160::from_slice(address1.as_bytes()),
-                &Wallet::new(H160::from_slice(address2.as_bytes())),
+                request_value,
+                request_address,
+                &vec![(
+                    actual_value.try_into().unwrap(),
+                    address1.as_bytes().to_vec()
+                )],
+                &Wallet::new(H160::from_slice(address2.as_bytes()))
             ),
-            Ok(false)
+            false
         );
     })
 }
@@ -1211,27 +1196,20 @@ fn test_is_valid_request_transaction_succeeds() {
             .try_into()
             .unwrap();
 
-        let transaction = TransactionBuilder::new()
-            .with_version(1)
-            .add_input(
-                TransactionInputBuilder::new()
-                    .with_coinbase(true)
-                    .with_previous_index(u32::max_value())
-                    .build(),
-            )
-            .add_output(TransactionOutput::p2pkh(100, &address1))
-            .build();
+        let request_value = 100;
+        let request_address = H160::from_slice(address1.as_bytes());
 
         assert_eq!(
             Staking::is_valid_request_transaction(
-                &transaction,
-                100,
-                100,
-                H160::from_slice(address1.as_bytes()),
-                H160::from_slice(address1.as_bytes()),
-                &Wallet::new(H160::from_slice(address2.as_bytes())),
+                request_value,
+                request_address,
+                &vec![(
+                    request_value.try_into().unwrap(),
+                    address2.as_bytes().to_vec()
+                )],
+                &Wallet::new(H160::from_slice(address2.as_bytes()))
             ),
-            Ok(true)
+            true
         );
     })
 }
