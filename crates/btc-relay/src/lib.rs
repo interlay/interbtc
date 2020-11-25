@@ -51,6 +51,7 @@ use security::types::ErrorCode;
 pub trait WeightInfo {
     fn initialize() -> Weight;
     fn store_block_header() -> Weight;
+    fn store_block_headers(b: u32) -> Weight;
     fn verify_and_validate_transaction() -> Weight;
     fn verify_transaction_inclusion() -> Weight;
     fn validate_transaction() -> Weight;
@@ -190,6 +191,23 @@ decl_module! {
         ) -> DispatchResult {
             let _ = ensure_signed(origin)?;
             Self::_store_block_header(raw_block_header)
+        }
+
+        /// Stores multiple new block headers
+        ///
+        /// # Arguments
+        ///
+        /// * `raw_block_headers` - vector of Bitcoin block headers.
+        #[weight = <T as Trait>::WeightInfo::store_block_headers(raw_block_headers.len() as u32)]
+        fn store_block_headers(
+            origin, raw_block_headers: Vec<RawBlockHeader>
+        ) -> DispatchResult {
+            let _ = ensure_signed(origin)?;
+            // TODO: optimize
+            for raw_block_header in raw_block_headers {
+                Self::_store_block_header(raw_block_header)?;
+            }
+            Ok(())
         }
 
         /// Verifies the inclusion of `tx_id` in block at height `tx_block_height` and validates the given raw Bitcoin transaction, according to the
