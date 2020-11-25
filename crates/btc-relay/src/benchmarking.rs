@@ -110,6 +110,51 @@ benchmarks! {
 
     }: _(RawOrigin::Signed(origin), raw_block_header)
 
+    // TODO: parameterize
+    store_block_headers {
+        let origin: T::AccountId = account("Origin", 0, 0);
+
+        let address = Address::from([0; 20]);
+
+        let height = 0;
+        let confirmations = 6;
+
+        let init_block = BlockBuilder::new()
+            .with_version(2)
+            .with_coinbase(&address, 50, 3)
+            .with_timestamp(1588813835)
+            .mine(U256::from(2).pow(254.into()));
+
+        let block_hash_0 = init_block.header.hash();
+        let raw_block_header_0 = RawBlockHeader::from_bytes(&init_block.header.format())
+            .expect("could not serialize block header");
+
+        BtcRelay::<T>::_initialize(raw_block_header_0, height).unwrap();
+
+        let block = BlockBuilder::new()
+            .with_previous_hash(block_hash_0)
+            .with_version(2)
+            .with_coinbase(&address, 50, 3)
+            .with_timestamp(1588814835)
+            .mine(U256::from(2).pow(254.into()));
+
+        let block_hash_1 = block.header.hash();
+        let raw_block_header_1 = RawBlockHeader::from_bytes(&block.header.format())
+            .expect("could not serialize block header");
+
+        let block = BlockBuilder::new()
+            .with_previous_hash(block_hash_1)
+            .with_version(2)
+            .with_coinbase(&address, 50, 3)
+            .with_timestamp(1588814835)
+            .mine(U256::from(2).pow(254.into()));
+
+        let raw_block_header_2 = RawBlockHeader::from_bytes(&block.header.format())
+            .expect("could not serialize block header");
+
+
+    }: _(RawOrigin::Signed(origin), vec![raw_block_header_1, raw_block_header_2])
+
     verify_and_validate_transaction {
         let origin: T::AccountId = account("Origin", 0, 0);
 
@@ -178,6 +223,7 @@ mod tests {
         ExtBuilder::build().execute_with(|| {
             assert_ok!(test_benchmark_initialize::<Test>());
             assert_ok!(test_benchmark_store_block_header::<Test>());
+            assert_ok!(test_benchmark_store_block_headers::<Test>());
             assert_ok!(test_benchmark_verify_and_validate_transaction::<Test>());
             assert_ok!(test_benchmark_verify_transaction_inclusion::<Test>());
             assert_ok!(test_benchmark_validate_transaction::<Test>());
