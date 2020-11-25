@@ -135,8 +135,8 @@ decl_module! {
         fn execute_issue(origin, issue_id: H256, tx_id: H256Le, _tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
             -> DispatchResult
         {
-            let requester = ensure_signed(origin)?;
-            Self::_execute_issue(requester, issue_id, tx_id, merkle_proof, raw_tx)?;
+            let _ = ensure_signed(origin)?;
+            Self::_execute_issue(issue_id, tx_id, merkle_proof, raw_tx)?;
             Ok(())
         }
 
@@ -226,7 +226,6 @@ impl<T: Trait> Module<T> {
 
     /// Completes CBA issuance, removing request from storage and minting token.
     fn _execute_issue(
-        requester: T::AccountId,
         issue_id: H256,
         tx_id: H256Le,
         merkle_proof: Vec<u8>,
@@ -236,7 +235,8 @@ impl<T: Trait> Module<T> {
         ext::security::ensure_parachain_status_running::<T>()?;
 
         let issue = Self::get_issue_request_from_id(&issue_id)?;
-        ensure!(requester == issue.requester, Error::<T>::UnauthorizedUser);
+        // allow anyone to complete issue request
+        let requester = issue.requester;
 
         let height = <frame_system::Module<T>>::block_number();
         let period = Self::issue_period();
@@ -255,7 +255,7 @@ impl<T: Trait> Module<T> {
         )?;
 
         ext::vault_registry::issue_tokens::<T>(&issue.vault, issue.amount)?;
-        ext::treasury::mint::<T>(issue.requester, issue.amount);
+        ext::treasury::mint::<T>(requester.clone(), issue.amount);
         // Remove issue request from storage
         Self::remove_issue_request(issue_id);
 
@@ -353,7 +353,6 @@ decl_error! {
         InsufficientCollateral,
         IssueIdNotFound,
         CommitPeriodExpired,
-        UnauthorizedUser,
         TimeNotExpired,
         IssueCompleted,
         ConversionError,

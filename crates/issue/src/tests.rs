@@ -50,16 +50,10 @@ fn request_issue_ok(
     }
 }
 
-fn execute_issue(origin: AccountId, issue_id: &H256) -> Result<(), DispatchError> {
+fn execute_issue(_origin: AccountId, issue_id: &H256) -> Result<(), DispatchError> {
     ext::security::ensure_parachain_status_running::<Test>.mock_safe(|| MockResult::Return(Ok(())));
 
-    Issue::_execute_issue(
-        origin,
-        *issue_id,
-        H256Le::zero(),
-        vec![0u8; 100],
-        vec![0u8; 100],
-    )
+    Issue::_execute_issue(*issue_id, H256Le::zero(), vec![0u8; 100], vec![0u8; 100])
 }
 
 fn execute_issue_ok(origin: AccountId, issue_id: &H256) {
@@ -162,16 +156,6 @@ fn test_execute_issue_not_found_fails() {
 }
 
 #[test]
-fn test_execute_issue_unauthorized_fails() {
-    run_test(|| {
-        ext::vault_registry::get_vault_from_id::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
-        let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
-        assert_noop!(execute_issue(CAROL, &issue_id), TestError::UnauthorizedUser);
-    })
-}
-
-#[test]
 fn test_execute_issue_commit_period_expired_fails() {
     run_test(|| {
         ext::vault_registry::get_vault_from_id::<Test>
@@ -269,19 +253,11 @@ fn test_request_issue_parachain_not_running_fails() {
 #[test]
 fn test_execute_issue_parachain_not_running_fails() {
     run_test(|| {
-        let origin = ALICE;
-
         ext::security::ensure_parachain_status_running::<Test>
             .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainNotRunning.into())));
 
         assert_noop!(
-            Issue::_execute_issue(
-                origin,
-                H256::zero(),
-                H256Le::zero(),
-                vec![0u8; 100],
-                vec![0u8; 100],
-            ),
+            Issue::_execute_issue(H256::zero(), H256Le::zero(), vec![0u8; 100], vec![0u8; 100],),
             SecurityError::ParachainNotRunning
         );
     })
