@@ -190,6 +190,17 @@ benchmarks! {
     //     <Now<T>>::set(<Now<T>>::get() + 10000.into());
     // }: _(RawOrigin::Signed(origin))
 
+    remove_active_status_update {
+        let status_update = StatusUpdate::default();
+        let status_update_id = StakedRelayers::<T>::insert_active_status_update(status_update);
+    }: _(RawOrigin::Root, status_update_id)
+
+    remove_inactive_status_update {
+        let status_update_id = 0;
+        let status_update = StatusUpdate::default();
+        StakedRelayers::<T>::insert_inactive_status_update(status_update_id, &status_update);
+    }: _(RawOrigin::Root, status_update_id)
+
 }
 
 #[cfg(test)]
@@ -230,6 +241,8 @@ mod tests {
                 Test,
             >());
             // assert_ok!(test_benchmark_report_oracle_offline::<Test>());
+            assert_ok!(test_benchmark_remove_active_status_update::<Test>());
+            assert_ok!(test_benchmark_remove_inactive_status_update::<Test>());
         });
     }
 }

@@ -8,7 +8,7 @@ use bitcoin::formatter::Formattable;
 use bitcoin::types::{
     Address, H256Le, TransactionBuilder, TransactionInputBuilder, TransactionOutput,
 };
-use frame_support::{assert_err, assert_ok};
+use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
 use redeem::types::RedeemRequest;
 use replace::types::ReplaceRequest;
@@ -1420,5 +1420,40 @@ fn test_get_status_counter_success() {
     run_test(|| {
         assert_eq!(Staking::get_status_counter(), 1);
         assert_eq!(Staking::get_status_counter(), 2);
+    })
+}
+
+#[test]
+fn test_remove_active_status_update_only_root() {
+    run_test(|| {
+        let status_update = StatusUpdate::default();
+        let status_update_id = Staking::insert_active_status_update(status_update);
+
+        assert_noop!(
+            Staking::remove_active_status_update(Origin::signed(ALICE), status_update_id),
+            DispatchError::BadOrigin
+        );
+        assert_ok!(Staking::remove_active_status_update(
+            Origin::root(),
+            status_update_id
+        ));
+    })
+}
+
+#[test]
+fn test_remove_inactive_status_update_only_root() {
+    run_test(|| {
+        let status_update_id = 0;
+        let status_update = StatusUpdate::default();
+        Staking::insert_inactive_status_update(status_update_id, &status_update);
+
+        assert_noop!(
+            Staking::remove_inactive_status_update(Origin::signed(ALICE), status_update_id),
+            DispatchError::BadOrigin
+        );
+        assert_ok!(Staking::remove_inactive_status_update(
+            Origin::root(),
+            status_update_id
+        ));
     })
 }
