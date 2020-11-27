@@ -58,9 +58,9 @@ pub fn reverse_endianness(bytes: &[u8]) -> Vec<u8> {
 /// assert_eq!(bitcoin::utils::log2(65536), 16);
 /// assert_eq!(bitcoin::utils::log2(65537), 17);
 /// ```
-pub fn log2(value: u64) -> u8 {
+pub fn log2(value: u64) -> u32 {
     let mut current = value - 1;
-    let mut result: u8 = 0;
+    let mut result: u32 = 0;
     while current > 0 {
         current >>= 1;
         result += 1;

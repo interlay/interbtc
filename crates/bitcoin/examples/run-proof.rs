@@ -19,7 +19,7 @@ fn main() {
         "proof: transactions count = {}, hash count = {}, tree height = {},\nmerkle root = {:?}, hashes count = {}, flags={:?},\ncomputed merkle root = {}, position = {}",
         proof.transactions_count,
         proof.hashes.len(),
-        proof.compute_tree_height(),
+        proof.compute_partial_tree_height(),
         proof.block_header.merkle_root,
         proof.hashes.len(),
         proof.flag_bits,

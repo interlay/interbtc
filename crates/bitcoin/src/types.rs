@@ -14,12 +14,12 @@ use sp_std::convert::TryFrom;
 use sp_std::prelude::*;
 
 use crate::formatter::Formattable;
-use crate::merkle::MerkleProof;
+use crate::merkle::{MerkleProof, MerkleTree};
 use crate::parser::{
     extract_address_hash_scriptpubkey, extract_address_hash_scriptsig, extract_op_return_data,
     FromLeBytes,
 };
-use crate::utils::{hash256_merkle_step, log2, reverse_endianness, sha256d_le};
+use crate::utils::{log2, reverse_endianness, sha256d_le};
 
 pub(crate) const SERIALIZE_TRANSACTION_NO_WITNESS: i32 = 0x4000_0000;
 
@@ -524,7 +524,7 @@ impl Block {
             .map(|tx| include.contains(&tx.tx_id()))
             .collect();
 
-        let height = proof.compute_tree_height();
+        let height = proof.compute_partial_tree_height();
         proof.traverse_and_build(height as u32, 0, &tx_ids, &matches);
         proof
     }
@@ -625,24 +625,11 @@ impl BlockBuilder {
 
     fn compute_merkle_root(&self) -> H256Le {
         let height = log2(self.block.transactions.len() as u64);
-        self.rec_compute_merkle_root(0, height)
-    }
-
-    fn compute_tree_width(&self, height: u8) -> usize {
-        (self.block.transactions.len() as usize + (1 << height) - 1) >> height
-    }
-
-    fn rec_compute_merkle_root(&self, index: usize, height: u8) -> H256Le {
-        if height == 0 {
-            return self.block.transactions[index].tx_id();
+        let mut tx_ids = Vec::with_capacity(self.block.transactions.len());
+        for tx in &self.block.transactions {
+            tx_ids.push(tx.tx_id());
         }
-        let left = self.rec_compute_merkle_root(index * 2, height - 1);
-        let right = if index * 2 + 1 < self.compute_tree_width(height - 1) {
-            self.rec_compute_merkle_root(index * 2 + 1, height - 1)
-        } else {
-            left
-        };
-        hash256_merkle_step(&left.to_bytes_le(), &right.to_bytes_le())
+        MerkleTree::compute_root(0, height, tx_ids.len() as u32, &tx_ids)
     }
 }
 
