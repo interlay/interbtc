@@ -762,9 +762,15 @@ impl<T: Trait> Module<T> {
     /// Remove a chain id from chains
     fn remove_blockchain_from_chain(position: u32) -> Result<(), DispatchError> {
         // swap the element with the last element in the mapping
-        let head_index = match <Chains>::iter().nth(0) {
-            Some(head) => head.0,
-            None => return Err(Error::<T>::ForkIdNotFound.into()),
+        // collect the unsorted chians iterable as a vector and sort it by index
+        let mut chains = <Chains>::iter().collect::<Vec<(u32, u32)>>();
+        chains.sort_by_key(|k| k.0);
+
+        // get the head (last) index stored in the list
+        let head_index = match chains.len() {
+            0 => return Err(Error::<T>::ForkIdNotFound.into()),
+            // chains stores (position, index)
+            n => chains[n - 1].1,
         };
         <Chains>::swap(position, head_index);
         // don't remove main chain id
