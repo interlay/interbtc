@@ -767,8 +767,11 @@ impl<T: Trait> Module<T> {
             None => return Err(Error::<T>::ForkIdNotFound.into()),
         };
         <Chains>::swap(position, head_index);
-        // remove the header (now the value at the initial position)
-        <Chains>::remove(head_index);
+        // don't remove main chain id
+        if head_index > 0 {
+            // remove the header (now the value at the initial position)
+            <Chains>::remove(head_index);
+        }
         Ok(())
     }
 
@@ -1129,6 +1132,11 @@ impl<T: Trait> Module<T> {
         // if the fork is the main chain, we don't need to update the ordering
         if fork.chain_id == MAIN_CHAIN_ID {
             return Ok(());
+        }
+
+        // TODO: remove, fix for rm head_index
+        if let None = <Chains>::get(0) {
+            <Chains>::insert(0, 0);
         }
 
         // get the position of the fork in Chains
