@@ -3488,7 +3488,9 @@ version = "0.2.3"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
+ "serde",
  "sp-api",
+ "sp-std",
 ]
 
 [[package]]
@@ -3598,6 +3600,7 @@ dependencies = [
  "jsonrpc-core",
  "jsonrpc-core-client",
  "jsonrpc-derive",
+ "module-exchange-rate-oracle-rpc-runtime-api",
  "module-vault-registry-rpc-runtime-api",
  "parity-scale-codec",
  "serde",
@@ -3611,8 +3614,8 @@ name = "module-vault-registry-rpc-runtime-api"
 version = "0.2.3"
 dependencies = [
  "frame-support",
+ "module-exchange-rate-oracle-rpc-runtime-api",
  "parity-scale-codec",
- "serde",
  "sp-api",
  "sp-std",
 ]
