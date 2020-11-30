@@ -7,12 +7,11 @@ benchmarks! {
     _ {}
 
     set_exchange_rate {
-        let u in 0 .. 1000;
         let origin: T::AccountId = account("origin", 0, 0);
         <AuthorizedOracle<T>>::set(origin.clone());
-    }: _(RawOrigin::Signed(origin), u.into())
+    }: _(RawOrigin::Signed(origin), 1)
     verify {
-        assert_eq!(ExchangeRate::get(), u.into());
+        assert_eq!(ExchangeRate::get(), 100);
     }
 
     set_btc_tx_fees_per_byte {

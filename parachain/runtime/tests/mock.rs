@@ -182,7 +182,9 @@ pub type VaultRegistryCall = vault_registry::Call<Runtime>;
 pub type VaultRegistryModule = vault_registry::Module<Runtime>;
 
 #[allow(dead_code)]
-pub type OracleCall = exchange_rate_oracle::Call<Runtime>;
+pub type ExchangeRateOracleCall = exchange_rate_oracle::Call<Runtime>;
+#[allow(dead_code)]
+pub type ExchangeRateOracleModule = exchange_rate_oracle::Module<Runtime>;
 
 pub struct ExtBuilder;
 

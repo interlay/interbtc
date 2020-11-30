@@ -42,8 +42,7 @@ fn integration_test_replace_request_replace() {
         let griefing_collateral = 200;
 
         // peg spot rate
-        assert_ok!(Call::ExchangeRateOracle(OracleCall::set_exchange_rate(1))
-            .dispatch(origin_of(account_of(BOB))));
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(1));
         // bob creates a vault
         force_issue_tokens(ALICE, BOB, collateral, amount, H160::random());
         // bob requests a replace
@@ -66,8 +65,7 @@ fn integration_test_replace_withdraw_replace() {
 
         let bob = origin_of(account_of(BOB));
         // peg spot rate
-        assert_ok!(Call::ExchangeRateOracle(OracleCall::set_exchange_rate(1))
-            .dispatch(origin_of(account_of(BOB))));
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(1));
         // bob creates a vault
         force_issue_tokens(ALICE, BOB, collateral, amount, H160::random());
         // bob requests a replace
@@ -90,8 +88,7 @@ fn integration_test_replace_accept_replace() {
         let collateral = amount * 2;
 
         // peg spot rate
-        assert_ok!(Call::ExchangeRateOracle(OracleCall::set_exchange_rate(1))
-            .dispatch(origin_of(account_of(BOB))));
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(1));
         // alice creates a vault
         assert_ok!(
             Call::VaultRegistry(VaultRegistryCall::register_vault(amount, H160::random()))
@@ -128,9 +125,7 @@ fn integration_test_replace_auction_replace() {
 
         set_default_thresholds();
         // peg spot rate
-        assert_ok!(Call::ExchangeRateOracle(OracleCall::set_exchange_rate(1))
-            .dispatch(origin_of(account_of(BOB))));
-
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(1));
         // old vault has issued some tokens with the user
         force_issue_tokens(user, old_vault, collateral, polkabtc, old_vault_btc_address);
 
@@ -141,10 +136,7 @@ fn integration_test_replace_auction_replace() {
         ))
         .dispatch(origin_of(account_of(new_vault))));
         // exchange rate drops and vault is not collateralized any more
-        assert_ok!(
-            Call::ExchangeRateOracle(OracleCall::set_exchange_rate(300000))
-                .dispatch(origin_of(account_of(BOB)))
-        );
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(300000));
         // new_vault takes over old_vault's position
         assert_ok!(Call::Replace(ReplaceCall::auction_replace(
             account_of(old_vault),
@@ -172,8 +164,7 @@ fn integration_test_replace_execute_replace() {
         SystemModule::set_block_number(1);
 
         // peg spot rate
-        assert_ok!(Call::ExchangeRateOracle(OracleCall::set_exchange_rate(1))
-            .dispatch(origin_of(account_of(BOB))));
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(1));
 
         // old vault has issued some tokens with the user
         force_issue_tokens(user, old_vault, collateral, polkabtc, old_vault_btc_address);
@@ -224,8 +215,7 @@ fn integration_test_replace_cancel_replace() {
         let griefing_collateral = 200;
         let collateral = amount * 2;
         // peg spot rate
-        assert_ok!(Call::ExchangeRateOracle(OracleCall::set_exchange_rate(1))
-            .dispatch(origin_of(account_of(BOB))));
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(1));
         // alice creates a vault
         assert_ok!(
             Call::VaultRegistry(VaultRegistryCall::register_vault(amount, H160::random()))

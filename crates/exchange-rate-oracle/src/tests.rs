@@ -24,6 +24,8 @@ macro_rules! assert_not_emitted {
 fn set_exchange_rate_success() {
     run_test(|| {
         ExchangeRateOracle::get_authorized_oracle.mock_safe(|| MockResult::Return(3));
+        ExchangeRateOracle::btc_dot_to_satoshi_planck
+            .mock_safe(|amount| MockResult::Return(Ok(amount)));
         let result = ExchangeRateOracle::set_exchange_rate(Origin::signed(3), 100);
         assert_ok!(result);
 
@@ -63,6 +65,8 @@ fn set_exchange_rate_max_delay_passed() {
 fn set_exchange_rate_wrong_oracle() {
     run_test(|| {
         ExchangeRateOracle::get_authorized_oracle.mock_safe(|| MockResult::Return(4));
+        ExchangeRateOracle::btc_dot_to_satoshi_planck
+            .mock_safe(|amount| MockResult::Return(Ok(amount)));
         assert_ok!(ExchangeRateOracle::set_exchange_rate(Origin::signed(4), 20));
 
         let result = ExchangeRateOracle::set_exchange_rate(Origin::signed(3), 100);
@@ -134,5 +138,15 @@ fn oracle_names_have_genesis_info() {
         let actual = String::from_utf8(ExchangeRateOracle::oracle_names(0)).unwrap();
         let expected = "test".to_owned();
         assert_eq!(actual, expected);
+    });
+}
+
+#[test]
+fn convert_btc_dot_to_satoshi_planck() {
+    run_test(|| {
+        assert_eq!(
+            ExchangeRateOracle::btc_dot_to_satoshi_planck(3461).unwrap(),
+            346100
+        );
     });
 }
