@@ -42,7 +42,7 @@ use frame_support::{
     weights::Weight,
     IterableStorageMap,
 };
-use frame_system::ensure_signed;
+use frame_system::{ensure_root, ensure_signed};
 use primitive_types::H256;
 use security::types::{ErrorCode, StatusCode};
 use sp_core::H160;
@@ -62,6 +62,8 @@ pub trait WeightInfo {
     fn slash_staked_relayer() -> Weight;
     fn report_vault_theft() -> Weight;
     fn report_vault_under_liquidation_threshold() -> Weight;
+    fn remove_active_status_update() -> Weight;
+    fn remove_inactive_status_update() -> Weight;
 }
 
 /// ## Configuration
@@ -576,6 +578,34 @@ decl_module! {
             ));
 
             Ok(())
+        }
+
+        /// Permanently remove an `ActiveStatusUpdate`.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - the dispatch origin of this call (must be _Root_)
+        /// * `status_update_id` - id of the active status update to remove
+        ///
+        /// # Weight: `O(1)`
+        #[weight = <T as Trait>::WeightInfo::remove_active_status_update()]
+        fn remove_active_status_update(origin, status_update_id: u64) {
+            ensure_root(origin)?;
+            <ActiveStatusUpdates<T>>::remove(status_update_id);
+        }
+
+        /// Permanently remove an `InactiveStatusUpdate`.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - the dispatch origin of this call (must be _Root_)
+        /// * `status_update_id` - id of the inactive status update to remove
+        ///
+        /// # Weight: `O(1)`
+        #[weight = <T as Trait>::WeightInfo::remove_inactive_status_update()]
+        fn remove_inactive_status_update(origin, status_update_id: u64) {
+            ensure_root(origin)?;
+            <InactiveStatusUpdates<T>>::remove(status_update_id);
         }
 
         fn on_initialize(n: T::BlockNumber) -> Weight {
