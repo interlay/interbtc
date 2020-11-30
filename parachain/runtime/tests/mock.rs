@@ -209,8 +209,7 @@ impl ExtBuilder {
             .unwrap();
 
         exchange_rate_oracle::GenesisConfig::<Runtime> {
-            oracle_account_id: account_of(BOB),
-            oracle_names: vec![(account_of(BOB), BOB.to_vec())],
+            authorized_oracles: vec![(account_of(BOB), BOB.to_vec())],
             max_delay: 3600000, // one hour
         }
         .assimilate_storage(&mut storage)
