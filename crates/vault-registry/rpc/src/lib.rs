@@ -4,9 +4,8 @@ pub use self::gen_client::Client as VaultRegistryClient;
 use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result as JsonRpcResult};
 use jsonrpc_derive::rpc;
-pub use module_vault_registry_rpc_runtime_api::{
-    BalanceWrapper, VaultRegistryApi as VaultRegistryRuntimeApi,
-};
+use module_exchange_rate_oracle_rpc_runtime_api::BalanceWrapper;
+pub use module_vault_registry_rpc_runtime_api::VaultRegistryApi as VaultRegistryRuntimeApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::traits::{MaybeDisplay, MaybeFromStr};
