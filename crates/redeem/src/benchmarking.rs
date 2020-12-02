@@ -4,7 +4,7 @@ use bitcoin::formatter::Formattable;
 use bitcoin::types::{
     BlockBuilder, RawBlockHeader, TransactionBuilder, TransactionInputBuilder, TransactionOutput,
 };
-use btc_relay::BtcPayload;
+use btc_relay::BtcAddress;
 use btc_relay::Module as BtcRelay;
 use frame_benchmarking::{account, benchmarks};
 use frame_system::Module as System;
@@ -21,11 +21,11 @@ benchmarks! {
         let origin: T::AccountId = account("Origin", 0, 0);
         let vault_id: T::AccountId = account("Vault", 0, 0);
         let amount = Redeem::<T>::redeem_btc_dust_value() + 1000.into();
-        let btc_address = BtcPayload::P2SH(H160::from([0; 20]));
+        let btc_address = BtcAddress::P2SH(H160::from([0; 20]));
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
-        vault.wallet = Wallet::new(BtcPayload::P2SH(H160::from([0; 20])));
+        vault.wallet = Wallet::new(BtcAddress::P2SH(H160::from([0; 20])));
         vault.issued_tokens = amount;
         VaultRegistry::<T>::_insert_vault(
             &vault_id,
@@ -38,25 +38,28 @@ benchmarks! {
         let origin: T::AccountId = account("Origin", 0, 0);
         let vault_id: T::AccountId = account("Vault", 0, 0);
 
+        let origin_btc_address = BtcAddress::P2PKH(H160::zero());
+        let vault_btc_address = BtcAddress::P2SH(H160::zero());
+
         let redeem_id = H256::zero();
         let mut redeem_request = RedeemRequest::default();
         redeem_request.vault = vault_id.clone();
+        redeem_request.btc_address = origin_btc_address;
         Redeem::<T>::insert_redeem_request(redeem_id, redeem_request);
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
-        vault.wallet = Wallet::new(BtcPayload::P2SH(H160::from([0; 20])));
+        vault.wallet = Wallet::new(vault_btc_address);
         VaultRegistry::<T>::_insert_vault(
             &vault_id,
             vault
         );
 
-        let address = BtcPayload::P2SH(H160::from([0; 20]));
         let mut height = 0;
 
         let block = BlockBuilder::new()
             .with_version(2)
-            .with_coinbase(&address, 50, 3)
+            .with_coinbase(&origin_btc_address, 50, 3)
             .with_timestamp(1588813835)
             .mine(U256::from(2).pow(254.into()));
 
@@ -75,14 +78,14 @@ benchmarks! {
                     .with_previous_hash(block.transactions[0].hash())
                     .build(),
             )
-            .add_output(TransactionOutput::payment(value.into(), &address))
+            .add_output(TransactionOutput::payment(value.into(), &origin_btc_address))
             .add_output(TransactionOutput::op_return(0, H256::zero().as_bytes()))
             .build();
 
         let block = BlockBuilder::new()
             .with_previous_hash(block_hash)
             .with_version(2)
-            .with_coinbase(&address, 50, 3)
+            .with_coinbase(&origin_btc_address, 50, 3)
             .with_timestamp(1588813835)
             .add_transaction(transaction.clone())
             .mine(U256::from(2).pow(254.into()));
@@ -111,7 +114,7 @@ benchmarks! {
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
-        vault.wallet = Wallet::new(BtcPayload::P2SH(H160::from([0; 20])));
+        vault.wallet = Wallet::new(BtcAddress::P2SH(H160::from([0; 20])));
         VaultRegistry::<T>::_insert_vault(
             &vault_id,
             vault

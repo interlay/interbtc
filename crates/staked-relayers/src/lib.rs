@@ -30,7 +30,7 @@ use crate::types::{
 };
 use bitcoin::parser::parse_transaction;
 use bitcoin::types::*;
-use bitcoin::Payload as BtcPayload;
+use btc_relay::BtcAddress;
 /// # Staked Relayers module implementation
 /// This is the implementation of the BTC Parachain Staked Relayers module following the spec at:
 /// https://interlay.gitlab.io/polkabtc-spec/spec/staked-relayers.html
@@ -1027,7 +1027,7 @@ impl<T: Trait> Module<T> {
     /// * `op_returns` - all op_return outputs extracted from tx
     /// * `wallet` - vault btc addresses
     pub(crate) fn is_valid_merge_transaction(
-        payments: &Vec<(i64, BtcPayload)>,
+        payments: &Vec<(i64, BtcAddress)>,
         op_returns: &Vec<(i64, Vec<u8>)>,
         wallet: &Wallet,
     ) -> bool {
@@ -1055,8 +1055,8 @@ impl<T: Trait> Module<T> {
     /// * `wallet` - vault btc addresses
     pub(crate) fn is_valid_request_transaction(
         request_value: PolkaBTC<T>,
-        request_address: BtcPayload,
-        payments: &Vec<(i64, BtcPayload)>,
+        request_address: BtcAddress,
+        payments: &Vec<(i64, BtcAddress)>,
         wallet: &Wallet,
     ) -> bool {
         let request_value = match TryInto::<u64>::try_into(request_value)
@@ -1097,7 +1097,7 @@ impl<T: Trait> Module<T> {
             parse_transaction(raw_tx.as_slice()).map_err(|_| Error::<T>::InvalidTransaction)?;
 
         // collect all addresses that feature in the inputs of the transaction
-        let input_addresses: Vec<Result<BtcPayload, _>> = tx
+        let input_addresses: Vec<Result<BtcAddress, _>> = tx
             .clone()
             .inputs
             .into_iter()

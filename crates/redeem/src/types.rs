@@ -1,4 +1,4 @@
-use btc_relay::BtcPayload;
+use btc_relay::BtcAddress;
 use codec::{Decode, Encode};
 use frame_support::traits::Currency;
 
@@ -51,7 +51,7 @@ pub struct RedeemRequest<AccountId, BlockNumber, PolkaBTC, DOT> {
     #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
     pub premium_dot: DOT,
     pub redeemer: AccountId,
-    pub btc_address: BtcPayload,
+    pub btc_address: BtcAddress,
     pub completed: bool,
 }
 

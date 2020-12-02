@@ -52,7 +52,7 @@ fn integration_test_issue_polka_btc() {
         SystemModule::set_block_number(1);
 
         let address =
-            BtcPayload::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
+            BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
 
         let amount = 100000;
         let collateral = 100;

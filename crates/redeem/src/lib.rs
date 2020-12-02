@@ -25,7 +25,7 @@ pub mod types;
 pub use crate::types::RedeemRequest;
 use crate::types::{PolkaBTC, DOT};
 use bitcoin::types::H256Le;
-use btc_relay::BtcPayload;
+use btc_relay::BtcAddress;
 use frame_support::weights::Weight;
 /// # PolkaBTC Redeem implementation
 /// The Redeem module according to the specification at
@@ -88,7 +88,7 @@ decl_event!(
         AccountId = <T as frame_system::Trait>::AccountId,
         PolkaBTC = PolkaBTC<T>,
     {
-        RequestRedeem(H256, AccountId, PolkaBTC, AccountId, BtcPayload),
+        RequestRedeem(H256, AccountId, PolkaBTC, AccountId, BtcAddress),
         ExecuteRedeem(H256, AccountId, AccountId),
         CancelRedeem(H256, AccountId),
     }
@@ -114,7 +114,7 @@ decl_module! {
         /// * `btc_address` - the address to receive BTC
         /// * `vault` - address of the vault
         #[weight = <T as Trait>::WeightInfo::request_redeem()]
-        fn request_redeem(origin, amount_polka_btc: PolkaBTC<T>, btc_address: BtcPayload, vault_id: T::AccountId)
+        fn request_redeem(origin, amount_polka_btc: PolkaBTC<T>, btc_address: BtcAddress, vault_id: T::AccountId)
             -> DispatchResult
         {
             let redeemer = ensure_signed(origin)?;

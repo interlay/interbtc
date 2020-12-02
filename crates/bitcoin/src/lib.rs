@@ -11,7 +11,7 @@ pub use error::Error;
 pub mod merkle;
 
 mod address;
-pub use address::{Address, Network, Payload};
+pub use address::Address;
 
 mod script;
 pub use script::Script;

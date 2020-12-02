@@ -4,7 +4,7 @@ use mocktopus::macros::mockable;
 #[cfg_attr(test, mockable)]
 pub(crate) mod btc_relay {
     use bitcoin::types::H256Le;
-    use btc_relay::BtcPayload;
+    use btc_relay::BtcAddress;
     use frame_support::dispatch::DispatchResult;
     use sp_std::vec::Vec;
 
@@ -18,7 +18,7 @@ pub(crate) mod btc_relay {
     pub fn validate_transaction<T: btc_relay::Trait>(
         raw_tx: Vec<u8>,
         amount: i64,
-        btc_address: BtcPayload,
+        btc_address: BtcAddress,
         issue_id: Vec<u8>,
     ) -> DispatchResult {
         <btc_relay::Module<T>>::_validate_transaction(raw_tx, amount, btc_address, issue_id)

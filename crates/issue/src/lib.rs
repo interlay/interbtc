@@ -30,7 +30,7 @@ pub use crate::types::IssueRequest;
 
 use crate::types::{PolkaBTC, DOT};
 use bitcoin::types::H256Le;
-use btc_relay::BtcPayload;
+use btc_relay::BtcAddress;
 use frame_support::weights::Weight;
 /// # PolkaBTC Issue implementation
 /// The Issue module according to the specification at
@@ -92,7 +92,7 @@ decl_event!(
         AccountId = <T as frame_system::Trait>::AccountId,
         PolkaBTC = PolkaBTC<T>,
     {
-        RequestIssue(H256, AccountId, PolkaBTC, AccountId, BtcPayload),
+        RequestIssue(H256, AccountId, PolkaBTC, AccountId, BtcAddress),
         ExecuteIssue(H256, AccountId, AccountId),
         CancelIssue(H256, AccountId),
     }

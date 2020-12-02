@@ -1,4 +1,4 @@
-use btc_relay::BtcPayload;
+use btc_relay::BtcAddress;
 use codec::{Decode, Encode};
 use frame_support::traits::Currency;
 
@@ -40,7 +40,7 @@ pub struct ReplaceRequest<AccountId, BlockNumber, PolkaBTC, DOT> {
     #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
     pub collateral: DOT,
     pub accept_time: Option<BlockNumber>,
-    pub btc_address: BtcPayload,
+    pub btc_address: BtcAddress,
     pub completed: bool,
 }
 
@@ -71,7 +71,7 @@ impl<AccountId, BlockNumber, PolkaBTC, DOT> ReplaceRequest<AccountId, BlockNumbe
         new_vault_id: AccountId,
         accept_time: BlockNumber,
         collateral: DOT,
-        btc_address: BtcPayload,
+        btc_address: BtcAddress,
     ) {
         self.new_vault = Some(new_vault_id);
         self.accept_time = Some(accept_time);

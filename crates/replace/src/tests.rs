@@ -4,7 +4,7 @@ use crate::PolkaBTC;
 use crate::ReplaceRequest;
 use crate::DOT;
 use bitcoin::types::H256Le;
-use btc_relay::BtcPayload;
+use btc_relay::BtcAddress;
 use frame_support::{
     assert_err, assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResult},
@@ -42,7 +42,7 @@ fn test_request() -> ReplaceRequest<u64, u64, u64, u64> {
         accept_time: None,
         amount: 10,
         griefing_collateral: 0,
-        btc_address: BtcPayload::default(),
+        btc_address: BtcAddress::default(),
         collateral: 20,
         completed: false,
     }
@@ -53,7 +53,7 @@ fn test_vault() -> Vault<u64, u64, u64> {
         id: BOB,
         banned_until: None,
         issued_tokens: 5,
-        wallet: Wallet::new(BtcPayload::P2SH(H160([0; 20]))),
+        wallet: Wallet::new(BtcAddress::P2SH(H160([0; 20]))),
         to_be_issued_tokens: 0,
         to_be_redeemed_tokens: 0,
         status: VaultStatus::Active,
@@ -112,7 +112,7 @@ fn test_request_replace_transfer_zero_fails() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 100,
                 to_be_redeemed_tokens: 0,
-                wallet: Wallet::new(BtcPayload::P2SH(H160([0; 20]))),
+                wallet: Wallet::new(BtcAddress::P2SH(H160([0; 20]))),
                 banned_until: None,
                 status: VaultStatus::Active,
             }))
@@ -142,7 +142,7 @@ fn test_request_replace_vault_banned_fails() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
-                wallet: Wallet::new(BtcPayload::P2SH(H160([0; 20]))),
+                wallet: Wallet::new(BtcAddress::P2SH(H160([0; 20]))),
                 banned_until: Some(1),
                 status: VaultStatus::Active,
             }))
@@ -170,7 +170,7 @@ fn test_request_replace_amount_below_dust_value_fails() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
                 to_be_redeemed_tokens: 0,
-                wallet: Wallet::new(BtcPayload::P2SH(H160([0; 20]))),
+                wallet: Wallet::new(BtcAddress::P2SH(H160([0; 20]))),
                 banned_until: None,
                 status: VaultStatus::Active,
             }))
@@ -204,7 +204,7 @@ fn test_request_replace_insufficient_griefing_collateral_fails() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
                 to_be_redeemed_tokens: 0,
-                wallet: Wallet::new(BtcPayload::P2SH(H160([0; 20]))),
+                wallet: Wallet::new(BtcAddress::P2SH(H160([0; 20]))),
                 banned_until: None,
                 status: VaultStatus::Active,
             }))

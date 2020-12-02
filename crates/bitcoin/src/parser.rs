@@ -12,7 +12,7 @@ use crate::Error;
 use primitive_types::U256;
 use sp_std::prelude::*;
 
-use crate::address::Payload;
+use crate::address::Address;
 use crate::types::*;
 
 /// Type to be parsed from a bytes array
@@ -393,7 +393,7 @@ fn parse_transaction_output(raw_output: &[u8]) -> Result<(TransactionOutput, usi
     ))
 }
 
-pub(crate) fn extract_address_hash_scriptsig(input_script: &[u8]) -> Result<Payload, Error> {
+pub(crate) fn extract_address_hash_scriptsig(input_script: &[u8]) -> Result<Address, Error> {
     let mut parser = BytesParser::new(input_script);
     let mut p2pkh = true;
 
@@ -415,9 +415,9 @@ pub(crate) fn extract_address_hash_scriptsig(input_script: &[u8]) -> Result<Payl
     let redeem_script = parser.read(redeem_script_size as usize)?;
     let hash = H160::from_slice(&bitcoin_hashes::hash160::Hash::hash(&redeem_script).to_vec());
     return Ok(if p2pkh {
-        Payload::P2PKH(hash)
+        Address::P2PKH(hash)
     } else {
-        Payload::P2SH(hash)
+        Address::P2SH(hash)
     });
 }
 
@@ -443,7 +443,7 @@ pub(crate) fn extract_op_return_data(output_script: &[u8]) -> Result<Vec<u8>, Er
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
-    use crate::{Payload, Script};
+    use crate::{Address, Script};
 
     // examples from https://bitcoin.org/en/developer-reference#block-headers
 
@@ -668,7 +668,7 @@ pub(crate) mod tests {
         let p2pkh_address: [u8; 20] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
         let script = Script::from(p2pkh_script);
-        let payload = Payload::from_script(&script).unwrap();
+        let payload = Address::from_script(&script).unwrap();
         let extr_p2pkh = payload.hash();
 
         assert_eq!(extr_p2pkh.as_bytes(), &p2pkh_address);
@@ -681,7 +681,7 @@ pub(crate) mod tests {
         let p2sh_address: [u8; 20] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
         let script = Script::from(p2sh_script);
-        let payload = Payload::from_script(&script).unwrap();
+        let payload = Address::from_script(&script).unwrap();
         let extr_p2sh = payload.hash();
 
         assert_eq!(&extr_p2sh.as_bytes(), &p2sh_address);
@@ -693,7 +693,7 @@ pub(crate) mod tests {
         let tx_bytes = hex::decode(&raw_tx).unwrap();
         let transaction = parse_transaction(&tx_bytes).unwrap();
 
-        let address = Payload::P2PKH(H160([
+        let address = Address::P2PKH(H160([
             126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8,
             50, 170,
         ]));
@@ -708,7 +708,7 @@ pub(crate) mod tests {
         let tx_bytes = hex::decode(&raw_tx).unwrap();
         let transaction = parse_transaction(&tx_bytes).unwrap();
 
-        let address = Payload::P2SH(H160([
+        let address = Address::P2SH(H160([
             233, 195, 221, 12, 7, 170, 199, 97, 121, 235, 199, 106, 108, 120, 212, 214, 124, 108,
             22, 10,
         ]));

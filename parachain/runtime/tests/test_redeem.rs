@@ -29,7 +29,7 @@ fn integration_test_redeem_should_fail_if_not_running() {
         assert_err!(
             Call::Redeem(RedeemCall::request_redeem(
                 1000,
-                BtcPayload::P2PKH(H160([0u8; 20])),
+                BtcAddress::P2PKH(H160([0u8; 20])),
                 account_of(BOB)
             ))
             .dispatch(origin_of(account_of(ALICE))),
@@ -46,8 +46,8 @@ fn integration_test_redeem_polka_btc() {
         let collateral_vault = 10_000;
         let polkabtc = 1_000;
 
-        let vault_btc_address = BtcPayload::P2PKH(H160([0u8; 20]));
-        let user_btc_address = BtcPayload::P2PKH(H160([0u8; 20]));
+        let vault_btc_address = BtcAddress::P2PKH(H160([0u8; 20]));
+        let user_btc_address = BtcAddress::P2PKH(H160([0u8; 20]));
 
         SystemModule::set_block_number(1);
 

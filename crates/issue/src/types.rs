@@ -1,4 +1,4 @@
-use btc_relay::BtcPayload;
+use btc_relay::BtcAddress;
 use codec::{Decode, Encode};
 use frame_support::traits::Currency;
 #[cfg(feature = "std")]
@@ -34,7 +34,7 @@ pub struct IssueRequest<AccountId, BlockNumber, PolkaBTC, DOT> {
     #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
     pub amount: PolkaBTC,
     pub requester: AccountId,
-    pub btc_address: BtcPayload,
+    pub btc_address: BtcAddress,
     pub completed: bool,
 }
 

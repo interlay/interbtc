@@ -6,7 +6,7 @@ use crate::types::{
 use crate::{ext, mock::*};
 use bitcoin::formatter::Formattable;
 use bitcoin::types::{H256Le, TransactionBuilder, TransactionInputBuilder, TransactionOutput};
-use btc_relay::BtcPayload;
+use btc_relay::BtcAddress;
 use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
 use redeem::types::RedeemRequest;
@@ -50,7 +50,7 @@ macro_rules! assert_not_emitted {
 /// Mocking functions
 fn init_zero_vault<Test>(
     id: AccountId,
-    btc_address: Option<BtcPayload>,
+    btc_address: Option<BtcAddress>,
 ) -> Vault<AccountId, BlockNumber, u64> {
     let mut vault = Vault::default();
     vault.id = id;
@@ -839,7 +839,7 @@ fn test_report_vault_passes_with_vault_transaction() {
         inject_active_staked_relayer(&ALICE, amount);
         let vault = CAROL;
 
-        let btc_address = BtcPayload::P2PKH(H160::from_slice(&[
+        let btc_address = BtcAddress::P2PKH(H160::from_slice(&[
             126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8,
             50, 170,
         ]));
@@ -874,7 +874,7 @@ fn test_report_vault_fails_with_nonvault_transaction() {
         inject_active_staked_relayer(&ALICE, amount);
         let vault = CAROL;
 
-        let btc_address = BtcPayload::P2PKH(H160::from_slice(&[
+        let btc_address = BtcAddress::P2PKH(H160::from_slice(&[
             125, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8,
             50, 170,
         ]));
@@ -912,7 +912,7 @@ fn test_report_vault_succeeds_with_segwit_transaction() {
         inject_active_staked_relayer(&ALICE, amount);
         let vault = CAROL;
 
-        let btc_address = BtcPayload::P2WPKH(
+        let btc_address = BtcAddress::P2WPKH(
             0,
             H160::from_slice(&[
                 164, 180, 202, 72, 222, 11, 63, 255, 193, 84, 4, 161, 172, 220, 141, 186, 174, 34,
@@ -1094,10 +1094,10 @@ fn test_is_valid_merge_transaction_fails() {
         });
 
         let address1 =
-            BtcPayload::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
+            BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
 
         let address2 =
-            BtcPayload::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
+            BtcAddress::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
 
         assert_eq!(
             Staking::is_valid_merge_transaction(
@@ -1130,7 +1130,7 @@ fn test_is_valid_merge_transaction_succeeds() {
         });
 
         let address =
-            BtcPayload::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
+            BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
 
         assert_eq!(
             Staking::is_valid_merge_transaction(
@@ -1152,10 +1152,10 @@ fn test_is_valid_request_transaction_fails() {
         });
 
         let address1 =
-            BtcPayload::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
+            BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
 
         let address2 =
-            BtcPayload::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
+            BtcAddress::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
 
         let actual_value: i32 = 50;
 
@@ -1183,10 +1183,10 @@ fn test_is_valid_request_transaction_succeeds() {
         });
 
         let address1 =
-            BtcPayload::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
+            BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
 
         let address2 =
-            BtcPayload::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
+            BtcAddress::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
 
         let request_value = 100;
         let request_address = address1.clone();
@@ -1206,7 +1206,7 @@ fn test_is_valid_request_transaction_succeeds() {
 #[test]
 fn test_is_transaction_invalid_fails_with_valid_merge_transaction() {
     run_test(|| {
-        let address = BtcPayload::P2PKH(H160::from_slice(&[
+        let address = BtcAddress::P2PKH(H160::from_slice(&[
             126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8,
             50, 170,
         ]));
@@ -1258,7 +1258,7 @@ fn test_is_transaction_invalid_fails_with_valid_merge_transaction() {
 #[test]
 fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
     run_test(|| {
-        let address1 = BtcPayload::P2WPKH(
+        let address1 = BtcAddress::P2WPKH(
             0,
             H160::from_slice(&[
                 164, 180, 202, 72, 222, 11, 63, 255, 193, 84, 4, 161, 172, 220, 141, 186, 174, 34,
@@ -1267,7 +1267,7 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
         );
 
         let address2 =
-            BtcPayload::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
+            BtcAddress::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
 
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(move |_| {
             MockResult::Return(Ok(Vault {
@@ -1361,13 +1361,13 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
 #[test]
 fn test_is_transaction_invalid_succeeds() {
     run_test(|| {
-        let vault_address = BtcPayload::P2PKH(H160::from_slice(&[
+        let vault_address = BtcAddress::P2PKH(H160::from_slice(&[
             126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8,
             50, 170,
         ]));
 
         let address =
-            BtcPayload::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
+            BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
 
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(move |_| {
             MockResult::Return(Ok(init_zero_vault::<Test>(BOB, Some(vault_address))))

@@ -5,7 +5,7 @@ use bitcoin::types::{
     BlockBuilder, H256Le, RawBlockHeader, TransactionBuilder, TransactionInputBuilder,
     TransactionOutput,
 };
-use btc_relay::BtcPayload;
+use btc_relay::BtcAddress;
 use btc_relay::Module as BtcRelay;
 use collateral::Module as Collateral;
 use exchange_rate_oracle::Module as ExchangeRateOracle;
@@ -84,12 +84,12 @@ benchmarks! {
         let stake = 100;
         StakedRelayers::<T>::add_active_staked_relayer(&origin, stake.into());
 
-        let vault_address = BtcPayload::P2PKH(H160::from_slice(&[
+        let vault_address = BtcAddress::P2PKH(H160::from_slice(&[
             126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8,
             50, 170,
         ]));
 
-        let address = BtcPayload::P2PKH(H160([0; 20]));
+        let address = BtcAddress::P2PKH(H160([0; 20]));
 
         let vault_id: T::AccountId = account("Vault", 0, 0);
         let mut vault = Vault::default();
@@ -169,7 +169,7 @@ benchmarks! {
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
         vault.issued_tokens = 100_000.into();
-        vault.wallet = Wallet::new(BtcPayload::P2SH(H160::zero()));
+        vault.wallet = Wallet::new(BtcAddress::P2SH(H160::zero()));
         VaultRegistry::<T>::_insert_vault(
             &vault_id,
             vault

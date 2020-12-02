@@ -49,7 +49,7 @@ fn integration_test_replace_request_replace() {
             BOB,
             collateral,
             amount,
-            BtcPayload::P2PKH(H160([0; 20])),
+            BtcAddress::P2PKH(H160([0; 20])),
         );
         // bob requests a replace
         assert_ok!(
@@ -78,7 +78,7 @@ fn integration_test_replace_withdraw_replace() {
             BOB,
             collateral,
             amount,
-            BtcPayload::P2PKH(H160([0; 20])),
+            BtcAddress::P2PKH(H160([0; 20])),
         );
         // bob requests a replace
         assert_ok!(
@@ -104,7 +104,7 @@ fn integration_test_replace_accept_replace() {
         // alice creates a vault
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
             amount,
-            BtcPayload::P2PKH(H160([0; 20]))
+            BtcAddress::P2PKH(H160([0; 20]))
         ))
         .dispatch(origin_of(account_of(ALICE))));
         // bob creates a vault
@@ -113,7 +113,7 @@ fn integration_test_replace_accept_replace() {
             BOB,
             collateral,
             amount,
-            BtcPayload::P2PKH(H160([1; 20])),
+            BtcAddress::P2PKH(H160([1; 20])),
         );
         // bob requests a replace
         assert_ok!(
@@ -139,8 +139,8 @@ fn integration_test_replace_auction_replace() {
         let collateral = 4_000;
         let polkabtc = 1_000;
 
-        let old_vault_btc_address = BtcPayload::P2PKH(H160([0; 20]));
-        let new_vault_btc_address = BtcPayload::P2PKH(H160([1; 20]));
+        let old_vault_btc_address = BtcAddress::P2PKH(H160([0; 20]));
+        let new_vault_btc_address = BtcAddress::P2PKH(H160([1; 20]));
 
         set_default_thresholds();
         // peg spot rate
@@ -176,8 +176,8 @@ fn integration_test_replace_execute_replace() {
         let collateral = 4_000;
         let polkabtc = 1_000;
 
-        let old_vault_btc_address = BtcPayload::P2PKH(H160([0; 20]));
-        let new_vault_btc_address = BtcPayload::P2PKH(H160([1; 20]));
+        let old_vault_btc_address = BtcAddress::P2PKH(H160([0; 20]));
+        let new_vault_btc_address = BtcAddress::P2PKH(H160([1; 20]));
 
         set_default_thresholds();
         SystemModule::set_block_number(1);
@@ -238,7 +238,7 @@ fn integration_test_replace_cancel_replace() {
         // alice creates a vault
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
             amount,
-            BtcPayload::P2PKH(H160([0; 20]))
+            BtcAddress::P2PKH(H160([0; 20]))
         ))
         .dispatch(origin_of(account_of(ALICE))));
         // bob creates a vault
@@ -247,7 +247,7 @@ fn integration_test_replace_cancel_replace() {
             BOB,
             collateral,
             amount,
-            BtcPayload::P2PKH(H160([1; 20])),
+            BtcAddress::P2PKH(H160([1; 20])),
         );
         // bob requests a replace
         assert_ok!(

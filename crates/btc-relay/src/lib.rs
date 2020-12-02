@@ -45,8 +45,8 @@ use bitcoin::parser::{parse_block_header, parse_transaction};
 use bitcoin::types::{
     BlockChain, BlockHeader, H256Le, RawBlockHeader, RichBlockHeader, Transaction,
 };
+pub use bitcoin::Address as BtcAddress;
 use bitcoin::Error as BitcoinError;
-pub use bitcoin::Payload as BtcPayload;
 use security::types::ErrorCode;
 
 pub trait WeightInfo {
@@ -244,7 +244,7 @@ decl_module! {
             insecure: bool,
             raw_tx: Vec<u8>,
             payment_value: i64,
-            recipient_btc_address: BtcPayload,
+            recipient_btc_address: BtcAddress,
             op_return_id: Vec<u8>)
         -> DispatchResult {
             let _ = ensure_signed(origin)?;
@@ -310,7 +310,7 @@ decl_module! {
             origin,
             raw_tx: Vec<u8>,
             payment_value: i64,
-            recipient_btc_address: BtcPayload,
+            recipient_btc_address: BtcAddress,
             op_return_id: Vec<u8>
         ) -> DispatchResult {
             let _ = ensure_signed(origin)?;
@@ -513,7 +513,7 @@ impl<T: Trait> Module<T> {
     /// * `transaction` - Bitcoin transaction
     pub fn extract_outputs(
         transaction: Transaction,
-    ) -> Result<(Vec<(i64, BtcPayload)>, Vec<(i64, Vec<u8>)>), Error<T>> {
+    ) -> Result<(Vec<(i64, BtcAddress)>, Vec<(i64, Vec<u8>)>), Error<T>> {
         ensure!(
             transaction.outputs.len() <= ACCEPTED_MAX_TRANSACTION_OUTPUTS as usize,
             Error::<T>::MalformedTransaction
@@ -541,7 +541,7 @@ impl<T: Trait> Module<T> {
     /// * `recipient_btc_address` - expected payment recipient
     fn extract_value(
         transaction: Transaction,
-        recipient_btc_address: BtcPayload,
+        recipient_btc_address: BtcAddress,
     ) -> Result<i64, Error<T>> {
         // Check if payment is first output
         match transaction.outputs[0].extract_address() {
@@ -586,7 +586,7 @@ impl<T: Trait> Module<T> {
     /// * `recipient_btc_address` - expected payment recipient
     fn extract_value_and_op_return(
         transaction: Transaction,
-        recipient_btc_address: BtcPayload,
+        recipient_btc_address: BtcAddress,
     ) -> Result<(i64, Vec<u8>), Error<T>> {
         ensure!(
             // We would typically expect three outputs (payment, op_return, refund) but
@@ -645,7 +645,7 @@ impl<T: Trait> Module<T> {
     pub fn _validate_transaction(
         raw_tx: Vec<u8>,
         payment_value: i64,
-        recipient_btc_address: BtcPayload,
+        recipient_btc_address: BtcAddress,
         op_return_id: Vec<u8>,
     ) -> Result<(), DispatchError> {
         let transaction = Self::parse_transaction(&raw_tx)?;
@@ -1584,12 +1584,6 @@ impl<T: Trait> From<BitcoinError> for Error<T> {
             BitcoinError::InvalidBtcHash => Self::InvalidBtcHash,
             BitcoinError::InvalidScript => Self::InvalidScript,
             BitcoinError::InvalidBtcAddress => Self::InvalidBtcAddress,
-            BitcoinError::Base58(_) => Self::InvalidBtcAddress,
-            BitcoinError::Bech32(_) => Self::InvalidBtcAddress,
-            BitcoinError::EmptyBech32Payload => Self::InvalidBtcAddress,
-            BitcoinError::InvalidWitnessVersion(_) => Self::InvalidBtcAddress,
-            BitcoinError::InvalidWitnessProgramLength(_) => Self::InvalidBtcAddress,
-            BitcoinError::InvalidSegWitV0ProgramLength(_) => Self::InvalidBtcAddress,
         }
     }
 }

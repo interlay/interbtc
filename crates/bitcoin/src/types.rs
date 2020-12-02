@@ -10,7 +10,7 @@ use crate::merkle::{MerkleProof, MerkleTree};
 use crate::parser::{extract_address_hash_scriptsig, FromLeBytes};
 use crate::utils::{log2, reverse_endianness, sha256d_le};
 use crate::Script;
-use crate::{Error, Payload};
+use crate::{Address, Error};
 use codec::alloc::string::String;
 use codec::{Decode, Encode};
 pub use primitive_types::{H160, H256, U256};
@@ -267,10 +267,10 @@ impl TransactionInput {
         self.witness = witness;
     }
 
-    pub fn extract_address(&self) -> Result<Payload, Error> {
+    pub fn extract_address(&self) -> Result<Address, Error> {
         // Witness
         if !self.witness.is_empty() {
-            return Ok(Payload::P2WPKH(
+            return Ok(Address::P2WPKH(
                 self.flags,
                 H160::from_slice(&bitcoin_hashes::hash160::Hash::hash(&self.witness[1]).to_vec()),
             ));
@@ -289,7 +289,7 @@ pub struct TransactionOutput {
 }
 
 impl TransactionOutput {
-    pub fn payment(value: i64, address: &Payload) -> TransactionOutput {
+    pub fn payment(value: i64, address: &Address) -> TransactionOutput {
         TransactionOutput {
             value,
             script: address.to_script(),
@@ -303,8 +303,8 @@ impl TransactionOutput {
         }
     }
 
-    pub fn extract_address(&self) -> Result<Payload, Error> {
-        Payload::from_script(&self.script)
+    pub fn extract_address(&self) -> Result<Address, Error> {
+        Address::from_script(&self.script)
     }
 }
 
@@ -461,7 +461,7 @@ impl BlockBuilder {
     // the output of real-world transactions
     // seem to finish with OP_CHECKSIG
     // need to check format
-    pub fn with_coinbase(&mut self, address: &Payload, reward: i64, height: u32) -> &mut Self {
+    pub fn with_coinbase(&mut self, address: &Address, reward: i64, height: u32) -> &mut Self {
         let input = TransactionInputBuilder::new()
             .with_coinbase(true)
             .with_previous_index(u32::max_value())
@@ -774,7 +774,7 @@ mod tests {
     use sp_std::str::FromStr;
 
     use crate::parser::parse_transaction;
-    use crate::Payload;
+    use crate::Address;
 
     fn sample_example_real_rawtx() -> String {
         "0200000000010140d43a99926d43eb0e619bf0b3d83b4a31f60c176beecfb9d35bf45e54d0f7420100000017160014a4b4ca48de0b3fffc15404a1acdc8dbaae226955ffffffff0100e1f5050000000017a9144a1154d50b03292b3024370901711946cb7cccc387024830450221008604ef8f6d8afa892dee0f31259b6ce02dd70c545cfcfed8148179971876c54a022076d771d6e91bed212783c9b06e0de600fab2d518fad6f15a2b191d7fbd262a3e0121039d25ab79f41f75ceaf882411fd41fa670a4c672c23ffaf0e361a969cde0692e800000000".to_owned()
@@ -850,7 +850,7 @@ mod tests {
     #[test]
     fn test_transaction_builder() {
         let address =
-            Payload::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
+            Address::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let return_data = hex::decode("01a0").unwrap();
         let transaction = TransactionBuilder::new()
             .with_version(2)
@@ -955,7 +955,7 @@ mod tests {
     fn test_mine_block() {
         clear_mocks();
         let address =
-            Payload::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
+            Address::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let block = BlockBuilder::new()
             .with_version(2)
             .with_coinbase(&address, 50, 3)
@@ -972,7 +972,7 @@ mod tests {
     fn test_merkle_proof() {
         clear_mocks();
         let address =
-            Payload::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
+            Address::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
 
         let transaction = TransactionBuilder::new()
             .with_version(2)
@@ -999,7 +999,7 @@ mod tests {
         let tx_bytes = hex::decode(&raw_tx).unwrap();
         let transaction = parse_transaction(&tx_bytes).unwrap();
 
-        let address = Payload::P2WPKH(
+        let address = Address::P2WPKH(
             0,
             H160([
                 164, 180, 202, 72, 222, 11, 63, 255, 193, 84, 4, 161, 172, 220, 141, 186, 174, 34,
@@ -1018,7 +1018,7 @@ mod tests {
         let tx_bytes = hex::decode(&raw_tx).unwrap();
         let transaction = parse_transaction(&tx_bytes).unwrap();
 
-        let address = Payload::P2WPKH(
+        let address = Address::P2WPKH(
             0,
             H160([
                 214, 173, 103, 17, 218, 48, 244, 52, 154, 13, 140, 56, 122, 81, 91, 255, 16, 236,

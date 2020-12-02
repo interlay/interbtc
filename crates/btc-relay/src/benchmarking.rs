@@ -5,14 +5,13 @@ use bitcoin::types::{
     Block, BlockBuilder, RawBlockHeader, Transaction, TransactionBuilder, TransactionInputBuilder,
     TransactionOutput,
 };
-use bitcoin::Payload;
 use frame_benchmarking::{account, benchmarks};
 use frame_system::Module as System;
 use frame_system::RawOrigin;
 use sp_core::{H256, U256};
 use sp_std::prelude::*;
 
-fn mine_genesis<T: Trait>(address: &Payload, height: u32) -> Block {
+fn mine_genesis<T: Trait>(address: &BtcAddress, height: u32) -> Block {
     let block = BlockBuilder::new()
         .with_version(2)
         .with_coinbase(address, 50, 3)
@@ -27,7 +26,7 @@ fn mine_genesis<T: Trait>(address: &Payload, height: u32) -> Block {
 
 fn mine_block_with_one_tx<T: Trait>(
     prev: Block,
-    address: &Payload,
+    address: &BtcAddress,
     value: i32,
     op_return: &[u8],
 ) -> (Block, Transaction) {
@@ -66,7 +65,7 @@ benchmarks! {
         let height = 0;
         let origin: T::AccountId = account("Origin", 0, 0);
 
-        let address = Payload::P2PKH(H160::from([0; 20]));
+        let address = BtcAddress::P2PKH(H160::from([0; 20]));
         let block = BlockBuilder::new()
             .with_version(2)
             .with_coinbase(&address, 50, 3)
@@ -82,7 +81,7 @@ benchmarks! {
     store_block_header {
         let origin: T::AccountId = account("Origin", 0, 0);
 
-        let address = Payload::P2PKH(H160::from([0; 20]));
+        let address = BtcAddress::P2PKH(H160::from([0; 20]));
 
         let height = 0;
         let confirmations = 6;
@@ -115,7 +114,7 @@ benchmarks! {
     store_block_headers {
         let origin: T::AccountId = account("Origin", 0, 0);
 
-        let address = Payload::P2PKH(H160::from([0; 20]));
+        let address = BtcAddress::P2PKH(H160::from([0; 20]));
 
         let height = 0;
         let confirmations = 6;
@@ -159,7 +158,7 @@ benchmarks! {
     verify_and_validate_transaction {
         let origin: T::AccountId = account("Origin", 0, 0);
 
-        let address = Payload::P2PKH(H160::from([0; 20]));
+        let address = BtcAddress::P2PKH(H160::from([0; 20]));
         let mut height = 0;
         let block = mine_genesis::<T>(&address, height);
         height += 1;
@@ -180,7 +179,7 @@ benchmarks! {
     verify_transaction_inclusion {
         let origin: T::AccountId = account("Origin", 0, 0);
 
-        let address = Payload::P2PKH(H160::from([0; 20]));
+        let address = BtcAddress::P2PKH(H160::from([0; 20]));
         let mut height = 0;
         let block = mine_genesis::<T>(&address, height);
         height += 1;
@@ -200,7 +199,7 @@ benchmarks! {
     validate_transaction {
         let origin: T::AccountId = account("Origin", 0, 0);
 
-        let address = Payload::P2PKH(H160::from([0; 20]));
+        let address = BtcAddress::P2PKH(H160::from([0; 20]));
         let value = 0;
         let op_return = H256::zero().as_bytes().to_vec();
 

@@ -25,7 +25,7 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use btc_relay::BtcPayload;
+use btc_relay::BtcAddress;
 use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::Randomness;
@@ -164,7 +164,7 @@ decl_module! {
         /// * `VaultAlreadyRegistered` - if a vault is already registered for the origin account
         /// * `InsufficientCollateralAvailable` - if the vault does not own enough collateral
         #[weight = <T as Trait>::WeightInfo::register_vault()]
-        fn register_vault(origin, collateral: DOT<T>, btc_address: BtcPayload) -> DispatchResult {
+        fn register_vault(origin, collateral: DOT<T>, btc_address: BtcAddress) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ext::security::ensure_parachain_status_running::<T>()?;
 
@@ -241,7 +241,7 @@ decl_module! {
         /// # Arguments
         /// * `btc_address` - the BTC address of the vault to update
         #[weight = <T as Trait>::WeightInfo::update_btc_address()]
-        fn update_btc_address(origin, btc_address: BtcPayload) -> DispatchResult {
+        fn update_btc_address(origin, btc_address: BtcAddress) -> DispatchResult {
             let account_id = ensure_signed(origin)?;
             ext::security::ensure_parachain_status_running::<T>()?;
 
@@ -286,7 +286,7 @@ impl<T: Trait> Module<T> {
     pub fn _increase_to_be_issued_tokens(
         vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
-    ) -> Result<BtcPayload, DispatchError> {
+    ) -> Result<BtcAddress, DispatchError> {
         ext::security::ensure_parachain_status_running::<T>()?;
         let mut vault = Self::rich_vault_from_id(&vault_id)?;
         vault.increase_to_be_issued(tokens)?;
@@ -1040,7 +1040,7 @@ decl_event! {
         LockAdditionalCollateral(AccountId, DOT, DOT, DOT),
         /// id, withdrawn collateral, total collateral
         WithdrawCollateral(AccountId, DOT, DOT),
-        UpdateBtcAddress(AccountId, BtcPayload),
+        UpdateBtcAddress(AccountId, BtcAddress),
         IncreaseToBeIssuedTokens(AccountId, BTCBalance),
         DecreaseToBeIssuedTokens(AccountId, BTCBalance),
         IssueTokens(AccountId, BTCBalance),
