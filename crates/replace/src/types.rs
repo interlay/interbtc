@@ -1,9 +1,18 @@
 use btc_relay::BtcAddress;
 use codec::{Decode, Encode};
 use frame_support::traits::Currency;
-
 #[cfg(feature = "std")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use sp_core::H160;
+
+/// Storage version.
+#[derive(Encode, Decode, Eq, PartialEq)]
+pub enum Version {
+    /// Initial version.
+    V0,
+    /// BtcAddress type with script format.
+    V1,
+}
 
 pub(crate) type DOT<T> =
     <<T as collateral::Trait>::DOT as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
@@ -82,4 +91,17 @@ impl<AccountId, BlockNumber, PolkaBTC, DOT> ReplaceRequest<AccountId, BlockNumbe
     pub fn has_new_owner(&self) -> bool {
         self.new_vault.is_some()
     }
+}
+
+#[derive(Encode, Decode, Default, Clone, PartialEq)]
+pub(crate) struct ReplaceRequestV0<AccountId, BlockNumber, PolkaBTC, DOT> {
+    pub old_vault: AccountId,
+    pub open_time: BlockNumber,
+    pub amount: PolkaBTC,
+    pub griefing_collateral: DOT,
+    pub new_vault: Option<AccountId>,
+    pub collateral: DOT,
+    pub accept_time: Option<BlockNumber>,
+    pub btc_address: H160,
+    pub completed: bool,
 }

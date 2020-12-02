@@ -28,7 +28,7 @@ use sp_std::vec::Vec;
 use bitcoin::types::H256Le;
 
 pub use crate::types::ReplaceRequest;
-use crate::types::{PolkaBTC, DOT};
+use crate::types::{PolkaBTC, ReplaceRequestV0, Version, DOT};
 
 /// # PolkaBTC Replace implementation
 /// The Replace module according to the specification at
@@ -84,6 +84,9 @@ decl_storage! {
         /// The minimum amount of btc that is accepted for replace requests; any lower values would
         /// risk the bitcoin client to reject the payment
         ReplaceBtcDustValue get(fn replace_btc_dust_value) config(): PolkaBTC<T>;
+
+        /// Build storage at V1 (requires default 0).
+        StorageVersion get(fn storage_version) build(|_| Version::V1): Version = Version::V0;
     }
 }
 
@@ -109,12 +112,41 @@ decl_event!(
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+        // Errors must be initialized if they are used by the pallet.
+        type Error = Error<T>;
+
         // Initializing events
         // this is needed only if you are using events in your pallet
         fn deposit_event() = default;
 
-        // Errors must be initialized if they are used by the pallet.
-        type Error = Error<T>;
+        /// Upgrade the runtime depending on the current `StorageVersion`.
+        fn on_runtime_upgrade() -> Weight {
+            use frame_support::{migration::StorageKeyIterator, Blake2_128Concat};
+            use btc_relay::BtcAddress;
+
+            if Self::storage_version() == Version::V0 {
+                StorageKeyIterator::<H256, ReplaceRequestV0<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, Blake2_128Concat>::new(<ReplaceRequests<T>>::module_prefix(), b"ReplaceRequests")
+                    .drain()
+                    .for_each(|(id, request_v0)| {
+                        let request_v1 = ReplaceRequest {
+                            old_vault: request_v0.old_vault,
+                            open_time: request_v0.open_time,
+                            amount: request_v0.amount,
+                            griefing_collateral: request_v0.griefing_collateral,
+                            new_vault: request_v0.new_vault,
+                            collateral: request_v0.collateral,
+                            accept_time: request_v0.accept_time,
+                            btc_address: BtcAddress::P2WPKH(0, request_v0.btc_address),
+                            completed: request_v0.completed,
+                        };
+                        <ReplaceRequests<T>>::insert(id, request_v1);
+                    });
+
+                StorageVersion::put(Version::V1);
+            }
+
+            0
+        }
 
         /// Request the replacement of a new vault ownership
         ///

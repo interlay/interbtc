@@ -40,7 +40,7 @@ use sp_core::{H256, U256};
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
 
-use crate::types::{DefaultVault, PolkaBTC, RichVault, DOT};
+use crate::types::{DefaultVault, PolkaBTC, RichVault, VaultV0, Version, DOT};
 pub use crate::types::{Vault, VaultStatus, Wallet};
 
 /// Granularity of `SecureCollateralThreshold`, `AuctionCollateralThreshold`,
@@ -138,8 +138,11 @@ decl_storage! {
         /// Mapping of Vaults, using the respective Vault account identifier as key.
         Vaults: map hasher(blake2_128_concat) T::AccountId => Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>>;
 
-        /// Mapping of BTC addresses to Vault Ids
+        /// Mapping of BTC hashes to Vault Ids
         VaultsBtcAddress: map hasher(blake2_128_concat) H160 => T::AccountId;
+
+        /// Build storage at V1 (requires default 0).
+        StorageVersion get(fn storage_version) build(|_| Version::V1): Version = Version::V0;
     }
 }
 
@@ -150,6 +153,40 @@ decl_module! {
 
         // Initializing events
         fn deposit_event() = default;
+
+        /// Upgrade the runtime depending on the current `StorageVersion`.
+        fn on_runtime_upgrade() -> Weight {
+            use frame_support::{migration::StorageKeyIterator, Blake2_128Concat};
+            use sp_std::collections::btree_set::BTreeSet;
+            use sp_std::iter::FromIterator;
+
+            if Self::storage_version() == Version::V0 {
+                StorageKeyIterator::<T::AccountId, VaultV0<T::AccountId, T::BlockNumber, PolkaBTC<T>>, Blake2_128Concat>::new(<Vaults<T>>::module_prefix(), b"Vaults")
+                    .drain()
+                    .for_each(|(id, vault_v0)| {
+                        let wallet_v0 = vault_v0.wallet;
+                        let wallet_v1: Wallet<BtcAddress> = Wallet {
+                            addresses: BTreeSet::from_iter(wallet_v0.addresses.iter().map(|hash| BtcAddress::P2WPKH(0, *hash))),
+                            address: BtcAddress::P2WPKH(0, wallet_v0.address),
+                        };
+
+                        let vault_v1 = Vault {
+                            id: vault_v0.id,
+                            to_be_issued_tokens: vault_v0.to_be_issued_tokens,
+                            issued_tokens: vault_v0.issued_tokens,
+                            to_be_redeemed_tokens: vault_v0.to_be_redeemed_tokens,
+                            wallet: wallet_v1,
+                            banned_until: vault_v0.banned_until,
+                            status: vault_v0.status,
+                        };
+                        <Vaults<T>>::insert(id, vault_v1);
+                    });
+
+                StorageVersion::put(Version::V1);
+            }
+
+            0
+        }
 
         /// Initiates the registration procedure for a new Vault.
         /// The Vault provides its BTC address and locks up DOT collateral,

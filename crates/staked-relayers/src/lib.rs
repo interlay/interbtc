@@ -1029,7 +1029,7 @@ impl<T: Trait> Module<T> {
     pub(crate) fn is_valid_merge_transaction(
         payments: &Vec<(i64, BtcAddress)>,
         op_returns: &Vec<(i64, Vec<u8>)>,
-        wallet: &Wallet,
+        wallet: &Wallet<BtcAddress>,
     ) -> bool {
         if op_returns.len() > 0 {
             // migration should only contain payments
@@ -1057,7 +1057,7 @@ impl<T: Trait> Module<T> {
         request_value: PolkaBTC<T>,
         request_address: BtcAddress,
         payments: &Vec<(i64, BtcAddress)>,
-        wallet: &Wallet,
+        wallet: &Wallet<BtcAddress>,
     ) -> bool {
         let request_value = match TryInto::<u64>::try_into(request_value)
             .map_err(|_e| Error::<T>::ConversionError)

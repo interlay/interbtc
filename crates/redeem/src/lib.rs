@@ -23,7 +23,7 @@ mod ext;
 pub mod types;
 
 pub use crate::types::RedeemRequest;
-use crate::types::{PolkaBTC, DOT};
+use crate::types::{PolkaBTC, RedeemRequestV0, Version, DOT};
 use bitcoin::types::H256Le;
 use btc_relay::BtcAddress;
 use frame_support::weights::Weight;
@@ -78,6 +78,9 @@ decl_storage! {
         /// The minimum amount of btc that is accepted for redeem requests; any lower values would
         /// risk the bitcoin client to reject the payment
         RedeemBtcDustValue get(fn redeem_btc_dust_value) config(): PolkaBTC<T>;
+
+        /// Build storage at V1 (requires default 0).
+        StorageVersion get(fn storage_version) build(|_| Version::V1): Version = Version::V0;
     }
 }
 
@@ -103,6 +106,34 @@ decl_module! {
         // Initializing events
         // this is needed only if you are using events in your pallet
         fn deposit_event() = default;
+
+        /// Upgrade the runtime depending on the current `StorageVersion`.
+        fn on_runtime_upgrade() -> Weight {
+            use frame_support::{migration::StorageKeyIterator, Blake2_128Concat};
+
+            if Self::storage_version() == Version::V0 {
+                StorageKeyIterator::<H256, RedeemRequestV0<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, Blake2_128Concat>::new(<RedeemRequests<T>>::module_prefix(), b"RedeemRequests")
+                    .drain()
+                    .for_each(|(id, request_v0)| {
+                        let request_v1 = RedeemRequest {
+                            vault: request_v0.vault,
+                            opentime: request_v0.opentime,
+                            amount_polka_btc: request_v0.amount_polka_btc,
+                            amount_btc: request_v0.amount_btc,
+                            amount_dot: request_v0.amount_dot,
+                            premium_dot: request_v0.premium_dot,
+                            redeemer: request_v0.redeemer,
+                            btc_address: BtcAddress::P2WPKH(0, request_v0.btc_address),
+                            completed: request_v0.completed,
+                        };
+                        <RedeemRequests<T>>::insert(id, request_v1);
+                    });
+
+                StorageVersion::put(Version::V1);
+            }
+
+            0
+        }
 
         /// A user requests to start the redeem procedure. This function checks the BTC Parachain
         /// status in Security and decides how the Redeem process is to be executed.

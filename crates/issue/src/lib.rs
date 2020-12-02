@@ -28,7 +28,7 @@ pub mod types;
 
 pub use crate::types::IssueRequest;
 
-use crate::types::{PolkaBTC, DOT};
+use crate::types::{IssueRequestV0, PolkaBTC, Version, DOT};
 use bitcoin::types::H256Le;
 use btc_relay::BtcAddress;
 use frame_support::weights::Weight;
@@ -82,6 +82,9 @@ decl_storage! {
         /// and required completion time by a user. The issue period has an upper limit
         /// to prevent griefing of vault collateral.
         IssuePeriod get(fn issue_period) config(): T::BlockNumber;
+
+        /// Build storage at V1 (requires default 0).
+        StorageVersion get(fn storage_version) build(|_| Version::V1): Version = Version::V0;
     }
 }
 
@@ -107,6 +110,32 @@ decl_module! {
         // Initializing events
         // this is needed only if you are using events in your pallet
         fn deposit_event() = default;
+
+        /// Upgrade the runtime depending on the current `StorageVersion`.
+        fn on_runtime_upgrade() -> Weight {
+            use frame_support::{migration::StorageKeyIterator, Blake2_128Concat};
+
+            if Self::storage_version() == Version::V0 {
+                StorageKeyIterator::<H256, IssueRequestV0<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, Blake2_128Concat>::new(<IssueRequests<T>>::module_prefix(), b"IssueRequests")
+                    .drain()
+                    .for_each(|(id, request_v0)| {
+                        let request_v1 = IssueRequest {
+                            vault: request_v0.vault,
+                            opentime: request_v0.opentime,
+                            griefing_collateral: request_v0.griefing_collateral,
+                            amount: request_v0.amount,
+                            requester: request_v0.requester,
+                            btc_address: BtcAddress::P2WPKH(0, request_v0.btc_address),
+                            completed: request_v0.completed,
+                        };
+                        <IssueRequests<T>>::insert(id, request_v1);
+                    });
+
+                StorageVersion::put(Version::V1);
+            }
+
+            0
+        }
 
         /// Request the issuance of PolkaBTC
         ///
