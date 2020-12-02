@@ -30,6 +30,7 @@ use crate::types::{
 };
 use bitcoin::parser::parse_transaction;
 use bitcoin::types::*;
+use btc_relay::BtcAddress;
 /// # Staked Relayers module implementation
 /// This is the implementation of the BTC Parachain Staked Relayers module following the spec at:
 /// https://interlay.gitlab.io/polkabtc-spec/spec/staked-relayers.html
@@ -45,7 +46,6 @@ use frame_support::{
 use frame_system::{ensure_root, ensure_signed};
 use primitive_types::H256;
 use security::types::{ErrorCode, StatusCode};
-use sp_core::H160;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
@@ -1027,9 +1027,9 @@ impl<T: Trait> Module<T> {
     /// * `op_returns` - all op_return outputs extracted from tx
     /// * `wallet` - vault btc addresses
     pub(crate) fn is_valid_merge_transaction(
-        payments: &Vec<(i64, Vec<u8>)>,
+        payments: &Vec<(i64, BtcAddress)>,
         op_returns: &Vec<(i64, Vec<u8>)>,
-        wallet: &Wallet,
+        wallet: &Wallet<BtcAddress>,
     ) -> bool {
         if op_returns.len() > 0 {
             // migration should only contain payments
@@ -1037,7 +1037,6 @@ impl<T: Trait> Module<T> {
         }
 
         for (_value, address) in payments {
-            let address = H160::from_slice(address);
             if !wallet.has_btc_address(&address) {
                 return false;
             }
@@ -1056,9 +1055,9 @@ impl<T: Trait> Module<T> {
     /// * `wallet` - vault btc addresses
     pub(crate) fn is_valid_request_transaction(
         request_value: PolkaBTC<T>,
-        request_address: H160,
-        payments: &Vec<(i64, Vec<u8>)>,
-        wallet: &Wallet,
+        request_address: BtcAddress,
+        payments: &Vec<(i64, BtcAddress)>,
+        wallet: &Wallet<BtcAddress>,
     ) -> bool {
         let request_value = match TryInto::<u64>::try_into(request_value)
             .map_err(|_e| Error::<T>::ConversionError)
@@ -1068,8 +1067,7 @@ impl<T: Trait> Module<T> {
         };
 
         for (value, address) in payments {
-            let address = H160::from_slice(address);
-            if address == request_address {
+            if *address == request_address {
                 if *value < request_value {
                     // insufficient payment to recipient
                     return false;
@@ -1095,10 +1093,11 @@ impl<T: Trait> Module<T> {
         let vault = ext::vault_registry::get_vault_from_id::<T>(vault_id)?;
 
         // TODO: ensure this cannot fail on invalid
-        let tx = parse_transaction(raw_tx.as_slice())?;
+        let tx =
+            parse_transaction(raw_tx.as_slice()).map_err(|_| Error::<T>::InvalidTransaction)?;
 
         // collect all addresses that feature in the inputs of the transaction
-        let input_addresses: Vec<Result<Vec<u8>, _>> = tx
+        let input_addresses: Vec<Result<BtcAddress, _>> = tx
             .clone()
             .inputs
             .into_iter()
@@ -1109,7 +1108,7 @@ impl<T: Trait> Module<T> {
         ensure!(
             input_addresses.into_iter().any(|address_result| {
                 match address_result {
-                    Ok(address) => vault.wallet.has_btc_address(&H160::from_slice(&address)),
+                    Ok(address) => vault.wallet.has_btc_address(&address),
                     _ => false,
                 }
             }),
@@ -1274,6 +1273,8 @@ decl_error! {
         UnexpectedBlockHash,
         /// Vault has sufficient collateral
         CollateralOk,
+        /// Failed to parse transaction
+        InvalidTransaction,
         /// Error converting value
         ConversionError,
     }

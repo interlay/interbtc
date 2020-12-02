@@ -3,6 +3,7 @@ extern crate hex;
 pub use bitcoin::formatter::Formattable;
 pub use bitcoin::types::*;
 pub use btc_parachain_runtime::{AccountId, Call, Event, Runtime};
+pub use btc_relay::BtcAddress;
 pub use frame_support::{assert_err, assert_ok};
 pub use mocktopus::mocking::*;
 use primitive_types::{H256, U256};
@@ -46,7 +47,7 @@ pub fn force_issue_tokens(
     vault: [u8; 32],
     collateral: u128,
     tokens: u128,
-    btc_address: H160,
+    btc_address: BtcAddress,
 ) {
     // register the vault
     assert_ok!(
@@ -77,12 +78,10 @@ pub fn assert_store_main_chain_header_event(height: u32, hash: H256Le) {
 
 #[allow(dead_code)]
 pub fn generate_transaction_and_mine(
-    dest_address: H160,
+    address: BtcAddress,
     amount: u128,
     return_data: H256,
 ) -> (H256Le, u32, Vec<u8>, Vec<u8>) {
-    let address = Address::from(*dest_address.as_fixed_bytes());
-
     let mut height = 1;
     let confirmations = 6;
 
@@ -114,7 +113,7 @@ pub fn generate_transaction_and_mine(
                 .with_previous_hash(init_block.transactions[0].hash())
                 .build(),
         )
-        .add_output(TransactionOutput::p2pkh(value.into(), &address))
+        .add_output(TransactionOutput::payment(value.into(), &address))
         .add_output(TransactionOutput::op_return(0, return_data.as_bytes()))
         .build();
 

@@ -28,9 +28,14 @@ pub mod types;
 
 pub use crate::types::IssueRequest;
 
-use crate::types::{PolkaBTC, DOT};
+use crate::types::{IssueRequestV0, PolkaBTC, Version, DOT};
 use bitcoin::types::H256Le;
+use btc_relay::BtcAddress;
 use frame_support::weights::Weight;
+/// # PolkaBTC Issue implementation
+/// The Issue module according to the specification at
+/// https://interlay.gitlab.io/polkabtc-spec/spec/issue.html
+// Substrate
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
@@ -38,7 +43,6 @@ use frame_support::{
 };
 use frame_system::{ensure_root, ensure_signed};
 use primitive_types::H256;
-use sp_core::H160;
 use sp_runtime::ModuleId;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
@@ -78,6 +82,9 @@ decl_storage! {
         /// and required completion time by a user. The issue period has an upper limit
         /// to prevent griefing of vault collateral.
         IssuePeriod get(fn issue_period) config(): T::BlockNumber;
+
+        /// Build storage at V1 (requires default 0).
+        StorageVersion get(fn storage_version) build(|_| Version::V1): Version = Version::V0;
     }
 }
 
@@ -88,7 +95,7 @@ decl_event!(
         AccountId = <T as frame_system::Trait>::AccountId,
         PolkaBTC = PolkaBTC<T>,
     {
-        RequestIssue(H256, AccountId, PolkaBTC, AccountId, H160),
+        RequestIssue(H256, AccountId, PolkaBTC, AccountId, BtcAddress),
         ExecuteIssue(H256, AccountId, AccountId),
         CancelIssue(H256, AccountId),
     }
@@ -103,6 +110,32 @@ decl_module! {
         // Initializing events
         // this is needed only if you are using events in your pallet
         fn deposit_event() = default;
+
+        /// Upgrade the runtime depending on the current `StorageVersion`.
+        fn on_runtime_upgrade() -> Weight {
+            use frame_support::{migration::StorageKeyIterator, Blake2_128Concat};
+
+            if Self::storage_version() == Version::V0 {
+                StorageKeyIterator::<H256, IssueRequestV0<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, Blake2_128Concat>::new(<IssueRequests<T>>::module_prefix(), b"IssueRequests")
+                    .drain()
+                    .for_each(|(id, request_v0)| {
+                        let request_v1 = IssueRequest {
+                            vault: request_v0.vault,
+                            opentime: request_v0.opentime,
+                            griefing_collateral: request_v0.griefing_collateral,
+                            amount: request_v0.amount,
+                            requester: request_v0.requester,
+                            btc_address: BtcAddress::P2WPKH(0, request_v0.btc_address),
+                            completed: request_v0.completed,
+                        };
+                        <IssueRequests<T>>::insert(id, request_v1);
+                    });
+
+                StorageVersion::put(Version::V1);
+            }
+
+            0
+        }
 
         /// Request the issuance of PolkaBTC
         ///
@@ -209,7 +242,7 @@ impl<T: Trait> Module<T> {
                 griefing_collateral: griefing_collateral,
                 amount: amount,
                 requester: requester.clone(),
-                btc_address: btc_address,
+                btc_address: btc_address.clone(),
                 completed: false,
             },
         );
@@ -250,7 +283,7 @@ impl<T: Trait> Module<T> {
             raw_tx,
             TryInto::<u64>::try_into(issue.amount).map_err(|_e| Error::<T>::ConversionError)?
                 as i64,
-            issue.btc_address.as_bytes().to_vec(),
+            issue.btc_address,
             issue_id.clone().as_bytes().to_vec(),
         )?;
 

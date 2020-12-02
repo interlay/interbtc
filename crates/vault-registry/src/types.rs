@@ -1,5 +1,6 @@
 use frame_support::traits::Currency;
 
+use btc_relay::BtcAddress;
 use codec::{Decode, Encode, HasCompact};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
@@ -13,6 +14,15 @@ use mocktopus::macros::mockable;
 
 use crate::{ext, Error, Trait};
 
+/// Storage version.
+#[derive(Encode, Decode, Eq, PartialEq)]
+pub enum Version {
+    /// Initial version.
+    V0,
+    /// BtcAddress type with script format.
+    V1,
+}
+
 pub(crate) type DOT<T> =
     <<T as collateral::Trait>::DOT as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 
@@ -20,35 +30,32 @@ pub(crate) type PolkaBTC<T> =
     <<T as treasury::Trait>::PolkaBTC as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
-pub struct Wallet {
+pub struct Wallet<T: Ord + Copy> {
     // store all addresses for `report_vault_theft` checks
-    addresses: BTreeSet<H160>,
+    pub(crate) addresses: BTreeSet<T>,
     // we use the most recent address for issue / redeem requests
-    address: H160,
+    pub(crate) address: T,
 }
 
-impl Wallet {
-    pub fn new(hash: H160) -> Self {
+impl<T: Ord + Copy> Wallet<T> {
+    pub fn new(address: T) -> Self {
         let mut addresses = BTreeSet::new();
-        addresses.insert(hash);
-        Self {
-            addresses,
-            address: hash,
-        }
+        addresses.insert(address);
+        Self { addresses, address }
     }
 
-    pub fn has_btc_address(&self, hash: &H160) -> bool {
-        self.addresses.contains(hash)
+    pub fn has_btc_address(&self, address: &T) -> bool {
+        self.addresses.contains(address)
     }
 
-    pub fn add_btc_address(&mut self, hash: H160) {
+    pub fn add_btc_address(&mut self, address: T) {
         // TODO: add maximum or griefing collateral
-        self.addresses.insert(hash);
+        self.addresses.insert(address);
         // NOTE: updates primary address even if already contained in set
-        self.address = hash;
+        self.address = address;
     }
 
-    pub fn get_btc_address(&self) -> H160 {
+    pub fn get_btc_address(&self) -> T {
         // wallet should never be empty
         self.address
     }
@@ -86,7 +93,7 @@ pub struct Vault<AccountId, BlockNumber, PolkaBTC> {
     // DOT collateral locked by this Vault
     // collateral: DOT,
     // Bitcoin address of this Vault (P2PKH, P2SH, P2PKH, P2WSH)
-    pub wallet: Wallet,
+    pub wallet: Wallet<BtcAddress>,
     // Block height until which this Vault is banned from being
     // used for Issue, Redeem (except during automatic liquidation) and Replace .
     pub banned_until: Option<BlockNumber>,
@@ -94,10 +101,24 @@ pub struct Vault<AccountId, BlockNumber, PolkaBTC> {
     pub status: VaultStatus,
 }
 
+#[derive(Encode, Decode, Default, Clone, PartialEq)]
+pub(crate) struct VaultV0<AccountId, BlockNumber, PolkaBTC> {
+    pub id: AccountId,
+    pub to_be_issued_tokens: PolkaBTC,
+    pub issued_tokens: PolkaBTC,
+    pub to_be_redeemed_tokens: PolkaBTC,
+    pub wallet: Wallet<H160>,
+    pub banned_until: Option<BlockNumber>,
+    pub status: VaultStatus,
+}
+
 impl<AccountId, BlockNumber, PolkaBTC: HasCompact + Default>
     Vault<AccountId, BlockNumber, PolkaBTC>
 {
-    pub(crate) fn new(id: AccountId, btc_address: H160) -> Vault<AccountId, BlockNumber, PolkaBTC> {
+    pub(crate) fn new(
+        id: AccountId,
+        btc_address: BtcAddress,
+    ) -> Vault<AccountId, BlockNumber, PolkaBTC> {
         let wallet = Wallet::new(btc_address);
         Vault {
             id,
@@ -123,7 +144,7 @@ pub(crate) struct RichVault<T: Trait> {
 
 #[cfg_attr(test, mockable)]
 impl<T: Trait> RichVault<T> {
-    pub fn new(id: T::AccountId, btc_address: H160) -> RichVault<T> {
+    pub fn new(id: T::AccountId, btc_address: BtcAddress) -> RichVault<T> {
         let vault = Vault::new(id, btc_address);
         RichVault { data: vault }
     }
@@ -301,7 +322,7 @@ impl<T: Trait> RichVault<T> {
         self.update(|v| v.banned_until = Some(height));
     }
 
-    pub fn update_btc_address(&mut self, btc_address: H160) {
+    pub fn update_btc_address(&mut self, btc_address: BtcAddress) {
         self.update(|v| {
             v.wallet.add_btc_address(btc_address);
         });

@@ -3,7 +3,7 @@ authors = ['Interlay Ltd']
 build = 'build.rs'
 edition = '2018'
 name = 'btc-parachain'
-version = '0.2.3'
+version = '0.3.0'
 
 [features]
 runtime-benchmarks = [
@@ -24,7 +24,7 @@ frame-benchmarking-cli = '2.0.0'
 
 [dependencies.btc-parachain-runtime]
 path = './runtime'
-version = '0.2.3'
+version = '0.3.0'
 
 [dependencies.pallet-transaction-payment-rpc]
 version = '2.0.0'

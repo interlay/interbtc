@@ -6,6 +6,7 @@ use crate::mock::{
     run_test, BTCRelay, Origin, SecurityError, System, Test, TestError, TestEvent,
     PARACHAIN_CONFIRMATIONS,
 };
+use crate::BtcAddress;
 use crate::Event;
 
 use bitcoin::formatter::Formattable;
@@ -13,11 +14,11 @@ use bitcoin::merkle::*;
 use bitcoin::parser::*;
 use bitcoin::types::*;
 use frame_support::{assert_err, assert_ok};
+use mocktopus::mocking::*;
 use security::{ErrorCode, StatusCode};
 use sp_std::collections::btree_set::BTreeSet;
-use sp_std::convert::{TryFrom, TryInto};
-
-use mocktopus::mocking::*;
+use sp_std::convert::TryInto;
+use sp_std::str::FromStr;
 
 /// # Getters and setters
 ///
@@ -192,7 +193,7 @@ fn store_block_header_on_fork_succeeds() {
         BTCRelay::verify_block_header.mock_safe(|h| {
             MockResult::Return(match parse_block_header(&h) {
                 Ok(h) => Ok(h),
-                Err(e) => Err(e.into()),
+                Err(e) => Err(TestError::from(e).into()),
             })
         });
         BTCRelay::block_header_exists.mock_safe(|_| MockResult::Return(true));
@@ -792,7 +793,7 @@ fn test_validate_transaction_succeeds_with_payment() {
         let raw_tx = hex::decode(sample_accepted_transaction()).unwrap();
         let payment_value: i64 = 2500200000;
         let recipient_btc_address =
-            hex::decode("66c7060feb882664ae62ffad0051fe843e318e85".to_owned()).unwrap();
+            BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
 
         let outputs = vec![sample_valid_payment_output()];
 
@@ -817,7 +818,7 @@ fn test_validate_transaction_succeeds_with_payment_and_op_return() {
         let raw_tx = hex::decode(sample_accepted_transaction()).unwrap();
         let payment_value: i64 = 2500200000;
         let recipient_btc_address =
-            hex::decode("66c7060feb882664ae62ffad0051fe843e318e85".to_owned()).unwrap();
+            BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let op_return_id = hex::decode(
             "aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned(),
         )
@@ -844,7 +845,7 @@ fn test_validate_transaction_succeeds_with_op_return_and_payment() {
         let raw_tx = hex::decode(sample_accepted_transaction()).unwrap();
         let payment_value: i64 = 2500200000;
         let recipient_btc_address =
-            hex::decode("66c7060feb882664ae62ffad0051fe843e318e85".to_owned()).unwrap();
+            BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let op_return_id = hex::decode(
             "aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned(),
         )
@@ -871,7 +872,7 @@ fn test_validate_transaction_succeeds_with_payment_and_refund_and_op_return() {
         let raw_tx = hex::decode(sample_accepted_transaction()).unwrap();
         let payment_value: i64 = 2500200000;
         let recipient_btc_address =
-            hex::decode("66c7060feb882664ae62ffad0051fe843e318e85".to_owned()).unwrap();
+            BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let op_return_id = hex::decode(
             "aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned(),
         )
@@ -904,7 +905,7 @@ fn test_validate_transaction_invalid_no_outputs_fails() {
 
         let payment_value: i64 = 2500200000;
         let recipient_btc_address =
-            hex::decode("66c7060feb882664ae62ffad0051fe843e318e85".to_owned()).unwrap();
+            BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let op_return_id = hex::decode(
             "aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned(),
         )
@@ -936,7 +937,7 @@ fn test_validate_transaction_insufficient_payment_value_fails() {
 
         let payment_value: i64 = 2500200000;
         let recipient_btc_address =
-            hex::decode("66c7060feb882664ae62ffad0051fe843e318e85".to_owned()).unwrap();
+            BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let op_return_id = hex::decode(
             "aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned(),
         )
@@ -971,7 +972,7 @@ fn test_validate_transaction_wrong_recipient_fails() {
 
         let payment_value: i64 = 2500200000;
         let recipient_btc_address =
-            hex::decode("66c7060feb882664ae62ffad0051fe843e318e85".to_owned()).unwrap();
+            BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let op_return_id = hex::decode(
             "aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned(),
         )
@@ -1007,7 +1008,7 @@ fn test_validate_transaction_incorrect_opreturn_fails() {
 
         let payment_value: i64 = 2500200000;
         let recipient_btc_address =
-            hex::decode("66c7060feb882664ae62ffad0051fe843e318e85".to_owned()).unwrap();
+            BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let op_return_id = hex::decode(
             "6a24aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675"
                 .to_owned(),
@@ -1058,7 +1059,7 @@ fn test_verify_and_validate_transaction_succeeds() {
         let insecure = false;
         let payment_value: i64 = 0;
         let recipient_btc_address =
-            hex::decode("66c7060feb882664ae62ffad0051fe843e318e85".to_owned()).unwrap();
+            BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let op_return_id = hex::decode(
             "aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned(),
         )
@@ -1778,7 +1779,8 @@ fn get_chain_from_id_ok() {
 #[test]
 fn store_generated_block_headers() {
     let target = U256::from(2).pow(254.into());
-    let miner = Address::try_from("66c7060feb882664ae62ffad0051fe843e318e85").unwrap();
+    let miner =
+        BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
     let get_header = |block: &Block| RawBlockHeader::from_bytes(&block.header.format()).unwrap();
 
     run_test(|| {
@@ -2062,6 +2064,7 @@ fn sample_transaction_parsed(outputs: &Vec<TransactionOutput>) -> Transaction {
         height: None,
         script: hex::decode("16001443feac9ca9d20883126e30e962ca11fda07f808b".to_owned()).unwrap(),
         sequence: 4294967295,
+        flags: 0,
         witness: vec![],
     };
 

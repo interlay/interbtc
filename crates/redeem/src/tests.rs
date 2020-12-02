@@ -3,6 +3,7 @@ use crate::mock::*;
 
 use crate::types::{PolkaBTC, RedeemRequest, DOT};
 use bitcoin::types::H256Le;
+use btc_relay::BtcAddress;
 use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
 use primitive_types::H256;
@@ -94,7 +95,7 @@ fn test_request_redeem_fails_with_amount_exceeds_user_balance() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
                 to_be_redeemed_tokens: 0,
-                wallet: Wallet::new(H160::random()),
+                wallet: Wallet::new(BtcAddress::random()),
                 banned_until: None,
                 status: VaultStatus::Active,
             }))
@@ -102,12 +103,7 @@ fn test_request_redeem_fails_with_amount_exceeds_user_balance() {
         <treasury::Module<Test>>::mint(ALICE, 2);
         let amount = 10_000_000;
         assert_err!(
-            Redeem::request_redeem(
-                Origin::signed(ALICE),
-                amount,
-                H160::from_slice(&[0; 20]),
-                BOB
-            ),
+            Redeem::request_redeem(Origin::signed(ALICE), amount, BtcAddress::default(), BOB),
             TestError::AmountExceedsUserBalance
         );
     })
@@ -124,7 +120,7 @@ fn test_request_redeem_fails_with_amount_below_minimum() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
                 to_be_redeemed_tokens: 0,
-                wallet: Wallet::new(H160::random()),
+                wallet: Wallet::new(BtcAddress::random()),
                 banned_until: None,
                 status: VaultStatus::Active,
             },
@@ -143,7 +139,12 @@ fn test_request_redeem_fails_with_amount_below_minimum() {
         );
 
         assert_err!(
-            Redeem::request_redeem(Origin::signed(redeemer.clone()), 1, H160([0; 20]), BOB),
+            Redeem::request_redeem(
+                Origin::signed(redeemer.clone()),
+                1,
+                BtcAddress::random(),
+                BOB
+            ),
             TestError::AmountBelowDustAmount
         );
     })
@@ -153,7 +154,7 @@ fn test_request_redeem_fails_with_amount_below_minimum() {
 fn test_request_redeem_fails_with_vault_not_found() {
     run_test(|| {
         assert_err!(
-            Redeem::request_redeem(Origin::signed(ALICE), 0, H160::from_slice(&[0; 20]), BOB),
+            Redeem::request_redeem(Origin::signed(ALICE), 0, BtcAddress::default(), BOB),
             VaultRegistryError::VaultNotFound
         );
     })
@@ -168,7 +169,7 @@ fn test_request_redeem_fails_with_vault_banned() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
-                wallet: Wallet::new(H160::random()),
+                wallet: Wallet::new(BtcAddress::random()),
                 banned_until: Some(1),
                 status: VaultStatus::Active,
             }))
@@ -177,7 +178,7 @@ fn test_request_redeem_fails_with_vault_banned() {
             .mock_safe(|_, _| MockResult::Return(Err(VaultRegistryError::VaultBanned.into())));
 
         assert_err!(
-            Redeem::request_redeem(Origin::signed(ALICE), 0, H160::from_slice(&[0; 20]), BOB),
+            Redeem::request_redeem(Origin::signed(ALICE), 0, BtcAddress::default(), BOB),
             VaultRegistryError::VaultBanned
         );
     })
@@ -192,7 +193,7 @@ fn test_request_redeem_fails_with_vault_liquidated() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 5,
                 to_be_redeemed_tokens: 0,
-                wallet: Wallet::new(H160::random()),
+                wallet: Wallet::new(BtcAddress::random()),
                 banned_until: Some(1),
                 status: VaultStatus::Liquidated,
             }))
@@ -200,7 +201,7 @@ fn test_request_redeem_fails_with_vault_liquidated() {
 
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         assert_err!(
-            Redeem::request_redeem(Origin::signed(ALICE), 3, H160::from_slice(&[0; 20]), BOB),
+            Redeem::request_redeem(Origin::signed(ALICE), 3, BtcAddress::random(), BOB),
             VaultRegistryError::VaultNotFound
         );
     })
@@ -216,7 +217,7 @@ fn test_request_redeem_fails_with_amount_exceeds_vault_balance() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
                 to_be_redeemed_tokens: 0,
-                wallet: Wallet::new(H160::random()),
+                wallet: Wallet::new(BtcAddress::random()),
                 banned_until: None,
                 status: VaultStatus::Active,
             }))
@@ -226,12 +227,7 @@ fn test_request_redeem_fails_with_amount_exceeds_vault_balance() {
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         let amount = 11;
         assert_err!(
-            Redeem::request_redeem(
-                Origin::signed(ALICE),
-                amount,
-                H160::from_slice(&[0; 20]),
-                BOB
-            ),
+            Redeem::request_redeem(Origin::signed(ALICE), amount, BtcAddress::default(), BOB),
             TestError::AmountExceedsVaultBalance
         );
     })
@@ -248,7 +244,7 @@ fn test_request_redeem_succeeds_in_running_state() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
                 to_be_redeemed_tokens: 0,
-                wallet: Wallet::new(H160::random()),
+                wallet: Wallet::new(BtcAddress::P2SH(H160::zero())),
                 banned_until: None,
                 status: VaultStatus::Active,
             },
@@ -278,7 +274,7 @@ fn test_request_redeem_succeeds_in_running_state() {
         assert_ok!(Redeem::request_redeem(
             Origin::signed(redeemer.clone()),
             amount,
-            H160([0; 20]),
+            BtcAddress::P2PKH(H160::zero()),
             BOB
         ));
 
@@ -287,7 +283,7 @@ fn test_request_redeem_succeeds_in_running_state() {
             redeemer.clone(),
             amount,
             BOB,
-            H160([0; 20]),
+            BtcAddress::P2PKH(H160::zero()),
         ));
         assert_ok!(
             Redeem::get_redeem_request_from_id(&H256([0; 32])),
@@ -299,7 +295,7 @@ fn test_request_redeem_succeeds_in_running_state() {
                 amount_dot: 0,
                 premium_dot: 0,
                 redeemer: redeemer.clone(),
-                btc_address: H160([0; 20]),
+                btc_address: BtcAddress::P2PKH(H160::zero()),
                 completed: false,
             }
         );
@@ -341,7 +337,7 @@ fn test_request_redeem_succeeds_in_error_state() {
                 to_be_issued_tokens: 0,
                 issued_tokens: amount,
                 to_be_redeemed_tokens: 0,
-                wallet: Wallet::new(H160::random()),
+                wallet: Wallet::new(BtcAddress::P2SH(H160::zero())),
                 banned_until: None,
                 status: VaultStatus::Active,
             },
@@ -376,7 +372,7 @@ fn test_request_redeem_succeeds_in_error_state() {
         assert_ok!(Redeem::request_redeem(
             Origin::signed(redeemer.clone()),
             amount,
-            H160([0; 20]),
+            BtcAddress::P2PKH(H160::zero()),
             BOB
         ));
 
@@ -385,7 +381,7 @@ fn test_request_redeem_succeeds_in_error_state() {
             redeemer.clone(),
             amount,
             BOB,
-            H160([0; 20]),
+            BtcAddress::P2PKH(H160::zero()),
         ));
         assert_ok!(
             Redeem::get_redeem_request_from_id(&H256([0; 32])),
@@ -397,7 +393,7 @@ fn test_request_redeem_succeeds_in_error_state() {
                 amount_dot: amount / 2,
                 premium_dot: 0,
                 redeemer: redeemer.clone(),
-                btc_address: H160([0; 20]),
+                btc_address: BtcAddress::P2PKH(H160::zero()),
                 completed: false,
             }
         );
@@ -434,7 +430,7 @@ fn test_execute_redeem_fails_with_unauthorized_vault() {
                 amount_dot: 0,
                 premium_dot: 0,
                 redeemer: ALICE,
-                btc_address: H160([0; 20]),
+                btc_address: BtcAddress::random(),
                 completed: false,
             }))
         });
@@ -467,7 +463,7 @@ fn test_execute_redeem_fails_with_commit_period_expired() {
                 amount_dot: 0,
                 premium_dot: 0,
                 redeemer: ALICE,
-                btc_address: H160([0; 20]),
+                btc_address: BtcAddress::random(),
                 completed: false,
             }))
         });
@@ -498,7 +494,7 @@ fn test_execute_redeem_succeeds() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 200,
                 to_be_redeemed_tokens: 200,
-                wallet: Wallet::new(H160::random()),
+                wallet: Wallet::new(BtcAddress::random()),
                 banned_until: None,
                 status: VaultStatus::Active,
             },
@@ -518,7 +514,7 @@ fn test_execute_redeem_succeeds() {
                 amount_dot: 0,
                 premium_dot: 0,
                 redeemer: ALICE,
-                btc_address: H160([0; 20]),
+                btc_address: BtcAddress::random(),
                 completed: false,
             },
         );
@@ -577,7 +573,7 @@ fn test_cancel_redeem_fails_with_time_not_expired() {
                 amount_dot: 0,
                 premium_dot: 0,
                 redeemer: ALICE,
-                btc_address: H160([0; 20]),
+                btc_address: BtcAddress::random(),
                 completed: false,
             }))
         });
@@ -603,7 +599,7 @@ fn test_cancel_redeem_fails_with_unauthorized_caller() {
                 amount_dot: 0,
                 premium_dot: 0,
                 redeemer: ALICE,
-                btc_address: H160([0; 20]),
+                btc_address: BtcAddress::random(),
                 completed: false,
             }))
         });
@@ -628,7 +624,7 @@ fn test_cancel_redeem_succeeds() {
                 amount_dot: 0,
                 premium_dot: 0,
                 redeemer: ALICE,
-                btc_address: H160([0; 20]),
+                btc_address: BtcAddress::random(),
                 completed: false,
             },
         );

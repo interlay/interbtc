@@ -5,21 +5,18 @@ use mocktopus::macros::mockable;
 
 use bitcoin_hashes::Hash;
 
-use crate::Error;
+use crate::formatter::Formattable;
+use crate::merkle::{MerkleProof, MerkleTree};
+use crate::parser::{extract_address_hash_scriptsig, FromLeBytes};
+use crate::utils::{log2, reverse_endianness, sha256d_le};
+use crate::Script;
+use crate::{Address, Error};
 use codec::alloc::string::String;
 use codec::{Decode, Encode};
-use primitive_types::{H256, U256};
+pub use primitive_types::{H160, H256, U256};
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::convert::TryFrom;
 use sp_std::prelude::*;
-
-use crate::formatter::Formattable;
-use crate::merkle::{MerkleProof, MerkleTree};
-use crate::parser::{
-    extract_address_hash_scriptpubkey, extract_address_hash_scriptsig, extract_op_return_data,
-    FromLeBytes,
-};
-use crate::utils::{log2, reverse_endianness, sha256d_le};
 
 pub(crate) const SERIALIZE_TRANSACTION_NO_WITNESS: i32 = 0x4000_0000;
 
@@ -225,47 +222,6 @@ impl sp_std::fmt::Debug for RawBlockHeader {
     }
 }
 
-#[derive(Encode, Decode, PartialEq, Copy, Clone)]
-pub struct Address([u8; 20]);
-
-impl Address {
-    pub fn as_bytes(&self) -> &[u8] {
-        &self.0
-    }
-}
-
-impl From<[u8; 20]> for Address {
-    fn from(bytes: [u8; 20]) -> Address {
-        Address(bytes)
-    }
-}
-
-impl From<Address> for [u8; 20] {
-    fn from(address: Address) -> [u8; 20] {
-        address.0
-    }
-}
-
-impl TryFrom<&[u8]> for Address {
-    type Error = crate::Error;
-    fn try_from(bytes: &[u8]) -> Result<Address, Self::Error> {
-        if bytes.len() != 20 {
-            return Err(Error::InvalidAddress);
-        }
-        let mut address: [u8; 20] = Default::default();
-        address.copy_from_slice(bytes);
-        Ok(Address(address))
-    }
-}
-
-impl TryFrom<&str> for Address {
-    type Error = crate::Error;
-    fn try_from(hex_address: &str) -> Result<Address, Self::Error> {
-        let bytes = hex::decode(hex_address).map_err(|_e| Error::InvalidAddress)?;
-        Address::try_from(&bytes[..])
-    }
-}
-
 // Constants
 pub const P2PKH_SCRIPT_SIZE: u32 = 25;
 pub const P2SH_SCRIPT_SIZE: u32 = 23;
@@ -277,7 +233,6 @@ pub const MAX_OPRETURN_SIZE: usize = 83;
 /// Bitcoin Basic Block Headers
 // TODO: Figure out how to set a pointer to the ChainIndex mapping instead
 #[derive(Encode, Decode, Default, Copy, Clone, PartialEq, Eq, Debug)]
-//#[cfg_attr(feature = "std", derive(Debug))]
 pub struct BlockHeader {
     pub merkle_root: H256Le,
     pub target: U256,
@@ -302,119 +257,27 @@ pub struct TransactionInput {
     pub height: Option<Vec<u8>>, // FIXME: Vec<u8> type here seems weird
     pub script: Vec<u8>,
     pub sequence: u32,
+    pub flags: u8, // FIXME: is this the witness version?
     pub witness: Vec<Vec<u8>>,
 }
 
 impl TransactionInput {
-    pub fn with_witness(&mut self, witness: Vec<Vec<u8>>) {
+    pub fn with_witness(&mut self, flags: u8, witness: Vec<Vec<u8>>) {
+        self.flags = flags;
         self.witness = witness;
     }
 
-    pub fn extract_address(&self) -> Result<Vec<u8>, Error> {
+    pub fn extract_address(&self) -> Result<Address, Error> {
         // Witness
         if !self.witness.is_empty() {
-            return Ok(bitcoin_hashes::hash160::Hash::hash(&self.witness[1]).to_vec());
+            return Ok(Address::P2WPKH(
+                self.flags,
+                H160::from_slice(&bitcoin_hashes::hash160::Hash::hash(&self.witness[1]).to_vec()),
+            ));
         }
 
-        // P2PKH
+        // P2PKH or P2SH
         extract_address_hash_scriptsig(&self.script)
-    }
-}
-
-/// Bitcoin script
-#[derive(PartialEq, Debug, Clone)]
-pub struct Script {
-    pub(crate) bytes: Vec<u8>,
-}
-
-impl Default for Script {
-    fn default() -> Self {
-        Script { bytes: vec![] }
-    }
-}
-
-impl Script {
-    pub fn new() -> Script {
-        Self::default()
-    }
-
-    pub fn height(height: u32) -> Script {
-        let mut script = Script::new();
-        script.append(OpCode::Op3);
-        let bytes = height.to_le_bytes();
-        script.append(&bytes[0..=2]);
-        script
-    }
-
-    // Format:
-    // 0x76 (OP_DUP) - 0xa9 (OP_HASH160) - 0x14 (20 bytes len) - <20 bytes pubkey hash> - 0x88 (OP_EQUALVERIFY) - 0xac (OP_CHECKSIG)
-    pub fn p2pkh(address: &Address) -> Script {
-        let mut script = Script::new();
-        script.append(OpCode::OpDup);
-        script.append(OpCode::OpHash160);
-        script.append(HASH160_SIZE_HEX);
-        script.append(address);
-        script.append(OpCode::OpEqualVerify);
-        script.append(OpCode::OpCheckSig);
-        script
-    }
-
-    // Format:
-    // 0xa9 (OP_HASH160) - 0x14 (20 bytes hash) - <20 bytes script hash> - 0x87 (OP_EQUAL)
-    pub fn p2sh(address: &Address) -> Script {
-        let mut script = Script::new();
-        script.append(OpCode::OpHash160);
-        script.append(HASH160_SIZE_HEX);
-        script.append(address);
-        script.append(OpCode::OpEqual);
-        script
-    }
-
-    pub fn op_return(return_content: &[u8]) -> Script {
-        let mut script = Script::new();
-        script.append(OpCode::OpReturn);
-        script.append(return_content.len() as u8);
-        script.append(return_content);
-        script
-    }
-
-    pub fn append<T: Formattable<U>, U>(&mut self, value: T) {
-        self.bytes.extend(&value.format())
-    }
-
-    pub fn extract_op_return_data(&self) -> Result<Vec<u8>, Error> {
-        extract_op_return_data(&self.bytes)
-    }
-
-    pub fn as_bytes(&self) -> &[u8] {
-        &self.bytes
-    }
-
-    pub fn as_hex(&self) -> String {
-        hex::encode(&self.bytes)
-    }
-
-    pub fn len(&self) -> usize {
-        self.bytes.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-}
-
-impl From<Vec<u8>> for Script {
-    fn from(bytes: Vec<u8>) -> Script {
-        Script { bytes }
-    }
-}
-
-impl TryFrom<&str> for Script {
-    type Error = crate::Error;
-
-    fn try_from(hex_string: &str) -> Result<Script, Self::Error> {
-        let bytes = hex::decode(hex_string).map_err(|_e| Error::InvalidScript)?;
-        Ok(Script { bytes })
     }
 }
 
@@ -426,17 +289,10 @@ pub struct TransactionOutput {
 }
 
 impl TransactionOutput {
-    pub fn p2pkh(value: i64, address: &Address) -> TransactionOutput {
+    pub fn payment(value: i64, address: &Address) -> TransactionOutput {
         TransactionOutput {
             value,
-            script: Script::p2pkh(address),
-        }
-    }
-
-    pub fn p2sh(value: i64, address: &Address) -> TransactionOutput {
-        TransactionOutput {
-            value,
-            script: Script::p2sh(address),
+            script: address.to_script(),
         }
     }
 
@@ -447,8 +303,8 @@ impl TransactionOutput {
         }
     }
 
-    pub fn extract_address(&self) -> Result<Vec<u8>, Error> {
-        extract_address_hash_scriptpubkey(&self.script.bytes)
+    pub fn extract_address(&self) -> Result<Address, Error> {
+        Address::from_script(&self.script)
     }
 }
 
@@ -614,7 +470,7 @@ impl BlockBuilder {
             .with_sequence(0)
             .build();
         // FIXME: this is most likely not what real-world transactions look like
-        let output = TransactionOutput::p2pkh(reward, &address);
+        let output = TransactionOutput::payment(reward, address);
         let transaction = TransactionBuilder::new()
             .add_input(input)
             .add_output(output)
@@ -858,6 +714,7 @@ impl Default for TransactionInputBuilder {
                 height: None,
                 script: vec![],
                 sequence: 0,
+                flags: 0,
                 witness: vec![],
             },
         }
@@ -914,9 +771,10 @@ mod tests {
     use mocktopus::mocking::*;
 
     use super::*;
-    use sp_std::convert::TryInto;
+    use sp_std::str::FromStr;
 
     use crate::parser::parse_transaction;
+    use crate::Address;
 
     fn sample_example_real_rawtx() -> String {
         "0200000000010140d43a99926d43eb0e619bf0b3d83b4a31f60c176beecfb9d35bf45e54d0f7420100000017160014a4b4ca48de0b3fffc15404a1acdc8dbaae226955ffffffff0100e1f5050000000017a9144a1154d50b03292b3024370901711946cb7cccc387024830450221008604ef8f6d8afa892dee0f31259b6ce02dd70c545cfcfed8148179971876c54a022076d771d6e91bed212783c9b06e0de600fab2d518fad6f15a2b191d7fbd262a3e0121039d25ab79f41f75ceaf882411fd41fa670a4c672c23ffaf0e361a969cde0692e800000000".to_owned()
@@ -991,24 +849,20 @@ mod tests {
 
     #[test]
     fn test_transaction_builder() {
-        let address: Address = "66c7060feb882664ae62ffad0051fe843e318e85"
-            .try_into()
-            .unwrap();
+        let address =
+            Address::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let return_data = hex::decode("01a0").unwrap();
         let transaction = TransactionBuilder::new()
             .with_version(2)
             .add_input(TransactionInputBuilder::new().with_coinbase(false).build())
-            .add_output(TransactionOutput::p2pkh(100, &address))
+            .add_output(TransactionOutput::payment(100, &address))
             .add_output(TransactionOutput::op_return(0, &return_data))
             .build();
         assert_eq!(transaction.version, 2);
         assert_eq!(transaction.inputs.len(), 1);
         assert_eq!(transaction.outputs.len(), 2);
         assert_eq!(transaction.outputs[0].value, 100);
-        assert_eq!(
-            transaction.outputs[0].extract_address().unwrap(),
-            address.as_bytes()
-        );
+        assert_eq!(transaction.outputs[0].extract_address().unwrap(), address);
         assert_eq!(transaction.outputs[1].value, 0);
         assert_eq!(
             transaction.outputs[1]
@@ -1100,9 +954,8 @@ mod tests {
     #[test]
     fn test_mine_block() {
         clear_mocks();
-        let address: Address = "66c7060feb882664ae62ffad0051fe843e318e85"
-            .try_into()
-            .unwrap();
+        let address =
+            Address::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let block = BlockBuilder::new()
             .with_version(2)
             .with_coinbase(&address, 50, 3)
@@ -1118,14 +971,13 @@ mod tests {
     #[test]
     fn test_merkle_proof() {
         clear_mocks();
-        let address: Address = "66c7060feb882664ae62ffad0051fe843e318e85"
-            .try_into()
-            .unwrap();
+        let address =
+            Address::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
 
         let transaction = TransactionBuilder::new()
             .with_version(2)
             .add_input(TransactionInputBuilder::new().with_coinbase(false).build())
-            .add_output(TransactionOutput::p2pkh(100, &address))
+            .add_output(TransactionOutput::payment(100, &address))
             .build();
 
         let block = BlockBuilder::new()
@@ -1147,10 +999,13 @@ mod tests {
         let tx_bytes = hex::decode(&raw_tx).unwrap();
         let transaction = parse_transaction(&tx_bytes).unwrap();
 
-        let address: [u8; 20] = [
-            164, 180, 202, 72, 222, 11, 63, 255, 193, 84, 4, 161, 172, 220, 141, 186, 174, 34, 105,
-            85,
-        ];
+        let address = Address::P2WPKH(
+            0,
+            H160([
+                164, 180, 202, 72, 222, 11, 63, 255, 193, 84, 4, 161, 172, 220, 141, 186, 174, 34,
+                105, 85,
+            ]),
+        );
 
         let extr_address = transaction.inputs[0].extract_address().unwrap();
 
@@ -1163,10 +1018,13 @@ mod tests {
         let tx_bytes = hex::decode(&raw_tx).unwrap();
         let transaction = parse_transaction(&tx_bytes).unwrap();
 
-        let address: [u8; 20] = [
-            214, 173, 103, 17, 218, 48, 244, 52, 154, 13, 140, 56, 122, 81, 91, 255, 16, 236, 213,
-            7,
-        ];
+        let address = Address::P2WPKH(
+            0,
+            H160([
+                214, 173, 103, 17, 218, 48, 244, 52, 154, 13, 140, 56, 122, 81, 91, 255, 16, 236,
+                213, 7,
+            ]),
+        );
 
         let extr_address = transaction.inputs[0].extract_address().unwrap();
 
