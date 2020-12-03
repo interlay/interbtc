@@ -243,7 +243,7 @@ decl_module! {
         /// * `merkle_proof` - raw bytes
         /// * `raw_tx` - raw bytes
         #[weight = <T as Trait>::WeightInfo::execute_redeem()]
-        fn execute_redeem(origin, redeem_id: H256, tx_id: H256Le, _tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
+        fn execute_redeem(origin, redeem_id: H256, tx_id: H256Le, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
             -> DispatchResult
         {
             let vault_id = ensure_signed(origin)?;

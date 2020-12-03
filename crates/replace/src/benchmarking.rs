@@ -138,8 +138,7 @@ benchmarks! {
             new_vault
         );
 
-        let mut height = 0;
-
+        let height = 0;
         let block = BlockBuilder::new()
             .with_version(2)
             .with_coinbase(&new_vault_btc_address, 50, 3)
@@ -150,7 +149,6 @@ benchmarks! {
         let block_header = RawBlockHeader::from_bytes(&block.header.format()).unwrap();
         BtcRelay::<T>::_initialize(block_header, height).unwrap();
 
-        height += 1;
 
         let value = 0;
         let transaction = TransactionBuilder::new()
@@ -174,14 +172,13 @@ benchmarks! {
             .mine(U256::from(2).pow(254.into()));
 
         let tx_id = transaction.tx_id();
-        let tx_block_height = height;
         let proof = block.merkle_proof(&vec![tx_id]).format();
         let raw_tx = transaction.format_with(true);
 
         let block_header = RawBlockHeader::from_bytes(&block.header.format()).unwrap();
         BtcRelay::<T>::_store_block_header(block_header).unwrap();
 
-    }: _(RawOrigin::Signed(old_vault_id), replace_id, tx_id, tx_block_height, proof, raw_tx)
+    }: _(RawOrigin::Signed(old_vault_id), replace_id, tx_id, proof, raw_tx)
 
     cancel_replace {
         let origin: T::AccountId = account("Origin", 0, 0);
