@@ -269,11 +269,10 @@ impl TransactionInput {
 
     pub fn extract_address(&self) -> Result<Address, Error> {
         // Witness
-        if !self.witness.is_empty() {
-            return Ok(Address::P2WPKH(
-                self.flags,
-                H160::from_slice(&bitcoin_hashes::hash160::Hash::hash(&self.witness[1]).to_vec()),
-            ));
+        if !self.witness.is_empty() && self.flags == 0 {
+            return Ok(Address::P2WPKHv0(H160::from_slice(
+                &bitcoin_hashes::hash160::Hash::hash(&self.witness[1]).to_vec(),
+            )));
         }
 
         // P2PKH or P2SH
@@ -999,13 +998,10 @@ mod tests {
         let tx_bytes = hex::decode(&raw_tx).unwrap();
         let transaction = parse_transaction(&tx_bytes).unwrap();
 
-        let address = Address::P2WPKH(
-            0,
-            H160([
-                164, 180, 202, 72, 222, 11, 63, 255, 193, 84, 4, 161, 172, 220, 141, 186, 174, 34,
-                105, 85,
-            ]),
-        );
+        let address = Address::P2WPKHv0(H160([
+            164, 180, 202, 72, 222, 11, 63, 255, 193, 84, 4, 161, 172, 220, 141, 186, 174, 34, 105,
+            85,
+        ]));
 
         let extr_address = transaction.inputs[0].extract_address().unwrap();
 
@@ -1018,13 +1014,10 @@ mod tests {
         let tx_bytes = hex::decode(&raw_tx).unwrap();
         let transaction = parse_transaction(&tx_bytes).unwrap();
 
-        let address = Address::P2WPKH(
-            0,
-            H160([
-                214, 173, 103, 17, 218, 48, 244, 52, 154, 13, 140, 56, 122, 81, 91, 255, 16, 236,
-                213, 7,
-            ]),
-        );
+        let address = Address::P2WPKHv0(H160([
+            214, 173, 103, 17, 218, 48, 244, 52, 154, 13, 140, 56, 122, 81, 91, 255, 16, 236, 213,
+            7,
+        ]));
 
         let extr_address = transaction.inputs[0].extract_address().unwrap();
 

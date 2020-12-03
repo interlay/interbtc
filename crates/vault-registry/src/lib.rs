@@ -166,8 +166,8 @@ decl_module! {
                     .for_each(|(id, vault_v0)| {
                         let wallet_v0 = vault_v0.wallet;
                         let wallet_v1: Wallet<BtcAddress> = Wallet {
-                            addresses: BTreeSet::from_iter(wallet_v0.addresses.iter().map(|hash| BtcAddress::P2WPKH(0, *hash))),
-                            address: BtcAddress::P2WPKH(0, wallet_v0.address),
+                            addresses: BTreeSet::from_iter(wallet_v0.addresses.iter().map(|hash| BtcAddress::P2WPKHv0(*hash))),
+                            address: BtcAddress::P2WPKHv0(wallet_v0.address),
                         };
 
                         let vault_v1 = Vault {

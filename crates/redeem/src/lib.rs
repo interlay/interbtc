@@ -123,7 +123,7 @@ decl_module! {
                             amount_dot: request_v0.amount_dot,
                             premium_dot: request_v0.premium_dot,
                             redeemer: request_v0.redeemer,
-                            btc_address: BtcAddress::P2WPKH(0, request_v0.btc_address),
+                            btc_address: BtcAddress::P2WPKHv0(request_v0.btc_address),
                             completed: request_v0.completed,
                         };
                         <RedeemRequests<T>>::insert(id, request_v1);
