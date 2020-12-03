@@ -136,7 +136,7 @@ decl_module! {
                             new_vault: request_v0.new_vault,
                             collateral: request_v0.collateral,
                             accept_time: request_v0.accept_time,
-                            btc_address: BtcAddress::P2WPKH(0, request_v0.btc_address),
+                            btc_address: BtcAddress::P2WPKHv0(request_v0.btc_address),
                             completed: request_v0.completed,
                         };
                         <ReplaceRequests<T>>::insert(id, request_v1);

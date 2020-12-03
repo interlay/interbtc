@@ -15,7 +15,7 @@ use sp_core::H160;
 pub enum Address {
     P2PKH(H160),
     P2SH(H160),
-    P2WPKH(u8, H160),
+    P2WPKHv0(H160),
 }
 
 #[cfg(feature = "std")]
@@ -24,7 +24,7 @@ impl std::fmt::Display for Address {
         let addr = match self {
             Self::P2PKH(hash) => (hash, "p2pkh"),
             Self::P2SH(hash) => (hash, "p2sh"),
-            Self::P2WPKH(_, hash) => (hash, "p2wpkh"),
+            Self::P2WPKHv0(hash) => (hash, "p2wpkh"),
         };
         write!(f, "{} ({})", addr.0, addr.1)
     }
@@ -38,13 +38,9 @@ impl Address {
         } else if script.is_p2sh() {
             // 0xa9 (OP_HASH160) - 0x14 (20 bytes hash) - <20 bytes script hash> - 0x87 (OP_EQUAL)
             Ok(Self::P2SH(H160::from_slice(&script.as_bytes()[2..22])))
-        } else if script.is_p2wpkh() {
-            Ok(Self::P2WPKH(
-                // first byte is version
-                script.as_bytes()[0],
-                // 0x14 (20 bytes len) - <20 bytes hash>
-                H160::from_slice(&script.as_bytes()[2..]),
-            ))
+        } else if script.is_p2wpkh_v0() {
+            // 0x00 0x14 (20 bytes len) - <20 bytes hash>
+            Ok(Self::P2WPKHv0(H160::from_slice(&script.as_bytes()[2..])))
         } else {
             Err(Error::InvalidBtcAddress)
         }
@@ -70,7 +66,7 @@ impl Address {
                 script.append(OpCode::OpEqual);
                 script
             }
-            Self::P2WPKH(_, pub_key_hash) => {
+            Self::P2WPKHv0(pub_key_hash) => {
                 let mut script = Script::new();
                 script.append(OpCode::Op0);
                 script.append(pub_key_hash);
@@ -83,7 +79,7 @@ impl Address {
         match *self {
             Address::P2PKH(hash) => hash,
             Address::P2SH(hash) => hash,
-            Address::P2WPKH(_, hash) => hash,
+            Address::P2WPKHv0(hash) => hash,
         }
     }
 

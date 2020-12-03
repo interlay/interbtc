@@ -912,13 +912,10 @@ fn test_report_vault_succeeds_with_segwit_transaction() {
         inject_active_staked_relayer(&ALICE, amount);
         let vault = CAROL;
 
-        let btc_address = BtcAddress::P2WPKH(
-            0,
-            H160::from_slice(&[
-                164, 180, 202, 72, 222, 11, 63, 255, 193, 84, 4, 161, 172, 220, 141, 186, 174, 34,
-                105, 85,
-            ]),
-        );
+        let btc_address = BtcAddress::P2WPKHv0(H160::from_slice(&[
+            164, 180, 202, 72, 222, 11, 63, 255, 193, 84, 4, 161, 172, 220, 141, 186, 174, 34, 105,
+            85,
+        ]));
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(move |_| {
             MockResult::Return(Ok(init_zero_vault::<Test>(
                 vault.clone(),
@@ -1258,13 +1255,10 @@ fn test_is_transaction_invalid_fails_with_valid_merge_transaction() {
 #[test]
 fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
     run_test(|| {
-        let address1 = BtcAddress::P2WPKH(
-            0,
-            H160::from_slice(&[
-                164, 180, 202, 72, 222, 11, 63, 255, 193, 84, 4, 161, 172, 220, 141, 186, 174, 34,
-                105, 85,
-            ]),
-        );
+        let address1 = BtcAddress::P2WPKHv0(H160::from_slice(&[
+            164, 180, 202, 72, 222, 11, 63, 255, 193, 84, 4, 161, 172, 220, 141, 186, 174, 34, 105,
+            85,
+        ]));
 
         let address2 =
             BtcAddress::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());

@@ -39,7 +39,8 @@ impl Script {
         script
     }
 
-    pub fn is_p2wpkh(&self) -> bool {
+    pub fn is_p2wpkh_v0(&self) -> bool {
+        // first byte is version
         self.len() == 22 && self.bytes[0] == OpCode::Op0 as u8 && self.bytes[1] == HASH160_SIZE_HEX
     }
 

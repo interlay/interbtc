@@ -125,7 +125,7 @@ decl_module! {
                             griefing_collateral: request_v0.griefing_collateral,
                             amount: request_v0.amount,
                             requester: request_v0.requester,
-                            btc_address: BtcAddress::P2WPKH(0, request_v0.btc_address),
+                            btc_address: BtcAddress::P2WPKHv0(request_v0.btc_address),
                             completed: request_v0.completed,
                         };
                         <IssueRequests<T>>::insert(id, request_v1);
