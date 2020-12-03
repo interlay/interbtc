@@ -36,7 +36,6 @@ fn integration_test_issue_should_fail_if_not_running() {
             Call::Issue(IssueCall::execute_issue(
                 H256([0; 32]),
                 H256Le::zero(),
-                0,
                 vec![0u8; 32],
                 vec![0u8; 32]
             ))
@@ -80,13 +79,13 @@ fn integration_test_issue_polka_btc() {
         let id = assert_issue_request_event();
 
         // send the btc from the user to the vault
-        let (tx_id, height, proof, raw_tx) = generate_transaction_and_mine(address, amount, id);
+        let (tx_id, _height, proof, raw_tx) = generate_transaction_and_mine(address, amount, id);
 
         SystemModule::set_block_number(1 + CONFIRMATIONS);
 
         // alice executes the issue by confirming the btc transaction
         assert_ok!(
-            Call::Issue(IssueCall::execute_issue(id, tx_id, height, proof, raw_tx))
+            Call::Issue(IssueCall::execute_issue(id, tx_id, proof, raw_tx))
                 .dispatch(origin_of(account_of(ALICE)))
         );
 

@@ -409,7 +409,6 @@ fn test_execute_redeem_fails_with_redeem_id_not_found() {
                 Origin::signed(BOB),
                 H256([0u8; 32]),
                 H256Le::zero(),
-                0,
                 Vec::default(),
                 Vec::default()
             ),
@@ -440,7 +439,6 @@ fn test_execute_redeem_fails_with_unauthorized_vault() {
                 Origin::signed(CAROL),
                 H256([0u8; 32]),
                 H256Le::zero(),
-                0,
                 Vec::default(),
                 Vec::default()
             ),
@@ -473,7 +471,6 @@ fn test_execute_redeem_fails_with_commit_period_expired() {
                 Origin::signed(BOB),
                 H256([0u8; 32]),
                 H256Le::zero(),
-                0,
                 Vec::default(),
                 Vec::default()
             ),
@@ -537,7 +534,6 @@ fn test_execute_redeem_succeeds() {
             Origin::signed(BOB),
             H256([0u8; 32]),
             H256Le::zero(),
-            0,
             Vec::default(),
             Vec::default()
         ));

@@ -223,7 +223,7 @@ decl_module! {
         /// * 'merkle_proof' - the merkle root of the block
         /// * `raw_tx` - the transaction id in bytes
         #[weight = <T as Trait>::WeightInfo::execute_replace()]
-        fn execute_replace(origin, replace_id: H256, tx_id: H256Le, _tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
+        fn execute_replace(origin, replace_id: H256, tx_id: H256Le, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
             let _ = ensure_signed(origin)?;
             Self::_execute_replace(replace_id, tx_id, merkle_proof, raw_tx)?;
             Ok(())
