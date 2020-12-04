@@ -821,7 +821,6 @@ fn test_report_vault_theft_fails_with_staked_relayers_only() {
                 Origin::signed(ALICE),
                 CAROL,
                 H256Le::zero(),
-                0,
                 vec![0u8; 32],
                 vec![0u8; 32]
             ),
@@ -858,7 +857,6 @@ fn test_report_vault_passes_with_vault_transaction() {
             Origin::signed(ALICE),
             CAROL,
             H256Le::zero(),
-            0,
             vec![0u8; 32],
             hex::decode(&raw_tx).unwrap()
         ),);
@@ -866,7 +864,7 @@ fn test_report_vault_passes_with_vault_transaction() {
 }
 
 #[test]
-fn test_report_vault_fails_with_nonvault_transaction() {
+fn test_report_vault_fails_with_non_vault_transaction() {
     run_test(|| {
         let raw_tx = "0100000001c15041a06deb6b3818b022fac558da4ce2097f0860c8f642105bbad9d29be02a010000006c493046022100cfd2a2d332b29adce119c55a9fadd3c073332024b7e272513e51623ca15993480221009b482d7f7b4d479aff62bdcdaea54667737d56f8d4d63dd03ec3ef651ed9a25401210325f8b039a11861659c9bf03f43fc4ea055f3a71cd60c7b1fd474ab578f9977faffffffff0290d94000000000001976a9148ed243a7be26080a1a8cf96b53270665f1b8dd2388ac4083086b000000001976a9147e7d94d0ddc21d83bfbcfc7798e4547edf0832aa88ac00000000";
 
@@ -894,7 +892,6 @@ fn test_report_vault_fails_with_nonvault_transaction() {
                 Origin::signed(ALICE),
                 CAROL,
                 H256Le::zero(),
-                0,
                 vec![0u8; 32],
                 hex::decode(&raw_tx).unwrap()
             ),
@@ -931,7 +928,6 @@ fn test_report_vault_succeeds_with_segwit_transaction() {
             Origin::signed(ALICE),
             CAROL,
             H256Le::zero(),
-            0,
             vec![0u8; 32],
             hex::decode(&raw_tx).unwrap()
         ));
@@ -955,7 +951,6 @@ fn test_report_vault_theft_succeeds() {
             relayer,
             BOB,
             H256Le::zero(),
-            0,
             vec![0u8; 32],
             vec![0u8; 32],
         ));
