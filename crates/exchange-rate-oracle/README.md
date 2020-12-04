@@ -10,8 +10,7 @@ Run `cargo build` from the root folder of this directory.
 
 Run `cargo test` from the root folder of this directory.
 
-
-## Integration into Runtimes
+## Runtime Integration
 
 ### Runtime `Cargo.toml`
 
@@ -23,7 +22,7 @@ default_features = false
 git = '../creates/exchange-rate-oracle'
 ```
 
-and update your runtime's `std` feature to include this pallet:
+Update your runtime's `std` feature to include this pallet:
 
 ```TOML
 std = [
@@ -38,15 +37,16 @@ You should implement it's trait like so:
 
 ```rust
 /// Used for test_module
-impl ExchangeRateOracle::Trait for Runtime {
-	type Event = Event;
+impl exchange_rate_oracle::Trait for Runtime {
+    type Event = Event;
+    type WeightInfo = ();
 }
 ```
 
 and include it in your `construct_runtime!` macro:
 
 ```rust
-ExchangeRateOracle: exchange-rate-oracle::{Module, Call, Storage, Event},
+ExchangeRateOracle: exchange_rate_oracle::{Module, Call, Config<T>, Storage, Event<T>},
 ```
 
 ## Reference Docs

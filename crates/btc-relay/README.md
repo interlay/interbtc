@@ -10,8 +10,7 @@ Run `cargo build` from the root folder of this directory.
 
 Run `cargo test` from the root folder of this directory.
 
-
-## Integration into Runtimes 
+## Runtime Integration
 
 ### Runtime `Cargo.toml`
 
@@ -23,7 +22,7 @@ default_features = false
 git = '../creates/btc-relay'
 ```
 
-and update your runtime's `std` feature to include this pallet:
+Update your runtime's `std` feature to include this pallet:
 
 ```TOML
 std = [
@@ -38,15 +37,16 @@ You should implement it's trait like so:
 
 ```rust
 /// Used for test_module
-impl BTCRelay::Trait for Runtime {
-	type Event = Event;
+impl btc_relay::Trait for Runtime {
+    type Event = Event;
+    type WeightInfo = ();
 }
 ```
 
 and include it in your `construct_runtime!` macro:
 
 ```rust
-BTCRelay: btc-relay::{Module, Call, Storage, Event},
+BTCRelay: btc_relay::{Module, Call, Config<T>, Storage, Event},
 ```
 
 ## Reference Docs
@@ -56,4 +56,3 @@ You can view the reference docs for this pallet by running:
 ```
 cargo doc --open
 ```
-
