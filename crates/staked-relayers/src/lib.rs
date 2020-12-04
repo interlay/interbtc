@@ -1105,6 +1105,8 @@ impl<T: Trait> Module<T> {
 
         // check if vault's btc address features in an input of the transaction
         ensure!(
+            // TODO: can a vault steal funds if it registers a P2WPKH-P2SH since we
+            // would extract the `P2WPKHv0`?
             input_addresses.into_iter().any(|address_result| {
                 match address_result {
                     Ok(address) => vault.wallet.has_btc_address(&address),

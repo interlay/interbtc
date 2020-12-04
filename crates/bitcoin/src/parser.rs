@@ -3,6 +3,7 @@ extern crate mocktopus;
 
 extern crate bitcoin_hashes;
 
+use bitcoin_hashes::hash160::Hash as Hash160;
 use bitcoin_hashes::Hash;
 
 #[cfg(test)]
@@ -184,6 +185,14 @@ impl BytesParser {
         let (result, bytes_consumed) = T::parse(&self.raw_bytes, self.position)?;
         self.position += bytes_consumed;
         Ok(result)
+    }
+
+    /// Peeks at the next byte without updating the parser head.
+    pub(crate) fn next(&self) -> Result<u8, Error> {
+        self.raw_bytes
+            .get(self.position)
+            .ok_or(Error::EOS)
+            .map(|i| i.clone())
     }
 
     /// This is the same as `parse` but allows to pass extra data to the parser
@@ -413,6 +422,17 @@ pub(crate) fn extract_address_hash_scriptsig(input_script: &[u8]) -> Result<Addr
     }
 
     let sig_size: u64 = parser.parse::<CompactUint>()?.value;
+
+    // P2WPKH-P2SH (SegWit)
+    if parser.next()? == OpCode::Op0 as u8 {
+        // NOTE: we probably will not reach this as `extract_address`
+        // will first check the witness and get the `P2WPKHv0`
+        let sig = parser.read(sig_size as usize)?;
+        return Ok(Address::P2SH(H160::from_slice(
+            &Hash160::hash(&sig).to_vec(),
+        )));
+    }
+
     let _sig = parser.read(sig_size as usize)?;
 
     let redeem_script_size: u64 = parser.parse::<CompactUint>()?.value;
@@ -422,7 +442,7 @@ pub(crate) fn extract_address_hash_scriptsig(input_script: &[u8]) -> Result<Addr
         return Err(Error::UnsupportedInputFormat);
     }
     let redeem_script = parser.read(redeem_script_size as usize)?;
-    let hash = H160::from_slice(&bitcoin_hashes::hash160::Hash::hash(&redeem_script).to_vec());
+    let hash = H160::from_slice(&Hash160::hash(&redeem_script).to_vec());
     return Ok(if p2pkh {
         Address::P2PKH(hash)
     } else {
@@ -723,6 +743,19 @@ pub(crate) mod tests {
         let extr_address = extract_address_hash_scriptsig(&transaction.inputs[0].script).unwrap();
 
         assert_eq!(&extr_address, &address);
+    }
+
+    #[test]
+    fn test_extract_address_hash_scriptsig_p2wpkh_p2sh_testnet() {
+        let expected = Address::P2SH(H160::from_slice(
+            &hex::decode("068a6a2ec6be7d6e7aac1657445154c52db0cef8").unwrap(),
+        ));
+        let actual = extract_address_hash_scriptsig(
+            &hex::decode("160014473ca3f4d726ce9c21af7cdc3fcc13264f681b04").unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(actual, expected);
     }
 
     /*

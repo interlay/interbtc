@@ -3,6 +3,7 @@ extern crate hex;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
+use bitcoin_hashes::hash160::Hash as Hash160;
 use bitcoin_hashes::Hash;
 
 use crate::formatter::Formattable;
@@ -271,7 +272,7 @@ impl TransactionInput {
         // Witness
         if !self.witness.is_empty() && self.flags == 0 {
             return Ok(Address::P2WPKHv0(H160::from_slice(
-                &bitcoin_hashes::hash160::Hash::hash(&self.witness[1]).to_vec(),
+                &Hash160::hash(&self.witness[1]).to_vec(),
             )));
         }
 
