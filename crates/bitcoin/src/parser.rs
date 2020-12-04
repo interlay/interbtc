@@ -153,7 +153,9 @@ impl Parsable for U256 {
         }
         let exponent = raw_exponent - 3;
         let mantissa = U256::from_little_endian(&raw_bytes[position..position + 3]);
-        let offset = U256::from(256).pow(U256::from(exponent));
+        let offset = U256::from(256)
+            .checked_pow(U256::from(exponent))
+            .ok_or(Error::ArithmeticOverflow)?;
         Ok((mantissa * offset, 4))
     }
 }

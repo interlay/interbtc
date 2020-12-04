@@ -1562,7 +1562,9 @@ decl_error! {
         /// User supplied an invalid script
         InvalidScript,
         /// Specified invalid Bitcoin address
-        InvalidBtcAddress
+        InvalidBtcAddress,
+        /// Arithmetic overflow
+        ArithmeticOverflow
     }
 }
 
@@ -1584,6 +1586,7 @@ impl<T: Trait> From<BitcoinError> for Error<T> {
             BitcoinError::InvalidBtcHash => Self::InvalidBtcHash,
             BitcoinError::InvalidScript => Self::InvalidScript,
             BitcoinError::InvalidBtcAddress => Self::InvalidBtcAddress,
+            BitcoinError::ArithmeticOverflow => Self::ArithmeticOverflow,
         }
     }
 }

@@ -351,4 +351,11 @@ mod tests {
             H256Le::from_hex_be("61a05151711e4716f31f7a3bb956d1b030c4d92093b843fa2e771b95564f0704");
         assert_eq!(result.transaction_hash, expected_tx_hash);
     }
+
+    #[test]
+    fn test_parse_regtest_merkle_proof_succeeds() {
+        let raw_merkle_proof_hex = "0000002031a3479e5062e200279af822d816d02cab347bc3719726541c4fd5edfc3ffd7d680b2710119c752e5fb1b963ad2ee3539f6b3fe0e9b054e681734b631e92c2faf449ca5fffff7f20000000000300000003f0d6a860c811b45bbbe4f0401f26e2fafc40e50bb03782025c0ef82768703d3de263ed560faac245c73725f295eb653268bca3387f9e03b18ca6ab242ce6c54b5625d63322e74c0aa94c794cbf065858bddc5b8ea178fbb0549956149a7d4686010b";
+        let raw_merkle_proof = hex::decode(&raw_merkle_proof_hex).unwrap();
+        MerkleProof::parse(&raw_merkle_proof).unwrap();
+    }
 }
