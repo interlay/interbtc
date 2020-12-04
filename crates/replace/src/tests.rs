@@ -250,7 +250,6 @@ fn test_withdraw_replace_request_invalid_vault_id_fails() {
 fn test_withdraw_replace_req_vault_id_mismatch_fails() {
     run_test(|| {
         Replace::get_replace_request.mock_safe(|_| MockResult::Return(Ok(test_request())));
-        // TODO(jaupe): work out why this is not mocking correctly
         ext::vault_registry::get_vault_from_id::<Test>
             .mock_safe(|_id| MockResult::Return(Ok(test_vault())));
         assert_noop!(

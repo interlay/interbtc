@@ -69,6 +69,7 @@ impl Address {
             Self::P2WPKHv0(pub_key_hash) => {
                 let mut script = Script::new();
                 script.append(OpCode::Op0);
+                script.append(HASH160_SIZE_HEX);
                 script.append(pub_key_hash);
                 script
             }

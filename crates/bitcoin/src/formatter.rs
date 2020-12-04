@@ -117,7 +117,9 @@ impl Formattable<bool> for TransactionInput {
         formatter.format(&self.previous_hash);
         formatter.format(self.previous_index);
         formatter.format(CompactUint::from_usize(self.script.len()));
-        self.height.iter().for_each(|h| formatter.output(h));
+        if let Some(height) = self.height {
+            formatter.format(Script::height(height).as_bytes());
+        }
         formatter.output(&self.script); // we already formatted the length
         formatter.format(self.sequence);
         formatter.result()
