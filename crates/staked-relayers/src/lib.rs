@@ -440,11 +440,10 @@ decl_module! {
         /// * `origin`: Any signed user.
         /// * `vault_id`: The account of the vault to check.
         /// * `tx_id`: The hash of the transaction
-        /// * `tx_block_height`: Height rogue tx was included.
         /// * `merkle_proof`: The proof of tx inclusion.
         /// * `raw_tx`: The raw Bitcoin transaction.
         #[weight = <T as Trait>::WeightInfo::report_vault_theft()]
-        fn report_vault_theft(origin, vault_id: T::AccountId, tx_id: H256Le, _tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
+        fn report_vault_theft(origin, vault_id: T::AccountId, tx_id: H256Le, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             ensure!(
                 Self::check_relayer_registered(&signer),
