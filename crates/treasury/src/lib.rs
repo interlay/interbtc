@@ -10,20 +10,14 @@ mod tests;
 #[cfg(test)]
 extern crate mocktopus;
 
-// #[cfg(test)]
-// use mocktopus::macros::mockable;
-
-use frame_support::traits::{Currency, ExistenceRequirement::KeepAlive, ReservableCurrency};
+use frame_support::traits::{Currency, ReservableCurrency};
 /// # PolkaBTC Treasury implementation
 /// The Treasury module according to the specification at
 /// https://interlay.gitlab.io/polkabtc-spec/spec/treasury.html
 // Substrate
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult},
-    ensure,
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError, ensure,
 };
-use frame_system::ensure_signed;
 use sp_runtime::ModuleId;
 
 type BalanceOf<T> =
@@ -65,7 +59,6 @@ decl_event!(
         AccountId = <T as frame_system::Trait>::AccountId,
         Balance = BalanceOf<T>,
     {
-        Transfer(AccountId, AccountId, Balance),
         Mint(AccountId, Balance),
         Lock(AccountId, Balance),
         Burn(AccountId, Balance),
@@ -81,27 +74,6 @@ decl_module! {
         // Initializing events
         // this is needed only if you are using events in your pallet
         fn deposit_event() = default;
-
-        /// Transfer an amount of PolkaBTC (without fees)
-        ///
-        /// # Arguments
-        ///
-        /// * `origin` - sender of the transaction
-        /// * `receiver` - receiver of the transaction
-        /// * `amount` - amount of PolkaBTC
-        #[weight = 1000]
-        fn transfer(origin, receiver: T::AccountId, amount: BalanceOf<T>)
-            -> DispatchResult
-        {
-            let sender = ensure_signed(origin)?;
-
-            T::PolkaBTC::transfer(&sender, &receiver, amount, KeepAlive)
-                .map_err(|_| Error::<T>::InsufficientFunds)?;
-
-            Self::deposit_event(RawEvent::Transfer(sender, receiver, amount));
-
-            Ok(())
-        }
     }
 }
 
@@ -110,24 +82,29 @@ impl<T: Trait> Module<T> {
     pub fn get_total_supply() -> BalanceOf<T> {
         T::PolkaBTC::total_issuance()
     }
+
     /// Balance of an account (wrapper)
     pub fn get_balance_from_account(account: T::AccountId) -> BalanceOf<T> {
         T::PolkaBTC::free_balance(&account)
     }
+
     /// Locked balance of an account (wrapper)
     pub fn get_locked_balance_from_account(account: T::AccountId) -> BalanceOf<T> {
         T::PolkaBTC::reserved_balance(&account)
     }
+
     /// Increase the supply of locked PolkaBTC
     pub fn increase_total_locked(amount: BalanceOf<T>) {
         let new_locked = <TotalLocked<T>>::get() + amount;
         <TotalLocked<T>>::put(new_locked);
     }
+
     /// Decrease the supply of locked PolkaBTC
     pub fn decrease_total_locked(amount: BalanceOf<T>) {
         let new_locked = <TotalLocked<T>>::get() - amount;
         <TotalLocked<T>>::put(new_locked);
     }
+
     /// Mint new tokens
     ///
     /// # Arguments
@@ -142,6 +119,7 @@ impl<T: Trait> Module<T> {
 
         Self::deposit_event(RawEvent::Mint(requester, amount));
     }
+
     /// Lock PolkaBTC tokens to burn them. Note: this removes them from the
     /// free balance of PolkaBTC and adds them to the locked supply of PolkaBTC.
     ///
@@ -158,6 +136,7 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(RawEvent::Lock(redeemer, amount));
         Ok(())
     }
+
     /// Burn previously locked PolkaBTC tokens
     ///
     /// # Arguments

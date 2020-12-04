@@ -16,59 +16,6 @@ fn test_total_supply_correct() {
     })
 }
 
-/// Transfer
-#[test]
-fn test_transfer_succeeds() {
-    run_test(|| {
-        let sender = Origin::signed(ALICE);
-        let receiver = BOB;
-        let amount: Balance = 3;
-
-        let init_balance_alice = Treasury::get_balance_from_account(ALICE);
-        let init_balance_bob = Treasury::get_balance_from_account(BOB);
-        let init_total_supply = Treasury::get_total_supply();
-
-        assert_ok!(Treasury::transfer(sender, receiver, amount));
-        let transfer_event = TestEvent::test_events(RawEvent::Transfer(ALICE, BOB, amount));
-
-        assert!(System::events().iter().any(|a| a.event == transfer_event));
-
-        let balance_alice = Treasury::get_balance_from_account(ALICE);
-        let balance_bob = Treasury::get_balance_from_account(BOB);
-        let total_supply = Treasury::get_total_supply();
-
-        assert_eq!(balance_alice, init_balance_alice - amount);
-        assert_eq!(balance_bob, init_balance_bob + amount);
-        assert_eq!(total_supply, init_total_supply);
-    })
-}
-
-#[test]
-fn test_transfer_fails() {
-    run_test(|| {
-        let sender = Origin::signed(ALICE);
-        let receiver = BOB;
-        let amount = ALICE_BALANCE + 10;
-
-        let init_balance_alice = Treasury::get_balance_from_account(ALICE);
-        let init_balance_bob = Treasury::get_balance_from_account(BOB);
-        let init_total_supply = Treasury::get_total_supply();
-
-        assert_err!(
-            Treasury::transfer(sender, receiver, amount),
-            TreasuryError::InsufficientFunds
-        );
-
-        let balance_alice = Treasury::get_balance_from_account(ALICE);
-        let balance_bob = Treasury::get_balance_from_account(BOB);
-        let total_supply = Treasury::get_total_supply();
-
-        assert_eq!(balance_alice, init_balance_alice);
-        assert_eq!(balance_bob, init_balance_bob);
-        assert_eq!(total_supply, init_total_supply);
-    })
-}
-
 /// Mint
 #[test]
 fn test_mint_succeeds() {
