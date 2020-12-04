@@ -1392,6 +1392,71 @@ fn test_is_transaction_invalid_succeeds() {
 }
 
 #[test]
+fn test_is_transaction_invalid_fails_with_valid_merge_testnet_transaction() {
+    run_test(|| {
+        // bitcoin-cli -testnet getrawtransaction "3453e52ebab8ac96159d6b19114b492a05cce05a8fdfdaf5dea266ac10601ce4" 0 "00000000000000398849cc9d67261ec2d5fea07db87ab66a8ea47bc05acfb194"
+        let raw_tx_hex = "0200000000010108ce8e8943edbbf09d070bb893e09c0de12c0cf3704fe8a9b0f8b8d1a4a7a4760000000017160014473ca3f4d726ce9c21af7cdc3fcc13264f681b04feffffff02b377413f0000000017a914fe5183ccb89d98beaa6908c7cf1bd109029482cf87142e1a00000000001976a914d0a46d39dafa3012c2a7ed4d82d644b428e4586b88ac02473044022069484377c6627ccca566d4c4ac2cb84d1b0662f5ffbd384815c5e98b072759fc022061de3b77b4543ef43bb969d3f97fbbbdcddc008438720e7026181d99c455b2410121034172c29d3da8279f71adda48db8281d65b794e73cf04ea91fac4293030f0fe91a3ee1c00";
+        let raw_tx = hex::decode(&raw_tx_hex).unwrap();
+
+        // 2MsqorfMrsvXiVM8pD9bPWxGnccSWsj16XE (P2WPKH-P2SH)
+        let vault_btc_address_0 = BtcAddress::P2WPKHv0(H160::from_slice(
+            &hex::decode("473ca3f4d726ce9c21af7cdc3fcc13264f681b04").unwrap(),
+        ));
+
+        // 2NGRwGkzypA4fEz9m4KhA2ZBs7fTg3B7Zjo
+        let vault_btc_address_1 = BtcAddress::P2SH(H160::from_slice(
+            &hex::decode("fe5183ccb89d98beaa6908c7cf1bd109029482cf").unwrap(),
+        ));
+
+        // mzY9pX6NA3cBmiC4umbBzf1NdwrmjS7MS8
+        let vault_btc_address_2 = BtcAddress::P2PKH(H160::from_slice(
+            &hex::decode("d0a46d39dafa3012c2a7ed4d82d644b428e4586b").unwrap(),
+        ));
+
+        let mut wallet = Wallet::new(vault_btc_address_0);
+        wallet.add_btc_address(vault_btc_address_1);
+        wallet.add_btc_address(vault_btc_address_2);
+
+        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(move |_| {
+            MockResult::Return(Ok(Vault {
+                id: BOB,
+                to_be_issued_tokens: 0,
+                issued_tokens: 0,
+                to_be_redeemed_tokens: 0,
+                wallet: wallet.clone(),
+                banned_until: None,
+                status: VaultStatus::Active,
+            }))
+        });
+
+        assert_err!(
+            Staking::is_transaction_invalid(&BOB, raw_tx),
+            TestError::ValidMergeTransaction
+        );
+    })
+}
+
+#[test]
+fn test_is_transaction_invalid_succeeds_with_testnet_transaction() {
+    run_test(|| {
+        // bitcoin-cli -testnet getrawtransaction "3453e52ebab8ac96159d6b19114b492a05cce05a8fdfdaf5dea266ac10601ce4" 0 "00000000000000398849cc9d67261ec2d5fea07db87ab66a8ea47bc05acfb194"
+        let raw_tx_hex = "0200000000010108ce8e8943edbbf09d070bb893e09c0de12c0cf3704fe8a9b0f8b8d1a4a7a4760000000017160014473ca3f4d726ce9c21af7cdc3fcc13264f681b04feffffff02b377413f0000000017a914fe5183ccb89d98beaa6908c7cf1bd109029482cf87142e1a00000000001976a914d0a46d39dafa3012c2a7ed4d82d644b428e4586b88ac02473044022069484377c6627ccca566d4c4ac2cb84d1b0662f5ffbd384815c5e98b072759fc022061de3b77b4543ef43bb969d3f97fbbbdcddc008438720e7026181d99c455b2410121034172c29d3da8279f71adda48db8281d65b794e73cf04ea91fac4293030f0fe91a3ee1c00";
+        let raw_tx = hex::decode(&raw_tx_hex).unwrap();
+
+        // 2MsqorfMrsvXiVM8pD9bPWxGnccSWsj16XE (P2WPKH-P2SH)
+        let btc_address = BtcAddress::P2WPKHv0(H160::from_slice(
+            &hex::decode("473ca3f4d726ce9c21af7cdc3fcc13264f681b04").unwrap(),
+        ));
+
+        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(move |_| {
+            MockResult::Return(Ok(init_zero_vault::<Test>(BOB, Some(btc_address))))
+        });
+
+        assert_ok!(Staking::is_transaction_invalid(&BOB, raw_tx));
+    })
+}
+
+#[test]
 fn test_get_status_counter_success() {
     run_test(|| {
         assert_eq!(Staking::get_status_counter(), 1);
