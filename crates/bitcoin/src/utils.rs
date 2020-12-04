@@ -85,7 +85,6 @@ pub fn log256(value: &U256) -> u8 {
     result
 }
 
-// FIXME: maybe use sp_core sha2_256?
 pub fn sha256d_be(bytes: &[u8]) -> H256 {
     H256::from_slice(&sha256d(bytes)[..])
 }
@@ -104,5 +103,16 @@ mod tests {
             .unwrap();
         let result = log256(&value);
         assert_eq!(result, 24);
+    }
+
+    #[test]
+    fn test_sha256d() {
+        assert_eq!(
+            [
+                97, 244, 23, 55, 79, 68, 0, 180, 125, 202, 225, 168, 244, 2, 212, 244, 218, 207,
+                69, 90, 4, 66, 160, 106, 164, 85, 164, 71, 176, 212, 225, 112
+            ],
+            sha256d(b"Hello World!")
+        );
     }
 }
