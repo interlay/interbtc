@@ -457,6 +457,7 @@ impl BlockBuilder {
     }
 
     pub fn with_coinbase(&mut self, address: &Address, reward: i64, height: u32) -> &mut Self {
+        // TODO: compute witness commitment
         self.block.transactions.insert(
             0,
             generate_coinbase_transaction(address, reward, height, None, None),

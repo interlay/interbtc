@@ -16,7 +16,7 @@ Initialize your Wasm Build environment:
 ./scripts/init.sh
 ```
 
-Build Wasm and native code:
+Build WASM and native code:
 
 ```bash
 cargo build --release
@@ -87,4 +87,56 @@ cargo run -- \
   --validator
 ```
 
-Additional CLI usage options are available and may be shown by running `cargo run -- --help`.
+## Runtime Upgrades
+
+1. Implement storage migration logic using the module's `on_runtime_upgrade` hook.
+2. Bump the module's default storage `Version`.
+3. Increment the runtime `spec_version`.
+4. Compile the WASM runtime: `cargo build --release -p btc-parachain-runtime`.
+5. Use the sudo module to wrap a call to system `setCode(code)`.
+
+The WASM file can be found here:
+
+```
+/btc-parachain/target/release/wbuild/btc-parachain-runtime/btc_parachain_runtime.compact.wasm
+```
+
+Additional instructions can be found here:
+
+- https://substrate.dev/docs/en/knowledgebase/runtime/upgrades
+- https://substrate.dev/docs/en/tutorials/upgrade-a-chain/sudo-upgrade
+
+## Benchmarks
+
+To run benchmarks for a particular module (e.g. `issue`):
+
+```shell
+cd ./parachain
+cargo run --features runtime-benchmarks --release -- \
+  benchmark \
+  --chain dev \
+  --execution=wasm \
+  --wasm-execution=compiled \
+  --pallet "issue" \
+  --extrinsic "*" \
+  --steps 100 \
+  --repeat 10
+  --output
+```
+
+This will produce a new file (`./parachain/issue.rs`) which you should copy into the corresponding pallet.
+
+Rename this to `default_weights.rs` and modify the contents as follows:
+
+```rust
+// Change this
+pub struct WeightInfo;
+impl issue::WeightInfo for WeightInfo {
+...
+
+// To this
+impl crate::WeightInfo for () {
+...
+```
+
+In the future this process will be automated using [handlebars](https://handlebarsjs.com/) templates.

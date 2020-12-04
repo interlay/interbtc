@@ -10,8 +10,7 @@ Run `cargo build` from the root folder of this directory.
 
 Run `cargo test` from the root folder of this directory.
 
-
-## Integration into Runtimes
+## Runtime Integration
 
 ### Runtime `Cargo.toml`
 
@@ -23,7 +22,7 @@ default_features = false
 git = '../creates/vault-registry'
 ```
 
-and update your runtime's `std` feature to include this pallet:
+Update your runtime's `std` feature to include this pallet:
 
 ```TOML
 std = [
@@ -38,15 +37,17 @@ You should implement it's trait like so:
 
 ```rust
 /// Used for test_module
-impl VaultRegistry::Trait for Runtime {
-	type Event = Event;
+impl vault_registry::Trait for Runtime {
+    type Event = Event;
+    type RandomnessSource = RandomnessCollectiveFlip;
+    type WeightInfo = ();
 }
 ```
 
 and include it in your `construct_runtime!` macro:
 
 ```rust
-VaultRegistry: vault-registry::{Module, Call, Storage, Event},
+VaultRegistry: vault_registry::{Module, Call, Config<T>, Storage, Event<T>},
 ```
 
 ## Reference Docs
