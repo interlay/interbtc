@@ -346,8 +346,15 @@ fn parse_transaction_input(
 
     let mut script_size: u64 = parser.parse::<CompactUint>()?.value;
     let height = if is_coinbase && version == 2 {
-        script_size -= 4;
-        Some(parser.read(4)?)
+        // https://github.com/bitcoin/bips/blob/master/bip-0034.mediawiki
+        let height_size: u64 = parser.parse::<CompactUint>()?.value;
+        script_size -= height_size + 1;
+
+        let mut buffer = [0u8; 4];
+        let bytes = parser.read(height_size as usize)?;
+        buffer[..3].copy_from_slice(&bytes[0..3]);
+
+        Some(u32::from_le_bytes(buffer))
     } else {
         None
     };
@@ -566,8 +573,7 @@ pub(crate) mod tests {
         assert_eq!(input.sequence, 0);
         assert_eq!(input.previous_index, u32::max_value());
         let height = input.height.unwrap();
-        assert_eq!(height.len(), 4);
-        assert_eq!(height[0], 3);
+        assert_eq!(height, 328014);
         assert_eq!(input.script.len(), 37); // 0x29 - 4
     }
 

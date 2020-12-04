@@ -254,7 +254,7 @@ pub struct TransactionInput {
     pub previous_hash: H256Le,
     pub previous_index: u32,
     pub coinbase: bool,
-    pub height: Option<Vec<u8>>, // FIXME: Vec<u8> type here seems weird
+    pub height: Option<u32>,
     pub script: Vec<u8>,
     pub sequence: u32,
     pub flags: u8, // FIXME: is this the witness version?
@@ -456,25 +456,11 @@ impl BlockBuilder {
         self
     }
 
-    // TODO: double check this works
-    // the output of real-world transactions
-    // seem to finish with OP_CHECKSIG
-    // need to check format
     pub fn with_coinbase(&mut self, address: &Address, reward: i64, height: u32) -> &mut Self {
-        let input = TransactionInputBuilder::new()
-            .with_coinbase(true)
-            .with_previous_index(u32::max_value())
-            .with_previous_hash(H256Le::zero())
-            .with_height(Script::height(height).as_bytes())
-            .with_sequence(0)
-            .build();
-        // FIXME: this is most likely not what real-world transactions look like
-        let output = TransactionOutput::payment(reward, address);
-        let transaction = TransactionBuilder::new()
-            .add_input(input)
-            .add_output(output)
-            .build();
-        self.block.transactions.insert(0, transaction);
+        self.block.transactions.insert(
+            0,
+            generate_coinbase_transaction(address, reward, height, None, None),
+        );
         self
     }
 
@@ -486,6 +472,39 @@ impl BlockBuilder {
         }
         MerkleTree::compute_root(0, height, tx_ids.len() as u32, &tx_ids)
     }
+}
+
+fn generate_coinbase_transaction(
+    address: &Address,
+    reward: i64,
+    height: u32,
+    input_script: Option<Vec<u8>>,
+    witness_commitment: Option<Vec<u8>>,
+) -> Transaction {
+    let mut tx_builder = TransactionBuilder::new();
+
+    let mut input_builder = TransactionInputBuilder::new();
+    input_builder
+        .with_coinbase(true)
+        .with_previous_index(u32::max_value())
+        .with_previous_hash(H256Le::zero())
+        .with_height(height)
+        .add_witness(&vec![0; 32])
+        .with_sequence(u32::max_value());
+    if let Some(script) = input_script {
+        input_builder.with_script(&script);
+    }
+    tx_builder.add_input(input_builder.build());
+
+    // FIXME: this is most likely not what real-world transactions look like
+    tx_builder.add_output(TransactionOutput::payment(reward, address));
+
+    if let Some(commitment) = witness_commitment {
+        // https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#commitment-structure
+        tx_builder.add_output(TransactionOutput::op_return(0, &commitment));
+    }
+
+    tx_builder.build()
 }
 
 /// Representation of a Bitcoin blockchain
@@ -745,8 +764,8 @@ impl TransactionInputBuilder {
         self
     }
 
-    pub fn with_height(&mut self, height: &[u8]) -> &mut Self {
-        self.trasaction_input.height = Some(Vec::from(height));
+    pub fn with_height(&mut self, height: u32) -> &mut Self {
+        self.trasaction_input.height = Some(height);
         self
     }
 
@@ -1022,5 +1041,36 @@ mod tests {
         let extr_address = transaction.inputs[0].extract_address().unwrap();
 
         assert_eq!(&extr_address, &address);
+    }
+
+    #[test]
+    fn decode_and_generate_coinbase_transaction() {
+        // testnet - 1896103
+        let raw_tx = "020000000001010000000000000000000000000000000000000000000000000000000000000000ffffffff2e03a7ee1c20706f6f6c2e656e6a6f79626f646965732e636f6d2031343262393163303337f72631e9f5cd76000001ffffffff025c05af00000000001600140bdd9a64240a255ee1aac57bca1df5a0f9c6a82d0000000000000000266a24aa21a9ed173684441d99dd383ca57e6a073f62694c4f7c12a158964f050b84f69ba10ec30120000000000000000000000000000000000000000000000000000000000000000000000000";
+        let tx_bytes = hex::decode(&raw_tx).unwrap();
+        let expected = parse_transaction(&tx_bytes).unwrap();
+
+        // tb1qp0we5epypgj4acd2c4au58045ruud2pd6heuee
+        let address =
+            Address::P2WPKHv0(H160::from_str("0bdd9a64240a255ee1aac57bca1df5a0f9c6a82d").unwrap());
+
+        let input_script = hex::decode(
+            "20706f6f6c2e656e6a6f79626f646965732e636f6d2031343262393163303337f72631e9f5cd76000001",
+        )
+        .unwrap();
+
+        let witness_commitment =
+            hex::decode("aa21a9ed173684441d99dd383ca57e6a073f62694c4f7c12a158964f050b84f69ba10ec3")
+                .unwrap();
+
+        let actual = generate_coinbase_transaction(
+            &address,
+            11470172,
+            1896103,
+            Some(input_script),
+            Some(witness_commitment),
+        );
+
+        assert_eq!(expected, actual);
     }
 }
