@@ -32,11 +32,11 @@ macro_rules! assert_emitted {
 }
 
 fn btc_to_u128(amount: PolkaBTC<Test>) -> Result<u128, DispatchError> {
-    TryInto::<u128>::try_into(amount).map_err(|_e| TestError::ConversionError.into())
+    TryInto::<u128>::try_into(amount).map_err(|_e| TestError::TryIntoIntError.into())
 }
 
 fn u128_to_dot(x: u128) -> Result<DOT<Test>, DispatchError> {
-    TryInto::<DOT<Test>>::try_into(x).map_err(|_| TestError::ConversionError.into())
+    TryInto::<DOT<Test>>::try_into(x).map_err(|_| TestError::TryIntoIntError.into())
 }
 
 fn btcdot_parity(btc: PolkaBTC<Test>) -> Result<DOT<Test>, DispatchError> {

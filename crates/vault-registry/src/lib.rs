@@ -870,9 +870,6 @@ impl<T: Trait> Module<T> {
     ///
     /// # Arguments
     /// * `amount_btc` - the amount of polkabtc
-    ///
-    /// # Errors
-    /// * `ScaleConversionError` - if a math error occurs
     pub fn get_required_collateral_for_polkabtc(
         amount_btc: PolkaBTC<T>,
     ) -> Result<DOT<T>, DispatchError> {
@@ -957,11 +954,11 @@ impl<T: Trait> Module<T> {
     ) -> Result<u64, DispatchError> {
         let collateralization: u64 = U256::from(raw_collateral_in_polka_btc)
             .checked_mul(U256::from(10).pow(GRANULARITY.into()))
-            .ok_or(Error::<T>::ConversionError)?
+            .ok_or(Error::<T>::ArithmeticOverflow)?
             .checked_div(raw_issued_tokens.into())
-            .ok_or(Error::<T>::ConversionError)?
+            .ok_or(Error::<T>::ArithmeticUnderflow)?
             .try_into()
-            .map_err(|_| Error::<T>::ConversionError)?;
+            .map_err(|_| Error::<T>::TryIntoIntError)?;
 
         Ok(collateralization)
     }
@@ -999,9 +996,6 @@ impl<T: Trait> Module<T> {
     /// # Arguments
     /// * `amount_btc` - the amount of polkabtc
     /// * `threshold` - the required secure collateral threshold
-    ///
-    /// # Errors
-    /// * `ScaleConversionError` - if a math error occurs
     fn get_required_collateral_for_polkabtc_with_threshold(
         btc: PolkaBTC<T>,
         threshold: u128,
@@ -1014,14 +1008,14 @@ impl<T: Trait> Module<T> {
         // inverse of the div
         let btc = btc
             .checked_mul(threshold.into())
-            .ok_or(Error::<T>::ScaleConversionError)?;
+            .ok_or(Error::<T>::ArithmeticOverflow)?;
 
         // To do the inverse of the multiplication, we need to do division, but
         // we need to round up. To round up (a/b), we need to do ((a+b-1)/b):
         let rounding_addition = U256::from(10).pow(GRANULARITY.into()) - U256::from(1);
         let btc = (btc + rounding_addition)
             .checked_div(U256::from(10).pow(GRANULARITY.into()))
-            .ok_or(Error::<T>::ScaleConversionError)?;
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
         // Step 2: convert the amount to dots
         let scaled = Self::u128_to_polkabtc(btc.try_into()?)?;
@@ -1041,7 +1035,7 @@ impl<T: Trait> Module<T> {
         // calculate how many tokens should be maximally issued given the threshold
         let scaled_collateral_in_polka_btc = collateral_in_polka_btc
             .checked_mul(U256::from(10).pow(GRANULARITY.into()))
-            .ok_or(Error::<T>::ScaleConversionError)?;
+            .ok_or(Error::<T>::ArithmeticOverflow)?;
         let scaled_max_tokens = scaled_collateral_in_polka_btc
             .checked_div(threshold.into())
             .unwrap_or(0.into());
@@ -1050,19 +1044,19 @@ impl<T: Trait> Module<T> {
     }
 
     fn polkabtc_to_u128(x: PolkaBTC<T>) -> Result<u128, DispatchError> {
-        TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::ConversionError.into())
+        TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
     fn dot_to_u128(x: DOT<T>) -> Result<u128, DispatchError> {
-        TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::ConversionError.into())
+        TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
     fn u128_to_dot(x: u128) -> Result<DOT<T>, DispatchError> {
-        TryInto::<DOT<T>>::try_into(x).map_err(|_| Error::<T>::ConversionError.into())
+        TryInto::<DOT<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
     fn u128_to_polkabtc(x: u128) -> Result<PolkaBTC<T>, DispatchError> {
-        TryInto::<PolkaBTC<T>>::try_into(x).map_err(|_| Error::<T>::ConversionError.into())
+        TryInto::<PolkaBTC<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 }
 
@@ -1106,13 +1100,13 @@ decl_error! {
         VaultNotFound,
         /// The Bitcoin Address has already been registered
         BtcAddressTaken,
-        /// Result is too big for type
-        ScaleConversionError,
-        /// Other conversion error
-        ConversionError,
         /// Collateralization is infinite if no tokens are issued
         NoTokensIssued,
         NoVaultWithSufficientCollateral,
-        NoVaultWithSufficientTokens
+        NoVaultWithSufficientTokens,
+        ArithmeticOverflow,
+        ArithmeticUnderflow,
+        /// Unable to convert value
+        TryIntoIntError
     }
 }

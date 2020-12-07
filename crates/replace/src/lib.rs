@@ -517,7 +517,7 @@ impl<T: Trait> Module<T> {
 
         // step 5: Call validateTransaction in BTC-Relay
         let amount = TryInto::<u64>::try_into(replace.amount)
-            .map_err(|_e| Error::<T>::ConversionError)? as i64;
+            .map_err(|_e| Error::<T>::TryIntoIntError)? as i64;
 
         // TODO: register change addresses (vault wallet)
         ext::btc_relay::validate_transaction::<T>(
@@ -684,6 +684,7 @@ decl_error! {
         ReplacePeriodNotExpired,
         ReplaceCompleted,
         ReplaceIdNotFound,
-        ConversionError,
+        /// Unable to convert value
+        TryIntoIntError,
     }
 }

@@ -731,7 +731,7 @@ impl<T: Trait> Module<T> {
     }
 
     fn dot_to_u128(amount: DOT<T>) -> Result<u128, Error<T>> {
-        TryInto::<u128>::try_into(amount).map_err(|_e| Error::ConversionError)
+        TryInto::<u128>::try_into(amount).map_err(|_| Error::TryIntoIntError)
     }
 
     /// Should throw if not called by the governance account.
@@ -1047,7 +1047,7 @@ impl<T: Trait> Module<T> {
         wallet: &Wallet<BtcAddress>,
     ) -> bool {
         let request_value = match TryInto::<u64>::try_into(request_value)
-            .map_err(|_e| Error::<T>::ConversionError)
+            .map_err(|_e| Error::<T>::TryIntoIntError)
         {
             Ok(value) => value as i64,
             Err(_) => return false,
@@ -1272,7 +1272,7 @@ decl_error! {
         CollateralOk,
         /// Failed to parse transaction
         InvalidTransaction,
-        /// Error converting value
-        ConversionError,
+        /// Unable to convert value
+        TryIntoIntError,
     }
 }
