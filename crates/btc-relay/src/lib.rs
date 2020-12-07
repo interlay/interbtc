@@ -150,7 +150,7 @@ macro_rules! extract_op_return {
     ($($tx:expr),*) => {
         {
             $(
-                if let Ok(data) = $tx.script.extract_op_return_data() {
+                if let Some(Ok(data)) = $tx.map(|tx| tx.script.extract_op_return_data()) {
                     data
                 } else
             )*
@@ -542,39 +542,51 @@ impl<T: Trait> Module<T> {
     fn extract_value(
         transaction: Transaction,
         recipient_btc_address: BtcAddress,
-    ) -> Result<i64, Error<T>> {
+    ) -> Result<i64, DispatchError> {
         // Check if payment is first output
-        match transaction.outputs[0].extract_address() {
-            Ok(extr_recipient_btc_address) => {
+        match transaction
+            .outputs
+            .get(0)
+            .map(|output| output.extract_address())
+        {
+            Some(Ok(extr_recipient_btc_address)) => {
                 if recipient_btc_address == extr_recipient_btc_address {
                     return Ok(transaction.outputs[0].value);
                 }
             }
-            Err(_) => (),
+            _ => (),
         };
 
         // Check if payment is second output
-        match transaction.outputs[1].extract_address() {
-            Ok(extr_recipient_btc_address) => {
+        match transaction
+            .outputs
+            .get(1)
+            .map(|output| output.extract_address())
+        {
+            Some(Ok(extr_recipient_btc_address)) => {
                 if recipient_btc_address == extr_recipient_btc_address {
                     return Ok(transaction.outputs[1].value);
                 }
             }
-            Err(_) => (),
+            _ => (),
         };
 
         // Check if payment is third output
-        match transaction.outputs[2].extract_address() {
-            Ok(extr_recipient_btc_address) => {
+        match transaction
+            .outputs
+            .get(1)
+            .map(|output| output.extract_address())
+        {
+            Some(Ok(extr_recipient_btc_address)) => {
                 if recipient_btc_address == extr_recipient_btc_address {
                     return Ok(transaction.outputs[2].value);
                 }
             }
-            Err(_) => (),
+            _ => (),
         };
 
         // Payment UTXO sends to incorrect address
-        Err(Error::<T>::WrongRecipient)
+        Err(Error::<T>::WrongRecipient.into())
     }
 
     /// Extract the payment value and `OP_RETURN` payload from the first
@@ -587,7 +599,7 @@ impl<T: Trait> Module<T> {
     fn extract_value_and_op_return(
         transaction: Transaction,
         recipient_btc_address: BtcAddress,
-    ) -> Result<(i64, Vec<u8>), Error<T>> {
+    ) -> Result<(i64, Vec<u8>), DispatchError> {
         ensure!(
             // We would typically expect three outputs (payment, op_return, refund) but
             // exceptionally the input amount may be exact so we would only require two
@@ -601,7 +613,7 @@ impl<T: Trait> Module<T> {
                 if recipient_btc_address == extr_recipient_btc_address {
                     return Ok((
                         transaction.outputs[0].value,
-                        extract_op_return!(transaction.outputs[1], transaction.outputs[2]),
+                        extract_op_return!(transaction.outputs.get(1), transaction.outputs.get(2)),
                     ));
                 }
             }
@@ -614,7 +626,7 @@ impl<T: Trait> Module<T> {
                 if recipient_btc_address == extr_recipient_btc_address {
                     return Ok((
                         transaction.outputs[1].value,
-                        extract_op_return!(transaction.outputs[0], transaction.outputs[2]),
+                        extract_op_return!(transaction.outputs.get(0), transaction.outputs.get(2)),
                     ));
                 }
             }
@@ -622,20 +634,24 @@ impl<T: Trait> Module<T> {
         };
 
         // Check if payment is third output
-        match transaction.outputs[2].extract_address() {
-            Ok(extr_recipient_btc_address) => {
+        match transaction
+            .outputs
+            .get(2)
+            .map(|output| output.extract_address())
+        {
+            Some(Ok(extr_recipient_btc_address)) => {
                 if recipient_btc_address == extr_recipient_btc_address {
                     return Ok((
                         transaction.outputs[2].value,
-                        extract_op_return!(transaction.outputs[0], transaction.outputs[1]),
+                        extract_op_return!(transaction.outputs.get(0), transaction.outputs.get(1)),
                     ));
                 }
             }
-            Err(_) => (),
+            _ => (),
         };
 
         // Payment UTXO sends to incorrect address
-        Err(Error::<T>::WrongRecipient)
+        Err(Error::<T>::WrongRecipient.into())
     }
 
     pub fn is_op_return_disabled() -> bool {
