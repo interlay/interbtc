@@ -503,11 +503,9 @@ impl<T: Trait> Module<T> {
         let new_vault_id = replace.new_vault.unwrap();
         let old_vault_id = replace.old_vault;
 
-        // step 2: Check that the current Parachain block height minus the ReplacePeriod is smaller than the opentime of the ReplaceRequest
-        let replace_period = Self::replace_period();
-        let current_height = Self::current_height();
+        // only executable before the request has expired
         ensure!(
-            current_height <= replace.open_time + replace_period,
+            !has_request_expired::<T>(replace.open_time, Self::replace_period()),
             Error::<T>::ReplacePeriodExpired
         );
 
@@ -560,11 +558,9 @@ impl<T: Trait> Module<T> {
         // step 1: Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
         let replace = Self::get_replace_request(&replace_id)?;
 
-        // step 2: Check that the current Parachain block height minus the ReplacePeriod is greater than the opentime of the ReplaceRequest
-        let current_height = Self::current_height();
-        let replace_period = Self::replace_period();
+        // only cancellable after the request has expired
         ensure!(
-            current_height > replace.open_time + replace_period,
+            has_request_expired::<T>(replace.open_time, Self::replace_period()),
             Error::<T>::ReplacePeriodNotExpired
         );
 
@@ -666,6 +662,11 @@ impl<T: Trait> Module<T> {
     fn current_height() -> T::BlockNumber {
         <frame_system::Module<T>>::block_number()
     }
+}
+
+fn has_request_expired<T: Trait>(opentime: T::BlockNumber, period: T::BlockNumber) -> bool {
+    let height = <frame_system::Module<T>>::block_number();
+    height > opentime + period
 }
 
 decl_error! {

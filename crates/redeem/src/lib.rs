@@ -252,12 +252,13 @@ decl_module! {
 
             let redeem = Self::get_redeem_request_from_id(&redeem_id)?;
             ensure!(vault_id == redeem.vault, Error::<T>::UnauthorizedVault);
-            let height = <frame_system::Module<T>>::block_number();
-            let period = Self::redeem_period();
+
+            // only executable before the request has expired
             ensure!(
-                height <= redeem.opentime + period,
+                !has_request_expired::<T>(redeem.opentime, Self::redeem_period()),
                 Error::<T>::CommitPeriodExpired
             );
+
             let amount: usize = redeem
                 .amount_btc
                 .try_into()
@@ -308,9 +309,11 @@ decl_module! {
             let redeem = Self::get_redeem_request_from_id(&redeem_id)?;
             ensure!(redeemer == redeem.redeemer, Error::<T>::UnauthorizedUser);
 
-            let height = <frame_system::Module<T>>::block_number();
-            let period = Self::redeem_period();
-            ensure!(height > redeem.opentime + period, Error::<T>::TimeNotExpired);
+            // only cancellable after the request has expired
+            ensure!(
+                has_request_expired::<T>(redeem.opentime, Self::redeem_period()),
+                Error::<T>::TimeNotExpired
+            );
 
             let punishment_fee = ext::vault_registry::punishment_fee::<T>();
             let raw_punishment_fee = Self::dot_to_u128(punishment_fee)?;
@@ -341,6 +344,8 @@ decl_module! {
                 let slash_amount: DOT<T> = Self::u128_to_dot(slash_in_dot)?;
                 ext::collateral::slash_collateral::<T>(&redeem.redeemer, &redeem.vault, slash_amount)?;
             }
+
+            let height = <frame_system::Module<T>>::block_number();
             ext::vault_registry::ban_vault::<T>(redeem.vault, height)?;
             Self::remove_redeem_request(redeem_id);
             Self::deposit_event(<Event<T>>::CancelRedeem(redeem_id, redeemer));
@@ -484,6 +489,11 @@ impl<T: Trait> Module<T> {
             .checked_div(100_000)
             .ok_or(Error::<T>::ConversionError.into())
     }
+}
+
+fn has_request_expired<T: Trait>(opentime: T::BlockNumber, period: T::BlockNumber) -> bool {
+    let height = <frame_system::Module<T>>::block_number();
+    height > opentime + period
 }
 
 decl_error! {

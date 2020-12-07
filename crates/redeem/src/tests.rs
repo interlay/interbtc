@@ -1,4 +1,5 @@
 use crate::ext;
+use crate::has_request_expired;
 use crate::mock::*;
 
 use crate::types::{PolkaBTC, RedeemRequest, DOT};
@@ -450,7 +451,7 @@ fn test_execute_redeem_fails_with_unauthorized_vault() {
 #[test]
 fn test_execute_redeem_fails_with_commit_period_expired() {
     run_test(|| {
-        <frame_system::Module<Test>>::set_block_number(40);
+        System::set_block_number(40);
 
         Redeem::get_redeem_request_from_id.mock_safe(|_| {
             MockResult::Return(Ok(RedeemRequest {
@@ -655,5 +656,14 @@ fn test_set_redeem_period_only_root() {
             DispatchError::BadOrigin
         );
         assert_ok!(Redeem::set_redeem_period(Origin::root(), 1));
+    })
+}
+
+#[test]
+fn test_has_request_expired() {
+    run_test(|| {
+        System::set_block_number(130);
+        assert!(has_request_expired::<Test>(50, 50));
+        assert!(!has_request_expired::<Test>(120, 50));
     })
 }
