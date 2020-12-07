@@ -1065,6 +1065,7 @@ impl<T: Trait> Module<T> {
             Err(_) => return false,
         };
 
+        // check all outputs, vault cannot pay to unknown recipients
         for (value, address) in payments {
             if *address == request_address {
                 if *value < request_value {
@@ -1083,6 +1084,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Check if a vault transaction is invalid. Returns `Ok` if invalid or `Err` otherwise.
+    /// This method should be callable over RPC for a staked-relayer client to check validity.
     ///
     /// # Arguments
     ///
@@ -1113,12 +1115,14 @@ impl<T: Trait> Module<T> {
                     _ => false,
                 }
             }),
+            // since the transaction does not have any inputs that correspond
+            // to any of the vault's registered BTC addresses, return Err
             Error::<T>::VaultNoInputToTransaction
         );
 
         // Vaults are required to move funds for redeem and replace operations.
         // Each transaction MUST feature at least two or three outputs as follows:
-        // * recipient: the recipient of the redeem/replace
+        // * recipient: the recipient of the redeem / replace
         // * op_return: the associated ID encoded in the OP_RETURN
         // * vault: any "spare change" the vault is transferring
 
@@ -1136,9 +1140,13 @@ impl<T: Trait> Module<T> {
             } else if op_returns[0].0 > 0 {
                 // op_return output should not burn value
                 return Ok(());
+            } else if op_returns[0].1.len() < 32 {
+                // request id is expected to be 32 bytes (256 bits)
+                return Ok(());
             }
 
-            let request_id = H256::from_slice(&op_returns[0].1);
+            // op_return can be up to 83 bytes so slice first 32
+            let request_id = H256::from_slice(&op_returns[0].1[..32]);
 
             // redeem requests
             match ext::redeem::get_redeem_request_from_id::<T>(&request_id) {

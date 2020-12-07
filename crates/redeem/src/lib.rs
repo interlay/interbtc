@@ -264,6 +264,7 @@ decl_module! {
                 .try_into()
                 .map_err(|_e| Error::<T>::ConversionError)?;
             ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
+            // TODO: register change addresses (vault wallet)
             ext::btc_relay::validate_transaction::<T>(
                 raw_tx,
                 amount as i64,
