@@ -62,7 +62,7 @@ fn test_ensure_parachain_running_or_error_liquidated_fails() {
             SecurityError::ParachainNotRunning
         );
 
-        ext::security::ensure_parachain_status_has_only_specific_errors::<Test>
+        ext::security::ensure_parachain_only_has_errors::<Test>
             .mock_safe(|_| MockResult::Return(Err(SecurityError::InvalidBTCRelay.into())));
 
         assert_err!(
@@ -80,7 +80,7 @@ fn test_ensure_parachain_running_or_error_liquidated_succeeds() {
 
         assert_ok!(Redeem::ensure_parachain_running_or_error_liquidated());
 
-        ext::security::ensure_parachain_status_has_only_specific_errors::<Test>
+        ext::security::ensure_parachain_only_has_errors::<Test>
             .mock_safe(|_| MockResult::Return(Ok(())));
 
         assert_ok!(Redeem::ensure_parachain_running_or_error_liquidated());
@@ -317,7 +317,7 @@ fn test_partial_redeem_factor() {
 #[test]
 fn test_request_redeem_succeeds_in_error_state() {
     run_test(|| {
-        ext::security::ensure_parachain_status_has_only_specific_errors::<Test>
+        ext::security::ensure_parachain_only_has_errors::<Test>
             .mock_safe(|_| MockResult::Return(Ok(())));
 
         ext::security::is_parachain_error_liquidation::<Test>

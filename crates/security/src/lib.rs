@@ -30,6 +30,7 @@ use primitive_types::H256;
 use sha2::{Digest, Sha256};
 use sp_core::U256;
 use sp_std::collections::btree_set::BTreeSet;
+use sp_std::iter::FromIterator;
 use sp_std::prelude::*;
 
 /// ## Configuration
@@ -67,7 +68,7 @@ decl_module! {
 #[cfg_attr(test, mockable)]
 impl<T: Trait> Module<T> {
     /// Ensures the Parachain is RUNNING
-    pub fn _ensure_parachain_status_running() -> Result<(), DispatchError> {
+    pub fn ensure_parachain_status_running() -> Result<(), DispatchError> {
         if <ParachainStatus>::get() == StatusCode::Running {
             Ok(())
         } else {
@@ -76,7 +77,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Ensures the Parachain is not SHUTDOWN
-    pub fn _ensure_parachain_status_not_shutdown() -> Result<(), DispatchError> {
+    pub fn ensure_parachain_status_not_shutdown() -> Result<(), DispatchError> {
         if <ParachainStatus>::get() != StatusCode::Shutdown {
             Ok(())
         } else {
@@ -91,13 +92,13 @@ impl<T: Trait> Module<T> {
     ///   * `error_codes` - list of `ErrorCode` to be checked
     ///
     /// Returns the first error that is encountered, or Ok(()) if none of the errors were found
-    pub fn _ensure_parachain_status_has_not_specific_errors(
+    pub fn ensure_parachain_does_not_have_errors(
         error_codes: Vec<ErrorCode>,
     ) -> Result<(), DispatchError> {
         if <ParachainStatus>::get() == StatusCode::Error {
             for error_code in error_codes {
                 if <Errors>::get().contains(&error_code) {
-                    return Self::match_error_code_to_error(&error_code);
+                    return Err(Error::<T>::from(error_code).into());
                 }
             }
         }
@@ -112,34 +113,19 @@ impl<T: Trait> Module<T> {
     ///
     /// Returns the first unexpected error that is encountered,
     /// or Ok(()) if only expected errors / no errors at all were found
-    pub fn _ensure_parachain_status_has_only_specific_errors(
+    pub fn ensure_parachain_only_has_errors(
         error_codes: Vec<ErrorCode>,
     ) -> Result<(), DispatchError> {
         if <ParachainStatus>::get() == StatusCode::Error {
-            let mut temp_errors = <Errors>::get();
-
-            for error_code in error_codes {
-                if <Errors>::get().contains(&error_code) {
-                    temp_errors.remove(&error_code);
+            let error_set: BTreeSet<ErrorCode> = FromIterator::from_iter(error_codes);
+            for error_code in <Errors>::get().iter() {
+                // check if error is set
+                if !error_set.contains(&error_code) {
+                    return Err(Error::<T>::from(error_code.clone()).into());
                 }
-            }
-
-            match temp_errors.iter().next() {
-                Some(error_code) => return Self::match_error_code_to_error(error_code),
-                None => return Ok(()),
             }
         }
         Ok(())
-    }
-
-    fn match_error_code_to_error(error_code: &ErrorCode) -> Result<(), DispatchError> {
-        match error_code {
-            ErrorCode::NoDataBTCRelay => Err(Error::<T>::NoDataBTCRelay.into()),
-            ErrorCode::InvalidBTCRelay => Err(Error::<T>::InvalidBTCRelay.into()),
-            ErrorCode::OracleOffline => Err(Error::<T>::ParachainOracleOfflineError.into()),
-            ErrorCode::Liquidation => Err(Error::<T>::ParachainLiquidationError.into()),
-            _ => Err(Error::<T>::InvalidErrorCode.into()),
-        }
     }
 
     /// Ensures the Parachain is not in an ERROR state due to OracleOffline error
@@ -153,25 +139,25 @@ impl<T: Trait> Module<T> {
     }
 
     /// Checks if the Parachain has a NoDataBTCRelay Error state
-    pub fn _is_parachain_error_no_data_btcrelay() -> bool {
+    pub fn is_parachain_error_no_data_btcrelay() -> bool {
         <ParachainStatus>::get() == StatusCode::Error
             && <Errors>::get().contains(&ErrorCode::NoDataBTCRelay)
     }
 
     /// Checks if the Parachain has a InvalidBTCRelay Error state
-    pub fn _is_parachain_error_invalid_btcrelay() -> bool {
+    pub fn is_parachain_error_invalid_btcrelay() -> bool {
         <ParachainStatus>::get() == StatusCode::Error
             && <Errors>::get().contains(&ErrorCode::InvalidBTCRelay)
     }
 
     /// Checks if the Parachain has a OracleOffline Error state
-    pub fn _is_parachain_error_oracle_offline() -> bool {
+    pub fn is_parachain_error_oracle_offline() -> bool {
         <ParachainStatus>::get() == StatusCode::Error
             && <Errors>::get().contains(&ErrorCode::OracleOffline)
     }
 
     /// Checks if the Parachain has a Liquidation Error state
-    pub fn _is_parachain_error_liquidation() -> bool {
+    pub fn is_parachain_error_liquidation() -> bool {
         <ParachainStatus>::get() == StatusCode::Error
             && <Errors>::get().contains(&ErrorCode::Liquidation)
     }
@@ -190,18 +176,6 @@ impl<T: Trait> Module<T> {
         <ParachainStatus>::set(status_code);
     }
 
-    /// Mutates the set of `ErrorCode`.
-    ///
-    /// # Arguments
-    ///
-    /// * `f` - callback to manipulate errors.
-    pub fn mutate_errors<F>(f: F) -> DispatchResult
-    where
-        F: FnOnce(&mut BTreeSet<ErrorCode>) -> DispatchResult,
-    {
-        <Errors>::mutate(f)
-    }
-
     /// Get the current set of `ErrorCode`.
     pub fn get_errors() -> BTreeSet<ErrorCode> {
         <Errors>::get()
@@ -218,13 +192,21 @@ impl<T: Trait> Module<T> {
         })
     }
 
+    /// Removes the given `ErrorCode`.
+    ///
+    /// # Arguments
+    ///
+    /// * `error_code` - the error to remove.
+    pub fn remove_error(error_code: ErrorCode) {
+        <Errors>::mutate(|errors| {
+            errors.remove(&error_code);
+        })
+    }
+
     fn recover_from_(error_codes: Vec<ErrorCode>) -> DispatchResult {
-        Self::mutate_errors(|errors| {
-            for err in error_codes.clone() {
-                errors.remove(&err);
-            }
-            Ok(())
-        })?;
+        for error_code in error_codes.clone() {
+            Self::remove_error(error_code);
+        }
 
         if Self::get_errors().is_empty() {
             Self::set_parachain_status(StatusCode::Running);
@@ -271,10 +253,12 @@ impl<T: Trait> Module<T> {
     /// # Arguments
     ///
     /// * `id`: Parachain account identifier.
-    pub fn _get_secure_id(id: &T::AccountId) -> H256 {
+    pub fn get_secure_id(id: &T::AccountId) -> H256 {
         let mut hasher = Sha256::default();
         hasher.input(id.encode());
         hasher.input(Self::get_nonce().encode());
+        // supplement with prev block hash to prevent replays
+        // even if the `Nonce` is reset (i.e. purge-chain)
         hasher.input(frame_system::Module::<T>::parent_hash());
         let mut result = [0; 32];
         result.copy_from_slice(&hasher.result()[..]);
@@ -298,5 +282,17 @@ decl_error! {
         ParachainOracleOfflineError,
         ParachainLiquidationError,
         InvalidErrorCode,
+    }
+}
+
+impl<T: Trait> From<ErrorCode> for Error<T> {
+    fn from(error_code: ErrorCode) -> Self {
+        match error_code {
+            ErrorCode::NoDataBTCRelay => Error::NoDataBTCRelay,
+            ErrorCode::InvalidBTCRelay => Error::InvalidBTCRelay,
+            ErrorCode::OracleOffline => Error::ParachainOracleOfflineError,
+            ErrorCode::Liquidation => Error::ParachainLiquidationError,
+            _ => Error::InvalidErrorCode,
+        }
     }
 }

@@ -1461,8 +1461,8 @@ impl<T: Trait> Module<T> {
     }
 
     fn recover_if_needed() -> Result<(), DispatchError> {
-        if ext::security::_is_parachain_error_invalid_btcrelay::<T>()
-            || ext::security::_is_parachain_error_no_data_btcrelay::<T>()
+        if ext::security::is_parachain_error_invalid_btcrelay::<T>()
+            || ext::security::is_parachain_error_no_data_btcrelay::<T>()
         {
             Ok(ext::security::recover_from_btc_relay_failure::<T>()?)
         } else {

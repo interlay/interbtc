@@ -74,16 +74,16 @@ pub(crate) mod security {
     }
 
     pub fn ensure_parachain_status_running<T: security::Trait>() -> DispatchResult {
-        <security::Module<T>>::_ensure_parachain_status_running()
+        <security::Module<T>>::ensure_parachain_status_running()
     }
 
     pub fn ensure_parachain_status_not_shutdown<T: security::Trait>() -> DispatchResult {
-        <security::Module<T>>::_ensure_parachain_status_not_shutdown()
+        <security::Module<T>>::ensure_parachain_status_not_shutdown()
     }
 
-    pub fn ensure_parachain_status_has_not_specific_errors<T: security::Trait>(
+    pub fn ensure_parachain_does_not_have_errors<T: security::Trait>(
         error_codes: Vec<ErrorCode>,
     ) -> DispatchResult {
-        <security::Module<T>>::_ensure_parachain_status_has_not_specific_errors(error_codes)
+        <security::Module<T>>::ensure_parachain_does_not_have_errors(error_codes)
     }
 }

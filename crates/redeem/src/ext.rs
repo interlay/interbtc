@@ -154,21 +154,21 @@ pub(crate) mod security {
     use sp_std::vec::Vec;
 
     pub fn is_parachain_error_liquidation<T: security::Trait>() -> bool {
-        <security::Module<T>>::_is_parachain_error_liquidation()
+        <security::Module<T>>::is_parachain_error_liquidation()
     }
 
     pub fn get_secure_id<T: security::Trait>(id: &T::AccountId) -> H256 {
-        <security::Module<T>>::_get_secure_id(id)
+        <security::Module<T>>::get_secure_id(id)
     }
 
     pub fn ensure_parachain_status_running<T: security::Trait>() -> DispatchResult {
-        <security::Module<T>>::_ensure_parachain_status_running()
+        <security::Module<T>>::ensure_parachain_status_running()
     }
 
-    pub fn ensure_parachain_status_has_only_specific_errors<T: security::Trait>(
+    pub fn ensure_parachain_only_has_errors<T: security::Trait>(
         error_codes: Vec<ErrorCode>,
     ) -> DispatchResult {
-        <security::Module<T>>::_ensure_parachain_status_has_only_specific_errors(error_codes)
+        <security::Module<T>>::ensure_parachain_only_has_errors(error_codes)
     }
 }
 

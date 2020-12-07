@@ -6,7 +6,7 @@ pub(crate) mod security {
     use frame_support::dispatch::DispatchResult;
 
     pub fn ensure_parachain_status_not_shutdown<T: security::Trait>() -> DispatchResult {
-        <security::Module<T>>::_ensure_parachain_status_not_shutdown()
+        <security::Module<T>>::ensure_parachain_status_not_shutdown()
     }
 
     pub fn recover_from_oracle_offline<T: security::Trait>() -> DispatchResult {

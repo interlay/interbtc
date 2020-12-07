@@ -945,7 +945,7 @@ impl<T: Trait> Module<T> {
         // Parachain must not be shutdown
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
         // There must not be in InvalidBTCRelay, OracleOffline or Liquidation error state
-        ext::security::ensure_parachain_status_has_not_specific_errors::<T>(error_codes)
+        ext::security::ensure_parachain_does_not_have_errors::<T>(error_codes)
     }
 
     /// calculate the collateralization as a ratio of the issued tokens to the

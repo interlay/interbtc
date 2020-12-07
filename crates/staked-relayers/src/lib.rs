@@ -393,15 +393,14 @@ decl_module! {
 
             let to_add = add_error.clone();
             let to_remove = remove_error.clone();
-            ext::security::mutate_errors::<T, _>(move |errors| {
-                if let Some(err) = to_add {
-                    errors.insert(err);
-                }
-                if let Some(err) = to_remove {
-                    errors.remove(&err);
-                }
-                Ok(())
-            })?;
+
+            if let Some(error_code) = to_add {
+                ext::security::insert_error::<T>(error_code);
+            }
+
+            if let Some(error_code) = to_remove {
+                ext::security::remove_error::<T>(error_code);
+            }
 
             Self::deposit_event(<Event<T>>::ForceStatusUpdate(
                 status_code,
@@ -465,10 +464,7 @@ decl_module! {
 
             ext::vault_registry::liquidate_theft_vault::<T>(&vault_id)?;
             ext::security::set_parachain_status::<T>(StatusCode::Error);
-            ext::security::mutate_errors::<T, _>(|errors| {
-                errors.insert(ErrorCode::Liquidation);
-                Ok(())
-            })?;
+            ext::security::insert_error::<T>(ErrorCode::Liquidation);
 
             <TheftReports<T>>::mutate(&tx_id, |reports| {
                 reports.insert(vault_id);
@@ -528,10 +524,7 @@ decl_module! {
 
             ext::vault_registry::liquidate_vault::<T>(&vault_id)?;
             ext::security::set_parachain_status::<T>(StatusCode::Error);
-            ext::security::mutate_errors::<T, _>(|errors| {
-                errors.insert(ErrorCode::Liquidation);
-                Ok(())
-            })?;
+            ext::security::insert_error::<T>(ErrorCode::Liquidation);
 
             Self::deposit_event(<Event<T>>::ExecuteStatusUpdate(
                 StatusCode::Error,
@@ -564,10 +557,7 @@ decl_module! {
             );
 
             ext::security::set_parachain_status::<T>(StatusCode::Error);
-            ext::security::mutate_errors::<T, _>(|errors| {
-                errors.insert(ErrorCode::OracleOffline);
-                Ok(())
-            })?;
+            ext::security::insert_error::<T>(ErrorCode::OracleOffline);
 
             Self::deposit_event(<Event<T>>::ExecuteStatusUpdate(
                 StatusCode::Error,
@@ -950,30 +940,28 @@ impl<T: Trait> Module<T> {
         let remove_error = status_update.remove_error.clone();
         let btc_block_hash = status_update.btc_block_hash;
         let old_status_code = status_update.old_status_code.clone();
-        ext::security::mutate_errors::<T, _>(move |errors| {
-            if let Some(err) = add_error {
-                if err == ErrorCode::NoDataBTCRelay || err == ErrorCode::InvalidBTCRelay {
-                    ext::btc_relay::flag_block_error::<T>(
-                        btc_block_hash.ok_or(Error::<T>::ExpectedBlockHash)?,
-                        err.clone(),
-                    )?;
-                }
-                errors.insert(err);
-            }
 
-            if let Some(err) = remove_error {
-                if err == ErrorCode::NoDataBTCRelay || err == ErrorCode::InvalidBTCRelay {
-                    ext::btc_relay::clear_block_error::<T>(
-                        btc_block_hash.ok_or(Error::<T>::ExpectedBlockHash)?,
-                        err.clone(),
-                    )?;
-                }
-                if old_status_code == StatusCode::Error {
-                    errors.remove(&err);
-                }
+        if let Some(error_code) = add_error {
+            if error_code == ErrorCode::NoDataBTCRelay || error_code == ErrorCode::InvalidBTCRelay {
+                ext::btc_relay::flag_block_error::<T>(
+                    btc_block_hash.ok_or(Error::<T>::ExpectedBlockHash)?,
+                    error_code.clone(),
+                )?;
             }
-            Ok(())
-        })?;
+            ext::security::insert_error::<T>(error_code);
+        }
+
+        if let Some(error_code) = remove_error {
+            if error_code == ErrorCode::NoDataBTCRelay || error_code == ErrorCode::InvalidBTCRelay {
+                ext::btc_relay::clear_block_error::<T>(
+                    btc_block_hash.ok_or(Error::<T>::ExpectedBlockHash)?,
+                    error_code.clone(),
+                )?;
+            }
+            if old_status_code == StatusCode::Error {
+                ext::security::remove_error::<T>(error_code);
+            }
+        }
 
         ext::collateral::release_collateral::<T>(&status_update.proposer, status_update.deposit)?;
         status_update.proposal_status = ProposalStatus::Accepted;
