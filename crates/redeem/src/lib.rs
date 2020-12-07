@@ -180,19 +180,19 @@ decl_module! {
                     let amount_dot: u128 = Self::rawbtc_to_rawdot(amount_dot_in_btc)?;
                     (
                         amount_btc,
-                        amount_dot.try_into().map_err(|_e| Error::<T>::ConversionError)?,
+                        amount_dot.try_into().map_err(|_e| Error::<T>::TryIntoIntError)?,
                     )
                 } else {
                     (Self::btc_to_u128(amount_polka_btc)?, 0)
                 };//how much you locked
             ext::vault_registry::increase_to_be_redeemed_tokens::<T>(
                 &vault_id,
-                amount_btc.try_into().map_err(|_e| Error::<T>::ConversionError)?,
+                amount_btc.try_into().map_err(|_e| Error::<T>::TryIntoIntError)?,
             )?;
             if amount_dot > 0 {
                 ext::vault_registry::redeem_tokens_liquidation::<T>(
                     &vault_id,
-                    amount_dot.try_into().map_err(|_e| Error::<T>::ConversionError)?,
+                    amount_dot.try_into().map_err(|_e| Error::<T>::TryIntoIntError)?,
                 )?;
             }
             ext::treasury::lock::<T>(redeemer.clone(), amount_polka_btc)?;
@@ -211,8 +211,8 @@ decl_module! {
                     vault: vault_id.clone(),
                     opentime: height,
                     amount_polka_btc,
-                    amount_btc: amount_btc.try_into().map_err(|_e| Error::<T>::ConversionError)?,
-                    amount_dot: amount_dot.try_into().map_err(|_e| Error::<T>::ConversionError)?,
+                    amount_btc: amount_btc.try_into().map_err(|_e| Error::<T>::TryIntoIntError)?,
+                    amount_dot: amount_dot.try_into().map_err(|_e| Error::<T>::TryIntoIntError)?,
                     premium_dot,
                     redeemer: redeemer.clone(),
                     btc_address: btc_address.clone(),
@@ -262,7 +262,7 @@ decl_module! {
             let amount: usize = redeem
                 .amount_btc
                 .try_into()
-                .map_err(|_e| Error::<T>::ConversionError)?;
+                .map_err(|_e| Error::<T>::TryIntoIntError)?;
             ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
             // TODO: register change addresses (vault wallet)
             ext::btc_relay::validate_transaction::<T>(
@@ -328,11 +328,11 @@ decl_module! {
                 )?;
                 ext::treasury::burn::<T>(redeem.redeemer.clone(), redeem.amount_polka_btc)?;
                 let reimburse_in_dot = raw_amount_in_dot
-                    .checked_mul(100_000 + raw_punishment_fee).ok_or(Error::<T>::ConversionError)?
-                    .checked_div(100_000).ok_or(Error::<T>::ConversionError)?;
+                    .checked_mul(100_000 + raw_punishment_fee).ok_or(Error::<T>::ArithmeticOverflow)?
+                    .checked_div(100_000).ok_or(Error::<T>::ArithmeticUnderflow)?;
                 let reimburse_amount: DOT<T> = reimburse_in_dot
                     .try_into()
-                    .map_err(|_| Error::<T>::ConversionError)?;
+                    .map_err(|_| Error::<T>::TryIntoIntError)?;
                 ext::collateral::slash_collateral::<T>(
                     &redeem.redeemer,
                     &redeem.vault,
@@ -340,8 +340,8 @@ decl_module! {
                 )?;
             } else {
                 let slash_in_dot = raw_amount_in_dot
-                    .checked_mul(raw_punishment_fee).ok_or(Error::<T>::ConversionError)?
-                    .checked_div(100_000).ok_or(Error::<T>::ConversionError)?;
+                    .checked_mul(raw_punishment_fee).ok_or(Error::<T>::ArithmeticOverflow)?
+                    .checked_div(100_000).ok_or(Error::<T>::ArithmeticUnderflow)?;
                 let slash_amount: DOT<T> = Self::u128_to_dot(slash_in_dot)?;
                 ext::collateral::slash_collateral::<T>(&redeem.redeemer, &redeem.vault, slash_amount)?;
             }
@@ -463,19 +463,19 @@ impl<T: Trait> Module<T> {
     }
 
     fn btc_to_u128(amount: PolkaBTC<T>) -> Result<u128, DispatchError> {
-        TryInto::<u128>::try_into(amount).map_err(|_e| Error::<T>::ConversionError.into())
+        TryInto::<u128>::try_into(amount).map_err(|_e| Error::<T>::TryIntoIntError.into())
     }
 
     fn dot_to_u128(amount: DOT<T>) -> Result<u128, DispatchError> {
-        TryInto::<u128>::try_into(amount).map_err(|_e| Error::<T>::ConversionError.into())
+        TryInto::<u128>::try_into(amount).map_err(|_e| Error::<T>::TryIntoIntError.into())
     }
 
     fn u128_to_dot(x: u128) -> Result<DOT<T>, DispatchError> {
-        TryInto::<DOT<T>>::try_into(x).map_err(|_| Error::<T>::ConversionError.into())
+        TryInto::<DOT<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
     fn u128_to_btc(x: u128) -> Result<PolkaBTC<T>, DispatchError> {
-        TryInto::<PolkaBTC<T>>::try_into(x).map_err(|_| Error::<T>::ConversionError.into())
+        TryInto::<PolkaBTC<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
     fn rawbtc_to_rawdot(btc: u128) -> Result<u128, DispatchError> {
@@ -486,9 +486,9 @@ impl<T: Trait> Module<T> {
     fn partial_redeem(raw_btc: u128) -> Result<u128, DispatchError> {
         raw_btc
             .checked_mul(Self::get_partial_redeem_factor()?)
-            .ok_or(Error::<T>::ConversionError)?
+            .ok_or(Error::<T>::ArithmeticOverflow)?
             .checked_div(100_000)
-            .ok_or(Error::<T>::ConversionError.into())
+            .ok_or(Error::<T>::ArithmeticUnderflow.into())
     }
 }
 
@@ -507,7 +507,10 @@ decl_error! {
         TimeNotExpired,
         RedeemCompleted,
         RedeemIdNotFound,
-        ConversionError,
+        /// Unable to convert value
+        TryIntoIntError,
+        ArithmeticOverflow,
+        ArithmeticUnderflow,
         AmountBelowDustAmount,
     }
 }

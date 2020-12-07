@@ -280,7 +280,7 @@ impl<T: Trait> Module<T> {
         ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
         ext::btc_relay::validate_transaction::<T>(
             raw_tx,
-            TryInto::<u64>::try_into(issue.amount).map_err(|_e| Error::<T>::ConversionError)?
+            TryInto::<u64>::try_into(issue.amount).map_err(|_e| Error::<T>::TryIntoIntError)?
                 as i64,
             issue.btc_address,
             issue_id.clone().as_bytes().to_vec(),
@@ -394,6 +394,7 @@ decl_error! {
         CommitPeriodExpired,
         TimeNotExpired,
         IssueCompleted,
-        ConversionError,
+        /// Unable to convert value
+        TryIntoIntError,
     }
 }

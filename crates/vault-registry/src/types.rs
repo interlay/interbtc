@@ -198,9 +198,9 @@ impl<T: Trait> RichVault<T> {
 
         let raw_used_collateral = raw_issued_tokens_in_dot
             .checked_mul(secure_threshold)
-            .ok_or(Error::<T>::ConversionError)?
+            .ok_or(Error::<T>::ArithmeticOverflow)?
             .checked_div(10u128.pow(crate::GRANULARITY))
-            .ok_or(Error::<T>::ConversionError)?;
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
         let used_collateral = crate::Module::<T>::u128_to_dot(raw_used_collateral)?;
 

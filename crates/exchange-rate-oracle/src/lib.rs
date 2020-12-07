@@ -175,7 +175,7 @@ impl<T: Trait> Module<T> {
     fn btc_dot_to_satoshi_planck(btc_dot: u128) -> Result<u128, DispatchError> {
         dot_to_planck(btc_dot)
             .checked_div(btc_to_satoshi(1))
-            .ok_or(Error::<T>::ConversionError.into())
+            .ok_or(Error::<T>::ArithmeticUnderflow.into())
     }
 
     pub fn btc_to_u128(amount: PolkaBTC<T>) -> Result<u128, DispatchError> {
@@ -187,7 +187,7 @@ impl<T: Trait> Module<T> {
     }
 
     fn into_u128<I: TryInto<u128>>(x: I) -> Result<u128, DispatchError> {
-        TryInto::<u128>::try_into(x).map_err(|_e| Error::<T>::ConversionError.into())
+        TryInto::<u128>::try_into(x).map_err(|_e| Error::<T>::TryIntoIntError.into())
     }
 
     pub fn btc_to_dots(amount: PolkaBTC<T>) -> Result<DOT<T>, DispatchError> {
@@ -195,12 +195,12 @@ impl<T: Trait> Module<T> {
         let raw_amount = Self::into_u128(amount)?;
         let converted = rate
             .checked_mul(raw_amount)
-            .ok_or(Error::<T>::ConversionError)?
+            .ok_or(Error::<T>::ArithmeticOverflow)?
             .checked_div(10u128.pow(GRANULARITY as u32))
-            .ok_or(Error::<T>::ConversionError)?;
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
         let result = converted
             .try_into()
-            .map_err(|_e| Error::<T>::ConversionError)?;
+            .map_err(|_e| Error::<T>::TryIntoIntError)?;
         Ok(result)
     }
 
@@ -212,12 +212,12 @@ impl<T: Trait> Module<T> {
         }
         let converted = raw_amount
             .checked_mul(10u128.pow(GRANULARITY as u32))
-            .ok_or(Error::<T>::ConversionError)?
+            .ok_or(Error::<T>::ArithmeticOverflow)?
             .checked_div(rate)
-            .ok_or(Error::<T>::ConversionError)?;
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
         let result = converted
             .try_into()
-            .map_err(|_e| Error::<T>::ConversionError)?;
+            .map_err(|_e| Error::<T>::TryIntoIntError)?;
         Ok(result)
     }
 
@@ -295,7 +295,9 @@ decl_error! {
         InvalidOracleSource,
         /// Exchange rate not specified or has expired
         MissingExchangeRate,
-        /// Failed to convert currency
-        ConversionError,
+        /// Unable to convert value
+        TryIntoIntError,
+        ArithmeticOverflow,
+        ArithmeticUnderflow,
     }
 }
