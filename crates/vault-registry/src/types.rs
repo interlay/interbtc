@@ -32,9 +32,9 @@ pub(crate) type PolkaBTC<T> =
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
 pub struct Wallet<T: Ord + Copy> {
     // store all addresses for `report_vault_theft` checks
-    pub(crate) addresses: BTreeSet<T>,
+    pub addresses: BTreeSet<T>,
     // we use the most recent address for issue / redeem requests
-    pub(crate) address: T,
+    pub address: T,
 }
 
 impl<T: Ord + Copy> Wallet<T> {
