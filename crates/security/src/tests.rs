@@ -38,7 +38,7 @@ fn test_get_and_set_parachain_status() {
 fn test_is_ensure_parachain_running_succeeds() {
     run_test(|| {
         Security::set_parachain_status(StatusCode::Running);
-        assert_ok!(Security::_ensure_parachain_status_running());
+        assert_ok!(Security::ensure_parachain_status_running());
     })
 }
 
@@ -47,13 +47,13 @@ fn test_is_ensure_parachain_running_fails() {
     run_test(|| {
         Security::set_parachain_status(StatusCode::Error);
         assert_noop!(
-            Security::_ensure_parachain_status_running(),
+            Security::ensure_parachain_status_running(),
             TestError::ParachainNotRunning
         );
 
         Security::set_parachain_status(StatusCode::Shutdown);
         assert_noop!(
-            Security::_ensure_parachain_status_running(),
+            Security::ensure_parachain_status_running(),
             TestError::ParachainNotRunning
         );
     })
@@ -63,10 +63,10 @@ fn test_is_ensure_parachain_running_fails() {
 fn test_is_ensure_parachain_not_shutdown_succeeds() {
     run_test(|| {
         Security::set_parachain_status(StatusCode::Running);
-        assert_ok!(Security::_ensure_parachain_status_not_shutdown());
+        assert_ok!(Security::ensure_parachain_status_not_shutdown());
 
         Security::set_parachain_status(StatusCode::Error);
-        assert_ok!(Security::_ensure_parachain_status_not_shutdown());
+        assert_ok!(Security::ensure_parachain_status_not_shutdown());
     })
 }
 
@@ -75,57 +75,97 @@ fn test_is_ensure_parachain_not_shutdown_fails() {
     run_test(|| {
         Security::set_parachain_status(StatusCode::Shutdown);
         assert_noop!(
-            Security::_ensure_parachain_status_not_shutdown(),
+            Security::ensure_parachain_status_not_shutdown(),
             TestError::ParachainShutdown
         );
     })
 }
 
 #[test]
-fn test_is_parachain_error_no_data_btcrelay() {
+fn test_ensure_parachain_does_not_have_errors() {
     run_test(|| {
+        Security::set_parachain_status(StatusCode::Running);
+        assert_ok!(Security::ensure_parachain_does_not_have_errors(vec![
+            ErrorCode::InvalidBTCRelay
+        ],));
+
         Security::set_parachain_status(StatusCode::Error);
-        assert_ok!(Security::mutate_errors(|errors| {
-            errors.insert(ErrorCode::NoDataBTCRelay);
-            Ok(())
-        }));
-        assert_eq!(Security::_is_parachain_error_no_data_btcrelay(), true);
+        assert_ok!(Security::ensure_parachain_does_not_have_errors(vec![
+            ErrorCode::InvalidBTCRelay
+        ],));
+
+        Security::insert_error(ErrorCode::InvalidBTCRelay);
+        assert_noop!(
+            Security::ensure_parachain_does_not_have_errors(vec![ErrorCode::InvalidBTCRelay]),
+            TestError::InvalidBTCRelay
+        );
+
+        assert_ok!(Security::ensure_parachain_does_not_have_errors(vec![]));
     })
 }
 
 #[test]
-fn test_is_parachain_error_invalid_btcrelay() {
+fn test_ensure_parachain_only_has_errors() {
     run_test(|| {
+        Security::set_parachain_status(StatusCode::Running);
+        assert_ok!(Security::ensure_parachain_only_has_errors(vec![]));
+
         Security::set_parachain_status(StatusCode::Error);
-        assert_ok!(Security::mutate_errors(|errors| {
-            errors.insert(ErrorCode::InvalidBTCRelay);
-            Ok(())
-        }));
-        assert_eq!(Security::_is_parachain_error_invalid_btcrelay(), true);
+        assert_ok!(Security::ensure_parachain_only_has_errors(vec![
+            ErrorCode::InvalidBTCRelay
+        ]));
+
+        Security::insert_error(ErrorCode::InvalidBTCRelay);
+        assert_ok!(Security::ensure_parachain_only_has_errors(vec![
+            ErrorCode::InvalidBTCRelay
+        ]));
+
+        Security::insert_error(ErrorCode::NoDataBTCRelay);
+        assert_noop!(
+            Security::ensure_parachain_only_has_errors(vec![ErrorCode::InvalidBTCRelay]),
+            TestError::NoDataBTCRelay
+        );
+
+        assert_ok!(Security::ensure_parachain_only_has_errors(vec![
+            ErrorCode::InvalidBTCRelay,
+            ErrorCode::NoDataBTCRelay
+        ]));
     })
 }
 
 #[test]
-fn test_is_parachain_error_oracle_offline() {
+fn testis_parachain_error_no_data_btcrelay() {
     run_test(|| {
         Security::set_parachain_status(StatusCode::Error);
-        assert_ok!(Security::mutate_errors(|errors| {
-            errors.insert(ErrorCode::OracleOffline);
-            Ok(())
-        }));
-        assert_eq!(Security::_is_parachain_error_oracle_offline(), true);
+        Security::insert_error(ErrorCode::NoDataBTCRelay);
+        assert_eq!(Security::is_parachain_error_no_data_btcrelay(), true);
     })
 }
 
 #[test]
-fn test_is_parachain_error_liquidation() {
+fn testis_parachain_error_invalid_btcrelay() {
     run_test(|| {
         Security::set_parachain_status(StatusCode::Error);
-        assert_ok!(Security::mutate_errors(|errors| {
-            errors.insert(ErrorCode::Liquidation);
-            Ok(())
-        }));
-        assert_eq!(Security::_is_parachain_error_liquidation(), true);
+        Security::insert_error(ErrorCode::InvalidBTCRelay);
+        assert_eq!(Security::is_parachain_error_invalid_btcrelay(), true);
+    })
+}
+
+#[test]
+fn testis_parachain_error_oracle_offline() {
+    run_test(|| {
+        Security::set_parachain_status(StatusCode::Error);
+        Security::insert_error(ErrorCode::OracleOffline);
+        assert_eq!(Security::is_parachain_error_oracle_offline(), true);
+    })
+}
+
+#[test]
+fn testis_parachain_error_liquidation() {
+    run_test(|| {
+        Security::set_parachain_status(StatusCode::Error);
+        Security::insert_error(ErrorCode::Liquidation);
+        assert_eq!(Security::is_parachain_error_liquidation(), true);
     })
 }
 
@@ -184,11 +224,11 @@ fn test_get_nonce() {
 }
 
 #[test]
-fn test_get_secure_id() {
+fn testget_secure_id() {
     run_test(|| {
         frame_system::Module::<Test>::set_parent_hash(H256::zero());
         assert_eq!(
-            Security::_get_secure_id(&1),
+            Security::get_secure_id(&1),
             H256::from_slice(&[
                 71, 121, 67, 63, 246, 65, 71, 242, 66, 184, 148, 234, 23, 56, 62, 52, 108, 82, 213,
                 33, 160, 200, 214, 1, 13, 46, 37, 138, 95, 245, 117, 109
@@ -198,10 +238,10 @@ fn test_get_secure_id() {
 }
 
 #[test]
-fn test_get_secure_ids_not_equal() {
+fn testget_secure_ids_not_equal() {
     run_test(|| {
-        let left = Security::_get_secure_id(&1);
-        let right = Security::_get_secure_id(&1);
+        let left = Security::get_secure_id(&1);
+        let right = Security::get_secure_id(&1);
         assert_ne!(left, right);
     })
 }

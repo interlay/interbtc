@@ -30,6 +30,7 @@ use crate::types::{
 };
 use bitcoin::parser::parse_transaction;
 use bitcoin::types::*;
+use btc_relay::BtcAddress;
 /// # Staked Relayers module implementation
 /// This is the implementation of the BTC Parachain Staked Relayers module following the spec at:
 /// https://interlay.gitlab.io/polkabtc-spec/spec/staked-relayers.html
@@ -42,10 +43,9 @@ use frame_support::{
     weights::Weight,
     IterableStorageMap,
 };
-use frame_system::ensure_signed;
+use frame_system::{ensure_root, ensure_signed};
 use primitive_types::H256;
 use security::types::{ErrorCode, StatusCode};
-use sp_core::H160;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
@@ -62,6 +62,8 @@ pub trait WeightInfo {
     fn slash_staked_relayer() -> Weight;
     fn report_vault_theft() -> Weight;
     fn report_vault_under_liquidation_threshold() -> Weight;
+    fn remove_active_status_update() -> Weight;
+    fn remove_inactive_status_update() -> Weight;
 }
 
 /// ## Configuration
@@ -391,15 +393,14 @@ decl_module! {
 
             let to_add = add_error.clone();
             let to_remove = remove_error.clone();
-            ext::security::mutate_errors::<T, _>(move |errors| {
-                if let Some(err) = to_add {
-                    errors.insert(err);
-                }
-                if let Some(err) = to_remove {
-                    errors.remove(&err);
-                }
-                Ok(())
-            })?;
+
+            if let Some(error_code) = to_add {
+                ext::security::insert_error::<T>(error_code);
+            }
+
+            if let Some(error_code) = to_remove {
+                ext::security::remove_error::<T>(error_code);
+            }
 
             Self::deposit_event(<Event<T>>::ForceStatusUpdate(
                 status_code,
@@ -438,11 +439,10 @@ decl_module! {
         /// * `origin`: Any signed user.
         /// * `vault_id`: The account of the vault to check.
         /// * `tx_id`: The hash of the transaction
-        /// * `tx_block_height`: Height rogue tx was included.
         /// * `merkle_proof`: The proof of tx inclusion.
         /// * `raw_tx`: The raw Bitcoin transaction.
         #[weight = <T as Trait>::WeightInfo::report_vault_theft()]
-        fn report_vault_theft(origin, vault_id: T::AccountId, tx_id: H256Le, _tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
+        fn report_vault_theft(origin, vault_id: T::AccountId, tx_id: H256Le, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             ensure!(
                 Self::check_relayer_registered(&signer),
@@ -464,10 +464,7 @@ decl_module! {
 
             ext::vault_registry::liquidate_theft_vault::<T>(&vault_id)?;
             ext::security::set_parachain_status::<T>(StatusCode::Error);
-            ext::security::mutate_errors::<T, _>(|errors| {
-                errors.insert(ErrorCode::Liquidation);
-                Ok(())
-            })?;
+            ext::security::insert_error::<T>(ErrorCode::Liquidation);
 
             <TheftReports<T>>::mutate(&tx_id, |reports| {
                 reports.insert(vault_id);
@@ -527,10 +524,7 @@ decl_module! {
 
             ext::vault_registry::liquidate_vault::<T>(&vault_id)?;
             ext::security::set_parachain_status::<T>(StatusCode::Error);
-            ext::security::mutate_errors::<T, _>(|errors| {
-                errors.insert(ErrorCode::Liquidation);
-                Ok(())
-            })?;
+            ext::security::insert_error::<T>(ErrorCode::Liquidation);
 
             Self::deposit_event(<Event<T>>::ExecuteStatusUpdate(
                 StatusCode::Error,
@@ -563,10 +557,7 @@ decl_module! {
             );
 
             ext::security::set_parachain_status::<T>(StatusCode::Error);
-            ext::security::mutate_errors::<T, _>(|errors| {
-                errors.insert(ErrorCode::OracleOffline);
-                Ok(())
-            })?;
+            ext::security::insert_error::<T>(ErrorCode::OracleOffline);
 
             Self::deposit_event(<Event<T>>::ExecuteStatusUpdate(
                 StatusCode::Error,
@@ -576,6 +567,34 @@ decl_module! {
             ));
 
             Ok(())
+        }
+
+        /// Permanently remove an `ActiveStatusUpdate`.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - the dispatch origin of this call (must be _Root_)
+        /// * `status_update_id` - id of the active status update to remove
+        ///
+        /// # Weight: `O(1)`
+        #[weight = <T as Trait>::WeightInfo::remove_active_status_update()]
+        fn remove_active_status_update(origin, status_update_id: u64) {
+            ensure_root(origin)?;
+            <ActiveStatusUpdates<T>>::remove(status_update_id);
+        }
+
+        /// Permanently remove an `InactiveStatusUpdate`.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - the dispatch origin of this call (must be _Root_)
+        /// * `status_update_id` - id of the inactive status update to remove
+        ///
+        /// # Weight: `O(1)`
+        #[weight = <T as Trait>::WeightInfo::remove_inactive_status_update()]
+        fn remove_inactive_status_update(origin, status_update_id: u64) {
+            ensure_root(origin)?;
+            <InactiveStatusUpdates<T>>::remove(status_update_id);
         }
 
         fn on_initialize(n: T::BlockNumber) -> Weight {
@@ -712,7 +731,7 @@ impl<T: Trait> Module<T> {
     }
 
     fn dot_to_u128(amount: DOT<T>) -> Result<u128, Error<T>> {
-        TryInto::<u128>::try_into(amount).map_err(|_e| Error::ConversionError)
+        TryInto::<u128>::try_into(amount).map_err(|_| Error::TryIntoIntError)
     }
 
     /// Should throw if not called by the governance account.
@@ -921,30 +940,28 @@ impl<T: Trait> Module<T> {
         let remove_error = status_update.remove_error.clone();
         let btc_block_hash = status_update.btc_block_hash;
         let old_status_code = status_update.old_status_code.clone();
-        ext::security::mutate_errors::<T, _>(move |errors| {
-            if let Some(err) = add_error {
-                if err == ErrorCode::NoDataBTCRelay || err == ErrorCode::InvalidBTCRelay {
-                    ext::btc_relay::flag_block_error::<T>(
-                        btc_block_hash.ok_or(Error::<T>::ExpectedBlockHash)?,
-                        err.clone(),
-                    )?;
-                }
-                errors.insert(err);
-            }
 
-            if let Some(err) = remove_error {
-                if err == ErrorCode::NoDataBTCRelay || err == ErrorCode::InvalidBTCRelay {
-                    ext::btc_relay::clear_block_error::<T>(
-                        btc_block_hash.ok_or(Error::<T>::ExpectedBlockHash)?,
-                        err.clone(),
-                    )?;
-                }
-                if old_status_code == StatusCode::Error {
-                    errors.remove(&err);
-                }
+        if let Some(error_code) = add_error {
+            if error_code == ErrorCode::NoDataBTCRelay || error_code == ErrorCode::InvalidBTCRelay {
+                ext::btc_relay::flag_block_error::<T>(
+                    btc_block_hash.ok_or(Error::<T>::ExpectedBlockHash)?,
+                    error_code.clone(),
+                )?;
             }
-            Ok(())
-        })?;
+            ext::security::insert_error::<T>(error_code);
+        }
+
+        if let Some(error_code) = remove_error {
+            if error_code == ErrorCode::NoDataBTCRelay || error_code == ErrorCode::InvalidBTCRelay {
+                ext::btc_relay::clear_block_error::<T>(
+                    btc_block_hash.ok_or(Error::<T>::ExpectedBlockHash)?,
+                    error_code.clone(),
+                )?;
+            }
+            if old_status_code == StatusCode::Error {
+                ext::security::remove_error::<T>(error_code);
+            }
+        }
 
         ext::collateral::release_collateral::<T>(&status_update.proposer, status_update.deposit)?;
         status_update.proposal_status = ProposalStatus::Accepted;
@@ -997,9 +1014,9 @@ impl<T: Trait> Module<T> {
     /// * `op_returns` - all op_return outputs extracted from tx
     /// * `wallet` - vault btc addresses
     pub(crate) fn is_valid_merge_transaction(
-        payments: &Vec<(i64, Vec<u8>)>,
+        payments: &Vec<(i64, BtcAddress)>,
         op_returns: &Vec<(i64, Vec<u8>)>,
-        wallet: &Wallet,
+        wallet: &Wallet<BtcAddress>,
     ) -> bool {
         if op_returns.len() > 0 {
             // migration should only contain payments
@@ -1007,7 +1024,6 @@ impl<T: Trait> Module<T> {
         }
 
         for (_value, address) in payments {
-            let address = H160::from_slice(address);
             if !wallet.has_btc_address(&address) {
                 return false;
             }
@@ -1026,20 +1042,20 @@ impl<T: Trait> Module<T> {
     /// * `wallet` - vault btc addresses
     pub(crate) fn is_valid_request_transaction(
         request_value: PolkaBTC<T>,
-        request_address: H160,
-        payments: &Vec<(i64, Vec<u8>)>,
-        wallet: &Wallet,
+        request_address: BtcAddress,
+        payments: &Vec<(i64, BtcAddress)>,
+        wallet: &Wallet<BtcAddress>,
     ) -> bool {
         let request_value = match TryInto::<u64>::try_into(request_value)
-            .map_err(|_e| Error::<T>::ConversionError)
+            .map_err(|_e| Error::<T>::TryIntoIntError)
         {
             Ok(value) => value as i64,
             Err(_) => return false,
         };
 
+        // check all outputs, vault cannot pay to unknown recipients
         for (value, address) in payments {
-            let address = H160::from_slice(address);
-            if address == request_address {
+            if *address == request_address {
                 if *value < request_value {
                     // insufficient payment to recipient
                     return false;
@@ -1056,6 +1072,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Check if a vault transaction is invalid. Returns `Ok` if invalid or `Err` otherwise.
+    /// This method should be callable over RPC for a staked-relayer client to check validity.
     ///
     /// # Arguments
     ///
@@ -1065,10 +1082,11 @@ impl<T: Trait> Module<T> {
         let vault = ext::vault_registry::get_vault_from_id::<T>(vault_id)?;
 
         // TODO: ensure this cannot fail on invalid
-        let tx = parse_transaction(raw_tx.as_slice())?;
+        let tx =
+            parse_transaction(raw_tx.as_slice()).map_err(|_| Error::<T>::InvalidTransaction)?;
 
         // collect all addresses that feature in the inputs of the transaction
-        let input_addresses: Vec<Result<Vec<u8>, _>> = tx
+        let input_addresses: Vec<Result<BtcAddress, _>> = tx
             .clone()
             .inputs
             .into_iter()
@@ -1077,18 +1095,22 @@ impl<T: Trait> Module<T> {
 
         // check if vault's btc address features in an input of the transaction
         ensure!(
+            // TODO: can a vault steal funds if it registers a P2WPKH-P2SH since we
+            // would extract the `P2WPKHv0`?
             input_addresses.into_iter().any(|address_result| {
                 match address_result {
-                    Ok(address) => vault.wallet.has_btc_address(&H160::from_slice(&address)),
+                    Ok(address) => vault.wallet.has_btc_address(&address),
                     _ => false,
                 }
             }),
+            // since the transaction does not have any inputs that correspond
+            // to any of the vault's registered BTC addresses, return Err
             Error::<T>::VaultNoInputToTransaction
         );
 
         // Vaults are required to move funds for redeem and replace operations.
         // Each transaction MUST feature at least two or three outputs as follows:
-        // * recipient: the recipient of the redeem/replace
+        // * recipient: the recipient of the redeem / replace
         // * op_return: the associated ID encoded in the OP_RETURN
         // * vault: any "spare change" the vault is transferring
 
@@ -1106,9 +1128,13 @@ impl<T: Trait> Module<T> {
             } else if op_returns[0].0 > 0 {
                 // op_return output should not burn value
                 return Ok(());
+            } else if op_returns[0].1.len() < 32 {
+                // request id is expected to be 32 bytes (256 bits)
+                return Ok(());
             }
 
-            let request_id = H256::from_slice(&op_returns[0].1);
+            // op_return can be up to 83 bytes so slice first 32
+            let request_id = H256::from_slice(&op_returns[0].1[..32]);
 
             // redeem requests
             match ext::redeem::get_redeem_request_from_id::<T>(&request_id) {
@@ -1244,7 +1270,9 @@ decl_error! {
         UnexpectedBlockHash,
         /// Vault has sufficient collateral
         CollateralOk,
-        /// Error converting value
-        ConversionError,
+        /// Failed to parse transaction
+        InvalidTransaction,
+        /// Unable to convert value
+        TryIntoIntError,
     }
 }

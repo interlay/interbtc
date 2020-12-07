@@ -25,6 +25,7 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
+use btc_relay::BtcAddress;
 use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::Randomness;
@@ -33,13 +34,13 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, ensure, IterableStorageMap,
 };
 use frame_system::ensure_signed;
-use sp_core::{H160, H256, U256};
+use security::ErrorCode;
+use sp_core::H160;
+use sp_core::{H256, U256};
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
 
-use security::ErrorCode;
-
-use crate::types::{DefaultVault, PolkaBTC, RichVault, DOT};
+use crate::types::{DefaultVault, PolkaBTC, RichVault, VaultV0, Version, DOT};
 pub use crate::types::{Vault, VaultStatus, Wallet};
 
 /// Granularity of `SecureCollateralThreshold`, `AuctionCollateralThreshold`,
@@ -137,8 +138,11 @@ decl_storage! {
         /// Mapping of Vaults, using the respective Vault account identifier as key.
         Vaults: map hasher(blake2_128_concat) T::AccountId => Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>>;
 
-        /// Mapping of BTC addresses to Vault Ids
+        /// Mapping of BTC hashes to Vault Ids
         VaultsBtcAddress: map hasher(blake2_128_concat) H160 => T::AccountId;
+
+        /// Build storage at V1 (requires default 0).
+        StorageVersion get(fn storage_version) build(|_| Version::V1): Version = Version::V0;
     }
 }
 
@@ -149,6 +153,40 @@ decl_module! {
 
         // Initializing events
         fn deposit_event() = default;
+
+        /// Upgrade the runtime depending on the current `StorageVersion`.
+        fn on_runtime_upgrade() -> Weight {
+            use frame_support::{migration::StorageKeyIterator, Blake2_128Concat};
+            use sp_std::collections::btree_set::BTreeSet;
+            use sp_std::iter::FromIterator;
+
+            if Self::storage_version() == Version::V0 {
+                StorageKeyIterator::<T::AccountId, VaultV0<T::AccountId, T::BlockNumber, PolkaBTC<T>>, Blake2_128Concat>::new(<Vaults<T>>::module_prefix(), b"Vaults")
+                    .drain()
+                    .for_each(|(id, vault_v0)| {
+                        let wallet_v0 = vault_v0.wallet;
+                        let wallet_v1: Wallet<BtcAddress> = Wallet {
+                            addresses: BTreeSet::from_iter(wallet_v0.addresses.iter().map(|hash| BtcAddress::P2WPKHv0(*hash))),
+                            address: BtcAddress::P2WPKHv0(wallet_v0.address),
+                        };
+
+                        let vault_v1 = Vault {
+                            id: vault_v0.id,
+                            to_be_issued_tokens: vault_v0.to_be_issued_tokens,
+                            issued_tokens: vault_v0.issued_tokens,
+                            to_be_redeemed_tokens: vault_v0.to_be_redeemed_tokens,
+                            wallet: wallet_v1,
+                            banned_until: vault_v0.banned_until,
+                            status: vault_v0.status,
+                        };
+                        <Vaults<T>>::insert(id, vault_v1);
+                    });
+
+                StorageVersion::put(Version::V1);
+            }
+
+            0
+        }
 
         /// Initiates the registration procedure for a new Vault.
         /// The Vault provides its BTC address and locks up DOT collateral,
@@ -163,14 +201,14 @@ decl_module! {
         /// * `VaultAlreadyRegistered` - if a vault is already registered for the origin account
         /// * `InsufficientCollateralAvailable` - if the vault does not own enough collateral
         #[weight = <T as Trait>::WeightInfo::register_vault()]
-        fn register_vault(origin, collateral: DOT<T>, btc_address: H160) -> DispatchResult {
+        fn register_vault(origin, collateral: DOT<T>, btc_address: BtcAddress) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ext::security::ensure_parachain_status_running::<T>()?;
 
             ensure!(collateral >= Self::get_minimum_collateral_vault(),
                     Error::<T>::InsufficientVaultCollateralAmount);
             ensure!(!Self::vault_exists(&sender), Error::<T>::VaultAlreadyRegistered);
-            ensure!(!<VaultsBtcAddress<T>>::contains_key(btc_address), Error::<T>::BtcAddressTaken);
+            ensure!(!<VaultsBtcAddress<T>>::contains_key(btc_address.hash()), Error::<T>::BtcAddressTaken);
 
             ext::collateral::lock::<T>(&sender, collateral)?;
             let vault = RichVault::<T>::new(sender.clone(), btc_address);
@@ -240,18 +278,18 @@ decl_module! {
         /// # Arguments
         /// * `btc_address` - the BTC address of the vault to update
         #[weight = <T as Trait>::WeightInfo::update_btc_address()]
-        fn update_btc_address(origin, btc_address: H160) -> DispatchResult {
+        fn update_btc_address(origin, btc_address: BtcAddress) -> DispatchResult {
             let account_id = ensure_signed(origin)?;
             ext::security::ensure_parachain_status_running::<T>()?;
 
             ensure!(
-                !<VaultsBtcAddress<T>>::contains_key(btc_address),
+                !<VaultsBtcAddress<T>>::contains_key(btc_address.hash()),
                 Error::<T>::BtcAddressTaken,
             );
 
             let mut vault = Self::rich_vault_from_id(&account_id)?;
             vault.update_btc_address(btc_address);
-            <VaultsBtcAddress<T>>::insert(btc_address, account_id.clone());
+            <VaultsBtcAddress<T>>::insert(btc_address.hash(), account_id.clone());
 
             Self::deposit_event(Event::<T>::UpdateBtcAddress(account_id, btc_address));
             Ok(())
@@ -285,7 +323,7 @@ impl<T: Trait> Module<T> {
     pub fn _increase_to_be_issued_tokens(
         vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
-    ) -> Result<H160, DispatchError> {
+    ) -> Result<BtcAddress, DispatchError> {
         ext::security::ensure_parachain_status_running::<T>()?;
         let mut vault = Self::rich_vault_from_id(&vault_id)?;
         vault.increase_to_be_issued(tokens)?;
@@ -628,7 +666,7 @@ impl<T: Trait> Module<T> {
 
     pub fn _insert_vault<V: Into<DefaultVault<T>>>(id: &T::AccountId, rich_vault: V) {
         let vault: DefaultVault<T> = rich_vault.into();
-        <VaultsBtcAddress<T>>::insert(vault.wallet.get_btc_address(), id);
+        <VaultsBtcAddress<T>>::insert(vault.wallet.get_btc_address().hash(), id);
         <Vaults<T>>::insert(id, vault)
     }
 
@@ -832,9 +870,6 @@ impl<T: Trait> Module<T> {
     ///
     /// # Arguments
     /// * `amount_btc` - the amount of polkabtc
-    ///
-    /// # Errors
-    /// * `ScaleConversionError` - if a math error occurs
     pub fn get_required_collateral_for_polkabtc(
         amount_btc: PolkaBTC<T>,
     ) -> Result<DOT<T>, DispatchError> {
@@ -907,7 +942,7 @@ impl<T: Trait> Module<T> {
         // Parachain must not be shutdown
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
         // There must not be in InvalidBTCRelay, OracleOffline or Liquidation error state
-        ext::security::ensure_parachain_status_has_not_specific_errors::<T>(error_codes)
+        ext::security::ensure_parachain_does_not_have_errors::<T>(error_codes)
     }
 
     /// calculate the collateralization as a ratio of the issued tokens to the
@@ -919,11 +954,11 @@ impl<T: Trait> Module<T> {
     ) -> Result<u64, DispatchError> {
         let collateralization: u64 = U256::from(raw_collateral_in_polka_btc)
             .checked_mul(U256::from(10).pow(GRANULARITY.into()))
-            .ok_or(Error::<T>::ConversionError)?
+            .ok_or(Error::<T>::ArithmeticOverflow)?
             .checked_div(raw_issued_tokens.into())
-            .ok_or(Error::<T>::ConversionError)?
+            .ok_or(Error::<T>::ArithmeticUnderflow)?
             .try_into()
-            .map_err(|_| Error::<T>::ConversionError)?;
+            .map_err(|_| Error::<T>::TryIntoIntError)?;
 
         Ok(collateralization)
     }
@@ -961,9 +996,6 @@ impl<T: Trait> Module<T> {
     /// # Arguments
     /// * `amount_btc` - the amount of polkabtc
     /// * `threshold` - the required secure collateral threshold
-    ///
-    /// # Errors
-    /// * `ScaleConversionError` - if a math error occurs
     fn get_required_collateral_for_polkabtc_with_threshold(
         btc: PolkaBTC<T>,
         threshold: u128,
@@ -976,14 +1008,14 @@ impl<T: Trait> Module<T> {
         // inverse of the div
         let btc = btc
             .checked_mul(threshold.into())
-            .ok_or(Error::<T>::ScaleConversionError)?;
+            .ok_or(Error::<T>::ArithmeticOverflow)?;
 
         // To do the inverse of the multiplication, we need to do division, but
         // we need to round up. To round up (a/b), we need to do ((a+b-1)/b):
         let rounding_addition = U256::from(10).pow(GRANULARITY.into()) - U256::from(1);
         let btc = (btc + rounding_addition)
             .checked_div(U256::from(10).pow(GRANULARITY.into()))
-            .ok_or(Error::<T>::ScaleConversionError)?;
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
         // Step 2: convert the amount to dots
         let scaled = Self::u128_to_polkabtc(btc.try_into()?)?;
@@ -1003,7 +1035,7 @@ impl<T: Trait> Module<T> {
         // calculate how many tokens should be maximally issued given the threshold
         let scaled_collateral_in_polka_btc = collateral_in_polka_btc
             .checked_mul(U256::from(10).pow(GRANULARITY.into()))
-            .ok_or(Error::<T>::ScaleConversionError)?;
+            .ok_or(Error::<T>::ArithmeticOverflow)?;
         let scaled_max_tokens = scaled_collateral_in_polka_btc
             .checked_div(threshold.into())
             .unwrap_or(0.into());
@@ -1012,19 +1044,19 @@ impl<T: Trait> Module<T> {
     }
 
     fn polkabtc_to_u128(x: PolkaBTC<T>) -> Result<u128, DispatchError> {
-        TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::ConversionError.into())
+        TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
     fn dot_to_u128(x: DOT<T>) -> Result<u128, DispatchError> {
-        TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::ConversionError.into())
+        TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
     fn u128_to_dot(x: u128) -> Result<DOT<T>, DispatchError> {
-        TryInto::<DOT<T>>::try_into(x).map_err(|_| Error::<T>::ConversionError.into())
+        TryInto::<DOT<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
     fn u128_to_polkabtc(x: u128) -> Result<PolkaBTC<T>, DispatchError> {
-        TryInto::<PolkaBTC<T>>::try_into(x).map_err(|_| Error::<T>::ConversionError.into())
+        TryInto::<PolkaBTC<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 }
 
@@ -1039,7 +1071,7 @@ decl_event! {
         LockAdditionalCollateral(AccountId, DOT, DOT, DOT),
         /// id, withdrawn collateral, total collateral
         WithdrawCollateral(AccountId, DOT, DOT),
-        UpdateBtcAddress(AccountId, H160),
+        UpdateBtcAddress(AccountId, BtcAddress),
         IncreaseToBeIssuedTokens(AccountId, BTCBalance),
         DecreaseToBeIssuedTokens(AccountId, BTCBalance),
         IssueTokens(AccountId, BTCBalance),
@@ -1068,13 +1100,13 @@ decl_error! {
         VaultNotFound,
         /// The Bitcoin Address has already been registered
         BtcAddressTaken,
-        /// Result is too big for type
-        ScaleConversionError,
-        /// Other conversion error
-        ConversionError,
         /// Collateralization is infinite if no tokens are issued
         NoTokensIssued,
         NoVaultWithSufficientCollateral,
-        NoVaultWithSufficientTokens
+        NoVaultWithSufficientTokens,
+        ArithmeticOverflow,
+        ArithmeticUnderflow,
+        /// Unable to convert value
+        TryIntoIntError
     }
 }

@@ -1,9 +1,18 @@
+use btc_relay::BtcAddress;
 use codec::{Decode, Encode};
+use frame_support::traits::Currency;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sp_core::H160;
 
-use frame_support::traits::Currency;
+/// Storage version.
+#[derive(Encode, Decode, Eq, PartialEq)]
+pub enum Version {
+    /// Initial version.
+    V0,
+    /// BtcAddress type with script format.
+    V1,
+}
 
 pub(crate) type DOT<T> =
     <<T as collateral::Trait>::DOT as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
@@ -35,7 +44,7 @@ pub struct IssueRequest<AccountId, BlockNumber, PolkaBTC, DOT> {
     #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
     pub amount: PolkaBTC,
     pub requester: AccountId,
-    pub btc_address: H160,
+    pub btc_address: BtcAddress,
     pub completed: bool,
 }
 
@@ -54,4 +63,15 @@ fn deserialize_from_string<'de, D: Deserializer<'de>, T: std::str::FromStr>(
     let s = String::deserialize(deserializer)?;
     s.parse::<T>()
         .map_err(|_| serde::de::Error::custom("Parse from string failed"))
+}
+
+#[derive(Encode, Decode, Default, Clone, PartialEq)]
+pub(crate) struct IssueRequestV0<AccountId, BlockNumber, PolkaBTC, DOT> {
+    pub vault: AccountId,
+    pub opentime: BlockNumber,
+    pub griefing_collateral: DOT,
+    pub amount: PolkaBTC,
+    pub requester: AccountId,
+    pub btc_address: H160,
+    pub completed: bool,
 }

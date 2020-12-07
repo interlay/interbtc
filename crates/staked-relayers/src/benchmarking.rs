@@ -2,16 +2,17 @@ use super::*;
 use crate::Module as StakedRelayers;
 use bitcoin::formatter::Formattable;
 use bitcoin::types::{
-    Address, BlockBuilder, H256Le, RawBlockHeader, TransactionBuilder, TransactionInputBuilder,
+    BlockBuilder, H256Le, RawBlockHeader, TransactionBuilder, TransactionInputBuilder,
     TransactionOutput,
 };
+use btc_relay::BtcAddress;
 use btc_relay::Module as BtcRelay;
 use collateral::Module as Collateral;
 use exchange_rate_oracle::Module as ExchangeRateOracle;
 use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
 // use pallet_timestamp::Now;
-use sp_core::U256;
+use sp_core::{H160, U256};
 use sp_std::prelude::*;
 use vault_registry::types::{Vault, Wallet};
 use vault_registry::Module as VaultRegistry;
@@ -83,17 +84,17 @@ benchmarks! {
         let stake = 100;
         StakedRelayers::<T>::add_active_staked_relayer(&origin, stake.into());
 
-        let vault_address = Address::from([
+        let vault_address = BtcAddress::P2PKH(H160::from_slice(&[
             126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8,
             50, 170,
-        ]);
+        ]));
 
-        let address = Address::from([0; 20]);
+        let address = BtcAddress::P2PKH(H160([0; 20]));
 
         let vault_id: T::AccountId = account("Vault", 0, 0);
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
-        vault.wallet = Wallet::new(H160::from_slice(vault_address.as_bytes()));
+        vault.wallet = Wallet::new(vault_address);
         VaultRegistry::<T>::_insert_vault(
             &vault_id,
             vault
@@ -101,8 +102,7 @@ benchmarks! {
 
         VaultRegistry::<T>::_set_liquidation_vault(vault_id.clone());
 
-        let mut height = 0;
-
+        let height = 0;
         let block = BlockBuilder::new()
             .with_version(2)
             .with_coinbase(&address, 50, 3)
@@ -112,8 +112,6 @@ benchmarks! {
         let block_hash = block.header.hash();
         let block_header = RawBlockHeader::from_bytes(&block.header.format()).unwrap();
         BtcRelay::<T>::_initialize(block_header, height).unwrap();
-
-        height += 1;
 
         let value = 0;
         let transaction = TransactionBuilder::new()
@@ -138,7 +136,7 @@ benchmarks! {
                     ])
                     .build(),
             )
-            .add_output(TransactionOutput::p2pkh(value.into(), &address))
+            .add_output(TransactionOutput::payment(value.into(), &address))
             .build();
 
         let block = BlockBuilder::new()
@@ -150,14 +148,13 @@ benchmarks! {
             .mine(U256::from(2).pow(254.into()));
 
         let tx_id = transaction.tx_id();
-        let tx_block_height = height;
         let proof = block.merkle_proof(&vec![tx_id]).format();
         let raw_tx = transaction.format_with(true);
 
         let block_header = RawBlockHeader::from_bytes(&block.header.format()).unwrap();
         BtcRelay::<T>::_store_block_header(block_header).unwrap();
 
-    }: _(RawOrigin::Signed(origin), vault_id, tx_id, tx_block_height, proof, raw_tx)
+    }: _(RawOrigin::Signed(origin), vault_id, tx_id, proof, raw_tx)
 
     report_vault_under_liquidation_threshold {
         let origin: T::AccountId = account("Origin", 0, 0);
@@ -168,7 +165,7 @@ benchmarks! {
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
         vault.issued_tokens = 100_000.into();
-        vault.wallet = Wallet::new(H160::zero());
+        vault.wallet = Wallet::new(BtcAddress::P2SH(H160::zero()));
         VaultRegistry::<T>::_insert_vault(
             &vault_id,
             vault
@@ -189,6 +186,17 @@ benchmarks! {
     //     StakedRelayers::<T>::add_active_staked_relayer(&origin, stake.into());
     //     <Now<T>>::set(<Now<T>>::get() + 10000.into());
     // }: _(RawOrigin::Signed(origin))
+
+    remove_active_status_update {
+        let status_update = StatusUpdate::default();
+        let status_update_id = StakedRelayers::<T>::insert_active_status_update(status_update);
+    }: _(RawOrigin::Root, status_update_id)
+
+    remove_inactive_status_update {
+        let status_update_id = 0;
+        let status_update = StatusUpdate::default();
+        StakedRelayers::<T>::insert_inactive_status_update(status_update_id, &status_update);
+    }: _(RawOrigin::Root, status_update_id)
 
 }
 
@@ -230,6 +238,8 @@ mod tests {
                 Test,
             >());
             // assert_ok!(test_benchmark_report_oracle_offline::<Test>());
+            assert_ok!(test_benchmark_remove_active_status_update::<Test>());
+            assert_ok!(test_benchmark_remove_inactive_status_update::<Test>());
         });
     }
 }

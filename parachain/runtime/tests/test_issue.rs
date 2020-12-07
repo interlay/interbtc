@@ -2,6 +2,7 @@ mod mock;
 
 use mock::*;
 use primitive_types::H256;
+use sp_std::str::FromStr;
 
 type IssueCall = issue::Call<Runtime>;
 type IssueEvent = issue::Event<Runtime>;
@@ -35,7 +36,6 @@ fn integration_test_issue_should_fail_if_not_running() {
             Call::Issue(IssueCall::execute_issue(
                 H256([0; 32]),
                 H256Le::zero(),
-                0,
                 vec![0u8; 32],
                 vec![0u8; 32]
             ))
@@ -50,11 +50,9 @@ fn integration_test_issue_polka_btc() {
     ExtBuilder::build().execute_with(|| {
         SystemModule::set_block_number(1);
 
-        let address = H160::from_slice(
-            hex::decode("66c7060feb882664ae62ffad0051fe843e318e85")
-                .unwrap()
-                .as_slice(),
-        );
+        let address =
+            BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
+
         let amount = 100000;
         let collateral = 100;
 
@@ -63,8 +61,7 @@ fn integration_test_issue_polka_btc() {
         let initial_btc_balance =
             treasury::Module::<Runtime>::get_balance_from_account(account_of(ALICE));
 
-        assert_ok!(Call::ExchangeRateOracle(OracleCall::set_exchange_rate(1))
-            .dispatch(origin_of(account_of(BOB))));
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(1));
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
             1000000,
             address.clone()
@@ -82,13 +79,13 @@ fn integration_test_issue_polka_btc() {
         let id = assert_issue_request_event();
 
         // send the btc from the user to the vault
-        let (tx_id, height, proof, raw_tx) = generate_transaction_and_mine(address, amount, id);
+        let (tx_id, _height, proof, raw_tx) = generate_transaction_and_mine(address, amount, id);
 
         SystemModule::set_block_number(1 + CONFIRMATIONS);
 
         // alice executes the issue by confirming the btc transaction
         assert_ok!(
-            Call::Issue(IssueCall::execute_issue(id, tx_id, height, proof, raw_tx))
+            Call::Issue(IssueCall::execute_issue(id, tx_id, proof, raw_tx))
                 .dispatch(origin_of(account_of(ALICE)))
         );
 

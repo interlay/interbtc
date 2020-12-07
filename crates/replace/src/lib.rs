@@ -28,7 +28,7 @@ use sp_std::vec::Vec;
 use bitcoin::types::H256Le;
 
 pub use crate::types::ReplaceRequest;
-use crate::types::{PolkaBTC, DOT};
+use crate::types::{PolkaBTC, ReplaceRequestV0, Version, DOT};
 
 /// # PolkaBTC Replace implementation
 /// The Replace module according to the specification at
@@ -84,6 +84,9 @@ decl_storage! {
         /// The minimum amount of btc that is accepted for replace requests; any lower values would
         /// risk the bitcoin client to reject the payment
         ReplaceBtcDustValue get(fn replace_btc_dust_value) config(): PolkaBTC<T>;
+
+        /// Build storage at V1 (requires default 0).
+        StorageVersion get(fn storage_version) build(|_| Version::V1): Version = Version::V0;
     }
 }
 
@@ -109,12 +112,41 @@ decl_event!(
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+        // Errors must be initialized if they are used by the pallet.
+        type Error = Error<T>;
+
         // Initializing events
         // this is needed only if you are using events in your pallet
         fn deposit_event() = default;
 
-        // Errors must be initialized if they are used by the pallet.
-        type Error = Error<T>;
+        /// Upgrade the runtime depending on the current `StorageVersion`.
+        fn on_runtime_upgrade() -> Weight {
+            use frame_support::{migration::StorageKeyIterator, Blake2_128Concat};
+            use btc_relay::BtcAddress;
+
+            if Self::storage_version() == Version::V0 {
+                StorageKeyIterator::<H256, ReplaceRequestV0<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, Blake2_128Concat>::new(<ReplaceRequests<T>>::module_prefix(), b"ReplaceRequests")
+                    .drain()
+                    .for_each(|(id, request_v0)| {
+                        let request_v1 = ReplaceRequest {
+                            old_vault: request_v0.old_vault,
+                            open_time: request_v0.open_time,
+                            amount: request_v0.amount,
+                            griefing_collateral: request_v0.griefing_collateral,
+                            new_vault: request_v0.new_vault,
+                            collateral: request_v0.collateral,
+                            accept_time: request_v0.accept_time,
+                            btc_address: BtcAddress::P2WPKHv0(request_v0.btc_address),
+                            completed: request_v0.completed,
+                        };
+                        <ReplaceRequests<T>>::insert(id, request_v1);
+                    });
+
+                StorageVersion::put(Version::V1);
+            }
+
+            0
+        }
 
         /// Request the replacement of a new vault ownership
         ///
@@ -191,7 +223,7 @@ decl_module! {
         /// * 'merkle_proof' - the merkle root of the block
         /// * `raw_tx` - the transaction id in bytes
         #[weight = <T as Trait>::WeightInfo::execute_replace()]
-        fn execute_replace(origin, replace_id: H256, tx_id: H256Le, _tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
+        fn execute_replace(origin, replace_id: H256, tx_id: H256Le, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
             let _ = ensure_signed(origin)?;
             Self::_execute_replace(replace_id, tx_id, merkle_proof, raw_tx)?;
             Ok(())
@@ -471,11 +503,9 @@ impl<T: Trait> Module<T> {
         let new_vault_id = replace.new_vault.unwrap();
         let old_vault_id = replace.old_vault;
 
-        // step 2: Check that the current Parachain block height minus the ReplacePeriod is smaller than the opentime of the ReplaceRequest
-        let replace_period = Self::replace_period();
-        let current_height = Self::current_height();
+        // only executable before the request has expired
         ensure!(
-            current_height <= replace.open_time + replace_period,
+            !has_request_expired::<T>(replace.open_time, Self::replace_period()),
             Error::<T>::ReplacePeriodExpired
         );
 
@@ -487,11 +517,13 @@ impl<T: Trait> Module<T> {
 
         // step 5: Call validateTransaction in BTC-Relay
         let amount = TryInto::<u64>::try_into(replace.amount)
-            .map_err(|_e| Error::<T>::ConversionError)? as i64;
+            .map_err(|_e| Error::<T>::TryIntoIntError)? as i64;
+
+        // TODO: register change addresses (vault wallet)
         ext::btc_relay::validate_transaction::<T>(
             raw_tx,
             amount,
-            replace.btc_address.as_bytes().to_vec(),
+            replace.btc_address,
             replace_id.clone().as_bytes().to_vec(),
         )?;
 
@@ -528,11 +560,9 @@ impl<T: Trait> Module<T> {
         // step 1: Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
         let replace = Self::get_replace_request(&replace_id)?;
 
-        // step 2: Check that the current Parachain block height minus the ReplacePeriod is greater than the opentime of the ReplaceRequest
-        let current_height = Self::current_height();
-        let replace_period = Self::replace_period();
+        // only cancellable after the request has expired
         ensure!(
-            current_height > replace.open_time + replace_period,
+            has_request_expired::<T>(replace.open_time, Self::replace_period()),
             Error::<T>::ReplacePeriodNotExpired
         );
 
@@ -636,6 +666,11 @@ impl<T: Trait> Module<T> {
     }
 }
 
+fn has_request_expired<T: Trait>(opentime: T::BlockNumber, period: T::BlockNumber) -> bool {
+    let height = <frame_system::Module<T>>::block_number();
+    height > opentime + period
+}
+
 decl_error! {
     pub enum Error for Module<T: Trait> {
         AmountBelowDustAmount,
@@ -649,6 +684,7 @@ decl_error! {
         ReplacePeriodNotExpired,
         ReplaceCompleted,
         ReplaceIdNotFound,
-        ConversionError,
+        /// Unable to convert value
+        TryIntoIntError,
     }
 }

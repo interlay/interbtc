@@ -10,7 +10,7 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::StorageMapShim;
-pub use module_vault_registry_rpc_runtime_api::BalanceWrapper;
+pub use module_exchange_rate_oracle_rpc_runtime_api::BalanceWrapper;
 use pallet_grandpa::fg_primitives;
 use pallet_grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
 use sp_api::impl_runtime_apis;
@@ -103,7 +103,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("btc-parachain"),
     impl_name: create_runtime_str!("btc-parachain"),
     authoring_version: 1,
-    spec_version: 1,
+    spec_version: 2,
     impl_version: 1,
     transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,
@@ -604,8 +604,14 @@ impl_runtime_apis! {
         Balance,
         Balance,
     > for Runtime {
-        fn btc_to_dots(amount: Balance) -> Result<Balance, DispatchError> {
-            ExchangeRateOracle::btc_to_dots(amount)
+        fn btc_to_dots(amount: BalanceWrapper<Balance>) -> Result<BalanceWrapper<Balance>, DispatchError> {
+            let result = ExchangeRateOracle::btc_to_dots(amount.amount)?;
+            Ok(BalanceWrapper{amount:result})
+        }
+
+        fn dots_to_btc(amount: BalanceWrapper<Balance>) -> Result<BalanceWrapper<Balance>, DispatchError> {
+            let result = ExchangeRateOracle::dots_to_btc(amount.amount)?;
+            Ok(BalanceWrapper{amount:result})
         }
     }
 

@@ -1,9 +1,8 @@
 use crate::ext;
 use crate::mock::*;
-use crate::PolkaBTC;
-use crate::ReplaceRequest;
-use crate::DOT;
+use crate::{has_request_expired, PolkaBTC, ReplaceRequest, DOT};
 use bitcoin::types::H256Le;
+use btc_relay::BtcAddress;
 use frame_support::{
     assert_err, assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResult},
@@ -41,7 +40,7 @@ fn test_request() -> ReplaceRequest<u64, u64, u64, u64> {
         accept_time: None,
         amount: 10,
         griefing_collateral: 0,
-        btc_address: H160([0; 20]),
+        btc_address: BtcAddress::default(),
         collateral: 20,
         completed: false,
     }
@@ -52,7 +51,7 @@ fn test_vault() -> Vault<u64, u64, u64> {
         id: BOB,
         banned_until: None,
         issued_tokens: 5,
-        wallet: Wallet::new(H160([0; 20])),
+        wallet: Wallet::new(BtcAddress::P2SH(H160([0; 20]))),
         to_be_issued_tokens: 0,
         to_be_redeemed_tokens: 0,
         status: VaultStatus::Active,
@@ -111,7 +110,7 @@ fn test_request_replace_transfer_zero_fails() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 100,
                 to_be_redeemed_tokens: 0,
-                wallet: Wallet::new(H160([0; 20])),
+                wallet: Wallet::new(BtcAddress::P2SH(H160([0; 20]))),
                 banned_until: None,
                 status: VaultStatus::Active,
             }))
@@ -141,7 +140,7 @@ fn test_request_replace_vault_banned_fails() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
-                wallet: Wallet::new(H160([0; 20])),
+                wallet: Wallet::new(BtcAddress::P2SH(H160([0; 20]))),
                 banned_until: Some(1),
                 status: VaultStatus::Active,
             }))
@@ -169,7 +168,7 @@ fn test_request_replace_amount_below_dust_value_fails() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
                 to_be_redeemed_tokens: 0,
-                wallet: Wallet::new(H160([0; 20])),
+                wallet: Wallet::new(BtcAddress::P2SH(H160([0; 20]))),
                 banned_until: None,
                 status: VaultStatus::Active,
             }))
@@ -203,7 +202,7 @@ fn test_request_replace_insufficient_griefing_collateral_fails() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
                 to_be_redeemed_tokens: 0,
-                wallet: Wallet::new(H160([0; 20])),
+                wallet: Wallet::new(BtcAddress::P2SH(H160([0; 20]))),
                 banned_until: None,
                 status: VaultStatus::Active,
             }))
@@ -249,7 +248,6 @@ fn test_withdraw_replace_request_invalid_vault_id_fails() {
 fn test_withdraw_replace_req_vault_id_mismatch_fails() {
     run_test(|| {
         Replace::get_replace_request.mock_safe(|_| MockResult::Return(Ok(test_request())));
-        // TODO(jaupe): work out why this is not mocking correctly
         ext::vault_registry::get_vault_from_id::<Test>
             .mock_safe(|_id| MockResult::Return(Ok(test_vault())));
         assert_noop!(
@@ -513,8 +511,7 @@ fn test_execute_replace_replace_period_expired_fails() {
             MockResult::Return(Ok(req))
         });
 
-        Replace::current_height.mock_safe(|| MockResult::Return(110_000));
-        Replace::replace_period.mock_safe(|| MockResult::Return(2));
+        System::set_block_number(110_000);
         assert_err!(
             execute_replace(replace_id, tx_id, merkle_proof, raw_tx),
             TestError::ReplacePeriodExpired
@@ -805,6 +802,7 @@ fn test_cancel_replace_succeeds() {
         let old_vault_id = ALICE;
         let replace_id = H256::zero();
 
+        System::set_block_number(45);
         Replace::get_replace_request.mock_safe(move |_| {
             let mut replace = test_request();
             replace.old_vault = old_vault_id.clone();
@@ -818,7 +816,7 @@ fn test_cancel_replace_succeeds() {
             .mock_safe(|_, _| MockResult::Return(Ok(())));
         Replace::remove_replace_request.mock_safe(|_| MockResult::Return(()));
 
-        assert_eq!(cancel_replace(new_vault_id, replace_id,), Ok(()));
+        assert_eq!(cancel_replace(new_vault_id, replace_id), Ok(()));
 
         let event = Event::CancelReplace(new_vault_id, old_vault_id, replace_id);
         assert_emitted!(event);
@@ -928,5 +926,14 @@ fn test_set_replace_period_only_root() {
             DispatchError::BadOrigin
         );
         assert_ok!(Replace::set_replace_period(Origin::root(), 1));
+    })
+}
+
+#[test]
+fn test_has_request_expired() {
+    run_test(|| {
+        System::set_block_number(4525);
+        assert!(has_request_expired::<Test>(11, 300));
+        assert!(!has_request_expired::<Test>(2758, 5000));
     })
 }

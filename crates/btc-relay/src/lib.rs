@@ -45,6 +45,7 @@ use bitcoin::parser::{parse_block_header, parse_transaction};
 use bitcoin::types::{
     BlockChain, BlockHeader, H256Le, RawBlockHeader, RichBlockHeader, Transaction,
 };
+pub use bitcoin::Address as BtcAddress;
 use bitcoin::Error as BitcoinError;
 use security::types::ErrorCode;
 
@@ -149,7 +150,7 @@ macro_rules! extract_op_return {
     ($($tx:expr),*) => {
         {
             $(
-                if let Ok(data) = $tx.script.extract_op_return_data() {
+                if let Some(Ok(data)) = $tx.map(|tx| tx.script.extract_op_return_data()) {
                     data
                 } else
             )*
@@ -243,7 +244,7 @@ decl_module! {
             insecure: bool,
             raw_tx: Vec<u8>,
             payment_value: i64,
-            recipient_btc_address: Vec<u8>,
+            recipient_btc_address: BtcAddress,
             op_return_id: Vec<u8>)
         -> DispatchResult {
             let _ = ensure_signed(origin)?;
@@ -309,7 +310,7 @@ decl_module! {
             origin,
             raw_tx: Vec<u8>,
             payment_value: i64,
-            recipient_btc_address: Vec<u8>,
+            recipient_btc_address: BtcAddress,
             op_return_id: Vec<u8>
         ) -> DispatchResult {
             let _ = ensure_signed(origin)?;
@@ -326,7 +327,8 @@ impl<T: Trait> Module<T> {
         ensure!(!Self::best_block_exists(), Error::<T>::AlreadyInitialized);
 
         // Parse the block header bytes to extract the required info
-        let basic_block_header = parse_block_header(&raw_block_header)?;
+        let basic_block_header =
+            parse_block_header(&raw_block_header).map_err(|err| Error::<T>::from(err))?;
         let block_header_hash = raw_block_header.hash();
 
         // construct the BlockChain struct
@@ -511,7 +513,7 @@ impl<T: Trait> Module<T> {
     /// * `transaction` - Bitcoin transaction
     pub fn extract_outputs(
         transaction: Transaction,
-    ) -> Result<(Vec<(i64, Vec<u8>)>, Vec<(i64, Vec<u8>)>), Error<T>> {
+    ) -> Result<(Vec<(i64, BtcAddress)>, Vec<(i64, Vec<u8>)>), Error<T>> {
         ensure!(
             transaction.outputs.len() <= ACCEPTED_MAX_TRANSACTION_OUTPUTS as usize,
             Error::<T>::MalformedTransaction
@@ -539,40 +541,52 @@ impl<T: Trait> Module<T> {
     /// * `recipient_btc_address` - expected payment recipient
     fn extract_value(
         transaction: Transaction,
-        recipient_btc_address: Vec<u8>,
-    ) -> Result<i64, Error<T>> {
+        recipient_btc_address: BtcAddress,
+    ) -> Result<i64, DispatchError> {
         // Check if payment is first output
-        match transaction.outputs[0].extract_address() {
-            Ok(extr_recipient_btc_address) => {
+        match transaction
+            .outputs
+            .get(0)
+            .map(|output| output.extract_address())
+        {
+            Some(Ok(extr_recipient_btc_address)) => {
                 if recipient_btc_address == extr_recipient_btc_address {
                     return Ok(transaction.outputs[0].value);
                 }
             }
-            Err(_) => (),
+            _ => (),
         };
 
         // Check if payment is second output
-        match transaction.outputs[1].extract_address() {
-            Ok(extr_recipient_btc_address) => {
+        match transaction
+            .outputs
+            .get(1)
+            .map(|output| output.extract_address())
+        {
+            Some(Ok(extr_recipient_btc_address)) => {
                 if recipient_btc_address == extr_recipient_btc_address {
                     return Ok(transaction.outputs[1].value);
                 }
             }
-            Err(_) => (),
+            _ => (),
         };
 
         // Check if payment is third output
-        match transaction.outputs[2].extract_address() {
-            Ok(extr_recipient_btc_address) => {
+        match transaction
+            .outputs
+            .get(1)
+            .map(|output| output.extract_address())
+        {
+            Some(Ok(extr_recipient_btc_address)) => {
                 if recipient_btc_address == extr_recipient_btc_address {
                     return Ok(transaction.outputs[2].value);
                 }
             }
-            Err(_) => (),
+            _ => (),
         };
 
         // Payment UTXO sends to incorrect address
-        Err(Error::<T>::WrongRecipient)
+        Err(Error::<T>::WrongRecipient.into())
     }
 
     /// Extract the payment value and `OP_RETURN` payload from the first
@@ -584,8 +598,8 @@ impl<T: Trait> Module<T> {
     /// * `recipient_btc_address` - expected payment recipient
     fn extract_value_and_op_return(
         transaction: Transaction,
-        recipient_btc_address: Vec<u8>,
-    ) -> Result<(i64, Vec<u8>), Error<T>> {
+        recipient_btc_address: BtcAddress,
+    ) -> Result<(i64, Vec<u8>), DispatchError> {
         ensure!(
             // We would typically expect three outputs (payment, op_return, refund) but
             // exceptionally the input amount may be exact so we would only require two
@@ -599,7 +613,7 @@ impl<T: Trait> Module<T> {
                 if recipient_btc_address == extr_recipient_btc_address {
                     return Ok((
                         transaction.outputs[0].value,
-                        extract_op_return!(transaction.outputs[1], transaction.outputs[2]),
+                        extract_op_return!(transaction.outputs.get(1), transaction.outputs.get(2)),
                     ));
                 }
             }
@@ -612,7 +626,7 @@ impl<T: Trait> Module<T> {
                 if recipient_btc_address == extr_recipient_btc_address {
                     return Ok((
                         transaction.outputs[1].value,
-                        extract_op_return!(transaction.outputs[0], transaction.outputs[2]),
+                        extract_op_return!(transaction.outputs.get(0), transaction.outputs.get(2)),
                     ));
                 }
             }
@@ -620,20 +634,24 @@ impl<T: Trait> Module<T> {
         };
 
         // Check if payment is third output
-        match transaction.outputs[2].extract_address() {
-            Ok(extr_recipient_btc_address) => {
+        match transaction
+            .outputs
+            .get(2)
+            .map(|output| output.extract_address())
+        {
+            Some(Ok(extr_recipient_btc_address)) => {
                 if recipient_btc_address == extr_recipient_btc_address {
                     return Ok((
                         transaction.outputs[2].value,
-                        extract_op_return!(transaction.outputs[0], transaction.outputs[1]),
+                        extract_op_return!(transaction.outputs.get(0), transaction.outputs.get(1)),
                     ));
                 }
             }
-            Err(_) => (),
+            _ => (),
         };
 
         // Payment UTXO sends to incorrect address
-        Err(Error::<T>::WrongRecipient)
+        Err(Error::<T>::WrongRecipient.into())
     }
 
     pub fn is_op_return_disabled() -> bool {
@@ -643,7 +661,7 @@ impl<T: Trait> Module<T> {
     pub fn _validate_transaction(
         raw_tx: Vec<u8>,
         payment_value: i64,
-        recipient_btc_address: Vec<u8>,
+        recipient_btc_address: BtcAddress,
         op_return_id: Vec<u8>,
     ) -> Result<(), DispatchError> {
         let transaction = Self::parse_transaction(&raw_tx)?;
@@ -910,15 +928,17 @@ impl<T: Trait> Module<T> {
 
     // Wrapper functions around bitcoin lib for testing purposes
     fn parse_transaction(raw_tx: &[u8]) -> Result<Transaction, DispatchError> {
-        Ok(parse_transaction(&raw_tx)?)
+        Ok(parse_transaction(&raw_tx).map_err(|err| Error::<T>::from(err))?)
     }
 
     fn parse_merkle_proof(raw_merkle_proof: &[u8]) -> Result<MerkleProof, DispatchError> {
-        MerkleProof::parse(&raw_merkle_proof).map_err(|e| e.into())
+        MerkleProof::parse(&raw_merkle_proof).map_err(|err| Error::<T>::from(err).into())
     }
 
     fn verify_merkle_proof(merkle_proof: &MerkleProof) -> Result<ProofResult, DispatchError> {
-        merkle_proof.verify_proof().map_err(|e| e.into())
+        merkle_proof
+            .verify_proof()
+            .map_err(|err| Error::<T>::from(err).into())
     }
 
     /// Parses and verifies a raw Bitcoin block header.
@@ -933,7 +953,8 @@ impl<T: Trait> Module<T> {
     fn verify_block_header(
         raw_block_header: &RawBlockHeader,
     ) -> Result<BlockHeader, DispatchError> {
-        let basic_block_header = parse_block_header(&raw_block_header)?;
+        let basic_block_header =
+            parse_block_header(&raw_block_header).map_err(|err| Error::<T>::from(err))?;
 
         let block_header_hash = raw_block_header.hash();
 
@@ -1440,8 +1461,8 @@ impl<T: Trait> Module<T> {
     }
 
     fn recover_if_needed() -> Result<(), DispatchError> {
-        if ext::security::_is_parachain_error_invalid_btcrelay::<T>()
-            || ext::security::_is_parachain_error_no_data_btcrelay::<T>()
+        if ext::security::is_parachain_error_invalid_btcrelay::<T>()
+            || ext::security::is_parachain_error_no_data_btcrelay::<T>()
         {
             Ok(ext::security::recover_from_btc_relay_failure::<T>()?)
         } else {
@@ -1553,9 +1574,13 @@ decl_error! {
         /// There are no NO_DATA blocks in this BlockChain
         NoDataEmpty,
         /// User supplied an invalid address
-        InvalidAddress,
+        InvalidBtcHash,
         /// User supplied an invalid script
         InvalidScript,
+        /// Specified invalid Bitcoin address
+        InvalidBtcAddress,
+        /// Arithmetic overflow
+        ArithmeticOverflow
     }
 }
 
@@ -1574,8 +1599,10 @@ impl<T: Trait> From<BitcoinError> for Error<T> {
             BitcoinError::UnsupportedOutputFormat => Self::UnsupportedOutputFormat,
             BitcoinError::MalformedOpReturnOutput => Self::MalformedOpReturnOutput,
             BitcoinError::InvalidHeaderSize => Self::InvalidHeaderSize,
-            BitcoinError::InvalidAddress => Self::InvalidAddress,
+            BitcoinError::InvalidBtcHash => Self::InvalidBtcHash,
             BitcoinError::InvalidScript => Self::InvalidScript,
+            BitcoinError::InvalidBtcAddress => Self::InvalidBtcAddress,
+            BitcoinError::ArithmeticOverflow => Self::ArithmeticOverflow,
         }
     }
 }

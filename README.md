@@ -54,9 +54,9 @@ The BTC-Parachain is built with:
 
 ## Roadmap
 
-The Substrate runtime makes use of various custom pallets and crates that are found in the [crates](./crates) folder.
+The Substrate runtime makes use of various custom pallets that are found in the [crates](./crates) folder.
 
-**Development status**: Proof-of-concept - Aplha release
+**Development status**: Alpha
 
 ### Development Progess
 
@@ -69,15 +69,12 @@ The Substrate runtime makes use of various custom pallets and crates that are fo
 - [replace](crates/replace) [Alpha] Handles replacing vaults.
 - [security](crates/security): [Alpha] Security module, handling BTC Parachain status changes (error handling).
 - [staked-relayers](crates/staked-relayers): [Alpha] Handles registration and stake of Staked Relayers, as well as voting on Parachain status changes.
-- [treasury](crates/treasury): [Alpha] Exposes functions related to handling of the PolkaBTC currency (mint, transfer, lock, burn)
-- [vault-registry](crate/vault-registry): [Alpha] Handles registration, collateral and liquidation of Vaults.
-- [x-core](crates/xclaim-core): [Alpha] Error types and other shared types/functions used across BTC-Parachain components.
+- [treasury](crates/treasury): [Alpha] Exposes functions related to handling of the PolkaBTC currency (mint, lock, burn)
+- [vault-registry](crates/vault-registry): [Alpha] Handles registration, collateral and liquidation of Vaults.
 
 ## Getting started
 
-### Prerequesites
-
-- rustup
+### Prerequisites
 
 ```
 curl https://sh.rustup.rs -sSf | sh
@@ -85,7 +82,7 @@ curl https://sh.rustup.rs -sSf | sh
 
 ### Installation
 
-Building requires `nightly`. Run the following commands to set up:
+Building requires `nightly`. Run the following commands to set it up:
 
 ```
 rustup toolchain install nightly-2020-10-01
@@ -96,11 +93,13 @@ rustup toolchain install nightly
 rustup target add wasm32-unknown-unknown --toolchain nightly-2020-10-01
 ```
 
-To build, run
+To build, run:
 
 ```
 cargo build
 ```
+
+For more detailed development instructions [see here](./parachain/README.md).
 
 ### Testing
 
@@ -141,10 +140,12 @@ To disable all btc-relay block inclusion checks, use the special `dev-no-btc` ch
 This is useful for testing without the overhead of running a block relayer.
 
 ```shell
-cargo run --release -- --chain dev-no-btc
+cargo run --release -- --alice --chain dev-no-btc --rpc-cors all --validator --force-authoring --tmp
 ```
 
-#### Test coverage
+Additional CLI usage options are available and may be shown by running `cargo run -- --help`.
+
+#### Test Coverage
 
 Test coverage reports available under [docs/testcoverage.html](https://gitlab.com/interlay/btc-parachain/-/blob/dev/docs/testcoverage.html)
 
@@ -152,19 +153,15 @@ Test coverage reports available under [docs/testcoverage.html](https://gitlab.co
 
 The Substrate runtime configuration is in the [parachain](./parachain) folder.
 
-#### Custom Types
+### Javascript / Typescript
 
-```json
-{
-  "H256Le": "Hash",
-  "DOT": "Balance"
-}
-```
+When interacting via polkadot{.js} you will need to use our [custom types](https://github.com/interlay/polkabtc-types). Please also checkout [polkabtc-js](https://github.com/interlay/polkabtc-js) for a more complete (strongly-typed) library with [bitcoinjs-lib](https://github.com/bitcoinjs/bitcoinjs-lib) integration.
 
 ## Contributing
 
 If you would like to contribute, please file an issue on GitLab or reach out to us.
 
+- [Discord](https://discord.gg/C8tjMbgVXh)
 - [Telegram](https://t.me/joinchat/G9FaYhNbJK9v-6DN3IyhJw)
 - [Riot](https://matrix.to/#/!nZablWWaicZyVTWyZk:matrix.org?via=matrix.org)
 

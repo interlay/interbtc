@@ -10,6 +10,12 @@ pub use error::Error;
 
 pub mod merkle;
 
+mod address;
+pub use address::Address;
+
+mod script;
+pub use script::Script;
+
 pub mod types;
 
 pub mod formatter;

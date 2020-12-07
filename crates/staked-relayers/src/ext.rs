@@ -86,7 +86,6 @@ pub(crate) mod vault_registry {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod security {
-    use frame_support::dispatch::DispatchResult;
     use security::types::{ErrorCode, StatusCode};
     use sp_std::collections::btree_set::BTreeSet;
 
@@ -98,12 +97,12 @@ pub(crate) mod security {
         <security::Module<T>>::set_parachain_status(status_code)
     }
 
-    pub(crate) fn mutate_errors<T, F>(f: F) -> DispatchResult
-    where
-        T: security::Trait,
-        F: for<'a> FnOnce(&'a mut BTreeSet<ErrorCode>) -> DispatchResult,
-    {
-        <security::Module<T>>::mutate_errors(f)
+    pub(crate) fn insert_error<T: security::Trait>(error_code: ErrorCode) {
+        <security::Module<T>>::insert_error(error_code)
+    }
+
+    pub(crate) fn remove_error<T: security::Trait>(error_code: ErrorCode) {
+        <security::Module<T>>::remove_error(error_code)
     }
 
     pub(crate) fn get_errors<T: security::Trait>() -> BTreeSet<ErrorCode> {
@@ -114,6 +113,7 @@ pub(crate) mod security {
 #[cfg_attr(test, mockable)]
 pub(crate) mod btc_relay {
     use bitcoin::types::{H256Le, Transaction};
+    use btc_relay::BtcAddress;
     use frame_support::dispatch::DispatchResult;
     use security::types::ErrorCode;
     use sp_std::prelude::*;
@@ -145,7 +145,7 @@ pub(crate) mod btc_relay {
 
     pub(crate) fn extract_outputs<T: btc_relay::Trait>(
         tx: Transaction,
-    ) -> Result<(Vec<(i64, Vec<u8>)>, Vec<(i64, Vec<u8>)>), btc_relay::Error<T>> {
+    ) -> Result<(Vec<(i64, BtcAddress)>, Vec<(i64, Vec<u8>)>), btc_relay::Error<T>> {
         <btc_relay::Module<T>>::extract_outputs(tx)
     }
 }

@@ -3,6 +3,7 @@ use sp_std::vec::Vec;
 use sp_std::{prelude::*, vec};
 
 use crate::merkle::MerkleProof;
+use crate::script::*;
 use crate::types::*;
 
 const WITNESS_FLAG: u8 = 0x01;
@@ -116,7 +117,9 @@ impl Formattable<bool> for TransactionInput {
         formatter.format(&self.previous_hash);
         formatter.format(self.previous_index);
         formatter.format(CompactUint::from_usize(self.script.len()));
-        self.height.iter().for_each(|h| formatter.output(h));
+        if let Some(height) = self.height {
+            formatter.format(Script::height(height).as_bytes());
+        }
         formatter.output(&self.script); // we already formatted the length
         formatter.format(self.sequence);
         formatter.result()
@@ -135,7 +138,7 @@ impl Formattable for &[u8] {
     }
 }
 
-impl Formattable for Address {
+impl Formattable for H160 {
     fn format(&self) -> Vec<u8> {
         Vec::from(self.as_bytes())
     }

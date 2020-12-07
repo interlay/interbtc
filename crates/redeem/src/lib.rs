@@ -23,8 +23,9 @@ mod ext;
 pub mod types;
 
 pub use crate::types::RedeemRequest;
-use crate::types::{PolkaBTC, DOT};
+use crate::types::{PolkaBTC, RedeemRequestV0, Version, DOT};
 use bitcoin::types::H256Le;
+use btc_relay::BtcAddress;
 use frame_support::weights::Weight;
 /// # PolkaBTC Redeem implementation
 /// The Redeem module according to the specification at
@@ -38,7 +39,6 @@ use frame_support::{
 use frame_system::{ensure_root, ensure_signed};
 use primitive_types::H256;
 use security::ErrorCode;
-use sp_core::H160;
 use sp_runtime::ModuleId;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
@@ -78,6 +78,9 @@ decl_storage! {
         /// The minimum amount of btc that is accepted for redeem requests; any lower values would
         /// risk the bitcoin client to reject the payment
         RedeemBtcDustValue get(fn redeem_btc_dust_value) config(): PolkaBTC<T>;
+
+        /// Build storage at V1 (requires default 0).
+        StorageVersion get(fn storage_version) build(|_| Version::V1): Version = Version::V0;
     }
 }
 
@@ -88,7 +91,7 @@ decl_event!(
         AccountId = <T as frame_system::Trait>::AccountId,
         PolkaBTC = PolkaBTC<T>,
     {
-        RequestRedeem(H256, AccountId, PolkaBTC, AccountId, H160),
+        RequestRedeem(H256, AccountId, PolkaBTC, AccountId, BtcAddress),
         ExecuteRedeem(H256, AccountId, AccountId),
         CancelRedeem(H256, AccountId),
     }
@@ -104,6 +107,34 @@ decl_module! {
         // this is needed only if you are using events in your pallet
         fn deposit_event() = default;
 
+        /// Upgrade the runtime depending on the current `StorageVersion`.
+        fn on_runtime_upgrade() -> Weight {
+            use frame_support::{migration::StorageKeyIterator, Blake2_128Concat};
+
+            if Self::storage_version() == Version::V0 {
+                StorageKeyIterator::<H256, RedeemRequestV0<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, Blake2_128Concat>::new(<RedeemRequests<T>>::module_prefix(), b"RedeemRequests")
+                    .drain()
+                    .for_each(|(id, request_v0)| {
+                        let request_v1 = RedeemRequest {
+                            vault: request_v0.vault,
+                            opentime: request_v0.opentime,
+                            amount_polka_btc: request_v0.amount_polka_btc,
+                            amount_btc: request_v0.amount_btc,
+                            amount_dot: request_v0.amount_dot,
+                            premium_dot: request_v0.premium_dot,
+                            redeemer: request_v0.redeemer,
+                            btc_address: BtcAddress::P2WPKHv0(request_v0.btc_address),
+                            completed: request_v0.completed,
+                        };
+                        <RedeemRequests<T>>::insert(id, request_v1);
+                    });
+
+                StorageVersion::put(Version::V1);
+            }
+
+            0
+        }
+
         /// A user requests to start the redeem procedure. This function checks the BTC Parachain
         /// status in Security and decides how the Redeem process is to be executed.
         ///
@@ -114,7 +145,7 @@ decl_module! {
         /// * `btc_address` - the address to receive BTC
         /// * `vault` - address of the vault
         #[weight = <T as Trait>::WeightInfo::request_redeem()]
-        fn request_redeem(origin, amount_polka_btc: PolkaBTC<T>, btc_address: H160, vault_id: T::AccountId)
+        fn request_redeem(origin, amount_polka_btc: PolkaBTC<T>, btc_address: BtcAddress, vault_id: T::AccountId)
             -> DispatchResult
         {
             let redeemer = ensure_signed(origin)?;
@@ -149,19 +180,19 @@ decl_module! {
                     let amount_dot: u128 = Self::rawbtc_to_rawdot(amount_dot_in_btc)?;
                     (
                         amount_btc,
-                        amount_dot.try_into().map_err(|_e| Error::<T>::ConversionError)?,
+                        amount_dot.try_into().map_err(|_e| Error::<T>::TryIntoIntError)?,
                     )
                 } else {
                     (Self::btc_to_u128(amount_polka_btc)?, 0)
                 };//how much you locked
             ext::vault_registry::increase_to_be_redeemed_tokens::<T>(
                 &vault_id,
-                amount_btc.try_into().map_err(|_e| Error::<T>::ConversionError)?,
+                amount_btc.try_into().map_err(|_e| Error::<T>::TryIntoIntError)?,
             )?;
             if amount_dot > 0 {
                 ext::vault_registry::redeem_tokens_liquidation::<T>(
                     &vault_id,
-                    amount_dot.try_into().map_err(|_e| Error::<T>::ConversionError)?,
+                    amount_dot.try_into().map_err(|_e| Error::<T>::TryIntoIntError)?,
                 )?;
             }
             ext::treasury::lock::<T>(redeemer.clone(), amount_polka_btc)?;
@@ -180,11 +211,11 @@ decl_module! {
                     vault: vault_id.clone(),
                     opentime: height,
                     amount_polka_btc,
-                    amount_btc: amount_btc.try_into().map_err(|_e| Error::<T>::ConversionError)?,
-                    amount_dot: amount_dot.try_into().map_err(|_e| Error::<T>::ConversionError)?,
+                    amount_btc: amount_btc.try_into().map_err(|_e| Error::<T>::TryIntoIntError)?,
+                    amount_dot: amount_dot.try_into().map_err(|_e| Error::<T>::TryIntoIntError)?,
                     premium_dot,
                     redeemer: redeemer.clone(),
-                    btc_address,
+                    btc_address: btc_address.clone(),
                     completed: false,
                 },
             );
@@ -212,7 +243,7 @@ decl_module! {
         /// * `merkle_proof` - raw bytes
         /// * `raw_tx` - raw bytes
         #[weight = <T as Trait>::WeightInfo::execute_redeem()]
-        fn execute_redeem(origin, redeem_id: H256, tx_id: H256Le, _tx_block_height: u32, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
+        fn execute_redeem(origin, redeem_id: H256, tx_id: H256Le, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
             -> DispatchResult
         {
             let vault_id = ensure_signed(origin)?;
@@ -221,21 +252,23 @@ decl_module! {
 
             let redeem = Self::get_redeem_request_from_id(&redeem_id)?;
             ensure!(vault_id == redeem.vault, Error::<T>::UnauthorizedVault);
-            let height = <frame_system::Module<T>>::block_number();
-            let period = Self::redeem_period();
+
+            // only executable before the request has expired
             ensure!(
-                height <= redeem.opentime + period,
+                !has_request_expired::<T>(redeem.opentime, Self::redeem_period()),
                 Error::<T>::CommitPeriodExpired
             );
+
             let amount: usize = redeem
                 .amount_btc
                 .try_into()
-                .map_err(|_e| Error::<T>::ConversionError)?;
+                .map_err(|_e| Error::<T>::TryIntoIntError)?;
             ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
+            // TODO: register change addresses (vault wallet)
             ext::btc_relay::validate_transaction::<T>(
                 raw_tx,
                 amount as i64,
-                redeem.btc_address.as_bytes().to_vec(),
+                redeem.btc_address,
                 redeem_id.clone().as_bytes().to_vec(),
             )?;
             ext::treasury::burn::<T>(redeem.redeemer.clone(), redeem.amount_polka_btc)?;
@@ -277,9 +310,11 @@ decl_module! {
             let redeem = Self::get_redeem_request_from_id(&redeem_id)?;
             ensure!(redeemer == redeem.redeemer, Error::<T>::UnauthorizedUser);
 
-            let height = <frame_system::Module<T>>::block_number();
-            let period = Self::redeem_period();
-            ensure!(height > redeem.opentime + period, Error::<T>::TimeNotExpired);
+            // only cancellable after the request has expired
+            ensure!(
+                has_request_expired::<T>(redeem.opentime, Self::redeem_period()),
+                Error::<T>::TimeNotExpired
+            );
 
             let punishment_fee = ext::vault_registry::punishment_fee::<T>();
             let raw_punishment_fee = Self::dot_to_u128(punishment_fee)?;
@@ -293,11 +328,11 @@ decl_module! {
                 )?;
                 ext::treasury::burn::<T>(redeem.redeemer.clone(), redeem.amount_polka_btc)?;
                 let reimburse_in_dot = raw_amount_in_dot
-                    .checked_mul(100_000 + raw_punishment_fee).ok_or(Error::<T>::ConversionError)?
-                    .checked_div(100_000).ok_or(Error::<T>::ConversionError)?;
+                    .checked_mul(100_000 + raw_punishment_fee).ok_or(Error::<T>::ArithmeticOverflow)?
+                    .checked_div(100_000).ok_or(Error::<T>::ArithmeticUnderflow)?;
                 let reimburse_amount: DOT<T> = reimburse_in_dot
                     .try_into()
-                    .map_err(|_| Error::<T>::ConversionError)?;
+                    .map_err(|_| Error::<T>::TryIntoIntError)?;
                 ext::collateral::slash_collateral::<T>(
                     &redeem.redeemer,
                     &redeem.vault,
@@ -305,11 +340,13 @@ decl_module! {
                 )?;
             } else {
                 let slash_in_dot = raw_amount_in_dot
-                    .checked_mul(raw_punishment_fee).ok_or(Error::<T>::ConversionError)?
-                    .checked_div(100_000).ok_or(Error::<T>::ConversionError)?;
+                    .checked_mul(raw_punishment_fee).ok_or(Error::<T>::ArithmeticOverflow)?
+                    .checked_div(100_000).ok_or(Error::<T>::ArithmeticUnderflow)?;
                 let slash_amount: DOT<T> = Self::u128_to_dot(slash_in_dot)?;
                 ext::collateral::slash_collateral::<T>(&redeem.redeemer, &redeem.vault, slash_amount)?;
             }
+
+            let height = <frame_system::Module<T>>::block_number();
             ext::vault_registry::ban_vault::<T>(redeem.vault, height)?;
             Self::remove_redeem_request(redeem_id);
             Self::deposit_event(<Event<T>>::CancelRedeem(redeem_id, redeemer));
@@ -411,9 +448,7 @@ impl<T: Trait> Module<T> {
 
     /// Ensure that the parachain is running or a vault is being liquidated.
     fn ensure_parachain_running_or_error_liquidated() -> DispatchResult {
-        ext::security::ensure_parachain_status_has_only_specific_errors::<T>(
-            [ErrorCode::Liquidation].to_vec(),
-        )?;
+        ext::security::ensure_parachain_only_has_errors::<T>([ErrorCode::Liquidation].to_vec())?;
         ext::security::ensure_parachain_status_running::<T>()
     }
 
@@ -426,19 +461,19 @@ impl<T: Trait> Module<T> {
     }
 
     fn btc_to_u128(amount: PolkaBTC<T>) -> Result<u128, DispatchError> {
-        TryInto::<u128>::try_into(amount).map_err(|_e| Error::<T>::ConversionError.into())
+        TryInto::<u128>::try_into(amount).map_err(|_e| Error::<T>::TryIntoIntError.into())
     }
 
     fn dot_to_u128(amount: DOT<T>) -> Result<u128, DispatchError> {
-        TryInto::<u128>::try_into(amount).map_err(|_e| Error::<T>::ConversionError.into())
+        TryInto::<u128>::try_into(amount).map_err(|_e| Error::<T>::TryIntoIntError.into())
     }
 
     fn u128_to_dot(x: u128) -> Result<DOT<T>, DispatchError> {
-        TryInto::<DOT<T>>::try_into(x).map_err(|_| Error::<T>::ConversionError.into())
+        TryInto::<DOT<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
     fn u128_to_btc(x: u128) -> Result<PolkaBTC<T>, DispatchError> {
-        TryInto::<PolkaBTC<T>>::try_into(x).map_err(|_| Error::<T>::ConversionError.into())
+        TryInto::<PolkaBTC<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
     fn rawbtc_to_rawdot(btc: u128) -> Result<u128, DispatchError> {
@@ -449,10 +484,15 @@ impl<T: Trait> Module<T> {
     fn partial_redeem(raw_btc: u128) -> Result<u128, DispatchError> {
         raw_btc
             .checked_mul(Self::get_partial_redeem_factor()?)
-            .ok_or(Error::<T>::ConversionError)?
+            .ok_or(Error::<T>::ArithmeticOverflow)?
             .checked_div(100_000)
-            .ok_or(Error::<T>::ConversionError.into())
+            .ok_or(Error::<T>::ArithmeticUnderflow.into())
     }
+}
+
+fn has_request_expired<T: Trait>(opentime: T::BlockNumber, period: T::BlockNumber) -> bool {
+    let height = <frame_system::Module<T>>::block_number();
+    height > opentime + period
 }
 
 decl_error! {
@@ -465,7 +505,10 @@ decl_error! {
         TimeNotExpired,
         RedeemCompleted,
         RedeemIdNotFound,
-        ConversionError,
+        /// Unable to convert value
+        TryIntoIntError,
+        ArithmeticOverflow,
+        ArithmeticUnderflow,
         AmountBelowDustAmount,
     }
 }

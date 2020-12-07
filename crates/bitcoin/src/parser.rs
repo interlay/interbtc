@@ -3,6 +3,7 @@ extern crate mocktopus;
 
 extern crate bitcoin_hashes;
 
+use bitcoin_hashes::hash160::Hash as Hash160;
 use bitcoin_hashes::Hash;
 
 #[cfg(test)]
@@ -12,6 +13,7 @@ use crate::Error;
 use primitive_types::U256;
 use sp_std::prelude::*;
 
+use crate::address::Address;
 use crate::types::*;
 
 /// Type to be parsed from a bytes array
@@ -152,7 +154,9 @@ impl Parsable for U256 {
         }
         let exponent = raw_exponent - 3;
         let mantissa = U256::from_little_endian(&raw_bytes[position..position + 3]);
-        let offset = U256::from(256).pow(U256::from(exponent));
+        let offset = U256::from(256)
+            .checked_pow(U256::from(exponent))
+            .ok_or(Error::ArithmeticOverflow)?;
         Ok((mantissa * offset, 4))
     }
 }
@@ -181,6 +185,14 @@ impl BytesParser {
         let (result, bytes_consumed) = T::parse(&self.raw_bytes, self.position)?;
         self.position += bytes_consumed;
         Ok(result)
+    }
+
+    /// Peeks at the next byte without updating the parser head.
+    pub(crate) fn next(&self) -> Result<u8, Error> {
+        self.raw_bytes
+            .get(self.position)
+            .ok_or(Error::EOS)
+            .map(|i| i.clone())
     }
 
     /// This is the same as `parse` but allows to pass extra data to the parser
@@ -301,7 +313,7 @@ pub fn parse_transaction(raw_transaction: &[u8]) -> Result<Transaction, Error> {
     if (flags & 1) != 0 && allow_witness {
         flags ^= 1;
         for input in &mut inputs {
-            input.with_witness(parser.parse()?);
+            input.with_witness(flags, parser.parse()?);
         }
     }
 
@@ -345,8 +357,15 @@ fn parse_transaction_input(
 
     let mut script_size: u64 = parser.parse::<CompactUint>()?.value;
     let height = if is_coinbase && version == 2 {
-        script_size -= 4;
-        Some(parser.read(4)?)
+        // https://github.com/bitcoin/bips/blob/master/bip-0034.mediawiki
+        let height_size: u64 = parser.parse::<CompactUint>()?.value;
+        script_size -= height_size + 1;
+
+        let mut buffer = [0u8; 4];
+        let bytes = parser.read(height_size as usize)?;
+        buffer[..3].copy_from_slice(&bytes[0..3]);
+
+        Some(u32::from_le_bytes(buffer))
     } else {
         None
     };
@@ -368,6 +387,7 @@ fn parse_transaction_input(
             height,
             script,
             sequence,
+            flags: 0,
             witness: vec![],
         },
         consumed_bytes,
@@ -391,7 +411,7 @@ fn parse_transaction_output(raw_output: &[u8]) -> Result<(TransactionOutput, usi
     ))
 }
 
-pub(crate) fn extract_address_hash_scriptsig(input_script: &[u8]) -> Result<Vec<u8>, Error> {
+pub(crate) fn extract_address_hash_scriptsig(input_script: &[u8]) -> Result<Address, Error> {
     let mut parser = BytesParser::new(input_script);
     let mut p2pkh = true;
 
@@ -402,6 +422,17 @@ pub(crate) fn extract_address_hash_scriptsig(input_script: &[u8]) -> Result<Vec<
     }
 
     let sig_size: u64 = parser.parse::<CompactUint>()?.value;
+
+    // P2WPKH-P2SH (SegWit)
+    if parser.next()? == OpCode::Op0 as u8 {
+        // NOTE: we probably will not reach this as `extract_address`
+        // will first check the witness and get the `P2WPKHv0`
+        let sig = parser.read(sig_size as usize)?;
+        return Ok(Address::P2SH(H160::from_slice(
+            &Hash160::hash(&sig).to_vec(),
+        )));
+    }
+
     let _sig = parser.read(sig_size as usize)?;
 
     let redeem_script_size: u64 = parser.parse::<CompactUint>()?.value;
@@ -411,56 +442,12 @@ pub(crate) fn extract_address_hash_scriptsig(input_script: &[u8]) -> Result<Vec<
         return Err(Error::UnsupportedInputFormat);
     }
     let redeem_script = parser.read(redeem_script_size as usize)?;
-    return Ok(bitcoin_hashes::hash160::Hash::hash(&redeem_script).to_vec());
-}
-
-pub(crate) fn extract_address_hash_scriptpubkey(output_script: &[u8]) -> Result<Vec<u8>, Error> {
-    let script_len = output_script.len();
-    // Witness
-    if output_script[0] == 0 {
-        if script_len < 2 {
-            return Err(Error::MalformedWitnessOutput);
-        }
-        if output_script[1] == (script_len - 2) as u8 {
-            return Ok(output_script[2..].to_vec());
-        } else {
-            return Err(Error::MalformedWitnessOutput);
-        }
-    }
-
-    // P2PKH
-    // 25 bytes
-    // Format:
-    // 0x76 (OP_DUP) - 0xa9 (OP_HASH160) - 0x14 (20 bytes len) - <20 bytes pubkey hash> - 0x88 (OP_EQUALVERIFY) - 0xac (OP_CHECKSIG)
-    if script_len as u32 == P2PKH_SCRIPT_SIZE
-        && output_script[0..=2]
-            == [
-                OpCode::OpDup as u8,
-                OpCode::OpHash160 as u8,
-                HASH160_SIZE_HEX,
-            ]
-    {
-        if output_script[script_len - 2..]
-            != [OpCode::OpEqualVerify as u8, OpCode::OpCheckSig as u8]
-        {
-            return Err(Error::MalformedP2PKHOutput);
-        }
-        return Ok(output_script[3..script_len - 2].to_vec());
-    }
-
-    // P2SH
-    // 23 bytes
-    // Format:
-    // 0xa9 (OP_HASH160) - 0x14 (20 bytes hash) - <20 bytes script hash> - 0x87 (OP_EQUAL)
-    if script_len as u32 == P2SH_SCRIPT_SIZE
-        && output_script[0..=1] == [OpCode::OpHash160 as u8, HASH160_SIZE_HEX]
-    {
-        if output_script[script_len - 1] != OpCode::OpEqual as u8 {
-            return Err(Error::MalformedP2SHOutput);
-        }
-        return Ok(output_script[2..(script_len - 1)].to_vec());
-    }
-    Err(Error::UnsupportedOutputFormat)
+    let hash = H160::from_slice(&Hash160::hash(&redeem_script).to_vec());
+    return Ok(if p2pkh {
+        Address::P2PKH(hash)
+    } else {
+        Address::P2SH(hash)
+    });
 }
 
 pub(crate) fn extract_op_return_data(output_script: &[u8]) -> Result<Vec<u8>, Error> {
@@ -485,6 +472,7 @@ pub(crate) fn extract_op_return_data(output_script: &[u8]) -> Result<Vec<u8>, Er
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
+    use crate::{Address, Script};
 
     // examples from https://bitcoin.org/en/developer-reference#block-headers
 
@@ -607,8 +595,7 @@ pub(crate) mod tests {
         assert_eq!(input.sequence, 0);
         assert_eq!(input.previous_index, u32::max_value());
         let height = input.height.unwrap();
-        assert_eq!(height.len(), 4);
-        assert_eq!(height[0], 3);
+        assert_eq!(height, 328014);
         assert_eq!(input.script.len(), 37); // 0x29 - 4
     }
 
@@ -708,9 +695,11 @@ pub(crate) mod tests {
 
         let p2pkh_address: [u8; 20] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
-        let extr_p2pkh = extract_address_hash_scriptpubkey(&p2pkh_script).unwrap();
+        let script = Script::from(p2pkh_script);
+        let payload = Address::from_script(&script).unwrap();
+        let extr_p2pkh = payload.hash();
 
-        assert_eq!(&extr_p2pkh, &p2pkh_address);
+        assert_eq!(extr_p2pkh.as_bytes(), &p2pkh_address);
     }
 
     #[test]
@@ -719,9 +708,11 @@ pub(crate) mod tests {
 
         let p2sh_address: [u8; 20] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
-        let extr_p2sh = extract_address_hash_scriptpubkey(&p2sh_script).unwrap();
+        let script = Script::from(p2sh_script);
+        let payload = Address::from_script(&script).unwrap();
+        let extr_p2sh = payload.hash();
 
-        assert_eq!(&extr_p2sh, &p2sh_address);
+        assert_eq!(&extr_p2sh.as_bytes(), &p2sh_address);
     }
 
     #[test]
@@ -730,10 +721,10 @@ pub(crate) mod tests {
         let tx_bytes = hex::decode(&raw_tx).unwrap();
         let transaction = parse_transaction(&tx_bytes).unwrap();
 
-        let address: [u8; 20] = [
+        let address = Address::P2PKH(H160([
             126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8,
             50, 170,
-        ];
+        ]));
         let extr_address = extract_address_hash_scriptsig(&transaction.inputs[0].script).unwrap();
 
         assert_eq!(&extr_address, &address);
@@ -745,13 +736,26 @@ pub(crate) mod tests {
         let tx_bytes = hex::decode(&raw_tx).unwrap();
         let transaction = parse_transaction(&tx_bytes).unwrap();
 
-        let address: [u8; 20] = [
+        let address = Address::P2SH(H160([
             233, 195, 221, 12, 7, 170, 199, 97, 121, 235, 199, 106, 108, 120, 212, 214, 124, 108,
             22, 10,
-        ];
+        ]));
         let extr_address = extract_address_hash_scriptsig(&transaction.inputs[0].script).unwrap();
 
         assert_eq!(&extr_address, &address);
+    }
+
+    #[test]
+    fn test_extract_address_hash_scriptsig_p2wpkh_p2sh_testnet() {
+        let expected = Address::P2SH(H160::from_slice(
+            &hex::decode("068a6a2ec6be7d6e7aac1657445154c52db0cef8").unwrap(),
+        ));
+        let actual = extract_address_hash_scriptsig(
+            &hex::decode("160014473ca3f4d726ce9c21af7cdc3fcc13264f681b04").unwrap(),
+        )
+        .unwrap();
+
+        assert_eq!(actual, expected);
     }
 
     /*

@@ -1,6 +1,6 @@
 [package]
 name = "vault-registry"
-version = '0.2.3'
+version = '0.3.2'
 authors = ["Interlay Ltd"]
 edition = "2018"
 
@@ -19,6 +19,7 @@ std = [
   'timestamp/std',
   'sp-core/std',
   'pallet-balances/std',
+  'btc-relay/std',
   'collateral/std',
   'treasury/std',
   'security/std',
@@ -93,6 +94,10 @@ version = '2.0.0'
 [dependencies.security]
 default-features = false
 path = '../security'
+
+[dependencies.btc-relay]
+default-features = false
+path = '../btc-relay'
 
 [dependencies.collateral]
 default-features = false

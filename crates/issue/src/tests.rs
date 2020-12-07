@@ -1,12 +1,12 @@
 use crate::mock::*;
 use crate::types::PolkaBTC;
 use crate::RawEvent;
-use crate::{ext, Trait};
+use crate::{ext, has_request_expired, Trait};
 use bitcoin::types::H256Le;
+use btc_relay::BtcAddress;
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
 use primitive_types::H256;
-use sp_core::H160;
 use vault_registry::{Vault, VaultStatus, Wallet};
 
 fn request_issue(
@@ -21,7 +21,7 @@ fn request_issue(
     ext::security::get_secure_id::<Test>.mock_safe(|_| MockResult::Return(get_dummy_request_id()));
 
     ext::vault_registry::increase_to_be_issued_tokens::<Test>
-        .mock_safe(|_, _| MockResult::Return(Ok(H160::from_slice(&[0; 20]))));
+        .mock_safe(|_, _| MockResult::Return(Ok(BtcAddress::default())));
 
     Issue::_request_issue(origin, amount, vault, collateral)
 }
@@ -40,7 +40,7 @@ fn request_issue_ok(
     ext::security::get_secure_id::<Test>.mock_safe(|_| MockResult::Return(get_dummy_request_id()));
 
     ext::vault_registry::increase_to_be_issued_tokens::<Test>
-        .mock_safe(|_, _| MockResult::Return(Ok(H160::from_slice(&[0; 20]))));
+        .mock_safe(|_, _| MockResult::Return(Ok(BtcAddress::default())));
 
     match Issue::_request_issue(origin, amount, vault, collateral) {
         Ok(act) => act,
@@ -93,7 +93,7 @@ fn test_request_issue_banned_fails() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
-                wallet: Wallet::new(H160::random()),
+                wallet: Wallet::new(BtcAddress::random()),
                 banned_until: Some(1),
                 status: VaultStatus::Active,
             },
@@ -135,7 +135,7 @@ fn test_request_issue_succeeds() {
             origin,
             amount,
             vault,
-            H160([0; 20]),
+            BtcAddress::default(),
         ));
         assert!(System::events()
             .iter()
@@ -271,5 +271,14 @@ fn test_set_issue_period_only_root() {
             DispatchError::BadOrigin
         );
         assert_ok!(Issue::set_issue_period(Origin::root(), 1));
+    })
+}
+
+#[test]
+fn test_has_request_expired() {
+    run_test(|| {
+        System::set_block_number(45);
+        assert!(has_request_expired::<Test>(9, 20));
+        assert!(!has_request_expired::<Test>(30, 24));
     })
 }

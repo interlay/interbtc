@@ -1,3 +1,4 @@
+use super::Module as ExchangeRateOracle;
 use super::*;
 use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
@@ -7,18 +8,17 @@ benchmarks! {
     _ {}
 
     set_exchange_rate {
-        let u in 0 .. 1000;
         let origin: T::AccountId = account("origin", 0, 0);
-        <AuthorizedOracle<T>>::set(origin.clone());
-    }: _(RawOrigin::Signed(origin), u.into())
+        <AuthorizedOracles<T>>::insert(origin.clone(), Vec::<u8>::new());
+    }: _(RawOrigin::Signed(origin), 1)
     verify {
-        assert_eq!(ExchangeRate::get(), u.into());
+        assert_eq!(ExchangeRate::get(), 100);
     }
 
     set_btc_tx_fees_per_byte {
         let u in 0 .. 1000u32;
         let origin: T::AccountId = account("origin", 0, 0);
-        <AuthorizedOracle<T>>::set(origin.clone());
+        <AuthorizedOracles<T>>::insert(origin.clone(), Vec::<u8>::new());
     }: _(RawOrigin::Signed(origin), 1 * u, 2 * u, 3 * u)
     verify {
         let readback = SatoshiPerBytes::get();
@@ -26,6 +26,21 @@ benchmarks! {
         assert_eq!(readback.fast, 1 * u);
         assert_eq!(readback.half, 2 * u);
         assert_eq!(readback.hour, 3 * u);
+    }
+
+    insert_authorized_oracle {
+        let origin: T::AccountId = account("origin", 0, 0);
+    }: _(RawOrigin::Root, origin.clone(), "Origin".as_bytes().to_vec())
+    verify {
+        assert_eq!(ExchangeRateOracle::<T>::is_authorized(&origin), true);
+    }
+
+    remove_authorized_oracle {
+        let origin: T::AccountId = account("origin", 0, 0);
+        ExchangeRateOracle::<T>::insert_oracle(origin.clone(), "Origin".as_bytes().to_vec());
+    }: _(RawOrigin::Root, origin.clone())
+    verify {
+        assert_eq!(ExchangeRateOracle::<T>::is_authorized(&origin), false);
     }
 }
 
@@ -36,16 +51,12 @@ mod tests {
     use frame_support::assert_ok;
 
     #[test]
-    fn test_set_exchange_rate() {
+    fn test_benchmarks() {
         ExtBuilder::build().execute_with(|| {
             assert_ok!(test_benchmark_set_exchange_rate::<Test>());
-        });
-    }
-
-    #[test]
-    fn test_set_btc_tx_fees_per_byte() {
-        ExtBuilder::build().execute_with(|| {
             assert_ok!(test_benchmark_set_btc_tx_fees_per_byte::<Test>());
+            assert_ok!(test_benchmark_insert_authorized_oracle::<Test>());
+            assert_ok!(test_benchmark_remove_authorized_oracle::<Test>());
         });
     }
 }

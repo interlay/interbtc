@@ -29,7 +29,7 @@ fn integration_test_redeem_should_fail_if_not_running() {
         assert_err!(
             Call::Redeem(RedeemCall::request_redeem(
                 1000,
-                H160([0; 20]),
+                BtcAddress::P2PKH(H160([0u8; 20])),
                 account_of(BOB)
             ))
             .dispatch(origin_of(account_of(ALICE))),
@@ -45,13 +45,13 @@ fn integration_test_redeem_polka_btc() {
         let vault = BOB;
         let collateral_vault = 10_000;
         let polkabtc = 1_000;
-        let vault_btc_address = H160([0u8; 20]);
-        let user_btc_address = H160([0u8; 20]);
+
+        let vault_btc_address = BtcAddress::P2PKH(H160([0u8; 20]));
+        let user_btc_address = BtcAddress::P2PKH(H160([0u8; 20]));
 
         SystemModule::set_block_number(1);
 
-        assert_ok!(Call::ExchangeRateOracle(OracleCall::set_exchange_rate(1))
-            .dispatch(origin_of(account_of(BOB))));
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(1));
 
         set_default_thresholds();
 
@@ -70,7 +70,7 @@ fn integration_test_redeem_polka_btc() {
         let redeem_id = assert_redeem_request_event();
 
         // send the btc from the vault to the user
-        let (tx_id, tx_block_height, merkle_proof, raw_tx) =
+        let (tx_id, _tx_block_height, merkle_proof, raw_tx) =
             generate_transaction_and_mine(user_btc_address, polkabtc, redeem_id);
 
         SystemModule::set_block_number(1 + CONFIRMATIONS);
@@ -78,7 +78,6 @@ fn integration_test_redeem_polka_btc() {
         assert_ok!(Call::Redeem(RedeemCall::execute_redeem(
             redeem_id,
             tx_id,
-            tx_block_height,
             merkle_proof,
             raw_tx
         ))

@@ -16,14 +16,18 @@ const WITNESS_SCALE_FACTOR: u32 = 4;
 const MIN_TRANSACTION_WEIGHT: u32 = WITNESS_SCALE_FACTOR * 60;
 const MAX_TRANSACTIONS_IN_PROOF: u32 = MAX_BLOCK_WEIGHT / MIN_TRANSACTION_WEIGHT;
 
+#[derive(Clone)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct MerkleTree;
+
 /// Struct to store the content of a merkle proof
 #[derive(Clone)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct MerkleProof {
     pub block_header: BlockHeader,
+    pub flag_bits: Vec<bool>,
     pub transactions_count: u32,
     pub hashes: Vec<H256Le>,
-    pub flag_bits: Vec<bool>,
 }
 
 struct MerkleProofTraversal {
@@ -40,19 +44,53 @@ pub struct ProofResult {
     pub transaction_position: u32,
 }
 
-#[cfg_attr(test, mockable)]
-impl MerkleProof {
-    fn compute_tree_width(&self, height: u32) -> u32 {
-        (self.transactions_count + (1 << height) - 1) >> height
+impl MerkleTree {
+    pub fn compute_width(transactions_count: u32, height: u32) -> u32 {
+        (transactions_count + (1 << height) - 1) >> height
     }
 
-    /// Returns the height of the partial merkle tree
-    pub fn compute_tree_height(&self) -> u32 {
+    pub fn compute_height(transactions_count: u32) -> u32 {
         let mut height = 0;
-        while self.compute_tree_width(height) > 1 {
+        while Self::compute_width(transactions_count, height) > 1 {
             height += 1;
         }
         height
+    }
+
+    pub fn compute_root(
+        index: u32,
+        height: u32,
+        transactions_count: u32,
+        hashes: &Vec<H256Le>,
+    ) -> H256Le {
+        if height == 0 {
+            hashes[index as usize]
+        } else {
+            let left = Self::compute_root(index * 2, height - 1, transactions_count, hashes);
+            let right = if index * 2 + 1 < Self::compute_width(transactions_count, height - 1) {
+                Self::compute_root(index * 2 + 1, height - 1, transactions_count, hashes)
+            } else {
+                left
+            };
+            hash256_merkle_step(&left.to_bytes_le(), &right.to_bytes_le())
+        }
+    }
+}
+
+#[cfg_attr(test, mockable)]
+impl MerkleProof {
+    /// Returns the width of the partial merkle tree
+    pub fn compute_partial_tree_width(&self, height: u32) -> u32 {
+        MerkleTree::compute_width(self.transactions_count, height)
+    }
+
+    /// Returns the height of the partial merkle tree
+    pub fn compute_partial_tree_height(&self) -> u32 {
+        MerkleTree::compute_height(self.transactions_count)
+    }
+
+    pub fn compute_merkle_root(&self, index: u32, height: u32, tx_ids: &[H256Le]) -> H256Le {
+        MerkleTree::compute_root(index, height, self.transactions_count, &tx_ids.to_vec())
     }
 
     /// Performs a depth-first traversal of the partial merkle tree
@@ -82,7 +120,7 @@ impl MerkleProof {
         }
 
         let left = self.traverse_and_extract(height - 1, pos * 2, traversal)?;
-        let right = if pos * 2 + 1 < self.compute_tree_width(height - 1) {
+        let right = if pos * 2 + 1 < self.compute_partial_tree_width(height - 1) {
             self.traverse_and_extract(height - 1, pos * 2 + 1, traversal)?
         } else {
             left
@@ -116,7 +154,8 @@ impl MerkleProof {
             return Err(Error::MalformedMerkleProof);
         }
 
-        let root = self.traverse_and_extract(self.compute_tree_height(), 0, &mut traversal)?;
+        let root =
+            self.traverse_and_extract(self.compute_partial_tree_height(), 0, &mut traversal)?;
         let merkle_position = traversal.merkle_position.ok_or(Error::InvalidMerkleProof)?;
         let hash_position = traversal.hash_position.ok_or(Error::InvalidMerkleProof)?;
 
@@ -193,28 +232,13 @@ impl MerkleProof {
         self.flag_bits.push(parent_of_match);
 
         if height == 0 || !parent_of_match {
-            let hash = self.compute_hash(height, pos, tx_ids);
+            let hash = self.compute_merkle_root(pos, height, tx_ids);
             self.hashes.push(hash);
         } else {
             self.traverse_and_build(height - 1, pos * 2, tx_ids, matches);
-            if pos * 2 + 1 < self.compute_tree_width(height - 1) {
+            if pos * 2 + 1 < self.compute_partial_tree_width(height - 1) {
                 self.traverse_and_build(height - 1, pos * 2 + 1, tx_ids, matches);
             }
-        }
-    }
-
-    // TODO: This seems to be exactly the same logic as compute_merkle_root in impl BlockBuilder. Extract this as a helper and reuse the logic.
-    fn compute_hash(&self, height: u32, pos: u32, tx_ids: &[H256Le]) -> H256Le {
-        if height == 0 {
-            tx_ids[pos as usize]
-        } else {
-            let left = self.compute_hash(height - 1, pos * 2, tx_ids);
-            let right = if pos * 2 + 1 < self.compute_tree_width(height - 1) {
-                self.compute_hash(height - 1, pos * 2 + 1, tx_ids)
-            } else {
-                left
-            };
-            hash256_merkle_step(&left.to_bytes_le(), &right.to_bytes_le())
         }
     }
 }
@@ -299,18 +323,21 @@ mod tests {
     #[test]
     fn test_compute_tree_width() {
         let proof = MerkleProof::parse(&hex::decode(&PROOF_HEX[..]).unwrap()).unwrap();
-        assert_eq!(proof.compute_tree_width(0), proof.transactions_count);
         assert_eq!(
-            proof.compute_tree_width(1),
+            proof.compute_partial_tree_width(0),
+            proof.transactions_count
+        );
+        assert_eq!(
+            proof.compute_partial_tree_width(1),
             proof.transactions_count / 2 + 1
         );
-        assert_eq!(proof.compute_tree_width(12), 1);
+        assert_eq!(proof.compute_partial_tree_width(12), 1);
     }
 
     #[test]
-    fn test_compute_tree_height() {
+    fn test_compute_merkle_proof_tree_height() {
         let proof = MerkleProof::parse(&hex::decode(&PROOF_HEX[..]).unwrap()).unwrap();
-        assert_eq!(proof.compute_tree_height(), 12);
+        assert_eq!(proof.compute_partial_tree_height(), 12);
     }
 
     #[test]
@@ -323,5 +350,12 @@ mod tests {
         let expected_tx_hash =
             H256Le::from_hex_be("61a05151711e4716f31f7a3bb956d1b030c4d92093b843fa2e771b95564f0704");
         assert_eq!(result.transaction_hash, expected_tx_hash);
+    }
+
+    #[test]
+    fn test_parse_regtest_merkle_proof_succeeds() {
+        let raw_merkle_proof_hex = "0000002031a3479e5062e200279af822d816d02cab347bc3719726541c4fd5edfc3ffd7d680b2710119c752e5fb1b963ad2ee3539f6b3fe0e9b054e681734b631e92c2faf449ca5fffff7f20000000000300000003f0d6a860c811b45bbbe4f0401f26e2fafc40e50bb03782025c0ef82768703d3de263ed560faac245c73725f295eb653268bca3387f9e03b18ca6ab242ce6c54b5625d63322e74c0aa94c794cbf065858bddc5b8ea178fbb0549956149a7d4686010b";
+        let raw_merkle_proof = hex::decode(&raw_merkle_proof_hex).unwrap();
+        MerkleProof::parse(&raw_merkle_proof).unwrap();
     }
 }

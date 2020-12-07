@@ -4,6 +4,7 @@ use mocktopus::macros::mockable;
 #[cfg_attr(test, mockable)]
 pub(crate) mod btc_relay {
     use bitcoin::types::H256Le;
+    use btc_relay::BtcAddress;
     use frame_support::dispatch::DispatchResult;
     use sp_std::vec::Vec;
 
@@ -17,7 +18,7 @@ pub(crate) mod btc_relay {
     pub fn validate_transaction<T: btc_relay::Trait>(
         raw_tx: Vec<u8>,
         amount: i64,
-        btc_address: Vec<u8>,
+        btc_address: BtcAddress,
         issue_id: Vec<u8>,
     ) -> DispatchResult {
         <btc_relay::Module<T>>::_validate_transaction(raw_tx, amount, btc_address, issue_id)
@@ -153,21 +154,21 @@ pub(crate) mod security {
     use sp_std::vec::Vec;
 
     pub fn is_parachain_error_liquidation<T: security::Trait>() -> bool {
-        <security::Module<T>>::_is_parachain_error_liquidation()
+        <security::Module<T>>::is_parachain_error_liquidation()
     }
 
     pub fn get_secure_id<T: security::Trait>(id: &T::AccountId) -> H256 {
-        <security::Module<T>>::_get_secure_id(id)
+        <security::Module<T>>::get_secure_id(id)
     }
 
     pub fn ensure_parachain_status_running<T: security::Trait>() -> DispatchResult {
-        <security::Module<T>>::_ensure_parachain_status_running()
+        <security::Module<T>>::ensure_parachain_status_running()
     }
 
-    pub fn ensure_parachain_status_has_only_specific_errors<T: security::Trait>(
+    pub fn ensure_parachain_only_has_errors<T: security::Trait>(
         error_codes: Vec<ErrorCode>,
     ) -> DispatchResult {
-        <security::Module<T>>::_ensure_parachain_status_has_only_specific_errors(error_codes)
+        <security::Module<T>>::ensure_parachain_only_has_errors(error_codes)
     }
 }
 

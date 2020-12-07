@@ -5,29 +5,27 @@ use mocktopus::macros::mockable;
 pub(crate) mod security {
     #[cfg(test)]
     use security::types::ErrorCode;
+    #[cfg(test)]
     use security::types::StatusCode;
 
     use frame_support::dispatch::DispatchError;
     type UnitResult = Result<(), DispatchError>;
 
-    pub fn _ensure_parachain_status_running<T: security::Trait>() -> UnitResult {
-        <security::Module<T>>::_ensure_parachain_status_running()
+    #[cfg(test)]
+    pub fn ensure_parachain_status_running<T: security::Trait>() -> UnitResult {
+        <security::Module<T>>::ensure_parachain_status_running()
     }
 
     pub fn ensure_parachain_status_not_shutdown<T: security::Trait>() -> UnitResult {
-        <security::Module<T>>::_ensure_parachain_status_not_shutdown()
+        <security::Module<T>>::ensure_parachain_status_not_shutdown()
     }
 
-    pub fn _get_parachain_status<T: security::Trait>() -> StatusCode {
-        <security::Module<T>>::get_parachain_status()
+    pub fn is_parachain_error_invalid_btcrelay<T: security::Trait>() -> bool {
+        <security::Module<T>>::is_parachain_error_invalid_btcrelay()
     }
 
-    pub fn _is_parachain_error_invalid_btcrelay<T: security::Trait>() -> bool {
-        <security::Module<T>>::_is_parachain_error_invalid_btcrelay()
-    }
-
-    pub fn _is_parachain_error_no_data_btcrelay<T: security::Trait>() -> bool {
-        <security::Module<T>>::_is_parachain_error_no_data_btcrelay()
+    pub fn is_parachain_error_no_data_btcrelay<T: security::Trait>() -> bool {
+        <security::Module<T>>::is_parachain_error_no_data_btcrelay()
     }
 
     pub fn recover_from_btc_relay_failure<T: security::Trait>() -> UnitResult {
