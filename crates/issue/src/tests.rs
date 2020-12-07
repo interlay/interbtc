@@ -1,7 +1,7 @@
 use crate::mock::*;
 use crate::types::PolkaBTC;
 use crate::RawEvent;
-use crate::{ext, Trait};
+use crate::{ext, has_request_expired, Trait};
 use bitcoin::types::H256Le;
 use btc_relay::BtcAddress;
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
@@ -271,5 +271,14 @@ fn test_set_issue_period_only_root() {
             DispatchError::BadOrigin
         );
         assert_ok!(Issue::set_issue_period(Origin::root(), 1));
+    })
+}
+
+#[test]
+fn test_has_request_expired() {
+    run_test(|| {
+        System::set_block_number(45);
+        assert!(has_request_expired::<Test>(9, 20));
+        assert!(!has_request_expired::<Test>(30, 24));
     })
 }

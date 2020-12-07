@@ -271,10 +271,9 @@ impl<T: Trait> Module<T> {
         // allow anyone to complete issue request
         let requester = issue.requester;
 
-        let height = <frame_system::Module<T>>::block_number();
-        let period = Self::issue_period();
+        // only executable before the request has expired
         ensure!(
-            height <= issue.opentime + period,
+            !has_request_expired::<T>(issue.opentime, Self::issue_period()),
             Error::<T>::CommitPeriodExpired
         );
 
@@ -299,10 +298,12 @@ impl<T: Trait> Module<T> {
     /// Cancels CBA issuance if time has expired and slashes collateral.
     fn _cancel_issue(requester: T::AccountId, issue_id: H256) -> Result<(), DispatchError> {
         let issue = Self::get_issue_request_from_id(&issue_id)?;
-        let height = <frame_system::Module<T>>::block_number();
-        let period = Self::issue_period();
 
-        ensure!(height > issue.opentime + period, Error::<T>::TimeNotExpired);
+        // only cancellable after the request has expired
+        ensure!(
+            has_request_expired::<T>(issue.opentime, Self::issue_period()),
+            Error::<T>::TimeNotExpired
+        );
 
         ext::vault_registry::decrease_to_be_issued_tokens::<T>(&issue.vault, issue.amount)?;
         ext::collateral::slash_collateral::<T>(
@@ -379,6 +380,11 @@ impl<T: Trait> Module<T> {
             request.completed = true;
         });
     }
+}
+
+fn has_request_expired<T: Trait>(opentime: T::BlockNumber, period: T::BlockNumber) -> bool {
+    let height = <frame_system::Module<T>>::block_number();
+    height > opentime + period
 }
 
 decl_error! {
