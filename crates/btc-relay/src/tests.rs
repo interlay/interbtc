@@ -1809,6 +1809,125 @@ fn store_generated_block_headers() {
     })
 }
 
+#[test]
+fn test_extract_value_fails_with_wrong_recipient() {
+    run_test(|| {
+        let recipient_btc_address_0 = BtcAddress::P2SH(H160([0; 20]));
+        let recipient_btc_address_1 = BtcAddress::P2SH(H160([1; 20]));
+
+        let transaction = TransactionBuilder::new()
+            .with_version(2)
+            .add_output(TransactionOutput::payment(32, &recipient_btc_address_0))
+            .build();
+
+        assert_err!(
+            BTCRelay::extract_value(transaction, recipient_btc_address_1),
+            TestError::WrongRecipient
+        );
+    })
+}
+
+#[test]
+fn test_extract_value_succeeds() {
+    run_test(|| {
+        let recipient_btc_address = BtcAddress::P2SH(H160([0; 20]));
+        let recipient_value = 64;
+
+        let transaction = TransactionBuilder::new()
+            .with_version(2)
+            .add_output(TransactionOutput::payment(
+                recipient_value,
+                &recipient_btc_address,
+            ))
+            .build();
+
+        assert_eq!(
+            BTCRelay::extract_value(transaction, recipient_btc_address).unwrap(),
+            recipient_value
+        );
+    })
+}
+
+#[test]
+fn test_extract_value_and_op_return_fails_with_not_enough_outputs() {
+    run_test(|| {
+        let recipient_btc_address = BtcAddress::P2SH(H160::zero());
+
+        let transaction = TransactionBuilder::new()
+            .with_version(2)
+            .add_output(TransactionOutput::payment(100, &recipient_btc_address))
+            .build();
+
+        assert_err!(
+            BTCRelay::extract_value_and_op_return(transaction, recipient_btc_address),
+            TestError::MalformedTransaction
+        );
+    })
+}
+
+#[test]
+fn test_extract_value_and_op_return_fails_with_no_op_return() {
+    run_test(|| {
+        let recipient_btc_address_0 = BtcAddress::P2SH(H160([0; 20]));
+        let recipient_btc_address_1 = BtcAddress::P2SH(H160([1; 20]));
+
+        let transaction = TransactionBuilder::new()
+            .with_version(2)
+            .add_output(TransactionOutput::payment(100, &recipient_btc_address_0))
+            .add_output(TransactionOutput::payment(100, &recipient_btc_address_1))
+            .build();
+
+        assert_err!(
+            BTCRelay::extract_value_and_op_return(transaction, recipient_btc_address_0),
+            TestError::NotOpReturn
+        );
+    })
+}
+
+#[test]
+fn test_extract_value_and_op_return_fails_with_no_recipient() {
+    run_test(|| {
+        let recipient_btc_address_0 = BtcAddress::P2SH(H160([0; 20]));
+        let recipient_btc_address_1 = BtcAddress::P2SH(H160([1; 20]));
+        let recipient_btc_address_2 = BtcAddress::P2SH(H160([2; 20]));
+
+        let transaction = TransactionBuilder::new()
+            .with_version(2)
+            .add_output(TransactionOutput::payment(100, &recipient_btc_address_1))
+            .add_output(TransactionOutput::payment(100, &recipient_btc_address_2))
+            .build();
+
+        assert_err!(
+            BTCRelay::extract_value_and_op_return(transaction, recipient_btc_address_0),
+            TestError::WrongRecipient
+        );
+    })
+}
+
+#[test]
+fn test_extract_value_and_op_return_succeeds() {
+    run_test(|| {
+        let recipient_btc_address = BtcAddress::P2SH(H160::zero());
+        let recipient_value = 1234;
+        let op_return = vec![1; 32];
+
+        let transaction = TransactionBuilder::new()
+            .with_version(2)
+            .add_output(TransactionOutput::payment(
+                recipient_value,
+                &recipient_btc_address,
+            ))
+            .add_output(TransactionOutput::op_return(0, &op_return))
+            .build();
+
+        let (extr_value, extr_data) =
+            BTCRelay::extract_value_and_op_return(transaction, recipient_btc_address).unwrap();
+
+        assert_eq!(extr_value, recipient_value);
+        assert_eq!(extr_data, op_return);
+    })
+}
+
 /// # Util functions
 
 const SAMPLE_TX_ID: &'static str =
