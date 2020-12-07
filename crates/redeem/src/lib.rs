@@ -448,9 +448,7 @@ impl<T: Trait> Module<T> {
 
     /// Ensure that the parachain is running or a vault is being liquidated.
     fn ensure_parachain_running_or_error_liquidated() -> DispatchResult {
-        ext::security::ensure_parachain_status_has_only_specific_errors::<T>(
-            [ErrorCode::Liquidation].to_vec(),
-        )?;
+        ext::security::ensure_parachain_only_has_errors::<T>([ErrorCode::Liquidation].to_vec())?;
         ext::security::ensure_parachain_status_running::<T>()
     }
 
