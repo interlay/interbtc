@@ -120,10 +120,10 @@ decl_module! {
             // fail if the signer is not an authorized oracle
             ensure!(Self::is_authorized(&signer), Error::<T>::InvalidOracleSource);
 
-            let rate = Self::btc_dot_to_satoshi_planck(btc_dot)?.checked_mul(10u128.pow(GRANULARITY as u32)).ok_or(Error::<T>::ArithmeticOverflow)?;
-            Self::_set_exchange_rate(rate)?;
+            let satoshi_planck = Self::btc_dot_to_satoshi_planck(btc_dot)?;
+            Self::_set_exchange_rate(satoshi_planck)?;
 
-            Self::deposit_event(Event::<T>::SetExchangeRate(signer, rate));
+            Self::deposit_event(Event::<T>::SetExchangeRate(signer, btc_dot));
 
             Ok(())
         }

@@ -1,5 +1,4 @@
 use crate::mock::{run_test, ExchangeRateOracle, Origin, System, Test, TestError, TestEvent};
-use crate::GRANULARITY;
 
 use frame_support::{assert_err, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
@@ -31,12 +30,9 @@ fn set_exchange_rate_success() {
         assert_ok!(result);
 
         let exchange_rate = ExchangeRateOracle::get_exchange_rate().unwrap();
-        assert_eq!(exchange_rate, 100 * 10u128.pow(GRANULARITY as u32));
+        assert_eq!(exchange_rate, 100);
 
-        assert_emitted!(Event::SetExchangeRate(
-            3,
-            100 * 10u128.pow(GRANULARITY as u32)
-        ));
+        assert_emitted!(Event::SetExchangeRate(3, 100));
     });
 }
 
@@ -80,7 +76,7 @@ fn set_exchange_rate_wrong_oracle() {
         );
 
         let exchange_rate = ExchangeRateOracle::get_exchange_rate().unwrap();
-        assert_eq!(exchange_rate, 20 * 10u128.pow(GRANULARITY as u32));
+        assert_eq!(exchange_rate, 20);
 
         assert_not_emitted!(Event::SetExchangeRate(3, 100));
         assert_not_emitted!(Event::SetExchangeRate(4, 100));
@@ -154,11 +150,6 @@ fn convert_btc_dot_to_satoshi_planck() {
         assert_eq!(
             ExchangeRateOracle::btc_dot_to_satoshi_planck(3461).unwrap(),
             346100
-        );
-
-        assert_eq!(
-            ExchangeRateOracle::btc_dot_to_satoshi_planck(3855).unwrap(),
-            385500
         );
     });
 }

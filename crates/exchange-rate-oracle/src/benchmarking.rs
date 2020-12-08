@@ -12,7 +12,7 @@ benchmarks! {
         <AuthorizedOracles<T>>::insert(origin.clone(), Vec::<u8>::new());
     }: _(RawOrigin::Signed(origin), 1)
     verify {
-        assert_eq!(ExchangeRate::get(), 100 * 10u128.pow(GRANULARITY as u32));
+        assert_eq!(ExchangeRate::get(), 100);
     }
 
     set_btc_tx_fees_per_byte {
