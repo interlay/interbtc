@@ -1439,6 +1439,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "fee"
+version = "0.3.1"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "mocktopus",
+ "pallet-balances",
+ "parity-scale-codec",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "file-per-thread-logger"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6258,6 +6273,21 @@ name = "signature"
 version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29f060a7d147e33490ec10da418795238fd7545bba241504d6b31a409f2e6210"
+
+[[package]]
+name = "sla"
+version = "0.3.1"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "mocktopus",
+ "pallet-balances",
+ "parity-scale-codec",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
 
 [[package]]
 name = "slab"
