@@ -734,6 +734,22 @@ impl<T: Trait> Module<T> {
         <LiquidationVault<T>>::set(vault_id);
     }
 
+    pub fn _get_secure_collateral_threshold() -> u128 {
+        <SecureCollateralThreshold>::get()
+    }
+
+    pub fn _get_auction_collateral_threshold() -> u128 {
+        <AuctionCollateralThreshold>::get()
+    }
+
+    pub fn _get_premium_redeem_threshold() -> u128 {
+        <PremiumRedeemThreshold>::get()
+    }
+
+    pub fn _get_liquidation_collateral_threshold() -> u128 {
+        <LiquidationCollateralThreshold>::get()
+    }
+
     pub fn _is_over_minimum_collateral(amount: DOT<T>) -> bool {
         amount > Self::get_minimum_collateral_vault()
     }

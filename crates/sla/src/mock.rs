@@ -9,6 +9,7 @@ use frame_support::{
     },
 };
 use mocktopus::mocking::clear_mocks;
+use pallet_balances as balances;
 use sp_arithmetic::FixedI128;
 use sp_core::H256;
 use sp_runtime::FixedPointNumber;
@@ -32,6 +33,11 @@ impl_outer_event! {
         test_events<T>,
         collateral<T>,
         pallet_balances Instance1<T>,
+        balances<T>,
+        vault_registry<T>,
+        exchange_rate_oracle<T>,
+        treasury<T>,
+        security,
     }
 }
 
@@ -106,9 +112,30 @@ impl pallet_balances::Trait<pallet_balances::Instance1> for Test {
     type WeightInfo = ();
 }
 
+impl pallet_balances::Trait for Test {
+    type MaxLocks = MaxLocks;
+    type Balance = Balance;
+    type Event = TestEvent;
+    type DustRemoval = ();
+    type ExistentialDeposit = ExistentialDeposit;
+    type AccountStore = System;
+    type WeightInfo = ();
+}
+
 impl collateral::Trait for Test {
     type Event = TestEvent;
     type DOT = pallet_balances::Module<Test, pallet_balances::Instance1>;
+}
+
+impl vault_registry::Trait for Test {
+    type Event = TestEvent;
+    type RandomnessSource = pallet_randomness_collective_flip::Module<Test>;
+    type WeightInfo = ();
+}
+
+impl treasury::Trait for Test {
+    type PolkaBTC = Balances;
+    type Event = TestEvent;
 }
 
 impl Trait for Test {
@@ -116,11 +143,31 @@ impl Trait for Test {
     type FixedPoint = FixedI128;
 }
 
+impl exchange_rate_oracle::Trait for Test {
+    type Event = TestEvent;
+    type WeightInfo = ();
+}
+
+parameter_types! {
+    pub const MinimumPeriod: u64 = 5;
+}
+impl timestamp::Trait for Test {
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = MinimumPeriod;
+    type WeightInfo = ();
+}
+
+impl security::Trait for Test {
+    type Event = TestEvent;
+}
+
 #[allow(dead_code)]
 pub type TestError = Error<Test>;
 
 #[allow(dead_code)]
 pub type System = frame_system::Module<Test>;
+pub type Balances = pallet_balances::Module<Test>;
 
 #[allow(dead_code)]
 pub type Sla = Module<Test>;

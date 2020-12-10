@@ -49,12 +49,42 @@ optional = true
 default-features = false
 path = '../collateral'
 
+[dependencies.vault-registry]
+default-features = false
+path = '../vault-registry'
+
 [dependencies.sp-arithmetic]
 default-features = false
 version = '2.0.0'
 
 [dev-dependencies]
 mocktopus = '0.7.0'
+
+[dev-dependencies.pallet-randomness-collective-flip]
+default-features = false
+package = 'pallet-randomness-collective-flip'
+version = '2.0.0'
+
+[dev-dependencies.treasury]
+default-features = false
+path = '../treasury'
+
+[dev-dependencies.pallet-balances]
+default-features = false
+version = '2.0.0'
+
+[dev-dependencies.exchange-rate-oracle]
+default-features = false
+path = '../exchange-rate-oracle'
+
+[dev-dependencies.timestamp]
+default-features = false
+package = 'pallet-timestamp'
+version = '2.0.0'
+
+[dev-dependencies.security]
+default-features = false
+path = '../security'
 
 [features]
 default = ['std']
@@ -67,6 +97,7 @@ std = [
 	'sp-io/std',
 	'sp-runtime/std',
 	'collateral/std',
+	'vault-registry/std',
 	'sp-std/std',
 	'frame-system/std',
 	'pallet-balances/std',

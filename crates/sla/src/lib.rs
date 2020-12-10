@@ -28,7 +28,7 @@ pub(crate) type DOT<T> =
 pub(crate) type FixedPoint<T> = <T as Trait>::FixedPoint;
 
 /// The pallet's configuration trait.
-pub trait Trait: frame_system::Trait + collateral::Trait {
+pub trait Trait: frame_system::Trait + collateral::Trait + vault_registry::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 
@@ -174,16 +174,44 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    // score(relayer) = relayer.sla * relayer.stake
-    // reward(relayer) = totalReward / totalRelayerScore * relayer.score
-    // where totalReward is the amount of fees currently distributed and
-    // totalRelayerScore is the sum of the scores of all active Staked Relayers.
     fn calculate_slashed_amount(
         vault_id: T::AccountId,
         stake: DOT<T>,
     ) -> Result<DOT<T>, DispatchError> {
         let current_sla = <VaultSla<T>>::get(vault_id);
-        // todo
+
+        let liquidation_threshold = Self::_get_liquidation_threshold()?;
+        let premium_redeem_threshold = Self::_get_premium_redeem_threshold()?;
+
+        Self::_calculate_slashed_amount(
+            current_sla,
+            stake,
+            liquidation_threshold,
+            premium_redeem_threshold,
+        )
+    }
+
+    /// fetch liquidation_threshold from vault registery and convert
+    fn _get_liquidation_threshold() -> Result<FixedPoint<T>, DispatchError> {
+        let liquidation_threshold =
+            <vault_registry::Module<T>>::_get_liquidation_collateral_threshold();
+        Self::_vault_registery_threshold_to_fixed_point(liquidation_threshold)
+    }
+
+    /// fetch premium_redeem_threshold from vault registery and convert
+    fn _get_premium_redeem_threshold() -> Result<FixedPoint<T>, DispatchError> {
+        let premium_redeem_threshold = <vault_registry::Module<T>>::_get_premium_redeem_threshold();
+        Self::_vault_registery_threshold_to_fixed_point(premium_redeem_threshold)
+    }
+
+    /// Convert a threshold from set in the vault registry to a fixed point type
+    fn _vault_registery_threshold_to_fixed_point(
+        value: u128,
+    ) -> Result<FixedPoint<T>, DispatchError> {
+        let scaling_factor = 10u128.pow(vault_registry::GRANULARITY);
+        let ret = T::FixedPoint::checked_from_rational(value, scaling_factor)
+            .ok_or(Error::<T>::TryIntoIntError);
+        Ok(ret?)
     }
 
     fn _calculate_slashed_amount(

@@ -6279,17 +6279,23 @@ name = "sla"
 version = "0.3.1"
 dependencies = [
  "collateral",
+ "exchange-rate-oracle",
  "frame-support",
  "frame-system",
  "mocktopus",
  "pallet-balances",
+ "pallet-randomness-collective-flip",
+ "pallet-timestamp",
  "parity-scale-codec",
+ "security",
  "serde",
  "sp-arithmetic",
  "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std",
+ "treasury",
+ "vault-registry",
 ]
 
 [[package]]
