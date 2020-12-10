@@ -59,7 +59,8 @@ make_parsable_int!(i64, 8);
 impl Parsable for CompactUint {
     fn parse(raw_bytes: &[u8], position: usize) -> Result<(CompactUint, usize), Error> {
         let last_byte = sp_std::cmp::min(position + 3, raw_bytes.len());
-        let (value, bytes_consumed) = parse_compact_uint(&raw_bytes[position..last_byte]);
+        let (value, bytes_consumed) =
+            parse_compact_uint(raw_bytes.get(position..last_byte).ok_or(Error::EOS)?)?;
         Ok((CompactUint { value }, bytes_consumed))
     }
 }
@@ -157,7 +158,12 @@ impl Parsable for U256 {
         let offset = U256::from(256)
             .checked_pow(U256::from(exponent))
             .ok_or(Error::ArithmeticOverflow)?;
-        Ok((mantissa * offset, 4))
+        Ok((
+            mantissa
+                .checked_mul(offset)
+                .ok_or(Error::ArithmeticOverflow)?,
+            4,
+        ))
     }
 }
 
@@ -261,24 +267,24 @@ pub fn parse_block_header(raw_header: &RawBlockHeader) -> Result<BlockHeader, Er
 /// # Arguments
 ///
 /// * `varint` - A slice containing the header
-pub fn parse_compact_uint(varint: &[u8]) -> (u64, usize) {
-    match varint[0] {
+pub fn parse_compact_uint(varint: &[u8]) -> Result<(u64, usize), Error> {
+    match varint.get(0).ok_or(Error::EOS)? {
         0xfd => {
             let mut num_bytes: [u8; 2] = Default::default();
-            num_bytes.copy_from_slice(&varint[1..3]);
-            (u16::from_le_bytes(num_bytes) as u64, 3)
+            num_bytes.copy_from_slice(&varint.get(1..3).ok_or(Error::EOS)?);
+            Ok((u16::from_le_bytes(num_bytes) as u64, 3))
         }
         0xfe => {
             let mut num_bytes: [u8; 4] = Default::default();
-            num_bytes.copy_from_slice(&varint[1..5]);
-            (u32::from_le_bytes(num_bytes) as u64, 5)
+            num_bytes.copy_from_slice(&varint.get(1..5).ok_or(Error::EOS)?);
+            Ok((u32::from_le_bytes(num_bytes) as u64, 5))
         }
         0xff => {
             let mut num_bytes: [u8; 8] = Default::default();
-            num_bytes.copy_from_slice(&varint[1..9]);
-            (u64::from_le_bytes(num_bytes) as u64, 9)
+            num_bytes.copy_from_slice(&varint.get(1..9).ok_or(Error::EOS)?);
+            Ok((u64::from_le_bytes(num_bytes) as u64, 9))
         }
-        _ => (varint[0] as u64, 1),
+        _ => Ok((varint[0] as u64, 1)),
     }
 }
 
@@ -508,7 +514,7 @@ pub(crate) mod tests {
             ),
         ];
         for (input, expected) in cases.iter() {
-            assert_eq!(parse_compact_uint(input), *expected);
+            assert_eq!(parse_compact_uint(input).unwrap(), *expected);
         }
     }
 
