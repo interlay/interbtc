@@ -6278,11 +6278,14 @@ checksum = "29f060a7d147e33490ec10da418795238fd7545bba241504d6b31a409f2e6210"
 name = "sla"
 version = "0.3.1"
 dependencies = [
+ "collateral",
  "frame-support",
  "frame-system",
  "mocktopus",
  "pallet-balances",
  "parity-scale-codec",
+ "serde",
+ "sp-arithmetic",
  "sp-core",
  "sp-io",
  "sp-runtime",

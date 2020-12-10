@@ -40,17 +40,33 @@ default-features = false
 package = 'pallet-balances'
 version = '2.0.0'
 
+[dependencies.serde]
+version = '1.0.101'
+features = ['derive']
+optional = true
+
+[dependencies.collateral]
+default-features = false
+path = '../collateral'
+
+[dependencies.sp-arithmetic]
+default-features = false
+version = '2.0.0'
+
 [dev-dependencies]
 mocktopus = '0.7.0'
 
 [features]
 default = ['std']
 std = [
+	'serde',
 	'codec/std',
 	'frame-support/std',
+	'sp-arithmetic/std',
 	'sp-core/std',
 	'sp-io/std',
 	'sp-runtime/std',
+	'collateral/std',
 	'sp-std/std',
 	'frame-system/std',
 	'pallet-balances/std',
