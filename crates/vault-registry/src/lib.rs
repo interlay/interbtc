@@ -88,26 +88,9 @@ decl_storage! {
         /// to participate in the issue process.
         MinimumCollateralVault get(fn minimum_collateral_vault) config(): DOT<T>;
 
-        /// If a Vault misbehaves in either the redeem or replace protocol by
-        /// failing to prove that it sent the correct amount of BTC to the
-        /// correct address within the time limit, a vault is punished.
-        /// The punishment is the equivalent value of BTC in DOT
-        /// (valued at the current exchange rate via `getExchangeRate`) plus a
-        /// fixed `PunishmentFee` that is added as a percentage on top
-        /// to compensate the damaged party for its loss.
-        /// For example, if the `PunishmentFee` is set to 50000,
-        /// it is equivalent to 50%.
-        PunishmentFee get(fn punishment_fee) config(): DOT<T>;
-
         /// If a Vault fails to execute a correct redeem or replace,
         /// it is temporarily banned from further issue, redeem or replace requests.
         PunishmentDelay get(fn punishment_delay) config(): T::BlockNumber;
-
-        /// If a Vault is running low on collateral and falls below
-        /// `PremiumRedeemThreshold`, users are allocated a premium in DOT
-        /// when redeeming with the Vault - as defined by this parameter.
-        /// For example, if the RedeemPremiumFee is set to 5000, it is equivalent to 5%.
-        RedeemPremiumFee get(fn redeem_premium_fee) config(): DOT<T>;
 
         /// Determines the over-collateralization rate for DOT collateral locked
         /// by Vaults, necessary for issuing PolkaBTC. Must to be strictly
@@ -670,9 +653,10 @@ impl<T: Trait> Module<T> {
         <Vaults<T>>::insert(id, vault)
     }
 
-    pub fn _ban_vault(vault_id: T::AccountId, height: T::BlockNumber) -> DispatchResult {
+    pub fn ban_vault(vault_id: T::AccountId) -> DispatchResult {
+        let height = <frame_system::Module<T>>::block_number();
         let mut vault = Self::rich_vault_from_id(&vault_id)?;
-        vault.ban_until(height);
+        vault.ban_until(height + Self::punishment_delay());
         Ok(())
     }
 

@@ -20,6 +20,7 @@ use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::traits::{
     BlakeTwo256, Block as BlockT, IdentifyAccount, IdentityLookup, NumberFor, Saturating, Verify,
 };
+use sp_arithmetic::FixedU128;
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
     transaction_validity::{TransactionSource, TransactionValidity},
@@ -175,7 +176,7 @@ impl frame_system::Trait for Runtime {
     /// logic of that extrinsic. (Signature verification, nonce increment, fee, etc...)
     type ExtrinsicBaseWeight = ExtrinsicBaseWeight;
     /// The maximum weight that a single extrinsic of `Normal` dispatch class can have,
-    /// idependent of the logic of that extrinsics. (Roughly max block weight - average on
+    /// independent of the logic of that extrinsics. (Roughly max block weight - average on
     /// initialize cost).
     type MaximumExtrinsicWeight = MaximumExtrinsicWeight;
     /// Maximum size of all encoded transactions (in bytes) that are allowed in one block.
@@ -353,6 +354,11 @@ impl exchange_rate_oracle::Trait for Runtime {
     type WeightInfo = ();
 }
 
+impl fee::Trait for Runtime {
+    type Event = Event;
+    type FixedPoint = FixedU128;
+}
+
 pub use issue::{IssueRequest, RawEvent as RawIssueEvent};
 
 impl issue::Trait for Runtime {
@@ -400,6 +406,7 @@ construct_runtime!(
         Issue: issue::{Module, Call, Config<T>, Storage, Event<T>},
         Redeem: redeem::{Module, Call, Config<T>, Storage, Event<T>},
         Replace: replace::{Module, Call, Config<T>, Storage, Event<T>},
+        Fee: fee::{Module, Call, Config<T>, Storage, Event<T>},
     }
 );
 

@@ -7,6 +7,8 @@ use frame_support::{
         Weight,
     },
 };
+use pallet_balances as balances;
+use sp_arithmetic::FixedU128;
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
@@ -28,6 +30,9 @@ impl_outer_event! {
     pub enum TestEvent for Test {
         frame_system<T>,
         test_events<T>,
+        balances<T>,
+        collateral<T>,
+        treasury<T>,
     }
 }
 
@@ -36,8 +41,7 @@ impl_outer_event! {
 // configuration traits of pallets we want to use.
 
 pub type AccountId = u64;
-#[allow(dead_code)]
-pub type Balance = u64;
+pub type Balance = u128;
 pub type BlockNumber = u64;
 
 #[derive(Clone, Eq, PartialEq)]
@@ -72,14 +76,40 @@ impl frame_system::Trait for Test {
     type PalletInfo = ();
     type OnNewAccount = ();
     type OnKilledAccount = ();
-    type AccountData = pallet_balances::AccountData<u64>;
+    type AccountData = pallet_balances::AccountData<Balance>;
     type BaseCallFilter = ();
     type MaximumExtrinsicWeight = MaximumBlockWeight;
     type SystemWeightInfo = ();
 }
 
+parameter_types! {
+    pub const ExistentialDeposit: u64 = 1;
+    pub const MaxLocks: u32 = 50;
+}
+
+impl pallet_balances::Trait for Test {
+    type MaxLocks = MaxLocks;
+    type Balance = Balance;
+    type Event = TestEvent;
+    type DustRemoval = ();
+    type ExistentialDeposit = ExistentialDeposit;
+    type AccountStore = System;
+    type WeightInfo = ();
+}
+
+impl collateral::Trait for Test {
+    type Event = TestEvent;
+    type DOT = Balances;
+}
+
+impl treasury::Trait for Test {
+    type Event = TestEvent;
+    type PolkaBTC = Balances;
+}
+
 impl Trait for Test {
     type Event = TestEvent;
+    type FixedPoint = FixedU128;
 }
 
 #[allow(dead_code)]
@@ -88,8 +118,10 @@ pub type TestError = Error<Test>;
 #[allow(dead_code)]
 pub type System = frame_system::Module<Test>;
 
+pub type Balances = pallet_balances::Module<Test>;
+
 #[allow(dead_code)]
-pub type SLA = Module<Test>;
+pub type Fee = Module<Test>;
 
 pub struct ExtBuilder;
 

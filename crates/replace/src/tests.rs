@@ -162,7 +162,6 @@ fn test_request_replace_amount_below_dust_value_fails() {
         let amount = 1;
 
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
@@ -177,8 +176,10 @@ fn test_request_replace_amount_below_dust_value_fails() {
         ext::vault_registry::is_over_minimum_collateral::<Test>
             .mock_safe(|_| MockResult::Return(true));
         ext::collateral::get_collateral_from_account::<Test>.mock_safe(|_| MockResult::Return(1));
+        ext::oracle::btc_to_dots::<Test>.mock_safe(|_| MockResult::Return(Ok(0)));
+        ext::fee::get_replace_griefing_collateral::<Test>
+            .mock_safe(move |_| MockResult::Return(Ok(desired_griefing_collateral)));
 
-        Replace::set_replace_griefing_collateral(desired_griefing_collateral);
         assert_noop!(
             Replace::_request_replace(old_vault, amount, griefing_collateral),
             TestError::AmountBelowDustAmount
@@ -196,7 +197,6 @@ fn test_request_replace_insufficient_griefing_collateral_fails() {
         let amount = 3;
 
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
@@ -211,8 +211,10 @@ fn test_request_replace_insufficient_griefing_collateral_fails() {
         ext::vault_registry::is_over_minimum_collateral::<Test>
             .mock_safe(|_| MockResult::Return(true));
         ext::collateral::get_collateral_from_account::<Test>.mock_safe(|_| MockResult::Return(1));
+        ext::oracle::btc_to_dots::<Test>.mock_safe(|_| MockResult::Return(Ok(0)));
+        ext::fee::get_replace_griefing_collateral::<Test>
+            .mock_safe(move |_| MockResult::Return(Ok(desired_griefing_collateral)));
 
-        Replace::set_replace_griefing_collateral(desired_griefing_collateral);
         assert_noop!(
             Replace::_request_replace(old_vault, amount, griefing_collateral),
             TestError::InsufficientCollateral

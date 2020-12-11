@@ -112,3 +112,39 @@ pub(crate) mod security {
         <security::Module<T>>::ensure_parachain_status_running()
     }
 }
+
+#[cfg_attr(test, mockable)]
+pub(crate) mod oracle {
+    use crate::types::{PolkaBTC, DOT};
+    use frame_support::dispatch::DispatchError;
+
+    pub fn btc_to_dots<T: exchange_rate_oracle::Trait>(
+        amount: PolkaBTC<T>,
+    ) -> Result<DOT<T>, DispatchError> {
+        <exchange_rate_oracle::Module<T>>::btc_to_dots(amount)
+    }
+}
+
+#[cfg_attr(test, mockable)]
+pub(crate) mod fee {
+    use crate::types::{PolkaBTC, DOT};
+    use frame_support::dispatch::DispatchError;
+
+    pub fn account_id<T: fee::Trait>() -> T::AccountId {
+        <fee::Module<T>>::account_id()
+    }
+
+    pub fn get_issue_fee<T: fee::Trait>(amount: PolkaBTC<T>) -> Result<PolkaBTC<T>, DispatchError> {
+        <fee::Module<T>>::get_issue_fee(amount)
+    }
+
+    pub fn get_issue_griefing_collateral<T: fee::Trait>(
+        amount: DOT<T>,
+    ) -> Result<DOT<T>, DispatchError> {
+        <fee::Module<T>>::get_issue_griefing_collateral(amount)
+    }
+
+    pub fn increase_rewards_for_epoch<T: fee::Trait>(amount: DOT<T>) {
+        <fee::Module<T>>::increase_rewards_for_epoch(amount)
+    }
+}

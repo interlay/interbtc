@@ -8,6 +8,7 @@ use frame_support::{
     },
 };
 use pallet_balances as balances;
+use sp_arithmetic::{FixedPointNumber, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
@@ -35,6 +36,7 @@ impl_outer_event! {
         btc_relay,
         treasury<T>,
         exchange_rate_oracle<T>,
+        fee<T>,
         security,
     }
 }
@@ -78,7 +80,7 @@ impl frame_system::Trait for Test {
     type PalletInfo = ();
     type OnNewAccount = ();
     type OnKilledAccount = ();
-    type AccountData = pallet_balances::AccountData<u64>;
+    type AccountData = pallet_balances::AccountData<Balance>;
     type BaseCallFilter = ();
     type MaximumExtrinsicWeight = MaximumBlockWeight;
     type SystemWeightInfo = ();
@@ -140,6 +142,11 @@ impl exchange_rate_oracle::Trait for Test {
     type WeightInfo = ();
 }
 
+impl fee::Trait for Test {
+    type Event = TestEvent;
+    type FixedPoint = FixedU128;
+}
+
 impl Trait for Test {
     type Event = TestEvent;
     type WeightInfo = ();
@@ -171,12 +178,22 @@ impl ExtBuilder {
 
         conf.assimilate_storage(&mut storage).unwrap();
 
-        GenesisConfig::<Test> {
-            issue_griefing_collateral: 10,
-            issue_period: 10,
+        fee::GenesisConfig::<Test> {
+            issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
+            issue_griefing_collateral: FixedU128::checked_from_rational(5, 100000).unwrap(), // 0.005%
+            redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),                  // 0.5%
+            premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
+            auction_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
+            punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(),                // 10%
+            replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(),   // 10%
+            account_id: 0,
         }
         .assimilate_storage(&mut storage)
         .unwrap();
+
+        GenesisConfig::<Test> { issue_period: 10 }
+            .assimilate_storage(&mut storage)
+            .unwrap();
 
         storage.into()
     }

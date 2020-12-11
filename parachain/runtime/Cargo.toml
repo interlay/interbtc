@@ -68,6 +68,10 @@ version = '2.0.0'
 default-features = false
 version = '0.8.0'
 
+[dependencies.sp-arithmetic]
+default-features = false
+version = '2.0.0'
+
 [dependencies.sp-core]
 default-features = false
 version = '2.0.0'
@@ -167,6 +171,11 @@ default-features = false
 package = 'exchange-rate-oracle'
 path = '../../crates/exchange-rate-oracle'
 
+[dependencies.fee]
+default-features = false
+package = 'fee'
+path = '../../crates/fee'
+
 [dependencies.issue]
 default-features = false
 package = 'issue'
@@ -235,6 +244,7 @@ std = [
   'sp-api/std',
   'sp-block-builder/std',
   'sp-consensus-aura/std',
+  'sp-arithmetic/std',
   'sp-core/std',
   'sp-inherents/std',
   'sp-io/std',
@@ -263,6 +273,7 @@ std = [
   'staked-relayers/std',
   'vault-registry/std',
   'exchange-rate-oracle/std',
+  'fee/std',
   'issue/std',
   'redeem/std',
   'replace/std',

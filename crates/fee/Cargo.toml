@@ -5,6 +5,11 @@ edition = '2018'
 name = 'fee'
 version = '0.3.1'
 
+[dependencies.serde]
+version = '1.0.101'
+features = ['derive']
+optional = true
+
 [dependencies.codec]
 default-features = false
 features = ['derive']
@@ -12,6 +17,10 @@ package = 'parity-scale-codec'
 version = '1.3.4'
 
 [dependencies.frame-support]
+default-features = false
+version = '2.0.0'
+
+[dependencies.sp-arithmetic]
 default-features = false
 version = '2.0.0'
 
@@ -40,18 +49,30 @@ default-features = false
 package = 'pallet-balances'
 version = '2.0.0'
 
+[dependencies.collateral]
+default-features = false
+path = '../collateral'
+
+[dependencies.treasury]
+default-features = false
+path = '../treasury'
+
 [dev-dependencies]
 mocktopus = '0.7.0'
 
 [features]
 default = ['std']
 std = [
+	'serde',
 	'codec/std',
 	'frame-support/std',
+	'sp-arithmetic/std',
 	'sp-core/std',
 	'sp-io/std',
 	'sp-runtime/std',
 	'sp-std/std',
 	'frame-system/std',
 	'pallet-balances/std',
+	'collateral/std',
+	'treasury/std',
 ]

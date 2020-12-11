@@ -23,7 +23,8 @@ benchmarks! {
     request_replace {
         let vault_id: T::AccountId = account("Vault", 0, 0);
         let amount = Replace::<T>::replace_btc_dust_value() + 1000.into();
-        let griefing = Replace::<T>::replace_griefing_collateral() + 1000.into();
+        // TODO: calculate from exchange rate
+        let griefing = 1000.into();
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();

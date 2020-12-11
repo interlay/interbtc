@@ -1,13 +1,14 @@
 use btc_parachain_runtime::{
     AccountId, AuraConfig, BTCRelayConfig, DOTConfig, ExchangeRateOracleConfig, GenesisConfig,
     GrandpaConfig, IssueConfig, PolkaBTCConfig, RedeemConfig, ReplaceConfig, Signature,
-    StakedRelayersConfig, SudoConfig, SystemConfig, VaultRegistryConfig, DAYS, WASM_BINARY,
+    StakedRelayersConfig, SudoConfig, SystemConfig, VaultRegistryConfig, DAYS, WASM_BINARY, FeeConfig
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::traits::{IdentifyAccount, Verify};
+use sp_arithmetic::{FixedPointNumber, FixedU128};
 
 #[cfg(feature = "runtime-benchmarks")]
 use frame_benchmarking::account;
@@ -212,14 +213,24 @@ fn testnet_genesis(
         }),
         vault_registry: Some(VaultRegistryConfig {
             minimum_collateral_vault: 0,
-            punishment_fee: 20_000,
-            punishment_delay: 8,
+            punishment_delay: DAYS,
             redeem_premium_fee: 5000,
             secure_collateral_threshold: 200_000,
             auction_collateral_threshold: 150_000,
             premium_redeem_threshold: 120_000,
             liquidation_collateral_threshold: 110_000,
             liquidation_vault: get_account_id_from_seed::<sr25519::Public>("Victor"),
+        }),
+        fee: Some(FeeConfig {
+            issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
+            issue_griefing_collateral: FixedU128::checked_from_rational(5, 100000).unwrap(), // 0.005%
+            redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),                  // 0.5%
+            premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
+            auction_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
+            punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(),                // 10%
+            replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(),   // 10%
+            account_id: get_account_id_from_seed::<sr25519::Public>("Victor"),
+            epoch_period: 5,
         }),
     }
 }

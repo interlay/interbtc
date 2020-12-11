@@ -292,6 +292,7 @@ fn test_request_redeem_succeeds_in_running_state() {
                 vault: BOB,
                 opentime: 1,
                 amount_polka_btc: amount,
+                fee_polka_btc: 0,
                 amount_btc: amount,
                 amount_dot: 0,
                 premium_dot: 0,
@@ -365,7 +366,7 @@ fn test_request_redeem_succeeds_in_error_state() {
 
         ext::treasury::lock::<Test>.mock_safe(move |account, amount_polka_btc| {
             assert_eq!(account, redeemer);
-            assert_eq!(amount_polka_btc, amount);
+            assert_eq!(amount_polka_btc, amount + 5000000);
 
             MockResult::Return(Ok(()))
         });
@@ -392,6 +393,7 @@ fn test_request_redeem_succeeds_in_error_state() {
                 vault: BOB,
                 opentime: 1,
                 amount_polka_btc: amount,
+                fee_polka_btc: 5000000,
                 amount_btc: amount / 2,
                 amount_dot: amount / 2,
                 premium_dot: 0,
@@ -430,6 +432,7 @@ fn test_execute_redeem_fails_with_unauthorized_vault() {
                 vault: BOB,
                 opentime: 0,
                 amount_polka_btc: 0,
+                fee_polka_btc: 0,
                 amount_btc: 0,
                 amount_dot: 0,
                 premium_dot: 0,
@@ -464,6 +467,7 @@ fn test_execute_redeem_fails_with_commit_period_expired() {
                 vault: BOB,
                 opentime: 20,
                 amount_polka_btc: 0,
+                fee_polka_btc: 0,
                 amount_btc: 0,
                 amount_dot: 0,
                 premium_dot: 0,
@@ -516,6 +520,7 @@ fn test_execute_redeem_succeeds() {
                 vault: BOB,
                 opentime: 40,
                 amount_polka_btc: 100,
+                fee_polka_btc: 0,
                 amount_btc: 0,
                 amount_dot: 0,
                 premium_dot: 0,
@@ -576,6 +581,7 @@ fn test_cancel_redeem_fails_with_time_not_expired() {
                 vault: BOB,
                 opentime: 0,
                 amount_polka_btc: 0,
+                fee_polka_btc: 0,
                 amount_btc: 0,
                 amount_dot: 0,
                 premium_dot: 0,
@@ -604,6 +610,7 @@ fn test_cancel_redeem_fails_with_unauthorized_caller() {
                 vault: BOB,
                 opentime: 0,
                 amount_polka_btc: 0,
+                fee_polka_btc: 0,
                 amount_btc: 0,
                 amount_dot: 0,
                 premium_dot: 0,
@@ -631,6 +638,7 @@ fn test_cancel_redeem_succeeds() {
                 vault: BOB,
                 opentime: 10,
                 amount_polka_btc: 0,
+                fee_polka_btc: 0,
                 amount_btc: 0,
                 amount_dot: 0,
                 premium_dot: 0,
