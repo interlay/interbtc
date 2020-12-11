@@ -16,6 +16,8 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
+mod ext;
+
 use codec::{Decode, Encode, EncodeLike};
 use frame_support::traits::Currency;
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError};
@@ -35,13 +37,13 @@ pub trait Trait: frame_system::Trait + collateral::Trait + vault_registry::Trait
     type FixedPoint: FixedPointNumber + Encode + EncodeLike + Decode;
 }
 
-enum VaultEvent {
+pub enum VaultEvent {
     RedeemFailure,
     ExecutedIssue(u32),
     SubmittedIssueProof,
 }
 
-enum RelayerEvent {
+pub enum RelayerEvent {
     BlockSubmission,
     CorrectNoDataVoteOrReport,
     CorrectInvalidVoteOrReport,
@@ -61,6 +63,8 @@ decl_storage! {
 
         /// Mapping from accounts of vaults to their sla score
         RelayerSla get(fn relayer_sla): map hasher(blake2_128_concat) T::AccountId => T::FixedPoint;
+
+        TotalRelayerScore: T::FixedPoint;
 
         VaultTargetSla get(fn vault_target_sla) config(): T::FixedPoint;
         VaultRedeemFailure get(fn vault_redeem_failure_sla_change) config(): T::FixedPoint;
@@ -137,12 +141,9 @@ impl<T: Trait> Module<T> {
             value
         }
     }
-    fn event_update_relayer_sla(
-        relayer_id: T::AccountId,
-        event: RelayerEvent,
-    ) -> Result<(), DispatchError> {
-        let current_sla = <RelayerSla<T>>::get(relayer_id.clone());
-        let delta_sla = match event {
+
+    fn _get_delta_sla(event: RelayerEvent) -> T::FixedPoint {
+        match event {
             RelayerEvent::BlockSubmission => <RelayerBlockSubmission<T>>::get(),
             RelayerEvent::CorrectNoDataVoteOrReport => <RelayerCorrectNoDataVoteOrReport<T>>::get(),
             RelayerEvent::CorrectInvalidVoteOrReport => {
@@ -156,10 +157,18 @@ impl<T: Trait> Module<T> {
             RelayerEvent::FalseNoDataVoteOrReport => <RelayerFalseNoDataVoteOrReport<T>>::get(),
             RelayerEvent::FalseInvalidVoteOrReport => <RelayerFalseInvalidVoteOrReport<T>>::get(),
             RelayerEvent::IgnoredVote => <RelayerIgnoredVote<T>>::get(),
-        };
+        }
+    }
+
+    fn event_update_relayer_sla(
+        relayer_id: T::AccountId,
+        event: RelayerEvent,
+    ) -> Result<(), DispatchError> {
+        let current_sla = <RelayerSla<T>>::get(relayer_id.clone());
+        let delta_sla = Self::_get_delta_sla(event);
 
         let max = <RelayerTargetSla<T>>::get(); // todo: check that this is indeed the max
-        let min = T::FixedPoint::zero(); // todo: check that this is indeed the max
+        let min = T::FixedPoint::zero();
 
         let potential_new_sla = current_sla
             .checked_add(&delta_sla)
@@ -168,6 +177,22 @@ impl<T: Trait> Module<T> {
         let new_sla = Self::_limit(min, potential_new_sla, max);
 
         if current_sla != new_sla {
+            let stake = ext::collateral::get_collateral_from_account::<T>(relayer_id.clone());
+            let stake = Self::dot_to_u128(stake)?;
+            let total_relayer_score = <TotalRelayerScore<T>>::get();
+
+            // todo: check if we can get problems with rounding errors
+            let calculate_new_total_relayer_score = || {
+                let actual_delta_sla = new_sla.checked_sub(&current_sla)?;
+                // convert stake to fixed point
+                let stake = T::FixedPoint::checked_from_rational(stake, 1u128)?;
+                let delta_score = actual_delta_sla.checked_mul(&stake)?;
+                let new_total_relayer_score = total_relayer_score.checked_add(&delta_score)?;
+                Some(new_total_relayer_score)
+            };
+            let new_total = calculate_new_total_relayer_score().ok_or(Error::<T>::MathError)?;
+
+            <TotalRelayerScore<T>>::set(new_total);
             <RelayerSla<T>>::insert(relayer_id, new_sla);
         }
 
