@@ -144,7 +144,7 @@ pub(crate) mod fee {
         <fee::Module<T>>::get_issue_griefing_collateral(amount)
     }
 
-    pub fn increase_rewards_for_epoch<T: fee::Trait>(amount: DOT<T>) {
+    pub fn increase_rewards_for_epoch<T: fee::Trait>(amount: PolkaBTC<T>) {
         <fee::Module<T>>::increase_rewards_for_epoch(amount)
     }
 }

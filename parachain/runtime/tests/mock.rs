@@ -226,9 +226,7 @@ impl ExtBuilder {
 
         vault_registry::GenesisConfig::<Runtime> {
             minimum_collateral_vault: 0,
-            punishment_fee: 20_000,
             punishment_delay: 8,
-            redeem_premium_fee: 5000,
             secure_collateral_threshold: 100_000,
             auction_collateral_threshold: 150_000,
             premium_redeem_threshold: 120_000,
@@ -238,12 +236,9 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage)
         .unwrap();
 
-        issue::GenesisConfig::<Runtime> {
-            issue_griefing_collateral: 10,
-            issue_period: 10,
-        }
-        .assimilate_storage(&mut storage)
-        .unwrap();
+        issue::GenesisConfig::<Runtime> { issue_period: 10 }
+            .assimilate_storage(&mut storage)
+            .unwrap();
 
         redeem::GenesisConfig::<Runtime> {
             redeem_period: 10,
@@ -253,7 +248,6 @@ impl ExtBuilder {
         .unwrap();
 
         replace::GenesisConfig::<Runtime> {
-            replace_griefing_collateral: 10,
             replace_period: 10,
             replace_btc_dust_value: 1,
         }

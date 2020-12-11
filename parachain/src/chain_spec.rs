@@ -1,14 +1,15 @@
 use btc_parachain_runtime::{
-    AccountId, AuraConfig, BTCRelayConfig, DOTConfig, ExchangeRateOracleConfig, GenesisConfig,
-    GrandpaConfig, IssueConfig, PolkaBTCConfig, RedeemConfig, ReplaceConfig, Signature,
-    StakedRelayersConfig, SudoConfig, SystemConfig, VaultRegistryConfig, DAYS, WASM_BINARY, FeeConfig
+    AccountId, AuraConfig, BTCRelayConfig, DOTConfig, ExchangeRateOracleConfig, FeeConfig,
+    GenesisConfig, GrandpaConfig, IssueConfig, PolkaBTCConfig, RedeemConfig, ReplaceConfig,
+    Signature, StakedRelayersConfig, SudoConfig, SystemConfig, VaultRegistryConfig, DAYS,
+    WASM_BINARY,
 };
 use sc_service::ChainType;
+use sp_arithmetic::{FixedPointNumber, FixedU128};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::traits::{IdentifyAccount, Verify};
-use sp_arithmetic::{FixedPointNumber, FixedU128};
 
 #[cfg(feature = "runtime-benchmarks")]
 use frame_benchmarking::account;
@@ -198,23 +199,18 @@ fn testnet_genesis(
             disable_inclusion_check: !inclusion_check,
             disable_op_return_check: false,
         }),
-        issue: Some(IssueConfig {
-            issue_griefing_collateral: 10,
-            issue_period: DAYS,
-        }),
+        issue: Some(IssueConfig { issue_period: DAYS }),
         redeem: Some(RedeemConfig {
             redeem_period: DAYS,
             redeem_btc_dust_value: 1000,
         }),
         replace: Some(ReplaceConfig {
-            replace_griefing_collateral: 10,
             replace_period: DAYS,
             replace_btc_dust_value: 1000,
         }),
         vault_registry: Some(VaultRegistryConfig {
             minimum_collateral_vault: 0,
             punishment_delay: DAYS,
-            redeem_premium_fee: 5000,
             secure_collateral_threshold: 200_000,
             auction_collateral_threshold: 150_000,
             premium_redeem_threshold: 120_000,

@@ -448,6 +448,8 @@ impl<T: Trait> Module<T> {
             Error::<T>::VaultOverAuctionThreshold
         );
 
+        let _fee = ext::fee::get_auction_redeem_fee::<T>(collateral)?;
+
         // step 4: Check that the provided collateral exceeds the necessary amount
         ensure!(
             !ext::vault_registry::is_collateral_below_secure_threshold::<T>(

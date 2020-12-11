@@ -208,7 +208,7 @@ decl_module! {
             );
 
             let amount_polka_btc_in_dot = ext::oracle::btc_to_dots::<T>(redeem.amount_polka_btc)?;
-            let punishment_fee_in_dot = ext::fee::get_punishment_fee::<T>(amount_polka_btc_in_dot);
+            let punishment_fee_in_dot = ext::fee::get_punishment_fee::<T>(amount_polka_btc_in_dot)?;
 
             if reimburse {
                 // user requested to be reimbursed in DOT
@@ -320,7 +320,7 @@ impl<T: Trait> Module<T> {
         let below_premium_redeem =
             ext::vault_registry::is_vault_below_premium_threshold::<T>(&vault_id)?;
         let premium_dot = if below_premium_redeem {
-            ext::fee::get_premium_redeem_fee(amount_dot)?
+            ext::fee::get_premium_redeem_fee::<T>(amount_dot)?
         } else {
             0.into()
         };

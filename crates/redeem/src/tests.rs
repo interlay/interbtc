@@ -396,7 +396,7 @@ fn test_request_redeem_succeeds_in_error_state() {
                 fee_polka_btc: 5000000,
                 amount_btc: amount / 2,
                 amount_dot: amount / 2,
-                premium_dot: 0,
+                premium_dot: 25000000,
                 redeemer: redeemer.clone(),
                 btc_address: BtcAddress::P2PKH(H160::zero()),
                 completed: false,
@@ -651,11 +651,9 @@ fn test_cancel_redeem_succeeds() {
         );
 
         System::set_block_number(System::block_number() + Redeem::redeem_period() + 10);
-        let current_height = System::block_number();
 
-        ext::vault_registry::ban_vault::<Test>.mock_safe(move |vault, height| {
+        ext::vault_registry::ban_vault::<Test>.mock_safe(move |vault| {
             assert_eq!(vault, BOB);
-            assert_eq!(height, current_height);
             MockResult::Return(Ok(()))
         });
 

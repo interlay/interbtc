@@ -187,6 +187,7 @@ impl ExtBuilder {
             punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(),                // 10%
             replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(),   // 10%
             account_id: 0,
+            epoch_period: 5,
         }
         .assimilate_storage(&mut storage)
         .unwrap();

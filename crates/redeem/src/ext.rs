@@ -77,9 +77,7 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::_decrease_tokens(vault_id, user_id, tokens)
     }
 
-    pub fn ban_vault<T: vault_registry::Trait>(
-        vault_id: T::AccountId,
-    ) -> DispatchResult {
+    pub fn ban_vault<T: vault_registry::Trait>(vault_id: T::AccountId) -> DispatchResult {
         <vault_registry::Module<T>>::ban_vault(vault_id)
     }
 
@@ -202,9 +200,7 @@ pub(crate) mod fee {
         <fee::Module<T>>::increase_rewards_for_epoch(amount)
     }
 
-    pub fn get_punishment_fee<T: fee::Trait>(
-        amount: DOT<T>,
-    ) -> Result<DOT<T>, DispatchError> {
+    pub fn get_punishment_fee<T: fee::Trait>(amount: DOT<T>) -> Result<DOT<T>, DispatchError> {
         <fee::Module<T>>::get_punishment_fee(amount)
     }
 

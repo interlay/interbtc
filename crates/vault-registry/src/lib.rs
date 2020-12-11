@@ -904,7 +904,7 @@ impl<T: Trait> Module<T> {
     }
 
     fn vault_exists(id: &T::AccountId) -> bool {
-        &<Vaults<T>>::get(id).id == id
+        <Vaults<T>>::contains_key(id)
     }
 
     fn get_minimum_collateral_vault() -> DOT<T> {
