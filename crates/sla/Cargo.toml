@@ -57,6 +57,10 @@ path = '../vault-registry'
 default-features = false
 version = '2.0.0'
 
+[dependencies.treasury]
+default-features = false
+path = '../treasury'
+
 [dev-dependencies]
 mocktopus = '0.7.0'
 
@@ -64,10 +68,6 @@ mocktopus = '0.7.0'
 default-features = false
 package = 'pallet-randomness-collective-flip'
 version = '2.0.0'
-
-[dev-dependencies.treasury]
-default-features = false
-path = '../treasury'
 
 [dev-dependencies.pallet-balances]
 default-features = false
