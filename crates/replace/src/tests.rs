@@ -726,6 +726,11 @@ fn test_auction_replace_succeeds() {
         ext::vault_registry::is_collateral_below_secure_threshold::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(false)));
 
+        ext::collateral::slash_collateral::<Test>.mock_safe(|_, _, fee| {
+            assert_eq!(fee, 1000);
+            MockResult::Return(Ok(()))
+        });
+
         ext::collateral::lock_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
         ext::vault_registry::increase_to_be_redeemed_tokens::<Test>

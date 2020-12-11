@@ -103,8 +103,9 @@ benchmarks! {
             new_vault
         );
 
+        Collateral::<T>::lock_collateral(&old_vault_id, 50.into()).unwrap();
         ExchangeRateOracle::<T>::_set_exchange_rate(1).unwrap();
-        VaultRegistry::<T>::_set_auction_collateral_threshold(1);
+        VaultRegistry::<T>::_set_auction_collateral_threshold(10000000);
         VaultRegistry::<T>::_set_secure_collateral_threshold(1);
 
     }: _(RawOrigin::Signed(new_vault_id), old_vault_id, btc_amount.into(), collateral.into())

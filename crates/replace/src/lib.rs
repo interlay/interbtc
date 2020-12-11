@@ -448,8 +448,6 @@ impl<T: Trait> Module<T> {
             Error::<T>::VaultOverAuctionThreshold
         );
 
-        let _fee = ext::fee::get_auction_redeem_fee::<T>(collateral)?;
-
         // step 4: Check that the provided collateral exceeds the necessary amount
         ensure!(
             !ext::vault_registry::is_collateral_below_secure_threshold::<T>(
@@ -457,6 +455,13 @@ impl<T: Trait> Module<T> {
             )?,
             Error::<T>::CollateralBelowSecureThreshold
         );
+
+        // claim auctioning fee
+        ext::collateral::slash_collateral::<T>(
+            old_vault_id.clone(),
+            new_vault_id.clone(),
+            ext::fee::get_auction_redeem_fee::<T>(collateral)?,
+        )?;
 
         // step 5: Lock the newVault’s collateral by calling lockCollateral and providing newVault and collateral as parameters.
         ext::collateral::lock_collateral::<T>(new_vault_id.clone(), collateral)?;
