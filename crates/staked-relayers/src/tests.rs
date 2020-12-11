@@ -1281,6 +1281,7 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
                 redeemer: ALICE,
                 btc_address: address2,
                 completed: false,
+                cancelled: false,
             }))
         });
 
@@ -1337,6 +1338,7 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
                 accept_time: None,
                 btc_address: address2,
                 completed: false,
+                cancelled: false,
             }))
         });
 

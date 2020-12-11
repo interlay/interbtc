@@ -125,6 +125,7 @@ decl_module! {
                             redeemer: request_v0.redeemer,
                             btc_address: BtcAddress::P2WPKHv0(request_v0.btc_address),
                             completed: request_v0.completed,
+                            cancelled: false,
                         };
                         <RedeemRequests<T>>::insert(id, request_v1);
                     });
@@ -217,6 +218,7 @@ decl_module! {
                     redeemer: redeemer.clone(),
                     btc_address: btc_address.clone(),
                     completed: false,
+                    cancelled: false,
                 },
             );
             Self::deposit_event(<Event<T>>::RequestRedeem(
@@ -282,7 +284,7 @@ decl_module! {
             } else {
                 ext::vault_registry::redeem_tokens::<T>(&redeem.vault, redeem.amount_polka_btc)?;
             }
-            Self::remove_redeem_request(redeem_id);
+            Self::remove_redeem_request(redeem_id, false);
             Self::deposit_event(<Event<T>>::ExecuteRedeem(
                 redeem_id,
                 redeem.redeemer,
@@ -348,7 +350,7 @@ decl_module! {
 
             let height = <frame_system::Module<T>>::block_number();
             ext::vault_registry::ban_vault::<T>(redeem.vault, height)?;
-            Self::remove_redeem_request(redeem_id);
+            Self::remove_redeem_request(redeem_id, true);
             Self::deposit_event(<Event<T>>::CancelRedeem(redeem_id, redeemer));
 
             Ok(())
@@ -386,10 +388,11 @@ impl<T: Trait> Module<T> {
         <RedeemRequests<T>>::insert(key, value)
     }
 
-    fn remove_redeem_request(id: H256) {
+    fn remove_redeem_request(id: H256, cancelled: bool) {
         // TODO: delete redeem request from storage
         <RedeemRequests<T>>::mutate(id, |request| {
-            request.completed = true;
+            request.completed = !cancelled;
+            request.cancelled = cancelled;
         });
     }
 
@@ -442,6 +445,10 @@ impl<T: Trait> Module<T> {
         ensure!(
             !<RedeemRequests<T>>::get(*redeem_id).completed,
             Error::<T>::RedeemCompleted
+        );
+        ensure!(
+            !<RedeemRequests<T>>::get(*redeem_id).cancelled,
+            Error::<T>::RedeemCancelled
         );
         Ok(<RedeemRequests<T>>::get(*redeem_id))
     }
@@ -504,6 +511,7 @@ decl_error! {
         UnauthorizedUser,
         TimeNotExpired,
         RedeemCompleted,
+        RedeemCancelled,
         RedeemIdNotFound,
         /// Unable to convert value
         TryIntoIntError,
