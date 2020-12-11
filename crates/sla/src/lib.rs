@@ -177,15 +177,13 @@ impl<T: Trait> Module<T> {
         let new_sla = Self::_limit(min, potential_new_sla, max);
 
         if current_sla != new_sla {
-            let stake = ext::collateral::get_collateral_from_account::<T>(relayer_id.clone());
-            let stake = Self::dot_to_u128(stake)?;
+            let stake = Self::_get_relayer_stake_as_fixed_point(relayer_id.clone())?;
             let total_relayer_score = <TotalRelayerScore<T>>::get();
 
             // todo: check if we can get problems with rounding errors
             let calculate_new_total_relayer_score = || {
                 let actual_delta_sla = new_sla.checked_sub(&current_sla)?;
                 // convert stake to fixed point
-                let stake = T::FixedPoint::checked_from_rational(stake, 1u128)?;
                 let delta_score = actual_delta_sla.checked_mul(&stake)?;
                 let new_total_relayer_score = total_relayer_score.checked_add(&delta_score)?;
                 Some(new_total_relayer_score)
@@ -197,6 +195,35 @@ impl<T: Trait> Module<T> {
         }
 
         Ok(())
+    }
+
+    fn _get_relayer_stake_as_fixed_point(
+        relayer_id: T::AccountId,
+    ) -> Result<T::FixedPoint, DispatchError> {
+        let stake = ext::collateral::get_collateral_from_account::<T>(relayer_id.clone());
+        let stake = Self::dot_to_u128(stake)?;
+        let stake = T::FixedPoint::checked_from_rational(stake, 1u128)
+            .ok_or(Error::<T>::TryIntoIntError)?;
+        Ok(stake)
+    }
+
+    fn calculate_reward(
+        relayer_id: T::AccountId,
+        total_reward: DOT<T>,
+    ) -> Result<DOT<T>, DispatchError> {
+        let total_reward = Self::dot_to_u128(total_reward)?;
+        let stake = Self::_get_relayer_stake_as_fixed_point(relayer_id.clone())?;
+        let sla = <RelayerSla<T>>::get(relayer_id);
+        let total_relayer_score = <TotalRelayerScore<T>>::get();
+
+        let _calculate_reward = || {
+            let score = stake.checked_mul(&sla)?;
+            let share = score.checked_div(&total_relayer_score)?;
+            let reward = share.checked_mul_int(total_reward)?;
+            Some(reward)
+        };
+        let reward = _calculate_reward().ok_or(Error::<T>::MathError)?;
+        Self::u128_to_dot(reward)
     }
 
     fn calculate_slashed_amount(
