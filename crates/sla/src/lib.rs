@@ -27,10 +27,15 @@ use sp_std::convert::TryInto;
 
 pub(crate) type DOT<T> =
     <<T as collateral::Trait>::DOT as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+pub(crate) type PolkaBTC<T> =
+    <<T as treasury::Trait>::PolkaBTC as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+
 pub(crate) type FixedPoint<T> = <T as Trait>::FixedPoint;
 
 /// The pallet's configuration trait.
-pub trait Trait: frame_system::Trait + collateral::Trait + vault_registry::Trait {
+pub trait Trait:
+    frame_system::Trait + collateral::Trait + vault_registry::Trait + treasury::Trait
+{
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 
@@ -207,11 +212,24 @@ impl<T: Trait> Module<T> {
         Ok(stake)
     }
 
+    fn get_relayer_rewards(
+        total_reward: PolkaBTC<T>,
+    ) -> Vec<(T::AccountId, Result<PolkaBTC<T>, DispatchError>)> {
+        <RelayerSla<T>>::iter()
+            .map(|(account_id, _)| {
+                (
+                    account_id.clone(),
+                    Self::calculate_reward(account_id.clone(), total_reward),
+                )
+            })
+            .collect()
+    }
+
     fn calculate_reward(
         relayer_id: T::AccountId,
-        total_reward: DOT<T>,
-    ) -> Result<DOT<T>, DispatchError> {
-        let total_reward = Self::dot_to_u128(total_reward)?;
+        total_reward: PolkaBTC<T>,
+    ) -> Result<PolkaBTC<T>, DispatchError> {
+        let total_reward = Self::polkabtc_to_u128(total_reward)?;
         let stake = Self::_get_relayer_stake_as_fixed_point(relayer_id.clone())?;
         let sla = <RelayerSla<T>>::get(relayer_id);
         let total_relayer_score = <TotalRelayerScore<T>>::get();
@@ -223,7 +241,7 @@ impl<T: Trait> Module<T> {
             Some(reward)
         };
         let reward = _calculate_reward().ok_or(Error::<T>::MathError)?;
-        Self::u128_to_dot(reward)
+        Self::u128_to_polkabtc(reward)
     }
 
     fn calculate_slashed_amount(
@@ -303,6 +321,14 @@ impl<T: Trait> Module<T> {
 
     fn u128_to_dot(x: u128) -> Result<DOT<T>, DispatchError> {
         TryInto::<DOT<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
+    }
+
+    fn polkabtc_to_u128(x: PolkaBTC<T>) -> Result<u128, DispatchError> {
+        TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
+    }
+
+    fn u128_to_polkabtc(x: u128) -> Result<PolkaBTC<T>, DispatchError> {
+        TryInto::<PolkaBTC<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 }
 
