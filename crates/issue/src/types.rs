@@ -46,6 +46,7 @@ pub struct IssueRequest<AccountId, BlockNumber, PolkaBTC, DOT> {
     pub requester: AccountId,
     pub btc_address: BtcAddress,
     pub completed: bool,
+    pub cancelled: bool,
 }
 
 #[cfg(feature = "std")]

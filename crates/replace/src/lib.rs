@@ -138,6 +138,7 @@ decl_module! {
                             accept_time: request_v0.accept_time,
                             btc_address: BtcAddress::P2WPKHv0(request_v0.btc_address),
                             completed: request_v0.completed,
+                            cancelled: false,
                         };
                         <ReplaceRequests<T>>::insert(id, request_v1);
                     });
@@ -318,6 +319,7 @@ impl<T: Trait> Module<T> {
             accept_time: None,
             btc_address: vault.wallet.get_btc_address(),
             completed: false,
+            cancelled: false,
         };
         Self::insert_replace_request(replace_id, replace);
 
@@ -362,7 +364,7 @@ impl<T: Trait> Module<T> {
         )?;
 
         // step 7: Remove the ReplaceRequest from ReplaceRequests
-        Self::remove_replace_request(request_id);
+        Self::remove_replace_request(request_id, true);
 
         // step 8: Emit a WithdrawReplaceRequest(oldVault, replaceId) event.
         Self::deposit_event(<Event<T>>::WithdrawReplace(vault_id, request_id));
@@ -468,6 +470,7 @@ impl<T: Trait> Module<T> {
                 btc_address: new_vault.wallet.get_btc_address(),
                 collateral: collateral,
                 completed: false,
+                cancelled: false,
             },
         );
 
@@ -549,7 +552,7 @@ impl<T: Trait> Module<T> {
         ));
 
         // step 9: Remove replace request
-        Self::remove_replace_request(replace_id.clone());
+        Self::remove_replace_request(replace_id.clone(), false);
         Ok(())
     }
 
@@ -581,7 +584,7 @@ impl<T: Trait> Module<T> {
         )?;
 
         // step 6: Remove the ReplaceRequest from ReplaceRequests
-        Self::remove_replace_request(replace_id.clone());
+        Self::remove_replace_request(replace_id.clone(), true);
 
         // step 7: Emit a CancelReplace(newVault, oldVault, replaceId)
         Self::deposit_event(<Event<T>>::CancelReplace(
@@ -637,6 +640,7 @@ impl<T: Trait> Module<T> {
         let request = <ReplaceRequests<T>>::get(id).ok_or(Error::<T>::ReplaceIdNotFound)?;
         // NOTE: temporary workaround until we delete
         ensure!(!request.completed, Error::<T>::ReplaceCompleted);
+        ensure!(!request.cancelled, Error::<T>::ReplaceCancelled);
         Ok(request)
     }
 
@@ -647,11 +651,12 @@ impl<T: Trait> Module<T> {
         <ReplaceRequests<T>>::insert(key, value)
     }
 
-    fn remove_replace_request(key: H256) {
+    fn remove_replace_request(key: H256, cancelled: bool) {
         // TODO: delete replace request from storage
         <ReplaceRequests<T>>::mutate(key, |request| {
             if let Some(req) = request {
-                req.completed = true;
+                req.completed = !cancelled;
+                req.cancelled = cancelled;
             }
         });
     }
@@ -683,6 +688,7 @@ decl_error! {
         ReplacePeriodExpired,
         ReplacePeriodNotExpired,
         ReplaceCompleted,
+        ReplaceCancelled,
         ReplaceIdNotFound,
         /// Unable to convert value
         TryIntoIntError,

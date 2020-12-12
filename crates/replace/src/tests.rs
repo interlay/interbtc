@@ -43,6 +43,7 @@ fn test_request() -> ReplaceRequest<u64, u64, u64, u64> {
         btc_address: BtcAddress::default(),
         collateral: 20,
         completed: false,
+        cancelled: false,
     }
 }
 
@@ -654,7 +655,7 @@ fn test_withdraw_replace_succeeds() {
         ext::vault_registry::decrease_to_be_redeemed_tokens::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(())));
 
-        Replace::remove_replace_request.mock_safe(|_| MockResult::Return(()));
+        Replace::remove_replace_request.mock_safe(|_, _| MockResult::Return(()));
 
         assert_eq!(withdraw_replace(vault_id, replace_id), Ok(()));
 
@@ -783,7 +784,7 @@ fn test_execute_replace_succeeds() {
 
         ext::collateral::release_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
-        Replace::remove_replace_request.mock_safe(|_| MockResult::Return(()));
+        Replace::remove_replace_request.mock_safe(|_, _| MockResult::Return(()));
 
         assert_eq!(
             execute_replace(replace_id, tx_id, merkle_proof, raw_tx),
@@ -814,7 +815,7 @@ fn test_cancel_replace_succeeds() {
         Replace::replace_period.mock_safe(|| MockResult::Return(2));
         ext::vault_registry::decrease_to_be_redeemed_tokens::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(())));
-        Replace::remove_replace_request.mock_safe(|_| MockResult::Return(()));
+        Replace::remove_replace_request.mock_safe(|_, _| MockResult::Return(()));
 
         assert_eq!(cancel_replace(new_vault_id, replace_id), Ok(()));
 
@@ -909,7 +910,7 @@ fn test_withdraw_replace_parachain_not_running_succeeds() {
         ext::security::ensure_parachain_status_running::<Test>
             .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainNotRunning.into())));
 
-        Replace::remove_replace_request.mock_safe(|_| MockResult::Return(()));
+        Replace::remove_replace_request.mock_safe(|_, _| MockResult::Return(()));
 
         assert_eq!(withdraw_replace(vault_id, replace_id), Ok(()));
 

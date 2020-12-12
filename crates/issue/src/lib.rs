@@ -127,6 +127,7 @@ decl_module! {
                             requester: request_v0.requester,
                             btc_address: BtcAddress::P2WPKHv0(request_v0.btc_address),
                             completed: request_v0.completed,
+                            cancelled: false,
                         };
                         <IssueRequests<T>>::insert(id, request_v1);
                     });
@@ -244,6 +245,7 @@ impl<T: Trait> Module<T> {
                 requester: requester.clone(),
                 btc_address: btc_address.clone(),
                 completed: false,
+                cancelled: false,
             },
         );
 
@@ -289,7 +291,7 @@ impl<T: Trait> Module<T> {
         ext::vault_registry::issue_tokens::<T>(&issue.vault, issue.amount)?;
         ext::treasury::mint::<T>(requester.clone(), issue.amount);
         // Remove issue request from storage
-        Self::remove_issue_request(issue_id);
+        Self::remove_issue_request(issue_id, false);
 
         Self::deposit_event(<Event<T>>::ExecuteIssue(issue_id, requester, issue.vault));
         Ok(())
@@ -313,7 +315,7 @@ impl<T: Trait> Module<T> {
         )?;
 
         // Remove issue request from storage
-        Self::remove_issue_request(issue_id);
+        Self::remove_issue_request(issue_id, true);
 
         Self::deposit_event(<Event<T>>::CancelIssue(issue_id, requester));
         Ok(())
@@ -364,6 +366,10 @@ impl<T: Trait> Module<T> {
             !<IssueRequests<T>>::get(*issue_id).completed,
             Error::<T>::IssueCompleted
         );
+        ensure!(
+            !<IssueRequests<T>>::get(*issue_id).cancelled,
+            Error::<T>::IssueCancelled
+        );
         Ok(<IssueRequests<T>>::get(*issue_id))
     }
 
@@ -374,10 +380,11 @@ impl<T: Trait> Module<T> {
         <IssueRequests<T>>::insert(key, value)
     }
 
-    fn remove_issue_request(id: H256) {
+    fn remove_issue_request(id: H256, cancelled: bool) {
         // TODO: delete issue request from storage
         <IssueRequests<T>>::mutate(id, |request| {
-            request.completed = true;
+            request.completed = !cancelled;
+            request.cancelled = cancelled;
         });
     }
 }
@@ -394,6 +401,7 @@ decl_error! {
         CommitPeriodExpired,
         TimeNotExpired,
         IssueCompleted,
+        IssueCancelled,
         /// Unable to convert value
         TryIntoIntError,
     }
