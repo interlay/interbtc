@@ -117,7 +117,7 @@ where
 
 impl Parsable for Vec<bool> {
     fn parse(raw_bytes: &[u8], position: usize) -> Result<(Vec<bool>, usize), Error> {
-        let byte = raw_bytes[position];
+        let byte = raw_bytes.get(position).ok_or(Error::EOS)?;
         let mut flag_bits = Vec::new();
         for i in 0..8 {
             let mask = 1 << i;
@@ -365,11 +365,11 @@ fn parse_transaction_input(
     let height = if is_coinbase && version == 2 {
         // https://github.com/bitcoin/bips/blob/master/bip-0034.mediawiki
         let height_size: u64 = parser.parse::<CompactUint>()?.value;
-        script_size -= height_size + 1;
+        script_size = script_size.checked_sub(height_size + 1).ok_or(Error::EOS)?;
 
         let mut buffer = [0u8; 4];
         let bytes = parser.read(height_size as usize)?;
-        buffer[..3].copy_from_slice(&bytes[0..3]);
+        buffer[..3].copy_from_slice(bytes.get(0..3).ok_or(Error::EOS)?);
 
         Some(u32::from_le_bytes(buffer))
     } else {
