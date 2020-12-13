@@ -76,6 +76,7 @@ pub trait Trait:
     + btc_relay::Trait
     + redeem::Trait
     + replace::Trait
+    + sla::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -470,6 +471,9 @@ decl_module! {
                 reports.insert(vault_id);
             });
 
+            // reward relayer for this report by increasing its sla
+            ext::sla::event_update_relayer_sla::<T>(signer, ext::sla::RelayerEvent::CorrectTheftReport)?;
+
             Self::deposit_event(<Event<T>>::ExecuteStatusUpdate(
                 StatusCode::Error,
                 Some(ErrorCode::Liquidation),
@@ -526,6 +530,9 @@ decl_module! {
             ext::security::set_parachain_status::<T>(StatusCode::Error);
             ext::security::insert_error::<T>(ErrorCode::Liquidation);
 
+            // reward relayer for this report by increasing its sla
+            ext::sla::event_update_relayer_sla::<T>(signer, ext::sla::RelayerEvent::CorrectLiquidationReport)?;
+
             Self::deposit_event(<Event<T>>::ExecuteStatusUpdate(
                 StatusCode::Error,
                 Some(ErrorCode::Liquidation),
@@ -558,6 +565,9 @@ decl_module! {
 
             ext::security::set_parachain_status::<T>(StatusCode::Error);
             ext::security::insert_error::<T>(ErrorCode::OracleOffline);
+
+            // reward relayer for this report by increasing its sla
+            ext::sla::event_update_relayer_sla::<T>(signer, ext::sla::RelayerEvent::CorrectOracleOfflineReport)?;
 
             Self::deposit_event(<Event<T>>::ExecuteStatusUpdate(
                 StatusCode::Error,

@@ -678,6 +678,7 @@ dependencies = [
  "security",
  "serde",
  "serde_json",
+ "sla",
  "sp-api",
  "sp-arithmetic",
  "sp-block-builder",
@@ -702,20 +703,28 @@ name = "btc-relay"
 version = "0.3.1"
 dependencies = [
  "bitcoin",
+ "collateral",
+ "exchange-rate-oracle",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "hex",
  "mocktopus",
+ "pallet-balances",
+ "pallet-randomness-collective-flip",
  "pallet-timestamp",
  "parity-scale-codec",
  "primitive-types",
  "security",
  "serde",
+ "sla",
+ "sp-arithmetic",
  "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std",
+ "treasury",
+ "vault-registry",
 ]
 
 [[package]]
@@ -2461,6 +2470,7 @@ dependencies = [
  "security",
  "serde",
  "sha2 0.8.2",
+ "sla",
  "sp-arithmetic",
  "sp-core",
  "sp-io",
@@ -4919,6 +4929,7 @@ dependencies = [
  "security",
  "serde",
  "sha2 0.8.2",
+ "sla",
  "sp-arithmetic",
  "sp-core",
  "sp-io",
@@ -5046,6 +5057,7 @@ dependencies = [
  "security",
  "serde",
  "sha2 0.8.2",
+ "sla",
  "sp-arithmetic",
  "sp-core",
  "sp-io",
@@ -7046,6 +7058,7 @@ dependencies = [
  "security",
  "serde",
  "sha2 0.8.2",
+ "sla",
  "sp-arithmetic",
  "sp-core",
  "sp-io",
@@ -7930,7 +7943,7 @@ dependencies = [
 name = "vault-registry"
 version = "0.3.2"
 dependencies = [
- "btc-relay",
+ "bitcoin",
  "collateral",
  "exchange-rate-oracle",
  "fixed-hash",

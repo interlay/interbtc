@@ -5,10 +5,10 @@ use crate::mock::{
     MULTI_VAULT_TEST_IDS, OTHER_ID, RICH_COLLATERAL, RICH_ID,
 };
 use crate::sp_api_hidden_includes_decl_storage::hidden_include::traits::OnInitialize;
+use crate::types::BtcAddress;
 use crate::GRANULARITY;
 use crate::H256;
 use crate::{Vault, VaultStatus, Wallet};
-use btc_relay::BtcAddress;
 use frame_support::{assert_err, assert_noop, assert_ok, StorageMap, StorageValue};
 use mocktopus::mocking::*;
 use sp_runtime::traits::Header;

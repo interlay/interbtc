@@ -17,13 +17,16 @@ extern crate mocktopus;
 use mocktopus::macros::mockable;
 
 mod ext;
+pub mod types;
 
+use crate::types::{RelayerEvent, VaultEvent};
 use codec::{Decode, Encode, EncodeLike};
 use frame_support::traits::Currency;
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError};
 use sp_arithmetic::traits::*;
 use sp_arithmetic::FixedPointNumber;
 use sp_std::convert::TryInto;
+use sp_std::vec::Vec;
 
 pub(crate) type DOT<T> =
     <<T as collateral::Trait>::DOT as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
@@ -40,24 +43,6 @@ pub trait Trait:
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 
     type FixedPoint: FixedPointNumber + Encode + EncodeLike + Decode;
-}
-
-pub enum VaultEvent {
-    RedeemFailure,
-    ExecutedIssue(u32),
-    SubmittedIssueProof,
-}
-
-pub enum RelayerEvent {
-    BlockSubmission,
-    CorrectNoDataVoteOrReport,
-    CorrectInvalidVoteOrReport,
-    CorrectLiquidationReport,
-    CorrectTheftReport,
-    CorrectOracleOfflineReport,
-    FalseNoDataVoteOrReport,
-    FalseInvalidVoteOrReport,
-    IgnoredVote,
 }
 
 // The pallet's storage items.
@@ -113,7 +98,7 @@ decl_module! {
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
 impl<T: Trait> Module<T> {
-    fn event_update_vault_sla(
+    pub fn event_update_vault_sla(
         vault_id: T::AccountId,
         event: VaultEvent,
     ) -> Result<(), DispatchError> {
@@ -165,7 +150,7 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    fn event_update_relayer_sla(
+    pub fn event_update_relayer_sla(
         relayer_id: T::AccountId,
         event: RelayerEvent,
     ) -> Result<(), DispatchError> {

@@ -19,7 +19,7 @@ std = [
   'timestamp/std',
   'sp-core/std',
   'pallet-balances/std',
-  'btc-relay/std',
+  'bitcoin/std',
   'collateral/std',
   'treasury/std',
   'security/std',
@@ -95,9 +95,9 @@ version = '2.0.0'
 default-features = false
 path = '../security'
 
-[dependencies.btc-relay]
+[dependencies.bitcoin]
 default-features = false
-path = '../btc-relay'
+path = '../bitcoin'
 
 [dependencies.collateral]
 default-features = false

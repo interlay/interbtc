@@ -1,6 +1,5 @@
 use frame_support::traits::Currency;
 
-use btc_relay::BtcAddress;
 use codec::{Decode, Encode, HasCompact};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
@@ -13,6 +12,8 @@ use sp_std::collections::btree_set::BTreeSet;
 use mocktopus::macros::mockable;
 
 use crate::{ext, Error, Trait};
+
+pub use bitcoin::Address as BtcAddress;
 
 /// Storage version.
 #[derive(Encode, Decode, Eq, PartialEq)]

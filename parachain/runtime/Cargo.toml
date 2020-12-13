@@ -176,6 +176,11 @@ default-features = false
 package = 'fee'
 path = '../../crates/fee'
 
+[dependencies.sla]
+default-features = false
+package = 'sla'
+path = '../../crates/sla'
+
 [dependencies.issue]
 default-features = false
 package = 'issue'
@@ -274,6 +279,7 @@ std = [
   'vault-registry/std',
   'exchange-rate-oracle/std',
   'fee/std',
+  'sla/std',
   'issue/std',
   'redeem/std',
   'replace/std',

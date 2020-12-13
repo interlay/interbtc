@@ -126,6 +126,19 @@ pub(crate) mod oracle {
 }
 
 #[cfg_attr(test, mockable)]
+pub(crate) mod sla {
+    use frame_support::dispatch::DispatchError;
+    pub use sla::types::VaultEvent;
+
+    pub fn event_update_vault_sla<T: sla::Trait>(
+        vault_id: T::AccountId,
+        event: VaultEvent,
+    ) -> Result<(), DispatchError> {
+        <sla::Module<T>>::event_update_vault_sla(vault_id, event)
+    }
+}
+
+#[cfg_attr(test, mockable)]
 pub(crate) mod fee {
     use crate::types::{PolkaBTC, DOT};
     use frame_support::dispatch::DispatchError;

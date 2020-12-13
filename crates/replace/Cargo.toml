@@ -65,6 +65,10 @@ path = '../exchange-rate-oracle'
 default-features = false
 path = '../fee'
 
+[dependencies.sla]
+default-features = false
+path = '../sla'
+
 [dependencies.collateral]
 default-features = false
 path = '../collateral'
@@ -125,6 +129,7 @@ std = [
 	'vault-registry/std',
 	'exchange-rate-oracle/std',
 	'fee/std',
+	'sla/std',
 	'collateral/std',
 	'btc-relay/std',
 	'treasury/std',

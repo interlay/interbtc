@@ -1,11 +1,11 @@
 use btc_parachain_runtime::{
     AccountId, AuraConfig, BTCRelayConfig, DOTConfig, ExchangeRateOracleConfig, FeeConfig,
     GenesisConfig, GrandpaConfig, IssueConfig, PolkaBTCConfig, RedeemConfig, ReplaceConfig,
-    Signature, StakedRelayersConfig, SudoConfig, SystemConfig, VaultRegistryConfig, DAYS,
-    WASM_BINARY,
+    Signature, SlaConfig, StakedRelayersConfig, SudoConfig, SystemConfig, VaultRegistryConfig,
+    DAYS, WASM_BINARY,
 };
 use sc_service::ChainType;
-use sp_arithmetic::{FixedPointNumber, FixedU128};
+use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
@@ -227,6 +227,22 @@ fn testnet_genesis(
             replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(),   // 10%
             account_id: get_account_id_from_seed::<sr25519::Public>("Victor"),
             epoch_period: 5,
+        }),
+        sla: Some(SlaConfig {
+            vault_target_sla: FixedI128::from(100),
+            vault_redeem_failure_sla_change: FixedI128::from(0),
+            vault_executed_issue_max_sla_change: FixedI128::from(0),
+            vault_submitted_issue_proof: FixedI128::from(0),
+            relayer_target_sla: FixedI128::from(100),
+            relayer_block_submission: FixedI128::from(1),
+            relayer_correct_no_data_vote_or_report: FixedI128::from(1),
+            relayer_correct_invalid_vote_or_report: FixedI128::from(10),
+            relayer_correct_liquidation_report: FixedI128::from(1),
+            relayer_correct_theft_report: FixedI128::from(1),
+            relayer_correct_oracle_offline_report: FixedI128::from(1),
+            relayer_false_no_data_vote_or_report: FixedI128::from(-10),
+            relayer_false_invalid_vote_or_report: FixedI128::from(-100),
+            relayer_ignored_vote: FixedI128::from(-10),
         }),
     }
 }

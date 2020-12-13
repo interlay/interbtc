@@ -8,7 +8,7 @@ use frame_support::{
     },
 };
 use pallet_balances as balances;
-use sp_arithmetic::{FixedPointNumber, FixedU128};
+use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
@@ -37,6 +37,7 @@ impl_outer_event! {
         treasury<T>,
         exchange_rate_oracle<T>,
         fee<T>,
+        sla<T>,
         security,
     }
 }
@@ -124,6 +125,11 @@ impl security::Trait for Test {
 impl treasury::Trait for Test {
     type PolkaBTC = Balances;
     type Event = TestEvent;
+}
+
+impl sla::Trait for Test {
+    type Event = TestEvent;
+    type FixedPoint = FixedI128;
 }
 
 parameter_types! {

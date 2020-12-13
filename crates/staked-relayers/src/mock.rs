@@ -8,7 +8,7 @@ use frame_support::{
     },
 };
 use pallet_balances as balances;
-use sp_arithmetic::{FixedPointNumber, FixedU128};
+use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_core::H256;
 use sp_io;
 use sp_runtime::{
@@ -37,6 +37,7 @@ impl_outer_event! {
         treasury<T>,
         exchange_rate_oracle<T>,
         fee<T>,
+        sla<T>,
         btc_relay,
         redeem<T>,
         replace<T>,
@@ -139,6 +140,11 @@ impl exchange_rate_oracle::Trait for Test {
 impl fee::Trait for Test {
     type Event = TestEvent;
     type FixedPoint = FixedU128;
+}
+
+impl sla::Trait for Test {
+    type Event = TestEvent;
+    type FixedPoint = FixedI128;
 }
 
 impl collateral::Trait for Test {

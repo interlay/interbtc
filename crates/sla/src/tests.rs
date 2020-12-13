@@ -2,7 +2,7 @@ use crate::ext;
 use crate::mock::*;
 use crate::sp_api_hidden_includes_decl_storage::hidden_include::StorageMap;
 use crate::sp_api_hidden_includes_decl_storage::hidden_include::StorageValue;
-use crate::{RelayerEvent, RelayerSla, TotalRelayerScore};
+use crate::{types::RelayerEvent, RelayerSla, TotalRelayerScore};
 
 use mocktopus::mocking::*;
 use sp_arithmetic::{traits::*, FixedI128, FixedPointNumber};

@@ -66,6 +66,7 @@ pub trait Trait:
     + treasury::Trait
     + exchange_rate_oracle::Trait
     + fee::Trait
+    + sla::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -308,6 +309,23 @@ impl<T: Trait> Module<T> {
         // mint polkabtc fees
         ext::treasury::mint::<T>(ext::fee::account_id::<T>(), issue.fee);
         ext::fee::increase_rewards_for_epoch::<T>(issue.fee);
+
+        // if it was a vault that did the execution on behalf of someone else, reward it by
+        // increasing its SLA score
+        if &requester != &issue.vault {
+            if let Ok(vault) = ext::vault_registry::get_vault_from_id::<T>(&issue.vault) {
+                ext::sla::event_update_vault_sla::<T>(
+                    vault.id,
+                    ext::sla::VaultEvent::SubmittedIssueProof,
+                )?;
+            }
+        }
+
+        // reward the vault for having issued PolkaBTC by increasing its sla
+        ext::sla::event_update_vault_sla::<T>(
+            issue.vault.clone(),
+            ext::sla::VaultEvent::ExecutedIssue(0), // todo: set amount
+        )?;
 
         // Remove issue request from storage
         Self::remove_issue_request(issue_id, false);

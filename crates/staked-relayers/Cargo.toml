@@ -80,6 +80,10 @@ path = '../exchange-rate-oracle'
 default-features = false
 path = '../fee'
 
+[dependencies.sla]
+default-features = false
+path = '../sla'
+
 [dependencies.btc-relay]
 default-features = false
 path = '../btc-relay'
@@ -139,6 +143,7 @@ std = [
   'treasury/std',
   'exchange-rate-oracle/std',
   'fee/std',
+  'sla/std',
   'btc-relay/std',
   'redeem/std',
   'replace/std',

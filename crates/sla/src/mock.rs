@@ -33,7 +33,7 @@ impl_outer_event! {
         test_events<T>,
         collateral<T>,
         pallet_balances Instance1<T>,
-        balances<T>,
+        pallet_balances Instance2<T>,
         vault_registry<T>,
         exchange_rate_oracle<T>,
         treasury<T>,
@@ -82,7 +82,7 @@ impl frame_system::Trait for Test {
     type PalletInfo = ();
     type OnNewAccount = ();
     type OnKilledAccount = ();
-    type AccountData = pallet_balances::AccountData<u64>;
+    type AccountData = ();
     type BaseCallFilter = ();
     type MaximumExtrinsicWeight = MaximumBlockWeight;
     type SystemWeightInfo = ();
@@ -112,13 +112,20 @@ impl pallet_balances::Trait<pallet_balances::Instance1> for Test {
     type WeightInfo = ();
 }
 
-impl pallet_balances::Trait for Test {
+/// PolkaBTC
+impl pallet_balances::Trait<pallet_balances::Instance2> for Test {
     type MaxLocks = MaxLocks;
     type Balance = Balance;
     type Event = TestEvent;
     type DustRemoval = ();
     type ExistentialDeposit = ExistentialDeposit;
-    type AccountStore = System;
+    type AccountStore = StorageMapShim<
+        pallet_balances::Account<Test, pallet_balances::Instance2>,
+        frame_system::CallOnCreatedAccount<Test>,
+        frame_system::CallKillAccount<Test>,
+        AccountId,
+        pallet_balances::AccountData<Balance>,
+    >;
     type WeightInfo = ();
 }
 
@@ -134,8 +141,8 @@ impl vault_registry::Trait for Test {
 }
 
 impl treasury::Trait for Test {
-    type PolkaBTC = Balances;
     type Event = TestEvent;
+    type PolkaBTC = pallet_balances::Module<Test, pallet_balances::Instance2>;
 }
 
 impl Trait for Test {

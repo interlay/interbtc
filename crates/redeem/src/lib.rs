@@ -61,6 +61,7 @@ pub trait Trait:
     + btc_relay::Trait
     + treasury::Trait
     + fee::Trait
+    + sla::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -233,7 +234,8 @@ decl_module! {
                 ext::collateral::slash_collateral::<T>(&redeem.redeemer, &redeem.vault, punishment_fee_in_dot)?;
             }
 
-            ext::vault_registry::ban_vault::<T>(redeem.vault)?;
+            ext::vault_registry::ban_vault::<T>(redeem.vault.clone())?;
+            ext::sla::event_update_vault_sla::<T>(redeem.vault, ext::sla::VaultEvent::RedeemFailure)?;
             Self::remove_redeem_request(redeem_id, true, reimburse);
             Self::deposit_event(<Event<T>>::CancelRedeem(redeem_id, redeemer));
 

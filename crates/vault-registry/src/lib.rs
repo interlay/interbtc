@@ -25,7 +25,6 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use btc_relay::BtcAddress;
 use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::Randomness;
@@ -40,7 +39,7 @@ use sp_core::{H256, U256};
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
 
-use crate::types::{DefaultVault, PolkaBTC, RichVault, VaultV0, Version, DOT};
+use crate::types::{BtcAddress, DefaultVault, PolkaBTC, RichVault, VaultV0, Version, DOT};
 pub use crate::types::{Vault, VaultStatus, Wallet};
 
 /// Granularity of `SecureCollateralThreshold`, `AuctionCollateralThreshold`,

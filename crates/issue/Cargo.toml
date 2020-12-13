@@ -95,6 +95,10 @@ path = '../exchange-rate-oracle'
 default-features = false
 path = '../fee'
 
+[dependencies.sla]
+default-features = false
+path = '../sla'
+
 [dependencies.frame-benchmarking]
 version = "2.0.0"
 default-features = false
@@ -128,6 +132,7 @@ std = [
 	'btc-relay/std',
 	'exchange-rate-oracle/std',
 	'fee/std',
+	'sla/std',
 	'treasury/std',
 	'bitcoin/std',
 	'sha2/std',

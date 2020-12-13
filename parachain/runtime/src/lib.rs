@@ -14,7 +14,7 @@ pub use module_exchange_rate_oracle_rpc_runtime_api::BalanceWrapper;
 use pallet_grandpa::fg_primitives;
 use pallet_grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
 use sp_api::impl_runtime_apis;
-use sp_arithmetic::FixedU128;
+use sp_arithmetic::{FixedI128, FixedU128};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::H256;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -359,6 +359,11 @@ impl fee::Trait for Runtime {
     type FixedPoint = FixedU128;
 }
 
+impl sla::Trait for Runtime {
+    type Event = Event;
+    type FixedPoint = FixedI128;
+}
+
 pub use issue::{IssueRequest, RawEvent as RawIssueEvent};
 
 impl issue::Trait for Runtime {
@@ -407,6 +412,7 @@ construct_runtime!(
         Redeem: redeem::{Module, Call, Config<T>, Storage, Event<T>},
         Replace: replace::{Module, Call, Config<T>, Storage, Event<T>},
         Fee: fee::{Module, Call, Config<T>, Storage, Event<T>},
+        Sla: sla::{Module, Call, Config<T>, Storage, Event<T>},
     }
 );
 

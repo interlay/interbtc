@@ -70,6 +70,10 @@ path = '../exchange-rate-oracle'
 default-features = false
 path = '../fee'
 
+[dependencies.sla]
+default-features = false
+path = '../sla'
+
 [dependencies.btc-relay]
 default-features = false
 path = '../btc-relay'
