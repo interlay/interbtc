@@ -126,6 +126,7 @@ decl_module! {
                             btc_address: BtcAddress::P2WPKHv0(request_v0.btc_address),
                             completed: request_v0.completed,
                             cancelled: false,
+                            reimburse: false,
                         };
                         <RedeemRequests<T>>::insert(id, request_v1);
                     });
@@ -219,6 +220,7 @@ decl_module! {
                     btc_address: btc_address.clone(),
                     completed: false,
                     cancelled: false,
+                    reimburse: false,
                 },
             );
             Self::deposit_event(<Event<T>>::RequestRedeem(
@@ -284,7 +286,7 @@ decl_module! {
             } else {
                 ext::vault_registry::redeem_tokens::<T>(&redeem.vault, redeem.amount_polka_btc)?;
             }
-            Self::remove_redeem_request(redeem_id, false);
+            Self::remove_redeem_request(redeem_id, false, false);
             Self::deposit_event(<Event<T>>::ExecuteRedeem(
                 redeem_id,
                 redeem.redeemer,
@@ -350,7 +352,7 @@ decl_module! {
 
             let height = <frame_system::Module<T>>::block_number();
             ext::vault_registry::ban_vault::<T>(redeem.vault, height)?;
-            Self::remove_redeem_request(redeem_id, true);
+            Self::remove_redeem_request(redeem_id, true, reimburse);
             Self::deposit_event(<Event<T>>::CancelRedeem(redeem_id, redeemer));
 
             Ok(())
@@ -388,11 +390,12 @@ impl<T: Trait> Module<T> {
         <RedeemRequests<T>>::insert(key, value)
     }
 
-    fn remove_redeem_request(id: H256, cancelled: bool) {
+    fn remove_redeem_request(id: H256, cancelled: bool, reimburse: bool) {
         // TODO: delete redeem request from storage
         <RedeemRequests<T>>::mutate(id, |request| {
             request.completed = !cancelled;
             request.cancelled = cancelled;
+            request.reimburse = reimburse
         });
     }
 
