@@ -9,10 +9,8 @@ use frame_support::{
     },
 };
 use mocktopus::mocking::clear_mocks;
-use pallet_balances as balances;
 use sp_arithmetic::FixedI128;
 use sp_core::H256;
-use sp_runtime::FixedPointNumber;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
@@ -174,7 +172,6 @@ pub type TestError = Error<Test>;
 
 #[allow(dead_code)]
 pub type System = frame_system::Module<Test>;
-pub type Balances = pallet_balances::Module<Test>;
 
 #[allow(dead_code)]
 pub type Sla = Module<Test>;

@@ -1,6 +1,6 @@
 //! # PolkaBTC SLA Pallet
 
-// #![deny(warnings)]
+#![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -315,6 +315,7 @@ impl<T: Trait> Module<T> {
         Self::u128_to_polkabtc(reward)
     }
 
+    #[allow(dead_code)]
     fn calculate_slashed_amount(
         vault_id: T::AccountId,
         stake: DOT<T>,
