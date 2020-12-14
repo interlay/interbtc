@@ -102,8 +102,8 @@ decl_storage! {
 
         MaintainerRewards get(fn maintainer_rewards) config(): FixedPoint<T>;
 
+        // NOTE: currently there are no collator rewards
         CollatorRewards get(fn collator_rewards) config(): FixedPoint<T>;
-
     }
     add_extra_genesis {
         // don't allow an invalid reward distribution
@@ -121,8 +121,9 @@ decl_event!(
     pub enum Event<T>
     where
         AccountId = <T as frame_system::Trait>::AccountId,
+        PolkaBTC = PolkaBTC<T>,
     {
-        SetAccount(AccountId),
+        Withdraw(AccountId, PolkaBTC),
     }
 );
 
@@ -149,7 +150,11 @@ decl_module! {
         {
             let signer = ensure_signed(origin)?;
             let amount = <TotalRewards<T>>::get(signer.clone());
-            ext::treasury::transfer::<T>(Self::fee_pool_account_id(), signer, amount)?;
+            ext::treasury::transfer::<T>(Self::fee_pool_account_id(), signer.clone(), amount)?;
+            Self::deposit_event(<Event<T>>::Withdraw(
+                signer,
+                amount,
+            ));
             Ok(())
         }
 
@@ -162,9 +167,17 @@ impl<T: Trait> Module<T> {
     fn begin_block(height: T::BlockNumber) -> DispatchResult {
         // only calculate rewards per epoch
         if height % Self::epoch_period() == 0.into() {
+            // calculate vault rewards
+            let total_vault_rewards = Self::vault_rewards_for_epoch()?;
+            for (account, amount) in ext::sla::get_vault_rewards::<T>(total_vault_rewards)? {
+                <TotalRewards<T>>::insert(
+                    account.clone(),
+                    <TotalRewards<T>>::get(account) + amount,
+                );
+            }
+
             // calculate staked relayer rewards
             let total_relayer_rewards = Self::relayer_rewards_for_epoch()?;
-            // TODO: calculate rewards for other participants
             for (account, amount) in ext::sla::get_relayer_rewards::<T>(total_relayer_rewards)? {
                 <TotalRewards<T>>::insert(
                     account.clone(),
@@ -179,9 +192,6 @@ impl<T: Trait> Module<T> {
                 maintainer_account_id.clone(),
                 <TotalRewards<T>>::get(maintainer_account_id) + total_maintainer_rewards,
             );
-
-            // TODO: calculate vault rewards
-            // NOTE: currently there are no collator rewards
 
             // clear total rewards for current epoch
             <EpochRewards<T>>::kill();
@@ -288,6 +298,10 @@ impl<T: Trait> Module<T> {
             .ok_or(Error::<T>::ArithmeticOverflow)?;
         ensure!(total == one, Error::<T>::InvalidRewardDist);
         Ok(())
+    }
+
+    fn vault_rewards_for_epoch() -> Result<PolkaBTC<T>, DispatchError> {
+        Self::btc_for(Self::epoch_rewards(), Self::vault_rewards())
     }
 
     fn relayer_rewards_for_epoch() -> Result<PolkaBTC<T>, DispatchError> {
