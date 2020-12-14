@@ -69,6 +69,7 @@ pub trait Trait:
     + treasury::Trait
     + exchange_rate_oracle::Trait
     + security::Trait
+    + sla::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;

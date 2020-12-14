@@ -32,7 +32,6 @@ impl_outer_event! {
         collateral<T>,
         pallet_balances Instance1<T>,
         pallet_balances Instance2<T>,
-        vault_registry<T>,
         exchange_rate_oracle<T>,
         treasury<T>,
         security,
@@ -130,12 +129,6 @@ impl pallet_balances::Trait<pallet_balances::Instance2> for Test {
 impl collateral::Trait for Test {
     type Event = TestEvent;
     type DOT = pallet_balances::Module<Test, pallet_balances::Instance1>;
-}
-
-impl vault_registry::Trait for Test {
-    type Event = TestEvent;
-    type RandomnessSource = pallet_randomness_collective_flip::Module<Test>;
-    type WeightInfo = ();
 }
 
 impl treasury::Trait for Test {

@@ -36,9 +36,7 @@ pub(crate) type PolkaBTC<T> =
 pub(crate) type FixedPoint<T> = <T as Trait>::FixedPoint;
 
 /// The pallet's configuration trait.
-pub trait Trait:
-    frame_system::Trait + collateral::Trait + vault_registry::Trait + treasury::Trait
-{
+pub trait Trait: frame_system::Trait + collateral::Trait + treasury::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 
@@ -315,15 +313,19 @@ impl<T: Trait> Module<T> {
         Self::u128_to_polkabtc(reward)
     }
 
-    #[allow(dead_code)]
-    fn calculate_slashed_amount(
+    pub fn calculate_slashed_amount(
         vault_id: T::AccountId,
         stake: DOT<T>,
+        liquidation_threshold: u128,
+        premium_redeem_threshold: u128,
+        granularity: u32,
     ) -> Result<DOT<T>, DispatchError> {
         let current_sla = <VaultSla<T>>::get(vault_id);
 
-        let liquidation_threshold = Self::get_liquidation_threshold()?;
-        let premium_redeem_threshold = Self::get_premium_redeem_threshold()?;
+        let liquidation_threshold =
+            Self::threshold_to_fixed_point(liquidation_threshold, granularity)?;
+        let premium_redeem_threshold =
+            Self::threshold_to_fixed_point(premium_redeem_threshold, granularity)?;
 
         Self::_calculate_slashed_amount(
             current_sla,
@@ -333,25 +335,13 @@ impl<T: Trait> Module<T> {
         )
     }
 
-    /// fetch liquidation_threshold from vault registry and convert
-    fn get_liquidation_threshold() -> Result<FixedPoint<T>, DispatchError> {
-        let liquidation_threshold =
-            ext::vault_registry::get_liquidation_collateral_threshold::<T>();
-        Self::vault_registry_threshold_to_fixed_point(liquidation_threshold)
-    }
-
-    /// fetch premium_redeem_threshold from vault registry and convert
-    fn get_premium_redeem_threshold() -> Result<FixedPoint<T>, DispatchError> {
-        let premium_redeem_threshold = ext::vault_registry::get_premium_redeem_threshold::<T>();
-        Self::vault_registry_threshold_to_fixed_point(premium_redeem_threshold)
-    }
-
     /// Convert a threshold from set in the vault registry to a fixed point type
-    fn vault_registry_threshold_to_fixed_point(
+    fn threshold_to_fixed_point(
         value: u128,
+        granularity: u32,
     ) -> Result<FixedPoint<T>, DispatchError> {
         // TODO: use FixedPoint type in vault_registry
-        let scaling_factor = 10u128.pow(vault_registry::GRANULARITY);
+        let scaling_factor = 10u128.pow(granularity);
         let ret = T::FixedPoint::checked_from_rational(value, scaling_factor)
             .ok_or(Error::<T>::TryIntoIntError);
         Ok(ret?)

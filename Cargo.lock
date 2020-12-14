@@ -6326,7 +6326,6 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "treasury",
- "vault-registry",
 ]
 
 [[package]]
@@ -7964,6 +7963,7 @@ dependencies = [
  "primitive-types",
  "security",
  "serde",
+ "sla",
  "sp-arithmetic",
  "sp-core",
  "sp-io",

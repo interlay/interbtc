@@ -8,6 +8,7 @@ use frame_support::{
     },
 };
 use mocktopus::mocking::clear_mocks;
+use sp_arithmetic::FixedI128;
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
@@ -37,6 +38,7 @@ impl_outer_event! {
         collateral<T>,
         treasury<T>,
         exchange_rate_oracle<T>,
+        sla<T>,
         security,
     }
 }
@@ -150,6 +152,11 @@ impl timestamp::Trait for Test {
 impl exchange_rate_oracle::Trait for Test {
     type Event = TestEvent;
     type WeightInfo = ();
+}
+
+impl sla::Trait for Test {
+    type Event = TestEvent;
+    type FixedPoint = FixedI128;
 }
 
 impl Trait for Test {
