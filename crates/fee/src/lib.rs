@@ -11,6 +11,7 @@ mod mock;
 mod tests;
 
 mod ext;
+pub mod types;
 
 #[cfg(test)]
 extern crate mocktopus;
@@ -22,25 +23,17 @@ use codec::{Decode, Encode, EncodeLike};
 use frame_support::{decl_error, decl_event, decl_module, decl_storage};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
-    traits::Currency,
+    ensure,
     weights::Weight,
 };
 use frame_system::ensure_signed;
 use sp_arithmetic::traits::*;
 use sp_arithmetic::FixedPointNumber;
 use sp_std::convert::TryInto;
-
-pub(crate) type DOT<T> =
-    <<T as collateral::Trait>::DOT as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
-
-pub(crate) type PolkaBTC<T> =
-    <<T as treasury::Trait>::PolkaBTC as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
-
-// TODO: concrete type is the same, circumvent this conversion
-pub(crate) type Inner<T> = <<T as Trait>::FixedPoint as FixedPointNumber>::Inner;
+use types::{FixedPoint, Inner, PolkaBTC, DOT};
 
 /// The pallet's configuration trait.
-pub trait Trait: frame_system::Trait + collateral::Trait + treasury::Trait {
+pub trait Trait: frame_system::Trait + collateral::Trait + treasury::Trait + sla::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 
@@ -53,47 +46,70 @@ decl_storage! {
         /// # Issue
 
         /// Fee share that users need to pay to issue PolkaBTC.
-        IssueFee get(fn issue_fee) config(): T::FixedPoint;
+        IssueFee get(fn issue_fee) config(): FixedPoint<T>;
 
         /// Default griefing collateral (in DOT) as a percentage of the locked
         /// collateral of a Vault a user has to lock to issue PolkaBTC.
-        IssueGriefingCollateral get(fn issue_griefing_collateral) config(): T::FixedPoint;
+        IssueGriefingCollateral get(fn issue_griefing_collateral) config(): FixedPoint<T>;
 
         /// # Redeem
 
         /// Fee share that users need to pay to redeem PolkaBTC.
-        RedeemFee get(fn redeem_fee) config(): T::FixedPoint;
+        RedeemFee get(fn redeem_fee) config(): FixedPoint<T>;
 
         /// # Vault Registry
 
         /// If users execute a redeem with a Vault flagged for premium redeem,
         /// they can earn a DOT premium, slashed from the Vault's collateral.
-        PremiumRedeemFee get(fn premium_redeem_fee) config(): T::FixedPoint;
+        PremiumRedeemFee get(fn premium_redeem_fee) config(): FixedPoint<T>;
 
         /// Fee paid to Vaults to auction / force-replace undercollateralized Vaults.
         /// This is slashed from the replaced Vault's collateral.
-        AuctionRedeemFee get(fn auction_redeem_fee) config(): T::FixedPoint;
+        AuctionRedeemFee get(fn auction_redeem_fee) config(): FixedPoint<T>;
 
         /// Fee that a Vault has to pay if it fails to execute redeem or replace requests
         /// (for redeem, on top of the slashed BTC-in-DOT value of the request). The fee is
         /// paid in DOT based on the PolkaBTC amount at the current exchange rate.
-        PunishmentFee get(fn punishment_fee) config(): T::FixedPoint;
+        PunishmentFee get(fn punishment_fee) config(): FixedPoint<T>;
 
         /// # Replace
 
         /// Default griefing collateral (in DOT) as a percentage of the to-be-locked DOT collateral
         /// of the new Vault. This collateral will be slashed and allocated to the replacing Vault
         /// if the to-be-replaced Vault does not transfer BTC on time.
-        ReplaceGriefingCollateral get(fn replace_griefing_collateral) config(): T::FixedPoint;
+        ReplaceGriefingCollateral get(fn replace_griefing_collateral) config(): FixedPoint<T>;
 
         /// AccountId of the fee pool.
         AccountId get(fn account_id) config(): T::AccountId;
 
+        /// Number of blocks for reward accrual.
         EpochPeriod get(fn epoch_period) config(): T::BlockNumber;
 
+        /// Total rewards in `PolkaBTC` for the current epoch.
         EpochRewards get(fn epoch_rewards): PolkaBTC<T>;
 
+        /// Total rewards locked for accounts.
         TotalRewards: map hasher(blake2_128_concat) T::AccountId => PolkaBTC<T>;
+
+        /// # Parachain Fee Pool Distribution
+
+        VaultRewards get(fn vault_rewards) config(): FixedPoint<T>;
+
+        RelayerRewards get(fn relayer_rewards) config(): FixedPoint<T>;
+
+        MaintainerRewards get(fn maintainer_rewards) config(): FixedPoint<T>;
+
+        CollatorRewards get(fn collator_rewards) config(): FixedPoint<T>;
+
+    }
+    add_extra_genesis {
+        // don't allow an invalid reward distribution
+        build(|config| Module::<T>::ensure_rewards_are_valid(
+            config.vault_rewards,
+            config.relayer_rewards,
+            config.maintainer_rewards,
+            config.collator_rewards,
+        ).unwrap())
     }
 }
 
@@ -121,6 +137,7 @@ decl_module! {
             if let Err(e) = Self::begin_block(n) {
                 sp_runtime::print(e);
             }
+            // TODO: calculate weight
             0
         }
 
@@ -141,8 +158,17 @@ decl_module! {
 impl<T: Trait> Module<T> {
     fn begin_block(height: T::BlockNumber) -> DispatchResult {
         // only calculate rewards per epoch
-        if height % <EpochPeriod<T>>::get() == 0.into() {
-            // TODO: calculate rewards from SLA pallet
+        if height % Self::epoch_period() == 0.into() {
+            // calculate total rewards as a percentage of total epoch rewards
+            let total_relayer_rewards = Self::relayer_rewards_for_epoch()?;
+            // TODO: calculate rewards for other participants
+            for (account, maybe_amount) in ext::sla::get_relayer_rewards::<T>(total_relayer_rewards)
+            {
+                <TotalRewards<T>>::insert(
+                    account.clone(),
+                    <TotalRewards<T>>::get(account) + maybe_amount?,
+                );
+            }
 
             // clear total rewards for current epoch
             <EpochRewards<T>>::kill();
@@ -177,20 +203,20 @@ impl<T: Trait> Module<T> {
 
     fn calculate_for(
         amount: Inner<T>,
-        percentage: T::FixedPoint,
+        percentage: FixedPoint<T>,
     ) -> Result<Inner<T>, DispatchError> {
-        T::FixedPoint::checked_from_integer(amount)
+        FixedPoint::<T>::checked_from_integer(amount)
             .ok_or(Error::<T>::ArithmeticOverflow)?
             .checked_mul(&percentage)
             .ok_or(Error::<T>::ArithmeticOverflow)?
             .into_inner()
-            .checked_div(&T::FixedPoint::accuracy())
+            .checked_div(&FixedPoint::<T>::accuracy())
             .ok_or(Error::<T>::ArithmeticUnderflow.into())
     }
 
     fn btc_for(
         amount: PolkaBTC<T>,
-        percentage: T::FixedPoint,
+        percentage: FixedPoint<T>,
     ) -> Result<PolkaBTC<T>, DispatchError> {
         Self::inner_to_btc(Self::calculate_for(
             Self::btc_to_inner(amount)?,
@@ -198,7 +224,7 @@ impl<T: Trait> Module<T> {
         )?)
     }
 
-    fn dot_for(amount: DOT<T>, percentage: T::FixedPoint) -> Result<DOT<T>, DispatchError> {
+    fn dot_for(amount: DOT<T>, percentage: FixedPoint<T>) -> Result<DOT<T>, DispatchError> {
         Self::inner_to_dot(Self::calculate_for(
             Self::dot_to_inner(amount)?,
             percentage,
@@ -234,7 +260,25 @@ impl<T: Trait> Module<T> {
     }
 
     pub fn increase_rewards_for_epoch(amount: PolkaBTC<T>) {
-        <EpochRewards<T>>::set(<EpochRewards<T>>::get() + amount);
+        <EpochRewards<T>>::set(Self::epoch_rewards() + amount);
+    }
+
+    #[allow(dead_code)]
+    fn ensure_rewards_are_valid(
+        vault: FixedPoint<T>,
+        relayer: FixedPoint<T>,
+        maintainer: FixedPoint<T>,
+        collator: FixedPoint<T>,
+    ) -> DispatchResult {
+        let total = vault + relayer + maintainer + collator;
+        let one = FixedPoint::<T>::checked_from_integer(Module::<T>::btc_to_inner(1.into())?)
+            .ok_or(Error::<T>::ArithmeticOverflow)?;
+        ensure!(total == one, Error::<T>::InvalidRewardDist);
+        Ok(())
+    }
+
+    fn relayer_rewards_for_epoch() -> Result<PolkaBTC<T>, DispatchError> {
+        Self::btc_for(Self::epoch_rewards(), Self::relayer_rewards())
     }
 }
 
@@ -244,5 +288,6 @@ decl_error! {
         TryIntoIntError,
         ArithmeticOverflow,
         ArithmeticUnderflow,
+        InvalidRewardDist,
     }
 }

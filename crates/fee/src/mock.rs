@@ -8,7 +8,7 @@ use frame_support::{
     },
 };
 use pallet_balances as balances;
-use sp_arithmetic::FixedU128;
+use sp_arithmetic::{FixedI128, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
@@ -33,6 +33,10 @@ impl_outer_event! {
         balances<T>,
         collateral<T>,
         treasury<T>,
+        vault_registry<T>,
+        exchange_rate_oracle<T>,
+        security,
+        sla<T>,
     }
 }
 
@@ -105,6 +109,37 @@ impl collateral::Trait for Test {
 impl treasury::Trait for Test {
     type Event = TestEvent;
     type PolkaBTC = Balances;
+}
+
+impl exchange_rate_oracle::Trait for Test {
+    type Event = TestEvent;
+    type WeightInfo = ();
+}
+
+impl vault_registry::Trait for Test {
+    type Event = TestEvent;
+    type RandomnessSource = pallet_randomness_collective_flip::Module<Test>;
+    type WeightInfo = ();
+}
+
+parameter_types! {
+    pub const MinimumPeriod: u64 = 5;
+}
+
+impl timestamp::Trait for Test {
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = MinimumPeriod;
+    type WeightInfo = ();
+}
+
+impl security::Trait for Test {
+    type Event = TestEvent;
+}
+
+impl sla::Trait for Test {
+    type Event = TestEvent;
+    type FixedPoint = FixedI128;
 }
 
 impl Trait for Test {

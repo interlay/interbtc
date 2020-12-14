@@ -197,7 +197,7 @@ impl<T: Trait> Module<T> {
         Ok(stake)
     }
 
-    fn get_relayer_rewards(
+    pub fn get_relayer_rewards(
         total_reward: PolkaBTC<T>,
     ) -> Vec<(T::AccountId, Result<PolkaBTC<T>, DispatchError>)> {
         <RelayerSla<T>>::iter()
