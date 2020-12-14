@@ -46,8 +46,8 @@ fn integration_test_redeem_polka_btc() {
         let collateral_vault = 10_000;
         let polkabtc = 1_000;
 
-        let vault_btc_address = BtcAddress::P2PKH(H160([0u8; 20]));
-        let user_btc_address = BtcAddress::P2PKH(H160([0u8; 20]));
+        let vault_btc_address = BtcAddress::P2PKH(H160([1; 20]));
+        let user_btc_address = BtcAddress::P2PKH(H160([2; 20]));
 
         SystemModule::set_block_number(1);
 

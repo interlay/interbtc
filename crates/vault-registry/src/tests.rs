@@ -6,8 +6,8 @@ use crate::mock::{
 };
 use crate::sp_api_hidden_includes_decl_storage::hidden_include::traits::OnInitialize;
 use crate::GRANULARITY;
-use crate::H256;
 use crate::{Vault, VaultStatus, Wallet};
+use crate::{H160, H256};
 use btc_relay::BtcAddress;
 use frame_support::{assert_err, assert_noop, assert_ok, StorageMap, StorageValue};
 use mocktopus::mocking::*;
@@ -133,7 +133,7 @@ fn register_vault_fails_when_account_funds_too_low() {
         let result = VaultRegistry::register_vault(
             Origin::signed(DEFAULT_ID),
             collateral,
-            BtcAddress::default(),
+            BtcAddress::P2PKH(H160([1; 20])),
         );
         assert_err!(result, CollateralError::InsufficientFunds);
         assert_not_emitted!(Event::RegisterVault(DEFAULT_ID, collateral));

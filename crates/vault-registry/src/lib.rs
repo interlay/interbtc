@@ -144,6 +144,13 @@ decl_storage! {
         /// Build storage at V1 (requires default 0).
         StorageVersion get(fn storage_version) build(|_| Version::V1): Version = Version::V0;
     }
+    add_extra_genesis {
+        build(|config: &GenesisConfig<T>| {
+            let account_id = &config.liquidation_vault;
+            let vault = RichVault::<T>::new(account_id.clone(), BtcAddress::default());
+            Module::<T>::_insert_vault(account_id, &vault);
+        });
+    }
 }
 
 // The pallet's dispatchable functions.
