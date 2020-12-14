@@ -125,7 +125,7 @@ decl_module! {
                             vault: request_v0.vault,
                             opentime: request_v0.opentime,
                             amount_polka_btc: request_v0.amount_polka_btc,
-                            fee_polka_btc: 0.into(),
+                            fee: 0.into(),
                             amount_btc: request_v0.amount_btc,
                             amount_dot: request_v0.amount_dot,
                             premium_dot: request_v0.premium_dot,
@@ -283,8 +283,8 @@ impl<T: Trait> Module<T> {
             Error::<T>::AmountExceedsVaultBalance
         );
 
-        let fee_polka_btc = ext::fee::get_redeem_fee::<T>(amount_polka_btc)?;
-        let total_amount_polka_btc = amount_polka_btc + fee_polka_btc;
+        let fee = ext::fee::get_redeem_fee::<T>(amount_polka_btc)?;
+        let total_amount_polka_btc = amount_polka_btc + fee;
 
         // only allow requests of amount above above the minimum
         let dust_value = <RedeemBtcDustValue<T>>::get();
@@ -333,7 +333,7 @@ impl<T: Trait> Module<T> {
                 vault: vault_id.clone(),
                 opentime: height,
                 amount_polka_btc,
-                fee_polka_btc,
+                fee,
                 amount_btc,
                 amount_dot,
                 premium_dot,
@@ -393,9 +393,9 @@ impl<T: Trait> Module<T> {
         ext::treasury::unlock_and_transfer::<T>(
             redeem.redeemer.clone(),
             ext::fee::fee_pool_account_id::<T>(),
-            redeem.fee_polka_btc,
+            redeem.fee,
         )?;
-        ext::fee::increase_rewards_for_epoch::<T>(redeem.fee_polka_btc);
+        ext::fee::increase_rewards_for_epoch::<T>(redeem.fee);
 
         if redeem.premium_dot > 0.into() {
             ext::vault_registry::redeem_tokens_premium::<T>(

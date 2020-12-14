@@ -48,7 +48,7 @@ pub struct RedeemRequest<AccountId, BlockNumber, PolkaBTC, DOT> {
         serde(bound(serialize = "PolkaBTC: std::fmt::Display"))
     )]
     #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
-    pub fee_polka_btc: PolkaBTC,
+    pub fee: PolkaBTC,
     #[cfg_attr(
         feature = "std",
         serde(bound(deserialize = "PolkaBTC: std::str::FromStr"))
