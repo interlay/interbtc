@@ -14,3 +14,14 @@ pub(crate) mod collateral {
         <collateral::Module<T>>::get_total_collateral()
     }
 }
+
+#[cfg_attr(test, mockable)]
+pub(crate) mod vault_registry {
+    pub fn get_liquidation_collateral_threshold<T: vault_registry::Trait>() -> u128 {
+        <vault_registry::Module<T>>::_get_liquidation_collateral_threshold()
+    }
+
+    pub fn get_premium_redeem_threshold<T: vault_registry::Trait>() -> u128 {
+        <vault_registry::Module<T>>::_get_premium_redeem_threshold()
+    }
+}

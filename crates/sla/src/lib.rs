@@ -54,8 +54,9 @@ decl_storage! {
         /// Mapping from accounts of vaults to their sla score
         RelayerSla get(fn relayer_sla): map hasher(blake2_128_concat) T::AccountId => T::FixedPoint;
 
-        // total amount issued for each relayer
-        RelayerTotalIssuedAmount get(fn relayer_total_issued_amount): map hasher(blake2_128_concat) T::AccountId => PolkaBTC<T>;
+        // total amount issued by each vault
+        VaultTotalIssuedAmount get(fn vault_total_issued_amount): map hasher(blake2_128_concat) T::AccountId => PolkaBTC<T>;
+
         // total amount issued by all relayers together
         TotalIssuedAmount: PolkaBTC<T>;
         TotalIssueCount: u32;
@@ -84,8 +85,10 @@ decl_event!(
     pub enum Event<T>
     where
         AccountId = <T as frame_system::Trait>::AccountId,
+        FixedPoint = FixedPoint<T>,
     {
-        SetAccount(AccountId),
+        UpdateVaultSLA(AccountId, FixedPoint),
+        UpdateRelayerSLA(AccountId, FixedPoint),
     }
 );
 
@@ -114,20 +117,21 @@ impl<T: Trait> Module<T> {
             VaultEvent::SubmittedIssueProof => <VaultSubmittedIssueProof<T>>::get(),
             VaultEvent::ExecutedIssue(amount) => {
                 // update account total
-                let account_total = <RelayerTotalIssuedAmount<T>>::get(vault_id.clone());
-                <RelayerTotalIssuedAmount<T>>::insert(vault_id.clone(), amount + account_total);
+                let account_total = <VaultTotalIssuedAmount<T>>::get(vault_id.clone());
+                <VaultTotalIssuedAmount<T>>::insert(vault_id.clone(), amount + account_total);
 
-                // read avg
-                let mut total = <TotalIssuedAmount<T>>::get();
-                let mut num = <TotalIssueCount>::get();
-                // update avg
-                total += amount;
-                num += 1;
-                // write back
-                <TotalIssuedAmount<T>>::set(total);
-                <TotalIssueCount>::set(num);
+                // update total amount
+                let total = <TotalIssuedAmount<T>>::mutate(|total| {
+                    *total += amount;
+                    *total
+                });
+                // update total count
+                let count = <TotalIssueCount>::mutate(|count| {
+                    *count += 1;
+                    *count
+                });
 
-                let average = total / num.into();
+                let average = total / count.into();
 
                 let max_sla_change = <VaultExecutedIssueMaxSlaChange<T>>::get();
 
@@ -156,7 +160,8 @@ impl<T: Trait> Module<T> {
 
         let bounded_new_sla = Self::_limit(T::FixedPoint::zero(), new_sla, max_sla);
 
-        <VaultSla<T>>::insert(vault_id, bounded_new_sla);
+        <VaultSla<T>>::insert(vault_id.clone(), bounded_new_sla);
+        Self::deposit_event(<Event<T>>::UpdateVaultSLA(vault_id, bounded_new_sla));
 
         Ok(())
     }
@@ -221,7 +226,8 @@ impl<T: Trait> Module<T> {
             let new_total = calculate_new_total_relayer_score().ok_or(Error::<T>::MathError)?;
 
             <TotalRelayerScore<T>>::set(new_total);
-            <RelayerSla<T>>::insert(relayer_id, new_sla);
+            <RelayerSla<T>>::insert(relayer_id.clone(), new_sla);
+            Self::deposit_event(<Event<T>>::UpdateRelayerSLA(relayer_id, new_sla));
         }
 
         Ok(())
@@ -238,32 +244,36 @@ impl<T: Trait> Module<T> {
     }
 
     pub fn get_vault_rewards(
-        total_reward: PolkaBTC<T>,
+        total_reward_for_issued: PolkaBTC<T>,
+        total_reward_for_locked: PolkaBTC<T>,
     ) -> Result<Vec<(T::AccountId, PolkaBTC<T>)>, DispatchError> {
         let total_issued = Self::polkabtc_to_u128(<TotalIssuedAmount<T>>::get())?;
-        let total_reward = Self::polkabtc_to_u128(total_reward)?;
+        let total_locked = Self::dot_to_u128(ext::collateral::get_total_collateral::<T>())?;
 
-        // each vault gets total_reward * (issued_amount / total_issued).
-
-        // let total_collataral = ext::collateral::get_total_collateral();
+        let total_reward_for_issued = Self::polkabtc_to_u128(total_reward_for_issued)?;
+        let total_reward_for_locked = Self::polkabtc_to_u128(total_reward_for_locked)?;
 
         let calculate_reward = |account_id, issued_amount| {
+            // each vault gets total_reward * (issued_amount / total_issued).
             let issued_amount = Self::polkabtc_to_u128(issued_amount)?;
-            let total = total_issued
-                .checked_mul(total_reward)
-                .ok_or(Error::<T>::MathError)?;
-
-            // let vault_collateral = ext::collateral::get_collateral_from_account(&account_id);
-            // todo: use this
-
-            let reward = total
+            let issued_reward = issued_amount
+                .checked_mul(total_reward_for_issued)
+                .ok_or(Error::<T>::MathError)?
                 .checked_div(total_issued)
                 .ok_or(Error::<T>::MathError)?;
 
-            Result::<_, DispatchError>::Ok(Self::u128_to_polkabtc(reward)?)
+            let locked_amount = ext::collateral::get_collateral_from_account::<T>(account_id);
+            let locked_amount = Self::dot_to_u128(locked_amount)?;
+            let locked_reward = locked_amount
+                .checked_mul(total_reward_for_locked)
+                .ok_or(Error::<T>::MathError)?
+                .checked_div(total_locked)
+                .ok_or(Error::<T>::MathError)?;
+
+            Result::<_, DispatchError>::Ok(Self::u128_to_polkabtc(issued_reward + locked_reward)?)
         };
 
-        <RelayerTotalIssuedAmount<T>>::iter()
+        <VaultTotalIssuedAmount<T>>::iter()
             .map(|(account_id, relayer_issue_amount)| {
                 Ok((
                     account_id.clone(),
@@ -295,13 +305,13 @@ impl<T: Trait> Module<T> {
         let sla = <RelayerSla<T>>::get(relayer_id);
         let total_relayer_score = <TotalRelayerScore<T>>::get();
 
-        let _calculate_reward = || {
+        let calculate_reward = || {
             let score = stake.checked_mul(&sla)?;
             let share = score.checked_div(&total_relayer_score)?;
             let reward = share.checked_mul_int(total_reward)?;
             Some(reward)
         };
-        let reward = _calculate_reward().ok_or(Error::<T>::MathError)?;
+        let reward = calculate_reward().ok_or(Error::<T>::MathError)?;
         Self::u128_to_polkabtc(reward)
     }
 
@@ -311,8 +321,8 @@ impl<T: Trait> Module<T> {
     ) -> Result<DOT<T>, DispatchError> {
         let current_sla = <VaultSla<T>>::get(vault_id);
 
-        let liquidation_threshold = Self::_get_liquidation_threshold()?;
-        let premium_redeem_threshold = Self::_get_premium_redeem_threshold()?;
+        let liquidation_threshold = Self::get_liquidation_threshold()?;
+        let premium_redeem_threshold = Self::get_premium_redeem_threshold()?;
 
         Self::_calculate_slashed_amount(
             current_sla,
@@ -322,23 +332,24 @@ impl<T: Trait> Module<T> {
         )
     }
 
-    /// fetch liquidation_threshold from vault registery and convert
-    fn _get_liquidation_threshold() -> Result<FixedPoint<T>, DispatchError> {
+    /// fetch liquidation_threshold from vault registry and convert
+    fn get_liquidation_threshold() -> Result<FixedPoint<T>, DispatchError> {
         let liquidation_threshold =
-            <vault_registry::Module<T>>::_get_liquidation_collateral_threshold();
-        Self::_vault_registery_threshold_to_fixed_point(liquidation_threshold)
+            ext::vault_registry::get_liquidation_collateral_threshold::<T>();
+        Self::vault_registry_threshold_to_fixed_point(liquidation_threshold)
     }
 
-    /// fetch premium_redeem_threshold from vault registery and convert
-    fn _get_premium_redeem_threshold() -> Result<FixedPoint<T>, DispatchError> {
-        let premium_redeem_threshold = <vault_registry::Module<T>>::_get_premium_redeem_threshold();
-        Self::_vault_registery_threshold_to_fixed_point(premium_redeem_threshold)
+    /// fetch premium_redeem_threshold from vault registry and convert
+    fn get_premium_redeem_threshold() -> Result<FixedPoint<T>, DispatchError> {
+        let premium_redeem_threshold = ext::vault_registry::get_premium_redeem_threshold::<T>();
+        Self::vault_registry_threshold_to_fixed_point(premium_redeem_threshold)
     }
 
     /// Convert a threshold from set in the vault registry to a fixed point type
-    fn _vault_registery_threshold_to_fixed_point(
+    fn vault_registry_threshold_to_fixed_point(
         value: u128,
     ) -> Result<FixedPoint<T>, DispatchError> {
+        // TODO: use FixedPoint type in vault_registry
         let scaling_factor = 10u128.pow(vault_registry::GRANULARITY);
         let ret = T::FixedPoint::checked_from_rational(value, scaling_factor)
             .ok_or(Error::<T>::TryIntoIntError);
