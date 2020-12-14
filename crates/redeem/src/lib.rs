@@ -342,7 +342,7 @@ impl<T: Trait> Module<T> {
                 completed: false,
                 cancelled: false,
                 reimburse: false,
-        },
+            },
         );
         Self::deposit_event(<Event<T>>::RequestRedeem(
             redeem_id,
