@@ -1,6 +1,6 @@
-pub enum VaultEvent {
+pub enum VaultEvent<PolkaBTC> {
     RedeemFailure,
-    ExecutedIssue(u32),
+    ExecutedIssue(PolkaBTC),
     SubmittedIssueProof,
 }
 

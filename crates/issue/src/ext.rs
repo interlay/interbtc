@@ -127,12 +127,13 @@ pub(crate) mod oracle {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod sla {
+    use crate::types::PolkaBTC;
     use frame_support::dispatch::DispatchError;
     pub use sla::types::VaultEvent;
 
     pub fn event_update_vault_sla<T: sla::Trait>(
         vault_id: T::AccountId,
-        event: VaultEvent,
+        event: VaultEvent<PolkaBTC<T>>,
     ) -> Result<(), DispatchError> {
         <sla::Module<T>>::event_update_vault_sla(vault_id, event)
     }

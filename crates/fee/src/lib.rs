@@ -164,11 +164,11 @@ impl<T: Trait> Module<T> {
         if height % Self::epoch_period() == 0.into() {
             // calculate staked relayer rewards
             let total_relayer_rewards = Self::relayer_rewards_for_epoch()?;
-            for (account, maybe_amount) in ext::sla::get_relayer_rewards::<T>(total_relayer_rewards)
-            {
+            // TODO: calculate rewards for other participants
+            for (account, amount) in ext::sla::get_relayer_rewards::<T>(total_relayer_rewards)? {
                 <TotalRewards<T>>::insert(
                     account.clone(),
-                    <TotalRewards<T>>::get(account) + maybe_amount?,
+                    <TotalRewards<T>>::get(account) + amount,
                 );
             }
 

@@ -45,12 +45,14 @@ benchmarks! {
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
         let vault_btc_address = BtcAddress::P2SH(H160::zero());
+        let value = 2;
 
         let issue_id = H256::zero();
         let mut issue_request = IssueRequest::default();
         issue_request.requester = origin.clone();
         issue_request.vault = vault_id.clone();
         issue_request.btc_address = vault_btc_address;
+        issue_request.amount = value.into();
         Issue::<T>::insert_issue_request(issue_id, issue_request);
 
         let height = 0;
@@ -64,7 +66,6 @@ benchmarks! {
         let block_header = RawBlockHeader::from_bytes(&block.header.format()).unwrap();
         BtcRelay::<T>::_initialize(block_header, height).unwrap();
 
-        let value = 0;
         let transaction = TransactionBuilder::new()
             .with_version(2)
             .add_input(
@@ -100,6 +101,10 @@ benchmarks! {
             vault
         );
 
+        VaultRegistry::<T>::_set_secure_collateral_threshold(1);
+        ExchangeRateOracle::<T>::_set_exchange_rate(1).unwrap();
+        Collateral::<T>::lock_collateral(&vault_id, 100000000.into()).unwrap();
+        VaultRegistry::<T>::_increase_to_be_issued_tokens(&vault_id, value.into()).unwrap();
     }: _(RawOrigin::Signed(origin), issue_id, tx_id, proof, raw_tx)
 
     cancel_issue {

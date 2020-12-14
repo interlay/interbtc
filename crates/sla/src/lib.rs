@@ -54,6 +54,12 @@ decl_storage! {
         /// Mapping from accounts of vaults to their sla score
         RelayerSla get(fn relayer_sla): map hasher(blake2_128_concat) T::AccountId => T::FixedPoint;
 
+        // total amount issued for each relayer
+        RelayerTotalIssuedAmount get(fn relayer_total_issued_amount): map hasher(blake2_128_concat) T::AccountId => PolkaBTC<T>;
+        // total amount issued by all relayers together
+        TotalIssuedAmount: PolkaBTC<T>;
+        TotalIssueCount: u32;
+
         TotalRelayerScore: T::FixedPoint;
 
         VaultTargetSla get(fn vault_target_sla) config(): T::FixedPoint;
@@ -100,13 +106,47 @@ decl_module! {
 impl<T: Trait> Module<T> {
     pub fn event_update_vault_sla(
         vault_id: T::AccountId,
-        event: VaultEvent,
+        event: VaultEvent<PolkaBTC<T>>,
     ) -> Result<(), DispatchError> {
         let current_sla = <VaultSla<T>>::get(vault_id.clone());
         let delta_sla = match event {
             VaultEvent::RedeemFailure => <VaultRedeemFailure<T>>::get(),
             VaultEvent::SubmittedIssueProof => <VaultSubmittedIssueProof<T>>::get(),
-            VaultEvent::ExecutedIssue(_) => <VaultExecutedIssueMaxSlaChange<T>>::get(), // todo: do calculation
+            VaultEvent::ExecutedIssue(amount) => {
+                // update account total
+                let account_total = <RelayerTotalIssuedAmount<T>>::get(vault_id.clone());
+                <RelayerTotalIssuedAmount<T>>::insert(vault_id.clone(), amount + account_total);
+
+                // read avg
+                let mut total = <TotalIssuedAmount<T>>::get();
+                let mut num = <TotalIssueCount>::get();
+                // update avg
+                total += amount;
+                num += 1;
+                // write back
+                <TotalIssuedAmount<T>>::set(total);
+                <TotalIssueCount>::set(num);
+
+                let average = total / num.into();
+
+                let max_sla_change = <VaultExecutedIssueMaxSlaChange<T>>::get();
+
+                // increase = (amount / average) * max_sla_change
+                let total_raw = Self::polkabtc_to_u128(total)?;
+                let average_raw = Self::polkabtc_to_u128(average)?;
+
+                let fraction = T::FixedPoint::checked_from_rational(total_raw, average_raw)
+                    .ok_or(Error::<T>::TryIntoIntError)?;
+                let potential_sla_increase = fraction
+                    .checked_mul(&max_sla_change)
+                    .ok_or(Error::<T>::MathError)?;
+
+                Self::_limit(
+                    T::FixedPoint::zero(),
+                    potential_sla_increase,
+                    max_sla_change,
+                )
+            }
         };
 
         let new_sla = current_sla
@@ -197,20 +237,56 @@ impl<T: Trait> Module<T> {
         Ok(stake)
     }
 
-    pub fn get_relayer_rewards(
+    pub fn get_vault_rewards(
         total_reward: PolkaBTC<T>,
-    ) -> Vec<(T::AccountId, Result<PolkaBTC<T>, DispatchError>)> {
-        <RelayerSla<T>>::iter()
-            .map(|(account_id, _)| {
-                (
+    ) -> Result<Vec<(T::AccountId, PolkaBTC<T>)>, DispatchError> {
+        let total_issued = Self::polkabtc_to_u128(<TotalIssuedAmount<T>>::get())?;
+        let total_reward = Self::polkabtc_to_u128(total_reward)?;
+
+        // each vault gets total_reward * (issued_amount / total_issued).
+
+        // let total_collataral = ext::collateral::get_total_collateral();
+
+        let calculate_reward = |account_id, issued_amount| {
+            let issued_amount = Self::polkabtc_to_u128(issued_amount)?;
+            let total = total_issued
+                .checked_mul(total_reward)
+                .ok_or(Error::<T>::MathError)?;
+
+            // let vault_collateral = ext::collateral::get_collateral_from_account(&account_id);
+            // todo: use this
+
+            let reward = total
+                .checked_div(total_issued)
+                .ok_or(Error::<T>::MathError)?;
+
+            Result::<_, DispatchError>::Ok(Self::u128_to_polkabtc(reward)?)
+        };
+
+        <RelayerTotalIssuedAmount<T>>::iter()
+            .map(|(account_id, relayer_issue_amount)| {
+                Ok((
                     account_id.clone(),
-                    Self::calculate_reward(account_id.clone(), total_reward),
-                )
+                    calculate_reward(account_id.clone(), relayer_issue_amount)?,
+                ))
             })
             .collect()
     }
 
-    fn calculate_reward(
+    pub fn get_relayer_rewards(
+        total_reward: PolkaBTC<T>,
+    ) -> Result<Vec<(T::AccountId, PolkaBTC<T>)>, DispatchError> {
+        <RelayerSla<T>>::iter()
+            .map(|(account_id, _)| {
+                Ok((
+                    account_id.clone(),
+                    Self::calculate_relayer_reward(account_id.clone(), total_reward)?,
+                ))
+            })
+            .collect()
+    }
+
+    fn calculate_relayer_reward(
         relayer_id: T::AccountId,
         total_reward: PolkaBTC<T>,
     ) -> Result<PolkaBTC<T>, DispatchError> {

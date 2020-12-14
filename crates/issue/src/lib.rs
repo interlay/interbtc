@@ -324,7 +324,7 @@ impl<T: Trait> Module<T> {
         // reward the vault for having issued PolkaBTC by increasing its sla
         ext::sla::event_update_vault_sla::<T>(
             issue.vault.clone(),
-            ext::sla::VaultEvent::ExecutedIssue(0), // todo: set amount
+            ext::sla::VaultEvent::ExecutedIssue(issue.amount),
         )?;
 
         // Remove issue request from storage

@@ -23,7 +23,7 @@ pub(crate) mod sla {
 
     pub fn get_relayer_rewards<T: sla::Trait>(
         total_reward: PolkaBTC<T>,
-    ) -> Vec<(T::AccountId, Result<PolkaBTC<T>, DispatchError>)> {
+    ) -> Result<Vec<(T::AccountId, PolkaBTC<T>)>, DispatchError> {
         <sla::Module<T>>::get_relayer_rewards(total_reward)
     }
 }

@@ -69,7 +69,7 @@ fn test_rewards_accrue_per_epoch() {
         <EpochPeriod<Test>>::set(50);
 
         ext::sla::get_relayer_rewards::<Test>
-            .mock_safe(|total| MockResult::Return(vec![(0, Ok(total))]));
+            .mock_safe(|total| MockResult::Return(Ok(vec![(0, total)])));
 
         <EpochRewards<Test>>::set(100);
         assert_ok!(Fee::begin_block(2000));

@@ -176,13 +176,13 @@ fn test_calculate_reward() {
         }
 
         // equal sla, but alice and bob have 1:4 staked collateral ratio
-        assert_eq!(Sla::calculate_reward(ALICE, 1_000_000), Ok(200_000));
+        assert_eq!(Sla::calculate_relayer_reward(ALICE, 1_000_000), Ok(200_000));
 
         for i in 0..30 {
             Sla::event_update_relayer_sla(ALICE, RelayerEvent::BlockSubmission).unwrap();
         }
 
         // alice and bob have 4:1 sla ratio, and 1:4 staked collateral ratio, so both get 50%
-        assert_eq!(Sla::calculate_reward(ALICE, 1_000_000), Ok(500_000));
+        assert_eq!(Sla::calculate_relayer_reward(ALICE, 1_000_000), Ok(500_000));
     })
 }
