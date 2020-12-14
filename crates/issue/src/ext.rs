@@ -143,8 +143,8 @@ pub(crate) mod fee {
     use crate::types::{PolkaBTC, DOT};
     use frame_support::dispatch::DispatchError;
 
-    pub fn account_id<T: fee::Trait>() -> T::AccountId {
-        <fee::Module<T>>::account_id()
+    pub fn fee_pool_account_id<T: fee::Trait>() -> T::AccountId {
+        <fee::Module<T>>::fee_pool_account_id()
     }
 
     pub fn get_issue_fee<T: fee::Trait>(amount: PolkaBTC<T>) -> Result<PolkaBTC<T>, DispatchError> {

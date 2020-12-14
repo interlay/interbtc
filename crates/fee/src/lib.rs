@@ -80,7 +80,10 @@ decl_storage! {
         ReplaceGriefingCollateral get(fn replace_griefing_collateral) config(): FixedPoint<T>;
 
         /// AccountId of the fee pool.
-        AccountId get(fn account_id) config(): T::AccountId;
+        FeePoolAccountId get(fn fee_pool_account_id) config(): T::AccountId;
+
+        /// AccountId of the parachain maintainer.
+        MaintainerAccountId get(fn maintainer_account_id) config(): T::AccountId;
 
         /// Number of blocks for reward accrual.
         EpochPeriod get(fn epoch_period) config(): T::BlockNumber;
@@ -146,7 +149,7 @@ decl_module! {
         {
             let signer = ensure_signed(origin)?;
             let amount = <TotalRewards<T>>::get(signer.clone());
-            ext::treasury::transfer::<T>(Self::account_id(), signer, amount)?;
+            ext::treasury::transfer::<T>(Self::fee_pool_account_id(), signer, amount)?;
             Ok(())
         }
 
@@ -159,9 +162,8 @@ impl<T: Trait> Module<T> {
     fn begin_block(height: T::BlockNumber) -> DispatchResult {
         // only calculate rewards per epoch
         if height % Self::epoch_period() == 0.into() {
-            // calculate total rewards as a percentage of total epoch rewards
+            // calculate staked relayer rewards
             let total_relayer_rewards = Self::relayer_rewards_for_epoch()?;
-            // TODO: calculate rewards for other participants
             for (account, maybe_amount) in ext::sla::get_relayer_rewards::<T>(total_relayer_rewards)
             {
                 <TotalRewards<T>>::insert(
@@ -169,6 +171,17 @@ impl<T: Trait> Module<T> {
                     <TotalRewards<T>>::get(account) + maybe_amount?,
                 );
             }
+
+            // calculate maintainer rewards
+            let total_maintainer_rewards = Self::maintainer_rewards_for_epoch()?;
+            let maintainer_account_id = Self::maintainer_account_id();
+            <TotalRewards<T>>::insert(
+                maintainer_account_id.clone(),
+                <TotalRewards<T>>::get(maintainer_account_id) + total_maintainer_rewards,
+            );
+
+            // TODO: calculate vault rewards
+            // NOTE: currently there are no collator rewards
 
             // clear total rewards for current epoch
             <EpochRewards<T>>::kill();
@@ -279,6 +292,10 @@ impl<T: Trait> Module<T> {
 
     fn relayer_rewards_for_epoch() -> Result<PolkaBTC<T>, DispatchError> {
         Self::btc_for(Self::epoch_rewards(), Self::relayer_rewards())
+    }
+
+    fn maintainer_rewards_for_epoch() -> Result<PolkaBTC<T>, DispatchError> {
+        Self::btc_for(Self::epoch_rewards(), Self::maintainer_rewards())
     }
 }
 

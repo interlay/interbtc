@@ -392,7 +392,7 @@ impl<T: Trait> Module<T> {
         // send fees to pool
         ext::treasury::unlock_and_transfer::<T>(
             redeem.redeemer.clone(),
-            ext::fee::account_id::<T>(),
+            ext::fee::fee_pool_account_id::<T>(),
             redeem.fee_polka_btc,
         )?;
         ext::fee::increase_rewards_for_epoch::<T>(redeem.fee_polka_btc);

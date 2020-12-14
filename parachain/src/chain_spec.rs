@@ -215,7 +215,7 @@ fn testnet_genesis(
             auction_collateral_threshold: 150_000,
             premium_redeem_threshold: 120_000,
             liquidation_collateral_threshold: 110_000,
-            liquidation_vault: get_account_id_from_seed::<sr25519::Public>("Victor"),
+            liquidation_vault: get_account_id_from_seed::<sr25519::Public>("LiquidationVault"),
         }),
         fee: Some(FeeConfig {
             issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
@@ -225,7 +225,8 @@ fn testnet_genesis(
             auction_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
             punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(),                // 10%
             replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(),   // 10%
-            account_id: get_account_id_from_seed::<sr25519::Public>("Victor"),
+            fee_pool_account_id: get_account_id_from_seed::<sr25519::Public>("FeePool"),
+            maintainer_account_id: get_account_id_from_seed::<sr25519::Public>("Maintainer"),
             epoch_period: 5,
             vault_rewards: FixedU128::checked_from_rational(77, 100).unwrap(),
             relayer_rewards: FixedU128::checked_from_rational(3, 100).unwrap(),

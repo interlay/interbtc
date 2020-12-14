@@ -227,7 +227,8 @@ impl ExtBuilder {
             auction_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
             punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(),                // 10%
             replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(),   // 10%
-            account_id: 0,
+            fee_pool_account_id: 0,
+            maintainer_account_id: 1,
             epoch_period: 5,
             vault_rewards: FixedU128::checked_from_rational(77, 100).unwrap(),
             relayer_rewards: FixedU128::checked_from_rational(3, 100).unwrap(),
