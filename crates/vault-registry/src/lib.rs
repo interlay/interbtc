@@ -294,11 +294,23 @@ decl_module! {
             Self::deposit_event(Event::<T>::UpdateBtcAddress(account_id, btc_address));
             Ok(())
         }
+
+        fn on_initialize(n: T::BlockNumber) -> Weight {
+            if let Err(e) = Self::begin_block(n) {
+                sp_runtime::print(e);
+            }
+            0
+        }
     }
 }
 
 #[cfg_attr(test, mockable)]
 impl<T: Trait> Module<T> {
+    fn begin_block(_height: T::BlockNumber) -> DispatchResult {
+        Self::liquidate_undercollateralized_vaults();
+        Ok(())
+    }
+
     /// Public functions
 
     pub fn _get_vault_from_id(vault_id: &T::AccountId) -> Result<DefaultVault<T>, DispatchError> {
@@ -632,7 +644,29 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    /// Liquidates a vault, transferring all of its token balances to the
+    /// Automatically liquidates all vaults under the secure threshold
+    fn liquidate_undercollateralized_vaults() {
+        let vaults_to_liquidate = <Vaults<T>>::iter()
+            .filter_map(|(vault_id, _)| {
+                if Self::_is_vault_below_secure_threshold(&vault_id)
+                    .ok()
+                    .unwrap_or(false)
+                {
+                    Some(vault_id)
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<T::AccountId>>();
+
+        for vault_id in vaults_to_liquidate {
+            // ignore conversion errors since we cannot do anything
+            // other than liquidate remaining vaults
+            let _ = Self::_liquidate_vault(&vault_id);
+        }
+    }
+
+    /// Liquidates a vault, transferring all of its token balances to the `LiquidationVault`.
     /// Delegates to `_liquidate_vault_with_status`, using `Liquidated` status
     pub fn _liquidate_vault(vault_id: &T::AccountId) -> DispatchResult {
         Self::_liquidate_vault_with_status(vault_id, VaultStatus::Liquidated)
