@@ -1282,6 +1282,7 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
                 btc_address: address2,
                 completed: false,
                 cancelled: false,
+                reimburse: false,
             }))
         });
 

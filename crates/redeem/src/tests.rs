@@ -299,6 +299,7 @@ fn test_request_redeem_succeeds_in_running_state() {
                 btc_address: BtcAddress::P2PKH(H160::zero()),
                 completed: false,
                 cancelled: false,
+                reimburse: false,
             }
         );
     })
@@ -398,6 +399,7 @@ fn test_request_redeem_succeeds_in_error_state() {
                 btc_address: BtcAddress::P2PKH(H160::zero()),
                 completed: false,
                 cancelled: false,
+                reimburse: false,
             }
         );
     })
@@ -435,6 +437,7 @@ fn test_execute_redeem_fails_with_unauthorized_vault() {
                 btc_address: BtcAddress::random(),
                 completed: false,
                 cancelled: false,
+                reimburse: false,
             }))
         });
 
@@ -468,6 +471,7 @@ fn test_execute_redeem_fails_with_commit_period_expired() {
                 btc_address: BtcAddress::random(),
                 completed: false,
                 cancelled: false,
+                reimburse: false,
             }))
         });
 
@@ -519,6 +523,7 @@ fn test_execute_redeem_succeeds() {
                 btc_address: BtcAddress::random(),
                 completed: false,
                 cancelled: false,
+                reimburse: false,
             },
         );
 
@@ -578,6 +583,7 @@ fn test_cancel_redeem_fails_with_time_not_expired() {
                 btc_address: BtcAddress::random(),
                 completed: false,
                 cancelled: false,
+                reimburse: false,
             }))
         });
 
@@ -605,6 +611,7 @@ fn test_cancel_redeem_fails_with_unauthorized_caller() {
                 btc_address: BtcAddress::random(),
                 completed: false,
                 cancelled: false,
+                reimburse: false,
             }))
         });
 
@@ -631,6 +638,7 @@ fn test_cancel_redeem_succeeds() {
                 btc_address: BtcAddress::random(),
                 completed: false,
                 cancelled: false,
+                reimburse: false,
             },
         );
 
