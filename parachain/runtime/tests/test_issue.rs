@@ -95,16 +95,12 @@ fn integration_test_issue_polka_btc_execute() {
                 .dispatch(origin_of(account_of(user)))
         );
 
-        // sla only increases base amount not fees
-        assert_eq!(
-            SlaModule::vault_total_issued_amount(account_of(vault)),
-            amount_btc
-        );
-
-        // sla for issue can only increase by max
+        // check the sla increase
+        let expected_sla_increase = SlaModule::vault_executed_issue_max_sla_change()
+            * FixedI128::checked_from_rational(amount_btc, total_amount_btc).unwrap();
         assert_eq!(
             SlaModule::vault_sla(account_of(vault)),
-            SlaModule::vault_executed_issue_max_sla_change()
+            expected_sla_increase
         );
 
         // fee should be added to epoch rewards
