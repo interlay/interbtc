@@ -46,26 +46,30 @@ pub trait Trait: frame_system::Trait + collateral::Trait + treasury::Trait {
 // The pallet's storage items.
 decl_storage! {
     trait Store for Module<T: Trait> as Sla {
-        /// Mapping from accounts of vaults to their sla score
+        /// Mapping from accounts of vaults/relayers to their sla score
         VaultSla get(fn vault_sla): map hasher(blake2_128_concat) T::AccountId => T::FixedPoint;
-
-        /// Mapping from accounts of vaults to their sla score
         RelayerSla get(fn relayer_sla): map hasher(blake2_128_concat) T::AccountId => T::FixedPoint;
 
-        // total amount issued by each vault
+        // total amount issued by each vault, which is used in calculating SLA update, and in reward calculation
         VaultTotalIssuedAmount get(fn vault_total_issued_amount): map hasher(blake2_128_concat) T::AccountId => PolkaBTC<T>;
 
-        // total amount issued by all relayers together
+        // total amount issued by all vaults together; used for calculating the average issue size,
+        // which is used in SLA updates
         TotalIssuedAmount: PolkaBTC<T>;
         TotalIssueCount: u32;
 
+        // sum of all relayer scores, used in relayer reward calculation
         TotalRelayerScore: T::FixedPoint;
 
+        // target (max) SLA's
         VaultTargetSla get(fn vault_target_sla) config(): T::FixedPoint;
+        RelayerTargetSla get(fn relayer_target_sla) config(): T::FixedPoint;
+
+        // SLA rewards/punishments for the actions defined in
+        // https://interlay.gitlab.io/polkabtc-econ/spec/sla/actions.html#actions
         VaultRedeemFailure get(fn vault_redeem_failure_sla_change) config(): T::FixedPoint;
         VaultExecutedIssueMaxSlaChange get(fn vault_executed_issue_max_sla_change) config(): T::FixedPoint;
         VaultSubmittedIssueProof get(fn vault_submitted_issue_proof) config(): T::FixedPoint;
-        RelayerTargetSla get(fn relayer_target_sla) config(): T::FixedPoint;
         RelayerBlockSubmission get(fn relayer_block_submission) config(): T::FixedPoint;
         RelayerCorrectNoDataVoteOrReport get(fn relayer_correct_no_data_vote_or_report) config(): T::FixedPoint;
         RelayerCorrectInvalidVoteOrReport get(fn relayer_correct_invalid_vote_or_report) config(): T::FixedPoint;
