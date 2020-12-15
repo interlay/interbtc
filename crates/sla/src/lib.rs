@@ -61,12 +61,13 @@ decl_storage! {
         // sum of all relayer scores, used in relayer reward calculation
         TotalRelayerScore: T::FixedPoint;
 
-        // target (max) SLA's
+        // target (max) SLA scores
         VaultTargetSla get(fn vault_target_sla) config(): T::FixedPoint;
         RelayerTargetSla get(fn relayer_target_sla) config(): T::FixedPoint;
 
-        // SLA rewards/punishments for the actions defined in
+        // vault & relayer SLA score rewards/punishments for the actions defined in
         // https://interlay.gitlab.io/polkabtc-econ/spec/sla/actions.html#actions
+        // Positive and negative values indicate rewards and punishments, respectively
         VaultRedeemFailure get(fn vault_redeem_failure_sla_change) config(): T::FixedPoint;
         VaultExecutedIssueMaxSlaChange get(fn vault_executed_issue_max_sla_change) config(): T::FixedPoint;
         VaultSubmittedIssueProof get(fn vault_submitted_issue_proof) config(): T::FixedPoint;
@@ -109,6 +110,14 @@ decl_module! {
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
 impl<T: Trait> Module<T> {
+    // Public functions exposed to other pallets
+
+    /// Update the SLA score of the vault on given the event.
+    ///
+    /// # Arguments
+    ///
+    /// * `vault_id` - account id of the vault
+    /// * `event` - the event that has happened
     pub fn event_update_vault_sla(
         vault_id: T::AccountId,
         event: VaultEvent<PolkaBTC<T>>,
@@ -118,42 +127,7 @@ impl<T: Trait> Module<T> {
             VaultEvent::RedeemFailure => <VaultRedeemFailure<T>>::get(),
             VaultEvent::SubmittedIssueProof => <VaultSubmittedIssueProof<T>>::get(),
             VaultEvent::ExecutedIssue(amount) => {
-                // update account total
-                let account_total = <VaultTotalIssuedAmount<T>>::get(vault_id.clone());
-                let new_account_total = amount
-                    .checked_add(&account_total)
-                    .ok_or(Error::<T>::MathError)?;
-                <VaultTotalIssuedAmount<T>>::insert(vault_id.clone(), new_account_total);
-
-                // read average
-                let mut total = <TotalIssuedAmount<T>>::get();
-                let mut count = <TotalIssueCount>::get();
-                // update average
-                total = total.checked_add(&amount).ok_or(Error::<T>::MathError)?;
-                count = count.checked_add(1).ok_or(Error::<T>::MathError)?;
-                // write back
-                <TotalIssuedAmount<T>>::set(total);
-                <TotalIssueCount>::set(count);
-
-                let average = total / count.into();
-
-                let max_sla_change = <VaultExecutedIssueMaxSlaChange<T>>::get();
-
-                // increase = (amount / average) * max_sla_change
-                let total_raw = Self::polkabtc_to_u128(total)?;
-                let average_raw = Self::polkabtc_to_u128(average)?;
-
-                let fraction = T::FixedPoint::checked_from_rational(total_raw, average_raw)
-                    .ok_or(Error::<T>::TryIntoIntError)?;
-                let potential_sla_increase = fraction
-                    .checked_mul(&max_sla_change)
-                    .ok_or(Error::<T>::MathError)?;
-
-                Self::_limit(
-                    T::FixedPoint::zero(),
-                    potential_sla_increase,
-                    max_sla_change,
-                )
+                Self::_executed_issue_sla_change(amount, &vault_id)?
             }
         };
 
@@ -170,41 +144,18 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    // returns `value` if it is between `min` and `max`; otherwise it returns the bound
-    fn _limit(min: T::FixedPoint, value: T::FixedPoint, max: T::FixedPoint) -> T::FixedPoint {
-        if value < min {
-            min
-        } else if value > max {
-            max
-        } else {
-            value
-        }
-    }
-
-    fn _get_delta_sla(event: RelayerEvent) -> T::FixedPoint {
-        match event {
-            RelayerEvent::BlockSubmission => <RelayerBlockSubmission<T>>::get(),
-            RelayerEvent::CorrectNoDataVoteOrReport => <RelayerCorrectNoDataVoteOrReport<T>>::get(),
-            RelayerEvent::CorrectInvalidVoteOrReport => {
-                <RelayerCorrectInvalidVoteOrReport<T>>::get()
-            }
-            RelayerEvent::CorrectLiquidationReport => <RelayerCorrectLiquidationReport<T>>::get(),
-            RelayerEvent::CorrectTheftReport => <RelayerCorrectTheftReport<T>>::get(),
-            RelayerEvent::CorrectOracleOfflineReport => {
-                <RelayerCorrectOracleOfflineReport<T>>::get()
-            }
-            RelayerEvent::FalseNoDataVoteOrReport => <RelayerFalseNoDataVoteOrReport<T>>::get(),
-            RelayerEvent::FalseInvalidVoteOrReport => <RelayerFalseInvalidVoteOrReport<T>>::get(),
-            RelayerEvent::IgnoredVote => <RelayerIgnoredVote<T>>::get(),
-        }
-    }
-
+    /// Update the SLA score of the relayer on the given event.
+    ///
+    /// # Arguments
+    ///
+    /// * `relayer_id` - account id of the relayer
+    /// * `event` - the event that has happened
     pub fn event_update_relayer_sla(
         relayer_id: T::AccountId,
         event: RelayerEvent,
     ) -> Result<(), DispatchError> {
         let current_sla = <RelayerSla<T>>::get(relayer_id.clone());
-        let delta_sla = Self::_get_delta_sla(event);
+        let delta_sla = Self::_relayer_sla_change(event);
 
         let max = <RelayerTargetSla<T>>::get(); // todo: check that this is indeed the max
         let min = T::FixedPoint::zero();
@@ -237,16 +188,10 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn _get_relayer_stake_as_fixed_point(
-        relayer_id: T::AccountId,
-    ) -> Result<T::FixedPoint, DispatchError> {
-        let stake = ext::collateral::get_collateral_from_account::<T>(relayer_id.clone());
-        let stake = Self::dot_to_u128(stake)?;
-        let stake = T::FixedPoint::checked_from_rational(stake, 1u128)
-            .ok_or(Error::<T>::TryIntoIntError)?;
-        Ok(stake)
-    }
-
+    /// Calculates the rewards for all vaults.
+    /// The reward for each vault is the sum of:
+    /// total_reward_for_issued * (Vault issued PolkaBTC / total issued PolkaBTC), and
+    /// total_reward_for_locked * (Vault locked DOT / total locked DOT)
     pub fn get_vault_rewards(
         total_reward_for_issued: PolkaBTC<T>,
         total_reward_for_locked: PolkaBTC<T>,
@@ -287,6 +232,17 @@ impl<T: Trait> Module<T> {
             .collect()
     }
 
+    /// Calculate the rewards for all staked relayers.
+    /// We distribute rewards to Staked Relayers, based on a scoring system which takes into account
+    /// their SLA and locked stake.
+    /// score(relayer) = relayer.sla * relayer.stake
+    /// reward(relayer) = totalReward * (relayer.score / totalRelayerScore)
+    /// where totalReward is the amount of fees currently distributed and totalRelayerScore is the sum
+    /// of the scores of all active Staked Relayers.
+    ///
+    /// # Arguments
+    ///
+    /// * `total_reward` - the total reward for the entire pool
     pub fn get_relayer_rewards(
         total_reward: PolkaBTC<T>,
     ) -> Result<Vec<(T::AccountId, PolkaBTC<T>)>, DispatchError> {
@@ -294,13 +250,168 @@ impl<T: Trait> Module<T> {
             .map(|(account_id, _)| {
                 Ok((
                     account_id.clone(),
-                    Self::calculate_relayer_reward(account_id.clone(), total_reward)?,
+                    Self::_calculate_relayer_reward(account_id.clone(), total_reward)?,
                 ))
             })
             .collect()
     }
 
-    fn calculate_relayer_reward(
+    /// Calculate the amount that is slashed when the the vault fails to execute.
+    /// We reduce the amount of slashed collateral based on a Vaults SLA. The minimum amount
+    /// slashed is given by the LiquidationThreshold, the maximum amount slashed by the
+    /// PremiumRedeemThreshold. The actual slashed amount of collateral is a linear function
+    /// parameterized by the two thresholds:
+    /// MinSlashed = LiquidationThreshold (currently 110%)
+    /// MaxSlashed =  PremiumRedeemThreshold (currently 130%)
+    /// RealSlashed = PremiumRedeemThreshold - (PremiumRedeemThreshold - LiquidationThreshold) * (SLA / SLATarget)
+    ///
+    /// # Arguments
+    ///
+    /// * `vault_id` - account of the vault in question
+    /// * `stake` - the amount of collateral placed for the redeem/replace
+    /// * `liquidation_threshold` - liquidation threshold, scaled by `granularity`
+    /// * `premium_redeem_threshold` - premium redeem threshold, scaled by `granularity`
+    /// * `granularity` - scale factor of the thresholds, e.g. a threshold of 10^granularity would indicate 100%
+    pub fn calculate_slashed_amount(
+        vault_id: T::AccountId,
+        stake: DOT<T>,
+        liquidation_threshold: u128,
+        premium_redeem_threshold: u128,
+        granularity: u32,
+    ) -> Result<DOT<T>, DispatchError> {
+        let current_sla = <VaultSla<T>>::get(vault_id);
+
+        let liquidation_threshold =
+            Self::_threshold_to_fixed_point(liquidation_threshold, granularity)?;
+        let premium_redeem_threshold =
+            Self::_threshold_to_fixed_point(premium_redeem_threshold, granularity)?;
+
+        Self::_calculate_slashed_amount(
+            current_sla,
+            stake,
+            liquidation_threshold,
+            premium_redeem_threshold,
+        )
+    }
+
+    // Private functions internal to this pallet
+
+    /// Calculate the amount that is slashed when the the vault fails to execute; See the
+    /// documentation of calculate_slashed_amount; this function differs only in the types
+    /// of the thresholds.
+    fn _calculate_slashed_amount(
+        current_sla: FixedPoint<T>,
+        stake: DOT<T>,
+        liquidation_threshold: FixedPoint<T>,
+        premium_redeem_threshold: FixedPoint<T>,
+    ) -> Result<DOT<T>, DispatchError> {
+        let range = premium_redeem_threshold - liquidation_threshold;
+        let max_sla = <VaultTargetSla<T>>::get();
+        let stake = Self::dot_to_u128(stake)?;
+
+        // basic formula we use is:
+        // result = stake * (premium_redeem_threshold - (current_sla / max_sla) * range);
+        // however, we multiply by (max_sla / max_sla) to eliminate one division operator:
+        // result = stake * ((premium_redeem_threshold*max_sla - current_sla * range) / max_sla)
+        let calculate_slashed_collateral = || {
+            // let numerator = premium_redeem_threshold*max_sla - current_sla*range;
+            let numerator = T::FixedPoint::checked_sub(
+                &premium_redeem_threshold.checked_mul(&max_sla)?,
+                &current_sla.checked_mul(&range)?,
+            )?;
+
+            let stake_scaling_factor = numerator.checked_div(&max_sla)?;
+
+            stake_scaling_factor.checked_mul_int(stake)
+        };
+        let slashed_raw = calculate_slashed_collateral().ok_or(Error::<T>::MathError)?;
+        Ok(Self::u128_to_dot(slashed_raw)?)
+    }
+
+    /// Calculates the potential sla change for when an issue has been completed on the given vault.
+    /// The value will be clipped between 0 and VaultExecutedIssueMaxSlaChange, but it does not take
+    /// into consideration vault's current SLA. That is, it can return a value > 0 when its sla is
+    /// already at the maximum.
+    ///
+    /// # Arguments
+    ///
+    /// * `amount` - the amount of polkabtc that was issued
+    /// * `vault_id` - account of the vault
+    fn _executed_issue_sla_change(
+        amount: PolkaBTC<T>,
+        vault_id: &T::AccountId,
+    ) -> Result<T::FixedPoint, DispatchError> {
+        // update account total
+        let account_total = <VaultTotalIssuedAmount<T>>::get(vault_id.clone());
+        let new_account_total = amount
+            .checked_add(&account_total)
+            .ok_or(Error::<T>::MathError)?;
+        <VaultTotalIssuedAmount<T>>::insert(vault_id.clone(), new_account_total);
+
+        // read average
+        let mut total = <TotalIssuedAmount<T>>::get();
+        let mut count = <TotalIssueCount>::get();
+        // update average
+        total = total.checked_add(&amount).ok_or(Error::<T>::MathError)?;
+        count = count.checked_add(1).ok_or(Error::<T>::MathError)?;
+        // write back
+        <TotalIssuedAmount<T>>::set(total);
+        <TotalIssueCount>::set(count);
+
+        let average = total / count.into();
+
+        let max_sla_change = <VaultExecutedIssueMaxSlaChange<T>>::get();
+
+        // increase = (amount / average) * max_sla_change
+        let total_raw = Self::polkabtc_to_u128(total)?;
+        let average_raw = Self::polkabtc_to_u128(average)?;
+
+        let fraction = T::FixedPoint::checked_from_rational(total_raw, average_raw)
+            .ok_or(Error::<T>::TryIntoIntError)?;
+        let potential_sla_increase = fraction
+            .checked_mul(&max_sla_change)
+            .ok_or(Error::<T>::MathError)?;
+
+        let ret = Self::_limit(
+            T::FixedPoint::zero(),
+            potential_sla_increase,
+            max_sla_change,
+        );
+        Ok(ret)
+    }
+
+    /// returns `value` if it is between `min` and `max`; otherwise it returns the bound
+    fn _limit(min: T::FixedPoint, value: T::FixedPoint, max: T::FixedPoint) -> T::FixedPoint {
+        if value < min {
+            min
+        } else if value > max {
+            max
+        } else {
+            value
+        }
+    }
+
+    /// Gets the SLA change corresponding to the given event from storage
+    fn _relayer_sla_change(event: RelayerEvent) -> T::FixedPoint {
+        match event {
+            RelayerEvent::BlockSubmission => <RelayerBlockSubmission<T>>::get(),
+            RelayerEvent::CorrectNoDataVoteOrReport => <RelayerCorrectNoDataVoteOrReport<T>>::get(),
+            RelayerEvent::CorrectInvalidVoteOrReport => {
+                <RelayerCorrectInvalidVoteOrReport<T>>::get()
+            }
+            RelayerEvent::CorrectLiquidationReport => <RelayerCorrectLiquidationReport<T>>::get(),
+            RelayerEvent::CorrectTheftReport => <RelayerCorrectTheftReport<T>>::get(),
+            RelayerEvent::CorrectOracleOfflineReport => {
+                <RelayerCorrectOracleOfflineReport<T>>::get()
+            }
+            RelayerEvent::FalseNoDataVoteOrReport => <RelayerFalseNoDataVoteOrReport<T>>::get(),
+            RelayerEvent::FalseInvalidVoteOrReport => <RelayerFalseInvalidVoteOrReport<T>>::get(),
+            RelayerEvent::IgnoredVote => <RelayerIgnoredVote<T>>::get(),
+        }
+    }
+
+    /// Calculate the reward of a given relayer, given the total reward for the whole relayer pool
+    fn _calculate_relayer_reward(
         relayer_id: T::AccountId,
         total_reward: PolkaBTC<T>,
     ) -> Result<PolkaBTC<T>, DispatchError> {
@@ -319,30 +430,19 @@ impl<T: Trait> Module<T> {
         Self::u128_to_polkabtc(reward)
     }
 
-    pub fn calculate_slashed_amount(
-        vault_id: T::AccountId,
-        stake: DOT<T>,
-        liquidation_threshold: u128,
-        premium_redeem_threshold: u128,
-        granularity: u32,
-    ) -> Result<DOT<T>, DispatchError> {
-        let current_sla = <VaultSla<T>>::get(vault_id);
-
-        let liquidation_threshold =
-            Self::threshold_to_fixed_point(liquidation_threshold, granularity)?;
-        let premium_redeem_threshold =
-            Self::threshold_to_fixed_point(premium_redeem_threshold, granularity)?;
-
-        Self::_calculate_slashed_amount(
-            current_sla,
-            stake,
-            liquidation_threshold,
-            premium_redeem_threshold,
-        )
+    /// Gets the staked collateral of the given relayer as a fixed point type
+    fn _get_relayer_stake_as_fixed_point(
+        relayer_id: T::AccountId,
+    ) -> Result<T::FixedPoint, DispatchError> {
+        let stake = ext::collateral::get_collateral_from_account::<T>(relayer_id.clone());
+        let stake = Self::dot_to_u128(stake)?;
+        let stake = T::FixedPoint::checked_from_rational(stake, 1u128)
+            .ok_or(Error::<T>::TryIntoIntError)?;
+        Ok(stake)
     }
 
-    /// Convert a threshold from set in the vault registry to a fixed point type
-    fn threshold_to_fixed_point(
+    /// Convert a given threshold from the vault registry to a fixed point type
+    fn _threshold_to_fixed_point(
         value: u128,
         granularity: u32,
     ) -> Result<FixedPoint<T>, DispatchError> {
@@ -351,37 +451,6 @@ impl<T: Trait> Module<T> {
         let ret = T::FixedPoint::checked_from_rational(value, scaling_factor)
             .ok_or(Error::<T>::TryIntoIntError);
         Ok(ret?)
-    }
-
-    fn _calculate_slashed_amount(
-        current_sla: FixedPoint<T>,
-        stake: DOT<T>,
-        liquidation_threshold: FixedPoint<T>,
-        premium_redeem_threshold: FixedPoint<T>,
-    ) -> Result<DOT<T>, DispatchError> {
-        let range = premium_redeem_threshold - liquidation_threshold;
-        // // todo: check that this is indeed the max
-        let max_sla = <VaultTargetSla<T>>::get();
-        let stake = Self::dot_to_u128(stake)?;
-
-        // basic formula we use is:
-        // result = stake * (premium_redeem_threshold - (current_sla / max_sla) * range);
-        // however, we mutliply by (max_sla / max_sla) to eliminate one division operator:
-        // result = stake * ((premium_redeem_threshold*max_sla - current_sla * range) / max_sla)
-        // let stake_scaling_factor = premium_redeem_threshold * max_sla - current_sla * range
-        let calculate_scaling_factor = || {
-            // let numerator = premium_redeem_threshold*max_sla - current_sla*range;
-            let numerator = T::FixedPoint::checked_sub(
-                &premium_redeem_threshold.checked_mul(&max_sla)?,
-                &current_sla.checked_mul(&range)?,
-            )?;
-
-            let stake_scaling_factor = numerator.checked_div(&max_sla)?;
-
-            stake_scaling_factor.checked_mul_int(stake)
-        };
-        let slashed_raw = calculate_scaling_factor().ok_or(Error::<T>::MathError)?;
-        Ok(Self::u128_to_dot(slashed_raw)?)
     }
 
     fn dot_to_u128(x: DOT<T>) -> Result<u128, DispatchError> {
