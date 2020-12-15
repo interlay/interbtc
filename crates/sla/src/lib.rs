@@ -120,18 +120,20 @@ impl<T: Trait> Module<T> {
             VaultEvent::ExecutedIssue(amount) => {
                 // update account total
                 let account_total = <VaultTotalIssuedAmount<T>>::get(vault_id.clone());
-                <VaultTotalIssuedAmount<T>>::insert(vault_id.clone(), amount + account_total);
+                let new_account_total = amount
+                    .checked_add(&account_total)
+                    .ok_or(Error::<T>::MathError)?;
+                <VaultTotalIssuedAmount<T>>::insert(vault_id.clone(), new_account_total);
 
-                // update total amount
-                let total = <TotalIssuedAmount<T>>::mutate(|total| {
-                    *total += amount;
-                    *total
-                });
-                // update total count
-                let count = <TotalIssueCount>::mutate(|count| {
-                    *count += 1;
-                    *count
-                });
+                // read average
+                let mut total = <TotalIssuedAmount<T>>::get();
+                let mut count = <TotalIssueCount>::get();
+                // update average
+                total = total.checked_add(&amount).ok_or(Error::<T>::MathError)?;
+                count = count.checked_add(1).ok_or(Error::<T>::MathError)?;
+                // write back
+                <TotalIssuedAmount<T>>::set(total);
+                <TotalIssueCount>::set(count);
 
                 let average = total / count.into();
 
