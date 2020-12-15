@@ -27,27 +27,12 @@ pub(crate) mod collateral {
     ) -> DispatchResult {
         <collateral::Module<T>>::slash_collateral(sender, receiver, amount)
     }
-
-    pub(crate) fn get_collateral_from_account<T: collateral::Trait>(
-        sender: &T::AccountId,
-    ) -> DOT<T> {
-        <collateral::Module<T>>::get_collateral_from_account(sender)
-    }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod oracle {
-    use crate::types::{PolkaBTC, DOT};
-    use frame_support::dispatch::DispatchError;
-
     pub(crate) fn is_max_delay_passed<T: exchange_rate_oracle::Trait>() -> bool {
         <exchange_rate_oracle::Module<T>>::is_max_delay_passed()
-    }
-
-    pub fn btc_to_dots<T: exchange_rate_oracle::Trait>(
-        amount: PolkaBTC<T>,
-    ) -> Result<DOT<T>, DispatchError> {
-        <exchange_rate_oracle::Module<T>>::btc_to_dots(amount)
     }
 }
 
@@ -66,8 +51,10 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::_get_vault_from_id(vault_id)
     }
 
-    pub fn get_liquidation_collateral_threshold<T: vault_registry::Trait>() -> u128 {
-        <vault_registry::Module<T>>::liquidation_collateral_threshold()
+    pub fn is_vault_below_secure_threshold<T: vault_registry::Trait>(
+        vault_id: &T::AccountId,
+    ) -> Result<bool, DispatchError> {
+        <vault_registry::Module<T>>::_is_vault_below_secure_threshold(vault_id)
     }
 
     pub fn liquidate_vault<T: vault_registry::Trait>(vault_id: &T::AccountId) -> DispatchResult {

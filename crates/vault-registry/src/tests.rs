@@ -668,6 +668,37 @@ fn is_collateral_below_threshold_true_succeeds() {
 }
 
 #[test]
+fn test_liquidate_undercollateralized_vaults_succeeds() {
+    use crate::Vaults;
+    use std::collections::HashMap;
+    use std::rc::Rc;
+
+    run_test(|| {
+        Vaults::<Test>::insert(0, Vault::default());
+        Vaults::<Test>::insert(1, Vault::default());
+        Vaults::<Test>::insert(2, Vault::default());
+        Vaults::<Test>::insert(3, Vault::default());
+        Vaults::<Test>::insert(4, Vault::default());
+
+        let vaults: HashMap<<Test as frame_system::Trait>::AccountId, bool> =
+            vec![(0, true), (1, false), (2, true), (3, false), (4, false)]
+                .into_iter()
+                .collect();
+        let vaults1 = Rc::new(vaults);
+        let vaults2 = vaults1.clone();
+
+        VaultRegistry::_is_vault_below_secure_threshold
+            .mock_safe(move |id| MockResult::Return(Ok(*vaults1.get(id).unwrap())));
+        VaultRegistry::_liquidate_vault.mock_safe(move |id| {
+            assert!(vaults2.get(id).unwrap());
+            MockResult::Return(Ok(()))
+        });
+
+        VaultRegistry::liquidate_undercollateralized_vaults();
+    });
+}
+
+#[test]
 fn is_collateral_below_threshold_false_succeeds() {
     run_test(|| {
         let collateral = DEFAULT_COLLATERAL;
