@@ -174,8 +174,8 @@ decl_module! {
         fn execute_issue(origin, issue_id: H256, tx_id: H256Le, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
             -> DispatchResult
         {
-            let _ = ensure_signed(origin)?;
-            Self::_execute_issue(issue_id, tx_id, merkle_proof, raw_tx)?;
+            let executor = ensure_signed(origin)?;
+            Self::_execute_issue(executor, issue_id, tx_id, merkle_proof, raw_tx)?;
             Ok(())
         }
 
@@ -216,7 +216,7 @@ impl<T: Trait> Module<T> {
     /// Requests CBA issuance, returns unique tracking ID.
     fn _request_issue(
         requester: T::AccountId,
-        amount_btc: PolkaBTC<T>,
+        amount_polkabtc: PolkaBTC<T>,
         vault_id: T::AccountId,
         griefing_collateral: DOT<T>,
     ) -> Result<H256, DispatchError> {
@@ -228,7 +228,7 @@ impl<T: Trait> Module<T> {
         // Check that the vault is currently not banned
         ext::vault_registry::ensure_not_banned::<T>(&vault_id, height)?;
 
-        let amount_dot = ext::oracle::btc_to_dots::<T>(amount_btc)?;
+        let amount_dot = ext::oracle::btc_to_dots::<T>(amount_polkabtc)?;
         let expected_griefing_collateral =
             ext::fee::get_issue_griefing_collateral::<T>(amount_dot)?;
 
@@ -238,11 +238,11 @@ impl<T: Trait> Module<T> {
         );
         ext::collateral::lock_collateral::<T>(&requester, griefing_collateral)?;
 
-        let fee_btc = ext::fee::get_issue_fee::<T>(amount_btc)?;
-        let total_btc = amount_btc + fee_btc;
+        let fee_polkabtc = ext::fee::get_issue_fee::<T>(amount_polkabtc)?;
+        let amount_btc = amount_polkabtc + fee_polkabtc;
 
         let btc_address =
-            ext::vault_registry::increase_to_be_issued_tokens::<T>(&vault_id, total_btc)?;
+            ext::vault_registry::increase_to_be_issued_tokens::<T>(&vault_id, amount_btc)?;
 
         let issue_id = ext::security::get_secure_id::<T>(&requester);
 
@@ -255,8 +255,8 @@ impl<T: Trait> Module<T> {
                 btc_address: btc_address.clone(),
                 completed: false,
                 cancelled: false,
-                amount: amount_btc,
-                fee: fee_btc,
+                amount: amount_polkabtc,
+                fee: fee_polkabtc,
                 griefing_collateral,
             },
         );
@@ -264,7 +264,7 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(<Event<T>>::RequestIssue(
             issue_id,
             requester,
-            total_btc,
+            amount_btc,
             vault_id,
             btc_address,
         ));
@@ -273,6 +273,7 @@ impl<T: Trait> Module<T> {
 
     /// Completes CBA issuance, removing request from storage and minting token.
     fn _execute_issue(
+        executor: T::AccountId,
         issue_id: H256,
         tx_id: H256Le,
         merkle_proof: Vec<u8>,
@@ -312,8 +313,8 @@ impl<T: Trait> Module<T> {
 
         // if it was a vault that did the execution on behalf of someone else, reward it by
         // increasing its SLA score
-        if &requester != &issue.vault {
-            if let Ok(vault) = ext::vault_registry::get_vault_from_id::<T>(&issue.vault) {
+        if &requester != &executor {
+            if let Ok(vault) = ext::vault_registry::get_vault_from_id::<T>(&executor) {
                 ext::sla::event_update_vault_sla::<T>(
                     vault.id,
                     ext::sla::VaultEvent::SubmittedIssueProof,
