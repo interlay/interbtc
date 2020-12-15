@@ -1,8 +1,8 @@
 [package]
 authors = ['Interlay']
-description = 'Issue module'
+description = 'Fee module'
 edition = '2018'
-name = 'issue'
+name = 'fee'
 version = '0.3.1'
 
 [dependencies.serde]
@@ -49,69 +49,42 @@ default-features = false
 package = 'pallet-balances'
 version = '2.0.0'
 
-[dependencies.primitive-types]
-default-features = false
-version = '0.7.2'
-features= ['codec']
-
-[dependencies.vault-registry]
-default-features = false
-path = '../vault-registry'
-
 [dependencies.collateral]
 default-features = false
 path = '../collateral'
-
-[dependencies.btc-relay]
-default-features = false
-path = '../btc-relay'
 
 [dependencies.treasury]
 default-features = false
 path = '../treasury'
 
-[dependencies.bitcoin]
-default-features = false
-path = '../bitcoin'
-
-[dependencies.security]
-default-features = false
-path = '../security'
-
-[dependencies.timestamp]
-default-features = false
-package = 'pallet-timestamp'
-version = '2.0.0'
-
-[dependencies.sha2]
-default-features = false
-version = '0.8.0'
-
-[dependencies.exchange-rate-oracle]
-default-features = false
-path = '../exchange-rate-oracle'
-
-[dependencies.fee]
-default-features = false
-path = '../fee'
-
 [dependencies.sla]
 default-features = false
 path = '../sla'
 
-[dependencies.frame-benchmarking]
-version = "2.0.0"
-default-features = false
-optional = true
-
 [dev-dependencies]
 mocktopus = '0.7.0'
-frame-benchmarking = { version = "2.0.0" }
 
 [dev-dependencies.pallet-randomness-collective-flip]
 default-features = false
 package = 'pallet-randomness-collective-flip'
 version = '2.0.0'
+
+[dev-dependencies.timestamp]
+default-features = false
+package = 'pallet-timestamp'
+version = '2.0.0'
+
+[dev-dependencies.security]
+default-features = false
+path = '../security'
+
+[dev-dependencies.exchange-rate-oracle]
+default-features = false
+path = '../exchange-rate-oracle'
+
+[dev-dependencies.vault-registry]
+default-features = false
+path = '../vault-registry'
 
 [features]
 default = ['std']
@@ -119,29 +92,13 @@ std = [
 	'serde',
 	'codec/std',
 	'frame-support/std',
-	'sp-runtime/std',
-	'sp-io/std',
 	'sp-arithmetic/std',
 	'sp-core/std',
-	'frame-system/std',
+	'sp-io/std',
+	'sp-runtime/std',
 	'sp-std/std',
-	'pallet-balances/std',
-	'primitive-types/std',
-	'vault-registry/std',
+	'frame-system/std',
 	'collateral/std',
-	'btc-relay/std',
-	'exchange-rate-oracle/std',
-	'fee/std',
-	'sla/std',
 	'treasury/std',
-	'bitcoin/std',
-	'sha2/std',
-	'security/std',
-	'timestamp/std',
-    'frame-benchmarking/std',
-]
-runtime-benchmarks = [
-	"frame-benchmarking",
-	"frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
+	'sla/std',
 ]

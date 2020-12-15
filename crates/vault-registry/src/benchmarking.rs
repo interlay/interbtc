@@ -1,6 +1,6 @@
 use super::*;
+use crate::types::BtcAddress;
 use crate::Module as VaultRegistry;
-use btc_relay::BtcAddress;
 use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
 use sp_core::H160;

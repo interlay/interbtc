@@ -10,13 +10,13 @@ mod tests;
 #[cfg(test)]
 extern crate mocktopus;
 
-use frame_support::traits::{Currency, ReservableCurrency};
+use frame_support::traits::{BalanceStatus, Currency, ExistenceRequirement, ReservableCurrency};
 /// # PolkaBTC Treasury implementation
 /// The Treasury module according to the specification at
 /// https://interlay.gitlab.io/polkabtc-spec/spec/treasury.html
 // Substrate
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError, ensure,
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
 };
 use sp_runtime::ModuleId;
 
@@ -127,7 +127,7 @@ impl<T: Trait> Module<T> {
     ///
     /// * `redeemer` - the account redeeming tokens
     /// * `amount` - to be locked amount of PolkaBTC
-    pub fn lock(redeemer: T::AccountId, amount: BalanceOf<T>) -> Result<(), DispatchError> {
+    pub fn lock(redeemer: T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
         T::PolkaBTC::reserve(&redeemer, amount).map_err(|_| Error::<T>::InsufficientFunds)?;
 
         // update total locked balance
@@ -143,7 +143,7 @@ impl<T: Trait> Module<T> {
     ///
     /// * `redeemer` - the account redeeming tokens
     /// * `amount` - the to be burned amount of PolkaBTC
-    pub fn burn(redeemer: T::AccountId, amount: BalanceOf<T>) -> Result<(), DispatchError> {
+    pub fn burn(redeemer: T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
         ensure!(
             T::PolkaBTC::reserved_balance(&redeemer) >= amount,
             Error::<T>::InsufficientLockedFunds
@@ -157,6 +157,33 @@ impl<T: Trait> Module<T> {
         let (_burned_tokens, _remainder) = T::PolkaBTC::slash_reserved(&redeemer, amount);
 
         Self::deposit_event(RawEvent::Burn(redeemer, amount));
+
+        Ok(())
+    }
+
+    pub fn transfer(
+        source: T::AccountId,
+        destination: T::AccountId,
+        amount: BalanceOf<T>,
+    ) -> DispatchResult {
+        T::PolkaBTC::transfer(
+            &source,
+            &destination,
+            amount,
+            ExistenceRequirement::KeepAlive,
+        )
+        .map_err(|_| Error::<T>::InsufficientFunds.into())
+    }
+
+    pub fn unlock_and_transfer(
+        source: T::AccountId,
+        destination: T::AccountId,
+        amount: BalanceOf<T>,
+    ) -> DispatchResult {
+        T::PolkaBTC::repatriate_reserved(&source, &destination, amount, BalanceStatus::Free)?;
+
+        // unlock the tokens from the locked balance
+        Self::decrease_total_locked(amount);
 
         Ok(())
     }

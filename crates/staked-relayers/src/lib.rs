@@ -76,6 +76,7 @@ pub trait Trait:
     + btc_relay::Trait
     + redeem::Trait
     + replace::Trait
+    + sla::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -470,6 +471,9 @@ decl_module! {
                 reports.insert(vault_id);
             });
 
+            // reward relayer for this report by increasing its sla
+            ext::sla::event_update_relayer_sla::<T>(signer, ext::sla::RelayerEvent::CorrectTheftReport)?;
+
             Self::deposit_event(<Event<T>>::ExecuteStatusUpdate(
                 StatusCode::Error,
                 Some(ErrorCode::Liquidation),
@@ -526,6 +530,9 @@ decl_module! {
             ext::security::set_parachain_status::<T>(StatusCode::Error);
             ext::security::insert_error::<T>(ErrorCode::Liquidation);
 
+            // reward relayer for this report by increasing its sla
+            ext::sla::event_update_relayer_sla::<T>(signer, ext::sla::RelayerEvent::CorrectLiquidationReport)?;
+
             Self::deposit_event(<Event<T>>::ExecuteStatusUpdate(
                 StatusCode::Error,
                 Some(ErrorCode::Liquidation),
@@ -558,6 +565,9 @@ decl_module! {
 
             ext::security::set_parachain_status::<T>(StatusCode::Error);
             ext::security::insert_error::<T>(ErrorCode::OracleOffline);
+
+            // reward relayer for this report by increasing its sla
+            ext::sla::event_update_relayer_sla::<T>(signer, ext::sla::RelayerEvent::CorrectOracleOfflineReport)?;
 
             Self::deposit_event(<Event<T>>::ExecuteStatusUpdate(
                 StatusCode::Error,
@@ -658,6 +668,7 @@ impl<T: Trait> Module<T> {
             .is_approved(<ActiveStakedRelayersCount>::get(), T::VoteThreshold::get())
         {
             Self::execute_status_update(&mut status_update)?;
+            Self::update_sla_score_for_status_update(&status_update, true)?;
             Self::insert_inactive_status_update(id, status_update);
             Ok(true)
         } else if status_update
@@ -665,6 +676,7 @@ impl<T: Trait> Module<T> {
             .is_rejected(<ActiveStakedRelayersCount>::get(), T::VoteThreshold::get())
         {
             Self::reject_status_update(&mut status_update)?;
+            Self::update_sla_score_for_status_update(&status_update, false)?;
             Self::insert_inactive_status_update(id, status_update);
             Ok(true)
         } else if height >= status_update.end {
@@ -913,6 +925,85 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Update relayer SLA scores after a status update suggestion has been completed.
+    ///
+    /// # Arguments
+    ///
+    /// * `status_update` - the status update suggestion that was completed
+    /// * `approved` - true iff the status update was accepted
+    fn update_sla_score_for_status_update(
+        status_update: &StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>,
+        approved: bool,
+    ) -> DispatchResult {
+        let no_data_relayer = match (&status_update.add_error, &status_update.remove_error) {
+            (&Some(ErrorCode::NoDataBTCRelay), _) | (_, &Some(ErrorCode::NoDataBTCRelay)) => true,
+            _ => false,
+        };
+        let invalid_relayer = match (&status_update.add_error, &status_update.remove_error) {
+            (&Some(ErrorCode::InvalidBTCRelay), _) | (_, &Some(ErrorCode::InvalidBTCRelay)) => true,
+            _ => false,
+        };
+
+        let (correct_voters, incorrect_voters) = if approved {
+            (
+                status_update.tally.aye.iter(),
+                status_update.tally.nay.iter(),
+            )
+        } else {
+            (
+                status_update.tally.nay.iter(),
+                status_update.tally.aye.iter(),
+            )
+        };
+
+        // reward relayers for correct votes by increasing their sla
+        for relayer in correct_voters {
+            if no_data_relayer {
+                ext::sla::event_update_relayer_sla::<T>(
+                    relayer.clone(),
+                    ext::sla::RelayerEvent::CorrectNoDataVoteOrReport,
+                )?;
+            }
+            if invalid_relayer {
+                ext::sla::event_update_relayer_sla::<T>(
+                    relayer.clone(),
+                    ext::sla::RelayerEvent::CorrectInvalidVoteOrReport,
+                )?;
+            }
+        }
+
+        // punish relayers for incorrect votes by decreasing their sla
+        for relayer in incorrect_voters {
+            if no_data_relayer {
+                ext::sla::event_update_relayer_sla::<T>(
+                    relayer.clone(),
+                    ext::sla::RelayerEvent::FalseNoDataVoteOrReport,
+                )?;
+            }
+            if invalid_relayer {
+                ext::sla::event_update_relayer_sla::<T>(
+                    relayer.clone(),
+                    ext::sla::RelayerEvent::FalseInvalidVoteOrReport,
+                )?;
+            }
+        }
+
+        // punish relayers that didn't vote by decreasing their sla
+        let mut voters = status_update.tally.aye.clone();
+        voters.append(&mut status_update.tally.nay.clone());
+        let all_relayers: BTreeSet<_> = <ActiveStakedRelayers<T>>::iter()
+            .map(|(relayer, _)| relayer)
+            .collect();
+        for abstainer in all_relayers.difference(&voters) {
+            ext::sla::event_update_relayer_sla::<T>(
+                abstainer.clone(),
+                ext::sla::RelayerEvent::IgnoredVote,
+            )?;
+        }
+
+        Ok(())
+    }
+
     /// Executes a `StatusUpdate` that has received sufficient “Yes” votes.
     ///
     /// # Arguments
@@ -941,25 +1032,27 @@ impl<T: Trait> Module<T> {
         let btc_block_hash = status_update.btc_block_hash;
         let old_status_code = status_update.old_status_code.clone();
 
-        if let Some(error_code) = add_error {
-            if error_code == ErrorCode::NoDataBTCRelay || error_code == ErrorCode::InvalidBTCRelay {
+        if let Some(ref error_code) = add_error {
+            if error_code == &ErrorCode::NoDataBTCRelay || error_code == &ErrorCode::InvalidBTCRelay
+            {
                 ext::btc_relay::flag_block_error::<T>(
                     btc_block_hash.ok_or(Error::<T>::ExpectedBlockHash)?,
                     error_code.clone(),
                 )?;
             }
-            ext::security::insert_error::<T>(error_code);
+            ext::security::insert_error::<T>(error_code.clone());
         }
 
-        if let Some(error_code) = remove_error {
-            if error_code == ErrorCode::NoDataBTCRelay || error_code == ErrorCode::InvalidBTCRelay {
+        if let Some(ref error_code) = remove_error {
+            if error_code == &ErrorCode::NoDataBTCRelay || error_code == &ErrorCode::InvalidBTCRelay
+            {
                 ext::btc_relay::clear_block_error::<T>(
                     btc_block_hash.ok_or(Error::<T>::ExpectedBlockHash)?,
                     error_code.clone(),
                 )?;
             }
             if old_status_code == StatusCode::Error {
-                ext::security::remove_error::<T>(error_code);
+                ext::security::remove_error::<T>(error_code.clone());
             }
         }
 

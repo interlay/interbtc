@@ -1,7 +1,6 @@
-use frame_support::traits::Currency;
-
-use btc_relay::BtcAddress;
+use crate::{ext, Error, Module, Trait, GRANULARITY};
 use codec::{Decode, Encode, HasCompact};
+use frame_support::traits::Currency;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure, StorageMap,
@@ -12,7 +11,7 @@ use sp_std::collections::btree_set::BTreeSet;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use crate::{ext, Error, Trait};
+pub use bitcoin::Address as BtcAddress;
 
 /// Storage version.
 #[derive(Encode, Decode, Eq, PartialEq)]
@@ -160,16 +159,16 @@ impl<T: Trait> RichVault<T> {
     pub fn withdraw_collateral(&self, collateral: DOT<T>) -> DispatchResult {
         let current_collateral = ext::collateral::for_account::<T>(&self.data.id);
 
-        let raw_current_collateral = crate::Module::<T>::dot_to_u128(current_collateral)?;
-        let raw_collateral = crate::Module::<T>::dot_to_u128(collateral)?;
+        let raw_current_collateral = Module::<T>::dot_to_u128(current_collateral)?;
+        let raw_collateral = Module::<T>::dot_to_u128(collateral)?;
         let raw_new_collateral = raw_current_collateral
             .checked_sub(raw_collateral)
             .unwrap_or(0);
 
-        let new_collateral = crate::Module::<T>::u128_to_dot(raw_new_collateral)?;
+        let new_collateral = Module::<T>::u128_to_dot(raw_new_collateral)?;
 
         ensure!(
-            !crate::Module::<T>::_is_collateral_below_secure_threshold(
+            !Module::<T>::_is_collateral_below_secure_threshold(
                 new_collateral,
                 self.data.issued_tokens
             )?,
@@ -192,9 +191,9 @@ impl<T: Trait> RichVault<T> {
         let issued_tokens = self.data.issued_tokens + self.data.to_be_issued_tokens;
         let issued_tokens_in_dot = ext::oracle::btc_to_dots::<T>(issued_tokens)?;
 
-        let raw_issued_tokens_in_dot = crate::Module::<T>::dot_to_u128(issued_tokens_in_dot)?;
+        let raw_issued_tokens_in_dot = Module::<T>::dot_to_u128(issued_tokens_in_dot)?;
 
-        let secure_threshold = crate::Module::<T>::secure_collateral_threshold();
+        let secure_threshold = Module::<T>::secure_collateral_threshold();
 
         let raw_used_collateral = raw_issued_tokens_in_dot
             .checked_mul(secure_threshold)
@@ -202,7 +201,7 @@ impl<T: Trait> RichVault<T> {
             .checked_div(10u128.pow(crate::GRANULARITY))
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
-        let used_collateral = crate::Module::<T>::u128_to_dot(raw_used_collateral)?;
+        let used_collateral = Module::<T>::u128_to_dot(raw_used_collateral)?;
 
         Ok(used_collateral)
     }
@@ -210,9 +209,9 @@ impl<T: Trait> RichVault<T> {
     pub fn issuable_tokens(&self) -> Result<PolkaBTC<T>, DispatchError> {
         let free_collateral = self.get_free_collateral()?;
 
-        let secure_threshold = crate::Module::<T>::secure_collateral_threshold();
+        let secure_threshold = Module::<T>::secure_collateral_threshold();
 
-        let issuable = crate::Module::<T>::calculate_max_polkabtc_from_collateral_for_threshold(
+        let issuable = Module::<T>::calculate_max_polkabtc_from_collateral_for_threshold(
             free_collateral,
             secure_threshold,
         )?;
@@ -298,7 +297,14 @@ impl<T: Trait> RichVault<T> {
         liquidation_vault: &mut RichVault<T>,
         status: VaultStatus,
     ) -> DispatchResult {
-        ext::collateral::slash::<T>(&self.id(), &liquidation_vault.id(), self.get_collateral())?;
+        let amount = ext::sla::calculate_slashed_amount::<T>(
+            self.id(),
+            self.get_collateral(),
+            Module::<T>::liquidation_collateral_threshold(),
+            Module::<T>::premium_redeem_threshold(),
+            GRANULARITY,
+        )?;
+        ext::collateral::slash::<T>(&self.id(), &liquidation_vault.id(), amount)?;
         liquidation_vault.force_issue_tokens(self.data.issued_tokens);
         liquidation_vault.force_increase_to_be_issued(self.data.to_be_issued_tokens);
         liquidation_vault.force_increase_to_be_redeemed(self.data.to_be_redeemed_tokens);

@@ -8,6 +8,7 @@ use frame_support::{
     },
 };
 use pallet_balances as balances;
+use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_core::H256;
 use sp_io;
 use sp_runtime::{
@@ -35,6 +36,8 @@ impl_outer_event! {
         vault_registry<T>,
         treasury<T>,
         exchange_rate_oracle<T>,
+        fee<T>,
+        sla<T>,
         btc_relay,
         redeem<T>,
         replace<T>,
@@ -134,6 +137,16 @@ impl exchange_rate_oracle::Trait for Test {
     type WeightInfo = ();
 }
 
+impl fee::Trait for Test {
+    type Event = TestEvent;
+    type UnsignedFixedPoint = FixedU128;
+}
+
+impl sla::Trait for Test {
+    type Event = TestEvent;
+    type SignedFixedPoint = FixedI128;
+}
+
 impl collateral::Trait for Test {
     type Event = TestEvent;
     type DOT = Balances;
@@ -205,6 +218,27 @@ impl ExtBuilder {
         let mut storage = frame_system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
+
+        fee::GenesisConfig::<Test> {
+            issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
+            issue_griefing_collateral: FixedU128::checked_from_rational(5, 100000).unwrap(), // 0.005%
+            redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),                  // 0.5%
+            premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
+            auction_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
+            punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(),                // 10%
+            replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(),   // 10%
+            fee_pool_account_id: 0,
+            maintainer_account_id: 1,
+            epoch_period: 5,
+            vault_rewards: FixedU128::checked_from_rational(77, 100).unwrap(),
+            vault_rewards_issued: FixedU128::checked_from_rational(90, 100).unwrap(),
+            vault_rewards_locked: FixedU128::checked_from_rational(10, 100).unwrap(),
+            relayer_rewards: FixedU128::checked_from_rational(3, 100).unwrap(),
+            maintainer_rewards: FixedU128::checked_from_rational(20, 100).unwrap(),
+            collator_rewards: FixedU128::checked_from_integer(0).unwrap(),
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
 
         conf(&mut storage);
 

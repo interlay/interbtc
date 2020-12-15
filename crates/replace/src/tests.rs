@@ -43,6 +43,7 @@ fn test_request() -> ReplaceRequest<u64, u64, u64, u64> {
         btc_address: BtcAddress::default(),
         collateral: 20,
         completed: false,
+        cancelled: false,
     }
 }
 
@@ -161,7 +162,6 @@ fn test_request_replace_amount_below_dust_value_fails() {
         let amount = 1;
 
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
@@ -176,8 +176,10 @@ fn test_request_replace_amount_below_dust_value_fails() {
         ext::vault_registry::is_over_minimum_collateral::<Test>
             .mock_safe(|_| MockResult::Return(true));
         ext::collateral::get_collateral_from_account::<Test>.mock_safe(|_| MockResult::Return(1));
+        ext::oracle::btc_to_dots::<Test>.mock_safe(|_| MockResult::Return(Ok(0)));
+        ext::fee::get_replace_griefing_collateral::<Test>
+            .mock_safe(move |_| MockResult::Return(Ok(desired_griefing_collateral)));
 
-        Replace::set_replace_griefing_collateral(desired_griefing_collateral);
         assert_noop!(
             Replace::_request_replace(old_vault, amount, griefing_collateral),
             TestError::AmountBelowDustAmount
@@ -195,7 +197,6 @@ fn test_request_replace_insufficient_griefing_collateral_fails() {
         let amount = 3;
 
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
@@ -210,8 +211,10 @@ fn test_request_replace_insufficient_griefing_collateral_fails() {
         ext::vault_registry::is_over_minimum_collateral::<Test>
             .mock_safe(|_| MockResult::Return(true));
         ext::collateral::get_collateral_from_account::<Test>.mock_safe(|_| MockResult::Return(1));
+        ext::oracle::btc_to_dots::<Test>.mock_safe(|_| MockResult::Return(Ok(0)));
+        ext::fee::get_replace_griefing_collateral::<Test>
+            .mock_safe(move |_| MockResult::Return(Ok(desired_griefing_collateral)));
 
-        Replace::set_replace_griefing_collateral(desired_griefing_collateral);
         assert_noop!(
             Replace::_request_replace(old_vault, amount, griefing_collateral),
             TestError::InsufficientCollateral
@@ -654,7 +657,7 @@ fn test_withdraw_replace_succeeds() {
         ext::vault_registry::decrease_to_be_redeemed_tokens::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(())));
 
-        Replace::remove_replace_request.mock_safe(|_| MockResult::Return(()));
+        Replace::remove_replace_request.mock_safe(|_, _| MockResult::Return(()));
 
         assert_eq!(withdraw_replace(vault_id, replace_id), Ok(()));
 
@@ -723,6 +726,11 @@ fn test_auction_replace_succeeds() {
         ext::vault_registry::is_collateral_below_secure_threshold::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(false)));
 
+        ext::collateral::slash_collateral::<Test>.mock_safe(|_, _, fee| {
+            assert_eq!(fee, 1000);
+            MockResult::Return(Ok(()))
+        });
+
         ext::collateral::lock_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
         ext::vault_registry::increase_to_be_redeemed_tokens::<Test>
@@ -783,7 +791,7 @@ fn test_execute_replace_succeeds() {
 
         ext::collateral::release_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
-        Replace::remove_replace_request.mock_safe(|_| MockResult::Return(()));
+        Replace::remove_replace_request.mock_safe(|_, _| MockResult::Return(()));
 
         assert_eq!(
             execute_replace(replace_id, tx_id, merkle_proof, raw_tx),
@@ -814,7 +822,7 @@ fn test_cancel_replace_succeeds() {
         Replace::replace_period.mock_safe(|| MockResult::Return(2));
         ext::vault_registry::decrease_to_be_redeemed_tokens::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(())));
-        Replace::remove_replace_request.mock_safe(|_| MockResult::Return(()));
+        Replace::remove_replace_request.mock_safe(|_, _| MockResult::Return(()));
 
         assert_eq!(cancel_replace(new_vault_id, replace_id), Ok(()));
 
@@ -909,7 +917,7 @@ fn test_withdraw_replace_parachain_not_running_succeeds() {
         ext::security::ensure_parachain_status_running::<Test>
             .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainNotRunning.into())));
 
-        Replace::remove_replace_request.mock_safe(|_| MockResult::Return(()));
+        Replace::remove_replace_request.mock_safe(|_, _| MockResult::Return(()));
 
         assert_eq!(withdraw_replace(vault_id, replace_id), Ok(()));
 

@@ -31,6 +31,10 @@ version = '2.0.0'
 default-features = false
 version = '2.0.0'
 
+[dependencies.sp-arithmetic]
+default-features = false
+version = '2.0.0'
+
 [dependencies.sp-core]
 default-features = false
 version = '2.0.0'
@@ -71,6 +75,14 @@ path = '../treasury'
 [dependencies.exchange-rate-oracle]
 default-features = false
 path = '../exchange-rate-oracle'
+
+[dependencies.fee]
+default-features = false
+path = '../fee'
+
+[dependencies.sla]
+default-features = false
+path = '../sla'
 
 [dependencies.btc-relay]
 default-features = false
@@ -120,6 +132,7 @@ std = [
   'sp-io/std',
   'frame-system/std',
   'pallet-timestamp/std',
+  'sp-arithmetic/std',
   'sp-core/std',
 	'sp-std/std',
   'primitive-types/std',
@@ -129,6 +142,8 @@ std = [
   'security/std',
   'treasury/std',
   'exchange-rate-oracle/std',
+  'fee/std',
+  'sla/std',
   'btc-relay/std',
   'redeem/std',
   'replace/std',

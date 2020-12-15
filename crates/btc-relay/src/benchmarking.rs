@@ -30,6 +30,7 @@ fn mine_block_with_one_tx<T: Trait>(
     value: i32,
     op_return: &[u8],
 ) -> (Block, Transaction) {
+    let relayer_id: T::AccountId = account("Relayer", 0, 0);
     let prev_block_hash = prev.header.hash();
 
     let transaction = TransactionBuilder::new()
@@ -53,7 +54,7 @@ fn mine_block_with_one_tx<T: Trait>(
         .mine(U256::from(2).pow(254.into()));
 
     let block_header = RawBlockHeader::from_bytes(&block.header.format()).unwrap();
-    BtcRelay::<T>::_store_block_header(block_header).unwrap();
+    BtcRelay::<T>::_store_block_header(relayer_id, block_header).unwrap();
 
     (block, transaction)
 }

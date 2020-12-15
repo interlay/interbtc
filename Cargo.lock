@@ -623,6 +623,7 @@ dependencies = [
  "sc-service",
  "sc-transaction-pool",
  "sp-api",
+ "sp-arithmetic",
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus",
@@ -645,6 +646,7 @@ dependencies = [
  "btc-relay",
  "collateral",
  "exchange-rate-oracle",
+ "fee",
  "frame-benchmarking",
  "frame-executive",
  "frame-support",
@@ -676,7 +678,9 @@ dependencies = [
  "security",
  "serde",
  "serde_json",
+ "sla",
  "sp-api",
+ "sp-arithmetic",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core",
@@ -699,20 +703,28 @@ name = "btc-relay"
 version = "0.3.1"
 dependencies = [
  "bitcoin",
+ "collateral",
+ "exchange-rate-oracle",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "hex",
  "mocktopus",
+ "pallet-balances",
+ "pallet-randomness-collective-flip",
  "pallet-timestamp",
  "parity-scale-codec",
  "primitive-types",
  "security",
  "serde",
+ "sla",
+ "sp-arithmetic",
  "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std",
+ "treasury",
+ "vault-registry",
 ]
 
 [[package]]
@@ -1436,6 +1448,31 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2c4c9e43643f5a3be4ca5b67d26b98031ff9db6806c3440ae32e02e3ceac3f1b"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "fee"
+version = "0.3.1"
+dependencies = [
+ "collateral",
+ "exchange-rate-oracle",
+ "frame-support",
+ "frame-system",
+ "mocktopus",
+ "pallet-balances",
+ "pallet-randomness-collective-flip",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "security",
+ "serde",
+ "sla",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "treasury",
+ "vault-registry",
 ]
 
 [[package]]
@@ -2426,6 +2463,7 @@ dependencies = [
  "btc-relay",
  "collateral",
  "exchange-rate-oracle",
+ "fee",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -2438,6 +2476,8 @@ dependencies = [
  "security",
  "serde",
  "sha2 0.8.2",
+ "sla",
+ "sp-arithmetic",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -4882,6 +4922,7 @@ dependencies = [
  "btc-relay",
  "collateral",
  "exchange-rate-oracle",
+ "fee",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -4894,6 +4935,8 @@ dependencies = [
  "security",
  "serde",
  "sha2 0.8.2",
+ "sla",
+ "sp-arithmetic",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -5007,6 +5050,7 @@ dependencies = [
  "btc-relay",
  "collateral",
  "exchange-rate-oracle",
+ "fee",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -5019,6 +5063,8 @@ dependencies = [
  "security",
  "serde",
  "sha2 0.8.2",
+ "sla",
+ "sp-arithmetic",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -6260,6 +6306,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29f060a7d147e33490ec10da418795238fd7545bba241504d6b31a409f2e6210"
 
 [[package]]
+name = "sla"
+version = "0.3.1"
+dependencies = [
+ "collateral",
+ "frame-support",
+ "frame-system",
+ "mocktopus",
+ "pallet-balances",
+ "parity-scale-codec",
+ "serde",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "treasury",
+]
+
+[[package]]
 name = "slab"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6978,6 +7043,7 @@ dependencies = [
  "btc-relay",
  "collateral",
  "exchange-rate-oracle",
+ "fee",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -6993,6 +7059,8 @@ dependencies = [
  "security",
  "serde",
  "sha2 0.8.2",
+ "sla",
+ "sp-arithmetic",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -7876,7 +7944,7 @@ dependencies = [
 name = "vault-registry"
 version = "0.3.2"
 dependencies = [
- "btc-relay",
+ "bitcoin",
  "collateral",
  "exchange-rate-oracle",
  "fixed-hash",
@@ -7891,6 +7959,7 @@ dependencies = [
  "primitive-types",
  "security",
  "serde",
+ "sla",
  "sp-arithmetic",
  "sp-core",
  "sp-io",

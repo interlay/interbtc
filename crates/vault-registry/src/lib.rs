@@ -25,7 +25,6 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use btc_relay::BtcAddress;
 use codec::{Decode, Encode};
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::Randomness;
@@ -40,7 +39,7 @@ use sp_core::{H256, U256};
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
 
-use crate::types::{DefaultVault, PolkaBTC, RichVault, VaultV0, Version, DOT};
+use crate::types::{BtcAddress, DefaultVault, PolkaBTC, RichVault, VaultV0, Version, DOT};
 pub use crate::types::{Vault, VaultStatus, Wallet};
 
 /// Granularity of `SecureCollateralThreshold`, `AuctionCollateralThreshold`,
@@ -70,6 +69,7 @@ pub trait Trait:
     + treasury::Trait
     + exchange_rate_oracle::Trait
     + security::Trait
+    + sla::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -88,26 +88,9 @@ decl_storage! {
         /// to participate in the issue process.
         MinimumCollateralVault get(fn minimum_collateral_vault) config(): DOT<T>;
 
-        /// If a Vault misbehaves in either the redeem or replace protocol by
-        /// failing to prove that it sent the correct amount of BTC to the
-        /// correct address within the time limit, a vault is punished.
-        /// The punishment is the equivalent value of BTC in DOT
-        /// (valued at the current exchange rate via `getExchangeRate`) plus a
-        /// fixed `PunishmentFee` that is added as a percentage on top
-        /// to compensate the damaged party for its loss.
-        /// For example, if the `PunishmentFee` is set to 50000,
-        /// it is equivalent to 50%.
-        PunishmentFee get(fn punishment_fee) config(): DOT<T>;
-
         /// If a Vault fails to execute a correct redeem or replace,
         /// it is temporarily banned from further issue, redeem or replace requests.
         PunishmentDelay get(fn punishment_delay) config(): T::BlockNumber;
-
-        /// If a Vault is running low on collateral and falls below
-        /// `PremiumRedeemThreshold`, users are allocated a premium in DOT
-        /// when redeeming with the Vault - as defined by this parameter.
-        /// For example, if the RedeemPremiumFee is set to 5000, it is equivalent to 5%.
-        RedeemPremiumFee get(fn redeem_premium_fee) config(): DOT<T>;
 
         /// Determines the over-collateralization rate for DOT collateral locked
         /// by Vaults, necessary for issuing PolkaBTC. Must to be strictly
@@ -677,9 +660,10 @@ impl<T: Trait> Module<T> {
         <Vaults<T>>::insert(id, vault)
     }
 
-    pub fn _ban_vault(vault_id: T::AccountId, height: T::BlockNumber) -> DispatchResult {
+    pub fn ban_vault(vault_id: T::AccountId) -> DispatchResult {
+        let height = <frame_system::Module<T>>::block_number();
         let mut vault = Self::rich_vault_from_id(&vault_id)?;
-        vault.ban_until(height);
+        vault.ban_until(height + Self::punishment_delay());
         Ok(())
     }
 
@@ -739,6 +723,22 @@ impl<T: Trait> Module<T> {
 
     pub fn _set_liquidation_vault(vault_id: T::AccountId) {
         <LiquidationVault<T>>::set(vault_id);
+    }
+
+    pub fn _get_secure_collateral_threshold() -> u128 {
+        <SecureCollateralThreshold>::get()
+    }
+
+    pub fn _get_auction_collateral_threshold() -> u128 {
+        <AuctionCollateralThreshold>::get()
+    }
+
+    pub fn _get_premium_redeem_threshold() -> u128 {
+        <PremiumRedeemThreshold>::get()
+    }
+
+    pub fn _get_liquidation_collateral_threshold() -> u128 {
+        <LiquidationCollateralThreshold>::get()
     }
 
     pub fn _is_over_minimum_collateral(amount: DOT<T>) -> bool {
