@@ -137,3 +137,31 @@ pub(crate) mod security {
         <security::Module<T>>::ensure_parachain_status_running()
     }
 }
+
+#[cfg_attr(test, mockable)]
+pub(crate) mod oracle {
+    use crate::types::{PolkaBTC, DOT};
+    use frame_support::dispatch::DispatchError;
+
+    pub fn btc_to_dots<T: exchange_rate_oracle::Trait>(
+        amount: PolkaBTC<T>,
+    ) -> Result<DOT<T>, DispatchError> {
+        <exchange_rate_oracle::Module<T>>::btc_to_dots(amount)
+    }
+}
+
+#[cfg_attr(test, mockable)]
+pub(crate) mod fee {
+    use crate::types::DOT;
+    use frame_support::dispatch::DispatchError;
+
+    pub fn get_replace_griefing_collateral<T: fee::Trait>(
+        amount: DOT<T>,
+    ) -> Result<DOT<T>, DispatchError> {
+        <fee::Module<T>>::get_replace_griefing_collateral(amount)
+    }
+
+    pub fn get_auction_redeem_fee<T: fee::Trait>(amount: DOT<T>) -> Result<DOT<T>, DispatchError> {
+        <fee::Module<T>>::get_auction_redeem_fee(amount)
+    }
+}

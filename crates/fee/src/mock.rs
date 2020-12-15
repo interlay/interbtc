@@ -1,5 +1,5 @@
 /// Mocking the test environment
-use crate::{Error, GenesisConfig, Module, Trait};
+use crate::{Error, Module, Trait};
 use frame_support::{
     impl_outer_event, impl_outer_origin, parameter_types,
     weights::{
@@ -7,14 +7,16 @@ use frame_support::{
         Weight,
     },
 };
-use mocktopus::mocking::clear_mocks;
-use sp_arithmetic::FixedI128;
+use pallet_balances as balances;
+use sp_arithmetic::{FixedI128, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
     Perbill,
 };
+
+use mocktopus::mocking::clear_mocks;
 
 impl_outer_origin! {
     pub enum Origin for Test {}
@@ -27,25 +29,25 @@ mod test_events {
 impl_outer_event! {
     pub enum TestEvent for Test {
         frame_system<T>,
-        sla<T>,
-        treasury<T>,
+        test_events<T>,
+        balances<T>,
         collateral<T>,
-        pallet_balances<T>,
-        test_events,
+        treasury<T>,
+        vault_registry<T>,
+        exchange_rate_oracle<T>,
         security,
+        sla<T>,
     }
 }
 
-pub const BITCOIN_CONFIRMATIONS: u32 = 6;
-pub const PARACHAIN_CONFIRMATIONS: u64 = 20;
-pub type AccountId = u64;
-pub type Balance = u64;
-pub type Balances = pallet_balances::Module<Test>;
-pub type BlockNumber = u64;
-
 // For testing the pallet, we construct most of a mock runtime. This means
 // first constructing a configuration type (`Test`) which `impl`s each of the
-// configuration traits of modules we want to use.
+// configuration traits of pallets we want to use.
+
+pub type AccountId = u64;
+pub type Balance = u128;
+pub type BlockNumber = u64;
+
 #[derive(Clone, Eq, PartialEq)]
 pub struct Test;
 
@@ -78,30 +80,10 @@ impl frame_system::Trait for Test {
     type PalletInfo = ();
     type OnNewAccount = ();
     type OnKilledAccount = ();
-    type AccountData = pallet_balances::AccountData<u64>;
+    type AccountData = pallet_balances::AccountData<Balance>;
     type BaseCallFilter = ();
     type MaximumExtrinsicWeight = MaximumBlockWeight;
     type SystemWeightInfo = ();
-}
-
-impl Trait for Test {
-    type Event = TestEvent;
-    type WeightInfo = ();
-}
-
-impl sla::Trait for Test {
-    type Event = TestEvent;
-    type FixedPoint = FixedI128;
-}
-
-impl treasury::Trait for Test {
-    type Event = TestEvent;
-    type PolkaBTC = Balances;
-}
-
-impl collateral::Trait for Test {
-    type Event = TestEvent;
-    type DOT = Balances;
 }
 
 parameter_types! {
@@ -119,33 +101,70 @@ impl pallet_balances::Trait for Test {
     type WeightInfo = ();
 }
 
+impl collateral::Trait for Test {
+    type Event = TestEvent;
+    type DOT = Balances;
+}
+
+impl treasury::Trait for Test {
+    type Event = TestEvent;
+    type PolkaBTC = Balances;
+}
+
+impl exchange_rate_oracle::Trait for Test {
+    type Event = TestEvent;
+    type WeightInfo = ();
+}
+
+impl vault_registry::Trait for Test {
+    type Event = TestEvent;
+    type RandomnessSource = pallet_randomness_collective_flip::Module<Test>;
+    type WeightInfo = ();
+}
+
+parameter_types! {
+    pub const MinimumPeriod: u64 = 5;
+}
+
+impl timestamp::Trait for Test {
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = MinimumPeriod;
+    type WeightInfo = ();
+}
+
 impl security::Trait for Test {
     type Event = TestEvent;
 }
 
-pub type TestError = Error<Test>;
-pub type SecurityError = security::Error<Test>;
+impl sla::Trait for Test {
+    type Event = TestEvent;
+    type FixedPoint = FixedI128;
+}
 
+impl Trait for Test {
+    type Event = TestEvent;
+    type FixedPoint = FixedU128;
+}
+
+#[allow(dead_code)]
+pub type TestError = Error<Test>;
+
+#[allow(dead_code)]
 pub type System = frame_system::Module<Test>;
-pub type BTCRelay = Module<Test>;
+
+pub type Balances = pallet_balances::Module<Test>;
+
+#[allow(dead_code)]
+pub type Fee = Module<Test>;
 
 pub struct ExtBuilder;
 
 impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
-        let mut storage = frame_system::GenesisConfig::default()
+        let storage = frame_system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
-
-        GenesisConfig::<Test> {
-            bitcoin_confirmations: BITCOIN_CONFIRMATIONS,
-            parachain_confirmations: PARACHAIN_CONFIRMATIONS,
-            disable_difficulty_check: false,
-            disable_inclusion_check: false,
-            disable_op_return_check: false,
-        }
-        .assimilate_storage(&mut storage)
-        .unwrap();
 
         sp_io::TestExternalities::from(storage)
     }

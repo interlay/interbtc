@@ -62,7 +62,7 @@ pub trait WeightInfo {
 /// The pallet's configuration trait.
 /// For further reference, see:
 /// https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/spec/data-model.html
-pub trait Trait: frame_system::Trait + security::Trait {
+pub trait Trait: frame_system::Trait + security::Trait + sla::Trait {
     /// The overarching event type.
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
 
@@ -193,8 +193,8 @@ decl_module! {
         fn store_block_header(
             origin, raw_block_header: RawBlockHeader
         ) -> DispatchResult {
-            let _ = ensure_signed(origin)?;
-            Self::_store_block_header(raw_block_header)
+            let relayer = ensure_signed(origin)?;
+            Self::_store_block_header(relayer, raw_block_header)
         }
 
         /// Stores multiple new block headers
@@ -206,10 +206,10 @@ decl_module! {
         fn store_block_headers(
             origin, raw_block_headers: Vec<RawBlockHeader>
         ) -> DispatchResult {
-            let _ = ensure_signed(origin)?;
+            let relayer = ensure_signed(origin)?;
             // TODO: optimize
             for raw_block_header in raw_block_headers {
-                Self::_store_block_header(raw_block_header)?;
+                Self::_store_block_header(relayer.clone(), raw_block_header)?;
             }
             Ok(())
         }
@@ -360,7 +360,10 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    pub fn _store_block_header(raw_block_header: RawBlockHeader) -> DispatchResult {
+    pub fn _store_block_header(
+        relayer: T::AccountId,
+        raw_block_header: RawBlockHeader,
+    ) -> DispatchResult {
         // Make sure Parachain is not shutdown
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
@@ -428,6 +431,8 @@ impl<T: Trait> Module<T> {
                 Self::set_best_block_height(current_block_height)
             }
         };
+
+        ext::sla::event_update_relayer_sla::<T>(relayer, ext::sla::RelayerEvent::BlockSubmission)?;
 
         // Determine if this block extends the main chain or a fork
         let current_best_block = Self::get_best_block();

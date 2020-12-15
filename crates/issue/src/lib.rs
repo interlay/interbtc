@@ -59,7 +59,14 @@ pub trait WeightInfo {
 
 /// The pallet's configuration trait.
 pub trait Trait:
-    frame_system::Trait + vault_registry::Trait + collateral::Trait + btc_relay::Trait + treasury::Trait
+    frame_system::Trait
+    + vault_registry::Trait
+    + collateral::Trait
+    + btc_relay::Trait
+    + treasury::Trait
+    + exchange_rate_oracle::Trait
+    + fee::Trait
+    + sla::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -74,9 +81,6 @@ decl_storage! {
         /// Users create issue requests to issue PolkaBTC. This mapping provides access
         /// from a unique hash `IssueId` to an `IssueRequest` struct.
         IssueRequests: map hasher(blake2_128_concat) H256 => IssueRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>;
-
-        /// The minimum collateral (DOT) a user needs to provide as griefing protection.
-        IssueGriefingCollateral get(fn issue_griefing_collateral) config(): DOT<T>;
 
         /// The time difference in number of blocks between an issue request is created
         /// and required completion time by a user. The issue period has an upper limit
@@ -124,6 +128,7 @@ decl_module! {
                             opentime: request_v0.opentime,
                             griefing_collateral: request_v0.griefing_collateral,
                             amount: request_v0.amount,
+                            fee: PolkaBTC::<T>::default(),
                             requester: request_v0.requester,
                             btc_address: BtcAddress::P2WPKHv0(request_v0.btc_address),
                             completed: request_v0.completed,
@@ -169,8 +174,8 @@ decl_module! {
         fn execute_issue(origin, issue_id: H256, tx_id: H256Le, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
             -> DispatchResult
         {
-            let _ = ensure_signed(origin)?;
-            Self::_execute_issue(issue_id, tx_id, merkle_proof, raw_tx)?;
+            let executor = ensure_signed(origin)?;
+            Self::_execute_issue(executor, issue_id, tx_id, merkle_proof, raw_tx)?;
             Ok(())
         }
 
@@ -211,7 +216,7 @@ impl<T: Trait> Module<T> {
     /// Requests CBA issuance, returns unique tracking ID.
     fn _request_issue(
         requester: T::AccountId,
-        amount: PolkaBTC<T>,
+        amount_polkabtc: PolkaBTC<T>,
         vault_id: T::AccountId,
         griefing_collateral: DOT<T>,
     ) -> Result<H256, DispatchError> {
@@ -223,44 +228,52 @@ impl<T: Trait> Module<T> {
         // Check that the vault is currently not banned
         ext::vault_registry::ensure_not_banned::<T>(&vault_id, height)?;
 
+        let amount_dot = ext::oracle::btc_to_dots::<T>(amount_polkabtc)?;
+        let expected_griefing_collateral =
+            ext::fee::get_issue_griefing_collateral::<T>(amount_dot)?;
+
         ensure!(
-            griefing_collateral >= Self::issue_griefing_collateral(),
+            griefing_collateral >= expected_griefing_collateral,
             Error::<T>::InsufficientCollateral
         );
-
         ext::collateral::lock_collateral::<T>(&requester, griefing_collateral)?;
 
-        let btc_address =
-            ext::vault_registry::increase_to_be_issued_tokens::<T>(&vault_id, amount)?;
+        let fee_polkabtc = ext::fee::get_issue_fee::<T>(amount_polkabtc)?;
+        let amount_btc = amount_polkabtc + fee_polkabtc;
 
-        let key = ext::security::get_secure_id::<T>(&requester);
+        let btc_address =
+            ext::vault_registry::increase_to_be_issued_tokens::<T>(&vault_id, amount_btc)?;
+
+        let issue_id = ext::security::get_secure_id::<T>(&requester);
 
         Self::insert_issue_request(
-            key,
+            issue_id,
             IssueRequest {
                 vault: vault_id.clone(),
                 opentime: height,
-                griefing_collateral: griefing_collateral,
-                amount: amount,
                 requester: requester.clone(),
                 btc_address: btc_address.clone(),
                 completed: false,
                 cancelled: false,
+                amount: amount_polkabtc,
+                fee: fee_polkabtc,
+                griefing_collateral,
             },
         );
 
         Self::deposit_event(<Event<T>>::RequestIssue(
-            key,
+            issue_id,
             requester,
-            amount,
+            amount_btc,
             vault_id,
             btc_address,
         ));
-        Ok(key)
+        Ok(issue_id)
     }
 
     /// Completes CBA issuance, removing request from storage and minting token.
     fn _execute_issue(
+        executor: T::AccountId,
         issue_id: H256,
         tx_id: H256Le,
         merkle_proof: Vec<u8>,
@@ -279,17 +292,42 @@ impl<T: Trait> Module<T> {
             Error::<T>::CommitPeriodExpired
         );
 
+        let total_amount = issue.amount + issue.fee;
         ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
         ext::btc_relay::validate_transaction::<T>(
             raw_tx,
-            TryInto::<u64>::try_into(issue.amount).map_err(|_e| Error::<T>::TryIntoIntError)?
+            TryInto::<u64>::try_into(total_amount).map_err(|_e| Error::<T>::TryIntoIntError)?
                 as i64,
             issue.btc_address,
             issue_id.clone().as_bytes().to_vec(),
         )?;
 
-        ext::vault_registry::issue_tokens::<T>(&issue.vault, issue.amount)?;
+        ext::vault_registry::issue_tokens::<T>(&issue.vault, total_amount)?;
+
+        // mint polkabtc amount
         ext::treasury::mint::<T>(requester.clone(), issue.amount);
+
+        // mint polkabtc fees
+        ext::treasury::mint::<T>(ext::fee::fee_pool_account_id::<T>(), issue.fee);
+        ext::fee::increase_rewards_for_epoch::<T>(issue.fee);
+
+        // if it was a vault that did the execution on behalf of someone else, reward it by
+        // increasing its SLA score
+        if &requester != &executor {
+            if let Ok(vault) = ext::vault_registry::get_vault_from_id::<T>(&executor) {
+                ext::sla::event_update_vault_sla::<T>(
+                    vault.id,
+                    ext::sla::VaultEvent::SubmittedIssueProof,
+                )?;
+            }
+        }
+
+        // reward the vault for having issued PolkaBTC by increasing its sla
+        ext::sla::event_update_vault_sla::<T>(
+            issue.vault.clone(),
+            ext::sla::VaultEvent::ExecutedIssue(issue.amount),
+        )?;
+
         // Remove issue request from storage
         Self::remove_issue_request(issue_id, false);
 

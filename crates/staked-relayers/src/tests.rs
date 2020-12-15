@@ -1275,6 +1275,7 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
                 vault: BOB,
                 opentime: 0,
                 amount_polka_btc: 0,
+                fee: 0,
                 amount_btc: 100,
                 amount_dot: 0,
                 premium_dot: 0,

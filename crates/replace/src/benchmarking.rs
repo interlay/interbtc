@@ -23,7 +23,8 @@ benchmarks! {
     request_replace {
         let vault_id: T::AccountId = account("Vault", 0, 0);
         let amount = Replace::<T>::replace_btc_dust_value() + 1000.into();
-        let griefing = Replace::<T>::replace_griefing_collateral() + 1000.into();
+        // TODO: calculate from exchange rate
+        let griefing = 1000.into();
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
@@ -102,8 +103,9 @@ benchmarks! {
             new_vault
         );
 
+        Collateral::<T>::lock_collateral(&old_vault_id, 50.into()).unwrap();
         ExchangeRateOracle::<T>::_set_exchange_rate(1).unwrap();
-        VaultRegistry::<T>::_set_auction_collateral_threshold(1);
+        VaultRegistry::<T>::_set_auction_collateral_threshold(10000000);
         VaultRegistry::<T>::_set_secure_collateral_threshold(1);
 
     }: _(RawOrigin::Signed(new_vault_id), old_vault_id, btc_amount.into(), collateral.into())
@@ -111,6 +113,7 @@ benchmarks! {
     execute_replace {
         let new_vault_id: T::AccountId = account("Origin", 0, 0);
         let old_vault_id: T::AccountId = account("Vault", 0, 0);
+        let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
         let new_vault_btc_address = BtcAddress::P2SH(H160([0; 20]));
         let old_vault_btc_address = BtcAddress::P2SH(H160([1; 20]));
@@ -176,7 +179,7 @@ benchmarks! {
         let raw_tx = transaction.format_with(true);
 
         let block_header = RawBlockHeader::from_bytes(&block.header.format()).unwrap();
-        BtcRelay::<T>::_store_block_header(block_header).unwrap();
+        BtcRelay::<T>::_store_block_header(relayer_id, block_header).unwrap();
 
     }: _(RawOrigin::Signed(old_vault_id), replace_id, tx_id, proof, raw_tx)
 

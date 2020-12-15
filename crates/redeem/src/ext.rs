@@ -77,11 +77,8 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::_decrease_tokens(vault_id, user_id, tokens)
     }
 
-    pub fn ban_vault<T: vault_registry::Trait>(
-        vault_id: T::AccountId,
-        height: T::BlockNumber,
-    ) -> DispatchResult {
-        <vault_registry::Module<T>>::_ban_vault(vault_id, height)
+    pub fn ban_vault<T: vault_registry::Trait>(vault_id: T::AccountId) -> DispatchResult {
+        <vault_registry::Module<T>>::ban_vault(vault_id)
     }
 
     pub fn ensure_not_banned<T: vault_registry::Trait>(
@@ -93,14 +90,6 @@ pub(crate) mod vault_registry {
 
     pub fn total_liquidation_value<T: vault_registry::Trait>() -> Result<u128, DispatchError> {
         <vault_registry::Module<T>>::_get_total_liquidation_value()
-    }
-
-    pub fn punishment_fee<T: vault_registry::Trait>() -> DOT<T> {
-        <vault_registry::Module<T>>::punishment_fee()
-    }
-
-    pub fn get_redeem_premium_fee<T: vault_registry::Trait>() -> DOT<T> {
-        <vault_registry::Module<T>>::redeem_premium_fee()
     }
 
     pub fn is_vault_below_premium_threshold<T: vault_registry::Trait>(
@@ -125,6 +114,20 @@ pub(crate) mod collateral {
 }
 
 #[cfg_attr(test, mockable)]
+pub(crate) mod sla {
+    use crate::types::PolkaBTC;
+    use frame_support::dispatch::DispatchError;
+    pub use sla::types::VaultEvent;
+
+    pub fn event_update_vault_sla<T: sla::Trait>(
+        vault_id: T::AccountId,
+        event: VaultEvent<PolkaBTC<T>>,
+    ) -> Result<(), DispatchError> {
+        <sla::Module<T>>::event_update_vault_sla(vault_id, event)
+    }
+}
+
+#[cfg_attr(test, mockable)]
 pub(crate) mod treasury {
     use crate::types::PolkaBTC;
     use frame_support::dispatch::DispatchResult;
@@ -143,6 +146,14 @@ pub(crate) mod treasury {
 
     pub fn burn<T: treasury::Trait>(redeemer: T::AccountId, amount: PolkaBTC<T>) -> DispatchResult {
         <treasury::Module<T>>::burn(redeemer, amount)
+    }
+
+    pub fn unlock_and_transfer<T: treasury::Trait>(
+        source: T::AccountId,
+        destination: T::AccountId,
+        amount: PolkaBTC<T>,
+    ) -> DispatchResult {
+        <treasury::Module<T>>::unlock_and_transfer(source, destination, amount)
     }
 }
 
@@ -181,5 +192,33 @@ pub(crate) mod oracle {
         amount: PolkaBTC<T>,
     ) -> Result<DOT<T>, DispatchError> {
         <exchange_rate_oracle::Module<T>>::btc_to_dots(amount)
+    }
+}
+
+#[cfg_attr(test, mockable)]
+pub(crate) mod fee {
+    use crate::types::{PolkaBTC, DOT};
+    use frame_support::dispatch::DispatchError;
+
+    pub fn fee_pool_account_id<T: fee::Trait>() -> T::AccountId {
+        <fee::Module<T>>::fee_pool_account_id()
+    }
+
+    pub fn get_redeem_fee<T: fee::Trait>(
+        amount: PolkaBTC<T>,
+    ) -> Result<PolkaBTC<T>, DispatchError> {
+        <fee::Module<T>>::get_redeem_fee(amount)
+    }
+
+    pub fn increase_rewards_for_epoch<T: fee::Trait>(amount: PolkaBTC<T>) {
+        <fee::Module<T>>::increase_rewards_for_epoch(amount)
+    }
+
+    pub fn get_punishment_fee<T: fee::Trait>(amount: DOT<T>) -> Result<DOT<T>, DispatchError> {
+        <fee::Module<T>>::get_punishment_fee(amount)
+    }
+
+    pub fn get_premium_redeem_fee<T: fee::Trait>(amount: DOT<T>) -> Result<DOT<T>, DispatchError> {
+        <fee::Module<T>>::get_premium_redeem_fee(amount)
     }
 }

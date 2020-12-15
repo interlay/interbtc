@@ -1,5 +1,6 @@
-use frame_support::traits::StorageMapShim;
 /// Mocking the test environment
+use crate::{Error, GenesisConfig, Module, Trait};
+use frame_support::traits::StorageMapShim;
 use frame_support::{
     impl_outer_event, impl_outer_origin, parameter_types,
     weights::{
@@ -16,11 +17,6 @@ use sp_runtime::{
     Perbill,
 };
 
-use mocktopus::mocking::{MockResult, Mockable};
-
-use crate::ext;
-use crate::{Error, GenesisConfig, Module, Trait};
-
 impl_outer_origin! {
     pub enum Origin for Test {}
 }
@@ -33,23 +29,22 @@ impl_outer_event! {
     pub enum TestEvent for Test {
         frame_system<T>,
         test_events<T>,
+        collateral<T>,
         pallet_balances Instance1<T>,
         pallet_balances Instance2<T>,
-        collateral<T>,
         treasury<T>,
-        exchange_rate_oracle<T>,
-        sla<T>,
-        security,
     }
 }
 
-pub type AccountId = u64;
-pub type Balance = u128;
-pub type BlockNumber = u64;
-
 // For testing the pallet, we construct most of a mock runtime. This means
 // first constructing a configuration type (`Test`) which `impl`s each of the
-// configuration traits of modules we want to use.
+// configuration traits of pallets we want to use.
+
+pub type AccountId = u64;
+#[allow(dead_code)]
+pub type Balance = u64;
+pub type BlockNumber = u64;
+
 #[derive(Clone, Eq, PartialEq)]
 pub struct Test;
 
@@ -82,7 +77,7 @@ impl frame_system::Trait for Test {
     type PalletInfo = ();
     type OnNewAccount = ();
     type OnKilledAccount = ();
-    type AccountData = pallet_balances::AccountData<Balance>;
+    type AccountData = ();
     type BaseCallFilter = ();
     type MaximumExtrinsicWeight = MaximumBlockWeight;
     type SystemWeightInfo = ();
@@ -139,80 +134,29 @@ impl treasury::Trait for Test {
     type PolkaBTC = pallet_balances::Module<Test, pallet_balances::Instance2>;
 }
 
-parameter_types! {
-    pub const MinimumPeriod: u64 = 5;
-}
-impl timestamp::Trait for Test {
-    type Moment = u64;
-    type OnTimestampSet = ();
-    type MinimumPeriod = MinimumPeriod;
-    type WeightInfo = ();
-}
-
-impl exchange_rate_oracle::Trait for Test {
-    type Event = TestEvent;
-    type WeightInfo = ();
-}
-
-impl sla::Trait for Test {
+impl Trait for Test {
     type Event = TestEvent;
     type FixedPoint = FixedI128;
 }
 
-impl Trait for Test {
-    type Event = TestEvent;
-    type RandomnessSource = pallet_randomness_collective_flip::Module<Test>;
-    type WeightInfo = ();
-}
-
-impl security::Trait for Test {
-    type Event = TestEvent;
-}
-
+#[allow(dead_code)]
 pub type TestError = Error<Test>;
-pub type SecurityError = security::Error<Test>;
-pub type CollateralError = collateral::Error<Test>;
 
+#[allow(dead_code)]
 pub type System = frame_system::Module<Test>;
-pub type VaultRegistry = Module<Test>;
+
+#[allow(dead_code)]
+pub type Sla = Module<Test>;
 
 pub struct ExtBuilder;
 
-pub const DEFAULT_ID: u64 = 3;
-pub const OTHER_ID: u64 = 4;
-pub const RICH_ID: u64 = 5;
-pub const DEFAULT_COLLATERAL: u128 = 100;
-pub const RICH_COLLATERAL: u128 = DEFAULT_COLLATERAL + 50;
-pub const MULTI_VAULT_TEST_IDS: [u64; 4] = [100, 101, 102, 103];
-pub const MULTI_VAULT_TEST_COLLATERAL: u128 = 100000;
 impl ExtBuilder {
-    pub fn build_with(
-        conf: pallet_balances::GenesisConfig<Test, pallet_balances::Instance1>,
-    ) -> sp_io::TestExternalities {
+    pub fn build() -> sp_io::TestExternalities {
         let mut storage = frame_system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
 
-        conf.assimilate_storage(&mut storage).unwrap();
-
-        pallet_balances::GenesisConfig::<Test, pallet_balances::Instance2> { balances: vec![] }
-            .assimilate_storage(&mut storage)
-            .unwrap();
-
-        // Parameters to be set in tests
         GenesisConfig::<Test> {
-            minimum_collateral_vault: 0,
-            punishment_delay: 0,
-            secure_collateral_threshold: 0,
-            auction_collateral_threshold: 0,
-            premium_redeem_threshold: 0,
-            liquidation_collateral_threshold: 0,
-            liquidation_vault: 0,
-        }
-        .assimilate_storage(&mut storage)
-        .unwrap();
-
-        sla::GenesisConfig::<Test> {
             vault_target_sla: FixedI128::from(100),
             vault_redeem_failure_sla_change: FixedI128::from(0),
             vault_executed_issue_max_sla_change: FixedI128::from(0),
@@ -233,21 +177,6 @@ impl ExtBuilder {
 
         sp_io::TestExternalities::from(storage)
     }
-    pub fn build() -> sp_io::TestExternalities {
-        ExtBuilder::build_with(
-            pallet_balances::GenesisConfig::<Test, pallet_balances::Instance1> {
-                balances: vec![
-                    (DEFAULT_ID, DEFAULT_COLLATERAL),
-                    (OTHER_ID, DEFAULT_COLLATERAL),
-                    (RICH_ID, RICH_COLLATERAL),
-                    (MULTI_VAULT_TEST_IDS[0], MULTI_VAULT_TEST_COLLATERAL),
-                    (MULTI_VAULT_TEST_IDS[1], MULTI_VAULT_TEST_COLLATERAL),
-                    (MULTI_VAULT_TEST_IDS[2], MULTI_VAULT_TEST_COLLATERAL),
-                    (MULTI_VAULT_TEST_IDS[3], MULTI_VAULT_TEST_COLLATERAL),
-                ],
-            },
-        )
-    }
 }
 
 pub fn run_test<T>(test: T) -> ()
@@ -255,10 +184,8 @@ where
     T: FnOnce() -> (),
 {
     clear_mocks();
-    ext::oracle::dots_to_btc::<Test>.mock_safe(|v| MockResult::Return(Ok(v)));
-    ext::oracle::btc_to_dots::<Test>.mock_safe(|v| MockResult::Return(Ok(v)));
     ExtBuilder::build().execute_with(|| {
         System::set_block_number(1);
-        test()
-    })
+        test();
+    });
 }
