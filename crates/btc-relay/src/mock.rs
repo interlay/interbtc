@@ -91,7 +91,7 @@ impl Trait for Test {
 
 impl sla::Trait for Test {
     type Event = TestEvent;
-    type FixedPoint = FixedI128;
+    type SignedFixedPoint = FixedI128;
 }
 
 impl treasury::Trait for Test {

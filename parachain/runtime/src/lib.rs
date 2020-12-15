@@ -361,7 +361,7 @@ impl fee::Trait for Runtime {
 
 impl sla::Trait for Runtime {
     type Event = Event;
-    type FixedPoint = FixedI128;
+    type SignedFixedPoint = FixedI128;
 }
 
 pub use issue::{IssueRequest, RawEvent as RawIssueEvent};
