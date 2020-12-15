@@ -156,7 +156,7 @@ impl exchange_rate_oracle::Trait for Test {
 
 impl sla::Trait for Test {
     type Event = TestEvent;
-    type FixedPoint = FixedI128;
+    type SignedFixedPoint = FixedI128;
 }
 
 impl Trait for Test {

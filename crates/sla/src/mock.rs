@@ -136,7 +136,7 @@ impl treasury::Trait for Test {
 
 impl Trait for Test {
     type Event = TestEvent;
-    type FixedPoint = FixedI128;
+    type SignedFixedPoint = FixedI128;
 }
 
 #[allow(dead_code)]

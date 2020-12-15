@@ -356,12 +356,12 @@ impl exchange_rate_oracle::Trait for Runtime {
 
 impl fee::Trait for Runtime {
     type Event = Event;
-    type FixedPoint = FixedU128;
+    type UnsignedFixedPoint = FixedU128;
 }
 
 impl sla::Trait for Runtime {
     type Event = Event;
-    type FixedPoint = FixedI128;
+    type SignedFixedPoint = FixedI128;
 }
 
 pub use issue::{IssueRequest, RawEvent as RawIssueEvent};
