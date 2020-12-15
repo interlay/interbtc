@@ -144,7 +144,7 @@ impl sla::Trait for Test {
 
 impl Trait for Test {
     type Event = TestEvent;
-    type FixedPoint = FixedU128;
+    type UnsignedFixedPoint = FixedU128;
 }
 
 #[allow(dead_code)]

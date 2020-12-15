@@ -30,14 +30,14 @@ use frame_system::ensure_signed;
 use sp_arithmetic::traits::*;
 use sp_arithmetic::FixedPointNumber;
 use sp_std::convert::TryInto;
-use types::{FixedPoint, Inner, PolkaBTC, DOT};
+use types::{Inner, PolkaBTC, UnsignedFixedPoint, DOT};
 
 /// The pallet's configuration trait.
 pub trait Trait: frame_system::Trait + collateral::Trait + treasury::Trait + sla::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 
-    type FixedPoint: FixedPointNumber + Encode + EncodeLike + Decode;
+    type UnsignedFixedPoint: FixedPointNumber + Encode + EncodeLike + Decode;
 }
 
 // The pallet's storage items.
@@ -46,38 +46,38 @@ decl_storage! {
         /// # Issue
 
         /// Fee share that users need to pay to issue PolkaBTC.
-        IssueFee get(fn issue_fee) config(): FixedPoint<T>;
+        IssueFee get(fn issue_fee) config(): UnsignedFixedPoint<T>;
 
         /// Default griefing collateral (in DOT) as a percentage of the locked
         /// collateral of a Vault a user has to lock to issue PolkaBTC.
-        IssueGriefingCollateral get(fn issue_griefing_collateral) config(): FixedPoint<T>;
+        IssueGriefingCollateral get(fn issue_griefing_collateral) config(): UnsignedFixedPoint<T>;
 
         /// # Redeem
 
         /// Fee share that users need to pay to redeem PolkaBTC.
-        RedeemFee get(fn redeem_fee) config(): FixedPoint<T>;
+        RedeemFee get(fn redeem_fee) config(): UnsignedFixedPoint<T>;
 
         /// # Vault Registry
 
         /// If users execute a redeem with a Vault flagged for premium redeem,
         /// they can earn a DOT premium, slashed from the Vault's collateral.
-        PremiumRedeemFee get(fn premium_redeem_fee) config(): FixedPoint<T>;
+        PremiumRedeemFee get(fn premium_redeem_fee) config(): UnsignedFixedPoint<T>;
 
         /// Fee paid to Vaults to auction / force-replace undercollateralized Vaults.
         /// This is slashed from the replaced Vault's collateral.
-        AuctionRedeemFee get(fn auction_redeem_fee) config(): FixedPoint<T>;
+        AuctionRedeemFee get(fn auction_redeem_fee) config(): UnsignedFixedPoint<T>;
 
         /// Fee that a Vault has to pay if it fails to execute redeem or replace requests
         /// (for redeem, on top of the slashed BTC-in-DOT value of the request). The fee is
         /// paid in DOT based on the PolkaBTC amount at the current exchange rate.
-        PunishmentFee get(fn punishment_fee) config(): FixedPoint<T>;
+        PunishmentFee get(fn punishment_fee) config(): UnsignedFixedPoint<T>;
 
         /// # Replace
 
         /// Default griefing collateral (in DOT) as a percentage of the to-be-locked DOT collateral
         /// of the new Vault. This collateral will be slashed and allocated to the replacing Vault
         /// if the to-be-replaced Vault does not transfer BTC on time.
-        ReplaceGriefingCollateral get(fn replace_griefing_collateral) config(): FixedPoint<T>;
+        ReplaceGriefingCollateral get(fn replace_griefing_collateral) config(): UnsignedFixedPoint<T>;
 
         /// AccountId of the fee pool.
         FeePoolAccountId get(fn fee_pool_account_id) config(): T::AccountId;
@@ -96,17 +96,17 @@ decl_storage! {
 
         /// # Parachain Fee Pool Distribution
 
-        VaultRewards get(fn vault_rewards) config(): FixedPoint<T>;
+        VaultRewards get(fn vault_rewards) config(): UnsignedFixedPoint<T>;
 
-        VaultRewardsIssued get(fn vault_rewards_issued) config(): FixedPoint<T>;
-        VaultRewardsLocked get(fn vault_rewards_locked) config(): FixedPoint<T>;
+        VaultRewardsIssued get(fn vault_rewards_issued) config(): UnsignedFixedPoint<T>;
+        VaultRewardsLocked get(fn vault_rewards_locked) config(): UnsignedFixedPoint<T>;
 
-        RelayerRewards get(fn relayer_rewards) config(): FixedPoint<T>;
+        RelayerRewards get(fn relayer_rewards) config(): UnsignedFixedPoint<T>;
 
-        MaintainerRewards get(fn maintainer_rewards) config(): FixedPoint<T>;
+        MaintainerRewards get(fn maintainer_rewards) config(): UnsignedFixedPoint<T>;
 
         // NOTE: currently there are no collator rewards
-        CollatorRewards get(fn collator_rewards) config(): FixedPoint<T>;
+        CollatorRewards get(fn collator_rewards) config(): UnsignedFixedPoint<T>;
     }
     add_extra_genesis {
         // don't allow an invalid reward distribution
@@ -239,20 +239,20 @@ impl<T: Trait> Module<T> {
 
     fn calculate_for(
         amount: Inner<T>,
-        percentage: FixedPoint<T>,
+        percentage: UnsignedFixedPoint<T>,
     ) -> Result<Inner<T>, DispatchError> {
-        FixedPoint::<T>::checked_from_integer(amount)
+        UnsignedFixedPoint::<T>::checked_from_integer(amount)
             .ok_or(Error::<T>::ArithmeticOverflow)?
             .checked_mul(&percentage)
             .ok_or(Error::<T>::ArithmeticOverflow)?
             .into_inner()
-            .checked_div(&FixedPoint::<T>::accuracy())
+            .checked_div(&UnsignedFixedPoint::<T>::accuracy())
             .ok_or(Error::<T>::ArithmeticUnderflow.into())
     }
 
     fn btc_for(
         amount: PolkaBTC<T>,
-        percentage: FixedPoint<T>,
+        percentage: UnsignedFixedPoint<T>,
     ) -> Result<PolkaBTC<T>, DispatchError> {
         Self::inner_to_btc(Self::calculate_for(
             Self::btc_to_inner(amount)?,
@@ -260,7 +260,7 @@ impl<T: Trait> Module<T> {
         )?)
     }
 
-    fn dot_for(amount: DOT<T>, percentage: FixedPoint<T>) -> Result<DOT<T>, DispatchError> {
+    fn dot_for(amount: DOT<T>, percentage: UnsignedFixedPoint<T>) -> Result<DOT<T>, DispatchError> {
         Self::inner_to_dot(Self::calculate_for(
             Self::dot_to_inner(amount)?,
             percentage,
@@ -301,14 +301,15 @@ impl<T: Trait> Module<T> {
 
     #[allow(dead_code)]
     fn ensure_rewards_are_valid(
-        vault: FixedPoint<T>,
-        relayer: FixedPoint<T>,
-        maintainer: FixedPoint<T>,
-        collator: FixedPoint<T>,
+        vault: UnsignedFixedPoint<T>,
+        relayer: UnsignedFixedPoint<T>,
+        maintainer: UnsignedFixedPoint<T>,
+        collator: UnsignedFixedPoint<T>,
     ) -> DispatchResult {
         let total = vault + relayer + maintainer + collator;
-        let one = FixedPoint::<T>::checked_from_integer(Module::<T>::btc_to_inner(1.into())?)
-            .ok_or(Error::<T>::ArithmeticOverflow)?;
+        let one =
+            UnsignedFixedPoint::<T>::checked_from_integer(Module::<T>::btc_to_inner(1.into())?)
+                .ok_or(Error::<T>::ArithmeticOverflow)?;
         ensure!(total == one, Error::<T>::InvalidRewardDist);
         Ok(())
     }
