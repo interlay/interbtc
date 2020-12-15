@@ -5,7 +5,7 @@ use crate::sp_api_hidden_includes_decl_storage::hidden_include::StorageValue;
 use crate::{types::RelayerEvent, RelayerSla, TotalRelayerScore};
 
 use mocktopus::mocking::*;
-use sp_arithmetic::{traits::*, FixedI128, FixedPointNumber};
+use sp_arithmetic::{FixedI128, FixedPointNumber};
 
 pub const ALICE: AccountId = 1;
 pub const BOB: AccountId = 2;
@@ -168,17 +168,17 @@ fn test_calculate_reward() {
         });
 
         // total should increase as alice's score increases
-        for i in 0..10 {
+        for _ in 0..10 {
             Sla::event_update_relayer_sla(ALICE, RelayerEvent::BlockSubmission).unwrap();
         }
-        for i in 0..10 {
+        for _ in 0..10 {
             Sla::event_update_relayer_sla(BOB, RelayerEvent::BlockSubmission).unwrap();
         }
 
         // equal sla, but alice and bob have 1:4 staked collateral ratio
         assert_eq!(Sla::calculate_relayer_reward(ALICE, 1_000_000), Ok(200_000));
 
-        for i in 0..30 {
+        for _ in 0..30 {
             Sla::event_update_relayer_sla(ALICE, RelayerEvent::BlockSubmission).unwrap();
         }
 

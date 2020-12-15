@@ -98,6 +98,9 @@ decl_storage! {
 
         VaultRewards get(fn vault_rewards) config(): FixedPoint<T>;
 
+        VaultRewardsIssued get(fn vault_rewards_issued) config(): FixedPoint<T>;
+        VaultRewardsLocked get(fn vault_rewards_locked) config(): FixedPoint<T>;
+
         RelayerRewards get(fn relayer_rewards) config(): FixedPoint<T>;
 
         MaintainerRewards get(fn maintainer_rewards) config(): FixedPoint<T>;
@@ -168,8 +171,12 @@ impl<T: Trait> Module<T> {
         // only calculate rewards per epoch
         if height % Self::epoch_period() == 0.into() {
             // calculate vault rewards
-            let total_vault_rewards = Self::vault_rewards_for_epoch()?;
-            for (account, amount) in ext::sla::get_vault_rewards::<T>(total_vault_rewards)? {
+            let (total_vault_rewards_for_issued, total_vault_rewards_for_locked) =
+                Self::vault_rewards_for_epoch()?;
+            for (account, amount) in ext::sla::get_vault_rewards::<T>(
+                total_vault_rewards_for_issued,
+                total_vault_rewards_for_locked,
+            )? {
                 <TotalRewards<T>>::insert(
                     account.clone(),
                     <TotalRewards<T>>::get(account) + amount,
@@ -300,8 +307,12 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn vault_rewards_for_epoch() -> Result<PolkaBTC<T>, DispatchError> {
-        Self::btc_for(Self::epoch_rewards(), Self::vault_rewards())
+    fn vault_rewards_for_epoch() -> Result<(PolkaBTC<T>, PolkaBTC<T>), DispatchError> {
+        let total_vault_rewards = Self::btc_for(Self::epoch_rewards(), Self::vault_rewards())?;
+        Ok((
+            Self::btc_for(total_vault_rewards, Self::vault_rewards_issued())?,
+            Self::btc_for(total_vault_rewards, Self::vault_rewards_locked())?,
+        ))
     }
 
     fn relayer_rewards_for_epoch() -> Result<PolkaBTC<T>, DispatchError> {

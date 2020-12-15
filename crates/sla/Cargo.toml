@@ -49,10 +49,6 @@ optional = true
 default-features = false
 path = '../collateral'
 
-[dependencies.vault-registry]
-default-features = false
-path = '../vault-registry'
-
 [dependencies.sp-arithmetic]
 default-features = false
 version = '2.0.0'
@@ -97,7 +93,6 @@ std = [
 	'sp-io/std',
 	'sp-runtime/std',
 	'collateral/std',
-	'vault-registry/std',
 	'sp-std/std',
 	'frame-system/std',
 	'pallet-balances/std',

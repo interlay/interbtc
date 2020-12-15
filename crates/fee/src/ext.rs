@@ -28,8 +28,9 @@ pub(crate) mod sla {
     }
 
     pub fn get_vault_rewards<T: sla::Trait>(
-        total_reward: PolkaBTC<T>,
+        total_reward_for_issued: PolkaBTC<T>,
+        total_reward_for_locked: PolkaBTC<T>,
     ) -> Result<Vec<(T::AccountId, PolkaBTC<T>)>, DispatchError> {
-        <sla::Module<T>>::get_vault_rewards(total_reward)
+        <sla::Module<T>>::get_vault_rewards(total_reward_for_issued, total_reward_for_locked)
     }
 }

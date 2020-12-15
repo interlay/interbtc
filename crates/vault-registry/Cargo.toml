@@ -24,6 +24,7 @@ std = [
   'treasury/std',
   'security/std',
   'exchange-rate-oracle/std',
+  'sla/std',
   'frame-benchmarking/std',
 ]
 runtime-benchmarks = [
@@ -110,6 +111,10 @@ path = '../treasury'
 [dependencies.exchange-rate-oracle]
 default-features = false
 path = '../exchange-rate-oracle'
+
+[dependencies.sla]
+default-features = false
+path = '../sla'
 
 [dependencies.frame-benchmarking]
 version = "2.0.0"

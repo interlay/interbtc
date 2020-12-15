@@ -229,6 +229,8 @@ fn testnet_genesis(
             maintainer_account_id: get_account_id_from_seed::<sr25519::Public>("Maintainer"),
             epoch_period: 5,
             vault_rewards: FixedU128::checked_from_rational(77, 100).unwrap(),
+            vault_rewards_issued: FixedU128::checked_from_rational(90, 100).unwrap(),
+            vault_rewards_locked: FixedU128::checked_from_rational(10, 100).unwrap(),
             relayer_rewards: FixedU128::checked_from_rational(3, 100).unwrap(),
             maintainer_rewards: FixedU128::checked_from_rational(20, 100).unwrap(),
             collator_rewards: FixedU128::checked_from_integer(0).unwrap(),

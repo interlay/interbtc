@@ -12,6 +12,7 @@ use exchange_rate_oracle::Module as ExchangeRateOracle;
 use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
 // use pallet_timestamp::Now;
+use sp_arithmetic::FixedI128;
 use sp_core::{H160, U256};
 use sp_std::prelude::*;
 use vault_registry::types::{Vault, Wallet};
@@ -215,6 +216,25 @@ mod tests {
                     (account("Origin", 0, 0), 1 << 32),
                     (account("Vault", 0, 0), 1 << 32),
                 ],
+            }
+            .assimilate_storage(storage)
+            .unwrap();
+
+            sla::GenesisConfig::<Test> {
+                vault_target_sla: FixedI128::from(100),
+                vault_redeem_failure_sla_change: FixedI128::from(0),
+                vault_executed_issue_max_sla_change: FixedI128::from(0),
+                vault_submitted_issue_proof: FixedI128::from(0),
+                relayer_target_sla: FixedI128::from(100),
+                relayer_block_submission: FixedI128::from(1),
+                relayer_correct_no_data_vote_or_report: FixedI128::from(1),
+                relayer_correct_invalid_vote_or_report: FixedI128::from(10),
+                relayer_correct_liquidation_report: FixedI128::from(1),
+                relayer_correct_theft_report: FixedI128::from(1),
+                relayer_correct_oracle_offline_report: FixedI128::from(1),
+                relayer_false_no_data_vote_or_report: FixedI128::from(-10),
+                relayer_false_invalid_vote_or_report: FixedI128::from(-100),
+                relayer_ignored_vote: FixedI128::from(-10),
             }
             .assimilate_storage(storage)
             .unwrap();

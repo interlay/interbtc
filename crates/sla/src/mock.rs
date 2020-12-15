@@ -9,10 +9,8 @@ use frame_support::{
     },
 };
 use mocktopus::mocking::clear_mocks;
-use pallet_balances as balances;
 use sp_arithmetic::FixedI128;
 use sp_core::H256;
-use sp_runtime::FixedPointNumber;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
@@ -34,7 +32,6 @@ impl_outer_event! {
         collateral<T>,
         pallet_balances Instance1<T>,
         pallet_balances Instance2<T>,
-        vault_registry<T>,
         exchange_rate_oracle<T>,
         treasury<T>,
         security,
@@ -134,12 +131,6 @@ impl collateral::Trait for Test {
     type DOT = pallet_balances::Module<Test, pallet_balances::Instance1>;
 }
 
-impl vault_registry::Trait for Test {
-    type Event = TestEvent;
-    type RandomnessSource = pallet_randomness_collective_flip::Module<Test>;
-    type WeightInfo = ();
-}
-
 impl treasury::Trait for Test {
     type Event = TestEvent;
     type PolkaBTC = pallet_balances::Module<Test, pallet_balances::Instance2>;
@@ -174,7 +165,6 @@ pub type TestError = Error<Test>;
 
 #[allow(dead_code)]
 pub type System = frame_system::Module<Test>;
-pub type Balances = pallet_balances::Module<Test>;
 
 #[allow(dead_code)]
 pub type Sla = Module<Test>;
