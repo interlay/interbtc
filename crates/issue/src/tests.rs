@@ -50,10 +50,16 @@ fn request_issue_ok(
     }
 }
 
-fn execute_issue(_origin: AccountId, issue_id: &H256) -> Result<(), DispatchError> {
+fn execute_issue(origin: AccountId, issue_id: &H256) -> Result<(), DispatchError> {
     ext::security::ensure_parachain_status_running::<Test>.mock_safe(|| MockResult::Return(Ok(())));
 
-    Issue::_execute_issue(*issue_id, H256Le::zero(), vec![0u8; 100], vec![0u8; 100])
+    Issue::_execute_issue(
+        origin,
+        *issue_id,
+        H256Le::zero(),
+        vec![0u8; 100],
+        vec![0u8; 100],
+    )
 }
 
 fn execute_issue_ok(origin: AccountId, issue_id: &H256) {
@@ -254,11 +260,19 @@ fn test_request_issue_parachain_not_running_fails() {
 #[test]
 fn test_execute_issue_parachain_not_running_fails() {
     run_test(|| {
+        let origin = ALICE;
+
         ext::security::ensure_parachain_status_running::<Test>
             .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainNotRunning.into())));
 
         assert_noop!(
-            Issue::_execute_issue(H256::zero(), H256Le::zero(), vec![0u8; 100], vec![0u8; 100],),
+            Issue::_execute_issue(
+                origin,
+                H256::zero(),
+                H256Le::zero(),
+                vec![0u8; 100],
+                vec![0u8; 100],
+            ),
             SecurityError::ParachainNotRunning
         );
     })

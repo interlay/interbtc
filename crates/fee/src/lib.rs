@@ -179,7 +179,9 @@ impl<T: Trait> Module<T> {
             )? {
                 <TotalRewards<T>>::insert(
                     account.clone(),
-                    <TotalRewards<T>>::get(account) + amount,
+                    <TotalRewards<T>>::get(account)
+                        .checked_add(&amount)
+                        .ok_or(Error::<T>::ArithmeticOverflow)?,
                 );
             }
 
@@ -188,7 +190,9 @@ impl<T: Trait> Module<T> {
             for (account, amount) in ext::sla::get_relayer_rewards::<T>(total_relayer_rewards)? {
                 <TotalRewards<T>>::insert(
                     account.clone(),
-                    <TotalRewards<T>>::get(account) + amount,
+                    <TotalRewards<T>>::get(account)
+                        .checked_add(&amount)
+                        .ok_or(Error::<T>::ArithmeticOverflow)?,
                 );
             }
 
@@ -197,7 +201,9 @@ impl<T: Trait> Module<T> {
             let maintainer_account_id = Self::maintainer_account_id();
             <TotalRewards<T>>::insert(
                 maintainer_account_id.clone(),
-                <TotalRewards<T>>::get(maintainer_account_id) + total_maintainer_rewards,
+                <TotalRewards<T>>::get(maintainer_account_id)
+                    .checked_add(&total_maintainer_rewards)
+                    .ok_or(Error::<T>::ArithmeticOverflow)?,
             );
 
             // clear total rewards for current epoch

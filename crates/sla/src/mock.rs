@@ -32,9 +32,7 @@ impl_outer_event! {
         collateral<T>,
         pallet_balances Instance1<T>,
         pallet_balances Instance2<T>,
-        exchange_rate_oracle<T>,
         treasury<T>,
-        security,
     }
 }
 
@@ -139,25 +137,6 @@ impl treasury::Trait for Test {
 impl Trait for Test {
     type Event = TestEvent;
     type FixedPoint = FixedI128;
-}
-
-impl exchange_rate_oracle::Trait for Test {
-    type Event = TestEvent;
-    type WeightInfo = ();
-}
-
-parameter_types! {
-    pub const MinimumPeriod: u64 = 5;
-}
-impl timestamp::Trait for Test {
-    type Moment = u64;
-    type OnTimestampSet = ();
-    type MinimumPeriod = MinimumPeriod;
-    type WeightInfo = ();
-}
-
-impl security::Trait for Test {
-    type Event = TestEvent;
 }
 
 #[allow(dead_code)]
