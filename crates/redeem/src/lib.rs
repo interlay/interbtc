@@ -39,6 +39,8 @@ use frame_support::{
 use frame_system::{ensure_root, ensure_signed};
 use primitive_types::H256;
 use security::ErrorCode;
+use sp_runtime::traits::CheckedAdd;
+use sp_runtime::traits::CheckedSub;
 use sp_runtime::ModuleId;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
@@ -211,7 +213,13 @@ decl_module! {
             let amount_polka_btc_in_dot = ext::oracle::btc_to_dots::<T>(redeem.amount_polka_btc)?;
             let punishment_fee_in_dot = ext::fee::get_punishment_fee::<T>(amount_polka_btc_in_dot)?;
 
-            if reimburse {
+            // calculate additional amount to slash, a high SLA means we slash less
+            let slashing_amount_in_dot = ext::sla::calculate_slashed_amount::<T>(
+                redeem.vault.clone(),
+                amount_polka_btc_in_dot
+            )?;
+
+            let slashing_amount_in_dot = if reimburse {
                 // user requested to be reimbursed in DOT
                 ext::vault_registry::decrease_tokens::<T>(
                     &redeem.vault,
@@ -222,16 +230,29 @@ decl_module! {
                 // burn user's PolkaBTC
                 ext::treasury::burn::<T>(redeem.redeemer.clone(), redeem.amount_polka_btc)?;
 
-                // transfer (a part) of the Vault's collateral to the user
+                // reimburse the user in dot (inc. punishment fee) from vault
                 let reimburse_in_dot = amount_polka_btc_in_dot + punishment_fee_in_dot;
                 ext::collateral::slash_collateral::<T>(
-                    &redeem.redeemer,
                     &redeem.vault,
+                    &redeem.redeemer,
                     reimburse_in_dot,
                 )?;
+                slashing_amount_in_dot.checked_sub(&amount_polka_btc_in_dot).ok_or(Error::<T>::ArithmeticUnderflow)?
             } else {
                 // user does not want full reimbursement and wishes to retry the redeem
                 ext::collateral::slash_collateral::<T>(&redeem.redeemer, &redeem.vault, punishment_fee_in_dot)?;
+                slashing_amount_in_dot
+            };
+
+            // slash the vault's collateral to mint fees
+            let sla_dot_delta = slashing_amount_in_dot.checked_sub(&punishment_fee_in_dot).ok_or(Error::<T>::ArithmeticUnderflow)?;
+            if sla_dot_delta > 0.into() {
+                ext::collateral::slash_collateral::<T>(
+                    &redeem.vault,
+                    &ext::fee::fee_pool_account_id::<T>(),
+                    sla_dot_delta,
+                )?;
+                ext::fee::increase_dot_rewards_for_epoch::<T>(sla_dot_delta);
             }
 
             ext::vault_registry::ban_vault::<T>(redeem.vault.clone())?;
@@ -283,13 +304,17 @@ impl<T: Trait> Module<T> {
             Error::<T>::AmountExceedsVaultBalance
         );
 
-        let fee = ext::fee::get_redeem_fee::<T>(amount_polka_btc)?;
-        let total_amount_polka_btc = amount_polka_btc + fee;
+        // TODO: introduce max fee_polka_btc param
+        let fee_polka_btc = ext::fee::get_redeem_fee::<T>(amount_polka_btc)?;
+        let total_amount_polka_btc = amount_polka_btc
+            .checked_add(&fee_polka_btc)
+            .ok_or(Error::<T>::ArithmeticOverflow)?;
 
         // only allow requests of amount above above the minimum
         let dust_value = <RedeemBtcDustValue<T>>::get();
         ensure!(
-            total_amount_polka_btc >= dust_value,
+            // this is the amount the vault will send (minus fee)
+            amount_polka_btc >= dust_value,
             Error::<T>::AmountBelowDustAmount
         );
 
@@ -333,7 +358,7 @@ impl<T: Trait> Module<T> {
                 vault: vault_id.clone(),
                 opentime: height,
                 amount_polka_btc,
-                fee,
+                fee: fee_polka_btc,
                 amount_btc,
                 amount_dot,
                 premium_dot,
@@ -386,26 +411,28 @@ impl<T: Trait> Module<T> {
             redeem_id.clone().as_bytes().to_vec(),
         )?;
 
-        // burn amount - fee
-        ext::treasury::burn::<T>(redeem.redeemer.clone(), redeem.amount_polka_btc)?;
+        let amount_polka_btc = redeem.amount_polka_btc;
+        let fee_polka_btc = redeem.fee;
+        // burn amount (minus fee)
+        ext::treasury::burn::<T>(redeem.redeemer.clone(), amount_polka_btc)?;
 
         // send fees to pool
         ext::treasury::unlock_and_transfer::<T>(
             redeem.redeemer.clone(),
             ext::fee::fee_pool_account_id::<T>(),
-            redeem.fee,
+            fee_polka_btc,
         )?;
-        ext::fee::increase_rewards_for_epoch::<T>(redeem.fee);
+        ext::fee::increase_polka_btc_rewards_for_epoch::<T>(fee_polka_btc);
 
         if redeem.premium_dot > 0.into() {
             ext::vault_registry::redeem_tokens_premium::<T>(
                 &redeem.vault,
-                redeem.amount_polka_btc,
+                amount_polka_btc,
                 redeem.premium_dot,
                 &redeem.redeemer,
             )?;
         } else {
-            ext::vault_registry::redeem_tokens::<T>(&redeem.vault, redeem.amount_polka_btc)?;
+            ext::vault_registry::redeem_tokens::<T>(&redeem.vault, amount_polka_btc)?;
         }
 
         Self::remove_redeem_request(redeem_id, false, false);

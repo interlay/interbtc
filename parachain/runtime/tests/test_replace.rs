@@ -137,6 +137,7 @@ fn integration_test_replace_auction_replace() {
         let old_vault = ALICE;
         let new_vault = BOB;
         let collateral = 4_000;
+        let replace_collateral = collateral * 2;
         let polkabtc = 1_000;
 
         let old_vault_btc_address = BtcAddress::P2PKH(H160([1; 20]));
@@ -156,13 +157,27 @@ fn integration_test_replace_auction_replace() {
         .dispatch(origin_of(account_of(new_vault))));
         // exchange rate drops and vault is not collateralized any more
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(300000));
+
+        let initial_old_vault_collateral =
+            collateral::Module::<Runtime>::get_collateral_from_account(&account_of(old_vault));
+
         // new_vault takes over old_vault's position
         assert_ok!(Call::Replace(ReplaceCall::auction_replace(
             account_of(old_vault),
             polkabtc,
-            2 * collateral
+            replace_collateral
         ))
         .dispatch(origin_of(account_of(new_vault))));
+
+        let final_old_vault_collateral =
+            collateral::Module::<Runtime>::get_collateral_from_account(&account_of(old_vault));
+
+        // take auction fee from old vault collateral
+        let auction_fee = FeeModule::get_auction_redeem_fee(replace_collateral).unwrap();
+        assert_eq!(
+            final_old_vault_collateral,
+            initial_old_vault_collateral - auction_fee
+        );
     });
 }
 

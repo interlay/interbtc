@@ -100,5 +100,6 @@ std = [
 	'frame-system/std',
 	'collateral/std',
 	'treasury/std',
+	'security/std',
 	'sla/std',
 ]

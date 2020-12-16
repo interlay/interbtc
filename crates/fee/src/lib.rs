@@ -30,6 +30,7 @@ use frame_system::ensure_signed;
 use sp_arithmetic::traits::*;
 use sp_arithmetic::FixedPointNumber;
 use sp_std::convert::TryInto;
+use sp_std::vec::*;
 use types::{Inner, PolkaBTC, UnsignedFixedPoint, DOT};
 
 /// The pallet's configuration trait.
@@ -89,10 +90,16 @@ decl_storage! {
         EpochPeriod get(fn epoch_period) config(): T::BlockNumber;
 
         /// Total rewards in `PolkaBTC` for the current epoch.
-        EpochRewards get(fn epoch_rewards): PolkaBTC<T>;
+        EpochRewardsPolkaBTC get(fn epoch_rewards_polka_btc): PolkaBTC<T>;
 
-        /// Total rewards locked for accounts.
-        TotalRewards: map hasher(blake2_128_concat) T::AccountId => PolkaBTC<T>;
+        /// Total rewards in `DOT` for the current epoch.
+        EpochRewardsDOT get(fn epoch_rewards_dot): DOT<T>;
+
+        /// Total rewards in `PolkaBTC` locked for accounts.
+        TotalRewardsPolkaBTC: map hasher(blake2_128_concat) T::AccountId => PolkaBTC<T>;
+
+        /// Total rewards in `DOT` locked for accounts.
+        TotalRewardsDOT: map hasher(blake2_128_concat) T::AccountId => DOT<T>;
 
         /// # Parachain Fee Pool Distribution
 
@@ -110,12 +117,23 @@ decl_storage! {
     }
     add_extra_genesis {
         // don't allow an invalid reward distribution
-        build(|config| Module::<T>::ensure_rewards_are_valid(
-            config.vault_rewards,
-            config.relayer_rewards,
-            config.maintainer_rewards,
-            config.collator_rewards,
-        ).unwrap())
+        build(|config| {
+            Module::<T>::ensure_rationals_sum_to_one(
+                vec![
+                    config.vault_rewards,
+                    config.relayer_rewards,
+                    config.maintainer_rewards,
+                    config.collator_rewards,
+                ]
+            ).unwrap();
+
+            Module::<T>::ensure_rationals_sum_to_one(
+                vec![
+                    config.vault_rewards_issued,
+                    config.vault_rewards_locked,
+                ]
+            ).unwrap();
+        })
     }
 }
 
@@ -125,8 +143,10 @@ decl_event!(
     where
         AccountId = <T as frame_system::Trait>::AccountId,
         PolkaBTC = PolkaBTC<T>,
+        DOT = DOT<T>,
     {
-        Withdraw(AccountId, PolkaBTC),
+        WithdrawPolkaBTC(AccountId, PolkaBTC),
+        WithdrawDOT(AccountId, DOT),
     }
 );
 
@@ -149,18 +169,30 @@ decl_module! {
         }
 
         #[weight = 0]
-        fn withdraw(origin, amount: PolkaBTC<T>) -> DispatchResult
+        fn withdraw_polka_btc(origin, amount: PolkaBTC<T>) -> DispatchResult
         {
             let signer = ensure_signed(origin)?;
-            let amount = <TotalRewards<T>>::get(signer.clone());
+            <TotalRewardsPolkaBTC<T>>::insert(signer.clone(), <TotalRewardsPolkaBTC<T>>::get(signer.clone()).checked_sub(&amount).ok_or(Error::<T>::ArithmeticUnderflow)?);
             ext::treasury::transfer::<T>(Self::fee_pool_account_id(), signer.clone(), amount)?;
-            Self::deposit_event(<Event<T>>::Withdraw(
+            Self::deposit_event(<Event<T>>::WithdrawPolkaBTC(
                 signer,
                 amount,
             ));
             Ok(())
         }
 
+        #[weight = 0]
+        fn withdraw_dot(origin, amount: DOT<T>) -> DispatchResult
+        {
+            let signer = ensure_signed(origin)?;
+            <TotalRewardsDOT<T>>::insert(signer.clone(), <TotalRewardsDOT<T>>::get(signer.clone()).checked_sub(&amount).ok_or(Error::<T>::ArithmeticUnderflow)?);
+            ext::collateral::transfer::<T>(Self::fee_pool_account_id(), signer.clone(), amount)?;
+            Self::deposit_event(<Event<T>>::WithdrawDOT(
+                signer,
+                amount,
+            ));
+            Ok(())
+        }
     }
 }
 
@@ -171,43 +203,81 @@ impl<T: Trait> Module<T> {
         // only calculate rewards per epoch
         if height % Self::epoch_period() == 0.into() {
             // calculate vault rewards
-            let (total_vault_rewards_for_issued, total_vault_rewards_for_locked) =
-                Self::vault_rewards_for_epoch()?;
-            for (account, amount) in ext::sla::get_vault_rewards::<T>(
-                total_vault_rewards_for_issued,
-                total_vault_rewards_for_locked,
+            let (
+                total_vault_rewards_for_issued_in_polka_btc,
+                total_vault_rewards_for_locked_in_polka_btc,
+            ) = Self::vault_rewards_for_epoch_in_polka_btc()?;
+            let (total_vault_rewards_for_issued_in_dot, total_vault_rewards_for_locked_in_dot) =
+                Self::vault_rewards_for_epoch_in_dot()?;
+            for (account, amount_in_polka_btc, amount_in_dot) in ext::sla::get_vault_rewards::<T>(
+                total_vault_rewards_for_issued_in_polka_btc,
+                total_vault_rewards_for_locked_in_polka_btc,
+                total_vault_rewards_for_issued_in_dot,
+                total_vault_rewards_for_locked_in_dot,
             )? {
-                <TotalRewards<T>>::insert(
+                // increase polka_btc rewards
+                <TotalRewardsPolkaBTC<T>>::insert(
                     account.clone(),
-                    <TotalRewards<T>>::get(account)
-                        .checked_add(&amount)
+                    <TotalRewardsPolkaBTC<T>>::get(account.clone())
+                        .checked_add(&amount_in_polka_btc)
+                        .ok_or(Error::<T>::ArithmeticOverflow)?,
+                );
+                // increase dot rewards
+                <TotalRewardsDOT<T>>::insert(
+                    account.clone(),
+                    <TotalRewardsDOT<T>>::get(account.clone())
+                        .checked_add(&amount_in_dot)
                         .ok_or(Error::<T>::ArithmeticOverflow)?,
                 );
             }
 
             // calculate staked relayer rewards
-            let total_relayer_rewards = Self::relayer_rewards_for_epoch()?;
-            for (account, amount) in ext::sla::get_relayer_rewards::<T>(total_relayer_rewards)? {
-                <TotalRewards<T>>::insert(
+            let total_relayer_rewards_in_polka_btc =
+                Self::relayer_rewards_for_epoch_in_polka_btc()?;
+            let total_relayer_rewards_in_dot = Self::relayer_rewards_for_epoch_in_dot()?;
+            for (account, amount_in_polka_btc, amount_in_dot) in ext::sla::get_relayer_rewards::<T>(
+                total_relayer_rewards_in_polka_btc,
+                total_relayer_rewards_in_dot,
+            )? {
+                // increase polka_btc rewards
+                <TotalRewardsPolkaBTC<T>>::insert(
                     account.clone(),
-                    <TotalRewards<T>>::get(account)
-                        .checked_add(&amount)
+                    <TotalRewardsPolkaBTC<T>>::get(account.clone())
+                        .checked_add(&amount_in_polka_btc)
+                        .ok_or(Error::<T>::ArithmeticOverflow)?,
+                );
+                // increase dot rewards
+                <TotalRewardsDOT<T>>::insert(
+                    account.clone(),
+                    <TotalRewardsDOT<T>>::get(account.clone())
+                        .checked_add(&amount_in_dot)
                         .ok_or(Error::<T>::ArithmeticOverflow)?,
                 );
             }
 
             // calculate maintainer rewards
-            let total_maintainer_rewards = Self::maintainer_rewards_for_epoch()?;
             let maintainer_account_id = Self::maintainer_account_id();
-            <TotalRewards<T>>::insert(
+            // increase polka_DOT rewards
+            let total_maintainer_rewards_in_polka_btc =
+                Self::maintainer_rewards_for_epoch_in_polka_btc()?;
+            <TotalRewardsPolkaBTC<T>>::insert(
                 maintainer_account_id.clone(),
-                <TotalRewards<T>>::get(maintainer_account_id)
-                    .checked_add(&total_maintainer_rewards)
+                <TotalRewardsPolkaBTC<T>>::get(maintainer_account_id.clone())
+                    .checked_add(&total_maintainer_rewards_in_polka_btc)
+                    .ok_or(Error::<T>::ArithmeticOverflow)?,
+            );
+            // increase dot rewards
+            let total_maintainer_rewards_in_dot = Self::maintainer_rewards_for_epoch_in_dot()?;
+            <TotalRewardsDOT<T>>::insert(
+                maintainer_account_id.clone(),
+                <TotalRewardsDOT<T>>::get(maintainer_account_id.clone())
+                    .checked_add(&total_maintainer_rewards_in_dot)
                     .ok_or(Error::<T>::ArithmeticOverflow)?,
             );
 
             // clear total rewards for current epoch
-            <EpochRewards<T>>::kill();
+            <EpochRewardsPolkaBTC<T>>::kill();
+            <EpochRewardsDOT<T>>::kill();
         }
 
         Ok(())
@@ -295,39 +365,57 @@ impl<T: Trait> Module<T> {
         Self::dot_for(amount, <ReplaceGriefingCollateral<T>>::get())
     }
 
-    pub fn increase_rewards_for_epoch(amount: PolkaBTC<T>) {
-        <EpochRewards<T>>::set(Self::epoch_rewards() + amount);
+    pub fn increase_polka_btc_rewards_for_epoch(amount: PolkaBTC<T>) {
+        <EpochRewardsPolkaBTC<T>>::set(Self::epoch_rewards_polka_btc() + amount);
+    }
+
+    pub fn increase_dot_rewards_for_epoch(amount: DOT<T>) {
+        <EpochRewardsDOT<T>>::set(Self::epoch_rewards_dot() + amount);
     }
 
     #[allow(dead_code)]
-    fn ensure_rewards_are_valid(
-        vault: UnsignedFixedPoint<T>,
-        relayer: UnsignedFixedPoint<T>,
-        maintainer: UnsignedFixedPoint<T>,
-        collator: UnsignedFixedPoint<T>,
-    ) -> DispatchResult {
-        let total = vault + relayer + maintainer + collator;
+    fn ensure_rationals_sum_to_one(dist: Vec<UnsignedFixedPoint<T>>) -> DispatchResult {
+        let sum = dist
+            .iter()
+            .fold(UnsignedFixedPoint::<T>::default(), |a, &b| a + b);
         let one =
             UnsignedFixedPoint::<T>::checked_from_integer(Module::<T>::btc_to_inner(1.into())?)
                 .ok_or(Error::<T>::ArithmeticOverflow)?;
-        ensure!(total == one, Error::<T>::InvalidRewardDist);
+        ensure!(sum == one, Error::<T>::InvalidRewardDist);
         Ok(())
     }
 
-    fn vault_rewards_for_epoch() -> Result<(PolkaBTC<T>, PolkaBTC<T>), DispatchError> {
-        let total_vault_rewards = Self::btc_for(Self::epoch_rewards(), Self::vault_rewards())?;
+    fn vault_rewards_for_epoch_in_polka_btc() -> Result<(PolkaBTC<T>, PolkaBTC<T>), DispatchError> {
+        let total_vault_rewards =
+            Self::btc_for(Self::epoch_rewards_polka_btc(), Self::vault_rewards())?;
         Ok((
             Self::btc_for(total_vault_rewards, Self::vault_rewards_issued())?,
             Self::btc_for(total_vault_rewards, Self::vault_rewards_locked())?,
         ))
     }
 
-    fn relayer_rewards_for_epoch() -> Result<PolkaBTC<T>, DispatchError> {
-        Self::btc_for(Self::epoch_rewards(), Self::relayer_rewards())
+    fn vault_rewards_for_epoch_in_dot() -> Result<(DOT<T>, DOT<T>), DispatchError> {
+        let total_vault_rewards = Self::dot_for(Self::epoch_rewards_dot(), Self::vault_rewards())?;
+        Ok((
+            Self::dot_for(total_vault_rewards, Self::vault_rewards_issued())?,
+            Self::dot_for(total_vault_rewards, Self::vault_rewards_locked())?,
+        ))
     }
 
-    fn maintainer_rewards_for_epoch() -> Result<PolkaBTC<T>, DispatchError> {
-        Self::btc_for(Self::epoch_rewards(), Self::maintainer_rewards())
+    fn relayer_rewards_for_epoch_in_polka_btc() -> Result<PolkaBTC<T>, DispatchError> {
+        Self::btc_for(Self::epoch_rewards_polka_btc(), Self::relayer_rewards())
+    }
+
+    fn relayer_rewards_for_epoch_in_dot() -> Result<DOT<T>, DispatchError> {
+        Self::dot_for(Self::epoch_rewards_dot(), Self::relayer_rewards())
+    }
+
+    fn maintainer_rewards_for_epoch_in_polka_btc() -> Result<PolkaBTC<T>, DispatchError> {
+        Self::btc_for(Self::epoch_rewards_polka_btc(), Self::maintainer_rewards())
+    }
+
+    fn maintainer_rewards_for_epoch_in_dot() -> Result<DOT<T>, DispatchError> {
+        Self::dot_for(Self::epoch_rewards_dot(), Self::maintainer_rewards())
     }
 }
 

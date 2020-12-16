@@ -10,7 +10,7 @@ mod tests;
 #[cfg(test)]
 extern crate mocktopus;
 
-use frame_support::traits::{BalanceStatus, Currency, ExistenceRequirement, ReservableCurrency};
+use frame_support::traits::{Currency, ExistenceRequirement, ReservableCurrency};
 /// # PolkaBTC Treasury implementation
 /// The Treasury module according to the specification at
 /// https://interlay.gitlab.io/polkabtc-spec/spec/treasury.html
@@ -180,7 +180,9 @@ impl<T: Trait> Module<T> {
         destination: T::AccountId,
         amount: BalanceOf<T>,
     ) -> DispatchResult {
-        T::PolkaBTC::repatriate_reserved(&source, &destination, amount, BalanceStatus::Free)?;
+        // repatriate_reserved but create account
+        T::PolkaBTC::slash_reserved(&source, amount);
+        T::PolkaBTC::deposit_creating(&destination, amount);
 
         // unlock the tokens from the locked balance
         Self::decrease_total_locked(amount);

@@ -8,7 +8,6 @@ use frame_support::{
     },
 };
 use mocktopus::mocking::clear_mocks;
-use sp_arithmetic::FixedI128;
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
@@ -38,7 +37,6 @@ impl_outer_event! {
         collateral<T>,
         treasury<T>,
         exchange_rate_oracle<T>,
-        sla<T>,
         security,
     }
 }
@@ -154,11 +152,6 @@ impl exchange_rate_oracle::Trait for Test {
     type WeightInfo = ();
 }
 
-impl sla::Trait for Test {
-    type Event = TestEvent;
-    type SignedFixedPoint = FixedI128;
-}
-
 impl Trait for Test {
     type Event = TestEvent;
     type RandomnessSource = pallet_randomness_collective_flip::Module<Test>;
@@ -208,25 +201,6 @@ impl ExtBuilder {
             premium_redeem_threshold: 0,
             liquidation_collateral_threshold: 0,
             liquidation_vault: 0,
-        }
-        .assimilate_storage(&mut storage)
-        .unwrap();
-
-        sla::GenesisConfig::<Test> {
-            vault_target_sla: FixedI128::from(100),
-            vault_redeem_failure_sla_change: FixedI128::from(0),
-            vault_executed_issue_max_sla_change: FixedI128::from(0),
-            vault_submitted_issue_proof: FixedI128::from(0),
-            relayer_target_sla: FixedI128::from(100),
-            relayer_block_submission: FixedI128::from(1),
-            relayer_correct_no_data_vote_or_report: FixedI128::from(1),
-            relayer_correct_invalid_vote_or_report: FixedI128::from(10),
-            relayer_correct_liquidation_report: FixedI128::from(1),
-            relayer_correct_theft_report: FixedI128::from(1),
-            relayer_correct_oracle_offline_report: FixedI128::from(1),
-            relayer_false_no_data_vote_or_report: FixedI128::from(-10),
-            relayer_false_invalid_vote_or_report: FixedI128::from(-100),
-            relayer_ignored_vote: FixedI128::from(-10),
         }
         .assimilate_storage(&mut storage)
         .unwrap();

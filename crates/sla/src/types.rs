@@ -1,3 +1,6 @@
+use crate::Trait;
+use sp_arithmetic::FixedPointNumber;
+
 pub enum VaultEvent<PolkaBTC> {
     RedeemFailure,
     ExecutedIssue(PolkaBTC),
@@ -15,3 +18,5 @@ pub enum RelayerEvent {
     FalseInvalidVoteOrReport,
     IgnoredVote,
 }
+
+pub(crate) type Inner<T> = <<T as Trait>::SignedFixedPoint as FixedPointNumber>::Inner;

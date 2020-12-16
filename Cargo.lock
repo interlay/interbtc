@@ -608,6 +608,7 @@ dependencies = [
  "module-issue-rpc",
  "module-redeem-rpc",
  "module-replace-rpc",
+ "module-sla-rpc",
  "module-staked-relayers-rpc",
  "module-vault-registry-rpc",
  "pallet-transaction-payment-rpc",
@@ -661,6 +662,7 @@ dependencies = [
  "module-issue-rpc-runtime-api",
  "module-redeem-rpc-runtime-api",
  "module-replace-rpc-runtime-api",
+ "module-sla-rpc-runtime-api",
  "module-staked-relayers-rpc-runtime-api",
  "module-vault-registry-rpc-runtime-api",
  "pallet-aura",
@@ -3609,6 +3611,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "module-sla-rpc"
+version = "0.3.0"
+dependencies = [
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "module-exchange-rate-oracle-rpc-runtime-api",
+ "module-sla-rpc-runtime-api",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime",
+]
+
+[[package]]
+name = "module-sla-rpc-runtime-api"
+version = "0.3.0"
+dependencies = [
+ "frame-support",
+ "module-exchange-rate-oracle-rpc-runtime-api",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-std",
+]
+
+[[package]]
 name = "module-staked-relayers-rpc"
 version = "0.3.0"
 dependencies = [
@@ -6310,11 +6339,15 @@ name = "sla"
 version = "0.3.1"
 dependencies = [
  "collateral",
+ "exchange-rate-oracle",
  "frame-support",
  "frame-system",
  "mocktopus",
  "pallet-balances",
+ "pallet-randomness-collective-flip",
+ "pallet-timestamp",
  "parity-scale-codec",
+ "security",
  "serde",
  "sp-arithmetic",
  "sp-core",
@@ -6322,6 +6355,7 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "treasury",
+ "vault-registry",
 ]
 
 [[package]]
@@ -7959,7 +7993,6 @@ dependencies = [
  "primitive-types",
  "security",
  "serde",
- "sla",
  "sp-arithmetic",
  "sp-core",
  "sp-io",

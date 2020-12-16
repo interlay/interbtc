@@ -88,6 +88,13 @@ pub(crate) mod collateral {
     ) -> DispatchResult {
         <collateral::Module<T>>::slash_collateral(sender.clone(), receiver.clone(), amount)
     }
+
+    pub fn release_collateral<T: collateral::Trait>(
+        sender: &T::AccountId,
+        amount: DOT<T>,
+    ) -> DispatchResult {
+        <collateral::Module<T>>::release_collateral(sender, amount)
+    }
 }
 
 #[cfg_attr(test, mockable)]
@@ -158,7 +165,7 @@ pub(crate) mod fee {
         <fee::Module<T>>::get_issue_griefing_collateral(amount)
     }
 
-    pub fn increase_rewards_for_epoch<T: fee::Trait>(amount: PolkaBTC<T>) {
-        <fee::Module<T>>::increase_rewards_for_epoch(amount)
+    pub fn increase_polka_btc_rewards_for_epoch<T: fee::Trait>(amount: PolkaBTC<T>) {
+        <fee::Module<T>>::increase_polka_btc_rewards_for_epoch(amount)
     }
 }

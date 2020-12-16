@@ -303,13 +303,14 @@ impl<T: Trait> Module<T> {
         )?;
 
         ext::vault_registry::issue_tokens::<T>(&issue.vault, total_amount)?;
+        ext::collateral::release_collateral::<T>(&requester, issue.griefing_collateral)?;
 
         // mint polkabtc amount
         ext::treasury::mint::<T>(requester.clone(), issue.amount);
 
         // mint polkabtc fees
         ext::treasury::mint::<T>(ext::fee::fee_pool_account_id::<T>(), issue.fee);
-        ext::fee::increase_rewards_for_epoch::<T>(issue.fee);
+        ext::fee::increase_polka_btc_rewards_for_epoch::<T>(issue.fee);
 
         // if it was a vault that did the execution on behalf of someone else, reward it by
         // increasing its SLA score
@@ -391,7 +392,7 @@ impl<T: Trait> Module<T> {
             .collect::<Vec<_>>()
     }
 
-    fn get_issue_request_from_id(
+    pub fn get_issue_request_from_id(
         issue_id: &H256,
     ) -> Result<IssueRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError>
     {

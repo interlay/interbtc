@@ -87,25 +87,3 @@ pub(crate) mod security {
         <security::Module<T>>::ensure_parachain_does_not_have_errors(error_codes)
     }
 }
-
-#[cfg_attr(test, mockable)]
-pub(crate) mod sla {
-    use crate::types::DOT;
-    use frame_support::dispatch::DispatchError;
-
-    pub fn calculate_slashed_amount<T: sla::Trait>(
-        vault_id: T::AccountId,
-        stake: DOT<T>,
-        liquidation_threshold: u128,
-        premium_redeem_threshold: u128,
-        granularity: u32,
-    ) -> Result<DOT<T>, DispatchError> {
-        <sla::Module<T>>::calculate_slashed_amount(
-            vault_id,
-            stake,
-            liquidation_threshold,
-            premium_redeem_threshold,
-            granularity,
-        )
-    }
-}

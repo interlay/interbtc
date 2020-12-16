@@ -1,4 +1,4 @@
-use crate::{ext, Error, Module, Trait, GRANULARITY};
+use crate::{ext, Error, Module, Trait};
 use codec::{Decode, Encode, HasCompact};
 use frame_support::traits::Currency;
 use frame_support::{
@@ -297,14 +297,7 @@ impl<T: Trait> RichVault<T> {
         liquidation_vault: &mut RichVault<T>,
         status: VaultStatus,
     ) -> DispatchResult {
-        let amount = ext::sla::calculate_slashed_amount::<T>(
-            self.id(),
-            self.get_collateral(),
-            Module::<T>::liquidation_collateral_threshold(),
-            Module::<T>::premium_redeem_threshold(),
-            GRANULARITY,
-        )?;
-        ext::collateral::slash::<T>(&self.id(), &liquidation_vault.id(), amount)?;
+        ext::collateral::slash::<T>(&self.id(), &liquidation_vault.id(), self.get_collateral())?;
         liquidation_vault.force_issue_tokens(self.data.issued_tokens);
         liquidation_vault.force_increase_to_be_issued(self.data.to_be_issued_tokens);
         liquidation_vault.force_increase_to_be_redeemed(self.data.to_be_redeemed_tokens);
