@@ -656,8 +656,7 @@ fn test_cancel_redeem_succeeds() {
             assert_eq!(vault, BOB);
             MockResult::Return(Ok(()))
         });
-        ext::sla::calculate_slashed_amount::<Test>
-            .mock_safe(move |_, _, _, _, _| MockResult::Return(Ok(0)));
+        ext::sla::calculate_slashed_amount::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(0)));
         ext::collateral::slash_collateral::<Test>
             .mock_safe(move |_, _, _| MockResult::Return(Ok(())));
 
