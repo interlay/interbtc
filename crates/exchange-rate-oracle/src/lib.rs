@@ -39,6 +39,15 @@ pub(crate) type DOT<T> =
 pub(crate) type PolkaBTC<T> =
     <<T as treasury::Trait>::PolkaBTC as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
 
+/// Storage version.
+#[derive(Encode, Decode, Eq, PartialEq)]
+pub enum Version {
+    /// Initial version.
+    V0,
+    /// BtcAddress type with script format.
+    V1,
+}
+
 pub trait WeightInfo {
     fn set_exchange_rate() -> Weight;
     fn set_btc_tx_fees_per_byte() -> Weight;
@@ -99,6 +108,9 @@ decl_storage! {
 
         // Oracles allowed to set the exchange rate, maps to the name
         AuthorizedOracles get(fn authorized_oracles) config(): map hasher(blake2_128_concat) T::AccountId => Vec<u8>;
+
+        /// Build storage at V1 (requires default 0).
+        StorageVersion get(fn storage_version) build(|_| Version::V1): Version = Version::V0;
     }
 }
 
@@ -109,6 +121,31 @@ decl_module! {
 
         // Errors must be initialized if they are used by the pallet.
         type Error = Error<T>;
+
+        /// Upgrade the runtime depending on the current `StorageVersion`.
+        fn on_runtime_upgrade() -> Weight {
+            use frame_support::{Twox128, StorageHasher, migration::take_storage_item};
+            use sp_std::vec;
+
+            if Self::storage_version() == Version::V0 {
+
+                fn take_storage_value<T: Decode + Sized>(module: &[u8], item: &[u8]) -> Option<T> {
+                    let mut key = vec![0u8; 32];
+                    key[0..16].copy_from_slice(&Twox128::hash(module));
+                    key[16..32].copy_from_slice(&Twox128::hash(item));
+                    frame_support::storage::unhashed::take::<T>(&key)
+                }
+
+                if let Some(account_id) = take_storage_value::<T::AccountId>(b"ExchangeRateOracle", b"AuthorizedOracle") {
+                    let name = take_storage_item::<T::AccountId, Vec<u8>, Twox128>(b"ExchangeRateOracle", b"OracleNames", account_id.clone()).unwrap_or(vec![]);
+                    <AuthorizedOracles<T>>::insert(account_id, name);
+                }
+
+                StorageVersion::put(Version::V1);
+            }
+
+            0
+        }
 
         #[weight = <T as Trait>::WeightInfo::set_exchange_rate()]
         pub fn set_exchange_rate(origin, btc_dot: u128) -> DispatchResult {
