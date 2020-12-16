@@ -88,6 +88,13 @@ pub(crate) mod collateral {
     ) -> DispatchResult {
         <collateral::Module<T>>::slash_collateral(sender.clone(), receiver.clone(), amount)
     }
+
+    pub fn release_collateral<T: collateral::Trait>(
+        sender: &T::AccountId,
+        amount: DOT<T>,
+    ) -> DispatchResult {
+        <collateral::Module<T>>::release_collateral(sender, amount)
+    }
 }
 
 #[cfg_attr(test, mockable)]

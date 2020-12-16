@@ -7959,7 +7959,6 @@ dependencies = [
  "primitive-types",
  "security",
  "serde",
- "sla",
  "sp-arithmetic",
  "sp-core",
  "sp-io",

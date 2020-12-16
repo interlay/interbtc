@@ -30,6 +30,7 @@ use frame_system::ensure_signed;
 use sp_arithmetic::traits::*;
 use sp_arithmetic::FixedPointNumber;
 use sp_std::convert::TryInto;
+use sp_std::vec::*;
 use types::{Inner, PolkaBTC, UnsignedFixedPoint, DOT};
 
 /// The pallet's configuration trait.
@@ -110,12 +111,23 @@ decl_storage! {
     }
     add_extra_genesis {
         // don't allow an invalid reward distribution
-        build(|config| Module::<T>::ensure_rewards_are_valid(
-            config.vault_rewards,
-            config.relayer_rewards,
-            config.maintainer_rewards,
-            config.collator_rewards,
-        ).unwrap())
+        build(|config| {
+            Module::<T>::ensure_rationals_sum_to_one(
+                vec![
+                    config.vault_rewards,
+                    config.relayer_rewards,
+                    config.maintainer_rewards,
+                    config.collator_rewards,
+                ]
+            ).unwrap();
+
+            Module::<T>::ensure_rationals_sum_to_one(
+                vec![
+                    config.vault_rewards_issued,
+                    config.vault_rewards_locked,
+                ]
+            ).unwrap();
+        })
     }
 }
 
@@ -300,17 +312,14 @@ impl<T: Trait> Module<T> {
     }
 
     #[allow(dead_code)]
-    fn ensure_rewards_are_valid(
-        vault: UnsignedFixedPoint<T>,
-        relayer: UnsignedFixedPoint<T>,
-        maintainer: UnsignedFixedPoint<T>,
-        collator: UnsignedFixedPoint<T>,
-    ) -> DispatchResult {
-        let total = vault + relayer + maintainer + collator;
+    fn ensure_rationals_sum_to_one(dist: Vec<UnsignedFixedPoint<T>>) -> DispatchResult {
+        let sum = dist
+            .iter()
+            .fold(UnsignedFixedPoint::<T>::default(), |a, &b| a + b);
         let one =
             UnsignedFixedPoint::<T>::checked_from_integer(Module::<T>::btc_to_inner(1.into())?)
                 .ok_or(Error::<T>::ArithmeticOverflow)?;
-        ensure!(total == one, Error::<T>::InvalidRewardDist);
+        ensure!(sum == one, Error::<T>::InvalidRewardDist);
         Ok(())
     }
 

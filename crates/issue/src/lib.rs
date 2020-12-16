@@ -303,6 +303,7 @@ impl<T: Trait> Module<T> {
         )?;
 
         ext::vault_registry::issue_tokens::<T>(&issue.vault, total_amount)?;
+        ext::collateral::release_collateral::<T>(&requester, issue.griefing_collateral)?;
 
         // mint polkabtc amount
         ext::treasury::mint::<T>(requester.clone(), issue.amount);
@@ -391,7 +392,7 @@ impl<T: Trait> Module<T> {
             .collect::<Vec<_>>()
     }
 
-    fn get_issue_request_from_id(
+    pub fn get_issue_request_from_id(
         issue_id: &H256,
     ) -> Result<IssueRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError>
     {

@@ -560,14 +560,10 @@ fn liquidate_succeeds() {
         <crate::LiquidationVault<Test>>::put(liquidation_id);
         set_default_thresholds();
 
-        let expected_slashed_amount = (DEFAULT_COLLATERAL
-            * VaultRegistry::_get_premium_redeem_threshold())
-            / 10u128.pow(GRANULARITY);
-
         ext::collateral::slash::<Test>.mock_safe(move |sender, receiver, amount| {
             assert_eq!(sender, &id);
             assert_eq!(receiver, &liquidation_id);
-            assert_eq!(amount, expected_slashed_amount);
+            assert_eq!(amount, DEFAULT_COLLATERAL);
             MockResult::Return(Ok(()))
         });
 
@@ -609,14 +605,10 @@ fn liquidate_with_status_succeeds() {
         <crate::LiquidationVault<Test>>::put(liquidation_id);
         set_default_thresholds();
 
-        let expected_slashed_amount = (DEFAULT_COLLATERAL
-            * VaultRegistry::_get_premium_redeem_threshold())
-            / 10u128.pow(GRANULARITY);
-
         ext::collateral::slash::<Test>.mock_safe(move |sender, receiver, amount| {
             assert_eq!(sender, &id);
             assert_eq!(receiver, &liquidation_id);
-            assert_eq!(amount, expected_slashed_amount);
+            assert_eq!(amount, DEFAULT_COLLATERAL);
             MockResult::Return(Ok(()))
         });
 

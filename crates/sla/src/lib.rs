@@ -294,6 +294,11 @@ impl<T: Trait> Module<T> {
         )
     }
 
+    /// Explicitly set the vault's SLA score, used in tests.
+    pub fn set_vault_sla(vault_id: T::AccountId, sla: SignedFixedPoint<T>) {
+        <VaultSla<T>>::insert(vault_id.clone(), sla);
+    }
+
     // Private functions internal to this pallet
 
     /// Calculate the amount that is slashed when the the vault fails to execute; See the
@@ -312,9 +317,9 @@ impl<T: Trait> Module<T> {
         // basic formula we use is:
         // result = stake * (premium_redeem_threshold - (current_sla / max_sla) * range);
         // however, we multiply by (max_sla / max_sla) to eliminate one division operator:
-        // result = stake * ((premium_redeem_threshold*max_sla - current_sla * range) / max_sla)
+        // result = stake * ((premium_redeem_threshold * max_sla - current_sla * range) / max_sla)
         let calculate_slashed_collateral = || {
-            // let numerator = premium_redeem_threshold*max_sla - current_sla*range;
+            // let numerator = premium_redeem_threshold * max_sla - current_sla * range;
             let numerator = T::SignedFixedPoint::checked_sub(
                 &premium_redeem_threshold.checked_mul(&max_sla)?,
                 &current_sla.checked_mul(&range)?,
