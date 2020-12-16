@@ -57,6 +57,28 @@ version = '2.0.0'
 default-features = false
 path = '../treasury'
 
+[dependencies.vault-registry]
+default-features = false
+path = '../vault-registry'
+
+[dependencies.exchange-rate-oracle]
+default-features = false
+path = '../exchange-rate-oracle'
+
+[dependencies.pallet-randomness-collective-flip]
+default-features = false
+package = 'pallet-randomness-collective-flip'
+version = '2.0.0'
+
+[dependencies.security]
+default-features = false
+path = '../security'
+
+[dependencies.pallet-timestamp]
+default-features = false
+package = 'pallet-timestamp'
+version = '2.0.0'
+
 [dev-dependencies]
 mocktopus = '0.7.0'
 
@@ -71,7 +93,11 @@ std = [
 	'sp-io/std',
 	'sp-runtime/std',
 	'collateral/std',
+	'vault-registry/std',
 	'sp-std/std',
 	'frame-system/std',
 	'pallet-balances/std',
+	'security/std',
+	'exchange-rate-oracle/std',
+    'pallet-timestamp/std',
 ]

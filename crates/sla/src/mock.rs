@@ -32,7 +32,10 @@ impl_outer_event! {
         collateral<T>,
         pallet_balances Instance1<T>,
         pallet_balances Instance2<T>,
+        vault_registry<T>,
+        exchange_rate_oracle<T>,
         treasury<T>,
+        security,
     }
 }
 
@@ -132,6 +135,32 @@ impl collateral::Trait for Test {
 impl treasury::Trait for Test {
     type Event = TestEvent;
     type PolkaBTC = pallet_balances::Module<Test, pallet_balances::Instance2>;
+}
+
+impl vault_registry::Trait for Test {
+    type Event = TestEvent;
+    type RandomnessSource = pallet_randomness_collective_flip::Module<Test>;
+    type WeightInfo = ();
+}
+
+impl exchange_rate_oracle::Trait for Test {
+    type Event = TestEvent;
+    type WeightInfo = ();
+}
+
+impl security::Trait for Test {
+    type Event = TestEvent;
+}
+
+parameter_types! {
+    pub const MinimumPeriod: u64 = 5;
+}
+
+impl pallet_timestamp::Trait for Test {
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = MinimumPeriod;
+    type WeightInfo = ();
 }
 
 impl Trait for Test {

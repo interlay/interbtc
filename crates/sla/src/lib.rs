@@ -36,7 +36,9 @@ pub(crate) type PolkaBTC<T> =
 pub(crate) type SignedFixedPoint<T> = <T as Trait>::SignedFixedPoint;
 
 /// The pallet's configuration trait.
-pub trait Trait: frame_system::Trait + collateral::Trait + treasury::Trait {
+pub trait Trait:
+    frame_system::Trait + collateral::Trait + treasury::Trait + vault_registry::Trait
+{
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 
@@ -50,12 +52,8 @@ decl_storage! {
         VaultSla get(fn vault_sla): map hasher(blake2_128_concat) T::AccountId => T::SignedFixedPoint;
         RelayerSla get(fn relayer_sla): map hasher(blake2_128_concat) T::AccountId => T::SignedFixedPoint;
 
-        // total amount issued by each vault, which is used in calculating SLA update, and in reward calculation
-        VaultTotalIssuedAmount get(fn vault_total_issued_amount): map hasher(blake2_128_concat) T::AccountId => PolkaBTC<T>;
-
-        // total amount issued by all vaults together; used for calculating the average issue size,
+        // number of issues executed by all vaults together; used for calculating the average issue size,
         // which is used in SLA updates
-        TotalIssuedAmount: PolkaBTC<T>;
         TotalIssueCount: u32;
 
         // sum of all relayer scores, used in relayer reward calculation
@@ -126,9 +124,7 @@ impl<T: Trait> Module<T> {
         let delta_sla = match event {
             VaultEvent::RedeemFailure => <VaultRedeemFailure<T>>::get(),
             VaultEvent::SubmittedIssueProof => <VaultSubmittedIssueProof<T>>::get(),
-            VaultEvent::ExecutedIssue(amount) => {
-                Self::_executed_issue_sla_change(amount, &vault_id)?
-            }
+            VaultEvent::ExecutedIssue(amount) => Self::_executed_issue_sla_change(amount)?,
         };
 
         let new_sla = current_sla
@@ -196,14 +192,16 @@ impl<T: Trait> Module<T> {
         total_reward_for_issued: PolkaBTC<T>,
         total_reward_for_locked: PolkaBTC<T>,
     ) -> Result<Vec<(T::AccountId, PolkaBTC<T>)>, DispatchError> {
-        let total_issued = Self::polkabtc_to_u128(<TotalIssuedAmount<T>>::get())?;
+        let total_issued = Self::polkabtc_to_u128(ext::treasury::get_total_supply::<T>())?;
         let total_locked = Self::dot_to_u128(ext::collateral::get_total_collateral::<T>())?;
 
         let total_reward_for_issued = Self::polkabtc_to_u128(total_reward_for_issued)?;
         let total_reward_for_locked = Self::polkabtc_to_u128(total_reward_for_locked)?;
 
-        let calculate_reward = |account_id, issued_amount| {
+        let calculate_reward = |account_id: T::AccountId| {
             // each vault gets total_reward * (issued_amount / total_issued).
+            let issued_amount =
+                ext::vault_registry::get_vault_from_id::<T>(&account_id)?.issued_tokens;
             let issued_amount = Self::polkabtc_to_u128(issued_amount)?;
             let issued_reward = issued_amount
                 .checked_mul(total_reward_for_issued)
@@ -222,13 +220,8 @@ impl<T: Trait> Module<T> {
             Result::<_, DispatchError>::Ok(Self::u128_to_polkabtc(issued_reward + locked_reward)?)
         };
 
-        <VaultTotalIssuedAmount<T>>::iter()
-            .map(|(account_id, relayer_issue_amount)| {
-                Ok((
-                    account_id.clone(),
-                    calculate_reward(account_id.clone(), relayer_issue_amount)?,
-                ))
-            })
+        <VaultSla<T>>::iter()
+            .map(|(account_id, _)| Ok((account_id.clone(), calculate_reward(account_id.clone())?)))
             .collect()
     }
 
@@ -344,34 +337,22 @@ impl<T: Trait> Module<T> {
     /// * `vault_id` - account of the vault
     fn _executed_issue_sla_change(
         amount: PolkaBTC<T>,
-        vault_id: &T::AccountId,
     ) -> Result<T::SignedFixedPoint, DispatchError> {
-        // update account total
-        let account_total = <VaultTotalIssuedAmount<T>>::get(vault_id.clone());
-        let new_account_total = amount
-            .checked_add(&account_total)
-            .ok_or(Error::<T>::MathError)?;
-        <VaultTotalIssuedAmount<T>>::insert(vault_id.clone(), new_account_total);
-
-        // read average
-        let mut total = <TotalIssuedAmount<T>>::get();
+        // update the number of issues performed
         let mut count = <TotalIssueCount>::get();
-        // update average
-        total = total.checked_add(&amount).ok_or(Error::<T>::MathError)?;
         count = count.checked_add(1).ok_or(Error::<T>::MathError)?;
-        // write back
-        <TotalIssuedAmount<T>>::set(total);
         <TotalIssueCount>::set(count);
 
+        let total = ext::treasury::get_total_supply::<T>();
         let average = total / count.into();
 
         let max_sla_change = <VaultExecutedIssueMaxSlaChange<T>>::get();
 
         // increase = (amount / average) * max_sla_change
-        let total_raw = Self::polkabtc_to_u128(total)?;
+        let amount_raw = Self::polkabtc_to_u128(amount)?;
         let average_raw = Self::polkabtc_to_u128(average)?;
 
-        let fraction = T::SignedFixedPoint::checked_from_rational(total_raw, average_raw)
+        let fraction = T::SignedFixedPoint::checked_from_rational(amount_raw, average_raw)
             .ok_or(Error::<T>::TryIntoIntError)?;
         let potential_sla_increase = fraction
             .checked_mul(&max_sla_change)

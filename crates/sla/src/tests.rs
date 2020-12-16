@@ -2,7 +2,10 @@ use crate::ext;
 use crate::mock::*;
 use crate::sp_api_hidden_includes_decl_storage::hidden_include::StorageMap;
 use crate::sp_api_hidden_includes_decl_storage::hidden_include::StorageValue;
-use crate::{types::RelayerEvent, RelayerSla, TotalRelayerScore};
+use crate::{
+    types::{RelayerEvent, VaultEvent},
+    RelayerSla, TotalRelayerScore,
+};
 
 use mocktopus::mocking::*;
 use sp_arithmetic::{FixedI128, FixedPointNumber};
@@ -68,6 +71,38 @@ fn test_calculate_slashed_amount_big_stake() {
                 FixedI128::checked_from_rational(200000000000000u128, 100).unwrap(),
             ),
             Ok(Sla::u128_to_dot(u64::MAX as u128).unwrap()),
+        );
+    })
+}
+
+#[test]
+fn test_event_update_vault_sla_succeeds() {
+    run_test(|| {
+        let amount = 100u64;
+        ext::collateral::get_collateral_from_account::<Test>
+            .mock_safe(|_| MockResult::Return(ALICE_STAKE.into()));
+        ext::treasury::get_total_supply::<Test>.mock_safe(move || MockResult::Return(amount));
+
+        Sla::event_update_vault_sla(ALICE, VaultEvent::ExecutedIssue(amount)).unwrap();
+        assert_eq!(
+            <crate::VaultSla<Test>>::get(ALICE),
+            <crate::VaultExecutedIssueMaxSlaChange<Test>>::get()
+        );
+    })
+}
+
+#[test]
+fn test_event_update_vault_sla_half_size_increase() {
+    run_test(|| {
+        let amount = 100u64;
+        ext::collateral::get_collateral_from_account::<Test>
+            .mock_safe(|_| MockResult::Return(ALICE_STAKE.into()));
+        ext::treasury::get_total_supply::<Test>.mock_safe(move || MockResult::Return(amount * 2));
+
+        Sla::event_update_vault_sla(ALICE, VaultEvent::ExecutedIssue(amount)).unwrap();
+        assert_eq!(
+            <crate::VaultSla<Test>>::get(ALICE),
+            <crate::VaultExecutedIssueMaxSlaChange<Test>>::get() / FixedI128::from(2)
         );
     })
 }
