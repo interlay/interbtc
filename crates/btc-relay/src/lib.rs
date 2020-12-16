@@ -113,7 +113,7 @@ decl_storage! {
         /// of the entry is the index into `ChainsIndex` to retrieve the `BlockChain`.
         Chains: map hasher(blake2_128_concat) u32 => Option<u32>;
 
-        /// Auxiliary mapping of chains ids to `BlockChain` entries. The first index into this 
+        /// Auxiliary mapping of chains ids to `BlockChain` entries. The first index into this
         /// mapping (0) is considered to be the Bitcoin main chain.
         ChainsIndex: map hasher(blake2_128_concat) u32 => Option<BlockChain>;
 
@@ -791,17 +791,17 @@ impl<T: Trait> Module<T> {
         let mut chains = <Chains>::iter().collect::<Vec<(u32, u32)>>();
         chains.sort_by_key(|k| k.0);
 
-        // get the head (last) index stored in the list
-        let head_index = match chains.len() {
+        // get the last position as stored in the list
+        let last_pos = match chains.len() {
             0 => return Err(Error::<T>::ForkIdNotFound.into()),
             // chains stores (position, index)
-            n => chains[n - 1].1,
+            n => chains[n - 1].0,
         };
-        Self::swap_chain(position, head_index);
+        Self::swap_chain(position, last_pos);
         // don't remove main chain id
-        if head_index > 0 {
-            // remove the header (now the value at the initial position)
-            <Chains>::remove(head_index);
+        if last_pos > 0 {
+            // remove the old head (now the value at the initial position)
+            <Chains>::remove(last_pos);
         }
         Ok(())
     }
@@ -1184,13 +1184,14 @@ impl<T: Trait> Module<T> {
             // get the previous position
             let prev_position = current_position - 1;
             // get the blockchain id
-            let prev_blockchain_id = if let Ok(chain_id) = Self::get_chain_id_from_position(prev_position) {
-                chain_id
-            } else {
-                // swap chain positions if previous doesn't exist and retry
-                Self::swap_chain(prev_position, current_position);
-                continue;
-            };
+            let prev_blockchain_id =
+                if let Ok(chain_id) = Self::get_chain_id_from_position(prev_position) {
+                    chain_id
+                } else {
+                    // swap chain positions if previous doesn't exist and retry
+                    Self::swap_chain(prev_position, current_position);
+                    continue;
+                };
 
             // get the previous blockchain height
             let prev_height = Self::get_block_chain_from_id(prev_blockchain_id)?.max_height;
@@ -1214,7 +1215,6 @@ impl<T: Trait> Module<T> {
                             block_height,
                             fork_depth,
                         ));
-
                     } else {
                         Self::deposit_event(Event::ForkAheadOfMainChain(
                             prev_height,     // main chain height

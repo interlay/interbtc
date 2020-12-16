@@ -1930,8 +1930,8 @@ fn test_extract_value_and_op_return_succeeds() {
 
 #[test]
 fn test_check_and_do_reorg() {
-    use crate::{Chains, ChainsIndex};
     use crate::sp_api_hidden_includes_decl_storage::hidden_include::StorageMap;
+    use crate::{Chains, ChainsIndex};
     use bitcoin::types::BlockChain;
     use sp_std::collections::btree_set::BTreeSet;
 
@@ -1940,57 +1940,91 @@ fn test_check_and_do_reorg() {
         Chains::insert(0, 0);
         Chains::insert(2, 7);
 
-        ChainsIndex::insert(0, BlockChain {
-            chain_id: 0,
-            start_height: 1_892_642,
-            max_height: 1_897_317,
-            no_data: BTreeSet::new(),
-            invalid: BTreeSet::new(),
-        });
+        ChainsIndex::insert(
+            0,
+            BlockChain {
+                chain_id: 0,
+                start_height: 1_892_642,
+                max_height: 1_897_317,
+                no_data: BTreeSet::new(),
+                invalid: BTreeSet::new(),
+            },
+        );
 
-        ChainsIndex::insert(2, BlockChain {
-            chain_id: 2,
-            start_height: 1_893_831,
-            max_height: 1_893_831,
-            no_data: BTreeSet::new(),
-            invalid: BTreeSet::new(),
-        });
-        
-        ChainsIndex::insert(4, BlockChain {
-            chain_id: 4,
-            start_height: 1_895_256,
-            max_height: 1_895_256,
-            no_data: BTreeSet::new(),
-            invalid: BTreeSet::new(),
-        });
+        ChainsIndex::insert(
+            2,
+            BlockChain {
+                chain_id: 2,
+                start_height: 1_893_831,
+                max_height: 1_893_831,
+                no_data: BTreeSet::new(),
+                invalid: BTreeSet::new(),
+            },
+        );
 
-        ChainsIndex::insert(6, BlockChain {
-            chain_id: 6,
-            start_height: 1_896_846,
-            max_height: 1_896_846,
-            no_data: BTreeSet::new(),
-            invalid: BTreeSet::new(),
-        });
+        ChainsIndex::insert(
+            4,
+            BlockChain {
+                chain_id: 4,
+                start_height: 1_895_256,
+                max_height: 1_895_256,
+                no_data: BTreeSet::new(),
+                invalid: BTreeSet::new(),
+            },
+        );
 
-        ChainsIndex::insert(7, BlockChain {
-            chain_id: 7,
-            start_height: 1_897_317,
-            max_height: 1_897_910,
-            no_data: BTreeSet::new(),
-            invalid: BTreeSet::new(),
-        });
+        ChainsIndex::insert(
+            6,
+            BlockChain {
+                chain_id: 6,
+                start_height: 1_896_846,
+                max_height: 1_896_846,
+                no_data: BTreeSet::new(),
+                invalid: BTreeSet::new(),
+            },
+        );
+
+        ChainsIndex::insert(
+            7,
+            BlockChain {
+                chain_id: 7,
+                start_height: 1_897_317,
+                max_height: 1_897_910,
+                no_data: BTreeSet::new(),
+                invalid: BTreeSet::new(),
+            },
+        );
 
         BTCRelay::swap_main_blockchain.mock_safe(|_| MockResult::Return(Ok(())));
 
         // we should skip empty `Chains`, this can occur if the
         // previous index is accidentally deleted
-        BTCRelay::check_and_do_reorg(&BlockChain {
+        assert_ok!(BTCRelay::check_and_do_reorg(&BlockChain {
             chain_id: 7,
             start_height: 1_897_317,
             max_height: 1_897_910,
             no_data: BTreeSet::new(),
             invalid: BTreeSet::new(),
-        }).unwrap();
+        }));
+    })
+}
+
+#[test]
+fn test_remove_blockchain_from_chain() {
+    use crate::sp_api_hidden_includes_decl_storage::hidden_include::IterableStorageMap;
+    use crate::sp_api_hidden_includes_decl_storage::hidden_include::StorageMap;
+    use crate::Chains;
+
+    run_test(|| {
+        Chains::insert(0, 0);
+        Chains::insert(8, 5);
+        Chains::insert(2, 7);
+
+        assert_ok!(BTCRelay::remove_blockchain_from_chain(2));
+
+        let mut chains = <Chains>::iter().collect::<Vec<(u32, u32)>>();
+        chains.sort_by_key(|k| k.0);
+        assert_eq!(chains, vec![(0, 0), (2, 5)]);
     })
 }
 
