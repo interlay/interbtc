@@ -9,7 +9,6 @@ use crate::types::BtcAddress;
 use crate::GRANULARITY;
 use crate::{Vault, VaultStatus, Wallet};
 use crate::{H160, H256};
-use btc_relay::BtcAddress;
 use frame_support::{assert_err, assert_noop, assert_ok, StorageMap, StorageValue};
 use mocktopus::mocking::*;
 use sp_runtime::traits::Header;
