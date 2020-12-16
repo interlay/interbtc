@@ -19,7 +19,7 @@ use mocktopus::macros::mockable;
 mod ext;
 pub mod types;
 
-use crate::types::{RelayerEvent, VaultEvent};
+use crate::types::{Inner, RelayerEvent, VaultEvent};
 use codec::{Decode, Encode, EncodeLike};
 use frame_support::traits::Currency;
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError};
@@ -385,17 +385,17 @@ impl<T: Trait> Module<T> {
         <TotalIssueCount>::set(count);
 
         let total = ext::treasury::get_total_supply::<T>();
-        let average = total / count.into();
+        let total_raw = Self::polkabtc_to_u128(total)?;
+        let average = T::SignedFixedPoint::checked_from_rational(total_raw, count)
+            .ok_or(Error::<T>::TryIntoIntError)?;
 
         let max_sla_change = <VaultExecutedIssueMaxSlaChange<T>>::get();
 
         // increase = (amount / average) * max_sla_change
-        let amount_raw = Self::polkabtc_to_u128(amount)?;
-        let average_raw = Self::polkabtc_to_u128(average)?;
-
-        let fraction = T::SignedFixedPoint::checked_from_rational(amount_raw, average_raw)
-            .ok_or(Error::<T>::TryIntoIntError)?;
-        let potential_sla_increase = fraction
+        let amount = Self::polkabtc_to_fixed_point(amount)?;
+        let potential_sla_increase = amount
+            .checked_div(&average)
+            .ok_or(Error::<T>::MathError)?
             .checked_mul(&max_sla_change)
             .ok_or(Error::<T>::MathError)?;
 
@@ -496,6 +496,12 @@ impl<T: Trait> Module<T> {
 
     fn u128_to_polkabtc(x: u128) -> Result<PolkaBTC<T>, DispatchError> {
         TryInto::<PolkaBTC<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
+    }
+
+    fn polkabtc_to_fixed_point(x: PolkaBTC<T>) -> Result<T::SignedFixedPoint, DispatchError> {
+        let y = TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError)?;
+        let inner = TryInto::<Inner<T>>::try_into(y).map_err(|_| Error::<T>::TryIntoIntError)?;
+        Ok(T::SignedFixedPoint::checked_from_integer(inner).ok_or(Error::<T>::TryIntoIntError)?)
     }
 }
 
