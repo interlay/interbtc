@@ -98,14 +98,6 @@ pub(crate) mod vault_registry {
     ) -> Result<bool, DispatchError> {
         <vault_registry::Module<T>>::_is_vault_below_premium_threshold(&vault_id)
     }
-
-    pub fn liquidation_collateral_threshold<T: vault_registry::Trait>() -> u128 {
-        <vault_registry::Module<T>>::liquidation_collateral_threshold()
-    }
-
-    pub fn premium_redeem_threshold<T: vault_registry::Trait>() -> u128 {
-        <vault_registry::Module<T>>::premium_redeem_threshold()
-    }
 }
 
 #[cfg_attr(test, mockable)]
@@ -138,17 +130,8 @@ pub(crate) mod sla {
     pub fn calculate_slashed_amount<T: sla::Trait>(
         vault_id: T::AccountId,
         stake: DOT<T>,
-        liquidation_threshold: u128,
-        premium_redeem_threshold: u128,
-        granularity: u32,
     ) -> Result<DOT<T>, DispatchError> {
-        <sla::Module<T>>::calculate_slashed_amount(
-            vault_id,
-            stake,
-            liquidation_threshold,
-            premium_redeem_threshold,
-            granularity,
-        )
+        <sla::Module<T>>::calculate_slashed_amount(vault_id, stake)
     }
 }
 

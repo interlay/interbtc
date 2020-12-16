@@ -216,10 +216,7 @@ decl_module! {
             // calculate additional amount to slash, a high SLA means we slash less
             let slashing_amount_in_dot = ext::sla::calculate_slashed_amount::<T>(
                 redeem.vault.clone(),
-                amount_polka_btc_in_dot,
-                ext::vault_registry::liquidation_collateral_threshold::<T>(),
-                ext::vault_registry::premium_redeem_threshold::<T>(),
-                ext::vault_registry::GRANULARITY
+                amount_polka_btc_in_dot
             )?;
 
             let slashing_amount_in_dot = if reimburse {

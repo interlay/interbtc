@@ -119,5 +119,8 @@ path = "../crates/redeem/rpc"
 [dependencies.module-replace-rpc]
 path = "../crates/replace/rpc"
 
+[dependencies.module-sla-rpc]
+path = "../crates/sla/rpc"
+
 [build-dependencies.substrate-build-script-utils]
 version = '2.0.0'

@@ -303,22 +303,19 @@ impl<T: Trait> Module<T> {
     ///
     /// * `vault_id` - account of the vault in question
     /// * `stake` - the amount of collateral placed for the redeem/replace
-    /// * `liquidation_threshold` - liquidation threshold, scaled by `granularity`
-    /// * `premium_redeem_threshold` - premium redeem threshold, scaled by `granularity`
-    /// * `granularity` - scale factor of the thresholds, e.g. a threshold of 10^granularity would indicate 100%
     pub fn calculate_slashed_amount(
         vault_id: T::AccountId,
         stake: DOT<T>,
-        liquidation_threshold: u128,
-        premium_redeem_threshold: u128,
-        granularity: u32,
     ) -> Result<DOT<T>, DispatchError> {
         let current_sla = <VaultSla<T>>::get(vault_id);
 
         let liquidation_threshold =
-            Self::_threshold_to_fixed_point(liquidation_threshold, granularity)?;
+            ext::vault_registry::get_liquidation_collateral_threshold::<T>();
+        let liquidation_threshold =
+            Self::_threshold_to_fixed_point(liquidation_threshold, vault_registry::GRANULARITY)?;
+        let premium_redeem_threshold = ext::vault_registry::get_premium_redeem_threshold::<T>();
         let premium_redeem_threshold =
-            Self::_threshold_to_fixed_point(premium_redeem_threshold, granularity)?;
+            Self::_threshold_to_fixed_point(premium_redeem_threshold, vault_registry::GRANULARITY)?;
 
         Self::_calculate_slashed_amount(
             current_sla,
@@ -336,8 +333,8 @@ impl<T: Trait> Module<T> {
     // Private functions internal to this pallet
 
     /// Calculate the amount that is slashed when the the vault fails to execute; See the
-    /// documentation of calculate_slashed_amount; this function differs only in the types
-    /// of the thresholds.
+    /// documentation of calculate_slashed_amount; this function differs only in that it has
+    /// the thesholds are parameters.
     fn _calculate_slashed_amount(
         current_sla: SignedFixedPoint<T>,
         stake: DOT<T>,
