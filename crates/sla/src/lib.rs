@@ -189,39 +189,72 @@ impl<T: Trait> Module<T> {
     /// total_reward_for_issued * (Vault issued PolkaBTC / total issued PolkaBTC), and
     /// total_reward_for_locked * (Vault locked DOT / total locked DOT)
     pub fn get_vault_rewards(
-        total_reward_for_issued: PolkaBTC<T>,
-        total_reward_for_locked: PolkaBTC<T>,
-    ) -> Result<Vec<(T::AccountId, PolkaBTC<T>)>, DispatchError> {
+        total_reward_for_issued_in_polka_btc: PolkaBTC<T>,
+        total_reward_for_locked_in_polka_btc: PolkaBTC<T>,
+        total_reward_for_issued_in_dot: DOT<T>,
+        total_reward_for_locked_in_dot: DOT<T>,
+    ) -> Result<Vec<(T::AccountId, PolkaBTC<T>, DOT<T>)>, DispatchError> {
         let total_issued = Self::polkabtc_to_u128(ext::treasury::get_total_supply::<T>())?;
         let total_locked = Self::dot_to_u128(ext::collateral::get_total_collateral::<T>())?;
 
-        let total_reward_for_issued = Self::polkabtc_to_u128(total_reward_for_issued)?;
-        let total_reward_for_locked = Self::polkabtc_to_u128(total_reward_for_locked)?;
+        let total_reward_for_issued_in_polka_btc =
+            Self::polkabtc_to_u128(total_reward_for_issued_in_polka_btc)?;
+        let total_reward_for_locked_in_polka_btc =
+            Self::polkabtc_to_u128(total_reward_for_locked_in_polka_btc)?;
+
+        let total_reward_for_issued_in_dot = Self::dot_to_u128(total_reward_for_issued_in_dot)?;
+        let total_reward_for_locked_in_dot = Self::dot_to_u128(total_reward_for_locked_in_dot)?;
 
         let calculate_reward = |account_id: T::AccountId| {
             // each vault gets total_reward * (issued_amount / total_issued).
             let issued_amount =
                 ext::vault_registry::get_vault_from_id::<T>(&account_id)?.issued_tokens;
             let issued_amount = Self::polkabtc_to_u128(issued_amount)?;
-            let issued_reward = issued_amount
-                .checked_mul(total_reward_for_issued)
+            let issued_reward_in_polka_btc = issued_amount
+                .checked_mul(total_reward_for_issued_in_polka_btc)
+                .ok_or(Error::<T>::MathError)?
+                .checked_div(total_issued)
+                .ok_or(Error::<T>::MathError)?;
+
+            let issued_reward_in_dot = issued_amount
+                .checked_mul(total_reward_for_issued_in_dot)
                 .ok_or(Error::<T>::MathError)?
                 .checked_div(total_issued)
                 .ok_or(Error::<T>::MathError)?;
 
             let locked_amount = ext::collateral::get_collateral_from_account::<T>(account_id);
             let locked_amount = Self::dot_to_u128(locked_amount)?;
-            let locked_reward = locked_amount
-                .checked_mul(total_reward_for_locked)
+            let locked_reward_in_polka_btc = locked_amount
+                .checked_mul(total_reward_for_locked_in_polka_btc)
                 .ok_or(Error::<T>::MathError)?
                 .checked_div(total_locked)
                 .ok_or(Error::<T>::MathError)?;
 
-            Result::<_, DispatchError>::Ok(Self::u128_to_polkabtc(issued_reward + locked_reward)?)
+            let locked_reward_in_dot = locked_amount
+                .checked_mul(total_reward_for_locked_in_dot)
+                .ok_or(Error::<T>::MathError)?
+                .checked_div(total_locked)
+                .ok_or(Error::<T>::MathError)?;
+
+            Result::<_, DispatchError>::Ok((
+                Self::u128_to_polkabtc(
+                    issued_reward_in_polka_btc
+                        .checked_add(locked_reward_in_polka_btc)
+                        .ok_or(Error::<T>::MathError)?,
+                )?,
+                Self::u128_to_dot(
+                    issued_reward_in_dot
+                        .checked_add(locked_reward_in_dot)
+                        .ok_or(Error::<T>::MathError)?,
+                )?,
+            ))
         };
 
         <VaultSla<T>>::iter()
-            .map(|(account_id, _)| Ok((account_id.clone(), calculate_reward(account_id.clone())?)))
+            .map(|(account_id, _)| {
+                let (polka_btc, dot) = calculate_reward(account_id.clone())?;
+                Ok((account_id.clone(), polka_btc, dot))
+            })
             .collect()
     }
 
@@ -237,13 +270,21 @@ impl<T: Trait> Module<T> {
     ///
     /// * `total_reward` - the total reward for the entire pool
     pub fn get_relayer_rewards(
-        total_reward: PolkaBTC<T>,
-    ) -> Result<Vec<(T::AccountId, PolkaBTC<T>)>, DispatchError> {
+        total_reward_polka_btc: PolkaBTC<T>,
+        total_reward_dot: DOT<T>,
+    ) -> Result<Vec<(T::AccountId, PolkaBTC<T>, DOT<T>)>, DispatchError> {
         <RelayerSla<T>>::iter()
             .map(|(account_id, _)| {
                 Ok((
                     account_id.clone(),
-                    Self::_calculate_relayer_reward(account_id.clone(), total_reward)?,
+                    Self::u128_to_polkabtc(Self::_calculate_relayer_reward(
+                        account_id.clone(),
+                        Self::polkabtc_to_u128(total_reward_polka_btc)?,
+                    )?)?,
+                    Self::u128_to_dot(Self::_calculate_relayer_reward(
+                        account_id.clone(),
+                        Self::dot_to_u128(total_reward_dot)?,
+                    )?)?,
                 ))
             })
             .collect()
@@ -403,9 +444,8 @@ impl<T: Trait> Module<T> {
     /// Calculate the reward of a given relayer, given the total reward for the whole relayer pool
     fn _calculate_relayer_reward(
         relayer_id: T::AccountId,
-        total_reward: PolkaBTC<T>,
-    ) -> Result<PolkaBTC<T>, DispatchError> {
-        let total_reward = Self::polkabtc_to_u128(total_reward)?;
+        total_reward: u128,
+    ) -> Result<u128, DispatchError> {
         let stake = Self::_get_relayer_stake_as_fixed_point(relayer_id.clone())?;
         let sla = <RelayerSla<T>>::get(relayer_id);
         let total_relayer_score = <TotalRelayerScore<T>>::get();
@@ -416,8 +456,7 @@ impl<T: Trait> Module<T> {
             let reward = share.checked_mul_int(total_reward)?;
             Some(reward)
         };
-        let reward = calculate_reward().ok_or(Error::<T>::MathError)?;
-        Self::u128_to_polkabtc(reward)
+        Ok(calculate_reward().ok_or(Error::<T>::MathError)?)
     }
 
     /// Gets the staked collateral of the given relayer as a fixed point type

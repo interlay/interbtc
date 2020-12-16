@@ -104,7 +104,7 @@ fn integration_test_issue_polka_btc_execute() {
         );
 
         // fee should be added to epoch rewards
-        assert_eq!(FeeModule::epoch_rewards(), fee_amount_btc);
+        assert_eq!(FeeModule::epoch_rewards_polka_btc(), fee_amount_btc);
 
         let final_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
         let final_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
