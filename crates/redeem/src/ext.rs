@@ -29,6 +29,7 @@ pub(crate) mod btc_relay {
 pub(crate) mod vault_registry {
     use crate::types::{PolkaBTC, DOT};
     use frame_support::dispatch::{DispatchError, DispatchResult};
+    pub use vault_registry::GRANULARITY;
 
     pub fn get_vault_from_id<T: vault_registry::Trait>(
         vault_id: &T::AccountId,
@@ -97,6 +98,14 @@ pub(crate) mod vault_registry {
     ) -> Result<bool, DispatchError> {
         <vault_registry::Module<T>>::_is_vault_below_premium_threshold(&vault_id)
     }
+
+    pub fn liquidation_collateral_threshold<T: vault_registry::Trait>() -> u128 {
+        <vault_registry::Module<T>>::liquidation_collateral_threshold()
+    }
+
+    pub fn premium_redeem_threshold<T: vault_registry::Trait>() -> u128 {
+        <vault_registry::Module<T>>::premium_redeem_threshold()
+    }
 }
 
 #[cfg_attr(test, mockable)]
@@ -115,7 +124,7 @@ pub(crate) mod collateral {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod sla {
-    use crate::types::PolkaBTC;
+    use crate::types::{PolkaBTC, DOT};
     use frame_support::dispatch::DispatchError;
     pub use sla::types::VaultEvent;
 
@@ -124,6 +133,22 @@ pub(crate) mod sla {
         event: VaultEvent<PolkaBTC<T>>,
     ) -> Result<(), DispatchError> {
         <sla::Module<T>>::event_update_vault_sla(vault_id, event)
+    }
+
+    pub fn calculate_slashed_amount<T: sla::Trait>(
+        vault_id: T::AccountId,
+        stake: DOT<T>,
+        liquidation_threshold: u128,
+        premium_redeem_threshold: u128,
+        granularity: u32,
+    ) -> Result<DOT<T>, DispatchError> {
+        <sla::Module<T>>::calculate_slashed_amount(
+            vault_id,
+            stake,
+            liquidation_threshold,
+            premium_redeem_threshold,
+            granularity,
+        )
     }
 }
 
@@ -210,8 +235,12 @@ pub(crate) mod fee {
         <fee::Module<T>>::get_redeem_fee(amount)
     }
 
-    pub fn increase_rewards_for_epoch<T: fee::Trait>(amount: PolkaBTC<T>) {
-        <fee::Module<T>>::increase_rewards_for_epoch(amount)
+    pub fn increase_polka_btc_rewards_for_epoch<T: fee::Trait>(amount: PolkaBTC<T>) {
+        <fee::Module<T>>::increase_polka_btc_rewards_for_epoch(amount)
+    }
+
+    pub fn increase_dot_rewards_for_epoch<T: fee::Trait>(amount: DOT<T>) {
+        <fee::Module<T>>::increase_dot_rewards_for_epoch(amount)
     }
 
     pub fn get_punishment_fee<T: fee::Trait>(amount: DOT<T>) -> Result<DOT<T>, DispatchError> {

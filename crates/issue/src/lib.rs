@@ -310,7 +310,7 @@ impl<T: Trait> Module<T> {
 
         // mint polkabtc fees
         ext::treasury::mint::<T>(ext::fee::fee_pool_account_id::<T>(), issue.fee);
-        ext::fee::increase_rewards_for_epoch::<T>(issue.fee);
+        ext::fee::increase_polka_btc_rewards_for_epoch::<T>(issue.fee);
 
         // if it was a vault that did the execution on behalf of someone else, reward it by
         // increasing its SLA score

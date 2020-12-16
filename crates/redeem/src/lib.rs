@@ -40,6 +40,7 @@ use frame_system::{ensure_root, ensure_signed};
 use primitive_types::H256;
 use security::ErrorCode;
 use sp_runtime::traits::CheckedAdd;
+use sp_runtime::traits::CheckedSub;
 use sp_runtime::ModuleId;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
@@ -212,7 +213,16 @@ decl_module! {
             let amount_polka_btc_in_dot = ext::oracle::btc_to_dots::<T>(redeem.amount_polka_btc)?;
             let punishment_fee_in_dot = ext::fee::get_punishment_fee::<T>(amount_polka_btc_in_dot)?;
 
-            if reimburse {
+            // calculate additional amount to slash, a high SLA means we slash less
+            let slashing_amount_in_dot = ext::sla::calculate_slashed_amount::<T>(
+                redeem.vault.clone(),
+                amount_polka_btc_in_dot,
+                ext::vault_registry::liquidation_collateral_threshold::<T>(),
+                ext::vault_registry::premium_redeem_threshold::<T>(),
+                ext::vault_registry::GRANULARITY
+            )?;
+
+            let slashing_amount_in_dot = if reimburse {
                 // user requested to be reimbursed in DOT
                 ext::vault_registry::decrease_tokens::<T>(
                     &redeem.vault,
@@ -223,16 +233,29 @@ decl_module! {
                 // burn user's PolkaBTC
                 ext::treasury::burn::<T>(redeem.redeemer.clone(), redeem.amount_polka_btc)?;
 
-                // transfer (a part) of the Vault's collateral to the user
+                // reimburse the user in dot (inc. punishment fee) from vault
                 let reimburse_in_dot = amount_polka_btc_in_dot + punishment_fee_in_dot;
                 ext::collateral::slash_collateral::<T>(
-                    &redeem.redeemer,
                     &redeem.vault,
+                    &redeem.redeemer,
                     reimburse_in_dot,
                 )?;
+                slashing_amount_in_dot.checked_sub(&amount_polka_btc_in_dot).ok_or(Error::<T>::ArithmeticUnderflow)?
             } else {
                 // user does not want full reimbursement and wishes to retry the redeem
                 ext::collateral::slash_collateral::<T>(&redeem.redeemer, &redeem.vault, punishment_fee_in_dot)?;
+                slashing_amount_in_dot
+            };
+
+            // slash the vault's collateral to mint fees
+            let sla_dot_delta = slashing_amount_in_dot.checked_sub(&punishment_fee_in_dot).ok_or(Error::<T>::ArithmeticUnderflow)?;
+            if sla_dot_delta > 0.into() {
+                ext::collateral::slash_collateral::<T>(
+                    &redeem.vault,
+                    &ext::fee::fee_pool_account_id::<T>(),
+                    sla_dot_delta,
+                )?;
+                ext::fee::increase_dot_rewards_for_epoch::<T>(sla_dot_delta);
             }
 
             ext::vault_registry::ban_vault::<T>(redeem.vault.clone())?;
@@ -402,7 +425,7 @@ impl<T: Trait> Module<T> {
             ext::fee::fee_pool_account_id::<T>(),
             fee_polka_btc,
         )?;
-        ext::fee::increase_rewards_for_epoch::<T>(fee_polka_btc);
+        ext::fee::increase_polka_btc_rewards_for_epoch::<T>(fee_polka_btc);
 
         if redeem.premium_dot > 0.into() {
             ext::vault_registry::redeem_tokens_premium::<T>(
