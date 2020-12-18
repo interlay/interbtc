@@ -103,8 +103,8 @@ fn integration_test_redeem_polka_btc_cancel() {
         let total_polka_btc = 1_000_000;
         let polka_btc = 1_000;
 
-        let vault_btc_address = BtcAddress::P2PKH(H160([0u8; 20]));
-        let user_btc_address = BtcAddress::P2PKH(H160([0u8; 20]));
+        let vault_btc_address = BtcAddress::P2PKH(H160([1u8; 20]));
+        let user_btc_address = BtcAddress::P2PKH(H160([2u8; 20]));
 
         SystemModule::set_block_number(1);
 
