@@ -1,5 +1,5 @@
 use crate::mock::*;
-use crate::types::PolkaBTC;
+use crate::PolkaBTC;
 use crate::RawEvent;
 use crate::{ext, has_request_expired, Trait};
 use bitcoin::types::H256Le;
@@ -92,7 +92,7 @@ fn test_request_issue_banned_fails() {
     run_test(|| {
         assert_ok!(<exchange_rate_oracle::Module<Test>>::_set_exchange_rate(1));
         <frame_system::Module<Test>>::set_block_number(0);
-        <vault_registry::Module<Test>>::_insert_vault(
+        <vault_registry::Module<Test>>::insert_vault(
             &BOB,
             vault_registry::Vault {
                 id: BOB,

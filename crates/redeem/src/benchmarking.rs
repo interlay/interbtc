@@ -27,7 +27,7 @@ benchmarks! {
         vault.id = vault_id.clone();
         vault.wallet = Wallet::new(BtcAddress::P2SH(H160::from([0; 20])));
         vault.issued_tokens = amount;
-        VaultRegistry::<T>::_insert_vault(
+        VaultRegistry::<T>::insert_vault(
             &vault_id,
             vault
         );
@@ -51,7 +51,7 @@ benchmarks! {
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
         vault.wallet = Wallet::new(vault_btc_address);
-        VaultRegistry::<T>::_insert_vault(
+        VaultRegistry::<T>::insert_vault(
             &vault_id,
             vault
         );
@@ -112,7 +112,7 @@ benchmarks! {
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
         vault.wallet = Wallet::new(BtcAddress::P2SH(H160::from([0; 20])));
-        VaultRegistry::<T>::_insert_vault(
+        VaultRegistry::<T>::insert_vault(
             &vault_id,
             vault
         );

@@ -24,7 +24,7 @@ benchmarks! {
         let mut vault = Vault::default();
         vault.id = origin.clone();
         vault.wallet = Wallet::new(BtcAddress::P2SH(H160([1; 20])));
-        VaultRegistry::<T>::_insert_vault(&origin, vault);
+        VaultRegistry::<T>::insert_vault(&origin, vault);
     }: _(RawOrigin::Signed(origin), u.into())
     verify {
     }
@@ -35,7 +35,7 @@ benchmarks! {
         let mut vault = Vault::default();
         vault.id = origin.clone();
         vault.wallet = Wallet::new(BtcAddress::P2SH(H160([1; 20])));
-        VaultRegistry::<T>::_insert_vault(&origin, vault);
+        VaultRegistry::<T>::insert_vault(&origin, vault);
         collateral::Module::<T>::lock_collateral(&origin, u.into()).unwrap();
     }: _(RawOrigin::Signed(origin), u.into())
     verify {
@@ -46,7 +46,7 @@ benchmarks! {
         let mut vault = Vault::default();
         vault.id = origin.clone();
         vault.wallet = Wallet::new(BtcAddress::P2SH(H160([1; 20])));
-        VaultRegistry::<T>::_insert_vault(&origin, vault);
+        VaultRegistry::<T>::insert_vault(&origin, vault);
     }: _(RawOrigin::Signed(origin), BtcAddress::P2SH(H160::from([2; 20])))
 
 }

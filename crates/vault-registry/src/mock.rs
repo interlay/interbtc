@@ -200,7 +200,7 @@ impl ExtBuilder {
             auction_collateral_threshold: 0,
             premium_redeem_threshold: 0,
             liquidation_collateral_threshold: 0,
-            liquidation_vault: 0,
+            liquidation_vault_account_id: 0,
         }
         .assimilate_storage(&mut storage)
         .unwrap();

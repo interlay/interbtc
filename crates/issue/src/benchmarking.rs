@@ -27,12 +27,12 @@ benchmarks! {
 
         Collateral::<T>::lock_collateral(&vault_id, 100000000.into()).unwrap();
         ExchangeRateOracle::<T>::_set_exchange_rate(1).unwrap();
-        VaultRegistry::<T>::_set_secure_collateral_threshold(1);
+        VaultRegistry::<T>::set_secure_collateral_threshold(1);
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
         vault.wallet = Wallet::new(BtcAddress::P2SH(H160::zero()));
-        VaultRegistry::<T>::_insert_vault(
+        VaultRegistry::<T>::insert_vault(
             &vault_id,
             vault
         );
@@ -96,15 +96,15 @@ benchmarks! {
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
         vault.wallet = Wallet::new(vault_btc_address);
-        VaultRegistry::<T>::_insert_vault(
+        VaultRegistry::<T>::insert_vault(
             &vault_id,
             vault
         );
 
-        VaultRegistry::<T>::_set_secure_collateral_threshold(1);
+        VaultRegistry::<T>::set_secure_collateral_threshold(1);
         ExchangeRateOracle::<T>::_set_exchange_rate(1).unwrap();
         Collateral::<T>::lock_collateral(&vault_id, 100000000.into()).unwrap();
-        VaultRegistry::<T>::_increase_to_be_issued_tokens(&vault_id, value.into()).unwrap();
+        VaultRegistry::<T>::increase_to_be_issued_tokens(&vault_id, value.into()).unwrap();
     }: _(RawOrigin::Signed(origin), issue_id, tx_id, proof, raw_tx)
 
     cancel_issue {
@@ -121,7 +121,7 @@ benchmarks! {
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
         vault.wallet = Wallet::new(BtcAddress::P2SH(H160::zero()));
-        VaultRegistry::<T>::_insert_vault(
+        VaultRegistry::<T>::insert_vault(
             &vault_id,
             vault
         );

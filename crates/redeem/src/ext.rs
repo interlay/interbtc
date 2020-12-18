@@ -37,21 +37,21 @@ pub(crate) mod vault_registry {
         vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>>,
         DispatchError,
     > {
-        <vault_registry::Module<T>>::_get_vault_from_id(vault_id)
+        <vault_registry::Module<T>>::get_vault_from_id(vault_id)
     }
 
     pub fn increase_to_be_redeemed_tokens<T: vault_registry::Trait>(
         vault_id: &T::AccountId,
         amount: PolkaBTC<T>,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::_increase_to_be_redeemed_tokens(vault_id, amount)
+        <vault_registry::Module<T>>::increase_to_be_redeemed_tokens(vault_id, amount)
     }
 
     pub fn redeem_tokens<T: vault_registry::Trait>(
         vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::_redeem_tokens(vault_id, tokens)
+        <vault_registry::Module<T>>::redeem_tokens(vault_id, tokens)
     }
 
     pub fn redeem_tokens_premium<T: vault_registry::Trait>(
@@ -60,14 +60,14 @@ pub(crate) mod vault_registry {
         premium: DOT<T>,
         redeemer_id: &T::AccountId,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::_redeem_tokens_premium(vault_id, tokens, premium, redeemer_id)
+        <vault_registry::Module<T>>::redeem_tokens_premium(vault_id, tokens, premium, redeemer_id)
     }
 
     pub fn redeem_tokens_liquidation<T: vault_registry::Trait>(
         redeemer: &T::AccountId,
         redeem_dot_in_btc: PolkaBTC<T>,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::_redeem_tokens_liquidation(redeemer, redeem_dot_in_btc)
+        <vault_registry::Module<T>>::redeem_tokens_liquidation(redeemer, redeem_dot_in_btc)
     }
 
     pub fn decrease_tokens<T: vault_registry::Trait>(
@@ -75,7 +75,7 @@ pub(crate) mod vault_registry {
         user_id: &T::AccountId,
         tokens: PolkaBTC<T>,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::_decrease_tokens(vault_id, user_id, tokens)
+        <vault_registry::Module<T>>::decrease_tokens(vault_id, user_id, tokens)
     }
 
     pub fn ban_vault<T: vault_registry::Trait>(vault_id: T::AccountId) -> DispatchResult {
@@ -90,13 +90,13 @@ pub(crate) mod vault_registry {
     }
 
     pub fn total_liquidation_value<T: vault_registry::Trait>() -> Result<u128, DispatchError> {
-        <vault_registry::Module<T>>::_get_total_liquidation_value()
+        <vault_registry::Module<T>>::get_total_liquidation_value()
     }
 
     pub fn is_vault_below_premium_threshold<T: vault_registry::Trait>(
         vault_id: &T::AccountId,
     ) -> Result<bool, DispatchError> {
-        <vault_registry::Module<T>>::_is_vault_below_premium_threshold(&vault_id)
+        <vault_registry::Module<T>>::is_vault_below_premium_threshold(&vault_id)
     }
 }
 

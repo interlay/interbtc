@@ -97,12 +97,10 @@ benchmarks! {
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
         vault.wallet = Wallet::new(vault_address);
-        VaultRegistry::<T>::_insert_vault(
+        VaultRegistry::<T>::insert_vault(
             &vault_id,
             vault
         );
-
-        VaultRegistry::<T>::_set_liquidation_vault(vault_id.clone());
 
         let height = 0;
         let block = BlockBuilder::new()
@@ -168,16 +166,15 @@ benchmarks! {
         vault.id = vault_id.clone();
         vault.issued_tokens = 100_000.into();
         vault.wallet = Wallet::new(BtcAddress::P2SH(H160::zero()));
-        VaultRegistry::<T>::_insert_vault(
+        VaultRegistry::<T>::insert_vault(
             &vault_id,
             vault
         );
-        VaultRegistry::<T>::_set_liquidation_vault(vault_id.clone());
 
         ExchangeRateOracle::<T>::_set_exchange_rate(1).unwrap();
 
         let threshold: u128 = 200_000;
-        VaultRegistry::<T>::_set_liquidation_collateral_threshold(threshold.into());
+        VaultRegistry::<T>::set_liquidation_collateral_threshold(threshold.into());
 
     }: _(RawOrigin::Signed(origin), vault_id)
 

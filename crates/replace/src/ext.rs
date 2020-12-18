@@ -36,7 +36,7 @@ pub(crate) mod vault_registry {
         tokens: PolkaBTC<T>,
         collateral: DOT<T>,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::_replace_tokens(
+        <vault_registry::Module<T>>::replace_tokens(
             &old_vault_id,
             &new_vault_id,
             tokens,
@@ -48,7 +48,7 @@ pub(crate) mod vault_registry {
         vault_id: T::AccountId,
         tokens: PolkaBTC<T>,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::_decrease_to_be_redeemed_tokens(&vault_id, tokens)
+        <vault_registry::Module<T>>::decrease_to_be_redeemed_tokens(&vault_id, tokens)
     }
 
     pub fn get_vault_from_id<T: vault_registry::Trait>(
@@ -57,18 +57,18 @@ pub(crate) mod vault_registry {
         vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>>,
         DispatchError,
     > {
-        <vault_registry::Module<T>>::_get_vault_from_id(vault_id)
+        <vault_registry::Module<T>>::get_vault_from_id(vault_id)
     }
 
     pub fn increase_to_be_redeemed_tokens<T: vault_registry::Trait>(
         vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::_increase_to_be_redeemed_tokens(vault_id, tokens)
+        <vault_registry::Module<T>>::increase_to_be_redeemed_tokens(vault_id, tokens)
     }
 
     pub fn is_over_minimum_collateral<T: vault_registry::Trait>(collateral: DOT<T>) -> bool {
-        <vault_registry::Module<T>>::_is_over_minimum_collateral(collateral)
+        <vault_registry::Module<T>>::is_over_minimum_collateral(collateral)
     }
 
     pub fn is_vault_below_auction_threshold<T: vault_registry::Trait>(
@@ -81,7 +81,7 @@ pub(crate) mod vault_registry {
         collateral: DOT<T>,
         btc_amount: PolkaBTC<T>,
     ) -> Result<bool, DispatchError> {
-        <vault_registry::Module<T>>::_is_collateral_below_secure_threshold(collateral, btc_amount)
+        <vault_registry::Module<T>>::is_collateral_below_secure_threshold(collateral, btc_amount)
     }
 
     pub fn ensure_not_banned<T: vault_registry::Trait>(

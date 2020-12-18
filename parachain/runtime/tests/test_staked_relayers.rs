@@ -23,7 +23,7 @@ fn integration_test_report_vault_theft() {
         SystemModule::set_block_number(1);
 
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(1));
-        VaultRegistryModule::_insert_vault(&account_of(LIQUIDATION_VAULT), Vault::default());
+        VaultRegistryModule::insert_vault(&account_of(LIQUIDATION_VAULT), Vault::default());
         // assert_ok!(CollateralModule::lock_collateral(&account_of(vault), collateral_vault));
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
             collateral_vault,
