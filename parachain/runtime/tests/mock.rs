@@ -41,10 +41,10 @@ pub fn set_default_thresholds() {
     let premium = 120_000; // 120%
     let liquidation = 110_000; // 110%
 
-    VaultRegistryModule::_set_secure_collateral_threshold(secure);
-    VaultRegistryModule::_set_auction_collateral_threshold(auction);
-    VaultRegistryModule::_set_premium_redeem_threshold(premium);
-    VaultRegistryModule::_set_liquidation_collateral_threshold(liquidation);
+    VaultRegistryModule::set_secure_collateral_threshold(secure);
+    VaultRegistryModule::set_auction_collateral_threshold(auction);
+    VaultRegistryModule::set_premium_redeem_threshold(premium);
+    VaultRegistryModule::set_liquidation_collateral_threshold(liquidation);
 }
 
 #[allow(dead_code)]
@@ -62,10 +62,10 @@ pub fn force_issue_tokens(
     );
 
     // increase to be issued tokens
-    VaultRegistryModule::_increase_to_be_issued_tokens(&account_of(vault), tokens).unwrap();
+    VaultRegistryModule::increase_to_be_issued_tokens(&account_of(vault), tokens).unwrap();
 
     // issue tokens
-    assert_ok!(VaultRegistryModule::_issue_tokens(
+    assert_ok!(VaultRegistryModule::issue_tokens(
         &account_of(vault),
         tokens
     ));
@@ -260,7 +260,7 @@ impl ExtBuilder {
             auction_collateral_threshold: 150_000,
             premium_redeem_threshold: 120_000,
             liquidation_collateral_threshold: 110_000,
-            liquidation_vault: account_of(LIQUIDATION_VAULT),
+            liquidation_vault_account_id: account_of(LIQUIDATION_VAULT),
         }
         .assimilate_storage(&mut storage)
         .unwrap();

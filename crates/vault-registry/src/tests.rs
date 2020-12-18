@@ -7,9 +7,9 @@ use crate::mock::{
 use crate::sp_api_hidden_includes_decl_storage::hidden_include::traits::OnInitialize;
 use crate::types::BtcAddress;
 use crate::GRANULARITY;
-use crate::{Vault, VaultStatus, Wallet};
+use crate::{UpdatableVault, Vault, VaultStatus, Wallet};
 use crate::{H160, H256};
-use frame_support::{assert_err, assert_noop, assert_ok, StorageMap, StorageValue};
+use frame_support::{assert_err, assert_noop, assert_ok, StorageMap};
 use mocktopus::mocking::*;
 use sp_runtime::traits::Header;
 
@@ -46,10 +46,10 @@ fn set_default_thresholds() {
     let premium = 120_000; // 120%
     let liquidation = 110_000; // 110%
 
-    VaultRegistry::_set_secure_collateral_threshold(secure);
-    VaultRegistry::_set_auction_collateral_threshold(auction);
-    VaultRegistry::_set_premium_redeem_threshold(premium);
-    VaultRegistry::_set_liquidation_collateral_threshold(liquidation);
+    VaultRegistry::set_secure_collateral_threshold(secure);
+    VaultRegistry::set_auction_collateral_threshold(auction);
+    VaultRegistry::set_premium_redeem_threshold(premium);
+    VaultRegistry::set_liquidation_collateral_threshold(liquidation);
 }
 
 fn create_vault_with_collateral(
@@ -85,12 +85,12 @@ fn create_vault_and_issue_tokens(
     ext::oracle::dots_to_btc::<Test>.mock_safe(move |x| MockResult::Return(Ok((x / 10).into())));
 
     // issue PolkaBTC with 200% collateralization of DEFAULT_COLLATERAL
-    let vault = VaultRegistry::_get_vault_from_id(&id).unwrap();
+    let vault = VaultRegistry::get_rich_vault_from_id(&id).unwrap();
     assert_ok!(
-        VaultRegistry::_increase_to_be_issued_tokens(&id, issue_tokens),
-        vault.wallet.get_btc_address()
+        VaultRegistry::increase_to_be_issued_tokens(&id, issue_tokens),
+        vault.data.wallet.get_btc_address()
     );
-    let res = VaultRegistry::_issue_tokens(&id, issue_tokens);
+    let res = VaultRegistry::issue_tokens(&id, issue_tokens);
     assert_ok!(res);
 
     // mint tokens to the vault
@@ -99,7 +99,7 @@ fn create_vault_and_issue_tokens(
     id
 }
 
-fn create_sample_vault_and_issue_tokens(
+fn create_sample_vault_andissue_tokens(
     issue_tokens: u128,
 ) -> <Test as frame_system::Trait>::AccountId {
     create_vault_and_issue_tokens(issue_tokens, DEFAULT_COLLATERAL, DEFAULT_ID)
@@ -214,10 +214,10 @@ fn increase_to_be_issued_tokens_succeeds() {
     run_test(|| {
         let id = create_sample_vault();
         set_default_thresholds();
-        let res = VaultRegistry::_increase_to_be_issued_tokens(&id, 50);
-        let vault = VaultRegistry::_get_vault_from_id(&id).unwrap();
-        assert_ok!(res, vault.wallet.get_btc_address());
-        assert_eq!(vault.to_be_issued_tokens, 50);
+        let res = VaultRegistry::increase_to_be_issued_tokens(&id, 50);
+        let vault = VaultRegistry::get_rich_vault_from_id(&id).unwrap();
+        assert_ok!(res, vault.data.wallet.get_btc_address());
+        assert_eq!(vault.data.to_be_issued_tokens, 50);
         assert_emitted!(Event::IncreaseToBeIssuedTokens(id, 50));
     });
 }
@@ -226,9 +226,9 @@ fn increase_to_be_issued_tokens_succeeds() {
 fn increase_to_be_issued_tokens_fails_with_insufficient_collateral() {
     run_test(|| {
         let id = create_sample_vault();
-        let vault = VaultRegistry::rich_vault_from_id(&id).unwrap();
+        let vault = VaultRegistry::get_rich_vault_from_id(&id).unwrap();
         let res =
-            VaultRegistry::_increase_to_be_issued_tokens(&id, vault.issuable_tokens().unwrap() + 1);
+            VaultRegistry::increase_to_be_issued_tokens(&id, vault.issuable_tokens().unwrap() + 1);
         assert_err!(res, TestError::ExceedingVaultLimit);
     });
 }
@@ -237,16 +237,16 @@ fn increase_to_be_issued_tokens_fails_with_insufficient_collateral() {
 fn decrease_to_be_issued_tokens_succeeds() {
     run_test(|| {
         let id = create_sample_vault();
-        let mut vault = VaultRegistry::_get_vault_from_id(&id).unwrap();
+        let mut vault = VaultRegistry::get_rich_vault_from_id(&id).unwrap();
         set_default_thresholds();
         assert_ok!(
-            VaultRegistry::_increase_to_be_issued_tokens(&id, 50),
-            vault.wallet.get_btc_address()
+            VaultRegistry::increase_to_be_issued_tokens(&id, 50),
+            vault.data.wallet.get_btc_address()
         );
-        let res = VaultRegistry::_decrease_to_be_issued_tokens(&id, 50);
+        let res = VaultRegistry::decrease_to_be_issued_tokens(&id, 50);
         assert_ok!(res);
-        vault = VaultRegistry::_get_vault_from_id(&id).unwrap();
-        assert_eq!(vault.to_be_issued_tokens, 0);
+        vault = VaultRegistry::get_rich_vault_from_id(&id).unwrap();
+        assert_eq!(vault.data.to_be_issued_tokens, 0);
         assert_emitted!(Event::DecreaseToBeIssuedTokens(id, 50));
     });
 }
@@ -256,7 +256,7 @@ fn decrease_to_be_issued_tokens_fails_with_insufficient_tokens() {
     run_test(|| {
         let id = create_sample_vault();
 
-        let res = VaultRegistry::_decrease_to_be_issued_tokens(&id, 50);
+        let res = VaultRegistry::decrease_to_be_issued_tokens(&id, 50);
         assert_err!(res, TestError::InsufficientTokensCommitted);
     });
 }
@@ -265,17 +265,17 @@ fn decrease_to_be_issued_tokens_fails_with_insufficient_tokens() {
 fn issue_tokens_succeeds() {
     run_test(|| {
         let id = create_sample_vault();
-        let mut vault = VaultRegistry::_get_vault_from_id(&id).unwrap();
+        let mut vault = VaultRegistry::get_rich_vault_from_id(&id).unwrap();
         set_default_thresholds();
         assert_ok!(
-            VaultRegistry::_increase_to_be_issued_tokens(&id, 50),
-            vault.wallet.get_btc_address()
+            VaultRegistry::increase_to_be_issued_tokens(&id, 50),
+            vault.data.wallet.get_btc_address()
         );
-        let res = VaultRegistry::_issue_tokens(&id, 50);
+        let res = VaultRegistry::issue_tokens(&id, 50);
         assert_ok!(res);
-        vault = VaultRegistry::_get_vault_from_id(&id).unwrap();
-        assert_eq!(vault.to_be_issued_tokens, 0);
-        assert_eq!(vault.issued_tokens, 50);
+        vault = VaultRegistry::get_rich_vault_from_id(&id).unwrap();
+        assert_eq!(vault.data.to_be_issued_tokens, 0);
+        assert_eq!(vault.data.issued_tokens, 50);
         assert_emitted!(Event::IssueTokens(id, 50));
     });
 }
@@ -285,7 +285,7 @@ fn issue_tokens_fails_with_insufficient_tokens() {
     run_test(|| {
         let id = create_sample_vault();
 
-        let res = VaultRegistry::_issue_tokens(&id, 50);
+        let res = VaultRegistry::issue_tokens(&id, 50);
         assert_err!(res, TestError::InsufficientTokensCommitted);
     });
 }
@@ -294,20 +294,20 @@ fn issue_tokens_fails_with_insufficient_tokens() {
 fn increase_to_be_redeemed_tokens_succeeds() {
     run_test(|| {
         let id = create_sample_vault();
-        let mut vault = VaultRegistry::_get_vault_from_id(&id).unwrap();
+        let mut vault = VaultRegistry::get_rich_vault_from_id(&id).unwrap();
 
         set_default_thresholds();
 
         assert_ok!(
-            VaultRegistry::_increase_to_be_issued_tokens(&id, 50),
-            vault.wallet.get_btc_address()
+            VaultRegistry::increase_to_be_issued_tokens(&id, 50),
+            vault.data.wallet.get_btc_address()
         );
-        assert_ok!(VaultRegistry::_issue_tokens(&id, 50));
-        let res = VaultRegistry::_increase_to_be_redeemed_tokens(&id, 50);
+        assert_ok!(VaultRegistry::issue_tokens(&id, 50));
+        let res = VaultRegistry::increase_to_be_redeemed_tokens(&id, 50);
         assert_ok!(res);
-        vault = VaultRegistry::_get_vault_from_id(&id).unwrap();
-        assert_eq!(vault.issued_tokens, 50);
-        assert_eq!(vault.to_be_redeemed_tokens, 50);
+        vault = VaultRegistry::get_rich_vault_from_id(&id).unwrap();
+        assert_eq!(vault.data.issued_tokens, 50);
+        assert_eq!(vault.data.to_be_redeemed_tokens, 50);
         assert_emitted!(Event::IncreaseToBeRedeemedTokens(id, 50));
     });
 }
@@ -317,7 +317,7 @@ fn increase_to_be_redeemed_tokens_fails_with_insufficient_tokens() {
     run_test(|| {
         let id = create_sample_vault();
 
-        let res = VaultRegistry::_increase_to_be_redeemed_tokens(&id, 50);
+        let res = VaultRegistry::increase_to_be_redeemed_tokens(&id, 50);
         assert_err!(res, TestError::InsufficientTokensCommitted);
     });
 }
@@ -326,20 +326,20 @@ fn increase_to_be_redeemed_tokens_fails_with_insufficient_tokens() {
 fn decrease_to_be_redeemed_tokens_succeeds() {
     run_test(|| {
         let id = create_sample_vault();
-        let mut vault = VaultRegistry::_get_vault_from_id(&id).unwrap();
+        let mut vault = VaultRegistry::get_rich_vault_from_id(&id).unwrap();
         set_default_thresholds();
 
         assert_ok!(
-            VaultRegistry::_increase_to_be_issued_tokens(&id, 50),
-            vault.wallet.get_btc_address()
+            VaultRegistry::increase_to_be_issued_tokens(&id, 50),
+            vault.data.wallet.get_btc_address()
         );
-        assert_ok!(VaultRegistry::_issue_tokens(&id, 50));
-        assert_ok!(VaultRegistry::_increase_to_be_redeemed_tokens(&id, 50));
-        let res = VaultRegistry::_decrease_to_be_redeemed_tokens(&id, 50);
+        assert_ok!(VaultRegistry::issue_tokens(&id, 50));
+        assert_ok!(VaultRegistry::increase_to_be_redeemed_tokens(&id, 50));
+        let res = VaultRegistry::decrease_to_be_redeemed_tokens(&id, 50);
         assert_ok!(res);
-        vault = VaultRegistry::_get_vault_from_id(&id).unwrap();
-        assert_eq!(vault.issued_tokens, 50);
-        assert_eq!(vault.to_be_redeemed_tokens, 0);
+        vault = VaultRegistry::get_rich_vault_from_id(&id).unwrap();
+        assert_eq!(vault.data.issued_tokens, 50);
+        assert_eq!(vault.data.to_be_redeemed_tokens, 0);
         assert_emitted!(Event::DecreaseToBeRedeemedTokens(id, 50));
     });
 }
@@ -349,7 +349,7 @@ fn decrease_to_be_redeemed_tokens_fails_with_insufficient_tokens() {
     run_test(|| {
         let id = create_sample_vault();
 
-        let res = VaultRegistry::_decrease_to_be_redeemed_tokens(&id, 50);
+        let res = VaultRegistry::decrease_to_be_redeemed_tokens(&id, 50);
         assert_err!(res, TestError::InsufficientTokensCommitted);
     });
 }
@@ -360,14 +360,14 @@ fn decrease_tokens_succeeds() {
         let id = create_sample_vault();
         let user_id = 5;
         set_default_thresholds();
-        VaultRegistry::_increase_to_be_issued_tokens(&id, 50).unwrap();
-        assert_ok!(VaultRegistry::_issue_tokens(&id, 50));
-        assert_ok!(VaultRegistry::_increase_to_be_redeemed_tokens(&id, 50));
-        let res = VaultRegistry::_decrease_tokens(&id, &user_id, 50);
+        VaultRegistry::increase_to_be_issued_tokens(&id, 50).unwrap();
+        assert_ok!(VaultRegistry::issue_tokens(&id, 50));
+        assert_ok!(VaultRegistry::increase_to_be_redeemed_tokens(&id, 50));
+        let res = VaultRegistry::decrease_tokens(&id, &user_id, 50);
         assert_ok!(res);
-        let vault = VaultRegistry::_get_vault_from_id(&id).unwrap();
-        assert_eq!(vault.issued_tokens, 0);
-        assert_eq!(vault.to_be_redeemed_tokens, 0);
+        let vault = VaultRegistry::get_rich_vault_from_id(&id).unwrap();
+        assert_eq!(vault.data.issued_tokens, 0);
+        assert_eq!(vault.data.to_be_redeemed_tokens, 0);
         assert_emitted!(Event::DecreaseTokens(id, user_id, 50));
     });
 }
@@ -378,9 +378,9 @@ fn decrease_tokens_fails_with_insufficient_tokens() {
         let id = create_sample_vault();
         let user_id = 5;
         set_default_thresholds();
-        VaultRegistry::_increase_to_be_issued_tokens(&id, 50).unwrap();
-        assert_ok!(VaultRegistry::_issue_tokens(&id, 50));
-        let res = VaultRegistry::_decrease_tokens(&id, &user_id, 50);
+        VaultRegistry::increase_to_be_issued_tokens(&id, 50).unwrap();
+        assert_ok!(VaultRegistry::issue_tokens(&id, 50));
+        let res = VaultRegistry::decrease_tokens(&id, &user_id, 50);
         assert_err!(res, TestError::InsufficientTokensCommitted);
     });
 }
@@ -390,14 +390,14 @@ fn redeem_tokens_succeeds() {
     run_test(|| {
         let id = create_sample_vault();
         set_default_thresholds();
-        VaultRegistry::_increase_to_be_issued_tokens(&id, 50).unwrap();
-        assert_ok!(VaultRegistry::_issue_tokens(&id, 50));
-        assert_ok!(VaultRegistry::_increase_to_be_redeemed_tokens(&id, 50));
-        let res = VaultRegistry::_redeem_tokens(&id, 50);
+        VaultRegistry::increase_to_be_issued_tokens(&id, 50).unwrap();
+        assert_ok!(VaultRegistry::issue_tokens(&id, 50));
+        assert_ok!(VaultRegistry::increase_to_be_redeemed_tokens(&id, 50));
+        let res = VaultRegistry::redeem_tokens(&id, 50);
         assert_ok!(res);
-        let vault = VaultRegistry::_get_vault_from_id(&id).unwrap();
-        assert_eq!(vault.issued_tokens, 0);
-        assert_eq!(vault.to_be_redeemed_tokens, 0);
+        let vault = VaultRegistry::get_rich_vault_from_id(&id).unwrap();
+        assert_eq!(vault.data.issued_tokens, 0);
+        assert_eq!(vault.data.to_be_redeemed_tokens, 0);
         assert_emitted!(Event::RedeemTokens(id, 50));
     });
 }
@@ -407,9 +407,9 @@ fn redeem_tokens_fails_with_insufficient_tokens() {
     run_test(|| {
         let id = create_sample_vault();
         set_default_thresholds();
-        VaultRegistry::_increase_to_be_issued_tokens(&id, 50).unwrap();
-        assert_ok!(VaultRegistry::_issue_tokens(&id, 50));
-        let res = VaultRegistry::_redeem_tokens(&id, 50);
+        VaultRegistry::increase_to_be_issued_tokens(&id, 50).unwrap();
+        assert_ok!(VaultRegistry::issue_tokens(&id, 50));
+        let res = VaultRegistry::redeem_tokens(&id, 50);
         assert_err!(res, TestError::InsufficientTokensCommitted);
     });
 }
@@ -425,14 +425,14 @@ fn redeem_tokens_premium_succeeds() {
             assert_eq!(sender, &id);
             MockResult::Return(Ok(()))
         });
-        VaultRegistry::_increase_to_be_issued_tokens(&id, 50).unwrap();
-        assert_ok!(VaultRegistry::_issue_tokens(&id, 50));
-        assert_ok!(VaultRegistry::_increase_to_be_redeemed_tokens(&id, 50));
-        let res = VaultRegistry::_redeem_tokens_premium(&id, 50, 30, &user_id);
+        VaultRegistry::increase_to_be_issued_tokens(&id, 50).unwrap();
+        assert_ok!(VaultRegistry::issue_tokens(&id, 50));
+        assert_ok!(VaultRegistry::increase_to_be_redeemed_tokens(&id, 50));
+        let res = VaultRegistry::redeem_tokens_premium(&id, 50, 30, &user_id);
         assert_ok!(res);
-        let vault = VaultRegistry::_get_vault_from_id(&id).unwrap();
-        assert_eq!(vault.issued_tokens, 0);
-        assert_eq!(vault.to_be_redeemed_tokens, 0);
+        let vault = VaultRegistry::get_rich_vault_from_id(&id).unwrap();
+        assert_eq!(vault.data.issued_tokens, 0);
+        assert_eq!(vault.data.to_be_redeemed_tokens, 0);
         assert_emitted!(Event::RedeemTokensPremium(id, 50, 30, user_id));
     });
 }
@@ -443,9 +443,9 @@ fn redeem_tokens_premium_fails_with_insufficient_tokens() {
         let id = create_sample_vault();
         let user_id = 5;
         set_default_thresholds();
-        VaultRegistry::_increase_to_be_issued_tokens(&id, 50).unwrap();
-        assert_ok!(VaultRegistry::_issue_tokens(&id, 50));
-        let res = VaultRegistry::_redeem_tokens_premium(&id, 50, 30, &user_id);
+        VaultRegistry::increase_to_be_issued_tokens(&id, 50).unwrap();
+        assert_ok!(VaultRegistry::issue_tokens(&id, 50));
+        let res = VaultRegistry::redeem_tokens_premium(&id, 50, 30, &user_id);
         assert_err!(res, TestError::InsufficientTokensCommitted);
         assert_not_emitted!(Event::RedeemTokensPremium(id, 50, 30, user_id));
     });
@@ -454,22 +454,23 @@ fn redeem_tokens_premium_fails_with_insufficient_tokens() {
 #[test]
 fn redeem_tokens_liquidation_succeeds() {
     run_test(|| {
-        let id = create_sample_vault();
-        <crate::LiquidationVault<Test>>::put(id);
+        let mut liquidation_vault = VaultRegistry::get_rich_liquidation_vault();
+        let liquidation_vault_id = liquidation_vault.id();
         let user_id = 5;
         set_default_thresholds();
         // TODO: emulate assert_called
         ext::collateral::slash::<Test>.mock_safe(move |sender, _receiver, _amount| {
-            assert_eq!(sender, &id);
+            assert_eq!(sender, &liquidation_vault_id);
             MockResult::Return(Ok(()))
         });
         ext::security::recover_from_liquidation::<Test>.mock_safe(|| MockResult::Return(Ok(())));
-        VaultRegistry::_increase_to_be_issued_tokens(&id, 50).unwrap();
-        assert_ok!(VaultRegistry::_issue_tokens(&id, 50));
-        let res = VaultRegistry::_redeem_tokens_liquidation(&user_id, 50);
-        assert_ok!(res);
-        let vault = VaultRegistry::_get_vault_from_id(&id).unwrap();
-        assert_eq!(vault.issued_tokens, 0);
+
+        liquidation_vault.force_increase_to_be_issued(50);
+        liquidation_vault.force_issue_tokens(50);
+
+        assert_ok!(VaultRegistry::redeem_tokens_liquidation(&user_id, 50));
+        let liquidation_vault = VaultRegistry::get_rich_liquidation_vault();
+        assert_eq!(liquidation_vault.data.issued_tokens, 0);
         assert_emitted!(Event::RedeemTokensLiquidation(user_id, 50));
     });
 }
@@ -477,24 +478,26 @@ fn redeem_tokens_liquidation_succeeds() {
 #[test]
 fn redeem_tokens_liquidation_does_not_call_recover_when_unnecessary() {
     run_test(|| {
-        let id = create_sample_vault();
-        <crate::LiquidationVault<Test>>::put(id);
+        let mut liquidation_vault = VaultRegistry::get_rich_liquidation_vault();
+        let liquidation_vault_id = liquidation_vault.id();
         let user_id = 5;
         set_default_thresholds();
+
         ext::collateral::slash::<Test>.mock_safe(move |sender, _receiver, _amount| {
-            assert_eq!(sender, &id);
+            assert_eq!(sender, &liquidation_vault_id);
             MockResult::Return(Ok(()))
         });
 
         ext::security::recover_from_liquidation::<Test>.mock_safe(|| {
             panic!("this should not be called");
         });
-        VaultRegistry::_increase_to_be_issued_tokens(&id, 25).unwrap();
-        assert_ok!(VaultRegistry::_issue_tokens(&id, 25));
-        let res = VaultRegistry::_redeem_tokens_liquidation(&user_id, 10);
-        assert_ok!(res);
-        let vault = VaultRegistry::_get_vault_from_id(&id).unwrap();
-        assert_eq!(vault.issued_tokens, 15);
+
+        liquidation_vault.force_increase_to_be_issued(25);
+        liquidation_vault.force_issue_tokens(25);
+
+        assert_ok!(VaultRegistry::redeem_tokens_liquidation(&user_id, 10));
+        let liquidation_vault = VaultRegistry::get_rich_liquidation_vault();
+        assert_eq!(liquidation_vault.data.issued_tokens, 15);
         assert_emitted!(Event::RedeemTokensLiquidation(user_id, 10));
     });
 }
@@ -502,11 +505,9 @@ fn redeem_tokens_liquidation_does_not_call_recover_when_unnecessary() {
 #[test]
 fn redeem_tokens_liquidation_fails_with_insufficient_tokens() {
     run_test(|| {
-        let id = create_sample_vault();
         let user_id = 5;
-        <crate::LiquidationVault<Test>>::put(id);
         set_default_thresholds();
-        let res = VaultRegistry::_redeem_tokens_liquidation(&user_id, 50);
+        let res = VaultRegistry::redeem_tokens_liquidation(&user_id, 50);
         assert_err!(res, TestError::InsufficientTokensCommitted);
         assert_not_emitted!(Event::RedeemTokensLiquidation(user_id, 50));
     });
@@ -525,17 +526,17 @@ fn replace_tokens_liquidation_succeeds() {
             MockResult::Return(Ok(()))
         });
 
-        VaultRegistry::_increase_to_be_issued_tokens(&old_id, 50).unwrap();
-        assert_ok!(VaultRegistry::_issue_tokens(&old_id, 50));
-        assert_ok!(VaultRegistry::_increase_to_be_redeemed_tokens(&old_id, 50));
+        VaultRegistry::increase_to_be_issued_tokens(&old_id, 50).unwrap();
+        assert_ok!(VaultRegistry::issue_tokens(&old_id, 50));
+        assert_ok!(VaultRegistry::increase_to_be_redeemed_tokens(&old_id, 50));
 
-        let res = VaultRegistry::_replace_tokens(&old_id, &new_id, 50, 20);
+        let res = VaultRegistry::replace_tokens(&old_id, &new_id, 50, 20);
         assert_ok!(res);
-        let old_vault = VaultRegistry::_get_vault_from_id(&old_id).unwrap();
-        let new_vault = VaultRegistry::_get_vault_from_id(&new_id).unwrap();
-        assert_eq!(old_vault.issued_tokens, 0);
-        assert_eq!(old_vault.to_be_redeemed_tokens, 0);
-        assert_eq!(new_vault.issued_tokens, 50);
+        let old_vault = VaultRegistry::get_rich_vault_from_id(&old_id).unwrap();
+        let new_vault = VaultRegistry::get_rich_vault_from_id(&new_id).unwrap();
+        assert_eq!(old_vault.data.issued_tokens, 0);
+        assert_eq!(old_vault.data.to_be_redeemed_tokens, 0);
+        assert_eq!(new_vault.data.issued_tokens, 50);
         assert_emitted!(Event::ReplaceTokens(old_id, new_id, 50, 20));
     });
 }
@@ -546,7 +547,7 @@ fn replace_tokens_liquidation_fails_with_insufficient_tokens() {
         let old_id = create_sample_vault();
         let new_id = create_vault(OTHER_ID);
 
-        let res = VaultRegistry::_replace_tokens(&old_id, &new_id, 50, 20);
+        let res = VaultRegistry::replace_tokens(&old_id, &new_id, 50, 20);
         assert_err!(res, TestError::InsufficientTokensCommitted);
         assert_not_emitted!(Event::ReplaceTokens(old_id, new_id, 50, 20));
     });
@@ -556,43 +557,42 @@ fn replace_tokens_liquidation_fails_with_insufficient_tokens() {
 fn liquidate_succeeds() {
     run_test(|| {
         let id = create_sample_vault();
-        let liquidation_id = create_vault(OTHER_ID);
-        <crate::LiquidationVault<Test>>::put(liquidation_id);
+        let liquidation_vault_before = VaultRegistry::get_rich_liquidation_vault();
+        let liquidation_vault_id = liquidation_vault_before.id();
         set_default_thresholds();
 
         ext::collateral::slash::<Test>.mock_safe(move |sender, receiver, amount| {
             assert_eq!(sender, &id);
-            assert_eq!(receiver, &liquidation_id);
+            assert_eq!(receiver, &liquidation_vault_id);
             assert_eq!(amount, DEFAULT_COLLATERAL);
             MockResult::Return(Ok(()))
         });
 
-        VaultRegistry::_increase_to_be_issued_tokens(&id, 50).unwrap();
-        assert_ok!(VaultRegistry::_issue_tokens(&id, 25));
-        assert_ok!(VaultRegistry::_increase_to_be_redeemed_tokens(&id, 10));
+        VaultRegistry::increase_to_be_issued_tokens(&id, 50).unwrap();
+        assert_ok!(VaultRegistry::issue_tokens(&id, 25));
+        assert_ok!(VaultRegistry::increase_to_be_redeemed_tokens(&id, 10));
+        assert_ok!(VaultRegistry::liquidate_vault(&id));
 
-        let old_liquidation_vault = VaultRegistry::_get_vault_from_id(&liquidation_id).unwrap();
-        let res = VaultRegistry::_liquidate_vault(&id);
-        assert_ok!(res);
-        let liquidation_vault = VaultRegistry::_get_vault_from_id(&liquidation_id).unwrap();
+        let liquidation_vault_after = VaultRegistry::get_rich_liquidation_vault();
 
         let liquidated_vault = <crate::Vaults<Test>>::get(&id);
         assert_eq!(liquidated_vault.status, VaultStatus::Liquidated);
 
         assert_eq!(
-            liquidation_vault.issued_tokens,
-            old_liquidation_vault.issued_tokens + 25
+            liquidation_vault_after.data.issued_tokens,
+            liquidation_vault_before.data.issued_tokens + 25
         );
 
         assert_eq!(
-            liquidation_vault.to_be_issued_tokens,
-            old_liquidation_vault.to_be_issued_tokens + 25
+            liquidation_vault_after.data.to_be_issued_tokens,
+            liquidation_vault_before.data.to_be_issued_tokens + 25
         );
 
         assert_eq!(
-            liquidation_vault.to_be_redeemed_tokens,
-            old_liquidation_vault.to_be_redeemed_tokens + 10
+            liquidation_vault_after.data.to_be_redeemed_tokens,
+            liquidation_vault_before.data.to_be_redeemed_tokens + 10
         );
+
         assert_emitted!(Event::LiquidateVault(id));
     });
 }
@@ -601,43 +601,45 @@ fn liquidate_succeeds() {
 fn liquidate_with_status_succeeds() {
     run_test(|| {
         let id = create_sample_vault();
-        let liquidation_id = create_vault(OTHER_ID);
-        <crate::LiquidationVault<Test>>::put(liquidation_id);
+        let liquidation_vault_before = VaultRegistry::get_rich_liquidation_vault();
+        let liquidation_vault_id = liquidation_vault_before.id();
         set_default_thresholds();
 
         ext::collateral::slash::<Test>.mock_safe(move |sender, receiver, amount| {
             assert_eq!(sender, &id);
-            assert_eq!(receiver, &liquidation_id);
+            assert_eq!(receiver, &liquidation_vault_id);
             assert_eq!(amount, DEFAULT_COLLATERAL);
             MockResult::Return(Ok(()))
         });
 
-        VaultRegistry::_increase_to_be_issued_tokens(&id, 50).unwrap();
-        assert_ok!(VaultRegistry::_issue_tokens(&id, 25));
-        assert_ok!(VaultRegistry::_increase_to_be_redeemed_tokens(&id, 10));
+        VaultRegistry::increase_to_be_issued_tokens(&id, 50).unwrap();
+        assert_ok!(VaultRegistry::issue_tokens(&id, 25));
+        assert_ok!(VaultRegistry::increase_to_be_redeemed_tokens(&id, 10));
+        assert_ok!(VaultRegistry::liquidate_vault_with_status(
+            &id,
+            VaultStatus::CommittedTheft
+        ));
 
-        let old_liquidation_vault = VaultRegistry::_get_vault_from_id(&liquidation_id).unwrap();
-        let res = VaultRegistry::_liquidate_vault_with_status(&id, VaultStatus::CommittedTheft);
-        assert_ok!(res);
-        let liquidation_vault = VaultRegistry::_get_vault_from_id(&liquidation_id).unwrap();
+        let liquidation_vault_after = VaultRegistry::get_rich_liquidation_vault();
 
         let liquidated_vault = <crate::Vaults<Test>>::get(&id);
         assert_eq!(liquidated_vault.status, VaultStatus::CommittedTheft);
 
         assert_eq!(
-            liquidation_vault.issued_tokens,
-            old_liquidation_vault.issued_tokens + 25
+            liquidation_vault_after.data.issued_tokens,
+            liquidation_vault_before.data.issued_tokens + 25
         );
 
         assert_eq!(
-            liquidation_vault.to_be_issued_tokens,
-            old_liquidation_vault.to_be_issued_tokens + 25
+            liquidation_vault_after.data.to_be_issued_tokens,
+            liquidation_vault_before.data.to_be_issued_tokens + 25
         );
 
         assert_eq!(
-            liquidation_vault.to_be_redeemed_tokens,
-            old_liquidation_vault.to_be_redeemed_tokens + 10
+            liquidation_vault_after.data.to_be_redeemed_tokens,
+            liquidation_vault_before.data.to_be_redeemed_tokens + 10
         );
+
         assert_emitted!(Event::LiquidateVault(id));
     });
 }
@@ -679,9 +681,9 @@ fn test_liquidate_undercollateralized_vaults_succeeds() {
         let vaults1 = Rc::new(vaults);
         let vaults2 = vaults1.clone();
 
-        VaultRegistry::_is_vault_below_secure_threshold
+        VaultRegistry::is_vault_below_secure_threshold
             .mock_safe(move |id| MockResult::Return(Ok(*vaults1.get(id).unwrap())));
-        VaultRegistry::_liquidate_vault.mock_safe(move |id| {
+        VaultRegistry::liquidate_vault.mock_safe(move |id| {
             assert!(vaults2.get(id).unwrap());
             MockResult::Return(Ok(()))
         });
@@ -766,12 +768,12 @@ fn _is_vault_below_auction_threshold_false_succeeds() {
 
         set_default_thresholds();
 
-        let vault = VaultRegistry::_get_vault_from_id(&id).unwrap();
+        let vault = VaultRegistry::get_rich_vault_from_id(&id).unwrap();
         assert_ok!(
-            VaultRegistry::_increase_to_be_issued_tokens(&id, 50),
-            vault.wallet.get_btc_address()
+            VaultRegistry::increase_to_be_issued_tokens(&id, 50),
+            vault.data.wallet.get_btc_address()
         );
-        let res = VaultRegistry::_issue_tokens(&id, 50);
+        let res = VaultRegistry::issue_tokens(&id, 50);
         assert_ok!(res);
 
         ext::collateral::for_account::<Test>.mock_safe(|_| MockResult::Return(DEFAULT_COLLATERAL));
@@ -818,19 +820,19 @@ fn lock_additional_collateral_parachain_not_running_fails() {
 }
 
 #[test]
-fn _is_vault_below_liquidation_threshold_true_succeeds() {
+fn is_vault_below_liquidation_threshold_true_succeeds() {
     run_test(|| {
         // vault has 100% collateral ratio
         let id = create_sample_vault();
 
         set_default_thresholds();
 
-        let vault = VaultRegistry::_get_vault_from_id(&id).unwrap();
+        let vault = VaultRegistry::get_rich_vault_from_id(&id).unwrap();
         assert_ok!(
-            VaultRegistry::_increase_to_be_issued_tokens(&id, 50),
-            vault.wallet.get_btc_address()
+            VaultRegistry::increase_to_be_issued_tokens(&id, 50),
+            vault.data.wallet.get_btc_address()
         );
-        let res = VaultRegistry::_issue_tokens(&id, 50);
+        let res = VaultRegistry::issue_tokens(&id, 50);
         assert_ok!(res);
 
         ext::collateral::for_account::<Test>.mock_safe(|_| MockResult::Return(DEFAULT_COLLATERAL));
@@ -838,7 +840,7 @@ fn _is_vault_below_liquidation_threshold_true_succeeds() {
             .mock_safe(|_| MockResult::Return(Ok(DEFAULT_COLLATERAL / 2)));
 
         assert_eq!(
-            VaultRegistry::_is_vault_below_liquidation_threshold(&id),
+            VaultRegistry::is_vault_below_liquidation_threshold(&id),
             Ok(true)
         );
     })
@@ -861,7 +863,7 @@ fn get_collateralization_from_vault_fails_with_no_tokens_issued() {
 fn get_collateralization_from_vault_succeeds() {
     run_test(|| {
         let issue_tokens: u128 = DEFAULT_COLLATERAL / 10 / 2; // = 5
-        let id = create_sample_vault_and_issue_tokens(issue_tokens);
+        let id = create_sample_vault_andissue_tokens(issue_tokens);
 
         assert_eq!(
             VaultRegistry::get_collateralization_from_vault(id, false),
@@ -874,12 +876,12 @@ fn get_collateralization_from_vault_succeeds() {
 fn get_unsettled_collateralization_from_vault_succeeds() {
     run_test(|| {
         let issue_tokens: u128 = DEFAULT_COLLATERAL / 10 / 4; // = 2
-        let id = create_sample_vault_and_issue_tokens(issue_tokens);
+        let id = create_sample_vault_andissue_tokens(issue_tokens);
 
-        let vault = VaultRegistry::_get_vault_from_id(&id).unwrap();
+        let vault = VaultRegistry::get_rich_vault_from_id(&id).unwrap();
         assert_ok!(
-            VaultRegistry::_increase_to_be_issued_tokens(&id, issue_tokens),
-            vault.wallet.get_btc_address()
+            VaultRegistry::increase_to_be_issued_tokens(&id, issue_tokens),
+            vault.data.wallet.get_btc_address()
         );
 
         assert_eq!(
@@ -893,12 +895,12 @@ fn get_unsettled_collateralization_from_vault_succeeds() {
 fn get_settled_collateralization_from_vault_succeeds() {
     run_test(|| {
         let issue_tokens: u128 = DEFAULT_COLLATERAL / 10 / 4; // = 2
-        let id = create_sample_vault_and_issue_tokens(issue_tokens);
+        let id = create_sample_vault_andissue_tokens(issue_tokens);
 
-        let vault = VaultRegistry::_get_vault_from_id(&id).unwrap();
+        let vault = VaultRegistry::get_rich_vault_from_id(&id).unwrap();
         assert_ok!(
-            VaultRegistry::_increase_to_be_issued_tokens(&id, issue_tokens),
-            vault.wallet.get_btc_address()
+            VaultRegistry::increase_to_be_issued_tokens(&id, issue_tokens),
+            vault.data.wallet.get_btc_address()
         );
 
         assert_eq!(
@@ -912,7 +914,7 @@ fn get_settled_collateralization_from_vault_succeeds() {
 fn get_first_vault_with_sufficient_collateral_succeeds() {
     run_test(|| {
         let issue_tokens: u128 = 4;
-        let id = create_sample_vault_and_issue_tokens(issue_tokens);
+        let id = create_sample_vault_andissue_tokens(issue_tokens);
 
         assert_eq!(
             VaultRegistry::get_first_vault_with_sufficient_collateral(issue_tokens),
@@ -925,7 +927,7 @@ fn get_first_vault_with_sufficient_collateral_succeeds() {
 fn get_first_vault_with_sufficient_tokens_succeeds() {
     run_test(|| {
         let issue_tokens: u128 = DEFAULT_COLLATERAL / 10 / 2; // = 5
-        let id = create_sample_vault_and_issue_tokens(issue_tokens);
+        let id = create_sample_vault_andissue_tokens(issue_tokens);
 
         assert_eq!(
             VaultRegistry::get_first_vault_with_sufficient_tokens(issue_tokens),
@@ -938,7 +940,7 @@ fn get_first_vault_with_sufficient_tokens_succeeds() {
 fn get_total_collateralization_with_tokens_issued() {
     run_test(|| {
         let issue_tokens: u128 = DEFAULT_COLLATERAL / 10 / 2; // = 5
-        let _id = create_sample_vault_and_issue_tokens(issue_tokens);
+        let _id = create_sample_vault_andissue_tokens(issue_tokens);
 
         assert_eq!(
             VaultRegistry::get_total_collateralization(),
@@ -986,7 +988,7 @@ fn update_btc_address_fails_with_btc_address_taken() {
         let mut vault = Vault::default();
         vault.id = origin;
         vault.wallet = Wallet::new(address);
-        VaultRegistry::_insert_vault(&origin, vault);
+        VaultRegistry::insert_vault(&origin, vault);
 
         assert_err!(
             VaultRegistry::update_btc_address(Origin::signed(origin), address),
@@ -1005,7 +1007,7 @@ fn update_btc_address_succeeds() {
         let mut vault = Vault::default();
         vault.id = origin;
         vault.wallet = Wallet::new(address1);
-        VaultRegistry::_insert_vault(&origin, vault);
+        VaultRegistry::insert_vault(&origin, vault);
 
         assert_ok!(VaultRegistry::update_btc_address(
             Origin::signed(origin),

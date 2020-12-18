@@ -37,28 +37,28 @@ pub(crate) mod vault_registry {
         vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>>,
         DispatchError,
     > {
-        <vault_registry::Module<T>>::_get_vault_from_id(vault_id)
+        <vault_registry::Module<T>>::get_vault_from_id(vault_id)
     }
 
     pub fn increase_to_be_issued_tokens<T: vault_registry::Trait>(
         vault_id: &T::AccountId,
         amount: PolkaBTC<T>,
     ) -> Result<BtcAddress, DispatchError> {
-        <vault_registry::Module<T>>::_increase_to_be_issued_tokens(vault_id, amount)
+        <vault_registry::Module<T>>::increase_to_be_issued_tokens(vault_id, amount)
     }
 
     pub fn issue_tokens<T: vault_registry::Trait>(
         vault_id: &T::AccountId,
         amount: PolkaBTC<T>,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::_issue_tokens(vault_id, amount)
+        <vault_registry::Module<T>>::issue_tokens(vault_id, amount)
     }
 
     pub fn decrease_to_be_issued_tokens<T: vault_registry::Trait>(
         vault_id: &T::AccountId,
         amount: PolkaBTC<T>,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::_decrease_to_be_issued_tokens(vault_id, amount)
+        <vault_registry::Module<T>>::decrease_to_be_issued_tokens(vault_id, amount)
     }
 
     pub fn ensure_not_banned<T: vault_registry::Trait>(

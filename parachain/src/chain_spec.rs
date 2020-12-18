@@ -215,7 +215,9 @@ fn testnet_genesis(
             auction_collateral_threshold: 150_000,
             premium_redeem_threshold: 120_000,
             liquidation_collateral_threshold: 110_000,
-            liquidation_vault: get_account_id_from_seed::<sr25519::Public>("LiquidationVault"),
+            liquidation_vault_account_id: get_account_id_from_seed::<sr25519::Public>(
+                "LiquidationVault",
+            ),
         }),
         fee: Some(FeeConfig {
             issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
