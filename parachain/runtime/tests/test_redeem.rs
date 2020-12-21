@@ -91,6 +91,8 @@ fn integration_test_redeem_polka_btc_execute() {
             raw_tx
         ))
         .dispatch(origin_of(account_of(vault))));
+
+        // TODO: check redeem rewards update
     });
 }
 
