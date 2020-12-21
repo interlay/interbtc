@@ -39,7 +39,6 @@ use frame_support::{
 use frame_system::{ensure_root, ensure_signed};
 use primitive_types::H256;
 use security::ErrorCode;
-use sp_runtime::traits::CheckedAdd;
 use sp_runtime::traits::CheckedSub;
 use sp_runtime::ModuleId;
 use sp_std::convert::TryInto;
@@ -304,11 +303,10 @@ impl<T: Trait> Module<T> {
             Error::<T>::AmountExceedsVaultBalance
         );
 
-        // TODO: introduce max fee_polka_btc param
         let fee_polka_btc = ext::fee::get_redeem_fee::<T>(amount_polka_btc)?;
-        let total_amount_polka_btc = amount_polka_btc
-            .checked_add(&fee_polka_btc)
-            .ok_or(Error::<T>::ArithmeticOverflow)?;
+        let redeem_amount_polka_btc = amount_polka_btc
+            .checked_sub(&fee_polka_btc)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
         // only allow requests of amount above above the minimum
         let dust_value = <RedeemBtcDustValue<T>>::get();
@@ -320,13 +318,13 @@ impl<T: Trait> Module<T> {
 
         let (amount_btc, amount_dot): (u128, u128) =
             if ext::security::is_parachain_error_liquidation::<T>() {
-                let raw_amount_polka_btc = Self::btc_to_u128(amount_polka_btc)?;
+                let raw_amount_polka_btc = Self::btc_to_u128(redeem_amount_polka_btc)?;
                 let amount_dot_in_btc = Self::partial_redeem(raw_amount_polka_btc)?;
                 let amount_btc: u128 = raw_amount_polka_btc - amount_dot_in_btc;
                 let amount_dot: u128 = Self::rawbtc_to_rawdot(amount_dot_in_btc)?;
                 (amount_btc, amount_dot)
             } else {
-                (Self::btc_to_u128(amount_polka_btc)?, 0)
+                (Self::btc_to_u128(redeem_amount_polka_btc)?, 0)
             };
 
         let amount_btc = Self::u128_to_btc(amount_btc)?;
@@ -341,7 +339,7 @@ impl<T: Trait> Module<T> {
         }
 
         // lock full amount (inc. fee)
-        ext::treasury::lock::<T>(redeemer.clone(), total_amount_polka_btc)?;
+        ext::treasury::lock::<T>(redeemer.clone(), amount_polka_btc)?;
         let redeem_id = ext::security::get_secure_id::<T>(&redeemer);
 
         let below_premium_redeem =
@@ -357,7 +355,7 @@ impl<T: Trait> Module<T> {
             RedeemRequest {
                 vault: vault_id.clone(),
                 opentime: height,
-                amount_polka_btc,
+                amount_polka_btc: redeem_amount_polka_btc,
                 fee: fee_polka_btc,
                 amount_btc,
                 amount_dot,
@@ -369,10 +367,12 @@ impl<T: Trait> Module<T> {
                 reimburse: false,
             },
         );
+
+        // TODO: add fee to redeem event
         Self::deposit_event(<Event<T>>::RequestRedeem(
             redeem_id,
             redeemer,
-            amount_polka_btc,
+            redeem_amount_polka_btc,
             vault_id,
             btc_address,
         ));
