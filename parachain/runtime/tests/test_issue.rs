@@ -52,7 +52,7 @@ fn integration_test_issue_polka_btc_execute() {
         let user = ALICE;
         let vault = BOB;
 
-        let amount_btc = 100000;
+        let amount_btc = 1000000;
         let griefing_collateral = 100;
         let collateral_vault = 1000000;
 
@@ -114,6 +114,13 @@ fn integration_test_issue_polka_btc_execute() {
 
         // polka_btc minted
         assert_eq!(final_btc_balance, initial_btc_balance + amount_btc);
+
+        // force issue rewards and withdraw
+        assert_ok!(FeeModule::update_rewards_for_epoch());
+        assert_ok!(Call::Fee(FeeCall::withdraw_polka_btc(
+            FeeModule::get_polka_btc_rewards(&account_of(vault))
+        ))
+        .dispatch(origin_of(account_of(vault))));
     });
 }
 

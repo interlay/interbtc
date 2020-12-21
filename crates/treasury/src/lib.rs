@@ -161,6 +161,14 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Transfer PolkaBTC tokens, may kill the source account if the balance
+    /// falls below the `ExistentialDeposit` const
+    ///
+    /// # Arguments
+    ///
+    /// * `source` - the account transferring tokens
+    /// * `destination` - the account receiving tokens
+    /// * `amount` - amount of PolkaBTC
     pub fn transfer(
         source: T::AccountId,
         destination: T::AccountId,
@@ -170,11 +178,17 @@ impl<T: Trait> Module<T> {
             &source,
             &destination,
             amount,
-            ExistenceRequirement::KeepAlive,
+            ExistenceRequirement::AllowDeath,
         )
-        .map_err(|_| Error::<T>::InsufficientFunds.into())
     }
 
+    /// Transfer locked PolkaBTC to the free balance of another account
+    ///
+    /// # Arguments
+    ///
+    /// * `source` - the account with locked tokens
+    /// * `destination` - the account receiving tokens
+    /// * `amount` - amount of PolkaBTC
     pub fn unlock_and_transfer(
         source: T::AccountId,
         destination: T::AccountId,

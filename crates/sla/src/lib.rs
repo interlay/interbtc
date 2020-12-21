@@ -129,7 +129,7 @@ impl<T: Trait> Module<T> {
 
         let new_sla = current_sla
             .checked_add(&delta_sla)
-            .ok_or(Error::<T>::MathError)?;
+            .ok_or(Error::<T>::ArithmeticOverflow)?;
         let max_sla = <VaultTargetSla<T>>::get(); // todo: check that this is indeed the max
 
         let bounded_new_sla = Self::_limit(T::SignedFixedPoint::zero(), new_sla, max_sla);
@@ -158,7 +158,7 @@ impl<T: Trait> Module<T> {
 
         let potential_new_sla = current_sla
             .checked_add(&delta_sla)
-            .ok_or(Error::<T>::MathError)?;
+            .ok_or(Error::<T>::ArithmeticOverflow)?;
 
         let new_sla = Self::_limit(min, potential_new_sla, max);
 
@@ -174,7 +174,8 @@ impl<T: Trait> Module<T> {
                 let new_total_relayer_score = total_relayer_score.checked_add(&delta_score)?;
                 Some(new_total_relayer_score)
             };
-            let new_total = calculate_new_total_relayer_score().ok_or(Error::<T>::MathError)?;
+            let new_total =
+                calculate_new_total_relayer_score().ok_or(Error::<T>::InvalidTotalRelayerScore)?;
 
             <TotalRelayerScore<T>>::set(new_total);
             <RelayerSla<T>>::insert(relayer_id.clone(), new_sla);
@@ -212,40 +213,40 @@ impl<T: Trait> Module<T> {
             let issued_amount = Self::polkabtc_to_u128(issued_amount)?;
             let issued_reward_in_polka_btc = issued_amount
                 .checked_mul(total_reward_for_issued_in_polka_btc)
-                .ok_or(Error::<T>::MathError)?
+                .ok_or(Error::<T>::ArithmeticOverflow)?
                 .checked_div(total_issued)
-                .ok_or(Error::<T>::MathError)?;
+                .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
             let issued_reward_in_dot = issued_amount
                 .checked_mul(total_reward_for_issued_in_dot)
-                .ok_or(Error::<T>::MathError)?
+                .ok_or(Error::<T>::ArithmeticOverflow)?
                 .checked_div(total_issued)
-                .ok_or(Error::<T>::MathError)?;
+                .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
             let locked_amount = ext::collateral::get_collateral_from_account::<T>(account_id);
             let locked_amount = Self::dot_to_u128(locked_amount)?;
             let locked_reward_in_polka_btc = locked_amount
                 .checked_mul(total_reward_for_locked_in_polka_btc)
-                .ok_or(Error::<T>::MathError)?
+                .ok_or(Error::<T>::ArithmeticOverflow)?
                 .checked_div(total_locked)
-                .ok_or(Error::<T>::MathError)?;
+                .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
             let locked_reward_in_dot = locked_amount
                 .checked_mul(total_reward_for_locked_in_dot)
-                .ok_or(Error::<T>::MathError)?
+                .ok_or(Error::<T>::ArithmeticOverflow)?
                 .checked_div(total_locked)
-                .ok_or(Error::<T>::MathError)?;
+                .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
             Result::<_, DispatchError>::Ok((
                 Self::u128_to_polkabtc(
                     issued_reward_in_polka_btc
                         .checked_add(locked_reward_in_polka_btc)
-                        .ok_or(Error::<T>::MathError)?,
+                        .ok_or(Error::<T>::ArithmeticOverflow)?,
                 )?,
                 Self::u128_to_dot(
                     issued_reward_in_dot
                         .checked_add(locked_reward_in_dot)
-                        .ok_or(Error::<T>::MathError)?,
+                        .ok_or(Error::<T>::ArithmeticOverflow)?,
                 )?,
             ))
         };
@@ -360,7 +361,7 @@ impl<T: Trait> Module<T> {
 
             stake_scaling_factor.checked_mul_int(stake)
         };
-        let slashed_raw = calculate_slashed_collateral().ok_or(Error::<T>::MathError)?;
+        let slashed_raw = calculate_slashed_collateral().ok_or(Error::<T>::InvalidSlashedAmount)?;
         Ok(Self::u128_to_dot(slashed_raw)?)
     }
 
@@ -378,7 +379,7 @@ impl<T: Trait> Module<T> {
     ) -> Result<T::SignedFixedPoint, DispatchError> {
         // update the number of issues performed
         let mut count = <TotalIssueCount>::get();
-        count = count.checked_add(1).ok_or(Error::<T>::MathError)?;
+        count = count.checked_add(1).ok_or(Error::<T>::ArithmeticOverflow)?;
         <TotalIssueCount>::set(count);
 
         let total = ext::treasury::get_total_supply::<T>();
@@ -392,9 +393,9 @@ impl<T: Trait> Module<T> {
         let amount = Self::polkabtc_to_fixed_point(amount)?;
         let potential_sla_increase = amount
             .checked_div(&average)
-            .ok_or(Error::<T>::MathError)?
+            .ok_or(Error::<T>::ArithmeticUnderflow)?
             .checked_mul(&max_sla_change)
-            .ok_or(Error::<T>::MathError)?;
+            .ok_or(Error::<T>::ArithmeticOverflow)?;
 
         let ret = Self::_limit(
             T::SignedFixedPoint::zero(),
@@ -453,7 +454,7 @@ impl<T: Trait> Module<T> {
             let reward = share.checked_mul_int(total_reward)?;
             Some(reward)
         };
-        Ok(calculate_reward().ok_or(Error::<T>::MathError)?)
+        Ok(calculate_reward().ok_or(Error::<T>::InvalidRelayerReward)?)
     }
 
     /// Gets the staked collateral of the given relayer as a fixed point type
@@ -480,7 +481,7 @@ impl<T: Trait> Module<T> {
     }
 
     fn dot_to_u128(x: DOT<T>) -> Result<u128, DispatchError> {
-        TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::MathError.into())
+        TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
     fn u128_to_dot(x: u128) -> Result<DOT<T>, DispatchError> {
@@ -504,7 +505,11 @@ impl<T: Trait> Module<T> {
 
 decl_error! {
     pub enum Error for Module<T: Trait> {
-        MathError,
-        TryIntoIntError
+        TryIntoIntError,
+        ArithmeticOverflow,
+        ArithmeticUnderflow,
+        InvalidTotalRelayerScore,
+        InvalidSlashedAmount,
+        InvalidRelayerReward,
     }
 }

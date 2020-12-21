@@ -4,6 +4,15 @@ use frame_support::{assert_err, assert_ok};
 use mocktopus::mocking::*;
 use sp_arithmetic::{FixedPointNumber, FixedU128};
 
+type Event = crate::Event<Test>;
+
+macro_rules! assert_emitted {
+    ($event:expr) => {
+        let test_event = TestEvent::test_events($event);
+        assert!(System::events().iter().any(|a| a.event == test_event));
+    };
+}
+
 #[test]
 fn test_calculate_for() {
     run_test(|| {
@@ -123,5 +132,57 @@ fn test_ensure_rationals_sum_to_one_succeeds() {
             FixedU128::checked_from_rational(15, 100).unwrap(),
             FixedU128::checked_from_rational(5, 100).unwrap(),
         ],),);
+    })
+}
+
+#[test]
+fn test_withdraw_polka_btc_fails_with_insufficient_balance() {
+    run_test(|| {
+        assert_err!(
+            Fee::withdraw_polka_btc(Origin::signed(0), 1000),
+            TestError::ArithmeticUnderflow
+        );
+    })
+}
+
+#[test]
+fn test_withdraw_polka_btc_succeeds() {
+    run_test(|| {
+        <TotalRewardsPolkaBTC<Test>>::insert(0, 1000);
+        ext::collateral::transfer::<Test>.mock_safe(|fee_pool, signer, amount| {
+            assert_eq!(Fee::fee_pool_account_id(), fee_pool);
+            assert_eq!(signer, 0);
+            assert_eq!(amount, 1000);
+            MockResult::Return(Ok(()))
+        });
+
+        assert_ok!(Fee::withdraw_polka_btc(Origin::signed(0), 1000));
+        assert_emitted!(Event::WithdrawPolkaBTC(0, 1000));
+    })
+}
+
+#[test]
+fn test_withdraw_dot_fails_with_insufficient_balance() {
+    run_test(|| {
+        assert_err!(
+            Fee::withdraw_dot(Origin::signed(0), 1000),
+            TestError::ArithmeticUnderflow
+        );
+    })
+}
+
+#[test]
+fn test_withdraw_dot_succeeds() {
+    run_test(|| {
+        <TotalRewardsDOT<Test>>::insert(0, 1000);
+        ext::collateral::transfer::<Test>.mock_safe(|fee_pool, signer, amount| {
+            assert_eq!(Fee::fee_pool_account_id(), fee_pool);
+            assert_eq!(signer, 0);
+            assert_eq!(amount, 1000);
+            MockResult::Return(Ok(()))
+        });
+
+        assert_ok!(Fee::withdraw_dot(Origin::signed(0), 1000));
+        assert_emitted!(Event::WithdrawDOT(0, 1000));
     })
 }
