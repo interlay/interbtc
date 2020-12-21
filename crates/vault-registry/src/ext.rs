@@ -66,7 +66,7 @@ pub(crate) mod oracle {
 #[cfg_attr(test, mockable)]
 pub(crate) mod security {
     use frame_support::dispatch::DispatchResult;
-    use security::ErrorCode;
+    use security::{ErrorCode, StatusCode};
     use sp_std::vec::Vec;
 
     pub fn recover_from_liquidation<T: security::Trait>() -> DispatchResult {
@@ -85,5 +85,13 @@ pub(crate) mod security {
         error_codes: Vec<ErrorCode>,
     ) -> DispatchResult {
         <security::Module<T>>::ensure_parachain_does_not_have_errors(error_codes)
+    }
+
+    pub fn set_parachain_status<T: security::Trait>(status_code: StatusCode) {
+        <security::Module<T>>::set_parachain_status(status_code)
+    }
+
+    pub fn insert_error<T: security::Trait>(error_code: ErrorCode) {
+        <security::Module<T>>::insert_error(error_code)
     }
 }

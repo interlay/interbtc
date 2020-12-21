@@ -7,11 +7,14 @@ use crate::mock::{
 use crate::sp_api_hidden_includes_decl_storage::hidden_include::traits::OnInitialize;
 use crate::types::BtcAddress;
 use crate::GRANULARITY;
-use crate::{UpdatableVault, Vault, VaultStatus, Wallet};
+use crate::{UpdatableVault, Vault, VaultStatus, Vaults, Wallet};
 use crate::{H160, H256};
 use frame_support::{assert_err, assert_noop, assert_ok, StorageMap};
 use mocktopus::mocking::*;
+use security::{ErrorCode, StatusCode};
 use sp_runtime::traits::Header;
+use std::collections::HashMap;
+use std::rc::Rc;
 
 type Event = crate::Event<Test>;
 
@@ -662,11 +665,39 @@ fn is_collateral_below_threshold_true_succeeds() {
 }
 
 #[test]
-fn test_liquidate_undercollateralized_vaults_succeeds() {
-    use crate::Vaults;
-    use std::collections::HashMap;
-    use std::rc::Rc;
+fn test_liquidate_undercollateralized_vaults_no_liquidation() {
+    run_test(|| {
+        Vaults::<Test>::insert(0, Vault::default());
+        Vaults::<Test>::insert(1, Vault::default());
+        Vaults::<Test>::insert(2, Vault::default());
+        Vaults::<Test>::insert(3, Vault::default());
+        Vaults::<Test>::insert(4, Vault::default());
 
+        let vaults: HashMap<<Test as frame_system::Trait>::AccountId, bool> =
+            vec![(0, false), (1, false), (2, false), (3, false), (4, false)]
+                .into_iter()
+                .collect();
+
+        ext::security::set_parachain_status::<Test>.mock_safe(move |_| {
+            panic!("Should not update parachain status");
+        });
+
+        ext::security::insert_error::<Test>.mock_safe(move |_| {
+            panic!("Should not insert error code");
+        });
+
+        VaultRegistry::is_vault_below_liquidation_threshold
+            .mock_safe(move |id| MockResult::Return(Ok(*vaults.get(id).unwrap())));
+        VaultRegistry::liquidate_vault.mock_safe(move |_| {
+            panic!("Should not liquidate any vaults");
+        });
+
+        VaultRegistry::liquidate_undercollateralized_vaults();
+    });
+}
+
+#[test]
+fn test_liquidate_undercollateralized_vaults_succeeds() {
     run_test(|| {
         Vaults::<Test>::insert(0, Vault::default());
         Vaults::<Test>::insert(1, Vault::default());
@@ -681,7 +712,17 @@ fn test_liquidate_undercollateralized_vaults_succeeds() {
         let vaults1 = Rc::new(vaults);
         let vaults2 = vaults1.clone();
 
-        VaultRegistry::is_vault_below_secure_threshold
+        ext::security::set_parachain_status::<Test>.mock_safe(move |status_code| {
+            assert_eq!(status_code, StatusCode::Error);
+            MockResult::Return(())
+        });
+
+        ext::security::insert_error::<Test>.mock_safe(move |error_code| {
+            assert_eq!(error_code, ErrorCode::Liquidation);
+            MockResult::Return(())
+        });
+
+        VaultRegistry::is_vault_below_liquidation_threshold
             .mock_safe(move |id| MockResult::Return(Ok(*vaults1.get(id).unwrap())));
         VaultRegistry::liquidate_vault.mock_safe(move |id| {
             assert!(vaults2.get(id).unwrap());
