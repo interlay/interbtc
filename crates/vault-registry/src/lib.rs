@@ -33,7 +33,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, ensure, IterableStorageMap,
 };
 use frame_system::ensure_signed;
-use security::ErrorCode;
+use security::{ErrorCode, StatusCode};
 use sp_core::H160;
 use sp_core::{H256, U256};
 use sp_std::convert::TryInto;
@@ -647,7 +647,7 @@ impl<T: Trait> Module<T> {
     fn liquidate_undercollateralized_vaults() {
         let vaults_to_liquidate = <Vaults<T>>::iter()
             .filter_map(|(vault_id, _)| {
-                if Self::is_vault_below_secure_threshold(&vault_id)
+                if Self::is_vault_below_liquidation_threshold(&vault_id)
                     .ok()
                     .unwrap_or(false)
                 {
@@ -657,6 +657,13 @@ impl<T: Trait> Module<T> {
                 }
             })
             .collect::<Vec<T::AccountId>>();
+
+        if vaults_to_liquidate.len() > 0 {
+            // update the security status if one or more
+            // vaults are liquidated in this block
+            ext::security::set_parachain_status::<T>(StatusCode::Error);
+            ext::security::insert_error::<T>(ErrorCode::Liquidation);
+        }
 
         for vault_id in vaults_to_liquidate {
             // ignore conversion errors since we cannot do anything
