@@ -114,9 +114,8 @@ impl<T: Trait> Module<T> {
             &source,
             &destination,
             amount,
-            ExistenceRequirement::KeepAlive,
+            ExistenceRequirement::AllowDeath,
         )
-        .map_err(|_| Error::<T>::InsufficientFunds.into())
     }
 
     /// Lock DOT collateral

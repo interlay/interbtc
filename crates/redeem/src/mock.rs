@@ -146,6 +146,7 @@ impl exchange_rate_oracle::Trait for Test {
 impl fee::Trait for Test {
     type Event = TestEvent;
     type UnsignedFixedPoint = FixedU128;
+    type WeightInfo = ();
 }
 
 impl sla::Trait for Test {
