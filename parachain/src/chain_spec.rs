@@ -47,7 +47,7 @@ pub fn development_config(inclusion_check: bool) -> Result<ChainSpec, String> {
 
     Ok(ChainSpec::from_genesis(
         // Name
-        "Development",
+        "PolkaBTC",
         // ID
         "dev",
         ChainType::Development,
