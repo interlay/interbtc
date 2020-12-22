@@ -1,5 +1,6 @@
 /// Mocking the test environment
 use crate::{Error, Module, Trait};
+use frame_support::traits::StorageMapShim;
 use frame_support::{
     impl_outer_event, impl_outer_origin, parameter_types,
     weights::{
@@ -7,7 +8,6 @@ use frame_support::{
         Weight,
     },
 };
-use pallet_balances as balances;
 use sp_arithmetic::{FixedI128, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
@@ -30,7 +30,8 @@ impl_outer_event! {
     pub enum TestEvent for Test {
         frame_system<T>,
         test_events<T>,
-        balances<T>,
+        pallet_balances Instance1<T>,
+        pallet_balances Instance2<T>,
         collateral<T>,
         treasury<T>,
         vault_registry<T>,
@@ -91,24 +92,50 @@ parameter_types! {
     pub const MaxLocks: u32 = 50;
 }
 
-impl pallet_balances::Trait for Test {
+/// DOT
+impl pallet_balances::Trait<pallet_balances::Instance1> for Test {
+    type MaxLocks = MaxLocks;
+    /// The type for recording an account's balance.
+    type Balance = Balance;
+    /// The ubiquitous event type.
+    type Event = TestEvent;
+    type DustRemoval = ();
+    type ExistentialDeposit = ExistentialDeposit;
+    type AccountStore = StorageMapShim<
+        pallet_balances::Account<Test, pallet_balances::Instance1>,
+        frame_system::CallOnCreatedAccount<Test>,
+        frame_system::CallKillAccount<Test>,
+        AccountId,
+        pallet_balances::AccountData<Balance>,
+    >;
+    type WeightInfo = ();
+}
+
+/// PolkaBTC
+impl pallet_balances::Trait<pallet_balances::Instance2> for Test {
     type MaxLocks = MaxLocks;
     type Balance = Balance;
     type Event = TestEvent;
     type DustRemoval = ();
     type ExistentialDeposit = ExistentialDeposit;
-    type AccountStore = System;
+    type AccountStore = StorageMapShim<
+        pallet_balances::Account<Test, pallet_balances::Instance2>,
+        frame_system::CallOnCreatedAccount<Test>,
+        frame_system::CallKillAccount<Test>,
+        AccountId,
+        pallet_balances::AccountData<Balance>,
+    >;
     type WeightInfo = ();
 }
 
 impl collateral::Trait for Test {
     type Event = TestEvent;
-    type DOT = Balances;
+    type DOT = pallet_balances::Module<Test, pallet_balances::Instance1>;
 }
 
 impl treasury::Trait for Test {
     type Event = TestEvent;
-    type PolkaBTC = Balances;
+    type PolkaBTC = pallet_balances::Module<Test, pallet_balances::Instance2>;
 }
 
 impl exchange_rate_oracle::Trait for Test {
@@ -145,6 +172,7 @@ impl sla::Trait for Test {
 impl Trait for Test {
     type Event = TestEvent;
     type UnsignedFixedPoint = FixedU128;
+    type WeightInfo = ();
 }
 
 #[allow(dead_code)]
@@ -152,8 +180,6 @@ pub type TestError = Error<Test>;
 
 #[allow(dead_code)]
 pub type System = frame_system::Module<Test>;
-
-pub type Balances = pallet_balances::Module<Test>;
 
 #[allow(dead_code)]
 pub type Fee = Module<Test>;
@@ -166,7 +192,7 @@ impl ExtBuilder {
             .build_storage::<Test>()
             .unwrap();
 
-        sp_io::TestExternalities::from(storage)
+        storage.into()
     }
 }
 

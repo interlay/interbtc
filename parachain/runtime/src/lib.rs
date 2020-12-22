@@ -357,6 +357,7 @@ impl exchange_rate_oracle::Trait for Runtime {
 impl fee::Trait for Runtime {
     type Event = Event;
     type UnsignedFixedPoint = FixedU128;
+    type WeightInfo = ();
 }
 
 impl sla::Trait for Runtime {
@@ -606,6 +607,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, replace, Replace);
             add_benchmark!(params, batches, staked_relayers, StakedRelayers);
             add_benchmark!(params, batches, vault_registry, VaultRegistry);
+            add_benchmark!(params, batches, fee, Fee);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)

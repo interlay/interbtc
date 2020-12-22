@@ -1458,6 +1458,7 @@ version = "0.3.1"
 dependencies = [
  "collateral",
  "exchange-rate-oracle",
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "mocktopus",

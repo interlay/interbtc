@@ -12,7 +12,6 @@ use exchange_rate_oracle::Module as ExchangeRateOracle;
 use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
 // use pallet_timestamp::Now;
-use sp_arithmetic::FixedI128;
 use sp_core::{H160, U256};
 use sp_std::prelude::*;
 use vault_registry::types::{Vault, Wallet};
@@ -204,6 +203,7 @@ mod tests {
     use super::*;
     use crate::mock::{ExtBuilder, Test};
     use frame_support::assert_ok;
+    use sp_arithmetic::FixedI128;
 
     #[test]
     fn test_benchmarks() {

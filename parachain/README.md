@@ -120,7 +120,7 @@ cargo run --features runtime-benchmarks --release -- \
   --pallet "issue" \
   --extrinsic "*" \
   --steps 100 \
-  --repeat 10
+  --repeat 10 \
   --output
 ```
 

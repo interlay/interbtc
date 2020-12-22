@@ -305,4 +305,5 @@ runtime-benchmarks = [
   "replace/runtime-benchmarks",
   "staked-relayers/runtime-benchmarks",
   "vault-registry/runtime-benchmarks",
+  "fee/runtime-benchmarks",
 ]

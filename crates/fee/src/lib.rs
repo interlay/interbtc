@@ -4,6 +4,11 @@
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+#[cfg(any(feature = "runtime-benchmarks", test))]
+mod benchmarking;
+
+mod default_weights;
+
 #[cfg(test)]
 mod mock;
 
@@ -33,12 +38,20 @@ use sp_std::convert::TryInto;
 use sp_std::vec::*;
 use types::{Inner, PolkaBTC, UnsignedFixedPoint, DOT};
 
+pub trait WeightInfo {
+    fn withdraw_polka_btc() -> Weight;
+    fn withdraw_dot() -> Weight;
+}
+
 /// The pallet's configuration trait.
 pub trait Trait: frame_system::Trait + collateral::Trait + treasury::Trait + sla::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 
     type UnsignedFixedPoint: FixedPointNumber + Encode + EncodeLike + Decode;
+
+    /// Weight information for the extrinsics in this module.
+    type WeightInfo: WeightInfo;
 }
 
 // The pallet's storage items.
@@ -179,7 +192,7 @@ decl_module! {
         ///
         /// * `origin` - signing account
         /// * `amount` - amount of PolkaBTC
-        #[weight = 0]
+        #[weight = <T as Trait>::WeightInfo::withdraw_polka_btc()]
         fn withdraw_polka_btc(origin, amount: PolkaBTC<T>) -> DispatchResult
         {
             let signer = ensure_signed(origin)?;
@@ -198,7 +211,7 @@ decl_module! {
         ///
         /// * `origin` - signing account
         /// * `amount` - amount of DOT
-        #[weight = 0]
+        #[weight = <T as Trait>::WeightInfo::withdraw_dot()]
         fn withdraw_dot(origin, amount: DOT<T>) -> DispatchResult
         {
             let signer = ensure_signed(origin)?;

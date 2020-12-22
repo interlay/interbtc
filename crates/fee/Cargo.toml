@@ -61,8 +61,14 @@ path = '../treasury'
 default-features = false
 path = '../sla'
 
+[dependencies.frame-benchmarking]
+version = "2.0.0"
+default-features = false
+optional = true
+
 [dev-dependencies]
 mocktopus = '0.7.0'
+frame-benchmarking = { version = "2.0.0" }
 
 [dev-dependencies.pallet-randomness-collective-flip]
 default-features = false
@@ -101,4 +107,10 @@ std = [
 	'collateral/std',
 	'treasury/std',
 	'sla/std',
+	'frame-benchmarking/std',
+]
+runtime-benchmarks = [
+	"frame-benchmarking",
+	"frame-support/runtime-benchmarks",
+	"frame-system/runtime-benchmarks",
 ]
