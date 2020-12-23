@@ -8,6 +8,7 @@ use frame_support::{
     },
 };
 use pallet_balances as balances;
+use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
@@ -35,6 +36,8 @@ impl_outer_event! {
         btc_relay,
         treasury<T>,
         exchange_rate_oracle<T>,
+        fee<T>,
+        sla<T>,
         security,
     }
 }
@@ -127,6 +130,7 @@ impl treasury::Trait for Test {
 parameter_types! {
     pub const MinimumPeriod: u64 = 5;
 }
+
 impl timestamp::Trait for Test {
     type Moment = u64;
     type OnTimestampSet = ();
@@ -137,6 +141,17 @@ impl timestamp::Trait for Test {
 impl exchange_rate_oracle::Trait for Test {
     type Event = TestEvent;
     type WeightInfo = ();
+}
+
+impl fee::Trait for Test {
+    type Event = TestEvent;
+    type UnsignedFixedPoint = FixedU128;
+    type WeightInfo = ();
+}
+
+impl sla::Trait for Test {
+    type Event = TestEvent;
+    type SignedFixedPoint = FixedI128;
 }
 
 impl Trait for Test {
@@ -169,6 +184,46 @@ impl ExtBuilder {
             .unwrap();
 
         conf.assimilate_storage(&mut storage).unwrap();
+
+        fee::GenesisConfig::<Test> {
+            issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
+            issue_griefing_collateral: FixedU128::checked_from_rational(5, 100000).unwrap(), // 0.005%
+            redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),                  // 0.5%
+            premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
+            auction_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
+            punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(),                // 10%
+            replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(),   // 10%
+            fee_pool_account_id: 0,
+            maintainer_account_id: 1,
+            epoch_period: 5,
+            vault_rewards: FixedU128::checked_from_rational(77, 100).unwrap(),
+            vault_rewards_issued: FixedU128::checked_from_rational(90, 100).unwrap(),
+            vault_rewards_locked: FixedU128::checked_from_rational(10, 100).unwrap(),
+            relayer_rewards: FixedU128::checked_from_rational(3, 100).unwrap(),
+            maintainer_rewards: FixedU128::checked_from_rational(20, 100).unwrap(),
+            collator_rewards: FixedU128::checked_from_integer(0).unwrap(),
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
+        sla::GenesisConfig::<Test> {
+            vault_target_sla: FixedI128::from(100),
+            vault_redeem_failure_sla_change: FixedI128::from(-10),
+            vault_executed_issue_max_sla_change: FixedI128::from(4),
+            vault_submitted_issue_proof: FixedI128::from(0),
+            relayer_target_sla: FixedI128::from(100),
+            relayer_block_submission: FixedI128::from(1),
+            relayer_correct_no_data_vote_or_report: FixedI128::from(1),
+            relayer_correct_invalid_vote_or_report: FixedI128::from(10),
+            relayer_correct_liquidation_report: FixedI128::from(1),
+            relayer_correct_theft_report: FixedI128::from(1),
+            relayer_correct_oracle_offline_report: FixedI128::from(1),
+            relayer_false_no_data_vote_or_report: FixedI128::from(-10),
+            relayer_false_invalid_vote_or_report: FixedI128::from(-100),
+            relayer_ignored_vote: FixedI128::from(-10),
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
 
         GenesisConfig::<Test> {
             redeem_period: 10,

@@ -114,7 +114,7 @@ fn test_request_redeem_fails_with_amount_exceeds_user_balance() {
 fn test_request_redeem_fails_with_amount_below_minimum() {
     run_test(|| {
         ext::oracle::btc_to_dots::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
-        <vault_registry::Module<Test>>::_insert_vault(
+        <vault_registry::Module<Test>>::insert_vault(
             &BOB,
             vault_registry::Vault {
                 id: BOB,
@@ -238,7 +238,7 @@ fn test_request_redeem_fails_with_amount_exceeds_vault_balance() {
 fn test_request_redeem_succeeds_in_running_state() {
     run_test(|| {
         ext::oracle::btc_to_dots::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
-        <vault_registry::Module<Test>>::_insert_vault(
+        <vault_registry::Module<Test>>::insert_vault(
             &BOB,
             vault_registry::Vault {
                 id: BOB,
@@ -287,17 +287,20 @@ fn test_request_redeem_succeeds_in_running_state() {
             BtcAddress::P2PKH(H160::zero()),
         ));
         assert_ok!(
-            Redeem::get_redeem_request_from_id(&H256([0; 32])),
+            Redeem::get_open_redeem_request_from_id(&H256([0; 32])),
             RedeemRequest {
                 vault: BOB,
                 opentime: 1,
                 amount_polka_btc: amount,
+                fee: 0,
                 amount_btc: amount,
                 amount_dot: 0,
                 premium_dot: 0,
                 redeemer: redeemer.clone(),
                 btc_address: BtcAddress::P2PKH(H160::zero()),
                 completed: false,
+                cancelled: false,
+                reimburse: false,
             }
         );
     })
@@ -328,15 +331,18 @@ fn test_request_redeem_succeeds_in_error_state() {
         ext::oracle::btc_to_dots::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
 
         let redeemer = ALICE;
-        let amount = 10 * 100_000_000;
+        let total_amount = 10 * 100_000_000;
+        let fee = 5000000;
+        let redeem_amount = total_amount - fee;
+        let redeem_amount_btc = redeem_amount / 2;
 
-        <treasury::Module<Test>>::mint(ALICE, amount);
-        <vault_registry::Module<Test>>::_insert_vault(
+        <treasury::Module<Test>>::mint(ALICE, total_amount);
+        <vault_registry::Module<Test>>::insert_vault(
             &BOB,
             vault_registry::Vault {
                 id: BOB,
                 to_be_issued_tokens: 0,
-                issued_tokens: amount,
+                issued_tokens: total_amount,
                 to_be_redeemed_tokens: 0,
                 wallet: Wallet::new(BtcAddress::P2SH(H160::zero())),
                 banned_until: None,
@@ -346,7 +352,7 @@ fn test_request_redeem_succeeds_in_error_state() {
         ext::vault_registry::increase_to_be_redeemed_tokens::<Test>.mock_safe(
             move |vault_id, amount_btc| {
                 assert_eq!(vault_id, &BOB);
-                assert_eq!(amount_btc, amount / 2);
+                assert_eq!(amount_btc, redeem_amount_btc);
 
                 MockResult::Return(Ok(()))
             },
@@ -355,7 +361,7 @@ fn test_request_redeem_succeeds_in_error_state() {
         ext::vault_registry::redeem_tokens_liquidation::<Test>.mock_safe(
             move |vault_id, amount_polka_btc| {
                 assert_eq!(vault_id, &BOB);
-                assert_eq!(amount_polka_btc, amount / 2);
+                assert_eq!(amount_polka_btc, redeem_amount_btc);
 
                 MockResult::Return(Ok(()))
             },
@@ -363,7 +369,7 @@ fn test_request_redeem_succeeds_in_error_state() {
 
         ext::treasury::lock::<Test>.mock_safe(move |account, amount_polka_btc| {
             assert_eq!(account, redeemer);
-            assert_eq!(amount_polka_btc, amount);
+            assert_eq!(amount_polka_btc, total_amount);
 
             MockResult::Return(Ok(()))
         });
@@ -372,7 +378,7 @@ fn test_request_redeem_succeeds_in_error_state() {
 
         assert_ok!(Redeem::request_redeem(
             Origin::signed(redeemer.clone()),
-            amount,
+            total_amount,
             BtcAddress::P2PKH(H160::zero()),
             BOB
         ));
@@ -380,22 +386,25 @@ fn test_request_redeem_succeeds_in_error_state() {
         assert_emitted!(Event::RequestRedeem(
             H256([0; 32]),
             redeemer.clone(),
-            amount,
+            total_amount - fee,
             BOB,
             BtcAddress::P2PKH(H160::zero()),
         ));
         assert_ok!(
-            Redeem::get_redeem_request_from_id(&H256([0; 32])),
+            Redeem::get_open_redeem_request_from_id(&H256([0; 32])),
             RedeemRequest {
                 vault: BOB,
                 opentime: 1,
-                amount_polka_btc: amount,
-                amount_btc: amount / 2,
-                amount_dot: amount / 2,
-                premium_dot: 0,
+                amount_polka_btc: total_amount - fee,
+                fee,
+                amount_btc: redeem_amount_btc,
+                amount_dot: redeem_amount_btc,
+                premium_dot: 24875000,
                 redeemer: redeemer.clone(),
                 btc_address: BtcAddress::P2PKH(H160::zero()),
                 completed: false,
+                cancelled: false,
+                reimburse: false,
             }
         );
     })
@@ -421,17 +430,20 @@ fn test_execute_redeem_fails_with_redeem_id_not_found() {
 #[test]
 fn test_execute_redeem_fails_with_unauthorized_vault() {
     run_test(|| {
-        Redeem::get_redeem_request_from_id.mock_safe(|_| {
+        Redeem::get_open_redeem_request_from_id.mock_safe(|_| {
             MockResult::Return(Ok(RedeemRequest {
                 vault: BOB,
                 opentime: 0,
                 amount_polka_btc: 0,
+                fee: 0,
                 amount_btc: 0,
                 amount_dot: 0,
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: BtcAddress::random(),
                 completed: false,
+                cancelled: false,
+                reimburse: false,
             }))
         });
 
@@ -453,17 +465,20 @@ fn test_execute_redeem_fails_with_commit_period_expired() {
     run_test(|| {
         System::set_block_number(40);
 
-        Redeem::get_redeem_request_from_id.mock_safe(|_| {
+        Redeem::get_open_redeem_request_from_id.mock_safe(|_| {
             MockResult::Return(Ok(RedeemRequest {
                 vault: BOB,
                 opentime: 20,
                 amount_polka_btc: 0,
+                fee: 0,
                 amount_btc: 0,
                 amount_dot: 0,
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: BtcAddress::random(),
                 completed: false,
+                cancelled: false,
+                reimburse: false,
             }))
         });
 
@@ -485,7 +500,7 @@ fn test_execute_redeem_succeeds() {
     run_test(|| {
         ext::oracle::btc_to_dots::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
         System::set_block_number(40);
-        <vault_registry::Module<Test>>::_insert_vault(
+        <vault_registry::Module<Test>>::insert_vault(
             &BOB,
             vault_registry::Vault {
                 id: BOB,
@@ -508,12 +523,15 @@ fn test_execute_redeem_succeeds() {
                 vault: BOB,
                 opentime: 40,
                 amount_polka_btc: 100,
+                fee: 0,
                 amount_btc: 0,
                 amount_dot: 0,
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: BtcAddress::random(),
                 completed: false,
+                cancelled: false,
+                reimburse: false,
             },
         );
 
@@ -540,7 +558,7 @@ fn test_execute_redeem_succeeds() {
         ));
         assert_emitted!(Event::ExecuteRedeem(H256([0; 32]), ALICE, BOB));
         assert_err!(
-            Redeem::get_redeem_request_from_id(&H256([0u8; 32])),
+            Redeem::get_open_redeem_request_from_id(&H256([0u8; 32])),
             TestError::RedeemCompleted,
         );
     })
@@ -561,17 +579,20 @@ fn test_cancel_redeem_fails_with_time_not_expired() {
     run_test(|| {
         System::set_block_number(10);
 
-        Redeem::get_redeem_request_from_id.mock_safe(|_| {
+        Redeem::get_open_redeem_request_from_id.mock_safe(|_| {
             MockResult::Return(Ok(RedeemRequest {
                 vault: BOB,
                 opentime: 0,
                 amount_polka_btc: 0,
+                fee: 0,
                 amount_btc: 0,
                 amount_dot: 0,
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: BtcAddress::random(),
                 completed: false,
+                cancelled: false,
+                reimburse: false,
             }))
         });
 
@@ -587,17 +608,20 @@ fn test_cancel_redeem_fails_with_unauthorized_caller() {
     run_test(|| {
         <frame_system::Module<Test>>::set_block_number(20);
 
-        Redeem::get_redeem_request_from_id.mock_safe(|_| {
+        Redeem::get_open_redeem_request_from_id.mock_safe(|_| {
             MockResult::Return(Ok(RedeemRequest {
                 vault: BOB,
                 opentime: 0,
                 amount_polka_btc: 0,
+                fee: 0,
                 amount_btc: 0,
                 amount_dot: 0,
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: BtcAddress::random(),
                 completed: false,
+                cancelled: false,
+                reimburse: false,
             }))
         });
 
@@ -617,23 +641,27 @@ fn test_cancel_redeem_succeeds() {
                 vault: BOB,
                 opentime: 10,
                 amount_polka_btc: 0,
+                fee: 0,
                 amount_btc: 0,
                 amount_dot: 0,
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: BtcAddress::random(),
                 completed: false,
+                cancelled: false,
+                reimburse: false,
             },
         );
 
         System::set_block_number(System::block_number() + Redeem::redeem_period() + 10);
-        let current_height = System::block_number();
 
-        ext::vault_registry::ban_vault::<Test>.mock_safe(move |vault, height| {
+        ext::vault_registry::ban_vault::<Test>.mock_safe(move |vault| {
             assert_eq!(vault, BOB);
-            assert_eq!(height, current_height);
             MockResult::Return(Ok(()))
         });
+        ext::sla::calculate_slashed_amount::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(0)));
+        ext::collateral::slash_collateral::<Test>
+            .mock_safe(move |_, _, _| MockResult::Return(Ok(())));
 
         assert_ok!(Redeem::cancel_redeem(
             Origin::signed(ALICE),
@@ -641,8 +669,8 @@ fn test_cancel_redeem_succeeds() {
             false
         ));
         assert_err!(
-            Redeem::get_redeem_request_from_id(&H256([0u8; 32])),
-            TestError::RedeemCompleted,
+            Redeem::get_open_redeem_request_from_id(&H256([0u8; 32])),
+            TestError::RedeemCancelled,
         );
         assert_emitted!(Event::CancelRedeem(H256([0; 32]), ALICE));
     })

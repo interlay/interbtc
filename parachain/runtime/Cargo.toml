@@ -2,7 +2,7 @@
 authors = ['Interlay Ltd']
 edition = '2018'
 name = 'btc-parachain-runtime'
-version = '0.3.1'
+version = '0.3.2'
 
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']
@@ -67,6 +67,10 @@ version = '2.0.0'
 [dependencies.sp-consensus-aura]
 default-features = false
 version = '0.8.0'
+
+[dependencies.sp-arithmetic]
+default-features = false
+version = '2.0.0'
 
 [dependencies.sp-core]
 default-features = false
@@ -167,6 +171,16 @@ default-features = false
 package = 'exchange-rate-oracle'
 path = '../../crates/exchange-rate-oracle'
 
+[dependencies.fee]
+default-features = false
+package = 'fee'
+path = '../../crates/fee'
+
+[dependencies.sla]
+default-features = false
+package = 'sla'
+path = '../../crates/sla'
+
 [dependencies.issue]
 default-features = false
 package = 'issue'
@@ -206,6 +220,10 @@ path = '../../crates/redeem/rpc/runtime-api'
 default-features = false
 path = '../../crates/replace/rpc/runtime-api'
 
+[dependencies.module-sla-rpc-runtime-api]
+default-features = false
+path = '../../crates/sla/rpc/runtime-api'
+
 [dev-dependencies.bitcoin]
 default-features = false
 package = 'bitcoin'
@@ -235,6 +253,7 @@ std = [
   'sp-api/std',
   'sp-block-builder/std',
   'sp-consensus-aura/std',
+  'sp-arithmetic/std',
   'sp-core/std',
   'sp-inherents/std',
   'sp-io/std',
@@ -256,6 +275,7 @@ std = [
   'module-issue-rpc-runtime-api/std',
   'module-redeem-rpc-runtime-api/std',
   'module-replace-rpc-runtime-api/std',
+  'module-sla-rpc-runtime-api/std',
   'btc-relay/std',
   'collateral/std',
   'treasury/std',
@@ -263,6 +283,8 @@ std = [
   'staked-relayers/std',
   'vault-registry/std',
   'exchange-rate-oracle/std',
+  'fee/std',
+  'sla/std',
   'issue/std',
   'redeem/std',
   'replace/std',
@@ -283,4 +305,5 @@ runtime-benchmarks = [
   "replace/runtime-benchmarks",
   "staked-relayers/runtime-benchmarks",
   "vault-registry/runtime-benchmarks",
+  "fee/runtime-benchmarks",
 ]

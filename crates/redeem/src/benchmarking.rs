@@ -27,7 +27,7 @@ benchmarks! {
         vault.id = vault_id.clone();
         vault.wallet = Wallet::new(BtcAddress::P2SH(H160::from([0; 20])));
         vault.issued_tokens = amount;
-        VaultRegistry::<T>::_insert_vault(
+        VaultRegistry::<T>::insert_vault(
             &vault_id,
             vault
         );
@@ -37,6 +37,7 @@ benchmarks! {
     execute_redeem {
         let origin: T::AccountId = account("Origin", 0, 0);
         let vault_id: T::AccountId = account("Vault", 0, 0);
+        let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
         let origin_btc_address = BtcAddress::P2PKH(H160::zero());
         let vault_btc_address = BtcAddress::P2SH(H160::zero());
@@ -50,7 +51,7 @@ benchmarks! {
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
         vault.wallet = Wallet::new(vault_btc_address);
-        VaultRegistry::<T>::_insert_vault(
+        VaultRegistry::<T>::insert_vault(
             &vault_id,
             vault
         );
@@ -92,7 +93,7 @@ benchmarks! {
         let raw_tx = transaction.format_with(true);
 
         let block_header = RawBlockHeader::from_bytes(&block.header.format()).unwrap();
-        BtcRelay::<T>::_store_block_header(block_header).unwrap();
+        BtcRelay::<T>::_store_block_header(relayer_id, block_header).unwrap();
 
     }: _(RawOrigin::Signed(vault_id), redeem_id, tx_id, proof, raw_tx)
 
@@ -111,7 +112,7 @@ benchmarks! {
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
         vault.wallet = Wallet::new(BtcAddress::P2SH(H160::from([0; 20])));
-        VaultRegistry::<T>::_insert_vault(
+        VaultRegistry::<T>::insert_vault(
             &vault_id,
             vault
         );

@@ -11,6 +11,8 @@ members = [
   "crates/issue",
   "crates/replace",
   "crates/redeem",
+  "crates/sla",
+  "crates/fee",
   "parachain",
   "parachain/runtime",
 ]

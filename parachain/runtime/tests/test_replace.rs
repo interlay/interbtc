@@ -49,7 +49,7 @@ fn integration_test_replace_request_replace() {
             BOB,
             collateral,
             amount,
-            BtcAddress::P2PKH(H160([0; 20])),
+            BtcAddress::P2PKH(H160([1; 20])),
         );
         // bob requests a replace
         assert_ok!(
@@ -78,7 +78,7 @@ fn integration_test_replace_withdraw_replace() {
             BOB,
             collateral,
             amount,
-            BtcAddress::P2PKH(H160([0; 20])),
+            BtcAddress::P2PKH(H160([1; 20])),
         );
         // bob requests a replace
         assert_ok!(
@@ -104,7 +104,7 @@ fn integration_test_replace_accept_replace() {
         // alice creates a vault
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
             amount,
-            BtcAddress::P2PKH(H160([0; 20]))
+            BtcAddress::P2PKH(H160([1; 20]))
         ))
         .dispatch(origin_of(account_of(ALICE))));
         // bob creates a vault
@@ -113,7 +113,7 @@ fn integration_test_replace_accept_replace() {
             BOB,
             collateral,
             amount,
-            BtcAddress::P2PKH(H160([1; 20])),
+            BtcAddress::P2PKH(H160([2; 20])),
         );
         // bob requests a replace
         assert_ok!(
@@ -137,10 +137,11 @@ fn integration_test_replace_auction_replace() {
         let old_vault = ALICE;
         let new_vault = BOB;
         let collateral = 4_000;
+        let replace_collateral = collateral * 2;
         let polkabtc = 1_000;
 
-        let old_vault_btc_address = BtcAddress::P2PKH(H160([0; 20]));
-        let new_vault_btc_address = BtcAddress::P2PKH(H160([1; 20]));
+        let old_vault_btc_address = BtcAddress::P2PKH(H160([1; 20]));
+        let new_vault_btc_address = BtcAddress::P2PKH(H160([2; 20]));
 
         set_default_thresholds();
         // peg spot rate
@@ -156,13 +157,27 @@ fn integration_test_replace_auction_replace() {
         .dispatch(origin_of(account_of(new_vault))));
         // exchange rate drops and vault is not collateralized any more
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(300000));
+
+        let initial_old_vault_collateral =
+            collateral::Module::<Runtime>::get_collateral_from_account(&account_of(old_vault));
+
         // new_vault takes over old_vault's position
         assert_ok!(Call::Replace(ReplaceCall::auction_replace(
             account_of(old_vault),
             polkabtc,
-            2 * collateral
+            replace_collateral
         ))
         .dispatch(origin_of(account_of(new_vault))));
+
+        let final_old_vault_collateral =
+            collateral::Module::<Runtime>::get_collateral_from_account(&account_of(old_vault));
+
+        // take auction fee from old vault collateral
+        let auction_fee = FeeModule::get_auction_redeem_fee(replace_collateral).unwrap();
+        assert_eq!(
+            final_old_vault_collateral,
+            initial_old_vault_collateral - auction_fee
+        );
     });
 }
 
@@ -176,8 +191,8 @@ fn integration_test_replace_execute_replace() {
         let collateral = 4_000;
         let polkabtc = 1_000;
 
-        let old_vault_btc_address = BtcAddress::P2PKH(H160([0; 20]));
-        let new_vault_btc_address = BtcAddress::P2PKH(H160([1; 20]));
+        let old_vault_btc_address = BtcAddress::P2PKH(H160([1; 20]));
+        let new_vault_btc_address = BtcAddress::P2PKH(H160([2; 20]));
 
         set_default_thresholds();
         SystemModule::set_block_number(1);
@@ -237,7 +252,7 @@ fn integration_test_replace_cancel_replace() {
         // alice creates a vault
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
             amount,
-            BtcAddress::P2PKH(H160([0; 20]))
+            BtcAddress::P2PKH(H160([1; 20]))
         ))
         .dispatch(origin_of(account_of(ALICE))));
         // bob creates a vault
@@ -246,7 +261,7 @@ fn integration_test_replace_cancel_replace() {
             BOB,
             collateral,
             amount,
-            BtcAddress::P2PKH(H160([1; 20])),
+            BtcAddress::P2PKH(H160([2; 20])),
         );
         // bob requests a replace
         assert_ok!(

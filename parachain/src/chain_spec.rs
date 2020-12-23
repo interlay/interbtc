@@ -1,9 +1,11 @@
 use btc_parachain_runtime::{
-    AccountId, AuraConfig, BTCRelayConfig, DOTConfig, ExchangeRateOracleConfig, GenesisConfig,
-    GrandpaConfig, IssueConfig, PolkaBTCConfig, RedeemConfig, ReplaceConfig, Signature,
-    StakedRelayersConfig, SudoConfig, SystemConfig, VaultRegistryConfig, DAYS, WASM_BINARY,
+    AccountId, AuraConfig, BTCRelayConfig, DOTConfig, ExchangeRateOracleConfig, FeeConfig,
+    GenesisConfig, GrandpaConfig, IssueConfig, PolkaBTCConfig, RedeemConfig, ReplaceConfig,
+    Signature, SlaConfig, StakedRelayersConfig, SudoConfig, SystemConfig, VaultRegistryConfig,
+    DAYS, WASM_BINARY,
 };
 use sc_service::ChainType;
+use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
@@ -45,7 +47,7 @@ pub fn development_config(inclusion_check: bool) -> Result<ChainSpec, String> {
 
     Ok(ChainSpec::from_genesis(
         // Name
-        "Development",
+        "PolkaBTC",
         // ID
         "dev",
         ChainType::Development,
@@ -197,29 +199,59 @@ fn testnet_genesis(
             disable_inclusion_check: !inclusion_check,
             disable_op_return_check: false,
         }),
-        issue: Some(IssueConfig {
-            issue_griefing_collateral: 10,
-            issue_period: DAYS,
-        }),
+        issue: Some(IssueConfig { issue_period: DAYS }),
         redeem: Some(RedeemConfig {
             redeem_period: DAYS,
             redeem_btc_dust_value: 1000,
         }),
         replace: Some(ReplaceConfig {
-            replace_griefing_collateral: 10,
             replace_period: DAYS,
             replace_btc_dust_value: 1000,
         }),
         vault_registry: Some(VaultRegistryConfig {
             minimum_collateral_vault: 0,
-            punishment_fee: 20_000,
-            punishment_delay: 8,
-            redeem_premium_fee: 5000,
+            punishment_delay: DAYS,
             secure_collateral_threshold: 200_000,
             auction_collateral_threshold: 150_000,
             premium_redeem_threshold: 120_000,
             liquidation_collateral_threshold: 110_000,
-            liquidation_vault: get_account_id_from_seed::<sr25519::Public>("Victor"),
+            liquidation_vault_account_id: get_account_id_from_seed::<sr25519::Public>(
+                "LiquidationVault",
+            ),
+        }),
+        fee: Some(FeeConfig {
+            issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
+            issue_griefing_collateral: FixedU128::checked_from_rational(5, 100000).unwrap(), // 0.005%
+            redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),                  // 0.5%
+            premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
+            auction_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
+            punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(),                // 10%
+            replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(),   // 10%
+            fee_pool_account_id: get_account_id_from_seed::<sr25519::Public>("FeePool"),
+            maintainer_account_id: get_account_id_from_seed::<sr25519::Public>("Maintainer"),
+            epoch_period: 5,
+            vault_rewards: FixedU128::checked_from_rational(77, 100).unwrap(),
+            vault_rewards_issued: FixedU128::checked_from_rational(90, 100).unwrap(),
+            vault_rewards_locked: FixedU128::checked_from_rational(10, 100).unwrap(),
+            relayer_rewards: FixedU128::checked_from_rational(3, 100).unwrap(),
+            maintainer_rewards: FixedU128::checked_from_rational(20, 100).unwrap(),
+            collator_rewards: FixedU128::checked_from_integer(0).unwrap(),
+        }),
+        sla: Some(SlaConfig {
+            vault_target_sla: FixedI128::from(100),
+            vault_redeem_failure_sla_change: FixedI128::from(0),
+            vault_executed_issue_max_sla_change: FixedI128::from(0),
+            vault_submitted_issue_proof: FixedI128::from(0),
+            relayer_target_sla: FixedI128::from(100),
+            relayer_block_submission: FixedI128::from(1),
+            relayer_correct_no_data_vote_or_report: FixedI128::from(1),
+            relayer_correct_invalid_vote_or_report: FixedI128::from(10),
+            relayer_correct_liquidation_report: FixedI128::from(1),
+            relayer_correct_theft_report: FixedI128::from(1),
+            relayer_correct_oracle_offline_report: FixedI128::from(1),
+            relayer_false_no_data_vote_or_report: FixedI128::from(-10),
+            relayer_false_invalid_vote_or_report: FixedI128::from(-100),
+            relayer_ignored_vote: FixedI128::from(-10),
         }),
     }
 }

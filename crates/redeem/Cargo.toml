@@ -3,7 +3,7 @@ authors = ['Interlay']
 description = 'Issue module'
 edition = '2018'
 name = 'redeem'
-version = '0.3.1'
+version = '0.3.2'
 
 [dependencies.serde]
 version = '1.0.101'
@@ -17,6 +17,10 @@ package = 'parity-scale-codec'
 version = '1.3.4'
 
 [dependencies.frame-support]
+default-features = false
+version = '2.0.0'
+
+[dependencies.sp-arithmetic]
 default-features = false
 version = '2.0.0'
 
@@ -61,6 +65,14 @@ path = '../collateral'
 [dependencies.exchange-rate-oracle]
 default-features = false
 path = '../exchange-rate-oracle'
+
+[dependencies.fee]
+default-features = false
+path = '../fee'
+
+[dependencies.sla]
+default-features = false
+path = '../sla'
 
 [dependencies.btc-relay]
 default-features = false
@@ -109,6 +121,7 @@ std = [
 	'frame-support/std',
 	'sp-runtime/std',
 	'sp-io/std',
+	'sp-arithmetic/std',
 	'sp-core/std',
 	'frame-system/std',
 	'sp-std/std',
@@ -117,6 +130,7 @@ std = [
 	'vault-registry/std',
 	'collateral/std',
 	'exchange-rate-oracle/std',
+	'fee/std',
 	'btc-relay/std',
 	'treasury/std',
 	'bitcoin/std',

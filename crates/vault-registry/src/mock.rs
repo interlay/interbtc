@@ -195,14 +195,12 @@ impl ExtBuilder {
         // Parameters to be set in tests
         GenesisConfig::<Test> {
             minimum_collateral_vault: 0,
-            punishment_fee: 0,
             punishment_delay: 0,
-            redeem_premium_fee: 0,
             secure_collateral_threshold: 0,
             auction_collateral_threshold: 0,
             premium_redeem_threshold: 0,
             liquidation_collateral_threshold: 0,
-            liquidation_vault: 0,
+            liquidation_vault_account_id: 0,
         }
         .assimilate_storage(&mut storage)
         .unwrap();

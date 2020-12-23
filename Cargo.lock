@@ -598,7 +598,7 @@ dependencies = [
 
 [[package]]
 name = "btc-parachain"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "btc-parachain-runtime",
  "frame-benchmarking",
@@ -608,6 +608,7 @@ dependencies = [
  "module-issue-rpc",
  "module-redeem-rpc",
  "module-replace-rpc",
+ "module-sla-rpc",
  "module-staked-relayers-rpc",
  "module-vault-registry-rpc",
  "pallet-transaction-payment-rpc",
@@ -623,6 +624,7 @@ dependencies = [
  "sc-service",
  "sc-transaction-pool",
  "sp-api",
+ "sp-arithmetic",
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus",
@@ -639,12 +641,13 @@ dependencies = [
 
 [[package]]
 name = "btc-parachain-runtime"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "bitcoin",
  "btc-relay",
  "collateral",
  "exchange-rate-oracle",
+ "fee",
  "frame-benchmarking",
  "frame-executive",
  "frame-support",
@@ -659,6 +662,7 @@ dependencies = [
  "module-issue-rpc-runtime-api",
  "module-redeem-rpc-runtime-api",
  "module-replace-rpc-runtime-api",
+ "module-sla-rpc-runtime-api",
  "module-staked-relayers-rpc-runtime-api",
  "module-vault-registry-rpc-runtime-api",
  "pallet-aura",
@@ -676,7 +680,9 @@ dependencies = [
  "security",
  "serde",
  "serde_json",
+ "sla",
  "sp-api",
+ "sp-arithmetic",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core",
@@ -696,23 +702,31 @@ dependencies = [
 
 [[package]]
 name = "btc-relay"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "bitcoin",
+ "collateral",
+ "exchange-rate-oracle",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "hex",
  "mocktopus",
+ "pallet-balances",
+ "pallet-randomness-collective-flip",
  "pallet-timestamp",
  "parity-scale-codec",
  "primitive-types",
  "security",
  "serde",
+ "sla",
+ "sp-arithmetic",
  "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std",
+ "treasury",
+ "vault-registry",
 ]
 
 [[package]]
@@ -1436,6 +1450,32 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2c4c9e43643f5a3be4ca5b67d26b98031ff9db6806c3440ae32e02e3ceac3f1b"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "fee"
+version = "0.3.1"
+dependencies = [
+ "collateral",
+ "exchange-rate-oracle",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "mocktopus",
+ "pallet-balances",
+ "pallet-randomness-collective-flip",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "security",
+ "serde",
+ "sla",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "treasury",
+ "vault-registry",
 ]
 
 [[package]]
@@ -2420,12 +2460,13 @@ checksum = "47be2f14c678be2fdcab04ab1171db51b2762ce6f0a8ee87c8dd4a04ed216135"
 
 [[package]]
 name = "issue"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "bitcoin",
  "btc-relay",
  "collateral",
  "exchange-rate-oracle",
+ "fee",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -2438,6 +2479,8 @@ dependencies = [
  "security",
  "serde",
  "sha2 0.8.2",
+ "sla",
+ "sp-arithmetic",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -3563,6 +3606,33 @@ name = "module-replace-rpc-runtime-api"
 version = "0.3.0"
 dependencies = [
  "frame-support",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-std",
+]
+
+[[package]]
+name = "module-sla-rpc"
+version = "0.3.0"
+dependencies = [
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "module-exchange-rate-oracle-rpc-runtime-api",
+ "module-sla-rpc-runtime-api",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime",
+]
+
+[[package]]
+name = "module-sla-rpc-runtime-api"
+version = "0.3.0"
+dependencies = [
+ "frame-support",
+ "module-exchange-rate-oracle-rpc-runtime-api",
  "parity-scale-codec",
  "sp-api",
  "sp-std",
@@ -4876,12 +4946,13 @@ dependencies = [
 
 [[package]]
 name = "redeem"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "bitcoin",
  "btc-relay",
  "collateral",
  "exchange-rate-oracle",
+ "fee",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -4894,6 +4965,8 @@ dependencies = [
  "security",
  "serde",
  "sha2 0.8.2",
+ "sla",
+ "sp-arithmetic",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -5001,12 +5074,13 @@ dependencies = [
 
 [[package]]
 name = "replace"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "bitcoin",
  "btc-relay",
  "collateral",
  "exchange-rate-oracle",
+ "fee",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -5019,6 +5093,8 @@ dependencies = [
  "security",
  "serde",
  "sha2 0.8.2",
+ "sla",
+ "sp-arithmetic",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -6260,6 +6336,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "29f060a7d147e33490ec10da418795238fd7545bba241504d6b31a409f2e6210"
 
 [[package]]
+name = "sla"
+version = "0.3.1"
+dependencies = [
+ "collateral",
+ "exchange-rate-oracle",
+ "frame-support",
+ "frame-system",
+ "mocktopus",
+ "pallet-balances",
+ "pallet-randomness-collective-flip",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "security",
+ "serde",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "treasury",
+ "vault-registry",
+]
+
+[[package]]
 name = "slab"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6972,12 +7072,13 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
 name = "staked-relayers"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "bitcoin",
  "btc-relay",
  "collateral",
  "exchange-rate-oracle",
+ "fee",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -6993,6 +7094,8 @@ dependencies = [
  "security",
  "serde",
  "sha2 0.8.2",
+ "sla",
+ "sp-arithmetic",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -7698,7 +7801,7 @@ dependencies = [
 
 [[package]]
 name = "treasury"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -7874,9 +7977,9 @@ dependencies = [
 
 [[package]]
 name = "vault-registry"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
- "btc-relay",
+ "bitcoin",
  "collateral",
  "exchange-rate-oracle",
  "fixed-hash",

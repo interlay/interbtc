@@ -1,6 +1,6 @@
 [package]
 name = "btc-relay"
-version = '0.3.1'
+version = '0.3.2'
 authors = ["Interlay Ltd"]
 edition = "2018"
 
@@ -31,11 +31,6 @@ version = '2.0.0'
 default-features = false
 version = '2.0.0'
 
-[dependencies.timestamp]
-default-features = false
-package = 'pallet-timestamp'
-version = '2.0.0'
-
 [dependencies.sp-std]
 default-features = false
 version = '2.0.0'
@@ -48,6 +43,45 @@ features= ['codec']
 [dependencies.bitcoin]
 default-features = false
 path = '../bitcoin'
+
+[dependencies.sla]
+default-features = false
+path = '../sla'
+
+[dependencies.pallet-timestamp]
+default-features = false
+package = 'pallet-timestamp'
+version = '2.0.0'
+
+[dev-dependencies.exchange-rate-oracle]
+default-features = false
+path = '../exchange-rate-oracle'
+
+[dev-dependencies.pallet-balances]
+default-features = false
+package = 'pallet-balances'
+version = '2.0.0'
+
+[dependencies.vault-registry]
+default-features = false
+path = '../vault-registry'
+
+[dependencies.sp-arithmetic]
+default-features = false
+version = '2.0.0'
+
+[dependencies.collateral]
+default-features = false
+path = '../collateral'
+
+[dev-dependencies.treasury]
+default-features = false
+path = '../treasury'
+
+[dev-dependencies.pallet-randomness-collective-flip]
+default-features = false
+package = 'pallet-randomness-collective-flip'
+version = '2.0.0'
 
 [dependencies.security]
 default-features = false
@@ -78,12 +112,15 @@ std = [
     'codec/std',
     'frame-support/std',
     'frame-system/std',
+	'sp-arithmetic/std',
     'sp-io/std',
     'sp-core/std',
-    'timestamp/std',
+    'pallet-timestamp/std',
     'sp-std/std',
     'primitive-types/std',
     'bitcoin/std',
+    'sla/std',
+	'vault-registry/std',
     'security/std',
     'hex/std',
     'frame-benchmarking/std',

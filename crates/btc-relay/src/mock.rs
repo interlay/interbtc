@@ -7,14 +7,14 @@ use frame_support::{
         Weight,
     },
 };
+use mocktopus::mocking::clear_mocks;
+use sp_arithmetic::FixedI128;
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
     Perbill,
 };
-
-use mocktopus::mocking::clear_mocks;
 
 impl_outer_origin! {
     pub enum Origin for Test {}
@@ -27,14 +27,22 @@ mod test_events {
 impl_outer_event! {
     pub enum TestEvent for Test {
         frame_system<T>,
+        sla<T>,
+        treasury<T>,
+        collateral<T>,
+        pallet_balances<T>,
         test_events,
+        exchange_rate_oracle<T>,
+        vault_registry<T>,
         security,
     }
 }
 
-pub type AccountId = u64;
 pub const BITCOIN_CONFIRMATIONS: u32 = 6;
 pub const PARACHAIN_CONFIRMATIONS: u64 = 20;
+pub type AccountId = u64;
+pub type Balance = u64;
+pub type Balances = pallet_balances::Module<Test>;
 pub type BlockNumber = u64;
 
 // For testing the pallet, we construct most of a mock runtime. This means
@@ -72,7 +80,7 @@ impl frame_system::Trait for Test {
     type PalletInfo = ();
     type OnNewAccount = ();
     type OnKilledAccount = ();
-    type AccountData = ();
+    type AccountData = pallet_balances::AccountData<u64>;
     type BaseCallFilter = ();
     type MaximumExtrinsicWeight = MaximumBlockWeight;
     type SystemWeightInfo = ();
@@ -80,6 +88,58 @@ impl frame_system::Trait for Test {
 
 impl Trait for Test {
     type Event = TestEvent;
+    type WeightInfo = ();
+}
+
+impl sla::Trait for Test {
+    type Event = TestEvent;
+    type SignedFixedPoint = FixedI128;
+}
+
+impl treasury::Trait for Test {
+    type Event = TestEvent;
+    type PolkaBTC = Balances;
+}
+
+impl collateral::Trait for Test {
+    type Event = TestEvent;
+    type DOT = Balances;
+}
+
+impl vault_registry::Trait for Test {
+    type Event = TestEvent;
+    type RandomnessSource = pallet_randomness_collective_flip::Module<Test>;
+    type WeightInfo = ();
+}
+
+impl exchange_rate_oracle::Trait for Test {
+    type Event = TestEvent;
+    type WeightInfo = ();
+}
+
+parameter_types! {
+    pub const MinimumPeriod: u64 = 5;
+}
+
+impl pallet_timestamp::Trait for Test {
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = MinimumPeriod;
+    type WeightInfo = ();
+}
+
+parameter_types! {
+    pub const ExistentialDeposit: u64 = 1;
+    pub const MaxLocks: u32 = 50;
+}
+
+impl pallet_balances::Trait for Test {
+    type MaxLocks = MaxLocks;
+    type Balance = Balance;
+    type Event = TestEvent;
+    type DustRemoval = ();
+    type ExistentialDeposit = ExistentialDeposit;
+    type AccountStore = System;
     type WeightInfo = ();
 }
 

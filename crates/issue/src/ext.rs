@@ -37,28 +37,28 @@ pub(crate) mod vault_registry {
         vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>>,
         DispatchError,
     > {
-        <vault_registry::Module<T>>::_get_vault_from_id(vault_id)
+        <vault_registry::Module<T>>::get_vault_from_id(vault_id)
     }
 
     pub fn increase_to_be_issued_tokens<T: vault_registry::Trait>(
         vault_id: &T::AccountId,
         amount: PolkaBTC<T>,
     ) -> Result<BtcAddress, DispatchError> {
-        <vault_registry::Module<T>>::_increase_to_be_issued_tokens(vault_id, amount)
+        <vault_registry::Module<T>>::increase_to_be_issued_tokens(vault_id, amount)
     }
 
     pub fn issue_tokens<T: vault_registry::Trait>(
         vault_id: &T::AccountId,
         amount: PolkaBTC<T>,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::_issue_tokens(vault_id, amount)
+        <vault_registry::Module<T>>::issue_tokens(vault_id, amount)
     }
 
     pub fn decrease_to_be_issued_tokens<T: vault_registry::Trait>(
         vault_id: &T::AccountId,
         amount: PolkaBTC<T>,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::_decrease_to_be_issued_tokens(vault_id, amount)
+        <vault_registry::Module<T>>::decrease_to_be_issued_tokens(vault_id, amount)
     }
 
     pub fn ensure_not_banned<T: vault_registry::Trait>(
@@ -88,6 +88,13 @@ pub(crate) mod collateral {
     ) -> DispatchResult {
         <collateral::Module<T>>::slash_collateral(sender.clone(), receiver.clone(), amount)
     }
+
+    pub fn release_collateral<T: collateral::Trait>(
+        sender: &T::AccountId,
+        amount: DOT<T>,
+    ) -> DispatchResult {
+        <collateral::Module<T>>::release_collateral(sender, amount)
+    }
 }
 
 #[cfg_attr(test, mockable)]
@@ -110,5 +117,55 @@ pub(crate) mod security {
 
     pub fn ensure_parachain_status_running<T: security::Trait>() -> DispatchResult {
         <security::Module<T>>::ensure_parachain_status_running()
+    }
+}
+
+#[cfg_attr(test, mockable)]
+pub(crate) mod oracle {
+    use crate::types::{PolkaBTC, DOT};
+    use frame_support::dispatch::DispatchError;
+
+    pub fn btc_to_dots<T: exchange_rate_oracle::Trait>(
+        amount: PolkaBTC<T>,
+    ) -> Result<DOT<T>, DispatchError> {
+        <exchange_rate_oracle::Module<T>>::btc_to_dots(amount)
+    }
+}
+
+#[cfg_attr(test, mockable)]
+pub(crate) mod sla {
+    use crate::types::PolkaBTC;
+    use frame_support::dispatch::DispatchError;
+    pub use sla::types::VaultEvent;
+
+    pub fn event_update_vault_sla<T: sla::Trait>(
+        vault_id: T::AccountId,
+        event: VaultEvent<PolkaBTC<T>>,
+    ) -> Result<(), DispatchError> {
+        <sla::Module<T>>::event_update_vault_sla(vault_id, event)
+    }
+}
+
+#[cfg_attr(test, mockable)]
+pub(crate) mod fee {
+    use crate::types::{PolkaBTC, DOT};
+    use frame_support::dispatch::DispatchError;
+
+    pub fn fee_pool_account_id<T: fee::Trait>() -> T::AccountId {
+        <fee::Module<T>>::fee_pool_account_id()
+    }
+
+    pub fn get_issue_fee<T: fee::Trait>(amount: PolkaBTC<T>) -> Result<PolkaBTC<T>, DispatchError> {
+        <fee::Module<T>>::get_issue_fee(amount)
+    }
+
+    pub fn get_issue_griefing_collateral<T: fee::Trait>(
+        amount: DOT<T>,
+    ) -> Result<DOT<T>, DispatchError> {
+        <fee::Module<T>>::get_issue_griefing_collateral(amount)
+    }
+
+    pub fn increase_polka_btc_rewards_for_epoch<T: fee::Trait>(amount: PolkaBTC<T>) {
+        <fee::Module<T>>::increase_polka_btc_rewards_for_epoch(amount)
     }
 }

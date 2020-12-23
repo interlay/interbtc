@@ -76,6 +76,7 @@ pub trait Trait:
     + btc_relay::Trait
     + redeem::Trait
     + replace::Trait
+    + sla::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -470,6 +471,9 @@ decl_module! {
                 reports.insert(vault_id);
             });
 
+            // reward relayer for this report by increasing its sla
+            ext::sla::event_update_relayer_sla::<T>(signer, ext::sla::RelayerEvent::CorrectTheftReport)?;
+
             Self::deposit_event(<Event<T>>::ExecuteStatusUpdate(
                 StatusCode::Error,
                 Some(ErrorCode::Liquidation),
@@ -490,41 +494,21 @@ decl_module! {
                 Error::<T>::StakedRelayersOnly,
             );
 
-            // FIXME: move the check for collateral into the vault registry
-            // get the vault from the registry
-            let vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
-            // get the currently locked collateral for the vault
-            let collateral_in_dot = ext::collateral::get_collateral_from_account::<T>(&vault_id);
-            // get the current threshold for the collateral
-            // NOTE: The liquidation threshold expresses the percentage of minimum collateral
-            // level required for the vault. If the vault is under this percentage,
-            // the vault is flagged for liquidation.
-            let liquidation_collateral_threshold = ext::vault_registry::get_liquidation_collateral_threshold::<T>();
-
-            // calculate how much PolkaBTC the vault should maximally have considering
-            // the liquidation threshold.
-            // NOTE: if the division fails, return 0 as maximum amount
-            let raw_collateral_in_dot = Self::dot_to_u128(collateral_in_dot)?;
-            let max_polka_btc_in_dot = match raw_collateral_in_dot
-                .checked_div(liquidation_collateral_threshold) {
-                    Some(v) => v,
-                    None => 0,
-            };
-
-            // get the currently issued tokens of the vault
-            let amount_btc_in_dot = ext::oracle::btc_to_dots::<T>(vault.issued_tokens)?;
-            let raw_amount_btc_in_dot = Self::dot_to_u128(amount_btc_in_dot)?;
-
-            // Ensure that the current amount of PolkaBTC (in DOT) is greater than
-            // the allowed maximum of issued tokens to flag the vault for liquidation
+            // ensure that the vault is eligible for liquidation
             ensure!(
-                max_polka_btc_in_dot < raw_amount_btc_in_dot,
+                // NOTE: the liquidation threshold expresses the percentage of collateral
+                // required for the vault relative to the exchange rate. If the vault is
+                // under this percentage it is flagged for liquidation.
+                ext::vault_registry::is_vault_below_secure_threshold::<T>(&vault_id)?,
                 Error::<T>::CollateralOk,
             );
 
             ext::vault_registry::liquidate_vault::<T>(&vault_id)?;
             ext::security::set_parachain_status::<T>(StatusCode::Error);
             ext::security::insert_error::<T>(ErrorCode::Liquidation);
+
+            // reward relayer for this report by increasing its sla
+            ext::sla::event_update_relayer_sla::<T>(signer, ext::sla::RelayerEvent::CorrectLiquidationReport)?;
 
             Self::deposit_event(<Event<T>>::ExecuteStatusUpdate(
                 StatusCode::Error,
@@ -558,6 +542,9 @@ decl_module! {
 
             ext::security::set_parachain_status::<T>(StatusCode::Error);
             ext::security::insert_error::<T>(ErrorCode::OracleOffline);
+
+            // reward relayer for this report by increasing its sla
+            ext::sla::event_update_relayer_sla::<T>(signer, ext::sla::RelayerEvent::CorrectOracleOfflineReport)?;
 
             Self::deposit_event(<Event<T>>::ExecuteStatusUpdate(
                 StatusCode::Error,
@@ -658,6 +645,7 @@ impl<T: Trait> Module<T> {
             .is_approved(<ActiveStakedRelayersCount>::get(), T::VoteThreshold::get())
         {
             Self::execute_status_update(&mut status_update)?;
+            Self::update_sla_score_for_status_update(&status_update, true)?;
             Self::insert_inactive_status_update(id, status_update);
             Ok(true)
         } else if status_update
@@ -665,6 +653,7 @@ impl<T: Trait> Module<T> {
             .is_rejected(<ActiveStakedRelayersCount>::get(), T::VoteThreshold::get())
         {
             Self::reject_status_update(&mut status_update)?;
+            Self::update_sla_score_for_status_update(&status_update, false)?;
             Self::insert_inactive_status_update(id, status_update);
             Ok(true)
         } else if height >= status_update.end {
@@ -728,10 +717,6 @@ impl<T: Trait> Module<T> {
             ensure!(!update.tally.contains(id), Error::<T>::StatusUpdateFound);
         }
         Ok(())
-    }
-
-    fn dot_to_u128(amount: DOT<T>) -> Result<u128, Error<T>> {
-        TryInto::<u128>::try_into(amount).map_err(|_| Error::TryIntoIntError)
     }
 
     /// Should throw if not called by the governance account.
@@ -913,6 +898,85 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Update relayer SLA scores after a status update suggestion has been completed.
+    ///
+    /// # Arguments
+    ///
+    /// * `status_update` - the status update suggestion that was completed
+    /// * `approved` - true iff the status update was accepted
+    fn update_sla_score_for_status_update(
+        status_update: &StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>,
+        approved: bool,
+    ) -> DispatchResult {
+        let no_data_relayer = match (&status_update.add_error, &status_update.remove_error) {
+            (&Some(ErrorCode::NoDataBTCRelay), _) | (_, &Some(ErrorCode::NoDataBTCRelay)) => true,
+            _ => false,
+        };
+        let invalid_relayer = match (&status_update.add_error, &status_update.remove_error) {
+            (&Some(ErrorCode::InvalidBTCRelay), _) | (_, &Some(ErrorCode::InvalidBTCRelay)) => true,
+            _ => false,
+        };
+
+        let (correct_voters, incorrect_voters) = if approved {
+            (
+                status_update.tally.aye.iter(),
+                status_update.tally.nay.iter(),
+            )
+        } else {
+            (
+                status_update.tally.nay.iter(),
+                status_update.tally.aye.iter(),
+            )
+        };
+
+        // reward relayers for correct votes by increasing their sla
+        for relayer in correct_voters {
+            if no_data_relayer {
+                ext::sla::event_update_relayer_sla::<T>(
+                    relayer.clone(),
+                    ext::sla::RelayerEvent::CorrectNoDataVoteOrReport,
+                )?;
+            }
+            if invalid_relayer {
+                ext::sla::event_update_relayer_sla::<T>(
+                    relayer.clone(),
+                    ext::sla::RelayerEvent::CorrectInvalidVoteOrReport,
+                )?;
+            }
+        }
+
+        // punish relayers for incorrect votes by decreasing their sla
+        for relayer in incorrect_voters {
+            if no_data_relayer {
+                ext::sla::event_update_relayer_sla::<T>(
+                    relayer.clone(),
+                    ext::sla::RelayerEvent::FalseNoDataVoteOrReport,
+                )?;
+            }
+            if invalid_relayer {
+                ext::sla::event_update_relayer_sla::<T>(
+                    relayer.clone(),
+                    ext::sla::RelayerEvent::FalseInvalidVoteOrReport,
+                )?;
+            }
+        }
+
+        // punish relayers that didn't vote by decreasing their sla
+        let mut voters = status_update.tally.aye.clone();
+        voters.append(&mut status_update.tally.nay.clone());
+        let all_relayers: BTreeSet<_> = <ActiveStakedRelayers<T>>::iter()
+            .map(|(relayer, _)| relayer)
+            .collect();
+        for abstainer in all_relayers.difference(&voters) {
+            ext::sla::event_update_relayer_sla::<T>(
+                abstainer.clone(),
+                ext::sla::RelayerEvent::IgnoredVote,
+            )?;
+        }
+
+        Ok(())
+    }
+
     /// Executes a `StatusUpdate` that has received sufficient “Yes” votes.
     ///
     /// # Arguments
@@ -941,25 +1005,27 @@ impl<T: Trait> Module<T> {
         let btc_block_hash = status_update.btc_block_hash;
         let old_status_code = status_update.old_status_code.clone();
 
-        if let Some(error_code) = add_error {
-            if error_code == ErrorCode::NoDataBTCRelay || error_code == ErrorCode::InvalidBTCRelay {
+        if let Some(ref error_code) = add_error {
+            if error_code == &ErrorCode::NoDataBTCRelay || error_code == &ErrorCode::InvalidBTCRelay
+            {
                 ext::btc_relay::flag_block_error::<T>(
                     btc_block_hash.ok_or(Error::<T>::ExpectedBlockHash)?,
                     error_code.clone(),
                 )?;
             }
-            ext::security::insert_error::<T>(error_code);
+            ext::security::insert_error::<T>(error_code.clone());
         }
 
-        if let Some(error_code) = remove_error {
-            if error_code == ErrorCode::NoDataBTCRelay || error_code == ErrorCode::InvalidBTCRelay {
+        if let Some(ref error_code) = remove_error {
+            if error_code == &ErrorCode::NoDataBTCRelay || error_code == &ErrorCode::InvalidBTCRelay
+            {
                 ext::btc_relay::clear_block_error::<T>(
                     btc_block_hash.ok_or(Error::<T>::ExpectedBlockHash)?,
                     error_code.clone(),
                 )?;
             }
             if old_status_code == StatusCode::Error {
-                ext::security::remove_error::<T>(error_code);
+                ext::security::remove_error::<T>(error_code.clone());
             }
         }
 
@@ -1137,7 +1203,7 @@ impl<T: Trait> Module<T> {
             let request_id = H256::from_slice(&op_returns[0].1[..32]);
 
             // redeem requests
-            match ext::redeem::get_redeem_request_from_id::<T>(&request_id) {
+            match ext::redeem::get_open_or_completed_redeem_request_from_id::<T>(&request_id) {
                 Ok(req) => {
                     ensure!(
                         !Self::is_valid_request_transaction(
@@ -1153,7 +1219,7 @@ impl<T: Trait> Module<T> {
             };
 
             // replace requests
-            match ext::replace::get_replace_request::<T>(&request_id) {
+            match ext::replace::get_open_or_completed_replace_request::<T>(&request_id) {
                 Ok(req) => {
                     ensure!(
                         !Self::is_valid_request_transaction(

@@ -48,7 +48,7 @@ macro_rules! assert_not_emitted {
 }
 
 /// Mocking functions
-fn init_zero_vault<Test>(
+fn init_zero_vault(
     id: AccountId,
     btc_address: Option<BtcAddress>,
 ) -> Vault<AccountId, BlockNumber, u64> {
@@ -843,10 +843,7 @@ fn test_report_vault_passes_with_vault_transaction() {
             50, 170,
         ]));
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(move |_| {
-            MockResult::Return(Ok(init_zero_vault::<Test>(
-                vault.clone(),
-                Some(btc_address),
-            )))
+            MockResult::Return(Ok(init_zero_vault(vault.clone(), Some(btc_address))))
         });
         ext::btc_relay::verify_transaction_inclusion::<Test>
             .mock_safe(move |_, _| MockResult::Return(Ok(())));
@@ -878,10 +875,7 @@ fn test_report_vault_fails_with_non_vault_transaction() {
         ]));
 
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(move |_| {
-            MockResult::Return(Ok(init_zero_vault::<Test>(
-                vault.clone(),
-                Some(btc_address),
-            )))
+            MockResult::Return(Ok(init_zero_vault(vault.clone(), Some(btc_address))))
         });
         ext::btc_relay::verify_transaction_inclusion::<Test>
             .mock_safe(move |_, _| MockResult::Return(Ok(())));
@@ -914,10 +908,7 @@ fn test_report_vault_succeeds_with_segwit_transaction() {
             85,
         ]));
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(move |_| {
-            MockResult::Return(Ok(init_zero_vault::<Test>(
-                vault.clone(),
-                Some(btc_address),
-            )))
+            MockResult::Return(Ok(init_zero_vault(vault.clone(), Some(btc_address))))
         });
         ext::btc_relay::verify_transaction_inclusion::<Test>
             .mock_safe(move |_, _| MockResult::Return(Ok(())));
@@ -964,28 +955,33 @@ fn test_report_vault_theft_succeeds() {
 }
 
 #[test]
+fn test_report_vault_under_liquidation_threshold_fails() {
+    run_test(|| {
+        let relayer = ALICE;
+        let vault = BOB;
+
+        Staking::check_relayer_registered.mock_safe(|_| MockResult::Return(true));
+
+        ext::vault_registry::is_vault_below_secure_threshold::<Test>
+            .mock_safe(move |_| MockResult::Return(Ok(false)));
+
+        assert_err!(
+            Staking::report_vault_under_liquidation_threshold(Origin::signed(relayer), vault),
+            TestError::CollateralOk
+        );
+    })
+}
+
+#[test]
 fn test_report_vault_under_liquidation_threshold_succeeds() {
     run_test(|| {
         let relayer = ALICE;
         let vault = BOB;
-        let collateral_in_dot = 10;
-        let amount_btc_in_dot = 12;
-        let liquidation_collateral_threshold = 110000;
 
         Staking::check_relayer_registered.mock_safe(|_| MockResult::Return(true));
 
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(move |_| {
-            MockResult::Return(Ok(init_zero_vault::<Test>(vault.clone(), None)))
-        });
-
-        ext::collateral::get_collateral_from_account::<Test>
-            .mock_safe(move |_| MockResult::Return(collateral_in_dot.clone()));
-
-        ext::vault_registry::get_liquidation_collateral_threshold::<Test>
-            .mock_safe(move || MockResult::Return(liquidation_collateral_threshold.clone()));
-
-        ext::oracle::btc_to_dots::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(amount_btc_in_dot.clone())));
+        ext::vault_registry::is_vault_below_secure_threshold::<Test>
+            .mock_safe(move |_| MockResult::Return(Ok(true)));
 
         ext::vault_registry::liquidate_vault::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
 
@@ -1081,9 +1077,8 @@ fn test_report_oracle_offline_succeeds() {
 fn test_is_valid_merge_transaction_fails() {
     run_test(|| {
         let vault = BOB;
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(move |_| {
-            MockResult::Return(Ok(init_zero_vault::<Test>(vault.clone(), None)))
-        });
+        ext::vault_registry::get_vault_from_id::<Test>
+            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), None))));
 
         let address1 =
             BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
@@ -1117,9 +1112,8 @@ fn test_is_valid_merge_transaction_fails() {
 fn test_is_valid_merge_transaction_succeeds() {
     run_test(|| {
         let vault = BOB;
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(move |_| {
-            MockResult::Return(Ok(init_zero_vault::<Test>(vault.clone(), None)))
-        });
+        ext::vault_registry::get_vault_from_id::<Test>
+            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), None))));
 
         let address =
             BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
@@ -1139,9 +1133,8 @@ fn test_is_valid_merge_transaction_succeeds() {
 fn test_is_valid_request_transaction_fails() {
     run_test(|| {
         let vault = BOB;
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(move |_| {
-            MockResult::Return(Ok(init_zero_vault::<Test>(vault.clone(), None)))
-        });
+        ext::vault_registry::get_vault_from_id::<Test>
+            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), None))));
 
         let address1 =
             BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
@@ -1170,9 +1163,8 @@ fn test_is_valid_request_transaction_fails() {
 fn test_is_valid_request_transaction_succeeds() {
     run_test(|| {
         let vault = BOB;
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(move |_| {
-            MockResult::Return(Ok(init_zero_vault::<Test>(vault.clone(), None)))
-        });
+        ext::vault_registry::get_vault_from_id::<Test>
+            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), None))));
 
         let address1 =
             BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
@@ -1270,17 +1262,20 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
             }))
         });
 
-        ext::redeem::get_redeem_request_from_id::<Test>.mock_safe(move |_| {
+        ext::redeem::get_open_or_completed_redeem_request_from_id::<Test>.mock_safe(move |_| {
             MockResult::Return(Ok(RedeemRequest {
                 vault: BOB,
                 opentime: 0,
                 amount_polka_btc: 0,
+                fee: 0,
                 amount_btc: 100,
                 amount_dot: 0,
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: address2,
                 completed: false,
+                cancelled: false,
+                reimburse: false,
             }))
         });
 
@@ -1323,10 +1318,10 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
             TestError::ValidRedeemTransaction
         );
 
-        ext::redeem::get_redeem_request_from_id::<Test>
+        ext::redeem::get_open_or_completed_redeem_request_from_id::<Test>
             .mock_safe(move |_| MockResult::Return(Err(RedeemError::RedeemIdNotFound.into())));
 
-        ext::replace::get_replace_request::<Test>.mock_safe(move |_| {
+        ext::replace::get_open_or_completed_replace_request::<Test>.mock_safe(move |_| {
             MockResult::Return(Ok(ReplaceRequest {
                 old_vault: BOB,
                 open_time: 0,
@@ -1337,6 +1332,7 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
                 accept_time: None,
                 btc_address: address2,
                 completed: false,
+                cancelled: false,
             }))
         });
 
@@ -1358,9 +1354,8 @@ fn test_is_transaction_invalid_succeeds() {
         let address =
             BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
 
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(move |_| {
-            MockResult::Return(Ok(init_zero_vault::<Test>(BOB, Some(vault_address))))
-        });
+        ext::vault_registry::get_vault_from_id::<Test>
+            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(BOB, Some(vault_address)))));
 
         let transaction = TransactionBuilder::new()
             .with_version(1)
@@ -1448,9 +1443,8 @@ fn test_is_transaction_invalid_succeeds_with_testnet_transaction() {
             &hex::decode("473ca3f4d726ce9c21af7cdc3fcc13264f681b04").unwrap(),
         ));
 
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(move |_| {
-            MockResult::Return(Ok(init_zero_vault::<Test>(BOB, Some(btc_address))))
-        });
+        ext::vault_registry::get_vault_from_id::<Test>
+            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(BOB, Some(btc_address)))));
 
         assert_ok!(Staking::is_transaction_invalid(&BOB, raw_tx));
     })

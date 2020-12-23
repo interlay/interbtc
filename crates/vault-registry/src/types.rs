@@ -1,7 +1,7 @@
-use frame_support::traits::Currency;
-
-use btc_relay::BtcAddress;
+use crate::sp_api_hidden_includes_decl_storage::hidden_include::StorageValue;
+use crate::{ext, Error, Module, Trait};
 use codec::{Decode, Encode, HasCompact};
+use frame_support::traits::Currency;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure, StorageMap,
@@ -12,7 +12,7 @@ use sp_std::collections::btree_set::BTreeSet;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use crate::{ext, Error, Trait};
+pub use bitcoin::Address as BtcAddress;
 
 /// Storage version.
 #[derive(Encode, Decode, Eq, PartialEq)]
@@ -90,8 +90,6 @@ pub struct Vault<AccountId, BlockNumber, PolkaBTC> {
     pub issued_tokens: PolkaBTC,
     // Number of PolkaBTC tokens pending redeem
     pub to_be_redeemed_tokens: PolkaBTC,
-    // DOT collateral locked by this Vault
-    // collateral: DOT,
     // Bitcoin address of this Vault (P2PKH, P2SH, P2PKH, P2WSH)
     pub wallet: Wallet<BtcAddress>,
     // Block height until which this Vault is banned from being
@@ -99,6 +97,19 @@ pub struct Vault<AccountId, BlockNumber, PolkaBTC> {
     pub banned_until: Option<BlockNumber>,
     /// Current status of the vault
     pub status: VaultStatus,
+}
+
+#[derive(Encode, Decode, Default, Clone, PartialEq)]
+#[cfg_attr(feature = "std", derive(Debug, serde::Serialize, serde::Deserialize))]
+pub struct SystemVault<AccountId, PolkaBTC> {
+    // Account identifier of the Vault
+    pub id: AccountId,
+    // Number of PolkaBTC tokens pending issue
+    pub to_be_issued_tokens: PolkaBTC,
+    // Number of issued PolkaBTC tokens
+    pub issued_tokens: PolkaBTC,
+    // Number of PolkaBTC tokens pending redeem
+    pub to_be_redeemed_tokens: PolkaBTC,
 }
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
@@ -130,6 +141,10 @@ impl<AccountId, BlockNumber, PolkaBTC: HasCompact + Default>
             status: VaultStatus::Active,
         }
     }
+
+    pub(crate) fn get_btc_address(&self) -> BtcAddress {
+        self.wallet.get_btc_address()
+    }
 }
 
 pub type DefaultVault<T> = Vault<
@@ -138,21 +153,63 @@ pub type DefaultVault<T> = Vault<
     PolkaBTC<T>,
 >;
 
+pub type DefaultSystemVault<T> = SystemVault<<T as frame_system::Trait>::AccountId, PolkaBTC<T>>;
+
+pub trait UpdatableVault<T: Trait> {
+    fn id(&self) -> T::AccountId;
+
+    fn issued_tokens(&self) -> PolkaBTC<T>;
+
+    fn force_issue_tokens(&mut self, tokens: PolkaBTC<T>) -> ();
+
+    fn force_increase_to_be_issued(&mut self, tokens: PolkaBTC<T>) -> ();
+
+    fn force_increase_to_be_redeemed(&mut self, tokens: PolkaBTC<T>) -> ();
+
+    fn force_decrease_issued(&mut self, tokens: PolkaBTC<T>) -> ();
+
+    fn decrease_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
+        let issued_tokens = self.issued_tokens();
+        ensure!(
+            issued_tokens >= tokens,
+            Error::<T>::InsufficientTokensCommitted
+        );
+        Ok(self.force_decrease_issued(tokens))
+    }
+}
+
 pub(crate) struct RichVault<T: Trait> {
     pub(crate) data: DefaultVault<T>,
 }
 
-#[cfg_attr(test, mockable)]
-impl<T: Trait> RichVault<T> {
-    pub fn new(id: T::AccountId, btc_address: BtcAddress) -> RichVault<T> {
-        let vault = Vault::new(id, btc_address);
-        RichVault { data: vault }
-    }
-
-    pub fn id(&self) -> T::AccountId {
+impl<T: Trait> UpdatableVault<T> for RichVault<T> {
+    fn id(&self) -> T::AccountId {
         self.data.id.clone()
     }
 
+    fn issued_tokens(&self) -> PolkaBTC<T> {
+        self.data.issued_tokens
+    }
+
+    fn force_issue_tokens(&mut self, tokens: PolkaBTC<T>) -> () {
+        self.update(|v| v.issued_tokens += tokens)
+    }
+
+    fn force_increase_to_be_issued(&mut self, tokens: PolkaBTC<T>) -> () {
+        self.update(|v| v.to_be_issued_tokens += tokens);
+    }
+
+    fn force_increase_to_be_redeemed(&mut self, tokens: PolkaBTC<T>) -> () {
+        self.update(|v| v.to_be_redeemed_tokens += tokens);
+    }
+
+    fn force_decrease_issued(&mut self, tokens: PolkaBTC<T>) -> () {
+        self.update(|v| v.issued_tokens -= tokens);
+    }
+}
+
+#[cfg_attr(test, mockable)]
+impl<T: Trait> RichVault<T> {
     pub fn increase_collateral(&self, collateral: DOT<T>) -> DispatchResult {
         ext::collateral::lock::<T>(&self.data.id, collateral)
     }
@@ -160,16 +217,16 @@ impl<T: Trait> RichVault<T> {
     pub fn withdraw_collateral(&self, collateral: DOT<T>) -> DispatchResult {
         let current_collateral = ext::collateral::for_account::<T>(&self.data.id);
 
-        let raw_current_collateral = crate::Module::<T>::dot_to_u128(current_collateral)?;
-        let raw_collateral = crate::Module::<T>::dot_to_u128(collateral)?;
+        let raw_current_collateral = Module::<T>::dot_to_u128(current_collateral)?;
+        let raw_collateral = Module::<T>::dot_to_u128(collateral)?;
         let raw_new_collateral = raw_current_collateral
             .checked_sub(raw_collateral)
             .unwrap_or(0);
 
-        let new_collateral = crate::Module::<T>::u128_to_dot(raw_new_collateral)?;
+        let new_collateral = Module::<T>::u128_to_dot(raw_new_collateral)?;
 
         ensure!(
-            !crate::Module::<T>::_is_collateral_below_secure_threshold(
+            !Module::<T>::is_collateral_below_secure_threshold(
                 new_collateral,
                 self.data.issued_tokens
             )?,
@@ -192,9 +249,9 @@ impl<T: Trait> RichVault<T> {
         let issued_tokens = self.data.issued_tokens + self.data.to_be_issued_tokens;
         let issued_tokens_in_dot = ext::oracle::btc_to_dots::<T>(issued_tokens)?;
 
-        let raw_issued_tokens_in_dot = crate::Module::<T>::dot_to_u128(issued_tokens_in_dot)?;
+        let raw_issued_tokens_in_dot = Module::<T>::dot_to_u128(issued_tokens_in_dot)?;
 
-        let secure_threshold = crate::Module::<T>::secure_collateral_threshold();
+        let secure_threshold = Module::<T>::secure_collateral_threshold();
 
         let raw_used_collateral = raw_issued_tokens_in_dot
             .checked_mul(secure_threshold)
@@ -202,7 +259,7 @@ impl<T: Trait> RichVault<T> {
             .checked_div(10u128.pow(crate::GRANULARITY))
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
-        let used_collateral = crate::Module::<T>::u128_to_dot(raw_used_collateral)?;
+        let used_collateral = Module::<T>::u128_to_dot(raw_used_collateral)?;
 
         Ok(used_collateral)
     }
@@ -210,9 +267,9 @@ impl<T: Trait> RichVault<T> {
     pub fn issuable_tokens(&self) -> Result<PolkaBTC<T>, DispatchError> {
         let free_collateral = self.get_free_collateral()?;
 
-        let secure_threshold = crate::Module::<T>::secure_collateral_threshold();
+        let secure_threshold = Module::<T>::secure_collateral_threshold();
 
-        let issuable = crate::Module::<T>::calculate_max_polkabtc_from_collateral_for_threshold(
+        let issuable = Module::<T>::calculate_max_polkabtc_from_collateral_for_threshold(
             free_collateral,
             secure_threshold,
         )?;
@@ -224,10 +281,6 @@ impl<T: Trait> RichVault<T> {
         let issuable_tokens = self.issuable_tokens()?;
         ensure!(issuable_tokens >= tokens, Error::<T>::ExceedingVaultLimit);
         Ok(self.force_increase_to_be_issued(tokens))
-    }
-
-    fn force_increase_to_be_issued(&mut self, tokens: PolkaBTC<T>) -> () {
-        self.update(|v| v.to_be_issued_tokens += tokens);
     }
 
     pub fn decrease_to_be_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
@@ -243,19 +296,6 @@ impl<T: Trait> RichVault<T> {
         Ok(self.force_issue_tokens(tokens))
     }
 
-    fn force_issue_tokens(&mut self, tokens: PolkaBTC<T>) -> () {
-        self.update(|v| v.issued_tokens += tokens)
-    }
-
-    pub fn decrease_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
-        let issued_tokens = self.data.issued_tokens;
-        ensure!(
-            issued_tokens >= tokens,
-            Error::<T>::InsufficientTokensCommitted
-        );
-        Ok(self.update(|v| v.issued_tokens -= tokens))
-    }
-
     pub fn increase_to_be_redeemed(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
         let redeemable = self.data.issued_tokens - self.data.to_be_redeemed_tokens;
         ensure!(
@@ -263,10 +303,6 @@ impl<T: Trait> RichVault<T> {
             Error::<T>::InsufficientTokensCommitted
         );
         Ok(self.force_increase_to_be_redeemed(tokens))
-    }
-
-    fn force_increase_to_be_redeemed(&mut self, tokens: PolkaBTC<T>) -> () {
-        self.update(|v| v.to_be_redeemed_tokens += tokens);
     }
 
     pub fn decrease_to_be_redeemed(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
@@ -293,9 +329,9 @@ impl<T: Trait> RichVault<T> {
         Ok(other.force_issue_tokens(tokens))
     }
 
-    pub fn liquidate(
+    pub fn liquidate<V: UpdatableVault<T>>(
         &mut self,
-        liquidation_vault: &mut RichVault<T>,
+        liquidation_vault: &mut V,
         status: VaultStatus,
     ) -> DispatchResult {
         ext::collateral::slash::<T>(&self.id(), &liquidation_vault.id(), self.get_collateral())?;
@@ -322,6 +358,10 @@ impl<T: Trait> RichVault<T> {
         self.update(|v| v.banned_until = Some(height));
     }
 
+    pub fn get_btc_address(&self) -> BtcAddress {
+        self.data.wallet.get_btc_address()
+    }
+
     pub fn update_btc_address(&mut self, btc_address: BtcAddress) {
         self.update(|v| {
             v.wallet.add_btc_address(btc_address);
@@ -346,5 +386,58 @@ impl<T: Trait> From<&RichVault<T>> for DefaultVault<T> {
 impl<T: Trait> From<DefaultVault<T>> for RichVault<T> {
     fn from(vault: DefaultVault<T>) -> RichVault<T> {
         RichVault { data: vault }
+    }
+}
+
+pub(crate) struct RichSystemVault<T: Trait> {
+    pub(crate) data: DefaultSystemVault<T>,
+}
+
+impl<T: Trait> UpdatableVault<T> for RichSystemVault<T> {
+    fn id(&self) -> T::AccountId {
+        self.data.id.clone()
+    }
+
+    fn issued_tokens(&self) -> PolkaBTC<T> {
+        self.data.issued_tokens
+    }
+
+    fn force_issue_tokens(&mut self, tokens: PolkaBTC<T>) -> () {
+        self.update(|v| v.issued_tokens += tokens)
+    }
+
+    fn force_increase_to_be_issued(&mut self, tokens: PolkaBTC<T>) -> () {
+        self.update(|v| v.to_be_issued_tokens += tokens);
+    }
+
+    fn force_increase_to_be_redeemed(&mut self, tokens: PolkaBTC<T>) -> () {
+        self.update(|v| v.to_be_redeemed_tokens += tokens);
+    }
+
+    fn force_decrease_issued(&mut self, tokens: PolkaBTC<T>) -> () {
+        self.update(|v| v.issued_tokens -= tokens);
+    }
+}
+
+#[cfg_attr(test, mockable)]
+impl<T: Trait> RichSystemVault<T> {
+    fn update<F>(&mut self, func: F) -> ()
+    where
+        F: Fn(&mut DefaultSystemVault<T>) -> (),
+    {
+        func(&mut self.data);
+        <crate::LiquidationVault<T>>::set(self.data.clone());
+    }
+}
+
+impl<T: Trait> From<&RichSystemVault<T>> for DefaultSystemVault<T> {
+    fn from(rv: &RichSystemVault<T>) -> DefaultSystemVault<T> {
+        rv.data.clone()
+    }
+}
+
+impl<T: Trait> From<DefaultSystemVault<T>> for RichSystemVault<T> {
+    fn from(vault: DefaultSystemVault<T>) -> RichSystemVault<T> {
+        RichSystemVault { data: vault }
     }
 }

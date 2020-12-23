@@ -2,10 +2,11 @@ mod mock;
 
 use mock::*;
 use primitive_types::H256;
-use sp_std::str::FromStr;
 
 type IssueCall = issue::Call<Runtime>;
+type IssueModule = issue::Module<Runtime>;
 type IssueEvent = issue::Event<Runtime>;
+type IssueError = issue::Error<Runtime>;
 
 fn assert_issue_request_event() -> H256 {
     let events = SystemModule::events();
@@ -46,57 +47,144 @@ fn integration_test_issue_should_fail_if_not_running() {
 }
 
 #[test]
-fn integration_test_issue_polka_btc() {
+fn integration_test_issue_polka_btc_execute() {
     ExtBuilder::build().execute_with(|| {
+        let user = ALICE;
+        let vault = BOB;
+
+        let amount_btc = 1000000;
+        let griefing_collateral = 100;
+        let collateral_vault = 1000000;
+
+        let vault_btc_address = BtcAddress::P2PKH(H160([1; 20]));
+
         SystemModule::set_block_number(1);
 
-        let address =
-            BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
-
-        let amount = 100000;
-        let collateral = 100;
-
-        let initial_dot_balance =
-            collateral::Module::<Runtime>::get_balance_from_account(&account_of(ALICE));
-        let initial_btc_balance =
-            treasury::Module::<Runtime>::get_balance_from_account(account_of(ALICE));
+        let initial_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
+        let initial_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
 
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(1));
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-            1000000,
-            address.clone()
+            collateral_vault,
+            vault_btc_address.clone()
         ))
-        .dispatch(origin_of(account_of(BOB))));
+        .dispatch(origin_of(account_of(vault))));
 
         // alice requests polka_btc by locking btc with bob
         assert_ok!(Call::Issue(IssueCall::request_issue(
-            amount,
-            account_of(BOB),
-            collateral
+            amount_btc,
+            account_of(vault),
+            griefing_collateral
         ))
         .dispatch(origin_of(account_of(ALICE))));
 
-        let id = assert_issue_request_event();
+        let issue_id = assert_issue_request_event();
+        let issue_request = IssueModule::get_issue_request_from_id(&issue_id).unwrap();
+        let fee_amount_btc = issue_request.fee;
+        let total_amount_btc = amount_btc + fee_amount_btc;
 
         // send the btc from the user to the vault
-        let (tx_id, _height, proof, raw_tx) = generate_transaction_and_mine(address, amount, id);
+        let (tx_id, _height, proof, raw_tx) =
+            generate_transaction_and_mine(vault_btc_address, total_amount_btc, issue_id);
 
         SystemModule::set_block_number(1 + CONFIRMATIONS);
 
         // alice executes the issue by confirming the btc transaction
         assert_ok!(
-            Call::Issue(IssueCall::execute_issue(id, tx_id, proof, raw_tx))
-                .dispatch(origin_of(account_of(ALICE)))
+            Call::Issue(IssueCall::execute_issue(issue_id, tx_id, proof, raw_tx))
+                .dispatch(origin_of(account_of(user)))
         );
 
-        SystemModule::set_block_number(6);
+        // check the sla increase
+        let expected_sla_increase = SlaModule::vault_executed_issue_max_sla_change()
+            * FixedI128::checked_from_rational(amount_btc, total_amount_btc).unwrap();
+        assert_eq!(
+            SlaModule::vault_sla(account_of(vault)),
+            expected_sla_increase
+        );
 
-        let final_dot_balance =
-            collateral::Module::<Runtime>::get_balance_from_account(&account_of(ALICE));
-        let final_btc_balance =
-            treasury::Module::<Runtime>::get_balance_from_account(account_of(ALICE));
+        // fee should be added to epoch rewards
+        assert_eq!(FeeModule::epoch_rewards_polka_btc(), fee_amount_btc);
 
-        assert_eq!(final_dot_balance, initial_dot_balance - collateral);
-        assert_eq!(final_btc_balance, initial_btc_balance + amount);
+        let final_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
+        let final_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
+
+        // griefing collateral reimbursed
+        assert_eq!(final_dot_balance, initial_dot_balance);
+
+        // polka_btc minted
+        assert_eq!(final_btc_balance, initial_btc_balance + amount_btc);
+
+        // force issue rewards and withdraw
+        assert_ok!(FeeModule::update_rewards_for_epoch());
+        assert_ok!(Call::Fee(FeeCall::withdraw_polka_btc(
+            FeeModule::get_polka_btc_rewards(&account_of(vault))
+        ))
+        .dispatch(origin_of(account_of(vault))));
+    });
+}
+
+#[test]
+fn integration_test_issue_polka_btc_cancel() {
+    ExtBuilder::build().execute_with(|| {
+        let user = ALICE;
+        let vault = BOB;
+
+        let amount_btc = 100000;
+        let griefing_collateral = 100;
+        let collateral_vault = 1000000;
+
+        let vault_btc_address = BtcAddress::P2PKH(H160([1; 20]));
+
+        SystemModule::set_block_number(1);
+
+        let initial_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
+        let initial_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
+
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(1));
+        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
+            collateral_vault,
+            vault_btc_address.clone()
+        ))
+        .dispatch(origin_of(account_of(vault))));
+
+        // alice requests polka_btc by locking btc with bob
+        assert_ok!(Call::Issue(IssueCall::request_issue(
+            amount_btc,
+            account_of(vault),
+            griefing_collateral
+        ))
+        .dispatch(origin_of(account_of(ALICE))));
+
+        let issue_id = assert_issue_request_event();
+
+        // expire request without transferring btc
+        SystemModule::set_block_number(IssueModule::issue_period() + 1 + 1);
+
+        // alice cannot execute past expiry
+        assert_err!(
+            Call::Issue(IssueCall::execute_issue(
+                issue_id,
+                H256Le::from_bytes_le(&[0; 32]),
+                vec![],
+                vec![]
+            ))
+            .dispatch(origin_of(account_of(vault))),
+            IssueError::CommitPeriodExpired
+        );
+
+        // bob cancels issue request
+        assert_ok!(
+            Call::Issue(IssueCall::cancel_issue(issue_id)).dispatch(origin_of(account_of(vault)))
+        );
+
+        let final_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
+        let final_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
+
+        // griefing collateral slashed
+        assert_eq!(final_dot_balance, initial_dot_balance - griefing_collateral);
+
+        // no polka_btc for alice
+        assert_eq!(final_btc_balance, initial_btc_balance);
     });
 }

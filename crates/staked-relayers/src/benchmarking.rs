@@ -81,6 +81,7 @@ benchmarks! {
 
     report_vault_theft {
         let origin: T::AccountId = account("Origin", 0, 0);
+        let relayer_id: T::AccountId = account("Relayer", 0, 0);
         let stake = 100;
         StakedRelayers::<T>::add_active_staked_relayer(&origin, stake.into());
 
@@ -95,12 +96,10 @@ benchmarks! {
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
         vault.wallet = Wallet::new(vault_address);
-        VaultRegistry::<T>::_insert_vault(
+        VaultRegistry::<T>::insert_vault(
             &vault_id,
             vault
         );
-
-        VaultRegistry::<T>::_set_liquidation_vault(vault_id.clone());
 
         let height = 0;
         let block = BlockBuilder::new()
@@ -152,7 +151,7 @@ benchmarks! {
         let raw_tx = transaction.format_with(true);
 
         let block_header = RawBlockHeader::from_bytes(&block.header.format()).unwrap();
-        BtcRelay::<T>::_store_block_header(block_header).unwrap();
+        BtcRelay::<T>::_store_block_header(relayer_id, block_header).unwrap();
 
     }: _(RawOrigin::Signed(origin), vault_id, tx_id, proof, raw_tx)
 
@@ -166,16 +165,15 @@ benchmarks! {
         vault.id = vault_id.clone();
         vault.issued_tokens = 100_000.into();
         vault.wallet = Wallet::new(BtcAddress::P2SH(H160::zero()));
-        VaultRegistry::<T>::_insert_vault(
+        VaultRegistry::<T>::insert_vault(
             &vault_id,
             vault
         );
-        VaultRegistry::<T>::_set_liquidation_vault(vault_id.clone());
 
         ExchangeRateOracle::<T>::_set_exchange_rate(1).unwrap();
 
         let threshold: u128 = 200_000;
-        VaultRegistry::<T>::_set_liquidation_collateral_threshold(threshold.into());
+        VaultRegistry::<T>::set_liquidation_collateral_threshold(threshold.into());
 
     }: _(RawOrigin::Signed(origin), vault_id)
 
@@ -205,6 +203,7 @@ mod tests {
     use super::*;
     use crate::mock::{ExtBuilder, Test};
     use frame_support::assert_ok;
+    use sp_arithmetic::FixedI128;
 
     #[test]
     fn test_benchmarks() {
@@ -214,6 +213,25 @@ mod tests {
                     (account("Origin", 0, 0), 1 << 32),
                     (account("Vault", 0, 0), 1 << 32),
                 ],
+            }
+            .assimilate_storage(storage)
+            .unwrap();
+
+            sla::GenesisConfig::<Test> {
+                vault_target_sla: FixedI128::from(100),
+                vault_redeem_failure_sla_change: FixedI128::from(0),
+                vault_executed_issue_max_sla_change: FixedI128::from(0),
+                vault_submitted_issue_proof: FixedI128::from(0),
+                relayer_target_sla: FixedI128::from(100),
+                relayer_block_submission: FixedI128::from(1),
+                relayer_correct_no_data_vote_or_report: FixedI128::from(1),
+                relayer_correct_invalid_vote_or_report: FixedI128::from(10),
+                relayer_correct_liquidation_report: FixedI128::from(1),
+                relayer_correct_theft_report: FixedI128::from(1),
+                relayer_correct_oracle_offline_report: FixedI128::from(1),
+                relayer_false_no_data_vote_or_report: FixedI128::from(-10),
+                relayer_false_invalid_vote_or_report: FixedI128::from(-100),
+                relayer_ignored_vote: FixedI128::from(-10),
             }
             .assimilate_storage(storage)
             .unwrap();

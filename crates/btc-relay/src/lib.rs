@@ -62,7 +62,7 @@ pub trait WeightInfo {
 /// The pallet's configuration trait.
 /// For further reference, see:
 /// https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/spec/data-model.html
-pub trait Trait: frame_system::Trait + security::Trait {
+pub trait Trait: frame_system::Trait + security::Trait + sla::Trait {
     /// The overarching event type.
     type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
 
@@ -108,13 +108,16 @@ decl_storage! {
         /// Store Bitcoin block headers
         BlockHeaders: map hasher(blake2_128_concat) H256Le => RichBlockHeader;
 
-        /// Sorted mapping of BlockChain elements with reference to ChainsIndex
+        /// Priority queue of BlockChain elements, ordered by the maximum height (descending).
+        /// The first index into this mapping (0) is considered to be the longest chain. The value
+        /// of the entry is the index into `ChainsIndex` to retrieve the `BlockChain`.
         Chains: map hasher(blake2_128_concat) u32 => Option<u32>;
 
-        /// Store the index for each tracked blockchain
+        /// Auxiliary mapping of chains ids to `BlockChain` entries. The first index into this
+        /// mapping (0) is considered to be the Bitcoin main chain.
         ChainsIndex: map hasher(blake2_128_concat) u32 => Option<BlockChain>;
 
-        /// Stores a mapping from (chain_index, block height) to block hash
+        /// Stores a mapping from (chain_index, block_height) to block hash
         ChainsHashes: double_map hasher(blake2_128_concat) u32, hasher(blake2_128_concat) u32 => H256Le;
 
         /// Store the current blockchain tip
@@ -123,7 +126,7 @@ decl_storage! {
         /// Store the height of the best block
         BestBlockHeight: u32;
 
-        /// Track existing BlockChain entries
+        /// Increment-only counter used to track new BlockChain entries
         ChainCounter: u32;
 
         /// Registers the parachain height upon storing a block
@@ -193,8 +196,8 @@ decl_module! {
         fn store_block_header(
             origin, raw_block_header: RawBlockHeader
         ) -> DispatchResult {
-            let _ = ensure_signed(origin)?;
-            Self::_store_block_header(raw_block_header)
+            let relayer = ensure_signed(origin)?;
+            Self::_store_block_header(relayer, raw_block_header)
         }
 
         /// Stores multiple new block headers
@@ -206,10 +209,10 @@ decl_module! {
         fn store_block_headers(
             origin, raw_block_headers: Vec<RawBlockHeader>
         ) -> DispatchResult {
-            let _ = ensure_signed(origin)?;
+            let relayer = ensure_signed(origin)?;
             // TODO: optimize
             for raw_block_header in raw_block_headers {
-                Self::_store_block_header(raw_block_header)?;
+                Self::_store_block_header(relayer.clone(), raw_block_header)?;
             }
             Ok(())
         }
@@ -360,7 +363,10 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    pub fn _store_block_header(raw_block_header: RawBlockHeader) -> DispatchResult {
+    pub fn _store_block_header(
+        relayer: T::AccountId,
+        raw_block_header: RawBlockHeader,
+    ) -> DispatchResult {
         // Make sure Parachain is not shutdown
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
@@ -429,11 +435,11 @@ impl<T: Trait> Module<T> {
             }
         };
 
+        ext::sla::event_update_relayer_sla::<T>(relayer, ext::sla::RelayerEvent::BlockSubmission)?;
+
         // Determine if this block extends the main chain or a fork
         let current_best_block = Self::get_best_block();
 
-        // print!("Best block hash: {:?} \n", current_best_block);
-        // print!("Current block hash: {:?} \n", block_header_hash);
         if current_best_block == block_header_hash {
             // extends the main chain
             Self::deposit_event(Event::StoreMainChainHeader(
@@ -774,27 +780,28 @@ impl<T: Trait> Module<T> {
 
     /// Swap chain elements
     fn swap_chain(pos_1: u32, pos_2: u32) {
+        // swaps the values of two keys
         <Chains>::swap(pos_1, pos_2)
     }
 
     /// Remove a chain id from chains
     fn remove_blockchain_from_chain(position: u32) -> Result<(), DispatchError> {
         // swap the element with the last element in the mapping
-        // collect the unsorted chians iterable as a vector and sort it by index
+        // collect the unsorted chains iterable as a vector and sort it by index
         let mut chains = <Chains>::iter().collect::<Vec<(u32, u32)>>();
         chains.sort_by_key(|k| k.0);
 
-        // get the head (last) index stored in the list
-        let head_index = match chains.len() {
+        // get the last position as stored in the list
+        let last_pos = match chains.len() {
             0 => return Err(Error::<T>::ForkIdNotFound.into()),
             // chains stores (position, index)
-            n => chains[n - 1].1,
+            n => chains[n - 1].0,
         };
-        <Chains>::swap(position, head_index);
+        Self::swap_chain(position, last_pos);
         // don't remove main chain id
-        if head_index > 0 {
-            // remove the header (now the value at the initial position)
-            <Chains>::remove(head_index);
+        if last_pos > 0 {
+            // remove the old head (now the value at the initial position)
+            <Chains>::remove(last_pos);
         }
         Ok(())
     }
@@ -809,8 +816,8 @@ impl<T: Trait> Module<T> {
         <ChainsIndex>::mutate(id, |b| *b = Some(chain));
     }
 
-    /// Remove a blockchain element from chainindex
-    fn remove_blockchain_from_chainindex(id: u32) {
+    /// Remove a blockchain element from ChainsIndex
+    fn remove_blockchain_from_chain_index(id: u32) {
         <ChainsIndex>::remove(id);
     }
 
@@ -1116,7 +1123,7 @@ impl<T: Trait> Module<T> {
         Self::set_best_block_height(main_chain.max_height);
 
         // remove the fork from storage
-        Self::remove_blockchain_from_chainindex(fork.chain_id);
+        Self::remove_blockchain_from_chain_index(fork.chain_id);
         Self::remove_blockchain_from_chain(position)?;
 
         // store the forked main chain
@@ -1168,7 +1175,6 @@ impl<T: Trait> Module<T> {
 
         // get the position of the fork in Chains
         let fork_position: u32 = Self::get_chain_position_from_chain_id(fork.chain_id)?;
-        // print!("fork position {:?}\n", fork_position);
         // check if the previous element in Chains has a lower block_height
         let mut current_position = fork_position;
         let mut current_height = fork.max_height;
@@ -1178,15 +1184,20 @@ impl<T: Trait> Module<T> {
             // get the previous position
             let prev_position = current_position - 1;
             // get the blockchain id
-            let prev_blockchain_id = Self::get_chain_id_from_position(prev_position)?;
+            let prev_blockchain_id =
+                if let Ok(chain_id) = Self::get_chain_id_from_position(prev_position) {
+                    chain_id
+                } else {
+                    // swap chain positions if previous doesn't exist and retry
+                    Self::swap_chain(prev_position, current_position);
+                    continue;
+                };
+
             // get the previous blockchain height
             let prev_height = Self::get_block_chain_from_id(prev_blockchain_id)?.max_height;
             // swap elements if block height is greater
-            // print!("curr height {:?}\n", current_height);
-            // print!("prev height {:?}\n", prev_height);
             if prev_height < current_height {
                 // Check if swap occurs on the main chain element
-                // print!("prev chain id {:?}\n", prev_blockchain_id);
                 if prev_blockchain_id == MAIN_CHAIN_ID {
                     // if the previous position is the top element
                     // and the current height is more than the
@@ -1199,9 +1210,6 @@ impl<T: Trait> Module<T> {
                         let new_chain_tip = <BestBlock>::get();
                         let block_height = <BestBlockHeight>::get();
                         let fork_depth = fork.max_height - fork.start_height;
-                        // print!("tip {:?}\n", new_chain_tip);
-                        // print!("block height {:?}\n", block_height);
-                        // print!("depth {:?}\n", fork_depth);
                         Self::deposit_event(Event::ChainReorg(
                             new_chain_tip,
                             block_height,
@@ -1214,7 +1222,7 @@ impl<T: Trait> Module<T> {
                             fork.chain_id,   // fork id
                         ));
                     }
-                    // break the while loop
+                    // successful reorg
                     break;
                 } else {
                     // else, simply swap the chain_id ordering in Chains
@@ -1238,7 +1246,6 @@ impl<T: Trait> Module<T> {
     ///
     /// * `blockchain` - new blockchain element
     fn insert_sorted(blockchain: &BlockChain) -> Result<(), DispatchError> {
-        // print!("Chain id: {:?}\n", blockchain.chain_id);
         // get a sorted vector over the Chains elements
         // NOTE: LinkedStorageMap iterators are not sorted over the keys
         let mut chains = <Chains>::iter().collect::<Vec<(u32, u32)>>();
@@ -1269,18 +1276,14 @@ impl<T: Trait> Module<T> {
         Self::set_chain_from_position_and_id(max_chain_element, blockchain.chain_id);
         // starting from the last element swap the positions until
         // the new blockchain is at the position_blockchain
-        // print!("max element {:?}\n", max_chain_element);
-        // print!("position blockchain {:?}\n", position_blockchain);
         for curr_position in (position_blockchain + 1..max_chain_element + 1).rev() {
             // stop when the blockchain element is at it's
             // designated position
-            // print!("current position {:?}\n", curr_position);
             if curr_position < position_blockchain {
                 break;
             };
             let prev_position = curr_position - 1;
             // swap the current element with the previous one
-            // print!("Swapping pos {:?} with pos {:?}\n", curr_position, prev_position);
             Self::swap_chain(curr_position, prev_position);
         }
         Ok(())
