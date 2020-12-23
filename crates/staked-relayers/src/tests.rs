@@ -1262,7 +1262,7 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
             }))
         });
 
-        ext::redeem::get_redeem_request_from_id::<Test>.mock_safe(move |_| {
+        ext::redeem::get_open_or_completed_redeem_request_from_id::<Test>.mock_safe(move |_| {
             MockResult::Return(Ok(RedeemRequest {
                 vault: BOB,
                 opentime: 0,
@@ -1318,10 +1318,10 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
             TestError::ValidRedeemTransaction
         );
 
-        ext::redeem::get_redeem_request_from_id::<Test>
+        ext::redeem::get_open_or_completed_redeem_request_from_id::<Test>
             .mock_safe(move |_| MockResult::Return(Err(RedeemError::RedeemIdNotFound.into())));
 
-        ext::replace::get_replace_request::<Test>.mock_safe(move |_| {
+        ext::replace::get_open_or_completed_replace_request::<Test>.mock_safe(move |_| {
             MockResult::Return(Ok(ReplaceRequest {
                 old_vault: BOB,
                 open_time: 0,

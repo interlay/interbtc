@@ -225,7 +225,7 @@ fn test_request_replace_insufficient_griefing_collateral_fails() {
 #[test]
 fn test_withdraw_replace_request_invalid_replace_id_fails() {
     run_test(|| {
-        Replace::get_replace_request
+        Replace::get_open_replace_request
             .mock_safe(|_| MockResult::Return(Err(TestError::ReplaceIdNotFound.into())));
         assert_noop!(
             Replace::_withdraw_replace_request(ALICE, H256([0u8; 32])),
@@ -237,7 +237,7 @@ fn test_withdraw_replace_request_invalid_replace_id_fails() {
 #[test]
 fn test_withdraw_replace_request_invalid_vault_id_fails() {
     run_test(|| {
-        Replace::get_replace_request.mock_safe(|_| MockResult::Return(Ok(test_request())));
+        Replace::get_open_replace_request.mock_safe(|_| MockResult::Return(Ok(test_request())));
         ext::vault_registry::get_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Err(VaultRegistryError::VaultNotFound.into())));
         assert_noop!(
@@ -250,7 +250,7 @@ fn test_withdraw_replace_request_invalid_vault_id_fails() {
 #[test]
 fn test_withdraw_replace_req_vault_id_mismatch_fails() {
     run_test(|| {
-        Replace::get_replace_request.mock_safe(|_| MockResult::Return(Ok(test_request())));
+        Replace::get_open_replace_request.mock_safe(|_| MockResult::Return(Ok(test_request())));
         ext::vault_registry::get_vault_from_id::<Test>
             .mock_safe(|_id| MockResult::Return(Ok(test_vault())));
         assert_noop!(
@@ -263,7 +263,7 @@ fn test_withdraw_replace_req_vault_id_mismatch_fails() {
 #[test]
 fn test_withdraw_replace_req_under_secure_threshold_fails() {
     run_test(|| {
-        Replace::get_replace_request.mock_safe(|_| MockResult::Return(Ok(test_request())));
+        Replace::get_open_replace_request.mock_safe(|_| MockResult::Return(Ok(test_request())));
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_id| {
             MockResult::Return(Ok({
                 let mut v = test_vault();
@@ -284,7 +284,7 @@ fn test_withdraw_replace_req_under_secure_threshold_fails() {
 #[test]
 fn test_withdraw_replace_req_has_new_owner_fails() {
     run_test(|| {
-        Replace::get_replace_request.mock_safe(|_| {
+        Replace::get_open_replace_request.mock_safe(|_| {
             let mut r = test_request();
             r.old_vault = ALICE;
             r.new_vault = Some(3);
@@ -311,7 +311,7 @@ fn test_withdraw_replace_req_has_new_owner_fails() {
 #[test]
 fn test_accept_replace_bad_replace_id_fails() {
     run_test(|| {
-        Replace::get_replace_request.mock_safe(|_| {
+        Replace::get_open_replace_request.mock_safe(|_| {
             let mut r = test_request();
             r.old_vault = ALICE;
             r.new_vault = Some(3);
@@ -339,7 +339,7 @@ fn test_accept_replace_bad_replace_id_fails() {
 #[test]
 fn test_accept_replace_bad_vault_id_fails() {
     run_test(|| {
-        Replace::get_replace_request.mock_safe(|_| {
+        Replace::get_open_replace_request.mock_safe(|_| {
             let mut r = test_request();
             r.old_vault = ALICE;
             r.new_vault = Some(3);
@@ -362,7 +362,7 @@ fn test_accept_replace_bad_vault_id_fails() {
 #[test]
 fn test_accept_replace_vault_banned_fails() {
     run_test(|| {
-        Replace::get_replace_request.mock_safe(|_| {
+        Replace::get_open_replace_request.mock_safe(|_| {
             let mut r = test_request();
             r.old_vault = ALICE;
             r.new_vault = Some(3);
@@ -390,7 +390,7 @@ fn test_accept_replace_vault_banned_fails() {
 #[test]
 fn test_accept_replace_insufficient_collateral_fails() {
     run_test(|| {
-        Replace::get_replace_request.mock_safe(|_| {
+        Replace::get_open_replace_request.mock_safe(|_| {
             let mut r = test_request();
             r.old_vault = ALICE;
             r.new_vault = Some(3);
@@ -484,7 +484,7 @@ fn test_auction_replace_insufficient_collateral_fails() {
 #[test]
 fn test_execute_replace_bad_replace_id_fails() {
     run_test(|| {
-        Replace::get_replace_request
+        Replace::get_open_replace_request
             .mock_safe(|_| MockResult::Return(Err(TestError::ReplaceIdNotFound.into())));
 
         let replace_id = H256::zero();
@@ -507,7 +507,7 @@ fn test_execute_replace_replace_period_expired_fails() {
         let merkle_proof = Vec::new();
         let raw_tx = Vec::new();
 
-        Replace::get_replace_request.mock_safe(move |_| {
+        Replace::get_open_replace_request.mock_safe(move |_| {
             let mut req = test_request();
             req.open_time = 100_000;
             req.new_vault = Some(new_vault_id);
@@ -525,7 +525,7 @@ fn test_execute_replace_replace_period_expired_fails() {
 #[test]
 fn test_cancel_replace_invalid_replace_id_fails() {
     run_test(|| {
-        Replace::get_replace_request
+        Replace::get_open_replace_request
             .mock_safe(|_| MockResult::Return(Err(TestError::ReplaceIdNotFound.into())));
 
         let new_vault_id = ALICE;
@@ -541,7 +541,7 @@ fn test_cancel_replace_invalid_replace_id_fails() {
 #[test]
 fn test_cancel_replace_period_not_expired_fails() {
     run_test(|| {
-        Replace::get_replace_request.mock_safe(|_| MockResult::Return(Ok(test_request())));
+        Replace::get_open_replace_request.mock_safe(|_| MockResult::Return(Ok(test_request())));
         Replace::current_height.mock_safe(|| MockResult::Return(1));
         Replace::replace_period.mock_safe(|| MockResult::Return(2));
         let new_vault_id = ALICE;
@@ -557,7 +557,7 @@ fn test_cancel_replace_period_not_expired_fails() {
 #[test]
 fn test_cancel_replace_period_not_expired_current_height_0_fails() {
     run_test(|| {
-        Replace::get_replace_request.mock_safe(|_| MockResult::Return(Ok(test_request())));
+        Replace::get_open_replace_request.mock_safe(|_| MockResult::Return(Ok(test_request())));
         Replace::current_height.mock_safe(|| MockResult::Return(0));
         Replace::replace_period.mock_safe(|| MockResult::Return(2));
         let new_vault_id = ALICE;
@@ -641,7 +641,7 @@ fn test_withdraw_replace_succeeds() {
         let vault_id = BOB;
         let replace_id = H256::zero();
 
-        Replace::get_replace_request.mock_safe(|_| {
+        Replace::get_open_replace_request.mock_safe(|_| {
             let mut replace = test_request();
             replace.old_vault = BOB;
             MockResult::Return(Ok(replace))
@@ -675,7 +675,7 @@ fn test_accept_replace_succeeds() {
         let collateral = 20_000;
         let btc_amount = 100;
 
-        Replace::get_replace_request.mock_safe(move |_| {
+        Replace::get_open_replace_request.mock_safe(move |_| {
             let mut replace = test_request();
             replace.old_vault = old_vault_id;
             replace.amount = btc_amount;
@@ -767,7 +767,7 @@ fn test_execute_replace_succeeds() {
         let merkle_proof = Vec::new();
         let raw_tx = Vec::new();
 
-        Replace::get_replace_request.mock_safe(move |_| {
+        Replace::get_open_replace_request.mock_safe(move |_| {
             let mut replace = test_request();
             replace.old_vault = old_vault_id.clone();
             replace.new_vault = Some(new_vault_id.clone());
@@ -811,7 +811,7 @@ fn test_cancel_replace_succeeds() {
         let replace_id = H256::zero();
 
         System::set_block_number(45);
-        Replace::get_replace_request.mock_safe(move |_| {
+        Replace::get_open_replace_request.mock_safe(move |_| {
             let mut replace = test_request();
             replace.old_vault = old_vault_id.clone();
             replace.new_vault = Some(new_vault_id.clone());
@@ -898,7 +898,7 @@ fn test_withdraw_replace_parachain_not_running_succeeds() {
         let vault_id = BOB;
         let replace_id = H256::zero();
 
-        Replace::get_replace_request.mock_safe(|_| {
+        Replace::get_open_replace_request.mock_safe(|_| {
             let mut replace = test_request();
             replace.old_vault = BOB;
             MockResult::Return(Ok(replace))

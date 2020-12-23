@@ -287,7 +287,7 @@ fn test_request_redeem_succeeds_in_running_state() {
             BtcAddress::P2PKH(H160::zero()),
         ));
         assert_ok!(
-            Redeem::get_redeem_request_from_id(&H256([0; 32])),
+            Redeem::get_open_redeem_request_from_id(&H256([0; 32])),
             RedeemRequest {
                 vault: BOB,
                 opentime: 1,
@@ -391,7 +391,7 @@ fn test_request_redeem_succeeds_in_error_state() {
             BtcAddress::P2PKH(H160::zero()),
         ));
         assert_ok!(
-            Redeem::get_redeem_request_from_id(&H256([0; 32])),
+            Redeem::get_open_redeem_request_from_id(&H256([0; 32])),
             RedeemRequest {
                 vault: BOB,
                 opentime: 1,
@@ -430,7 +430,7 @@ fn test_execute_redeem_fails_with_redeem_id_not_found() {
 #[test]
 fn test_execute_redeem_fails_with_unauthorized_vault() {
     run_test(|| {
-        Redeem::get_redeem_request_from_id.mock_safe(|_| {
+        Redeem::get_open_redeem_request_from_id.mock_safe(|_| {
             MockResult::Return(Ok(RedeemRequest {
                 vault: BOB,
                 opentime: 0,
@@ -465,7 +465,7 @@ fn test_execute_redeem_fails_with_commit_period_expired() {
     run_test(|| {
         System::set_block_number(40);
 
-        Redeem::get_redeem_request_from_id.mock_safe(|_| {
+        Redeem::get_open_redeem_request_from_id.mock_safe(|_| {
             MockResult::Return(Ok(RedeemRequest {
                 vault: BOB,
                 opentime: 20,
@@ -558,7 +558,7 @@ fn test_execute_redeem_succeeds() {
         ));
         assert_emitted!(Event::ExecuteRedeem(H256([0; 32]), ALICE, BOB));
         assert_err!(
-            Redeem::get_redeem_request_from_id(&H256([0u8; 32])),
+            Redeem::get_open_redeem_request_from_id(&H256([0u8; 32])),
             TestError::RedeemCompleted,
         );
     })
@@ -579,7 +579,7 @@ fn test_cancel_redeem_fails_with_time_not_expired() {
     run_test(|| {
         System::set_block_number(10);
 
-        Redeem::get_redeem_request_from_id.mock_safe(|_| {
+        Redeem::get_open_redeem_request_from_id.mock_safe(|_| {
             MockResult::Return(Ok(RedeemRequest {
                 vault: BOB,
                 opentime: 0,
@@ -608,7 +608,7 @@ fn test_cancel_redeem_fails_with_unauthorized_caller() {
     run_test(|| {
         <frame_system::Module<Test>>::set_block_number(20);
 
-        Redeem::get_redeem_request_from_id.mock_safe(|_| {
+        Redeem::get_open_redeem_request_from_id.mock_safe(|_| {
             MockResult::Return(Ok(RedeemRequest {
                 vault: BOB,
                 opentime: 0,
@@ -669,7 +669,7 @@ fn test_cancel_redeem_succeeds() {
             false
         ));
         assert_err!(
-            Redeem::get_redeem_request_from_id(&H256([0u8; 32])),
+            Redeem::get_open_redeem_request_from_id(&H256([0u8; 32])),
             TestError::RedeemCancelled,
         );
         assert_emitted!(Event::CancelRedeem(H256([0; 32]), ALICE));
