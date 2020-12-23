@@ -1203,7 +1203,7 @@ impl<T: Trait> Module<T> {
             let request_id = H256::from_slice(&op_returns[0].1[..32]);
 
             // redeem requests
-            match ext::redeem::get_redeem_request_from_id::<T>(&request_id) {
+            match ext::redeem::get_open_or_completed_redeem_request_from_id::<T>(&request_id) {
                 Ok(req) => {
                     ensure!(
                         !Self::is_valid_request_transaction(
@@ -1219,7 +1219,7 @@ impl<T: Trait> Module<T> {
             };
 
             // replace requests
-            match ext::replace::get_replace_request::<T>(&request_id) {
+            match ext::replace::get_open_or_completed_replace_request::<T>(&request_id) {
                 Ok(req) => {
                     ensure!(
                         !Self::is_valid_request_transaction(

@@ -647,6 +647,7 @@ impl<T: Trait> Module<T> {
             .collect::<Vec<_>>()
     }
 
+    /// Get a replace request by id. Completed or cancelled requests are not returned.
     pub fn get_replace_request(
         id: &H256,
     ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError>
@@ -654,6 +655,16 @@ impl<T: Trait> Module<T> {
         let request = <ReplaceRequests<T>>::get(id).ok_or(Error::<T>::ReplaceIdNotFound)?;
         // NOTE: temporary workaround until we delete
         ensure!(!request.completed, Error::<T>::ReplaceCompleted);
+        ensure!(!request.cancelled, Error::<T>::ReplaceCancelled);
+        Ok(request)
+    }
+
+    /// Get a open or completed replace request by id. Cancelled requests are not returned.
+    pub fn get_open_or_completed_replace_request(
+        id: &H256,
+    ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError>
+    {
+        let request = <ReplaceRequests<T>>::get(id).ok_or(Error::<T>::ReplaceIdNotFound)?;
         ensure!(!request.cancelled, Error::<T>::ReplaceCancelled);
         Ok(request)
     }

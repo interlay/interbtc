@@ -498,7 +498,8 @@ impl<T: Trait> Module<T> {
             .collect::<Vec<_>>()
     }
 
-    /// Fetch a pre-existing redeem request or throw.
+    /// Fetch a pre-existing redeem request or throw. Completed or cancelled
+    /// requests are not returned.
     ///
     /// # Arguments
     ///
@@ -515,6 +516,27 @@ impl<T: Trait> Module<T> {
         ensure!(
             !<RedeemRequests<T>>::get(*redeem_id).completed,
             Error::<T>::RedeemCompleted
+        );
+        ensure!(
+            !<RedeemRequests<T>>::get(*redeem_id).cancelled,
+            Error::<T>::RedeemCancelled
+        );
+        Ok(<RedeemRequests<T>>::get(*redeem_id))
+    }
+
+    /// Fetch a pre-existing open or completed redeem request or throw.
+    /// Cancelled requests are not returned.
+    ///
+    /// # Arguments
+    ///
+    /// * `redeem_id` - 256-bit identifier of the redeem request
+    pub fn get_open_or_completed_redeem_request_from_id(
+        redeem_id: &H256,
+    ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError>
+    {
+        ensure!(
+            <RedeemRequests<T>>::contains_key(*redeem_id),
+            Error::<T>::RedeemIdNotFound
         );
         ensure!(
             !<RedeemRequests<T>>::get(*redeem_id).cancelled,

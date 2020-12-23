@@ -144,11 +144,11 @@ pub(crate) mod redeem {
     use primitive_types::H256;
     use redeem::types::RedeemRequest;
 
-    pub(crate) fn get_redeem_request_from_id<T: redeem::Trait>(
+    pub(crate) fn get_open_or_completed_redeem_request_from_id<T: redeem::Trait>(
         id: &H256,
     ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError>
     {
-        <redeem::Module<T>>::get_redeem_request_from_id(id)
+        <redeem::Module<T>>::get_open_or_completed_redeem_request_from_id(id)
     }
 }
 
@@ -159,11 +159,11 @@ pub(crate) mod replace {
     use primitive_types::H256;
     use replace::types::ReplaceRequest;
 
-    pub(crate) fn get_replace_request<T: replace::Trait>(
+    pub(crate) fn get_open_or_completed_replace_request<T: replace::Trait>(
         id: &H256,
     ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError>
     {
-        <replace::Module<T>>::get_replace_request(id)
+        <replace::Module<T>>::get_open_or_completed_replace_request(id)
     }
 }
 
