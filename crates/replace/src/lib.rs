@@ -341,7 +341,7 @@ impl<T: Trait> Module<T> {
     ) -> Result<(), DispatchError> {
         // check vault exists
         // step 1: Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
-        let replace = Self::get_replace_request(&request_id)?;
+        let replace = Self::get_open_replace_request(&request_id)?;
 
         // step 2: Check that caller of the function is indeed the to-be-replaced Vault as specified in the ReplaceRequest. Return ERR_UNAUTHORIZED error if this check fails.
         let _vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
@@ -388,7 +388,7 @@ impl<T: Trait> Module<T> {
 
         // step 1: Retrieve the ReplaceRequest as per the replaceId parameter from ReplaceRequests.
         // Return ERR_REPLACE_ID_NOT_FOUND error if no such ReplaceRequest was found.
-        let mut replace = Self::get_replace_request(&replace_id)?;
+        let mut replace = Self::get_open_replace_request(&replace_id)?;
 
         // step 2: Retrieve the Vault as per the newVault parameter from Vaults in the VaultRegistry
         let vault = ext::vault_registry::get_vault_from_id::<T>(&new_vault_id)?;
@@ -510,7 +510,7 @@ impl<T: Trait> Module<T> {
         ext::security::ensure_parachain_status_running::<T>()?;
 
         // step 1: Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
-        let replace = Self::get_replace_request(&replace_id)?;
+        let replace = Self::get_open_replace_request(&replace_id)?;
 
         // NOTE: anyone can call this method provided the proof is correct
         if replace.new_vault.is_none() {
@@ -575,7 +575,7 @@ impl<T: Trait> Module<T> {
         ext::security::ensure_parachain_status_running::<T>()?;
 
         // step 1: Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
-        let replace = Self::get_replace_request(&replace_id)?;
+        let replace = Self::get_open_replace_request(&replace_id)?;
 
         // only cancellable after the request has expired
         ensure!(
@@ -648,7 +648,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Get a replace request by id. Completed or cancelled requests are not returned.
-    pub fn get_replace_request(
+    pub fn get_open_replace_request(
         id: &H256,
     ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError>
     {

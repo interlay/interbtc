@@ -200,7 +200,7 @@ decl_module! {
             -> DispatchResult
         {
             let redeemer = ensure_signed(origin)?;
-            let redeem = Self::get_redeem_request_from_id(&redeem_id)?;
+            let redeem = Self::get_open_redeem_request_from_id(&redeem_id)?;
             ensure!(redeemer == redeem.redeemer, Error::<T>::UnauthorizedUser);
 
             // only cancellable after the request has expired
@@ -389,7 +389,7 @@ impl<T: Trait> Module<T> {
     ) -> Result<(), DispatchError> {
         ext::security::ensure_parachain_status_running::<T>()?;
 
-        let redeem = Self::get_redeem_request_from_id(&redeem_id)?;
+        let redeem = Self::get_open_redeem_request_from_id(&redeem_id)?;
         ensure!(vault_id == redeem.vault, Error::<T>::UnauthorizedVault);
 
         // only executable before the request has expired
@@ -504,7 +504,7 @@ impl<T: Trait> Module<T> {
     /// # Arguments
     ///
     /// * `redeem_id` - 256-bit identifier of the redeem request
-    pub fn get_redeem_request_from_id(
+    pub fn get_open_redeem_request_from_id(
         redeem_id: &H256,
     ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError>
     {
