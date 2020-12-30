@@ -20,7 +20,7 @@ pub(crate) mod btc_relay {
         amount: i64,
         btc_address: BtcAddress,
         issue_id: Vec<u8>,
-    ) -> Result<(), DispatchError> {
+    ) -> Result<(BtcAddress, i64), DispatchError> {
         <btc_relay::Module<T>>::_validate_transaction(raw_tx, amount, btc_address, issue_id)
     }
 }
@@ -159,6 +159,12 @@ pub(crate) mod fee {
         <fee::Module<T>>::get_issue_fee(amount)
     }
 
+    pub fn get_issue_fee_from_total<T: fee::Trait>(
+        amount: PolkaBTC<T>,
+    ) -> Result<PolkaBTC<T>, DispatchError> {
+        <fee::Module<T>>::get_issue_fee_from_total(amount)
+    }
+
     pub fn get_issue_griefing_collateral<T: fee::Trait>(
         amount: DOT<T>,
     ) -> Result<DOT<T>, DispatchError> {
@@ -167,5 +173,21 @@ pub(crate) mod fee {
 
     pub fn increase_polka_btc_rewards_for_epoch<T: fee::Trait>(amount: PolkaBTC<T>) {
         <fee::Module<T>>::increase_polka_btc_rewards_for_epoch(amount)
+    }
+}
+
+#[cfg_attr(test, mockable)]
+pub(crate) mod refund {
+    use crate::types::PolkaBTC;
+    use btc_relay::BtcAddress;
+    use frame_support::dispatch::DispatchError;
+
+    pub fn request_refund<T: refund::Trait>(
+        total_amount_btc: PolkaBTC<T>,
+        vault_id: T::AccountId,
+        issuer: T::AccountId,
+        btc_address: BtcAddress,
+    ) -> Result<(), DispatchError> {
+        <refund::Module<T>>::request_refund(total_amount_btc, vault_id, issuer, btc_address)
     }
 }

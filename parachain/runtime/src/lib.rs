@@ -365,6 +365,13 @@ impl sla::Trait for Runtime {
     type SignedFixedPoint = FixedI128;
 }
 
+pub use refund::{RawEvent as RawRefundEvent, RefundRequest};
+
+impl refund::Trait for Runtime {
+    type Event = Event;
+    type WeightInfo = ();
+}
+
 pub use issue::{IssueRequest, RawEvent as RawIssueEvent};
 
 impl issue::Trait for Runtime {
@@ -414,6 +421,7 @@ construct_runtime!(
         Replace: replace::{Module, Call, Config<T>, Storage, Event<T>},
         Fee: fee::{Module, Call, Config<T>, Storage, Event<T>},
         Sla: sla::{Module, Call, Config<T>, Storage, Event<T>},
+        Refund: refund::{Module, Call, Config<T>, Storage, Event<T>},
     }
 );
 
@@ -712,6 +720,21 @@ impl_runtime_apis! {
 
         fn get_vault_redeem_requests(account_id: AccountId) -> Vec<(H256, RedeemRequest<AccountId, BlockNumber, Balance, Balance>)> {
             Redeem::get_redeem_requests_for_vault(account_id)
+        }
+    }
+
+    impl module_refund_rpc_runtime_api::RefundApi<
+        Block,
+        AccountId,
+        H256,
+        RefundRequest<AccountId, Balance>
+    > for Runtime {
+        fn get_refund_requests(account_id: AccountId) -> Vec<(H256, RefundRequest<AccountId, Balance>)> {
+            Refund::get_refund_requests_for_account(account_id)
+        }
+
+        fn get_vault_refund_requests(account_id: AccountId) -> Vec<(H256, RefundRequest<AccountId, Balance>)> {
+            Refund::get_refund_requests_for_vault(account_id)
         }
     }
 

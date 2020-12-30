@@ -272,8 +272,6 @@ decl_module! {
         /// # Arguments
         ///
         /// * `tx_id` - The hash of the transaction to check for
-        /// * `tx_block_height` - The height of the block in which the
-        /// transaction should be included
         /// * `raw_merkle_proof` - The raw merkle proof as returned by
         /// bitcoin `gettxoutproof`
         /// * `confirmations` - The number of confirmations needed to accept
@@ -664,13 +662,22 @@ impl<T: Trait> Module<T> {
         Self::disable_op_return_check()
     }
 
+    /// Checks if transaction is valid. If so, it returns the (first) origin address and the payment value
     pub fn _validate_transaction(
         raw_tx: Vec<u8>,
         payment_value: i64,
         recipient_btc_address: BtcAddress,
         op_return_id: Vec<u8>,
-    ) -> Result<(), DispatchError> {
+    ) -> Result<(BtcAddress, i64), DispatchError> {
         let transaction = Self::parse_transaction(&raw_tx)?;
+
+        let input_address = transaction
+            .clone()
+            .inputs
+            .get(0)
+            .ok_or(Error::<T>::MalformedTransaction)?
+            .extract_address()
+            .map_err(|_| Error::<T>::MalformedTransaction)?;
 
         let extr_payment_value = if Self::is_op_return_disabled() {
             Self::extract_value(transaction, recipient_btc_address)?
@@ -691,7 +698,7 @@ impl<T: Trait> Module<T> {
             Error::<T>::InsufficientValue
         );
 
-        Ok(())
+        Ok((input_address, extr_payment_value))
     }
 
     // ********************************

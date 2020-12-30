@@ -181,6 +181,11 @@ default-features = false
 package = 'sla'
 path = '../../crates/sla'
 
+[dependencies.refund]
+default-features = false
+package = 'refund'
+path = '../../crates/refund'
+
 [dependencies.issue]
 default-features = false
 package = 'issue'
@@ -215,6 +220,10 @@ path = '../../crates/issue/rpc/runtime-api'
 [dependencies.module-redeem-rpc-runtime-api]
 default-features = false
 path = '../../crates/redeem/rpc/runtime-api'
+
+[dependencies.module-refund-rpc-runtime-api]
+default-features = false
+path = '../../crates/refund/rpc/runtime-api'
 
 [dependencies.module-replace-rpc-runtime-api]
 default-features = false
@@ -274,6 +283,7 @@ std = [
   'module-vault-registry-rpc-runtime-api/std',
   'module-issue-rpc-runtime-api/std',
   'module-redeem-rpc-runtime-api/std',
+  'module-refund-rpc-runtime-api/std',
   'module-replace-rpc-runtime-api/std',
   'module-sla-rpc-runtime-api/std',
   'btc-relay/std',
@@ -285,6 +295,7 @@ std = [
   'exchange-rate-oracle/std',
   'fee/std',
   'sla/std',
+  'refund/std',
   'issue/std',
   'redeem/std',
   'replace/std',

@@ -168,6 +168,20 @@ pub(crate) mod replace {
 }
 
 #[cfg_attr(test, mockable)]
+pub(crate) mod refund {
+    use crate::types::PolkaBTC;
+    use frame_support::dispatch::DispatchError;
+    use primitive_types::H256;
+    use refund::types::RefundRequest;
+
+    pub(crate) fn get_open_or_completed_refund_request_from_id<T: refund::Trait>(
+        id: &H256,
+    ) -> Result<RefundRequest<T::AccountId, PolkaBTC<T>>, DispatchError> {
+        <refund::Module<T>>::get_open_or_completed_refund_request_from_id(id)
+    }
+}
+
+#[cfg_attr(test, mockable)]
 pub(crate) mod sla {
     use frame_support::dispatch::DispatchError;
     pub use sla::types::RelayerEvent;

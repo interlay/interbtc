@@ -784,7 +784,7 @@ fn test_execute_replace_succeeds() {
         ext::btc_relay::verify_transaction_inclusion::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::btc_relay::validate_transaction::<Test>
-            .mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
+            .mock_safe(|_, _, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 0))));
 
         ext::vault_registry::replace_tokens::<Test>
             .mock_safe(|_, _, _, _| MockResult::Return(Ok(())));

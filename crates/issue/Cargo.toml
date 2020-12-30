@@ -99,6 +99,10 @@ path = '../fee'
 default-features = false
 path = '../sla'
 
+[dependencies.refund]
+default-features = false
+path = '../refund'
+
 [dependencies.frame-benchmarking]
 version = "2.0.0"
 default-features = false
@@ -133,6 +137,7 @@ std = [
 	'exchange-rate-oracle/std',
 	'fee/std',
 	'sla/std',
+	'refund/std',
 	'treasury/std',
 	'bitcoin/std',
 	'sha2/std',

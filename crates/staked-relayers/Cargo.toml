@@ -96,6 +96,10 @@ path = '../redeem'
 default-features = false
 path = '../replace'
 
+[dependencies.refund]
+default-features = false
+path = '../refund'
+
 [dependencies.sha2]
 default-features = false
 version = "0.8.2"
@@ -147,6 +151,7 @@ std = [
   'btc-relay/std',
   'redeem/std',
   'replace/std',
+  'refund/std',
   'sha2/std',
   'hex/std',
   'frame-benchmarking/std',

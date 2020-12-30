@@ -76,6 +76,7 @@ pub trait Trait:
     + btc_relay::Trait
     + redeem::Trait
     + replace::Trait
+    + refund::Trait
     + sla::Trait
 {
     /// The overarching event type.
@@ -1233,6 +1234,22 @@ impl<T: Trait> Module<T> {
                 }
                 Err(_) => (),
             };
+
+            // refund requests
+            match ext::refund::get_open_or_completed_refund_request_from_id::<T>(&request_id) {
+                Ok(req) => {
+                    ensure!(
+                        !Self::is_valid_request_transaction(
+                            req.amount_btc,
+                            req.btc_address,
+                            &payments,
+                            &vault.wallet,
+                        ),
+                        Error::<T>::ValidRefundTransaction
+                    );
+                }
+                Err(_) => (),
+            };
         }
 
         Ok(())
@@ -1320,6 +1337,8 @@ decl_error! {
         ValidRedeemTransaction,
         /// Valid replace transaction
         ValidReplaceTransaction,
+        /// Valid refund transaction
+        ValidRefundTransaction,
         /// Valid merge transaction
         ValidMergeTransaction,
         /// Oracle already reported

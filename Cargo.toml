@@ -13,6 +13,7 @@ members = [
   "crates/redeem",
   "crates/sla",
   "crates/fee",
+  "crates/refund",
   "parachain",
   "parachain/runtime",
 ]

@@ -7,6 +7,7 @@ use btc_relay::BtcAddress;
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
 use primitive_types::H256;
+use sp_core::H160;
 use vault_registry::{Vault, VaultStatus, Wallet};
 
 fn request_issue(
@@ -68,7 +69,8 @@ fn execute_issue_ok(origin: AccountId, issue_id: &H256) {
     ext::btc_relay::verify_transaction_inclusion::<Test>
         .mock_safe(|_, _| MockResult::Return(Ok(())));
 
-    ext::btc_relay::validate_transaction::<Test>.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
+    ext::btc_relay::validate_transaction::<Test>
+        .mock_safe(|_, _, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 0))));
 
     assert_ok!(execute_issue(origin, issue_id));
 }
@@ -198,6 +200,87 @@ fn test_execute_issue_succeeds() {
     })
 }
 
+#[test]
+fn test_execute_issue_overpayment_succeeds() {
+    run_test(|| {
+        ext::vault_registry::get_vault_from_id::<Test>
+            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
+        ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+
+        let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
+        <frame_system::Module<Test>>::set_block_number(5);
+        ext::security::ensure_parachain_status_running::<Test>
+            .mock_safe(|| MockResult::Return(Ok(())));
+
+        ext::btc_relay::verify_transaction_inclusion::<Test>
+            .mock_safe(|_, _| MockResult::Return(Ok(())));
+
+        // pay 5 instead of the expected 3
+        ext::btc_relay::validate_transaction::<Test>
+            .mock_safe(|_, _, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 5))));
+
+        unsafe {
+            let mut increase_tokens_called = false;
+            let mut refund_called = false;
+
+            ext::vault_registry::increase_to_be_issued_tokens::<Test>.mock_raw(|_, amount| {
+                increase_tokens_called = true;
+                assert_eq!(amount, 2);
+                MockResult::Return(Ok(BtcAddress::P2SH(H160::zero())))
+            });
+
+            // check that request_refund is not called..
+            ext::refund::request_refund::<Test>.mock_raw(|_, _, _, _| {
+                refund_called = true;
+                MockResult::Return(Ok(()))
+            });
+
+            assert_ok!(execute_issue(ALICE, &issue_id));
+            assert_eq!(increase_tokens_called, true);
+            assert_eq!(refund_called, false);
+        }
+    })
+}
+
+#[test]
+fn test_execute_issue_refund_succeeds() {
+    run_test(|| {
+        ext::vault_registry::get_vault_from_id::<Test>
+            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
+        ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+
+        let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
+        <frame_system::Module<Test>>::set_block_number(5);
+        ext::security::ensure_parachain_status_running::<Test>
+            .mock_safe(|| MockResult::Return(Ok(())));
+
+        ext::btc_relay::verify_transaction_inclusion::<Test>
+            .mock_safe(|_, _| MockResult::Return(Ok(())));
+
+        // pay 103 instead of the expected 3
+        ext::btc_relay::validate_transaction::<Test>
+            .mock_safe(|_, _, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 103))));
+
+        // return some arbitrary error
+        ext::vault_registry::increase_to_be_issued_tokens::<Test>.mock_safe(|_, amount| {
+            assert_eq!(amount, 100);
+            MockResult::Return(Err(TestError::IssueCompleted.into()))
+        });
+
+        unsafe {
+            let mut refund_called = false;
+
+            // check that a refund for amount=100 is requested
+            ext::refund::request_refund::<Test>.mock_raw(|amount, _, _, _| {
+                refund_called = true;
+                assert_eq!(amount, 100);
+                MockResult::Return(Ok(()))
+            });
+            assert_ok!(execute_issue(ALICE, &issue_id));
+            assert_eq!(refund_called, true);
+        }
+    })
+}
 #[test]
 fn test_cancel_issue_not_found_fails() {
     run_test(|| {

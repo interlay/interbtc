@@ -88,7 +88,21 @@ pub fn generate_transaction_and_mine(
     amount: u128,
     return_data: H256,
 ) -> (H256Le, u32, Vec<u8>, Vec<u8>) {
-    generate_transaction_and_mine_with_script_sig(address, amount, return_data, &vec![])
+    generate_transaction_and_mine_with_script_sig(
+        address,
+        amount,
+        return_data,
+        &[
+            0, 71, 48, 68, 2, 32, 91, 128, 41, 150, 96, 53, 187, 63, 230, 129, 53, 234, 210, 186,
+            21, 187, 98, 38, 255, 112, 30, 27, 228, 29, 132, 140, 155, 62, 123, 216, 232, 168, 2,
+            32, 72, 126, 179, 207, 142, 8, 99, 8, 32, 78, 244, 166, 106, 160, 207, 227, 61, 210,
+            172, 234, 234, 93, 59, 159, 79, 12, 194, 240, 212, 3, 120, 50, 1, 71, 81, 33, 3, 113,
+            209, 131, 177, 9, 29, 242, 229, 15, 217, 247, 165, 78, 111, 80, 79, 50, 200, 117, 80,
+            30, 233, 210, 167, 133, 175, 62, 253, 134, 127, 212, 51, 33, 2, 128, 200, 184, 235,
+            148, 25, 43, 34, 28, 173, 55, 54, 189, 164, 187, 243, 243, 152, 7, 84, 210, 85, 156,
+            238, 77, 97, 188, 240, 162, 197, 105, 62, 82, 174,
+        ],
+    )
 }
 
 #[allow(dead_code)]
@@ -288,6 +302,7 @@ impl ExtBuilder {
         fee::GenesisConfig::<Runtime> {
             issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
             issue_griefing_collateral: FixedU128::checked_from_rational(5, 100000).unwrap(), // 0.005%
+            refund_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),                  // 0.5%
             redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),                  // 0.5%
             premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
             auction_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
@@ -313,6 +328,7 @@ impl ExtBuilder {
             vault_redeem_failure_sla_change: FixedI128::from(-10),
             vault_executed_issue_max_sla_change: FixedI128::from(4),
             vault_submitted_issue_proof: FixedI128::from(0),
+            vault_refunded: FixedI128::from(1),
             relayer_target_sla: FixedI128::from(100),
             relayer_block_submission: FixedI128::from(1),
             relayer_correct_no_data_vote_or_report: FixedI128::from(1),

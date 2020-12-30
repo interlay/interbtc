@@ -38,6 +38,7 @@ impl_outer_event! {
         exchange_rate_oracle<T>,
         fee<T>,
         sla<T>,
+        refund<T>,
         security,
     }
 }
@@ -127,6 +128,11 @@ impl treasury::Trait for Test {
     type Event = TestEvent;
 }
 
+impl refund::Trait for Test {
+    type Event = TestEvent;
+    type WeightInfo = ();
+}
+
 parameter_types! {
     pub const MinimumPeriod: u64 = 5;
 }
@@ -188,6 +194,7 @@ impl ExtBuilder {
         fee::GenesisConfig::<Test> {
             issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
             issue_griefing_collateral: FixedU128::checked_from_rational(5, 100000).unwrap(), // 0.005%
+            refund_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),                  // 0.5%
             redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),                  // 0.5%
             premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
             auction_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%

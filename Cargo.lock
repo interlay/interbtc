@@ -607,6 +607,7 @@ dependencies = [
  "module-exchange-rate-oracle-rpc",
  "module-issue-rpc",
  "module-redeem-rpc",
+ "module-refund-rpc",
  "module-replace-rpc",
  "module-sla-rpc",
  "module-staked-relayers-rpc",
@@ -661,6 +662,7 @@ dependencies = [
  "module-exchange-rate-oracle-rpc-runtime-api",
  "module-issue-rpc-runtime-api",
  "module-redeem-rpc-runtime-api",
+ "module-refund-rpc-runtime-api",
  "module-replace-rpc-runtime-api",
  "module-sla-rpc-runtime-api",
  "module-staked-relayers-rpc-runtime-api",
@@ -676,6 +678,7 @@ dependencies = [
  "parity-scale-codec",
  "primitive-types",
  "redeem",
+ "refund",
  "replace",
  "security",
  "serde",
@@ -2476,6 +2479,7 @@ dependencies = [
  "pallet-timestamp",
  "parity-scale-codec",
  "primitive-types",
+ "refund",
  "security",
  "serde",
  "sha2 0.8.2",
@@ -3578,6 +3582,31 @@ dependencies = [
 
 [[package]]
 name = "module-redeem-rpc-runtime-api"
+version = "0.3.0"
+dependencies = [
+ "frame-support",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-std",
+]
+
+[[package]]
+name = "module-refund-rpc"
+version = "0.3.0"
+dependencies = [
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "module-refund-rpc-runtime-api",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime",
+]
+
+[[package]]
+name = "module-refund-rpc-runtime-api"
 version = "0.3.0"
 dependencies = [
  "frame-support",
@@ -5010,6 +5039,35 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "refund"
+version = "0.3.1"
+dependencies = [
+ "bitcoin",
+ "btc-relay",
+ "collateral",
+ "exchange-rate-oracle",
+ "fee",
+ "frame-support",
+ "frame-system",
+ "mocktopus",
+ "pallet-balances",
+ "pallet-randomness-collective-flip",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "primitive-types",
+ "redeem",
+ "security",
+ "serde",
+ "sla",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "treasury",
+ "vault-registry",
 ]
 
 [[package]]
@@ -7090,6 +7148,7 @@ dependencies = [
  "parity-scale-codec",
  "primitive-types",
  "redeem",
+ "refund",
  "replace",
  "security",
  "serde",
