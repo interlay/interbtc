@@ -67,10 +67,8 @@ impl Parsable for CompactUint {
 
 impl Parsable for BlockHeader {
     fn parse(raw_bytes: &[u8], position: usize) -> Result<(BlockHeader, usize), Error> {
-        if position + 80 > raw_bytes.len() {
-            return Err(Error::EOS);
-        }
-        let header_bytes = RawBlockHeader::from_bytes(&raw_bytes[position..position + 80])?;
+        let slice = raw_bytes.get(position..position + 80).ok_or(Error::EOS)?;
+        let header_bytes = RawBlockHeader::from_bytes(slice)?;
         let block_header = parse_block_header(&header_bytes)?;
         Ok((block_header, 80))
     }
@@ -78,20 +76,16 @@ impl Parsable for BlockHeader {
 
 impl Parsable for H256Le {
     fn parse(raw_bytes: &[u8], position: usize) -> Result<(H256Le, usize), Error> {
-        if position + 32 > raw_bytes.len() {
-            return Err(Error::EOS);
-        }
-        Ok((
-            H256Le::from_bytes_le(&raw_bytes[position..position + 32]),
-            32,
-        ))
+        let slice = raw_bytes.get(position..position + 32).ok_or(Error::EOS)?;
+        Ok((H256Le::from_bytes_le(slice), 32))
     }
 }
 
 impl<T: Parsable> Parsable for Vec<T> {
     fn parse(raw_bytes: &[u8], position: usize) -> Result<(Vec<T>, usize), Error> {
         let mut result: Vec<T> = Vec::new();
-        let mut parser = BytesParser::new(&raw_bytes[position..]);
+        let slice = raw_bytes.get(position..).ok_or(Error::EOS)?;
+        let mut parser = BytesParser::new(slice);
         let count: CompactUint = parser.parse()?;
         for _ in 0..count.value {
             result.push(parser.parse()?);
@@ -106,7 +100,8 @@ where
 {
     fn parse_with(raw_bytes: &[u8], position: usize, extra: U) -> Result<(Vec<T>, usize), Error> {
         let mut result: Vec<T> = Vec::new();
-        let mut parser = BytesParser::new(&raw_bytes[position..]);
+        let slice = raw_bytes.get(position..).ok_or(Error::EOS)?;
+        let mut parser = BytesParser::new(slice);
         let count: CompactUint = parser.parse()?;
         for _ in 0..count.value {
             result.push(parser.parse_with(extra)?);
@@ -117,7 +112,7 @@ where
 
 impl Parsable for Vec<bool> {
     fn parse(raw_bytes: &[u8], position: usize) -> Result<(Vec<bool>, usize), Error> {
-        let byte = raw_bytes.get(position).ok_or(Error::EOS)?;
+        let byte = *raw_bytes.get(position).ok_or(Error::EOS)?;
         let mut flag_bits = Vec::new();
         for i in 0..8 {
             let mask = 1 << i;
@@ -134,13 +129,15 @@ impl ParsableMeta<i32> for TransactionInput {
         position: usize,
         version: i32,
     ) -> Result<(TransactionInput, usize), Error> {
-        parse_transaction_input(&raw_bytes[position..], version)
+        let slice = raw_bytes.get(position..).ok_or(Error::EOS)?;
+        parse_transaction_input(slice, version)
     }
 }
 
 impl Parsable for TransactionOutput {
     fn parse(raw_bytes: &[u8], position: usize) -> Result<(TransactionOutput, usize), Error> {
-        parse_transaction_output(&raw_bytes[position..])
+        let slice = raw_bytes.get(position..).ok_or(Error::EOS)?;
+        parse_transaction_output(slice)
     }
 }
 
@@ -154,7 +151,8 @@ impl Parsable for U256 {
             return Err(Error::MalformedHeader);
         }
         let exponent = raw_exponent - 3;
-        let mantissa = U256::from_little_endian(&raw_bytes[position..position + 3]);
+        let mantissa_slice = raw_bytes.get(position..position + 3).ok_or(Error::EOS)?;
+        let mantissa = U256::from_little_endian(mantissa_slice);
         let offset = U256::from(256)
             .checked_pow(U256::from(exponent))
             .ok_or(Error::ArithmeticOverflow)?;
@@ -216,10 +214,10 @@ impl BytesParser {
     /// Reads `bytes_count` from the bytes parser and moves the head
     /// Fails if there are not enough bytes to read
     pub(crate) fn read(&mut self, bytes_count: usize) -> Result<Vec<u8>, Error> {
-        if self.position + bytes_count > self.raw_bytes.len() {
-            return Err(Error::EOS);
-        }
-        let bytes = &self.raw_bytes[self.position..self.position + bytes_count];
+        let bytes = self
+            .raw_bytes
+            .get(self.position..self.position + bytes_count)
+            .ok_or(Error::EOS)?;
         self.position += bytes_count;
         Ok(Vec::from(bytes))
     }
@@ -457,7 +455,7 @@ pub(crate) fn extract_address_hash_scriptsig(input_script: &[u8]) -> Result<Addr
 }
 
 pub(crate) fn extract_op_return_data(output_script: &[u8]) -> Result<Vec<u8>, Error> {
-    if output_script[0] != OpCode::OpReturn as u8 {
+    if *output_script.get(0).ok_or(Error::EOS)? != OpCode::OpReturn as u8 {
         return Err(Error::MalformedOpReturnOutput);
     }
     // Check for max OP_RETURN size
@@ -466,7 +464,7 @@ pub(crate) fn extract_op_return_data(output_script: &[u8]) -> Result<Vec<u8>, Er
         return Err(Error::MalformedOpReturnOutput);
     }
 
-    let result = &output_script[2..];
+    let result = output_script.get(2..).ok_or(Error::EOS)?;
 
     if result.len() != output_script[1] as usize {
         return Err(Error::MalformedOpReturnOutput);
