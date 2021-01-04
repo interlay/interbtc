@@ -103,7 +103,7 @@ impl MerkleProof {
         pos: u32,
         traversal: &mut MerkleProofTraversal,
     ) -> Result<H256Le, Error> {
-        let parent_of_hash = self.flag_bits[traversal.bits_used];
+        let parent_of_hash = *self.flag_bits.get(traversal.bits_used).ok_or(Error::EOS)?;
         traversal.bits_used += 1;
 
         if height == 0 || !parent_of_hash {
