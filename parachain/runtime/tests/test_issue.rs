@@ -182,15 +182,6 @@ fn integration_test_issue_overpayment() {
         let fee_amount_btc = FeeModule::get_issue_fee(amount_btc).unwrap();
         let total_amount_btc = amount_btc + fee_amount_btc;
 
-        // when overpaying, we calculate the fee from the total amount - this can have a rounding error,
-        // so update our numbers:
-        let fee_amount_btc = {
-            let fee_from_total = FeeModule::get_issue_fee_from_total(total_amount_btc).unwrap();
-            assert!(fee_from_total >= fee_amount_btc - 1 && fee_from_total <= fee_amount_btc + 1);
-            fee_from_total
-        };
-        let amount_btc = total_amount_btc - fee_amount_btc;
-
         // send the btc from the user to the vault
         let (tx_id, _height, proof, raw_tx) =
             generate_transaction_and_mine(vault_btc_address, total_amount_btc, issue_id);
@@ -312,6 +303,10 @@ fn integration_test_issue_refund() {
 
         let refund_id = assert_refund_request_event();
         let refund = RefundModule::get_open_refund_request_from_id(&refund_id).unwrap();
+
+        // We have overpaid by 100%, and refund_fee = issue_fee, so fees should be equal
+        assert_eq!(refund.fee, issue_request.fee);
+        assert_eq!(refund.amount_polka_btc, issue_request.amount);
 
         let (tx_id, _height, proof, raw_tx) =
             generate_transaction_and_mine(refund_address, refund.amount_polka_btc, refund_id);

@@ -486,9 +486,15 @@ impl<T: Trait> Module<T> {
         amount: Inner<T>,
         percentage: UnsignedFixedPoint<T>,
     ) -> Result<Inner<T>, DispatchError> {
+        // we add 0.5 before we do the final integer division to round the result we return.
+        // note that unwrapping is safe because we use a constant
+        let rounding_addition = UnsignedFixedPoint::<T>::checked_from_rational(1, 2).unwrap();
+
         UnsignedFixedPoint::<T>::checked_from_integer(amount)
             .ok_or(Error::<T>::ArithmeticOverflow)?
             .checked_mul(&percentage)
+            .ok_or(Error::<T>::ArithmeticOverflow)?
+            .checked_add(&rounding_addition)
             .ok_or(Error::<T>::ArithmeticOverflow)?
             .into_inner()
             .checked_div(&UnsignedFixedPoint::<T>::accuracy())
