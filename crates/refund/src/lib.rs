@@ -125,7 +125,7 @@ impl<T: Trait> Module<T> {
         issuer: T::AccountId,
         btc_address: BtcAddress,
     ) -> Result<(), DispatchError> {
-        let fee_polka_btc = ext::fee::get_refund_fee::<T>(total_amount_btc)?;
+        let fee_polka_btc = ext::fee::get_refund_fee_from_total::<T>(total_amount_btc)?;
         let net_refund_amount_polka_btc = total_amount_btc
             .checked_sub(&fee_polka_btc)
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
@@ -189,6 +189,9 @@ impl<T: Trait> Module<T> {
             request.btc_address,
             refund_id.as_bytes().to_vec(),
         )?;
+
+        // mint polkabtc corresponding to the fee
+        ext::treasury::mint::<T>(request.vault.clone(), request.fee);
 
         // reward vault for this refund by increasing its SLA
         ext::sla::event_update_vault_sla::<T>(

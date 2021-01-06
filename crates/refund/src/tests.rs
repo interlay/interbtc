@@ -10,7 +10,7 @@ use sp_core::H160;
 #[test]
 fn test_refund_succeeds() {
     run_test(|| {
-        ext::fee::get_refund_fee::<Test>.mock_safe(|_| MockResult::Return(Ok(5)));
+        ext::fee::get_refund_fee_from_total::<Test>.mock_safe(|_| MockResult::Return(Ok(5)));
         ext::btc_relay::verify_transaction_inclusion::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::btc_relay::validate_transaction::<Test>

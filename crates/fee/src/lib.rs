@@ -437,13 +437,22 @@ impl<T: Trait> Module<T> {
         Self::dot_for(amount, <ReplaceGriefingCollateral<T>>::get())
     }
 
-    /// Calculate the required refund fee in PolkaBTC.
+    /// Calculate the fee portion of a total amount. For `amount = fee + refund_polkabtc`, this
+    /// function returns `fee`.
     ///
     /// # Arguments
     ///
-    /// * `amount` - redeem amount in PolkaBTC
-    pub fn get_refund_fee(amount: PolkaBTC<T>) -> Result<PolkaBTC<T>, DispatchError> {
-        Self::btc_for(amount, <RefundFee<T>>::get())
+    /// * `amount` - total amount in PolkaBTC
+    pub fn get_refund_fee_from_total(amount: PolkaBTC<T>) -> Result<PolkaBTC<T>, DispatchError> {
+        // calculate 'percentage' = x / (1+x)
+        let percentage = <RefundFee<T>>::get()
+            .checked_div(
+                &<RefundFee<T>>::get()
+                    .checked_add(&UnsignedFixedPoint::<T>::one())
+                    .ok_or(Error::<T>::ArithmeticOverflow)?,
+            )
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+        Self::btc_for(amount, percentage)
     }
 
     // Private functions internal to this pallet

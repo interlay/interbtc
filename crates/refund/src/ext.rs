@@ -6,10 +6,10 @@ pub(crate) mod fee {
     use crate::types::PolkaBTC;
     use frame_support::dispatch::DispatchError;
 
-    pub fn get_refund_fee<T: fee::Trait>(
+    pub fn get_refund_fee_from_total<T: fee::Trait>(
         amount: PolkaBTC<T>,
     ) -> Result<PolkaBTC<T>, DispatchError> {
-        <fee::Module<T>>::get_refund_fee(amount)
+        <fee::Module<T>>::get_refund_fee_from_total(amount)
     }
 }
 
@@ -56,5 +56,14 @@ pub(crate) mod security {
 
     pub fn get_secure_id<T: security::Trait>(id: &T::AccountId) -> H256 {
         <security::Module<T>>::get_secure_id(id)
+    }
+}
+
+#[cfg_attr(test, mockable)]
+pub(crate) mod treasury {
+    use crate::types::PolkaBTC;
+
+    pub fn mint<T: treasury::Trait>(requester: T::AccountId, amount: PolkaBTC<T>) {
+        <treasury::Module<T>>::mint(requester, amount)
     }
 }
