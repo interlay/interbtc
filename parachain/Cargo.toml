@@ -116,6 +116,9 @@ path = "../crates/issue/rpc"
 [dependencies.module-redeem-rpc]
 path = "../crates/redeem/rpc"
 
+[dependencies.module-refund-rpc]
+path = "../crates/refund/rpc"
+
 [dependencies.module-replace-rpc]
 path = "../crates/replace/rpc"
 

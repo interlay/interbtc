@@ -67,6 +67,7 @@ pub trait Trait:
     + exchange_rate_oracle::Trait
     + fee::Trait
     + sla::Trait
+    + refund::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -282,9 +283,9 @@ impl<T: Trait> Module<T> {
         // Check that Parachain is RUNNING
         ext::security::ensure_parachain_status_running::<T>()?;
 
-        let issue = Self::get_issue_request_from_id(&issue_id)?;
+        let mut issue = Self::get_issue_request_from_id(&issue_id)?;
         // allow anyone to complete issue request
-        let requester = issue.requester;
+        let requester = issue.requester.clone();
 
         // only executable before the request has expired
         ensure!(
@@ -292,15 +293,47 @@ impl<T: Trait> Module<T> {
             Error::<T>::CommitPeriodExpired
         );
 
-        let total_amount = issue.amount + issue.fee;
+        let mut total_amount = issue.amount + issue.fee;
         ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
-        ext::btc_relay::validate_transaction::<T>(
+        let (refund_address, amount_transferred) = ext::btc_relay::validate_transaction::<T>(
             raw_tx,
             TryInto::<u64>::try_into(total_amount).map_err(|_e| Error::<T>::TryIntoIntError)?
                 as i64,
             issue.btc_address,
             issue_id.clone().as_bytes().to_vec(),
         )?;
+        let amount_transferred = Self::u128_to_btc(amount_transferred as u128)?;
+
+        if amount_transferred > total_amount {
+            let surplus_btc = amount_transferred - total_amount;
+
+            match ext::vault_registry::increase_to_be_issued_tokens::<T>(&issue.vault, surplus_btc)
+            {
+                Ok(_) => {
+                    // Current vault can handle the surplus; update the issue request
+                    issue.fee = ext::fee::get_issue_fee_from_total::<T>(amount_transferred)?;
+                    issue.amount = amount_transferred - issue.fee;
+
+                    // update storage
+                    <IssueRequests<T>>::mutate(&issue_id, |x| {
+                        x.fee = issue.fee;
+                        x.amount = issue.amount;
+                    });
+
+                    total_amount = amount_transferred;
+                }
+                Err(_) => {
+                    ext::refund::request_refund::<T>(
+                        surplus_btc,
+                        issue.vault.clone(),
+                        issue.requester,
+                        refund_address,
+                        issue_id,
+                    )?;
+                    // vault does not have enough collateral to accept the over payment, so refund.
+                }
+            }
+        }
 
         ext::vault_registry::issue_tokens::<T>(&issue.vault, total_amount)?;
         ext::collateral::release_collateral::<T>(&requester, issue.griefing_collateral)?;
@@ -426,6 +459,10 @@ impl<T: Trait> Module<T> {
             request.cancelled = cancelled;
         });
     }
+
+    fn u128_to_btc(x: u128) -> Result<PolkaBTC<T>, DispatchError> {
+        TryInto::<PolkaBTC<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
+    }
 }
 
 fn has_request_expired<T: Trait>(opentime: T::BlockNumber, period: T::BlockNumber) -> bool {
@@ -443,5 +480,6 @@ decl_error! {
         IssueCancelled,
         /// Unable to convert value
         TryIntoIntError,
+        ArithmeticUnderflow,
     }
 }

@@ -1,8 +1,8 @@
 use btc_parachain_runtime::{
     AccountId, AuraConfig, BTCRelayConfig, DOTConfig, ExchangeRateOracleConfig, FeeConfig,
-    GenesisConfig, GrandpaConfig, IssueConfig, PolkaBTCConfig, RedeemConfig, ReplaceConfig,
-    Signature, SlaConfig, StakedRelayersConfig, SudoConfig, SystemConfig, VaultRegistryConfig,
-    DAYS, WASM_BINARY,
+    GenesisConfig, GrandpaConfig, IssueConfig, PolkaBTCConfig, RedeemConfig, RefundConfig,
+    ReplaceConfig, Signature, SlaConfig, StakedRelayersConfig, SudoConfig, SystemConfig,
+    VaultRegistryConfig, DAYS, WASM_BINARY,
 };
 use sc_service::ChainType;
 use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
@@ -222,6 +222,7 @@ fn testnet_genesis(
         fee: Some(FeeConfig {
             issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
             issue_griefing_collateral: FixedU128::checked_from_rational(5, 100000).unwrap(), // 0.005%
+            refund_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),                  // 0.5%
             redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),                  // 0.5%
             premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
             auction_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
@@ -242,6 +243,7 @@ fn testnet_genesis(
             vault_redeem_failure_sla_change: FixedI128::from(0),
             vault_executed_issue_max_sla_change: FixedI128::from(0),
             vault_submitted_issue_proof: FixedI128::from(0),
+            vault_refunded: FixedI128::from(1),
             relayer_target_sla: FixedI128::from(100),
             relayer_block_submission: FixedI128::from(1),
             relayer_correct_no_data_vote_or_report: FixedI128::from(1),
@@ -252,6 +254,9 @@ fn testnet_genesis(
             relayer_false_no_data_vote_or_report: FixedI128::from(-10),
             relayer_false_invalid_vote_or_report: FixedI128::from(-100),
             relayer_ignored_vote: FixedI128::from(-10),
+        }),
+        refund: Some(RefundConfig {
+            refund_btc_dust_value: 1000,
         }),
     }
 }

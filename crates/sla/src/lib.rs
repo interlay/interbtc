@@ -69,6 +69,7 @@ decl_storage! {
         VaultRedeemFailure get(fn vault_redeem_failure_sla_change) config(): T::SignedFixedPoint;
         VaultExecutedIssueMaxSlaChange get(fn vault_executed_issue_max_sla_change) config(): T::SignedFixedPoint;
         VaultSubmittedIssueProof get(fn vault_submitted_issue_proof) config(): T::SignedFixedPoint;
+        VaultRefunded get(fn vault_refunded) config(): T::SignedFixedPoint;
         RelayerBlockSubmission get(fn relayer_block_submission) config(): T::SignedFixedPoint;
         RelayerCorrectNoDataVoteOrReport get(fn relayer_correct_no_data_vote_or_report) config(): T::SignedFixedPoint;
         RelayerCorrectInvalidVoteOrReport get(fn relayer_correct_invalid_vote_or_report) config(): T::SignedFixedPoint;
@@ -124,6 +125,7 @@ impl<T: Trait> Module<T> {
         let delta_sla = match event {
             VaultEvent::RedeemFailure => <VaultRedeemFailure<T>>::get(),
             VaultEvent::SubmittedIssueProof => <VaultSubmittedIssueProof<T>>::get(),
+            VaultEvent::Refunded => <VaultRefunded<T>>::get(),
             VaultEvent::ExecutedIssue(amount) => Self::_executed_issue_sla_change(amount)?,
         };
 

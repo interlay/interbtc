@@ -5,6 +5,7 @@ pub enum VaultEvent<PolkaBTC> {
     RedeemFailure,
     ExecutedIssue(PolkaBTC),
     SubmittedIssueProof,
+    Refunded,
 }
 
 pub enum RelayerEvent {

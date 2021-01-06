@@ -1064,7 +1064,9 @@ fn test_verify_and_validate_transaction_succeeds() {
             "aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned(),
         )
         .unwrap();
-        BTCRelay::_validate_transaction.mock_safe(move |_, _, _, _| MockResult::Return(Ok(())));
+        BTCRelay::_validate_transaction.mock_safe(move |_, _, _, _| {
+            MockResult::Return(Ok((recipient_btc_address.clone(), 0)))
+        });
         BTCRelay::_verify_transaction_inclusion
             .mock_safe(move |_, _, _, _| MockResult::Return(Ok(())));
 

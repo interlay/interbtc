@@ -222,6 +222,7 @@ mod tests {
                 vault_redeem_failure_sla_change: FixedI128::from(0),
                 vault_executed_issue_max_sla_change: FixedI128::from(0),
                 vault_submitted_issue_proof: FixedI128::from(0),
+                vault_refunded: FixedI128::from(1),
                 relayer_target_sla: FixedI128::from(100),
                 relayer_block_submission: FixedI128::from(1),
                 relayer_correct_no_data_vote_or_report: FixedI128::from(1),

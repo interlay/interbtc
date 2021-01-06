@@ -1,5 +1,5 @@
 /// Mocking the test environment
-use crate::{Error, GenesisConfig, Module, Trait};
+use crate::{Error, Module, Trait};
 use frame_support::{
     assert_ok, impl_outer_event, impl_outer_origin, parameter_types,
     weights::{
@@ -7,16 +7,21 @@ use frame_support::{
         Weight,
     },
 };
+use mocktopus::mocking::clear_mocks;
 use pallet_balances as balances;
-use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
     Perbill,
 };
+use sp_runtime::{FixedI128, FixedU128};
 
-use mocktopus::mocking::clear_mocks;
+pub type Balances = pallet_balances::Module<Test>;
+
+pub type Refund = Module<Test>;
+pub const VAULT: AccountId = 1;
+pub const USER: AccountId = 2;
 
 impl_outer_origin! {
     pub enum Origin for Test {}
@@ -31,12 +36,12 @@ impl_outer_event! {
         frame_system<T>,
         test_events<T>,
         balances<T>,
-        vault_registry<T>,
         collateral<T>,
         btc_relay,
         treasury<T>,
-        exchange_rate_oracle<T>,
         fee<T>,
+        vault_registry<T>,
+        exchange_rate_oracle<T>,
         sla<T>,
         security,
     }
@@ -47,11 +52,13 @@ impl_outer_event! {
 // configuration traits of pallets we want to use.
 
 pub type AccountId = u64;
+#[allow(dead_code)]
 pub type Balance = u64;
 pub type BlockNumber = u64;
 
 #[derive(Clone, Eq, PartialEq)]
 pub struct Test;
+
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
     pub const MaximumBlockWeight: Weight = 1024;
@@ -87,6 +94,11 @@ impl frame_system::Trait for Test {
     type SystemWeightInfo = ();
 }
 
+impl Trait for Test {
+    type Event = TestEvent;
+    type WeightInfo = ();
+}
+
 parameter_types! {
     pub const ExistentialDeposit: u64 = 1;
     pub const MaxLocks: u32 = 50;
@@ -102,10 +114,20 @@ impl pallet_balances::Trait for Test {
     type WeightInfo = ();
 }
 
-impl vault_registry::Trait for Test {
+impl treasury::Trait for Test {
     type Event = TestEvent;
-    type RandomnessSource = pallet_randomness_collective_flip::Module<Test>;
+    type PolkaBTC = Balances;
+}
+
+impl fee::Trait for Test {
+    type Event = TestEvent;
+    type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
+}
+
+impl sla::Trait for Test {
+    type Event = TestEvent;
+    type SignedFixedPoint = FixedI128;
 }
 
 impl collateral::Trait for Test {
@@ -122,24 +144,9 @@ impl security::Trait for Test {
     type Event = TestEvent;
 }
 
-impl treasury::Trait for Test {
-    type PolkaBTC = Balances;
+impl vault_registry::Trait for Test {
     type Event = TestEvent;
-}
-
-impl sla::Trait for Test {
-    type Event = TestEvent;
-    type SignedFixedPoint = FixedI128;
-}
-
-parameter_types! {
-    pub const MinimumPeriod: u64 = 5;
-}
-
-impl timestamp::Trait for Test {
-    type Moment = u64;
-    type OnTimestampSet = ();
-    type MinimumPeriod = MinimumPeriod;
+    type RandomnessSource = pallet_randomness_collective_flip::Module<Test>;
     type WeightInfo = ();
 }
 
@@ -148,83 +155,35 @@ impl exchange_rate_oracle::Trait for Test {
     type WeightInfo = ();
 }
 
-impl fee::Trait for Test {
-    type Event = TestEvent;
-    type UnsignedFixedPoint = FixedU128;
+parameter_types! {
+    pub const MinimumPeriod: u64 = 5;
+}
+
+impl pallet_timestamp::Trait for Test {
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = MinimumPeriod;
     type WeightInfo = ();
 }
 
-impl Trait for Test {
-    type Event = TestEvent;
-    type WeightInfo = ();
-}
-
+#[allow(dead_code)]
 pub type TestError = Error<Test>;
-pub type SecurityError = security::Error<Test>;
-pub type VaultRegistryError = vault_registry::Error<Test>;
 
+#[allow(dead_code)]
 pub type System = frame_system::Module<Test>;
-pub type Balances = pallet_balances::Module<Test>;
-pub type Replace = Module<Test>;
 
-pub const ALICE: AccountId = 1;
-pub const BOB: AccountId = 2;
-pub const CAROL: AccountId = 3;
-
-pub const ALICE_BALANCE: u64 = 1_000_000;
-pub const BOB_BALANCE: u64 = 1_000_000;
-pub const CAROL_BALANCE: u64 = 1_000_000;
+#[allow(dead_code)]
+pub type SLA = Module<Test>;
 
 pub struct ExtBuilder;
 
 impl ExtBuilder {
-    pub fn build_with(conf: pallet_balances::GenesisConfig<Test>) -> sp_io::TestExternalities {
-        let mut storage = frame_system::GenesisConfig::default()
+    pub fn build() -> sp_io::TestExternalities {
+        let storage = frame_system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
 
-        conf.assimilate_storage(&mut storage).unwrap();
-
-        fee::GenesisConfig::<Test> {
-            issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
-            issue_griefing_collateral: FixedU128::checked_from_rational(5, 100000).unwrap(), // 0.005%
-            refund_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),                  // 0.5%
-            redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),                  // 0.5%
-            premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
-            auction_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
-            punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(),                // 10%
-            replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(),   // 10%
-            fee_pool_account_id: 0,
-            maintainer_account_id: 1,
-            epoch_period: 5,
-            vault_rewards: FixedU128::checked_from_rational(77, 100).unwrap(),
-            vault_rewards_issued: FixedU128::checked_from_rational(90, 100).unwrap(),
-            vault_rewards_locked: FixedU128::checked_from_rational(10, 100).unwrap(),
-            relayer_rewards: FixedU128::checked_from_rational(3, 100).unwrap(),
-            maintainer_rewards: FixedU128::checked_from_rational(20, 100).unwrap(),
-            collator_rewards: FixedU128::checked_from_integer(0).unwrap(),
-        }
-        .assimilate_storage(&mut storage)
-        .unwrap();
-
-        GenesisConfig::<Test> {
-            replace_period: 10,
-            replace_btc_dust_value: 2,
-        }
-        .assimilate_storage(&mut storage)
-        .unwrap();
-
-        storage.into()
-    }
-
-    pub fn build() -> sp_io::TestExternalities {
-        ExtBuilder::build_with(pallet_balances::GenesisConfig::<Test> {
-            balances: vec![
-                (ALICE, ALICE_BALANCE),
-                (BOB, BOB_BALANCE),
-                (CAROL, CAROL_BALANCE),
-            ],
-        })
+        sp_io::TestExternalities::from(storage)
     }
 }
 

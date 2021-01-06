@@ -41,6 +41,7 @@ impl_outer_event! {
         btc_relay,
         redeem<T>,
         replace<T>,
+        refund<T>,
         security,
     }
 }
@@ -148,6 +149,11 @@ impl sla::Trait for Test {
     type SignedFixedPoint = FixedI128;
 }
 
+impl refund::Trait for Test {
+    type Event = TestEvent;
+    type WeightInfo = ();
+}
+
 impl collateral::Trait for Test {
     type Event = TestEvent;
     type DOT = Balances;
@@ -223,6 +229,7 @@ impl ExtBuilder {
         fee::GenesisConfig::<Test> {
             issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
             issue_griefing_collateral: FixedU128::checked_from_rational(5, 100000).unwrap(), // 0.005%
+            refund_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),                  // 0.5%
             redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),                  // 0.5%
             premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
             auction_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%

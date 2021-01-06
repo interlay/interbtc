@@ -71,6 +71,11 @@ decl_storage! {
         /// Fee share that users need to pay to redeem PolkaBTC.
         RedeemFee get(fn redeem_fee) config(): UnsignedFixedPoint<T>;
 
+        /// # Refund
+
+        /// Fee share that users need to pay to refund overpaid PolkaBTC.
+        RefundFee get(fn refund_fee) config(): UnsignedFixedPoint<T>;
+
         /// # Vault Registry
 
         /// If users execute a redeem with a Vault flagged for premium redeem,
@@ -356,6 +361,24 @@ impl<T: Trait> Module<T> {
         Self::btc_for(amount, <IssueFee<T>>::get())
     }
 
+    /// Calculate the fee portion of a total amount. For `amount = fee + issued_polkabtc`, this
+    /// function returns `fee`.
+    ///
+    /// # Arguments
+    ///
+    /// * `amount` - total amount in PolkaBTC
+    pub fn get_issue_fee_from_total(amount: PolkaBTC<T>) -> Result<PolkaBTC<T>, DispatchError> {
+        // calculate 'percentage' = x / (1+x)
+        let percentage = <IssueFee<T>>::get()
+            .checked_div(
+                &<IssueFee<T>>::get()
+                    .checked_add(&UnsignedFixedPoint::<T>::one())
+                    .ok_or(Error::<T>::ArithmeticOverflow)?,
+            )
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+        Self::btc_for(amount, percentage)
+    }
+
     /// Calculate the required issue griefing collateral in DOT.
     ///
     /// # Arguments
@@ -412,6 +435,24 @@ impl<T: Trait> Module<T> {
     /// * `amount` - replace amount in DOT (at current exchange rate)
     pub fn get_replace_griefing_collateral(amount: DOT<T>) -> Result<DOT<T>, DispatchError> {
         Self::dot_for(amount, <ReplaceGriefingCollateral<T>>::get())
+    }
+
+    /// Calculate the fee portion of a total amount. For `amount = fee + refund_polkabtc`, this
+    /// function returns `fee`.
+    ///
+    /// # Arguments
+    ///
+    /// * `amount` - total amount in PolkaBTC
+    pub fn get_refund_fee_from_total(amount: PolkaBTC<T>) -> Result<PolkaBTC<T>, DispatchError> {
+        // calculate 'percentage' = x / (1+x)
+        let percentage = <RefundFee<T>>::get()
+            .checked_div(
+                &<RefundFee<T>>::get()
+                    .checked_add(&UnsignedFixedPoint::<T>::one())
+                    .ok_or(Error::<T>::ArithmeticOverflow)?,
+            )
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+        Self::btc_for(amount, percentage)
     }
 
     // Private functions internal to this pallet
