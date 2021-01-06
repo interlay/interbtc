@@ -181,13 +181,21 @@ pub(crate) mod refund {
     use crate::types::PolkaBTC;
     use btc_relay::BtcAddress;
     use frame_support::dispatch::DispatchError;
+    use primitive_types::H256;
 
     pub fn request_refund<T: refund::Trait>(
         total_amount_btc: PolkaBTC<T>,
         vault_id: T::AccountId,
         issuer: T::AccountId,
         btc_address: BtcAddress,
+        issue_id: H256,
     ) -> Result<(), DispatchError> {
-        <refund::Module<T>>::request_refund(total_amount_btc, vault_id, issuer, btc_address)
+        <refund::Module<T>>::request_refund(
+            total_amount_btc,
+            vault_id,
+            issuer,
+            btc_address,
+            issue_id,
+        )
     }
 }

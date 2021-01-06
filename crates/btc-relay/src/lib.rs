@@ -662,7 +662,8 @@ impl<T: Trait> Module<T> {
         Self::disable_op_return_check()
     }
 
-    /// Checks if transaction is valid. If so, it returns the (first) origin address and the payment value
+    /// Checks if transaction is valid. If so, it returns the first origin address, which can be
+    /// use as the destination address for a potential refund, and the payment value
     pub fn _validate_transaction(
         raw_tx: Vec<u8>,
         payment_value: i64,

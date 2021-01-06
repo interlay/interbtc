@@ -1,6 +1,7 @@
 use btc_relay::BtcAddress;
 use codec::{Decode, Encode};
 use frame_support::traits::Currency;
+use primitive_types::H256;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -44,6 +45,7 @@ pub struct RefundRequest<AccountId, PolkaBTC> {
     pub amount_btc: PolkaBTC,
     pub issuer: AccountId,
     pub btc_address: BtcAddress,
+    pub issue_id: H256,
     pub completed: bool,
 }
 

@@ -73,8 +73,8 @@ decl_event!(
         AccountId = <T as frame_system::Trait>::AccountId,
         PolkaBTC = PolkaBTC<T>,
     {
-        /// refund_id, issuer, amount, vault, btc_address
-        RequestRefund(H256, AccountId, PolkaBTC, AccountId, BtcAddress),
+        /// refund_id, issuer, amount, vault, btc_address, issue_id
+        RequestRefund(H256, AccountId, PolkaBTC, AccountId, BtcAddress, H256),
         /// refund_id, issuer, vault, amount
         ExecuteRefund(H256, AccountId, AccountId, PolkaBTC),
     }
@@ -124,6 +124,7 @@ impl<T: Trait> Module<T> {
         vault_id: T::AccountId,
         issuer: T::AccountId,
         btc_address: BtcAddress,
+        issue_id: H256,
     ) -> Result<(), DispatchError> {
         let fee_polka_btc = ext::fee::get_refund_fee_from_total::<T>(total_amount_btc)?;
         let net_refund_amount_polka_btc = total_amount_btc
@@ -145,6 +146,7 @@ impl<T: Trait> Module<T> {
             amount_btc: total_amount_btc,
             issuer,
             btc_address: btc_address.clone(),
+            issue_id,
             completed: false,
         };
         <RefundRequests<T>>::insert(refund_id, request.clone());
@@ -155,6 +157,7 @@ impl<T: Trait> Module<T> {
             request.amount_polka_btc,
             request.vault,
             request.btc_address,
+            request.issue_id,
         ));
 
         Ok(())

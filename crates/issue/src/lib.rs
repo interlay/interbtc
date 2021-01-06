@@ -328,6 +328,7 @@ impl<T: Trait> Module<T> {
                         issue.vault.clone(),
                         issue.requester,
                         refund_address,
+                        issue_id,
                     )?;
                     // vault does not have enough collateral to accept the over payment, so refund.
                 }

@@ -5,6 +5,7 @@ use bitcoin::types::H256Le;
 use btc_relay::BtcAddress;
 use frame_support::assert_ok;
 use mocktopus::mocking::*;
+use primitive_types::H256;
 use sp_core::H160;
 
 #[test]
@@ -16,11 +17,13 @@ fn test_refund_succeeds() {
         ext::btc_relay::validate_transaction::<Test>
             .mock_safe(|_, _, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 995))));
 
+        let issue_id = H256::zero();
         assert_ok!(Refund::request_refund(
             1000,
             VAULT,
             USER,
-            BtcAddress::P2SH(H160::zero())
+            BtcAddress::P2SH(H160::zero()),
+            issue_id
         ));
 
         // check the emitted event
@@ -32,8 +35,8 @@ fn test_refund_succeeds() {
             })
             .unwrap();
         let refund_id = match captured_event {
-            RawEvent::RequestRefund(refund_id, issuer, 995, vault, _btc_address)
-                if issuer == USER && vault == VAULT =>
+            RawEvent::RequestRefund(refund_id, issuer, 995, vault, _btc_address, issue)
+                if issuer == USER && vault == VAULT && issue == issue_id =>
             {
                 Some(refund_id)
             }
