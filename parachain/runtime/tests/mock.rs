@@ -24,6 +24,8 @@ pub const MAINTAINER: [u8; 32] = [5u8; 32];
 pub const CONFIRMATIONS: u32 = 6;
 
 pub type BTCRelayCall = btc_relay::Call<Runtime>;
+pub type BTCRelayModule = btc_relay::Module<Runtime>;
+pub type BTCRelayError = btc_relay::Error<Runtime>;
 pub type BTCRelayEvent = btc_relay::Event;
 
 pub fn origin_of(account_id: AccountId) -> <Runtime as frame_system::Trait>::Origin {
@@ -122,17 +124,21 @@ pub fn generate_transaction_and_mine_with_script_sig(
         .with_timestamp(1588813835)
         .mine(U256::from(2).pow(254.into()));
 
-    let init_block_hash = init_block.header.hash();
     let raw_init_block_header = RawBlockHeader::from_bytes(&init_block.header.format())
         .expect("could not serialize block header");
 
-    assert_ok!(Call::BTCRelay(BTCRelayCall::initialize(
+    match Call::BTCRelay(BTCRelayCall::initialize(
         raw_init_block_header.try_into().expect("bad block header"),
         height,
     ))
-    .dispatch(origin_of(account_of(ALICE))));
+    .dispatch(origin_of(account_of(ALICE)))
+    {
+        Ok(_) => {}
+        Err(e) if e == BTCRelayError::AlreadyInitialized.into() => {}
+        _ => panic!("Failed to initialize btc relay"),
+    }
 
-    height += 1;
+    height = BTCRelayModule::get_best_block_height() + 1;
 
     let value = amount as i64;
     let transaction = TransactionBuilder::new()
@@ -148,8 +154,9 @@ pub fn generate_transaction_and_mine_with_script_sig(
         .add_output(TransactionOutput::op_return(0, return_data.as_bytes()))
         .build();
 
+    let prev_hash = BTCRelayModule::get_best_block();
     let block = BlockBuilder::new()
-        .with_previous_hash(init_block_hash)
+        .with_previous_hash(prev_hash)
         .with_version(2)
         .with_coinbase(&address, 50, 3)
         .with_timestamp(1588814835)
