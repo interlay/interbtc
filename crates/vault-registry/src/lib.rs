@@ -25,7 +25,7 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, EncodeLike};
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::Randomness;
 use frame_support::weights::Weight;
@@ -34,20 +34,18 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 use security::{ErrorCode, StatusCode};
+use sp_arithmetic::traits::*;
+use sp_arithmetic::FixedPointNumber;
 use sp_core::H160;
-use sp_core::{H256, U256};
+use sp_core::H256;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
 
 use crate::types::{
-    BtcAddress, DefaultSystemVault, DefaultVault, PolkaBTC, RichSystemVault, RichVault,
-    UpdatableVault, VaultV0, Version, DOT,
+    BtcAddress, DefaultSystemVault, DefaultVault, Inner, PolkaBTC, RichSystemVault, RichVault,
+    UnsignedFixedPoint, UpdatableVault, VaultV0, Version, DOT,
 };
 pub use crate::types::{SystemVault, Vault, VaultStatus, Wallet};
-
-/// Granularity of `SecureCollateralThreshold`, `AuctionCollateralThreshold`,
-/// `LiquidationCollateralThreshold`, and `PunishmentFee`
-pub const GRANULARITY: u32 = 5;
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
@@ -78,6 +76,8 @@ pub trait Trait:
 
     type RandomnessSource: Randomness<H256>;
 
+    type UnsignedFixedPoint: FixedPointNumber + Encode + EncodeLike + Decode;
+
     /// Weight information for the extrinsics in this module.
     type WeightInfo: WeightInfo;
 }
@@ -97,22 +97,22 @@ decl_storage! {
         /// Determines the over-collateralization rate for DOT collateral locked
         /// by Vaults, necessary for issuing PolkaBTC. Must to be strictly
         /// greater than 100000 and LiquidationCollateralThreshold.
-        SecureCollateralThreshold get(fn secure_collateral_threshold) config(): u128;
+        SecureCollateralThreshold get(fn secure_collateral_threshold) config(): UnsignedFixedPoint<T>;
 
         /// Determines the rate for the collateral rate of Vaults, at which the
         /// BTC backed by the Vault are opened up for auction to other Vaults
-        AuctionCollateralThreshold get(fn auction_collateral_threshold) config(): u128;
+        AuctionCollateralThreshold get(fn auction_collateral_threshold) config(): UnsignedFixedPoint<T>;
 
         /// Determines the rate for the collateral rate of Vaults,
         /// at which users receive a premium in DOT, allocated from the
         /// Vault’s collateral, when performing a redeem with this Vault.
         /// Must to be strictly greater than 100000 and LiquidationCollateralThreshold.
-        PremiumRedeemThreshold get(fn premium_redeem_threshold) config(): u128;
+        PremiumRedeemThreshold get(fn premium_redeem_threshold) config(): UnsignedFixedPoint<T>;
 
         /// Determines the lower bound for the collateral rate in PolkaBTC.
         /// Must be strictly greater than 100000. If a Vault’s collateral rate
         /// drops below this, automatic liquidation (forced Redeem) is triggered.
-        LiquidationCollateralThreshold get(fn liquidation_collateral_threshold) config(): u128;
+        LiquidationCollateralThreshold get(fn liquidation_collateral_threshold) config(): UnsignedFixedPoint<T>;
 
         /// Account identifier of an artificial Vault maintained by the VaultRegistry
         /// to handle polkaBTC balances and DOT collateral of liquidated Vaults.
@@ -725,57 +725,57 @@ impl<T: Trait> Module<T> {
 
     /// Threshold checks
     pub fn is_vault_below_secure_threshold(vault_id: &T::AccountId) -> Result<bool, DispatchError> {
-        Self::is_vault_below_threshold(&vault_id, <SecureCollateralThreshold>::get())
+        Self::is_vault_below_threshold(&vault_id, <SecureCollateralThreshold<T>>::get())
     }
 
     pub fn is_vault_below_auction_threshold(
         vault_id: &T::AccountId,
     ) -> Result<bool, DispatchError> {
-        Self::is_vault_below_threshold(&vault_id, <AuctionCollateralThreshold>::get())
+        Self::is_vault_below_threshold(&vault_id, <AuctionCollateralThreshold<T>>::get())
     }
 
     pub fn is_vault_below_premium_threshold(
         vault_id: &T::AccountId,
     ) -> Result<bool, DispatchError> {
-        Self::is_vault_below_threshold(&vault_id, <PremiumRedeemThreshold>::get())
+        Self::is_vault_below_threshold(&vault_id, <PremiumRedeemThreshold<T>>::get())
     }
 
     pub fn is_vault_below_liquidation_threshold(
         vault_id: &T::AccountId,
     ) -> Result<bool, DispatchError> {
-        Self::is_vault_below_threshold(&vault_id, <LiquidationCollateralThreshold>::get())
+        Self::is_vault_below_threshold(&vault_id, <LiquidationCollateralThreshold<T>>::get())
     }
 
     pub fn is_collateral_below_secure_threshold(
         collateral: DOT<T>,
         btc_amount: PolkaBTC<T>,
     ) -> Result<bool, DispatchError> {
-        let threshold = <SecureCollateralThreshold>::get();
+        let threshold = <SecureCollateralThreshold<T>>::get();
         Self::is_collateral_below_threshold(collateral, btc_amount, threshold)
     }
 
-    pub fn set_secure_collateral_threshold(threshold: u128) {
-        <SecureCollateralThreshold>::set(threshold);
+    pub fn set_secure_collateral_threshold(threshold: UnsignedFixedPoint<T>) {
+        <SecureCollateralThreshold<T>>::set(threshold);
     }
 
-    pub fn set_auction_collateral_threshold(threshold: u128) {
-        <AuctionCollateralThreshold>::set(threshold);
+    pub fn set_auction_collateral_threshold(threshold: UnsignedFixedPoint<T>) {
+        <AuctionCollateralThreshold<T>>::set(threshold);
     }
 
-    pub fn set_premium_redeem_threshold(threshold: u128) {
-        <PremiumRedeemThreshold>::set(threshold);
+    pub fn set_premium_redeem_threshold(threshold: UnsignedFixedPoint<T>) {
+        <PremiumRedeemThreshold<T>>::set(threshold);
     }
 
-    pub fn set_liquidation_collateral_threshold(threshold: u128) {
-        <LiquidationCollateralThreshold>::set(threshold);
+    pub fn set_liquidation_collateral_threshold(threshold: UnsignedFixedPoint<T>) {
+        <LiquidationCollateralThreshold<T>>::set(threshold);
     }
 
-    pub fn get_premium_redeem_threshold() -> u128 {
-        <PremiumRedeemThreshold>::get()
+    pub fn get_premium_redeem_threshold() -> UnsignedFixedPoint<T> {
+        <PremiumRedeemThreshold<T>>::get()
     }
 
-    pub fn get_liquidation_collateral_threshold() -> u128 {
-        <LiquidationCollateralThreshold>::get()
+    pub fn get_liquidation_collateral_threshold() -> UnsignedFixedPoint<T> {
+        <LiquidationCollateralThreshold<T>>::get()
     }
 
     pub fn is_over_minimum_collateral(amount: DOT<T>) -> bool {
@@ -800,7 +800,7 @@ impl<T: Trait> Module<T> {
     /// RPC
 
     /// Get the total collateralization of the system.
-    pub fn get_total_collateralization() -> Result<u64, DispatchError> {
+    pub fn get_total_collateralization() -> Result<UnsignedFixedPoint<T>, DispatchError> {
         let issued_tokens = ext::treasury::total_issued::<T>();
         let total_collateral = ext::collateral::total_locked::<T>();
 
@@ -878,7 +878,7 @@ impl<T: Trait> Module<T> {
     pub fn get_collateralization_from_vault(
         vault_id: T::AccountId,
         only_issued: bool,
-    ) -> Result<u64, DispatchError> {
+    ) -> Result<UnsignedFixedPoint<T>, DispatchError> {
         let vault = Self::get_rich_vault_from_id(&vault_id)?;
         let collateral = vault.get_collateral();
         Self::get_collateralization_from_vault_and_collateral(vault_id, collateral, only_issued)
@@ -888,7 +888,7 @@ impl<T: Trait> Module<T> {
         vault_id: T::AccountId,
         collateral: DOT<T>,
         only_issued: bool,
-    ) -> Result<u64, DispatchError> {
+    ) -> Result<UnsignedFixedPoint<T>, DispatchError> {
         let vault = Self::get_rich_vault_from_id(&vault_id)?;
         let issued_tokens = if only_issued {
             vault.data.issued_tokens
@@ -917,7 +917,7 @@ impl<T: Trait> Module<T> {
     ) -> Result<DOT<T>, DispatchError> {
         ext::security::ensure_parachain_status_running::<T>()?;
 
-        let threshold = <SecureCollateralThreshold>::get();
+        let threshold = <SecureCollateralThreshold<T>>::get();
         let collateral =
             Self::get_required_collateral_for_polkabtc_with_threshold(amount_btc, threshold)?;
         Ok(collateral)
@@ -991,26 +991,22 @@ impl<T: Trait> Module<T> {
     }
 
     /// calculate the collateralization as a ratio of the issued tokens to the
-    /// amount of provided collateral at the current exchange rate. The result is scaled
-    /// by the GRANULARITY
+    /// amount of provided collateral at the current exchange rate.
     fn get_collateralization(
         raw_collateral_in_polka_btc: u128,
         raw_issued_tokens: u128,
-    ) -> Result<u64, DispatchError> {
-        let collateralization: u64 = U256::from(raw_collateral_in_polka_btc)
-            .checked_mul(U256::from(10).pow(GRANULARITY.into()))
-            .ok_or(Error::<T>::ArithmeticOverflow)?
-            .checked_div(raw_issued_tokens.into())
-            .ok_or(Error::<T>::ArithmeticUnderflow)?
-            .try_into()
-            .map_err(|_| Error::<T>::TryIntoIntError)?;
-
+    ) -> Result<UnsignedFixedPoint<T>, DispatchError> {
+        let collateralization = UnsignedFixedPoint::<T>::checked_from_rational(
+            raw_collateral_in_polka_btc,
+            raw_issued_tokens,
+        )
+        .ok_or(Error::<T>::TryIntoIntError)?;
         Ok(collateralization)
     }
 
     fn is_vault_below_threshold(
         vault_id: &T::AccountId,
-        threshold: u128,
+        threshold: UnsignedFixedPoint<T>,
     ) -> Result<bool, DispatchError> {
         let vault = Self::get_rich_vault_from_id(&vault_id)?;
 
@@ -1026,7 +1022,7 @@ impl<T: Trait> Module<T> {
     fn is_collateral_below_threshold(
         collateral: DOT<T>,
         btc_amount: PolkaBTC<T>,
-        threshold: u128,
+        threshold: UnsignedFixedPoint<T>,
     ) -> Result<bool, DispatchError> {
         let max_tokens =
             Self::calculate_max_polkabtc_from_collateral_for_threshold(collateral, threshold)?;
@@ -1043,49 +1039,41 @@ impl<T: Trait> Module<T> {
     /// * `threshold` - the required secure collateral threshold
     fn get_required_collateral_for_polkabtc_with_threshold(
         btc: PolkaBTC<T>,
-        threshold: u128,
+        threshold: UnsignedFixedPoint<T>,
     ) -> Result<DOT<T>, DispatchError> {
-        let btc = Self::polkabtc_to_u128(btc)?;
-        let btc = U256::from(btc);
-
         // Step 1: inverse of the scaling applied in calculate_max_polkabtc_from_collateral_for_threshold
-
-        // inverse of the div
-        let btc = btc
-            .checked_mul(threshold.into())
-            .ok_or(Error::<T>::ArithmeticOverflow)?;
-
-        // To do the inverse of the multiplication, we need to do division, but
-        // we need to round up. To round up (a/b), we need to do ((a+b-1)/b):
-        let rounding_addition = U256::from(10).pow(GRANULARITY.into()) - U256::from(1);
-        let btc = (btc + rounding_addition)
-            .checked_div(U256::from(10).pow(GRANULARITY.into()))
+        let btc = Self::polkabtc_to_u128(btc)?;
+        let btc = threshold
+            .checked_mul_int_rounded_up(btc)
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
+        let btc = Self::u128_to_polkabtc(btc)?;
 
         // Step 2: convert the amount to dots
-        let scaled = Self::u128_to_polkabtc(btc.try_into()?)?;
-        let amount_in_dot = ext::oracle::btc_to_dots::<T>(scaled)?;
+        let amount_in_dot = ext::oracle::btc_to_dots::<T>(btc)?;
         Ok(amount_in_dot)
     }
 
     fn calculate_max_polkabtc_from_collateral_for_threshold(
         collateral: DOT<T>,
-        threshold: u128,
+        threshold: UnsignedFixedPoint<T>,
     ) -> Result<PolkaBTC<T>, DispatchError> {
         // convert the collateral to polkabtc
         let collateral_in_polka_btc = ext::oracle::dots_to_btc::<T>(collateral)?;
         let collateral_in_polka_btc = Self::polkabtc_to_u128(collateral_in_polka_btc)?;
-        let collateral_in_polka_btc = U256::from(collateral_in_polka_btc);
 
-        // calculate how many tokens should be maximally issued given the threshold
-        let scaled_collateral_in_polka_btc = collateral_in_polka_btc
-            .checked_mul(U256::from(10).pow(GRANULARITY.into()))
-            .ok_or(Error::<T>::ArithmeticOverflow)?;
-        let scaled_max_tokens = scaled_collateral_in_polka_btc
-            .checked_div(threshold.into())
-            .unwrap_or(0.into());
+        // calculate how many tokens should be maximally issued given the threshold.
+        let collateral_as_inner = TryInto::<Inner<T>>::try_into(collateral_in_polka_btc)
+            .map_err(|_| Error::<T>::TryIntoIntError)?;
+        let max_btc_as_inner = T::UnsignedFixedPoint::checked_from_integer(collateral_as_inner)
+            .ok_or(Error::<T>::TryIntoIntError)?
+            .checked_div(&threshold)
+            .ok_or(Error::<T>::ArithmeticOverflow)?
+            .into_inner()
+            .checked_div(&UnsignedFixedPoint::<T>::accuracy())
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+        let max_btc_raw = UniqueSaturatedInto::<u128>::unique_saturated_into(max_btc_as_inner);
 
-        Ok(Self::u128_to_polkabtc(scaled_max_tokens.try_into()?)?)
+        Ok(Self::u128_to_polkabtc(max_btc_raw)?)
     }
 
     fn polkabtc_to_u128(x: PolkaBTC<T>) -> Result<u128, DispatchError> {
@@ -1153,5 +1141,31 @@ decl_error! {
         ArithmeticUnderflow,
         /// Unable to convert value
         TryIntoIntError
+    }
+}
+
+trait CheckedMulIntRoundedUp {
+    /// Like checked_mul_int, but this version rounds the result up instead of down.
+    fn checked_mul_int_rounded_up(self, n: u128) -> Option<u128>;
+}
+impl<T: FixedPointNumber> CheckedMulIntRoundedUp for T {
+    fn checked_mul_int_rounded_up(self, n: u128) -> Option<u128> {
+        // convert n into fixed_point
+        let n_inner = TryInto::<T::Inner>::try_into(n).ok()?;
+        let n_fixed_point = T::checked_from_integer(n_inner)?;
+
+        // do the multiplication
+        let product = self.checked_mul(&n_fixed_point)?;
+
+        // convert to inner
+        let product_inner =
+            UniqueSaturatedInto::<u128>::unique_saturated_into(product.into_inner());
+
+        // convert to u128 by dividing by a rounded up division by accuracy
+        let accuracy = UniqueSaturatedInto::<u128>::unique_saturated_into(T::accuracy());
+        product_inner
+            .checked_add(accuracy)?
+            .checked_sub(1)?
+            .checked_div(accuracy)
     }
 }

@@ -343,6 +343,7 @@ pub use vault_registry::RawEvent as VaultRegistryEvent;
 
 impl vault_registry::Trait for Runtime {
     type Event = Event;
+    type UnsignedFixedPoint = FixedU128;
     type RandomnessSource = RandomnessCollectiveFlip;
     type WeightInfo = ();
 }
@@ -651,9 +652,10 @@ impl_runtime_apis! {
         Block,
         AccountId,
         Balance,
-        Balance
+        Balance,
+        FixedU128
     > for Runtime {
-        fn get_total_collateralization() -> Result<u64, DispatchError> {
+        fn get_total_collateralization() -> Result<FixedU128, DispatchError> {
             VaultRegistry::get_total_collateralization()
         }
 
@@ -670,11 +672,11 @@ impl_runtime_apis! {
             Ok(BalanceWrapper{amount:result})
         }
 
-        fn get_collateralization_from_vault(vault: AccountId, only_issued: bool) -> Result<u64, DispatchError> {
+        fn get_collateralization_from_vault(vault: AccountId, only_issued: bool) -> Result<FixedU128, DispatchError> {
             VaultRegistry::get_collateralization_from_vault(vault, only_issued)
         }
 
-        fn get_collateralization_from_vault_and_collateral(vault: AccountId, collateral: BalanceWrapper<Balance>, only_issued: bool) -> Result<u64, DispatchError> {
+        fn get_collateralization_from_vault_and_collateral(vault: AccountId, collateral: BalanceWrapper<Balance>, only_issued: bool) -> Result<FixedU128, DispatchError> {
             VaultRegistry::get_collateralization_from_vault_and_collateral(vault, collateral.amount, only_issued)
         }
 
