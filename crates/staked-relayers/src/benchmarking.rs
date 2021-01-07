@@ -13,6 +13,7 @@ use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
 // use pallet_timestamp::Now;
 use sp_core::{H160, U256};
+use sp_runtime::FixedPointNumber;
 use sp_std::prelude::*;
 use vault_registry::types::{Vault, Wallet};
 use vault_registry::Module as VaultRegistry;
@@ -172,8 +173,8 @@ benchmarks! {
 
         ExchangeRateOracle::<T>::_set_exchange_rate(1).unwrap();
 
-        let threshold: u128 = 200_000;
-        VaultRegistry::<T>::set_liquidation_collateral_threshold(threshold.into());
+        let threshold = <T as vault_registry::Trait>::UnsignedFixedPoint::checked_from_rational(200, 100).unwrap(); // 200%
+        VaultRegistry::<T>::set_liquidation_collateral_threshold(threshold);
 
     }: _(RawOrigin::Signed(origin), vault_id)
 

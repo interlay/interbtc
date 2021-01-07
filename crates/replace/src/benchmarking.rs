@@ -13,6 +13,7 @@ use frame_benchmarking::{account, benchmarks};
 use frame_system::Module as System;
 use frame_system::RawOrigin;
 use sp_core::{H160, H256, U256};
+use sp_runtime::FixedPointNumber;
 use sp_std::prelude::*;
 use vault_registry::types::{Vault, Wallet};
 use vault_registry::Module as VaultRegistry;
@@ -47,6 +48,8 @@ benchmarks! {
             &vault_id,
             vault
         );
+        let threshold = <T as vault_registry::Trait>::UnsignedFixedPoint::one();
+        VaultRegistry::<T>::set_auction_collateral_threshold(threshold);
 
         let replace_id = H256::zero();
         let mut replace_request = ReplaceRequest::default();
@@ -70,7 +73,7 @@ benchmarks! {
 
         Collateral::<T>::lock_collateral(&vault_id, 100000000.into()).unwrap();
         ExchangeRateOracle::<T>::_set_exchange_rate(1).unwrap();
-        VaultRegistry::<T>::set_secure_collateral_threshold(1);
+        VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Trait>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());
 
         let replace_id = H256::zero();
         let mut replace_request = ReplaceRequest::default();
@@ -105,8 +108,8 @@ benchmarks! {
 
         Collateral::<T>::lock_collateral(&old_vault_id, 50.into()).unwrap();
         ExchangeRateOracle::<T>::_set_exchange_rate(1).unwrap();
-        VaultRegistry::<T>::set_auction_collateral_threshold(10000000);
-        VaultRegistry::<T>::set_secure_collateral_threshold(1);
+        VaultRegistry::<T>::set_auction_collateral_threshold(<T as vault_registry::Trait>::UnsignedFixedPoint::checked_from_rational(10000, 100).unwrap()); // 10000%
+        VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Trait>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap()); // 0.001%
 
     }: _(RawOrigin::Signed(new_vault_id), old_vault_id, btc_amount.into(), collateral.into())
 
