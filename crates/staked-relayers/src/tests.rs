@@ -962,7 +962,7 @@ fn test_report_vault_under_liquidation_threshold_fails() {
 
         Staking::check_relayer_registered.mock_safe(|_| MockResult::Return(true));
 
-        ext::vault_registry::is_vault_below_secure_threshold::<Test>
+        ext::vault_registry::is_vault_below_liquidation_threshold::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(false)));
 
         assert_err!(
@@ -980,7 +980,7 @@ fn test_report_vault_under_liquidation_threshold_succeeds() {
 
         Staking::check_relayer_registered.mock_safe(|_| MockResult::Return(true));
 
-        ext::vault_registry::is_vault_below_secure_threshold::<Test>
+        ext::vault_registry::is_vault_below_liquidation_threshold::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(true)));
 
         ext::vault_registry::liquidate_vault::<Test>.mock_safe(|_| MockResult::Return(Ok(())));

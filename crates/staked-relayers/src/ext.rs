@@ -51,10 +51,10 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::get_vault_from_id(vault_id)
     }
 
-    pub fn is_vault_below_secure_threshold<T: vault_registry::Trait>(
+    pub fn is_vault_below_liquidation_threshold<T: vault_registry::Trait>(
         vault_id: &T::AccountId,
     ) -> Result<bool, DispatchError> {
-        <vault_registry::Module<T>>::is_vault_below_secure_threshold(vault_id)
+        <vault_registry::Module<T>>::is_vault_below_liquidation_threshold(vault_id)
     }
 
     pub fn liquidate_vault<T: vault_registry::Trait>(vault_id: &T::AccountId) -> DispatchResult {

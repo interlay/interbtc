@@ -500,7 +500,7 @@ decl_module! {
                 // NOTE: the liquidation threshold expresses the percentage of collateral
                 // required for the vault relative to the exchange rate. If the vault is
                 // under this percentage it is flagged for liquidation.
-                ext::vault_registry::is_vault_below_secure_threshold::<T>(&vault_id)?,
+                ext::vault_registry::is_vault_below_liquidation_threshold::<T>(&vault_id)?,
                 Error::<T>::CollateralOk,
             );
 
