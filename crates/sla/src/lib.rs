@@ -470,8 +470,8 @@ impl<T: Trait> Module<T> {
     }
 
     /// Convert a given threshold from the vault registry to a signed fixed point type
-    fn fixed_point_unsigned_to_signed(
-        value: T::UnsignedFixedPoint,
+    fn fixed_point_unsigned_to_signed<U: FixedPointNumber>(
+        value: U,
     ) -> Result<SignedFixedPoint<T>, DispatchError> {
         let raw: i128 = value
             .into_inner()
@@ -479,9 +479,8 @@ impl<T: Trait> Module<T> {
             .try_into()
             .map_err(|_| Error::<T>::TryIntoIntError)?;
 
-        let ret =
-            T::SignedFixedPoint::checked_from_rational(raw, T::UnsignedFixedPoint::accuracy())
-                .ok_or(Error::<T>::TryIntoIntError)?;
+        let ret = T::SignedFixedPoint::checked_from_rational(raw, U::accuracy())
+            .ok_or(Error::<T>::TryIntoIntError)?;
         Ok(ret)
     }
 

@@ -352,6 +352,7 @@ pub use exchange_rate_oracle::RawEvent as RawExchangeRateOracleEvent;
 
 impl exchange_rate_oracle::Trait for Runtime {
     type Event = Event;
+    type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
 }
 

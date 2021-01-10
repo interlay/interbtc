@@ -7,7 +7,9 @@ use btc_relay::BtcAddress;
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
 use primitive_types::H256;
+use sp_arithmetic::FixedU128;
 use sp_core::H160;
+use sp_runtime::FixedPointNumber;
 use vault_registry::{Vault, VaultStatus, Wallet};
 
 fn request_issue(
@@ -92,7 +94,9 @@ fn get_dummy_request_id() -> H256 {
 #[test]
 fn test_request_issue_banned_fails() {
     run_test(|| {
-        assert_ok!(<exchange_rate_oracle::Module<Test>>::_set_exchange_rate(1));
+        assert_ok!(<exchange_rate_oracle::Module<Test>>::_set_exchange_rate(
+            FixedU128::one()
+        ));
         <frame_system::Module<Test>>::set_block_number(0);
         <vault_registry::Module<Test>>::insert_vault(
             &BOB,

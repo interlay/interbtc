@@ -1064,7 +1064,7 @@ impl<T: Trait> Module<T> {
         // calculate how many tokens should be maximally issued given the threshold.
         let collateral_as_inner = TryInto::<Inner<T>>::try_into(collateral_in_polka_btc)
             .map_err(|_| Error::<T>::TryIntoIntError)?;
-        let max_btc_as_inner = T::UnsignedFixedPoint::checked_from_integer(collateral_as_inner)
+        let max_btc_as_inner = UnsignedFixedPoint::<T>::checked_from_integer(collateral_as_inner)
             .ok_or(Error::<T>::TryIntoIntError)?
             .checked_div(&threshold)
             .ok_or(Error::<T>::ArithmeticOverflow)?

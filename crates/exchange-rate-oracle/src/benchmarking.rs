@@ -2,6 +2,7 @@ use super::Module as ExchangeRateOracle;
 use super::*;
 use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
+use sp_runtime::FixedPointNumber;
 use sp_std::prelude::*;
 
 benchmarks! {
@@ -10,9 +11,10 @@ benchmarks! {
     set_exchange_rate {
         let origin: T::AccountId = account("origin", 0, 0);
         <AuthorizedOracles<T>>::insert(origin.clone(), Vec::<u8>::new());
-    }: _(RawOrigin::Signed(origin), 1)
+        let rate = UnsignedFixedPoint::<T>::checked_from_rational(1, 1).unwrap();
+    }: _(RawOrigin::Signed(origin), rate)
     verify {
-        assert_eq!(ExchangeRate::get(), 100);
+        assert_eq!(ExchangeRate::<T>::get(), UnsignedFixedPoint::<T>::checked_from_rational(100, 1).unwrap());
     }
 
     set_btc_tx_fees_per_byte {

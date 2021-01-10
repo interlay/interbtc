@@ -70,7 +70,7 @@ fn integration_test_issue_polka_btc_execute() {
 
         let amount_btc = 1000000;
         let griefing_collateral = 100;
-        let collateral_vault = 1000000;
+        let collateral_vault = 1005000; // enough for fee + issued amount
 
         let vault_btc_address = BtcAddress::P2PKH(H160([1; 20]));
 
@@ -79,7 +79,9 @@ fn integration_test_issue_polka_btc_execute() {
         let initial_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
         let initial_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
 
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(1));
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
+            FixedU128::one()
+        ));
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
             collateral_vault,
             vault_btc_address.clone()
@@ -153,7 +155,7 @@ fn integration_test_issue_overpayment() {
         let overpayment_factor = 2;
         let requested_amount_btc = amount_btc / overpayment_factor;
         let griefing_collateral = 100;
-        let collateral_vault = 1000000;
+        let collateral_vault = 1005000;
 
         let vault_btc_address = BtcAddress::P2PKH(H160([1; 20]));
 
@@ -162,7 +164,9 @@ fn integration_test_issue_overpayment() {
         let initial_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
         let initial_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
 
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(1));
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
+            FixedU128::one()
+        ));
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
             collateral_vault,
             vault_btc_address.clone()
@@ -231,7 +235,7 @@ fn integration_test_issue_refund() {
 
         let amount_btc = 1000000;
         let griefing_collateral = 100;
-        let collateral_vault = 11;
+        let collateral_vault = 1005000;
         let overpayment_factor = 2;
 
         let vault_btc_address = BtcAddress::P2PKH(H160([1; 20]));
@@ -241,7 +245,9 @@ fn integration_test_issue_refund() {
         let initial_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
         let initial_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
 
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(1));
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
+            FixedU128::one()
+        ));
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
             collateral_vault,
             vault_btc_address.clone()
@@ -362,7 +368,9 @@ fn integration_test_issue_polka_btc_cancel() {
         let initial_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
         let initial_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
 
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(1));
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
+            FixedU128::one()
+        ));
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
             collateral_vault,
             vault_btc_address.clone()

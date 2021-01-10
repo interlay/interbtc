@@ -8,6 +8,7 @@ use frame_support::{
     },
 };
 use mocktopus::mocking::clear_mocks;
+use sp_arithmetic::FixedU128;
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
@@ -83,6 +84,7 @@ pub type Balances = pallet_balances::Module<Test>;
 
 impl Trait for Test {
     type Event = TestEvent;
+    type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
 }
 

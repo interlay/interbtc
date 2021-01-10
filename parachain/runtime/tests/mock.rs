@@ -247,9 +247,9 @@ impl ExtBuilder {
 
         pallet_balances::GenesisConfig::<Runtime, pallet_balances::Instance1> {
             balances: vec![
-                (account_of(ALICE), 1_000_000),
-                (account_of(BOB), 1_000_000),
-                (account_of(CLAIRE), 1_000_000),
+                (account_of(ALICE), 1_005_000),
+                (account_of(BOB), 1_005_000),
+                (account_of(CLAIRE), 1_005_000),
             ],
         }
         .assimilate_storage(&mut storage)

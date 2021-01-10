@@ -24,12 +24,15 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, EncodeLike};
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::Currency;
 use frame_support::weights::Weight;
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
 use frame_system::{ensure_root, ensure_signed};
+use sp_arithmetic::traits::UniqueSaturatedInto;
+use sp_arithmetic::traits::*;
+use sp_arithmetic::FixedPointNumber;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
 
@@ -38,6 +41,10 @@ pub(crate) type DOT<T> =
 
 pub(crate) type PolkaBTC<T> =
     <<T as treasury::Trait>::PolkaBTC as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+
+pub(crate) type UnsignedFixedPoint<T> = <T as Trait>::UnsignedFixedPoint;
+
+pub(crate) type Inner<T> = <<T as Trait>::UnsignedFixedPoint as FixedPointNumber>::Inner;
 
 /// Storage version.
 #[derive(Encode, Decode, Eq, PartialEq)]
@@ -58,14 +65,6 @@ pub trait WeightInfo {
 const BTC_DECIMALS: u32 = 8;
 const DOT_DECIMALS: u32 = 10;
 
-fn btc_to_satoshi(amount: u128) -> u128 {
-    amount * 10_u128.pow(BTC_DECIMALS)
-}
-
-fn dot_to_planck(amount: u128) -> u128 {
-    amount * 10_u128.pow(DOT_DECIMALS)
-}
-
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
 pub trait Trait:
@@ -74,12 +73,11 @@ pub trait Trait:
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
 
+    type UnsignedFixedPoint: FixedPointNumber + Encode + EncodeLike + Decode;
+
     /// Weight information for the extrinsics in this module.
     type WeightInfo: WeightInfo;
 }
-
-/// Granularity of exchange rate
-pub const GRANULARITY: u128 = 5;
 
 #[derive(Encode, Decode, Default)]
 pub struct BtcTxFeesPerByte {
@@ -95,8 +93,8 @@ pub struct BtcTxFeesPerByte {
 decl_storage! {
     trait Store for Module<T: Trait> as ExchangeRateOracle {
         /// ## Storage
-        /// Current DOT/BTC exchange rate scaled by the granularity
-        ExchangeRate: u128;
+        /// Current planck per satoshi rate
+        ExchangeRate: UnsignedFixedPoint<T>;
 
         /// Last exchange rate time
         LastExchangeRateTime: T::Moment;
@@ -147,8 +145,14 @@ decl_module! {
             0
         }
 
+        /// Sets the exchange rate.
+        ///
+        /// # Arguments
+        ///
+        /// * `dot_per_btc` - exchange rate in dot per btc. Note that this is _not_ the same unit
+        /// that is stored in the ExchangeRate storage item.
         #[weight = <T as Trait>::WeightInfo::set_exchange_rate()]
-        pub fn set_exchange_rate(origin, btc_dot: u128) -> DispatchResult {
+        pub fn set_exchange_rate(origin, dot_per_btc: UnsignedFixedPoint<T>) -> DispatchResult {
             // Check that Parachain is not in SHUTDOWN
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
@@ -157,10 +161,10 @@ decl_module! {
             // fail if the signer is not an authorized oracle
             ensure!(Self::is_authorized(&signer), Error::<T>::InvalidOracleSource);
 
-            let satoshi_planck = Self::btc_dot_to_satoshi_planck(btc_dot)?;
-            Self::_set_exchange_rate(satoshi_planck)?;
+            let planck_per_satoshi = Self::dot_per_btc_to_planck_per_satoshi(dot_per_btc)?;
+            Self::_set_exchange_rate(planck_per_satoshi)?;
 
-            Self::deposit_event(Event::<T>::SetExchangeRate(signer, btc_dot));
+            Self::deposit_event(Event::<T>::SetExchangeRate(signer, dot_per_btc));
 
             Ok(())
         }
@@ -203,24 +207,28 @@ decl_module! {
 #[cfg_attr(test, mockable)]
 impl<T: Trait> Module<T> {
     /// Public getters
-    pub fn get_exchange_rate() -> Result<u128, DispatchError> {
+
+    /// Get the exchange rate in planck per satoshi
+    pub fn get_exchange_rate() -> Result<UnsignedFixedPoint<T>, DispatchError> {
         let max_delay_passed = Self::is_max_delay_passed();
         ensure!(!max_delay_passed, Error::<T>::MissingExchangeRate);
-        Ok(<ExchangeRate>::get())
+        Ok(<ExchangeRate<T>>::get())
     }
 
-    fn btc_dot_to_satoshi_planck(btc_dot: u128) -> Result<u128, DispatchError> {
-        dot_to_planck(btc_dot)
-            .checked_div(btc_to_satoshi(1))
-            .ok_or(Error::<T>::ArithmeticUnderflow.into())
-    }
+    /// Convert the dot per btc to planck per satoshi
+    fn dot_per_btc_to_planck_per_satoshi(
+        dot_per_btc: UnsignedFixedPoint<T>,
+    ) -> Result<UnsignedFixedPoint<T>, DispatchError> {
+        // safe to unwrap because we only use constants
+        let conversion_factor = UnsignedFixedPoint::<T>::checked_from_rational(
+            10_u128.pow(DOT_DECIMALS),
+            10_u128.pow(BTC_DECIMALS),
+        )
+        .unwrap();
 
-    pub fn btc_to_u128(amount: PolkaBTC<T>) -> Result<u128, DispatchError> {
-        Self::into_u128(amount)
-    }
-
-    pub fn dot_to_u128(amount: DOT<T>) -> Result<u128, DispatchError> {
-        Self::into_u128(amount)
+        dot_per_btc
+            .checked_mul(&conversion_factor)
+            .ok_or(Error::<T>::ArithmeticOverflow.into())
     }
 
     fn into_u128<I: TryInto<u128>>(x: I) -> Result<u128, DispatchError> {
@@ -231,10 +239,8 @@ impl<T: Trait> Module<T> {
         let rate = Self::get_exchange_rate()?;
         let raw_amount = Self::into_u128(amount)?;
         let converted = rate
-            .checked_mul(raw_amount)
-            .ok_or(Error::<T>::ArithmeticOverflow)?
-            .checked_div(10u128.pow(GRANULARITY as u32))
-            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+            .checked_mul_int(raw_amount)
+            .ok_or(Error::<T>::ArithmeticOverflow)?;
         let result = converted
             .try_into()
             .map_err(|_e| Error::<T>::TryIntoIntError)?;
@@ -247,15 +253,22 @@ impl<T: Trait> Module<T> {
         if raw_amount == 0 {
             return Ok(0.into());
         }
-        let converted = raw_amount
-            .checked_mul(10u128.pow(GRANULARITY as u32))
-            .ok_or(Error::<T>::ArithmeticOverflow)?
-            .checked_div(rate)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?;
-        let result = converted
+
+        // The code below performs `raw_amount/rate`, plus necessary type conversions
+        let dot_as_inner: Inner<T> = raw_amount
             .try_into()
-            .map_err(|_e| Error::<T>::TryIntoIntError)?;
-        Ok(result)
+            .map_err(|_| Error::<T>::TryIntoIntError)?;
+        let btc_raw: u128 = T::UnsignedFixedPoint::checked_from_integer(dot_as_inner)
+            .ok_or(Error::<T>::TryIntoIntError)?
+            .checked_div(&rate)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?
+            .into_inner()
+            .checked_div(&UnsignedFixedPoint::<T>::accuracy())
+            .ok_or(Error::<T>::ArithmeticUnderflow)?
+            .unique_saturated_into();
+        btc_raw
+            .try_into()
+            .map_err(|_e| Error::<T>::TryIntoIntError.into())
     }
 
     pub fn get_last_exchange_rate_time() -> T::Moment {
@@ -267,8 +280,13 @@ impl<T: Trait> Module<T> {
         <MaxDelay<T>>::get()
     }
 
-    pub fn _set_exchange_rate(satoshi_planck: u128) -> DispatchResult {
-        Self::set_current_rate(satoshi_planck);
+    /// Set the current exchange rate
+    ///
+    /// # Arguments
+    ///
+    /// * `planck_per_satoshi` - exchange rate in planck per satoshi
+    pub fn _set_exchange_rate(planck_per_satoshi: UnsignedFixedPoint<T>) -> DispatchResult {
+        <ExchangeRate<T>>::put(planck_per_satoshi);
         // recover if the max delay was already passed
         if Self::is_max_delay_passed() {
             Self::recover_from_oracle_offline()?;
@@ -276,10 +294,6 @@ impl<T: Trait> Module<T> {
         let now = Self::get_current_time();
         Self::set_last_exchange_rate_time(now);
         Ok(())
-    }
-
-    pub fn set_current_rate(rate: u128) {
-        <ExchangeRate>::put(rate);
     }
 
     fn set_last_exchange_rate_time(time: T::Moment) {
@@ -318,9 +332,11 @@ impl<T: Trait> Module<T> {
 decl_event! {
     /// ## Events
     pub enum Event<T> where
-            AccountId = <T as frame_system::Trait>::AccountId {
+            AccountId = <T as frame_system::Trait>::AccountId,
+            UnsignedFixedPoint = UnsignedFixedPoint<T>,
+        {
         /// Event emitted when exchange rate is set
-        SetExchangeRate(AccountId, u128),
+        SetExchangeRate(AccountId, UnsignedFixedPoint),
         /// Event emitted when the btc tx fees are set
         SetBtcTxFeesPerByte(AccountId, u32, u32, u32),
     }
