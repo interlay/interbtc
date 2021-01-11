@@ -105,6 +105,7 @@ impl pallet_balances::Trait for Test {
 impl vault_registry::Trait for Test {
     type Event = TestEvent;
     type RandomnessSource = pallet_randomness_collective_flip::Module<Test>;
+    type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
 }
 
@@ -203,6 +204,18 @@ impl ExtBuilder {
             relayer_rewards: FixedU128::checked_from_rational(3, 100).unwrap(),
             maintainer_rewards: FixedU128::checked_from_rational(20, 100).unwrap(),
             collator_rewards: FixedU128::checked_from_integer(0).unwrap(),
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
+        vault_registry::GenesisConfig::<Test> {
+            minimum_collateral_vault: 0,
+            punishment_delay: 8,
+            secure_collateral_threshold: FixedU128::checked_from_rational(200, 100).unwrap(),
+            auction_collateral_threshold: FixedU128::checked_from_rational(150, 100).unwrap(),
+            premium_redeem_threshold: FixedU128::checked_from_rational(120, 100).unwrap(),
+            liquidation_collateral_threshold: FixedU128::checked_from_rational(110, 100).unwrap(),
+            liquidation_vault_account_id: 0,
         }
         .assimilate_storage(&mut storage)
         .unwrap();

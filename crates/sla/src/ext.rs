@@ -37,11 +37,12 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::get_vault_from_id(vault_id)
     }
 
-    pub fn get_premium_redeem_threshold<T: vault_registry::Trait>() -> u128 {
+    pub fn get_premium_redeem_threshold<T: vault_registry::Trait>() -> T::UnsignedFixedPoint {
         <vault_registry::Module<T>>::get_premium_redeem_threshold()
     }
 
-    pub fn get_liquidation_collateral_threshold<T: vault_registry::Trait>() -> u128 {
+    pub fn get_liquidation_collateral_threshold<T: vault_registry::Trait>() -> T::UnsignedFixedPoint
+    {
         <vault_registry::Module<T>>::get_liquidation_collateral_threshold()
     }
 }

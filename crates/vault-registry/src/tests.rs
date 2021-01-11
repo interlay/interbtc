@@ -5,14 +5,18 @@ use crate::mock::{
     MULTI_VAULT_TEST_IDS, OTHER_ID, RICH_COLLATERAL, RICH_ID,
 };
 use crate::sp_api_hidden_includes_decl_storage::hidden_include::traits::OnInitialize;
-use crate::types::BtcAddress;
-use crate::GRANULARITY;
+use crate::types::{BtcAddress, PolkaBTC, DOT};
+use crate::DispatchError;
+use crate::Error;
 use crate::{UpdatableVault, Vault, VaultStatus, Vaults, Wallet};
 use crate::{H160, H256};
 use frame_support::{assert_err, assert_noop, assert_ok, StorageMap};
 use mocktopus::mocking::*;
+use primitive_types::U256;
 use security::{ErrorCode, StatusCode};
+use sp_arithmetic::{FixedPointNumber, FixedU128};
 use sp_runtime::traits::Header;
+use sp_std::convert::TryInto;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -44,10 +48,10 @@ macro_rules! assert_not_emitted {
 }
 
 fn set_default_thresholds() {
-    let secure = 200_000; // 200%
-    let auction = 150_000; // 150%
-    let premium = 120_000; // 120%
-    let liquidation = 110_000; // 110%
+    let secure = FixedU128::checked_from_rational(200, 100).unwrap(); // 200%
+    let auction = FixedU128::checked_from_rational(150, 100).unwrap(); // 150%
+    let premium = FixedU128::checked_from_rational(120, 100).unwrap(); // 120%
+    let liquidation = FixedU128::checked_from_rational(110, 100).unwrap(); // 110%
 
     VaultRegistry::set_secure_collateral_threshold(secure);
     VaultRegistry::set_auction_collateral_threshold(auction);
@@ -652,7 +656,7 @@ fn is_collateral_below_threshold_true_succeeds() {
     run_test(|| {
         let collateral = DEFAULT_COLLATERAL;
         let btc_amount = 50;
-        let threshold = 201000; // 201%
+        let threshold = FixedU128::checked_from_rational(201, 100).unwrap(); // 201%
 
         ext::oracle::dots_to_btc::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(collateral.clone())));
@@ -738,7 +742,7 @@ fn is_collateral_below_threshold_false_succeeds() {
     run_test(|| {
         let collateral = DEFAULT_COLLATERAL;
         let btc_amount = 50;
-        let threshold = 200000; // 200%
+        let threshold = FixedU128::checked_from_rational(200, 100).unwrap(); // 200%
 
         ext::oracle::dots_to_btc::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(collateral.clone())));
@@ -753,8 +757,8 @@ fn is_collateral_below_threshold_false_succeeds() {
 #[test]
 fn calculate_max_polkabtc_from_collateral_for_threshold_succeeds() {
     run_test(|| {
-        let collateral: u128 = u128::MAX;
-        let threshold = 200000; // 200%
+        let collateral: u128 = u64::MAX as u128;
+        let threshold = FixedU128::checked_from_rational(200, 100).unwrap(); // 200%
 
         ext::oracle::dots_to_btc::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(collateral.clone())));
@@ -763,16 +767,104 @@ fn calculate_max_polkabtc_from_collateral_for_threshold_succeeds() {
             VaultRegistry::calculate_max_polkabtc_from_collateral_for_threshold(
                 collateral, threshold
             ),
-            Ok(170141183460469231731687303715884105727)
+            Ok((u64::MAX / 2) as u128)
         );
     })
 }
+
+#[test]
+fn test_threshold_equivalent_to_legacy_calculation() {
+    /// old version
+    fn legacy_calculate_max_polkabtc_from_collateral_for_threshold(
+        collateral: DOT<Test>,
+        threshold: u128,
+    ) -> Result<PolkaBTC<Test>, DispatchError> {
+        let granularity = 5;
+        // convert the collateral to polkabtc
+        let collateral_in_polka_btc = ext::oracle::dots_to_btc::<Test>(collateral)?;
+        let collateral_in_polka_btc = VaultRegistry::polkabtc_to_u128(collateral_in_polka_btc)?;
+        let collateral_in_polka_btc = U256::from(collateral_in_polka_btc);
+
+        // calculate how many tokens should be maximally issued given the threshold
+        let scaled_collateral_in_polka_btc = collateral_in_polka_btc
+            .checked_mul(U256::from(10).pow(granularity.into()))
+            .ok_or(Error::<Test>::ArithmeticOverflow)?;
+        let scaled_max_tokens = scaled_collateral_in_polka_btc
+            .checked_div(threshold.into())
+            .unwrap_or(0.into());
+
+        Ok(VaultRegistry::u128_to_polkabtc(
+            scaled_max_tokens.try_into()?,
+        )?)
+    }
+
+    run_test(|| {
+        let threshold = FixedU128::checked_from_rational(199999, 100000).unwrap(); // 199.999%
+        let random_start = 987529462328 as u128;
+        for btc in random_start..random_start + 199999 {
+            ext::oracle::dots_to_btc::<Test>.mock_safe(move |x| MockResult::Return(Ok(x.clone())));
+            ext::oracle::btc_to_dots::<Test>.mock_safe(move |x| MockResult::Return(Ok(x.clone())));
+            let old =
+                legacy_calculate_max_polkabtc_from_collateral_for_threshold(btc, 199999).unwrap();
+            let new =
+                VaultRegistry::calculate_max_polkabtc_from_collateral_for_threshold(btc, threshold)
+                    .unwrap();
+            assert_eq!(old, new);
+        }
+    })
+}
+
+#[test]
+fn test_get_required_collateral_threshold_equivalent_to_legacy_calculation_() {
+    // old version
+    fn legacy_get_required_collateral_for_polkabtc_with_threshold(
+        btc: PolkaBTC<Test>,
+        threshold: u128,
+    ) -> Result<DOT<Test>, DispatchError> {
+        let granularity = 5;
+        let btc = VaultRegistry::polkabtc_to_u128(btc)?;
+        let btc = U256::from(btc);
+
+        // Step 1: inverse of the scaling applied in calculate_max_polkabtc_from_collateral_for_threshold
+
+        // inverse of the div
+        let btc = btc
+            .checked_mul(threshold.into())
+            .ok_or(Error::<Test>::ArithmeticOverflow)?;
+
+        // To do the inverse of the multiplication, we need to do division, but
+        // we need to round up. To round up (a/b), we need to do ((a+b-1)/b):
+        let rounding_addition = U256::from(10).pow(granularity.into()) - U256::from(1);
+        let btc = (btc + rounding_addition)
+            .checked_div(U256::from(10).pow(granularity.into()))
+            .ok_or(Error::<Test>::ArithmeticUnderflow)?;
+
+        // Step 2: convert the amount to dots
+        let scaled = VaultRegistry::u128_to_polkabtc(btc.try_into()?)?;
+        let amount_in_dot = ext::oracle::btc_to_dots::<Test>(scaled)?;
+        Ok(amount_in_dot)
+    }
+
+    run_test(|| {
+        let threshold = FixedU128::checked_from_rational(199999, 100000).unwrap(); // 199.999%
+        let random_start = 987529462328 as u128;
+        for btc in random_start..random_start + 199999 {
+            ext::oracle::dots_to_btc::<Test>.mock_safe(move |x| MockResult::Return(Ok(x.clone())));
+            ext::oracle::btc_to_dots::<Test>.mock_safe(move |x| MockResult::Return(Ok(x.clone())));
+            let old = legacy_get_required_collateral_for_polkabtc_with_threshold(btc, 199999);
+            let new =
+                VaultRegistry::get_required_collateral_for_polkabtc_with_threshold(btc, threshold);
+            assert_eq!(old, new);
+        }
+    })
+}
+
 #[test]
 fn get_required_collateral_for_polkabtc_with_threshold_succeeds() {
     run_test(|| {
-        let threshold = 19999; // 199.99%
+        let threshold = FixedU128::checked_from_rational(19999, 10000).unwrap(); // 199.99%
         let random_start = 987529387592 as u128;
-        for btc in random_start..random_start + threshold {
+        for btc in random_start..random_start + 19999 {
             ext::oracle::dots_to_btc::<Test>.mock_safe(move |x| MockResult::Return(Ok(x.clone())));
             ext::oracle::btc_to_dots::<Test>.mock_safe(move |x| MockResult::Return(Ok(x.clone())));
 
@@ -908,7 +1000,7 @@ fn get_collateralization_from_vault_succeeds() {
 
         assert_eq!(
             VaultRegistry::get_collateralization_from_vault(id, false),
-            Ok(2 * 10u64.pow(GRANULARITY))
+            Ok(FixedU128::checked_from_rational(200, 100).unwrap())
         );
     })
 }
@@ -927,7 +1019,7 @@ fn get_unsettled_collateralization_from_vault_succeeds() {
 
         assert_eq!(
             VaultRegistry::get_collateralization_from_vault(id, true),
-            Ok(5 * 10u64.pow(GRANULARITY))
+            Ok(FixedU128::checked_from_rational(500, 100).unwrap())
         );
     })
 }
@@ -946,7 +1038,7 @@ fn get_settled_collateralization_from_vault_succeeds() {
 
         assert_eq!(
             VaultRegistry::get_collateralization_from_vault(id, false),
-            Ok(25 * 10u64.pow(GRANULARITY - 1))
+            Ok(FixedU128::checked_from_rational(250, 100).unwrap())
         );
     })
 }
@@ -985,7 +1077,7 @@ fn get_total_collateralization_with_tokens_issued() {
 
         assert_eq!(
             VaultRegistry::get_total_collateralization(),
-            Ok(2 * 10u64.pow(GRANULARITY))
+            Ok(FixedU128::checked_from_rational(200, 100).unwrap())
         );
     })
 }

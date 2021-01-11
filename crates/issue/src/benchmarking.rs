@@ -12,6 +12,7 @@ use frame_benchmarking::{account, benchmarks};
 use frame_system::Module as System;
 use frame_system::RawOrigin;
 use sp_core::{H160, H256, U256};
+use sp_runtime::FixedPointNumber;
 use sp_std::prelude::*;
 use vault_registry::types::{Vault, Wallet};
 use vault_registry::Module as VaultRegistry;
@@ -27,7 +28,7 @@ benchmarks! {
 
         Collateral::<T>::lock_collateral(&vault_id, 100000000.into()).unwrap();
         ExchangeRateOracle::<T>::_set_exchange_rate(1).unwrap();
-        VaultRegistry::<T>::set_secure_collateral_threshold(1);
+        VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Trait>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());// 0.001%
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
@@ -112,7 +113,7 @@ benchmarks! {
             vault
         );
 
-        VaultRegistry::<T>::set_secure_collateral_threshold(1);
+        VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Trait>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());
         ExchangeRateOracle::<T>::_set_exchange_rate(1).unwrap();
         Collateral::<T>::lock_collateral(&vault_id, 100000000.into()).unwrap();
         VaultRegistry::<T>::increase_to_be_issued_tokens(&vault_id, value.into()).unwrap();

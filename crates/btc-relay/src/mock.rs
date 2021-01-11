@@ -8,7 +8,7 @@ use frame_support::{
     },
 };
 use mocktopus::mocking::clear_mocks;
-use sp_arithmetic::FixedI128;
+use sp_arithmetic::{FixedI128, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
@@ -108,6 +108,7 @@ impl collateral::Trait for Test {
 
 impl vault_registry::Trait for Test {
     type Event = TestEvent;
+    type UnsignedFixedPoint = FixedU128;
     type RandomnessSource = pallet_randomness_collective_flip::Module<Test>;
     type WeightInfo = ();
 }

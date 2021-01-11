@@ -29,7 +29,6 @@ pub(crate) mod btc_relay {
 pub(crate) mod vault_registry {
     use crate::types::{PolkaBTC, DOT};
     use frame_support::dispatch::{DispatchError, DispatchResult};
-    pub use vault_registry::GRANULARITY;
 
     pub fn get_vault_from_id<T: vault_registry::Trait>(
         vault_id: &T::AccountId,

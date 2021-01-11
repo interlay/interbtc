@@ -38,10 +38,10 @@ pub fn account_of(address: [u8; 32]) -> AccountId {
 
 #[allow(dead_code)]
 pub fn set_default_thresholds() {
-    let secure = 200_000; // 200%
-    let auction = 150_000; // 150%
-    let premium = 120_000; // 120%
-    let liquidation = 110_000; // 110%
+    let secure = FixedU128::checked_from_rational(200, 100).unwrap(); // 200%
+    let auction = FixedU128::checked_from_rational(150, 100).unwrap(); // 150%
+    let premium = FixedU128::checked_from_rational(120, 100).unwrap(); // 120%
+    let liquidation = FixedU128::checked_from_rational(110, 100).unwrap(); // 110%
 
     VaultRegistryModule::set_secure_collateral_threshold(secure);
     VaultRegistryModule::set_auction_collateral_threshold(auction);
@@ -279,10 +279,10 @@ impl ExtBuilder {
         vault_registry::GenesisConfig::<Runtime> {
             minimum_collateral_vault: 0,
             punishment_delay: 8,
-            secure_collateral_threshold: 100_000,
-            auction_collateral_threshold: 150_000,
-            premium_redeem_threshold: 120_000,
-            liquidation_collateral_threshold: 110_000,
+            secure_collateral_threshold: FixedU128::checked_from_rational(100, 100).unwrap(),
+            auction_collateral_threshold: FixedU128::checked_from_rational(150, 100).unwrap(),
+            premium_redeem_threshold: FixedU128::checked_from_rational(120, 100).unwrap(),
+            liquidation_collateral_threshold: FixedU128::checked_from_rational(110, 100).unwrap(),
             liquidation_vault_account_id: account_of(LIQUIDATION_VAULT),
         }
         .assimilate_storage(&mut storage)

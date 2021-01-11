@@ -6,6 +6,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure, StorageMap,
 };
+use sp_arithmetic::FixedPointNumber;
 use sp_core::H160;
 use sp_std::collections::btree_set::BTreeSet;
 
@@ -28,6 +29,10 @@ pub(crate) type DOT<T> =
 
 pub(crate) type PolkaBTC<T> =
     <<T as treasury::Trait>::PolkaBTC as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+
+pub(crate) type UnsignedFixedPoint<T> = <T as Trait>::UnsignedFixedPoint;
+
+pub(crate) type Inner<T> = <<T as Trait>::UnsignedFixedPoint as FixedPointNumber>::Inner;
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
 pub struct Wallet<T: Ord + Copy> {
@@ -253,11 +258,9 @@ impl<T: Trait> RichVault<T> {
 
         let secure_threshold = Module::<T>::secure_collateral_threshold();
 
-        let raw_used_collateral = raw_issued_tokens_in_dot
-            .checked_mul(secure_threshold)
-            .ok_or(Error::<T>::ArithmeticOverflow)?
-            .checked_div(10u128.pow(crate::GRANULARITY))
-            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+        let raw_used_collateral = secure_threshold
+            .checked_mul_int(raw_issued_tokens_in_dot)
+            .ok_or(Error::<T>::ArithmeticOverflow)?;
 
         let used_collateral = Module::<T>::u128_to_dot(raw_used_collateral)?;
 

@@ -13,6 +13,7 @@ use btc_parachain_runtime::{
 };
 pub use sc_rpc_api::DenyUnsafe;
 use sp_api::ProvideRuntimeApi;
+use sp_arithmetic::FixedU128;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_core::H256;
@@ -38,7 +39,13 @@ where
     C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
     C::Api: module_exchange_rate_oracle_rpc::ExchangeRateOracleRuntimeApi<Block, Balance, Balance>,
     C::Api: module_staked_relayers_rpc::StakedRelayersRuntimeApi<Block, AccountId>,
-    C::Api: module_vault_registry_rpc::VaultRegistryRuntimeApi<Block, AccountId, Balance, Balance>,
+    C::Api: module_vault_registry_rpc::VaultRegistryRuntimeApi<
+        Block,
+        AccountId,
+        Balance,
+        Balance,
+        FixedU128,
+    >,
     C::Api: module_issue_rpc::IssueRuntimeApi<
         Block,
         AccountId,
