@@ -823,11 +823,41 @@ fn test_cancel_replace_succeeds() {
         ext::vault_registry::decrease_to_be_redeemed_tokens::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(())));
         Replace::remove_replace_request.mock_safe(|_, _| MockResult::Return(()));
+        ext::collateral::release_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
         assert_eq!(cancel_replace(new_vault_id, replace_id), Ok(()));
 
         let event = Event::CancelReplace(new_vault_id, old_vault_id, replace_id);
         assert_emitted!(event);
+    })
+}
+
+#[test]
+fn test_cancel_replace_as_third_party_fails() {
+    run_test(|| {
+        let new_vault_id = BOB;
+        let old_vault_id = ALICE;
+        let canceller = CAROL;
+        let replace_id = H256::zero();
+
+        System::set_block_number(45);
+        Replace::get_open_replace_request.mock_safe(move |_| {
+            let mut replace = test_request();
+            replace.old_vault = old_vault_id.clone();
+            replace.new_vault = Some(new_vault_id.clone());
+            replace.open_time = 2;
+            MockResult::Return(Ok(replace))
+        });
+        Replace::current_height.mock_safe(|| MockResult::Return(15));
+        Replace::replace_period.mock_safe(|| MockResult::Return(2));
+        ext::vault_registry::decrease_to_be_redeemed_tokens::<Test>
+            .mock_safe(|_, _| MockResult::Return(Ok(())));
+        Replace::remove_replace_request.mock_safe(|_, _| MockResult::Return(()));
+
+        assert_noop!(
+            cancel_replace(canceller, replace_id),
+            TestError::UnauthorizedVault
+        );
     })
 }
 

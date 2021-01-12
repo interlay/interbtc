@@ -204,6 +204,7 @@ benchmarks! {
         let replace_id = H256::zero();
         let mut replace_request = ReplaceRequest::default();
         replace_request.old_vault = vault_id.clone();
+        replace_request.new_vault = Some(origin.clone());
         Replace::<T>::insert_replace_request(replace_id, replace_request);
         System::<T>::set_block_number(System::<T>::block_number() + Replace::<T>::replace_period() + 10.into());
 

@@ -21,6 +21,20 @@ fn assert_request_event() -> H256 {
     ids[0].clone()
 }
 
+// asserts auction event happen and extracts its id for further testing
+fn assert_auction_event() -> H256 {
+    let events = SystemModule::events();
+    let ids = events
+        .iter()
+        .filter_map(|r| match r.event {
+            Event::replace(ReplaceEvent::AuctionReplace(_, _, id, _, _, _)) => Some(id.clone()),
+            _ => None,
+        })
+        .collect::<Vec<H256>>();
+    assert_eq!(ids.len(), 1);
+    ids[0].clone()
+}
+
 #[test]
 fn integration_test_replace_should_fail_if_not_running() {
     ExtBuilder::build().execute_with(|| {
@@ -293,5 +307,87 @@ fn integration_test_replace_cancel_replace() {
         SystemModule::set_block_number(30);
         assert_ok!(Call::Replace(ReplaceCall::cancel_replace(replace_id))
             .dispatch(origin_of(account_of(BOB))));
+    });
+}
+
+#[test]
+fn integration_test_replace_cancel_auction_replace() {
+    ExtBuilder::build().execute_with(|| {
+        SystemModule::set_block_number(1);
+        let user = CLAIRE;
+        let old_vault = ALICE;
+        let new_vault = BOB;
+        let collateral = 4_000;
+        let replace_collateral = collateral * 2;
+        let polkabtc = 1_000;
+
+        let old_vault_btc_address = BtcAddress::P2PKH(H160([1; 20]));
+        let new_vault_btc_address = BtcAddress::P2PKH(H160([2; 20]));
+
+        set_default_thresholds();
+        // peg spot rate
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
+            FixedU128::checked_from_rational(1, 100_000).unwrap()
+        ));
+        // old vault has issued some tokens with the user
+        force_issue_tokens(user, old_vault, collateral, polkabtc, old_vault_btc_address);
+
+        // new vault joins
+        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
+            collateral,
+            new_vault_btc_address
+        ))
+        .dispatch(origin_of(account_of(new_vault))));
+        // exchange rate drops and vault is not collateralized any more
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
+            FixedU128::checked_from_integer(3).unwrap()
+        ));
+
+        let initial_new_vault_collateral =
+            collateral::Module::<Runtime>::get_collateral_from_account(&account_of(new_vault));
+        let initial_old_vault_collateral =
+            collateral::Module::<Runtime>::get_collateral_from_account(&account_of(old_vault));
+
+        // new_vault takes over old_vault's position
+        assert_ok!(Call::Replace(ReplaceCall::auction_replace(
+            account_of(old_vault),
+            polkabtc,
+            replace_collateral
+        ))
+        .dispatch(origin_of(account_of(new_vault))));
+
+        // check old vault collateral
+        let auction_fee = FeeModule::get_auction_redeem_fee(replace_collateral).unwrap();
+        assert_eq!(
+            collateral::Module::<Runtime>::get_collateral_from_account(&account_of(old_vault)),
+            initial_old_vault_collateral - auction_fee
+        );
+        // check new vault collateral
+        assert_eq!(
+            collateral::Module::<Runtime>::get_collateral_from_account(&account_of(new_vault)),
+            initial_new_vault_collateral + auction_fee + replace_collateral
+        );
+
+        let replace_id = assert_auction_event();
+
+        SystemModule::set_block_number(30);
+
+        assert_ok!(Call::Replace(ReplaceCall::cancel_replace(replace_id))
+            .dispatch(origin_of(account_of(BOB))));
+
+        // check old vault collateral
+        let amount_dot = ExchangeRateOracleModule::btc_to_dots(polkabtc).unwrap();
+        let griefing_collateral = FeeModule::get_replace_griefing_collateral(amount_dot).unwrap();
+        assert_eq!(
+            collateral::Module::<Runtime>::get_collateral_from_account(&account_of(old_vault)),
+            initial_old_vault_collateral - auction_fee - griefing_collateral
+        );
+
+        // check new vault collateral. It should have received auction fee, griefing collateral and
+        // the collateral that was reserved for this replace should have been released
+        assert_eq!(
+            collateral::Module::<Runtime>::get_collateral_from_account(&account_of(new_vault)),
+            initial_new_vault_collateral + auction_fee + griefing_collateral
+        );
     });
 }

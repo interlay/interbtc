@@ -64,6 +64,7 @@ pub trait Trait:
     + treasury::Trait
     + exchange_rate_oracle::Trait
     + fee::Trait
+    + sla::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -469,6 +470,10 @@ impl<T: Trait> Module<T> {
         // step 6: Call the increaseToBeRedeemedTokens function with the oldVault and the btcAmount
         ext::vault_registry::increase_to_be_redeemed_tokens::<T>(&old_vault_id, btc_amount)?;
 
+        // Calculate the (minimum) griefing collateral
+        let amount_dot = ext::oracle::btc_to_dots::<T>(btc_amount)?;
+        let griefing_collateral = ext::fee::get_replace_griefing_collateral::<T>(amount_dot)?;
+
         // step 8: Create a new ReplaceRequest named replace entry:
         let replace_id = ext::security::get_secure_id::<T>(&new_vault_id);
         let current_height = Self::current_height();
@@ -480,7 +485,7 @@ impl<T: Trait> Module<T> {
                 open_time: current_height,
                 accept_time: Some(current_height),
                 amount: btc_amount,
-                griefing_collateral: 0.into(),
+                griefing_collateral,
                 btc_address: new_vault.wallet.get_btc_address(),
                 collateral: collateral,
                 completed: false,
@@ -570,11 +575,11 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn _cancel_replace(new_vault_id: T::AccountId, replace_id: H256) -> Result<(), DispatchError> {
+    fn _cancel_replace(caller: T::AccountId, replace_id: H256) -> Result<(), DispatchError> {
         // Check that Parachain status is RUNNING
         ext::security::ensure_parachain_status_running::<T>()?;
 
-        // step 1: Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
+        // Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
         let replace = Self::get_open_replace_request(&replace_id)?;
 
         // only cancellable after the request has expired
@@ -583,24 +588,32 @@ impl<T: Trait> Module<T> {
             Error::<T>::ReplacePeriodNotExpired
         );
 
-        // step 4: Transfer the oldVault’s griefing collateral associated with this ReplaceRequests to the newVault by calling slashCollateral
+        let new_vault_id = replace.new_vault.ok_or(Error::<T>::VaultNotFound)?;
+
+        // only cancellable by new_vault
+        ensure!(caller == new_vault_id, Error::<T>::UnauthorizedVault);
+
+        // Release the newVault's collateral associated with this ReplaceRequests
+        ext::collateral::release_collateral::<T>(new_vault_id.clone(), replace.collateral)?;
+
+        // Transfer the oldVault’s griefing collateral associated with this ReplaceRequests to the newVault by calling slashCollateral
         ext::collateral::slash_collateral::<T>(
             replace.old_vault.clone(),
             new_vault_id.clone(),
             replace.griefing_collateral,
         )?;
 
-        // step 5: Call the decreaseToBeRedeemedTokens function in the VaultRegistry for the oldVault.
+        // Call the decreaseToBeRedeemedTokens function in the VaultRegistry for the oldVault.
         let tokens = replace.amount;
         ext::vault_registry::decrease_to_be_redeemed_tokens::<T>(
             replace.old_vault.clone(),
             tokens,
         )?;
 
-        // step 6: Remove the ReplaceRequest from ReplaceRequests
+        // Remove the ReplaceRequest from ReplaceRequests
         Self::remove_replace_request(replace_id.clone(), true);
 
-        // step 7: Emit a CancelReplace(newVault, oldVault, replaceId)
+        // Emit a CancelReplace(newVault, oldVault, replaceId)
         Self::deposit_event(<Event<T>>::CancelReplace(
             new_vault_id,
             replace.old_vault,
@@ -710,6 +723,7 @@ decl_error! {
         ReplaceCompleted,
         ReplaceCancelled,
         ReplaceIdNotFound,
+        VaultNotFound,
         /// Unable to convert value
         TryIntoIntError,
     }

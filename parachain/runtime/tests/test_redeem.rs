@@ -54,13 +54,9 @@ fn integration_test_redeem_polka_btc_execute() {
 
         SystemModule::set_block_number(1);
 
-<<<<<<< HEAD
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
             FixedU128::checked_from_rational(1, 100_000).unwrap()
         ));
-=======
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(100000));
->>>>>>> fix: cancel_redeem slashing & tests
 
         set_default_thresholds();
 
@@ -110,7 +106,9 @@ fn setup_cancelable_redeem(user: [u8; 32], vault: [u8; 32], polka_btc: u128) -> 
 
     SystemModule::set_block_number(1);
 
-    assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(1));
+    assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
+        FixedU128::checked_from_rational(1, 100_000).unwrap()
+    ));
 
     set_default_thresholds();
 
@@ -164,14 +162,12 @@ fn integration_test_redeem_polka_btc_cancel_reimburse() {
 
         let redeem_id = setup_cancelable_redeem(user, vault, amount_btc);
 
-<<<<<<< HEAD
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
             FixedU128::checked_from_rational(1, 100_000).unwrap()
         ));
-=======
+
         let sla_score_before = FixedI128::from(60);
         SlaModule::set_vault_sla(account_of(vault), sla_score_before);
->>>>>>> fix: cancel_redeem slashing & tests
 
         // alice cancels redeem request and chooses to reimburse
         assert_ok!(Call::Redeem(RedeemCall::cancel_redeem(redeem_id, true))
