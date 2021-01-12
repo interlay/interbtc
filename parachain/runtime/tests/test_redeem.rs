@@ -54,7 +54,9 @@ fn integration_test_redeem_polka_btc_execute() {
 
         SystemModule::set_block_number(1);
 
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(1));
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
+            FixedU128::checked_from_rational(1, 100_000).unwrap()
+        ));
 
         set_default_thresholds();
 
@@ -110,7 +112,9 @@ fn integration_test_redeem_polka_btc_cancel() {
 
         SystemModule::set_block_number(1);
 
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(1));
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
+            FixedU128::checked_from_rational(1, 100_000).unwrap()
+        ));
 
         set_default_thresholds();
 

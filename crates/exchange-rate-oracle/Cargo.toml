@@ -12,6 +12,7 @@ std = [
     'sp-runtime/std',
     'frame-support/std',
     'frame-system/std',
+	'sp-arithmetic/std',
     'sp-std/std',
     'sp-io/std',
     'sp-core/std',
@@ -89,6 +90,10 @@ path = '../treasury'
 [dependencies.security]
 default-features = false
 path = '../security'
+
+[dependencies.sp-arithmetic]
+default-features = false
+version = '2.0.0'
 
 [dev-dependencies]
 mocktopus = "0.7.0"

@@ -27,7 +27,7 @@ benchmarks! {
         let griefing = 100;
 
         Collateral::<T>::lock_collateral(&vault_id, 100000000.into()).unwrap();
-        ExchangeRateOracle::<T>::_set_exchange_rate(1).unwrap();
+        ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Trait>::UnsignedFixedPoint::one()).unwrap();
         VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Trait>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());// 0.001%
 
         let mut vault = Vault::default();
@@ -114,7 +114,7 @@ benchmarks! {
         );
 
         VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Trait>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());
-        ExchangeRateOracle::<T>::_set_exchange_rate(1).unwrap();
+        ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Trait>::UnsignedFixedPoint::one()).unwrap();
         Collateral::<T>::lock_collateral(&vault_id, 100000000.into()).unwrap();
         VaultRegistry::<T>::increase_to_be_issued_tokens(&vault_id, value.into()).unwrap();
     }: _(RawOrigin::Signed(origin), issue_id, tx_id, proof, raw_tx)

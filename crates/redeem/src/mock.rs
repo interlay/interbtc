@@ -141,6 +141,7 @@ impl timestamp::Trait for Test {
 
 impl exchange_rate_oracle::Trait for Test {
     type Event = TestEvent;
+    type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
 }
 
@@ -172,9 +173,9 @@ pub const ALICE: AccountId = 1;
 pub const BOB: AccountId = 2;
 pub const CAROL: AccountId = 3;
 
-pub const ALICE_BALANCE: u64 = 1_000_000;
-pub const BOB_BALANCE: u64 = 1_000_000;
-pub const CAROL_BALANCE: u64 = 1_000_000;
+pub const ALICE_BALANCE: u64 = 1_005_000;
+pub const BOB_BALANCE: u64 = 1_005_000;
+pub const CAROL_BALANCE: u64 = 1_005_000;
 
 pub struct ExtBuilder;
 
@@ -267,7 +268,9 @@ where
 {
     clear_mocks();
     ExtBuilder::build().execute_with(|| {
-        assert_ok!(<exchange_rate_oracle::Module<Test>>::_set_exchange_rate(1));
+        assert_ok!(<exchange_rate_oracle::Module<Test>>::_set_exchange_rate(
+            FixedU128::one()
+        ));
         System::set_block_number(1);
         test();
     });

@@ -171,7 +171,7 @@ benchmarks! {
             vault
         );
 
-        ExchangeRateOracle::<T>::_set_exchange_rate(1).unwrap();
+        ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Trait>::UnsignedFixedPoint::one()).unwrap();
 
         let threshold = <T as vault_registry::Trait>::UnsignedFixedPoint::checked_from_rational(200, 100).unwrap(); // 200%
         VaultRegistry::<T>::set_liquidation_collateral_threshold(threshold);
