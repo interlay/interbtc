@@ -250,6 +250,10 @@ impl ExtBuilder {
                 (account_of(ALICE), 1_005_000),
                 (account_of(BOB), 1_005_000),
                 (account_of(CLAIRE), 1_005_000),
+                // create accounts for vault & fee pool; this needs a minimum amount because
+                // the parachain refuses to create accounts with a balance below `ExistentialDeposit`
+                (account_of(LIQUIDATION_VAULT), 1000),
+                (account_of(FEE_POOL), 1000),
             ],
         }
         .assimilate_storage(&mut storage)

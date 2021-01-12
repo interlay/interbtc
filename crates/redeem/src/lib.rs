@@ -218,7 +218,8 @@ decl_module! {
                 amount_polka_btc_in_dot
             )?;
 
-            let slashing_amount_in_dot = if reimburse {
+            // slash collateral from the vault to the user
+            let slashed_dot = if reimburse {
                 // user requested to be reimbursed in DOT
                 ext::vault_registry::decrease_tokens::<T>(
                     &redeem.vault,
@@ -236,22 +237,24 @@ decl_module! {
                     &redeem.redeemer,
                     reimburse_in_dot,
                 )?;
-                slashing_amount_in_dot.checked_sub(&amount_polka_btc_in_dot).ok_or(Error::<T>::ArithmeticUnderflow)?
+                reimburse_in_dot
             } else {
                 // user does not want full reimbursement and wishes to retry the redeem
-                ext::collateral::slash_collateral::<T>(&redeem.redeemer, &redeem.vault, punishment_fee_in_dot)?;
-                slashing_amount_in_dot
+                ext::collateral::slash_collateral::<T>(&redeem.vault, &redeem.redeemer, punishment_fee_in_dot)?;
+               punishment_fee_in_dot
             };
 
-            // slash the vault's collateral to mint fees
-            let sla_dot_delta = slashing_amount_in_dot.checked_sub(&punishment_fee_in_dot).ok_or(Error::<T>::ArithmeticUnderflow)?;
-            if sla_dot_delta > 0.into() {
+            // slash the remaining amount from the vault to the fee pool
+            let remaining_dot_to_be_slashed = slashing_amount_in_dot
+                .checked_sub(&slashed_dot)
+                .ok_or(Error::<T>::ArithmeticUnderflow)?;
+            if remaining_dot_to_be_slashed > 0.into() {
                 ext::collateral::slash_collateral::<T>(
                     &redeem.vault,
                     &ext::fee::fee_pool_account_id::<T>(),
-                    sla_dot_delta,
+                    remaining_dot_to_be_slashed,
                 )?;
-                ext::fee::increase_dot_rewards_for_epoch::<T>(sla_dot_delta);
+                ext::fee::increase_dot_rewards_for_epoch::<T>(remaining_dot_to_be_slashed);
             }
 
             ext::vault_registry::ban_vault::<T>(redeem.vault.clone())?;
