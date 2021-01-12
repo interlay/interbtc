@@ -457,11 +457,12 @@ impl<T: Trait> Module<T> {
             Error::<T>::CollateralBelowSecureThreshold
         );
 
-        // claim auctioning fee
+        // claim auctioning fee that is proportional to replace amount
+        let dot_amount = ext::oracle::btc_to_dots::<T>(btc_amount)?;
         ext::collateral::slash_collateral::<T>(
             old_vault_id.clone(),
             new_vault_id.clone(),
-            ext::fee::get_auction_redeem_fee::<T>(collateral)?,
+            ext::fee::get_auction_redeem_fee::<T>(dot_amount)?,
         )?;
 
         // Lock the newVault’s collateral by calling lockCollateral and providing newVault and collateral as parameters.

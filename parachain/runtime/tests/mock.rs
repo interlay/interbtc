@@ -27,6 +27,7 @@ pub type BTCRelayCall = btc_relay::Call<Runtime>;
 pub type BTCRelayModule = btc_relay::Module<Runtime>;
 pub type BTCRelayError = btc_relay::Error<Runtime>;
 pub type BTCRelayEvent = btc_relay::Event;
+pub type VaultRegistryError = vault_registry::Error<Runtime>;
 
 pub fn origin_of(account_id: AccountId) -> <Runtime as frame_system::Trait>::Origin {
     <Runtime as frame_system::Trait>::Origin::signed(account_id)

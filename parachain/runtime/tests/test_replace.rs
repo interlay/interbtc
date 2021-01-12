@@ -197,7 +197,8 @@ fn integration_test_replace_auction_replace() {
             collateral::Module::<Runtime>::get_collateral_from_account(&account_of(old_vault));
 
         // take auction fee from old vault collateral
-        let auction_fee = FeeModule::get_auction_redeem_fee(replace_collateral).unwrap();
+        let replace_amount_dot = ExchangeRateOracleModule::btc_to_dots(polkabtc).unwrap();
+        let auction_fee = FeeModule::get_auction_redeem_fee(replace_amount_dot).unwrap();
         assert_eq!(
             final_old_vault_collateral,
             initial_old_vault_collateral - auction_fee
@@ -357,7 +358,8 @@ fn integration_test_replace_cancel_auction_replace() {
         .dispatch(origin_of(account_of(new_vault))));
 
         // check old vault collateral
-        let auction_fee = FeeModule::get_auction_redeem_fee(replace_collateral).unwrap();
+        let replace_amount_dot = ExchangeRateOracleModule::btc_to_dots(polkabtc).unwrap();
+        let auction_fee = FeeModule::get_auction_redeem_fee(replace_amount_dot).unwrap();
         assert_eq!(
             collateral::Module::<Runtime>::get_collateral_from_account(&account_of(old_vault)),
             initial_old_vault_collateral - auction_fee
@@ -388,6 +390,73 @@ fn integration_test_replace_cancel_auction_replace() {
         assert_eq!(
             collateral::Module::<Runtime>::get_collateral_from_account(&account_of(new_vault)),
             initial_new_vault_collateral + auction_fee + griefing_collateral
+        );
+    });
+}
+
+#[test]
+fn integration_test_replace_cancel_repeatedly_fails() {
+    ExtBuilder::build().execute_with(|| {
+        SystemModule::set_block_number(1);
+        let user = CLAIRE;
+        let old_vault = ALICE;
+        let new_vault = BOB;
+        let collateral = 4_000;
+        let replace_collateral = collateral * 2;
+        let polkabtc = 1_000;
+
+        let old_vault_btc_address = BtcAddress::P2PKH(H160([1; 20]));
+        let new_vault_btc_address = BtcAddress::P2PKH(H160([2; 20]));
+
+        set_default_thresholds();
+        // peg spot rate
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
+            FixedU128::checked_from_rational(1, 100_000).unwrap()
+        ));
+        // old vault has issued some tokens with the user
+        force_issue_tokens(user, old_vault, collateral, polkabtc, old_vault_btc_address);
+
+        // new vault joins
+        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
+            collateral,
+            new_vault_btc_address
+        ))
+        .dispatch(origin_of(account_of(new_vault))));
+        // exchange rate drops and vault is not collateralized any more
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
+            FixedU128::checked_from_integer(3).unwrap()
+        ));
+
+        let initial_new_vault_collateral =
+            collateral::Module::<Runtime>::get_collateral_from_account(&account_of(new_vault));
+        let initial_old_vault_collateral =
+            collateral::Module::<Runtime>::get_collateral_from_account(&account_of(old_vault));
+
+        // new_vault takes over old_vault's position
+        assert_ok!(Call::Replace(ReplaceCall::auction_replace(
+            account_of(old_vault),
+            750,
+            replace_collateral
+        ))
+        .dispatch(origin_of(account_of(new_vault))));
+
+        assert_ok!(Call::Replace(ReplaceCall::auction_replace(
+            account_of(old_vault),
+            200,
+            replace_collateral
+        ))
+        .dispatch(origin_of(account_of(new_vault))));
+
+        // old_vault at this point only has 50 satoshi left, so this should fail
+        // TODO: change back to assert_noop
+        assert_err!(
+            Call::Replace(ReplaceCall::auction_replace(
+                account_of(old_vault),
+                200,
+                replace_collateral
+            ))
+            .dispatch(origin_of(account_of(new_vault))),
+            VaultRegistryError::InsufficientTokensCommitted
         );
     });
 }
