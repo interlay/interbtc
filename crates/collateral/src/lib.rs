@@ -16,23 +16,24 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, ensure, sp_runtime::ModuleId,
 };
 
-type BalanceOf<T> = <<T as Trait>::DOT as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+type BalanceOf<T> =
+    <<T as Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 /// The collateral's module id, used for deriving its sovereign account ID.
 const _MODULE_ID: ModuleId = ModuleId(*b"ily/cltl");
 
 /// The pallet's configuration trait.
-pub trait Trait: frame_system::Trait {
+pub trait Config: frame_system::Config {
     /// The DOT currency
     type DOT: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
 
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 }
 
 // This pallet's storage items.
 decl_storage! {
-    trait Store for Module<T: Trait> as Collateral {
+    trait Store for Module<T: Config> as Collateral {
         /// ## Storage
         /// Note that account's balances and locked balances are handled
         /// through the Balances module.
@@ -46,7 +47,7 @@ decl_storage! {
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as frame_system::Trait>::AccountId,
+        AccountId = <T as frame_system::Config>::AccountId,
         Balance = BalanceOf<T>,
     {
         LockCollateral(AccountId, Balance),
@@ -57,7 +58,7 @@ decl_event!(
 
 decl_module! {
     /// The module declaration.
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         type Error = Error<T>;
 
         // Initializing events
@@ -65,7 +66,7 @@ decl_module! {
     }
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     /// Total supply of DOT
     pub fn get_total_supply() -> BalanceOf<T> {
         T::DOT::total_issuance()
@@ -187,7 +188,7 @@ impl<T: Trait> Module<T> {
 }
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         /// Account has insufficient balance
         InsufficientFunds,
         /// Account has insufficient collateral

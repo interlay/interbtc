@@ -66,19 +66,19 @@ pub trait WeightInfo {
 
 /// ## Configuration
 /// The pallet's configuration trait.
-pub trait Trait:
-    frame_system::Trait
-    + security::Trait
-    + collateral::Trait
-    + vault_registry::Trait
-    + btc_relay::Trait
-    + redeem::Trait
-    + replace::Trait
-    + refund::Trait
-    + sla::Trait
+pub trait Config:
+    frame_system::Config
+    + security::Config
+    + collateral::Config
+    + vault_registry::Config
+    + btc_relay::Config
+    + redeem::Config
+    + replace::Config
+    + refund::Config
+    + sla::Config
 {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 
     /// Weight information for the extrinsics in this module.
     type WeightInfo: WeightInfo;
@@ -98,7 +98,7 @@ pub trait Trait:
 
 // This pallet's storage items.
 decl_storage! {
-    trait Store for Module<T: Trait> as Staking {
+    trait Store for Module<T: Config> as Staking {
         /// Mapping from accounts of active staked relayers to the StakedRelayer struct.
         ActiveStakedRelayers get(fn active_staked_relayer): map hasher(blake2_128_concat) T::AccountId => StakedRelayer<DOT<T>, T::BlockNumber>;
 
@@ -131,7 +131,7 @@ decl_storage! {
 
 // The pallet's dispatchable functions.
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         type Error = Error<T>;
 
         const MinimumDeposit: DOT<T> = T::MinimumDeposit::get();
@@ -150,7 +150,7 @@ decl_module! {
         ///
         /// * `origin`: The account of the Staked Relayer to be registered
         /// * `stake`: to-be-locked collateral/stake in DOT
-        #[weight = <T as Trait>::WeightInfo::register_staked_relayer()]
+        #[weight = <T as Config>::WeightInfo::register_staked_relayer()]
         #[transactional]
         fn register_staked_relayer(origin, stake: DOT<T>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
@@ -183,7 +183,7 @@ decl_module! {
         /// # Arguments
         ///
         /// * `origin`: The account of the Staked Relayer to be deregistered
-        #[weight = <T as Trait>::WeightInfo::deregister_staked_relayer()]
+        #[weight = <T as Config>::WeightInfo::deregister_staked_relayer()]
         #[transactional]
         fn deregister_staked_relayer(origin) -> DispatchResult {
             let signer = ensure_signed(origin)?;
@@ -206,7 +206,7 @@ decl_module! {
         /// * `remove_error`: [Optional] ErrorCode to be removed from the Errors list.
         /// * `block_hash`: [Optional] When reporting an error related to BTC-Relay, this field indicates the affected Bitcoin block (header).
         /// * `message`: Message detailing reason for status update
-        #[weight = <T as Trait>::WeightInfo::suggest_status_update()]
+        #[weight = <T as Config>::WeightInfo::suggest_status_update()]
         #[transactional]
         fn suggest_status_update(origin, deposit: DOT<T>, status_code: StatusCode, add_error: Option<ErrorCode>, remove_error: Option<ErrorCode>, block_hash: Option<H256Le>, message: Vec<u8>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
@@ -306,7 +306,7 @@ decl_module! {
         /// * `origin`: The AccountId of the Staked Relayer casting the vote.
         /// * `status_update_id`: Identifier of the `StatusUpdate` voted upon in `ActiveStatusUpdates`.
         /// * `approve`: `True` or `False`, depending on whether the Staked Relayer agrees or disagrees with the suggested `StatusUpdate`.
-        #[weight = <T as Trait>::WeightInfo::vote_on_status_update()]
+        #[weight = <T as Config>::WeightInfo::vote_on_status_update()]
         #[transactional]
         fn vote_on_status_update(origin, status_update_id: u64, approve: bool) -> DispatchResult {
             let signer = ensure_signed(origin)?;
@@ -333,7 +333,7 @@ decl_module! {
         /// * `origin`: The AccountId of the Governance Mechanism.
         /// * `status_code`: Suggested BTC Parachain status (`StatusCode` enum).
         /// * `errors`: If the suggested status is `Error`, this set of `ErrorCode` entries provides details on the occurred errors.
-        #[weight = <T as Trait>::WeightInfo::force_status_update()]
+        #[weight = <T as Config>::WeightInfo::force_status_update()]
         #[transactional]
         fn force_status_update(origin, status_code: StatusCode, add_error: Option<ErrorCode>, remove_error: Option<ErrorCode>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
@@ -365,7 +365,7 @@ decl_module! {
         ///
         /// * `origin`: The AccountId of the Governance Mechanism.
         /// * `staked_relayer_id`: The account of the Staked Relayer to be slashed.
-        #[weight = <T as Trait>::WeightInfo::slash_staked_relayer()]
+        #[weight = <T as Config>::WeightInfo::slash_staked_relayer()]
         #[transactional]
         fn slash_staked_relayer(origin, staked_relayer_id: T::AccountId) -> DispatchResult {
             let signer = ensure_signed(origin)?;
@@ -391,7 +391,7 @@ decl_module! {
         /// * `tx_id`: The hash of the transaction
         /// * `merkle_proof`: The proof of tx inclusion.
         /// * `raw_tx`: The raw Bitcoin transaction.
-        #[weight = <T as Trait>::WeightInfo::report_vault_theft()]
+        #[weight = <T as Config>::WeightInfo::report_vault_theft()]
         #[transactional]
         fn report_vault_theft(origin, vault_id: T::AccountId, tx_id: H256Le, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
@@ -429,7 +429,7 @@ decl_module! {
 
         /// A Staked Relayer reports that a Vault is undercollateralized (i.e. below the LiquidationCollateralThreshold as defined in Vault Registry).
         /// If the collateral falls below this rate, we flag the Vault for liquidation.
-        #[weight = <T as Trait>::WeightInfo::report_vault_under_liquidation_threshold()]
+        #[weight = <T as Config>::WeightInfo::report_vault_under_liquidation_threshold()]
         #[transactional]
         fn report_vault_under_liquidation_threshold(origin, vault_id: T::AccountId)  -> DispatchResult {
             let signer = ensure_signed(origin)?;
@@ -498,7 +498,7 @@ decl_module! {
         /// * `status_update_id` - id of the active status update to remove
         ///
         /// # Weight: `O(1)`
-        #[weight = <T as Trait>::WeightInfo::remove_active_status_update()]
+        #[weight = <T as Config>::WeightInfo::remove_active_status_update()]
         #[transactional]
         fn remove_active_status_update(origin, status_update_id: u64) {
             ensure_root(origin)?;
@@ -513,7 +513,7 @@ decl_module! {
         /// * `status_update_id` - id of the inactive status update to remove
         ///
         /// # Weight: `O(1)`
-        #[weight = <T as Trait>::WeightInfo::remove_inactive_status_update()]
+        #[weight = <T as Config>::WeightInfo::remove_inactive_status_update()]
         #[transactional]
         fn remove_inactive_status_update(origin, status_update_id: u64) {
             ensure_root(origin)?;
@@ -528,7 +528,7 @@ decl_module! {
         /// * `period` - the number of blocks to wait before a relayer is considered active.
         ///
         /// # Weight: `O(1)`
-        #[weight = <T as Trait>::WeightInfo::set_maturity_period()]
+        #[weight = <T as Config>::WeightInfo::set_maturity_period()]
         #[transactional]
         fn set_maturity_period(origin, period: T::BlockNumber) {
             ensure_root(origin)?;
@@ -550,7 +550,7 @@ decl_module! {
 
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     fn begin_block(height: T::BlockNumber) -> DispatchResult {
         for (id, acc) in <InactiveStakedRelayers<T>>::iter() {
             let _ = Self::try_bond_staked_relayer(&id, acc.stake, height, acc.height);
@@ -1195,8 +1195,8 @@ impl<T: Trait> Module<T> {
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as frame_system::Trait>::AccountId,
-        BlockNumber = <T as frame_system::Trait>::BlockNumber,
+        AccountId = <T as frame_system::Config>::AccountId,
+        BlockNumber = <T as frame_system::Config>::BlockNumber,
         DOT = DOT<T>,
     {
         RegisterStakedRelayer(AccountId, BlockNumber, DOT),
@@ -1225,7 +1225,7 @@ decl_event!(
 );
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         /// Staked relayer is already registered
         AlreadyRegistered,
         /// Insufficient collateral staked

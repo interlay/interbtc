@@ -39,38 +39,54 @@ module-sla-rpc = { path = "../crates/sla/rpc" }
 module-refund-rpc = { path = "../crates/refund/rpc" }
 
 # Substrate dependencies
-sc-consensus = { version = "0.8.0" }
-sc-consensus-aura = { version = "0.8.0" }
-sc-cli = { version = "0.8.0", features = ["wasmtime"] }
-sc-client-api = { version = "2.0.0" }
-sc-executor = { version = "0.8.0", features = ["wasmtime"] }
-sc-rpc = { version = "2.0.0" }
-sc-rpc-api = { version = "0.8.0" }
-sc-service = { version = "0.8.0", features = ["wasmtime"] }
-sc-transaction-pool = { version = "2.0.0" }
-sc-basic-authorship = { version = "0.8.0" }
-sc-finality-grandpa = { version = "0.8.0" }
-sc-chain-spec = { version = "2.0.0" }
-sc-tracing = { version = "2.0.0" }
-sp-runtime = { version = "2.0.0" }
-sp-io = { version = "2.0.0" }
-sp-api = { version = "2.0.0" }
-sp-core = { version = "2.0.0" }
-sp-inherents = { version = "2.0.0" }
-sp-consensus = { version = "0.8.0" }
-sp-consensus-aura = { version = "0.8.0" }
-sp-session = { version = "2.0.0" }
-sp-offchain = { version = "2.0.0" }
-sp-block-builder = { version = "2.0.0" }
-sp-blockchain = { version = "2.0.0" }
-sp-timestamp = { version = "2.0.0" }
-sp-trie = { version = "2.0.0" }
-sp-transaction-pool = { version = "2.0.0" }
-sp-arithmetic = { version = "2.0.0" }
-sp-finality-grandpa = { version = "2.0.0" }
+sc-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-consensus-aura = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-cli = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-executor = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-rpc-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-service = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-network = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-basic-authorship = { git = "https://github.com/paritytech/substrate", branch = "master", version = "0.8.0-rc5" }
+sc-finality-grandpa = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-informant = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-chain-spec = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sc-tracing = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+sp-io = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-api = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-consensus-aura = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-session = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-offchain = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-timestamp = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-trie = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "master" }
+sp-finality-grandpa = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
-pallet-transaction-payment-rpc = { version = "2.0.0" }
-substrate-frame-rpc-system = { version = "2.0.0" }
+pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/substrate", branch = "master" }
+substrate-frame-rpc-system = { git = "https://github.com/paritytech/substrate", branch = "master" }
 
-frame-benchmarking = { version = "2.0.0" }
-frame-benchmarking-cli = { version = "2.0.0" }
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "master" }
+frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", branch = "master" }
+
+# Cumulus dependencies
+cumulus-consensus = { git = "https://github.com/paritytech/cumulus", default-features = false, branch = "master" }
+cumulus-collator = { git = "https://github.com/paritytech/cumulus", default-features = false, branch = "master" }
+cumulus-network = { git = "https://github.com/paritytech/cumulus", default-features = false, branch = "master" }
+cumulus-primitives = { git = "https://github.com/paritytech/cumulus", default-features = false, branch = "master" }
+cumulus-service = { git = "https://github.com/paritytech/cumulus", default-features = false, branch = "master" }
+
+# Polkadot dependencies
+polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-cli = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-test-service = { git = "https://github.com/paritytech/polkadot", branch = "master" }
+polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "master" }

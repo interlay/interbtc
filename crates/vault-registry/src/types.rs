@@ -1,5 +1,5 @@
 use crate::sp_api_hidden_includes_decl_storage::hidden_include::StorageValue;
-use crate::{ext, Error, Module, Trait};
+use crate::{ext, Config, Error, Module};
 use codec::{Decode, Encode, HasCompact};
 use frame_support::traits::Currency;
 use frame_support::{
@@ -26,14 +26,15 @@ pub enum Version {
 }
 
 pub(crate) type DOT<T> =
-    <<T as collateral::Trait>::DOT as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+    <<T as collateral::Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-pub(crate) type PolkaBTC<T> =
-    <<T as treasury::Trait>::PolkaBTC as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+pub(crate) type PolkaBTC<T> = <<T as treasury::Config>::PolkaBTC as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::Balance;
 
-pub(crate) type UnsignedFixedPoint<T> = <T as Trait>::UnsignedFixedPoint;
+pub(crate) type UnsignedFixedPoint<T> = <T as Config>::UnsignedFixedPoint;
 
-pub(crate) type Inner<T> = <<T as Trait>::UnsignedFixedPoint as FixedPointNumber>::Inner;
+pub(crate) type Inner<T> = <<T as Config>::UnsignedFixedPoint as FixedPointNumber>::Inner;
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
 pub struct Wallet {
@@ -133,14 +134,14 @@ impl<AccountId, BlockNumber, PolkaBTC: HasCompact + Default>
 }
 
 pub type DefaultVault<T> = Vault<
-    <T as frame_system::Trait>::AccountId,
-    <T as frame_system::Trait>::BlockNumber,
+    <T as frame_system::Config>::AccountId,
+    <T as frame_system::Config>::BlockNumber,
     PolkaBTC<T>,
 >;
 
-pub type DefaultSystemVault<T> = SystemVault<<T as frame_system::Trait>::AccountId, PolkaBTC<T>>;
+pub type DefaultSystemVault<T> = SystemVault<<T as frame_system::Config>::AccountId, PolkaBTC<T>>;
 
-pub trait UpdatableVault<T: Trait> {
+pub trait UpdatableVault<T: Config> {
     fn id(&self) -> T::AccountId;
 
     fn issued_tokens(&self) -> PolkaBTC<T>;
@@ -163,11 +164,11 @@ pub trait UpdatableVault<T: Trait> {
     }
 }
 
-pub(crate) struct RichVault<T: Trait> {
+pub(crate) struct RichVault<T: Config> {
     pub(crate) data: DefaultVault<T>,
 }
 
-impl<T: Trait> UpdatableVault<T> for RichVault<T> {
+impl<T: Config> UpdatableVault<T> for RichVault<T> {
     fn id(&self) -> T::AccountId {
         self.data.id.clone()
     }
@@ -194,7 +195,7 @@ impl<T: Trait> UpdatableVault<T> for RichVault<T> {
 }
 
 #[cfg_attr(test, mockable)]
-impl<T: Trait> RichVault<T> {
+impl<T: Config> RichVault<T> {
     pub fn increase_collateral(&self, collateral: DOT<T>) -> DispatchResult {
         ext::collateral::lock::<T>(&self.data.id, collateral)
     }
@@ -389,23 +390,23 @@ impl<T: Trait> RichVault<T> {
     }
 }
 
-impl<T: Trait> From<&RichVault<T>> for DefaultVault<T> {
+impl<T: Config> From<&RichVault<T>> for DefaultVault<T> {
     fn from(rv: &RichVault<T>) -> DefaultVault<T> {
         rv.data.clone()
     }
 }
 
-impl<T: Trait> From<DefaultVault<T>> for RichVault<T> {
+impl<T: Config> From<DefaultVault<T>> for RichVault<T> {
     fn from(vault: DefaultVault<T>) -> RichVault<T> {
         RichVault { data: vault }
     }
 }
 
-pub(crate) struct RichSystemVault<T: Trait> {
+pub(crate) struct RichSystemVault<T: Config> {
     pub(crate) data: DefaultSystemVault<T>,
 }
 
-impl<T: Trait> UpdatableVault<T> for RichSystemVault<T> {
+impl<T: Config> UpdatableVault<T> for RichSystemVault<T> {
     fn id(&self) -> T::AccountId {
         self.data.id.clone()
     }
@@ -432,7 +433,7 @@ impl<T: Trait> UpdatableVault<T> for RichSystemVault<T> {
 }
 
 #[cfg_attr(test, mockable)]
-impl<T: Trait> RichSystemVault<T> {
+impl<T: Config> RichSystemVault<T> {
     fn update<F>(&mut self, func: F) -> ()
     where
         F: Fn(&mut DefaultSystemVault<T>) -> (),
@@ -442,13 +443,13 @@ impl<T: Trait> RichSystemVault<T> {
     }
 }
 
-impl<T: Trait> From<&RichSystemVault<T>> for DefaultSystemVault<T> {
+impl<T: Config> From<&RichSystemVault<T>> for DefaultSystemVault<T> {
     fn from(rv: &RichSystemVault<T>) -> DefaultSystemVault<T> {
         rv.data.clone()
     }
 }
 
-impl<T: Trait> From<DefaultSystemVault<T>> for RichSystemVault<T> {
+impl<T: Config> From<DefaultSystemVault<T>> for RichSystemVault<T> {
     fn from(vault: DefaultSystemVault<T>) -> RichSystemVault<T> {
         RichSystemVault { data: vault }
     }

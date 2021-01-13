@@ -26,8 +26,6 @@ fn dummy_public_key() -> BtcPublicKey {
 }
 
 benchmarks! {
-    _ {}
-
     request_issue {
         let origin: T::AccountId = account("Origin", 0, 0);
         let amount = 100;
@@ -35,8 +33,8 @@ benchmarks! {
         let griefing = 100;
 
         Collateral::<T>::lock_collateral(&vault_id, 100000000.into()).unwrap();
-        ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Trait>::UnsignedFixedPoint::one()).unwrap();
-        VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Trait>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());// 0.001%
+        ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()).unwrap();
+        VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());// 0.001%
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
@@ -121,8 +119,8 @@ benchmarks! {
             vault
         );
 
-        VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Trait>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());
-        ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Trait>::UnsignedFixedPoint::one()).unwrap();
+        VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());
+        ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()).unwrap();
         Collateral::<T>::lock_collateral(&vault_id, 100000000.into()).unwrap();
         let secure_id = Security::<T>::get_secure_id(&vault_id);
         VaultRegistry::<T>::increase_to_be_issued_tokens(&vault_id, secure_id, value.into()).unwrap();

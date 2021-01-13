@@ -38,14 +38,15 @@ use sp_std::vec::Vec;
 use util::transactional;
 
 pub(crate) type DOT<T> =
-    <<T as collateral::Trait>::DOT as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+    <<T as collateral::Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-pub(crate) type PolkaBTC<T> =
-    <<T as treasury::Trait>::PolkaBTC as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+pub(crate) type PolkaBTC<T> = <<T as treasury::Config>::PolkaBTC as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::Balance;
 
-pub(crate) type UnsignedFixedPoint<T> = <T as Trait>::UnsignedFixedPoint;
+pub(crate) type UnsignedFixedPoint<T> = <T as Config>::UnsignedFixedPoint;
 
-pub(crate) type Inner<T> = <<T as Trait>::UnsignedFixedPoint as FixedPointNumber>::Inner;
+pub(crate) type Inner<T> = <<T as Config>::UnsignedFixedPoint as FixedPointNumber>::Inner;
 
 /// Storage version.
 #[derive(Encode, Decode, Eq, PartialEq)]
@@ -68,15 +69,15 @@ const DOT_DECIMALS: u32 = 10;
 
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
-pub trait Trait:
-    frame_system::Trait
-    + pallet_timestamp::Trait
-    + treasury::Trait
-    + collateral::Trait
-    + security::Trait
+pub trait Config:
+    frame_system::Config
+    + pallet_timestamp::Config
+    + treasury::Config
+    + collateral::Config
+    + security::Config
 {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 
     type UnsignedFixedPoint: FixedPointNumber + Encode + EncodeLike + Decode;
 
@@ -96,7 +97,7 @@ pub struct BtcTxFeesPerByte {
 
 // This pallet's storage items.
 decl_storage! {
-    trait Store for Module<T: Trait> as ExchangeRateOracle {
+    trait Store for Module<T: Config> as ExchangeRateOracle {
         /// ## Storage
         /// Current planck per satoshi rate
         ExchangeRate: UnsignedFixedPoint<T>;
@@ -118,7 +119,7 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         // Initializing events
         fn deposit_event() = default;
 
@@ -156,7 +157,7 @@ decl_module! {
         ///
         /// * `dot_per_btc` - exchange rate in dot per btc. Note that this is _not_ the same unit
         /// that is stored in the ExchangeRate storage item.
-        #[weight = <T as Trait>::WeightInfo::set_exchange_rate()]
+        #[weight = <T as Config>::WeightInfo::set_exchange_rate()]
         #[transactional]
         pub fn set_exchange_rate(origin, dot_per_btc: UnsignedFixedPoint<T>) -> DispatchResult {
             // Check that Parachain is not in SHUTDOWN
@@ -175,7 +176,7 @@ decl_module! {
             Ok(())
         }
 
-        #[weight = <T as Trait>::WeightInfo::set_btc_tx_fees_per_byte()]
+        #[weight = <T as Config>::WeightInfo::set_btc_tx_fees_per_byte()]
         #[transactional]
         pub fn set_btc_tx_fees_per_byte(origin, fast: u32, half: u32, hour: u32) -> DispatchResult {
             // Check that Parachain is not in SHUTDOWN
@@ -195,7 +196,7 @@ decl_module! {
             Ok(())
         }
 
-        #[weight = <T as Trait>::WeightInfo::insert_authorized_oracle()]
+        #[weight = <T as Config>::WeightInfo::insert_authorized_oracle()]
         #[transactional]
         pub fn insert_authorized_oracle(origin, account_id: T::AccountId, name: Vec<u8>) -> DispatchResult {
             ensure_root(origin)?;
@@ -203,7 +204,7 @@ decl_module! {
             Ok(())
         }
 
-        #[weight = <T as Trait>::WeightInfo::remove_authorized_oracle()]
+        #[weight = <T as Config>::WeightInfo::remove_authorized_oracle()]
         #[transactional]
         pub fn remove_authorized_oracle(origin, account_id: T::AccountId) -> DispatchResult {
             ensure_root(origin)?;
@@ -214,7 +215,7 @@ decl_module! {
 }
 
 #[cfg_attr(test, mockable)]
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     /// Public getters
 
     /// Get the exchange rate in planck per satoshi
@@ -341,7 +342,7 @@ impl<T: Trait> Module<T> {
 decl_event! {
     /// ## Events
     pub enum Event<T> where
-            AccountId = <T as frame_system::Trait>::AccountId,
+            AccountId = <T as frame_system::Config>::AccountId,
             UnsignedFixedPoint = UnsignedFixedPoint<T>,
         {
         /// Event emitted when exchange rate is set
@@ -352,7 +353,7 @@ decl_event! {
 }
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         /// Not authorized to set exchange rate
         InvalidOracleSource,
         /// Exchange rate not specified or has expired

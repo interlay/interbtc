@@ -32,14 +32,14 @@ use sp_std::prelude::*;
 
 /// ## Configuration
 /// The pallet's configuration trait.
-pub trait Trait: frame_system::Trait {
+pub trait Config: frame_system::Config {
     /// The overarching event type.
-    type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
 }
 
 // This pallet's storage items.
 decl_storage! {
-    trait Store for Module<T: Trait> as SecurityModule {
+    trait Store for Module<T: Config> as SecurityModule {
         /// Integer/Enum defining the current state of the BTC-Parachain.
         ParachainStatus get(fn status): StatusCode;
 
@@ -54,7 +54,7 @@ decl_storage! {
 
 // The pallet's dispatchable functions.
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -63,7 +63,7 @@ decl_module! {
 
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     /// Ensures the Parachain is RUNNING
     pub fn ensure_parachain_status_running() -> DispatchResult {
         if <ParachainStatus>::get() == StatusCode::Running {
@@ -262,7 +262,7 @@ decl_event!(
 );
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         NoDataBTCRelay,
         InvalidBTCRelay,
         ParachainNotRunning,
@@ -274,7 +274,7 @@ decl_error! {
     }
 }
 
-impl<T: Trait> From<ErrorCode> for Error<T> {
+impl<T: Config> From<ErrorCode> for Error<T> {
     fn from(error_code: ErrorCode) -> Self {
         match error_code {
             ErrorCode::NoDataBTCRelay => Error::NoDataBTCRelay,

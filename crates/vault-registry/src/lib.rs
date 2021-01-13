@@ -65,15 +65,15 @@ pub trait WeightInfo {
 
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
-pub trait Trait:
-    frame_system::Trait
-    + collateral::Trait
-    + treasury::Trait
-    + exchange_rate_oracle::Trait
-    + security::Trait
+pub trait Config:
+    frame_system::Config
+    + collateral::Config
+    + treasury::Config
+    + exchange_rate_oracle::Config
+    + security::Config
 {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 
     type RandomnessSource: Randomness<H256>;
 
@@ -85,7 +85,7 @@ pub trait Trait:
 
 // This pallet's storage items.
 decl_storage! {
-    trait Store for Module<T: Trait> as VaultRegistry {
+    trait Store for Module<T: Config> as VaultRegistry {
         /// ## Storage
         /// The minimum collateral (DOT) a Vault needs to provide
         /// to participate in the issue process.
@@ -143,7 +143,7 @@ decl_storage! {
 
 // The pallet's dispatchable functions.
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         type Error = Error<T>;
 
         // Initializing events
@@ -166,7 +166,7 @@ decl_module! {
         /// * `InsufficientVaultCollateralAmount` - if the collateral is below the minimum threshold
         /// * `VaultAlreadyRegistered` - if a vault is already registered for the origin account
         /// * `InsufficientCollateralAvailable` - if the vault does not own enough collateral
-        #[weight = <T as Trait>::WeightInfo::register_vault()]
+        #[weight = <T as Config>::WeightInfo::register_vault()]
         #[transactional]
         fn register_vault(origin, collateral: DOT<T>, public_key: BtcPublicKey) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -194,7 +194,7 @@ decl_module! {
         /// # Errors
         /// * `VaultNotFound` - if no vault exists for the origin account
         /// * `InsufficientCollateralAvailable` - if the vault does not own enough collateral
-        #[weight = <T as Trait>::WeightInfo::lock_additional_collateral()]
+        #[weight = <T as Config>::WeightInfo::lock_additional_collateral()]
         #[transactional]
         fn lock_additional_collateral(origin, amount: DOT<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -226,7 +226,7 @@ decl_module! {
         /// # Errors
         /// * `VaultNotFound` - if no vault exists for the origin account
         /// * `InsufficientCollateralAvailable` - if the vault does not own enough collateral
-        #[weight = <T as Trait>::WeightInfo::withdraw_collateral()]
+        #[weight = <T as Config>::WeightInfo::withdraw_collateral()]
         #[transactional]
         fn withdraw_collateral(origin, amount: DOT<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -245,7 +245,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `public_key` - the BTC public key of the vault to update
-        #[weight = <T as Trait>::WeightInfo::update_public_key()]
+        #[weight = <T as Config>::WeightInfo::update_public_key()]
         #[transactional]
         fn update_public_key(origin, public_key: BtcPublicKey) -> DispatchResult {
             let account_id = ensure_signed(origin)?;
@@ -256,7 +256,7 @@ decl_module! {
             Ok(())
         }
 
-        #[weight = <T as Trait>::WeightInfo::register_address()]
+        #[weight = <T as Config>::WeightInfo::register_address()]
         #[transactional]
         fn register_address(origin, btc_address: BtcAddress) -> DispatchResult {
             let account_id = ensure_signed(origin)?;
@@ -276,7 +276,7 @@ decl_module! {
 }
 
 #[cfg_attr(test, mockable)]
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     fn begin_block(_height: T::BlockNumber) -> DispatchResult {
         Self::liquidate_undercollateralized_vaults();
         Ok(())
@@ -1104,7 +1104,7 @@ impl<T: Trait> Module<T> {
 decl_event! {
     /// ## Events
     pub enum Event<T> where
-            AccountId = <T as frame_system::Trait>::AccountId,
+            AccountId = <T as frame_system::Config>::AccountId,
             DOT = DOT<T>,
             BTCBalance = PolkaBTC<T> {
         RegisterVault(AccountId, DOT),
@@ -1129,7 +1129,7 @@ decl_event! {
 }
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         InsufficientCollateral,
         /// The amount of tokens to be issued is higher than the issuable amount by the vault
         ExceedingVaultLimit,

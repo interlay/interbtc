@@ -10,15 +10,13 @@ const SEED: u32 = 0;
 const ED_MULTIPLIER: u32 = 10;
 
 benchmarks! {
-    _ {}
-
     withdraw_polka_btc {
         let fee_pool: T::AccountId = whitelisted_caller();
         <FeePoolAccountId::<T>>::set(fee_pool.clone());
 
-        let existential_deposit = <<T as treasury::Trait>::PolkaBTC as Currency<_>>::minimum_balance();
+        let existential_deposit = <<T as treasury::Config>::PolkaBTC as Currency<_>>::minimum_balance();
         let balance = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
-        let _ = <<T as treasury::Trait>::PolkaBTC as Currency<_>>::make_free_balance_be(&fee_pool, balance);
+        let _ = <<T as treasury::Config>::PolkaBTC as Currency<_>>::make_free_balance_be(&fee_pool, balance);
 
         let recipient: T::AccountId = account("recipient", 0, SEED);
         let amount = existential_deposit.saturating_mul((ED_MULTIPLIER - 1).into()) + 1u32.into();
@@ -30,9 +28,9 @@ benchmarks! {
         let fee_pool: T::AccountId = whitelisted_caller();
         <FeePoolAccountId::<T>>::set(fee_pool.clone());
 
-        let existential_deposit = <<T as collateral::Trait>::DOT as Currency<_>>::minimum_balance();
+        let existential_deposit = <<T as collateral::Config>::DOT as Currency<_>>::minimum_balance();
         let balance = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
-        let _ = <<T as collateral::Trait>::DOT as Currency<_>>::make_free_balance_be(&fee_pool, balance);
+        let _ = <<T as collateral::Config>::DOT as Currency<_>>::make_free_balance_be(&fee_pool, balance);
 
         let recipient: T::AccountId = account("recipient", 0, SEED);
         let amount = existential_deposit.saturating_mul((ED_MULTIPLIER - 1).into()) + 1u32.into();

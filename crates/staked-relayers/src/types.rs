@@ -9,10 +9,11 @@ use sp_std::fmt::Debug;
 use sp_std::prelude::Vec;
 
 pub(crate) type DOT<T> =
-    <<T as collateral::Trait>::DOT as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+    <<T as collateral::Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-pub(crate) type PolkaBTC<T> =
-    <<T as treasury::Trait>::PolkaBTC as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+pub(crate) type PolkaBTC<T> = <<T as treasury::Config>::PolkaBTC as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::Balance;
 
 /// Indicates the state of a proposed StatusUpdate.
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]

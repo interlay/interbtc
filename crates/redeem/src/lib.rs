@@ -59,17 +59,17 @@ pub trait WeightInfo {
 }
 
 /// The pallet's configuration trait.
-pub trait Trait:
-    frame_system::Trait
-    + vault_registry::Trait
-    + collateral::Trait
-    + btc_relay::Trait
-    + treasury::Trait
-    + fee::Trait
-    + sla::Trait
+pub trait Config:
+    frame_system::Config
+    + vault_registry::Config
+    + collateral::Config
+    + btc_relay::Config
+    + treasury::Config
+    + fee::Config
+    + sla::Config
 {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 
     /// Weight information for the extrinsics in this module.
     type WeightInfo: WeightInfo;
@@ -77,7 +77,7 @@ pub trait Trait:
 
 // The pallet's storage items.
 decl_storage! {
-    trait Store for Module<T: Trait> as Redeem {
+    trait Store for Module<T: Config> as Redeem {
         /// The time difference in number of blocks between a redeem request is created and required completion time by a vault.
         /// The redeem period has an upper limit to ensure the user gets their BTC in time and to potentially punish a vault for inactivity or stealing BTC.
         RedeemPeriod get(fn redeem_period) config(): T::BlockNumber;
@@ -99,7 +99,7 @@ decl_storage! {
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as frame_system::Trait>::AccountId,
+        AccountId = <T as frame_system::Config>::AccountId,
         PolkaBTC = PolkaBTC<T>,
     {
         // [redeemId, redeemer, amountPolkaBTC, vault, btcAddress]
@@ -116,7 +116,7 @@ decl_event!(
 // The pallet's dispatchable functions.
 decl_module! {
     /// The module declaration.
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         type Error = Error<T>;
 
         // Initializing events
@@ -139,7 +139,7 @@ decl_module! {
         /// * `amount` - amount of PolkaBTC
         /// * `btc_address` - the address to receive BTC
         /// * `vault_id` - [optional] address of the vault
-        #[weight = <T as Trait>::WeightInfo::request_redeem()]
+        #[weight = <T as Config>::WeightInfo::request_redeem()]
         #[transactional]
         fn request_redeem(origin, amount_polka_btc: PolkaBTC<T>, btc_address: BtcAddress, vault_id: T::AccountId)
             -> DispatchResult
@@ -149,7 +149,7 @@ decl_module! {
             Ok(())
         }
 
-        #[weight = <T as Trait>::WeightInfo::liquidation_redeem()]
+        #[weight = <T as Config>::WeightInfo::liquidation_redeem()]
         #[transactional]
         fn liquidation_redeem(origin, amount_polka_btc: PolkaBTC<T>) -> DispatchResult
         {
@@ -170,7 +170,7 @@ decl_module! {
         /// * `tx_block_height` - block number of backing chain
         /// * `merkle_proof` - raw bytes
         /// * `raw_tx` - raw bytes
-        #[weight = <T as Trait>::WeightInfo::execute_redeem()]
+        #[weight = <T as Config>::WeightInfo::execute_redeem()]
         #[transactional]
         fn execute_redeem(origin, redeem_id: H256, tx_id: H256Le, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
             -> DispatchResult
@@ -191,7 +191,7 @@ decl_module! {
         /// * `reimburse` - specifying if the user wishes to be reimbursed in DOT
         /// and slash the Vault, or wishes to keep the PolkaBTC (and retry
         /// Redeem with another Vault)
-        #[weight = <T as Trait>::WeightInfo::cancel_redeem()]
+        #[weight = <T as Config>::WeightInfo::cancel_redeem()]
         #[transactional]
         fn cancel_redeem(origin, redeem_id: H256, reimburse: bool)
             -> DispatchResult
@@ -209,7 +209,7 @@ decl_module! {
         /// * `period` - default period for new requests
         ///
         /// # Weight: `O(1)`
-        #[weight = <T as Trait>::WeightInfo::set_redeem_period()]
+        #[weight = <T as Config>::WeightInfo::set_redeem_period()]
         #[transactional]
         fn set_redeem_period(origin, period: T::BlockNumber) {
             ensure_root(origin)?;
@@ -220,7 +220,7 @@ decl_module! {
 
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     fn _request_redeem(
         redeemer: T::AccountId,
         amount_polka_btc: PolkaBTC<T>,
@@ -571,13 +571,13 @@ impl<T: Trait> Module<T> {
     }
 }
 
-fn has_request_expired<T: Trait>(opentime: T::BlockNumber, period: T::BlockNumber) -> bool {
+fn has_request_expired<T: Config>(opentime: T::BlockNumber, period: T::BlockNumber) -> bool {
     let height = <frame_system::Module<T>>::block_number();
     height > opentime + period
 }
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         AmountExceedsUserBalance,
         AmountExceedsVaultBalance,
         UnauthorizedVault,

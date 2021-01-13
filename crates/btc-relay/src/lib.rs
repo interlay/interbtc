@@ -65,9 +65,9 @@ pub trait WeightInfo {
 /// The pallet's configuration trait.
 /// For further reference, see:
 /// https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/spec/data-model.html
-pub trait Trait: frame_system::Trait + security::Trait + sla::Trait {
+pub trait Config: frame_system::Config + security::Config + sla::Config {
     /// The overarching event type.
-    type Event: From<Event> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
 
     /// Weight information for the extrinsics in this module.
     type WeightInfo: WeightInfo;
@@ -109,7 +109,7 @@ pub const ACCEPTED_NO_TRANSACTION_OUTPUTS: u32 = 2;
 
 // This pallet's storage items.
 decl_storage! {
-    trait Store for Module<T: Trait> as BTCRelay {
+    trait Store for Module<T: Config> as BTCRelay {
         /// ## Storage
         /// Store Bitcoin block headers
         BlockHeaders: map hasher(blake2_128_concat) H256Le => RichBlockHeader;
@@ -169,7 +169,7 @@ macro_rules! extract_op_return {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         // Initialize errors
         type Error = Error<T>;
 
@@ -182,7 +182,7 @@ decl_module! {
         /// * `block_header_bytes` - 80 byte raw Bitcoin block header.
         /// * `block_height` - Bitcoin block height of the submitted
         /// block header.
-        #[weight = <T as Trait>::WeightInfo::initialize()]
+        #[weight = <T as Config>::WeightInfo::initialize()]
         #[transactional]
         fn initialize(
             origin,
@@ -199,7 +199,7 @@ decl_module! {
         /// # Arguments
         ///
         /// * `raw_block_header` - 80 byte raw Bitcoin block header.
-        #[weight = <T as Trait>::WeightInfo::store_block_header()]
+        #[weight = <T as Config>::WeightInfo::store_block_header()]
         #[transactional]
         fn store_block_header(
             origin, raw_block_header: RawBlockHeader
@@ -213,7 +213,7 @@ decl_module! {
         /// # Arguments
         ///
         /// * `raw_block_headers` - vector of Bitcoin block headers.
-        #[weight = <T as Trait>::WeightInfo::store_block_headers(raw_block_headers.len() as u32)]
+        #[weight = <T as Config>::WeightInfo::store_block_headers(raw_block_headers.len() as u32)]
         #[transactional]
         fn store_block_headers(
             origin, raw_block_headers: Vec<RawBlockHeader>
@@ -241,7 +241,7 @@ decl_module! {
         /// * `paymentValue` - value of BTC sent in the 1st / payment UTXO of the transaction
         /// * `recipientBtcAddress` - 20 byte Bitcoin address of recipient of the BTC in the 1st  / payment UTXO
         /// * `op_return_id` - 32 byte hash identifier expected in OP_RETURN (replay protection)
-        #[weight = <T as Trait>::WeightInfo::verify_and_validate_transaction()]
+        #[weight = <T as Config>::WeightInfo::verify_and_validate_transaction()]
         #[transactional]
         fn verify_and_validate_transaction(
             origin,
@@ -279,7 +279,7 @@ decl_module! {
         /// * `raw_merkle_proof` - The raw merkle proof as returned by bitcoin `gettxoutproof`
         /// * `confirmations` - The number of confirmations needed to accept the proof. If `none`,
         /// the value stored in the StableBitcoinConfirmations storage item is used.
-        #[weight = <T as Trait>::WeightInfo::verify_transaction_inclusion()]
+        #[weight = <T as Config>::WeightInfo::verify_transaction_inclusion()]
         #[transactional]
         fn verify_transaction_inclusion(
             origin,
@@ -308,7 +308,7 @@ decl_module! {
         /// of the BTC in the 1st  / payment UTXO
         /// * `op_return_id` - 32 byte hash identifier expected in
         /// OP_RETURN (replay protection)
-        #[weight = <T as Trait>::WeightInfo::validate_transaction()]
+        #[weight = <T as Config>::WeightInfo::validate_transaction()]
         #[transactional]
         fn validate_transaction(
             origin,
@@ -325,7 +325,7 @@ decl_module! {
 }
 
 #[cfg_attr(test, mockable)]
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     pub fn _initialize(raw_block_header: RawBlockHeader, block_height: u32) -> DispatchResult {
         // Check if BTC-Relay was already initialized
         ensure!(!Self::best_block_exists(), Error::<T>::AlreadyInitialized);
@@ -1491,7 +1491,7 @@ decl_event! {
 }
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         /// Already initialized
         AlreadyInitialized,
         /// Missing the block at this height
@@ -1587,7 +1587,7 @@ decl_error! {
     }
 }
 
-impl<T: Trait> From<BitcoinError> for Error<T> {
+impl<T: Config> From<BitcoinError> for Error<T> {
     fn from(err: BitcoinError) -> Self {
         match err {
             BitcoinError::MalformedMerkleProof => Self::MalformedMerkleProof,

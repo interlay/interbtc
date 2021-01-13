@@ -21,11 +21,11 @@ const DEFAULT_END_HEIGHT: u64 = 100;
 
 macro_rules! assert_emitted {
     ($event:expr) => {
-        let test_event = TestEvent::test_events($event);
+        let test_event = TestEvent::staked_relayers($event);
         assert!(System::events().iter().any(|a| a.event == test_event));
     };
     ($event:expr, $times:expr) => {
-        let test_event = TestEvent::test_events($event);
+        let test_event = TestEvent::staked_relayers($event);
         assert_eq!(
             System::events()
                 .iter()
@@ -38,7 +38,7 @@ macro_rules! assert_emitted {
 
 macro_rules! assert_not_emitted {
     ($event:expr) => {
-        let test_event = TestEvent::test_events($event);
+        let test_event = TestEvent::staked_relayers($event);
         assert!(!System::events().iter().any(|a| a.event == test_event));
     };
 }

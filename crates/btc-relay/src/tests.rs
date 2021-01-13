@@ -124,8 +124,7 @@ fn initialize_once_succeeds() {
             block_height
         ));
 
-        let init_event =
-            TestEvent::test_events(Event::Initialized(block_height, block_header_hash));
+        let init_event = TestEvent::btc_relay(Event::Initialized(block_height, block_header_hash));
         assert!(System::events().iter().any(|a| a.event == init_event));
     })
 }
@@ -179,7 +178,7 @@ fn store_block_header_on_mainchain_succeeds() {
             block_header
         ));
 
-        let store_main_event = TestEvent::test_events(Event::StoreMainChainHeader(
+        let store_main_event = TestEvent::btc_relay(Event::StoreMainChainHeader(
             block_height + 1,
             block_header_hash,
         ));
@@ -223,7 +222,7 @@ fn store_block_header_on_fork_succeeds() {
             block_header
         ));
 
-        let store_fork_event = TestEvent::test_events(Event::StoreForkHeader(
+        let store_fork_event = TestEvent::btc_relay(Event::StoreForkHeader(
             chain_ref,
             block_height,
             block_header_hash,
@@ -378,7 +377,7 @@ fn check_and_do_reorg_new_fork_is_main_chain() {
 
         assert_ok!(BTCRelay::check_and_do_reorg(&fork));
         // assert that the new main chain is set
-        let reorg_event = TestEvent::test_events(Event::ChainReorg(
+        let reorg_event = TestEvent::btc_relay(Event::ChainReorg(
             best_block_hash,
             fork_block_height,
             fork.max_height - fork.start_height,
@@ -428,7 +427,7 @@ fn check_and_do_reorg_new_fork_below_stable_transaction_confirmations() {
 
         assert_ok!(BTCRelay::check_and_do_reorg(&fork));
         // assert that the fork has not overtaken the main chain
-        let ahead_event = TestEvent::test_events(Event::ForkAheadOfMainChain(
+        let ahead_event = TestEvent::btc_relay(Event::ForkAheadOfMainChain(
             main_block_height,
             fork_block_height,
             fork_chain_ref,
@@ -1118,7 +1117,7 @@ fn test_flag_block_error_succeeds() {
             } else if *error == ErrorCode::InvalidBTCRelay {
                 assert!(curr_chain.invalid.contains(&block_height));
             };
-            let error_event = TestEvent::test_events(Event::FlagBlockError(
+            let error_event = TestEvent::btc_relay(Event::FlagBlockError(
                 rich_header.block_hash,
                 chain_ref,
                 error.clone(),
@@ -1198,7 +1197,7 @@ fn test_clear_block_error_succeeds() {
             } else if error == ErrorCode::InvalidBTCRelay {
                 assert!(!curr_chain.invalid.contains(&block_height));
             };
-            let error_event = TestEvent::test_events(Event::ClearBlockError(
+            let error_event = TestEvent::btc_relay(Event::ClearBlockError(
                 rich_header.block_hash,
                 chain_ref,
                 error.clone(),

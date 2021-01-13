@@ -6,8 +6,6 @@ use frame_system::RawOrigin;
 use sp_std::prelude::*;
 
 benchmarks! {
-    _ {}
-
     register_vault {
         let origin: T::AccountId = account("Origin", 0, 0);
         let amount = 100;
