@@ -727,7 +727,7 @@ fn test_auction_replace_succeeds() {
             .mock_safe(|_, _| MockResult::Return(Ok(false)));
 
         ext::collateral::slash_collateral::<Test>.mock_safe(|_, _, fee| {
-            assert_eq!(fee, 1000);
+            assert_eq!(fee, 50); // 5% of dot equivalent of the btc_amount
             MockResult::Return(Ok(()))
         });
 
