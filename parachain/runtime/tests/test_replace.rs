@@ -449,7 +449,7 @@ fn integration_test_replace_cancel_repeatedly_fails() {
 
         // old_vault at this point only has 50 satoshi left, so this should fail
         // TODO: change back to assert_noop
-        assert_err!(
+        assert_noop!(
             Call::Replace(ReplaceCall::auction_replace(
                 account_of(old_vault),
                 200,
