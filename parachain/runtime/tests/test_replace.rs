@@ -40,7 +40,7 @@ fn integration_test_replace_should_fail_if_not_running() {
     ExtBuilder::build().execute_with(|| {
         SecurityModule::set_parachain_status(StatusCode::Shutdown);
 
-        assert_err!(
+        assert_noop!(
             Call::Replace(ReplaceCall::request_replace(0, 0)).dispatch(origin_of(account_of(BOB))),
             SecurityError::ParachainNotRunning,
         );
