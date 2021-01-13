@@ -35,6 +35,7 @@ use sp_arithmetic::traits::*;
 use sp_arithmetic::FixedPointNumber;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
+use util::transactional;
 
 pub(crate) type DOT<T> =
     <<T as collateral::Trait>::DOT as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
@@ -152,6 +153,7 @@ decl_module! {
         /// * `dot_per_btc` - exchange rate in dot per btc. Note that this is _not_ the same unit
         /// that is stored in the ExchangeRate storage item.
         #[weight = <T as Trait>::WeightInfo::set_exchange_rate()]
+        #[transactional]
         pub fn set_exchange_rate(origin, dot_per_btc: UnsignedFixedPoint<T>) -> DispatchResult {
             // Check that Parachain is not in SHUTDOWN
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
@@ -170,6 +172,7 @@ decl_module! {
         }
 
         #[weight = <T as Trait>::WeightInfo::set_btc_tx_fees_per_byte()]
+        #[transactional]
         pub fn set_btc_tx_fees_per_byte(origin, fast: u32, half: u32, hour: u32) -> DispatchResult {
             // Check that Parachain is not in SHUTDOWN
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
@@ -189,6 +192,7 @@ decl_module! {
         }
 
         #[weight = <T as Trait>::WeightInfo::insert_authorized_oracle()]
+        #[transactional]
         pub fn insert_authorized_oracle(origin, account_id: T::AccountId, name: Vec<u8>) -> DispatchResult {
             ensure_root(origin)?;
             Self::insert_oracle(account_id, name);
@@ -196,6 +200,7 @@ decl_module! {
         }
 
         #[weight = <T as Trait>::WeightInfo::remove_authorized_oracle()]
+        #[transactional]
         pub fn remove_authorized_oracle(origin, account_id: T::AccountId) -> DispatchResult {
             ensure_root(origin)?;
             <AuthorizedOracles<T>>::remove(account_id);

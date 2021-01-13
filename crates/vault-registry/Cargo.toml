@@ -4,6 +4,9 @@ version = '0.3.3'
 authors = ["Interlay Ltd"]
 edition = "2018"
 
+[dependencies.util]
+path = '../util'
+
 [features]
 default = ['std']
 std = [

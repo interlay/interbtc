@@ -37,6 +37,7 @@ use sp_arithmetic::FixedPointNumber;
 use sp_std::convert::TryInto;
 use sp_std::vec::*;
 use types::{Inner, PolkaBTC, UnsignedFixedPoint, DOT};
+use util::transactional;
 
 pub trait WeightInfo {
     fn withdraw_polka_btc() -> Weight;
@@ -198,6 +199,7 @@ decl_module! {
         /// * `origin` - signing account
         /// * `amount` - amount of PolkaBTC
         #[weight = <T as Trait>::WeightInfo::withdraw_polka_btc()]
+        #[transactional]
         fn withdraw_polka_btc(origin, amount: PolkaBTC<T>) -> DispatchResult
         {
             let signer = ensure_signed(origin)?;
@@ -217,6 +219,7 @@ decl_module! {
         /// * `origin` - signing account
         /// * `amount` - amount of DOT
         #[weight = <T as Trait>::WeightInfo::withdraw_dot()]
+        #[transactional]
         fn withdraw_dot(origin, amount: DOT<T>) -> DispatchResult
         {
             let signer = ensure_signed(origin)?;

@@ -46,6 +46,7 @@ use primitive_types::H256;
 use sp_runtime::ModuleId;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
+use util::transactional;
 
 /// The issue module id, used for deriving its sovereign account ID.
 const _MODULE_ID: ModuleId = ModuleId(*b"issuemod");
@@ -153,6 +154,7 @@ decl_module! {
         /// * `vault` - address of the vault
         /// * `griefing_collateral` - amount of DOT
         #[weight = <T as Trait>::WeightInfo::request_issue()]
+        #[transactional]
         fn request_issue(origin, amount: PolkaBTC<T>, vault_id: T::AccountId, griefing_collateral: DOT<T>)
             -> DispatchResult
         {
@@ -172,6 +174,7 @@ decl_module! {
         /// * `merkle_proof` - raw bytes
         /// * `raw_tx` - raw bytes
         #[weight = <T as Trait>::WeightInfo::execute_issue()]
+        #[transactional]
         fn execute_issue(origin, issue_id: H256, tx_id: H256Le, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
             -> DispatchResult
         {
@@ -187,6 +190,7 @@ decl_module! {
         /// * `origin` - sender of the transaction
         /// * `issue_id` - identifier of issue request as output from request_issue
         #[weight = <T as Trait>::WeightInfo::cancel_issue()]
+        #[transactional]
         fn cancel_issue(origin, issue_id: H256)
             -> DispatchResult
         {
@@ -204,6 +208,7 @@ decl_module! {
         ///
         /// # Weight: `O(1)`
         #[weight = <T as Trait>::WeightInfo::set_issue_period()]
+        #[transactional]
         fn set_issue_period(origin, period: T::BlockNumber) {
             ensure_root(origin)?;
             <IssuePeriod<T>>::set(period);

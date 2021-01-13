@@ -40,6 +40,7 @@ use sp_core::H160;
 use sp_core::H256;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
+use util::transactional;
 
 use crate::types::{
     BtcAddress, DefaultSystemVault, DefaultVault, Inner, PolkaBTC, RichSystemVault, RichVault,
@@ -195,6 +196,7 @@ decl_module! {
         /// * `VaultAlreadyRegistered` - if a vault is already registered for the origin account
         /// * `InsufficientCollateralAvailable` - if the vault does not own enough collateral
         #[weight = <T as Trait>::WeightInfo::register_vault()]
+        #[transactional]
         fn register_vault(origin, collateral: DOT<T>, btc_address: BtcAddress) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ext::security::ensure_parachain_status_running::<T>()?;
@@ -223,6 +225,7 @@ decl_module! {
         /// * `VaultNotFound` - if no vault exists for the origin account
         /// * `InsufficientCollateralAvailable` - if the vault does not own enough collateral
         #[weight = <T as Trait>::WeightInfo::lock_additional_collateral()]
+        #[transactional]
         fn lock_additional_collateral(origin, amount: DOT<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
@@ -254,6 +257,7 @@ decl_module! {
         /// * `VaultNotFound` - if no vault exists for the origin account
         /// * `InsufficientCollateralAvailable` - if the vault does not own enough collateral
         #[weight = <T as Trait>::WeightInfo::withdraw_collateral()]
+        #[transactional]
         fn withdraw_collateral(origin, amount: DOT<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ext::security::ensure_parachain_status_running::<T>()?;
@@ -272,6 +276,7 @@ decl_module! {
         /// # Arguments
         /// * `btc_address` - the BTC address of the vault to update
         #[weight = <T as Trait>::WeightInfo::update_btc_address()]
+        #[transactional]
         fn update_btc_address(origin, btc_address: BtcAddress) -> DispatchResult {
             let account_id = ensure_signed(origin)?;
             ext::security::ensure_parachain_status_running::<T>()?;

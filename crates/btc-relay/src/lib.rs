@@ -37,6 +37,7 @@ use primitive_types::U256;
 use sp_core::H160;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::*;
+use util::transactional;
 
 // Crates
 pub use bitcoin;
@@ -177,6 +178,7 @@ decl_module! {
         /// * `block_height` - Bitcoin block height of the submitted
         /// block header.
         #[weight = <T as Trait>::WeightInfo::initialize()]
+        #[transactional]
         fn initialize(
             origin,
             raw_block_header: RawBlockHeader,
@@ -193,6 +195,7 @@ decl_module! {
         ///
         /// * `raw_block_header` - 80 byte raw Bitcoin block header.
         #[weight = <T as Trait>::WeightInfo::store_block_header()]
+        #[transactional]
         fn store_block_header(
             origin, raw_block_header: RawBlockHeader
         ) -> DispatchResult {
@@ -206,6 +209,7 @@ decl_module! {
         ///
         /// * `raw_block_headers` - vector of Bitcoin block headers.
         #[weight = <T as Trait>::WeightInfo::store_block_headers(raw_block_headers.len() as u32)]
+        #[transactional]
         fn store_block_headers(
             origin, raw_block_headers: Vec<RawBlockHeader>
         ) -> DispatchResult {
@@ -239,6 +243,7 @@ decl_module! {
         /// * `op_return_id` - 32 byte hash identifier expected in
         /// OP_RETURN (replay protection)
         #[weight = <T as Trait>::WeightInfo::verify_and_validate_transaction()]
+        #[transactional]
         fn verify_and_validate_transaction(
             origin,
             tx_id: H256Le,
@@ -278,6 +283,7 @@ decl_module! {
         /// the proof
         /// * `insecure` - determines if checks against recommended global transaction confirmation are to be executed. Recommended: set to `true`
         #[weight = <T as Trait>::WeightInfo::verify_transaction_inclusion()]
+        #[transactional]
         fn verify_transaction_inclusion(
             origin,
             tx_id: H256Le,
@@ -307,6 +313,7 @@ decl_module! {
         /// * `op_return_id` - 32 byte hash identifier expected in
         /// OP_RETURN (replay protection)
         #[weight = <T as Trait>::WeightInfo::validate_transaction()]
+        #[transactional]
         fn validate_transaction(
             origin,
             raw_tx: Vec<u8>,

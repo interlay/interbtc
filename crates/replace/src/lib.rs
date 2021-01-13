@@ -24,6 +24,7 @@ use primitive_types::H256;
 use sp_runtime::ModuleId;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
+use util::transactional;
 
 use bitcoin::types::H256Le;
 
@@ -161,6 +162,7 @@ decl_module! {
         /// * `amount` - amount of PolkaBTC
         /// * `griefing_collateral` - amount of DOT
         #[weight = <T as Trait>::WeightInfo::request_replace()]
+        #[transactional]
         fn request_replace(origin, amount: PolkaBTC<T>, griefing_collateral: DOT<T>)
             -> DispatchResult
         {
@@ -176,6 +178,7 @@ decl_module! {
         /// * `origin` - sender of the transaction: the old vault
         /// * `replace_id` - the unique identifier of the replace request
         #[weight = <T as Trait>::WeightInfo::withdraw_replace()]
+        #[transactional]
         fn withdraw_replace(origin, replace_id: H256)
             -> DispatchResult
         {
@@ -192,6 +195,7 @@ decl_module! {
         /// * `replace_id` - the unique identifier for the specific request
         /// * `collateral` - the collateral for replacement
         #[weight = <T as Trait>::WeightInfo::accept_replace()]
+        #[transactional]
         fn accept_replace(origin, replace_id: H256, collateral: DOT<T>)
             -> DispatchResult
         {
@@ -209,6 +213,7 @@ decl_module! {
         /// * `btc_amount` - the btc amount to be transferred over from old to new
         /// * `collateral` - the collateral to be transferred over from old to new
         #[weight = <T as Trait>::WeightInfo::auction_replace()]
+        #[transactional]
         fn auction_replace(origin, old_vault: T::AccountId, btc_amount: PolkaBTC<T>, collateral: DOT<T>)
             -> DispatchResult
         {
@@ -228,6 +233,7 @@ decl_module! {
         /// * 'merkle_proof' - the merkle root of the block
         /// * `raw_tx` - the transaction id in bytes
         #[weight = <T as Trait>::WeightInfo::execute_replace()]
+        #[transactional]
         fn execute_replace(origin, replace_id: H256, tx_id: H256Le, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
             let _ = ensure_signed(origin)?;
             Self::_execute_replace(replace_id, tx_id, merkle_proof, raw_tx)?;
@@ -241,6 +247,7 @@ decl_module! {
         /// * `origin` - sender of the transaction: the new vault
         /// * `replace_id` - the ID of the replacement request
         #[weight = <T as Trait>::WeightInfo::cancel_replace()]
+        #[transactional]
         fn cancel_replace(origin, replace_id: H256) -> DispatchResult {
             let new_vault = ensure_signed(origin)?;
             Self::_cancel_replace(new_vault, replace_id)?;
@@ -256,6 +263,7 @@ decl_module! {
         ///
         /// # Weight: `O(1)`
         #[weight = <T as Trait>::WeightInfo::set_replace_period()]
+        #[transactional]
         fn set_replace_period(origin, period: T::BlockNumber) {
             ensure_root(origin)?;
             <ReplacePeriod<T>>::set(period);

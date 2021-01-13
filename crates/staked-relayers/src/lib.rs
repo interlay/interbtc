@@ -31,6 +31,8 @@ use crate::types::{
 use bitcoin::parser::parse_transaction;
 use bitcoin::types::*;
 use btc_relay::BtcAddress;
+use util::transactional;
+
 /// # Staked Relayers module implementation
 /// This is the implementation of the BTC Parachain Staked Relayers module following the spec at:
 /// https://interlay.gitlab.io/polkabtc-spec/spec/staked-relayers.html
@@ -168,6 +170,7 @@ decl_module! {
         /// * `origin`: The account of the Staked Relayer to be registered
         /// * `stake`: to-be-locked collateral/stake in DOT
         #[weight = <T as Trait>::WeightInfo::register_staked_relayer()]
+        #[transactional]
         fn register_staked_relayer(origin, stake: DOT<T>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
 
@@ -200,6 +203,7 @@ decl_module! {
         ///
         /// * `origin`: The account of the Staked Relayer to be deregistered
         #[weight = <T as Trait>::WeightInfo::deregister_staked_relayer()]
+        #[transactional]
         fn deregister_staked_relayer(origin) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             let staked_relayer = Self::get_active_staked_relayer(&signer)?;
@@ -216,6 +220,7 @@ decl_module! {
         ///
         /// * `origin`: The account of the Staked Relayer to be activated
         #[weight = <T as Trait>::WeightInfo::activate_staked_relayer()]
+        #[transactional]
         fn activate_staked_relayer(origin) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             let staked_relayer = Self::get_inactive_staked_relayer(&signer)?;
@@ -240,6 +245,7 @@ decl_module! {
         ///
         /// * `origin`: The account of the Staked Relayer to be deactivated
         #[weight = <T as Trait>::WeightInfo::deactivate_staked_relayer()]
+        #[transactional]
         fn deactivate_staked_relayer(origin) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             let staked_relayer = Self::get_active_staked_relayer(&signer)?;
@@ -259,6 +265,7 @@ decl_module! {
         /// * `block_hash`: [Optional] When reporting an error related to BTC-Relay, this field indicates the affected Bitcoin block (header).
         /// * `message`: Message detailing reason for status update
         #[weight = <T as Trait>::WeightInfo::suggest_status_update()]
+        #[transactional]
         fn suggest_status_update(origin, deposit: DOT<T>, status_code: StatusCode, add_error: Option<ErrorCode>, remove_error: Option<ErrorCode>, block_hash: Option<H256Le>, message: Vec<u8>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
 
@@ -360,6 +367,7 @@ decl_module! {
         /// * `status_update_id`: Identifier of the `StatusUpdate` voted upon in `ActiveStatusUpdates`.
         /// * `approve`: `True` or `False`, depending on whether the Staked Relayer agrees or disagrees with the suggested `StatusUpdate`.
         #[weight = <T as Trait>::WeightInfo::vote_on_status_update()]
+        #[transactional]
         fn vote_on_status_update(origin, status_update_id: u64, approve: bool) -> DispatchResult {
             let signer = ensure_signed(origin)?;
 
@@ -388,6 +396,7 @@ decl_module! {
         /// * `status_code`: Suggested BTC Parachain status (`StatusCode` enum).
         /// * `errors`: If the suggested status is `Error`, this set of `ErrorCode` entries provides details on the occurred errors.
         #[weight = <T as Trait>::WeightInfo::force_status_update()]
+        #[transactional]
         fn force_status_update(origin, status_code: StatusCode, add_error: Option<ErrorCode>, remove_error: Option<ErrorCode>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             Self::only_governance(&signer)?;
@@ -419,6 +428,7 @@ decl_module! {
         /// * `origin`: The AccountId of the Governance Mechanism.
         /// * `staked_relayer_id`: The account of the Staked Relayer to be slashed.
         #[weight = <T as Trait>::WeightInfo::slash_staked_relayer()]
+        #[transactional]
         fn slash_staked_relayer(origin, staked_relayer_id: T::AccountId) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             Self::only_governance(&signer)?;
@@ -444,6 +454,7 @@ decl_module! {
         /// * `merkle_proof`: The proof of tx inclusion.
         /// * `raw_tx`: The raw Bitcoin transaction.
         #[weight = <T as Trait>::WeightInfo::report_vault_theft()]
+        #[transactional]
         fn report_vault_theft(origin, vault_id: T::AccountId, tx_id: H256Le, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             ensure!(
@@ -488,6 +499,7 @@ decl_module! {
         /// A Staked Relayer reports that a Vault is undercollateralized (i.e. below the LiquidationCollateralThreshold as defined in Vault Registry).
         /// If the collateral falls below this rate, we flag the Vault for liquidation and update the ParachainStatus to ERROR - adding LIQUIDATION to Errors.
         #[weight = <T as Trait>::WeightInfo::report_vault_under_liquidation_threshold()]
+        #[transactional]
         fn report_vault_under_liquidation_threshold(origin, vault_id: T::AccountId)  -> DispatchResult {
             let signer = ensure_signed(origin)?;
             ensure!(
@@ -524,6 +536,7 @@ decl_module! {
         /// A Staked Relayer reports that the Exchange Rate Oracle is offline. This function checks if the last exchange
         /// rate data in the Exchange Rate Oracle is indeed older than the indicated threshold.
         #[weight = 1000]
+        #[transactional]
         fn report_oracle_offline(origin) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             ensure!(
@@ -566,6 +579,7 @@ decl_module! {
         ///
         /// # Weight: `O(1)`
         #[weight = <T as Trait>::WeightInfo::remove_active_status_update()]
+        #[transactional]
         fn remove_active_status_update(origin, status_update_id: u64) {
             ensure_root(origin)?;
             <ActiveStatusUpdates<T>>::remove(status_update_id);
@@ -580,6 +594,7 @@ decl_module! {
         ///
         /// # Weight: `O(1)`
         #[weight = <T as Trait>::WeightInfo::remove_inactive_status_update()]
+        #[transactional]
         fn remove_inactive_status_update(origin, status_update_id: u64) {
             ensure_root(origin)?;
             <InactiveStatusUpdates<T>>::remove(status_update_id);
