@@ -5,6 +5,9 @@ edition = '2018'
 name = 'treasury'
 version = '0.3.1'
 
+[dependencies.util]
+path = '../util'
+
 [features]
 default = ['std']
 std = [

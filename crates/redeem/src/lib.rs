@@ -27,6 +27,8 @@ use crate::types::{PolkaBTC, RedeemRequestV0, Version, DOT};
 use bitcoin::types::H256Le;
 use btc_relay::BtcAddress;
 use frame_support::weights::Weight;
+use util::transactional;
+
 /// # PolkaBTC Redeem implementation
 /// The Redeem module according to the specification at
 /// https://interlay.gitlab.io/polkabtc-spec/spec/redeem.html
@@ -155,6 +157,7 @@ decl_module! {
         /// * `btc_address` - the address to receive BTC
         /// * `vault` - address of the vault
         #[weight = <T as Trait>::WeightInfo::request_redeem()]
+        #[transactional]
         fn request_redeem(origin, amount_polka_btc: PolkaBTC<T>, btc_address: BtcAddress, vault_id: T::AccountId)
             -> DispatchResult
         {
@@ -176,6 +179,7 @@ decl_module! {
         /// * `merkle_proof` - raw bytes
         /// * `raw_tx` - raw bytes
         #[weight = <T as Trait>::WeightInfo::execute_redeem()]
+        #[transactional]
         fn execute_redeem(origin, redeem_id: H256, tx_id: H256Le, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
             -> DispatchResult
         {
@@ -196,6 +200,7 @@ decl_module! {
         /// and slash the Vault, or wishes to keep the PolkaBTC (and retry
         /// Redeem with another Vault)
         #[weight = <T as Trait>::WeightInfo::cancel_redeem()]
+        #[transactional]
         fn cancel_redeem(origin, redeem_id: H256, reimburse: bool)
             -> DispatchResult
         {
@@ -274,6 +279,7 @@ decl_module! {
         ///
         /// # Weight: `O(1)`
         #[weight = <T as Trait>::WeightInfo::set_redeem_period()]
+        #[transactional]
         fn set_redeem_period(origin, period: T::BlockNumber) {
             ensure_root(origin)?;
             <RedeemPeriod<T>>::set(period);

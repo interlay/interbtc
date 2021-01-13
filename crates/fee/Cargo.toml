@@ -92,6 +92,9 @@ path = '../exchange-rate-oracle'
 default-features = false
 path = '../vault-registry'
 
+[dependencies.util]
+path = '../util'
+
 [features]
 default = ['std']
 std = [

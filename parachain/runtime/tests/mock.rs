@@ -4,7 +4,7 @@ pub use bitcoin::formatter::Formattable;
 pub use bitcoin::types::*;
 pub use btc_parachain_runtime::{AccountId, Call, Event, Runtime};
 pub use btc_relay::BtcAddress;
-pub use frame_support::{assert_err, assert_ok};
+pub use frame_support::{assert_noop, assert_ok};
 pub use mocktopus::mocking::*;
 use primitive_types::{H256, U256};
 pub use security::StatusCode;

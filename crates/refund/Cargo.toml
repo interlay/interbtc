@@ -108,6 +108,9 @@ path = '../bitcoin'
 mocktopus = '0.7.0'
 
 
+[dependencies.util]
+path = '../util'
+
 [features]
 default = ['std']
 std = [

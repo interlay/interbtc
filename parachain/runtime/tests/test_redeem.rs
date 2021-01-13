@@ -28,11 +28,11 @@ fn integration_test_redeem_should_fail_if_not_running() {
     ExtBuilder::build().execute_with(|| {
         SecurityModule::set_parachain_status(StatusCode::Shutdown);
 
-        assert_err!(
+        assert_noop!(
             Call::Redeem(RedeemCall::request_redeem(
                 1000,
                 BtcAddress::P2PKH(H160([0u8; 20])),
-                account_of(BOB)
+                account_of(BOB),
             ))
             .dispatch(origin_of(account_of(ALICE))),
             SecurityError::ParachainNotRunning,
@@ -136,15 +136,15 @@ fn setup_cancelable_redeem(user: [u8; 32], vault: [u8; 32], polka_btc: u128) -> 
     SystemModule::set_block_number(RedeemModule::redeem_period() + 1 + 1);
 
     // bob cannot execute past expiry
-    assert_err!(
+    assert_noop!(
         Call::Redeem(RedeemCall::execute_redeem(
             redeem_id,
             H256Le::from_bytes_le(&[0; 32]),
             vec![],
-            vec![]
+            vec![],
         ))
         .dispatch(origin_of(account_of(vault))),
-        RedeemError::CommitPeriodExpired
+        RedeemError::CommitPeriodExpired,
     );
 
     redeem_id

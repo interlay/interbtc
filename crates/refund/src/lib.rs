@@ -33,6 +33,7 @@ use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
 use types::PolkaBTC;
 pub use types::RefundRequest;
+use util::transactional;
 
 pub trait WeightInfo {
     fn execute_refund() -> Weight;
@@ -91,6 +92,7 @@ decl_module! {
         fn deposit_event() = default;
 
         #[weight = <T as Trait>::WeightInfo::execute_refund()]
+        #[transactional]
         fn execute_refund(
             origin,
             refund_id: H256,

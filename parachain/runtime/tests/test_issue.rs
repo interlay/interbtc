@@ -43,13 +43,13 @@ fn integration_test_issue_should_fail_if_not_running() {
     ExtBuilder::build().execute_with(|| {
         SecurityModule::set_parachain_status(StatusCode::Shutdown);
 
-        assert_err!(
+        assert_noop!(
             Call::Issue(IssueCall::request_issue(0, account_of(BOB), 0))
                 .dispatch(origin_of(account_of(ALICE))),
             SecurityError::ParachainNotRunning,
         );
 
-        assert_err!(
+        assert_noop!(
             Call::Issue(IssueCall::execute_issue(
                 H256([0; 32]),
                 H256Le::zero(),
@@ -391,7 +391,7 @@ fn integration_test_issue_polka_btc_cancel() {
         SystemModule::set_block_number(IssueModule::issue_period() + 1 + 1);
 
         // alice cannot execute past expiry
-        assert_err!(
+        assert_noop!(
             Call::Issue(IssueCall::execute_issue(
                 issue_id,
                 H256Le::from_bytes_le(&[0; 32]),
