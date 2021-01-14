@@ -228,20 +228,14 @@ decl_module! {
         /// # Arguments
         ///
         /// * `tx_id` - The hash of the transaction to check for
-        /// * `tx_block_height` - The height of the block in which the
-        /// transaction should be included
-        /// * `raw_merkle_proof` - The raw merkle proof as returned by
-        /// bitcoin `gettxoutproof`
-        /// * `confirmations` - The number of confirmations needed to accept
-        /// the proof
-        /// * `insecure` - determines if checks against recommended global transaction confirmation are to be executed. Recommended: set to `true`
+        /// * `tx_block_height` - The height of the block in which the transaction should be included
+        /// * `raw_merkle_proof` - The raw merkle proof as returned by bitcoin `gettxoutproof`
+        /// * `confirmations` - The number of confirmations needed to accept the proof. If `none`,
+        /// the value stored in the StableBitcoinConfirmations storage item is used.
         /// * `raw_tx` - raw Bitcoin transaction
-        /// * `paymentValue` - value of BTC sent in the 1st /
-        /// payment UTXO of the transaction
-        /// * `recipientBtcAddress` - 20 byte Bitcoin address of recipient
-        /// of the BTC in the 1st  / payment UTXO
-        /// * `op_return_id` - 32 byte hash identifier expected in
-        /// OP_RETURN (replay protection)
+        /// * `paymentValue` - value of BTC sent in the 1st / payment UTXO of the transaction
+        /// * `recipientBtcAddress` - 20 byte Bitcoin address of recipient of the BTC in the 1st  / payment UTXO
+        /// * `op_return_id` - 32 byte hash identifier expected in OP_RETURN (replay protection)
         #[weight = <T as Trait>::WeightInfo::verify_and_validate_transaction()]
         #[transactional]
         fn verify_and_validate_transaction(
@@ -273,14 +267,13 @@ decl_module! {
         }
 
         /// Verifies the inclusion of `tx_id` in block at height `tx_block_height`
+        ///
         /// # Arguments
         ///
         /// * `tx_id` - The hash of the transaction to check for
-        /// * `raw_merkle_proof` - The raw merkle proof as returned by
-        /// bitcoin `gettxoutproof`
-        /// * `confirmations` - The number of confirmations needed to accept
-        /// the proof
-        /// * `insecure` - determines if checks against recommended global transaction confirmation are to be executed. Recommended: set to `true`
+        /// * `raw_merkle_proof` - The raw merkle proof as returned by bitcoin `gettxoutproof`
+        /// * `confirmations` - The number of confirmations needed to accept the proof. If `none`,
+        /// the value stored in the StableBitcoinConfirmations storage item is used.
         #[weight = <T as Trait>::WeightInfo::verify_transaction_inclusion()]
         #[transactional]
         fn verify_transaction_inclusion(
@@ -1369,11 +1362,11 @@ impl<T: Trait> Module<T> {
     /// requested confirmations (and/or the global k security parameter)
     ///
     /// # Arguments
-    /// * `block_height` - current main chain block height
-    /// * `req_confs` - confirmations requested by the caller
-    /// * `tx_block_height` - block height of checked transaction
-    /// * `insecure` -  determines if checks against recommended global transaction confirmation are to be executed. Recommended: set to `true`
     ///
+    /// * `block_height` - current main chain block height
+    /// * `confirmations` - The number of confirmations requested. If `none`,
+    /// the value stored in the StableBitcoinConfirmations storage item is used.
+    /// * `tx_block_height` - block height of checked transaction
     pub fn check_bitcoin_confirmations(
         main_chain_height: u32,
         req_confs: Option<u32>,
