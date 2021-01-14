@@ -123,7 +123,7 @@ pub(crate) mod btc_relay {
         tx_id: H256Le,
         raw_merkle_proof: Vec<u8>,
     ) -> DispatchResult {
-        <btc_relay::Module<T>>::_verify_transaction_inclusion(tx_id, raw_merkle_proof, 0, false)
+        <btc_relay::Module<T>>::_verify_transaction_inclusion(tx_id, raw_merkle_proof, None)
     }
 
     pub(crate) fn block_header_exists<T: btc_relay::Trait>(block_hash: H256Le) -> bool {

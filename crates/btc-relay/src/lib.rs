@@ -248,8 +248,7 @@ decl_module! {
             origin,
             tx_id: H256Le,
             raw_merkle_proof: Vec<u8>,
-            confirmations: u32,
-            insecure: bool,
+            confirmations: Option<u32>,
             raw_tx: Vec<u8>,
             payment_value: i64,
             recipient_btc_address: BtcAddress,
@@ -265,7 +264,7 @@ decl_module! {
 
             // Verify that the transaction is indeed included in the main chain
             // Check for Parachain RUNNING state is performed here
-            Self::_verify_transaction_inclusion(tx_id, raw_merkle_proof, confirmations, insecure)?;
+            Self::_verify_transaction_inclusion(tx_id, raw_merkle_proof, confirmations)?;
 
             // Parse transaction and check that it matches the given parameters
             Self::_validate_transaction(raw_tx, payment_value, recipient_btc_address, op_return_id)?;
@@ -288,11 +287,10 @@ decl_module! {
             origin,
             tx_id: H256Le,
             raw_merkle_proof: Vec<u8>,
-            confirmations: u32,
-            insecure: bool)
+            confirmations: Option<u32>)
         -> DispatchResult {
             let _ = ensure_signed(origin)?;
-            Self::_verify_transaction_inclusion(tx_id, raw_merkle_proof, confirmations, insecure)?;
+            Self::_verify_transaction_inclusion(tx_id, raw_merkle_proof, confirmations)?;
             Ok(())
         }
 
@@ -466,8 +464,7 @@ impl<T: Trait> Module<T> {
     pub fn _verify_transaction_inclusion(
         tx_id: H256Le,
         raw_merkle_proof: Vec<u8>,
-        confirmations: u32,
-        insecure: bool,
+        confirmations: Option<u32>,
     ) -> Result<(), DispatchError> {
         if Self::disable_inclusion_check() {
             return Ok(());
@@ -490,12 +487,7 @@ impl<T: Trait> Module<T> {
         Self::transaction_verification_allowed(block_height)?;
 
         // This call fails if not enough confirmations
-        Self::check_bitcoin_confirmations(
-            best_block_height,
-            confirmations,
-            block_height,
-            insecure,
-        )?;
+        Self::check_bitcoin_confirmations(best_block_height, confirmations, block_height)?;
 
         // This call fails if the block was stored too recently
         Self::check_parachain_confirmations(rich_header.block_hash)?;
@@ -1384,32 +1376,16 @@ impl<T: Trait> Module<T> {
     ///
     pub fn check_bitcoin_confirmations(
         main_chain_height: u32,
-        req_confs: u32,
+        req_confs: Option<u32>,
         tx_block_height: u32,
-        insecure: bool,
     ) -> Result<(), DispatchError> {
-        // insecure call: only checks against user parameter
-        if insecure {
-            if tx_block_height + req_confs <= main_chain_height {
-                Ok(())
-            } else {
-                Err(Error::<T>::BitcoinConfirmations.into())
-            }
-        } else {
-            // secure call: checks against max of user- and global security parameter
-            let global_confs = Self::get_stable_transaction_confirmations();
+        let required_confirmations =
+            req_confs.unwrap_or_else(|| Self::get_stable_transaction_confirmations());
 
-            if global_confs > req_confs {
-                if tx_block_height + global_confs <= main_chain_height {
-                    Ok(())
-                } else {
-                    Err(Error::<T>::InsufficientStableConfirmations.into())
-                }
-            } else if tx_block_height + req_confs <= main_chain_height {
-                Ok(())
-            } else {
-                Err(Error::<T>::BitcoinConfirmations.into())
-            }
+        if main_chain_height >= tx_block_height + required_confirmations {
+            Ok(())
+        } else {
+            Err(Error::<T>::BitcoinConfirmations.into())
         }
     }
 
@@ -1523,12 +1499,10 @@ decl_error! {
         DiffTargetHeader,
         /// Malformed transaction identifier
         MalformedTxid,
-        /// Transaction has less confirmations of Bitcoin blocks than requested
+        /// Transaction has less confirmations of Bitcoin blocks than required
         BitcoinConfirmations,
         /// Transaction has less confirmations of Parachain blocks than required
         ParachainConfirmations,
-        /// Transaction has less confirmations than the global STABLE_TRANSACTION_CONFIRMATIONS parameter
-        InsufficientStableConfirmations,
         /// Current fork ongoing
         OngoingFork,
         /// Merkle proof is malformed
