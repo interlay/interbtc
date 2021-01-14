@@ -211,9 +211,9 @@ fn testnet_genesis(
         vault_registry: Some(VaultRegistryConfig {
             minimum_collateral_vault: 0,
             punishment_delay: DAYS,
-            secure_collateral_threshold: FixedU128::checked_from_rational(200, 100).unwrap(), // 200%
-            auction_collateral_threshold: FixedU128::checked_from_rational(150, 100).unwrap(), // 150%
-            premium_redeem_threshold: FixedU128::checked_from_rational(120, 100).unwrap(), // 120%
+            secure_collateral_threshold: FixedU128::checked_from_rational(150, 100).unwrap(), // 150%
+            premium_redeem_threshold: FixedU128::checked_from_rational(135, 100).unwrap(), // 135%
+            auction_collateral_threshold: FixedU128::checked_from_rational(120, 100).unwrap(), // 120%
             liquidation_collateral_threshold: FixedU128::checked_from_rational(110, 100).unwrap(), // 110%
             liquidation_vault_account_id: get_account_id_from_seed::<sr25519::Public>(
                 "LiquidationVault",
