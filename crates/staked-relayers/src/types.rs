@@ -114,34 +114,11 @@ impl<AccountId: Ord + Clone, Balance: Clone + PartialOrd + Saturating> Tally<Acc
     }
 }
 
-/// Online staked relayers who are able to participate in votes.
+/// Bonded participant which can suggest and vote on proposals.
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
-pub struct ActiveStakedRelayer<Balance, BlockNumber> {
+pub struct StakedRelayer<Balance, BlockNumber> {
     // total stake for this participant
     pub(crate) stake: Balance,
     // the height at which the participant bonded
     pub(crate) height: BlockNumber,
-}
-
-/// Reason for unavailability, chilled or maturing.
-#[derive(Encode, Decode, Clone, PartialEq, Debug)]
-pub enum StakedRelayerStatus<BlockNumber> {
-    Unknown,
-    Idle,                 // deregistered
-    Bonding(BlockNumber), // (height + MaturityPeriod)
-}
-
-impl<BlockNumber> Default for StakedRelayerStatus<BlockNumber> {
-    fn default() -> Self {
-        StakedRelayerStatus::Unknown
-    }
-}
-
-/// Offline staked relayers who are not able to participate in a vote.
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
-pub struct InactiveStakedRelayer<Balance, BlockNumber> {
-    // total stake for this participant
-    pub(crate) stake: Balance,
-    // reason why the participant is inactive
-    pub(crate) status: StakedRelayerStatus<BlockNumber>,
 }

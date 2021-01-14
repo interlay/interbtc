@@ -1,8 +1,5 @@
 extern crate hex;
-use crate::types::{
-    ActiveStakedRelayer, InactiveStakedRelayer, ProposalStatus, StakedRelayerStatus, StatusUpdate,
-    Tally, Votes,
-};
+use crate::types::{ProposalStatus, StakedRelayer, StatusUpdate, Tally, Votes};
 use crate::{ext, mock::*};
 use bitcoin::formatter::Formattable;
 use bitcoin::types::{H256Le, TransactionBuilder, TransactionInputBuilder, TransactionOutput};
@@ -76,6 +73,9 @@ fn test_register_staked_relayer_fails_with_insufficient_stake() {
 
 #[test]
 fn test_register_staked_relayer_succeeds() {
+    use crate::sp_api_hidden_includes_decl_storage::hidden_include::StorageMap;
+    use crate::InactiveStakedRelayers;
+
     run_test(|| {
         let relayer = Origin::signed(ALICE);
         let amount: Balance = 20;
@@ -84,6 +84,7 @@ fn test_register_staked_relayer_succeeds() {
 
         assert_ok!(Staking::register_staked_relayer(relayer.clone(), amount));
         assert_emitted!(Event::RegisterStakedRelayer(ALICE, 11, amount));
+        let maturity_height = System::block_number() + MaturityPeriod::get();
 
         // re-registration not allowed
         assert_err!(
@@ -96,16 +97,16 @@ fn test_register_staked_relayer_succeeds() {
             TestError::NotRegistered,
         );
 
-        assert_ok!(
-            Staking::get_inactive_staked_relayer(&ALICE),
-            InactiveStakedRelayer {
+        assert_eq!(
+            <InactiveStakedRelayers<Test>>::get(ALICE),
+            StakedRelayer {
                 stake: amount,
-                status: StakedRelayerStatus::Bonding(11)
+                height: maturity_height,
             }
         );
 
         assert_err!(
-            Staking::try_bond_staked_relayer(&ALICE, amount, 0, 11),
+            Staking::try_bond_staked_relayer(&ALICE, amount, 0, maturity_height),
             TestError::NotMatured
         );
         assert_err!(
@@ -113,13 +114,18 @@ fn test_register_staked_relayer_succeeds() {
             TestError::NotRegistered,
         );
 
-        let height = 20;
-        assert_ok!(Staking::try_bond_staked_relayer(&ALICE, amount, height, 10));
+        let current_height = 20;
+        assert_ok!(Staking::try_bond_staked_relayer(
+            &ALICE,
+            amount,
+            current_height,
+            maturity_height
+        ));
         assert_ok!(
             Staking::get_active_staked_relayer(&ALICE),
-            ActiveStakedRelayer {
+            StakedRelayer {
                 stake: amount,
-                height
+                height: current_height,
             }
         );
     })
@@ -139,10 +145,10 @@ fn test_deregister_staked_relayer_fails_with_not_registered() {
 
 fn inject_active_staked_relayer(id: &AccountId, stake: Balance) {
     let height = System::block_number();
-    Staking::add_active_staked_relayer(id, stake, height);
+    Staking::insert_active_staked_relayer(id, stake, height);
     assert_ok!(
         Staking::get_active_staked_relayer(id),
-        ActiveStakedRelayer { stake, height }
+        StakedRelayer { stake, height }
     );
 }
 
@@ -196,67 +202,7 @@ fn test_deregister_staked_relayer_succeeds() {
 }
 
 #[test]
-fn test_activate_staked_relayer_fails_with_not_registered() {
-    run_test(|| {
-        assert_err!(
-            Staking::activate_staked_relayer(Origin::signed(ALICE)),
-            TestError::NotRegistered
-        );
-    })
-}
-
-fn inject_inactive_staked_relayer(id: &AccountId, amount: Balance) {
-    Staking::add_inactive_staked_relayer(id, amount, StakedRelayerStatus::Idle);
-    assert_ok!(
-        Staking::get_inactive_staked_relayer(id),
-        InactiveStakedRelayer {
-            stake: amount,
-            status: StakedRelayerStatus::Idle
-        }
-    );
-}
-
-#[test]
-fn test_activate_staked_relayer_succeeds() {
-    run_test(|| {
-        inject_inactive_staked_relayer(&ALICE, 3);
-        let height = 1000;
-        System::set_block_number(height);
-        assert_ok!(Staking::activate_staked_relayer(Origin::signed(ALICE)));
-        assert_ok!(
-            Staking::get_active_staked_relayer(&ALICE),
-            ActiveStakedRelayer { stake: 3, height }
-        );
-    })
-}
-
-#[test]
-fn test_deactivate_staked_relayer_fails_with_not_registered() {
-    run_test(|| {
-        assert_err!(
-            Staking::deactivate_staked_relayer(Origin::signed(ALICE)),
-            TestError::NotRegistered
-        );
-    })
-}
-
-#[test]
-fn test_deactivate_staked_relayer_succeeds() {
-    run_test(|| {
-        inject_active_staked_relayer(&ALICE, 3);
-        assert_ok!(Staking::deactivate_staked_relayer(Origin::signed(ALICE)));
-        assert_ok!(
-            Staking::get_inactive_staked_relayer(&ALICE),
-            InactiveStakedRelayer {
-                stake: 3,
-                status: StakedRelayerStatus::Idle
-            }
-        );
-    })
-}
-
-#[test]
-fn test_suggest_status_update_fails_with_staked_relayers_only() {
+fn test_suggest_status_update_fails_with_not_registered() {
     run_test(|| {
         assert_err!(
             Staking::suggest_status_update(
@@ -268,7 +214,7 @@ fn test_suggest_status_update_fails_with_staked_relayers_only() {
                 None,
                 vec![],
             ),
-            TestError::StakedRelayersOnly,
+            TestError::NotRegistered,
         );
     })
 }
@@ -460,11 +406,11 @@ fn test_tally_vote() {
 }
 
 #[test]
-fn test_vote_on_status_update_fails_with_staked_relayers_only() {
+fn test_vote_on_status_update_fails_with_not_registered() {
     run_test(|| {
         assert_err!(
             Staking::vote_on_status_update(Origin::signed(ALICE), 0, false),
-            TestError::StakedRelayersOnly,
+            TestError::NotRegistered,
         );
     })
 }
@@ -792,7 +738,7 @@ fn test_slash_staked_relayer_succeeds() {
 }
 
 #[test]
-fn test_report_vault_theft_fails_with_staked_relayers_only() {
+fn test_report_vault_theft_fails_with_not_registered() {
     run_test(|| {
         assert_err!(
             Staking::report_vault_theft(
@@ -802,7 +748,7 @@ fn test_report_vault_theft_fails_with_staked_relayers_only() {
                 vec![0u8; 32],
                 vec![0u8; 32]
             ),
-            TestError::StakedRelayersOnly,
+            TestError::NotRegistered,
         );
     })
 }
@@ -938,7 +884,7 @@ fn test_report_vault_under_liquidation_threshold_fails() {
         let relayer = ALICE;
         let vault = BOB;
 
-        Staking::check_relayer_registered.mock_safe(|_| MockResult::Return(true));
+        Staking::ensure_relayer_is_registered.mock_safe(|_| MockResult::Return(Ok(())));
 
         ext::vault_registry::is_vault_below_liquidation_threshold::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(false)));
@@ -956,7 +902,7 @@ fn test_report_vault_under_liquidation_threshold_succeeds() {
         let relayer = ALICE;
         let vault = BOB;
 
-        Staking::check_relayer_registered.mock_safe(|_| MockResult::Return(true));
+        Staking::ensure_relayer_is_registered.mock_safe(|_| MockResult::Return(Ok(())));
 
         ext::vault_registry::is_vault_below_liquidation_threshold::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(true)));
@@ -981,22 +927,22 @@ fn test_report_vault_under_liquidation_threshold_succeeds() {
 }
 
 #[test]
-fn test_report_vault_under_liquidation_threshold_fails_with_staked_relayers_only() {
+fn test_report_vault_under_liquidation_threshold_fails_with_not_registered() {
     run_test(|| {
         assert_err!(
             Staking::report_vault_under_liquidation_threshold(Origin::signed(ALICE), CAROL),
-            TestError::StakedRelayersOnly,
+            TestError::NotRegistered,
         );
     })
 }
 
 #[test]
-fn test_report_oracle_offline_fails_with_staked_relayers_only() {
+fn test_report_oracle_offline_fails_with_not_registered() {
     run_test(|| {
         let relayer = Origin::signed(ALICE);
         assert_err!(
             Staking::report_oracle_offline(relayer),
-            TestError::StakedRelayersOnly,
+            TestError::NotRegistered,
         );
     })
 }
