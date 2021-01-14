@@ -26,7 +26,7 @@ pub use security;
 
 use crate::types::{
     ActiveStakedRelayer, InactiveStakedRelayer, PolkaBTC, ProposalStatus, StakedRelayerStatus,
-    StatusUpdate, Tally, DOT,
+    StatusUpdate, Tally, Votes, DOT,
 };
 use bitcoin::parser::parse_transaction;
 use bitcoin::types::*;
@@ -96,12 +96,6 @@ pub trait Trait:
     /// The minimum amount of stake required to participate.
     type MinimumStake: Get<DOT<Self>>;
 
-    /// The minimum number of active participants.
-    type MinimumParticipants: Get<u64>;
-
-    /// Denotes the percentage of votes necessary to enact an update.
-    type VoteThreshold: Get<u64>;
-
     /// How often (in blocks) to check for new votes.
     type VotingPeriod: Get<Self::BlockNumber>;
 
@@ -113,18 +107,15 @@ pub trait Trait:
 decl_storage! {
     trait Store for Module<T: Trait> as Staking {
         /// Mapping from accounts of active staked relayers to the StakedRelayer struct.
-        ActiveStakedRelayers get(fn active_staked_relayer): map hasher(blake2_128_concat) T::AccountId => ActiveStakedRelayer<DOT<T>>;
-
-        /// Integer total count of active staked relayers.
-        ActiveStakedRelayersCount get(fn active_staked_relayer_count): u64;
+        ActiveStakedRelayers get(fn active_staked_relayer): map hasher(blake2_128_concat) T::AccountId => ActiveStakedRelayer<DOT<T>, T::BlockNumber>;
 
         /// Mapping from accounts of inactive staked relayers to the StakedRelayer struct.
-        InactiveStakedRelayers: map hasher(blake2_128_concat) T::AccountId => InactiveStakedRelayer<T::BlockNumber, DOT<T>>;
+        InactiveStakedRelayers: map hasher(blake2_128_concat) T::AccountId => InactiveStakedRelayer<DOT<T>, T::BlockNumber>;
 
         /// Map of active StatusUpdates, identified by an integer key.
         ActiveStatusUpdates get(fn active_status_update): map hasher(blake2_128_concat) u64 => StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>;
 
-        /// Map of expired, executed or rejected StatusUpdates, identified by an integer key.
+        /// Map of executed or rejected StatusUpdates, identified by an integer key.
         InactiveStatusUpdates get(fn inactive_status_update): map hasher(blake2_128_concat) u64 => StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>;
 
         /// Integer increment-only counter used to track status updates.
@@ -152,10 +143,6 @@ decl_module! {
         const MinimumDeposit: DOT<T> = T::MinimumDeposit::get();
 
         const MinimumStake: DOT<T> = T::MinimumStake::get();
-
-        const MinimumParticipants: u64 = T::MinimumParticipants::get();
-
-        const VoteThreshold: u64 = T::VoteThreshold::get();
 
         const VotingPeriod: T::BlockNumber = T::VotingPeriod::get();
 
@@ -224,15 +211,15 @@ decl_module! {
         fn activate_staked_relayer(origin) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             let staked_relayer = Self::get_inactive_staked_relayer(&signer)?;
+            let height = <frame_system::Module<T>>::block_number();
 
             match staked_relayer.status {
                 StakedRelayerStatus::Bonding(period) => {
                     // on_initialize should catch all matured relayers
                     // but this is helpful for tests
-                    let height = <frame_system::Module<T>>::block_number();
                     Self::try_bond_staked_relayer(&signer, staked_relayer.stake, height, period)?;
                 },
-                _ => Self::bond_staked_relayer(&signer, staked_relayer.stake),
+                _ => Self::bond_staked_relayer(&signer, staked_relayer.stake, height),
             }
 
             Self::deposit_event(<Event<T>>::ActivateStakedRelayer(signer, staked_relayer.stake));
@@ -282,6 +269,7 @@ decl_module! {
                 <ActiveStakedRelayers<T>>::contains_key(&signer),
                 Error::<T>::StakedRelayersOnly,
             );
+            let staked_relayer = Self::get_active_staked_relayer(&signer)?;
 
             ensure!(
                 deposit >= T::MinimumDeposit::get(),
@@ -336,7 +324,7 @@ decl_module! {
 
             // pre-approve
             let mut tally = Tally::default();
-            tally.aye.insert(signer.clone());
+            tally.aye.insert(signer.clone(), staked_relayer.stake);
 
             let height = <frame_system::Module<T>>::block_number();
             let status_update_id = Self::insert_active_status_update(StatusUpdate{
@@ -375,10 +363,11 @@ decl_module! {
                 <ActiveStakedRelayers<T>>::contains_key(&signer),
                 Error::<T>::StakedRelayersOnly,
             );
+            let staked_relayer = <ActiveStakedRelayers<T>>::get(&signer);
 
             let mut update = Self::get_status_update(&status_update_id)?;
             ensure!(
-                update.tally.vote(signer.clone(), approve),
+                update.tally.vote(signer.clone(), staked_relayer.stake, approve),
                 Error::<T>::VoteAlreadyCast,
             );
             <ActiveStatusUpdates<T>>::insert(&status_update_id, &update);
@@ -631,7 +620,7 @@ impl<T: Trait> Module<T> {
                 match Self::evaluate_status_update_at_height(id, &mut status_update, height) {
                     // remove proposal
                     Ok(true) => None,
-                    // proposal is not accepted, rejected or expired
+                    // proposal is not accepted or rejected
                     Ok(false) => Some(status_update),
                     // something went wrong, keep the proposal
                     Err(err) => {
@@ -643,7 +632,7 @@ impl<T: Trait> Module<T> {
         );
     }
 
-    /// Evaluates whether the `StatusUpdate` has been accepted, rejected or expired.
+    /// Evaluates whether the `StatusUpdate` has been accepted or rejected.
     /// Returns true if the `StatusUpdate` should be garbage collected.
     ///
     /// # Arguments
@@ -656,31 +645,15 @@ impl<T: Trait> Module<T> {
         mut status_update: &mut StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>,
         height: T::BlockNumber,
     ) -> Result<bool, DispatchError> {
-        if status_update
-            .tally
-            .is_approved(<ActiveStakedRelayersCount>::get(), T::VoteThreshold::get())
-        {
-            Self::execute_status_update(&mut status_update)?;
-            Self::update_sla_score_for_status_update(&status_update, true)?;
+        if height >= status_update.end {
+            if status_update.tally.is_approved() {
+                Self::execute_status_update(&mut status_update)?;
+                Self::update_sla_score_for_status_update(&status_update, true)?;
+            } else {
+                Self::reject_status_update(&mut status_update)?;
+                Self::update_sla_score_for_status_update(&status_update, false)?;
+            }
             Self::insert_inactive_status_update(id, status_update);
-            Ok(true)
-        } else if status_update
-            .tally
-            .is_rejected(<ActiveStakedRelayersCount>::get(), T::VoteThreshold::get())
-        {
-            Self::reject_status_update(&mut status_update)?;
-            Self::update_sla_score_for_status_update(&status_update, false)?;
-            Self::insert_inactive_status_update(id, status_update);
-            Ok(true)
-        } else if height >= status_update.end {
-            // return the proposer's collateral
-            ext::collateral::release_collateral::<T>(
-                &status_update.proposer,
-                status_update.deposit,
-            )?;
-            status_update.proposal_status = ProposalStatus::Expired;
-            Self::insert_inactive_status_update(id, status_update);
-            Self::deposit_event(<Event<T>>::ExpireStatusUpdate(id));
             Ok(true)
         } else {
             Ok(false)
@@ -702,7 +675,7 @@ impl<T: Trait> Module<T> {
         maturity: T::BlockNumber,
     ) -> DispatchResult {
         ensure!(height >= maturity, Error::<T>::NotMatured);
-        Self::bond_staked_relayer(id, stake);
+        Self::bond_staked_relayer(id, stake, height);
         Ok(())
     }
 
@@ -712,8 +685,8 @@ impl<T: Trait> Module<T> {
     ///
     /// * `id` - AccountId of the caller.
     /// * `stake` - amount of stake to deposit.
-    fn bond_staked_relayer(id: &T::AccountId, stake: DOT<T>) {
-        Self::add_active_staked_relayer(id, stake);
+    fn bond_staked_relayer(id: &T::AccountId, stake: DOT<T>, height: T::BlockNumber) {
+        Self::add_active_staked_relayer(id, stake, height);
         Self::remove_inactive_staked_relayer(id);
     }
 
@@ -761,7 +734,7 @@ impl<T: Trait> Module<T> {
     /// * `id` - account id of the relayer
     pub(crate) fn get_active_staked_relayer(
         id: &T::AccountId,
-    ) -> Result<ActiveStakedRelayer<DOT<T>>, DispatchError> {
+    ) -> Result<ActiveStakedRelayer<DOT<T>, T::BlockNumber>, DispatchError> {
         ensure!(
             Self::check_relayer_registered(id),
             Error::<T>::NotRegistered,
@@ -776,7 +749,7 @@ impl<T: Trait> Module<T> {
     /// * `id` - account id of the relayer
     pub(crate) fn get_inactive_staked_relayer(
         id: &T::AccountId,
-    ) -> Result<InactiveStakedRelayer<T::BlockNumber, DOT<T>>, DispatchError> {
+    ) -> Result<InactiveStakedRelayer<DOT<T>, T::BlockNumber>, DispatchError> {
         ensure!(
             <InactiveStakedRelayers<T>>::contains_key(id),
             Error::<T>::NotRegistered,
@@ -790,12 +763,13 @@ impl<T: Trait> Module<T> {
     ///
     /// * `id` - account id of the relayer
     /// * `stake` - token deposited
-    pub(crate) fn add_active_staked_relayer(id: &T::AccountId, stake: DOT<T>) {
-        <ActiveStakedRelayers<T>>::insert(id, ActiveStakedRelayer { stake: stake });
-        <ActiveStakedRelayersCount>::mutate(|c| {
-            *c += 1;
-            *c
-        });
+    /// * `height` - bonding height
+    pub(crate) fn add_active_staked_relayer(
+        id: &T::AccountId,
+        stake: DOT<T>,
+        height: T::BlockNumber,
+    ) {
+        <ActiveStakedRelayers<T>>::insert(id, ActiveStakedRelayer { stake, height });
     }
 
     /// Creates an inactive staked relayer.
@@ -826,10 +800,6 @@ impl<T: Trait> Module<T> {
     /// * `id` - AccountId of the relayer.
     fn remove_active_staked_relayer(id: &T::AccountId) {
         <ActiveStakedRelayers<T>>::remove(id);
-        <ActiveStakedRelayersCount>::mutate(|c| {
-            *c -= 1;
-            *c
-        });
     }
 
     /// Removes an inactive staked relayer.
@@ -891,17 +861,17 @@ impl<T: Trait> Module<T> {
     /// # Arguments
     ///
     /// * `error` - optional errorcode
-    /// * `votes` - account set
+    /// * `votes` - vote set, includes account set and total stake
     fn slash_staked_relayers(
         error: &Option<ErrorCode>,
-        votes: &BTreeSet<T::AccountId>,
+        votes: &Votes<T::AccountId, DOT<T>>,
     ) -> DispatchResult {
         if let Some(ErrorCode::NoDataBTCRelay) = error {
             // we don't slash participants for this
             return Ok(());
         }
 
-        for acc in votes.iter() {
+        for acc in votes.accounts.iter() {
             let staked_relayer = Self::get_active_staked_relayer(acc)?;
             ext::collateral::slash_collateral::<T>(
                 acc.clone(),
@@ -935,13 +905,13 @@ impl<T: Trait> Module<T> {
 
         let (correct_voters, incorrect_voters) = if approved {
             (
-                status_update.tally.aye.iter(),
-                status_update.tally.nay.iter(),
+                status_update.tally.aye.accounts.iter(),
+                status_update.tally.nay.accounts.iter(),
             )
         } else {
             (
-                status_update.tally.nay.iter(),
-                status_update.tally.aye.iter(),
+                status_update.tally.nay.accounts.iter(),
+                status_update.tally.aye.accounts.iter(),
             )
         };
 
@@ -978,12 +948,18 @@ impl<T: Trait> Module<T> {
         }
 
         // punish relayers that didn't vote by decreasing their sla
-        let mut voters = status_update.tally.aye.clone();
-        voters.append(&mut status_update.tally.nay.clone());
+        let mut voters = status_update.tally.aye.accounts.clone();
+        voters.append(&mut status_update.tally.nay.accounts.clone());
         let all_relayers: BTreeSet<_> = <ActiveStakedRelayers<T>>::iter()
             .map(|(relayer, _)| relayer)
             .collect();
         for abstainer in all_relayers.difference(&voters) {
+            let staked_relayer = <ActiveStakedRelayers<T>>::get(abstainer);
+            if staked_relayer.height > status_update.start {
+                // skip participants who joined after this vote started
+                continue;
+            }
+
             ext::sla::event_update_relayer_sla::<T>(
                 abstainer.clone(),
                 ext::sla::RelayerEvent::IgnoredVote,
@@ -1002,14 +978,7 @@ impl<T: Trait> Module<T> {
         mut status_update: &mut StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>,
     ) -> DispatchResult {
         ensure!(
-            <ActiveStakedRelayersCount>::get() > T::MinimumParticipants::get(),
-            Error::<T>::InsufficientParticipants,
-        );
-
-        ensure!(
-            status_update
-                .tally
-                .is_approved(<ActiveStakedRelayersCount>::get(), T::VoteThreshold::get()),
+            status_update.tally.is_approved(),
             Error::<T>::InsufficientYesVotes
         );
 
@@ -1066,14 +1035,7 @@ impl<T: Trait> Module<T> {
         mut status_update: &mut StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>,
     ) -> DispatchResult {
         ensure!(
-            <ActiveStakedRelayersCount>::get() > T::MinimumParticipants::get(),
-            Error::<T>::InsufficientParticipants,
-        );
-
-        ensure!(
-            status_update
-                .tally
-                .is_rejected(<ActiveStakedRelayersCount>::get(), T::VoteThreshold::get()),
+            !status_update.tally.is_approved(),
             Error::<T>::InsufficientNoVotes
         );
 
@@ -1306,7 +1268,6 @@ decl_event!(
             Option<H256Le>,
         ),
         RejectStatusUpdate(StatusCode, Option<ErrorCode>, Option<ErrorCode>),
-        ExpireStatusUpdate(u64),
         ForceStatusUpdate(StatusCode, Option<ErrorCode>, Option<ErrorCode>),
         SlashStakedRelayer(AccountId),
     }
@@ -1320,8 +1281,6 @@ decl_error! {
         InsufficientStake,
         /// Insufficient deposit
         InsufficientDeposit,
-        /// Insufficient participants
-        InsufficientParticipants,
         /// Status update message is too big
         MessageTooBig,
         /// Staked relayer is not registered

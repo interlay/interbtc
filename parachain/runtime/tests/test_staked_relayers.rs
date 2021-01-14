@@ -40,7 +40,7 @@ fn integration_test_report_vault_theft() {
         );
 
         // TODO: use constant
-        SystemModule::set_block_number(100);
+        SystemModule::set_block_number(MaturityPeriod::get() + 100);
 
         // manually activate
         assert_ok!(
