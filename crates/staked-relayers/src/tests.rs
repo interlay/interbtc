@@ -1,7 +1,7 @@
 extern crate hex;
 use crate::types::{
     ActiveStakedRelayer, InactiveStakedRelayer, ProposalStatus, StakedRelayerStatus, StatusUpdate,
-    Tally,
+    Tally, Votes,
 };
 use crate::{ext, mock::*};
 use bitcoin::formatter::Formattable;
@@ -13,7 +13,6 @@ use redeem::types::RedeemRequest;
 use replace::types::ReplaceRequest;
 use security::types::{ErrorCode, StatusCode};
 use sp_core::{H160, H256};
-use sp_std::collections::btree_set::BTreeSet;
 use std::convert::TryInto;
 use std::str::FromStr;
 use vault_registry::{Vault, VaultStatus, Wallet};
@@ -114,10 +113,14 @@ fn test_register_staked_relayer_succeeds() {
             TestError::NotRegistered,
         );
 
-        assert_ok!(Staking::try_bond_staked_relayer(&ALICE, amount, 20, 10));
+        let height = 20;
+        assert_ok!(Staking::try_bond_staked_relayer(&ALICE, amount, height, 10));
         assert_ok!(
             Staking::get_active_staked_relayer(&ALICE),
-            ActiveStakedRelayer { stake: amount }
+            ActiveStakedRelayer {
+                stake: amount,
+                height
+            }
         );
     })
 }
@@ -134,17 +137,18 @@ fn test_deregister_staked_relayer_fails_with_not_registered() {
     })
 }
 
-fn inject_active_staked_relayer(id: &AccountId, amount: Balance) {
-    Staking::add_active_staked_relayer(id, amount);
+fn inject_active_staked_relayer(id: &AccountId, stake: Balance) {
+    let height = System::block_number();
+    Staking::add_active_staked_relayer(id, stake, height);
     assert_ok!(
         Staking::get_active_staked_relayer(id),
-        ActiveStakedRelayer { stake: amount }
+        ActiveStakedRelayer { stake, height }
     );
 }
 
 fn inject_status_update(proposer: AccountId) -> u64 {
     let mut tally = Tally::default();
-    tally.aye.insert(proposer.clone());
+    tally.aye.insert(proposer.clone(), 10);
 
     Staking::insert_active_status_update(StatusUpdate {
         new_status_code: StatusCode::Error,
@@ -216,10 +220,12 @@ fn inject_inactive_staked_relayer(id: &AccountId, amount: Balance) {
 fn test_activate_staked_relayer_succeeds() {
     run_test(|| {
         inject_inactive_staked_relayer(&ALICE, 3);
+        let height = 1000;
+        System::set_block_number(height);
         assert_ok!(Staking::activate_staked_relayer(Origin::signed(ALICE)));
         assert_ok!(
             Staking::get_active_staked_relayer(&ALICE),
-            ActiveStakedRelayer { stake: 3 }
+            ActiveStakedRelayer { stake: 3, height }
         );
     })
 }
@@ -404,13 +410,13 @@ fn test_suggest_status_update_succeeds() {
     })
 }
 
-macro_rules! account_id_set {
-    () => { BTreeSet::<AccountId>::new() };
+macro_rules! decl_votes {
+    () => { Votes::default() };
     ($($x:expr),*) => {
         {
-            let mut set = BTreeSet::<AccountId>::new();
+            let mut set = Votes::default();
             $(
-                set.insert($x);
+                set.insert($x.0, $x.1);
             )*
             set
         }
@@ -421,24 +427,14 @@ macro_rules! account_id_set {
 fn test_tally_is_approved_or_rejected() {
     run_test(|| {
         let mut tally = Tally {
-            aye: account_id_set!(1, 2, 3),
-            nay: account_id_set!(4, 5, 6),
+            aye: decl_votes!((1, 5), (2, 5), (3, 5)),
+            nay: decl_votes!((4, 10), (5, 10), (6, 10)),
         };
 
-        assert_eq!(tally.is_approved(6, 25), true);
-        assert_eq!(tally.is_rejected(6, 25), false);
+        assert_eq!(tally.is_approved(), false);
 
-        assert_eq!(tally.is_approved(6, 50), false);
-        assert_eq!(tally.is_rejected(6, 50), false);
-
-        assert_eq!(tally.is_approved(6, 75), false);
-        assert_eq!(tally.is_rejected(6, 75), true);
-
-        assert_eq!(tally.is_approved(6, 100), false);
-        assert_eq!(tally.is_rejected(6, 100), true);
-
-        tally.nay.clear();
-        assert_eq!(tally.is_approved(3, 100), true);
+        tally.nay = decl_votes!();
+        assert_eq!(tally.is_approved(), true);
     })
 }
 
@@ -446,18 +442,18 @@ fn test_tally_is_approved_or_rejected() {
 fn test_tally_vote() {
     run_test(|| {
         let mut tally = Tally {
-            aye: account_id_set!(),
-            nay: account_id_set!(),
+            aye: decl_votes!(),
+            nay: decl_votes!(),
         };
 
-        tally.vote(1, true);
-        tally.vote(2, false);
+        tally.vote(1, 10, true);
+        tally.vote(2, 10, false);
 
         assert_eq!(
             tally,
             Tally {
-                aye: account_id_set!(1),
-                nay: account_id_set!(2),
+                aye: decl_votes!((1, 10)),
+                nay: decl_votes!((2, 10)),
             }
         );
     })
@@ -518,7 +514,7 @@ fn test_vote_on_status_update_succeeds() {
             status_update_id,
             true
         ));
-        Staking::end_block(3);
+        Staking::end_block(200);
         assert_emitted!(Event::ExecuteStatusUpdate(
             StatusCode::Error,
             None,
@@ -528,24 +524,6 @@ fn test_vote_on_status_update_succeeds() {
 
         let status_update = Staking::inactive_status_update(status_update_id);
         assert_eq!(status_update.proposal_status, ProposalStatus::Accepted);
-    })
-}
-#[test]
-fn test_end_block_status_update_expired() {
-    run_test(|| {
-        ext::collateral::release_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-        let status_update_id = inject_status_update(ALICE);
-        Staking::end_block(DEFAULT_END_HEIGHT + 100);
-        let status_update = Staking::inactive_status_update(&status_update_id);
-        assert_eq!(status_update.proposal_status, ProposalStatus::Expired);
-        assert_not_emitted!(Event::ExecuteStatusUpdate(
-            StatusCode::Error,
-            None,
-            None,
-            None
-        ));
-        assert_not_emitted!(Event::RejectStatusUpdate(StatusCode::Error, None, None));
-        assert_emitted!(Event::ExpireStatusUpdate(status_update_id));
     })
 }
 
@@ -588,7 +566,7 @@ fn test_execute_status_update_fails_with_insufficient_yes_votes() {
         inject_active_staked_relayer(&EVE, amount);
 
         let mut status_update = StatusUpdate::default();
-        status_update.tally.nay = account_id_set!(ALICE, BOB, CAROL);
+        status_update.tally.nay = decl_votes!((ALICE, 10), (BOB, 10), (CAROL, 10));
         Staking::insert_active_status_update(status_update.clone());
 
         assert_err!(
@@ -627,8 +605,8 @@ fn test_execute_status_update_fails_with_no_block_hash() {
             proposer: ALICE,
             deposit: 10,
             tally: Tally {
-                aye: account_id_set!(ALICE, BOB, CAROL),
-                nay: account_id_set!(),
+                aye: decl_votes!((ALICE, 10), (BOB, 10), (CAROL, 10)),
+                nay: decl_votes!(),
             },
             message: vec![],
         };
@@ -664,8 +642,8 @@ fn test_execute_status_update_succeeds() {
             proposer: ALICE,
             deposit: 10,
             tally: Tally {
-                aye: account_id_set!(ALICE, BOB, CAROL),
-                nay: account_id_set!(),
+                aye: decl_votes!((ALICE, 10), (BOB, 10), (CAROL, 10)),
+                nay: decl_votes!(),
             },
             message: vec![],
         };
@@ -694,7 +672,7 @@ fn test_reject_status_update_fails_with_insufficient_no_votes() {
         inject_active_staked_relayer(&EVE, amount);
 
         let mut status_update = StatusUpdate::default();
-        status_update.tally.aye = account_id_set!(ALICE, BOB, CAROL);
+        status_update.tally.aye = decl_votes!((ALICE, 10), (BOB, 10), (CAROL, 10));
         Staking::insert_active_status_update(status_update.clone());
 
         assert_err!(
@@ -717,7 +695,7 @@ fn test_reject_status_update_succeeds() {
         inject_active_staked_relayer(&EVE, amount);
 
         let mut status_update = StatusUpdate::default();
-        status_update.tally.nay = account_id_set!(ALICE, BOB, CAROL);
+        status_update.tally.nay = decl_votes!((ALICE, 10), (BOB, 10), (CAROL, 10));
         Staking::insert_active_status_update(status_update.clone());
 
         assert_ok!(Staking::reject_status_update(&mut status_update));

@@ -316,11 +316,9 @@ impl security::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const MaturityPeriod: u32 = 10;
+    pub const MaturityPeriod: u32 = MINUTES * 10;
     pub const MinimumDeposit: u32 = 10;
     pub const MinimumStake: u32 = 10;
-    pub const MinimumParticipants: u32 = 3;
-    pub const VoteThreshold: u32 = 50;
     pub const VotingPeriod: BlockNumber = DAYS;
     pub const MaximumMessageSize: u32 = 256;
 }
@@ -333,8 +331,6 @@ impl staked_relayers::Trait for Runtime {
     type MaturityPeriod = MaturityPeriod;
     type MinimumDeposit = MinimumDeposit;
     type MinimumStake = MinimumStake;
-    type MinimumParticipants = MinimumParticipants;
-    type VoteThreshold = VoteThreshold;
     type VotingPeriod = VotingPeriod;
     type MaximumMessageSize = MaximumMessageSize;
 }

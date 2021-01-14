@@ -2,7 +2,7 @@ extern crate hex;
 
 pub use bitcoin::formatter::Formattable;
 pub use bitcoin::types::*;
-pub use btc_parachain_runtime::{AccountId, Call, Event, Runtime};
+pub use btc_parachain_runtime::{AccountId, Call, Event, MaturityPeriod, Runtime};
 pub use btc_relay::BtcAddress;
 pub use frame_support::{assert_noop, assert_ok};
 pub use mocktopus::mocking::*;
