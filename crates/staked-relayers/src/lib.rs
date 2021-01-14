@@ -1255,7 +1255,7 @@ impl<T: Trait> Module<T> {
                 Ok(req) => {
                     ensure!(
                         !Self::is_valid_request_transaction(
-                            req.amount_btc,
+                            req.amount_polka_btc,
                             req.btc_address,
                             &payments,
                             &vault.wallet,
