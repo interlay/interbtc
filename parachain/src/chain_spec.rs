@@ -211,9 +211,9 @@ fn testnet_genesis(
         vault_registry: Some(VaultRegistryConfig {
             minimum_collateral_vault: 0,
             punishment_delay: DAYS,
-            secure_collateral_threshold: 200_000,
-            auction_collateral_threshold: 150_000,
-            premium_redeem_threshold: 120_000,
+            secure_collateral_threshold: 150_000,
+            premium_redeem_threshold: 135_000,
+            auction_collateral_threshold: 120_000,
             liquidation_collateral_threshold: 110_000,
             liquidation_vault_account_id: get_account_id_from_seed::<sr25519::Public>(
                 "LiquidationVault",
