@@ -17,16 +17,6 @@ impl crate::WeightInfo for () {
             .saturating_add(DbWeight::get().reads(5 as Weight))
             .saturating_add(DbWeight::get().writes(4 as Weight))
     }
-    fn activate_staked_relayer() -> Weight {
-        (47_376_000 as Weight)
-            .saturating_add(DbWeight::get().reads(2 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
-    }
-    fn deactivate_staked_relayer() -> Weight {
-        (46_654_000 as Weight)
-            .saturating_add(DbWeight::get().reads(2 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
-    }
     fn suggest_status_update() -> Weight {
         (86_591_000 as Weight)
             .saturating_add(DbWeight::get().reads(5 as Weight))

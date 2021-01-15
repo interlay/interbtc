@@ -5,6 +5,7 @@ use primitive_types::H256;
 use vault_registry::Vault;
 
 type StakedRelayersCall = staked_relayers::Call<Runtime>;
+type StakedRelayersModule = staked_relayers::Module<Runtime>;
 
 #[test]
 fn integration_test_report_vault_theft() {
@@ -39,14 +40,12 @@ fn integration_test_report_vault_theft() {
                 .dispatch(origin_of(account_of(user)))
         );
 
-        // TODO: use constant
         SystemModule::set_block_number(MaturityPeriod::get() + 100);
 
         // manually activate
-        assert_ok!(
-            Call::StakedRelayers(StakedRelayersCall::activate_staked_relayer())
-                .dispatch(origin_of(account_of(user)))
-        );
+        assert_ok!(StakedRelayersModule::activate_staked_relayer(&account_of(
+            user
+        )));
 
         let (tx_id, _height, proof, raw_tx) = generate_transaction_and_mine_with_script_sig(
             other_btc_address,

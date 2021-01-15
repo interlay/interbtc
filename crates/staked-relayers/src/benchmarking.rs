@@ -33,21 +33,8 @@ benchmarks! {
     deregister_staked_relayer {
         let origin: T::AccountId = account("Origin", 0, 0);
         let stake = 100;
-        <ActiveStakedRelayers<T>>::insert(&origin, ActiveStakedRelayer{stake: stake.into(), height: System::<T>::block_number()});
+        <ActiveStakedRelayers<T>>::insert(&origin, StakedRelayer { stake: stake.into(), height: System::<T>::block_number() });
         Collateral::<T>::lock_collateral(&origin, stake.into()).unwrap();
-    }: _(RawOrigin::Signed(origin))
-
-    activate_staked_relayer {
-        let origin: T::AccountId = account("Origin", 0, 0);
-        let stake = 100;
-        let height = 0;
-        StakedRelayers::<T>::add_inactive_staked_relayer(&origin, stake.into(), StakedRelayerStatus::Bonding(height.into()));
-    }: _(RawOrigin::Signed(origin))
-
-    deactivate_staked_relayer {
-        let origin: T::AccountId = account("Origin", 0, 0);
-        let stake = 100;
-        StakedRelayers::<T>::add_active_staked_relayer(&origin, stake.into(), System::<T>::block_number());
     }: _(RawOrigin::Signed(origin))
 
     suggest_status_update {
@@ -55,13 +42,13 @@ benchmarks! {
         let stake = 100;
         let deposit = 1000;
         let status_code = StatusCode::Error;
-        StakedRelayers::<T>::add_active_staked_relayer(&origin, stake.into(), System::<T>::block_number());
+        StakedRelayers::<T>::insert_active_staked_relayer(&origin, stake.into(), System::<T>::block_number());
     }: _(RawOrigin::Signed(origin), deposit.into(), status_code, None, None, None, vec![])
 
     vote_on_status_update {
         let origin: T::AccountId = account("Origin", 0, 0);
         let stake = 100;
-        StakedRelayers::<T>::add_active_staked_relayer(&origin, stake.into(), System::<T>::block_number());
+        StakedRelayers::<T>::insert_active_staked_relayer(&origin, stake.into(), System::<T>::block_number());
         let status_update = StatusUpdate::default();
         let status_update_id = StakedRelayers::<T>::insert_active_status_update(status_update);
     }: _(RawOrigin::Signed(origin), status_update_id, true)
@@ -75,7 +62,7 @@ benchmarks! {
         let origin: T::AccountId = account("Origin", 0, 0);
         let staked_relayer: T::AccountId = account("Vault", 0, 0);
         let stake = 100;
-        StakedRelayers::<T>::add_active_staked_relayer(&staked_relayer, stake.into(), System::<T>::block_number());
+        StakedRelayers::<T>::insert_active_staked_relayer(&staked_relayer, stake.into(), System::<T>::block_number());
         Collateral::<T>::lock_collateral(&staked_relayer, stake.into()).unwrap();
 
     }: _(RawOrigin::Signed(origin), staked_relayer)
@@ -84,7 +71,7 @@ benchmarks! {
         let origin: T::AccountId = account("Origin", 0, 0);
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
         let stake = 100;
-        StakedRelayers::<T>::add_active_staked_relayer(&origin, stake.into(), System::<T>::block_number());
+        StakedRelayers::<T>::insert_active_staked_relayer(&origin, stake.into(), System::<T>::block_number());
 
         let vault_address = BtcAddress::P2PKH(H160::from_slice(&[
             126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8,
@@ -159,7 +146,7 @@ benchmarks! {
     report_vault_under_liquidation_threshold {
         let origin: T::AccountId = account("Origin", 0, 0);
         let stake = 100;
-        StakedRelayers::<T>::add_active_staked_relayer(&origin, stake.into(), System::<T>::block_number());
+        StakedRelayers::<T>::insert_active_staked_relayer(&origin, stake.into(), System::<T>::block_number());
 
         let vault_id: T::AccountId = account("Vault", 0, 0);
         let mut vault = Vault::default();
@@ -182,7 +169,7 @@ benchmarks! {
     // report_oracle_offline {
     //     let origin: T::AccountId = account("Origin", 0, 0);
     //     let stake = 100;
-    //     StakedRelayers::<T>::add_active_staked_relayer(&origin, stake.into(), System::<T>::block_number());
+    //     StakedRelayers::<T>::insert_active_staked_relayer(&origin, stake.into(), System::<T>::block_number());
     //     <Now<T>>::set(<Now<T>>::get() + 10000.into());
     // }: _(RawOrigin::Signed(origin))
 
@@ -247,8 +234,6 @@ mod tests {
         .execute_with(|| {
             assert_ok!(test_benchmark_register_staked_relayer::<Test>());
             assert_ok!(test_benchmark_deregister_staked_relayer::<Test>());
-            assert_ok!(test_benchmark_activate_staked_relayer::<Test>());
-            assert_ok!(test_benchmark_deactivate_staked_relayer::<Test>());
             assert_ok!(test_benchmark_suggest_status_update::<Test>());
             assert_ok!(test_benchmark_vote_on_status_update::<Test>());
             assert_ok!(test_benchmark_force_status_update::<Test>());
