@@ -4,62 +4,33 @@ version = '0.3.0'
 authors = ["Interlay Ltd"]
 edition = "2018"
 
-[dependencies.serde]
-features = ['derive']
-optional = true
-version = '1.0.101'
+[dependencies]
+serde = { version = "1.0.101", default-features = false, features = ['derive'], optional = true }
+codec = { package = "parity-scale-codec", version = "1.3.4", default-features = false, features = ['derive'] }
+primitive-types = { version = "0.7.2", default-features = false, features = ["codec"] }
+sha2 = { version = "0.8.2", default-features = false } 
 
-[dependencies.codec]
-default-features = false
-features = ['derive']
-package = 'parity-scale-codec'
-version = '1.3.4'
-
-[dependencies.frame-support]
-default-features = false
-version = '2.0.0'
-
-[dependencies.frame-system]
-default-features = false
-version = '2.0.0'
-
-[dependencies.sp-core]
-default-features = false
-version = '2.0.0'
-
-[dependencies.sp-std]
-default-features = false
-version = '2.0.0'
-
-[dependencies.primitive-types]
-default-features = false
-version = '0.7.2'
-features= ['codec']
-
-[dependencies.sha2]
-default-features = false
-version = "0.8.2"
-
-[dev-dependencies.sp-runtime]
-default-features = false
-version = '2.0.0'
-
-[dev-dependencies.sp-io]
-default-features = false
-version = '2.0.0'
+# Substrate dependencies
+sp-core = { version = "2.0.0", default-features = false }
+sp-std = { version = "2.0.0", default-features = false }
+frame-support = { version = "2.0.0", default-features = false }
+frame-system = { version = "2.0.0", default-features = false }
 
 [dev-dependencies]
-mocktopus = '0.7.0'
+mocktopus = "0.7.0"
+sp-runtime = { version = "2.0.0", default-features = false }
+sp-io = { version = "2.0.0", default-features = false }
+pallet-balances = { version = "2.0.0", default-features = false }
 
 [features]
-default = ['std']
+default = ["std"]
 std = [
-  'serde',
-  'codec/std',
-  'frame-support/std',
-  'frame-system/std',
-  'sp-core/std',
-  'sp-std/std',
-  'primitive-types/std',
-  'sha2/std',
+  "serde",
+  "codec/std",
+  "primitive-types/std",
+  "sha2/std",
+  "sp-core/std",
+  "sp-std/std",
+  "frame-support/std",
+  "frame-system/std",
 ]

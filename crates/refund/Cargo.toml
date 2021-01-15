@@ -5,135 +5,66 @@ edition = '2018'
 name = 'refund'
 version = '0.3.1'
 
-[dependencies.serde]
-version = '1.0.101'
-features = ['derive']
-optional = true
+[dependencies]
+serde = { version = "1.0.101", default-features = false, features = ['derive'], optional = true }
+codec = { package = "parity-scale-codec", version = "1.3.4", default-features = false, features = ['derive'] }
+primitive-types = { version = "0.7.2", default-features = false, features = ["codec"] }
+sha2 = { version = "0.8.0", default-features = false }
 
-[dependencies.codec]
-default-features = false
-features = ['derive']
-package = 'parity-scale-codec'
-version = '1.3.4'
+# Substrate dependencies
+sp-core = { version = "2.0.0", default-features = false }
+sp-io = { version = "2.0.0", default-features = false }
+sp-runtime = { version = "2.0.0", default-features = false }
+sp-std = { version = "2.0.0", default-features = false }
+sp-arithmetic = { version = "2.0.0", default-features = false }
 
-[dependencies.sp-arithmetic]
-default-features = false
-version = '2.0.0'
+frame-support = { version = "2.0.0", default-features = false }
+frame-system = { version = "2.0.0", default-features = false }
+pallet-balances = { version = "2.0.0", default-features = false }
+pallet-timestamp = { version = "2.0.0", default-features = false }
+pallet-randomness-collective-flip = { version = "2.0.0", default-features = false }
 
-[dependencies.frame-support]
-default-features = false
-version = '2.0.0'
-
-[dependencies.sp-core]
-default-features = false
-version = '2.0.0'
-
-[dependencies.sp-io]
-default-features = false
-version = '2.0.0'
-
-[dependencies.sp-runtime]
-default-features = false
-version = '2.0.0'
-
-[dependencies.sp-std]
-default-features = false
-version = '2.0.0'
-
-[dependencies.frame-system]
-default-features = false
-version = '2.0.0'
-
-[dependencies.pallet-balances]
-default-features = false
-package = 'pallet-balances'
-version = '2.0.0'
-
-[dependencies.treasury]
-default-features = false
-path = '../treasury'
-
-[dependencies.redeem]
-default-features = false
-path = '../redeem'
-
-[dependencies.fee]
-default-features = false
-path = '../fee'
-
-[dependencies.sla]
-default-features = false
-path = '../sla'
-
-[dependencies.pallet-randomness-collective-flip]
-default-features = false
-package = 'pallet-randomness-collective-flip'
-version = '2.0.0'
-
-[dependencies.vault-registry]
-default-features = false
-path = '../vault-registry'
-
-[dependencies.exchange-rate-oracle]
-default-features = false
-path = '../exchange-rate-oracle'
-
-[dependencies.pallet-timestamp]
-default-features = false
-package = 'pallet-timestamp'
-version = '2.0.0'
-
-[dependencies.btc-relay]
-default-features = false
-path = '../btc-relay'
-
-[dependencies.primitive-types]
-default-features = false
-version = '0.7.2'
-features= ['codec']
-
-[dependencies.collateral]
-default-features = false
-path = '../collateral'
-
-[dependencies.security]
-default-features = false
-path = '../security'
-
-[dependencies.bitcoin]
-default-features = false
-path = '../bitcoin'
+# Parachain dependencies
+treasury = { path = "../treasury", default-features = false }
+redeem = { path = "../redeem", default-features = false }
+fee = { path = "../fee", default-features = false }
+sla = { path = "../sla", default-features = false }
+vault-registry = { path = "../vault-registry", default-features = false }
+exchange-rate-oracle = { path = "../exchange-rate-oracle", default-features = false }
+btc-relay = { path = "../btc-relay", default-features = false }
+collateral = { path = "../collateral", default-features = false }
+security = { path = "../security", default-features = false }
+bitcoin = { path = "../bitcoin", default-features = false }
+util = { path = "../util", default-features = false }
 
 [dev-dependencies]
-mocktopus = '0.7.0'
-
-
-[dependencies.util]
-path = '../util'
+mocktopus = "0.7.0"
 
 [features]
-default = ['std']
+default = ["std"]
 std = [
-	'serde',
-	'codec/std',
-	'frame-support/std',
-	'sp-core/std',
-	'sp-io/std',
-	'sp-runtime/std',
-	'sp-std/std',
-	'frame-system/std',
-	'pallet-balances/std',
-	'treasury/std',
-	'redeem/std',
-	'fee/std',
-	'sla/std',
-	'vault-registry/std',
-	'exchange-rate-oracle/std',
-    'pallet-timestamp/std',
-	'sp-arithmetic/std',
-	'btc-relay/std',
-	'collateral/std',
-    'primitive-types/std',
-	'security/std',
-	'bitcoin/std',
+	"serde",
+	"codec/std",
+	"frame-support/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"sp-arithmetic/std",
+	"frame-system/std",
+	"pallet-balances/std",
+	"treasury/std",
+	"redeem/std",
+	"fee/std",
+	"sla/std",
+	"vault-registry/std",
+	"exchange-rate-oracle/std",
+	"pallet-timestamp/std",
+	"sp-arithmetic/std",
+	"btc-relay/std",
+	"collateral/std",
+	"primitive-types/std",
+	"security/std",
+	"bitcoin/std",
+	"util/std",
 ]

@@ -1,132 +1,64 @@
 [package]
 name = "btc-relay"
 version = '0.3.2'
-authors = ["Interlay Ltd"]
+authors = ['Interlay Ltd <contact@interlay.io>']
 edition = "2018"
 
-[dependencies.serde]
-features = ['derive']
-optional = true
-version = '1.0.101'
+[dependencies]
+codec = { package = "parity-scale-codec", version = "1.3.4", default-features = false, features = ['derive'] }
+serde = { version = "1.0.101", default-features = false, features = ['derive'], optional = true }
+hex = { version = "0.4.2", default-features = false }
+primitive-types = { version = "0.7.2", default-features = false, features = ["codec"] }
 
-[dependencies.codec]
-default-features = false
-features = ['derive']
-package = 'parity-scale-codec'
-version = '1.3.4'
+# Substrate dependencies
+sp-io = { version = "2.0.0", default-features = false }
+sp-core = { version = "2.0.0", default-features = false }
+sp-std = { version = "2.0.0", default-features = false }
+sp-arithmetic = { version = "2.0.0", default-features = false }
 
-[dependencies.frame-support]
-default-features = false
-version = '2.0.0'
+frame-support = { version = "2.0.0", default-features = false }
+frame-system = { version = "2.0.0", default-features = false }
+frame-benchmarking = { version = "2.0.0", default-features = false, optional = true }
+pallet-timestamp = { version = "2.0.0", default-features = false }
 
-[dependencies.frame-system]
-default-features = false
-version = '2.0.0'
-
-[dependencies.sp-io]
-default-features = false
-version = '2.0.0'
-
-[dependencies.sp-core]
-default-features = false
-version = '2.0.0'
-
-[dependencies.sp-std]
-default-features = false
-version = '2.0.0'
-
-[dependencies.primitive-types]
-default-features = false
-version = '0.7.2'
-features= ['codec']
-
-[dependencies.bitcoin]
-default-features = false
-path = '../bitcoin'
-
-[dependencies.sla]
-default-features = false
-path = '../sla'
-
-[dependencies.pallet-timestamp]
-default-features = false
-package = 'pallet-timestamp'
-version = '2.0.0'
-
-[dev-dependencies.exchange-rate-oracle]
-default-features = false
-path = '../exchange-rate-oracle'
-
-[dev-dependencies.pallet-balances]
-default-features = false
-package = 'pallet-balances'
-version = '2.0.0'
-
-[dependencies.vault-registry]
-default-features = false
-path = '../vault-registry'
-
-[dependencies.sp-arithmetic]
-default-features = false
-version = '2.0.0'
-
-[dependencies.collateral]
-default-features = false
-path = '../collateral'
-
-[dev-dependencies.treasury]
-default-features = false
-path = '../treasury'
-
-[dev-dependencies.pallet-randomness-collective-flip]
-default-features = false
-package = 'pallet-randomness-collective-flip'
-version = '2.0.0'
-
-[dependencies.security]
-default-features = false
-path = '../security'
-
-[dependencies.hex]
-default-features = false
-version = '0.4.2'
-
-[dependencies.frame-benchmarking]
-version = "2.0.0"
-default-features = false
-optional = true
+# Parachain dependencies
+bitcoin = { path = "../bitcoin", default-features = false }
+sla = { path = "../sla", default-features = false }
+security = { path = "../security", default-features = false }
+util = { path = "../util", default-features = false }
 
 [dev-dependencies]
-mocktopus = '0.7.0'
-frame-benchmarking = { version = "2.0.0" }
+mocktopus = "0.7.0"
+frame-benchmarking = { version = "2.0.0", default-features = false }
+sp-runtime = { version = "2.0.0", default-features = false }
+pallet-balances = { version = "2.0.0", default-features = false }
+pallet-randomness-collective-flip = { version = "2.0.0", default-features = false }
 
-[dev-dependencies.sp-runtime]
-default-features = false
-version = '2.0.0'
-
-[dependencies.util]
-path = '../util'
+vault-registry = { path = "../vault-registry", default-features = false }
+collateral = { path = "../collateral", default-features = false }
+treasury = { path = "../treasury", default-features = false }
+exchange-rate-oracle = { path = "../exchange-rate-oracle", default-features = false }
 
 [features]
-default = ['std']
+default = ["std"]
 no-btc = []
 std = [
-    'serde',
-    'codec/std',
-    'frame-support/std',
-    'frame-system/std',
-	'sp-arithmetic/std',
-    'sp-io/std',
-    'sp-core/std',
-    'pallet-timestamp/std',
-    'sp-std/std',
-    'primitive-types/std',
-    'bitcoin/std',
-    'sla/std',
-	'vault-registry/std',
-    'security/std',
-    'hex/std',
-    'frame-benchmarking/std',
+    "serde",
+    "codec/std",
+    "hex/std",
+    "primitive-types/std",
+    "sp-io/std",
+    "sp-core/std",
+    "sp-std/std",
+    "sp-arithmetic/std",
+    "frame-support/std",
+    "frame-system/std",
+    "frame-benchmarking/std",
+    "pallet-timestamp/std",
+    "bitcoin/std",
+    "sla/std",
+    "security/std",
+    "util/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",

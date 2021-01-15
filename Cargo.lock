@@ -446,7 +446,6 @@ dependencies = [
  "sha2 0.8.2",
  "sp-core",
  "sp-std",
- "util",
 ]
 
 [[package]]
@@ -604,7 +603,9 @@ dependencies = [
  "btc-parachain-runtime",
  "frame-benchmarking",
  "frame-benchmarking-cli",
+ "hex-literal 0.2.1",
  "jsonrpc-core",
+ "log",
  "module-exchange-rate-oracle-rpc",
  "module-issue-rpc",
  "module-redeem-rpc",
@@ -614,7 +615,9 @@ dependencies = [
  "module-staked-relayers-rpc",
  "module-vault-registry-rpc",
  "pallet-transaction-payment-rpc",
+ "parity-scale-codec",
  "sc-basic-authorship",
+ "sc-chain-spec",
  "sc-cli",
  "sc-client-api",
  "sc-consensus",
@@ -624,7 +627,9 @@ dependencies = [
  "sc-rpc",
  "sc-rpc-api",
  "sc-service",
+ "sc-tracing",
  "sc-transaction-pool",
+ "serde",
  "sp-api",
  "sp-arithmetic",
  "sp-block-builder",
@@ -634,8 +639,13 @@ dependencies = [
  "sp-core",
  "sp-finality-grandpa",
  "sp-inherents",
+ "sp-io",
+ "sp-offchain",
  "sp-runtime",
+ "sp-session",
+ "sp-timestamp",
  "sp-transaction-pool",
+ "sp-trie",
  "structopt",
  "substrate-build-script-utils",
  "substrate-frame-rpc-system",
@@ -657,7 +667,7 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "hex",
- "hex-literal",
+ "hex-literal 0.3.1",
  "issue",
  "mocktopus",
  "module-exchange-rate-oracle-rpc-runtime-api",
@@ -1730,9 +1740,9 @@ dependencies = [
 
 [[package]]
 name = "fs-swap"
-version = "0.2.4"
+version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "921d332c89b3b61a826de38c61ee5b6e02c56806cade1b0e5d81bd71f57a71bb"
+checksum = "5839fda247e24ca4919c87c71dd5ca658f1f39e4f06829f80e3f15c3bafcfc2c"
 dependencies = [
  "lazy_static",
  "libc",
@@ -2187,9 +2197,28 @@ checksum = "644f9158b2f133fd50f5fb3242878846d9eb792e445c893805ff0e3824006e35"
 
 [[package]]
 name = "hex-literal"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "961de220ec9a91af2e1e5bd80d02109155695e516771762381ef8581317066e0"
+dependencies = [
+ "hex-literal-impl",
+ "proc-macro-hack",
+]
+
+[[package]]
+name = "hex-literal"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5af1f635ef1bc545d78392b136bfe1c9809e029023c84a3638a864a10b8819c8"
+
+[[package]]
+name = "hex-literal-impl"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "853f769599eb31de176303197b7ba4973299c38c7a7604a6bc88c3eef05b9b46"
+dependencies = [
+ "proc-macro-hack",
+]
 
 [[package]]
 name = "hex_fmt"
@@ -5068,6 +5097,7 @@ dependencies = [
  "redeem",
  "security",
  "serde",
+ "sha2 0.8.2",
  "sla",
  "sp-arithmetic",
  "sp-core",
@@ -5455,7 +5485,7 @@ dependencies = [
  "fnv",
  "futures 0.3.6",
  "hash-db",
- "hex-literal",
+ "hex-literal 0.3.1",
  "kvdb",
  "lazy_static",
  "log",
@@ -6218,6 +6248,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "mocktopus",
+ "pallet-balances",
  "parity-scale-codec",
  "primitive-types",
  "serde",
@@ -7225,9 +7256,9 @@ checksum = "8ea5119cdb4c55b55d432abb513a0429384878c15dde60cc77b1c99de1a95a6a"
 
 [[package]]
 name = "structopt"
-version = "0.3.18"
+version = "0.3.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a33f6461027d7f08a13715659b2948e1602c31a3756aeae9378bfe7518c72e82"
+checksum = "5277acd7ee46e63e5168a80734c9f6ee81b1367a7d8772a2d765df2a3705d28c"
 dependencies = [
  "clap",
  "lazy_static",
@@ -7236,9 +7267,9 @@ dependencies = [
 
 [[package]]
 name = "structopt-derive"
-version = "0.4.11"
+version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c92e775028122a4b3dd55d58f14fc5120289c69bee99df1d117ae30f84b225c9"
+checksum = "5ba9cdfda491b814720b6b06e0cac513d922fc407582032e8706e9f137976f90"
 dependencies = [
  "heck",
  "proc-macro-error",
@@ -7883,7 +7914,6 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
- "util",
 ]
 
 [[package]]

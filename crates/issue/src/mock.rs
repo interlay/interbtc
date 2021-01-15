@@ -138,7 +138,7 @@ parameter_types! {
     pub const MinimumPeriod: u64 = 5;
 }
 
-impl timestamp::Trait for Test {
+impl pallet_timestamp::Trait for Test {
     type Moment = u64;
     type OnTimestampSet = ();
     type MinimumPeriod = MinimumPeriod;
