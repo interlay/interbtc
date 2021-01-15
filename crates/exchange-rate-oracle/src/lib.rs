@@ -84,7 +84,7 @@ pub trait Trait:
     type WeightInfo: WeightInfo;
 }
 
-#[derive(Encode, Decode, Default)]
+#[derive(Encode, Decode, Default, Eq, PartialEq, Debug)]
 pub struct BtcTxFeesPerByte {
     /// The estimated Satoshis per bytes to get included in the next block (~10 min)
     pub fast: u32,
