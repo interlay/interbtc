@@ -1,4 +1,5 @@
 use crate::mock::{run_test, ExchangeRateOracle, Origin, System, Test, TestError, TestEvent};
+use crate::BtcTxFeesPerByte;
 use frame_support::{assert_err, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
 use sp_arithmetic::FixedU128;
@@ -22,7 +23,7 @@ macro_rules! assert_not_emitted {
 }
 
 #[test]
-fn set_exchange_rate_success() {
+fn set_exchange_rate_succeeds() {
     run_test(|| {
         let rate = FixedU128::checked_from_rational(100, 1).unwrap();
 
@@ -40,13 +41,14 @@ fn set_exchange_rate_success() {
 }
 
 #[test]
-fn set_exchange_rate_max_delay_passed() {
+fn set_exchange_rate_recovers_from_oracle_offline() {
     run_test(|| {
         let rate = FixedU128::checked_from_rational(1, 1).unwrap();
 
-        let mut first_call_to_recover = false;
         ExchangeRateOracle::is_authorized.mock_safe(|_| MockResult::Return(true));
         ExchangeRateOracle::is_max_delay_passed.mock_safe(|| MockResult::Return(true));
+
+        let mut first_call_to_recover = false;
         // XXX: hacky way to ensure that `recover_from_oracle_offline` was
         // indeed called. mocktopus does not seem to have a `assert_called`
         // kind of feature yet
@@ -67,7 +69,7 @@ fn set_exchange_rate_max_delay_passed() {
 }
 
 #[test]
-fn set_exchange_rate_wrong_oracle() {
+fn set_exchange_rate_fails_with_invalid_oracle_source() {
     run_test(|| {
         let successful_rate = FixedU128::checked_from_rational(20, 1).unwrap();
         let failed_rate = FixedU128::checked_from_rational(100, 1).unwrap();
@@ -95,7 +97,7 @@ fn set_exchange_rate_wrong_oracle() {
 }
 
 #[test]
-fn get_exchange_rate_after_delay() {
+fn get_exchange_rate_fails_with_missing_exchange_rate() {
     run_test(|| {
         ExchangeRateOracle::is_max_delay_passed.mock_safe(|| MockResult::Return(true));
         let result = ExchangeRateOracle::get_exchange_rate();
@@ -206,5 +208,53 @@ fn remove_authorized_oracle_succeeds() {
             Origin::root(),
             oracle,
         ));
+    });
+}
+
+#[test]
+fn set_btc_tx_fees_per_byte_fails_with_invalid_oracle_source() {
+    run_test(|| {
+        ExchangeRateOracle::is_authorized.mock_safe(|_| MockResult::Return(false));
+
+        assert_err!(
+            ExchangeRateOracle::set_btc_tx_fees_per_byte(Origin::signed(3), 1, 1, 1),
+            TestError::InvalidOracleSource
+        );
+
+        assert_eq!(
+            ExchangeRateOracle::satoshi_per_bytes(),
+            BtcTxFeesPerByte {
+                fast: 0,
+                half: 0,
+                hour: 0,
+            }
+        );
+
+        assert_not_emitted!(Event::SetBtcTxFeesPerByte(3, 1, 1, 1));
+    });
+}
+
+#[test]
+fn set_btc_tx_fees_per_byte_succeeds() {
+    run_test(|| {
+        ExchangeRateOracle::is_authorized.mock_safe(|_| MockResult::Return(true));
+
+        assert_ok!(ExchangeRateOracle::set_btc_tx_fees_per_byte(
+            Origin::signed(3),
+            1,
+            1,
+            1
+        ));
+
+        assert_eq!(
+            ExchangeRateOracle::satoshi_per_bytes(),
+            BtcTxFeesPerByte {
+                fast: 1,
+                half: 1,
+                hour: 1,
+            }
+        );
+
+        assert_emitted!(Event::SetBtcTxFeesPerByte(3, 1, 1, 1));
     });
 }
