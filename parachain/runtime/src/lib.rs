@@ -29,7 +29,7 @@ use sp_version::RuntimeVersion;
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
     construct_runtime, parameter_types,
-    traits::Randomness,
+    traits::{KeyOwnerProofSystem, Randomness},
     weights::{
         constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
         DispatchClass, IdentityFee, Weight,
@@ -49,16 +49,29 @@ pub use btc_relay::Call as RelayCall;
 pub use module_exchange_rate_oracle_rpc_runtime_api::BalanceWrapper;
 
 // XCM imports
-use polkadot_parachain::primitives::Sibling;
-use xcm::v0::{Junction, MultiLocation, NetworkId};
-use xcm_builder::{
-    AccountId32Aliases, CurrencyAdapter, LocationInverter, ParentIsDefault, RelayChainAsNative,
-    SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
-    SovereignSignedViaLocation,
+#[cfg(not(feature = "standalone"))]
+use {
+    polkadot_parachain::primitives::Sibling,
+    xcm::v0::{Junction, MultiLocation, NetworkId},
+    xcm_builder::{
+        AccountId32Aliases, CurrencyAdapter, LocationInverter, ParentIsDefault, RelayChainAsNative,
+        SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
+        SovereignSignedViaLocation,
+    },
+    xcm_executor::{
+        traits::{IsConcrete, NativeAsset},
+        Config, XcmExecutor,
+    },
 };
-use xcm_executor::{
-    traits::{IsConcrete, NativeAsset},
-    Config, XcmExecutor,
+
+// Standalone imports
+#[cfg(feature = "standalone")]
+use {
+    pallet_grandpa::fg_primitives,
+    pallet_grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList},
+    sp_consensus_aura::sr25519::AuthorityId as AuraId,
+    sp_core::crypto::KeyTypeId,
+    sp_runtime::traits::NumberFor,
 };
 
 /// An index to a block.
@@ -106,8 +119,18 @@ pub mod opaque {
 
 pub type SessionHandlers = ();
 
+#[cfg(feature = "standalone")]
 impl_opaque_keys! {
-    pub struct SessionKeys {}
+    pub struct SessionKeys {
+        pub aura: Aura,
+        pub grandpa: Grandpa,
+    }
+}
+
+#[cfg(not(feature = "standalone"))]
+impl_opaque_keys! {
+    pub struct SessionKeys {
+    }
 }
 
 /// This runtime version.
@@ -223,6 +246,26 @@ impl frame_system::Config for Runtime {
     type SS58Prefix = SS58Prefix;
 }
 
+#[cfg(feature = "standalone")]
+impl pallet_aura::Config for Runtime {
+    type AuthorityId = AuraId;
+}
+
+#[cfg(feature = "standalone")]
+impl pallet_grandpa::Config for Runtime {
+    type Event = Event;
+    type Call = Call;
+    type KeyOwnerProofSystem = ();
+    type KeyOwnerProof =
+        <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
+    type KeyOwnerIdentification = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
+        KeyTypeId,
+        GrandpaId,
+    )>>::IdentificationTuple;
+    type HandleEquivocation = ();
+    type WeightInfo = ();
+}
+
 parameter_types! {
     pub const MinimumPeriod: u64 = SLOT_DURATION / 2;
 }
@@ -252,11 +295,13 @@ impl pallet_sudo::Config for Runtime {
     type Event = Event;
 }
 
+#[cfg(not(feature = "standalone"))]
 impl cumulus_parachain_upgrade::Config for Runtime {
     type Event = Event;
     type OnValidationData = ();
 }
 
+#[cfg(not(feature = "standalone"))]
 impl cumulus_message_broker::Config for Runtime {
     type DownwardMessageHandlers = ();
     type HrmpMessageHandlers = ();
@@ -264,6 +309,7 @@ impl cumulus_message_broker::Config for Runtime {
 
 impl parachain_info::Config for Runtime {}
 
+#[cfg(not(feature = "standalone"))]
 parameter_types! {
     pub const RococoLocation: MultiLocation = MultiLocation::X1(Junction::Parent);
     pub const RococoNetwork: NetworkId = NetworkId::Polkadot;
@@ -273,12 +319,14 @@ parameter_types! {
     }.into();
 }
 
+#[cfg(not(feature = "standalone"))]
 type LocationConverter = (
     ParentIsDefault<AccountId>,
     SiblingParachainConvertsVia<Sibling, AccountId>,
     AccountId32Aliases<RococoNetwork, AccountId>,
 );
 
+#[cfg(not(feature = "standalone"))]
 type LocalAssetTransactor = CurrencyAdapter<
     // Use this currency:
     DOT,
@@ -290,6 +338,7 @@ type LocalAssetTransactor = CurrencyAdapter<
     AccountId,
 >;
 
+#[cfg(not(feature = "standalone"))]
 type LocalOriginConverter = (
     SovereignSignedViaLocation<LocationConverter, Origin>,
     RelayChainAsNative<RelayChainOrigin, Origin>,
@@ -297,7 +346,10 @@ type LocalOriginConverter = (
     SignedAccountId32AsNative<RococoNetwork, Origin>,
 );
 
+#[cfg(not(feature = "standalone"))]
 pub struct XcmConfig;
+
+#[cfg(not(feature = "standalone"))]
 impl Config for XcmConfig {
     type Call = Call;
     type XcmSender = XcmHandler;
@@ -309,6 +361,7 @@ impl Config for XcmConfig {
     type LocationInverter = LocationInverter<Ancestry>;
 }
 
+#[cfg(not(feature = "standalone"))]
 impl xcm_handler::Config for Runtime {
     type Event = Event;
     type XcmExecutor = XcmExecutor<XcmConfig>;
@@ -454,45 +507,62 @@ impl replace::Config for Runtime {
     type WeightInfo = ();
 }
 
-construct_runtime!(
-    pub enum Runtime where
-        Block = Block,
-        NodeBlock = opaque::Block,
-        UncheckedExtrinsic = UncheckedExtrinsic
-    {
-        System: frame_system::{Module, Call, Storage, Config, Event<T>},
-        Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
-        Sudo: pallet_sudo::{Module, Call, Storage, Config<T>, Event<T>},
-        RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
-        ParachainUpgrade: cumulus_parachain_upgrade::{Module, Call, Storage, Inherent, Event},
-        MessageBroker: cumulus_message_broker::{Module, Storage, Call, Inherent},
-        TransactionPayment: pallet_transaction_payment::{Module, Storage},
-        ParachainInfo: parachain_info::{Module, Storage, Config},
-        XcmHandler: xcm_handler::{Module, Event<T>, Origin},
+macro_rules! construct_polkabtc_runtime {
+	($( $modules:tt )*) => {
+		#[allow(clippy::large_enum_variant)]
+		construct_runtime! {
+			pub enum Runtime where
+            Block = Block,
+            NodeBlock = opaque::Block,
+            UncheckedExtrinsic = UncheckedExtrinsic
+                {
+                System: frame_system::{Module, Call, Storage, Config, Event<T>},
+                Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
+                Sudo: pallet_sudo::{Module, Call, Storage, Config<T>, Event<T>},
+                RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
+                TransactionPayment: pallet_transaction_payment::{Module, Storage},
+                ParachainInfo: parachain_info::{Module, Storage, Config},
 
-        // Tokens & Balances
-        DOT: pallet_balances::<Instance1>::{Module, Call, Storage, Config<T>, Event<T>},
-        PolkaBTC: pallet_balances::<Instance2>::{Module, Call, Storage, Config<T>, Event<T>},
+                // Tokens & Balances
+                DOT: pallet_balances::<Instance1>::{Module, Call, Storage, Config<T>, Event<T>},
+                PolkaBTC: pallet_balances::<Instance2>::{Module, Call, Storage, Config<T>, Event<T>},
 
-        Collateral: collateral::{Module, Call, Storage, Event<T>},
-        Treasury: treasury::{Module, Call, Storage, Event<T>},
+                Collateral: collateral::{Module, Call, Storage, Event<T>},
+                Treasury: treasury::{Module, Call, Storage, Event<T>},
 
-        // Bitcoin SPV
-        BTCRelay: btc_relay::{Module, Call, Config<T>, Storage, Event},
+                // Bitcoin SPV
+                BTCRelay: btc_relay::{Module, Call, Config<T>, Storage, Event},
 
-        // Operational
-        Security: security::{Module, Call, Storage, Event},
-        StakedRelayers: staked_relayers::{Module, Call, Config<T>, Storage, Event<T>},
-        VaultRegistry: vault_registry::{Module, Call, Config<T>, Storage, Event<T>},
-        ExchangeRateOracle: exchange_rate_oracle::{Module, Call, Config<T>, Storage, Event<T>},
-        Issue: issue::{Module, Call, Config<T>, Storage, Event<T>},
-        Redeem: redeem::{Module, Call, Config<T>, Storage, Event<T>},
-        Replace: replace::{Module, Call, Config<T>, Storage, Event<T>},
-        Fee: fee::{Module, Call, Config<T>, Storage, Event<T>},
-        Sla: sla::{Module, Call, Config<T>, Storage, Event<T>},
-        Refund: refund::{Module, Call, Config<T>, Storage, Event<T>},
-    }
-);
+                // Operational
+                Security: security::{Module, Call, Storage, Event},
+                StakedRelayers: staked_relayers::{Module, Call, Config<T>, Storage, Event<T>},
+                VaultRegistry: vault_registry::{Module, Call, Config<T>, Storage, Event<T>},
+                ExchangeRateOracle: exchange_rate_oracle::{Module, Call, Config<T>, Storage, Event<T>},
+                Issue: issue::{Module, Call, Config<T>, Storage, Event<T>},
+                Redeem: redeem::{Module, Call, Config<T>, Storage, Event<T>},
+                Replace: replace::{Module, Call, Config<T>, Storage, Event<T>},
+                Fee: fee::{Module, Call, Config<T>, Storage, Event<T>},
+                Sla: sla::{Module, Call, Config<T>, Storage, Event<T>},
+                Refund: refund::{Module, Call, Config<T>, Storage, Event<T>},
+
+				$($modules)*
+			}
+		}
+	}
+}
+
+#[cfg(not(feature = "standalone"))]
+construct_polkabtc_runtime! {
+    ParachainUpgrade: cumulus_parachain_upgrade::{Module, Call, Storage, Inherent, Event},
+    MessageBroker: cumulus_message_broker::{Module, Storage, Call, Inherent},
+    XcmHandler: xcm_handler::{Module, Event<T>, Origin},
+}
+
+#[cfg(feature = "standalone")]
+construct_polkabtc_runtime! {
+    Aura: pallet_aura::{Module, Config<T>, Inherent},
+    Grandpa: pallet_grandpa::{Module, Call, Storage, Config, Event},
+}
 
 /// The address format for describing accounts.
 pub type Address = AccountId;
@@ -527,6 +597,7 @@ pub type Executive = frame_executive::Executive<
     AllModules,
 >;
 
+#[cfg(not(feature = "disable-runtime-api"))]
 impl_runtime_apis! {
     impl sp_api::Core<Block> for Runtime {
         fn version() -> RuntimeVersion {
@@ -588,6 +659,18 @@ impl_runtime_apis! {
         }
     }
 
+    #[cfg(feature = "standalone")]
+    impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
+        fn slot_duration() -> u64 {
+            Aura::slot_duration()
+        }
+
+        fn authorities() -> Vec<AuraId> {
+            Aura::authorities()
+        }
+    }
+
+
     impl sp_session::SessionKeys<Block> for Runtime {
         fn decode_session_keys(
             encoded: Vec<u8>,
@@ -597,6 +680,33 @@ impl_runtime_apis! {
 
         fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
             SessionKeys::generate(seed)
+        }
+    }
+
+    #[cfg(feature = "standalone")]
+    impl fg_primitives::GrandpaApi<Block> for Runtime {
+        fn grandpa_authorities() -> GrandpaAuthorityList {
+            Grandpa::grandpa_authorities()
+        }
+
+        fn submit_report_equivocation_unsigned_extrinsic(
+            _equivocation_proof: fg_primitives::EquivocationProof<
+                <Block as BlockT>::Hash,
+                NumberFor<Block>,
+            >,
+            _key_owner_proof: fg_primitives::OpaqueKeyOwnershipProof,
+        ) -> Option<()> {
+            None
+        }
+
+        fn generate_key_ownership_proof(
+            _set_id: fg_primitives::SetId,
+            _authority_id: GrandpaId,
+        ) -> Option<fg_primitives::OpaqueKeyOwnershipProof> {
+            // NOTE: this is the only implementation possible since we've
+            // defined our key owner proof type as a bottom type (i.e. a type
+            // with no values).
+            None
         }
     }
 

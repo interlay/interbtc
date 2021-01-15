@@ -16,24 +16,32 @@
 
 use crate::{
     chain_spec,
-    cli::{Cli, RelayChainCli, Subcommand},
+    cli::{Cli, Subcommand},
 };
 use btc_parachain_runtime::Block;
-use codec::Encode;
-use cumulus_primitives::{genesis::generate_genesis_block, ParaId};
-use log::info;
-use polkadot_parachain::primitives::AccountIdConversion;
-use sc_cli::{
-    ChainSpec, CliConfiguration, DefaultConfigurationValues, ImportParams, InitLoggerParams,
-    KeystoreParams, NetworkParams, Result, RuntimeVersion, SharedParams, SubstrateCli,
+use cumulus_primitives::ParaId;
+use sc_cli::{ChainSpec, Result, RuntimeVersion, SubstrateCli};
+use sc_service::{Configuration, PartialComponents, TaskManager};
+
+#[cfg(feature = "standalone")]
+use sc_cli::Role;
+
+#[cfg(not(feature = "standalone"))]
+use {
+    crate::cli::RelayChainCli,
+    codec::Encode,
+    cumulus_primitives::genesis::generate_genesis_block,
+    log::info,
+    polkadot_parachain::primitives::AccountIdConversion,
+    sc_cli::{
+        CliConfiguration, DefaultConfigurationValues, ImportParams, InitLoggerParams,
+        KeystoreParams, NetworkParams, SharedParams,
+    },
+    sc_service::config::{BasePath, PrometheusConfig},
+    sp_core::hexdisplay::HexDisplay,
+    sp_runtime::traits::Block as BlockT,
+    std::{io::Write, net::SocketAddr},
 };
-use sc_service::{
-    config::{BasePath, PrometheusConfig},
-    PartialComponents,
-};
-use sp_core::hexdisplay::HexDisplay;
-use sp_runtime::traits::Block as BlockT;
-use std::{io::Write, net::SocketAddr};
 
 fn load_spec(
     id: &str,
@@ -47,7 +55,7 @@ fn load_spec(
             polkadot_service::chain_spec::rococo_local_testnet_config()?,
         )),
         "staging" => Ok(Box::new(chain_spec::staging_testnet_config(para_id))),
-        // "dev" => Ok(Box::new(chain_spec::development_config(para_id))),
+        "dev" => Ok(Box::new(chain_spec::development_config(para_id))),
         "" => Ok(Box::new(chain_spec::get_chain_spec(para_id))),
         path => Ok(Box::new(chain_spec::ChainSpec::from_json_file(
             path.into(),
@@ -57,7 +65,7 @@ fn load_spec(
 
 impl SubstrateCli for Cli {
     fn impl_name() -> String {
-        "BTC Parachain Collator".into()
+        "BTC Parachain".into()
     }
 
     fn impl_version() -> String {
@@ -65,13 +73,7 @@ impl SubstrateCli for Cli {
     }
 
     fn description() -> String {
-        format!(
-            "Cumulus test parachain collator\n\nThe command-line arguments provided first will be \
-		passed to the parachain node, while the arguments provided after -- will be passed \
-		to the relaychain node.\n\n\
-		{} [parachain-args] -- [relaychain-args]",
-            Self::executable_name()
-        )
+        env!("CARGO_PKG_DESCRIPTION").into()
     }
 
     fn author() -> String {
@@ -79,7 +81,7 @@ impl SubstrateCli for Cli {
     }
 
     fn support_url() -> String {
-        "https://github.com/paritytech/cumulus/issues/new".into()
+        "https://gitlab.com/interlay/btc-parachain/-/issues/new".into()
     }
 
     fn copyright_start_year() -> i32 {
@@ -95,9 +97,10 @@ impl SubstrateCli for Cli {
     }
 }
 
+#[cfg(not(feature = "standalone"))]
 impl SubstrateCli for RelayChainCli {
     fn impl_name() -> String {
-        "BTC Parachain Collator".into()
+        "BTC Parachain".into()
     }
 
     fn impl_version() -> String {
@@ -134,6 +137,7 @@ impl SubstrateCli for RelayChainCli {
     }
 }
 
+#[cfg(not(feature = "standalone"))]
 fn extract_genesis_wasm(chain_spec: &Box<dyn sc_service::ChainSpec>) -> Result<Vec<u8>> {
     let mut storage = chain_spec.build_storage()?;
 
@@ -160,7 +164,7 @@ pub fn run() -> Result<()> {
                     task_manager,
                     import_queue,
                     ..
-                } = crate::service::new_partial(&config)?;
+                } = btc_parachain_service::new_partial(&config)?;
                 Ok((cmd.run(client, import_queue), task_manager))
             })
         }
@@ -171,7 +175,7 @@ pub fn run() -> Result<()> {
                     client,
                     task_manager,
                     ..
-                } = crate::service::new_partial(&config)?;
+                } = btc_parachain_service::new_partial(&config)?;
                 Ok((cmd.run(client, config.database), task_manager))
             })
         }
@@ -182,7 +186,7 @@ pub fn run() -> Result<()> {
                     client,
                     task_manager,
                     ..
-                } = crate::service::new_partial(&config)?;
+                } = btc_parachain_service::new_partial(&config)?;
                 Ok((cmd.run(client, config.chain_spec), task_manager))
             })
         }
@@ -194,7 +198,7 @@ pub fn run() -> Result<()> {
                     task_manager,
                     import_queue,
                     ..
-                } = crate::service::new_partial(&config)?;
+                } = btc_parachain_service::new_partial(&config)?;
                 Ok((cmd.run(client, import_queue), task_manager))
             })
         }
@@ -210,10 +214,22 @@ pub fn run() -> Result<()> {
                     task_manager,
                     backend,
                     ..
-                } = crate::service::new_partial(&config)?;
+                } = btc_parachain_service::new_partial(&config)?;
                 Ok((cmd.run(client, backend), task_manager))
             })
         }
+        Some(Subcommand::Benchmark(cmd)) => {
+            if cfg!(feature = "runtime-benchmarks") {
+                let runner = cli.create_runner(cmd)?;
+
+                runner.sync_run(|config| cmd.run::<Block, btc_parachain_service::Executor>(config))
+            } else {
+                Err("Benchmarking wasn't enabled when building the node. \
+				You can enable it with `--features runtime-benchmarks`."
+                    .into())
+            }
+        }
+        #[cfg(not(feature = "standalone"))]
         Some(Subcommand::ExportGenesisState(params)) => {
             sc_cli::init_logger(InitLoggerParams {
                 tracing_receiver: sc_tracing::TracingReceiver::Log,
@@ -239,6 +255,7 @@ pub fn run() -> Result<()> {
 
             Ok(())
         }
+        #[cfg(not(feature = "standalone"))]
         Some(Subcommand::ExportGenesisWasm(params)) => {
             sc_cli::init_logger(InitLoggerParams {
                 tracing_receiver: sc_tracing::TracingReceiver::Log,
@@ -264,50 +281,62 @@ pub fn run() -> Result<()> {
         None => {
             let runner = cli.create_runner(&*cli.run)?;
 
-            runner.run_node_until_exit(|config| async move {
-                // TODO
-                let key = sp_core::Pair::generate().0;
-
-                let extension = chain_spec::Extensions::try_get(&config.chain_spec);
-                let relay_chain_id = extension.map(|e| e.relay_chain.clone());
-                let para_id = extension.map(|e| e.para_id);
-
-                let polkadot_cli = RelayChainCli::new(
-                    config.base_path.as_ref().map(|x| x.path().join("polkadot")),
-                    relay_chain_id,
-                    [RelayChainCli::executable_name().to_string()]
-                        .iter()
-                        .chain(cli.relaychain_args.iter()),
-                );
-
-                let id = ParaId::from(cli.run.parachain_id.or(para_id).unwrap_or(100));
-
-                let parachain_account =
-                    AccountIdConversion::<polkadot_primitives::v0::AccountId>::into_account(&id);
-
-                let block: Block =
-                    generate_genesis_block(&config.chain_spec).map_err(|e| format!("{:?}", e))?;
-                let genesis_state = format!("0x{:?}", HexDisplay::from(&block.header().encode()));
-
-                let task_executor = config.task_executor.clone();
-                let polkadot_config =
-                    SubstrateCli::create_configuration(&polkadot_cli, &polkadot_cli, task_executor)
-                        .map_err(|err| format!("Relay chain argument error: {}", err))?;
-                let collator = cli.run.base.validator || cli.collator;
-
-                info!("Parachain id: {:?}", id);
-                info!("Parachain Account: {}", parachain_account);
-                info!("Parachain genesis state: {}", genesis_state);
-                info!("Is collating: {}", if collator { "yes" } else { "no" });
-
-                crate::service::start_node(config, key, polkadot_config, id, collator)
-                    .await
-                    .map(|r| r.0)
-            })
+            runner.run_node_until_exit(|config| async move { start_node(cli, config).await })
         }
     }
 }
 
+#[cfg(feature = "standalone")]
+async fn start_node(_: Cli, config: Configuration) -> sc_service::error::Result<TaskManager> {
+    match config.role {
+        Role::Light => btc_parachain_service::new_light(config),
+        _ => btc_parachain_service::new_full(config),
+    }
+    .map(|srv| srv.0)
+}
+
+#[cfg(not(feature = "standalone"))]
+async fn start_node(cli: Cli, config: Configuration) -> sc_service::error::Result<TaskManager> {
+    let key = sp_core::Pair::generate().0;
+
+    let extension = chain_spec::Extensions::try_get(&*config.chain_spec);
+    let relay_chain_id = extension.map(|e| e.relay_chain.clone());
+    let para_id = extension.map(|e| e.para_id);
+
+    let polkadot_cli = RelayChainCli::new(
+        config.base_path.as_ref().map(|x| x.path().join("polkadot")),
+        relay_chain_id,
+        [RelayChainCli::executable_name().to_string()]
+            .iter()
+            .chain(cli.relaychain_args.iter()),
+    );
+
+    let id = ParaId::from(cli.run.parachain_id.or(para_id).unwrap_or(100));
+
+    let parachain_account =
+        AccountIdConversion::<polkadot_primitives::v0::AccountId>::into_account(&id);
+
+    let block: Block =
+        generate_genesis_block(&config.chain_spec).map_err(|e| format!("{:?}", e))?;
+    let genesis_state = format!("0x{:?}", HexDisplay::from(&block.header().encode()));
+
+    let task_executor = config.task_executor.clone();
+    let polkadot_config =
+        SubstrateCli::create_configuration(&polkadot_cli, &polkadot_cli, task_executor)
+            .map_err(|err| format!("Relay chain argument error: {}", err))?;
+    let collator = cli.run.base.validator || cli.collator;
+
+    info!("Parachain id: {:?}", id);
+    info!("Parachain Account: {}", parachain_account);
+    info!("Parachain genesis state: {}", genesis_state);
+    info!("Is collating: {}", if collator { "yes" } else { "no" });
+
+    btc_parachain_service::start_node(config, key, polkadot_config, id, collator)
+        .await
+        .map(|srv| srv.0)
+}
+
+#[cfg(not(feature = "standalone"))]
 impl DefaultConfigurationValues for RelayChainCli {
     fn p2p_listen_port() -> u16 {
         30334
@@ -326,6 +355,7 @@ impl DefaultConfigurationValues for RelayChainCli {
     }
 }
 
+#[cfg(not(feature = "standalone"))]
 impl CliConfiguration<Self> for RelayChainCli {
     fn shared_params(&self) -> &SharedParams {
         self.base.base.shared_params()

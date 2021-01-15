@@ -7,10 +7,12 @@ use structopt::StructOpt;
 #[derive(Debug, StructOpt)]
 pub enum Subcommand {
     /// Export the genesis state of the parachain.
+    #[cfg(not(feature = "standalone"))]
     #[structopt(name = "export-genesis-state")]
     ExportGenesisState(ExportGenesisStateCommand),
 
     /// Export the genesis wasm of the parachain.
+    #[cfg(not(feature = "standalone"))]
     #[structopt(name = "export-genesis-wasm")]
     ExportGenesisWasm(ExportGenesisWasmCommand),
 
@@ -34,6 +36,10 @@ pub enum Subcommand {
 
     /// Revert the chain to a previous state.
     Revert(sc_cli::RevertCmd),
+
+    /// The custom benchmark subcommmand benchmarking runtime pallets.
+    #[structopt(name = "benchmark", about = "Benchmark runtime pallets.")]
+    Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 }
 
 /// Command for exporting the genesis state of the parachain
@@ -106,14 +112,17 @@ pub struct Cli {
     /// Run node as collator.
     ///
     /// Note that this is the same as running with `--validator`.
+    #[cfg(not(feature = "standalone"))]
     #[structopt(long, conflicts_with = "validator")]
     pub collator: bool,
 
     /// Relaychain arguments
+    #[cfg(not(feature = "standalone"))]
     #[structopt(raw = true)]
     pub relaychain_args: Vec<String>,
 }
 
+#[cfg(not(feature = "standalone"))]
 #[derive(Debug)]
 pub struct RelayChainCli {
     /// The actual relay chain cli object.
@@ -126,6 +135,7 @@ pub struct RelayChainCli {
     pub base_path: Option<PathBuf>,
 }
 
+#[cfg(not(feature = "standalone"))]
 impl RelayChainCli {
     /// Create a new instance of `Self`.
     pub fn new<'a>(

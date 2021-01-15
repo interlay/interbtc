@@ -1,25 +1,17 @@
-//! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
-
 use btc_parachain_runtime::{opaque::Block, RuntimeApi};
 use cumulus_network::build_block_announce_validator;
 use cumulus_service::{
     prepare_node_config, start_collator, start_full_node, StartCollatorParams, StartFullNodeParams,
 };
 use polkadot_primitives::v0::CollatorPair;
-use sc_executor::native_executor_instance;
 pub use sc_executor::NativeExecutor;
-use sc_service::{Configuration, PartialComponents, Role, TFullBackend, TFullClient, TaskManager};
+use sc_service::{Configuration, PartialComponents, Role, TaskManager};
 use sp_core::Pair;
 use sp_runtime::traits::BlakeTwo256;
 use sp_trie::PrefixedMemoryDB;
 use std::sync::Arc;
 
-// Native executor instance.
-native_executor_instance!(
-    pub Executor,
-    btc_parachain_runtime::api::dispatch,
-    btc_parachain_runtime::native_version,
-);
+use crate::{Executor, FullBackend, FullClient};
 
 /// Starts a `ServiceBuilder` for a full service.
 ///
@@ -29,11 +21,11 @@ pub fn new_partial(
     config: &Configuration,
 ) -> Result<
     PartialComponents<
-        TFullClient<Block, RuntimeApi, Executor>,
-        TFullBackend<Block>,
+        FullClient,
+        FullBackend,
         (),
         sp_consensus::import_queue::BasicQueue<Block, PrefixedMemoryDB<BlakeTwo256>>,
-        sc_transaction_pool::FullPool<Block, TFullClient<Block, RuntimeApi, Executor>>,
+        sc_transaction_pool::FullPool<Block, FullClient>,
         (),
     >,
     sc_service::Error,
@@ -43,8 +35,6 @@ pub fn new_partial(
     let (client, backend, keystore_container, task_manager) =
         sc_service::new_full_parts::<Block, RuntimeApi, Executor>(&config)?;
     let client = Arc::new(client);
-
-    let registry = config.prometheus_registry();
 
     let transaction_pool = sc_transaction_pool::BasicPool::new_full(
         config.transaction_pool.clone(),
@@ -58,7 +48,7 @@ pub fn new_partial(
         client.clone(),
         inherent_data_providers.clone(),
         &task_manager.spawn_handle(),
-        registry.clone(),
+        config.prometheus_registry(),
     )?;
 
     let params = PartialComponents {
@@ -86,7 +76,7 @@ async fn start_node_impl(
     polkadot_config: Configuration,
     id: polkadot_primitives::v0::Id,
     validator: bool,
-) -> sc_service::error::Result<(TaskManager, Arc<TFullClient<Block, RuntimeApi, Executor>>)> {
+) -> sc_service::error::Result<(TaskManager, Arc<FullClient>)> {
     if matches!(parachain_config.role, Role::Light) {
         return Err("Light client not supported!".into());
     }
@@ -136,13 +126,13 @@ async fn start_node_impl(
         let pool = transaction_pool.clone();
 
         Box::new(move |deny_unsafe, _| {
-            let deps = crate::rpc::FullDeps {
+            let deps = btc_parachain_rpc::FullDeps {
                 client: client.clone(),
                 pool: pool.clone(),
                 deny_unsafe,
             };
 
-            crate::rpc::create_full(deps)
+            btc_parachain_rpc::create_full(deps)
         })
     };
 
@@ -219,7 +209,7 @@ pub async fn start_node(
     polkadot_config: Configuration,
     id: polkadot_primitives::v0::Id,
     validator: bool,
-) -> sc_service::error::Result<(TaskManager, Arc<TFullClient<Block, RuntimeApi, Executor>>)> {
+) -> sc_service::error::Result<(TaskManager, Arc<FullClient>)> {
     start_node_impl(
         parachain_config,
         collator_key,

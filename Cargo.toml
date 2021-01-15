@@ -17,4 +17,6 @@ members = [
   "crates/util",
   "parachain",
   "parachain/runtime",
+  "parachain/service",
+  "parachain/rpc",
 ]

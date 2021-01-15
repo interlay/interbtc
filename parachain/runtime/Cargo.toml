@@ -40,7 +40,10 @@ pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", 
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 
-parachain-info = { path = "../../crates/parachain-info", default-features = false }
+# Standalone dependencies
+pallet-aura = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+pallet-grandpa = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
+sp-consensus-aura = { git = "https://github.com/paritytech/substrate", default-features = false, branch = "master" }
 
 # Cumulus dependencies
 cumulus-runtime = { git = "https://github.com/paritytech/cumulus", default-features = false, branch = "master" }
@@ -69,6 +72,7 @@ issue = { path = "../../crates/issue", default-features = false }
 redeem = { path = "../../crates/redeem", default-features = false }
 replace = { path = "../../crates/replace", default-features = false }
 refund = { path = "../../crates/refund", default-features = false }
+parachain-info = { path = "../../crates/parachain-info", default-features = false }
 
 module-exchange-rate-oracle-rpc-runtime-api = { path = "../../crates/exchange-rate-oracle/rpc/runtime-api", default-features = false }
 module-staked-relayers-rpc-runtime-api = { path = "../../crates/staked-relayers/rpc/runtime-api", default-features = false }
@@ -122,16 +126,18 @@ std = [
   "frame-system-rpc-runtime-api/std",
   "pallet-transaction-payment-rpc-runtime-api/std",
 
-	"parachain-info/std",
+  "pallet-aura/std",
+  "pallet-grandpa/std",
+  "sp-consensus-aura/std",
 
-	"cumulus-runtime/std",
-	"cumulus-parachain-upgrade/std",
-	"cumulus-message-broker/std",
-	"cumulus-primitives/std",
-	"xcm/std",
-	"xcm-builder/std",
-	"xcm-executor/std",
-	"xcm-handler/std",
+  "cumulus-runtime/std",
+  "cumulus-parachain-upgrade/std",
+  "cumulus-message-broker/std",
+  "cumulus-primitives/std",
+  "xcm/std",
+  "xcm-builder/std",
+  "xcm-executor/std",
+  "xcm-handler/std",
 
   "btc-relay/std",
   "collateral/std",
@@ -147,6 +153,7 @@ std = [
   "redeem/std",
   "replace/std",
   "refund/std",
+  "parachain-info/std",
 
   "module-exchange-rate-oracle-rpc-runtime-api/std",
   "module-staked-relayers-rpc-runtime-api/std",
@@ -175,3 +182,4 @@ std = [
   "fee/runtime-benchmarks",
 ]
 standalone = []
+disable-runtime-api = []

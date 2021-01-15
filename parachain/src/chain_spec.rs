@@ -5,6 +5,16 @@ use btc_parachain_runtime::{
     DAYS, MINUTES, WASM_BINARY,
 };
 
+#[cfg(feature = "standalone")]
+use {
+    btc_parachain_runtime::{AuraConfig, GrandpaConfig},
+    sp_consensus_aura::sr25519::AuthorityId as AuraId,
+    sp_finality_grandpa::AuthorityId as GrandpaId,
+};
+
+#[cfg(feature = "runtime-benchmarks")]
+use frame_benchmarking::account;
+
 use cumulus_primitives::ParaId;
 use hex_literal::hex;
 use jsonrpc_core::serde_json::{self, json};
@@ -14,9 +24,6 @@ use serde::{Deserialize, Serialize};
 use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
-
-#[cfg(feature = "runtime-benchmarks")]
-use frame_benchmarking::account;
 
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -31,6 +38,12 @@ pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Pu
         .public()
 }
 
+/// Generate an Aura authority key.
+#[cfg(feature = "standalone")]
+pub fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) {
+    (get_from_seed::<AuraId>(s), get_from_seed::<GrandpaId>(s))
+}
+
 /// The extensions for the [`ChainSpec`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension)]
 #[serde(deny_unknown_fields)]
@@ -41,9 +54,10 @@ pub struct Extensions {
     pub para_id: u32,
 }
 
+#[cfg(not(feature = "standalone"))]
 impl Extensions {
     /// Try to get the extension from the given `ChainSpec`.
-    pub fn try_get(chain_spec: &Box<dyn sc_service::ChainSpec>) -> Option<&Self> {
+    pub fn try_get(chain_spec: &dyn sc_service::ChainSpec) -> Option<&Self> {
         sc_chain_spec::get_extension(chain_spec.extensions())
     }
 }
@@ -66,6 +80,8 @@ pub fn get_chain_spec(id: ParaId) -> ChainSpec {
         move || {
             testnet_genesis(
                 get_account_id_from_seed::<sr25519::Public>("Alice"),
+                #[cfg(feature = "standalone")]
+                vec![],
                 vec![
                     get_account_id_from_seed::<sr25519::Public>("Alice"),
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
@@ -109,6 +125,8 @@ pub fn staging_testnet_config(id: ParaId) -> ChainSpec {
         move || {
             testnet_genesis(
                 hex!["9ed7705e3c7da027ba0583a22a3212042f7e715d3c168ba14f1424e2bc111d00"].into(),
+                #[cfg(feature = "standalone")]
+                vec![],
                 vec![
                     hex!["9ed7705e3c7da027ba0583a22a3212042f7e715d3c168ba14f1424e2bc111d00"].into(),
                 ],
@@ -133,8 +151,52 @@ pub fn staging_testnet_config(id: ParaId) -> ChainSpec {
     )
 }
 
+pub fn development_config(id: ParaId) -> ChainSpec {
+    ChainSpec::from_genesis(
+        "Dev",
+        "dev",
+        ChainType::Development,
+        move || {
+            testnet_genesis(
+                get_account_id_from_seed::<sr25519::Public>("Alice"),
+                #[cfg(feature = "standalone")]
+                vec![authority_keys_from_seed("Alice")],
+                vec![
+                    get_account_id_from_seed::<sr25519::Public>("Alice"),
+                    get_account_id_from_seed::<sr25519::Public>("Bob"),
+                    get_account_id_from_seed::<sr25519::Public>("Charlie"),
+                    get_account_id_from_seed::<sr25519::Public>("Dave"),
+                    get_account_id_from_seed::<sr25519::Public>("Eve"),
+                    get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+                    get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+                    #[cfg(feature = "runtime-benchmarks")]
+                    account("Origin", 0, 0),
+                    #[cfg(feature = "runtime-benchmarks")]
+                    account("Vault", 0, 0),
+                ],
+                id,
+            )
+        },
+        Vec::new(),
+        None,
+        None,
+        None,
+        // Extensions
+        Extensions {
+            relay_chain: "dev".into(),
+            para_id: id.into(),
+        },
+    )
+}
+
 fn testnet_genesis(
     root_key: AccountId,
+    #[cfg(feature = "standalone")] initial_authorities: Vec<(AuraId, GrandpaId)>,
     endowed_accounts: Vec<AccountId>,
     id: ParaId,
 ) -> GenesisConfig {
@@ -145,11 +207,22 @@ fn testnet_genesis(
                 .to_vec(),
             changes_trie_config: Default::default(),
         }),
+        #[cfg(feature = "standalone")]
+        pallet_aura: Some(AuraConfig {
+            authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect(),
+        }),
+        #[cfg(feature = "standalone")]
+        pallet_grandpa: Some(GrandpaConfig {
+            authorities: initial_authorities
+                .iter()
+                .map(|x| (x.1.clone(), 1))
+                .collect(),
+        }),
+        parachain_info: Some(ParachainInfoConfig { parachain_id: id }),
         pallet_sudo: Some(SudoConfig {
             // Assign network admin rights.
             key: root_key,
         }),
-        parachain_info: Some(ParachainInfoConfig { parachain_id: id }),
         pallet_balances_Instance1: Some(DOTConfig {
             balances: endowed_accounts
                 .iter()
