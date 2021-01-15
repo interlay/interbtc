@@ -4,100 +4,55 @@ version = '0.3.0'
 authors = ["Interlay Ltd"]
 edition = "2018"
 
-[dependencies.util]
-path = '../util'
+[dependencies]
+serde = { version = "1.0.101", default-features = false, features = ['derive'], optional = true }
+codec = { package = "parity-scale-codec", version = "1.3.4", default-features = false, features = ['derive'] }
+
+# Substrate dependencies
+sp-io = { version = "2.0.0", default-features = false }
+sp-core = { version = "2.0.0", default-features = false }
+sp-std = { version = "2.0.0", default-features = false }
+sp-runtime = { version = "2.0.0", default-features = false }
+sp-arithmetic = { version = "2.0.0", default-features = false }
+
+frame-support = { version = "2.0.0", default-features = false }
+frame-system = { version = "2.0.0", default-features = false }
+frame-benchmarking = { version = "2.0.0", default-features = false, optional = true }
+pallet-timestamp = { version = "2.0.0", default-features = false }
+pallet-balances = { version = "2.0.0", default-features = false }
+
+# Parachain dependencies
+collateral = { path = "../collateral", default-features = false }
+treasury = { path = "../treasury", default-features = false }
+security = { path = "../security", default-features = false }
+util = { path = "../util", default-features = false }
+
+[dev-dependencies]
+mocktopus = "0.7.0"
+frame-benchmarking = { version = "2.0.0", default-features = false }
 
 [features]
-default = ['std']
+default = ["std"]
 std = [
-	'serde',
-    'codec/std',
-    'sp-runtime/std',
-    'frame-support/std',
-    'frame-system/std',
-	'sp-arithmetic/std',
-    'sp-std/std',
-    'sp-io/std',
-    'sp-core/std',
-    'timestamp/std',
-    'pallet-balances/std',
-    'collateral/std',
-    'treasury/std',
-    'security/std',
-    'frame-benchmarking/std',
+    "serde",
+    "codec/std",
+    "sp-io/std",
+    "sp-core/std",
+    "sp-std/std",
+    "sp-runtime/std",
+    "sp-arithmetic/std",
+    "frame-support/std",
+    "frame-system/std",
+    "frame-benchmarking/std",
+    "pallet-timestamp/std",
+    "pallet-balances/std",
+    "collateral/std",
+    "treasury/std",
+    "security/std",
+    "util/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",
 	"frame-support/runtime-benchmarks",
 	"frame-system/runtime-benchmarks",
 ]
-
-[dependencies.frame-benchmarking]
-version = "2.0.0"
-default-features = false
-optional = true
-
-[dependencies.serde]
-version = '1.0.101'
-features = ['derive']
-optional = true
-
-[dependencies.codec]
-default-features = false
-features = ['derive']
-package = 'parity-scale-codec'
-version = '1.3.4'
-
-[dependencies.sp-runtime]
-default-features = false
-version = '2.0.0'
-
-[dependencies.frame-support]
-default-features = false
-version = '2.0.0'
-
-[dependencies.frame-system]
-default-features = false
-version = '2.0.0'
-
-[dependencies.sp-std]
-default-features = false
-version = '2.0.0'
-
-[dependencies.sp-io]
-default-features = false
-version = '2.0.0'
-
-[dependencies.sp-core]
-default-features = false
-version = '2.0.0'
-
-[dependencies.timestamp]
-default-features = false
-package = 'pallet-timestamp'
-version = '2.0.0'
-
-[dependencies.pallet-balances]
-default-features = false
-package = 'pallet-balances'
-version = '2.0.0'
-
-[dependencies.collateral]
-default-features = false
-path = '../collateral'
-
-[dependencies.treasury]
-default-features = false
-path = '../treasury'
-
-[dependencies.security]
-default-features = false
-path = '../security'
-
-[dependencies.sp-arithmetic]
-default-features = false
-version = '2.0.0'
-
-[dev-dependencies]
-mocktopus = "0.7.0"
-frame-benchmarking = { version = "2.0.0" }

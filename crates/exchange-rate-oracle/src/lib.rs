@@ -69,7 +69,11 @@ const DOT_DECIMALS: u32 = 10;
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
 pub trait Trait:
-    frame_system::Trait + timestamp::Trait + treasury::Trait + collateral::Trait + security::Trait
+    frame_system::Trait
+    + pallet_timestamp::Trait
+    + treasury::Trait
+    + collateral::Trait
+    + security::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -320,7 +324,7 @@ impl<T: Trait> Module<T> {
 
     /// Returns the current timestamp
     fn get_current_time() -> T::Moment {
-        <timestamp::Module<T>>::get()
+        <pallet_timestamp::Module<T>>::get()
     }
 
     /// Add a new authorized oracle
