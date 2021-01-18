@@ -61,6 +61,7 @@ pub trait WeightInfo {
     fn report_vault_under_liquidation_threshold() -> Weight;
     fn remove_active_status_update() -> Weight;
     fn remove_inactive_status_update() -> Weight;
+    fn set_maturity_period() -> Weight;
 }
 
 /// ## Configuration
@@ -81,9 +82,6 @@ pub trait Trait:
 
     /// Weight information for the extrinsics in this module.
     type WeightInfo: WeightInfo;
-
-    /// Number of blocks to wait until eligible to vote.
-    type MaturityPeriod: Get<Self::BlockNumber>;
 
     /// The minimum amount of deposit required to propose an update.
     type MinimumDeposit: Get<DOT<Self>>;
@@ -125,6 +123,9 @@ decl_storage! {
 
         /// AccountId of the governance mechanism, as specified in the genesis.
         GovernanceId get(fn gov_id) config(): T::AccountId;
+
+        /// Number of blocks to wait until eligible to vote.
+        MaturityPeriod get(fn maturity_period) config(): T::BlockNumber;
     }
 }
 
@@ -132,8 +133,6 @@ decl_storage! {
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         type Error = Error<T>;
-
-        const MaturityPeriod: T::BlockNumber = T::MaturityPeriod::get();
 
         const MinimumDeposit: DOT<T> = T::MinimumDeposit::get();
 
@@ -173,7 +172,7 @@ decl_module! {
 
             ext::collateral::lock_collateral::<T>(&signer, stake)?;
             let height = <frame_system::Module<T>>::block_number();
-            let maturity = height + T::MaturityPeriod::get();
+            let maturity = height + Self::get_maturity_period();
             Self::insert_inactive_staked_relayer(&signer, stake, maturity);
             Self::deposit_event(<Event<T>>::RegisterStakedRelayer(signer, maturity, stake));
             Ok(())
@@ -528,6 +527,21 @@ decl_module! {
         fn remove_inactive_status_update(origin, status_update_id: u64) {
             ensure_root(origin)?;
             <InactiveStatusUpdates<T>>::remove(status_update_id);
+        }
+
+        /// Sets the maturity period.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - the dispatch origin of this call (must be _Root_)
+        /// * `period` - the number of blocks to wait before a relayer is considered active.
+        ///
+        /// # Weight: `O(1)`
+        #[weight = <T as Trait>::WeightInfo::set_maturity_period()]
+        #[transactional]
+        fn set_maturity_period(origin, period: T::BlockNumber) {
+            ensure_root(origin)?;
+            <MaturityPeriod<T>>::set(period);
         }
 
         fn on_initialize(n: T::BlockNumber) -> Weight {
@@ -1176,6 +1190,11 @@ impl<T: Trait> Module<T> {
             *c += 1;
             *c
         })
+    }
+
+    /// Gets the maturity period
+    pub fn get_maturity_period() -> T::BlockNumber {
+        <MaturityPeriod<T>>::get()
     }
 }
 

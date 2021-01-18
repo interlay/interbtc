@@ -177,7 +177,6 @@ impl replace::Trait for Test {
 }
 
 parameter_types! {
-    pub const MaturityPeriod: u64 = 10;
     pub const MinimumDeposit: u64 = 10;
     pub const MinimumStake: u64 = 10;
     pub const VotingPeriod: u64 = 100;
@@ -187,7 +186,6 @@ parameter_types! {
 impl Trait for Test {
     type Event = TestEvent;
     type WeightInfo = ();
-    type MaturityPeriod = MaturityPeriod;
     type MinimumDeposit = MinimumDeposit;
     type MinimumStake = MinimumStake;
     type VotingPeriod = VotingPeriod;
@@ -265,9 +263,12 @@ impl ExtBuilder {
             .assimilate_storage(storage)
             .unwrap();
 
-            GenesisConfig::<Test> { gov_id: CAROL }
-                .assimilate_storage(storage)
-                .unwrap();
+            GenesisConfig::<Test> {
+                gov_id: CAROL,
+                maturity_period: 10,
+            }
+            .assimilate_storage(storage)
+            .unwrap();
         })
     }
 }

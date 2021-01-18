@@ -40,7 +40,7 @@ fn integration_test_report_vault_theft() {
                 .dispatch(origin_of(account_of(user)))
         );
 
-        SystemModule::set_block_number(MaturityPeriod::get() + 100);
+        SystemModule::set_block_number(StakedRelayersModule::get_maturity_period() + 100);
 
         // manually activate
         assert_ok!(StakedRelayersModule::activate_staked_relayer(&account_of(

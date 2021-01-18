@@ -316,7 +316,6 @@ impl security::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const MaturityPeriod: u32 = MINUTES * 10;
     pub const MinimumDeposit: u32 = 10;
     pub const MinimumStake: u32 = 10;
     pub const VotingPeriod: BlockNumber = DAYS;
@@ -328,7 +327,6 @@ pub use staked_relayers::RawEvent as StakedRelayersEvent;
 impl staked_relayers::Trait for Runtime {
     type Event = Event;
     type WeightInfo = ();
-    type MaturityPeriod = MaturityPeriod;
     type MinimumDeposit = MinimumDeposit;
     type MinimumStake = MinimumStake;
     type VotingPeriod = VotingPeriod;
