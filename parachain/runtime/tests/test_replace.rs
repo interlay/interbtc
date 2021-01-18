@@ -29,7 +29,7 @@ fn assert_auction_event() -> H256 {
     let ids = events
         .iter()
         .filter_map(|r| match r.event {
-            Event::replace(ReplaceEvent::AuctionReplace(_, _, id, _, _, _)) => Some(id.clone()),
+            Event::replace(ReplaceEvent::AuctionReplace(_, _, id, _, _, _, _)) => Some(id.clone()),
             _ => None,
         })
         .collect::<Vec<H256>>();
