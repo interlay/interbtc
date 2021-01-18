@@ -23,7 +23,7 @@ mod ext;
 pub mod types;
 
 pub use crate::types::RedeemRequest;
-use crate::types::{PolkaBTC, RedeemRequestV0, Version, DOT};
+use crate::types::{PolkaBTC, Version, DOT};
 use bitcoin::types::H256Le;
 use btc_relay::BtcAddress;
 use frame_support::weights::Weight;
@@ -118,32 +118,6 @@ decl_module! {
 
         /// Upgrade the runtime depending on the current `StorageVersion`.
         fn on_runtime_upgrade() -> Weight {
-            use frame_support::{migration::StorageKeyIterator, Blake2_128Concat};
-
-            if Self::storage_version() == Version::V0 {
-                StorageKeyIterator::<H256, RedeemRequestV0<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, Blake2_128Concat>::new(<RedeemRequests<T>>::module_prefix(), b"RedeemRequests")
-                    .drain()
-                    .for_each(|(id, request_v0)| {
-                        let request_v1 = RedeemRequest {
-                            vault: request_v0.vault,
-                            opentime: request_v0.opentime,
-                            amount_polka_btc: request_v0.amount_polka_btc,
-                            fee: 0.into(),
-                            amount_btc: request_v0.amount_btc,
-                            amount_dot: request_v0.amount_dot,
-                            premium_dot: request_v0.premium_dot,
-                            redeemer: request_v0.redeemer,
-                            btc_address: BtcAddress::P2WPKHv0(request_v0.btc_address),
-                            completed: request_v0.completed,
-                            cancelled: false,
-                            reimburse: false,
-                        };
-                        <RedeemRequests<T>>::insert(id, request_v1);
-                    });
-
-                StorageVersion::put(Version::V1);
-            }
-
             0
         }
 
@@ -412,12 +386,13 @@ impl<T: Trait> Module<T> {
             .try_into()
             .map_err(|_e| Error::<T>::TryIntoIntError)?;
         ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
-        // TODO: register change addresses (vault wallet)
+        // NOTE: vault client must register change addresses before
+        // sending the bitcoin transaction
         ext::btc_relay::validate_transaction::<T>(
             raw_tx,
             amount as i64,
             redeem.btc_address,
-            redeem_id.clone().as_bytes().to_vec(),
+            Some(redeem_id.clone().as_bytes().to_vec()),
         )?;
 
         let amount_polka_btc = redeem.amount_polka_btc;

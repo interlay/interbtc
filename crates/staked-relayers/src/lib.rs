@@ -1012,7 +1012,7 @@ impl<T: Trait> Module<T> {
     pub(crate) fn is_valid_merge_transaction(
         payments: &Vec<(i64, BtcAddress)>,
         op_returns: &Vec<(i64, Vec<u8>)>,
-        wallet: &Wallet<BtcAddress>,
+        wallet: &Wallet,
     ) -> bool {
         if op_returns.len() > 0 {
             // migration should only contain payments
@@ -1040,7 +1040,7 @@ impl<T: Trait> Module<T> {
         request_value: PolkaBTC<T>,
         request_address: BtcAddress,
         payments: &Vec<(i64, BtcAddress)>,
-        wallet: &Wallet<BtcAddress>,
+        wallet: &Wallet,
     ) -> bool {
         let request_value = match TryInto::<u64>::try_into(request_value)
             .map_err(|_e| Error::<T>::TryIntoIntError)
@@ -1151,15 +1151,18 @@ impl<T: Trait> Module<T> {
             // replace requests
             match ext::replace::get_open_or_completed_replace_request::<T>(&request_id) {
                 Ok(req) => {
-                    ensure!(
-                        !Self::is_valid_request_transaction(
-                            req.amount,
-                            req.btc_address,
-                            &payments,
-                            &vault.wallet,
-                        ),
-                        Error::<T>::ValidReplaceTransaction
-                    );
+                    if let Some(btc_address) = req.btc_address {
+                        // only check replace if we have a valid btc_address
+                        ensure!(
+                            !Self::is_valid_request_transaction(
+                                req.amount,
+                                btc_address,
+                                &payments,
+                                &vault.wallet,
+                            ),
+                            Error::<T>::ValidReplaceTransaction
+                        );
+                    }
                 }
                 Err(_) => (),
             };

@@ -30,9 +30,13 @@ fn integration_test_report_vault_theft() {
         // assert_ok!(CollateralModule::lock_collateral(&account_of(vault), collateral_vault));
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
             collateral_vault,
-            vault_btc_address.clone()
+            dummy_public_key()
         ))
         .dispatch(origin_of(account_of(vault))));
+        assert_ok!(VaultRegistryModule::insert_vault_deposit_address(
+            &account_of(vault),
+            vault_btc_address
+        ));
 
         // register as staked relayer
         assert_ok!(
@@ -50,7 +54,7 @@ fn integration_test_report_vault_theft() {
         let (tx_id, _height, proof, raw_tx) = generate_transaction_and_mine_with_script_sig(
             other_btc_address,
             amount,
-            H256::zero(),
+            Some(H256::zero()),
             &[
                 0, 71, 48, 68, 2, 32, 91, 128, 41, 150, 96, 53, 187, 63, 230, 129, 53, 234, 210,
                 186, 21, 187, 98, 38, 255, 112, 30, 27, 228, 29, 132, 140, 155, 62, 123, 216, 232,

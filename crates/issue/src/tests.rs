@@ -3,7 +3,7 @@ use crate::PolkaBTC;
 use crate::RawEvent;
 use crate::{ext, has_request_expired, Trait};
 use bitcoin::types::H256Le;
-use btc_relay::BtcAddress;
+use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
 use primitive_types::H256;
@@ -24,7 +24,7 @@ fn request_issue(
     ext::security::get_secure_id::<Test>.mock_safe(|_| MockResult::Return(get_dummy_request_id()));
 
     ext::vault_registry::increase_to_be_issued_tokens::<Test>
-        .mock_safe(|_, _| MockResult::Return(Ok(BtcAddress::default())));
+        .mock_safe(|_, _, _| MockResult::Return(Ok(BtcAddress::default())));
 
     Issue::_request_issue(origin, amount, vault, collateral)
 }
@@ -43,7 +43,7 @@ fn request_issue_ok(
     ext::security::get_secure_id::<Test>.mock_safe(|_| MockResult::Return(get_dummy_request_id()));
 
     ext::vault_registry::increase_to_be_issued_tokens::<Test>
-        .mock_safe(|_, _| MockResult::Return(Ok(BtcAddress::default())));
+        .mock_safe(|_, _, _| MockResult::Return(Ok(BtcAddress::default())));
 
     match Issue::_request_issue(origin, amount, vault, collateral) {
         Ok(act) => act,
@@ -105,7 +105,7 @@ fn test_request_issue_banned_fails() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
-                wallet: Wallet::new(BtcAddress::random()),
+                wallet: Wallet::new(BtcPublicKey::default()),
                 banned_until: Some(1),
                 status: VaultStatus::Active,
             },
@@ -149,6 +149,7 @@ fn test_request_issue_succeeds() {
             amount,
             vault,
             BtcAddress::default(),
+            BtcPublicKey::default(),
         ));
         assert!(System::events()
             .iter()
@@ -227,11 +228,13 @@ fn test_execute_issue_overpayment_succeeds() {
             let mut increase_tokens_called = false;
             let mut refund_called = false;
 
-            ext::vault_registry::increase_to_be_issued_tokens::<Test>.mock_raw(|_, amount| {
-                increase_tokens_called = true;
-                assert_eq!(amount, 2);
-                MockResult::Return(Ok(BtcAddress::P2SH(H160::zero())))
-            });
+            ext::vault_registry::force_increase_to_be_issued_tokens::<Test>.mock_raw(
+                |_, amount| {
+                    increase_tokens_called = true;
+                    assert_eq!(amount, 2);
+                    MockResult::Return(Ok(()))
+                },
+            );
 
             // check that request_refund is not called..
             ext::refund::request_refund::<Test>.mock_raw(|_, _, _, _, _| {
@@ -266,7 +269,7 @@ fn test_execute_issue_refund_succeeds() {
             .mock_safe(|_, _, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 103))));
 
         // return some arbitrary error
-        ext::vault_registry::increase_to_be_issued_tokens::<Test>.mock_safe(|_, amount| {
+        ext::vault_registry::increase_to_be_issued_tokens::<Test>.mock_safe(|_, _, amount| {
             assert_eq!(amount, 100);
             MockResult::Return(Err(TestError::IssueCompleted.into()))
         });

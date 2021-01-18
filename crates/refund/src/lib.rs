@@ -192,7 +192,7 @@ impl<T: Trait> Module<T> {
             raw_tx,
             amount as i64,
             request.btc_address,
-            refund_id.as_bytes().to_vec(),
+            Some(refund_id.as_bytes().to_vec()),
         )?;
 
         // mint polkabtc corresponding to the fee

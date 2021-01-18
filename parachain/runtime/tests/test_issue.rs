@@ -12,19 +12,19 @@ type IssueError = issue::Error<Runtime>;
 type RefundCall = refund::Call<Runtime>;
 type RefundModule = refund::Module<Runtime>;
 type RefundEvent = refund::Event<Runtime>;
-type RefundError = refund::Error<Runtime>;
 
 fn assert_issue_request_event() -> H256 {
     let events = SystemModule::events();
     let record = events.iter().find(|record| match record.event {
-        Event::issue(IssueEvent::RequestIssue(_, _, _, _, _)) => true,
+        Event::issue(IssueEvent::RequestIssue(_, _, _, _, _, _)) => true,
         _ => false,
     });
-    let id = if let Event::issue(IssueEvent::RequestIssue(id, _, _, _, _)) = record.unwrap().event {
-        id
-    } else {
-        panic!("request issue event not found")
-    };
+    let id =
+        if let Event::issue(IssueEvent::RequestIssue(id, _, _, _, _, _)) = record.unwrap().event {
+            id
+        } else {
+            panic!("request issue event not found")
+        };
     id
 }
 
@@ -72,8 +72,6 @@ fn integration_test_issue_polka_btc_execute() {
         let griefing_collateral = 100;
         let collateral_vault = 1005000; // enough for fee + issued amount
 
-        let vault_btc_address = BtcAddress::P2PKH(H160([1; 20]));
-
         SystemModule::set_block_number(1);
 
         let initial_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
@@ -84,7 +82,7 @@ fn integration_test_issue_polka_btc_execute() {
         ));
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
             collateral_vault,
-            vault_btc_address.clone()
+            dummy_public_key()
         ))
         .dispatch(origin_of(account_of(vault))));
 
@@ -98,12 +96,13 @@ fn integration_test_issue_polka_btc_execute() {
 
         let issue_id = assert_issue_request_event();
         let issue_request = IssueModule::get_issue_request_from_id(&issue_id).unwrap();
+        let vault_btc_address = issue_request.btc_address;
         let fee_amount_btc = issue_request.fee;
         let total_amount_btc = amount_btc + fee_amount_btc;
 
         // send the btc from the user to the vault
         let (tx_id, _height, proof, raw_tx) =
-            generate_transaction_and_mine(vault_btc_address, total_amount_btc, issue_id);
+            generate_transaction_and_mine(vault_btc_address, total_amount_btc, None);
 
         SystemModule::set_block_number(1 + CONFIRMATIONS);
 
@@ -157,8 +156,6 @@ fn integration_test_issue_overpayment() {
         let griefing_collateral = 100;
         let collateral_vault = 1005000;
 
-        let vault_btc_address = BtcAddress::P2PKH(H160([1; 20]));
-
         SystemModule::set_block_number(1);
 
         let initial_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
@@ -169,7 +166,7 @@ fn integration_test_issue_overpayment() {
         ));
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
             collateral_vault,
-            vault_btc_address.clone()
+            dummy_public_key()
         ))
         .dispatch(origin_of(account_of(vault))));
 
@@ -182,13 +179,15 @@ fn integration_test_issue_overpayment() {
         .dispatch(origin_of(account_of(ALICE))));
 
         let issue_id = assert_issue_request_event();
+        let issue_request = IssueModule::get_issue_request_from_id(&issue_id).unwrap();
+        let vault_btc_address = issue_request.btc_address;
 
         let fee_amount_btc = FeeModule::get_issue_fee(amount_btc).unwrap();
         let total_amount_btc = amount_btc + fee_amount_btc;
 
         // send the btc from the user to the vault
         let (tx_id, _height, proof, raw_tx) =
-            generate_transaction_and_mine(vault_btc_address, total_amount_btc, issue_id);
+            generate_transaction_and_mine(vault_btc_address, total_amount_btc, None);
 
         SystemModule::set_block_number(1 + CONFIRMATIONS);
 
@@ -238,8 +237,6 @@ fn integration_test_issue_refund() {
         let collateral_vault = 1005000;
         let overpayment_factor = 2;
 
-        let vault_btc_address = BtcAddress::P2PKH(H160([1; 20]));
-
         SystemModule::set_block_number(1);
 
         let initial_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
@@ -250,7 +247,7 @@ fn integration_test_issue_refund() {
         ));
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
             collateral_vault,
-            vault_btc_address.clone()
+            dummy_public_key()
         ))
         .dispatch(origin_of(account_of(vault))));
 
@@ -268,6 +265,7 @@ fn integration_test_issue_refund() {
 
         let issue_id = assert_issue_request_event();
         let issue_request = IssueModule::get_issue_request_from_id(&issue_id).unwrap();
+        let vault_btc_address = issue_request.btc_address;
         let fee_amount_btc = issue_request.fee;
         let total_amount_btc = amount_btc + fee_amount_btc;
 
@@ -275,7 +273,7 @@ fn integration_test_issue_refund() {
         let (tx_id, _height, proof, raw_tx) = generate_transaction_and_mine(
             vault_btc_address,
             overpayment_factor * total_amount_btc,
-            issue_id,
+            None,
         );
 
         SystemModule::set_block_number(1 + CONFIRMATIONS);
@@ -315,7 +313,7 @@ fn integration_test_issue_refund() {
         assert_eq!(refund.amount_polka_btc, issue_request.amount);
 
         let (tx_id, _height, proof, raw_tx) =
-            generate_transaction_and_mine(refund_address, refund.amount_polka_btc, refund_id);
+            generate_transaction_and_mine(refund_address, refund.amount_polka_btc, Some(refund_id));
 
         SystemModule::set_block_number((1 + CONFIRMATIONS) * 2);
 
@@ -361,8 +359,6 @@ fn integration_test_issue_polka_btc_cancel() {
         let griefing_collateral = 100;
         let collateral_vault = 1000000;
 
-        let vault_btc_address = BtcAddress::P2PKH(H160([1; 20]));
-
         SystemModule::set_block_number(1);
 
         let initial_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
@@ -373,7 +369,7 @@ fn integration_test_issue_polka_btc_cancel() {
         ));
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
             collateral_vault,
-            vault_btc_address.clone()
+            dummy_public_key()
         ))
         .dispatch(origin_of(account_of(vault))));
 

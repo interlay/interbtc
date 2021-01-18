@@ -2,7 +2,7 @@ use crate::ext;
 use crate::mock::*;
 use crate::{has_request_expired, PolkaBTC, ReplaceRequest, DOT};
 use bitcoin::types::H256Le;
-use btc_relay::BtcAddress;
+use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::{
     assert_err, assert_noop, assert_ok,
     dispatch::{DispatchError, DispatchResult},
@@ -40,11 +40,18 @@ fn test_request() -> ReplaceRequest<u64, u64, u64, u64> {
         accept_time: None,
         amount: 10,
         griefing_collateral: 0,
-        btc_address: BtcAddress::default(),
+        btc_address: Some(BtcAddress::default()),
         collateral: 20,
         completed: false,
         cancelled: false,
     }
+}
+
+fn dummy_public_key() -> BtcPublicKey {
+    BtcPublicKey([
+        2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55,
+        18, 45, 222, 180, 119, 54, 243, 97, 173, 150, 161, 169, 230,
+    ])
 }
 
 fn test_vault() -> Vault<u64, u64, u64> {
@@ -52,7 +59,7 @@ fn test_vault() -> Vault<u64, u64, u64> {
         id: BOB,
         banned_until: None,
         issued_tokens: 5,
-        wallet: Wallet::new(BtcAddress::P2SH(H160([0; 20]))),
+        wallet: Wallet::new(dummy_public_key()),
         to_be_issued_tokens: 0,
         to_be_redeemed_tokens: 0,
         status: VaultStatus::Active,
@@ -76,7 +83,7 @@ fn accept_replace(
     replace_id: H256,
     collateral: DOT<Test>,
 ) -> Result<(), DispatchError> {
-    Replace::_accept_replace(vault_id, replace_id, collateral)
+    Replace::_accept_replace(vault_id, replace_id, collateral, BtcAddress::default())
 }
 
 fn auction_replace(
@@ -85,7 +92,13 @@ fn auction_replace(
     btc_amount: PolkaBTC<Test>,
     collateral: DOT<Test>,
 ) -> Result<(), DispatchError> {
-    Replace::_auction_replace(old_vault_id, new_vault_id, btc_amount, collateral)
+    Replace::_auction_replace(
+        old_vault_id,
+        new_vault_id,
+        btc_amount,
+        collateral,
+        BtcAddress::default(),
+    )
 }
 
 fn execute_replace(
@@ -111,7 +124,7 @@ fn test_request_replace_transfer_zero_fails() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 100,
                 to_be_redeemed_tokens: 0,
-                wallet: Wallet::new(BtcAddress::P2SH(H160([0; 20]))),
+                wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
                 status: VaultStatus::Active,
             }))
@@ -141,7 +154,7 @@ fn test_request_replace_vault_banned_fails() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
-                wallet: Wallet::new(BtcAddress::P2SH(H160([0; 20]))),
+                wallet: Wallet::new(dummy_public_key()),
                 banned_until: Some(1),
                 status: VaultStatus::Active,
             }))
@@ -168,7 +181,7 @@ fn test_request_replace_amount_below_dust_value_fails() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
                 to_be_redeemed_tokens: 0,
-                wallet: Wallet::new(BtcAddress::P2SH(H160([0; 20]))),
+                wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
                 status: VaultStatus::Active,
             }))
@@ -203,7 +216,7 @@ fn test_request_replace_insufficient_griefing_collateral_fails() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
                 to_be_redeemed_tokens: 0,
-                wallet: Wallet::new(BtcAddress::P2SH(H160([0; 20]))),
+                wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
                 status: VaultStatus::Active,
             }))
@@ -375,6 +388,8 @@ fn test_accept_replace_vault_banned_fails() {
             vault.banned_until = Some(100);
             MockResult::Return(Ok(vault))
         });
+        ext::vault_registry::insert_vault_deposit_address::<Test>
+            .mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::is_vault_below_auction_threshold::<Test>
             .mock_safe(|_| MockResult::Return(Ok(false)));
         ext::collateral::get_collateral_from_account::<Test>
@@ -402,6 +417,8 @@ fn test_accept_replace_insufficient_collateral_fails() {
             vault.banned_until = None;
             MockResult::Return(Ok(vault))
         });
+        ext::vault_registry::insert_vault_deposit_address::<Test>
+            .mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::is_collateral_below_secure_threshold::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(true)));
         let collateral = 100_000;
@@ -468,6 +485,8 @@ fn test_auction_replace_insufficient_collateral_fails() {
                 Ok(test_vault())
             })
         });
+        ext::vault_registry::insert_vault_deposit_address::<Test>
+            .mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::is_vault_below_auction_threshold::<Test>
             .mock_safe(|_| MockResult::Return(Ok(false)));
         ext::collateral::get_collateral_from_account::<Test>
@@ -687,6 +706,9 @@ fn test_accept_replace_succeeds() {
         ext::vault_registry::get_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(test_vault())));
 
+        ext::vault_registry::insert_vault_deposit_address::<Test>
+            .mock_safe(|_, _| MockResult::Return(Ok(())));
+
         ext::vault_registry::is_collateral_below_secure_threshold::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(false)));
 
@@ -719,6 +741,9 @@ fn test_auction_replace_succeeds() {
         // check if it exists in storage
         ext::vault_registry::get_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(test_vault())));
+
+        ext::vault_registry::insert_vault_deposit_address::<Test>
+            .mock_safe(|_, _| MockResult::Return(Ok(())));
 
         ext::vault_registry::is_vault_below_auction_threshold::<Test>
             .mock_safe(|_| MockResult::Return(Ok(true)));
