@@ -124,6 +124,32 @@ impl Into<[u8; COMPRESSED_PUBLIC_KEY_SIZE]> for PublicKey {
     }
 }
 
+#[cfg(feature = "std")]
+impl serde::Serialize for PublicKey {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut slice = [0u8; 2 + 2 * COMPRESSED_PUBLIC_KEY_SIZE];
+        impl_serde::serialize::serialize_raw(&mut slice, &self.0, serializer)
+    }
+}
+
+#[cfg(feature = "std")]
+impl<'de> serde::Deserialize<'de> for PublicKey {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let mut bytes = [0u8; COMPRESSED_PUBLIC_KEY_SIZE];
+        impl_serde::serialize::deserialize_check_len(
+            deserializer,
+            impl_serde::serialize::ExpectedLen::Exact(&mut bytes),
+        )?;
+        Ok(PublicKey(bytes))
+    }
+}
+
 /// To avoid the use of OP_RETURN during the issue process, we use an On-chain Key Derivation scheme (OKD) for
 /// Bitcoin’s ECDSA (secp256k1 curve). The vault-registry maintains a "master" public key for each registered
 /// Vault which can then be used to derive additional deposit addresses on-demand.

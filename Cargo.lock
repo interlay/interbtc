@@ -439,6 +439,7 @@ dependencies = [
  "bitcoin_hashes",
  "frame-support",
  "hex",
+ "impl-serde",
  "libsecp256k1",
  "mocktopus",
  "parity-scale-codec",
