@@ -19,15 +19,16 @@ pub(crate) mod btc_relay {
         raw_tx: Vec<u8>,
         amount: i64,
         btc_address: BtcAddress,
-        issue_id: Vec<u8>,
+        replace_id: Option<Vec<u8>>,
     ) -> Result<(BtcAddress, i64), DispatchError> {
-        <btc_relay::Module<T>>::_validate_transaction(raw_tx, amount, btc_address, issue_id)
+        <btc_relay::Module<T>>::_validate_transaction(raw_tx, amount, btc_address, replace_id)
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
     use crate::{PolkaBTC, DOT};
+    use btc_relay::BtcAddress;
     use frame_support::dispatch::{DispatchError, DispatchResult};
 
     pub fn replace_tokens<T: vault_registry::Trait>(
@@ -89,6 +90,13 @@ pub(crate) mod vault_registry {
         height: T::BlockNumber,
     ) -> DispatchResult {
         <vault_registry::Module<T>>::_ensure_not_banned(vault, height)
+    }
+
+    pub fn insert_vault_deposit_address<T: vault_registry::Trait>(
+        vault_id: &T::AccountId,
+        btc_address: BtcAddress,
+    ) -> DispatchResult {
+        <vault_registry::Module<T>>::insert_vault_deposit_address(vault_id, btc_address)
     }
 }
 

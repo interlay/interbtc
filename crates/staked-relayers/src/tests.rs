@@ -3,7 +3,7 @@ use crate::types::{ProposalStatus, StakedRelayer, StatusUpdate, Tally, Votes};
 use crate::{ext, mock::*};
 use bitcoin::formatter::Formattable;
 use bitcoin::types::{H256Le, TransactionBuilder, TransactionInputBuilder, TransactionOutput};
-use btc_relay::BtcAddress;
+use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
 use redeem::types::RedeemRequest;
@@ -43,6 +43,13 @@ macro_rules! assert_not_emitted {
     };
 }
 
+fn dummy_public_key() -> BtcPublicKey {
+    BtcPublicKey([
+        2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55,
+        18, 45, 222, 180, 119, 54, 243, 97, 173, 150, 161, 169, 230,
+    ])
+}
+
 /// Mocking functions
 fn init_zero_vault(
     id: AccountId,
@@ -50,8 +57,9 @@ fn init_zero_vault(
 ) -> Vault<AccountId, BlockNumber, u64> {
     let mut vault = Vault::default();
     vault.id = id;
+    vault.wallet = Wallet::new(dummy_public_key());
     match btc_address {
-        Some(btc_address) => vault.wallet = Wallet::new(btc_address),
+        Some(btc_address) => vault.wallet.add_btc_address(btc_address),
         None => {}
     }
     vault
@@ -1014,7 +1022,7 @@ fn test_is_valid_merge_transaction_fails() {
             Staking::is_valid_merge_transaction(
                 &vec![(100, address1)],
                 &vec![],
-                &Wallet::new(address2)
+                &Wallet::new(dummy_public_key())
             ),
             false,
             "payment to unknown recipient"
@@ -1024,7 +1032,7 @@ fn test_is_valid_merge_transaction_fails() {
             Staking::is_valid_merge_transaction(
                 &vec![(100, address2)],
                 &vec![(0, vec![])],
-                &Wallet::new(address2)
+                &Wallet::new(dummy_public_key())
             ),
             false,
             "migration should not have op_returns"
@@ -1042,12 +1050,11 @@ fn test_is_valid_merge_transaction_succeeds() {
         let address =
             BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
 
+        let mut wallet = Wallet::new(dummy_public_key());
+        wallet.add_btc_address(address);
+
         assert_eq!(
-            Staking::is_valid_merge_transaction(
-                &vec![(100, address.clone())],
-                &vec![],
-                &Wallet::new(address)
-            ),
+            Staking::is_valid_merge_transaction(&vec![(100, address.clone())], &vec![], &wallet),
             true
         );
     })
@@ -1066,6 +1073,9 @@ fn test_is_valid_request_transaction_fails() {
         let address2 =
             BtcAddress::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
 
+        let mut wallet = Wallet::new(dummy_public_key());
+        wallet.add_btc_address(address2);
+
         let actual_value: i32 = 50;
 
         let request_value = 100;
@@ -1076,7 +1086,7 @@ fn test_is_valid_request_transaction_fails() {
                 request_value,
                 request_address,
                 &vec![(actual_value.try_into().unwrap(), address1.clone())],
-                &Wallet::new(address2)
+                &wallet
             ),
             false
         );
@@ -1086,25 +1096,27 @@ fn test_is_valid_request_transaction_fails() {
 #[test]
 fn test_is_valid_request_transaction_succeeds() {
     run_test(|| {
-        let vault = BOB;
-        ext::vault_registry::get_vault_from_id::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), None))));
-
-        let address1 =
+        let recipient_address =
             BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
 
-        let address2 =
+        let vault_address =
             BtcAddress::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
 
         let request_value = 100;
-        let request_address = address1.clone();
+        let change_value = 50;
+
+        let mut wallet = Wallet::new(dummy_public_key());
+        wallet.add_btc_address(vault_address);
 
         assert_eq!(
             Staking::is_valid_request_transaction(
                 request_value,
-                request_address,
-                &vec![(request_value.try_into().unwrap(), address2)],
-                &Wallet::new(address2)
+                recipient_address,
+                &vec![
+                    (request_value.try_into().unwrap(), recipient_address),
+                    (change_value.try_into().unwrap(), vault_address)
+                ],
+                &wallet
             ),
             true
         );
@@ -1119,13 +1131,16 @@ fn test_is_transaction_invalid_fails_with_valid_merge_transaction() {
             50, 170,
         ]));
 
+        let mut wallet = Wallet::new(dummy_public_key());
+        wallet.add_btc_address(address);
+
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(move |_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
-                wallet: Wallet::new(address),
+                wallet: wallet.clone(),
                 banned_until: None,
                 status: VaultStatus::Active,
             }))
@@ -1166,12 +1181,15 @@ fn test_is_transaction_invalid_fails_with_valid_merge_transaction() {
 #[test]
 fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
     run_test(|| {
-        let address1 = BtcAddress::P2WPKHv0(H160::from_slice(&[
+        let vault_address = BtcAddress::P2WPKHv0(H160::from_slice(&[
             164, 180, 202, 72, 222, 11, 63, 255, 193, 84, 4, 161, 172, 220, 141, 186, 174, 34, 105,
             85,
         ]));
 
-        let address2 =
+        let mut wallet = Wallet::new(dummy_public_key());
+        wallet.add_btc_address(vault_address);
+
+        let recipient_address =
             BtcAddress::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
 
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(move |_| {
@@ -1180,7 +1198,7 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
-                wallet: Wallet::new(address1),
+                wallet: wallet.clone(),
                 banned_until: None,
                 status: VaultStatus::Active,
             }))
@@ -1196,7 +1214,7 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
                 amount_dot: 0,
                 premium_dot: 0,
                 redeemer: ALICE,
-                btc_address: address2,
+                btc_address: recipient_address,
                 completed: false,
                 cancelled: false,
                 reimburse: false,
@@ -1230,7 +1248,7 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
                     ])
                     .build(),
             )
-            .add_output(TransactionOutput::payment(100, &address2))
+            .add_output(TransactionOutput::payment(100, &recipient_address))
             .add_output(TransactionOutput::op_return(
                 0,
                 &H256::from_slice(&[0; 32]).as_bytes(),
@@ -1254,7 +1272,7 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
                 new_vault: None,
                 collateral: 0,
                 accept_time: None,
-                btc_address: address2,
+                btc_address: Some(recipient_address),
                 completed: false,
                 cancelled: false,
             }))
@@ -1275,7 +1293,7 @@ fn test_is_transaction_invalid_succeeds() {
             50, 170,
         ]));
 
-        let address =
+        let recipient_address =
             BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
 
         ext::vault_registry::get_vault_from_id::<Test>
@@ -1303,7 +1321,7 @@ fn test_is_transaction_invalid_succeeds() {
                     ])
                     .build(),
             )
-            .add_output(TransactionOutput::payment(100, &address))
+            .add_output(TransactionOutput::payment(100, &recipient_address))
             .build();
 
         assert_ok!(Staking::is_transaction_invalid(&BOB, transaction.format()));
@@ -1332,7 +1350,8 @@ fn test_is_transaction_invalid_fails_with_valid_merge_testnet_transaction() {
             &hex::decode("d0a46d39dafa3012c2a7ed4d82d644b428e4586b").unwrap(),
         ));
 
-        let mut wallet = Wallet::new(vault_btc_address_0);
+        let mut wallet = Wallet::new(dummy_public_key());
+        wallet.add_btc_address(vault_btc_address_0);
         wallet.add_btc_address(vault_btc_address_1);
         wallet.add_btc_address(vault_btc_address_2);
 

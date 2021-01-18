@@ -3,7 +3,7 @@ extern crate hex;
 pub use bitcoin::formatter::Formattable;
 pub use bitcoin::types::*;
 pub use btc_parachain_runtime::{AccountId, Call, Event, Runtime};
-pub use btc_relay::BtcAddress;
+pub use btc_relay::{BtcAddress, BtcPublicKey};
 pub use frame_support::{assert_noop, assert_ok};
 pub use mocktopus::mocking::*;
 use primitive_types::{H256, U256};
@@ -27,7 +27,6 @@ pub type BTCRelayCall = btc_relay::Call<Runtime>;
 pub type BTCRelayModule = btc_relay::Module<Runtime>;
 pub type BTCRelayError = btc_relay::Error<Runtime>;
 pub type BTCRelayEvent = btc_relay::Event;
-pub type VaultRegistryError = vault_registry::Error<Runtime>;
 
 pub fn origin_of(account_id: AccountId) -> <Runtime as frame_system::Trait>::Origin {
     <Runtime as frame_system::Trait>::Origin::signed(account_id)
@@ -50,22 +49,25 @@ pub fn set_default_thresholds() {
     VaultRegistryModule::set_liquidation_collateral_threshold(liquidation);
 }
 
+pub fn dummy_public_key() -> BtcPublicKey {
+    BtcPublicKey([
+        2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55,
+        18, 45, 222, 180, 119, 54, 243, 97, 173, 150, 161, 169, 230,
+    ])
+}
+
 #[allow(dead_code)]
-pub fn force_issue_tokens(
-    user: [u8; 32],
-    vault: [u8; 32],
-    collateral: u128,
-    tokens: u128,
-    btc_address: BtcAddress,
-) {
+pub fn force_issue_tokens(user: [u8; 32], vault: [u8; 32], collateral: u128, tokens: u128) {
     // register the vault
-    assert_ok!(
-        Call::VaultRegistry(VaultRegistryCall::register_vault(collateral, btc_address))
-            .dispatch(origin_of(account_of(vault)))
-    );
+    assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
+        collateral,
+        dummy_public_key()
+    ))
+    .dispatch(origin_of(account_of(vault))));
 
     // increase to be issued tokens
-    VaultRegistryModule::increase_to_be_issued_tokens(&account_of(vault), tokens).unwrap();
+    VaultRegistryModule::increase_to_be_issued_tokens(&account_of(vault), H256::random(), tokens)
+        .unwrap();
 
     // issue tokens
     assert_ok!(VaultRegistryModule::issue_tokens(
@@ -89,7 +91,7 @@ pub fn assert_store_main_chain_header_event(height: u32, hash: H256Le) {
 pub fn generate_transaction_and_mine(
     address: BtcAddress,
     amount: u128,
-    return_data: H256,
+    return_data: Option<H256>,
 ) -> (H256Le, u32, Vec<u8>, Vec<u8>) {
     generate_transaction_and_mine_with_script_sig(
         address,
@@ -112,7 +114,7 @@ pub fn generate_transaction_and_mine(
 pub fn generate_transaction_and_mine_with_script_sig(
     address: BtcAddress,
     amount: u128,
-    return_data: H256,
+    return_data: Option<H256>,
     script: &[u8],
 ) -> (H256Le, u32, Vec<u8>, Vec<u8>) {
     let mut height = 1;
@@ -142,18 +144,22 @@ pub fn generate_transaction_and_mine_with_script_sig(
     height = BTCRelayModule::get_best_block_height() + 1;
 
     let value = amount as i64;
-    let transaction = TransactionBuilder::new()
-        .with_version(2)
-        .add_input(
-            TransactionInputBuilder::new()
-                .with_coinbase(false)
-                .with_script(script)
-                .with_previous_hash(init_block.transactions[0].hash())
-                .build(),
-        )
-        .add_output(TransactionOutput::payment(value.into(), &address))
-        .add_output(TransactionOutput::op_return(0, return_data.as_bytes()))
-        .build();
+    let mut transaction_builder = TransactionBuilder::new();
+    transaction_builder.with_version(2);
+    transaction_builder.add_input(
+        TransactionInputBuilder::new()
+            .with_coinbase(false)
+            .with_script(script)
+            .with_previous_hash(init_block.transactions[0].hash())
+            .build(),
+    );
+
+    transaction_builder.add_output(TransactionOutput::payment(value.into(), &address));
+    if let Some(op_return_data) = return_data {
+        transaction_builder.add_output(TransactionOutput::op_return(0, op_return_data.as_bytes()));
+    }
+
+    let transaction = transaction_builder.build();
 
     let prev_hash = BTCRelayModule::get_best_block();
     let block = BlockBuilder::new()

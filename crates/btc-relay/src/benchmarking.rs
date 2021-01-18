@@ -186,7 +186,7 @@ benchmarks! {
 
         System::<T>::set_block_number(100.into());
 
-    }: _(RawOrigin::Signed(origin), tx_id, proof, Some(0), raw_tx, value.into(), address, op_return)
+    }: _(RawOrigin::Signed(origin), tx_id, proof, Some(0), raw_tx, value.into(), address, Some(op_return))
 
     verify_transaction_inclusion {
         let origin: T::AccountId = account("Origin", 0, 0);
@@ -220,7 +220,7 @@ benchmarks! {
 
         let raw_tx = transaction.format_with(true);
 
-    }: _(RawOrigin::Signed(origin), raw_tx, value.into(), address, op_return)
+    }: _(RawOrigin::Signed(origin), raw_tx, value.into(), address, Some(op_return))
 
 }
 

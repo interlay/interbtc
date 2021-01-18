@@ -44,9 +44,9 @@ pub(crate) mod btc_relay {
         raw_tx: Vec<u8>,
         amount: i64,
         btc_address: BtcAddress,
-        issue_id: Vec<u8>,
+        refund_id: Option<Vec<u8>>,
     ) -> Result<(BtcAddress, i64), DispatchError> {
-        <btc_relay::Module<T>>::_validate_transaction(raw_tx, amount, btc_address, issue_id)
+        <btc_relay::Module<T>>::_validate_transaction(raw_tx, amount, btc_address, refund_id)
     }
 }
 

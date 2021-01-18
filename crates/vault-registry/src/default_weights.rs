@@ -21,8 +21,13 @@ impl crate::WeightInfo for () {
             .saturating_add(DbWeight::get().reads(9 as Weight))
             .saturating_add(DbWeight::get().writes(2 as Weight))
     }
-    fn update_btc_address() -> Weight {
+    fn update_public_key() -> Weight {
         (48_413_000 as Weight)
+            .saturating_add(DbWeight::get().reads(2 as Weight))
+            .saturating_add(DbWeight::get().writes(2 as Weight))
+    }
+    fn register_address() -> Weight {
+        (48_000_000 as Weight)
             .saturating_add(DbWeight::get().reads(2 as Weight))
             .saturating_add(DbWeight::get().writes(2 as Weight))
     }

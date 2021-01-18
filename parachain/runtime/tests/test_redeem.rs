@@ -49,7 +49,6 @@ fn integration_test_redeem_polka_btc_execute() {
         let total_polka_btc = 1_000_000;
         let polka_btc = 1_000;
 
-        let vault_btc_address = BtcAddress::P2PKH(H160([1; 20]));
         let user_btc_address = BtcAddress::P2PKH(H160([2; 20]));
 
         SystemModule::set_block_number(1);
@@ -61,13 +60,7 @@ fn integration_test_redeem_polka_btc_execute() {
         set_default_thresholds();
 
         // create tokens for the vault and user
-        force_issue_tokens(
-            user,
-            vault,
-            collateral_vault,
-            total_polka_btc,
-            vault_btc_address,
-        );
+        force_issue_tokens(user, vault, collateral_vault, total_polka_btc);
 
         // alice requests to redeem polka_btc from Bob
         assert_ok!(Call::Redeem(RedeemCall::request_redeem(
@@ -82,7 +75,7 @@ fn integration_test_redeem_polka_btc_execute() {
 
         // send the btc from the vault to the user
         let (tx_id, _tx_block_height, merkle_proof, raw_tx) =
-            generate_transaction_and_mine(user_btc_address, polka_btc, redeem_id);
+            generate_transaction_and_mine(user_btc_address, polka_btc, Some(redeem_id));
 
         SystemModule::set_block_number(1 + CONFIRMATIONS);
 
@@ -101,7 +94,6 @@ fn setup_cancelable_redeem(user: [u8; 32], vault: [u8; 32], polka_btc: u128) -> 
     let collateral_vault = 100500 * 2;
     let total_polka_btc = 100_000;
 
-    let vault_btc_address = BtcAddress::P2PKH(H160([1u8; 20]));
     let user_btc_address = BtcAddress::P2PKH(H160([2u8; 20]));
 
     SystemModule::set_block_number(1);
@@ -113,13 +105,7 @@ fn setup_cancelable_redeem(user: [u8; 32], vault: [u8; 32], polka_btc: u128) -> 
     set_default_thresholds();
 
     // create tokens for the vault and user
-    force_issue_tokens(
-        user,
-        vault,
-        collateral_vault,
-        total_polka_btc,
-        vault_btc_address,
-    );
+    force_issue_tokens(user, vault, collateral_vault, total_polka_btc);
 
     // alice requests to redeem polka_btc from Bob
     assert_ok!(Call::Redeem(RedeemCall::request_redeem(

@@ -28,9 +28,9 @@ pub mod types;
 
 pub use crate::types::IssueRequest;
 
-use crate::types::{IssueRequestV0, PolkaBTC, Version, DOT};
+use crate::types::{PolkaBTC, Version, DOT};
 use bitcoin::types::H256Le;
-use btc_relay::BtcAddress;
+use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::weights::Weight;
 /// # PolkaBTC Issue implementation
 /// The Issue module according to the specification at
@@ -101,7 +101,14 @@ decl_event!(
         AccountId = <T as frame_system::Trait>::AccountId,
         PolkaBTC = PolkaBTC<T>,
     {
-        RequestIssue(H256, AccountId, PolkaBTC, AccountId, BtcAddress),
+        RequestIssue(
+            H256,
+            AccountId,
+            PolkaBTC,
+            AccountId,
+            BtcAddress,
+            BtcPublicKey,
+        ),
         ExecuteIssue(H256, AccountId, AccountId),
         CancelIssue(H256, AccountId),
     }
@@ -119,29 +126,6 @@ decl_module! {
 
         /// Upgrade the runtime depending on the current `StorageVersion`.
         fn on_runtime_upgrade() -> Weight {
-            use frame_support::{migration::StorageKeyIterator, Blake2_128Concat};
-
-            if Self::storage_version() == Version::V0 {
-                StorageKeyIterator::<H256, IssueRequestV0<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, Blake2_128Concat>::new(<IssueRequests<T>>::module_prefix(), b"IssueRequests")
-                    .drain()
-                    .for_each(|(id, request_v0)| {
-                        let request_v1 = IssueRequest {
-                            vault: request_v0.vault,
-                            opentime: request_v0.opentime,
-                            griefing_collateral: request_v0.griefing_collateral,
-                            amount: request_v0.amount,
-                            fee: PolkaBTC::<T>::default(),
-                            requester: request_v0.requester,
-                            btc_address: BtcAddress::P2WPKHv0(request_v0.btc_address),
-                            completed: request_v0.completed,
-                            cancelled: false,
-                        };
-                        <IssueRequests<T>>::insert(id, request_v1);
-                    });
-
-                StorageVersion::put(Version::V1);
-            }
-
             0
         }
 
@@ -230,7 +214,7 @@ impl<T: Trait> Module<T> {
         ext::security::ensure_parachain_status_running::<T>()?;
 
         let height = <frame_system::Module<T>>::block_number();
-        let _vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
+        let vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
         // Check that the vault is currently not banned
         ext::vault_registry::ensure_not_banned::<T>(&vault_id, height)?;
 
@@ -247,10 +231,11 @@ impl<T: Trait> Module<T> {
         let fee_polkabtc = ext::fee::get_issue_fee::<T>(amount_polkabtc)?;
         let amount_btc = amount_polkabtc + fee_polkabtc;
 
-        let btc_address =
-            ext::vault_registry::increase_to_be_issued_tokens::<T>(&vault_id, amount_btc)?;
-
         let issue_id = ext::security::get_secure_id::<T>(&requester);
+
+        let btc_address = ext::vault_registry::increase_to_be_issued_tokens::<T>(
+            &vault_id, issue_id, amount_btc,
+        )?;
 
         Self::insert_issue_request(
             issue_id,
@@ -273,6 +258,7 @@ impl<T: Trait> Module<T> {
             amount_btc,
             vault_id,
             btc_address,
+            vault.wallet.public_key,
         ));
         Ok(issue_id)
     }
@@ -305,15 +291,17 @@ impl<T: Trait> Module<T> {
             TryInto::<u64>::try_into(total_amount).map_err(|_e| Error::<T>::TryIntoIntError)?
                 as i64,
             issue.btc_address,
-            issue_id.clone().as_bytes().to_vec(),
+            None,
         )?;
         let amount_transferred = Self::u128_to_btc(amount_transferred as u128)?;
 
         if amount_transferred > total_amount {
             let surplus_btc = amount_transferred - total_amount;
 
-            match ext::vault_registry::increase_to_be_issued_tokens::<T>(&issue.vault, surplus_btc)
-            {
+            match ext::vault_registry::force_increase_to_be_issued_tokens::<T>(
+                &issue.vault,
+                surplus_btc,
+            ) {
                 Ok(_) => {
                     // Current vault can handle the surplus; update the issue request
                     issue.fee = ext::fee::get_issue_fee_from_total::<T>(amount_transferred)?;

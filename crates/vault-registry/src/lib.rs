@@ -36,7 +36,6 @@ use frame_system::ensure_signed;
 use security::{ErrorCode, StatusCode};
 use sp_arithmetic::traits::*;
 use sp_arithmetic::FixedPointNumber;
-use sp_core::H160;
 use sp_core::H256;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
@@ -44,9 +43,9 @@ use util::transactional;
 
 use crate::types::{
     BtcAddress, DefaultSystemVault, DefaultVault, Inner, PolkaBTC, RichSystemVault, RichVault,
-    UnsignedFixedPoint, UpdatableVault, VaultV0, Version, DOT,
+    UnsignedFixedPoint, UpdatableVault, Version, DOT,
 };
-pub use crate::types::{SystemVault, Vault, VaultStatus, Wallet};
+pub use crate::types::{BtcPublicKey, SystemVault, Vault, VaultStatus, Wallet};
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
@@ -60,7 +59,8 @@ pub trait WeightInfo {
     fn register_vault() -> Weight;
     fn lock_additional_collateral() -> Weight;
     fn withdraw_collateral() -> Weight;
-    fn update_btc_address() -> Weight;
+    fn update_public_key() -> Weight;
+    fn register_address() -> Weight;
 }
 
 /// ## Configuration and Constants
@@ -133,8 +133,8 @@ decl_storage! {
         /// Mapping of Vaults, using the respective Vault account identifier as key.
         Vaults: map hasher(blake2_128_concat) T::AccountId => Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>>;
 
-        /// Mapping of BTC hashes to Vault Ids
-        VaultsBtcAddress: map hasher(blake2_128_concat) H160 => T::AccountId;
+        /// Mapping of reserved BTC addresses to the registered account
+        ReservedAddresses: map hasher(blake2_128_concat) BtcAddress => T::AccountId;
 
         /// Build storage at V1 (requires default 0).
         StorageVersion get(fn storage_version) build(|_| Version::V1): Version = Version::V0;
@@ -151,35 +151,6 @@ decl_module! {
 
         /// Upgrade the runtime depending on the current `StorageVersion`.
         fn on_runtime_upgrade() -> Weight {
-            use frame_support::{migration::StorageKeyIterator, Blake2_128Concat};
-            use sp_std::collections::btree_set::BTreeSet;
-            use sp_std::iter::FromIterator;
-
-            if Self::storage_version() == Version::V0 {
-                StorageKeyIterator::<T::AccountId, VaultV0<T::AccountId, T::BlockNumber, PolkaBTC<T>>, Blake2_128Concat>::new(<Vaults<T>>::module_prefix(), b"Vaults")
-                    .drain()
-                    .for_each(|(id, vault_v0)| {
-                        let wallet_v0 = vault_v0.wallet;
-                        let wallet_v1: Wallet<BtcAddress> = Wallet {
-                            addresses: BTreeSet::from_iter(wallet_v0.addresses.iter().map(|hash| BtcAddress::P2WPKHv0(*hash))),
-                            address: BtcAddress::P2WPKHv0(wallet_v0.address),
-                        };
-
-                        let vault_v1 = Vault {
-                            id: vault_v0.id,
-                            to_be_issued_tokens: vault_v0.to_be_issued_tokens,
-                            issued_tokens: vault_v0.issued_tokens,
-                            to_be_redeemed_tokens: vault_v0.to_be_redeemed_tokens,
-                            wallet: wallet_v1,
-                            banned_until: vault_v0.banned_until,
-                            status: vault_v0.status,
-                        };
-                        <Vaults<T>>::insert(id, vault_v1);
-                    });
-
-                StorageVersion::put(Version::V1);
-            }
-
             0
         }
 
@@ -189,7 +160,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `collateral` - the amount of collateral to lock
-        /// * `btc_address` - the BTC address of the vault to register
+        /// * `public_key` - the BTC public key of the vault to register
         ///
         /// # Errors
         /// * `InsufficientVaultCollateralAmount` - if the collateral is below the minimum threshold
@@ -197,17 +168,16 @@ decl_module! {
         /// * `InsufficientCollateralAvailable` - if the vault does not own enough collateral
         #[weight = <T as Trait>::WeightInfo::register_vault()]
         #[transactional]
-        fn register_vault(origin, collateral: DOT<T>, btc_address: BtcAddress) -> DispatchResult {
+        fn register_vault(origin, collateral: DOT<T>, public_key: BtcPublicKey) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ext::security::ensure_parachain_status_running::<T>()?;
 
             ensure!(collateral >= Self::get_minimum_collateral_vault(),
                     Error::<T>::InsufficientVaultCollateralAmount);
             ensure!(!Self::vault_exists(&sender), Error::<T>::VaultAlreadyRegistered);
-            ensure!(!<VaultsBtcAddress<T>>::contains_key(btc_address.hash()), Error::<T>::BtcAddressTaken);
 
             ext::collateral::lock::<T>(&sender, collateral)?;
-            let vault = Vault::new(sender.clone(), btc_address);
+            let vault = Vault::new(sender.clone(), public_key);
             Self::insert_vault(&sender, vault.clone());
 
             Self::deposit_event(Event::<T>::RegisterVault(vault.id, collateral));
@@ -274,23 +244,25 @@ decl_module! {
         /// Registers a new Bitcoin address for the vault.
         ///
         /// # Arguments
-        /// * `btc_address` - the BTC address of the vault to update
-        #[weight = <T as Trait>::WeightInfo::update_btc_address()]
+        /// * `public_key` - the BTC public key of the vault to update
+        #[weight = <T as Trait>::WeightInfo::update_public_key()]
         #[transactional]
-        fn update_btc_address(origin, btc_address: BtcAddress) -> DispatchResult {
+        fn update_public_key(origin, public_key: BtcPublicKey) -> DispatchResult {
             let account_id = ensure_signed(origin)?;
             ext::security::ensure_parachain_status_running::<T>()?;
-
-            ensure!(
-                !<VaultsBtcAddress<T>>::contains_key(btc_address.hash()),
-                Error::<T>::BtcAddressTaken,
-            );
-
             let mut vault = Self::get_rich_vault_from_id(&account_id)?;
-            vault.update_btc_address(btc_address);
-            <VaultsBtcAddress<T>>::insert(btc_address.hash(), account_id.clone());
+            vault.update_public_key(public_key.clone());
+            Self::deposit_event(Event::<T>::UpdatePublicKey(account_id, public_key));
+            Ok(())
+        }
 
-            Self::deposit_event(Event::<T>::UpdateBtcAddress(account_id, btc_address));
+        #[weight = <T as Trait>::WeightInfo::register_address()]
+        #[transactional]
+        fn register_address(origin, btc_address: BtcAddress) -> DispatchResult {
+            let account_id = ensure_signed(origin)?;
+            ext::security::ensure_parachain_status_running::<T>()?;
+            Self::insert_vault_deposit_address(&account_id, btc_address.clone())?;
+            Self::deposit_event(Event::<T>::RegisterAddress(account_id, btc_address));
             Ok(())
         }
 
@@ -330,6 +302,7 @@ impl<T: Trait> Module<T> {
     ///
     /// # Arguments
     /// * `vault_id` - the id of the vault from which to increase to-be-issued tokens
+    /// * `secure_id` - secure id for generating deposit address
     /// * `tokens` - the amount of tokens to be reserved
     ///
     /// # Errors
@@ -337,13 +310,27 @@ impl<T: Trait> Module<T> {
     /// * `ExceedingVaultLimit` - if the amount of tokens to be issued is higher than the issuable amount by the vault
     pub fn increase_to_be_issued_tokens(
         vault_id: &T::AccountId,
+        secure_id: H256,
         tokens: PolkaBTC<T>,
     ) -> Result<BtcAddress, DispatchError> {
         ext::security::ensure_parachain_status_running::<T>()?;
         let mut vault = Self::get_rich_vault_from_id(&vault_id)?;
         vault.increase_to_be_issued(tokens)?;
         Self::deposit_event(Event::<T>::IncreaseToBeIssuedTokens(vault.id(), tokens));
-        Ok(vault.get_btc_address())
+        let btc_address = vault.new_deposit_address(secure_id)?;
+        Self::deposit_event(Event::<T>::RegisterAddress(vault.id(), btc_address));
+        Ok(btc_address)
+    }
+
+    pub fn force_increase_to_be_issued_tokens(
+        vault_id: &T::AccountId,
+        tokens: PolkaBTC<T>,
+    ) -> Result<(), DispatchError> {
+        ext::security::ensure_parachain_status_running::<T>()?;
+        let mut vault = Self::get_rich_vault_from_id(&vault_id)?;
+        vault.increase_to_be_issued(tokens)?;
+        Self::deposit_event(Event::<T>::IncreaseToBeIssuedTokens(vault.id(), tokens));
+        Ok(())
     }
 
     /// Decreases the amount of tokens to be issued in the next issue request
@@ -712,7 +699,6 @@ impl<T: Trait> Module<T> {
         id: &T::AccountId,
         vault: Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>>,
     ) {
-        <VaultsBtcAddress<T>>::insert(vault.get_btc_address().hash(), id);
         <Vaults<T>>::insert(id, vault)
     }
 
@@ -1096,6 +1082,29 @@ impl<T: Trait> Module<T> {
     fn u128_to_polkabtc(x: u128) -> Result<PolkaBTC<T>, DispatchError> {
         TryInto::<PolkaBTC<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
+
+    pub fn insert_vault_deposit_address(
+        vault_id: &T::AccountId,
+        btc_address: BtcAddress,
+    ) -> DispatchResult {
+        ensure!(
+            !<ReservedAddresses<T>>::contains_key(&btc_address),
+            Error::<T>::ReservedDepositAddress
+        );
+        let mut vault = Self::get_rich_vault_from_id(vault_id)?;
+        vault.insert_deposit_address(btc_address);
+        <ReservedAddresses<T>>::insert(btc_address, vault_id);
+        Ok(())
+    }
+
+    pub fn new_vault_deposit_address(
+        vault_id: &T::AccountId,
+        secure_id: H256,
+    ) -> Result<BtcAddress, DispatchError> {
+        let mut vault = Self::get_rich_vault_from_id(vault_id)?;
+        let btc_address = vault.new_deposit_address(secure_id)?;
+        Ok(btc_address)
+    }
 }
 
 decl_event! {
@@ -1109,7 +1118,8 @@ decl_event! {
         LockAdditionalCollateral(AccountId, DOT, DOT, DOT),
         /// id, withdrawn collateral, total collateral
         WithdrawCollateral(AccountId, DOT, DOT),
-        UpdateBtcAddress(AccountId, BtcAddress),
+        UpdatePublicKey(AccountId, BtcPublicKey),
+        RegisterAddress(AccountId, BtcAddress),
         IncreaseToBeIssuedTokens(AccountId, BTCBalance),
         DecreaseToBeIssuedTokens(AccountId, BTCBalance),
         IssueTokens(AccountId, BTCBalance),
@@ -1137,7 +1147,7 @@ decl_error! {
         VaultAlreadyRegistered,
         VaultNotFound,
         /// The Bitcoin Address has already been registered
-        BtcAddressTaken,
+        ReservedDepositAddress,
         /// Collateralization is infinite if no tokens are issued
         NoTokensIssued,
         NoVaultWithSufficientCollateral,
@@ -1145,7 +1155,9 @@ decl_error! {
         ArithmeticOverflow,
         ArithmeticUnderflow,
         /// Unable to convert value
-        TryIntoIntError
+        TryIntoIntError,
+        InvalidSecretKey,
+        InvalidPublicKey,
     }
 }
 

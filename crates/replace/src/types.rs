@@ -49,7 +49,7 @@ pub struct ReplaceRequest<AccountId, BlockNumber, PolkaBTC, DOT> {
     #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
     pub collateral: DOT,
     pub accept_time: Option<BlockNumber>,
-    pub btc_address: BtcAddress,
+    pub btc_address: Option<BtcAddress>,
     pub completed: bool,
     pub cancelled: bool,
 }
@@ -86,7 +86,7 @@ impl<AccountId, BlockNumber, PolkaBTC, DOT> ReplaceRequest<AccountId, BlockNumbe
         self.new_vault = Some(new_vault_id);
         self.accept_time = Some(accept_time);
         self.collateral = collateral;
-        self.btc_address = btc_address;
+        self.btc_address = Some(btc_address);
     }
 
     pub fn has_new_owner(&self) -> bool {

@@ -3,7 +3,7 @@ authors = ['Interlay Ltd']
 build = 'build.rs'
 edition = '2018'
 name = 'btc-parachain'
-version = '0.3.2'
+version = '0.4.0'
 
 [features]
 runtime-benchmarks = [
@@ -21,7 +21,7 @@ version = '2.0.0'
 
 [dependencies]
 jsonrpc-core = '15.0.0'
-structopt = "0.3.21"
+structopt = "0.3.20"
 log = '0.4.8'
 codec = { package = 'parity-scale-codec', version = '1.0.0' }
 serde = { version = "1.0.101", features = ["derive"] }

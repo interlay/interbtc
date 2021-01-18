@@ -807,7 +807,7 @@ fn test_validate_transaction_succeeds_with_payment() {
             raw_tx,
             payment_value,
             recipient_btc_address,
-            vec![]
+            Some(vec![])
         ));
     });
 }
@@ -834,7 +834,7 @@ fn test_validate_transaction_succeeds_with_payment_and_op_return() {
             raw_tx,
             payment_value,
             recipient_btc_address,
-            op_return_id
+            Some(op_return_id)
         ));
     });
 }
@@ -861,7 +861,7 @@ fn test_validate_transaction_succeeds_with_op_return_and_payment() {
             raw_tx,
             payment_value,
             recipient_btc_address,
-            op_return_id
+            Some(op_return_id)
         ));
     });
 }
@@ -892,7 +892,7 @@ fn test_validate_transaction_succeeds_with_payment_and_refund_and_op_return() {
             raw_tx,
             payment_value,
             recipient_btc_address,
-            op_return_id
+            Some(op_return_id)
         ));
     });
 }
@@ -922,7 +922,7 @@ fn test_validate_transaction_invalid_no_outputs_fails() {
                 raw_tx,
                 payment_value,
                 recipient_btc_address,
-                op_return_id
+                Some(op_return_id)
             ),
             TestError::MalformedTransaction
         )
@@ -957,7 +957,7 @@ fn test_validate_transaction_insufficient_payment_value_fails() {
                 raw_tx,
                 payment_value,
                 recipient_btc_address,
-                op_return_id
+                Some(op_return_id)
             ),
             TestError::InsufficientValue
         )
@@ -993,7 +993,7 @@ fn test_validate_transaction_wrong_recipient_fails() {
                 raw_tx,
                 payment_value,
                 recipient_btc_address,
-                op_return_id
+                Some(op_return_id)
             ),
             TestError::WrongRecipient
         )
@@ -1029,7 +1029,7 @@ fn test_validate_transaction_incorrect_opreturn_fails() {
                 raw_tx,
                 payment_value,
                 recipient_btc_address,
-                op_return_id
+                Some(op_return_id)
             ),
             TestError::InvalidOpReturn
         )
@@ -1077,7 +1077,7 @@ fn test_verify_and_validate_transaction_succeeds() {
             raw_tx,
             payment_value,
             recipient_btc_address,
-            op_return_id
+            Some(op_return_id)
         ));
     });
 }
@@ -1766,7 +1766,7 @@ fn test_extract_value_fails_with_wrong_recipient() {
             .build();
 
         assert_err!(
-            BTCRelay::extract_value(transaction, recipient_btc_address_1),
+            BTCRelay::extract_payment_value(transaction, recipient_btc_address_1),
             TestError::WrongRecipient
         );
     })
@@ -1787,7 +1787,7 @@ fn test_extract_value_succeeds() {
             .build();
 
         assert_eq!(
-            BTCRelay::extract_value(transaction, recipient_btc_address).unwrap(),
+            BTCRelay::extract_payment_value(transaction, recipient_btc_address).unwrap(),
             recipient_value
         );
     })
@@ -1804,7 +1804,7 @@ fn test_extract_value_and_op_return_fails_with_not_enough_outputs() {
             .build();
 
         assert_err!(
-            BTCRelay::extract_value_and_op_return(transaction, recipient_btc_address),
+            BTCRelay::extract_payment_value_and_op_return(transaction, recipient_btc_address),
             TestError::MalformedTransaction
         );
     })
@@ -1823,7 +1823,7 @@ fn test_extract_value_and_op_return_fails_with_no_op_return() {
             .build();
 
         assert_err!(
-            BTCRelay::extract_value_and_op_return(transaction, recipient_btc_address_0),
+            BTCRelay::extract_payment_value_and_op_return(transaction, recipient_btc_address_0),
             TestError::NotOpReturn
         );
     })
@@ -1843,7 +1843,7 @@ fn test_extract_value_and_op_return_fails_with_no_recipient() {
             .build();
 
         assert_err!(
-            BTCRelay::extract_value_and_op_return(transaction, recipient_btc_address_0),
+            BTCRelay::extract_payment_value_and_op_return(transaction, recipient_btc_address_0),
             TestError::WrongRecipient
         );
     })
@@ -1866,7 +1866,8 @@ fn test_extract_value_and_op_return_succeeds() {
             .build();
 
         let (extr_value, extr_data) =
-            BTCRelay::extract_value_and_op_return(transaction, recipient_btc_address).unwrap();
+            BTCRelay::extract_payment_value_and_op_return(transaction, recipient_btc_address)
+                .unwrap();
 
         assert_eq!(extr_value, recipient_value);
         assert_eq!(extr_data, op_return);

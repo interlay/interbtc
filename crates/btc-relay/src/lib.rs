@@ -46,9 +46,11 @@ use bitcoin::parser::{parse_block_header, parse_transaction};
 use bitcoin::types::{
     BlockChain, BlockHeader, H256Le, RawBlockHeader, RichBlockHeader, Transaction,
 };
-pub use bitcoin::Address as BtcAddress;
 use bitcoin::Error as BitcoinError;
 use security::types::ErrorCode;
+
+pub use bitcoin::Address as BtcAddress;
+pub use bitcoin::PublicKey as BtcPublicKey;
 
 pub trait WeightInfo {
     fn initialize() -> Weight;
@@ -80,8 +82,11 @@ pub const TARGET_TIMESPAN: u32 = 1_209_600;
 // Used in Bitcoin's retarget algorithm
 pub const TARGET_TIMESPAN_DIVISOR: u32 = 4;
 
-// Accepted minimum number of transaction outputs for validation
-pub const ACCEPTED_MIN_TRANSACTION_OUTPUTS: u32 = 2;
+// Accepted minimum number of transaction outputs for okd validation
+pub const ACCEPTED_MIN_TRANSACTION_OUTPUTS: u32 = 1;
+
+// Accepted minimum number of transaction outputs for op-return validation
+pub const ACCEPTED_MIN_TRANSACTION_OUTPUTS_WITH_OP_RETURN: u32 = 2;
 
 // Accepted maximum number of transaction outputs for validation
 pub const ACCEPTED_MAX_TRANSACTION_OUTPUTS: u32 = 32;
@@ -246,7 +251,7 @@ decl_module! {
             raw_tx: Vec<u8>,
             payment_value: i64,
             recipient_btc_address: BtcAddress,
-            op_return_id: Vec<u8>)
+            op_return_id: Option<Vec<u8>>)
         -> DispatchResult {
             let _ = ensure_signed(origin)?;
 
@@ -310,7 +315,7 @@ decl_module! {
             raw_tx: Vec<u8>,
             payment_value: i64,
             recipient_btc_address: BtcAddress,
-            op_return_id: Vec<u8>
+            op_return_id: Option<Vec<u8>>
         ) -> DispatchResult {
             let _ = ensure_signed(origin)?;
             Self::_validate_transaction(raw_tx, payment_value, recipient_btc_address, op_return_id)?;
@@ -535,10 +540,17 @@ impl<T: Trait> Module<T> {
     ///
     /// * `transaction` - Bitcoin transaction
     /// * `recipient_btc_address` - expected payment recipient
-    fn extract_value(
+    fn extract_payment_value(
         transaction: Transaction,
         recipient_btc_address: BtcAddress,
     ) -> Result<i64, DispatchError> {
+        ensure!(
+            // We would typically expect two outputs here (payment, refund) but
+            // the input amount may be exact so we would only require one
+            transaction.outputs.len() >= ACCEPTED_MIN_TRANSACTION_OUTPUTS as usize,
+            Error::<T>::MalformedTransaction
+        );
+
         // Check if payment is first output
         match transaction
             .outputs
@@ -592,14 +604,14 @@ impl<T: Trait> Module<T> {
     ///
     /// * `transaction` - Bitcoin transaction
     /// * `recipient_btc_address` - expected payment recipient
-    fn extract_value_and_op_return(
+    fn extract_payment_value_and_op_return(
         transaction: Transaction,
         recipient_btc_address: BtcAddress,
     ) -> Result<(i64, Vec<u8>), DispatchError> {
         ensure!(
             // We would typically expect three outputs (payment, op_return, refund) but
             // exceptionally the input amount may be exact so we would only require two
-            transaction.outputs.len() >= ACCEPTED_MIN_TRANSACTION_OUTPUTS as usize,
+            transaction.outputs.len() >= ACCEPTED_MIN_TRANSACTION_OUTPUTS_WITH_OP_RETURN as usize,
             Error::<T>::MalformedTransaction
         );
 
@@ -660,7 +672,7 @@ impl<T: Trait> Module<T> {
         raw_tx: Vec<u8>,
         payment_value: i64,
         recipient_btc_address: BtcAddress,
-        op_return_id: Vec<u8>,
+        op_return_id: Option<Vec<u8>>,
     ) -> Result<(BtcAddress, i64), DispatchError> {
         let transaction = Self::parse_transaction(&raw_tx)?;
 
@@ -673,16 +685,22 @@ impl<T: Trait> Module<T> {
             .map_err(|_| Error::<T>::MalformedTransaction)?;
 
         let extr_payment_value = if Self::is_op_return_disabled() {
-            Self::extract_value(transaction, recipient_btc_address)?
+            Self::extract_payment_value(transaction, recipient_btc_address)?
         } else {
-            // NOTE: op_return UTXO should not contain any value
-            let (extr_payment_value, extr_op_return) =
-                Self::extract_value_and_op_return(transaction, recipient_btc_address)?;
+            if let Some(op_return_id) = op_return_id {
+                // NOTE: op_return UTXO should not contain any value
+                let (extr_payment_value, extr_op_return) =
+                    Self::extract_payment_value_and_op_return(transaction, recipient_btc_address)?;
 
-            // Check if data UTXO has correct OP_RETURN value
-            ensure!(extr_op_return == op_return_id, Error::<T>::InvalidOpReturn);
+                // Check if data UTXO has correct OP_RETURN value
+                ensure!(extr_op_return == op_return_id, Error::<T>::InvalidOpReturn);
 
-            extr_payment_value
+                extr_payment_value
+            } else {
+                // using the on-chain key derivation scheme we only expect a simple
+                // payment to the vault's new deposit address
+                Self::extract_payment_value(transaction, recipient_btc_address)?
+            }
         };
 
         // Check if payment UTXO transfers sufficient value

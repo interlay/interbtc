@@ -27,9 +27,10 @@ use sp_std::vec::Vec;
 use util::transactional;
 
 use bitcoin::types::H256Le;
+use btc_relay::BtcAddress;
 
 pub use crate::types::ReplaceRequest;
-use crate::types::{PolkaBTC, ReplaceRequestV0, Version, DOT};
+use crate::types::{PolkaBTC, Version, DOT};
 
 /// # PolkaBTC Replace implementation
 /// The Replace module according to the specification at
@@ -126,31 +127,6 @@ decl_module! {
 
         /// Upgrade the runtime depending on the current `StorageVersion`.
         fn on_runtime_upgrade() -> Weight {
-            use frame_support::{migration::StorageKeyIterator, Blake2_128Concat};
-            use btc_relay::BtcAddress;
-
-            if Self::storage_version() == Version::V0 {
-                StorageKeyIterator::<H256, ReplaceRequestV0<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, Blake2_128Concat>::new(<ReplaceRequests<T>>::module_prefix(), b"ReplaceRequests")
-                    .drain()
-                    .for_each(|(id, request_v0)| {
-                        let request_v1 = ReplaceRequest {
-                            old_vault: request_v0.old_vault,
-                            open_time: request_v0.open_time,
-                            amount: request_v0.amount,
-                            griefing_collateral: request_v0.griefing_collateral,
-                            new_vault: request_v0.new_vault,
-                            collateral: request_v0.collateral,
-                            accept_time: request_v0.accept_time,
-                            btc_address: BtcAddress::P2WPKHv0(request_v0.btc_address),
-                            completed: request_v0.completed,
-                            cancelled: false,
-                        };
-                        <ReplaceRequests<T>>::insert(id, request_v1);
-                    });
-
-                StorageVersion::put(Version::V1);
-            }
-
             0
         }
 
@@ -196,11 +172,11 @@ decl_module! {
         /// * `collateral` - the collateral for replacement
         #[weight = <T as Trait>::WeightInfo::accept_replace()]
         #[transactional]
-        fn accept_replace(origin, replace_id: H256, collateral: DOT<T>)
+        fn accept_replace(origin, replace_id: H256, collateral: DOT<T>, btc_address: BtcAddress)
             -> DispatchResult
         {
             let new_vault = ensure_signed(origin)?;
-            Self::_accept_replace(new_vault, replace_id, collateral)?;
+            Self::_accept_replace(new_vault, replace_id, collateral, btc_address)?;
             Ok(())
         }
 
@@ -214,11 +190,11 @@ decl_module! {
         /// * `collateral` - the collateral to be transferred over from old to new
         #[weight = <T as Trait>::WeightInfo::auction_replace()]
         #[transactional]
-        fn auction_replace(origin, old_vault: T::AccountId, btc_amount: PolkaBTC<T>, collateral: DOT<T>)
+        fn auction_replace(origin, old_vault: T::AccountId, btc_amount: PolkaBTC<T>, collateral: DOT<T>, btc_address: BtcAddress)
             -> DispatchResult
         {
             let new_vault = ensure_signed(origin)?;
-            Self::_auction_replace(old_vault, new_vault, btc_amount, collateral)?;
+            Self::_auction_replace(old_vault, new_vault, btc_amount, collateral, btc_address)?;
             Ok(())
         }
 
@@ -333,7 +309,7 @@ impl<T: Trait> Module<T> {
             new_vault: None,
             collateral: vault_collateral,
             accept_time: None,
-            btc_address: vault.wallet.get_btc_address(),
+            btc_address: None,
             completed: false,
             cancelled: false,
         };
@@ -391,6 +367,7 @@ impl<T: Trait> Module<T> {
         new_vault_id: T::AccountId,
         replace_id: H256,
         collateral: DOT<T>,
+        btc_address: BtcAddress,
     ) -> Result<(), DispatchError> {
         // Check that Parachain status is RUNNING
         ext::security::ensure_parachain_status_running::<T>()?;
@@ -399,8 +376,9 @@ impl<T: Trait> Module<T> {
         // Return ERR_REPLACE_ID_NOT_FOUND error if no such ReplaceRequest was found.
         let mut replace = Self::get_open_replace_request(&replace_id)?;
 
-        // Retrieve the Vault as per the newVault parameter from Vaults in the VaultRegistry
-        let vault = ext::vault_registry::get_vault_from_id::<T>(&new_vault_id)?;
+        // Add the new replace address to the vault's wallet,
+        // this should also verify that the vault exists
+        ext::vault_registry::insert_vault_deposit_address::<T>(&new_vault_id, btc_address.clone())?;
 
         // Check that the newVault is currently not banned
         let height = Self::current_height();
@@ -417,12 +395,7 @@ impl<T: Trait> Module<T> {
         ext::collateral::lock_collateral::<T>(new_vault_id.clone(), collateral)?;
 
         // Update the ReplaceRequest entry
-        replace.add_new_vault(
-            new_vault_id.clone(),
-            height,
-            collateral,
-            vault.wallet.get_btc_address(),
-        );
+        replace.add_new_vault(new_vault_id.clone(), height, collateral, btc_address);
         Self::insert_replace_request(replace_id, replace.clone());
 
         // Emit a AcceptReplace(newVault, replaceId, collateral) event
@@ -441,12 +414,14 @@ impl<T: Trait> Module<T> {
         new_vault_id: T::AccountId,
         btc_amount: PolkaBTC<T>,
         collateral: DOT<T>,
+        btc_address: BtcAddress,
     ) -> Result<(), DispatchError> {
         // Check that Parachain status is RUNNING
         ext::security::ensure_parachain_status_running::<T>()?;
 
-        // Retrieve the newVault as per the newVault parameter from Vaults in the VaultRegistry
-        let new_vault = ext::vault_registry::get_vault_from_id::<T>(&new_vault_id)?;
+        // Add the new replace address to the vault's wallet,
+        // this should also verify that the vault exists
+        ext::vault_registry::insert_vault_deposit_address::<T>(&new_vault_id, btc_address.clone())?;
 
         // Retrieve the oldVault as per the oldVault parameter from Vaults in the VaultRegistry
         let _old_vault = ext::vault_registry::get_vault_from_id::<T>(&old_vault_id)?;
@@ -495,7 +470,7 @@ impl<T: Trait> Module<T> {
                 accept_time: Some(current_height),
                 amount: btc_amount,
                 griefing_collateral,
-                btc_address: new_vault.wallet.get_btc_address(),
+                btc_address: Some(btc_address),
                 collateral: collateral,
                 completed: false,
                 cancelled: false,
@@ -527,11 +502,12 @@ impl<T: Trait> Module<T> {
         let replace = Self::get_open_replace_request(&replace_id)?;
 
         // NOTE: anyone can call this method provided the proof is correct
-        if replace.new_vault.is_none() {
+        let new_vault_id = if let Some(new_vault_id) = replace.new_vault {
+            new_vault_id
+        } else {
             // cannot execute without a replacement
             return Err(Error::<T>::NoReplacement.into());
-        }
-        let new_vault_id = replace.new_vault.unwrap();
+        };
         let old_vault_id = replace.old_vault;
 
         // only executable before the request has expired
@@ -550,12 +526,18 @@ impl<T: Trait> Module<T> {
         let amount = TryInto::<u64>::try_into(replace.amount)
             .map_err(|_e| Error::<T>::TryIntoIntError)? as i64;
 
-        // TODO: register change addresses (vault wallet)
+        let btc_address = if let Some(btc_address) = replace.btc_address {
+            btc_address
+        } else {
+            // cannot execute without a valid btc address
+            return Err(Error::<T>::NoReplacement.into());
+        };
+
         ext::btc_relay::validate_transaction::<T>(
             raw_tx,
             amount,
-            replace.btc_address,
-            replace_id.clone().as_bytes().to_vec(),
+            btc_address,
+            Some(replace_id.clone().as_bytes().to_vec()),
         )?;
 
         // Call the replaceTokens

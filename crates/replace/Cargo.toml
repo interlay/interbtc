@@ -3,7 +3,7 @@ authors = ['Interlay Ltd']
 description = 'Replace module'
 edition = '2018'
 name = 'replace'
-version = '0.3.2'
+version = '0.4.0'
 
 [dependencies]
 serde = { version = "1.0.101", default-features = false, features = ['derive'], optional = true }

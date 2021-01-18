@@ -5,8 +5,8 @@ use bitcoin::types::{
     BlockBuilder, H256Le, RawBlockHeader, TransactionBuilder, TransactionInputBuilder,
     TransactionOutput,
 };
-use btc_relay::BtcAddress;
 use btc_relay::Module as BtcRelay;
+use btc_relay::{BtcAddress, BtcPublicKey};
 use collateral::Module as Collateral;
 use exchange_rate_oracle::Module as ExchangeRateOracle;
 use frame_benchmarking::{account, benchmarks};
@@ -18,6 +18,13 @@ use sp_runtime::FixedPointNumber;
 use sp_std::prelude::*;
 use vault_registry::types::{Vault, Wallet};
 use vault_registry::Module as VaultRegistry;
+
+fn dummy_public_key() -> BtcPublicKey {
+    BtcPublicKey([
+        2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55,
+        18, 45, 222, 180, 119, 54, 243, 97, 173, 150, 161, 169, 230,
+    ])
+}
 
 benchmarks! {
     _ {}
@@ -83,7 +90,8 @@ benchmarks! {
         let vault_id: T::AccountId = account("Vault", 0, 0);
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
-        vault.wallet = Wallet::new(vault_address);
+        vault.wallet = Wallet::new(dummy_public_key());
+        vault.wallet.add_btc_address(vault_address);
         VaultRegistry::<T>::insert_vault(
             &vault_id,
             vault
@@ -152,7 +160,7 @@ benchmarks! {
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
         vault.issued_tokens = 100_000.into();
-        vault.wallet = Wallet::new(BtcAddress::P2SH(H160::zero()));
+        vault.wallet = Wallet::new(dummy_public_key());
         VaultRegistry::<T>::insert_vault(
             &vault_id,
             vault

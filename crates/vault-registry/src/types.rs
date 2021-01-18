@@ -7,13 +7,13 @@ use frame_support::{
     ensure, StorageMap,
 };
 use sp_arithmetic::FixedPointNumber;
-use sp_core::H160;
+use sp_core::H256;
 use sp_std::collections::btree_set::BTreeSet;
 
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-pub use bitcoin::Address as BtcAddress;
+pub use bitcoin::{Address as BtcAddress, PublicKey as BtcPublicKey};
 
 /// Storage version.
 #[derive(Encode, Decode, Eq, PartialEq)]
@@ -35,34 +35,28 @@ pub(crate) type UnsignedFixedPoint<T> = <T as Trait>::UnsignedFixedPoint;
 pub(crate) type Inner<T> = <<T as Trait>::UnsignedFixedPoint as FixedPointNumber>::Inner;
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
-pub struct Wallet<T: Ord + Copy> {
+pub struct Wallet {
     // store all addresses for `report_vault_theft` checks
-    pub addresses: BTreeSet<T>,
-    // we use the most recent address for issue / redeem requests
-    pub address: T,
+    pub addresses: BTreeSet<BtcAddress>,
+    // we use this public key to generate new addresses
+    pub public_key: BtcPublicKey,
 }
 
-impl<T: Ord + Copy> Wallet<T> {
-    pub fn new(address: T) -> Self {
-        let mut addresses = BTreeSet::new();
-        addresses.insert(address);
-        Self { addresses, address }
+impl Wallet {
+    pub fn new(public_key: BtcPublicKey) -> Self {
+        Self {
+            addresses: BTreeSet::new(),
+            public_key,
+        }
     }
 
-    pub fn has_btc_address(&self, address: &T) -> bool {
+    pub fn has_btc_address(&self, address: &BtcAddress) -> bool {
         self.addresses.contains(address)
     }
 
-    pub fn add_btc_address(&mut self, address: T) {
+    pub fn add_btc_address(&mut self, address: BtcAddress) {
         // TODO: add maximum or griefing collateral
         self.addresses.insert(address);
-        // NOTE: updates primary address even if already contained in set
-        self.address = address;
-    }
-
-    pub fn get_btc_address(&self) -> T {
-        // wallet should never be empty
-        self.address
     }
 }
 
@@ -96,7 +90,7 @@ pub struct Vault<AccountId, BlockNumber, PolkaBTC> {
     // Number of PolkaBTC tokens pending redeem
     pub to_be_redeemed_tokens: PolkaBTC,
     // Bitcoin address of this Vault (P2PKH, P2SH, P2PKH, P2WSH)
-    pub wallet: Wallet<BtcAddress>,
+    pub wallet: Wallet,
     // Block height until which this Vault is banned from being
     // used for Issue, Redeem (except during automatic liquidation) and Replace .
     pub banned_until: Option<BlockNumber>,
@@ -117,25 +111,14 @@ pub struct SystemVault<AccountId, PolkaBTC> {
     pub to_be_redeemed_tokens: PolkaBTC,
 }
 
-#[derive(Encode, Decode, Default, Clone, PartialEq)]
-pub(crate) struct VaultV0<AccountId, BlockNumber, PolkaBTC> {
-    pub id: AccountId,
-    pub to_be_issued_tokens: PolkaBTC,
-    pub issued_tokens: PolkaBTC,
-    pub to_be_redeemed_tokens: PolkaBTC,
-    pub wallet: Wallet<H160>,
-    pub banned_until: Option<BlockNumber>,
-    pub status: VaultStatus,
-}
-
 impl<AccountId, BlockNumber, PolkaBTC: HasCompact + Default>
     Vault<AccountId, BlockNumber, PolkaBTC>
 {
     pub(crate) fn new(
         id: AccountId,
-        btc_address: BtcAddress,
+        public_key: BtcPublicKey,
     ) -> Vault<AccountId, BlockNumber, PolkaBTC> {
-        let wallet = Wallet::new(btc_address);
+        let wallet = Wallet::new(public_key);
         Vault {
             id,
             wallet,
@@ -145,10 +128,6 @@ impl<AccountId, BlockNumber, PolkaBTC: HasCompact + Default>
             banned_until: None,
             status: VaultStatus::Active,
         }
-    }
-
-    pub(crate) fn get_btc_address(&self) -> BtcAddress {
-        self.wallet.get_btc_address()
     }
 }
 
@@ -361,19 +340,37 @@ impl<T: Trait> RichVault<T> {
         self.update(|v| v.banned_until = Some(height));
     }
 
-    pub fn get_btc_address(&self) -> BtcAddress {
-        self.data.wallet.get_btc_address()
+    fn new_deposit_public_key(&self, secure_id: H256) -> Result<BtcPublicKey, DispatchError> {
+        let vault_public_key = self.data.wallet.public_key.clone();
+        let vault_public_key = vault_public_key
+            .new_deposit_public_key(secure_id)
+            .map_err(|_| Error::<T>::InvalidPublicKey)?;
+
+        Ok(vault_public_key)
     }
 
-    pub fn update_btc_address(&mut self, btc_address: BtcAddress) {
+    pub fn insert_deposit_address(&mut self, btc_address: BtcAddress) {
         self.update(|v| {
             v.wallet.add_btc_address(btc_address);
         });
     }
 
-    fn update<F>(&mut self, func: F) -> ()
+    pub fn new_deposit_address(&mut self, secure_id: H256) -> Result<BtcAddress, DispatchError> {
+        let public_key = self.new_deposit_public_key(secure_id)?;
+        let btc_address = BtcAddress::P2WPKHv0(public_key.to_hash());
+        self.insert_deposit_address(btc_address);
+        Ok(btc_address)
+    }
+
+    pub fn update_public_key(&mut self, public_key: BtcPublicKey) {
+        self.update(|v| {
+            v.wallet.public_key = public_key.clone();
+        });
+    }
+
+    fn update<F, R>(&mut self, func: F) -> ()
     where
-        F: Fn(&mut DefaultVault<T>) -> (),
+        F: Fn(&mut DefaultVault<T>) -> R,
     {
         func(&mut self.data);
         <crate::Vaults<T>>::mutate(&self.data.id, func);

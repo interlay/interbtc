@@ -1,9 +1,8 @@
 use super::*;
-use crate::types::BtcAddress;
+use crate::types::BtcPublicKey;
 use crate::Module as VaultRegistry;
 use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
-use sp_core::H160;
 use sp_std::prelude::*;
 
 benchmarks! {
@@ -12,10 +11,10 @@ benchmarks! {
     register_vault {
         let origin: T::AccountId = account("Origin", 0, 0);
         let amount = 100;
-        let btc_address = BtcAddress::P2SH(H160([1; 20]));
-    }: _(RawOrigin::Signed(origin.clone()), amount.into(), btc_address)
+        let public_key = BtcPublicKey::default();
+    }: _(RawOrigin::Signed(origin.clone()), amount.into(), public_key)
     verify {
-        assert_eq!(Vaults::<T>::get(origin).wallet.get_btc_address(), btc_address);
+        // assert_eq!(Vaults::<T>::get(origin).wallet.get_btc_address(), btc_address);
     }
 
     lock_additional_collateral {
@@ -23,7 +22,7 @@ benchmarks! {
         let u in 0 .. 100;
         let mut vault = Vault::default();
         vault.id = origin.clone();
-        vault.wallet = Wallet::new(BtcAddress::P2SH(H160([1; 20])));
+        vault.wallet = Wallet::new(BtcPublicKey::default());
         VaultRegistry::<T>::insert_vault(&origin, vault);
     }: _(RawOrigin::Signed(origin), u.into())
     verify {
@@ -34,20 +33,20 @@ benchmarks! {
         let u in 0 .. 100;
         let mut vault = Vault::default();
         vault.id = origin.clone();
-        vault.wallet = Wallet::new(BtcAddress::P2SH(H160([1; 20])));
+        vault.wallet = Wallet::new(BtcPublicKey::default());
         VaultRegistry::<T>::insert_vault(&origin, vault);
         collateral::Module::<T>::lock_collateral(&origin, u.into()).unwrap();
     }: _(RawOrigin::Signed(origin), u.into())
     verify {
     }
 
-    update_btc_address {
+    update_public_key {
         let origin: T::AccountId = account("Origin", 0, 0);
         let mut vault = Vault::default();
         vault.id = origin.clone();
-        vault.wallet = Wallet::new(BtcAddress::P2SH(H160([1; 20])));
+        vault.wallet = Wallet::new(BtcPublicKey::default());
         VaultRegistry::<T>::insert_vault(&origin, vault);
-    }: _(RawOrigin::Signed(origin), BtcAddress::P2SH(H160::from([2; 20])))
+    }: _(RawOrigin::Signed(origin), BtcPublicKey::default())
 
 }
 
@@ -68,7 +67,7 @@ mod tests {
             assert_ok!(test_benchmark_register_vault::<Test>());
             assert_ok!(test_benchmark_lock_additional_collateral::<Test>());
             assert_ok!(test_benchmark_withdraw_collateral::<Test>());
-            assert_ok!(test_benchmark_update_btc_address::<Test>());
+            assert_ok!(test_benchmark_update_public_key::<Test>());
         });
     }
 }

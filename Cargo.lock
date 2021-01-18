@@ -434,14 +434,16 @@ dependencies = [
 
 [[package]]
 name = "bitcoin"
-version = "0.3.1"
+version = "0.4.0"
 dependencies = [
  "bitcoin_hashes",
  "frame-support",
  "hex",
+ "libsecp256k1",
  "mocktopus",
  "parity-scale-codec",
  "primitive-types",
+ "rand 0.7.3",
  "serde",
  "sha2 0.8.2",
  "sp-core",
@@ -598,7 +600,7 @@ dependencies = [
 
 [[package]]
 name = "btc-parachain"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "btc-parachain-runtime",
  "frame-benchmarking",
@@ -653,7 +655,7 @@ dependencies = [
 
 [[package]]
 name = "btc-parachain-runtime"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "bitcoin",
  "btc-relay",
@@ -716,7 +718,7 @@ dependencies = [
 
 [[package]]
 name = "btc-relay"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "bitcoin",
  "collateral",
@@ -2497,7 +2499,7 @@ checksum = "47be2f14c678be2fdcab04ab1171db51b2762ce6f0a8ee87c8dd4a04ed216135"
 
 [[package]]
 name = "issue"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "bitcoin",
  "btc-relay",
@@ -5010,7 +5012,7 @@ dependencies = [
 
 [[package]]
 name = "redeem"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "bitcoin",
  "btc-relay",
@@ -5171,7 +5173,7 @@ dependencies = [
 
 [[package]]
 name = "replace"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "bitcoin",
  "btc-relay",
@@ -7171,7 +7173,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
 name = "staked-relayers"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "bitcoin",
  "btc-relay",
@@ -8087,7 +8089,7 @@ dependencies = [
 
 [[package]]
 name = "vault-registry"
-version = "0.3.3"
+version = "0.4.0"
 dependencies = [
  "bitcoin",
  "collateral",
