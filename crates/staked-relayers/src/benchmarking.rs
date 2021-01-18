@@ -227,6 +227,7 @@ mod tests {
 
             GenesisConfig::<Test> {
                 gov_id: account("Origin", 0, 0),
+                maturity_period: 10,
             }
             .assimilate_storage(storage)
             .unwrap();

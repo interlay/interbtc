@@ -2,7 +2,7 @@ use btc_parachain_runtime::{
     AccountId, AuraConfig, BTCRelayConfig, DOTConfig, ExchangeRateOracleConfig, FeeConfig,
     GenesisConfig, GrandpaConfig, IssueConfig, PolkaBTCConfig, RedeemConfig, RefundConfig,
     ReplaceConfig, Signature, SlaConfig, StakedRelayersConfig, SudoConfig, SystemConfig,
-    VaultRegistryConfig, DAYS, WASM_BINARY,
+    VaultRegistryConfig, DAYS, MINUTES, WASM_BINARY,
 };
 use sc_service::ChainType;
 use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
@@ -187,6 +187,7 @@ fn testnet_genesis(
             gov_id: account("Origin", 0, 0),
             #[cfg(not(feature = "runtime-benchmarks"))]
             gov_id: get_account_id_from_seed::<sr25519::Public>("Alice"),
+            maturity_period: 10 * MINUTES,
         }),
         exchange_rate_oracle: Some(ExchangeRateOracleConfig {
             authorized_oracles: vec![(bob_account_id.clone(), "Bob".as_bytes().to_vec())],

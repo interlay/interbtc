@@ -84,7 +84,7 @@ fn test_register_staked_relayer_succeeds() {
 
         assert_ok!(Staking::register_staked_relayer(relayer.clone(), amount));
         assert_emitted!(Event::RegisterStakedRelayer(ALICE, 11, amount));
-        let maturity_height = System::block_number() + MaturityPeriod::get();
+        let maturity_height = System::block_number() + Staking::get_maturity_period();
 
         // re-registration not allowed
         assert_err!(
