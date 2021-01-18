@@ -118,6 +118,12 @@ impl From<[u8; COMPRESSED_PUBLIC_KEY_SIZE]> for PublicKey {
     }
 }
 
+impl Into<[u8; COMPRESSED_PUBLIC_KEY_SIZE]> for PublicKey {
+    fn into(self) -> [u8; COMPRESSED_PUBLIC_KEY_SIZE] {
+        self.0
+    }
+}
+
 /// To avoid the use of OP_RETURN during the issue process, we use an On-chain Key Derivation scheme (OKD) for
 /// Bitcoin’s ECDSA (secp256k1 curve). The vault-registry maintains a "master" public key for each registered
 /// Vault which can then be used to derive additional deposit addresses on-demand.
