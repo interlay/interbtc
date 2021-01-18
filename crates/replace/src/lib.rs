@@ -107,9 +107,17 @@ decl_event!(
     {
         RequestReplace(AccountId, PolkaBTC, H256),
         WithdrawReplace(AccountId, H256),
-        AcceptReplace(AccountId, AccountId, H256, DOT, PolkaBTC),
+        AcceptReplace(AccountId, AccountId, H256, DOT, PolkaBTC, BtcAddress),
         ExecuteReplace(AccountId, AccountId, H256),
-        AuctionReplace(AccountId, AccountId, H256, PolkaBTC, DOT, BlockNumber),
+        AuctionReplace(
+            AccountId,
+            AccountId,
+            H256,
+            PolkaBTC,
+            DOT,
+            BlockNumber,
+            BtcAddress,
+        ),
         CancelReplace(AccountId, AccountId, H256),
     }
 );
@@ -405,6 +413,7 @@ impl<T: Trait> Module<T> {
             replace_id,
             collateral,
             replace.amount,
+            btc_address,
         ));
         Ok(())
     }
@@ -485,6 +494,7 @@ impl<T: Trait> Module<T> {
             btc_amount,
             collateral,
             current_height,
+            btc_address,
         ));
         Ok(())
     }

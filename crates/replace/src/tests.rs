@@ -722,6 +722,7 @@ fn test_accept_replace_succeeds() {
             replace_id,
             collateral,
             btc_amount,
+            BtcAddress::default(),
         );
         assert_emitted!(event);
     })
@@ -777,6 +778,7 @@ fn test_auction_replace_succeeds() {
             btc_amount,
             collateral,
             height,
+            BtcAddress::default(),
         );
         assert_emitted!(event);
     })
