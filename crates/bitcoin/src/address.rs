@@ -3,7 +3,8 @@ use crate::Error;
 use crate::Script;
 use codec::{Decode, Encode};
 use secp256k1::{
-    Error as Secp256k1Error, PublicKey as Secp256k1PublicKey, SecretKey as Secp256k1SecretKey,
+    util::COMPRESSED_PUBLIC_KEY_SIZE, Error as Secp256k1Error, PublicKey as Secp256k1PublicKey,
+    SecretKey as Secp256k1SecretKey,
 };
 use sha2::{Digest, Sha256};
 use sp_core::H160;
@@ -103,11 +104,17 @@ impl Default for Address {
 
 /// Compressed ECDSA (secp256k1 curve) Public Key
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
-pub struct PublicKey(pub [u8; secp256k1::util::COMPRESSED_PUBLIC_KEY_SIZE]);
+pub struct PublicKey(pub [u8; COMPRESSED_PUBLIC_KEY_SIZE]);
 
 impl Default for PublicKey {
     fn default() -> Self {
-        Self([0; secp256k1::util::COMPRESSED_PUBLIC_KEY_SIZE])
+        Self([0; COMPRESSED_PUBLIC_KEY_SIZE])
+    }
+}
+
+impl From<[u8; COMPRESSED_PUBLIC_KEY_SIZE]> for PublicKey {
+    fn from(bytes: [u8; COMPRESSED_PUBLIC_KEY_SIZE]) -> Self {
+        Self(bytes)
     }
 }
 
