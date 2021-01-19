@@ -81,7 +81,7 @@ impl SubstrateCli for Cli {
     }
 
     fn support_url() -> String {
-        "https://gitlab.com/interlay/btc-parachain/-/issues/new".into()
+        "https://github.com/interlay/btc-parachain/issues/new".into()
     }
 
     fn copyright_start_year() -> i32 {
@@ -281,7 +281,9 @@ pub fn run() -> Result<()> {
         None => {
             let runner = cli.create_runner(&*cli.run)?;
 
-            runner.run_node_until_exit(|config| async move { start_node(cli, config).await })
+            runner
+                .run_node_until_exit(|config| async move { start_node(cli, config).await })
+                .map_err(Into::into)
         }
     }
 }
