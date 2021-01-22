@@ -63,10 +63,10 @@ pub(crate) mod vault_registry {
     }
 
     pub fn redeem_tokens_liquidation<T: vault_registry::Trait>(
-        redeemer: &T::AccountId,
-        redeem_dot_in_btc: PolkaBTC<T>,
+        redeemer_id: &T::AccountId,
+        amount: PolkaBTC<T>,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::redeem_tokens_liquidation(redeemer, redeem_dot_in_btc)
+        <vault_registry::Module<T>>::redeem_tokens_liquidation(redeemer_id, amount)
     }
 
     pub fn decrease_tokens<T: vault_registry::Trait>(
@@ -86,10 +86,6 @@ pub(crate) mod vault_registry {
         height: T::BlockNumber,
     ) -> DispatchResult {
         <vault_registry::Module<T>>::_ensure_not_banned(vault, height)
-    }
-
-    pub fn total_liquidation_value<T: vault_registry::Trait>() -> Result<u128, DispatchError> {
-        <vault_registry::Module<T>>::get_total_liquidation_value()
     }
 
     pub fn is_vault_below_premium_threshold<T: vault_registry::Trait>(
@@ -143,10 +139,6 @@ pub(crate) mod treasury {
         <treasury::Module<T>>::get_balance_from_account(account)
     }
 
-    pub fn get_total_supply<T: treasury::Trait>() -> PolkaBTC<T> {
-        <treasury::Module<T>>::get_total_supply()
-    }
-
     pub fn lock<T: treasury::Trait>(redeemer: T::AccountId, amount: PolkaBTC<T>) -> DispatchResult {
         <treasury::Module<T>>::lock(redeemer, amount)
     }
@@ -171,22 +163,14 @@ pub(crate) mod security {
     use security::ErrorCode;
     use sp_std::vec::Vec;
 
-    pub fn is_parachain_error_liquidation<T: security::Trait>() -> bool {
-        <security::Module<T>>::is_parachain_error_liquidation()
-    }
-
     pub fn get_secure_id<T: security::Trait>(id: &T::AccountId) -> H256 {
         <security::Module<T>>::get_secure_id(id)
     }
 
-    pub fn ensure_parachain_status_running<T: security::Trait>() -> DispatchResult {
-        <security::Module<T>>::ensure_parachain_status_running()
-    }
-
-    pub fn ensure_parachain_only_has_errors<T: security::Trait>(
+    pub fn ensure_parachain_is_running_or_only_has_errors<T: security::Trait>(
         error_codes: Vec<ErrorCode>,
     ) -> DispatchResult {
-        <security::Module<T>>::ensure_parachain_only_has_errors(error_codes)
+        <security::Module<T>>::ensure_parachain_is_running_or_only_has_errors(error_codes)
     }
 }
 

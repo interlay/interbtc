@@ -22,10 +22,7 @@ use codec::Encode;
 /// This is the implementation of the BTC Parachain Security module following the spec at:
 /// https://interlay.gitlab.io/polkabtc-spec/spec/security
 ///
-use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult},
-};
+use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult};
 use primitive_types::H256;
 use sha2::{Digest, Sha256};
 use sp_core::U256;
@@ -68,7 +65,7 @@ decl_module! {
 #[cfg_attr(test, mockable)]
 impl<T: Trait> Module<T> {
     /// Ensures the Parachain is RUNNING
-    pub fn ensure_parachain_status_running() -> Result<(), DispatchError> {
+    pub fn ensure_parachain_status_running() -> DispatchResult {
         if <ParachainStatus>::get() == StatusCode::Running {
             Ok(())
         } else {
@@ -77,7 +74,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Ensures the Parachain is not SHUTDOWN
-    pub fn ensure_parachain_status_not_shutdown() -> Result<(), DispatchError> {
+    pub fn ensure_parachain_status_not_shutdown() -> DispatchResult {
         if <ParachainStatus>::get() != StatusCode::Shutdown {
             Ok(())
         } else {
@@ -92,9 +89,7 @@ impl<T: Trait> Module<T> {
     ///   * `error_codes` - list of `ErrorCode` to be checked
     ///
     /// Returns the first error that is encountered, or Ok(()) if none of the errors were found
-    pub fn ensure_parachain_does_not_have_errors(
-        error_codes: Vec<ErrorCode>,
-    ) -> Result<(), DispatchError> {
+    pub fn ensure_parachain_does_not_have_errors(error_codes: Vec<ErrorCode>) -> DispatchResult {
         if <ParachainStatus>::get() == StatusCode::Error {
             for error_code in error_codes {
                 if <Errors>::get().contains(&error_code) {
@@ -105,7 +100,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    /// Ensures that the parachain HAS ONLY SPECIFIC errors or NO error AT ALL
+    /// Ensures that the parachain is RUNNING or ONLY HAS specific errors
     ///
     /// # Arguments
     ///
@@ -113,10 +108,12 @@ impl<T: Trait> Module<T> {
     ///
     /// Returns the first unexpected error that is encountered,
     /// or Ok(()) if only expected errors / no errors at all were found
-    pub fn ensure_parachain_only_has_errors(
+    pub fn ensure_parachain_is_running_or_only_has_errors(
         error_codes: Vec<ErrorCode>,
-    ) -> Result<(), DispatchError> {
-        if <ParachainStatus>::get() == StatusCode::Error {
+    ) -> DispatchResult {
+        if <ParachainStatus>::get() == StatusCode::Running {
+            Ok(())
+        } else if <ParachainStatus>::get() == StatusCode::Error {
             let error_set: BTreeSet<ErrorCode> = FromIterator::from_iter(error_codes);
             for error_code in <Errors>::get().iter() {
                 // check if error is set
@@ -124,18 +121,10 @@ impl<T: Trait> Module<T> {
                     return Err(Error::<T>::from(error_code.clone()).into());
                 }
             }
+            Ok(())
+        } else {
+            Err(Error::<T>::ParachainNotRunning.into())
         }
-        Ok(())
-    }
-
-    /// Ensures the Parachain is not in an ERROR state due to OracleOffline error
-    pub fn _ensure_parachain_status_not_error_oracle_offline() -> Result<(), DispatchError> {
-        if <ParachainStatus>::get() == StatusCode::Error
-            && <Errors>::get().contains(&ErrorCode::OracleOffline)
-        {
-            return Err(Error::<T>::ParachainOracleOfflineError.into());
-        }
-        Ok(())
     }
 
     /// Checks if the Parachain has a NoDataBTCRelay Error state

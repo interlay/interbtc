@@ -139,7 +139,7 @@ fn integration_test_replace_accept_replace() {
 fn integration_test_replace_auction_replace() {
     ExtBuilder::build().execute_with(|| {
         SystemModule::set_block_number(1);
-        let user = CLAIRE;
+        let user = CAROL;
         let old_vault = ALICE;
         let new_vault = BOB;
         let collateral = 4_000;
@@ -196,7 +196,7 @@ fn integration_test_replace_auction_replace() {
 #[test]
 fn integration_test_replace_execute_replace() {
     ExtBuilder::build().execute_with(|| {
-        let user = CLAIRE;
+        let user = CAROL;
         let old_vault = ALICE;
         let new_vault = BOB;
         let griefing_collateral = 50;
@@ -300,7 +300,7 @@ fn integration_test_replace_cancel_replace() {
 fn integration_test_replace_cancel_auction_replace() {
     ExtBuilder::build().execute_with(|| {
         SystemModule::set_block_number(1);
-        let user = CLAIRE;
+        let user = CAROL;
         let old_vault = ALICE;
         let new_vault = BOB;
         let collateral = 4_000;
@@ -384,7 +384,7 @@ fn integration_test_replace_cancel_auction_replace() {
 fn integration_test_replace_cancel_repeatedly_fails() {
     ExtBuilder::build().execute_with(|| {
         SystemModule::set_block_number(1);
-        let user = CLAIRE;
+        let user = CAROL;
         let old_vault = ALICE;
         let new_vault = BOB;
         let collateral = 4_000;

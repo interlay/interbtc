@@ -33,7 +33,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, ensure, IterableStorageMap,
 };
 use frame_system::ensure_signed;
-use security::{ErrorCode, StatusCode};
+use security::ErrorCode;
 use sp_arithmetic::traits::*;
 use sp_arithmetic::FixedPointNumber;
 use sp_core::H256;
@@ -199,7 +199,7 @@ decl_module! {
         fn lock_additional_collateral(origin, amount: DOT<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
-            Self::check_parachain_not_shutdown_or_has_errors([ErrorCode::OracleOffline].to_vec())?;
+            Self::check_parachain_not_shutdown_and_not_errors([ErrorCode::OracleOffline].to_vec())?;
 
             let vault = Self::get_rich_vault_from_id(&sender)?;
             vault.increase_collateral(amount)?;
@@ -346,7 +346,7 @@ impl<T: Trait> Module<T> {
         vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
     ) -> DispatchResult {
-        Self::check_parachain_not_shutdown_or_has_errors(
+        Self::check_parachain_not_shutdown_and_not_errors(
             [
                 ErrorCode::InvalidBTCRelay,
                 ErrorCode::OracleOffline,
@@ -373,7 +373,7 @@ impl<T: Trait> Module<T> {
     /// * `VaultNotFound` - if no vault exists for the given `vault_id`
     /// * `InsufficientTokensCommitted` - if the amount of tokens reserved is too low
     pub fn issue_tokens(vault_id: &T::AccountId, tokens: PolkaBTC<T>) -> DispatchResult {
-        Self::check_parachain_not_shutdown_or_has_errors(
+        Self::check_parachain_not_shutdown_and_not_errors(
             [
                 ErrorCode::InvalidBTCRelay,
                 ErrorCode::OracleOffline,
@@ -405,7 +405,7 @@ impl<T: Trait> Module<T> {
         vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
     ) -> DispatchResult {
-        Self::check_parachain_not_shutdown_or_has_errors(
+        Self::check_parachain_not_shutdown_and_not_errors(
             [
                 ErrorCode::InvalidBTCRelay,
                 ErrorCode::OracleOffline,
@@ -432,7 +432,7 @@ impl<T: Trait> Module<T> {
         vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
     ) -> DispatchResult {
-        Self::check_parachain_not_shutdown_or_has_errors(
+        Self::check_parachain_not_shutdown_and_not_errors(
             [
                 ErrorCode::InvalidBTCRelay,
                 ErrorCode::OracleOffline,
@@ -465,7 +465,7 @@ impl<T: Trait> Module<T> {
         user_id: &T::AccountId,
         tokens: PolkaBTC<T>,
     ) -> DispatchResult {
-        Self::check_parachain_not_shutdown_or_has_errors(
+        Self::check_parachain_not_shutdown_and_not_errors(
             [
                 ErrorCode::InvalidBTCRelay,
                 ErrorCode::OracleOffline,
@@ -494,7 +494,7 @@ impl<T: Trait> Module<T> {
     /// * `InsufficientTokensCommitted` - if the amount of to-be-redeemed tokens
     ///                                   or issued tokens is too low
     pub fn redeem_tokens(vault_id: &T::AccountId, tokens: PolkaBTC<T>) -> DispatchResult {
-        Self::check_parachain_not_shutdown_or_has_errors(
+        Self::check_parachain_not_shutdown_and_not_errors(
             [
                 ErrorCode::InvalidBTCRelay,
                 ErrorCode::OracleOffline,
@@ -530,7 +530,7 @@ impl<T: Trait> Module<T> {
         premium: DOT<T>,
         redeemer_id: &T::AccountId,
     ) -> DispatchResult {
-        Self::check_parachain_not_shutdown_or_has_errors(
+        Self::check_parachain_not_shutdown_and_not_errors(
             [
                 ErrorCode::InvalidBTCRelay,
                 ErrorCode::OracleOffline,
@@ -541,7 +541,7 @@ impl<T: Trait> Module<T> {
         let mut vault = Self::get_rich_vault_from_id(&vault_id)?;
         vault.redeem_tokens(tokens)?;
         if premium > 0.into() {
-            ext::collateral::slash::<T>(vault_id, redeemer_id, premium)?;
+            ext::collateral::slash_collateral::<T>(vault_id, redeemer_id, premium)?;
         }
 
         Self::deposit_event(Event::<T>::RedeemTokensPremium(
@@ -553,11 +553,9 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    /// Handles redeem requests which are executed during a LIQUIDATION recover.
+    /// Handles redeem requests which are executed against the LiquidationVault.
     /// Reduces the issued token of the LiquidationVault and slashes the
     /// corresponding amount of DOT collateral.
-    /// Once LiquidationVault has not more issuedToken left,
-    /// removes the LIQUIDATION error from the BTC Parachain status.
     ///
     /// # Arguments
     /// * `redeemer_id` - the account of the user redeeming PolkaBTC
@@ -569,26 +567,28 @@ impl<T: Trait> Module<T> {
     /// * `InsufficientFunds` - if the liquidation vault does not have enough collateral to transfer
     pub fn redeem_tokens_liquidation(
         redeemer_id: &T::AccountId,
-        tokens: PolkaBTC<T>,
+        amount_btc: PolkaBTC<T>,
     ) -> DispatchResult {
-        Self::check_parachain_not_shutdown_or_has_errors(
+        Self::check_parachain_not_shutdown_and_not_errors(
             [ErrorCode::InvalidBTCRelay, ErrorCode::OracleOffline].to_vec(),
         )?;
+
         let mut liquidation_vault = Self::get_rich_liquidation_vault();
-        liquidation_vault.decrease_issued(tokens)?;
+        liquidation_vault.decrease_issued(amount_btc)?;
 
         // transfer liquidated collateral to redeemer
-        let to_slash = ext::oracle::btc_to_dots::<T>(tokens)?;
-        ext::collateral::slash::<T>(&liquidation_vault.data.id, &redeemer_id, to_slash)?;
+        let amount_dot = ext::oracle::btc_to_dots::<T>(amount_btc)?;
+        ext::collateral::slash_collateral::<T>(
+            &liquidation_vault.data.id,
+            &redeemer_id,
+            amount_dot,
+        )?;
+        ext::collateral::release_collateral::<T>(&redeemer_id, amount_dot)?;
 
         Self::deposit_event(Event::<T>::RedeemTokensLiquidation(
             redeemer_id.clone(),
-            tokens,
+            amount_btc,
         ));
-
-        if liquidation_vault.issued_tokens() == 0.into() {
-            ext::security::recover_from_liquidation::<T>()?;
-        }
 
         Ok(())
     }
@@ -612,7 +612,7 @@ impl<T: Trait> Module<T> {
         tokens: PolkaBTC<T>,
         collateral: DOT<T>,
     ) -> DispatchResult {
-        Self::check_parachain_not_shutdown_or_has_errors(
+        Self::check_parachain_not_shutdown_and_not_errors(
             [
                 ErrorCode::InvalidBTCRelay,
                 ErrorCode::OracleOffline,
@@ -637,6 +637,7 @@ impl<T: Trait> Module<T> {
 
     /// Automatically liquidates all vaults under the secure threshold
     fn liquidate_undercollateralized_vaults() {
+        // TODO: report system undercollateralization to security
         let vaults_to_liquidate = <Vaults<T>>::iter()
             .filter_map(|(vault_id, _)| {
                 if Self::is_vault_below_liquidation_threshold(&vault_id)
@@ -649,13 +650,6 @@ impl<T: Trait> Module<T> {
                 }
             })
             .collect::<Vec<T::AccountId>>();
-
-        if vaults_to_liquidate.len() > 0 {
-            // update the security status if one or more
-            // vaults are liquidated in this block
-            ext::security::set_parachain_status::<T>(StatusCode::Error);
-            ext::security::insert_error::<T>(ErrorCode::Liquidation);
-        }
 
         for vault_id in vaults_to_liquidate {
             // ignore conversion errors since we cannot do anything
@@ -771,21 +765,6 @@ impl<T: Trait> Module<T> {
 
     pub fn is_over_minimum_collateral(amount: DOT<T>) -> bool {
         amount > Self::get_minimum_collateral_vault()
-    }
-
-    pub fn get_total_liquidation_value() -> Result<u128, DispatchError> {
-        let liquidation_vault = <LiquidationVault<T>>::get();
-
-        let liquidated_polka_btc_in_dot =
-            ext::oracle::btc_to_dots::<T>(liquidation_vault.issued_tokens)?;
-
-        let raw_collateral =
-            Self::dot_to_u128(ext::collateral::for_account::<T>(&liquidation_vault.id))?;
-
-        let raw_liquidated_polka_btc_in_dot = Self::dot_to_u128(liquidated_polka_btc_in_dot)?;
-
-        let total_liquidation_value = raw_liquidated_polka_btc_in_dot - raw_collateral;
-        Ok(total_liquidation_value)
     }
 
     /// RPC
@@ -974,7 +953,7 @@ impl<T: Trait> Module<T> {
     ///
     ///   * `error_codes` - list of `ErrorCode` to be checked
     ///
-    fn check_parachain_not_shutdown_or_has_errors(error_codes: Vec<ErrorCode>) -> DispatchResult {
+    fn check_parachain_not_shutdown_and_not_errors(error_codes: Vec<ErrorCode>) -> DispatchResult {
         // Parachain must not be shutdown
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
         // There must not be in InvalidBTCRelay, OracleOffline or Liquidation error state
@@ -1137,6 +1116,7 @@ decl_event! {
 decl_error! {
     pub enum Error for Module<T: Trait> {
         InsufficientCollateral,
+        /// The amount of tokens to be issued is higher than the issuable amount by the vault
         ExceedingVaultLimit,
         InsufficientTokensCommitted,
         VaultBanned,

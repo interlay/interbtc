@@ -105,36 +105,39 @@ fn test_ensure_parachain_does_not_have_errors() {
 }
 
 #[test]
-fn test_ensure_parachain_only_has_errors() {
+fn test_ensure_parachain_is_running_or_only_has_errors() {
     run_test(|| {
         Security::set_parachain_status(StatusCode::Running);
-        assert_ok!(Security::ensure_parachain_only_has_errors(vec![]));
+        assert_ok!(Security::ensure_parachain_is_running_or_only_has_errors(
+            vec![]
+        ));
 
         Security::set_parachain_status(StatusCode::Error);
-        assert_ok!(Security::ensure_parachain_only_has_errors(vec![
-            ErrorCode::InvalidBTCRelay
-        ]));
+        assert_ok!(Security::ensure_parachain_is_running_or_only_has_errors(
+            vec![ErrorCode::InvalidBTCRelay]
+        ));
 
         Security::insert_error(ErrorCode::InvalidBTCRelay);
-        assert_ok!(Security::ensure_parachain_only_has_errors(vec![
-            ErrorCode::InvalidBTCRelay
-        ]));
+        assert_ok!(Security::ensure_parachain_is_running_or_only_has_errors(
+            vec![ErrorCode::InvalidBTCRelay]
+        ));
 
         Security::insert_error(ErrorCode::NoDataBTCRelay);
         assert_noop!(
-            Security::ensure_parachain_only_has_errors(vec![ErrorCode::InvalidBTCRelay]),
+            Security::ensure_parachain_is_running_or_only_has_errors(vec![
+                ErrorCode::InvalidBTCRelay
+            ]),
             TestError::NoDataBTCRelay
         );
 
-        assert_ok!(Security::ensure_parachain_only_has_errors(vec![
-            ErrorCode::InvalidBTCRelay,
-            ErrorCode::NoDataBTCRelay
-        ]));
+        assert_ok!(Security::ensure_parachain_is_running_or_only_has_errors(
+            vec![ErrorCode::InvalidBTCRelay, ErrorCode::NoDataBTCRelay]
+        ));
     })
 }
 
 #[test]
-fn testis_parachain_error_no_data_btcrelay() {
+fn test_is_parachain_error_no_data_btcrelay() {
     run_test(|| {
         Security::set_parachain_status(StatusCode::Error);
         Security::insert_error(ErrorCode::NoDataBTCRelay);
@@ -143,7 +146,7 @@ fn testis_parachain_error_no_data_btcrelay() {
 }
 
 #[test]
-fn testis_parachain_error_invalid_btcrelay() {
+fn test_is_parachain_error_invalid_btcrelay() {
     run_test(|| {
         Security::set_parachain_status(StatusCode::Error);
         Security::insert_error(ErrorCode::InvalidBTCRelay);
@@ -152,7 +155,7 @@ fn testis_parachain_error_invalid_btcrelay() {
 }
 
 #[test]
-fn testis_parachain_error_oracle_offline() {
+fn test_is_parachain_error_oracle_offline() {
     run_test(|| {
         Security::set_parachain_status(StatusCode::Error);
         Security::insert_error(ErrorCode::OracleOffline);
@@ -161,7 +164,7 @@ fn testis_parachain_error_oracle_offline() {
 }
 
 #[test]
-fn testis_parachain_error_liquidation() {
+fn test_is_parachain_error_liquidation() {
     run_test(|| {
         Security::set_parachain_status(StatusCode::Error);
         Security::insert_error(ErrorCode::Liquidation);
