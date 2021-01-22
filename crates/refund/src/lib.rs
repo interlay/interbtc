@@ -268,17 +268,17 @@ impl<T: Trait> Module<T> {
             .collect::<Vec<_>>()
     }
 
-    /// Fetch all refund requests for the specified issue ID. This function is exposed as RPC.
+    /// Return the refund request corresponding to the specified issue ID, or return an error. This function is exposed as RPC.
     ///
     /// # Arguments
     ///
     /// * `issue_id` - The ID of an issue request
     pub fn get_refund_requests_by_issue_id(
         issue_id: H256,
-    ) -> Vec<(H256, RefundRequest<T::AccountId, PolkaBTC<T>>)> {
+    ) -> Result<(H256, RefundRequest<T::AccountId, PolkaBTC<T>>), DispatchError> {
         <RefundRequests<T>>::iter()
-            .filter(|(_, request)| request.issue_id == issue_id)
-            .collect::<Vec<_>>()
+            .find(|(_, request)| request.issue_id == issue_id)
+            .ok_or(Error::<T>::NoRefundFoundForIssueId.into())
     }
 
     /// Fetch all refund requests for the specified vault. This function is exposed as RPC.
@@ -302,6 +302,7 @@ impl<T: Trait> Module<T> {
 decl_error! {
     pub enum Error for Module<T: Trait> {
         ArithmeticUnderflow,
+        NoRefundFoundForIssueId,
         RefundIdNotFound,
         RefundCompleted,
         TryIntoIntError,
