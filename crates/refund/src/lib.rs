@@ -268,6 +268,19 @@ impl<T: Trait> Module<T> {
             .collect::<Vec<_>>()
     }
 
+    /// Fetch all refund requests for the specified issue ID. This function is exposed as RPC.
+    ///
+    /// # Arguments
+    ///
+    /// * `issue_id` - The ID of an issue request
+    pub fn get_refund_requests_by_issue_id(
+        issue_id: H256,
+    ) -> Vec<(H256, RefundRequest<T::AccountId, PolkaBTC<T>>)> {
+        <RefundRequests<T>>::iter()
+            .filter(|(_, request)| request.issue_id == issue_id)
+            .collect::<Vec<_>>()
+    }
+
     /// Fetch all refund requests for the specified vault. This function is exposed as RPC.
     ///
     /// # Arguments
