@@ -19,6 +19,12 @@ pub trait RefundApi<BlockHash, AccountId, H256, RefundRequest> {
         account_id: AccountId,
         at: Option<BlockHash>,
     ) -> Result<Vec<(H256, RefundRequest)>>;
+    #[rpc(name = "refund_getRefundRequestsByIssueId")]
+    fn get_refund_requests_by_issue_id(
+        &self,
+        issue_id: H256,
+        at: Option<BlockHash>,
+    ) -> Result<Vec<(H256, RefundRequest)>>;
     #[rpc(name = "refund_getVaultRefundRequests")]
     fn get_vault_refund_requests(
         &self,
@@ -74,6 +80,22 @@ where
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         api.get_refund_requests(&at, account_id)
+            .map_err(|e| RpcError {
+                code: ErrorCode::ServerError(Error::RuntimeError.into()),
+                message: "Unable to fetch refund requests.".into(),
+                data: Some(format!("{:?}", e).into()),
+            })
+    }
+
+    fn get_refund_requests_by_issue_id(
+        &self,
+        issue_id: H256,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<Vec<(H256, RefundRequest)>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        api.get_refund_requests_by_issue_id(&at, issue_id)
             .map_err(|e| RpcError {
                 code: ErrorCode::ServerError(Error::RuntimeError.into()),
                 message: "Unable to fetch refund requests.".into(),
