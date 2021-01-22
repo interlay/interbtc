@@ -730,7 +730,7 @@ impl_runtime_apis! {
             Refund::get_refund_requests_for_account(account_id)
         }
 
-        fn get_refund_requests_by_issue_id(issue_id: H256) -> Vec<(H256, RefundRequest<AccountId, Balance>)> {
+        fn get_refund_requests_by_issue_id(issue_id: H256) -> Result<(H256, RefundRequest<AccountId, Balance>), DispatchError> {
             Refund::get_refund_requests_by_issue_id(issue_id)
         }
 
