@@ -59,42 +59,6 @@ fn dummy_public_key() -> BtcPublicKey {
 }
 
 #[test]
-fn test_ensure_parachain_running_or_error_liquidated_fails() {
-    run_test(|| {
-        ext::security::ensure_parachain_status_running::<Test>
-            .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainNotRunning.into())));
-
-        assert_err!(
-            Redeem::ensure_parachain_running_or_error_liquidated(),
-            SecurityError::ParachainNotRunning
-        );
-
-        ext::security::ensure_parachain_only_has_errors::<Test>
-            .mock_safe(|_| MockResult::Return(Err(SecurityError::InvalidBTCRelay.into())));
-
-        assert_err!(
-            Redeem::ensure_parachain_running_or_error_liquidated(),
-            SecurityError::InvalidBTCRelay
-        );
-    })
-}
-
-#[test]
-fn test_ensure_parachain_running_or_error_liquidated_succeeds() {
-    run_test(|| {
-        ext::security::ensure_parachain_status_running::<Test>
-            .mock_safe(|| MockResult::Return(Ok(())));
-
-        assert_ok!(Redeem::ensure_parachain_running_or_error_liquidated());
-
-        ext::security::ensure_parachain_only_has_errors::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(())));
-
-        assert_ok!(Redeem::ensure_parachain_running_or_error_liquidated());
-    })
-}
-
-#[test]
 fn test_request_redeem_fails_with_amount_exceeds_user_balance() {
     run_test(|| {
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
@@ -242,7 +206,7 @@ fn test_request_redeem_fails_with_amount_exceeds_vault_balance() {
 }
 
 #[test]
-fn test_request_redeem_succeeds_in_running_state() {
+fn test_request_redeem_succeeds_with_normal_redeem() {
     run_test(|| {
         ext::oracle::btc_to_dots::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
         <vault_registry::Module<Test>>::insert_vault(
@@ -314,106 +278,33 @@ fn test_request_redeem_succeeds_in_running_state() {
 }
 
 #[test]
-fn test_partial_redeem_factor() {
+fn test_liquidation_redeem_succeeds() {
     run_test(|| {
-        ext::vault_registry::total_liquidation_value::<Test>
-            .mock_safe(|| MockResult::Return(Ok(1000)));
-        ext::treasury::get_total_supply::<Test>.mock_safe(|| MockResult::Return(10));
-
-        assert_ok!(Redeem::get_partial_redeem_factor(), 100);
-    })
-}
-
-#[test]
-fn test_request_redeem_succeeds_in_error_state() {
-    run_test(|| {
-        ext::security::ensure_parachain_only_has_errors::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(())));
-
-        ext::security::is_parachain_error_liquidation::<Test>
-            .mock_safe(|| MockResult::Return(true));
-
-        Redeem::get_partial_redeem_factor.mock_safe(|| MockResult::Return(Ok(50_000)));
-
-        ext::oracle::btc_to_dots::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
-
-        let redeemer = ALICE;
         let total_amount = 10 * 100_000_000;
-        let fee = 5000000;
-        let redeem_amount = total_amount - fee;
-        let redeem_amount_btc = redeem_amount / 2;
 
-        <treasury::Module<Test>>::mint(ALICE, total_amount);
-        <vault_registry::Module<Test>>::insert_vault(
-            &BOB,
-            vault_registry::Vault {
-                id: BOB,
-                to_be_issued_tokens: 0,
-                issued_tokens: total_amount,
-                to_be_redeemed_tokens: 0,
-                wallet: Wallet::new(dummy_public_key()),
-                banned_until: None,
-                status: VaultStatus::Active,
-            },
-        );
-        ext::vault_registry::increase_to_be_redeemed_tokens::<Test>.mock_safe(
-            move |vault_id, amount_btc| {
-                assert_eq!(vault_id, &BOB);
-                assert_eq!(amount_btc, redeem_amount_btc);
+        ext::treasury::get_balance::<Test>.mock_safe(move |_| MockResult::Return(total_amount));
 
-                MockResult::Return(Ok(()))
-            },
-        );
-
-        ext::vault_registry::redeem_tokens_liquidation::<Test>.mock_safe(
-            move |vault_id, amount_polka_btc| {
-                assert_eq!(vault_id, &BOB);
-                assert_eq!(amount_polka_btc, redeem_amount_btc);
-
-                MockResult::Return(Ok(()))
-            },
-        );
-
-        ext::treasury::lock::<Test>.mock_safe(move |account, amount_polka_btc| {
-            assert_eq!(account, redeemer);
-            assert_eq!(amount_polka_btc, total_amount);
+        ext::treasury::lock::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(())));
+        ext::treasury::burn::<Test>.mock_safe(move |redeemer_id, amount| {
+            assert_eq!(redeemer_id, ALICE);
+            assert_eq!(amount, total_amount);
 
             MockResult::Return(Ok(()))
         });
 
-        ext::security::get_secure_id::<Test>.mock_safe(move |_| MockResult::Return(H256([0; 32])));
+        ext::vault_registry::redeem_tokens_liquidation::<Test>.mock_safe(
+            move |redeemer_id, amount| {
+                assert_eq!(redeemer_id, &ALICE);
+                assert_eq!(amount, total_amount);
 
-        assert_ok!(Redeem::request_redeem(
-            Origin::signed(redeemer.clone()),
-            total_amount,
-            BtcAddress::P2PKH(H160::zero()),
-            BOB
-        ));
-
-        assert_emitted!(Event::RequestRedeem(
-            H256([0; 32]),
-            redeemer.clone(),
-            total_amount - fee,
-            BOB,
-            BtcAddress::P2PKH(H160::zero()),
-        ));
-        assert_ok!(
-            Redeem::get_open_redeem_request_from_id(&H256([0; 32])),
-            RedeemRequest {
-                vault: BOB,
-                opentime: 1,
-                amount_polka_btc: total_amount - fee,
-                fee,
-                amount_btc: redeem_amount_btc,
-                amount_dot: redeem_amount_btc,
-                premium_dot: 24875000,
-                redeemer: redeemer.clone(),
-                btc_address: BtcAddress::P2PKH(H160::zero()),
-                completed: false,
-                cancelled: false,
-                reimburse: false,
-            }
+                MockResult::Return(Ok(()))
+            },
         );
+
+        assert_ok!(Redeem::liquidation_redeem(
+            Origin::signed(ALICE),
+            total_amount,
+        ));
     })
 }
 
@@ -531,7 +422,7 @@ fn test_execute_redeem_succeeds() {
                 opentime: 40,
                 amount_polka_btc: 100,
                 fee: 0,
-                amount_btc: 0,
+                amount_btc: 100,
                 amount_dot: 0,
                 premium_dot: 0,
                 redeemer: ALICE,

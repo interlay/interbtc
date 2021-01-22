@@ -162,7 +162,6 @@ impl Trait for Test {
 }
 
 pub type TestError = Error<Test>;
-pub type SecurityError = security::Error<Test>;
 pub type VaultRegistryError = vault_registry::Error<Test>;
 
 pub type System = frame_system::Module<Test>;

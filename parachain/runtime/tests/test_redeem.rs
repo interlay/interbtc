@@ -90,6 +90,44 @@ fn integration_test_redeem_polka_btc_execute() {
         // TODO: check redeem rewards update
     });
 }
+
+#[test]
+fn integration_test_redeem_polka_btc_execute_liquidation() {
+    ExtBuilder::build().execute_with(|| {
+        let satoshi_to_planck = 385523;
+
+        let total_polka_btc = 1000;
+        let polka_btc = 50;
+        let collateral_vault_min = (total_polka_btc + polka_btc) * satoshi_to_planck;
+        let collateral_vault = collateral_vault_min * 100_000;
+
+        SystemModule::set_block_number(1);
+
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
+            FixedU128::checked_from_integer(satoshi_to_planck).unwrap()
+        ));
+
+        set_default_thresholds();
+
+        // create tokens for the vault and user
+        force_issue_tokens(ALICE, BOB, collateral_vault, total_polka_btc);
+        assert_ok!(VaultRegistryModule::liquidate_vault(&account_of(BOB)));
+
+        let initial_dot_balance = CollateralModule::get_balance_from_account(&account_of(ALICE));
+
+        // ALICE requests to redeem polka_btc from the LiquidationVault
+        assert_ok!(Call::Redeem(RedeemCall::liquidation_redeem(polka_btc))
+            .dispatch(origin_of(account_of(ALICE))));
+
+        let final_dot_balance = CollateralModule::get_balance_from_account(&account_of(ALICE));
+
+        assert_eq!(
+            initial_dot_balance + (polka_btc * satoshi_to_planck),
+            final_dot_balance
+        );
+    });
+}
+
 fn setup_cancelable_redeem(user: [u8; 32], vault: [u8; 32], polka_btc: u128) -> H256 {
     let collateral_vault = 100500 * 2;
     let total_polka_btc = 100_000;
@@ -135,6 +173,7 @@ fn setup_cancelable_redeem(user: [u8; 32], vault: [u8; 32], polka_btc: u128) -> 
 
     redeem_id
 }
+
 #[test]
 fn integration_test_redeem_polka_btc_cancel_reimburse() {
     ExtBuilder::build().execute_with(|| {

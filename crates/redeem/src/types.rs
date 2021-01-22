@@ -36,6 +36,7 @@ pub struct RedeemRequest<AccountId, BlockNumber, PolkaBTC, DOT> {
         serde(bound(serialize = "PolkaBTC: std::fmt::Display"))
     )]
     #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
+    /// Total redeem amount (`amount_btc + dotsToBtc(amount_dot)`)
     pub amount_polka_btc: PolkaBTC,
     #[cfg_attr(
         feature = "std",
@@ -47,6 +48,7 @@ pub struct RedeemRequest<AccountId, BlockNumber, PolkaBTC, DOT> {
         serde(bound(serialize = "PolkaBTC: std::fmt::Display"))
     )]
     #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
+    /// Total redeem fees in PolkaBTC - taken from request amount
     pub fee: PolkaBTC,
     #[cfg_attr(
         feature = "std",
@@ -58,16 +60,19 @@ pub struct RedeemRequest<AccountId, BlockNumber, PolkaBTC, DOT> {
         serde(bound(serialize = "PolkaBTC: std::fmt::Display"))
     )]
     #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
+    /// Total amount of BTC for the vault to send
     pub amount_btc: PolkaBTC,
     #[cfg_attr(feature = "std", serde(bound(deserialize = "DOT: std::str::FromStr")))]
     #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
     #[cfg_attr(feature = "std", serde(bound(serialize = "DOT: std::fmt::Display")))]
     #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
+    /// Partial redeem amount in DOT, currently unused
     pub amount_dot: DOT,
     #[cfg_attr(feature = "std", serde(bound(deserialize = "DOT: std::str::FromStr")))]
     #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
     #[cfg_attr(feature = "std", serde(bound(serialize = "DOT: std::fmt::Display")))]
     #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
+    /// Premium redeem amount in DOT
     pub premium_dot: DOT,
     pub redeemer: AccountId,
     pub btc_address: BtcAddress,

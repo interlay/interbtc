@@ -251,10 +251,6 @@ fn integration_test_issue_refund() {
         ))
         .dispatch(origin_of(account_of(vault))));
 
-        let issuable =
-            VaultRegistryModule::get_issuable_tokens_from_vault(account_of(vault)).unwrap();
-        println!("{}", issuable);
-
         // alice requests polka_btc by locking btc with bob
         assert_ok!(Call::Issue(IssueCall::request_issue(
             amount_btc,

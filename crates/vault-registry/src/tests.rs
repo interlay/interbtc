@@ -13,7 +13,6 @@ use crate::{BtcPublicKey, UpdatableVault, Vault, VaultStatus, Vaults, Wallet};
 use frame_support::{assert_err, assert_noop, assert_ok, StorageMap};
 use mocktopus::mocking::*;
 use primitive_types::U256;
-use security::{ErrorCode, StatusCode};
 use sp_arithmetic::{FixedPointNumber, FixedU128};
 use sp_runtime::traits::Header;
 use sp_std::convert::TryInto;
@@ -438,7 +437,7 @@ fn redeem_tokens_premium_succeeds() {
         let user_id = 5;
         set_default_thresholds();
         // TODO: emulate assert_called
-        ext::collateral::slash::<Test>.mock_safe(move |sender, _receiver, _amount| {
+        ext::collateral::slash_collateral::<Test>.mock_safe(move |sender, _receiver, _amount| {
             assert_eq!(sender, &id);
             MockResult::Return(Ok(()))
         });
@@ -475,12 +474,17 @@ fn redeem_tokens_liquidation_succeeds() {
         let liquidation_vault_id = liquidation_vault.id();
         let user_id = 5;
         set_default_thresholds();
+
         // TODO: emulate assert_called
-        ext::collateral::slash::<Test>.mock_safe(move |sender, _receiver, _amount| {
+        ext::collateral::slash_collateral::<Test>.mock_safe(move |sender, _receiver, _amount| {
             assert_eq!(sender, &liquidation_vault_id);
             MockResult::Return(Ok(()))
         });
-        ext::security::recover_from_liquidation::<Test>.mock_safe(|| MockResult::Return(Ok(())));
+
+        ext::collateral::release_collateral::<Test>.mock_safe(move |sender, _amount| {
+            assert_eq!(sender, &user_id);
+            MockResult::Return(Ok(()))
+        });
 
         liquidation_vault.force_increase_to_be_issued(50);
         liquidation_vault.force_issue_tokens(50);
@@ -500,13 +504,14 @@ fn redeem_tokens_liquidation_does_not_call_recover_when_unnecessary() {
         let user_id = 5;
         set_default_thresholds();
 
-        ext::collateral::slash::<Test>.mock_safe(move |sender, _receiver, _amount| {
+        ext::collateral::slash_collateral::<Test>.mock_safe(move |sender, _receiver, _amount| {
             assert_eq!(sender, &liquidation_vault_id);
             MockResult::Return(Ok(()))
         });
 
-        ext::security::recover_from_liquidation::<Test>.mock_safe(|| {
-            panic!("this should not be called");
+        ext::collateral::release_collateral::<Test>.mock_safe(move |sender, _amount| {
+            assert_eq!(sender, &user_id);
+            MockResult::Return(Ok(()))
         });
 
         liquidation_vault.force_increase_to_be_issued(25);
@@ -578,7 +583,7 @@ fn liquidate_succeeds() {
         let liquidation_vault_id = liquidation_vault_before.id();
         set_default_thresholds();
 
-        ext::collateral::slash::<Test>.mock_safe(move |sender, receiver, amount| {
+        ext::collateral::slash_collateral::<Test>.mock_safe(move |sender, receiver, amount| {
             assert_eq!(sender, &id);
             assert_eq!(receiver, &liquidation_vault_id);
             assert_eq!(amount, DEFAULT_COLLATERAL);
@@ -622,7 +627,7 @@ fn liquidate_with_status_succeeds() {
         let liquidation_vault_id = liquidation_vault_before.id();
         set_default_thresholds();
 
-        ext::collateral::slash::<Test>.mock_safe(move |sender, receiver, amount| {
+        ext::collateral::slash_collateral::<Test>.mock_safe(move |sender, receiver, amount| {
             assert_eq!(sender, &id);
             assert_eq!(receiver, &liquidation_vault_id);
             assert_eq!(amount, DEFAULT_COLLATERAL);
@@ -692,14 +697,6 @@ fn test_liquidate_undercollateralized_vaults_no_liquidation() {
                 .into_iter()
                 .collect();
 
-        ext::security::set_parachain_status::<Test>.mock_safe(move |_| {
-            panic!("Should not update parachain status");
-        });
-
-        ext::security::insert_error::<Test>.mock_safe(move |_| {
-            panic!("Should not insert error code");
-        });
-
         VaultRegistry::is_vault_below_liquidation_threshold
             .mock_safe(move |id| MockResult::Return(Ok(*vaults.get(id).unwrap())));
         VaultRegistry::liquidate_vault.mock_safe(move |_| {
@@ -725,16 +722,6 @@ fn test_liquidate_undercollateralized_vaults_succeeds() {
                 .collect();
         let vaults1 = Rc::new(vaults);
         let vaults2 = vaults1.clone();
-
-        ext::security::set_parachain_status::<Test>.mock_safe(move |status_code| {
-            assert_eq!(status_code, StatusCode::Error);
-            MockResult::Return(())
-        });
-
-        ext::security::insert_error::<Test>.mock_safe(move |error_code| {
-            assert_eq!(error_code, ErrorCode::Liquidation);
-            MockResult::Return(())
-        });
 
         VaultRegistry::is_vault_below_liquidation_threshold
             .mock_safe(move |id| MockResult::Return(Ok(*vaults1.get(id).unwrap())));

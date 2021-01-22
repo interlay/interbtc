@@ -11,6 +11,11 @@ impl crate::WeightInfo for () {
             .saturating_add(DbWeight::get().reads(12 as Weight))
             .saturating_add(DbWeight::get().writes(5 as Weight))
     }
+    fn liquidation_redeem() -> Weight {
+        (179_175_000 as Weight)
+            .saturating_add(DbWeight::get().reads(12 as Weight))
+            .saturating_add(DbWeight::get().writes(5 as Weight))
+    }
     fn execute_redeem() -> Weight {
         (188_681_000 as Weight)
             .saturating_add(DbWeight::get().reads(14 as Weight))

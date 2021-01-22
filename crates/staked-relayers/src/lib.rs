@@ -411,28 +411,24 @@ decl_module! {
             Self::is_transaction_invalid(&vault_id, raw_tx)?;
 
             ext::vault_registry::liquidate_theft_vault::<T>(&vault_id)?;
-            ext::security::set_parachain_status::<T>(StatusCode::Error);
-            ext::security::insert_error::<T>(ErrorCode::Liquidation);
 
             <TheftReports<T>>::mutate(&tx_id, |reports| {
-                reports.insert(vault_id);
+                reports.insert(vault_id.clone());
             });
 
             // reward relayer for this report by increasing its sla
             ext::sla::event_update_relayer_sla::<T>(signer, ext::sla::RelayerEvent::CorrectTheftReport)?;
 
-            Self::deposit_event(<Event<T>>::ExecuteStatusUpdate(
-                StatusCode::Error,
-                Some(ErrorCode::Liquidation),
-                None,
-                Some(tx_id),
+            Self::deposit_event(<Event<T>>::VaultTheft(
+                vault_id,
+                tx_id
             ));
 
             Ok(())
         }
 
         /// A Staked Relayer reports that a Vault is undercollateralized (i.e. below the LiquidationCollateralThreshold as defined in Vault Registry).
-        /// If the collateral falls below this rate, we flag the Vault for liquidation and update the ParachainStatus to ERROR - adding LIQUIDATION to Errors.
+        /// If the collateral falls below this rate, we flag the Vault for liquidation.
         #[weight = <T as Trait>::WeightInfo::report_vault_under_liquidation_threshold()]
         #[transactional]
         fn report_vault_under_liquidation_threshold(origin, vault_id: T::AccountId)  -> DispatchResult {
@@ -449,17 +445,12 @@ decl_module! {
             );
 
             ext::vault_registry::liquidate_vault::<T>(&vault_id)?;
-            ext::security::set_parachain_status::<T>(StatusCode::Error);
-            ext::security::insert_error::<T>(ErrorCode::Liquidation);
 
             // reward relayer for this report by increasing its sla
             ext::sla::event_update_relayer_sla::<T>(signer, ext::sla::RelayerEvent::CorrectLiquidationReport)?;
 
-            Self::deposit_event(<Event<T>>::ExecuteStatusUpdate(
-                StatusCode::Error,
-                Some(ErrorCode::Liquidation),
-                None,
-                None,
+            Self::deposit_event(<Event<T>>::VaultUnderLiquidationThreshold(
+                vault_id
             ));
 
             Ok(())
@@ -1210,8 +1201,6 @@ decl_event!(
     {
         RegisterStakedRelayer(AccountId, BlockNumber, DOT),
         DeregisterStakedRelayer(AccountId),
-        ActivateStakedRelayer(AccountId, DOT),
-        DeactivateStakedRelayer(AccountId),
         StatusUpdateSuggested(
             u64,
             AccountId,
@@ -1230,6 +1219,8 @@ decl_event!(
         RejectStatusUpdate(StatusCode, Option<ErrorCode>, Option<ErrorCode>),
         ForceStatusUpdate(StatusCode, Option<ErrorCode>, Option<ErrorCode>),
         SlashStakedRelayer(AccountId),
+        VaultTheft(AccountId, H256Le),
+        VaultUnderLiquidationThreshold(AccountId),
     }
 );
 

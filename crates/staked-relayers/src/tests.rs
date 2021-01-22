@@ -877,12 +877,7 @@ fn test_report_vault_theft_succeeds() {
             vec![0u8; 32],
             vec![0u8; 32],
         ));
-        assert_emitted!(Event::ExecuteStatusUpdate(
-            StatusCode::Error,
-            Some(ErrorCode::Liquidation),
-            None,
-            Some(H256Le::zero()),
-        ));
+        assert_emitted!(Event::VaultTheft(BOB, H256Le::zero()));
     })
 }
 
@@ -921,16 +916,11 @@ fn test_report_vault_under_liquidation_threshold_succeeds() {
             Origin::signed(relayer),
             vault
         ));
+        assert_emitted!(Event::VaultUnderLiquidationThreshold(BOB));
 
-        assert_emitted!(Event::ExecuteStatusUpdate(
-            StatusCode::Error,
-            Some(ErrorCode::Liquidation),
-            None,
-            None,
-        ));
-
+        // liquidating a single vault shouldn't stop the parachain from running
         let parachain_status = ext::security::get_parachain_status::<Test>();
-        assert_eq!(parachain_status, StatusCode::Error);
+        assert_eq!(parachain_status, StatusCode::Running);
     })
 }
 

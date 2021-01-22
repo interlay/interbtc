@@ -8,6 +8,7 @@ use frame_support::{
 };
 use sp_arithmetic::FixedPointNumber;
 use sp_core::H256;
+use sp_runtime::traits::CheckedSub;
 use sp_std::collections::btree_set::BTreeSet;
 
 #[cfg(test)]
@@ -217,7 +218,7 @@ impl<T: Trait> RichVault<T> {
             Error::<T>::InsufficientCollateral
         );
 
-        ext::collateral::release::<T>(&self.data.id, collateral)
+        ext::collateral::release_collateral::<T>(&self.data.id, collateral)
     }
 
     pub fn get_collateral(&self) -> DOT<T> {
@@ -226,7 +227,10 @@ impl<T: Trait> RichVault<T> {
 
     pub fn get_free_collateral(&self) -> Result<DOT<T>, DispatchError> {
         let used_collateral = self.get_used_collateral()?;
-        Ok(self.get_collateral() - used_collateral)
+        Ok(self
+            .get_collateral()
+            .checked_sub(&used_collateral)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?)
     }
 
     pub fn get_used_collateral(&self) -> Result<DOT<T>, DispatchError> {
@@ -279,7 +283,11 @@ impl<T: Trait> RichVault<T> {
     }
 
     pub fn increase_to_be_redeemed(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
-        let redeemable = self.data.issued_tokens - self.data.to_be_redeemed_tokens;
+        let redeemable = self
+            .data
+            .issued_tokens
+            .checked_sub(&self.data.to_be_redeemed_tokens)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
         ensure!(
             redeemable >= tokens,
             Error::<T>::InsufficientTokensCommitted
@@ -316,7 +324,11 @@ impl<T: Trait> RichVault<T> {
         liquidation_vault: &mut V,
         status: VaultStatus,
     ) -> DispatchResult {
-        ext::collateral::slash::<T>(&self.id(), &liquidation_vault.id(), self.get_collateral())?;
+        ext::collateral::slash_collateral::<T>(
+            &self.id(),
+            &liquidation_vault.id(),
+            self.get_collateral(),
+        )?;
         liquidation_vault.force_issue_tokens(self.data.issued_tokens);
         liquidation_vault.force_increase_to_be_issued(self.data.to_be_issued_tokens);
         liquidation_vault.force_increase_to_be_redeemed(self.data.to_be_redeemed_tokens);

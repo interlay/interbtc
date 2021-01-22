@@ -7,7 +7,7 @@ pub use btc_relay::{BtcAddress, BtcPublicKey};
 pub use frame_support::{assert_noop, assert_ok};
 pub use mocktopus::mocking::*;
 use primitive_types::{H256, U256};
-pub use security::StatusCode;
+pub use security::{ErrorCode, StatusCode};
 pub use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 pub use sp_core::H160;
 pub use sp_runtime::traits::Dispatchable;
@@ -15,7 +15,7 @@ pub use sp_std::convert::TryInto;
 
 pub const ALICE: [u8; 32] = [0u8; 32];
 pub const BOB: [u8; 32] = [1u8; 32];
-pub const CLAIRE: [u8; 32] = [2u8; 32];
+pub const CAROL: [u8; 32] = [2u8; 32];
 
 pub const LIQUIDATION_VAULT: [u8; 32] = [3u8; 32];
 pub const FEE_POOL: [u8; 32] = [4u8; 32];
@@ -66,8 +66,11 @@ pub fn force_issue_tokens(user: [u8; 32], vault: [u8; 32], collateral: u128, tok
     .dispatch(origin_of(account_of(vault))));
 
     // increase to be issued tokens
-    VaultRegistryModule::increase_to_be_issued_tokens(&account_of(vault), H256::random(), tokens)
-        .unwrap();
+    assert_ok!(VaultRegistryModule::increase_to_be_issued_tokens(
+        &account_of(vault),
+        H256::random(),
+        tokens
+    ));
 
     // issue tokens
     assert_ok!(VaultRegistryModule::issue_tokens(
@@ -214,9 +217,10 @@ pub fn generate_transaction_and_mine_with_script_sig(
 }
 
 #[allow(dead_code)]
-pub type SecurityModule = security::Module<Runtime>;
-#[allow(dead_code)]
 pub type SystemModule = frame_system::Module<Runtime>;
+
+#[allow(dead_code)]
+pub type SecurityModule = security::Module<Runtime>;
 #[allow(dead_code)]
 pub type SecurityError = security::Error<Runtime>;
 
@@ -254,9 +258,9 @@ impl ExtBuilder {
 
         pallet_balances::GenesisConfig::<Runtime, pallet_balances::Instance1> {
             balances: vec![
-                (account_of(ALICE), 1_005_000),
-                (account_of(BOB), 1_005_000),
-                (account_of(CLAIRE), 1_005_000),
+                (account_of(ALICE), 1 << 60),
+                (account_of(BOB), 1 << 60),
+                (account_of(CAROL), 1 << 60),
                 // create accounts for vault & fee pool; this needs a minimum amount because
                 // the parachain refuses to create accounts with a balance below `ExistentialDeposit`
                 (account_of(LIQUIDATION_VAULT), 1000),

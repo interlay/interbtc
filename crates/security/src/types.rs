@@ -35,7 +35,7 @@ pub enum ErrorCode {
     InvalidBTCRelay = 2,
     /// The exchangeRateOracle experienced a liveness failure (no up-to-date exchange rate available)
     OracleOffline = 3,
-    /// At least one Vault is being liquidated. Redeem requests paid out partially in collateral (DOT).
+    /// The entire system is undercollateralized, only partial redeems should be allowed
     Liquidation = 4,
 }
 

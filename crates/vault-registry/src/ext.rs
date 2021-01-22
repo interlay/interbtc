@@ -14,16 +14,19 @@ pub(crate) mod collateral {
         <collateral::Module<T>>::lock_collateral(sender, amount)
     }
 
-    pub fn release<T: collateral::Trait>(sender: &T::AccountId, amount: DOT<T>) -> DispatchResult {
-        <collateral::Module<T>>::release_collateral(sender, amount)
-    }
-
-    pub fn slash<T: collateral::Trait>(
+    pub fn slash_collateral<T: collateral::Trait>(
         sender: &T::AccountId,
         receiver: &T::AccountId,
         amount: DOT<T>,
     ) -> DispatchResult {
         <collateral::Module<T>>::slash_collateral(sender.clone(), receiver.clone(), amount)
+    }
+
+    pub fn release_collateral<T: collateral::Trait>(
+        sender: &T::AccountId,
+        amount: DOT<T>,
+    ) -> DispatchResult {
+        <collateral::Module<T>>::release_collateral(sender, amount)
     }
 
     pub fn for_account<T: collateral::Trait>(id: &T::AccountId) -> DOT<T> {
@@ -66,12 +69,8 @@ pub(crate) mod oracle {
 #[cfg_attr(test, mockable)]
 pub(crate) mod security {
     use frame_support::dispatch::DispatchResult;
-    use security::{ErrorCode, StatusCode};
+    use security::ErrorCode;
     use sp_std::vec::Vec;
-
-    pub fn recover_from_liquidation<T: security::Trait>() -> DispatchResult {
-        Ok(())
-    }
 
     pub fn ensure_parachain_status_running<T: security::Trait>() -> DispatchResult {
         <security::Module<T>>::ensure_parachain_status_running()
@@ -85,13 +84,5 @@ pub(crate) mod security {
         error_codes: Vec<ErrorCode>,
     ) -> DispatchResult {
         <security::Module<T>>::ensure_parachain_does_not_have_errors(error_codes)
-    }
-
-    pub fn set_parachain_status<T: security::Trait>(status_code: StatusCode) {
-        <security::Module<T>>::set_parachain_status(status_code)
-    }
-
-    pub fn insert_error<T: security::Trait>(error_code: ErrorCode) {
-        <security::Module<T>>::insert_error(error_code)
     }
 }
