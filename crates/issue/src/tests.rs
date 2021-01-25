@@ -120,7 +120,7 @@ fn test_request_issue_banned_fails() {
 #[test]
 fn test_request_issue_insufficient_collateral_fails() {
     run_test(|| {
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::oracle::btc_to_dots::<Test>.mock_safe(|_| MockResult::Return(Ok(10000000)));
@@ -138,7 +138,7 @@ fn test_request_issue_succeeds() {
         let origin = ALICE;
         let vault = BOB;
         let amount: Balance = 3;
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
 
         let issue_id = request_issue_ok(origin, amount, vault, 20);
@@ -160,7 +160,7 @@ fn test_request_issue_succeeds() {
 #[test]
 fn test_execute_issue_not_found_fails() {
     run_test(|| {
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
         assert_noop!(
             execute_issue(ALICE, &H256([0; 32])),
@@ -172,7 +172,7 @@ fn test_execute_issue_not_found_fails() {
 #[test]
 fn test_execute_issue_commit_period_expired_fails() {
     run_test(|| {
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
 
         let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
@@ -187,7 +187,7 @@ fn test_execute_issue_commit_period_expired_fails() {
 #[test]
 fn test_execute_issue_succeeds() {
     run_test(|| {
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
         ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
@@ -208,7 +208,7 @@ fn test_execute_issue_succeeds() {
 #[test]
 fn test_execute_issue_overpayment_succeeds() {
     run_test(|| {
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
         ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
@@ -252,7 +252,7 @@ fn test_execute_issue_overpayment_succeeds() {
 #[test]
 fn test_execute_issue_refund_succeeds() {
     run_test(|| {
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
         ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
@@ -303,7 +303,7 @@ fn test_cancel_issue_not_expired_fails() {
     run_test(|| {
         <frame_system::Module<Test>>::set_block_number(1);
 
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
 
         let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
@@ -318,7 +318,7 @@ fn test_cancel_issue_succeeds() {
     run_test(|| {
         <frame_system::Module<Test>>::set_block_number(1);
 
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
         ext::vault_registry::decrease_to_be_issued_tokens::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(())));

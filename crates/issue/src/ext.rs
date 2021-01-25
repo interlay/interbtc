@@ -32,13 +32,13 @@ pub(crate) mod vault_registry {
     use frame_support::dispatch::{DispatchError, DispatchResult};
     use sp_core::H256;
 
-    pub fn get_vault_from_id<T: vault_registry::Trait>(
+    pub fn get_active_vault_from_id<T: vault_registry::Trait>(
         vault_id: &T::AccountId,
     ) -> Result<
         vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>>,
         DispatchError,
     > {
-        <vault_registry::Module<T>>::get_vault_from_id(vault_id)
+        <vault_registry::Module<T>>::get_active_vault_from_id(vault_id)
     }
 
     pub fn increase_to_be_issued_tokens<T: vault_registry::Trait>(

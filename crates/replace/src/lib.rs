@@ -267,7 +267,7 @@ impl<T: Trait> Module<T> {
         ext::security::ensure_parachain_status_running::<T>()?;
 
         // check vault exists
-        let vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
+        let vault = ext::vault_registry::get_active_vault_from_id::<T>(&vault_id)?;
 
         // check vault is not banned
         let height = Self::current_height();
@@ -337,7 +337,7 @@ impl<T: Trait> Module<T> {
         let replace = Self::get_open_replace_request(&request_id)?;
 
         // Check that caller of the function is indeed the to-be-replaced Vault as specified in the ReplaceRequest. Return ERR_UNAUTHORIZED error if this check fails.
-        let _vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
+        let _vault = ext::vault_registry::get_active_vault_from_id::<T>(&vault_id)?;
         ensure!(vault_id == replace.old_vault, Error::<T>::UnauthorizedVault);
 
         // Check that the collateral rate of the vault is not under the AuctionCollateralThreshold as defined in the VaultRegistry. If it is under the AuctionCollateralThreshold return ERR_UNAUTHORIZED
@@ -433,7 +433,7 @@ impl<T: Trait> Module<T> {
         ext::vault_registry::insert_vault_deposit_address::<T>(&new_vault_id, btc_address.clone())?;
 
         // Retrieve the oldVault as per the oldVault parameter from Vaults in the VaultRegistry
-        let _old_vault = ext::vault_registry::get_vault_from_id::<T>(&old_vault_id)?;
+        let _old_vault = ext::vault_registry::get_active_vault_from_id::<T>(&old_vault_id)?;
 
         // Check that the oldVault is below the AuctionCollateralThreshold by calculating his current oldVault.issuedTokens and the oldVault.collateral
         ensure!(
@@ -527,7 +527,7 @@ impl<T: Trait> Module<T> {
         );
 
         // Retrieve the Vault as per the newVault parameter from Vaults in the VaultRegistry
-        let _new_vault = ext::vault_registry::get_vault_from_id::<T>(&new_vault_id)?;
+        let _new_vault = ext::vault_registry::get_active_vault_from_id::<T>(&new_vault_id)?;
 
         // Call verifyTransactionInclusion in BTC-Relay, providing txid, txBlockHeight, txIndex, and merkleProof as parameters
         ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;

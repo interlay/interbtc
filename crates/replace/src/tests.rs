@@ -118,7 +118,7 @@ fn cancel_replace(new_vault_id: AccountId, replace_id: H256) -> Result<(), Dispa
 fn test_request_replace_transfer_zero_fails() {
     run_test(|| {
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
                 to_be_issued_tokens: 0,
@@ -148,7 +148,7 @@ fn test_request_replace_vault_banned_fails() {
     run_test(|| {
         ext::vault_registry::ensure_not_banned::<Test>
             .mock_safe(|_, _| MockResult::Return(Err(VaultRegistryError::VaultBanned.into())));
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
                 to_be_issued_tokens: 0,
@@ -175,7 +175,7 @@ fn test_request_replace_amount_below_dust_value_fails() {
         let amount = 1;
 
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
                 to_be_issued_tokens: 0,
@@ -210,7 +210,7 @@ fn test_request_replace_insufficient_griefing_collateral_fails() {
         let amount = 3;
 
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
                 to_be_issued_tokens: 0,
@@ -251,7 +251,7 @@ fn test_withdraw_replace_request_invalid_replace_id_fails() {
 fn test_withdraw_replace_request_invalid_vault_id_fails() {
     run_test(|| {
         Replace::get_open_replace_request.mock_safe(|_| MockResult::Return(Ok(test_request())));
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Err(VaultRegistryError::VaultNotFound.into())));
         assert_noop!(
             withdraw_replace(ALICE, H256([0u8; 32])),
@@ -264,7 +264,7 @@ fn test_withdraw_replace_request_invalid_vault_id_fails() {
 fn test_withdraw_replace_req_vault_id_mismatch_fails() {
     run_test(|| {
         Replace::get_open_replace_request.mock_safe(|_| MockResult::Return(Ok(test_request())));
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_id| MockResult::Return(Ok(test_vault())));
         assert_noop!(
             withdraw_replace(BOB, H256([0u8; 32])),
@@ -277,7 +277,7 @@ fn test_withdraw_replace_req_vault_id_mismatch_fails() {
 fn test_withdraw_replace_req_under_secure_threshold_fails() {
     run_test(|| {
         Replace::get_open_replace_request.mock_safe(|_| MockResult::Return(Ok(test_request())));
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_id| {
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|_id| {
             MockResult::Return(Ok({
                 let mut v = test_vault();
                 v.id = ALICE;
@@ -303,7 +303,7 @@ fn test_withdraw_replace_req_has_new_owner_fails() {
             r.new_vault = Some(3);
             MockResult::Return(Ok(r))
         });
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_id| {
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|_id| {
             MockResult::Return(Ok({
                 let mut v = test_vault();
                 v.id = ALICE;
@@ -330,7 +330,7 @@ fn test_accept_replace_bad_replace_id_fails() {
             r.new_vault = Some(3);
             MockResult::Return(Err(TestError::ReplaceIdNotFound.into()))
         });
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_id| {
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|_id| {
             MockResult::Return(Ok({
                 let mut v = test_vault();
                 v.id = ALICE;
@@ -358,7 +358,7 @@ fn test_accept_replace_bad_vault_id_fails() {
             r.new_vault = Some(3);
             MockResult::Return(Ok(r))
         });
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_id| MockResult::Return(Err(VaultRegistryError::VaultNotFound.into())));
         ext::vault_registry::is_vault_below_auction_threshold::<Test>
             .mock_safe(|_| MockResult::Return(Ok(false)));
@@ -383,7 +383,7 @@ fn test_accept_replace_vault_banned_fails() {
         });
         ext::vault_registry::ensure_not_banned::<Test>
             .mock_safe(|_, _| MockResult::Return(Err(VaultRegistryError::VaultBanned.into())));
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_id| {
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|_id| {
             let mut vault = test_vault();
             vault.banned_until = Some(100);
             MockResult::Return(Ok(vault))
@@ -412,7 +412,7 @@ fn test_accept_replace_insufficient_collateral_fails() {
             MockResult::Return(Ok(r))
         });
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_id| {
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|_id| {
             let mut vault = test_vault();
             vault.banned_until = None;
             MockResult::Return(Ok(vault))
@@ -432,7 +432,7 @@ fn test_accept_replace_insufficient_collateral_fails() {
 #[test]
 fn test_auction_replace_bad_old_vault_id_fails() {
     run_test(|| {
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|id| {
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|id| {
             MockResult::Return(if *id == ALICE {
                 Err(VaultRegistryError::VaultNotFound.into())
             } else {
@@ -455,7 +455,7 @@ fn test_auction_replace_bad_old_vault_id_fails() {
 #[test]
 fn test_auction_replace_bad_new_vault_id_fails() {
     run_test(|| {
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|id| {
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|id| {
             MockResult::Return(if *id == ALICE {
                 Ok(test_vault())
             } else {
@@ -478,7 +478,7 @@ fn test_auction_replace_bad_new_vault_id_fails() {
 #[test]
 fn test_auction_replace_insufficient_collateral_fails() {
     run_test(|| {
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|id| {
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|id| {
             MockResult::Return(if *id == ALICE {
                 Ok(test_vault())
             } else {
@@ -602,7 +602,7 @@ fn test_request_replace_with_amount_exceed_vault_issued_tokens_succeeds() {
 
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(vault.clone())));
 
         ext::collateral::get_collateral_from_account::<Test>
@@ -635,7 +635,7 @@ fn test_request_replace_with_amount_less_than_vault_issued_tokens_succeeds() {
 
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(vault.clone())));
 
         ext::collateral::get_collateral_from_account::<Test>
@@ -666,7 +666,7 @@ fn test_withdraw_replace_succeeds() {
             MockResult::Return(Ok(replace))
         });
 
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(test_vault())));
         ext::vault_registry::is_vault_below_auction_threshold::<Test>
             .mock_safe(|_| MockResult::Return(Ok(false)));
@@ -703,7 +703,7 @@ fn test_accept_replace_succeeds() {
 
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(test_vault())));
 
         ext::vault_registry::insert_vault_deposit_address::<Test>
@@ -740,7 +740,7 @@ fn test_auction_replace_succeeds() {
 
         // NOTE: we don't use the old_vault in the code - should be changed to just
         // check if it exists in storage
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(test_vault())));
 
         ext::vault_registry::insert_vault_deposit_address::<Test>
@@ -805,7 +805,7 @@ fn test_execute_replace_succeeds() {
         Replace::current_height.mock_safe(|| MockResult::Return(10));
         Replace::replace_period.mock_safe(|| MockResult::Return(20));
 
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(test_vault())));
 
         ext::btc_relay::verify_transaction_inclusion::<Test>
@@ -961,7 +961,7 @@ fn test_withdraw_replace_parachain_not_running_succeeds() {
             MockResult::Return(Ok(replace))
         });
 
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(test_vault())));
         ext::vault_registry::is_vault_below_auction_threshold::<Test>
             .mock_safe(|_| MockResult::Return(Ok(false)));

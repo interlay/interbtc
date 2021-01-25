@@ -1066,7 +1066,7 @@ impl<T: Trait> Module<T> {
     /// `vault_id`: the vault.
     /// `raw_tx`: the BTC transaction by the vault.
     pub fn is_transaction_invalid(vault_id: &T::AccountId, raw_tx: Vec<u8>) -> DispatchResult {
-        let vault = ext::vault_registry::get_vault_from_id::<T>(vault_id)?;
+        let vault = ext::vault_registry::get_active_vault_from_id::<T>(vault_id)?;
 
         // TODO: ensure this cannot fail on invalid
         let tx =
