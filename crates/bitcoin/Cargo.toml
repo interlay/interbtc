@@ -1,6 +1,6 @@
 [package]
 name = 'bitcoin'
-version = '0.4.0'
+version = '0.4.1'
 authors = ['Interlay Ltd']
 edition = '2018'
 
@@ -12,7 +12,8 @@ primitive-types = { version = "0.7.2", default-features = false, features = ["co
 sha2 = { version = "0.8.2", default-features = false }
 hex = { version = "0.4.2", default-features = false }
 bitcoin_hashes = { version = "0.7.3", default-features = false }
-libsecp256k1 = { version = "0.3.5", default-features = false }
+# TODO: update once no_std fix is merged upstream > https://github.com/rust-bitcoin/rust-secp256k1/pull/275
+secp256k1 = { git = "https://github.com/gregdhill/rust-secp256k1", rev = "c86808fac70a3adf7ce180ae62151cf841914893", default-features = false }
 
 # Substrate dependencies
 sp-core = { version = "2.0.0", default-features = false }
@@ -21,7 +22,7 @@ frame-support = { version = "2.0.0", default-features = false }
 
 [dev-dependencies]
 mocktopus = '0.7.0'
-rand = "0.7.3"
+secp256k1 = { git = "https://github.com/gregdhill/rust-secp256k1", rev = "c86808fac70a3adf7ce180ae62151cf841914893", default-features = false, features = ["rand-std"] }
 
 [features]
 default = ["std"]
@@ -32,7 +33,7 @@ std = [
 	"primitive-types/std",
 	"sha2/std",
 	"hex/std",
-	"libsecp256k1/std",
+	"secp256k1/std",
 	"sp-core/std",
 	"sp-std/std",
 	"frame-support/std",
