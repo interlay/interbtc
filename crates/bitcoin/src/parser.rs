@@ -282,7 +282,7 @@ pub fn parse_compact_uint(varint: &[u8]) -> Result<(u64, usize), Error> {
             num_bytes.copy_from_slice(&varint.get(1..9).ok_or(Error::EOS)?);
             Ok((u64::from_le_bytes(num_bytes) as u64, 9))
         }
-        _ => Ok((varint[0] as u64, 1)),
+        &n => Ok((n as u64, 1)),
     }
 }
 
@@ -420,7 +420,7 @@ pub(crate) fn extract_address_hash_scriptsig(input_script: &[u8]) -> Result<Addr
     let mut p2pkh = true;
 
     // Multisig OBOE hack -> p2sh
-    if input_script[0] == OpCode::Op0 as u8 {
+    if *input_script.get(0).ok_or(Error::EOS)? == OpCode::Op0 as u8 {
         parser.parse::<u8>()?;
         p2pkh = false;
     }
