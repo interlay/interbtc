@@ -228,7 +228,7 @@ fn increase_to_be_issued_tokens_succeeds() {
         let id = create_sample_vault();
         set_default_thresholds();
         let res = VaultRegistry::increase_to_be_issued_tokens(&id, H256::zero(), 50);
-        let vault = VaultRegistry::get_rich_vault_from_id(&id).unwrap();
+        let vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
         assert_ok!(res);
         assert_eq!(vault.data.to_be_issued_tokens, 50);
         assert_emitted!(Event::IncreaseToBeIssuedTokens(id, 50));
@@ -239,7 +239,7 @@ fn increase_to_be_issued_tokens_succeeds() {
 fn increase_to_be_issued_tokens_fails_with_insufficient_collateral() {
     run_test(|| {
         let id = create_sample_vault();
-        let vault = VaultRegistry::get_rich_vault_from_id(&id).unwrap();
+        let vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
         let res = VaultRegistry::increase_to_be_issued_tokens(
             &id,
             H256::zero(),
@@ -261,7 +261,7 @@ fn decrease_to_be_issued_tokens_succeeds() {
         ),);
         let res = VaultRegistry::decrease_to_be_issued_tokens(&id, 50);
         assert_ok!(res);
-        let vault = VaultRegistry::get_rich_vault_from_id(&id).unwrap();
+        let vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
         assert_eq!(vault.data.to_be_issued_tokens, 0);
         assert_emitted!(Event::DecreaseToBeIssuedTokens(id, 50));
     });
@@ -289,7 +289,7 @@ fn issue_tokens_succeeds() {
         ),);
         let res = VaultRegistry::issue_tokens(&id, 50);
         assert_ok!(res);
-        let vault = VaultRegistry::get_rich_vault_from_id(&id).unwrap();
+        let vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
         assert_eq!(vault.data.to_be_issued_tokens, 0);
         assert_eq!(vault.data.issued_tokens, 50);
         assert_emitted!(Event::IssueTokens(id, 50));
@@ -321,7 +321,7 @@ fn increase_to_be_redeemed_tokens_succeeds() {
         assert_ok!(VaultRegistry::issue_tokens(&id, 50));
         let res = VaultRegistry::increase_to_be_redeemed_tokens(&id, 50);
         assert_ok!(res);
-        let vault = VaultRegistry::get_rich_vault_from_id(&id).unwrap();
+        let vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
         assert_eq!(vault.data.issued_tokens, 50);
         assert_eq!(vault.data.to_be_redeemed_tokens, 50);
         assert_emitted!(Event::IncreaseToBeRedeemedTokens(id, 50));
@@ -353,7 +353,7 @@ fn decrease_to_be_redeemed_tokens_succeeds() {
         assert_ok!(VaultRegistry::increase_to_be_redeemed_tokens(&id, 50));
         let res = VaultRegistry::decrease_to_be_redeemed_tokens(&id, 50);
         assert_ok!(res);
-        let vault = VaultRegistry::get_rich_vault_from_id(&id).unwrap();
+        let vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
         assert_eq!(vault.data.issued_tokens, 50);
         assert_eq!(vault.data.to_be_redeemed_tokens, 0);
         assert_emitted!(Event::DecreaseToBeRedeemedTokens(id, 50));
@@ -381,7 +381,7 @@ fn decrease_tokens_succeeds() {
         assert_ok!(VaultRegistry::increase_to_be_redeemed_tokens(&id, 50));
         let res = VaultRegistry::decrease_tokens(&id, &user_id, 50);
         assert_ok!(res);
-        let vault = VaultRegistry::get_rich_vault_from_id(&id).unwrap();
+        let vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
         assert_eq!(vault.data.issued_tokens, 0);
         assert_eq!(vault.data.to_be_redeemed_tokens, 0);
         assert_emitted!(Event::DecreaseTokens(id, user_id, 50));
@@ -411,7 +411,7 @@ fn redeem_tokens_succeeds() {
         assert_ok!(VaultRegistry::increase_to_be_redeemed_tokens(&id, 50));
         let res = VaultRegistry::redeem_tokens(&id, 50);
         assert_ok!(res);
-        let vault = VaultRegistry::get_rich_vault_from_id(&id).unwrap();
+        let vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
         assert_eq!(vault.data.issued_tokens, 0);
         assert_eq!(vault.data.to_be_redeemed_tokens, 0);
         assert_emitted!(Event::RedeemTokens(id, 50));
@@ -446,7 +446,7 @@ fn redeem_tokens_premium_succeeds() {
         assert_ok!(VaultRegistry::increase_to_be_redeemed_tokens(&id, 50));
         let res = VaultRegistry::redeem_tokens_premium(&id, 50, 30, &user_id);
         assert_ok!(res);
-        let vault = VaultRegistry::get_rich_vault_from_id(&id).unwrap();
+        let vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
         assert_eq!(vault.data.issued_tokens, 0);
         assert_eq!(vault.data.to_be_redeemed_tokens, 0);
         assert_emitted!(Event::RedeemTokensPremium(id, 50, 30, user_id));
@@ -554,8 +554,8 @@ fn replace_tokens_liquidation_succeeds() {
 
         let res = VaultRegistry::replace_tokens(&old_id, &new_id, 50, 20);
         assert_ok!(res);
-        let old_vault = VaultRegistry::get_rich_vault_from_id(&old_id).unwrap();
-        let new_vault = VaultRegistry::get_rich_vault_from_id(&new_id).unwrap();
+        let old_vault = VaultRegistry::get_active_rich_vault_from_id(&old_id).unwrap();
+        let new_vault = VaultRegistry::get_active_rich_vault_from_id(&new_id).unwrap();
         assert_eq!(old_vault.data.issued_tokens, 0);
         assert_eq!(old_vault.data.to_be_redeemed_tokens, 0);
         assert_eq!(new_vault.data.issued_tokens, 50);

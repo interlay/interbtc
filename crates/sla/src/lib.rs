@@ -211,7 +211,7 @@ impl<T: Trait> Module<T> {
         let calculate_reward = |account_id: T::AccountId| {
             // each vault gets total_reward * (issued_amount / total_issued).
             let issued_amount =
-                ext::vault_registry::get_vault_from_id::<T>(&account_id)?.issued_tokens;
+                ext::vault_registry::get_active_vault_from_id::<T>(&account_id)?.issued_tokens;
             let issued_amount = Self::polkabtc_to_u128(issued_amount)?;
             let issued_reward_in_polka_btc = issued_amount
                 .checked_mul(total_reward_for_issued_in_polka_btc)

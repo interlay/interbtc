@@ -214,7 +214,7 @@ impl<T: Trait> Module<T> {
         ext::security::ensure_parachain_status_running::<T>()?;
 
         let height = <frame_system::Module<T>>::block_number();
-        let vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
+        let vault = ext::vault_registry::get_active_vault_from_id::<T>(&vault_id)?;
         // Check that the vault is currently not banned
         ext::vault_registry::ensure_not_banned::<T>(&vault_id, height)?;
 
@@ -341,7 +341,7 @@ impl<T: Trait> Module<T> {
         // if it was a vault that did the execution on behalf of someone else, reward it by
         // increasing its SLA score
         if &requester != &executor {
-            if let Ok(vault) = ext::vault_registry::get_vault_from_id::<T>(&executor) {
+            if let Ok(vault) = ext::vault_registry::get_active_vault_from_id::<T>(&executor) {
                 ext::sla::event_update_vault_sla::<T>(
                     vault.id,
                     ext::sla::VaultEvent::SubmittedIssueProof,

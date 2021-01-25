@@ -61,7 +61,7 @@ fn dummy_public_key() -> BtcPublicKey {
 #[test]
 fn test_request_redeem_fails_with_amount_exceeds_user_balance() {
     run_test(|| {
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
                 to_be_issued_tokens: 0,
@@ -135,7 +135,7 @@ fn test_request_redeem_fails_with_vault_not_found() {
 #[test]
 fn test_request_redeem_fails_with_vault_banned() {
     run_test(|| {
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
                 to_be_issued_tokens: 0,
@@ -159,7 +159,7 @@ fn test_request_redeem_fails_with_vault_banned() {
 #[test]
 fn test_request_redeem_fails_with_vault_liquidated() {
     run_test(|| {
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
                 to_be_issued_tokens: 0,
@@ -183,7 +183,7 @@ fn test_request_redeem_fails_with_vault_liquidated() {
 fn test_request_redeem_fails_with_amount_exceeds_vault_balance() {
     run_test(|| {
         ext::oracle::btc_to_dots::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
                 to_be_issued_tokens: 0,

@@ -28,13 +28,13 @@ pub(crate) mod vault_registry {
     use crate::PolkaBTC;
     use frame_support::dispatch::DispatchError;
 
-    pub fn get_vault_from_id<T: vault_registry::Trait>(
+    pub fn get_active_vault_from_id<T: vault_registry::Trait>(
         vault_id: &T::AccountId,
     ) -> Result<
         vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>>,
         DispatchError,
     > {
-        <vault_registry::Module<T>>::get_vault_from_id(vault_id)
+        <vault_registry::Module<T>>::get_active_vault_from_id(vault_id)
     }
 
     pub fn get_premium_redeem_threshold<T: vault_registry::Trait>(

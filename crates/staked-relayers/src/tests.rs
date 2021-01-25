@@ -774,7 +774,7 @@ fn test_report_vault_passes_with_vault_transaction() {
             126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8,
             50, 170,
         ]));
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(move |_| {
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(move |_| {
             MockResult::Return(Ok(init_zero_vault(vault.clone(), Some(btc_address))))
         });
         ext::btc_relay::verify_transaction_inclusion::<Test>
@@ -806,7 +806,7 @@ fn test_report_vault_fails_with_non_vault_transaction() {
             50, 170,
         ]));
 
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(move |_| {
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(move |_| {
             MockResult::Return(Ok(init_zero_vault(vault.clone(), Some(btc_address))))
         });
         ext::btc_relay::verify_transaction_inclusion::<Test>
@@ -839,7 +839,7 @@ fn test_report_vault_succeeds_with_segwit_transaction() {
             164, 180, 202, 72, 222, 11, 63, 255, 193, 84, 4, 161, 172, 220, 141, 186, 174, 34, 105,
             85,
         ]));
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(move |_| {
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(move |_| {
             MockResult::Return(Ok(init_zero_vault(vault.clone(), Some(btc_address))))
         });
         ext::btc_relay::verify_transaction_inclusion::<Test>
@@ -999,7 +999,7 @@ fn test_report_oracle_offline_succeeds() {
 fn test_is_valid_merge_transaction_fails() {
     run_test(|| {
         let vault = BOB;
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), None))));
 
         let address1 =
@@ -1034,7 +1034,7 @@ fn test_is_valid_merge_transaction_fails() {
 fn test_is_valid_merge_transaction_succeeds() {
     run_test(|| {
         let vault = BOB;
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), None))));
 
         let address =
@@ -1054,7 +1054,7 @@ fn test_is_valid_merge_transaction_succeeds() {
 fn test_is_valid_request_transaction_fails() {
     run_test(|| {
         let vault = BOB;
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), None))));
 
         let address1 =
@@ -1124,7 +1124,7 @@ fn test_is_transaction_invalid_fails_with_valid_merge_transaction() {
         let mut wallet = Wallet::new(dummy_public_key());
         wallet.add_btc_address(address);
 
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(move |_| {
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(move |_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
                 to_be_issued_tokens: 0,
@@ -1182,7 +1182,7 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
         let recipient_address =
             BtcAddress::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
 
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(move |_| {
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(move |_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
                 to_be_issued_tokens: 0,
@@ -1286,7 +1286,7 @@ fn test_is_transaction_invalid_succeeds() {
         let recipient_address =
             BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
 
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(BOB, Some(vault_address)))));
 
         let transaction = TransactionBuilder::new()
@@ -1345,7 +1345,7 @@ fn test_is_transaction_invalid_fails_with_valid_merge_testnet_transaction() {
         wallet.add_btc_address(vault_btc_address_1);
         wallet.add_btc_address(vault_btc_address_2);
 
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(move |_| {
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(move |_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
                 to_be_issued_tokens: 0,
@@ -1376,7 +1376,7 @@ fn test_is_transaction_invalid_succeeds_with_testnet_transaction() {
             &hex::decode("473ca3f4d726ce9c21af7cdc3fcc13264f681b04").unwrap(),
         ));
 
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(BOB, Some(btc_address)))));
 
         assert_ok!(Staking::is_transaction_invalid(&BOB, raw_tx));

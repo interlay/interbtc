@@ -235,7 +235,7 @@ impl<T: Trait> Module<T> {
             Error::<T>::AmountExceedsUserBalance
         );
 
-        let vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
+        let vault = ext::vault_registry::get_active_vault_from_id::<T>(&vault_id)?;
         let height = <frame_system::Module<T>>::block_number();
         ext::vault_registry::ensure_not_banned::<T>(&vault_id, height)?;
         ensure!(
