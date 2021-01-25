@@ -5,7 +5,7 @@ use jsonrpc_core::{Error as RpcError, ErrorCode, Result as JsonRpcResult};
 use jsonrpc_derive::rpc;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::{generic::BlockId, traits::Block as BlockT, DispatchError};
+use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::sync::Arc;
 
 pub use self::gen_client::Client as RefundClient;
@@ -24,7 +24,7 @@ pub trait RefundApi<BlockHash, AccountId, H256, RefundRequest> {
         &self,
         issue_id: H256,
         at: Option<BlockHash>,
-    ) -> JsonRpcResult<(H256, RefundRequest)>;
+    ) -> JsonRpcResult<Option<(H256, RefundRequest)>>;
     #[rpc(name = "refund_getVaultRefundRequests")]
     fn get_vault_refund_requests(
         &self,
@@ -61,28 +61,6 @@ impl From<Error> for i64 {
     }
 }
 
-fn handle_response<T, E: std::fmt::Debug>(
-    result: Result<Result<T, DispatchError>, E>,
-    msg: String,
-) -> JsonRpcResult<T> {
-    result.map_or_else(
-        |e| {
-            Err(RpcError {
-                code: ErrorCode::ServerError(Error::RuntimeError.into()),
-                message: msg.clone(),
-                data: Some(format!("{:?}", e).into()),
-            })
-        },
-        |result| {
-            result.map_err(|e| RpcError {
-                code: ErrorCode::ServerError(Error::RuntimeError.into()),
-                message: msg.clone(),
-                data: Some(format!("{:?}", e).into()),
-            })
-        },
-    )
-}
-
 impl<C, Block, AccountId, H256, RefundRequest>
     RefundApi<<Block as BlockT>::Hash, AccountId, H256, RefundRequest> for Refund<C, Block>
 where
@@ -113,14 +91,16 @@ where
         &self,
         issue_id: H256,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> JsonRpcResult<(H256, RefundRequest)> {
+    ) -> JsonRpcResult<Option<(H256, RefundRequest)>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
-        handle_response(
-            api.get_refund_requests_by_issue_id(&at, issue_id),
-            "Unable to fetch refund requests.".into(),
-        )
+        api.get_refund_requests_by_issue_id(&at, issue_id)
+            .map_err(|e| RpcError {
+                code: ErrorCode::ServerError(Error::RuntimeError.into()),
+                message: "Unable to fetch refund requests.".into(),
+                data: Some(format!("{:?}", e).into()),
+            })
     }
 
     fn get_vault_refund_requests(
