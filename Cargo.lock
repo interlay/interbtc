@@ -434,17 +434,16 @@ dependencies = [
 
 [[package]]
 name = "bitcoin"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "bitcoin_hashes",
  "frame-support",
  "hex",
  "impl-serde",
- "libsecp256k1",
  "mocktopus",
  "parity-scale-codec",
  "primitive-types",
- "rand 0.7.3",
+ "secp256k1",
  "serde",
  "sha2 0.8.2",
  "sp-core",
@@ -6233,6 +6232,23 @@ checksum = "e3042af939fca8c3453b7af0f1c66e533a15a86169e39de2657310ade8f98d3c"
 dependencies = [
  "ring",
  "untrusted",
+]
+
+[[package]]
+name = "secp256k1"
+version = "0.20.1"
+source = "git+https://github.com/gregdhill/rust-secp256k1?rev=c86808fac70a3adf7ce180ae62151cf841914893#c86808fac70a3adf7ce180ae62151cf841914893"
+dependencies = [
+ "rand 0.6.5",
+ "secp256k1-sys",
+]
+
+[[package]]
+name = "secp256k1-sys"
+version = "0.4.0"
+source = "git+https://github.com/gregdhill/rust-secp256k1?rev=c86808fac70a3adf7ce180ae62151cf841914893#c86808fac70a3adf7ce180ae62151cf841914893"
+dependencies = [
+ "cc",
 ]
 
 [[package]]

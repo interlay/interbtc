@@ -1,14 +1,16 @@
 use crate::types::*;
 use crate::Error;
 use crate::Script;
+use bitcoin_hashes::hash160::Hash as Hash160;
+use bitcoin_hashes::Hash;
 use codec::{Decode, Encode};
 use secp256k1::{
-    util::COMPRESSED_PUBLIC_KEY_SIZE, Error as Secp256k1Error, PublicKey as Secp256k1PublicKey,
-    SecretKey as Secp256k1SecretKey,
+    constants::PUBLIC_KEY_SIZE, ffi::types::AlignedType, Error as Secp256k1Error,
+    PublicKey as Secp256k1PublicKey, Secp256k1,
 };
 use sha2::{Digest, Sha256};
 use sp_core::H160;
-use sp_std::vec::Vec;
+use sp_std::vec;
 
 /// A Bitcoin address is a serialized identifier that represents the destination for a payment.
 /// Address prefixes are used to indicate the network as well as the format. Since the Parachain
@@ -104,22 +106,22 @@ impl Default for Address {
 
 /// Compressed ECDSA (secp256k1 curve) Public Key
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
-pub struct PublicKey(pub [u8; COMPRESSED_PUBLIC_KEY_SIZE]);
+pub struct PublicKey(pub [u8; PUBLIC_KEY_SIZE]);
 
 impl Default for PublicKey {
     fn default() -> Self {
-        Self([0; COMPRESSED_PUBLIC_KEY_SIZE])
+        Self([0; PUBLIC_KEY_SIZE])
     }
 }
 
-impl From<[u8; COMPRESSED_PUBLIC_KEY_SIZE]> for PublicKey {
-    fn from(bytes: [u8; COMPRESSED_PUBLIC_KEY_SIZE]) -> Self {
+impl From<[u8; PUBLIC_KEY_SIZE]> for PublicKey {
+    fn from(bytes: [u8; PUBLIC_KEY_SIZE]) -> Self {
         Self(bytes)
     }
 }
 
-impl Into<[u8; COMPRESSED_PUBLIC_KEY_SIZE]> for PublicKey {
-    fn into(self) -> [u8; COMPRESSED_PUBLIC_KEY_SIZE] {
+impl Into<[u8; PUBLIC_KEY_SIZE]> for PublicKey {
+    fn into(self) -> [u8; PUBLIC_KEY_SIZE] {
         self.0
     }
 }
@@ -130,7 +132,7 @@ impl serde::Serialize for PublicKey {
     where
         S: serde::Serializer,
     {
-        let mut slice = [0u8; 2 + 2 * COMPRESSED_PUBLIC_KEY_SIZE];
+        let mut slice = [0u8; 2 + 2 * PUBLIC_KEY_SIZE];
         impl_serde::serialize::serialize_raw(&mut slice, &self.0, serializer)
     }
 }
@@ -141,7 +143,7 @@ impl<'de> serde::Deserialize<'de> for PublicKey {
     where
         D: serde::Deserializer<'de>,
     {
-        let mut bytes = [0u8; COMPRESSED_PUBLIC_KEY_SIZE];
+        let mut bytes = [0u8; PUBLIC_KEY_SIZE];
         impl_serde::serialize::deserialize_check_len(
             deserializer,
             impl_serde::serialize::ExpectedLen::Exact(&mut bytes),
@@ -152,16 +154,26 @@ impl<'de> serde::Deserialize<'de> for PublicKey {
 
 /// To avoid the use of OP_RETURN during the issue process, we use an On-chain Key Derivation scheme (OKD) for
 /// Bitcoin’s ECDSA (secp256k1 curve). The vault-registry maintains a "master" public key for each registered
-/// Vault which can then be used to derive additional deposit addresses on-demand.
+/// Vault which can then be used to derive additional deposit addresses on-demand. Each new issue request triggers
+/// the computation of a deposit address. The scheme works as follows:
+///
+/// ### Preliminaries
+///
+/// A Vault has a private/public keypair `(v, V)`, where `V = v·G` and `G` is the base point of the secp256k1 curve.
+/// Upon registration, the Vault submits public key `V` to the BTC-Parachain storage.
+///
+/// ### OKD scheme
+///
+/// 1. Computes `c = H(V || id)`, where `id` is the unique issue identifier, generated on-chain by the BTC-Parachain
+///    using the user's AccountId and an internal auto-incrementing nonce as input.
+/// 2. Generates a new public key ("deposit public key") `D = V·c` and then the corresponding BTC RIPEMD-160 hash-based
+///    address `addr(D)` ('deposit' address) using `D` as input.
+/// 3. Stores `D` and `addr(D)` alongside the id of the issue request.
+/// 4. The vault knows that the private key of `D` is `c·v`, where `c = H(V || id)` is publicly known (so it can be
+///    computed by the vault off-chain, or stored on-chain for convenience). The vault can now import the private key
+//     `c·v` into its Bitcoin wallet to gain access to the deposited BTC (required for redeem).
 impl PublicKey {
-    /// Generates an ephemeral "deposit" public key which can be used in Issue
-    /// requests to ensure that payments are unique.
-    ///
-    /// # Arguments
-    ///
-    /// * `secure_id` - random nonce (as provided by the security module)
-    pub fn new_deposit_public_key(&self, secure_id: H256) -> Result<Self, Secp256k1Error> {
-        // c = H(V || id)
+    fn new_secret_key(&self, secure_id: H256) -> [u8; 32] {
         let mut hasher = Sha256::default();
         // input compressed public key
         hasher.input(&self.0);
@@ -169,69 +181,86 @@ impl PublicKey {
         hasher.input(secure_id.as_bytes());
         let mut bytes = [0; 32];
         bytes.copy_from_slice(&hasher.result()[..]);
+        bytes
+    }
 
-        let secret_key = Secp256k1SecretKey::parse(&bytes)?;
-        let mut public_key = Secp256k1PublicKey::parse_compressed(&self.0)?;
+    /// Generates an ephemeral "deposit" public key which can be used in Issue
+    /// requests to ensure that payments are unique.
+    ///
+    /// # Arguments
+    ///
+    /// * `secure_id` - random nonce (as provided by the security module)
+    pub fn new_deposit_public_key(&self, secure_id: H256) -> Result<Self, Secp256k1Error> {
+        let mut buf = vec![AlignedType::zeroed(); Secp256k1::preallocate_size()];
+        // instantiate Secp256k1 engine with prealloc buffer
+        let secp = Secp256k1::preallocated_new(&mut buf)?;
+
+        // c = H(V || id)
+        let secret_key = &self.new_secret_key(secure_id);
+
+        let mut public_key = Secp256k1PublicKey::from_slice(&self.0)?;
         // D = V * c
-        public_key.tweak_mul_assign(&secret_key)?;
-        Ok(Self(public_key.serialize_compressed()))
+        public_key.mul_assign(&secp, secret_key)?;
+        Ok(Self(public_key.serialize()))
     }
 
     /// Calculates the RIPEMD-160 hash of the compressed public key,
     /// which can be used to formulate an `Address`.
     pub fn to_hash(&self) -> H160 {
-        get_hash_from_compressed_public_key(self.0.to_vec())
+        H160::from(Hash160::hash(&self.0).into_inner())
     }
-}
-
-fn get_hash_from_compressed_public_key(data: Vec<u8>) -> H160 {
-    use bitcoin_hashes::hash160::Hash as Hash160;
-    use bitcoin_hashes::Hash;
-
-    H160::from(Hash160::hash(&data).into_inner())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand::thread_rng;
+    use secp256k1::rand::rngs::OsRng;
+    use secp256k1::SecretKey as Secp256k1SecretKey;
 
     #[test]
-    fn test_get_hash_from_compressed_public_key() {
+    fn test_public_key_to_hash() {
         // "04ff01b82f2f166c719937d5bd856bd919d9d6d495826cde3733cdb0d1084c8d12b311ced5cc235271c4a16a41fb943ab58e96ca6c4e2f85c6368999c8a3ec26b2"
         // "02ff01b82f2f166c719937d5bd856bd919d9d6d495826cde3733cdb0d1084c8d12"
 
-        let public_key =
-            hex::decode("02ff01b82f2f166c719937d5bd856bd919d9d6d495826cde3733cdb0d1084c8d12")
-                .unwrap();
+        let public_key = PublicKey([
+            2, 255, 1, 184, 47, 47, 22, 108, 113, 153, 55, 213, 189, 133, 107, 217, 25, 217, 214,
+            212, 149, 130, 108, 222, 55, 51, 205, 176, 209, 8, 76, 141, 18,
+        ]);
 
         assert_eq!(
-            get_hash_from_compressed_public_key(public_key),
+            public_key.to_hash(),
             H160::from_slice(&hex::decode("84b42bde9034a27ce718af4bfbfb3b2ab842175d").unwrap())
         );
     }
 
     #[test]
     fn test_public_key_derivation_scheme() {
+        let secp = Secp256k1::new();
+        let mut rng = OsRng::new().unwrap();
+
         // c
         let secure_id = H256::random();
-        let secret_key = Secp256k1SecretKey::parse_slice(secure_id.as_bytes()).unwrap();
 
         // v
-        let mut vault_secret_key = Secp256k1SecretKey::random(&mut thread_rng());
+        let mut vault_secret_key = Secp256k1SecretKey::new(&mut rng);
         // V
-        let vault_public_key = Secp256k1PublicKey::from_secret_key(&vault_secret_key);
+        let vault_public_key = Secp256k1PublicKey::from_secret_key(&secp, &vault_secret_key);
+
+        let vault_public_key = PublicKey(vault_public_key.serialize());
 
         // D = V * c
-        let mut deposit_public_key = vault_public_key.clone();
-        deposit_public_key.tweak_mul_assign(&secret_key).unwrap();
+        let deposit_public_key = vault_public_key
+            .new_deposit_public_key(secure_id.clone())
+            .unwrap();
 
         // d = v * c
-        vault_secret_key.tweak_mul_assign(&secret_key).unwrap();
+        vault_secret_key
+            .mul_assign(&vault_public_key.new_secret_key(secure_id))
+            .unwrap();
 
         assert_eq!(
             deposit_public_key,
-            Secp256k1PublicKey::from_secret_key(&vault_secret_key)
+            PublicKey(Secp256k1PublicKey::from_secret_key(&secp, &vault_secret_key).serialize())
         );
     }
 }
