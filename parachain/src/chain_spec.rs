@@ -4,6 +4,7 @@ use btc_parachain_runtime::{
     ReplaceConfig, Signature, SlaConfig, StakedRelayersConfig, SudoConfig, SystemConfig,
     VaultRegistryConfig, DAYS, MINUTES, WASM_BINARY,
 };
+use jsonrpc_core::serde_json::{self, json};
 use sc_service::ChainType;
 use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -88,7 +89,14 @@ pub fn development_config(inclusion_check: bool) -> Result<ChainSpec, String> {
         // Protocol ID
         None,
         // Properties
-        None,
+        Some(
+            serde_json::from_value(json!({
+                "ss58Format": 42,
+                "tokenDecimals": [10, 8],
+                "tokenSymbol": ["DOT", "PolkaBTC"]
+            }))
+            .unwrap(),
+        ),
         // Extensions
         None,
     ))
@@ -139,7 +147,14 @@ pub fn local_testnet_config(inclusion_check: bool) -> Result<ChainSpec, String> 
         // Protocol ID
         None,
         // Properties
-        None,
+        Some(
+            serde_json::from_value(json!({
+                "ss58Format": 42,
+                "tokenDecimals": [10, 8],
+                "tokenSymbol": ["DOT", "PolkaBTC"]
+            }))
+            .unwrap(),
+        ),
         // Extensions
         None,
     ))
