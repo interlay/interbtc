@@ -18,6 +18,8 @@ use sp_core::H256;
 use sp_transaction_pool::TransactionPool;
 use std::sync::Arc;
 
+pub use jsonrpc_core;
+
 /// Full client dependencies.
 pub struct FullDeps<C, P> {
     /// The client instance to use.

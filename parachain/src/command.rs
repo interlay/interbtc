@@ -48,15 +48,9 @@ fn load_spec(
     para_id: ParaId,
 ) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
     match id {
-        "rococo-staging" => Ok(Box::new(
-            polkadot_service::chain_spec::rococo_staging_testnet_config()?,
-        )),
-        "rococo-local" => Ok(Box::new(
-            polkadot_service::chain_spec::rococo_local_testnet_config()?,
-        )),
         "staging" => Ok(Box::new(chain_spec::staging_testnet_config(para_id))),
         "dev" => Ok(Box::new(chain_spec::development_config(para_id))),
-        "" => Ok(Box::new(chain_spec::get_chain_spec(para_id))),
+        "" => Ok(Box::new(chain_spec::local_config(para_id))),
         path => Ok(Box::new(chain_spec::ChainSpec::from_json_file(
             path.into(),
         )?)),

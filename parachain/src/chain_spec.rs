@@ -15,15 +15,15 @@ use {
 #[cfg(feature = "runtime-benchmarks")]
 use frame_benchmarking::account;
 
+use btc_parachain_rpc::jsonrpc_core::serde_json::{self, json};
 use cumulus_primitives::ParaId;
-use hex_literal::hex;
-use jsonrpc_core::serde_json::{self, json};
 use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
 use serde::{Deserialize, Serialize};
 use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
+use std::str::FromStr;
 
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -72,14 +72,17 @@ where
     AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
 }
 
-pub fn get_chain_spec(id: ParaId) -> ChainSpec {
+pub fn local_config(id: ParaId) -> ChainSpec {
     ChainSpec::from_genesis(
-        "PolkaBTC",
+        "PolkaBTC Local",
         "local_testnet",
         ChainType::Local,
         move || {
             testnet_genesis(
                 get_account_id_from_seed::<sr25519::Public>("Alice"),
+                get_account_id_from_seed::<sr25519::Public>("LiquidationVault"),
+                get_account_id_from_seed::<sr25519::Public>("FeePool"),
+                get_account_id_from_seed::<sr25519::Public>("Maintainer"),
                 #[cfg(feature = "standalone")]
                 vec![],
                 vec![
@@ -96,6 +99,10 @@ pub fn get_chain_spec(id: ParaId) -> ChainSpec {
                     get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
                     get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
                 ],
+                vec![(
+                    get_account_id_from_seed::<sr25519::Public>("Bob"),
+                    "Bob".as_bytes().to_vec(),
+                )],
                 id,
             )
         },
@@ -111,7 +118,7 @@ pub fn get_chain_spec(id: ParaId) -> ChainSpec {
             .unwrap(),
         ),
         Extensions {
-            relay_chain: "westend-dev".into(),
+            relay_chain: "local".into(),
             para_id: id.into(),
         },
     )
@@ -119,16 +126,32 @@ pub fn get_chain_spec(id: ParaId) -> ChainSpec {
 
 pub fn staging_testnet_config(id: ParaId) -> ChainSpec {
     ChainSpec::from_genesis(
-        "Staging Testnet",
+        "PolkaBTC Staging",
         "staging_testnet",
         ChainType::Live,
         move || {
             testnet_genesis(
-                hex!["9ed7705e3c7da027ba0583a22a3212042f7e715d3c168ba14f1424e2bc111d00"].into(),
+                AccountId::from_str("5HeVGqvfpabwFqzV1DhiQmjaLQiFcTSmq2sH6f7atsXkgvtt").unwrap(),
+                AccountId::from_str("5CcXK1yKz4o68AJT3yBWjJPPXKDFvEFAi1L1Gkisy7n6MbGC").unwrap(),
+                AccountId::from_str("5GqMEqFQMfr2FEUBQ8yzh7NTGZUQQigfVELHnXXsUFve7TMN").unwrap(),
+                AccountId::from_str("5FqYNDWeJ9bwa3NhEryxscBELAMj54yrKqGaYNR9CjLZFYLB").unwrap(),
                 #[cfg(feature = "standalone")]
                 vec![],
                 vec![
-                    hex!["9ed7705e3c7da027ba0583a22a3212042f7e715d3c168ba14f1424e2bc111d00"].into(),
+                    AccountId::from_str("5HeVGqvfpabwFqzV1DhiQmjaLQiFcTSmq2sH6f7atsXkgvtt")
+                        .unwrap(),
+                ],
+                vec![
+                    (
+                        AccountId::from_str("5H8zjSWfzMn86d1meeNrZJDj3QZSvRjKxpTfuVaZ46QJZ4qs")
+                            .unwrap(),
+                        "Interlay".as_bytes().to_vec(),
+                    ),
+                    (
+                        AccountId::from_str("5FPBT2BVVaLveuvznZ9A1TUtDcbxK5yvvGcMTJxgFmhcWGwj")
+                            .unwrap(),
+                        "Band".as_bytes().to_vec(),
+                    ),
                 ],
                 id,
             )
@@ -145,7 +168,7 @@ pub fn staging_testnet_config(id: ParaId) -> ChainSpec {
             .unwrap(),
         ),
         Extensions {
-            relay_chain: "westend-dev".into(),
+            relay_chain: "staging".into(),
             para_id: id.into(),
         },
     )
@@ -153,12 +176,15 @@ pub fn staging_testnet_config(id: ParaId) -> ChainSpec {
 
 pub fn development_config(id: ParaId) -> ChainSpec {
     ChainSpec::from_genesis(
-        "Dev",
-        "dev",
+        "PolkaBTC Dev",
+        "dev_testnet",
         ChainType::Development,
         move || {
             testnet_genesis(
                 get_account_id_from_seed::<sr25519::Public>("Alice"),
+                get_account_id_from_seed::<sr25519::Public>("LiquidationVault"),
+                get_account_id_from_seed::<sr25519::Public>("FeePool"),
+                get_account_id_from_seed::<sr25519::Public>("Maintainer"),
                 #[cfg(feature = "standalone")]
                 vec![authority_keys_from_seed("Alice")],
                 vec![
@@ -179,14 +205,24 @@ pub fn development_config(id: ParaId) -> ChainSpec {
                     #[cfg(feature = "runtime-benchmarks")]
                     account("Vault", 0, 0),
                 ],
+                vec![(
+                    get_account_id_from_seed::<sr25519::Public>("Bob"),
+                    "Bob".as_bytes().to_vec(),
+                )],
                 id,
             )
         },
         Vec::new(),
         None,
         None,
-        None,
-        // Extensions
+        Some(
+            serde_json::from_value(json!({
+                "ss58Format": 42,
+                "tokenDecimals": [10, 8],
+                "tokenSymbol": ["DOT", "PolkaBTC"]
+            }))
+            .unwrap(),
+        ),
         Extensions {
             relay_chain: "dev".into(),
             para_id: id.into(),
@@ -196,8 +232,12 @@ pub fn development_config(id: ParaId) -> ChainSpec {
 
 fn testnet_genesis(
     root_key: AccountId,
+    liquidation_vault: AccountId,
+    fee_pool: AccountId,
+    maintainer: AccountId,
     #[cfg(feature = "standalone")] initial_authorities: Vec<(AuraId, GrandpaId)>,
     endowed_accounts: Vec<AccountId>,
+    authorized_oracles: Vec<(AccountId, Vec<u8>)>,
     id: ParaId,
 ) -> GenesisConfig {
     GenesisConfig {
@@ -221,7 +261,7 @@ fn testnet_genesis(
         parachain_info: Some(ParachainInfoConfig { parachain_id: id }),
         pallet_sudo: Some(SudoConfig {
             // Assign network admin rights.
-            key: root_key,
+            key: root_key.clone(),
         }),
         pallet_balances_Instance1: Some(DOTConfig {
             balances: endowed_accounts
@@ -235,14 +275,11 @@ fn testnet_genesis(
             #[cfg(feature = "runtime-benchmarks")]
             gov_id: account("Origin", 0, 0),
             #[cfg(not(feature = "runtime-benchmarks"))]
-            gov_id: get_account_id_from_seed::<sr25519::Public>("Alice"),
+            gov_id: root_key,
             maturity_period: 10 * MINUTES,
         }),
         exchange_rate_oracle: Some(ExchangeRateOracleConfig {
-            authorized_oracles: vec![(
-                get_account_id_from_seed::<sr25519::Public>("Bob"),
-                "Bob".as_bytes().to_vec(),
-            )],
+            authorized_oracles,
             max_delay: 3600000, // one hour
         }),
         btc_relay: Some(BTCRelayConfig {
@@ -268,9 +305,7 @@ fn testnet_genesis(
             premium_redeem_threshold: FixedU128::checked_from_rational(135, 100).unwrap(), // 135%
             auction_collateral_threshold: FixedU128::checked_from_rational(120, 100).unwrap(), // 120%
             liquidation_collateral_threshold: FixedU128::checked_from_rational(110, 100).unwrap(), // 110%
-            liquidation_vault_account_id: get_account_id_from_seed::<sr25519::Public>(
-                "LiquidationVault",
-            ),
+            liquidation_vault_account_id: liquidation_vault,
         }),
         fee: Some(FeeConfig {
             issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
@@ -281,8 +316,8 @@ fn testnet_genesis(
             auction_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
             punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(),                // 10%
             replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(),   // 10%
-            fee_pool_account_id: get_account_id_from_seed::<sr25519::Public>("FeePool"),
-            maintainer_account_id: get_account_id_from_seed::<sr25519::Public>("Maintainer"),
+            fee_pool_account_id: fee_pool,
+            maintainer_account_id: maintainer,
             epoch_period: 5,
             vault_rewards: FixedU128::checked_from_rational(77, 100).unwrap(),
             vault_rewards_issued: FixedU128::checked_from_rational(90, 100).unwrap(),
