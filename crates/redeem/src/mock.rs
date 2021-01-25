@@ -105,6 +105,7 @@ impl pallet_balances::Trait for Test {
 impl vault_registry::Trait for Test {
     type Event = TestEvent;
     type RandomnessSource = pallet_randomness_collective_flip::Module<Test>;
+    type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
 }
 
@@ -131,7 +132,7 @@ parameter_types! {
     pub const MinimumPeriod: u64 = 5;
 }
 
-impl timestamp::Trait for Test {
+impl pallet_timestamp::Trait for Test {
     type Moment = u64;
     type OnTimestampSet = ();
     type MinimumPeriod = MinimumPeriod;
@@ -140,6 +141,7 @@ impl timestamp::Trait for Test {
 
 impl exchange_rate_oracle::Trait for Test {
     type Event = TestEvent;
+    type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
 }
 
@@ -160,7 +162,6 @@ impl Trait for Test {
 }
 
 pub type TestError = Error<Test>;
-pub type SecurityError = security::Error<Test>;
 pub type VaultRegistryError = vault_registry::Error<Test>;
 
 pub type System = frame_system::Module<Test>;
@@ -171,9 +172,9 @@ pub const ALICE: AccountId = 1;
 pub const BOB: AccountId = 2;
 pub const CAROL: AccountId = 3;
 
-pub const ALICE_BALANCE: u64 = 1_000_000;
-pub const BOB_BALANCE: u64 = 1_000_000;
-pub const CAROL_BALANCE: u64 = 1_000_000;
+pub const ALICE_BALANCE: u64 = 1_005_000;
+pub const BOB_BALANCE: u64 = 1_005_000;
+pub const CAROL_BALANCE: u64 = 1_005_000;
 
 pub struct ExtBuilder;
 
@@ -188,6 +189,7 @@ impl ExtBuilder {
         fee::GenesisConfig::<Test> {
             issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
             issue_griefing_collateral: FixedU128::checked_from_rational(5, 100000).unwrap(), // 0.005%
+            refund_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),                  // 0.5%
             redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),                  // 0.5%
             premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
             auction_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
@@ -206,11 +208,24 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage)
         .unwrap();
 
+        vault_registry::GenesisConfig::<Test> {
+            minimum_collateral_vault: 0,
+            punishment_delay: 8,
+            secure_collateral_threshold: FixedU128::checked_from_rational(200, 100).unwrap(),
+            auction_collateral_threshold: FixedU128::checked_from_rational(150, 100).unwrap(),
+            premium_redeem_threshold: FixedU128::checked_from_rational(120, 100).unwrap(),
+            liquidation_collateral_threshold: FixedU128::checked_from_rational(110, 100).unwrap(),
+            liquidation_vault_account_id: 0,
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
         sla::GenesisConfig::<Test> {
             vault_target_sla: FixedI128::from(100),
             vault_redeem_failure_sla_change: FixedI128::from(-10),
             vault_executed_issue_max_sla_change: FixedI128::from(4),
             vault_submitted_issue_proof: FixedI128::from(0),
+            vault_refunded: FixedI128::from(1),
             relayer_target_sla: FixedI128::from(100),
             relayer_block_submission: FixedI128::from(1),
             relayer_correct_no_data_vote_or_report: FixedI128::from(1),
@@ -252,7 +267,9 @@ where
 {
     clear_mocks();
     ExtBuilder::build().execute_with(|| {
-        assert_ok!(<exchange_rate_oracle::Module<Test>>::_set_exchange_rate(1));
+        assert_ok!(<exchange_rate_oracle::Module<Test>>::_set_exchange_rate(
+            FixedU128::one()
+        ));
         System::set_block_number(1);
         test();
     });

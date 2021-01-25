@@ -3,10 +3,13 @@ use crate::PolkaBTC;
 use crate::RawEvent;
 use crate::{ext, has_request_expired, Trait};
 use bitcoin::types::H256Le;
-use btc_relay::BtcAddress;
+use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
 use primitive_types::H256;
+use sp_arithmetic::FixedU128;
+use sp_core::H160;
+use sp_runtime::FixedPointNumber;
 use vault_registry::{Vault, VaultStatus, Wallet};
 
 fn request_issue(
@@ -21,7 +24,7 @@ fn request_issue(
     ext::security::get_secure_id::<Test>.mock_safe(|_| MockResult::Return(get_dummy_request_id()));
 
     ext::vault_registry::increase_to_be_issued_tokens::<Test>
-        .mock_safe(|_, _| MockResult::Return(Ok(BtcAddress::default())));
+        .mock_safe(|_, _, _| MockResult::Return(Ok(BtcAddress::default())));
 
     Issue::_request_issue(origin, amount, vault, collateral)
 }
@@ -40,7 +43,7 @@ fn request_issue_ok(
     ext::security::get_secure_id::<Test>.mock_safe(|_| MockResult::Return(get_dummy_request_id()));
 
     ext::vault_registry::increase_to_be_issued_tokens::<Test>
-        .mock_safe(|_, _| MockResult::Return(Ok(BtcAddress::default())));
+        .mock_safe(|_, _, _| MockResult::Return(Ok(BtcAddress::default())));
 
     match Issue::_request_issue(origin, amount, vault, collateral) {
         Ok(act) => act,
@@ -68,7 +71,8 @@ fn execute_issue_ok(origin: AccountId, issue_id: &H256) {
     ext::btc_relay::verify_transaction_inclusion::<Test>
         .mock_safe(|_, _| MockResult::Return(Ok(())));
 
-    ext::btc_relay::validate_transaction::<Test>.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
+    ext::btc_relay::validate_transaction::<Test>
+        .mock_safe(|_, _, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 0))));
 
     assert_ok!(execute_issue(origin, issue_id));
 }
@@ -90,7 +94,9 @@ fn get_dummy_request_id() -> H256 {
 #[test]
 fn test_request_issue_banned_fails() {
     run_test(|| {
-        assert_ok!(<exchange_rate_oracle::Module<Test>>::_set_exchange_rate(1));
+        assert_ok!(<exchange_rate_oracle::Module<Test>>::_set_exchange_rate(
+            FixedU128::one()
+        ));
         <frame_system::Module<Test>>::set_block_number(0);
         <vault_registry::Module<Test>>::insert_vault(
             &BOB,
@@ -99,7 +105,7 @@ fn test_request_issue_banned_fails() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
-                wallet: Wallet::new(BtcAddress::random()),
+                wallet: Wallet::new(BtcPublicKey::default()),
                 banned_until: Some(1),
                 status: VaultStatus::Active,
             },
@@ -114,7 +120,7 @@ fn test_request_issue_banned_fails() {
 #[test]
 fn test_request_issue_insufficient_collateral_fails() {
     run_test(|| {
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::oracle::btc_to_dots::<Test>.mock_safe(|_| MockResult::Return(Ok(10000000)));
@@ -132,7 +138,7 @@ fn test_request_issue_succeeds() {
         let origin = ALICE;
         let vault = BOB;
         let amount: Balance = 3;
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
 
         let issue_id = request_issue_ok(origin, amount, vault, 20);
@@ -143,6 +149,7 @@ fn test_request_issue_succeeds() {
             amount,
             vault,
             BtcAddress::default(),
+            BtcPublicKey::default(),
         ));
         assert!(System::events()
             .iter()
@@ -153,7 +160,7 @@ fn test_request_issue_succeeds() {
 #[test]
 fn test_execute_issue_not_found_fails() {
     run_test(|| {
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
         assert_noop!(
             execute_issue(ALICE, &H256([0; 32])),
@@ -165,7 +172,7 @@ fn test_execute_issue_not_found_fails() {
 #[test]
 fn test_execute_issue_commit_period_expired_fails() {
     run_test(|| {
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
 
         let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
@@ -180,7 +187,7 @@ fn test_execute_issue_commit_period_expired_fails() {
 #[test]
 fn test_execute_issue_succeeds() {
     run_test(|| {
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
         ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
@@ -199,6 +206,89 @@ fn test_execute_issue_succeeds() {
 }
 
 #[test]
+fn test_execute_issue_overpayment_succeeds() {
+    run_test(|| {
+        ext::vault_registry::get_active_vault_from_id::<Test>
+            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
+        ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+
+        let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
+        <frame_system::Module<Test>>::set_block_number(5);
+        ext::security::ensure_parachain_status_running::<Test>
+            .mock_safe(|| MockResult::Return(Ok(())));
+
+        ext::btc_relay::verify_transaction_inclusion::<Test>
+            .mock_safe(|_, _| MockResult::Return(Ok(())));
+
+        // pay 5 instead of the expected 3
+        ext::btc_relay::validate_transaction::<Test>
+            .mock_safe(|_, _, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 5))));
+
+        unsafe {
+            let mut increase_tokens_called = false;
+            let mut refund_called = false;
+
+            ext::vault_registry::force_increase_to_be_issued_tokens::<Test>.mock_raw(
+                |_, amount| {
+                    increase_tokens_called = true;
+                    assert_eq!(amount, 2);
+                    MockResult::Return(Ok(()))
+                },
+            );
+
+            // check that request_refund is not called..
+            ext::refund::request_refund::<Test>.mock_raw(|_, _, _, _, _| {
+                refund_called = true;
+                MockResult::Return(Ok(()))
+            });
+
+            assert_ok!(execute_issue(ALICE, &issue_id));
+            assert_eq!(increase_tokens_called, true);
+            assert_eq!(refund_called, false);
+        }
+    })
+}
+
+#[test]
+fn test_execute_issue_refund_succeeds() {
+    run_test(|| {
+        ext::vault_registry::get_active_vault_from_id::<Test>
+            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
+        ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+
+        let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
+        <frame_system::Module<Test>>::set_block_number(5);
+        ext::security::ensure_parachain_status_running::<Test>
+            .mock_safe(|| MockResult::Return(Ok(())));
+
+        ext::btc_relay::verify_transaction_inclusion::<Test>
+            .mock_safe(|_, _| MockResult::Return(Ok(())));
+
+        // pay 103 instead of the expected 3
+        ext::btc_relay::validate_transaction::<Test>
+            .mock_safe(|_, _, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 103))));
+
+        // return some arbitrary error
+        ext::vault_registry::increase_to_be_issued_tokens::<Test>.mock_safe(|_, _, amount| {
+            assert_eq!(amount, 100);
+            MockResult::Return(Err(TestError::IssueCompleted.into()))
+        });
+
+        unsafe {
+            let mut refund_called = false;
+
+            // check that a refund for amount=100 is requested
+            ext::refund::request_refund::<Test>.mock_raw(|amount, _, _, _, _| {
+                refund_called = true;
+                assert_eq!(amount, 100);
+                MockResult::Return(Ok(()))
+            });
+            assert_ok!(execute_issue(ALICE, &issue_id));
+            assert_eq!(refund_called, true);
+        }
+    })
+}
+#[test]
 fn test_cancel_issue_not_found_fails() {
     run_test(|| {
         assert_noop!(
@@ -213,7 +303,7 @@ fn test_cancel_issue_not_expired_fails() {
     run_test(|| {
         <frame_system::Module<Test>>::set_block_number(1);
 
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
 
         let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
@@ -228,7 +318,7 @@ fn test_cancel_issue_succeeds() {
     run_test(|| {
         <frame_system::Module<Test>>::set_block_number(1);
 
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
         ext::vault_registry::decrease_to_be_issued_tokens::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(())));

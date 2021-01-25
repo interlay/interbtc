@@ -2,301 +2,152 @@
 authors = ['Interlay Ltd']
 edition = '2018'
 name = 'btc-parachain-runtime'
-version = '0.3.2'
+version = '0.4.0'
 
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']
 
-[dependencies.hex-literal]
-optional = true
-version = '0.3.1'
+[dependencies]
+serde = { version = "1.0.101", optional = true, features = ["derive"] }
+codec = { package = "parity-scale-codec", version = "1.3.0", default-features = false, features = ["derive"] }
+hex-literal = { version = "0.3.1", optional = true }
 
-[dependencies.frame-benchmarking]
-version = "2.0.0"
-default-features = false
-optional = true
+# Substrate dependencies
+sp-std = { version = "2.0.0", default-features = false }
+sp-api = { version = "2.0.0", default-features = false }
+sp-io = { version = "2.0.0", default-features = false }
+sp-version = { version = "2.0.0", default-features = false }
+sp-runtime = { version = "2.0.0", default-features = false }
+sp-core = { version = "2.0.0", default-features = false }
+sp-session = { version = "2.0.0", default-features = false }
+sp-offchain = { version = "2.0.0", default-features = false }
+sp-block-builder = { version = "2.0.0", default-features = false }
+sp-transaction-pool = { version = "2.0.0", default-features = false }
+sp-inherents = { version = "2.0.0", default-features = false }
+sp-arithmetic = { version = "2.0.0", default-features = false }
 
-[dependencies.frame-system-benchmarking]
-default-features = false
-optional = true
-version = '2.0.0'
+frame-support = { version = "2.0.0", default-features = false }
+frame-executive = { version = "2.0.0", default-features = false }
+frame-system = { version = "2.0.0", default-features = false }
+frame-benchmarking = { version = "2.0.0", default-features = false, optional = true }
+frame-system-benchmarking = { version = "2.0.0", default-features = false, optional = true }
+pallet-balances = { version = "2.0.0", default-features = false }
+pallet-randomness-collective-flip = { version = "2.0.0", default-features = false }
+pallet-timestamp = { version = "2.0.0", default-features = false }
+pallet-sudo = { version = "2.0.0", default-features = false }
+pallet-transaction-payment = { version = "2.0.0", default-features = false }
 
-[dependencies.pallet-aura]
-default-features = false
-version = '2.0.0'
+frame-system-rpc-runtime-api = { version = "2.0.0", default-features = false }
+pallet-transaction-payment-rpc-runtime-api = { version = "2.0.0", default-features = false }
 
-[dependencies.pallet-balances]
-default-features = false
-version = '2.0.0'
+# Consensus dependencies
+pallet-aura = { version = "2.0.0", default-features = false }
+pallet-grandpa = { version = "2.0.0", default-features = false }
+sp-consensus-aura = { version = "0.8.0", default-features = false }
 
-[dependencies.codec]
-default-features = false
-features = ['derive']
-package = 'parity-scale-codec'
-version = '1.3.4'
+# Parachain dependencies
+btc-relay = { path = "../../crates/btc-relay", default-features = false }
+collateral = { path = "../../crates/collateral", default-features = false }
+treasury = { path = "../../crates/treasury", default-features = false }
+security = { path = "../../crates/security", default-features = false }
+staked-relayers = { path = "../../crates/staked-relayers", default-features = false }
+vault-registry = { path = "../../crates/vault-registry", default-features = false }
+exchange-rate-oracle = { path = "../../crates/exchange-rate-oracle", default-features = false }
+fee = { path = "../../crates/fee", default-features = false }
+sla = { path = "../../crates/sla", default-features = false }
+issue = { path = "../../crates/issue", default-features = false }
+redeem = { path = "../../crates/redeem", default-features = false }
+replace = { path = "../../crates/replace", default-features = false }
+refund = { path = "../../crates/refund", default-features = false }
 
-[dependencies.frame-executive]
-default-features = false
-version = '2.0.0'
-
-[dependencies.frame-support]
-default-features = false
-version = '2.0.0'
-
-[dependencies.pallet-grandpa]
-default-features = false
-version = '2.0.0'
-
-[dependencies.pallet-randomness-collective-flip]
-default-features = false
-version = '2.0.0'
-
-[dependencies.serde]
-features = ['derive']
-optional = true
-version = '1.0.101'
-
-[dependencies.sp-api]
-default-features = false
-version = '2.0.0'
-
-[dependencies.sp-block-builder]
-default-features = false
-version = '2.0.0'
-
-[dependencies.sp-consensus-aura]
-default-features = false
-version = '0.8.0'
-
-[dependencies.sp-arithmetic]
-default-features = false
-version = '2.0.0'
-
-[dependencies.sp-core]
-default-features = false
-version = '2.0.0'
-
-[dependencies.sp-inherents]
-default-features = false
-version = '2.0.0'
-
-[dependencies.sp-io]
-default-features = false
-version = '2.0.0'
-
-[dependencies.sp-offchain]
-default-features = false
-version = '2.0.0'
-
-[dependencies.sp-runtime]
-default-features = false
-version = '2.0.0'
-
-[dependencies.sp-session]
-default-features = false
-version = '2.0.0'
-
-[dependencies.sp-std]
-default-features = false
-version = '2.0.0'
-
-[dependencies.sp-transaction-pool]
-default-features = false
-version = '2.0.0'
-
-[dependencies.sp-version]
-default-features = false
-version = '2.0.0'
-
-[dependencies.pallet-sudo]
-default-features = false
-version = '2.0.0'
-
-[dependencies.frame-system]
-default-features = false
-version = '2.0.0'
-
-[dependencies.frame-system-rpc-runtime-api]
-default-features = false
-version = '2.0.0'
-
-[dependencies.pallet-timestamp]
-default-features = false
-version = '2.0.0'
-
-[dependencies.pallet-transaction-payment]
-default-features = false
-version = '2.0.0'
-
-[dependencies.pallet-transaction-payment-rpc-runtime-api]
-default-features = false
-version = '2.0.0'
-
-[build-dependencies.wasm-builder-runner]
-package = 'substrate-wasm-builder-runner'
-version = '1.0.5'
-
-[dependencies.btc-relay]
-default-features = false
-package = 'btc-relay'
-path = '../../crates/btc-relay'
-
-[dependencies.collateral]
-default-features = false
-package = 'collateral'
-path = '../../crates/collateral'
-
-[dependencies.treasury]
-default-features = false
-package = 'treasury'
-path = '../../crates/treasury'
-
-[dependencies.security]
-default-features = false
-package = 'security'
-path = '../../crates/security'
-
-[dependencies.staked-relayers]
-default-features = false
-package = 'staked-relayers'
-path = '../../crates/staked-relayers'
-
-[dependencies.vault-registry]
-default-features = false
-package = 'vault-registry'
-path = '../../crates/vault-registry'
-
-[dependencies.exchange-rate-oracle]
-default-features = false
-package = 'exchange-rate-oracle'
-path = '../../crates/exchange-rate-oracle'
-
-[dependencies.fee]
-default-features = false
-package = 'fee'
-path = '../../crates/fee'
-
-[dependencies.sla]
-default-features = false
-package = 'sla'
-path = '../../crates/sla'
-
-[dependencies.issue]
-default-features = false
-package = 'issue'
-path = '../../crates/issue'
-
-[dependencies.redeem]
-default-features = false
-package = 'redeem'
-path = '../../crates/redeem'
-
-[dependencies.replace]
-default-features = false
-package = 'replace'
-path = '../../crates/replace'
-
-[dependencies.module-exchange-rate-oracle-rpc-runtime-api]
-default-features = false
-path = '../../crates/exchange-rate-oracle/rpc/runtime-api'
-
-[dependencies.module-staked-relayers-rpc-runtime-api]
-default-features = false
-path = '../../crates/staked-relayers/rpc/runtime-api'
-
-[dependencies.module-vault-registry-rpc-runtime-api]
-default-features = false
-path = '../../crates/vault-registry/rpc/runtime-api'
-
-[dependencies.module-issue-rpc-runtime-api]
-default-features = false
-path = '../../crates/issue/rpc/runtime-api'
-
-[dependencies.module-redeem-rpc-runtime-api]
-default-features = false
-path = '../../crates/redeem/rpc/runtime-api'
-
-[dependencies.module-replace-rpc-runtime-api]
-default-features = false
-path = '../../crates/replace/rpc/runtime-api'
-
-[dependencies.module-sla-rpc-runtime-api]
-default-features = false
-path = '../../crates/sla/rpc/runtime-api'
-
-[dev-dependencies.bitcoin]
-default-features = false
-package = 'bitcoin'
-path = '../../crates/bitcoin'
-
-[dev-dependencies.primitive-types]
-default-features = false
-features = ['codec']
-version = '0.7.2'
+module-exchange-rate-oracle-rpc-runtime-api = { path = "../../crates/exchange-rate-oracle/rpc/runtime-api", default-features = false }
+module-staked-relayers-rpc-runtime-api = { path = "../../crates/staked-relayers/rpc/runtime-api", default-features = false }
+module-vault-registry-rpc-runtime-api = { path = "../../crates/vault-registry/rpc/runtime-api", default-features = false }
+module-issue-rpc-runtime-api = { path = "../../crates/issue/rpc/runtime-api", default-features = false }
+module-redeem-rpc-runtime-api = { path = "../../crates/redeem/rpc/runtime-api", default-features = false }
+module-replace-rpc-runtime-api = { path = "../../crates/replace/rpc/runtime-api", default-features = false }
+module-sla-rpc-runtime-api = { path = "../../crates/sla/rpc/runtime-api", default-features = false }
+module-refund-rpc-runtime-api = { path = "../../crates/refund/rpc/runtime-api", default-features = false }
 
 [dev-dependencies]
 hex = '0.4.2'
 mocktopus = '0.7.0'
 serde_json = "1.0"
 
-[features]
-default = ['std']
-std = [
-  'pallet-aura/std',
-  'pallet-balances/std',
-  'codec/std',
-  'frame-executive/std',
-  'frame-support/std',
-  'pallet-grandpa/std',
-  'pallet-randomness-collective-flip/std',
-  'serde',
-  'sp-api/std',
-  'sp-block-builder/std',
-  'sp-consensus-aura/std',
-  'sp-arithmetic/std',
-  'sp-core/std',
-  'sp-inherents/std',
-  'sp-io/std',
-  'sp-offchain/std',
-  'sp-runtime/std',
-  'sp-session/std',
-  'sp-std/std',
-  'sp-transaction-pool/std',
-  'sp-version/std',
-  'pallet-sudo/std',
-  'frame-system/std',
-  'frame-system-rpc-runtime-api/std',
-  'pallet-timestamp/std',
-  'pallet-transaction-payment/std',
-  'pallet-transaction-payment-rpc-runtime-api/std',
-  'module-exchange-rate-oracle-rpc-runtime-api/std',
-  'module-staked-relayers-rpc-runtime-api/std',
-  'module-vault-registry-rpc-runtime-api/std',
-  'module-issue-rpc-runtime-api/std',
-  'module-redeem-rpc-runtime-api/std',
-  'module-replace-rpc-runtime-api/std',
-  'module-sla-rpc-runtime-api/std',
-  'btc-relay/std',
-  'collateral/std',
-  'treasury/std',
-  'security/std',
-  'staked-relayers/std',
-  'vault-registry/std',
-  'exchange-rate-oracle/std',
-  'fee/std',
-  'sla/std',
-  'issue/std',
-  'redeem/std',
-  'replace/std',
-  'frame-benchmarking/std',
-]
-runtime-benchmarks = [
-  'hex-literal',
+bitcoin = { path = "../../crates/bitcoin", default-features = false }
+primitive-types = { version = "0.7.2", default-features = false, features = ["codec"] }
 
-	"frame-benchmarking",
-  'frame-system-benchmarking',
+[build-dependencies.wasm-builder-runner]
+package = 'substrate-wasm-builder-runner'
+version = '1.0.5'
+
+[features]
+default = ["std"]
+std = [
+  "codec/std",
+  "serde",
+  "sp-api/std",
+  "sp-std/std",
+  "sp-io/std",
+  "sp-core/std",
+  "sp-runtime/std",
+  "sp-version/std",
+  "sp-offchain/std",
+  "sp-session/std",
+  "sp-block-builder/std",
+  "sp-transaction-pool/std",
+  "sp-inherents/std",
+  "sp-arithmetic/std",
+
+  "frame-support/std",
+  "frame-executive/std",
+  "frame-system/std",
+  "frame-benchmarking/std",
+  "frame-system-benchmarking/std",
+  "pallet-balances/std",
+  "pallet-randomness-collective-flip/std",
+  "pallet-timestamp/std",
+  "pallet-sudo/std",
+  "pallet-transaction-payment/std",
+
+  "frame-system-rpc-runtime-api/std",
+  "pallet-transaction-payment-rpc-runtime-api/std",
+
+  "pallet-aura/std",
+  "pallet-grandpa/std",
+  "sp-consensus-aura/std",
+
+  "btc-relay/std",
+  "collateral/std",
+  "treasury/std",
+  "security/std",
+  "staked-relayers/std",
+  "vault-registry/std",
+  "exchange-rate-oracle/std",
+  "fee/std",
+  "sla/std",
+  "refund/std",
+  "issue/std",
+  "redeem/std",
+  "replace/std",
+  "refund/std",
+
+  "module-exchange-rate-oracle-rpc-runtime-api/std",
+  "module-staked-relayers-rpc-runtime-api/std",
+  "module-vault-registry-rpc-runtime-api/std",
+  "module-issue-rpc-runtime-api/std",
+  "module-redeem-rpc-runtime-api/std",
+  "module-replace-rpc-runtime-api/std",
+  "module-sla-rpc-runtime-api/std",
+  "module-refund-rpc-runtime-api/std",
+  ]
+  runtime-benchmarks = [
+  "hex-literal",
+
+  "frame-benchmarking",
+  "frame-system-benchmarking",
   "frame-support/runtime-benchmarks",
-	"frame-system/runtime-benchmarks",
+  "frame-system/runtime-benchmarks",
 
   "btc-relay/runtime-benchmarks",
   "exchange-rate-oracle/runtime-benchmarks",

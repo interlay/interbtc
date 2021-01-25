@@ -5,29 +5,30 @@ use mocktopus::macros::mockable;
 pub(crate) mod btc_relay {
     use bitcoin::types::H256Le;
     use btc_relay::BtcAddress;
-    use frame_support::dispatch::DispatchResult;
+    use frame_support::dispatch::{DispatchError, DispatchResult};
     use sp_std::vec::Vec;
 
     pub fn verify_transaction_inclusion<T: btc_relay::Trait>(
         tx_id: H256Le,
         merkle_proof: Vec<u8>,
     ) -> DispatchResult {
-        <btc_relay::Module<T>>::_verify_transaction_inclusion(tx_id, merkle_proof, 0, false)
+        <btc_relay::Module<T>>::_verify_transaction_inclusion(tx_id, merkle_proof, None)
     }
 
     pub fn validate_transaction<T: btc_relay::Trait>(
         raw_tx: Vec<u8>,
         amount: i64,
         btc_address: BtcAddress,
-        issue_id: Vec<u8>,
-    ) -> DispatchResult {
-        <btc_relay::Module<T>>::_validate_transaction(raw_tx, amount, btc_address, issue_id)
+        replace_id: Option<Vec<u8>>,
+    ) -> Result<(BtcAddress, i64), DispatchError> {
+        <btc_relay::Module<T>>::_validate_transaction(raw_tx, amount, btc_address, replace_id)
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
     use crate::{PolkaBTC, DOT};
+    use btc_relay::BtcAddress;
     use frame_support::dispatch::{DispatchError, DispatchResult};
 
     pub fn replace_tokens<T: vault_registry::Trait>(
@@ -51,13 +52,13 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::decrease_to_be_redeemed_tokens(&vault_id, tokens)
     }
 
-    pub fn get_vault_from_id<T: vault_registry::Trait>(
+    pub fn get_active_vault_from_id<T: vault_registry::Trait>(
         vault_id: &T::AccountId,
     ) -> Result<
         vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>>,
         DispatchError,
     > {
-        <vault_registry::Module<T>>::get_vault_from_id(vault_id)
+        <vault_registry::Module<T>>::get_active_vault_from_id(vault_id)
     }
 
     pub fn increase_to_be_redeemed_tokens<T: vault_registry::Trait>(
@@ -89,6 +90,13 @@ pub(crate) mod vault_registry {
         height: T::BlockNumber,
     ) -> DispatchResult {
         <vault_registry::Module<T>>::_ensure_not_banned(vault, height)
+    }
+
+    pub fn insert_vault_deposit_address<T: vault_registry::Trait>(
+        vault_id: &T::AccountId,
+        btc_address: BtcAddress,
+    ) -> DispatchResult {
+        <vault_registry::Module<T>>::insert_vault_deposit_address(vault_id, btc_address)
     }
 }
 

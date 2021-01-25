@@ -37,6 +37,7 @@ use sp_arithmetic::FixedPointNumber;
 use sp_std::convert::TryInto;
 use sp_std::vec::*;
 use types::{Inner, PolkaBTC, UnsignedFixedPoint, DOT};
+use util::transactional;
 
 pub trait WeightInfo {
     fn withdraw_polka_btc() -> Weight;
@@ -70,6 +71,11 @@ decl_storage! {
 
         /// Fee share that users need to pay to redeem PolkaBTC.
         RedeemFee get(fn redeem_fee) config(): UnsignedFixedPoint<T>;
+
+        /// # Refund
+
+        /// Fee share that users need to pay to refund overpaid PolkaBTC.
+        RefundFee get(fn refund_fee) config(): UnsignedFixedPoint<T>;
 
         /// # Vault Registry
 
@@ -193,6 +199,7 @@ decl_module! {
         /// * `origin` - signing account
         /// * `amount` - amount of PolkaBTC
         #[weight = <T as Trait>::WeightInfo::withdraw_polka_btc()]
+        #[transactional]
         fn withdraw_polka_btc(origin, amount: PolkaBTC<T>) -> DispatchResult
         {
             let signer = ensure_signed(origin)?;
@@ -212,6 +219,7 @@ decl_module! {
         /// * `origin` - signing account
         /// * `amount` - amount of DOT
         #[weight = <T as Trait>::WeightInfo::withdraw_dot()]
+        #[transactional]
         fn withdraw_dot(origin, amount: DOT<T>) -> DispatchResult
         {
             let signer = ensure_signed(origin)?;
@@ -356,6 +364,24 @@ impl<T: Trait> Module<T> {
         Self::btc_for(amount, <IssueFee<T>>::get())
     }
 
+    /// Calculate the fee portion of a total amount. For `amount = fee + issued_polkabtc`, this
+    /// function returns `fee`.
+    ///
+    /// # Arguments
+    ///
+    /// * `amount` - total amount in PolkaBTC
+    pub fn get_issue_fee_from_total(amount: PolkaBTC<T>) -> Result<PolkaBTC<T>, DispatchError> {
+        // calculate 'percentage' = x / (1+x)
+        let percentage = <IssueFee<T>>::get()
+            .checked_div(
+                &<IssueFee<T>>::get()
+                    .checked_add(&UnsignedFixedPoint::<T>::one())
+                    .ok_or(Error::<T>::ArithmeticOverflow)?,
+            )
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+        Self::btc_for(amount, percentage)
+    }
+
     /// Calculate the required issue griefing collateral in DOT.
     ///
     /// # Arguments
@@ -414,6 +440,24 @@ impl<T: Trait> Module<T> {
         Self::dot_for(amount, <ReplaceGriefingCollateral<T>>::get())
     }
 
+    /// Calculate the fee portion of a total amount. For `amount = fee + refund_polkabtc`, this
+    /// function returns `fee`.
+    ///
+    /// # Arguments
+    ///
+    /// * `amount` - total amount in PolkaBTC
+    pub fn get_refund_fee_from_total(amount: PolkaBTC<T>) -> Result<PolkaBTC<T>, DispatchError> {
+        // calculate 'percentage' = x / (1+x)
+        let percentage = <RefundFee<T>>::get()
+            .checked_div(
+                &<RefundFee<T>>::get()
+                    .checked_add(&UnsignedFixedPoint::<T>::one())
+                    .ok_or(Error::<T>::ArithmeticOverflow)?,
+            )
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+        Self::btc_for(amount, percentage)
+    }
+
     // Private functions internal to this pallet
 
     fn btc_to_inner(x: PolkaBTC<T>) -> Result<Inner<T>, DispatchError> {
@@ -445,9 +489,15 @@ impl<T: Trait> Module<T> {
         amount: Inner<T>,
         percentage: UnsignedFixedPoint<T>,
     ) -> Result<Inner<T>, DispatchError> {
+        // we add 0.5 before we do the final integer division to round the result we return.
+        // note that unwrapping is safe because we use a constant
+        let rounding_addition = UnsignedFixedPoint::<T>::checked_from_rational(1, 2).unwrap();
+
         UnsignedFixedPoint::<T>::checked_from_integer(amount)
             .ok_or(Error::<T>::ArithmeticOverflow)?
             .checked_mul(&percentage)
+            .ok_or(Error::<T>::ArithmeticOverflow)?
+            .checked_add(&rounding_addition)
             .ok_or(Error::<T>::ArithmeticOverflow)?
             .into_inner()
             .checked_div(&UnsignedFixedPoint::<T>::accuracy())

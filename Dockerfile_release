@@ -1,4 +1,4 @@
-FROM bitnami/minideb:buster
+FROM ubuntu:20.10
 
 ARG PROFILE=release
 

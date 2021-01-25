@@ -12,15 +12,15 @@ pub(crate) mod btc_relay {
         tx_id: H256Le,
         merkle_proof: Vec<u8>,
     ) -> Result<(), DispatchError> {
-        <btc_relay::Module<T>>::_verify_transaction_inclusion(tx_id, merkle_proof, 0, false)
+        <btc_relay::Module<T>>::_verify_transaction_inclusion(tx_id, merkle_proof, None)
     }
 
     pub fn validate_transaction<T: btc_relay::Trait>(
         raw_tx: Vec<u8>,
         amount: i64,
         btc_address: BtcAddress,
-        issue_id: Vec<u8>,
-    ) -> Result<(), DispatchError> {
+        issue_id: Option<Vec<u8>>,
+    ) -> Result<(BtcAddress, i64), DispatchError> {
         <btc_relay::Module<T>>::_validate_transaction(raw_tx, amount, btc_address, issue_id)
     }
 }
@@ -30,21 +30,30 @@ pub(crate) mod vault_registry {
     use crate::types::PolkaBTC;
     use btc_relay::BtcAddress;
     use frame_support::dispatch::{DispatchError, DispatchResult};
+    use sp_core::H256;
 
-    pub fn get_vault_from_id<T: vault_registry::Trait>(
+    pub fn get_active_vault_from_id<T: vault_registry::Trait>(
         vault_id: &T::AccountId,
     ) -> Result<
         vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>>,
         DispatchError,
     > {
-        <vault_registry::Module<T>>::get_vault_from_id(vault_id)
+        <vault_registry::Module<T>>::get_active_vault_from_id(vault_id)
     }
 
     pub fn increase_to_be_issued_tokens<T: vault_registry::Trait>(
         vault_id: &T::AccountId,
+        secure_id: H256,
         amount: PolkaBTC<T>,
     ) -> Result<BtcAddress, DispatchError> {
-        <vault_registry::Module<T>>::increase_to_be_issued_tokens(vault_id, amount)
+        <vault_registry::Module<T>>::increase_to_be_issued_tokens(vault_id, secure_id, amount)
+    }
+
+    pub fn force_increase_to_be_issued_tokens<T: vault_registry::Trait>(
+        vault_id: &T::AccountId,
+        amount: PolkaBTC<T>,
+    ) -> Result<(), DispatchError> {
+        <vault_registry::Module<T>>::force_increase_to_be_issued_tokens(vault_id, amount)
     }
 
     pub fn issue_tokens<T: vault_registry::Trait>(
@@ -159,6 +168,12 @@ pub(crate) mod fee {
         <fee::Module<T>>::get_issue_fee(amount)
     }
 
+    pub fn get_issue_fee_from_total<T: fee::Trait>(
+        amount: PolkaBTC<T>,
+    ) -> Result<PolkaBTC<T>, DispatchError> {
+        <fee::Module<T>>::get_issue_fee_from_total(amount)
+    }
+
     pub fn get_issue_griefing_collateral<T: fee::Trait>(
         amount: DOT<T>,
     ) -> Result<DOT<T>, DispatchError> {
@@ -167,5 +182,29 @@ pub(crate) mod fee {
 
     pub fn increase_polka_btc_rewards_for_epoch<T: fee::Trait>(amount: PolkaBTC<T>) {
         <fee::Module<T>>::increase_polka_btc_rewards_for_epoch(amount)
+    }
+}
+
+#[cfg_attr(test, mockable)]
+pub(crate) mod refund {
+    use crate::types::PolkaBTC;
+    use btc_relay::BtcAddress;
+    use frame_support::dispatch::DispatchError;
+    use primitive_types::H256;
+
+    pub fn request_refund<T: refund::Trait>(
+        total_amount_btc: PolkaBTC<T>,
+        vault_id: T::AccountId,
+        issuer: T::AccountId,
+        btc_address: BtcAddress,
+        issue_id: H256,
+    ) -> Result<(), DispatchError> {
+        <refund::Module<T>>::request_refund(
+            total_amount_btc,
+            vault_id,
+            issuer,
+            btc_address,
+            issue_id,
+        )
     }
 }

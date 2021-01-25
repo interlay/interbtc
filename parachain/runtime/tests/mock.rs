@@ -3,11 +3,11 @@ extern crate hex;
 pub use bitcoin::formatter::Formattable;
 pub use bitcoin::types::*;
 pub use btc_parachain_runtime::{AccountId, Call, Event, Runtime};
-pub use btc_relay::BtcAddress;
-pub use frame_support::{assert_err, assert_ok};
+pub use btc_relay::{BtcAddress, BtcPublicKey};
+pub use frame_support::{assert_noop, assert_ok};
 pub use mocktopus::mocking::*;
 use primitive_types::{H256, U256};
-pub use security::StatusCode;
+pub use security::{ErrorCode, StatusCode};
 pub use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 pub use sp_core::H160;
 pub use sp_runtime::traits::Dispatchable;
@@ -15,7 +15,7 @@ pub use sp_std::convert::TryInto;
 
 pub const ALICE: [u8; 32] = [0u8; 32];
 pub const BOB: [u8; 32] = [1u8; 32];
-pub const CLAIRE: [u8; 32] = [2u8; 32];
+pub const CAROL: [u8; 32] = [2u8; 32];
 
 pub const LIQUIDATION_VAULT: [u8; 32] = [3u8; 32];
 pub const FEE_POOL: [u8; 32] = [4u8; 32];
@@ -24,6 +24,8 @@ pub const MAINTAINER: [u8; 32] = [5u8; 32];
 pub const CONFIRMATIONS: u32 = 6;
 
 pub type BTCRelayCall = btc_relay::Call<Runtime>;
+pub type BTCRelayModule = btc_relay::Module<Runtime>;
+pub type BTCRelayError = btc_relay::Error<Runtime>;
 pub type BTCRelayEvent = btc_relay::Event;
 
 pub fn origin_of(account_id: AccountId) -> <Runtime as frame_system::Trait>::Origin {
@@ -36,10 +38,10 @@ pub fn account_of(address: [u8; 32]) -> AccountId {
 
 #[allow(dead_code)]
 pub fn set_default_thresholds() {
-    let secure = 200_000; // 200%
-    let auction = 150_000; // 150%
-    let premium = 120_000; // 120%
-    let liquidation = 110_000; // 110%
+    let secure = FixedU128::checked_from_rational(200, 100).unwrap(); // 200%
+    let auction = FixedU128::checked_from_rational(150, 100).unwrap(); // 150%
+    let premium = FixedU128::checked_from_rational(120, 100).unwrap(); // 120%
+    let liquidation = FixedU128::checked_from_rational(110, 100).unwrap(); // 110%
 
     VaultRegistryModule::set_secure_collateral_threshold(secure);
     VaultRegistryModule::set_auction_collateral_threshold(auction);
@@ -47,22 +49,28 @@ pub fn set_default_thresholds() {
     VaultRegistryModule::set_liquidation_collateral_threshold(liquidation);
 }
 
+pub fn dummy_public_key() -> BtcPublicKey {
+    BtcPublicKey([
+        2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55,
+        18, 45, 222, 180, 119, 54, 243, 97, 173, 150, 161, 169, 230,
+    ])
+}
+
 #[allow(dead_code)]
-pub fn force_issue_tokens(
-    user: [u8; 32],
-    vault: [u8; 32],
-    collateral: u128,
-    tokens: u128,
-    btc_address: BtcAddress,
-) {
+pub fn force_issue_tokens(user: [u8; 32], vault: [u8; 32], collateral: u128, tokens: u128) {
     // register the vault
-    assert_ok!(
-        Call::VaultRegistry(VaultRegistryCall::register_vault(collateral, btc_address))
-            .dispatch(origin_of(account_of(vault)))
-    );
+    assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
+        collateral,
+        dummy_public_key()
+    ))
+    .dispatch(origin_of(account_of(vault))));
 
     // increase to be issued tokens
-    VaultRegistryModule::increase_to_be_issued_tokens(&account_of(vault), tokens).unwrap();
+    assert_ok!(VaultRegistryModule::increase_to_be_issued_tokens(
+        &account_of(vault),
+        H256::random(),
+        tokens
+    ));
 
     // issue tokens
     assert_ok!(VaultRegistryModule::issue_tokens(
@@ -86,16 +94,30 @@ pub fn assert_store_main_chain_header_event(height: u32, hash: H256Le) {
 pub fn generate_transaction_and_mine(
     address: BtcAddress,
     amount: u128,
-    return_data: H256,
+    return_data: Option<H256>,
 ) -> (H256Le, u32, Vec<u8>, Vec<u8>) {
-    generate_transaction_and_mine_with_script_sig(address, amount, return_data, &vec![])
+    generate_transaction_and_mine_with_script_sig(
+        address,
+        amount,
+        return_data,
+        &[
+            0, 71, 48, 68, 2, 32, 91, 128, 41, 150, 96, 53, 187, 63, 230, 129, 53, 234, 210, 186,
+            21, 187, 98, 38, 255, 112, 30, 27, 228, 29, 132, 140, 155, 62, 123, 216, 232, 168, 2,
+            32, 72, 126, 179, 207, 142, 8, 99, 8, 32, 78, 244, 166, 106, 160, 207, 227, 61, 210,
+            172, 234, 234, 93, 59, 159, 79, 12, 194, 240, 212, 3, 120, 50, 1, 71, 81, 33, 3, 113,
+            209, 131, 177, 9, 29, 242, 229, 15, 217, 247, 165, 78, 111, 80, 79, 50, 200, 117, 80,
+            30, 233, 210, 167, 133, 175, 62, 253, 134, 127, 212, 51, 33, 2, 128, 200, 184, 235,
+            148, 25, 43, 34, 28, 173, 55, 54, 189, 164, 187, 243, 243, 152, 7, 84, 210, 85, 156,
+            238, 77, 97, 188, 240, 162, 197, 105, 62, 82, 174,
+        ],
+    )
 }
 
 #[allow(dead_code)]
 pub fn generate_transaction_and_mine_with_script_sig(
     address: BtcAddress,
     amount: u128,
-    return_data: H256,
+    return_data: Option<H256>,
     script: &[u8],
 ) -> (H256Le, u32, Vec<u8>, Vec<u8>) {
     let mut height = 1;
@@ -108,34 +130,43 @@ pub fn generate_transaction_and_mine_with_script_sig(
         .with_timestamp(1588813835)
         .mine(U256::from(2).pow(254.into()));
 
-    let init_block_hash = init_block.header.hash();
     let raw_init_block_header = RawBlockHeader::from_bytes(&init_block.header.format())
         .expect("could not serialize block header");
 
-    assert_ok!(Call::BTCRelay(BTCRelayCall::initialize(
+    match Call::BTCRelay(BTCRelayCall::initialize(
         raw_init_block_header.try_into().expect("bad block header"),
         height,
     ))
-    .dispatch(origin_of(account_of(ALICE))));
+    .dispatch(origin_of(account_of(ALICE)))
+    {
+        Ok(_) => {}
+        Err(e) if e == BTCRelayError::AlreadyInitialized.into() => {}
+        _ => panic!("Failed to initialize btc relay"),
+    }
 
-    height += 1;
+    height = BTCRelayModule::get_best_block_height() + 1;
 
     let value = amount as i64;
-    let transaction = TransactionBuilder::new()
-        .with_version(2)
-        .add_input(
-            TransactionInputBuilder::new()
-                .with_coinbase(false)
-                .with_script(script)
-                .with_previous_hash(init_block.transactions[0].hash())
-                .build(),
-        )
-        .add_output(TransactionOutput::payment(value.into(), &address))
-        .add_output(TransactionOutput::op_return(0, return_data.as_bytes()))
-        .build();
+    let mut transaction_builder = TransactionBuilder::new();
+    transaction_builder.with_version(2);
+    transaction_builder.add_input(
+        TransactionInputBuilder::new()
+            .with_coinbase(false)
+            .with_script(script)
+            .with_previous_hash(init_block.transactions[0].hash())
+            .build(),
+    );
 
+    transaction_builder.add_output(TransactionOutput::payment(value.into(), &address));
+    if let Some(op_return_data) = return_data {
+        transaction_builder.add_output(TransactionOutput::op_return(0, op_return_data.as_bytes()));
+    }
+
+    let transaction = transaction_builder.build();
+
+    let prev_hash = BTCRelayModule::get_best_block();
     let block = BlockBuilder::new()
-        .with_previous_hash(init_block_hash)
+        .with_previous_hash(prev_hash)
         .with_version(2)
         .with_coinbase(&address, 50, 3)
         .with_timestamp(1588814835)
@@ -186,9 +217,10 @@ pub fn generate_transaction_and_mine_with_script_sig(
 }
 
 #[allow(dead_code)]
-pub type SecurityModule = security::Module<Runtime>;
-#[allow(dead_code)]
 pub type SystemModule = frame_system::Module<Runtime>;
+
+#[allow(dead_code)]
+pub type SecurityModule = security::Module<Runtime>;
 #[allow(dead_code)]
 pub type SecurityError = security::Error<Runtime>;
 
@@ -226,9 +258,13 @@ impl ExtBuilder {
 
         pallet_balances::GenesisConfig::<Runtime, pallet_balances::Instance1> {
             balances: vec![
-                (account_of(ALICE), 1_000_000),
-                (account_of(BOB), 1_000_000),
-                (account_of(CLAIRE), 1_000_000),
+                (account_of(ALICE), 1 << 60),
+                (account_of(BOB), 1 << 60),
+                (account_of(CAROL), 1 << 60),
+                // create accounts for vault & fee pool; this needs a minimum amount because
+                // the parachain refuses to create accounts with a balance below `ExistentialDeposit`
+                (account_of(LIQUIDATION_VAULT), 1000),
+                (account_of(FEE_POOL), 1000),
             ],
         }
         .assimilate_storage(&mut storage)
@@ -258,10 +294,10 @@ impl ExtBuilder {
         vault_registry::GenesisConfig::<Runtime> {
             minimum_collateral_vault: 0,
             punishment_delay: 8,
-            secure_collateral_threshold: 100_000,
-            auction_collateral_threshold: 150_000,
-            premium_redeem_threshold: 120_000,
-            liquidation_collateral_threshold: 110_000,
+            secure_collateral_threshold: FixedU128::checked_from_rational(100, 100).unwrap(),
+            auction_collateral_threshold: FixedU128::checked_from_rational(150, 100).unwrap(),
+            premium_redeem_threshold: FixedU128::checked_from_rational(120, 100).unwrap(),
+            liquidation_collateral_threshold: FixedU128::checked_from_rational(110, 100).unwrap(),
             liquidation_vault_account_id: account_of(LIQUIDATION_VAULT),
         }
         .assimilate_storage(&mut storage)
@@ -288,6 +324,7 @@ impl ExtBuilder {
         fee::GenesisConfig::<Runtime> {
             issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
             issue_griefing_collateral: FixedU128::checked_from_rational(5, 100000).unwrap(), // 0.005%
+            refund_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),                  // 0.5%
             redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),                  // 0.5%
             premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
             auction_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
@@ -313,6 +350,7 @@ impl ExtBuilder {
             vault_redeem_failure_sla_change: FixedI128::from(-10),
             vault_executed_issue_max_sla_change: FixedI128::from(4),
             vault_submitted_issue_proof: FixedI128::from(0),
+            vault_refunded: FixedI128::from(1),
             relayer_target_sla: FixedI128::from(100),
             relayer_block_submission: FixedI128::from(1),
             relayer_correct_no_data_vote_or_report: FixedI128::from(1),

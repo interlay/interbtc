@@ -140,12 +140,14 @@ impl treasury::Trait for Test {
 
 impl exchange_rate_oracle::Trait for Test {
     type Event = TestEvent;
+    type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
 }
 
 impl vault_registry::Trait for Test {
     type Event = TestEvent;
     type RandomnessSource = pallet_randomness_collective_flip::Module<Test>;
+    type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
 }
 
@@ -153,7 +155,7 @@ parameter_types! {
     pub const MinimumPeriod: u64 = 5;
 }
 
-impl timestamp::Trait for Test {
+impl pallet_timestamp::Trait for Test {
     type Moment = u64;
     type OnTimestampSet = ();
     type MinimumPeriod = MinimumPeriod;

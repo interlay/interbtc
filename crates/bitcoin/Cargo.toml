@@ -1,61 +1,40 @@
 [package]
 name = 'bitcoin'
-version = '0.3.1'
-authors = ['Interlay Ltd <dominik@interlay.io>']
+version = '0.4.1'
+authors = ['Interlay Ltd']
 edition = '2018'
 
-[dependencies.serde]
-features = ['derive']
-optional = true
-version = '1.0.101'
+[dependencies]
+codec = { package = "parity-scale-codec", version = "1.3.4", default-features = false, features = ['derive'] }
+serde = { version = "1.0.101", default-features = false, features = ['derive'], optional = true }
+impl-serde = { version = "0.3.1", default-features = false, optional = true }
+primitive-types = { version = "0.7.2", default-features = false, features = ["codec"] }
+sha2 = { version = "0.8.2", default-features = false }
+hex = { version = "0.4.2", default-features = false }
+bitcoin_hashes = { version = "0.7.3", default-features = false }
+# TODO: update once no_std fix is merged upstream > https://github.com/rust-bitcoin/rust-secp256k1/pull/275
+secp256k1 = { git = "https://github.com/gregdhill/rust-secp256k1", rev = "c86808fac70a3adf7ce180ae62151cf841914893", default-features = false }
 
-[dependencies.codec]
-default-features = false
-features = ['derive']
-package = 'parity-scale-codec'
-version = '1.3.4'
-
-[dependencies.primitive-types]
-default-features = false
-version = '0.7.2'
-features= ['codec']
-
-[dependencies.frame-support]
-default-features = false
-version = '2.0.0'
-
-[dependencies.sp-std]
-default-features = false
-version = '2.0.0'
-
-[dependencies.sp-core]
-default-features = false
-version = '2.0.0'
-
-[dependencies.sha2]
-default-features = false
-version = "0.8.2"
-
-[dependencies.hex]
-default-features = false
-version = '0.4.2'
-
-[dependencies.bitcoin_hashes]
-default-features = false
-version = "0.7.3"
+# Substrate dependencies
+sp-core = { version = "2.0.0", default-features = false }
+sp-std = { version = "2.0.0", default-features = false }
+frame-support = { version = "2.0.0", default-features = false }
 
 [dev-dependencies]
 mocktopus = '0.7.0'
+secp256k1 = { git = "https://github.com/gregdhill/rust-secp256k1", rev = "c86808fac70a3adf7ce180ae62151cf841914893", default-features = false, features = ["rand-std"] }
 
 [features]
-default = ['std']
+default = ["std"]
 std = [
-	'serde',
-	'codec/std',
-	'primitive-types/std',
-	'frame-support/std',
-	'sp-std/std',
-	'sp-core/std',
-	'sha2/std',
-	'hex/std',
+	"serde",
+	"impl-serde",
+	"codec/std",
+	"primitive-types/std",
+	"sha2/std",
+	"hex/std",
+	"secp256k1/std",
+	"sp-core/std",
+	"sp-std/std",
+	"frame-support/std",
 ]

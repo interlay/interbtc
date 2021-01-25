@@ -5,17 +5,26 @@ use bitcoin::types::{
     BlockBuilder, H256Le, RawBlockHeader, TransactionBuilder, TransactionInputBuilder,
     TransactionOutput,
 };
-use btc_relay::BtcAddress;
 use btc_relay::Module as BtcRelay;
+use btc_relay::{BtcAddress, BtcPublicKey};
 use collateral::Module as Collateral;
 use exchange_rate_oracle::Module as ExchangeRateOracle;
 use frame_benchmarking::{account, benchmarks};
+use frame_system::Module as System;
 use frame_system::RawOrigin;
 // use pallet_timestamp::Now;
 use sp_core::{H160, U256};
+use sp_runtime::FixedPointNumber;
 use sp_std::prelude::*;
 use vault_registry::types::{Vault, Wallet};
 use vault_registry::Module as VaultRegistry;
+
+fn dummy_public_key() -> BtcPublicKey {
+    BtcPublicKey([
+        2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55,
+        18, 45, 222, 180, 119, 54, 243, 97, 173, 150, 161, 169, 230,
+    ])
+}
 
 benchmarks! {
     _ {}
@@ -31,22 +40,8 @@ benchmarks! {
     deregister_staked_relayer {
         let origin: T::AccountId = account("Origin", 0, 0);
         let stake = 100;
-        <ActiveStakedRelayers<T>>::insert(&origin, ActiveStakedRelayer{stake: stake.into()});
-        <ActiveStakedRelayersCount>::set(1);
+        <ActiveStakedRelayers<T>>::insert(&origin, StakedRelayer { stake: stake.into(), height: System::<T>::block_number() });
         Collateral::<T>::lock_collateral(&origin, stake.into()).unwrap();
-    }: _(RawOrigin::Signed(origin))
-
-    activate_staked_relayer {
-        let origin: T::AccountId = account("Origin", 0, 0);
-        let stake = 100;
-        let height = 0;
-        StakedRelayers::<T>::add_inactive_staked_relayer(&origin, stake.into(), StakedRelayerStatus::Bonding(height.into()));
-    }: _(RawOrigin::Signed(origin))
-
-    deactivate_staked_relayer {
-        let origin: T::AccountId = account("Origin", 0, 0);
-        let stake = 100;
-        StakedRelayers::<T>::add_active_staked_relayer(&origin, stake.into());
     }: _(RawOrigin::Signed(origin))
 
     suggest_status_update {
@@ -54,13 +49,13 @@ benchmarks! {
         let stake = 100;
         let deposit = 1000;
         let status_code = StatusCode::Error;
-        StakedRelayers::<T>::add_active_staked_relayer(&origin, stake.into());
+        StakedRelayers::<T>::insert_active_staked_relayer(&origin, stake.into(), System::<T>::block_number());
     }: _(RawOrigin::Signed(origin), deposit.into(), status_code, None, None, None, vec![])
 
     vote_on_status_update {
         let origin: T::AccountId = account("Origin", 0, 0);
         let stake = 100;
-        StakedRelayers::<T>::add_active_staked_relayer(&origin, stake.into());
+        StakedRelayers::<T>::insert_active_staked_relayer(&origin, stake.into(), System::<T>::block_number());
         let status_update = StatusUpdate::default();
         let status_update_id = StakedRelayers::<T>::insert_active_status_update(status_update);
     }: _(RawOrigin::Signed(origin), status_update_id, true)
@@ -74,7 +69,7 @@ benchmarks! {
         let origin: T::AccountId = account("Origin", 0, 0);
         let staked_relayer: T::AccountId = account("Vault", 0, 0);
         let stake = 100;
-        StakedRelayers::<T>::add_active_staked_relayer(&staked_relayer, stake.into());
+        StakedRelayers::<T>::insert_active_staked_relayer(&staked_relayer, stake.into(), System::<T>::block_number());
         Collateral::<T>::lock_collateral(&staked_relayer, stake.into()).unwrap();
 
     }: _(RawOrigin::Signed(origin), staked_relayer)
@@ -83,7 +78,7 @@ benchmarks! {
         let origin: T::AccountId = account("Origin", 0, 0);
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
         let stake = 100;
-        StakedRelayers::<T>::add_active_staked_relayer(&origin, stake.into());
+        StakedRelayers::<T>::insert_active_staked_relayer(&origin, stake.into(), System::<T>::block_number());
 
         let vault_address = BtcAddress::P2PKH(H160::from_slice(&[
             126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8,
@@ -95,7 +90,8 @@ benchmarks! {
         let vault_id: T::AccountId = account("Vault", 0, 0);
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
-        vault.wallet = Wallet::new(vault_address);
+        vault.wallet = Wallet::new(dummy_public_key());
+        vault.wallet.add_btc_address(vault_address);
         VaultRegistry::<T>::insert_vault(
             &vault_id,
             vault
@@ -158,22 +154,22 @@ benchmarks! {
     report_vault_under_liquidation_threshold {
         let origin: T::AccountId = account("Origin", 0, 0);
         let stake = 100;
-        StakedRelayers::<T>::add_active_staked_relayer(&origin, stake.into());
+        StakedRelayers::<T>::insert_active_staked_relayer(&origin, stake.into(), System::<T>::block_number());
 
         let vault_id: T::AccountId = account("Vault", 0, 0);
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
         vault.issued_tokens = 100_000.into();
-        vault.wallet = Wallet::new(BtcAddress::P2SH(H160::zero()));
+        vault.wallet = Wallet::new(dummy_public_key());
         VaultRegistry::<T>::insert_vault(
             &vault_id,
             vault
         );
 
-        ExchangeRateOracle::<T>::_set_exchange_rate(1).unwrap();
+        ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Trait>::UnsignedFixedPoint::one()).unwrap();
 
-        let threshold: u128 = 200_000;
-        VaultRegistry::<T>::set_liquidation_collateral_threshold(threshold.into());
+        let threshold = <T as vault_registry::Trait>::UnsignedFixedPoint::checked_from_rational(200, 100).unwrap(); // 200%
+        VaultRegistry::<T>::set_liquidation_collateral_threshold(threshold);
 
     }: _(RawOrigin::Signed(origin), vault_id)
 
@@ -181,7 +177,7 @@ benchmarks! {
     // report_oracle_offline {
     //     let origin: T::AccountId = account("Origin", 0, 0);
     //     let stake = 100;
-    //     StakedRelayers::<T>::add_active_staked_relayer(&origin, stake.into());
+    //     StakedRelayers::<T>::insert_active_staked_relayer(&origin, stake.into(), System::<T>::block_number());
     //     <Now<T>>::set(<Now<T>>::get() + 10000.into());
     // }: _(RawOrigin::Signed(origin))
 
@@ -222,6 +218,7 @@ mod tests {
                 vault_redeem_failure_sla_change: FixedI128::from(0),
                 vault_executed_issue_max_sla_change: FixedI128::from(0),
                 vault_submitted_issue_proof: FixedI128::from(0),
+                vault_refunded: FixedI128::from(1),
                 relayer_target_sla: FixedI128::from(100),
                 relayer_block_submission: FixedI128::from(1),
                 relayer_correct_no_data_vote_or_report: FixedI128::from(1),
@@ -238,6 +235,7 @@ mod tests {
 
             GenesisConfig::<Test> {
                 gov_id: account("Origin", 0, 0),
+                maturity_period: 10,
             }
             .assimilate_storage(storage)
             .unwrap();
@@ -245,8 +243,6 @@ mod tests {
         .execute_with(|| {
             assert_ok!(test_benchmark_register_staked_relayer::<Test>());
             assert_ok!(test_benchmark_deregister_staked_relayer::<Test>());
-            assert_ok!(test_benchmark_activate_staked_relayer::<Test>());
-            assert_ok!(test_benchmark_deactivate_staked_relayer::<Test>());
             assert_ok!(test_benchmark_suggest_status_update::<Test>());
             assert_ok!(test_benchmark_vote_on_status_update::<Test>());
             assert_ok!(test_benchmark_force_status_update::<Test>());

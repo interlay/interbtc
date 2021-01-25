@@ -1,9 +1,10 @@
 use btc_parachain_runtime::{
     AccountId, AuraConfig, BTCRelayConfig, DOTConfig, ExchangeRateOracleConfig, FeeConfig,
-    GenesisConfig, GrandpaConfig, IssueConfig, PolkaBTCConfig, RedeemConfig, ReplaceConfig,
-    Signature, SlaConfig, StakedRelayersConfig, SudoConfig, SystemConfig, VaultRegistryConfig,
-    DAYS, WASM_BINARY,
+    GenesisConfig, GrandpaConfig, IssueConfig, PolkaBTCConfig, RedeemConfig, RefundConfig,
+    ReplaceConfig, Signature, SlaConfig, StakedRelayersConfig, SudoConfig, SystemConfig,
+    VaultRegistryConfig, DAYS, MINUTES, WASM_BINARY,
 };
+use jsonrpc_core::serde_json::{self, json};
 use sc_service::ChainType;
 use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -88,7 +89,14 @@ pub fn development_config(inclusion_check: bool) -> Result<ChainSpec, String> {
         // Protocol ID
         None,
         // Properties
-        None,
+        Some(
+            serde_json::from_value(json!({
+                "ss58Format": 42,
+                "tokenDecimals": [10, 8],
+                "tokenSymbol": ["DOT", "PolkaBTC"]
+            }))
+            .unwrap(),
+        ),
         // Extensions
         None,
     ))
@@ -139,7 +147,14 @@ pub fn local_testnet_config(inclusion_check: bool) -> Result<ChainSpec, String> 
         // Protocol ID
         None,
         // Properties
-        None,
+        Some(
+            serde_json::from_value(json!({
+                "ss58Format": 42,
+                "tokenDecimals": [10, 8],
+                "tokenSymbol": ["DOT", "PolkaBTC"]
+            }))
+            .unwrap(),
+        ),
         // Extensions
         None,
     ))
@@ -187,6 +202,7 @@ fn testnet_genesis(
             gov_id: account("Origin", 0, 0),
             #[cfg(not(feature = "runtime-benchmarks"))]
             gov_id: get_account_id_from_seed::<sr25519::Public>("Alice"),
+            maturity_period: 10 * MINUTES,
         }),
         exchange_rate_oracle: Some(ExchangeRateOracleConfig {
             authorized_oracles: vec![(bob_account_id.clone(), "Bob".as_bytes().to_vec())],
@@ -211,10 +227,10 @@ fn testnet_genesis(
         vault_registry: Some(VaultRegistryConfig {
             minimum_collateral_vault: 0,
             punishment_delay: DAYS,
-            secure_collateral_threshold: 150_000,
-            premium_redeem_threshold: 135_000,
-            auction_collateral_threshold: 120_000,
-            liquidation_collateral_threshold: 110_000,
+            secure_collateral_threshold: FixedU128::checked_from_rational(150, 100).unwrap(), // 150%
+            premium_redeem_threshold: FixedU128::checked_from_rational(135, 100).unwrap(), // 135%
+            auction_collateral_threshold: FixedU128::checked_from_rational(120, 100).unwrap(), // 120%
+            liquidation_collateral_threshold: FixedU128::checked_from_rational(110, 100).unwrap(), // 110%
             liquidation_vault_account_id: get_account_id_from_seed::<sr25519::Public>(
                 "LiquidationVault",
             ),
@@ -222,6 +238,7 @@ fn testnet_genesis(
         fee: Some(FeeConfig {
             issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
             issue_griefing_collateral: FixedU128::checked_from_rational(5, 100000).unwrap(), // 0.005%
+            refund_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),                  // 0.5%
             redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),                  // 0.5%
             premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
             auction_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
@@ -242,6 +259,7 @@ fn testnet_genesis(
             vault_redeem_failure_sla_change: FixedI128::from(0),
             vault_executed_issue_max_sla_change: FixedI128::from(0),
             vault_submitted_issue_proof: FixedI128::from(0),
+            vault_refunded: FixedI128::from(1),
             relayer_target_sla: FixedI128::from(100),
             relayer_block_submission: FixedI128::from(1),
             relayer_correct_no_data_vote_or_report: FixedI128::from(1),
@@ -252,6 +270,9 @@ fn testnet_genesis(
             relayer_false_no_data_vote_or_report: FixedI128::from(-10),
             relayer_false_invalid_vote_or_report: FixedI128::from(-100),
             relayer_ignored_vote: FixedI128::from(-10),
+        }),
+        refund: Some(RefundConfig {
+            refund_btc_dust_value: 1000,
         }),
     }
 }

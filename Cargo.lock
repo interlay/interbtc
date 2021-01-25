@@ -434,14 +434,16 @@ dependencies = [
 
 [[package]]
 name = "bitcoin"
-version = "0.3.1"
+version = "0.4.1"
 dependencies = [
  "bitcoin_hashes",
  "frame-support",
  "hex",
+ "impl-serde",
  "mocktopus",
  "parity-scale-codec",
  "primitive-types",
+ "secp256k1",
  "serde",
  "sha2 0.8.2",
  "sp-core",
@@ -598,21 +600,26 @@ dependencies = [
 
 [[package]]
 name = "btc-parachain"
-version = "0.3.2"
+version = "0.4.1"
 dependencies = [
  "btc-parachain-runtime",
  "frame-benchmarking",
  "frame-benchmarking-cli",
+ "hex-literal 0.2.1",
  "jsonrpc-core",
+ "log",
  "module-exchange-rate-oracle-rpc",
  "module-issue-rpc",
  "module-redeem-rpc",
+ "module-refund-rpc",
  "module-replace-rpc",
  "module-sla-rpc",
  "module-staked-relayers-rpc",
  "module-vault-registry-rpc",
  "pallet-transaction-payment-rpc",
+ "parity-scale-codec",
  "sc-basic-authorship",
+ "sc-chain-spec",
  "sc-cli",
  "sc-client-api",
  "sc-consensus",
@@ -622,7 +629,9 @@ dependencies = [
  "sc-rpc",
  "sc-rpc-api",
  "sc-service",
+ "sc-tracing",
  "sc-transaction-pool",
+ "serde",
  "sp-api",
  "sp-arithmetic",
  "sp-block-builder",
@@ -632,8 +641,13 @@ dependencies = [
  "sp-core",
  "sp-finality-grandpa",
  "sp-inherents",
+ "sp-io",
+ "sp-offchain",
  "sp-runtime",
+ "sp-session",
+ "sp-timestamp",
  "sp-transaction-pool",
+ "sp-trie",
  "structopt",
  "substrate-build-script-utils",
  "substrate-frame-rpc-system",
@@ -641,7 +655,7 @@ dependencies = [
 
 [[package]]
 name = "btc-parachain-runtime"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "bitcoin",
  "btc-relay",
@@ -655,12 +669,13 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "hex",
- "hex-literal",
+ "hex-literal 0.3.1",
  "issue",
  "mocktopus",
  "module-exchange-rate-oracle-rpc-runtime-api",
  "module-issue-rpc-runtime-api",
  "module-redeem-rpc-runtime-api",
+ "module-refund-rpc-runtime-api",
  "module-replace-rpc-runtime-api",
  "module-sla-rpc-runtime-api",
  "module-staked-relayers-rpc-runtime-api",
@@ -676,6 +691,7 @@ dependencies = [
  "parity-scale-codec",
  "primitive-types",
  "redeem",
+ "refund",
  "replace",
  "security",
  "serde",
@@ -702,7 +718,7 @@ dependencies = [
 
 [[package]]
 name = "btc-relay"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "bitcoin",
  "collateral",
@@ -726,6 +742,7 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "treasury",
+ "util",
  "vault-registry",
 ]
 
@@ -1384,11 +1401,13 @@ dependencies = [
  "parity-scale-codec",
  "security",
  "serde",
+ "sp-arithmetic",
  "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std",
  "treasury",
+ "util",
 ]
 
 [[package]]
@@ -1475,6 +1494,7 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "treasury",
+ "util",
  "vault-registry",
 ]
 
@@ -1722,9 +1742,9 @@ dependencies = [
 
 [[package]]
 name = "fs-swap"
-version = "0.2.4"
+version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "921d332c89b3b61a826de38c61ee5b6e02c56806cade1b0e5d81bd71f57a71bb"
+checksum = "5839fda247e24ca4919c87c71dd5ca658f1f39e4f06829f80e3f15c3bafcfc2c"
 dependencies = [
  "lazy_static",
  "libc",
@@ -2179,9 +2199,28 @@ checksum = "644f9158b2f133fd50f5fb3242878846d9eb792e445c893805ff0e3824006e35"
 
 [[package]]
 name = "hex-literal"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "961de220ec9a91af2e1e5bd80d02109155695e516771762381ef8581317066e0"
+dependencies = [
+ "hex-literal-impl",
+ "proc-macro-hack",
+]
+
+[[package]]
+name = "hex-literal"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5af1f635ef1bc545d78392b136bfe1c9809e029023c84a3638a864a10b8819c8"
+
+[[package]]
+name = "hex-literal-impl"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "853f769599eb31de176303197b7ba4973299c38c7a7604a6bc88c3eef05b9b46"
+dependencies = [
+ "proc-macro-hack",
+]
 
 [[package]]
 name = "hex_fmt"
@@ -2460,7 +2499,7 @@ checksum = "47be2f14c678be2fdcab04ab1171db51b2762ce6f0a8ee87c8dd4a04ed216135"
 
 [[package]]
 name = "issue"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "bitcoin",
  "btc-relay",
@@ -2476,6 +2515,7 @@ dependencies = [
  "pallet-timestamp",
  "parity-scale-codec",
  "primitive-types",
+ "refund",
  "security",
  "serde",
  "sha2 0.8.2",
@@ -2486,6 +2526,7 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "treasury",
+ "util",
  "vault-registry",
 ]
 
@@ -3578,6 +3619,31 @@ dependencies = [
 
 [[package]]
 name = "module-redeem-rpc-runtime-api"
+version = "0.3.0"
+dependencies = [
+ "frame-support",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-std",
+]
+
+[[package]]
+name = "module-refund-rpc"
+version = "0.3.0"
+dependencies = [
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "module-refund-rpc-runtime-api",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime",
+]
+
+[[package]]
+name = "module-refund-rpc-runtime-api"
 version = "0.3.0"
 dependencies = [
  "frame-support",
@@ -4946,7 +5012,7 @@ dependencies = [
 
 [[package]]
 name = "redeem"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "bitcoin",
  "btc-relay",
@@ -4972,6 +5038,7 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "treasury",
+ "util",
  "vault-registry",
 ]
 
@@ -5010,6 +5077,38 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "refund"
+version = "0.3.1"
+dependencies = [
+ "bitcoin",
+ "btc-relay",
+ "collateral",
+ "exchange-rate-oracle",
+ "fee",
+ "frame-support",
+ "frame-system",
+ "mocktopus",
+ "pallet-balances",
+ "pallet-randomness-collective-flip",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "primitive-types",
+ "redeem",
+ "security",
+ "serde",
+ "sha2 0.8.2",
+ "sla",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "treasury",
+ "util",
+ "vault-registry",
 ]
 
 [[package]]
@@ -5074,7 +5173,7 @@ dependencies = [
 
 [[package]]
 name = "replace"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "bitcoin",
  "btc-relay",
@@ -5100,6 +5199,7 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "treasury",
+ "util",
  "vault-registry",
 ]
 
@@ -5387,7 +5487,7 @@ dependencies = [
  "fnv",
  "futures 0.3.6",
  "hash-db",
- "hex-literal",
+ "hex-literal 0.3.1",
  "kvdb",
  "lazy_static",
  "log",
@@ -6135,6 +6235,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "secp256k1"
+version = "0.20.1"
+source = "git+https://github.com/gregdhill/rust-secp256k1?rev=c86808fac70a3adf7ce180ae62151cf841914893#c86808fac70a3adf7ce180ae62151cf841914893"
+dependencies = [
+ "rand 0.6.5",
+ "secp256k1-sys",
+]
+
+[[package]]
+name = "secp256k1-sys"
+version = "0.4.0"
+source = "git+https://github.com/gregdhill/rust-secp256k1?rev=c86808fac70a3adf7ce180ae62151cf841914893#c86808fac70a3adf7ce180ae62151cf841914893"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "secrecy"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6150,6 +6267,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "mocktopus",
+ "pallet-balances",
  "parity-scale-codec",
  "primitive-types",
  "serde",
@@ -7072,7 +7190,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
 name = "staked-relayers"
-version = "0.3.2"
+version = "0.4.0"
 dependencies = [
  "bitcoin",
  "btc-relay",
@@ -7090,6 +7208,7 @@ dependencies = [
  "parity-scale-codec",
  "primitive-types",
  "redeem",
+ "refund",
  "replace",
  "security",
  "serde",
@@ -7101,6 +7220,7 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "treasury",
+ "util",
  "vault-registry",
 ]
 
@@ -7155,9 +7275,9 @@ checksum = "8ea5119cdb4c55b55d432abb513a0429384878c15dde60cc77b1c99de1a95a6a"
 
 [[package]]
 name = "structopt"
-version = "0.3.18"
+version = "0.3.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a33f6461027d7f08a13715659b2948e1602c31a3756aeae9378bfe7518c72e82"
+checksum = "5277acd7ee46e63e5168a80734c9f6ee81b1367a7d8772a2d765df2a3705d28c"
 dependencies = [
  "clap",
  "lazy_static",
@@ -7166,9 +7286,9 @@ dependencies = [
 
 [[package]]
 name = "structopt-derive"
-version = "0.4.11"
+version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c92e775028122a4b3dd55d58f14fc5120289c69bee99df1d117ae30f84b225c9"
+checksum = "5ba9cdfda491b814720b6b06e0cac513d922fc407582032e8706e9f137976f90"
 dependencies = [
  "heck",
  "proc-macro-error",
@@ -7976,8 +8096,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "vault-registry"
+name = "util"
 version = "0.3.3"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "vault-registry"
+version = "0.4.0"
 dependencies = [
  "bitcoin",
  "collateral",
@@ -8000,6 +8129,7 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "treasury",
+ "util",
 ]
 
 [[package]]

@@ -24,13 +24,12 @@ use mocktopus::macros::mockable;
 
 pub use security;
 
-use crate::types::{
-    ActiveStakedRelayer, InactiveStakedRelayer, PolkaBTC, ProposalStatus, StakedRelayerStatus,
-    StatusUpdate, Tally, DOT,
-};
+use crate::types::{PolkaBTC, ProposalStatus, StakedRelayer, StatusUpdate, Tally, Votes, DOT};
 use bitcoin::parser::parse_transaction;
 use bitcoin::types::*;
 use btc_relay::BtcAddress;
+use util::transactional;
+
 /// # Staked Relayers module implementation
 /// This is the implementation of the BTC Parachain Staked Relayers module following the spec at:
 /// https://interlay.gitlab.io/polkabtc-spec/spec/staked-relayers.html
@@ -54,8 +53,6 @@ use vault_registry::Wallet;
 pub trait WeightInfo {
     fn register_staked_relayer() -> Weight;
     fn deregister_staked_relayer() -> Weight;
-    fn activate_staked_relayer() -> Weight;
-    fn deactivate_staked_relayer() -> Weight;
     fn suggest_status_update() -> Weight;
     fn vote_on_status_update() -> Weight;
     fn force_status_update() -> Weight;
@@ -64,6 +61,7 @@ pub trait WeightInfo {
     fn report_vault_under_liquidation_threshold() -> Weight;
     fn remove_active_status_update() -> Weight;
     fn remove_inactive_status_update() -> Weight;
+    fn set_maturity_period() -> Weight;
 }
 
 /// ## Configuration
@@ -76,6 +74,7 @@ pub trait Trait:
     + btc_relay::Trait
     + redeem::Trait
     + replace::Trait
+    + refund::Trait
     + sla::Trait
 {
     /// The overarching event type.
@@ -84,20 +83,11 @@ pub trait Trait:
     /// Weight information for the extrinsics in this module.
     type WeightInfo: WeightInfo;
 
-    /// Number of blocks to wait until eligible to vote.
-    type MaturityPeriod: Get<Self::BlockNumber>;
-
     /// The minimum amount of deposit required to propose an update.
     type MinimumDeposit: Get<DOT<Self>>;
 
     /// The minimum amount of stake required to participate.
     type MinimumStake: Get<DOT<Self>>;
-
-    /// The minimum number of active participants.
-    type MinimumParticipants: Get<u64>;
-
-    /// Denotes the percentage of votes necessary to enact an update.
-    type VoteThreshold: Get<u64>;
 
     /// How often (in blocks) to check for new votes.
     type VotingPeriod: Get<Self::BlockNumber>;
@@ -110,18 +100,15 @@ pub trait Trait:
 decl_storage! {
     trait Store for Module<T: Trait> as Staking {
         /// Mapping from accounts of active staked relayers to the StakedRelayer struct.
-        ActiveStakedRelayers get(fn active_staked_relayer): map hasher(blake2_128_concat) T::AccountId => ActiveStakedRelayer<DOT<T>>;
-
-        /// Integer total count of active staked relayers.
-        ActiveStakedRelayersCount get(fn active_staked_relayer_count): u64;
+        ActiveStakedRelayers get(fn active_staked_relayer): map hasher(blake2_128_concat) T::AccountId => StakedRelayer<DOT<T>, T::BlockNumber>;
 
         /// Mapping from accounts of inactive staked relayers to the StakedRelayer struct.
-        InactiveStakedRelayers: map hasher(blake2_128_concat) T::AccountId => InactiveStakedRelayer<T::BlockNumber, DOT<T>>;
+        InactiveStakedRelayers: map hasher(blake2_128_concat) T::AccountId => StakedRelayer<DOT<T>, T::BlockNumber>;
 
         /// Map of active StatusUpdates, identified by an integer key.
         ActiveStatusUpdates get(fn active_status_update): map hasher(blake2_128_concat) u64 => StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>;
 
-        /// Map of expired, executed or rejected StatusUpdates, identified by an integer key.
+        /// Map of executed or rejected StatusUpdates, identified by an integer key.
         InactiveStatusUpdates get(fn inactive_status_update): map hasher(blake2_128_concat) u64 => StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>;
 
         /// Integer increment-only counter used to track status updates.
@@ -136,6 +123,9 @@ decl_storage! {
 
         /// AccountId of the governance mechanism, as specified in the genesis.
         GovernanceId get(fn gov_id) config(): T::AccountId;
+
+        /// Number of blocks to wait until eligible to vote.
+        MaturityPeriod get(fn maturity_period) config(): T::BlockNumber;
     }
 }
 
@@ -144,15 +134,9 @@ decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         type Error = Error<T>;
 
-        const MaturityPeriod: T::BlockNumber = T::MaturityPeriod::get();
-
         const MinimumDeposit: DOT<T> = T::MinimumDeposit::get();
 
         const MinimumStake: DOT<T> = T::MinimumStake::get();
-
-        const MinimumParticipants: u64 = T::MinimumParticipants::get();
-
-        const VoteThreshold: u64 = T::VoteThreshold::get();
 
         const VotingPeriod: T::BlockNumber = T::VotingPeriod::get();
 
@@ -167,6 +151,7 @@ decl_module! {
         /// * `origin`: The account of the Staked Relayer to be registered
         /// * `stake`: to-be-locked collateral/stake in DOT
         #[weight = <T as Trait>::WeightInfo::register_staked_relayer()]
+        #[transactional]
         fn register_staked_relayer(origin, stake: DOT<T>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
 
@@ -187,9 +172,9 @@ decl_module! {
 
             ext::collateral::lock_collateral::<T>(&signer, stake)?;
             let height = <frame_system::Module<T>>::block_number();
-            let period = height + T::MaturityPeriod::get();
-            Self::add_inactive_staked_relayer(&signer, stake, StakedRelayerStatus::Bonding(period));
-            Self::deposit_event(<Event<T>>::RegisterStakedRelayer(signer, period, stake));
+            let maturity = height + Self::get_maturity_period();
+            Self::insert_inactive_staked_relayer(&signer, stake, maturity);
+            Self::deposit_event(<Event<T>>::RegisterStakedRelayer(signer, maturity, stake));
             Ok(())
         }
 
@@ -199,51 +184,15 @@ decl_module! {
         ///
         /// * `origin`: The account of the Staked Relayer to be deregistered
         #[weight = <T as Trait>::WeightInfo::deregister_staked_relayer()]
+        #[transactional]
         fn deregister_staked_relayer(origin) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             let staked_relayer = Self::get_active_staked_relayer(&signer)?;
             Self::ensure_staked_relayer_is_not_active(&signer)?;
             ext::collateral::release_collateral::<T>(&signer, staked_relayer.stake)?;
+            // TODO: require unbonding period
             Self::remove_active_staked_relayer(&signer);
             Self::deposit_event(<Event<T>>::DeregisterStakedRelayer(signer));
-            Ok(())
-        }
-
-        /// Activates a Staked Relayer if previously idle.
-        ///
-        /// # Arguments
-        ///
-        /// * `origin`: The account of the Staked Relayer to be activated
-        #[weight = <T as Trait>::WeightInfo::activate_staked_relayer()]
-        fn activate_staked_relayer(origin) -> DispatchResult {
-            let signer = ensure_signed(origin)?;
-            let staked_relayer = Self::get_inactive_staked_relayer(&signer)?;
-
-            match staked_relayer.status {
-                StakedRelayerStatus::Bonding(period) => {
-                    // on_initialize should catch all matured relayers
-                    // but this is helpful for tests
-                    let height = <frame_system::Module<T>>::block_number();
-                    Self::try_bond_staked_relayer(&signer, staked_relayer.stake, height, period)?;
-                },
-                _ => Self::bond_staked_relayer(&signer, staked_relayer.stake),
-            }
-
-            Self::deposit_event(<Event<T>>::ActivateStakedRelayer(signer, staked_relayer.stake));
-            Ok(())
-        }
-
-        /// Deactivates a Staked Relayer.
-        ///
-        /// # Arguments
-        ///
-        /// * `origin`: The account of the Staked Relayer to be deactivated
-        #[weight = <T as Trait>::WeightInfo::deactivate_staked_relayer()]
-        fn deactivate_staked_relayer(origin) -> DispatchResult {
-            let signer = ensure_signed(origin)?;
-            let staked_relayer = Self::get_active_staked_relayer(&signer)?;
-            Self::unbond_staked_relayer(&signer, staked_relayer.stake);
-            Self::deposit_event(<Event<T>>::DeactivateStakedRelayer(signer));
             Ok(())
         }
 
@@ -258,6 +207,7 @@ decl_module! {
         /// * `block_hash`: [Optional] When reporting an error related to BTC-Relay, this field indicates the affected Bitcoin block (header).
         /// * `message`: Message detailing reason for status update
         #[weight = <T as Trait>::WeightInfo::suggest_status_update()]
+        #[transactional]
         fn suggest_status_update(origin, deposit: DOT<T>, status_code: StatusCode, add_error: Option<ErrorCode>, remove_error: Option<ErrorCode>, block_hash: Option<H256Le>, message: Vec<u8>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
 
@@ -270,10 +220,8 @@ decl_module! {
                 Error::<T>::MessageTooBig,
             );
 
-            ensure!(
-                <ActiveStakedRelayers<T>>::contains_key(&signer),
-                Error::<T>::StakedRelayersOnly,
-            );
+            // this call should revert if not registered
+            let staked_relayer = Self::get_active_staked_relayer(&signer)?;
 
             ensure!(
                 deposit >= T::MinimumDeposit::get(),
@@ -328,7 +276,7 @@ decl_module! {
 
             // pre-approve
             let mut tally = Tally::default();
-            tally.aye.insert(signer.clone());
+            tally.aye.insert(signer.clone(), staked_relayer.stake);
 
             let height = <frame_system::Module<T>>::block_number();
             let status_update_id = Self::insert_active_status_update(StatusUpdate{
@@ -359,17 +307,16 @@ decl_module! {
         /// * `status_update_id`: Identifier of the `StatusUpdate` voted upon in `ActiveStatusUpdates`.
         /// * `approve`: `True` or `False`, depending on whether the Staked Relayer agrees or disagrees with the suggested `StatusUpdate`.
         #[weight = <T as Trait>::WeightInfo::vote_on_status_update()]
+        #[transactional]
         fn vote_on_status_update(origin, status_update_id: u64, approve: bool) -> DispatchResult {
             let signer = ensure_signed(origin)?;
 
-            ensure!(
-                <ActiveStakedRelayers<T>>::contains_key(&signer),
-                Error::<T>::StakedRelayersOnly,
-            );
+            // this call should revert if the signer is not registered
+            let staked_relayer = Self::get_active_staked_relayer(&signer)?;
 
             let mut update = Self::get_status_update(&status_update_id)?;
             ensure!(
-                update.tally.vote(signer.clone(), approve),
+                update.tally.vote(signer.clone(), staked_relayer.stake, approve),
                 Error::<T>::VoteAlreadyCast,
             );
             <ActiveStatusUpdates<T>>::insert(&status_update_id, &update);
@@ -387,6 +334,7 @@ decl_module! {
         /// * `status_code`: Suggested BTC Parachain status (`StatusCode` enum).
         /// * `errors`: If the suggested status is `Error`, this set of `ErrorCode` entries provides details on the occurred errors.
         #[weight = <T as Trait>::WeightInfo::force_status_update()]
+        #[transactional]
         fn force_status_update(origin, status_code: StatusCode, add_error: Option<ErrorCode>, remove_error: Option<ErrorCode>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             Self::only_governance(&signer)?;
@@ -418,6 +366,7 @@ decl_module! {
         /// * `origin`: The AccountId of the Governance Mechanism.
         /// * `staked_relayer_id`: The account of the Staked Relayer to be slashed.
         #[weight = <T as Trait>::WeightInfo::slash_staked_relayer()]
+        #[transactional]
         fn slash_staked_relayer(origin, staked_relayer_id: T::AccountId) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             Self::only_governance(&signer)?;
@@ -443,12 +392,10 @@ decl_module! {
         /// * `merkle_proof`: The proof of tx inclusion.
         /// * `raw_tx`: The raw Bitcoin transaction.
         #[weight = <T as Trait>::WeightInfo::report_vault_theft()]
+        #[transactional]
         fn report_vault_theft(origin, vault_id: T::AccountId, tx_id: H256Le, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
-            ensure!(
-                Self::check_relayer_registered(&signer),
-                Error::<T>::StakedRelayersOnly,
-            );
+            Self::ensure_relayer_is_registered(&signer)?;
 
             // liquidated vaults are removed, so no need for check here
 
@@ -464,57 +411,46 @@ decl_module! {
             Self::is_transaction_invalid(&vault_id, raw_tx)?;
 
             ext::vault_registry::liquidate_theft_vault::<T>(&vault_id)?;
-            ext::security::set_parachain_status::<T>(StatusCode::Error);
-            ext::security::insert_error::<T>(ErrorCode::Liquidation);
 
             <TheftReports<T>>::mutate(&tx_id, |reports| {
-                reports.insert(vault_id);
+                reports.insert(vault_id.clone());
             });
 
             // reward relayer for this report by increasing its sla
             ext::sla::event_update_relayer_sla::<T>(signer, ext::sla::RelayerEvent::CorrectTheftReport)?;
 
-            Self::deposit_event(<Event<T>>::ExecuteStatusUpdate(
-                StatusCode::Error,
-                Some(ErrorCode::Liquidation),
-                None,
-                Some(tx_id),
+            Self::deposit_event(<Event<T>>::VaultTheft(
+                vault_id,
+                tx_id
             ));
 
             Ok(())
         }
 
         /// A Staked Relayer reports that a Vault is undercollateralized (i.e. below the LiquidationCollateralThreshold as defined in Vault Registry).
-        /// If the collateral falls below this rate, we flag the Vault for liquidation and update the ParachainStatus to ERROR - adding LIQUIDATION to Errors.
+        /// If the collateral falls below this rate, we flag the Vault for liquidation.
         #[weight = <T as Trait>::WeightInfo::report_vault_under_liquidation_threshold()]
+        #[transactional]
         fn report_vault_under_liquidation_threshold(origin, vault_id: T::AccountId)  -> DispatchResult {
             let signer = ensure_signed(origin)?;
-            ensure!(
-                Self::check_relayer_registered(&signer),
-                Error::<T>::StakedRelayersOnly,
-            );
+            Self::ensure_relayer_is_registered(&signer)?;
 
             // ensure that the vault is eligible for liquidation
             ensure!(
                 // NOTE: the liquidation threshold expresses the percentage of collateral
                 // required for the vault relative to the exchange rate. If the vault is
                 // under this percentage it is flagged for liquidation.
-                ext::vault_registry::is_vault_below_secure_threshold::<T>(&vault_id)?,
+                ext::vault_registry::is_vault_below_liquidation_threshold::<T>(&vault_id)?,
                 Error::<T>::CollateralOk,
             );
 
             ext::vault_registry::liquidate_vault::<T>(&vault_id)?;
-            ext::security::set_parachain_status::<T>(StatusCode::Error);
-            ext::security::insert_error::<T>(ErrorCode::Liquidation);
 
             // reward relayer for this report by increasing its sla
             ext::sla::event_update_relayer_sla::<T>(signer, ext::sla::RelayerEvent::CorrectLiquidationReport)?;
 
-            Self::deposit_event(<Event<T>>::ExecuteStatusUpdate(
-                StatusCode::Error,
-                Some(ErrorCode::Liquidation),
-                None,
-                None,
+            Self::deposit_event(<Event<T>>::VaultUnderLiquidationThreshold(
+                vault_id
             ));
 
             Ok(())
@@ -523,12 +459,10 @@ decl_module! {
         /// A Staked Relayer reports that the Exchange Rate Oracle is offline. This function checks if the last exchange
         /// rate data in the Exchange Rate Oracle is indeed older than the indicated threshold.
         #[weight = 1000]
+        #[transactional]
         fn report_oracle_offline(origin) -> DispatchResult {
             let signer = ensure_signed(origin)?;
-            ensure!(
-                Self::check_relayer_registered(&signer),
-                Error::<T>::StakedRelayersOnly,
-            );
+            Self::ensure_relayer_is_registered(&signer)?;
 
             ensure!(
                 !ext::security::get_errors::<T>().contains(&ErrorCode::OracleOffline),
@@ -565,6 +499,7 @@ decl_module! {
         ///
         /// # Weight: `O(1)`
         #[weight = <T as Trait>::WeightInfo::remove_active_status_update()]
+        #[transactional]
         fn remove_active_status_update(origin, status_update_id: u64) {
             ensure_root(origin)?;
             <ActiveStatusUpdates<T>>::remove(status_update_id);
@@ -579,9 +514,25 @@ decl_module! {
         ///
         /// # Weight: `O(1)`
         #[weight = <T as Trait>::WeightInfo::remove_inactive_status_update()]
+        #[transactional]
         fn remove_inactive_status_update(origin, status_update_id: u64) {
             ensure_root(origin)?;
             <InactiveStatusUpdates<T>>::remove(status_update_id);
+        }
+
+        /// Sets the maturity period.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - the dispatch origin of this call (must be _Root_)
+        /// * `period` - the number of blocks to wait before a relayer is considered active.
+        ///
+        /// # Weight: `O(1)`
+        #[weight = <T as Trait>::WeightInfo::set_maturity_period()]
+        #[transactional]
+        fn set_maturity_period(origin, period: T::BlockNumber) {
+            ensure_root(origin)?;
+            <MaturityPeriod<T>>::set(period);
         }
 
         fn on_initialize(n: T::BlockNumber) -> Weight {
@@ -602,9 +553,7 @@ decl_module! {
 impl<T: Trait> Module<T> {
     fn begin_block(height: T::BlockNumber) -> DispatchResult {
         for (id, acc) in <InactiveStakedRelayers<T>>::iter() {
-            if let StakedRelayerStatus::Bonding(period) = acc.status {
-                let _ = Self::try_bond_staked_relayer(&id, acc.stake, height, period);
-            }
+            let _ = Self::try_bond_staked_relayer(&id, acc.stake, height, acc.height);
         }
         Ok(())
     }
@@ -615,7 +564,7 @@ impl<T: Trait> Module<T> {
                 match Self::evaluate_status_update_at_height(id, &mut status_update, height) {
                     // remove proposal
                     Ok(true) => None,
-                    // proposal is not accepted, rejected or expired
+                    // proposal is not accepted or rejected
                     Ok(false) => Some(status_update),
                     // something went wrong, keep the proposal
                     Err(err) => {
@@ -627,7 +576,7 @@ impl<T: Trait> Module<T> {
         );
     }
 
-    /// Evaluates whether the `StatusUpdate` has been accepted, rejected or expired.
+    /// Evaluates whether the `StatusUpdate` has been accepted or rejected.
     /// Returns true if the `StatusUpdate` should be garbage collected.
     ///
     /// # Arguments
@@ -640,35 +589,32 @@ impl<T: Trait> Module<T> {
         mut status_update: &mut StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>,
         height: T::BlockNumber,
     ) -> Result<bool, DispatchError> {
-        if status_update
-            .tally
-            .is_approved(<ActiveStakedRelayersCount>::get(), T::VoteThreshold::get())
-        {
-            Self::execute_status_update(&mut status_update)?;
-            Self::update_sla_score_for_status_update(&status_update, true)?;
+        if height >= status_update.end {
+            if status_update.tally.is_approved() {
+                Self::execute_status_update(&mut status_update)?;
+                Self::update_sla_score_for_status_update(&status_update, true)?;
+            } else {
+                Self::reject_status_update(&mut status_update)?;
+                Self::update_sla_score_for_status_update(&status_update, false)?;
+            }
             Self::insert_inactive_status_update(id, status_update);
-            Ok(true)
-        } else if status_update
-            .tally
-            .is_rejected(<ActiveStakedRelayersCount>::get(), T::VoteThreshold::get())
-        {
-            Self::reject_status_update(&mut status_update)?;
-            Self::update_sla_score_for_status_update(&status_update, false)?;
-            Self::insert_inactive_status_update(id, status_update);
-            Ok(true)
-        } else if height >= status_update.end {
-            // return the proposer's collateral
-            ext::collateral::release_collateral::<T>(
-                &status_update.proposer,
-                status_update.deposit,
-            )?;
-            status_update.proposal_status = ProposalStatus::Expired;
-            Self::insert_inactive_status_update(id, status_update);
-            Self::deposit_event(<Event<T>>::ExpireStatusUpdate(id));
             Ok(true)
         } else {
             Ok(false)
         }
+    }
+
+    /// Activate the staked relayer if mature.
+    /// Used for external integration tests.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - AccountId of the caller.
+    pub fn activate_staked_relayer(id: &T::AccountId) -> DispatchResult {
+        let staked_relayer = Self::get_inactive_staked_relayer(id)?;
+        let height = <frame_system::Module<T>>::block_number();
+        Self::try_bond_staked_relayer(id, staked_relayer.stake, height, staked_relayer.height)?;
+        Ok(())
     }
 
     /// Activate the staked relayer if mature.
@@ -686,7 +632,7 @@ impl<T: Trait> Module<T> {
         maturity: T::BlockNumber,
     ) -> DispatchResult {
         ensure!(height >= maturity, Error::<T>::NotMatured);
-        Self::bond_staked_relayer(id, stake);
+        Self::bond_staked_relayer(id, stake, height);
         Ok(())
     }
 
@@ -696,20 +642,9 @@ impl<T: Trait> Module<T> {
     ///
     /// * `id` - AccountId of the caller.
     /// * `stake` - amount of stake to deposit.
-    fn bond_staked_relayer(id: &T::AccountId, stake: DOT<T>) {
-        Self::add_active_staked_relayer(id, stake);
+    fn bond_staked_relayer(id: &T::AccountId, stake: DOT<T>, height: T::BlockNumber) {
+        Self::insert_active_staked_relayer(id, stake, height);
         Self::remove_inactive_staked_relayer(id);
-    }
-
-    /// Deactivate the relayer.
-    ///
-    /// # Arguments
-    ///
-    /// * `id` - AccountId of the caller.
-    /// * `stake` - amount of stake to deposit.
-    fn unbond_staked_relayer(id: &T::AccountId, stake: DOT<T>) {
-        Self::remove_active_staked_relayer(id);
-        Self::add_inactive_staked_relayer(id, stake, StakedRelayerStatus::Idle);
     }
 
     fn ensure_staked_relayer_is_not_active(id: &T::AccountId) -> DispatchResult {
@@ -729,13 +664,17 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    /// Checks if a staked relayer is registered.
+    /// Ensure a staked relayer is registered.
     ///
     /// # Arguments
     ///
     /// * `id` - account id of the relayer
-    pub(crate) fn check_relayer_registered(id: &T::AccountId) -> bool {
-        <ActiveStakedRelayers<T>>::contains_key(id)
+    pub(crate) fn ensure_relayer_is_registered(id: &T::AccountId) -> DispatchResult {
+        ensure!(
+            <ActiveStakedRelayers<T>>::contains_key(id),
+            Error::<T>::NotRegistered,
+        );
+        Ok(())
     }
 
     /// Gets the active staked relayer or throws an error.
@@ -745,11 +684,8 @@ impl<T: Trait> Module<T> {
     /// * `id` - account id of the relayer
     pub(crate) fn get_active_staked_relayer(
         id: &T::AccountId,
-    ) -> Result<ActiveStakedRelayer<DOT<T>>, DispatchError> {
-        ensure!(
-            Self::check_relayer_registered(id),
-            Error::<T>::NotRegistered,
-        );
+    ) -> Result<StakedRelayer<DOT<T>, T::BlockNumber>, DispatchError> {
+        Self::ensure_relayer_is_registered(id)?;
         Ok(<ActiveStakedRelayers<T>>::get(id))
     }
 
@@ -758,9 +694,9 @@ impl<T: Trait> Module<T> {
     /// # Arguments
     ///
     /// * `id` - account id of the relayer
-    pub(crate) fn get_inactive_staked_relayer(
+    fn get_inactive_staked_relayer(
         id: &T::AccountId,
-    ) -> Result<InactiveStakedRelayer<T::BlockNumber, DOT<T>>, DispatchError> {
+    ) -> Result<StakedRelayer<DOT<T>, T::BlockNumber>, DispatchError> {
         ensure!(
             <InactiveStakedRelayers<T>>::contains_key(id),
             Error::<T>::NotRegistered,
@@ -768,18 +704,19 @@ impl<T: Trait> Module<T> {
         Ok(<InactiveStakedRelayers<T>>::get(id))
     }
 
-    /// Creates an active staked relayer, incrementing the total count.
+    /// Creates an active staked relayer.
     ///
     /// # Arguments
     ///
     /// * `id` - account id of the relayer
     /// * `stake` - token deposited
-    pub(crate) fn add_active_staked_relayer(id: &T::AccountId, stake: DOT<T>) {
-        <ActiveStakedRelayers<T>>::insert(id, ActiveStakedRelayer { stake: stake });
-        <ActiveStakedRelayersCount>::mutate(|c| {
-            *c += 1;
-            *c
-        });
+    /// * `height` - bonding height
+    pub(crate) fn insert_active_staked_relayer(
+        id: &T::AccountId,
+        stake: DOT<T>,
+        height: T::BlockNumber,
+    ) {
+        <ActiveStakedRelayers<T>>::insert(id, StakedRelayer { stake, height });
     }
 
     /// Creates an inactive staked relayer.
@@ -788,19 +725,13 @@ impl<T: Trait> Module<T> {
     ///
     /// * `id` - account id of the relayer
     /// * `stake` - token deposited
-    /// * `status` - reason for becoming inactive
-    pub(crate) fn add_inactive_staked_relayer(
+    /// * `height` - bonding height
+    pub(crate) fn insert_inactive_staked_relayer(
         id: &T::AccountId,
         stake: DOT<T>,
-        status: StakedRelayerStatus<T::BlockNumber>,
+        height: T::BlockNumber,
     ) {
-        <InactiveStakedRelayers<T>>::insert(
-            id,
-            InactiveStakedRelayer {
-                stake: stake,
-                status: status,
-            },
-        );
+        <InactiveStakedRelayers<T>>::insert(id, StakedRelayer { stake, height });
     }
 
     /// Removes an active staked relayer, decrementing the total count.
@@ -810,10 +741,6 @@ impl<T: Trait> Module<T> {
     /// * `id` - AccountId of the relayer.
     fn remove_active_staked_relayer(id: &T::AccountId) {
         <ActiveStakedRelayers<T>>::remove(id);
-        <ActiveStakedRelayersCount>::mutate(|c| {
-            *c -= 1;
-            *c
-        });
     }
 
     /// Removes an inactive staked relayer.
@@ -875,17 +802,19 @@ impl<T: Trait> Module<T> {
     /// # Arguments
     ///
     /// * `error` - optional errorcode
-    /// * `votes` - account set
+    /// * `votes` - vote set, includes account set and total stake
     fn slash_staked_relayers(
         error: &Option<ErrorCode>,
-        votes: &BTreeSet<T::AccountId>,
+        votes: &Votes<T::AccountId, DOT<T>>,
     ) -> DispatchResult {
         if let Some(ErrorCode::NoDataBTCRelay) = error {
             // we don't slash participants for this
             return Ok(());
         }
 
-        for acc in votes.iter() {
+        for acc in votes.accounts.iter() {
+            // active participants are not allowed to deregister during
+            // an ongoing status update, so this call should never revert
             let staked_relayer = Self::get_active_staked_relayer(acc)?;
             ext::collateral::slash_collateral::<T>(
                 acc.clone(),
@@ -919,13 +848,13 @@ impl<T: Trait> Module<T> {
 
         let (correct_voters, incorrect_voters) = if approved {
             (
-                status_update.tally.aye.iter(),
-                status_update.tally.nay.iter(),
+                status_update.tally.aye.accounts.iter(),
+                status_update.tally.nay.accounts.iter(),
             )
         } else {
             (
-                status_update.tally.nay.iter(),
-                status_update.tally.aye.iter(),
+                status_update.tally.nay.accounts.iter(),
+                status_update.tally.aye.accounts.iter(),
             )
         };
 
@@ -962,12 +891,18 @@ impl<T: Trait> Module<T> {
         }
 
         // punish relayers that didn't vote by decreasing their sla
-        let mut voters = status_update.tally.aye.clone();
-        voters.append(&mut status_update.tally.nay.clone());
+        let mut voters = status_update.tally.aye.accounts.clone();
+        voters.append(&mut status_update.tally.nay.accounts.clone());
         let all_relayers: BTreeSet<_> = <ActiveStakedRelayers<T>>::iter()
             .map(|(relayer, _)| relayer)
             .collect();
         for abstainer in all_relayers.difference(&voters) {
+            let staked_relayer = <ActiveStakedRelayers<T>>::get(abstainer);
+            if staked_relayer.height > status_update.start {
+                // skip participants who joined after this vote started
+                continue;
+            }
+
             ext::sla::event_update_relayer_sla::<T>(
                 abstainer.clone(),
                 ext::sla::RelayerEvent::IgnoredVote,
@@ -986,14 +921,7 @@ impl<T: Trait> Module<T> {
         mut status_update: &mut StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>,
     ) -> DispatchResult {
         ensure!(
-            <ActiveStakedRelayersCount>::get() > T::MinimumParticipants::get(),
-            Error::<T>::InsufficientParticipants,
-        );
-
-        ensure!(
-            status_update
-                .tally
-                .is_approved(<ActiveStakedRelayersCount>::get(), T::VoteThreshold::get()),
+            status_update.tally.is_approved(),
             Error::<T>::InsufficientYesVotes
         );
 
@@ -1050,14 +978,7 @@ impl<T: Trait> Module<T> {
         mut status_update: &mut StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>,
     ) -> DispatchResult {
         ensure!(
-            <ActiveStakedRelayersCount>::get() > T::MinimumParticipants::get(),
-            Error::<T>::InsufficientParticipants,
-        );
-
-        ensure!(
-            status_update
-                .tally
-                .is_rejected(<ActiveStakedRelayersCount>::get(), T::VoteThreshold::get()),
+            !status_update.tally.is_approved(),
             Error::<T>::InsufficientNoVotes
         );
 
@@ -1082,7 +1003,7 @@ impl<T: Trait> Module<T> {
     pub(crate) fn is_valid_merge_transaction(
         payments: &Vec<(i64, BtcAddress)>,
         op_returns: &Vec<(i64, Vec<u8>)>,
-        wallet: &Wallet<BtcAddress>,
+        wallet: &Wallet,
     ) -> bool {
         if op_returns.len() > 0 {
             // migration should only contain payments
@@ -1110,7 +1031,7 @@ impl<T: Trait> Module<T> {
         request_value: PolkaBTC<T>,
         request_address: BtcAddress,
         payments: &Vec<(i64, BtcAddress)>,
-        wallet: &Wallet<BtcAddress>,
+        wallet: &Wallet,
     ) -> bool {
         let request_value = match TryInto::<u64>::try_into(request_value)
             .map_err(|_e| Error::<T>::TryIntoIntError)
@@ -1145,7 +1066,7 @@ impl<T: Trait> Module<T> {
     /// `vault_id`: the vault.
     /// `raw_tx`: the BTC transaction by the vault.
     pub fn is_transaction_invalid(vault_id: &T::AccountId, raw_tx: Vec<u8>) -> DispatchResult {
-        let vault = ext::vault_registry::get_vault_from_id::<T>(vault_id)?;
+        let vault = ext::vault_registry::get_active_vault_from_id::<T>(vault_id)?;
 
         // TODO: ensure this cannot fail on invalid
         let tx =
@@ -1221,14 +1142,33 @@ impl<T: Trait> Module<T> {
             // replace requests
             match ext::replace::get_open_or_completed_replace_request::<T>(&request_id) {
                 Ok(req) => {
+                    if let Some(btc_address) = req.btc_address {
+                        // only check replace if we have a valid btc_address
+                        ensure!(
+                            !Self::is_valid_request_transaction(
+                                req.amount,
+                                btc_address,
+                                &payments,
+                                &vault.wallet,
+                            ),
+                            Error::<T>::ValidReplaceTransaction
+                        );
+                    }
+                }
+                Err(_) => (),
+            };
+
+            // refund requests
+            match ext::refund::get_open_or_completed_refund_request_from_id::<T>(&request_id) {
+                Ok(req) => {
                     ensure!(
                         !Self::is_valid_request_transaction(
-                            req.amount,
+                            req.amount_polka_btc,
                             req.btc_address,
                             &payments,
                             &vault.wallet,
                         ),
-                        Error::<T>::ValidReplaceTransaction
+                        Error::<T>::ValidRefundTransaction
                     );
                 }
                 Err(_) => (),
@@ -1245,6 +1185,11 @@ impl<T: Trait> Module<T> {
             *c
         })
     }
+
+    /// Gets the maturity period
+    pub fn get_maturity_period() -> T::BlockNumber {
+        <MaturityPeriod<T>>::get()
+    }
 }
 
 decl_event!(
@@ -1256,8 +1201,6 @@ decl_event!(
     {
         RegisterStakedRelayer(AccountId, BlockNumber, DOT),
         DeregisterStakedRelayer(AccountId),
-        ActivateStakedRelayer(AccountId, DOT),
-        DeactivateStakedRelayer(AccountId),
         StatusUpdateSuggested(
             u64,
             AccountId,
@@ -1274,9 +1217,10 @@ decl_event!(
             Option<H256Le>,
         ),
         RejectStatusUpdate(StatusCode, Option<ErrorCode>, Option<ErrorCode>),
-        ExpireStatusUpdate(u64),
         ForceStatusUpdate(StatusCode, Option<ErrorCode>, Option<ErrorCode>),
         SlashStakedRelayer(AccountId),
+        VaultTheft(AccountId, H256Le),
+        VaultUnderLiquidationThreshold(AccountId),
     }
 );
 
@@ -1288,18 +1232,14 @@ decl_error! {
         InsufficientStake,
         /// Insufficient deposit
         InsufficientDeposit,
-        /// Insufficient participants
-        InsufficientParticipants,
         /// Status update message is too big
         MessageTooBig,
-        /// Staked relayer is not registered
+        /// Participant is not registered
         NotRegistered,
         /// Staked relayer has not bonded
         NotMatured,
         /// Caller is not governance module
         GovernanceOnly,
-        /// Caller is not staked relayer
-        StakedRelayersOnly,
         /// Staked relayer is active
         StatusUpdateFound,
         /// Status update does not exist
@@ -1320,6 +1260,8 @@ decl_error! {
         ValidRedeemTransaction,
         /// Valid replace transaction
         ValidReplaceTransaction,
+        /// Valid refund transaction
+        ValidRefundTransaction,
         /// Valid merge transaction
         ValidMergeTransaction,
         /// Oracle already reported

@@ -41,6 +41,7 @@ impl_outer_event! {
         btc_relay,
         redeem<T>,
         replace<T>,
+        refund<T>,
         security,
     }
 }
@@ -124,6 +125,7 @@ impl security::Trait for Test {
 impl vault_registry::Trait for Test {
     type Event = TestEvent;
     type RandomnessSource = pallet_randomness_collective_flip::Module<Test>;
+    type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
 }
 
@@ -134,6 +136,7 @@ impl treasury::Trait for Test {
 
 impl exchange_rate_oracle::Trait for Test {
     type Event = TestEvent;
+    type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
 }
 
@@ -146,6 +149,11 @@ impl fee::Trait for Test {
 impl sla::Trait for Test {
     type Event = TestEvent;
     type SignedFixedPoint = FixedI128;
+}
+
+impl refund::Trait for Test {
+    type Event = TestEvent;
+    type WeightInfo = ();
 }
 
 impl collateral::Trait for Test {
@@ -169,11 +177,8 @@ impl replace::Trait for Test {
 }
 
 parameter_types! {
-    pub const MaturityPeriod: u64 = 10;
     pub const MinimumDeposit: u64 = 10;
     pub const MinimumStake: u64 = 10;
-    pub const MinimumParticipants: u64 = 3;
-    pub const VoteThreshold: u64 = 50;
     pub const VotingPeriod: u64 = 100;
     pub const MaximumMessageSize: u32 = 32;
 }
@@ -181,11 +186,8 @@ parameter_types! {
 impl Trait for Test {
     type Event = TestEvent;
     type WeightInfo = ();
-    type MaturityPeriod = MaturityPeriod;
     type MinimumDeposit = MinimumDeposit;
     type MinimumStake = MinimumStake;
-    type MinimumParticipants = MinimumParticipants;
-    type VoteThreshold = VoteThreshold;
     type VotingPeriod = VotingPeriod;
     type MaximumMessageSize = MaximumMessageSize;
 }
@@ -223,6 +225,7 @@ impl ExtBuilder {
         fee::GenesisConfig::<Test> {
             issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
             issue_griefing_collateral: FixedU128::checked_from_rational(5, 100000).unwrap(), // 0.005%
+            refund_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),                  // 0.5%
             redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),                  // 0.5%
             premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
             auction_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
@@ -260,9 +263,12 @@ impl ExtBuilder {
             .assimilate_storage(storage)
             .unwrap();
 
-            GenesisConfig::<Test> { gov_id: CAROL }
-                .assimilate_storage(storage)
-                .unwrap();
+            GenesisConfig::<Test> {
+                gov_id: CAROL,
+                maturity_period: 10,
+            }
+            .assimilate_storage(storage)
+            .unwrap();
         })
     }
 }

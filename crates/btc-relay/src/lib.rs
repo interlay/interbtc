@@ -37,6 +37,7 @@ use primitive_types::U256;
 use sp_core::H160;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::*;
+use util::transactional;
 
 // Crates
 pub use bitcoin;
@@ -45,9 +46,11 @@ use bitcoin::parser::{parse_block_header, parse_transaction};
 use bitcoin::types::{
     BlockChain, BlockHeader, H256Le, RawBlockHeader, RichBlockHeader, Transaction,
 };
-pub use bitcoin::Address as BtcAddress;
 use bitcoin::Error as BitcoinError;
 use security::types::ErrorCode;
+
+pub use bitcoin::Address as BtcAddress;
+pub use bitcoin::PublicKey as BtcPublicKey;
 
 pub trait WeightInfo {
     fn initialize() -> Weight;
@@ -79,8 +82,11 @@ pub const TARGET_TIMESPAN: u32 = 1_209_600;
 // Used in Bitcoin's retarget algorithm
 pub const TARGET_TIMESPAN_DIVISOR: u32 = 4;
 
-// Accepted minimum number of transaction outputs for validation
-pub const ACCEPTED_MIN_TRANSACTION_OUTPUTS: u32 = 2;
+// Accepted minimum number of transaction outputs for okd validation
+pub const ACCEPTED_MIN_TRANSACTION_OUTPUTS: u32 = 1;
+
+// Accepted minimum number of transaction outputs for op-return validation
+pub const ACCEPTED_MIN_TRANSACTION_OUTPUTS_WITH_OP_RETURN: u32 = 2;
 
 // Accepted maximum number of transaction outputs for validation
 pub const ACCEPTED_MAX_TRANSACTION_OUTPUTS: u32 = 32;
@@ -177,6 +183,7 @@ decl_module! {
         /// * `block_height` - Bitcoin block height of the submitted
         /// block header.
         #[weight = <T as Trait>::WeightInfo::initialize()]
+        #[transactional]
         fn initialize(
             origin,
             raw_block_header: RawBlockHeader,
@@ -193,6 +200,7 @@ decl_module! {
         ///
         /// * `raw_block_header` - 80 byte raw Bitcoin block header.
         #[weight = <T as Trait>::WeightInfo::store_block_header()]
+        #[transactional]
         fn store_block_header(
             origin, raw_block_header: RawBlockHeader
         ) -> DispatchResult {
@@ -206,6 +214,7 @@ decl_module! {
         ///
         /// * `raw_block_headers` - vector of Bitcoin block headers.
         #[weight = <T as Trait>::WeightInfo::store_block_headers(raw_block_headers.len() as u32)]
+        #[transactional]
         fn store_block_headers(
             origin, raw_block_headers: Vec<RawBlockHeader>
         ) -> DispatchResult {
@@ -224,31 +233,25 @@ decl_module! {
         /// # Arguments
         ///
         /// * `tx_id` - The hash of the transaction to check for
-        /// * `tx_block_height` - The height of the block in which the
-        /// transaction should be included
-        /// * `raw_merkle_proof` - The raw merkle proof as returned by
-        /// bitcoin `gettxoutproof`
-        /// * `confirmations` - The number of confirmations needed to accept
-        /// the proof
-        /// * `insecure` - determines if checks against recommended global transaction confirmation are to be executed. Recommended: set to `true`
+        /// * `tx_block_height` - The height of the block in which the transaction should be included
+        /// * `raw_merkle_proof` - The raw merkle proof as returned by bitcoin `gettxoutproof`
+        /// * `confirmations` - The number of confirmations needed to accept the proof. If `none`,
+        /// the value stored in the StableBitcoinConfirmations storage item is used.
         /// * `raw_tx` - raw Bitcoin transaction
-        /// * `paymentValue` - value of BTC sent in the 1st /
-        /// payment UTXO of the transaction
-        /// * `recipientBtcAddress` - 20 byte Bitcoin address of recipient
-        /// of the BTC in the 1st  / payment UTXO
-        /// * `op_return_id` - 32 byte hash identifier expected in
-        /// OP_RETURN (replay protection)
+        /// * `paymentValue` - value of BTC sent in the 1st / payment UTXO of the transaction
+        /// * `recipientBtcAddress` - 20 byte Bitcoin address of recipient of the BTC in the 1st  / payment UTXO
+        /// * `op_return_id` - 32 byte hash identifier expected in OP_RETURN (replay protection)
         #[weight = <T as Trait>::WeightInfo::verify_and_validate_transaction()]
+        #[transactional]
         fn verify_and_validate_transaction(
             origin,
             tx_id: H256Le,
             raw_merkle_proof: Vec<u8>,
-            confirmations: u32,
-            insecure: bool,
+            confirmations: Option<u32>,
             raw_tx: Vec<u8>,
             payment_value: i64,
             recipient_btc_address: BtcAddress,
-            op_return_id: Vec<u8>)
+            op_return_id: Option<Vec<u8>>)
         -> DispatchResult {
             let _ = ensure_signed(origin)?;
 
@@ -260,7 +263,7 @@ decl_module! {
 
             // Verify that the transaction is indeed included in the main chain
             // Check for Parachain RUNNING state is performed here
-            Self::_verify_transaction_inclusion(tx_id, raw_merkle_proof, confirmations, insecure)?;
+            Self::_verify_transaction_inclusion(tx_id, raw_merkle_proof, confirmations)?;
 
             // Parse transaction and check that it matches the given parameters
             Self::_validate_transaction(raw_tx, payment_value, recipient_btc_address, op_return_id)?;
@@ -269,26 +272,23 @@ decl_module! {
         }
 
         /// Verifies the inclusion of `tx_id` in block at height `tx_block_height`
+        ///
         /// # Arguments
         ///
         /// * `tx_id` - The hash of the transaction to check for
-        /// * `tx_block_height` - The height of the block in which the
-        /// transaction should be included
-        /// * `raw_merkle_proof` - The raw merkle proof as returned by
-        /// bitcoin `gettxoutproof`
-        /// * `confirmations` - The number of confirmations needed to accept
-        /// the proof
-        /// * `insecure` - determines if checks against recommended global transaction confirmation are to be executed. Recommended: set to `true`
+        /// * `raw_merkle_proof` - The raw merkle proof as returned by bitcoin `gettxoutproof`
+        /// * `confirmations` - The number of confirmations needed to accept the proof. If `none`,
+        /// the value stored in the StableBitcoinConfirmations storage item is used.
         #[weight = <T as Trait>::WeightInfo::verify_transaction_inclusion()]
+        #[transactional]
         fn verify_transaction_inclusion(
             origin,
             tx_id: H256Le,
             raw_merkle_proof: Vec<u8>,
-            confirmations: u32,
-            insecure: bool)
+            confirmations: Option<u32>)
         -> DispatchResult {
             let _ = ensure_signed(origin)?;
-            Self::_verify_transaction_inclusion(tx_id, raw_merkle_proof, confirmations, insecure)?;
+            Self::_verify_transaction_inclusion(tx_id, raw_merkle_proof, confirmations)?;
             Ok(())
         }
 
@@ -309,12 +309,13 @@ decl_module! {
         /// * `op_return_id` - 32 byte hash identifier expected in
         /// OP_RETURN (replay protection)
         #[weight = <T as Trait>::WeightInfo::validate_transaction()]
+        #[transactional]
         fn validate_transaction(
             origin,
             raw_tx: Vec<u8>,
             payment_value: i64,
             recipient_btc_address: BtcAddress,
-            op_return_id: Vec<u8>
+            op_return_id: Option<Vec<u8>>
         ) -> DispatchResult {
             let _ = ensure_signed(origin)?;
             Self::_validate_transaction(raw_tx, payment_value, recipient_btc_address, op_return_id)?;
@@ -461,8 +462,7 @@ impl<T: Trait> Module<T> {
     pub fn _verify_transaction_inclusion(
         tx_id: H256Le,
         raw_merkle_proof: Vec<u8>,
-        confirmations: u32,
-        insecure: bool,
+        confirmations: Option<u32>,
     ) -> Result<(), DispatchError> {
         if Self::disable_inclusion_check() {
             return Ok(());
@@ -485,12 +485,7 @@ impl<T: Trait> Module<T> {
         Self::transaction_verification_allowed(block_height)?;
 
         // This call fails if not enough confirmations
-        Self::check_bitcoin_confirmations(
-            best_block_height,
-            confirmations,
-            block_height,
-            insecure,
-        )?;
+        Self::check_bitcoin_confirmations(best_block_height, confirmations, block_height)?;
 
         // This call fails if the block was stored too recently
         Self::check_parachain_confirmations(rich_header.block_hash)?;
@@ -545,10 +540,17 @@ impl<T: Trait> Module<T> {
     ///
     /// * `transaction` - Bitcoin transaction
     /// * `recipient_btc_address` - expected payment recipient
-    fn extract_value(
+    fn extract_payment_value(
         transaction: Transaction,
         recipient_btc_address: BtcAddress,
     ) -> Result<i64, DispatchError> {
+        ensure!(
+            // We would typically expect two outputs here (payment, refund) but
+            // the input amount may be exact so we would only require one
+            transaction.outputs.len() >= ACCEPTED_MIN_TRANSACTION_OUTPUTS as usize,
+            Error::<T>::MalformedTransaction
+        );
+
         // Check if payment is first output
         match transaction
             .outputs
@@ -602,14 +604,14 @@ impl<T: Trait> Module<T> {
     ///
     /// * `transaction` - Bitcoin transaction
     /// * `recipient_btc_address` - expected payment recipient
-    fn extract_value_and_op_return(
+    fn extract_payment_value_and_op_return(
         transaction: Transaction,
         recipient_btc_address: BtcAddress,
     ) -> Result<(i64, Vec<u8>), DispatchError> {
         ensure!(
             // We would typically expect three outputs (payment, op_return, refund) but
             // exceptionally the input amount may be exact so we would only require two
-            transaction.outputs.len() >= ACCEPTED_MIN_TRANSACTION_OUTPUTS as usize,
+            transaction.outputs.len() >= ACCEPTED_MIN_TRANSACTION_OUTPUTS_WITH_OP_RETURN as usize,
             Error::<T>::MalformedTransaction
         );
 
@@ -664,25 +666,41 @@ impl<T: Trait> Module<T> {
         Self::disable_op_return_check()
     }
 
+    /// Checks if transaction is valid. If so, it returns the first origin address, which can be
+    /// use as the destination address for a potential refund, and the payment value
     pub fn _validate_transaction(
         raw_tx: Vec<u8>,
         payment_value: i64,
         recipient_btc_address: BtcAddress,
-        op_return_id: Vec<u8>,
-    ) -> Result<(), DispatchError> {
+        op_return_id: Option<Vec<u8>>,
+    ) -> Result<(BtcAddress, i64), DispatchError> {
         let transaction = Self::parse_transaction(&raw_tx)?;
 
+        let input_address = transaction
+            .clone()
+            .inputs
+            .get(0)
+            .ok_or(Error::<T>::MalformedTransaction)?
+            .extract_address()
+            .map_err(|_| Error::<T>::MalformedTransaction)?;
+
         let extr_payment_value = if Self::is_op_return_disabled() {
-            Self::extract_value(transaction, recipient_btc_address)?
+            Self::extract_payment_value(transaction, recipient_btc_address)?
         } else {
-            // NOTE: op_return UTXO should not contain any value
-            let (extr_payment_value, extr_op_return) =
-                Self::extract_value_and_op_return(transaction, recipient_btc_address)?;
+            if let Some(op_return_id) = op_return_id {
+                // NOTE: op_return UTXO should not contain any value
+                let (extr_payment_value, extr_op_return) =
+                    Self::extract_payment_value_and_op_return(transaction, recipient_btc_address)?;
 
-            // Check if data UTXO has correct OP_RETURN value
-            ensure!(extr_op_return == op_return_id, Error::<T>::InvalidOpReturn);
+                // Check if data UTXO has correct OP_RETURN value
+                ensure!(extr_op_return == op_return_id, Error::<T>::InvalidOpReturn);
 
-            extr_payment_value
+                extr_payment_value
+            } else {
+                // using the on-chain key derivation scheme we only expect a simple
+                // payment to the vault's new deposit address
+                Self::extract_payment_value(transaction, recipient_btc_address)?
+            }
         };
 
         // Check if payment UTXO transfers sufficient value
@@ -691,7 +709,7 @@ impl<T: Trait> Module<T> {
             Error::<T>::InsufficientValue
         );
 
-        Ok(())
+        Ok((input_address, extr_payment_value))
     }
 
     // ********************************
@@ -1362,39 +1380,23 @@ impl<T: Trait> Module<T> {
     /// requested confirmations (and/or the global k security parameter)
     ///
     /// # Arguments
-    /// * `block_height` - current main chain block height
-    /// * `req_confs` - confirmations requested by the caller
-    /// * `tx_block_height` - block height of checked transaction
-    /// * `insecure` -  determines if checks against recommended global transaction confirmation are to be executed. Recommended: set to `true`
     ///
+    /// * `block_height` - current main chain block height
+    /// * `confirmations` - The number of confirmations requested. If `none`,
+    /// the value stored in the StableBitcoinConfirmations storage item is used.
+    /// * `tx_block_height` - block height of checked transaction
     pub fn check_bitcoin_confirmations(
         main_chain_height: u32,
-        req_confs: u32,
+        req_confs: Option<u32>,
         tx_block_height: u32,
-        insecure: bool,
     ) -> Result<(), DispatchError> {
-        // insecure call: only checks against user parameter
-        if insecure {
-            if tx_block_height + req_confs <= main_chain_height {
-                Ok(())
-            } else {
-                Err(Error::<T>::BitcoinConfirmations.into())
-            }
-        } else {
-            // secure call: checks against max of user- and global security parameter
-            let global_confs = Self::get_stable_transaction_confirmations();
+        let required_confirmations =
+            req_confs.unwrap_or_else(|| Self::get_stable_transaction_confirmations());
 
-            if global_confs > req_confs {
-                if tx_block_height + global_confs <= main_chain_height {
-                    Ok(())
-                } else {
-                    Err(Error::<T>::InsufficientStableConfirmations.into())
-                }
-            } else if tx_block_height + req_confs <= main_chain_height {
-                Ok(())
-            } else {
-                Err(Error::<T>::BitcoinConfirmations.into())
-            }
+        if main_chain_height >= tx_block_height + required_confirmations {
+            Ok(())
+        } else {
+            Err(Error::<T>::BitcoinConfirmations.into())
         }
     }
 
@@ -1508,12 +1510,10 @@ decl_error! {
         DiffTargetHeader,
         /// Malformed transaction identifier
         MalformedTxid,
-        /// Transaction has less confirmations of Bitcoin blocks than requested
+        /// Transaction has less confirmations of Bitcoin blocks than required
         BitcoinConfirmations,
         /// Transaction has less confirmations of Parachain blocks than required
         ParachainConfirmations,
-        /// Transaction has less confirmations than the global STABLE_TRANSACTION_CONFIRMATIONS parameter
-        InsufficientStableConfirmations,
         /// Current fork ongoing
         OngoingFork,
         /// Merkle proof is malformed

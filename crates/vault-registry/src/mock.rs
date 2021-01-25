@@ -8,6 +8,7 @@ use frame_support::{
     },
 };
 use mocktopus::mocking::clear_mocks;
+use sp_arithmetic::{FixedPointNumber, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
@@ -140,7 +141,7 @@ impl treasury::Trait for Test {
 parameter_types! {
     pub const MinimumPeriod: u64 = 5;
 }
-impl timestamp::Trait for Test {
+impl pallet_timestamp::Trait for Test {
     type Moment = u64;
     type OnTimestampSet = ();
     type MinimumPeriod = MinimumPeriod;
@@ -149,12 +150,14 @@ impl timestamp::Trait for Test {
 
 impl exchange_rate_oracle::Trait for Test {
     type Event = TestEvent;
+    type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
 }
 
 impl Trait for Test {
     type Event = TestEvent;
     type RandomnessSource = pallet_randomness_collective_flip::Module<Test>;
+    type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
 }
 
@@ -196,10 +199,10 @@ impl ExtBuilder {
         GenesisConfig::<Test> {
             minimum_collateral_vault: 0,
             punishment_delay: 0,
-            secure_collateral_threshold: 0,
-            auction_collateral_threshold: 0,
-            premium_redeem_threshold: 0,
-            liquidation_collateral_threshold: 0,
+            secure_collateral_threshold: FixedU128::one(),
+            auction_collateral_threshold: FixedU128::one(),
+            premium_redeem_threshold: FixedU128::one(),
+            liquidation_collateral_threshold: FixedU128::one(),
             liquidation_vault_account_id: 0,
         }
         .assimilate_storage(&mut storage)

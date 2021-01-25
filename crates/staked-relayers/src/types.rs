@@ -2,6 +2,7 @@ use bitcoin::types::*;
 use codec::{Decode, Encode};
 use frame_support::traits::Currency;
 use security::types::{ErrorCode, StatusCode};
+use sp_arithmetic::traits::Saturating;
 use sp_std::cmp::Ord;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::fmt::Debug;
@@ -22,8 +23,6 @@ pub enum ProposalStatus {
     Accepted = 1,
     /// StatusUpdate has been rejected
     Rejected = 2,
-    /// StatusUpdate has expired
-    Expired = 3,
 }
 
 impl Default for ProposalStatus {
@@ -35,7 +34,7 @@ impl Default for ProposalStatus {
 /// ## Structs
 /// Struct storing information on a proposed parachain status update
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
-pub struct StatusUpdate<AccountId: Ord + Clone, BlockNumber, DOT> {
+pub struct StatusUpdate<AccountId: Ord + Clone, BlockNumber, DOT: Clone + PartialOrd + Saturating> {
     /// New status of the BTC Parachain.
     pub new_status_code: StatusCode,
     /// Previous status of the BTC Parachain.
@@ -57,47 +56,42 @@ pub struct StatusUpdate<AccountId: Ord + Clone, BlockNumber, DOT> {
     /// Deposit paid to submit this proposal.
     pub deposit: DOT,
     /// Bookkeeping for this proposal.
-    pub tally: Tally<AccountId>,
+    pub tally: Tally<AccountId, DOT>,
     /// Message providing more details on the change of status (detailed error message or recovery reason).
     pub message: Vec<u8>,
+}
+
+#[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
+pub struct Votes<AccountId: Ord, Balance: Clone + Saturating> {
+    pub(crate) accounts: BTreeSet<AccountId>,
+    pub(crate) total_stake: Balance,
+}
+
+impl<AccountId: Ord, Balance: Clone + Saturating> Votes<AccountId, Balance> {
+    pub(crate) fn contains(&self, id: &AccountId) -> bool {
+        self.accounts.contains(id)
+    }
+
+    pub(crate) fn insert(&mut self, id: AccountId, stake: Balance) {
+        self.accounts.insert(id);
+        self.total_stake = self.total_stake.clone().saturating_add(stake);
+    }
 }
 
 /// Record keeping for yes and no votes. Based loosely on the
 /// democracy pallet in FRAME with restricted functionality.
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
-pub struct Tally<AccountId: Ord> {
+pub struct Tally<AccountId: Ord, Balance: Clone + PartialOrd + Saturating> {
     /// Set of accounts which have voted FOR this status update. This can be either Staked Relayers or the Governance Mechanism.
-    pub(crate) aye: BTreeSet<AccountId>,
+    pub(crate) aye: Votes<AccountId, Balance>,
     /// Set of accounts which have voted AGAINST this status update. This can be either Staked Relayers or the Governance Mechanism.
-    pub(crate) nay: BTreeSet<AccountId>,
+    pub(crate) nay: Votes<AccountId, Balance>,
 }
 
-impl<AccountId: Ord + Clone> Tally<AccountId> {
+impl<AccountId: Ord + Clone, Balance: Clone + PartialOrd + Saturating> Tally<AccountId, Balance> {
     /// Returns true if the majority of votes are in favour.
-    pub(crate) fn is_approved(&self, total: u64, threshold: u64) -> bool {
-        let n = self.aye.len() as u64;
-        if n == total {
-            return true;
-        } else if ((self.aye.len() as u64) * 100)
-            .checked_div(total)
-            .unwrap_or(0)
-            > threshold
-        {
-            return true;
-        }
-        false
-    }
-
-    /// Returns true if the majority of votes are against.
-    pub(crate) fn is_rejected(&self, total: u64, threshold: u64) -> bool {
-        if ((self.nay.len() as u64) * 100)
-            .checked_div(total)
-            .unwrap_or(0)
-            > 100 - threshold
-        {
-            return true;
-        }
-        false
+    pub(crate) fn is_approved(&self) -> bool {
+        self.aye.total_stake > self.nay.total_stake
     }
 
     /// Checks if the account has already voted in this poll.
@@ -107,42 +101,24 @@ impl<AccountId: Ord + Clone> Tally<AccountId> {
 
     /// Casts a vote on the poll, returns true if successful.
     /// Returns false if the account has already voted.
-    pub(crate) fn vote(&mut self, id: AccountId, approve: bool) -> bool {
+    pub(crate) fn vote(&mut self, id: AccountId, stake: Balance, approve: bool) -> bool {
         if self.contains(&id) {
             return false;
         } else if approve {
-            self.aye.insert(id);
+            self.aye.insert(id, stake);
             return true;
         } else {
-            self.nay.insert(id);
+            self.nay.insert(id, stake);
             return true;
         }
     }
 }
 
-/// Online staked relayers who are able to participate in votes.
+/// Bonded participant which can suggest and vote on proposals.
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
-pub struct ActiveStakedRelayer<DOT> {
-    pub(crate) stake: DOT,
-}
-
-/// Reason for unavailability, chilled or maturing.
-#[derive(Encode, Decode, Clone, PartialEq, Debug)]
-pub enum StakedRelayerStatus<BlockNumber> {
-    Unknown,
-    Idle,                 // deregistered
-    Bonding(BlockNumber), // (height + MaturityPeriod)
-}
-
-impl<BlockNumber> Default for StakedRelayerStatus<BlockNumber> {
-    fn default() -> Self {
-        StakedRelayerStatus::Unknown
-    }
-}
-
-/// Offline staked relayers who are not able to participate in a vote.
-#[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
-pub struct InactiveStakedRelayer<BlockNumber, DOT> {
-    pub(crate) stake: DOT,
-    pub(crate) status: StakedRelayerStatus<BlockNumber>,
+pub struct StakedRelayer<Balance, BlockNumber> {
+    // total stake for this participant
+    pub(crate) stake: Balance,
+    // the height at which the participant bonded
+    pub(crate) height: BlockNumber,
 }

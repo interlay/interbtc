@@ -17,16 +17,6 @@ impl crate::WeightInfo for () {
             .saturating_add(DbWeight::get().reads(5 as Weight))
             .saturating_add(DbWeight::get().writes(4 as Weight))
     }
-    fn activate_staked_relayer() -> Weight {
-        (47_376_000 as Weight)
-            .saturating_add(DbWeight::get().reads(2 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
-    }
-    fn deactivate_staked_relayer() -> Weight {
-        (46_654_000 as Weight)
-            .saturating_add(DbWeight::get().reads(2 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
-    }
     fn suggest_status_update() -> Weight {
         (86_591_000 as Weight)
             .saturating_add(DbWeight::get().reads(5 as Weight))
@@ -61,6 +51,9 @@ impl crate::WeightInfo for () {
         (5_585_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
     }
     fn remove_inactive_status_update() -> Weight {
+        (5_571_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn set_maturity_period() -> Weight {
         (5_571_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
     }
 }

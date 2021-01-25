@@ -28,9 +28,9 @@ pub mod types;
 
 pub use crate::types::IssueRequest;
 
-use crate::types::{IssueRequestV0, PolkaBTC, Version, DOT};
+use crate::types::{PolkaBTC, Version, DOT};
 use bitcoin::types::H256Le;
-use btc_relay::BtcAddress;
+use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::weights::Weight;
 /// # PolkaBTC Issue implementation
 /// The Issue module according to the specification at
@@ -46,6 +46,7 @@ use primitive_types::H256;
 use sp_runtime::ModuleId;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
+use util::transactional;
 
 /// The issue module id, used for deriving its sovereign account ID.
 const _MODULE_ID: ModuleId = ModuleId(*b"issuemod");
@@ -67,6 +68,7 @@ pub trait Trait:
     + exchange_rate_oracle::Trait
     + fee::Trait
     + sla::Trait
+    + refund::Trait
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
@@ -99,7 +101,14 @@ decl_event!(
         AccountId = <T as frame_system::Trait>::AccountId,
         PolkaBTC = PolkaBTC<T>,
     {
-        RequestIssue(H256, AccountId, PolkaBTC, AccountId, BtcAddress),
+        RequestIssue(
+            H256,
+            AccountId,
+            PolkaBTC,
+            AccountId,
+            BtcAddress,
+            BtcPublicKey,
+        ),
         ExecuteIssue(H256, AccountId, AccountId),
         CancelIssue(H256, AccountId),
     }
@@ -117,29 +126,6 @@ decl_module! {
 
         /// Upgrade the runtime depending on the current `StorageVersion`.
         fn on_runtime_upgrade() -> Weight {
-            use frame_support::{migration::StorageKeyIterator, Blake2_128Concat};
-
-            if Self::storage_version() == Version::V0 {
-                StorageKeyIterator::<H256, IssueRequestV0<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, Blake2_128Concat>::new(<IssueRequests<T>>::module_prefix(), b"IssueRequests")
-                    .drain()
-                    .for_each(|(id, request_v0)| {
-                        let request_v1 = IssueRequest {
-                            vault: request_v0.vault,
-                            opentime: request_v0.opentime,
-                            griefing_collateral: request_v0.griefing_collateral,
-                            amount: request_v0.amount,
-                            fee: PolkaBTC::<T>::default(),
-                            requester: request_v0.requester,
-                            btc_address: BtcAddress::P2WPKHv0(request_v0.btc_address),
-                            completed: request_v0.completed,
-                            cancelled: false,
-                        };
-                        <IssueRequests<T>>::insert(id, request_v1);
-                    });
-
-                StorageVersion::put(Version::V1);
-            }
-
             0
         }
 
@@ -152,6 +138,7 @@ decl_module! {
         /// * `vault` - address of the vault
         /// * `griefing_collateral` - amount of DOT
         #[weight = <T as Trait>::WeightInfo::request_issue()]
+        #[transactional]
         fn request_issue(origin, amount: PolkaBTC<T>, vault_id: T::AccountId, griefing_collateral: DOT<T>)
             -> DispatchResult
         {
@@ -171,6 +158,7 @@ decl_module! {
         /// * `merkle_proof` - raw bytes
         /// * `raw_tx` - raw bytes
         #[weight = <T as Trait>::WeightInfo::execute_issue()]
+        #[transactional]
         fn execute_issue(origin, issue_id: H256, tx_id: H256Le, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
             -> DispatchResult
         {
@@ -186,6 +174,7 @@ decl_module! {
         /// * `origin` - sender of the transaction
         /// * `issue_id` - identifier of issue request as output from request_issue
         #[weight = <T as Trait>::WeightInfo::cancel_issue()]
+        #[transactional]
         fn cancel_issue(origin, issue_id: H256)
             -> DispatchResult
         {
@@ -203,6 +192,7 @@ decl_module! {
         ///
         /// # Weight: `O(1)`
         #[weight = <T as Trait>::WeightInfo::set_issue_period()]
+        #[transactional]
         fn set_issue_period(origin, period: T::BlockNumber) {
             ensure_root(origin)?;
             <IssuePeriod<T>>::set(period);
@@ -224,7 +214,7 @@ impl<T: Trait> Module<T> {
         ext::security::ensure_parachain_status_running::<T>()?;
 
         let height = <frame_system::Module<T>>::block_number();
-        let _vault = ext::vault_registry::get_vault_from_id::<T>(&vault_id)?;
+        let vault = ext::vault_registry::get_active_vault_from_id::<T>(&vault_id)?;
         // Check that the vault is currently not banned
         ext::vault_registry::ensure_not_banned::<T>(&vault_id, height)?;
 
@@ -241,10 +231,11 @@ impl<T: Trait> Module<T> {
         let fee_polkabtc = ext::fee::get_issue_fee::<T>(amount_polkabtc)?;
         let amount_btc = amount_polkabtc + fee_polkabtc;
 
-        let btc_address =
-            ext::vault_registry::increase_to_be_issued_tokens::<T>(&vault_id, amount_btc)?;
-
         let issue_id = ext::security::get_secure_id::<T>(&requester);
+
+        let btc_address = ext::vault_registry::increase_to_be_issued_tokens::<T>(
+            &vault_id, issue_id, amount_btc,
+        )?;
 
         Self::insert_issue_request(
             issue_id,
@@ -267,6 +258,7 @@ impl<T: Trait> Module<T> {
             amount_btc,
             vault_id,
             btc_address,
+            vault.wallet.public_key,
         ));
         Ok(issue_id)
     }
@@ -282,9 +274,9 @@ impl<T: Trait> Module<T> {
         // Check that Parachain is RUNNING
         ext::security::ensure_parachain_status_running::<T>()?;
 
-        let issue = Self::get_issue_request_from_id(&issue_id)?;
+        let mut issue = Self::get_issue_request_from_id(&issue_id)?;
         // allow anyone to complete issue request
-        let requester = issue.requester;
+        let requester = issue.requester.clone();
 
         // only executable before the request has expired
         ensure!(
@@ -292,15 +284,49 @@ impl<T: Trait> Module<T> {
             Error::<T>::CommitPeriodExpired
         );
 
-        let total_amount = issue.amount + issue.fee;
+        let mut total_amount = issue.amount + issue.fee;
         ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
-        ext::btc_relay::validate_transaction::<T>(
+        let (refund_address, amount_transferred) = ext::btc_relay::validate_transaction::<T>(
             raw_tx,
             TryInto::<u64>::try_into(total_amount).map_err(|_e| Error::<T>::TryIntoIntError)?
                 as i64,
             issue.btc_address,
-            issue_id.clone().as_bytes().to_vec(),
+            None,
         )?;
+        let amount_transferred = Self::u128_to_btc(amount_transferred as u128)?;
+
+        if amount_transferred > total_amount {
+            let surplus_btc = amount_transferred - total_amount;
+
+            match ext::vault_registry::force_increase_to_be_issued_tokens::<T>(
+                &issue.vault,
+                surplus_btc,
+            ) {
+                Ok(_) => {
+                    // Current vault can handle the surplus; update the issue request
+                    issue.fee = ext::fee::get_issue_fee_from_total::<T>(amount_transferred)?;
+                    issue.amount = amount_transferred - issue.fee;
+
+                    // update storage
+                    <IssueRequests<T>>::mutate(&issue_id, |x| {
+                        x.fee = issue.fee;
+                        x.amount = issue.amount;
+                    });
+
+                    total_amount = amount_transferred;
+                }
+                Err(_) => {
+                    ext::refund::request_refund::<T>(
+                        surplus_btc,
+                        issue.vault.clone(),
+                        issue.requester,
+                        refund_address,
+                        issue_id,
+                    )?;
+                    // vault does not have enough collateral to accept the over payment, so refund.
+                }
+            }
+        }
 
         ext::vault_registry::issue_tokens::<T>(&issue.vault, total_amount)?;
         ext::collateral::release_collateral::<T>(&requester, issue.griefing_collateral)?;
@@ -315,7 +341,7 @@ impl<T: Trait> Module<T> {
         // if it was a vault that did the execution on behalf of someone else, reward it by
         // increasing its SLA score
         if &requester != &executor {
-            if let Ok(vault) = ext::vault_registry::get_vault_from_id::<T>(&executor) {
+            if let Ok(vault) = ext::vault_registry::get_active_vault_from_id::<T>(&executor) {
                 ext::sla::event_update_vault_sla::<T>(
                     vault.id,
                     ext::sla::VaultEvent::SubmittedIssueProof,
@@ -426,6 +452,10 @@ impl<T: Trait> Module<T> {
             request.cancelled = cancelled;
         });
     }
+
+    fn u128_to_btc(x: u128) -> Result<PolkaBTC<T>, DispatchError> {
+        TryInto::<PolkaBTC<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
+    }
 }
 
 fn has_request_expired<T: Trait>(opentime: T::BlockNumber, period: T::BlockNumber) -> bool {
@@ -443,5 +473,6 @@ decl_error! {
         IssueCancelled,
         /// Unable to convert value
         TryIntoIntError,
+        ArithmeticUnderflow,
     }
 }

@@ -1,0 +1,70 @@
+[package]
+authors = ['Interlay']
+description = 'Refund module'
+edition = '2018'
+name = 'refund'
+version = '0.3.1'
+
+[dependencies]
+serde = { version = "1.0.101", default-features = false, features = ['derive'], optional = true }
+codec = { package = "parity-scale-codec", version = "1.3.4", default-features = false, features = ['derive'] }
+primitive-types = { version = "0.7.2", default-features = false, features = ["codec"] }
+sha2 = { version = "0.8.0", default-features = false }
+
+# Substrate dependencies
+sp-core = { version = "2.0.0", default-features = false }
+sp-io = { version = "2.0.0", default-features = false }
+sp-runtime = { version = "2.0.0", default-features = false }
+sp-std = { version = "2.0.0", default-features = false }
+sp-arithmetic = { version = "2.0.0", default-features = false }
+
+frame-support = { version = "2.0.0", default-features = false }
+frame-system = { version = "2.0.0", default-features = false }
+pallet-balances = { version = "2.0.0", default-features = false }
+pallet-timestamp = { version = "2.0.0", default-features = false }
+pallet-randomness-collective-flip = { version = "2.0.0", default-features = false }
+
+# Parachain dependencies
+treasury = { path = "../treasury", default-features = false }
+redeem = { path = "../redeem", default-features = false }
+fee = { path = "../fee", default-features = false }
+sla = { path = "../sla", default-features = false }
+vault-registry = { path = "../vault-registry", default-features = false }
+exchange-rate-oracle = { path = "../exchange-rate-oracle", default-features = false }
+btc-relay = { path = "../btc-relay", default-features = false }
+collateral = { path = "../collateral", default-features = false }
+security = { path = "../security", default-features = false }
+bitcoin = { path = "../bitcoin", default-features = false }
+util = { path = "../util", default-features = false }
+
+[dev-dependencies]
+mocktopus = "0.7.0"
+
+[features]
+default = ["std"]
+std = [
+	"serde",
+	"codec/std",
+	"frame-support/std",
+	"sp-core/std",
+	"sp-io/std",
+	"sp-runtime/std",
+	"sp-std/std",
+	"sp-arithmetic/std",
+	"frame-system/std",
+	"pallet-balances/std",
+	"treasury/std",
+	"redeem/std",
+	"fee/std",
+	"sla/std",
+	"vault-registry/std",
+	"exchange-rate-oracle/std",
+	"pallet-timestamp/std",
+	"sp-arithmetic/std",
+	"btc-relay/std",
+	"collateral/std",
+	"primitive-types/std",
+	"security/std",
+	"bitcoin/std",
+	"util/std",
+]

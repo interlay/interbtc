@@ -69,6 +69,7 @@ decl_storage! {
         VaultRedeemFailure get(fn vault_redeem_failure_sla_change) config(): T::SignedFixedPoint;
         VaultExecutedIssueMaxSlaChange get(fn vault_executed_issue_max_sla_change) config(): T::SignedFixedPoint;
         VaultSubmittedIssueProof get(fn vault_submitted_issue_proof) config(): T::SignedFixedPoint;
+        VaultRefunded get(fn vault_refunded) config(): T::SignedFixedPoint;
         RelayerBlockSubmission get(fn relayer_block_submission) config(): T::SignedFixedPoint;
         RelayerCorrectNoDataVoteOrReport get(fn relayer_correct_no_data_vote_or_report) config(): T::SignedFixedPoint;
         RelayerCorrectInvalidVoteOrReport get(fn relayer_correct_invalid_vote_or_report) config(): T::SignedFixedPoint;
@@ -124,6 +125,7 @@ impl<T: Trait> Module<T> {
         let delta_sla = match event {
             VaultEvent::RedeemFailure => <VaultRedeemFailure<T>>::get(),
             VaultEvent::SubmittedIssueProof => <VaultSubmittedIssueProof<T>>::get(),
+            VaultEvent::Refunded => <VaultRefunded<T>>::get(),
             VaultEvent::ExecutedIssue(amount) => Self::_executed_issue_sla_change(amount)?,
         };
 
@@ -209,7 +211,7 @@ impl<T: Trait> Module<T> {
         let calculate_reward = |account_id: T::AccountId| {
             // each vault gets total_reward * (issued_amount / total_issued).
             let issued_amount =
-                ext::vault_registry::get_vault_from_id::<T>(&account_id)?.issued_tokens;
+                ext::vault_registry::get_active_vault_from_id::<T>(&account_id)?.issued_tokens;
             let issued_amount = Self::polkabtc_to_u128(issued_amount)?;
             let issued_reward_in_polka_btc = issued_amount
                 .checked_mul(total_reward_for_issued_in_polka_btc)
@@ -312,11 +314,10 @@ impl<T: Trait> Module<T> {
 
         let liquidation_threshold =
             ext::vault_registry::get_liquidation_collateral_threshold::<T>();
-        let liquidation_threshold =
-            Self::_threshold_to_fixed_point(liquidation_threshold, vault_registry::GRANULARITY)?;
+        let liquidation_threshold = Self::fixed_point_unsigned_to_signed(liquidation_threshold)?;
         let premium_redeem_threshold = ext::vault_registry::get_premium_redeem_threshold::<T>();
         let premium_redeem_threshold =
-            Self::_threshold_to_fixed_point(premium_redeem_threshold, vault_registry::GRANULARITY)?;
+            Self::fixed_point_unsigned_to_signed(premium_redeem_threshold)?;
 
         Self::_calculate_slashed_amount(
             current_sla,
@@ -468,16 +469,19 @@ impl<T: Trait> Module<T> {
         Ok(stake)
     }
 
-    /// Convert a given threshold from the vault registry to a fixed point type
-    fn _threshold_to_fixed_point(
-        value: u128,
-        granularity: u32,
+    /// Convert a given threshold from the vault registry to a signed fixed point type
+    fn fixed_point_unsigned_to_signed<U: FixedPointNumber>(
+        value: U,
     ) -> Result<SignedFixedPoint<T>, DispatchError> {
-        // TODO: use SignedFixedPoint type in vault_registry
-        let scaling_factor = 10u128.pow(granularity);
-        let ret = T::SignedFixedPoint::checked_from_rational(value, scaling_factor)
-            .ok_or(Error::<T>::TryIntoIntError);
-        Ok(ret?)
+        let raw: i128 = value
+            .into_inner()
+            .unique_saturated_into()
+            .try_into()
+            .map_err(|_| Error::<T>::TryIntoIntError)?;
+
+        let ret = T::SignedFixedPoint::checked_from_rational(raw, U::accuracy())
+            .ok_or(Error::<T>::TryIntoIntError)?;
+        Ok(ret)
     }
 
     fn dot_to_u128(x: DOT<T>) -> Result<u128, DispatchError> {

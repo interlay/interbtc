@@ -42,19 +42,19 @@ pub(crate) mod vault_registry {
     use ::vault_registry::VaultStatus;
     use frame_support::dispatch::{DispatchError, DispatchResult};
 
-    pub fn get_vault_from_id<T: vault_registry::Trait>(
+    pub fn get_active_vault_from_id<T: vault_registry::Trait>(
         vault_id: &T::AccountId,
     ) -> Result<
         vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>>,
         DispatchError,
     > {
-        <vault_registry::Module<T>>::get_vault_from_id(vault_id)
+        <vault_registry::Module<T>>::get_active_vault_from_id(vault_id)
     }
 
-    pub fn is_vault_below_secure_threshold<T: vault_registry::Trait>(
+    pub fn is_vault_below_liquidation_threshold<T: vault_registry::Trait>(
         vault_id: &T::AccountId,
     ) -> Result<bool, DispatchError> {
-        <vault_registry::Module<T>>::is_vault_below_secure_threshold(vault_id)
+        <vault_registry::Module<T>>::is_vault_below_liquidation_threshold(vault_id)
     }
 
     pub fn liquidate_vault<T: vault_registry::Trait>(vault_id: &T::AccountId) -> DispatchResult {
@@ -123,7 +123,7 @@ pub(crate) mod btc_relay {
         tx_id: H256Le,
         raw_merkle_proof: Vec<u8>,
     ) -> DispatchResult {
-        <btc_relay::Module<T>>::_verify_transaction_inclusion(tx_id, raw_merkle_proof, 0, false)
+        <btc_relay::Module<T>>::_verify_transaction_inclusion(tx_id, raw_merkle_proof, None)
     }
 
     pub(crate) fn block_header_exists<T: btc_relay::Trait>(block_hash: H256Le) -> bool {
@@ -164,6 +164,20 @@ pub(crate) mod replace {
     ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError>
     {
         <replace::Module<T>>::get_open_or_completed_replace_request(id)
+    }
+}
+
+#[cfg_attr(test, mockable)]
+pub(crate) mod refund {
+    use crate::types::PolkaBTC;
+    use frame_support::dispatch::DispatchError;
+    use primitive_types::H256;
+    use refund::types::RefundRequest;
+
+    pub(crate) fn get_open_or_completed_refund_request_from_id<T: refund::Trait>(
+        id: &H256,
+    ) -> Result<RefundRequest<T::AccountId, PolkaBTC<T>>, DispatchError> {
+        <refund::Module<T>>::get_open_or_completed_refund_request_from_id(id)
     }
 }
 

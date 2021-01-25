@@ -13,13 +13,17 @@ use sp_runtime::{generic::BlockId, traits::Block as BlockT, DispatchError};
 use std::sync::Arc;
 
 #[rpc]
-pub trait VaultRegistryApi<BlockHash, AccountId, PolkaBTC, DOT>
+pub trait VaultRegistryApi<BlockHash, AccountId, PolkaBTC, DOT, UnsignedFixedPoint>
 where
     PolkaBTC: Codec + MaybeDisplay + MaybeFromStr,
     DOT: Codec + MaybeDisplay + MaybeFromStr,
+    UnsignedFixedPoint: Codec + MaybeDisplay + MaybeFromStr,
 {
     #[rpc(name = "vaultRegistry_getTotalCollateralization")]
-    fn get_total_collateralization(&self, at: Option<BlockHash>) -> JsonRpcResult<u64>;
+    fn get_total_collateralization(
+        &self,
+        at: Option<BlockHash>,
+    ) -> JsonRpcResult<UnsignedFixedPoint>;
 
     #[rpc(name = "vaultRegistry_getFirstVaultWithSufficientCollateral")]
     fn get_first_vault_with_sufficient_collateral(
@@ -48,7 +52,7 @@ where
         vault: AccountId,
         only_issued: bool,
         at: Option<BlockHash>,
-    ) -> JsonRpcResult<u64>;
+    ) -> JsonRpcResult<UnsignedFixedPoint>;
 
     #[rpc(name = "vaultRegistry_getCollateralizationFromVaultAndCollateral")]
     fn get_collateralization_from_vault_and_collateral(
@@ -57,7 +61,7 @@ where
         collateral: BalanceWrapper<DOT>,
         only_issued: bool,
         at: Option<BlockHash>,
-    ) -> JsonRpcResult<u64>;
+    ) -> JsonRpcResult<UnsignedFixedPoint>;
 
     #[rpc(name = "vaultRegistry_getRequiredCollateralForPolkabtc")]
     fn get_required_collateral_for_polkabtc(
@@ -131,20 +135,22 @@ fn handle_response<T, E: std::fmt::Debug>(
     )
 }
 
-impl<C, Block, AccountId, PolkaBTC, DOT>
-    VaultRegistryApi<<Block as BlockT>::Hash, AccountId, PolkaBTC, DOT> for VaultRegistry<C, Block>
+impl<C, Block, AccountId, PolkaBTC, DOT, UnsignedFixedPoint>
+    VaultRegistryApi<<Block as BlockT>::Hash, AccountId, PolkaBTC, DOT, UnsignedFixedPoint>
+    for VaultRegistry<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-    C::Api: VaultRegistryRuntimeApi<Block, AccountId, PolkaBTC, DOT>,
+    C::Api: VaultRegistryRuntimeApi<Block, AccountId, PolkaBTC, DOT, UnsignedFixedPoint>,
     AccountId: Codec,
     PolkaBTC: Codec + MaybeDisplay + MaybeFromStr,
     DOT: Codec + MaybeDisplay + MaybeFromStr,
+    UnsignedFixedPoint: Codec + MaybeDisplay + MaybeFromStr,
 {
     fn get_total_collateralization(
         &self,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> JsonRpcResult<u64> {
+    ) -> JsonRpcResult<UnsignedFixedPoint> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
@@ -201,7 +207,7 @@ where
         vault: AccountId,
         only_issued: bool,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> JsonRpcResult<u64> {
+    ) -> JsonRpcResult<UnsignedFixedPoint> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
@@ -217,7 +223,7 @@ where
         collateral: BalanceWrapper<DOT>,
         only_issued: bool,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> JsonRpcResult<u64> {
+    ) -> JsonRpcResult<UnsignedFixedPoint> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 

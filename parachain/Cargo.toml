@@ -3,7 +3,7 @@ authors = ['Interlay Ltd']
 build = 'build.rs'
 edition = '2018'
 name = 'btc-parachain'
-version = '0.3.2'
+version = '0.4.1'
 
 [features]
 runtime-benchmarks = [
@@ -16,111 +16,61 @@ targets = ['x86_64-unknown-linux-gnu']
 [[bin]]
 name = 'btc-parachain'
 
-[dependencies]
-jsonrpc-core = '15.0.0'
-structopt = '0.3.8'
-frame-benchmarking = "2.0.0"
-frame-benchmarking-cli = '2.0.0'
-
-[dependencies.btc-parachain-runtime]
-path = './runtime'
-version = '0.3.2'
-
-[dependencies.pallet-transaction-payment-rpc]
-version = '2.0.0'
-
-[dependencies.sc-basic-authorship]
-version = '0.8.0'
-
-[dependencies.sc-cli]
-features = ['wasmtime']
-version = '0.8.0'
-
-[dependencies.sc-client-api]
-version = '2.0.0'
-
-[dependencies.sc-consensus]
-version = "0.8.0"
-
-[dependencies.sc-consensus-aura]
-version = '0.8.0'
-
-[dependencies.sc-executor]
-features = ['wasmtime']
-version = '0.8.0'
-
-[dependencies.sc-finality-grandpa]
-version = '0.8.0'
-
-[dependencies.sc-rpc]
-version = '2.0.0'
-
-[dependencies.sc-rpc-api]
-version = '0.8.0'
-
-[dependencies.sc-service]
-features = ['wasmtime']
-version = '0.8.0'
-
-[dependencies.sc-transaction-pool]
-version = '2.0.0'
-
-[dependencies.sp-api]
-version = '2.0.0'
-
-[dependencies.sp-block-builder]
-version = '2.0.0'
-
-[dependencies.sp-blockchain]
-version = '2.0.0'
-
-[dependencies.sp-consensus]
-version = '0.8.0'
-
-[dependencies.sp-consensus-aura]
-version = '0.8.0'
-
-[dependencies.sp-arithmetic]
-version = '2.0.0'
-
-[dependencies.sp-core]
-version = '2.0.0'
-
-[dependencies.sp-finality-grandpa]
-version = '2.0.0'
-
-[dependencies.sp-inherents]
-version = '2.0.0'
-
-[dependencies.sp-runtime]
-version = '2.0.0'
-
-[dependencies.sp-transaction-pool]
-version = '2.0.0'
-
-[dependencies.substrate-frame-rpc-system]
-version = '2.0.0'
-
-[dependencies.module-exchange-rate-oracle-rpc]
-path = "../crates/exchange-rate-oracle/rpc"
-
-[dependencies.module-staked-relayers-rpc]
-path = "../crates/staked-relayers/rpc"
-
-[dependencies.module-vault-registry-rpc]
-path = "../crates/vault-registry/rpc"
-
-[dependencies.module-issue-rpc]
-path = "../crates/issue/rpc"
-
-[dependencies.module-redeem-rpc]
-path = "../crates/redeem/rpc"
-
-[dependencies.module-replace-rpc]
-path = "../crates/replace/rpc"
-
-[dependencies.module-sla-rpc]
-path = "../crates/sla/rpc"
-
 [build-dependencies.substrate-build-script-utils]
 version = '2.0.0'
+
+[dependencies]
+jsonrpc-core = '15.0.0'
+structopt = "0.3.20"
+log = '0.4.8'
+codec = { package = 'parity-scale-codec', version = '1.0.0' }
+serde = { version = "1.0.101", features = ["derive"] }
+hex-literal = "0.2.1"
+
+# Parachain dependencies
+btc-parachain-runtime = { path = "./runtime" }
+module-exchange-rate-oracle-rpc = { path = "../crates/exchange-rate-oracle/rpc" }
+module-staked-relayers-rpc = { path = "../crates/staked-relayers/rpc" }
+module-vault-registry-rpc = { path = "../crates/vault-registry/rpc" }
+module-issue-rpc = { path = "../crates/issue/rpc" }
+module-redeem-rpc = { path = "../crates/redeem/rpc" }
+module-replace-rpc = { path = "../crates/replace/rpc" }
+module-sla-rpc = { path = "../crates/sla/rpc" }
+module-refund-rpc = { path = "../crates/refund/rpc" }
+
+# Substrate dependencies
+sc-consensus = { version = "0.8.0" }
+sc-consensus-aura = { version = "0.8.0" }
+sc-cli = { version = "0.8.0", features = ["wasmtime"] }
+sc-client-api = { version = "2.0.0" }
+sc-executor = { version = "0.8.0", features = ["wasmtime"] }
+sc-rpc = { version = "2.0.0" }
+sc-rpc-api = { version = "0.8.0" }
+sc-service = { version = "0.8.0", features = ["wasmtime"] }
+sc-transaction-pool = { version = "2.0.0" }
+sc-basic-authorship = { version = "0.8.0" }
+sc-finality-grandpa = { version = "0.8.0" }
+sc-chain-spec = { version = "2.0.0" }
+sc-tracing = { version = "2.0.0" }
+sp-runtime = { version = "2.0.0" }
+sp-io = { version = "2.0.0" }
+sp-api = { version = "2.0.0" }
+sp-core = { version = "2.0.0" }
+sp-inherents = { version = "2.0.0" }
+sp-consensus = { version = "0.8.0" }
+sp-consensus-aura = { version = "0.8.0" }
+sp-session = { version = "2.0.0" }
+sp-offchain = { version = "2.0.0" }
+sp-block-builder = { version = "2.0.0" }
+sp-blockchain = { version = "2.0.0" }
+sp-timestamp = { version = "2.0.0" }
+sp-trie = { version = "2.0.0" }
+sp-transaction-pool = { version = "2.0.0" }
+sp-arithmetic = { version = "2.0.0" }
+sp-finality-grandpa = { version = "2.0.0" }
+
+pallet-transaction-payment-rpc = { version = "2.0.0" }
+substrate-frame-rpc-system = { version = "2.0.0" }
+
+frame-benchmarking = { version = "2.0.0" }
+frame-benchmarking-cli = { version = "2.0.0" }

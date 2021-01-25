@@ -807,7 +807,7 @@ fn test_validate_transaction_succeeds_with_payment() {
             raw_tx,
             payment_value,
             recipient_btc_address,
-            vec![]
+            Some(vec![])
         ));
     });
 }
@@ -834,7 +834,7 @@ fn test_validate_transaction_succeeds_with_payment_and_op_return() {
             raw_tx,
             payment_value,
             recipient_btc_address,
-            op_return_id
+            Some(op_return_id)
         ));
     });
 }
@@ -861,7 +861,7 @@ fn test_validate_transaction_succeeds_with_op_return_and_payment() {
             raw_tx,
             payment_value,
             recipient_btc_address,
-            op_return_id
+            Some(op_return_id)
         ));
     });
 }
@@ -892,7 +892,7 @@ fn test_validate_transaction_succeeds_with_payment_and_refund_and_op_return() {
             raw_tx,
             payment_value,
             recipient_btc_address,
-            op_return_id
+            Some(op_return_id)
         ));
     });
 }
@@ -922,7 +922,7 @@ fn test_validate_transaction_invalid_no_outputs_fails() {
                 raw_tx,
                 payment_value,
                 recipient_btc_address,
-                op_return_id
+                Some(op_return_id)
             ),
             TestError::MalformedTransaction
         )
@@ -957,7 +957,7 @@ fn test_validate_transaction_insufficient_payment_value_fails() {
                 raw_tx,
                 payment_value,
                 recipient_btc_address,
-                op_return_id
+                Some(op_return_id)
             ),
             TestError::InsufficientValue
         )
@@ -993,7 +993,7 @@ fn test_validate_transaction_wrong_recipient_fails() {
                 raw_tx,
                 payment_value,
                 recipient_btc_address,
-                op_return_id
+                Some(op_return_id)
             ),
             TestError::WrongRecipient
         )
@@ -1029,7 +1029,7 @@ fn test_validate_transaction_incorrect_opreturn_fails() {
                 raw_tx,
                 payment_value,
                 recipient_btc_address,
-                op_return_id
+                Some(op_return_id)
             ),
             TestError::InvalidOpReturn
         )
@@ -1055,8 +1055,7 @@ fn test_verify_and_validate_transaction_succeeds() {
         // rest are example values -- not checked in this test.
         // let block_height = 0;
         let raw_merkle_proof = vec![0u8; 100];
-        let confirmations = 0;
-        let insecure = false;
+        let confirmations = None;
         let payment_value: i64 = 0;
         let recipient_btc_address =
             BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
@@ -1064,20 +1063,21 @@ fn test_verify_and_validate_transaction_succeeds() {
             "aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned(),
         )
         .unwrap();
-        BTCRelay::_validate_transaction.mock_safe(move |_, _, _, _| MockResult::Return(Ok(())));
+        BTCRelay::_validate_transaction.mock_safe(move |_, _, _, _| {
+            MockResult::Return(Ok((recipient_btc_address.clone(), 0)))
+        });
         BTCRelay::_verify_transaction_inclusion
-            .mock_safe(move |_, _, _, _| MockResult::Return(Ok(())));
+            .mock_safe(move |_, _, _| MockResult::Return(Ok(())));
 
         assert_ok!(BTCRelay::verify_and_validate_transaction(
             Origin::signed(3),
             real_txid,
             raw_merkle_proof,
             confirmations,
-            insecure,
             raw_tx,
             payment_value,
             recipient_btc_address,
-            op_return_id
+            Some(op_return_id)
         ));
     });
 }
@@ -1334,8 +1334,7 @@ fn test_verify_transaction_inclusion_succeeds() {
         let fork_chain_height = 280;
         // Random init since we mock this
         let raw_merkle_proof = vec![0u8; 100];
-        let confirmations = 0;
-        let insecure = false;
+        let confirmations = None;
         let rich_block_header = sample_rich_tx_block_header(chain_ref, main_chain_height);
 
         let proof = sample_merkle_proof();
@@ -1365,7 +1364,7 @@ fn test_verify_transaction_inclusion_succeeds() {
         BTCRelay::get_block_header_from_hash
             .mock_safe(move |_| MockResult::Return(Ok(rich_block_header)));
 
-        BTCRelay::check_bitcoin_confirmations.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
+        BTCRelay::check_bitcoin_confirmations.mock_safe(|_, _, _| MockResult::Return(Ok(())));
 
         BTCRelay::check_parachain_confirmations.mock_safe(|_| MockResult::Return(Ok(())));
 
@@ -1373,8 +1372,7 @@ fn test_verify_transaction_inclusion_succeeds() {
             Origin::signed(3),
             proof_result.transaction_hash,
             raw_merkle_proof,
-            confirmations,
-            insecure
+            confirmations
         ));
     });
 }
@@ -1387,8 +1385,7 @@ fn test_verify_transaction_inclusion_empty_fork_succeeds() {
         let main_chain_height = 300;
         // Random init since we mock this
         let raw_merkle_proof = vec![0u8; 100];
-        let confirmations = 0;
-        let insecure = false;
+        let confirmations = None;
         let rich_block_header = sample_rich_tx_block_header(chain_ref, main_chain_height);
 
         let proof = sample_merkle_proof();
@@ -1413,7 +1410,7 @@ fn test_verify_transaction_inclusion_empty_fork_succeeds() {
         BTCRelay::get_block_header_from_hash
             .mock_safe(move |_| MockResult::Return(Ok(rich_block_header)));
 
-        BTCRelay::check_bitcoin_confirmations.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
+        BTCRelay::check_bitcoin_confirmations.mock_safe(|_, _, _| MockResult::Return(Ok(())));
 
         BTCRelay::check_parachain_confirmations.mock_safe(|_| MockResult::Return(Ok(())));
 
@@ -1422,7 +1419,6 @@ fn test_verify_transaction_inclusion_empty_fork_succeeds() {
             proof_result.transaction_hash,
             raw_merkle_proof,
             confirmations,
-            insecure
         ));
     });
 }
@@ -1437,8 +1433,7 @@ fn test_verify_transaction_inclusion_invalid_tx_id_fails() {
         let fork_chain_height = 280;
         // Random init since we mock this
         let raw_merkle_proof = vec![0u8; 100];
-        let confirmations = 0;
-        let insecure = false;
+        let confirmations = None;
         let rich_block_header = sample_rich_tx_block_header(chain_ref, main_chain_height);
 
         // Mismatching TXID
@@ -1476,7 +1471,7 @@ fn test_verify_transaction_inclusion_invalid_tx_id_fails() {
         BTCRelay::get_block_header_from_hash
             .mock_safe(move |_| MockResult::Return(Ok(rich_block_header)));
 
-        BTCRelay::check_bitcoin_confirmations.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
+        BTCRelay::check_bitcoin_confirmations.mock_safe(|_, _, _| MockResult::Return(Ok(())));
 
         BTCRelay::check_parachain_confirmations.mock_safe(|_| MockResult::Return(Ok(())));
 
@@ -1486,7 +1481,6 @@ fn test_verify_transaction_inclusion_invalid_tx_id_fails() {
                 invalid_tx_id,
                 raw_merkle_proof,
                 confirmations,
-                insecure
             ),
             TestError::InvalidTxid
         );
@@ -1503,8 +1497,7 @@ fn test_verify_transaction_inclusion_invalid_merkle_root_fails() {
         let fork_chain_height = 280;
         // Random init since we mock this
         let raw_merkle_proof = vec![0u8; 100];
-        let confirmations = 0;
-        let insecure = false;
+        let confirmations = None;
         let mut rich_block_header = sample_rich_tx_block_header(chain_ref, main_chain_height);
 
         // Mismatching merkle root
@@ -1542,7 +1535,7 @@ fn test_verify_transaction_inclusion_invalid_merkle_root_fails() {
         BTCRelay::get_block_header_from_hash
             .mock_safe(move |_| MockResult::Return(Ok(rich_block_header)));
 
-        BTCRelay::check_bitcoin_confirmations.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
+        BTCRelay::check_bitcoin_confirmations.mock_safe(|_, _, _| MockResult::Return(Ok(())));
 
         BTCRelay::check_parachain_confirmations.mock_safe(|_| MockResult::Return(Ok(())));
 
@@ -1552,7 +1545,6 @@ fn test_verify_transaction_inclusion_invalid_merkle_root_fails() {
                 proof_result.transaction_hash,
                 raw_merkle_proof,
                 confirmations,
-                insecure
             ),
             TestError::InvalidMerkleProof
         );
@@ -1568,8 +1560,7 @@ fn test_verify_transaction_inclusion_fails_with_ongoing_fork() {
 
         let tx_id = sample_valid_proof_result().transaction_hash;
         let raw_merkle_proof = vec![0u8; 100];
-        let confirmations = 0;
-        let insecure = false;
+        let confirmations = None;
 
         assert_err!(
             BTCRelay::verify_transaction_inclusion(
@@ -1577,7 +1568,6 @@ fn test_verify_transaction_inclusion_fails_with_ongoing_fork() {
                 tx_id,
                 raw_merkle_proof,
                 confirmations,
-                insecure
             ),
             TestError::OngoingFork
         );
@@ -1589,14 +1579,12 @@ fn test_check_bitcoin_confirmations_insecure_succeeds() {
     run_test(|| {
         let main_chain_height = 100;
         let tx_block_height = 90;
-        let insecure = true;
 
-        let req_confs = 5;
+        let req_confs = Some(5);
         assert_ok!(BTCRelay::check_bitcoin_confirmations(
             main_chain_height,
             req_confs,
             tx_block_height,
-            insecure
         ));
     });
 }
@@ -1606,17 +1594,11 @@ fn test_check_bitcoin_confirmations_insecure_insufficient_confs_fails() {
     run_test(|| {
         let main_chain_height = 100;
         let tx_block_height = 99;
-        let insecure = true;
 
-        let req_confs = 5;
+        let req_confs = Some(5);
 
         assert_err!(
-            BTCRelay::check_bitcoin_confirmations(
-                main_chain_height,
-                req_confs,
-                tx_block_height,
-                insecure
-            ),
+            BTCRelay::check_bitcoin_confirmations(main_chain_height, req_confs, tx_block_height,),
             TestError::BitcoinConfirmations
         )
     });
@@ -1627,9 +1609,8 @@ fn test_check_bitcoin_confirmations_secure_stable_confs_succeeds() {
     run_test(|| {
         let main_chain_height = 100;
         let tx_block_height = 90;
-        let insecure = false;
 
-        let req_confs = 5;
+        let req_confs = None;
         // relevant check: ok
         let stable_confs = 10;
 
@@ -1639,7 +1620,6 @@ fn test_check_bitcoin_confirmations_secure_stable_confs_succeeds() {
             main_chain_height,
             req_confs,
             tx_block_height,
-            insecure
         ));
     });
 }
@@ -1649,10 +1629,8 @@ fn test_check_bitcoin_confirmations_secure_user_confs_succeeds() {
     run_test(|| {
         let main_chain_height = 100;
         let tx_block_height = 85;
-        let insecure = false;
-
         // relevant check: ok
-        let req_confs = 15;
+        let req_confs = None;
         let stable_confs = 10;
 
         BTCRelay::get_stable_transaction_confirmations
@@ -1661,7 +1639,6 @@ fn test_check_bitcoin_confirmations_secure_user_confs_succeeds() {
             main_chain_height,
             req_confs,
             tx_block_height,
-            insecure
         ));
     });
 }
@@ -1671,9 +1648,8 @@ fn test_check_bitcoin_confirmations_secure_insufficient_stable_confs_succeeds() 
     run_test(|| {
         let main_chain_height = 100;
         let tx_block_height = 91;
-        let insecure = false;
 
-        let req_confs = 5;
+        let req_confs = None;
         // relevant check: fails
         let stable_confs = 10;
 
@@ -1681,38 +1657,7 @@ fn test_check_bitcoin_confirmations_secure_insufficient_stable_confs_succeeds() 
             .mock_safe(move || MockResult::Return(stable_confs));
 
         assert_err!(
-            BTCRelay::check_bitcoin_confirmations(
-                main_chain_height,
-                req_confs,
-                tx_block_height,
-                insecure
-            ),
-            TestError::InsufficientStableConfirmations
-        )
-    });
-}
-
-#[test]
-fn test_check_bitcoin_confirmations_secure_insufficient_user_confs_succeeds() {
-    run_test(|| {
-        let main_chain_height = 100;
-        let tx_block_height = 90;
-        let insecure = false;
-
-        // relevant check: fails
-        let req_confs = 15;
-        let stable_confs = 10;
-
-        BTCRelay::get_stable_transaction_confirmations
-            .mock_safe(move || MockResult::Return(stable_confs));
-
-        assert_err!(
-            BTCRelay::check_bitcoin_confirmations(
-                main_chain_height,
-                req_confs,
-                tx_block_height,
-                insecure
-            ),
+            BTCRelay::check_bitcoin_confirmations(main_chain_height, req_confs, tx_block_height,),
             TestError::BitcoinConfirmations
         )
     });
@@ -1821,7 +1766,7 @@ fn test_extract_value_fails_with_wrong_recipient() {
             .build();
 
         assert_err!(
-            BTCRelay::extract_value(transaction, recipient_btc_address_1),
+            BTCRelay::extract_payment_value(transaction, recipient_btc_address_1),
             TestError::WrongRecipient
         );
     })
@@ -1842,7 +1787,7 @@ fn test_extract_value_succeeds() {
             .build();
 
         assert_eq!(
-            BTCRelay::extract_value(transaction, recipient_btc_address).unwrap(),
+            BTCRelay::extract_payment_value(transaction, recipient_btc_address).unwrap(),
             recipient_value
         );
     })
@@ -1859,7 +1804,7 @@ fn test_extract_value_and_op_return_fails_with_not_enough_outputs() {
             .build();
 
         assert_err!(
-            BTCRelay::extract_value_and_op_return(transaction, recipient_btc_address),
+            BTCRelay::extract_payment_value_and_op_return(transaction, recipient_btc_address),
             TestError::MalformedTransaction
         );
     })
@@ -1878,7 +1823,7 @@ fn test_extract_value_and_op_return_fails_with_no_op_return() {
             .build();
 
         assert_err!(
-            BTCRelay::extract_value_and_op_return(transaction, recipient_btc_address_0),
+            BTCRelay::extract_payment_value_and_op_return(transaction, recipient_btc_address_0),
             TestError::NotOpReturn
         );
     })
@@ -1898,7 +1843,7 @@ fn test_extract_value_and_op_return_fails_with_no_recipient() {
             .build();
 
         assert_err!(
-            BTCRelay::extract_value_and_op_return(transaction, recipient_btc_address_0),
+            BTCRelay::extract_payment_value_and_op_return(transaction, recipient_btc_address_0),
             TestError::WrongRecipient
         );
     })
@@ -1921,7 +1866,8 @@ fn test_extract_value_and_op_return_succeeds() {
             .build();
 
         let (extr_value, extr_data) =
-            BTCRelay::extract_value_and_op_return(transaction, recipient_btc_address).unwrap();
+            BTCRelay::extract_payment_value_and_op_return(transaction, recipient_btc_address)
+                .unwrap();
 
         assert_eq!(extr_value, recipient_value);
         assert_eq!(extr_data, op_return);

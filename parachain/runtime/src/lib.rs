@@ -316,11 +316,8 @@ impl security::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const MaturityPeriod: u32 = 10;
     pub const MinimumDeposit: u32 = 10;
     pub const MinimumStake: u32 = 10;
-    pub const MinimumParticipants: u32 = 3;
-    pub const VoteThreshold: u32 = 50;
     pub const VotingPeriod: BlockNumber = DAYS;
     pub const MaximumMessageSize: u32 = 256;
 }
@@ -330,11 +327,8 @@ pub use staked_relayers::RawEvent as StakedRelayersEvent;
 impl staked_relayers::Trait for Runtime {
     type Event = Event;
     type WeightInfo = ();
-    type MaturityPeriod = MaturityPeriod;
     type MinimumDeposit = MinimumDeposit;
     type MinimumStake = MinimumStake;
-    type MinimumParticipants = MinimumParticipants;
-    type VoteThreshold = VoteThreshold;
     type VotingPeriod = VotingPeriod;
     type MaximumMessageSize = MaximumMessageSize;
 }
@@ -343,6 +337,7 @@ pub use vault_registry::RawEvent as VaultRegistryEvent;
 
 impl vault_registry::Trait for Runtime {
     type Event = Event;
+    type UnsignedFixedPoint = FixedU128;
     type RandomnessSource = RandomnessCollectiveFlip;
     type WeightInfo = ();
 }
@@ -351,6 +346,7 @@ pub use exchange_rate_oracle::RawEvent as RawExchangeRateOracleEvent;
 
 impl exchange_rate_oracle::Trait for Runtime {
     type Event = Event;
+    type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
 }
 
@@ -363,6 +359,13 @@ impl fee::Trait for Runtime {
 impl sla::Trait for Runtime {
     type Event = Event;
     type SignedFixedPoint = FixedI128;
+}
+
+pub use refund::{RawEvent as RawRefundEvent, RefundRequest};
+
+impl refund::Trait for Runtime {
+    type Event = Event;
+    type WeightInfo = ();
 }
 
 pub use issue::{IssueRequest, RawEvent as RawIssueEvent};
@@ -414,6 +417,7 @@ construct_runtime!(
         Replace: replace::{Module, Call, Config<T>, Storage, Event<T>},
         Fee: fee::{Module, Call, Config<T>, Storage, Event<T>},
         Sla: sla::{Module, Call, Config<T>, Storage, Event<T>},
+        Refund: refund::{Module, Call, Config<T>, Storage, Event<T>},
     }
 );
 
@@ -643,9 +647,10 @@ impl_runtime_apis! {
         Block,
         AccountId,
         Balance,
-        Balance
+        Balance,
+        FixedU128
     > for Runtime {
-        fn get_total_collateralization() -> Result<u64, DispatchError> {
+        fn get_total_collateralization() -> Result<FixedU128, DispatchError> {
             VaultRegistry::get_total_collateralization()
         }
 
@@ -662,11 +667,11 @@ impl_runtime_apis! {
             Ok(BalanceWrapper{amount:result})
         }
 
-        fn get_collateralization_from_vault(vault: AccountId, only_issued: bool) -> Result<u64, DispatchError> {
+        fn get_collateralization_from_vault(vault: AccountId, only_issued: bool) -> Result<FixedU128, DispatchError> {
             VaultRegistry::get_collateralization_from_vault(vault, only_issued)
         }
 
-        fn get_collateralization_from_vault_and_collateral(vault: AccountId, collateral: BalanceWrapper<Balance>, only_issued: bool) -> Result<u64, DispatchError> {
+        fn get_collateralization_from_vault_and_collateral(vault: AccountId, collateral: BalanceWrapper<Balance>, only_issued: bool) -> Result<FixedU128, DispatchError> {
             VaultRegistry::get_collateralization_from_vault_and_collateral(vault, collateral.amount, only_issued)
         }
 
@@ -712,6 +717,25 @@ impl_runtime_apis! {
 
         fn get_vault_redeem_requests(account_id: AccountId) -> Vec<(H256, RedeemRequest<AccountId, BlockNumber, Balance, Balance>)> {
             Redeem::get_redeem_requests_for_vault(account_id)
+        }
+    }
+
+    impl module_refund_rpc_runtime_api::RefundApi<
+        Block,
+        AccountId,
+        H256,
+        RefundRequest<AccountId, Balance>
+    > for Runtime {
+        fn get_refund_requests(account_id: AccountId) -> Vec<(H256, RefundRequest<AccountId, Balance>)> {
+            Refund::get_refund_requests_for_account(account_id)
+        }
+
+        fn get_refund_requests_by_issue_id(issue_id: H256) -> Result<(H256, RefundRequest<AccountId, Balance>), DispatchError> {
+            Refund::get_refund_requests_by_issue_id(issue_id)
+        }
+
+        fn get_vault_refund_requests(account_id: AccountId) -> Vec<(H256, RefundRequest<AccountId, Balance>)> {
+            Refund::get_refund_requests_for_vault(account_id)
         }
     }
 

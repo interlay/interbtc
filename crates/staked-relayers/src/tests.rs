@@ -1,19 +1,15 @@
 extern crate hex;
-use crate::types::{
-    ActiveStakedRelayer, InactiveStakedRelayer, ProposalStatus, StakedRelayerStatus, StatusUpdate,
-    Tally,
-};
+use crate::types::{ProposalStatus, StakedRelayer, StatusUpdate, Tally, Votes};
 use crate::{ext, mock::*};
 use bitcoin::formatter::Formattable;
 use bitcoin::types::{H256Le, TransactionBuilder, TransactionInputBuilder, TransactionOutput};
-use btc_relay::BtcAddress;
+use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
 use redeem::types::RedeemRequest;
 use replace::types::ReplaceRequest;
 use security::types::{ErrorCode, StatusCode};
 use sp_core::{H160, H256};
-use sp_std::collections::btree_set::BTreeSet;
 use std::convert::TryInto;
 use std::str::FromStr;
 use vault_registry::{Vault, VaultStatus, Wallet};
@@ -47,6 +43,13 @@ macro_rules! assert_not_emitted {
     };
 }
 
+fn dummy_public_key() -> BtcPublicKey {
+    BtcPublicKey([
+        2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55,
+        18, 45, 222, 180, 119, 54, 243, 97, 173, 150, 161, 169, 230,
+    ])
+}
+
 /// Mocking functions
 fn init_zero_vault(
     id: AccountId,
@@ -54,8 +57,9 @@ fn init_zero_vault(
 ) -> Vault<AccountId, BlockNumber, u64> {
     let mut vault = Vault::default();
     vault.id = id;
+    vault.wallet = Wallet::new(dummy_public_key());
     match btc_address {
-        Some(btc_address) => vault.wallet = Wallet::new(btc_address),
+        Some(btc_address) => vault.wallet.add_btc_address(btc_address),
         None => {}
     }
     vault
@@ -77,6 +81,9 @@ fn test_register_staked_relayer_fails_with_insufficient_stake() {
 
 #[test]
 fn test_register_staked_relayer_succeeds() {
+    use crate::sp_api_hidden_includes_decl_storage::hidden_include::StorageMap;
+    use crate::InactiveStakedRelayers;
+
     run_test(|| {
         let relayer = Origin::signed(ALICE);
         let amount: Balance = 20;
@@ -85,6 +92,7 @@ fn test_register_staked_relayer_succeeds() {
 
         assert_ok!(Staking::register_staked_relayer(relayer.clone(), amount));
         assert_emitted!(Event::RegisterStakedRelayer(ALICE, 11, amount));
+        let maturity_height = System::block_number() + Staking::get_maturity_period();
 
         // re-registration not allowed
         assert_err!(
@@ -97,16 +105,16 @@ fn test_register_staked_relayer_succeeds() {
             TestError::NotRegistered,
         );
 
-        assert_ok!(
-            Staking::get_inactive_staked_relayer(&ALICE),
-            InactiveStakedRelayer {
+        assert_eq!(
+            <InactiveStakedRelayers<Test>>::get(ALICE),
+            StakedRelayer {
                 stake: amount,
-                status: StakedRelayerStatus::Bonding(11)
+                height: maturity_height,
             }
         );
 
         assert_err!(
-            Staking::try_bond_staked_relayer(&ALICE, amount, 0, 11),
+            Staking::try_bond_staked_relayer(&ALICE, amount, 0, maturity_height),
             TestError::NotMatured
         );
         assert_err!(
@@ -114,10 +122,19 @@ fn test_register_staked_relayer_succeeds() {
             TestError::NotRegistered,
         );
 
-        assert_ok!(Staking::try_bond_staked_relayer(&ALICE, amount, 20, 10));
+        let current_height = 20;
+        assert_ok!(Staking::try_bond_staked_relayer(
+            &ALICE,
+            amount,
+            current_height,
+            maturity_height
+        ));
         assert_ok!(
             Staking::get_active_staked_relayer(&ALICE),
-            ActiveStakedRelayer { stake: amount }
+            StakedRelayer {
+                stake: amount,
+                height: current_height,
+            }
         );
     })
 }
@@ -134,17 +151,18 @@ fn test_deregister_staked_relayer_fails_with_not_registered() {
     })
 }
 
-fn inject_active_staked_relayer(id: &AccountId, amount: Balance) {
-    Staking::add_active_staked_relayer(id, amount);
+fn inject_active_staked_relayer(id: &AccountId, stake: Balance) {
+    let height = System::block_number();
+    Staking::insert_active_staked_relayer(id, stake, height);
     assert_ok!(
         Staking::get_active_staked_relayer(id),
-        ActiveStakedRelayer { stake: amount }
+        StakedRelayer { stake, height }
     );
 }
 
 fn inject_status_update(proposer: AccountId) -> u64 {
     let mut tally = Tally::default();
-    tally.aye.insert(proposer.clone());
+    tally.aye.insert(proposer.clone(), 10);
 
     Staking::insert_active_status_update(StatusUpdate {
         new_status_code: StatusCode::Error,
@@ -192,65 +210,7 @@ fn test_deregister_staked_relayer_succeeds() {
 }
 
 #[test]
-fn test_activate_staked_relayer_fails_with_not_registered() {
-    run_test(|| {
-        assert_err!(
-            Staking::activate_staked_relayer(Origin::signed(ALICE)),
-            TestError::NotRegistered
-        );
-    })
-}
-
-fn inject_inactive_staked_relayer(id: &AccountId, amount: Balance) {
-    Staking::add_inactive_staked_relayer(id, amount, StakedRelayerStatus::Idle);
-    assert_ok!(
-        Staking::get_inactive_staked_relayer(id),
-        InactiveStakedRelayer {
-            stake: amount,
-            status: StakedRelayerStatus::Idle
-        }
-    );
-}
-
-#[test]
-fn test_activate_staked_relayer_succeeds() {
-    run_test(|| {
-        inject_inactive_staked_relayer(&ALICE, 3);
-        assert_ok!(Staking::activate_staked_relayer(Origin::signed(ALICE)));
-        assert_ok!(
-            Staking::get_active_staked_relayer(&ALICE),
-            ActiveStakedRelayer { stake: 3 }
-        );
-    })
-}
-
-#[test]
-fn test_deactivate_staked_relayer_fails_with_not_registered() {
-    run_test(|| {
-        assert_err!(
-            Staking::deactivate_staked_relayer(Origin::signed(ALICE)),
-            TestError::NotRegistered
-        );
-    })
-}
-
-#[test]
-fn test_deactivate_staked_relayer_succeeds() {
-    run_test(|| {
-        inject_active_staked_relayer(&ALICE, 3);
-        assert_ok!(Staking::deactivate_staked_relayer(Origin::signed(ALICE)));
-        assert_ok!(
-            Staking::get_inactive_staked_relayer(&ALICE),
-            InactiveStakedRelayer {
-                stake: 3,
-                status: StakedRelayerStatus::Idle
-            }
-        );
-    })
-}
-
-#[test]
-fn test_suggest_status_update_fails_with_staked_relayers_only() {
+fn test_suggest_status_update_fails_with_not_registered() {
     run_test(|| {
         assert_err!(
             Staking::suggest_status_update(
@@ -262,7 +222,7 @@ fn test_suggest_status_update_fails_with_staked_relayers_only() {
                 None,
                 vec![],
             ),
-            TestError::StakedRelayersOnly,
+            TestError::NotRegistered,
         );
     })
 }
@@ -404,13 +364,13 @@ fn test_suggest_status_update_succeeds() {
     })
 }
 
-macro_rules! account_id_set {
-    () => { BTreeSet::<AccountId>::new() };
+macro_rules! decl_votes {
+    () => { Votes::default() };
     ($($x:expr),*) => {
         {
-            let mut set = BTreeSet::<AccountId>::new();
+            let mut set = Votes::default();
             $(
-                set.insert($x);
+                set.insert($x.0, $x.1);
             )*
             set
         }
@@ -421,24 +381,14 @@ macro_rules! account_id_set {
 fn test_tally_is_approved_or_rejected() {
     run_test(|| {
         let mut tally = Tally {
-            aye: account_id_set!(1, 2, 3),
-            nay: account_id_set!(4, 5, 6),
+            aye: decl_votes!((1, 5), (2, 5), (3, 5)),
+            nay: decl_votes!((4, 10), (5, 10), (6, 10)),
         };
 
-        assert_eq!(tally.is_approved(6, 25), true);
-        assert_eq!(tally.is_rejected(6, 25), false);
+        assert_eq!(tally.is_approved(), false);
 
-        assert_eq!(tally.is_approved(6, 50), false);
-        assert_eq!(tally.is_rejected(6, 50), false);
-
-        assert_eq!(tally.is_approved(6, 75), false);
-        assert_eq!(tally.is_rejected(6, 75), true);
-
-        assert_eq!(tally.is_approved(6, 100), false);
-        assert_eq!(tally.is_rejected(6, 100), true);
-
-        tally.nay.clear();
-        assert_eq!(tally.is_approved(3, 100), true);
+        tally.nay = decl_votes!();
+        assert_eq!(tally.is_approved(), true);
     })
 }
 
@@ -446,29 +396,29 @@ fn test_tally_is_approved_or_rejected() {
 fn test_tally_vote() {
     run_test(|| {
         let mut tally = Tally {
-            aye: account_id_set!(),
-            nay: account_id_set!(),
+            aye: decl_votes!(),
+            nay: decl_votes!(),
         };
 
-        tally.vote(1, true);
-        tally.vote(2, false);
+        tally.vote(1, 10, true);
+        tally.vote(2, 10, false);
 
         assert_eq!(
             tally,
             Tally {
-                aye: account_id_set!(1),
-                nay: account_id_set!(2),
+                aye: decl_votes!((1, 10)),
+                nay: decl_votes!((2, 10)),
             }
         );
     })
 }
 
 #[test]
-fn test_vote_on_status_update_fails_with_staked_relayers_only() {
+fn test_vote_on_status_update_fails_with_not_registered() {
     run_test(|| {
         assert_err!(
             Staking::vote_on_status_update(Origin::signed(ALICE), 0, false),
-            TestError::StakedRelayersOnly,
+            TestError::NotRegistered,
         );
     })
 }
@@ -518,7 +468,7 @@ fn test_vote_on_status_update_succeeds() {
             status_update_id,
             true
         ));
-        Staking::end_block(3);
+        Staking::end_block(200);
         assert_emitted!(Event::ExecuteStatusUpdate(
             StatusCode::Error,
             None,
@@ -528,24 +478,6 @@ fn test_vote_on_status_update_succeeds() {
 
         let status_update = Staking::inactive_status_update(status_update_id);
         assert_eq!(status_update.proposal_status, ProposalStatus::Accepted);
-    })
-}
-#[test]
-fn test_end_block_status_update_expired() {
-    run_test(|| {
-        ext::collateral::release_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-        let status_update_id = inject_status_update(ALICE);
-        Staking::end_block(DEFAULT_END_HEIGHT + 100);
-        let status_update = Staking::inactive_status_update(&status_update_id);
-        assert_eq!(status_update.proposal_status, ProposalStatus::Expired);
-        assert_not_emitted!(Event::ExecuteStatusUpdate(
-            StatusCode::Error,
-            None,
-            None,
-            None
-        ));
-        assert_not_emitted!(Event::RejectStatusUpdate(StatusCode::Error, None, None));
-        assert_emitted!(Event::ExpireStatusUpdate(status_update_id));
     })
 }
 
@@ -588,7 +520,7 @@ fn test_execute_status_update_fails_with_insufficient_yes_votes() {
         inject_active_staked_relayer(&EVE, amount);
 
         let mut status_update = StatusUpdate::default();
-        status_update.tally.nay = account_id_set!(ALICE, BOB, CAROL);
+        status_update.tally.nay = decl_votes!((ALICE, 10), (BOB, 10), (CAROL, 10));
         Staking::insert_active_status_update(status_update.clone());
 
         assert_err!(
@@ -627,8 +559,8 @@ fn test_execute_status_update_fails_with_no_block_hash() {
             proposer: ALICE,
             deposit: 10,
             tally: Tally {
-                aye: account_id_set!(ALICE, BOB, CAROL),
-                nay: account_id_set!(),
+                aye: decl_votes!((ALICE, 10), (BOB, 10), (CAROL, 10)),
+                nay: decl_votes!(),
             },
             message: vec![],
         };
@@ -664,8 +596,8 @@ fn test_execute_status_update_succeeds() {
             proposer: ALICE,
             deposit: 10,
             tally: Tally {
-                aye: account_id_set!(ALICE, BOB, CAROL),
-                nay: account_id_set!(),
+                aye: decl_votes!((ALICE, 10), (BOB, 10), (CAROL, 10)),
+                nay: decl_votes!(),
             },
             message: vec![],
         };
@@ -694,7 +626,7 @@ fn test_reject_status_update_fails_with_insufficient_no_votes() {
         inject_active_staked_relayer(&EVE, amount);
 
         let mut status_update = StatusUpdate::default();
-        status_update.tally.aye = account_id_set!(ALICE, BOB, CAROL);
+        status_update.tally.aye = decl_votes!((ALICE, 10), (BOB, 10), (CAROL, 10));
         Staking::insert_active_status_update(status_update.clone());
 
         assert_err!(
@@ -717,7 +649,7 @@ fn test_reject_status_update_succeeds() {
         inject_active_staked_relayer(&EVE, amount);
 
         let mut status_update = StatusUpdate::default();
-        status_update.tally.nay = account_id_set!(ALICE, BOB, CAROL);
+        status_update.tally.nay = decl_votes!((ALICE, 10), (BOB, 10), (CAROL, 10));
         Staking::insert_active_status_update(status_update.clone());
 
         assert_ok!(Staking::reject_status_update(&mut status_update));
@@ -814,7 +746,7 @@ fn test_slash_staked_relayer_succeeds() {
 }
 
 #[test]
-fn test_report_vault_theft_fails_with_staked_relayers_only() {
+fn test_report_vault_theft_fails_with_not_registered() {
     run_test(|| {
         assert_err!(
             Staking::report_vault_theft(
@@ -824,7 +756,7 @@ fn test_report_vault_theft_fails_with_staked_relayers_only() {
                 vec![0u8; 32],
                 vec![0u8; 32]
             ),
-            TestError::StakedRelayersOnly,
+            TestError::NotRegistered,
         );
     })
 }
@@ -842,7 +774,7 @@ fn test_report_vault_passes_with_vault_transaction() {
             126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8,
             50, 170,
         ]));
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(move |_| {
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(move |_| {
             MockResult::Return(Ok(init_zero_vault(vault.clone(), Some(btc_address))))
         });
         ext::btc_relay::verify_transaction_inclusion::<Test>
@@ -874,7 +806,7 @@ fn test_report_vault_fails_with_non_vault_transaction() {
             50, 170,
         ]));
 
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(move |_| {
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(move |_| {
             MockResult::Return(Ok(init_zero_vault(vault.clone(), Some(btc_address))))
         });
         ext::btc_relay::verify_transaction_inclusion::<Test>
@@ -907,7 +839,7 @@ fn test_report_vault_succeeds_with_segwit_transaction() {
             164, 180, 202, 72, 222, 11, 63, 255, 193, 84, 4, 161, 172, 220, 141, 186, 174, 34, 105,
             85,
         ]));
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(move |_| {
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(move |_| {
             MockResult::Return(Ok(init_zero_vault(vault.clone(), Some(btc_address))))
         });
         ext::btc_relay::verify_transaction_inclusion::<Test>
@@ -945,12 +877,7 @@ fn test_report_vault_theft_succeeds() {
             vec![0u8; 32],
             vec![0u8; 32],
         ));
-        assert_emitted!(Event::ExecuteStatusUpdate(
-            StatusCode::Error,
-            Some(ErrorCode::Liquidation),
-            None,
-            Some(H256Le::zero()),
-        ));
+        assert_emitted!(Event::VaultTheft(BOB, H256Le::zero()));
     })
 }
 
@@ -960,9 +887,9 @@ fn test_report_vault_under_liquidation_threshold_fails() {
         let relayer = ALICE;
         let vault = BOB;
 
-        Staking::check_relayer_registered.mock_safe(|_| MockResult::Return(true));
+        Staking::ensure_relayer_is_registered.mock_safe(|_| MockResult::Return(Ok(())));
 
-        ext::vault_registry::is_vault_below_secure_threshold::<Test>
+        ext::vault_registry::is_vault_below_liquidation_threshold::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(false)));
 
         assert_err!(
@@ -978,9 +905,9 @@ fn test_report_vault_under_liquidation_threshold_succeeds() {
         let relayer = ALICE;
         let vault = BOB;
 
-        Staking::check_relayer_registered.mock_safe(|_| MockResult::Return(true));
+        Staking::ensure_relayer_is_registered.mock_safe(|_| MockResult::Return(Ok(())));
 
-        ext::vault_registry::is_vault_below_secure_threshold::<Test>
+        ext::vault_registry::is_vault_below_liquidation_threshold::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(true)));
 
         ext::vault_registry::liquidate_vault::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
@@ -989,36 +916,31 @@ fn test_report_vault_under_liquidation_threshold_succeeds() {
             Origin::signed(relayer),
             vault
         ));
+        assert_emitted!(Event::VaultUnderLiquidationThreshold(BOB));
 
-        assert_emitted!(Event::ExecuteStatusUpdate(
-            StatusCode::Error,
-            Some(ErrorCode::Liquidation),
-            None,
-            None,
-        ));
-
+        // liquidating a single vault shouldn't stop the parachain from running
         let parachain_status = ext::security::get_parachain_status::<Test>();
-        assert_eq!(parachain_status, StatusCode::Error);
+        assert_eq!(parachain_status, StatusCode::Running);
     })
 }
 
 #[test]
-fn test_report_vault_under_liquidation_threshold_fails_with_staked_relayers_only() {
+fn test_report_vault_under_liquidation_threshold_fails_with_not_registered() {
     run_test(|| {
         assert_err!(
             Staking::report_vault_under_liquidation_threshold(Origin::signed(ALICE), CAROL),
-            TestError::StakedRelayersOnly,
+            TestError::NotRegistered,
         );
     })
 }
 
 #[test]
-fn test_report_oracle_offline_fails_with_staked_relayers_only() {
+fn test_report_oracle_offline_fails_with_not_registered() {
     run_test(|| {
         let relayer = Origin::signed(ALICE);
         assert_err!(
             Staking::report_oracle_offline(relayer),
-            TestError::StakedRelayersOnly,
+            TestError::NotRegistered,
         );
     })
 }
@@ -1077,7 +999,7 @@ fn test_report_oracle_offline_succeeds() {
 fn test_is_valid_merge_transaction_fails() {
     run_test(|| {
         let vault = BOB;
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), None))));
 
         let address1 =
@@ -1090,7 +1012,7 @@ fn test_is_valid_merge_transaction_fails() {
             Staking::is_valid_merge_transaction(
                 &vec![(100, address1)],
                 &vec![],
-                &Wallet::new(address2)
+                &Wallet::new(dummy_public_key())
             ),
             false,
             "payment to unknown recipient"
@@ -1100,7 +1022,7 @@ fn test_is_valid_merge_transaction_fails() {
             Staking::is_valid_merge_transaction(
                 &vec![(100, address2)],
                 &vec![(0, vec![])],
-                &Wallet::new(address2)
+                &Wallet::new(dummy_public_key())
             ),
             false,
             "migration should not have op_returns"
@@ -1112,18 +1034,17 @@ fn test_is_valid_merge_transaction_fails() {
 fn test_is_valid_merge_transaction_succeeds() {
     run_test(|| {
         let vault = BOB;
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), None))));
 
         let address =
             BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
 
+        let mut wallet = Wallet::new(dummy_public_key());
+        wallet.add_btc_address(address);
+
         assert_eq!(
-            Staking::is_valid_merge_transaction(
-                &vec![(100, address.clone())],
-                &vec![],
-                &Wallet::new(address)
-            ),
+            Staking::is_valid_merge_transaction(&vec![(100, address.clone())], &vec![], &wallet),
             true
         );
     })
@@ -1133,7 +1054,7 @@ fn test_is_valid_merge_transaction_succeeds() {
 fn test_is_valid_request_transaction_fails() {
     run_test(|| {
         let vault = BOB;
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), None))));
 
         let address1 =
@@ -1141,6 +1062,9 @@ fn test_is_valid_request_transaction_fails() {
 
         let address2 =
             BtcAddress::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
+
+        let mut wallet = Wallet::new(dummy_public_key());
+        wallet.add_btc_address(address2);
 
         let actual_value: i32 = 50;
 
@@ -1152,7 +1076,7 @@ fn test_is_valid_request_transaction_fails() {
                 request_value,
                 request_address,
                 &vec![(actual_value.try_into().unwrap(), address1.clone())],
-                &Wallet::new(address2)
+                &wallet
             ),
             false
         );
@@ -1162,25 +1086,27 @@ fn test_is_valid_request_transaction_fails() {
 #[test]
 fn test_is_valid_request_transaction_succeeds() {
     run_test(|| {
-        let vault = BOB;
-        ext::vault_registry::get_vault_from_id::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), None))));
-
-        let address1 =
+        let recipient_address =
             BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
 
-        let address2 =
+        let vault_address =
             BtcAddress::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
 
         let request_value = 100;
-        let request_address = address1.clone();
+        let change_value = 50;
+
+        let mut wallet = Wallet::new(dummy_public_key());
+        wallet.add_btc_address(vault_address);
 
         assert_eq!(
             Staking::is_valid_request_transaction(
                 request_value,
-                request_address,
-                &vec![(request_value.try_into().unwrap(), address2)],
-                &Wallet::new(address2)
+                recipient_address,
+                &vec![
+                    (request_value.try_into().unwrap(), recipient_address),
+                    (change_value.try_into().unwrap(), vault_address)
+                ],
+                &wallet
             ),
             true
         );
@@ -1195,13 +1121,16 @@ fn test_is_transaction_invalid_fails_with_valid_merge_transaction() {
             50, 170,
         ]));
 
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(move |_| {
+        let mut wallet = Wallet::new(dummy_public_key());
+        wallet.add_btc_address(address);
+
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(move |_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
-                wallet: Wallet::new(address),
+                wallet: wallet.clone(),
                 banned_until: None,
                 status: VaultStatus::Active,
             }))
@@ -1242,21 +1171,24 @@ fn test_is_transaction_invalid_fails_with_valid_merge_transaction() {
 #[test]
 fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
     run_test(|| {
-        let address1 = BtcAddress::P2WPKHv0(H160::from_slice(&[
+        let vault_address = BtcAddress::P2WPKHv0(H160::from_slice(&[
             164, 180, 202, 72, 222, 11, 63, 255, 193, 84, 4, 161, 172, 220, 141, 186, 174, 34, 105,
             85,
         ]));
 
-        let address2 =
+        let mut wallet = Wallet::new(dummy_public_key());
+        wallet.add_btc_address(vault_address);
+
+        let recipient_address =
             BtcAddress::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
 
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(move |_| {
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(move |_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
-                wallet: Wallet::new(address1),
+                wallet: wallet.clone(),
                 banned_until: None,
                 status: VaultStatus::Active,
             }))
@@ -1272,7 +1204,7 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
                 amount_dot: 0,
                 premium_dot: 0,
                 redeemer: ALICE,
-                btc_address: address2,
+                btc_address: recipient_address,
                 completed: false,
                 cancelled: false,
                 reimburse: false,
@@ -1306,7 +1238,7 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
                     ])
                     .build(),
             )
-            .add_output(TransactionOutput::payment(100, &address2))
+            .add_output(TransactionOutput::payment(100, &recipient_address))
             .add_output(TransactionOutput::op_return(
                 0,
                 &H256::from_slice(&[0; 32]).as_bytes(),
@@ -1330,7 +1262,7 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
                 new_vault: None,
                 collateral: 0,
                 accept_time: None,
-                btc_address: address2,
+                btc_address: Some(recipient_address),
                 completed: false,
                 cancelled: false,
             }))
@@ -1351,10 +1283,10 @@ fn test_is_transaction_invalid_succeeds() {
             50, 170,
         ]));
 
-        let address =
+        let recipient_address =
             BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
 
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(BOB, Some(vault_address)))));
 
         let transaction = TransactionBuilder::new()
@@ -1379,7 +1311,7 @@ fn test_is_transaction_invalid_succeeds() {
                     ])
                     .build(),
             )
-            .add_output(TransactionOutput::payment(100, &address))
+            .add_output(TransactionOutput::payment(100, &recipient_address))
             .build();
 
         assert_ok!(Staking::is_transaction_invalid(&BOB, transaction.format()));
@@ -1408,11 +1340,12 @@ fn test_is_transaction_invalid_fails_with_valid_merge_testnet_transaction() {
             &hex::decode("d0a46d39dafa3012c2a7ed4d82d644b428e4586b").unwrap(),
         ));
 
-        let mut wallet = Wallet::new(vault_btc_address_0);
+        let mut wallet = Wallet::new(dummy_public_key());
+        wallet.add_btc_address(vault_btc_address_0);
         wallet.add_btc_address(vault_btc_address_1);
         wallet.add_btc_address(vault_btc_address_2);
 
-        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(move |_| {
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(move |_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
                 to_be_issued_tokens: 0,
@@ -1443,7 +1376,7 @@ fn test_is_transaction_invalid_succeeds_with_testnet_transaction() {
             &hex::decode("473ca3f4d726ce9c21af7cdc3fcc13264f681b04").unwrap(),
         ));
 
-        ext::vault_registry::get_vault_from_id::<Test>
+        ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(BOB, Some(btc_address)))));
 
         assert_ok!(Staking::is_transaction_invalid(&BOB, raw_tx));

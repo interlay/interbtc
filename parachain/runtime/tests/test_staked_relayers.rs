@@ -5,6 +5,7 @@ use primitive_types::H256;
 use vault_registry::Vault;
 
 type StakedRelayersCall = staked_relayers::Call<Runtime>;
+type StakedRelayersModule = staked_relayers::Module<Runtime>;
 
 #[test]
 fn integration_test_report_vault_theft() {
@@ -22,14 +23,20 @@ fn integration_test_report_vault_theft() {
 
         SystemModule::set_block_number(1);
 
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(1));
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
+            FixedU128::one()
+        ));
         VaultRegistryModule::insert_vault(&account_of(LIQUIDATION_VAULT), Vault::default());
         // assert_ok!(CollateralModule::lock_collateral(&account_of(vault), collateral_vault));
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
             collateral_vault,
-            vault_btc_address.clone()
+            dummy_public_key()
         ))
         .dispatch(origin_of(account_of(vault))));
+        assert_ok!(VaultRegistryModule::insert_vault_deposit_address(
+            &account_of(vault),
+            vault_btc_address
+        ));
 
         // register as staked relayer
         assert_ok!(
@@ -37,19 +44,17 @@ fn integration_test_report_vault_theft() {
                 .dispatch(origin_of(account_of(user)))
         );
 
-        // TODO: use constant
-        SystemModule::set_block_number(100);
+        SystemModule::set_block_number(StakedRelayersModule::get_maturity_period() + 100);
 
         // manually activate
-        assert_ok!(
-            Call::StakedRelayers(StakedRelayersCall::activate_staked_relayer())
-                .dispatch(origin_of(account_of(user)))
-        );
+        assert_ok!(StakedRelayersModule::activate_staked_relayer(&account_of(
+            user
+        )));
 
         let (tx_id, _height, proof, raw_tx) = generate_transaction_and_mine_with_script_sig(
             other_btc_address,
             amount,
-            H256::zero(),
+            Some(H256::zero()),
             &[
                 0, 71, 48, 68, 2, 32, 91, 128, 41, 150, 96, 53, 187, 63, 230, 129, 53, 234, 210,
                 186, 21, 187, 98, 38, 255, 112, 30, 27, 228, 29, 132, 140, 155, 62, 123, 216, 232,

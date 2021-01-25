@@ -42,18 +42,16 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
                     assert_ok!(Call::BTCRelay(BTCRelayCall::verify_transaction_inclusion(
                         txid,
                         raw_merkle_proof,
-                        CONFIRMATIONS,
-                        false
+                        None,
                     ))
                     .dispatch(origin_of(account_of(ALICE))));
                 } else {
                     // expect to fail due to insufficient confirmations
-                    assert_err!(
+                    assert_noop!(
                         Call::BTCRelay(BTCRelayCall::verify_transaction_inclusion(
                             txid,
                             raw_merkle_proof,
-                            CONFIRMATIONS,
-                            false
+                            None,
                         ))
                         .dispatch(origin_of(account_of(ALICE))),
                         BTCRelayError::BitcoinConfirmations
