@@ -1,6 +1,7 @@
 include:
     - project: interlay/tools/ci-scripts
       file: /gitlab-templates/rust-base-gitlab-ci.yaml
+      image: registry.gitlab.com/interlay/containers/rust-base:nightly-2021-01-25
 
 variables:
     ARTIFACT_BIN_PATH: btc-parachain
