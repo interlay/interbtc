@@ -2,7 +2,7 @@
 authors = ['Interlay Ltd']
 edition = '2018'
 name = 'btc-parachain-runtime'
-version = '0.4.0'
+version = '0.5.0'
 
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']
@@ -36,6 +36,8 @@ pallet-randomness-collective-flip = { git = "https://github.com/paritytech/subst
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 pallet-sudo = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
+pallet-collective = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
+pallet-society = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
@@ -57,6 +59,7 @@ polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = 
 xcm = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", default-features = false }
 xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", default-features = false }
 xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", default-features = false }
+rococo-runtime = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", default-features = false }
 
 # Parachain dependencies
 btc-relay = { path = "../../crates/btc-relay", default-features = false }
@@ -122,6 +125,8 @@ std = [
   "pallet-timestamp/std",
   "pallet-sudo/std",
   "pallet-transaction-payment/std",
+  "pallet-collective/std",
+  "pallet-society/std",
 
   "frame-system-rpc-runtime-api/std",
   "pallet-transaction-payment-rpc-runtime-api/std",
@@ -138,6 +143,7 @@ std = [
   "xcm-builder/std",
   "xcm-executor/std",
   "xcm-handler/std",
+  "rococo-runtime/std",
 
   "btc-relay/std",
   "collateral/std",
@@ -164,13 +170,17 @@ std = [
   "module-sla-rpc-runtime-api/std",
   "module-refund-rpc-runtime-api/std",
 ]
-  runtime-benchmarks = [
+runtime-benchmarks = [
   "hex-literal",
 
   "frame-benchmarking",
   "frame-system-benchmarking",
   "frame-support/runtime-benchmarks",
   "frame-system/runtime-benchmarks",
+  "pallet-society/runtime-benchmarks",
+  "pallet-collective/runtime-benchmarks",
+
+  "rococo-runtime/runtime-benchmarks",
 
   "btc-relay/runtime-benchmarks",
   "exchange-rate-oracle/runtime-benchmarks",

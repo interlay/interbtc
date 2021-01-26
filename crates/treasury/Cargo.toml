@@ -3,7 +3,7 @@ authors = ['Interlay Ltd']
 description = 'Treasury module'
 edition = '2018'
 name = 'treasury'
-version = '0.3.1'
+version = '0.5.0'
 
 [dependencies]
 safe-mix = { version = "1.0.0", default-features = false }

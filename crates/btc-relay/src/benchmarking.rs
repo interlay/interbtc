@@ -182,7 +182,7 @@ benchmarks! {
         let proof = block.merkle_proof(&vec![tx_id]).format();
         let raw_tx = transaction.format_with(true);
 
-        System::<T>::set_block_number(100.into());
+        System::<T>::set_block_number(100u32.into());
 
     }: _(RawOrigin::Signed(origin), tx_id, proof, Some(0), raw_tx, value.into(), address, Some(op_return))
 
@@ -202,7 +202,7 @@ benchmarks! {
         let tx_block_height = height;
         let proof = block.merkle_proof(&vec![tx_id]).format();
 
-        System::<T>::set_block_number(100.into());
+        System::<T>::set_block_number(100u32.into());
 
     }: _(RawOrigin::Signed(origin), tx_id, proof, Some(0))
 
