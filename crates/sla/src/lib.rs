@@ -29,25 +29,26 @@ use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
 
 pub(crate) type DOT<T> =
-    <<T as collateral::Trait>::DOT as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
-pub(crate) type PolkaBTC<T> =
-    <<T as treasury::Trait>::PolkaBTC as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+    <<T as collateral::Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub(crate) type PolkaBTC<T> = <<T as treasury::Config>::PolkaBTC as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::Balance;
 
-pub(crate) type SignedFixedPoint<T> = <T as Trait>::SignedFixedPoint;
+pub(crate) type SignedFixedPoint<T> = <T as Config>::SignedFixedPoint;
 
 /// The pallet's configuration trait.
-pub trait Trait:
-    frame_system::Trait + collateral::Trait + treasury::Trait + vault_registry::Trait
+pub trait Config:
+    frame_system::Config + collateral::Config + treasury::Config + vault_registry::Config
 {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 
     type SignedFixedPoint: FixedPointNumber + Encode + EncodeLike + Decode;
 }
 
 // The pallet's storage items.
 decl_storage! {
-    trait Store for Module<T: Trait> as Sla {
+    trait Store for Module<T: Config> as Sla {
         /// Mapping from accounts of vaults/relayers to their sla score
         VaultSla get(fn vault_sla): map hasher(blake2_128_concat) T::AccountId => T::SignedFixedPoint;
         RelayerSla get(fn relayer_sla): map hasher(blake2_128_concat) T::AccountId => T::SignedFixedPoint;
@@ -86,7 +87,7 @@ decl_storage! {
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as frame_system::Trait>::AccountId,
+        AccountId = <T as frame_system::Config>::AccountId,
         SignedFixedPoint = SignedFixedPoint<T>,
     {
         UpdateVaultSLA(AccountId, SignedFixedPoint),
@@ -97,7 +98,7 @@ decl_event!(
 // The pallet's dispatchable functions.
 decl_module! {
     /// The module declaration.
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         // Initialize errors
         type Error = Error<T>;
 
@@ -108,7 +109,7 @@ decl_module! {
 
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     // Public functions exposed to other pallets
 
     /// Update the SLA score of the vault on given the event.
@@ -508,7 +509,7 @@ impl<T: Trait> Module<T> {
 }
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         TryIntoIntError,
         ArithmeticOverflow,
         ArithmeticUnderflow,

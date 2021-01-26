@@ -58,18 +58,18 @@ pub trait WeightInfo {
 }
 
 /// The pallet's configuration trait.
-pub trait Trait:
-    frame_system::Trait
-    + vault_registry::Trait
-    + collateral::Trait
-    + btc_relay::Trait
-    + treasury::Trait
-    + exchange_rate_oracle::Trait
-    + fee::Trait
-    + sla::Trait
+pub trait Config:
+    frame_system::Config
+    + vault_registry::Config
+    + collateral::Config
+    + btc_relay::Config
+    + treasury::Config
+    + exchange_rate_oracle::Config
+    + fee::Config
+    + sla::Config
 {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 
     /// Weight information for the extrinsics in this module.
     type WeightInfo: WeightInfo;
@@ -77,7 +77,7 @@ pub trait Trait:
 
 // The pallet's storage items.
 decl_storage! {
-    trait Store for Module<T: Trait> as Replace {
+    trait Store for Module<T: Config> as Replace {
         /// Vaults create replace requests to transfer locked collateral.
         /// This mapping provides access from a unique hash to a `ReplaceRequest`.
         ReplaceRequests: map hasher(blake2_128_concat) H256 => Option<ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>>;
@@ -100,10 +100,10 @@ decl_storage! {
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as frame_system::Trait>::AccountId,
+        AccountId = <T as frame_system::Config>::AccountId,
         PolkaBTC = PolkaBTC<T>,
         DOT = DOT<T>,
-        BlockNumber = <T as frame_system::Trait>::BlockNumber,
+        BlockNumber = <T as frame_system::Config>::BlockNumber,
     {
         RequestReplace(AccountId, PolkaBTC, H256),
         WithdrawReplace(AccountId, H256),
@@ -125,7 +125,7 @@ decl_event!(
 // The pallet's dispatchable functions.
 decl_module! {
     /// The module declaration.
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         // Errors must be initialized if they are used by the pallet.
         type Error = Error<T>;
 
@@ -145,7 +145,7 @@ decl_module! {
         /// * `origin` - sender of the transaction
         /// * `amount` - amount of PolkaBTC
         /// * `griefing_collateral` - amount of DOT
-        #[weight = <T as Trait>::WeightInfo::request_replace()]
+        #[weight = <T as Config>::WeightInfo::request_replace()]
         #[transactional]
         fn request_replace(origin, amount: PolkaBTC<T>, griefing_collateral: DOT<T>)
             -> DispatchResult
@@ -161,7 +161,7 @@ decl_module! {
         ///
         /// * `origin` - sender of the transaction: the old vault
         /// * `replace_id` - the unique identifier of the replace request
-        #[weight = <T as Trait>::WeightInfo::withdraw_replace()]
+        #[weight = <T as Config>::WeightInfo::withdraw_replace()]
         #[transactional]
         fn withdraw_replace(origin, replace_id: H256)
             -> DispatchResult
@@ -178,7 +178,7 @@ decl_module! {
         /// * `origin` - the initiator of the transaction: the new vault
         /// * `replace_id` - the unique identifier for the specific request
         /// * `collateral` - the collateral for replacement
-        #[weight = <T as Trait>::WeightInfo::accept_replace()]
+        #[weight = <T as Config>::WeightInfo::accept_replace()]
         #[transactional]
         fn accept_replace(origin, replace_id: H256, collateral: DOT<T>, btc_address: BtcAddress)
             -> DispatchResult
@@ -196,7 +196,7 @@ decl_module! {
         /// * `old_vault` - the old vault of the replacement request
         /// * `btc_amount` - the btc amount to be transferred over from old to new
         /// * `collateral` - the collateral to be transferred over from old to new
-        #[weight = <T as Trait>::WeightInfo::auction_replace()]
+        #[weight = <T as Config>::WeightInfo::auction_replace()]
         #[transactional]
         fn auction_replace(origin, old_vault: T::AccountId, btc_amount: PolkaBTC<T>, collateral: DOT<T>, btc_address: BtcAddress)
             -> DispatchResult
@@ -216,7 +216,7 @@ decl_module! {
         /// * `tx_block_height` - the blocked height of the backing transaction
         /// * 'merkle_proof' - the merkle root of the block
         /// * `raw_tx` - the transaction id in bytes
-        #[weight = <T as Trait>::WeightInfo::execute_replace()]
+        #[weight = <T as Config>::WeightInfo::execute_replace()]
         #[transactional]
         fn execute_replace(origin, replace_id: H256, tx_id: H256Le, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
             let _ = ensure_signed(origin)?;
@@ -230,7 +230,7 @@ decl_module! {
         ///
         /// * `origin` - sender of the transaction: the new vault
         /// * `replace_id` - the ID of the replacement request
-        #[weight = <T as Trait>::WeightInfo::cancel_replace()]
+        #[weight = <T as Config>::WeightInfo::cancel_replace()]
         #[transactional]
         fn cancel_replace(origin, replace_id: H256) -> DispatchResult {
             let new_vault = ensure_signed(origin)?;
@@ -246,7 +246,7 @@ decl_module! {
         /// * `period` - default period for new requests
         ///
         /// # Weight: `O(1)`
-        #[weight = <T as Trait>::WeightInfo::set_replace_period()]
+        #[weight = <T as Config>::WeightInfo::set_replace_period()]
         #[transactional]
         fn set_replace_period(origin, period: T::BlockNumber) {
             ensure_root(origin)?;
@@ -257,7 +257,7 @@ decl_module! {
 
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     fn _request_replace(
         vault_id: T::AccountId,
         mut amount_btc: PolkaBTC<T>,
@@ -705,13 +705,13 @@ impl<T: Trait> Module<T> {
     }
 }
 
-fn has_request_expired<T: Trait>(opentime: T::BlockNumber, period: T::BlockNumber) -> bool {
+fn has_request_expired<T: Config>(opentime: T::BlockNumber, period: T::BlockNumber) -> bool {
     let height = <frame_system::Module<T>>::block_number();
     height > opentime + period
 }
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         AmountBelowDustAmount,
         NoReplacement,
         InsufficientCollateral,

@@ -6,15 +6,15 @@ pub(crate) mod collateral {
     use crate::types::DOT;
     use frame_support::dispatch::DispatchResult;
 
-    pub fn total_locked<T: collateral::Trait>() -> DOT<T> {
+    pub fn total_locked<T: collateral::Config>() -> DOT<T> {
         <collateral::Module<T>>::get_total_collateral()
     }
 
-    pub fn lock<T: collateral::Trait>(sender: &T::AccountId, amount: DOT<T>) -> DispatchResult {
+    pub fn lock<T: collateral::Config>(sender: &T::AccountId, amount: DOT<T>) -> DispatchResult {
         <collateral::Module<T>>::lock_collateral(sender, amount)
     }
 
-    pub fn slash_collateral<T: collateral::Trait>(
+    pub fn slash_collateral<T: collateral::Config>(
         sender: &T::AccountId,
         receiver: &T::AccountId,
         amount: DOT<T>,
@@ -22,14 +22,14 @@ pub(crate) mod collateral {
         <collateral::Module<T>>::slash_collateral(sender.clone(), receiver.clone(), amount)
     }
 
-    pub fn release_collateral<T: collateral::Trait>(
+    pub fn release_collateral<T: collateral::Config>(
         sender: &T::AccountId,
         amount: DOT<T>,
     ) -> DispatchResult {
         <collateral::Module<T>>::release_collateral(sender, amount)
     }
 
-    pub fn for_account<T: collateral::Trait>(id: &T::AccountId) -> DOT<T> {
+    pub fn for_account<T: collateral::Config>(id: &T::AccountId) -> DOT<T> {
         <collateral::Module<T>>::get_collateral_from_account(id)
     }
 }
@@ -38,7 +38,7 @@ pub(crate) mod collateral {
 pub(crate) mod treasury {
     use crate::types::PolkaBTC;
 
-    pub fn total_issued<T: treasury::Trait>() -> PolkaBTC<T> {
+    pub fn total_issued<T: treasury::Config>() -> PolkaBTC<T> {
         <treasury::Module<T>>::get_total_supply()
     }
 }
@@ -49,11 +49,11 @@ pub(crate) mod oracle {
     use frame_support::dispatch::DispatchError;
 
     pub trait Exchangeable:
-        exchange_rate_oracle::Trait + ::treasury::Trait + ::collateral::Trait
+        exchange_rate_oracle::Config + ::treasury::Config + ::collateral::Config
     {
     }
     impl<T> Exchangeable for T where
-        T: exchange_rate_oracle::Trait + ::treasury::Trait + ::collateral::Trait
+        T: exchange_rate_oracle::Config + ::treasury::Config + ::collateral::Config
     {
     }
 
@@ -72,15 +72,15 @@ pub(crate) mod security {
     use security::ErrorCode;
     use sp_std::vec::Vec;
 
-    pub fn ensure_parachain_status_running<T: security::Trait>() -> DispatchResult {
+    pub fn ensure_parachain_status_running<T: security::Config>() -> DispatchResult {
         <security::Module<T>>::ensure_parachain_status_running()
     }
 
-    pub fn ensure_parachain_status_not_shutdown<T: security::Trait>() -> DispatchResult {
+    pub fn ensure_parachain_status_not_shutdown<T: security::Config>() -> DispatchResult {
         <security::Module<T>>::ensure_parachain_status_not_shutdown()
     }
 
-    pub fn ensure_parachain_does_not_have_errors<T: security::Trait>(
+    pub fn ensure_parachain_does_not_have_errors<T: security::Config>(
         error_codes: Vec<ErrorCode>,
     ) -> DispatchResult {
         <security::Module<T>>::ensure_parachain_does_not_have_errors(error_codes)

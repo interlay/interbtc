@@ -59,19 +59,19 @@ pub trait WeightInfo {
 }
 
 /// The pallet's configuration trait.
-pub trait Trait:
-    frame_system::Trait
-    + vault_registry::Trait
-    + collateral::Trait
-    + btc_relay::Trait
-    + treasury::Trait
-    + exchange_rate_oracle::Trait
-    + fee::Trait
-    + sla::Trait
-    + refund::Trait
+pub trait Config:
+    frame_system::Config
+    + vault_registry::Config
+    + collateral::Config
+    + btc_relay::Config
+    + treasury::Config
+    + exchange_rate_oracle::Config
+    + fee::Config
+    + sla::Config
+    + refund::Config
 {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 
     /// Weight information for the extrinsics in this module.
     type WeightInfo: WeightInfo;
@@ -79,7 +79,7 @@ pub trait Trait:
 
 // The pallet's storage items.
 decl_storage! {
-    trait Store for Module<T: Trait> as Issue {
+    trait Store for Module<T: Config> as Issue {
         /// Users create issue requests to issue PolkaBTC. This mapping provides access
         /// from a unique hash `IssueId` to an `IssueRequest` struct.
         IssueRequests: map hasher(blake2_128_concat) H256 => IssueRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>;
@@ -98,7 +98,7 @@ decl_storage! {
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as frame_system::Trait>::AccountId,
+        AccountId = <T as frame_system::Config>::AccountId,
         PolkaBTC = PolkaBTC<T>,
     {
         RequestIssue(
@@ -117,7 +117,7 @@ decl_event!(
 // The pallet's dispatchable functions.
 decl_module! {
     /// The module declaration.
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         type Error = Error<T>;
 
         // Initializing events
@@ -137,7 +137,7 @@ decl_module! {
         /// * `amount` - amount of PolkaBTC
         /// * `vault` - address of the vault
         /// * `griefing_collateral` - amount of DOT
-        #[weight = <T as Trait>::WeightInfo::request_issue()]
+        #[weight = <T as Config>::WeightInfo::request_issue()]
         #[transactional]
         fn request_issue(origin, amount: PolkaBTC<T>, vault_id: T::AccountId, griefing_collateral: DOT<T>)
             -> DispatchResult
@@ -157,7 +157,7 @@ decl_module! {
         /// * `tx_block_height` - block number of backing chain
         /// * `merkle_proof` - raw bytes
         /// * `raw_tx` - raw bytes
-        #[weight = <T as Trait>::WeightInfo::execute_issue()]
+        #[weight = <T as Config>::WeightInfo::execute_issue()]
         #[transactional]
         fn execute_issue(origin, issue_id: H256, tx_id: H256Le, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
             -> DispatchResult
@@ -173,7 +173,7 @@ decl_module! {
         ///
         /// * `origin` - sender of the transaction
         /// * `issue_id` - identifier of issue request as output from request_issue
-        #[weight = <T as Trait>::WeightInfo::cancel_issue()]
+        #[weight = <T as Config>::WeightInfo::cancel_issue()]
         #[transactional]
         fn cancel_issue(origin, issue_id: H256)
             -> DispatchResult
@@ -191,7 +191,7 @@ decl_module! {
         /// * `period` - default period for new requests
         ///
         /// # Weight: `O(1)`
-        #[weight = <T as Trait>::WeightInfo::set_issue_period()]
+        #[weight = <T as Config>::WeightInfo::set_issue_period()]
         #[transactional]
         fn set_issue_period(origin, period: T::BlockNumber) {
             ensure_root(origin)?;
@@ -202,7 +202,7 @@ decl_module! {
 
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     /// Requests CBA issuance, returns unique tracking ID.
     fn _request_issue(
         requester: T::AccountId,
@@ -458,13 +458,13 @@ impl<T: Trait> Module<T> {
     }
 }
 
-fn has_request_expired<T: Trait>(opentime: T::BlockNumber, period: T::BlockNumber) -> bool {
+fn has_request_expired<T: Config>(opentime: T::BlockNumber, period: T::BlockNumber) -> bool {
     let height = <frame_system::Module<T>>::block_number();
     height > opentime + period
 }
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         InsufficientCollateral,
         IssueIdNotFound,
         CommitPeriodExpired,

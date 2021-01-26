@@ -5,8 +5,6 @@
 
 #![warn(missing_docs)]
 
-use std::sync::Arc;
-
 use btc_parachain_runtime::{
     opaque::Block, AccountId, Balance, BlockNumber, Index, IssueRequest, RedeemRequest,
     RefundRequest, ReplaceRequest,
@@ -18,6 +16,9 @@ use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_core::H256;
 use sp_transaction_pool::TransactionPool;
+use std::sync::Arc;
+
+pub use jsonrpc_core;
 
 /// Full client dependencies.
 pub struct FullDeps<C, P> {

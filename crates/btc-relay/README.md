@@ -37,7 +37,7 @@ You should implement it's trait like so:
 
 ```rust
 /// Used for test_module
-impl btc_relay::Trait for Runtime {
+impl btc_relay::Config for Runtime {
     type Event = Event;
     type WeightInfo = ();
 }

@@ -17,11 +17,11 @@ type Event = crate::Event<Test>;
 // use macro to avoid messing up stack trace
 macro_rules! assert_emitted {
     ($event:expr) => {
-        let test_event = TestEvent::test_events($event);
+        let test_event = TestEvent::replace($event);
         assert!(System::events().iter().any(|a| a.event == test_event));
     };
     ($event:expr, $times:expr) => {
-        let test_event = TestEvent::test_events($event);
+        let test_event = TestEvent::replace($event);
         assert_eq!(
             System::events()
                 .iter()

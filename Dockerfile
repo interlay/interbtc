@@ -21,16 +21,20 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y && \
     rustup default ${TOOLCHAIN} && \
     cargo build "--$PROFILE"
 
-FROM bitnami/minideb:stretch
+FROM bitnami/minideb:buster
 
 ARG PROFILE=release
 
 COPY --from=build /src/target/$PROFILE/btc-parachain /usr/local/bin
+COPY --from=build /src/polkabtc-rococo.json /var/lib
 
 # Checks
 RUN chmod +x /usr/local/bin/btc-parachain && \
     ldd /usr/local/bin/btc-parachain && \
     /usr/local/bin/btc-parachain --version
+
+RUN /usr/local/bin/btc-parachain export-genesis-state --chain /var/lib/polkabtc-rococo.json > /var/lib/genesis-state
+RUN /usr/local/bin/btc-parachain export-genesis-wasm --chain /var/lib/polkabtc-rococo.json > /var/lib/genesis-wasm
 
 EXPOSE 30333 9933 9944
 VOLUME ["/data"]

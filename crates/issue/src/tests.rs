@@ -1,7 +1,7 @@
 use crate::mock::*;
 use crate::PolkaBTC;
 use crate::RawEvent;
-use crate::{ext, has_request_expired, Trait};
+use crate::{ext, has_request_expired, Config};
 use bitcoin::types::H256Le;
 use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
@@ -81,7 +81,9 @@ fn cancel_issue(origin: AccountId, issue_id: &H256) -> Result<(), DispatchError>
     Issue::_cancel_issue(origin, *issue_id)
 }
 
-fn init_zero_vault<T: Trait>(id: T::AccountId) -> Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>> {
+fn init_zero_vault<T: Config>(
+    id: T::AccountId,
+) -> Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>> {
     let mut vault = Vault::default();
     vault.id = id;
     vault
@@ -143,7 +145,7 @@ fn test_request_issue_succeeds() {
 
         let issue_id = request_issue_ok(origin, amount, vault, 20);
 
-        let request_issue_event = TestEvent::test_events(RawEvent::RequestIssue(
+        let request_issue_event = TestEvent::issue(RawEvent::RequestIssue(
             issue_id,
             origin,
             amount,
@@ -195,8 +197,7 @@ fn test_execute_issue_succeeds() {
         <frame_system::Module<Test>>::set_block_number(5);
         execute_issue_ok(ALICE, &issue_id);
 
-        let execute_issue_event =
-            TestEvent::test_events(RawEvent::ExecuteIssue(issue_id, ALICE, BOB));
+        let execute_issue_event = TestEvent::issue(RawEvent::ExecuteIssue(issue_id, ALICE, BOB));
         assert!(System::events()
             .iter()
             .any(|a| a.event == execute_issue_event));

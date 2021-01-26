@@ -48,7 +48,7 @@ fn test_lock_collateral_succeeds() {
         let init_total = Collateral::get_total_collateral();
 
         assert_ok!(Collateral::lock_collateral(&sender, amount));
-        let lock_event = TestEvent::test_events(RawEvent::LockCollateral(ALICE, amount));
+        let lock_event = TestEvent::collateral(RawEvent::LockCollateral(ALICE, amount));
 
         assert!(System::events().iter().any(|a| a.event == lock_event));
 
@@ -95,7 +95,7 @@ fn test_release_collateral_succeeds() {
         let init_total = Collateral::get_total_collateral();
 
         assert_ok!(Collateral::release_collateral(&sender, amount));
-        let release_event = TestEvent::test_events(RawEvent::ReleaseCollateral(ALICE, amount));
+        let release_event = TestEvent::collateral(RawEvent::ReleaseCollateral(ALICE, amount));
 
         assert!(System::events().iter().any(|a| a.event == release_event));
 
@@ -143,7 +143,7 @@ fn test_release_collateral_partially_succeeds() {
 
         assert_ok!(Collateral::release_collateral(&sender, release_amount));
         let release_event =
-            TestEvent::test_events(RawEvent::ReleaseCollateral(ALICE, release_amount));
+            TestEvent::collateral(RawEvent::ReleaseCollateral(ALICE, release_amount));
 
         assert!(System::events().iter().any(|a| a.event == release_event));
 
@@ -170,7 +170,7 @@ fn test_slash_collateral_succeeds() {
         let init_total = Collateral::get_total_collateral();
 
         assert_ok!(Collateral::slash_collateral(sender, receiver, amount));
-        let slash_event = TestEvent::test_events(RawEvent::SlashCollateral(ALICE, BOB, amount));
+        let slash_event = TestEvent::collateral(RawEvent::SlashCollateral(ALICE, BOB, amount));
 
         assert!(System::events().iter().any(|a| a.event == slash_event));
 
@@ -226,7 +226,7 @@ fn test_slash_collateral_partially_succeeds() {
 
         assert_ok!(Collateral::slash_collateral(sender, receiver, slash_amount));
         let slash_event =
-            TestEvent::test_events(RawEvent::SlashCollateral(ALICE, BOB, slash_amount));
+            TestEvent::collateral(RawEvent::SlashCollateral(ALICE, BOB, slash_amount));
 
         assert!(System::events().iter().any(|a| a.event == slash_event));
 

@@ -22,8 +22,6 @@ fn dummy_public_key() -> BtcPublicKey {
 }
 
 benchmarks! {
-    _ {}
-
     request_redeem {
         let origin: T::AccountId = account("Origin", 0, 0);
         let vault_id: T::AccountId = account("Vault", 0, 0);

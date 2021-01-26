@@ -24,11 +24,11 @@ type Event = crate::Event<Test>;
 // use macro to avoid messing up stack trace
 macro_rules! assert_emitted {
     ($event:expr) => {
-        let test_event = TestEvent::test_events($event);
+        let test_event = TestEvent::vault_registry($event);
         assert!(System::events().iter().any(|a| a.event == test_event));
     };
     ($event:expr, $times:expr) => {
-        let test_event = TestEvent::test_events($event);
+        let test_event = TestEvent::vault_registry($event);
         assert_eq!(
             System::events()
                 .iter()
@@ -41,7 +41,7 @@ macro_rules! assert_emitted {
 
 macro_rules! assert_not_emitted {
     ($event:expr) => {
-        let test_event = TestEvent::test_events($event);
+        let test_event = TestEvent::vault_registry($event);
         assert!(!System::events().iter().any(|a| a.event == test_event));
     };
 }
@@ -68,7 +68,7 @@ fn dummy_public_key() -> BtcPublicKey {
 fn create_vault_with_collateral(
     id: u64,
     collateral: u128,
-) -> <Test as frame_system::Trait>::AccountId {
+) -> <Test as frame_system::Config>::AccountId {
     VaultRegistry::get_minimum_collateral_vault.mock_safe(move || MockResult::Return(collateral));
     let origin = Origin::signed(id);
     let result = VaultRegistry::register_vault(origin, collateral, dummy_public_key());
@@ -76,11 +76,11 @@ fn create_vault_with_collateral(
     id
 }
 
-fn create_vault(id: u64) -> <Test as frame_system::Trait>::AccountId {
+fn create_vault(id: u64) -> <Test as frame_system::Config>::AccountId {
     create_vault_with_collateral(id, DEFAULT_COLLATERAL)
 }
 
-fn create_sample_vault() -> <Test as frame_system::Trait>::AccountId {
+fn create_sample_vault() -> <Test as frame_system::Config>::AccountId {
     create_vault(DEFAULT_ID)
 }
 
@@ -88,7 +88,7 @@ fn create_vault_and_issue_tokens(
     issue_tokens: u128,
     collateral: u128,
     id: u64,
-) -> <Test as frame_system::Trait>::AccountId {
+) -> <Test as frame_system::Config>::AccountId {
     set_default_thresholds();
 
     // vault has no tokens issued yet
@@ -114,7 +114,7 @@ fn create_vault_and_issue_tokens(
 
 fn create_sample_vault_andissue_tokens(
     issue_tokens: u128,
-) -> <Test as frame_system::Trait>::AccountId {
+) -> <Test as frame_system::Config>::AccountId {
     create_vault_and_issue_tokens(issue_tokens, DEFAULT_COLLATERAL, DEFAULT_ID)
 }
 
@@ -692,7 +692,7 @@ fn test_liquidate_undercollateralized_vaults_no_liquidation() {
         Vaults::<Test>::insert(3, Vault::default());
         Vaults::<Test>::insert(4, Vault::default());
 
-        let vaults: HashMap<<Test as frame_system::Trait>::AccountId, bool> =
+        let vaults: HashMap<<Test as frame_system::Config>::AccountId, bool> =
             vec![(0, false), (1, false), (2, false), (3, false), (4, false)]
                 .into_iter()
                 .collect();
@@ -716,7 +716,7 @@ fn test_liquidate_undercollateralized_vaults_succeeds() {
         Vaults::<Test>::insert(3, Vault::default());
         Vaults::<Test>::insert(4, Vault::default());
 
-        let vaults: HashMap<<Test as frame_system::Trait>::AccountId, bool> =
+        let vaults: HashMap<<Test as frame_system::Config>::AccountId, bool> =
             vec![(0, true), (1, false), (2, true), (3, false), (4, false)]
                 .into_iter()
                 .collect();
@@ -1158,7 +1158,6 @@ fn setup_block(i: u64, parent_hash: H256) -> H256 {
     System::initialize(
         &i,
         &parent_hash,
-        &Default::default(),
         &Default::default(),
         frame_system::InitKind::Full,
     );

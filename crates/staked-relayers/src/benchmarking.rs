@@ -27,8 +27,6 @@ fn dummy_public_key() -> BtcPublicKey {
 }
 
 benchmarks! {
-    _ {}
-
     register_staked_relayer {
         let origin: T::AccountId = account("Origin", 0, 0);
         let u in 100 .. 1000;
@@ -166,9 +164,9 @@ benchmarks! {
             vault
         );
 
-        ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Trait>::UnsignedFixedPoint::one()).unwrap();
+        ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()).unwrap();
 
-        let threshold = <T as vault_registry::Trait>::UnsignedFixedPoint::checked_from_rational(200, 100).unwrap(); // 200%
+        let threshold = <T as vault_registry::Config>::UnsignedFixedPoint::checked_from_rational(200, 100).unwrap(); // 200%
         VaultRegistry::<T>::set_liquidation_collateral_threshold(threshold);
 
     }: _(RawOrigin::Signed(origin), vault_id)

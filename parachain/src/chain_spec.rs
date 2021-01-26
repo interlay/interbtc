@@ -1,36 +1,70 @@
 use btc_parachain_runtime::{
-    AccountId, AuraConfig, BTCRelayConfig, DOTConfig, ExchangeRateOracleConfig, FeeConfig,
-    GenesisConfig, GrandpaConfig, IssueConfig, PolkaBTCConfig, RedeemConfig, RefundConfig,
-    ReplaceConfig, Signature, SlaConfig, StakedRelayersConfig, SudoConfig, SystemConfig,
-    VaultRegistryConfig, DAYS, MINUTES, WASM_BINARY,
+    AccountId, BTCRelayConfig, DOTConfig, ExchangeRateOracleConfig, FeeConfig, GenesisConfig,
+    IssueConfig, ParachainInfoConfig, PolkaBTCConfig, RedeemConfig, RefundConfig, ReplaceConfig,
+    Signature, SlaConfig, StakedRelayersConfig, SudoConfig, SystemConfig, VaultRegistryConfig,
+    DAYS, MINUTES, WASM_BINARY,
 };
-use jsonrpc_core::serde_json::{self, json};
-use sc_service::ChainType;
-use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
-use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::{sr25519, Pair, Public};
-use sp_finality_grandpa::AuthorityId as GrandpaId;
-use sp_runtime::traits::{IdentifyAccount, Verify};
+
+#[cfg(feature = "standalone")]
+use {
+    btc_parachain_runtime::{AuraConfig, GrandpaConfig},
+    sp_consensus_aura::sr25519::AuthorityId as AuraId,
+    sp_finality_grandpa::AuthorityId as GrandpaId,
+};
 
 #[cfg(feature = "runtime-benchmarks")]
 use frame_benchmarking::account;
 
+use btc_parachain_rpc::jsonrpc_core::serde_json::{self, json};
+use cumulus_primitives::ParaId;
+use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
+use sc_service::ChainType;
+use serde::{Deserialize, Serialize};
+use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
+use sp_core::{sr25519, Pair, Public};
+use sp_runtime::traits::{IdentifyAccount, Verify};
+use std::str::FromStr;
+
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
 
-/// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
-pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
+/// Specialized `ChainSpec` for the normal parachain runtime.
+pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig, Extensions>;
 
-/// Generate a crypto pair from seed.
+/// Helper function to generate a crypto pair from seed
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
     TPublic::Pair::from_string(&format!("//{}", seed), None)
         .expect("static values are valid; qed")
         .public()
 }
 
+/// Generate an Aura authority key.
+#[cfg(feature = "standalone")]
+pub fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) {
+    (get_from_seed::<AuraId>(s), get_from_seed::<GrandpaId>(s))
+}
+
+/// The extensions for the [`ChainSpec`].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension)]
+#[serde(deny_unknown_fields)]
+pub struct Extensions {
+    /// The relay chain of the Parachain.
+    pub relay_chain: String,
+    /// The id of the Parachain.
+    pub para_id: u32,
+}
+
+#[cfg(not(feature = "standalone"))]
+impl Extensions {
+    /// Try to get the extension from the given `ChainSpec`.
+    pub fn try_get(chain_spec: &dyn sc_service::ChainSpec) -> Option<&Self> {
+        sc_chain_spec::get_extension(chain_spec.extensions())
+    }
+}
+
 type AccountPublic = <Signature as Verify>::Signer;
 
-/// Generate an account ID from seed.
+/// Helper function to generate an account ID from seed
 pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
 where
     AccountPublic: From<<TPublic::Pair as Pair>::Public>,
@@ -38,28 +72,121 @@ where
     AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
 }
 
-/// Generate an Aura authority key.
-pub fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) {
-    (get_from_seed::<AuraId>(s), get_from_seed::<GrandpaId>(s))
+pub fn local_config(id: ParaId) -> ChainSpec {
+    ChainSpec::from_genesis(
+        "PolkaBTC Local",
+        "local_testnet",
+        ChainType::Local,
+        move || {
+            testnet_genesis(
+                get_account_id_from_seed::<sr25519::Public>("Alice"),
+                get_account_id_from_seed::<sr25519::Public>("LiquidationVault"),
+                get_account_id_from_seed::<sr25519::Public>("FeePool"),
+                get_account_id_from_seed::<sr25519::Public>("Maintainer"),
+                #[cfg(feature = "standalone")]
+                vec![],
+                vec![
+                    get_account_id_from_seed::<sr25519::Public>("Alice"),
+                    get_account_id_from_seed::<sr25519::Public>("Bob"),
+                    get_account_id_from_seed::<sr25519::Public>("Charlie"),
+                    get_account_id_from_seed::<sr25519::Public>("Dave"),
+                    get_account_id_from_seed::<sr25519::Public>("Eve"),
+                    get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+                    get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+                ],
+                vec![(
+                    get_account_id_from_seed::<sr25519::Public>("Bob"),
+                    "Bob".as_bytes().to_vec(),
+                )],
+                id,
+            )
+        },
+        vec![],
+        None,
+        None,
+        Some(
+            serde_json::from_value(json!({
+                "ss58Format": 42,
+                "tokenDecimals": [10, 8],
+                "tokenSymbol": ["DOT", "PolkaBTC"]
+            }))
+            .unwrap(),
+        ),
+        Extensions {
+            relay_chain: "local".into(),
+            para_id: id.into(),
+        },
+    )
 }
 
-pub fn development_config(inclusion_check: bool) -> Result<ChainSpec, String> {
-    let wasm_binary = WASM_BINARY.ok_or("Development wasm binary not available".to_string())?;
+pub fn staging_testnet_config(id: ParaId) -> ChainSpec {
+    ChainSpec::from_genesis(
+        "PolkaBTC Staging",
+        "staging_testnet",
+        ChainType::Live,
+        move || {
+            testnet_genesis(
+                AccountId::from_str("5HeVGqvfpabwFqzV1DhiQmjaLQiFcTSmq2sH6f7atsXkgvtt").unwrap(),
+                AccountId::from_str("5CcXK1yKz4o68AJT3yBWjJPPXKDFvEFAi1L1Gkisy7n6MbGC").unwrap(),
+                AccountId::from_str("5GqMEqFQMfr2FEUBQ8yzh7NTGZUQQigfVELHnXXsUFve7TMN").unwrap(),
+                AccountId::from_str("5FqYNDWeJ9bwa3NhEryxscBELAMj54yrKqGaYNR9CjLZFYLB").unwrap(),
+                #[cfg(feature = "standalone")]
+                vec![],
+                vec![
+                    AccountId::from_str("5HeVGqvfpabwFqzV1DhiQmjaLQiFcTSmq2sH6f7atsXkgvtt")
+                        .unwrap(),
+                ],
+                vec![
+                    (
+                        AccountId::from_str("5H8zjSWfzMn86d1meeNrZJDj3QZSvRjKxpTfuVaZ46QJZ4qs")
+                            .unwrap(),
+                        "Interlay".as_bytes().to_vec(),
+                    ),
+                    (
+                        AccountId::from_str("5FPBT2BVVaLveuvznZ9A1TUtDcbxK5yvvGcMTJxgFmhcWGwj")
+                            .unwrap(),
+                        "Band".as_bytes().to_vec(),
+                    ),
+                ],
+                id,
+            )
+        },
+        Vec::new(),
+        None,
+        None,
+        Some(
+            serde_json::from_value(json!({
+                "ss58Format": 42,
+                "tokenDecimals": [10, 8],
+                "tokenSymbol": ["DOT", "PolkaBTC"]
+            }))
+            .unwrap(),
+        ),
+        Extensions {
+            relay_chain: "staging".into(),
+            para_id: id.into(),
+        },
+    )
+}
 
-    Ok(ChainSpec::from_genesis(
-        // Name
-        "PolkaBTC",
-        // ID
-        "dev",
+pub fn development_config(id: ParaId) -> ChainSpec {
+    ChainSpec::from_genesis(
+        "PolkaBTC Dev",
+        "dev_testnet",
         ChainType::Development,
         move || {
             testnet_genesis(
-                wasm_binary,
-                // Initial PoA authorities
-                vec![authority_keys_from_seed("Alice")],
-                // Sudo account
                 get_account_id_from_seed::<sr25519::Public>("Alice"),
-                // Pre-funded accounts
+                get_account_id_from_seed::<sr25519::Public>("LiquidationVault"),
+                get_account_id_from_seed::<sr25519::Public>("FeePool"),
+                get_account_id_from_seed::<sr25519::Public>("Maintainer"),
+                #[cfg(feature = "standalone")]
+                vec![authority_keys_from_seed("Alice")],
                 vec![
                     get_account_id_from_seed::<sr25519::Public>("Alice"),
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
@@ -78,75 +205,16 @@ pub fn development_config(inclusion_check: bool) -> Result<ChainSpec, String> {
                     #[cfg(feature = "runtime-benchmarks")]
                     account("Vault", 0, 0),
                 ],
-                true,
-                inclusion_check,
-            )
-        },
-        // Bootnodes
-        vec![],
-        // Telemetry
-        None,
-        // Protocol ID
-        None,
-        // Properties
-        Some(
-            serde_json::from_value(json!({
-                "ss58Format": 42,
-                "tokenDecimals": [10, 8],
-                "tokenSymbol": ["DOT", "PolkaBTC"]
-            }))
-            .unwrap(),
-        ),
-        // Extensions
-        None,
-    ))
-}
-
-pub fn local_testnet_config(inclusion_check: bool) -> Result<ChainSpec, String> {
-    let wasm_binary = WASM_BINARY.ok_or("Development wasm binary not available".to_string())?;
-
-    Ok(ChainSpec::from_genesis(
-        // Name
-        "Local Testnet",
-        // ID
-        "local_testnet",
-        ChainType::Local,
-        move || {
-            testnet_genesis(
-                wasm_binary,
-                // Initial PoA authorities
-                vec![
-                    authority_keys_from_seed("Alice"),
-                    authority_keys_from_seed("Bob"),
-                ],
-                // Sudo account
-                get_account_id_from_seed::<sr25519::Public>("Alice"),
-                // Pre-funded accounts
-                vec![
-                    get_account_id_from_seed::<sr25519::Public>("Alice"),
+                vec![(
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
-                    get_account_id_from_seed::<sr25519::Public>("Charlie"),
-                    get_account_id_from_seed::<sr25519::Public>("Dave"),
-                    get_account_id_from_seed::<sr25519::Public>("Eve"),
-                    get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-                    get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-                ],
-                true,
-                inclusion_check,
+                    "Bob".as_bytes().to_vec(),
+                )],
+                id,
             )
         },
-        // Bootnodes
-        vec![],
-        // Telemetry
+        Vec::new(),
         None,
-        // Protocol ID
         None,
-        // Properties
         Some(
             serde_json::from_value(json!({
                 "ss58Format": 42,
@@ -155,39 +223,45 @@ pub fn local_testnet_config(inclusion_check: bool) -> Result<ChainSpec, String> 
             }))
             .unwrap(),
         ),
-        // Extensions
-        None,
-    ))
+        Extensions {
+            relay_chain: "dev".into(),
+            para_id: id.into(),
+        },
+    )
 }
 
-/// Configure initial storage state for FRAME modules.
 fn testnet_genesis(
-    wasm_binary: &[u8],
-    initial_authorities: Vec<(AuraId, GrandpaId)>,
     root_key: AccountId,
+    liquidation_vault: AccountId,
+    fee_pool: AccountId,
+    maintainer: AccountId,
+    #[cfg(feature = "standalone")] initial_authorities: Vec<(AuraId, GrandpaId)>,
     endowed_accounts: Vec<AccountId>,
-    _enable_println: bool,
-    inclusion_check: bool,
+    authorized_oracles: Vec<(AccountId, Vec<u8>)>,
+    id: ParaId,
 ) -> GenesisConfig {
-    let bob_account_id = get_account_id_from_seed::<sr25519::Public>("Bob");
     GenesisConfig {
         frame_system: Some(SystemConfig {
-            // Add Wasm runtime to storage.
-            code: wasm_binary.to_vec(),
+            code: WASM_BINARY
+                .expect("WASM binary was not build, please build it!")
+                .to_vec(),
             changes_trie_config: Default::default(),
         }),
+        #[cfg(feature = "standalone")]
         pallet_aura: Some(AuraConfig {
             authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect(),
         }),
+        #[cfg(feature = "standalone")]
         pallet_grandpa: Some(GrandpaConfig {
             authorities: initial_authorities
                 .iter()
                 .map(|x| (x.1.clone(), 1))
                 .collect(),
         }),
+        parachain_info: Some(ParachainInfoConfig { parachain_id: id }),
         pallet_sudo: Some(SudoConfig {
             // Assign network admin rights.
-            key: root_key,
+            key: root_key.clone(),
         }),
         pallet_balances_Instance1: Some(DOTConfig {
             balances: endowed_accounts
@@ -201,18 +275,18 @@ fn testnet_genesis(
             #[cfg(feature = "runtime-benchmarks")]
             gov_id: account("Origin", 0, 0),
             #[cfg(not(feature = "runtime-benchmarks"))]
-            gov_id: get_account_id_from_seed::<sr25519::Public>("Alice"),
+            gov_id: root_key,
             maturity_period: 10 * MINUTES,
         }),
         exchange_rate_oracle: Some(ExchangeRateOracleConfig {
-            authorized_oracles: vec![(bob_account_id.clone(), "Bob".as_bytes().to_vec())],
+            authorized_oracles,
             max_delay: 3600000, // one hour
         }),
         btc_relay: Some(BTCRelayConfig {
             bitcoin_confirmations: 0,
             parachain_confirmations: 0,
             disable_difficulty_check: true,
-            disable_inclusion_check: !inclusion_check,
+            disable_inclusion_check: false,
             disable_op_return_check: false,
         }),
         issue: Some(IssueConfig { issue_period: DAYS }),
@@ -231,9 +305,7 @@ fn testnet_genesis(
             premium_redeem_threshold: FixedU128::checked_from_rational(135, 100).unwrap(), // 135%
             auction_collateral_threshold: FixedU128::checked_from_rational(120, 100).unwrap(), // 120%
             liquidation_collateral_threshold: FixedU128::checked_from_rational(110, 100).unwrap(), // 110%
-            liquidation_vault_account_id: get_account_id_from_seed::<sr25519::Public>(
-                "LiquidationVault",
-            ),
+            liquidation_vault_account_id: liquidation_vault,
         }),
         fee: Some(FeeConfig {
             issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
@@ -244,8 +316,8 @@ fn testnet_genesis(
             auction_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
             punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(),                // 10%
             replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(),   // 10%
-            fee_pool_account_id: get_account_id_from_seed::<sr25519::Public>("FeePool"),
-            maintainer_account_id: get_account_id_from_seed::<sr25519::Public>("Maintainer"),
+            fee_pool_account_id: fee_pool,
+            maintainer_account_id: maintainer,
             epoch_period: 5,
             vault_rewards: FixedU128::checked_from_rational(77, 100).unwrap(),
             vault_rewards_issued: FixedU128::checked_from_rational(90, 100).unwrap(),
