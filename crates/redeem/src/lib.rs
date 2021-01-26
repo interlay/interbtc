@@ -272,7 +272,7 @@ impl<T: Config> Module<T> {
                 ext::oracle::btc_to_dots::<T>(redeem_amount_polka_btc)?;
             ext::fee::get_premium_redeem_fee::<T>(redeem_amount_polka_btc_in_dot)?
         } else {
-            0.into()
+            Self::u128_to_dot(0u128)?
         };
 
         Self::insert_redeem_request(
@@ -284,7 +284,7 @@ impl<T: Config> Module<T> {
                 fee: fee_polka_btc,
                 amount_btc: redeem_amount_polka_btc,
                 // TODO: reimplement partial redeem for system liquidation
-                amount_dot: 0.into(),
+                amount_dot: Self::u128_to_dot(0u128)?,
                 premium_dot,
                 redeemer: redeemer.clone(),
                 btc_address: btc_address.clone(),
@@ -372,7 +372,7 @@ impl<T: Config> Module<T> {
         )?;
         ext::fee::increase_polka_btc_rewards_for_epoch::<T>(fee_polka_btc);
 
-        if redeem.premium_dot > 0.into() {
+        if redeem.premium_dot > Self::u128_to_dot(0u128)? {
             ext::vault_registry::redeem_tokens_premium::<T>(
                 &redeem.vault,
                 amount_polka_btc,
@@ -445,7 +445,7 @@ impl<T: Config> Module<T> {
         let remaining_dot_to_be_slashed = slashing_amount_in_dot
             .checked_sub(&slashed_dot)
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
-        if remaining_dot_to_be_slashed > 0.into() {
+        if remaining_dot_to_be_slashed > Self::u128_to_dot(0u128)? {
             ext::collateral::slash_collateral::<T>(
                 &redeem.vault,
                 &ext::fee::fee_pool_account_id::<T>(),
@@ -568,6 +568,10 @@ impl<T: Config> Module<T> {
             Error::<T>::RedeemCancelled
         );
         Ok(<RedeemRequests<T>>::get(*redeem_id))
+    }
+
+    fn u128_to_dot(x: u128) -> Result<DOT<T>, DispatchError> {
+        TryInto::<DOT<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 }
 

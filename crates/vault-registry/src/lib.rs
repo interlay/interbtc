@@ -548,7 +548,7 @@ impl<T: Config> Module<T> {
         )?;
         let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
         vault.redeem_tokens(tokens)?;
-        if premium > 0.into() {
+        if premium > Self::u128_to_dot(0u128)? {
             ext::collateral::slash_collateral::<T>(vault_id, redeemer_id, premium)?;
         }
 

@@ -261,7 +261,7 @@ impl<T: Config> Module<T> {
         let rate = Self::get_exchange_rate()?;
         let raw_amount = Self::into_u128(amount)?;
         if raw_amount == 0 {
-            return Ok(0.into());
+            return Ok(0u32.into());
         }
 
         // The code below performs `raw_amount/rate`, plus necessary type conversions
