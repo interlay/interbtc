@@ -10,7 +10,7 @@ RUN chmod +x /usr/local/bin/btc-parachain && \
     /usr/local/bin/btc-parachain --version
 
 RUN /usr/local/bin/btc-parachain export-genesis-state --chain staging --parachain-id 21 > /var/lib/genesis-state
-RUN /usr/local/bin/btc-parachain export-genesis-wasm --chain staging --parachain-id 21 > /var/lib/genesis-wasm
+RUN /usr/local/bin/btc-parachain export-genesis-wasm --chain staging > /var/lib/genesis-wasm
 
 EXPOSE 30333 9933 9944
 VOLUME ["/data"]
