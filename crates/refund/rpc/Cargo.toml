@@ -1,6 +1,6 @@
 [package]
 name = "module-refund-rpc"
-version = '0.3.0'
+version = '0.5.0'
 authors = ["Interlay Ltd"]
 edition = "2018"
 

@@ -5,7 +5,7 @@
 ```shell
 git clone git@github.com:paritytech/polkadot.git
 cd polkadot
-git checkout 6f221717
+git checkout rococo-v1
 
 cargo build --release --features=real-overseer
 
@@ -27,7 +27,7 @@ In the root of the BTC-Parachain directory:
 cargo build --release
 
 # Export genesis state
-./target/release/btc-parachain export-genesis-state --parachain-id 200 > genesis-state
+./target/release/btc-parachain export-genesis-state --chain dev --parachain-id 21 > genesis-state
 
 # Export genesis wasm
 ./target/release/btc-parachain export-genesis-wasm > genesis-wasm

@@ -8,7 +8,7 @@ use sp_std::prelude::*;
 benchmarks! {
     register_vault {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let amount = 100;
+        let amount: u32 = 100;
         let public_key = BtcPublicKey::default();
     }: _(RawOrigin::Signed(origin.clone()), amount.into(), public_key)
     verify {

@@ -37,22 +37,22 @@ benchmarks! {
 
     deregister_staked_relayer {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let stake = 100;
+        let stake: u32 = 100;
         <ActiveStakedRelayers<T>>::insert(&origin, StakedRelayer { stake: stake.into(), height: System::<T>::block_number() });
         Collateral::<T>::lock_collateral(&origin, stake.into()).unwrap();
     }: _(RawOrigin::Signed(origin))
 
     suggest_status_update {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let stake = 100;
-        let deposit = 1000;
+        let stake: u32 = 100;
+        let deposit: u32 = 1000;
         let status_code = StatusCode::Error;
         StakedRelayers::<T>::insert_active_staked_relayer(&origin, stake.into(), System::<T>::block_number());
     }: _(RawOrigin::Signed(origin), deposit.into(), status_code, None, None, None, vec![])
 
     vote_on_status_update {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let stake = 100;
+        let stake: u32 = 100;
         StakedRelayers::<T>::insert_active_staked_relayer(&origin, stake.into(), System::<T>::block_number());
         let status_update = StatusUpdate::default();
         let status_update_id = StakedRelayers::<T>::insert_active_status_update(status_update);
@@ -66,7 +66,7 @@ benchmarks! {
     slash_staked_relayer {
         let origin: T::AccountId = account("Origin", 0, 0);
         let staked_relayer: T::AccountId = account("Vault", 0, 0);
-        let stake = 100;
+        let stake: u32 = 100;
         StakedRelayers::<T>::insert_active_staked_relayer(&staked_relayer, stake.into(), System::<T>::block_number());
         Collateral::<T>::lock_collateral(&staked_relayer, stake.into()).unwrap();
 
@@ -75,7 +75,7 @@ benchmarks! {
     report_vault_theft {
         let origin: T::AccountId = account("Origin", 0, 0);
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
-        let stake = 100;
+        let stake: u32 = 100;
         StakedRelayers::<T>::insert_active_staked_relayer(&origin, stake.into(), System::<T>::block_number());
 
         let vault_address = BtcAddress::P2PKH(H160::from_slice(&[
@@ -151,13 +151,13 @@ benchmarks! {
 
     report_vault_under_liquidation_threshold {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let stake = 100;
+        let stake: u32 = 100;
         StakedRelayers::<T>::insert_active_staked_relayer(&origin, stake.into(), System::<T>::block_number());
 
         let vault_id: T::AccountId = account("Vault", 0, 0);
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
-        vault.issued_tokens = 100_000.into();
+        vault.issued_tokens = 100_000u32.into();
         vault.wallet = Wallet::new(dummy_public_key());
         VaultRegistry::<T>::insert_vault(
             &vault_id,

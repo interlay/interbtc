@@ -4,7 +4,7 @@ description = 'Collateral module'
 edition = '2018'
 homepage = 'https://interlay.gitlab.io/polkabtc-spec/spec/collateral.html'
 name = 'collateral'
-version = '0.3.0'
+version = '0.5.0'
 
 [dependencies]
 serde = { version = "1.0.101", default-features = false, features = ['derive'], optional = true }

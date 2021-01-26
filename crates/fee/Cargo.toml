@@ -3,7 +3,7 @@ authors = ['Interlay Ltd']
 description = 'Fee module'
 edition = '2018'
 name = 'fee'
-version = '0.3.1'
+version = '0.5.0'
 
 [dependencies]
 serde = { version = "1.0.101", default-features = false, features = ['derive'], optional = true }

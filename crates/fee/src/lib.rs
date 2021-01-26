@@ -241,7 +241,7 @@ decl_module! {
 impl<T: Config> Module<T> {
     fn begin_block(height: T::BlockNumber) -> DispatchResult {
         // only calculate rewards per epoch
-        if height % Self::epoch_period() == 0.into() {
+        if height % Self::epoch_period() == 0u32.into() {
             Self::update_rewards_for_epoch()?;
         }
 
@@ -530,7 +530,7 @@ impl<T: Config> Module<T> {
             .iter()
             .fold(UnsignedFixedPoint::<T>::default(), |a, &b| a + b);
         let one =
-            UnsignedFixedPoint::<T>::checked_from_integer(Module::<T>::btc_to_inner(1.into())?)
+            UnsignedFixedPoint::<T>::checked_from_integer(Module::<T>::btc_to_inner(1u32.into())?)
                 .ok_or(Error::<T>::ArithmeticOverflow)?;
         ensure!(sum == one, Error::<T>::InvalidRewardDist);
         Ok(())
