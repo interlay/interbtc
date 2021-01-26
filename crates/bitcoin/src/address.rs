@@ -4,13 +4,13 @@ use crate::Script;
 use bitcoin_hashes::hash160::Hash as Hash160;
 use bitcoin_hashes::Hash;
 use codec::{Decode, Encode};
-use secp256k1::{
-    constants::PUBLIC_KEY_SIZE, ffi::types::AlignedType, Error as Secp256k1Error,
-    PublicKey as Secp256k1PublicKey, Secp256k1,
-};
 use sha2::{Digest, Sha256};
 use sp_core::H160;
-use sp_std::vec;
+
+use secp256k1::{
+    util::COMPRESSED_PUBLIC_KEY_SIZE as PUBLIC_KEY_SIZE, Error as Secp256k1Error,
+    PublicKey as Secp256k1PublicKey, SecretKey as Secp256k1SecretKey,
+};
 
 /// A Bitcoin address is a serialized identifier that represents the destination for a payment.
 /// Address prefixes are used to indicate the network as well as the format. Since the Parachain
@@ -179,6 +179,7 @@ impl PublicKey {
         hasher.input(&self.0);
         // input secure id
         hasher.input(secure_id.as_bytes());
+
         let mut bytes = [0; 32];
         bytes.copy_from_slice(&hasher.result()[..]);
         bytes
@@ -191,17 +192,18 @@ impl PublicKey {
     ///
     /// * `secure_id` - random nonce (as provided by the security module)
     pub fn new_deposit_public_key(&self, secure_id: H256) -> Result<Self, Secp256k1Error> {
-        let mut buf = vec![AlignedType::zeroed(); Secp256k1::preallocate_size()];
-        // instantiate Secp256k1 engine with prealloc buffer
-        let secp = Secp256k1::preallocated_new(&mut buf)?;
+        let secret_key = Secp256k1SecretKey::parse(&self.new_secret_key(secure_id))?;
+        self.new_deposit_public_key_with_secret(secret_key)
+    }
 
-        // c = H(V || id)
-        let secret_key = &self.new_secret_key(secure_id);
-
-        let mut public_key = Secp256k1PublicKey::from_slice(&self.0)?;
+    fn new_deposit_public_key_with_secret(
+        &self,
+        secret_key: Secp256k1SecretKey,
+    ) -> Result<Self, Secp256k1Error> {
+        let mut public_key = Secp256k1PublicKey::parse_compressed(&self.0)?;
         // D = V * c
-        public_key.mul_assign(&secp, secret_key)?;
-        Ok(Self(public_key.serialize()))
+        public_key.tweak_mul_assign(&secret_key)?;
+        Ok(Self(public_key.serialize_compressed()))
     }
 
     /// Calculates the RIPEMD-160 hash of the compressed public key,
@@ -214,8 +216,7 @@ impl PublicKey {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use secp256k1::rand::rngs::OsRng;
-    use secp256k1::SecretKey as Secp256k1SecretKey;
+    use rand::thread_rng;
 
     #[test]
     fn test_public_key_to_hash() {
@@ -234,33 +235,59 @@ mod tests {
     }
 
     #[test]
-    fn test_public_key_derivation_scheme() {
-        let secp = Secp256k1::new();
-        let mut rng = OsRng::new().unwrap();
-
+    fn test_new_deposit_public_key() {
         // c
         let secure_id = H256::random();
+        let secret_key = Secp256k1SecretKey::parse_slice(secure_id.as_bytes()).unwrap();
 
         // v
-        let mut vault_secret_key = Secp256k1SecretKey::new(&mut rng);
+        let mut vault_secret_key = Secp256k1SecretKey::random(&mut thread_rng());
         // V
-        let vault_public_key = Secp256k1PublicKey::from_secret_key(&secp, &vault_secret_key);
-
-        let vault_public_key = PublicKey(vault_public_key.serialize());
+        let vault_public_key = PublicKey(
+            Secp256k1PublicKey::from_secret_key(&vault_secret_key).serialize_compressed(),
+        );
 
         // D = V * c
         let deposit_public_key = vault_public_key
-            .new_deposit_public_key(secure_id.clone())
+            .new_deposit_public_key_with_secret(secret_key.clone())
             .unwrap();
 
         // d = v * c
-        vault_secret_key
-            .mul_assign(&vault_public_key.new_secret_key(secure_id))
-            .unwrap();
+        vault_secret_key.tweak_mul_assign(&secret_key).unwrap();
 
         assert_eq!(
             deposit_public_key,
-            PublicKey(Secp256k1PublicKey::from_secret_key(&secp, &vault_secret_key).serialize())
+            PublicKey(
+                Secp256k1PublicKey::from_secret_key(&vault_secret_key).serialize_compressed(),
+            )
+        );
+    }
+
+    #[test]
+    fn test_new_deposit_public_key_static() {
+        // bcrt1qzrkyemjkaxq48zwlnhxvear8fh6lvkwszxy7dm
+        let old_public_key = PublicKey([
+            2, 123, 236, 243, 192, 100, 34, 40, 51, 111, 129, 130, 160, 64, 129, 135, 11, 184, 68,
+            84, 83, 198, 234, 196, 150, 13, 208, 86, 34, 150, 10, 59, 247,
+        ]);
+
+        let secret_key = Secp256k1SecretKey::parse(&[
+            137, 16, 46, 159, 212, 158, 232, 178, 197, 253, 105, 137, 102, 159, 70, 217, 110, 211,
+            254, 82, 216, 4, 105, 171, 102, 252, 54, 190, 114, 91, 11, 69,
+        ])
+        .unwrap();
+
+        // bcrt1qn9mgwncjtnavx23utveqqcrxh3zjtll58pc744
+        let new_public_key = old_public_key
+            .new_deposit_public_key_with_secret(secret_key)
+            .unwrap();
+
+        assert_eq!(
+            new_public_key,
+            PublicKey([
+                2, 151, 202, 113, 10, 9, 43, 125, 187, 101, 157, 152, 191, 94, 12, 236, 133, 229,
+                16, 233, 221, 52, 150, 183, 243, 61, 110, 8, 152, 132, 99, 49, 189,
+            ])
         );
     }
 }
