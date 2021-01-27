@@ -49,9 +49,8 @@ sp-consensus-aura = { git = "https://github.com/paritytech/substrate", branch = 
 
 # Cumulus dependencies
 cumulus-runtime = { git = "https://github.com/paritytech/cumulus", branch = "rococo-v1", default-features = false }
-cumulus-parachain-upgrade = { git = "https://github.com/paritytech/cumulus", branch = "rococo-v1", default-features = false }
+cumulus-parachain-system = { git = "https://github.com/paritytech/cumulus", branch = "rococo-v1", default-features = false }
 cumulus-primitives = { git = "https://github.com/paritytech/cumulus", branch = "rococo-v1", default-features = false }
-cumulus-message-broker = { git = "https://github.com/paritytech/cumulus", branch = "rococo-v1", default-features = false }
 xcm-handler = { git = "https://github.com/paritytech/cumulus", branch = "rococo-v1", default-features = false }
 
 # Polkadot dependencies
@@ -136,8 +135,7 @@ std = [
   "sp-consensus-aura/std",
 
   "cumulus-runtime/std",
-  "cumulus-parachain-upgrade/std",
-  "cumulus-message-broker/std",
+  "cumulus-parachain-system/std",
   "cumulus-primitives/std",
   "xcm/std",
   "xcm-builder/std",
