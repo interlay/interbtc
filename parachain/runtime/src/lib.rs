@@ -296,14 +296,10 @@ impl pallet_sudo::Config for Runtime {
 }
 
 #[cfg(not(feature = "standalone"))]
-impl cumulus_parachain_upgrade::Config for Runtime {
+impl cumulus_parachain_system::Config for Runtime {
     type Event = Event;
     type OnValidationData = ();
     type SelfParaId = parachain_info::Module<Runtime>;
-}
-
-#[cfg(not(feature = "standalone"))]
-impl cumulus_message_broker::Config for Runtime {
     type DownwardMessageHandlers = ();
     type HrmpMessageHandlers = ();
 }
@@ -366,8 +362,8 @@ impl Config for XcmConfig {
 impl xcm_handler::Config for Runtime {
     type Event = Event;
     type XcmExecutor = XcmExecutor<XcmConfig>;
-    type UpwardMessageSender = MessageBroker;
-    type HrmpMessageSender = MessageBroker;
+    type UpwardMessageSender = ParachainSystem;
+    type HrmpMessageSender = ParachainSystem;
 }
 
 parameter_types! {
@@ -386,8 +382,7 @@ impl pallet_balances::Config<pallet_balances::Instance1> for Runtime {
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = StorageMapShim<
         pallet_balances::Account<Runtime, pallet_balances::Instance1>,
-        frame_system::CallOnCreatedAccount<Runtime>,
-        frame_system::CallKillAccount<Runtime>,
+        frame_system::Provider<Runtime>,
         AccountId,
         pallet_balances::AccountData<Balance>,
     >;
@@ -403,8 +398,7 @@ impl pallet_balances::Config<pallet_balances::Instance2> for Runtime {
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = StorageMapShim<
         pallet_balances::Account<Runtime, pallet_balances::Instance2>,
-        frame_system::CallOnCreatedAccount<Runtime>,
-        frame_system::CallKillAccount<Runtime>,
+        frame_system::Provider<Runtime>,
         AccountId,
         pallet_balances::AccountData<Balance>,
     >;
@@ -554,8 +548,7 @@ macro_rules! construct_polkabtc_runtime {
 
 #[cfg(not(feature = "standalone"))]
 construct_polkabtc_runtime! {
-    ParachainUpgrade: cumulus_parachain_upgrade::{Module, Call, Storage, Inherent, Event},
-    MessageBroker: cumulus_message_broker::{Module, Storage, Call, Inherent},
+    ParachainSystem: cumulus_parachain_system::{Module, Call, Storage, Inherent, Event},
     XcmHandler: xcm_handler::{Module, Event<T>, Origin},
 }
 

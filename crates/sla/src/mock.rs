@@ -91,8 +91,7 @@ impl pallet_balances::Config<pallet_balances::Instance1> for Test {
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = StorageMapShim<
         pallet_balances::Account<Test, pallet_balances::Instance1>,
-        frame_system::CallOnCreatedAccount<Test>,
-        frame_system::CallKillAccount<Test>,
+        frame_system::Provider<Test>,
         AccountId,
         pallet_balances::AccountData<Balance>,
     >;
@@ -108,8 +107,7 @@ impl pallet_balances::Config<pallet_balances::Instance2> for Test {
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = StorageMapShim<
         pallet_balances::Account<Test, pallet_balances::Instance2>,
-        frame_system::CallOnCreatedAccount<Test>,
-        frame_system::CallKillAccount<Test>,
+        frame_system::Provider<Test>,
         AccountId,
         pallet_balances::AccountData<Balance>,
     >;
