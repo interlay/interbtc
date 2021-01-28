@@ -1,9 +1,129 @@
-include:
-    - project: interlay/tools/ci-scripts
-      file: /gitlab-templates/rust-base-gitlab-ci.yaml
-      ref: nightly-2021-01-25
+image: "registry.gitlab.com/interlay/containers/rust-base:nightly-2021-01-25"
 
-variables:
-    ARTIFACT_BIN_PATH: btc-parachain
-    TOOLCHAIN_VERSION: nightly-2021-01-25
+.rust-before-script: &rustup_sscache
+  before_script:
+    - rustup show
+    - rustc --version
+    - rustfmt --version
+    - cargo --version
+    - SCCACHE_START_SERVER=1 SCCACHE_IDLE_TIMEOUT=0 sccache
+    - sccache -s
+
+# Declare stages
+stages:
+    - test # for tests
+    - build # for builds
+    - deploy # for deployment
+
+test-pallets:
+    stage: test
+    variables:
+        CARGO_HOME: $CI_PROJECT_DIR/.cargo
+        RUSTC_WRAPPER: /usr/local/bin/sccache
+    <<: *rustup_sscache
+    script:
+        - cargo fmt -- --check
+        - cargo check --all
+        - cargo test --all
+        - sccache -s
+    cache:
+        key: ${CI_COMMIT_REF_SLUG}
+        paths:
+            - .cargo
+            - target
+    only:
+        - merge_requests
+        - master
+        - dev
+        - alpha
+
+build-standalone:
+    stage: build
+    variables:
+        CARGO_HOME: $CI_PROJECT_DIR/.cargo
+        RUSTC_WRAPPER: /usr/local/bin/sccache
+        ARTIFACT_BIN_PATH: btc-parachain
+    <<: *rustup_sscache
+    script:
+        - cargo build --manifest-path parachain/Cargo.toml --release --no-default-features --features aura-grandpa
+        - sccache -s
+        - mv target/release/${ARTIFACT_BIN_PATH} target/release/${ARTIFACT_BIN_PATH}-standalone
+    artifacts:
+        paths:
+            - target/release/${ARTIFACT_BIN_PATH}-standalone
+    cache:
+        key: ${CI_COMMIT_REF_SLUG}
+        paths:
+            - .cargo
+            - target
+    only:
+        - merge_requests
+        - master
+        - dev
+        - alpha
+
+build-parachain:
+    stage: build
+    variables:
+        CARGO_HOME: $CI_PROJECT_DIR/.cargo
+        RUSTC_WRAPPER: /usr/local/bin/sccache
+        ARTIFACT_BIN_PATH: btc-parachain
+    <<: *rustup_sscache
+    script:
+        - cargo build --manifest-path parachain/Cargo.toml --release --no-default-features --features cumulus-polkadot
+        - sccache -s
+        - mv target/release/${ARTIFACT_BIN_PATH} target/release/${ARTIFACT_BIN_PATH}-parachain
+    artifacts:
+        paths:
+            - target/release/${ARTIFACT_BIN_PATH}-parachain
+    cache:
+        key: ${CI_COMMIT_REF_SLUG}
+        paths:
+            - .cargo
+            - target
+    only:
+        - merge_requests
+        - master
+        - dev
+        - alpha
+
+docker-publish-standalone:
+    stage: deploy
+    image:
+        name: gcr.io/kaniko-project/executor:debug
+        entrypoint: [""]
+    script:
+        - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
+        - |
+            /kaniko/executor \
+            --build-arg BINARY=btc-parachain-standalone \
+            --context $CI_PROJECT_DIR \
+            --dockerfile $CI_PROJECT_DIR/Dockerfile_release \
+            --destination $CI_REGISTRY_IMAGE:${CI_COMMIT_BRANCH:-${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}}-$CI_COMMIT_SHORT_SHA \
+            --destination $CI_REGISTRY_IMAGE:${CI_COMMIT_BRANCH:-${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}}
+    only:
+        - master
+        - dev
+        - alpha
+        - web # For pipelines created by using Run pipeline button in the GitLab UI, from the project’s CI/CD > Pipelines section.
+
+docker-publish-parachain:
+    stage: deploy
+    image:
+        name: gcr.io/kaniko-project/executor:debug
+        entrypoint: [""]
+    script:
+        - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
+        - |
+            /kaniko/executor \
+            --build-arg BINARY=btc-parachain-parachain \
+            --context $CI_PROJECT_DIR \
+            --dockerfile $CI_PROJECT_DIR/Dockerfile_release \
+            --destination $CI_REGISTRY_IMAGE:${CI_COMMIT_BRANCH:-${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}}-rococo-$CI_COMMIT_SHORT_SHA \
+            --destination $CI_REGISTRY_IMAGE:${CI_COMMIT_BRANCH:-${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}}-rococo
+    only:
+        - master
+        - dev
+        - alpha
+        - web # For pipelines created by using Run pipeline button in the GitLab UI, from the project’s CI/CD > Pipelines section.
 
