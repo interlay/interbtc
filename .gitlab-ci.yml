@@ -11,31 +11,8 @@ image: "registry.gitlab.com/interlay/containers/rust-base:nightly-2021-01-25"
 
 # Declare stages
 stages:
-    - test # for tests
-    - build # for builds
+    - build # for builds & tests
     - deploy # for deployment
-
-test-pallets:
-    stage: test
-    variables:
-        CARGO_HOME: $CI_PROJECT_DIR/.cargo
-        RUSTC_WRAPPER: /usr/local/bin/sccache
-    <<: *rustup_sscache
-    script:
-        - cargo fmt -- --check
-        - cargo check --all
-        - cargo test --all
-        - sccache -s
-    cache:
-        key: ${CI_COMMIT_REF_SLUG}
-        paths:
-            - .cargo
-            - target
-    only:
-        - merge_requests
-        - master
-        - dev
-        - alpha
 
 build-standalone:
     stage: build
@@ -45,17 +22,15 @@ build-standalone:
         ARTIFACT_BIN_PATH: btc-parachain
     <<: *rustup_sscache
     script:
-        - cargo build --manifest-path parachain/Cargo.toml --release --no-default-features --features aura-grandpa
+        - cargo fmt -- --check
+        - cargo check --all
+        - cargo test --all
+        - cargo build --release
         - sccache -s
         - mv target/release/${ARTIFACT_BIN_PATH} target/release/${ARTIFACT_BIN_PATH}-standalone
     artifacts:
         paths:
             - target/release/${ARTIFACT_BIN_PATH}-standalone
-    cache:
-        key: ${CI_COMMIT_REF_SLUG}
-        paths:
-            - .cargo
-            - target
     only:
         - merge_requests
         - master
@@ -70,17 +45,13 @@ build-parachain:
         ARTIFACT_BIN_PATH: btc-parachain
     <<: *rustup_sscache
     script:
+        - cargo check --manifest-path parachain/Cargo.toml --release --no-default-features --features cumulus-polkadot
         - cargo build --manifest-path parachain/Cargo.toml --release --no-default-features --features cumulus-polkadot
         - sccache -s
         - mv target/release/${ARTIFACT_BIN_PATH} target/release/${ARTIFACT_BIN_PATH}-parachain
     artifacts:
         paths:
             - target/release/${ARTIFACT_BIN_PATH}-parachain
-    cache:
-        key: ${CI_COMMIT_REF_SLUG}
-        paths:
-            - .cargo
-            - target
     only:
         - merge_requests
         - master
