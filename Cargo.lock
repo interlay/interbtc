@@ -626,7 +626,7 @@ dependencies = [
 
 [[package]]
 name = "btc-parachain-runtime"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "bitcoin",
  "btc-relay",
@@ -701,7 +701,7 @@ dependencies = [
 
 [[package]]
 name = "btc-parachain-service"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "btc-parachain-rpc",
  "btc-parachain-runtime",
