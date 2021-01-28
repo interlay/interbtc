@@ -32,6 +32,9 @@ pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/substrat
 substrate-frame-rpc-system = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
 
 [features]
-standalone = [
-    "btc-parachain-runtime/standalone",
+cumulus-polkadot = [
+    "btc-parachain-runtime/cumulus-polkadot",
+]
+aura-grandpa = [
+    "btc-parachain-runtime/aura-grandpa",
 ]

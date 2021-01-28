@@ -1,25 +1,30 @@
 use btc_parachain_runtime::{
     AccountId, BTCRelayConfig, DOTConfig, ExchangeRateOracleConfig, FeeConfig, GenesisConfig,
-    IssueConfig, ParachainInfoConfig, PolkaBTCConfig, RedeemConfig, RefundConfig, ReplaceConfig,
-    Signature, SlaConfig, StakedRelayersConfig, SudoConfig, SystemConfig, VaultRegistryConfig,
-    DAYS, MINUTES, WASM_BINARY,
+    IssueConfig, PolkaBTCConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature, SlaConfig,
+    StakedRelayersConfig, SudoConfig, SystemConfig, VaultRegistryConfig, DAYS, MINUTES,
+    WASM_BINARY,
 };
 
-#[cfg(feature = "standalone")]
+#[cfg(feature = "aura-grandpa")]
 use {
     btc_parachain_runtime::{AuraConfig, GrandpaConfig},
     sp_consensus_aura::sr25519::AuthorityId as AuraId,
     sp_finality_grandpa::AuthorityId as GrandpaId,
 };
 
+#[cfg(feature = "cumulus-polkadot")]
+use {
+    btc_parachain_runtime::ParachainInfoConfig,
+    cumulus_primitives::ParaId,
+    sc_chain_spec::{ChainSpecExtension, ChainSpecGroup},
+    serde::{Deserialize, Serialize},
+};
+
 #[cfg(feature = "runtime-benchmarks")]
 use frame_benchmarking::account;
 
 use btc_parachain_rpc::jsonrpc_core::serde_json::{self, json};
-use cumulus_primitives::ParaId;
-use sc_chain_spec::{ChainSpecExtension, ChainSpecGroup};
 use sc_service::ChainType;
-use serde::{Deserialize, Serialize};
 use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
@@ -29,7 +34,11 @@ use std::str::FromStr;
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
 
 /// Specialized `ChainSpec` for the normal parachain runtime.
+#[cfg(feature = "cumulus-polkadot")]
 pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig, Extensions>;
+
+#[cfg(feature = "aura-grandpa")]
+pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
 
 /// Helper function to generate a crypto pair from seed
 pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
@@ -39,13 +48,14 @@ pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Pu
 }
 
 /// Generate an Aura authority key.
-#[cfg(feature = "standalone")]
+#[cfg(feature = "aura-grandpa")]
 pub fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) {
     (get_from_seed::<AuraId>(s), get_from_seed::<GrandpaId>(s))
 }
 
 /// The extensions for the [`ChainSpec`].
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecGroup, ChainSpecExtension)]
+#[cfg(feature = "cumulus-polkadot")]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecExtension, ChainSpecGroup)]
 #[serde(deny_unknown_fields)]
 pub struct Extensions {
     /// The relay chain of the Parachain.
@@ -54,7 +64,7 @@ pub struct Extensions {
     pub para_id: u32,
 }
 
-#[cfg(not(feature = "standalone"))]
+#[cfg(feature = "cumulus-polkadot")]
 impl Extensions {
     /// Try to get the extension from the given `ChainSpec`.
     pub fn try_get(chain_spec: &dyn sc_service::ChainSpec) -> Option<&Self> {
@@ -72,7 +82,7 @@ where
     AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
 }
 
-pub fn local_config(id: ParaId) -> ChainSpec {
+pub fn local_config(#[cfg(feature = "cumulus-polkadot")] id: ParaId) -> ChainSpec {
     ChainSpec::from_genesis(
         "PolkaBTC Local",
         "local_testnet",
@@ -83,7 +93,7 @@ pub fn local_config(id: ParaId) -> ChainSpec {
                 get_account_id_from_seed::<sr25519::Public>("LiquidationVault"),
                 get_account_id_from_seed::<sr25519::Public>("FeePool"),
                 get_account_id_from_seed::<sr25519::Public>("Maintainer"),
-                #[cfg(feature = "standalone")]
+                #[cfg(feature = "aura-grandpa")]
                 vec![],
                 vec![
                     get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -103,6 +113,7 @@ pub fn local_config(id: ParaId) -> ChainSpec {
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
                     "Bob".as_bytes().to_vec(),
                 )],
+                #[cfg(feature = "cumulus-polkadot")]
                 id,
             )
         },
@@ -117,14 +128,17 @@ pub fn local_config(id: ParaId) -> ChainSpec {
             }))
             .unwrap(),
         ),
+        #[cfg(feature = "cumulus-polkadot")]
         Extensions {
             relay_chain: "local".into(),
             para_id: id.into(),
         },
+        #[cfg(feature = "aura-grandpa")]
+        None,
     )
 }
 
-pub fn staging_testnet_config(id: ParaId) -> ChainSpec {
+pub fn staging_testnet_config(#[cfg(feature = "cumulus-polkadot")] id: ParaId) -> ChainSpec {
     ChainSpec::from_genesis(
         "PolkaBTC Staging",
         "staging_testnet",
@@ -135,7 +149,7 @@ pub fn staging_testnet_config(id: ParaId) -> ChainSpec {
                 AccountId::from_str("5CcXK1yKz4o68AJT3yBWjJPPXKDFvEFAi1L1Gkisy7n6MbGC").unwrap(),
                 AccountId::from_str("5GqMEqFQMfr2FEUBQ8yzh7NTGZUQQigfVELHnXXsUFve7TMN").unwrap(),
                 AccountId::from_str("5FqYNDWeJ9bwa3NhEryxscBELAMj54yrKqGaYNR9CjLZFYLB").unwrap(),
-                #[cfg(feature = "standalone")]
+                #[cfg(feature = "aura-grandpa")]
                 vec![],
                 vec![
                     AccountId::from_str("5HeVGqvfpabwFqzV1DhiQmjaLQiFcTSmq2sH6f7atsXkgvtt")
@@ -153,6 +167,7 @@ pub fn staging_testnet_config(id: ParaId) -> ChainSpec {
                         "Band".as_bytes().to_vec(),
                     ),
                 ],
+                #[cfg(feature = "cumulus-polkadot")]
                 id,
             )
         },
@@ -167,14 +182,17 @@ pub fn staging_testnet_config(id: ParaId) -> ChainSpec {
             }))
             .unwrap(),
         ),
+        #[cfg(feature = "cumulus-polkadot")]
         Extensions {
             relay_chain: "staging".into(),
             para_id: id.into(),
         },
+        #[cfg(feature = "aura-grandpa")]
+        None,
     )
 }
 
-pub fn development_config(id: ParaId) -> ChainSpec {
+pub fn development_config(#[cfg(feature = "cumulus-polkadot")] id: ParaId) -> ChainSpec {
     ChainSpec::from_genesis(
         "PolkaBTC Dev",
         "dev_testnet",
@@ -185,7 +203,7 @@ pub fn development_config(id: ParaId) -> ChainSpec {
                 get_account_id_from_seed::<sr25519::Public>("LiquidationVault"),
                 get_account_id_from_seed::<sr25519::Public>("FeePool"),
                 get_account_id_from_seed::<sr25519::Public>("Maintainer"),
-                #[cfg(feature = "standalone")]
+                #[cfg(feature = "aura-grandpa")]
                 vec![authority_keys_from_seed("Alice")],
                 vec![
                     get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -209,6 +227,7 @@ pub fn development_config(id: ParaId) -> ChainSpec {
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
                     "Bob".as_bytes().to_vec(),
                 )],
+                #[cfg(feature = "cumulus-polkadot")]
                 id,
             )
         },
@@ -223,10 +242,13 @@ pub fn development_config(id: ParaId) -> ChainSpec {
             }))
             .unwrap(),
         ),
+        #[cfg(feature = "cumulus-polkadot")]
         Extensions {
             relay_chain: "dev".into(),
             para_id: id.into(),
         },
+        #[cfg(feature = "aura-grandpa")]
+        None,
     )
 }
 
@@ -235,10 +257,10 @@ fn testnet_genesis(
     liquidation_vault: AccountId,
     fee_pool: AccountId,
     maintainer: AccountId,
-    #[cfg(feature = "standalone")] initial_authorities: Vec<(AuraId, GrandpaId)>,
+    #[cfg(feature = "aura-grandpa")] initial_authorities: Vec<(AuraId, GrandpaId)>,
     endowed_accounts: Vec<AccountId>,
     authorized_oracles: Vec<(AccountId, Vec<u8>)>,
-    id: ParaId,
+    #[cfg(feature = "cumulus-polkadot")] id: ParaId,
 ) -> GenesisConfig {
     GenesisConfig {
         frame_system: Some(SystemConfig {
@@ -247,17 +269,18 @@ fn testnet_genesis(
                 .to_vec(),
             changes_trie_config: Default::default(),
         }),
-        #[cfg(feature = "standalone")]
+        #[cfg(feature = "aura-grandpa")]
         pallet_aura: Some(AuraConfig {
             authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect(),
         }),
-        #[cfg(feature = "standalone")]
+        #[cfg(feature = "aura-grandpa")]
         pallet_grandpa: Some(GrandpaConfig {
             authorities: initial_authorities
                 .iter()
                 .map(|x| (x.1.clone(), 1))
                 .collect(),
         }),
+        #[cfg(feature = "cumulus-polkadot")]
         parachain_info: Some(ParachainInfoConfig { parachain_id: id }),
         pallet_sudo: Some(SudoConfig {
             // Assign network admin rights.
