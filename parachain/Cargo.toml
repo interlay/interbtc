@@ -42,20 +42,32 @@ frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch =
 frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
 
 # Cumulus dependencies
-cumulus-primitives = { git = "https://github.com/paritytech/cumulus", branch = "rococo-v1", default-features = false }
+cumulus-primitives = { git = "https://github.com/paritytech/cumulus", branch = "rococo-v1", optional = true }
 
 # Polkadot dependencies
-polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1" }
-polkadot-cli = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1" }
-polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1" }
-polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1" }
+polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", optional = true }
+polkadot-cli = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", optional = true }
+polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", optional = true }
+polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", optional = true }
 
 [features]
+default = ["aura-grandpa"]
 runtime-benchmarks = [
     "btc-parachain-runtime/runtime-benchmarks",
 ]
-standalone = [
-    "btc-parachain-runtime/standalone",
-    "btc-parachain-service/standalone",
-    "btc-parachain-rpc/standalone",
+cumulus-polkadot = [
+    "cumulus-primitives",
+    "polkadot-primitives",
+    "polkadot-cli",
+    "polkadot-service",
+    "polkadot-parachain",
+
+    "btc-parachain-runtime/cumulus-polkadot",
+    "btc-parachain-service/cumulus-polkadot",
+    "btc-parachain-rpc/cumulus-polkadot",
+]
+aura-grandpa = [
+    "btc-parachain-runtime/aura-grandpa",
+    "btc-parachain-service/aura-grandpa",
+    "btc-parachain-rpc/aura-grandpa",
 ]

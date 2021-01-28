@@ -49,7 +49,7 @@ pub use btc_relay::Call as RelayCall;
 pub use module_exchange_rate_oracle_rpc_runtime_api::BalanceWrapper;
 
 // XCM imports
-#[cfg(not(feature = "standalone"))]
+#[cfg(feature = "cumulus-polkadot")]
 use {
     polkadot_parachain::primitives::Sibling,
     xcm::v0::{Junction, MultiLocation, NetworkId},
@@ -64,8 +64,8 @@ use {
     },
 };
 
-// Standalone imports
-#[cfg(feature = "standalone")]
+// Aura & GRANDPA imports
+#[cfg(feature = "aura-grandpa")]
 use {
     pallet_grandpa::fg_primitives,
     pallet_grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList},
@@ -119,7 +119,7 @@ pub mod opaque {
 
 pub type SessionHandlers = ();
 
-#[cfg(feature = "standalone")]
+#[cfg(feature = "aura-grandpa")]
 impl_opaque_keys! {
     pub struct SessionKeys {
         pub aura: Aura,
@@ -127,7 +127,7 @@ impl_opaque_keys! {
     }
 }
 
-#[cfg(not(feature = "standalone"))]
+#[cfg(feature = "cumulus-polkadot")]
 impl_opaque_keys! {
     pub struct SessionKeys {
     }
@@ -246,12 +246,12 @@ impl frame_system::Config for Runtime {
     type SS58Prefix = SS58Prefix;
 }
 
-#[cfg(feature = "standalone")]
+#[cfg(feature = "aura-grandpa")]
 impl pallet_aura::Config for Runtime {
     type AuthorityId = AuraId;
 }
 
-#[cfg(feature = "standalone")]
+#[cfg(feature = "aura-grandpa")]
 impl pallet_grandpa::Config for Runtime {
     type Event = Event;
     type Call = Call;
@@ -295,7 +295,7 @@ impl pallet_sudo::Config for Runtime {
     type Event = Event;
 }
 
-#[cfg(not(feature = "standalone"))]
+#[cfg(feature = "cumulus-polkadot")]
 impl cumulus_parachain_system::Config for Runtime {
     type Event = Event;
     type OnValidationData = ();
@@ -304,9 +304,10 @@ impl cumulus_parachain_system::Config for Runtime {
     type HrmpMessageHandlers = ();
 }
 
+#[cfg(feature = "cumulus-polkadot")]
 impl parachain_info::Config for Runtime {}
 
-#[cfg(not(feature = "standalone"))]
+#[cfg(feature = "cumulus-polkadot")]
 parameter_types! {
     pub const RococoLocation: MultiLocation = MultiLocation::X1(Junction::Parent);
     pub const RococoNetwork: NetworkId = NetworkId::Polkadot;
@@ -316,14 +317,14 @@ parameter_types! {
     }.into();
 }
 
-#[cfg(not(feature = "standalone"))]
+#[cfg(feature = "cumulus-polkadot")]
 type LocationConverter = (
     ParentIsDefault<AccountId>,
     SiblingParachainConvertsVia<Sibling, AccountId>,
     AccountId32Aliases<RococoNetwork, AccountId>,
 );
 
-#[cfg(not(feature = "standalone"))]
+#[cfg(feature = "cumulus-polkadot")]
 type LocalAssetTransactor = CurrencyAdapter<
     // Use this currency:
     DOT,
@@ -335,7 +336,7 @@ type LocalAssetTransactor = CurrencyAdapter<
     AccountId,
 >;
 
-#[cfg(not(feature = "standalone"))]
+#[cfg(feature = "cumulus-polkadot")]
 type LocalOriginConverter = (
     SovereignSignedViaLocation<LocationConverter, Origin>,
     RelayChainAsNative<RelayChainOrigin, Origin>,
@@ -343,10 +344,10 @@ type LocalOriginConverter = (
     SignedAccountId32AsNative<RococoNetwork, Origin>,
 );
 
-#[cfg(not(feature = "standalone"))]
+#[cfg(feature = "cumulus-polkadot")]
 pub struct XcmConfig;
 
-#[cfg(not(feature = "standalone"))]
+#[cfg(feature = "cumulus-polkadot")]
 impl Config for XcmConfig {
     type Call = Call;
     type XcmSender = XcmHandler;
@@ -358,7 +359,7 @@ impl Config for XcmConfig {
     type LocationInverter = LocationInverter<Ancestry>;
 }
 
-#[cfg(not(feature = "standalone"))]
+#[cfg(feature = "cumulus-polkadot")]
 impl xcm_handler::Config for Runtime {
     type Event = Event;
     type XcmExecutor = XcmExecutor<XcmConfig>;
@@ -516,7 +517,6 @@ macro_rules! construct_polkabtc_runtime {
                 Sudo: pallet_sudo::{Module, Call, Storage, Config<T>, Event<T>},
                 RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
                 TransactionPayment: pallet_transaction_payment::{Module, Storage},
-                ParachainInfo: parachain_info::{Module, Storage, Config},
 
                 // Tokens & Balances
                 DOT: pallet_balances::<Instance1>::{Module, Call, Storage, Config<T>, Event<T>},
@@ -546,13 +546,14 @@ macro_rules! construct_polkabtc_runtime {
 	}
 }
 
-#[cfg(not(feature = "standalone"))]
+#[cfg(feature = "cumulus-polkadot")]
 construct_polkabtc_runtime! {
     ParachainSystem: cumulus_parachain_system::{Module, Call, Storage, Inherent, Event},
     XcmHandler: xcm_handler::{Module, Event<T>, Origin},
+    ParachainInfo: parachain_info::{Module, Storage, Config},
 }
 
-#[cfg(feature = "standalone")]
+#[cfg(feature = "aura-grandpa")]
 construct_polkabtc_runtime! {
     Aura: pallet_aura::{Module, Config<T>, Inherent},
     Grandpa: pallet_grandpa::{Module, Call, Storage, Config, Event},
@@ -653,7 +654,7 @@ impl_runtime_apis! {
         }
     }
 
-    #[cfg(feature = "standalone")]
+    #[cfg(feature = "aura-grandpa")]
     impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
         fn slot_duration() -> u64 {
             Aura::slot_duration()
@@ -677,7 +678,7 @@ impl_runtime_apis! {
         }
     }
 
-    #[cfg(feature = "standalone")]
+    #[cfg(feature = "aura-grandpa")]
     impl fg_primitives::GrandpaApi<Block> for Runtime {
         fn grandpa_authorities() -> GrandpaAuthorityList {
             Grandpa::grandpa_authorities()
@@ -904,4 +905,5 @@ impl_runtime_apis! {
 
 }
 
+#[cfg(feature = "cumulus-polkadot")]
 cumulus_runtime::register_validate_block!(Block, Executive);

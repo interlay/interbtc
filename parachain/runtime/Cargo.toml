@@ -42,23 +42,23 @@ pallet-society = { git = "https://github.com/paritytech/substrate", branch = "ro
 frame-system-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 
-# Standalone dependencies
-pallet-aura = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
-pallet-grandpa = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
-sp-consensus-aura = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
+# Aura & GRANDPA dependencies
+pallet-aura = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false, optional = true }
+pallet-grandpa = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false, optional = true }
+sp-consensus-aura = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false, optional = true }
 
 # Cumulus dependencies
-cumulus-runtime = { git = "https://github.com/paritytech/cumulus", branch = "rococo-v1", default-features = false }
-cumulus-parachain-system = { git = "https://github.com/paritytech/cumulus", branch = "rococo-v1", default-features = false }
-cumulus-primitives = { git = "https://github.com/paritytech/cumulus", branch = "rococo-v1", default-features = false }
-xcm-handler = { git = "https://github.com/paritytech/cumulus", branch = "rococo-v1", default-features = false }
+cumulus-runtime = { git = "https://github.com/paritytech/cumulus", branch = "rococo-v1", default-features = false, optional = true }
+cumulus-parachain-system = { git = "https://github.com/paritytech/cumulus", branch = "rococo-v1", default-features = false, optional = true }
+cumulus-primitives = { git = "https://github.com/paritytech/cumulus", branch = "rococo-v1", default-features = false, optional = true }
+xcm-handler = { git = "https://github.com/paritytech/cumulus", branch = "rococo-v1", default-features = false, optional = true }
 
 # Polkadot dependencies
-polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", default-features = false }
-xcm = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", default-features = false }
-xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", default-features = false }
-xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", default-features = false }
-rococo-runtime = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", default-features = false }
+polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", default-features = false, optional = true }
+xcm = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", default-features = false, optional = true }
+xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", default-features = false, optional = true }
+xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", default-features = false, optional = true }
+rococo-runtime = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", default-features = false, optional = true }
 
 # Parachain dependencies
 btc-relay = { path = "../../crates/btc-relay", default-features = false }
@@ -74,7 +74,8 @@ issue = { path = "../../crates/issue", default-features = false }
 redeem = { path = "../../crates/redeem", default-features = false }
 replace = { path = "../../crates/replace", default-features = false }
 refund = { path = "../../crates/refund", default-features = false }
-parachain-info = { path = "../../crates/parachain-info", default-features = false }
+
+parachain-info = { path = "../../crates/parachain-info", default-features = false, optional = true }
 
 module-exchange-rate-oracle-rpc-runtime-api = { path = "../../crates/exchange-rate-oracle/rpc/runtime-api", default-features = false }
 module-staked-relayers-rpc-runtime-api = { path = "../../crates/staked-relayers/rpc/runtime-api", default-features = false }
@@ -137,6 +138,7 @@ std = [
   "cumulus-runtime/std",
   "cumulus-parachain-system/std",
   "cumulus-primitives/std",
+  "polkadot-parachain/std",
   "xcm/std",
   "xcm-builder/std",
   "xcm-executor/std",
@@ -189,5 +191,22 @@ runtime-benchmarks = [
   "vault-registry/runtime-benchmarks",
   "fee/runtime-benchmarks",
 ]
-standalone = []
+cumulus-polkadot = [
+  "cumulus-runtime",
+  "cumulus-parachain-system",
+  "cumulus-primitives",
+  "polkadot-parachain",
+  "xcm",
+  "xcm-builder",
+  "xcm-executor",
+  "xcm-handler",
+  "rococo-runtime",
+
+  "parachain-info",
+]
+aura-grandpa = [
+  "pallet-aura",
+  "pallet-grandpa",
+  "sp-consensus-aura",
+]
 disable-runtime-api = []

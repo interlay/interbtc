@@ -47,16 +47,26 @@ sp-finality-grandpa = { git = "https://github.com/paritytech/substrate", branch 
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
 
 # Cumulus dependencies
-cumulus-consensus = { git = "https://github.com/paritytech/cumulus", branch = "rococo-v1" }
-cumulus-network = { git = "https://github.com/paritytech/cumulus", branch = "rococo-v1" }
-cumulus-service = { git = "https://github.com/paritytech/cumulus", branch = "rococo-v1" }
+cumulus-consensus = { git = "https://github.com/paritytech/cumulus", branch = "rococo-v1", optional = true }
+cumulus-network = { git = "https://github.com/paritytech/cumulus", branch = "rococo-v1", optional = true }
+cumulus-service = { git = "https://github.com/paritytech/cumulus", branch = "rococo-v1", optional = true }
 
 # Polkadot dependencies
-polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1" }
-polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", features = ["real-overseer"] }
+polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", optional = true }
+polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", optional = true }
 
 [features]
-standalone = [
-    "btc-parachain-runtime/standalone",
-    "btc-parachain-rpc/standalone",
+cumulus-polkadot = [
+    "cumulus-consensus",
+    "cumulus-network",
+    "cumulus-service",
+    "polkadot-primitives",
+    "polkadot-service",
+    
+    "btc-parachain-runtime/cumulus-polkadot",
+    "btc-parachain-rpc/cumulus-polkadot",
+]
+aura-grandpa = [
+    "btc-parachain-runtime/aura-grandpa",
+    "btc-parachain-rpc/aura-grandpa",
 ]

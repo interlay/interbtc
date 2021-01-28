@@ -7,12 +7,12 @@ use structopt::StructOpt;
 #[derive(Debug, StructOpt)]
 pub enum Subcommand {
     /// Export the genesis state of the parachain.
-    #[cfg(not(feature = "standalone"))]
+    #[cfg(feature = "cumulus-polkadot")]
     #[structopt(name = "export-genesis-state")]
     ExportGenesisState(ExportGenesisStateCommand),
 
     /// Export the genesis wasm of the parachain.
-    #[cfg(not(feature = "standalone"))]
+    #[cfg(feature = "cumulus-polkadot")]
     #[structopt(name = "export-genesis-wasm")]
     ExportGenesisWasm(ExportGenesisWasmCommand),
 
@@ -84,6 +84,7 @@ pub struct RunCmd {
     pub base: sc_cli::RunCmd,
 
     /// Id of the parachain this collator collates for.
+    #[cfg(feature = "cumulus-polkadot")]
     #[structopt(long)]
     pub parachain_id: Option<u32>,
 }
@@ -112,17 +113,17 @@ pub struct Cli {
     /// Run node as collator.
     ///
     /// Note that this is the same as running with `--validator`.
-    #[cfg(not(feature = "standalone"))]
+    #[cfg(feature = "cumulus-polkadot")]
     #[structopt(long, conflicts_with = "validator")]
     pub collator: bool,
 
     /// Relaychain arguments
-    #[cfg(not(feature = "standalone"))]
+    #[cfg(feature = "cumulus-polkadot")]
     #[structopt(raw = true)]
     pub relaychain_args: Vec<String>,
 }
 
-#[cfg(not(feature = "standalone"))]
+#[cfg(feature = "cumulus-polkadot")]
 #[derive(Debug)]
 pub struct RelayChainCli {
     /// The actual relay chain cli object.
@@ -135,7 +136,7 @@ pub struct RelayChainCli {
     pub base_path: Option<PathBuf>,
 }
 
-#[cfg(not(feature = "standalone"))]
+#[cfg(feature = "cumulus-polkadot")]
 impl RelayChainCli {
     /// Create a new instance of `Self`.
     pub fn new<'a>(

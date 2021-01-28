@@ -16,14 +16,14 @@ native_executor_instance!(
 pub type FullClient = TFullClient<Block, RuntimeApi, Executor>;
 pub type FullBackend = TFullBackend<Block>;
 
-#[cfg(not(feature = "standalone"))]
+#[cfg(feature = "cumulus-polkadot")]
 mod cumulus;
 
-#[cfg(not(feature = "standalone"))]
+#[cfg(feature = "cumulus-polkadot")]
 pub use cumulus::*;
 
-#[cfg(feature = "standalone")]
+#[cfg(feature = "aura-grandpa")]
 mod grandpa;
 
-#[cfg(feature = "standalone")]
+#[cfg(feature = "aura-grandpa")]
 pub use grandpa::*;

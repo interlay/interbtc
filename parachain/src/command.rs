@@ -19,18 +19,18 @@ use crate::{
     cli::{Cli, Subcommand},
 };
 use btc_parachain_runtime::Block;
-use cumulus_primitives::ParaId;
 use sc_cli::{ChainSpec, Result, RuntimeVersion, SubstrateCli};
 use sc_service::{Configuration, PartialComponents, TaskManager};
 
-#[cfg(feature = "standalone")]
+#[cfg(feature = "aura-grandpa")]
 use sc_cli::Role;
 
-#[cfg(not(feature = "standalone"))]
+#[cfg(feature = "cumulus-polkadot")]
 use {
     crate::cli::RelayChainCli,
     codec::Encode,
     cumulus_primitives::genesis::generate_genesis_block,
+    cumulus_primitives::ParaId,
     log::info,
     polkadot_parachain::primitives::AccountIdConversion,
     sc_cli::{
@@ -45,12 +45,21 @@ use {
 
 fn load_spec(
     id: &str,
-    para_id: ParaId,
+    #[cfg(feature = "cumulus-polkadot")] para_id: ParaId,
 ) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
     match id {
-        "staging" => Ok(Box::new(chain_spec::staging_testnet_config(para_id))),
-        "dev" => Ok(Box::new(chain_spec::development_config(para_id))),
-        "" => Ok(Box::new(chain_spec::local_config(para_id))),
+        "staging" => Ok(Box::new(chain_spec::staging_testnet_config(
+            #[cfg(feature = "cumulus-polkadot")]
+            para_id,
+        ))),
+        "dev" => Ok(Box::new(chain_spec::development_config(
+            #[cfg(feature = "cumulus-polkadot")]
+            para_id,
+        ))),
+        "" => Ok(Box::new(chain_spec::local_config(
+            #[cfg(feature = "cumulus-polkadot")]
+            para_id,
+        ))),
         path => Ok(Box::new(chain_spec::ChainSpec::from_json_file(
             path.into(),
         )?)),
@@ -83,7 +92,11 @@ impl SubstrateCli for Cli {
     }
 
     fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
-        load_spec(id, self.run.parachain_id.unwrap_or(100).into())
+        load_spec(
+            id,
+            #[cfg(feature = "cumulus-polkadot")]
+            self.run.parachain_id.unwrap_or(100).into(),
+        )
     }
 
     fn native_runtime_version(_: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
@@ -91,7 +104,7 @@ impl SubstrateCli for Cli {
     }
 }
 
-#[cfg(not(feature = "standalone"))]
+#[cfg(feature = "cumulus-polkadot")]
 impl SubstrateCli for RelayChainCli {
     fn impl_name() -> String {
         "BTC Parachain".into()
@@ -131,7 +144,7 @@ impl SubstrateCli for RelayChainCli {
     }
 }
 
-#[cfg(not(feature = "standalone"))]
+#[cfg(feature = "cumulus-polkadot")]
 fn extract_genesis_wasm(chain_spec: &Box<dyn sc_service::ChainSpec>) -> Result<Vec<u8>> {
     let mut storage = chain_spec.build_storage()?;
 
@@ -223,7 +236,7 @@ pub fn run() -> Result<()> {
                     .into())
             }
         }
-        #[cfg(not(feature = "standalone"))]
+        #[cfg(feature = "cumulus-polkadot")]
         Some(Subcommand::ExportGenesisState(params)) => {
             let mut builder = sc_cli::GlobalLoggerBuilder::new("");
             builder.with_profiling(sc_tracing::TracingReceiver::Log, "");
@@ -248,7 +261,7 @@ pub fn run() -> Result<()> {
 
             Ok(())
         }
-        #[cfg(not(feature = "standalone"))]
+        #[cfg(feature = "cumulus-polkadot")]
         Some(Subcommand::ExportGenesisWasm(params)) => {
             let mut builder = sc_cli::GlobalLoggerBuilder::new("");
             builder.with_profiling(sc_tracing::TracingReceiver::Log, "");
@@ -280,7 +293,7 @@ pub fn run() -> Result<()> {
     }
 }
 
-#[cfg(feature = "standalone")]
+#[cfg(feature = "aura-grandpa")]
 async fn start_node(_: Cli, config: Configuration) -> sc_service::error::Result<TaskManager> {
     match config.role {
         Role::Light => btc_parachain_service::new_light(config),
@@ -289,7 +302,7 @@ async fn start_node(_: Cli, config: Configuration) -> sc_service::error::Result<
     .map(|srv| srv.0)
 }
 
-#[cfg(not(feature = "standalone"))]
+#[cfg(feature = "cumulus-polkadot")]
 async fn start_node(cli: Cli, config: Configuration) -> sc_service::error::Result<TaskManager> {
     let key = sp_core::Pair::generate().0;
 
@@ -330,7 +343,7 @@ async fn start_node(cli: Cli, config: Configuration) -> sc_service::error::Resul
         .map(|srv| srv.0)
 }
 
-#[cfg(not(feature = "standalone"))]
+#[cfg(feature = "cumulus-polkadot")]
 impl DefaultConfigurationValues for RelayChainCli {
     fn p2p_listen_port() -> u16 {
         30334
@@ -349,7 +362,7 @@ impl DefaultConfigurationValues for RelayChainCli {
     }
 }
 
-#[cfg(not(feature = "standalone"))]
+#[cfg(feature = "cumulus-polkadot")]
 impl CliConfiguration<Self> for RelayChainCli {
     fn shared_params(&self) -> &SharedParams {
         self.base.base.shared_params()
