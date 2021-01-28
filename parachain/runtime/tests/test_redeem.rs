@@ -62,6 +62,11 @@ fn integration_test_redeem_polka_btc_execute() {
         // create tokens for the vault and user
         force_issue_tokens(user, vault, collateral_vault, total_polka_btc);
 
+        let initial_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
+        let initial_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
+        let initial_btc_issuance = TreasuryModule::get_total_supply();
+        assert_eq!(total_polka_btc, initial_btc_issuance);
+
         // alice requests to redeem polka_btc from Bob
         assert_ok!(Call::Redeem(RedeemCall::request_redeem(
             polka_btc,
@@ -86,6 +91,17 @@ fn integration_test_redeem_polka_btc_execute() {
             raw_tx
         ))
         .dispatch(origin_of(account_of(vault))));
+
+        let final_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
+        let final_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
+        let final_btc_issuance = TreasuryModule::get_total_supply();
+
+        assert_eq!(final_dot_balance, initial_dot_balance);
+
+        // polka_btc burned from user
+        assert_eq!(final_btc_balance, initial_btc_balance - polka_btc);
+        // polka_btc burned from issuance
+        assert_eq!(final_btc_issuance, initial_btc_issuance - polka_btc);
 
         // TODO: check redeem rewards update
     });
