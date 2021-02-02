@@ -192,6 +192,8 @@ impl PublicKey {
     ///
     /// * `secure_id` - random nonce (as provided by the security module)
     pub fn new_deposit_public_key(&self, secure_id: H256) -> Result<Self, Secp256k1Error> {
+        // libsecp256k1 (set_b32 -> check_overflow) will ensure that secret keys are non-zero
+        // and do not exceed the maximum allowed value
         let secret_key = Secp256k1SecretKey::parse(&self.new_secret_key(secure_id))?;
         self.new_deposit_public_key_with_secret(secret_key)
     }
@@ -216,6 +218,7 @@ impl PublicKey {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use frame_support::assert_err;
     use rand::thread_rng;
 
     #[test]
@@ -231,6 +234,25 @@ mod tests {
         assert_eq!(
             public_key.to_hash(),
             H160::from_slice(&hex::decode("84b42bde9034a27ce718af4bfbfb3b2ab842175d").unwrap())
+        );
+    }
+
+    #[test]
+    fn test_check_secret_key_constraints() {
+        let minimum_scalar = secp256k1::curve::Scalar([0; 8]);
+        assert_err!(
+            Secp256k1SecretKey::parse_slice(&hex::decode(format!("{:x}", minimum_scalar)).unwrap()),
+            Secp256k1Error::InvalidSecretKey
+        );
+
+        // https://en.bitcoin.it/wiki/Private_key
+        let maximum_scalar = secp256k1::curve::Scalar([
+            0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFE, 0xBAAEDCE6, 0xAF48A03B, 0xBFD25E8C,
+            0xD0364141,
+        ]);
+        assert_err!(
+            Secp256k1SecretKey::parse_slice(&hex::decode(format!("{:x}", maximum_scalar)).unwrap()),
+            Secp256k1Error::InvalidSecretKey
         );
     }
 
