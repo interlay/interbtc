@@ -62,6 +62,7 @@ pub trait WeightInfo {
     fn remove_active_status_update() -> Weight;
     fn remove_inactive_status_update() -> Weight;
     fn set_maturity_period() -> Weight;
+    fn evaluate_status_update() -> Weight;
 }
 
 /// ## Configuration
@@ -535,6 +536,22 @@ decl_module! {
             <MaturityPeriod<T>>::set(period);
         }
 
+        /// Calls evaluate_status_update_at_height, for testing purposes.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - the dispatch origin of this call (must be _Root_)
+        ///
+        /// # Weight: `O(1)`
+        #[weight = <T as Config>::WeightInfo::evaluate_status_update()]
+        #[transactional]
+        fn evaluate_status_update(origin, status_update_id: u64) {
+            ensure_root(origin)?;
+            let mut status_update = Self::get_status_update(&status_update_id)?;
+            Self::_evaluate_status_update(status_update_id, &mut status_update)?;
+            <InactiveStatusUpdates<T>>::remove(status_update_id);
+        }
+
         fn on_initialize(n: T::BlockNumber) -> Weight {
             if let Err(e) = Self::begin_block(n) {
                 sp_runtime::print(e);
@@ -576,7 +593,7 @@ impl<T: Config> Module<T> {
         );
     }
 
-    /// Evaluates whether the `StatusUpdate` has been accepted or rejected.
+    /// Checks if the given StatusUpdate has expired. If so, it evaluates it.
     /// Returns true if the `StatusUpdate` should be garbage collected.
     ///
     /// # Arguments
@@ -586,22 +603,37 @@ impl<T: Config> Module<T> {
     /// * `height` - current height of the chain.
     fn evaluate_status_update_at_height(
         id: u64,
-        mut status_update: &mut StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>,
+        status_update: &mut StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>,
         height: T::BlockNumber,
     ) -> Result<bool, DispatchError> {
         if height >= status_update.end {
-            if status_update.tally.is_approved() {
-                Self::execute_status_update(&mut status_update)?;
-                Self::update_sla_score_for_status_update(&status_update, true)?;
-            } else {
-                Self::reject_status_update(&mut status_update)?;
-                Self::update_sla_score_for_status_update(&status_update, false)?;
-            }
-            Self::insert_inactive_status_update(id, status_update);
+            Self::_evaluate_status_update(id, status_update)?;
             Ok(true)
         } else {
             Ok(false)
         }
+    }
+
+    /// Evaluates whether the `StatusUpdate` has been accepted or rejected.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - id of the `StatusUpdate`
+    /// * `status_update` - `StatusUpdate` to evaluate
+    fn _evaluate_status_update(
+        id: u64,
+        mut status_update: &mut StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>,
+    ) -> Result<(), DispatchError> {
+        if status_update.tally.is_approved() {
+            Self::execute_status_update(&mut status_update)?;
+            Self::update_sla_score_for_status_update(&status_update, true)?;
+        } else {
+            Self::reject_status_update(&mut status_update)?;
+            Self::update_sla_score_for_status_update(&status_update, false)?;
+        }
+        Self::insert_inactive_status_update(id, status_update);
+
+        Ok(())
     }
 
     /// Activate the staked relayer if mature.
