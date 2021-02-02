@@ -1,0 +1,56 @@
+metadata:
+  labels:
+    some-label: rust-builder
+spec:
+  securityContext:
+    fsGroup: 1000
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: doks.digitalocean.com/node-pool
+                operator: In
+                values:
+                  - build-pool
+  containers:
+    - name: jnlp
+    - name: rust
+      image: registry.gitlab.com/interlay/containers/rust-base:nightly-2021-01-25
+      command:
+        - cat
+      tty: true
+      env:
+        - name: CARGO_HOME
+          value: /cargo
+      envFrom:
+        - secretRef:
+            name: rust-builder-env
+      volumeMounts:
+        - mountPath: /cargo
+          name: cargo-volume
+    - name: kaniko
+      image: gcr.io/kaniko-project/executor:debug
+      imagePullPolicy: Always
+      command:
+        - /busybox/cat
+      tty: true
+      securityContext:
+        allowPrivilegeEscalation: false
+      volumeMounts:
+        - name: jenkins-docker-cfg
+          mountPath: /kaniko/.docker
+  imagePullSecrets:
+    - name: gitlab-rust-base-registry
+  volumes:
+    - name: cargo-volume
+      persistentVolumeClaim:
+        claimName: jenkins-rust-agent-pvc
+    - name: jenkins-docker-cfg
+      projected:
+        sources:
+          - secret:
+              name: gitlab-btcparachain-registry
+              items:
+                - key: .dockerconfigjson
+                  path: config.json
