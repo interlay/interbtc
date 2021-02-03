@@ -15,6 +15,8 @@ pub(crate) type PolkaBTC<T> = <<T as treasury::Config>::PolkaBTC as Currency<
     <T as frame_system::Config>::AccountId,
 >>::Balance;
 
+pub type StatusUpdateId = u64;
+
 /// Indicates the state of a proposed StatusUpdate.
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 pub enum ProposalStatus {

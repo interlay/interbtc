@@ -24,7 +24,9 @@ use mocktopus::macros::mockable;
 
 pub use security;
 
-use crate::types::{PolkaBTC, ProposalStatus, StakedRelayer, StatusUpdate, Tally, Votes, DOT};
+use crate::types::{
+    PolkaBTC, ProposalStatus, StakedRelayer, StatusUpdate, StatusUpdateId, Tally, Votes, DOT,
+};
 use bitcoin::parser::parse_transaction;
 use bitcoin::types::*;
 use btc_relay::BtcAddress;
@@ -309,7 +311,7 @@ decl_module! {
         /// * `approve`: `True` or `False`, depending on whether the Staked Relayer agrees or disagrees with the suggested `StatusUpdate`.
         #[weight = <T as Config>::WeightInfo::vote_on_status_update()]
         #[transactional]
-        fn vote_on_status_update(origin, status_update_id: u64, approve: bool) -> DispatchResult {
+        fn vote_on_status_update(origin, status_update_id: StatusUpdateId, approve: bool) -> DispatchResult {
             let signer = ensure_signed(origin)?;
 
             // this call should revert if the signer is not registered
@@ -322,7 +324,7 @@ decl_module! {
             );
             <ActiveStatusUpdates<T>>::insert(&status_update_id, &update);
 
-            Self::deposit_event(<Event<T>>::VoteOnStatusUpdate(status_update_id.clone(), signer, approve));
+            Self::deposit_event(<Event<T>>::VoteOnStatusUpdate(status_update_id, signer, approve));
 
             Ok(())
         }
@@ -481,12 +483,7 @@ decl_module! {
             // reward relayer for this report by increasing its sla
             ext::sla::event_update_relayer_sla::<T>(signer, ext::sla::RelayerEvent::CorrectOracleOfflineReport)?;
 
-            Self::deposit_event(<Event<T>>::ExecuteStatusUpdate(
-                StatusCode::Error,
-                Some(ErrorCode::OracleOffline),
-                None,
-                None,
-            ));
+            Self::deposit_event(<Event<T>>::OracleOffline());
 
             Ok(())
         }
@@ -501,7 +498,7 @@ decl_module! {
         /// # Weight: `O(1)`
         #[weight = <T as Config>::WeightInfo::remove_active_status_update()]
         #[transactional]
-        fn remove_active_status_update(origin, status_update_id: u64) {
+        fn remove_active_status_update(origin, status_update_id: StatusUpdateId) {
             ensure_root(origin)?;
             <ActiveStatusUpdates<T>>::remove(status_update_id);
         }
@@ -516,7 +513,7 @@ decl_module! {
         /// # Weight: `O(1)`
         #[weight = <T as Config>::WeightInfo::remove_inactive_status_update()]
         #[transactional]
-        fn remove_inactive_status_update(origin, status_update_id: u64) {
+        fn remove_inactive_status_update(origin, status_update_id: StatusUpdateId) {
             ensure_root(origin)?;
             <InactiveStatusUpdates<T>>::remove(status_update_id);
         }
@@ -545,7 +542,7 @@ decl_module! {
         /// # Weight: `O(1)`
         #[weight = <T as Config>::WeightInfo::evaluate_status_update()]
         #[transactional]
-        fn evaluate_status_update(origin, status_update_id: u64) {
+        fn evaluate_status_update(origin, status_update_id: StatusUpdateId) {
             ensure_root(origin)?;
             let mut status_update = Self::get_status_update(&status_update_id)?;
             Self::_evaluate_status_update(status_update_id, &mut status_update)?;
@@ -602,7 +599,7 @@ impl<T: Config> Module<T> {
     /// * `status_update` - `StatusUpdate` to evaluate
     /// * `height` - current height of the chain.
     fn evaluate_status_update_at_height(
-        id: u64,
+        id: StatusUpdateId,
         status_update: &mut StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>,
         height: T::BlockNumber,
     ) -> Result<bool, DispatchError> {
@@ -621,14 +618,14 @@ impl<T: Config> Module<T> {
     /// * `id` - id of the `StatusUpdate`
     /// * `status_update` - `StatusUpdate` to evaluate
     fn _evaluate_status_update(
-        id: u64,
+        id: StatusUpdateId,
         mut status_update: &mut StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>,
     ) -> Result<(), DispatchError> {
         if status_update.tally.is_approved() {
-            Self::execute_status_update(&mut status_update)?;
+            Self::execute_status_update(id, &mut status_update)?;
             Self::update_sla_score_for_status_update(&status_update, true)?;
         } else {
-            Self::reject_status_update(&mut status_update)?;
+            Self::reject_status_update(id, &mut status_update)?;
             Self::update_sla_score_for_status_update(&status_update, false)?;
         }
         Self::insert_inactive_status_update(id, status_update);
@@ -791,7 +788,7 @@ impl<T: Config> Module<T> {
     /// * `status_update` - `StatusUpdate` with the proposed changes.
     pub(crate) fn insert_active_status_update(
         status_update: StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>,
-    ) -> u64 {
+    ) -> StatusUpdateId {
         let status_id = Self::get_status_counter();
         if let Some(block_hash) = status_update.btc_block_hash {
             // prevent duplicate blocks from being reported
@@ -807,7 +804,7 @@ impl<T: Config> Module<T> {
     ///
     /// * `status_update` - `StatusUpdate` with the proposed changes.
     pub(crate) fn insert_inactive_status_update(
-        status_id: u64,
+        status_id: StatusUpdateId,
         status_update: &StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>,
     ) {
         <InactiveStatusUpdates<T>>::insert(&status_id, status_update);
@@ -819,7 +816,7 @@ impl<T: Config> Module<T> {
     ///
     /// * `status_update_id` - id of the `StatusUpdate` to fetch.
     pub(crate) fn get_status_update(
-        status_update_id: &u64,
+        status_update_id: &StatusUpdateId,
     ) -> Result<StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>, DispatchError> {
         ensure!(
             <ActiveStatusUpdates<T>>::contains_key(status_update_id),
@@ -948,8 +945,10 @@ impl<T: Config> Module<T> {
     ///
     /// # Arguments
     ///
+    /// * `status_update_id`: Identifier of the `StatusUpdate` voted upon in `ActiveStatusUpdates`.
     /// * `status_update`: `StatusUpdate` voted upon.
     fn execute_status_update(
+        status_update_id: StatusUpdateId,
         mut status_update: &mut StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>,
     ) -> DispatchResult {
         ensure!(
@@ -993,6 +992,7 @@ impl<T: Config> Module<T> {
         status_update.proposal_status = ProposalStatus::Accepted;
         Self::slash_staked_relayers(&status_update.add_error, &status_update.tally.nay)?;
         Self::deposit_event(<Event<T>>::ExecuteStatusUpdate(
+            status_update_id,
             status_code.clone(),
             status_update.add_error.clone(),
             status_update.remove_error.clone(),
@@ -1006,7 +1006,9 @@ impl<T: Config> Module<T> {
     /// # Arguments
     ///
     /// * `status_update_id`: Identifier of the `StatusUpdate` voted upon in `ActiveStatusUpdates`.
+    /// * `status_update`: `StatusUpdate` voted upon.
     fn reject_status_update(
+        status_update_id: StatusUpdateId,
         mut status_update: &mut StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>,
     ) -> DispatchResult {
         ensure!(
@@ -1017,6 +1019,7 @@ impl<T: Config> Module<T> {
         status_update.proposal_status = ProposalStatus::Rejected;
         Self::slash_staked_relayers(&status_update.add_error, &status_update.tally.aye)?;
         Self::deposit_event(<Event<T>>::RejectStatusUpdate(
+            status_update_id,
             status_update.new_status_code.clone(),
             status_update.add_error.clone(),
             status_update.remove_error.clone(),
@@ -1211,7 +1214,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Increments the current `StatusCounter` and returns the new value.
-    pub fn get_status_counter() -> u64 {
+    pub fn get_status_counter() -> StatusUpdateId {
         <StatusCounter>::mutate(|c| {
             *c += 1;
             *c
@@ -1234,23 +1237,30 @@ decl_event!(
         RegisterStakedRelayer(AccountId, BlockNumber, DOT),
         DeregisterStakedRelayer(AccountId),
         StatusUpdateSuggested(
-            u64,
+            StatusUpdateId,
             AccountId,
             StatusCode,
             Option<ErrorCode>,
             Option<ErrorCode>,
             Option<H256Le>,
         ),
-        VoteOnStatusUpdate(u64, AccountId, bool),
+        VoteOnStatusUpdate(StatusUpdateId, AccountId, bool),
         ExecuteStatusUpdate(
+            StatusUpdateId,
             StatusCode,
             Option<ErrorCode>,
             Option<ErrorCode>,
             Option<H256Le>,
         ),
-        RejectStatusUpdate(StatusCode, Option<ErrorCode>, Option<ErrorCode>),
+        RejectStatusUpdate(
+            StatusUpdateId,
+            StatusCode,
+            Option<ErrorCode>,
+            Option<ErrorCode>,
+        ),
         ForceStatusUpdate(StatusCode, Option<ErrorCode>, Option<ErrorCode>),
         SlashStakedRelayer(AccountId),
+        OracleOffline(),
         VaultTheft(AccountId, H256Le),
         VaultUnderLiquidationThreshold(AccountId),
     }
