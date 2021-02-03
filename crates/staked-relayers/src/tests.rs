@@ -442,12 +442,18 @@ fn test_vote_on_status_update_succeeds() {
         );
         Staking::end_block(3);
         assert_not_emitted!(Event::ExecuteStatusUpdate(
+            status_update_id,
             StatusCode::Error,
             None,
             None,
             None
         ));
-        assert_not_emitted!(Event::RejectStatusUpdate(StatusCode::Error, None, None));
+        assert_not_emitted!(Event::RejectStatusUpdate(
+            status_update_id,
+            StatusCode::Error,
+            None,
+            None
+        ));
 
         assert_ok!(Staking::vote_on_status_update(
             Origin::signed(CAROL),
@@ -456,12 +462,18 @@ fn test_vote_on_status_update_succeeds() {
         ));
         Staking::end_block(3);
         assert_not_emitted!(Event::ExecuteStatusUpdate(
+            status_update_id,
             StatusCode::Error,
             None,
             None,
             None
         ));
-        assert_not_emitted!(Event::RejectStatusUpdate(StatusCode::Error, None, None));
+        assert_not_emitted!(Event::RejectStatusUpdate(
+            status_update_id,
+            StatusCode::Error,
+            None,
+            None
+        ));
 
         assert_ok!(Staking::vote_on_status_update(
             Origin::signed(BOB),
@@ -470,6 +482,7 @@ fn test_vote_on_status_update_succeeds() {
         ));
         Staking::end_block(200);
         assert_emitted!(Event::ExecuteStatusUpdate(
+            status_update_id,
             StatusCode::Error,
             None,
             None,
@@ -521,14 +534,15 @@ fn test_execute_status_update_fails_with_insufficient_yes_votes() {
 
         let mut status_update = StatusUpdate::default();
         status_update.tally.nay = decl_votes!((ALICE, 10), (BOB, 10), (CAROL, 10));
-        Staking::insert_active_status_update(status_update.clone());
+        let status_update_id = Staking::insert_active_status_update(status_update.clone());
 
         assert_err!(
-            Staking::execute_status_update(&mut status_update),
+            Staking::execute_status_update(status_update_id, &mut status_update),
             TestError::InsufficientYesVotes
         );
 
         assert_not_emitted!(Event::ExecuteStatusUpdate(
+            status_update_id,
             StatusCode::default(),
             None,
             None,
@@ -565,10 +579,10 @@ fn test_execute_status_update_fails_with_no_block_hash() {
             message: vec![],
         };
 
-        Staking::insert_active_status_update(status_update.clone());
+        let status_update_id = Staking::insert_active_status_update(status_update.clone());
 
         assert_err!(
-            Staking::execute_status_update(&mut status_update),
+            Staking::execute_status_update(status_update_id, &mut status_update),
             TestError::ExpectedBlockHash
         );
     })
@@ -601,12 +615,16 @@ fn test_execute_status_update_succeeds() {
             },
             message: vec![],
         };
-        Staking::insert_active_status_update(status_update.clone());
+        let status_update_id = Staking::insert_active_status_update(status_update.clone());
 
         ext::collateral::release_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-        assert_ok!(Staking::execute_status_update(&mut status_update));
+        assert_ok!(Staking::execute_status_update(
+            status_update_id,
+            &mut status_update
+        ));
 
         assert_emitted!(Event::ExecuteStatusUpdate(
+            status_update_id,
             StatusCode::Error,
             Some(ErrorCode::OracleOffline),
             None,
@@ -627,14 +645,19 @@ fn test_reject_status_update_fails_with_insufficient_no_votes() {
 
         let mut status_update = StatusUpdate::default();
         status_update.tally.aye = decl_votes!((ALICE, 10), (BOB, 10), (CAROL, 10));
-        Staking::insert_active_status_update(status_update.clone());
+        let status_update_id = Staking::insert_active_status_update(status_update.clone());
 
         assert_err!(
-            Staking::reject_status_update(&mut status_update),
+            Staking::reject_status_update(status_update_id, &mut status_update),
             TestError::InsufficientNoVotes
         );
 
-        assert_not_emitted!(Event::RejectStatusUpdate(StatusCode::default(), None, None));
+        assert_not_emitted!(Event::RejectStatusUpdate(
+            status_update_id,
+            StatusCode::default(),
+            None,
+            None
+        ));
     })
 }
 
@@ -650,11 +673,19 @@ fn test_reject_status_update_succeeds() {
 
         let mut status_update = StatusUpdate::default();
         status_update.tally.nay = decl_votes!((ALICE, 10), (BOB, 10), (CAROL, 10));
-        Staking::insert_active_status_update(status_update.clone());
+        let status_update_id = Staking::insert_active_status_update(status_update.clone());
 
-        assert_ok!(Staking::reject_status_update(&mut status_update));
+        assert_ok!(Staking::reject_status_update(
+            status_update_id,
+            &mut status_update
+        ));
 
-        assert_emitted!(Event::RejectStatusUpdate(StatusCode::default(), None, None));
+        assert_emitted!(Event::RejectStatusUpdate(
+            status_update_id,
+            StatusCode::default(),
+            None,
+            None
+        ));
     })
 }
 
@@ -986,12 +1017,7 @@ fn test_report_oracle_offline_succeeds() {
         ext::oracle::is_max_delay_passed::<Test>.mock_safe(|| MockResult::Return(true));
 
         assert_ok!(Staking::report_oracle_offline(relayer));
-        assert_emitted!(Event::ExecuteStatusUpdate(
-            StatusCode::Error,
-            Some(ErrorCode::OracleOffline),
-            None,
-            None,
-        ));
+        assert_emitted!(Event::OracleOffline());
     })
 }
 
