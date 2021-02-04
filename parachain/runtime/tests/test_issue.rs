@@ -16,15 +16,16 @@ type RefundEvent = refund::Event<Runtime>;
 fn assert_issue_request_event() -> H256 {
     let events = SystemModule::events();
     let record = events.iter().find(|record| match record.event {
-        Event::issue(IssueEvent::RequestIssue(_, _, _, _, _, _)) => true,
+        Event::issue(IssueEvent::RequestIssue(_, _, _, _, _, _, _, _)) => true,
         _ => false,
     });
-    let id =
-        if let Event::issue(IssueEvent::RequestIssue(id, _, _, _, _, _)) = record.unwrap().event {
-            id
-        } else {
-            panic!("request issue event not found")
-        };
+    let id = if let Event::issue(IssueEvent::RequestIssue(id, _, _, _, _, _, _, _)) =
+        record.unwrap().event
+    {
+        id
+    } else {
+        panic!("request issue event not found")
+    };
     id
 }
 

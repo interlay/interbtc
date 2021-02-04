@@ -486,13 +486,15 @@ fn redeem_tokens_liquidation_succeeds() {
             MockResult::Return(Ok(()))
         });
 
+        ext::oracle::btc_to_dots::<Test>.mock_safe(|amount| MockResult::Return(Ok(amount)));
+
         liquidation_vault.force_increase_to_be_issued(50);
         liquidation_vault.force_issue_tokens(50);
 
         assert_ok!(VaultRegistry::redeem_tokens_liquidation(&user_id, 50));
         let liquidation_vault = VaultRegistry::get_rich_liquidation_vault();
         assert_eq!(liquidation_vault.data.issued_tokens, 0);
-        assert_emitted!(Event::RedeemTokensLiquidation(user_id, 50));
+        assert_emitted!(Event::RedeemTokensLiquidation(user_id, 50, 50));
     });
 }
 
@@ -514,13 +516,15 @@ fn redeem_tokens_liquidation_does_not_call_recover_when_unnecessary() {
             MockResult::Return(Ok(()))
         });
 
+        ext::oracle::btc_to_dots::<Test>.mock_safe(|amount| MockResult::Return(Ok(amount)));
+
         liquidation_vault.force_increase_to_be_issued(25);
         liquidation_vault.force_issue_tokens(25);
 
         assert_ok!(VaultRegistry::redeem_tokens_liquidation(&user_id, 10));
         let liquidation_vault = VaultRegistry::get_rich_liquidation_vault();
         assert_eq!(liquidation_vault.data.issued_tokens, 15);
-        assert_emitted!(Event::RedeemTokensLiquidation(user_id, 10));
+        assert_emitted!(Event::RedeemTokensLiquidation(user_id, 10, 10));
     });
 }
 
@@ -531,7 +535,7 @@ fn redeem_tokens_liquidation_fails_with_insufficient_tokens() {
         set_default_thresholds();
         let res = VaultRegistry::redeem_tokens_liquidation(&user_id, 50);
         assert_err!(res, TestError::InsufficientTokensCommitted);
-        assert_not_emitted!(Event::RedeemTokensLiquidation(user_id, 50));
+        assert_not_emitted!(Event::RedeemTokensLiquidation(user_id, 50, 50));
     });
 }
 

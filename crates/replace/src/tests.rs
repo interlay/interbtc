@@ -617,7 +617,8 @@ fn test_request_replace_with_amount_exceed_vault_issued_tokens_succeeds() {
 
         assert_ok!(request_replace(vault_id, amount, griefing_collateral));
 
-        let event = Event::RequestReplace(vault_id, replace_amount, replace_id);
+        let event =
+            Event::RequestReplace(replace_id, vault_id, replace_amount, griefing_collateral);
         assert_emitted!(event);
     })
 }
@@ -650,7 +651,8 @@ fn test_request_replace_with_amount_less_than_vault_issued_tokens_succeeds() {
 
         assert_ok!(request_replace(vault_id, amount, griefing_collateral));
 
-        let event = Event::RequestReplace(vault_id, replace_amount, replace_id);
+        let event =
+            Event::RequestReplace(replace_id, vault_id, replace_amount, griefing_collateral);
         assert_emitted!(event);
     })
 }
@@ -680,7 +682,7 @@ fn test_withdraw_replace_succeeds() {
 
         assert_eq!(withdraw_replace(vault_id, replace_id), Ok(()));
 
-        let event = Event::WithdrawReplace(vault_id, replace_id);
+        let event = Event::WithdrawReplace(replace_id, vault_id);
         assert_emitted!(event);
     })
 }
@@ -717,11 +719,11 @@ fn test_accept_replace_succeeds() {
         assert_eq!(accept_replace(new_vault_id, replace_id, collateral), Ok(()));
 
         let event = Event::AcceptReplace(
+            replace_id,
             old_vault_id,
             new_vault_id,
-            replace_id,
-            collateral,
             btc_amount,
+            collateral,
             BtcAddress::default(),
         );
         assert_emitted!(event);
@@ -737,6 +739,8 @@ fn test_auction_replace_succeeds() {
         let collateral = 20_000;
         let height = 10;
         let replace_id = H256::zero();
+        let reward = 50;
+        let griefing_collateral = 0;
 
         // NOTE: we don't use the old_vault in the code - should be changed to just
         // check if it exists in storage
@@ -764,6 +768,11 @@ fn test_auction_replace_succeeds() {
 
         ext::security::get_secure_id::<Test>.mock_safe(|_| MockResult::Return(H256::zero()));
 
+        ext::fee::get_auction_redeem_fee::<Test>.mock_safe(move |_| MockResult::Return(Ok(reward)));
+
+        ext::fee::get_replace_griefing_collateral::<Test>
+            .mock_safe(move |_| MockResult::Return(Ok(griefing_collateral)));
+
         Replace::current_height.mock_safe(move || MockResult::Return(height.clone()));
 
         assert_eq!(
@@ -771,16 +780,17 @@ fn test_auction_replace_succeeds() {
             Ok(())
         );
 
-        let event = Event::AuctionReplace(
+        assert_emitted!(Event::AuctionReplace(
+            replace_id,
             old_vault_id,
             new_vault_id,
-            replace_id,
             btc_amount,
             collateral,
+            reward,
+            griefing_collateral,
             height,
             BtcAddress::default(),
-        );
-        assert_emitted!(event);
+        ));
     })
 }
 
@@ -825,7 +835,7 @@ fn test_execute_replace_succeeds() {
             Ok(())
         );
 
-        let event = Event::ExecuteReplace(old_vault_id, new_vault_id, replace_id);
+        let event = Event::ExecuteReplace(replace_id, old_vault_id, new_vault_id);
         assert_emitted!(event);
     })
 }
@@ -836,6 +846,7 @@ fn test_cancel_replace_succeeds() {
         let new_vault_id = BOB;
         let old_vault_id = ALICE;
         let replace_id = H256::zero();
+        let griefing_collateral = 0;
 
         System::set_block_number(45);
         Replace::get_open_replace_request.mock_safe(move |_| {
@@ -854,7 +865,8 @@ fn test_cancel_replace_succeeds() {
 
         assert_eq!(cancel_replace(new_vault_id, replace_id), Ok(()));
 
-        let event = Event::CancelReplace(new_vault_id, old_vault_id, replace_id);
+        let event =
+            Event::CancelReplace(replace_id, new_vault_id, old_vault_id, griefing_collateral);
         assert_emitted!(event);
     })
 }
@@ -978,7 +990,7 @@ fn test_withdraw_replace_parachain_not_running_succeeds() {
 
         assert_eq!(withdraw_replace(vault_id, replace_id), Ok(()));
 
-        let event = Event::WithdrawReplace(vault_id, replace_id);
+        let event = Event::WithdrawReplace(replace_id, vault_id);
         assert_emitted!(event);
     })
 }

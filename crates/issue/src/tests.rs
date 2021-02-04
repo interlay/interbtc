@@ -140,15 +140,26 @@ fn test_request_issue_succeeds() {
         let origin = ALICE;
         let vault = BOB;
         let amount: Balance = 3;
+        let issue_fee = 5;
+        let issue_griefing_collateral = 20;
+        let total_amount = amount + issue_fee;
+
         ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
 
-        let issue_id = request_issue_ok(origin, amount, vault, 20);
+        ext::fee::get_issue_fee::<Test>.mock_safe(move |_| MockResult::Return(Ok(issue_fee)));
+
+        ext::fee::get_issue_griefing_collateral::<Test>
+            .mock_safe(move |_| MockResult::Return(Ok(issue_griefing_collateral)));
+
+        let issue_id = request_issue_ok(origin, amount, vault, issue_griefing_collateral);
 
         let request_issue_event = TestEvent::issue(RawEvent::RequestIssue(
             issue_id,
             origin,
-            amount,
+            total_amount,
+            issue_fee,
+            issue_griefing_collateral,
             vault,
             BtcAddress::default(),
             BtcPublicKey::default(),
@@ -197,7 +208,7 @@ fn test_execute_issue_succeeds() {
         <frame_system::Module<Test>>::set_block_number(5);
         execute_issue_ok(ALICE, &issue_id);
 
-        let execute_issue_event = TestEvent::issue(RawEvent::ExecuteIssue(issue_id, ALICE, BOB));
+        let execute_issue_event = TestEvent::issue(RawEvent::ExecuteIssue(issue_id, ALICE, 3, BOB));
         assert!(System::events()
             .iter()
             .any(|a| a.event == execute_issue_event));
