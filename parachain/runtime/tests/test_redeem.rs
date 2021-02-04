@@ -15,7 +15,7 @@ fn assert_redeem_request_event() -> H256 {
     let ids = events
         .iter()
         .filter_map(|r| match r.event {
-            Event::redeem(RedeemEvent::RequestRedeem(id, _, _, _, _)) => Some(id.clone()),
+            Event::redeem(RedeemEvent::RequestRedeem(id, _, _, _, _, _, _)) => Some(id.clone()),
             _ => None,
         })
         .collect::<Vec<H256>>();

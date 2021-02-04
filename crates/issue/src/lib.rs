@@ -100,17 +100,22 @@ decl_event!(
     where
         AccountId = <T as frame_system::Config>::AccountId,
         PolkaBTC = PolkaBTC<T>,
+        DOT = DOT<T>,
     {
         RequestIssue(
-            H256,
-            AccountId,
-            PolkaBTC,
-            AccountId,
-            BtcAddress,
-            BtcPublicKey,
+            H256,         // issue_id
+            AccountId,    // requester
+            PolkaBTC,     // amount_btc
+            PolkaBTC,     // fee_polkabtc
+            DOT,          // griefing_collateral
+            AccountId,    // vault_id
+            BtcAddress,   // vault deposit address
+            BtcPublicKey, // vault public key
         ),
-        ExecuteIssue(H256, AccountId, AccountId),
-        CancelIssue(H256, AccountId),
+        // [issue_id, requester, total_amount, vault]
+        ExecuteIssue(H256, AccountId, PolkaBTC, AccountId),
+        // [issue_id, requester, griefing_collateral]
+        CancelIssue(H256, AccountId, DOT),
     }
 );
 
@@ -256,6 +261,8 @@ impl<T: Config> Module<T> {
             issue_id,
             requester,
             amount_btc,
+            fee_polkabtc,
+            griefing_collateral,
             vault_id,
             btc_address,
             vault.wallet.public_key,
@@ -358,7 +365,12 @@ impl<T: Config> Module<T> {
         // Remove issue request from storage
         Self::remove_issue_request(issue_id, false);
 
-        Self::deposit_event(<Event<T>>::ExecuteIssue(issue_id, requester, issue.vault));
+        Self::deposit_event(<Event<T>>::ExecuteIssue(
+            issue_id,
+            requester,
+            total_amount,
+            issue.vault,
+        ));
         Ok(())
     }
 
@@ -382,7 +394,11 @@ impl<T: Config> Module<T> {
         // Remove issue request from storage
         Self::remove_issue_request(issue_id, true);
 
-        Self::deposit_event(<Event<T>>::CancelIssue(issue_id, requester));
+        Self::deposit_event(<Event<T>>::CancelIssue(
+            issue_id,
+            requester,
+            issue.griefing_collateral,
+        ));
         Ok(())
     }
 

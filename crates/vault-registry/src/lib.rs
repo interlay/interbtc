@@ -596,6 +596,7 @@ impl<T: Config> Module<T> {
         Self::deposit_event(Event::<T>::RedeemTokensLiquidation(
             redeemer_id.clone(),
             amount_btc,
+            amount_dot,
         ));
 
         Ok(())
@@ -1106,7 +1107,7 @@ decl_event! {
     pub enum Event<T> where
             AccountId = <T as frame_system::Config>::AccountId,
             DOT = DOT<T>,
-            BTCBalance = PolkaBTC<T> {
+            PolkaBTC = PolkaBTC<T> {
         RegisterVault(AccountId, DOT),
         /// id, new collateral, total collateral, free collateral
         LockAdditionalCollateral(AccountId, DOT, DOT, DOT),
@@ -1114,16 +1115,16 @@ decl_event! {
         WithdrawCollateral(AccountId, DOT, DOT),
         UpdatePublicKey(AccountId, BtcPublicKey),
         RegisterAddress(AccountId, BtcAddress),
-        IncreaseToBeIssuedTokens(AccountId, BTCBalance),
-        DecreaseToBeIssuedTokens(AccountId, BTCBalance),
-        IssueTokens(AccountId, BTCBalance),
-        IncreaseToBeRedeemedTokens(AccountId, BTCBalance),
-        DecreaseToBeRedeemedTokens(AccountId, BTCBalance),
-        DecreaseTokens(AccountId, AccountId, BTCBalance),
-        RedeemTokens(AccountId, BTCBalance),
-        RedeemTokensPremium(AccountId, BTCBalance, DOT, AccountId),
-        RedeemTokensLiquidation(AccountId, BTCBalance),
-        ReplaceTokens(AccountId, AccountId, BTCBalance, DOT),
+        IncreaseToBeIssuedTokens(AccountId, PolkaBTC),
+        DecreaseToBeIssuedTokens(AccountId, PolkaBTC),
+        IssueTokens(AccountId, PolkaBTC),
+        IncreaseToBeRedeemedTokens(AccountId, PolkaBTC),
+        DecreaseToBeRedeemedTokens(AccountId, PolkaBTC),
+        DecreaseTokens(AccountId, AccountId, PolkaBTC),
+        RedeemTokens(AccountId, PolkaBTC),
+        RedeemTokensPremium(AccountId, PolkaBTC, DOT, AccountId),
+        RedeemTokensLiquidation(AccountId, PolkaBTC, DOT),
+        ReplaceTokens(AccountId, AccountId, PolkaBTC, DOT),
         LiquidateVault(AccountId),
     }
 }

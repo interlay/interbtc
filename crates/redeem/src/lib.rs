@@ -101,15 +101,23 @@ decl_event!(
     where
         AccountId = <T as frame_system::Config>::AccountId,
         PolkaBTC = PolkaBTC<T>,
+        DOT = DOT<T>,
     {
-        // [redeemId, redeemer, amountPolkaBTC, vault, btcAddress]
-        RequestRedeem(H256, AccountId, PolkaBTC, AccountId, BtcAddress),
-        // [redeemer, amountPolkaBTC]
+        RequestRedeem(
+            H256,       // redeem_id
+            AccountId,  // redeemer
+            PolkaBTC,   // redeem_amount_polka_btc
+            PolkaBTC,   // fee_polka_btc
+            DOT,        // premium_dot
+            AccountId,  // vault_id
+            BtcAddress, // user btc_address
+        ),
+        // [redeemer, amount_polka_btc]
         LiquidationRedeem(AccountId, PolkaBTC),
-        // [redeemId, redeemer, vault]
-        ExecuteRedeem(H256, AccountId, AccountId),
-        // [redeemId, redeemer]
-        CancelRedeem(H256, AccountId),
+        // [redeem_id, redeemer, amount_polka_btc, fee_polka_btc, vault]
+        ExecuteRedeem(H256, AccountId, PolkaBTC, PolkaBTC, AccountId),
+        // [redeem_id, redeemer, vault_id, slashing_amount_in_dot, reimburse]
+        CancelRedeem(H256, AccountId, AccountId, DOT, bool),
     }
 );
 
@@ -299,6 +307,8 @@ impl<T: Config> Module<T> {
             redeem_id,
             redeemer,
             redeem_amount_polka_btc,
+            fee_polka_btc,
+            premium_dot,
             vault_id,
             btc_address,
         ));
@@ -322,6 +332,7 @@ impl<T: Config> Module<T> {
         ext::treasury::burn::<T>(redeemer.clone(), amount_polka_btc)?;
         ext::vault_registry::redeem_tokens_liquidation::<T>(&redeemer, amount_polka_btc)?;
 
+        // vault-registry emits `RedeemTokensLiquidation` with dot amount
         Self::deposit_event(<Event<T>>::LiquidationRedeem(redeemer, amount_polka_btc));
 
         Ok(())
@@ -387,6 +398,8 @@ impl<T: Config> Module<T> {
         Self::deposit_event(<Event<T>>::ExecuteRedeem(
             redeem_id,
             redeem.redeemer,
+            amount_polka_btc,
+            fee_polka_btc,
             redeem.vault,
         ));
         Ok(())
@@ -455,9 +468,18 @@ impl<T: Config> Module<T> {
         }
 
         ext::vault_registry::ban_vault::<T>(redeem.vault.clone())?;
-        ext::sla::event_update_vault_sla::<T>(redeem.vault, ext::sla::VaultEvent::RedeemFailure)?;
+        ext::sla::event_update_vault_sla::<T>(
+            redeem.vault.clone(),
+            ext::sla::VaultEvent::RedeemFailure,
+        )?;
         Self::remove_redeem_request(redeem_id, true, reimburse);
-        Self::deposit_event(<Event<T>>::CancelRedeem(redeem_id, redeemer));
+        Self::deposit_event(<Event<T>>::CancelRedeem(
+            redeem_id,
+            redeemer,
+            redeem.vault,
+            slashing_amount_in_dot,
+            reimburse,
+        ));
 
         Ok(())
     }

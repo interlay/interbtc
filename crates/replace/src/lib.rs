@@ -105,20 +105,27 @@ decl_event!(
         DOT = DOT<T>,
         BlockNumber = <T as frame_system::Config>::BlockNumber,
     {
-        RequestReplace(AccountId, PolkaBTC, H256),
-        WithdrawReplace(AccountId, H256),
-        AcceptReplace(AccountId, AccountId, H256, DOT, PolkaBTC, BtcAddress),
-        ExecuteReplace(AccountId, AccountId, H256),
+        // [replace_id, old_vault_id, amount_btc, griefing_collateral]
+        RequestReplace(H256, AccountId, PolkaBTC, DOT),
+        // [replace_id, old_vault_id]
+        WithdrawReplace(H256, AccountId),
+        // [replace_id, old_vault_id, new_vault_id, amount, collateral, btc_address]
+        AcceptReplace(H256, AccountId, AccountId, PolkaBTC, DOT, BtcAddress),
+        // [replace_id, old_vault_id, new_vault_id]
+        ExecuteReplace(H256, AccountId, AccountId),
         AuctionReplace(
-            AccountId,
-            AccountId,
-            H256,
-            PolkaBTC,
-            DOT,
-            BlockNumber,
-            BtcAddress,
+            H256,        // replace_id
+            AccountId,   // old_vault_id
+            AccountId,   // new_vault_id
+            PolkaBTC,    // btc_amount
+            DOT,         // collateral
+            DOT,         // reward
+            DOT,         // griefing_collateral
+            BlockNumber, // current_height
+            BtcAddress,  // btc_address
         ),
-        CancelReplace(AccountId, AccountId, H256),
+        // [replace_id, new_vault_id, old_vault_id, griefing_collateral]
+        CancelReplace(H256, AccountId, AccountId, DOT),
     }
 );
 
@@ -324,7 +331,12 @@ impl<T: Config> Module<T> {
         Self::insert_replace_request(replace_id, replace);
 
         // Emit RequestReplace event
-        Self::deposit_event(<Event<T>>::RequestReplace(vault_id, amount_btc, replace_id));
+        Self::deposit_event(<Event<T>>::RequestReplace(
+            replace_id,
+            vault_id,
+            amount_btc,
+            griefing_collateral,
+        ));
         Ok(())
     }
 
@@ -366,8 +378,8 @@ impl<T: Config> Module<T> {
         // Remove the ReplaceRequest from ReplaceRequests
         Self::remove_replace_request(request_id, true);
 
-        // Emit a WithdrawReplaceRequest(oldVault, replaceId) event.
-        Self::deposit_event(<Event<T>>::WithdrawReplace(vault_id, request_id));
+        // Emit WithdrawReplaceRequest event.
+        Self::deposit_event(<Event<T>>::WithdrawReplace(request_id, vault_id));
         Ok(())
     }
 
@@ -406,13 +418,13 @@ impl<T: Config> Module<T> {
         replace.add_new_vault(new_vault_id.clone(), height, collateral, btc_address);
         Self::insert_replace_request(replace_id, replace.clone());
 
-        // Emit a AcceptReplace(newVault, replaceId, collateral) event
+        // Emit AcceptReplace event
         Self::deposit_event(<Event<T>>::AcceptReplace(
+            replace_id,
             replace.old_vault,
             new_vault_id,
-            replace_id,
-            collateral,
             replace.amount,
+            collateral,
             btc_address,
         ));
         Ok(())
@@ -451,11 +463,8 @@ impl<T: Config> Module<T> {
 
         // claim auctioning fee that is proportional to replace amount
         let dot_amount = ext::oracle::btc_to_dots::<T>(btc_amount)?;
-        ext::collateral::slash_collateral::<T>(
-            old_vault_id.clone(),
-            new_vault_id.clone(),
-            ext::fee::get_auction_redeem_fee::<T>(dot_amount)?,
-        )?;
+        let reward = ext::fee::get_auction_redeem_fee::<T>(dot_amount)?;
+        ext::collateral::slash_collateral::<T>(old_vault_id.clone(), new_vault_id.clone(), reward)?;
 
         // Lock the newVault’s collateral by calling lockCollateral and providing newVault and collateral as parameters.
         ext::collateral::lock_collateral::<T>(new_vault_id.clone(), collateral)?;
@@ -486,13 +495,15 @@ impl<T: Config> Module<T> {
             },
         );
 
-        // Emit a AuctionReplace(newVault, replaceId, collateral) event.
+        // Emit AuctionReplace event.
         Self::deposit_event(<Event<T>>::AuctionReplace(
+            replace_id,
             old_vault_id,
             new_vault_id,
-            replace_id,
             btc_amount,
             collateral,
+            reward,
+            griefing_collateral,
             current_height,
             btc_address,
         ));
@@ -564,11 +575,11 @@ impl<T: Config> Module<T> {
             replace.griefing_collateral,
         )?;
 
-        // Emit the ExecuteReplace(oldVault, newVault, replaceId) event.
+        // Emit ExecuteReplace event.
         Self::deposit_event(<Event<T>>::ExecuteReplace(
+            replace_id,
             old_vault_id,
             new_vault_id,
-            replace_id,
         ));
 
         // Remove replace request
@@ -614,11 +625,12 @@ impl<T: Config> Module<T> {
         // Remove the ReplaceRequest from ReplaceRequests
         Self::remove_replace_request(replace_id.clone(), true);
 
-        // Emit a CancelReplace(newVault, oldVault, replaceId)
+        // Emit CancelReplace event.
         Self::deposit_event(<Event<T>>::CancelReplace(
+            replace_id,
             new_vault_id,
             replace.old_vault,
-            replace_id,
+            replace.griefing_collateral,
         ));
         Ok(())
     }

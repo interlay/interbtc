@@ -224,11 +224,12 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
 
         let redeemer = ALICE;
         let amount = 9;
+        let redeem_fee = 5;
 
         ext::vault_registry::increase_to_be_redeemed_tokens::<Test>.mock_safe(
             move |vault_id, amount_btc| {
                 assert_eq!(vault_id, &BOB);
-                assert_eq!(amount_btc, amount);
+                assert_eq!(amount_btc, amount - redeem_fee);
 
                 MockResult::Return(Ok(()))
             },
@@ -243,6 +244,8 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
 
         ext::security::get_secure_id::<Test>.mock_safe(move |_| MockResult::Return(H256([0; 32])));
 
+        ext::fee::get_redeem_fee::<Test>.mock_safe(move |_| MockResult::Return(Ok(redeem_fee)));
+
         assert_ok!(Redeem::request_redeem(
             Origin::signed(redeemer.clone()),
             amount,
@@ -253,7 +256,9 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
         assert_emitted!(Event::RequestRedeem(
             H256([0; 32]),
             redeemer.clone(),
-            amount,
+            amount - redeem_fee,
+            redeem_fee,
+            0,
             BOB,
             BtcAddress::P2PKH(H160::zero()),
         ));
@@ -262,9 +267,9 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
             RedeemRequest {
                 vault: BOB,
                 opentime: 1,
-                amount_polka_btc: amount,
-                fee: 0,
-                amount_btc: amount,
+                amount_polka_btc: amount - redeem_fee,
+                fee: redeem_fee,
+                amount_btc: amount - redeem_fee,
                 amount_dot: 0,
                 premium_dot: 0,
                 redeemer: redeemer.clone(),
@@ -454,7 +459,7 @@ fn test_execute_redeem_succeeds() {
             Vec::default(),
             Vec::default()
         ));
-        assert_emitted!(Event::ExecuteRedeem(H256([0; 32]), ALICE, BOB));
+        assert_emitted!(Event::ExecuteRedeem(H256([0; 32]), ALICE, 100, 0, BOB));
         assert_err!(
             Redeem::get_open_redeem_request_from_id(&H256([0u8; 32])),
             TestError::RedeemCompleted,
@@ -570,7 +575,7 @@ fn test_cancel_redeem_succeeds() {
             Redeem::get_open_redeem_request_from_id(&H256([0u8; 32])),
             TestError::RedeemCancelled,
         );
-        assert_emitted!(Event::CancelRedeem(H256([0; 32]), ALICE));
+        assert_emitted!(Event::CancelRedeem(H256([0; 32]), ALICE, BOB, 0, false));
     })
 }
 
