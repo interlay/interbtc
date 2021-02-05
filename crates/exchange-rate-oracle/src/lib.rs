@@ -98,13 +98,13 @@ pub struct BtcTxFeesPerByte {
 // This pallet's storage items.
 decl_storage! {
     trait Store for Module<T: Config> as ExchangeRateOracle {
-        /// ## Storage
         /// Current planck per satoshi rate
         ExchangeRate: UnsignedFixedPoint<T>;
 
         /// Last exchange rate time
         LastExchangeRateTime: T::Moment;
 
+        /// The estimated inclusion time for a Bitcoin transaction in satoshis per byte
         SatoshiPerBytes get(fn satoshi_per_bytes): BtcTxFeesPerByte;
 
         /// Maximum delay (milliseconds) for the exchange rate to be used
@@ -157,6 +157,7 @@ decl_module! {
         ///
         /// * `dot_per_btc` - exchange rate in dot per btc. Note that this is _not_ the same unit
         /// that is stored in the ExchangeRate storage item.
+        /// The stored unit is planck_per_satoshi
         #[weight = <T as Config>::WeightInfo::set_exchange_rate()]
         #[transactional]
         pub fn set_exchange_rate(origin, dot_per_btc: UnsignedFixedPoint<T>) -> DispatchResult {
@@ -176,6 +177,12 @@ decl_module! {
             Ok(())
         }
 
+        /// Sets the estimated transaction inclusion fees based on the estimated inclusion time
+        ///
+        /// # Arguments
+        /// * `fast` - The estimated Satoshis per bytes to get included in the next block (~10 min)
+        /// * `half` - The estimated Satoshis per bytes to get included in the next 3 blocks (~half hour)
+        /// * `hour` - The estimated Satoshis per bytes to get included in the next 6 blocks (~hour)
         #[weight = <T as Config>::WeightInfo::set_btc_tx_fees_per_byte()]
         #[transactional]
         pub fn set_btc_tx_fees_per_byte(origin, fast: u32, half: u32, hour: u32) -> DispatchResult {
@@ -196,6 +203,11 @@ decl_module! {
             Ok(())
         }
 
+        /// Adds an authorized oracle account (only executable by the Root account)
+        ///
+        /// # Arguments
+        /// * `account_id` - the account Id of the oracle
+        /// * `name` - a descriptive name for the oracle
         #[weight = <T as Config>::WeightInfo::insert_authorized_oracle()]
         #[transactional]
         pub fn insert_authorized_oracle(origin, account_id: T::AccountId, name: Vec<u8>) -> DispatchResult {
@@ -204,6 +216,10 @@ decl_module! {
             Ok(())
         }
 
+        /// Removes an authorized oracle account (only executable by the Root account)
+        ///
+        /// # Arguments
+        /// * `account_id` - the account Id of the oracle
         #[weight = <T as Config>::WeightInfo::remove_authorized_oracle()]
         #[transactional]
         pub fn remove_authorized_oracle(origin, account_id: T::AccountId) -> DispatchResult {
