@@ -15,7 +15,7 @@ sc-consensus = { git = "https://github.com/paritytech/substrate", branch = "roco
 sc-consensus-aura = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
 sc-cli = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
-sc-executor = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
+sc-executor = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", features = ["wasmtime"] }
 sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
 sc-rpc-api = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
 sc-service = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
