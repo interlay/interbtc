@@ -8,8 +8,7 @@ use sha2::{Digest, Sha256};
 use sp_core::H160;
 
 use secp256k1::{
-    util::COMPRESSED_PUBLIC_KEY_SIZE as PUBLIC_KEY_SIZE, Error as Secp256k1Error,
-    PublicKey as Secp256k1PublicKey, SecretKey as Secp256k1SecretKey,
+    constants::PUBLIC_KEY_SIZE, Error as Secp256k1Error, PublicKey as Secp256k1PublicKey,
 };
 
 /// A Bitcoin address is a serialized identifier that represents the destination for a payment.
@@ -152,6 +151,36 @@ impl<'de> serde::Deserialize<'de> for PublicKey {
     }
 }
 
+pub mod global {
+    use secp256k1::{ffi::types::AlignedType, AllPreallocated, Secp256k1};
+    use sp_std::ops::Deref;
+    use sp_std::{vec, vec::Vec};
+    // this is what lazy_static uses internally
+    use spin::Once;
+
+    pub struct GlobalContext {
+        __private: (),
+    }
+
+    pub static SECP256K1: &GlobalContext = &GlobalContext { __private: () };
+
+    impl Deref for GlobalContext {
+        type Target = Secp256k1<AllPreallocated<'static>>;
+
+        fn deref(&self) -> &Self::Target {
+            static ONCE: Once<()> = Once::new();
+            static mut BUFFER: Vec<AlignedType> = vec![];
+            static mut CONTEXT: Option<Secp256k1<AllPreallocated<'static>>> = None;
+            ONCE.call_once(|| unsafe {
+                BUFFER = vec![AlignedType::zeroed(); Secp256k1::preallocate_size()];
+                let ctx = Secp256k1::preallocated_new(&mut BUFFER).unwrap();
+                CONTEXT = Some(ctx);
+            });
+            unsafe { CONTEXT.as_ref().unwrap() }
+        }
+    }
+}
+
 /// To avoid the use of OP_RETURN during the issue process, we use an On-chain Key Derivation scheme (OKD) for
 /// Bitcoin’s ECDSA (secp256k1 curve). The vault-registry maintains a "master" public key for each registered
 /// Vault which can then be used to derive additional deposit addresses on-demand. Each new issue request triggers
@@ -192,20 +221,17 @@ impl PublicKey {
     ///
     /// * `secure_id` - random nonce (as provided by the security module)
     pub fn new_deposit_public_key(&self, secure_id: H256) -> Result<Self, Secp256k1Error> {
-        // libsecp256k1 (set_b32 -> check_overflow) will ensure that secret keys are non-zero
-        // and do not exceed the maximum allowed value
-        let secret_key = Secp256k1SecretKey::parse(&self.new_secret_key(secure_id))?;
-        self.new_deposit_public_key_with_secret(secret_key)
+        self.new_deposit_public_key_with_secret(&self.new_secret_key(secure_id))
     }
 
     fn new_deposit_public_key_with_secret(
         &self,
-        secret_key: Secp256k1SecretKey,
+        secret_key: &[u8; 32],
     ) -> Result<Self, Secp256k1Error> {
-        let mut public_key = Secp256k1PublicKey::parse_compressed(&self.0)?;
+        let mut public_key = Secp256k1PublicKey::from_slice(&self.0)?;
         // D = V * c
-        public_key.tweak_mul_assign(&secret_key)?;
-        Ok(Self(public_key.serialize_compressed()))
+        public_key.mul_assign(global::SECP256K1, secret_key)?;
+        Ok(Self(public_key.serialize()))
     }
 
     /// Calculates the RIPEMD-160 hash of the compressed public key,
@@ -219,7 +245,8 @@ impl PublicKey {
 mod tests {
     use super::*;
     use frame_support::assert_err;
-    use rand::thread_rng;
+    use secp256k1::rand::rngs::OsRng;
+    use secp256k1::{Secp256k1, SecretKey as Secp256k1SecretKey};
 
     #[test]
     fn test_public_key_to_hash() {
@@ -239,49 +266,48 @@ mod tests {
 
     #[test]
     fn test_check_secret_key_constraints() {
-        let minimum_scalar = secp256k1::curve::Scalar([0; 8]);
         assert_err!(
-            Secp256k1SecretKey::parse_slice(&hex::decode(format!("{:x}", minimum_scalar)).unwrap()),
+            Secp256k1SecretKey::from_slice(&[0; 32]),
             Secp256k1Error::InvalidSecretKey
         );
 
         // https://en.bitcoin.it/wiki/Private_key
-        let maximum_scalar = secp256k1::curve::Scalar([
-            0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFE, 0xBAAEDCE6, 0xAF48A03B, 0xBFD25E8C,
-            0xD0364141,
-        ]);
         assert_err!(
-            Secp256k1SecretKey::parse_slice(&hex::decode(format!("{:x}", maximum_scalar)).unwrap()),
+            Secp256k1SecretKey::from_slice(
+                &hex::decode("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141")
+                    .unwrap()
+            ),
             Secp256k1Error::InvalidSecretKey
         );
     }
 
     #[test]
     fn test_new_deposit_public_key() {
+        let secp = Secp256k1::new();
+        let mut rng = OsRng::new().unwrap();
+
         // c
         let secure_id = H256::random();
-        let secret_key = Secp256k1SecretKey::parse_slice(secure_id.as_bytes()).unwrap();
 
         // v
-        let mut vault_secret_key = Secp256k1SecretKey::random(&mut thread_rng());
+        let mut vault_secret_key = Secp256k1SecretKey::new(&mut rng);
         // V
-        let vault_public_key = PublicKey(
-            Secp256k1PublicKey::from_secret_key(&vault_secret_key).serialize_compressed(),
-        );
+        let vault_public_key = Secp256k1PublicKey::from_secret_key(&secp, &vault_secret_key);
+        let vault_public_key = PublicKey(vault_public_key.serialize());
 
         // D = V * c
         let deposit_public_key = vault_public_key
-            .new_deposit_public_key_with_secret(secret_key.clone())
+            .new_deposit_public_key(secure_id.clone())
             .unwrap();
 
         // d = v * c
-        vault_secret_key.tweak_mul_assign(&secret_key).unwrap();
+        vault_secret_key
+            .mul_assign(&vault_public_key.new_secret_key(secure_id))
+            .unwrap();
 
         assert_eq!(
             deposit_public_key,
-            PublicKey(
-                Secp256k1PublicKey::from_secret_key(&vault_secret_key).serialize_compressed(),
-            )
+            PublicKey(Secp256k1PublicKey::from_secret_key(&secp, &vault_secret_key).serialize())
         );
     }
 
@@ -293,11 +319,10 @@ mod tests {
             84, 83, 198, 234, 196, 150, 13, 208, 86, 34, 150, 10, 59, 247,
         ]);
 
-        let secret_key = Secp256k1SecretKey::parse(&[
+        let secret_key = &[
             137, 16, 46, 159, 212, 158, 232, 178, 197, 253, 105, 137, 102, 159, 70, 217, 110, 211,
             254, 82, 216, 4, 105, 171, 102, 252, 54, 190, 114, 91, 11, 69,
-        ])
-        .unwrap();
+        ];
 
         // bcrt1qn9mgwncjtnavx23utveqqcrxh3zjtll58pc744
         let new_public_key = old_public_key
