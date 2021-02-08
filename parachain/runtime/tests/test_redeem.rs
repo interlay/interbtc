@@ -110,17 +110,17 @@ fn integration_test_redeem_polka_btc_execute() {
 #[test]
 fn integration_test_redeem_polka_btc_execute_liquidation() {
     ExtBuilder::build().execute_with(|| {
-        let satoshi_to_planck = 385523;
+        let planck_per_satoshi = 385523;
 
         let total_polka_btc = 1000;
         let polka_btc = 50;
-        let collateral_vault_min = (total_polka_btc + polka_btc) * satoshi_to_planck;
+        let collateral_vault_min = (total_polka_btc + polka_btc) * planck_per_satoshi;
         let collateral_vault = collateral_vault_min * 100_000;
 
         SystemModule::set_block_number(1);
 
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::checked_from_integer(satoshi_to_planck).unwrap()
+            FixedU128::checked_from_integer(planck_per_satoshi).unwrap()
         ));
 
         set_default_thresholds();
@@ -138,7 +138,7 @@ fn integration_test_redeem_polka_btc_execute_liquidation() {
         let final_dot_balance = CollateralModule::get_balance_from_account(&account_of(ALICE));
 
         assert_eq!(
-            initial_dot_balance + (polka_btc * satoshi_to_planck),
+            initial_dot_balance + (polka_btc * planck_per_satoshi),
             final_dot_balance
         );
     });
@@ -220,11 +220,12 @@ fn integration_test_redeem_polka_btc_cancel_reimburse() {
             initial_balance + punishment_fee
         );
 
-        // bob's SLA is reduced by redeem failure amount
-        assert_eq!(
-            SlaModule::vault_sla(account_of(vault)),
-            sla_score_before + SlaModule::vault_redeem_failure_sla_change()
+        // vault's SLA is reduced by redeem failure amount
+        let expected_sla = FixedI128::max(
+            FixedI128::zero(),
+            sla_score_before + SlaModule::vault_redeem_failure_sla_change(),
         );
+        assert_eq!(SlaModule::vault_sla(account_of(vault)), expected_sla);
     });
 }
 
@@ -255,10 +256,11 @@ fn integration_test_redeem_polka_btc_cancel_no_reimburse() {
             pre_cancel_balance + punishment_fee
         );
 
-        // bob's SLA is reduced by redeem failure amount
-        assert_eq!(
-            SlaModule::vault_sla(account_of(vault)),
-            sla_score_before + SlaModule::vault_redeem_failure_sla_change()
+        // vault's SLA is reduced by redeem failure amount
+        let expected_sla = FixedI128::max(
+            FixedI128::zero(),
+            sla_score_before + SlaModule::vault_redeem_failure_sla_change(),
         );
+        assert_eq!(SlaModule::vault_sla(account_of(vault)), expected_sla);
     });
 }

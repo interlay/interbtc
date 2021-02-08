@@ -68,6 +68,7 @@ fn integration_test_issue_polka_btc_execute() {
     ExtBuilder::build().execute_with(|| {
         let user = ALICE;
         let vault = BOB;
+        let vault_proof_submitter = CAROL;
 
         let amount_btc = 1000000;
         let griefing_collateral = 100;
@@ -86,6 +87,11 @@ fn integration_test_issue_polka_btc_execute() {
             dummy_public_key()
         ))
         .dispatch(origin_of(account_of(vault))));
+        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
+            collateral_vault,
+            dummy_public_key()
+        ))
+        .dispatch(origin_of(account_of(vault_proof_submitter))));
 
         // alice requests polka_btc by locking btc with bob
         assert_ok!(Call::Issue(IssueCall::request_issue(
@@ -110,7 +116,13 @@ fn integration_test_issue_polka_btc_execute() {
         // alice executes the issue by confirming the btc transaction
         assert_ok!(
             Call::Issue(IssueCall::execute_issue(issue_id, tx_id, proof, raw_tx))
-                .dispatch(origin_of(account_of(user)))
+                .dispatch(origin_of(account_of(vault_proof_submitter)))
+        );
+
+        // check that the vault who submitted the proof is rewarded with increased SLA score
+        assert_eq!(
+            SlaModule::vault_sla(account_of(vault_proof_submitter)),
+            SlaModule::vault_submitted_issue_proof()
         );
 
         // check the sla increase
