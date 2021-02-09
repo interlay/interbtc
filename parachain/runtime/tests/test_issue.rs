@@ -154,6 +154,59 @@ fn integration_test_issue_polka_btc_execute() {
     });
 }
 
+#[test]
+fn integration_test_withdraw_after_request_issue() {
+    ExtBuilder::build().execute_with(|| {
+        let user = ALICE;
+        let vault = BOB;
+        let vault_proof_submitter = CAROL;
+
+        let amount_btc = 1000000;
+        let griefing_collateral = 100;
+        let collateral_vault = 1005000; // enough for fee + issued amount
+
+        SystemModule::set_block_number(1);
+
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
+            FixedU128::one()
+        ));
+        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
+            collateral_vault,
+            dummy_public_key()
+        ))
+        .dispatch(origin_of(account_of(vault))));
+        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
+            collateral_vault,
+            dummy_public_key()
+        ))
+        .dispatch(origin_of(account_of(vault_proof_submitter))));
+
+        // alice requests polka_btc by locking btc with bob
+        assert_ok!(Call::Issue(IssueCall::request_issue(
+            amount_btc,
+            account_of(vault),
+            griefing_collateral
+        ))
+        .dispatch(origin_of(account_of(ALICE))));
+
+        // Should not be possible to request more, using the same collateral
+        assert!(Call::Issue(IssueCall::request_issue(
+            amount_btc,
+            account_of(vault),
+            griefing_collateral
+        ))
+        .dispatch(origin_of(account_of(ALICE)))
+        .is_err());
+
+        // should not be possible to withdraw the collateral now
+        assert!(
+            Call::VaultRegistry(VaultRegistryCall::withdraw_collateral(collateral_vault))
+                .dispatch(origin_of(account_of(vault)))
+                .is_err()
+        );
+    });
+}
+
 /// Like integration_test_issue_polka_btc_execute, but here request only half of the amount - we
 /// still transfer the same amount of bitcoin though. Check that it acts as if we requested the
 /// full amount
