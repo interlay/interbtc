@@ -66,22 +66,23 @@ fn integration_test_issue_should_fail_if_not_running() {
 #[test]
 fn integration_test_issue_polka_btc_execute() {
     ExtBuilder::build().execute_with(|| {
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
+            FixedU128::one()
+        ));
+
         let user = ALICE;
         let vault = BOB;
         let vault_proof_submitter = CAROL;
 
         let amount_btc = 1000000;
         let griefing_collateral = 100;
-        let collateral_vault = 1005000; // enough for fee + issued amount
+        let collateral_vault = required_collateral_for_issue(amount_btc);
 
         SystemModule::set_block_number(1);
 
         let initial_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
         let initial_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
 
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::one()
-        ));
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
             collateral_vault,
             dummy_public_key()
@@ -157,19 +158,19 @@ fn integration_test_issue_polka_btc_execute() {
 #[test]
 fn integration_test_withdraw_after_request_issue() {
     ExtBuilder::build().execute_with(|| {
-        let user = ALICE;
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
+            FixedU128::one()
+        ));
+
         let vault = BOB;
         let vault_proof_submitter = CAROL;
 
         let amount_btc = 1000000;
         let griefing_collateral = 100;
-        let collateral_vault = 1005000; // enough for fee + issued amount
+        let collateral_vault = required_collateral_for_issue(amount_btc);
 
         SystemModule::set_block_number(1);
 
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::one()
-        ));
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
             collateral_vault,
             dummy_public_key()
@@ -213,6 +214,10 @@ fn integration_test_withdraw_after_request_issue() {
 #[test]
 fn integration_test_issue_overpayment() {
     ExtBuilder::build().execute_with(|| {
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
+            FixedU128::one()
+        ));
+
         let user = ALICE;
         let vault = BOB;
 
@@ -220,16 +225,13 @@ fn integration_test_issue_overpayment() {
         let overpayment_factor = 2;
         let requested_amount_btc = amount_btc / overpayment_factor;
         let griefing_collateral = 100;
-        let collateral_vault = 1005000;
+        let collateral_vault = required_collateral_for_issue(amount_btc);
 
         SystemModule::set_block_number(1);
 
         let initial_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
         let initial_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
 
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::one()
-        ));
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
             collateral_vault,
             dummy_public_key()
@@ -295,22 +297,22 @@ fn integration_test_issue_overpayment() {
 #[test]
 fn integration_test_issue_refund() {
     ExtBuilder::build().execute_with(|| {
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
+            FixedU128::one()
+        ));
+
         let user = ALICE;
         let vault = BOB;
-
         let amount_btc = 1000000;
         let griefing_collateral = 100;
-        let collateral_vault = 1005000;
         let overpayment_factor = 2;
+        let collateral_vault = required_collateral_for_issue(amount_btc);
 
         SystemModule::set_block_number(1);
 
         let initial_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
         let initial_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
 
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::one()
-        ));
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
             collateral_vault,
             dummy_public_key()
