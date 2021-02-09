@@ -8,6 +8,7 @@ use frame_support::{
 };
 use sp_arithmetic::FixedPointNumber;
 use sp_core::H256;
+use sp_runtime::traits::CheckedAdd;
 use sp_runtime::traits::CheckedSub;
 use sp_std::collections::btree_set::BTreeSet;
 
@@ -211,11 +212,13 @@ impl<T: Config> RichVault<T> {
 
         let new_collateral = Module::<T>::u128_to_dot(raw_new_collateral)?;
 
+        let tokens = self
+            .data
+            .issued_tokens
+            .checked_add(&self.data.to_be_issued_tokens)
+            .ok_or(Error::<T>::ArithmeticOverflow)?;
         ensure!(
-            !Module::<T>::is_collateral_below_secure_threshold(
-                new_collateral,
-                self.data.issued_tokens
-            )?,
+            !Module::<T>::is_collateral_below_secure_threshold(new_collateral, tokens)?,
             Error::<T>::InsufficientCollateral
         );
 
