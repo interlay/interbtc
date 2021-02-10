@@ -5,6 +5,7 @@
 use codec::Codec;
 use frame_support::dispatch::DispatchError;
 use module_exchange_rate_oracle_rpc_runtime_api::BalanceWrapper;
+use sp_std::vec::Vec;
 
 sp_api::decl_runtime_apis! {
     pub trait VaultRegistryApi<AccountId, PolkaBTC, DOT, UnsignedFixedPoint> where
@@ -22,6 +23,8 @@ sp_api::decl_runtime_apis! {
 
         /// Get the first available vault with sufficient tokens to fulfil a redeem request
         fn get_first_vault_with_sufficient_tokens(amount: BalanceWrapper<PolkaBTC>) -> Result<AccountId, DispatchError>;
+
+        fn get_premium_redeem_vaults() -> Result<Vec<(AccountId, BalanceWrapper<PolkaBTC>)>, DispatchError>;
 
         /// Get the amount of tokens a vault can issue
         fn get_issuable_tokens_from_vault(vault: AccountId) -> Result<BalanceWrapper<PolkaBTC>, DispatchError>;

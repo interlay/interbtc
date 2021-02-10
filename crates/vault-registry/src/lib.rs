@@ -845,6 +845,43 @@ impl<T: Config> Module<T> {
         }
     }
 
+    /// Get all vaults below the premium redeem threshold
+    /// Checks three conditions:
+    /// 1. the vault must have tokens issued
+    /// 2. the vault must be available to redeem tokens (not all issued tokens currently bein part of redeem/replace processes)
+    /// 3. the vault must be below the premium redeem threshold
+    ///
+    /// Maybe returns a tuple of (VaultId, RedeemableTokens)
+    /// The redeemable tokens are the currently vault.issued_tokens - the vault.to_be_redeemed_tokens
+    pub fn get_premium_redeem_vaults() -> Result<Vec<(T::AccountId, PolkaBTC<T>)>, DispatchError> {
+        let suitable_vaults = <Vaults<T>>::iter()
+            .filter_map(|v| {
+                // iterator returns tuple of (AccountId, Vault<T>),
+                if !v.1.issued_tokens.is_zero()
+                    && !v
+                        .1
+                        .issued_tokens
+                        .saturating_sub(v.1.to_be_redeemed_tokens)
+                        .is_zero()
+                    && Self::is_vault_below_premium_threshold(&v.0).unwrap_or(false)
+                {
+                    Some((
+                        v.0,
+                        v.1.issued_tokens.saturating_sub(v.1.to_be_redeemed_tokens),
+                    ))
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<(_, _)>>();
+
+        if suitable_vaults.is_empty() {
+            Err(Error::<T>::NoVaultUnderThePremiumRedeemThreshold.into())
+        } else {
+            Ok(suitable_vaults)
+        }
+    }
+
     /// Get the amount of tokens a vault can issue
     pub fn get_issuable_tokens_from_vault(
         vault_id: T::AccountId,
@@ -1148,6 +1185,7 @@ decl_error! {
         NoTokensIssued,
         NoVaultWithSufficientCollateral,
         NoVaultWithSufficientTokens,
+        NoVaultUnderThePremiumRedeemThreshold,
         ArithmeticOverflow,
         ArithmeticUnderflow,
         /// Unable to convert value

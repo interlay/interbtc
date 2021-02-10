@@ -48,8 +48,8 @@ macro_rules! assert_not_emitted {
 
 fn set_default_thresholds() {
     let secure = FixedU128::checked_from_rational(200, 100).unwrap(); // 200%
-    let auction = FixedU128::checked_from_rational(150, 100).unwrap(); // 150%
-    let premium = FixedU128::checked_from_rational(120, 100).unwrap(); // 120%
+    let premium = FixedU128::checked_from_rational(150, 100).unwrap(); // 150%
+    let auction = FixedU128::checked_from_rational(120, 100).unwrap(); // 120%
     let liquidation = FixedU128::checked_from_rational(110, 100).unwrap(); // 110%
 
     VaultRegistry::set_secure_collateral_threshold(secure);
@@ -1053,6 +1053,43 @@ fn get_first_vault_with_sufficient_collateral_succeeds() {
         assert_eq!(
             VaultRegistry::get_first_vault_with_sufficient_collateral(issue_tokens),
             Ok(id)
+        );
+    })
+}
+
+#[test]
+fn get_vaults_below_premium_collaterlization_fails() {
+    run_test(|| {
+        let issue_tokens: u128 = 4;
+        let _id = create_sample_vault_andissue_tokens(issue_tokens);
+
+        assert_err!(
+            VaultRegistry::get_premium_redeem_vaults(),
+            TestError::NoVaultUnderThePremiumRedeemThreshold
+        );
+    })
+}
+
+#[test]
+fn get_vaults_below_premium_collaterlization_succeeds() {
+    run_test(|| {
+        let issue_tokens: u128 = 50;
+        let id = create_sample_vault();
+        set_default_thresholds();
+
+        VaultRegistry::increase_to_be_issued_tokens(&id, H256::zero(), issue_tokens).unwrap();
+        // issue 50 tokens at 200% rate
+        assert_ok!(VaultRegistry::issue_tokens(&id, issue_tokens));
+        let vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
+        assert_eq!(vault.data.issued_tokens, issue_tokens);
+        assert_eq!(vault.data.to_be_redeemed_tokens, 0);
+
+        // update the exchange rate
+        ext::oracle::dots_to_btc::<Test>.mock_safe(move |x| MockResult::Return(Ok((x / 2).into())));
+
+        assert_eq!(
+            VaultRegistry::get_premium_redeem_vaults(),
+            Ok(vec!((id, issue_tokens)))
         );
     })
 }
