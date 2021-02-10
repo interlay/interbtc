@@ -56,10 +56,9 @@ pipeline {
                     sh 'env'
 
                     sh 'cargo build --manifest-path parachain/Cargo.toml --release --no-default-features --features aura-grandpa'
-                    sh 'mv target/release/btc-parachain target/release/btc-parachain-standalone'
 
-                    archiveArtifacts 'target/release/btc-parachain-standalone'
-                    stash(name: "btc-parachain-standalone", includes: 'Dockerfile_release, target/release/btc-parachain-standalone')
+                    archiveArtifacts 'target/release/btc-parachain'
+                    stash(name: "build-standalone", includes: 'Dockerfile_release, target/release/btc-parachain')
 
                     sh '/usr/local/bin/sccache -s'
                 }
@@ -89,10 +88,9 @@ pipeline {
                     sh '/usr/local/bin/sccache -s'
 
                     sh 'cargo build --manifest-path parachain/Cargo.toml --release --no-default-features --features cumulus-polkadot'
-                    sh 'mv target/release/btc-parachain target/release/btc-parachain-parachain'
 
-                    archiveArtifacts 'target/release/btc-parachain-parachain'
-                    stash(name: "btc-parachain-parachain", includes: 'Dockerfile_release, target/release/btc-parachain-parachain')
+                    archiveArtifacts 'target/release/btc-parachain'
+                    stash(name: "build-parachain", includes: 'Dockerfile_release, target/release/btc-parachain')
 
                     sh '/usr/local/bin/sccache -s'
                 }
@@ -116,6 +114,13 @@ pipeline {
         stage('Build docker images') {
             parallel {
                 stage('Make Image - standalone') {
+                    when {
+                        anyOf { 
+                            branch 'master'
+                            branch 'dev'
+                            tag '*'
+                        }
+                    }
                     environment {
                         PATH        = "/busybox:$PATH"
                         REGISTRY    = 'registry.gitlab.com' // Configure your own registry
@@ -125,13 +130,20 @@ pipeline {
                     steps {
                         container(name: 'kaniko', shell: '/busybox/sh') {
                             dir('unstash') {
-                                unstash("btc-parachain-standalone")
+                                unstash("build-standalone")
                                 runKaniko()
                             }
                         }
                     }
                 }
                 stage('Make Image - parachain') {
+                    when {
+                        anyOf { 
+                            branch 'master'
+                            branch 'dev'
+                            tag '*'
+                        }
+                    }
                     environment {
                         PATH        = "/busybox:$PATH"
                         REGISTRY    = 'registry.gitlab.com' // Configure your own registry
@@ -141,7 +153,7 @@ pipeline {
                     steps {
                         container(name: 'kaniko', shell: '/busybox/sh') {
                             dir('unstash') {
-                                unstash("btc-parachain-parachain")
+                                unstash("build-parachain")
                                 runKaniko()
                             }
                         }
@@ -156,7 +168,7 @@ pipeline {
 def runKaniko() {
     sh '''#!/busybox/sh
     GIT_BRANCH_SLUG=$(echo $GIT_BRANCH | sed -e 's/\\//-/g')
-    /kaniko/executor -f `pwd`/Dockerfile_release -c `pwd` --build-arg BINARY=btc-parachain-${IMAGE} \
+    /kaniko/executor -f `pwd`/Dockerfile_release -c `pwd` --build-arg BINARY=btc-parachain \
         --destination=${REGISTRY}/${REPOSITORY}/${IMAGE}:${GIT_BRANCH_SLUG} \
         --destination=${REGISTRY}/${REPOSITORY}/${IMAGE}:${GIT_BRANCH_SLUG}-${GIT_COMMIT:0:6}
     '''
