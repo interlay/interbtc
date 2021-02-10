@@ -812,8 +812,8 @@ impl_runtime_apis! {
         }
 
         fn get_premium_redeem_vaults() -> Result<Vec<(AccountId, BalanceWrapper<Balance>)>, DispatchError> {
-            let result = VaultRegistry::get_premium_redeem_vaults();
-            Ok(result.iter().map(|v| BalanceWrapper{amount:v.1}).collect())
+            let result = VaultRegistry::get_premium_redeem_vaults()?;
+            Ok(result.iter().map(|v| (v.0.clone(), BalanceWrapper{amount:v.1})).collect())
         }
 
         fn get_issuable_tokens_from_vault(vault: AccountId) -> Result<BalanceWrapper<Balance>, DispatchError> {
