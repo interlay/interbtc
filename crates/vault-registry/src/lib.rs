@@ -855,19 +855,20 @@ impl<T: Config> Module<T> {
     /// The redeemable tokens are the currently vault.issued_tokens - the vault.to_be_redeemed_tokens
     pub fn get_premium_redeem_vaults() -> Result<Vec<(T::AccountId, PolkaBTC<T>)>, DispatchError> {
         let suitable_vaults = <Vaults<T>>::iter()
-            .filter_map(|v| {
+            .filter_map(|(account_id, vault)| {
                 // iterator returns tuple of (AccountId, Vault<T>),
-                if !v.1.issued_tokens.is_zero()
-                    && !v
-                        .1
+                if !vault.issued_tokens.is_zero()
+                    && !vault
                         .issued_tokens
-                        .saturating_sub(v.1.to_be_redeemed_tokens)
+                        .saturating_sub(vault.to_be_redeemed_tokens)
                         .is_zero()
-                    && Self::is_vault_below_premium_threshold(&v.0).unwrap_or(false)
+                    && Self::is_vault_below_premium_threshold(&account_id).unwrap_or(false)
                 {
                     Some((
-                        v.0,
-                        v.1.issued_tokens.saturating_sub(v.1.to_be_redeemed_tokens),
+                        account_id,
+                        vault
+                            .issued_tokens
+                            .saturating_sub(vault.to_be_redeemed_tokens),
                     ))
                 } else {
                     None
