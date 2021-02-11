@@ -27,10 +27,10 @@ build-standalone:
         - cargo test --all
         - cargo build --release
         - sccache -s
-        - mv target/release/${ARTIFACT_BIN_PATH} target/release/${ARTIFACT_BIN_PATH}-standalone
     artifacts:
+        name: "${CI_COMMIT_REF_SLUG}-standalone"
         paths:
-            - target/release/${ARTIFACT_BIN_PATH}-standalone
+            - target/release/${ARTIFACT_BIN_PATH}
     only:
         - merge_requests
         - master
@@ -48,10 +48,10 @@ build-parachain:
         - cargo check --manifest-path parachain/Cargo.toml --release --no-default-features --features cumulus-polkadot
         - cargo build --manifest-path parachain/Cargo.toml --release --no-default-features --features cumulus-polkadot
         - sccache -s
-        - mv target/release/${ARTIFACT_BIN_PATH} target/release/${ARTIFACT_BIN_PATH}-parachain
     artifacts:
+        name: "${CI_COMMIT_REF_SLUG}-parachain"
         paths:
-            - target/release/${ARTIFACT_BIN_PATH}-parachain
+            - target/release/${ARTIFACT_BIN_PATH}
     only:
         - merge_requests
         - master
@@ -60,6 +60,8 @@ build-parachain:
 
 docker-publish-standalone:
     stage: deploy
+    dependencies: 
+        - build-standalone
     image:
         name: gcr.io/kaniko-project/executor:debug
         entrypoint: [""]
@@ -67,12 +69,13 @@ docker-publish-standalone:
         - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
         - |
             /kaniko/executor \
-            --build-arg BINARY=btc-parachain-standalone \
+            --build-arg BINARY=btc-parachain \
             --context $CI_PROJECT_DIR \
             --dockerfile $CI_PROJECT_DIR/Dockerfile_release \
             --destination $CI_REGISTRY_IMAGE:${CI_COMMIT_BRANCH:-${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}}-$CI_COMMIT_SHORT_SHA \
             --destination $CI_REGISTRY_IMAGE:${CI_COMMIT_BRANCH:-${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}}
     only:
+        - tags
         - master
         - dev
         - alpha
@@ -80,6 +83,8 @@ docker-publish-standalone:
 
 docker-publish-parachain:
     stage: deploy
+    dependencies: 
+        - build-parachain
     image:
         name: gcr.io/kaniko-project/executor:debug
         entrypoint: [""]
@@ -87,12 +92,13 @@ docker-publish-parachain:
         - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
         - |
             /kaniko/executor \
-            --build-arg BINARY=btc-parachain-parachain \
+            --build-arg BINARY=btc-parachain \
             --context $CI_PROJECT_DIR \
             --dockerfile $CI_PROJECT_DIR/Dockerfile_release \
             --destination $CI_REGISTRY_IMAGE:${CI_COMMIT_BRANCH:-${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}}-rococo-$CI_COMMIT_SHORT_SHA \
             --destination $CI_REGISTRY_IMAGE:${CI_COMMIT_BRANCH:-${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}}-rococo
     only:
+        - tags
         - master
         - dev
         - alpha
