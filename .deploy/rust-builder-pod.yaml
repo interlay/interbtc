@@ -27,9 +27,6 @@ spec:
           value: /cargo/.sccache
         - name: SCCACHE_CACHE_SIZE
           value: "10G"
-      envFrom:
-        - secretRef:
-            name: rust-builder-env
       volumeMounts:
         - mountPath: /cargo
           name: cargo-volume
