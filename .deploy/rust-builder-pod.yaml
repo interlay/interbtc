@@ -17,19 +17,16 @@ spec:
     - name: jnlp
     - name: rust
       image: registry.gitlab.com/interlay/containers/rust-base:nightly-2021-01-25
+      imagePullPolicy: Always
       command:
         - cat
       tty: true
+      envFrom:
+        - secretRef:
+            name: rust-builder-env
       env:
         - name: CARGO_HOME
           value: /cargo
-        - name: SCCACHE_DIR
-          value: /cargo/.sccache
-        - name: SCCACHE_CACHE_SIZE
-          value: "10G"
-      volumeMounts:
-        - mountPath: /cargo
-          name: cargo-volume
     - name: kaniko
       image: gcr.io/kaniko-project/executor:debug
       imagePullPolicy: Always
@@ -44,9 +41,6 @@ spec:
   imagePullSecrets:
     - name: gitlab-rust-base-registry
   volumes:
-    - name: cargo-volume
-      persistentVolumeClaim:
-        claimName: jenkins-rust-agent-pvc
     - name: jenkins-docker-cfg
       projected:
         sources:
