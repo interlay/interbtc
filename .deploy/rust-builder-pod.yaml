@@ -23,6 +23,10 @@ spec:
       env:
         - name: CARGO_HOME
           value: /cargo
+        - name: SCCACHE_DIR
+          value: /cargo/.sccache
+        - name: SCCACHE_CACHE_SIZE
+          value: "10G"
       envFrom:
         - secretRef:
             name: rust-builder-env
