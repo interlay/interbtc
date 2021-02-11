@@ -72,10 +72,10 @@ docker-publish-standalone:
         - |
             /kaniko/executor \
             --build-arg BINARY=btc-parachain \
-            --context $CI_PROJECT_DIR \
-            --dockerfile $CI_PROJECT_DIR/Dockerfile_release \
-            --destination $CI_REGISTRY_IMAGE:${CI_COMMIT_BRANCH:-${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}}-$CI_COMMIT_SHORT_SHA \
-            --destination $CI_REGISTRY_IMAGE:${CI_COMMIT_BRANCH:-${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}}
+            --context ${CI_PROJECT_DIR} \
+            --dockerfile ${CI_PROJECT_DIR}/Dockerfile_release \
+            --destination ${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA} \
+            --destination ${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_SLUG}
     only:
         - tags
         - master
@@ -95,10 +95,10 @@ docker-publish-parachain:
         - |
             /kaniko/executor \
             --build-arg BINARY=btc-parachain \
-            --context $CI_PROJECT_DIR \
-            --dockerfile $CI_PROJECT_DIR/Dockerfile_release \
-            --destination $CI_REGISTRY_IMAGE:${CI_COMMIT_BRANCH:-${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}}-rococo-$CI_COMMIT_SHORT_SHA \
-            --destination $CI_REGISTRY_IMAGE:${CI_COMMIT_BRANCH:-${CI_MERGE_REQUEST_SOURCE_BRANCH_NAME}}-rococo
+            --context ${CI_PROJECT_DIR} \
+            --dockerfile ${CI_PROJECT_DIR}/Dockerfile_release \
+            --destination ${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA} \
+            --destination ${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_SLUG}-rococo
     only:
         - tags
         - master
