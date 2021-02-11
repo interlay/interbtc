@@ -32,6 +32,7 @@ build-standalone:
         paths:
             - target/release/${ARTIFACT_BIN_PATH}
     only:
+        - tags
         - merge_requests
         - master
         - dev
@@ -53,6 +54,7 @@ build-parachain:
         paths:
             - target/release/${ARTIFACT_BIN_PATH}
     only:
+        - tags
         - merge_requests
         - master
         - dev
