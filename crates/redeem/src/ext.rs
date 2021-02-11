@@ -141,12 +141,31 @@ pub(crate) mod collateral {
     use crate::types::DOT;
     use frame_support::dispatch::{DispatchError, DispatchResult};
 
-    pub fn slash_collateral<T: collateral::Config>(
+    pub fn slash_collateral_with_opts<T: collateral::Config>(
         sender: &T::AccountId,
         receiver: &T::AccountId,
         amount: DOT<T>,
+        saturated: bool,
+        to_reserved: bool,
+    ) -> Result<DOT<T>, DispatchError> {
+        <collateral::Module<T>>::slash_collateral_with_opts(
+            sender.clone(),
+            receiver.clone(),
+            amount,
+            saturated,
+            to_reserved,
+        )
+    }
+
+    pub fn get_collateral_from_account<T: collateral::Config>(account: &T::AccountId) -> DOT<T> {
+        <collateral::Module<T>>::get_collateral_from_account(account)
+    }
+
+    pub fn release_collateral<T: collateral::Config>(
+        sender: T::AccountId,
+        amount: DOT<T>,
     ) -> DispatchResult {
-        <collateral::Module<T>>::slash_collateral(sender.clone(), receiver.clone(), amount)
+        <collateral::Module<T>>::release_collateral(&sender, amount)
     }
 
     pub fn slash_collateral_saturated<T: collateral::Config>(
