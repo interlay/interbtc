@@ -76,6 +76,21 @@ pub(crate) mod vault_registry {
     ) -> DispatchResult {
         <vault_registry::Module<T>>::_ensure_not_banned(vault, height)
     }
+
+    pub fn liquidation_vault_force_decrease_to_be_issued_tokens<T: vault_registry::Config>(
+        amount: PolkaBTC<T>,
+    ) -> DispatchResult {
+        <vault_registry::Module<T>>::liquidation_vault_force_decrease_to_be_issued_tokens(amount)
+    }
+
+    pub fn get_vault_from_id<T: vault_registry::Config>(
+        vault_id: &T::AccountId,
+    ) -> Result<
+        vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>>,
+        DispatchError,
+    > {
+        <vault_registry::Module<T>>::get_vault_from_id(vault_id)
+    }
 }
 
 #[cfg_attr(test, mockable)]

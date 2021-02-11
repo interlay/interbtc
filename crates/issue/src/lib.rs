@@ -40,6 +40,7 @@ use frame_support::{
 };
 use frame_system::{ensure_root, ensure_signed};
 use primitive_types::H256;
+use sp_runtime::traits::CheckedAdd;
 use sp_runtime::ModuleId;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
@@ -381,13 +382,24 @@ impl<T: Config> Module<T> {
             Error::<T>::TimeNotExpired
         );
 
-        ext::vault_registry::decrease_to_be_issued_tokens::<T>(&issue.vault, issue.amount)?;
-        ext::collateral::slash_collateral::<T>(
-            &issue.requester,
-            &issue.vault,
-            issue.griefing_collateral,
-        )?;
+        let vault = ext::vault_registry::get_vault_from_id::<T>(&issue.vault)?;
 
+        if vault.is_liquidated() {
+            ext::vault_registry::liquidation_vault_force_decrease_to_be_issued_tokens::<T>(
+                issue
+                    .amount
+                    .checked_add(&issue.fee)
+                    .ok_or(Error::<T>::ArithmeticOverflow)?,
+            )?;
+            ext::collateral::release_collateral::<T>(&issue.requester, issue.griefing_collateral)?;
+        } else {
+            ext::vault_registry::decrease_to_be_issued_tokens::<T>(&issue.vault, issue.amount)?;
+            ext::collateral::slash_collateral::<T>(
+                &issue.requester,
+                &issue.vault,
+                issue.griefing_collateral,
+            )?;
+        }
         // Remove issue request from storage
         Self::remove_issue_request(issue_id, true);
 
@@ -487,5 +499,6 @@ decl_error! {
         /// Unable to convert value
         TryIntoIntError,
         ArithmeticUnderflow,
+        ArithmeticOverflow,
     }
 }
