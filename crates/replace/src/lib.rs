@@ -555,13 +555,28 @@ impl<T: Config> Module<T> {
             Some(replace_id.clone().as_bytes().to_vec()),
         )?;
 
-        // Call the replaceTokens
+        // decrease old-vault's issued & to-be-redeemed tokens, and
+        // change new-vault's to-be-issued tokens to issued tokens
         ext::vault_registry::replace_tokens::<T>(
             old_vault_id.clone(),
             new_vault_id.clone(),
             replace.amount.clone(),
             replace.collateral.clone(),
         )?;
+
+        //         if !old_vault.is_liquidated() {
+        //             decrease old-vault's issued & to-be-redeemed tokens
+        //         } else {
+        //             decrease liquidation-vault's issued & to-be-redeemed tokens
+        //             decrease old-vault's to-be-redeemed tokens,
+        //             release old-vault's collateral
+        //         }
+        //
+        //         if !new_vault.is_liquidated() {
+        //             change new-vault's to-be-issued tokens to issued tokens
+        //         } else {
+        //             change liquidation-vault's to-be-issued tokens to issued tokens
+        //         }
 
         // Call the releaseCollateral function to release the oldVaults griefing collateral griefingCollateral
         ext::collateral::release_collateral::<T>(

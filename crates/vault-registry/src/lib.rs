@@ -390,6 +390,15 @@ impl<T: Config> Module<T> {
         Self::get_rich_liquidation_vault().force_decrease_issued(tokens)
     }
 
+    /// Increases the amount of tokens issued for the liquidation vault
+    ///
+    /// # Arguments
+    /// * `tokens` - the amount of tokens to be unreserved
+    pub fn liquidation_vault_force_increase_issued_tokens(tokens: PolkaBTC<T>) -> DispatchResult {
+        Self::get_rich_liquidation_vault().force_issue_tokens(tokens);
+        Ok(())
+    }
+
     /// Decreases the amount of tokens to be redeemed in the next redeem/replace for
     /// the liquidation vault
     ///
@@ -663,10 +672,41 @@ impl<T: Config> Module<T> {
             .to_vec(),
         )?;
 
-        let mut old_vault = Self::get_active_rich_vault_from_id(&old_vault_id)?;
-        let mut new_vault = Self::get_active_rich_vault_from_id(&new_vault_id)?;
-        old_vault.decrease_tokens(tokens)?;
-        new_vault.issue_tokens(tokens)?;
+        let mut old_vault = Self::get_rich_vault_from_id(&old_vault_id)?;
+        let mut new_vault = Self::get_rich_vault_from_id(&new_vault_id)?;
+
+        if !old_vault.is_liquidated() {
+            // decrease old-vault's issued & to-be-redeemed tokens
+            old_vault.decrease_tokens(tokens)?;
+        } else {
+            // equivalent of decrease_tokens, but on liquidation vault
+            let liquidation_vault = Self::get_rich_liquidation_vault();
+            liquidation_vault.force_decrease_issued(tokens);
+            liquidation_vault.force_decrease_to_be_redeemed(tokens);
+
+            // release old-vault's collateral
+            let collateral = ext::collateral::for_account(&old_vault_id);
+            let to_be_released = Self::calculate_collateral(
+                collateral,
+                tokens,
+                old_vault.data.to_be_redeemed_tokens,
+            )?;
+            ext::collateral::release_collateral(old_vault_id, to_be_released);
+
+            // reduce old-vault's to-be-redeemed tokens
+            old_vault.force_decrease_to_be_redeemed(tokens);
+        }
+
+        if !new_vault.is_liquidated() {
+            // change new-vault's to-be-issued tokens to issued tokens
+            new_vault.issue_tokens(tokens)?;
+        } else {
+            // change liquidation-vault's to-be-issued tokens to issued tokens
+            let liquidation_vault = Self::get_rich_liquidation_vault();
+            liquidation_vault.force_decrease_to_be_issued(tokens);
+            liquidation_vault.force_issue_tokens(tokens);
+        }
+
         Self::deposit_event(Event::<T>::ReplaceTokens(
             old_vault_id.clone(),
             new_vault_id.clone(),

@@ -563,3 +563,136 @@ fn integration_test_issue_polka_btc_cancel_liquidated() {
         assert_eq!(final_btc_balance, initial_btc_balance);
     });
 }
+
+#[test]
+fn integration_test_issue_polka_btc_execute_liquidated() {
+    ExtBuilder::build().execute_with(|| {
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
+            FixedU128::one()
+        ));
+
+        let user = ALICE;
+        let vault = BOB;
+        let vault_proof_submitter = CAROL;
+
+        let amount_btc = 1000000;
+        let griefing_collateral = 100;
+        let collateral_vault = required_collateral_for_issue(amount_btc); // enough for fee + issued amount
+
+        SystemModule::set_block_number(1);
+
+        let initial_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
+        let initial_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
+
+        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
+            collateral_vault,
+            dummy_public_key()
+        ))
+        .dispatch(origin_of(account_of(vault))));
+        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
+            collateral_vault,
+            dummy_public_key()
+        ))
+        .dispatch(origin_of(account_of(vault_proof_submitter))));
+
+        // alice requests polka_btc by locking btc with bob
+        assert_ok!(Call::Issue(IssueCall::request_issue(
+            amount_btc,
+            account_of(vault),
+            griefing_collateral
+        ))
+        .dispatch(origin_of(account_of(ALICE))));
+
+        let issue_id = assert_issue_request_event();
+        let issue = IssueModule::get_issue_request_from_id(&issue_id).unwrap();
+        let vault_btc_address = issue.btc_address;
+        let fee_amount_btc = issue.fee;
+        let total_amount_btc = amount_btc + fee_amount_btc;
+
+        // send the btc from the user to the vault
+        let (tx_id, _height, proof, raw_tx) =
+            generate_transaction_and_mine(vault_btc_address, total_amount_btc, None);
+
+        SystemModule::set_block_number(1 + CONFIRMATIONS);
+        assert_ok!(VaultRegistryModule::liquidate_vault(&account_of(vault)));
+
+        assert_eq!(
+            VaultRegistryModule::get_liquidation_vault().to_be_issued_tokens,
+            total_amount_btc
+        );
+        assert_eq!(
+            VaultRegistryModule::get_liquidation_vault().issued_tokens,
+            0
+        );
+        assert_eq!(
+            CollateralModule::get_collateral_from_account(&account_of(LIQUIDATION_VAULT)),
+            collateral_vault
+        );
+
+        // alice executes the issuerequest by confirming the btc transaction
+        assert_ok!(
+            Call::Issue(IssueCall::execute_issue(issue_id, tx_id, proof, raw_tx))
+                .dispatch(origin_of(account_of(vault_proof_submitter)))
+        );
+
+        // check that the vault who submitted the proof is rewarded with increased SLA score
+        assert_eq!(
+            SlaModule::vault_sla(account_of(vault_proof_submitter)),
+            SlaModule::vault_submitted_issue_proof()
+        );
+
+        // check that sla is zero for being liquidated
+        assert_eq!(SlaModule::vault_sla(account_of(vault)), FixedI128::zero());
+
+        // fee should be added to epoch rewards
+        assert_eq!(FeeModule::epoch_rewards_polka_btc(), fee_amount_btc);
+
+        let final_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
+        let final_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
+
+        // griefing collateral reimbursed
+        assert_eq!(final_dot_balance, initial_dot_balance);
+
+        // polka_btc minted
+        assert_eq!(final_btc_balance, initial_btc_balance + amount_btc);
+
+        // vault should have 0 tokens and collateral
+        assert_eq!(
+            VaultRegistryModule::get_vault_from_id(&account_of(vault))
+                .unwrap()
+                .to_be_issued_tokens,
+            0
+        );
+        assert_eq!(
+            VaultRegistryModule::get_vault_from_id(&account_of(vault))
+                .unwrap()
+                .issued_tokens,
+            0
+        );
+        assert_eq!(
+            CollateralModule::get_collateral_from_account(&account_of(vault)),
+            0
+        );
+
+        // liquidation vault should have the issued_tokens & collateral
+        assert_eq!(
+            VaultRegistryModule::get_liquidation_vault().to_be_issued_tokens,
+            0
+        );
+        assert_eq!(
+            VaultRegistryModule::get_liquidation_vault().issued_tokens,
+            total_amount_btc
+        );
+        assert_eq!(
+            CollateralModule::get_collateral_from_account(&account_of(LIQUIDATION_VAULT)),
+            collateral_vault
+        );
+
+        // force issue rewards and withdraw
+        assert_ok!(FeeModule::update_rewards_for_epoch());
+        assert_ok!(Call::Fee(FeeCall::withdraw_polka_btc(
+            FeeModule::get_polka_btc_rewards(&account_of(vault))
+        ))
+        .dispatch(origin_of(account_of(vault))));
+    });
+}
