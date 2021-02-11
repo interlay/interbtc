@@ -383,7 +383,31 @@ impl<T: Config> Module<T> {
         )?;
         ext::fee::increase_polka_btc_rewards_for_epoch::<T>(fee_polka_btc);
 
-        if redeem.premium_dot > Self::u128_to_dot(0u128)? {
+        let vault = ext::vault_registry::get_vault_from_id::<T>(&redeem.vault)?;
+        if vault.is_liquidated() {
+            // execution by liquidated vault
+
+            // decrease liquidation vault tokens
+            ext::vault_registry::liquidation_vault_force_decrease_issued_tokens::<T>(
+                amount_polka_btc,
+            )?;
+            ext::vault_registry::liquidation_vault_force_decrease_to_be_redeemed_tokens::<T>(
+                amount_polka_btc,
+            )?;
+            // decrease actual vault tokens
+            ext::vault_registry::decrease_to_be_redeemed_tokens::<T>(
+                redeem.vault.clone(),
+                amount_polka_btc,
+            )?;
+            // release actual vault collateral
+            let amount = ext::vault_registry::calculate_collateral::<T>(
+                ext::collateral::get_collateral_from_account::<T>(&redeem.vault),
+                redeem.amount_btc,
+                vault.to_be_redeemed_tokens,
+            )?;
+            ext::collateral::release_collateral::<T>(&redeem.vault, amount)?;
+        } else if redeem.premium_dot > Self::u128_to_dot(0u128)? {
+            // premium redeem
             ext::vault_registry::redeem_tokens_premium::<T>(
                 &redeem.vault,
                 amount_polka_btc,
@@ -391,6 +415,7 @@ impl<T: Config> Module<T> {
                 &redeem.redeemer,
             )?;
         } else {
+            // normal redeem
             ext::vault_registry::redeem_tokens::<T>(&redeem.vault, amount_polka_btc)?;
         }
 
@@ -415,69 +440,117 @@ impl<T: Config> Module<T> {
             Error::<T>::TimeNotExpired
         );
 
-        let amount_polka_btc_in_dot = ext::oracle::btc_to_dots::<T>(redeem.amount_polka_btc)?;
+        let vault = ext::vault_registry::get_vault_from_id::<T>(&redeem.vault)?;
+        let vault_id = redeem.vault.clone();
+
+        let amount_polka_btc_in_dot = ext::oracle::btc_to_dots::<T>(redeem.amount_btc)?;
         let punishment_fee_in_dot = ext::fee::get_punishment_fee::<T>(amount_polka_btc_in_dot)?;
 
-        // calculate additional amount to slash, a high SLA means we slash less
-        let slashing_amount_in_dot =
-            ext::sla::calculate_slashed_amount::<T>(redeem.vault.clone(), amount_polka_btc_in_dot)?;
-
-        // slash collateral from the vault to the user
-        let slashed_dot = if reimburse {
-            // user requested to be reimbursed in DOT
-            ext::vault_registry::decrease_tokens::<T>(
-                &redeem.vault,
-                &redeem.redeemer,
-                redeem.amount_polka_btc,
-            )?;
-
-            // burn user's PolkaBTC
-            ext::treasury::burn::<T>(redeem.redeemer.clone(), redeem.amount_polka_btc)?;
-
-            // reimburse the user in dot (inc. punishment fee) from vault
-            let reimburse_in_dot = amount_polka_btc_in_dot
-                .checked_add(&punishment_fee_in_dot)
+        let refund_polka_btc = || {
+            // unlock user's PolkaBTC, including fee
+            let total_polka_btc = redeem
+                .amount_btc
+                .checked_add(&redeem.fee)
                 .ok_or(Error::<T>::ArithmeticOverflow)?;
-            ext::collateral::slash_collateral::<T>(
-                &redeem.vault,
-                &redeem.redeemer,
-                reimburse_in_dot,
-            )?;
-            reimburse_in_dot
-        } else {
-            // user does not want full reimbursement and wishes to retry the redeem
-            ext::collateral::slash_collateral::<T>(
-                &redeem.vault,
-                &redeem.redeemer,
-                punishment_fee_in_dot,
-            )?;
-            punishment_fee_in_dot
+            ext::treasury::unlock::<T>(redeemer.clone(), total_polka_btc)
         };
 
-        // slash the remaining amount from the vault to the fee pool
-        let remaining_dot_to_be_slashed = slashing_amount_in_dot
-            .checked_sub(&slashed_dot)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?;
-        if remaining_dot_to_be_slashed > Self::u128_to_dot(0u128)? {
-            ext::collateral::slash_collateral::<T>(
-                &redeem.vault,
-                &ext::fee::fee_pool_account_id::<T>(),
-                remaining_dot_to_be_slashed,
-            )?;
-            ext::fee::increase_dot_rewards_for_epoch::<T>(remaining_dot_to_be_slashed);
-        }
+        // unless the user chooses to reimburse, the user gets its locked polkabtc back, and
+        // for the vault it is subtracted from the to_be_redeemed tokens
+        let slashed_amount = if vault.is_liquidated() {
+            refund_polka_btc()?;
 
-        ext::vault_registry::ban_vault::<T>(redeem.vault.clone())?;
-        ext::sla::event_update_vault_sla::<T>(
-            redeem.vault.clone(),
-            ext::sla::VaultEvent::RedeemFailure,
-        )?;
+            ext::vault_registry::decrease_to_be_redeemed_tokens::<T>(
+                redeem.vault.clone(),
+                redeem.amount_btc,
+            )?;
+
+            let amount = ext::vault_registry::calculate_collateral::<T>(
+                ext::collateral::get_collateral_from_account::<T>(&redeem.vault),
+                redeem.amount_btc,
+                vault.to_be_redeemed_tokens,
+            )?;
+
+            ext::collateral::slash_collateral::<T>(
+                &vault_id,
+                &ext::vault_registry::get_liquidation_vault::<T>().id,
+                amount,
+            )?;
+            ext::collateral::release_collateral::<T>(
+                &ext::vault_registry::get_liquidation_vault::<T>().id,
+                amount,
+            )?;
+
+            amount
+        } else {
+            // slash collateral from the vault to the user, but only if the vault is not liquidated
+            let slashed_dot = if reimburse {
+                // user requested to be reimbursed in DOT
+
+                // decrease to_be_redeemed & issued
+                ext::vault_registry::decrease_tokens::<T>(
+                    &vault_id,
+                    &redeem.redeemer,
+                    redeem.amount_polka_btc,
+                )?;
+
+                // unlock user's redeem fee
+                ext::treasury::unlock::<T>(redeem.redeemer.clone(), redeem.fee)?;
+                // burn user's PolkaBTC, excluding fee
+                ext::treasury::burn::<T>(redeem.redeemer.clone(), redeem.amount_btc)?;
+                // reimburse the user in dot (inc. punishment fee) from vault
+                let reimburse_in_dot = amount_polka_btc_in_dot
+                    .checked_add(&punishment_fee_in_dot)
+                    .ok_or(Error::<T>::ArithmeticOverflow)?;
+                ext::collateral::slash_collateral::<T>(
+                    &vault_id,
+                    &redeem.redeemer,
+                    reimburse_in_dot,
+                )?;
+                ext::collateral::release_collateral::<T>(&redeem.redeemer, reimburse_in_dot)?;
+
+                reimburse_in_dot
+            } else {
+                refund_polka_btc()?;
+
+                // user chose to keep his PolkaBTC - only transfer it the punishment fee
+                let slashed_punishment_fee = ext::collateral::slash_collateral_saturated::<T>(
+                    &vault_id,
+                    &redeem.redeemer,
+                    punishment_fee_in_dot,
+                )?;
+                ext::collateral::release_collateral::<T>(&redeem.redeemer, slashed_punishment_fee)?;
+
+                slashed_punishment_fee
+            };
+            // calculate additional amount to slash, a high SLA means we slash less
+            let slashing_amount_in_dot =
+                ext::sla::calculate_slashed_amount::<T>(vault_id.clone(), amount_polka_btc_in_dot)?;
+
+            // slash the remaining amount from the vault to the fee pool
+            let remaining_dot_to_be_slashed = slashing_amount_in_dot
+                .checked_sub(&slashed_dot)
+                .ok_or(Error::<T>::ArithmeticUnderflow)?;
+            if remaining_dot_to_be_slashed > Self::u128_to_dot(0u128)? {
+                let slashed_to_fee_pool = ext::collateral::slash_collateral_saturated::<T>(
+                    &vault_id,
+                    &ext::fee::fee_pool_account_id::<T>(),
+                    remaining_dot_to_be_slashed,
+                )?;
+                ext::fee::increase_dot_rewards_for_epoch::<T>(slashed_to_fee_pool);
+            }
+            let _ = ext::vault_registry::ban_vault::<T>(vault_id.clone());
+
+            slashing_amount_in_dot
+        };
+
+        ext::sla::event_update_vault_sla::<T>(vault_id, ext::sla::VaultEvent::RedeemFailure)?;
         Self::remove_redeem_request(redeem_id, true, reimburse);
         Self::deposit_event(<Event<T>>::CancelRedeem(
             redeem_id,
             redeemer,
             redeem.vault,
-            slashing_amount_in_dot,
+            slashed_amount,
             reimburse,
         ));
 
