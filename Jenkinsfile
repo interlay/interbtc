@@ -57,7 +57,8 @@ pipeline {
 
                     sh 'cargo build --manifest-path parachain/Cargo.toml --release --no-default-features --features aura-grandpa'
 
-                    archiveArtifacts 'target/release/btc-parachain'
+                    sh 'target/release/btc-parachain target/release/btc-parachain-standalone'
+                    archiveArtifacts 'target/release/btc-parachain-standalone'
                     stash(name: "build-standalone", includes: 'Dockerfile_release, target/release/btc-parachain')
 
                     sh '/usr/local/bin/sccache -s'
@@ -115,7 +116,7 @@ pipeline {
             parallel {
                 stage('Make Image - standalone') {
                     when {
-                        anyOf { 
+                        anyOf {
                             branch 'master'
                             branch 'dev'
                             tag '*'
@@ -138,9 +139,10 @@ pipeline {
                 }
                 stage('Make Image - parachain') {
                     when {
-                        anyOf { 
+                        anyOf {
                             branch 'master'
                             branch 'dev'
+                            branch 'dockerfile-baseimg'
                             tag '*'
                         }
                     }
