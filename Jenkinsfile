@@ -57,7 +57,7 @@ pipeline {
 
                     sh 'cargo build --manifest-path parachain/Cargo.toml --release --no-default-features --features aura-grandpa'
 
-                    sh 'target/release/btc-parachain target/release/btc-parachain-standalone'
+                    sh 'cp target/release/btc-parachain target/release/btc-parachain-standalone'
                     archiveArtifacts 'target/release/btc-parachain-standalone'
                     stash(name: "build-standalone", includes: 'Dockerfile_release, target/release/btc-parachain')
 
