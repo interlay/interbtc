@@ -1,3 +1,3 @@
 pub mod chain_spec;
-pub mod rpc;
-pub mod service;
+pub use btc_parachain_rpc;
+pub use btc_parachain_service;

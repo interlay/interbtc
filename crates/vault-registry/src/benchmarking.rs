@@ -6,11 +6,9 @@ use frame_system::RawOrigin;
 use sp_std::prelude::*;
 
 benchmarks! {
-    _ {}
-
     register_vault {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let amount = 100;
+        let amount: u32 = 100;
         let public_key = BtcPublicKey::default();
     }: _(RawOrigin::Signed(origin.clone()), amount.into(), public_key)
     verify {
@@ -48,6 +46,19 @@ benchmarks! {
         VaultRegistry::<T>::insert_vault(&origin, vault);
     }: _(RawOrigin::Signed(origin), BtcPublicKey::default())
 
+    liquidate_undercollateralized_vaults {
+        let u in 0 .. 100;
+
+        for i in 0..u {
+            let mut vault = Vault::default();
+            let origin: T::AccountId = account("Origin", i, 0);
+            vault.id = origin.clone();
+            vault.wallet = Wallet::new(BtcPublicKey::default());
+            VaultRegistry::<T>::insert_vault(&origin, vault);
+        }
+    }: {
+        VaultRegistry::<T>::liquidate_undercollateralized_vaults()
+    }
 }
 
 #[cfg(test)]
@@ -68,6 +79,7 @@ mod tests {
             assert_ok!(test_benchmark_lock_additional_collateral::<Test>());
             assert_ok!(test_benchmark_withdraw_collateral::<Test>());
             assert_ok!(test_benchmark_update_public_key::<Test>());
+            assert_ok!(test_benchmark_liquidate_undercollateralized_vaults::<Test>());
         });
     }
 }

@@ -24,11 +24,11 @@ type Event = crate::Event<Test>;
 // use macro to avoid messing up stack trace
 macro_rules! assert_emitted {
     ($event:expr) => {
-        let test_event = TestEvent::test_events($event);
+        let test_event = TestEvent::vault_registry($event);
         assert!(System::events().iter().any(|a| a.event == test_event));
     };
     ($event:expr, $times:expr) => {
-        let test_event = TestEvent::test_events($event);
+        let test_event = TestEvent::vault_registry($event);
         assert_eq!(
             System::events()
                 .iter()
@@ -41,7 +41,7 @@ macro_rules! assert_emitted {
 
 macro_rules! assert_not_emitted {
     ($event:expr) => {
-        let test_event = TestEvent::test_events($event);
+        let test_event = TestEvent::vault_registry($event);
         assert!(!System::events().iter().any(|a| a.event == test_event));
     };
 }
@@ -68,7 +68,7 @@ fn dummy_public_key() -> BtcPublicKey {
 fn create_vault_with_collateral(
     id: u64,
     collateral: u128,
-) -> <Test as frame_system::Trait>::AccountId {
+) -> <Test as frame_system::Config>::AccountId {
     VaultRegistry::get_minimum_collateral_vault.mock_safe(move || MockResult::Return(collateral));
     let origin = Origin::signed(id);
     let result = VaultRegistry::register_vault(origin, collateral, dummy_public_key());
@@ -76,11 +76,11 @@ fn create_vault_with_collateral(
     id
 }
 
-fn create_vault(id: u64) -> <Test as frame_system::Trait>::AccountId {
+fn create_vault(id: u64) -> <Test as frame_system::Config>::AccountId {
     create_vault_with_collateral(id, DEFAULT_COLLATERAL)
 }
 
-fn create_sample_vault() -> <Test as frame_system::Trait>::AccountId {
+fn create_sample_vault() -> <Test as frame_system::Config>::AccountId {
     create_vault(DEFAULT_ID)
 }
 
@@ -88,7 +88,7 @@ fn create_vault_and_issue_tokens(
     issue_tokens: u128,
     collateral: u128,
     id: u64,
-) -> <Test as frame_system::Trait>::AccountId {
+) -> <Test as frame_system::Config>::AccountId {
     set_default_thresholds();
 
     // vault has no tokens issued yet
@@ -114,7 +114,7 @@ fn create_vault_and_issue_tokens(
 
 fn create_sample_vault_andissue_tokens(
     issue_tokens: u128,
-) -> <Test as frame_system::Trait>::AccountId {
+) -> <Test as frame_system::Config>::AccountId {
     create_vault_and_issue_tokens(issue_tokens, DEFAULT_COLLATERAL, DEFAULT_ID)
 }
 
@@ -486,13 +486,15 @@ fn redeem_tokens_liquidation_succeeds() {
             MockResult::Return(Ok(()))
         });
 
+        ext::oracle::btc_to_dots::<Test>.mock_safe(|amount| MockResult::Return(Ok(amount)));
+
         liquidation_vault.force_increase_to_be_issued(50);
         liquidation_vault.force_issue_tokens(50);
 
         assert_ok!(VaultRegistry::redeem_tokens_liquidation(&user_id, 50));
         let liquidation_vault = VaultRegistry::get_rich_liquidation_vault();
         assert_eq!(liquidation_vault.data.issued_tokens, 0);
-        assert_emitted!(Event::RedeemTokensLiquidation(user_id, 50));
+        assert_emitted!(Event::RedeemTokensLiquidation(user_id, 50, 50));
     });
 }
 
@@ -514,13 +516,15 @@ fn redeem_tokens_liquidation_does_not_call_recover_when_unnecessary() {
             MockResult::Return(Ok(()))
         });
 
+        ext::oracle::btc_to_dots::<Test>.mock_safe(|amount| MockResult::Return(Ok(amount)));
+
         liquidation_vault.force_increase_to_be_issued(25);
         liquidation_vault.force_issue_tokens(25);
 
         assert_ok!(VaultRegistry::redeem_tokens_liquidation(&user_id, 10));
         let liquidation_vault = VaultRegistry::get_rich_liquidation_vault();
         assert_eq!(liquidation_vault.data.issued_tokens, 15);
-        assert_emitted!(Event::RedeemTokensLiquidation(user_id, 10));
+        assert_emitted!(Event::RedeemTokensLiquidation(user_id, 10, 10));
     });
 }
 
@@ -531,7 +535,7 @@ fn redeem_tokens_liquidation_fails_with_insufficient_tokens() {
         set_default_thresholds();
         let res = VaultRegistry::redeem_tokens_liquidation(&user_id, 50);
         assert_err!(res, TestError::InsufficientTokensCommitted);
-        assert_not_emitted!(Event::RedeemTokensLiquidation(user_id, 50));
+        assert_not_emitted!(Event::RedeemTokensLiquidation(user_id, 50, 50));
     });
 }
 
@@ -692,7 +696,7 @@ fn test_liquidate_undercollateralized_vaults_no_liquidation() {
         Vaults::<Test>::insert(3, Vault::default());
         Vaults::<Test>::insert(4, Vault::default());
 
-        let vaults: HashMap<<Test as frame_system::Trait>::AccountId, bool> =
+        let vaults: HashMap<<Test as frame_system::Config>::AccountId, bool> =
             vec![(0, false), (1, false), (2, false), (3, false), (4, false)]
                 .into_iter()
                 .collect();
@@ -716,7 +720,7 @@ fn test_liquidate_undercollateralized_vaults_succeeds() {
         Vaults::<Test>::insert(3, Vault::default());
         Vaults::<Test>::insert(4, Vault::default());
 
-        let vaults: HashMap<<Test as frame_system::Trait>::AccountId, bool> =
+        let vaults: HashMap<<Test as frame_system::Config>::AccountId, bool> =
             vec![(0, true), (1, false), (2, true), (3, false), (4, false)]
                 .into_iter()
                 .collect();
@@ -1054,6 +1058,43 @@ fn get_first_vault_with_sufficient_collateral_succeeds() {
 }
 
 #[test]
+fn get_vaults_below_premium_collaterlization_fails() {
+    run_test(|| {
+        let issue_tokens: u128 = 4;
+        let _id = create_sample_vault_andissue_tokens(issue_tokens);
+
+        assert_err!(
+            VaultRegistry::get_premium_redeem_vaults(),
+            TestError::NoVaultUnderThePremiumRedeemThreshold
+        );
+    })
+}
+
+#[test]
+fn get_vaults_below_premium_collaterlization_succeeds() {
+    run_test(|| {
+        let issue_tokens: u128 = 50;
+        let id = create_sample_vault();
+        set_default_thresholds();
+
+        VaultRegistry::increase_to_be_issued_tokens(&id, H256::zero(), issue_tokens).unwrap();
+        // issue 50 tokens at 200% rate
+        assert_ok!(VaultRegistry::issue_tokens(&id, issue_tokens));
+        let vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
+        assert_eq!(vault.data.issued_tokens, issue_tokens);
+        assert_eq!(vault.data.to_be_redeemed_tokens, 0);
+
+        // update the exchange rate
+        ext::oracle::dots_to_btc::<Test>.mock_safe(move |x| MockResult::Return(Ok((x / 2).into())));
+
+        assert_eq!(
+            VaultRegistry::get_premium_redeem_vaults(),
+            Ok(vec!((id, issue_tokens)))
+        );
+    })
+}
+
+#[test]
 fn get_first_vault_with_sufficient_tokens_succeeds() {
     run_test(|| {
         let issue_tokens: u128 = DEFAULT_COLLATERAL / 10 / 2; // = 5
@@ -1158,7 +1199,6 @@ fn setup_block(i: u64, parent_hash: H256) -> H256 {
     System::initialize(
         &i,
         &parent_hash,
-        &Default::default(),
         &Default::default(),
         frame_system::InitKind::Full,
     );

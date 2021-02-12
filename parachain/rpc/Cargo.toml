@@ -1,0 +1,40 @@
+[package]
+authors = ['Interlay Ltd']
+edition = '2018'
+name = 'btc-parachain-rpc'
+version = '0.5.0'
+
+[dependencies]
+jsonrpc-core = '15.0.0'
+
+# Parachain dependencies
+btc-parachain-runtime = { path = "../runtime" }
+module-exchange-rate-oracle-rpc = { path = "../../crates/exchange-rate-oracle/rpc" }
+module-staked-relayers-rpc = { path = "../../crates/staked-relayers/rpc" }
+module-vault-registry-rpc = { path = "../../crates/vault-registry/rpc" }
+module-issue-rpc = { path = "../../crates/issue/rpc" }
+module-redeem-rpc = { path = "../../crates/redeem/rpc" }
+module-replace-rpc = { path = "../../crates/replace/rpc" }
+module-sla-rpc = { path = "../../crates/sla/rpc" }
+module-refund-rpc = { path = "../../crates/refund/rpc" }
+
+# Substrate dependencies
+sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
+sc-rpc-api = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
+sp-api = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
+sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
+sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
+sp-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
+
+pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
+substrate-frame-rpc-system = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
+
+[features]
+cumulus-polkadot = [
+    "btc-parachain-runtime/cumulus-polkadot",
+]
+aura-grandpa = [
+    "btc-parachain-runtime/aura-grandpa",
+]

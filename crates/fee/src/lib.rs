@@ -45,9 +45,11 @@ pub trait WeightInfo {
 }
 
 /// The pallet's configuration trait.
-pub trait Trait: frame_system::Trait + collateral::Trait + treasury::Trait + sla::Trait {
+pub trait Config:
+    frame_system::Config + collateral::Config + treasury::Config + sla::Config
+{
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 
     type UnsignedFixedPoint: FixedPointNumber + Encode + EncodeLike + Decode;
 
@@ -57,7 +59,7 @@ pub trait Trait: frame_system::Trait + collateral::Trait + treasury::Trait + sla
 
 // The pallet's storage items.
 decl_storage! {
-    trait Store for Module<T: Trait> as Fee {
+    trait Store for Module<T: Config> as Fee {
         /// # Issue
 
         /// Fee share that users need to pay to issue PolkaBTC.
@@ -165,7 +167,7 @@ decl_storage! {
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as frame_system::Trait>::AccountId,
+        AccountId = <T as frame_system::Config>::AccountId,
         PolkaBTC = PolkaBTC<T>,
         DOT = DOT<T>,
     {
@@ -177,7 +179,7 @@ decl_event!(
 // The pallet's dispatchable functions.
 decl_module! {
     /// The module declaration.
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         // Initialize errors
         type Error = Error<T>;
 
@@ -198,7 +200,7 @@ decl_module! {
         ///
         /// * `origin` - signing account
         /// * `amount` - amount of PolkaBTC
-        #[weight = <T as Trait>::WeightInfo::withdraw_polka_btc()]
+        #[weight = <T as Config>::WeightInfo::withdraw_polka_btc()]
         #[transactional]
         fn withdraw_polka_btc(origin, amount: PolkaBTC<T>) -> DispatchResult
         {
@@ -218,7 +220,7 @@ decl_module! {
         ///
         /// * `origin` - signing account
         /// * `amount` - amount of DOT
-        #[weight = <T as Trait>::WeightInfo::withdraw_dot()]
+        #[weight = <T as Config>::WeightInfo::withdraw_dot()]
         #[transactional]
         fn withdraw_dot(origin, amount: DOT<T>) -> DispatchResult
         {
@@ -236,10 +238,10 @@ decl_module! {
 
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     fn begin_block(height: T::BlockNumber) -> DispatchResult {
         // only calculate rewards per epoch
-        if height % Self::epoch_period() == 0.into() {
+        if height % Self::epoch_period() == 0u32.into() {
             Self::update_rewards_for_epoch()?;
         }
 
@@ -528,7 +530,7 @@ impl<T: Trait> Module<T> {
             .iter()
             .fold(UnsignedFixedPoint::<T>::default(), |a, &b| a + b);
         let one =
-            UnsignedFixedPoint::<T>::checked_from_integer(Module::<T>::btc_to_inner(1.into())?)
+            UnsignedFixedPoint::<T>::checked_from_integer(Module::<T>::btc_to_inner(1u32.into())?)
                 .ok_or(Error::<T>::ArithmeticOverflow)?;
         ensure!(sum == one, Error::<T>::InvalidRewardDist);
         Ok(())
@@ -575,7 +577,7 @@ impl<T: Trait> Module<T> {
 }
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         /// Unable to convert value
         TryIntoIntError,
         ArithmeticOverflow,

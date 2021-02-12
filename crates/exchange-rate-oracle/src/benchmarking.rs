@@ -6,8 +6,6 @@ use sp_runtime::FixedPointNumber;
 use sp_std::prelude::*;
 
 benchmarks! {
-    _ {}
-
     set_exchange_rate {
         let origin: T::AccountId = account("origin", 0, 0);
         <AuthorizedOracles<T>>::insert(origin.clone(), Vec::<u8>::new());

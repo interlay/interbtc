@@ -1,12 +1,6 @@
 /// Mocking the test environment
-use crate::{Error, Module, Trait};
-use frame_support::{
-    assert_ok, impl_outer_event, impl_outer_origin, parameter_types,
-    weights::{
-        constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight},
-        Weight,
-    },
-};
+use crate::{Config, Error, Module};
+use frame_support::{assert_ok, impl_outer_event, impl_outer_origin, parameter_types};
 use mocktopus::mocking::clear_mocks;
 use pallet_balances as balances;
 use sp_core::H256;
@@ -14,7 +8,6 @@ use sp_runtime::FixedPointNumber;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
-    Perbill,
 };
 use sp_runtime::{FixedI128, FixedU128};
 
@@ -28,14 +21,14 @@ impl_outer_origin! {
     pub enum Origin for Test {}
 }
 
-mod test_events {
+mod refund {
     pub use crate::Event;
 }
 
 impl_outer_event! {
     pub enum TestEvent for Test {
         frame_system<T>,
-        test_events<T>,
+        refund<T>,
         balances<T>,
         collateral<T>,
         btc_relay,
@@ -62,40 +55,36 @@ pub struct Test;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
-    pub const MaximumBlockWeight: Weight = 1024;
-    pub const MaximumBlockLength: u32 = 2 * 1024;
-    pub const AvailableBlockRatio: Perbill = Perbill::one();
+    pub BlockWeights: frame_system::limits::BlockWeights =
+        frame_system::limits::BlockWeights::simple_max(1024);
 }
 
-impl frame_system::Trait for Test {
-    type AccountId = AccountId;
-    type Call = ();
-    type Lookup = IdentityLookup<Self::AccountId>;
+impl frame_system::Config for Test {
+    type BaseCallFilter = ();
+    type BlockWeights = ();
+    type BlockLength = ();
+    type DbWeight = ();
+    type Origin = Origin;
     type Index = u64;
     type BlockNumber = BlockNumber;
+    type Call = ();
     type Hash = H256;
     type Hashing = BlakeTwo256;
+    type AccountId = AccountId;
+    type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
     type Event = TestEvent;
-    type Origin = Origin;
     type BlockHashCount = BlockHashCount;
-    type MaximumBlockWeight = MaximumBlockWeight;
-    type MaximumBlockLength = MaximumBlockLength;
-    type AvailableBlockRatio = AvailableBlockRatio;
-    type BlockExecutionWeight = BlockExecutionWeight;
-    type DbWeight = RocksDbWeight;
-    type ExtrinsicBaseWeight = ExtrinsicBaseWeight;
     type Version = ();
     type PalletInfo = ();
+    type AccountData = pallet_balances::AccountData<Balance>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
-    type AccountData = pallet_balances::AccountData<u64>;
-    type BaseCallFilter = ();
-    type MaximumExtrinsicWeight = MaximumBlockWeight;
     type SystemWeightInfo = ();
+    type SS58Prefix = ();
 }
 
-impl Trait for Test {
+impl Config for Test {
     type Event = TestEvent;
     type WeightInfo = ();
 }
@@ -105,7 +94,7 @@ parameter_types! {
     pub const MaxLocks: u32 = 50;
 }
 
-impl pallet_balances::Trait for Test {
+impl pallet_balances::Config for Test {
     type MaxLocks = MaxLocks;
     type Balance = Balance;
     type Event = TestEvent;
@@ -115,44 +104,44 @@ impl pallet_balances::Trait for Test {
     type WeightInfo = ();
 }
 
-impl treasury::Trait for Test {
+impl treasury::Config for Test {
     type Event = TestEvent;
     type PolkaBTC = Balances;
 }
 
-impl fee::Trait for Test {
+impl fee::Config for Test {
     type Event = TestEvent;
     type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
 }
 
-impl sla::Trait for Test {
+impl sla::Config for Test {
     type Event = TestEvent;
     type SignedFixedPoint = FixedI128;
 }
 
-impl collateral::Trait for Test {
+impl collateral::Config for Test {
     type Event = TestEvent;
     type DOT = Balances;
 }
 
-impl btc_relay::Trait for Test {
+impl btc_relay::Config for Test {
     type Event = TestEvent;
     type WeightInfo = ();
 }
 
-impl security::Trait for Test {
+impl security::Config for Test {
     type Event = TestEvent;
 }
 
-impl vault_registry::Trait for Test {
+impl vault_registry::Config for Test {
     type Event = TestEvent;
     type RandomnessSource = pallet_randomness_collective_flip::Module<Test>;
     type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
 }
 
-impl exchange_rate_oracle::Trait for Test {
+impl exchange_rate_oracle::Config for Test {
     type Event = TestEvent;
     type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
@@ -162,7 +151,7 @@ parameter_types! {
     pub const MinimumPeriod: u64 = 5;
 }
 
-impl pallet_timestamp::Trait for Test {
+impl pallet_timestamp::Config for Test {
     type Moment = u64;
     type OnTimestampSet = ();
     type MinimumPeriod = MinimumPeriod;

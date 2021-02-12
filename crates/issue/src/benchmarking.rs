@@ -26,17 +26,15 @@ fn dummy_public_key() -> BtcPublicKey {
 }
 
 benchmarks! {
-    _ {}
-
     request_issue {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let amount = 100;
+        let amount: u32 = 100;
         let vault_id: T::AccountId = account("Vault", 0, 0);
-        let griefing = 100;
+        let griefing: u32 = 100;
 
-        Collateral::<T>::lock_collateral(&vault_id, 100000000.into()).unwrap();
-        ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Trait>::UnsignedFixedPoint::one()).unwrap();
-        VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Trait>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());// 0.001%
+        Collateral::<T>::lock_collateral(&vault_id, 100000000u32.into()).unwrap();
+        ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()).unwrap();
+        VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());// 0.001%
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
@@ -54,7 +52,7 @@ benchmarks! {
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
         let vault_btc_address = BtcAddress::P2SH(H160::zero());
-        let value = 2;
+        let value: u32 = 2;
 
         let issue_id = H256::zero();
         let mut issue_request = IssueRequest::default();
@@ -121,9 +119,9 @@ benchmarks! {
             vault
         );
 
-        VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Trait>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());
-        ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Trait>::UnsignedFixedPoint::one()).unwrap();
-        Collateral::<T>::lock_collateral(&vault_id, 100000000.into()).unwrap();
+        VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());
+        ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()).unwrap();
+        Collateral::<T>::lock_collateral(&vault_id, 100000000u32.into()).unwrap();
         let secure_id = Security::<T>::get_secure_id(&vault_id);
         VaultRegistry::<T>::increase_to_be_issued_tokens(&vault_id, secure_id, value.into()).unwrap();
     }: _(RawOrigin::Signed(origin), issue_id, tx_id, proof, raw_tx)
@@ -137,7 +135,7 @@ benchmarks! {
         issue_request.requester = origin.clone();
         issue_request.vault = vault_id.clone();
         Issue::<T>::insert_issue_request(issue_id, issue_request);
-        System::<T>::set_block_number(System::<T>::block_number() + Issue::<T>::issue_period() + 10.into());
+        System::<T>::set_block_number(System::<T>::block_number() + Issue::<T>::issue_period() + 10u32.into());
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
@@ -150,7 +148,7 @@ benchmarks! {
     }: _(RawOrigin::Signed(origin), issue_id)
 
     set_issue_period {
-    }: _(RawOrigin::Root, 1.into())
+    }: _(RawOrigin::Root, 1u32.into())
 
 }
 

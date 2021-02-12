@@ -11,7 +11,7 @@ use frame_system::RawOrigin;
 use sp_core::{H256, U256};
 use sp_std::prelude::*;
 
-fn mine_genesis<T: Trait>(address: &BtcAddress, height: u32) -> Block {
+fn mine_genesis<T: Config>(address: &BtcAddress, height: u32) -> Block {
     let block = BlockBuilder::new()
         .with_version(2)
         .with_coinbase(address, 50, 3)
@@ -24,7 +24,7 @@ fn mine_genesis<T: Trait>(address: &BtcAddress, height: u32) -> Block {
     block
 }
 
-fn mine_block_with_one_tx<T: Trait>(
+fn mine_block_with_one_tx<T: Config>(
     prev: Block,
     address: &BtcAddress,
     value: i32,
@@ -71,8 +71,6 @@ fn mine_block_with_one_tx<T: Trait>(
 }
 
 benchmarks! {
-    _ {}
-
     initialize {
         let height = 0;
         let origin: T::AccountId = account("Origin", 0, 0);
@@ -184,7 +182,7 @@ benchmarks! {
         let proof = block.merkle_proof(&vec![tx_id]).format();
         let raw_tx = transaction.format_with(true);
 
-        System::<T>::set_block_number(100.into());
+        System::<T>::set_block_number(100u32.into());
 
     }: _(RawOrigin::Signed(origin), tx_id, proof, Some(0), raw_tx, value.into(), address, Some(op_return))
 
@@ -204,7 +202,7 @@ benchmarks! {
         let tx_block_height = height;
         let proof = block.merkle_proof(&vec![tx_id]).format();
 
-        System::<T>::set_block_number(100.into());
+        System::<T>::set_block_number(100u32.into());
 
     }: _(RawOrigin::Signed(origin), tx_id, proof, Some(0))
 

@@ -26,13 +26,11 @@ fn dummy_public_key() -> BtcPublicKey {
 }
 
 benchmarks! {
-    _ {}
-
     request_replace {
         let vault_id: T::AccountId = account("Vault", 0, 0);
-        let amount = Replace::<T>::replace_btc_dust_value() + 1000.into();
+        let amount = Replace::<T>::replace_btc_dust_value() + 1000u32.into();
         // TODO: calculate from exchange rate
-        let griefing = 1000.into();
+        let griefing = 1000u32.into();
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
@@ -55,7 +53,7 @@ benchmarks! {
             &vault_id,
             vault
         );
-        let threshold = <T as vault_registry::Trait>::UnsignedFixedPoint::one();
+        let threshold = <T as vault_registry::Config>::UnsignedFixedPoint::one();
         VaultRegistry::<T>::set_auction_collateral_threshold(threshold);
 
         let replace_id = H256::zero();
@@ -67,8 +65,8 @@ benchmarks! {
 
     accept_replace {
         let vault_id: T::AccountId = account("Vault", 0, 0);
-        let amount = 100;
-        let collateral = 1000;
+        let amount: u32 = 100;
+        let collateral: u32 = 1000;
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
@@ -80,9 +78,9 @@ benchmarks! {
 
         let new_vault_btc_address = BtcAddress::P2SH(H160([0; 20]));
 
-        Collateral::<T>::lock_collateral(&vault_id, 100000000.into()).unwrap();
-        ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Trait>::UnsignedFixedPoint::one()).unwrap();
-        VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Trait>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());
+        Collateral::<T>::lock_collateral(&vault_id, 100000000u32.into()).unwrap();
+        ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()).unwrap();
+        VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());
 
         let replace_id = H256::zero();
         let mut replace_request = ReplaceRequest::default();
@@ -95,13 +93,13 @@ benchmarks! {
     auction_replace {
         let old_vault_id: T::AccountId = account("Origin", 0, 0);
         let new_vault_id: T::AccountId = account("Vault", 0, 0);
-        let btc_amount = 100;
-        let collateral = 1000;
+        let btc_amount: u32 = 100;
+        let collateral: u32 = 1000;
 
         let mut old_vault = Vault::default();
         old_vault.id = old_vault_id.clone();
         old_vault.wallet = Wallet::new(dummy_public_key());
-        old_vault.issued_tokens = 123897.into();
+        old_vault.issued_tokens = 123897u32.into();
         VaultRegistry::<T>::insert_vault(
             &old_vault_id,
             old_vault
@@ -117,10 +115,10 @@ benchmarks! {
 
         let new_vault_btc_address = BtcAddress::P2SH(H160([0; 20]));
 
-        Collateral::<T>::lock_collateral(&old_vault_id, 50.into()).unwrap();
-        ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Trait>::UnsignedFixedPoint::one()).unwrap();
-        VaultRegistry::<T>::set_auction_collateral_threshold(<T as vault_registry::Trait>::UnsignedFixedPoint::checked_from_rational(10000, 100).unwrap()); // 10000%
-        VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Trait>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap()); // 0.001%
+        Collateral::<T>::lock_collateral(&old_vault_id, 50u32.into()).unwrap();
+        ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()).unwrap();
+        VaultRegistry::<T>::set_auction_collateral_threshold(<T as vault_registry::Config>::UnsignedFixedPoint::checked_from_rational(10000, 100).unwrap()); // 10000%
+        VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap()); // 0.001%
 
     }: _(RawOrigin::Signed(new_vault_id), old_vault_id, btc_amount.into(), collateral.into(), new_vault_btc_address)
 
@@ -217,7 +215,7 @@ benchmarks! {
         replace_request.old_vault = vault_id.clone();
         replace_request.new_vault = Some(origin.clone());
         Replace::<T>::insert_replace_request(replace_id, replace_request);
-        System::<T>::set_block_number(System::<T>::block_number() + Replace::<T>::replace_period() + 10.into());
+        System::<T>::set_block_number(System::<T>::block_number() + Replace::<T>::replace_period() + 10u32.into());
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
@@ -230,7 +228,7 @@ benchmarks! {
     }: _(RawOrigin::Signed(origin), replace_id)
 
     set_replace_period {
-    }: _(RawOrigin::Root, 1.into())
+    }: _(RawOrigin::Root, 1u32.into())
 
 }
 

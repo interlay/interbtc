@@ -28,8 +28,8 @@ pub type BTCRelayModule = btc_relay::Module<Runtime>;
 pub type BTCRelayError = btc_relay::Error<Runtime>;
 pub type BTCRelayEvent = btc_relay::Event;
 
-pub fn origin_of(account_id: AccountId) -> <Runtime as frame_system::Trait>::Origin {
-    <Runtime as frame_system::Trait>::Origin::signed(account_id)
+pub fn origin_of(account_id: AccountId) -> <Runtime as frame_system::Config>::Origin {
+    <Runtime as frame_system::Config>::Origin::signed(account_id)
 }
 
 pub fn account_of(address: [u8; 32]) -> AccountId {
@@ -38,10 +38,10 @@ pub fn account_of(address: [u8; 32]) -> AccountId {
 
 #[allow(dead_code)]
 pub fn set_default_thresholds() {
-    let secure = FixedU128::checked_from_rational(200, 100).unwrap(); // 200%
-    let auction = FixedU128::checked_from_rational(150, 100).unwrap(); // 150%
-    let premium = FixedU128::checked_from_rational(120, 100).unwrap(); // 120%
-    let liquidation = FixedU128::checked_from_rational(110, 100).unwrap(); // 110%
+    let secure = FixedU128::checked_from_rational(150, 100).unwrap();
+    let auction = FixedU128::checked_from_rational(120, 100).unwrap();
+    let premium = FixedU128::checked_from_rational(135, 100).unwrap();
+    let liquidation = FixedU128::checked_from_rational(110, 100).unwrap();
 
     VaultRegistryModule::set_secure_collateral_threshold(secure);
     VaultRegistryModule::set_auction_collateral_threshold(auction);
@@ -80,6 +80,15 @@ pub fn force_issue_tokens(user: [u8; 32], vault: [u8; 32], collateral: u128, tok
 
     // mint tokens to the user
     treasury::Module::<Runtime>::mint(user.into(), tokens);
+}
+
+#[allow(dead_code)]
+pub fn required_collateral_for_issue(issue_btc: u128) -> u128 {
+    let fee_amount_btc = FeeModule::get_issue_fee(issue_btc).unwrap();
+    let total_amount_btc = issue_btc + fee_amount_btc;
+    let collateral_vault =
+        VaultRegistryModule::get_required_collateral_for_polkabtc(total_amount_btc).unwrap();
+    collateral_vault
 }
 
 pub fn assert_store_main_chain_header_event(height: u32, hash: H256Le) {
@@ -294,9 +303,9 @@ impl ExtBuilder {
         vault_registry::GenesisConfig::<Runtime> {
             minimum_collateral_vault: 0,
             punishment_delay: 8,
-            secure_collateral_threshold: FixedU128::checked_from_rational(100, 100).unwrap(),
-            auction_collateral_threshold: FixedU128::checked_from_rational(150, 100).unwrap(),
-            premium_redeem_threshold: FixedU128::checked_from_rational(120, 100).unwrap(),
+            secure_collateral_threshold: FixedU128::checked_from_rational(150, 100).unwrap(),
+            auction_collateral_threshold: FixedU128::checked_from_rational(120, 100).unwrap(),
+            premium_redeem_threshold: FixedU128::checked_from_rational(135, 100).unwrap(),
             liquidation_collateral_threshold: FixedU128::checked_from_rational(110, 100).unwrap(),
             liquidation_vault_account_id: account_of(LIQUIDATION_VAULT),
         }
@@ -347,9 +356,9 @@ impl ExtBuilder {
 
         sla::GenesisConfig::<Runtime> {
             vault_target_sla: FixedI128::from(100),
-            vault_redeem_failure_sla_change: FixedI128::from(-10),
+            vault_redeem_failure_sla_change: FixedI128::from(-100),
             vault_executed_issue_max_sla_change: FixedI128::from(4),
-            vault_submitted_issue_proof: FixedI128::from(0),
+            vault_submitted_issue_proof: FixedI128::from(1),
             vault_refunded: FixedI128::from(1),
             relayer_target_sla: FixedI128::from(100),
             relayer_block_submission: FixedI128::from(1),

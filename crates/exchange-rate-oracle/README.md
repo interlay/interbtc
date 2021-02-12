@@ -37,7 +37,7 @@ You should implement it's trait like so:
 
 ```rust
 /// Used for test_module
-impl exchange_rate_oracle::Trait for Runtime {
+impl exchange_rate_oracle::Config for Runtime {
     type Event = Event;
     type WeightInfo = ();
 }

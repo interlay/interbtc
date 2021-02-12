@@ -1,32 +1,25 @@
 /// Mocking the test environment
-use crate::{Error, Module, Trait};
-use frame_support::{
-    impl_outer_event, impl_outer_origin, parameter_types,
-    weights::{
-        constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight},
-        Weight,
-    },
-};
+use crate::{Config, Error, Module};
+use frame_support::{impl_outer_event, impl_outer_origin, parameter_types};
 use pallet_balances as balances;
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
-    Perbill,
 };
 
 impl_outer_origin! {
     pub enum Origin for Test {}
 }
 
-mod test_events {
+mod collateral {
     pub use crate::Event;
 }
 
 impl_outer_event! {
     pub enum TestEvent for Test {
         frame_system<T>,
-        test_events<T>,
+        collateral<T>,
         balances<T>,
     }
 }
@@ -44,37 +37,33 @@ pub struct Test;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
-    pub const MaximumBlockWeight: Weight = 1024;
-    pub const MaximumBlockLength: u32 = 2 * 1024;
-    pub const AvailableBlockRatio: Perbill = Perbill::one();
+    pub BlockWeights: frame_system::limits::BlockWeights =
+        frame_system::limits::BlockWeights::simple_max(1024);
 }
 
-impl frame_system::Trait for Test {
-    type AccountId = AccountId;
-    type Call = ();
-    type Lookup = IdentityLookup<Self::AccountId>;
+impl frame_system::Config for Test {
+    type BaseCallFilter = ();
+    type BlockWeights = ();
+    type BlockLength = ();
+    type DbWeight = ();
+    type Origin = Origin;
     type Index = u64;
     type BlockNumber = BlockNumber;
+    type Call = ();
     type Hash = H256;
     type Hashing = BlakeTwo256;
+    type AccountId = AccountId;
+    type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
     type Event = TestEvent;
-    type Origin = Origin;
     type BlockHashCount = BlockHashCount;
-    type MaximumBlockWeight = MaximumBlockWeight;
-    type MaximumBlockLength = MaximumBlockLength;
-    type AvailableBlockRatio = AvailableBlockRatio;
-    type BlockExecutionWeight = BlockExecutionWeight;
-    type DbWeight = RocksDbWeight;
-    type ExtrinsicBaseWeight = ExtrinsicBaseWeight;
     type Version = ();
     type PalletInfo = ();
+    type AccountData = pallet_balances::AccountData<Balance>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
-    type AccountData = pallet_balances::AccountData<u64>;
-    type BaseCallFilter = ();
-    type MaximumExtrinsicWeight = MaximumBlockWeight;
     type SystemWeightInfo = ();
+    type SS58Prefix = ();
 }
 
 parameter_types! {
@@ -82,7 +71,7 @@ parameter_types! {
     pub const MaxLocks: u32 = 50;
 }
 
-impl pallet_balances::Trait for Test {
+impl pallet_balances::Config for Test {
     type MaxLocks = MaxLocks;
     type Balance = Balance;
     type Event = TestEvent;
@@ -92,7 +81,7 @@ impl pallet_balances::Trait for Test {
     type WeightInfo = ();
 }
 
-impl Trait for Test {
+impl Config for Test {
     type DOT = Balances;
     type Event = TestEvent;
 }

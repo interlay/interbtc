@@ -1,34 +1,27 @@
 /// Mocking the test environment
-use crate::{Error, GenesisConfig, Module, Trait};
+use crate::{Config, Error, GenesisConfig, Module};
 use frame_support::traits::StorageMapShim;
-use frame_support::{
-    impl_outer_event, impl_outer_origin, parameter_types,
-    weights::{
-        constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight},
-        Weight,
-    },
-};
+use frame_support::{impl_outer_event, impl_outer_origin, parameter_types};
 use mocktopus::mocking::clear_mocks;
 use sp_arithmetic::{FixedI128, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
-    Perbill,
 };
 
 impl_outer_origin! {
     pub enum Origin for Test {}
 }
 
-mod test_events {
+mod sla {
     pub use crate::Event;
 }
 
 impl_outer_event! {
     pub enum TestEvent for Test {
         frame_system<T>,
-        test_events<T>,
+        sla<T>,
         collateral<T>,
         pallet_balances Instance1<T>,
         pallet_balances Instance2<T>,
@@ -53,37 +46,33 @@ pub struct Test;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
-    pub const MaximumBlockWeight: Weight = 1024;
-    pub const MaximumBlockLength: u32 = 2 * 1024;
-    pub const AvailableBlockRatio: Perbill = Perbill::one();
+    pub BlockWeights: frame_system::limits::BlockWeights =
+        frame_system::limits::BlockWeights::simple_max(1024);
 }
 
-impl frame_system::Trait for Test {
-    type AccountId = AccountId;
-    type Call = ();
-    type Lookup = IdentityLookup<Self::AccountId>;
+impl frame_system::Config for Test {
+    type BaseCallFilter = ();
+    type BlockWeights = ();
+    type BlockLength = ();
+    type DbWeight = ();
+    type Origin = Origin;
     type Index = u64;
     type BlockNumber = BlockNumber;
+    type Call = ();
     type Hash = H256;
     type Hashing = BlakeTwo256;
+    type AccountId = AccountId;
+    type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
     type Event = TestEvent;
-    type Origin = Origin;
     type BlockHashCount = BlockHashCount;
-    type MaximumBlockWeight = MaximumBlockWeight;
-    type MaximumBlockLength = MaximumBlockLength;
-    type AvailableBlockRatio = AvailableBlockRatio;
-    type BlockExecutionWeight = BlockExecutionWeight;
-    type DbWeight = RocksDbWeight;
-    type ExtrinsicBaseWeight = ExtrinsicBaseWeight;
     type Version = ();
     type PalletInfo = ();
+    type AccountData = pallet_balances::AccountData<Balance>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
-    type AccountData = ();
-    type BaseCallFilter = ();
-    type MaximumExtrinsicWeight = MaximumBlockWeight;
     type SystemWeightInfo = ();
+    type SS58Prefix = ();
 }
 
 parameter_types! {
@@ -92,7 +81,7 @@ parameter_types! {
 }
 
 /// DOT
-impl pallet_balances::Trait<pallet_balances::Instance1> for Test {
+impl pallet_balances::Config<pallet_balances::Instance1> for Test {
     type MaxLocks = MaxLocks;
     /// The type for recording an account's balance.
     type Balance = Balance;
@@ -102,8 +91,7 @@ impl pallet_balances::Trait<pallet_balances::Instance1> for Test {
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = StorageMapShim<
         pallet_balances::Account<Test, pallet_balances::Instance1>,
-        frame_system::CallOnCreatedAccount<Test>,
-        frame_system::CallKillAccount<Test>,
+        frame_system::Provider<Test>,
         AccountId,
         pallet_balances::AccountData<Balance>,
     >;
@@ -111,7 +99,7 @@ impl pallet_balances::Trait<pallet_balances::Instance1> for Test {
 }
 
 /// PolkaBTC
-impl pallet_balances::Trait<pallet_balances::Instance2> for Test {
+impl pallet_balances::Config<pallet_balances::Instance2> for Test {
     type MaxLocks = MaxLocks;
     type Balance = Balance;
     type Event = TestEvent;
@@ -119,38 +107,37 @@ impl pallet_balances::Trait<pallet_balances::Instance2> for Test {
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = StorageMapShim<
         pallet_balances::Account<Test, pallet_balances::Instance2>,
-        frame_system::CallOnCreatedAccount<Test>,
-        frame_system::CallKillAccount<Test>,
+        frame_system::Provider<Test>,
         AccountId,
         pallet_balances::AccountData<Balance>,
     >;
     type WeightInfo = ();
 }
 
-impl collateral::Trait for Test {
+impl collateral::Config for Test {
     type Event = TestEvent;
     type DOT = pallet_balances::Module<Test, pallet_balances::Instance1>;
 }
 
-impl treasury::Trait for Test {
+impl treasury::Config for Test {
     type Event = TestEvent;
     type PolkaBTC = pallet_balances::Module<Test, pallet_balances::Instance2>;
 }
 
-impl vault_registry::Trait for Test {
+impl vault_registry::Config for Test {
     type Event = TestEvent;
     type RandomnessSource = pallet_randomness_collective_flip::Module<Test>;
     type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
 }
 
-impl exchange_rate_oracle::Trait for Test {
+impl exchange_rate_oracle::Config for Test {
     type Event = TestEvent;
     type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
 }
 
-impl security::Trait for Test {
+impl security::Config for Test {
     type Event = TestEvent;
 }
 
@@ -158,14 +145,14 @@ parameter_types! {
     pub const MinimumPeriod: u64 = 5;
 }
 
-impl pallet_timestamp::Trait for Test {
+impl pallet_timestamp::Config for Test {
     type Moment = u64;
     type OnTimestampSet = ();
     type MinimumPeriod = MinimumPeriod;
     type WeightInfo = ();
 }
 
-impl Trait for Test {
+impl Config for Test {
     type Event = TestEvent;
     type SignedFixedPoint = FixedI128;
 }

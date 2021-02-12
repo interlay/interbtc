@@ -4,13 +4,12 @@ use crate::Script;
 use bitcoin_hashes::hash160::Hash as Hash160;
 use bitcoin_hashes::Hash;
 use codec::{Decode, Encode};
-use secp256k1::{
-    constants::PUBLIC_KEY_SIZE, ffi::types::AlignedType, Error as Secp256k1Error,
-    PublicKey as Secp256k1PublicKey, Secp256k1,
-};
 use sha2::{Digest, Sha256};
 use sp_core::H160;
-use sp_std::vec;
+
+use secp256k1::{
+    constants::PUBLIC_KEY_SIZE, Error as Secp256k1Error, PublicKey as Secp256k1PublicKey,
+};
 
 /// A Bitcoin address is a serialized identifier that represents the destination for a payment.
 /// Address prefixes are used to indicate the network as well as the format. Since the Parachain
@@ -152,6 +151,36 @@ impl<'de> serde::Deserialize<'de> for PublicKey {
     }
 }
 
+pub mod global {
+    use secp256k1::{ffi::types::AlignedType, AllPreallocated, Secp256k1};
+    use sp_std::ops::Deref;
+    use sp_std::{vec, vec::Vec};
+    // this is what lazy_static uses internally
+    use spin::Once;
+
+    pub struct GlobalContext {
+        __private: (),
+    }
+
+    pub static SECP256K1: &GlobalContext = &GlobalContext { __private: () };
+
+    impl Deref for GlobalContext {
+        type Target = Secp256k1<AllPreallocated<'static>>;
+
+        fn deref(&self) -> &Self::Target {
+            static ONCE: Once<()> = Once::new();
+            static mut BUFFER: Vec<AlignedType> = vec![];
+            static mut CONTEXT: Option<Secp256k1<AllPreallocated<'static>>> = None;
+            ONCE.call_once(|| unsafe {
+                BUFFER = vec![AlignedType::zeroed(); Secp256k1::preallocate_size()];
+                let ctx = Secp256k1::preallocated_new(&mut BUFFER).unwrap();
+                CONTEXT = Some(ctx);
+            });
+            unsafe { CONTEXT.as_ref().unwrap() }
+        }
+    }
+}
+
 /// To avoid the use of OP_RETURN during the issue process, we use an On-chain Key Derivation scheme (OKD) for
 /// Bitcoin’s ECDSA (secp256k1 curve). The vault-registry maintains a "master" public key for each registered
 /// Vault which can then be used to derive additional deposit addresses on-demand. Each new issue request triggers
@@ -179,6 +208,7 @@ impl PublicKey {
         hasher.input(&self.0);
         // input secure id
         hasher.input(secure_id.as_bytes());
+
         let mut bytes = [0; 32];
         bytes.copy_from_slice(&hasher.result()[..]);
         bytes
@@ -191,16 +221,16 @@ impl PublicKey {
     ///
     /// * `secure_id` - random nonce (as provided by the security module)
     pub fn new_deposit_public_key(&self, secure_id: H256) -> Result<Self, Secp256k1Error> {
-        let mut buf = vec![AlignedType::zeroed(); Secp256k1::preallocate_size()];
-        // instantiate Secp256k1 engine with prealloc buffer
-        let secp = Secp256k1::preallocated_new(&mut buf)?;
+        self.new_deposit_public_key_with_secret(&self.new_secret_key(secure_id))
+    }
 
-        // c = H(V || id)
-        let secret_key = &self.new_secret_key(secure_id);
-
+    fn new_deposit_public_key_with_secret(
+        &self,
+        secret_key: &[u8; 32],
+    ) -> Result<Self, Secp256k1Error> {
         let mut public_key = Secp256k1PublicKey::from_slice(&self.0)?;
         // D = V * c
-        public_key.mul_assign(&secp, secret_key)?;
+        public_key.mul_assign(global::SECP256K1, secret_key)?;
         Ok(Self(public_key.serialize()))
     }
 
@@ -214,8 +244,9 @@ impl PublicKey {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use frame_support::assert_err;
     use secp256k1::rand::rngs::OsRng;
-    use secp256k1::SecretKey as Secp256k1SecretKey;
+    use secp256k1::{Secp256k1, SecretKey as Secp256k1SecretKey};
 
     #[test]
     fn test_public_key_to_hash() {
@@ -234,7 +265,24 @@ mod tests {
     }
 
     #[test]
-    fn test_public_key_derivation_scheme() {
+    fn test_check_secret_key_constraints() {
+        assert_err!(
+            Secp256k1SecretKey::from_slice(&[0; 32]),
+            Secp256k1Error::InvalidSecretKey
+        );
+
+        // https://en.bitcoin.it/wiki/Private_key
+        assert_err!(
+            Secp256k1SecretKey::from_slice(
+                &hex::decode("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141")
+                    .unwrap()
+            ),
+            Secp256k1Error::InvalidSecretKey
+        );
+    }
+
+    #[test]
+    fn test_new_deposit_public_key() {
         let secp = Secp256k1::new();
         let mut rng = OsRng::new().unwrap();
 
@@ -245,7 +293,6 @@ mod tests {
         let mut vault_secret_key = Secp256k1SecretKey::new(&mut rng);
         // V
         let vault_public_key = Secp256k1PublicKey::from_secret_key(&secp, &vault_secret_key);
-
         let vault_public_key = PublicKey(vault_public_key.serialize());
 
         // D = V * c
@@ -261,6 +308,33 @@ mod tests {
         assert_eq!(
             deposit_public_key,
             PublicKey(Secp256k1PublicKey::from_secret_key(&secp, &vault_secret_key).serialize())
+        );
+    }
+
+    #[test]
+    fn test_new_deposit_public_key_static() {
+        // bcrt1qzrkyemjkaxq48zwlnhxvear8fh6lvkwszxy7dm
+        let old_public_key = PublicKey([
+            2, 123, 236, 243, 192, 100, 34, 40, 51, 111, 129, 130, 160, 64, 129, 135, 11, 184, 68,
+            84, 83, 198, 234, 196, 150, 13, 208, 86, 34, 150, 10, 59, 247,
+        ]);
+
+        let secret_key = &[
+            137, 16, 46, 159, 212, 158, 232, 178, 197, 253, 105, 137, 102, 159, 70, 217, 110, 211,
+            254, 82, 216, 4, 105, 171, 102, 252, 54, 190, 114, 91, 11, 69,
+        ];
+
+        // bcrt1qn9mgwncjtnavx23utveqqcrxh3zjtll58pc744
+        let new_public_key = old_public_key
+            .new_deposit_public_key_with_secret(secret_key)
+            .unwrap();
+
+        assert_eq!(
+            new_public_key,
+            PublicKey([
+                2, 151, 202, 113, 10, 9, 43, 125, 187, 101, 157, 152, 191, 94, 12, 236, 133, 229,
+                16, 233, 221, 52, 150, 183, 243, 61, 110, 8, 152, 132, 99, 49, 189,
+            ])
         );
     }
 }

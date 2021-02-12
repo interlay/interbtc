@@ -22,12 +22,10 @@ fn dummy_public_key() -> BtcPublicKey {
 }
 
 benchmarks! {
-    _ {}
-
     request_redeem {
         let origin: T::AccountId = account("Origin", 0, 0);
         let vault_id: T::AccountId = account("Vault", 0, 0);
-        let amount = Redeem::<T>::redeem_btc_dust_value() + 1000.into();
+        let amount = Redeem::<T>::redeem_btc_dust_value() + 1000u32.into();
         let btc_address = BtcAddress::P2SH(H160::from([0; 20]));
 
         let mut vault = Vault::default();
@@ -124,7 +122,7 @@ benchmarks! {
         redeem_request.redeemer = origin.clone();
         redeem_request.opentime = System::<T>::block_number();
         Redeem::<T>::insert_redeem_request(redeem_id, redeem_request);
-        System::<T>::set_block_number(System::<T>::block_number() + Redeem::<T>::redeem_period() + 10.into());
+        System::<T>::set_block_number(System::<T>::block_number() + Redeem::<T>::redeem_period() + 10u32.into());
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
@@ -137,7 +135,7 @@ benchmarks! {
     }: _(RawOrigin::Signed(origin), redeem_id, true)
 
     set_redeem_period {
-    }: _(RawOrigin::Root, 1.into())
+    }: _(RawOrigin::Root, 1u32.into())
 
 }
 

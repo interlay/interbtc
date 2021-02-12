@@ -85,12 +85,12 @@ curl https://sh.rustup.rs -sSf | sh
 Building requires `nightly`. Run the following commands to set it up:
 
 ```
-rustup toolchain install nightly-2020-10-01
-rustup default nightly-2020-10-01
+rustup toolchain install nightly-2021-01-25
+rustup default nightly-2021-01-25
 rustup component add rustfmt
 rustup component add rls
 rustup toolchain install nightly
-rustup target add wasm32-unknown-unknown --toolchain nightly-2020-10-01
+rustup target add wasm32-unknown-unknown --toolchain nightly-2021-01-25
 ```
 
 To build, run:

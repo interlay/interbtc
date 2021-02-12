@@ -3,26 +3,26 @@ authors = ['Interlay Ltd']
 description = 'Replace module'
 edition = '2018'
 name = 'replace'
-version = '0.4.0'
+version = '0.5.0'
 
 [dependencies]
 serde = { version = "1.0.101", default-features = false, features = ['derive'], optional = true }
-codec = { package = "parity-scale-codec", version = "1.3.4", default-features = false, features = ['derive'] }
-primitive-types = { version = "0.7.2", default-features = false, features = ["codec"] }
+codec = { package = "parity-scale-codec", version = "1.3.6", default-features = false, features = ['derive'] }
+primitive-types = { version = "0.8.0", default-features = false, features = ["codec"] }
 sha2 = { version = "0.8.0", default-features = false }
 
 # Substrate dependencies
-sp-io = { version = "2.0.0", default-features = false }
-sp-core = { version = "2.0.0", default-features = false }
-sp-std = { version = "2.0.0", default-features = false }
-sp-arithmetic = { version = "2.0.0", default-features = false }
-sp-runtime = { version = "2.0.0", default-features = false }
+sp-io = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
+sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 
-frame-support = { version = "2.0.0", default-features = false }
-frame-system = { version = "2.0.0", default-features = false }
-frame-benchmarking = { version = "2.0.0", default-features = false, optional = true }
-pallet-balances = { version = "2.0.0", default-features = false }
-pallet-timestamp = { version = "2.0.0", default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false, optional = true }
+pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
+pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 
 # Parachain dependencies
 bitcoin = { path = "../bitcoin", default-features = false }
@@ -38,8 +38,8 @@ util = { path = "../util", default-features = false }
 
 [dev-dependencies]
 mocktopus = "0.7.0"
-frame-benchmarking = { version = "2.0.0", default-features = false }
-pallet-randomness-collective-flip = { version = "2.0.0", default-features = false }
+frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
+pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 
 [features]
 default = ["std"]

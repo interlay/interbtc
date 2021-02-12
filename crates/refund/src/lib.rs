@@ -40,16 +40,16 @@ pub trait WeightInfo {
 }
 
 /// The pallet's configuration trait.
-pub trait Trait:
-    frame_system::Trait
-    + treasury::Trait
-    + btc_relay::Trait
-    + collateral::Trait
-    + fee::Trait
-    + sla::Trait
+pub trait Config:
+    frame_system::Config
+    + treasury::Config
+    + btc_relay::Config
+    + collateral::Config
+    + fee::Config
+    + sla::Config
 {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 
     /// Weight information for the extrinsics in this module.
     type WeightInfo: WeightInfo;
@@ -57,7 +57,7 @@ pub trait Trait:
 
 // The pallet's storage items.
 decl_storage! {
-    trait Store for Module<T: Trait> as Refund {
+    trait Store for Module<T: Config> as Refund {
         /// The minimum amount of btc that is accepted for refund requests (NOTE: too low
         /// values could result in the bitcoin client rejecting the payment)
         RefundBtcDustValue get(fn refund_btc_dust_value) config(): PolkaBTC<T>;
@@ -71,7 +71,7 @@ decl_storage! {
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as frame_system::Trait>::AccountId,
+        AccountId = <T as frame_system::Config>::AccountId,
         PolkaBTC = PolkaBTC<T>,
     {
         /// refund_id, issuer, amount, vault, btc_address, issue_id
@@ -84,14 +84,14 @@ decl_event!(
 // The pallet's dispatchable functions.
 decl_module! {
     /// The module declaration.
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         // Initialize errors
         type Error = Error<T>;
 
         // Initialize events
         fn deposit_event() = default;
 
-        #[weight = <T as Trait>::WeightInfo::execute_refund()]
+        #[weight = <T as Config>::WeightInfo::execute_refund()]
         #[transactional]
         fn execute_refund(
             origin,
@@ -108,7 +108,7 @@ decl_module! {
 
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     /// User failsafe: when a user accidentally overpays on an issue, and the vault does not
     /// have enough collateral for the the actual sent amount, then this function is called
     /// to request the vault to refund the surplus amount (minus a fee for the vault to keep).
@@ -275,10 +275,8 @@ impl<T: Trait> Module<T> {
     /// * `issue_id` - The ID of an issue request
     pub fn get_refund_requests_by_issue_id(
         issue_id: H256,
-    ) -> Result<(H256, RefundRequest<T::AccountId, PolkaBTC<T>>), DispatchError> {
-        <RefundRequests<T>>::iter()
-            .find(|(_, request)| request.issue_id == issue_id)
-            .ok_or(Error::<T>::NoRefundFoundForIssueId.into())
+    ) -> Option<(H256, RefundRequest<T::AccountId, PolkaBTC<T>>)> {
+        <RefundRequests<T>>::iter().find(|(_, request)| request.issue_id == issue_id)
     }
 
     /// Fetch all refund requests for the specified vault. This function is exposed as RPC.
@@ -300,7 +298,7 @@ impl<T: Trait> Module<T> {
 }
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         ArithmeticUnderflow,
         NoRefundFoundForIssueId,
         RefundIdNotFound,

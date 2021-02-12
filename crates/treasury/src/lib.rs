@@ -21,7 +21,7 @@ use frame_support::{
 use sp_runtime::ModuleId;
 
 type BalanceOf<T> =
-    <<T as Trait>::PolkaBTC as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+    <<T as Config>::PolkaBTC as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 /// The treasury's module id, used for deriving its sovereign account ID.
 const _MODULE_ID: ModuleId = ModuleId(*b"ily/trsy");
@@ -32,17 +32,17 @@ const _MODULE_ID: ModuleId = ModuleId(*b"ily/trsy");
 /// for this. The Balances module then gives functions for total supply, balances
 /// of accounts, and any function defined by the Currency and ReservableCurrency
 /// traits.
-pub trait Trait: frame_system::Trait {
+pub trait Config: frame_system::Config {
     /// The PolkaBTC currency
     type PolkaBTC: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
 
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 }
 
 // This pallet's storage items.
 decl_storage! {
-    trait Store for Module<T: Trait> as Treasury {
+    trait Store for Module<T: Config> as Treasury {
         /// ## Storage
         /// Note that account's balances and locked balances are handled
         /// through the Balances module.
@@ -56,7 +56,7 @@ decl_storage! {
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as frame_system::Trait>::AccountId,
+        AccountId = <T as frame_system::Config>::AccountId,
         Balance = BalanceOf<T>,
     {
         Mint(AccountId, Balance),
@@ -68,7 +68,7 @@ decl_event!(
 // The pallet's dispatchable functions.
 decl_module! {
     /// The module declaration.
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         type Error = Error<T>;
 
         // Initializing events
@@ -77,7 +77,7 @@ decl_module! {
     }
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     /// Total supply of PolkaBTC
     pub fn get_total_supply() -> BalanceOf<T> {
         T::PolkaBTC::total_issuance()
@@ -206,7 +206,7 @@ impl<T: Trait> Module<T> {
 }
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         InsufficientFunds,
         InsufficientLockedFunds,
     }

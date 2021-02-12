@@ -65,15 +65,15 @@ pub trait WeightInfo {
 
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
-pub trait Trait:
-    frame_system::Trait
-    + collateral::Trait
-    + treasury::Trait
-    + exchange_rate_oracle::Trait
-    + security::Trait
+pub trait Config:
+    frame_system::Config
+    + collateral::Config
+    + treasury::Config
+    + exchange_rate_oracle::Config
+    + security::Config
 {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 
     type RandomnessSource: Randomness<H256>;
 
@@ -85,7 +85,7 @@ pub trait Trait:
 
 // This pallet's storage items.
 decl_storage! {
-    trait Store for Module<T: Trait> as VaultRegistry {
+    trait Store for Module<T: Config> as VaultRegistry {
         /// ## Storage
         /// The minimum collateral (DOT) a Vault needs to provide
         /// to participate in the issue process.
@@ -143,7 +143,7 @@ decl_storage! {
 
 // The pallet's dispatchable functions.
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         type Error = Error<T>;
 
         // Initializing events
@@ -166,7 +166,7 @@ decl_module! {
         /// * `InsufficientVaultCollateralAmount` - if the collateral is below the minimum threshold
         /// * `VaultAlreadyRegistered` - if a vault is already registered for the origin account
         /// * `InsufficientCollateralAvailable` - if the vault does not own enough collateral
-        #[weight = <T as Trait>::WeightInfo::register_vault()]
+        #[weight = <T as Config>::WeightInfo::register_vault()]
         #[transactional]
         fn register_vault(origin, collateral: DOT<T>, public_key: BtcPublicKey) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -194,7 +194,7 @@ decl_module! {
         /// # Errors
         /// * `VaultNotFound` - if no vault exists for the origin account
         /// * `InsufficientCollateralAvailable` - if the vault does not own enough collateral
-        #[weight = <T as Trait>::WeightInfo::lock_additional_collateral()]
+        #[weight = <T as Config>::WeightInfo::lock_additional_collateral()]
         #[transactional]
         fn lock_additional_collateral(origin, amount: DOT<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -226,7 +226,7 @@ decl_module! {
         /// # Errors
         /// * `VaultNotFound` - if no vault exists for the origin account
         /// * `InsufficientCollateralAvailable` - if the vault does not own enough collateral
-        #[weight = <T as Trait>::WeightInfo::withdraw_collateral()]
+        #[weight = <T as Config>::WeightInfo::withdraw_collateral()]
         #[transactional]
         fn withdraw_collateral(origin, amount: DOT<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
@@ -245,7 +245,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `public_key` - the BTC public key of the vault to update
-        #[weight = <T as Trait>::WeightInfo::update_public_key()]
+        #[weight = <T as Config>::WeightInfo::update_public_key()]
         #[transactional]
         fn update_public_key(origin, public_key: BtcPublicKey) -> DispatchResult {
             let account_id = ensure_signed(origin)?;
@@ -256,7 +256,7 @@ decl_module! {
             Ok(())
         }
 
-        #[weight = <T as Trait>::WeightInfo::register_address()]
+        #[weight = <T as Config>::WeightInfo::register_address()]
         #[transactional]
         fn register_address(origin, btc_address: BtcAddress) -> DispatchResult {
             let account_id = ensure_signed(origin)?;
@@ -276,7 +276,7 @@ decl_module! {
 }
 
 #[cfg_attr(test, mockable)]
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     fn begin_block(_height: T::BlockNumber) -> DispatchResult {
         Self::liquidate_undercollateralized_vaults();
         Ok(())
@@ -548,7 +548,7 @@ impl<T: Trait> Module<T> {
         )?;
         let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
         vault.redeem_tokens(tokens)?;
-        if premium > 0.into() {
+        if premium > Self::u128_to_dot(0u128)? {
             ext::collateral::slash_collateral::<T>(vault_id, redeemer_id, premium)?;
         }
 
@@ -596,6 +596,7 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(Event::<T>::RedeemTokensLiquidation(
             redeemer_id.clone(),
             amount_btc,
+            amount_dot,
         ));
 
         Ok(())
@@ -841,6 +842,44 @@ impl<T: Trait> Module<T> {
         } else {
             let idx = Self::pseudo_rand_index(amount, suitable_vaults.len());
             Ok(suitable_vaults[idx].clone())
+        }
+    }
+
+    /// Get all vaults below the premium redeem threshold
+    /// Checks three conditions:
+    /// 1. the vault must have tokens issued
+    /// 2. the vault must be available to redeem tokens (not all issued tokens currently bein part of redeem/replace processes)
+    /// 3. the vault must be below the premium redeem threshold
+    ///
+    /// Maybe returns a tuple of (VaultId, RedeemableTokens)
+    /// The redeemable tokens are the currently vault.issued_tokens - the vault.to_be_redeemed_tokens
+    pub fn get_premium_redeem_vaults() -> Result<Vec<(T::AccountId, PolkaBTC<T>)>, DispatchError> {
+        let suitable_vaults = <Vaults<T>>::iter()
+            .filter_map(|(account_id, vault)| {
+                // iterator returns tuple of (AccountId, Vault<T>),
+                if !vault.issued_tokens.is_zero()
+                    && !vault
+                        .issued_tokens
+                        .saturating_sub(vault.to_be_redeemed_tokens)
+                        .is_zero()
+                    && Self::is_vault_below_premium_threshold(&account_id).unwrap_or(false)
+                {
+                    Some((
+                        account_id,
+                        vault
+                            .issued_tokens
+                            .saturating_sub(vault.to_be_redeemed_tokens),
+                    ))
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<(_, _)>>();
+
+        if suitable_vaults.is_empty() {
+            Err(Error::<T>::NoVaultUnderThePremiumRedeemThreshold.into())
+        } else {
+            Ok(suitable_vaults)
         }
     }
 
@@ -1104,9 +1143,9 @@ impl<T: Trait> Module<T> {
 decl_event! {
     /// ## Events
     pub enum Event<T> where
-            AccountId = <T as frame_system::Trait>::AccountId,
+            AccountId = <T as frame_system::Config>::AccountId,
             DOT = DOT<T>,
-            BTCBalance = PolkaBTC<T> {
+            PolkaBTC = PolkaBTC<T> {
         RegisterVault(AccountId, DOT),
         /// id, new collateral, total collateral, free collateral
         LockAdditionalCollateral(AccountId, DOT, DOT, DOT),
@@ -1114,22 +1153,22 @@ decl_event! {
         WithdrawCollateral(AccountId, DOT, DOT),
         UpdatePublicKey(AccountId, BtcPublicKey),
         RegisterAddress(AccountId, BtcAddress),
-        IncreaseToBeIssuedTokens(AccountId, BTCBalance),
-        DecreaseToBeIssuedTokens(AccountId, BTCBalance),
-        IssueTokens(AccountId, BTCBalance),
-        IncreaseToBeRedeemedTokens(AccountId, BTCBalance),
-        DecreaseToBeRedeemedTokens(AccountId, BTCBalance),
-        DecreaseTokens(AccountId, AccountId, BTCBalance),
-        RedeemTokens(AccountId, BTCBalance),
-        RedeemTokensPremium(AccountId, BTCBalance, DOT, AccountId),
-        RedeemTokensLiquidation(AccountId, BTCBalance),
-        ReplaceTokens(AccountId, AccountId, BTCBalance, DOT),
+        IncreaseToBeIssuedTokens(AccountId, PolkaBTC),
+        DecreaseToBeIssuedTokens(AccountId, PolkaBTC),
+        IssueTokens(AccountId, PolkaBTC),
+        IncreaseToBeRedeemedTokens(AccountId, PolkaBTC),
+        DecreaseToBeRedeemedTokens(AccountId, PolkaBTC),
+        DecreaseTokens(AccountId, AccountId, PolkaBTC),
+        RedeemTokens(AccountId, PolkaBTC),
+        RedeemTokensPremium(AccountId, PolkaBTC, DOT, AccountId),
+        RedeemTokensLiquidation(AccountId, PolkaBTC, DOT),
+        ReplaceTokens(AccountId, AccountId, PolkaBTC, DOT),
         LiquidateVault(AccountId),
     }
 }
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         InsufficientCollateral,
         /// The amount of tokens to be issued is higher than the issuable amount by the vault
         ExceedingVaultLimit,
@@ -1147,6 +1186,7 @@ decl_error! {
         NoTokensIssued,
         NoVaultWithSufficientCollateral,
         NoVaultWithSufficientTokens,
+        NoVaultUnderThePremiumRedeemThreshold,
         ArithmeticOverflow,
         ArithmeticUnderflow,
         /// Unable to convert value

@@ -30,7 +30,7 @@ fn test_refund_succeeds() {
         let captured_event = System::events()
             .iter()
             .find_map(|x| match &x.event {
-                TestEvent::test_events(ref event) => Some(event.clone()),
+                TestEvent::refund(ref event) => Some(event.clone()),
                 _ => None,
             })
             .unwrap();

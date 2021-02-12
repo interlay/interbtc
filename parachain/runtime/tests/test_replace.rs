@@ -15,7 +15,7 @@ fn assert_request_event() -> H256 {
     let ids = events
         .iter()
         .filter_map(|r| match r.event {
-            Event::replace(ReplaceEvent::RequestReplace(_, _, id)) => Some(id.clone()),
+            Event::replace(ReplaceEvent::RequestReplace(id, _, _, _)) => Some(id.clone()),
             _ => None,
         })
         .collect::<Vec<H256>>();
@@ -29,7 +29,9 @@ fn assert_auction_event() -> H256 {
     let ids = events
         .iter()
         .filter_map(|r| match r.event {
-            Event::replace(ReplaceEvent::AuctionReplace(_, _, id, _, _, _, _)) => Some(id.clone()),
+            Event::replace(ReplaceEvent::AuctionReplace(id, _, _, _, _, _, _, _, _)) => {
+                Some(id.clone())
+            }
             _ => None,
         })
         .collect::<Vec<H256>>();
@@ -52,15 +54,16 @@ fn integration_test_replace_should_fail_if_not_running() {
 #[test]
 fn integration_test_replace_request_replace() {
     ExtBuilder::build().execute_with(|| {
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
+            FixedU128::one()
+        ));
+        set_default_thresholds();
         SystemModule::set_block_number(1);
+
         let amount = 1000;
         let collateral = amount * 2;
         let griefing_collateral = 200;
 
-        // peg spot rate
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::checked_from_rational(1, 100_000).unwrap()
-        ));
         // bob creates a vault
         force_issue_tokens(ALICE, BOB, collateral, amount);
         // bob requests a replace
@@ -76,16 +79,18 @@ fn integration_test_replace_request_replace() {
 #[test]
 fn integration_test_replace_withdraw_replace() {
     ExtBuilder::build().execute_with(|| {
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
+            FixedU128::one()
+        ));
+        set_default_thresholds();
         SystemModule::set_block_number(1);
-        let griefing_collateral = 200;
+
+        let griefing_collateral = 2000;
         let amount = 50_000;
         let collateral = amount * 2;
 
         let bob = origin_of(account_of(BOB));
-        // peg spot rate
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::checked_from_rational(1, 100_000).unwrap()
-        ));
+
         // bob creates a vault
         force_issue_tokens(ALICE, BOB, collateral, amount);
         // bob requests a replace
@@ -102,15 +107,16 @@ fn integration_test_replace_withdraw_replace() {
 #[test]
 fn integration_test_replace_accept_replace() {
     ExtBuilder::build().execute_with(|| {
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
+            FixedU128::one()
+        ));
+        set_default_thresholds();
         SystemModule::set_block_number(1);
+
         let amount = 1000;
         let griefing_collateral = 500;
         let collateral = amount * 2;
 
-        // peg spot rate
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::checked_from_rational(1, 100_000).unwrap()
-        ));
         // alice creates a vault
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
             amount,
@@ -138,22 +144,22 @@ fn integration_test_replace_accept_replace() {
 #[test]
 fn integration_test_replace_auction_replace() {
     ExtBuilder::build().execute_with(|| {
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
+            FixedU128::one()
+        ));
+        set_default_thresholds();
         SystemModule::set_block_number(1);
+
         let user = CAROL;
         let old_vault = ALICE;
         let new_vault = BOB;
-        let collateral = 4_000;
-        let replace_collateral = collateral * 2;
         let polkabtc = 1_000;
+        let collateral = required_collateral_for_issue(polkabtc);
+        let replace_collateral = collateral * 2;
 
         // let old_vault_btc_address = BtcAddress::P2PKH(H160([1; 20]));
         let new_vault_btc_address = BtcAddress::P2PKH(H160([2; 20]));
 
-        set_default_thresholds();
-        // peg spot rate
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::checked_from_rational(1, 100_000).unwrap()
-        ));
         // old vault has issued some tokens with the user
         force_issue_tokens(user, old_vault, collateral, polkabtc);
 
@@ -165,7 +171,7 @@ fn integration_test_replace_auction_replace() {
         .dispatch(origin_of(account_of(new_vault))));
         // exchange rate drops and vault is not collateralized any more
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::checked_from_integer(3).unwrap()
+            FixedU128::checked_from_integer(2).unwrap()
         ));
 
         let initial_old_vault_collateral =
@@ -196,23 +202,21 @@ fn integration_test_replace_auction_replace() {
 #[test]
 fn integration_test_replace_execute_replace() {
     ExtBuilder::build().execute_with(|| {
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
+            FixedU128::one()
+        ));
+        set_default_thresholds();
+        SystemModule::set_block_number(1);
+
         let user = CAROL;
         let old_vault = ALICE;
         let new_vault = BOB;
-        let griefing_collateral = 50;
+        let griefing_collateral = 500;
         let collateral = 4_000;
         let polkabtc = 1_000;
 
         // let old_vault_btc_address = BtcAddress::P2PKH(H160([1; 20]));
         let new_vault_btc_address = BtcAddress::P2PKH(H160([2; 20]));
-
-        set_default_thresholds();
-        SystemModule::set_block_number(1);
-
-        // peg spot rate
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::checked_from_rational(1, 100_000).unwrap()
-        ));
 
         // old vault has issued some tokens with the user
         force_issue_tokens(user, old_vault, collateral, polkabtc);
@@ -258,15 +262,17 @@ fn integration_test_replace_execute_replace() {
 #[test]
 fn integration_test_replace_cancel_replace() {
     ExtBuilder::build().execute_with(|| {
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
+            FixedU128::one()
+        ));
+        set_default_thresholds();
         SystemModule::set_block_number(1);
+
         let amount = 1000;
         //FIXME: get this from storage
         let griefing_collateral = 200;
         let collateral = amount * 2;
-        // peg spot rate
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::checked_from_rational(1, 100_000).unwrap()
-        ));
+
         // alice creates a vault
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
             amount,
@@ -299,22 +305,22 @@ fn integration_test_replace_cancel_replace() {
 #[test]
 fn integration_test_replace_cancel_auction_replace() {
     ExtBuilder::build().execute_with(|| {
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
+            FixedU128::one()
+        ));
+        set_default_thresholds();
         SystemModule::set_block_number(1);
+
         let user = CAROL;
         let old_vault = ALICE;
         let new_vault = BOB;
-        let collateral = 4_000;
-        let replace_collateral = collateral * 2;
         let polkabtc = 1_000;
+        let collateral = required_collateral_for_issue(polkabtc);
+        let replace_collateral = collateral * 2;
 
         // let old_vault_btc_address = BtcAddress::P2PKH(H160([1; 20]));
         let new_vault_btc_address = BtcAddress::P2PKH(H160([2; 20]));
 
-        set_default_thresholds();
-        // peg spot rate
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::checked_from_rational(1, 100_000).unwrap()
-        ));
         // old vault has issued some tokens with the user
         force_issue_tokens(user, old_vault, collateral, polkabtc);
 
@@ -326,7 +332,7 @@ fn integration_test_replace_cancel_auction_replace() {
         .dispatch(origin_of(account_of(new_vault))));
         // exchange rate drops and vault is not collateralized any more
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::checked_from_integer(3).unwrap()
+            FixedU128::checked_from_integer(2).unwrap()
         ));
 
         let initial_new_vault_collateral =
@@ -383,24 +389,24 @@ fn integration_test_replace_cancel_auction_replace() {
 #[test]
 fn integration_test_replace_cancel_repeatedly_fails() {
     ExtBuilder::build().execute_with(|| {
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
+            FixedU128::one()
+        ));
+        set_default_thresholds();
         SystemModule::set_block_number(1);
+
         let user = CAROL;
         let old_vault = ALICE;
         let new_vault = BOB;
-        let collateral = 4_000;
-        let replace_collateral = collateral * 2;
         let polkabtc = 1_000;
+        let collateral = required_collateral_for_issue(polkabtc);
+        let replace_collateral = collateral * 2;
 
         // let old_vault_btc_address = BtcAddress::P2PKH(H160([1; 20]));
         let new_vault_btc_address1 = BtcAddress::P2PKH(H160([2; 20]));
         let new_vault_btc_address2 = BtcAddress::P2PKH(H160([3; 20]));
         let new_vault_btc_address3 = BtcAddress::P2PKH(H160([4; 20]));
 
-        set_default_thresholds();
-        // peg spot rate
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::checked_from_rational(1, 100_000).unwrap()
-        ));
         // old vault has issued some tokens with the user
         force_issue_tokens(user, old_vault, collateral, polkabtc);
 
@@ -412,7 +418,7 @@ fn integration_test_replace_cancel_repeatedly_fails() {
         .dispatch(origin_of(account_of(new_vault))));
         // exchange rate drops and vault is not collateralized any more
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::checked_from_integer(3).unwrap()
+            FixedU128::checked_from_integer(2).unwrap()
         ));
 
         // let initial_new_vault_collateral =

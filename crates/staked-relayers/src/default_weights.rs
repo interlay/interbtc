@@ -56,4 +56,7 @@ impl crate::WeightInfo for () {
     fn set_maturity_period() -> Weight {
         (5_571_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
     }
+    fn evaluate_status_update() -> Weight {
+        (5_571_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
+    }
 }
