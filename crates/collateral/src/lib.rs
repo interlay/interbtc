@@ -8,7 +8,7 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-use frame_support::dispatch::DispatchResult;
+use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::{Currency, ExistenceRequirement, ReservableCurrency};
 /// The Collateral module according to the specification at
 /// https://interlay.gitlab.io/polkabtc-spec/spec/collateral.html
@@ -171,19 +171,45 @@ impl<T: Config> Module<T> {
             T::DOT::reserved_balance(&sender) >= amount,
             Error::<T>::InsufficientCollateralAvailable
         );
+        Self::slash_collateral_saturated(sender, receiver, amount)?;
+        Ok(())
+    }
 
+    /// Like slash_collateral, but with additional options to tweak the behavior
+    ///
+    /// # Arguments
+    ///
+    /// * `sender` - the account being slashed
+    /// * `receiver` - the receiver of the amount
+    /// * `amount` - the to be slashed amount
+    /// * `saturated` - If false, this will fail if insufficient collateral is available.
+    /// Otherwise, it will slash whatever is available
+    /// * 'to_reserved` - if true, lock the received funds
+    pub fn slash_collateral_saturated(
+        sender: T::AccountId,
+        receiver: T::AccountId,
+        amount: BalanceOf<T>,
+    ) -> Result<BalanceOf<T>, DispatchError> {
         // slash the sender's collateral
-        let (slashed, _remainder) = T::DOT::slash_reserved(&sender, amount);
+        let (slashed, remainder) = T::DOT::slash_reserved(&sender, amount);
 
         // add slashed amount to receiver and create account if it does not exists
         T::DOT::resolve_creating(&receiver, slashed);
 
-        // reserve the created amount for the receiver
-        T::DOT::reserve(&receiver, amount).map_err(|_| Error::<T>::InsufficientFunds)?;
+        // subtraction should not be able to fail since remainder <= amount
+        let slashed_amount = amount - remainder;
 
-        Self::deposit_event(RawEvent::SlashCollateral(sender, receiver, amount));
+        Self::deposit_event(RawEvent::SlashCollateral(
+            sender,
+            receiver.clone(),
+            slashed_amount,
+        ));
 
-        Ok(())
+        // reserve the created amount for the receiver. This should not be able to fail, since the
+        // call above will have created enough free balance to lock.
+        T::DOT::reserve(&receiver, slashed_amount).map_err(|_| Error::<T>::InsufficientFunds)?;
+
+        Ok(slashed_amount)
     }
 }
 
