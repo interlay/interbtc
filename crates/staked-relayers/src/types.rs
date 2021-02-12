@@ -121,7 +121,7 @@ impl<AccountId: Ord + Clone, Balance: Clone + PartialOrd + Saturating> Tally<Acc
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
 pub struct StakedRelayer<Balance, BlockNumber> {
     // total stake for this participant
-    pub(crate) stake: Balance,
+    pub stake: Balance,
     // the height at which the participant bonded
-    pub(crate) height: BlockNumber,
+    pub height: BlockNumber,
 }

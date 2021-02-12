@@ -106,7 +106,7 @@ decl_storage! {
         ActiveStakedRelayers get(fn active_staked_relayer): map hasher(blake2_128_concat) T::AccountId => StakedRelayer<DOT<T>, T::BlockNumber>;
 
         /// Mapping from accounts of inactive staked relayers to the StakedRelayer struct.
-        InactiveStakedRelayers: map hasher(blake2_128_concat) T::AccountId => StakedRelayer<DOT<T>, T::BlockNumber>;
+        InactiveStakedRelayers get(fn inactive_staked_relayer): map hasher(blake2_128_concat) T::AccountId => StakedRelayer<DOT<T>, T::BlockNumber>;
 
         /// Map of active StatusUpdates, identified by an integer key.
         ActiveStatusUpdates get(fn active_status_update): map hasher(blake2_128_concat) u64 => StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>;
