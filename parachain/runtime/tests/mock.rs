@@ -267,7 +267,7 @@ impl ExtBuilder {
 
         pallet_balances::GenesisConfig::<Runtime, pallet_balances::Instance1> {
             balances: vec![
-                (account_of(ALICE), 1 << 60),
+                (account_of(ALICE), 1_000_000),
                 (account_of(BOB), 1 << 60),
                 (account_of(CAROL), 1 << 60),
                 // create accounts for vault & fee pool; this needs a minimum amount because
