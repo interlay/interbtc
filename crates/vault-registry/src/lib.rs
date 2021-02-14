@@ -33,6 +33,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, ensure, IterableStorageMap,
 };
 use frame_system::ensure_signed;
+use primitive_types::U256;
 use security::ErrorCode;
 use sp_arithmetic::traits::*;
 use sp_arithmetic::FixedPointNumber;
@@ -369,6 +370,39 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+    /// Decreases the amount of tokens to be issued in the next issue request for
+    /// the liquidation vault
+    ///
+    /// # Arguments
+    /// * `tokens` - the amount of tokens to be unreserved
+    pub fn liquidation_vault_force_decrease_to_be_issued_tokens(
+        tokens: PolkaBTC<T>,
+    ) -> DispatchResult {
+        Self::get_rich_liquidation_vault().force_decrease_to_be_issued(tokens);
+        Ok(())
+    }
+
+    /// Decreases the amount of tokens issued for the liquidation vault
+    ///
+    /// # Arguments
+    /// * `tokens` - the amount of tokens to be unreserved
+    pub fn liquidation_vault_force_decrease_issued_tokens(tokens: PolkaBTC<T>) -> DispatchResult {
+        Self::get_rich_liquidation_vault().force_decrease_issued(tokens);
+        Ok(())
+    }
+
+    /// Decreases the amount of tokens to be redeemed in the next redeem/replace for
+    /// the liquidation vault
+    ///
+    /// # Arguments
+    /// * `tokens` - the amount of tokens to be unreserved
+    pub fn liquidation_vault_force_decrease_to_be_redeemed_tokens(
+        tokens: PolkaBTC<T>,
+    ) -> DispatchResult {
+        Self::get_rich_liquidation_vault().force_decrease_to_be_redeemed(tokens);
+        Ok(())
+    }
+
     /// Issues an amount of `tokens` tokens for the given `vault_id`
     /// At this point, the to-be-issued tokens assigned to a vault are decreased
     /// and the issued tokens balance is increased by the amount of issued tokens.
@@ -448,7 +482,7 @@ impl<T: Config> Module<T> {
             ]
             .to_vec(),
         )?;
-        let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
+        let mut vault = Self::get_rich_vault_from_id(&vault_id)?;
         vault.decrease_to_be_redeemed(tokens)?;
         Self::deposit_event(Event::<T>::DecreaseToBeRedeemedTokens(vault.id(), tokens));
         Ok(())
@@ -776,6 +810,28 @@ impl<T: Config> Module<T> {
         amount > Self::get_minimum_collateral_vault()
     }
 
+    /// return (collateral * Numerator) / denominator, used when dealing with liquidated vaults
+    pub fn calculate_collateral(
+        collateral: DOT<T>,
+        numerator: PolkaBTC<T>,
+        denominator: PolkaBTC<T>,
+    ) -> Result<DOT<T>, DispatchError> {
+        if numerator.is_zero() && denominator.is_zero() {
+            return Ok(collateral);
+        }
+
+        let collateral: U256 = Self::dot_to_u128(collateral)?.into();
+        let numerator: U256 = Self::polkabtc_to_u128(numerator)?.into();
+        let denominator: U256 = Self::polkabtc_to_u128(denominator)?.into();
+
+        let amount = collateral
+            .checked_mul(numerator)
+            .ok_or(Error::<T>::ArithmeticOverflow)?
+            .checked_div(denominator)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+        Self::u128_to_dot(amount.try_into().map_err(|_| Error::<T>::TryIntoIntError)?)
+    }
+
     /// RPC
 
     /// Get the total collateralization of the system.
@@ -842,6 +898,44 @@ impl<T: Config> Module<T> {
         } else {
             let idx = Self::pseudo_rand_index(amount, suitable_vaults.len());
             Ok(suitable_vaults[idx].clone())
+        }
+    }
+
+    /// Get all vaults below the premium redeem threshold
+    /// Checks three conditions:
+    /// 1. the vault must have tokens issued
+    /// 2. the vault must be available to redeem tokens (not all issued tokens currently bein part of redeem/replace processes)
+    /// 3. the vault must be below the premium redeem threshold
+    ///
+    /// Maybe returns a tuple of (VaultId, RedeemableTokens)
+    /// The redeemable tokens are the currently vault.issued_tokens - the vault.to_be_redeemed_tokens
+    pub fn get_premium_redeem_vaults() -> Result<Vec<(T::AccountId, PolkaBTC<T>)>, DispatchError> {
+        let suitable_vaults = <Vaults<T>>::iter()
+            .filter_map(|(account_id, vault)| {
+                // iterator returns tuple of (AccountId, Vault<T>),
+                if !vault.issued_tokens.is_zero()
+                    && !vault
+                        .issued_tokens
+                        .saturating_sub(vault.to_be_redeemed_tokens)
+                        .is_zero()
+                    && Self::is_vault_below_premium_threshold(&account_id).unwrap_or(false)
+                {
+                    Some((
+                        account_id,
+                        vault
+                            .issued_tokens
+                            .saturating_sub(vault.to_be_redeemed_tokens),
+                    ))
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<(_, _)>>();
+
+        if suitable_vaults.is_empty() {
+            Err(Error::<T>::NoVaultUnderThePremiumRedeemThreshold.into())
+        } else {
+            Ok(suitable_vaults)
         }
     }
 
@@ -1148,6 +1242,7 @@ decl_error! {
         NoTokensIssued,
         NoVaultWithSufficientCollateral,
         NoVaultWithSufficientTokens,
+        NoVaultUnderThePremiumRedeemThreshold,
         ArithmeticOverflow,
         ArithmeticUnderflow,
         /// Unable to convert value

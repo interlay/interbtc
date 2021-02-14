@@ -1,4 +1,4 @@
-use btc_relay::BtcAddress;
+use btc_relay::{BtcAddress, BtcPublicKey};
 use codec::{Decode, Encode};
 use frame_support::traits::Currency;
 #[cfg(feature = "std")]
@@ -56,6 +56,7 @@ pub struct IssueRequest<AccountId, BlockNumber, PolkaBTC, DOT> {
     pub fee: PolkaBTC,
     pub requester: AccountId,
     pub btc_address: BtcAddress,
+    pub btc_public_key: BtcPublicKey,
     pub completed: bool,
     pub cancelled: bool,
 }

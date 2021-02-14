@@ -61,6 +61,7 @@ decl_event!(
     {
         Mint(AccountId, Balance),
         Lock(AccountId, Balance),
+        Unlock(AccountId, Balance),
         Burn(AccountId, Balance),
     }
 );
@@ -134,6 +135,26 @@ impl<T: Config> Module<T> {
         Self::increase_total_locked(amount);
 
         Self::deposit_event(RawEvent::Lock(redeemer, amount));
+        Ok(())
+    }
+
+    /// Unlock PolkaBTC tokens. Note: this removes them from the
+    /// locked supply of PolkaBTC and adds them to the free balance of PolkaBTC .
+    ///
+    /// # Arguments
+    ///
+    /// * `account` - the account for whom to unlock the tokens
+    /// * `amount` - to be locked amount of PolkaBTC
+    pub fn unlock(account: T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+        ensure!(
+            T::PolkaBTC::unreserve(&account, amount) == 0u32.into(),
+            Error::<T>::InsufficientFunds
+        );
+
+        // update total locked balance
+        Self::decrease_total_locked(amount);
+
+        Self::deposit_event(RawEvent::Unlock(account, amount));
         Ok(())
     }
 

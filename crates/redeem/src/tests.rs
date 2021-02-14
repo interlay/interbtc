@@ -563,9 +563,14 @@ fn test_cancel_redeem_succeeds() {
             MockResult::Return(Ok(()))
         });
         ext::sla::calculate_slashed_amount::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(0)));
-        ext::collateral::slash_collateral::<Test>
-            .mock_safe(move |_, _, _| MockResult::Return(Ok(())));
-
+        ext::collateral::slash_collateral_saturated::<Test>
+            .mock_safe(move |_, _, _| MockResult::Return(Ok(0)));
+        ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
+            MockResult::Return(Ok(vault_registry::types::Vault {
+                status: VaultStatus::Active,
+                ..Default::default()
+            }))
+        });
         assert_ok!(Redeem::cancel_redeem(
             Origin::signed(ALICE),
             H256([0u8; 32]),
