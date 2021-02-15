@@ -32,6 +32,18 @@ impl_outer_event! {
     }
 }
 
+pub struct PalletInfo;
+
+impl frame_support::traits::PalletInfo for PalletInfo {
+    fn index<P: 'static>() -> Option<usize> {
+        Some(0)
+    }
+
+    fn name<P: 'static>() -> Option<&'static str> {
+        Some("sla")
+    }
+}
+
 // For testing the pallet, we construct most of a mock runtime. This means
 // first constructing a configuration type (`Test`) which `impl`s each of the
 // configuration traits of pallets we want to use.
@@ -67,7 +79,7 @@ impl frame_system::Config for Test {
     type Event = TestEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
-    type PalletInfo = ();
+    type PalletInfo = PalletInfo;
     type AccountData = pallet_balances::AccountData<Balance>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
