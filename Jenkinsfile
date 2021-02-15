@@ -112,56 +112,52 @@ pipeline {
             }
         }
 
-        stage('Build docker images') {
-            parallel {
-                stage('Make Image - standalone') {
-                    when {
-                        anyOf {
-                            branch 'master'
-                            branch 'dev'
-                            tag '*'
-                        }
-                    }
-                    environment {
-                        PATH        = "/busybox:$PATH"
-                        REGISTRY    = 'registry.gitlab.com' // Configure your own registry
-                        REPOSITORY  = 'interlay/btc-parachain'
-                        IMAGE       = 'standalone'
-                    }
-                    steps {
-                        container(name: 'kaniko', shell: '/busybox/sh') {
-                            dir('unstash') {
-                                unstash("build-standalone")
-                                runKaniko()
-                            }
-                        }
+        stage('Make Image - standalone') {
+            when {
+                anyOf {
+                    branch 'master'
+                    branch 'dev'
+                    branch 'jenkins'
+                    tag '*'
+                }
+            }
+            environment {
+                PATH        = "/busybox:$PATH"
+                REGISTRY    = 'registry.gitlab.com' // Configure your own registry
+                REPOSITORY  = 'interlay/btc-parachain'
+                IMAGE       = 'standalone'
+            }
+            steps {
+                container(name: 'kaniko', shell: '/busybox/sh') {
+                    dir('unstash') {
+                        unstash("build-standalone")
+                        runKaniko()
                     }
                 }
-                stage('Make Image - parachain') {
-                    when {
-                        anyOf {
-                            branch 'master'
-                            branch 'dev'
-                            branch 'dockerfile-baseimg'
-                            tag '*'
-                        }
-                    }
-                    environment {
-                        PATH        = "/busybox:$PATH"
-                        REGISTRY    = 'registry.gitlab.com' // Configure your own registry
-                        REPOSITORY  = 'interlay/btc-parachain'
-                        IMAGE       = 'parachain'
-                    }
-                    steps {
-                        container(name: 'kaniko', shell: '/busybox/sh') {
-                            dir('unstash') {
-                                unstash("build-parachain")
-                                runKaniko()
-                            }
-                        }
+            }
+        }
+        stage('Make Image - parachain') {
+            when {
+                anyOf {
+                    branch 'master'
+                    branch 'dev'
+                    branch 'jenkins'
+                    tag '*'
+                }
+            }
+            environment {
+                PATH        = "/busybox:$PATH"
+                REGISTRY    = 'registry.gitlab.com' // Configure your own registry
+                REPOSITORY  = 'interlay/btc-parachain'
+                IMAGE       = 'parachain'
+            }
+            steps {
+                container(name: 'kaniko', shell: '/busybox/sh') {
+                    dir('unstash') {
+                        unstash("build-parachain")
+                        runKaniko()
                     }
                 }
-
             }
         }
     }
