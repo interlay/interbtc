@@ -555,7 +555,7 @@ construct_polkabtc_runtime! {
 
 #[cfg(feature = "aura-grandpa")]
 construct_polkabtc_runtime! {
-    Aura: pallet_aura::{Module, Config<T>, Inherent},
+    Aura: pallet_aura::{Module, Config<T>},
     Grandpa: pallet_grandpa::{Module, Call, Storage, Config, Event},
 }
 
@@ -911,4 +911,4 @@ impl_runtime_apis! {
 }
 
 #[cfg(feature = "cumulus-polkadot")]
-cumulus_runtime::register_validate_block!(Block, Executive);
+cumulus_parachain_system::register_validate_block!(Block, Executive);

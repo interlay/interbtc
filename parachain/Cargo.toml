@@ -21,6 +21,9 @@ codec = { package = 'parity-scale-codec', version = '1.0.0' }
 serde = { version = "1.0.101", features = ["derive"] }
 hex-literal = "0.2.1"
 
+# https://github.com/myrrlyn/funty/issues/3
+funty = "=1.1"
+
 # Parachain dependencies
 btc-parachain-runtime = { path = "./runtime" }
 btc-parachain-service = { path = "./service" }
@@ -42,7 +45,7 @@ frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch =
 frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
 
 # Cumulus dependencies
-cumulus-primitives = { git = "https://github.com/paritytech/cumulus", branch = "rococo-v1", optional = true }
+cumulus-primitives = { package = "cumulus-primitives-core", git = "https://github.com/paritytech/cumulus", branch = "rococo-v1", optional = true }
 
 # Polkadot dependencies
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", optional = true }

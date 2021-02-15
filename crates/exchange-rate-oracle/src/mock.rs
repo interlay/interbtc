@@ -28,6 +28,18 @@ impl_outer_event! {
     }
 }
 
+pub struct PalletInfo;
+
+impl frame_support::traits::PalletInfo for PalletInfo {
+    fn index<P: 'static>() -> Option<usize> {
+        Some(0)
+    }
+
+    fn name<P: 'static>() -> Option<&'static str> {
+        Some("exchange-rate-oracle")
+    }
+}
+
 pub type AccountId = u64;
 pub type Balance = u64;
 pub type BlockNumber = u64;
@@ -61,7 +73,7 @@ impl frame_system::Config for Test {
     type Event = TestEvent;
     type BlockHashCount = BlockHashCount;
     type Version = ();
-    type PalletInfo = ();
+    type PalletInfo = PalletInfo;
     type AccountData = pallet_balances::AccountData<Balance>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
