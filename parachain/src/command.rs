@@ -29,8 +29,8 @@ use sc_cli::Role;
 use {
     crate::cli::RelayChainCli,
     codec::Encode,
-    cumulus_primitives::genesis::generate_genesis_block,
     cumulus_primitives::ParaId,
+    cumulus_service::genesis::generate_genesis_block,
     log::info,
     polkadot_parachain::primitives::AccountIdConversion,
     sc_cli::{
@@ -238,7 +238,7 @@ pub fn run() -> Result<()> {
         }
         #[cfg(feature = "cumulus-polkadot")]
         Some(Subcommand::ExportGenesisState(params)) => {
-            let mut builder = sc_cli::GlobalLoggerBuilder::new("");
+            let mut builder = sc_cli::LoggerBuilder::new("");
             builder.with_profiling(sc_tracing::TracingReceiver::Log, "");
             let _ = builder.init();
 
@@ -263,7 +263,7 @@ pub fn run() -> Result<()> {
         }
         #[cfg(feature = "cumulus-polkadot")]
         Some(Subcommand::ExportGenesisWasm(params)) => {
-            let mut builder = sc_cli::GlobalLoggerBuilder::new("");
+            let mut builder = sc_cli::LoggerBuilder::new("");
             builder.with_profiling(sc_tracing::TracingReceiver::Log, "");
             let _ = builder.init();
 

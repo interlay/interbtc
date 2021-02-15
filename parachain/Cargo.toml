@@ -17,7 +17,7 @@ version = '2.0.0'
 [dependencies]
 structopt = "0.3.20"
 log = '0.4.8'
-codec = { package = 'parity-scale-codec', version = '1.0.0' }
+codec = { package = 'parity-scale-codec', version = "2.0.0" }
 serde = { version = "1.0.101", features = ["derive"] }
 hex-literal = "0.2.1"
 
@@ -46,6 +46,7 @@ frame-benchmarking-cli = { git = "https://github.com/paritytech/substrate", bran
 
 # Cumulus dependencies
 cumulus-primitives = { package = "cumulus-primitives-core", git = "https://github.com/paritytech/cumulus", branch = "rococo-v1", optional = true }
+cumulus-service = { package = "cumulus-client-service", git = "https://github.com/paritytech/cumulus", branch = "rococo-v1", optional = true }
 
 # Polkadot dependencies
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", optional = true }
@@ -60,6 +61,7 @@ runtime-benchmarks = [
 ]
 cumulus-polkadot = [
     "cumulus-primitives",
+    "cumulus-service",
     "polkadot-primitives",
     "polkadot-cli",
     "polkadot-service",
