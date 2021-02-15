@@ -249,6 +249,7 @@ impl<T: Config> Module<T> {
                 opentime: height,
                 requester: requester.clone(),
                 btc_address: btc_address.clone(),
+                btc_public_key: vault.wallet.public_key.clone(),
                 completed: false,
                 cancelled: false,
                 amount: amount_polkabtc,

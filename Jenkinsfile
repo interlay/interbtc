@@ -57,7 +57,8 @@ pipeline {
 
                     sh 'cargo build --manifest-path parachain/Cargo.toml --release --no-default-features --features aura-grandpa'
 
-                    archiveArtifacts 'target/release/btc-parachain'
+                    sh 'cp target/release/btc-parachain target/release/btc-parachain-standalone'
+                    archiveArtifacts 'target/release/btc-parachain-standalone'
                     stash(name: "build-standalone", includes: 'Dockerfile_release, target/release/btc-parachain')
 
                     sh '/usr/local/bin/sccache -s'
@@ -111,55 +112,52 @@ pipeline {
             }
         }
 
-        stage('Build docker images') {
-            parallel {
-                stage('Make Image - standalone') {
-                    when {
-                        anyOf { 
-                            branch 'master'
-                            branch 'dev'
-                            tag '*'
-                        }
-                    }
-                    environment {
-                        PATH        = "/busybox:$PATH"
-                        REGISTRY    = 'registry.gitlab.com' // Configure your own registry
-                        REPOSITORY  = 'interlay/btc-parachain'
-                        IMAGE       = 'standalone'
-                    }
-                    steps {
-                        container(name: 'kaniko', shell: '/busybox/sh') {
-                            dir('unstash') {
-                                unstash("build-standalone")
-                                runKaniko()
-                            }
-                        }
+        stage('Make Image - standalone') {
+            when {
+                anyOf {
+                    branch 'master'
+                    branch 'dev'
+                    branch 'jenkins'
+                    tag '*'
+                }
+            }
+            environment {
+                PATH        = "/busybox:$PATH"
+                REGISTRY    = 'registry.gitlab.com' // Configure your own registry
+                REPOSITORY  = 'interlay/btc-parachain'
+                IMAGE       = 'standalone'
+            }
+            steps {
+                container(name: 'kaniko', shell: '/busybox/sh') {
+                    dir('unstash') {
+                        unstash("build-standalone")
+                        runKaniko()
                     }
                 }
-                stage('Make Image - parachain') {
-                    when {
-                        anyOf { 
-                            branch 'master'
-                            branch 'dev'
-                            tag '*'
-                        }
-                    }
-                    environment {
-                        PATH        = "/busybox:$PATH"
-                        REGISTRY    = 'registry.gitlab.com' // Configure your own registry
-                        REPOSITORY  = 'interlay/btc-parachain'
-                        IMAGE       = 'parachain'
-                    }
-                    steps {
-                        container(name: 'kaniko', shell: '/busybox/sh') {
-                            dir('unstash') {
-                                unstash("build-parachain")
-                                runKaniko()
-                            }
-                        }
+            }
+        }
+        stage('Make Image - parachain') {
+            when {
+                anyOf {
+                    branch 'master'
+                    branch 'dev'
+                    branch 'jenkins'
+                    tag '*'
+                }
+            }
+            environment {
+                PATH        = "/busybox:$PATH"
+                REGISTRY    = 'registry.gitlab.com' // Configure your own registry
+                REPOSITORY  = 'interlay/btc-parachain'
+                IMAGE       = 'parachain'
+            }
+            steps {
+                container(name: 'kaniko', shell: '/busybox/sh') {
+                    dir('unstash') {
+                        unstash("build-parachain")
+                        runKaniko()
                     }
                 }
-
             }
         }
     }
