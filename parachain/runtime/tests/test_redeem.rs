@@ -110,6 +110,89 @@ fn integration_test_redeem_polka_btc_execute() {
 }
 
 #[test]
+fn integration_test_premium_redeem_polka_btc_execute() {
+    ExtBuilder::build().execute_with(|| {
+        let user = ALICE;
+        let vault = BOB;
+        let polka_btc = 1_000_000_000_000;
+
+        let user_btc_address = BtcAddress::P2PKH(H160([2; 20]));
+
+        SystemModule::set_block_number(1);
+
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
+            FixedU128::one()
+        ));
+
+        set_default_thresholds();
+
+        let collateral_vault = required_collateral_for_issue(polka_btc);
+
+        // create tokens for the vault and user
+        force_issue_tokens(user, vault, collateral_vault, polka_btc);
+
+        // suddenly require twice as much DOT; we are definitely below premium redeem threshold now
+        // (also below liquidation threshold, but as long as we don't call liquidate that's ok)
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
+            FixedU128::checked_from_integer(2).unwrap()
+        ));
+
+        let initial_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
+        let initial_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
+        let initial_vault_collateral =
+            CollateralModule::get_collateral_from_account(&account_of(vault));
+        let initial_btc_issuance = TreasuryModule::get_total_supply();
+        assert_eq!(polka_btc, initial_btc_issuance);
+
+        // alice requests to redeem polka_btc from Bob
+        assert_ok!(Call::Redeem(RedeemCall::request_redeem(
+            polka_btc,
+            user_btc_address,
+            account_of(vault)
+        ))
+        .dispatch(origin_of(account_of(user))));
+
+        // assert that request happened and extract the id
+        let redeem_id = assert_redeem_request_event();
+        let redeem = RedeemModule::get_open_redeem_request_from_id(&redeem_id).unwrap();
+
+        // send the btc from the vault to the user
+        let (tx_id, _tx_block_height, merkle_proof, raw_tx) =
+            generate_transaction_and_mine(user_btc_address, polka_btc, Some(redeem_id));
+
+        SystemModule::set_block_number(1 + CONFIRMATIONS);
+
+        assert_ok!(Call::Redeem(RedeemCall::execute_redeem(
+            redeem_id,
+            tx_id,
+            merkle_proof,
+            raw_tx
+        ))
+        .dispatch(origin_of(account_of(vault))));
+
+        let final_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
+        let final_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
+        let final_btc_issuance = TreasuryModule::get_total_supply();
+
+        // user should have received some premium (DOT)
+        assert!(final_dot_balance > initial_dot_balance);
+
+        // it should be a zero-sum game; the user's gain is equal to the vault's loss
+        assert_eq!(
+            initial_vault_collateral + initial_dot_balance,
+            CollateralModule::get_collateral_from_account(&account_of(vault)) + final_dot_balance
+        );
+
+        // polka_btc burned from user, including fee
+        assert_eq!(final_btc_balance, initial_btc_balance - polka_btc);
+        // polka_btc burned from issuance
+        assert_eq!(final_btc_issuance, initial_btc_issuance - redeem.amount_btc);
+
+        // TODO: check redeem rewards update
+    });
+}
+
+#[test]
 fn integration_test_redeem_polka_btc_liquidation_redeem() {
     ExtBuilder::build().execute_with(|| {
         let planck_per_satoshi = 385523;
@@ -132,6 +215,7 @@ fn integration_test_redeem_polka_btc_liquidation_redeem() {
         assert_ok!(VaultRegistryModule::liquidate_vault(&account_of(BOB)));
 
         let initial_dot_balance = CollateralModule::get_balance_from_account(&account_of(ALICE));
+        let initial_btc_balance = TreasuryModule::get_balance_from_account(account_of(ALICE));
 
         // ALICE requests to redeem polka_btc from the LiquidationVault
         assert_ok!(Call::Redeem(RedeemCall::liquidation_redeem(polka_btc))
@@ -142,6 +226,11 @@ fn integration_test_redeem_polka_btc_liquidation_redeem() {
         assert_eq!(
             initial_dot_balance + (polka_btc * planck_per_satoshi),
             final_dot_balance
+        );
+
+        assert_eq!(
+            TreasuryModule::get_balance_from_account(account_of(ALICE)),
+            initial_btc_balance - polka_btc,
         );
     });
 }

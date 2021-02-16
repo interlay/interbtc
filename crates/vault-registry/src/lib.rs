@@ -582,6 +582,7 @@ impl<T: Config> Module<T> {
         vault.redeem_tokens(tokens)?;
         if premium > Self::u128_to_dot(0u128)? {
             ext::collateral::slash_collateral::<T>(vault_id, redeemer_id, premium)?;
+            ext::collateral::release_collateral::<T>(redeemer_id, premium)?;
         }
 
         Self::deposit_event(Event::<T>::RedeemTokensPremium(
