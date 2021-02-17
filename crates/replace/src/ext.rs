@@ -105,6 +105,13 @@ pub(crate) mod vault_registry {
     ) -> Result<(), DispatchError> {
         <vault_registry::Module<T>>::force_increase_to_be_issued_tokens(vault_id, amount)
     }
+
+    pub fn decrease_to_be_issued_tokens<T: vault_registry::Config>(
+        vault_id: &T::AccountId,
+        amount: PolkaBTC<T>,
+    ) -> DispatchResult {
+        <vault_registry::Module<T>>::decrease_to_be_issued_tokens(vault_id, amount)
+    }
 }
 
 #[cfg_attr(test, mockable)]

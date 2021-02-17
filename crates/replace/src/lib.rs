@@ -614,12 +614,15 @@ impl<T: Config> Module<T> {
             replace.griefing_collateral,
         )?;
 
-        // Call the decreaseToBeRedeemedTokens function in the VaultRegistry for the oldVault.
+        // Decrease old-vault's to-be-redeemed tokens
         let tokens = replace.amount;
         ext::vault_registry::decrease_to_be_redeemed_tokens::<T>(
             replace.old_vault.clone(),
             tokens,
         )?;
+
+        // Decrease new-vault's to-be-issued tokens
+        ext::vault_registry::decrease_to_be_issued_tokens::<T>(&new_vault_id, tokens)?;
 
         // Remove the ReplaceRequest from ReplaceRequests
         Self::remove_replace_request(replace_id.clone(), true);
