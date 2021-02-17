@@ -24,7 +24,11 @@ sp_api::decl_runtime_apis! {
         /// Get the first available vault with sufficient tokens to fulfil a redeem request
         fn get_first_vault_with_sufficient_tokens(amount: BalanceWrapper<PolkaBTC>) -> Result<AccountId, DispatchError>;
 
+        /// Get all vaults below the premium redeem threshold, ordered in descending order of this amount
         fn get_premium_redeem_vaults() -> Result<Vec<(AccountId, BalanceWrapper<PolkaBTC>)>, DispatchError>;
+
+        /// Get all vaults with non-zero issuable tokens, ordered in descending order of this amount
+        fn get_vaults_with_issuable_tokens() -> Result<Vec<(AccountId, BalanceWrapper<PolkaBTC>)>, DispatchError>;
 
         /// Get the amount of tokens a vault can issue
         fn get_issuable_tokens_from_vault(vault: AccountId) -> Result<BalanceWrapper<PolkaBTC>, DispatchError>;

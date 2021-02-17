@@ -45,6 +45,12 @@ where
         at: Option<BlockHash>,
     ) -> JsonRpcResult<Vec<(AccountId, BalanceWrapper<PolkaBTC>)>>;
 
+    #[rpc(name = "vaultRegistry_getVaultsWithIssuableTokens")]
+    fn get_vaults_with_issuable_tokens(
+        &self,
+        at: Option<BlockHash>,
+    ) -> JsonRpcResult<Vec<(AccountId, BalanceWrapper<PolkaBTC>)>>;
+
     #[rpc(name = "vaultRegistry_getIssueableTokensFromVault")]
     fn get_issuable_tokens_from_vault(
         &self,
@@ -203,7 +209,20 @@ where
 
         handle_response(
             api.get_premium_redeem_vaults(&at),
-            "Unable to find a vaults below the premium redeem threshold.".into(),
+            "Unable to find a vault below the premium redeem threshold.".into(),
+        )
+    }
+
+    fn get_vaults_with_issuable_tokens(
+        &self,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> JsonRpcResult<Vec<(AccountId, BalanceWrapper<PolkaBTC>)>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
+
+        handle_response(
+            api.get_vaults_with_issuable_tokens(&at),
+            "Unable to find a vault with issuable tokens.".into(),
         )
     }
 

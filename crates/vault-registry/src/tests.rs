@@ -1077,6 +1077,66 @@ fn get_vaults_below_premium_collaterlization_fails() {
 #[test]
 fn get_vaults_below_premium_collaterlization_succeeds() {
     run_test(|| {
+        let issue_tokens1: u128 = 50;
+        let id1 = 3;
+        let collateral1 = 100;
+        create_vault_with_collateral(id1, collateral1);
+
+        let id2 = 4;
+        let collateral2 = 100;
+        let issue_tokens2: u128 = 49;
+        create_vault_with_collateral(id2, collateral2);
+        set_default_thresholds();
+
+        VaultRegistry::increase_to_be_issued_tokens(&id1, H256::zero(), issue_tokens1).unwrap();
+        VaultRegistry::increase_to_be_issued_tokens(&id2, H256::zero(), issue_tokens2).unwrap();
+        // issue tokens at 200% rate
+        assert_ok!(VaultRegistry::issue_tokens(&id1, issue_tokens1));
+        assert_ok!(VaultRegistry::issue_tokens(&id2, issue_tokens2));
+        let vault1 = VaultRegistry::get_active_rich_vault_from_id(&id1).unwrap();
+        let vault2 = VaultRegistry::get_active_rich_vault_from_id(&id2).unwrap();
+        assert_eq!(vault1.data.issued_tokens, issue_tokens1);
+        assert_eq!(vault2.data.issued_tokens, issue_tokens2);
+        assert_eq!(vault1.data.to_be_redeemed_tokens, 0);
+        assert_eq!(vault2.data.to_be_redeemed_tokens, 0);
+
+        // update the exchange rate
+        ext::oracle::dots_to_btc::<Test>.mock_safe(move |x| MockResult::Return(Ok((x / 2).into())));
+
+        assert_eq!(
+            VaultRegistry::get_premium_redeem_vaults(),
+            Ok(vec!((id1, issue_tokens1), (id2, issue_tokens2)))
+        );
+    })
+}
+
+#[test]
+fn get_vaults_with_issuable_tokens_succeeds() {
+    run_test(|| {
+        let id1 = 3;
+        let collateral1 = 100;
+        create_vault_with_collateral(id1, collateral1);
+        let issuable_tokens1 = VaultRegistry::get_issuable_tokens_from_vault(id1.clone())
+            .expect("Sample vault is unable to issue tokens");
+
+        let id2 = 4;
+        let collateral2 = 50;
+        create_vault_with_collateral(id2, collateral2);
+        let issuable_tokens2 = VaultRegistry::get_issuable_tokens_from_vault(id2.clone())
+            .expect("Sample vault is unable to issue tokens");
+
+        // Check result is ordered in descending order
+        assert_eq!(issuable_tokens1.gt(&issuable_tokens2), true);
+        assert_eq!(
+            VaultRegistry::get_vaults_with_issuable_tokens(),
+            Ok(vec!((id1, issuable_tokens1), (id2, issuable_tokens2)))
+        );
+    })
+}
+
+#[test]
+fn get_vaults_with_issuable_tokens_fails() {
+    run_test(|| {
         let issue_tokens: u128 = 50;
         let id = create_sample_vault();
         set_default_thresholds();
@@ -1091,9 +1151,9 @@ fn get_vaults_below_premium_collaterlization_succeeds() {
         // update the exchange rate
         ext::oracle::dots_to_btc::<Test>.mock_safe(move |x| MockResult::Return(Ok((x / 2).into())));
 
-        assert_eq!(
-            VaultRegistry::get_premium_redeem_vaults(),
-            Ok(vec!((id, issue_tokens)))
+        assert_err!(
+            VaultRegistry::get_vaults_with_issuable_tokens(),
+            TestError::NoVaultWithIssuableTokens
         );
     })
 }
