@@ -289,7 +289,7 @@ impl<T: Config> Module<T> {
         ensure!(amount_btc >= dust_value, Error::<T>::AmountBelowDustAmount);
 
         // If the request is not for the entire BTC holdings, check that the remaining DOT collateral of the Vault is higher than MinimumCollateralVault
-        let vault_collateral = ext::collateral::get_collateral_from_account::<T>(vault_id.clone());
+        let vault_collateral = ext::collateral::get_collateral_from_account::<T>(&vault_id);
         if amount_btc != vault.issued_tokens {
             let over_threshold =
                 ext::vault_registry::is_over_minimum_collateral::<T>(vault_collateral);
@@ -404,15 +404,14 @@ impl<T: Config> Module<T> {
         let height = Self::current_height();
         ext::vault_registry::ensure_not_banned::<T>(&new_vault_id, height)?;
 
-        // Check that the provided collateral exceeds the necessary amount
-        let is_below = ext::vault_registry::is_collateral_below_secure_threshold::<T>(
-            collateral,
+        // Lock the new-vault's additional collateral
+        ext::collateral::lock_collateral::<T>(new_vault_id.clone(), collateral)?;
+
+        // increase to-be-issued tokens - this will fail if there is insufficient collateral
+        ext::vault_registry::force_increase_to_be_issued_tokens::<T>(
+            &new_vault_id,
             replace.amount,
         )?;
-        ensure!(!is_below, Error::<T>::InsufficientCollateral);
-
-        // Lock the newVault’s collateral by calling lockCollateral
-        ext::collateral::lock_collateral::<T>(new_vault_id.clone(), collateral)?;
 
         // Update the ReplaceRequest entry
         replace.add_new_vault(new_vault_id.clone(), height, collateral, btc_address);

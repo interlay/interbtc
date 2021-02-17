@@ -665,9 +665,8 @@ impl<T: Config> Module<T> {
 
         let mut old_vault = Self::get_active_rich_vault_from_id(&old_vault_id)?;
         let mut new_vault = Self::get_active_rich_vault_from_id(&new_vault_id)?;
-        old_vault.transfer(&mut new_vault, tokens)?;
-        new_vault.increase_collateral(collateral)?;
-
+        old_vault.decrease_tokens(tokens)?;
+        new_vault.issue_tokens(tokens)?;
         Self::deposit_event(Event::<T>::ReplaceTokens(
             old_vault_id.clone(),
             new_vault_id.clone(),

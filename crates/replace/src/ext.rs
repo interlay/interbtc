@@ -98,6 +98,13 @@ pub(crate) mod vault_registry {
     ) -> DispatchResult {
         <vault_registry::Module<T>>::insert_vault_deposit_address(vault_id, btc_address)
     }
+
+    pub fn force_increase_to_be_issued_tokens<T: vault_registry::Config>(
+        vault_id: &T::AccountId,
+        amount: PolkaBTC<T>,
+    ) -> Result<(), DispatchError> {
+        <vault_registry::Module<T>>::force_increase_to_be_issued_tokens(vault_id, amount)
+    }
 }
 
 #[cfg_attr(test, mockable)]
@@ -105,8 +112,8 @@ pub(crate) mod collateral {
     use crate::DOT;
     use frame_support::dispatch::DispatchResult;
 
-    pub fn get_collateral_from_account<T: collateral::Config>(account: T::AccountId) -> DOT<T> {
-        <collateral::Module<T>>::get_collateral_from_account(&account)
+    pub fn get_collateral_from_account<T: collateral::Config>(account: &T::AccountId) -> DOT<T> {
+        <collateral::Module<T>>::get_collateral_from_account(account)
     }
 
     pub fn release_collateral<T: collateral::Config>(
