@@ -78,13 +78,6 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::is_vault_below_auction_threshold(&vault_id)
     }
 
-    pub fn is_collateral_below_secure_threshold<T: vault_registry::Config>(
-        collateral: DOT<T>,
-        btc_amount: PolkaBTC<T>,
-    ) -> Result<bool, DispatchError> {
-        <vault_registry::Module<T>>::is_collateral_below_secure_threshold(collateral, btc_amount)
-    }
-
     pub fn ensure_not_banned<T: vault_registry::Config>(
         vault: &T::AccountId,
         height: T::BlockNumber,

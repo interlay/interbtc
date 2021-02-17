@@ -452,21 +452,16 @@ impl<T: Config> Module<T> {
             Error::<T>::VaultOverAuctionThreshold
         );
 
-        // Check that the provided collateral exceeds the necessary amount
-        ensure!(
-            !ext::vault_registry::is_collateral_below_secure_threshold::<T>(
-                collateral, btc_amount
-            )?,
-            Error::<T>::CollateralBelowSecureThreshold
-        );
+        // Lock the new-vault's additional collateral
+        ext::collateral::lock_collateral::<T>(new_vault_id.clone(), collateral)?;
+
+        // increase to-be-issued tokens - this will fail if there is insufficient collateral
+        ext::vault_registry::force_increase_to_be_issued_tokens::<T>(&new_vault_id, btc_amount)?;
 
         // claim auctioning fee that is proportional to replace amount
         let dot_amount = ext::oracle::btc_to_dots::<T>(btc_amount)?;
         let reward = ext::fee::get_auction_redeem_fee::<T>(dot_amount)?;
         ext::collateral::slash_collateral::<T>(old_vault_id.clone(), new_vault_id.clone(), reward)?;
-
-        // Lock the newVault’s collateral by calling lockCollateral and providing newVault and collateral as parameters.
-        ext::collateral::lock_collateral::<T>(new_vault_id.clone(), collateral)?;
 
         // Call the increaseToBeRedeemedTokens function with the oldVault and the btcAmount
         ext::vault_registry::increase_to_be_redeemed_tokens::<T>(&old_vault_id, btc_amount)?;
