@@ -910,7 +910,7 @@ impl<T: Config> Module<T> {
     /// Maybe returns a tuple of (VaultId, RedeemableTokens)
     /// The redeemable tokens are the currently vault.issued_tokens - the vault.to_be_redeemed_tokens
     pub fn get_premium_redeem_vaults() -> Result<Vec<(T::AccountId, PolkaBTC<T>)>, DispatchError> {
-        let suitable_vaults = <Vaults<T>>::iter()
+        let mut suitable_vaults = <Vaults<T>>::iter()
             .filter_map(|(account_id, vault)| {
                 // iterator returns tuple of (AccountId, Vault<T>),
                 if !vault.issued_tokens.is_zero()
@@ -935,7 +935,35 @@ impl<T: Config> Module<T> {
         if suitable_vaults.is_empty() {
             Err(Error::<T>::NoVaultUnderThePremiumRedeemThreshold.into())
         } else {
+            suitable_vaults.sort_by(|a, b| b.1.cmp(&a.1));
             Ok(suitable_vaults)
+        }
+    }
+
+    /// Get all vaults with non-zero issuable tokens, ordered in descending order of this amount
+    pub fn get_vaults_with_issuable_tokens(
+    ) -> Result<Vec<(T::AccountId, PolkaBTC<T>)>, DispatchError> {
+        let mut vaults_with_issuable_tokens = <Vaults<T>>::iter()
+            .filter_map(|(account_id, _vault)| {
+                // iterator returns tuple of (AccountId, Vault<T>),
+                match Self::get_issuable_tokens_from_vault(account_id.clone()).ok() {
+                    Some(issuable_tokens) => {
+                        if !issuable_tokens.is_zero() {
+                            Some((account_id, issuable_tokens))
+                        } else {
+                            None
+                        }
+                    }
+                    None => None,
+                }
+            })
+            .collect::<Vec<(_, _)>>();
+
+        if vaults_with_issuable_tokens.is_empty() {
+            Err(Error::<T>::NoVaultWithIssuableTokens.into())
+        } else {
+            vaults_with_issuable_tokens.sort_by(|a, b| b.1.cmp(&a.1));
+            Ok(vaults_with_issuable_tokens)
         }
     }
 
@@ -1243,6 +1271,7 @@ decl_error! {
         NoVaultWithSufficientCollateral,
         NoVaultWithSufficientTokens,
         NoVaultUnderThePremiumRedeemThreshold,
+        NoVaultWithIssuableTokens,
         ArithmeticOverflow,
         ArithmeticUnderflow,
         /// Unable to convert value
