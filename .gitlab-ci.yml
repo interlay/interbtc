@@ -97,8 +97,8 @@ docker-publish-parachain:
             --build-arg BINARY=btc-parachain \
             --context ${CI_PROJECT_DIR} \
             --dockerfile ${CI_PROJECT_DIR}/Dockerfile_release \
-            --destination ${CI_REGISTRY_IMAGE}:${CI_COMMIT_SHORT_SHA} \
-            --destination ${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_SLUG}-rococo
+            --destination ${CI_REGISTRY_IMAGE}:rococo-${CI_COMMIT_SHORT_SHA} \
+            --destination ${CI_REGISTRY_IMAGE}:rococo-${CI_COMMIT_REF_SLUG}
     only:
         - tags
         - master
