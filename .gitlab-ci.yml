@@ -37,6 +37,8 @@ build-standalone:
         - master
         - dev
         - alpha
+        - beta
+        - rococo
 
 build-parachain:
     stage: build
@@ -59,6 +61,8 @@ build-parachain:
         - master
         - dev
         - alpha
+        - beta
+        - rococo
 
 docker-publish-standalone:
     stage: deploy
@@ -81,6 +85,8 @@ docker-publish-standalone:
         - master
         - dev
         - alpha
+        - beta
+        - rococo
         - web # For pipelines created by using Run pipeline button in the GitLab UI, from the project’s CI/CD > Pipelines section.
 
 docker-publish-parachain:
@@ -104,5 +110,7 @@ docker-publish-parachain:
         - master
         - dev
         - alpha
+        - beta
+        - rococo
         - web # For pipelines created by using Run pipeline button in the GitLab UI, from the project’s CI/CD > Pipelines section.
 
