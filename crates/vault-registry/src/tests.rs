@@ -488,8 +488,8 @@ fn redeem_tokens_liquidation_succeeds() {
 
         ext::oracle::btc_to_dots::<Test>.mock_safe(|amount| MockResult::Return(Ok(amount)));
 
-        liquidation_vault.force_increase_to_be_issued(50);
-        liquidation_vault.force_issue_tokens(50);
+        assert_ok!(liquidation_vault.force_increase_to_be_issued(50));
+        assert_ok!(liquidation_vault.force_issue_tokens(50));
 
         assert_ok!(VaultRegistry::redeem_tokens_liquidation(&user_id, 50));
         let liquidation_vault = VaultRegistry::get_rich_liquidation_vault();
@@ -518,8 +518,8 @@ fn redeem_tokens_liquidation_does_not_call_recover_when_unnecessary() {
 
         ext::oracle::btc_to_dots::<Test>.mock_safe(|amount| MockResult::Return(Ok(amount)));
 
-        liquidation_vault.force_increase_to_be_issued(25);
-        liquidation_vault.force_issue_tokens(25);
+        assert_ok!(liquidation_vault.force_increase_to_be_issued(25));
+        assert_ok!(liquidation_vault.force_issue_tokens(25));
 
         assert_ok!(VaultRegistry::redeem_tokens_liquidation(&user_id, 10));
         let liquidation_vault = VaultRegistry::get_rich_liquidation_vault();

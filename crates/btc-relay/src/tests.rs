@@ -9,7 +9,7 @@ use crate::mock::{
 use crate::BtcAddress;
 use crate::Event;
 
-use bitcoin::formatter::Formattable;
+use bitcoin::formatter::TryFormattable;
 use bitcoin::merkle::*;
 use bitcoin::parser::*;
 use bitcoin::types::*;
@@ -1725,12 +1725,14 @@ fn store_generated_block_headers() {
     let target = U256::from(2).pow(254.into());
     let miner =
         BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
-    let get_header = |block: &Block| RawBlockHeader::from_bytes(&block.header.format()).unwrap();
+    let get_header =
+        |block: &Block| RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
 
     run_test(|| {
         let mut last_block = BlockBuilder::new()
             .with_coinbase(&miner, 50, 0)
-            .mine(target);
+            .mine(target)
+            .unwrap();
         assert_ok!(BTCRelay::initialize(
             Origin::signed(3),
             get_header(&last_block),
@@ -1739,8 +1741,9 @@ fn store_generated_block_headers() {
         for i in 1..20 {
             last_block = BlockBuilder::new()
                 .with_coinbase(&miner, 50, i)
-                .with_previous_hash(last_block.header.hash())
-                .mine(target);
+                .with_previous_hash(last_block.header.hash().unwrap())
+                .mine(target)
+                .unwrap();
             assert_ok!(BTCRelay::store_block_header(
                 Origin::signed(3),
                 get_header(&last_block)

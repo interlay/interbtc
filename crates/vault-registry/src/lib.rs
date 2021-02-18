@@ -378,8 +378,7 @@ impl<T: Config> Module<T> {
     pub fn liquidation_vault_force_decrease_to_be_issued_tokens(
         tokens: PolkaBTC<T>,
     ) -> DispatchResult {
-        Self::get_rich_liquidation_vault().force_decrease_to_be_issued(tokens);
-        Ok(())
+        Self::get_rich_liquidation_vault().force_decrease_to_be_issued(tokens)
     }
 
     /// Decreases the amount of tokens issued for the liquidation vault
@@ -387,8 +386,7 @@ impl<T: Config> Module<T> {
     /// # Arguments
     /// * `tokens` - the amount of tokens to be unreserved
     pub fn liquidation_vault_force_decrease_issued_tokens(tokens: PolkaBTC<T>) -> DispatchResult {
-        Self::get_rich_liquidation_vault().force_decrease_issued(tokens);
-        Ok(())
+        Self::get_rich_liquidation_vault().force_decrease_issued(tokens)
     }
 
     /// Decreases the amount of tokens to be redeemed in the next redeem/replace for
@@ -399,8 +397,7 @@ impl<T: Config> Module<T> {
     pub fn liquidation_vault_force_decrease_to_be_redeemed_tokens(
         tokens: PolkaBTC<T>,
     ) -> DispatchResult {
-        Self::get_rich_liquidation_vault().force_decrease_to_be_redeemed(tokens);
-        Ok(())
+        Self::get_rich_liquidation_vault().force_decrease_to_be_redeemed(tokens)
     }
 
     /// Issues an amount of `tokens` tokens for the given `vault_id`
