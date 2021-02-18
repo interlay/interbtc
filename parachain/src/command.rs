@@ -48,10 +48,10 @@ fn load_spec(
     #[cfg(feature = "cumulus-polkadot")] para_id: ParaId,
 ) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
     match id {
-        "staging" => Ok(Box::new(chain_spec::staging_testnet_config(
-            #[cfg(feature = "cumulus-polkadot")]
-            para_id,
-        ))),
+        #[cfg(feature = "cumulus-polkadot")]
+        "rococo" => Ok(Box::new(chain_spec::rococo_testnet_config(para_id))),
+        #[cfg(feature = "aura-grandpa")]
+        "beta" => Ok(Box::new(chain_spec::beta_testnet_config())),
         "dev" => Ok(Box::new(chain_spec::development_config(
             #[cfg(feature = "cumulus-polkadot")]
             para_id,
