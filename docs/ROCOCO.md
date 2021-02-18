@@ -1,6 +1,14 @@
-# Rococo - Local
+# Rococo - Local (Automated Setup)
 
-## Relay Chain
+Install [polkadot-launch](https://github.com/paritytech/polkadot-launch).
+
+```
+git clone https://github.com/paritytech/polkadot-launch.git
+cd polkadot-launch
+yarn global add file:$(pwd)
+```
+
+Compile and install [polkadot](https://github.com/paritytech/polkadot) with the `real-overseer` feature.
 
 ```shell
 git clone git@github.com:paritytech/polkadot.git
@@ -8,32 +16,55 @@ cd polkadot
 git checkout rococo-v1
 
 cargo build --release --features=real-overseer
+sudo cp ./target/release/polkadot /usr/local/bin/
+```
 
+Compile and install the [btc-parachain](https://gitlab.com/interlay/btc-parachain) with the `cumulus-polkadot` feature.
+
+```shell
+git clone git@gitlab.com:interlay/btc-parachain.git
+cd btc-parachain
+
+cargo build --manifest-path parachain/Cargo.toml --release --no-default-features --features cumulus-polkadot,disable-native-filter
+sudo cp ./target/release/btc-parachain /usr/local/bin/
+```
+
+Run polkadot-launch with [this config](./xcm-config.json).
+
+```shell
+polkadot-launch ./docs/xcm-config.json
+```
+
+# Rococo - Local (Manual Setup)
+
+## Relay Chain
+
+Compile and install polkadot as above.
+
+```shell
 # Generate chain spec
-./target/release/polkadot build-spec --chain rococo-local --disable-default-bootnode --raw > rococo-local.json
+polkadot build-spec --chain rococo-local --disable-default-bootnode --raw > rococo-local.json
 
 # Run 1st validator
-./target/release/polkadot --chain rococo-local.json --alice --tmp --discover-local
+polkadot --chain rococo-local.json --alice --tmp --discover-local
 
 # Run 2nd validator
-./target/release/polkadot --chain rococo-local.json --bob --tmp --discover-local --port 30334
+polkadot --chain rococo-local.json --bob --tmp --discover-local --port 30334
 ```
 
 ## Parachain
 
-In the root of the BTC-Parachain directory:
+Compile and install the btc-parachain as above.
 
 ```shell
-cargo build --release
-
 # Export genesis state
-./target/release/btc-parachain export-genesis-state --chain dev --parachain-id 21 > genesis-state
+btc-parachain export-genesis-state --chain dev --parachain-id 21 > genesis-state
 
 # Export genesis wasm
-./target/release/btc-parachain export-genesis-wasm > genesis-wasm
+btc-parachain export-genesis-wasm > genesis-wasm
 
 # Run parachain collator
-./target/release/btc-parachain --collator --discover-local --tmp --parachain-id 200 --port 40335 --ws-port 9946 -- --execution wasm --chain ../polkadot/rococo-local.json --port 30335 --discover-local
+btc-parachain --collator --discover-local --tmp --parachain-id 200 --port 40335 --ws-port 9946 -- --execution wasm --chain ../polkadot/rococo-local.json --port 30335 --discover-local
 ```
 
 ## Register

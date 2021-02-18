@@ -145,6 +145,18 @@ cargo run --release -- --alice --chain dev-no-btc --rpc-cors all --validator --f
 
 Additional CLI usage options are available and may be shown by running `cargo run -- --help`.
 
+### Rococo
+
+By default, the `btc-parachain` builds in standalone mode with the `aura-grandpa` feature.
+
+To build with "parachain" support use the `cumulus-polkadot` feature:
+
+```shell
+cargo build --manifest-path parachain/Cargo.toml --release --no-default-features --features cumulus-polkadot
+```
+
+To connect with a local relay-chain follow [these instructions](docs/ROCOCO.md).
+
 #### Test Coverage
 
 Test coverage reports available under [docs/testcoverage.html](https://gitlab.com/interlay/btc-parachain/-/blob/dev/docs/testcoverage.html)
