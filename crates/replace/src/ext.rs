@@ -45,6 +45,29 @@ pub(crate) mod vault_registry {
         )
     }
 
+    pub fn cancel_replace_tokens<T: vault_registry::Config>(
+        old_vault_id: &T::AccountId,
+        new_vault_id: &T::AccountId,
+        tokens: PolkaBTC<T>,
+    ) -> DispatchResult {
+        <vault_registry::Module<T>>::cancel_replace_tokens(old_vault_id, new_vault_id, tokens)
+    }
+
+    pub fn is_vault_liquidated<T: vault_registry::Config>(
+        vault_id: &T::AccountId,
+    ) -> Result<bool, DispatchError> {
+        <vault_registry::Module<T>>::is_vault_liquidated(vault_id)
+    }
+
+    pub fn get_vault_from_id<T: vault_registry::Config>(
+        vault_id: &T::AccountId,
+    ) -> Result<
+        vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>>,
+        DispatchError,
+    > {
+        <vault_registry::Module<T>>::get_vault_from_id(vault_id)
+    }
+
     pub fn decrease_to_be_redeemed_tokens<T: vault_registry::Config>(
         vault_id: T::AccountId,
         tokens: PolkaBTC<T>,
@@ -78,6 +101,13 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::is_vault_below_auction_threshold(&vault_id)
     }
 
+    pub fn is_collateral_below_secure_threshold<T: vault_registry::Config>(
+        collateral: DOT<T>,
+        btc_amount: PolkaBTC<T>,
+    ) -> Result<bool, DispatchError> {
+        <vault_registry::Module<T>>::is_collateral_below_secure_threshold(collateral, btc_amount)
+    }
+
     pub fn ensure_not_banned<T: vault_registry::Config>(
         vault: &T::AccountId,
         height: T::BlockNumber,
@@ -97,13 +127,6 @@ pub(crate) mod vault_registry {
         amount: PolkaBTC<T>,
     ) -> Result<(), DispatchError> {
         <vault_registry::Module<T>>::force_increase_to_be_issued_tokens(vault_id, amount)
-    }
-
-    pub fn decrease_to_be_issued_tokens<T: vault_registry::Config>(
-        vault_id: &T::AccountId,
-        amount: PolkaBTC<T>,
-    ) -> DispatchResult {
-        <vault_registry::Module<T>>::decrease_to_be_issued_tokens(vault_id, amount)
     }
 }
 

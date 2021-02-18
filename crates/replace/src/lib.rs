@@ -24,6 +24,7 @@ use frame_system::{ensure_root, ensure_signed};
 #[cfg(test)]
 use mocktopus::macros::mockable;
 use primitive_types::H256;
+use sp_runtime::traits::{CheckedAdd, CheckedSub};
 use sp_runtime::ModuleId;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
@@ -564,20 +565,6 @@ impl<T: Config> Module<T> {
             replace.collateral.clone(),
         )?;
 
-        //         if !old_vault.is_liquidated() {
-        //             decrease old-vault's issued & to-be-redeemed tokens
-        //         } else {
-        //             decrease liquidation-vault's issued & to-be-redeemed tokens
-        //             decrease old-vault's to-be-redeemed tokens,
-        //             release old-vault's collateral
-        //         }
-        //
-        //         if !new_vault.is_liquidated() {
-        //             change new-vault's to-be-issued tokens to issued tokens
-        //         } else {
-        //             change liquidation-vault's to-be-issued tokens to issued tokens
-        //         }
-
         // Call the releaseCollateral function to release the oldVaults griefing collateral griefingCollateral
         ext::collateral::release_collateral::<T>(
             old_vault_id.clone(),
@@ -614,25 +601,51 @@ impl<T: Config> Module<T> {
         // only cancellable by new_vault
         ensure!(caller == new_vault_id, Error::<T>::UnauthorizedVault);
 
-        // Release the newVault's collateral associated with this ReplaceRequests
-        ext::collateral::release_collateral::<T>(new_vault_id.clone(), replace.collateral)?;
+        // // Release the newVault's collateral associated with this ReplaceRequests
+        // ext::collateral::release_collateral::<T>(new_vault_id.clone(), replace.collateral)?;
 
-        // Transfer the oldVault’s griefing collateral associated with this ReplaceRequests to the newVault by calling slashCollateral
-        ext::collateral::slash_collateral::<T>(
-            replace.old_vault.clone(),
-            new_vault_id.clone(),
-            replace.griefing_collateral,
+        // decrease old-vault's issued & to-be-redeemed tokens, and
+        // change new-vault's to-be-issued tokens to issued tokens
+        ext::vault_registry::cancel_replace_tokens::<T>(
+            &replace.old_vault,
+            &new_vault_id,
+            replace.amount,
         )?;
 
-        // Decrease old-vault's to-be-redeemed tokens
-        let tokens = replace.amount;
-        ext::vault_registry::decrease_to_be_redeemed_tokens::<T>(
-            replace.old_vault.clone(),
-            tokens,
-        )?;
+        // slash old-vault's griefing collateral, but only if it is not liquidated
+        // (since the griefing collateral would have been confiscated by the
+        // liquidation vault)
+        if !ext::vault_registry::is_vault_liquidated::<T>(&replace.old_vault)? {
+            ext::collateral::slash_collateral::<T>(
+                replace.old_vault.clone(),
+                new_vault_id.clone(),
+                replace.griefing_collateral,
+            )?;
+        }
 
-        // Decrease new-vault's to-be-issued tokens
-        ext::vault_registry::decrease_to_be_issued_tokens::<T>(&new_vault_id, tokens)?;
+        // if the new_vault locked additional collateral especially for this replace,
+        // release it if it does not cause him to be undercollateralized
+        if !ext::vault_registry::is_vault_liquidated::<T>(&new_vault_id)? {
+            let new_collateral = ext::collateral::get_collateral_from_account::<T>(&new_vault_id)
+                .checked_sub(&replace.collateral)
+                .ok_or(Error::<T>::ArithmeticUnderflow)?;
+
+            let new_vault = ext::vault_registry::get_vault_from_id::<T>(&new_vault_id)?;
+
+            let collateral_is_needed =
+                ext::vault_registry::is_collateral_below_secure_threshold::<T>(
+                    new_collateral,
+                    new_vault
+                        .issued_tokens
+                        .checked_add(&new_vault.to_be_issued_tokens)
+                        .ok_or(Error::<T>::ArithmeticOverflow)?,
+                )?;
+
+            if !collateral_is_needed {
+                // Release the newVault's collateral associated with this ReplaceRequests
+                ext::collateral::release_collateral::<T>(new_vault_id.clone(), replace.collateral)?;
+            }
+        }
 
         // Remove the ReplaceRequest from ReplaceRequests
         Self::remove_replace_request(replace_id.clone(), true);
@@ -750,5 +763,7 @@ decl_error! {
         ReplaceIdNotFound,
         /// Unable to convert value
         TryIntoIntError,
+        ArithmeticUnderflow,
+        ArithmeticOverflow,
     }
 }

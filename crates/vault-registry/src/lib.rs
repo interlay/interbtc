@@ -675,34 +675,34 @@ impl<T: Config> Module<T> {
         let mut old_vault = Self::get_rich_vault_from_id(&old_vault_id)?;
         let mut new_vault = Self::get_rich_vault_from_id(&new_vault_id)?;
 
-        if !old_vault.is_liquidated() {
+        if !old_vault.data.is_liquidated() {
             // decrease old-vault's issued & to-be-redeemed tokens
             old_vault.decrease_tokens(tokens)?;
         } else {
             // equivalent of decrease_tokens, but on liquidation vault
-            let liquidation_vault = Self::get_rich_liquidation_vault();
+            let mut liquidation_vault = Self::get_rich_liquidation_vault();
             liquidation_vault.force_decrease_issued(tokens);
             liquidation_vault.force_decrease_to_be_redeemed(tokens);
 
             // release old-vault's collateral
-            let collateral = ext::collateral::for_account(&old_vault_id);
+            let collateral = ext::collateral::for_account::<T>(&old_vault_id);
             let to_be_released = Self::calculate_collateral(
                 collateral,
                 tokens,
                 old_vault.data.to_be_redeemed_tokens,
             )?;
-            ext::collateral::release_collateral(old_vault_id, to_be_released);
+            ext::collateral::release_collateral::<T>(old_vault_id, to_be_released)?;
 
             // reduce old-vault's to-be-redeemed tokens
             old_vault.force_decrease_to_be_redeemed(tokens);
         }
 
-        if !new_vault.is_liquidated() {
+        if !new_vault.data.is_liquidated() {
             // change new-vault's to-be-issued tokens to issued tokens
             new_vault.issue_tokens(tokens)?;
         } else {
             // change liquidation-vault's to-be-issued tokens to issued tokens
-            let liquidation_vault = Self::get_rich_liquidation_vault();
+            let mut liquidation_vault = Self::get_rich_liquidation_vault();
             liquidation_vault.force_decrease_to_be_issued(tokens);
             liquidation_vault.force_issue_tokens(tokens);
         }
@@ -713,6 +713,67 @@ impl<T: Config> Module<T> {
             tokens,
             collateral,
         ));
+        Ok(())
+    }
+
+    /// Cancels a replace - which in the normal case decreases the old-vault's
+    /// to-be-redeemed tokens, and the new-vault's to-be-issued tokens.
+    /// When one or both of the vaults have been liquidated, this function also
+    /// updates the liquidation vault.
+    ///
+    /// # Arguments
+    /// * `old_vault_id` - the id of the old vault
+    /// * `new_vault_id` - the id of the new vault
+    /// * `tokens` - the amount of tokens to be transferred from the old to the new vault
+    pub fn cancel_replace_tokens(
+        old_vault_id: &T::AccountId,
+        new_vault_id: &T::AccountId,
+        tokens: PolkaBTC<T>,
+    ) -> DispatchResult {
+        Self::check_parachain_not_shutdown_and_not_errors(
+            [
+                ErrorCode::InvalidBTCRelay,
+                ErrorCode::OracleOffline,
+                ErrorCode::Liquidation,
+            ]
+            .to_vec(),
+        )?;
+
+        let mut old_vault = Self::get_rich_vault_from_id(&old_vault_id)?;
+        let mut new_vault = Self::get_rich_vault_from_id(&new_vault_id)?;
+
+        if !old_vault.data.is_liquidated() {
+            // decrease old-vault's to-be-redeemed tokens
+            old_vault.force_decrease_to_be_redeemed(tokens);
+        } else {
+            let mut liquidation_vault = Self::get_rich_liquidation_vault();
+
+            // transfer old-vault's collateral to liquidation_vault
+            let collateral = ext::collateral::for_account::<T>(&old_vault_id);
+            let to_be_transfered_collateral = Self::calculate_collateral(
+                collateral,
+                tokens,
+                old_vault.data.to_be_redeemed_tokens,
+            )?;
+            ext::collateral::slash_collateral::<T>(
+                &old_vault_id,
+                &liquidation_vault.id(),
+                to_be_transfered_collateral,
+            )?;
+
+            // decrease to-be-redeemed on both the old-vault and the liquidation vault
+            liquidation_vault.force_decrease_to_be_redeemed(tokens);
+            old_vault.force_decrease_to_be_redeemed(tokens);
+        }
+
+        if !new_vault.data.is_liquidated() {
+            // reduce new-vault's to-be-issued tokens
+            new_vault.force_decrease_to_be_issued(tokens);
+        } else {
+            // reduce liquidation-vault's to-be-issued tokens
+            Self::get_rich_liquidation_vault().force_decrease_to_be_issued(tokens);
+        }
+
         Ok(())
     }
 
@@ -792,6 +853,10 @@ impl<T: Config> Module<T> {
     /// Threshold checks
     pub fn is_vault_below_secure_threshold(vault_id: &T::AccountId) -> Result<bool, DispatchError> {
         Self::is_vault_below_threshold(&vault_id, <SecureCollateralThreshold<T>>::get())
+    }
+
+    pub fn is_vault_liquidated(vault_id: &T::AccountId) -> Result<bool, DispatchError> {
+        Ok(Self::get_vault_from_id(&vault_id)?.is_liquidated())
     }
 
     pub fn is_vault_below_auction_threshold(
