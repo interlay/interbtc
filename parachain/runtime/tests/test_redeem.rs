@@ -332,8 +332,8 @@ fn test_cancel_liquidated(reimburse: bool) {
         VaultRegistryModule::get_vault_from_id(&account_of(vault))
             .unwrap()
             .into();
-    rich_vault.force_increase_to_be_redeemed(redeem.amount_btc);
-    rich_vault.force_issue_tokens(redeem.amount_btc);
+    assert_ok!(rich_vault.force_increase_to_be_redeemed(redeem.amount_btc));
+    assert_ok!(rich_vault.force_issue_tokens(redeem.amount_btc));
 
     let vault_data_before = VaultRegistryModule::get_vault_from_id(&account_of(vault)).unwrap();
     assert_eq!(
@@ -428,8 +428,8 @@ fn integration_test_redeem_polka_btc_execute_liquidated() {
             VaultRegistryModule::get_vault_from_id(&account_of(vault))
                 .unwrap()
                 .into();
-        rich_vault.force_increase_to_be_redeemed(3 * redeem.amount_btc);
-        rich_vault.force_issue_tokens(3 * redeem.amount_btc);
+        assert_ok!(rich_vault.force_increase_to_be_redeemed(3 * redeem.amount_btc));
+        assert_ok!(rich_vault.force_issue_tokens(3 * redeem.amount_btc));
 
         let vault_data_before = VaultRegistryModule::get_vault_from_id(&account_of(vault)).unwrap();
 

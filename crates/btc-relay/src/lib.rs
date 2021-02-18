@@ -76,7 +76,7 @@ pub trait Config: frame_system::Config + security::Config + sla::Config {
 /// Difficulty Adjustment Interval
 pub const DIFFICULTY_ADJUSTMENT_INTERVAL: u32 = 2016;
 
-/// Target Timespan
+/// Target Timespan: 2 weeks (1209600 seconds)
 pub const TARGET_TIMESPAN: u32 = 1_209_600;
 
 // Used in Bitcoin's retarget algorithm
@@ -473,7 +473,12 @@ impl<T: Config> Module<T> {
 
         let merkle_proof = Self::parse_merkle_proof(&raw_merkle_proof)?;
 
-        let rich_header = Self::get_block_header_from_hash(merkle_proof.block_header.hash())?;
+        let rich_header = Self::get_block_header_from_hash(
+            merkle_proof
+                .block_header
+                .hash()
+                .map_err(|err| Error::<T>::from(err))?,
+        )?;
 
         ensure!(
             rich_header.chain_ref == MAIN_CHAIN_ID,
@@ -1041,8 +1046,11 @@ impl<T: Config> Module<T> {
             TARGET_TIMESPAN * TARGET_TIMESPAN_DIVISOR
         };
 
-        let new_target = U256::from(actual_timespan) * prev_block_header.block_header.target
-            / U256::from(TARGET_TIMESPAN);
+        let new_target = U256::from(actual_timespan)
+            .checked_mul(prev_block_header.block_header.target)
+            .ok_or(Error::<T>::ArithmeticOverflow)?
+            .checked_div(U256::from(TARGET_TIMESPAN))
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
         // ensure target does not exceed max. target
         Ok(if new_target > UNROUNDED_MAX_TARGET {
@@ -1583,7 +1591,9 @@ decl_error! {
         /// Specified invalid Bitcoin address
         InvalidBtcAddress,
         /// Arithmetic overflow
-        ArithmeticOverflow
+        ArithmeticOverflow,
+        /// Arithmetic underflow
+        ArithmeticUnderflow,
     }
 }
 
@@ -1606,6 +1616,7 @@ impl<T: Config> From<BitcoinError> for Error<T> {
             BitcoinError::InvalidScript => Self::InvalidScript,
             BitcoinError::InvalidBtcAddress => Self::InvalidBtcAddress,
             BitcoinError::ArithmeticOverflow => Self::ArithmeticOverflow,
+            BitcoinError::ArithmeticUnderflow => Self::ArithmeticUnderflow,
         }
     }
 }

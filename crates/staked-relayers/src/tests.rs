@@ -1412,6 +1412,7 @@ fn test_is_transaction_invalid_succeeds_with_testnet_transaction() {
 #[test]
 fn test_get_status_counter_success() {
     run_test(|| {
+        assert_eq!(u64::MAX.overflowing_add(2), (1, true));
         assert_eq!(Staking::get_status_counter(), 1);
         assert_eq!(Staking::get_status_counter(), 2);
     })

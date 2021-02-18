@@ -16,4 +16,5 @@ pub enum Error {
     InvalidScript,
     InvalidBtcAddress,
     ArithmeticOverflow,
+    ArithmeticUnderflow,
 }

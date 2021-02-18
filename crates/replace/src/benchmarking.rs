@@ -1,7 +1,7 @@
 use super::*;
 use crate::types::ReplaceRequest;
 use crate::Module as Replace;
-use bitcoin::formatter::Formattable;
+use bitcoin::formatter::{Formattable, TryFormattable};
 use bitcoin::types::{
     BlockBuilder, RawBlockHeader, TransactionBuilder, TransactionInputBuilder, TransactionOutput,
 };
@@ -158,10 +158,10 @@ benchmarks! {
             .with_version(2)
             .with_coinbase(&new_vault_btc_address, 50, 3)
             .with_timestamp(1588813835)
-            .mine(U256::from(2).pow(254.into()));
+            .mine(U256::from(2).pow(254.into())).unwrap();
 
-        let block_hash = block.header.hash();
-        let block_header = RawBlockHeader::from_bytes(&block.header.format()).unwrap();
+        let block_hash = block.header.hash().unwrap();
+        let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
         BtcRelay::<T>::_initialize(block_header, height).unwrap();
 
 
@@ -195,13 +195,13 @@ benchmarks! {
             .with_coinbase(&new_vault_btc_address, 50, 3)
             .with_timestamp(1588813835)
             .add_transaction(transaction.clone())
-            .mine(U256::from(2).pow(254.into()));
+            .mine(U256::from(2).pow(254.into())).unwrap();
 
         let tx_id = transaction.tx_id();
-        let proof = block.merkle_proof(&vec![tx_id]).format();
+        let proof = block.merkle_proof(&vec![tx_id]).unwrap().try_format().unwrap();
         let raw_tx = transaction.format_with(true);
 
-        let block_header = RawBlockHeader::from_bytes(&block.header.format()).unwrap();
+        let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
         BtcRelay::<T>::_store_block_header(relayer_id, block_header).unwrap();
 
     }: _(RawOrigin::Signed(old_vault_id), replace_id, tx_id, proof, raw_tx)

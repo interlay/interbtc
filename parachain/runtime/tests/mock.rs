@@ -1,6 +1,6 @@
 extern crate hex;
 
-pub use bitcoin::formatter::Formattable;
+pub use bitcoin::formatter::{Formattable, TryFormattable};
 pub use bitcoin::types::*;
 pub use btc_parachain_runtime::{AccountId, Call, Event, Runtime};
 pub use btc_relay::{BtcAddress, BtcPublicKey};
@@ -137,10 +137,12 @@ pub fn generate_transaction_and_mine_with_script_sig(
         .with_version(2)
         .with_coinbase(&address, 50, 3)
         .with_timestamp(1588813835)
-        .mine(U256::from(2).pow(254.into()));
+        .mine(U256::from(2).pow(254.into()))
+        .unwrap();
 
-    let raw_init_block_header = RawBlockHeader::from_bytes(&init_block.header.format())
-        .expect("could not serialize block header");
+    let raw_init_block_header =
+        RawBlockHeader::from_bytes(&init_block.header.try_format().unwrap())
+            .expect("could not serialize block header");
 
     match Call::BTCRelay(BTCRelayCall::initialize(
         raw_init_block_header.try_into().expect("bad block header"),
@@ -180,25 +182,26 @@ pub fn generate_transaction_and_mine_with_script_sig(
         .with_coinbase(&address, 50, 3)
         .with_timestamp(1588814835)
         .add_transaction(transaction.clone())
-        .mine(U256::from(2).pow(254.into()));
+        .mine(U256::from(2).pow(254.into()))
+        .unwrap();
 
-    let raw_block_header = RawBlockHeader::from_bytes(&block.header.format())
+    let raw_block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap())
         .expect("could not serialize block header");
 
     let tx_id = transaction.tx_id();
     let tx_block_height = height;
-    let proof = block.merkle_proof(&vec![tx_id]);
-    let bytes_proof = proof.format();
+    let proof = block.merkle_proof(&vec![tx_id]).unwrap();
+    let bytes_proof = proof.try_format().unwrap();
     let raw_tx = transaction.format_with(true);
 
     assert_ok!(Call::BTCRelay(BTCRelayCall::store_block_header(
         raw_block_header.try_into().expect("bad block header")
     ))
     .dispatch(origin_of(account_of(ALICE))));
-    assert_store_main_chain_header_event(height, block.header.hash());
+    assert_store_main_chain_header_event(height, block.header.hash().unwrap());
 
     // Mine six new blocks to get over required confirmations
-    let mut prev_block_hash = block.header.hash();
+    let mut prev_block_hash = block.header.hash().unwrap();
     let mut timestamp = 1588814835;
     for _ in 0..confirmations {
         height += 1;
@@ -208,18 +211,20 @@ pub fn generate_transaction_and_mine_with_script_sig(
             .with_version(2)
             .with_coinbase(&address, 50, 3)
             .with_timestamp(timestamp)
-            .mine(U256::from(2).pow(254.into()));
+            .mine(U256::from(2).pow(254.into()))
+            .unwrap();
 
-        let raw_conf_block_header = RawBlockHeader::from_bytes(&conf_block.header.format())
-            .expect("could not serialize block header");
+        let raw_conf_block_header =
+            RawBlockHeader::from_bytes(&conf_block.header.try_format().unwrap())
+                .expect("could not serialize block header");
         assert_ok!(Call::BTCRelay(BTCRelayCall::store_block_header(
             raw_conf_block_header.try_into().expect("bad block header"),
         ))
         .dispatch(origin_of(account_of(ALICE))));
 
-        assert_store_main_chain_header_event(height, conf_block.header.hash());
+        assert_store_main_chain_header_event(height, conf_block.header.hash().unwrap());
 
-        prev_block_hash = conf_block.header.hash();
+        prev_block_hash = conf_block.header.hash().unwrap();
     }
 
     (tx_id, tx_block_height, bytes_proof, raw_tx)

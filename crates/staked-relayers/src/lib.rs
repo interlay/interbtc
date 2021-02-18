@@ -1216,7 +1216,8 @@ impl<T: Config> Module<T> {
     /// Increments the current `StatusCounter` and returns the new value.
     pub fn get_status_counter() -> StatusUpdateId {
         <StatusCounter>::mutate(|c| {
-            *c += 1;
+            let (res, _) = (*c).overflowing_add(1);
+            *c = res;
             *c
         })
     }

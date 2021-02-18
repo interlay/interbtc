@@ -231,7 +231,8 @@ impl<T: Config> Module<T> {
     /// Increment and return the `Nonce`.
     fn get_nonce() -> U256 {
         <Nonce>::mutate(|n| {
-            *n += U256::one();
+            let (res, _) = (*n).overflowing_add(U256::one());
+            *n = res;
             *n
         })
     }

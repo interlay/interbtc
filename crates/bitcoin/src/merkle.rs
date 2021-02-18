@@ -62,17 +62,35 @@ impl MerkleTree {
         height: u32,
         transactions_count: u32,
         hashes: &Vec<H256Le>,
-    ) -> H256Le {
+    ) -> Result<H256Le, Error> {
         if height == 0 {
-            hashes[index as usize]
+            Ok(hashes[index as usize])
         } else {
-            let left = Self::compute_root(index * 2, height - 1, transactions_count, hashes);
-            let right = if index * 2 + 1 < Self::compute_width(transactions_count, height - 1) {
-                Self::compute_root(index * 2 + 1, height - 1, transactions_count, hashes)
+            let left = Self::compute_root(
+                index.checked_mul(2).ok_or(Error::ArithmeticOverflow)?,
+                height.checked_sub(1).ok_or(Error::ArithmeticUnderflow)?,
+                transactions_count,
+                hashes,
+            )?;
+            let right_index = index
+                .checked_mul(2)
+                .ok_or(Error::ArithmeticOverflow)?
+                .checked_add(1)
+                .ok_or(Error::ArithmeticOverflow)?;
+            let right = if right_index < Self::compute_width(transactions_count, height - 1) {
+                Self::compute_root(
+                    right_index,
+                    height.checked_sub(1).ok_or(Error::ArithmeticUnderflow)?,
+                    transactions_count,
+                    hashes,
+                )?
             } else {
                 left
             };
-            hash256_merkle_step(&left.to_bytes_le(), &right.to_bytes_le())
+            Ok(hash256_merkle_step(
+                &left.to_bytes_le(),
+                &right.to_bytes_le(),
+            ))
         }
     }
 }
@@ -89,7 +107,12 @@ impl MerkleProof {
         MerkleTree::compute_height(self.transactions_count)
     }
 
-    pub fn compute_merkle_root(&self, index: u32, height: u32, tx_ids: &[H256Le]) -> H256Le {
+    pub fn compute_merkle_root(
+        &self,
+        index: u32,
+        height: u32,
+        tx_ids: &[H256Le],
+    ) -> Result<H256Le, Error> {
         MerkleTree::compute_root(index, height, self.transactions_count, &tx_ids.to_vec())
     }
 
@@ -104,7 +127,10 @@ impl MerkleProof {
         traversal: &mut MerkleProofTraversal,
     ) -> Result<H256Le, Error> {
         let parent_of_hash = *self.flag_bits.get(traversal.bits_used).ok_or(Error::EOS)?;
-        traversal.bits_used += 1;
+        traversal.bits_used = traversal
+            .bits_used
+            .checked_add(1)
+            .ok_or(Error::ArithmeticOverflow)?;
 
         if height == 0 || !parent_of_hash {
             if traversal.hashes_used >= self.hashes.len() {
@@ -115,13 +141,20 @@ impl MerkleProof {
                 traversal.merkle_position = Some(pos);
                 traversal.hash_position = Some(traversal.hashes_used);
             }
-            traversal.hashes_used += 1;
+            traversal.hashes_used = traversal
+                .hashes_used
+                .checked_add(1)
+                .ok_or(Error::ArithmeticOverflow)?;
             return Ok(hash);
         }
 
-        let left = self.traverse_and_extract(height - 1, pos * 2, traversal)?;
-        let right = if pos * 2 + 1 < self.compute_partial_tree_width(height - 1) {
-            self.traverse_and_extract(height - 1, pos * 2 + 1, traversal)?
+        let next_height = height.checked_sub(1).ok_or(Error::ArithmeticUnderflow)?;
+        let left_index = pos.checked_mul(2).ok_or(Error::ArithmeticOverflow)?;
+        let right_index = left_index.checked_add(1).ok_or(Error::ArithmeticOverflow)?;
+
+        let left = self.traverse_and_extract(next_height, left_index, traversal)?;
+        let right = if right_index < self.compute_partial_tree_width(next_height) {
+            self.traverse_and_extract(next_height, right_index, traversal)?
         } else {
             left
         };
@@ -165,7 +198,20 @@ impl MerkleProof {
         }
 
         // fail if all bits are not used
-        if (traversal.bits_used + 7) / 8 != (self.flag_bits.len() + 7) / 8 {
+        if traversal
+            .bits_used
+            .checked_add(7)
+            .ok_or(Error::ArithmeticOverflow)?
+            .checked_div(8)
+            .ok_or(Error::ArithmeticUnderflow)?
+            != self
+                .flag_bits
+                .len()
+                .checked_add(7)
+                .ok_or(Error::ArithmeticOverflow)?
+                .checked_div(8)
+                .ok_or(Error::ArithmeticUnderflow)?
+        {
             return Err(Error::MalformedMerkleProof);
         }
 
@@ -221,7 +267,7 @@ impl MerkleProof {
         pos: u32,
         tx_ids: &[H256Le],
         matches: &[bool],
-    ) {
+    ) -> Result<(), Error> {
         let mut parent_of_match = false;
         let mut p = pos << height;
         while p < (pos + 1) << height && p < self.transactions_count {
@@ -232,14 +278,20 @@ impl MerkleProof {
         self.flag_bits.push(parent_of_match);
 
         if height == 0 || !parent_of_match {
-            let hash = self.compute_merkle_root(pos, height, tx_ids);
+            let hash = self.compute_merkle_root(pos, height, tx_ids)?;
             self.hashes.push(hash);
         } else {
-            self.traverse_and_build(height - 1, pos * 2, tx_ids, matches);
-            if pos * 2 + 1 < self.compute_partial_tree_width(height - 1) {
-                self.traverse_and_build(height - 1, pos * 2 + 1, tx_ids, matches);
+            let next_height = height.checked_sub(1).ok_or(Error::ArithmeticUnderflow)?;
+            let left_index = pos.checked_mul(2).ok_or(Error::ArithmeticOverflow)?;
+            let right_index = left_index.checked_add(1).ok_or(Error::ArithmeticOverflow)?;
+
+            self.traverse_and_build(next_height, left_index, tx_ids, matches)?;
+            if right_index < self.compute_partial_tree_width(next_height) {
+                self.traverse_and_build(next_height, right_index, tx_ids, matches)?;
             }
         }
+
+        Ok(())
     }
 }
 
@@ -317,7 +369,7 @@ mod tests {
         let expected_block_header =
             H256Le::from_hex_be("000000000000002e59ed7b899b3f0f83c48d0548309a8fb7693297e3937fe1d3");
 
-        assert_eq!(proof.block_header.hash(), expected_block_header);
+        assert_eq!(proof.block_header.hash().unwrap(), expected_block_header);
     }
 
     #[test]
