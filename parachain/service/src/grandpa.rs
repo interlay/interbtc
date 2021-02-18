@@ -164,6 +164,7 @@ pub fn new_full(mut config: Configuration) -> Result<(TaskManager, RpcHandlers),
             network_status_sinks,
             system_rpc_tx,
             config,
+            telemetry_span: None,
         })?;
 
     if role.is_authority() {
@@ -322,6 +323,7 @@ pub fn new_light(mut config: Configuration) -> Result<(TaskManager, RpcHandlers)
             network,
             network_status_sinks,
             system_rpc_tx,
+            telemetry_span: None,
         })?;
 
     network_starter.start_network();

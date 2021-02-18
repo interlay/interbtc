@@ -150,6 +150,7 @@ async fn start_node_impl(
         network: network.clone(),
         network_status_sinks,
         system_rpc_tx,
+        telemetry_span: None,
     })?;
 
     let announce_block = {
