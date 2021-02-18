@@ -75,6 +75,7 @@ replace = { path = "../../crates/replace", default-features = false }
 refund = { path = "../../crates/refund", default-features = false }
 
 parachain-info = { path = "../../crates/parachain-info", default-features = false, optional = true }
+parachain-tokens = { path = "../../crates/parachain-tokens", default-features = false, optional = true }
 
 module-exchange-rate-oracle-rpc-runtime-api = { path = "../../crates/exchange-rate-oracle/rpc/runtime-api", default-features = false }
 module-staked-relayers-rpc-runtime-api = { path = "../../crates/staked-relayers/rpc/runtime-api", default-features = false }
@@ -157,7 +158,9 @@ std = [
   "redeem/std",
   "replace/std",
   "refund/std",
+
   "parachain-info/std",
+  "parachain-tokens/std",
 
   "module-exchange-rate-oracle-rpc-runtime-api/std",
   "module-staked-relayers-rpc-runtime-api/std",
@@ -200,6 +203,7 @@ cumulus-polkadot = [
   "rococo-runtime",
 
   "parachain-info",
+  "parachain-tokens",
 ]
 aura-grandpa = [
   "pallet-aura",
@@ -207,3 +211,6 @@ aura-grandpa = [
   "sp-consensus-aura",
 ]
 disable-runtime-api = []
+disable-native-filter = [
+  "parachain-tokens/disable-native-filter"
+]

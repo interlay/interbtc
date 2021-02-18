@@ -14,6 +14,9 @@
 */launch.json
 
 ## Rococo
-genesis-state
+genesis-state*
 genesis-wasm
 rococo-local.json
+rococo-local-raw.json
+
+*.log
