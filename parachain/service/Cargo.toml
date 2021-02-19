@@ -47,9 +47,11 @@ sp-finality-grandpa = { git = "https://github.com/paritytech/substrate", branch 
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
 
 # Cumulus dependencies
-cumulus-consensus = { package = "cumulus-client-consensus", git = "https://github.com/paritytech/cumulus", branch = "rococo-v1", optional = true }
+cumulus-consensus = { package = "cumulus-client-consensus-relay-chain", git = "https://github.com/paritytech/cumulus", branch = "rococo-v1", optional = true }
 cumulus-network = { package = "cumulus-client-network", git = "https://github.com/paritytech/cumulus", branch = "rococo-v1", optional = true }
+cumulus-primitives = { package = "cumulus-primitives-core", git = "https://github.com/paritytech/cumulus", branch = "rococo-v1", optional = true }
 cumulus-service = { package = "cumulus-client-service", git = "https://github.com/paritytech/cumulus", branch = "rococo-v1", optional = true }
+rococo-primitives = { package = "rococo-parachain-primitives", git = "https://github.com/paritytech/cumulus", branch = "rococo-v1", optional = true }
 
 # Polkadot dependencies
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", optional = true }
@@ -59,7 +61,9 @@ polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "r
 cumulus-polkadot = [
     "cumulus-consensus",
     "cumulus-network",
+    "cumulus-primitives",
     "cumulus-service",
+    "rococo-primitives",
     "polkadot-primitives",
     "polkadot-service",
     
