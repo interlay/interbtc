@@ -71,6 +71,10 @@ btc-parachain --collator --discover-local --tmp --parachain-id 200 --port 40335 
 
 To register the Parachain, you can use the [Polkadot JS Apps UI](https://polkadot.js.org/apps/#/?rpc=ws://localhost:9944).
 
-![Register Parachain](parasSudoWrapper.png)
+![Initialize Parachain](./img/sudoScheduleParaInitialize.png)
 
 Add the [types](./types.json) to the developer settings if the app fails to decode any responses.
+
+Before sending messages between parachains you must first establish a channel.
+
+![Establish Channel](./img/sudoEstablishHrmpChannel.png)
