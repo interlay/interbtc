@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://gitlab.com/interlay/btc-parachain">
-    <img src="/docs/polkaBtc.png">
+    <img src="/docs/img/polkaBtc.png">
   </a>
 
   <h2 align="center">BTC-Parachain</h2>
