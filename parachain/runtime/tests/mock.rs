@@ -21,6 +21,11 @@ pub const LIQUIDATION_VAULT: [u8; 32] = [3u8; 32];
 pub const FEE_POOL: [u8; 32] = [4u8; 32];
 pub const MAINTAINER: [u8; 32] = [5u8; 32];
 
+pub const FAUCET: [u8; 32] = [128u8; 32];
+
+pub const INITIAL_BALANCE: u128 = 1_000_000_000_000;
+pub const INITIAL_LIQUIDATION_VAULT_BALANCE: u128 = 1_000;
+
 pub const CONFIRMATIONS: u32 = 6;
 
 pub type BTCRelayCall = btc_relay::Call<Runtime>;
@@ -34,6 +39,74 @@ pub fn origin_of(account_id: AccountId) -> <Runtime as frame_system::Config>::Or
 
 pub fn account_of(address: [u8; 32]) -> AccountId {
     AccountId::from(address)
+}
+
+#[derive(Debug, PartialEq, Default)]
+pub struct CoreVaultData {
+    pub to_be_issued: u128,
+    pub issued: u128,
+    pub to_be_redeemed: u128,
+    pub collateral: u128,
+    pub free_balance: u128,
+}
+
+impl CoreVaultData {
+    pub fn vault(vault: [u8; 32]) -> Self {
+        let account_id = account_of(vault);
+        let vault = VaultRegistryModule::get_vault_from_id(&account_id).unwrap();
+        Self {
+            to_be_issued: vault.to_be_issued_tokens,
+            issued: vault.issued_tokens,
+            to_be_redeemed: vault.to_be_redeemed_tokens,
+            collateral: CollateralModule::get_collateral_from_account(&account_id),
+            free_balance: CollateralModule::get_balance_from_account(&account_id),
+        }
+    }
+    pub fn liquidation_vault() -> Self {
+        let account_id = account_of(LIQUIDATION_VAULT);
+        let vault = VaultRegistryModule::get_liquidation_vault();
+        Self {
+            to_be_issued: vault.to_be_issued_tokens,
+            issued: vault.issued_tokens,
+            to_be_redeemed: vault.to_be_redeemed_tokens,
+            collateral: CollateralModule::get_collateral_from_account(&account_id),
+            free_balance: CollateralModule::get_balance_from_account(&account_id),
+        }
+    }
+}
+
+pub fn force_vault_state(vault: [u8; 32], state: CoreVaultData) {
+    let current = CoreVaultData::vault(vault);
+    if current.to_be_issued < state.to_be_issued {
+        assert_ok!(VaultRegistryModule::increase_to_be_issued_tokens(
+            &account_of(vault),
+            H256::random(),
+            state.to_be_issued - current.to_be_issued
+        ));
+    }
+
+    if current.issued < state.issued {
+        assert_ok!(VaultRegistryModule::increase_to_be_issued_tokens(
+            &account_of(vault),
+            H256::random(),
+            state.issued - current.issued
+        ));
+
+        assert_ok!(VaultRegistryModule::issue_tokens(
+            &account_of(vault),
+            state.issued - current.issued
+        ));
+    }
+    if current.to_be_redeemed < state.to_be_redeemed {
+        assert_ok!(VaultRegistryModule::increase_to_be_redeemed_tokens(
+            &account_of(vault),
+            state.to_be_redeemed - current.to_be_redeemed
+        ));
+    }
+
+    // since the function is only partially implemented, check that we achieved the
+    // desired stae
+    assert_eq!(CoreVaultData::vault(vault), state);
 }
 
 #[allow(dead_code)]
@@ -272,12 +345,16 @@ impl ExtBuilder {
 
         pallet_balances::GenesisConfig::<Runtime, pallet_balances::Instance1> {
             balances: vec![
-                (account_of(ALICE), 1_000_000),
-                (account_of(BOB), 1 << 60),
-                (account_of(CAROL), 1 << 60),
+                (account_of(ALICE), INITIAL_BALANCE),
+                (account_of(BOB), INITIAL_BALANCE),
+                (account_of(CAROL), INITIAL_BALANCE),
+                (account_of(FAUCET), 1 << 60),
                 // create accounts for vault & fee pool; this needs a minimum amount because
                 // the parachain refuses to create accounts with a balance below `ExistentialDeposit`
-                (account_of(LIQUIDATION_VAULT), 1000),
+                (
+                    account_of(LIQUIDATION_VAULT),
+                    INITIAL_LIQUIDATION_VAULT_BALANCE,
+                ),
                 (account_of(FEE_POOL), 1000),
             ],
         }

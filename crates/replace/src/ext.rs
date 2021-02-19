@@ -30,6 +30,7 @@ pub(crate) mod vault_registry {
     use crate::{PolkaBTC, DOT};
     use btc_relay::BtcAddress;
     use frame_support::dispatch::{DispatchError, DispatchResult};
+    use vault_registry::types::DefaultSystemVault;
 
     pub fn replace_tokens<T: vault_registry::Config>(
         old_vault_id: T::AccountId,
@@ -127,6 +128,10 @@ pub(crate) mod vault_registry {
         amount: PolkaBTC<T>,
     ) -> Result<(), DispatchError> {
         <vault_registry::Module<T>>::force_increase_to_be_issued_tokens(vault_id, amount)
+    }
+
+    pub fn get_liquidation_vault<T: vault_registry::Config>() -> DefaultSystemVault<T> {
+        <vault_registry::Module<T>>::get_liquidation_vault()
     }
 }
 

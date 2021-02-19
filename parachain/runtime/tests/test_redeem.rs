@@ -114,7 +114,7 @@ fn integration_test_premium_redeem_polka_btc_execute() {
     ExtBuilder::build().execute_with(|| {
         let user = ALICE;
         let vault = BOB;
-        let polka_btc = 1_000_000_000_000;
+        let polka_btc = 1_000_000_000;
 
         let user_btc_address = BtcAddress::P2PKH(H160([2; 20]));
 
@@ -195,7 +195,7 @@ fn integration_test_premium_redeem_polka_btc_execute() {
 #[test]
 fn integration_test_redeem_polka_btc_liquidation_redeem() {
     ExtBuilder::build().execute_with(|| {
-        let planck_per_satoshi = 385523;
+        let planck_per_satoshi = 413;
 
         let total_polka_btc = 1000;
         let polka_btc = 50;

@@ -533,7 +533,7 @@ impl<T: Config> Module<T> {
         );
 
         // Retrieve the Vault as per the newVault parameter from Vaults in the VaultRegistry
-        let _new_vault = ext::vault_registry::get_active_vault_from_id::<T>(&new_vault_id)?;
+        let _new_vault = ext::vault_registry::get_vault_from_id::<T>(&new_vault_id)?;
 
         // Call verifyTransactionInclusion in BTC-Relay, providing txid, txBlockHeight, txIndex, and merkleProof as parameters
         ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
@@ -565,11 +565,13 @@ impl<T: Config> Module<T> {
             replace.collateral.clone(),
         )?;
 
-        // Call the releaseCollateral function to release the oldVaults griefing collateral griefingCollateral
-        ext::collateral::release_collateral::<T>(
-            old_vault_id.clone(),
-            replace.griefing_collateral,
-        )?;
+        // if the old vault has not been liquidated, give it back its griefing collateral
+        if !ext::vault_registry::is_vault_liquidated::<T>(&old_vault_id)? {
+            ext::collateral::release_collateral::<T>(
+                old_vault_id.clone(),
+                replace.griefing_collateral,
+            )?;
+        }
 
         // Emit ExecuteReplace event.
         Self::deposit_event(<Event<T>>::ExecuteReplace(
@@ -616,11 +618,20 @@ impl<T: Config> Module<T> {
         // (since the griefing collateral would have been confiscated by the
         // liquidation vault)
         if !ext::vault_registry::is_vault_liquidated::<T>(&replace.old_vault)? {
-            ext::collateral::slash_collateral::<T>(
-                replace.old_vault.clone(),
-                new_vault_id.clone(),
-                replace.griefing_collateral,
-            )?;
+            // slash to new_vault if it is not liquidated - otherwise slash to liquidation vault
+            if !ext::vault_registry::is_vault_liquidated::<T>(&new_vault_id)? {
+                ext::collateral::slash_collateral::<T>(
+                    replace.old_vault.clone(),
+                    new_vault_id.clone(),
+                    replace.griefing_collateral,
+                )?;
+            } else {
+                ext::collateral::slash_collateral::<T>(
+                    replace.old_vault.clone(),
+                    ext::vault_registry::get_liquidation_vault::<T>().id,
+                    replace.griefing_collateral,
+                )?;
+            }
         }
 
         // if the new_vault locked additional collateral especially for this replace,
