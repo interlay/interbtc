@@ -35,7 +35,6 @@ btc-relay = { path = "../btc-relay", default-features = false }
 collateral = { path = "../collateral", default-features = false }
 security = { path = "../security", default-features = false }
 bitcoin = { path = "../bitcoin", default-features = false }
-util = { path = "../util", default-features = false }
 
 [dev-dependencies]
 mocktopus = "0.7.0"
@@ -66,5 +65,4 @@ std = [
 	"primitive-types/std",
 	"security/std",
 	"bitcoin/std",
-	"util/std",
 ]

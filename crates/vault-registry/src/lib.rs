@@ -28,6 +28,7 @@ use mocktopus::macros::mockable;
 use codec::{Decode, Encode, EncodeLike};
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::Randomness;
+use frame_support::transactional;
 use frame_support::weights::Weight;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, ensure, IterableStorageMap,
@@ -40,7 +41,6 @@ use sp_arithmetic::FixedPointNumber;
 use sp_core::H256;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
-use util::transactional;
 
 use crate::types::{
     BtcAddress, DefaultSystemVault, DefaultVault, Inner, PolkaBTC, RichSystemVault, RichVault,

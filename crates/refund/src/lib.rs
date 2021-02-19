@@ -22,6 +22,7 @@ pub mod types;
 
 use bitcoin::types::H256Le;
 use btc_relay::BtcAddress;
+use frame_support::transactional;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError, ensure,
     weights::Weight,
@@ -33,7 +34,6 @@ use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
 use types::PolkaBTC;
 pub use types::RefundRequest;
-use util::transactional;
 
 pub trait WeightInfo {
     fn execute_refund() -> Weight;

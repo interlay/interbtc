@@ -30,7 +30,7 @@ use crate::types::{
 use bitcoin::parser::parse_transaction;
 use bitcoin::types::*;
 use btc_relay::BtcAddress;
-use util::transactional;
+use frame_support::transactional;
 
 /// # Staked Relayers module implementation
 /// This is the implementation of the BTC Parachain Staked Relayers module following the spec at:

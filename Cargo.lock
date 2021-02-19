@@ -830,7 +830,6 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "treasury",
- "util",
  "vault-registry",
 ]
 
@@ -1871,7 +1870,6 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "treasury",
- "util",
 ]
 
 [[package]]
@@ -1958,7 +1956,6 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "treasury",
- "util",
  "vault-registry",
 ]
 
@@ -3028,7 +3025,6 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "treasury",
- "util",
  "vault-registry",
 ]
 
@@ -5174,7 +5170,6 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "treasury",
- "util",
  "xcm",
  "xcm-executor",
 ]
@@ -6986,7 +6981,6 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "treasury",
- "util",
  "vault-registry",
 ]
 
@@ -7083,7 +7077,6 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "treasury",
- "util",
  "vault-registry",
 ]
 
@@ -7175,7 +7168,6 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "treasury",
- "util",
  "vault-registry",
 ]
 
@@ -9523,7 +9515,6 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "treasury",
- "util",
  "vault-registry",
 ]
 
@@ -10454,15 +10445,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "util"
-version = "0.3.3"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "value-bag"
 version = "1.0.0-alpha.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10496,7 +10478,6 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "treasury",
- "util",
 ]
 
 [[package]]

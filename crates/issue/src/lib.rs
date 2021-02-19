@@ -31,6 +31,7 @@ pub use crate::types::IssueRequest;
 use crate::types::{PolkaBTC, Version, DOT};
 use bitcoin::types::H256Le;
 use btc_relay::{BtcAddress, BtcPublicKey};
+use frame_support::transactional;
 use frame_support::weights::Weight;
 /// # PolkaBTC Issue implementation
 /// The Issue module according to the specification at
@@ -46,7 +47,6 @@ use primitive_types::H256;
 use sp_runtime::ModuleId;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
-use util::transactional;
 
 /// The issue module id, used for deriving its sovereign account ID.
 const _MODULE_ID: ModuleId = ModuleId(*b"issuemod");

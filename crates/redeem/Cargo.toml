@@ -34,7 +34,6 @@ security = { path = "../security", default-features = false }
 sla = { path = "../sla", default-features = false }
 treasury = { path = "../treasury", default-features = false }
 vault-registry = { path = "../vault-registry", default-features = false }
-util = { path = "../util", default-features = false }
 
 [dev-dependencies]
 mocktopus = "0.7.0"
@@ -67,7 +66,6 @@ std = [
 	"sla/std",
 	"treasury/std",
 	"vault-registry/std",
-	"util/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",

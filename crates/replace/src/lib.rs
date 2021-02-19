@@ -11,6 +11,7 @@ mod default_weights;
 extern crate mocktopus;
 
 // Substrate
+use frame_support::transactional;
 use frame_support::weights::Weight;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
@@ -24,7 +25,6 @@ use primitive_types::H256;
 use sp_runtime::ModuleId;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
-use util::transactional;
 
 use bitcoin::types::H256Le;
 use btc_relay::BtcAddress;

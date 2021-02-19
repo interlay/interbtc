@@ -25,6 +25,7 @@ extern crate mocktopus;
 use mocktopus::macros::mockable;
 
 use codec::{Decode, Encode, EncodeLike};
+use frame_support::transactional;
 use frame_support::{decl_error, decl_event, decl_module, decl_storage};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
@@ -37,7 +38,6 @@ use sp_arithmetic::FixedPointNumber;
 use sp_std::convert::TryInto;
 use sp_std::vec::*;
 use types::{Inner, PolkaBTC, UnsignedFixedPoint, DOT};
-use util::transactional;
 
 pub trait WeightInfo {
     fn withdraw_polka_btc() -> Weight;

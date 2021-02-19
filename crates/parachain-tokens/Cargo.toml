@@ -21,7 +21,6 @@ cumulus-primitives = { package = "cumulus-primitives-core", git = "https://githu
 # Parachain dependencies
 collateral = { path = "../collateral", default-features = false }
 treasury = { path = "../treasury", default-features = false }
-util = { path = "../util", default-features = false }
 
 [features]
 default = ["std"]
@@ -40,6 +39,5 @@ std = [
 
     "collateral/std",
     "treasury/std",
-    "util/std",
 ]
 disable-native-filter = []
