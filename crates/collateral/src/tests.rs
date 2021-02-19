@@ -71,7 +71,7 @@ fn test_lock_collateral_fails() {
 
         assert_err!(
             Collateral::lock_collateral(&sender, amount),
-            CollateralError::InsufficientFunds
+            TestError::InsufficientFunds
         );
 
         let collateral = Collateral::get_collateral_from_account(&ALICE);
@@ -118,7 +118,7 @@ fn test_release_collateral_fails() {
 
         assert_err!(
             Collateral::release_collateral(&sender, lock_amount),
-            CollateralError::InsufficientCollateralAvailable
+            TestError::InsufficientCollateralAvailable
         );
 
         let collateral = Collateral::get_collateral_from_account(&ALICE);
@@ -197,7 +197,7 @@ fn test_slash_collateral_fails() {
 
         assert_err!(
             Collateral::slash_collateral(sender, receiver, amount),
-            CollateralError::InsufficientCollateralAvailable
+            TestError::InsufficientCollateralAvailable
         );
 
         let collateral_alice = Collateral::get_collateral_from_account(&ALICE);

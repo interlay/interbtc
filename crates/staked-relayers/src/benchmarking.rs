@@ -202,7 +202,7 @@ mod tests {
     #[test]
     fn test_benchmarks() {
         ExtBuilder::build_with(|storage| {
-            pallet_balances::GenesisConfig::<Test> {
+            pallet_balances::GenesisConfig::<Test, pallet_balances::Instance1> {
                 balances: vec![
                     (account("Origin", 0, 0), 1 << 32),
                     (account("Vault", 0, 0), 1 << 32),

@@ -20,7 +20,6 @@ frame-system = { git = "https://github.com/paritytech/substrate", branch = "roco
 mocktopus = "0.7.0"
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 sp-io = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
-pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 
 [features]
 default = ["std"]

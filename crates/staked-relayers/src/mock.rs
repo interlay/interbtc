@@ -1,71 +1,55 @@
-/// Mocking the test environment
-use crate::{Config, Error, GenesisConfig, Module};
-use frame_support::{impl_outer_event, impl_outer_origin, parameter_types};
-use pallet_balances as balances;
+use crate as staked_relayers;
+use crate::{Config, Error};
+use frame_support::{parameter_types, traits::StorageMapShim};
+use mocktopus::mocking::clear_mocks;
 use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_core::H256;
-use sp_io;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
 };
 
-use mocktopus::mocking::clear_mocks;
+type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
+type Block = frame_system::mocking::MockBlock<Test>;
 
-impl_outer_origin! {
-    pub enum Origin for Test {}
-}
+// Configure a mock runtime to test the pallet.
+frame_support::construct_runtime!(
+    pub enum Test where
+        Block = Block,
+        NodeBlock = Block,
+        UncheckedExtrinsic = UncheckedExtrinsic,
+    {
+        System: frame_system::{Module, Call, Storage, Config, Event<T>},
+        Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
 
-mod staked_relayers {
-    pub use crate::Event;
-}
+        // Tokens & Balances
+        DOT: pallet_balances::<Instance1>::{Module, Call, Storage, Config<T>, Event<T>},
+        PolkaBTC: pallet_balances::<Instance2>::{Module, Call, Storage, Config<T>, Event<T>},
 
-impl_outer_event! {
-    pub enum TestEvent for Test {
-        frame_system<T>,
-        staked_relayers<T>,
-        balances<T>,
-        collateral<T>,
-        vault_registry<T>,
-        treasury<T>,
-        exchange_rate_oracle<T>,
-        fee<T>,
-        sla<T>,
-        btc_relay,
-        redeem<T>,
-        replace<T>,
-        refund<T>,
-        security,
+        Collateral: collateral::{Module, Call, Storage, Event<T>},
+        Treasury: treasury::{Module, Call, Storage, Event<T>},
+
+        // Operational
+        BTCRelay: btc_relay::{Module, Call, Config<T>, Storage, Event},
+        Security: security::{Module, Call, Storage, Event},
+        StakedRelayers: staked_relayers::{Module, Call, Config<T>, Storage, Event<T>},
+        VaultRegistry: vault_registry::{Module, Call, Config<T>, Storage, Event<T>},
+        ExchangeRateOracle: exchange_rate_oracle::{Module, Call, Config<T>, Storage, Event<T>},
+        Redeem: redeem::{Module, Call, Config<T>, Storage, Event<T>},
+        Replace: replace::{Module, Call, Config<T>, Storage, Event<T>},
+        Fee: fee::{Module, Call, Config<T>, Storage, Event<T>},
+        Sla: sla::{Module, Call, Config<T>, Storage, Event<T>},
+        Refund: refund::{Module, Call, Config<T>, Storage, Event<T>},
     }
-}
-
-pub struct PalletInfo;
-
-impl frame_support::traits::PalletInfo for PalletInfo {
-    fn index<P: 'static>() -> Option<usize> {
-        Some(0)
-    }
-
-    fn name<P: 'static>() -> Option<&'static str> {
-        Some("staked-relayers")
-    }
-}
-
-// For testing the pallet, we construct most of a mock runtime. This means
-// first constructing a configuration type (`Test`) which `impl`s each of the
-// configuration traits of pallets we want to use.
+);
 
 pub type AccountId = u64;
 pub type Balance = u64;
 pub type BlockNumber = u64;
 
-#[derive(Clone, Eq, PartialEq)]
-pub struct Test;
-
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
-    pub BlockWeights: frame_system::limits::BlockWeights =
-        frame_system::limits::BlockWeights::simple_max(1024);
+    pub const SS58Prefix: u8 = 42;
 }
 
 impl frame_system::Config for Test {
@@ -74,9 +58,9 @@ impl frame_system::Config for Test {
     type BlockLength = ();
     type DbWeight = ();
     type Origin = Origin;
+    type Call = Call;
     type Index = u64;
     type BlockNumber = BlockNumber;
-    type Call = ();
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = AccountId;
@@ -86,11 +70,11 @@ impl frame_system::Config for Test {
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
-    type AccountData = pallet_balances::AccountData<Balance>;
+    type AccountData = ();
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
-    type SS58Prefix = ();
+    type SS58Prefix = SS58Prefix;
 }
 
 parameter_types! {
@@ -98,13 +82,35 @@ parameter_types! {
     pub const MaxLocks: u32 = 50;
 }
 
-impl pallet_balances::Config for Test {
+/// DOT
+impl pallet_balances::Config<pallet_balances::Instance1> for Test {
     type MaxLocks = MaxLocks;
     type Balance = Balance;
     type Event = TestEvent;
     type DustRemoval = ();
     type ExistentialDeposit = ExistentialDeposit;
-    type AccountStore = System;
+    type AccountStore = StorageMapShim<
+        pallet_balances::Account<Test, pallet_balances::Instance1>,
+        frame_system::Provider<Test>,
+        AccountId,
+        pallet_balances::AccountData<Balance>,
+    >;
+    type WeightInfo = ();
+}
+
+/// PolkaBTC
+impl pallet_balances::Config<pallet_balances::Instance2> for Test {
+    type MaxLocks = MaxLocks;
+    type Balance = Balance;
+    type Event = TestEvent;
+    type DustRemoval = ();
+    type ExistentialDeposit = ExistentialDeposit;
+    type AccountStore = StorageMapShim<
+        pallet_balances::Account<Test, pallet_balances::Instance2>,
+        frame_system::Provider<Test>,
+        AccountId,
+        pallet_balances::AccountData<Balance>,
+    >;
     type WeightInfo = ();
 }
 
@@ -131,8 +137,8 @@ impl vault_registry::Config for Test {
 }
 
 impl treasury::Config for Test {
-    type PolkaBTC = Balances;
     type Event = TestEvent;
+    type PolkaBTC = pallet_balances::Module<Test, pallet_balances::Instance2>;
 }
 
 impl exchange_rate_oracle::Config for Test {
@@ -159,7 +165,7 @@ impl refund::Config for Test {
 
 impl collateral::Config for Test {
     type Event = TestEvent;
-    type DOT = Balances;
+    type DOT = pallet_balances::Module<Test, pallet_balances::Instance1>;
 }
 
 impl btc_relay::Config for Test {
@@ -193,10 +199,7 @@ impl Config for Test {
     type MaximumMessageSize = MaximumMessageSize;
 }
 
-pub type System = frame_system::Module<Test>;
-pub type Balances = balances::Module<Test>;
-pub type Staking = Module<Test>;
-
+pub type TestEvent = Event;
 pub type TestError = Error<Test>;
 pub type RedeemError = redeem::Error<Test>;
 
@@ -252,7 +255,7 @@ impl ExtBuilder {
 
     pub fn build() -> sp_io::TestExternalities {
         ExtBuilder::build_with(|storage| {
-            pallet_balances::GenesisConfig::<Test> {
+            pallet_balances::GenesisConfig::<Test, pallet_balances::Instance1> {
                 balances: vec![
                     (ALICE, ALICE_BALANCE),
                     (BOB, BOB_BALANCE),
@@ -264,7 +267,7 @@ impl ExtBuilder {
             .assimilate_storage(storage)
             .unwrap();
 
-            GenesisConfig::<Test> {
+            staked_relayers::GenesisConfig::<Test> {
                 gov_id: CAROL,
                 maturity_period: 10,
             }

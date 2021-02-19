@@ -77,7 +77,7 @@ fn test_lock_fails() {
 
         assert_err!(
             Treasury::lock(redeemer, amount),
-            TreasuryError::InsufficientFunds
+            TestError::InsufficientFunds
         );
 
         let balance = Treasury::get_balance_from_account(ALICE);
@@ -129,7 +129,7 @@ fn test_burn_fails() {
 
         assert_err!(
             Treasury::burn(redeemer, amount),
-            TreasuryError::InsufficientLockedFunds
+            TestError::InsufficientLockedFunds
         );
 
         let balance = Treasury::get_balance_from_account(ALICE);
