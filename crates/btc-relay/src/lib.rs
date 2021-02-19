@@ -26,6 +26,7 @@ extern crate mocktopus;
 use mocktopus::macros::mockable;
 
 use frame_support::debug;
+use frame_support::transactional;
 use frame_support::weights::Weight;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
@@ -37,7 +38,6 @@ use primitive_types::U256;
 use sp_core::H160;
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::prelude::*;
-use util::transactional;
 
 // Crates
 pub use bitcoin;

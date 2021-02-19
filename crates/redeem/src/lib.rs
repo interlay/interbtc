@@ -26,11 +26,11 @@ pub use crate::types::RedeemRequest;
 use crate::types::{PolkaBTC, Version, DOT};
 use bitcoin::types::H256Le;
 use btc_relay::BtcAddress;
+use frame_support::transactional;
 use frame_support::weights::Weight;
 use security::ErrorCode;
 use sp_runtime::traits::CheckedAdd;
 use sp_std::convert::TryInto;
-use util::transactional;
 
 /// # PolkaBTC Redeem implementation
 /// The Redeem module according to the specification at
