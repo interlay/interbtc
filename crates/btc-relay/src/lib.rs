@@ -1,11 +1,10 @@
+//! # PolkaBTC BTC-Relay Module
+//! Based on the [specification](https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/).
+
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-/// # BTC-Relay implementation
-/// This is the implementation of the BTC-Relay following the spec at:
-/// https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/
-// Substrate
 mod ext;
 
 mod types;
@@ -64,8 +63,7 @@ pub trait WeightInfo {
 
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
-/// For further reference, see:
-/// https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/spec/data-model.html
+/// For further reference, see the [specification](https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/spec/data-model.html).
 pub trait Config: frame_system::Config + security::Config + sla::Config {
     /// The overarching event type.
     type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
@@ -105,7 +103,7 @@ pub const UNROUNDED_MAX_TARGET: U256 = U256([
 pub const MAIN_CHAIN_ID: u32 = 0;
 
 /// Number of outputs expected in the accepted transaction format
-/// See: https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/intro/accepted-format.html
+/// See: <https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/intro/accepted-format.html>
 pub const ACCEPTED_NO_TRANSACTION_OUTPUTS: u32 = 2;
 
 // This pallet's storage items.

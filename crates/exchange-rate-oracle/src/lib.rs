@@ -1,10 +1,10 @@
+//! # PolkaBTC Oracle Module
+//! Based on the [specification](https://interlay.gitlab.io/polkabtc-spec/spec/oracle.html).
+
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-/// # Exchange Rate Oracle implementation
-/// This is the implementation of the Exchange Rate Oracle following the spec at:
-/// https://interlay.gitlab.io/polkabtc-spec/spec/oracle.html
 mod ext;
 
 #[cfg(any(feature = "runtime-benchmarks", test))]

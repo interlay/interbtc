@@ -1,4 +1,5 @@
-//! # PolkaBTC SLA Pallet
+//! # PolkaBTC SLA Module
+//! Based on the [specification](https://interlay.gitlab.io/polkabtc-spec/spec/sla.html).
 
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]

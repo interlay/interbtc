@@ -1,3 +1,6 @@
+//! # PolkaBTC Security Module
+//! Based on the [specification](https://interlay.gitlab.io/polkabtc-spec/spec/security).
+
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -16,12 +19,10 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
+#[doc(inline)]
 pub use crate::types::{ErrorCode, StatusCode};
+
 use codec::Encode;
-/// # Security module implementation
-/// This is the implementation of the BTC Parachain Security module following the spec at:
-/// https://interlay.gitlab.io/polkabtc-spec/spec/security
-///
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult};
 use primitive_types::H256;
 use sha2::{Digest, Sha256};

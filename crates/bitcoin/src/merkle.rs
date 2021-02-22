@@ -10,17 +10,18 @@ use crate::utils::hash256_merkle_step;
 use crate::Error;
 use sp_std::prelude::*;
 
-/// Values taken from https://github.com/bitcoin/bitcoin/blob/78dae8caccd82cfbfd76557f1fb7d7557c7b5edb/src/consensus/consensus.h
+// Values taken from https://github.com/bitcoin/bitcoin/blob/78dae8caccd82cfbfd76557f1fb7d7557c7b5edb/src/consensus/consensus.h
 const MAX_BLOCK_WEIGHT: u32 = 4_000_000;
 const WITNESS_SCALE_FACTOR: u32 = 4;
 const MIN_TRANSACTION_WEIGHT: u32 = WITNESS_SCALE_FACTOR * 60;
 const MAX_TRANSACTIONS_IN_PROOF: u32 = MAX_BLOCK_WEIGHT / MIN_TRANSACTION_WEIGHT;
 
+/// Stores the content of a merkle tree
 #[derive(Clone)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct MerkleTree;
 
-/// Struct to store the content of a merkle proof
+/// Stores the content of a merkle proof
 #[derive(Clone)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct MerkleProof {
@@ -118,14 +119,14 @@ impl MerkleProof {
 
     /// Performs a depth-first traversal of the partial merkle tree
     /// and returns the computed merkle root
-    /// the code is ported from the official Bitcoin client
-    /// https://github.com/bitcoin/bitcoin/blob/99813a9745fe10a58bedd7a4cb721faf14f907a4/src/merkleblock.cpp
     fn traverse_and_extract(
         &self,
         height: u32,
         pos: u32,
         traversal: &mut MerkleProofTraversal,
     ) -> Result<H256Le, Error> {
+        // this code is ported from the official Bitcoin client:
+        // https://github.com/bitcoin/bitcoin/blob/99813a9745fe10a58bedd7a4cb721faf14f907a4/src/merkleblock.cpp
         let parent_of_hash = *self.flag_bits.get(traversal.bits_used).ok_or(Error::EOS)?;
         traversal.bits_used = traversal
             .bits_used
@@ -231,7 +232,7 @@ impl MerkleProof {
     /// Number of bytes of flag bits (varint, 1 - 3 bytes)
     /// Flag bits (little endian)
     ///
-    /// See: https://bitqa.app/questions/how-to-decode-merkle-transaction-proof-that-bitcoin-sv-software-provides
+    /// See: <https://bitqa.app/questions/how-to-decode-merkle-transaction-proof-that-bitcoin-sv-software-provides>
     ///
     /// # Arguments
     ///
