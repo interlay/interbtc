@@ -8,6 +8,8 @@
 // Substrate
 mod ext;
 
+mod types;
+
 #[cfg(any(feature = "runtime-benchmarks", test))]
 mod benchmarking;
 
@@ -43,14 +45,13 @@ use sp_std::prelude::*;
 pub use bitcoin;
 use bitcoin::merkle::{MerkleProof, ProofResult};
 use bitcoin::parser::{parse_block_header, parse_transaction};
-use bitcoin::types::{
-    BlockChain, BlockHeader, H256Le, RawBlockHeader, RichBlockHeader, Transaction,
-};
+use bitcoin::types::{BlockChain, BlockHeader, H256Le, RawBlockHeader, Transaction};
 use bitcoin::Error as BitcoinError;
 use security::types::ErrorCode;
 
 pub use bitcoin::Address as BtcAddress;
 pub use bitcoin::PublicKey as BtcPublicKey;
+use types::RichBlockHeader;
 
 pub trait WeightInfo {
     fn initialize() -> Weight;

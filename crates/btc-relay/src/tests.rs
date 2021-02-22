@@ -3,6 +3,7 @@ use primitive_types::U256;
 
 use crate::ext;
 use crate::mock::*;
+use crate::types::*;
 use crate::BtcAddress;
 use crate::Event;
 
