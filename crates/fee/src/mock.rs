@@ -1,7 +1,7 @@
-/// Mocking the test environment
-use crate::{Config, Error, Module};
-use frame_support::traits::StorageMapShim;
-use frame_support::{impl_outer_event, impl_outer_origin, parameter_types};
+use crate as fee;
+use crate::{Config, Error};
+use frame_support::{parameter_types, traits::StorageMapShim};
+use mocktopus::mocking::clear_mocks;
 use sp_arithmetic::{FixedI128, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
@@ -9,58 +9,42 @@ use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup},
 };
 
-use mocktopus::mocking::clear_mocks;
+type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
+type Block = frame_system::mocking::MockBlock<Test>;
 
-impl_outer_origin! {
-    pub enum Origin for Test {}
-}
+// Configure a mock runtime to test the pallet.
+frame_support::construct_runtime!(
+    pub enum Test where
+        Block = Block,
+        NodeBlock = Block,
+        UncheckedExtrinsic = UncheckedExtrinsic,
+    {
+        System: frame_system::{Module, Call, Storage, Config, Event<T>},
+        Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
 
-mod test_events {
-    pub use crate::Event;
-}
+        // Tokens & Balances
+        DOT: pallet_balances::<Instance1>::{Module, Call, Storage, Config<T>, Event<T>},
+        PolkaBTC: pallet_balances::<Instance2>::{Module, Call, Storage, Config<T>, Event<T>},
 
-impl_outer_event! {
-    pub enum TestEvent for Test {
-        frame_system<T>,
-        test_events<T>,
-        pallet_balances Instance1<T>,
-        pallet_balances Instance2<T>,
-        collateral<T>,
-        treasury<T>,
-        vault_registry<T>,
-        exchange_rate_oracle<T>,
-        security,
-        sla<T>,
+        Collateral: collateral::{Module, Call, Storage, Event<T>},
+        Treasury: treasury::{Module, Call, Storage, Event<T>},
+
+        // Operational
+        Security: security::{Module, Call, Storage, Event},
+        VaultRegistry: vault_registry::{Module, Call, Config<T>, Storage, Event<T>},
+        ExchangeRateOracle: exchange_rate_oracle::{Module, Call, Config<T>, Storage, Event<T>},
+        Fee: fee::{Module, Call, Config<T>, Storage, Event<T>},
+        Sla: sla::{Module, Call, Config<T>, Storage, Event<T>},
     }
-}
-
-pub struct PalletInfo;
-
-impl frame_support::traits::PalletInfo for PalletInfo {
-    fn index<P: 'static>() -> Option<usize> {
-        Some(0)
-    }
-
-    fn name<P: 'static>() -> Option<&'static str> {
-        Some("fee")
-    }
-}
-
-// For testing the pallet, we construct most of a mock runtime. This means
-// first constructing a configuration type (`Test`) which `impl`s each of the
-// configuration traits of pallets we want to use.
+);
 
 pub type AccountId = u64;
-pub type Balance = u128;
+pub type Balance = u64;
 pub type BlockNumber = u64;
-
-#[derive(Clone, Eq, PartialEq)]
-pub struct Test;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
-    pub BlockWeights: frame_system::limits::BlockWeights =
-        frame_system::limits::BlockWeights::simple_max(1024);
+    pub const SS58Prefix: u8 = 42;
 }
 
 impl frame_system::Config for Test {
@@ -69,9 +53,9 @@ impl frame_system::Config for Test {
     type BlockLength = ();
     type DbWeight = ();
     type Origin = Origin;
+    type Call = Call;
     type Index = u64;
     type BlockNumber = BlockNumber;
-    type Call = ();
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = AccountId;
@@ -85,7 +69,7 @@ impl frame_system::Config for Test {
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
-    type SS58Prefix = ();
+    type SS58Prefix = SS58Prefix;
 }
 
 parameter_types! {
@@ -96,9 +80,7 @@ parameter_types! {
 /// DOT
 impl pallet_balances::Config<pallet_balances::Instance1> for Test {
     type MaxLocks = MaxLocks;
-    /// The type for recording an account's balance.
     type Balance = Balance;
-    /// The ubiquitous event type.
     type Event = TestEvent;
     type DustRemoval = ();
     type ExistentialDeposit = ExistentialDeposit;
@@ -176,14 +158,10 @@ impl Config for Test {
     type WeightInfo = ();
 }
 
+pub type TestEvent = Event;
+
 #[allow(dead_code)]
 pub type TestError = Error<Test>;
-
-#[allow(dead_code)]
-pub type System = frame_system::Module<Test>;
-
-#[allow(dead_code)]
-pub type Fee = Module<Test>;
 
 pub struct ExtBuilder;
 

@@ -160,12 +160,14 @@ mod tests {
 
     #[test]
     fn test_benchmarks() {
-        ExtBuilder::build_with(pallet_balances::GenesisConfig::<Test> {
-            balances: vec![
-                (account("Origin", 0, 0), 1 << 32),
-                (account("Vault", 0, 0), 1 << 32),
-            ],
-        })
+        ExtBuilder::build_with(
+            pallet_balances::GenesisConfig::<Test, pallet_balances::Instance1> {
+                balances: vec![
+                    (account("Origin", 0, 0), 1 << 32),
+                    (account("Vault", 0, 0), 1 << 32),
+                ],
+            },
+        )
         .execute_with(|| {
             assert_ok!(test_benchmark_request_issue::<Test>());
             assert_ok!(test_benchmark_execute_issue::<Test>());

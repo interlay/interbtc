@@ -8,7 +8,7 @@ type Event = crate::Event<Test>;
 
 macro_rules! assert_emitted {
     ($event:expr) => {
-        let test_event = TestEvent::test_events($event);
+        let test_event = TestEvent::fee($event);
         assert!(System::events().iter().any(|a| a.event == test_event));
     };
 }
