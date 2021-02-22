@@ -127,6 +127,8 @@ benchmarks! {
         let old_vault_id: T::AccountId = account("Vault", 0, 0);
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
+        BtcRelay::<T>::register_authorized_relayer(relayer_id.clone());
+
         let new_vault_btc_address = BtcAddress::P2SH(H160([0; 20]));
         let old_vault_btc_address = BtcAddress::P2SH(H160([1; 20]));
 

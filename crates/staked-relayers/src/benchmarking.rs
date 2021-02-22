@@ -75,6 +75,9 @@ benchmarks! {
     report_vault_theft {
         let origin: T::AccountId = account("Origin", 0, 0);
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
+
+        BtcRelay::<T>::register_authorized_relayer(relayer_id.clone());
+
         let stake: u32 = 100;
         StakedRelayers::<T>::insert_active_staked_relayer(&origin, stake.into(), System::<T>::block_number());
 

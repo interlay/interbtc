@@ -153,6 +153,12 @@ decl_storage! {
 
         /// Whether the module should perform OP_RETURN checks.
         DisableOpReturnCheck get(fn disable_op_return_check) config(): bool;
+
+        /// Whether to disable relayer authorization.
+        DisableRelayerAuth get(fn disable_relayer_auth) config(): bool;
+
+        /// Accounts that are able to submit block headers.
+        AuthorizedRelayers: map hasher(blake2_128_concat) T::AccountId => bool;
     }
 }
 
@@ -327,6 +333,28 @@ decl_module! {
 
 #[cfg_attr(test, mockable)]
 impl<T: Config> Module<T> {
+    /// Ensure the given `relayer` is authorized or
+    /// return `Ok(())` if this check is disabled.
+    ///
+    /// # Arguments
+    ///
+    /// * `relayer` - block submitter
+    fn ensure_relayer_authorized(relayer: T::AccountId) -> DispatchResult {
+        ensure!(
+            Self::disable_relayer_auth() || <AuthorizedRelayers<T>>::contains_key(relayer),
+            Error::<T>::RelayerNotAuthorized
+        );
+        Ok(())
+    }
+
+    pub fn register_authorized_relayer(relayer: T::AccountId) {
+        <AuthorizedRelayers<T>>::insert(relayer, true);
+    }
+
+    pub fn deregister_authorized_relayer(relayer: T::AccountId) {
+        <AuthorizedRelayers<T>>::remove(relayer);
+    }
+
     pub fn _initialize(
         relayer: T::AccountId,
         raw_block_header: RawBlockHeader,
@@ -334,6 +362,9 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         // Check if BTC-Relay was already initialized
         ensure!(!Self::best_block_exists(), Error::<T>::AlreadyInitialized);
+
+        // check if the relayer is registered
+        Self::ensure_relayer_authorized(relayer.clone())?;
 
         // Parse the block header bytes to extract the required info
         let basic_block_header =
@@ -376,6 +407,9 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         // Make sure Parachain is not shutdown
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
+
+        // check if the relayer is registered
+        Self::ensure_relayer_authorized(relayer.clone())?;
 
         // Parse the block header bytes to extract the required info
         let basic_block_header = Self::verify_block_header(&raw_block_header)?;
@@ -1603,6 +1637,8 @@ decl_error! {
         ArithmeticOverflow,
         /// Arithmetic underflow
         ArithmeticUnderflow,
+        /// Relayer is not registered
+        RelayerNotAuthorized,
     }
 }
 
