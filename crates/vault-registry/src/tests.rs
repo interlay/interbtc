@@ -441,11 +441,13 @@ fn redeem_tokens_premium_succeeds() {
             assert_eq!(sender, &id);
             MockResult::Return(Ok(()))
         });
+        ext::collateral::release_collateral::<Test>
+            .mock_safe(move |_, _| MockResult::Return(Ok(())));
         VaultRegistry::increase_to_be_issued_tokens(&id, H256::zero(), 50).unwrap();
         assert_ok!(VaultRegistry::issue_tokens(&id, 50));
         assert_ok!(VaultRegistry::increase_to_be_redeemed_tokens(&id, 50));
-        let res = VaultRegistry::redeem_tokens_premium(&id, 50, 30, &user_id);
-        assert_ok!(res);
+        assert_ok!(VaultRegistry::redeem_tokens_premium(&id, 50, 30, &user_id));
+
         let vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
         assert_eq!(vault.data.issued_tokens, 0);
         assert_eq!(vault.data.to_be_redeemed_tokens, 0);
@@ -555,15 +557,54 @@ fn replace_tokens_liquidation_succeeds() {
         VaultRegistry::increase_to_be_issued_tokens(&old_id, H256::zero(), 50).unwrap();
         assert_ok!(VaultRegistry::issue_tokens(&old_id, 50));
         assert_ok!(VaultRegistry::increase_to_be_redeemed_tokens(&old_id, 50));
+        assert_ok!(VaultRegistry::increase_to_be_issued_tokens(
+            &new_id,
+            H256::zero(),
+            50
+        ));
 
-        let res = VaultRegistry::replace_tokens(&old_id, &new_id, 50, 20);
-        assert_ok!(res);
+        assert_ok!(VaultRegistry::replace_tokens(&old_id, &new_id, 50, 20));
+
         let old_vault = VaultRegistry::get_active_rich_vault_from_id(&old_id).unwrap();
         let new_vault = VaultRegistry::get_active_rich_vault_from_id(&new_id).unwrap();
         assert_eq!(old_vault.data.issued_tokens, 0);
         assert_eq!(old_vault.data.to_be_redeemed_tokens, 0);
         assert_eq!(new_vault.data.issued_tokens, 50);
+        assert_eq!(new_vault.data.to_be_issued_tokens, 0);
         assert_emitted!(Event::ReplaceTokens(old_id, new_id, 50, 20));
+    });
+}
+
+#[test]
+fn cancel_replace_tokens_succeeds() {
+    run_test(|| {
+        let old_id = create_sample_vault();
+        let new_id = create_vault(OTHER_ID);
+        set_default_thresholds();
+
+        ext::collateral::lock::<Test>.mock_safe(move |sender, amount| {
+            assert_eq!(sender, &new_id);
+            assert_eq!(amount, 20);
+            MockResult::Return(Ok(()))
+        });
+
+        VaultRegistry::increase_to_be_issued_tokens(&old_id, H256::zero(), 50).unwrap();
+        assert_ok!(VaultRegistry::issue_tokens(&old_id, 50));
+        assert_ok!(VaultRegistry::increase_to_be_redeemed_tokens(&old_id, 50));
+        assert_ok!(VaultRegistry::increase_to_be_issued_tokens(
+            &new_id,
+            H256::zero(),
+            50
+        ));
+
+        assert_ok!(VaultRegistry::cancel_replace_tokens(&old_id, &new_id, 50));
+
+        let old_vault = VaultRegistry::get_active_rich_vault_from_id(&old_id).unwrap();
+        let new_vault = VaultRegistry::get_active_rich_vault_from_id(&new_id).unwrap();
+        assert_eq!(old_vault.data.issued_tokens, 50);
+        assert_eq!(old_vault.data.to_be_redeemed_tokens, 0);
+        assert_eq!(new_vault.data.issued_tokens, 0);
+        assert_eq!(new_vault.data.to_be_issued_tokens, 0);
     });
 }
 

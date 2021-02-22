@@ -343,6 +343,26 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+    pub fn force_increase_to_be_replaced_tokens(
+        vault_id: &T::AccountId,
+        tokens: PolkaBTC<T>,
+    ) -> Result<(), DispatchError> {
+        ext::security::ensure_parachain_status_running::<T>()?;
+        let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
+        vault.increase_to_be_replaced(tokens)?;
+        Ok(())
+    }
+
+    pub fn force_decrease_to_be_replaced_tokens(
+        vault_id: &T::AccountId,
+        tokens: PolkaBTC<T>,
+    ) -> Result<(), DispatchError> {
+        ext::security::ensure_parachain_status_running::<T>()?;
+        let mut vault = Self::get_rich_vault_from_id(&vault_id)?;
+        vault.decrease_to_be_replaced(tokens)?;
+        Ok(())
+    }
+
     /// Decreases the amount of tokens to be issued in the next issue request
     ///
     /// # Arguments
@@ -395,8 +415,7 @@ impl<T: Config> Module<T> {
     /// # Arguments
     /// * `tokens` - the amount of tokens to be unreserved
     pub fn liquidation_vault_force_increase_issued_tokens(tokens: PolkaBTC<T>) -> DispatchResult {
-        Self::get_rich_liquidation_vault().force_issue_tokens(tokens);
-        Ok(())
+        Self::get_rich_liquidation_vault().force_issue_tokens(tokens)
     }
 
     /// Decreases the amount of tokens to be redeemed in the next redeem/replace for
@@ -681,8 +700,8 @@ impl<T: Config> Module<T> {
         } else {
             // equivalent of decrease_tokens, but on liquidation vault
             let mut liquidation_vault = Self::get_rich_liquidation_vault();
-            liquidation_vault.force_decrease_issued(tokens);
-            liquidation_vault.force_decrease_to_be_redeemed(tokens);
+            liquidation_vault.force_decrease_issued(tokens)?;
+            liquidation_vault.force_decrease_to_be_redeemed(tokens)?;
 
             // release old-vault's collateral
             let collateral = ext::collateral::for_account::<T>(&old_vault_id);
@@ -694,7 +713,7 @@ impl<T: Config> Module<T> {
             ext::collateral::release_collateral::<T>(old_vault_id, to_be_released)?;
 
             // reduce old-vault's to-be-redeemed tokens
-            old_vault.force_decrease_to_be_redeemed(tokens);
+            old_vault.force_decrease_to_be_redeemed(tokens)?;
         }
 
         if !new_vault.data.is_liquidated() {
@@ -703,8 +722,8 @@ impl<T: Config> Module<T> {
         } else {
             // change liquidation-vault's to-be-issued tokens to issued tokens
             let mut liquidation_vault = Self::get_rich_liquidation_vault();
-            liquidation_vault.force_decrease_to_be_issued(tokens);
-            liquidation_vault.force_issue_tokens(tokens);
+            liquidation_vault.force_decrease_to_be_issued(tokens)?;
+            liquidation_vault.force_issue_tokens(tokens)?;
         }
 
         Self::deposit_event(Event::<T>::ReplaceTokens(
@@ -744,7 +763,7 @@ impl<T: Config> Module<T> {
 
         if !old_vault.data.is_liquidated() {
             // decrease old-vault's to-be-redeemed tokens
-            old_vault.force_decrease_to_be_redeemed(tokens);
+            old_vault.force_decrease_to_be_redeemed(tokens)?;
         } else {
             let mut liquidation_vault = Self::get_rich_liquidation_vault();
 
@@ -762,16 +781,16 @@ impl<T: Config> Module<T> {
             )?;
 
             // decrease to-be-redeemed on both the old-vault and the liquidation vault
-            liquidation_vault.force_decrease_to_be_redeemed(tokens);
-            old_vault.force_decrease_to_be_redeemed(tokens);
+            liquidation_vault.force_decrease_to_be_redeemed(tokens)?;
+            old_vault.force_decrease_to_be_redeemed(tokens)?;
         }
 
         if !new_vault.data.is_liquidated() {
             // reduce new-vault's to-be-issued tokens
-            new_vault.force_decrease_to_be_issued(tokens);
+            new_vault.force_decrease_to_be_issued(tokens)?;
         } else {
             // reduce liquidation-vault's to-be-issued tokens
-            Self::get_rich_liquidation_vault().force_decrease_to_be_issued(tokens);
+            Self::get_rich_liquidation_vault().force_decrease_to_be_issued(tokens)?;
         }
 
         Ok(())

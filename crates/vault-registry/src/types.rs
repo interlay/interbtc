@@ -85,6 +85,9 @@ impl Default for VaultStatus {
 pub struct Vault<AccountId, BlockNumber, PolkaBTC> {
     // Account identifier of the Vault
     pub id: AccountId,
+    // number of PolkaBTC tokens that have been requested for a replace through
+    // `request_replace`, but that have not been accepted yet by a new_vault.
+    pub to_be_replaced_tokens: PolkaBTC,
     // Number of PolkaBTC tokens pending issue
     pub to_be_issued_tokens: PolkaBTC,
     // Number of issued PolkaBTC tokens
@@ -124,6 +127,7 @@ impl<AccountId, BlockNumber, PolkaBTC: HasCompact + Default>
         Vault {
             id,
             wallet,
+            to_be_replaced_tokens: Default::default(),
             to_be_issued_tokens: Default::default(),
             issued_tokens: Default::default(),
             to_be_redeemed_tokens: Default::default(),
@@ -322,6 +326,37 @@ impl<T: Config> RichVault<T> {
         let issuable_tokens = self.issuable_tokens()?;
         ensure!(issuable_tokens >= tokens, Error::<T>::ExceedingVaultLimit);
         self.force_increase_to_be_issued(tokens)
+    }
+
+    pub fn increase_to_be_replaced(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
+        let new_to_be_replaced = self
+            .data
+            .to_be_replaced_tokens
+            .checked_add(&tokens)
+            .ok_or(Error::<T>::ArithmeticOverflow)?;
+
+        let required_tokens = new_to_be_replaced
+            .checked_add(&self.data.to_be_redeemed_tokens)
+            .ok_or(Error::<T>::ArithmeticOverflow)?;
+
+        ensure!(
+            self.data.issued_tokens >= required_tokens,
+            Error::<T>::InsufficientTokensCommitted
+        );
+        self.update(|v| {
+            v.to_be_replaced_tokens = new_to_be_replaced;
+            Ok(())
+        })
+    }
+
+    pub fn decrease_to_be_replaced(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
+        self.update(|v| {
+            v.to_be_replaced_tokens = v
+                .to_be_replaced_tokens
+                .checked_sub(&tokens)
+                .ok_or(Error::<T>::ArithmeticUnderflow)?;
+            Ok(())
+        })
     }
 
     pub fn decrease_to_be_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {

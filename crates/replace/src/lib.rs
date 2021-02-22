@@ -24,7 +24,7 @@ use frame_system::{ensure_root, ensure_signed};
 #[cfg(test)]
 use mocktopus::macros::mockable;
 use primitive_types::H256;
-use sp_runtime::traits::{CheckedAdd, CheckedSub};
+use sp_runtime::traits::CheckedSub;
 use sp_runtime::ModuleId;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
@@ -310,8 +310,11 @@ impl<T: Config> Module<T> {
         // Lock the oldVault’s griefing collateral
         ext::collateral::lock_collateral::<T>(vault_id.clone(), griefing_collateral)?;
 
-        // Call the increaseToBeRedeemedTokens function with the oldVault and the btcAmount to ensure that the oldVault’s tokens cannot be redeemed when a replace procedure is happening.
-        ext::vault_registry::increase_to_be_redeemed_tokens::<T>(&vault_id, amount_btc.clone())?;
+        // increase to-be-replaced tokens. This will fail if the vault does not have enough tokens available
+        ext::vault_registry::force_increase_to_be_replaced_tokens::<T>(
+            &vault_id,
+            amount_btc.clone(),
+        )?;
 
         // Generate a replaceId by hashing a random seed, a nonce, and the address of the Requester.
         let replace_id = ext::security::get_secure_id::<T>(&vault_id);
@@ -366,13 +369,13 @@ impl<T: Config> Module<T> {
 
         // Release the oldVault’s griefing collateral associated with this ReplaceRequests
         ext::collateral::release_collateral::<T>(
-            replace.old_vault.clone(),
+            &replace.old_vault,
             replace.griefing_collateral.clone(),
         )?;
 
-        // Call the decreaseToBeRedeemedTokens function in the VaultRegistry to allow the vault to be part of other redeem or replace requests again
-        ext::vault_registry::decrease_to_be_redeemed_tokens::<T>(
-            replace.old_vault,
+        // decrease to-be-replaced tokens, so that the vault is free to use its issued tokens again
+        ext::vault_registry::force_decrease_to_be_replaced_tokens::<T>(
+            &replace.old_vault,
             replace.amount.clone(),
         )?;
 
@@ -407,6 +410,16 @@ impl<T: Config> Module<T> {
 
         // Lock the new-vault's additional collateral
         ext::collateral::lock_collateral::<T>(new_vault_id.clone(), collateral)?;
+
+        // decrease old-vault's to-be-replaced tokens; turn them into to-be-redeemed tokens
+        ext::vault_registry::force_decrease_to_be_replaced_tokens::<T>(
+            &replace.old_vault,
+            replace.amount.clone(),
+        )?;
+        ext::vault_registry::increase_to_be_redeemed_tokens::<T>(
+            &replace.old_vault,
+            replace.amount.clone(),
+        )?;
 
         // increase to-be-issued tokens - this will fail if there is insufficient collateral
         ext::vault_registry::force_increase_to_be_issued_tokens::<T>(
@@ -532,9 +545,6 @@ impl<T: Config> Module<T> {
             Error::<T>::ReplacePeriodExpired
         );
 
-        // Retrieve the Vault as per the newVault parameter from Vaults in the VaultRegistry
-        let _new_vault = ext::vault_registry::get_vault_from_id::<T>(&new_vault_id)?;
-
         // Call verifyTransactionInclusion in BTC-Relay, providing txid, txBlockHeight, txIndex, and merkleProof as parameters
         ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
 
@@ -567,10 +577,7 @@ impl<T: Config> Module<T> {
 
         // if the old vault has not been liquidated, give it back its griefing collateral
         if !ext::vault_registry::is_vault_liquidated::<T>(&old_vault_id)? {
-            ext::collateral::release_collateral::<T>(
-                old_vault_id.clone(),
-                replace.griefing_collateral,
-            )?;
+            ext::collateral::release_collateral::<T>(&old_vault_id, replace.griefing_collateral)?;
         }
 
         // Emit ExecuteReplace event.
@@ -606,8 +613,8 @@ impl<T: Config> Module<T> {
         // // Release the newVault's collateral associated with this ReplaceRequests
         // ext::collateral::release_collateral::<T>(new_vault_id.clone(), replace.collateral)?;
 
-        // decrease old-vault's issued & to-be-redeemed tokens, and
-        // change new-vault's to-be-issued tokens to issued tokens
+        // decrease old-vault's to-be-redeemed tokens, and
+        // decrease new-vault's to-be-issued tokens
         ext::vault_registry::cancel_replace_tokens::<T>(
             &replace.old_vault,
             &new_vault_id,
@@ -625,6 +632,10 @@ impl<T: Config> Module<T> {
                     new_vault_id.clone(),
                     replace.griefing_collateral,
                 )?;
+                // ext::collateral::release_collateral::<T>(
+                //     &new_vault_id,
+                //     replace.griefing_collateral,
+                // )?;
             } else {
                 ext::collateral::slash_collateral::<T>(
                     replace.old_vault.clone(),
@@ -641,20 +652,12 @@ impl<T: Config> Module<T> {
                 .checked_sub(&replace.collateral)
                 .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
-            let new_vault = ext::vault_registry::get_vault_from_id::<T>(&new_vault_id)?;
+            let required_collateral =
+                ext::vault_registry::get_required_collateral_for_vault::<T>(&new_vault_id)?;
 
-            let collateral_is_needed =
-                ext::vault_registry::is_collateral_below_secure_threshold::<T>(
-                    new_collateral,
-                    new_vault
-                        .issued_tokens
-                        .checked_add(&new_vault.to_be_issued_tokens)
-                        .ok_or(Error::<T>::ArithmeticOverflow)?,
-                )?;
-
-            if !collateral_is_needed {
+            if new_collateral >= required_collateral {
                 // Release the newVault's collateral associated with this ReplaceRequests
-                ext::collateral::release_collateral::<T>(new_vault_id.clone(), replace.collateral)?;
+                ext::collateral::release_collateral::<T>(&new_vault_id, replace.collateral)?;
             }
         }
 

@@ -64,6 +64,7 @@ fn test_request_redeem_fails_with_amount_exceeds_user_balance() {
         ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
+                to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
                 to_be_redeemed_tokens: 0,
@@ -89,6 +90,7 @@ fn test_request_redeem_fails_with_amount_below_minimum() {
             &BOB,
             vault_registry::Vault {
                 id: BOB,
+                to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
                 to_be_redeemed_tokens: 0,
@@ -138,6 +140,7 @@ fn test_request_redeem_fails_with_vault_banned() {
         ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
+                to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
@@ -162,6 +165,7 @@ fn test_request_redeem_fails_with_vault_liquidated() {
         ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
+                to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 5,
                 to_be_redeemed_tokens: 0,
@@ -186,6 +190,7 @@ fn test_request_redeem_fails_with_amount_exceeds_vault_balance() {
         ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
+                to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
                 to_be_redeemed_tokens: 0,
@@ -213,6 +218,7 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
             &BOB,
             vault_registry::Vault {
                 id: BOB,
+                to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
                 to_be_redeemed_tokens: 0,
@@ -407,6 +413,7 @@ fn test_execute_redeem_succeeds() {
             &BOB,
             vault_registry::Vault {
                 id: BOB,
+                to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 200,
                 to_be_redeemed_tokens: 200,

@@ -51,6 +51,7 @@ pub struct CoreVaultData {
 }
 
 impl CoreVaultData {
+    #[allow(dead_code)]
     pub fn vault(vault: [u8; 32]) -> Self {
         let account_id = account_of(vault);
         let vault = VaultRegistryModule::get_vault_from_id(&account_id).unwrap();
@@ -62,6 +63,7 @@ impl CoreVaultData {
             free_balance: CollateralModule::get_balance_from_account(&account_id),
         }
     }
+    #[allow(dead_code)]
     pub fn liquidation_vault() -> Self {
         let account_id = account_of(LIQUIDATION_VAULT);
         let vault = VaultRegistryModule::get_liquidation_vault();
@@ -75,6 +77,7 @@ impl CoreVaultData {
     }
 }
 
+#[allow(dead_code)]
 pub fn force_vault_state(vault: [u8; 32], state: CoreVaultData) {
     let current = CoreVaultData::vault(vault);
     if current.to_be_issued < state.to_be_issued {

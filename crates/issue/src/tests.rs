@@ -99,6 +99,7 @@ fn test_request_issue_banned_fails() {
             &BOB,
             vault_registry::Vault {
                 id: BOB,
+                to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
@@ -197,6 +198,8 @@ fn test_execute_issue_succeeds() {
     run_test(|| {
         ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
+        ext::vault_registry::get_vault_from_id::<Test>
+            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
         ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
         let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
@@ -216,6 +219,8 @@ fn test_execute_issue_succeeds() {
 fn test_execute_issue_overpayment_succeeds() {
     run_test(|| {
         ext::vault_registry::get_active_vault_from_id::<Test>
+            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
+        ext::vault_registry::get_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
         ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
@@ -260,6 +265,8 @@ fn test_execute_issue_overpayment_succeeds() {
 fn test_execute_issue_refund_succeeds() {
     run_test(|| {
         ext::vault_registry::get_active_vault_from_id::<Test>
+            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
+        ext::vault_registry::get_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
         ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
@@ -326,6 +333,8 @@ fn test_cancel_issue_succeeds() {
         <frame_system::Module<Test>>::set_block_number(1);
 
         ext::vault_registry::get_active_vault_from_id::<Test>
+            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
+        ext::vault_registry::get_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
         ext::vault_registry::decrease_to_be_issued_tokens::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(())));
