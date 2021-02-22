@@ -610,9 +610,6 @@ impl<T: Config> Module<T> {
         // only cancellable by new_vault
         ensure!(caller == new_vault_id, Error::<T>::UnauthorizedVault);
 
-        // // Release the newVault's collateral associated with this ReplaceRequests
-        // ext::collateral::release_collateral::<T>(new_vault_id.clone(), replace.collateral)?;
-
         // decrease old-vault's to-be-redeemed tokens, and
         // decrease new-vault's to-be-issued tokens
         ext::vault_registry::cancel_replace_tokens::<T>(
@@ -632,10 +629,6 @@ impl<T: Config> Module<T> {
                     new_vault_id.clone(),
                     replace.griefing_collateral,
                 )?;
-                // ext::collateral::release_collateral::<T>(
-                //     &new_vault_id,
-                //     replace.griefing_collateral,
-                // )?;
             } else {
                 ext::collateral::slash_collateral::<T>(
                     replace.old_vault.clone(),
