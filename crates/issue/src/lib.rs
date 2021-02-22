@@ -235,9 +235,9 @@ impl<T: Config> Module<T> {
 
         let issue_id = ext::security::get_secure_id::<T>(&requester);
 
-        let btc_address = ext::vault_registry::increase_to_be_issued_tokens::<T>(
-            &vault_id, issue_id, amount_btc,
-        )?;
+        ext::vault_registry::increase_to_be_issued_tokens::<T>(&vault_id, amount_btc)?;
+
+        let btc_address = ext::vault_registry::_register_address::<T>(&vault_id, issue_id)?;
 
         Self::insert_issue_request(
             issue_id,
@@ -318,7 +318,7 @@ impl<T: Config> Module<T> {
             if amount_transferred > total_amount {
                 let surplus_btc = amount_transferred - total_amount;
 
-                match ext::vault_registry::force_increase_to_be_issued_tokens::<T>(
+                match ext::vault_registry::increase_to_be_issued_tokens::<T>(
                     &issue.vault,
                     surplus_btc,
                 ) {

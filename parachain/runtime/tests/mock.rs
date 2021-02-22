@@ -83,7 +83,6 @@ pub fn force_vault_state(vault: [u8; 32], state: CoreVaultData) {
     if current.to_be_issued < state.to_be_issued {
         assert_ok!(VaultRegistryModule::increase_to_be_issued_tokens(
             &account_of(vault),
-            H256::random(),
             state.to_be_issued - current.to_be_issued
         ));
     }
@@ -91,7 +90,6 @@ pub fn force_vault_state(vault: [u8; 32], state: CoreVaultData) {
     if current.issued < state.issued {
         assert_ok!(VaultRegistryModule::increase_to_be_issued_tokens(
             &account_of(vault),
-            H256::random(),
             state.issued - current.issued
         ));
 
@@ -144,7 +142,6 @@ pub fn force_issue_tokens(user: [u8; 32], vault: [u8; 32], collateral: u128, tok
     // increase to be issued tokens
     assert_ok!(VaultRegistryModule::increase_to_be_issued_tokens(
         &account_of(vault),
-        H256::random(),
         tokens
     ));
 

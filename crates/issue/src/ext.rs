@@ -43,17 +43,16 @@ pub(crate) mod vault_registry {
 
     pub fn increase_to_be_issued_tokens<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-        secure_id: H256,
-        amount: PolkaBTC<T>,
-    ) -> Result<BtcAddress, DispatchError> {
-        <vault_registry::Module<T>>::increase_to_be_issued_tokens(vault_id, secure_id, amount)
-    }
-
-    pub fn force_increase_to_be_issued_tokens<T: vault_registry::Config>(
-        vault_id: &T::AccountId,
         amount: PolkaBTC<T>,
     ) -> Result<(), DispatchError> {
-        <vault_registry::Module<T>>::force_increase_to_be_issued_tokens(vault_id, amount)
+        <vault_registry::Module<T>>::increase_to_be_issued_tokens(vault_id, amount)
+    }
+
+    pub fn _register_address<T: vault_registry::Config>(
+        vault_id: &T::AccountId,
+        secure_id: H256,
+    ) -> Result<BtcAddress, DispatchError> {
+        <vault_registry::Module<T>>::_register_address(vault_id, secure_id)
     }
 
     pub fn issue_tokens<T: vault_registry::Config>(

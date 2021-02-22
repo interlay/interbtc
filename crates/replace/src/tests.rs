@@ -426,7 +426,7 @@ fn test_accept_replace_insufficient_collateral_fails() {
             .mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::increase_to_be_redeemed_tokens::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(())));
-        ext::vault_registry::force_increase_to_be_issued_tokens::<Test>.mock_safe(|_, _| {
+        ext::vault_registry::increase_to_be_issued_tokens::<Test>.mock_safe(|_, _| {
             MockResult::Return(Err(VaultRegistryError::ExceedingVaultLimit.into()))
         });
 
@@ -713,7 +713,7 @@ fn test_accept_replace_succeeds() {
         ext::vault_registry::increase_to_be_redeemed_tokens::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(())));
 
-        ext::vault_registry::force_increase_to_be_issued_tokens::<Test>
+        ext::vault_registry::increase_to_be_issued_tokens::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(())));
 
         ext::vault_registry::insert_vault_deposit_address::<Test>
@@ -775,7 +775,7 @@ fn test_auction_replace_succeeds() {
         ext::fee::get_replace_griefing_collateral::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(griefing_collateral)));
 
-        ext::vault_registry::force_increase_to_be_issued_tokens::<Test>
+        ext::vault_registry::increase_to_be_issued_tokens::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(())));
 
         Replace::current_height.mock_safe(move || MockResult::Return(height.clone()));

@@ -24,7 +24,9 @@ fn request_issue(
     ext::security::get_secure_id::<Test>.mock_safe(|_| MockResult::Return(get_dummy_request_id()));
 
     ext::vault_registry::increase_to_be_issued_tokens::<Test>
-        .mock_safe(|_, _, _| MockResult::Return(Ok(BtcAddress::default())));
+        .mock_safe(|_, _| MockResult::Return(Ok(())));
+    ext::vault_registry::_register_address::<Test>
+        .mock_safe(|_, _| MockResult::Return(Ok(BtcAddress::default())));
 
     Issue::_request_issue(origin, amount, vault, collateral)
 }
@@ -43,7 +45,9 @@ fn request_issue_ok(
     ext::security::get_secure_id::<Test>.mock_safe(|_| MockResult::Return(get_dummy_request_id()));
 
     ext::vault_registry::increase_to_be_issued_tokens::<Test>
-        .mock_safe(|_, _, _| MockResult::Return(Ok(BtcAddress::default())));
+        .mock_safe(|_, _| MockResult::Return(Ok(())));
+    ext::vault_registry::_register_address::<Test>
+        .mock_safe(|_, _| MockResult::Return(Ok(BtcAddress::default())));
 
     Issue::_request_issue(origin, amount, vault, collateral).unwrap()
 }
@@ -240,13 +244,11 @@ fn test_execute_issue_overpayment_succeeds() {
             let mut increase_tokens_called = false;
             let mut refund_called = false;
 
-            ext::vault_registry::force_increase_to_be_issued_tokens::<Test>.mock_raw(
-                |_, amount| {
-                    increase_tokens_called = true;
-                    assert_eq!(amount, 2);
-                    MockResult::Return(Ok(()))
-                },
-            );
+            ext::vault_registry::increase_to_be_issued_tokens::<Test>.mock_raw(|_, amount| {
+                increase_tokens_called = true;
+                assert_eq!(amount, 2);
+                MockResult::Return(Ok(()))
+            });
 
             // check that request_refund is not called..
             ext::refund::request_refund::<Test>.mock_raw(|_, _, _, _, _| {
@@ -283,10 +285,12 @@ fn test_execute_issue_refund_succeeds() {
             .mock_safe(|_, _, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 103))));
 
         // return some arbitrary error
-        ext::vault_registry::increase_to_be_issued_tokens::<Test>.mock_safe(|_, _, amount| {
+        ext::vault_registry::increase_to_be_issued_tokens::<Test>.mock_safe(|_, amount| {
             assert_eq!(amount, 100);
             MockResult::Return(Err(TestError::IssueCompleted.into()))
         });
+        ext::vault_registry::_register_address::<Test>
+            .mock_safe(|_, _| MockResult::Return(Ok(BtcAddress::default())));
 
         unsafe {
             let mut refund_called = false;

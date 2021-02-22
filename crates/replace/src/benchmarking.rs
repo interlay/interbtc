@@ -90,7 +90,7 @@ benchmarks! {
         ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()).unwrap();
 
         Collateral::<T>::lock_collateral(&old_vault_id, 100000000u32.into()).unwrap();
-        VaultRegistry::<T>::force_increase_to_be_issued_tokens(&old_vault_id, amount.into()).unwrap();
+        VaultRegistry::<T>::increase_to_be_issued_tokens(&old_vault_id, amount.into()).unwrap();
         VaultRegistry::<T>::issue_tokens(&old_vault_id, amount.into()).unwrap();
         VaultRegistry::<T>::force_increase_to_be_replaced_tokens(&old_vault_id, amount.into()).unwrap();
 
@@ -253,12 +253,12 @@ benchmarks! {
         ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()).unwrap();
 
         Collateral::<T>::lock_collateral(&old_vault_id, 100000000u32.into()).unwrap();
-        VaultRegistry::<T>::force_increase_to_be_issued_tokens(&old_vault_id, amount.into()).unwrap();
+        VaultRegistry::<T>::increase_to_be_issued_tokens(&old_vault_id, amount.into()).unwrap();
         VaultRegistry::<T>::issue_tokens(&old_vault_id, amount.into()).unwrap();
         VaultRegistry::<T>::increase_to_be_redeemed_tokens(&old_vault_id, amount.into()).unwrap();
 
         Collateral::<T>::lock_collateral(&new_vault_id, 100000000u32.into()).unwrap();
-        VaultRegistry::<T>::force_increase_to_be_issued_tokens(&new_vault_id, amount.into()).unwrap();
+        VaultRegistry::<T>::increase_to_be_issued_tokens(&new_vault_id, amount.into()).unwrap();
 
     }: _(RawOrigin::Signed(new_vault_id), replace_id)
 

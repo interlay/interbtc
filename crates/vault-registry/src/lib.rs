@@ -308,31 +308,12 @@ impl<T: Config> Module<T> {
         <LiquidationVault<T>>::get()
     }
 
-    /// Increases the amount of tokens to be issued in the next issue request
+    /// Increases the amount of tokens to be issued (in replace or issue)
     ///
     /// # Arguments
     /// * `vault_id` - the id of the vault from which to increase to-be-issued tokens
-    /// * `secure_id` - secure id for generating deposit address
     /// * `tokens` - the amount of tokens to be reserved
-    ///
-    /// # Errors
-    /// * `VaultNotFound` - if no vault exists for the given `vault_id`
-    /// * `ExceedingVaultLimit` - if the amount of tokens to be issued is higher than the issuable amount by the vault
     pub fn increase_to_be_issued_tokens(
-        vault_id: &T::AccountId,
-        secure_id: H256,
-        tokens: PolkaBTC<T>,
-    ) -> Result<BtcAddress, DispatchError> {
-        ext::security::ensure_parachain_status_running::<T>()?;
-        let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
-        vault.increase_to_be_issued(tokens)?;
-        Self::deposit_event(Event::<T>::IncreaseToBeIssuedTokens(vault.id(), tokens));
-        let btc_address = vault.new_deposit_address(secure_id)?;
-        Self::deposit_event(Event::<T>::RegisterAddress(vault.id(), btc_address));
-        Ok(btc_address)
-    }
-
-    pub fn force_increase_to_be_issued_tokens(
         vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
     ) -> Result<(), DispatchError> {
@@ -341,6 +322,20 @@ impl<T: Config> Module<T> {
         vault.increase_to_be_issued(tokens)?;
         Self::deposit_event(Event::<T>::IncreaseToBeIssuedTokens(vault.id(), tokens));
         Ok(())
+    }
+
+    /// Registers a btc address
+    ///
+    /// # Arguments
+    /// * `issue_id` - secure id for generating deposit address
+    pub fn _register_address(
+        vault_id: &T::AccountId,
+        issue_id: H256,
+    ) -> Result<BtcAddress, DispatchError> {
+        let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
+        let btc_address = vault.new_deposit_address(issue_id)?;
+        Self::deposit_event(Event::<T>::RegisterAddress(vault.id(), btc_address));
+        Ok(btc_address)
     }
 
     pub fn force_increase_to_be_replaced_tokens(

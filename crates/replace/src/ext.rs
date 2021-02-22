@@ -106,11 +106,11 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::insert_vault_deposit_address(vault_id, btc_address)
     }
 
-    pub fn force_increase_to_be_issued_tokens<T: vault_registry::Config>(
+    pub fn increase_to_be_issued_tokens<T: vault_registry::Config>(
         vault_id: &T::AccountId,
         amount: PolkaBTC<T>,
     ) -> Result<(), DispatchError> {
-        <vault_registry::Module<T>>::force_increase_to_be_issued_tokens(vault_id, amount)
+        <vault_registry::Module<T>>::increase_to_be_issued_tokens(vault_id, amount)
     }
 
     pub fn get_liquidation_vault<T: vault_registry::Config>() -> DefaultSystemVault<T> {

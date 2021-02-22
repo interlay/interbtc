@@ -422,10 +422,7 @@ impl<T: Config> Module<T> {
         )?;
 
         // increase to-be-issued tokens - this will fail if there is insufficient collateral
-        ext::vault_registry::force_increase_to_be_issued_tokens::<T>(
-            &new_vault_id,
-            replace.amount,
-        )?;
+        ext::vault_registry::increase_to_be_issued_tokens::<T>(&new_vault_id, replace.amount)?;
 
         // Update the ReplaceRequest entry
         replace.add_new_vault(new_vault_id.clone(), height, collateral, btc_address);
@@ -470,7 +467,7 @@ impl<T: Config> Module<T> {
         ext::collateral::lock_collateral::<T>(new_vault_id.clone(), collateral)?;
 
         // increase to-be-issued tokens - this will fail if there is insufficient collateral
-        ext::vault_registry::force_increase_to_be_issued_tokens::<T>(&new_vault_id, btc_amount)?;
+        ext::vault_registry::increase_to_be_issued_tokens::<T>(&new_vault_id, btc_amount)?;
 
         // claim auctioning fee that is proportional to replace amount
         let dot_amount = ext::oracle::btc_to_dots::<T>(btc_amount)?;
