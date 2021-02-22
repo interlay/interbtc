@@ -297,7 +297,7 @@ pub fn parse_compact_uint(varint: &[u8]) -> Result<(u64, usize), Error> {
 
 /// Parses a single bitcoin transaction
 /// Serialization format is documented below
-/// https://github.com/bitcoin/bitcoin/blob/master/src/primitives/transaction.h#L182
+/// <https://github.com/bitcoin/bitcoin/blob/master/src/primitives/transaction.h#L182>
 /// # Arguments
 ///
 /// * `raw_transaction` - the raw bytes of the transaction

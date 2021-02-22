@@ -1,10 +1,10 @@
+//! # PolkaBTC Vault Registry Module
+//! Based on the [specification](https://interlay.gitlab.io/polkabtc-spec/spec/vaultregistry.html).
+
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-/// # Vault Registry implementation
-/// This is the implementation of the Vault Registry following the spec at:
-/// https://interlay.gitlab.io/polkabtc-spec/spec/vaultregistry.html
 mod ext;
 pub mod types;
 
@@ -46,6 +46,7 @@ use crate::types::{
     BtcAddress, DefaultSystemVault, DefaultVault, Inner, PolkaBTC, RichSystemVault, RichVault,
     UnsignedFixedPoint, UpdatableVault, Version, DOT,
 };
+#[doc(inline)]
 pub use crate::types::{BtcPublicKey, SystemVault, Vault, VaultStatus, Wallet};
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]

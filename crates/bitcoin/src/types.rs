@@ -21,8 +21,8 @@ use sp_std::prelude::*;
 
 pub(crate) const SERIALIZE_TRANSACTION_NO_WITNESS: i32 = 0x4000_0000;
 
-// Bitcoin Script OpCodes
-// https://github.com/bitcoin/bitcoin/blob/master/src/script/script.h
+/// Bitcoin Script OpCodes
+/// <https://github.com/bitcoin/bitcoin/blob/master/src/script/script.h>
 #[derive(Copy, Clone)]
 pub enum OpCode {
     // push value
@@ -159,8 +159,8 @@ pub enum OpCode {
 }
 
 /// Custom Types
-/// Bitcoin Raw Block Header type
 
+/// Bitcoin raw block header (80 bytes)
 #[derive(Encode, Decode, Copy, Clone)]
 pub struct RawBlockHeader([u8; 80]);
 
@@ -329,6 +329,7 @@ impl Transaction {
     }
 }
 
+/// Bitcoin block: header and transactions
 #[derive(Default, Clone, PartialEq, Debug)]
 pub struct Block {
     pub header: BlockHeader,
@@ -640,6 +641,7 @@ impl CompactUint {
     }
 }
 
+/// Construct txs from inputs and outputs
 pub struct TransactionBuilder {
     transaction: Transaction,
 }
@@ -695,14 +697,15 @@ impl TransactionBuilder {
     }
 }
 
+/// Construct transaction inputs
 pub struct TransactionInputBuilder {
-    trasaction_input: TransactionInput,
+    transaction_input: TransactionInput,
 }
 
 impl Default for TransactionInputBuilder {
     fn default() -> Self {
         TransactionInputBuilder {
-            trasaction_input: TransactionInput {
+            transaction_input: TransactionInput {
                 previous_hash: H256Le::zero(),
                 previous_index: 0,
                 coinbase: true,
@@ -722,42 +725,42 @@ impl TransactionInputBuilder {
     }
 
     pub fn with_previous_hash(&mut self, previous_hash: H256Le) -> &mut Self {
-        self.trasaction_input.previous_hash = previous_hash;
+        self.transaction_input.previous_hash = previous_hash;
         self
     }
 
     pub fn with_previous_index(&mut self, previous_index: u32) -> &mut Self {
-        self.trasaction_input.previous_index = previous_index;
+        self.transaction_input.previous_index = previous_index;
         self
     }
 
     pub fn with_coinbase(&mut self, coinbase: bool) -> &mut Self {
-        self.trasaction_input.coinbase = coinbase;
+        self.transaction_input.coinbase = coinbase;
         self
     }
 
     pub fn with_script(&mut self, script: &[u8]) -> &mut Self {
-        self.trasaction_input.script = Vec::from(script);
+        self.transaction_input.script = Vec::from(script);
         self
     }
 
     pub fn with_height(&mut self, height: u32) -> &mut Self {
-        self.trasaction_input.height = Some(height);
+        self.transaction_input.height = Some(height);
         self
     }
 
     pub fn with_sequence(&mut self, sequence: u32) -> &mut Self {
-        self.trasaction_input.sequence = sequence;
+        self.transaction_input.sequence = sequence;
         self
     }
 
     pub fn add_witness(&mut self, witness: &[u8]) -> &mut Self {
-        self.trasaction_input.witness.push(Vec::from(witness));
+        self.transaction_input.witness.push(Vec::from(witness));
         self
     }
 
     pub fn build(&self) -> TransactionInput {
-        self.trasaction_input.clone()
+        self.transaction_input.clone()
     }
 }
 

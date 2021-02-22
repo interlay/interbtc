@@ -1,3 +1,6 @@
+//! # PolkaBTC Staked Relayers Module
+//! Based on the [specification](https://interlay.gitlab.io/polkabtc-spec/spec/staked-relayers.html).
+
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -31,11 +34,6 @@ use bitcoin::parser::parse_transaction;
 use bitcoin::types::*;
 use btc_relay::BtcAddress;
 use frame_support::transactional;
-
-/// # Staked Relayers module implementation
-/// This is the implementation of the BTC Parachain Staked Relayers module following the spec at:
-/// https://interlay.gitlab.io/polkabtc-spec/spec/staked-relayers.html
-///
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},

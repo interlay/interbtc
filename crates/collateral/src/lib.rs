@@ -1,3 +1,6 @@
+//! # PolkaBTC Collateral Module
+//! Based on the [specification](https://interlay.gitlab.io/polkabtc-spec/spec/collateral.html).
+
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -10,8 +13,6 @@ mod tests;
 
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::{Currency, ExistenceRequirement, ReservableCurrency};
-/// The Collateral module according to the specification at
-/// https://interlay.gitlab.io/polkabtc-spec/spec/collateral.html
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, ensure, sp_runtime::ModuleId,
 };

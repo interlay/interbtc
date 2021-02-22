@@ -1,4 +1,5 @@
-//! # PolkaBTC Fee Pallet
+//! # PolkaBTC Fee Module
+//! Based on the [specification](https://interlay.gitlab.io/polkabtc-spec/spec/fee.html).
 
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
