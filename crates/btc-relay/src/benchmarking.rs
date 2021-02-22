@@ -12,6 +12,8 @@ use sp_core::{H256, U256};
 use sp_std::prelude::*;
 
 fn mine_genesis<T: Config>(address: &BtcAddress, height: u32) -> Block {
+    let relayer_id: T::AccountId = account("Relayer", 0, 0);
+
     let block = BlockBuilder::new()
         .with_version(2)
         .with_coinbase(address, 50, 3)
@@ -20,7 +22,7 @@ fn mine_genesis<T: Config>(address: &BtcAddress, height: u32) -> Block {
         .unwrap();
 
     let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
-    BtcRelay::<T>::_initialize(block_header, height).unwrap();
+    BtcRelay::<T>::_initialize(relayer_id, block_header, height).unwrap();
 
     block
 }
@@ -108,7 +110,7 @@ benchmarks! {
         let raw_block_header = RawBlockHeader::from_bytes(&init_block.header.try_format().unwrap())
             .expect("could not serialize block header");
 
-        BtcRelay::<T>::_initialize(raw_block_header, height).unwrap();
+        BtcRelay::<T>::_initialize(origin.clone(), raw_block_header, height).unwrap();
 
         let block = BlockBuilder::new()
             .with_previous_hash(init_block_hash)
@@ -141,7 +143,7 @@ benchmarks! {
         let raw_block_header_0 = RawBlockHeader::from_bytes(&init_block.header.try_format().unwrap())
             .expect("could not serialize block header");
 
-        BtcRelay::<T>::_initialize(raw_block_header_0, height).unwrap();
+        BtcRelay::<T>::_initialize(origin.clone(), raw_block_header_0, height).unwrap();
 
         let block = BlockBuilder::new()
             .with_previous_hash(block_hash_0)

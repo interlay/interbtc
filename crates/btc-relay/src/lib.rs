@@ -8,6 +8,8 @@
 // Substrate
 mod ext;
 
+mod types;
+
 #[cfg(any(feature = "runtime-benchmarks", test))]
 mod benchmarking;
 
@@ -43,14 +45,13 @@ use sp_std::prelude::*;
 pub use bitcoin;
 use bitcoin::merkle::{MerkleProof, ProofResult};
 use bitcoin::parser::{parse_block_header, parse_transaction};
-use bitcoin::types::{
-    BlockChain, BlockHeader, H256Le, RawBlockHeader, RichBlockHeader, Transaction,
-};
+use bitcoin::types::{BlockChain, BlockHeader, H256Le, RawBlockHeader, Transaction};
 use bitcoin::Error as BitcoinError;
 use security::types::ErrorCode;
 
 pub use bitcoin::Address as BtcAddress;
 pub use bitcoin::PublicKey as BtcPublicKey;
+use types::RichBlockHeader;
 
 pub trait WeightInfo {
     fn initialize() -> Weight;
@@ -112,7 +113,7 @@ decl_storage! {
     trait Store for Module<T: Config> as BTCRelay {
         /// ## Storage
         /// Store Bitcoin block headers
-        BlockHeaders: map hasher(blake2_128_concat) H256Le => RichBlockHeader;
+        BlockHeaders: map hasher(blake2_128_concat) H256Le => RichBlockHeader<T::AccountId>;
 
         /// Priority queue of BlockChain elements, ordered by the maximum height (descending).
         /// The first index into this mapping (0) is considered to be the longest chain. The value
@@ -190,8 +191,8 @@ decl_module! {
             block_height: u32)
             -> DispatchResult
         {
-            let _ = ensure_signed(origin)?;
-            Self::_initialize(raw_block_header, block_height)
+            let relayer = ensure_signed(origin)?;
+            Self::_initialize(relayer, raw_block_header, block_height)
         }
 
         /// Stores a single new block header
@@ -326,7 +327,11 @@ decl_module! {
 
 #[cfg_attr(test, mockable)]
 impl<T: Config> Module<T> {
-    pub fn _initialize(raw_block_header: RawBlockHeader, block_height: u32) -> DispatchResult {
+    pub fn _initialize(
+        relayer: T::AccountId,
+        raw_block_header: RawBlockHeader,
+        block_height: u32,
+    ) -> DispatchResult {
         // Check if BTC-Relay was already initialized
         ensure!(!Self::best_block_exists(), Error::<T>::AlreadyInitialized);
 
@@ -338,11 +343,12 @@ impl<T: Config> Module<T> {
         // construct the BlockChain struct
         let blockchain = Self::initialize_blockchain(block_height, block_header_hash);
         // Create rich block header
-        let block_header = RichBlockHeader {
+        let block_header = RichBlockHeader::<T::AccountId> {
             block_hash: block_header_hash,
             block_header: basic_block_header,
             block_height: block_height,
             chain_ref: blockchain.chain_id,
+            account_id: relayer,
         };
 
         // Store a new BlockHeader struct in BlockHeaders
@@ -405,11 +411,12 @@ impl<T: Config> Module<T> {
         };
 
         // Create rich block header
-        let block_header = RichBlockHeader {
+        let block_header = RichBlockHeader::<T::AccountId> {
             block_hash: block_header_hash,
             block_header: basic_block_header,
             block_height: current_block_height,
             chain_ref: blockchain.chain_id,
+            account_id: relayer.clone(),
         };
 
         // Store a new BlockHeader struct in BlockHeaders
@@ -774,23 +781,25 @@ impl<T: Config> Module<T> {
     }
 
     /// Get a block header from its hash
-    fn get_block_header_from_hash(block_hash: H256Le) -> Result<RichBlockHeader, DispatchError> {
-        if <BlockHeaders>::contains_key(block_hash) {
-            return Ok(<BlockHeaders>::get(block_hash));
+    fn get_block_header_from_hash(
+        block_hash: H256Le,
+    ) -> Result<RichBlockHeader<T::AccountId>, DispatchError> {
+        if <BlockHeaders<T>>::contains_key(block_hash) {
+            return Ok(<BlockHeaders<T>>::get(block_hash));
         }
         Err(Error::<T>::BlockNotFound.into())
     }
 
     /// Check if a block header exists
     pub fn block_header_exists(block_hash: H256Le) -> bool {
-        <BlockHeaders>::contains_key(block_hash)
+        <BlockHeaders<T>>::contains_key(block_hash)
     }
 
     /// Get a block header from
     fn get_block_header_from_height(
         blockchain: &BlockChain,
         block_height: u32,
-    ) -> Result<RichBlockHeader, DispatchError> {
+    ) -> Result<RichBlockHeader<T::AccountId>, DispatchError> {
         let block_hash = Self::get_block_hash(blockchain.chain_id, block_height)?;
         Self::get_block_header_from_hash(block_hash)
     }
@@ -845,8 +854,8 @@ impl<T: Config> Module<T> {
     }
 
     /// Set a new block header
-    fn set_block_header_from_hash(hash: H256Le, header: &RichBlockHeader) {
-        <BlockHeaders>::insert(hash, header);
+    fn set_block_header_from_hash(hash: H256Le, header: &RichBlockHeader<T::AccountId>) {
+        <BlockHeaders<T>>::insert(hash, header);
         // register the current height to track stable parachain confirmations
         Self::set_parachain_height_from_hash(hash);
     }
@@ -859,7 +868,7 @@ impl<T: Config> Module<T> {
 
     /// update the chain_ref of a block header
     fn mutate_block_header_from_chain_id(hash: &H256Le, chain_ref: u32) {
-        <BlockHeaders>::mutate(&hash, |header| header.chain_ref = chain_ref);
+        <BlockHeaders<T>>::mutate(&hash, |header| header.chain_ref = chain_ref);
     }
 
     /// Set a new best block
@@ -1030,7 +1039,7 @@ impl<T: Config> Module<T> {
     ///  * `prev_block_header`: previous block header
     ///  * `block_height` : block height of new target
     fn compute_new_target(
-        prev_block_header: &RichBlockHeader,
+        prev_block_header: &RichBlockHeader<T::AccountId>,
         block_height: u32,
     ) -> Result<U256, DispatchError> {
         // get time of last retarget

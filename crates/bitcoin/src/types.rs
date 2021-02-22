@@ -8,7 +8,7 @@ use bitcoin_hashes::Hash;
 
 use crate::formatter::{Formattable, TryFormattable};
 use crate::merkle::{MerkleProof, MerkleTree};
-use crate::parser::{extract_address_hash_scriptsig, FromLeBytes};
+use crate::parser::extract_address_hash_scriptsig;
 use crate::utils::{log2, reverse_endianness, sha256d_le};
 use crate::Script;
 use crate::{Address, Error};
@@ -326,31 +326,6 @@ impl Transaction {
 
     pub fn hash(&self) -> H256Le {
         sha256d_le(&self.format_with(true))
-    }
-}
-
-/// Bitcoin Enriched Block Headers
-#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Eq, Debug)]
-pub struct RichBlockHeader {
-    pub block_hash: H256Le,
-    pub block_header: BlockHeader,
-    pub block_height: u32,
-    pub chain_ref: u32,
-}
-
-impl RichBlockHeader {
-    // Creates a RichBlockHeader given a RawBlockHeader, Blockchain identifier and block height
-    pub fn construct(
-        raw_block_header: RawBlockHeader,
-        chain_ref: u32,
-        block_height: u32,
-    ) -> Result<RichBlockHeader, Error> {
-        Ok(RichBlockHeader {
-            block_hash: raw_block_header.hash(),
-            block_header: BlockHeader::from_le_bytes(raw_block_header.as_bytes())?,
-            block_height,
-            chain_ref,
-        })
     }
 }
 

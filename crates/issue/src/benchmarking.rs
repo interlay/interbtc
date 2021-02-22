@@ -71,7 +71,7 @@ benchmarks! {
 
         let block_hash = block.header.hash().unwrap();
         let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
-        BtcRelay::<T>::_initialize(block_header, height).unwrap();
+        BtcRelay::<T>::_initialize(relayer_id.clone(), block_header, height).unwrap();
 
         let transaction = TransactionBuilder::new()
             .with_version(2)
