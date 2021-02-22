@@ -92,7 +92,7 @@ benchmarks! {
         Collateral::<T>::lock_collateral(&old_vault_id, 100000000u32.into()).unwrap();
         VaultRegistry::<T>::increase_to_be_issued_tokens(&old_vault_id, amount.into()).unwrap();
         VaultRegistry::<T>::issue_tokens(&old_vault_id, amount.into()).unwrap();
-        VaultRegistry::<T>::force_increase_to_be_replaced_tokens(&old_vault_id, amount.into()).unwrap();
+        VaultRegistry::<T>::increase_to_be_replaced_tokens(&old_vault_id, amount.into()).unwrap();
 
         Collateral::<T>::lock_collateral(&new_vault_id, 100000000u32.into()).unwrap();
 

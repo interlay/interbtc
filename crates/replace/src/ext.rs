@@ -117,18 +117,18 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::get_liquidation_vault()
     }
 
-    pub fn force_increase_to_be_replaced_tokens<T: vault_registry::Config>(
+    pub fn increase_to_be_replaced_tokens<T: vault_registry::Config>(
         vault_id: &T::AccountId,
         amount: PolkaBTC<T>,
     ) -> Result<(), DispatchError> {
-        <vault_registry::Module<T>>::force_increase_to_be_replaced_tokens(vault_id, amount)
+        <vault_registry::Module<T>>::increase_to_be_replaced_tokens(vault_id, amount)
     }
 
-    pub fn force_decrease_to_be_replaced_tokens<T: vault_registry::Config>(
+    pub fn decrease_to_be_replaced_tokens<T: vault_registry::Config>(
         vault_id: &T::AccountId,
         amount: PolkaBTC<T>,
     ) -> Result<(), DispatchError> {
-        <vault_registry::Module<T>>::force_decrease_to_be_replaced_tokens(vault_id, amount)
+        <vault_registry::Module<T>>::decrease_to_be_replaced_tokens(vault_id, amount)
     }
 }
 

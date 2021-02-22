@@ -311,10 +311,7 @@ impl<T: Config> Module<T> {
         ext::collateral::lock_collateral::<T>(vault_id.clone(), griefing_collateral)?;
 
         // increase to-be-replaced tokens. This will fail if the vault does not have enough tokens available
-        ext::vault_registry::force_increase_to_be_replaced_tokens::<T>(
-            &vault_id,
-            amount_btc.clone(),
-        )?;
+        ext::vault_registry::increase_to_be_replaced_tokens::<T>(&vault_id, amount_btc.clone())?;
 
         // Generate a replaceId by hashing a random seed, a nonce, and the address of the Requester.
         let replace_id = ext::security::get_secure_id::<T>(&vault_id);
@@ -374,7 +371,7 @@ impl<T: Config> Module<T> {
         )?;
 
         // decrease to-be-replaced tokens, so that the vault is free to use its issued tokens again
-        ext::vault_registry::force_decrease_to_be_replaced_tokens::<T>(
+        ext::vault_registry::decrease_to_be_replaced_tokens::<T>(
             &replace.old_vault,
             replace.amount.clone(),
         )?;
@@ -412,7 +409,7 @@ impl<T: Config> Module<T> {
         ext::collateral::lock_collateral::<T>(new_vault_id.clone(), collateral)?;
 
         // decrease old-vault's to-be-replaced tokens; turn them into to-be-redeemed tokens
-        ext::vault_registry::force_decrease_to_be_replaced_tokens::<T>(
+        ext::vault_registry::decrease_to_be_replaced_tokens::<T>(
             &replace.old_vault,
             replace.amount.clone(),
         )?;

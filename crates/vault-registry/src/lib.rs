@@ -338,7 +338,7 @@ impl<T: Config> Module<T> {
         Ok(btc_address)
     }
 
-    pub fn force_increase_to_be_replaced_tokens(
+    pub fn increase_to_be_replaced_tokens(
         vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
     ) -> Result<(), DispatchError> {
@@ -348,7 +348,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    pub fn force_decrease_to_be_replaced_tokens(
+    pub fn decrease_to_be_replaced_tokens(
         vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
     ) -> Result<(), DispatchError> {
