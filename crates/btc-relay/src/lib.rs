@@ -191,8 +191,8 @@ decl_module! {
             block_height: u32)
             -> DispatchResult
         {
-            let _ = ensure_signed(origin)?;
-            Self::_initialize(raw_block_header, block_height)
+            let relayer = ensure_signed(origin)?;
+            Self::_initialize(relayer, raw_block_header, block_height)
         }
 
         /// Stores a single new block header
@@ -327,7 +327,11 @@ decl_module! {
 
 #[cfg_attr(test, mockable)]
 impl<T: Config> Module<T> {
-    pub fn _initialize(raw_block_header: RawBlockHeader, block_height: u32) -> DispatchResult {
+    pub fn _initialize(
+        relayer: T::AccountId,
+        raw_block_header: RawBlockHeader,
+        block_height: u32,
+    ) -> DispatchResult {
         // Check if BTC-Relay was already initialized
         ensure!(!Self::best_block_exists(), Error::<T>::AlreadyInitialized);
 
@@ -344,7 +348,7 @@ impl<T: Config> Module<T> {
             block_header: basic_block_header,
             block_height: block_height,
             chain_ref: blockchain.chain_id,
-            account_id: Default::default(),
+            account_id: relayer,
         };
 
         // Store a new BlockHeader struct in BlockHeaders
