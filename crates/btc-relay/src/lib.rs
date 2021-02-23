@@ -12,7 +12,7 @@ mod types;
 #[cfg(any(feature = "runtime-benchmarks", test))]
 mod benchmarking;
 
-mod default_weights;
+pub mod weights;
 
 #[cfg(test)]
 mod tests;
@@ -28,7 +28,6 @@ use mocktopus::macros::mockable;
 
 use frame_support::debug;
 use frame_support::transactional;
-use frame_support::weights::Weight;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
@@ -45,21 +44,12 @@ pub use bitcoin;
 use bitcoin::merkle::{MerkleProof, ProofResult};
 use bitcoin::parser::{parse_block_header, parse_transaction};
 use bitcoin::types::{BlockChain, BlockHeader, H256Le, RawBlockHeader, Transaction};
-use bitcoin::Error as BitcoinError;
-use security::types::ErrorCode;
-
 pub use bitcoin::Address as BtcAddress;
+use bitcoin::Error as BitcoinError;
 pub use bitcoin::PublicKey as BtcPublicKey;
-use types::RichBlockHeader;
-
-pub trait WeightInfo {
-    fn initialize() -> Weight;
-    fn store_block_header() -> Weight;
-    fn store_block_headers(b: u32) -> Weight;
-    fn verify_and_validate_transaction() -> Weight;
-    fn verify_transaction_inclusion() -> Weight;
-    fn validate_transaction() -> Weight;
-}
+use security::types::ErrorCode;
+pub use types::RichBlockHeader;
+pub use weights::WeightInfo;
 
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
@@ -182,11 +172,28 @@ decl_module! {
         fn deposit_event() = default;
 
         /// One time function to initialize the BTC-Relay with the first block
+        ///
         /// # Arguments
         ///
         /// * `block_header_bytes` - 80 byte raw Bitcoin block header.
-        /// * `block_height` - Bitcoin block height of the submitted
-        /// block header.
+        /// * `block_height` - starting Bitcoin block height of the submitted block header.
+        ///
+        /// # <weight>
+        /// - Storage Reads:
+        /// 	- One storage read to check that parachain is not shutdown. O(1)
+        /// 	- One storage read to check if relayer authorization is disabled. O(1)
+        /// 	- One storage read to check if relayer is authorized. O(1)
+        /// - Storage Writes:
+        ///     - One storage write to store block hash. O(1)
+        ///     - One storage write to store block header. O(1)
+        /// 	- One storage write to initialize main chain. O(1)
+        ///     - One storage write to store best block hash. O(1)
+        ///     - One storage write to store best block height. O(1)
+        /// - Events:
+        /// 	- One event for initialization.
+        ///
+        /// Total Complexity: O(1)
+        /// # </weight>
         #[weight = <T as Config>::WeightInfo::initialize()]
         #[transactional]
         fn initialize(
@@ -204,6 +211,33 @@ decl_module! {
         /// # Arguments
         ///
         /// * `raw_block_header` - 80 byte raw Bitcoin block header.
+        ///
+        /// # <weight>
+        /// Key: C (len of chains), P (len of positions)
+        /// - Storage Reads:
+        /// 	- One storage read to check that parachain is not shutdown. O(1)
+        /// 	- One storage read to check if relayer authorization is disabled. O(1)
+        /// 	- One storage read to check if relayer is authorized. O(1)
+        /// 	- One storage read to check if block header is stored. O(1)
+        /// 	- One storage read to retrieve parent block hash. O(1)
+        /// 	- One storage read to check if difficulty check is disabled. O(1)
+        /// 	- One storage read to retrieve last re-target. O(1)
+        /// 	- One storage read to retrieve all Chains. O(C)
+        /// - Storage Writes:
+        ///     - One storage write to store block hash. O(1)
+        ///     - One storage write to store block header. O(1)
+        /// 	- One storage mutate to extend main chain. O(1)
+        ///     - One storage write to store best block hash. O(1)
+        ///     - One storage write to store best block height. O(1)
+        /// - Notable Computation:
+        /// 	- O(P) sort to reorg chains.
+        /// - External Module Operations:
+        /// 	- Updates relayer sla score.
+        /// - Events:
+        /// 	- One event for block stored (fork or extension).
+        ///
+        /// Total Complexity: O(C + P)
+        /// # </weight>
         #[weight = <T as Config>::WeightInfo::store_block_header()]
         #[transactional]
         fn store_block_header(
@@ -218,33 +252,35 @@ decl_module! {
         /// # Arguments
         ///
         /// * `raw_block_headers` - vector of Bitcoin block headers.
-        #[weight = <T as Config>::WeightInfo::store_block_headers(raw_block_headers.len() as u32)]
+        ///
+        /// # <weight>
+        /// - As in `store_block_header`, multiplied by the number of concatenated headers.
+        /// # </weight>
+        #[weight = <T as Config>::WeightInfo::store_block_header().saturating_mul(raw_block_headers.len() as u64)]
         #[transactional]
         fn store_block_headers(
             origin, raw_block_headers: Vec<RawBlockHeader>
         ) -> DispatchResult {
             let relayer = ensure_signed(origin)?;
-            // TODO: optimize
+            // TODO: can we optimize this?
             for raw_block_header in raw_block_headers {
                 Self::_store_block_header(relayer.clone(), raw_block_header)?;
             }
             Ok(())
         }
 
-        /// Verifies the inclusion of `tx_id` in block at height `tx_block_height` and validates the given raw Bitcoin transaction, according to the
-        /// supported transaction format (see
-        /// https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/intro/
-        /// accepted-format.html).
+        /// Verifies the inclusion of `tx_id` and validates the given raw Bitcoin transaction, according to the
+        /// supported transaction format (see <https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/intro/accepted-format.html>)
+        ///
         /// # Arguments
         ///
         /// * `tx_id` - The hash of the transaction to check for
-        /// * `tx_block_height` - The height of the block in which the transaction should be included
         /// * `raw_merkle_proof` - The raw merkle proof as returned by bitcoin `gettxoutproof`
         /// * `confirmations` - The number of confirmations needed to accept the proof. If `none`,
-        /// the value stored in the StableBitcoinConfirmations storage item is used.
+        ///                     the value stored in the StableBitcoinConfirmations storage item is used.
         /// * `raw_tx` - raw Bitcoin transaction
-        /// * `paymentValue` - value of BTC sent in the 1st / payment UTXO of the transaction
-        /// * `recipientBtcAddress` - 20 byte Bitcoin address of recipient of the BTC in the 1st  / payment UTXO
+        /// * `payment_value` - value of BTC sent in the 1st / payment UTXO of the transaction
+        /// * `recipient_btc_address` - 20 byte Bitcoin address of recipient of the BTC in the 1st  / payment UTXO
         /// * `op_return_id` - 32 byte hash identifier expected in OP_RETURN (replay protection)
         #[weight = <T as Config>::WeightInfo::verify_and_validate_transaction()]
         #[transactional]
@@ -276,14 +312,26 @@ decl_module! {
             Ok(())
         }
 
-        /// Verifies the inclusion of `tx_id` in block at height `tx_block_height`
+        /// Verifies the inclusion of `tx_id`
         ///
         /// # Arguments
         ///
         /// * `tx_id` - The hash of the transaction to check for
         /// * `raw_merkle_proof` - The raw merkle proof as returned by bitcoin `gettxoutproof`
         /// * `confirmations` - The number of confirmations needed to accept the proof. If `none`,
-        /// the value stored in the StableBitcoinConfirmations storage item is used.
+        ///                     the value stored in the `StableBitcoinConfirmations` storage item is used.
+        ///
+        /// # <weight>
+        /// Key: C (len of chains), P (len of positions)
+        /// - Storage Reads:
+        /// 	- One storage read to check if inclusion check is disabled. O(1)
+        /// 	- One storage read to retrieve best block height. O(1)
+        /// 	- One storage read to check if transaction is in active fork. O(1)
+        /// 	- One storage read to retrieve block header. O(1)
+        /// 	- One storage read to check that parachain is not shutdown. O(1)
+        /// 	- One storage read to check stable bitcoin confirmations. O(1)
+        /// 	- One storage read to check stable parachain confirmations. O(1)
+        /// # </weight>
         #[weight = <T as Config>::WeightInfo::verify_transaction_inclusion()]
         #[transactional]
         fn verify_transaction_inclusion(
@@ -297,22 +345,16 @@ decl_module! {
             Ok(())
         }
 
-        /// Validates a given raw Bitcoin transaction, according to the
-        /// supported transaction format (see
-        /// https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/intro/
-        /// accepted-format.html)
-        /// This DOES NOT check if the transaction is included in a block
-        /// nor does it guarantee that the transaction is fully valid according
-        /// to the consensus (needs full node).
+        /// Validates a given raw Bitcoin transaction, according to the supported transaction
+        /// format (see <https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/intro/accepted-format.html>)
+        /// This DOES NOT check if the transaction is included in a block, nor does it guarantee that the
+        /// transaction is fully valid according to the consensus (needs full node).
         ///
         /// # Arguments
         /// * `raw_tx` - raw Bitcoin transaction
-        /// * `paymentValue` - value of BTC sent in the 1st /
-        /// payment UTXO of the transaction
-        /// * `recipientBtcAddress` - 20 byte Bitcoin address of recipient
-        /// of the BTC in the 1st  / payment UTXO
-        /// * `op_return_id` - 32 byte hash identifier expected in
-        /// OP_RETURN (replay protection)
+        /// * `payment_value` - value of BTC sent to the recipient
+        /// * `recipient_btc_address` - expected Bitcoin address of recipient (p2sh, p2pkh, p2wpkh)
+        /// * `op_return_id` - 32 byte hash identifier expected in OP_RETURN (replay protection)
         #[weight = <T as Config>::WeightInfo::validate_transaction()]
         #[transactional]
         fn validate_transaction(
@@ -801,6 +843,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Get a block hash from a blockchain
+    ///
     /// # Arguments
     ///
     /// * `chain_id`: the id of the blockchain to search in
@@ -1013,14 +1056,14 @@ impl<T: Config> Module<T> {
     }
 
     /// Parses and verifies a raw Bitcoin block header.
+    ///
     /// # Arguments
+    ///
     /// * block_header` - 80-byte block header
     ///
     /// # Returns
-    /// * `pure_block_header` - PureBlockHeader representation of the 80-byte block header
     ///
-    /// # Panics
-    /// If ParachainStatus in Security module is not set to RUNNING
+    /// * `pure_block_header` - PureBlockHeader representation of the 80-byte block header
     fn verify_block_header(
         raw_block_header: &RawBlockHeader,
     ) -> Result<BlockHeader, DispatchError> {
@@ -1067,9 +1110,11 @@ impl<T: Config> Module<T> {
     }
 
     /// Computes Bitcoin's PoW retarget algorithm for a given block height
+    ///
     /// # Arguments
-    ///  * `prev_block_header`: previous block header
-    ///  * `block_height` : block height of new target
+    ///
+    /// * `prev_block_header`: previous block header
+    /// * `block_height` : block height of new target
     fn compute_new_target(
         prev_block_header: &RichBlockHeader<T::AccountId>,
         block_height: u32,
@@ -1104,6 +1149,7 @@ impl<T: Config> Module<T> {
     /// Returns the timestamp of the last difficulty retarget on the specified BlockChain, given the current block height
     ///
     /// # Arguments
+    ///
     /// * `chain_ref` - BlockChain identifier
     /// * `block_height` - current block height
     fn get_last_retarget_time(chain_ref: u32, block_height: u32) -> Result<u64, DispatchError> {
@@ -1473,7 +1519,8 @@ impl<T: Config> Module<T> {
     ///   * the main chain contains an invalid block
     ///   * the main chain contains a "NO_DATA" block at a lower height than `block_height`
     /// # Arguments
-    ///   * `block_height` - block height of the to-be-verified transaction
+    ///
+    /// * `block_height` - block height of the to-be-verified transaction
     fn transaction_verification_allowed(block_height: u32) -> Result<(), DispatchError> {
         // Make sure Parachain is not shutdown
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
