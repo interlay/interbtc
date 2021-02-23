@@ -1,6 +1,6 @@
 use super::*;
 use crate::Module as Redeem;
-use bitcoin::formatter::Formattable;
+use bitcoin::formatter::{Formattable, TryFormattable};
 use bitcoin::types::{
     BlockBuilder, RawBlockHeader, TransactionBuilder, TransactionInputBuilder, TransactionOutput,
 };
@@ -44,6 +44,8 @@ benchmarks! {
         let vault_id: T::AccountId = account("Vault", 0, 0);
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
+        BtcRelay::<T>::register_authorized_relayer(relayer_id.clone());
+
         let origin_btc_address = BtcAddress::P2PKH(H160::zero());
 
         let redeem_id = H256::zero();
@@ -65,11 +67,11 @@ benchmarks! {
             .with_version(2)
             .with_coinbase(&origin_btc_address, 50, 3)
             .with_timestamp(1588813835)
-            .mine(U256::from(2).pow(254.into()));
+            .mine(U256::from(2).pow(254.into())).unwrap();
 
-        let block_hash = block.header.hash();
-        let block_header = RawBlockHeader::from_bytes(&block.header.format()).unwrap();
-        BtcRelay::<T>::_initialize(block_header, height).unwrap();
+        let block_hash = block.header.hash().unwrap();
+        let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
+        BtcRelay::<T>::_initialize(relayer_id.clone(), block_header, height).unwrap();
 
         let value = 0;
         let transaction = TransactionBuilder::new()
@@ -101,13 +103,13 @@ benchmarks! {
             .with_coinbase(&origin_btc_address, 50, 3)
             .with_timestamp(1588813835)
             .add_transaction(transaction.clone())
-            .mine(U256::from(2).pow(254.into()));
+            .mine(U256::from(2).pow(254.into())).unwrap();
 
         let tx_id = transaction.tx_id();
-        let proof = block.merkle_proof(&vec![tx_id]).format();
+        let proof = block.merkle_proof(&vec![tx_id]).unwrap().try_format().unwrap();
         let raw_tx = transaction.format_with(true);
 
-        let block_header = RawBlockHeader::from_bytes(&block.header.format()).unwrap();
+        let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
         BtcRelay::<T>::_store_block_header(relayer_id, block_header).unwrap();
 
     }: _(RawOrigin::Signed(vault_id), redeem_id, tx_id, proof, raw_tx)
@@ -147,12 +149,20 @@ mod tests {
 
     #[test]
     fn test_benchmarks() {
-        ExtBuilder::build_with(pallet_balances::GenesisConfig::<Test> {
-            balances: vec![
-                (account("Origin", 0, 0), 1 << 32),
-                (account("Vault", 0, 0), 1 << 32),
-            ],
-        })
+        ExtBuilder::build_with(
+            pallet_balances::GenesisConfig::<Test, pallet_balances::Instance1> {
+                balances: vec![
+                    (account("Origin", 0, 0), 1 << 32),
+                    (account("Vault", 0, 0), 1 << 32),
+                ],
+            },
+            pallet_balances::GenesisConfig::<Test, pallet_balances::Instance2> {
+                balances: vec![
+                    (account("Origin", 0, 0), 1 << 32),
+                    (account("Vault", 0, 0), 1 << 32),
+                ],
+            },
+        )
         .execute_with(|| {
             assert_ok!(test_benchmark_request_redeem::<Test>());
             assert_ok!(test_benchmark_execute_redeem::<Test>());

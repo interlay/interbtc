@@ -25,7 +25,6 @@ pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "r
 collateral = { path = "../collateral", default-features = false }
 treasury = { path = "../treasury", default-features = false }
 security = { path = "../security", default-features = false }
-util = { path = "../util", default-features = false }
 
 [dev-dependencies]
 mocktopus = "0.7.0"
@@ -49,7 +48,6 @@ std = [
     "collateral/std",
     "treasury/std",
     "security/std",
-    "util/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",

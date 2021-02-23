@@ -14,9 +14,10 @@ members = [
   "crates/sla",
   "crates/fee",
   "crates/refund",
-  "crates/util",
   "parachain",
   "parachain/runtime",
   "parachain/service",
   "parachain/rpc",
+  "crates/parachain-info",
+  "crates/parachain-tokens",
 ]

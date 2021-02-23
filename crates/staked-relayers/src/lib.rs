@@ -1,3 +1,6 @@
+//! # PolkaBTC Staked Relayers Module
+//! Based on the [specification](https://interlay.gitlab.io/polkabtc-spec/spec/staked-relayers.html).
+
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -30,12 +33,7 @@ use crate::types::{
 use bitcoin::parser::parse_transaction;
 use bitcoin::types::*;
 use btc_relay::BtcAddress;
-use util::transactional;
-
-/// # Staked Relayers module implementation
-/// This is the implementation of the BTC Parachain Staked Relayers module following the spec at:
-/// https://interlay.gitlab.io/polkabtc-spec/spec/staked-relayers.html
-///
+use frame_support::transactional;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
@@ -172,8 +170,10 @@ decl_module! {
                 stake >= T::MinimumStake::get(),
                 Error::<T>::InsufficientStake,
             );
-
             ext::collateral::lock_collateral::<T>(&signer, stake)?;
+
+            ext::btc_relay::register_authorized_relayer::<T>(signer.clone());
+
             let height = <frame_system::Module<T>>::block_number();
             let maturity = height + Self::get_maturity_period();
             Self::insert_inactive_staked_relayer(&signer, stake, maturity);
@@ -191,8 +191,12 @@ decl_module! {
         fn deregister_staked_relayer(origin) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             let staked_relayer = Self::get_active_staked_relayer(&signer)?;
-            Self::ensure_staked_relayer_is_not_active(&signer)?;
+            Self::ensure_staked_relayer_is_not_voting(&signer)?;
             ext::collateral::release_collateral::<T>(&signer, staked_relayer.stake)?;
+
+            // TODO: check relayer has not proposed recently
+            ext::btc_relay::deregister_authorized_relayer::<T>(signer.clone());
+
             // TODO: require unbonding period
             Self::remove_active_staked_relayer(&signer);
             Self::deposit_event(<Event<T>>::DeregisterStakedRelayer(signer));
@@ -676,7 +680,7 @@ impl<T: Config> Module<T> {
         Self::remove_inactive_staked_relayer(id);
     }
 
-    fn ensure_staked_relayer_is_not_active(id: &T::AccountId) -> DispatchResult {
+    fn ensure_staked_relayer_is_not_voting(id: &T::AccountId) -> DispatchResult {
         for (_, update) in <ActiveStatusUpdates<T>>::iter() {
             ensure!(!update.tally.contains(id), Error::<T>::StatusUpdateFound);
         }
@@ -836,6 +840,7 @@ impl<T: Config> Module<T> {
         error: &Option<ErrorCode>,
         votes: &Votes<T::AccountId, DOT<T>>,
     ) -> DispatchResult {
+        // TODO: slash block proposer
         if let Some(ErrorCode::NoDataBTCRelay) = error {
             // we don't slash participants for this
             return Ok(());
@@ -1216,7 +1221,8 @@ impl<T: Config> Module<T> {
     /// Increments the current `StatusCounter` and returns the new value.
     pub fn get_status_counter() -> StatusUpdateId {
         <StatusCounter>::mutate(|c| {
-            *c += 1;
+            let (res, _) = (*c).overflowing_add(1);
+            *c = res;
             *c
         })
     }

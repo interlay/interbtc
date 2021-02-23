@@ -1,6 +1,6 @@
-/// Mocking the test environment
-use crate::{Config, Error, GenesisConfig, Module};
-use frame_support::{impl_outer_event, impl_outer_origin, parameter_types};
+use crate as btc_relay;
+use crate::{Config, Error};
+use frame_support::{parameter_types, traits::StorageMapShim};
 use mocktopus::mocking::clear_mocks;
 use sp_arithmetic::{FixedI128, FixedU128};
 use sp_core::H256;
@@ -9,57 +9,45 @@ use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup},
 };
 
-impl_outer_origin! {
-    pub enum Origin for Test {}
-}
-
-mod btc_relay {
-    pub use crate::Event;
-}
-
-impl_outer_event! {
-    pub enum TestEvent for Test {
-        frame_system<T>,
-        sla<T>,
-        treasury<T>,
-        collateral<T>,
-        pallet_balances<T>,
-        btc_relay,
-        exchange_rate_oracle<T>,
-        vault_registry<T>,
-        security,
-    }
-}
-
-pub struct PalletInfo;
-
-impl frame_support::traits::PalletInfo for PalletInfo {
-    fn index<P: 'static>() -> Option<usize> {
-        Some(0)
-    }
-
-    fn name<P: 'static>() -> Option<&'static str> {
-        Some("btc-relay")
-    }
-}
-
 pub const BITCOIN_CONFIRMATIONS: u32 = 6;
 pub const PARACHAIN_CONFIRMATIONS: u64 = 20;
+
+type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
+type Block = frame_system::mocking::MockBlock<Test>;
+
+// Configure a mock runtime to test the pallet.
+frame_support::construct_runtime!(
+    pub enum Test where
+        Block = Block,
+        NodeBlock = Block,
+        UncheckedExtrinsic = UncheckedExtrinsic,
+    {
+        System: frame_system::{Module, Call, Storage, Config, Event<T>},
+        Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
+
+        // Tokens & Balances
+        DOT: pallet_balances::<Instance1>::{Module, Call, Storage, Config<T>, Event<T>},
+        PolkaBTC: pallet_balances::<Instance2>::{Module, Call, Storage, Config<T>, Event<T>},
+
+        Collateral: collateral::{Module, Call, Storage, Event<T>},
+        Treasury: treasury::{Module, Call, Storage, Event<T>},
+
+        // Operational
+        BTCRelay: btc_relay::{Module, Call, Config<T>, Storage, Event},
+        Security: security::{Module, Call, Storage, Event},
+        VaultRegistry: vault_registry::{Module, Call, Config<T>, Storage, Event<T>},
+        ExchangeRateOracle: exchange_rate_oracle::{Module, Call, Config<T>, Storage, Event<T>},
+        Sla: sla::{Module, Call, Config<T>, Storage, Event<T>},
+    }
+);
+
 pub type AccountId = u64;
 pub type Balance = u64;
-pub type Balances = pallet_balances::Module<Test>;
 pub type BlockNumber = u64;
-
-// For testing the pallet, we construct most of a mock runtime. This means
-// first constructing a configuration type (`Test`) which `impl`s each of the
-// configuration traits of modules we want to use.
-#[derive(Clone, Eq, PartialEq)]
-pub struct Test;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
-    pub BlockWeights: frame_system::limits::BlockWeights =
-        frame_system::limits::BlockWeights::simple_max(1024);
+    pub const SS58Prefix: u8 = 42;
 }
 
 impl frame_system::Config for Test {
@@ -68,9 +56,9 @@ impl frame_system::Config for Test {
     type BlockLength = ();
     type DbWeight = ();
     type Origin = Origin;
+    type Call = Call;
     type Index = u64;
     type BlockNumber = BlockNumber;
-    type Call = ();
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = AccountId;
@@ -80,11 +68,48 @@ impl frame_system::Config for Test {
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
-    type AccountData = pallet_balances::AccountData<Balance>;
+    type AccountData = ();
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
-    type SS58Prefix = ();
+    type SS58Prefix = SS58Prefix;
+}
+
+parameter_types! {
+    pub const ExistentialDeposit: u64 = 1;
+    pub const MaxLocks: u32 = 50;
+}
+
+/// DOT
+impl pallet_balances::Config<pallet_balances::Instance1> for Test {
+    type MaxLocks = MaxLocks;
+    type Balance = Balance;
+    type Event = TestEvent;
+    type DustRemoval = ();
+    type ExistentialDeposit = ExistentialDeposit;
+    type AccountStore = StorageMapShim<
+        pallet_balances::Account<Test, pallet_balances::Instance1>,
+        frame_system::Provider<Test>,
+        AccountId,
+        pallet_balances::AccountData<Balance>,
+    >;
+    type WeightInfo = ();
+}
+
+/// PolkaBTC
+impl pallet_balances::Config<pallet_balances::Instance2> for Test {
+    type MaxLocks = MaxLocks;
+    type Balance = Balance;
+    type Event = TestEvent;
+    type DustRemoval = ();
+    type ExistentialDeposit = ExistentialDeposit;
+    type AccountStore = StorageMapShim<
+        pallet_balances::Account<Test, pallet_balances::Instance2>,
+        frame_system::Provider<Test>,
+        AccountId,
+        pallet_balances::AccountData<Balance>,
+    >;
+    type WeightInfo = ();
 }
 
 impl Config for Test {
@@ -99,12 +124,12 @@ impl sla::Config for Test {
 
 impl treasury::Config for Test {
     type Event = TestEvent;
-    type PolkaBTC = Balances;
+    type PolkaBTC = pallet_balances::Module<Test, pallet_balances::Instance2>;
 }
 
 impl collateral::Config for Test {
     type Event = TestEvent;
-    type DOT = Balances;
+    type DOT = pallet_balances::Module<Test, pallet_balances::Instance1>;
 }
 
 impl vault_registry::Config for Test {
@@ -131,30 +156,13 @@ impl pallet_timestamp::Config for Test {
     type WeightInfo = ();
 }
 
-parameter_types! {
-    pub const ExistentialDeposit: u64 = 1;
-    pub const MaxLocks: u32 = 50;
-}
-
-impl pallet_balances::Config for Test {
-    type MaxLocks = MaxLocks;
-    type Balance = Balance;
-    type Event = TestEvent;
-    type DustRemoval = ();
-    type ExistentialDeposit = ExistentialDeposit;
-    type AccountStore = System;
-    type WeightInfo = ();
-}
-
 impl security::Config for Test {
     type Event = TestEvent;
 }
 
+pub type TestEvent = Event;
 pub type TestError = Error<Test>;
 pub type SecurityError = security::Error<Test>;
-
-pub type System = frame_system::Module<Test>;
-pub type BTCRelay = Module<Test>;
 
 pub struct ExtBuilder;
 
@@ -164,12 +172,13 @@ impl ExtBuilder {
             .build_storage::<Test>()
             .unwrap();
 
-        GenesisConfig::<Test> {
+        btc_relay::GenesisConfig::<Test> {
             bitcoin_confirmations: BITCOIN_CONFIRMATIONS,
             parachain_confirmations: PARACHAIN_CONFIRMATIONS,
             disable_difficulty_check: false,
             disable_inclusion_check: false,
             disable_op_return_check: false,
+            disable_relayer_auth: true,
         }
         .assimilate_storage(&mut storage)
         .unwrap();

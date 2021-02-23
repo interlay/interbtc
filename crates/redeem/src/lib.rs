@@ -1,3 +1,6 @@
+//! # PolkaBTC Redeem Module
+//! Based on the [specification](https://interlay.gitlab.io/polkabtc-spec/spec/redeem.html).
+
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -22,20 +25,14 @@ use mocktopus::macros::mockable;
 mod ext;
 pub mod types;
 
+#[doc(inline)]
 pub use crate::types::RedeemRequest;
+
 use crate::types::{PolkaBTC, Version, DOT};
 use bitcoin::types::H256Le;
 use btc_relay::BtcAddress;
+use frame_support::transactional;
 use frame_support::weights::Weight;
-use security::ErrorCode;
-use sp_runtime::traits::CheckedAdd;
-use sp_std::convert::TryInto;
-use util::transactional;
-
-/// # PolkaBTC Redeem implementation
-/// The Redeem module according to the specification at
-/// https://interlay.gitlab.io/polkabtc-spec/spec/redeem.html
-// Substrate
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
@@ -43,8 +40,11 @@ use frame_support::{
 };
 use frame_system::{ensure_root, ensure_signed};
 use primitive_types::H256;
+use security::ErrorCode;
+use sp_runtime::traits::CheckedAdd;
 use sp_runtime::traits::*;
 use sp_runtime::ModuleId;
+use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
 
 /// The redeem module id, used for deriving its sovereign account ID.

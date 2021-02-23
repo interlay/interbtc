@@ -1,6 +1,6 @@
 <p align="center">
   <a href="https://gitlab.com/interlay/btc-parachain">
-    <img src="/docs/polka_btc.png">
+    <img src="/docs/img/polkaBtc.png">
   </a>
 
   <h2 align="center">BTC-Parachain</h2>
@@ -54,23 +54,30 @@ The BTC-Parachain is built with:
 
 ## Roadmap
 
-The Substrate runtime makes use of various custom pallets that are found in the [crates](./crates) folder.
-
-**Development status**: Alpha
+- **Alpha** - November 2020
+- **Beta** - February 2021
+- **Rococo** - Feburary 2021
+- **Kusama** - TBD
+- **Polkadot** - TBD
 
 ### Development Progess
 
-- [bitcoin](crates/bitcoin): [Alpha] Library for Bitcoin type, parsing and verification functions.
-- [btc-relay](crates/btc-relay): [Alpha] Stateful SPV client for Bitcoin. Stores Bitcoin main chain, tracks forks, verifies Merkle proofs and validates specific transaction formats.
-- [collateral](crates/collateral) [Alpha] Handles locking, releasing and slashing of collateral (e.g. DOT).
-- [exchange-rate-oracle](crates/exchange-rate-oracle): [Alpha] Exchange rate oracle. Integration with external provider pending.
-- [issue](crates/issue): [Alpha] Handles issuing of PolkaBTC.
-- [redeem](crates/redeem) [Alpha] Handles redeeming of PolkaBTC for BTC on Bitcoin.
-- [replace](crates/replace) [Alpha] Handles replacing vaults.
-- [security](crates/security): [Alpha] Security module, handling BTC Parachain status changes (error handling).
-- [staked-relayers](crates/staked-relayers): [Alpha] Handles registration and stake of Staked Relayers, as well as voting on Parachain status changes.
-- [treasury](crates/treasury): [Alpha] Exposes functions related to handling of the PolkaBTC currency (mint, lock, burn)
-- [vault-registry](crates/vault-registry): [Alpha] Handles registration, collateral and liquidation of Vaults.
+The Substrate runtime makes use of various custom pallets that are found in the [crates](./crates) folder.
+
+- [bitcoin](crates/bitcoin): [Beta] Library for Bitcoin type, parsing and verification functions.
+- [btc-relay](crates/btc-relay): [Beta] Stateful SPV client for Bitcoin. Stores Bitcoin main chain, tracks forks, verifies Merkle proofs and validates specific transaction formats.
+- [collateral](crates/collateral) [Beta] Handles locking, releasing and slashing of collateral (e.g. DOT).
+- [exchange-rate-oracle](crates/exchange-rate-oracle): [Beta] Exchange rate oracle. Integration with external provider pending.
+- [fee](crates/fee): [Beta] Participant reward calculation and distribution.
+- [issue](crates/issue): [Beta] Handles issuing of PolkaBTC.
+- [redeem](crates/redeem) [Beta] Handles redeeming of PolkaBTC for BTC on Bitcoin.
+- [refund](crates/refund) [Beta] Handles refunds for when a vault receives more BTC than it can cover.
+- [replace](crates/replace) [Beta] Handles replacing vaults.
+- [security](crates/security): [Beta] Handles BTC Parachain status and error changes.
+- [sla](crates/sla): [Beta] Participant scoring for reward & slashing calculations.
+- [staked-relayers](crates/staked-relayers): [Beta] Handles registration and stake of Staked Relayers, as well as voting on Parachain status changes.
+- [treasury](crates/treasury): [Beta] Exposes functions related to handling of the PolkaBTC currency (mint, lock, burn)
+- [vault-registry](crates/vault-registry): [Beta] Handles registration, collateral and liquidation of vaults.
 
 ## Getting started
 
@@ -145,6 +152,18 @@ cargo run --release -- --alice --chain dev-no-btc --rpc-cors all --validator --f
 
 Additional CLI usage options are available and may be shown by running `cargo run -- --help`.
 
+### Rococo
+
+By default, the `btc-parachain` builds in standalone mode with the `aura-grandpa` feature.
+
+To build with "parachain" support use the `cumulus-polkadot` feature:
+
+```shell
+cargo build --manifest-path parachain/Cargo.toml --release --no-default-features --features cumulus-polkadot
+```
+
+To connect with a local relay-chain follow [these instructions](docs/rococo.md).
+
 #### Test Coverage
 
 Test coverage reports available under [docs/testcoverage.html](https://gitlab.com/interlay/btc-parachain/-/blob/dev/docs/testcoverage.html)
@@ -191,6 +210,6 @@ We would also like to thank the following teams for their continuous support:
 
 <p align="center">
   <a href="https://web3.foundation/grants/">
-    <img src="/docs/web3_foundation_grants_badge_black.png">
+    <img src="/docs/img/web3GrantsBadge.png">
   </a>
 </p>

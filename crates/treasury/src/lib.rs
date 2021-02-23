@@ -1,3 +1,6 @@
+//! # PolkaBTC Treasury Module
+//! Based on the [specification](https://interlay.gitlab.io/polkabtc-spec/spec/treasury.html).
+
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -11,10 +14,6 @@ mod tests;
 extern crate mocktopus;
 
 use frame_support::traits::{Currency, ExistenceRequirement, ReservableCurrency};
-/// # PolkaBTC Treasury implementation
-/// The Treasury module according to the specification at
-/// https://interlay.gitlab.io/polkabtc-spec/spec/treasury.html
-// Substrate
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
 };

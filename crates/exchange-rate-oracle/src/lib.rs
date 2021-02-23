@@ -1,10 +1,10 @@
+//! # PolkaBTC Oracle Module
+//! Based on the [specification](https://interlay.gitlab.io/polkabtc-spec/spec/oracle.html).
+
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-/// # Exchange Rate Oracle implementation
-/// This is the implementation of the Exchange Rate Oracle following the spec at:
-/// https://interlay.gitlab.io/polkabtc-spec/spec/oracle.html
 mod ext;
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
@@ -27,6 +27,7 @@ use mocktopus::macros::mockable;
 use codec::{Decode, Encode, EncodeLike};
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::Currency;
+use frame_support::transactional;
 use frame_support::weights::Weight;
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
 use frame_system::{ensure_root, ensure_signed};
@@ -35,7 +36,6 @@ use sp_arithmetic::traits::*;
 use sp_arithmetic::FixedPointNumber;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
-use util::transactional;
 
 pub(crate) type DOT<T> =
     <<T as collateral::Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;

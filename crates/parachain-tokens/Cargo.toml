@@ -1,0 +1,43 @@
+[package]
+authors = ['Interlay']
+edition = "2018"
+name = "parachain-tokens"
+version = '0.5.0'
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
+serde = { version = "1.0.101", optional = true, features = ["derive"] }
+
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
+sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
+
+xcm = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", default-features = false }
+xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", default-features = false }
+cumulus-primitives = { package = "cumulus-primitives-core", git = "https://github.com/paritytech/cumulus", branch = "rococo-v1", default-features = false }
+
+# Parachain dependencies
+collateral = { path = "../collateral", default-features = false }
+treasury = { path = "../treasury", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+    "codec/std",
+    "serde",
+    "sp-std/std",
+    "sp-runtime/std",
+    "sp-arithmetic/std",
+    "frame-support/std",
+    "frame-system/std",
+
+    "xcm/std",
+    "xcm-executor/std",
+    "cumulus-primitives/std",
+
+    "collateral/std",
+    "treasury/std",
+]
+disable-native-filter = []

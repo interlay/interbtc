@@ -6,9 +6,9 @@ use mocktopus::macros::mockable;
 use bitcoin_hashes::hash160::Hash as Hash160;
 use bitcoin_hashes::Hash;
 
-use crate::formatter::Formattable;
+use crate::formatter::{Formattable, TryFormattable};
 use crate::merkle::{MerkleProof, MerkleTree};
-use crate::parser::{extract_address_hash_scriptsig, FromLeBytes};
+use crate::parser::extract_address_hash_scriptsig;
 use crate::utils::{log2, reverse_endianness, sha256d_le};
 use crate::Script;
 use crate::{Address, Error};
@@ -21,8 +21,8 @@ use sp_std::prelude::*;
 
 pub(crate) const SERIALIZE_TRANSACTION_NO_WITNESS: i32 = 0x4000_0000;
 
-// Bitcoin Script OpCodes
-// https://github.com/bitcoin/bitcoin/blob/master/src/script/script.h
+/// Bitcoin Script OpCodes
+/// <https://github.com/bitcoin/bitcoin/blob/master/src/script/script.h>
 #[derive(Copy, Clone)]
 pub enum OpCode {
     // push value
@@ -159,8 +159,8 @@ pub enum OpCode {
 }
 
 /// Custom Types
-/// Bitcoin Raw Block Header type
 
+/// Bitcoin raw block header (80 bytes)
 #[derive(Encode, Decode, Copy, Clone)]
 pub struct RawBlockHeader([u8; 80]);
 
@@ -244,8 +244,8 @@ pub struct BlockHeader {
 }
 
 impl BlockHeader {
-    pub fn hash(&self) -> H256Le {
-        sha256d_le(&self.format())
+    pub fn hash(&self) -> Result<H256Le, Error> {
+        Ok(sha256d_le(&self.try_format()?))
     }
 }
 
@@ -329,31 +329,7 @@ impl Transaction {
     }
 }
 
-/// Bitcoin Enriched Block Headers
-#[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Eq, Debug)]
-pub struct RichBlockHeader {
-    pub block_hash: H256Le,
-    pub block_header: BlockHeader,
-    pub block_height: u32,
-    pub chain_ref: u32,
-}
-
-impl RichBlockHeader {
-    // Creates a RichBlockHeader given a RawBlockHeader, Blockchain identifier and block height
-    pub fn construct(
-        raw_block_header: RawBlockHeader,
-        chain_ref: u32,
-        block_height: u32,
-    ) -> Result<RichBlockHeader, Error> {
-        Ok(RichBlockHeader {
-            block_hash: raw_block_header.hash(),
-            block_header: BlockHeader::from_le_bytes(raw_block_header.as_bytes())?,
-            block_height,
-            chain_ref,
-        })
-    }
-}
-
+/// Bitcoin block: header and transactions
 #[derive(Default, Clone, PartialEq, Debug)]
 pub struct Block {
     pub header: BlockHeader,
@@ -361,7 +337,7 @@ pub struct Block {
 }
 
 impl Block {
-    pub fn merkle_proof(&self, include: &[H256Le]) -> MerkleProof {
+    pub fn merkle_proof(&self, include: &[H256Le]) -> Result<MerkleProof, Error> {
         let mut proof = MerkleProof {
             block_header: self.header,
             transactions_count: self.transactions.len() as u32,
@@ -381,8 +357,8 @@ impl Block {
             .collect();
 
         let height = proof.compute_partial_tree_height();
-        proof.traverse_and_build(height as u32, 0, &tx_ids, &matches);
-        proof
+        proof.traverse_and_build(height as u32, 0, &tx_ids, &matches)?;
+        Ok(proof)
     }
 }
 
@@ -431,7 +407,7 @@ impl BlockBuilder {
         self
     }
 
-    pub fn mine(&mut self, target: U256) -> Block {
+    pub fn mine(&mut self, target: U256) -> Result<Block, Error> {
         // NOTE: this function is used only for testing
         // so we panic instead of returning a Result
         // as this is a problem on the caller side
@@ -439,17 +415,17 @@ impl BlockBuilder {
             panic!("trying to mine a block without a coinbase");
         }
         self.block.header.target = target;
-        self.block.header.merkle_root = self.compute_merkle_root();
+        self.block.header.merkle_root = self.compute_merkle_root()?;
         let mut nonce: u32 = 0;
         // NOTE: this is inefficient because we are serializing the header
         // over and over again but it should not matter because
         // this is meant to be used only for very low difficulty
         // and not for any sort of real-world mining
-        while self.block.header.hash().as_u256() >= target {
+        while self.block.header.hash()?.as_u256() >= target {
             self.block.header.nonce = nonce;
             nonce += 1;
         }
-        self.block.clone()
+        Ok(self.block.clone())
     }
 
     pub fn add_transaction(&mut self, transaction: Transaction) -> &mut Self {
@@ -466,7 +442,7 @@ impl BlockBuilder {
         self
     }
 
-    fn compute_merkle_root(&self) -> H256Le {
+    fn compute_merkle_root(&self) -> Result<H256Le, Error> {
         let height = log2(self.block.transactions.len() as u64);
         let mut tx_ids = Vec::with_capacity(self.block.transactions.len());
         for tx in &self.block.transactions {
@@ -665,6 +641,7 @@ impl CompactUint {
     }
 }
 
+/// Construct txs from inputs and outputs
 pub struct TransactionBuilder {
     transaction: Transaction,
 }
@@ -720,14 +697,15 @@ impl TransactionBuilder {
     }
 }
 
+/// Construct transaction inputs
 pub struct TransactionInputBuilder {
-    trasaction_input: TransactionInput,
+    transaction_input: TransactionInput,
 }
 
 impl Default for TransactionInputBuilder {
     fn default() -> Self {
         TransactionInputBuilder {
-            trasaction_input: TransactionInput {
+            transaction_input: TransactionInput {
                 previous_hash: H256Le::zero(),
                 previous_index: 0,
                 coinbase: true,
@@ -747,42 +725,42 @@ impl TransactionInputBuilder {
     }
 
     pub fn with_previous_hash(&mut self, previous_hash: H256Le) -> &mut Self {
-        self.trasaction_input.previous_hash = previous_hash;
+        self.transaction_input.previous_hash = previous_hash;
         self
     }
 
     pub fn with_previous_index(&mut self, previous_index: u32) -> &mut Self {
-        self.trasaction_input.previous_index = previous_index;
+        self.transaction_input.previous_index = previous_index;
         self
     }
 
     pub fn with_coinbase(&mut self, coinbase: bool) -> &mut Self {
-        self.trasaction_input.coinbase = coinbase;
+        self.transaction_input.coinbase = coinbase;
         self
     }
 
     pub fn with_script(&mut self, script: &[u8]) -> &mut Self {
-        self.trasaction_input.script = Vec::from(script);
+        self.transaction_input.script = Vec::from(script);
         self
     }
 
     pub fn with_height(&mut self, height: u32) -> &mut Self {
-        self.trasaction_input.height = Some(height);
+        self.transaction_input.height = Some(height);
         self
     }
 
     pub fn with_sequence(&mut self, sequence: u32) -> &mut Self {
-        self.trasaction_input.sequence = sequence;
+        self.transaction_input.sequence = sequence;
         self
     }
 
     pub fn add_witness(&mut self, witness: &[u8]) -> &mut Self {
-        self.trasaction_input.witness.push(Vec::from(witness));
+        self.transaction_input.witness.push(Vec::from(witness));
         self
     }
 
     pub fn build(&self) -> TransactionInput {
-        self.trasaction_input.clone()
+        self.transaction_input.clone()
     }
 }
 
@@ -924,7 +902,7 @@ mod tests {
         for tx in transactions {
             builder.add_transaction(tx);
         }
-        let merkle_root = builder.compute_merkle_root();
+        let merkle_root = builder.compute_merkle_root().unwrap();
         let expected =
             H256Le::from_hex_be("f3e94742aca4b5ef85488dc37c06c3282295ffec960994b2c0d5ac2a25a95766");
         assert_eq!(merkle_root, expected);
@@ -965,7 +943,7 @@ mod tests {
         for tx in transactions {
             builder.add_transaction(tx);
         }
-        let merkle_root = builder.compute_merkle_root();
+        let merkle_root = builder.compute_merkle_root().unwrap();
         let expected =
             H256Le::from_hex_be("5766798857e436d6243b46b5c1e0af5b6806aa9c2320b3ffd4ecff7b31fd4647");
         assert_eq!(merkle_root, expected);
@@ -980,7 +958,8 @@ mod tests {
             .with_version(2)
             .with_coinbase(&address, 50, 3)
             .with_timestamp(1588814835)
-            .mine(U256::from(2).pow(254.into()));
+            .mine(U256::from(2).pow(254.into()))
+            .unwrap();
         assert_eq!(block.header.version, 2);
         assert_eq!(block.header.merkle_root, block.transactions[0].tx_id());
         // should be 3, might change if block is changed
@@ -1005,11 +984,12 @@ mod tests {
             .with_coinbase(&address, 50, 3)
             .with_timestamp(1588814835)
             .add_transaction(transaction.clone())
-            .mine(U256::from(2).pow(254.into()));
+            .mine(U256::from(2).pow(254.into()))
+            .unwrap();
 
         // FIXME: flag_bits incorrect
-        let proof = block.merkle_proof(&vec![transaction.tx_id()]);
-        let bytes = proof.format();
+        let proof = block.merkle_proof(&vec![transaction.tx_id()]).unwrap();
+        let bytes = proof.try_format().unwrap();
         MerkleProof::parse(&bytes).unwrap();
     }
 

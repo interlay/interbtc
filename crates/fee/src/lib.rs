@@ -1,4 +1,5 @@
-//! # PolkaBTC Fee Pallet
+//! # PolkaBTC Fee Module
+//! Based on the [specification](https://interlay.gitlab.io/polkabtc-spec/spec/fee.html).
 
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
@@ -25,6 +26,7 @@ extern crate mocktopus;
 use mocktopus::macros::mockable;
 
 use codec::{Decode, Encode, EncodeLike};
+use frame_support::transactional;
 use frame_support::{decl_error, decl_event, decl_module, decl_storage};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
@@ -37,7 +39,6 @@ use sp_arithmetic::FixedPointNumber;
 use sp_std::convert::TryInto;
 use sp_std::vec::*;
 use types::{Inner, PolkaBTC, UnsignedFixedPoint, DOT};
-use util::transactional;
 
 pub trait WeightInfo {
     fn withdraw_polka_btc() -> Weight;

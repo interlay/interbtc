@@ -1,6 +1,6 @@
-/// Mocking the test environment
-use crate::{Config, Error, GenesisConfig, Module};
-use frame_support::{impl_outer_event, impl_outer_origin, parameter_types};
+use crate as exchange_rate_oracle;
+use crate::{Config, Error};
+use frame_support::parameter_types;
 use mocktopus::mocking::clear_mocks;
 use sp_arithmetic::FixedU128;
 use sp_core::H256;
@@ -9,51 +9,35 @@ use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup},
 };
 
-impl_outer_origin! {
-    pub enum Origin for Test {}
-}
+type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
+type Block = frame_system::mocking::MockBlock<Test>;
 
-mod exchange_rate_oracle {
-    pub use crate::Event;
-}
+// Configure a mock runtime to test the pallet.
+frame_support::construct_runtime!(
+    pub enum Test where
+        Block = Block,
+        NodeBlock = Block,
+        UncheckedExtrinsic = UncheckedExtrinsic,
+    {
+        System: frame_system::{Module, Call, Storage, Config, Event<T>},
+        Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
+        Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
 
-impl_outer_event! {
-    pub enum TestEvent for Test {
-        frame_system<T>,
-        exchange_rate_oracle<T>,
-        pallet_balances<T>,
-        collateral<T>,
-        treasury<T>,
-        security,
+        // Operational
+        Collateral: collateral::{Module, Call, Storage, Event<T>},
+        Treasury: treasury::{Module, Call, Storage, Event<T>},
+        Security: security::{Module, Call, Storage, Event},
+        ExchangeRateOracle: exchange_rate_oracle::{Module, Call, Config<T>, Storage, Event<T>},
     }
-}
-
-pub struct PalletInfo;
-
-impl frame_support::traits::PalletInfo for PalletInfo {
-    fn index<P: 'static>() -> Option<usize> {
-        Some(0)
-    }
-
-    fn name<P: 'static>() -> Option<&'static str> {
-        Some("exchange-rate-oracle")
-    }
-}
+);
 
 pub type AccountId = u64;
 pub type Balance = u64;
 pub type BlockNumber = u64;
 
-// For testing the pallet, we construct most of a mock runtime. This means
-// first constructing a configuration type (`Test`) which `impl`s each of the
-// configuration traits of modules we want to use.
-#[derive(Clone, Eq, PartialEq)]
-pub struct Test;
-
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
-    pub BlockWeights: frame_system::limits::BlockWeights =
-        frame_system::limits::BlockWeights::simple_max(1024);
+    pub const SS58Prefix: u8 = 42;
 }
 
 impl frame_system::Config for Test {
@@ -62,9 +46,9 @@ impl frame_system::Config for Test {
     type BlockLength = ();
     type DbWeight = ();
     type Origin = Origin;
+    type Call = Call;
     type Index = u64;
     type BlockNumber = BlockNumber;
-    type Call = ();
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = AccountId;
@@ -78,10 +62,8 @@ impl frame_system::Config for Test {
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
-    type SS58Prefix = ();
+    type SS58Prefix = SS58Prefix;
 }
-
-pub type Balances = pallet_balances::Module<Test>;
 
 impl Config for Test {
     type Event = TestEvent;
@@ -129,10 +111,8 @@ impl security::Config for Test {
     type Event = TestEvent;
 }
 
+pub type TestEvent = Event;
 pub type TestError = Error<Test>;
-
-pub type System = frame_system::Module<Test>;
-pub type ExchangeRateOracle = Module<Test>;
 
 pub struct ExtBuilder;
 
@@ -142,7 +122,7 @@ impl ExtBuilder {
             .build_storage::<Test>()
             .unwrap();
 
-        GenesisConfig::<Test> {
+        exchange_rate_oracle::GenesisConfig::<Test> {
             authorized_oracles: vec![(0, "test".as_bytes().to_vec())],
             max_delay: 0,
         }

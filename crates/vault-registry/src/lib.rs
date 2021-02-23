@@ -1,10 +1,10 @@
+//! # PolkaBTC Vault Registry Module
+//! Based on the [specification](https://interlay.gitlab.io/polkabtc-spec/spec/vaultregistry.html).
+
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-/// # Vault Registry implementation
-/// This is the implementation of the Vault Registry following the spec at:
-/// https://interlay.gitlab.io/polkabtc-spec/spec/vaultregistry.html
 mod ext;
 pub mod types;
 
@@ -28,6 +28,7 @@ use mocktopus::macros::mockable;
 use codec::{Decode, Encode, EncodeLike};
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::Randomness;
+use frame_support::transactional;
 use frame_support::weights::Weight;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, ensure, IterableStorageMap,
@@ -40,12 +41,12 @@ use sp_arithmetic::FixedPointNumber;
 use sp_core::H256;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
-use util::transactional;
 
 use crate::types::{
     BtcAddress, DefaultSystemVault, DefaultVault, Inner, PolkaBTC, RichSystemVault, RichVault,
     UnsignedFixedPoint, UpdatableVault, Version, DOT,
 };
+#[doc(inline)]
 pub use crate::types::{BtcPublicKey, SystemVault, Vault, VaultStatus, Wallet};
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
@@ -378,8 +379,7 @@ impl<T: Config> Module<T> {
     pub fn liquidation_vault_force_decrease_to_be_issued_tokens(
         tokens: PolkaBTC<T>,
     ) -> DispatchResult {
-        Self::get_rich_liquidation_vault().force_decrease_to_be_issued(tokens);
-        Ok(())
+        Self::get_rich_liquidation_vault().force_decrease_to_be_issued(tokens)
     }
 
     /// Decreases the amount of tokens issued for the liquidation vault
@@ -387,8 +387,7 @@ impl<T: Config> Module<T> {
     /// # Arguments
     /// * `tokens` - the amount of tokens to be unreserved
     pub fn liquidation_vault_force_decrease_issued_tokens(tokens: PolkaBTC<T>) -> DispatchResult {
-        Self::get_rich_liquidation_vault().force_decrease_issued(tokens);
-        Ok(())
+        Self::get_rich_liquidation_vault().force_decrease_issued(tokens)
     }
 
     /// Decreases the amount of tokens to be redeemed in the next redeem/replace for
@@ -399,8 +398,7 @@ impl<T: Config> Module<T> {
     pub fn liquidation_vault_force_decrease_to_be_redeemed_tokens(
         tokens: PolkaBTC<T>,
     ) -> DispatchResult {
-        Self::get_rich_liquidation_vault().force_decrease_to_be_redeemed(tokens);
-        Ok(())
+        Self::get_rich_liquidation_vault().force_decrease_to_be_redeemed(tokens)
     }
 
     /// Issues an amount of `tokens` tokens for the given `vault_id`
@@ -910,7 +908,7 @@ impl<T: Config> Module<T> {
     /// Maybe returns a tuple of (VaultId, RedeemableTokens)
     /// The redeemable tokens are the currently vault.issued_tokens - the vault.to_be_redeemed_tokens
     pub fn get_premium_redeem_vaults() -> Result<Vec<(T::AccountId, PolkaBTC<T>)>, DispatchError> {
-        let suitable_vaults = <Vaults<T>>::iter()
+        let mut suitable_vaults = <Vaults<T>>::iter()
             .filter_map(|(account_id, vault)| {
                 // iterator returns tuple of (AccountId, Vault<T>),
                 if !vault.issued_tokens.is_zero()
@@ -935,7 +933,35 @@ impl<T: Config> Module<T> {
         if suitable_vaults.is_empty() {
             Err(Error::<T>::NoVaultUnderThePremiumRedeemThreshold.into())
         } else {
+            suitable_vaults.sort_by(|a, b| b.1.cmp(&a.1));
             Ok(suitable_vaults)
+        }
+    }
+
+    /// Get all vaults with non-zero issuable tokens, ordered in descending order of this amount
+    pub fn get_vaults_with_issuable_tokens(
+    ) -> Result<Vec<(T::AccountId, PolkaBTC<T>)>, DispatchError> {
+        let mut vaults_with_issuable_tokens = <Vaults<T>>::iter()
+            .filter_map(|(account_id, _vault)| {
+                // iterator returns tuple of (AccountId, Vault<T>),
+                match Self::get_issuable_tokens_from_vault(account_id.clone()).ok() {
+                    Some(issuable_tokens) => {
+                        if !issuable_tokens.is_zero() {
+                            Some((account_id, issuable_tokens))
+                        } else {
+                            None
+                        }
+                    }
+                    None => None,
+                }
+            })
+            .collect::<Vec<(_, _)>>();
+
+        if vaults_with_issuable_tokens.is_empty() {
+            Err(Error::<T>::NoVaultWithIssuableTokens.into())
+        } else {
+            vaults_with_issuable_tokens.sort_by(|a, b| b.1.cmp(&a.1));
+            Ok(vaults_with_issuable_tokens)
         }
     }
 
@@ -1243,6 +1269,7 @@ decl_error! {
         NoVaultWithSufficientCollateral,
         NoVaultWithSufficientTokens,
         NoVaultUnderThePremiumRedeemThreshold,
+        NoVaultWithIssuableTokens,
         ArithmeticOverflow,
         ArithmeticUnderflow,
         /// Unable to convert value

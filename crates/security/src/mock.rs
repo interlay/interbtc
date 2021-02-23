@@ -1,6 +1,6 @@
-/// Mocking the test environment
-use crate::{Config, Error, Module};
-use frame_support::{impl_outer_event, impl_outer_origin, parameter_types};
+use crate as security;
+use crate::{Config, Error};
+use frame_support::parameter_types;
 use mocktopus::mocking::clear_mocks;
 use sp_core::H256;
 use sp_io;
@@ -9,48 +9,27 @@ use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup},
 };
 
-impl_outer_origin! {
-    pub enum Origin for Test {}
-}
+type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
+type Block = frame_system::mocking::MockBlock<Test>;
 
-mod security {
-    pub use crate::Event;
-}
-
-impl_outer_event! {
-    pub enum TestEvent for Test {
-        frame_system<T>,
-        security,
+// Configure a mock runtime to test the pallet.
+frame_support::construct_runtime!(
+    pub enum Test where
+        Block = Block,
+        NodeBlock = Block,
+        UncheckedExtrinsic = UncheckedExtrinsic,
+    {
+        System: frame_system::{Module, Call, Storage, Config, Event<T>},
+        Security: security::{Module, Call, Storage, Event},
     }
-}
-
-pub struct PalletInfo;
-
-impl frame_support::traits::PalletInfo for PalletInfo {
-    fn index<P: 'static>() -> Option<usize> {
-        Some(0)
-    }
-
-    fn name<P: 'static>() -> Option<&'static str> {
-        Some("security")
-    }
-}
-
-// For testing the pallet, we construct most of a mock runtime. This means
-// first constructing a configuration type (`Test`) which `impl`s each of the
-// configuration traits of pallets we want to use.
+);
 
 pub type AccountId = u64;
-pub type Balance = u64;
 pub type BlockNumber = u64;
-
-#[derive(Clone, Eq, PartialEq)]
-pub struct Test;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
-    pub BlockWeights: frame_system::limits::BlockWeights =
-        frame_system::limits::BlockWeights::simple_max(1024);
+    pub const SS58Prefix: u8 = 42;
 }
 
 impl frame_system::Config for Test {
@@ -59,9 +38,9 @@ impl frame_system::Config for Test {
     type BlockLength = ();
     type DbWeight = ();
     type Origin = Origin;
+    type Call = Call;
     type Index = u64;
     type BlockNumber = BlockNumber;
-    type Call = ();
     type Hash = H256;
     type Hashing = BlakeTwo256;
     type AccountId = AccountId;
@@ -71,21 +50,19 @@ impl frame_system::Config for Test {
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
-    type AccountData = pallet_balances::AccountData<Balance>;
+    type AccountData = ();
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
-    type SS58Prefix = ();
+    type SS58Prefix = SS58Prefix;
 }
 
 impl Config for Test {
     type Event = TestEvent;
 }
 
+pub type TestEvent = Event;
 pub type TestError = Error<Test>;
-
-pub type Security = Module<Test>;
-pub type System = frame_system::Module<Test>;
 
 pub struct ExtBuilder;
 

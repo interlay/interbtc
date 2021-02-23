@@ -187,7 +187,10 @@ impl BytesParser {
     /// underlying `Parsable` parse function fails
     pub(crate) fn parse<T: Parsable>(&mut self) -> Result<T, Error> {
         let (result, bytes_consumed) = T::parse(&self.raw_bytes, self.position)?;
-        self.position += bytes_consumed;
+        self.position = self
+            .position
+            .checked_add(bytes_consumed)
+            .ok_or(Error::ArithmeticOverflow)?;
         Ok(result)
     }
 
@@ -207,7 +210,10 @@ impl BytesParser {
         T: ParsableMeta<U>,
     {
         let (result, bytes_consumed) = T::parse_with(&self.raw_bytes, self.position, extra)?;
-        self.position += bytes_consumed;
+        self.position = self
+            .position
+            .checked_add(bytes_consumed)
+            .ok_or(Error::ArithmeticOverflow)?;
         Ok(result)
     }
 
@@ -218,7 +224,10 @@ impl BytesParser {
             .raw_bytes
             .get(self.position..self.position + bytes_count)
             .ok_or(Error::EOS)?;
-        self.position += bytes_count;
+        self.position = self
+            .position
+            .checked_add(bytes_count)
+            .ok_or(Error::ArithmeticOverflow)?;
         Ok(Vec::from(bytes))
     }
 }
@@ -288,7 +297,7 @@ pub fn parse_compact_uint(varint: &[u8]) -> Result<(u64, usize), Error> {
 
 /// Parses a single bitcoin transaction
 /// Serialization format is documented below
-/// https://github.com/bitcoin/bitcoin/blob/master/src/primitives/transaction.h#L182
+/// <https://github.com/bitcoin/bitcoin/blob/master/src/primitives/transaction.h#L182>
 /// # Arguments
 ///
 /// * `raw_transaction` - the raw bytes of the transaction

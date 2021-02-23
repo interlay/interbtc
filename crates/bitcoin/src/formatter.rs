@@ -5,6 +5,7 @@ use sp_std::{prelude::*, vec};
 use crate::merkle::MerkleProof;
 use crate::script::*;
 use crate::types::*;
+use crate::Error;
 
 const WITNESS_FLAG: u8 = 0x01;
 const WITNESS_MARKER: u8 = 0x00;
@@ -14,6 +15,13 @@ pub trait Formattable<Options = ()> {
     fn format(&self) -> Vec<u8>;
     fn format_with(&self, _options: Options) -> Vec<u8> {
         self.format()
+    }
+}
+
+pub trait TryFormattable<Options = ()> {
+    fn try_format(&self) -> Result<Vec<u8>, Error>;
+    fn try_format_with(&self, _options: Options) -> Result<Vec<u8>, Error> {
+        self.try_format()
     }
 }
 
@@ -187,22 +195,35 @@ impl Formattable<bool> for Transaction {
         }
 
         // only block_height or locktime should ever be Some
-        self.block_height
-            .or(self.locktime)
-            .iter()
-            .for_each(|b| formatter.format(b));
+        if let Some(b) = self.block_height.or(self.locktime) {
+            formatter.format(b)
+        }
 
         formatter.result()
     }
 }
 
 // https://developer.bitcoin.org/reference/block_chain.html#target-nbits
-impl Formattable<bool> for U256 {
-    fn format(&self) -> Vec<u8> {
+impl TryFormattable<bool> for U256 {
+    fn try_format(&self) -> Result<Vec<u8>, Error> {
         let mut bytes: [u8; 4] = Default::default();
-        let mut exponent = (self.bits() + 7) / 8;
+        let mut exponent = self
+            .bits()
+            .checked_add(7)
+            .ok_or(Error::ArithmeticOverflow)?
+            .checked_div(8)
+            .ok_or(Error::ArithmeticUnderflow)?;
         let mut mantissa = if exponent > 3 {
-            self / U256::from(256).pow(U256::from(exponent) - 3)
+            self.checked_div(
+                U256::from(256)
+                    .checked_pow(
+                        U256::from(exponent)
+                            .checked_sub(U256::from(3))
+                            .ok_or(Error::ArithmeticUnderflow)?,
+                    )
+                    .ok_or(Error::ArithmeticOverflow)?,
+            )
+            .ok_or(Error::ArithmeticUnderflow)?
         } else {
             *self
         }
@@ -217,29 +238,29 @@ impl Formattable<bool> for U256 {
         let mantissa_bytes = mantissa.to_le_bytes();
         bytes[3] = exponent as u8;
         bytes[..2 + 1].clone_from_slice(&mantissa_bytes[..2 + 1]);
-        Vec::from(&bytes[..])
+        Ok(Vec::from(&bytes[..]))
     }
 }
 
-impl Formattable for BlockHeader {
-    fn format(&self) -> Vec<u8> {
+impl TryFormattable for BlockHeader {
+    fn try_format(&self) -> Result<Vec<u8>, Error> {
         let mut formatter = Formatter::new();
         formatter.format(self.version);
         formatter.format(self.hash_prev_block);
         formatter.format(self.merkle_root);
         formatter.format(self.timestamp);
-        formatter.format(self.target);
+        formatter.try_format(self.target)?;
         formatter.format(self.nonce);
-        formatter.result()
+        Ok(formatter.result())
     }
 }
 
-impl Formattable for Block {
-    fn format(&self) -> Vec<u8> {
+impl TryFormattable for Block {
+    fn try_format(&self) -> Result<Vec<u8>, Error> {
         let mut formatter = Formatter::new();
-        formatter.format(self.header);
+        formatter.try_format(self.header)?;
         formatter.format(&self.transactions);
-        formatter.result()
+        Ok(formatter.result())
     }
 }
 
@@ -249,10 +270,10 @@ impl Formattable for Block {
 /// Hashes (N * 32 bytes, little endian)
 /// Number of bytes of flag bits (varint, 1 - 3 bytes)
 /// Flag bits (little endian)
-impl Formattable for MerkleProof {
-    fn format(&self) -> Vec<u8> {
+impl TryFormattable for MerkleProof {
+    fn try_format(&self) -> Result<Vec<u8>, Error> {
         let mut formatter = Formatter::new();
-        formatter.format(self.block_header);
+        formatter.try_format(self.block_header)?;
         formatter.format(self.transactions_count);
         let hashes_count = CompactUint::from_usize(self.hashes.len());
         formatter.format(hashes_count);
@@ -260,14 +281,22 @@ impl Formattable for MerkleProof {
             formatter.format(hash);
         }
 
-        let mut bytes: Vec<u8> = vec![0; (self.flag_bits.len() + 7) / 8];
+        let len = self
+            .flag_bits
+            .len()
+            .checked_add(7)
+            .ok_or(Error::ArithmeticOverflow)?
+            .checked_div(8)
+            .ok_or(Error::ArithmeticUnderflow)?;
+        let mut bytes: Vec<u8> = vec![0; len];
         for p in 0..self.flag_bits.len() {
-            bytes[p / 8] |= (self.flag_bits[p] as u8) << (p % 8) as u8;
+            bytes[p.checked_div(8).ok_or(Error::ArithmeticUnderflow)?] |=
+                (self.flag_bits[p] as u8) << (p % 8) as u8;
         }
         formatter.format(bytes.len() as u8);
         formatter.output(&bytes);
 
-        formatter.result()
+        Ok(formatter.result())
     }
 }
 
@@ -282,6 +311,14 @@ impl Formatter {
 
     fn output(&mut self, bytes: &[u8]) {
         self.bytes.extend(bytes);
+    }
+
+    fn try_format<T, U>(&mut self, value: T) -> Result<(), Error>
+    where
+        T: TryFormattable<U>,
+    {
+        self.bytes.extend(value.try_format()?);
+        Ok(())
     }
 
     fn format<T, U>(&mut self, value: T)
@@ -387,7 +424,7 @@ mod tests {
         let hex_header = parser::tests::sample_block_header();
         let raw_header = RawBlockHeader::from_hex(&hex_header).unwrap();
         let parsed_header = parser::parse_block_header(&raw_header).unwrap();
-        assert_eq!(parsed_header.format(), raw_header.as_bytes());
+        assert_eq!(parsed_header.try_format().unwrap(), raw_header.as_bytes());
     }
 
     #[test]
@@ -415,7 +452,7 @@ mod tests {
             }
         );
 
-        assert_eq!(parsed_header.format(), raw_header.as_bytes());
+        assert_eq!(parsed_header.try_format().unwrap(), raw_header.as_bytes());
     }
 
     // taken from https://bitcoin.org/en/developer-reference#block-headers
@@ -423,7 +460,7 @@ mod tests {
     fn test_format_u256() {
         let value = U256::from_dec_str("680733321990486529407107157001552378184394215934016880640")
             .unwrap();
-        let result = value.format();
+        let result = value.try_format().unwrap();
         let expected = hex::decode("30c31b18").unwrap();
         assert_eq!(result, expected);
     }
@@ -434,7 +471,7 @@ mod tests {
         let value =
             U256::from_dec_str("1260618571951953247774709397757627131971305851995253681160192")
                 .unwrap();
-        let result = value.format();
+        let result = value.try_format().unwrap();
         let expected = hex::decode("d4c8001a").unwrap();
         assert_eq!(result, expected);
     }
@@ -445,6 +482,6 @@ mod tests {
     fn test_format_merkle_proof() {
         let proof = MerkleProof::parse(&hex::decode(&PROOF_HEX[..]).unwrap()).unwrap();
         let expected = hex::decode(PROOF_HEX).unwrap();
-        assert_eq!(proof.format(), expected);
+        assert_eq!(proof.try_format().unwrap(), expected);
     }
 }

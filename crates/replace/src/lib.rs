@@ -1,3 +1,6 @@
+//! # PolkaBTC Replace Module
+//! Based on the [specification](https://interlay.gitlab.io/polkabtc-spec/spec/replace.html).
+
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -10,7 +13,7 @@ mod default_weights;
 #[cfg(test)]
 extern crate mocktopus;
 
-// Substrate
+use frame_support::transactional;
 use frame_support::weights::Weight;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
@@ -24,17 +27,14 @@ use primitive_types::H256;
 use sp_runtime::ModuleId;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
-use util::transactional;
 
 use bitcoin::types::H256Le;
 use btc_relay::BtcAddress;
 
+#[doc(inline)]
 pub use crate::types::ReplaceRequest;
 use crate::types::{PolkaBTC, Version, DOT};
 
-/// # PolkaBTC Replace implementation
-/// The Replace module according to the specification at
-/// https://interlay.gitlab.io/polkabtc-spec/spec/replace.html
 mod ext;
 pub mod types;
 

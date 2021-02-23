@@ -17,7 +17,7 @@ use sp_api::impl_runtime_apis;
 use sp_core::OpaqueMetadata;
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
-    traits::{BlakeTwo256, Block as BlockT, IdentifyAccount, IdentityLookup, Verify},
+    traits::{BlakeTwo256, Block as BlockT, Convert, IdentifyAccount, IdentityLookup, Verify},
     transaction_validity::{TransactionSource, TransactionValidity},
     ApplyExtrinsicResult, MultiSignature,
 };
@@ -51,17 +51,15 @@ pub use module_exchange_rate_oracle_rpc_runtime_api::BalanceWrapper;
 // XCM imports
 #[cfg(feature = "cumulus-polkadot")]
 use {
+    parachain_tokens::{CurrencyAdapter, NativeAsset},
     polkadot_parachain::primitives::Sibling,
     xcm::v0::{Junction, MultiLocation, NetworkId},
     xcm_builder::{
-        AccountId32Aliases, CurrencyAdapter, LocationInverter, ParentIsDefault, RelayChainAsNative,
+        AccountId32Aliases, LocationInverter, ParentIsDefault, RelayChainAsNative,
         SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
         SovereignSignedViaLocation,
     },
-    xcm_executor::{
-        traits::{IsConcrete, NativeAsset},
-        Config, XcmExecutor,
-    },
+    xcm_executor::{Config, XcmExecutor},
 };
 
 // Aura & GRANDPA imports
@@ -300,8 +298,8 @@ impl cumulus_parachain_system::Config for Runtime {
     type Event = Event;
     type OnValidationData = ();
     type SelfParaId = parachain_info::Module<Runtime>;
-    type DownwardMessageHandlers = ();
-    type HrmpMessageHandlers = ();
+    type DownwardMessageHandlers = XcmHandler;
+    type HrmpMessageHandlers = XcmHandler;
 }
 
 #[cfg(feature = "cumulus-polkadot")]
@@ -326,10 +324,8 @@ type LocationConverter = (
 
 #[cfg(feature = "cumulus-polkadot")]
 type LocalAssetTransactor = CurrencyAdapter<
-    // Use this currency:
     DOT,
-    // Use this currency when it is a fungible asset matching the given location or name:
-    IsConcrete<RococoLocation>,
+    PolkaBTC,
     // Do a simple punn to convert an AccountId32 MultiLocation into a native chain account ID:
     LocationConverter,
     // Our chain's account ID type (we can't get away without mentioning it explicitly):
@@ -365,6 +361,24 @@ impl xcm_handler::Config for Runtime {
     type XcmExecutor = XcmExecutor<XcmConfig>;
     type UpwardMessageSender = ParachainSystem;
     type HrmpMessageSender = ParachainSystem;
+}
+
+#[cfg(feature = "cumulus-polkadot")]
+pub struct AccountId32Convert;
+#[cfg(feature = "cumulus-polkadot")]
+impl Convert<AccountId, [u8; 32]> for AccountId32Convert {
+    fn convert(account_id: AccountId) -> [u8; 32] {
+        account_id.into()
+    }
+}
+
+#[cfg(feature = "cumulus-polkadot")]
+impl parachain_tokens::Config for Runtime {
+    type Event = Event;
+    type AccountId32Convert = AccountId32Convert;
+    type AccountIdConverter = LocationConverter;
+    type XcmExecutor = XcmExecutor<XcmConfig>;
+    type ParaId = ParachainInfo;
 }
 
 parameter_types! {
@@ -508,10 +522,10 @@ macro_rules! construct_polkabtc_runtime {
 		#[allow(clippy::large_enum_variant)]
 		construct_runtime! {
 			pub enum Runtime where
-            Block = Block,
-            NodeBlock = opaque::Block,
-            UncheckedExtrinsic = UncheckedExtrinsic
-                {
+                Block = Block,
+                NodeBlock = opaque::Block,
+                UncheckedExtrinsic = UncheckedExtrinsic
+            {
                 System: frame_system::{Module, Call, Storage, Config, Event<T>},
                 Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
                 Sudo: pallet_sudo::{Module, Call, Storage, Config<T>, Event<T>},
@@ -549,8 +563,9 @@ macro_rules! construct_polkabtc_runtime {
 #[cfg(feature = "cumulus-polkadot")]
 construct_polkabtc_runtime! {
     ParachainSystem: cumulus_parachain_system::{Module, Call, Storage, Inherent, Event},
-    XcmHandler: xcm_handler::{Module, Event<T>, Origin},
     ParachainInfo: parachain_info::{Module, Storage, Config},
+    ParachainTokens: parachain_tokens::{Module, Storage, Call, Event<T>},
+    XcmHandler: xcm_handler::{Module, Event<T>, Origin, Call},
 }
 
 #[cfg(feature = "aura-grandpa")]
@@ -813,6 +828,11 @@ impl_runtime_apis! {
 
         fn get_premium_redeem_vaults() -> Result<Vec<(AccountId, BalanceWrapper<Balance>)>, DispatchError> {
             let result = VaultRegistry::get_premium_redeem_vaults()?;
+            Ok(result.iter().map(|v| (v.0.clone(), BalanceWrapper{amount:v.1})).collect())
+        }
+
+        fn get_vaults_with_issuable_tokens() -> Result<Vec<(AccountId, BalanceWrapper<Balance>)>, DispatchError> {
+            let result = VaultRegistry::get_vaults_with_issuable_tokens()?;
             Ok(result.iter().map(|v| (v.0.clone(), BalanceWrapper{amount:v.1})).collect())
         }
 

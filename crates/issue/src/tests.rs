@@ -45,12 +45,7 @@ fn request_issue_ok(
     ext::vault_registry::increase_to_be_issued_tokens::<Test>
         .mock_safe(|_, _, _| MockResult::Return(Ok(BtcAddress::default())));
 
-    match Issue::_request_issue(origin, amount, vault, collateral) {
-        Ok(act) => act,
-        Err(err) => {
-            panic!(err);
-        }
-    }
+    Issue::_request_issue(origin, amount, vault, collateral).unwrap()
 }
 
 fn execute_issue(origin: AccountId, issue_id: &H256) -> Result<(), DispatchError> {

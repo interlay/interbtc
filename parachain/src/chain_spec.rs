@@ -8,7 +8,9 @@ use btc_parachain_runtime::{
 #[cfg(feature = "aura-grandpa")]
 use {
     btc_parachain_runtime::{AuraConfig, GrandpaConfig},
+    hex_literal::hex,
     sp_consensus_aura::sr25519::AuthorityId as AuraId,
+    sp_core::crypto::UncheckedInto,
     sp_finality_grandpa::AuthorityId as GrandpaId,
 };
 
@@ -53,6 +55,10 @@ pub fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) {
     (get_from_seed::<AuraId>(s), get_from_seed::<GrandpaId>(s))
 }
 
+fn get_account_id_from_string(account_id: &str) -> AccountId {
+    AccountId::from_str(account_id).expect("account id is not valid")
+}
+
 /// The extensions for the [`ChainSpec`].
 #[cfg(feature = "cumulus-polkadot")]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ChainSpecExtension, ChainSpecGroup)]
@@ -84,7 +90,7 @@ where
 
 pub fn local_config(#[cfg(feature = "cumulus-polkadot")] id: ParaId) -> ChainSpec {
     ChainSpec::from_genesis(
-        "PolkaBTC Local",
+        "PolkaBTC",
         "local_testnet",
         ChainType::Local,
         move || {
@@ -138,36 +144,39 @@ pub fn local_config(#[cfg(feature = "cumulus-polkadot")] id: ParaId) -> ChainSpe
     )
 }
 
-pub fn staging_testnet_config(#[cfg(feature = "cumulus-polkadot")] id: ParaId) -> ChainSpec {
+#[cfg(feature = "cumulus-polkadot")]
+pub fn rococo_testnet_config(id: ParaId) -> ChainSpec {
     ChainSpec::from_genesis(
-        "PolkaBTC Staging",
-        "staging_testnet",
+        "PolkaBTC",
+        "rococo_testnet",
         ChainType::Live,
         move || {
             testnet_genesis(
-                AccountId::from_str("5HeVGqvfpabwFqzV1DhiQmjaLQiFcTSmq2sH6f7atsXkgvtt").unwrap(),
-                AccountId::from_str("5CcXK1yKz4o68AJT3yBWjJPPXKDFvEFAi1L1Gkisy7n6MbGC").unwrap(),
-                AccountId::from_str("5GqMEqFQMfr2FEUBQ8yzh7NTGZUQQigfVELHnXXsUFve7TMN").unwrap(),
-                AccountId::from_str("5FqYNDWeJ9bwa3NhEryxscBELAMj54yrKqGaYNR9CjLZFYLB").unwrap(),
-                #[cfg(feature = "aura-grandpa")]
-                vec![],
+                get_account_id_from_string("5HeVGqvfpabwFqzV1DhiQmjaLQiFcTSmq2sH6f7atsXkgvtt"),
+                get_account_id_from_string("5CcXK1yKz4o68AJT3yBWjJPPXKDFvEFAi1L1Gkisy7n6MbGC"),
+                get_account_id_from_string("5GqMEqFQMfr2FEUBQ8yzh7NTGZUQQigfVELHnXXsUFve7TMN"),
+                get_account_id_from_string("5FqYNDWeJ9bwa3NhEryxscBELAMj54yrKqGaYNR9CjLZFYLB"),
                 vec![
-                    AccountId::from_str("5HeVGqvfpabwFqzV1DhiQmjaLQiFcTSmq2sH6f7atsXkgvtt")
-                        .unwrap(),
+                    get_account_id_from_string("5HeVGqvfpabwFqzV1DhiQmjaLQiFcTSmq2sH6f7atsXkgvtt"),
+                    get_account_id_from_string("5DNzULM1UJXDM7NUgDL4i8Hrhe9e3vZkB3ByM1eEXMGAs4Bv"),
+                    get_account_id_from_string("5F7Q9FqnGwJmjLtsFGymHZXPEx2dWRVE7NW4Sw2jzEhUB5WQ"),
+                    get_account_id_from_string("5H8zjSWfzMn86d1meeNrZJDj3QZSvRjKxpTfuVaZ46QJZ4qs"),
+                    get_account_id_from_string("5FPBT2BVVaLveuvznZ9A1TUtDcbxK5yvvGcMTJxgFmhcWGwj"),
                 ],
                 vec![
                     (
-                        AccountId::from_str("5H8zjSWfzMn86d1meeNrZJDj3QZSvRjKxpTfuVaZ46QJZ4qs")
-                            .unwrap(),
+                        get_account_id_from_string(
+                            "5H8zjSWfzMn86d1meeNrZJDj3QZSvRjKxpTfuVaZ46QJZ4qs",
+                        ),
                         "Interlay".as_bytes().to_vec(),
                     ),
                     (
-                        AccountId::from_str("5FPBT2BVVaLveuvznZ9A1TUtDcbxK5yvvGcMTJxgFmhcWGwj")
-                            .unwrap(),
+                        get_account_id_from_string(
+                            "5FPBT2BVVaLveuvznZ9A1TUtDcbxK5yvvGcMTJxgFmhcWGwj",
+                        ),
                         "Band".as_bytes().to_vec(),
                     ),
                 ],
-                #[cfg(feature = "cumulus-polkadot")]
                 id,
             )
         },
@@ -182,19 +191,89 @@ pub fn staging_testnet_config(#[cfg(feature = "cumulus-polkadot")] id: ParaId) -
             }))
             .unwrap(),
         ),
-        #[cfg(feature = "cumulus-polkadot")]
         Extensions {
             relay_chain: "staging".into(),
             para_id: id.into(),
         },
-        #[cfg(feature = "aura-grandpa")]
+    )
+}
+
+#[cfg(feature = "aura-grandpa")]
+pub fn beta_testnet_config() -> ChainSpec {
+    ChainSpec::from_genesis(
+        "PolkaBTC",
+        "beta_testnet",
+        ChainType::Live,
+        move || {
+            testnet_genesis(
+                get_account_id_from_string("5HeVGqvfpabwFqzV1DhiQmjaLQiFcTSmq2sH6f7atsXkgvtt"),
+                get_account_id_from_string("5CcXK1yKz4o68AJT3yBWjJPPXKDFvEFAi1L1Gkisy7n6MbGC"),
+                get_account_id_from_string("5GqMEqFQMfr2FEUBQ8yzh7NTGZUQQigfVELHnXXsUFve7TMN"),
+                get_account_id_from_string("5FqYNDWeJ9bwa3NhEryxscBELAMj54yrKqGaYNR9CjLZFYLB"),
+                vec![
+                    (
+                        // 5DJ3wbdicFSFFudXndYBuvZKjucTsyxtJX5WPzQM8HysSkFY
+                        hex!["366a092a27b4b28199a588b0155a2c9f3f0513d92481de4ee2138273926fa91c"]
+                            .unchecked_into(),
+                        hex!["dce82040dc0a90843897aee1cc1a96c205fe7c1165b8f46635c2547ed15a3013"]
+                            .unchecked_into(),
+                    ),
+                    (
+                        // 5HW7ApFamN6ovtDkFyj67tRLRhp8B2kVNjureRUWWYhkTg9j
+                        hex!["f08cc7cf45f88e6dbe312a63f6ce639061834b4208415b235f77a67b51435f63"]
+                            .unchecked_into(),
+                        hex!["5b4651cf045ddf55f0df7bfbb9bb4c45bbeb3c536c6ce4a98275781b8f0f0754"]
+                            .unchecked_into(),
+                    ),
+                    (
+                        // 5FNbq8zGPZtinsfgyD4w2G3BMh75H3r2Qg3uKudTZkJtRru6
+                        hex!["925ad4bdf35945bea91baeb5419a7ffa07002c6a85ba334adfa7cb5b05623c1b"]
+                            .unchecked_into(),
+                        hex!["8de3db7b51864804d2dd5c5905d571aa34d7161537d5a0045755b72d1ac2062e"]
+                            .unchecked_into(),
+                    ),
+                ],
+                vec![
+                    get_account_id_from_string("5HeVGqvfpabwFqzV1DhiQmjaLQiFcTSmq2sH6f7atsXkgvtt"),
+                    get_account_id_from_string("5DNzULM1UJXDM7NUgDL4i8Hrhe9e3vZkB3ByM1eEXMGAs4Bv"),
+                    get_account_id_from_string("5F7Q9FqnGwJmjLtsFGymHZXPEx2dWRVE7NW4Sw2jzEhUB5WQ"),
+                    get_account_id_from_string("5H8zjSWfzMn86d1meeNrZJDj3QZSvRjKxpTfuVaZ46QJZ4qs"),
+                    get_account_id_from_string("5FPBT2BVVaLveuvznZ9A1TUtDcbxK5yvvGcMTJxgFmhcWGwj"),
+                ],
+                vec![
+                    (
+                        get_account_id_from_string(
+                            "5H8zjSWfzMn86d1meeNrZJDj3QZSvRjKxpTfuVaZ46QJZ4qs",
+                        ),
+                        "Interlay".as_bytes().to_vec(),
+                    ),
+                    (
+                        get_account_id_from_string(
+                            "5FPBT2BVVaLveuvznZ9A1TUtDcbxK5yvvGcMTJxgFmhcWGwj",
+                        ),
+                        "Band".as_bytes().to_vec(),
+                    ),
+                ],
+            )
+        },
+        Vec::new(),
+        None,
+        None,
+        Some(
+            serde_json::from_value(json!({
+                "ss58Format": 42,
+                "tokenDecimals": [10, 8],
+                "tokenSymbol": ["DOT", "PolkaBTC"]
+            }))
+            .unwrap(),
+        ),
         None,
     )
 }
 
 pub fn development_config(#[cfg(feature = "cumulus-polkadot")] id: ParaId) -> ChainSpec {
     ChainSpec::from_genesis(
-        "PolkaBTC Dev",
+        "PolkaBTC",
         "dev_testnet",
         ChainType::Development,
         move || {
@@ -311,6 +390,7 @@ fn testnet_genesis(
             disable_difficulty_check: true,
             disable_inclusion_check: false,
             disable_op_return_check: false,
+            disable_relayer_auth: false,
         }),
         issue: Some(IssueConfig { issue_period: DAYS }),
         redeem: Some(RedeemConfig {

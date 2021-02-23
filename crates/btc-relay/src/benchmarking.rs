@@ -1,6 +1,6 @@
 use super::*;
 use crate::Module as BtcRelay;
-use bitcoin::formatter::Formattable;
+use bitcoin::formatter::{Formattable, TryFormattable};
 use bitcoin::types::{
     Block, BlockBuilder, RawBlockHeader, Transaction, TransactionBuilder, TransactionInputBuilder,
     TransactionOutput,
@@ -11,27 +11,28 @@ use frame_system::RawOrigin;
 use sp_core::{H256, U256};
 use sp_std::prelude::*;
 
-fn mine_genesis<T: Config>(address: &BtcAddress, height: u32) -> Block {
+fn mine_genesis<T: Config>(account_id: T::AccountId, address: &BtcAddress, height: u32) -> Block {
     let block = BlockBuilder::new()
         .with_version(2)
         .with_coinbase(address, 50, 3)
         .with_timestamp(1588813835)
-        .mine(U256::from(2).pow(254.into()));
+        .mine(U256::from(2).pow(254.into()))
+        .unwrap();
 
-    let block_header = RawBlockHeader::from_bytes(&block.header.format()).unwrap();
-    BtcRelay::<T>::_initialize(block_header, height).unwrap();
+    let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
+    BtcRelay::<T>::_initialize(account_id, block_header, height).unwrap();
 
     block
 }
 
 fn mine_block_with_one_tx<T: Config>(
+    account_id: T::AccountId,
     prev: Block,
     address: &BtcAddress,
     value: i32,
     op_return: &[u8],
 ) -> (Block, Transaction) {
-    let relayer_id: T::AccountId = account("Relayer", 0, 0);
-    let prev_block_hash = prev.header.hash();
+    let prev_block_hash = prev.header.hash().unwrap();
 
     let transaction = TransactionBuilder::new()
         .with_version(2)
@@ -62,10 +63,11 @@ fn mine_block_with_one_tx<T: Config>(
         .with_coinbase(address, 50, 3)
         .with_timestamp(1588813835)
         .add_transaction(transaction.clone())
-        .mine(U256::from(2).pow(254.into()));
+        .mine(U256::from(2).pow(254.into()))
+        .unwrap();
 
-    let block_header = RawBlockHeader::from_bytes(&block.header.format()).unwrap();
-    BtcRelay::<T>::_store_block_header(relayer_id, block_header).unwrap();
+    let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
+    BtcRelay::<T>::_store_block_header(account_id, block_header).unwrap();
 
     (block, transaction)
 }
@@ -74,14 +76,15 @@ benchmarks! {
     initialize {
         let height = 0;
         let origin: T::AccountId = account("Origin", 0, 0);
+        BtcRelay::<T>::register_authorized_relayer(origin.clone());
 
         let address = BtcAddress::P2PKH(H160::from([0; 20]));
         let block = BlockBuilder::new()
             .with_version(2)
             .with_coinbase(&address, 50, 3)
             .with_timestamp(1588813835)
-            .mine(U256::from(2).pow(254.into()));
-        let block_header = RawBlockHeader::from_bytes(&block.header.format()).unwrap();
+            .mine(U256::from(2).pow(254.into())).unwrap();
+        let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
 
     }: _(RawOrigin::Signed(origin), block_header, height.into())
     verify {
@@ -90,96 +93,50 @@ benchmarks! {
 
     store_block_header {
         let origin: T::AccountId = account("Origin", 0, 0);
+        BtcRelay::<T>::register_authorized_relayer(origin.clone());
 
         let address = BtcAddress::P2PKH(H160::from([0; 20]));
-
         let height = 0;
-        let confirmations = 6;
 
         let init_block = BlockBuilder::new()
             .with_version(2)
             .with_coinbase(&address, 50, 3)
             .with_timestamp(1588813835)
-            .mine(U256::from(2).pow(254.into()));
+            .mine(U256::from(2).pow(254.into())).unwrap();
 
-        let init_block_hash = init_block.header.hash();
-        let raw_block_header = RawBlockHeader::from_bytes(&init_block.header.format())
+        let init_block_hash = init_block.header.hash().unwrap();
+        let raw_block_header = RawBlockHeader::from_bytes(&init_block.header.try_format().unwrap())
             .expect("could not serialize block header");
 
-        BtcRelay::<T>::_initialize(raw_block_header, height).unwrap();
+        BtcRelay::<T>::_initialize(origin.clone(), raw_block_header, height).unwrap();
 
         let block = BlockBuilder::new()
             .with_previous_hash(init_block_hash)
             .with_version(2)
             .with_coinbase(&address, 50, 3)
             .with_timestamp(1588814835)
-            .mine(U256::from(2).pow(254.into()));
+            .mine(U256::from(2).pow(254.into())).unwrap();
 
-        let raw_block_header = RawBlockHeader::from_bytes(&block.header.format())
+        let raw_block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap())
             .expect("could not serialize block header");
 
     }: _(RawOrigin::Signed(origin), raw_block_header)
 
-    // TODO: parameterize
-    store_block_headers {
+    verify_and_validate_transaction {
         let origin: T::AccountId = account("Origin", 0, 0);
+        BtcRelay::<T>::register_authorized_relayer(origin.clone());
 
         let address = BtcAddress::P2PKH(H160::from([0; 20]));
 
         let height = 0;
-        let confirmations = 6;
-
-        let init_block = BlockBuilder::new()
-            .with_version(2)
-            .with_coinbase(&address, 50, 3)
-            .with_timestamp(1588813835)
-            .mine(U256::from(2).pow(254.into()));
-
-        let block_hash_0 = init_block.header.hash();
-        let raw_block_header_0 = RawBlockHeader::from_bytes(&init_block.header.format())
-            .expect("could not serialize block header");
-
-        BtcRelay::<T>::_initialize(raw_block_header_0, height).unwrap();
-
-        let block = BlockBuilder::new()
-            .with_previous_hash(block_hash_0)
-            .with_version(2)
-            .with_coinbase(&address, 50, 3)
-            .with_timestamp(1588814835)
-            .mine(U256::from(2).pow(254.into()));
-
-        let block_hash_1 = block.header.hash();
-        let raw_block_header_1 = RawBlockHeader::from_bytes(&block.header.format())
-            .expect("could not serialize block header");
-
-        let block = BlockBuilder::new()
-            .with_previous_hash(block_hash_1)
-            .with_version(2)
-            .with_coinbase(&address, 50, 3)
-            .with_timestamp(1588814835)
-            .mine(U256::from(2).pow(254.into()));
-
-        let raw_block_header_2 = RawBlockHeader::from_bytes(&block.header.format())
-            .expect("could not serialize block header");
-
-
-    }: _(RawOrigin::Signed(origin), vec![raw_block_header_1, raw_block_header_2])
-
-    verify_and_validate_transaction {
-        let origin: T::AccountId = account("Origin", 0, 0);
-
-        let address = BtcAddress::P2PKH(H160::from([0; 20]));
-        let mut height = 0;
-        let block = mine_genesis::<T>(&address, height);
-        height += 1;
+        let block = mine_genesis::<T>(origin.clone(), &address, height);
 
         let value = 0;
         let op_return = H256::zero().as_bytes().to_vec();
-        let (block, transaction) = mine_block_with_one_tx::<T>(block, &address, value, &op_return);
+        let (block, transaction) = mine_block_with_one_tx::<T>(origin.clone(), block, &address, value, &op_return);
 
         let tx_id = transaction.tx_id();
-        let tx_block_height = height;
-        let proof = block.merkle_proof(&vec![tx_id]).format();
+        let proof = block.merkle_proof(&vec![tx_id]).unwrap().try_format().unwrap();
         let raw_tx = transaction.format_with(true);
 
         System::<T>::set_block_number(100u32.into());
@@ -188,19 +145,20 @@ benchmarks! {
 
     verify_transaction_inclusion {
         let origin: T::AccountId = account("Origin", 0, 0);
+        BtcRelay::<T>::register_authorized_relayer(origin.clone());
 
         let address = BtcAddress::P2PKH(H160::from([0; 20]));
-        let mut height = 0;
-        let block = mine_genesis::<T>(&address, height);
-        height += 1;
+
+        let height = 0;
+        let block = mine_genesis::<T>(origin.clone(), &address, height);
 
         let value = 0;
         let op_return = H256::zero().as_bytes().to_vec();
-        let (block, transaction) = mine_block_with_one_tx::<T>(block, &address, value, &op_return);
+        let (block, transaction) = mine_block_with_one_tx::<T>(origin.clone(), block, &address, value, &op_return);
 
         let tx_id = transaction.tx_id();
         let tx_block_height = height;
-        let proof = block.merkle_proof(&vec![tx_id]).format();
+        let proof = block.merkle_proof(&vec![tx_id]).unwrap().try_format().unwrap();
 
         System::<T>::set_block_number(100u32.into());
 
@@ -208,13 +166,14 @@ benchmarks! {
 
     validate_transaction {
         let origin: T::AccountId = account("Origin", 0, 0);
+        BtcRelay::<T>::register_authorized_relayer(origin.clone());
 
         let address = BtcAddress::P2PKH(H160::from([0; 20]));
         let value = 0;
         let op_return = H256::zero().as_bytes().to_vec();
 
-        let block = mine_genesis::<T>(&address, 0);
-        let (_, transaction) = mine_block_with_one_tx::<T>(block, &address, value, &op_return);
+        let block = mine_genesis::<T>(origin.clone(), &address, 0);
+        let (_, transaction) = mine_block_with_one_tx::<T>(origin.clone(), block, &address, value, &op_return);
 
         let raw_tx = transaction.format_with(true);
 
@@ -233,7 +192,6 @@ mod tests {
         ExtBuilder::build().execute_with(|| {
             assert_ok!(test_benchmark_initialize::<Test>());
             assert_ok!(test_benchmark_store_block_header::<Test>());
-            assert_ok!(test_benchmark_store_block_headers::<Test>());
             assert_ok!(test_benchmark_verify_and_validate_transaction::<Test>());
             assert_ok!(test_benchmark_verify_transaction_inclusion::<Test>());
             assert_ok!(test_benchmark_validate_transaction::<Test>());
