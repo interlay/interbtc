@@ -135,6 +135,14 @@ pub(crate) mod btc_relay {
     ) -> Result<(Vec<(i64, BtcAddress)>, Vec<(i64, Vec<u8>)>), btc_relay::Error<T>> {
         <btc_relay::Module<T>>::extract_outputs(tx)
     }
+
+    pub(crate) fn register_authorized_relayer<T: btc_relay::Config>(who: T::AccountId) {
+        <btc_relay::Module<T>>::register_authorized_relayer(who)
+    }
+
+    pub(crate) fn deregister_authorized_relayer<T: btc_relay::Config>(who: T::AccountId) {
+        <btc_relay::Module<T>>::deregister_authorized_relayer(who)
+    }
 }
 
 #[cfg_attr(test, mockable)]

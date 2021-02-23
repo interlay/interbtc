@@ -2001,6 +2001,32 @@ fn test_remove_blockchain_from_chain() {
     })
 }
 
+#[test]
+fn test_ensure_relayer_authorized() {
+    use crate::sp_api_hidden_includes_decl_storage::hidden_include::StorageValue;
+    use crate::DisableRelayerAuth;
+
+    run_test(|| {
+        DisableRelayerAuth::set(true);
+        assert_ok!(BTCRelay::ensure_relayer_authorized(0));
+
+        DisableRelayerAuth::set(false);
+        assert_err!(
+            BTCRelay::ensure_relayer_authorized(0),
+            TestError::RelayerNotAuthorized
+        );
+
+        BTCRelay::register_authorized_relayer(0);
+        assert_ok!(BTCRelay::ensure_relayer_authorized(0));
+
+        BTCRelay::deregister_authorized_relayer(0);
+        assert_err!(
+            BTCRelay::ensure_relayer_authorized(0),
+            TestError::RelayerNotAuthorized
+        );
+    })
+}
+
 /// # Util functions
 
 const SAMPLE_TX_ID: &'static str =

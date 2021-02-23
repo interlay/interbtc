@@ -390,6 +390,7 @@ fn testnet_genesis(
             disable_difficulty_check: true,
             disable_inclusion_check: false,
             disable_op_return_check: false,
+            disable_relayer_auth: false,
         }),
         issue: Some(IssueConfig { issue_period: DAYS }),
         redeem: Some(RedeemConfig {

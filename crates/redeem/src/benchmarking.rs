@@ -44,6 +44,8 @@ benchmarks! {
         let vault_id: T::AccountId = account("Vault", 0, 0);
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
+        BtcRelay::<T>::register_authorized_relayer(relayer_id.clone());
+
         let origin_btc_address = BtcAddress::P2PKH(H160::zero());
 
         let redeem_id = H256::zero();
