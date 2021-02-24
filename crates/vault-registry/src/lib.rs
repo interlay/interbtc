@@ -751,6 +751,16 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+    /// Decreases to-be-issued tokens on vault (or liquidation vault, if it has been liquidated)
+    pub fn cancel_issue_tokens(vault_id: &T::AccountId, tokens: PolkaBTC<T>) -> DispatchResult {
+        if Self::is_vault_liquidated(vault_id)? {
+            Self::liquidation_vault_force_decrease_to_be_issued_tokens(tokens)?;
+        } else {
+            Self::decrease_to_be_issued_tokens(vault_id, tokens)?;
+        }
+        Ok(())
+    }
+
     /// Replaces the old vault by the new vault by transferring tokens
     /// from the old vault to the new one
     ///
