@@ -24,7 +24,6 @@ use frame_system::{ensure_root, ensure_signed};
 #[cfg(test)]
 use mocktopus::macros::mockable;
 use primitive_types::H256;
-use sp_runtime::traits::CheckedAdd;
 use sp_runtime::traits::CheckedSub;
 use sp_runtime::ModuleId;
 use sp_std::convert::TryInto;
@@ -35,7 +34,9 @@ use btc_relay::BtcAddress;
 
 #[doc(inline)]
 pub use crate::types::ReplaceRequest;
+
 use crate::types::{PolkaBTC, Version, DOT};
+use vault_registry::CurrencyType;
 
 mod ext;
 pub mod types;
@@ -464,18 +465,16 @@ impl<T: Config> Module<T> {
             Error::<T>::VaultOverAuctionThreshold
         );
 
+        // Lock the new-vault's additional collateral
+        ext::vault_registry::_lock_additional_collateral::<T>(&new_vault_id, collateral)?;
+
         // claim auctioning fee that is proportional to replace amount
         let dot_amount = ext::oracle::btc_to_dots::<T>(btc_amount)?;
         let reward = ext::fee::get_auction_redeem_fee::<T>(dot_amount)?;
-        ext::collateral::slash_collateral::<T>(old_vault_id.clone(), new_vault_id.clone(), reward)?;
-
-        let additional_collateral = collateral
-            .checked_add(&reward)
-            .ok_or(Error::<T>::ArithmeticOverflow)?;
-        // Lock the new-vault's additional collateral
-        ext::vault_registry::_lock_additional_collateral::<T>(
-            &new_vault_id,
-            additional_collateral,
+        ext::vault_registry::slash_collateral::<T>(
+            CurrencyType::Backing(old_vault_id.clone()),
+            CurrencyType::Backing(new_vault_id.clone()),
+            reward,
         )?;
 
         // increase to-be-issued tokens - this will fail if there is insufficient collateral
@@ -484,9 +483,8 @@ impl<T: Config> Module<T> {
         // Call the increaseToBeRedeemedTokens function with the oldVault and the btcAmount
         ext::vault_registry::increase_to_be_redeemed_tokens::<T>(&old_vault_id, btc_amount)?;
 
-        // Calculate the (minimum) griefing collateral
-        let amount_dot = ext::oracle::btc_to_dots::<T>(btc_amount)?;
-        let griefing_collateral = ext::fee::get_replace_griefing_collateral::<T>(amount_dot)?;
+        // Griefing collateral is zero because the an auction fee has already been transfered to the new-vault
+        let griefing_collateral = 0u32.into();
 
         // Create a new ReplaceRequest named replace entry:
         let replace_id = ext::security::get_secure_id::<T>(&new_vault_id);
@@ -640,8 +638,7 @@ impl<T: Config> Module<T> {
         // if the new_vault locked additional collateral especially for this replace,
         // release it if it does not cause him to be undercollateralized
         if !ext::vault_registry::is_vault_liquidated::<T>(&new_vault_id)? {
-            let new_collateral = ext::vault_registry::get_active_vault_from_id::<T>(&new_vault_id)?
-                .backing_collateral
+            let new_collateral = ext::vault_registry::get_backing_collateral::<T>(&new_vault_id)?
                 .checked_sub(&replace.collateral)
                 .ok_or(Error::<T>::ArithmeticUnderflow)?;
 

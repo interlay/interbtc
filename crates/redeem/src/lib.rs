@@ -33,10 +33,6 @@ use bitcoin::types::H256Le;
 use btc_relay::BtcAddress;
 use frame_support::transactional;
 use frame_support::weights::Weight;
-use security::ErrorCode;
-use sp_runtime::traits::CheckedAdd;
-use sp_std::convert::TryInto;
-use vault_registry::CurrencyType;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
@@ -45,11 +41,11 @@ use frame_support::{
 use frame_system::{ensure_root, ensure_signed};
 use primitive_types::H256;
 use security::ErrorCode;
-use sp_runtime::traits::CheckedAdd;
 use sp_runtime::traits::*;
 use sp_runtime::ModuleId;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
+use vault_registry::CurrencyType;
 
 /// The redeem module id, used for deriving its sovereign account ID.
 const _MODULE_ID: ModuleId = ModuleId(*b"i/redeem");

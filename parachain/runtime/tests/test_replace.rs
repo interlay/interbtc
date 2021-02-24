@@ -318,6 +318,7 @@ fn integration_test_replace_cancel_auction_replace() {
         ));
         set_default_thresholds();
         SystemModule::set_block_number(1);
+        let new_vault_btc_address = BtcAddress::P2PKH(H160([2; 20]));
 
         let user = CAROL;
         let old_vault = ALICE;
@@ -327,7 +328,6 @@ fn integration_test_replace_cancel_auction_replace() {
         let replace_collateral = collateral * 2;
 
         // let old_vault_btc_address = BtcAddress::P2PKH(H160([1; 20]));
-        let new_vault_btc_address = BtcAddress::P2PKH(H160([2; 20]));
 
         // old vault has issued some tokens with the user
         force_issue_tokens(user, old_vault, collateral, polkabtc);
@@ -338,6 +338,7 @@ fn integration_test_replace_cancel_auction_replace() {
             dummy_public_key()
         ))
         .dispatch(origin_of(account_of(new_vault))));
+
         // exchange rate drops and vault is not collateralized any more
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
             FixedU128::checked_from_integer(2).unwrap()
@@ -379,17 +380,16 @@ fn integration_test_replace_cancel_auction_replace() {
 
         // check old vault collateral
         let amount_dot = ExchangeRateOracleModule::btc_to_dots(polkabtc).unwrap();
-        let griefing_collateral = FeeModule::get_replace_griefing_collateral(amount_dot).unwrap();
         assert_eq!(
             collateral::Module::<Runtime>::get_collateral_from_account(&account_of(old_vault)),
-            initial_old_vault_collateral - auction_fee - griefing_collateral
+            initial_old_vault_collateral - auction_fee
         );
 
         // check new vault collateral. It should have received auction fee, griefing collateral and
         // the collateral that was reserved for this replace should have been released
         assert_eq!(
             collateral::Module::<Runtime>::get_collateral_from_account(&account_of(new_vault)),
-            initial_new_vault_collateral + auction_fee + griefing_collateral
+            initial_new_vault_collateral + auction_fee
         );
     });
 }

@@ -82,6 +82,12 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::get_active_vault_from_id(vault_id)
     }
 
+    pub fn get_backing_collateral<T: vault_registry::Config>(
+        vault_id: &T::AccountId,
+    ) -> Result<DOT<T>, DispatchError> {
+        <vault_registry::Module<T>>::get_backing_collateral(vault_id)
+    }
+
     pub fn increase_to_be_redeemed_tokens<T: vault_registry::Config>(
         vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
@@ -159,14 +165,6 @@ pub(crate) mod collateral {
         amount: DOT<T>,
     ) -> DispatchResult {
         <collateral::Module<T>>::release_collateral(sender, amount)
-    }
-
-    pub fn slash_collateral<T: collateral::Config>(
-        old_vault_id: T::AccountId,
-        new_vault_id: T::AccountId,
-        collateral: DOT<T>,
-    ) -> DispatchResult {
-        <collateral::Module<T>>::slash_collateral(old_vault_id, new_vault_id, collateral)
     }
 
     pub fn lock_collateral<T: collateral::Config>(

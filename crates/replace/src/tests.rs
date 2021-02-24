@@ -196,7 +196,6 @@ fn test_request_replace_amount_below_dust_value_fails() {
         });
         ext::vault_registry::is_over_minimum_collateral::<Test>
             .mock_safe(|_| MockResult::Return(true));
-        ext::collateral::get_collateral_from_account::<Test>.mock_safe(|_| MockResult::Return(1));
         ext::oracle::btc_to_dots::<Test>.mock_safe(|_| MockResult::Return(Ok(0)));
         ext::fee::get_replace_griefing_collateral::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(desired_griefing_collateral)));
@@ -233,7 +232,6 @@ fn test_request_replace_insufficient_griefing_collateral_fails() {
         });
         ext::vault_registry::is_over_minimum_collateral::<Test>
             .mock_safe(|_| MockResult::Return(true));
-        ext::collateral::get_collateral_from_account::<Test>.mock_safe(|_| MockResult::Return(1));
         ext::oracle::btc_to_dots::<Test>.mock_safe(|_| MockResult::Return(Ok(0)));
         ext::fee::get_replace_griefing_collateral::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(desired_griefing_collateral)));
@@ -294,7 +292,6 @@ fn test_withdraw_replace_req_under_secure_threshold_fails() {
                 v
             }))
         });
-        ext::collateral::get_collateral_from_account::<Test>.mock_safe(|_| MockResult::Return(0));
         assert_noop!(
             withdraw_replace(BOB, H256([0u8; 32])),
             TestError::UnauthorizedVault
@@ -320,8 +317,6 @@ fn test_withdraw_replace_req_has_new_owner_fails() {
         });
         ext::vault_registry::is_vault_below_auction_threshold::<Test>
             .mock_safe(|_| MockResult::Return(Ok(false)));
-        ext::collateral::get_collateral_from_account::<Test>
-            .mock_safe(|_| MockResult::Return(20_000_000));
         assert_noop!(
             withdraw_replace(ALICE, H256([0u8; 32])),
             TestError::CancelAcceptedRequest
@@ -347,8 +342,6 @@ fn test_accept_replace_bad_replace_id_fails() {
         });
         ext::vault_registry::is_vault_below_auction_threshold::<Test>
             .mock_safe(|_| MockResult::Return(Ok(true)));
-        ext::collateral::get_collateral_from_account::<Test>
-            .mock_safe(|_| MockResult::Return(20_000_000));
         let collateral = 100_000;
         assert_noop!(
             accept_replace(ALICE, H256([0u8; 32]), collateral),
@@ -370,8 +363,6 @@ fn test_accept_replace_bad_vault_id_fails() {
             .mock_safe(|_id| MockResult::Return(Err(VaultRegistryError::VaultNotFound.into())));
         ext::vault_registry::is_vault_below_auction_threshold::<Test>
             .mock_safe(|_| MockResult::Return(Ok(false)));
-        ext::collateral::get_collateral_from_account::<Test>
-            .mock_safe(|_| MockResult::Return(20_000_000));
         let collateral = 100_000;
         assert_noop!(
             accept_replace(ALICE, H256([0u8; 32]), collateral),
@@ -400,8 +391,6 @@ fn test_accept_replace_vault_banned_fails() {
             .mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::is_vault_below_auction_threshold::<Test>
             .mock_safe(|_| MockResult::Return(Ok(false)));
-        ext::collateral::get_collateral_from_account::<Test>
-            .mock_safe(|_| MockResult::Return(20_000_000));
         let collateral = 100_000;
         assert_noop!(
             accept_replace(ALICE, H256([0u8; 32]), collateral),
@@ -425,6 +414,8 @@ fn test_accept_replace_insufficient_collateral_fails() {
             vault.banned_until = None;
             MockResult::Return(Ok(vault))
         });
+        ext::vault_registry::_lock_additional_collateral::<Test>
+            .mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::insert_vault_deposit_address::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::decrease_to_be_replaced_tokens::<Test>
@@ -453,8 +444,6 @@ fn test_auction_replace_bad_old_vault_id_fails() {
                 Ok(test_vault())
             })
         });
-        ext::collateral::get_collateral_from_account::<Test>
-            .mock_safe(|_| MockResult::Return(20_000_000));
         let collateral = 100_000;
         let btc_amount = 100;
         assert_noop!(
@@ -474,8 +463,6 @@ fn test_auction_replace_bad_new_vault_id_fails() {
                 Err(VaultRegistryError::VaultNotFound.into())
             })
         });
-        ext::collateral::get_collateral_from_account::<Test>
-            .mock_safe(|_| MockResult::Return(10_000_000));
         let collateral = 100_000;
         let btc_amount = 100;
         assert_noop!(
@@ -499,8 +486,6 @@ fn test_auction_replace_insufficient_collateral_fails() {
             .mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::is_vault_below_auction_threshold::<Test>
             .mock_safe(|_| MockResult::Return(Ok(false)));
-        ext::collateral::get_collateral_from_account::<Test>
-            .mock_safe(|_| MockResult::Return(10_000_000));
         let collateral = 100_000;
         let btc_amount = 100;
         assert_noop!(
@@ -615,8 +600,6 @@ fn test_request_replace_with_amount_exceed_vault_issued_tokens_succeeds() {
         ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(vault.clone())));
 
-        ext::collateral::get_collateral_from_account::<Test>
-            .mock_safe(|_| MockResult::Return(100_000));
         ext::vault_registry::is_over_minimum_collateral::<Test>
             .mock_safe(|_| MockResult::Return(true));
         ext::collateral::lock_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
@@ -648,8 +631,6 @@ fn test_request_replace_with_amount_less_than_vault_issued_tokens_succeeds() {
         ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(vault.clone())));
 
-        ext::collateral::get_collateral_from_account::<Test>
-            .mock_safe(|_| MockResult::Return(100_000));
         ext::vault_registry::is_over_minimum_collateral::<Test>
             .mock_safe(|_| MockResult::Return(true));
         ext::collateral::lock_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
@@ -712,6 +693,9 @@ fn test_accept_replace_succeeds() {
 
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
+        ext::vault_registry::_lock_additional_collateral::<Test>
+            .mock_safe(|_, _| MockResult::Return(Ok(())));
+
         ext::vault_registry::decrease_to_be_replaced_tokens::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(())));
 
@@ -763,12 +747,13 @@ fn test_auction_replace_succeeds() {
         ext::vault_registry::is_vault_below_auction_threshold::<Test>
             .mock_safe(|_| MockResult::Return(Ok(true)));
 
-        ext::collateral::slash_collateral::<Test>.mock_safe(|_, _, fee| {
+        ext::vault_registry::slash_collateral::<Test>.mock_safe(|_, _, fee| {
             assert_eq!(fee, 50); // 5% of dot equivalent of the btc_amount
             MockResult::Return(Ok(()))
         });
 
-        ext::collateral::lock_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::_lock_additional_collateral::<Test>
+            .mock_safe(|_, _| MockResult::Return(Ok(())));
 
         ext::vault_registry::increase_to_be_redeemed_tokens::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(())));
@@ -876,13 +861,13 @@ fn test_cancel_replace_succeeds() {
         ext::vault_registry::is_vault_liquidated::<Test>
             .mock_safe(|_| MockResult::Return(Ok(false)));
 
-        ext::collateral::get_collateral_from_account::<Test>
-            .mock_safe(|_| MockResult::Return(1000000000u64));
         Replace::remove_replace_request.mock_safe(|_, _| MockResult::Return(()));
-        ext::collateral::slash_collateral::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));
-        ext::collateral::release_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::slash_collateral::<Test>
+            .mock_safe(|_, _, _| MockResult::Return(Ok(())));
         ext::vault_registry::get_required_collateral_for_vault::<Test>
             .mock_safe(|_| MockResult::Return(Ok(1000)));
+        ext::vault_registry::get_backing_collateral::<Test>
+            .mock_safe(|_| MockResult::Return(Ok(500)));
         assert_eq!(cancel_replace(new_vault_id, replace_id), Ok(()));
 
         let event =

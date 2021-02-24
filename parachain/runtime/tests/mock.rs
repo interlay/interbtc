@@ -61,6 +61,7 @@ impl UserData {
             free_tokens: TreasuryModule::get_balance_from_account(account_id.clone()),
         }
     }
+    #[allow(dead_code)]
     pub fn force_to(id: [u8; 32], new: Self) -> Self {
         let old = Self::get(id.clone());
         let account_id = account_of(id);

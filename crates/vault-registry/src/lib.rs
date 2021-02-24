@@ -171,21 +171,7 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::register_vault()]
         #[transactional]
         fn register_vault(origin, collateral: DOT<T>, public_key: BtcPublicKey) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            ext::security::ensure_parachain_status_running::<T>()?;
-
-            ensure!(collateral >= Self::get_minimum_collateral_vault(),
-                    Error::<T>::InsufficientVaultCollateralAmount);
-            ensure!(!Self::vault_exists(&sender), Error::<T>::VaultAlreadyRegistered);
-
-            let mut vault: RichVault<T> = Vault::new(sender.clone(), public_key).into();
-            vault.increase_collateral(collateral)?;
-
-            Self::insert_vault(&sender, vault.data.clone());
-
-            Self::deposit_event(Event::<T>::RegisterVault(vault.data.id, collateral));
-
-            Ok(())
+            Self::_register_vault(&ensure_signed(origin)?, collateral, public_key)
         }
 
         /// Locks additional collateral as a security against stealing the
@@ -287,10 +273,41 @@ impl<T: Config> Module<T> {
 
     /// Public functions
 
+    pub fn _register_vault(
+        vault_id: &T::AccountId,
+        collateral: DOT<T>,
+        public_key: BtcPublicKey,
+    ) -> DispatchResult {
+        ext::security::ensure_parachain_status_running::<T>()?;
+
+        ensure!(
+            collateral >= Self::get_minimum_collateral_vault(),
+            Error::<T>::InsufficientVaultCollateralAmount
+        );
+        ensure!(
+            !Self::vault_exists(&vault_id),
+            Error::<T>::VaultAlreadyRegistered
+        );
+
+        let mut vault: RichVault<T> = Vault::new(vault_id.clone(), public_key).into();
+        vault.increase_collateral(collateral)?;
+
+        Self::insert_vault(&vault_id, vault.data.clone());
+
+        Self::deposit_event(Event::<T>::RegisterVault(vault.data.id, collateral));
+
+        Ok(())
+    }
+
     pub fn get_vault_from_id(vault_id: &T::AccountId) -> Result<DefaultVault<T>, DispatchError> {
         ensure!(Self::vault_exists(&vault_id), Error::<T>::VaultNotFound);
         let vault = <Vaults<T>>::get(vault_id);
         Ok(vault)
+    }
+
+    pub fn get_backing_collateral(vault_id: &T::AccountId) -> Result<DOT<T>, DispatchError> {
+        let vault = Self::get_vault_from_id(vault_id)?;
+        Ok(vault.backing_collateral)
     }
 
     /// Like get_vault_from_id, but additionally checks that the vault is active
@@ -650,6 +667,9 @@ impl<T: Config> Module<T> {
 
         let mut vault = Self::get_rich_vault_from_id(&vault_id)?;
 
+        let to_be_redeemed_tokens = vault.data.to_be_redeemed_tokens;
+        vault.decrease_to_be_redeemed(tokens)?;
+
         if !vault.data.is_liquidated() {
             vault.decrease_issued(tokens)?;
 
@@ -677,7 +697,7 @@ impl<T: Config> Module<T> {
             let amount = Self::calculate_collateral(
                 CurrencyType::Backing::<T>(vault_id.clone()).current_balance()?,
                 tokens,
-                vault.data.to_be_redeemed_tokens,
+                to_be_redeemed_tokens,
             )?;
             Self::force_withdraw_collateral(vault_id, amount)?;
 
@@ -687,8 +707,6 @@ impl<T: Config> Module<T> {
                 amount,
             ));
         }
-
-        vault.decrease_to_be_redeemed(tokens)?;
 
         Ok(())
     }
@@ -962,10 +980,28 @@ impl<T: Config> Module<T> {
         Self::is_vault_below_threshold(&vault_id, <PremiumRedeemThreshold<T>>::get())
     }
 
+    /// check if the vault is below the liquidation threshold. In contrast to other thresholds,
+    /// this is checked as ratio of `collateral / (issued - to_be_redeemed)`.
     pub fn is_vault_below_liquidation_threshold(
         vault_id: &T::AccountId,
     ) -> Result<bool, DispatchError> {
-        Self::is_vault_below_threshold(&vault_id, <LiquidationCollateralThreshold<T>>::get())
+        let vault = Self::get_rich_vault_from_id(&vault_id)?;
+
+        // the current locked backing collateral by the vault
+        let collateral = Self::get_backing_collateral(vault_id)?;
+
+        // the currently issued tokens in PolkaBTC
+        let tokens = vault
+            .data
+            .issued_tokens
+            .checked_sub(&vault.data.to_be_redeemed_tokens)
+            .ok_or(Error::<T>::ArithmeticOverflow)?;
+
+        Self::is_collateral_below_threshold(
+            collateral,
+            tokens,
+            <LiquidationCollateralThreshold<T>>::get(),
+        )
     }
 
     pub fn is_collateral_below_secure_threshold(
@@ -1315,8 +1351,8 @@ impl<T: Config> Module<T> {
         // the currently issued tokens in PolkaBTC
         let issued_tokens = vault.data.issued_tokens;
 
-        // the current locked collateral by the vault
-        let collateral = ext::collateral::for_account::<T>(&vault_id);
+        // the current locked backing collateral by the vault
+        let collateral = Self::get_backing_collateral(vault_id)?;
 
         Self::is_collateral_below_threshold(collateral, issued_tokens, threshold)
     }

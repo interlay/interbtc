@@ -25,6 +25,7 @@ pub enum Version {
     V1,
 }
 
+#[derive(Debug, PartialEq)]
 pub enum CurrencyType<T: frame_system::Config> {
     /// used by vault to back PolkaBTC
     Backing(<T as frame_system::Config>::AccountId),

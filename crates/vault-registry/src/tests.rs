@@ -9,7 +9,7 @@ use crate::types::{BtcAddress, PolkaBTC, DOT};
 use crate::DispatchError;
 use crate::Error;
 use crate::H256;
-use crate::{BtcPublicKey, UpdatableVault, Vault, VaultStatus, Vaults, Wallet};
+use crate::{BtcPublicKey, CurrencyType, UpdatableVault, Vault, VaultStatus, Vaults, Wallet};
 use frame_support::{assert_err, assert_noop, assert_ok, StorageMap};
 use mocktopus::mocking::*;
 use primitive_types::U256;
@@ -217,7 +217,7 @@ fn withdraw_collateral_fails_when_not_enough_collateral() {
     run_test(|| {
         let id = create_sample_vault();
         let res = VaultRegistry::withdraw_collateral(Origin::signed(id), DEFAULT_COLLATERAL + 1);
-        assert_err!(res, CollateralError::InsufficientCollateralAvailable);
+        assert_err!(res, TestError::InsufficientCollateral);
     })
 }
 
@@ -389,7 +389,7 @@ fn redeem_tokens_succeeds() {
         VaultRegistry::increase_to_be_issued_tokens(&id, 50).unwrap();
         assert_ok!(VaultRegistry::issue_tokens(&id, 50));
         assert_ok!(VaultRegistry::increase_to_be_redeemed_tokens(&id, 50));
-        let res = VaultRegistry::redeem_tokens(&id, 50);
+        let res = VaultRegistry::redeem_tokens(&id, 50, 0, &0);
         assert_ok!(res);
         let vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
         assert_eq!(vault.data.issued_tokens, 0);
@@ -405,7 +405,7 @@ fn redeem_tokens_fails_with_insufficient_tokens() {
         set_default_thresholds();
         VaultRegistry::increase_to_be_issued_tokens(&id, 50).unwrap();
         assert_ok!(VaultRegistry::issue_tokens(&id, 50));
-        let res = VaultRegistry::redeem_tokens(&id, 50);
+        let res = VaultRegistry::redeem_tokens(&id, 50, 0, &0);
         assert_err!(res, TestError::InsufficientTokensCommitted);
     });
 }
@@ -417,16 +417,16 @@ fn redeem_tokens_premium_succeeds() {
         let user_id = 5;
         set_default_thresholds();
         // TODO: emulate assert_called
-        ext::collateral::slash_collateral::<Test>.mock_safe(move |sender, _receiver, _amount| {
-            assert_eq!(sender, &id);
+        VaultRegistry::slash_collateral.mock_safe(move |sender, receiver, _amount| {
+            assert_eq!(sender, CurrencyType::Backing(id));
+            assert_eq!(receiver, CurrencyType::FreeBalance(user_id));
             MockResult::Return(Ok(()))
         });
-        ext::collateral::release_collateral::<Test>
-            .mock_safe(move |_, _| MockResult::Return(Ok(())));
+
         VaultRegistry::increase_to_be_issued_tokens(&id, 50).unwrap();
         assert_ok!(VaultRegistry::issue_tokens(&id, 50));
         assert_ok!(VaultRegistry::increase_to_be_redeemed_tokens(&id, 50));
-        assert_ok!(VaultRegistry::redeem_tokens_premium(&id, 50, 30, &user_id));
+        assert_ok!(VaultRegistry::redeem_tokens(&id, 50, 30, &user_id));
 
         let vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
         assert_eq!(vault.data.issued_tokens, 0);
@@ -443,7 +443,7 @@ fn redeem_tokens_premium_fails_with_insufficient_tokens() {
         set_default_thresholds();
         VaultRegistry::increase_to_be_issued_tokens(&id, 50).unwrap();
         assert_ok!(VaultRegistry::issue_tokens(&id, 50));
-        let res = VaultRegistry::redeem_tokens_premium(&id, 50, 30, &user_id);
+        let res = VaultRegistry::redeem_tokens(&id, 50, 30, &user_id);
         assert_err!(res, TestError::InsufficientTokensCommitted);
         assert_not_emitted!(Event::RedeemTokensPremium(id, 50, 30, user_id));
     });
@@ -453,18 +453,13 @@ fn redeem_tokens_premium_fails_with_insufficient_tokens() {
 fn redeem_tokens_liquidation_succeeds() {
     run_test(|| {
         let mut liquidation_vault = VaultRegistry::get_rich_liquidation_vault();
-        let liquidation_vault_id = liquidation_vault.id();
         let user_id = 5;
         set_default_thresholds();
 
         // TODO: emulate assert_called
-        ext::collateral::slash_collateral::<Test>.mock_safe(move |sender, _receiver, _amount| {
-            assert_eq!(sender, &liquidation_vault_id);
-            MockResult::Return(Ok(()))
-        });
-
-        ext::collateral::release_collateral::<Test>.mock_safe(move |sender, _amount| {
-            assert_eq!(sender, &user_id);
+        VaultRegistry::slash_collateral.mock_safe(move |sender, receiver, _amount| {
+            assert_eq!(sender, CurrencyType::LiquidationVault);
+            assert_eq!(receiver, CurrencyType::FreeBalance(user_id));
             MockResult::Return(Ok(()))
         });
 
@@ -484,17 +479,12 @@ fn redeem_tokens_liquidation_succeeds() {
 fn redeem_tokens_liquidation_does_not_call_recover_when_unnecessary() {
     run_test(|| {
         let mut liquidation_vault = VaultRegistry::get_rich_liquidation_vault();
-        let liquidation_vault_id = liquidation_vault.id();
         let user_id = 5;
         set_default_thresholds();
 
-        ext::collateral::slash_collateral::<Test>.mock_safe(move |sender, _receiver, _amount| {
-            assert_eq!(sender, &liquidation_vault_id);
-            MockResult::Return(Ok(()))
-        });
-
-        ext::collateral::release_collateral::<Test>.mock_safe(move |sender, _amount| {
-            assert_eq!(sender, &user_id);
+        VaultRegistry::slash_collateral.mock_safe(move |sender, receiver, _amount| {
+            assert_eq!(sender, CurrencyType::LiquidationVault);
+            assert_eq!(receiver, CurrencyType::FreeBalance(user_id));
             MockResult::Return(Ok(()))
         });
 

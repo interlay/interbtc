@@ -6,7 +6,6 @@ use bitcoin::types::{
 };
 use btc_relay::Module as BtcRelay;
 use btc_relay::{BtcAddress, BtcPublicKey};
-use collateral::Module as Collateral;
 use exchange_rate_oracle::Module as ExchangeRateOracle;
 use frame_benchmarking::{account, benchmarks};
 use frame_system::Module as System;
@@ -32,17 +31,9 @@ benchmarks! {
         let vault_id: T::AccountId = account("Vault", 0, 0);
         let griefing: u32 = 100;
 
-        Collateral::<T>::lock_collateral(&vault_id, 100000000u32.into()).unwrap();
         ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()).unwrap();
         VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());// 0.001%
-
-        let mut vault = Vault::default();
-        vault.id = vault_id.clone();
-        vault.wallet = Wallet::new(dummy_public_key());
-        VaultRegistry::<T>::insert_vault(
-            &vault_id,
-            vault
-        );
+        VaultRegistry::<T>::_register_vault(&vault_id, 100000000u32.into(), dummy_public_key()).unwrap();
 
     }: _(RawOrigin::Signed(origin), amount.into(), vault_id, griefing.into())
 
@@ -113,17 +104,10 @@ benchmarks! {
         let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
         BtcRelay::<T>::_store_block_header(relayer_id, block_header).unwrap();
 
-        let mut vault = Vault::default();
-        vault.id = vault_id.clone();
-        vault.wallet = Wallet::new(dummy_public_key());
-        VaultRegistry::<T>::insert_vault(
-            &vault_id,
-            vault
-        );
-
         VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());
         ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()).unwrap();
-        Collateral::<T>::lock_collateral(&vault_id, 100000000u32.into()).unwrap();
+        VaultRegistry::<T>::_register_vault(&vault_id, 100000000u32.into(), dummy_public_key()).unwrap();
+
         VaultRegistry::<T>::increase_to_be_issued_tokens(&vault_id, value.into()).unwrap();
         let secure_id = Security::<T>::get_secure_id(&vault_id);
         VaultRegistry::<T>::_register_address(&vault_id, secure_id).unwrap();

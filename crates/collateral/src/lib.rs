@@ -207,6 +207,10 @@ impl<T: Config> Module<T> {
             slashed_amount,
         ));
 
+        // reserve the created amount for the receiver. This should not be able to fail, since the
+        // call above will have created enough free balance to lock.
+        T::DOT::reserve(&receiver, slashed_amount).map_err(|_| Error::<T>::InsufficientFunds)?;
+
         Ok(slashed_amount)
     }
 }

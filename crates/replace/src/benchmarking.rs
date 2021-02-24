@@ -7,7 +7,6 @@ use bitcoin::types::{
 };
 use btc_relay::Module as BtcRelay;
 use btc_relay::{BtcAddress, BtcPublicKey};
-use collateral::Module as Collateral;
 use exchange_rate_oracle::Module as ExchangeRateOracle;
 use frame_benchmarking::{account, benchmarks};
 use frame_system::Module as System;
@@ -69,32 +68,18 @@ benchmarks! {
         let amount: u32 = 100;
         let collateral: u32 = 1000;
 
-        let mut new_vault = Vault::default();
-        new_vault.id = new_vault_id.clone();
-        new_vault.wallet = Wallet::new(dummy_public_key());
-        VaultRegistry::<T>::insert_vault(
-            &new_vault_id,
-            new_vault
-        );
-        let mut old_vault = Vault::default();
-        old_vault.id = old_vault_id.clone();
-        old_vault.wallet = Wallet::new(dummy_public_key());
-        VaultRegistry::<T>::insert_vault(
-            &old_vault_id,
-            old_vault
-        );
-
         let new_vault_btc_address = BtcAddress::P2SH(H160([0; 20]));
 
         VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());
         ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()).unwrap();
 
-        Collateral::<T>::lock_collateral(&old_vault_id, 100000000u32.into()).unwrap();
+        VaultRegistry::<T>::_register_vault(&old_vault_id, 100000000u32.into(), dummy_public_key()).unwrap();
+
         VaultRegistry::<T>::increase_to_be_issued_tokens(&old_vault_id, amount.into()).unwrap();
         VaultRegistry::<T>::issue_tokens(&old_vault_id, amount.into()).unwrap();
         VaultRegistry::<T>::increase_to_be_replaced_tokens(&old_vault_id, amount.into()).unwrap();
 
-        Collateral::<T>::lock_collateral(&new_vault_id, 100000000u32.into()).unwrap();
+        VaultRegistry::<T>::_register_vault(&new_vault_id, 100000000u32.into(), dummy_public_key()).unwrap();
 
         let replace_id = H256::zero();
         let mut replace_request = ReplaceRequest::default();
@@ -110,30 +95,18 @@ benchmarks! {
         let btc_amount: u32 = 100;
         let collateral: u32 = 1000;
 
-        let mut old_vault = Vault::default();
-        old_vault.id = old_vault_id.clone();
-        old_vault.wallet = Wallet::new(dummy_public_key());
-        old_vault.issued_tokens = 123897u32.into();
-        VaultRegistry::<T>::insert_vault(
-            &old_vault_id,
-            old_vault
-        );
-
-        let mut new_vault = Vault::default();
-        new_vault.id = new_vault_id.clone();
-        new_vault.wallet = Wallet::new(dummy_public_key());
-        VaultRegistry::<T>::insert_vault(
-            &new_vault_id,
-            new_vault
-        );
-
         let new_vault_btc_address = BtcAddress::P2SH(H160([0; 20]));
 
-        Collateral::<T>::lock_collateral(&old_vault_id, 50u32.into()).unwrap();
         ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()).unwrap();
-        VaultRegistry::<T>::set_auction_collateral_threshold(<T as vault_registry::Config>::UnsignedFixedPoint::checked_from_rational(10000, 100).unwrap()); // 10000%
-        VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap()); // 0.001%
 
+        VaultRegistry::<T>::_register_vault(&old_vault_id, 50u32.into(), dummy_public_key()).unwrap();
+        VaultRegistry::<T>::_register_vault(&new_vault_id, 50u32.into(), dummy_public_key()).unwrap();
+
+        VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap()); // 0.001%
+        VaultRegistry::<T>::set_auction_collateral_threshold(<T as vault_registry::Config>::UnsignedFixedPoint::checked_from_rational(10000, 100).unwrap()); // 10000%
+
+        VaultRegistry::<T>::increase_to_be_issued_tokens(&old_vault_id, btc_amount.into()).unwrap();
+        VaultRegistry::<T>::issue_tokens(&old_vault_id, btc_amount.into()).unwrap();
     }: _(RawOrigin::Signed(new_vault_id), old_vault_id, btc_amount.into(), collateral.into(), new_vault_btc_address)
 
     execute_replace {
@@ -234,30 +207,15 @@ benchmarks! {
         Replace::<T>::insert_replace_request(replace_id, replace_request);
         System::<T>::set_block_number(System::<T>::block_number() + Replace::<T>::replace_period() + 10u32.into());
 
-        let mut old_vault = Vault::default();
-        old_vault.id = old_vault_id.clone();
-        old_vault.wallet = Wallet::new(dummy_public_key());
-        VaultRegistry::<T>::insert_vault(
-            &old_vault_id,
-            old_vault
-        );
-        let mut new_vault = Vault::default();
-        new_vault.id = new_vault_id.clone();
-        new_vault.wallet = Wallet::new(dummy_public_key());
-        VaultRegistry::<T>::insert_vault(
-            &new_vault_id,
-            new_vault
-        );
-
         VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());
         ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()).unwrap();
 
-        Collateral::<T>::lock_collateral(&old_vault_id, 100000000u32.into()).unwrap();
+        VaultRegistry::<T>::_register_vault(&old_vault_id, 100000000u32.into(), dummy_public_key()).unwrap();
         VaultRegistry::<T>::increase_to_be_issued_tokens(&old_vault_id, amount.into()).unwrap();
         VaultRegistry::<T>::issue_tokens(&old_vault_id, amount.into()).unwrap();
         VaultRegistry::<T>::increase_to_be_redeemed_tokens(&old_vault_id, amount.into()).unwrap();
 
-        Collateral::<T>::lock_collateral(&new_vault_id, 100000000u32.into()).unwrap();
+        VaultRegistry::<T>::_register_vault(&new_vault_id, 100000000u32.into(), dummy_public_key()).unwrap();
         VaultRegistry::<T>::increase_to_be_issued_tokens(&new_vault_id, amount.into()).unwrap();
 
     }: _(RawOrigin::Signed(new_vault_id), replace_id)
