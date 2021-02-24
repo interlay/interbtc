@@ -354,7 +354,7 @@ impl<T: Config> Module<T> {
         // Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
         let replace = Self::get_open_replace_request(&request_id)?;
 
-        // Check that caller of the function is int is not for the entire BTC holdings, check that the deed the to-be-replaced Vault as specified in the ReplaceRequest. Return ERR_UNAUTHORIZED error if this check fails.
+        // Check that caller of the function is indeed the to-be-replaced Vault as specified in the ReplaceRequest. Return ERR_UNAUTHORIZED error if this check fails.
         let _vault = ext::vault_registry::get_active_vault_from_id::<T>(&vault_id)?;
         ensure!(vault_id == replace.old_vault, Error::<T>::UnauthorizedVault);
 

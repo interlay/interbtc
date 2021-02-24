@@ -1004,7 +1004,7 @@ impl<T: Config> Module<T> {
             .data
             .issued_tokens
             .checked_sub(&vault.data.to_be_redeemed_tokens)
-            .ok_or(Error::<T>::ArithmeticOverflow)?;
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
         Self::is_collateral_below_threshold(
             collateral,
