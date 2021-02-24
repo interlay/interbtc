@@ -110,7 +110,7 @@ benchmarks! {
 
         VaultRegistry::<T>::increase_to_be_issued_tokens(&vault_id, value.into()).unwrap();
         let secure_id = Security::<T>::get_secure_id(&vault_id);
-        VaultRegistry::<T>::_register_address(&vault_id, secure_id).unwrap();
+        VaultRegistry::<T>::register_deposit_address(&vault_id, secure_id).unwrap();
     }: _(RawOrigin::Signed(origin), issue_id, tx_id, proof, raw_tx)
 
     cancel_issue {

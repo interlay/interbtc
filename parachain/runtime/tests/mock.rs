@@ -12,7 +12,7 @@ pub use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 pub use sp_core::H160;
 pub use sp_runtime::traits::Dispatchable;
 pub use sp_std::convert::TryInto;
-pub use vault_registry::CurrencyType;
+pub use vault_registry::CurrencySource;
 
 pub const ALICE: [u8; 32] = [0u8; 32];
 pub const BOB: [u8; 32] = [1u8; 32];
@@ -121,10 +121,10 @@ impl CoreVaultData {
             to_be_issued: vault.to_be_issued_tokens,
             issued: vault.issued_tokens,
             to_be_redeemed: vault.to_be_redeemed_tokens,
-            backing_collateral: CurrencyType::<Runtime>::Backing(account_id.clone())
+            backing_collateral: CurrencySource::<Runtime>::Backing(account_id.clone())
                 .current_balance()
                 .unwrap(),
-            griefing_collateral: CurrencyType::<Runtime>::Griefing(account_id.clone())
+            griefing_collateral: CurrencySource::<Runtime>::Griefing(account_id.clone())
                 .current_balance()
                 .unwrap(),
             free_balance: CollateralModule::get_balance_from_account(&account_id),
@@ -138,7 +138,7 @@ impl CoreVaultData {
             to_be_issued: vault.to_be_issued_tokens,
             issued: vault.issued_tokens,
             to_be_redeemed: vault.to_be_redeemed_tokens,
-            backing_collateral: CurrencyType::<Runtime>::LiquidationVault
+            backing_collateral: CurrencySource::<Runtime>::LiquidationVault
                 .current_balance()
                 .unwrap(),
             griefing_collateral: 0,

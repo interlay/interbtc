@@ -26,7 +26,7 @@ fn request_issue(
 
     ext::vault_registry::increase_to_be_issued_tokens::<Test>
         .mock_safe(|_, _| MockResult::Return(Ok(())));
-    ext::vault_registry::_register_address::<Test>
+    ext::vault_registry::register_deposit_address::<Test>
         .mock_safe(|_, _| MockResult::Return(Ok(BtcAddress::default())));
 
     Issue::_request_issue(origin, amount, vault, collateral)
@@ -47,7 +47,7 @@ fn request_issue_ok(
 
     ext::vault_registry::increase_to_be_issued_tokens::<Test>
         .mock_safe(|_, _| MockResult::Return(Ok(())));
-    ext::vault_registry::_register_address::<Test>
+    ext::vault_registry::register_deposit_address::<Test>
         .mock_safe(|_, _| MockResult::Return(Ok(BtcAddress::default())));
 
     Issue::_request_issue(origin, amount, vault, collateral).unwrap()
@@ -291,7 +291,7 @@ fn test_execute_issue_refund_succeeds() {
             assert_eq!(amount, 100);
             MockResult::Return(Err(TestError::IssueCompleted.into()))
         });
-        ext::vault_registry::_register_address::<Test>
+        ext::vault_registry::register_deposit_address::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(BtcAddress::default())));
 
         ext::vault_registry::is_vault_liquidated::<Test>
@@ -344,7 +344,7 @@ fn test_cancel_issue_succeeds() {
         ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
 
-        ext::vault_registry::cancel_issue_tokens::<Test>
+        ext::vault_registry::decrease_to_be_issued_tokens::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(())));
 
         ext::vault_registry::is_vault_liquidated::<Test>

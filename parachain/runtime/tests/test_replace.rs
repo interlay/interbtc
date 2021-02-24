@@ -379,7 +379,6 @@ fn integration_test_replace_cancel_auction_replace() {
             .dispatch(origin_of(account_of(BOB))));
 
         // check old vault collateral
-        let amount_dot = ExchangeRateOracleModule::btc_to_dots(polkabtc).unwrap();
         assert_eq!(
             collateral::Module::<Runtime>::get_collateral_from_account(&account_of(old_vault)),
             initial_old_vault_collateral - auction_fee

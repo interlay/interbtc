@@ -9,7 +9,7 @@ use crate::types::{BtcAddress, PolkaBTC, DOT};
 use crate::DispatchError;
 use crate::Error;
 use crate::H256;
-use crate::{BtcPublicKey, CurrencyType, UpdatableVault, Vault, VaultStatus, Vaults, Wallet};
+use crate::{BtcPublicKey, CurrencySource, UpdatableVault, Vault, VaultStatus, Vaults, Wallet};
 use frame_support::{assert_err, assert_noop, assert_ok, StorageMap};
 use mocktopus::mocking::*;
 use primitive_types::U256;
@@ -418,8 +418,8 @@ fn redeem_tokens_premium_succeeds() {
         set_default_thresholds();
         // TODO: emulate assert_called
         VaultRegistry::slash_collateral.mock_safe(move |sender, receiver, _amount| {
-            assert_eq!(sender, CurrencyType::Backing(id));
-            assert_eq!(receiver, CurrencyType::FreeBalance(user_id));
+            assert_eq!(sender, CurrencySource::Backing(id));
+            assert_eq!(receiver, CurrencySource::FreeBalance(user_id));
             MockResult::Return(Ok(()))
         });
 
@@ -458,8 +458,8 @@ fn redeem_tokens_liquidation_succeeds() {
 
         // TODO: emulate assert_called
         VaultRegistry::slash_collateral.mock_safe(move |sender, receiver, _amount| {
-            assert_eq!(sender, CurrencyType::LiquidationVault);
-            assert_eq!(receiver, CurrencyType::FreeBalance(user_id));
+            assert_eq!(sender, CurrencySource::LiquidationVault);
+            assert_eq!(receiver, CurrencySource::FreeBalance(user_id));
             MockResult::Return(Ok(()))
         });
 
@@ -483,8 +483,8 @@ fn redeem_tokens_liquidation_does_not_call_recover_when_unnecessary() {
         set_default_thresholds();
 
         VaultRegistry::slash_collateral.mock_safe(move |sender, receiver, _amount| {
-            assert_eq!(sender, CurrencyType::LiquidationVault);
-            assert_eq!(receiver, CurrencyType::FreeBalance(user_id));
+            assert_eq!(sender, CurrencySource::LiquidationVault);
+            assert_eq!(receiver, CurrencySource::FreeBalance(user_id));
             MockResult::Return(Ok(()))
         });
 

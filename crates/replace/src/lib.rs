@@ -36,7 +36,7 @@ use btc_relay::BtcAddress;
 pub use crate::types::ReplaceRequest;
 
 use crate::types::{PolkaBTC, Version, DOT};
-use vault_registry::CurrencyType;
+use vault_registry::CurrencySource;
 
 mod ext;
 pub mod types;
@@ -472,8 +472,8 @@ impl<T: Config> Module<T> {
         let dot_amount = ext::oracle::btc_to_dots::<T>(btc_amount)?;
         let reward = ext::fee::get_auction_redeem_fee::<T>(dot_amount)?;
         ext::vault_registry::slash_collateral::<T>(
-            CurrencyType::Backing(old_vault_id.clone()),
-            CurrencyType::Backing(new_vault_id.clone()),
+            CurrencySource::Backing(old_vault_id.clone()),
+            CurrencySource::Backing(new_vault_id.clone()),
             reward,
         )?;
 
@@ -622,15 +622,15 @@ impl<T: Config> Module<T> {
         if !ext::vault_registry::is_vault_liquidated::<T>(&new_vault_id)? {
             // new-vault is not liquidated - give it the griefing collateral
             ext::vault_registry::slash_collateral::<T>(
-                CurrencyType::Griefing(replace.old_vault.clone()),
-                CurrencyType::Backing(new_vault_id.clone()),
+                CurrencySource::Griefing(replace.old_vault.clone()),
+                CurrencySource::Backing(new_vault_id.clone()),
                 replace.griefing_collateral,
             )?;
         } else {
             // new-vault is liquidated - slash to its free balance
             ext::vault_registry::slash_collateral::<T>(
-                CurrencyType::Griefing(replace.old_vault.clone()),
-                CurrencyType::FreeBalance(new_vault_id.clone()),
+                CurrencySource::Griefing(replace.old_vault.clone()),
+                CurrencySource::FreeBalance(new_vault_id.clone()),
                 replace.griefing_collateral,
             )?;
         }

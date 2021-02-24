@@ -29,7 +29,7 @@ pub(crate) mod btc_relay {
 pub(crate) mod vault_registry {
     use crate::types::{PolkaBTC, DOT};
     use frame_support::dispatch::{DispatchError, DispatchResult};
-    use vault_registry::types::CurrencyType;
+    use vault_registry::types::CurrencySource;
 
     pub fn get_active_vault_from_id<T: vault_registry::Config>(
         vault_id: &T::AccountId,
@@ -40,16 +40,16 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::get_active_vault_from_id(vault_id)
     }
     pub fn slash_collateral<T: vault_registry::Config>(
-        from: CurrencyType<T>,
-        to: CurrencyType<T>,
+        from: CurrencySource<T>,
+        to: CurrencySource<T>,
         amount: DOT<T>,
     ) -> DispatchResult {
         <vault_registry::Module<T>>::slash_collateral(from, to, amount)
     }
 
     pub fn slash_collateral_saturated<T: vault_registry::Config>(
-        from: CurrencyType<T>,
-        to: CurrencyType<T>,
+        from: CurrencySource<T>,
+        to: CurrencySource<T>,
         amount: DOT<T>,
     ) -> Result<DOT<T>, DispatchError> {
         <vault_registry::Module<T>>::slash_collateral_saturated(from, to, amount)

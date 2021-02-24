@@ -31,11 +31,11 @@ pub(crate) mod vault_registry {
     use btc_relay::BtcAddress;
     use frame_support::dispatch::{DispatchError, DispatchResult};
     use sp_core::H256;
-    use vault_registry::types::CurrencyType;
+    use vault_registry::types::CurrencySource;
 
     pub fn slash_collateral<T: vault_registry::Config>(
-        from: CurrencyType<T>,
-        to: CurrencyType<T>,
+        from: CurrencySource<T>,
+        to: CurrencySource<T>,
         amount: DOT<T>,
     ) -> DispatchResult {
         <vault_registry::Module<T>>::slash_collateral(from, to, amount)
@@ -63,11 +63,11 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::increase_to_be_issued_tokens(vault_id, amount)
     }
 
-    pub fn _register_address<T: vault_registry::Config>(
+    pub fn register_deposit_address<T: vault_registry::Config>(
         vault_id: &T::AccountId,
         secure_id: H256,
     ) -> Result<BtcAddress, DispatchError> {
-        <vault_registry::Module<T>>::_register_address(vault_id, secure_id)
+        <vault_registry::Module<T>>::register_deposit_address(vault_id, secure_id)
     }
 
     pub fn issue_tokens<T: vault_registry::Config>(
@@ -84,23 +84,23 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::_ensure_not_banned(vault, height)
     }
 
-    pub fn liquidation_vault_force_decrease_to_be_issued_tokens<T: vault_registry::Config>(
+    pub fn decrease_liquidation_vault_to_be_issued_tokens<T: vault_registry::Config>(
         amount: PolkaBTC<T>,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::liquidation_vault_force_decrease_to_be_issued_tokens(amount)
+        <vault_registry::Module<T>>::decrease_liquidation_vault_to_be_issued_tokens(amount)
     }
 
-    pub fn liquidation_vault_force_increase_issued_tokens<T: vault_registry::Config>(
+    pub fn increase_liquidation_vault_issued_tokens<T: vault_registry::Config>(
         amount: PolkaBTC<T>,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::liquidation_vault_force_increase_issued_tokens(amount)
+        <vault_registry::Module<T>>::increase_liquidation_vault_issued_tokens(amount)
     }
 
-    pub fn cancel_issue_tokens<T: vault_registry::Config>(
+    pub fn decrease_to_be_issued_tokens<T: vault_registry::Config>(
         vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::cancel_issue_tokens(vault_id, tokens)
+        <vault_registry::Module<T>>::decrease_to_be_issued_tokens(vault_id, tokens)
     }
 }
 

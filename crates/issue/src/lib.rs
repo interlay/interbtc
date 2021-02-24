@@ -44,7 +44,7 @@ use sp_runtime::traits::*;
 use sp_runtime::ModuleId;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
-use vault_registry::CurrencyType;
+use vault_registry::CurrencySource;
 
 /// The issue module id, used for deriving its sovereign account ID.
 const _MODULE_ID: ModuleId = ModuleId(*b"issuemod");
@@ -238,7 +238,7 @@ impl<T: Config> Module<T> {
 
         ext::vault_registry::increase_to_be_issued_tokens::<T>(&vault_id, amount_btc)?;
 
-        let btc_address = ext::vault_registry::_register_address::<T>(&vault_id, issue_id)?;
+        let btc_address = ext::vault_registry::register_deposit_address::<T>(&vault_id, issue_id)?;
 
         Self::insert_issue_request(
             issue_id,
@@ -305,10 +305,10 @@ impl<T: Config> Module<T> {
                 .amount
                 .checked_add(&issue.fee)
                 .ok_or(Error::<T>::ArithmeticOverflow)?;
-            ext::vault_registry::liquidation_vault_force_decrease_to_be_issued_tokens::<T>(
+            ext::vault_registry::decrease_liquidation_vault_to_be_issued_tokens::<T>(
                 amount_including_fee,
             )?;
-            ext::vault_registry::liquidation_vault_force_increase_issued_tokens::<T>(
+            ext::vault_registry::increase_liquidation_vault_issued_tokens::<T>(
                 amount_including_fee,
             )?;
         } else {
@@ -411,14 +411,14 @@ impl<T: Config> Module<T> {
             .checked_add(&issue.fee)
             .ok_or(Error::<T>::ArithmeticOverflow)?;
 
-        ext::vault_registry::cancel_issue_tokens::<T>(&issue.vault, full_amount)?;
+        ext::vault_registry::decrease_to_be_issued_tokens::<T>(&issue.vault, full_amount)?;
 
         if ext::vault_registry::is_vault_liquidated::<T>(&issue.vault)? {
             ext::collateral::release_collateral::<T>(&issue.requester, issue.griefing_collateral)?;
         } else {
             ext::vault_registry::slash_collateral::<T>(
-                CurrencyType::Griefing(issue.requester.clone()),
-                CurrencyType::Backing(issue.vault.clone()),
+                CurrencySource::Griefing(issue.requester.clone()),
+                CurrencySource::Backing(issue.vault.clone()),
                 issue.griefing_collateral,
             )?;
         }

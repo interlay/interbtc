@@ -45,7 +45,7 @@ use sp_runtime::traits::*;
 use sp_runtime::ModuleId;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
-use vault_registry::CurrencyType;
+use vault_registry::CurrencySource;
 
 /// The redeem module id, used for deriving its sovereign account ID.
 const _MODULE_ID: ModuleId = ModuleId(*b"i/redeem");
@@ -443,8 +443,8 @@ impl<T: Config> Module<T> {
             )?;
 
             ext::vault_registry::slash_collateral::<T>(
-                CurrencyType::Backing(vault_id.clone()),
-                CurrencyType::LiquidationVault,
+                CurrencySource::Backing(vault_id.clone()),
+                CurrencySource::LiquidationVault,
                 amount,
             )?;
 
@@ -470,8 +470,8 @@ impl<T: Config> Module<T> {
                     .checked_add(&punishment_fee_in_dot)
                     .ok_or(Error::<T>::ArithmeticOverflow)?;
                 ext::vault_registry::slash_collateral::<T>(
-                    CurrencyType::Backing(vault_id.clone()),
-                    CurrencyType::FreeBalance(redeem.redeemer.clone()),
+                    CurrencySource::Backing(vault_id.clone()),
+                    CurrencySource::FreeBalance(redeem.redeemer.clone()),
                     reimburse_in_dot,
                 )?;
 
@@ -481,8 +481,8 @@ impl<T: Config> Module<T> {
 
                 // user chose to keep his PolkaBTC - only transfer it the punishment fee
                 let slashed_punishment_fee = ext::vault_registry::slash_collateral_saturated::<T>(
-                    CurrencyType::Backing(vault_id.clone()),
-                    CurrencyType::FreeBalance(redeemer.clone()),
+                    CurrencySource::Backing(vault_id.clone()),
+                    CurrencySource::FreeBalance(redeemer.clone()),
                     punishment_fee_in_dot,
                 )?;
 
@@ -498,8 +498,8 @@ impl<T: Config> Module<T> {
                 .ok_or(Error::<T>::ArithmeticUnderflow)?;
             if remaining_dot_to_be_slashed > Self::u128_to_dot(0u128)? {
                 let slashed_to_fee_pool = ext::vault_registry::slash_collateral_saturated::<T>(
-                    CurrencyType::Backing(vault_id.clone()),
-                    CurrencyType::FreeBalance(ext::fee::fee_pool_account_id::<T>()),
+                    CurrencySource::Backing(vault_id.clone()),
+                    CurrencySource::FreeBalance(ext::fee::fee_pool_account_id::<T>()),
                     remaining_dot_to_be_slashed,
                 )?;
                 ext::fee::increase_dot_rewards_for_epoch::<T>(slashed_to_fee_pool);

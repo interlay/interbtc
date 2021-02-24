@@ -26,7 +26,7 @@ pub enum Version {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum CurrencyType<T: frame_system::Config> {
+pub enum CurrencySource<T: frame_system::Config> {
     /// used by vault to back PolkaBTC
     Backing(<T as frame_system::Config>::AccountId),
     /// Collateral that is locked, but not used to back PolkaBTC (e.g. griefing collateral)
@@ -37,21 +37,21 @@ pub enum CurrencyType<T: frame_system::Config> {
     LiquidationVault,
 }
 
-impl<T: Config> CurrencyType<T> {
+impl<T: Config> CurrencySource<T> {
     pub fn account_id(&self) -> <T as frame_system::Config>::AccountId {
         match self {
-            CurrencyType::Backing(x) | CurrencyType::Griefing(x) | CurrencyType::FreeBalance(x) => {
-                x.clone()
-            }
-            CurrencyType::LiquidationVault => Module::<T>::get_rich_liquidation_vault().data.id,
+            CurrencySource::Backing(x)
+            | CurrencySource::Griefing(x)
+            | CurrencySource::FreeBalance(x) => x.clone(),
+            CurrencySource::LiquidationVault => Module::<T>::get_rich_liquidation_vault().data.id,
         }
     }
     pub fn current_balance(&self) -> Result<DOT<T>, DispatchError> {
         match self {
-            CurrencyType::Backing(x) => Ok(Module::<T>::get_rich_vault_from_id(&x)?
+            CurrencySource::Backing(x) => Ok(Module::<T>::get_rich_vault_from_id(&x)?
                 .data
                 .backing_collateral),
-            CurrencyType::Griefing(x) => {
+            CurrencySource::Griefing(x) => {
                 let backing_collateral = match Module::<T>::get_rich_vault_from_id(&x) {
                     Ok(vault) => vault.data.backing_collateral,
                     Err(_) => 0u32.into(),
@@ -61,8 +61,8 @@ impl<T: Config> CurrencyType<T> {
                     .checked_sub(&backing_collateral)
                     .ok_or(Error::<T>::ArithmeticUnderflow)?)
             }
-            CurrencyType::FreeBalance(x) => Ok(ext::collateral::get_free_balance::<T>(x)),
-            CurrencyType::LiquidationVault => {
+            CurrencySource::FreeBalance(x) => Ok(ext::collateral::get_free_balance::<T>(x)),
+            CurrencySource::LiquidationVault => {
                 Ok(ext::collateral::for_account::<T>(&self.account_id()))
             }
         }
@@ -487,7 +487,7 @@ impl<T: Config> RichVault<T> {
         liquidation_vault: &mut V,
         status: VaultStatus,
     ) -> DispatchResult {
-        let slashing_source = CurrencyType::Backing(self.id());
+        let slashing_source = CurrencySource::Backing(self.id());
 
         let to_slash = Module::<T>::calculate_collateral(
             slashing_source.current_balance()?,
@@ -498,7 +498,7 @@ impl<T: Config> RichVault<T> {
             self.data.issued_tokens,
         )?;
 
-        Module::<T>::slash_collateral(slashing_source, CurrencyType::LiquidationVault, to_slash)?;
+        Module::<T>::slash_collateral(slashing_source, CurrencySource::LiquidationVault, to_slash)?;
 
         // Copy all tokens to the liquidation vault
         liquidation_vault.force_issue_tokens(self.data.issued_tokens)?;

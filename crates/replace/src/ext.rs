@@ -30,11 +30,11 @@ pub(crate) mod vault_registry {
     use crate::{PolkaBTC, DOT};
     use btc_relay::BtcAddress;
     use frame_support::dispatch::{DispatchError, DispatchResult};
-    use vault_registry::types::CurrencyType;
+    use vault_registry::types::CurrencySource;
 
     pub fn slash_collateral<T: vault_registry::Config>(
-        from: CurrencyType<T>,
-        to: CurrencyType<T>,
+        from: CurrencySource<T>,
+        to: CurrencySource<T>,
         amount: DOT<T>,
     ) -> DispatchResult {
         <vault_registry::Module<T>>::slash_collateral(from, to, amount)
