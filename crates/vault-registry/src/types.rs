@@ -106,7 +106,7 @@ impl Wallet {
     }
 }
 
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Debug)]
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum VaultStatus {
     /// Vault is active
     Active = 0,

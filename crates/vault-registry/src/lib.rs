@@ -932,11 +932,20 @@ impl<T: Config> Module<T> {
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
         let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
+        let vault_orig = vault.data.clone();
         let mut liquidation_vault = Self::get_rich_liquidation_vault();
 
         vault.liquidate(&mut liquidation_vault, status)?;
 
-        Self::deposit_event(Event::<T>::LiquidateVault(vault_id.clone()));
+        Self::deposit_event(Event::<T>::LiquidateVault(
+            vault_id.clone(),
+            vault_orig.issued_tokens,
+            vault_orig.to_be_issued_tokens,
+            vault_orig.to_be_redeemed_tokens,
+            vault_orig.to_be_replaced_tokens,
+            vault_orig.backing_collateral,
+            status,
+        ));
         Ok(())
     }
 
@@ -1478,7 +1487,7 @@ decl_event! {
         RedeemTokensLiquidatedVault(AccountId, PolkaBTC, DOT),
         RedeemTokensLiquidation(AccountId, PolkaBTC, DOT),
         ReplaceTokens(AccountId, AccountId, PolkaBTC, DOT),
-        LiquidateVault(AccountId),
+        LiquidateVault(AccountId, PolkaBTC, PolkaBTC, PolkaBTC, PolkaBTC, DOT, VaultStatus),
     }
 }
 

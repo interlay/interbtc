@@ -615,13 +615,24 @@ fn liquidate_succeeds() {
             &vault_id,
             to_be_redeemed_tokens
         ));
+
+        let vault_orig = <crate::Vaults<Test>>::get(&vault_id);
+
         assert_ok!(VaultRegistry::liquidate_vault(&vault_id));
 
         let liquidation_vault_after = VaultRegistry::get_rich_liquidation_vault();
 
         let liquidated_vault = <crate::Vaults<Test>>::get(&vault_id);
         assert_eq!(liquidated_vault.status, VaultStatus::Liquidated);
-        assert_emitted!(Event::LiquidateVault(vault_id));
+        assert_emitted!(Event::LiquidateVault(
+            vault_id,
+            vault_orig.issued_tokens,
+            vault_orig.to_be_issued_tokens,
+            vault_orig.to_be_redeemed_tokens,
+            vault_orig.to_be_replaced_tokens,
+            vault_orig.backing_collateral,
+            VaultStatus::Liquidated
+        ));
 
         let moved_collateral =
             (collateral_before * (issued_tokens - to_be_redeemed_tokens)) / issued_tokens;
@@ -664,6 +675,8 @@ fn liquidate_with_status_succeeds() {
     run_test(|| {
         let id = create_sample_vault();
 
+        let vault_orig = <crate::Vaults<Test>>::get(&id);
+
         assert_ok!(VaultRegistry::liquidate_vault_with_status(
             &id,
             VaultStatus::CommittedTheft
@@ -673,7 +686,15 @@ fn liquidate_with_status_succeeds() {
 
         assert_eq!(liquidated_vault.status, VaultStatus::CommittedTheft);
 
-        assert_emitted!(Event::LiquidateVault(id));
+        assert_emitted!(Event::LiquidateVault(
+            id,
+            vault_orig.issued_tokens,
+            vault_orig.to_be_issued_tokens,
+            vault_orig.to_be_redeemed_tokens,
+            vault_orig.to_be_replaced_tokens,
+            vault_orig.backing_collateral,
+            VaultStatus::CommittedTheft
+        ));
     });
 }
 
