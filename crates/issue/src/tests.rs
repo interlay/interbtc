@@ -206,6 +206,9 @@ fn test_execute_issue_succeeds() {
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
         ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
+        ext::vault_registry::is_vault_liquidated::<Test>
+            .mock_safe(|_| MockResult::Return(Ok(false)));
+
         let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
         <frame_system::Module<Test>>::set_block_number(5);
         execute_issue_ok(ALICE, &issue_id);
@@ -237,6 +240,9 @@ fn test_execute_issue_overpayment_succeeds() {
         // pay 5 instead of the expected 3
         ext::btc_relay::validate_transaction::<Test>
             .mock_safe(|_, _, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 5))));
+
+        ext::vault_registry::is_vault_liquidated::<Test>
+            .mock_safe(|_| MockResult::Return(Ok(false)));
 
         unsafe {
             let mut increase_tokens_called = false;
@@ -288,6 +294,9 @@ fn test_execute_issue_refund_succeeds() {
         ext::vault_registry::_register_address::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(BtcAddress::default())));
 
+        ext::vault_registry::is_vault_liquidated::<Test>
+            .mock_safe(|_| MockResult::Return(Ok(false)));
+
         unsafe {
             let mut refund_called = false;
 
@@ -334,6 +343,15 @@ fn test_cancel_issue_succeeds() {
 
         ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
+
+        ext::vault_registry::cancel_issue_tokens::<Test>
+            .mock_safe(|_, _| MockResult::Return(Ok(())));
+
+        ext::vault_registry::is_vault_liquidated::<Test>
+            .mock_safe(|_| MockResult::Return(Ok(false)));
+
+        ext::vault_registry::slash_collateral::<Test>
+            .mock_safe(|_, _, _| MockResult::Return(Ok(())));
 
         let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
         // issue period is 10, we issued at block 1, so at block 15 the cancel should succeed

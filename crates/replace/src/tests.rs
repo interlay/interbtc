@@ -235,7 +235,8 @@ fn test_request_replace_insufficient_griefing_collateral_fails() {
         ext::oracle::btc_to_dots::<Test>.mock_safe(|_| MockResult::Return(Ok(0)));
         ext::fee::get_replace_griefing_collateral::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(desired_griefing_collateral)));
-
+        ext::vault_registry::get_backing_collateral::<Test>
+            .mock_safe(move |_| MockResult::Return(Ok(desired_griefing_collateral)));
         assert_noop!(
             Replace::_request_replace(old_vault, amount, griefing_collateral),
             TestError::InsufficientCollateral
@@ -606,6 +607,8 @@ fn test_request_replace_with_amount_exceed_vault_issued_tokens_succeeds() {
         ext::vault_registry::increase_to_be_replaced_tokens::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::security::get_secure_id::<Test>.mock_safe(|_| MockResult::Return(H256::zero()));
+        ext::vault_registry::get_backing_collateral::<Test>
+            .mock_safe(move |_| MockResult::Return(Ok(griefing_collateral)));
 
         assert_ok!(request_replace(vault_id, amount, griefing_collateral));
 
@@ -638,6 +641,8 @@ fn test_request_replace_with_amount_less_than_vault_issued_tokens_succeeds() {
         ext::vault_registry::increase_to_be_replaced_tokens::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::security::get_secure_id::<Test>.mock_safe(|_| MockResult::Return(H256::zero()));
+        ext::vault_registry::get_backing_collateral::<Test>
+            .mock_safe(move |_| MockResult::Return(Ok(griefing_collateral)));
 
         assert_ok!(request_replace(vault_id, amount, griefing_collateral));
 
