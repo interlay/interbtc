@@ -12,6 +12,7 @@ pub use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 pub use sp_core::H160;
 pub use sp_runtime::traits::Dispatchable;
 pub use sp_std::convert::TryInto;
+pub use vault_registry::CurrencyType;
 
 pub const ALICE: [u8; 32] = [0u8; 32];
 pub const BOB: [u8; 32] = [1u8; 32];
@@ -42,11 +43,71 @@ pub fn account_of(address: [u8; 32]) -> AccountId {
 }
 
 #[derive(Debug, PartialEq, Default)]
+pub struct UserData {
+    pub free_balance: u128,
+    pub locked_balance: u128,
+    pub locked_tokens: u128,
+    pub free_tokens: u128,
+}
+
+impl UserData {
+    #[allow(dead_code)]
+    pub fn get(id: [u8; 32]) -> Self {
+        let account_id = account_of(id);
+        Self {
+            free_balance: CollateralModule::get_balance_from_account(&account_id),
+            locked_balance: CollateralModule::get_collateral_from_account(&account_id),
+            locked_tokens: TreasuryModule::get_locked_balance_from_account(account_id.clone()),
+            free_tokens: TreasuryModule::get_balance_from_account(account_id.clone()),
+        }
+    }
+    pub fn force_to(id: [u8; 32], new: Self) -> Self {
+        let old = Self::get(id.clone());
+        let account_id = account_of(id);
+
+        if old.free_tokens > new.free_tokens || old.locked_tokens > new.locked_tokens {
+            unimplemented!()
+        }
+
+        // set free balance:
+        CollateralModule::transfer(account_id.clone(), account_of(FAUCET), old.free_balance)
+            .unwrap();
+        CollateralModule::transfer(account_of(FAUCET), account_id.clone(), new.free_balance)
+            .unwrap();
+
+        // set locked balance:
+        CollateralModule::slash_collateral(
+            account_id.clone(),
+            account_of(FAUCET),
+            old.locked_balance,
+        )
+        .unwrap();
+        CollateralModule::transfer(account_of(FAUCET), account_id.clone(), new.locked_balance)
+            .unwrap();
+        CollateralModule::lock_collateral(&account_id, new.locked_balance).unwrap();
+
+        // set free_tokens
+        TreasuryModule::mint(account_id.clone(), new.free_tokens - old.free_tokens);
+
+        // set locked_tokens
+        let locked_tokens_to_add = new.locked_tokens - old.locked_tokens;
+        TreasuryModule::mint(account_id.clone(), locked_tokens_to_add);
+        TreasuryModule::lock(account_id.clone(), locked_tokens_to_add).unwrap();
+
+        // sanity check:
+        assert_eq!(Self::get(id), new);
+
+        new
+    }
+}
+
+#[derive(Debug, PartialEq, Default)]
 pub struct CoreVaultData {
     pub to_be_issued: u128,
     pub issued: u128,
     pub to_be_redeemed: u128,
-    pub collateral: u128,
+    pub backing_collateral: u128,
+    pub griefing_collateral: u128,
     pub free_balance: u128,
 }
 
@@ -59,7 +120,12 @@ impl CoreVaultData {
             to_be_issued: vault.to_be_issued_tokens,
             issued: vault.issued_tokens,
             to_be_redeemed: vault.to_be_redeemed_tokens,
-            collateral: CollateralModule::get_collateral_from_account(&account_id),
+            backing_collateral: CurrencyType::<Runtime>::Backing(account_id.clone())
+                .current_balance()
+                .unwrap(),
+            griefing_collateral: CurrencyType::<Runtime>::Griefing(account_id.clone())
+                .current_balance()
+                .unwrap(),
             free_balance: CollateralModule::get_balance_from_account(&account_id),
         }
     }
@@ -71,43 +137,45 @@ impl CoreVaultData {
             to_be_issued: vault.to_be_issued_tokens,
             issued: vault.issued_tokens,
             to_be_redeemed: vault.to_be_redeemed_tokens,
-            collateral: CollateralModule::get_collateral_from_account(&account_id),
+            backing_collateral: CurrencyType::<Runtime>::LiquidationVault
+                .current_balance()
+                .unwrap(),
+            griefing_collateral: 0,
             free_balance: CollateralModule::get_balance_from_account(&account_id),
         }
     }
-}
+    #[allow(dead_code)]
+    pub fn force_to(vault: [u8; 32], state: CoreVaultData) {
+        let current = CoreVaultData::vault(vault);
+        if current.to_be_issued < state.to_be_issued {
+            assert_ok!(VaultRegistryModule::increase_to_be_issued_tokens(
+                &account_of(vault),
+                state.to_be_issued - current.to_be_issued
+            ));
+        }
 
-#[allow(dead_code)]
-pub fn force_vault_state(vault: [u8; 32], state: CoreVaultData) {
-    let current = CoreVaultData::vault(vault);
-    if current.to_be_issued < state.to_be_issued {
-        assert_ok!(VaultRegistryModule::increase_to_be_issued_tokens(
-            &account_of(vault),
-            state.to_be_issued - current.to_be_issued
-        ));
+        if current.issued < state.issued {
+            assert_ok!(VaultRegistryModule::increase_to_be_issued_tokens(
+                &account_of(vault),
+                state.issued - current.issued
+            ));
+
+            assert_ok!(VaultRegistryModule::issue_tokens(
+                &account_of(vault),
+                state.issued - current.issued
+            ));
+        }
+        if current.to_be_redeemed < state.to_be_redeemed {
+            assert_ok!(VaultRegistryModule::increase_to_be_redeemed_tokens(
+                &account_of(vault),
+                state.to_be_redeemed - current.to_be_redeemed
+            ));
+        }
+
+        // since the function is only partially implemented, check that we achieved the
+        // desired stae
+        assert_eq!(CoreVaultData::vault(vault), state);
     }
-
-    if current.issued < state.issued {
-        assert_ok!(VaultRegistryModule::increase_to_be_issued_tokens(
-            &account_of(vault),
-            state.issued - current.issued
-        ));
-
-        assert_ok!(VaultRegistryModule::issue_tokens(
-            &account_of(vault),
-            state.issued - current.issued
-        ));
-    }
-    if current.to_be_redeemed < state.to_be_redeemed {
-        assert_ok!(VaultRegistryModule::increase_to_be_redeemed_tokens(
-            &account_of(vault),
-            state.to_be_redeemed - current.to_be_redeemed
-        ));
-    }
-
-    // since the function is only partially implemented, check that we achieved the
-    // desired stae
-    assert_eq!(CoreVaultData::vault(vault), state);
 }
 
 #[allow(dead_code)]

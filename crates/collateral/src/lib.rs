@@ -156,7 +156,8 @@ impl<T: Config> Module<T> {
     }
 
     /// Slash DOT collateral and assign to a receiver. Can only fail if
-    /// the sender account has too low collateral.
+    /// the sender account has too low collateral. The balance on the
+    /// receiver is not locked.
     ///
     /// # Arguments
     ///
@@ -205,10 +206,6 @@ impl<T: Config> Module<T> {
             receiver.clone(),
             slashed_amount,
         ));
-
-        // reserve the created amount for the receiver. This should not be able to fail, since the
-        // call above will have created enough free balance to lock.
-        T::DOT::reserve(&receiver, slashed_amount).map_err(|_| Error::<T>::InsufficientFunds)?;
 
         Ok(slashed_amount)
     }

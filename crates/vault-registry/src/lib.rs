@@ -47,7 +47,7 @@ use crate::types::{
     UnsignedFixedPoint, UpdatableVault, Version, DOT,
 };
 #[doc(inline)]
-pub use crate::types::{BtcPublicKey, SystemVault, Vault, VaultStatus, Wallet};
+pub use crate::types::{BtcPublicKey, CurrencyType, SystemVault, Vault, VaultStatus, Wallet};
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
@@ -133,7 +133,7 @@ decl_storage! {
         }): SystemVault<T::AccountId, PolkaBTC<T>>;
 
         /// Mapping of Vaults, using the respective Vault account identifier as key.
-        Vaults: map hasher(blake2_128_concat) T::AccountId => Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>>;
+        Vaults: map hasher(blake2_128_concat) T::AccountId => Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>;
 
         /// Mapping of reserved BTC addresses to the registered account
         ReservedAddresses: map hasher(blake2_128_concat) BtcAddress => T::AccountId;
@@ -178,11 +178,12 @@ decl_module! {
                     Error::<T>::InsufficientVaultCollateralAmount);
             ensure!(!Self::vault_exists(&sender), Error::<T>::VaultAlreadyRegistered);
 
-            ext::collateral::lock::<T>(&sender, collateral)?;
-            let vault = Vault::new(sender.clone(), public_key);
-            Self::insert_vault(&sender, vault.clone());
+            let mut vault: RichVault<T> = Vault::new(sender.clone(), public_key).into();
+            vault.increase_collateral(collateral)?;
 
-            Self::deposit_event(Event::<T>::RegisterVault(vault.id, collateral));
+            Self::insert_vault(&sender, vault.data.clone());
+
+            Self::deposit_event(Event::<T>::RegisterVault(vault.data.id, collateral));
 
             Ok(())
         }
@@ -203,7 +204,7 @@ decl_module! {
 
             Self::check_parachain_not_shutdown_and_not_errors([ErrorCode::OracleOffline].to_vec())?;
 
-            let vault = Self::get_active_rich_vault_from_id(&sender)?;
+            let mut vault = Self::get_active_rich_vault_from_id(&sender)?;
             vault.increase_collateral(amount)?;
             Self::deposit_event(Event::<T>::LockAdditionalCollateral(
                 vault.id(),
@@ -233,7 +234,7 @@ decl_module! {
         fn withdraw_collateral(origin, amount: DOT<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ext::security::ensure_parachain_status_running::<T>()?;
-            let vault = Self::get_active_rich_vault_from_id(&sender)?;
+            let mut vault = Self::get_active_rich_vault_from_id(&sender)?;
             vault.withdraw_collateral(amount)?;
             Self::deposit_event(Event::<T>::WithdrawCollateral(
                 sender.clone(),
@@ -308,6 +309,85 @@ impl<T: Config> Module<T> {
         <LiquidationVault<T>>::get()
     }
 
+    /// Locks `amount` DOT to be used for backing PolkaBTC
+    ///
+    /// # Arguments
+    /// * `vault_id` - the id of the vault from which to increase to-be-issued tokens
+    /// * `amount` - the amount of DOT to be locked
+    pub fn _lock_additional_collateral(vault_id: &T::AccountId, amount: DOT<T>) -> DispatchResult {
+        let mut vault = Self::get_active_rich_vault_from_id(vault_id)?;
+        vault.increase_collateral(amount)?;
+        Ok(())
+    }
+
+    /// Frees `amount` DOT to the free balance
+    ///
+    /// # Arguments
+    /// * `vault_id` - the id of the vault from which to increase to-be-issued tokens
+    /// * `amount` - the amount of DOT to be unlocked
+    pub fn _withdraw_collateral(vault_id: &T::AccountId, amount: DOT<T>) -> DispatchResult {
+        let mut vault = Self::get_active_rich_vault_from_id(vault_id)?;
+        vault.withdraw_collateral(amount)?;
+        Ok(())
+    }
+
+    fn force_withdraw_collateral(vault_id: &T::AccountId, amount: DOT<T>) -> DispatchResult {
+        let mut vault = Self::get_rich_vault_from_id(vault_id)?;
+        vault.force_withdraw_collateral(amount)?;
+        Ok(())
+    }
+
+    pub fn slash_collateral_saturated(
+        from: CurrencyType<T>,
+        to: CurrencyType<T>,
+        amount: DOT<T>,
+    ) -> Result<DOT<T>, DispatchError> {
+        let available_amount = from.current_balance()?;
+        let amount = if available_amount < amount {
+            available_amount
+        } else {
+            amount
+        };
+        Self::slash_collateral(from, to, amount)?;
+        Ok(amount)
+    }
+
+    pub fn slash_collateral(
+        from: CurrencyType<T>,
+        to: CurrencyType<T>,
+        amount: DOT<T>,
+    ) -> DispatchResult {
+        // move funds to free balance of the source
+        match from {
+            CurrencyType::Backing(ref account) => {
+                Self::force_withdraw_collateral(account, amount)?;
+            }
+            CurrencyType::Griefing(_) | CurrencyType::LiquidationVault => {
+                ext::collateral::release_collateral::<T>(&from.account_id(), amount)?;
+            }
+            CurrencyType::FreeBalance(_) => {
+                // do nothing
+            }
+        };
+
+        // move from sender's free balance to receiver's free balance
+        ext::collateral::transfer::<T>(&from.account_id(), &to.account_id(), amount)?;
+
+        // move funds to free balance of the source
+        match to {
+            CurrencyType::Backing(ref account) => {
+                Self::_lock_additional_collateral(account, amount)?;
+            }
+            CurrencyType::Griefing(_) | CurrencyType::LiquidationVault => {
+                ext::collateral::lock::<T>(&to.account_id(), amount)?;
+            }
+            CurrencyType::FreeBalance(_) => {
+                // do nothing
+            }
+        };
+
+        Ok(())
+    }
     /// Increases the amount of tokens to be issued (in replace or issue)
     ///
     /// # Arguments
@@ -546,48 +626,14 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Reduces the to-be-redeemed tokens when a redeem request successfully completes
+    /// Reduces the to-be-redeemed tokens when a redeem request completes
     ///
     /// # Arguments
     /// * `vault_id` - the id of the vault from which to redeem tokens
     /// * `tokens` - the amount of tokens to be decreased
-    ///
-    /// # Errors
-    /// * `VaultNotFound` - if no vault exists for the given `vault_id`
-    /// * `InsufficientTokensCommitted` - if the amount of to-be-redeemed tokens
-    ///                                   or issued tokens is too low
-    pub fn redeem_tokens(vault_id: &T::AccountId, tokens: PolkaBTC<T>) -> DispatchResult {
-        Self::check_parachain_not_shutdown_and_not_errors(
-            [
-                ErrorCode::InvalidBTCRelay,
-                ErrorCode::OracleOffline,
-                ErrorCode::Liquidation,
-            ]
-            .to_vec(),
-        )?;
-        let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
-        vault.redeem_tokens(tokens)?;
-        Self::deposit_event(Event::<T>::RedeemTokens(vault.id(), tokens));
-        Ok(())
-    }
-
-    /// Handles a redeem request, where a user is paid a premium in DOT.
-    /// Calls redeem_tokens and then allocates the corresponding amount of DOT
-    /// to the redeemer using the Vault’s free collateral
-    ///
-    /// # Arguments
-    /// * `vault_id` - the id of the vault from which to redeem premiums
-    /// * `tokens` - the amount of tokens redeemed
-    /// * `premium` - the amount of DOT to be paid to the user as a premium
-    ///               using the Vault’s released collateral.
-    /// * `user` - the user redeeming at a premium
-    ///
-    /// # Errors
-    /// * `VaultNotFound` - if no vault exists for the given `vault_id`
-    /// * `InsufficientTokensCommitted` - if the amount of to-be-redeemed tokens
-    ///                                   or issued tokens is too low
-    /// * `InsufficientFunds` - if the vault does not have `premium` amount of collateral
-    pub fn redeem_tokens_premium(
+    /// * `premium` - amount of DOT to be rewarded to the redeemer if the vault is not liquidated yet
+    /// * `redeemer_id` - the id of the redeemer
+    pub fn redeem_tokens(
         vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
         premium: DOT<T>,
@@ -601,19 +647,49 @@ impl<T: Config> Module<T> {
             ]
             .to_vec(),
         )?;
-        let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
-        vault.redeem_tokens(tokens)?;
-        if premium > Self::u128_to_dot(0u128)? {
-            ext::collateral::slash_collateral::<T>(vault_id, redeemer_id, premium)?;
-            ext::collateral::release_collateral::<T>(redeemer_id, premium)?;
+
+        let mut vault = Self::get_rich_vault_from_id(&vault_id)?;
+
+        if !vault.data.is_liquidated() {
+            vault.decrease_issued(tokens)?;
+
+            if premium.is_zero() {
+                Self::deposit_event(Event::<T>::RedeemTokens(vault.id(), tokens));
+            } else {
+                Self::slash_collateral(
+                    CurrencyType::Backing(vault_id.clone()),
+                    CurrencyType::FreeBalance(redeemer_id.clone()),
+                    premium,
+                )?;
+
+                Self::deposit_event(Event::<T>::RedeemTokensPremium(
+                    vault_id.clone(),
+                    tokens,
+                    premium,
+                    redeemer_id.clone(),
+                ));
+            }
+        } else {
+            Self::liquidation_vault_force_decrease_issued_tokens(tokens)?;
+            Self::liquidation_vault_force_decrease_to_be_redeemed_tokens(tokens)?;
+
+            // withdraw vault collateral
+            let amount = Self::calculate_collateral(
+                CurrencyType::Backing::<T>(vault_id.clone()).current_balance()?,
+                tokens,
+                vault.data.to_be_redeemed_tokens,
+            )?;
+            Self::force_withdraw_collateral(vault_id, amount)?;
+
+            Self::deposit_event(Event::<T>::RedeemTokensLiquidatedVault(
+                vault_id.clone(),
+                tokens,
+                amount,
+            ));
         }
 
-        Self::deposit_event(Event::<T>::RedeemTokensPremium(
-            vault_id.clone(),
-            tokens,
-            premium,
-            redeemer_id.clone(),
-        ));
+        vault.decrease_to_be_redeemed(tokens)?;
+
         Ok(())
     }
 
@@ -642,12 +718,11 @@ impl<T: Config> Module<T> {
 
         // transfer liquidated collateral to redeemer
         let amount_dot = ext::oracle::btc_to_dots::<T>(amount_btc)?;
-        ext::collateral::slash_collateral::<T>(
-            &liquidation_vault.data.id,
-            &redeemer_id,
+        Self::slash_collateral(
+            CurrencyType::LiquidationVault,
+            CurrencyType::FreeBalance(redeemer_id.clone()),
             amount_dot,
         )?;
-        ext::collateral::release_collateral::<T>(&redeemer_id, amount_dot)?;
 
         Self::deposit_event(Event::<T>::RedeemTokensLiquidation(
             redeemer_id.clone(),
@@ -699,13 +774,14 @@ impl<T: Config> Module<T> {
             liquidation_vault.force_decrease_to_be_redeemed(tokens)?;
 
             // release old-vault's collateral
-            let collateral = ext::collateral::for_account::<T>(&old_vault_id);
+            let current_backing =
+                CurrencyType::<T>::Backing(old_vault_id.clone()).current_balance()?;
             let to_be_released = Self::calculate_collateral(
-                collateral,
+                current_backing,
                 tokens,
                 old_vault.data.to_be_redeemed_tokens,
             )?;
-            ext::collateral::release_collateral::<T>(old_vault_id, to_be_released)?;
+            Self::force_withdraw_collateral(&old_vault_id, to_be_released)?;
 
             // reduce old-vault's to-be-redeemed tokens
             old_vault.force_decrease_to_be_redeemed(tokens)?;
@@ -762,16 +838,17 @@ impl<T: Config> Module<T> {
         } else {
             let mut liquidation_vault = Self::get_rich_liquidation_vault();
 
+            let old_vault_backing = CurrencyType::<T>::Backing(old_vault_id.clone());
+
             // transfer old-vault's collateral to liquidation_vault
-            let collateral = ext::collateral::for_account::<T>(&old_vault_id);
             let to_be_transfered_collateral = Self::calculate_collateral(
-                collateral,
+                old_vault_backing.current_balance()?,
                 tokens,
                 old_vault.data.to_be_redeemed_tokens,
             )?;
-            ext::collateral::slash_collateral::<T>(
-                &old_vault_id,
-                &liquidation_vault.id(),
+            Self::slash_collateral(
+                old_vault_backing,
+                CurrencyType::LiquidationVault,
                 to_be_transfered_collateral,
             )?;
 
@@ -847,7 +924,7 @@ impl<T: Config> Module<T> {
 
     pub fn insert_vault(
         id: &T::AccountId,
-        vault: Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>>,
+        vault: Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
     ) {
         <Vaults<T>>::insert(id, vault)
     }
@@ -1362,6 +1439,7 @@ decl_event! {
         DecreaseTokens(AccountId, AccountId, PolkaBTC),
         RedeemTokens(AccountId, PolkaBTC),
         RedeemTokensPremium(AccountId, PolkaBTC, DOT, AccountId),
+        RedeemTokensLiquidatedVault(AccountId, PolkaBTC, DOT),
         RedeemTokensLiquidation(AccountId, PolkaBTC, DOT),
         ReplaceTokens(AccountId, AccountId, PolkaBTC, DOT),
         LiquidateVault(AccountId),

@@ -11,6 +11,12 @@ type RedeemError = redeem::Error<Runtime>;
 use vault_registry::types::RichVault;
 use vault_registry::types::UpdatableVault;
 
+const USER: [u8; 32] = ALICE;
+const VAULT: [u8; 32] = BOB;
+const USER_BTC_ADDRESS: BtcAddress = BtcAddress::P2PKH(H160([2u8; 20]));
+pub const DEFAULT_USER_FREE_BALANCE: u128 = 1_000_000;
+pub const DEFAULT_USER_LOCKED_BALANCE: u128 = 100_000;
+
 // asserts redeem event happen and extracts its id for further testing
 fn assert_redeem_request_event() -> H256 {
     let events = SystemModule::events();
@@ -241,30 +247,7 @@ fn setup_cancelable_redeem(
     collateral: u128,
     polka_btc: u128,
 ) -> H256 {
-    let user_btc_address = BtcAddress::P2PKH(H160([2u8; 20]));
-
-    SystemModule::set_block_number(1);
-
-    set_default_thresholds();
-
-    let fee = FeeModule::get_redeem_fee(polka_btc).unwrap();
-
-    // create tokens for the vault and user
-    force_issue_tokens(user, vault, collateral, polka_btc - fee);
-
-    // mint tokens to the user such that he can afford the fee
-    TreasuryModule::mint(user.into(), fee);
-
-    // alice requests to redeem polka_btc from Bob
-    assert_ok!(Call::Redeem(RedeemCall::request_redeem(
-        polka_btc,
-        user_btc_address,
-        account_of(vault)
-    ))
-    .dispatch(origin_of(account_of(user))));
-
-    // assert that request happened and extract the id
-    let redeem_id = assert_redeem_request_event();
+    let redeem_id = setup_redeem(polka_btc, user, vault, collateral);
 
     // expire request without transferring btc
     SystemModule::set_block_number(RedeemModule::redeem_period() + 1 + 1);
@@ -282,6 +265,43 @@ fn setup_cancelable_redeem(
     );
 
     redeem_id
+}
+
+fn setup_redeem(polka_btc: u128, user: [u8; 32], vault: [u8; 32], collateral: u128) -> H256 {
+    SystemModule::set_block_number(1);
+
+    set_default_thresholds();
+
+    assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
+        FixedU128::one()
+    ));
+
+    let fee = FeeModule::get_redeem_fee(polka_btc).unwrap();
+
+    // burn surplus free balance to make checking easier
+    CollateralModule::transfer(
+        account_of(vault),
+        account_of(FAUCET),
+        CollateralModule::get_balance_from_account(&account_of(vault)) - collateral,
+    )
+    .unwrap();
+
+    // create tokens for the vault and user
+    force_issue_tokens(user, vault, collateral, polka_btc - fee);
+
+    // mint tokens to the user such that he can afford the fee
+    TreasuryModule::mint(user.into(), fee);
+
+    // alice requests to redeem polka_btc from Bob
+    assert_ok!(Call::Redeem(RedeemCall::request_redeem(
+        polka_btc,
+        USER_BTC_ADDRESS,
+        account_of(vault)
+    ))
+    .dispatch(origin_of(account_of(user))));
+
+    // assert that request happened and extract the id
+    assert_redeem_request_event()
 }
 
 #[test]
@@ -477,117 +497,80 @@ fn integration_test_redeem_polka_btc_cancel_liquidated_no_reimburse() {
 #[test]
 fn integration_test_redeem_polka_btc_execute_liquidated() {
     ExtBuilder::build().execute_with(|| {
-        let user = ALICE;
-        let vault = BOB;
-        let collateral_vault = 1_000_000;
-        let total_polka_btc = 1_000_000;
         let polka_btc = 1_000;
+        let fee = FeeModule::get_redeem_fee(polka_btc).unwrap();
+        let collateral_vault = 1_000_000;
+        let amount_without_fee = polka_btc - fee;
 
-        let user_btc_address = BtcAddress::P2PKH(H160([2; 20]));
+        let redeem_id = setup_redeem(polka_btc, USER, VAULT, collateral_vault);
 
-        SystemModule::set_block_number(1);
-
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::checked_from_rational(1, 100_000).unwrap()
-        ));
-
-        set_default_thresholds();
-
-        // create tokens for the vault and user
-        force_issue_tokens(user, vault, collateral_vault, total_polka_btc);
-
-        let initial_collateral = CollateralModule::get_collateral_from_account(&account_of(vault));
-        let initial_vault_balance = CollateralModule::get_balance_from_account(&account_of(vault));
-        let initial_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
-        let initial_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
-        let initial_btc_issuance = TreasuryModule::get_total_supply();
-        assert_eq!(total_polka_btc, initial_btc_issuance);
-
-        // alice requests to redeem polka_btc from Bob
-        assert_ok!(Call::Redeem(RedeemCall::request_redeem(
-            polka_btc,
-            user_btc_address,
-            account_of(vault),
-        ))
-        .dispatch(origin_of(account_of(user))));
-        let redeem_id = assert_redeem_request_event();
-        let redeem = RedeemModule::get_open_redeem_request_from_id(&redeem_id).unwrap();
-
-        let mut rich_vault: RichVault<Runtime> =
-            VaultRegistryModule::get_vault_from_id(&account_of(vault))
-                .unwrap()
-                .into();
-        assert_ok!(rich_vault.force_increase_to_be_redeemed(3 * redeem.amount_btc));
-        assert_ok!(rich_vault.force_issue_tokens(3 * redeem.amount_btc));
-
-        let vault_data_before = VaultRegistryModule::get_vault_from_id(&account_of(vault)).unwrap();
-
-        // assert that request happened and extract the id
-        let redeem_id = assert_redeem_request_event();
-
-        // send the btc from the vault to the user
-        let (tx_id, _tx_block_height, merkle_proof, raw_tx) =
-            generate_transaction_and_mine(user_btc_address, polka_btc, Some(redeem_id));
-
-        SystemModule::set_block_number(1 + CONFIRMATIONS);
-
-        assert_ok!(VaultRegistryModule::liquidate_vault(&account_of(vault)));
-
-        let collateral_before_execution =
-            CollateralModule::get_collateral_from_account(&account_of(vault));
-        // use a very indirect calculation so we don't get rounding errors
-        assert_eq!(
-            collateral_before_execution,
-            initial_collateral
-                - ((vault_data_before.issued_tokens - 4 * redeem.amount_btc) * initial_collateral)
-                    / vault_data_before.issued_tokens
+        UserData::force_to(
+            USER,
+            UserData {
+                free_balance: DEFAULT_USER_FREE_BALANCE,
+                locked_balance: DEFAULT_USER_LOCKED_BALANCE,
+                locked_tokens: polka_btc + 1234,
+                free_tokens: 50,
+            },
         );
 
-        assert_ok!(Call::Redeem(RedeemCall::execute_redeem(
-            redeem_id,
-            tx_id,
-            merkle_proof,
-            raw_tx
-        ))
-        .dispatch(origin_of(account_of(vault))));
-
-        // Check vault data
-        let vault_data_after = VaultRegistryModule::get_vault_from_id(&account_of(vault)).unwrap();
-        assert_eq!(vault_data_after.issued_tokens, 0);
-        assert_eq!(vault_data_after.to_be_issued_tokens, 0);
-        // vault started with (4*redeem.amount_btc) - it should now have (3*redeem.amount_btc) left
         assert_eq!(
-            vault_data_after.to_be_redeemed_tokens,
-            3 * redeem.amount_btc
+            CoreVaultData::vault(VAULT),
+            CoreVaultData {
+                issued: amount_without_fee, // assuming fee
+                to_be_redeemed: amount_without_fee,
+                backing_collateral: collateral_vault,
+                ..Default::default()
+            },
+        );
+        CoreVaultData::force_to(
+            VAULT,
+            CoreVaultData {
+                issued: amount_without_fee * 4,
+                to_be_redeemed: amount_without_fee * 4,
+                backing_collateral: collateral_vault,
+                ..Default::default()
+            },
         );
 
-        // 1/4th should be freed
+        assert_ok!(VaultRegistryModule::liquidate_vault(&account_of(VAULT)));
+
+        assert_redeem_ok(polka_btc, redeem_id);
+
         assert_eq!(
-            CollateralModule::get_balance_from_account(&account_of(vault)),
-            initial_vault_balance + collateral_before_execution / 4
-        );
-        // rest should be still locked
-        assert_eq!(
-            CollateralModule::get_collateral_from_account(&account_of(vault)),
-            collateral_before_execution - collateral_before_execution / 4
+            CoreVaultData::vault(VAULT),
+            CoreVaultData {
+                to_be_redeemed: amount_without_fee * 3,
+                backing_collateral: (collateral_vault * 3) / 4,
+                free_balance: collateral_vault / 4,
+                ..Default::default()
+            },
         );
 
-        // user DOT balance should be unchanged
         assert_eq!(
-            CollateralModule::get_balance_from_account(&account_of(user)),
-            initial_dot_balance
+            UserData::get(USER),
+            UserData {
+                free_balance: DEFAULT_USER_FREE_BALANCE,
+                locked_balance: DEFAULT_USER_LOCKED_BALANCE,
+                locked_tokens: 1234, // most important: check that polka_btc has been burned
+                free_tokens: 50,
+            },
         );
-        // polka_btc burned from user
-        assert_eq!(
-            TreasuryModule::get_balance_from_account(account_of(user)),
-            initial_btc_balance - polka_btc
-        );
-        // polka_btc burned from issuance
-        assert_eq!(
-            TreasuryModule::get_total_supply(),
-            initial_btc_issuance - polka_btc
-        );
-
-        // TODO: check redeem rewards update
     });
+}
+
+fn assert_redeem_ok(polka_btc: u128, redeem_id: H256) {
+    // send the btc from the vault to the user
+    let (tx_id, _tx_block_height, merkle_proof, raw_tx) =
+        generate_transaction_and_mine(USER_BTC_ADDRESS, polka_btc, Some(redeem_id));
+
+    SystemModule::set_block_number(1 + CONFIRMATIONS);
+
+    assert_ok!(Call::Redeem(RedeemCall::execute_redeem(
+        redeem_id,
+        tx_id,
+        merkle_proof,
+        raw_tx
+    ))
+    .dispatch(origin_of(account_of(VAULT))));
 }

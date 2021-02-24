@@ -4,6 +4,7 @@ use mock::*;
 
 use primitive_types::H256;
 
+type IssueCall = issue::Call<Runtime>;
 type ReplaceCall = replace::Call<Runtime>;
 type ReplaceEvent = replace::Event<Runtime>;
 type ReplaceModule = replace::Module<Runtime>;
@@ -557,7 +558,8 @@ fn integration_test_replace_execute_replace_success() {
             CoreVaultData {
                 issued: 1000,
                 to_be_redeemed: 1000,
-                collateral: DEFAULT_COLLATERAL + DEFAULT_GRIEFING_COLLATERAL,
+                backing_collateral: DEFAULT_COLLATERAL,
+                griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
                 ..Default::default()
             },
         );
@@ -565,7 +567,7 @@ fn integration_test_replace_execute_replace_success() {
             CoreVaultData::vault(NEW_VAULT),
             CoreVaultData {
                 to_be_issued: 1000,
-                collateral: DEFAULT_COLLATERAL,
+                backing_collateral: DEFAULT_COLLATERAL,
                 ..Default::default()
             }
         );
@@ -575,7 +577,7 @@ fn integration_test_replace_execute_replace_success() {
         assert_eq!(
             CoreVaultData::vault(OLD_VAULT),
             CoreVaultData {
-                collateral: DEFAULT_COLLATERAL,
+                backing_collateral: DEFAULT_COLLATERAL,
                 free_balance: DEFAULT_GRIEFING_COLLATERAL,
                 ..Default::default()
             }
@@ -584,7 +586,7 @@ fn integration_test_replace_execute_replace_success() {
             CoreVaultData::vault(NEW_VAULT),
             CoreVaultData {
                 issued: 1000,
-                collateral: DEFAULT_COLLATERAL,
+                backing_collateral: DEFAULT_COLLATERAL,
                 ..Default::default()
             }
         );
@@ -594,32 +596,35 @@ fn integration_test_replace_execute_replace_success() {
 #[test]
 fn integration_test_replace_execute_replace_old_vault_liquidated() {
     ExtBuilder::build().execute_with(|| {
-        let replace_id = setup_replace(1000);
+        let replace_tokens = 1000;
+        let replace_id = setup_replace(replace_tokens);
 
         assert_eq!(
             CoreVaultData::vault(OLD_VAULT),
             CoreVaultData {
-                issued: 1000,
-                to_be_redeemed: 1000,
-                collateral: DEFAULT_COLLATERAL + DEFAULT_GRIEFING_COLLATERAL,
+                issued: replace_tokens,
+                to_be_redeemed: replace_tokens,
+                backing_collateral: DEFAULT_COLLATERAL,
+                griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
                 ..Default::default()
             },
         );
         assert_eq!(
             CoreVaultData::vault(NEW_VAULT),
             CoreVaultData {
-                to_be_issued: 1000,
-                collateral: DEFAULT_COLLATERAL,
+                to_be_issued: replace_tokens,
+                backing_collateral: DEFAULT_COLLATERAL,
                 ..Default::default()
             }
         );
 
-        force_vault_state(
+        CoreVaultData::force_to(
             OLD_VAULT,
             CoreVaultData {
                 issued: 2500,
                 to_be_redeemed: 1250,
-                collateral: DEFAULT_COLLATERAL + DEFAULT_GRIEFING_COLLATERAL,
+                backing_collateral: DEFAULT_COLLATERAL,
+                griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
                 ..Default::default()
             },
         );
@@ -627,34 +632,27 @@ fn integration_test_replace_execute_replace_old_vault_liquidated() {
         assert_ok!(VaultRegistryModule::liquidate_vault(&account_of(OLD_VAULT)));
         execute_replace(replace_id);
 
-        let old_vault_collateral = DEFAULT_COLLATERAL + DEFAULT_GRIEFING_COLLATERAL;
+        let old_vault = CoreVaultData::vault(OLD_VAULT);
+        let new_vault = CoreVaultData::vault(NEW_VAULT);
         assert_eq!(
-            CoreVaultData::vault(OLD_VAULT),
+            old_vault,
             CoreVaultData {
                 to_be_redeemed: 250,
-                collateral: (old_vault_collateral * 250) / 2500,
-                free_balance: (old_vault_collateral * 1000) / 2500,
+                backing_collateral: (DEFAULT_COLLATERAL * 250) / 2500,
+                free_balance: (DEFAULT_COLLATERAL * replace_tokens) / 2500
+                    + DEFAULT_GRIEFING_COLLATERAL,
                 ..Default::default()
             }
         );
         assert_eq!(
-            CoreVaultData::vault(NEW_VAULT),
+            new_vault,
             CoreVaultData {
-                issued: 1000,
-                collateral: DEFAULT_COLLATERAL,
+                issued: replace_tokens,
+                backing_collateral: DEFAULT_COLLATERAL,
                 ..Default::default()
             }
         );
-        assert_eq!(
-            CoreVaultData::liquidation_vault(),
-            CoreVaultData {
-                issued: 1500,
-                to_be_redeemed: 250,
-                collateral: (old_vault_collateral * 1250) / 2500,
-                free_balance: INITIAL_LIQUIDATION_VAULT_BALANCE,
-                ..Default::default()
-            }
-        );
+        assert_liquidation_vault_ok(replace_tokens + 500, &old_vault, &new_vault);
     });
 }
 
@@ -668,7 +666,8 @@ fn integration_test_replace_execute_replace_new_vault_liquidated() {
             CoreVaultData {
                 issued: replace_tokens,
                 to_be_redeemed: replace_tokens,
-                collateral: DEFAULT_COLLATERAL + DEFAULT_GRIEFING_COLLATERAL,
+                backing_collateral: DEFAULT_COLLATERAL,
+                griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
                 ..Default::default()
             },
         );
@@ -676,16 +675,16 @@ fn integration_test_replace_execute_replace_new_vault_liquidated() {
             CoreVaultData::vault(NEW_VAULT),
             CoreVaultData {
                 to_be_issued: replace_tokens,
-                collateral: DEFAULT_COLLATERAL,
+                backing_collateral: DEFAULT_COLLATERAL,
                 ..Default::default()
             }
         );
 
-        force_vault_state(
+        CoreVaultData::force_to(
             NEW_VAULT,
             CoreVaultData {
                 to_be_issued: replace_tokens,
-                collateral: DEFAULT_COLLATERAL,
+                backing_collateral: DEFAULT_COLLATERAL,
                 issued: 500,         // new
                 to_be_redeemed: 200, // new
                 ..Default::default()
@@ -695,32 +694,26 @@ fn integration_test_replace_execute_replace_new_vault_liquidated() {
         assert_ok!(VaultRegistryModule::liquidate_vault(&account_of(NEW_VAULT)));
         execute_replace(replace_id);
 
+        let old_vault = CoreVaultData::vault(OLD_VAULT);
+        let new_vault = CoreVaultData::vault(NEW_VAULT);
         assert_eq!(
-            CoreVaultData::vault(OLD_VAULT),
+            old_vault,
             CoreVaultData {
-                collateral: DEFAULT_COLLATERAL,
+                backing_collateral: DEFAULT_COLLATERAL,
                 free_balance: DEFAULT_GRIEFING_COLLATERAL,
                 ..Default::default()
             }
         );
         assert_eq!(
-            CoreVaultData::vault(NEW_VAULT),
+            new_vault,
             CoreVaultData {
                 to_be_redeemed: 200,
-                collateral: (DEFAULT_COLLATERAL * 200) / 500,
+                backing_collateral: (DEFAULT_COLLATERAL * 200) / 500,
                 ..Default::default()
             }
         );
-        assert_eq!(
-            CoreVaultData::liquidation_vault(),
-            CoreVaultData {
-                issued: replace_tokens + 500,
-                to_be_redeemed: 200,
-                collateral: (DEFAULT_COLLATERAL * 300) / 500,
-                free_balance: INITIAL_LIQUIDATION_VAULT_BALANCE,
-                ..Default::default()
-            }
-        );
+
+        assert_liquidation_vault_ok(replace_tokens + 500, &old_vault, &new_vault);
     });
 }
 
@@ -734,7 +727,8 @@ fn integration_test_replace_execute_replace_both_vaults_liquidated() {
             CoreVaultData {
                 issued: replace_tokens,
                 to_be_redeemed: replace_tokens,
-                collateral: DEFAULT_COLLATERAL + DEFAULT_GRIEFING_COLLATERAL,
+                backing_collateral: DEFAULT_COLLATERAL,
+                griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
                 ..Default::default()
             },
         );
@@ -742,25 +736,26 @@ fn integration_test_replace_execute_replace_both_vaults_liquidated() {
             CoreVaultData::vault(NEW_VAULT),
             CoreVaultData {
                 to_be_issued: replace_tokens,
-                collateral: DEFAULT_COLLATERAL,
+                backing_collateral: DEFAULT_COLLATERAL,
                 ..Default::default()
             }
         );
 
-        force_vault_state(
+        CoreVaultData::force_to(
             OLD_VAULT,
             CoreVaultData {
-                collateral: DEFAULT_COLLATERAL + DEFAULT_GRIEFING_COLLATERAL,
-                issued: replace_tokens + 500,         // new
-                to_be_redeemed: replace_tokens + 200, // new
+                backing_collateral: DEFAULT_COLLATERAL,
+                griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
+                issued: replace_tokens + 250,        // new
+                to_be_redeemed: replace_tokens + 50, // new
                 ..Default::default()
             },
         );
-        force_vault_state(
+        CoreVaultData::force_to(
             NEW_VAULT,
             CoreVaultData {
                 to_be_issued: replace_tokens,
-                collateral: DEFAULT_COLLATERAL,
+                backing_collateral: DEFAULT_COLLATERAL,
                 issued: 500,         // new
                 to_be_redeemed: 100, // new
                 ..Default::default()
@@ -771,38 +766,27 @@ fn integration_test_replace_execute_replace_both_vaults_liquidated() {
         assert_ok!(VaultRegistryModule::liquidate_vault(&account_of(NEW_VAULT)));
         execute_replace(replace_id);
 
-        let old_vault_collateral = DEFAULT_COLLATERAL + DEFAULT_GRIEFING_COLLATERAL;
-
+        let old_vault = CoreVaultData::vault(OLD_VAULT);
+        let new_vault = CoreVaultData::vault(NEW_VAULT);
         assert_eq!(
-            CoreVaultData::vault(OLD_VAULT),
+            old_vault,
             CoreVaultData {
-                to_be_redeemed: 200,
-                collateral: (old_vault_collateral * 200) / (replace_tokens + 500),
-                free_balance: (old_vault_collateral * replace_tokens) / (replace_tokens + 500),
+                to_be_redeemed: 50,
+                backing_collateral: (DEFAULT_COLLATERAL * 50) / (replace_tokens + 250),
+                free_balance: (DEFAULT_COLLATERAL * replace_tokens) / (replace_tokens + 250)
+                    + DEFAULT_GRIEFING_COLLATERAL,
                 ..Default::default()
             }
         );
         assert_eq!(
-            CoreVaultData::vault(NEW_VAULT),
+            new_vault,
             CoreVaultData {
                 to_be_redeemed: 100,
-                collateral: (DEFAULT_COLLATERAL * 100) / 500,
+                backing_collateral: (DEFAULT_COLLATERAL * 100) / 500,
                 ..Default::default()
             }
         );
-        assert_eq!(
-            CoreVaultData::liquidation_vault(),
-            CoreVaultData {
-                to_be_redeemed: 300,
-                issued: replace_tokens + 500 + 500,
-                collateral: old_vault_collateral
-                    - (old_vault_collateral * (replace_tokens + 200)) / (replace_tokens + 500)
-                    + DEFAULT_COLLATERAL
-                    - (DEFAULT_COLLATERAL * 100) / 500,
-                free_balance: INITIAL_LIQUIDATION_VAULT_BALANCE,
-                ..Default::default()
-            }
-        );
+        assert_liquidation_vault_ok(replace_tokens + 250 + 500, &old_vault, &new_vault);
     });
 }
 
@@ -816,7 +800,8 @@ fn integration_test_replace_cancel_replace_success() {
             CoreVaultData {
                 issued: 1000,
                 to_be_redeemed: 1000,
-                collateral: DEFAULT_COLLATERAL + DEFAULT_GRIEFING_COLLATERAL,
+                backing_collateral: DEFAULT_COLLATERAL,
+                griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
                 ..Default::default()
             },
         );
@@ -824,33 +809,54 @@ fn integration_test_replace_cancel_replace_success() {
             CoreVaultData::vault(NEW_VAULT),
             CoreVaultData {
                 to_be_issued: 1000,
-                collateral: DEFAULT_COLLATERAL,
+                backing_collateral: DEFAULT_COLLATERAL,
                 ..Default::default()
             }
         );
 
         cancel_replace(replace_id);
 
+        let old_vault = CoreVaultData::vault(OLD_VAULT);
+        let new_vault = CoreVaultData::vault(NEW_VAULT);
         // changes: the additional collateral (= DEFAULT_COLLATERAL / 2) that the
         // new-vault locked for this replace gets unlocked. Also it receives the
         // griefing collateral
         assert_eq!(
-            CoreVaultData::vault(OLD_VAULT),
+            old_vault,
             CoreVaultData {
                 issued: 1000,
-                collateral: DEFAULT_COLLATERAL,
+                backing_collateral: DEFAULT_COLLATERAL,
                 ..Default::default()
             }
         );
         assert_eq!(
-            CoreVaultData::vault(NEW_VAULT),
+            new_vault,
             CoreVaultData {
-                collateral: DEFAULT_COLLATERAL / 2 + DEFAULT_GRIEFING_COLLATERAL,
+                backing_collateral: DEFAULT_COLLATERAL / 2 + DEFAULT_GRIEFING_COLLATERAL,
                 free_balance: DEFAULT_COLLATERAL / 2,
                 ..Default::default()
             }
         );
     });
+}
+
+fn assert_liquidation_vault_ok(issued: u128, old_vault: &CoreVaultData, new_vault: &CoreVaultData) {
+    assert_eq!(
+        CoreVaultData::liquidation_vault(),
+        CoreVaultData {
+            issued,
+            to_be_redeemed: old_vault.to_be_redeemed + new_vault.to_be_redeemed,
+            backing_collateral: 2 * DEFAULT_COLLATERAL + DEFAULT_GRIEFING_COLLATERAL
+                - old_vault.backing_collateral
+                - new_vault.backing_collateral
+                - old_vault.griefing_collateral
+                - new_vault.griefing_collateral
+                - old_vault.free_balance
+                - new_vault.free_balance,
+            free_balance: INITIAL_LIQUIDATION_VAULT_BALANCE,
+            ..Default::default()
+        }
+    );
 }
 
 #[test]
@@ -863,7 +869,8 @@ fn integration_test_replace_cancel_replace_old_vault_liquidated() {
             CoreVaultData {
                 issued: 1000,
                 to_be_redeemed: 1000,
-                collateral: DEFAULT_COLLATERAL + DEFAULT_GRIEFING_COLLATERAL,
+                backing_collateral: DEFAULT_COLLATERAL,
+                griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
                 ..Default::default()
             },
         );
@@ -871,52 +878,55 @@ fn integration_test_replace_cancel_replace_old_vault_liquidated() {
             CoreVaultData::vault(NEW_VAULT),
             CoreVaultData {
                 to_be_issued: 1000,
-                collateral: DEFAULT_COLLATERAL,
+                backing_collateral: DEFAULT_COLLATERAL,
                 ..Default::default()
             }
         );
 
-        force_vault_state(
+        CoreVaultData::force_to(
             OLD_VAULT,
             CoreVaultData {
                 issued: 2500,
                 to_be_redeemed: 1250,
-                collateral: DEFAULT_COLLATERAL + DEFAULT_GRIEFING_COLLATERAL,
+                backing_collateral: DEFAULT_COLLATERAL,
+                griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
                 ..Default::default()
             },
         );
 
         assert_ok!(VaultRegistryModule::liquidate_vault(&account_of(OLD_VAULT)));
-        cancel_replace(replace_id);
 
-        let old_vault_collateral = DEFAULT_COLLATERAL + DEFAULT_GRIEFING_COLLATERAL;
         assert_eq!(
             CoreVaultData::vault(OLD_VAULT),
             CoreVaultData {
-                to_be_redeemed: 250,
-                collateral: (old_vault_collateral * 250) / 2500,
+                to_be_redeemed: 1250,
+                backing_collateral: (DEFAULT_COLLATERAL * 1250) / 2500,
+                griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
                 ..Default::default()
             }
         );
-        // does not receive griefing collateral
+
+        cancel_replace(replace_id);
+
+        let old_vault = CoreVaultData::vault(OLD_VAULT);
+        let new_vault = CoreVaultData::vault(NEW_VAULT);
         assert_eq!(
-            CoreVaultData::vault(NEW_VAULT),
+            old_vault,
             CoreVaultData {
-                collateral: DEFAULT_COLLATERAL / 2,
+                to_be_redeemed: 250,
+                backing_collateral: (DEFAULT_COLLATERAL * 250) / 2500,
+                ..Default::default()
+            }
+        );
+        assert_eq!(
+            new_vault,
+            CoreVaultData {
+                backing_collateral: DEFAULT_COLLATERAL / 2 + DEFAULT_GRIEFING_COLLATERAL,
                 free_balance: DEFAULT_COLLATERAL / 2,
                 ..Default::default()
             }
         );
-        assert_eq!(
-            CoreVaultData::liquidation_vault(),
-            CoreVaultData {
-                issued: 2500,
-                to_be_redeemed: 250,
-                collateral: (old_vault_collateral * 2250) / 2500,
-                free_balance: INITIAL_LIQUIDATION_VAULT_BALANCE,
-                ..Default::default()
-            }
-        );
+        assert_liquidation_vault_ok(2500, &old_vault, &new_vault);
     });
 }
 
@@ -930,7 +940,8 @@ fn integration_test_replace_cancel_replace_new_vault_liquidated() {
             CoreVaultData {
                 issued: replace_tokens,
                 to_be_redeemed: replace_tokens,
-                collateral: DEFAULT_COLLATERAL + DEFAULT_GRIEFING_COLLATERAL,
+                backing_collateral: DEFAULT_COLLATERAL,
+                griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
                 ..Default::default()
             },
         );
@@ -938,16 +949,16 @@ fn integration_test_replace_cancel_replace_new_vault_liquidated() {
             CoreVaultData::vault(NEW_VAULT),
             CoreVaultData {
                 to_be_issued: replace_tokens,
-                collateral: DEFAULT_COLLATERAL,
+                backing_collateral: DEFAULT_COLLATERAL,
                 ..Default::default()
             }
         );
 
-        force_vault_state(
+        CoreVaultData::force_to(
             NEW_VAULT,
             CoreVaultData {
                 to_be_issued: replace_tokens,
-                collateral: DEFAULT_COLLATERAL,
+                backing_collateral: DEFAULT_COLLATERAL,
                 issued: 500,         // new
                 to_be_redeemed: 200, // new
                 ..Default::default()
@@ -957,33 +968,27 @@ fn integration_test_replace_cancel_replace_new_vault_liquidated() {
         assert_ok!(VaultRegistryModule::liquidate_vault(&account_of(NEW_VAULT)));
         cancel_replace(replace_id);
 
+        let old_vault = CoreVaultData::vault(OLD_VAULT);
+        let new_vault = CoreVaultData::vault(NEW_VAULT);
         // griefing collateral is transfered to liquidation vault
         assert_eq!(
-            CoreVaultData::vault(OLD_VAULT),
+            old_vault,
             CoreVaultData {
                 issued: 1000,
-                collateral: DEFAULT_COLLATERAL,
+                backing_collateral: DEFAULT_COLLATERAL,
                 ..Default::default()
             }
         );
         assert_eq!(
-            CoreVaultData::vault(NEW_VAULT),
+            new_vault,
             CoreVaultData {
                 to_be_redeemed: 200,
-                collateral: (DEFAULT_COLLATERAL * 200) / 500,
+                backing_collateral: (DEFAULT_COLLATERAL * 200) / 500,
+                free_balance: DEFAULT_GRIEFING_COLLATERAL,
                 ..Default::default()
             }
         );
-        assert_eq!(
-            CoreVaultData::liquidation_vault(),
-            CoreVaultData {
-                issued: 500,
-                to_be_redeemed: 200,
-                collateral: (DEFAULT_COLLATERAL * 300) / 500 + DEFAULT_GRIEFING_COLLATERAL,
-                free_balance: INITIAL_LIQUIDATION_VAULT_BALANCE,
-                ..Default::default()
-            }
-        );
+        assert_liquidation_vault_ok(500, &old_vault, &new_vault);
     });
 }
 
@@ -997,7 +1002,8 @@ fn integration_test_replace_cancel_replace_both_vaults_liquidated() {
             CoreVaultData {
                 issued: replace_tokens,
                 to_be_redeemed: replace_tokens,
-                collateral: DEFAULT_COLLATERAL + DEFAULT_GRIEFING_COLLATERAL,
+                backing_collateral: DEFAULT_COLLATERAL,
+                griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
                 ..Default::default()
             },
         );
@@ -1005,25 +1011,26 @@ fn integration_test_replace_cancel_replace_both_vaults_liquidated() {
             CoreVaultData::vault(NEW_VAULT),
             CoreVaultData {
                 to_be_issued: replace_tokens,
-                collateral: DEFAULT_COLLATERAL,
+                backing_collateral: DEFAULT_COLLATERAL,
                 ..Default::default()
             }
         );
 
-        force_vault_state(
+        CoreVaultData::force_to(
             OLD_VAULT,
             CoreVaultData {
-                collateral: DEFAULT_COLLATERAL + DEFAULT_GRIEFING_COLLATERAL,
-                issued: replace_tokens + 500,         // new
-                to_be_redeemed: replace_tokens + 200, // new
+                backing_collateral: DEFAULT_COLLATERAL,
+                griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
+                issued: replace_tokens + 250,        // new
+                to_be_redeemed: replace_tokens + 50, // new
                 ..Default::default()
             },
         );
-        force_vault_state(
+        CoreVaultData::force_to(
             NEW_VAULT,
             CoreVaultData {
                 to_be_issued: replace_tokens,
-                collateral: DEFAULT_COLLATERAL,
+                backing_collateral: DEFAULT_COLLATERAL,
                 issued: 500,         // new
                 to_be_redeemed: 100, // new
                 ..Default::default()
@@ -1034,36 +1041,69 @@ fn integration_test_replace_cancel_replace_both_vaults_liquidated() {
         assert_ok!(VaultRegistryModule::liquidate_vault(&account_of(NEW_VAULT)));
         cancel_replace(replace_id);
 
-        let old_vault_collateral = DEFAULT_COLLATERAL + DEFAULT_GRIEFING_COLLATERAL;
-
+        let old_vault = CoreVaultData::vault(OLD_VAULT);
+        let new_vault = CoreVaultData::vault(NEW_VAULT);
         assert_eq!(
-            CoreVaultData::vault(OLD_VAULT),
+            old_vault,
             CoreVaultData {
-                to_be_redeemed: 200,
-                collateral: (old_vault_collateral * 200) / (replace_tokens + 500),
+                to_be_redeemed: 50,
+                backing_collateral: (DEFAULT_COLLATERAL * 50) / (replace_tokens + 250),
                 ..Default::default()
             }
         );
         assert_eq!(
-            CoreVaultData::vault(NEW_VAULT),
+            new_vault,
             CoreVaultData {
                 to_be_redeemed: 100,
-                collateral: (DEFAULT_COLLATERAL * 100) / 500,
+                backing_collateral: (DEFAULT_COLLATERAL * 100) / 500,
+                free_balance: DEFAULT_GRIEFING_COLLATERAL,
                 ..Default::default()
             }
         );
-        assert_eq!(
-            CoreVaultData::liquidation_vault(),
-            CoreVaultData {
-                to_be_redeemed: 300,
-                issued: replace_tokens + 500 + 500,
-                collateral: DEFAULT_COLLATERAL
-                    + old_vault_collateral
-                    - (old_vault_collateral * 200) / (replace_tokens + 500) // old-vault's collateral
-                    - (DEFAULT_COLLATERAL * 100) / 500, // new-vault's collateral
-                free_balance: INITIAL_LIQUIDATION_VAULT_BALANCE,
-                ..Default::default()
-            }
+        assert_liquidation_vault_ok(replace_tokens + 250 + 500, &old_vault, &new_vault);
+    });
+}
+
+#[test]
+fn integration_test_issue_using_griefing_collateral_fails() {
+    ExtBuilder::build().execute_with(|| {
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
+            FixedU128::one()
+        ));
+        set_default_thresholds();
+        SystemModule::set_block_number(1);
+
+        let amount = 1000;
+        let collateral = amount * 2;
+        let issue_amount = amount * 10;
+        let griefing_collateral = 1_000_000;
+        // bob creates a vault
+        force_issue_tokens(ALICE, BOB, collateral, amount);
+
+        assert_noop!(
+            Call::Issue(IssueCall::request_issue(
+                1000,
+                account_of(OLD_VAULT),
+                issue_amount
+            ))
+            .dispatch(origin_of(account_of(USER))),
+            VaultRegistryError::ExceedingVaultLimit,
+        );
+
+        assert_ok!(
+            Call::Replace(ReplaceCall::request_replace(amount, griefing_collateral))
+                .dispatch(origin_of(account_of(OLD_VAULT)))
+        );
+
+        // still can't do the issue, even though the vault locked griefing collateral
+        assert_noop!(
+            Call::Issue(IssueCall::request_issue(
+                1000,
+                account_of(OLD_VAULT),
+                issue_amount
+            ))
+            .dispatch(origin_of(account_of(USER))),
+            VaultRegistryError::ExceedingVaultLimit,
         );
     });
 }

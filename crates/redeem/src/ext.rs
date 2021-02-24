@@ -29,28 +29,39 @@ pub(crate) mod btc_relay {
 pub(crate) mod vault_registry {
     use crate::types::{PolkaBTC, DOT};
     use frame_support::dispatch::{DispatchError, DispatchResult};
-    use vault_registry::types::DefaultSystemVault;
+    use vault_registry::types::CurrencyType;
 
     pub fn get_active_vault_from_id<T: vault_registry::Config>(
         vault_id: &T::AccountId,
     ) -> Result<
-        vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>>,
+        vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
         DispatchError,
     > {
         <vault_registry::Module<T>>::get_active_vault_from_id(vault_id)
+    }
+    pub fn slash_collateral<T: vault_registry::Config>(
+        from: CurrencyType<T>,
+        to: CurrencyType<T>,
+        amount: DOT<T>,
+    ) -> DispatchResult {
+        <vault_registry::Module<T>>::slash_collateral(from, to, amount)
+    }
+
+    pub fn slash_collateral_saturated<T: vault_registry::Config>(
+        from: CurrencyType<T>,
+        to: CurrencyType<T>,
+        amount: DOT<T>,
+    ) -> Result<DOT<T>, DispatchError> {
+        <vault_registry::Module<T>>::slash_collateral_saturated(from, to, amount)
     }
 
     pub fn get_vault_from_id<T: vault_registry::Config>(
         vault_id: &T::AccountId,
     ) -> Result<
-        vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>>,
+        vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
         DispatchError,
     > {
         <vault_registry::Module<T>>::get_vault_from_id(vault_id)
-    }
-
-    pub fn get_liquidation_vault<T: vault_registry::Config>() -> DefaultSystemVault<T> {
-        <vault_registry::Module<T>>::get_liquidation_vault()
     }
 
     pub fn increase_to_be_redeemed_tokens<T: vault_registry::Config>(
@@ -63,17 +74,10 @@ pub(crate) mod vault_registry {
     pub fn redeem_tokens<T: vault_registry::Config>(
         vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
-    ) -> DispatchResult {
-        <vault_registry::Module<T>>::redeem_tokens(vault_id, tokens)
-    }
-
-    pub fn redeem_tokens_premium<T: vault_registry::Config>(
-        vault_id: &T::AccountId,
-        tokens: PolkaBTC<T>,
         premium: DOT<T>,
         redeemer_id: &T::AccountId,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::redeem_tokens_premium(vault_id, tokens, premium, redeemer_id)
+        <vault_registry::Module<T>>::redeem_tokens(vault_id, tokens, premium, redeemer_id)
     }
 
     pub fn redeem_tokens_liquidation<T: vault_registry::Config>(
@@ -115,18 +119,6 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::decrease_to_be_redeemed_tokens(&vault_id, tokens)
     }
 
-    pub fn liquidation_vault_force_decrease_issued_tokens<T: vault_registry::Config>(
-        amount: PolkaBTC<T>,
-    ) -> DispatchResult {
-        <vault_registry::Module<T>>::liquidation_vault_force_decrease_issued_tokens(amount)
-    }
-
-    pub fn liquidation_vault_force_decrease_to_be_redeemed_tokens<T: vault_registry::Config>(
-        amount: PolkaBTC<T>,
-    ) -> DispatchResult {
-        <vault_registry::Module<T>>::liquidation_vault_force_decrease_to_be_redeemed_tokens(amount)
-    }
-
     pub fn calculate_collateral<T: vault_registry::Config>(
         collateral: DOT<T>,
         numerator: PolkaBTC<T>,
@@ -139,37 +131,9 @@ pub(crate) mod vault_registry {
 #[cfg_attr(test, mockable)]
 pub(crate) mod collateral {
     use crate::types::DOT;
-    use frame_support::dispatch::{DispatchError, DispatchResult};
 
     pub fn get_collateral_from_account<T: collateral::Config>(account: &T::AccountId) -> DOT<T> {
         <collateral::Module<T>>::get_collateral_from_account(account)
-    }
-
-    pub fn release_collateral<T: collateral::Config>(
-        sender: &T::AccountId,
-        amount: DOT<T>,
-    ) -> DispatchResult {
-        <collateral::Module<T>>::release_collateral(sender, amount)
-    }
-
-    pub fn slash_collateral<T: collateral::Config>(
-        sender: &T::AccountId,
-        receiver: &T::AccountId,
-        amount: DOT<T>,
-    ) -> DispatchResult {
-        <collateral::Module<T>>::slash_collateral(sender.clone(), receiver.clone(), amount)
-    }
-
-    pub fn slash_collateral_saturated<T: collateral::Config>(
-        sender: &T::AccountId,
-        receiver: &T::AccountId,
-        amount: DOT<T>,
-    ) -> Result<DOT<T>, DispatchError> {
-        <collateral::Module<T>>::slash_collateral_saturated(
-            sender.clone(),
-            receiver.clone(),
-            amount,
-        )
     }
 }
 

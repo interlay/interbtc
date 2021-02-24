@@ -30,8 +30,15 @@ pub(crate) mod vault_registry {
     use crate::{PolkaBTC, DOT};
     use btc_relay::BtcAddress;
     use frame_support::dispatch::{DispatchError, DispatchResult};
-    use vault_registry::types::DefaultSystemVault;
+    use vault_registry::types::CurrencyType;
 
+    pub fn slash_collateral<T: vault_registry::Config>(
+        from: CurrencyType<T>,
+        to: CurrencyType<T>,
+        amount: DOT<T>,
+    ) -> DispatchResult {
+        <vault_registry::Module<T>>::slash_collateral(from, to, amount)
+    }
     pub fn replace_tokens<T: vault_registry::Config>(
         old_vault_id: T::AccountId,
         new_vault_id: T::AccountId,
@@ -69,7 +76,7 @@ pub(crate) mod vault_registry {
     pub fn get_active_vault_from_id<T: vault_registry::Config>(
         vault_id: &T::AccountId,
     ) -> Result<
-        vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>>,
+        vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
         DispatchError,
     > {
         <vault_registry::Module<T>>::get_active_vault_from_id(vault_id)
@@ -113,10 +120,6 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::increase_to_be_issued_tokens(vault_id, amount)
     }
 
-    pub fn get_liquidation_vault<T: vault_registry::Config>() -> DefaultSystemVault<T> {
-        <vault_registry::Module<T>>::get_liquidation_vault()
-    }
-
     pub fn increase_to_be_replaced_tokens<T: vault_registry::Config>(
         vault_id: &T::AccountId,
         amount: PolkaBTC<T>,
@@ -130,16 +133,26 @@ pub(crate) mod vault_registry {
     ) -> Result<(), DispatchError> {
         <vault_registry::Module<T>>::decrease_to_be_replaced_tokens(vault_id, amount)
     }
+
+    pub fn _lock_additional_collateral<T: vault_registry::Config>(
+        vault_id: &T::AccountId,
+        amount: DOT<T>,
+    ) -> Result<(), DispatchError> {
+        <vault_registry::Module<T>>::_lock_additional_collateral(vault_id, amount)
+    }
+
+    pub fn _withdraw_collateral<T: vault_registry::Config>(
+        vault_id: &T::AccountId,
+        amount: DOT<T>,
+    ) -> Result<(), DispatchError> {
+        <vault_registry::Module<T>>::_withdraw_collateral(vault_id, amount)
+    }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod collateral {
     use crate::DOT;
     use frame_support::dispatch::DispatchResult;
-
-    pub fn get_collateral_from_account<T: collateral::Config>(account: &T::AccountId) -> DOT<T> {
-        <collateral::Module<T>>::get_collateral_from_account(account)
-    }
 
     pub fn release_collateral<T: collateral::Config>(
         sender: &T::AccountId,

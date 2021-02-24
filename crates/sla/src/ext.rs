@@ -25,13 +25,13 @@ pub(crate) mod treasury {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
-    use crate::PolkaBTC;
+    use crate::{PolkaBTC, DOT};
     use frame_support::dispatch::DispatchError;
 
     pub fn get_active_vault_from_id<T: vault_registry::Config>(
         vault_id: &T::AccountId,
     ) -> Result<
-        vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>>,
+        vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
         DispatchError,
     > {
         <vault_registry::Module<T>>::get_active_vault_from_id(vault_id)

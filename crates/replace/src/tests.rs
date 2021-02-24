@@ -54,7 +54,7 @@ fn dummy_public_key() -> BtcPublicKey {
     ])
 }
 
-fn test_vault() -> Vault<u64, u64, u64> {
+fn test_vault() -> Vault<u64, u64, u64, u64> {
     Vault {
         id: BOB,
         banned_until: None,
@@ -63,6 +63,7 @@ fn test_vault() -> Vault<u64, u64, u64> {
         to_be_replaced_tokens: 0,
         to_be_issued_tokens: 0,
         to_be_redeemed_tokens: 0,
+        backing_collateral: 0,
         status: VaultStatus::Active,
     }
 }
@@ -126,6 +127,7 @@ fn test_request_replace_transfer_zero_fails() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 100,
                 to_be_redeemed_tokens: 0,
+                backing_collateral: 0,
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
                 status: VaultStatus::Active,
@@ -157,6 +159,7 @@ fn test_request_replace_vault_banned_fails() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
+                backing_collateral: 0,
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: Some(1),
                 status: VaultStatus::Active,
@@ -185,6 +188,7 @@ fn test_request_replace_amount_below_dust_value_fails() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
                 to_be_redeemed_tokens: 0,
+                backing_collateral: 0,
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
                 status: VaultStatus::Active,
@@ -221,6 +225,7 @@ fn test_request_replace_insufficient_griefing_collateral_fails() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
                 to_be_redeemed_tokens: 0,
+                backing_collateral: 0,
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
                 status: VaultStatus::Active,
