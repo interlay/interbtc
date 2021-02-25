@@ -23,8 +23,8 @@ pub const DEFAULT_GRIEFING_COLLATERAL: u128 = 5_000;
 
 pub const DEFAULT_USER_FREE_BALANCE: u128 = 1_000_000;
 pub const DEFAULT_USER_LOCKED_BALANCE: u128 = 100_000;
-pub const DEFAULT_USER_FREE_TOKENS: u128 = 10_000;
-pub const DEFAULT_USER_LOCKED_TOKENS: u128 = 1_000;
+pub const DEFAULT_USER_FREE_TOKENS: u128 = 1000;
+pub const DEFAULT_USER_LOCKED_TOKENS: u128 = 1000;
 fn assert_issue_request_event() -> H256 {
     let events = SystemModule::events();
     let record = events.iter().find(|record| match record.event {
@@ -691,6 +691,11 @@ fn integration_test_issue_polka_btc_execute_liquidated() {
             FeeModule::get_polka_btc_rewards(&account_of(VAULT))
         ))
         .dispatch(origin_of(account_of(VAULT))));
+        // should not have received fee
+        assert_eq!(
+            TreasuryModule::get_balance_from_account(account_of(VAULT)),
+            0
+        );
     });
 }
 
@@ -699,7 +704,7 @@ fn integration_test_issue_polka_btc_execute_not_liquidated() {
     ExtBuilder::build().execute_with(|| {
         let vault_proof_submitter = CAROL;
 
-        let amount_btc = 1000;
+        let amount_btc = 10_000;
 
         UserData::force_to(
             USER,
@@ -761,6 +766,8 @@ fn integration_test_issue_polka_btc_execute_not_liquidated() {
             FeeModule::get_polka_btc_rewards(&account_of(VAULT))
         ))
         .dispatch(origin_of(account_of(VAULT))));
+        // check that a fee has been withdrawn
+        assert!(TreasuryModule::get_balance_from_account(account_of(VAULT)) > 0);
     });
 }
 
