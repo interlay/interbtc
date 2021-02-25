@@ -6,19 +6,19 @@ pipeline {
     }
     environment {
         RUSTC_WRAPPER = '/usr/local/bin/sccache'
+        CI = 'true'
+        GITHUB_TOKEN = credentials('ns212-github-token')
     }
 
     options {
-        gitLabConnection 'Gitlab-Interlay'
-        gitlabBuilds(builds: ['test', 'build-standalone', 'build-parachain'])
+        timestamps()
+        ansiColor('xterm')
     }
 
     stages {
         stage('Test') {
             steps {
                 container('rust') {
-                    updateGitlabCommitStatus name: 'test', state: 'running'
-
                     sh 'rustc --version'
                     sh 'SCCACHE_START_SERVER=1 SCCACHE_IDLE_TIMEOUT=0 /usr/local/bin/sccache'
                     sh '/usr/local/bin/sccache -s'
@@ -30,27 +30,11 @@ pipeline {
                     sh '/usr/local/bin/sccache -s'
                 }
             }
-            post {
-                success {
-                    updateGitlabCommitStatus name: 'test', state: 'success'
-                }
-                failure {
-                    updateGitlabCommitStatus name: 'test', state: 'failed'
-                }
-                unstable {
-                    updateGitlabCommitStatus name: 'test', state: 'failed'
-                }
-                aborted {
-                    updateGitlabCommitStatus name: 'test', state: 'canceled'
-                }
-            }
         }
 
         stage('Build standalone') {
             steps {
                 container('rust') {
-                    updateGitlabCommitStatus name: 'build-standalone', state: 'running'
-
                     sh 'SCCACHE_START_SERVER=1 SCCACHE_IDLE_TIMEOUT=0 /usr/local/bin/sccache'
                     sh '/usr/local/bin/sccache -s'
                     sh 'env'
@@ -64,27 +48,11 @@ pipeline {
                     sh '/usr/local/bin/sccache -s'
                 }
             }
-            post {
-                success {
-                    updateGitlabCommitStatus name: 'build-standalone', state: 'success'
-                }
-                failure {
-                    updateGitlabCommitStatus name: 'build-standalone', state: 'failed'
-                }
-                unstable {
-                    updateGitlabCommitStatus name: 'build-standalone', state: 'failed'
-                }
-                aborted {
-                    updateGitlabCommitStatus name: 'build-standalone', state: 'canceled'
-                }
-            }
         }
 
         stage('Build parachain') {
             steps {
                 container('rust') {
-                    updateGitlabCommitStatus name: 'build-parachain', state: 'running'
-
                     sh 'SCCACHE_START_SERVER=1 SCCACHE_IDLE_TIMEOUT=0 /usr/local/bin/sccache'
                     sh '/usr/local/bin/sccache -s'
 
@@ -94,20 +62,6 @@ pipeline {
                     stash(name: "build-parachain", includes: 'Dockerfile_release, target/release/btc-parachain')
 
                     sh '/usr/local/bin/sccache -s'
-                }
-            }
-            post {
-                success {
-                    updateGitlabCommitStatus name: 'build-parachain', state: 'success'
-                }
-                failure {
-                    updateGitlabCommitStatus name: 'build-parachain', state: 'failed'
-                }
-                unstable {
-                    updateGitlabCommitStatus name: 'build-parachain', state: 'failed'
-                }
-                aborted {
-                    updateGitlabCommitStatus name: 'build-parachain', state: 'canceled'
                 }
             }
         }
