@@ -40,9 +40,11 @@ use frame_support::{
 };
 use frame_system::{ensure_root, ensure_signed};
 use primitive_types::H256;
+use sp_runtime::traits::*;
 use sp_runtime::ModuleId;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
+use vault_registry::CurrencySource;
 
 /// The issue module id, used for deriving its sovereign account ID.
 const _MODULE_ID: ModuleId = ModuleId(*b"issuemod");
@@ -234,9 +236,9 @@ impl<T: Config> Module<T> {
 
         let issue_id = ext::security::get_secure_id::<T>(&requester);
 
-        let btc_address = ext::vault_registry::increase_to_be_issued_tokens::<T>(
-            &vault_id, issue_id, amount_btc,
-        )?;
+        ext::vault_registry::increase_to_be_issued_tokens::<T>(&vault_id, amount_btc)?;
+
+        let btc_address = ext::vault_registry::register_deposit_address::<T>(&vault_id, issue_id)?;
 
         Self::insert_issue_request(
             issue_id,
@@ -297,42 +299,62 @@ impl<T: Config> Module<T> {
             issue.btc_address,
             None,
         )?;
-        let amount_transferred = Self::u128_to_btc(amount_transferred as u128)?;
 
-        if amount_transferred > total_amount {
-            let surplus_btc = amount_transferred - total_amount;
+        if ext::vault_registry::is_vault_liquidated::<T>(&issue.vault)? {
+            let amount_including_fee = issue
+                .amount
+                .checked_add(&issue.fee)
+                .ok_or(Error::<T>::ArithmeticOverflow)?;
+            ext::vault_registry::decrease_liquidation_vault_to_be_issued_tokens::<T>(
+                amount_including_fee,
+            )?;
+            ext::vault_registry::increase_liquidation_vault_issued_tokens::<T>(
+                amount_including_fee,
+            )?;
+        } else {
+            let amount_transferred = Self::u128_to_btc(amount_transferred as u128)?;
 
-            match ext::vault_registry::force_increase_to_be_issued_tokens::<T>(
-                &issue.vault,
-                surplus_btc,
-            ) {
-                Ok(_) => {
-                    // Current vault can handle the surplus; update the issue request
-                    issue.fee = ext::fee::get_issue_fee_from_total::<T>(amount_transferred)?;
-                    issue.amount = amount_transferred - issue.fee;
+            if amount_transferred > total_amount {
+                let surplus_btc = amount_transferred
+                    .checked_sub(&total_amount)
+                    .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
-                    // update storage
-                    <IssueRequests<T>>::mutate(&issue_id, |x| {
-                        x.fee = issue.fee;
-                        x.amount = issue.amount;
-                    });
+                match ext::vault_registry::increase_to_be_issued_tokens::<T>(
+                    &issue.vault,
+                    surplus_btc,
+                ) {
+                    Ok(_) => {
+                        // Current vault can handle the surplus; update the issue request
+                        issue.fee = ext::fee::get_issue_fee_from_total::<T>(amount_transferred)?;
+                        issue.amount = amount_transferred
+                            .checked_sub(&issue.fee)
+                            .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
-                    total_amount = amount_transferred;
-                }
-                Err(_) => {
-                    ext::refund::request_refund::<T>(
-                        surplus_btc,
-                        issue.vault.clone(),
-                        issue.requester,
-                        refund_address,
-                        issue_id,
-                    )?;
-                    // vault does not have enough collateral to accept the over payment, so refund.
+                        // update storage
+                        <IssueRequests<T>>::mutate(&issue_id, |x| {
+                            x.fee = issue.fee;
+                            x.amount = issue.amount;
+                        });
+
+                        total_amount = amount_transferred;
+                    }
+                    Err(_) => {
+                        ext::refund::request_refund::<T>(
+                            surplus_btc,
+                            issue.vault.clone(),
+                            issue.requester,
+                            refund_address,
+                            issue_id,
+                        )?;
+                        // vault does not have enough collateral to accept the over payment, so refund.
+                    }
                 }
             }
+
+            ext::vault_registry::issue_tokens::<T>(&issue.vault, total_amount)?;
         }
 
-        ext::vault_registry::issue_tokens::<T>(&issue.vault, total_amount)?;
+        // release griefing collateral
         ext::collateral::release_collateral::<T>(&requester, issue.griefing_collateral)?;
 
         // mint polkabtc amount
@@ -341,6 +363,14 @@ impl<T: Config> Module<T> {
         // mint polkabtc fees
         ext::treasury::mint::<T>(ext::fee::fee_pool_account_id::<T>(), issue.fee);
         ext::fee::increase_polka_btc_rewards_for_epoch::<T>(issue.fee);
+
+        if !ext::vault_registry::is_vault_liquidated::<T>(&issue.vault)? {
+            // reward the vault for having issued PolkaBTC by increasing its sla
+            ext::sla::event_update_vault_sla::<T>(
+                issue.vault.clone(),
+                ext::sla::VaultEvent::ExecutedIssue(issue.amount),
+            )?;
+        }
 
         // if it was a vault that did the execution on behalf of someone else, reward it by
         // increasing its SLA score
@@ -352,12 +382,6 @@ impl<T: Config> Module<T> {
                 )?;
             }
         }
-
-        // reward the vault for having issued PolkaBTC by increasing its sla
-        ext::sla::event_update_vault_sla::<T>(
-            issue.vault.clone(),
-            ext::sla::VaultEvent::ExecutedIssue(issue.amount),
-        )?;
 
         // Remove issue request from storage
         Self::remove_issue_request(issue_id, false);
@@ -381,13 +405,23 @@ impl<T: Config> Module<T> {
             Error::<T>::TimeNotExpired
         );
 
-        ext::vault_registry::decrease_to_be_issued_tokens::<T>(&issue.vault, issue.amount)?;
-        ext::collateral::slash_collateral::<T>(
-            &issue.requester,
-            &issue.vault,
-            issue.griefing_collateral,
-        )?;
+        // Decrease to-be-redeemed tokens:
+        let full_amount = issue
+            .amount
+            .checked_add(&issue.fee)
+            .ok_or(Error::<T>::ArithmeticOverflow)?;
 
+        ext::vault_registry::decrease_to_be_issued_tokens::<T>(&issue.vault, full_amount)?;
+
+        if ext::vault_registry::is_vault_liquidated::<T>(&issue.vault)? {
+            ext::collateral::release_collateral::<T>(&issue.requester, issue.griefing_collateral)?;
+        } else {
+            ext::vault_registry::slash_collateral::<T>(
+                CurrencySource::Griefing(issue.requester.clone()),
+                CurrencySource::Backing(issue.vault.clone()),
+                issue.griefing_collateral,
+            )?;
+        }
         // Remove issue request from storage
         Self::remove_issue_request(issue_id, true);
 
@@ -487,5 +521,6 @@ decl_error! {
         /// Unable to convert value
         TryIntoIntError,
         ArithmeticUnderflow,
+        ArithmeticOverflow,
     }
 }

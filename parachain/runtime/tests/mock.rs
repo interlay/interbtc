@@ -12,6 +12,7 @@ pub use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 pub use sp_core::H160;
 pub use sp_runtime::traits::Dispatchable;
 pub use sp_std::convert::TryInto;
+pub use vault_registry::CurrencySource;
 
 pub const ALICE: [u8; 32] = [0u8; 32];
 pub const BOB: [u8; 32] = [1u8; 32];
@@ -20,6 +21,11 @@ pub const CAROL: [u8; 32] = [2u8; 32];
 pub const LIQUIDATION_VAULT: [u8; 32] = [3u8; 32];
 pub const FEE_POOL: [u8; 32] = [4u8; 32];
 pub const MAINTAINER: [u8; 32] = [5u8; 32];
+
+pub const FAUCET: [u8; 32] = [128u8; 32];
+
+pub const INITIAL_BALANCE: u128 = 1_000_000_000_000;
+pub const INITIAL_LIQUIDATION_VAULT_BALANCE: u128 = 1_000;
 
 pub const CONFIRMATIONS: u32 = 6;
 
@@ -34,6 +40,143 @@ pub fn origin_of(account_id: AccountId) -> <Runtime as frame_system::Config>::Or
 
 pub fn account_of(address: [u8; 32]) -> AccountId {
     AccountId::from(address)
+}
+
+#[derive(Debug, PartialEq, Default)]
+pub struct UserData {
+    pub free_balance: u128,
+    pub locked_balance: u128,
+    pub locked_tokens: u128,
+    pub free_tokens: u128,
+}
+
+impl UserData {
+    #[allow(dead_code)]
+    pub fn get(id: [u8; 32]) -> Self {
+        let account_id = account_of(id);
+        Self {
+            free_balance: CollateralModule::get_balance_from_account(&account_id),
+            locked_balance: CollateralModule::get_collateral_from_account(&account_id),
+            locked_tokens: TreasuryModule::get_locked_balance_from_account(account_id.clone()),
+            free_tokens: TreasuryModule::get_balance_from_account(account_id.clone()),
+        }
+    }
+    #[allow(dead_code)]
+    pub fn force_to(id: [u8; 32], new: Self) -> Self {
+        let old = Self::get(id.clone());
+        let account_id = account_of(id);
+
+        if old.free_tokens > new.free_tokens || old.locked_tokens > new.locked_tokens {
+            unimplemented!()
+        }
+
+        // set free balance:
+        CollateralModule::transfer(account_id.clone(), account_of(FAUCET), old.free_balance)
+            .unwrap();
+        CollateralModule::transfer(account_of(FAUCET), account_id.clone(), new.free_balance)
+            .unwrap();
+
+        // set locked balance:
+        CollateralModule::slash_collateral(
+            account_id.clone(),
+            account_of(FAUCET),
+            old.locked_balance,
+        )
+        .unwrap();
+        CollateralModule::transfer(account_of(FAUCET), account_id.clone(), new.locked_balance)
+            .unwrap();
+        CollateralModule::lock_collateral(&account_id, new.locked_balance).unwrap();
+
+        // set free_tokens
+        TreasuryModule::mint(account_id.clone(), new.free_tokens - old.free_tokens);
+
+        // set locked_tokens
+        let locked_tokens_to_add = new.locked_tokens - old.locked_tokens;
+        TreasuryModule::mint(account_id.clone(), locked_tokens_to_add);
+        TreasuryModule::lock(account_id.clone(), locked_tokens_to_add).unwrap();
+
+        // sanity check:
+        assert_eq!(Self::get(id), new);
+
+        new
+    }
+}
+
+#[derive(Debug, PartialEq, Default)]
+pub struct CoreVaultData {
+    pub to_be_issued: u128,
+    pub issued: u128,
+    pub to_be_redeemed: u128,
+    pub backing_collateral: u128,
+    pub griefing_collateral: u128,
+    pub free_balance: u128,
+}
+
+impl CoreVaultData {
+    #[allow(dead_code)]
+    pub fn vault(vault: [u8; 32]) -> Self {
+        let account_id = account_of(vault);
+        let vault = VaultRegistryModule::get_vault_from_id(&account_id).unwrap();
+        Self {
+            to_be_issued: vault.to_be_issued_tokens,
+            issued: vault.issued_tokens,
+            to_be_redeemed: vault.to_be_redeemed_tokens,
+            backing_collateral: CurrencySource::<Runtime>::Backing(account_id.clone())
+                .current_balance()
+                .unwrap(),
+            griefing_collateral: CurrencySource::<Runtime>::Griefing(account_id.clone())
+                .current_balance()
+                .unwrap(),
+            free_balance: CollateralModule::get_balance_from_account(&account_id),
+        }
+    }
+    #[allow(dead_code)]
+    pub fn liquidation_vault() -> Self {
+        let account_id = account_of(LIQUIDATION_VAULT);
+        let vault = VaultRegistryModule::get_liquidation_vault();
+        Self {
+            to_be_issued: vault.to_be_issued_tokens,
+            issued: vault.issued_tokens,
+            to_be_redeemed: vault.to_be_redeemed_tokens,
+            backing_collateral: CurrencySource::<Runtime>::LiquidationVault
+                .current_balance()
+                .unwrap(),
+            griefing_collateral: 0,
+            free_balance: CollateralModule::get_balance_from_account(&account_id),
+        }
+    }
+    #[allow(dead_code)]
+    pub fn force_to(vault: [u8; 32], state: CoreVaultData) {
+        let current = CoreVaultData::vault(vault);
+        if current.to_be_issued < state.to_be_issued {
+            assert_ok!(VaultRegistryModule::increase_to_be_issued_tokens(
+                &account_of(vault),
+                state.to_be_issued - current.to_be_issued
+            ));
+        }
+
+        if current.issued < state.issued {
+            assert_ok!(VaultRegistryModule::increase_to_be_issued_tokens(
+                &account_of(vault),
+                state.issued - current.issued
+            ));
+
+            assert_ok!(VaultRegistryModule::issue_tokens(
+                &account_of(vault),
+                state.issued - current.issued
+            ));
+        }
+        if current.to_be_redeemed < state.to_be_redeemed {
+            assert_ok!(VaultRegistryModule::increase_to_be_redeemed_tokens(
+                &account_of(vault),
+                state.to_be_redeemed - current.to_be_redeemed
+            ));
+        }
+
+        // since the function is only partially implemented, check that we achieved the
+        // desired stae
+        assert_eq!(CoreVaultData::vault(vault), state);
+    }
 }
 
 #[allow(dead_code)]
@@ -68,7 +211,6 @@ pub fn force_issue_tokens(user: [u8; 32], vault: [u8; 32], collateral: u128, tok
     // increase to be issued tokens
     assert_ok!(VaultRegistryModule::increase_to_be_issued_tokens(
         &account_of(vault),
-        H256::random(),
         tokens
     ));
 
@@ -272,12 +414,16 @@ impl ExtBuilder {
 
         pallet_balances::GenesisConfig::<Runtime, pallet_balances::Instance1> {
             balances: vec![
-                (account_of(ALICE), 1_000_000),
-                (account_of(BOB), 1 << 60),
-                (account_of(CAROL), 1 << 60),
+                (account_of(ALICE), INITIAL_BALANCE),
+                (account_of(BOB), INITIAL_BALANCE),
+                (account_of(CAROL), INITIAL_BALANCE),
+                (account_of(FAUCET), 1 << 60),
                 // create accounts for vault & fee pool; this needs a minimum amount because
                 // the parachain refuses to create accounts with a balance below `ExistentialDeposit`
-                (account_of(LIQUIDATION_VAULT), 1000),
+                (
+                    account_of(LIQUIDATION_VAULT),
+                    INITIAL_LIQUIDATION_VAULT_BALANCE,
+                ),
                 (account_of(FEE_POOL), 1000),
             ],
         }

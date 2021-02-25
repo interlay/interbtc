@@ -27,15 +27,30 @@ pub(crate) mod btc_relay {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
-    use crate::types::PolkaBTC;
+    use crate::types::{PolkaBTC, DOT};
     use btc_relay::BtcAddress;
     use frame_support::dispatch::{DispatchError, DispatchResult};
     use sp_core::H256;
+    use vault_registry::types::CurrencySource;
+
+    pub fn slash_collateral<T: vault_registry::Config>(
+        from: CurrencySource<T>,
+        to: CurrencySource<T>,
+        amount: DOT<T>,
+    ) -> DispatchResult {
+        <vault_registry::Module<T>>::slash_collateral(from, to, amount)
+    }
+
+    pub fn is_vault_liquidated<T: vault_registry::Config>(
+        vault_id: &T::AccountId,
+    ) -> Result<bool, DispatchError> {
+        <vault_registry::Module<T>>::is_vault_liquidated(vault_id)
+    }
 
     pub fn get_active_vault_from_id<T: vault_registry::Config>(
         vault_id: &T::AccountId,
     ) -> Result<
-        vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>>,
+        vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
         DispatchError,
     > {
         <vault_registry::Module<T>>::get_active_vault_from_id(vault_id)
@@ -43,17 +58,16 @@ pub(crate) mod vault_registry {
 
     pub fn increase_to_be_issued_tokens<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-        secure_id: H256,
-        amount: PolkaBTC<T>,
-    ) -> Result<BtcAddress, DispatchError> {
-        <vault_registry::Module<T>>::increase_to_be_issued_tokens(vault_id, secure_id, amount)
-    }
-
-    pub fn force_increase_to_be_issued_tokens<T: vault_registry::Config>(
-        vault_id: &T::AccountId,
         amount: PolkaBTC<T>,
     ) -> Result<(), DispatchError> {
-        <vault_registry::Module<T>>::force_increase_to_be_issued_tokens(vault_id, amount)
+        <vault_registry::Module<T>>::increase_to_be_issued_tokens(vault_id, amount)
+    }
+
+    pub fn register_deposit_address<T: vault_registry::Config>(
+        vault_id: &T::AccountId,
+        secure_id: H256,
+    ) -> Result<BtcAddress, DispatchError> {
+        <vault_registry::Module<T>>::register_deposit_address(vault_id, secure_id)
     }
 
     pub fn issue_tokens<T: vault_registry::Config>(
@@ -63,18 +77,30 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::issue_tokens(vault_id, amount)
     }
 
-    pub fn decrease_to_be_issued_tokens<T: vault_registry::Config>(
-        vault_id: &T::AccountId,
-        amount: PolkaBTC<T>,
-    ) -> DispatchResult {
-        <vault_registry::Module<T>>::decrease_to_be_issued_tokens(vault_id, amount)
-    }
-
     pub fn ensure_not_banned<T: vault_registry::Config>(
         vault: &T::AccountId,
         height: T::BlockNumber,
     ) -> DispatchResult {
         <vault_registry::Module<T>>::_ensure_not_banned(vault, height)
+    }
+
+    pub fn decrease_liquidation_vault_to_be_issued_tokens<T: vault_registry::Config>(
+        amount: PolkaBTC<T>,
+    ) -> DispatchResult {
+        <vault_registry::Module<T>>::decrease_liquidation_vault_to_be_issued_tokens(amount)
+    }
+
+    pub fn increase_liquidation_vault_issued_tokens<T: vault_registry::Config>(
+        amount: PolkaBTC<T>,
+    ) -> DispatchResult {
+        <vault_registry::Module<T>>::increase_liquidation_vault_issued_tokens(amount)
+    }
+
+    pub fn decrease_to_be_issued_tokens<T: vault_registry::Config>(
+        vault_id: &T::AccountId,
+        tokens: PolkaBTC<T>,
+    ) -> DispatchResult {
+        <vault_registry::Module<T>>::decrease_to_be_issued_tokens(vault_id, tokens)
     }
 }
 
@@ -88,14 +114,6 @@ pub(crate) mod collateral {
         amount: DOT<T>,
     ) -> DispatchResult {
         <collateral::Module<T>>::lock_collateral(sender, amount)
-    }
-
-    pub fn slash_collateral<T: collateral::Config>(
-        sender: &T::AccountId,
-        receiver: &T::AccountId,
-        amount: DOT<T>,
-    ) -> DispatchResult {
-        <collateral::Module<T>>::slash_collateral(sender.clone(), receiver.clone(), amount)
     }
 
     pub fn release_collateral<T: collateral::Config>(

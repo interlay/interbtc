@@ -156,7 +156,8 @@ impl<T: Config> Module<T> {
     }
 
     /// Slash DOT collateral and assign to a receiver. Can only fail if
-    /// the sender account has too low collateral.
+    /// the sender account has too low collateral. The balance on the
+    /// receiver is not locked.
     ///
     /// # Arguments
     ///

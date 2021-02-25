@@ -64,9 +64,11 @@ fn test_request_redeem_fails_with_amount_exceeds_user_balance() {
         ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
+                to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
                 to_be_redeemed_tokens: 0,
+                backing_collateral: 0,
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
                 status: VaultStatus::Active,
@@ -89,9 +91,11 @@ fn test_request_redeem_fails_with_amount_below_minimum() {
             &BOB,
             vault_registry::Vault {
                 id: BOB,
+                to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
                 to_be_redeemed_tokens: 0,
+                backing_collateral: 0,
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
                 status: VaultStatus::Active,
@@ -138,9 +142,11 @@ fn test_request_redeem_fails_with_vault_banned() {
         ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
+                to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
+                backing_collateral: 0,
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: Some(1),
                 status: VaultStatus::Active,
@@ -162,9 +168,11 @@ fn test_request_redeem_fails_with_vault_liquidated() {
         ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
+                to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 5,
                 to_be_redeemed_tokens: 0,
+                backing_collateral: 0,
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: Some(1),
                 status: VaultStatus::Liquidated,
@@ -186,9 +194,11 @@ fn test_request_redeem_fails_with_amount_exceeds_vault_balance() {
         ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
+                to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
                 to_be_redeemed_tokens: 0,
+                backing_collateral: 0,
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
                 status: VaultStatus::Active,
@@ -213,9 +223,11 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
             &BOB,
             vault_registry::Vault {
                 id: BOB,
+                to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 10,
                 to_be_redeemed_tokens: 0,
+                backing_collateral: 0,
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
                 status: VaultStatus::Active,
@@ -407,9 +419,11 @@ fn test_execute_redeem_succeeds() {
             &BOB,
             vault_registry::Vault {
                 id: BOB,
+                to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 200,
                 to_be_redeemed_tokens: 200,
+                backing_collateral: 0,
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
                 status: VaultStatus::Active,
@@ -445,12 +459,15 @@ fn test_execute_redeem_succeeds() {
             MockResult::Return(Ok(()))
         });
 
-        ext::vault_registry::redeem_tokens::<Test>.mock_safe(move |vault, amount_polka_btc| {
-            assert_eq!(vault, &BOB);
-            assert_eq!(amount_polka_btc, 100);
+        ext::vault_registry::redeem_tokens::<Test>.mock_safe(
+            move |vault, amount_polka_btc, premium, _| {
+                assert_eq!(vault, &BOB);
+                assert_eq!(amount_polka_btc, 100);
+                assert_eq!(premium, 0);
 
-            MockResult::Return(Ok(()))
-        });
+                MockResult::Return(Ok(()))
+            },
+        );
 
         assert_ok!(Redeem::execute_redeem(
             Origin::signed(BOB),
@@ -563,7 +580,7 @@ fn test_cancel_redeem_succeeds() {
             MockResult::Return(Ok(()))
         });
         ext::sla::calculate_slashed_amount::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(0)));
-        ext::collateral::slash_collateral_saturated::<Test>
+        ext::vault_registry::slash_collateral_saturated::<Test>
             .mock_safe(move |_, _, _| MockResult::Return(Ok(0)));
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(vault_registry::types::Vault {

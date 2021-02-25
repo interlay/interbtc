@@ -54,7 +54,7 @@ fn dummy_public_key() -> BtcPublicKey {
 fn init_zero_vault(
     id: AccountId,
     btc_address: Option<BtcAddress>,
-) -> Vault<AccountId, BlockNumber, u64> {
+) -> Vault<AccountId, BlockNumber, u64, u64> {
     let mut vault = Vault::default();
     vault.id = id;
     vault.wallet = Wallet::new(dummy_public_key());
@@ -1171,9 +1171,11 @@ fn test_is_transaction_invalid_fails_with_valid_merge_transaction() {
         ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(move |_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
+                to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
+                backing_collateral: 0,
                 wallet: wallet.clone(),
                 banned_until: None,
                 status: VaultStatus::Active,
@@ -1229,9 +1231,11 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
         ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(move |_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
+                to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
+                backing_collateral: 0,
                 wallet: wallet.clone(),
                 banned_until: None,
                 status: VaultStatus::Active,
@@ -1395,9 +1399,11 @@ fn test_is_transaction_invalid_fails_with_valid_merge_testnet_transaction() {
         ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(move |_| {
             MockResult::Return(Ok(Vault {
                 id: BOB,
+                to_be_replaced_tokens: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
+                backing_collateral: 0,
                 wallet: wallet.clone(),
                 banned_until: None,
                 status: VaultStatus::Active,
