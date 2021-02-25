@@ -98,7 +98,7 @@ primitive-types = { version = "0.9.0", default-features = false, features = ["co
 substrate-wasm-builder = "3.0.0"
 
 [features]
-default = ["std", "aura-grandpa"]
+default = ["std"]
 std = [
   "codec/std",
   "serde",
