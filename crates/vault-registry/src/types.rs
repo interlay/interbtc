@@ -163,13 +163,13 @@ pub struct SystemVault<AccountId, PolkaBTC> {
     pub to_be_redeemed_tokens: PolkaBTC,
 }
 
-impl<AccountId, BlockNumber, PolkaBTC: HasCompact + Default, Dot: HasCompact + Default>
-    Vault<AccountId, BlockNumber, PolkaBTC, Dot>
+impl<AccountId, BlockNumber, PolkaBTC: HasCompact + Default, DOT: HasCompact + Default>
+    Vault<AccountId, BlockNumber, PolkaBTC, DOT>
 {
     pub(crate) fn new(
         id: AccountId,
         public_key: BtcPublicKey,
-    ) -> Vault<AccountId, BlockNumber, PolkaBTC, Dot> {
+    ) -> Vault<AccountId, BlockNumber, PolkaBTC, DOT> {
         let wallet = Wallet::new(public_key);
         Vault {
             id,
