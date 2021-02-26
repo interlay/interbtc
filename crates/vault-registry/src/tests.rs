@@ -618,6 +618,9 @@ fn liquidate_succeeds() {
 
         let vault_orig = <crate::Vaults<Test>>::get(&vault_id);
 
+        ext::oracle::btc_to_dots::<Test>
+            .mock_safe(|_| MockResult::Return(Ok(1000000000u32.into())));
+
         assert_ok!(VaultRegistry::liquidate_vault(&vault_id));
 
         let liquidation_vault_after = VaultRegistry::get_rich_liquidation_vault();
@@ -666,6 +669,101 @@ fn liquidate_succeeds() {
         assert_eq!(
             ext::collateral::for_account::<Test>(&vault_id),
             collateral_before - moved_collateral
+        );
+    });
+}
+
+#[test]
+fn liquidate_at_most_secure_threshold() {
+    run_test(|| {
+        let vault_id = create_sample_vault();
+
+        let issued_tokens = 100;
+        let to_be_issued_tokens = 25;
+        let to_be_redeemed_tokens = 40;
+        let used_collateral = 50u128;
+        let liquidation_vault_before = VaultRegistry::get_rich_liquidation_vault();
+        set_default_thresholds();
+
+        VaultRegistry::set_secure_collateral_threshold(
+            FixedU128::checked_from_rational(1, 100).unwrap(), // 1%
+        );
+
+        let collateral_before = ext::collateral::for_account::<Test>(&vault_id);
+        assert_eq!(collateral_before, DEFAULT_COLLATERAL); // sanity check
+
+        // required for `issue_tokens` to work
+        assert_ok!(VaultRegistry::increase_to_be_issued_tokens(
+            &vault_id,
+            issued_tokens
+        ));
+        assert_ok!(VaultRegistry::issue_tokens(&vault_id, issued_tokens));
+        assert_ok!(VaultRegistry::increase_to_be_issued_tokens(
+            &vault_id,
+            to_be_issued_tokens
+        ));
+        assert_ok!(VaultRegistry::increase_to_be_redeemed_tokens(
+            &vault_id,
+            to_be_redeemed_tokens
+        ));
+
+        let vault_orig = <crate::Vaults<Test>>::get(&vault_id);
+
+        // set used for used_collateral
+        ext::oracle::btc_to_dots::<Test>.mock_safe(|_| MockResult::Return(Ok(50)));
+        VaultRegistry::set_secure_collateral_threshold(FixedU128::one());
+        assert_ok!(VaultRegistry::liquidate_vault(&vault_id));
+
+        let liquidation_vault_after = VaultRegistry::get_rich_liquidation_vault();
+
+        let liquidated_vault = <crate::Vaults<Test>>::get(&vault_id);
+        assert_eq!(liquidated_vault.status, VaultStatus::Liquidated);
+        assert_emitted!(Event::LiquidateVault(
+            vault_id,
+            vault_orig.issued_tokens,
+            vault_orig.to_be_issued_tokens,
+            vault_orig.to_be_redeemed_tokens,
+            vault_orig.to_be_replaced_tokens,
+            vault_orig.backing_collateral,
+            VaultStatus::Liquidated
+        ));
+
+        let moved_collateral =
+            (used_collateral * (issued_tokens - to_be_redeemed_tokens)) / issued_tokens;
+
+        // check liquidation_vault tokens & collateral
+        assert_eq!(
+            liquidation_vault_after.data.issued_tokens,
+            liquidation_vault_before.data.issued_tokens + issued_tokens
+        );
+        assert_eq!(
+            liquidation_vault_after.data.to_be_issued_tokens,
+            liquidation_vault_before.data.to_be_issued_tokens + to_be_issued_tokens
+        );
+        assert_eq!(
+            liquidation_vault_after.data.to_be_redeemed_tokens,
+            liquidation_vault_before.data.to_be_redeemed_tokens + to_be_redeemed_tokens
+        );
+        assert_eq!(
+            ext::collateral::for_account::<Test>(&liquidation_vault_before.id()),
+            moved_collateral
+        );
+
+        // check vault tokens & collateral
+        let user_vault_after = VaultRegistry::get_rich_vault_from_id(&vault_id).unwrap();
+        assert_eq!(user_vault_after.data.issued_tokens, 0);
+        assert_eq!(user_vault_after.data.to_be_issued_tokens, 0);
+        assert_eq!(
+            user_vault_after.data.to_be_redeemed_tokens,
+            to_be_redeemed_tokens
+        );
+        assert_eq!(
+            ext::collateral::for_account::<Test>(&vault_id),
+            used_collateral - moved_collateral
+        );
+        assert_eq!(
+            ext::collateral::get_free_balance::<Test>(&vault_id),
+            DEFAULT_COLLATERAL - used_collateral
         );
     });
 }

@@ -487,10 +487,13 @@ impl<T: Config> RichVault<T> {
         liquidation_vault: &mut V,
         status: VaultStatus,
     ) -> DispatchResult {
-        let slashing_source = CurrencySource::Backing(self.id());
+        let backing_collateral = self.data.backing_collateral;
+
+        // we liquidate at most SECURE_THRESHOLD * backing.
+        let liquidated_collateral = backing_collateral.min(self.get_used_collateral()?);
 
         let to_slash = Module::<T>::calculate_collateral(
-            slashing_source.current_balance()?,
+            liquidated_collateral,
             self.data
                 .issued_tokens
                 .checked_sub(&self.data.to_be_redeemed_tokens)
@@ -498,7 +501,19 @@ impl<T: Config> RichVault<T> {
             self.data.issued_tokens,
         )?;
 
-        Module::<T>::slash_collateral(slashing_source, CurrencySource::LiquidationVault, to_slash)?;
+        Module::<T>::slash_collateral(
+            CurrencySource::Backing(self.id()),
+            CurrencySource::LiquidationVault,
+            to_slash,
+        )?;
+
+        // everything above the secure threshold we release
+        let to_release = backing_collateral
+            .checked_sub(&liquidated_collateral)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+        if !to_release.is_zero() {
+            self.force_withdraw_collateral(to_release)?;
+        }
 
         // Copy all tokens to the liquidation vault
         liquidation_vault.force_issue_tokens(self.data.issued_tokens)?;
