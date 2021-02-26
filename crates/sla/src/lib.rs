@@ -91,8 +91,10 @@ decl_event!(
         AccountId = <T as frame_system::Config>::AccountId,
         SignedFixedPoint = SignedFixedPoint<T>,
     {
-        UpdateVaultSLA(AccountId, SignedFixedPoint),
-        UpdateRelayerSLA(AccountId, SignedFixedPoint),
+        // [vault_id, bounded_new_sla, delta_sla]
+        UpdateVaultSLA(AccountId, SignedFixedPoint, SignedFixedPoint),
+        // [relayer_id, new_sla, delta_sla]
+        UpdateRelayerSLA(AccountId, SignedFixedPoint, SignedFixedPoint),
     }
 );
 
@@ -139,7 +141,11 @@ impl<T: Config> Module<T> {
         let bounded_new_sla = Self::_limit(T::SignedFixedPoint::zero(), new_sla, max_sla);
 
         <VaultSla<T>>::insert(vault_id.clone(), bounded_new_sla);
-        Self::deposit_event(<Event<T>>::UpdateVaultSLA(vault_id, bounded_new_sla));
+        Self::deposit_event(<Event<T>>::UpdateVaultSLA(
+            vault_id,
+            bounded_new_sla,
+            delta_sla,
+        ));
 
         Ok(())
     }
@@ -183,7 +189,7 @@ impl<T: Config> Module<T> {
 
             <TotalRelayerScore<T>>::set(new_total);
             <RelayerSla<T>>::insert(relayer_id.clone(), new_sla);
-            Self::deposit_event(<Event<T>>::UpdateRelayerSLA(relayer_id, new_sla));
+            Self::deposit_event(<Event<T>>::UpdateRelayerSLA(relayer_id, new_sla, delta_sla));
         }
 
         Ok(())
