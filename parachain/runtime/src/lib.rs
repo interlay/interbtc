@@ -541,7 +541,7 @@ macro_rules! construct_polkabtc_runtime {
                 Treasury: treasury::{Module, Call, Storage, Event<T>},
 
                 // Bitcoin SPV
-                BTCRelay: btc_relay::{Module, Call, Config<T>, Storage, Event},
+                BTCRelay: btc_relay::{Module, Call, Config<T>, Storage, Event<T>},
 
                 // Operational
                 Security: security::{Module, Call, Storage, Event},

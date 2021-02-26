@@ -56,7 +56,7 @@ pub use weights::WeightInfo;
 /// For further reference, see the [specification](https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/spec/data-model.html).
 pub trait Config: frame_system::Config + security::Config + sla::Config {
     /// The overarching event type.
-    type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 
     /// Weight information for the extrinsics in this module.
     type WeightInfo: WeightInfo;
@@ -419,7 +419,7 @@ impl<T: Config> Module<T> {
             block_header: basic_block_header,
             block_height: block_height,
             chain_ref: blockchain.chain_id,
-            account_id: relayer,
+            account_id: relayer.clone(),
         };
 
         // Store a new BlockHeader struct in BlockHeaders
@@ -436,7 +436,11 @@ impl<T: Config> Module<T> {
         Self::set_best_block_height(block_height);
 
         // Emit a Initialized Event
-        Self::deposit_event(Event::Initialized(block_height, block_header_hash));
+        Self::deposit_event(<Event<T>>::Initialized(
+            block_height,
+            block_header_hash,
+            relayer,
+        ));
 
         Ok(())
     }
@@ -517,23 +521,28 @@ impl<T: Config> Module<T> {
             }
         };
 
-        ext::sla::event_update_relayer_sla::<T>(relayer, ext::sla::RelayerEvent::BlockSubmission)?;
+        ext::sla::event_update_relayer_sla::<T>(
+            relayer.clone(),
+            ext::sla::RelayerEvent::BlockSubmission,
+        )?;
 
         // Determine if this block extends the main chain or a fork
         let current_best_block = Self::get_best_block();
 
         if current_best_block == block_header_hash {
             // extends the main chain
-            Self::deposit_event(Event::StoreMainChainHeader(
+            Self::deposit_event(<Event<T>>::StoreMainChainHeader(
                 current_block_height,
                 block_header_hash,
+                relayer,
             ));
         } else {
             // created a new fork or updated an existing one
-            Self::deposit_event(Event::StoreForkHeader(
+            Self::deposit_event(<Event<T>>::StoreForkHeader(
                 blockchain.chain_id,
                 current_block_height,
                 block_header_hash,
+                relayer,
             ));
         };
 
@@ -1323,13 +1332,13 @@ impl<T: Config> Module<T> {
                         let new_chain_tip = <BestBlock>::get();
                         let block_height = <BestBlockHeight>::get();
                         let fork_depth = fork.max_height - fork.start_height;
-                        Self::deposit_event(Event::ChainReorg(
+                        Self::deposit_event(<Event<T>>::ChainReorg(
                             new_chain_tip,
                             block_height,
                             fork_depth,
                         ));
                     } else {
-                        Self::deposit_event(Event::ForkAheadOfMainChain(
+                        Self::deposit_event(<Event<T>>::ForkAheadOfMainChain(
                             prev_height,     // main chain height
                             fork.max_height, // fork height
                             fork.chain_id,   // fork id
@@ -1428,7 +1437,7 @@ impl<T: Config> Module<T> {
         // If the block was not already flagged, store the updated blockchain entry
         if newly_flagged {
             Self::mutate_block_chain_from_id(chain_id, blockchain);
-            Self::deposit_event(Event::FlagBlockError(block_hash, chain_id, error));
+            Self::deposit_event(<Event<T>>::FlagBlockError(block_hash, chain_id, error));
         }
 
         Ok(())
@@ -1465,7 +1474,7 @@ impl<T: Config> Module<T> {
             // Store the updated blockchain entry
             Self::mutate_block_chain_from_id(chain_id, blockchain);
 
-            Self::deposit_event(Event::ClearBlockError(block_hash, chain_id, error));
+            Self::deposit_event(<Event<T>>::ClearBlockError(block_hash, chain_id, error));
         }
 
         Ok(())
@@ -1573,10 +1582,13 @@ impl<T: Config> Module<T> {
 }
 
 decl_event! {
-    pub enum Event {
-        Initialized(u32, H256Le),
-        StoreMainChainHeader(u32, H256Le),
-        StoreForkHeader(u32, u32, H256Le),
+    pub enum Event<T>
+    where
+        AccountId = <T as frame_system::Config>::AccountId,
+    {
+        Initialized(u32, H256Le, AccountId),
+        StoreMainChainHeader(u32, H256Le, AccountId),
+        StoreForkHeader(u32, u32, H256Le, AccountId),
         ChainReorg(H256Le, u32, u32),
         ForkAheadOfMainChain(u32, u32, u32),
         VerifyTransaction(H256Le, u32, u32),
