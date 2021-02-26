@@ -199,45 +199,69 @@ fn integration_test_premium_redeem_polka_btc_execute() {
 }
 
 #[test]
-#[ignore] // will fix liquidation_redeem in the next PR
 fn integration_test_redeem_polka_btc_liquidation_redeem() {
     ExtBuilder::build().execute_with(|| {
-        let planck_per_satoshi = 413;
-
-        let total_polka_btc = 1000;
-        let polka_btc = 50;
-        let collateral_vault_min = (total_polka_btc + polka_btc) * planck_per_satoshi;
-        let collateral_vault = collateral_vault_min * 100_000;
-
         SystemModule::set_block_number(1);
-
+        set_default_thresholds();
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::checked_from_integer(planck_per_satoshi).unwrap()
+            FixedU128::one()
         ));
 
-        set_default_thresholds();
+        let issued = 400;
+        let to_be_issued = 100;
+        let to_be_redeemed = 50;
+
+        UserData::force_to(
+            USER,
+            UserData {
+                free_tokens: 1000,
+                ..Default::default()
+            },
+        );
+        CoreVaultData::force_to(
+            VAULT,
+            CoreVaultData {
+                issued,
+                to_be_issued,
+                to_be_redeemed,
+                backing_collateral: 10_000,
+                ..Default::default()
+            },
+        );
 
         // create tokens for the vault and user
-        force_issue_tokens(ALICE, BOB, collateral_vault, total_polka_btc);
-        drop_exchange_rate_and_liquidate(BOB);
+        drop_exchange_rate_and_liquidate(VAULT);
 
-        let initial_dot_balance = CollateralModule::get_balance_from_account(&account_of(ALICE));
-        let initial_btc_balance = TreasuryModule::get_balance_from_account(account_of(ALICE));
-
-        // ALICE requests to redeem polka_btc from the LiquidationVault
-        assert_ok!(Call::Redeem(RedeemCall::liquidation_redeem(polka_btc))
-            .dispatch(origin_of(account_of(ALICE))));
-
-        let final_dot_balance = CollateralModule::get_balance_from_account(&account_of(ALICE));
+        let slashed_collateral = 10_000 - (10000 * to_be_redeemed) / (issued + 0);
 
         assert_eq!(
-            initial_dot_balance + (polka_btc * planck_per_satoshi),
-            final_dot_balance
+            CoreVaultData::liquidation_vault(),
+            CoreVaultData {
+                issued,
+                to_be_issued,
+                to_be_redeemed,
+                backing_collateral: slashed_collateral,
+                free_balance: INITIAL_LIQUIDATION_VAULT_BALANCE,
+                ..Default::default()
+            },
+        );
+
+        assert_noop!(
+            Call::Redeem(RedeemCall::liquidation_redeem(351)).dispatch(origin_of(account_of(USER))),
+            VaultRegistryError::InsufficientTokensCommitted
+        );
+
+        assert_ok!(
+            Call::Redeem(RedeemCall::liquidation_redeem(325)).dispatch(origin_of(account_of(USER)))
         );
 
         assert_eq!(
-            TreasuryModule::get_balance_from_account(account_of(ALICE)),
-            initial_btc_balance - polka_btc,
+            UserData::get(USER),
+            UserData {
+                free_balance: (slashed_collateral * 325) / (issued + to_be_issued),
+                free_tokens: 1000 - 325,
+                ..Default::default()
+            },
         );
     });
 }

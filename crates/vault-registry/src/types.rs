@@ -607,6 +607,24 @@ pub(crate) struct RichSystemVault<T: Config> {
     pub(crate) data: DefaultSystemVault<T>,
 }
 
+#[cfg_attr(test, mockable)]
+impl<T: Config> RichSystemVault<T> {
+    pub(crate) fn redeemable_tokens(&self) -> Result<PolkaBTC<T>, DispatchError> {
+        Ok(self
+            .data
+            .issued_tokens
+            .checked_sub(&self.data.to_be_redeemed_tokens)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?)
+    }
+    pub(crate) fn backed_tokens(&self) -> Result<PolkaBTC<T>, DispatchError> {
+        Ok(self
+            .data
+            .issued_tokens
+            .checked_add(&self.data.to_be_issued_tokens)
+            .ok_or(Error::<T>::ArithmeticOverflow)?)
+    }
+}
+
 impl<T: Config> UpdatableVault<T> for RichSystemVault<T> {
     fn id(&self) -> T::AccountId {
         self.data.id.clone()

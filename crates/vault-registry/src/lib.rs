@@ -732,20 +732,31 @@ impl<T: Config> Module<T> {
         )?;
 
         let mut liquidation_vault = Self::get_rich_liquidation_vault();
-        liquidation_vault.decrease_issued(amount_btc)?;
+
+        ensure!(
+            liquidation_vault.redeemable_tokens()? >= amount_btc,
+            Error::<T>::InsufficientTokensCommitted
+        );
 
         // transfer liquidated collateral to redeemer
-        let amount_dot = ext::oracle::btc_to_dots::<T>(amount_btc)?;
+        let to_transfer = Self::calculate_collateral(
+            CurrencySource::<T>::LiquidationVault.current_balance()?,
+            amount_btc,
+            liquidation_vault.backed_tokens()?,
+        )?;
+
         Self::slash_collateral(
             CurrencySource::LiquidationVault,
             CurrencySource::FreeBalance(redeemer_id.clone()),
-            amount_dot,
+            to_transfer,
         )?;
+
+        liquidation_vault.decrease_issued(amount_btc)?;
 
         Self::deposit_event(Event::<T>::RedeemTokensLiquidation(
             redeemer_id.clone(),
             amount_btc,
-            amount_dot,
+            to_transfer,
         ));
 
         Ok(())

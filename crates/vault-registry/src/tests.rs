@@ -463,7 +463,8 @@ fn redeem_tokens_liquidation_succeeds() {
             MockResult::Return(Ok(()))
         });
 
-        ext::oracle::btc_to_dots::<Test>.mock_safe(|amount| MockResult::Return(Ok(amount)));
+        // liquidation vault collateral
+        ext::collateral::for_account::<Test>.mock_safe(|_| MockResult::Return(1000u32.into()));
 
         assert_ok!(liquidation_vault.force_increase_to_be_issued(50));
         assert_ok!(liquidation_vault.force_issue_tokens(50));
@@ -471,7 +472,7 @@ fn redeem_tokens_liquidation_succeeds() {
         assert_ok!(VaultRegistry::redeem_tokens_liquidation(&user_id, 50));
         let liquidation_vault = VaultRegistry::get_rich_liquidation_vault();
         assert_eq!(liquidation_vault.data.issued_tokens, 0);
-        assert_emitted!(Event::RedeemTokensLiquidation(user_id, 50, 50));
+        assert_emitted!(Event::RedeemTokensLiquidation(user_id, 50, 500));
     });
 }
 
@@ -488,7 +489,8 @@ fn redeem_tokens_liquidation_does_not_call_recover_when_unnecessary() {
             MockResult::Return(Ok(()))
         });
 
-        ext::oracle::btc_to_dots::<Test>.mock_safe(|amount| MockResult::Return(Ok(amount)));
+        // liquidation vault collateral
+        ext::collateral::for_account::<Test>.mock_safe(|_| MockResult::Return(1000u32.into()));
 
         assert_ok!(liquidation_vault.force_increase_to_be_issued(25));
         assert_ok!(liquidation_vault.force_issue_tokens(25));
@@ -496,7 +498,11 @@ fn redeem_tokens_liquidation_does_not_call_recover_when_unnecessary() {
         assert_ok!(VaultRegistry::redeem_tokens_liquidation(&user_id, 10));
         let liquidation_vault = VaultRegistry::get_rich_liquidation_vault();
         assert_eq!(liquidation_vault.data.issued_tokens, 15);
-        assert_emitted!(Event::RedeemTokensLiquidation(user_id, 10, 10));
+        assert_emitted!(Event::RedeemTokensLiquidation(
+            user_id,
+            10,
+            (1000 * 10) / 50
+        ));
     });
 }
 
