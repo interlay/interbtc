@@ -232,7 +232,7 @@ fn integration_test_redeem_polka_btc_liquidation_redeem() {
         // create tokens for the vault and user
         drop_exchange_rate_and_liquidate(VAULT);
 
-        let slashed_collateral = 10_000 - (10000 * to_be_redeemed) / (issued + 0);
+        let slashed_collateral = 10_000 - (10000 * to_be_redeemed) / (issued + to_be_issued);
 
         assert_eq!(
             CoreVaultData::liquidation_vault(),

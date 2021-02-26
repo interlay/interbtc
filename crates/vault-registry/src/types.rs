@@ -301,6 +301,14 @@ impl<T: Config> UpdatableVault<T> for RichVault<T> {
 
 #[cfg_attr(test, mockable)]
 impl<T: Config> RichVault<T> {
+    pub(crate) fn backed_tokens(&self) -> Result<PolkaBTC<T>, DispatchError> {
+        Ok(self
+            .data
+            .issued_tokens
+            .checked_add(&self.data.to_be_issued_tokens)
+            .ok_or(Error::<T>::ArithmeticOverflow)?)
+    }
+
     pub fn increase_collateral(&mut self, collateral: DOT<T>) -> DispatchResult {
         self.update(|v| {
             v.backing_collateral = collateral
@@ -492,13 +500,15 @@ impl<T: Config> RichVault<T> {
         // we liquidate at most SECURE_THRESHOLD * backing.
         let liquidated_collateral = backing_collateral.min(self.get_used_collateral()?);
 
+        // amount of tokens being backed
+        let backing_tokens = self.backed_tokens()?;
+
         let to_slash = Module::<T>::calculate_collateral(
             liquidated_collateral,
-            self.data
-                .issued_tokens
+            backing_tokens
                 .checked_sub(&self.data.to_be_redeemed_tokens)
                 .ok_or(Error::<T>::ArithmeticUnderflow)?,
-            self.data.issued_tokens,
+            backing_tokens,
         )?;
 
         Module::<T>::slash_collateral(

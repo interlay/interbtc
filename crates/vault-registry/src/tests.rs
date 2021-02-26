@@ -643,8 +643,9 @@ fn liquidate_succeeds() {
             VaultStatus::Liquidated
         ));
 
-        let moved_collateral =
-            (collateral_before * (issued_tokens - to_be_redeemed_tokens)) / issued_tokens;
+        let moved_collateral = (collateral_before
+            * (issued_tokens + to_be_issued_tokens - to_be_redeemed_tokens))
+            / (issued_tokens + to_be_issued_tokens);
 
         // check liquidation_vault tokens & collateral
         assert_eq!(
@@ -734,8 +735,9 @@ fn liquidate_at_most_secure_threshold() {
             VaultStatus::Liquidated
         ));
 
-        let moved_collateral =
-            (used_collateral * (issued_tokens - to_be_redeemed_tokens)) / issued_tokens;
+        let moved_collateral = (used_collateral
+            * (issued_tokens + to_be_issued_tokens - to_be_redeemed_tokens))
+            / (to_be_issued_tokens + issued_tokens);
 
         // check liquidation_vault tokens & collateral
         assert_eq!(
