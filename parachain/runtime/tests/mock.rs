@@ -178,6 +178,13 @@ impl CoreVaultData {
         assert_eq!(CoreVaultData::vault(vault), state);
     }
 }
+#[allow(dead_code)]
+pub fn plummet_exchange_rate_and_liquidate(vault: [u8; 32]) {
+    assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
+        FixedU128::checked_from_integer(1_0000_000_000).unwrap()
+    ));
+    assert_ok!(VaultRegistryModule::liquidate_vault(&account_of(vault)));
+}
 
 #[allow(dead_code)]
 pub fn set_default_thresholds() {
