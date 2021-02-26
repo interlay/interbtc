@@ -628,7 +628,7 @@ fn integration_test_replace_execute_replace_old_vault_liquidated() {
             },
         );
 
-        plummet_exchange_rate_and_liquidate(OLD_VAULT);
+        drop_exchange_rate_and_liquidate(OLD_VAULT);
         execute_replace(replace_id);
 
         let old_vault = CoreVaultData::vault(OLD_VAULT);
@@ -690,7 +690,7 @@ fn integration_test_replace_execute_replace_new_vault_liquidated() {
             },
         );
 
-        plummet_exchange_rate_and_liquidate(NEW_VAULT);
+        drop_exchange_rate_and_liquidate(NEW_VAULT);
         execute_replace(replace_id);
 
         let old_vault = CoreVaultData::vault(OLD_VAULT);
@@ -761,8 +761,8 @@ fn integration_test_replace_execute_replace_both_vaults_liquidated() {
             },
         );
 
-        plummet_exchange_rate_and_liquidate(OLD_VAULT);
-        plummet_exchange_rate_and_liquidate(NEW_VAULT);
+        drop_exchange_rate_and_liquidate(OLD_VAULT);
+        drop_exchange_rate_and_liquidate(NEW_VAULT);
         execute_replace(replace_id);
 
         let old_vault = CoreVaultData::vault(OLD_VAULT);
@@ -893,7 +893,7 @@ fn integration_test_replace_cancel_replace_old_vault_liquidated() {
             },
         );
 
-        plummet_exchange_rate_and_liquidate(OLD_VAULT);
+        drop_exchange_rate_and_liquidate(OLD_VAULT);
 
         assert_eq!(
             CoreVaultData::vault(OLD_VAULT),
@@ -964,7 +964,7 @@ fn integration_test_replace_cancel_replace_new_vault_liquidated() {
             },
         );
 
-        plummet_exchange_rate_and_liquidate(NEW_VAULT);
+        drop_exchange_rate_and_liquidate(NEW_VAULT);
         cancel_replace(replace_id);
 
         let old_vault = CoreVaultData::vault(OLD_VAULT);
@@ -1036,8 +1036,8 @@ fn integration_test_replace_cancel_replace_both_vaults_liquidated() {
             },
         );
 
-        plummet_exchange_rate_and_liquidate(OLD_VAULT);
-        plummet_exchange_rate_and_liquidate(NEW_VAULT);
+        drop_exchange_rate_and_liquidate(OLD_VAULT);
+        drop_exchange_rate_and_liquidate(NEW_VAULT);
         cancel_replace(replace_id);
 
         let old_vault = CoreVaultData::vault(OLD_VAULT);

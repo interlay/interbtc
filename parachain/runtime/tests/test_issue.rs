@@ -533,7 +533,7 @@ fn integration_test_issue_polka_btc_cancel_liquidated() {
         let issue_id = assert_issue_request_event();
         let issue = IssueModule::get_issue_request_from_id(&issue_id).unwrap();
 
-        plummet_exchange_rate_and_liquidate(vault);
+        drop_exchange_rate_and_liquidate(vault);
 
         assert_eq!(
             VaultRegistryModule::get_liquidation_vault().to_be_issued_tokens,
@@ -647,7 +647,7 @@ fn integration_test_issue_polka_btc_execute_liquidated() {
             },
         );
 
-        plummet_exchange_rate_and_liquidate(VAULT);
+        drop_exchange_rate_and_liquidate(VAULT);
         execute_issue(issue_id, &issue, total_amount_btc);
 
         // check that the vault who submitted the proof is rewarded with increased SLA score
