@@ -8,7 +8,7 @@ use frame_support::{
 };
 use sp_arithmetic::FixedPointNumber;
 use sp_core::H256;
-use sp_runtime::traits::{CheckedAdd, CheckedSub};
+use sp_runtime::traits::{CheckedAdd, CheckedSub, Zero};
 use sp_std::collections::btree_set::BTreeSet;
 
 #[cfg(test)]
