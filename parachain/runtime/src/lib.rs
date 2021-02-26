@@ -53,6 +53,7 @@ pub use module_exchange_rate_oracle_rpc_runtime_api::BalanceWrapper;
 use {
     parachain_tokens::{CurrencyAdapter, NativeAsset},
     polkadot_parachain::primitives::Sibling,
+    sp_runtime::traits::Convert,
     xcm::v0::{Junction, MultiLocation, NetworkId},
     xcm_builder::{
         AccountId32Aliases, LocationInverter, ParentIsDefault, RelayChainAsNative,
