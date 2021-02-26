@@ -2,7 +2,7 @@ style: github
 template: CHANGELOG.tpl.md
 info:
   title: CHANGELOG
-  repository_url: https://gitlab.com/interlay/btc-parachain
+  repository_url: https://github.com/interlay/btc-parachain
 options:
   commits:
     # filters:
