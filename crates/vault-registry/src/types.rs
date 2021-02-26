@@ -511,7 +511,9 @@ impl<T: Config> RichVault<T> {
         let to_release = backing_collateral
             .checked_sub(&liquidated_collateral)
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
-        self.force_withdraw_collateral(to_release)?;
+        if !to_release.is_zero() {
+            self.force_withdraw_collateral(to_release)?;
+        }
 
         // Copy all tokens to the liquidation vault
         liquidation_vault.force_issue_tokens(self.data.issued_tokens)?;
