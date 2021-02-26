@@ -32,7 +32,7 @@ pub const CONFIRMATIONS: u32 = 6;
 pub type BTCRelayCall = btc_relay::Call<Runtime>;
 pub type BTCRelayModule = btc_relay::Module<Runtime>;
 pub type BTCRelayError = btc_relay::Error<Runtime>;
-pub type BTCRelayEvent = btc_relay::Event;
+pub type BTCRelayEvent = btc_relay::Event<Runtime>;
 
 pub fn origin_of(account_id: AccountId) -> <Runtime as frame_system::Config>::Origin {
     <Runtime as frame_system::Config>::Origin::signed(account_id)
@@ -233,8 +233,8 @@ pub fn required_collateral_for_issue(issue_btc: u128) -> u128 {
     collateral_vault
 }
 
-pub fn assert_store_main_chain_header_event(height: u32, hash: H256Le) {
-    let store_event = Event::btc_relay(BTCRelayEvent::StoreMainChainHeader(height, hash));
+pub fn assert_store_main_chain_header_event(height: u32, hash: H256Le, relayer: AccountId) {
+    let store_event = Event::btc_relay(BTCRelayEvent::StoreMainChainHeader(height, hash, relayer));
     let events = SystemModule::events();
 
     // store only main chain header
@@ -340,7 +340,7 @@ pub fn generate_transaction_and_mine_with_script_sig(
         raw_block_header.try_into().expect("bad block header")
     ))
     .dispatch(origin_of(account_of(ALICE))));
-    assert_store_main_chain_header_event(height, block.header.hash().unwrap());
+    assert_store_main_chain_header_event(height, block.header.hash().unwrap(), account_of(ALICE));
 
     // Mine six new blocks to get over required confirmations
     let mut prev_block_hash = block.header.hash().unwrap();
@@ -364,7 +364,11 @@ pub fn generate_transaction_and_mine_with_script_sig(
         ))
         .dispatch(origin_of(account_of(ALICE))));
 
-        assert_store_main_chain_header_event(height, conf_block.header.hash().unwrap());
+        assert_store_main_chain_header_event(
+            height,
+            conf_block.header.hash().unwrap(),
+            account_of(ALICE),
+        );
 
         prev_block_hash = conf_block.header.hash().unwrap();
     }

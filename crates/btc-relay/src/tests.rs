@@ -5,7 +5,8 @@ use crate::ext;
 use crate::mock::*;
 use crate::types::*;
 use crate::BtcAddress;
-use crate::Event;
+
+type Event = crate::Event<Test>;
 
 use bitcoin::formatter::TryFormattable;
 use bitcoin::merkle::*;
@@ -123,7 +124,8 @@ fn initialize_once_succeeds() {
             block_height
         ));
 
-        let init_event = TestEvent::btc_relay(Event::Initialized(block_height, block_header_hash));
+        let init_event =
+            TestEvent::btc_relay(Event::Initialized(block_height, block_header_hash, 3));
         assert!(System::events().iter().any(|a| a.event == init_event));
     })
 }
@@ -181,6 +183,7 @@ fn store_block_header_on_mainchain_succeeds() {
         let store_main_event = TestEvent::btc_relay(Event::StoreMainChainHeader(
             block_height + 1,
             block_header_hash,
+            3,
         ));
         assert!(System::events().iter().any(|a| a.event == store_main_event));
     })
@@ -227,6 +230,7 @@ fn store_block_header_on_fork_succeeds() {
             chain_ref,
             block_height,
             block_header_hash,
+            3,
         ));
         assert!(System::events().iter().any(|a| a.event == store_fork_event));
     })
