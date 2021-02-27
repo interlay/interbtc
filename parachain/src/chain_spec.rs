@@ -121,6 +121,7 @@ pub fn local_config(#[cfg(feature = "cumulus-polkadot")] id: ParaId) -> ChainSpe
                 )],
                 #[cfg(feature = "cumulus-polkadot")]
                 id,
+                0,
             )
         },
         vec![],
@@ -178,6 +179,7 @@ pub fn rococo_testnet_config(id: ParaId) -> ChainSpec {
                     ),
                 ],
                 id,
+                1,
             )
         },
         Vec::new(),
@@ -234,9 +236,19 @@ pub fn beta_testnet_config() -> ChainSpec {
                     ),
                 ],
                 vec![
+                    // root key
                     get_account_id_from_string("5HeVGqvfpabwFqzV1DhiQmjaLQiFcTSmq2sH6f7atsXkgvtt"),
-                    get_account_id_from_string("5DNzULM1UJXDM7NUgDL4i8Hrhe9e3vZkB3ByM1eEXMGAs4Bv"),
+                    // faucet
+                    get_account_id_from_string("5FHy3cvyToZ4ConPXhi43rycAcGYw2R2a8cCjfVMfyuS1Ywg"),
+                    // vaults
                     get_account_id_from_string("5F7Q9FqnGwJmjLtsFGymHZXPEx2dWRVE7NW4Sw2jzEhUB5WQ"),
+                    get_account_id_from_string("5CJncqjWDkYv4P6nccZHGh8JVoEBXvharMqVpkpJedoYNu4A"),
+                    get_account_id_from_string("5GpnEWKTWv7xiQtDFi9Rku7DrvgHj4oqMDev4qBQhfwQE8nx"),
+                    get_account_id_from_string("5DttG269R1NTBDWcghYxa9NmV2wHxXpTe4U8pu4jK3LCE9zi"),
+                    // relayers
+                    get_account_id_from_string("5DNzULM1UJXDM7NUgDL4i8Hrhe9e3vZkB3ByM1eEXMGAs4Bv"),
+                    get_account_id_from_string("5GEXRnnv8Qz9rEwMs4TfvHme48HQvVTEDHJECCvKPzFB4pFZ"),
+                    // oracles
                     get_account_id_from_string("5H8zjSWfzMn86d1meeNrZJDj3QZSvRjKxpTfuVaZ46QJZ4qs"),
                     get_account_id_from_string("5FPBT2BVVaLveuvznZ9A1TUtDcbxK5yvvGcMTJxgFmhcWGwj"),
                 ],
@@ -254,6 +266,7 @@ pub fn beta_testnet_config() -> ChainSpec {
                         "Band".as_bytes().to_vec(),
                     ),
                 ],
+                1,
             )
         },
         Vec::new(),
@@ -308,6 +321,7 @@ pub fn development_config(#[cfg(feature = "cumulus-polkadot")] id: ParaId) -> Ch
                 )],
                 #[cfg(feature = "cumulus-polkadot")]
                 id,
+                0,
             )
         },
         Vec::new(),
@@ -340,6 +354,7 @@ fn testnet_genesis(
     endowed_accounts: Vec<AccountId>,
     authorized_oracles: Vec<(AccountId, Vec<u8>)>,
     #[cfg(feature = "cumulus-polkadot")] id: ParaId,
+    bitcoin_confirmations: u32,
 ) -> GenesisConfig {
     GenesisConfig {
         frame_system: Some(SystemConfig {
@@ -385,7 +400,8 @@ fn testnet_genesis(
             max_delay: 3600000, // one hour
         }),
         btc_relay: Some(BTCRelayConfig {
-            bitcoin_confirmations: 0,
+            bitcoin_confirmations,
+            // TODO: `parachain_confirmations: bitcoin_confirmations.saturating_mul(SECS_PER_BLOCK)`
             parachain_confirmations: 0,
             disable_difficulty_check: true,
             disable_inclusion_check: false,

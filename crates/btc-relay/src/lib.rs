@@ -65,8 +65,13 @@ pub trait Config: frame_system::Config + security::Config + sla::Config {
 /// Difficulty Adjustment Interval
 pub const DIFFICULTY_ADJUSTMENT_INTERVAL: u32 = 2016;
 
+/// Target Spacing: 10 minutes (600 seconds)
+// https://github.com/bitcoin/bitcoin/blob/5ba5becbb5d8c794efe579caeea7eea64f895a13/src/chainparams.cpp#L78
+pub const TARGET_SPACING: u32 = 10 * 60;
+
 /// Target Timespan: 2 weeks (1209600 seconds)
-pub const TARGET_TIMESPAN: u32 = 1_209_600;
+// https://github.com/bitcoin/bitcoin/blob/5ba5becbb5d8c794efe579caeea7eea64f895a13/src/chainparams.cpp#L77
+pub const TARGET_TIMESPAN: u32 = 14 * 24 * 60 * 60;
 
 // Used in Bitcoin's retarget algorithm
 pub const TARGET_TIMESPAN_DIVISOR: u32 = 4;
