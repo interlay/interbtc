@@ -31,6 +31,12 @@ pub(crate) mod vault_registry {
     use frame_support::dispatch::{DispatchError, DispatchResult};
     use vault_registry::types::CurrencySource;
 
+    pub fn get_backing_collateral<T: vault_registry::Config>(
+        vault_id: &T::AccountId,
+    ) -> Result<DOT<T>, DispatchError> {
+        <vault_registry::Module<T>>::get_backing_collateral(vault_id)
+    }
+
     pub fn get_active_vault_from_id<T: vault_registry::Config>(
         vault_id: &T::AccountId,
     ) -> Result<
@@ -125,15 +131,6 @@ pub(crate) mod vault_registry {
         denominator: PolkaBTC<T>,
     ) -> Result<DOT<T>, DispatchError> {
         <vault_registry::Module<T>>::calculate_collateral(collateral, numerator, denominator)
-    }
-}
-
-#[cfg_attr(test, mockable)]
-pub(crate) mod collateral {
-    use crate::types::DOT;
-
-    pub fn get_collateral_from_account<T: collateral::Config>(account: &T::AccountId) -> DOT<T> {
-        <collateral::Module<T>>::get_collateral_from_account(account)
     }
 }
 

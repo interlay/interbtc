@@ -445,7 +445,7 @@ impl<T: Config> Module<T> {
         // now update the collateral; the logic is different for liquidated vaults.
         let slashed_amount = if vault.is_liquidated() {
             let confiscated_collateral = ext::vault_registry::calculate_collateral::<T>(
-                ext::collateral::get_collateral_from_account::<T>(&redeem.vault),
+                ext::vault_registry::get_backing_collateral::<T>(&redeem.vault)?,
                 redeem.amount_btc,
                 vault.to_be_redeemed_tokens, // note: this is the value read at start of function
             )?;
@@ -469,13 +469,11 @@ impl<T: Config> Module<T> {
                 let reimburse_in_dot = amount_polka_btc_in_dot
                     .checked_add(&punishment_fee_in_dot)
                     .ok_or(Error::<T>::ArithmeticOverflow)?;
-                ext::vault_registry::slash_collateral::<T>(
+                ext::vault_registry::slash_collateral_saturated::<T>(
                     CurrencySource::Backing(vault_id.clone()),
                     CurrencySource::FreeBalance(redeem.redeemer.clone()),
                     reimburse_in_dot,
-                )?;
-
-                reimburse_in_dot
+                )?
             } else {
                 // user chose to keep his PolkaBTC - only transfer it the punishment fee
                 let slashed_punishment_fee = ext::vault_registry::slash_collateral_saturated::<T>(

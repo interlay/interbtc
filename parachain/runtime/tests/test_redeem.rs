@@ -358,7 +358,7 @@ fn test_cancel_liquidated(reimburse: bool) {
     let fee = FeeModule::get_redeem_fee(polka_btc).unwrap();
     let collateral_vault = 1_000_000;
     let amount_without_fee = polka_btc - fee;
-
+    let griefing_collateral = 1_234_567;
     let redeem_id = setup_cancelable_redeem(USER, VAULT, collateral_vault, polka_btc);
 
     UserData::force_to(
@@ -386,6 +386,7 @@ fn test_cancel_liquidated(reimburse: bool) {
             issued: amount_without_fee * 4,
             to_be_redeemed: amount_without_fee * 4,
             backing_collateral: collateral_vault,
+            griefing_collateral,
             ..Default::default()
         },
     );
@@ -402,6 +403,7 @@ fn test_cancel_liquidated(reimburse: bool) {
         CoreVaultData {
             to_be_redeemed: amount_without_fee * 3,
             backing_collateral: (collateral_vault * 3) / 4,
+            griefing_collateral,
             ..Default::default()
         },
     );
