@@ -109,14 +109,14 @@ pub(crate) mod vault_registry {
     pub fn is_vault_below_premium_threshold<T: vault_registry::Config>(
         vault_id: &T::AccountId,
     ) -> Result<bool, DispatchError> {
-        <vault_registry::Module<T>>::is_vault_below_premium_threshold(&vault_id)
+        <vault_registry::Module<T>>::is_vault_below_premium_threshold(vault_id)
     }
 
     pub fn decrease_to_be_redeemed_tokens<T: vault_registry::Config>(
-        vault_id: T::AccountId,
+        vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::decrease_to_be_redeemed_tokens(&vault_id, tokens)
+        <vault_registry::Module<T>>::decrease_to_be_redeemed_tokens(vault_id, tokens)
     }
 
     pub fn calculate_collateral<T: vault_registry::Config>(

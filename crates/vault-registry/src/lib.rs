@@ -618,7 +618,12 @@ impl<T: Config> Module<T> {
             .to_vec(),
         )?;
         let mut vault = Self::get_rich_vault_from_id(&vault_id)?;
+        if vault.data.is_liquidated() {
+            Self::decrease_liquidation_vault_to_be_redeemed_tokens(tokens)?;
+        }
+
         vault.decrease_to_be_redeemed(tokens)?;
+
         Self::deposit_event(Event::<T>::DecreaseToBeRedeemedTokens(vault.id(), tokens));
         Ok(())
     }
@@ -632,11 +637,6 @@ impl<T: Config> Module<T> {
     /// * `vault_id` - the id of the vault from which to decrease tokens
     /// * `tokens` - the amount of tokens to be decreased
     /// * `user_id` - the id of the user making the redeem request
-    ///
-    /// # Errors
-    /// * `VaultNotFound` - if no vault exists for the given `vault_id`
-    /// * `InsufficientTokensCommitted` - if the amount of to-be-redeemed tokens
-    ///                                   or issued tokens is too low
     pub fn decrease_tokens(
         vault_id: &T::AccountId,
         user_id: &T::AccountId,
@@ -650,8 +650,15 @@ impl<T: Config> Module<T> {
             ]
             .to_vec(),
         )?;
-        let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
-        vault.decrease_tokens(tokens)?;
+        let mut vault = Self::get_rich_vault_from_id(&vault_id)?;
+        if vault.data.is_liquidated() {
+            Self::decrease_liquidation_vault_to_be_redeemed_tokens(tokens)?;
+            Self::decrease_liquidation_vault_issued_tokens(tokens)?;
+            vault.decrease_to_be_redeemed(tokens)?;
+        } else {
+            // decrease to-be-redeemed and issued
+            vault.decrease_tokens(tokens)?;
+        }
         Self::deposit_event(Event::<T>::DecreaseTokens(
             vault.id(),
             user_id.clone(),
