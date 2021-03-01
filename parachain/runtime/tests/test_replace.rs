@@ -685,7 +685,7 @@ fn integration_test_replace_execute_replace_new_vault_liquidated() {
                 to_be_issued: replace_tokens,
                 backing_collateral: DEFAULT_COLLATERAL,
                 issued: 500,         // new
-                to_be_redeemed: 200, // new
+                to_be_redeemed: 150, // new
                 ..Default::default()
             },
         );
@@ -706,8 +706,8 @@ fn integration_test_replace_execute_replace_new_vault_liquidated() {
         assert_eq!(
             new_vault,
             CoreVaultData {
-                to_be_redeemed: 200,
-                backing_collateral: (DEFAULT_COLLATERAL * 200) / 500,
+                to_be_redeemed: 150,
+                backing_collateral: (DEFAULT_COLLATERAL * 150) / (replace_tokens + 500),
                 ..Default::default()
             }
         );
@@ -756,7 +756,7 @@ fn integration_test_replace_execute_replace_both_vaults_liquidated() {
                 to_be_issued: replace_tokens,
                 backing_collateral: DEFAULT_COLLATERAL,
                 issued: 500,         // new
-                to_be_redeemed: 100, // new
+                to_be_redeemed: 150, // new
                 ..Default::default()
             },
         );
@@ -780,8 +780,8 @@ fn integration_test_replace_execute_replace_both_vaults_liquidated() {
         assert_eq!(
             new_vault,
             CoreVaultData {
-                to_be_redeemed: 100,
-                backing_collateral: (DEFAULT_COLLATERAL * 100) / 500,
+                to_be_redeemed: 150,
+                backing_collateral: (DEFAULT_COLLATERAL * 150) / (replace_tokens + 500),
                 ..Default::default()
             }
         );
@@ -959,7 +959,7 @@ fn integration_test_replace_cancel_replace_new_vault_liquidated() {
                 to_be_issued: replace_tokens,
                 backing_collateral: DEFAULT_COLLATERAL,
                 issued: 500,         // new
-                to_be_redeemed: 200, // new
+                to_be_redeemed: 150, // new
                 ..Default::default()
             },
         );
@@ -981,8 +981,8 @@ fn integration_test_replace_cancel_replace_new_vault_liquidated() {
         assert_eq!(
             new_vault,
             CoreVaultData {
-                to_be_redeemed: 200,
-                backing_collateral: (DEFAULT_COLLATERAL * 200) / 500,
+                to_be_redeemed: 150,
+                backing_collateral: (DEFAULT_COLLATERAL * 150) / (500 + replace_tokens),
                 free_balance: DEFAULT_GRIEFING_COLLATERAL,
                 ..Default::default()
             }
@@ -1031,7 +1031,7 @@ fn integration_test_replace_cancel_replace_both_vaults_liquidated() {
                 to_be_issued: replace_tokens,
                 backing_collateral: DEFAULT_COLLATERAL,
                 issued: 500,         // new
-                to_be_redeemed: 100, // new
+                to_be_redeemed: 150, // new
                 ..Default::default()
             },
         );
@@ -1053,8 +1053,8 @@ fn integration_test_replace_cancel_replace_both_vaults_liquidated() {
         assert_eq!(
             new_vault,
             CoreVaultData {
-                to_be_redeemed: 100,
-                backing_collateral: (DEFAULT_COLLATERAL * 100) / 500,
+                to_be_redeemed: 150,
+                backing_collateral: (DEFAULT_COLLATERAL * 150) / (500 + replace_tokens),
                 free_balance: DEFAULT_GRIEFING_COLLATERAL,
                 ..Default::default()
             }

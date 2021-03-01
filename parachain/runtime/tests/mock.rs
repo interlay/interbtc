@@ -147,6 +147,23 @@ impl CoreVaultData {
     }
     #[allow(dead_code)]
     pub fn force_to(vault: [u8; 32], state: CoreVaultData) {
+        // register vault if not yet registered
+        if let Err(_) = VaultRegistryModule::get_vault_from_id(&account_of(vault)) {
+            assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
+                100,
+                dummy_public_key()
+            ))
+            .dispatch(origin_of(account_of(vault))));
+        };
+
+        // temporarily give vault a lot of backing collateral so we can set issued & to-be-issued to whatever we want
+        VaultRegistryModule::slash_collateral(
+            CurrencySource::FreeBalance(account_of(FAUCET)),
+            CurrencySource::Backing(account_of(vault)),
+            CollateralModule::get_balance_from_account(&account_of(FAUCET)),
+        )
+        .unwrap();
+
         let current = CoreVaultData::vault(vault);
         if current.to_be_issued < state.to_be_issued {
             assert_ok!(VaultRegistryModule::increase_to_be_issued_tokens(
@@ -172,6 +189,52 @@ impl CoreVaultData {
                 state.to_be_redeemed - current.to_be_redeemed
             ));
         }
+
+        // clear all balances
+        VaultRegistryModule::slash_collateral(
+            CurrencySource::Backing(account_of(vault)),
+            CurrencySource::FreeBalance(account_of(FAUCET)),
+            CurrencySource::<Runtime>::Backing(account_of(vault))
+                .current_balance()
+                .unwrap(),
+        )
+        .unwrap();
+        VaultRegistryModule::slash_collateral(
+            CurrencySource::Griefing(account_of(vault)),
+            CurrencySource::FreeBalance(account_of(FAUCET)),
+            CurrencySource::<Runtime>::Griefing(account_of(vault))
+                .current_balance()
+                .unwrap(),
+        )
+        .unwrap();
+        VaultRegistryModule::slash_collateral(
+            CurrencySource::FreeBalance(account_of(vault)),
+            CurrencySource::FreeBalance(account_of(FAUCET)),
+            CurrencySource::<Runtime>::FreeBalance(account_of(vault))
+                .current_balance()
+                .unwrap(),
+        )
+        .unwrap();
+
+        // now set balances to desired values
+        VaultRegistryModule::slash_collateral(
+            CurrencySource::FreeBalance(account_of(FAUCET)),
+            CurrencySource::Backing(account_of(vault)),
+            state.backing_collateral,
+        )
+        .unwrap();
+        VaultRegistryModule::slash_collateral(
+            CurrencySource::FreeBalance(account_of(FAUCET)),
+            CurrencySource::Griefing(account_of(vault)),
+            state.griefing_collateral,
+        )
+        .unwrap();
+        VaultRegistryModule::slash_collateral(
+            CurrencySource::FreeBalance(account_of(FAUCET)),
+            CurrencySource::FreeBalance(account_of(vault)),
+            state.free_balance,
+        )
+        .unwrap();
 
         // since the function is only partially implemented, check that we achieved the
         // desired stae
@@ -395,6 +458,8 @@ pub type SecurityError = security::Error<Runtime>;
 pub type VaultRegistryCall = vault_registry::Call<Runtime>;
 #[allow(dead_code)]
 pub type VaultRegistryModule = vault_registry::Module<Runtime>;
+#[allow(dead_code)]
+pub type VaultRegistryError = vault_registry::Error<Runtime>;
 
 #[allow(dead_code)]
 pub type ExchangeRateOracleCall = exchange_rate_oracle::Call<Runtime>;
