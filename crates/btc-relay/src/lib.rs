@@ -1502,7 +1502,13 @@ impl<T: Config> Module<T> {
         let required_confirmations =
             req_confs.unwrap_or_else(|| Self::get_stable_transaction_confirmations());
 
-        if main_chain_height >= tx_block_height + required_confirmations {
+        let required_mainchain_height = tx_block_height
+            .checked_add(required_confirmations)
+            .ok_or(Error::<T>::ArithmeticOverflow)?
+            .checked_sub(1)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+
+        if main_chain_height >= required_mainchain_height {
             Ok(())
         } else {
             Err(Error::<T>::BitcoinConfirmations.into())
