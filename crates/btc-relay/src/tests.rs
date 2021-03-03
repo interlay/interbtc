@@ -1656,7 +1656,7 @@ fn test_check_bitcoin_confirmations_secure_stable_confs_succeeds() {
 fn test_check_bitcoin_confirmations_secure_user_confs_succeeds() {
     run_test(|| {
         let main_chain_height = 100;
-        let tx_block_height = 85;
+        let tx_block_height = 91;
         // relevant check: ok
         let req_confs = None;
         let stable_confs = 10;
@@ -1675,7 +1675,7 @@ fn test_check_bitcoin_confirmations_secure_user_confs_succeeds() {
 fn test_check_bitcoin_confirmations_secure_insufficient_stable_confs_succeeds() {
     run_test(|| {
         let main_chain_height = 100;
-        let tx_block_height = 91;
+        let tx_block_height = 92;
 
         let req_confs = None;
         // relevant check: fails
