@@ -1348,6 +1348,42 @@ fn get_first_vault_with_sufficient_tokens_succeeds() {
 }
 
 #[test]
+fn get_first_vault_with_sufficient_tokens_considers_to_be_redeemed() {
+    run_test(|| {
+        let issue_tokens: u128 = DEFAULT_COLLATERAL / 10 / 2; // = 5
+        let id = create_sample_vault_andissue_tokens(issue_tokens);
+        let mut vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
+
+        assert_ok!(vault.force_increase_to_be_redeemed(2));
+
+        assert_noop!(
+            VaultRegistry::get_first_vault_with_sufficient_tokens(issue_tokens),
+            TestError::NoVaultWithSufficientTokens
+        );
+
+        assert_eq!(
+            VaultRegistry::get_first_vault_with_sufficient_tokens(3),
+            Ok(id)
+        );
+    })
+}
+
+#[test]
+fn get_first_vault_with_sufficient_tokens_filters_banned_vaults() {
+    run_test(|| {
+        let issue_tokens: u128 = DEFAULT_COLLATERAL / 10 / 2; // = 5
+        let id = create_sample_vault_andissue_tokens(issue_tokens);
+        let mut vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
+        vault.ban_until(1000);
+
+        assert_noop!(
+            VaultRegistry::get_first_vault_with_sufficient_tokens(issue_tokens),
+            TestError::NoVaultWithSufficientTokens
+        );
+    })
+}
+
+#[test]
 fn get_total_collateralization_with_tokens_issued() {
     run_test(|| {
         let issue_tokens: u128 = DEFAULT_COLLATERAL / 10 / 2; // = 5

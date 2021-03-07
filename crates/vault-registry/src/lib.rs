@@ -1135,7 +1135,9 @@ impl<T: Config> Module<T> {
         let suitable_vaults = <Vaults<T>>::iter()
             .filter_map(|v| {
                 // iterator returns tuple of (AccountId, Vault<T>), we check the vault and return the accountid
-                if v.1.issued_tokens >= amount {
+                let vault = Into::<RichVault<T>>::into(v.1);
+                let redeemable_tokens = vault.redeemable_tokens().ok()?;
+                if redeemable_tokens >= amount {
                     Some(v.0)
                 } else {
                     None
