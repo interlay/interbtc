@@ -1255,6 +1255,62 @@ fn get_vaults_with_issuable_tokens_succeeds() {
 }
 
 #[test]
+fn get_vaults_with_issuable_tokens_succeeds_when_there_are_liquidated_vaults() {
+    run_test(|| {
+        let id1 = 3;
+        let collateral1 = 100;
+        create_vault_with_collateral(id1, collateral1);
+        let issuable_tokens1 = VaultRegistry::get_issuable_tokens_from_vault(id1.clone())
+            .expect("Sample vault is unable to issue tokens");
+
+        let id2 = 4;
+        let collateral2 = 50;
+        create_vault_with_collateral(id2, collateral2);
+
+        // liquidate vault
+        assert_ok!(VaultRegistry::liquidate_vault_with_status(
+            &id2,
+            VaultStatus::Liquidated
+        ));
+
+        assert_eq!(
+            VaultRegistry::get_vaults_with_issuable_tokens(),
+            Ok(vec!((id1, issuable_tokens1)))
+        );
+    })
+}
+
+#[test]
+fn get_vaults_with_issuable_tokens_filters_out_banned_vaults() {
+    run_test(|| {
+        let id1 = 3;
+        let collateral1 = 100;
+        create_vault_with_collateral(id1, collateral1);
+        let issuable_tokens1 = VaultRegistry::get_issuable_tokens_from_vault(id1.clone())
+            .expect("Sample vault is unable to issue tokens");
+
+        let id2 = 4;
+        let collateral2 = 50;
+        create_vault_with_collateral(id2, collateral2);
+
+        // ban the vault
+        let mut vault = VaultRegistry::get_rich_vault_from_id(&id2).unwrap();
+        vault.ban_until(1000);
+
+        let issuable_tokens2 = VaultRegistry::get_issuable_tokens_from_vault(id2.clone())
+            .expect("Sample vault is unable to issue tokens");
+
+        assert_eq!(issuable_tokens2, 0);
+
+        // Check that the banned vault is not returned by get_vaults_with_issuable_tokens
+        assert_eq!(
+            VaultRegistry::get_vaults_with_issuable_tokens(),
+            Ok(vec!((id1, issuable_tokens1)))
+        );
+    })
+}
+
+#[test]
 fn get_vaults_with_issuable_tokens_fails() {
     run_test(|| {
         let issue_tokens: u128 = 50;

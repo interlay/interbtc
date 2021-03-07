@@ -379,6 +379,11 @@ impl<T: Config> RichVault<T> {
     }
 
     pub fn issuable_tokens(&self) -> Result<PolkaBTC<T>, DispatchError> {
+        // if banned, there are no issuable tokens
+        if self.is_banned(<frame_system::Module<T>>::block_number()) {
+            return Ok(0u32.into());
+        }
+
         let free_collateral = self.get_free_collateral()?;
 
         let secure_threshold = Module::<T>::secure_collateral_threshold();
@@ -542,15 +547,17 @@ impl<T: Config> RichVault<T> {
     }
 
     pub fn ensure_not_banned(&self, height: T::BlockNumber) -> DispatchResult {
-        let is_banned = match self.data.banned_until {
-            None => false,
-            Some(until) => height <= until,
-        };
-
-        if is_banned {
+        if self.is_banned(height) {
             Err(Error::<T>::VaultBanned.into())
         } else {
             Ok(())
+        }
+    }
+
+    pub(crate) fn is_banned(&self, height: T::BlockNumber) -> bool {
+        match self.data.banned_until {
+            None => false,
+            Some(until) => height <= until,
         }
     }
 
