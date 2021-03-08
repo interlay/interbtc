@@ -23,7 +23,9 @@ use mocktopus::macros::mockable;
 pub use crate::types::{ErrorCode, StatusCode};
 
 use codec::Encode;
+use frame_support::transactional;
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult};
+use frame_system::ensure_root;
 use primitive_types::H256;
 use sha2::{Digest, Sha256};
 use sp_core::U256;
@@ -59,6 +61,51 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
+
+        /// Set the parachain status code.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - the dispatch origin of this call (must be _Root_)
+        /// * `status_code` - the status code to set
+        ///
+        /// # Weight: `O(1)`
+        #[weight = 0]
+        #[transactional]
+        pub fn set_parachain_status(origin, status_code: StatusCode) {
+            ensure_root(origin)?;
+            Self::set_status(status_code);
+        }
+
+        /// Insert a new parachain error.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - the dispatch origin of this call (must be _Root_)
+        /// * `error_code` - the error code to insert
+        ///
+        /// # Weight: `O(1)`
+        #[weight = 0]
+        #[transactional]
+        pub fn insert_parachain_error(origin, error_code: ErrorCode) {
+            ensure_root(origin)?;
+            Self::insert_error(error_code);
+        }
+
+        /// Remove a parachain error.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - the dispatch origin of this call (must be _Root_)
+        /// * `error_code` - the error code to remove
+        ///
+        /// # Weight: `O(1)`
+        #[weight = 0]
+        #[transactional]
+        pub fn remove_parachain_error(origin, error_code: ErrorCode) {
+            ensure_root(origin)?;
+            Self::remove_error(error_code);
+        }
     }
 }
 
@@ -162,7 +209,7 @@ impl<T: Config> Module<T> {
     /// # Arguments
     ///
     /// * `status_code` - to set in storage.
-    pub fn set_parachain_status(status_code: StatusCode) {
+    pub fn set_status(status_code: StatusCode) {
         <ParachainStatus>::set(status_code);
     }
 
@@ -199,7 +246,7 @@ impl<T: Config> Module<T> {
         }
 
         if Self::get_errors().is_empty() {
-            Self::set_parachain_status(StatusCode::Running);
+            Self::set_status(StatusCode::Running);
         }
 
         Self::deposit_event(Event::RecoverFromErrors(

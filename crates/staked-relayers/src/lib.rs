@@ -345,7 +345,7 @@ decl_module! {
         fn force_status_update(origin, status_code: StatusCode, add_error: Option<ErrorCode>, remove_error: Option<ErrorCode>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             Self::only_governance(&signer)?;
-            ext::security::set_parachain_status::<T>(status_code.clone());
+            ext::security::set_status::<T>(status_code.clone());
 
             let to_add = add_error.clone();
             let to_remove = remove_error.clone();
@@ -481,7 +481,7 @@ decl_module! {
                 Error::<T>::OracleOnline,
             );
 
-            ext::security::set_parachain_status::<T>(StatusCode::Error);
+            ext::security::set_status::<T>(StatusCode::Error);
             ext::security::insert_error::<T>(ErrorCode::OracleOffline);
 
             // reward relayer for this report by increasing its sla
@@ -962,7 +962,7 @@ impl<T: Config> Module<T> {
         );
 
         let status_code = status_update.new_status_code.clone();
-        ext::security::set_parachain_status::<T>(status_code.clone());
+        ext::security::set_status::<T>(status_code.clone());
 
         let add_error = status_update.add_error.clone();
         let remove_error = status_update.remove_error.clone();
