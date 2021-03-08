@@ -33,8 +33,8 @@ pub(crate) mod security {
     }
 
     #[cfg(test)]
-    pub fn set_parachain_status<T: security::Config>(status: StatusCode) -> () {
-        <security::Module<T>>::set_parachain_status(status)
+    pub fn set_status<T: security::Config>(status: StatusCode) -> () {
+        <security::Module<T>>::set_status(status)
     }
 
     #[cfg(test)]

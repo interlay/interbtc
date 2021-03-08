@@ -54,7 +54,7 @@ fn assert_refund_request_event() -> H256 {
 #[test]
 fn integration_test_issue_should_fail_if_not_running() {
     ExtBuilder::build().execute_with(|| {
-        SecurityModule::set_parachain_status(StatusCode::Shutdown);
+        SecurityModule::set_status(StatusCode::Shutdown);
 
         assert_noop!(
             Call::Issue(IssueCall::request_issue(0, account_of(BOB), 0))

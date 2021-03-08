@@ -34,7 +34,7 @@ fn assert_redeem_request_event() -> H256 {
 #[test]
 fn integration_test_redeem_should_fail_if_not_running() {
     ExtBuilder::build().execute_with(|| {
-        SecurityModule::set_parachain_status(StatusCode::Shutdown);
+        SecurityModule::set_status(StatusCode::Shutdown);
 
         assert_noop!(
             Call::Redeem(RedeemCall::request_redeem(

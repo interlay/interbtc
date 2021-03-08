@@ -33,7 +33,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure, IterableStorageMap,
 };
-use frame_system::ensure_signed;
+use frame_system::{ensure_root, ensure_signed};
 use primitive_types::U256;
 use sp_core::H160;
 use sp_std::collections::btree_set::BTreeSet;
@@ -372,6 +372,38 @@ decl_module! {
             let _ = ensure_signed(origin)?;
             Self::_validate_transaction(raw_tx, payment_value, recipient_btc_address, op_return_id)?;
             Ok(())
+        }
+
+        /// Insert an error at the specified block.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - the dispatch origin of this call (must be _Root_)
+        /// * `block_hash` - the hash of the bitcoin block
+        /// * `error` - the error code to insert
+        ///
+        /// # Weight: `O(1)`
+        #[weight = 0]
+        #[transactional]
+        pub fn insert_block_error(origin, block_hash: H256Le, error: ErrorCode) -> DispatchResult {
+            ensure_root(origin)?;
+            Self::flag_block_error(block_hash, error)
+        }
+
+        /// Remove an error from the specified block.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - the dispatch origin of this call (must be _Root_)
+        /// * `block_hash` - the hash of the bitcoin block
+        /// * `error` - the error code to remove
+        ///
+        /// # Weight: `O(1)`
+        #[weight = 0]
+        #[transactional]
+        pub fn remove_block_error(origin, block_hash: H256Le, error: ErrorCode) -> DispatchResult {
+            ensure_root(origin)?;
+            Self::clear_block_error(block_hash, error)
         }
     }
 }

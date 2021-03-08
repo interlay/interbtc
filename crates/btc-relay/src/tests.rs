@@ -2319,6 +2319,6 @@ fn sample_example_real_transaction_hash() -> String {
 
 fn set_parachain_nodata_error() {
     ext::security::insert_error::<Test>(ErrorCode::NoDataBTCRelay);
-    ext::security::set_parachain_status::<Test>(StatusCode::Error);
+    ext::security::set_status::<Test>(StatusCode::Error);
     assert!(ext::security::is_parachain_error_no_data_btcrelay::<Test>());
 }

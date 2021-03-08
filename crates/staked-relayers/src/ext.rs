@@ -80,8 +80,8 @@ pub(crate) mod security {
         <security::Module<T>>::get_parachain_status()
     }
 
-    pub(crate) fn set_parachain_status<T: security::Config>(status_code: StatusCode) {
-        <security::Module<T>>::set_parachain_status(status_code)
+    pub(crate) fn set_status<T: security::Config>(status_code: StatusCode) {
+        <security::Module<T>>::set_status(status_code)
     }
 
     pub(crate) fn insert_error<T: security::Config>(error_code: ErrorCode) {
