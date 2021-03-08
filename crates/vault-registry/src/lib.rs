@@ -138,6 +138,9 @@ decl_storage! {
         /// Mapping of reserved BTC addresses to the registered account
         ReservedAddresses: map hasher(blake2_128_concat) BtcAddress => T::AccountId;
 
+        /// Total collateral used for backing polkabtc by active vaults, excluding the liquidation vault
+        TotalUserVaultBackingCollateral: DOT<T>;
+
         /// Build storage at V1 (requires default 0).
         StorageVersion get(fn storage_version) build(|_| Version::V1): Version = Version::V0;
     }
@@ -960,6 +963,36 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+    pub(crate) fn increase_total_backing_collateral(amount: DOT<T>) -> DispatchResult {
+        let new = <TotalUserVaultBackingCollateral<T>>::get()
+            .checked_add(&amount)
+            .ok_or(Error::<T>::ArithmeticOverflow)?;
+
+        <TotalUserVaultBackingCollateral<T>>::set(new);
+
+        Ok(())
+    }
+
+    pub(crate) fn decrease_total_backing_collateral(amount: DOT<T>) -> DispatchResult {
+        let new = <TotalUserVaultBackingCollateral<T>>::get()
+            .checked_sub(&amount)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+
+        <TotalUserVaultBackingCollateral<T>>::set(new);
+
+        Ok(())
+    }
+
+    /// returns the total locked collateral, _including_ collateral in the liquidation vault
+    pub(crate) fn get_total_backing_collateral() -> Result<DOT<T>, DispatchError> {
+        let liquidated_collateral = CurrencySource::<T>::LiquidationVault.current_balance()?;
+        let total = <TotalUserVaultBackingCollateral<T>>::get()
+            .checked_add(&liquidated_collateral)
+            .ok_or(Error::<T>::ArithmeticOverflow)?;
+
+        Ok(total)
+    }
+
     pub fn insert_vault(
         id: &T::AccountId,
         vault: Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
@@ -1087,7 +1120,7 @@ impl<T: Config> Module<T> {
     /// Get the total collateralization of the system.
     pub fn get_total_collateralization() -> Result<UnsignedFixedPoint<T>, DispatchError> {
         let issued_tokens = ext::treasury::total_issued::<T>();
-        let total_collateral = ext::collateral::total_locked::<T>();
+        let total_collateral = Self::get_total_backing_collateral()?;
 
         // convert the issued_tokens to the raw amount
         let raw_issued_tokens = Self::polkabtc_to_u128(issued_tokens)?;

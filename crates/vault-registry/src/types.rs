@@ -316,6 +316,7 @@ impl<T: Config> RichVault<T> {
                 .ok_or(Error::<T>::ArithmeticOverflow)?;
             Ok(())
         })?;
+        Module::<T>::increase_total_backing_collateral(collateral)?;
         ext::collateral::lock::<T>(&self.data.id, collateral)
     }
 
@@ -327,6 +328,7 @@ impl<T: Config> RichVault<T> {
                 .ok_or(Error::<T>::ArithmeticUnderflow)?;
             Ok(())
         })?;
+        Module::<T>::decrease_total_backing_collateral(collateral)?;
         ext::collateral::release_collateral::<T>(&self.data.id, collateral)
     }
 
