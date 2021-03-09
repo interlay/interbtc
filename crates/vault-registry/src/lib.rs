@@ -156,6 +156,8 @@ decl_module! {
 
         /// Upgrade the runtime depending on the current `StorageVersion`.
         fn on_runtime_upgrade() -> Weight {
+            Self::_on_runtime_upgrade();
+
             0
         }
 
@@ -272,6 +274,18 @@ impl<T: Config> Module<T> {
     fn begin_block(_height: T::BlockNumber) -> DispatchResult {
         Self::liquidate_undercollateralized_vaults();
         Ok(())
+    }
+
+    fn _on_runtime_upgrade() {
+        // initialize TotalUserVaultBackingCollateral
+        let total = <Vaults<T>>::iter()
+            .map(|(_, vault)| vault.backing_collateral)
+            .fold(Some(0u32.into()), |total: Option<DOT<T>>, x| {
+                total?.checked_add(&x)
+            })
+            .unwrap_or(0u32.into());
+
+        <TotalUserVaultBackingCollateral<T>>::set(total);
     }
 
     /// Public functions
