@@ -213,6 +213,7 @@ fn test_deregister_staked_relayer_succeeds() {
 }
 
 #[test]
+#[ignore]
 fn test_suggest_status_update_fails_with_not_registered() {
     run_test(|| {
         assert_err!(
@@ -231,6 +232,7 @@ fn test_suggest_status_update_fails_with_not_registered() {
 }
 
 #[test]
+#[ignore]
 fn test_suggest_status_update_fails_with_governance_only() {
     run_test(|| {
         StakedRelayers::only_governance
