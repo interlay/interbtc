@@ -93,12 +93,12 @@ pub struct Tally<AccountId: Ord, Balance: Clone + PartialOrd + Saturating> {
 
 impl<AccountId: Ord + Clone, Balance: Clone + PartialOrd + Saturating> Tally<AccountId, Balance> {
     /// Returns true if the majority of votes are in favour.
-    pub(crate) fn is_approved(&self) -> bool {
+    pub fn is_approved(&self) -> bool {
         self.aye.total_stake > self.nay.total_stake
     }
 
     /// Checks if the account has already voted in this poll.
-    pub(crate) fn contains(&self, id: &AccountId) -> bool {
+    pub fn contains(&self, id: &AccountId) -> bool {
         self.nay.contains(&id) || self.aye.contains(&id)
     }
 
