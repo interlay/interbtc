@@ -1493,6 +1493,36 @@ fn setup_blocks(blocks: u64) {
 }
 
 #[test]
+fn runtime_upgrade_succeeds() {
+    run_test(|| {
+        Vaults::<Test>::insert(
+            0,
+            Vault {
+                backing_collateral: 10,
+                ..Default::default()
+            },
+        );
+        Vaults::<Test>::insert(
+            1,
+            Vault {
+                backing_collateral: 20,
+                ..Default::default()
+            },
+        );
+        Vaults::<Test>::insert(
+            2,
+            Vault {
+                backing_collateral: 30,
+                ..Default::default()
+            },
+        );
+        assert_eq!(0, VaultRegistry::get_total_backing_collateral().unwrap());
+        VaultRegistry::_on_runtime_upgrade();
+        assert_eq!(60, VaultRegistry::get_total_backing_collateral().unwrap());
+    })
+}
+
+#[test]
 fn get_first_vault_with_sufficient_tokens_returns_different_vaults_for_different_amounts() {
     run_test(|| {
         setup_blocks(100);

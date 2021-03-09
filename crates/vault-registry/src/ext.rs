@@ -6,10 +6,6 @@ pub(crate) mod collateral {
     use crate::types::DOT;
     use frame_support::dispatch::DispatchResult;
 
-    pub fn total_locked<T: collateral::Config>() -> DOT<T> {
-        <collateral::Module<T>>::get_total_collateral()
-    }
-
     pub fn transfer<T: collateral::Config>(
         source: &T::AccountId,
         destination: &T::AccountId,
