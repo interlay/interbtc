@@ -218,8 +218,10 @@ decl_module! {
         fn suggest_status_update(origin, deposit: DOT<T>, status_code: StatusCode, add_error: Option<ErrorCode>, remove_error: Option<ErrorCode>, block_hash: Option<H256Le>, message: Vec<u8>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
 
-            if status_code == StatusCode::Shutdown {
-                Self::only_governance(&signer)?;
+            // voting is disabled, for now only root can vote. Return Ok to clients so they
+            // don't get concerned about an error message.
+            if let Err(_) = Self::only_governance(&signer) {
+                return Ok(())
             }
 
             ensure!(
