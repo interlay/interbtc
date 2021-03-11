@@ -997,12 +997,31 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// returns the total locked collateral, _including_ collateral in the liquidation vault
-    pub(crate) fn get_total_backing_collateral() -> Result<DOT<T>, DispatchError> {
+    /// returns the total number of issued tokens
+    pub fn get_total_issued_tokens(
+        include_liquidation_vault: bool,
+    ) -> Result<PolkaBTC<T>, DispatchError> {
+        if include_liquidation_vault {
+            Ok(ext::treasury::total_issued::<T>())
+        } else {
+            ext::treasury::total_issued::<T>()
+                .checked_sub(&Self::get_liquidation_vault().issued_tokens)
+                .ok_or(Error::<T>::ArithmeticUnderflow.into())
+        }
+    }
+
+    /// returns the total locked collateral, _
+    pub fn get_total_backing_collateral(
+        include_liquidation_vault: bool,
+    ) -> Result<DOT<T>, DispatchError> {
         let liquidated_collateral = CurrencySource::<T>::LiquidationVault.current_balance()?;
-        let total = <TotalUserVaultBackingCollateral<T>>::get()
-            .checked_add(&liquidated_collateral)
-            .ok_or(Error::<T>::ArithmeticOverflow)?;
+        let total = if include_liquidation_vault {
+            <TotalUserVaultBackingCollateral<T>>::get()
+                .checked_add(&liquidated_collateral)
+                .ok_or(Error::<T>::ArithmeticOverflow)?
+        } else {
+            <TotalUserVaultBackingCollateral<T>>::get()
+        };
 
         Ok(total)
     }
@@ -1133,8 +1152,8 @@ impl<T: Config> Module<T> {
 
     /// Get the total collateralization of the system.
     pub fn get_total_collateralization() -> Result<UnsignedFixedPoint<T>, DispatchError> {
-        let issued_tokens = ext::treasury::total_issued::<T>();
-        let total_collateral = Self::get_total_backing_collateral()?;
+        let issued_tokens = Self::get_total_issued_tokens(true)?;
+        let total_collateral = Self::get_total_backing_collateral(true)?;
 
         // convert the issued_tokens to the raw amount
         let raw_issued_tokens = Self::polkabtc_to_u128(issued_tokens)?;

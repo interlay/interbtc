@@ -205,8 +205,11 @@ impl<T: Config> Module<T> {
         total_reward_for_issued_in_dot: DOT<T>,
         total_reward_for_locked_in_dot: DOT<T>,
     ) -> Result<Vec<(T::AccountId, PolkaBTC<T>, DOT<T>)>, DispatchError> {
-        let total_issued = Self::polkabtc_to_u128(ext::treasury::get_total_supply::<T>())?;
-        let total_locked = Self::dot_to_u128(ext::collateral::get_total_collateral::<T>())?;
+        let total_issued =
+            Self::polkabtc_to_u128(ext::vault_registry::get_total_issued_tokens::<T>(false)?)?;
+        let total_locked = Self::dot_to_u128(ext::vault_registry::get_total_backing_collateral::<
+            T,
+        >(false)?)?;
 
         let total_reward_for_issued_in_polka_btc =
             Self::polkabtc_to_u128(total_reward_for_issued_in_polka_btc)?;
@@ -218,8 +221,12 @@ impl<T: Config> Module<T> {
 
         let calculate_reward = |account_id: T::AccountId| {
             // each vault gets total_reward * (issued_amount / total_issued).
-            let issued_amount =
-                ext::vault_registry::get_active_vault_from_id::<T>(&account_id)?.issued_tokens;
+            let vault = ext::vault_registry::get_vault_from_id::<T>(&account_id)?;
+            if vault.is_liquidated() {
+                return Ok(None);
+            }
+            let issued_amount = vault.issued_tokens;
+
             let issued_amount = Self::polkabtc_to_u128(issued_amount)?;
             let issued_reward_in_polka_btc = issued_amount
                 .checked_mul(total_reward_for_issued_in_polka_btc)
@@ -233,7 +240,7 @@ impl<T: Config> Module<T> {
                 .checked_div(total_issued)
                 .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
-            let locked_amount = ext::collateral::get_collateral_from_account::<T>(account_id);
+            let locked_amount = ext::vault_registry::get_backing_collateral::<T>(&account_id)?;
             let locked_amount = Self::dot_to_u128(locked_amount)?;
             let locked_reward_in_polka_btc = locked_amount
                 .checked_mul(total_reward_for_locked_in_polka_btc)
@@ -247,7 +254,8 @@ impl<T: Config> Module<T> {
                 .checked_div(total_locked)
                 .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
-            Result::<_, DispatchError>::Ok((
+            Result::<_, DispatchError>::Ok(Some((
+                account_id,
                 Self::u128_to_polkabtc(
                     issued_reward_in_polka_btc
                         .checked_add(locked_reward_in_polka_btc)
@@ -258,14 +266,11 @@ impl<T: Config> Module<T> {
                         .checked_add(locked_reward_in_dot)
                         .ok_or(Error::<T>::ArithmeticOverflow)?,
                 )?,
-            ))
+            )))
         };
 
         <VaultSla<T>>::iter()
-            .map(|(account_id, _)| {
-                let (polka_btc, dot) = calculate_reward(account_id.clone())?;
-                Ok((account_id.clone(), polka_btc, dot))
-            })
+            .filter_map(|(account_id, _)| calculate_reward(account_id.clone()).transpose())
             .collect()
     }
 
@@ -456,6 +461,10 @@ impl<T: Config> Module<T> {
         let stake = Self::_get_relayer_stake_as_fixed_point(relayer_id.clone())?;
         let sla = <RelayerSla<T>>::get(relayer_id);
         let total_relayer_score = <TotalRelayerScore<T>>::get();
+
+        if total_relayer_score.is_zero() {
+            return Ok(0);
+        }
 
         let calculate_reward = || {
             let score = stake.checked_mul(&sla)?;
