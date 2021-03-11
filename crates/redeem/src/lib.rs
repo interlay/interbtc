@@ -172,7 +172,7 @@ decl_module! {
         ///
         /// # Arguments
         ///
-        /// * `origin` - the vault responsible for executing this redeem request
+        /// * `origin` - anyone executing this redeem request
         /// * `redeem_id` - identifier of redeem request as output from request_redeem
         /// * `tx_id` - transaction hash
         /// * `tx_block_height` - block number of backing chain
@@ -183,8 +183,8 @@ decl_module! {
         fn execute_redeem(origin, redeem_id: H256, tx_id: H256Le, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
             -> DispatchResult
         {
-            let vault_id = ensure_signed(origin)?;
-            Self::_execute_redeem(vault_id, redeem_id, tx_id, merkle_proof, raw_tx)?;
+            let _ = ensure_signed(origin)?;
+            Self::_execute_redeem(redeem_id, tx_id, merkle_proof, raw_tx)?;
             Ok(())
         }
 
@@ -339,7 +339,6 @@ impl<T: Config> Module<T> {
     }
 
     fn _execute_redeem(
-        vault_id: T::AccountId,
         redeem_id: H256,
         tx_id: H256Le,
         merkle_proof: Vec<u8>,
@@ -348,7 +347,6 @@ impl<T: Config> Module<T> {
         Self::ensure_parachain_running_or_error_liquidated()?;
 
         let redeem = Self::get_open_redeem_request_from_id(&redeem_id)?;
-        ensure!(vault_id == redeem.vault, Error::<T>::UnauthorizedVault);
 
         // only executable before the request has expired
         ensure!(
@@ -644,7 +642,6 @@ decl_error! {
     pub enum Error for Module<T: Config> {
         AmountExceedsUserBalance,
         AmountExceedsVaultBalance,
-        UnauthorizedVault,
         CommitPeriodExpired,
         UnauthorizedUser,
         TimeNotExpired,
