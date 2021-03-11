@@ -199,10 +199,7 @@ impl<T: Config> Module<T> {
         ext::treasury::mint::<T>(request.vault.clone(), request.fee);
 
         // reward vault for this refund by increasing its SLA
-        ext::sla::event_update_vault_sla::<T>(
-            request.vault.clone(),
-            ext::sla::VaultEvent::Refunded,
-        )?;
+        ext::sla::event_update_vault_sla::<T>(&request.vault, ext::sla::VaultEvent::Refunded)?;
 
         // mark the request as completed
         <RefundRequests<T>>::mutate(refund_id, |request| {

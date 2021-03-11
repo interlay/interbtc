@@ -193,11 +193,19 @@ pub(crate) mod refund {
 pub(crate) mod sla {
     use frame_support::dispatch::DispatchError;
     pub use sla::types::RelayerEvent;
+    use crate::types::DOT;
 
     pub fn event_update_relayer_sla<T: sla::Config>(
-        relayer_id: T::AccountId,
+        relayer_id: &T::AccountId,
         event: RelayerEvent,
     ) -> Result<(), DispatchError> {
         <sla::Module<T>>::event_update_relayer_sla(relayer_id, event)
+    }
+
+    pub fn initialize_relayer_stake<T: sla::Config>(
+        relayer_id: &T::AccountId,
+        stake: DOT<T>
+    ) -> Result<(), DispatchError> {
+        <sla::Module<T>>::initialize_relayer_stake(relayer_id, stake)
     }
 }

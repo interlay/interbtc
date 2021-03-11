@@ -144,14 +144,14 @@ pub(crate) mod sla {
     pub use sla::types::VaultEvent;
 
     pub fn event_update_vault_sla<T: sla::Config>(
-        vault_id: T::AccountId,
+        vault_id: &T::AccountId,
         event: VaultEvent<PolkaBTC<T>>,
     ) -> Result<(), DispatchError> {
         <sla::Module<T>>::event_update_vault_sla(vault_id, event)
     }
 
     pub fn calculate_slashed_amount<T: sla::Config>(
-        vault_id: T::AccountId,
+        vault_id: &T::AccountId,
         stake: DOT<T>,
     ) -> Result<DOT<T>, DispatchError> {
         <sla::Module<T>>::calculate_slashed_amount(vault_id, stake)

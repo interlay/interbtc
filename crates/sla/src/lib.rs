@@ -53,6 +53,8 @@ decl_storage! {
         /// Mapping from accounts of vaults/relayers to their sla score
         VaultSla get(fn vault_sla): map hasher(blake2_128_concat) T::AccountId => T::SignedFixedPoint;
         RelayerSla get(fn relayer_sla): map hasher(blake2_128_concat) T::AccountId => T::SignedFixedPoint;
+        RelayerStake get(fn relayer_stake): map hasher(blake2_128_concat) T::AccountId => T::SignedFixedPoint;
+
 
         // number of issues executed by all vaults together; used for calculating the average issue size,
         // which is used in SLA updates
@@ -122,10 +124,10 @@ impl<T: Config> Module<T> {
     /// * `vault_id` - account id of the vault
     /// * `event` - the event that has happened
     pub fn event_update_vault_sla(
-        vault_id: T::AccountId,
+        vault_id: &T::AccountId,
         event: VaultEvent<PolkaBTC<T>>,
     ) -> Result<(), DispatchError> {
-        let current_sla = <VaultSla<T>>::get(vault_id.clone());
+        let current_sla = <VaultSla<T>>::get(vault_id);
         let delta_sla = match event {
             VaultEvent::RedeemFailure => <VaultRedeemFailure<T>>::get(),
             VaultEvent::SubmittedIssueProof => <VaultSubmittedIssueProof<T>>::get(),
@@ -140,9 +142,9 @@ impl<T: Config> Module<T> {
 
         let bounded_new_sla = Self::_limit(T::SignedFixedPoint::zero(), new_sla, max_sla);
 
-        <VaultSla<T>>::insert(vault_id.clone(), bounded_new_sla);
+        <VaultSla<T>>::insert(vault_id, bounded_new_sla);
         Self::deposit_event(<Event<T>>::UpdateVaultSLA(
-            vault_id,
+            vault_id.clone(),
             bounded_new_sla,
             delta_sla,
         ));
@@ -157,10 +159,10 @@ impl<T: Config> Module<T> {
     /// * `relayer_id` - account id of the relayer
     /// * `event` - the event that has happened
     pub fn event_update_relayer_sla(
-        relayer_id: T::AccountId,
+        relayer_id: &T::AccountId,
         event: RelayerEvent,
     ) -> Result<(), DispatchError> {
-        let current_sla = <RelayerSla<T>>::get(relayer_id.clone());
+        let current_sla = <RelayerSla<T>>::get(relayer_id);
         let delta_sla = Self::_relayer_sla_change(event);
 
         let max = <RelayerTargetSla<T>>::get(); // todo: check that this is indeed the max
@@ -173,7 +175,7 @@ impl<T: Config> Module<T> {
         let new_sla = Self::_limit(min, potential_new_sla, max);
 
         if current_sla != new_sla {
-            let stake = Self::_get_relayer_stake_as_fixed_point(relayer_id.clone())?;
+            let stake = Self::get_relayer_stake(relayer_id);
             let total_relayer_score = <TotalRelayerScore<T>>::get();
 
             // todo: check if we can get problems with rounding errors
@@ -188,8 +190,12 @@ impl<T: Config> Module<T> {
                 calculate_new_total_relayer_score().ok_or(Error::<T>::InvalidTotalRelayerScore)?;
 
             <TotalRelayerScore<T>>::set(new_total);
-            <RelayerSla<T>>::insert(relayer_id.clone(), new_sla);
-            Self::deposit_event(<Event<T>>::UpdateRelayerSLA(relayer_id, new_sla, delta_sla));
+            <RelayerSla<T>>::insert(relayer_id, new_sla);
+            Self::deposit_event(<Event<T>>::UpdateRelayerSLA(
+                relayer_id.clone(),
+                new_sla,
+                delta_sla,
+            ));
         }
 
         Ok(())
@@ -294,11 +300,11 @@ impl<T: Config> Module<T> {
                 Ok((
                     account_id.clone(),
                     Self::u128_to_polkabtc(Self::_calculate_relayer_reward(
-                        account_id.clone(),
+                        &account_id,
                         Self::polkabtc_to_u128(total_reward_polka_btc)?,
                     )?)?,
                     Self::u128_to_dot(Self::_calculate_relayer_reward(
-                        account_id.clone(),
+                        &account_id,
                         Self::dot_to_u128(total_reward_dot)?,
                     )?)?,
                 ))
@@ -320,7 +326,7 @@ impl<T: Config> Module<T> {
     /// * `vault_id` - account of the vault in question
     /// * `stake` - the amount of collateral placed for the redeem/replace
     pub fn calculate_slashed_amount(
-        vault_id: T::AccountId,
+        vault_id: &T::AccountId,
         stake: DOT<T>,
     ) -> Result<DOT<T>, DispatchError> {
         let current_sla = <VaultSla<T>>::get(vault_id);
@@ -341,8 +347,22 @@ impl<T: Config> Module<T> {
     }
 
     /// Explicitly set the vault's SLA score, used in tests.
-    pub fn set_vault_sla(vault_id: T::AccountId, sla: SignedFixedPoint<T>) {
-        <VaultSla<T>>::insert(vault_id.clone(), sla);
+    pub fn set_vault_sla(vault_id: &T::AccountId, sla: SignedFixedPoint<T>) {
+        <VaultSla<T>>::insert(vault_id, sla);
+    }
+
+    /// initializes the relayer's stake. Not that this module assumes that once set, the stake
+    /// remains unchanged forever
+    pub fn initialize_relayer_stake(
+        relayer_id: &T::AccountId,
+        stake: DOT<T>,
+    ) -> Result<(), DispatchError> {
+        let stake = Self::dot_to_u128(stake)?;
+        let stake = T::SignedFixedPoint::checked_from_rational(stake, 1u128)
+            .ok_or(Error::<T>::TryIntoIntError)?;
+        <RelayerStake<T>>::insert(relayer_id, stake);
+
+        Ok(())
     }
 
     // Private functions internal to this pallet
@@ -396,6 +416,7 @@ impl<T: Config> Module<T> {
         count = count.checked_add(1).ok_or(Error::<T>::ArithmeticOverflow)?;
         <TotalIssueCount>::set(count);
 
+        // TODO: fix this
         let total = ext::treasury::get_total_supply::<T>();
         let total_raw = Self::polkabtc_to_u128(total)?;
         let average = T::SignedFixedPoint::checked_from_rational(total_raw, count)
@@ -455,11 +476,11 @@ impl<T: Config> Module<T> {
 
     /// Calculate the reward of a given relayer, given the total reward for the whole relayer pool
     fn _calculate_relayer_reward(
-        relayer_id: T::AccountId,
+        relayer_id: &T::AccountId,
         total_reward: u128,
     ) -> Result<u128, DispatchError> {
-        let stake = Self::_get_relayer_stake_as_fixed_point(relayer_id.clone())?;
-        let sla = <RelayerSla<T>>::get(relayer_id);
+        let stake = Self::get_relayer_stake(&relayer_id);
+        let sla = <RelayerSla<T>>::get(&relayer_id);
         let total_relayer_score = <TotalRelayerScore<T>>::get();
 
         if total_relayer_score.is_zero() {
@@ -475,15 +496,8 @@ impl<T: Config> Module<T> {
         Ok(calculate_reward().ok_or(Error::<T>::InvalidRelayerReward)?)
     }
 
-    /// Gets the staked collateral of the given relayer as a fixed point type
-    fn _get_relayer_stake_as_fixed_point(
-        relayer_id: T::AccountId,
-    ) -> Result<T::SignedFixedPoint, DispatchError> {
-        let stake = ext::collateral::get_collateral_from_account::<T>(relayer_id.clone());
-        let stake = Self::dot_to_u128(stake)?;
-        let stake = T::SignedFixedPoint::checked_from_rational(stake, 1u128)
-            .ok_or(Error::<T>::TryIntoIntError)?;
-        Ok(stake)
+    fn get_relayer_stake(relayer_id: &T::AccountId) -> SignedFixedPoint<T> {
+        <RelayerStake<T>>::get(relayer_id)
     }
 
     /// Convert a given threshold from the vault registry to a signed fixed point type

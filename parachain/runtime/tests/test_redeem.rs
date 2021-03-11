@@ -269,7 +269,7 @@ fn integration_test_redeem_polka_btc_cancel_reimburse() {
             + TreasuryModule::get_locked_balance_from_account(account_of(user));
 
         let sla_score_before = FixedI128::from(60);
-        SlaModule::set_vault_sla(account_of(vault), sla_score_before);
+        SlaModule::set_vault_sla(&account_of(vault), sla_score_before);
 
         // alice cancels redeem request and chooses to reimburse
         assert_ok!(Call::Redeem(RedeemCall::cancel_redeem(redeem_id, true))
@@ -324,7 +324,7 @@ fn integration_test_redeem_polka_btc_cancel_no_reimburse() {
             + TreasuryModule::get_locked_balance_from_account(account_of(user));
 
         let sla_score_before = FixedI128::from(60);
-        SlaModule::set_vault_sla(account_of(vault), sla_score_before);
+        SlaModule::set_vault_sla(&account_of(vault), sla_score_before);
 
         // alice cancels redeem request, but does not reimburse
         assert_ok!(Call::Redeem(RedeemCall::cancel_redeem(redeem_id, false))
@@ -374,7 +374,7 @@ fn test_cancel_liquidated(reimburse: bool) {
         + TreasuryModule::get_locked_balance_from_account(account_of(user));
     let initial_collateral = CollateralModule::get_collateral_from_account(&account_of(vault));
     let sla_score_before = FixedI128::from(60);
-    SlaModule::set_vault_sla(account_of(vault), sla_score_before);
+    SlaModule::set_vault_sla(&account_of(vault), sla_score_before);
 
     let mut rich_vault: RichVault<Runtime> =
         VaultRegistryModule::get_vault_from_id(&account_of(vault))

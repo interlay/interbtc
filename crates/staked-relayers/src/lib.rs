@@ -171,6 +171,7 @@ decl_module! {
                 Error::<T>::InsufficientStake,
             );
             ext::collateral::lock_collateral::<T>(&signer, stake)?;
+            ext::sla::initialize_relayer_stake::<T>(&signer, stake)?;
 
             ext::btc_relay::register_authorized_relayer::<T>(signer.clone());
 
@@ -426,7 +427,7 @@ decl_module! {
             });
 
             // reward relayer for this report by increasing its sla
-            ext::sla::event_update_relayer_sla::<T>(signer, ext::sla::RelayerEvent::CorrectTheftReport)?;
+            ext::sla::event_update_relayer_sla::<T>(&signer, ext::sla::RelayerEvent::CorrectTheftReport)?;
 
             Self::deposit_event(<Event<T>>::VaultTheft(
                 vault_id,
@@ -456,7 +457,7 @@ decl_module! {
             ext::vault_registry::liquidate_vault::<T>(&vault_id)?;
 
             // reward relayer for this report by increasing its sla
-            ext::sla::event_update_relayer_sla::<T>(signer, ext::sla::RelayerEvent::CorrectLiquidationReport)?;
+            ext::sla::event_update_relayer_sla::<T>(&signer, ext::sla::RelayerEvent::CorrectLiquidationReport)?;
 
             Self::deposit_event(<Event<T>>::VaultUnderLiquidationThreshold(
                 vault_id
@@ -487,7 +488,7 @@ decl_module! {
             ext::security::insert_error::<T>(ErrorCode::OracleOffline);
 
             // reward relayer for this report by increasing its sla
-            ext::sla::event_update_relayer_sla::<T>(signer, ext::sla::RelayerEvent::CorrectOracleOfflineReport)?;
+            ext::sla::event_update_relayer_sla::<T>(&signer, ext::sla::RelayerEvent::CorrectOracleOfflineReport)?;
 
             Self::deposit_event(<Event<T>>::OracleOffline());
 
@@ -898,13 +899,13 @@ impl<T: Config> Module<T> {
         for relayer in correct_voters {
             if no_data_relayer {
                 ext::sla::event_update_relayer_sla::<T>(
-                    relayer.clone(),
+                    &relayer,
                     ext::sla::RelayerEvent::CorrectNoDataVoteOrReport,
                 )?;
             }
             if invalid_relayer {
                 ext::sla::event_update_relayer_sla::<T>(
-                    relayer.clone(),
+                    &relayer,
                     ext::sla::RelayerEvent::CorrectInvalidVoteOrReport,
                 )?;
             }
@@ -914,13 +915,13 @@ impl<T: Config> Module<T> {
         for relayer in incorrect_voters {
             if no_data_relayer {
                 ext::sla::event_update_relayer_sla::<T>(
-                    relayer.clone(),
+                    &relayer,
                     ext::sla::RelayerEvent::FalseNoDataVoteOrReport,
                 )?;
             }
             if invalid_relayer {
                 ext::sla::event_update_relayer_sla::<T>(
-                    relayer.clone(),
+                    &relayer,
                     ext::sla::RelayerEvent::FalseInvalidVoteOrReport,
                 )?;
             }
@@ -940,7 +941,7 @@ impl<T: Config> Module<T> {
             }
 
             ext::sla::event_update_relayer_sla::<T>(
-                abstainer.clone(),
+                &abstainer,
                 ext::sla::RelayerEvent::IgnoredVote,
             )?;
         }

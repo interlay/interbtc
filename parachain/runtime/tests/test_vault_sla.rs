@@ -16,8 +16,8 @@ fn initial_sla() -> FixedI128 {
 
 fn test_with<R>(execute: impl FnOnce() -> R) -> R {
     ExtBuilder::build().execute_with(|| {
-        SlaModule::set_vault_sla(account_of(VAULT), initial_sla());
-        SlaModule::set_vault_sla(account_of(PROOF_SUBMITTER), initial_sla());
+        SlaModule::set_vault_sla(&account_of(VAULT), initial_sla());
+        SlaModule::set_vault_sla(&account_of(PROOF_SUBMITTER), initial_sla());
 
         execute()
     })
@@ -137,7 +137,7 @@ fn test_sla_decrease_for_redeem_failure() {
 #[test]
 fn test_sla_remains_unchanged_when_liquidated() {
     test_with(|| {
-        let (issue_id, issue) = request_issue(1000);
+        let (issue_id, _) = request_issue(1000);
 
         drop_exchange_rate_and_liquidate(VAULT);
 

@@ -20,7 +20,7 @@ pub(crate) mod sla {
     pub use sla::types::VaultEvent;
 
     pub fn event_update_vault_sla<T: sla::Config>(
-        vault_id: T::AccountId,
+        vault_id: &T::AccountId,
         event: VaultEvent<PolkaBTC<T>>,
     ) -> Result<(), DispatchError> {
         <sla::Module<T>>::event_update_vault_sla(vault_id, event)

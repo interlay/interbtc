@@ -17,7 +17,7 @@ fn setup_relayer(relayer: [u8; 32], sla: u32, stake: u128) {
     );
     for _ in 0..sla {
         SlaModule::event_update_relayer_sla(
-            account_of(relayer),
+            &account_of(relayer),
             sla::types::RelayerEvent::BlockSubmission,
         )
         .unwrap();
@@ -146,7 +146,7 @@ fn test_relayer_fee_pool_withdrawal() {
 
         // make the used relayer irrelevant in fee calculations
         SlaModule::event_update_relayer_sla(
-            account_of(ISSUE_RELAYER),
+            &account_of(ISSUE_RELAYER),
             sla::types::RelayerEvent::FalseInvalidVoteOrReport,
         )
         .unwrap();
