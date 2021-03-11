@@ -5,9 +5,6 @@ use mock::*;
 use primitive_types::H256;
 
 type IssueCall = issue::Call<Runtime>;
-type ReplaceCall = replace::Call<Runtime>;
-type ReplaceEvent = replace::Event<Runtime>;
-type ReplaceModule = replace::Module<Runtime>;
 
 pub type VaultRegistryError = vault_registry::Error<Runtime>;
 

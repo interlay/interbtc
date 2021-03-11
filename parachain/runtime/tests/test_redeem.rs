@@ -1,35 +1,10 @@
 mod mock;
 
+use mock::redeem_testing_utils::*;
 use mock::*;
 
-use primitive_types::H256;
-
-type RedeemCall = redeem::Call<Runtime>;
-type RedeemModule = redeem::Module<Runtime>;
-type RedeemEvent = redeem::Event<Runtime>;
-type RedeemError = redeem::Error<Runtime>;
 use vault_registry::types::RichVault;
 use vault_registry::types::UpdatableVault;
-
-const USER: [u8; 32] = ALICE;
-const VAULT: [u8; 32] = BOB;
-const USER_BTC_ADDRESS: BtcAddress = BtcAddress::P2PKH(H160([2u8; 20]));
-pub const DEFAULT_USER_FREE_BALANCE: u128 = 1_000_000;
-pub const DEFAULT_USER_LOCKED_BALANCE: u128 = 100_000;
-
-// asserts redeem event happen and extracts its id for further testing
-fn assert_redeem_request_event() -> H256 {
-    let events = SystemModule::events();
-    let ids = events
-        .iter()
-        .filter_map(|r| match r.event {
-            Event::redeem(RedeemEvent::RequestRedeem(id, _, _, _, _, _, _)) => Some(id.clone()),
-            _ => None,
-        })
-        .collect::<Vec<H256>>();
-    assert_eq!(ids.len(), 1);
-    ids[0].clone()
-}
 
 #[test]
 fn integration_test_redeem_should_fail_if_not_running() {
@@ -176,6 +151,8 @@ fn integration_test_premium_redeem_polka_btc_execute() {
         ))
         .dispatch(origin_of(account_of(vault))));
 
+        assert_eq!(FeeModule::epoch_rewards_polka_btc(), redeem.fee);
+
         let final_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
         let final_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
         let final_btc_issuance = TreasuryModule::get_total_supply();
@@ -264,69 +241,6 @@ fn integration_test_redeem_polka_btc_liquidation_redeem() {
             },
         );
     });
-}
-
-fn setup_cancelable_redeem(
-    user: [u8; 32],
-    vault: [u8; 32],
-    collateral: u128,
-    polka_btc: u128,
-) -> H256 {
-    let redeem_id = setup_redeem(polka_btc, user, vault, collateral);
-
-    // expire request without transferring btc
-    SystemModule::set_block_number(RedeemModule::redeem_period() + 1 + 1);
-
-    // bob cannot execute past expiry
-    assert_noop!(
-        Call::Redeem(RedeemCall::execute_redeem(
-            redeem_id,
-            H256Le::from_bytes_le(&[0; 32]),
-            vec![],
-            vec![],
-        ))
-        .dispatch(origin_of(account_of(vault))),
-        RedeemError::CommitPeriodExpired,
-    );
-
-    redeem_id
-}
-
-fn setup_redeem(polka_btc: u128, user: [u8; 32], vault: [u8; 32], collateral: u128) -> H256 {
-    SystemModule::set_block_number(1);
-
-    set_default_thresholds();
-
-    assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-        FixedU128::one()
-    ));
-
-    let fee = FeeModule::get_redeem_fee(polka_btc).unwrap();
-
-    // burn surplus free balance to make checking easier
-    CollateralModule::transfer(
-        account_of(vault),
-        account_of(FAUCET),
-        CollateralModule::get_balance_from_account(&account_of(vault)) - collateral,
-    )
-    .unwrap();
-
-    // create tokens for the vault and user
-    force_issue_tokens(user, vault, collateral, polka_btc - fee);
-
-    // mint tokens to the user such that he can afford the fee
-    TreasuryModule::mint(user.into(), fee);
-
-    // alice requests to redeem polka_btc from Bob
-    assert_ok!(Call::Redeem(RedeemCall::request_redeem(
-        polka_btc,
-        USER_BTC_ADDRESS,
-        account_of(vault)
-    ))
-    .dispatch(origin_of(account_of(user))));
-
-    // assert that request happened and extract the id
-    assert_redeem_request_event()
 }
 
 #[test]
@@ -528,6 +442,7 @@ fn integration_test_redeem_polka_btc_execute_liquidated() {
         let amount_without_fee = polka_btc - fee;
 
         let redeem_id = setup_redeem(polka_btc, USER, VAULT, collateral_vault);
+        let redeem = RedeemModule::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
         UserData::force_to(
             USER,
@@ -560,7 +475,7 @@ fn integration_test_redeem_polka_btc_execute_liquidated() {
 
         drop_exchange_rate_and_liquidate(VAULT);
 
-        assert_redeem_ok(polka_btc, redeem_id);
+        execute_redeem(polka_btc, redeem_id);
 
         assert_eq!(
             CoreVaultData::vault(VAULT),
@@ -581,21 +496,100 @@ fn integration_test_redeem_polka_btc_execute_liquidated() {
                 free_tokens: 50,
             },
         );
+
+        assert_eq!(FeeModule::epoch_rewards_polka_btc(), redeem.fee);
     });
 }
 
-fn assert_redeem_ok(polka_btc: u128, redeem_id: H256) {
-    // send the btc from the vault to the user
-    let (tx_id, _tx_block_height, merkle_proof, raw_tx) =
-        generate_transaction_and_mine(USER_BTC_ADDRESS, polka_btc, Some(redeem_id));
+#[test]
+fn integration_test_redeem_banning() {
+    ExtBuilder::build().execute_with(|| {
+        let new_vault = CAROL;
 
-    SystemModule::set_block_number(1 + CONFIRMATIONS);
+        let redeem_id = setup_cancelable_redeem(USER, VAULT, 10_000, 1_000);
 
-    assert_ok!(Call::Redeem(RedeemCall::execute_redeem(
-        redeem_id,
-        tx_id,
-        merkle_proof,
-        raw_tx
-    ))
-    .dispatch(origin_of(account_of(VAULT))));
+        // make sure the vault & user have funds after the cancel_redeem
+        CoreVaultData::force_to(
+            VAULT,
+            CoreVaultData {
+                issued: 1000000,
+                backing_collateral: 10000000,
+                free_balance: 100, // to be used for griefing collateral
+                ..CoreVaultData::vault(VAULT)
+            },
+        );
+        UserData::force_to(
+            USER,
+            UserData {
+                free_balance: 1000000,
+                free_tokens: 10000000,
+                ..UserData::get(USER)
+            },
+        );
+        CoreVaultData::force_to(
+            new_vault,
+            CoreVaultData {
+                issued: 1000000,
+                backing_collateral: 10000000,
+                ..Default::default()
+            },
+        );
+
+        // can still make a replace request now
+        assert_ok!(Call::Replace(ReplaceCall::request_replace(100, 100))
+            .dispatch(origin_of(account_of(VAULT))));
+        let replace_id = SystemModule::events()
+            .iter()
+            .find_map(|r| match r.event {
+                Event::replace(ReplaceEvent::RequestReplace(id, _, _, _)) => Some(id.clone()),
+                _ => None,
+            })
+            .unwrap();
+
+        // cancel the redeem, this should ban the vault
+        cancel_redeem(redeem_id, USER, true);
+
+        // can not redeem with vault while banned
+        assert_noop!(
+            Call::Redeem(RedeemCall::request_redeem(
+                50,
+                BtcAddress::P2PKH(H160([0u8; 20])),
+                account_of(VAULT),
+            ))
+            .dispatch(origin_of(account_of(USER))),
+            VaultRegistryError::VaultBanned,
+        );
+
+        // can not issue with vault while banned
+        assert_noop!(
+            Call::Issue(IssueCall::request_issue(50, account_of(VAULT), 50))
+                .dispatch(origin_of(account_of(USER))),
+            VaultRegistryError::VaultBanned,
+        );
+
+        // can not request replace while banned
+        assert_noop!(
+            Call::Replace(ReplaceCall::request_replace(0, 0))
+                .dispatch(origin_of(account_of(VAULT))),
+            VaultRegistryError::VaultBanned,
+        );
+
+        // can not accept replace of banned vault
+        assert_noop!(
+            Call::Replace(ReplaceCall::accept_replace(
+                replace_id,
+                1000,
+                BtcAddress::default()
+            ))
+            .dispatch(origin_of(account_of(VAULT))),
+            VaultRegistryError::VaultBanned,
+        );
+
+        // check that the ban is not permanent
+        SystemModule::set_block_number(100000000);
+        assert_ok!(
+            Call::Issue(IssueCall::request_issue(50, account_of(VAULT), 50))
+                .dispatch(origin_of(account_of(USER)))
+        );
+    })
 }
