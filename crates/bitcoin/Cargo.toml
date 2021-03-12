@@ -32,7 +32,7 @@ std = [
 	"codec/std",
 	"primitive-types/std",
 	"sha2/std",
-	"hex/std",
+	"hex/alloc",
 	"secp256k1/std",
 	"sp-core/std",
 	"sp-std/std",

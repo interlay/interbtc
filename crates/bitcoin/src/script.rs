@@ -2,9 +2,10 @@ use crate::formatter::Formattable;
 use crate::parser::extract_op_return_data;
 use crate::types::*;
 use crate::Error;
-use codec::alloc::string::String;
-use sp_std::convert::TryFrom;
 use sp_std::prelude::*;
+
+#[cfg(feature = "std")]
+use codec::alloc::string::String;
 
 /// Bitcoin script
 #[derive(PartialEq, Debug, Clone)]
@@ -72,6 +73,7 @@ impl Script {
         &self.bytes
     }
 
+    #[cfg(feature = "std")]
     pub fn as_hex(&self) -> String {
         hex::encode(&self.bytes)
     }
@@ -91,7 +93,8 @@ impl From<Vec<u8>> for Script {
     }
 }
 
-impl TryFrom<&str> for Script {
+#[cfg(feature = "std")]
+impl sp_std::convert::TryFrom<&str> for Script {
     type Error = crate::Error;
 
     fn try_from(hex_string: &str) -> Result<Script, Self::Error> {

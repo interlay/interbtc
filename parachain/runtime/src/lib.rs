@@ -51,6 +51,7 @@ pub use module_exchange_rate_oracle_rpc_runtime_api::BalanceWrapper;
 // XCM imports
 #[cfg(feature = "cumulus-polkadot")]
 use {
+    frame_system::EnsureRoot,
     parachain_tokens::{CurrencyAdapter, NativeAsset},
     polkadot_parachain::primitives::Sibling,
     sp_runtime::traits::Convert,
@@ -128,8 +129,7 @@ impl_opaque_keys! {
 
 #[cfg(feature = "cumulus-polkadot")]
 impl_opaque_keys! {
-    pub struct SessionKeys {
-    }
+    pub struct SessionKeys {}
 }
 
 /// This runtime version.
@@ -362,6 +362,8 @@ impl xcm_handler::Config for Runtime {
     type XcmExecutor = XcmExecutor<XcmConfig>;
     type UpwardMessageSender = ParachainSystem;
     type HrmpMessageSender = ParachainSystem;
+    type SendXcmOrigin = EnsureRoot<AccountId>;
+    type AccountIdConverter = LocationConverter;
 }
 
 #[cfg(feature = "cumulus-polkadot")]
@@ -681,7 +683,6 @@ impl_runtime_apis! {
         }
     }
 
-
     impl sp_session::SessionKeys<Block> for Runtime {
         fn decode_session_keys(
             encoded: Vec<u8>,
@@ -932,4 +933,4 @@ impl_runtime_apis! {
 }
 
 #[cfg(feature = "cumulus-polkadot")]
-cumulus_parachain_system::register_validate_block!(Block, Executive);
+cumulus_parachain_system::register_validate_block!(Runtime, Executive);
