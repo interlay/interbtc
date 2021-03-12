@@ -53,6 +53,8 @@ decl_storage! {
         /// Mapping from accounts of vaults/relayers to their sla score
         VaultSla get(fn vault_sla): map hasher(blake2_128_concat) T::AccountId => T::SignedFixedPoint;
         RelayerSla get(fn relayer_sla): map hasher(blake2_128_concat) T::AccountId => T::SignedFixedPoint;
+
+        // TODO: deduplicate this with the storage in the staked_relayers pallet
         RelayerStake get(fn relayer_stake): map hasher(blake2_128_concat) T::AccountId => T::SignedFixedPoint;
 
 

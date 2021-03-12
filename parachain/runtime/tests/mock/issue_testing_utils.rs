@@ -21,6 +21,7 @@ pub struct RequestIssueBuilder {
     vault: [u8; 32],
     user: [u8; 32],
 }
+
 impl RequestIssueBuilder {
     pub fn new(amount_btc: u128) -> Self {
         Self {
@@ -79,6 +80,7 @@ pub struct ExecuteIssueBuilder {
     submitter: [u8; 32],
     relayer: [u8; 32],
 }
+
 impl ExecuteIssueBuilder {
     pub fn new(issue_id: H256) -> Self {
         let issue = IssueModule::get_issue_request_from_id(&issue_id).unwrap();
