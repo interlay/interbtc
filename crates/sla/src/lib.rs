@@ -117,6 +117,25 @@ decl_module! {
 impl<T: Config> Module<T> {
     // Public functions exposed to other pallets
 
+    pub fn _on_runtime_upgrade(stakes: Vec<(T::AccountId, DOT<T>)>) -> Result<(), DispatchError> {
+        // clear all the old entries
+        <RelayerStake<T>>::drain().for_each(|_| {});
+
+        let mut total_score = SignedFixedPoint::<T>::zero();
+        for (relayer_id, stake) in stakes.into_iter() {
+            Self::initialize_relayer_stake(&relayer_id, stake)?;
+            let stake_fixed_point = <RelayerStake<T>>::get(&relayer_id);
+            let score = Self::relayer_sla(&relayer_id)
+                .checked_mul(&stake_fixed_point)
+                .ok_or(Error::<T>::ArithmeticOverflow)?;
+            total_score = total_score
+                .checked_add(&score)
+                .ok_or(Error::<T>::ArithmeticOverflow)?;
+        }
+        <TotalRelayerScore<T>>::set(total_score);
+        Ok(())
+    }
+
     /// Update the SLA score of the vault on given the event.
     ///
     /// # Arguments

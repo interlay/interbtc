@@ -1,4 +1,5 @@
 extern crate hex;
+use crate::sp_api_hidden_includes_decl_storage::hidden_include::StorageMap;
 use crate::types::{ProposalStatus, StakedRelayer, StatusUpdate, Tally, Votes};
 use crate::{ext, mock::*};
 use bitcoin::formatter::Formattable;
@@ -1479,5 +1480,20 @@ fn test_remove_inactive_status_update_only_root() {
             Origin::root(),
             status_update_id
         ));
+    })
+}
+
+#[test]
+fn runtime_upgrade_succeeds() {
+    run_test(|| {
+        <crate::ActiveStakedRelayers<Test>>::insert(
+            ALICE,
+            StakedRelayer {
+                height: 0,
+                stake: 10,
+            },
+        );
+
+        assert_ok!(StakedRelayers::_on_runtime_upgrade());
     })
 }
