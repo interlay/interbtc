@@ -26,7 +26,7 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use frame_support::debug;
+use frame_support::runtime_print;
 use frame_support::transactional;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
@@ -512,10 +512,10 @@ impl<T: Config> Module<T> {
 
         // Update the blockchain
         // check if we create a new blockchain or extend the existing one
-        debug::print!("Prev max height: {:?}\n", prev_blockchain.max_height);
-        debug::print!("Prev block height: {:?}\n", prev_block_height);
+        runtime_print!("Prev max height: {:?}", prev_blockchain.max_height);
+        runtime_print!("Prev block height: {:?}", prev_block_height);
         let is_fork = prev_blockchain.max_height != prev_block_height;
-        debug::print!("Fork detected: {:?}\n", is_fork);
+        runtime_print!("Fork detected: {:?}", is_fork);
 
         let blockchain = if is_fork {
             // create new blockchain element
@@ -1598,8 +1598,8 @@ impl<T: Config> Module<T> {
             Ok(id) => {
                 let next_best_fork_height = Self::get_block_chain_from_id(id)?.max_height;
 
-                debug::print!("Best block height: {}", best_block_height);
-                debug::print!("Next best fork height: {}", next_best_fork_height);
+                runtime_print!("Best block height: {}", best_block_height);
+                runtime_print!("Next best fork height: {}", next_best_fork_height);
                 // fail if there is an ongoing fork
                 ensure!(
                     best_block_height
