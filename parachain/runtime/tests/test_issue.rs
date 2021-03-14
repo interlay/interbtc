@@ -269,103 +269,40 @@ fn integration_test_issue_overpayment() {
 #[test]
 fn integration_test_issue_refund() {
     ExtBuilder::build().execute_with(|| {
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::one()
-        ));
+        let (issue_id, issue) = request_issue(1000);
 
-        let user = ALICE;
-        let vault = BOB;
-        let amount_btc = 1000000;
-        let griefing_collateral = 100;
-        let overpayment_factor = 2;
-        let collateral_vault = required_collateral_for_issue(amount_btc);
+        // verify that the vault has no spendable tokens at start
+        assert_eq!(UserData::get(VAULT).free_tokens, 0);
 
-        SystemModule::set_block_number(1);
-
-        let initial_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
-        let initial_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
-
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-            collateral_vault,
-            dummy_public_key()
-        ))
-        .dispatch(origin_of(account_of(vault))));
-
-        // alice requests polka_btc by locking btc with bob
-        assert_ok!(Call::Issue(IssueCall::request_issue(
-            amount_btc,
-            account_of(vault),
-            griefing_collateral
-        ))
-        .dispatch(origin_of(account_of(ALICE))));
-
-        let issue_id = assert_issue_request_event();
-        let issue_request = IssueModule::get_issue_request_from_id(&issue_id).unwrap();
-        let vault_btc_address = issue_request.btc_address;
-        let fee_amount_btc = issue_request.fee;
-        let total_amount_btc = amount_btc + fee_amount_btc;
-
-        // send the btc from the user to the vault
-        let (tx_id, _height, proof, raw_tx) = generate_transaction_and_mine(
-            vault_btc_address,
-            overpayment_factor * total_amount_btc,
-            None,
+        // make sure we don't have enough collateral to fulfil the overpayment
+        CoreVaultData::force_to(
+            VAULT,
+            CoreVaultData {
+                backing_collateral: 2000,
+                ..CoreVaultData::vault(VAULT)
+            },
         );
 
-        SystemModule::set_block_number(1 + CONFIRMATIONS);
+        // overpay by a factor of 4
+        ExecuteIssueBuilder::new(issue_id)
+            .with_amount(4 * (issue.amount + issue.fee))
+            .execute();
 
-        // alice executes the issue by confirming the btc transaction
-        assert_ok!(
-            Call::Issue(IssueCall::execute_issue(issue_id, tx_id, proof, raw_tx))
-                .dispatch(origin_of(account_of(user)))
-        );
+        // perform the refund
+        execute_refund(VAULT);
 
-        // check the sla increase
-        let expected_sla = SlaModule::vault_executed_issue_max_sla_change()
-            * FixedI128::checked_from_rational(amount_btc, total_amount_btc).unwrap();
-        assert_eq!(SlaModule::vault_sla(account_of(vault)), expected_sla);
-
-        // fee should be added to epoch rewards
-        assert_eq!(FeeModule::epoch_rewards_polka_btc(), fee_amount_btc);
-
-        let final_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
-        let final_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
-
-        // griefing collateral reimbursed
-        assert_eq!(final_dot_balance, initial_dot_balance);
-
-        // polka_btc minted
-        assert_eq!(final_btc_balance, initial_btc_balance + amount_btc);
-
-        let (refund_id, refund) = execute_refund(vault);
-        // We have overpaid by 100%, and refund_fee = issue_fee, so fees should be equal
-        assert_eq!(refund.fee, issue_request.fee);
-        assert_eq!(refund.amount_polka_btc, issue_request.amount);
-
-        // check that the ExecuteRefund event has been deposited
-        let (id, issuer, refunder, amount) = SystemModule::events()
-            .iter()
-            .find_map(|record| match record.event {
-                Event::refund(RefundEvent::ExecuteRefund(a, ref b, ref c, d)) => {
-                    Some((a, b.clone(), c.clone(), d))
-                }
-                _ => None,
-            })
-            .expect("execute refund event not found");
-        assert_eq!(id, refund_id);
-        assert_eq!(issuer, account_of(user));
-        assert_eq!(refunder, account_of(vault));
-        assert_eq!(amount, refund.amount_polka_btc);
-
-        // check the sla increase
-        let expected_sla = SlaModule::vault_refunded() + expected_sla;
-        assert_eq!(SlaModule::vault_sla(account_of(vault)), expected_sla);
-
-        // check that fee was minted
+        // check that we the vault has issued the amount as usual, and 4 times the normal fee
         assert_eq!(
-            TreasuryModule::get_balance_from_account(account_of(vault)),
-            refund.fee
+            CoreVaultData::vault(VAULT),
+            CoreVaultData {
+                issued: issue.amount + 4 * issue.fee,
+                backing_collateral: 2000,
+                ..Default::default()
+            },
         );
+
+        // check that fee was minted and is spendable by the vault
+        assert_eq!(UserData::get(VAULT).free_tokens, 3 * issue.fee);
     });
 }
 

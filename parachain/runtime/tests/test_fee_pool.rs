@@ -57,7 +57,7 @@ fn test_vault_fee_pool_withdrawal() {
         set_issued_and_backing(VAULT2, 800, 200);
 
         let epoch_rewards = FeeModule::epoch_rewards_polka_btc();
-        let vault_rewards = (epoch_rewards * 90) / 100; // set at 90% in tests
+        let vault_rewards = (epoch_rewards * 70) / 100; // set at 70% in tests
 
         // simulate that we entered a new epoch
         assert_ok!(FeeModule::update_rewards_for_epoch());
@@ -85,7 +85,7 @@ fn test_vault_fee_pool_withdrawal_with_liquidated_vaults() {
         drop_exchange_rate_and_liquidate(VAULT2);
 
         let epoch_rewards = FeeModule::epoch_rewards_polka_btc();
-        let vault_rewards = (epoch_rewards * 90) / 100; // set at 90% in tests
+        let vault_rewards = (epoch_rewards * 70) / 100; // set at 70% in tests
 
         // simulate that we entered a new epoch
         assert_ok!(FeeModule::update_rewards_for_epoch());
@@ -106,7 +106,7 @@ fn test_vault_fee_pool_withdrawal_over_multiple_epochs() {
         set_issued_and_backing(VAULT1, 200, 800);
 
         let epoch_1_rewards = FeeModule::epoch_rewards_polka_btc();
-        let vault_epoch_1_rewards = (epoch_1_rewards * 90) / 100; // set at 90% in tests
+        let vault_epoch_1_rewards = (epoch_1_rewards * 70) / 100; // set at 70% in tests
 
         // simulate that we entered a new epoch
         assert_ok!(FeeModule::update_rewards_for_epoch());
@@ -120,7 +120,7 @@ fn test_vault_fee_pool_withdrawal_over_multiple_epochs() {
         set_issued_and_backing(VAULT2, 800, 200);
 
         let epoch_2_rewards = FeeModule::epoch_rewards_polka_btc();
-        let vault_epoch_2_rewards = (epoch_2_rewards * 90) / 100; // set at 90% in tests
+        let vault_epoch_2_rewards = (epoch_2_rewards * 70) / 100; // set at 70% in tests
 
         // simulate that we entered a new epoch
         assert_ok!(FeeModule::update_rewards_for_epoch());
@@ -129,12 +129,12 @@ fn test_vault_fee_pool_withdrawal_over_multiple_epochs() {
         // and 80% of the 10% awarded by collateral
         assert_eq!(
             FeeModule::get_polka_btc_rewards(&account_of(VAULT1)),
-            vault_epoch_1_rewards + (vault_epoch_2_rewards * 26) / 100 - 1 // - 1 due to rounding difference
+            vault_epoch_1_rewards + (vault_epoch_2_rewards * 26) / 100
         );
         // second vault gets the other 74%
         assert_eq!(
             FeeModule::get_polka_btc_rewards(&account_of(VAULT2)),
-            (vault_epoch_2_rewards * 74) / 100
+            (vault_epoch_2_rewards * 74) / 100 - 1 // -1 due to rounding difference
         );
     })
 }
@@ -155,7 +155,7 @@ fn test_relayer_fee_pool_withdrawal() {
         setup_relayer(RELAYER_2, 40, 200);
 
         let epoch_rewards = FeeModule::epoch_rewards_polka_btc();
-        let relayer_rewards = (epoch_rewards * 10) / 100; // set at 10% in tests
+        let relayer_rewards = (epoch_rewards * 20) / 100; // set at 20% in tests
 
         // simulate that we entered a new epoch
         assert_ok!(FeeModule::update_rewards_for_epoch());
@@ -169,6 +169,24 @@ fn test_relayer_fee_pool_withdrawal() {
         assert_eq!(
             FeeModule::get_polka_btc_rewards(&account_of(RELAYER_2)),
             (relayer_rewards * 80) / 100
+        );
+    })
+}
+
+#[test]
+fn test_maintainer_fee_pool_withdrawal() {
+    ExtBuilder::build().execute_with(|| {
+        set_issued_and_backing(VAULT1, 1000, 1000);
+
+        let epoch_rewards = FeeModule::epoch_rewards_polka_btc();
+        let maintainer_rewards = (epoch_rewards * 10) / 100; // set at 10% in tests
+
+        // simulate that we entered a new epoch
+        assert_ok!(FeeModule::update_rewards_for_epoch());
+
+        assert_eq!(
+            FeeModule::get_polka_btc_rewards(&account_of(MAINTAINER)),
+            maintainer_rewards
         );
     })
 }

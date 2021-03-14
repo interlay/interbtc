@@ -122,6 +122,66 @@ fn test_event_update_relayer_sla_succeeds() {
                 FixedI128::from(i + 1)
             );
         }
+
+        <crate::RelayerSla<Test>>::insert(ALICE, FixedI128::from(50));
+        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::BlockSubmission).unwrap();
+        assert_eq!(
+            <crate::RelayerSla<Test>>::get(ALICE),
+            FixedI128::from(50) + <crate::RelayerBlockSubmission<Test>>::get(),
+        );
+
+        <crate::RelayerSla<Test>>::insert(ALICE, FixedI128::from(50));
+        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::CorrectNoDataVoteOrReport).unwrap();
+        assert_eq!(
+            <crate::RelayerSla<Test>>::get(ALICE),
+            FixedI128::from(50) + <crate::RelayerCorrectNoDataVoteOrReport<Test>>::get(),
+        );
+
+        <crate::RelayerSla<Test>>::insert(ALICE, FixedI128::from(50));
+        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::CorrectInvalidVoteOrReport).unwrap();
+        assert_eq!(
+            <crate::RelayerSla<Test>>::get(ALICE),
+            FixedI128::from(50) + <crate::RelayerCorrectInvalidVoteOrReport<Test>>::get(),
+        );
+
+        <crate::RelayerSla<Test>>::insert(ALICE, FixedI128::from(50));
+        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::CorrectLiquidationReport).unwrap();
+        assert_eq!(
+            <crate::RelayerSla<Test>>::get(ALICE),
+            FixedI128::from(50) + <crate::RelayerCorrectLiquidationReport<Test>>::get(),
+        );
+
+        <crate::RelayerSla<Test>>::insert(ALICE, FixedI128::from(50));
+        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::CorrectTheftReport).unwrap();
+        assert_eq!(
+            <crate::RelayerSla<Test>>::get(ALICE),
+            FixedI128::from(50) + <crate::RelayerCorrectTheftReport<Test>>::get(),
+        );
+
+        <crate::RelayerSla<Test>>::insert(ALICE, FixedI128::from(50));
+        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::CorrectOracleOfflineReport).unwrap();
+        assert_eq!(
+            <crate::RelayerSla<Test>>::get(ALICE),
+            FixedI128::from(50) + <crate::RelayerCorrectOracleOfflineReport<Test>>::get(),
+        );
+
+        <crate::RelayerSla<Test>>::insert(ALICE, FixedI128::from(50));
+        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::FalseNoDataVoteOrReport).unwrap();
+        assert_eq!(
+            <crate::RelayerSla<Test>>::get(ALICE),
+            FixedI128::from(50) + <crate::RelayerFalseNoDataVoteOrReport<Test>>::get(),
+        );
+
+        <crate::RelayerSla<Test>>::insert(ALICE, FixedI128::from(50));
+        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::FalseInvalidVoteOrReport).unwrap();
+        assert_eq!(<crate::RelayerSla<Test>>::get(ALICE), FixedI128::from(0));
+
+        <crate::RelayerSla<Test>>::insert(ALICE, FixedI128::from(50));
+        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::IgnoredVote).unwrap();
+        assert_eq!(
+            <crate::RelayerSla<Test>>::get(ALICE),
+            FixedI128::from(50) + <crate::RelayerIgnoredVote<Test>>::get(),
+        );
     })
 }
 

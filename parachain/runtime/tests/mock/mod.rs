@@ -670,14 +670,12 @@ impl ExtBuilder {
             fee_pool_account_id: account_of(FEE_POOL),
             maintainer_account_id: account_of(MAINTAINER),
             epoch_period: 5,
-            // give 90% of the rewards to vaults in order for withdrawal to work
-            // since we cannot transfer below `ExistentialDeposit`
-            vault_rewards: FixedU128::checked_from_rational(90, 100).unwrap(), // 90%
             vault_rewards_issued: FixedU128::checked_from_rational(90, 100).unwrap(), // 90%
             vault_rewards_locked: FixedU128::checked_from_rational(10, 100).unwrap(), // 10%
-            relayer_rewards: FixedU128::checked_from_rational(10, 100).unwrap(), // 10%
-            maintainer_rewards: FixedU128::from(0),                            // 0%
-            collator_rewards: FixedU128::from(0),                              // 0%
+            vault_rewards: FixedU128::checked_from_rational(70, 100).unwrap(),        // 70%
+            relayer_rewards: FixedU128::checked_from_rational(20, 100).unwrap(),      // 20%
+            maintainer_rewards: FixedU128::checked_from_rational(10, 100).unwrap(),   // 10%
+            collator_rewards: FixedU128::checked_from_rational(0, 100).unwrap(),      // 0%
         }
         .assimilate_storage(&mut storage)
         .unwrap();

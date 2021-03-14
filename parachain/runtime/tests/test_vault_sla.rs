@@ -80,8 +80,6 @@ fn test_sla_increase_for_submitting_proof_for_issue_against_self() {
 #[test]
 fn test_sla_increase_for_refund() {
     test_with(|| {
-        // vault receives issue & executes it himself. Should get both SLA rewards
-
         let (issue_id, issue) = request_issue(1000);
 
         // make sure we don't have enough collateral to fulfil the overpayment

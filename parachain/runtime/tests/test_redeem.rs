@@ -86,7 +86,7 @@ fn integration_test_redeem_polka_btc_execute() {
         // polka_btc burned from issuance
         assert_eq!(final_btc_issuance, initial_btc_issuance - redeem.amount_btc);
 
-        // TODO: check redeem rewards update
+        assert_eq!(FeeModule::epoch_rewards_polka_btc(), redeem.fee);
     });
 }
 
