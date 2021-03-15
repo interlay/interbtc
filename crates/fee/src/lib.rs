@@ -206,7 +206,7 @@ decl_module! {
         fn withdraw_polka_btc(origin, amount: PolkaBTC<T>) -> DispatchResult
         {
             let signer = ensure_signed(origin)?;
-            <TotalRewardsPolkaBTC<T>>::insert(signer.clone(), <TotalRewardsPolkaBTC<T>>::get(signer.clone()).checked_sub(&amount).ok_or(Error::<T>::ArithmeticUnderflow)?);
+            <TotalRewardsPolkaBTC<T>>::insert(signer.clone(), <TotalRewardsPolkaBTC<T>>::get(signer.clone()).checked_sub(&amount).ok_or(Error::<T>::InsufficientFunds)?);
             ext::treasury::transfer::<T>(Self::fee_pool_account_id(), signer.clone(), amount)?;
             Self::deposit_event(<Event<T>>::WithdrawPolkaBTC(
                 signer,
@@ -226,7 +226,7 @@ decl_module! {
         fn withdraw_dot(origin, amount: DOT<T>) -> DispatchResult
         {
             let signer = ensure_signed(origin)?;
-            <TotalRewardsDOT<T>>::insert(signer.clone(), <TotalRewardsDOT<T>>::get(signer.clone()).checked_sub(&amount).ok_or(Error::<T>::ArithmeticUnderflow)?);
+            <TotalRewardsDOT<T>>::insert(signer.clone(), <TotalRewardsDOT<T>>::get(signer.clone()).checked_sub(&amount).ok_or(Error::<T>::InsufficientFunds)?);
             ext::collateral::transfer::<T>(Self::fee_pool_account_id(), signer.clone(), amount)?;
             Self::deposit_event(<Event<T>>::WithdrawDOT(
                 signer,
@@ -583,6 +583,7 @@ decl_error! {
         TryIntoIntError,
         ArithmeticOverflow,
         ArithmeticUnderflow,
+        InsufficientFunds,
         InvalidRewardDist,
     }
 }

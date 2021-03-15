@@ -1516,9 +1516,15 @@ fn runtime_upgrade_succeeds() {
                 ..Default::default()
             },
         );
-        assert_eq!(0, VaultRegistry::get_total_backing_collateral().unwrap());
+        assert_eq!(
+            0,
+            VaultRegistry::get_total_backing_collateral(false).unwrap()
+        );
         VaultRegistry::_on_runtime_upgrade();
-        assert_eq!(60, VaultRegistry::get_total_backing_collateral().unwrap());
+        assert_eq!(
+            60,
+            VaultRegistry::get_total_backing_collateral(false).unwrap()
+        );
     })
 }
 

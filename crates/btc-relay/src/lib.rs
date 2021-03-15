@@ -558,10 +558,7 @@ impl<T: Config> Module<T> {
             }
         };
 
-        ext::sla::event_update_relayer_sla::<T>(
-            relayer.clone(),
-            ext::sla::RelayerEvent::BlockSubmission,
-        )?;
+        ext::sla::event_update_relayer_sla::<T>(&relayer, ext::sla::RelayerEvent::BlockSubmission)?;
 
         // Determine if this block extends the main chain or a fork
         let current_best_block = Self::get_best_block();

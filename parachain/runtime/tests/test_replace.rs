@@ -5,9 +5,6 @@ use mock::*;
 use primitive_types::H256;
 
 type IssueCall = issue::Call<Runtime>;
-type ReplaceCall = replace::Call<Runtime>;
-type ReplaceEvent = replace::Event<Runtime>;
-type ReplaceModule = replace::Module<Runtime>;
 
 pub type VaultRegistryError = vault_registry::Error<Runtime>;
 
@@ -197,7 +194,7 @@ fn integration_test_replace_auction_replace() {
         let final_old_vault_collateral =
             collateral::Module::<Runtime>::get_collateral_from_account(&account_of(old_vault));
 
-        // take auction fee from old vault collateral
+        // auction fee is taken from old vault collateral
         let replace_amount_dot = ExchangeRateOracleModule::btc_to_dots(polkabtc).unwrap();
         let auction_fee = FeeModule::get_auction_redeem_fee(replace_amount_dot).unwrap();
         assert_eq!(

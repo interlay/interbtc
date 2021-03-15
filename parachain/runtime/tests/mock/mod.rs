@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 extern crate hex;
 
 pub use bitcoin::formatter::{Formattable, TryFormattable};
@@ -6,7 +7,7 @@ pub use btc_parachain_runtime::{AccountId, Call, Event, Runtime};
 pub use btc_relay::{BtcAddress, BtcPublicKey};
 pub use frame_support::{assert_noop, assert_ok};
 pub use mocktopus::mocking::*;
-use primitive_types::{H256, U256};
+pub use primitive_types::{H256, U256};
 pub use security::{ErrorCode, StatusCode};
 pub use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 pub use sp_core::H160;
@@ -14,9 +15,21 @@ pub use sp_runtime::traits::Dispatchable;
 pub use sp_std::convert::TryInto;
 pub use vault_registry::CurrencySource;
 
+pub use issue::IssueRequest;
+pub use refund::RefundRequest;
+pub use sp_runtime::AccountId32;
+pub use std::convert::TryFrom;
+
+pub mod issue_testing_utils;
+pub mod redeem_testing_utils;
+
 pub const ALICE: [u8; 32] = [0u8; 32];
 pub const BOB: [u8; 32] = [1u8; 32];
 pub const CAROL: [u8; 32] = [2u8; 32];
+pub const DAVE: [u8; 32] = [10u8; 32];
+pub const EVE: [u8; 32] = [11u8; 32];
+pub const FRANK: [u8; 32] = [12u8; 32];
+pub const GRACE: [u8; 32] = [13u8; 32];
 
 pub const LIQUIDATION_VAULT: [u8; 32] = [3u8; 32];
 pub const FEE_POOL: [u8; 32] = [4u8; 32];
@@ -33,6 +46,27 @@ pub type BTCRelayCall = btc_relay::Call<Runtime>;
 pub type BTCRelayModule = btc_relay::Module<Runtime>;
 pub type BTCRelayError = btc_relay::Error<Runtime>;
 pub type BTCRelayEvent = btc_relay::Event<Runtime>;
+
+pub type IssueCall = issue::Call<Runtime>;
+pub type IssueModule = issue::Module<Runtime>;
+pub type IssueEvent = issue::Event<Runtime>;
+pub type IssueError = issue::Error<Runtime>;
+
+pub type RefundCall = refund::Call<Runtime>;
+pub type RefundModule = refund::Module<Runtime>;
+pub type RefundEvent = refund::Event<Runtime>;
+
+pub type RedeemCall = redeem::Call<Runtime>;
+pub type RedeemModule = redeem::Module<Runtime>;
+pub type RedeemEvent = redeem::Event<Runtime>;
+pub type RedeemError = redeem::Error<Runtime>;
+
+pub type ReplaceCall = replace::Call<Runtime>;
+pub type ReplaceEvent = replace::Event<Runtime>;
+pub type ReplaceModule = replace::Module<Runtime>;
+
+pub type StakedRelayersCall = staked_relayers::Call<Runtime>;
+pub type StakedRelayersModule = staked_relayers::Module<Runtime>;
 
 pub fn origin_of(account_id: AccountId) -> <Runtime as frame_system::Config>::Origin {
     <Runtime as frame_system::Config>::Origin::signed(account_id)
@@ -148,13 +182,7 @@ impl CoreVaultData {
     #[allow(dead_code)]
     pub fn force_to(vault: [u8; 32], state: CoreVaultData) {
         // register vault if not yet registered
-        if let Err(_) = VaultRegistryModule::get_vault_from_id(&account_of(vault)) {
-            assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-                100,
-                dummy_public_key()
-            ))
-            .dispatch(origin_of(account_of(vault))));
-        };
+        try_register_vault(100, vault);
 
         // temporarily give vault a lot of backing collateral so we can set issued & to-be-issued to whatever we want
         VaultRegistryModule::slash_collateral(
@@ -170,6 +198,11 @@ impl CoreVaultData {
                 &account_of(vault),
                 state.to_be_issued - current.to_be_issued
             ));
+        } else {
+            assert_ok!(VaultRegistryModule::decrease_to_be_issued_tokens(
+                &account_of(vault),
+                current.to_be_issued - state.to_be_issued
+            ));
         }
 
         if current.issued < state.issued {
@@ -181,6 +214,17 @@ impl CoreVaultData {
             assert_ok!(VaultRegistryModule::issue_tokens(
                 &account_of(vault),
                 state.issued - current.issued
+            ));
+        } else {
+            assert_ok!(VaultRegistryModule::increase_to_be_redeemed_tokens(
+                &account_of(vault),
+                current.issued - state.issued
+            ));
+            assert_ok!(VaultRegistryModule::redeem_tokens(
+                &account_of(vault),
+                current.issued - state.issued,
+                0,
+                &account_of(vault)
             ));
         }
         if current.to_be_redeemed < state.to_be_redeemed {
@@ -270,6 +314,17 @@ pub fn dummy_public_key() -> BtcPublicKey {
 }
 
 #[allow(dead_code)]
+pub fn try_register_vault(collateral: u128, vault: [u8; 32]) {
+    if let Err(_) = VaultRegistryModule::get_vault_from_id(&account_of(vault)) {
+        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
+            collateral,
+            dummy_public_key()
+        ))
+        .dispatch(origin_of(account_of(vault))));
+    };
+}
+
+#[allow(dead_code)]
 pub fn force_issue_tokens(user: [u8; 32], vault: [u8; 32], collateral: u128, tokens: u128) {
     // register the vault
     assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
@@ -311,139 +366,185 @@ pub fn assert_store_main_chain_header_event(height: u32, hash: H256Le, relayer: 
     assert!(events.iter().any(|a| a.event == store_event));
 }
 
+#[derive(Default, Clone, Debug)]
+pub struct TransactionGenerator {
+    address: BtcAddress,
+    amount: u128,
+    return_data: Option<H256>,
+    script: Vec<u8>,
+    confirmations: u32,
+    relayer: [u8; 32],
+}
+
+impl TransactionGenerator {
+    pub fn new() -> Self {
+        Self {
+            relayer: ALICE,
+            confirmations: 7,
+            amount: 100,
+            script: vec![
+                0, 71, 48, 68, 2, 32, 91, 128, 41, 150, 96, 53, 187, 63, 230, 129, 53, 234, 210,
+                186, 21, 187, 98, 38, 255, 112, 30, 27, 228, 29, 132, 140, 155, 62, 123, 216, 232,
+                168, 2, 32, 72, 126, 179, 207, 142, 8, 99, 8, 32, 78, 244, 166, 106, 160, 207, 227,
+                61, 210, 172, 234, 234, 93, 59, 159, 79, 12, 194, 240, 212, 3, 120, 50, 1, 71, 81,
+                33, 3, 113, 209, 131, 177, 9, 29, 242, 229, 15, 217, 247, 165, 78, 111, 80, 79, 50,
+                200, 117, 80, 30, 233, 210, 167, 133, 175, 62, 253, 134, 127, 212, 51, 33, 2, 128,
+                200, 184, 235, 148, 25, 43, 34, 28, 173, 55, 54, 189, 164, 187, 243, 243, 152, 7,
+                84, 210, 85, 156, 238, 77, 97, 188, 240, 162, 197, 105, 62, 82, 174,
+            ],
+            return_data: Some(H256::zero()),
+            ..Default::default()
+        }
+    }
+    pub fn with_address(&mut self, address: BtcAddress) -> &mut Self {
+        self.address = address;
+        self
+    }
+
+    pub fn with_amount(&mut self, amount: u128) -> &mut Self {
+        self.amount = amount;
+        self
+    }
+
+    pub fn with_op_return(&mut self, op_return: Option<H256>) -> &mut Self {
+        self.return_data = op_return;
+        self
+    }
+    pub fn with_script(&mut self, script: &[u8]) -> &mut Self {
+        self.script = script.to_vec();
+        self
+    }
+    pub fn with_confirmations(&mut self, confirmations: u32) -> &mut Self {
+        self.confirmations = confirmations;
+        self
+    }
+    pub fn with_relayer(&mut self, relayer: [u8; 32]) -> &mut Self {
+        self.relayer = relayer;
+        self
+    }
+    pub fn mine(&self) -> (H256Le, u32, Vec<u8>, Vec<u8>) {
+        let mut height = 1;
+        let extra_confirmations = self.confirmations - 1;
+
+        // initialize BTC Relay with one block
+        let init_block = BlockBuilder::new()
+            .with_version(2)
+            .with_coinbase(&self.address, 50, 3)
+            .with_timestamp(1588813835)
+            .mine(U256::from(2).pow(254.into()))
+            .unwrap();
+
+        let raw_init_block_header =
+            RawBlockHeader::from_bytes(&init_block.header.try_format().unwrap())
+                .expect("could not serialize block header");
+
+        match Call::BTCRelay(BTCRelayCall::initialize(
+            raw_init_block_header.try_into().expect("bad block header"),
+            height,
+        ))
+        .dispatch(origin_of(account_of(ALICE)))
+        {
+            Ok(_) => {}
+            Err(e) if e == BTCRelayError::AlreadyInitialized.into() => {}
+            _ => panic!("Failed to initialize btc relay"),
+        }
+
+        height = BTCRelayModule::get_best_block_height() + 1;
+
+        let value = self.amount as i64;
+        let mut transaction_builder = TransactionBuilder::new();
+        transaction_builder.with_version(2);
+        transaction_builder.add_input(
+            TransactionInputBuilder::new()
+                .with_coinbase(false)
+                .with_script(&self.script)
+                .with_previous_hash(init_block.transactions[0].hash())
+                .build(),
+        );
+
+        transaction_builder.add_output(TransactionOutput::payment(value.into(), &self.address));
+        if let Some(op_return_data) = self.return_data {
+            transaction_builder
+                .add_output(TransactionOutput::op_return(0, op_return_data.as_bytes()));
+        }
+
+        let transaction = transaction_builder.build();
+
+        let prev_hash = BTCRelayModule::get_best_block();
+        let block = BlockBuilder::new()
+            .with_previous_hash(prev_hash)
+            .with_version(2)
+            .with_coinbase(&self.address, 50, 3)
+            .with_timestamp(1588814835)
+            .add_transaction(transaction.clone())
+            .mine(U256::from(2).pow(254.into()))
+            .unwrap();
+
+        let raw_block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap())
+            .expect("could not serialize block header");
+
+        let tx_id = transaction.tx_id();
+        let tx_block_height = height;
+        let proof = block.merkle_proof(&vec![tx_id]).unwrap();
+        let bytes_proof = proof.try_format().unwrap();
+        let raw_tx = transaction.format_with(true);
+
+        assert_ok!(Call::BTCRelay(BTCRelayCall::store_block_header(
+            raw_block_header.try_into().expect("bad block header")
+        ))
+        .dispatch(origin_of(account_of(self.relayer))));
+        assert_store_main_chain_header_event(
+            height,
+            block.header.hash().unwrap(),
+            account_of(self.relayer),
+        );
+
+        // Mine six new blocks to get over required confirmations
+        let mut prev_block_hash = block.header.hash().unwrap();
+        let mut timestamp = 1588814835;
+        for _ in 0..extra_confirmations {
+            height += 1;
+            timestamp += 1000;
+            let conf_block = BlockBuilder::new()
+                .with_previous_hash(prev_block_hash)
+                .with_version(2)
+                .with_coinbase(&self.address, 50, 3)
+                .with_timestamp(timestamp)
+                .mine(U256::from(2).pow(254.into()))
+                .unwrap();
+
+            let raw_conf_block_header =
+                RawBlockHeader::from_bytes(&conf_block.header.try_format().unwrap())
+                    .expect("could not serialize block header");
+            assert_ok!(Call::BTCRelay(BTCRelayCall::store_block_header(
+                raw_conf_block_header.try_into().expect("bad block header"),
+            ))
+            .dispatch(origin_of(account_of(self.relayer))));
+
+            assert_store_main_chain_header_event(
+                height,
+                conf_block.header.hash().unwrap(),
+                account_of(self.relayer),
+            );
+
+            prev_block_hash = conf_block.header.hash().unwrap();
+        }
+
+        (tx_id, tx_block_height, bytes_proof, raw_tx)
+    }
+}
+
 #[allow(dead_code)]
 pub fn generate_transaction_and_mine(
     address: BtcAddress,
     amount: u128,
     return_data: Option<H256>,
 ) -> (H256Le, u32, Vec<u8>, Vec<u8>) {
-    generate_transaction_and_mine_with_script_sig(
-        address,
-        amount,
-        return_data,
-        &[
-            0, 71, 48, 68, 2, 32, 91, 128, 41, 150, 96, 53, 187, 63, 230, 129, 53, 234, 210, 186,
-            21, 187, 98, 38, 255, 112, 30, 27, 228, 29, 132, 140, 155, 62, 123, 216, 232, 168, 2,
-            32, 72, 126, 179, 207, 142, 8, 99, 8, 32, 78, 244, 166, 106, 160, 207, 227, 61, 210,
-            172, 234, 234, 93, 59, 159, 79, 12, 194, 240, 212, 3, 120, 50, 1, 71, 81, 33, 3, 113,
-            209, 131, 177, 9, 29, 242, 229, 15, 217, 247, 165, 78, 111, 80, 79, 50, 200, 117, 80,
-            30, 233, 210, 167, 133, 175, 62, 253, 134, 127, 212, 51, 33, 2, 128, 200, 184, 235,
-            148, 25, 43, 34, 28, 173, 55, 54, 189, 164, 187, 243, 243, 152, 7, 84, 210, 85, 156,
-            238, 77, 97, 188, 240, 162, 197, 105, 62, 82, 174,
-        ],
-    )
-}
-
-#[allow(dead_code)]
-pub fn generate_transaction_and_mine_with_script_sig(
-    address: BtcAddress,
-    amount: u128,
-    return_data: Option<H256>,
-    script: &[u8],
-) -> (H256Le, u32, Vec<u8>, Vec<u8>) {
-    let mut height = 1;
-    let confirmations = 6;
-
-    // initialize BTC Relay with one block
-    let init_block = BlockBuilder::new()
-        .with_version(2)
-        .with_coinbase(&address, 50, 3)
-        .with_timestamp(1588813835)
-        .mine(U256::from(2).pow(254.into()))
-        .unwrap();
-
-    let raw_init_block_header =
-        RawBlockHeader::from_bytes(&init_block.header.try_format().unwrap())
-            .expect("could not serialize block header");
-
-    match Call::BTCRelay(BTCRelayCall::initialize(
-        raw_init_block_header.try_into().expect("bad block header"),
-        height,
-    ))
-    .dispatch(origin_of(account_of(ALICE)))
-    {
-        Ok(_) => {}
-        Err(e) if e == BTCRelayError::AlreadyInitialized.into() => {}
-        _ => panic!("Failed to initialize btc relay"),
-    }
-
-    height = BTCRelayModule::get_best_block_height() + 1;
-
-    let value = amount as i64;
-    let mut transaction_builder = TransactionBuilder::new();
-    transaction_builder.with_version(2);
-    transaction_builder.add_input(
-        TransactionInputBuilder::new()
-            .with_coinbase(false)
-            .with_script(script)
-            .with_previous_hash(init_block.transactions[0].hash())
-            .build(),
-    );
-
-    transaction_builder.add_output(TransactionOutput::payment(value.into(), &address));
-    if let Some(op_return_data) = return_data {
-        transaction_builder.add_output(TransactionOutput::op_return(0, op_return_data.as_bytes()));
-    }
-
-    let transaction = transaction_builder.build();
-
-    let prev_hash = BTCRelayModule::get_best_block();
-    let block = BlockBuilder::new()
-        .with_previous_hash(prev_hash)
-        .with_version(2)
-        .with_coinbase(&address, 50, 3)
-        .with_timestamp(1588814835)
-        .add_transaction(transaction.clone())
-        .mine(U256::from(2).pow(254.into()))
-        .unwrap();
-
-    let raw_block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap())
-        .expect("could not serialize block header");
-
-    let tx_id = transaction.tx_id();
-    let tx_block_height = height;
-    let proof = block.merkle_proof(&vec![tx_id]).unwrap();
-    let bytes_proof = proof.try_format().unwrap();
-    let raw_tx = transaction.format_with(true);
-
-    assert_ok!(Call::BTCRelay(BTCRelayCall::store_block_header(
-        raw_block_header.try_into().expect("bad block header")
-    ))
-    .dispatch(origin_of(account_of(ALICE))));
-    assert_store_main_chain_header_event(height, block.header.hash().unwrap(), account_of(ALICE));
-
-    // Mine six new blocks to get over required confirmations
-    let mut prev_block_hash = block.header.hash().unwrap();
-    let mut timestamp = 1588814835;
-    for _ in 0..confirmations {
-        height += 1;
-        timestamp += 1000;
-        let conf_block = BlockBuilder::new()
-            .with_previous_hash(prev_block_hash)
-            .with_version(2)
-            .with_coinbase(&address, 50, 3)
-            .with_timestamp(timestamp)
-            .mine(U256::from(2).pow(254.into()))
-            .unwrap();
-
-        let raw_conf_block_header =
-            RawBlockHeader::from_bytes(&conf_block.header.try_format().unwrap())
-                .expect("could not serialize block header");
-        assert_ok!(Call::BTCRelay(BTCRelayCall::store_block_header(
-            raw_conf_block_header.try_into().expect("bad block header"),
-        ))
-        .dispatch(origin_of(account_of(ALICE))));
-
-        assert_store_main_chain_header_event(
-            height,
-            conf_block.header.hash().unwrap(),
-            account_of(ALICE),
-        );
-
-        prev_block_hash = conf_block.header.hash().unwrap();
-    }
-
-    (tx_id, tx_block_height, bytes_proof, raw_tx)
+    TransactionGenerator::new()
+        .with_address(address)
+        .with_amount(amount)
+        .with_op_return(return_data)
+        .mine()
 }
 
 #[allow(dead_code)]
@@ -473,6 +574,8 @@ pub type SlaModule = sla::Module<Runtime>;
 pub type FeeModule = fee::Module<Runtime>;
 #[allow(dead_code)]
 pub type FeeCall = fee::Call<Runtime>;
+#[allow(dead_code)]
+pub type FeeError = fee::Error<Runtime>;
 
 #[allow(dead_code)]
 pub type CollateralModule = collateral::Module<Runtime>;
@@ -493,6 +596,10 @@ impl ExtBuilder {
                 (account_of(ALICE), INITIAL_BALANCE),
                 (account_of(BOB), INITIAL_BALANCE),
                 (account_of(CAROL), INITIAL_BALANCE),
+                (account_of(DAVE), INITIAL_BALANCE),
+                (account_of(EVE), INITIAL_BALANCE),
+                (account_of(FRANK), INITIAL_BALANCE),
+                (account_of(GRACE), INITIAL_BALANCE),
                 (account_of(FAUCET), 1 << 60),
                 // create accounts for vault & fee pool; this needs a minimum amount because
                 // the parachain refuses to create accounts with a balance below `ExistentialDeposit`
@@ -570,14 +677,12 @@ impl ExtBuilder {
             fee_pool_account_id: account_of(FEE_POOL),
             maintainer_account_id: account_of(MAINTAINER),
             epoch_period: 5,
-            // give 90% of the rewards to vaults in order for withdrawal to work
-            // since we cannot transfer below `ExistentialDeposit`
-            vault_rewards: FixedU128::checked_from_rational(90, 100).unwrap(), // 90%
             vault_rewards_issued: FixedU128::checked_from_rational(90, 100).unwrap(), // 90%
             vault_rewards_locked: FixedU128::checked_from_rational(10, 100).unwrap(), // 10%
-            relayer_rewards: FixedU128::checked_from_rational(10, 100).unwrap(), // 10%
-            maintainer_rewards: FixedU128::from(0),                            // 0%
-            collator_rewards: FixedU128::from(0),                              // 0%
+            vault_rewards: FixedU128::checked_from_rational(70, 100).unwrap(),        // 70%
+            relayer_rewards: FixedU128::checked_from_rational(20, 100).unwrap(),      // 20%
+            maintainer_rewards: FixedU128::checked_from_rational(10, 100).unwrap(),   // 10%
+            collator_rewards: FixedU128::checked_from_rational(0, 100).unwrap(),      // 0%
         }
         .assimilate_storage(&mut storage)
         .unwrap();

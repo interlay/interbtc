@@ -20,7 +20,7 @@ pub(crate) mod sla {
     pub use sla::types::VaultEvent;
 
     pub fn event_update_vault_sla<T: sla::Config>(
-        vault_id: T::AccountId,
+        vault_id: &T::AccountId,
         event: VaultEvent<PolkaBTC<T>>,
     ) -> Result<(), DispatchError> {
         <sla::Module<T>>::event_update_vault_sla(vault_id, event)
@@ -65,5 +65,25 @@ pub(crate) mod treasury {
 
     pub fn mint<T: treasury::Config>(requester: T::AccountId, amount: PolkaBTC<T>) {
         <treasury::Module<T>>::mint(requester, amount)
+    }
+}
+
+#[cfg_attr(test, mockable)]
+pub(crate) mod vault_registry {
+    use crate::types::PolkaBTC;
+    use frame_support::dispatch::{DispatchError, DispatchResult};
+
+    pub fn increase_to_be_issued_tokens<T: vault_registry::Config>(
+        vault_id: &T::AccountId,
+        amount: PolkaBTC<T>,
+    ) -> Result<(), DispatchError> {
+        <vault_registry::Module<T>>::increase_to_be_issued_tokens(vault_id, amount)
+    }
+
+    pub fn issue_tokens<T: vault_registry::Config>(
+        vault_id: &T::AccountId,
+        amount: PolkaBTC<T>,
+    ) -> DispatchResult {
+        <vault_registry::Module<T>>::issue_tokens(vault_id, amount)
     }
 }

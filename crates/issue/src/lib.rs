@@ -367,7 +367,7 @@ impl<T: Config> Module<T> {
         if !ext::vault_registry::is_vault_liquidated::<T>(&issue.vault)? {
             // reward the vault for having issued PolkaBTC by increasing its sla
             ext::sla::event_update_vault_sla::<T>(
-                issue.vault.clone(),
+                &issue.vault,
                 ext::sla::VaultEvent::ExecutedIssue(issue.amount),
             )?;
         }
@@ -377,7 +377,7 @@ impl<T: Config> Module<T> {
         if &requester != &executor {
             if let Ok(vault) = ext::vault_registry::get_active_vault_from_id::<T>(&executor) {
                 ext::sla::event_update_vault_sla::<T>(
-                    vault.id,
+                    &vault.id,
                     ext::sla::VaultEvent::SubmittedIssueProof,
                 )?;
             }
