@@ -295,6 +295,7 @@ fn integration_test_redeem_polka_btc_cancel_reimburse() {
             sla_score_before + SlaModule::vault_redeem_failure_sla_change(),
         );
         assert_eq!(SlaModule::vault_sla(account_of(vault)), expected_sla);
+        assert!(FeeModule::epoch_rewards_dot() > 0);
     });
 }
 
@@ -348,6 +349,7 @@ fn integration_test_redeem_polka_btc_cancel_no_reimburse() {
             sla_score_before + SlaModule::vault_redeem_failure_sla_change(),
         );
         assert_eq!(SlaModule::vault_sla(account_of(vault)), expected_sla);
+        assert!(FeeModule::epoch_rewards_dot() > 0);
     });
 }
 

@@ -86,14 +86,14 @@ fn test_sla_increase_for_refund() {
         CoreVaultData::force_to(
             VAULT,
             CoreVaultData {
-                backing_collateral: 0,
+                backing_collateral: 2000,
                 ..CoreVaultData::vault(VAULT)
             },
         );
 
-        // overpay by a factor of 2
+        // overpay by a factor of 4
         ExecuteIssueBuilder::new(issue_id)
-            .with_amount(2 * (issue.amount + issue.fee))
+            .with_amount(4 * (issue.amount + issue.fee))
             .execute();
 
         let expected_sla_increase_for_issue = SlaModule::vault_executed_issue_max_sla_change()

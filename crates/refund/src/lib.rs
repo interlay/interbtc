@@ -196,7 +196,7 @@ impl<T: Config> Module<T> {
             Some(refund_id.as_bytes().to_vec()),
         )?;
 
-        // mint polkabtc corresponding to the fee. Note that this will fail
+        // mint polkabtc corresponding to the fee. Note that this can fail
         ext::vault_registry::increase_to_be_issued_tokens::<T>(&request.vault, request.fee)?;
         ext::vault_registry::issue_tokens::<T>(&request.vault, request.fee)?;
         ext::treasury::mint::<T>(request.vault.clone(), request.fee);
