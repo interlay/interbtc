@@ -12,7 +12,8 @@ use sp_core::H160;
 fn test_refund_succeeds() {
     run_test(|| {
         ext::fee::get_refund_fee_from_total::<Test>.mock_safe(|_| MockResult::Return(Ok(5)));
-        ext::vault_registry::increase_to_be_issued_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::increase_to_be_issued_tokens::<Test>
+            .mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::btc_relay::verify_transaction_inclusion::<Test>
             .mock_safe(|_, _| MockResult::Return(Ok(())));

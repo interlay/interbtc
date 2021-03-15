@@ -316,10 +316,11 @@ pub fn dummy_public_key() -> BtcPublicKey {
 #[allow(dead_code)]
 pub fn try_register_vault(collateral: u128, vault: [u8; 32]) {
     if let Err(_) = VaultRegistryModule::get_vault_from_id(&account_of(vault)) {
-        assert_ok!(
-            Call::VaultRegistry(VaultRegistryCall::register_vault(collateral, dummy_public_key()))
-                .dispatch(origin_of(account_of(vault)))
-        );
+        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
+            collateral,
+            dummy_public_key()
+        ))
+        .dispatch(origin_of(account_of(vault))));
     };
 }
 

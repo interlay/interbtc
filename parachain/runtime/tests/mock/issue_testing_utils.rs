@@ -30,14 +30,17 @@ impl RequestIssueBuilder {
             user: USER,
         }
     }
+
     pub fn with_vault(&mut self, vault: [u8; 32]) -> &mut Self {
         self.vault = vault;
         self
     }
+
     pub fn with_user(&mut self, user: [u8; 32]) -> &mut Self {
         self.user = user;
         self
     }
+
     pub fn request(&self) -> (H256, IssueRequest<AccountId32, u32, u128, u128>) {
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
             FixedU128::one()
@@ -88,18 +91,22 @@ impl ExecuteIssueBuilder {
             relayer: ALICE,
         }
     }
+
     pub fn with_amount(&mut self, amount: u128) -> &mut Self {
         self.amount = amount;
         self
     }
+
     pub fn with_submitter(&mut self, submitter: [u8; 32]) -> &mut Self {
         self.submitter = submitter;
         self
     }
+
     pub fn with_relayer(&mut self, relayer: [u8; 32]) -> &mut Self {
         self.relayer = relayer;
         self
     }
+
     pub fn execute(&self) {
         // send the btc from the user to the vault
         let (tx_id, _height, proof, raw_tx) = TransactionGenerator::new()
