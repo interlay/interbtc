@@ -1,5 +1,6 @@
 mod mock;
 use mock::issue_testing_utils::{ExecuteIssueBuilder, RequestIssueBuilder};
+use mock::redeem_testing_utils::{cancel_redeem, setup_cancelable_redeem};
 use mock::*;
 
 const PROOF_SUBMITTER: [u8; 32] = BOB;
@@ -9,7 +10,24 @@ const ISSUE_RELAYER: [u8; 32] = EVE;
 const RELAYER_1: [u8; 32] = FRANK;
 const RELAYER_2: [u8; 32] = GRACE;
 
+fn test_with(execute: impl Fn(Currency) -> ()) {
+    ExtBuilder::build().execute_with(|| {
+        setup_dot_reward();
+        execute(Currency::DOT);
+    });
+    ExtBuilder::build().execute_with(|| {
+        execute(Currency::PolkaBTC);
+    });
+}
+
 fn setup_relayer(relayer: [u8; 32], sla: u32, stake: u128) {
+    UserData::force_to(
+        relayer,
+        UserData {
+            free_balance: stake,
+            ..Default::default()
+        },
+    );
     // register as staked relayer
     assert_ok!(
         Call::StakedRelayers(StakedRelayersCall::register_staked_relayer(stake))
@@ -24,11 +42,68 @@ fn setup_relayer(relayer: [u8; 32], sla: u32, stake: u128) {
     }
 }
 
+// assert that a and b differ by at most 1
+macro_rules! assert_eq_modulo_rounding {
+    ($left:expr, $right:expr $(,)?) => {{
+        match (&$left, &$right) {
+            (left_val, right_val) => {
+                if (*left_val > *right_val && *left_val - *right_val > 1)
+                    || (*right_val > *left_val && *right_val - *left_val > 1)
+                {
+                    // The reborrows below are intentional. Without them, the stack slot for the
+                    // borrow is initialized even before the values are compared, leading to a
+                    // noticeable slow down.
+                    panic!(
+                        r#"assertion failed: `(left == right)`
+  left: `{:?}`,
+ right: `{:?}`"#,
+                        &*left_val, &*right_val
+                    )
+                }
+            }
+        }
+    }};
+}
+
+#[derive(Copy, Clone)]
+enum Currency {
+    DOT,
+    PolkaBTC,
+}
+
+fn get_epoch_rewards(currency: Currency) -> u128 {
+    match currency {
+        Currency::DOT => FeeModule::epoch_rewards_dot(),
+        Currency::PolkaBTC => FeeModule::epoch_rewards_polka_btc(),
+    }
+}
+
+fn get_rewards(currency: Currency, account: [u8; 32]) -> u128 {
+    match currency {
+        Currency::DOT => FeeModule::get_dot_rewards(&account_of(account)),
+        Currency::PolkaBTC => FeeModule::get_polka_btc_rewards(&account_of(account)),
+    }
+}
+
+fn setup_dot_reward() {
+    VaultRegistryModule::slash_collateral(
+        CurrencySource::FreeBalance(account_of(FAUCET)),
+        CurrencySource::FreeBalance(FeeModule::fee_pool_account_id()),
+        1000,
+    )
+    .unwrap();
+    FeeModule::increase_dot_rewards_for_epoch(1000);
+}
+
 fn set_issued_and_backing(vault: [u8; 32], amount_issued: u128, backing: u128) {
-    let (issue_id, _) = RequestIssueBuilder::new(100 * amount_issued)
+    // we want issued to be 100 times amount_issued, _including fees_
+    let amount_issued = 100 * amount_issued;
+    let fee = FeeModule::get_issue_fee_from_total(amount_issued).unwrap();
+    let request_amount = amount_issued - fee;
+
+    let (issue_id, _) = RequestIssueBuilder::new(request_amount)
         .with_vault(vault)
         .request();
-
     ExecuteIssueBuilder::new(issue_id)
         .with_submitter(PROOF_SUBMITTER)
         .with_relayer(ISSUE_RELAYER)
@@ -50,13 +125,14 @@ fn set_issued_and_backing(vault: [u8; 32], amount_issued: u128, backing: u128) {
     )
     .unwrap();
 }
+
 #[test]
 fn test_vault_fee_pool_withdrawal() {
-    ExtBuilder::build().execute_with(|| {
+    test_with(|currency| {
         set_issued_and_backing(VAULT1, 200, 800);
         set_issued_and_backing(VAULT2, 800, 200);
 
-        let epoch_rewards = FeeModule::epoch_rewards_polka_btc();
+        let epoch_rewards = get_epoch_rewards(currency);
         let vault_rewards = (epoch_rewards * 70) / 100; // set at 70% in tests
 
         // simulate that we entered a new epoch
@@ -64,62 +140,50 @@ fn test_vault_fee_pool_withdrawal() {
 
         // First vault gets 26% of the vault pool (20% of the 90% awarded by issued,
         // and 80% of the 10% awarded by collateral
-        assert_eq!(
-            FeeModule::get_polka_btc_rewards(&account_of(VAULT1)),
-            (vault_rewards * 26) / 100
-        );
+        assert_eq_modulo_rounding!(get_rewards(currency, VAULT1), (vault_rewards * 26) / 100);
         // second vault gets the other 74%
-        assert_eq!(
-            FeeModule::get_polka_btc_rewards(&account_of(VAULT2)),
-            (vault_rewards * 74) / 100
-        );
+        assert_eq_modulo_rounding!(get_rewards(currency, VAULT2), (vault_rewards * 74) / 100);
     })
 }
 
 #[test]
 fn test_vault_fee_pool_withdrawal_with_liquidated_vaults() {
-    ExtBuilder::build().execute_with(|| {
+    test_with(|currency| {
         set_issued_and_backing(VAULT1, 200, 800);
         set_issued_and_backing(VAULT2, 800, 200);
 
         drop_exchange_rate_and_liquidate(VAULT2);
 
-        let epoch_rewards = FeeModule::epoch_rewards_polka_btc();
+        let epoch_rewards = get_epoch_rewards(currency);
         let vault_rewards = (epoch_rewards * 70) / 100; // set at 70% in tests
 
         // simulate that we entered a new epoch
         assert_ok!(FeeModule::update_rewards_for_epoch());
 
         // First vault gets 100% of the vault pool
-        assert_eq!(
-            FeeModule::get_polka_btc_rewards(&account_of(VAULT1)),
-            vault_rewards
-        );
+        assert_eq_modulo_rounding!(get_rewards(currency, VAULT1), vault_rewards);
         // second vault gets nothing
-        assert_eq!(FeeModule::get_polka_btc_rewards(&account_of(VAULT2)), 0);
+        assert_eq_modulo_rounding!(get_rewards(currency, VAULT2), 0);
     })
 }
 
 #[test]
 fn test_vault_fee_pool_withdrawal_over_multiple_epochs() {
-    ExtBuilder::build().execute_with(|| {
+    test_with(|currency| {
         set_issued_and_backing(VAULT1, 200, 800);
 
-        let epoch_1_rewards = FeeModule::epoch_rewards_polka_btc();
+        let epoch_1_rewards = get_epoch_rewards(currency);
         let vault_epoch_1_rewards = (epoch_1_rewards * 70) / 100; // set at 70% in tests
 
         // simulate that we entered a new epoch
         assert_ok!(FeeModule::update_rewards_for_epoch());
 
         // First vault gets 100% of the vault pool
-        assert_eq!(
-            FeeModule::get_polka_btc_rewards(&account_of(VAULT1)),
-            vault_epoch_1_rewards
-        );
+        assert_eq_modulo_rounding!(get_rewards(currency, VAULT1), vault_epoch_1_rewards);
 
         set_issued_and_backing(VAULT2, 800, 200);
 
-        let epoch_2_rewards = FeeModule::epoch_rewards_polka_btc();
+        let epoch_2_rewards = get_epoch_rewards(currency);
         let vault_epoch_2_rewards = (epoch_2_rewards * 70) / 100; // set at 70% in tests
 
         // simulate that we entered a new epoch
@@ -127,21 +191,21 @@ fn test_vault_fee_pool_withdrawal_over_multiple_epochs() {
 
         // First vault gets 26% of the vault_epoch_2_rewards (20% of the 90% awarded by issued,
         // and 80% of the 10% awarded by collateral
-        assert_eq!(
-            FeeModule::get_polka_btc_rewards(&account_of(VAULT1)),
-            vault_epoch_1_rewards + (vault_epoch_2_rewards * 26) / 100
+        assert_eq_modulo_rounding!(
+            get_rewards(currency, VAULT1),
+            vault_epoch_1_rewards + (vault_epoch_2_rewards * 26) / 100,
         );
         // second vault gets the other 74%
-        assert_eq!(
-            FeeModule::get_polka_btc_rewards(&account_of(VAULT2)),
-            (vault_epoch_2_rewards * 74) / 100 - 1 // -1 due to rounding difference
+        assert_eq_modulo_rounding!(
+            get_rewards(currency, VAULT2),
+            (vault_epoch_2_rewards * 74) / 100,
         );
     })
 }
 
 #[test]
 fn test_relayer_fee_pool_withdrawal() {
-    ExtBuilder::build().execute_with(|| {
+    test_with(|currency| {
         set_issued_and_backing(VAULT1, 1000, 1000);
 
         // make the used relayer irrelevant in fee calculations
@@ -154,39 +218,36 @@ fn test_relayer_fee_pool_withdrawal() {
         setup_relayer(RELAYER_1, 20, 100);
         setup_relayer(RELAYER_2, 40, 200);
 
-        let epoch_rewards = FeeModule::epoch_rewards_polka_btc();
+        let epoch_rewards = get_epoch_rewards(currency);
         let relayer_rewards = (epoch_rewards * 20) / 100; // set at 20% in tests
 
         // simulate that we entered a new epoch
         assert_ok!(FeeModule::update_rewards_for_epoch());
 
         // First vault gets 20% of the vault pool
-        assert_eq!(
-            FeeModule::get_polka_btc_rewards(&account_of(RELAYER_1)),
-            (relayer_rewards * 20) / 100
+        assert_eq_modulo_rounding!(
+            get_rewards(currency, RELAYER_1),
+            (relayer_rewards * 20) / 100,
         );
         // second vault gets the other 80%
-        assert_eq!(
-            FeeModule::get_polka_btc_rewards(&account_of(RELAYER_2)),
-            (relayer_rewards * 80) / 100
+        assert_eq_modulo_rounding!(
+            get_rewards(currency, RELAYER_2),
+            (relayer_rewards * 80) / 100,
         );
     })
 }
 
 #[test]
 fn test_maintainer_fee_pool_withdrawal() {
-    ExtBuilder::build().execute_with(|| {
+    test_with(|currency| {
         set_issued_and_backing(VAULT1, 1000, 1000);
 
-        let epoch_rewards = FeeModule::epoch_rewards_polka_btc();
+        let epoch_rewards = get_epoch_rewards(currency);
         let maintainer_rewards = (epoch_rewards * 10) / 100; // set at 10% in tests
 
         // simulate that we entered a new epoch
         assert_ok!(FeeModule::update_rewards_for_epoch());
 
-        assert_eq!(
-            FeeModule::get_polka_btc_rewards(&account_of(MAINTAINER)),
-            maintainer_rewards
-        );
+        assert_eq_modulo_rounding!(get_rewards(currency, MAINTAINER), maintainer_rewards);
     })
 }

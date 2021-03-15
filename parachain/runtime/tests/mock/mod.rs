@@ -182,13 +182,7 @@ impl CoreVaultData {
     #[allow(dead_code)]
     pub fn force_to(vault: [u8; 32], state: CoreVaultData) {
         // register vault if not yet registered
-        if let Err(_) = VaultRegistryModule::get_vault_from_id(&account_of(vault)) {
-            assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-                100,
-                dummy_public_key()
-            ))
-            .dispatch(origin_of(account_of(vault))));
-        };
+        try_register_vault(100, vault);
 
         // temporarily give vault a lot of backing collateral so we can set issued & to-be-issued to whatever we want
         VaultRegistryModule::slash_collateral(
@@ -317,6 +311,16 @@ pub fn dummy_public_key() -> BtcPublicKey {
         2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55,
         18, 45, 222, 180, 119, 54, 243, 97, 173, 150, 161, 169, 230,
     ])
+}
+
+#[allow(dead_code)]
+pub fn try_register_vault(collateral: u128, vault: [u8; 32]) {
+    if let Err(_) = VaultRegistryModule::get_vault_from_id(&account_of(vault)) {
+        assert_ok!(
+            Call::VaultRegistry(VaultRegistryCall::register_vault(collateral, dummy_public_key()))
+                .dispatch(origin_of(account_of(vault)))
+        );
+    };
 }
 
 #[allow(dead_code)]

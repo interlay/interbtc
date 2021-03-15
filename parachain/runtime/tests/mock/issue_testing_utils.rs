@@ -45,11 +45,7 @@ impl RequestIssueBuilder {
 
         SystemModule::set_block_number(1);
 
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-            DEFAULT_COLLATERAL,
-            dummy_public_key()
-        ))
-        .dispatch(origin_of(account_of(self.vault))));
+        try_register_vault(DEFAULT_COLLATERAL, self.vault);
 
         // alice requests polka_btc by locking btc with bob
         assert_ok!(Call::Issue(IssueCall::request_issue(
