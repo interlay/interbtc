@@ -1,6 +1,5 @@
 mod mock;
 use mock::issue_testing_utils::{ExecuteIssueBuilder, RequestIssueBuilder};
-use mock::redeem_testing_utils::{cancel_redeem, setup_cancelable_redeem};
 use mock::*;
 
 const PROOF_SUBMITTER: [u8; 32] = BOB;
@@ -80,8 +79,29 @@ fn get_epoch_rewards(currency: Currency) -> u128 {
 
 fn get_rewards(currency: Currency, account: [u8; 32]) -> u128 {
     match currency {
-        Currency::DOT => FeeModule::get_dot_rewards(&account_of(account)),
-        Currency::PolkaBTC => FeeModule::get_polka_btc_rewards(&account_of(account)),
+        Currency::DOT => {
+            let amount = FeeModule::get_dot_rewards(&account_of(account));
+            assert_noop!(
+                Call::Fee(FeeCall::withdraw_dot(amount + 1))
+                    .dispatch(origin_of(account_of(account))),
+                FeeError::InsufficientFunds,
+            );
+            assert_ok!(
+                Call::Fee(FeeCall::withdraw_dot(amount)).dispatch(origin_of(account_of(account)))
+            );
+            amount
+        }
+        Currency::PolkaBTC => {
+            let amount = FeeModule::get_polka_btc_rewards(&account_of(account));
+            assert_noop!(
+                Call::Fee(FeeCall::withdraw_dot(amount + 1))
+                    .dispatch(origin_of(account_of(account))),
+                FeeError::InsufficientFunds,
+            );
+            assert_ok!(Call::Fee(FeeCall::withdraw_polka_btc(amount))
+                .dispatch(origin_of(account_of(account))));
+            amount
+        }
     }
 }
 
@@ -178,9 +198,6 @@ fn test_vault_fee_pool_withdrawal_over_multiple_epochs() {
         // simulate that we entered a new epoch
         assert_ok!(FeeModule::update_rewards_for_epoch());
 
-        // First vault gets 100% of the vault pool
-        assert_eq_modulo_rounding!(get_rewards(currency, VAULT1), vault_epoch_1_rewards);
-
         set_issued_and_backing(VAULT2, 800, 200);
 
         let epoch_2_rewards = get_epoch_rewards(currency);
@@ -189,7 +206,8 @@ fn test_vault_fee_pool_withdrawal_over_multiple_epochs() {
         // simulate that we entered a new epoch
         assert_ok!(FeeModule::update_rewards_for_epoch());
 
-        // First vault gets 26% of the vault_epoch_2_rewards (20% of the 90% awarded by issued,
+        // First vault gets all of vault_epoch_1_rewards, plus 26% of the
+        // vault_epoch_2_rewards (20% of the 90% awarded by issued,
         // and 80% of the 10% awarded by collateral
         assert_eq_modulo_rounding!(
             get_rewards(currency, VAULT1),

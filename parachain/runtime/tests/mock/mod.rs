@@ -574,6 +574,8 @@ pub type SlaModule = sla::Module<Runtime>;
 pub type FeeModule = fee::Module<Runtime>;
 #[allow(dead_code)]
 pub type FeeCall = fee::Call<Runtime>;
+#[allow(dead_code)]
+pub type FeeError = fee::Error<Runtime>;
 
 #[allow(dead_code)]
 pub type CollateralModule = collateral::Module<Runtime>;
