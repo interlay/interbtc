@@ -377,7 +377,7 @@ impl<T: Config> RichVault<T> {
 
         let used_collateral = Module::<T>::u128_to_dot(raw_used_collateral)?;
 
-        Ok(used_collateral)
+        Ok(self.data.backing_collateral.min(used_collateral))
     }
 
     pub fn issuable_tokens(&self) -> Result<PolkaBTC<T>, DispatchError> {
@@ -520,7 +520,7 @@ impl<T: Config> RichVault<T> {
         let backing_collateral = self.data.backing_collateral;
 
         // we liquidate at most SECURE_THRESHOLD * backing.
-        let liquidated_collateral = backing_collateral.min(self.get_used_collateral()?);
+        let liquidated_collateral = self.get_used_collateral()?;
 
         // amount of tokens being backed
         let backing_tokens = self.backed_tokens()?;
