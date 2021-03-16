@@ -424,8 +424,15 @@ impl<T: Config> Module<T> {
                 redeem.amount_polka_btc,
             )?;
 
-            // unlock user's redeem fee
-            ext::treasury::unlock::<T>(redeem.redeemer.clone(), redeem.fee)?;
+            // Transfer the transaction fee to the pool. Even though the redeem was not
+            // successful, the user receives a premium in DOT, so it's to take the fee.
+            ext::treasury::unlock_and_transfer::<T>(
+                redeem.redeemer.clone(),
+                ext::fee::fee_pool_account_id::<T>(),
+                redeem.fee,
+            )?;
+            ext::fee::increase_polka_btc_rewards_for_epoch::<T>(redeem.fee);
+
             // burn user's PolkaBTC, excluding fee
             ext::treasury::burn::<T>(redeem.redeemer.clone(), redeem.amount_btc)?;
         } else {

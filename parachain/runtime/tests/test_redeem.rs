@@ -283,11 +283,15 @@ fn integration_test_redeem_polka_btc_cancel_reimburse() {
             initial_balance_dot + amount_without_fee_dot + punishment_fee
         );
 
-        // user gets fee back, but loses the rest of the requested btc
+        // user loses the requested btc, including fee
         assert_eq!(
             TreasuryModule::get_balance_from_account(account_of(user)),
-            initial_balance_btc - (amount_btc - redeem.fee)
+            initial_balance_btc - amount_btc
         );
+        // fee is transferred to fee pool
+        assert_eq!(FeeModule::epoch_rewards_polka_btc(), redeem.fee);
+        // fee pool has some amount of dot
+        assert!(FeeModule::epoch_rewards_dot() > 0);
 
         // vault's SLA is reduced by redeem failure amount
         let expected_sla = FixedI128::max(
@@ -295,7 +299,6 @@ fn integration_test_redeem_polka_btc_cancel_reimburse() {
             sla_score_before + SlaModule::vault_redeem_failure_sla_change(),
         );
         assert_eq!(SlaModule::vault_sla(account_of(vault)), expected_sla);
-        assert!(FeeModule::epoch_rewards_dot() > 0);
     });
 }
 
@@ -414,10 +417,11 @@ fn test_cancel_liquidated(reimburse: bool) {
             UserData {
                 free_balance: DEFAULT_USER_FREE_BALANCE + collateral_vault / 4,
                 locked_balance: DEFAULT_USER_LOCKED_BALANCE,
-                locked_tokens: 1234,   // polka_btc has been burned
-                free_tokens: 50 + fee, // user gets fee back
+                locked_tokens: 1234, // polka_btc has been burned
+                free_tokens: 50,     // fee has been given to fee pool
             },
         );
+        assert_eq!(FeeModule::epoch_rewards_polka_btc(), fee);
     } else {
         assert_eq!(
             UserData::get(USER),
