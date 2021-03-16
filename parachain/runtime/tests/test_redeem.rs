@@ -283,11 +283,15 @@ fn integration_test_redeem_polka_btc_cancel_reimburse() {
             initial_balance_dot + amount_without_fee_dot + punishment_fee
         );
 
-        // user gets fee back, but loses the rest of the requested btc
+        // user loses the requested btc, including fee
         assert_eq!(
             TreasuryModule::get_balance_from_account(account_of(user)),
-            initial_balance_btc - (amount_btc - redeem.fee)
+            initial_balance_btc - amount_btc
         );
+        // fee is transferred to fee pool
+        assert_eq!(FeeModule::epoch_rewards_polka_btc(), redeem.fee);
+        // fee pool has some amount of dot
+        assert!(FeeModule::epoch_rewards_dot() > 0);
 
         // vault's SLA is reduced by redeem failure amount
         let expected_sla = FixedI128::max(
@@ -295,7 +299,6 @@ fn integration_test_redeem_polka_btc_cancel_reimburse() {
             sla_score_before + SlaModule::vault_redeem_failure_sla_change(),
         );
         assert_eq!(SlaModule::vault_sla(account_of(vault)), expected_sla);
-        assert!(FeeModule::epoch_rewards_dot() > 0);
     });
 }
 
@@ -354,76 +357,82 @@ fn integration_test_redeem_polka_btc_cancel_no_reimburse() {
 }
 
 fn test_cancel_liquidated(reimburse: bool) {
-    let user = ALICE;
-    let vault = BOB;
-    let amount_btc = 100000;
+    let polka_btc = 1_000;
+    let fee = FeeModule::get_redeem_fee(polka_btc).unwrap();
+    let collateral_vault = 1_000_000;
+    let amount_without_fee = polka_btc - fee;
+    let griefing_collateral = 1_234_567;
+    let redeem_id = setup_cancelable_redeem(USER, VAULT, collateral_vault, polka_btc);
 
-    assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-        FixedU128::checked_from_integer(10).unwrap() // 10 planck/satoshi
-    ));
+    UserData::force_to(
+        USER,
+        UserData {
+            free_balance: DEFAULT_USER_FREE_BALANCE,
+            locked_balance: DEFAULT_USER_LOCKED_BALANCE,
+            locked_tokens: polka_btc + 1234,
+            free_tokens: 50,
+        },
+    );
 
-    let initial_balance_dot = CollateralModule::get_balance_from_account(&account_of(user));
-
-    let redeem_id = setup_cancelable_redeem(user, vault, 1999500000, amount_btc);
-    let redeem = RedeemModule::get_open_redeem_request_from_id(&redeem_id).unwrap();
-    let amount_without_fee_dot = ExchangeRateOracleModule::btc_to_dots(redeem.amount_btc).unwrap();
-
-    let punishment_fee = FeeModule::get_punishment_fee(amount_without_fee_dot).unwrap();
-    assert!(punishment_fee > 0);
-
-    // get initial balance - the setup call above will have minted and locked polkabtc
-    let initial_balance_btc = TreasuryModule::get_balance_from_account(account_of(user))
-        + TreasuryModule::get_locked_balance_from_account(account_of(user));
-    let initial_collateral = CollateralModule::get_collateral_from_account(&account_of(vault));
-    let sla_score_before = FixedI128::from(60);
-    SlaModule::set_vault_sla(&account_of(vault), sla_score_before);
-
-    let mut rich_vault: RichVault<Runtime> =
-        VaultRegistryModule::get_vault_from_id(&account_of(vault))
-            .unwrap()
-            .into();
-    assert_ok!(rich_vault.force_increase_to_be_redeemed(redeem.amount_btc));
-    assert_ok!(rich_vault.force_issue_tokens(redeem.amount_btc));
-
-    let vault_data_before = VaultRegistryModule::get_vault_from_id(&account_of(vault)).unwrap();
     assert_eq!(
-        vault_data_before.to_be_redeemed_tokens,
-        2 * redeem.amount_btc
-    ); // sanity check
+        CoreVaultData::vault(VAULT),
+        CoreVaultData {
+            issued: amount_without_fee, // assuming fee
+            to_be_redeemed: amount_without_fee,
+            backing_collateral: collateral_vault,
+            ..Default::default()
+        },
+    );
+    CoreVaultData::force_to(
+        VAULT,
+        CoreVaultData {
+            issued: amount_without_fee * 4,
+            to_be_redeemed: amount_without_fee * 4,
+            backing_collateral: collateral_vault,
+            griefing_collateral,
+            ..Default::default()
+        },
+    );
 
-    drop_exchange_rate_and_liquidate(vault);
+    drop_exchange_rate_and_liquidate(VAULT);
 
     assert_ok!(
         Call::Redeem(RedeemCall::cancel_redeem(redeem_id, reimburse))
-            .dispatch(origin_of(account_of(user)))
+            .dispatch(origin_of(account_of(USER)))
     );
 
-    // Check vault data
-    let vault_data_after = VaultRegistryModule::get_vault_from_id(&account_of(vault)).unwrap();
-    assert_eq!(vault_data_after.issued_tokens, 0);
-    assert_eq!(vault_data_after.to_be_issued_tokens, 0);
-    // vault started with (2*redeem.amount_btc) - it should now have redeem.amount_btc left
-    assert_eq!(vault_data_after.to_be_redeemed_tokens, redeem.amount_btc);
     assert_eq!(
-        CollateralModule::get_collateral_from_account(&account_of(vault)),
-        (redeem.amount_btc * initial_collateral) / vault_data_before.issued_tokens
-    );
-    assert_eq!(
-        CollateralModule::get_collateral_from_account(&account_of(vault)),
-        (redeem.amount_btc * initial_collateral) / vault_data_before.issued_tokens
+        CoreVaultData::vault(VAULT),
+        CoreVaultData {
+            to_be_redeemed: amount_without_fee * 3,
+            backing_collateral: (collateral_vault * 3) / 4,
+            griefing_collateral,
+            ..Default::default()
+        },
     );
 
-    // Check user data
-    // user balance should have remained the same -- no fees or punishments reiumbursed
-    assert_eq!(
-        CollateralModule::get_balance_from_account(&account_of(user)),
-        initial_balance_dot
-    );
-    // user keeps all polkabtc
-    assert_eq!(
-        TreasuryModule::get_balance_from_account(account_of(user)),
-        initial_balance_btc
-    );
+    if reimburse {
+        assert_eq!(
+            UserData::get(USER),
+            UserData {
+                free_balance: DEFAULT_USER_FREE_BALANCE + collateral_vault / 4,
+                locked_balance: DEFAULT_USER_LOCKED_BALANCE,
+                locked_tokens: 1234, // polka_btc has been burned
+                free_tokens: 50,     // fee has been given to fee pool
+            },
+        );
+        assert_eq!(FeeModule::epoch_rewards_polka_btc(), fee);
+    } else {
+        assert_eq!(
+            UserData::get(USER),
+            UserData {
+                free_balance: DEFAULT_USER_FREE_BALANCE,
+                locked_balance: DEFAULT_USER_LOCKED_BALANCE,
+                locked_tokens: 1234, // polka_btc has been unlocked
+                free_tokens: 50 + polka_btc,
+            },
+        );
+    }
 }
 #[test]
 fn integration_test_redeem_polka_btc_cancel_liquidated_reimburse() {

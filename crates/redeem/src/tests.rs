@@ -629,6 +629,8 @@ fn test_cancel_redeem_succeeds() {
                 ..Default::default()
             }))
         });
+        ext::vault_registry::decrease_to_be_redeemed_tokens::<Test>
+            .mock_safe(|_, _| MockResult::Return(Ok(())));
         assert_ok!(Redeem::cancel_redeem(
             Origin::signed(ALICE),
             H256([0u8; 32]),

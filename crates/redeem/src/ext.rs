@@ -31,6 +31,12 @@ pub(crate) mod vault_registry {
     use frame_support::dispatch::{DispatchError, DispatchResult};
     use vault_registry::types::CurrencySource;
 
+    pub fn get_backing_collateral<T: vault_registry::Config>(
+        vault_id: &T::AccountId,
+    ) -> Result<DOT<T>, DispatchError> {
+        <vault_registry::Module<T>>::get_backing_collateral(vault_id)
+    }
+
     pub fn get_active_vault_from_id<T: vault_registry::Config>(
         vault_id: &T::AccountId,
     ) -> Result<
@@ -109,14 +115,14 @@ pub(crate) mod vault_registry {
     pub fn is_vault_below_premium_threshold<T: vault_registry::Config>(
         vault_id: &T::AccountId,
     ) -> Result<bool, DispatchError> {
-        <vault_registry::Module<T>>::is_vault_below_premium_threshold(&vault_id)
+        <vault_registry::Module<T>>::is_vault_below_premium_threshold(vault_id)
     }
 
     pub fn decrease_to_be_redeemed_tokens<T: vault_registry::Config>(
-        vault_id: T::AccountId,
+        vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::decrease_to_be_redeemed_tokens(&vault_id, tokens)
+        <vault_registry::Module<T>>::decrease_to_be_redeemed_tokens(vault_id, tokens)
     }
 
     pub fn calculate_collateral<T: vault_registry::Config>(
@@ -125,15 +131,6 @@ pub(crate) mod vault_registry {
         denominator: PolkaBTC<T>,
     ) -> Result<DOT<T>, DispatchError> {
         <vault_registry::Module<T>>::calculate_collateral(collateral, numerator, denominator)
-    }
-}
-
-#[cfg_attr(test, mockable)]
-pub(crate) mod collateral {
-    use crate::types::DOT;
-
-    pub fn get_collateral_from_account<T: collateral::Config>(account: &T::AccountId) -> DOT<T> {
-        <collateral::Module<T>>::get_collateral_from_account(account)
     }
 }
 
