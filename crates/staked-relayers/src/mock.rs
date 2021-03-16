@@ -30,7 +30,7 @@ frame_support::construct_runtime!(
         Treasury: treasury::{Module, Call, Storage, Event<T>},
 
         // Operational
-        BTCRelay: btc_relay::{Module, Call, Config<T>, Storage, Event},
+        BTCRelay: btc_relay::{Module, Call, Config<T>, Storage, Event<T>},
         Security: security::{Module, Call, Storage, Event},
         StakedRelayers: staked_relayers::{Module, Call, Config<T>, Storage, Event<T>},
         VaultRegistry: vault_registry::{Module, Call, Config<T>, Storage, Event<T>},

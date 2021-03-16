@@ -54,7 +54,7 @@ pub fn new_partial(
         client.clone(),
         client.clone(),
         inherent_data_providers.clone(),
-        &task_manager.spawn_handle(),
+        &task_manager.spawn_essential_handle(),
         registry.clone(),
     )?;
 
@@ -168,7 +168,7 @@ async fn start_node_impl(
     };
 
     if validator {
-        let proposer_factory = sc_basic_authorship::ProposerFactory::new(
+        let proposer_factory = sc_basic_authorship::ProposerFactory::with_proof_recording(
             task_manager.spawn_handle(),
             client.clone(),
             transaction_pool,

@@ -46,7 +46,7 @@ impl btc_relay::Config for Runtime {
 and include it in your `construct_runtime!` macro:
 
 ```rust
-BTCRelay: btc_relay::{Module, Call, Config<T>, Storage, Event},
+BTCRelay: btc_relay::{Module, Call, Config<T>, Storage, Event<T>},
 ```
 
 ## Reference Docs

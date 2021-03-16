@@ -26,14 +26,14 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use frame_support::debug;
+use frame_support::runtime_print;
 use frame_support::transactional;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure, IterableStorageMap,
 };
-use frame_system::ensure_signed;
+use frame_system::{ensure_root, ensure_signed};
 use primitive_types::U256;
 use sp_core::H160;
 use sp_std::collections::btree_set::BTreeSet;
@@ -56,7 +56,7 @@ pub use weights::WeightInfo;
 /// For further reference, see the [specification](https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/spec/data-model.html).
 pub trait Config: frame_system::Config + security::Config + sla::Config {
     /// The overarching event type.
-    type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 
     /// Weight information for the extrinsics in this module.
     type WeightInfo: WeightInfo;
@@ -65,8 +65,13 @@ pub trait Config: frame_system::Config + security::Config + sla::Config {
 /// Difficulty Adjustment Interval
 pub const DIFFICULTY_ADJUSTMENT_INTERVAL: u32 = 2016;
 
+/// Target Spacing: 10 minutes (600 seconds)
+// https://github.com/bitcoin/bitcoin/blob/5ba5becbb5d8c794efe579caeea7eea64f895a13/src/chainparams.cpp#L78
+pub const TARGET_SPACING: u32 = 10 * 60;
+
 /// Target Timespan: 2 weeks (1209600 seconds)
-pub const TARGET_TIMESPAN: u32 = 1_209_600;
+// https://github.com/bitcoin/bitcoin/blob/5ba5becbb5d8c794efe579caeea7eea64f895a13/src/chainparams.cpp#L77
+pub const TARGET_TIMESPAN: u32 = 14 * 24 * 60 * 60;
 
 // Used in Bitcoin's retarget algorithm
 pub const TARGET_TIMESPAN_DIVISOR: u32 = 4;
@@ -368,6 +373,38 @@ decl_module! {
             Self::_validate_transaction(raw_tx, payment_value, recipient_btc_address, op_return_id)?;
             Ok(())
         }
+
+        /// Insert an error at the specified block.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - the dispatch origin of this call (must be _Root_)
+        /// * `block_hash` - the hash of the bitcoin block
+        /// * `error` - the error code to insert
+        ///
+        /// # Weight: `O(1)`
+        #[weight = 0]
+        #[transactional]
+        pub fn insert_block_error(origin, block_hash: H256Le, error: ErrorCode) -> DispatchResult {
+            ensure_root(origin)?;
+            Self::flag_block_error(block_hash, error)
+        }
+
+        /// Remove an error from the specified block.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - the dispatch origin of this call (must be _Root_)
+        /// * `block_hash` - the hash of the bitcoin block
+        /// * `error` - the error code to remove
+        ///
+        /// # Weight: `O(1)`
+        #[weight = 0]
+        #[transactional]
+        pub fn remove_block_error(origin, block_hash: H256Le, error: ErrorCode) -> DispatchResult {
+            ensure_root(origin)?;
+            Self::clear_block_error(block_hash, error)
+        }
     }
 }
 
@@ -419,7 +456,7 @@ impl<T: Config> Module<T> {
             block_header: basic_block_header,
             block_height: block_height,
             chain_ref: blockchain.chain_id,
-            account_id: relayer,
+            account_id: relayer.clone(),
         };
 
         // Store a new BlockHeader struct in BlockHeaders
@@ -436,7 +473,11 @@ impl<T: Config> Module<T> {
         Self::set_best_block_height(block_height);
 
         // Emit a Initialized Event
-        Self::deposit_event(Event::Initialized(block_height, block_header_hash));
+        Self::deposit_event(<Event<T>>::Initialized(
+            block_height,
+            block_header_hash,
+            relayer,
+        ));
 
         Ok(())
     }
@@ -471,10 +512,10 @@ impl<T: Config> Module<T> {
 
         // Update the blockchain
         // check if we create a new blockchain or extend the existing one
-        debug::print!("Prev max height: {:?}\n", prev_blockchain.max_height);
-        debug::print!("Prev block height: {:?}\n", prev_block_height);
+        runtime_print!("Prev max height: {:?}", prev_blockchain.max_height);
+        runtime_print!("Prev block height: {:?}", prev_block_height);
         let is_fork = prev_blockchain.max_height != prev_block_height;
-        debug::print!("Fork detected: {:?}\n", is_fork);
+        runtime_print!("Fork detected: {:?}", is_fork);
 
         let blockchain = if is_fork {
             // create new blockchain element
@@ -517,23 +558,25 @@ impl<T: Config> Module<T> {
             }
         };
 
-        ext::sla::event_update_relayer_sla::<T>(relayer, ext::sla::RelayerEvent::BlockSubmission)?;
+        ext::sla::event_update_relayer_sla::<T>(&relayer, ext::sla::RelayerEvent::BlockSubmission)?;
 
         // Determine if this block extends the main chain or a fork
         let current_best_block = Self::get_best_block();
 
         if current_best_block == block_header_hash {
             // extends the main chain
-            Self::deposit_event(Event::StoreMainChainHeader(
+            Self::deposit_event(<Event<T>>::StoreMainChainHeader(
                 current_block_height,
                 block_header_hash,
+                relayer,
             ));
         } else {
             // created a new fork or updated an existing one
-            Self::deposit_event(Event::StoreForkHeader(
+            Self::deposit_event(<Event<T>>::StoreForkHeader(
                 blockchain.chain_id,
                 current_block_height,
                 block_header_hash,
+                relayer,
             ));
         };
 
@@ -1323,13 +1366,13 @@ impl<T: Config> Module<T> {
                         let new_chain_tip = <BestBlock>::get();
                         let block_height = <BestBlockHeight>::get();
                         let fork_depth = fork.max_height - fork.start_height;
-                        Self::deposit_event(Event::ChainReorg(
+                        Self::deposit_event(<Event<T>>::ChainReorg(
                             new_chain_tip,
                             block_height,
                             fork_depth,
                         ));
                     } else {
-                        Self::deposit_event(Event::ForkAheadOfMainChain(
+                        Self::deposit_event(<Event<T>>::ForkAheadOfMainChain(
                             prev_height,     // main chain height
                             fork.max_height, // fork height
                             fork.chain_id,   // fork id
@@ -1428,7 +1471,7 @@ impl<T: Config> Module<T> {
         // If the block was not already flagged, store the updated blockchain entry
         if newly_flagged {
             Self::mutate_block_chain_from_id(chain_id, blockchain);
-            Self::deposit_event(Event::FlagBlockError(block_hash, chain_id, error));
+            Self::deposit_event(<Event<T>>::FlagBlockError(block_hash, chain_id, error));
         }
 
         Ok(())
@@ -1465,7 +1508,7 @@ impl<T: Config> Module<T> {
             // Store the updated blockchain entry
             Self::mutate_block_chain_from_id(chain_id, blockchain);
 
-            Self::deposit_event(Event::ClearBlockError(block_hash, chain_id, error));
+            Self::deposit_event(<Event<T>>::ClearBlockError(block_hash, chain_id, error));
         }
 
         Ok(())
@@ -1488,7 +1531,13 @@ impl<T: Config> Module<T> {
         let required_confirmations =
             req_confs.unwrap_or_else(|| Self::get_stable_transaction_confirmations());
 
-        if main_chain_height >= tx_block_height + required_confirmations {
+        let required_mainchain_height = tx_block_height
+            .checked_add(required_confirmations)
+            .ok_or(Error::<T>::ArithmeticOverflow)?
+            .checked_sub(1)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+
+        if main_chain_height >= required_mainchain_height {
             Ok(())
         } else {
             Err(Error::<T>::BitcoinConfirmations.into())
@@ -1546,8 +1595,8 @@ impl<T: Config> Module<T> {
             Ok(id) => {
                 let next_best_fork_height = Self::get_block_chain_from_id(id)?.max_height;
 
-                debug::print!("Best block height: {}", best_block_height);
-                debug::print!("Next best fork height: {}", next_best_fork_height);
+                runtime_print!("Best block height: {}", best_block_height);
+                runtime_print!("Next best fork height: {}", next_best_fork_height);
                 // fail if there is an ongoing fork
                 ensure!(
                     best_block_height
@@ -1573,10 +1622,13 @@ impl<T: Config> Module<T> {
 }
 
 decl_event! {
-    pub enum Event {
-        Initialized(u32, H256Le),
-        StoreMainChainHeader(u32, H256Le),
-        StoreForkHeader(u32, u32, H256Le),
+    pub enum Event<T>
+    where
+        AccountId = <T as frame_system::Config>::AccountId,
+    {
+        Initialized(u32, H256Le, AccountId),
+        StoreMainChainHeader(u32, H256Le, AccountId),
+        StoreForkHeader(u32, u32, H256Le, AccountId),
         ChainReorg(H256Le, u32, u32),
         ForkAheadOfMainChain(u32, u32, u32),
         VerifyTransaction(H256Le, u32, u32),

@@ -12,12 +12,14 @@ use crate::parser::extract_address_hash_scriptsig;
 use crate::utils::{log2, reverse_endianness, sha256d_le};
 use crate::Script;
 use crate::{Address, Error};
-use codec::alloc::string::String;
 use codec::{Decode, Encode};
 pub use primitive_types::{H160, H256, U256};
 use sp_std::collections::btree_set::BTreeSet;
 use sp_std::convert::TryFrom;
 use sp_std::prelude::*;
+
+#[cfg(feature = "std")]
+use codec::alloc::string::String;
 
 pub(crate) const SERIALIZE_TRANSACTION_NO_WITNESS: i32 = 0x4000_0000;
 
@@ -193,6 +195,7 @@ impl RawBlockHeader {
     /// # Arguments
     ///
     /// * `bytes` - A slice containing the header
+    #[cfg(feature = "std")]
     pub fn from_hex<T: AsRef<[u8]>>(hex_string: T) -> Result<RawBlockHeader, Error> {
         let bytes = hex::decode(hex_string).map_err(|_e| Error::MalformedHeader)?;
         Self::from_bytes(&bytes)
@@ -538,10 +541,12 @@ impl H256Le {
         H256Le { content }
     }
 
+    #[cfg(feature = "std")]
     pub fn from_hex_le(hex: &str) -> H256Le {
         H256Le::from_bytes_le(&hex::decode(hex).unwrap())
     }
 
+    #[cfg(feature = "std")]
     pub fn from_hex_be(hex: &str) -> H256Le {
         H256Le::from_bytes_be(&hex::decode(hex).unwrap())
     }
@@ -559,11 +564,13 @@ impl H256Le {
     }
 
     /// Returns the content of the H256Le encoded in little endian hex
+    #[cfg(feature = "std")]
     pub fn to_hex_le(&self) -> String {
         hex::encode(&self.to_bytes_le())
     }
 
     /// Returns the content of the H256Le encoded in big endian hex
+    #[cfg(feature = "std")]
     pub fn to_hex_be(&self) -> String {
         hex::encode(&self.to_bytes_be())
     }
@@ -610,6 +617,7 @@ impl sp_std::fmt::Display for H256Le {
     }
 }
 
+#[cfg(feature = "std")]
 impl sp_std::fmt::LowerHex for H256Le {
     fn fmt(&self, f: &mut sp_std::fmt::Formatter<'_>) -> sp_std::fmt::Result {
         write!(f, "{}", self.to_hex_be())

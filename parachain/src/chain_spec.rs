@@ -121,6 +121,7 @@ pub fn local_config(#[cfg(feature = "cumulus-polkadot")] id: ParaId) -> ChainSpe
                 )],
                 #[cfg(feature = "cumulus-polkadot")]
                 id,
+                0,
             )
         },
         vec![],
@@ -178,6 +179,7 @@ pub fn rococo_testnet_config(id: ParaId) -> ChainSpec {
                     ),
                 ],
                 id,
+                1,
             )
         },
         Vec::new(),
@@ -234,9 +236,19 @@ pub fn beta_testnet_config() -> ChainSpec {
                     ),
                 ],
                 vec![
+                    // root key
                     get_account_id_from_string("5HeVGqvfpabwFqzV1DhiQmjaLQiFcTSmq2sH6f7atsXkgvtt"),
-                    get_account_id_from_string("5DNzULM1UJXDM7NUgDL4i8Hrhe9e3vZkB3ByM1eEXMGAs4Bv"),
+                    // faucet
+                    get_account_id_from_string("5FHy3cvyToZ4ConPXhi43rycAcGYw2R2a8cCjfVMfyuS1Ywg"),
+                    // vaults
                     get_account_id_from_string("5F7Q9FqnGwJmjLtsFGymHZXPEx2dWRVE7NW4Sw2jzEhUB5WQ"),
+                    get_account_id_from_string("5CJncqjWDkYv4P6nccZHGh8JVoEBXvharMqVpkpJedoYNu4A"),
+                    get_account_id_from_string("5GpnEWKTWv7xiQtDFi9Rku7DrvgHj4oqMDev4qBQhfwQE8nx"),
+                    get_account_id_from_string("5DttG269R1NTBDWcghYxa9NmV2wHxXpTe4U8pu4jK3LCE9zi"),
+                    // relayers
+                    get_account_id_from_string("5DNzULM1UJXDM7NUgDL4i8Hrhe9e3vZkB3ByM1eEXMGAs4Bv"),
+                    get_account_id_from_string("5GEXRnnv8Qz9rEwMs4TfvHme48HQvVTEDHJECCvKPzFB4pFZ"),
+                    // oracles
                     get_account_id_from_string("5H8zjSWfzMn86d1meeNrZJDj3QZSvRjKxpTfuVaZ46QJZ4qs"),
                     get_account_id_from_string("5FPBT2BVVaLveuvznZ9A1TUtDcbxK5yvvGcMTJxgFmhcWGwj"),
                 ],
@@ -254,6 +266,7 @@ pub fn beta_testnet_config() -> ChainSpec {
                         "Band".as_bytes().to_vec(),
                     ),
                 ],
+                1,
             )
         },
         Vec::new(),
@@ -308,6 +321,7 @@ pub fn development_config(#[cfg(feature = "cumulus-polkadot")] id: ParaId) -> Ch
                 )],
                 #[cfg(feature = "cumulus-polkadot")]
                 id,
+                0,
             )
         },
         Vec::new(),
@@ -340,68 +354,70 @@ fn testnet_genesis(
     endowed_accounts: Vec<AccountId>,
     authorized_oracles: Vec<(AccountId, Vec<u8>)>,
     #[cfg(feature = "cumulus-polkadot")] id: ParaId,
+    bitcoin_confirmations: u32,
 ) -> GenesisConfig {
     GenesisConfig {
-        frame_system: Some(SystemConfig {
+        frame_system: SystemConfig {
             code: WASM_BINARY
                 .expect("WASM binary was not build, please build it!")
                 .to_vec(),
             changes_trie_config: Default::default(),
-        }),
+        },
         #[cfg(feature = "aura-grandpa")]
-        pallet_aura: Some(AuraConfig {
+        pallet_aura: AuraConfig {
             authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect(),
-        }),
+        },
         #[cfg(feature = "aura-grandpa")]
-        pallet_grandpa: Some(GrandpaConfig {
+        pallet_grandpa: GrandpaConfig {
             authorities: initial_authorities
                 .iter()
                 .map(|x| (x.1.clone(), 1))
                 .collect(),
-        }),
+        },
         #[cfg(feature = "cumulus-polkadot")]
-        parachain_info: Some(ParachainInfoConfig { parachain_id: id }),
-        pallet_sudo: Some(SudoConfig {
+        parachain_info: ParachainInfoConfig { parachain_id: id },
+        pallet_sudo: SudoConfig {
             // Assign network admin rights.
             key: root_key.clone(),
-        }),
-        pallet_balances_Instance1: Some(DOTConfig {
+        },
+        pallet_balances_Instance1: DOTConfig {
             balances: endowed_accounts
                 .iter()
                 .cloned()
                 .map(|k| (k, 1 << 60))
                 .collect(),
-        }),
-        pallet_balances_Instance2: Some(PolkaBTCConfig { balances: vec![] }),
-        staked_relayers: Some(StakedRelayersConfig {
+        },
+        pallet_balances_Instance2: PolkaBTCConfig { balances: vec![] },
+        staked_relayers: StakedRelayersConfig {
             #[cfg(feature = "runtime-benchmarks")]
             gov_id: account("Origin", 0, 0),
             #[cfg(not(feature = "runtime-benchmarks"))]
             gov_id: root_key,
             maturity_period: 10 * MINUTES,
-        }),
-        exchange_rate_oracle: Some(ExchangeRateOracleConfig {
+        },
+        exchange_rate_oracle: ExchangeRateOracleConfig {
             authorized_oracles,
             max_delay: 3600000, // one hour
-        }),
-        btc_relay: Some(BTCRelayConfig {
-            bitcoin_confirmations: 0,
+        },
+        btc_relay: BTCRelayConfig {
+            bitcoin_confirmations,
+            // TODO: `parachain_confirmations: bitcoin_confirmations.saturating_mul(SECS_PER_BLOCK)`
             parachain_confirmations: 0,
             disable_difficulty_check: true,
             disable_inclusion_check: false,
             disable_op_return_check: false,
             disable_relayer_auth: false,
-        }),
-        issue: Some(IssueConfig { issue_period: DAYS }),
-        redeem: Some(RedeemConfig {
+        },
+        issue: IssueConfig { issue_period: DAYS },
+        redeem: RedeemConfig {
             redeem_period: DAYS,
             redeem_btc_dust_value: 1000,
-        }),
-        replace: Some(ReplaceConfig {
+        },
+        replace: ReplaceConfig {
             replace_period: DAYS,
             replace_btc_dust_value: 1000,
-        }),
-        vault_registry: Some(VaultRegistryConfig {
+        },
+        vault_registry: VaultRegistryConfig {
             minimum_collateral_vault: 0,
             punishment_delay: DAYS,
             secure_collateral_threshold: FixedU128::checked_from_rational(150, 100).unwrap(), // 150%
@@ -409,8 +425,8 @@ fn testnet_genesis(
             auction_collateral_threshold: FixedU128::checked_from_rational(120, 100).unwrap(), // 120%
             liquidation_collateral_threshold: FixedU128::checked_from_rational(110, 100).unwrap(), // 110%
             liquidation_vault_account_id: liquidation_vault,
-        }),
-        fee: Some(FeeConfig {
+        },
+        fee: FeeConfig {
             issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
             issue_griefing_collateral: FixedU128::checked_from_rational(5, 100000).unwrap(), // 0.005%
             refund_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),                  // 0.5%
@@ -428,8 +444,8 @@ fn testnet_genesis(
             relayer_rewards: FixedU128::checked_from_rational(3, 100).unwrap(),
             maintainer_rewards: FixedU128::checked_from_rational(20, 100).unwrap(),
             collator_rewards: FixedU128::checked_from_integer(0).unwrap(),
-        }),
-        sla: Some(SlaConfig {
+        },
+        sla: SlaConfig {
             vault_target_sla: FixedI128::from(100),
             vault_redeem_failure_sla_change: FixedI128::from(-100),
             vault_executed_issue_max_sla_change: FixedI128::from(4),
@@ -445,9 +461,9 @@ fn testnet_genesis(
             relayer_false_no_data_vote_or_report: FixedI128::from(-10),
             relayer_false_invalid_vote_or_report: FixedI128::from(-100),
             relayer_ignored_vote: FixedI128::from(-10),
-        }),
-        refund: Some(RefundConfig {
+        },
+        refund: RefundConfig {
             refund_btc_dust_value: 1000,
-        }),
+        },
     }
 }

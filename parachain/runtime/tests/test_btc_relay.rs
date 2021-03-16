@@ -29,7 +29,11 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
                     .dispatch(origin_of(account_of(ALICE)))
             );
 
-            assert_store_main_chain_header_event(block.height, block.get_block_hash());
+            assert_store_main_chain_header_event(
+                block.height,
+                block.get_block_hash(),
+                account_of(ALICE),
+            );
         }
         SystemModule::set_block_number(1 + CONFIRMATIONS);
         // verify all transaction
@@ -38,7 +42,7 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
             for tx in &block.test_txs {
                 let txid = tx.get_txid();
                 let raw_merkle_proof = tx.get_raw_merkle_proof();
-                if block.height <= current_height - CONFIRMATIONS {
+                if block.height <= current_height - CONFIRMATIONS + 1 {
                     assert_ok!(Call::BTCRelay(BTCRelayCall::verify_transaction_inclusion(
                         txid,
                         raw_merkle_proof,

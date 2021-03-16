@@ -5,8 +5,8 @@ use primitive_types::H256;
 use sp_runtime::traits::CheckedMul;
 use vault_registry::Vault;
 
-type StakedRelayersCall = staked_relayers::Call<Runtime>;
-type StakedRelayersModule = staked_relayers::Module<Runtime>;
+pub const RELAYER: [u8; 32] = ALICE;
+pub const VAULT: [u8; 32] = BOB;
 
 #[test]
 fn integration_test_report_vault_theft() {
@@ -54,21 +54,11 @@ fn integration_test_report_vault_theft() {
 
         let initial_sla = SlaModule::relayer_sla(account_of(ALICE));
 
-        let (tx_id, _height, proof, raw_tx) = generate_transaction_and_mine_with_script_sig(
-            other_btc_address,
-            amount,
-            Some(H256::zero()),
-            &[
-                0, 71, 48, 68, 2, 32, 91, 128, 41, 150, 96, 53, 187, 63, 230, 129, 53, 234, 210,
-                186, 21, 187, 98, 38, 255, 112, 30, 27, 228, 29, 132, 140, 155, 62, 123, 216, 232,
-                168, 2, 32, 72, 126, 179, 207, 142, 8, 99, 8, 32, 78, 244, 166, 106, 160, 207, 227,
-                61, 210, 172, 234, 234, 93, 59, 159, 79, 12, 194, 240, 212, 3, 120, 50, 1, 71, 81,
-                33, 3, 113, 209, 131, 177, 9, 29, 242, 229, 15, 217, 247, 165, 78, 111, 80, 79, 50,
-                200, 117, 80, 30, 233, 210, 167, 133, 175, 62, 253, 134, 127, 212, 51, 33, 2, 128,
-                200, 184, 235, 148, 25, 43, 34, 28, 173, 55, 54, 189, 164, 187, 243, 243, 152, 7,
-                84, 210, 85, 156, 238, 77, 97, 188, 240, 162, 197, 105, 62, 82, 174,
-            ],
-        );
+        let (tx_id, _height, proof, raw_tx) = TransactionGenerator::new()
+            .with_address(other_btc_address)
+            .with_amount(amount)
+            .with_confirmations(7)
+            .mine();
 
         // check sla increase for the block submission. The call above will have submitted 7 blocks
         // (the actual transaction, plus 6 confirmations)
@@ -94,52 +84,70 @@ fn integration_test_report_vault_theft() {
         assert_eq!(SlaModule::relayer_sla(account_of(ALICE)), expected_sla);
     });
 }
+fn setup_registered_relayer() {
+    SystemModule::set_block_number(1);
 
+    assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
+        FixedU128::one()
+    ));
+
+    // register as staked relayer
+    assert_ok!(
+        Call::StakedRelayers(StakedRelayersCall::register_staked_relayer(100))
+            .dispatch(origin_of(account_of(RELAYER)))
+    );
+
+    SystemModule::set_block_number(StakedRelayersModule::get_maturity_period() + 100);
+
+    // manually activate
+    assert_ok!(StakedRelayersModule::activate_staked_relayer(&account_of(
+        RELAYER
+    )));
+}
 #[test]
 fn integration_test_report_vault_under_liquidation_threshold() {
     ExtBuilder::build().execute_with(|| {
-        let relayer = ALICE;
-        let vault = BOB;
-        let user = CAROL;
-        let amount = 100;
-        let collateral_vault = 1000;
+        setup_registered_relayer();
 
-        SystemModule::set_block_number(1);
-
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::one()
-        ));
-        VaultRegistryModule::insert_vault(&account_of(LIQUIDATION_VAULT), Vault::default());
-
-        force_issue_tokens(user, vault, collateral_vault, amount);
-
-        // register as staked relayer
-        assert_ok!(
-            Call::StakedRelayers(StakedRelayersCall::register_staked_relayer(100))
-                .dispatch(origin_of(account_of(relayer)))
+        // setup an under-collateralized vault
+        CoreVaultData::force_to(
+            VAULT,
+            CoreVaultData {
+                issued: 100,
+                backing_collateral: 50,
+                ..Default::default()
+            },
         );
 
-        SystemModule::set_block_number(StakedRelayersModule::get_maturity_period() + 100);
-
-        // manually activate
-        assert_ok!(StakedRelayersModule::activate_staked_relayer(&account_of(
-            relayer
-        )));
-
-        let initial_sla = SlaModule::relayer_sla(account_of(relayer));
-
-        // make vault to be undercollateralized
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::checked_from_integer(100000).unwrap()
-        ));
+        let initial_sla = SlaModule::relayer_sla(account_of(RELAYER));
 
         assert_ok!(Call::StakedRelayers(
-            StakedRelayersCall::report_vault_under_liquidation_threshold(account_of(vault))
+            StakedRelayersCall::report_vault_under_liquidation_threshold(account_of(VAULT))
         )
-        .dispatch(origin_of(account_of(relayer))));
+        .dispatch(origin_of(account_of(RELAYER))));
 
-        // check sla increase for the theft report
+        // check sla increase for the report
         let expected_sla = initial_sla + SlaModule::relayer_correct_liquidation_report();
-        assert_eq!(SlaModule::relayer_sla(account_of(relayer)), expected_sla);
+        assert_eq!(SlaModule::relayer_sla(account_of(RELAYER)), expected_sla);
+    });
+}
+
+#[test]
+fn integration_test_report_oracle_offline() {
+    ExtBuilder::build().execute_with(|| {
+        setup_registered_relayer();
+
+        let initial_sla = SlaModule::relayer_sla(account_of(RELAYER));
+
+        <pallet_timestamp::Module<Runtime>>::set_timestamp(3600 * 1000 + 1);
+
+        assert_ok!(
+            Call::StakedRelayers(StakedRelayersCall::report_oracle_offline())
+                .dispatch(origin_of(account_of(RELAYER)))
+        );
+
+        // check sla increase for the report
+        let expected_sla = initial_sla + SlaModule::relayer_correct_oracle_offline_report();
+        assert_eq!(SlaModule::relayer_sla(account_of(RELAYER)), expected_sla);
     });
 }

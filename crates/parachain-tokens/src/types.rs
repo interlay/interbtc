@@ -1,4 +1,5 @@
 use codec::{Decode, Encode};
+use frame_support::runtime_print;
 use frame_support::traits::Currency;
 use frame_support::traits::{ExistenceRequirement::AllowDeath, WithdrawReasons};
 use sp_runtime::traits::{CheckedConversion, SaturatedConversion};
@@ -79,7 +80,7 @@ impl<
     > TransactAsset for CurrencyAdapter<DOT, PolkaBTC, AccountIdConverter, AccountId>
 {
     fn deposit_asset(asset: &MultiAsset, location: &MultiLocation) -> XcmResult {
-        frame_support::debug::print!("Deposit asset: {:?}, location: {:?}", asset, location);
+        runtime_print!("Deposit asset: {:?}, location: {:?}", asset, location);
         let who = AccountIdConverter::from_location(location).ok_or(XcmError::BadOrigin)?;
         let currency_id = currency_id_from_asset(asset).ok_or(XcmError::Unimplemented)?;
         let amount: u128 = amount_from_asset::<u128>(asset)
@@ -102,7 +103,7 @@ impl<
         asset: &MultiAsset,
         location: &MultiLocation,
     ) -> Result<MultiAsset, XcmError> {
-        frame_support::debug::print!("Withdraw asset: {:?}, location: {:?}", asset, location);
+        runtime_print!("Withdraw asset: {:?}, location: {:?}", asset, location);
         let who = AccountIdConverter::from_location(location).ok_or(XcmError::BadOrigin)?;
         let currency_id = currency_id_from_asset(asset).ok_or(XcmError::Unimplemented)?;
         let amount: u128 = amount_from_asset::<u128>(asset)

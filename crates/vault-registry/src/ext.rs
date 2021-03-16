@@ -6,20 +6,16 @@ pub(crate) mod collateral {
     use crate::types::DOT;
     use frame_support::dispatch::DispatchResult;
 
-    pub fn total_locked<T: collateral::Config>() -> DOT<T> {
-        <collateral::Module<T>>::get_total_collateral()
+    pub fn transfer<T: collateral::Config>(
+        source: &T::AccountId,
+        destination: &T::AccountId,
+        amount: DOT<T>,
+    ) -> DispatchResult {
+        <collateral::Module<T>>::transfer(source.clone(), destination.clone(), amount)
     }
 
     pub fn lock<T: collateral::Config>(sender: &T::AccountId, amount: DOT<T>) -> DispatchResult {
         <collateral::Module<T>>::lock_collateral(sender, amount)
-    }
-
-    pub fn slash_collateral<T: collateral::Config>(
-        sender: &T::AccountId,
-        receiver: &T::AccountId,
-        amount: DOT<T>,
-    ) -> DispatchResult {
-        <collateral::Module<T>>::slash_collateral(sender.clone(), receiver.clone(), amount)
     }
 
     pub fn release_collateral<T: collateral::Config>(
@@ -31,6 +27,10 @@ pub(crate) mod collateral {
 
     pub fn for_account<T: collateral::Config>(id: &T::AccountId) -> DOT<T> {
         <collateral::Module<T>>::get_collateral_from_account(id)
+    }
+
+    pub fn get_free_balance<T: collateral::Config>(id: &T::AccountId) -> DOT<T> {
+        <collateral::Module<T>>::get_balance_from_account(id)
     }
 }
 

@@ -33,8 +33,8 @@ pub(crate) mod security {
     }
 
     #[cfg(test)]
-    pub fn set_parachain_status<T: security::Config>(status: StatusCode) -> () {
-        <security::Module<T>>::set_parachain_status(status)
+    pub fn set_status<T: security::Config>(status: StatusCode) -> () {
+        <security::Module<T>>::set_status(status)
     }
 
     #[cfg(test)]
@@ -49,7 +49,7 @@ pub(crate) mod sla {
     pub use sla::types::RelayerEvent;
 
     pub fn event_update_relayer_sla<T: sla::Config>(
-        relayer_id: T::AccountId,
+        relayer_id: &T::AccountId,
         event: RelayerEvent,
     ) -> Result<(), DispatchError> {
         <sla::Module<T>>::event_update_relayer_sla(relayer_id, event)

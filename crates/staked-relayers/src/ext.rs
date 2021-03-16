@@ -38,14 +38,14 @@ pub(crate) mod oracle {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
-    use crate::PolkaBTC;
+    use crate::{PolkaBTC, DOT};
     use ::vault_registry::VaultStatus;
     use frame_support::dispatch::{DispatchError, DispatchResult};
 
     pub fn get_active_vault_from_id<T: vault_registry::Config>(
         vault_id: &T::AccountId,
     ) -> Result<
-        vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>>,
+        vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
         DispatchError,
     > {
         <vault_registry::Module<T>>::get_active_vault_from_id(vault_id)
@@ -80,8 +80,8 @@ pub(crate) mod security {
         <security::Module<T>>::get_parachain_status()
     }
 
-    pub(crate) fn set_parachain_status<T: security::Config>(status_code: StatusCode) {
-        <security::Module<T>>::set_parachain_status(status_code)
+    pub(crate) fn set_status<T: security::Config>(status_code: StatusCode) {
+        <security::Module<T>>::set_status(status_code)
     }
 
     pub(crate) fn insert_error<T: security::Config>(error_code: ErrorCode) {
@@ -191,13 +191,28 @@ pub(crate) mod refund {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod sla {
+    use crate::types::DOT;
     use frame_support::dispatch::DispatchError;
     pub use sla::types::RelayerEvent;
+    use sp_std::vec::Vec;
 
     pub fn event_update_relayer_sla<T: sla::Config>(
-        relayer_id: T::AccountId,
+        relayer_id: &T::AccountId,
         event: RelayerEvent,
     ) -> Result<(), DispatchError> {
         <sla::Module<T>>::event_update_relayer_sla(relayer_id, event)
+    }
+
+    pub fn initialize_relayer_stake<T: sla::Config>(
+        relayer_id: &T::AccountId,
+        stake: DOT<T>,
+    ) -> Result<(), DispatchError> {
+        <sla::Module<T>>::initialize_relayer_stake(relayer_id, stake)
+    }
+
+    pub fn _on_runtime_upgrade<T: sla::Config>(
+        stakes: Vec<(T::AccountId, DOT<T>)>,
+    ) -> Result<(), DispatchError> {
+        <sla::Module<T>>::_on_runtime_upgrade(stakes)
     }
 }

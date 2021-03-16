@@ -24,11 +24,11 @@ macro_rules! assert_emitted {
 }
 
 #[test]
-fn test_get_and_set_parachain_status() {
+fn test_get_and_set_status() {
     run_test(|| {
         let status_code = Security::get_parachain_status();
         assert_eq!(status_code, StatusCode::Running);
-        Security::set_parachain_status(StatusCode::Shutdown);
+        Security::set_status(StatusCode::Shutdown);
         let status_code = Security::get_parachain_status();
         assert_eq!(status_code, StatusCode::Shutdown);
     })
@@ -37,7 +37,7 @@ fn test_get_and_set_parachain_status() {
 #[test]
 fn test_is_ensure_parachain_running_succeeds() {
     run_test(|| {
-        Security::set_parachain_status(StatusCode::Running);
+        Security::set_status(StatusCode::Running);
         assert_ok!(Security::ensure_parachain_status_running());
     })
 }
@@ -45,13 +45,13 @@ fn test_is_ensure_parachain_running_succeeds() {
 #[test]
 fn test_is_ensure_parachain_running_fails() {
     run_test(|| {
-        Security::set_parachain_status(StatusCode::Error);
+        Security::set_status(StatusCode::Error);
         assert_noop!(
             Security::ensure_parachain_status_running(),
             TestError::ParachainNotRunning
         );
 
-        Security::set_parachain_status(StatusCode::Shutdown);
+        Security::set_status(StatusCode::Shutdown);
         assert_noop!(
             Security::ensure_parachain_status_running(),
             TestError::ParachainNotRunning
@@ -62,10 +62,10 @@ fn test_is_ensure_parachain_running_fails() {
 #[test]
 fn test_is_ensure_parachain_not_shutdown_succeeds() {
     run_test(|| {
-        Security::set_parachain_status(StatusCode::Running);
+        Security::set_status(StatusCode::Running);
         assert_ok!(Security::ensure_parachain_status_not_shutdown());
 
-        Security::set_parachain_status(StatusCode::Error);
+        Security::set_status(StatusCode::Error);
         assert_ok!(Security::ensure_parachain_status_not_shutdown());
     })
 }
@@ -73,7 +73,7 @@ fn test_is_ensure_parachain_not_shutdown_succeeds() {
 #[test]
 fn test_is_ensure_parachain_not_shutdown_fails() {
     run_test(|| {
-        Security::set_parachain_status(StatusCode::Shutdown);
+        Security::set_status(StatusCode::Shutdown);
         assert_noop!(
             Security::ensure_parachain_status_not_shutdown(),
             TestError::ParachainShutdown
@@ -84,12 +84,12 @@ fn test_is_ensure_parachain_not_shutdown_fails() {
 #[test]
 fn test_ensure_parachain_does_not_have_errors() {
     run_test(|| {
-        Security::set_parachain_status(StatusCode::Running);
+        Security::set_status(StatusCode::Running);
         assert_ok!(Security::ensure_parachain_does_not_have_errors(vec![
             ErrorCode::InvalidBTCRelay
         ],));
 
-        Security::set_parachain_status(StatusCode::Error);
+        Security::set_status(StatusCode::Error);
         assert_ok!(Security::ensure_parachain_does_not_have_errors(vec![
             ErrorCode::InvalidBTCRelay
         ],));
@@ -107,12 +107,12 @@ fn test_ensure_parachain_does_not_have_errors() {
 #[test]
 fn test_ensure_parachain_is_running_or_only_has_errors() {
     run_test(|| {
-        Security::set_parachain_status(StatusCode::Running);
+        Security::set_status(StatusCode::Running);
         assert_ok!(Security::ensure_parachain_is_running_or_only_has_errors(
             vec![]
         ));
 
-        Security::set_parachain_status(StatusCode::Error);
+        Security::set_status(StatusCode::Error);
         assert_ok!(Security::ensure_parachain_is_running_or_only_has_errors(
             vec![ErrorCode::InvalidBTCRelay]
         ));
@@ -139,7 +139,7 @@ fn test_ensure_parachain_is_running_or_only_has_errors() {
 #[test]
 fn test_is_parachain_error_no_data_btcrelay() {
     run_test(|| {
-        Security::set_parachain_status(StatusCode::Error);
+        Security::set_status(StatusCode::Error);
         Security::insert_error(ErrorCode::NoDataBTCRelay);
         assert_eq!(Security::is_parachain_error_no_data_btcrelay(), true);
     })
@@ -148,7 +148,7 @@ fn test_is_parachain_error_no_data_btcrelay() {
 #[test]
 fn test_is_parachain_error_invalid_btcrelay() {
     run_test(|| {
-        Security::set_parachain_status(StatusCode::Error);
+        Security::set_status(StatusCode::Error);
         Security::insert_error(ErrorCode::InvalidBTCRelay);
         assert_eq!(Security::is_parachain_error_invalid_btcrelay(), true);
     })
@@ -157,7 +157,7 @@ fn test_is_parachain_error_invalid_btcrelay() {
 #[test]
 fn test_is_parachain_error_oracle_offline() {
     run_test(|| {
-        Security::set_parachain_status(StatusCode::Error);
+        Security::set_status(StatusCode::Error);
         Security::insert_error(ErrorCode::OracleOffline);
         assert_eq!(Security::is_parachain_error_oracle_offline(), true);
     })
@@ -166,7 +166,7 @@ fn test_is_parachain_error_oracle_offline() {
 #[test]
 fn test_is_parachain_error_liquidation() {
     run_test(|| {
-        Security::set_parachain_status(StatusCode::Error);
+        Security::set_status(StatusCode::Error);
         Security::insert_error(ErrorCode::Liquidation);
         assert_eq!(Security::is_parachain_error_liquidation(), true);
     })

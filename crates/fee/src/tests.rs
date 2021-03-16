@@ -140,7 +140,7 @@ fn test_withdraw_polka_btc_fails_with_insufficient_balance() {
     run_test(|| {
         assert_err!(
             Fee::withdraw_polka_btc(Origin::signed(0), 1000),
-            TestError::ArithmeticUnderflow
+            TestError::InsufficientFunds
         );
     })
 }
@@ -166,7 +166,7 @@ fn test_withdraw_dot_fails_with_insufficient_balance() {
     run_test(|| {
         assert_err!(
             Fee::withdraw_dot(Origin::signed(0), 1000),
-            TestError::ArithmeticUnderflow
+            TestError::InsufficientFunds
         );
     })
 }

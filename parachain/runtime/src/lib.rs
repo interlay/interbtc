@@ -17,7 +17,7 @@ use sp_api::impl_runtime_apis;
 use sp_core::OpaqueMetadata;
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
-    traits::{BlakeTwo256, Block as BlockT, Convert, IdentifyAccount, IdentityLookup, Verify},
+    traits::{BlakeTwo256, Block as BlockT, IdentifyAccount, IdentityLookup, Verify},
     transaction_validity::{TransactionSource, TransactionValidity},
     ApplyExtrinsicResult, MultiSignature,
 };
@@ -51,8 +51,10 @@ pub use module_exchange_rate_oracle_rpc_runtime_api::BalanceWrapper;
 // XCM imports
 #[cfg(feature = "cumulus-polkadot")]
 use {
+    frame_system::EnsureRoot,
     parachain_tokens::{CurrencyAdapter, NativeAsset},
     polkadot_parachain::primitives::Sibling,
+    sp_runtime::traits::Convert,
     xcm::v0::{Junction, MultiLocation, NetworkId},
     xcm_builder::{
         AccountId32Aliases, LocationInverter, ParentIsDefault, RelayChainAsNative,
@@ -127,8 +129,7 @@ impl_opaque_keys! {
 
 #[cfg(feature = "cumulus-polkadot")]
 impl_opaque_keys! {
-    pub struct SessionKeys {
-    }
+    pub struct SessionKeys {}
 }
 
 /// This runtime version.
@@ -136,7 +137,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("btc-parachain"),
     impl_name: create_runtime_str!("btc-parachain"),
     authoring_version: 1,
-    spec_version: 2,
+    spec_version: 6,
     impl_version: 1,
     transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,
@@ -361,6 +362,8 @@ impl xcm_handler::Config for Runtime {
     type XcmExecutor = XcmExecutor<XcmConfig>;
     type UpwardMessageSender = ParachainSystem;
     type HrmpMessageSender = ParachainSystem;
+    type SendXcmOrigin = EnsureRoot<AccountId>;
+    type AccountIdConverter = LocationConverter;
 }
 
 #[cfg(feature = "cumulus-polkadot")]
@@ -382,7 +385,7 @@ impl parachain_tokens::Config for Runtime {
 }
 
 parameter_types! {
-    pub const ExistentialDeposit: u128 = 500;
+    pub const ExistentialDeposit: u128 = 1;
     pub const MaxLocks: u32 = 50;
 }
 
@@ -540,7 +543,7 @@ macro_rules! construct_polkabtc_runtime {
                 Treasury: treasury::{Module, Call, Storage, Event<T>},
 
                 // Bitcoin SPV
-                BTCRelay: btc_relay::{Module, Call, Config<T>, Storage, Event},
+                BTCRelay: btc_relay::{Module, Call, Config<T>, Storage, Event<T>},
 
                 // Operational
                 Security: security::{Module, Call, Storage, Event},
@@ -679,7 +682,6 @@ impl_runtime_apis! {
             Aura::authorities()
         }
     }
-
 
     impl sp_session::SessionKeys<Block> for Runtime {
         fn decode_session_keys(
@@ -931,4 +933,4 @@ impl_runtime_apis! {
 }
 
 #[cfg(feature = "cumulus-polkadot")]
-cumulus_parachain_system::register_validate_block!(Block, Executive);
+cumulus_parachain_system::register_validate_block!(Runtime, Executive);

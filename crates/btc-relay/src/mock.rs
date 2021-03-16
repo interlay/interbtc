@@ -33,7 +33,7 @@ frame_support::construct_runtime!(
         Treasury: treasury::{Module, Call, Storage, Event<T>},
 
         // Operational
-        BTCRelay: btc_relay::{Module, Call, Config<T>, Storage, Event},
+        BTCRelay: btc_relay::{Module, Call, Config<T>, Storage, Event<T>},
         Security: security::{Module, Call, Storage, Event},
         VaultRegistry: vault_registry::{Module, Call, Config<T>, Storage, Event<T>},
         ExchangeRateOracle: exchange_rate_oracle::{Module, Call, Config<T>, Storage, Event<T>},

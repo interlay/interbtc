@@ -145,6 +145,11 @@ decl_module! {
 
         fn deposit_event() = default;
 
+        fn on_runtime_upgrade() -> Weight {
+            Self::_on_runtime_upgrade().expect("runtime upgrade failed");
+
+            0
+        }
         /// Registers a new Staked Relayer, locking the provided collateral, which must exceed `STAKED_RELAYER_STAKE`.
         ///
         /// # Arguments
@@ -171,6 +176,7 @@ decl_module! {
                 Error::<T>::InsufficientStake,
             );
             ext::collateral::lock_collateral::<T>(&signer, stake)?;
+            ext::sla::initialize_relayer_stake::<T>(&signer, stake)?;
 
             ext::btc_relay::register_authorized_relayer::<T>(signer.clone());
 
@@ -218,8 +224,10 @@ decl_module! {
         fn suggest_status_update(origin, deposit: DOT<T>, status_code: StatusCode, add_error: Option<ErrorCode>, remove_error: Option<ErrorCode>, block_hash: Option<H256Le>, message: Vec<u8>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
 
-            if status_code == StatusCode::Shutdown {
-                Self::only_governance(&signer)?;
+            // voting is disabled, for now only root can vote. Return Ok to clients so they
+            // don't get concerned about an error message.
+            if let Err(_) = Self::only_governance(&signer) {
+                return Ok(())
             }
 
             ensure!(
@@ -345,7 +353,7 @@ decl_module! {
         fn force_status_update(origin, status_code: StatusCode, add_error: Option<ErrorCode>, remove_error: Option<ErrorCode>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
             Self::only_governance(&signer)?;
-            ext::security::set_parachain_status::<T>(status_code.clone());
+            ext::security::set_status::<T>(status_code.clone());
 
             let to_add = add_error.clone();
             let to_remove = remove_error.clone();
@@ -424,7 +432,7 @@ decl_module! {
             });
 
             // reward relayer for this report by increasing its sla
-            ext::sla::event_update_relayer_sla::<T>(signer, ext::sla::RelayerEvent::CorrectTheftReport)?;
+            ext::sla::event_update_relayer_sla::<T>(&signer, ext::sla::RelayerEvent::CorrectTheftReport)?;
 
             Self::deposit_event(<Event<T>>::VaultTheft(
                 vault_id,
@@ -454,7 +462,7 @@ decl_module! {
             ext::vault_registry::liquidate_vault::<T>(&vault_id)?;
 
             // reward relayer for this report by increasing its sla
-            ext::sla::event_update_relayer_sla::<T>(signer, ext::sla::RelayerEvent::CorrectLiquidationReport)?;
+            ext::sla::event_update_relayer_sla::<T>(&signer, ext::sla::RelayerEvent::CorrectLiquidationReport)?;
 
             Self::deposit_event(<Event<T>>::VaultUnderLiquidationThreshold(
                 vault_id
@@ -481,11 +489,11 @@ decl_module! {
                 Error::<T>::OracleOnline,
             );
 
-            ext::security::set_parachain_status::<T>(StatusCode::Error);
+            ext::security::set_status::<T>(StatusCode::Error);
             ext::security::insert_error::<T>(ErrorCode::OracleOffline);
 
             // reward relayer for this report by increasing its sla
-            ext::sla::event_update_relayer_sla::<T>(signer, ext::sla::RelayerEvent::CorrectOracleOfflineReport)?;
+            ext::sla::event_update_relayer_sla::<T>(&signer, ext::sla::RelayerEvent::CorrectOracleOfflineReport)?;
 
             Self::deposit_event(<Event<T>>::OracleOffline());
 
@@ -569,6 +577,18 @@ decl_module! {
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
 impl<T: Config> Module<T> {
+    #[transactional]
+    pub fn _on_runtime_upgrade() -> DispatchResult {
+        let active_relayers = <ActiveStakedRelayers<T>>::iter();
+        let inactive_relayers = <InactiveStakedRelayers<T>>::iter();
+        let stakes = active_relayers
+            .chain(inactive_relayers)
+            .map(|(relayer_id, relayer)| (relayer_id, relayer.stake))
+            .collect::<Vec<_>>();
+
+        ext::sla::_on_runtime_upgrade::<T>(stakes)
+    }
+
     fn begin_block(height: T::BlockNumber) -> DispatchResult {
         for (id, acc) in <InactiveStakedRelayers<T>>::iter() {
             let _ = Self::try_bond_staked_relayer(&id, acc.stake, height, acc.height);
@@ -896,13 +916,13 @@ impl<T: Config> Module<T> {
         for relayer in correct_voters {
             if no_data_relayer {
                 ext::sla::event_update_relayer_sla::<T>(
-                    relayer.clone(),
+                    &relayer,
                     ext::sla::RelayerEvent::CorrectNoDataVoteOrReport,
                 )?;
             }
             if invalid_relayer {
                 ext::sla::event_update_relayer_sla::<T>(
-                    relayer.clone(),
+                    &relayer,
                     ext::sla::RelayerEvent::CorrectInvalidVoteOrReport,
                 )?;
             }
@@ -912,13 +932,13 @@ impl<T: Config> Module<T> {
         for relayer in incorrect_voters {
             if no_data_relayer {
                 ext::sla::event_update_relayer_sla::<T>(
-                    relayer.clone(),
+                    &relayer,
                     ext::sla::RelayerEvent::FalseNoDataVoteOrReport,
                 )?;
             }
             if invalid_relayer {
                 ext::sla::event_update_relayer_sla::<T>(
-                    relayer.clone(),
+                    &relayer,
                     ext::sla::RelayerEvent::FalseInvalidVoteOrReport,
                 )?;
             }
@@ -938,7 +958,7 @@ impl<T: Config> Module<T> {
             }
 
             ext::sla::event_update_relayer_sla::<T>(
-                abstainer.clone(),
+                &abstainer,
                 ext::sla::RelayerEvent::IgnoredVote,
             )?;
         }
@@ -962,7 +982,7 @@ impl<T: Config> Module<T> {
         );
 
         let status_code = status_update.new_status_code.clone();
-        ext::security::set_parachain_status::<T>(status_code.clone());
+        ext::security::set_status::<T>(status_code.clone());
 
         let add_error = status_update.add_error.clone();
         let remove_error = status_update.remove_error.clone();

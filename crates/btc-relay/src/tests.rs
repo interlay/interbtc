@@ -5,7 +5,8 @@ use crate::ext;
 use crate::mock::*;
 use crate::types::*;
 use crate::BtcAddress;
-use crate::Event;
+
+type Event = crate::Event<Test>;
 
 use bitcoin::formatter::TryFormattable;
 use bitcoin::merkle::*;
@@ -123,7 +124,8 @@ fn initialize_once_succeeds() {
             block_height
         ));
 
-        let init_event = TestEvent::btc_relay(Event::Initialized(block_height, block_header_hash));
+        let init_event =
+            TestEvent::btc_relay(Event::Initialized(block_height, block_header_hash, 3));
         assert!(System::events().iter().any(|a| a.event == init_event));
     })
 }
@@ -181,6 +183,7 @@ fn store_block_header_on_mainchain_succeeds() {
         let store_main_event = TestEvent::btc_relay(Event::StoreMainChainHeader(
             block_height + 1,
             block_header_hash,
+            3,
         ));
         assert!(System::events().iter().any(|a| a.event == store_main_event));
     })
@@ -227,6 +230,7 @@ fn store_block_header_on_fork_succeeds() {
             chain_ref,
             block_height,
             block_header_hash,
+            3,
         ));
         assert!(System::events().iter().any(|a| a.event == store_fork_event));
     })
@@ -1652,7 +1656,7 @@ fn test_check_bitcoin_confirmations_secure_stable_confs_succeeds() {
 fn test_check_bitcoin_confirmations_secure_user_confs_succeeds() {
     run_test(|| {
         let main_chain_height = 100;
-        let tx_block_height = 85;
+        let tx_block_height = 91;
         // relevant check: ok
         let req_confs = None;
         let stable_confs = 10;
@@ -1671,7 +1675,7 @@ fn test_check_bitcoin_confirmations_secure_user_confs_succeeds() {
 fn test_check_bitcoin_confirmations_secure_insufficient_stable_confs_succeeds() {
     run_test(|| {
         let main_chain_height = 100;
-        let tx_block_height = 91;
+        let tx_block_height = 92;
 
         let req_confs = None;
         // relevant check: fails
@@ -2315,6 +2319,6 @@ fn sample_example_real_transaction_hash() -> String {
 
 fn set_parachain_nodata_error() {
     ext::security::insert_error::<Test>(ErrorCode::NoDataBTCRelay);
-    ext::security::set_parachain_status::<Test>(StatusCode::Error);
+    ext::security::set_status::<Test>(StatusCode::Error);
     assert!(ext::security::is_parachain_error_no_data_btcrelay::<Test>());
 }

@@ -47,6 +47,7 @@ pub trait Config:
     + collateral::Config
     + fee::Config
     + sla::Config
+    + vault_registry::Config
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
@@ -195,14 +196,13 @@ impl<T: Config> Module<T> {
             Some(refund_id.as_bytes().to_vec()),
         )?;
 
-        // mint polkabtc corresponding to the fee
+        // mint polkabtc corresponding to the fee. Note that this can fail
+        ext::vault_registry::increase_to_be_issued_tokens::<T>(&request.vault, request.fee)?;
+        ext::vault_registry::issue_tokens::<T>(&request.vault, request.fee)?;
         ext::treasury::mint::<T>(request.vault.clone(), request.fee);
 
         // reward vault for this refund by increasing its SLA
-        ext::sla::event_update_vault_sla::<T>(
-            request.vault.clone(),
-            ext::sla::VaultEvent::Refunded,
-        )?;
+        ext::sla::event_update_vault_sla::<T>(&request.vault, ext::sla::VaultEvent::Refunded)?;
 
         // mark the request as completed
         <RefundRequests<T>>::mutate(refund_id, |request| {
