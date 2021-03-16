@@ -35,10 +35,6 @@ build-standalone:
         - tags
         - merge_requests
         - master
-        - dev
-        - alpha
-        - beta
-        - rococo
 
 build-parachain:
     stage: build
@@ -59,10 +55,6 @@ build-parachain:
         - tags
         - merge_requests
         - master
-        - dev
-        - alpha
-        - beta
-        - rococo
 
 docker-publish-standalone:
     stage: deploy
@@ -83,11 +75,6 @@ docker-publish-standalone:
     only:
         - tags
         - master
-        - dev
-        - alpha
-        - beta
-        - rococo
-        - web # For pipelines created by using Run pipeline button in the GitLab UI, from the project’s CI/CD > Pipelines section.
 
 docker-publish-parachain:
     stage: deploy
@@ -108,9 +95,4 @@ docker-publish-parachain:
     only:
         - tags
         - master
-        - dev
-        - alpha
-        - beta
-        - rococo
-        - web # For pipelines created by using Run pipeline button in the GitLab UI, from the project’s CI/CD > Pipelines section.
 

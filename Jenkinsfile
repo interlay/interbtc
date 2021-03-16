@@ -70,8 +70,6 @@ pipeline {
             when {
                 anyOf {
                     branch 'master'
-                    branch 'dev'
-                    branch 'jenkins'
                     tag '*'
                 }
             }
@@ -94,8 +92,6 @@ pipeline {
             when {
                 anyOf {
                     branch 'master'
-                    branch 'dev'
-                    branch 'jenkins'
                     tag '*'
                 }
             }
