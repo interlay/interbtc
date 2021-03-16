@@ -37,7 +37,6 @@ pipeline {
                 container('rust') {
                     sh 'SCCACHE_START_SERVER=1 SCCACHE_IDLE_TIMEOUT=0 /usr/local/bin/sccache'
                     sh '/usr/local/bin/sccache -s'
-                    sh 'env'
 
                     sh 'cargo build --manifest-path parachain/Cargo.toml --release --no-default-features --features aura-grandpa'
 
@@ -126,7 +125,7 @@ pipeline {
                     #export TAG_NAME=$(git describe --abbrev=0 --tags `git rev-list --tags --skip=0 --max-count=1`)
                     ./git-chglog --output CHANGELOG.md $TAG_NAME
                 '''
-                sh 'gh release -R $GIT_URL create $TAG_NAME --title $TAG_NAME -F CHANGELOG.md -d ' + output_files.collect { "target/release/$it" }.join(' ')
+                sh 'gh release -R $GIT_URL create $TAG_NAME --title $TAG_NAME -F CHANGELOG.md -d'
             }
         }
     }
