@@ -48,23 +48,19 @@ fn set_exchange_rate_recovers_from_oracle_offline() {
         ExchangeRateOracle::is_authorized.mock_safe(|_| MockResult::Return(true));
         ExchangeRateOracle::is_max_delay_passed.mock_safe(|| MockResult::Return(true));
 
-        let mut first_call_to_recover = false;
-        // XXX: hacky way to ensure that `recover_from_oracle_offline` was
-        // indeed called. mocktopus does not seem to have a `assert_called`
-        // kind of feature yet
-        ExchangeRateOracle::recover_from_oracle_offline.mock_safe(move || {
-            MockResult::Return(if first_call_to_recover {
-                Err(DispatchError::BadOrigin)
-            } else {
-                first_call_to_recover = true;
-                Ok(())
-            })
-        });
-        let first_res = ExchangeRateOracle::set_exchange_rate(Origin::signed(3), rate);
-        assert_ok!(first_res);
+        unsafe {
+            let mut oracle_recovered = false;
+            ExchangeRateOracle::recover_from_oracle_offline.mock_raw(|| {
+                oracle_recovered = true;
+                MockResult::Return(())
+            });
 
-        let second_res = ExchangeRateOracle::set_exchange_rate(Origin::signed(3), rate);
-        assert_err!(second_res, DispatchError::BadOrigin);
+            assert_ok!(ExchangeRateOracle::set_exchange_rate(
+                Origin::signed(3),
+                rate
+            ));
+            assert!(oracle_recovered, "Oracle should be recovered from offline");
+        }
     });
 }
 
@@ -256,5 +252,23 @@ fn set_btc_tx_fees_per_byte_succeeds() {
         );
 
         assert_emitted!(Event::SetBtcTxFeesPerByte(3, 1, 1, 1));
+    });
+}
+
+#[test]
+fn begin_block_set_oracle_offline_succeeds() {
+    run_test(|| {
+        ExchangeRateOracle::is_max_delay_passed.mock_safe(|| MockResult::Return(true));
+
+        unsafe {
+            let mut oracle_reported = false;
+            ExchangeRateOracle::report_oracle_offline.mock_raw(|| {
+                oracle_reported = true;
+                MockResult::Return(())
+            });
+
+            ExchangeRateOracle::begin_block(0);
+            assert!(oracle_reported, "Oracle should be reported as offline");
+        }
     });
 }

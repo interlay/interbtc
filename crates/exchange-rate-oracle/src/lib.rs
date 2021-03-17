@@ -31,6 +31,7 @@ use frame_support::transactional;
 use frame_support::weights::Weight;
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
 use frame_system::{ensure_root, ensure_signed};
+use security::{ErrorCode, StatusCode};
 use sp_arithmetic::traits::UniqueSaturatedInto;
 use sp_arithmetic::traits::*;
 use sp_arithmetic::FixedPointNumber;
@@ -151,6 +152,12 @@ decl_module! {
             0
         }
 
+        fn on_initialize(n: T::BlockNumber) -> Weight {
+            Self::begin_block(n);
+            // TODO: calculate weight
+            0
+        }
+
         /// Sets the exchange rate.
         ///
         /// # Arguments
@@ -232,6 +239,12 @@ decl_module! {
 
 #[cfg_attr(test, mockable)]
 impl<T: Config> Module<T> {
+    fn begin_block(_height: T::BlockNumber) {
+        if Self::is_max_delay_passed() {
+            Self::report_oracle_offline();
+        }
+    }
+
     /// Public getters
 
     /// Get the exchange rate in planck per satoshi
@@ -315,7 +328,7 @@ impl<T: Config> Module<T> {
         <ExchangeRate<T>>::put(planck_per_satoshi);
         // recover if the max delay was already passed
         if Self::is_max_delay_passed() {
-            Self::recover_from_oracle_offline()?;
+            Self::recover_from_oracle_offline();
         }
         let now = Self::get_current_time();
         Self::set_last_exchange_rate_time(now);
@@ -326,7 +339,12 @@ impl<T: Config> Module<T> {
         <LastExchangeRateTime<T>>::put(time);
     }
 
-    fn recover_from_oracle_offline() -> DispatchResult {
+    fn report_oracle_offline() {
+        ext::security::set_status::<T>(StatusCode::Error);
+        ext::security::insert_error::<T>(ErrorCode::OracleOffline);
+    }
+
+    fn recover_from_oracle_offline() {
         ext::security::recover_from_oracle_offline::<T>()
     }
 
@@ -376,7 +394,9 @@ decl_error! {
         MissingExchangeRate,
         /// Unable to convert value
         TryIntoIntError,
+        /// Mathematical operation caused an overflow
         ArithmeticOverflow,
+        /// Mathematical operation caused an underflow
         ArithmeticUnderflow,
     }
 }

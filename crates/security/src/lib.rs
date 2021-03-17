@@ -240,7 +240,7 @@ impl<T: Config> Module<T> {
         })
     }
 
-    fn recover_from_(error_codes: Vec<ErrorCode>) -> DispatchResult {
+    fn recover_from_(error_codes: Vec<ErrorCode>) {
         for error_code in error_codes.clone() {
             Self::remove_error(error_code);
         }
@@ -253,26 +253,18 @@ impl<T: Config> Module<T> {
             Self::get_parachain_status(),
             error_codes,
         ));
-
-        Ok(())
-    }
-
-    /// Recovers the BTC Parachain state from a `LIQUIDATION` error
-    /// and sets ParachainStatus to `RUNNING` if there are no other errors.
-    pub fn recover_from_liquidation() -> DispatchResult {
-        Self::recover_from_(vec![ErrorCode::Liquidation])
     }
 
     /// Recovers the BTC Parachain state from an `ORACLE_OFFLINE` error
     /// and sets ParachainStatus to `RUNNING` if there are no other errors.
-    pub fn recover_from_oracle_offline() -> DispatchResult {
+    pub fn recover_from_oracle_offline() {
         Self::recover_from_(vec![ErrorCode::OracleOffline])
     }
 
     /// Recovers the BTC Parachain state from a `NO_DATA_BTC_RELAY` or `INVALID_BTC_RELAY` error
     /// (when a chain reorganization occurs and the new main chain has no errors)
     /// and sets ParachainStatus to `RUNNING` if there are no other errors.
-    pub fn recover_from_btc_relay_failure() -> DispatchResult {
+    pub fn recover_from_btc_relay_failure() {
         Self::recover_from_(vec![ErrorCode::InvalidBTCRelay, ErrorCode::NoDataBTCRelay])
     }
 
