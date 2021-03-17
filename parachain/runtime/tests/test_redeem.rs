@@ -3,9 +3,6 @@ mod mock;
 use mock::redeem_testing_utils::*;
 use mock::*;
 
-use vault_registry::types::RichVault;
-use vault_registry::types::UpdatableVault;
-
 #[test]
 fn integration_test_redeem_should_fail_if_not_running() {
     ExtBuilder::build().execute_with(|| {

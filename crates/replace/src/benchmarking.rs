@@ -75,9 +75,9 @@ benchmarks! {
 
         VaultRegistry::<T>::_register_vault(&old_vault_id, 100000000u32.into(), dummy_public_key()).unwrap();
 
-        VaultRegistry::<T>::increase_to_be_issued_tokens(&old_vault_id, amount.into()).unwrap();
+        VaultRegistry::<T>::try_increase_to_be_issued_tokens(&old_vault_id, amount.into()).unwrap();
         VaultRegistry::<T>::issue_tokens(&old_vault_id, amount.into()).unwrap();
-        VaultRegistry::<T>::increase_to_be_replaced_tokens(&old_vault_id, amount.into()).unwrap();
+        VaultRegistry::<T>::try_increase_to_be_replaced_tokens(&old_vault_id, amount.into()).unwrap();
 
         VaultRegistry::<T>::_register_vault(&new_vault_id, 100000000u32.into(), dummy_public_key()).unwrap();
 
@@ -105,7 +105,7 @@ benchmarks! {
         VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap()); // 0.001%
         VaultRegistry::<T>::set_auction_collateral_threshold(<T as vault_registry::Config>::UnsignedFixedPoint::checked_from_rational(10000, 100).unwrap()); // 10000%
 
-        VaultRegistry::<T>::increase_to_be_issued_tokens(&old_vault_id, btc_amount.into()).unwrap();
+        VaultRegistry::<T>::try_increase_to_be_issued_tokens(&old_vault_id, btc_amount.into()).unwrap();
         VaultRegistry::<T>::issue_tokens(&old_vault_id, btc_amount.into()).unwrap();
     }: _(RawOrigin::Signed(new_vault_id), old_vault_id, btc_amount.into(), collateral.into(), new_vault_btc_address)
 
@@ -211,12 +211,12 @@ benchmarks! {
         ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()).unwrap();
 
         VaultRegistry::<T>::_register_vault(&old_vault_id, 100000000u32.into(), dummy_public_key()).unwrap();
-        VaultRegistry::<T>::increase_to_be_issued_tokens(&old_vault_id, amount.into()).unwrap();
+        VaultRegistry::<T>::try_increase_to_be_issued_tokens(&old_vault_id, amount.into()).unwrap();
         VaultRegistry::<T>::issue_tokens(&old_vault_id, amount.into()).unwrap();
-        VaultRegistry::<T>::increase_to_be_redeemed_tokens(&old_vault_id, amount.into()).unwrap();
+        VaultRegistry::<T>::try_increase_to_be_redeemed_tokens(&old_vault_id, amount.into()).unwrap();
 
         VaultRegistry::<T>::_register_vault(&new_vault_id, 100000000u32.into(), dummy_public_key()).unwrap();
-        VaultRegistry::<T>::increase_to_be_issued_tokens(&new_vault_id, amount.into()).unwrap();
+        VaultRegistry::<T>::try_increase_to_be_issued_tokens(&new_vault_id, amount.into()).unwrap();
 
     }: _(RawOrigin::Signed(new_vault_id), replace_id)
 

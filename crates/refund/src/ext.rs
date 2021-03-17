@@ -73,11 +73,11 @@ pub(crate) mod vault_registry {
     use crate::types::PolkaBTC;
     use frame_support::dispatch::{DispatchError, DispatchResult};
 
-    pub fn increase_to_be_issued_tokens<T: vault_registry::Config>(
+    pub fn try_increase_to_be_issued_tokens<T: vault_registry::Config>(
         vault_id: &T::AccountId,
         amount: PolkaBTC<T>,
     ) -> Result<(), DispatchError> {
-        <vault_registry::Module<T>>::increase_to_be_issued_tokens(vault_id, amount)
+        <vault_registry::Module<T>>::try_increase_to_be_issued_tokens(vault_id, amount)
     }
 
     pub fn issue_tokens<T: vault_registry::Config>(

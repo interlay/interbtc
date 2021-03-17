@@ -70,11 +70,11 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::get_vault_from_id(vault_id)
     }
 
-    pub fn increase_to_be_redeemed_tokens<T: vault_registry::Config>(
+    pub fn try_increase_to_be_redeemed_tokens<T: vault_registry::Config>(
         vault_id: &T::AccountId,
         amount: PolkaBTC<T>,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::increase_to_be_redeemed_tokens(vault_id, amount)
+        <vault_registry::Module<T>>::try_increase_to_be_redeemed_tokens(vault_id, amount)
     }
 
     pub fn redeem_tokens<T: vault_registry::Config>(
