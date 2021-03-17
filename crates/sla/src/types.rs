@@ -8,6 +8,7 @@ pub enum VaultEvent<PolkaBTC> {
     Refunded,
 }
 
+#[derive(Debug, PartialEq)]
 pub enum RelayerEvent {
     BlockSubmission,
     CorrectNoDataVoteOrReport,

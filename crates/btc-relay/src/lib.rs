@@ -249,7 +249,7 @@ decl_module! {
             origin, raw_block_header: RawBlockHeader
         ) -> DispatchResult {
             let relayer = ensure_signed(origin)?;
-            Self::_store_block_header(relayer, raw_block_header)
+            Self::_store_block_header_and_update_sla(relayer, raw_block_header)
         }
 
         /// Stores multiple new block headers
@@ -269,7 +269,7 @@ decl_module! {
             let relayer = ensure_signed(origin)?;
             // TODO: can we optimize this?
             for raw_block_header in raw_block_headers {
-                Self::_store_block_header(relayer.clone(), raw_block_header)?;
+                Self::_store_block_header_and_update_sla(relayer.clone(), raw_block_header)?;
             }
             Ok(())
         }
@@ -482,6 +482,21 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+    // TODO: wrap sla update via staked-relayers pallet
+    fn _store_block_header_and_update_sla(
+        relayer: T::AccountId,
+        raw_block_header: RawBlockHeader,
+    ) -> DispatchResult {
+        if let Err(err) = Self::_store_block_header(relayer.clone(), raw_block_header) {
+            if err != DispatchError::from(Error::<T>::DuplicateBlock) {
+                return Err(err);
+            }
+        }
+
+        ext::sla::event_update_relayer_sla::<T>(&relayer, ext::sla::RelayerEvent::BlockSubmission)?;
+        Ok(())
+    }
+
     pub fn _store_block_header(
         relayer: T::AccountId,
         raw_block_header: RawBlockHeader,
@@ -557,8 +572,6 @@ impl<T: Config> Module<T> {
                 Self::set_best_block_height(current_block_height)
             }
         };
-
-        ext::sla::event_update_relayer_sla::<T>(&relayer, ext::sla::RelayerEvent::BlockSubmission)?;
 
         // Determine if this block extends the main chain or a fork
         let current_best_block = Self::get_best_block();

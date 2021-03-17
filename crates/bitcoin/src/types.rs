@@ -166,6 +166,12 @@ pub enum OpCode {
 #[derive(Encode, Decode, Copy, Clone)]
 pub struct RawBlockHeader([u8; 80]);
 
+impl Default for RawBlockHeader {
+    fn default() -> Self {
+        Self([0; 80])
+    }
+}
+
 impl TryFrom<Vec<u8>> for RawBlockHeader {
     type Error = Error;
 
