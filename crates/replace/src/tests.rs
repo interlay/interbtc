@@ -138,6 +138,31 @@ fn test_request_replace_transfer_zero_fails() {
 }
 
 #[test]
+fn test_auction_replace_below_dust_fails() {
+    run_test(|| {
+        ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|_| {
+            MockResult::Return(Ok(Vault {
+                id: BOB,
+                to_be_replaced_tokens: 0,
+                to_be_issued_tokens: 0,
+                issued_tokens: 100,
+                to_be_redeemed_tokens: 0,
+                backing_collateral: 0,
+                wallet: Wallet::new(dummy_public_key()),
+                banned_until: None,
+                status: VaultStatus::Active,
+            }))
+        });
+
+        assert_noop!(
+            auction_replace(BOB, ALICE, 0, 0),
+            TestError::AmountBelowDustAmount
+        );
+    })
+}
+
+#[test]
 fn test_request_replace_vault_not_found_fails() {
     run_test(|| {
         assert_noop!(

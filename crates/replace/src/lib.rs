@@ -452,6 +452,10 @@ impl<T: Config> Module<T> {
         // Check that Parachain status is RUNNING
         ext::security::ensure_parachain_status_running::<T>()?;
 
+        // check amount_btc is above the minimum
+        let dust_value = <ReplaceBtcDustValue<T>>::get();
+        ensure!(btc_amount >= dust_value, Error::<T>::AmountBelowDustAmount);
+
         // Add the new replace address to the vault's wallet,
         // this should also verify that the vault exists
         ext::vault_registry::insert_vault_deposit_address::<T>(&new_vault_id, btc_address.clone())?;
