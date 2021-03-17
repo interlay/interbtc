@@ -24,7 +24,6 @@ use frame_system::{ensure_root, ensure_signed};
 #[cfg(test)]
 use mocktopus::macros::mockable;
 use primitive_types::H256;
-use sp_runtime::traits::CheckedSub;
 use sp_runtime::ModuleId;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
@@ -316,7 +315,10 @@ impl<T: Config> Module<T> {
         ext::collateral::lock_collateral::<T>(vault_id.clone(), griefing_collateral)?;
 
         // increase to-be-replaced tokens. This will fail if the vault does not have enough tokens available
-        ext::vault_registry::increase_to_be_replaced_tokens::<T>(&vault_id, amount_btc.clone())?;
+        ext::vault_registry::try_increase_to_be_replaced_tokens::<T>(
+            &vault_id,
+            amount_btc.clone(),
+        )?;
 
         // Generate a replaceId by hashing a random seed, a nonce, and the address of the Requester.
         let replace_id = ext::security::get_secure_id::<T>(&vault_id);
@@ -411,20 +413,20 @@ impl<T: Config> Module<T> {
         ext::vault_registry::ensure_not_banned::<T>(&new_vault_id, height)?;
 
         // Lock the new-vault's additional collateral
-        ext::vault_registry::_lock_additional_collateral::<T>(&new_vault_id, collateral)?;
+        ext::vault_registry::try_lock_additional_collateral::<T>(&new_vault_id, collateral)?;
 
         // decrease old-vault's to-be-replaced tokens; turn them into to-be-redeemed tokens
         ext::vault_registry::decrease_to_be_replaced_tokens::<T>(
             &replace.old_vault,
             replace.amount.clone(),
         )?;
-        ext::vault_registry::increase_to_be_redeemed_tokens::<T>(
+        ext::vault_registry::try_increase_to_be_redeemed_tokens::<T>(
             &replace.old_vault,
             replace.amount.clone(),
         )?;
 
         // increase to-be-issued tokens - this will fail if there is insufficient collateral
-        ext::vault_registry::increase_to_be_issued_tokens::<T>(&new_vault_id, replace.amount)?;
+        ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&new_vault_id, replace.amount)?;
 
         // Update the ReplaceRequest entry
         replace.add_new_vault(new_vault_id.clone(), height, collateral, btc_address);
@@ -470,7 +472,7 @@ impl<T: Config> Module<T> {
         );
 
         // Lock the new-vault's additional collateral
-        ext::vault_registry::_lock_additional_collateral::<T>(&new_vault_id, collateral)?;
+        ext::vault_registry::try_lock_additional_collateral::<T>(&new_vault_id, collateral)?;
 
         // claim auctioning fee that is proportional to replace amount
         let dot_amount = ext::oracle::btc_to_dots::<T>(btc_amount)?;
@@ -482,10 +484,10 @@ impl<T: Config> Module<T> {
         )?;
 
         // increase to-be-issued tokens - this will fail if there is insufficient collateral
-        ext::vault_registry::increase_to_be_issued_tokens::<T>(&new_vault_id, btc_amount)?;
+        ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&new_vault_id, btc_amount)?;
 
         // Call the increaseToBeRedeemedTokens function with the oldVault and the btcAmount
-        ext::vault_registry::increase_to_be_redeemed_tokens::<T>(&old_vault_id, btc_amount)?;
+        ext::vault_registry::try_increase_to_be_redeemed_tokens::<T>(&old_vault_id, btc_amount)?;
 
         // Griefing collateral is zero because the an auction fee has already been transfered to the new-vault
         let griefing_collateral = 0u32.into();
@@ -642,16 +644,14 @@ impl<T: Config> Module<T> {
         // if the new_vault locked additional collateral especially for this replace,
         // release it if it does not cause him to be undercollateralized
         if !ext::vault_registry::is_vault_liquidated::<T>(&new_vault_id)? {
-            let new_collateral = ext::vault_registry::get_backing_collateral::<T>(&new_vault_id)?
-                .checked_sub(&replace.collateral)
-                .ok_or(Error::<T>::ArithmeticUnderflow)?;
-
-            let required_collateral =
-                ext::vault_registry::get_required_collateral_for_vault::<T>(&new_vault_id)?;
-
-            if new_collateral >= required_collateral {
-                // Release the newVault's collateral associated with this ReplaceRequests
-                ext::vault_registry::_withdraw_collateral::<T>(&new_vault_id, replace.collateral)?;
+            if ext::vault_registry::is_allowed_to_withdraw_collateral::<T>(
+                &new_vault_id,
+                replace.collateral,
+            )? {
+                ext::vault_registry::force_withdraw_collateral::<T>(
+                    &new_vault_id,
+                    replace.collateral,
+                )?;
             }
         }
 

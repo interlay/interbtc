@@ -264,7 +264,7 @@ impl<T: Config> Module<T> {
             Error::<T>::AmountBelowDustAmount
         );
 
-        ext::vault_registry::increase_to_be_redeemed_tokens::<T>(
+        ext::vault_registry::try_increase_to_be_redeemed_tokens::<T>(
             &vault_id,
             redeem_amount_polka_btc,
         )?;

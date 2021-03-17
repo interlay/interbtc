@@ -236,7 +236,7 @@ impl<T: Config> Module<T> {
 
         let issue_id = ext::security::get_secure_id::<T>(&requester);
 
-        ext::vault_registry::increase_to_be_issued_tokens::<T>(&vault_id, amount_btc)?;
+        ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&vault_id, amount_btc)?;
 
         let btc_address = ext::vault_registry::register_deposit_address::<T>(&vault_id, issue_id)?;
 
@@ -301,16 +301,12 @@ impl<T: Config> Module<T> {
         )?;
 
         if ext::vault_registry::is_vault_liquidated::<T>(&issue.vault)? {
+            // if liquidated, don't try refunds
             let amount_including_fee = issue
                 .amount
                 .checked_add(&issue.fee)
                 .ok_or(Error::<T>::ArithmeticOverflow)?;
-            ext::vault_registry::decrease_liquidation_vault_to_be_issued_tokens::<T>(
-                amount_including_fee,
-            )?;
-            ext::vault_registry::increase_liquidation_vault_issued_tokens::<T>(
-                amount_including_fee,
-            )?;
+            ext::vault_registry::issue_tokens::<T>(&issue.vault, amount_including_fee)?;
         } else {
             let amount_transferred = Self::u128_to_btc(amount_transferred as u128)?;
 
@@ -319,7 +315,7 @@ impl<T: Config> Module<T> {
                     .checked_sub(&total_amount)
                     .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
-                match ext::vault_registry::increase_to_be_issued_tokens::<T>(
+                match ext::vault_registry::try_increase_to_be_issued_tokens::<T>(
                     &issue.vault,
                     surplus_btc,
                 ) {

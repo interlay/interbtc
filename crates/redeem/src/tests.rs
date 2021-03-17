@@ -105,7 +105,7 @@ fn test_request_redeem_fails_with_amount_below_minimum() {
         let redeemer = ALICE;
         let amount = 9;
 
-        ext::vault_registry::increase_to_be_redeemed_tokens::<Test>.mock_safe(
+        ext::vault_registry::try_increase_to_be_redeemed_tokens::<Test>.mock_safe(
             move |vault_id, amount_btc| {
                 assert_eq!(vault_id, &BOB);
                 assert_eq!(amount_btc, amount);
@@ -238,7 +238,7 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
         let amount = 9;
         let redeem_fee = 5;
 
-        ext::vault_registry::increase_to_be_redeemed_tokens::<Test>.mock_safe(
+        ext::vault_registry::try_increase_to_be_redeemed_tokens::<Test>.mock_safe(
             move |vault_id, amount_btc| {
                 assert_eq!(vault_id, &BOB);
                 assert_eq!(amount_btc, amount - redeem_fee);

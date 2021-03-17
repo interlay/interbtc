@@ -56,11 +56,11 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::get_active_vault_from_id(vault_id)
     }
 
-    pub fn increase_to_be_issued_tokens<T: vault_registry::Config>(
+    pub fn try_increase_to_be_issued_tokens<T: vault_registry::Config>(
         vault_id: &T::AccountId,
         amount: PolkaBTC<T>,
     ) -> Result<(), DispatchError> {
-        <vault_registry::Module<T>>::increase_to_be_issued_tokens(vault_id, amount)
+        <vault_registry::Module<T>>::try_increase_to_be_issued_tokens(vault_id, amount)
     }
 
     pub fn register_deposit_address<T: vault_registry::Config>(
@@ -82,18 +82,6 @@ pub(crate) mod vault_registry {
         height: T::BlockNumber,
     ) -> DispatchResult {
         <vault_registry::Module<T>>::_ensure_not_banned(vault, height)
-    }
-
-    pub fn decrease_liquidation_vault_to_be_issued_tokens<T: vault_registry::Config>(
-        amount: PolkaBTC<T>,
-    ) -> DispatchResult {
-        <vault_registry::Module<T>>::decrease_liquidation_vault_to_be_issued_tokens(amount)
-    }
-
-    pub fn increase_liquidation_vault_issued_tokens<T: vault_registry::Config>(
-        amount: PolkaBTC<T>,
-    ) -> DispatchResult {
-        <vault_registry::Module<T>>::increase_liquidation_vault_issued_tokens(amount)
     }
 
     pub fn decrease_to_be_issued_tokens<T: vault_registry::Config>(

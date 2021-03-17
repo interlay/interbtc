@@ -198,31 +198,22 @@ pub type DefaultVault<T> = Vault<
 
 pub type DefaultSystemVault<T> = SystemVault<<T as frame_system::Config>::AccountId, PolkaBTC<T>>;
 
-pub trait UpdatableVault<T: Config> {
+pub(crate) trait UpdatableVault<T: Config> {
     fn id(&self) -> T::AccountId;
 
     fn issued_tokens(&self) -> PolkaBTC<T>;
 
-    fn force_issue_tokens(&mut self, tokens: PolkaBTC<T>) -> DispatchResult;
+    fn increase_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult;
 
-    fn force_increase_to_be_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult;
+    fn increase_to_be_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult;
 
-    fn force_increase_to_be_redeemed(&mut self, tokens: PolkaBTC<T>) -> DispatchResult;
+    fn increase_to_be_redeemed(&mut self, tokens: PolkaBTC<T>) -> DispatchResult;
 
-    fn force_decrease_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult;
+    fn decrease_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult;
 
-    fn force_decrease_to_be_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult;
+    fn decrease_to_be_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult;
 
-    fn force_decrease_to_be_redeemed(&mut self, tokens: PolkaBTC<T>) -> DispatchResult;
-
-    fn decrease_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
-        let issued_tokens = self.issued_tokens();
-        ensure!(
-            issued_tokens >= tokens,
-            Error::<T>::InsufficientTokensCommitted
-        );
-        self.force_decrease_issued(tokens)
-    }
+    fn decrease_to_be_redeemed(&mut self, tokens: PolkaBTC<T>) -> DispatchResult;
 }
 
 pub struct RichVault<T: Config> {
@@ -238,17 +229,24 @@ impl<T: Config> UpdatableVault<T> for RichVault<T> {
         self.data.issued_tokens
     }
 
-    fn force_issue_tokens(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
-        self.update(|v| {
-            v.issued_tokens = v
-                .issued_tokens
-                .checked_add(&tokens)
-                .ok_or(Error::<T>::ArithmeticOverflow)?;
-            Ok(())
-        })
+    fn increase_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
+        if self.data.is_liquidated() {
+            Module::<T>::get_rich_liquidation_vault().increase_issued(tokens)
+        } else {
+            self.update(|v| {
+                v.issued_tokens = v
+                    .issued_tokens
+                    .checked_add(&tokens)
+                    .ok_or(Error::<T>::ArithmeticOverflow)?;
+                Ok(())
+            })
+        }
     }
 
-    fn force_increase_to_be_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
+    fn increase_to_be_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
+        // this function should never be called on liquidated vaults
+        ensure!(!self.data.is_liquidated(), Error::<T>::VaultNotFound);
+
         self.update(|v| {
             v.to_be_issued_tokens = v
                 .to_be_issued_tokens
@@ -258,7 +256,10 @@ impl<T: Config> UpdatableVault<T> for RichVault<T> {
         })
     }
 
-    fn force_increase_to_be_redeemed(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
+    fn increase_to_be_redeemed(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
+        // this function should never be called on liquidated vaults
+        ensure!(!self.data.is_liquidated(), Error::<T>::VaultNotFound);
+
         self.update(|v| {
             v.to_be_redeemed_tokens = v
                 .to_be_redeemed_tokens
@@ -268,27 +269,40 @@ impl<T: Config> UpdatableVault<T> for RichVault<T> {
         })
     }
 
-    fn force_decrease_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
-        self.update(|v| {
-            v.issued_tokens = v
-                .issued_tokens
-                .checked_sub(&tokens)
-                .ok_or(Error::<T>::ArithmeticUnderflow)?;
-            Ok(())
-        })
+    fn decrease_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
+        if self.data.is_liquidated() {
+            Module::<T>::get_rich_liquidation_vault().decrease_issued(tokens)
+        } else {
+            self.update(|v| {
+                v.issued_tokens = v
+                    .issued_tokens
+                    .checked_sub(&tokens)
+                    .ok_or(Error::<T>::ArithmeticUnderflow)?;
+                Ok(())
+            })
+        }
     }
 
-    fn force_decrease_to_be_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
-        self.update(|v| {
-            v.to_be_issued_tokens = v
-                .to_be_issued_tokens
-                .checked_sub(&tokens)
-                .ok_or(Error::<T>::ArithmeticUnderflow)?;
-            Ok(())
-        })
+    fn decrease_to_be_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
+        if self.data.is_liquidated() {
+            Module::<T>::get_rich_liquidation_vault().decrease_to_be_issued(tokens)
+        } else {
+            self.update(|v| {
+                v.to_be_issued_tokens = v
+                    .to_be_issued_tokens
+                    .checked_sub(&tokens)
+                    .ok_or(Error::<T>::ArithmeticUnderflow)?;
+                Ok(())
+            })
+        }
     }
 
-    fn force_decrease_to_be_redeemed(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
+    fn decrease_to_be_redeemed(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
+        // in addition to the change to this vault, _also_ change the liquidation vault
+        if self.data.is_liquidated() {
+            Module::<T>::get_rich_liquidation_vault().decrease_to_be_redeemed(tokens)?;
+        }
+
         self.update(|v| {
             v.to_be_redeemed_tokens = v
                 .to_be_redeemed_tokens
@@ -309,46 +323,24 @@ impl<T: Config> RichVault<T> {
             .ok_or(Error::<T>::ArithmeticOverflow)?)
     }
 
-    pub fn increase_collateral(&mut self, collateral: DOT<T>) -> DispatchResult {
+    pub(crate) fn increase_backing_collateral(&mut self, collateral: DOT<T>) -> DispatchResult {
         self.update(|v| {
-            v.backing_collateral = collateral
-                .checked_add(&v.backing_collateral)
+            v.backing_collateral = v
+                .backing_collateral
+                .checked_add(&collateral)
                 .ok_or(Error::<T>::ArithmeticOverflow)?;
             Ok(())
-        })?;
-        Module::<T>::increase_total_backing_collateral(collateral)?;
-        ext::collateral::lock::<T>(&self.data.id, collateral)
+        })
     }
 
-    pub(crate) fn force_withdraw_collateral(&mut self, collateral: DOT<T>) -> DispatchResult {
+    pub(crate) fn decrease_backing_collateral(&mut self, collateral: DOT<T>) -> DispatchResult {
         self.update(|v| {
             v.backing_collateral = v
                 .backing_collateral
                 .checked_sub(&collateral)
                 .ok_or(Error::<T>::ArithmeticUnderflow)?;
             Ok(())
-        })?;
-        Module::<T>::decrease_total_backing_collateral(collateral)?;
-        ext::collateral::release_collateral::<T>(&self.data.id, collateral)
-    }
-
-    pub fn withdraw_collateral(&mut self, collateral: DOT<T>) -> DispatchResult {
-        let new_collateral = self
-            .data
-            .backing_collateral
-            .checked_sub(&collateral)
-            .ok_or(Error::<T>::InsufficientCollateral)?;
-
-        let tokens = self
-            .data
-            .issued_tokens
-            .checked_add(&self.data.to_be_issued_tokens)
-            .ok_or(Error::<T>::ArithmeticOverflow)?;
-        ensure!(
-            !Module::<T>::is_collateral_below_secure_threshold(new_collateral, tokens)?,
-            Error::<T>::InsufficientCollateral
-        );
-        self.force_withdraw_collateral(collateral)
+        })
     }
 
     pub fn get_collateral(&self) -> DOT<T> {
@@ -413,34 +405,17 @@ impl<T: Config> RichVault<T> {
         Ok(redeemable_tokens)
     }
 
-    pub fn increase_to_be_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
-        let issuable_tokens = self.issuable_tokens()?;
-        ensure!(issuable_tokens >= tokens, Error::<T>::ExceedingVaultLimit);
-        self.force_increase_to_be_issued(tokens)
-    }
-
-    pub fn increase_to_be_replaced(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
-        let new_to_be_replaced = self
-            .data
-            .to_be_replaced_tokens
-            .checked_add(&tokens)
-            .ok_or(Error::<T>::ArithmeticOverflow)?;
-
-        let required_tokens = new_to_be_replaced
-            .checked_add(&self.data.to_be_redeemed_tokens)
-            .ok_or(Error::<T>::ArithmeticOverflow)?;
-
-        ensure!(
-            self.data.issued_tokens >= required_tokens,
-            Error::<T>::InsufficientTokensCommitted
-        );
+    pub(crate) fn increase_to_be_replaced(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
         self.update(|v| {
-            v.to_be_replaced_tokens = new_to_be_replaced;
+            v.to_be_replaced_tokens = v
+                .to_be_replaced_tokens
+                .checked_add(&tokens)
+                .ok_or(Error::<T>::ArithmeticOverflow)?;
             Ok(())
         })
     }
 
-    pub fn decrease_to_be_replaced(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
+    pub(crate) fn decrease_to_be_replaced(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
         self.update(|v| {
             v.to_be_replaced_tokens = v
                 .to_be_replaced_tokens
@@ -450,69 +425,18 @@ impl<T: Config> RichVault<T> {
         })
     }
 
-    pub fn decrease_to_be_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
-        ensure!(
-            self.data.to_be_issued_tokens >= tokens,
-            Error::<T>::InsufficientTokensCommitted
-        );
-        self.update(|v| {
-            v.to_be_issued_tokens = v
-                .to_be_issued_tokens
-                .checked_sub(&tokens)
-                .ok_or(Error::<T>::ArithmeticUnderflow)?;
-            Ok(())
-        })
-    }
-
-    pub fn issue_tokens(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
+    pub(crate) fn issue_tokens(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
         self.decrease_to_be_issued(tokens)?;
-        self.force_issue_tokens(tokens)
+        self.increase_issued(tokens)
     }
 
-    pub fn increase_to_be_redeemed(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
-        let redeemable = self
-            .data
-            .issued_tokens
-            .checked_sub(&self.data.to_be_redeemed_tokens)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?;
-        ensure!(
-            redeemable >= tokens,
-            Error::<T>::InsufficientTokensCommitted
-        );
-        self.force_increase_to_be_redeemed(tokens)
-    }
-
-    pub fn decrease_to_be_redeemed(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
-        let to_be_redeemed = self.data.to_be_redeemed_tokens;
-        ensure!(
-            to_be_redeemed >= tokens,
-            Error::<T>::InsufficientTokensCommitted
-        );
-        self.update(|v| {
-            v.to_be_redeemed_tokens = v
-                .to_be_redeemed_tokens
-                .checked_sub(&tokens)
-                .ok_or(Error::<T>::ArithmeticUnderflow)?;
-            Ok(())
-        })
-    }
-
-    pub fn decrease_tokens(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
+    pub(crate) fn decrease_tokens(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
         self.decrease_to_be_redeemed(tokens)?;
         self.decrease_issued(tokens)
         // Note: slashing of collateral must be called where this function is called (e.g. in Redeem)
     }
 
-    pub fn redeem_tokens(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
-        self.decrease_tokens(tokens)
-    }
-
-    pub fn transfer(&mut self, other: &mut RichVault<T>, tokens: PolkaBTC<T>) -> DispatchResult {
-        self.decrease_tokens(tokens)?;
-        other.force_issue_tokens(tokens)
-    }
-
-    pub fn liquidate<V: UpdatableVault<T>>(
+    pub(crate) fn liquidate<V: UpdatableVault<T>>(
         &mut self,
         liquidation_vault: &mut V,
         status: VaultStatus,
@@ -544,13 +468,13 @@ impl<T: Config> RichVault<T> {
             .checked_sub(&liquidated_collateral)
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
         if !to_release.is_zero() {
-            self.force_withdraw_collateral(to_release)?;
+            Module::<T>::force_withdraw_collateral(&self.data.id, to_release)?;
         }
 
         // Copy all tokens to the liquidation vault
-        liquidation_vault.force_issue_tokens(self.data.issued_tokens)?;
-        liquidation_vault.force_increase_to_be_issued(self.data.to_be_issued_tokens)?;
-        liquidation_vault.force_increase_to_be_redeemed(self.data.to_be_redeemed_tokens)?;
+        liquidation_vault.increase_issued(self.data.issued_tokens)?;
+        liquidation_vault.increase_to_be_issued(self.data.to_be_issued_tokens)?;
+        liquidation_vault.increase_to_be_redeemed(self.data.to_be_redeemed_tokens)?;
 
         // Update vault: clear to_be_issued & issued_tokens, but don't touch to_be_redeemed
         let _ = self.update(|v| {
@@ -594,21 +518,24 @@ impl<T: Config> RichVault<T> {
         Ok(vault_public_key)
     }
 
-    pub fn insert_deposit_address(&mut self, btc_address: BtcAddress) {
+    pub(crate) fn insert_deposit_address(&mut self, btc_address: BtcAddress) {
         let _ = self.update(|v| {
             v.wallet.add_btc_address(btc_address);
             Ok(())
         });
     }
 
-    pub fn new_deposit_address(&mut self, secure_id: H256) -> Result<BtcAddress, DispatchError> {
+    pub(crate) fn new_deposit_address(
+        &mut self,
+        secure_id: H256,
+    ) -> Result<BtcAddress, DispatchError> {
         let public_key = self.new_deposit_public_key(secure_id)?;
         let btc_address = BtcAddress::P2WPKHv0(public_key.to_hash());
         self.insert_deposit_address(btc_address);
         Ok(btc_address)
     }
 
-    pub fn update_public_key(&mut self, public_key: BtcPublicKey) {
+    pub(crate) fn update_public_key(&mut self, public_key: BtcPublicKey) {
         let _ = self.update(|v| {
             v.wallet.public_key = public_key.clone();
             Ok(())
@@ -668,7 +595,7 @@ impl<T: Config> UpdatableVault<T> for RichSystemVault<T> {
         self.data.issued_tokens
     }
 
-    fn force_issue_tokens(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
+    fn increase_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
         self.update(|v| {
             v.issued_tokens = v
                 .issued_tokens
@@ -678,7 +605,7 @@ impl<T: Config> UpdatableVault<T> for RichSystemVault<T> {
         })
     }
 
-    fn force_increase_to_be_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
+    fn increase_to_be_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
         self.update(|v| {
             v.to_be_issued_tokens = v
                 .to_be_issued_tokens
@@ -688,7 +615,7 @@ impl<T: Config> UpdatableVault<T> for RichSystemVault<T> {
         })
     }
 
-    fn force_increase_to_be_redeemed(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
+    fn increase_to_be_redeemed(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
         self.update(|v| {
             v.to_be_redeemed_tokens = v
                 .to_be_redeemed_tokens
@@ -698,7 +625,7 @@ impl<T: Config> UpdatableVault<T> for RichSystemVault<T> {
         })
     }
 
-    fn force_decrease_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
+    fn decrease_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
         self.update(|v| {
             v.issued_tokens = v
                 .issued_tokens
@@ -708,7 +635,7 @@ impl<T: Config> UpdatableVault<T> for RichSystemVault<T> {
         })
     }
 
-    fn force_decrease_to_be_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
+    fn decrease_to_be_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
         self.update(|v| {
             v.to_be_issued_tokens = v
                 .to_be_issued_tokens
@@ -718,7 +645,7 @@ impl<T: Config> UpdatableVault<T> for RichSystemVault<T> {
         })
     }
 
-    fn force_decrease_to_be_redeemed(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
+    fn decrease_to_be_redeemed(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
         self.update(|v| {
             v.to_be_redeemed_tokens = v
                 .to_be_redeemed_tokens
