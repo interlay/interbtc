@@ -125,9 +125,9 @@ fn set_issued_and_backing(vault: [u8; 32], amount_issued: u128, backing: u128) {
         .with_vault(vault)
         .request();
     ExecuteIssueBuilder::new(issue_id)
-        .with_submitter(PROOF_SUBMITTER)
+        .with_submitter(PROOF_SUBMITTER, true)
         .with_relayer(ISSUE_RELAYER)
-        .execute();
+        .assert_execute();
 
     CoreVaultData::force_to(
         vault,

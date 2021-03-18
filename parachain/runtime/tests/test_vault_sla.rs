@@ -60,8 +60,8 @@ fn test_sla_increase_for_submitting_proof_for_issue_against_self() {
 
         let (issue_id, issue) = request_issue(1000);
         ExecuteIssueBuilder::new(issue_id)
-            .with_submitter(VAULT)
-            .execute();
+            .with_submitter(VAULT, true)
+            .assert_execute();
 
         let expected_sla_increase_for_issue = SlaModule::vault_executed_issue_max_sla_change()
             * FixedI128::checked_from_rational(1000, issue.amount + issue.fee).unwrap();
@@ -94,7 +94,7 @@ fn test_sla_increase_for_refund() {
         // overpay by a factor of 4
         ExecuteIssueBuilder::new(issue_id)
             .with_amount(4 * (issue.amount + issue.fee))
-            .execute();
+            .assert_execute();
 
         let expected_sla_increase_for_issue = SlaModule::vault_executed_issue_max_sla_change()
             * FixedI128::checked_from_rational(1000, issue.amount + issue.fee).unwrap();
@@ -144,4 +144,26 @@ fn test_sla_remains_unchanged_when_liquidated() {
         // sla remains unchanged if vault has been liquidated
         assert_eq!(SlaModule::vault_sla(account_of(VAULT)), initial_sla());
     })
+}
+
+#[test]
+fn test_sla_increase_for_underpayed_issue() {
+    test_with(|| {
+        let initial_user_balance = UserData::get(USER).free_balance;
+        let (issue_id, issue) = request_issue(4_000);
+
+        // only pay 25%
+        ExecuteIssueBuilder::new(issue_id)
+            .with_amount((issue.amount + issue.fee) / 4)
+            .with_submitter(USER, false)
+            .assert_execute();
+
+        // check the sla increase
+        let expected_sla_increase = SlaModule::vault_executed_issue_max_sla_change()
+            * FixedI128::checked_from_rational(4000, issue.amount + issue.fee).unwrap();
+        assert_eq!(
+            SlaModule::vault_sla(account_of(VAULT)),
+            initial_sla() + expected_sla_increase
+        );
+    });
 }

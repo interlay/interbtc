@@ -284,7 +284,7 @@ decl_module! {
         /// * `confirmations` - The number of confirmations needed to accept the proof. If `none`,
         ///                     the value stored in the StableBitcoinConfirmations storage item is used.
         /// * `raw_tx` - raw Bitcoin transaction
-        /// * `payment_value` - value of BTC sent in the 1st / payment UTXO of the transaction
+        /// * `minimum_btc` - minimum amount of BTC (satoshis) sent to the recipient
         /// * `recipient_btc_address` - 20 byte Bitcoin address of recipient of the BTC in the 1st  / payment UTXO
         /// * `op_return_id` - 32 byte hash identifier expected in OP_RETURN (replay protection)
         #[weight = <T as Config>::WeightInfo::verify_and_validate_transaction()]
@@ -295,7 +295,7 @@ decl_module! {
             raw_merkle_proof: Vec<u8>,
             confirmations: Option<u32>,
             raw_tx: Vec<u8>,
-            payment_value: i64,
+            minimum_btc: i64,
             recipient_btc_address: BtcAddress,
             op_return_id: Option<Vec<u8>>)
         -> DispatchResult {
@@ -312,7 +312,7 @@ decl_module! {
             Self::_verify_transaction_inclusion(tx_id, raw_merkle_proof, confirmations)?;
 
             // Parse transaction and check that it matches the given parameters
-            Self::_validate_transaction(raw_tx, payment_value, recipient_btc_address, op_return_id)?;
+            Self::_validate_transaction(raw_tx, Some(minimum_btc), recipient_btc_address, op_return_id)?;
 
             Ok(())
         }
@@ -357,7 +357,7 @@ decl_module! {
         ///
         /// # Arguments
         /// * `raw_tx` - raw Bitcoin transaction
-        /// * `payment_value` - value of BTC sent to the recipient
+        /// * `minimum_btc` - minimum amount of BTC (satoshis) sent to the recipient
         /// * `recipient_btc_address` - expected Bitcoin address of recipient (p2sh, p2pkh, p2wpkh)
         /// * `op_return_id` - 32 byte hash identifier expected in OP_RETURN (replay protection)
         #[weight = <T as Config>::WeightInfo::validate_transaction()]
@@ -365,12 +365,12 @@ decl_module! {
         fn validate_transaction(
             origin,
             raw_tx: Vec<u8>,
-            payment_value: i64,
+            minimum_btc: i64,
             recipient_btc_address: BtcAddress,
             op_return_id: Option<Vec<u8>>
         ) -> DispatchResult {
             let _ = ensure_signed(origin)?;
-            Self::_validate_transaction(raw_tx, payment_value, recipient_btc_address, op_return_id)?;
+            Self::_validate_transaction(raw_tx, Some(minimum_btc), recipient_btc_address, op_return_id)?;
             Ok(())
         }
 
@@ -799,7 +799,7 @@ impl<T: Config> Module<T> {
     /// use as the destination address for a potential refund, and the payment value
     pub fn _validate_transaction(
         raw_tx: Vec<u8>,
-        payment_value: i64,
+        minimum_btc: Option<i64>,
         recipient_btc_address: BtcAddress,
         op_return_id: Option<Vec<u8>>,
     ) -> Result<(BtcAddress, i64), DispatchError> {
@@ -832,11 +832,10 @@ impl<T: Config> Module<T> {
             }
         };
 
-        // Check if payment UTXO transfers sufficient value
-        ensure!(
-            extr_payment_value >= payment_value,
-            Error::<T>::InsufficientValue
-        );
+        // If a minimum was specified, check if the transferred amount is sufficient
+        if let Some(minimum) = minimum_btc {
+            ensure!(extr_payment_value >= minimum, Error::<T>::InsufficientValue);
+        }
 
         Ok((input_address, extr_payment_value))
     }

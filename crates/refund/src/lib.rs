@@ -191,7 +191,7 @@ impl<T: Config> Module<T> {
         ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
         ext::btc_relay::validate_transaction::<T>(
             raw_tx,
-            amount as i64,
+            Some(amount as i64),
             request.btc_address,
             Some(refund_id.as_bytes().to_vec()),
         )?;

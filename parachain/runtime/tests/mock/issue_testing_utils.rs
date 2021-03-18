@@ -77,6 +77,7 @@ pub struct ExecuteIssueBuilder {
     issue: IssueRequest<AccountId32, u32, u128, u128>,
     amount: u128,
     submitter: [u8; 32],
+    register_submitter_as_vault: bool,
     relayer: [u8; 32],
 }
 
@@ -88,6 +89,7 @@ impl ExecuteIssueBuilder {
             issue: issue.clone(),
             amount: issue.fee + issue.amount,
             submitter: PROOF_SUBMITTER,
+            register_submitter_as_vault: true,
             relayer: ALICE,
         }
     }
@@ -97,8 +99,9 @@ impl ExecuteIssueBuilder {
         self
     }
 
-    pub fn with_submitter(&mut self, submitter: [u8; 32]) -> &mut Self {
+    pub fn with_submitter(&mut self, submitter: [u8; 32], register_as_vault: bool) -> &mut Self {
         self.submitter = submitter;
+        self.register_submitter_as_vault = register_as_vault;
         self
     }
 
@@ -107,7 +110,7 @@ impl ExecuteIssueBuilder {
         self
     }
 
-    pub fn execute(&self) {
+    pub fn execute(&self) -> DispatchResultWithPostInfo {
         // send the btc from the user to the vault
         let (tx_id, _height, proof, raw_tx) = TransactionGenerator::new()
             .with_address(self.issue.btc_address.clone())
@@ -118,27 +121,26 @@ impl ExecuteIssueBuilder {
 
         SystemModule::set_block_number(1 + CONFIRMATIONS);
 
-        if let Err(_) = VaultRegistryModule::get_active_vault_from_id(&account_of(self.submitter)) {
-            assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-                DEFAULT_COLLATERAL,
-                dummy_public_key(),
-            ))
-            .dispatch(origin_of(account_of(self.submitter))));
+        if self.register_submitter_as_vault {
+            try_register_vault(DEFAULT_COLLATERAL, self.submitter);
         }
 
         // alice executes the issuerequest by confirming the btc transaction
-        assert_ok!(Call::Issue(IssueCall::execute_issue(
+        Call::Issue(IssueCall::execute_issue(
             self.issue_id,
             tx_id,
             proof,
-            raw_tx
+            raw_tx,
         ))
-        .dispatch(origin_of(account_of(self.submitter))));
+        .dispatch(origin_of(account_of(self.submitter)))
+    }
+    pub fn assert_execute(&self) {
+        assert_ok!(self.execute());
     }
 }
 
 pub fn execute_issue(issue_id: H256) {
-    ExecuteIssueBuilder::new(issue_id).execute()
+    ExecuteIssueBuilder::new(issue_id).assert_execute()
 }
 
 pub fn assert_issue_request_event() -> H256 {

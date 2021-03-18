@@ -815,7 +815,7 @@ fn test_verify_block_header_low_diff_fails() {
 fn test_validate_transaction_succeeds_with_payment() {
     run_test(|| {
         let raw_tx = hex::decode(sample_accepted_transaction()).unwrap();
-        let payment_value: i64 = 2500200000;
+        let minimum_btc: i64 = 2500200000;
         let recipient_btc_address =
             BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
 
@@ -829,7 +829,7 @@ fn test_validate_transaction_succeeds_with_payment() {
         assert_ok!(BTCRelay::validate_transaction(
             Origin::signed(3),
             raw_tx,
-            payment_value,
+            minimum_btc,
             recipient_btc_address,
             Some(vec![])
         ));
@@ -840,7 +840,7 @@ fn test_validate_transaction_succeeds_with_payment() {
 fn test_validate_transaction_succeeds_with_payment_and_op_return() {
     run_test(|| {
         let raw_tx = hex::decode(sample_accepted_transaction()).unwrap();
-        let payment_value: i64 = 2500200000;
+        let minimum_btc: i64 = 2500200000;
         let recipient_btc_address =
             BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let op_return_id = hex::decode(
@@ -856,7 +856,7 @@ fn test_validate_transaction_succeeds_with_payment_and_op_return() {
         assert_ok!(BTCRelay::validate_transaction(
             Origin::signed(3),
             raw_tx,
-            payment_value,
+            minimum_btc,
             recipient_btc_address,
             Some(op_return_id)
         ));
@@ -867,7 +867,7 @@ fn test_validate_transaction_succeeds_with_payment_and_op_return() {
 fn test_validate_transaction_succeeds_with_op_return_and_payment() {
     run_test(|| {
         let raw_tx = hex::decode(sample_accepted_transaction()).unwrap();
-        let payment_value: i64 = 2500200000;
+        let minimum_btc: i64 = 2500200000;
         let recipient_btc_address =
             BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let op_return_id = hex::decode(
@@ -883,7 +883,7 @@ fn test_validate_transaction_succeeds_with_op_return_and_payment() {
         assert_ok!(BTCRelay::validate_transaction(
             Origin::signed(3),
             raw_tx,
-            payment_value,
+            minimum_btc,
             recipient_btc_address,
             Some(op_return_id)
         ));
@@ -894,7 +894,7 @@ fn test_validate_transaction_succeeds_with_op_return_and_payment() {
 fn test_validate_transaction_succeeds_with_payment_and_refund_and_op_return() {
     run_test(|| {
         let raw_tx = hex::decode(sample_accepted_transaction()).unwrap();
-        let payment_value: i64 = 2500200000;
+        let minimum_btc: i64 = 2500200000;
         let recipient_btc_address =
             BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let op_return_id = hex::decode(
@@ -914,7 +914,7 @@ fn test_validate_transaction_succeeds_with_payment_and_refund_and_op_return() {
         assert_ok!(BTCRelay::validate_transaction(
             Origin::signed(3),
             raw_tx,
-            payment_value,
+            minimum_btc,
             recipient_btc_address,
             Some(op_return_id)
         ));
@@ -927,7 +927,7 @@ fn test_validate_transaction_invalid_no_outputs_fails() {
         // Simulate input (we mock the parsed transaction)
         let raw_tx = hex::decode(sample_accepted_transaction()).unwrap();
 
-        let payment_value: i64 = 2500200000;
+        let minimum_btc: i64 = 2500200000;
         let recipient_btc_address =
             BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let op_return_id = hex::decode(
@@ -944,7 +944,7 @@ fn test_validate_transaction_invalid_no_outputs_fails() {
             BTCRelay::validate_transaction(
                 Origin::signed(3),
                 raw_tx,
-                payment_value,
+                minimum_btc,
                 recipient_btc_address,
                 Some(op_return_id)
             ),
@@ -959,7 +959,7 @@ fn test_validate_transaction_insufficient_payment_value_fails() {
         // Simulate input (we mock the parsed transaction)
         let raw_tx = vec![0u8; 342];
 
-        let payment_value: i64 = 2500200000;
+        let minimum_btc: i64 = 2500200000;
         let recipient_btc_address =
             BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let op_return_id = hex::decode(
@@ -979,7 +979,7 @@ fn test_validate_transaction_insufficient_payment_value_fails() {
             BTCRelay::validate_transaction(
                 Origin::signed(3),
                 raw_tx,
-                payment_value,
+                minimum_btc,
                 recipient_btc_address,
                 Some(op_return_id)
             ),
@@ -994,7 +994,7 @@ fn test_validate_transaction_wrong_recipient_fails() {
         // Simulate input (we mock the parsed transaction)
         let raw_tx = vec![0u8; 342];
 
-        let payment_value: i64 = 2500200000;
+        let minimum_btc: i64 = 2500200000;
         let recipient_btc_address =
             BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let op_return_id = hex::decode(
@@ -1015,7 +1015,7 @@ fn test_validate_transaction_wrong_recipient_fails() {
             BTCRelay::validate_transaction(
                 Origin::signed(3),
                 raw_tx,
-                payment_value,
+                minimum_btc,
                 recipient_btc_address,
                 Some(op_return_id)
             ),
@@ -1030,7 +1030,7 @@ fn test_validate_transaction_incorrect_opreturn_fails() {
         // Simulate input (we mock the parsed transaction)
         let raw_tx = vec![0u8; 342];
 
-        let payment_value: i64 = 2500200000;
+        let minimum_btc: i64 = 2500200000;
         let recipient_btc_address =
             BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let op_return_id = hex::decode(
@@ -1051,7 +1051,7 @@ fn test_validate_transaction_incorrect_opreturn_fails() {
             BTCRelay::validate_transaction(
                 Origin::signed(3),
                 raw_tx,
-                payment_value,
+                minimum_btc,
                 recipient_btc_address,
                 Some(op_return_id)
             ),
@@ -1080,7 +1080,7 @@ fn test_verify_and_validate_transaction_succeeds() {
         // let block_height = 0;
         let raw_merkle_proof = vec![0u8; 100];
         let confirmations = None;
-        let payment_value: i64 = 0;
+        let minimum_btc: i64 = 0;
         let recipient_btc_address =
             BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let op_return_id = hex::decode(
@@ -1099,7 +1099,7 @@ fn test_verify_and_validate_transaction_succeeds() {
             raw_merkle_proof,
             confirmations,
             raw_tx,
-            payment_value,
+            minimum_btc,
             recipient_btc_address,
             Some(op_return_id)
         ));

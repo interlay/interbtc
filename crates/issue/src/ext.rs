@@ -17,11 +17,11 @@ pub(crate) mod btc_relay {
 
     pub fn validate_transaction<T: btc_relay::Config>(
         raw_tx: Vec<u8>,
-        amount: i64,
+        minimum_btc: Option<i64>,
         btc_address: BtcAddress,
         issue_id: Option<Vec<u8>>,
     ) -> Result<(BtcAddress, i64), DispatchError> {
-        <btc_relay::Module<T>>::_validate_transaction(raw_tx, amount, btc_address, issue_id)
+        <btc_relay::Module<T>>::_validate_transaction(raw_tx, minimum_btc, btc_address, issue_id)
     }
 }
 
@@ -89,6 +89,14 @@ pub(crate) mod vault_registry {
         tokens: PolkaBTC<T>,
     ) -> DispatchResult {
         <vault_registry::Module<T>>::decrease_to_be_issued_tokens(vault_id, tokens)
+    }
+
+    pub fn calculate_collateral<T: vault_registry::Config>(
+        collateral: DOT<T>,
+        numerator: PolkaBTC<T>,
+        denominator: PolkaBTC<T>,
+    ) -> Result<DOT<T>, DispatchError> {
+        <vault_registry::Module<T>>::calculate_collateral(collateral, numerator, denominator)
     }
 }
 

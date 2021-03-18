@@ -290,29 +290,54 @@ impl<T: Config> Module<T> {
             Error::<T>::CommitPeriodExpired
         );
 
-        let mut total_amount = issue.amount + issue.fee;
         ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
-        let (refund_address, amount_transferred) = ext::btc_relay::validate_transaction::<T>(
-            raw_tx,
-            TryInto::<u64>::try_into(total_amount).map_err(|_e| Error::<T>::TryIntoIntError)?
-                as i64,
-            issue.btc_address,
-            None,
-        )?;
+        let (refund_address, amount_transferred) =
+            ext::btc_relay::validate_transaction::<T>(raw_tx, None, issue.btc_address, None)?;
 
-        if ext::vault_registry::is_vault_liquidated::<T>(&issue.vault)? {
-            // if liquidated, don't try refunds
-            let amount_including_fee = issue
-                .amount
-                .checked_add(&issue.fee)
-                .ok_or(Error::<T>::ArithmeticOverflow)?;
-            ext::vault_registry::issue_tokens::<T>(&issue.vault, amount_including_fee)?;
+        let expected_total_amount = issue
+            .amount
+            .checked_add(&issue.fee)
+            .ok_or(Error::<T>::ArithmeticOverflow)?;
+        let amount_transferred = Self::u128_to_btc(amount_transferred as u128)?;
+
+        // check for unexpected bitcoin amounts, and update the issue struct
+        if amount_transferred < expected_total_amount {
+            // only the requester of the issue can execute payments with insufficient amounts
+            ensure!(requester == executor, Error::<T>::InvalidExecutor);
+
+            // decrease the to-be-issued tokens that will not be issued after all
+            let deficit = expected_total_amount
+                .checked_sub(&amount_transferred)
+                .ok_or(Error::<T>::ArithmeticUnderflow)?;
+            ext::vault_registry::decrease_to_be_issued_tokens::<T>(&issue.vault, deficit)?;
+
+            // slash/release griefing collateral proportionally to the amount sent
+            let released_collateral = ext::vault_registry::calculate_collateral::<T>(
+                issue.griefing_collateral,
+                amount_transferred,
+                expected_total_amount,
+            )?;
+            ext::collateral::release_collateral::<T>(&requester, released_collateral)?;
+            let slashed_collateral = issue
+                .griefing_collateral
+                .checked_sub(&released_collateral)
+                .ok_or(Error::<T>::ArithmeticUnderflow)?;
+            ext::vault_registry::slash_collateral::<T>(
+                CurrencySource::Griefing(issue.requester.clone()),
+                CurrencySource::Backing(issue.vault.clone()),
+                slashed_collateral,
+            )?;
+
+            Self::update_issue_amount(&issue_id, &mut issue, amount_transferred)?;
         } else {
-            let amount_transferred = Self::u128_to_btc(amount_transferred as u128)?;
+            // release griefing collateral
+            ext::collateral::release_collateral::<T>(&requester, issue.griefing_collateral)?;
 
-            if amount_transferred > total_amount {
+            if amount_transferred > expected_total_amount
+                && !ext::vault_registry::is_vault_liquidated::<T>(&issue.vault)?
+            {
                 let surplus_btc = amount_transferred
-                    .checked_sub(&total_amount)
+                    .checked_sub(&expected_total_amount)
                     .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
                 match ext::vault_registry::try_increase_to_be_issued_tokens::<T>(
@@ -321,20 +346,10 @@ impl<T: Config> Module<T> {
                 ) {
                     Ok(_) => {
                         // Current vault can handle the surplus; update the issue request
-                        issue.fee = ext::fee::get_issue_fee_from_total::<T>(amount_transferred)?;
-                        issue.amount = amount_transferred
-                            .checked_sub(&issue.fee)
-                            .ok_or(Error::<T>::ArithmeticUnderflow)?;
-
-                        // update storage
-                        <IssueRequests<T>>::mutate(&issue_id, |x| {
-                            x.fee = issue.fee;
-                            x.amount = issue.amount;
-                        });
-
-                        total_amount = amount_transferred;
+                        Self::update_issue_amount(&issue_id, &mut issue, amount_transferred)?;
                     }
                     Err(_) => {
+                        // vault does not have enough collateral to accept the over payment, so refund.
                         ext::refund::request_refund::<T>(
                             surplus_btc,
                             issue.vault.clone(),
@@ -342,16 +357,17 @@ impl<T: Config> Module<T> {
                             refund_address,
                             issue_id,
                         )?;
-                        // vault does not have enough collateral to accept the over payment, so refund.
                     }
                 }
             }
+        };
 
-            ext::vault_registry::issue_tokens::<T>(&issue.vault, total_amount)?;
-        }
-
-        // release griefing collateral
-        ext::collateral::release_collateral::<T>(&requester, issue.griefing_collateral)?;
+        // issue struct may have been update above; recalculate the total
+        let total = issue
+            .amount
+            .checked_add(&issue.fee)
+            .ok_or(Error::<T>::ArithmeticOverflow)?;
+        ext::vault_registry::issue_tokens::<T>(&issue.vault, total)?;
 
         // mint polkabtc amount
         ext::treasury::mint::<T>(requester.clone(), issue.amount);
@@ -385,7 +401,7 @@ impl<T: Config> Module<T> {
         Self::deposit_event(<Event<T>>::ExecuteIssue(
             issue_id,
             requester,
-            total_amount,
+            expected_total_amount,
             issue.vault,
         ));
         Ok(())
@@ -481,6 +497,27 @@ impl<T: Config> Module<T> {
         Ok(<IssueRequests<T>>::get(*issue_id))
     }
 
+    /// update the fee & amount in an issue request based on the actually transferred amount
+    fn update_issue_amount(
+        issue_id: &H256,
+        issue: &mut IssueRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
+        transferred_btc: PolkaBTC<T>,
+    ) -> Result<(), DispatchError> {
+        // Current vault can handle the surplus; update the issue request
+        issue.fee = ext::fee::get_issue_fee_from_total::<T>(transferred_btc)?;
+        issue.amount = transferred_btc
+            .checked_sub(&issue.fee)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+
+        // update storage
+        <IssueRequests<T>>::mutate(issue_id, |x| {
+            x.fee = issue.fee;
+            x.amount = issue.amount;
+        });
+
+        Ok(())
+    }
+
     fn insert_issue_request(
         key: H256,
         value: IssueRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
@@ -518,5 +555,6 @@ decl_error! {
         TryIntoIntError,
         ArithmeticUnderflow,
         ArithmeticOverflow,
+        InvalidExecutor,
     }
 }
