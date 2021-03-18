@@ -28,7 +28,7 @@ pub(crate) mod security {
         <security::Module<T>>::is_parachain_error_no_data_btcrelay()
     }
 
-    pub fn recover_from_btc_relay_failure<T: security::Config>() -> UnitResult {
+    pub fn recover_from_btc_relay_failure<T: security::Config>() {
         <security::Module<T>>::recover_from_btc_relay_failure()
     }
 

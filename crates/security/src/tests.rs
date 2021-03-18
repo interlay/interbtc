@@ -1,7 +1,7 @@
 use crate::mock::*;
 use crate::ErrorCode;
 use crate::StatusCode;
-use frame_support::{assert_noop, assert_ok, dispatch::DispatchResult};
+use frame_support::{assert_noop, assert_ok};
 use sp_core::H256;
 
 type Event = crate::Event;
@@ -174,27 +174,17 @@ fn test_is_parachain_error_liquidation() {
 
 fn test_recover_from_<F>(recover: F, error_codes: Vec<ErrorCode>)
 where
-    F: FnOnce() -> DispatchResult,
+    F: FnOnce(),
 {
     for err in &error_codes {
         Security::insert_error(err.clone());
     }
-    assert_ok!(recover());
+    recover();
     for err in &error_codes {
         assert_eq!(Security::get_errors().contains(&err), false);
     }
     assert_eq!(Security::get_parachain_status(), StatusCode::Running);
     assert_emitted!(Event::RecoverFromErrors(StatusCode::Running, error_codes));
-}
-
-#[test]
-fn test_recover_from_liquidation_succeeds() {
-    run_test(|| {
-        test_recover_from_(
-            Security::recover_from_liquidation,
-            vec![ErrorCode::Liquidation],
-        );
-    })
 }
 
 #[test]

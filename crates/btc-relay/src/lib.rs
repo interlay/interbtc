@@ -1614,7 +1614,7 @@ impl<T: Config> Module<T> {
         if ext::security::is_parachain_error_invalid_btcrelay::<T>()
             || ext::security::is_parachain_error_no_data_btcrelay::<T>()
         {
-            Ok(ext::security::recover_from_btc_relay_failure::<T>()?)
+            Ok(ext::security::recover_from_btc_relay_failure::<T>())
         } else {
             Ok(())
         }
