@@ -65,18 +65,6 @@ fn execute_issue(origin: AccountId, issue_id: &H256) -> Result<(), DispatchError
     )
 }
 
-fn execute_issue_ok(origin: AccountId, issue_id: &H256) {
-    ext::security::ensure_parachain_status_running::<Test>.mock_safe(|| MockResult::Return(Ok(())));
-
-    ext::btc_relay::verify_transaction_inclusion::<Test>
-        .mock_safe(|_, _| MockResult::Return(Ok(())));
-
-    ext::btc_relay::validate_transaction::<Test>
-        .mock_safe(|_, _, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 0))));
-
-    assert_ok!(execute_issue(origin, issue_id));
-}
-
 fn cancel_issue(origin: AccountId, issue_id: &H256) -> Result<(), DispatchError> {
     Issue::_cancel_issue(origin, *issue_id)
 }
@@ -211,7 +199,15 @@ fn test_execute_issue_succeeds() {
 
         let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
         <frame_system::Module<Test>>::set_block_number(5);
-        execute_issue_ok(ALICE, &issue_id);
+
+        ext::security::ensure_parachain_status_running::<Test>
+            .mock_safe(|| MockResult::Return(Ok(())));
+        ext::btc_relay::verify_transaction_inclusion::<Test>
+            .mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::btc_relay::validate_transaction::<Test>
+            .mock_safe(|_, _, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 3))));
+
+        assert_ok!(execute_issue(ALICE, &issue_id));
 
         let execute_issue_event = TestEvent::issue(RawEvent::ExecuteIssue(issue_id, ALICE, 3, BOB));
         assert!(System::events()

@@ -569,7 +569,7 @@ impl<T: Config> Module<T> {
 
         ext::btc_relay::validate_transaction::<T>(
             raw_tx,
-            amount,
+            Some(amount),
             btc_address,
             Some(replace_id.clone().as_bytes().to_vec()),
         )?;

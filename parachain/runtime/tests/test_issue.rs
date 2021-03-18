@@ -1,5 +1,6 @@
 mod mock;
 
+use frame_support::assert_err;
 use mock::issue_testing_utils::*;
 use mock::*;
 
@@ -286,7 +287,7 @@ fn integration_test_issue_refund() {
         // overpay by a factor of 4
         ExecuteIssueBuilder::new(issue_id)
             .with_amount(4 * (issue.amount + issue.fee))
-            .execute();
+            .assert_execute();
 
         // perform the refund
         execute_refund(VAULT);
@@ -302,7 +303,61 @@ fn integration_test_issue_refund() {
         );
 
         // check that fee was minted and is spendable by the vault
+        // TODO: check that this is correct
         assert_eq!(UserData::get(VAULT).free_tokens, 3 * issue.fee);
+    });
+}
+
+#[test]
+fn integration_test_issue_underpayment_succeeds() {
+    ExtBuilder::build().execute_with(|| {
+        let initial_user_balance = UserData::get(USER).free_balance;
+        let (issue_id, issue) = request_issue(4_000);
+
+        // only pay 25%
+        ExecuteIssueBuilder::new(issue_id)
+            .with_amount((issue.amount + issue.fee) / 4)
+            .with_submitter(USER, false)
+            .assert_execute();
+
+        // check that we the vault has issued only 25%, and that it received 75% of griefing collateral
+        assert_eq!(
+            CoreVaultData::vault(VAULT),
+            CoreVaultData {
+                issued: (issue.amount + issue.fee) / 4,
+                backing_collateral: DEFAULT_COLLATERAL + (issue.griefing_collateral * 3) / 4,
+                ..Default::default()
+            },
+        );
+
+        // check that the user lost 75% of griefing collateral, and received 25% of requested polkabtc
+        assert_eq!(
+            UserData::get(USER),
+            UserData {
+                free_balance: initial_user_balance - (issue.griefing_collateral * 3) / 4,
+                free_tokens: issue.amount / 4,
+                ..Default::default()
+            }
+        );
+
+        // fee should be added to epoch rewards
+        assert_eq!(FeeModule::epoch_rewards_polka_btc(), issue.fee / 4);
+    });
+}
+
+#[test]
+fn integration_test_issue_underpayment_executed_by_third_party_fails() {
+    ExtBuilder::build().execute_with(|| {
+        let (issue_id, issue) = request_issue(4_000);
+
+        // note: not doing assert_noop because the build does additional calls that change the storage
+        assert_err!(
+            ExecuteIssueBuilder::new(issue_id)
+                .with_amount((issue.amount + issue.fee) / 4)
+                .with_submitter(PROOF_SUBMITTER, true)
+                .execute(),
+            IssueError::InvalidExecutor
+        );
     });
 }
 

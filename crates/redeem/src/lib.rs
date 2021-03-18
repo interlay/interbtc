@@ -363,7 +363,7 @@ impl<T: Config> Module<T> {
         // sending the bitcoin transaction
         ext::btc_relay::validate_transaction::<T>(
             raw_tx,
-            amount as i64,
+            Some(amount as i64),
             redeem.btc_address,
             Some(redeem_id.clone().as_bytes().to_vec()),
         )?;
