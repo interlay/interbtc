@@ -506,12 +506,7 @@ impl<T: Config> Module<T> {
     /// * `tokens` - the amount of tokens to be unreserved
     pub fn decrease_to_be_issued_tokens(vault_id: &T::AccountId, tokens: PolkaBTC<T>) -> DispatchResult {
         Self::check_parachain_not_shutdown_and_not_errors(
-            [
-                ErrorCode::InvalidBTCRelay,
-                ErrorCode::OracleOffline,
-                ErrorCode::Liquidation,
-            ]
-            .to_vec(),
+            [ErrorCode::InvalidBTCRelay, ErrorCode::OracleOffline].to_vec(),
         )?;
 
         let mut vault = Self::get_rich_vault_from_id(vault_id)?;
@@ -534,12 +529,7 @@ impl<T: Config> Module<T> {
     /// * `InsufficientTokensCommitted` - if the amount of tokens reserved is too low
     pub fn issue_tokens(vault_id: &T::AccountId, tokens: PolkaBTC<T>) -> DispatchResult {
         Self::check_parachain_not_shutdown_and_not_errors(
-            [
-                ErrorCode::InvalidBTCRelay,
-                ErrorCode::OracleOffline,
-                ErrorCode::Liquidation,
-            ]
-            .to_vec(),
+            [ErrorCode::InvalidBTCRelay, ErrorCode::OracleOffline].to_vec(),
         )?;
         let mut vault = Self::get_rich_vault_from_id(&vault_id)?;
         vault.issue_tokens(tokens)?;
@@ -563,12 +553,7 @@ impl<T: Config> Module<T> {
     /// * `InsufficientTokensCommitted` - if the amount of redeemable tokens is too low
     pub fn try_increase_to_be_redeemed_tokens(vault_id: &T::AccountId, tokens: PolkaBTC<T>) -> DispatchResult {
         Self::check_parachain_not_shutdown_and_not_errors(
-            [
-                ErrorCode::InvalidBTCRelay,
-                ErrorCode::OracleOffline,
-                ErrorCode::Liquidation,
-            ]
-            .to_vec(),
+            [ErrorCode::InvalidBTCRelay, ErrorCode::OracleOffline].to_vec(),
         )?;
         let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
         let redeemable = vault
@@ -595,12 +580,7 @@ impl<T: Config> Module<T> {
     /// * `InsufficientTokensCommitted` - if the amount of to-be-redeemed tokens is too low
     pub fn decrease_to_be_redeemed_tokens(vault_id: &T::AccountId, tokens: PolkaBTC<T>) -> DispatchResult {
         Self::check_parachain_not_shutdown_and_not_errors(
-            [
-                ErrorCode::InvalidBTCRelay,
-                ErrorCode::OracleOffline,
-                ErrorCode::Liquidation,
-            ]
-            .to_vec(),
+            [ErrorCode::InvalidBTCRelay, ErrorCode::OracleOffline].to_vec(),
         )?;
 
         let mut vault = Self::get_rich_vault_from_id(&vault_id)?;
@@ -621,12 +601,7 @@ impl<T: Config> Module<T> {
     /// * `user_id` - the id of the user making the redeem request
     pub fn decrease_tokens(vault_id: &T::AccountId, user_id: &T::AccountId, tokens: PolkaBTC<T>) -> DispatchResult {
         Self::check_parachain_not_shutdown_and_not_errors(
-            [
-                ErrorCode::InvalidBTCRelay,
-                ErrorCode::OracleOffline,
-                ErrorCode::Liquidation,
-            ]
-            .to_vec(),
+            [ErrorCode::InvalidBTCRelay, ErrorCode::OracleOffline].to_vec(),
         )?;
         // decrease to-be-redeemed and issued
         let mut vault = Self::get_rich_vault_from_id(&vault_id)?;
@@ -650,12 +625,7 @@ impl<T: Config> Module<T> {
         redeemer_id: &T::AccountId,
     ) -> DispatchResult {
         Self::check_parachain_not_shutdown_and_not_errors(
-            [
-                ErrorCode::InvalidBTCRelay,
-                ErrorCode::OracleOffline,
-                ErrorCode::Liquidation,
-            ]
-            .to_vec(),
+            [ErrorCode::InvalidBTCRelay, ErrorCode::OracleOffline].to_vec(),
         )?;
 
         let mut vault = Self::get_rich_vault_from_id(&vault_id)?;
@@ -769,12 +739,7 @@ impl<T: Config> Module<T> {
         collateral: DOT<T>,
     ) -> DispatchResult {
         Self::check_parachain_not_shutdown_and_not_errors(
-            [
-                ErrorCode::InvalidBTCRelay,
-                ErrorCode::OracleOffline,
-                ErrorCode::Liquidation,
-            ]
-            .to_vec(),
+            [ErrorCode::InvalidBTCRelay, ErrorCode::OracleOffline].to_vec(),
         )?;
 
         let mut old_vault = Self::get_rich_vault_from_id(&old_vault_id)?;
@@ -815,12 +780,7 @@ impl<T: Config> Module<T> {
         tokens: PolkaBTC<T>,
     ) -> DispatchResult {
         Self::check_parachain_not_shutdown_and_not_errors(
-            [
-                ErrorCode::InvalidBTCRelay,
-                ErrorCode::OracleOffline,
-                ErrorCode::Liquidation,
-            ]
-            .to_vec(),
+            [ErrorCode::InvalidBTCRelay, ErrorCode::OracleOffline].to_vec(),
         )?;
 
         let mut old_vault = Self::get_rich_vault_from_id(&old_vault_id)?;

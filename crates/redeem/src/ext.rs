@@ -176,19 +176,15 @@ pub(crate) mod treasury {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod security {
-    use frame_support::dispatch::DispatchResult;
+    use frame_support::dispatch::DispatchError;
     use primitive_types::H256;
-    use security::ErrorCode;
-    use sp_std::vec::Vec;
 
     pub fn get_secure_id<T: security::Config>(id: &T::AccountId) -> H256 {
         <security::Module<T>>::get_secure_id(id)
     }
 
-    pub fn ensure_parachain_is_running_or_only_has_errors<T: security::Config>(
-        error_codes: Vec<ErrorCode>,
-    ) -> DispatchResult {
-        <security::Module<T>>::ensure_parachain_is_running_or_only_has_errors(error_codes)
+    pub fn ensure_parachain_status_running<T: security::Config>() -> Result<(), DispatchError> {
+        <security::Module<T>>::ensure_parachain_status_running()
     }
 }
 

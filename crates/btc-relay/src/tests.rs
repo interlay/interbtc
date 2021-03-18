@@ -1007,8 +1007,8 @@ fn test_flag_block_error_fails() {
         let blockchain = get_empty_block_chain_from_chain_id_and_height(chain_ref, start_height, block_height);
         BTCRelay::set_block_chain_from_id(chain_ref, &blockchain);
 
-        // not a valid error code
-        let error = ErrorCode::Liquidation;
+        // not a valid error code for a block
+        let error = ErrorCode::OracleOffline;
 
         assert_err!(
             BTCRelay::flag_block_error(rich_header.block_hash, error),
@@ -1094,8 +1094,8 @@ fn test_clear_block_error_fails() {
         let blockchain = get_empty_block_chain_from_chain_id_and_height(chain_ref, start_height, block_height);
         BTCRelay::set_block_chain_from_id(chain_ref, &blockchain);
 
-        // not a valid error code
-        let error = ErrorCode::Liquidation;
+        // not a valid error code for a block
+        let error = ErrorCode::OracleOffline;
 
         assert_err!(
             BTCRelay::clear_block_error(rich_header.block_hash, error),

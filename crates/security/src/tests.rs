@@ -155,15 +155,6 @@ fn test_is_parachain_error_oracle_offline() {
     })
 }
 
-#[test]
-fn test_is_parachain_error_liquidation() {
-    run_test(|| {
-        Security::set_status(StatusCode::Error);
-        Security::insert_error(ErrorCode::Liquidation);
-        assert_eq!(Security::is_parachain_error_liquidation(), true);
-    })
-}
-
 fn test_recover_from_<F>(recover: F, error_codes: Vec<ErrorCode>)
 where
     F: FnOnce(),

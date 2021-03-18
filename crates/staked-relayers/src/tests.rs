@@ -708,7 +708,7 @@ fn test_force_status_update_succeeds() {
         assert_ok!(StakedRelayers::force_status_update(
             Origin::signed(ALICE),
             StatusCode::Shutdown,
-            Some(ErrorCode::Liquidation),
+            Some(ErrorCode::OracleOffline),
             None
         ));
 
@@ -716,12 +716,12 @@ fn test_force_status_update_succeeds() {
 
         assert_emitted!(Event::ForceStatusUpdate(
             StatusCode::Shutdown,
-            Some(ErrorCode::Liquidation),
+            Some(ErrorCode::OracleOffline),
             None
         ));
 
         let errors = ext::security::get_errors::<Test>();
-        assert_eq!(errors.contains(&ErrorCode::Liquidation), true);
+        assert_eq!(errors.contains(&ErrorCode::OracleOffline), true);
     })
 }
 
