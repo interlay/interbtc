@@ -158,6 +158,10 @@ pub(crate) mod fee {
     use crate::types::{PolkaBTC, DOT};
     use frame_support::dispatch::DispatchError;
 
+    pub fn increase_dot_rewards_for_epoch<T: fee::Config>(amount: DOT<T>) {
+        <fee::Module<T>>::increase_dot_rewards_for_epoch(amount)
+    }
+
     pub fn fee_pool_account_id<T: fee::Config>() -> T::AccountId {
         <fee::Module<T>>::fee_pool_account_id()
     }

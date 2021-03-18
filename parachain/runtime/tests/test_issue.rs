@@ -3,9 +3,18 @@ mod mock;
 use frame_support::assert_err;
 use mock::{issue_testing_utils::*, *};
 
+fn test_with<R>(execute: impl FnOnce() -> R) -> R {
+    ExtBuilder::build().execute_with(|| {
+        SystemModule::set_block_number(1);
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
+        UserData::force_to(USER, default_user_state());
+        execute()
+    })
+}
+
 #[test]
 fn integration_test_issue_should_fail_if_not_running() {
-    ExtBuilder::build().execute_with(|| {
+    test_with(|| {
         SecurityModule::set_status(StatusCode::Shutdown);
 
         assert_noop!(
@@ -28,9 +37,7 @@ fn integration_test_issue_should_fail_if_not_running() {
 
 #[test]
 fn integration_test_issue_polka_btc_execute() {
-    ExtBuilder::build().execute_with(|| {
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
-
+    test_with(|| {
         let user = ALICE;
         let vault = BOB;
         let vault_proof_submitter = CAROL;
@@ -38,8 +45,6 @@ fn integration_test_issue_polka_btc_execute() {
         let amount_btc = 1000000;
         let griefing_collateral = 100;
         let collateral_vault = required_collateral_for_issue(amount_btc);
-
-        SystemModule::set_block_number(1);
 
         let initial_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
         let initial_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
@@ -76,17 +81,6 @@ fn integration_test_issue_polka_btc_execute() {
         assert_ok!(Call::Issue(IssueCall::execute_issue(issue_id, tx_id, proof, raw_tx))
             .dispatch(origin_of(account_of(vault_proof_submitter))));
 
-        // check that the vault who submitted the proof is rewarded with increased SLA score
-        assert_eq!(
-            SlaModule::vault_sla(account_of(vault_proof_submitter)),
-            SlaModule::vault_submitted_issue_proof()
-        );
-
-        // check the sla increase
-        let expected_sla_increase = SlaModule::vault_executed_issue_max_sla_change()
-            * FixedI128::checked_from_rational(amount_btc, total_amount_btc).unwrap();
-        assert_eq!(SlaModule::vault_sla(account_of(vault)), expected_sla_increase);
-
         // fee should be added to epoch rewards
         assert_eq!(FeeModule::epoch_rewards_polka_btc(), fee_amount_btc);
 
@@ -118,17 +112,13 @@ fn integration_test_issue_polka_btc_execute() {
 
 #[test]
 fn integration_test_withdraw_after_request_issue() {
-    ExtBuilder::build().execute_with(|| {
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
-
+    test_with(|| {
         let vault = BOB;
         let vault_proof_submitter = CAROL;
 
         let amount_btc = 1000000;
         let griefing_collateral = 100;
         let collateral_vault = required_collateral_for_issue(amount_btc);
-
-        SystemModule::set_block_number(1);
 
         assert_ok!(
             Call::VaultRegistry(VaultRegistryCall::register_vault(collateral_vault, dummy_public_key()))
@@ -170,9 +160,7 @@ fn integration_test_withdraw_after_request_issue() {
 /// full amount
 #[test]
 fn integration_test_issue_overpayment() {
-    ExtBuilder::build().execute_with(|| {
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
-
+    test_with(|| {
         let user = ALICE;
         let vault = BOB;
 
@@ -181,8 +169,6 @@ fn integration_test_issue_overpayment() {
         let requested_amount_btc = amount_btc / overpayment_factor;
         let griefing_collateral = 100;
         let collateral_vault = required_collateral_for_issue(amount_btc);
-
-        SystemModule::set_block_number(1);
 
         let initial_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
         let initial_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
@@ -217,11 +203,6 @@ fn integration_test_issue_overpayment() {
             Call::Issue(IssueCall::execute_issue(issue_id, tx_id, proof, raw_tx)).dispatch(origin_of(account_of(user)))
         );
 
-        // check the sla increase
-        let expected_sla_increase = SlaModule::vault_executed_issue_max_sla_change()
-            * FixedI128::checked_from_rational(amount_btc, total_amount_btc).unwrap();
-        assert_eq!(SlaModule::vault_sla(account_of(vault)), expected_sla_increase);
-
         // fee should be added to epoch rewards
         assert_eq!(FeeModule::epoch_rewards_polka_btc(), fee_amount_btc);
 
@@ -234,6 +215,14 @@ fn integration_test_issue_overpayment() {
         // polka_btc minted
         assert_eq!(final_btc_balance, initial_btc_balance + amount_btc);
 
+        assert_eq!(
+            FeePool::get(),
+            FeePool {
+                balance: 0,
+                tokens: fee_amount_btc,
+            }
+        );
+
         // force issue rewards and withdraw
         assert_ok!(FeeModule::update_rewards_for_epoch());
         assert_ok!(Call::Fee(FeeCall::withdraw_polka_btc(FeeModule::get_polka_btc_rewards(
@@ -245,7 +234,7 @@ fn integration_test_issue_overpayment() {
 
 #[test]
 fn integration_test_issue_refund() {
-    ExtBuilder::build().execute_with(|| {
+    test_with(|| {
         let (issue_id, issue) = request_issue(1000);
 
         // verify that the vault has no spendable tokens at start
@@ -279,16 +268,14 @@ fn integration_test_issue_refund() {
         );
 
         // check that fee was minted and is spendable by the vault
-        // TODO: check that this is correct
         assert_eq!(UserData::get(VAULT).free_tokens, 3 * issue.fee);
     });
 }
 
 #[test]
 fn integration_test_issue_underpayment_succeeds() {
-    ExtBuilder::build().execute_with(|| {
-        let initial_user_balance = UserData::get(USER).free_balance;
-        let (issue_id, issue) = request_issue(4_000);
+    test_with(|| {
+        let (issue_id, issue) = RequestIssueBuilder::new(4_000).request();
 
         // only pay 25%
         ExecuteIssueBuilder::new(issue_id)
@@ -296,12 +283,12 @@ fn integration_test_issue_underpayment_succeeds() {
             .with_submitter(USER, false)
             .assert_execute();
 
-        // check that we the vault has issued only 25%, and that it received 75% of griefing collateral
+        // check that we the vault has issued only 25%
         assert_eq!(
             CoreVaultData::vault(VAULT),
             CoreVaultData {
                 issued: (issue.amount + issue.fee) / 4,
-                backing_collateral: DEFAULT_COLLATERAL + (issue.griefing_collateral * 3) / 4,
+                backing_collateral: DEFAULT_COLLATERAL,
                 ..Default::default()
             },
         );
@@ -310,20 +297,25 @@ fn integration_test_issue_underpayment_succeeds() {
         assert_eq!(
             UserData::get(USER),
             UserData {
-                free_balance: initial_user_balance - (issue.griefing_collateral * 3) / 4,
-                free_tokens: issue.amount / 4,
-                ..Default::default()
+                free_balance: DEFAULT_USER_FREE_BALANCE - (issue.griefing_collateral * 3) / 4,
+                free_tokens: DEFAULT_USER_FREE_TOKENS + issue.amount / 4,
+                ..default_user_state()
             }
         );
 
-        // fee should be added to epoch rewards
-        assert_eq!(FeeModule::epoch_rewards_polka_btc(), issue.fee / 4);
+        assert_eq!(
+            FeePool::get(),
+            FeePool {
+                balance: (issue.griefing_collateral * 3) / 4,
+                tokens: issue.fee / 4,
+            }
+        );
     });
 }
 
 #[test]
 fn integration_test_issue_underpayment_executed_by_third_party_fails() {
-    ExtBuilder::build().execute_with(|| {
+    test_with(|| {
         let (issue_id, issue) = request_issue(4_000);
 
         // note: not doing assert_noop because the build does additional calls that change the storage
@@ -339,36 +331,10 @@ fn integration_test_issue_underpayment_executed_by_third_party_fails() {
 
 #[test]
 fn integration_test_issue_polka_btc_cancel() {
-    ExtBuilder::build().execute_with(|| {
-        let user = ALICE;
-        let vault = BOB;
+    test_with(|| {
+        // random non-zero starting state
+        let (issue_id, issue) = RequestIssueBuilder::new(10_000).request();
 
-        let amount_btc = 100000;
-        let griefing_collateral = 100;
-        let collateral_vault = 1000000;
-
-        SystemModule::set_block_number(1);
-
-        let initial_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
-        let initial_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
-
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
-        assert_ok!(
-            Call::VaultRegistry(VaultRegistryCall::register_vault(collateral_vault, dummy_public_key()))
-                .dispatch(origin_of(account_of(vault)))
-        );
-
-        // alice requests polka_btc by locking btc with bob
-        assert_ok!(Call::Issue(IssueCall::request_issue(
-            amount_btc,
-            account_of(vault),
-            griefing_collateral
-        ))
-        .dispatch(origin_of(account_of(ALICE))));
-
-        let issue_id = assert_issue_request_event();
-
-        // expire request without transferring btc
         SystemModule::set_block_number(IssueModule::issue_period() + 1 + 1);
 
         // alice cannot execute past expiry
@@ -379,27 +345,42 @@ fn integration_test_issue_polka_btc_cancel() {
                 vec![],
                 vec![]
             ))
-            .dispatch(origin_of(account_of(vault))),
+            .dispatch(origin_of(account_of(VAULT))),
             IssueError::CommitPeriodExpired
         );
 
         // bob cancels issue request
-        assert_ok!(Call::Issue(IssueCall::cancel_issue(issue_id)).dispatch(origin_of(account_of(vault))));
+        assert_ok!(Call::Issue(IssueCall::cancel_issue(issue_id)).dispatch(origin_of(account_of(VAULT))));
 
-        let final_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
-        let final_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
+        assert_eq!(
+            CoreVaultData::vault(VAULT),
+            CoreVaultData {
+                backing_collateral: DEFAULT_COLLATERAL,
+                ..Default::default()
+            },
+        );
 
-        // griefing collateral slashed
-        assert_eq!(final_dot_balance, initial_dot_balance - griefing_collateral);
+        assert_eq!(
+            FeePool::get(),
+            FeePool {
+                balance: issue.griefing_collateral,
+                tokens: 0,
+            }
+        );
 
-        // no polka_btc for alice
-        assert_eq!(final_btc_balance, initial_btc_balance);
+        assert_eq!(
+            UserData::get(USER),
+            UserData {
+                free_balance: DEFAULT_USER_FREE_BALANCE - issue.griefing_collateral,
+                ..default_user_state()
+            }
+        );
     });
 }
 
 #[test]
 fn integration_test_issue_polka_btc_cancel_liquidated() {
-    ExtBuilder::build().execute_with(|| {
+    test_with(|| {
         let user = ALICE;
         let vault = BOB;
 
@@ -407,12 +388,9 @@ fn integration_test_issue_polka_btc_cancel_liquidated() {
         let griefing_collateral = 100;
         let collateral_vault = 1000000;
 
-        SystemModule::set_block_number(1);
-
         let initial_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
         let initial_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
 
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
         assert_ok!(
             Call::VaultRegistry(VaultRegistryCall::register_vault(collateral_vault, dummy_public_key()))
                 .dispatch(origin_of(account_of(vault)))
@@ -469,20 +447,8 @@ fn integration_test_issue_polka_btc_cancel_liquidated() {
 
 #[test]
 fn integration_test_issue_polka_btc_execute_liquidated() {
-    ExtBuilder::build().execute_with(|| {
-        let vault_proof_submitter = CAROL;
-
+    test_with(|| {
         let amount_btc = 1000;
-
-        UserData::force_to(
-            USER,
-            UserData {
-                free_balance: DEFAULT_USER_FREE_BALANCE,
-                locked_balance: DEFAULT_USER_LOCKED_BALANCE,
-                locked_tokens: DEFAULT_USER_LOCKED_TOKENS,
-                free_tokens: DEFAULT_USER_FREE_TOKENS,
-            },
-        );
 
         let (issue_id, issue) = request_issue(amount_btc);
 
@@ -500,15 +466,6 @@ fn integration_test_issue_polka_btc_execute_liquidated() {
 
         drop_exchange_rate_and_liquidate(VAULT);
         execute_issue(issue_id);
-
-        // check that the vault who submitted the proof is rewarded with increased SLA score
-        assert_eq!(
-            SlaModule::vault_sla(account_of(vault_proof_submitter)),
-            SlaModule::vault_submitted_issue_proof()
-        );
-
-        // check that sla is zero for being liquidated
-        assert_eq!(SlaModule::vault_sla(account_of(VAULT)), FixedI128::zero());
 
         // fee should be added to epoch rewards
         assert_eq!(FeeModule::epoch_rewards_polka_btc(), fee_amount_btc);
@@ -529,10 +486,8 @@ fn integration_test_issue_polka_btc_execute_liquidated() {
         assert_eq!(
             UserData::get(USER),
             UserData {
-                free_balance: DEFAULT_USER_FREE_BALANCE,
-                locked_balance: DEFAULT_USER_LOCKED_BALANCE,
-                locked_tokens: DEFAULT_USER_LOCKED_TOKENS,
                 free_tokens: DEFAULT_USER_FREE_TOKENS + amount_btc,
+                ..default_user_state()
             },
         );
 
@@ -549,20 +504,8 @@ fn integration_test_issue_polka_btc_execute_liquidated() {
 
 #[test]
 fn integration_test_issue_polka_btc_execute_not_liquidated() {
-    ExtBuilder::build().execute_with(|| {
-        let vault_proof_submitter = CAROL;
-
+    test_with(|| {
         let amount_btc = 10_000;
-
-        UserData::force_to(
-            USER,
-            UserData {
-                free_balance: DEFAULT_USER_FREE_BALANCE,
-                locked_balance: DEFAULT_USER_LOCKED_BALANCE,
-                locked_tokens: DEFAULT_USER_LOCKED_TOKENS,
-                free_tokens: DEFAULT_USER_FREE_TOKENS,
-            },
-        );
 
         let (issue_id, issue) = request_issue(amount_btc);
 
@@ -580,12 +523,6 @@ fn integration_test_issue_polka_btc_execute_not_liquidated() {
 
         execute_issue(issue_id);
 
-        // check that the vault who submitted the proof is rewarded with increased SLA score
-        assert_eq!(
-            SlaModule::vault_sla(account_of(vault_proof_submitter)),
-            SlaModule::vault_submitted_issue_proof()
-        );
-
         // fee should be added to epoch rewards
         assert_eq!(FeeModule::epoch_rewards_polka_btc(), fee_amount_btc);
 
@@ -601,10 +538,8 @@ fn integration_test_issue_polka_btc_execute_not_liquidated() {
         assert_eq!(
             UserData::get(USER),
             UserData {
-                free_balance: DEFAULT_USER_FREE_BALANCE,
-                locked_balance: DEFAULT_USER_LOCKED_BALANCE,
-                locked_tokens: DEFAULT_USER_LOCKED_TOKENS,
                 free_tokens: DEFAULT_USER_FREE_TOKENS + amount_btc,
+                ..default_user_state()
             },
         );
 

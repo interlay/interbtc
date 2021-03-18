@@ -136,6 +136,15 @@ pub fn execute_issue(issue_id: H256) {
     ExecuteIssueBuilder::new(issue_id).assert_execute()
 }
 
+pub fn default_user_state() -> UserData {
+    UserData {
+        free_balance: DEFAULT_USER_FREE_BALANCE,
+        locked_balance: DEFAULT_USER_LOCKED_BALANCE,
+        locked_tokens: DEFAULT_USER_LOCKED_TOKENS,
+        free_tokens: DEFAULT_USER_FREE_TOKENS,
+    }
+}
+
 pub fn assert_issue_request_event() -> H256 {
     let events = SystemModule::events();
     let record = events.iter().rev().find(|record| match record.event {

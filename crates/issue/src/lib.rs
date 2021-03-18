@@ -320,9 +320,10 @@ impl<T: Config> Module<T> {
                 .ok_or(Error::<T>::ArithmeticUnderflow)?;
             ext::vault_registry::slash_collateral::<T>(
                 CurrencySource::Griefing(issue.requester.clone()),
-                CurrencySource::Backing(issue.vault.clone()),
+                CurrencySource::FreeBalance(ext::fee::fee_pool_account_id::<T>()),
                 slashed_collateral,
             )?;
+            ext::fee::increase_dot_rewards_for_epoch::<T>(slashed_collateral);
 
             Self::update_issue_amount(&issue_id, &mut issue, amount_transferred)?;
         } else {
@@ -417,9 +418,10 @@ impl<T: Config> Module<T> {
         } else {
             ext::vault_registry::slash_collateral::<T>(
                 CurrencySource::Griefing(issue.requester.clone()),
-                CurrencySource::Backing(issue.vault.clone()),
+                CurrencySource::FreeBalance(ext::fee::fee_pool_account_id::<T>()),
                 issue.griefing_collateral,
             )?;
+            ext::fee::increase_dot_rewards_for_epoch::<T>(issue.griefing_collateral);
         }
         // Remove issue request from storage
         Self::remove_issue_request(issue_id, true);
