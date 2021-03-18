@@ -131,6 +131,21 @@ impl UserData {
 }
 
 #[derive(Debug, PartialEq, Default)]
+pub struct FeePool {
+    pub balance: u128,
+    pub tokens: u128,
+}
+
+impl FeePool {
+    pub fn get() -> Self {
+        Self {
+            balance: FeeModule::epoch_rewards_dot(),
+            tokens: FeeModule::epoch_rewards_polka_btc(),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Default)]
 pub struct CoreVaultData {
     pub to_be_issued: u128,
     pub issued: u128,
