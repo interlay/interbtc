@@ -68,9 +68,7 @@ pub struct ExtBuilder;
 
 impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
-        let storage = frame_system::GenesisConfig::default()
-            .build_storage::<Test>()
-            .unwrap();
+        let storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
         storage.into()
     }

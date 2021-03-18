@@ -1,5 +1,4 @@
-use super::Module as ExchangeRateOracle;
-use super::*;
+use super::{Module as ExchangeRateOracle, *};
 use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
 use sp_runtime::FixedPointNumber;

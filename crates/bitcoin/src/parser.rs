@@ -3,8 +3,7 @@ extern crate mocktopus;
 
 extern crate bitcoin_hashes;
 
-use bitcoin_hashes::hash160::Hash as Hash160;
-use bitcoin_hashes::Hash;
+use bitcoin_hashes::{hash160::Hash as Hash160, Hash};
 
 #[cfg(test)]
 use mocktopus::macros::mockable;
@@ -13,8 +12,7 @@ use crate::Error;
 use primitive_types::U256;
 use sp_std::prelude::*;
 
-use crate::address::Address;
-use crate::types::*;
+use crate::{address::Address, types::*};
 
 /// Type to be parsed from a bytes array
 pub(crate) trait Parsable: Sized {
@@ -23,11 +21,7 @@ pub(crate) trait Parsable: Sized {
 
 /// Type to be parsed from a bytes array using extra metadata
 pub(crate) trait ParsableMeta<Metadata>: Sized {
-    fn parse_with(
-        raw_bytes: &[u8],
-        position: usize,
-        extra: Metadata,
-    ) -> Result<(Self, usize), Error>;
+    fn parse_with(raw_bytes: &[u8], position: usize, extra: Metadata) -> Result<(Self, usize), Error>;
 }
 
 /// Macro to generate `Parsable` implementation of uint types
@@ -59,8 +53,7 @@ make_parsable_int!(i64, 8);
 impl Parsable for CompactUint {
     fn parse(raw_bytes: &[u8], position: usize) -> Result<(CompactUint, usize), Error> {
         let last_byte = sp_std::cmp::min(position + 3, raw_bytes.len());
-        let (value, bytes_consumed) =
-            parse_compact_uint(raw_bytes.get(position..last_byte).ok_or(Error::EOS)?)?;
+        let (value, bytes_consumed) = parse_compact_uint(raw_bytes.get(position..last_byte).ok_or(Error::EOS)?)?;
         Ok((CompactUint { value }, bytes_consumed))
     }
 }
@@ -124,11 +117,7 @@ impl Parsable for Vec<bool> {
 }
 
 impl ParsableMeta<i32> for TransactionInput {
-    fn parse_with(
-        raw_bytes: &[u8],
-        position: usize,
-        version: i32,
-    ) -> Result<(TransactionInput, usize), Error> {
+    fn parse_with(raw_bytes: &[u8], position: usize, version: i32) -> Result<(TransactionInput, usize), Error> {
         let slice = raw_bytes.get(position..).ok_or(Error::EOS)?;
         parse_transaction_input(slice, version)
     }
@@ -156,12 +145,7 @@ impl Parsable for U256 {
         let offset = U256::from(256)
             .checked_pow(U256::from(exponent))
             .ok_or(Error::ArithmeticOverflow)?;
-        Ok((
-            mantissa
-                .checked_mul(offset)
-                .ok_or(Error::ArithmeticOverflow)?,
-            4,
-        ))
+        Ok((mantissa.checked_mul(offset).ok_or(Error::ArithmeticOverflow)?, 4))
     }
 }
 
@@ -196,10 +180,7 @@ impl BytesParser {
 
     /// Peeks at the next byte without updating the parser head.
     pub(crate) fn next(&self) -> Result<u8, Error> {
-        self.raw_bytes
-            .get(self.position)
-            .ok_or(Error::EOS)
-            .map(|i| i.clone())
+        self.raw_bytes.get(self.position).ok_or(Error::EOS).map(|i| i.clone())
     }
 
     /// This is the same as `parse` but allows to pass extra data to the parser
@@ -351,10 +332,7 @@ pub fn parse_transaction(raw_transaction: &[u8]) -> Result<Transaction, Error> {
 }
 
 /// Parses a transaction input
-fn parse_transaction_input(
-    raw_input: &[u8],
-    version: i32,
-) -> Result<(TransactionInput, usize), Error> {
+fn parse_transaction_input(raw_input: &[u8], version: i32) -> Result<(TransactionInput, usize), Error> {
     let mut parser = BytesParser::new(raw_input);
     let previous_hash: H256Le = parser.parse()?;
     let previous_index: u32 = parser.parse()?;
@@ -441,9 +419,7 @@ pub(crate) fn extract_address_hash_scriptsig(input_script: &[u8]) -> Result<Addr
         // NOTE: we probably will not reach this as `extract_address`
         // will first check the witness and get the `P2WPKHv0`
         let sig = parser.read(sig_size as usize)?;
-        return Ok(Address::P2SH(H160::from_slice(
-            &Hash160::hash(&sig).to_vec(),
-        )));
+        return Ok(Address::P2SH(H160::from_slice(&Hash160::hash(&sig).to_vec())));
     }
 
     let _sig = parser.read(sig_size as usize)?;
@@ -504,8 +480,7 @@ pub(crate) mod tests {
             format!("{:x}", parsed_header.hash_prev_block),
             "00000000000000000cca48eb4b330d91e8d946d344ca302a86a280161b0bffb6"
         );
-        let expected_target =
-            String::from("680733321990486529407107157001552378184394215934016880640");
+        let expected_target = String::from("680733321990486529407107157001552378184394215934016880640");
         assert_eq!(parsed_header.target.to_string(), expected_target);
     }
 
@@ -515,10 +490,7 @@ pub(crate) mod tests {
             (&[1, 2, 3][..], (1, 1)),
             (&[253, 2, 3][..], (770, 3)),
             (&[254, 2, 3, 8, 1, 8][..], (17302274, 5)),
-            (
-                &[255, 6, 0xa, 3, 8, 1, 0xb, 2, 7, 8][..],
-                (504978207276206598, 9),
-            ),
+            (&[255, 6, 0xa, 3, 8, 1, 0xb, 2, 7, 8][..], (504978207276206598, 9)),
         ];
         for (input, expected) in cases.iter() {
             assert_eq!(parse_compact_uint(input).unwrap(), *expected);
@@ -624,8 +596,7 @@ pub(crate) mod tests {
         assert_eq!(input.height, None);
         assert_eq!(input.script.len(), 73);
 
-        let previous_hash =
-            H256Le::from_hex_le("7b1eabe0209b1fe794124575ef807057c77ada2138ae4fa8d6c4de0398a14f3f");
+        let previous_hash = H256Le::from_hex_le("7b1eabe0209b1fe794124575ef807057c77ada2138ae4fa8d6c4de0398a14f3f");
         assert_eq!(input.previous_hash, previous_hash);
     }
 
@@ -735,8 +706,7 @@ pub(crate) mod tests {
         let transaction = parse_transaction(&tx_bytes).unwrap();
 
         let address = Address::P2PKH(H160([
-            126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8,
-            50, 170,
+            126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8, 50, 170,
         ]));
         let extr_address = extract_address_hash_scriptsig(&transaction.inputs[0].script).unwrap();
 
@@ -750,8 +720,7 @@ pub(crate) mod tests {
         let transaction = parse_transaction(&tx_bytes).unwrap();
 
         let address = Address::P2SH(H160([
-            233, 195, 221, 12, 7, 170, 199, 97, 121, 235, 199, 106, 108, 120, 212, 214, 124, 108,
-            22, 10,
+            233, 195, 221, 12, 7, 170, 199, 97, 121, 235, 199, 106, 108, 120, 212, 214, 124, 108, 22, 10,
         ]));
         let extr_address = extract_address_hash_scriptsig(&transaction.inputs[0].script).unwrap();
 
@@ -763,10 +732,9 @@ pub(crate) mod tests {
         let expected = Address::P2SH(H160::from_slice(
             &hex::decode("068a6a2ec6be7d6e7aac1657445154c52db0cef8").unwrap(),
         ));
-        let actual = extract_address_hash_scriptsig(
-            &hex::decode("160014473ca3f4d726ce9c21af7cdc3fcc13264f681b04").unwrap(),
-        )
-        .unwrap();
+        let actual =
+            extract_address_hash_scriptsig(&hex::decode("160014473ca3f4d726ce9c21af7cdc3fcc13264f681b04").unwrap())
+                .unwrap();
 
         assert_eq!(actual, expected);
     }

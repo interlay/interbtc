@@ -8,10 +8,7 @@ pub(crate) mod btc_relay {
     use frame_support::dispatch::{DispatchError, DispatchResult};
     use sp_std::vec::Vec;
 
-    pub fn verify_transaction_inclusion<T: btc_relay::Config>(
-        tx_id: H256Le,
-        merkle_proof: Vec<u8>,
-    ) -> DispatchResult {
+    pub fn verify_transaction_inclusion<T: btc_relay::Config>(tx_id: H256Le, merkle_proof: Vec<u8>) -> DispatchResult {
         <btc_relay::Module<T>>::_verify_transaction_inclusion(tx_id, merkle_proof, None)
     }
 
@@ -45,12 +42,7 @@ pub(crate) mod vault_registry {
         tokens: PolkaBTC<T>,
         collateral: DOT<T>,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::replace_tokens(
-            &old_vault_id,
-            &new_vault_id,
-            tokens,
-            collateral,
-        )
+        <vault_registry::Module<T>>::replace_tokens(&old_vault_id, &new_vault_id, tokens, collateral)
     }
 
     pub fn cancel_replace_tokens<T: vault_registry::Config>(
@@ -61,24 +53,17 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::cancel_replace_tokens(old_vault_id, new_vault_id, tokens)
     }
 
-    pub fn is_vault_liquidated<T: vault_registry::Config>(
-        vault_id: &T::AccountId,
-    ) -> Result<bool, DispatchError> {
+    pub fn is_vault_liquidated<T: vault_registry::Config>(vault_id: &T::AccountId) -> Result<bool, DispatchError> {
         <vault_registry::Module<T>>::is_vault_liquidated(vault_id)
     }
 
     pub fn get_active_vault_from_id<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-    ) -> Result<
-        vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
-        DispatchError,
-    > {
+    ) -> Result<vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
         <vault_registry::Module<T>>::get_active_vault_from_id(vault_id)
     }
 
-    pub fn get_backing_collateral<T: vault_registry::Config>(
-        vault_id: &T::AccountId,
-    ) -> Result<DOT<T>, DispatchError> {
+    pub fn get_backing_collateral<T: vault_registry::Config>(vault_id: &T::AccountId) -> Result<DOT<T>, DispatchError> {
         <vault_registry::Module<T>>::get_backing_collateral(vault_id)
     }
 
@@ -161,17 +146,11 @@ pub(crate) mod collateral {
     use crate::DOT;
     use frame_support::dispatch::DispatchResult;
 
-    pub fn release_collateral<T: collateral::Config>(
-        sender: &T::AccountId,
-        amount: DOT<T>,
-    ) -> DispatchResult {
+    pub fn release_collateral<T: collateral::Config>(sender: &T::AccountId, amount: DOT<T>) -> DispatchResult {
         <collateral::Module<T>>::release_collateral(sender, amount)
     }
 
-    pub fn lock_collateral<T: collateral::Config>(
-        sender: T::AccountId,
-        amount: DOT<T>,
-    ) -> DispatchResult {
+    pub fn lock_collateral<T: collateral::Config>(sender: T::AccountId, amount: DOT<T>) -> DispatchResult {
         <collateral::Module<T>>::lock_collateral(&sender, amount)
     }
 }
@@ -195,9 +174,7 @@ pub(crate) mod oracle {
     use crate::types::{PolkaBTC, DOT};
     use frame_support::dispatch::DispatchError;
 
-    pub fn btc_to_dots<T: exchange_rate_oracle::Config>(
-        amount: PolkaBTC<T>,
-    ) -> Result<DOT<T>, DispatchError> {
+    pub fn btc_to_dots<T: exchange_rate_oracle::Config>(amount: PolkaBTC<T>) -> Result<DOT<T>, DispatchError> {
         <exchange_rate_oracle::Module<T>>::btc_to_dots(amount)
     }
 }
@@ -207,9 +184,7 @@ pub(crate) mod fee {
     use crate::types::DOT;
     use frame_support::dispatch::DispatchError;
 
-    pub fn get_replace_griefing_collateral<T: fee::Config>(
-        amount: DOT<T>,
-    ) -> Result<DOT<T>, DispatchError> {
+    pub fn get_replace_griefing_collateral<T: fee::Config>(amount: DOT<T>) -> Result<DOT<T>, DispatchError> {
         <fee::Module<T>>::get_replace_griefing_collateral(amount)
     }
 

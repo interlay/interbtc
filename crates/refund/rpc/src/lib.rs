@@ -61,8 +61,8 @@ impl From<Error> for i64 {
     }
 }
 
-impl<C, Block, AccountId, H256, RefundRequest>
-    RefundApi<<Block as BlockT>::Hash, AccountId, H256, RefundRequest> for Refund<C, Block>
+impl<C, Block, AccountId, H256, RefundRequest> RefundApi<<Block as BlockT>::Hash, AccountId, H256, RefundRequest>
+    for Refund<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
@@ -79,12 +79,11 @@ where
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
-        api.get_refund_requests(&at, account_id)
-            .map_err(|e| RpcError {
-                code: ErrorCode::ServerError(Error::RuntimeError.into()),
-                message: "Unable to fetch refund requests.".into(),
-                data: Some(format!("{:?}", e).into()),
-            })
+        api.get_refund_requests(&at, account_id).map_err(|e| RpcError {
+            code: ErrorCode::ServerError(Error::RuntimeError.into()),
+            message: "Unable to fetch refund requests.".into(),
+            data: Some(format!("{:?}", e).into()),
+        })
     }
 
     fn get_refund_requests_by_issue_id(
@@ -111,11 +110,10 @@ where
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
-        api.get_vault_refund_requests(&at, account_id)
-            .map_err(|e| RpcError {
-                code: ErrorCode::ServerError(Error::RuntimeError.into()),
-                message: "Unable to fetch refund requests.".into(),
-                data: Some(format!("{:?}", e).into()),
-            })
+        api.get_vault_refund_requests(&at, account_id).map_err(|e| RpcError {
+            code: ErrorCode::ServerError(Error::RuntimeError.into()),
+            message: "Unable to fetch refund requests.".into(),
+            data: Some(format!("{:?}", e).into()),
+        })
     }
 }

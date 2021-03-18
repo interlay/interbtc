@@ -3,20 +3,18 @@ extern crate hex;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use bitcoin_hashes::hash160::Hash as Hash160;
-use bitcoin_hashes::Hash;
+use bitcoin_hashes::{hash160::Hash as Hash160, Hash};
 
-use crate::formatter::{Formattable, TryFormattable};
-use crate::merkle::{MerkleProof, MerkleTree};
-use crate::parser::extract_address_hash_scriptsig;
-use crate::utils::{log2, reverse_endianness, sha256d_le};
-use crate::Script;
-use crate::{Address, Error};
+use crate::{
+    formatter::{Formattable, TryFormattable},
+    merkle::{MerkleProof, MerkleTree},
+    parser::extract_address_hash_scriptsig,
+    utils::{log2, reverse_endianness, sha256d_le},
+    Address, Error, Script,
+};
 use codec::{Decode, Encode};
 pub use primitive_types::{H160, H256, U256};
-use sp_std::collections::btree_set::BTreeSet;
-use sp_std::convert::TryFrom;
-use sp_std::prelude::*;
+use sp_std::{collections::btree_set::BTreeSet, convert::TryFrom, prelude::*};
 
 #[cfg(feature = "std")]
 use codec::alloc::string::String;
@@ -444,10 +442,9 @@ impl BlockBuilder {
 
     pub fn with_coinbase(&mut self, address: &Address, reward: i64, height: u32) -> &mut Self {
         // TODO: compute witness commitment
-        self.block.transactions.insert(
-            0,
-            generate_coinbase_transaction(address, reward, height, None, None),
-        );
+        self.block
+            .transactions
+            .insert(0, generate_coinbase_transaction(address, reward, height, None, None));
         self
     }
 
@@ -649,9 +646,7 @@ pub(crate) struct CompactUint {
 
 impl CompactUint {
     pub(crate) fn from_usize(value: usize) -> CompactUint {
-        CompactUint {
-            value: value as u64,
-        }
+        CompactUint { value: value as u64 }
     }
 }
 
@@ -785,8 +780,7 @@ mod tests {
     use super::*;
     use sp_std::str::FromStr;
 
-    use crate::parser::parse_transaction;
-    use crate::Address;
+    use crate::{parser::parse_transaction, Address};
 
     fn sample_example_real_rawtx() -> String {
         "0200000000010140d43a99926d43eb0e619bf0b3d83b4a31f60c176beecfb9d35bf45e54d0f7420100000017160014a4b4ca48de0b3fffc15404a1acdc8dbaae226955ffffffff0100e1f5050000000017a9144a1154d50b03292b3024370901711946cb7cccc387024830450221008604ef8f6d8afa892dee0f31259b6ce02dd70c545cfcfed8148179971876c54a022076d771d6e91bed212783c9b06e0de600fab2d518fad6f15a2b191d7fbd262a3e0121039d25ab79f41f75ceaf882411fd41fa670a4c672c23ffaf0e361a969cde0692e800000000".to_owned()
@@ -861,8 +855,7 @@ mod tests {
 
     #[test]
     fn test_transaction_builder() {
-        let address =
-            Address::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
+        let address = Address::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let return_data = hex::decode("01a0").unwrap();
         let transaction = TransactionBuilder::new()
             .with_version(2)
@@ -877,10 +870,7 @@ mod tests {
         assert_eq!(transaction.outputs[0].extract_address().unwrap(), address);
         assert_eq!(transaction.outputs[1].value, 0);
         assert_eq!(
-            transaction.outputs[1]
-                .script
-                .extract_op_return_data()
-                .unwrap(),
+            transaction.outputs[1].script.extract_op_return_data().unwrap(),
             return_data
         );
     }
@@ -896,18 +886,10 @@ mod tests {
         ];
         Transaction::tx_id.mock_safe(|tx| {
             let txid = match tx.version {
-                1 => H256Le::from_hex_be(
-                    "8c14f0db3df150123e6f3dbbf30f8b955a8249b62ac1d1ff16284aefa3d06d87",
-                ),
-                2 => H256Le::from_hex_be(
-                    "fff2525b8931402dd09222c50775608f75787bd2b87e56995a7bdd30f79702c4",
-                ),
-                3 => H256Le::from_hex_be(
-                    "6359f0868171b1d194cbee1af2f16ea598ae8fad666d9b012c8ed2b79a236ec4",
-                ),
-                4 => H256Le::from_hex_be(
-                    "e9a66845e05d5abc0ad04ec80f774a7e585c6e8db975962d069a522137b80c1d",
-                ),
+                1 => H256Le::from_hex_be("8c14f0db3df150123e6f3dbbf30f8b955a8249b62ac1d1ff16284aefa3d06d87"),
+                2 => H256Le::from_hex_be("fff2525b8931402dd09222c50775608f75787bd2b87e56995a7bdd30f79702c4"),
+                3 => H256Le::from_hex_be("6359f0868171b1d194cbee1af2f16ea598ae8fad666d9b012c8ed2b79a236ec4"),
+                4 => H256Le::from_hex_be("e9a66845e05d5abc0ad04ec80f774a7e585c6e8db975962d069a522137b80c1d"),
                 _ => panic!("should not happen"),
             };
             MockResult::Return(txid)
@@ -917,8 +899,7 @@ mod tests {
             builder.add_transaction(tx);
         }
         let merkle_root = builder.compute_merkle_root().unwrap();
-        let expected =
-            H256Le::from_hex_be("f3e94742aca4b5ef85488dc37c06c3282295ffec960994b2c0d5ac2a25a95766");
+        let expected = H256Le::from_hex_be("f3e94742aca4b5ef85488dc37c06c3282295ffec960994b2c0d5ac2a25a95766");
         assert_eq!(merkle_root, expected);
     }
 
@@ -934,21 +915,11 @@ mod tests {
         ];
         Transaction::tx_id.mock_safe(|tx| {
             let txid = match tx.version {
-                1 => H256Le::from_hex_be(
-                    "a335b243f5e343049fccac2cf4d70578ad705831940d3eef48360b0ea3829ed4",
-                ),
-                2 => H256Le::from_hex_be(
-                    "d5fd11cb1fabd91c75733f4cf8ff2f91e4c0d7afa4fd132f792eacb3ef56a46c",
-                ),
-                3 => H256Le::from_hex_be(
-                    "0441cb66ef0cbf78c9ecb3d5a7d0acf878bfdefae8a77541b3519a54df51e7fd",
-                ),
-                4 => H256Le::from_hex_be(
-                    "1a8a27d690889b28d6cb4dacec41e354c62f40d85a7f4b2d7a54ffc736c6ff35",
-                ),
-                5 => H256Le::from_hex_be(
-                    "1d543d550676f82bf8bf5b0cc410b16fc6fc353b2a4fd9a0d6a2312ed7338701",
-                ),
+                1 => H256Le::from_hex_be("a335b243f5e343049fccac2cf4d70578ad705831940d3eef48360b0ea3829ed4"),
+                2 => H256Le::from_hex_be("d5fd11cb1fabd91c75733f4cf8ff2f91e4c0d7afa4fd132f792eacb3ef56a46c"),
+                3 => H256Le::from_hex_be("0441cb66ef0cbf78c9ecb3d5a7d0acf878bfdefae8a77541b3519a54df51e7fd"),
+                4 => H256Le::from_hex_be("1a8a27d690889b28d6cb4dacec41e354c62f40d85a7f4b2d7a54ffc736c6ff35"),
+                5 => H256Le::from_hex_be("1d543d550676f82bf8bf5b0cc410b16fc6fc353b2a4fd9a0d6a2312ed7338701"),
                 _ => panic!("should not happen"),
             };
             MockResult::Return(txid)
@@ -958,16 +929,14 @@ mod tests {
             builder.add_transaction(tx);
         }
         let merkle_root = builder.compute_merkle_root().unwrap();
-        let expected =
-            H256Le::from_hex_be("5766798857e436d6243b46b5c1e0af5b6806aa9c2320b3ffd4ecff7b31fd4647");
+        let expected = H256Le::from_hex_be("5766798857e436d6243b46b5c1e0af5b6806aa9c2320b3ffd4ecff7b31fd4647");
         assert_eq!(merkle_root, expected);
     }
 
     #[test]
     fn test_mine_block() {
         clear_mocks();
-        let address =
-            Address::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
+        let address = Address::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let block = BlockBuilder::new()
             .with_version(2)
             .with_coinbase(&address, 50, 3)
@@ -984,8 +953,7 @@ mod tests {
     #[test]
     fn test_merkle_proof() {
         clear_mocks();
-        let address =
-            Address::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
+        let address = Address::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
 
         let transaction = TransactionBuilder::new()
             .with_version(2)
@@ -1014,8 +982,7 @@ mod tests {
         let transaction = parse_transaction(&tx_bytes).unwrap();
 
         let address = Address::P2WPKHv0(H160([
-            164, 180, 202, 72, 222, 11, 63, 255, 193, 84, 4, 161, 172, 220, 141, 186, 174, 34, 105,
-            85,
+            164, 180, 202, 72, 222, 11, 63, 255, 193, 84, 4, 161, 172, 220, 141, 186, 174, 34, 105, 85,
         ]));
 
         let extr_address = transaction.inputs[0].extract_address().unwrap();
@@ -1030,8 +997,7 @@ mod tests {
         let transaction = parse_transaction(&tx_bytes).unwrap();
 
         let address = Address::P2WPKHv0(H160([
-            214, 173, 103, 17, 218, 48, 244, 52, 154, 13, 140, 56, 122, 81, 91, 255, 16, 236, 213,
-            7,
+            214, 173, 103, 17, 218, 48, 244, 52, 154, 13, 140, 56, 122, 81, 91, 255, 16, 236, 213, 7,
         ]));
 
         let extr_address = transaction.inputs[0].extract_address().unwrap();
@@ -1047,17 +1013,14 @@ mod tests {
         let expected = parse_transaction(&tx_bytes).unwrap();
 
         // tb1qp0we5epypgj4acd2c4au58045ruud2pd6heuee
-        let address =
-            Address::P2WPKHv0(H160::from_str("0bdd9a64240a255ee1aac57bca1df5a0f9c6a82d").unwrap());
+        let address = Address::P2WPKHv0(H160::from_str("0bdd9a64240a255ee1aac57bca1df5a0f9c6a82d").unwrap());
 
-        let input_script = hex::decode(
-            "20706f6f6c2e656e6a6f79626f646965732e636f6d2031343262393163303337f72631e9f5cd76000001",
-        )
-        .unwrap();
+        let input_script =
+            hex::decode("20706f6f6c2e656e6a6f79626f646965732e636f6d2031343262393163303337f72631e9f5cd76000001")
+                .unwrap();
 
         let witness_commitment =
-            hex::decode("aa21a9ed173684441d99dd383ca57e6a073f62694c4f7c12a158964f050b84f69ba10ec3")
-                .unwrap();
+            hex::decode("aa21a9ed173684441d99dd383ca57e6a073f62694c4f7c12a158964f050b84f69ba10ec3").unwrap();
 
         let actual = generate_coinbase_transaction(
             &address,

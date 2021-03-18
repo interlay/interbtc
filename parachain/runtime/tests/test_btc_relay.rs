@@ -24,16 +24,10 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
         ))
         .dispatch(origin_of(account_of(ALICE))));
         for block in test_data.iter().skip(1) {
-            assert_ok!(
-                Call::BTCRelay(BTCRelayCall::store_block_header(block.get_raw_header()))
-                    .dispatch(origin_of(account_of(ALICE)))
-            );
+            assert_ok!(Call::BTCRelay(BTCRelayCall::store_block_header(block.get_raw_header()))
+                .dispatch(origin_of(account_of(ALICE))));
 
-            assert_store_main_chain_header_event(
-                block.height,
-                block.get_block_hash(),
-                account_of(ALICE),
-            );
+            assert_store_main_chain_header_event(block.height, block.get_block_hash(), account_of(ALICE));
         }
         SystemModule::set_block_number(1 + CONFIRMATIONS);
         // verify all transaction
@@ -52,12 +46,8 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
                 } else {
                     // expect to fail due to insufficient confirmations
                     assert_noop!(
-                        Call::BTCRelay(BTCRelayCall::verify_transaction_inclusion(
-                            txid,
-                            raw_merkle_proof,
-                            None,
-                        ))
-                        .dispatch(origin_of(account_of(ALICE))),
+                        Call::BTCRelay(BTCRelayCall::verify_transaction_inclusion(txid, raw_merkle_proof, None,))
+                            .dispatch(origin_of(account_of(ALICE))),
                         BTCRelayError::BitcoinConfirmations
                     );
                 }

@@ -22,16 +22,13 @@ pub mod types;
 
 use bitcoin::types::H256Le;
 use btc_relay::BtcAddress;
-use frame_support::transactional;
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError, ensure,
-    weights::Weight,
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError, ensure, transactional, weights::Weight,
 };
 use frame_system::ensure_signed;
 use primitive_types::H256;
 use sp_runtime::traits::CheckedSub;
-use sp_std::convert::TryInto;
-use sp_std::vec::Vec;
+use sp_std::{convert::TryInto, vec::Vec};
 use types::PolkaBTC;
 pub use types::RefundRequest;
 
@@ -117,8 +114,7 @@ impl<T: Config> Module<T> {
     ///
     /// # Arguments
     ///
-    /// * `total_amount_btc` - the amount that the user has overpaid. This is the amount that
-    ///     will be refunded.
+    /// * `total_amount_btc` - the amount that the user has overpaid. This is the amount that will be refunded.
     /// * `vault_id` - id of the vault the issue was made to
     /// * `issuer` - id of the user that made the issue request
     /// * `btc_address` - the btc address that should receive the refund
@@ -170,8 +166,8 @@ impl<T: Config> Module<T> {
     ///
     /// # Arguments
     ///
-    /// * `refund_id` - identifier of a refund request. This ID can be obtained by
-    ///     listening to the RequestRefund event, or by querying the open refunds.
+    /// * `refund_id` - identifier of a refund request. This ID can be obtained by listening to the RequestRefund event,
+    ///   or by querying the open refunds.
     /// * `tx_id` - transaction hash
     /// * `merkle_proof` - raw bytes of the proof
     /// * `raw_tx` - raw bytes of the transaction
@@ -268,14 +264,13 @@ impl<T: Config> Module<T> {
             .collect::<Vec<_>>()
     }
 
-    /// Return the refund request corresponding to the specified issue ID, or return an error. This function is exposed as RPC.
+    /// Return the refund request corresponding to the specified issue ID, or return an error. This function is exposed
+    /// as RPC.
     ///
     /// # Arguments
     ///
     /// * `issue_id` - The ID of an issue request
-    pub fn get_refund_requests_by_issue_id(
-        issue_id: H256,
-    ) -> Option<(H256, RefundRequest<T::AccountId, PolkaBTC<T>>)> {
+    pub fn get_refund_requests_by_issue_id(issue_id: H256) -> Option<(H256, RefundRequest<T::AccountId, PolkaBTC<T>>)> {
         <RefundRequests<T>>::iter().find(|(_, request)| request.issue_id == issue_id)
     }
 

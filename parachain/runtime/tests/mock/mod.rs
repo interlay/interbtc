@@ -1,8 +1,10 @@
 #![allow(dead_code)]
 extern crate hex;
 
-pub use bitcoin::formatter::{Formattable, TryFormattable};
-pub use bitcoin::types::*;
+pub use bitcoin::{
+    formatter::{Formattable, TryFormattable},
+    types::*,
+};
 pub use btc_parachain_runtime::{AccountId, Call, Event, Runtime};
 pub use btc_relay::{BtcAddress, BtcPublicKey};
 pub use frame_support::{assert_noop, assert_ok, dispatch::DispatchResultWithPostInfo};
@@ -105,20 +107,12 @@ impl UserData {
         }
 
         // set free balance:
-        CollateralModule::transfer(account_id.clone(), account_of(FAUCET), old.free_balance)
-            .unwrap();
-        CollateralModule::transfer(account_of(FAUCET), account_id.clone(), new.free_balance)
-            .unwrap();
+        CollateralModule::transfer(account_id.clone(), account_of(FAUCET), old.free_balance).unwrap();
+        CollateralModule::transfer(account_of(FAUCET), account_id.clone(), new.free_balance).unwrap();
 
         // set locked balance:
-        CollateralModule::slash_collateral(
-            account_id.clone(),
-            account_of(FAUCET),
-            old.locked_balance,
-        )
-        .unwrap();
-        CollateralModule::transfer(account_of(FAUCET), account_id.clone(), new.locked_balance)
-            .unwrap();
+        CollateralModule::slash_collateral(account_id.clone(), account_of(FAUCET), old.locked_balance).unwrap();
+        CollateralModule::transfer(account_of(FAUCET), account_id.clone(), new.locked_balance).unwrap();
         CollateralModule::lock_collateral(&account_id, new.locked_balance).unwrap();
 
         // set free_tokens
@@ -172,9 +166,7 @@ impl CoreVaultData {
             to_be_issued: vault.to_be_issued_tokens,
             issued: vault.issued_tokens,
             to_be_redeemed: vault.to_be_redeemed_tokens,
-            backing_collateral: CurrencySource::<Runtime>::LiquidationVault
-                .current_balance()
-                .unwrap(),
+            backing_collateral: CurrencySource::<Runtime>::LiquidationVault.current_balance().unwrap(),
             griefing_collateral: 0,
             free_balance: CollateralModule::get_balance_from_account(&account_id),
         }
@@ -308,30 +300,28 @@ pub fn set_default_thresholds() {
 
 pub fn dummy_public_key() -> BtcPublicKey {
     BtcPublicKey([
-        2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55,
-        18, 45, 222, 180, 119, 54, 243, 97, 173, 150, 161, 169, 230,
+        2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55, 18, 45, 222, 180,
+        119, 54, 243, 97, 173, 150, 161, 169, 230,
     ])
 }
 
 #[allow(dead_code)]
 pub fn try_register_vault(collateral: u128, vault: [u8; 32]) {
     if let Err(_) = VaultRegistryModule::get_vault_from_id(&account_of(vault)) {
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-            collateral,
-            dummy_public_key()
-        ))
-        .dispatch(origin_of(account_of(vault))));
+        assert_ok!(
+            Call::VaultRegistry(VaultRegistryCall::register_vault(collateral, dummy_public_key()))
+                .dispatch(origin_of(account_of(vault)))
+        );
     };
 }
 
 #[allow(dead_code)]
 pub fn force_issue_tokens(user: [u8; 32], vault: [u8; 32], collateral: u128, tokens: u128) {
     // register the vault
-    assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-        collateral,
-        dummy_public_key()
-    ))
-    .dispatch(origin_of(account_of(vault))));
+    assert_ok!(
+        Call::VaultRegistry(VaultRegistryCall::register_vault(collateral, dummy_public_key()))
+            .dispatch(origin_of(account_of(vault)))
+    );
 
     // increase to be issued tokens
     assert_ok!(VaultRegistryModule::try_increase_to_be_issued_tokens(
@@ -340,10 +330,7 @@ pub fn force_issue_tokens(user: [u8; 32], vault: [u8; 32], collateral: u128, tok
     ));
 
     // issue tokens
-    assert_ok!(VaultRegistryModule::issue_tokens(
-        &account_of(vault),
-        tokens
-    ));
+    assert_ok!(VaultRegistryModule::issue_tokens(&account_of(vault), tokens));
 
     // mint tokens to the user
     treasury::Module::<Runtime>::mint(user.into(), tokens);
@@ -353,8 +340,7 @@ pub fn force_issue_tokens(user: [u8; 32], vault: [u8; 32], collateral: u128, tok
 pub fn required_collateral_for_issue(issue_btc: u128) -> u128 {
     let fee_amount_btc = FeeModule::get_issue_fee(issue_btc).unwrap();
     let total_amount_btc = issue_btc + fee_amount_btc;
-    let collateral_vault =
-        VaultRegistryModule::get_required_collateral_for_polkabtc(total_amount_btc).unwrap();
+    let collateral_vault = VaultRegistryModule::get_required_collateral_for_polkabtc(total_amount_btc).unwrap();
     collateral_vault
 }
 
@@ -383,14 +369,13 @@ impl TransactionGenerator {
             confirmations: 7,
             amount: 100,
             script: vec![
-                0, 71, 48, 68, 2, 32, 91, 128, 41, 150, 96, 53, 187, 63, 230, 129, 53, 234, 210,
-                186, 21, 187, 98, 38, 255, 112, 30, 27, 228, 29, 132, 140, 155, 62, 123, 216, 232,
-                168, 2, 32, 72, 126, 179, 207, 142, 8, 99, 8, 32, 78, 244, 166, 106, 160, 207, 227,
-                61, 210, 172, 234, 234, 93, 59, 159, 79, 12, 194, 240, 212, 3, 120, 50, 1, 71, 81,
-                33, 3, 113, 209, 131, 177, 9, 29, 242, 229, 15, 217, 247, 165, 78, 111, 80, 79, 50,
-                200, 117, 80, 30, 233, 210, 167, 133, 175, 62, 253, 134, 127, 212, 51, 33, 2, 128,
-                200, 184, 235, 148, 25, 43, 34, 28, 173, 55, 54, 189, 164, 187, 243, 243, 152, 7,
-                84, 210, 85, 156, 238, 77, 97, 188, 240, 162, 197, 105, 62, 82, 174,
+                0, 71, 48, 68, 2, 32, 91, 128, 41, 150, 96, 53, 187, 63, 230, 129, 53, 234, 210, 186, 21, 187, 98, 38,
+                255, 112, 30, 27, 228, 29, 132, 140, 155, 62, 123, 216, 232, 168, 2, 32, 72, 126, 179, 207, 142, 8, 99,
+                8, 32, 78, 244, 166, 106, 160, 207, 227, 61, 210, 172, 234, 234, 93, 59, 159, 79, 12, 194, 240, 212, 3,
+                120, 50, 1, 71, 81, 33, 3, 113, 209, 131, 177, 9, 29, 242, 229, 15, 217, 247, 165, 78, 111, 80, 79, 50,
+                200, 117, 80, 30, 233, 210, 167, 133, 175, 62, 253, 134, 127, 212, 51, 33, 2, 128, 200, 184, 235, 148,
+                25, 43, 34, 28, 173, 55, 54, 189, 164, 187, 243, 243, 152, 7, 84, 210, 85, 156, 238, 77, 97, 188, 240,
+                162, 197, 105, 62, 82, 174,
             ],
             return_data: Some(H256::zero()),
             ..Default::default()
@@ -434,9 +419,8 @@ impl TransactionGenerator {
             .mine(U256::from(2).pow(254.into()))
             .unwrap();
 
-        let raw_init_block_header =
-            RawBlockHeader::from_bytes(&init_block.header.try_format().unwrap())
-                .expect("could not serialize block header");
+        let raw_init_block_header = RawBlockHeader::from_bytes(&init_block.header.try_format().unwrap())
+            .expect("could not serialize block header");
 
         match Call::BTCRelay(BTCRelayCall::initialize(
             raw_init_block_header.try_into().expect("bad block header"),
@@ -464,8 +448,7 @@ impl TransactionGenerator {
 
         transaction_builder.add_output(TransactionOutput::payment(value.into(), &self.address));
         if let Some(op_return_data) = self.return_data {
-            transaction_builder
-                .add_output(TransactionOutput::op_return(0, op_return_data.as_bytes()));
+            transaction_builder.add_output(TransactionOutput::op_return(0, op_return_data.as_bytes()));
         }
 
         let transaction = transaction_builder.build();
@@ -480,8 +463,8 @@ impl TransactionGenerator {
             .mine(U256::from(2).pow(254.into()))
             .unwrap();
 
-        let raw_block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap())
-            .expect("could not serialize block header");
+        let raw_block_header =
+            RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).expect("could not serialize block header");
 
         let tx_id = transaction.tx_id();
         let tx_block_height = height;
@@ -493,11 +476,7 @@ impl TransactionGenerator {
             raw_block_header.try_into().expect("bad block header")
         ))
         .dispatch(origin_of(account_of(self.relayer))));
-        assert_store_main_chain_header_event(
-            height,
-            block.header.hash().unwrap(),
-            account_of(self.relayer),
-        );
+        assert_store_main_chain_header_event(height, block.header.hash().unwrap(), account_of(self.relayer));
 
         // Mine six new blocks to get over required confirmations
         let mut prev_block_hash = block.header.hash().unwrap();
@@ -513,19 +492,14 @@ impl TransactionGenerator {
                 .mine(U256::from(2).pow(254.into()))
                 .unwrap();
 
-            let raw_conf_block_header =
-                RawBlockHeader::from_bytes(&conf_block.header.try_format().unwrap())
-                    .expect("could not serialize block header");
+            let raw_conf_block_header = RawBlockHeader::from_bytes(&conf_block.header.try_format().unwrap())
+                .expect("could not serialize block header");
             assert_ok!(Call::BTCRelay(BTCRelayCall::store_block_header(
                 raw_conf_block_header.try_into().expect("bad block header"),
             ))
             .dispatch(origin_of(account_of(self.relayer))));
 
-            assert_store_main_chain_header_event(
-                height,
-                conf_block.header.hash().unwrap(),
-                account_of(self.relayer),
-            );
+            assert_store_main_chain_header_event(height, conf_block.header.hash().unwrap(), account_of(self.relayer));
 
             prev_block_hash = conf_block.header.hash().unwrap();
         }
@@ -603,10 +577,7 @@ impl ExtBuilder {
                 (account_of(FAUCET), 1 << 60),
                 // create accounts for vault & fee pool; this needs a minimum amount because
                 // the parachain refuses to create accounts with a balance below `ExistentialDeposit`
-                (
-                    account_of(LIQUIDATION_VAULT),
-                    INITIAL_LIQUIDATION_VAULT_BALANCE,
-                ),
+                (account_of(LIQUIDATION_VAULT), INITIAL_LIQUIDATION_VAULT_BALANCE),
                 (account_of(FEE_POOL), 1000),
             ],
         }
@@ -668,12 +639,12 @@ impl ExtBuilder {
         fee::GenesisConfig::<Runtime> {
             issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
             issue_griefing_collateral: FixedU128::checked_from_rational(5, 100000).unwrap(), // 0.005%
-            refund_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),                  // 0.5%
-            redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),                  // 0.5%
-            premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
-            auction_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
-            punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(),                // 10%
-            replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(),   // 10%
+            refund_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
+            redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
+            premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(), // 5%
+            auction_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(), // 5%
+            punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
+            replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
             fee_pool_account_id: account_of(FEE_POOL),
             maintainer_account_id: account_of(MAINTAINER),
             epoch_period: 5,

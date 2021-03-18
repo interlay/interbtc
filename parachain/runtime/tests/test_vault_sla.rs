@@ -1,9 +1,9 @@
 mod mock;
-use mock::issue_testing_utils::{
-    self, execute_issue, execute_refund, request_issue, ExecuteIssueBuilder,
+use mock::{
+    issue_testing_utils::{self, execute_issue, execute_refund, request_issue, ExecuteIssueBuilder},
+    redeem_testing_utils::{cancel_redeem, setup_cancelable_redeem},
+    *,
 };
-use mock::redeem_testing_utils::{cancel_redeem, setup_cancelable_redeem};
-use mock::*;
 
 const USER: [u8; 32] = issue_testing_utils::USER;
 const VAULT: [u8; 32] = issue_testing_utils::VAULT;
@@ -70,9 +70,7 @@ fn test_sla_increase_for_submitting_proof_for_issue_against_self() {
         // check that the vault who submitted the proof is rewarded with both SLA rewards
         assert_eq!(
             SlaModule::vault_sla(account_of(VAULT)),
-            initial_sla()
-                + expected_sla_increase_for_issue
-                + expected_sla_increase_for_proof_submission
+            initial_sla() + expected_sla_increase_for_issue + expected_sla_increase_for_proof_submission
         );
     })
 }

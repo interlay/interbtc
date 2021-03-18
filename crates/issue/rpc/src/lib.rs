@@ -14,11 +14,7 @@ pub use module_issue_rpc_runtime_api::IssueApi as IssueRuntimeApi;
 #[rpc]
 pub trait IssueApi<BlockHash, AccountId, H256, IssueRequest> {
     #[rpc(name = "issue_getIssueRequests")]
-    fn get_issue_requests(
-        &self,
-        account_id: AccountId,
-        at: Option<BlockHash>,
-    ) -> Result<Vec<(H256, IssueRequest)>>;
+    fn get_issue_requests(&self, account_id: AccountId, at: Option<BlockHash>) -> Result<Vec<(H256, IssueRequest)>>;
 
     #[rpc(name = "issue_getVaultIssueRequests")]
     fn get_vault_issue_requests(
@@ -56,8 +52,8 @@ impl From<Error> for i64 {
     }
 }
 
-impl<C, Block, AccountId, H256, IssueRequest>
-    IssueApi<<Block as BlockT>::Hash, AccountId, H256, IssueRequest> for Issue<C, Block>
+impl<C, Block, AccountId, H256, IssueRequest> IssueApi<<Block as BlockT>::Hash, AccountId, H256, IssueRequest>
+    for Issue<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
@@ -74,12 +70,11 @@ where
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
-        api.get_issue_requests(&at, account_id)
-            .map_err(|e| RpcError {
-                code: ErrorCode::ServerError(Error::RuntimeError.into()),
-                message: "Unable to fetch issue requests.".into(),
-                data: Some(format!("{:?}", e).into()),
-            })
+        api.get_issue_requests(&at, account_id).map_err(|e| RpcError {
+            code: ErrorCode::ServerError(Error::RuntimeError.into()),
+            message: "Unable to fetch issue requests.".into(),
+            data: Some(format!("{:?}", e).into()),
+        })
     }
 
     fn get_vault_issue_requests(
@@ -90,11 +85,10 @@ where
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
-        api.get_vault_issue_requests(&at, account_id)
-            .map_err(|e| RpcError {
-                code: ErrorCode::ServerError(Error::RuntimeError.into()),
-                message: "Unable to fetch issue requests.".into(),
-                data: Some(format!("{:?}", e).into()),
-            })
+        api.get_vault_issue_requests(&at, account_id).map_err(|e| RpcError {
+            code: ErrorCode::ServerError(Error::RuntimeError.into()),
+            message: "Unable to fetch issue requests.".into(),
+            data: Some(format!("{:?}", e).into()),
+        })
     }
 }

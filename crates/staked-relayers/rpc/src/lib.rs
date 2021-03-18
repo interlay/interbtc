@@ -14,12 +14,7 @@ pub use module_staked_relayers_rpc_runtime_api::StakedRelayersApi as StakedRelay
 #[rpc]
 pub trait StakedRelayersApi<BlockHash, AccountId> {
     #[rpc(name = "stakedRelayers_isTransactionInvalid")]
-    fn is_transaction_invalid(
-        &self,
-        vault_id: AccountId,
-        raw_tx: Vec<u8>,
-        at: Option<BlockHash>,
-    ) -> Result<()>;
+    fn is_transaction_invalid(&self, vault_id: AccountId, raw_tx: Vec<u8>, at: Option<BlockHash>) -> Result<()>;
 }
 
 /// A struct that implements the [`StakedRelayersApi`].
@@ -50,8 +45,7 @@ impl From<Error> for i64 {
     }
 }
 
-impl<C, Block, AccountId> StakedRelayersApi<<Block as BlockT>::Hash, AccountId>
-    for StakedRelayers<C, Block>
+impl<C, Block, AccountId> StakedRelayersApi<<Block as BlockT>::Hash, AccountId> for StakedRelayers<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
@@ -67,22 +61,21 @@ where
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
-        api.is_transaction_invalid(&at, vault_id, raw_tx)
-            .map_or_else(
-                |e| {
-                    Err(RpcError {
-                        code: ErrorCode::ServerError(Error::RuntimeError.into()),
-                        message: "Unable to check if transaction is invalid.".into(),
-                        data: Some(format!("{:?}", e).into()),
-                    })
-                },
-                |result| {
-                    result.map_err(|e| RpcError {
-                        code: ErrorCode::ServerError(Error::RuntimeError.into()),
-                        message: "Transaction is valid.".into(),
-                        data: Some(format!("{:?}", e).into()),
-                    })
-                },
-            )
+        api.is_transaction_invalid(&at, vault_id, raw_tx).map_or_else(
+            |e| {
+                Err(RpcError {
+                    code: ErrorCode::ServerError(Error::RuntimeError.into()),
+                    message: "Unable to check if transaction is invalid.".into(),
+                    data: Some(format!("{:?}", e).into()),
+                })
+            },
+            |result| {
+                result.map_err(|e| RpcError {
+                    code: ErrorCode::ServerError(Error::RuntimeError.into()),
+                    message: "Transaction is valid.".into(),
+                    data: Some(format!("{:?}", e).into()),
+                })
+            },
+        )
     }
 }

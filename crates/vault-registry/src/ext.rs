@@ -18,10 +18,7 @@ pub(crate) mod collateral {
         <collateral::Module<T>>::lock_collateral(sender, amount)
     }
 
-    pub fn release_collateral<T: collateral::Config>(
-        sender: &T::AccountId,
-        amount: DOT<T>,
-    ) -> DispatchResult {
+    pub fn release_collateral<T: collateral::Config>(sender: &T::AccountId, amount: DOT<T>) -> DispatchResult {
         <collateral::Module<T>>::release_collateral(sender, amount)
     }
 
@@ -48,14 +45,8 @@ pub(crate) mod oracle {
     use crate::types::{PolkaBTC, DOT};
     use frame_support::dispatch::DispatchError;
 
-    pub trait Exchangeable:
-        exchange_rate_oracle::Config + ::treasury::Config + ::collateral::Config
-    {
-    }
-    impl<T> Exchangeable for T where
-        T: exchange_rate_oracle::Config + ::treasury::Config + ::collateral::Config
-    {
-    }
+    pub trait Exchangeable: exchange_rate_oracle::Config + ::treasury::Config + ::collateral::Config {}
+    impl<T> Exchangeable for T where T: exchange_rate_oracle::Config + ::treasury::Config + ::collateral::Config {}
 
     pub fn btc_to_dots<T: Exchangeable>(amount: PolkaBTC<T>) -> Result<DOT<T>, DispatchError> {
         <exchange_rate_oracle::Module<T>>::btc_to_dots(amount)
@@ -80,9 +71,7 @@ pub(crate) mod security {
         <security::Module<T>>::ensure_parachain_status_not_shutdown()
     }
 
-    pub fn ensure_parachain_does_not_have_errors<T: security::Config>(
-        error_codes: Vec<ErrorCode>,
-    ) -> DispatchResult {
+    pub fn ensure_parachain_does_not_have_errors<T: security::Config>(error_codes: Vec<ErrorCode>) -> DispatchResult {
         <security::Module<T>>::ensure_parachain_does_not_have_errors(error_codes)
     }
 }

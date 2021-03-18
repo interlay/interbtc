@@ -1,6 +1,4 @@
-use crate::ext;
-use crate::has_request_expired;
-use crate::mock::*;
+use crate::{ext, has_request_expired, mock::*};
 
 use crate::types::{PolkaBTC, RedeemRequest, DOT};
 use bitcoin::types::H256Le;
@@ -22,10 +20,7 @@ macro_rules! assert_emitted {
     ($event:expr, $times:expr) => {
         let test_event = TestEvent::redeem($event);
         assert_eq!(
-            System::events()
-                .iter()
-                .filter(|a| a.event == test_event)
-                .count(),
+            System::events().iter().filter(|a| a.event == test_event).count(),
             $times
         );
     };
@@ -44,17 +39,14 @@ fn btcdot_parity(btc: PolkaBTC<Test>) -> Result<DOT<Test>, DispatchError> {
     u128_to_dot(dot)
 }
 
-fn inject_redeem_request(
-    key: H256,
-    value: RedeemRequest<AccountId, BlockNumber, Balance, Balance>,
-) {
+fn inject_redeem_request(key: H256, value: RedeemRequest<AccountId, BlockNumber, Balance, Balance>) {
     Redeem::insert_redeem_request(key, value)
 }
 
 fn dummy_public_key() -> BtcPublicKey {
     BtcPublicKey([
-        2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55,
-        18, 45, 222, 180, 119, 54, 243, 97, 173, 150, 161, 169, 230,
+        2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55, 18, 45, 222, 180,
+        119, 54, 243, 97, 173, 150, 161, 169, 230,
     ])
 }
 
@@ -105,22 +97,15 @@ fn test_request_redeem_fails_with_amount_below_minimum() {
         let redeemer = ALICE;
         let amount = 9;
 
-        ext::vault_registry::try_increase_to_be_redeemed_tokens::<Test>.mock_safe(
-            move |vault_id, amount_btc| {
-                assert_eq!(vault_id, &BOB);
-                assert_eq!(amount_btc, amount);
+        ext::vault_registry::try_increase_to_be_redeemed_tokens::<Test>.mock_safe(move |vault_id, amount_btc| {
+            assert_eq!(vault_id, &BOB);
+            assert_eq!(amount_btc, amount);
 
-                MockResult::Return(Ok(()))
-            },
-        );
+            MockResult::Return(Ok(()))
+        });
 
         assert_err!(
-            Redeem::request_redeem(
-                Origin::signed(redeemer.clone()),
-                1,
-                BtcAddress::random(),
-                BOB
-            ),
+            Redeem::request_redeem(Origin::signed(redeemer.clone()), 1, BtcAddress::random(), BOB),
             TestError::AmountBelowDustAmount
         );
     })
@@ -238,14 +223,12 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
         let amount = 9;
         let redeem_fee = 5;
 
-        ext::vault_registry::try_increase_to_be_redeemed_tokens::<Test>.mock_safe(
-            move |vault_id, amount_btc| {
-                assert_eq!(vault_id, &BOB);
-                assert_eq!(amount_btc, amount - redeem_fee);
+        ext::vault_registry::try_increase_to_be_redeemed_tokens::<Test>.mock_safe(move |vault_id, amount_btc| {
+            assert_eq!(vault_id, &BOB);
+            assert_eq!(amount_btc, amount - redeem_fee);
 
-                MockResult::Return(Ok(()))
-            },
-        );
+            MockResult::Return(Ok(()))
+        });
 
         ext::treasury::lock::<Test>.mock_safe(move |account, amount_polka_btc| {
             assert_eq!(account, redeemer);
@@ -309,19 +292,14 @@ fn test_liquidation_redeem_succeeds() {
             MockResult::Return(Ok(()))
         });
 
-        ext::vault_registry::redeem_tokens_liquidation::<Test>.mock_safe(
-            move |redeemer_id, amount| {
-                assert_eq!(redeemer_id, &ALICE);
-                assert_eq!(amount, total_amount);
+        ext::vault_registry::redeem_tokens_liquidation::<Test>.mock_safe(move |redeemer_id, amount| {
+            assert_eq!(redeemer_id, &ALICE);
+            assert_eq!(amount, total_amount);
 
-                MockResult::Return(Ok(()))
-            },
-        );
+            MockResult::Return(Ok(()))
+        });
 
-        assert_ok!(Redeem::liquidation_redeem(
-            Origin::signed(ALICE),
-            total_amount,
-        ));
+        assert_ok!(Redeem::liquidation_redeem(Origin::signed(ALICE), total_amount,));
     })
 }
 
@@ -361,8 +339,7 @@ fn test_execute_redeem_succeeds_with_another_account() {
                 status: VaultStatus::Active,
             },
         );
-        ext::btc_relay::verify_transaction_inclusion::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::btc_relay::validate_transaction::<Test>
             .mock_safe(|_, _, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 0))));
 
@@ -391,15 +368,13 @@ fn test_execute_redeem_succeeds_with_another_account() {
             MockResult::Return(Ok(()))
         });
 
-        ext::vault_registry::redeem_tokens::<Test>.mock_safe(
-            move |vault, amount_polka_btc, premium, _| {
-                assert_eq!(vault, &BOB);
-                assert_eq!(amount_polka_btc, 100);
-                assert_eq!(premium, 0);
+        ext::vault_registry::redeem_tokens::<Test>.mock_safe(move |vault, amount_polka_btc, premium, _| {
+            assert_eq!(vault, &BOB);
+            assert_eq!(amount_polka_btc, 100);
+            assert_eq!(premium, 0);
 
-                MockResult::Return(Ok(()))
-            },
-        );
+            MockResult::Return(Ok(()))
+        });
 
         assert_ok!(Redeem::execute_redeem(
             Origin::signed(ALICE),
@@ -470,8 +445,7 @@ fn test_execute_redeem_succeeds() {
                 status: VaultStatus::Active,
             },
         );
-        ext::btc_relay::verify_transaction_inclusion::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::btc_relay::validate_transaction::<Test>
             .mock_safe(|_, _, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 0))));
 
@@ -500,15 +474,13 @@ fn test_execute_redeem_succeeds() {
             MockResult::Return(Ok(()))
         });
 
-        ext::vault_registry::redeem_tokens::<Test>.mock_safe(
-            move |vault, amount_polka_btc, premium, _| {
-                assert_eq!(vault, &BOB);
-                assert_eq!(amount_polka_btc, 100);
-                assert_eq!(premium, 0);
+        ext::vault_registry::redeem_tokens::<Test>.mock_safe(move |vault, amount_polka_btc, premium, _| {
+            assert_eq!(vault, &BOB);
+            assert_eq!(amount_polka_btc, 100);
+            assert_eq!(premium, 0);
 
-                MockResult::Return(Ok(()))
-            },
-        );
+            MockResult::Return(Ok(()))
+        });
 
         assert_ok!(Redeem::execute_redeem(
             Origin::signed(BOB),
@@ -621,21 +593,15 @@ fn test_cancel_redeem_succeeds() {
             MockResult::Return(Ok(()))
         });
         ext::sla::calculate_slashed_amount::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(0)));
-        ext::vault_registry::slash_collateral_saturated::<Test>
-            .mock_safe(move |_, _, _| MockResult::Return(Ok(0)));
+        ext::vault_registry::slash_collateral_saturated::<Test>.mock_safe(move |_, _, _| MockResult::Return(Ok(0)));
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(vault_registry::types::Vault {
                 status: VaultStatus::Active,
                 ..Default::default()
             }))
         });
-        ext::vault_registry::decrease_to_be_redeemed_tokens::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(())));
-        assert_ok!(Redeem::cancel_redeem(
-            Origin::signed(ALICE),
-            H256([0u8; 32]),
-            false
-        ));
+        ext::vault_registry::decrease_to_be_redeemed_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+        assert_ok!(Redeem::cancel_redeem(Origin::signed(ALICE), H256([0u8; 32]), false));
         assert_err!(
             Redeem::get_open_redeem_request_from_id(&H256([0u8; 32])),
             TestError::RedeemCancelled,

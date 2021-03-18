@@ -1,9 +1,7 @@
 use crate as vault_registry;
 use crate::{ext, Config, Error};
-use frame_support::parameter_types;
-use frame_support::traits::StorageMapShim;
-use mocktopus::mocking::clear_mocks;
-use mocktopus::mocking::{MockResult, Mockable};
+use frame_support::{parameter_types, traits::StorageMapShim};
+use mocktopus::mocking::{clear_mocks, MockResult, Mockable};
 use sp_arithmetic::{FixedPointNumber, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
@@ -166,9 +164,7 @@ impl ExtBuilder {
     pub fn build_with(
         conf: pallet_balances::GenesisConfig<Test, pallet_balances::Instance1>,
     ) -> sp_io::TestExternalities {
-        let mut storage = frame_system::GenesisConfig::default()
-            .build_storage::<Test>()
-            .unwrap();
+        let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
         conf.assimilate_storage(&mut storage).unwrap();
 
@@ -192,19 +188,17 @@ impl ExtBuilder {
         sp_io::TestExternalities::from(storage)
     }
     pub fn build() -> sp_io::TestExternalities {
-        ExtBuilder::build_with(
-            pallet_balances::GenesisConfig::<Test, pallet_balances::Instance1> {
-                balances: vec![
-                    (DEFAULT_ID, DEFAULT_COLLATERAL),
-                    (OTHER_ID, DEFAULT_COLLATERAL),
-                    (RICH_ID, RICH_COLLATERAL),
-                    (MULTI_VAULT_TEST_IDS[0], MULTI_VAULT_TEST_COLLATERAL),
-                    (MULTI_VAULT_TEST_IDS[1], MULTI_VAULT_TEST_COLLATERAL),
-                    (MULTI_VAULT_TEST_IDS[2], MULTI_VAULT_TEST_COLLATERAL),
-                    (MULTI_VAULT_TEST_IDS[3], MULTI_VAULT_TEST_COLLATERAL),
-                ],
-            },
-        )
+        ExtBuilder::build_with(pallet_balances::GenesisConfig::<Test, pallet_balances::Instance1> {
+            balances: vec![
+                (DEFAULT_ID, DEFAULT_COLLATERAL),
+                (OTHER_ID, DEFAULT_COLLATERAL),
+                (RICH_ID, RICH_COLLATERAL),
+                (MULTI_VAULT_TEST_IDS[0], MULTI_VAULT_TEST_COLLATERAL),
+                (MULTI_VAULT_TEST_IDS[1], MULTI_VAULT_TEST_COLLATERAL),
+                (MULTI_VAULT_TEST_IDS[2], MULTI_VAULT_TEST_COLLATERAL),
+                (MULTI_VAULT_TEST_IDS[3], MULTI_VAULT_TEST_COLLATERAL),
+            ],
+        })
     }
 }
 

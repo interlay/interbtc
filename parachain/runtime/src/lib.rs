@@ -8,8 +8,10 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
-use frame_support::dispatch::{DispatchError, DispatchResult};
-use frame_support::traits::StorageMapShim;
+use frame_support::{
+    dispatch::{DispatchError, DispatchResult},
+    traits::StorageMapShim,
+};
 use sp_arithmetic::{FixedI128, FixedU128};
 use sp_core::H256;
 
@@ -44,8 +46,7 @@ pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
 // PolkaBTC exports
-pub use btc_relay::bitcoin;
-pub use btc_relay::Call as RelayCall;
+pub use btc_relay::{bitcoin, Call as RelayCall};
 pub use module_exchange_rate_oracle_rpc_runtime_api::BalanceWrapper;
 
 // XCM imports
@@ -57,9 +58,8 @@ use {
     sp_runtime::traits::Convert,
     xcm::v0::{Junction, MultiLocation, NetworkId},
     xcm_builder::{
-        AccountId32Aliases, LocationInverter, ParentIsDefault, RelayChainAsNative,
-        SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
-        SovereignSignedViaLocation,
+        AccountId32Aliases, LocationInverter, ParentIsDefault, RelayChainAsNative, SiblingParachainAsNative,
+        SiblingParachainConvertsVia, SignedAccountId32AsNative, SovereignSignedViaLocation,
     },
     xcm_executor::{Config, XcmExecutor},
 };
@@ -255,12 +255,9 @@ impl pallet_grandpa::Config for Runtime {
     type Event = Event;
     type Call = Call;
     type KeyOwnerProofSystem = ();
-    type KeyOwnerProof =
-        <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
-    type KeyOwnerIdentification = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
-        KeyTypeId,
-        GrandpaId,
-    )>>::IdentificationTuple;
+    type KeyOwnerProof = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
+    type KeyOwnerIdentification =
+        <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::IdentificationTuple;
     type HandleEquivocation = ();
     type WeightInfo = ();
 }
@@ -602,13 +599,8 @@ pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signatu
 /// Extrinsic type that has already been checked.
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Call, SignedExtra>;
 /// Executive: handles dispatch to the various modules.
-pub type Executive = frame_executive::Executive<
-    Runtime,
-    Block,
-    frame_system::ChainContext<Runtime>,
-    Runtime,
-    AllModules,
->;
+pub type Executive =
+    frame_executive::Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllModules>;
 
 #[cfg(not(feature = "disable-runtime-api"))]
 impl_runtime_apis! {

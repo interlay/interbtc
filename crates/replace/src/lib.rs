@@ -13,20 +13,18 @@ mod default_weights;
 #[cfg(test)]
 extern crate mocktopus;
 
-use frame_support::transactional;
-use frame_support::weights::Weight;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
-    ensure,
+    ensure, transactional,
+    weights::Weight,
 };
 use frame_system::{ensure_root, ensure_signed};
 #[cfg(test)]
 use mocktopus::macros::mockable;
 use primitive_types::H256;
 use sp_runtime::ModuleId;
-use sp_std::convert::TryInto;
-use sp_std::vec::Vec;
+use sp_std::{convert::TryInto, vec::Vec};
 
 use bitcoin::types::H256Le;
 use btc_relay::BtcAddress;
@@ -290,18 +288,17 @@ impl<T: Config> Module<T> {
         let dust_value = <ReplaceBtcDustValue<T>>::get();
         ensure!(amount_btc >= dust_value, Error::<T>::AmountBelowDustAmount);
 
-        // If the request is not for the entire BTC holdings, check that the remaining DOT collateral of the Vault is higher than MinimumCollateralVault
+        // If the request is not for the entire BTC holdings, check that the remaining DOT collateral of the Vault is
+        // higher than MinimumCollateralVault
 
         let vault_collateral = ext::vault_registry::get_backing_collateral::<T>(&vault_id)?;
         if amount_btc != vault.issued_tokens {
-            let over_threshold =
-                ext::vault_registry::is_over_minimum_collateral::<T>(vault_collateral);
+            let over_threshold = ext::vault_registry::is_over_minimum_collateral::<T>(vault_collateral);
             ensure!(over_threshold, Error::<T>::InsufficientCollateral);
         }
 
         let amount_dot = ext::oracle::btc_to_dots::<T>(amount_btc)?;
-        let expected_griefing_collateral =
-            ext::fee::get_replace_griefing_collateral::<T>(amount_dot)?;
+        let expected_griefing_collateral = ext::fee::get_replace_griefing_collateral::<T>(amount_dot)?;
 
         // Check that the griefingCollateral is greater or equal to the expected
         ensure!(
@@ -315,10 +312,7 @@ impl<T: Config> Module<T> {
         ext::collateral::lock_collateral::<T>(vault_id.clone(), griefing_collateral)?;
 
         // increase to-be-replaced tokens. This will fail if the vault does not have enough tokens available
-        ext::vault_registry::try_increase_to_be_replaced_tokens::<T>(
-            &vault_id,
-            amount_btc.clone(),
-        )?;
+        ext::vault_registry::try_increase_to_be_replaced_tokens::<T>(&vault_id, amount_btc.clone())?;
 
         // Generate a replaceId by hashing a random seed, a nonce, and the address of the Requester.
         let replace_id = ext::security::get_secure_id::<T>(&vault_id);
@@ -348,19 +342,18 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn _withdraw_replace_request(
-        vault_id: T::AccountId,
-        request_id: H256,
-    ) -> Result<(), DispatchError> {
+    fn _withdraw_replace_request(vault_id: T::AccountId, request_id: H256) -> Result<(), DispatchError> {
         // check vault exists
         // Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
         let replace = Self::get_open_replace_request(&request_id)?;
 
-        // Check that caller of the function is indeed the to-be-replaced Vault as specified in the ReplaceRequest. Return ERR_UNAUTHORIZED error if this check fails.
+        // Check that caller of the function is indeed the to-be-replaced Vault as specified in the ReplaceRequest.
+        // Return ERR_UNAUTHORIZED error if this check fails.
         let _vault = ext::vault_registry::get_active_vault_from_id::<T>(&vault_id)?;
         ensure!(vault_id == replace.old_vault, Error::<T>::UnauthorizedVault);
 
-        // Check that the collateral rate of the vault is not under the AuctionCollateralThreshold as defined in the VaultRegistry. If it is under the AuctionCollateralThreshold return ERR_UNAUTHORIZED
+        // Check that the collateral rate of the vault is not under the AuctionCollateralThreshold as defined in the
+        // VaultRegistry. If it is under the AuctionCollateralThreshold return ERR_UNAUTHORIZED
         ensure!(
             !ext::vault_registry::is_vault_below_auction_threshold::<T>(vault_id.clone())?,
             Error::<T>::VaultOverAuctionThreshold
@@ -372,16 +365,10 @@ impl<T: Config> Module<T> {
         }
 
         // Release the oldVault’s griefing collateral associated with this ReplaceRequests
-        ext::collateral::release_collateral::<T>(
-            &replace.old_vault,
-            replace.griefing_collateral.clone(),
-        )?;
+        ext::collateral::release_collateral::<T>(&replace.old_vault, replace.griefing_collateral.clone())?;
 
         // decrease to-be-replaced tokens, so that the vault is free to use its issued tokens again
-        ext::vault_registry::decrease_to_be_replaced_tokens::<T>(
-            &replace.old_vault,
-            replace.amount.clone(),
-        )?;
+        ext::vault_registry::decrease_to_be_replaced_tokens::<T>(&replace.old_vault, replace.amount.clone())?;
 
         // Remove the ReplaceRequest from ReplaceRequests
         Self::remove_replace_request(request_id, true);
@@ -416,14 +403,8 @@ impl<T: Config> Module<T> {
         ext::vault_registry::try_lock_additional_collateral::<T>(&new_vault_id, collateral)?;
 
         // decrease old-vault's to-be-replaced tokens; turn them into to-be-redeemed tokens
-        ext::vault_registry::decrease_to_be_replaced_tokens::<T>(
-            &replace.old_vault,
-            replace.amount.clone(),
-        )?;
-        ext::vault_registry::try_increase_to_be_redeemed_tokens::<T>(
-            &replace.old_vault,
-            replace.amount.clone(),
-        )?;
+        ext::vault_registry::decrease_to_be_replaced_tokens::<T>(&replace.old_vault, replace.amount.clone())?;
+        ext::vault_registry::try_increase_to_be_redeemed_tokens::<T>(&replace.old_vault, replace.amount.clone())?;
 
         // increase to-be-issued tokens - this will fail if there is insufficient collateral
         ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&new_vault_id, replace.amount)?;
@@ -465,7 +446,8 @@ impl<T: Config> Module<T> {
         // Retrieve the oldVault as per the oldVault parameter from Vaults in the VaultRegistry
         let _old_vault = ext::vault_registry::get_active_vault_from_id::<T>(&old_vault_id)?;
 
-        // Check that the oldVault is below the AuctionCollateralThreshold by calculating his current oldVault.issuedTokens and the oldVault.collateral
+        // Check that the oldVault is below the AuctionCollateralThreshold by calculating his current
+        // oldVault.issuedTokens and the oldVault.collateral
         ensure!(
             ext::vault_registry::is_vault_below_auction_threshold::<T>(old_vault_id.clone())?,
             Error::<T>::VaultOverAuctionThreshold
@@ -553,12 +535,12 @@ impl<T: Config> Module<T> {
             Error::<T>::ReplacePeriodExpired
         );
 
-        // Call verifyTransactionInclusion in BTC-Relay, providing txid, txBlockHeight, txIndex, and merkleProof as parameters
+        // Call verifyTransactionInclusion in BTC-Relay, providing txid, txBlockHeight, txIndex, and merkleProof as
+        // parameters
         ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
 
         // Call validateTransaction in BTC-Relay
-        let amount = TryInto::<u64>::try_into(replace.amount)
-            .map_err(|_e| Error::<T>::TryIntoIntError)? as i64;
+        let amount = TryInto::<u64>::try_into(replace.amount).map_err(|_e| Error::<T>::TryIntoIntError)? as i64;
 
         let btc_address = if let Some(btc_address) = replace.btc_address {
             btc_address
@@ -587,11 +569,7 @@ impl<T: Config> Module<T> {
         ext::collateral::release_collateral::<T>(&old_vault_id, replace.griefing_collateral)?;
 
         // Emit ExecuteReplace event.
-        Self::deposit_event(<Event<T>>::ExecuteReplace(
-            replace_id,
-            old_vault_id,
-            new_vault_id,
-        ));
+        Self::deposit_event(<Event<T>>::ExecuteReplace(replace_id, old_vault_id, new_vault_id));
 
         // Remove replace request
         Self::remove_replace_request(replace_id.clone(), false);
@@ -618,11 +596,7 @@ impl<T: Config> Module<T> {
 
         // decrease old-vault's to-be-redeemed tokens, and
         // decrease new-vault's to-be-issued tokens
-        ext::vault_registry::cancel_replace_tokens::<T>(
-            &replace.old_vault,
-            &new_vault_id,
-            replace.amount,
-        )?;
+        ext::vault_registry::cancel_replace_tokens::<T>(&replace.old_vault, &new_vault_id, replace.amount)?;
 
         // slash old-vault's griefing collateral
         if !ext::vault_registry::is_vault_liquidated::<T>(&new_vault_id)? {
@@ -644,14 +618,8 @@ impl<T: Config> Module<T> {
         // if the new_vault locked additional collateral especially for this replace,
         // release it if it does not cause him to be undercollateralized
         if !ext::vault_registry::is_vault_liquidated::<T>(&new_vault_id)? {
-            if ext::vault_registry::is_allowed_to_withdraw_collateral::<T>(
-                &new_vault_id,
-                replace.collateral,
-            )? {
-                ext::vault_registry::force_withdraw_collateral::<T>(
-                    &new_vault_id,
-                    replace.collateral,
-                )?;
+            if ext::vault_registry::is_allowed_to_withdraw_collateral::<T>(&new_vault_id, replace.collateral)? {
+                ext::vault_registry::force_withdraw_collateral::<T>(&new_vault_id, replace.collateral)?;
             }
         }
 
@@ -675,10 +643,7 @@ impl<T: Config> Module<T> {
     /// * `account_id` - user account id
     pub fn get_replace_requests_for_old_vault(
         account_id: T::AccountId,
-    ) -> Vec<(
-        H256,
-        ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
-    )> {
+    ) -> Vec<(H256, ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>)> {
         <ReplaceRequests<T>>::iter()
             .filter(|(_, request)| request.old_vault == account_id)
             .collect::<Vec<_>>()
@@ -691,10 +656,7 @@ impl<T: Config> Module<T> {
     /// * `account_id` - user account id
     pub fn get_replace_requests_for_new_vault(
         account_id: T::AccountId,
-    ) -> Vec<(
-        H256,
-        ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
-    )> {
+    ) -> Vec<(H256, ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>)> {
         <ReplaceRequests<T>>::iter()
             .filter(|(_, request)| {
                 if let Some(vault_id) = &request.new_vault {
@@ -709,8 +671,7 @@ impl<T: Config> Module<T> {
     /// Get a replace request by id. Completed or cancelled requests are not returned.
     pub fn get_open_replace_request(
         id: &H256,
-    ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError>
-    {
+    ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
         let request = <ReplaceRequests<T>>::get(id).ok_or(Error::<T>::ReplaceIdNotFound)?;
         // NOTE: temporary workaround until we delete
         ensure!(!request.completed, Error::<T>::ReplaceCompleted);
@@ -721,17 +682,13 @@ impl<T: Config> Module<T> {
     /// Get a open or completed replace request by id. Cancelled requests are not returned.
     pub fn get_open_or_completed_replace_request(
         id: &H256,
-    ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError>
-    {
+    ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
         let request = <ReplaceRequests<T>>::get(id).ok_or(Error::<T>::ReplaceIdNotFound)?;
         ensure!(!request.cancelled, Error::<T>::ReplaceCancelled);
         Ok(request)
     }
 
-    fn insert_replace_request(
-        key: H256,
-        value: ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
-    ) {
+    fn insert_replace_request(key: H256, value: ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>) {
         <ReplaceRequests<T>>::insert(key, value)
     }
 

@@ -42,9 +42,7 @@ impl RequestIssueBuilder {
     }
 
     pub fn request(&self) -> (H256, IssueRequest<AccountId32, u32, u128, u128>) {
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::one()
-        ));
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
 
         SystemModule::set_block_number(1);
 
@@ -126,13 +124,8 @@ impl ExecuteIssueBuilder {
         }
 
         // alice executes the issuerequest by confirming the btc transaction
-        Call::Issue(IssueCall::execute_issue(
-            self.issue_id,
-            tx_id,
-            proof,
-            raw_tx,
-        ))
-        .dispatch(origin_of(account_of(self.submitter)))
+        Call::Issue(IssueCall::execute_issue(self.issue_id, tx_id, proof, raw_tx))
+            .dispatch(origin_of(account_of(self.submitter)))
     }
     pub fn assert_execute(&self) {
         assert_ok!(self.execute());
@@ -149,9 +142,7 @@ pub fn assert_issue_request_event() -> H256 {
         Event::issue(IssueEvent::RequestIssue(_, _, _, _, _, _, _, _)) => true,
         _ => false,
     });
-    let id = if let Event::issue(IssueEvent::RequestIssue(id, _, _, _, _, _, _, _)) =
-        record.unwrap().event
-    {
+    let id = if let Event::issue(IssueEvent::RequestIssue(id, _, _, _, _, _, _, _)) = record.unwrap().event {
         id
     } else {
         panic!("request issue event not found")
@@ -170,8 +161,7 @@ pub fn assert_refund_request_event() -> H256 {
 }
 
 pub fn execute_refund(vault_id: [u8; 32]) -> (H256, RefundRequest<AccountId, u128>) {
-    let refund_address_script =
-        bitcoin::Script::try_from("a914d7ff6d60ebf40a9b1886acce06653ba2224d8fea87").unwrap();
+    let refund_address_script = bitcoin::Script::try_from("a914d7ff6d60ebf40a9b1886acce06653ba2224d8fea87").unwrap();
     let refund_address = BtcAddress::from_script(&refund_address_script).unwrap();
 
     let refund_id = assert_refund_request_event();
@@ -195,7 +185,5 @@ pub fn cancel_issue(issue_id: H256, vault: [u8; 32]) {
     SystemModule::set_block_number(IssueModule::issue_period() + 1 + 1);
 
     // cancel issue request
-    assert_ok!(
-        Call::Issue(IssueCall::cancel_issue(issue_id)).dispatch(origin_of(account_of(vault)))
-    );
+    assert_ok!(Call::Issue(IssueCall::cancel_issue(issue_id)).dispatch(origin_of(account_of(vault))));
 }

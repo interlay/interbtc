@@ -1,24 +1,16 @@
-use crate::types::*;
-use crate::Error;
-use crate::Script;
-use bitcoin_hashes::hash160::Hash as Hash160;
-use bitcoin_hashes::Hash;
+use crate::{types::*, Error, Script};
+use bitcoin_hashes::{hash160::Hash as Hash160, Hash};
 use codec::{Decode, Encode};
 use sha2::{Digest, Sha256};
 use sp_core::H160;
 
-use secp256k1::{
-    constants::PUBLIC_KEY_SIZE, Error as Secp256k1Error, PublicKey as Secp256k1PublicKey,
-};
+use secp256k1::{constants::PUBLIC_KEY_SIZE, Error as Secp256k1Error, PublicKey as Secp256k1PublicKey};
 
 /// A Bitcoin address is a serialized identifier that represents the destination for a payment.
 /// Address prefixes are used to indicate the network as well as the format. Since the Parachain
 /// follows SPV assumptions we do not need to know which network a payment is included in.
 #[derive(Encode, Decode, Clone, Ord, PartialOrd, PartialEq, Eq, Debug, Copy)]
-#[cfg_attr(
-    feature = "std",
-    derive(serde::Serialize, serde::Deserialize, std::hash::Hash)
-)]
+#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize, std::hash::Hash))]
 pub enum Address {
     P2PKH(H160),
     P2SH(H160),
@@ -40,7 +32,8 @@ impl std::fmt::Display for Address {
 impl Address {
     pub fn from_script(script: &Script) -> Result<Self, Error> {
         if script.is_p2pkh() {
-            // 0x76 (OP_DUP) - 0xa9 (OP_HASH160) - 0x14 (20 bytes len) - <20 bytes pubkey hash> - 0x88 (OP_EQUALVERIFY) - 0xac (OP_CHECKSIG)
+            // 0x76 (OP_DUP) - 0xa9 (OP_HASH160) - 0x14 (20 bytes len) - <20 bytes pubkey hash> - 0x88 (OP_EQUALVERIFY)
+            // - 0xac (OP_CHECKSIG)
             Ok(Self::P2PKH(H160::from_slice(&script.as_bytes()[3..23])))
         } else if script.is_p2sh() {
             // 0xa9 (OP_HASH160) - 0x14 (20 bytes hash) - <20 bytes script hash> - 0x87 (OP_EQUAL)
@@ -153,8 +146,7 @@ impl<'de> serde::Deserialize<'de> for PublicKey {
 
 pub mod global {
     use secp256k1::{ffi::types::AlignedType, AllPreallocated, Secp256k1};
-    use sp_std::ops::Deref;
-    use sp_std::{vec, vec::Vec};
+    use sp_std::{ops::Deref, vec, vec::Vec};
     // this is what lazy_static uses internally
     use spin::Once;
 
@@ -224,10 +216,7 @@ impl PublicKey {
         self.new_deposit_public_key_with_secret(&self.new_secret_key(secure_id))
     }
 
-    fn new_deposit_public_key_with_secret(
-        &self,
-        secret_key: &[u8; 32],
-    ) -> Result<Self, Secp256k1Error> {
+    fn new_deposit_public_key_with_secret(&self, secret_key: &[u8; 32]) -> Result<Self, Secp256k1Error> {
         let mut public_key = Secp256k1PublicKey::from_slice(&self.0)?;
         // D = V * c
         public_key.mul_assign(global::SECP256K1, secret_key)?;
@@ -245,8 +234,7 @@ impl PublicKey {
 mod tests {
     use super::*;
     use frame_support::assert_err;
-    use secp256k1::rand::rngs::OsRng;
-    use secp256k1::{Secp256k1, SecretKey as Secp256k1SecretKey};
+    use secp256k1::{rand::rngs::OsRng, Secp256k1, SecretKey as Secp256k1SecretKey};
 
     #[test]
     fn test_public_key_to_hash() {
@@ -254,8 +242,8 @@ mod tests {
         // "02ff01b82f2f166c719937d5bd856bd919d9d6d495826cde3733cdb0d1084c8d12"
 
         let public_key = PublicKey([
-            2, 255, 1, 184, 47, 47, 22, 108, 113, 153, 55, 213, 189, 133, 107, 217, 25, 217, 214,
-            212, 149, 130, 108, 222, 55, 51, 205, 176, 209, 8, 76, 141, 18,
+            2, 255, 1, 184, 47, 47, 22, 108, 113, 153, 55, 213, 189, 133, 107, 217, 25, 217, 214, 212, 149, 130, 108,
+            222, 55, 51, 205, 176, 209, 8, 76, 141, 18,
         ]);
 
         assert_eq!(
@@ -274,8 +262,7 @@ mod tests {
         // https://en.bitcoin.it/wiki/Private_key
         assert_err!(
             Secp256k1SecretKey::from_slice(
-                &hex::decode("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141")
-                    .unwrap()
+                &hex::decode("FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141").unwrap()
             ),
             Secp256k1Error::InvalidSecretKey
         );
@@ -296,9 +283,7 @@ mod tests {
         let vault_public_key = PublicKey(vault_public_key.serialize());
 
         // D = V * c
-        let deposit_public_key = vault_public_key
-            .new_deposit_public_key(secure_id.clone())
-            .unwrap();
+        let deposit_public_key = vault_public_key.new_deposit_public_key(secure_id.clone()).unwrap();
 
         // d = v * c
         vault_secret_key
@@ -315,25 +300,23 @@ mod tests {
     fn test_new_deposit_public_key_static() {
         // bcrt1qzrkyemjkaxq48zwlnhxvear8fh6lvkwszxy7dm
         let old_public_key = PublicKey([
-            2, 123, 236, 243, 192, 100, 34, 40, 51, 111, 129, 130, 160, 64, 129, 135, 11, 184, 68,
-            84, 83, 198, 234, 196, 150, 13, 208, 86, 34, 150, 10, 59, 247,
+            2, 123, 236, 243, 192, 100, 34, 40, 51, 111, 129, 130, 160, 64, 129, 135, 11, 184, 68, 84, 83, 198, 234,
+            196, 150, 13, 208, 86, 34, 150, 10, 59, 247,
         ]);
 
         let secret_key = &[
-            137, 16, 46, 159, 212, 158, 232, 178, 197, 253, 105, 137, 102, 159, 70, 217, 110, 211,
-            254, 82, 216, 4, 105, 171, 102, 252, 54, 190, 114, 91, 11, 69,
+            137, 16, 46, 159, 212, 158, 232, 178, 197, 253, 105, 137, 102, 159, 70, 217, 110, 211, 254, 82, 216, 4,
+            105, 171, 102, 252, 54, 190, 114, 91, 11, 69,
         ];
 
         // bcrt1qn9mgwncjtnavx23utveqqcrxh3zjtll58pc744
-        let new_public_key = old_public_key
-            .new_deposit_public_key_with_secret(secret_key)
-            .unwrap();
+        let new_public_key = old_public_key.new_deposit_public_key_with_secret(secret_key).unwrap();
 
         assert_eq!(
             new_public_key,
             PublicKey([
-                2, 151, 202, 113, 10, 9, 43, 125, 187, 101, 157, 152, 191, 94, 12, 236, 133, 229,
-                16, 233, 221, 52, 150, 183, 243, 61, 110, 8, 152, 132, 99, 49, 189,
+                2, 151, 202, 113, 10, 9, 43, 125, 187, 101, 157, 152, 191, 94, 12, 236, 133, 229, 16, 233, 221, 52,
+                150, 183, 243, 61, 110, 8, 152, 132, 99, 49, 189,
             ])
         );
     }

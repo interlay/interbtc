@@ -1,6 +1,8 @@
 mod mock;
-use mock::issue_testing_utils::{ExecuteIssueBuilder, RequestIssueBuilder};
-use mock::*;
+use mock::{
+    issue_testing_utils::{ExecuteIssueBuilder, RequestIssueBuilder},
+    *,
+};
 
 const PROOF_SUBMITTER: [u8; 32] = BOB;
 const VAULT1: [u8; 32] = CAROL;
@@ -28,16 +30,10 @@ fn setup_relayer(relayer: [u8; 32], sla: u32, stake: u128) {
         },
     );
     // register as staked relayer
-    assert_ok!(
-        Call::StakedRelayers(StakedRelayersCall::register_staked_relayer(stake))
-            .dispatch(origin_of(account_of(relayer)))
-    );
+    assert_ok!(Call::StakedRelayers(StakedRelayersCall::register_staked_relayer(stake))
+        .dispatch(origin_of(account_of(relayer))));
     for _ in 0..sla {
-        SlaModule::event_update_relayer_sla(
-            &account_of(relayer),
-            sla::types::RelayerEvent::BlockSubmission,
-        )
-        .unwrap();
+        SlaModule::event_update_relayer_sla(&account_of(relayer), sla::types::RelayerEvent::BlockSubmission).unwrap();
     }
 }
 
@@ -82,24 +78,19 @@ fn get_rewards(currency: Currency, account: [u8; 32]) -> u128 {
         Currency::DOT => {
             let amount = FeeModule::get_dot_rewards(&account_of(account));
             assert_noop!(
-                Call::Fee(FeeCall::withdraw_dot(amount + 1))
-                    .dispatch(origin_of(account_of(account))),
+                Call::Fee(FeeCall::withdraw_dot(amount + 1)).dispatch(origin_of(account_of(account))),
                 FeeError::InsufficientFunds,
             );
-            assert_ok!(
-                Call::Fee(FeeCall::withdraw_dot(amount)).dispatch(origin_of(account_of(account)))
-            );
+            assert_ok!(Call::Fee(FeeCall::withdraw_dot(amount)).dispatch(origin_of(account_of(account))));
             amount
         }
         Currency::PolkaBTC => {
             let amount = FeeModule::get_polka_btc_rewards(&account_of(account));
             assert_noop!(
-                Call::Fee(FeeCall::withdraw_dot(amount + 1))
-                    .dispatch(origin_of(account_of(account))),
+                Call::Fee(FeeCall::withdraw_dot(amount + 1)).dispatch(origin_of(account_of(account))),
                 FeeError::InsufficientFunds,
             );
-            assert_ok!(Call::Fee(FeeCall::withdraw_polka_btc(amount))
-                .dispatch(origin_of(account_of(account))));
+            assert_ok!(Call::Fee(FeeCall::withdraw_polka_btc(amount)).dispatch(origin_of(account_of(account))));
             amount
         }
     }
@@ -121,9 +112,7 @@ fn set_issued_and_backing(vault: [u8; 32], amount_issued: u128, backing: u128) {
     let fee = FeeModule::get_issue_fee_from_total(amount_issued).unwrap();
     let request_amount = amount_issued - fee;
 
-    let (issue_id, _) = RequestIssueBuilder::new(request_amount)
-        .with_vault(vault)
-        .request();
+    let (issue_id, _) = RequestIssueBuilder::new(request_amount).with_vault(vault).request();
     ExecuteIssueBuilder::new(issue_id)
         .with_submitter(PROOF_SUBMITTER, true)
         .with_relayer(ISSUE_RELAYER)
@@ -214,10 +203,7 @@ fn test_vault_fee_pool_withdrawal_over_multiple_epochs() {
             vault_epoch_1_rewards + (vault_epoch_2_rewards * 26) / 100,
         );
         // second vault gets the other 74%
-        assert_eq_modulo_rounding!(
-            get_rewards(currency, VAULT2),
-            (vault_epoch_2_rewards * 74) / 100,
-        );
+        assert_eq_modulo_rounding!(get_rewards(currency, VAULT2), (vault_epoch_2_rewards * 74) / 100,);
     })
 }
 
@@ -243,15 +229,9 @@ fn test_relayer_fee_pool_withdrawal() {
         assert_ok!(FeeModule::update_rewards_for_epoch());
 
         // First vault gets 20% of the vault pool
-        assert_eq_modulo_rounding!(
-            get_rewards(currency, RELAYER_1),
-            (relayer_rewards * 20) / 100,
-        );
+        assert_eq_modulo_rounding!(get_rewards(currency, RELAYER_1), (relayer_rewards * 20) / 100,);
         // second vault gets the other 80%
-        assert_eq_modulo_rounding!(
-            get_rewards(currency, RELAYER_2),
-            (relayer_rewards * 80) / 100,
-        );
+        assert_eq_modulo_rounding!(get_rewards(currency, RELAYER_2), (relayer_rewards * 80) / 100,);
     })
 }
 

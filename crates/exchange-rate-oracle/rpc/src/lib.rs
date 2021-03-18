@@ -9,8 +9,11 @@ pub use module_exchange_rate_oracle_rpc_runtime_api::{
 };
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::traits::{MaybeDisplay, MaybeFromStr};
-use sp_runtime::{generic::BlockId, traits::Block as BlockT, DispatchError};
+use sp_runtime::{
+    generic::BlockId,
+    traits::{Block as BlockT, MaybeDisplay, MaybeFromStr},
+    DispatchError,
+};
 use std::sync::Arc;
 
 #[rpc]

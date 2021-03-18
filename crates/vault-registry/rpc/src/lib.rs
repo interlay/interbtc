@@ -8,8 +8,11 @@ use module_exchange_rate_oracle_rpc_runtime_api::BalanceWrapper;
 pub use module_vault_registry_rpc_runtime_api::VaultRegistryApi as VaultRegistryRuntimeApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
-use sp_runtime::traits::{MaybeDisplay, MaybeFromStr};
-use sp_runtime::{generic::BlockId, traits::Block as BlockT, DispatchError};
+use sp_runtime::{
+    generic::BlockId,
+    traits::{Block as BlockT, MaybeDisplay, MaybeFromStr},
+    DispatchError,
+};
 use std::sync::Arc;
 
 #[rpc]
@@ -20,10 +23,7 @@ where
     UnsignedFixedPoint: Codec + MaybeDisplay + MaybeFromStr,
 {
     #[rpc(name = "vaultRegistry_getTotalCollateralization")]
-    fn get_total_collateralization(
-        &self,
-        at: Option<BlockHash>,
-    ) -> JsonRpcResult<UnsignedFixedPoint>;
+    fn get_total_collateralization(&self, at: Option<BlockHash>) -> JsonRpcResult<UnsignedFixedPoint>;
 
     #[rpc(name = "vaultRegistry_getFirstVaultWithSufficientCollateral")]
     fn get_first_vault_with_sufficient_collateral(
@@ -90,11 +90,7 @@ where
     ) -> JsonRpcResult<BalanceWrapper<DOT>>;
 
     #[rpc(name = "vaultRegistry_isVaultBelowAuctionThreshold")]
-    fn is_vault_below_auction_threshold(
-        &self,
-        vault: AccountId,
-        at: Option<BlockHash>,
-    ) -> JsonRpcResult<bool>;
+    fn is_vault_below_auction_threshold(&self, vault: AccountId, at: Option<BlockHash>) -> JsonRpcResult<bool>;
 }
 
 /// A struct that implements the [`VaultRegistryApi`].
@@ -148,8 +144,7 @@ fn handle_response<T, E: std::fmt::Debug>(
 }
 
 impl<C, Block, AccountId, PolkaBTC, DOT, UnsignedFixedPoint>
-    VaultRegistryApi<<Block as BlockT>::Hash, AccountId, PolkaBTC, DOT, UnsignedFixedPoint>
-    for VaultRegistry<C, Block>
+    VaultRegistryApi<<Block as BlockT>::Hash, AccountId, PolkaBTC, DOT, UnsignedFixedPoint> for VaultRegistry<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
@@ -159,10 +154,7 @@ where
     DOT: Codec + MaybeDisplay + MaybeFromStr,
     UnsignedFixedPoint: Codec + MaybeDisplay + MaybeFromStr,
 {
-    fn get_total_collateralization(
-        &self,
-        at: Option<<Block as BlockT>::Hash>,
-    ) -> JsonRpcResult<UnsignedFixedPoint> {
+    fn get_total_collateralization(&self, at: Option<<Block as BlockT>::Hash>) -> JsonRpcResult<UnsignedFixedPoint> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
@@ -266,12 +258,7 @@ where
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         handle_response(
-            api.get_collateralization_from_vault_and_collateral(
-                &at,
-                vault,
-                collateral,
-                only_issued,
-            ),
+            api.get_collateralization_from_vault_and_collateral(&at, vault, collateral, only_issued),
             "Unable to get collateralization from vault.".into(),
         )
     }
@@ -297,23 +284,22 @@ where
     ) -> JsonRpcResult<BalanceWrapper<DOT>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
-        api.get_required_collateral_for_vault(&at, vault_id)
-            .map_or_else(
-                |e| {
-                    Err(RpcError {
-                        code: ErrorCode::ServerError(Error::RuntimeError.into()),
-                        message: "Unable to get required collateral for vault.".into(),
-                        data: Some(format!("{:?}", e).into()),
-                    })
-                },
-                |result| {
-                    result.map_err(|e| RpcError {
-                        code: ErrorCode::ServerError(Error::RuntimeError.into()),
-                        message: "Unable to get required collateral for vault.".into(),
-                        data: Some(format!("{:?}", e).into()),
-                    })
-                },
-            )
+        api.get_required_collateral_for_vault(&at, vault_id).map_or_else(
+            |e| {
+                Err(RpcError {
+                    code: ErrorCode::ServerError(Error::RuntimeError.into()),
+                    message: "Unable to get required collateral for vault.".into(),
+                    data: Some(format!("{:?}", e).into()),
+                })
+            },
+            |result| {
+                result.map_err(|e| RpcError {
+                    code: ErrorCode::ServerError(Error::RuntimeError.into()),
+                    message: "Unable to get required collateral for vault.".into(),
+                    data: Some(format!("{:?}", e).into()),
+                })
+            },
+        )
     }
 
     fn is_vault_below_auction_threshold(
