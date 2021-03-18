@@ -2031,6 +2031,62 @@ fn test_ensure_relayer_authorized() {
     })
 }
 
+#[test]
+fn test_store_block_header_and_update_sla_succeeds() {
+    run_test(|| {
+        BTCRelay::_store_block_header.mock_safe(|_, _| MockResult::Return(Ok(())));
+
+        ext::sla::event_update_relayer_sla::<Test>.mock_safe(|&relayer_id, event| {
+            assert_eq!(relayer_id, 0);
+            assert_eq!(event, ext::sla::RelayerEvent::BlockSubmission);
+            MockResult::Return(Ok(()))
+        });
+
+        assert_ok!(BTCRelay::_store_block_header_and_update_sla(
+            0,
+            RawBlockHeader::default()
+        ));
+    })
+}
+
+#[test]
+fn test_store_block_header_and_update_sla_succeeds_with_duplicate() {
+    run_test(|| {
+        BTCRelay::_store_block_header
+            .mock_safe(|_, _| MockResult::Return(Err(TestError::DuplicateBlock.into())));
+
+        BTCRelay::get_best_block.mock_safe(|| MockResult::Return(RawBlockHeader::default().hash()));
+
+        ext::sla::event_update_relayer_sla::<Test>.mock_safe(|&relayer_id, event| {
+            assert_eq!(relayer_id, 0);
+            assert_eq!(event, ext::sla::RelayerEvent::DuplicateBlockSubmission);
+            MockResult::Return(Ok(()))
+        });
+
+        assert_ok!(BTCRelay::_store_block_header_and_update_sla(
+            0,
+            RawBlockHeader::default()
+        ));
+    })
+}
+
+#[test]
+fn test_store_block_header_and_update_sla_fails_with_invalid() {
+    run_test(|| {
+        BTCRelay::_store_block_header
+            .mock_safe(|_, _| MockResult::Return(Err(TestError::DiffTargetHeader.into())));
+
+        ext::sla::event_update_relayer_sla::<Test>.mock_safe(|_, _| {
+            panic!("Should not call sla update for invalid block");
+        });
+
+        assert_err!(
+            BTCRelay::_store_block_header_and_update_sla(0, RawBlockHeader::default()),
+            TestError::DiffTargetHeader
+        );
+    })
+}
+
 /// # Util functions
 
 const SAMPLE_TX_ID: &'static str =

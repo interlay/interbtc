@@ -23,7 +23,9 @@ pub mod types;
 use crate::types::{Inner, RelayerEvent, VaultEvent};
 use codec::{Decode, Encode, EncodeLike};
 use frame_support::traits::Currency;
+use frame_support::transactional;
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError};
+use frame_system::ensure_root;
 use sp_arithmetic::traits::*;
 use sp_arithmetic::FixedPointNumber;
 use sp_std::convert::TryInto;
@@ -77,6 +79,7 @@ decl_storage! {
         VaultSubmittedIssueProof get(fn vault_submitted_issue_proof) config(): T::SignedFixedPoint;
         VaultRefunded get(fn vault_refunded) config(): T::SignedFixedPoint;
         RelayerBlockSubmission get(fn relayer_block_submission) config(): T::SignedFixedPoint;
+        RelayerDuplicateBlockSubmission get(fn relayer_duplicate_block_submission) config(): T::SignedFixedPoint;
         RelayerCorrectNoDataVoteOrReport get(fn relayer_correct_no_data_vote_or_report) config(): T::SignedFixedPoint;
         RelayerCorrectInvalidVoteOrReport get(fn relayer_correct_invalid_vote_or_report) config(): T::SignedFixedPoint;
         RelayerCorrectLiquidationReport get(fn relayer_correct_liquidation_report) config(): T::SignedFixedPoint;
@@ -111,6 +114,22 @@ decl_module! {
 
         // Initialize events
         fn deposit_event() = default;
+
+        /// Set the sla delta for the given relayer event.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - the dispatch origin of this call (must be _Root_)
+        /// * `event` - relayer event to update
+        /// * `value` - sla delta
+        ///
+        /// # Weight: `O(1)`
+        #[weight = 0]
+        #[transactional]
+        pub fn set_relayer_sla(origin, event: RelayerEvent, value: T::SignedFixedPoint) {
+            ensure_root(origin)?;
+            Self::_set_relayer_sla(event, value);
+        }
     }
 }
 
@@ -184,7 +203,7 @@ impl<T: Config> Module<T> {
         event: RelayerEvent,
     ) -> Result<(), DispatchError> {
         let current_sla = <RelayerSla<T>>::get(relayer_id);
-        let delta_sla = Self::_relayer_sla_change(event);
+        let delta_sla = Self::_get_relayer_sla(event);
 
         let max = <RelayerTargetSla<T>>::get(); // todo: check that this is indeed the max
         let min = T::SignedFixedPoint::zero();
@@ -477,9 +496,10 @@ impl<T: Config> Module<T> {
     }
 
     /// Gets the SLA change corresponding to the given event from storage
-    fn _relayer_sla_change(event: RelayerEvent) -> T::SignedFixedPoint {
+    fn _get_relayer_sla(event: RelayerEvent) -> T::SignedFixedPoint {
         match event {
             RelayerEvent::BlockSubmission => <RelayerBlockSubmission<T>>::get(),
+            RelayerEvent::DuplicateBlockSubmission => <RelayerDuplicateBlockSubmission<T>>::get(),
             RelayerEvent::CorrectNoDataVoteOrReport => <RelayerCorrectNoDataVoteOrReport<T>>::get(),
             RelayerEvent::CorrectInvalidVoteOrReport => {
                 <RelayerCorrectInvalidVoteOrReport<T>>::get()
@@ -492,6 +512,36 @@ impl<T: Config> Module<T> {
             RelayerEvent::FalseNoDataVoteOrReport => <RelayerFalseNoDataVoteOrReport<T>>::get(),
             RelayerEvent::FalseInvalidVoteOrReport => <RelayerFalseInvalidVoteOrReport<T>>::get(),
             RelayerEvent::IgnoredVote => <RelayerIgnoredVote<T>>::get(),
+        }
+    }
+
+    /// Updates the SLA change corresponding to the given event in storage
+    fn _set_relayer_sla(event: RelayerEvent, value: T::SignedFixedPoint) {
+        match event {
+            RelayerEvent::BlockSubmission => <RelayerBlockSubmission<T>>::set(value),
+            RelayerEvent::DuplicateBlockSubmission => {
+                <RelayerDuplicateBlockSubmission<T>>::set(value)
+            }
+            RelayerEvent::CorrectNoDataVoteOrReport => {
+                <RelayerCorrectNoDataVoteOrReport<T>>::set(value)
+            }
+            RelayerEvent::CorrectInvalidVoteOrReport => {
+                <RelayerCorrectInvalidVoteOrReport<T>>::set(value)
+            }
+            RelayerEvent::CorrectLiquidationReport => {
+                <RelayerCorrectLiquidationReport<T>>::set(value)
+            }
+            RelayerEvent::CorrectTheftReport => <RelayerCorrectTheftReport<T>>::set(value),
+            RelayerEvent::CorrectOracleOfflineReport => {
+                <RelayerCorrectOracleOfflineReport<T>>::set(value)
+            }
+            RelayerEvent::FalseNoDataVoteOrReport => {
+                <RelayerFalseNoDataVoteOrReport<T>>::set(value)
+            }
+            RelayerEvent::FalseInvalidVoteOrReport => {
+                <RelayerFalseInvalidVoteOrReport<T>>::set(value)
+            }
+            RelayerEvent::IgnoredVote => <RelayerIgnoredVote<T>>::set(value),
         }
     }
 
