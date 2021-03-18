@@ -1,6 +1,8 @@
-use bitcoin::parser::FromLeBytes;
-use bitcoin::types::{BlockHeader, H256Le, RawBlockHeader};
-use bitcoin::Error;
+use bitcoin::{
+    parser::FromLeBytes,
+    types::{BlockHeader, H256Le, RawBlockHeader},
+    Error,
+};
 use codec::{Decode, Encode};
 
 /// Bitcoin Enriched Block Headers

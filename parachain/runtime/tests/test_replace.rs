@@ -34,9 +34,7 @@ fn assert_auction_event() -> H256 {
     let ids = events
         .iter()
         .filter_map(|r| match r.event {
-            Event::replace(ReplaceEvent::AuctionReplace(id, _, _, _, _, _, _, _, _)) => {
-                Some(id.clone())
-            }
+            Event::replace(ReplaceEvent::AuctionReplace(id, _, _, _, _, _, _, _, _)) => Some(id.clone()),
             _ => None,
         })
         .collect::<Vec<H256>>();
@@ -59,9 +57,7 @@ fn integration_test_replace_should_fail_if_not_running() {
 #[test]
 fn integration_test_replace_request_replace() {
     ExtBuilder::build().execute_with(|| {
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::one()
-        ));
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
         set_default_thresholds();
         SystemModule::set_block_number(1);
 
@@ -72,10 +68,8 @@ fn integration_test_replace_request_replace() {
         // bob creates a vault
         force_issue_tokens(ALICE, BOB, collateral, amount);
         // bob requests a replace
-        assert_ok!(
-            Call::Replace(ReplaceCall::request_replace(amount, griefing_collateral))
-                .dispatch(origin_of(account_of(BOB)))
-        );
+        assert_ok!(Call::Replace(ReplaceCall::request_replace(amount, griefing_collateral))
+            .dispatch(origin_of(account_of(BOB))));
         // assert request event
         let _request_id = assert_request_event();
     });
@@ -84,9 +78,7 @@ fn integration_test_replace_request_replace() {
 #[test]
 fn integration_test_replace_withdraw_replace() {
     ExtBuilder::build().execute_with(|| {
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::one()
-        ));
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
         set_default_thresholds();
         SystemModule::set_block_number(1);
 
@@ -100,8 +92,7 @@ fn integration_test_replace_withdraw_replace() {
         force_issue_tokens(ALICE, BOB, collateral, amount);
         // bob requests a replace
         assert_ok!(
-            Call::Replace(ReplaceCall::request_replace(5000, griefing_collateral))
-                .dispatch(origin_of(account_of(BOB)))
+            Call::Replace(ReplaceCall::request_replace(5000, griefing_collateral)).dispatch(origin_of(account_of(BOB)))
         );
         // bob withdraws his replace
         let replace_id = assert_request_event();
@@ -112,9 +103,7 @@ fn integration_test_replace_withdraw_replace() {
 #[test]
 fn integration_test_replace_accept_replace() {
     ExtBuilder::build().execute_with(|| {
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::one()
-        ));
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
         set_default_thresholds();
         SystemModule::set_block_number(1);
 
@@ -123,18 +112,15 @@ fn integration_test_replace_accept_replace() {
         let collateral = amount * 2;
 
         // alice creates a vault
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-            amount,
-            dummy_public_key(),
-        ))
-        .dispatch(origin_of(account_of(ALICE))));
+        assert_ok!(
+            Call::VaultRegistry(VaultRegistryCall::register_vault(amount, dummy_public_key(),))
+                .dispatch(origin_of(account_of(ALICE)))
+        );
         // bob creates a vault
         force_issue_tokens(ALICE, BOB, collateral, amount);
         // bob requests a replace
-        assert_ok!(
-            Call::Replace(ReplaceCall::request_replace(amount, griefing_collateral))
-                .dispatch(origin_of(account_of(BOB)))
-        );
+        assert_ok!(Call::Replace(ReplaceCall::request_replace(amount, griefing_collateral))
+            .dispatch(origin_of(account_of(BOB))));
         let replace_id = assert_request_event();
         // alice accept bob's request
         assert_ok!(Call::Replace(ReplaceCall::accept_replace(
@@ -149,9 +135,7 @@ fn integration_test_replace_accept_replace() {
 #[test]
 fn integration_test_replace_auction_replace() {
     ExtBuilder::build().execute_with(|| {
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::one()
-        ));
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
         set_default_thresholds();
         SystemModule::set_block_number(1);
 
@@ -169,11 +153,10 @@ fn integration_test_replace_auction_replace() {
         force_issue_tokens(user, old_vault, collateral, polkabtc);
 
         // new vault joins
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-            collateral,
-            dummy_public_key()
-        ))
-        .dispatch(origin_of(account_of(new_vault))));
+        assert_ok!(
+            Call::VaultRegistry(VaultRegistryCall::register_vault(collateral, dummy_public_key()))
+                .dispatch(origin_of(account_of(new_vault)))
+        );
         // exchange rate drops and vault is not collateralized any more
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
             FixedU128::checked_from_integer(2).unwrap()
@@ -197,19 +180,14 @@ fn integration_test_replace_auction_replace() {
         // auction fee is taken from old vault collateral
         let replace_amount_dot = ExchangeRateOracleModule::btc_to_dots(polkabtc).unwrap();
         let auction_fee = FeeModule::get_auction_redeem_fee(replace_amount_dot).unwrap();
-        assert_eq!(
-            final_old_vault_collateral,
-            initial_old_vault_collateral - auction_fee
-        );
+        assert_eq!(final_old_vault_collateral, initial_old_vault_collateral - auction_fee);
     });
 }
 
 #[test]
 fn integration_test_replace_execute_replace() {
     ExtBuilder::build().execute_with(|| {
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::one()
-        ));
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
         set_default_thresholds();
         SystemModule::set_block_number(1);
 
@@ -227,11 +205,10 @@ fn integration_test_replace_execute_replace() {
         force_issue_tokens(user, old_vault, collateral, polkabtc);
 
         // new vault joins
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-            collateral,
-            dummy_public_key()
-        ))
-        .dispatch(origin_of(account_of(new_vault))));
+        assert_ok!(
+            Call::VaultRegistry(VaultRegistryCall::register_vault(collateral, dummy_public_key()))
+                .dispatch(origin_of(account_of(new_vault)))
+        );
 
         assert_ok!(
             Call::Replace(ReplaceCall::request_replace(polkabtc, griefing_collateral))
@@ -253,13 +230,8 @@ fn integration_test_replace_execute_replace() {
             generate_transaction_and_mine(new_vault_btc_address, polkabtc, Some(replace_id));
 
         SystemModule::set_block_number(1 + CONFIRMATIONS);
-        let r = Call::Replace(ReplaceCall::execute_replace(
-            replace_id,
-            tx_id,
-            merkle_proof,
-            raw_tx,
-        ))
-        .dispatch(origin_of(account_of(old_vault)));
+        let r = Call::Replace(ReplaceCall::execute_replace(replace_id, tx_id, merkle_proof, raw_tx))
+            .dispatch(origin_of(account_of(old_vault)));
         assert_ok!(r);
     });
 }
@@ -267,9 +239,7 @@ fn integration_test_replace_execute_replace() {
 #[test]
 fn integration_test_replace_cancel_replace() {
     ExtBuilder::build().execute_with(|| {
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::one()
-        ));
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
         set_default_thresholds();
         SystemModule::set_block_number(1);
 
@@ -279,18 +249,15 @@ fn integration_test_replace_cancel_replace() {
         let collateral = amount * 2;
 
         // alice creates a vault
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-            amount,
-            dummy_public_key()
-        ))
-        .dispatch(origin_of(account_of(ALICE))));
+        assert_ok!(
+            Call::VaultRegistry(VaultRegistryCall::register_vault(amount, dummy_public_key()))
+                .dispatch(origin_of(account_of(ALICE)))
+        );
         // bob creates a vault
         force_issue_tokens(ALICE, BOB, collateral, amount);
         // bob requests a replace
-        assert_ok!(
-            Call::Replace(ReplaceCall::request_replace(amount, griefing_collateral))
-                .dispatch(origin_of(account_of(BOB)))
-        );
+        assert_ok!(Call::Replace(ReplaceCall::request_replace(amount, griefing_collateral))
+            .dispatch(origin_of(account_of(BOB))));
         // alice accepts bob's request
         let replace_id = assert_request_event();
         assert_ok!(Call::Replace(ReplaceCall::accept_replace(
@@ -302,17 +269,14 @@ fn integration_test_replace_cancel_replace() {
         // set block height
         // alice cancels replacement
         SystemModule::set_block_number(30);
-        assert_ok!(Call::Replace(ReplaceCall::cancel_replace(replace_id))
-            .dispatch(origin_of(account_of(BOB))));
+        assert_ok!(Call::Replace(ReplaceCall::cancel_replace(replace_id)).dispatch(origin_of(account_of(BOB))));
     });
 }
 
 #[test]
 fn integration_test_replace_cancel_auction_replace() {
     ExtBuilder::build().execute_with(|| {
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::one()
-        ));
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
         set_default_thresholds();
         SystemModule::set_block_number(1);
         let new_vault_btc_address = BtcAddress::P2PKH(H160([2; 20]));
@@ -330,11 +294,10 @@ fn integration_test_replace_cancel_auction_replace() {
         force_issue_tokens(user, old_vault, collateral, polkabtc);
 
         // new vault joins
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-            collateral,
-            dummy_public_key()
-        ))
-        .dispatch(origin_of(account_of(new_vault))));
+        assert_ok!(
+            Call::VaultRegistry(VaultRegistryCall::register_vault(collateral, dummy_public_key()))
+                .dispatch(origin_of(account_of(new_vault)))
+        );
 
         // exchange rate drops and vault is not collateralized any more
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
@@ -372,8 +335,7 @@ fn integration_test_replace_cancel_auction_replace() {
 
         SystemModule::set_block_number(30);
 
-        assert_ok!(Call::Replace(ReplaceCall::cancel_replace(replace_id))
-            .dispatch(origin_of(account_of(BOB))));
+        assert_ok!(Call::Replace(ReplaceCall::cancel_replace(replace_id)).dispatch(origin_of(account_of(BOB))));
 
         // check old vault collateral
         assert_eq!(
@@ -393,9 +355,7 @@ fn integration_test_replace_cancel_auction_replace() {
 #[test]
 fn integration_test_replace_cancel_repeatedly_fails() {
     ExtBuilder::build().execute_with(|| {
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::one()
-        ));
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
         set_default_thresholds();
         SystemModule::set_block_number(1);
 
@@ -415,11 +375,10 @@ fn integration_test_replace_cancel_repeatedly_fails() {
         force_issue_tokens(user, old_vault, collateral, polkabtc);
 
         // new vault joins
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-            collateral,
-            dummy_public_key()
-        ))
-        .dispatch(origin_of(account_of(new_vault))));
+        assert_ok!(
+            Call::VaultRegistry(VaultRegistryCall::register_vault(collateral, dummy_public_key()))
+                .dispatch(origin_of(account_of(new_vault)))
+        );
         // exchange rate drops and vault is not collateralized any more
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
             FixedU128::checked_from_integer(2).unwrap()
@@ -465,9 +424,7 @@ fn integration_test_replace_cancel_repeatedly_fails() {
 // liquidation tests..
 
 fn setup_replace(polkabtc: u128) -> H256 {
-    assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-        FixedU128::one()
-    ));
+    assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
     set_default_thresholds();
     SystemModule::set_block_number(1);
 
@@ -500,11 +457,10 @@ fn setup_replace(polkabtc: u128) -> H256 {
     ))
     .dispatch(origin_of(account_of(NEW_VAULT))));
 
-    assert_ok!(Call::Replace(ReplaceCall::request_replace(
-        polkabtc,
-        DEFAULT_GRIEFING_COLLATERAL
-    ))
-    .dispatch(origin_of(account_of(OLD_VAULT))));
+    assert_ok!(
+        Call::Replace(ReplaceCall::request_replace(polkabtc, DEFAULT_GRIEFING_COLLATERAL))
+            .dispatch(origin_of(account_of(OLD_VAULT)))
+    );
 
     let replace_id = assert_request_event();
 
@@ -528,21 +484,17 @@ fn execute_replace(replace_id: H256) {
         generate_transaction_and_mine(btc_address, replace.amount, Some(replace_id));
 
     SystemModule::set_block_number(1 + CONFIRMATIONS);
-    assert_ok!(Call::Replace(ReplaceCall::execute_replace(
-        replace_id,
-        tx_id,
-        merkle_proof,
-        raw_tx,
-    ))
-    .dispatch(origin_of(account_of(OLD_VAULT))));
+    assert_ok!(
+        Call::Replace(ReplaceCall::execute_replace(replace_id, tx_id, merkle_proof, raw_tx,))
+            .dispatch(origin_of(account_of(OLD_VAULT)))
+    );
 }
 
 fn cancel_replace(replace_id: H256) {
     // set block height
     // alice cancels replacement
     SystemModule::set_block_number(30);
-    assert_ok!(Call::Replace(ReplaceCall::cancel_replace(replace_id))
-        .dispatch(origin_of(account_of(NEW_VAULT))));
+    assert_ok!(Call::Replace(ReplaceCall::cancel_replace(replace_id)).dispatch(origin_of(account_of(NEW_VAULT))));
 }
 #[test]
 fn integration_test_replace_execute_replace_success() {
@@ -635,8 +587,7 @@ fn integration_test_replace_execute_replace_old_vault_liquidated() {
             CoreVaultData {
                 to_be_redeemed: 250,
                 backing_collateral: (DEFAULT_COLLATERAL * 250) / 2500,
-                free_balance: (DEFAULT_COLLATERAL * replace_tokens) / 2500
-                    + DEFAULT_GRIEFING_COLLATERAL,
+                free_balance: (DEFAULT_COLLATERAL * replace_tokens) / 2500 + DEFAULT_GRIEFING_COLLATERAL,
                 ..Default::default()
             }
         );
@@ -1063,9 +1014,7 @@ fn integration_test_replace_cancel_replace_both_vaults_liquidated() {
 #[test]
 fn integration_test_issue_using_griefing_collateral_fails() {
     ExtBuilder::build().execute_with(|| {
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::one()
-        ));
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
         set_default_thresholds();
         SystemModule::set_block_number(1);
 
@@ -1077,28 +1026,18 @@ fn integration_test_issue_using_griefing_collateral_fails() {
         force_issue_tokens(ALICE, BOB, collateral, amount);
 
         assert_noop!(
-            Call::Issue(IssueCall::request_issue(
-                1000,
-                account_of(OLD_VAULT),
-                issue_amount
-            ))
-            .dispatch(origin_of(account_of(USER))),
+            Call::Issue(IssueCall::request_issue(1000, account_of(OLD_VAULT), issue_amount))
+                .dispatch(origin_of(account_of(USER))),
             VaultRegistryError::ExceedingVaultLimit,
         );
 
-        assert_ok!(
-            Call::Replace(ReplaceCall::request_replace(amount, griefing_collateral))
-                .dispatch(origin_of(account_of(OLD_VAULT)))
-        );
+        assert_ok!(Call::Replace(ReplaceCall::request_replace(amount, griefing_collateral))
+            .dispatch(origin_of(account_of(OLD_VAULT))));
 
         // still can't do the issue, even though the vault locked griefing collateral
         assert_noop!(
-            Call::Issue(IssueCall::request_issue(
-                1000,
-                account_of(OLD_VAULT),
-                issue_amount
-            ))
-            .dispatch(origin_of(account_of(USER))),
+            Call::Issue(IssueCall::request_issue(1000, account_of(OLD_VAULT), issue_amount))
+                .dispatch(origin_of(account_of(USER))),
             VaultRegistryError::ExceedingVaultLimit,
         );
     });

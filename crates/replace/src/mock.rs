@@ -189,21 +189,19 @@ impl ExtBuilder {
     pub fn build_with(
         dot_balances: pallet_balances::GenesisConfig<Test, pallet_balances::Instance1>,
     ) -> sp_io::TestExternalities {
-        let mut storage = frame_system::GenesisConfig::default()
-            .build_storage::<Test>()
-            .unwrap();
+        let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
         dot_balances.assimilate_storage(&mut storage).unwrap();
 
         fee::GenesisConfig::<Test> {
             issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
             issue_griefing_collateral: FixedU128::checked_from_rational(5, 100000).unwrap(), // 0.005%
-            refund_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),                  // 0.5%
-            redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),                  // 0.5%
-            premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
-            auction_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
-            punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(),                // 10%
-            replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(),   // 10%
+            refund_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
+            redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
+            premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(), // 5%
+            auction_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(), // 5%
+            punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
+            replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
             fee_pool_account_id: 0,
             maintainer_account_id: 1,
             epoch_period: 5,
@@ -228,15 +226,9 @@ impl ExtBuilder {
     }
 
     pub fn build() -> sp_io::TestExternalities {
-        ExtBuilder::build_with(
-            pallet_balances::GenesisConfig::<Test, pallet_balances::Instance1> {
-                balances: vec![
-                    (ALICE, ALICE_BALANCE),
-                    (BOB, BOB_BALANCE),
-                    (CAROL, CAROL_BALANCE),
-                ],
-            },
-        )
+        ExtBuilder::build_with(pallet_balances::GenesisConfig::<Test, pallet_balances::Instance1> {
+            balances: vec![(ALICE, ALICE_BALANCE), (BOB, BOB_BALANCE), (CAROL, CAROL_BALANCE)],
+        })
     }
 }
 

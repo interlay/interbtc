@@ -27,27 +27,22 @@ use mocktopus::macros::mockable;
 
 pub use security;
 
-use crate::types::{
-    PolkaBTC, ProposalStatus, StakedRelayer, StatusUpdate, StatusUpdateId, Tally, Votes, DOT,
-};
-use bitcoin::parser::parse_transaction;
-use bitcoin::types::*;
+use crate::types::{PolkaBTC, ProposalStatus, StakedRelayer, StatusUpdate, StatusUpdateId, Tally, Votes, DOT};
+use bitcoin::{parser::parse_transaction, types::*};
 use btc_relay::BtcAddress;
-use frame_support::transactional;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::Get,
+    transactional,
     weights::Weight,
     IterableStorageMap,
 };
 use frame_system::{ensure_root, ensure_signed};
 use primitive_types::H256;
 use security::types::{ErrorCode, StatusCode};
-use sp_std::collections::btree_set::BTreeSet;
-use sp_std::convert::TryInto;
-use sp_std::vec::Vec;
+use sp_std::{collections::btree_set::BTreeSet, convert::TryInto, vec::Vec};
 use vault_registry::Wallet;
 
 pub trait WeightInfo {
@@ -723,10 +718,7 @@ impl<T: Config> Module<T> {
     ///
     /// * `id` - account id of the relayer
     pub(crate) fn ensure_relayer_is_registered(id: &T::AccountId) -> DispatchResult {
-        ensure!(
-            <ActiveStakedRelayers<T>>::contains_key(id),
-            Error::<T>::NotRegistered,
-        );
+        ensure!(<ActiveStakedRelayers<T>>::contains_key(id), Error::<T>::NotRegistered,);
         Ok(())
     }
 
@@ -747,13 +739,8 @@ impl<T: Config> Module<T> {
     /// # Arguments
     ///
     /// * `id` - account id of the relayer
-    fn get_inactive_staked_relayer(
-        id: &T::AccountId,
-    ) -> Result<StakedRelayer<DOT<T>, T::BlockNumber>, DispatchError> {
-        ensure!(
-            <InactiveStakedRelayers<T>>::contains_key(id),
-            Error::<T>::NotRegistered,
-        );
+    fn get_inactive_staked_relayer(id: &T::AccountId) -> Result<StakedRelayer<DOT<T>, T::BlockNumber>, DispatchError> {
+        ensure!(<InactiveStakedRelayers<T>>::contains_key(id), Error::<T>::NotRegistered,);
         Ok(<InactiveStakedRelayers<T>>::get(id))
     }
 
@@ -764,11 +751,7 @@ impl<T: Config> Module<T> {
     /// * `id` - account id of the relayer
     /// * `stake` - token deposited
     /// * `height` - bonding height
-    pub(crate) fn insert_active_staked_relayer(
-        id: &T::AccountId,
-        stake: DOT<T>,
-        height: T::BlockNumber,
-    ) {
+    pub(crate) fn insert_active_staked_relayer(id: &T::AccountId, stake: DOT<T>, height: T::BlockNumber) {
         <ActiveStakedRelayers<T>>::insert(id, StakedRelayer { stake, height });
     }
 
@@ -779,11 +762,7 @@ impl<T: Config> Module<T> {
     /// * `id` - account id of the relayer
     /// * `stake` - token deposited
     /// * `height` - bonding height
-    pub(crate) fn insert_inactive_staked_relayer(
-        id: &T::AccountId,
-        stake: DOT<T>,
-        height: T::BlockNumber,
-    ) {
+    pub(crate) fn insert_inactive_staked_relayer(id: &T::AccountId, stake: DOT<T>, height: T::BlockNumber) {
         <InactiveStakedRelayers<T>>::insert(id, StakedRelayer { stake, height });
     }
 
@@ -856,10 +835,7 @@ impl<T: Config> Module<T> {
     ///
     /// * `error` - optional errorcode
     /// * `votes` - vote set, includes account set and total stake
-    fn slash_staked_relayers(
-        error: &Option<ErrorCode>,
-        votes: &Votes<T::AccountId, DOT<T>>,
-    ) -> DispatchResult {
+    fn slash_staked_relayers(error: &Option<ErrorCode>, votes: &Votes<T::AccountId, DOT<T>>) -> DispatchResult {
         // TODO: slash block proposer
         if let Some(ErrorCode::NoDataBTCRelay) = error {
             // we don't slash participants for this
@@ -870,11 +846,7 @@ impl<T: Config> Module<T> {
             // active participants are not allowed to deregister during
             // an ongoing status update, so this call should never revert
             let staked_relayer = Self::get_active_staked_relayer(acc)?;
-            ext::collateral::slash_collateral::<T>(
-                acc.clone(),
-                <GovernanceId<T>>::get(),
-                staked_relayer.stake,
-            )?;
+            ext::collateral::slash_collateral::<T>(acc.clone(), <GovernanceId<T>>::get(), staked_relayer.stake)?;
             Self::remove_active_staked_relayer(acc);
         }
 
@@ -915,41 +887,27 @@ impl<T: Config> Module<T> {
         // reward relayers for correct votes by increasing their sla
         for relayer in correct_voters {
             if no_data_relayer {
-                ext::sla::event_update_relayer_sla::<T>(
-                    &relayer,
-                    ext::sla::RelayerEvent::CorrectNoDataVoteOrReport,
-                )?;
+                ext::sla::event_update_relayer_sla::<T>(&relayer, ext::sla::RelayerEvent::CorrectNoDataVoteOrReport)?;
             }
             if invalid_relayer {
-                ext::sla::event_update_relayer_sla::<T>(
-                    &relayer,
-                    ext::sla::RelayerEvent::CorrectInvalidVoteOrReport,
-                )?;
+                ext::sla::event_update_relayer_sla::<T>(&relayer, ext::sla::RelayerEvent::CorrectInvalidVoteOrReport)?;
             }
         }
 
         // punish relayers for incorrect votes by decreasing their sla
         for relayer in incorrect_voters {
             if no_data_relayer {
-                ext::sla::event_update_relayer_sla::<T>(
-                    &relayer,
-                    ext::sla::RelayerEvent::FalseNoDataVoteOrReport,
-                )?;
+                ext::sla::event_update_relayer_sla::<T>(&relayer, ext::sla::RelayerEvent::FalseNoDataVoteOrReport)?;
             }
             if invalid_relayer {
-                ext::sla::event_update_relayer_sla::<T>(
-                    &relayer,
-                    ext::sla::RelayerEvent::FalseInvalidVoteOrReport,
-                )?;
+                ext::sla::event_update_relayer_sla::<T>(&relayer, ext::sla::RelayerEvent::FalseInvalidVoteOrReport)?;
             }
         }
 
         // punish relayers that didn't vote by decreasing their sla
         let mut voters = status_update.tally.aye.accounts.clone();
         voters.append(&mut status_update.tally.nay.accounts.clone());
-        let all_relayers: BTreeSet<_> = <ActiveStakedRelayers<T>>::iter()
-            .map(|(relayer, _)| relayer)
-            .collect();
+        let all_relayers: BTreeSet<_> = <ActiveStakedRelayers<T>>::iter().map(|(relayer, _)| relayer).collect();
         for abstainer in all_relayers.difference(&voters) {
             let staked_relayer = <ActiveStakedRelayers<T>>::get(abstainer);
             if staked_relayer.height > status_update.start {
@@ -957,10 +915,7 @@ impl<T: Config> Module<T> {
                 continue;
             }
 
-            ext::sla::event_update_relayer_sla::<T>(
-                &abstainer,
-                ext::sla::RelayerEvent::IgnoredVote,
-            )?;
+            ext::sla::event_update_relayer_sla::<T>(&abstainer, ext::sla::RelayerEvent::IgnoredVote)?;
         }
 
         Ok(())
@@ -976,10 +931,7 @@ impl<T: Config> Module<T> {
         status_update_id: StatusUpdateId,
         mut status_update: &mut StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>,
     ) -> DispatchResult {
-        ensure!(
-            status_update.tally.is_approved(),
-            Error::<T>::InsufficientYesVotes
-        );
+        ensure!(status_update.tally.is_approved(), Error::<T>::InsufficientYesVotes);
 
         let status_code = status_update.new_status_code.clone();
         ext::security::set_status::<T>(status_code.clone());
@@ -990,8 +942,7 @@ impl<T: Config> Module<T> {
         let old_status_code = status_update.old_status_code.clone();
 
         if let Some(ref error_code) = add_error {
-            if error_code == &ErrorCode::NoDataBTCRelay || error_code == &ErrorCode::InvalidBTCRelay
-            {
+            if error_code == &ErrorCode::NoDataBTCRelay || error_code == &ErrorCode::InvalidBTCRelay {
                 ext::btc_relay::flag_block_error::<T>(
                     btc_block_hash.ok_or(Error::<T>::ExpectedBlockHash)?,
                     error_code.clone(),
@@ -1001,8 +952,7 @@ impl<T: Config> Module<T> {
         }
 
         if let Some(ref error_code) = remove_error {
-            if error_code == &ErrorCode::NoDataBTCRelay || error_code == &ErrorCode::InvalidBTCRelay
-            {
+            if error_code == &ErrorCode::NoDataBTCRelay || error_code == &ErrorCode::InvalidBTCRelay {
                 ext::btc_relay::clear_block_error::<T>(
                     btc_block_hash.ok_or(Error::<T>::ExpectedBlockHash)?,
                     error_code.clone(),
@@ -1036,10 +986,7 @@ impl<T: Config> Module<T> {
         status_update_id: StatusUpdateId,
         mut status_update: &mut StatusUpdate<T::AccountId, T::BlockNumber, DOT<T>>,
     ) -> DispatchResult {
-        ensure!(
-            !status_update.tally.is_approved(),
-            Error::<T>::InsufficientNoVotes
-        );
+        ensure!(!status_update.tally.is_approved(), Error::<T>::InsufficientNoVotes);
 
         status_update.proposal_status = ProposalStatus::Rejected;
         Self::slash_staked_relayers(&status_update.add_error, &status_update.tally.aye)?;
@@ -1093,9 +1040,7 @@ impl<T: Config> Module<T> {
         payments: &Vec<(i64, BtcAddress)>,
         wallet: &Wallet,
     ) -> bool {
-        let request_value = match TryInto::<u64>::try_into(request_value)
-            .map_err(|_e| Error::<T>::TryIntoIntError)
-        {
+        let request_value = match TryInto::<u64>::try_into(request_value).map_err(|_e| Error::<T>::TryIntoIntError) {
             Ok(value) => value as i64,
             Err(_) => return false,
         };
@@ -1129,8 +1074,7 @@ impl<T: Config> Module<T> {
         let vault = ext::vault_registry::get_active_vault_from_id::<T>(vault_id)?;
 
         // TODO: ensure this cannot fail on invalid
-        let tx =
-            parse_transaction(raw_tx.as_slice()).map_err(|_| Error::<T>::InvalidTransaction)?;
+        let tx = parse_transaction(raw_tx.as_slice()).map_err(|_| Error::<T>::InvalidTransaction)?;
 
         // collect all addresses that feature in the inputs of the transaction
         let input_addresses: Vec<Result<BtcAddress, _>> = tx
@@ -1187,12 +1131,7 @@ impl<T: Config> Module<T> {
             match ext::redeem::get_open_or_completed_redeem_request_from_id::<T>(&request_id) {
                 Ok(req) => {
                     ensure!(
-                        !Self::is_valid_request_transaction(
-                            req.amount_btc,
-                            req.btc_address,
-                            &payments,
-                            &vault.wallet,
-                        ),
+                        !Self::is_valid_request_transaction(req.amount_btc, req.btc_address, &payments, &vault.wallet,),
                         Error::<T>::ValidRedeemTransaction
                     );
                 }
@@ -1205,12 +1144,7 @@ impl<T: Config> Module<T> {
                     if let Some(btc_address) = req.btc_address {
                         // only check replace if we have a valid btc_address
                         ensure!(
-                            !Self::is_valid_request_transaction(
-                                req.amount,
-                                btc_address,
-                                &payments,
-                                &vault.wallet,
-                            ),
+                            !Self::is_valid_request_transaction(req.amount, btc_address, &payments, &vault.wallet,),
                             Error::<T>::ValidReplaceTransaction
                         );
                     }
@@ -1278,12 +1212,7 @@ decl_event!(
             Option<ErrorCode>,
             Option<H256Le>,
         ),
-        RejectStatusUpdate(
-            StatusUpdateId,
-            StatusCode,
-            Option<ErrorCode>,
-            Option<ErrorCode>,
-        ),
+        RejectStatusUpdate(StatusUpdateId, StatusCode, Option<ErrorCode>, Option<ErrorCode>),
         ForceStatusUpdate(StatusCode, Option<ErrorCode>, Option<ErrorCode>),
         SlashStakedRelayer(AccountId),
         OracleOffline(),

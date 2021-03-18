@@ -1,6 +1,5 @@
 use codec::{Decode, Encode};
-use sp_std::cmp::Ord;
-use sp_std::fmt::Debug;
+use sp_std::{cmp::Ord, fmt::Debug};
 
 /// Enum indicating the status of the BTC Parachain.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]

@@ -1,7 +1,4 @@
-use crate::formatter::Formattable;
-use crate::parser::extract_op_return_data;
-use crate::types::*;
-use crate::Error;
+use crate::{formatter::Formattable, parser::extract_op_return_data, types::*, Error};
 use sp_std::prelude::*;
 
 #[cfg(feature = "std")]

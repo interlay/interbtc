@@ -2,9 +2,7 @@ use btc_parachain_runtime::{opaque::Block, RuntimeApi};
 use cumulus_consensus::{build_relay_chain_consensus, BuildRelayChainConsensusParams};
 use cumulus_network::build_block_announce_validator;
 use cumulus_primitives::ParaId;
-use cumulus_service::{
-    prepare_node_config, start_collator, start_full_node, StartCollatorParams, StartFullNodeParams,
-};
+use cumulus_service::{prepare_node_config, start_collator, start_full_node, StartCollatorParams, StartFullNodeParams};
 use polkadot_primitives::v0::CollatorPair;
 // use rococo_primitives::Block;
 pub use sc_executor::NativeExecutor;
@@ -90,13 +88,11 @@ async fn start_node_impl(
 
     let parachain_config = prepare_node_config(parachain_config);
 
-    let polkadot_full_node =
-        cumulus_service::build_polkadot_full_node(polkadot_config, collator_key.public()).map_err(
-            |e| match e {
-                polkadot_service::Error::Sub(x) => x,
-                s => format!("{}", s).into(),
-            },
-        )?;
+    let polkadot_full_node = cumulus_service::build_polkadot_full_node(polkadot_config, collator_key.public())
+        .map_err(|e| match e {
+            polkadot_service::Error::Sub(x) => x,
+            s => format!("{}", s).into(),
+        })?;
 
     let params = new_partial(&parachain_config)?;
     params
@@ -224,12 +220,5 @@ pub async fn start_node(
     id: ParaId,
     validator: bool,
 ) -> sc_service::error::Result<(TaskManager, Arc<FullClient>)> {
-    start_node_impl(
-        parachain_config,
-        collator_key,
-        polkadot_config,
-        id,
-        validator,
-    )
-    .await
+    start_node_impl(parachain_config, collator_key, polkadot_config, id, validator).await
 }

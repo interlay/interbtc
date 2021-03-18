@@ -21,17 +21,12 @@ pub struct BalanceWrapper<T> {
 }
 
 #[cfg(feature = "std")]
-fn serialize_as_string<S: Serializer, T: std::fmt::Display>(
-    t: &T,
-    serializer: S,
-) -> Result<S::Ok, S::Error> {
+fn serialize_as_string<S: Serializer, T: std::fmt::Display>(t: &T, serializer: S) -> Result<S::Ok, S::Error> {
     serializer.serialize_str(&t.to_string())
 }
 
 #[cfg(feature = "std")]
-fn deserialize_from_string<'de, D: Deserializer<'de>, T: std::str::FromStr>(
-    deserializer: D,
-) -> Result<T, D::Error> {
+fn deserialize_from_string<'de, D: Deserializer<'de>, T: std::str::FromStr>(deserializer: D) -> Result<T, D::Error> {
     let s = String::deserialize(deserializer)?;
     s.parse::<T>()
         .map_err(|_| serde::de::Error::custom("Parse from string failed"))

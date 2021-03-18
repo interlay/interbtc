@@ -44,10 +44,7 @@ pub(crate) mod vault_registry {
 
     pub fn get_active_vault_from_id<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-    ) -> Result<
-        vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
-        DispatchError,
-    > {
+    ) -> Result<vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
         <vault_registry::Module<T>>::get_active_vault_from_id(vault_id)
     }
 
@@ -61,13 +58,8 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::liquidate_vault(vault_id)
     }
 
-    pub fn liquidate_theft_vault<T: vault_registry::Config>(
-        vault_id: &T::AccountId,
-    ) -> DispatchResult {
-        <vault_registry::Module<T>>::liquidate_vault_with_status(
-            vault_id,
-            VaultStatus::CommittedTheft,
-        )
+    pub fn liquidate_theft_vault<T: vault_registry::Config>(vault_id: &T::AccountId) -> DispatchResult {
+        <vault_registry::Module<T>>::liquidate_vault_with_status(vault_id, VaultStatus::CommittedTheft)
     }
 }
 
@@ -105,17 +97,11 @@ pub(crate) mod btc_relay {
     use security::types::ErrorCode;
     use sp_std::prelude::*;
 
-    pub(crate) fn flag_block_error<T: btc_relay::Config>(
-        block_hash: H256Le,
-        error: ErrorCode,
-    ) -> DispatchResult {
+    pub(crate) fn flag_block_error<T: btc_relay::Config>(block_hash: H256Le, error: ErrorCode) -> DispatchResult {
         <btc_relay::Module<T>>::flag_block_error(block_hash, error)
     }
 
-    pub(crate) fn clear_block_error<T: btc_relay::Config>(
-        block_hash: H256Le,
-        error: ErrorCode,
-    ) -> DispatchResult {
+    pub(crate) fn clear_block_error<T: btc_relay::Config>(block_hash: H256Le, error: ErrorCode) -> DispatchResult {
         <btc_relay::Module<T>>::clear_block_error(block_hash, error)
     }
 
@@ -154,8 +140,7 @@ pub(crate) mod redeem {
 
     pub(crate) fn get_open_or_completed_redeem_request_from_id<T: redeem::Config>(
         id: &H256,
-    ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError>
-    {
+    ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
         <redeem::Module<T>>::get_open_or_completed_redeem_request_from_id(id)
     }
 }
@@ -169,8 +154,7 @@ pub(crate) mod replace {
 
     pub(crate) fn get_open_or_completed_replace_request<T: replace::Config>(
         id: &H256,
-    ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError>
-    {
+    ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
         <replace::Module<T>>::get_open_or_completed_replace_request(id)
     }
 }
@@ -210,9 +194,7 @@ pub(crate) mod sla {
         <sla::Module<T>>::initialize_relayer_stake(relayer_id, stake)
     }
 
-    pub fn _on_runtime_upgrade<T: sla::Config>(
-        stakes: Vec<(T::AccountId, DOT<T>)>,
-    ) -> Result<(), DispatchError> {
+    pub fn _on_runtime_upgrade<T: sla::Config>(stakes: Vec<(T::AccountId, DOT<T>)>) -> Result<(), DispatchError> {
         <sla::Module<T>>::_on_runtime_upgrade(stakes)
     }
 }

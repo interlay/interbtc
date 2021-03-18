@@ -31,19 +31,16 @@ pub use crate::types::IssueRequest;
 use crate::types::{PolkaBTC, Version, DOT};
 use bitcoin::types::H256Le;
 use btc_relay::{BtcAddress, BtcPublicKey};
-use frame_support::transactional;
-use frame_support::weights::Weight;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
-    ensure,
+    ensure, transactional,
+    weights::Weight,
 };
 use frame_system::{ensure_root, ensure_signed};
 use primitive_types::H256;
-use sp_runtime::traits::*;
-use sp_runtime::ModuleId;
-use sp_std::convert::TryInto;
-use sp_std::vec::Vec;
+use sp_runtime::{traits::*, ModuleId};
+use sp_std::{convert::TryInto, vec::Vec};
 use vault_registry::CurrencySource;
 
 /// The issue module id, used for deriving its sovereign account ID.
@@ -222,8 +219,7 @@ impl<T: Config> Module<T> {
         ext::vault_registry::ensure_not_banned::<T>(&vault_id, height)?;
 
         let amount_dot = ext::oracle::btc_to_dots::<T>(amount_polkabtc)?;
-        let expected_griefing_collateral =
-            ext::fee::get_issue_griefing_collateral::<T>(amount_dot)?;
+        let expected_griefing_collateral = ext::fee::get_issue_griefing_collateral::<T>(amount_dot)?;
 
         ensure!(
             griefing_collateral >= expected_griefing_collateral,
@@ -340,10 +336,7 @@ impl<T: Config> Module<T> {
                     .checked_sub(&expected_total_amount)
                     .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
-                match ext::vault_registry::try_increase_to_be_issued_tokens::<T>(
-                    &issue.vault,
-                    surplus_btc,
-                ) {
+                match ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&issue.vault, surplus_btc) {
                     Ok(_) => {
                         // Current vault can handle the surplus; update the issue request
                         Self::update_issue_amount(&issue_id, &mut issue, amount_transferred)?;
@@ -378,20 +371,14 @@ impl<T: Config> Module<T> {
 
         if !ext::vault_registry::is_vault_liquidated::<T>(&issue.vault)? {
             // reward the vault for having issued PolkaBTC by increasing its sla
-            ext::sla::event_update_vault_sla::<T>(
-                &issue.vault,
-                ext::sla::VaultEvent::ExecutedIssue(issue.amount),
-            )?;
+            ext::sla::event_update_vault_sla::<T>(&issue.vault, ext::sla::VaultEvent::ExecutedIssue(issue.amount))?;
         }
 
         // if it was a vault that did the execution on behalf of someone else, reward it by
         // increasing its SLA score
         if &requester != &executor {
             if let Ok(vault) = ext::vault_registry::get_active_vault_from_id::<T>(&executor) {
-                ext::sla::event_update_vault_sla::<T>(
-                    &vault.id,
-                    ext::sla::VaultEvent::SubmittedIssueProof,
-                )?;
+                ext::sla::event_update_vault_sla::<T>(&vault.id, ext::sla::VaultEvent::SubmittedIssueProof)?;
             }
         }
 
@@ -437,11 +424,7 @@ impl<T: Config> Module<T> {
         // Remove issue request from storage
         Self::remove_issue_request(issue_id, true);
 
-        Self::deposit_event(<Event<T>>::CancelIssue(
-            issue_id,
-            requester,
-            issue.griefing_collateral,
-        ));
+        Self::deposit_event(<Event<T>>::CancelIssue(issue_id, requester, issue.griefing_collateral));
         Ok(())
     }
 
@@ -452,10 +435,7 @@ impl<T: Config> Module<T> {
     /// * `account_id` - user account id
     pub fn get_issue_requests_for_account(
         account_id: T::AccountId,
-    ) -> Vec<(
-        H256,
-        IssueRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
-    )> {
+    ) -> Vec<(H256, IssueRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>)> {
         <IssueRequests<T>>::iter()
             .filter(|(_, request)| request.requester == account_id)
             .collect::<Vec<_>>()
@@ -468,10 +448,7 @@ impl<T: Config> Module<T> {
     /// * `account_id` - vault account id
     pub fn get_issue_requests_for_vault(
         account_id: T::AccountId,
-    ) -> Vec<(
-        H256,
-        IssueRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
-    )> {
+    ) -> Vec<(H256, IssueRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>)> {
         <IssueRequests<T>>::iter()
             .filter(|(_, request)| request.vault == account_id)
             .collect::<Vec<_>>()
@@ -479,12 +456,8 @@ impl<T: Config> Module<T> {
 
     pub fn get_issue_request_from_id(
         issue_id: &H256,
-    ) -> Result<IssueRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError>
-    {
-        ensure!(
-            <IssueRequests<T>>::contains_key(*issue_id),
-            Error::<T>::IssueIdNotFound
-        );
+    ) -> Result<IssueRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
+        ensure!(<IssueRequests<T>>::contains_key(*issue_id), Error::<T>::IssueIdNotFound);
         // NOTE: temporary workaround until we delete
         ensure!(
             !<IssueRequests<T>>::get(*issue_id).completed,
@@ -518,10 +491,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn insert_issue_request(
-        key: H256,
-        value: IssueRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
-    ) {
+    fn insert_issue_request(key: H256, value: IssueRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>) {
         <IssueRequests<T>>::insert(key, value)
     }
 

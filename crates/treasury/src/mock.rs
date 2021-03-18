@@ -90,9 +90,7 @@ pub struct ExtBuilder;
 
 impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
-        let mut storage = frame_system::GenesisConfig::default()
-            .build_storage::<Test>()
-            .unwrap();
+        let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
         pallet_balances::GenesisConfig::<Test> {
             balances: vec![(ALICE, ALICE_BALANCE), (BOB, BOB_BALANCE)],

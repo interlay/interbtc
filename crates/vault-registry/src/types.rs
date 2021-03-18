@@ -1,10 +1,10 @@
-use crate::sp_api_hidden_includes_decl_storage::hidden_include::StorageValue;
-use crate::{ext, Config, Error, Module};
+use crate::{ext, sp_api_hidden_includes_decl_storage::hidden_include::StorageValue, Config, Error, Module};
 use codec::{Decode, Encode, HasCompact};
-use frame_support::traits::Currency;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
-    ensure, StorageMap,
+    ensure,
+    traits::Currency,
+    StorageMap,
 };
 use sp_arithmetic::FixedPointNumber;
 use sp_core::H256;
@@ -40,17 +40,13 @@ pub enum CurrencySource<T: frame_system::Config> {
 impl<T: Config> CurrencySource<T> {
     pub fn account_id(&self) -> <T as frame_system::Config>::AccountId {
         match self {
-            CurrencySource::Backing(x)
-            | CurrencySource::Griefing(x)
-            | CurrencySource::FreeBalance(x) => x.clone(),
+            CurrencySource::Backing(x) | CurrencySource::Griefing(x) | CurrencySource::FreeBalance(x) => x.clone(),
             CurrencySource::LiquidationVault => Module::<T>::get_rich_liquidation_vault().data.id,
         }
     }
     pub fn current_balance(&self) -> Result<DOT<T>, DispatchError> {
         match self {
-            CurrencySource::Backing(x) => Ok(Module::<T>::get_rich_vault_from_id(&x)?
-                .data
-                .backing_collateral),
+            CurrencySource::Backing(x) => Ok(Module::<T>::get_rich_vault_from_id(&x)?.data.backing_collateral),
             CurrencySource::Griefing(x) => {
                 let backing_collateral = match Module::<T>::get_rich_vault_from_id(&x) {
                     Ok(vault) => vault.data.backing_collateral,
@@ -62,19 +58,15 @@ impl<T: Config> CurrencySource<T> {
                     .ok_or(Error::<T>::ArithmeticUnderflow)?)
             }
             CurrencySource::FreeBalance(x) => Ok(ext::collateral::get_free_balance::<T>(x)),
-            CurrencySource::LiquidationVault => {
-                Ok(ext::collateral::for_account::<T>(&self.account_id()))
-            }
+            CurrencySource::LiquidationVault => Ok(ext::collateral::for_account::<T>(&self.account_id())),
         }
     }
 }
 
-pub(crate) type DOT<T> =
-    <<T as collateral::Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub(crate) type DOT<T> = <<T as collateral::Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-pub(crate) type PolkaBTC<T> = <<T as treasury::Config>::PolkaBTC as Currency<
-    <T as frame_system::Config>::AccountId,
->>::Balance;
+pub(crate) type PolkaBTC<T> =
+    <<T as treasury::Config>::PolkaBTC as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 pub(crate) type UnsignedFixedPoint<T> = <T as Config>::UnsignedFixedPoint;
 
@@ -166,10 +158,7 @@ pub struct SystemVault<AccountId, PolkaBTC> {
 impl<AccountId, BlockNumber, PolkaBTC: HasCompact + Default, DOT: HasCompact + Default>
     Vault<AccountId, BlockNumber, PolkaBTC, DOT>
 {
-    pub(crate) fn new(
-        id: AccountId,
-        public_key: BtcPublicKey,
-    ) -> Vault<AccountId, BlockNumber, PolkaBTC, DOT> {
+    pub(crate) fn new(id: AccountId, public_key: BtcPublicKey) -> Vault<AccountId, BlockNumber, PolkaBTC, DOT> {
         let wallet = Wallet::new(public_key);
         Vault {
             id,
@@ -189,12 +178,8 @@ impl<AccountId, BlockNumber, PolkaBTC: HasCompact + Default, DOT: HasCompact + D
     }
 }
 
-pub type DefaultVault<T> = Vault<
-    <T as frame_system::Config>::AccountId,
-    <T as frame_system::Config>::BlockNumber,
-    PolkaBTC<T>,
-    DOT<T>,
->;
+pub type DefaultVault<T> =
+    Vault<<T as frame_system::Config>::AccountId, <T as frame_system::Config>::BlockNumber, PolkaBTC<T>, DOT<T>>;
 
 pub type DefaultSystemVault<T> = SystemVault<<T as frame_system::Config>::AccountId, PolkaBTC<T>>;
 
@@ -382,10 +367,8 @@ impl<T: Config> RichVault<T> {
 
         let secure_threshold = Module::<T>::secure_collateral_threshold();
 
-        let issuable = Module::<T>::calculate_max_polkabtc_from_collateral_for_threshold(
-            free_collateral,
-            secure_threshold,
-        )?;
+        let issuable =
+            Module::<T>::calculate_max_polkabtc_from_collateral_for_threshold(free_collateral, secure_threshold)?;
 
         Ok(issuable)
     }
@@ -525,10 +508,7 @@ impl<T: Config> RichVault<T> {
         });
     }
 
-    pub(crate) fn new_deposit_address(
-        &mut self,
-        secure_id: H256,
-    ) -> Result<BtcAddress, DispatchError> {
+    pub(crate) fn new_deposit_address(&mut self, secure_id: H256) -> Result<BtcAddress, DispatchError> {
         let public_key = self.new_deposit_public_key(secure_id)?;
         let btc_address = BtcAddress::P2WPKHv0(public_key.to_hash());
         self.insert_deposit_address(btc_address);

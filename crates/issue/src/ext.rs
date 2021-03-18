@@ -41,18 +41,13 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::slash_collateral(from, to, amount)
     }
 
-    pub fn is_vault_liquidated<T: vault_registry::Config>(
-        vault_id: &T::AccountId,
-    ) -> Result<bool, DispatchError> {
+    pub fn is_vault_liquidated<T: vault_registry::Config>(vault_id: &T::AccountId) -> Result<bool, DispatchError> {
         <vault_registry::Module<T>>::is_vault_liquidated(vault_id)
     }
 
     pub fn get_active_vault_from_id<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-    ) -> Result<
-        vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
-        DispatchError,
-    > {
+    ) -> Result<vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
         <vault_registry::Module<T>>::get_active_vault_from_id(vault_id)
     }
 
@@ -70,10 +65,7 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::register_deposit_address(vault_id, secure_id)
     }
 
-    pub fn issue_tokens<T: vault_registry::Config>(
-        vault_id: &T::AccountId,
-        amount: PolkaBTC<T>,
-    ) -> DispatchResult {
+    pub fn issue_tokens<T: vault_registry::Config>(vault_id: &T::AccountId, amount: PolkaBTC<T>) -> DispatchResult {
         <vault_registry::Module<T>>::issue_tokens(vault_id, amount)
     }
 
@@ -105,17 +97,11 @@ pub(crate) mod collateral {
     use crate::types::DOT;
     use frame_support::dispatch::DispatchResult;
 
-    pub fn lock_collateral<T: collateral::Config>(
-        sender: &T::AccountId,
-        amount: DOT<T>,
-    ) -> DispatchResult {
+    pub fn lock_collateral<T: collateral::Config>(sender: &T::AccountId, amount: DOT<T>) -> DispatchResult {
         <collateral::Module<T>>::lock_collateral(sender, amount)
     }
 
-    pub fn release_collateral<T: collateral::Config>(
-        sender: &T::AccountId,
-        amount: DOT<T>,
-    ) -> DispatchResult {
+    pub fn release_collateral<T: collateral::Config>(sender: &T::AccountId, amount: DOT<T>) -> DispatchResult {
         <collateral::Module<T>>::release_collateral(sender, amount)
     }
 }
@@ -148,9 +134,7 @@ pub(crate) mod oracle {
     use crate::types::{PolkaBTC, DOT};
     use frame_support::dispatch::DispatchError;
 
-    pub fn btc_to_dots<T: exchange_rate_oracle::Config>(
-        amount: PolkaBTC<T>,
-    ) -> Result<DOT<T>, DispatchError> {
+    pub fn btc_to_dots<T: exchange_rate_oracle::Config>(amount: PolkaBTC<T>) -> Result<DOT<T>, DispatchError> {
         <exchange_rate_oracle::Module<T>>::btc_to_dots(amount)
     }
 }
@@ -178,21 +162,15 @@ pub(crate) mod fee {
         <fee::Module<T>>::fee_pool_account_id()
     }
 
-    pub fn get_issue_fee<T: fee::Config>(
-        amount: PolkaBTC<T>,
-    ) -> Result<PolkaBTC<T>, DispatchError> {
+    pub fn get_issue_fee<T: fee::Config>(amount: PolkaBTC<T>) -> Result<PolkaBTC<T>, DispatchError> {
         <fee::Module<T>>::get_issue_fee(amount)
     }
 
-    pub fn get_issue_fee_from_total<T: fee::Config>(
-        amount: PolkaBTC<T>,
-    ) -> Result<PolkaBTC<T>, DispatchError> {
+    pub fn get_issue_fee_from_total<T: fee::Config>(amount: PolkaBTC<T>) -> Result<PolkaBTC<T>, DispatchError> {
         <fee::Module<T>>::get_issue_fee_from_total(amount)
     }
 
-    pub fn get_issue_griefing_collateral<T: fee::Config>(
-        amount: DOT<T>,
-    ) -> Result<DOT<T>, DispatchError> {
+    pub fn get_issue_griefing_collateral<T: fee::Config>(amount: DOT<T>) -> Result<DOT<T>, DispatchError> {
         <fee::Module<T>>::get_issue_griefing_collateral(amount)
     }
 
@@ -215,12 +193,6 @@ pub(crate) mod refund {
         btc_address: BtcAddress,
         issue_id: H256,
     ) -> Result<(), DispatchError> {
-        <refund::Module<T>>::request_refund(
-            total_amount_btc,
-            vault_id,
-            issuer,
-            btc_address,
-            issue_id,
-        )
+        <refund::Module<T>>::request_refund(total_amount_btc, vault_id, issuer, btc_address, issue_id)
     }
 }

@@ -26,27 +26,24 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use frame_support::runtime_print;
-use frame_support::transactional;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
-    ensure, IterableStorageMap,
+    ensure, runtime_print, transactional, IterableStorageMap,
 };
 use frame_system::{ensure_root, ensure_signed};
 use primitive_types::U256;
 use sp_core::H160;
-use sp_std::collections::btree_set::BTreeSet;
-use sp_std::prelude::*;
+use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
 // Crates
-pub use bitcoin;
-use bitcoin::merkle::{MerkleProof, ProofResult};
-use bitcoin::parser::{parse_block_header, parse_transaction};
-use bitcoin::types::{BlockChain, BlockHeader, H256Le, RawBlockHeader, Transaction};
-pub use bitcoin::Address as BtcAddress;
-use bitcoin::Error as BitcoinError;
-pub use bitcoin::PublicKey as BtcPublicKey;
+pub use bitcoin::{self, Address as BtcAddress, PublicKey as BtcPublicKey};
+use bitcoin::{
+    merkle::{MerkleProof, ProofResult},
+    parser::{parse_block_header, parse_transaction},
+    types::{BlockChain, BlockHeader, H256Le, RawBlockHeader, Transaction},
+    Error as BitcoinError,
+};
 use security::types::ErrorCode;
 pub use types::RichBlockHeader;
 pub use weights::WeightInfo;
@@ -432,11 +429,7 @@ impl<T: Config> Module<T> {
         <AuthorizedRelayers<T>>::remove(relayer);
     }
 
-    pub fn _initialize(
-        relayer: T::AccountId,
-        raw_block_header: RawBlockHeader,
-        block_height: u32,
-    ) -> DispatchResult {
+    pub fn _initialize(relayer: T::AccountId, raw_block_header: RawBlockHeader, block_height: u32) -> DispatchResult {
         // Check if BTC-Relay was already initialized
         ensure!(!Self::best_block_exists(), Error::<T>::AlreadyInitialized);
 
@@ -444,8 +437,7 @@ impl<T: Config> Module<T> {
         Self::ensure_relayer_authorized(relayer.clone())?;
 
         // Parse the block header bytes to extract the required info
-        let basic_block_header =
-            parse_block_header(&raw_block_header).map_err(|err| Error::<T>::from(err))?;
+        let basic_block_header = parse_block_header(&raw_block_header).map_err(|err| Error::<T>::from(err))?;
         let block_header_hash = raw_block_header.hash();
 
         // construct the BlockChain struct
@@ -473,33 +465,20 @@ impl<T: Config> Module<T> {
         Self::set_best_block_height(block_height);
 
         // Emit a Initialized Event
-        Self::deposit_event(<Event<T>>::Initialized(
-            block_height,
-            block_header_hash,
-            relayer,
-        ));
+        Self::deposit_event(<Event<T>>::Initialized(block_height, block_header_hash, relayer));
 
         Ok(())
     }
 
     // TODO: wrap sla update via staked-relayers pallet
-    fn _store_block_header_and_update_sla(
-        relayer: T::AccountId,
-        raw_block_header: RawBlockHeader,
-    ) -> DispatchResult {
+    fn _store_block_header_and_update_sla(relayer: T::AccountId, raw_block_header: RawBlockHeader) -> DispatchResult {
         if let Err(err) = Self::_store_block_header(relayer.clone(), raw_block_header) {
             if err == DispatchError::from(Error::<T>::DuplicateBlock) {
                 // only accept duplicate if it is the chain head
                 let this_header_hash = raw_block_header.hash();
                 let best_header_hash = Self::get_best_block();
-                ensure!(
-                    this_header_hash == best_header_hash,
-                    Error::<T>::OutdatedBlock
-                );
-                ext::sla::event_update_relayer_sla::<T>(
-                    &relayer,
-                    ext::sla::RelayerEvent::DuplicateBlockSubmission,
-                )?;
+                ensure!(this_header_hash == best_header_hash, Error::<T>::OutdatedBlock);
+                ext::sla::event_update_relayer_sla::<T>(&relayer, ext::sla::RelayerEvent::DuplicateBlockSubmission)?;
                 return Ok(());
             }
             return Err(err);
@@ -510,10 +489,7 @@ impl<T: Config> Module<T> {
     }
 
     #[transactional]
-    pub fn _store_block_header(
-        relayer: T::AccountId,
-        raw_block_header: RawBlockHeader,
-    ) -> DispatchResult {
+    pub fn _store_block_header(relayer: T::AccountId, raw_block_header: RawBlockHeader) -> DispatchResult {
         // Make sure Parachain is not shutdown
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
@@ -623,17 +599,10 @@ impl<T: Config> Module<T> {
 
         let merkle_proof = Self::parse_merkle_proof(&raw_merkle_proof)?;
 
-        let rich_header = Self::get_block_header_from_hash(
-            merkle_proof
-                .block_header
-                .hash()
-                .map_err(|err| Error::<T>::from(err))?,
-        )?;
+        let rich_header =
+            Self::get_block_header_from_hash(merkle_proof.block_header.hash().map_err(|err| Error::<T>::from(err))?)?;
 
-        ensure!(
-            rich_header.chain_ref == MAIN_CHAIN_ID,
-            Error::<T>::InvalidChainID
-        );
+        ensure!(rich_header.chain_ref == MAIN_CHAIN_ID, Error::<T>::InvalidChainID);
 
         let block_height = rich_header.block_height;
 
@@ -648,10 +617,7 @@ impl<T: Config> Module<T> {
         let proof_result = Self::verify_merkle_proof(&merkle_proof)?;
 
         // fail if the transaction hash is invalid
-        ensure!(
-            proof_result.transaction_hash == tx_id,
-            Error::<T>::InvalidTxid
-        );
+        ensure!(proof_result.transaction_hash == tx_id, Error::<T>::InvalidTxid);
 
         // fail if the merkle root is invalid
         ensure!(
@@ -707,11 +673,7 @@ impl<T: Config> Module<T> {
         );
 
         // Check if payment is first output
-        match transaction
-            .outputs
-            .get(0)
-            .map(|output| output.extract_address())
-        {
+        match transaction.outputs.get(0).map(|output| output.extract_address()) {
             Some(Ok(extr_recipient_btc_address)) => {
                 if recipient_btc_address == extr_recipient_btc_address {
                     return Ok(transaction.outputs[0].value);
@@ -721,11 +683,7 @@ impl<T: Config> Module<T> {
         };
 
         // Check if payment is second output
-        match transaction
-            .outputs
-            .get(1)
-            .map(|output| output.extract_address())
-        {
+        match transaction.outputs.get(1).map(|output| output.extract_address()) {
             Some(Ok(extr_recipient_btc_address)) => {
                 if recipient_btc_address == extr_recipient_btc_address {
                     return Ok(transaction.outputs[1].value);
@@ -735,11 +693,7 @@ impl<T: Config> Module<T> {
         };
 
         // Check if payment is third output
-        match transaction
-            .outputs
-            .get(1)
-            .map(|output| output.extract_address())
-        {
+        match transaction.outputs.get(1).map(|output| output.extract_address()) {
             Some(Ok(extr_recipient_btc_address)) => {
                 if recipient_btc_address == extr_recipient_btc_address {
                     return Ok(transaction.outputs[2].value);
@@ -797,11 +751,7 @@ impl<T: Config> Module<T> {
         };
 
         // Check if payment is third output
-        match transaction
-            .outputs
-            .get(2)
-            .map(|output| output.extract_address())
-        {
+        match transaction.outputs.get(2).map(|output| output.extract_address()) {
             Some(Ok(extr_recipient_btc_address)) => {
                 if recipient_btc_address == extr_recipient_btc_address {
                     return Ok((
@@ -924,9 +874,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Get a block header from its hash
-    fn get_block_header_from_hash(
-        block_hash: H256Le,
-    ) -> Result<RichBlockHeader<T::AccountId>, DispatchError> {
+    fn get_block_header_from_hash(block_hash: H256Le) -> Result<RichBlockHeader<T::AccountId>, DispatchError> {
         if <BlockHeaders<T>>::contains_key(block_hash) {
             return Ok(<BlockHeaders<T>>::get(block_hash));
         }
@@ -1118,9 +1066,7 @@ impl<T: Config> Module<T> {
     }
 
     fn verify_merkle_proof(merkle_proof: &MerkleProof) -> Result<ProofResult, DispatchError> {
-        merkle_proof
-            .verify_proof()
-            .map_err(|err| Error::<T>::from(err).into())
+        merkle_proof.verify_proof().map_err(|err| Error::<T>::from(err).into())
     }
 
     /// Parses and verifies a raw Bitcoin block header.
@@ -1132,11 +1078,8 @@ impl<T: Config> Module<T> {
     /// # Returns
     ///
     /// * `pure_block_header` - PureBlockHeader representation of the 80-byte block header
-    fn verify_block_header(
-        raw_block_header: &RawBlockHeader,
-    ) -> Result<BlockHeader, DispatchError> {
-        let basic_block_header =
-            parse_block_header(&raw_block_header).map_err(|err| Error::<T>::from(err))?;
+    fn verify_block_header(raw_block_header: &RawBlockHeader) -> Result<BlockHeader, DispatchError> {
+        let basic_block_header = parse_block_header(&raw_block_header).map_err(|err| Error::<T>::from(err))?;
 
         let block_header_hash = raw_block_header.hash();
 
@@ -1147,8 +1090,7 @@ impl<T: Config> Module<T> {
         );
 
         // Check that the referenced previous block header exists in BTC-Relay
-        let prev_block_header =
-            Self::get_block_header_from_hash(basic_block_header.hash_prev_block)?;
+        let prev_block_header = Self::get_block_header_from_hash(basic_block_header.hash_prev_block)?;
         // Check that the PoW hash satisfies the target set in the block header
         ensure!(
             block_header_hash.as_u256() < basic_block_header.target,
@@ -1162,12 +1104,11 @@ impl<T: Config> Module<T> {
             return Ok(basic_block_header);
         }
 
-        let expected_target =
-            if block_height >= 2016 && block_height % DIFFICULTY_ADJUSTMENT_INTERVAL == 0 {
-                Self::compute_new_target(&prev_block_header, block_height)?
-            } else {
-                prev_block_header.block_header.target
-            };
+        let expected_target = if block_height >= 2016 && block_height % DIFFICULTY_ADJUSTMENT_INTERVAL == 0 {
+            Self::compute_new_target(&prev_block_header, block_height)?
+        } else {
+            prev_block_header.block_header.target
+        };
 
         ensure!(
             basic_block_header.target == expected_target,
@@ -1188,11 +1129,9 @@ impl<T: Config> Module<T> {
         block_height: u32,
     ) -> Result<U256, DispatchError> {
         // get time of last retarget
-        let last_retarget_time =
-            Self::get_last_retarget_time(prev_block_header.chain_ref, block_height)?;
+        let last_retarget_time = Self::get_last_retarget_time(prev_block_header.chain_ref, block_height)?;
         // Compute new target
-        let actual_timespan = if ((prev_block_header.block_header.timestamp as u64
-            - last_retarget_time) as u32)
+        let actual_timespan = if ((prev_block_header.block_header.timestamp as u64 - last_retarget_time) as u32)
             < (TARGET_TIMESPAN / TARGET_TIMESPAN_DIVISOR)
         {
             TARGET_TIMESPAN / TARGET_TIMESPAN_DIVISOR
@@ -1214,7 +1153,8 @@ impl<T: Config> Module<T> {
         })
     }
 
-    /// Returns the timestamp of the last difficulty retarget on the specified BlockChain, given the current block height
+    /// Returns the timestamp of the last difficulty retarget on the specified BlockChain, given the current block
+    /// height
     ///
     /// # Arguments
     ///
@@ -1222,10 +1162,8 @@ impl<T: Config> Module<T> {
     /// * `block_height` - current block height
     fn get_last_retarget_time(chain_ref: u32, block_height: u32) -> Result<u64, DispatchError> {
         let block_chain = Self::get_block_chain_from_id(chain_ref)?;
-        let last_retarget_header = Self::get_block_header_from_height(
-            &block_chain,
-            block_height - DIFFICULTY_ADJUSTMENT_INTERVAL,
-        )?;
+        let last_retarget_header =
+            Self::get_block_header_from_height(&block_chain, block_height - DIFFICULTY_ADJUSTMENT_INTERVAL)?;
         Ok(last_retarget_header.block_header.timestamp as u64)
     }
 
@@ -1365,14 +1303,13 @@ impl<T: Config> Module<T> {
             // get the previous position
             let prev_position = current_position - 1;
             // get the blockchain id
-            let prev_blockchain_id =
-                if let Ok(chain_id) = Self::get_chain_id_from_position(prev_position) {
-                    chain_id
-                } else {
-                    // swap chain positions if previous doesn't exist and retry
-                    Self::swap_chain(prev_position, current_position);
-                    continue;
-                };
+            let prev_blockchain_id = if let Ok(chain_id) = Self::get_chain_id_from_position(prev_position) {
+                chain_id
+            } else {
+                // swap chain positions if previous doesn't exist and retry
+                Self::swap_chain(prev_position, current_position);
+                continue;
+            };
 
             // get the previous blockchain height
             let prev_height = Self::get_block_chain_from_id(prev_blockchain_id)?.max_height;
@@ -1391,11 +1328,7 @@ impl<T: Config> Module<T> {
                         let new_chain_tip = <BestBlock>::get();
                         let block_height = <BestBlockHeight>::get();
                         let fork_depth = fork.max_height - fork.start_height;
-                        Self::deposit_event(<Event<T>>::ChainReorg(
-                            new_chain_tip,
-                            block_height,
-                            fork_depth,
-                        ));
+                        Self::deposit_event(<Event<T>>::ChainReorg(new_chain_tip, block_height, fork_depth));
                     } else {
                         Self::deposit_event(<Event<T>>::ForkAheadOfMainChain(
                             prev_height,     // main chain height
@@ -1553,8 +1486,7 @@ impl<T: Config> Module<T> {
         req_confs: Option<u32>,
         tx_block_height: u32,
     ) -> Result<(), DispatchError> {
-        let required_confirmations =
-            req_confs.unwrap_or_else(|| Self::get_stable_transaction_confirmations());
+        let required_confirmations = req_confs.unwrap_or_else(|| Self::get_stable_transaction_confirmations());
 
         let required_mainchain_height = tx_block_height
             .checked_add(required_confirmations)
@@ -1624,8 +1556,7 @@ impl<T: Config> Module<T> {
                 runtime_print!("Next best fork height: {}", next_best_fork_height);
                 // fail if there is an ongoing fork
                 ensure!(
-                    best_block_height
-                        >= next_best_fork_height + Self::get_stable_transaction_confirmations(),
+                    best_block_height >= next_best_fork_height + Self::get_stable_transaction_confirmations(),
                     Error::<T>::OngoingFork
                 );
             }

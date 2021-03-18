@@ -1,9 +1,14 @@
 extern crate hex;
-use crate::sp_api_hidden_includes_decl_storage::hidden_include::StorageMap;
-use crate::types::{ProposalStatus, StakedRelayer, StatusUpdate, Tally, Votes};
-use crate::{ext, mock::*};
-use bitcoin::formatter::Formattable;
-use bitcoin::types::{H256Le, TransactionBuilder, TransactionInputBuilder, TransactionOutput};
+use crate::{
+    ext,
+    mock::*,
+    sp_api_hidden_includes_decl_storage::hidden_include::StorageMap,
+    types::{ProposalStatus, StakedRelayer, StatusUpdate, Tally, Votes},
+};
+use bitcoin::{
+    formatter::Formattable,
+    types::{H256Le, TransactionBuilder, TransactionInputBuilder, TransactionOutput},
+};
 use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
@@ -11,8 +16,7 @@ use redeem::types::RedeemRequest;
 use replace::types::ReplaceRequest;
 use security::types::{ErrorCode, StatusCode};
 use sp_core::{H160, H256};
-use std::convert::TryInto;
-use std::str::FromStr;
+use std::{convert::TryInto, str::FromStr};
 use vault_registry::{Vault, VaultStatus, Wallet};
 
 type Event = crate::Event<Test>;
@@ -28,10 +32,7 @@ macro_rules! assert_emitted {
     ($event:expr, $times:expr) => {
         let test_event = TestEvent::staked_relayers($event);
         assert_eq!(
-            System::events()
-                .iter()
-                .filter(|a| a.event == test_event)
-                .count(),
+            System::events().iter().filter(|a| a.event == test_event).count(),
             $times
         );
     };
@@ -46,16 +47,13 @@ macro_rules! assert_not_emitted {
 
 fn dummy_public_key() -> BtcPublicKey {
     BtcPublicKey([
-        2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55,
-        18, 45, 222, 180, 119, 54, 243, 97, 173, 150, 161, 169, 230,
+        2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55, 18, 45, 222, 180,
+        119, 54, 243, 97, 173, 150, 161, 169, 230,
     ])
 }
 
 /// Mocking functions
-fn init_zero_vault(
-    id: AccountId,
-    btc_address: Option<BtcAddress>,
-) -> Vault<AccountId, BlockNumber, u64, u64> {
+fn init_zero_vault(id: AccountId, btc_address: Option<BtcAddress>) -> Vault<AccountId, BlockNumber, u64, u64> {
     let mut vault = Vault::default();
     vault.id = id;
     vault.wallet = Wallet::new(dummy_public_key());
@@ -82,8 +80,7 @@ fn test_register_staked_relayer_fails_with_insufficient_stake() {
 
 #[test]
 fn test_register_staked_relayer_succeeds() {
-    use crate::sp_api_hidden_includes_decl_storage::hidden_include::StorageMap;
-    use crate::InactiveStakedRelayers;
+    use crate::{sp_api_hidden_includes_decl_storage::hidden_include::StorageMap, InactiveStakedRelayers};
 
     run_test(|| {
         let relayer = Origin::signed(ALICE);
@@ -91,10 +88,7 @@ fn test_register_staked_relayer_succeeds() {
 
         ext::collateral::lock_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
-        assert_ok!(StakedRelayers::register_staked_relayer(
-            relayer.clone(),
-            amount
-        ));
+        assert_ok!(StakedRelayers::register_staked_relayer(relayer.clone(), amount));
         assert_emitted!(Event::RegisterStakedRelayer(ALICE, 11, amount));
         let maturity_height = System::block_number() + StakedRelayers::get_maturity_period();
 
@@ -236,8 +230,7 @@ fn test_suggest_status_update_fails_with_not_registered() {
 #[ignore]
 fn test_suggest_status_update_fails_with_governance_only() {
     run_test(|| {
-        StakedRelayers::only_governance
-            .mock_safe(|_| MockResult::Return(Err(TestError::GovernanceOnly.into())));
+        StakedRelayers::only_governance.mock_safe(|_| MockResult::Return(Err(TestError::GovernanceOnly.into())));
 
         assert_err!(
             StakedRelayers::suggest_status_update(
@@ -698,16 +691,10 @@ fn test_reject_status_update_succeeds() {
 #[test]
 fn test_force_status_update_fails_with_governance_only() {
     run_test(|| {
-        StakedRelayers::only_governance
-            .mock_safe(|_| MockResult::Return(Err(TestError::GovernanceOnly.into())));
+        StakedRelayers::only_governance.mock_safe(|_| MockResult::Return(Err(TestError::GovernanceOnly.into())));
 
         assert_err!(
-            StakedRelayers::force_status_update(
-                Origin::signed(ALICE),
-                StatusCode::Shutdown,
-                None,
-                None
-            ),
+            StakedRelayers::force_status_update(Origin::signed(ALICE), StatusCode::Shutdown, None, None),
             TestError::GovernanceOnly,
         );
     })
@@ -725,10 +712,7 @@ fn test_force_status_update_succeeds() {
             None
         ));
 
-        assert_eq!(
-            ext::security::get_parachain_status::<Test>(),
-            StatusCode::Shutdown
-        );
+        assert_eq!(ext::security::get_parachain_status::<Test>(), StatusCode::Shutdown);
 
         assert_emitted!(Event::ForceStatusUpdate(
             StatusCode::Shutdown,
@@ -744,8 +728,7 @@ fn test_force_status_update_succeeds() {
 #[test]
 fn test_slash_staked_relayer_fails_with_governance_only() {
     run_test(|| {
-        StakedRelayers::only_governance
-            .mock_safe(|_| MockResult::Return(Err(TestError::GovernanceOnly.into())));
+        StakedRelayers::only_governance.mock_safe(|_| MockResult::Return(Err(TestError::GovernanceOnly.into())));
 
         assert_err!(
             StakedRelayers::slash_staked_relayer(Origin::signed(ALICE), BOB),
@@ -778,10 +761,7 @@ fn test_slash_staked_relayer_succeeds() {
             MockResult::Return(Ok(()))
         });
 
-        assert_ok!(StakedRelayers::slash_staked_relayer(
-            Origin::signed(ALICE),
-            BOB
-        ));
+        assert_ok!(StakedRelayers::slash_staked_relayer(Origin::signed(ALICE), BOB));
         assert_err!(
             StakedRelayers::get_active_staked_relayer(&BOB),
             TestError::NotRegistered
@@ -816,16 +796,12 @@ fn test_report_vault_passes_with_vault_transaction() {
         let vault = CAROL;
 
         let btc_address = BtcAddress::P2PKH(H160::from_slice(&[
-            126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8,
-            50, 170,
+            126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8, 50, 170,
         ]));
-        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(move |_| {
-            MockResult::Return(Ok(init_zero_vault(vault.clone(), Some(btc_address))))
-        });
-        ext::btc_relay::verify_transaction_inclusion::<Test>
-            .mock_safe(move |_, _| MockResult::Return(Ok(())));
-        ext::vault_registry::liquidate_theft_vault::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(())));
+        ext::vault_registry::get_active_vault_from_id::<Test>
+            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), Some(btc_address)))));
+        ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::liquidate_theft_vault::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
 
         assert_ok!(StakedRelayers::report_vault_theft(
             Origin::signed(ALICE),
@@ -847,15 +823,12 @@ fn test_report_vault_fails_with_non_vault_transaction() {
         let vault = CAROL;
 
         let btc_address = BtcAddress::P2PKH(H160::from_slice(&[
-            125, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8,
-            50, 170,
+            125, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8, 50, 170,
         ]));
 
-        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(move |_| {
-            MockResult::Return(Ok(init_zero_vault(vault.clone(), Some(btc_address))))
-        });
-        ext::btc_relay::verify_transaction_inclusion::<Test>
-            .mock_safe(move |_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::get_active_vault_from_id::<Test>
+            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), Some(btc_address)))));
+        ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(())));
         ext::vault_registry::liquidate_vault::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
 
         assert_err!(
@@ -881,16 +854,12 @@ fn test_report_vault_succeeds_with_segwit_transaction() {
         let vault = CAROL;
 
         let btc_address = BtcAddress::P2WPKHv0(H160::from_slice(&[
-            164, 180, 202, 72, 222, 11, 63, 255, 193, 84, 4, 161, 172, 220, 141, 186, 174, 34, 105,
-            85,
+            164, 180, 202, 72, 222, 11, 63, 255, 193, 84, 4, 161, 172, 220, 141, 186, 174, 34, 105, 85,
         ]));
-        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(move |_| {
-            MockResult::Return(Ok(init_zero_vault(vault.clone(), Some(btc_address))))
-        });
-        ext::btc_relay::verify_transaction_inclusion::<Test>
-            .mock_safe(move |_, _| MockResult::Return(Ok(())));
-        ext::vault_registry::liquidate_theft_vault::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(())));
+        ext::vault_registry::get_active_vault_from_id::<Test>
+            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), Some(btc_address)))));
+        ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::liquidate_theft_vault::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
 
         assert_ok!(StakedRelayers::report_vault_theft(
             Origin::signed(ALICE),
@@ -909,11 +878,9 @@ fn test_report_vault_theft_succeeds() {
         let amount: Balance = 3;
         inject_active_staked_relayer(&ALICE, amount);
 
-        ext::btc_relay::verify_transaction_inclusion::<Test>
-            .mock_safe(move |_, _| MockResult::Return(Ok(())));
+        ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(())));
         StakedRelayers::is_transaction_invalid.mock_safe(move |_, _| MockResult::Return(Ok(())));
-        ext::vault_registry::liquidate_theft_vault::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(())));
+        ext::vault_registry::liquidate_theft_vault::<Test>.mock_safe(move |_| MockResult::Return(Ok(())));
 
         assert_ok!(StakedRelayers::report_vault_theft(
             relayer,
@@ -938,10 +905,7 @@ fn test_report_vault_under_liquidation_threshold_fails() {
             .mock_safe(move |_| MockResult::Return(Ok(false)));
 
         assert_err!(
-            StakedRelayers::report_vault_under_liquidation_threshold(
-                Origin::signed(relayer),
-                vault
-            ),
+            StakedRelayers::report_vault_under_liquidation_threshold(Origin::signed(relayer), vault),
             TestError::CollateralOk
         );
     })
@@ -986,10 +950,7 @@ fn test_report_vault_under_liquidation_threshold_fails_with_not_registered() {
 fn test_report_oracle_offline_fails_with_not_registered() {
     run_test(|| {
         let relayer = Origin::signed(ALICE);
-        assert_err!(
-            StakedRelayers::report_oracle_offline(relayer),
-            TestError::NotRegistered,
-        );
+        assert_err!(StakedRelayers::report_oracle_offline(relayer), TestError::NotRegistered,);
     })
 }
 
@@ -1017,10 +978,7 @@ fn test_report_oracle_offline_fails_with_oracle_online() {
         inject_active_staked_relayer(&ALICE, amount);
 
         ext::oracle::is_max_delay_passed::<Test>.mock_safe(|| MockResult::Return(false));
-        assert_err!(
-            StakedRelayers::report_oracle_offline(relayer),
-            TestError::OracleOnline,
-        );
+        assert_err!(StakedRelayers::report_oracle_offline(relayer), TestError::OracleOnline,);
     })
 }
 
@@ -1045,11 +1003,9 @@ fn test_is_valid_merge_transaction_fails() {
         ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), None))));
 
-        let address1 =
-            BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
+        let address1 = BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
 
-        let address2 =
-            BtcAddress::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
+        let address2 = BtcAddress::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
 
         assert_eq!(
             StakedRelayers::is_valid_merge_transaction(
@@ -1080,18 +1036,13 @@ fn test_is_valid_merge_transaction_succeeds() {
         ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), None))));
 
-        let address =
-            BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
+        let address = BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
 
         let mut wallet = Wallet::new(dummy_public_key());
         wallet.add_btc_address(address);
 
         assert_eq!(
-            StakedRelayers::is_valid_merge_transaction(
-                &vec![(100, address.clone())],
-                &vec![],
-                &wallet
-            ),
+            StakedRelayers::is_valid_merge_transaction(&vec![(100, address.clone())], &vec![], &wallet),
             true
         );
     })
@@ -1104,11 +1055,9 @@ fn test_is_valid_request_transaction_fails() {
         ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), None))));
 
-        let address1 =
-            BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
+        let address1 = BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
 
-        let address2 =
-            BtcAddress::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
+        let address2 = BtcAddress::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
 
         let mut wallet = Wallet::new(dummy_public_key());
         wallet.add_btc_address(address2);
@@ -1133,11 +1082,9 @@ fn test_is_valid_request_transaction_fails() {
 #[test]
 fn test_is_valid_request_transaction_succeeds() {
     run_test(|| {
-        let recipient_address =
-            BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
+        let recipient_address = BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
 
-        let vault_address =
-            BtcAddress::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
+        let vault_address = BtcAddress::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
 
         let request_value = 100;
         let change_value = 50;
@@ -1164,8 +1111,7 @@ fn test_is_valid_request_transaction_succeeds() {
 fn test_is_transaction_invalid_fails_with_valid_merge_transaction() {
     run_test(|| {
         let address = BtcAddress::P2PKH(H160::from_slice(&[
-            126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8,
-            50, 170,
+            126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8, 50, 170,
         ]));
 
         let mut wallet = Wallet::new(dummy_public_key());
@@ -1193,17 +1139,16 @@ fn test_is_transaction_invalid_fails_with_valid_merge_transaction() {
                     .with_sequence(4294967295)
                     .with_previous_index(1)
                     .with_previous_hash(H256Le::from_bytes_le(&[
-                        193, 80, 65, 160, 109, 235, 107, 56, 24, 176, 34, 250, 197, 88, 218, 76,
-                        226, 9, 127, 8, 96, 200, 246, 66, 16, 91, 186, 217, 210, 155, 224, 42,
+                        193, 80, 65, 160, 109, 235, 107, 56, 24, 176, 34, 250, 197, 88, 218, 76, 226, 9, 127, 8, 96,
+                        200, 246, 66, 16, 91, 186, 217, 210, 155, 224, 42,
                     ]))
                     .with_script(&[
-                        73, 48, 70, 2, 33, 0, 207, 210, 162, 211, 50, 178, 154, 220, 225, 25, 197,
-                        90, 159, 173, 211, 192, 115, 51, 32, 36, 183, 226, 114, 81, 62, 81, 98, 60,
-                        161, 89, 147, 72, 2, 33, 0, 155, 72, 45, 127, 123, 77, 71, 154, 255, 98,
-                        189, 205, 174, 165, 70, 103, 115, 125, 86, 248, 212, 214, 61, 208, 62, 195,
-                        239, 101, 30, 217, 162, 84, 1, 33, 3, 37, 248, 176, 57, 161, 24, 97, 101,
-                        156, 155, 240, 63, 67, 252, 78, 160, 85, 243, 167, 28, 214, 12, 123, 31,
-                        212, 116, 171, 87, 143, 153, 119, 250,
+                        73, 48, 70, 2, 33, 0, 207, 210, 162, 211, 50, 178, 154, 220, 225, 25, 197, 90, 159, 173, 211,
+                        192, 115, 51, 32, 36, 183, 226, 114, 81, 62, 81, 98, 60, 161, 89, 147, 72, 2, 33, 0, 155, 72,
+                        45, 127, 123, 77, 71, 154, 255, 98, 189, 205, 174, 165, 70, 103, 115, 125, 86, 248, 212, 214,
+                        61, 208, 62, 195, 239, 101, 30, 217, 162, 84, 1, 33, 3, 37, 248, 176, 57, 161, 24, 97, 101,
+                        156, 155, 240, 63, 67, 252, 78, 160, 85, 243, 167, 28, 214, 12, 123, 31, 212, 116, 171, 87,
+                        143, 153, 119, 250,
                     ])
                     .build(),
             )
@@ -1221,15 +1166,13 @@ fn test_is_transaction_invalid_fails_with_valid_merge_transaction() {
 fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
     run_test(|| {
         let vault_address = BtcAddress::P2WPKHv0(H160::from_slice(&[
-            164, 180, 202, 72, 222, 11, 63, 255, 193, 84, 4, 161, 172, 220, 141, 186, 174, 34, 105,
-            85,
+            164, 180, 202, 72, 222, 11, 63, 255, 193, 84, 4, 161, 172, 220, 141, 186, 174, 34, 105, 85,
         ]));
 
         let mut wallet = Wallet::new(dummy_public_key());
         wallet.add_btc_address(vault_address);
 
-        let recipient_address =
-            BtcAddress::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
+        let recipient_address = BtcAddress::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
 
         ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(move |_| {
             MockResult::Return(Ok(Vault {
@@ -1273,27 +1216,23 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
                     ))
                     .with_sequence(4294967295)
                     .with_script(&[
-                        22, 0, 20, 164, 180, 202, 72, 222, 11, 63, 255, 193, 84, 4, 161, 172, 220,
-                        141, 186, 174, 34, 105, 85,
+                        22, 0, 20, 164, 180, 202, 72, 222, 11, 63, 255, 193, 84, 4, 161, 172, 220, 141, 186, 174, 34,
+                        105, 85,
                     ])
                     .add_witness(&[
-                        48, 69, 2, 33, 0, 134, 4, 239, 143, 109, 138, 250, 137, 45, 238, 15, 49,
-                        37, 155, 108, 224, 45, 215, 12, 84, 92, 252, 254, 216, 20, 129, 121, 151,
-                        24, 118, 197, 74, 2, 32, 118, 215, 113, 214, 233, 27, 237, 33, 39, 131,
-                        201, 176, 110, 13, 230, 0, 250, 178, 213, 24, 250, 214, 241, 90, 43, 25,
-                        29, 127, 189, 38, 42, 62, 1,
+                        48, 69, 2, 33, 0, 134, 4, 239, 143, 109, 138, 250, 137, 45, 238, 15, 49, 37, 155, 108, 224, 45,
+                        215, 12, 84, 92, 252, 254, 216, 20, 129, 121, 151, 24, 118, 197, 74, 2, 32, 118, 215, 113, 214,
+                        233, 27, 237, 33, 39, 131, 201, 176, 110, 13, 230, 0, 250, 178, 213, 24, 250, 214, 241, 90, 43,
+                        25, 29, 127, 189, 38, 42, 62, 1,
                     ])
                     .add_witness(&[
-                        3, 157, 37, 171, 121, 244, 31, 117, 206, 175, 136, 36, 17, 253, 65, 250,
-                        103, 10, 76, 103, 44, 35, 255, 175, 14, 54, 26, 150, 156, 222, 6, 146, 232,
+                        3, 157, 37, 171, 121, 244, 31, 117, 206, 175, 136, 36, 17, 253, 65, 250, 103, 10, 76, 103, 44,
+                        35, 255, 175, 14, 54, 26, 150, 156, 222, 6, 146, 232,
                     ])
                     .build(),
             )
             .add_output(TransactionOutput::payment(100, &recipient_address))
-            .add_output(TransactionOutput::op_return(
-                0,
-                &H256::from_slice(&[0; 32]).as_bytes(),
-            ))
+            .add_output(TransactionOutput::op_return(0, &H256::from_slice(&[0; 32]).as_bytes()))
             .build();
 
         assert_err!(
@@ -1330,12 +1269,10 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
 fn test_is_transaction_invalid_succeeds() {
     run_test(|| {
         let vault_address = BtcAddress::P2PKH(H160::from_slice(&[
-            126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8,
-            50, 170,
+            126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8, 50, 170,
         ]));
 
-        let recipient_address =
-            BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
+        let recipient_address = BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
 
         ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(BOB, Some(vault_address)))));
@@ -1348,34 +1285,31 @@ fn test_is_transaction_invalid_succeeds() {
                     .with_sequence(4294967295)
                     .with_previous_index(1)
                     .with_previous_hash(H256Le::from_bytes_le(&[
-                        193, 80, 65, 160, 109, 235, 107, 56, 24, 176, 34, 250, 197, 88, 218, 76,
-                        226, 9, 127, 8, 96, 200, 246, 66, 16, 91, 186, 217, 210, 155, 224, 42,
+                        193, 80, 65, 160, 109, 235, 107, 56, 24, 176, 34, 250, 197, 88, 218, 76, 226, 9, 127, 8, 96,
+                        200, 246, 66, 16, 91, 186, 217, 210, 155, 224, 42,
                     ]))
                     .with_script(&[
-                        73, 48, 70, 2, 33, 0, 207, 210, 162, 211, 50, 178, 154, 220, 225, 25, 197,
-                        90, 159, 173, 211, 192, 115, 51, 32, 36, 183, 226, 114, 81, 62, 81, 98, 60,
-                        161, 89, 147, 72, 2, 33, 0, 155, 72, 45, 127, 123, 77, 71, 154, 255, 98,
-                        189, 205, 174, 165, 70, 103, 115, 125, 86, 248, 212, 214, 61, 208, 62, 195,
-                        239, 101, 30, 217, 162, 84, 1, 33, 3, 37, 248, 176, 57, 161, 24, 97, 101,
-                        156, 155, 240, 63, 67, 252, 78, 160, 85, 243, 167, 28, 214, 12, 123, 31,
-                        212, 116, 171, 87, 143, 153, 119, 250,
+                        73, 48, 70, 2, 33, 0, 207, 210, 162, 211, 50, 178, 154, 220, 225, 25, 197, 90, 159, 173, 211,
+                        192, 115, 51, 32, 36, 183, 226, 114, 81, 62, 81, 98, 60, 161, 89, 147, 72, 2, 33, 0, 155, 72,
+                        45, 127, 123, 77, 71, 154, 255, 98, 189, 205, 174, 165, 70, 103, 115, 125, 86, 248, 212, 214,
+                        61, 208, 62, 195, 239, 101, 30, 217, 162, 84, 1, 33, 3, 37, 248, 176, 57, 161, 24, 97, 101,
+                        156, 155, 240, 63, 67, 252, 78, 160, 85, 243, 167, 28, 214, 12, 123, 31, 212, 116, 171, 87,
+                        143, 153, 119, 250,
                     ])
                     .build(),
             )
             .add_output(TransactionOutput::payment(100, &recipient_address))
             .build();
 
-        assert_ok!(StakedRelayers::is_transaction_invalid(
-            &BOB,
-            transaction.format()
-        ));
+        assert_ok!(StakedRelayers::is_transaction_invalid(&BOB, transaction.format()));
     })
 }
 
 #[test]
 fn test_is_transaction_invalid_fails_with_valid_merge_testnet_transaction() {
     run_test(|| {
-        // bitcoin-cli -testnet getrawtransaction "3453e52ebab8ac96159d6b19114b492a05cce05a8fdfdaf5dea266ac10601ce4" 0 "00000000000000398849cc9d67261ec2d5fea07db87ab66a8ea47bc05acfb194"
+        // bitcoin-cli -testnet getrawtransaction "3453e52ebab8ac96159d6b19114b492a05cce05a8fdfdaf5dea266ac10601ce4" 0
+        // "00000000000000398849cc9d67261ec2d5fea07db87ab66a8ea47bc05acfb194"
         let raw_tx_hex = "0200000000010108ce8e8943edbbf09d070bb893e09c0de12c0cf3704fe8a9b0f8b8d1a4a7a4760000000017160014473ca3f4d726ce9c21af7cdc3fcc13264f681b04feffffff02b377413f0000000017a914fe5183ccb89d98beaa6908c7cf1bd109029482cf87142e1a00000000001976a914d0a46d39dafa3012c2a7ed4d82d644b428e4586b88ac02473044022069484377c6627ccca566d4c4ac2cb84d1b0662f5ffbd384815c5e98b072759fc022061de3b77b4543ef43bb969d3f97fbbbdcddc008438720e7026181d99c455b2410121034172c29d3da8279f71adda48db8281d65b794e73cf04ea91fac4293030f0fe91a3ee1c00";
         let raw_tx = hex::decode(&raw_tx_hex).unwrap();
 
@@ -1423,7 +1357,8 @@ fn test_is_transaction_invalid_fails_with_valid_merge_testnet_transaction() {
 #[test]
 fn test_is_transaction_invalid_succeeds_with_testnet_transaction() {
     run_test(|| {
-        // bitcoin-cli -testnet getrawtransaction "3453e52ebab8ac96159d6b19114b492a05cce05a8fdfdaf5dea266ac10601ce4" 0 "00000000000000398849cc9d67261ec2d5fea07db87ab66a8ea47bc05acfb194"
+        // bitcoin-cli -testnet getrawtransaction "3453e52ebab8ac96159d6b19114b492a05cce05a8fdfdaf5dea266ac10601ce4" 0
+        // "00000000000000398849cc9d67261ec2d5fea07db87ab66a8ea47bc05acfb194"
         let raw_tx_hex = "0200000000010108ce8e8943edbbf09d070bb893e09c0de12c0cf3704fe8a9b0f8b8d1a4a7a4760000000017160014473ca3f4d726ce9c21af7cdc3fcc13264f681b04feffffff02b377413f0000000017a914fe5183ccb89d98beaa6908c7cf1bd109029482cf87142e1a00000000001976a914d0a46d39dafa3012c2a7ed4d82d644b428e4586b88ac02473044022069484377c6627ccca566d4c4ac2cb84d1b0662f5ffbd384815c5e98b072759fc022061de3b77b4543ef43bb969d3f97fbbbdcddc008438720e7026181d99c455b2410121034172c29d3da8279f71adda48db8281d65b794e73cf04ea91fac4293030f0fe91a3ee1c00";
         let raw_tx = hex::decode(&raw_tx_hex).unwrap();
 
@@ -1486,13 +1421,7 @@ fn test_remove_inactive_status_update_only_root() {
 #[test]
 fn runtime_upgrade_succeeds() {
     run_test(|| {
-        <crate::ActiveStakedRelayers<Test>>::insert(
-            ALICE,
-            StakedRelayer {
-                height: 0,
-                stake: 10,
-            },
-        );
+        <crate::ActiveStakedRelayers<Test>>::insert(ALICE, StakedRelayer { height: 0, stake: 10 });
 
         assert_ok!(StakedRelayers::_on_runtime_upgrade());
     })

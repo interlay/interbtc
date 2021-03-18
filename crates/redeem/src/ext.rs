@@ -8,10 +8,7 @@ pub(crate) mod btc_relay {
     use frame_support::dispatch::{DispatchError, DispatchResult};
     use sp_std::vec::Vec;
 
-    pub fn verify_transaction_inclusion<T: btc_relay::Config>(
-        tx_id: H256Le,
-        merkle_proof: Vec<u8>,
-    ) -> DispatchResult {
+    pub fn verify_transaction_inclusion<T: btc_relay::Config>(tx_id: H256Le, merkle_proof: Vec<u8>) -> DispatchResult {
         <btc_relay::Module<T>>::_verify_transaction_inclusion(tx_id, merkle_proof, None)
     }
 
@@ -31,18 +28,13 @@ pub(crate) mod vault_registry {
     use frame_support::dispatch::{DispatchError, DispatchResult};
     use vault_registry::types::CurrencySource;
 
-    pub fn get_backing_collateral<T: vault_registry::Config>(
-        vault_id: &T::AccountId,
-    ) -> Result<DOT<T>, DispatchError> {
+    pub fn get_backing_collateral<T: vault_registry::Config>(vault_id: &T::AccountId) -> Result<DOT<T>, DispatchError> {
         <vault_registry::Module<T>>::get_backing_collateral(vault_id)
     }
 
     pub fn get_active_vault_from_id<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-    ) -> Result<
-        vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
-        DispatchError,
-    > {
+    ) -> Result<vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
         <vault_registry::Module<T>>::get_active_vault_from_id(vault_id)
     }
     pub fn slash_collateral<T: vault_registry::Config>(
@@ -63,10 +55,7 @@ pub(crate) mod vault_registry {
 
     pub fn get_vault_from_id<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-    ) -> Result<
-        vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
-        DispatchError,
-    > {
+    ) -> Result<vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
         <vault_registry::Module<T>>::get_vault_from_id(vault_id)
     }
 
@@ -164,24 +153,15 @@ pub(crate) mod treasury {
         <treasury::Module<T>>::get_balance_from_account(account)
     }
 
-    pub fn lock<T: treasury::Config>(
-        redeemer: T::AccountId,
-        amount: PolkaBTC<T>,
-    ) -> DispatchResult {
+    pub fn lock<T: treasury::Config>(redeemer: T::AccountId, amount: PolkaBTC<T>) -> DispatchResult {
         <treasury::Module<T>>::lock(redeemer, amount)
     }
 
-    pub fn unlock<T: treasury::Config>(
-        account: T::AccountId,
-        amount: PolkaBTC<T>,
-    ) -> DispatchResult {
+    pub fn unlock<T: treasury::Config>(account: T::AccountId, amount: PolkaBTC<T>) -> DispatchResult {
         <treasury::Module<T>>::unlock(account, amount)
     }
 
-    pub fn burn<T: treasury::Config>(
-        redeemer: T::AccountId,
-        amount: PolkaBTC<T>,
-    ) -> DispatchResult {
+    pub fn burn<T: treasury::Config>(redeemer: T::AccountId, amount: PolkaBTC<T>) -> DispatchResult {
         <treasury::Module<T>>::burn(redeemer, amount)
     }
 
@@ -217,9 +197,7 @@ pub(crate) mod oracle {
     use crate::types::{PolkaBTC, DOT};
     use frame_support::dispatch::DispatchError;
 
-    pub fn btc_to_dots<T: exchange_rate_oracle::Config>(
-        amount: PolkaBTC<T>,
-    ) -> Result<DOT<T>, DispatchError> {
+    pub fn btc_to_dots<T: exchange_rate_oracle::Config>(amount: PolkaBTC<T>) -> Result<DOT<T>, DispatchError> {
         <exchange_rate_oracle::Module<T>>::btc_to_dots(amount)
     }
 }
@@ -233,9 +211,7 @@ pub(crate) mod fee {
         <fee::Module<T>>::fee_pool_account_id()
     }
 
-    pub fn get_redeem_fee<T: fee::Config>(
-        amount: PolkaBTC<T>,
-    ) -> Result<PolkaBTC<T>, DispatchError> {
+    pub fn get_redeem_fee<T: fee::Config>(amount: PolkaBTC<T>) -> Result<PolkaBTC<T>, DispatchError> {
         <fee::Module<T>>::get_redeem_fee(amount)
     }
 

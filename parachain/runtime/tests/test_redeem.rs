@@ -1,7 +1,6 @@
 mod mock;
 
-use mock::redeem_testing_utils::*;
-use mock::*;
+use mock::{redeem_testing_utils::*, *};
 
 #[test]
 fn integration_test_redeem_should_fail_if_not_running() {
@@ -64,13 +63,10 @@ fn integration_test_redeem_polka_btc_execute() {
 
         SystemModule::set_block_number(1 + CONFIRMATIONS);
 
-        assert_ok!(Call::Redeem(RedeemCall::execute_redeem(
-            redeem_id,
-            tx_id,
-            merkle_proof,
-            raw_tx
-        ))
-        .dispatch(origin_of(account_of(vault))));
+        assert_ok!(
+            Call::Redeem(RedeemCall::execute_redeem(redeem_id, tx_id, merkle_proof, raw_tx))
+                .dispatch(origin_of(account_of(vault)))
+        );
 
         let final_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
         let final_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
@@ -98,9 +94,7 @@ fn integration_test_premium_redeem_polka_btc_execute() {
 
         SystemModule::set_block_number(1);
 
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::one()
-        ));
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
 
         set_default_thresholds();
 
@@ -117,8 +111,7 @@ fn integration_test_premium_redeem_polka_btc_execute() {
 
         let initial_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
         let initial_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
-        let initial_vault_collateral =
-            CollateralModule::get_collateral_from_account(&account_of(vault));
+        let initial_vault_collateral = CollateralModule::get_collateral_from_account(&account_of(vault));
         let initial_btc_issuance = TreasuryModule::get_total_supply();
         assert_eq!(polka_btc, initial_btc_issuance);
 
@@ -140,13 +133,10 @@ fn integration_test_premium_redeem_polka_btc_execute() {
 
         SystemModule::set_block_number(1 + CONFIRMATIONS);
 
-        assert_ok!(Call::Redeem(RedeemCall::execute_redeem(
-            redeem_id,
-            tx_id,
-            merkle_proof,
-            raw_tx
-        ))
-        .dispatch(origin_of(account_of(vault))));
+        assert_ok!(
+            Call::Redeem(RedeemCall::execute_redeem(redeem_id, tx_id, merkle_proof, raw_tx))
+                .dispatch(origin_of(account_of(vault)))
+        );
 
         assert_eq!(FeeModule::epoch_rewards_polka_btc(), redeem.fee);
 
@@ -177,9 +167,7 @@ fn integration_test_redeem_polka_btc_liquidation_redeem() {
     ExtBuilder::build().execute_with(|| {
         SystemModule::set_block_number(1);
         set_default_thresholds();
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::one()
-        ));
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
 
         let issued = 400;
         let to_be_issued = 100;
@@ -225,9 +213,7 @@ fn integration_test_redeem_polka_btc_liquidation_redeem() {
             VaultRegistryError::InsufficientTokensCommitted
         );
 
-        assert_ok!(
-            Call::Redeem(RedeemCall::liquidation_redeem(325)).dispatch(origin_of(account_of(USER)))
-        );
+        assert_ok!(Call::Redeem(RedeemCall::liquidation_redeem(325)).dispatch(origin_of(account_of(USER))));
 
         assert_eq!(
             UserData::get(USER),
@@ -255,8 +241,7 @@ fn integration_test_redeem_polka_btc_cancel_reimburse() {
 
         let redeem_id = setup_cancelable_redeem(user, vault, 100000000, amount_btc);
         let redeem = RedeemModule::get_open_redeem_request_from_id(&redeem_id).unwrap();
-        let amount_without_fee_dot =
-            ExchangeRateOracleModule::btc_to_dots(redeem.amount_btc).unwrap();
+        let amount_without_fee_dot = ExchangeRateOracleModule::btc_to_dots(redeem.amount_btc).unwrap();
 
         let punishment_fee = FeeModule::get_punishment_fee(amount_without_fee_dot).unwrap();
         assert!(punishment_fee > 0);
@@ -269,8 +254,7 @@ fn integration_test_redeem_polka_btc_cancel_reimburse() {
         SlaModule::set_vault_sla(&account_of(vault), sla_score_before);
 
         // alice cancels redeem request and chooses to reimburse
-        assert_ok!(Call::Redeem(RedeemCall::cancel_redeem(redeem_id, true))
-            .dispatch(origin_of(account_of(user))));
+        assert_ok!(Call::Redeem(RedeemCall::cancel_redeem(redeem_id, true)).dispatch(origin_of(account_of(user))));
 
         let new_balance = CollateralModule::get_balance_from_account(&account_of(user));
 
@@ -314,10 +298,8 @@ fn integration_test_redeem_polka_btc_cancel_no_reimburse() {
 
         let redeem_id = setup_cancelable_redeem(user, vault, 100000000, amount_btc);
         let redeem = RedeemModule::get_open_redeem_request_from_id(&redeem_id).unwrap();
-        let punishment_fee = FeeModule::get_punishment_fee(
-            ExchangeRateOracleModule::btc_to_dots(redeem.amount_btc).unwrap(),
-        )
-        .unwrap();
+        let punishment_fee =
+            FeeModule::get_punishment_fee(ExchangeRateOracleModule::btc_to_dots(redeem.amount_btc).unwrap()).unwrap();
         assert!(punishment_fee > 0);
 
         // get initial balance - the setup call above will have minted and locked polkabtc
@@ -328,8 +310,7 @@ fn integration_test_redeem_polka_btc_cancel_no_reimburse() {
         SlaModule::set_vault_sla(&account_of(vault), sla_score_before);
 
         // alice cancels redeem request, but does not reimburse
-        assert_ok!(Call::Redeem(RedeemCall::cancel_redeem(redeem_id, false))
-            .dispatch(origin_of(account_of(user))));
+        assert_ok!(Call::Redeem(RedeemCall::cancel_redeem(redeem_id, false)).dispatch(origin_of(account_of(user))));
 
         // dot-balance should have increased by punishment_fee
         assert_eq!(
@@ -393,10 +374,7 @@ fn test_cancel_liquidated(reimburse: bool) {
 
     drop_exchange_rate_and_liquidate(VAULT);
 
-    assert_ok!(
-        Call::Redeem(RedeemCall::cancel_redeem(redeem_id, reimburse))
-            .dispatch(origin_of(account_of(USER)))
-    );
+    assert_ok!(Call::Redeem(RedeemCall::cancel_redeem(redeem_id, reimburse)).dispatch(origin_of(account_of(USER))));
 
     assert_eq!(
         CoreVaultData::vault(VAULT),
@@ -544,8 +522,7 @@ fn integration_test_redeem_banning() {
         );
 
         // can still make a replace request now
-        assert_ok!(Call::Replace(ReplaceCall::request_replace(100, 100))
-            .dispatch(origin_of(account_of(VAULT))));
+        assert_ok!(Call::Replace(ReplaceCall::request_replace(100, 100)).dispatch(origin_of(account_of(VAULT))));
         let replace_id = SystemModule::events()
             .iter()
             .find_map(|r| match r.event {
@@ -570,34 +547,27 @@ fn integration_test_redeem_banning() {
 
         // can not issue with vault while banned
         assert_noop!(
-            Call::Issue(IssueCall::request_issue(50, account_of(VAULT), 50))
-                .dispatch(origin_of(account_of(USER))),
+            Call::Issue(IssueCall::request_issue(50, account_of(VAULT), 50)).dispatch(origin_of(account_of(USER))),
             VaultRegistryError::VaultBanned,
         );
 
         // can not request replace while banned
         assert_noop!(
-            Call::Replace(ReplaceCall::request_replace(0, 0))
-                .dispatch(origin_of(account_of(VAULT))),
+            Call::Replace(ReplaceCall::request_replace(0, 0)).dispatch(origin_of(account_of(VAULT))),
             VaultRegistryError::VaultBanned,
         );
 
         // can not accept replace of banned vault
         assert_noop!(
-            Call::Replace(ReplaceCall::accept_replace(
-                replace_id,
-                1000,
-                BtcAddress::default()
-            ))
-            .dispatch(origin_of(account_of(VAULT))),
+            Call::Replace(ReplaceCall::accept_replace(replace_id, 1000, BtcAddress::default()))
+                .dispatch(origin_of(account_of(VAULT))),
             VaultRegistryError::VaultBanned,
         );
 
         // check that the ban is not permanent
         SystemModule::set_block_number(100000000);
         assert_ok!(
-            Call::Issue(IssueCall::request_issue(50, account_of(VAULT), 50))
-                .dispatch(origin_of(account_of(USER)))
+            Call::Issue(IssueCall::request_issue(50, account_of(VAULT), 50)).dispatch(origin_of(account_of(USER)))
         );
     })
 }

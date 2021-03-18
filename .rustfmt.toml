@@ -1,0 +1,11 @@
+# https://rust-lang.github.io/rustfmt/
+
+hard_tabs = false
+max_width = 120
+edition = "2018"
+wrap_comments = true
+comment_width = 120
+imports_granularity = "Crate"
+
+# TODO: https://github.com/rust-lang/rustfmt/issues/3382#issuecomment-536034758
+blank_lines_lower_bound = 0

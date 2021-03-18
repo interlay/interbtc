@@ -1,8 +1,7 @@
 mod mock;
 
 use frame_support::assert_err;
-use mock::issue_testing_utils::*;
-use mock::*;
+use mock::{issue_testing_utils::*, *};
 
 #[test]
 fn integration_test_issue_should_fail_if_not_running() {
@@ -10,8 +9,7 @@ fn integration_test_issue_should_fail_if_not_running() {
         SecurityModule::set_status(StatusCode::Shutdown);
 
         assert_noop!(
-            Call::Issue(IssueCall::request_issue(0, account_of(BOB), 0))
-                .dispatch(origin_of(account_of(ALICE))),
+            Call::Issue(IssueCall::request_issue(0, account_of(BOB), 0)).dispatch(origin_of(account_of(ALICE))),
             SecurityError::ParachainNotRunning,
         );
 
@@ -31,9 +29,7 @@ fn integration_test_issue_should_fail_if_not_running() {
 #[test]
 fn integration_test_issue_polka_btc_execute() {
     ExtBuilder::build().execute_with(|| {
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::one()
-        ));
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
 
         let user = ALICE;
         let vault = BOB;
@@ -48,16 +44,14 @@ fn integration_test_issue_polka_btc_execute() {
         let initial_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
         let initial_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
 
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-            collateral_vault,
-            dummy_public_key()
-        ))
-        .dispatch(origin_of(account_of(vault))));
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-            collateral_vault,
-            dummy_public_key()
-        ))
-        .dispatch(origin_of(account_of(vault_proof_submitter))));
+        assert_ok!(
+            Call::VaultRegistry(VaultRegistryCall::register_vault(collateral_vault, dummy_public_key()))
+                .dispatch(origin_of(account_of(vault)))
+        );
+        assert_ok!(
+            Call::VaultRegistry(VaultRegistryCall::register_vault(collateral_vault, dummy_public_key()))
+                .dispatch(origin_of(account_of(vault_proof_submitter)))
+        );
 
         // alice requests polka_btc by locking btc with bob
         assert_ok!(Call::Issue(IssueCall::request_issue(
@@ -74,16 +68,13 @@ fn integration_test_issue_polka_btc_execute() {
         let total_amount_btc = amount_btc + fee_amount_btc;
 
         // send the btc from the user to the vault
-        let (tx_id, _height, proof, raw_tx) =
-            generate_transaction_and_mine(vault_btc_address, total_amount_btc, None);
+        let (tx_id, _height, proof, raw_tx) = generate_transaction_and_mine(vault_btc_address, total_amount_btc, None);
 
         SystemModule::set_block_number(1 + CONFIRMATIONS);
 
         // alice executes the issue by confirming the btc transaction
-        assert_ok!(
-            Call::Issue(IssueCall::execute_issue(issue_id, tx_id, proof, raw_tx))
-                .dispatch(origin_of(account_of(vault_proof_submitter)))
-        );
+        assert_ok!(Call::Issue(IssueCall::execute_issue(issue_id, tx_id, proof, raw_tx))
+            .dispatch(origin_of(account_of(vault_proof_submitter))));
 
         // check that the vault who submitted the proof is rewarded with increased SLA score
         assert_eq!(
@@ -94,10 +85,7 @@ fn integration_test_issue_polka_btc_execute() {
         // check the sla increase
         let expected_sla_increase = SlaModule::vault_executed_issue_max_sla_change()
             * FixedI128::checked_from_rational(amount_btc, total_amount_btc).unwrap();
-        assert_eq!(
-            SlaModule::vault_sla(account_of(vault)),
-            expected_sla_increase
-        );
+        assert_eq!(SlaModule::vault_sla(account_of(vault)), expected_sla_increase);
 
         // fee should be added to epoch rewards
         assert_eq!(FeeModule::epoch_rewards_polka_btc(), fee_amount_btc);
@@ -121,9 +109,9 @@ fn integration_test_issue_polka_btc_execute() {
 
         // force issue rewards and withdraw
         assert_ok!(FeeModule::update_rewards_for_epoch());
-        assert_ok!(Call::Fee(FeeCall::withdraw_polka_btc(
-            FeeModule::get_polka_btc_rewards(&account_of(vault))
-        ))
+        assert_ok!(Call::Fee(FeeCall::withdraw_polka_btc(FeeModule::get_polka_btc_rewards(
+            &account_of(vault)
+        )))
         .dispatch(origin_of(account_of(vault))));
     });
 }
@@ -131,9 +119,7 @@ fn integration_test_issue_polka_btc_execute() {
 #[test]
 fn integration_test_withdraw_after_request_issue() {
     ExtBuilder::build().execute_with(|| {
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::one()
-        ));
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
 
         let vault = BOB;
         let vault_proof_submitter = CAROL;
@@ -144,16 +130,14 @@ fn integration_test_withdraw_after_request_issue() {
 
         SystemModule::set_block_number(1);
 
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-            collateral_vault,
-            dummy_public_key()
-        ))
-        .dispatch(origin_of(account_of(vault))));
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-            collateral_vault,
-            dummy_public_key()
-        ))
-        .dispatch(origin_of(account_of(vault_proof_submitter))));
+        assert_ok!(
+            Call::VaultRegistry(VaultRegistryCall::register_vault(collateral_vault, dummy_public_key()))
+                .dispatch(origin_of(account_of(vault)))
+        );
+        assert_ok!(
+            Call::VaultRegistry(VaultRegistryCall::register_vault(collateral_vault, dummy_public_key()))
+                .dispatch(origin_of(account_of(vault_proof_submitter)))
+        );
 
         // alice requests polka_btc by locking btc with bob
         assert_ok!(Call::Issue(IssueCall::request_issue(
@@ -187,9 +171,7 @@ fn integration_test_withdraw_after_request_issue() {
 #[test]
 fn integration_test_issue_overpayment() {
     ExtBuilder::build().execute_with(|| {
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::one()
-        ));
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
 
         let user = ALICE;
         let vault = BOB;
@@ -205,11 +187,10 @@ fn integration_test_issue_overpayment() {
         let initial_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
         let initial_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
 
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-            collateral_vault,
-            dummy_public_key()
-        ))
-        .dispatch(origin_of(account_of(vault))));
+        assert_ok!(
+            Call::VaultRegistry(VaultRegistryCall::register_vault(collateral_vault, dummy_public_key()))
+                .dispatch(origin_of(account_of(vault)))
+        );
 
         // alice requests polka_btc by locking btc with bob
         assert_ok!(Call::Issue(IssueCall::request_issue(
@@ -227,24 +208,19 @@ fn integration_test_issue_overpayment() {
         let total_amount_btc = amount_btc + fee_amount_btc;
 
         // send the btc from the user to the vault
-        let (tx_id, _height, proof, raw_tx) =
-            generate_transaction_and_mine(vault_btc_address, total_amount_btc, None);
+        let (tx_id, _height, proof, raw_tx) = generate_transaction_and_mine(vault_btc_address, total_amount_btc, None);
 
         SystemModule::set_block_number(1 + CONFIRMATIONS);
 
         // alice executes the issue by confirming the btc transaction
         assert_ok!(
-            Call::Issue(IssueCall::execute_issue(issue_id, tx_id, proof, raw_tx))
-                .dispatch(origin_of(account_of(user)))
+            Call::Issue(IssueCall::execute_issue(issue_id, tx_id, proof, raw_tx)).dispatch(origin_of(account_of(user)))
         );
 
         // check the sla increase
         let expected_sla_increase = SlaModule::vault_executed_issue_max_sla_change()
             * FixedI128::checked_from_rational(amount_btc, total_amount_btc).unwrap();
-        assert_eq!(
-            SlaModule::vault_sla(account_of(vault)),
-            expected_sla_increase
-        );
+        assert_eq!(SlaModule::vault_sla(account_of(vault)), expected_sla_increase);
 
         // fee should be added to epoch rewards
         assert_eq!(FeeModule::epoch_rewards_polka_btc(), fee_amount_btc);
@@ -260,9 +236,9 @@ fn integration_test_issue_overpayment() {
 
         // force issue rewards and withdraw
         assert_ok!(FeeModule::update_rewards_for_epoch());
-        assert_ok!(Call::Fee(FeeCall::withdraw_polka_btc(
-            FeeModule::get_polka_btc_rewards(&account_of(vault))
-        ))
+        assert_ok!(Call::Fee(FeeCall::withdraw_polka_btc(FeeModule::get_polka_btc_rewards(
+            &account_of(vault)
+        )))
         .dispatch(origin_of(account_of(vault))));
     });
 }
@@ -376,14 +352,11 @@ fn integration_test_issue_polka_btc_cancel() {
         let initial_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
         let initial_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
 
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::one()
-        ));
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-            collateral_vault,
-            dummy_public_key()
-        ))
-        .dispatch(origin_of(account_of(vault))));
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
+        assert_ok!(
+            Call::VaultRegistry(VaultRegistryCall::register_vault(collateral_vault, dummy_public_key()))
+                .dispatch(origin_of(account_of(vault)))
+        );
 
         // alice requests polka_btc by locking btc with bob
         assert_ok!(Call::Issue(IssueCall::request_issue(
@@ -411,9 +384,7 @@ fn integration_test_issue_polka_btc_cancel() {
         );
 
         // bob cancels issue request
-        assert_ok!(
-            Call::Issue(IssueCall::cancel_issue(issue_id)).dispatch(origin_of(account_of(vault)))
-        );
+        assert_ok!(Call::Issue(IssueCall::cancel_issue(issue_id)).dispatch(origin_of(account_of(vault))));
 
         let final_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
         let final_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
@@ -441,14 +412,11 @@ fn integration_test_issue_polka_btc_cancel_liquidated() {
         let initial_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
         let initial_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
 
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::one()
-        ));
-        assert_ok!(Call::VaultRegistry(VaultRegistryCall::register_vault(
-            collateral_vault,
-            dummy_public_key()
-        ))
-        .dispatch(origin_of(account_of(vault))));
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
+        assert_ok!(
+            Call::VaultRegistry(VaultRegistryCall::register_vault(collateral_vault, dummy_public_key()))
+                .dispatch(origin_of(account_of(vault)))
+        );
 
         // alice requests polka_btc by locking btc with bob
         assert_ok!(Call::Issue(IssueCall::request_issue(
@@ -484,14 +452,9 @@ fn integration_test_issue_polka_btc_cancel_liquidated() {
         );
 
         // bob cancels issue request
-        assert_ok!(
-            Call::Issue(IssueCall::cancel_issue(issue_id)).dispatch(origin_of(account_of(vault)))
-        );
+        assert_ok!(Call::Issue(IssueCall::cancel_issue(issue_id)).dispatch(origin_of(account_of(vault))));
 
-        assert_eq!(
-            VaultRegistryModule::get_liquidation_vault().to_be_issued_tokens,
-            0
-        );
+        assert_eq!(VaultRegistryModule::get_liquidation_vault().to_be_issued_tokens, 0);
 
         let final_dot_balance = CollateralModule::get_balance_from_account(&account_of(user));
         let final_btc_balance = TreasuryModule::get_balance_from_account(account_of(user));
@@ -575,15 +538,12 @@ fn integration_test_issue_polka_btc_execute_liquidated() {
 
         // force issue rewards and withdraw
         assert_ok!(FeeModule::update_rewards_for_epoch());
-        assert_ok!(Call::Fee(FeeCall::withdraw_polka_btc(
-            FeeModule::get_polka_btc_rewards(&account_of(VAULT))
-        ))
+        assert_ok!(Call::Fee(FeeCall::withdraw_polka_btc(FeeModule::get_polka_btc_rewards(
+            &account_of(VAULT)
+        )))
         .dispatch(origin_of(account_of(VAULT))));
         // should not have received fee
-        assert_eq!(
-            TreasuryModule::get_balance_from_account(account_of(VAULT)),
-            0
-        );
+        assert_eq!(TreasuryModule::get_balance_from_account(account_of(VAULT)), 0);
     });
 }
 
@@ -650,9 +610,9 @@ fn integration_test_issue_polka_btc_execute_not_liquidated() {
 
         // force issue rewards and withdraw
         assert_ok!(FeeModule::update_rewards_for_epoch());
-        assert_ok!(Call::Fee(FeeCall::withdraw_polka_btc(
-            FeeModule::get_polka_btc_rewards(&account_of(VAULT))
-        ))
+        assert_ok!(Call::Fee(FeeCall::withdraw_polka_btc(FeeModule::get_polka_btc_rewards(
+            &account_of(VAULT)
+        )))
         .dispatch(origin_of(account_of(VAULT))));
         // check that a fee has been withdrawn
         assert!(TreasuryModule::get_balance_from_account(account_of(VAULT)) > 0);

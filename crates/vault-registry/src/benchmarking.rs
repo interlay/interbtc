@@ -1,14 +1,13 @@
 use super::*;
-use crate::types::BtcPublicKey;
-use crate::Module as VaultRegistry;
+use crate::{types::BtcPublicKey, Module as VaultRegistry};
 use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
 use sp_std::prelude::*;
 
 fn dummy_public_key() -> BtcPublicKey {
     BtcPublicKey([
-        2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55,
-        18, 45, 222, 180, 119, 54, 243, 97, 173, 150, 161, 169, 230,
+        2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55, 18, 45, 222, 180,
+        119, 54, 243, 97, 173, 150, 161, 169, 230,
     ])
 }
 
@@ -63,13 +62,9 @@ mod tests {
 
     #[test]
     fn test_benchmarks() {
-        ExtBuilder::build_with(
-            pallet_balances::GenesisConfig::<Test, pallet_balances::Instance1> {
-                balances: (0..100)
-                    .map(|i| (account("Origin", i, 0), 1 << 64))
-                    .collect(),
-            },
-        )
+        ExtBuilder::build_with(pallet_balances::GenesisConfig::<Test, pallet_balances::Instance1> {
+            balances: (0..100).map(|i| (account("Origin", i, 0), 1 << 64)).collect(),
+        })
         .execute_with(|| {
             assert_ok!(test_benchmark_register_vault::<Test>());
             assert_ok!(test_benchmark_lock_additional_collateral::<Test>());

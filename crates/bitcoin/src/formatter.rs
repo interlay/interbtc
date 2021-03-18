@@ -1,11 +1,7 @@
 use primitive_types::U256;
-use sp_std::vec::Vec;
-use sp_std::{prelude::*, vec};
+use sp_std::{prelude::*, vec, vec::Vec};
 
-use crate::merkle::MerkleProof;
-use crate::script::*;
-use crate::types::*;
-use crate::Error;
+use crate::{merkle::MerkleProof, script::*, types::*, Error};
 
 const WITNESS_FLAG: u8 = 0x01;
 const WITNESS_MARKER: u8 = 0x00;
@@ -290,8 +286,7 @@ impl TryFormattable for MerkleProof {
             .ok_or(Error::ArithmeticUnderflow)?;
         let mut bytes: Vec<u8> = vec![0; len];
         for p in 0..self.flag_bits.len() {
-            bytes[p.checked_div(8).ok_or(Error::ArithmeticUnderflow)?] |=
-                (self.flag_bits[p] as u8) << (p % 8) as u8;
+            bytes[p.checked_div(8).ok_or(Error::ArithmeticUnderflow)?] |= (self.flag_bits[p] as u8) << (p % 8) as u8;
         }
         formatter.format(bytes.len() as u8);
         formatter.output(&bytes);
@@ -343,8 +338,7 @@ impl Formatter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parser;
-    use crate::utils::sha256d_le;
+    use crate::{parser, utils::sha256d_le};
 
     #[test]
     fn test_format_int_types() {
@@ -403,10 +397,8 @@ mod tests {
 
     #[test]
     fn test_format_extended_transaction() {
-        let expected_hash =
-            H256Le::from_hex_be("b759d39a8596b70b3a46700b83e1edb247e17ba58df305421864fe7a9ac142ea");
-        let expected_txid =
-            H256Le::from_hex_be("c586389e5e4b3acb9d6c8be1c19ae8ab2795397633176f5a6442a261bbdefc3a");
+        let expected_hash = H256Le::from_hex_be("b759d39a8596b70b3a46700b83e1edb247e17ba58df305421864fe7a9ac142ea");
+        let expected_txid = H256Le::from_hex_be("c586389e5e4b3acb9d6c8be1c19ae8ab2795397633176f5a6442a261bbdefc3a");
         let raw_tx = parser::tests::sample_extended_transaction();
         let tx_bytes = hex::decode(&raw_tx).unwrap();
         let transaction = parser::parse_transaction(&tx_bytes).unwrap();
@@ -436,13 +428,8 @@ mod tests {
         assert_eq!(
             parsed_header,
             BlockHeader {
-                merkle_root: H256Le::from_hex_be(
-                    "0c58e162a2d0a6cb5a9ed132f0fdad56eee3a3a03b3ef84aa2ec4a6825a7a029"
-                ),
-                target: U256::from_dec_str(
-                    "1260618571951953247774709397757627131971305851995253681160192"
-                )
-                .unwrap(),
+                merkle_root: H256Le::from_hex_be("0c58e162a2d0a6cb5a9ed132f0fdad56eee3a3a03b3ef84aa2ec4a6825a7a029"),
+                target: U256::from_dec_str("1260618571951953247774709397757627131971305851995253681160192").unwrap(),
                 timestamp: 1603359907,
                 version: 536870912,
                 hash_prev_block: H256Le::from_hex_be(
@@ -458,8 +445,7 @@ mod tests {
     // taken from https://bitcoin.org/en/developer-reference#block-headers
     #[test]
     fn test_format_u256() {
-        let value = U256::from_dec_str("680733321990486529407107157001552378184394215934016880640")
-            .unwrap();
+        let value = U256::from_dec_str("680733321990486529407107157001552378184394215934016880640").unwrap();
         let result = value.try_format().unwrap();
         let expected = hex::decode("30c31b18").unwrap();
         assert_eq!(result, expected);
@@ -468,9 +454,7 @@ mod tests {
     #[test]
     fn test_format_u256_testnet() {
         // 0xb8e4a3e93640d7a4623e92589e40960b4b20420478d7ed60662176c323cf4caa
-        let value =
-            U256::from_dec_str("1260618571951953247774709397757627131971305851995253681160192")
-                .unwrap();
+        let value = U256::from_dec_str("1260618571951953247774709397757627131971305851995253681160192").unwrap();
         let result = value.try_format().unwrap();
         let expected = hex::decode("d4c8001a").unwrap();
         assert_eq!(result, expected);

@@ -1,6 +1,4 @@
-use crate::ext;
-use crate::mock::*;
-use crate::RawEvent;
+use crate::{ext, mock::*, RawEvent};
 use bitcoin::types::H256Le;
 use btc_relay::BtcAddress;
 use frame_support::assert_ok;
@@ -12,11 +10,9 @@ use sp_core::H160;
 fn test_refund_succeeds() {
     run_test(|| {
         ext::fee::get_refund_fee_from_total::<Test>.mock_safe(|_| MockResult::Return(Ok(5)));
-        ext::vault_registry::try_increase_to_be_issued_tokens::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::try_increase_to_be_issued_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-        ext::btc_relay::verify_transaction_inclusion::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::btc_relay::validate_transaction::<Test>
             .mock_safe(|_, _, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 995))));
 

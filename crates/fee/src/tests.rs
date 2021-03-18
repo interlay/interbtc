@@ -1,5 +1,4 @@
-use crate::mock::*;
-use crate::*;
+use crate::{mock::*, *};
 use frame_support::{assert_err, assert_ok};
 use mocktopus::mocking::*;
 use sp_arithmetic::{FixedPointNumber, FixedU128};
@@ -77,9 +76,8 @@ fn test_rewards_accrue_per_epoch() {
         <RelayerRewards<Test>>::set(FixedU128::checked_from_integer(1).unwrap());
         <EpochPeriod<Test>>::set(50);
 
-        ext::sla::get_relayer_rewards::<Test>.mock_safe(|total_polka_btc, total_dot| {
-            MockResult::Return(Ok(vec![(0, total_polka_btc, total_dot)]))
-        });
+        ext::sla::get_relayer_rewards::<Test>
+            .mock_safe(|total_polka_btc, total_dot| MockResult::Return(Ok(vec![(0, total_polka_btc, total_dot)])));
 
         <EpochRewardsPolkaBTC<Test>>::set(100);
         assert_ok!(Fee::begin_block(2000));
@@ -164,10 +162,7 @@ fn test_withdraw_polka_btc_succeeds() {
 #[test]
 fn test_withdraw_dot_fails_with_insufficient_balance() {
     run_test(|| {
-        assert_err!(
-            Fee::withdraw_dot(Origin::signed(0), 1000),
-            TestError::InsufficientFunds
-        );
+        assert_err!(Fee::withdraw_dot(Origin::signed(0), 1000), TestError::InsufficientFunds);
     })
 }
 

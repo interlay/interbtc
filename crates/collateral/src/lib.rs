@@ -11,14 +11,15 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-use frame_support::dispatch::{DispatchError, DispatchResult};
-use frame_support::traits::{Currency, ExistenceRequirement, ReservableCurrency};
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, ensure, sp_runtime::ModuleId,
+    decl_error, decl_event, decl_module, decl_storage,
+    dispatch::{DispatchError, DispatchResult},
+    ensure,
+    sp_runtime::ModuleId,
+    traits::{Currency, ExistenceRequirement, ReservableCurrency},
 };
 
-type BalanceOf<T> =
-    <<T as Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+type BalanceOf<T> = <<T as Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 /// The collateral's module id, used for deriving its sovereign account ID.
 const _MODULE_ID: ModuleId = ModuleId(*b"ily/cltl");
@@ -107,17 +108,8 @@ impl<T: Config> Module<T> {
     /// * `source` - the account to send dot
     /// * `destination` - the account receiving dot
     /// * `amount` - amount of DOT
-    pub fn transfer(
-        source: T::AccountId,
-        destination: T::AccountId,
-        amount: BalanceOf<T>,
-    ) -> DispatchResult {
-        T::DOT::transfer(
-            &source,
-            &destination,
-            amount,
-            ExistenceRequirement::AllowDeath,
-        )
+    pub fn transfer(source: T::AccountId, destination: T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+        T::DOT::transfer(&source, &destination, amount, ExistenceRequirement::AllowDeath)
     }
 
     /// Lock DOT collateral
@@ -164,11 +156,7 @@ impl<T: Config> Module<T> {
     /// * `sender` - the account being slashed
     /// * `receiver` - the receiver of the amount
     /// * `amount` - the to be slashed amount
-    pub fn slash_collateral(
-        sender: T::AccountId,
-        receiver: T::AccountId,
-        amount: BalanceOf<T>,
-    ) -> DispatchResult {
+    pub fn slash_collateral(sender: T::AccountId, receiver: T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
         ensure!(
             T::DOT::reserved_balance(&sender) >= amount,
             Error::<T>::InsufficientCollateralAvailable
@@ -201,11 +189,7 @@ impl<T: Config> Module<T> {
         // subtraction should not be able to fail since remainder <= amount
         let slashed_amount = amount - remainder;
 
-        Self::deposit_event(RawEvent::SlashCollateral(
-            sender,
-            receiver.clone(),
-            slashed_amount,
-        ));
+        Self::deposit_event(RawEvent::SlashCollateral(sender, receiver.clone(), slashed_amount));
 
         // reserve the created amount for the receiver. This should not be able to fail, since the
         // call above will have created enough free balance to lock.

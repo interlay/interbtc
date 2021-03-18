@@ -23,15 +23,12 @@ use mocktopus::macros::mockable;
 pub use crate::types::{ErrorCode, StatusCode};
 
 use codec::Encode;
-use frame_support::transactional;
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult};
+use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, transactional};
 use frame_system::ensure_root;
 use primitive_types::H256;
 use sha2::{Digest, Sha256};
 use sp_core::U256;
-use sp_std::collections::btree_set::BTreeSet;
-use sp_std::iter::FromIterator;
-use sp_std::prelude::*;
+use sp_std::{collections::btree_set::BTreeSet, iter::FromIterator, prelude::*};
 
 /// ## Configuration
 /// The pallet's configuration trait.
@@ -156,9 +153,7 @@ impl<T: Config> Module<T> {
     ///
     /// Returns the first unexpected error that is encountered,
     /// or Ok(()) if only expected errors / no errors at all were found
-    pub fn ensure_parachain_is_running_or_only_has_errors(
-        error_codes: Vec<ErrorCode>,
-    ) -> DispatchResult {
+    pub fn ensure_parachain_is_running_or_only_has_errors(error_codes: Vec<ErrorCode>) -> DispatchResult {
         if <ParachainStatus>::get() == StatusCode::Running {
             Ok(())
         } else if <ParachainStatus>::get() == StatusCode::Error {
@@ -177,26 +172,22 @@ impl<T: Config> Module<T> {
 
     /// Checks if the Parachain has a NoDataBTCRelay Error state
     pub fn is_parachain_error_no_data_btcrelay() -> bool {
-        <ParachainStatus>::get() == StatusCode::Error
-            && <Errors>::get().contains(&ErrorCode::NoDataBTCRelay)
+        <ParachainStatus>::get() == StatusCode::Error && <Errors>::get().contains(&ErrorCode::NoDataBTCRelay)
     }
 
     /// Checks if the Parachain has a InvalidBTCRelay Error state
     pub fn is_parachain_error_invalid_btcrelay() -> bool {
-        <ParachainStatus>::get() == StatusCode::Error
-            && <Errors>::get().contains(&ErrorCode::InvalidBTCRelay)
+        <ParachainStatus>::get() == StatusCode::Error && <Errors>::get().contains(&ErrorCode::InvalidBTCRelay)
     }
 
     /// Checks if the Parachain has a OracleOffline Error state
     pub fn is_parachain_error_oracle_offline() -> bool {
-        <ParachainStatus>::get() == StatusCode::Error
-            && <Errors>::get().contains(&ErrorCode::OracleOffline)
+        <ParachainStatus>::get() == StatusCode::Error && <Errors>::get().contains(&ErrorCode::OracleOffline)
     }
 
     /// Checks if the Parachain has a Liquidation Error state
     pub fn is_parachain_error_liquidation() -> bool {
-        <ParachainStatus>::get() == StatusCode::Error
-            && <Errors>::get().contains(&ErrorCode::Liquidation)
+        <ParachainStatus>::get() == StatusCode::Error && <Errors>::get().contains(&ErrorCode::Liquidation)
     }
 
     /// Gets the current `StatusCode`.
@@ -249,10 +240,7 @@ impl<T: Config> Module<T> {
             Self::set_status(StatusCode::Running);
         }
 
-        Self::deposit_event(Event::RecoverFromErrors(
-            Self::get_parachain_status(),
-            error_codes,
-        ));
+        Self::deposit_event(Event::RecoverFromErrors(Self::get_parachain_status(), error_codes));
     }
 
     /// Recovers the BTC Parachain state from an `ORACLE_OFFLINE` error

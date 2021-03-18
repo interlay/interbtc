@@ -6,12 +6,7 @@ pub const USER_BTC_ADDRESS: BtcAddress = BtcAddress::P2PKH(H160([2u8; 20]));
 pub const DEFAULT_USER_FREE_BALANCE: u128 = 1_000_000;
 pub const DEFAULT_USER_LOCKED_BALANCE: u128 = 100_000;
 
-pub fn setup_cancelable_redeem(
-    user: [u8; 32],
-    vault: [u8; 32],
-    collateral: u128,
-    polka_btc: u128,
-) -> H256 {
+pub fn setup_cancelable_redeem(user: [u8; 32], vault: [u8; 32], collateral: u128, polka_btc: u128) -> H256 {
     let redeem_id = setup_redeem(polka_btc, user, vault, collateral);
 
     // expire request without transferring btc
@@ -37,9 +32,7 @@ pub fn setup_redeem(polka_btc: u128, user: [u8; 32], vault: [u8; 32], collateral
 
     set_default_thresholds();
 
-    assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-        FixedU128::one()
-    ));
+    assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
 
     let fee = FeeModule::get_redeem_fee(polka_btc).unwrap();
 
@@ -90,18 +83,12 @@ pub fn execute_redeem(polka_btc: u128, redeem_id: H256) {
 
     SystemModule::set_block_number(1 + CONFIRMATIONS);
 
-    assert_ok!(Call::Redeem(RedeemCall::execute_redeem(
-        redeem_id,
-        tx_id,
-        merkle_proof,
-        raw_tx
-    ))
-    .dispatch(origin_of(account_of(VAULT))));
+    assert_ok!(
+        Call::Redeem(RedeemCall::execute_redeem(redeem_id, tx_id, merkle_proof, raw_tx))
+            .dispatch(origin_of(account_of(VAULT)))
+    );
 }
 
 pub fn cancel_redeem(redeem_id: H256, redeemer: [u8; 32], reimburse: bool) {
-    assert_ok!(
-        Call::Redeem(RedeemCall::cancel_redeem(redeem_id, reimburse))
-            .dispatch(origin_of(account_of(redeemer)))
-    );
+    assert_ok!(Call::Redeem(RedeemCall::cancel_redeem(redeem_id, reimburse)).dispatch(origin_of(account_of(redeemer))));
 }

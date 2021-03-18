@@ -1,26 +1,26 @@
 use super::*;
 use crate::Module as Issue;
-use bitcoin::formatter::{Formattable, TryFormattable};
-use bitcoin::types::{
-    BlockBuilder, RawBlockHeader, TransactionBuilder, TransactionInputBuilder, TransactionOutput,
+use bitcoin::{
+    formatter::{Formattable, TryFormattable},
+    types::{BlockBuilder, RawBlockHeader, TransactionBuilder, TransactionInputBuilder, TransactionOutput},
 };
-use btc_relay::Module as BtcRelay;
-use btc_relay::{BtcAddress, BtcPublicKey};
+use btc_relay::{BtcAddress, BtcPublicKey, Module as BtcRelay};
 use exchange_rate_oracle::Module as ExchangeRateOracle;
 use frame_benchmarking::{account, benchmarks};
-use frame_system::Module as System;
-use frame_system::RawOrigin;
+use frame_system::{Module as System, RawOrigin};
 use security::Module as Security;
 use sp_core::{H160, H256, U256};
 use sp_runtime::FixedPointNumber;
 use sp_std::prelude::*;
-use vault_registry::types::{Vault, Wallet};
-use vault_registry::Module as VaultRegistry;
+use vault_registry::{
+    types::{Vault, Wallet},
+    Module as VaultRegistry,
+};
 
 fn dummy_public_key() -> BtcPublicKey {
     BtcPublicKey([
-        2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55,
-        18, 45, 222, 180, 119, 54, 243, 97, 173, 150, 161, 169, 230,
+        2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55, 18, 45, 222, 180,
+        119, 54, 243, 97, 173, 150, 161, 169, 230,
     ])
 }
 
@@ -147,14 +147,9 @@ mod tests {
 
     #[test]
     fn test_benchmarks() {
-        ExtBuilder::build_with(
-            pallet_balances::GenesisConfig::<Test, pallet_balances::Instance1> {
-                balances: vec![
-                    (account("Origin", 0, 0), 1 << 32),
-                    (account("Vault", 0, 0), 1 << 32),
-                ],
-            },
-        )
+        ExtBuilder::build_with(pallet_balances::GenesisConfig::<Test, pallet_balances::Instance1> {
+            balances: vec![(account("Origin", 0, 0), 1 << 32), (account("Vault", 0, 0), 1 << 32)],
+        })
         .execute_with(|| {
             assert_ok!(test_benchmark_request_issue::<Test>());
             assert_ok!(test_benchmark_execute_issue::<Test>());

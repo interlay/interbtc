@@ -1,6 +1,4 @@
-use crate::ext;
-use crate::mock::*;
-use crate::{has_request_expired, PolkaBTC, ReplaceRequest, DOT};
+use crate::{ext, has_request_expired, mock::*, PolkaBTC, ReplaceRequest, DOT};
 use bitcoin::types::H256Le;
 use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::{
@@ -23,10 +21,7 @@ macro_rules! assert_emitted {
     ($event:expr, $times:expr) => {
         let test_event = TestEvent::replace($event);
         assert_eq!(
-            System::events()
-                .iter()
-                .filter(|a| a.event == test_event)
-                .count(),
+            System::events().iter().filter(|a| a.event == test_event).count(),
             $times
         );
     };
@@ -49,8 +44,8 @@ fn test_request() -> ReplaceRequest<u64, u64, u64, u64> {
 
 fn dummy_public_key() -> BtcPublicKey {
     BtcPublicKey([
-        2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55,
-        18, 45, 222, 180, 119, 54, 243, 97, 173, 150, 161, 169, 230,
+        2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55, 18, 45, 222, 180,
+        119, 54, 243, 97, 173, 150, 161, 169, 230,
     ])
 }
 
@@ -68,11 +63,7 @@ fn test_vault() -> Vault<u64, u64, u64, u64> {
     }
 }
 
-fn request_replace(
-    vault: AccountId,
-    amount: Balance,
-    griefing_collateral: DOT<Test>,
-) -> DispatchResult {
+fn request_replace(vault: AccountId, amount: Balance, griefing_collateral: DOT<Test>) -> DispatchResult {
     Replace::_request_replace(vault, amount, griefing_collateral)
 }
 
@@ -80,11 +71,7 @@ fn withdraw_replace(vault_id: AccountId, replace_id: H256) -> Result<(), Dispatc
     Replace::_withdraw_replace_request(vault_id, replace_id)
 }
 
-fn accept_replace(
-    vault_id: AccountId,
-    replace_id: H256,
-    collateral: DOT<Test>,
-) -> Result<(), DispatchError> {
+fn accept_replace(vault_id: AccountId, replace_id: H256, collateral: DOT<Test>) -> Result<(), DispatchError> {
     Replace::_accept_replace(vault_id, replace_id, collateral, BtcAddress::default())
 }
 
@@ -155,20 +142,14 @@ fn test_auction_replace_below_dust_fails() {
             }))
         });
 
-        assert_noop!(
-            auction_replace(BOB, ALICE, 0, 0),
-            TestError::AmountBelowDustAmount
-        );
+        assert_noop!(auction_replace(BOB, ALICE, 0, 0), TestError::AmountBelowDustAmount);
     })
 }
 
 #[test]
 fn test_request_replace_vault_not_found_fails() {
     run_test(|| {
-        assert_noop!(
-            request_replace(10_000, 5, 0),
-            VaultRegistryError::VaultNotFound
-        );
+        assert_noop!(request_replace(10_000, 5, 0), VaultRegistryError::VaultNotFound);
     })
 }
 
@@ -190,10 +171,7 @@ fn test_request_replace_vault_banned_fails() {
                 status: VaultStatus::Active,
             }))
         });
-        assert_noop!(
-            Replace::_request_replace(BOB, 5, 0),
-            VaultRegistryError::VaultBanned
-        );
+        assert_noop!(Replace::_request_replace(BOB, 5, 0), VaultRegistryError::VaultBanned);
     })
 }
 #[test]
@@ -219,8 +197,7 @@ fn test_request_replace_amount_below_dust_value_fails() {
                 status: VaultStatus::Active,
             }))
         });
-        ext::vault_registry::is_over_minimum_collateral::<Test>
-            .mock_safe(|_| MockResult::Return(true));
+        ext::vault_registry::is_over_minimum_collateral::<Test>.mock_safe(|_| MockResult::Return(true));
         ext::oracle::btc_to_dots::<Test>.mock_safe(|_| MockResult::Return(Ok(0)));
         ext::fee::get_replace_griefing_collateral::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(desired_griefing_collateral)));
@@ -255,8 +232,7 @@ fn test_request_replace_insufficient_griefing_collateral_fails() {
                 status: VaultStatus::Active,
             }))
         });
-        ext::vault_registry::is_over_minimum_collateral::<Test>
-            .mock_safe(|_| MockResult::Return(true));
+        ext::vault_registry::is_over_minimum_collateral::<Test>.mock_safe(|_| MockResult::Return(true));
         ext::oracle::btc_to_dots::<Test>.mock_safe(|_| MockResult::Return(Ok(0)));
         ext::fee::get_replace_griefing_collateral::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(desired_griefing_collateral)));
@@ -272,8 +248,7 @@ fn test_request_replace_insufficient_griefing_collateral_fails() {
 #[test]
 fn test_withdraw_replace_request_invalid_replace_id_fails() {
     run_test(|| {
-        Replace::get_open_replace_request
-            .mock_safe(|_| MockResult::Return(Err(TestError::ReplaceIdNotFound.into())));
+        Replace::get_open_replace_request.mock_safe(|_| MockResult::Return(Err(TestError::ReplaceIdNotFound.into())));
         assert_noop!(
             Replace::_withdraw_replace_request(ALICE, H256([0u8; 32])),
             TestError::ReplaceIdNotFound
@@ -298,12 +273,8 @@ fn test_withdraw_replace_request_invalid_vault_id_fails() {
 fn test_withdraw_replace_req_vault_id_mismatch_fails() {
     run_test(|| {
         Replace::get_open_replace_request.mock_safe(|_| MockResult::Return(Ok(test_request())));
-        ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(|_id| MockResult::Return(Ok(test_vault())));
-        assert_noop!(
-            withdraw_replace(BOB, H256([0u8; 32])),
-            TestError::UnauthorizedVault
-        );
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|_id| MockResult::Return(Ok(test_vault())));
+        assert_noop!(withdraw_replace(BOB, H256([0u8; 32])), TestError::UnauthorizedVault);
     })
 }
 
@@ -318,10 +289,7 @@ fn test_withdraw_replace_req_under_secure_threshold_fails() {
                 v
             }))
         });
-        assert_noop!(
-            withdraw_replace(BOB, H256([0u8; 32])),
-            TestError::UnauthorizedVault
-        );
+        assert_noop!(withdraw_replace(BOB, H256([0u8; 32])), TestError::UnauthorizedVault);
     })
 }
 
@@ -341,8 +309,7 @@ fn test_withdraw_replace_req_has_new_owner_fails() {
                 v
             }))
         });
-        ext::vault_registry::is_vault_below_auction_threshold::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(false)));
+        ext::vault_registry::is_vault_below_auction_threshold::<Test>.mock_safe(|_| MockResult::Return(Ok(false)));
         assert_noop!(
             withdraw_replace(ALICE, H256([0u8; 32])),
             TestError::CancelAcceptedRequest
@@ -366,8 +333,7 @@ fn test_accept_replace_bad_replace_id_fails() {
                 v
             }))
         });
-        ext::vault_registry::is_vault_below_auction_threshold::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(true)));
+        ext::vault_registry::is_vault_below_auction_threshold::<Test>.mock_safe(|_| MockResult::Return(Ok(true)));
         let collateral = 100_000;
         assert_noop!(
             accept_replace(ALICE, H256([0u8; 32]), collateral),
@@ -387,8 +353,7 @@ fn test_accept_replace_bad_vault_id_fails() {
         });
         ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_id| MockResult::Return(Err(VaultRegistryError::VaultNotFound.into())));
-        ext::vault_registry::is_vault_below_auction_threshold::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(false)));
+        ext::vault_registry::is_vault_below_auction_threshold::<Test>.mock_safe(|_| MockResult::Return(Ok(false)));
         let collateral = 100_000;
         assert_noop!(
             accept_replace(ALICE, H256([0u8; 32]), collateral),
@@ -413,10 +378,8 @@ fn test_accept_replace_vault_banned_fails() {
             vault.banned_until = Some(100);
             MockResult::Return(Ok(vault))
         });
-        ext::vault_registry::insert_vault_deposit_address::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(())));
-        ext::vault_registry::is_vault_below_auction_threshold::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(false)));
+        ext::vault_registry::insert_vault_deposit_address::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::is_vault_below_auction_threshold::<Test>.mock_safe(|_| MockResult::Return(Ok(false)));
         let collateral = 100_000;
         assert_noop!(
             accept_replace(ALICE, H256([0u8; 32]), collateral),
@@ -440,17 +403,12 @@ fn test_accept_replace_insufficient_collateral_fails() {
             vault.banned_until = None;
             MockResult::Return(Ok(vault))
         });
-        ext::vault_registry::try_lock_additional_collateral::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(())));
-        ext::vault_registry::insert_vault_deposit_address::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(())));
-        ext::vault_registry::decrease_to_be_replaced_tokens::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(())));
-        ext::vault_registry::try_increase_to_be_redeemed_tokens::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(())));
-        ext::vault_registry::try_increase_to_be_issued_tokens::<Test>.mock_safe(|_, _| {
-            MockResult::Return(Err(VaultRegistryError::ExceedingVaultLimit.into()))
-        });
+        ext::vault_registry::try_lock_additional_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::insert_vault_deposit_address::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::decrease_to_be_replaced_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::try_increase_to_be_redeemed_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::try_increase_to_be_issued_tokens::<Test>
+            .mock_safe(|_, _| MockResult::Return(Err(VaultRegistryError::ExceedingVaultLimit.into())));
 
         let collateral = 100_000;
         assert_err!(
@@ -508,10 +466,8 @@ fn test_auction_replace_insufficient_collateral_fails() {
                 Ok(test_vault())
             })
         });
-        ext::vault_registry::insert_vault_deposit_address::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(())));
-        ext::vault_registry::is_vault_below_auction_threshold::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(false)));
+        ext::vault_registry::insert_vault_deposit_address::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::is_vault_below_auction_threshold::<Test>.mock_safe(|_| MockResult::Return(Ok(false)));
         let collateral = 100_000;
         let btc_amount = 100;
         assert_noop!(
@@ -524,8 +480,7 @@ fn test_auction_replace_insufficient_collateral_fails() {
 #[test]
 fn test_execute_replace_bad_replace_id_fails() {
     run_test(|| {
-        Replace::get_open_replace_request
-            .mock_safe(|_| MockResult::Return(Err(TestError::ReplaceIdNotFound.into())));
+        Replace::get_open_replace_request.mock_safe(|_| MockResult::Return(Err(TestError::ReplaceIdNotFound.into())));
 
         let replace_id = H256::zero();
         let tx_id = H256Le::zero();
@@ -565,16 +520,12 @@ fn test_execute_replace_replace_period_expired_fails() {
 #[test]
 fn test_cancel_replace_invalid_replace_id_fails() {
     run_test(|| {
-        Replace::get_open_replace_request
-            .mock_safe(|_| MockResult::Return(Err(TestError::ReplaceIdNotFound.into())));
+        Replace::get_open_replace_request.mock_safe(|_| MockResult::Return(Err(TestError::ReplaceIdNotFound.into())));
 
         let new_vault_id = ALICE;
         let replace_id = H256::zero();
 
-        assert_err!(
-            cancel_replace(new_vault_id, replace_id),
-            TestError::ReplaceIdNotFound
-        );
+        assert_err!(cancel_replace(new_vault_id, replace_id), TestError::ReplaceIdNotFound);
     })
 }
 
@@ -623,22 +574,18 @@ fn test_request_replace_with_amount_exceed_vault_issued_tokens_succeeds() {
 
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
-        ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(vault.clone())));
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(move |_| MockResult::Return(Ok(vault.clone())));
 
-        ext::vault_registry::is_over_minimum_collateral::<Test>
-            .mock_safe(|_| MockResult::Return(true));
+        ext::vault_registry::is_over_minimum_collateral::<Test>.mock_safe(|_| MockResult::Return(true));
         ext::collateral::lock_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-        ext::vault_registry::try_increase_to_be_replaced_tokens::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::try_increase_to_be_replaced_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::security::get_secure_id::<Test>.mock_safe(|_| MockResult::Return(H256::zero()));
         ext::vault_registry::get_backing_collateral::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(griefing_collateral)));
 
         assert_ok!(request_replace(vault_id, amount, griefing_collateral));
 
-        let event =
-            Event::RequestReplace(replace_id, vault_id, replace_amount, griefing_collateral);
+        let event = Event::RequestReplace(replace_id, vault_id, replace_amount, griefing_collateral);
         assert_emitted!(event);
     })
 }
@@ -656,23 +603,19 @@ fn test_request_replace_with_amount_less_than_vault_issued_tokens_succeeds() {
 
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
-        ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(vault.clone())));
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(move |_| MockResult::Return(Ok(vault.clone())));
 
-        ext::vault_registry::is_over_minimum_collateral::<Test>
-            .mock_safe(|_| MockResult::Return(true));
+        ext::vault_registry::is_over_minimum_collateral::<Test>.mock_safe(|_| MockResult::Return(true));
         ext::collateral::lock_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
-        ext::vault_registry::try_increase_to_be_replaced_tokens::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::try_increase_to_be_replaced_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::security::get_secure_id::<Test>.mock_safe(|_| MockResult::Return(H256::zero()));
         ext::vault_registry::get_backing_collateral::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(griefing_collateral)));
 
         assert_ok!(request_replace(vault_id, amount, griefing_collateral));
 
-        let event =
-            Event::RequestReplace(replace_id, vault_id, replace_amount, griefing_collateral);
+        let event = Event::RequestReplace(replace_id, vault_id, replace_amount, griefing_collateral);
         assert_emitted!(event);
     })
 }
@@ -688,13 +631,10 @@ fn test_withdraw_replace_succeeds() {
             MockResult::Return(Ok(replace))
         });
 
-        ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(test_vault())));
-        ext::vault_registry::is_vault_below_auction_threshold::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(false)));
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|_| MockResult::Return(Ok(test_vault())));
+        ext::vault_registry::is_vault_below_auction_threshold::<Test>.mock_safe(|_| MockResult::Return(Ok(false)));
         ext::collateral::release_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-        ext::vault_registry::decrease_to_be_replaced_tokens::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::decrease_to_be_replaced_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
         Replace::remove_replace_request.mock_safe(|_, _| MockResult::Return(()));
 
@@ -723,20 +663,15 @@ fn test_accept_replace_succeeds() {
 
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
-        ext::vault_registry::try_lock_additional_collateral::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::try_lock_additional_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
-        ext::vault_registry::decrease_to_be_replaced_tokens::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::decrease_to_be_replaced_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
-        ext::vault_registry::try_increase_to_be_redeemed_tokens::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::try_increase_to_be_redeemed_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
-        ext::vault_registry::try_increase_to_be_issued_tokens::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::try_increase_to_be_issued_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
-        ext::vault_registry::insert_vault_deposit_address::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::insert_vault_deposit_address::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
         ext::collateral::lock_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
@@ -768,25 +703,20 @@ fn test_auction_replace_succeeds() {
 
         // NOTE: we don't use the old_vault in the code - should be changed to just
         // check if it exists in storage
-        ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(test_vault())));
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|_| MockResult::Return(Ok(test_vault())));
 
-        ext::vault_registry::insert_vault_deposit_address::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::insert_vault_deposit_address::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
-        ext::vault_registry::is_vault_below_auction_threshold::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(true)));
+        ext::vault_registry::is_vault_below_auction_threshold::<Test>.mock_safe(|_| MockResult::Return(Ok(true)));
 
         ext::vault_registry::slash_collateral::<Test>.mock_safe(|_, _, fee| {
             assert_eq!(fee, 50); // 5% of dot equivalent of the btc_amount
             MockResult::Return(Ok(()))
         });
 
-        ext::vault_registry::try_lock_additional_collateral::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::try_lock_additional_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
-        ext::vault_registry::try_increase_to_be_redeemed_tokens::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::try_increase_to_be_redeemed_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
         ext::security::get_secure_id::<Test>.mock_safe(|_| MockResult::Return(H256::zero()));
 
@@ -795,8 +725,7 @@ fn test_auction_replace_succeeds() {
         ext::fee::get_replace_griefing_collateral::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(griefing_collateral)));
 
-        ext::vault_registry::try_increase_to_be_issued_tokens::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::try_increase_to_be_issued_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
         Replace::current_height.mock_safe(move || MockResult::Return(height.clone()));
 
@@ -840,28 +769,21 @@ fn test_execute_replace_succeeds() {
         Replace::current_height.mock_safe(|| MockResult::Return(10));
         Replace::replace_period.mock_safe(|| MockResult::Return(20));
 
-        ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(test_vault())));
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|_| MockResult::Return(Ok(test_vault())));
 
-        ext::btc_relay::verify_transaction_inclusion::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::btc_relay::validate_transaction::<Test>
             .mock_safe(|_, _, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 0))));
 
-        ext::vault_registry::replace_tokens::<Test>
-            .mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
+        ext::vault_registry::replace_tokens::<Test>.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
 
         ext::collateral::release_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
-        ext::vault_registry::is_vault_liquidated::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(false)));
+        ext::vault_registry::is_vault_liquidated::<Test>.mock_safe(|_| MockResult::Return(Ok(false)));
 
         Replace::remove_replace_request.mock_safe(|_, _| MockResult::Return(()));
 
-        assert_eq!(
-            execute_replace(replace_id, tx_id, merkle_proof, raw_tx),
-            Ok(())
-        );
+        assert_eq!(execute_replace(replace_id, tx_id, merkle_proof, raw_tx), Ok(()));
 
         let event = Event::ExecuteReplace(replace_id, old_vault_id, new_vault_id);
         assert_emitted!(event);
@@ -886,20 +808,15 @@ fn test_cancel_replace_succeeds() {
         });
         Replace::current_height.mock_safe(|| MockResult::Return(15));
         Replace::replace_period.mock_safe(|| MockResult::Return(2));
-        ext::vault_registry::cancel_replace_tokens::<Test>
-            .mock_safe(|_, _, _| MockResult::Return(Ok(())));
-        ext::vault_registry::is_vault_liquidated::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(false)));
+        ext::vault_registry::cancel_replace_tokens::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));
+        ext::vault_registry::is_vault_liquidated::<Test>.mock_safe(|_| MockResult::Return(Ok(false)));
 
         Replace::remove_replace_request.mock_safe(|_, _| MockResult::Return(()));
-        ext::vault_registry::slash_collateral::<Test>
-            .mock_safe(|_, _, _| MockResult::Return(Ok(())));
-        ext::vault_registry::is_allowed_to_withdraw_collateral::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(false)));
+        ext::vault_registry::slash_collateral::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));
+        ext::vault_registry::is_allowed_to_withdraw_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(false)));
         assert_eq!(cancel_replace(new_vault_id, replace_id), Ok(()));
 
-        let event =
-            Event::CancelReplace(replace_id, new_vault_id, old_vault_id, griefing_collateral);
+        let event = Event::CancelReplace(replace_id, new_vault_id, old_vault_id, griefing_collateral);
         assert_emitted!(event);
     })
 }
@@ -924,10 +841,7 @@ fn test_cancel_replace_as_third_party_fails() {
         Replace::replace_period.mock_safe(|| MockResult::Return(2));
         Replace::remove_replace_request.mock_safe(|_, _| MockResult::Return(()));
 
-        assert_noop!(
-            cancel_replace(canceller, replace_id),
-            TestError::UnauthorizedVault
-        );
+        assert_noop!(cancel_replace(canceller, replace_id), TestError::UnauthorizedVault);
     })
 }
 
@@ -937,10 +851,7 @@ fn test_request_replace_parachain_not_running_fails() {
     run_test(|| {
         ext::security::ensure_parachain_status_running::<Test>
             .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainNotRunning.into())));
-        assert_noop!(
-            request_replace(10_000, 1, 0),
-            SecurityError::ParachainNotRunning
-        );
+        assert_noop!(request_replace(10_000, 1, 0), SecurityError::ParachainNotRunning);
     })
 }
 
@@ -949,10 +860,7 @@ fn test_accept_replace_parachain_not_running_fails() {
     run_test(|| {
         ext::security::ensure_parachain_status_running::<Test>
             .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainNotRunning.into())));
-        assert_noop!(
-            accept_replace(BOB, H256::zero(), 1),
-            SecurityError::ParachainNotRunning
-        );
+        assert_noop!(accept_replace(BOB, H256::zero(), 1), SecurityError::ParachainNotRunning);
     })
 }
 
@@ -961,10 +869,7 @@ fn test_auction_replace_parachain_not_running_fails() {
     run_test(|| {
         ext::security::ensure_parachain_status_running::<Test>
             .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainNotRunning.into())));
-        assert_noop!(
-            auction_replace(ALICE, BOB, 1, 1),
-            SecurityError::ParachainNotRunning
-        );
+        assert_noop!(auction_replace(ALICE, BOB, 1, 1), SecurityError::ParachainNotRunning);
     })
 }
 
@@ -985,10 +890,7 @@ fn test_cancel_replace_parachain_not_running_fails() {
     run_test(|| {
         ext::security::ensure_parachain_status_running::<Test>
             .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainNotRunning.into())));
-        assert_noop!(
-            cancel_replace(ALICE, H256::zero()),
-            SecurityError::ParachainNotRunning
-        );
+        assert_noop!(cancel_replace(ALICE, H256::zero()), SecurityError::ParachainNotRunning);
     })
 }
 
@@ -1004,15 +906,11 @@ fn test_withdraw_replace_parachain_not_running_succeeds() {
             MockResult::Return(Ok(replace))
         });
 
-        ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(test_vault())));
-        ext::vault_registry::is_vault_below_auction_threshold::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(false)));
-        ext::vault_registry::try_increase_to_be_redeemed_tokens::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|_| MockResult::Return(Ok(test_vault())));
+        ext::vault_registry::is_vault_below_auction_threshold::<Test>.mock_safe(|_| MockResult::Return(Ok(false)));
+        ext::vault_registry::try_increase_to_be_redeemed_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::collateral::release_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-        ext::vault_registry::decrease_to_be_replaced_tokens::<Test>
-            .mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::decrease_to_be_replaced_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::security::ensure_parachain_status_running::<Test>
             .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainNotRunning.into())));
 
