@@ -488,15 +488,28 @@ impl<T: Config> Module<T> {
         raw_block_header: RawBlockHeader,
     ) -> DispatchResult {
         if let Err(err) = Self::_store_block_header(relayer.clone(), raw_block_header) {
-            if err != DispatchError::from(Error::<T>::DuplicateBlock) {
-                return Err(err);
+            if err == DispatchError::from(Error::<T>::DuplicateBlock) {
+                // only accept duplicate if it is the chain head
+                let this_header_hash = raw_block_header.hash();
+                let best_header_hash = Self::get_best_block();
+                ensure!(
+                    this_header_hash == best_header_hash,
+                    Error::<T>::OutdatedBlock
+                );
+                ext::sla::event_update_relayer_sla::<T>(
+                    &relayer,
+                    ext::sla::RelayerEvent::DuplicateBlockSubmission,
+                )?;
+                return Ok(());
             }
+            return Err(err);
         }
 
         ext::sla::event_update_relayer_sla::<T>(&relayer, ext::sla::RelayerEvent::BlockSubmission)?;
         Ok(())
     }
 
+    #[transactional]
     pub fn _store_block_header(
         relayer: T::AccountId,
         raw_block_header: RawBlockHeader,
@@ -1661,6 +1674,8 @@ decl_error! {
         InvalidHeaderSize,
         /// Block already stored
         DuplicateBlock,
+        /// Block already stored and is not head
+        OutdatedBlock,
         /// Previous block hash not found
         PrevBlock,
         /// Invalid chain ID

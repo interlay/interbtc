@@ -2055,9 +2055,11 @@ fn test_store_block_header_and_update_sla_succeeds_with_duplicate() {
         BTCRelay::_store_block_header
             .mock_safe(|_, _| MockResult::Return(Err(TestError::DuplicateBlock.into())));
 
+        BTCRelay::get_best_block.mock_safe(|| MockResult::Return(RawBlockHeader::default().hash()));
+
         ext::sla::event_update_relayer_sla::<Test>.mock_safe(|&relayer_id, event| {
             assert_eq!(relayer_id, 0);
-            assert_eq!(event, ext::sla::RelayerEvent::BlockSubmission);
+            assert_eq!(event, ext::sla::RelayerEvent::DuplicateBlockSubmission);
             MockResult::Return(Ok(()))
         });
 

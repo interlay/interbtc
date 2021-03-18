@@ -1,4 +1,5 @@
 use crate::Config;
+use codec::{Decode, Encode};
 use sp_arithmetic::FixedPointNumber;
 
 pub enum VaultEvent<PolkaBTC> {
@@ -8,9 +9,10 @@ pub enum VaultEvent<PolkaBTC> {
     Refunded,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Encode, Decode, Clone, PartialEq, Debug)]
 pub enum RelayerEvent {
     BlockSubmission,
+    DuplicateBlockSubmission,
     CorrectNoDataVoteOrReport,
     CorrectInvalidVoteOrReport,
     CorrectLiquidationReport,
