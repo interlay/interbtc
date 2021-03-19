@@ -39,7 +39,6 @@ use frame_support::{
 };
 use frame_system::{ensure_root, ensure_signed};
 use primitive_types::H256;
-use security::ErrorCode;
 use sp_runtime::{traits::*, ModuleId};
 use sp_std::{convert::TryInto, vec::Vec};
 use vault_registry::CurrencySource;
@@ -232,7 +231,7 @@ impl<T: Config> Module<T> {
         btc_address: BtcAddress,
         vault_id: T::AccountId,
     ) -> Result<H256, DispatchError> {
-        Self::ensure_parachain_running_or_error_liquidated()?;
+        ext::security::ensure_parachain_status_running::<T>()?;
 
         let redeemer_balance = ext::treasury::get_balance::<T>(redeemer.clone());
         ensure!(
@@ -309,7 +308,7 @@ impl<T: Config> Module<T> {
     }
 
     fn _liquidation_redeem(redeemer: T::AccountId, amount_polka_btc: PolkaBTC<T>) -> Result<(), DispatchError> {
-        Self::ensure_parachain_running_or_error_liquidated()?;
+        ext::security::ensure_parachain_status_running::<T>()?;
 
         let redeemer_balance = ext::treasury::get_balance::<T>(redeemer.clone());
         ensure!(
@@ -333,7 +332,7 @@ impl<T: Config> Module<T> {
         merkle_proof: Vec<u8>,
         raw_tx: Vec<u8>,
     ) -> Result<(), DispatchError> {
-        Self::ensure_parachain_running_or_error_liquidated()?;
+        ext::security::ensure_parachain_status_running::<T>()?;
 
         let redeem = Self::get_open_redeem_request_from_id(&redeem_id)?;
 
@@ -496,11 +495,6 @@ impl<T: Config> Module<T> {
         ));
 
         Ok(())
-    }
-
-    /// Ensure that the parachain is running or the system is in liquidation
-    fn ensure_parachain_running_or_error_liquidated() -> DispatchResult {
-        ext::security::ensure_parachain_is_running_or_only_has_errors::<T>([ErrorCode::Liquidation].to_vec())
     }
 
     /// Insert a new redeem request into state.

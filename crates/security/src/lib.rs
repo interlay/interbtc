@@ -185,11 +185,6 @@ impl<T: Config> Module<T> {
         <ParachainStatus>::get() == StatusCode::Error && <Errors>::get().contains(&ErrorCode::OracleOffline)
     }
 
-    /// Checks if the Parachain has a Liquidation Error state
-    pub fn is_parachain_error_liquidation() -> bool {
-        <ParachainStatus>::get() == StatusCode::Error && <Errors>::get().contains(&ErrorCode::Liquidation)
-    }
-
     /// Gets the current `StatusCode`.
     pub fn get_parachain_status() -> StatusCode {
         <ParachainStatus>::get()
@@ -309,7 +304,6 @@ impl<T: Config> From<ErrorCode> for Error<T> {
             ErrorCode::NoDataBTCRelay => Error::NoDataBTCRelay,
             ErrorCode::InvalidBTCRelay => Error::InvalidBTCRelay,
             ErrorCode::OracleOffline => Error::ParachainOracleOfflineError,
-            ErrorCode::Liquidation => Error::ParachainLiquidationError,
             _ => Error::InvalidErrorCode,
         }
     }
