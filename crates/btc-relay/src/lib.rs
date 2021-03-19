@@ -103,7 +103,7 @@ decl_storage! {
     trait Store for Module<T: Config> as BTCRelay {
         /// ## Storage
         /// Store Bitcoin block headers
-        BlockHeaders: map hasher(blake2_128_concat) H256Le => RichBlockHeader<T::AccountId>;
+        BlockHeaders: map hasher(blake2_128_concat) H256Le => RichBlockHeader<T::AccountId, T::BlockNumber>;
 
         /// Priority queue of BlockChain elements, ordered by the maximum height (descending).
         /// The first index into this mapping (0) is considered to be the longest chain. The value
@@ -125,9 +125,6 @@ decl_storage! {
 
         /// Increment-only counter used to track new BlockChain entries
         ChainCounter: u32;
-
-        /// Registers the parachain height upon storing a block
-        ParachainHeight: map hasher(blake2_128_concat) H256Le => T::BlockNumber;
 
         /// Global security parameter k for stable Bitcoin transactions
         StableBitcoinConfirmations get(fn bitcoin_confirmations) config(): u32;
@@ -440,15 +437,19 @@ impl<T: Config> Module<T> {
         let basic_block_header = parse_block_header(&raw_block_header).map_err(|err| Error::<T>::from(err))?;
         let block_header_hash = raw_block_header.hash();
 
+        // register the current height to track stable parachain confirmations
+        let para_height = <frame_system::Module<T>>::block_number();
+
         // construct the BlockChain struct
         let blockchain = Self::initialize_blockchain(block_height, block_header_hash);
         // Create rich block header
-        let block_header = RichBlockHeader::<T::AccountId> {
+        let block_header = RichBlockHeader::<T::AccountId, T::BlockNumber> {
             block_hash: block_header_hash,
             block_header: basic_block_header,
             block_height: block_height,
             chain_ref: blockchain.chain_id,
             account_id: relayer.clone(),
+            para_height,
         };
 
         // Store a new BlockHeader struct in BlockHeaders
@@ -529,13 +530,17 @@ impl<T: Config> Module<T> {
             Self::extend_blockchain(current_block_height, &block_header_hash, prev_blockchain)?
         };
 
+        // register the current height to track stable parachain confirmations
+        let para_height = <frame_system::Module<T>>::block_number();
+
         // Create rich block header
-        let block_header = RichBlockHeader::<T::AccountId> {
+        let block_header = RichBlockHeader::<T::AccountId, T::BlockNumber> {
             block_hash: block_header_hash,
             block_header: basic_block_header,
             block_height: current_block_height,
             chain_ref: blockchain.chain_id,
             account_id: relayer.clone(),
+            para_height,
         };
 
         // Store a new BlockHeader struct in BlockHeaders
@@ -612,7 +617,7 @@ impl<T: Config> Module<T> {
         Self::check_bitcoin_confirmations(best_block_height, confirmations, block_height)?;
 
         // This call fails if the block was stored too recently
-        Self::check_parachain_confirmations(rich_header.block_hash)?;
+        Self::check_parachain_confirmations(rich_header.para_height)?;
 
         let proof_result = Self::verify_merkle_proof(&merkle_proof)?;
 
@@ -874,7 +879,9 @@ impl<T: Config> Module<T> {
     }
 
     /// Get a block header from its hash
-    fn get_block_header_from_hash(block_hash: H256Le) -> Result<RichBlockHeader<T::AccountId>, DispatchError> {
+    fn get_block_header_from_hash(
+        block_hash: H256Le,
+    ) -> Result<RichBlockHeader<T::AccountId, T::BlockNumber>, DispatchError> {
         if <BlockHeaders<T>>::contains_key(block_hash) {
             return Ok(<BlockHeaders<T>>::get(block_hash));
         }
@@ -890,7 +897,7 @@ impl<T: Config> Module<T> {
     fn get_block_header_from_height(
         blockchain: &BlockChain,
         block_height: u32,
-    ) -> Result<RichBlockHeader<T::AccountId>, DispatchError> {
+    ) -> Result<RichBlockHeader<T::AccountId, T::BlockNumber>, DispatchError> {
         let block_hash = Self::get_block_hash(blockchain.chain_id, block_height)?;
         Self::get_block_header_from_hash(block_hash)
     }
@@ -945,16 +952,8 @@ impl<T: Config> Module<T> {
     }
 
     /// Set a new block header
-    fn set_block_header_from_hash(hash: H256Le, header: &RichBlockHeader<T::AccountId>) {
+    fn set_block_header_from_hash(hash: H256Le, header: &RichBlockHeader<T::AccountId, T::BlockNumber>) {
         <BlockHeaders<T>>::insert(hash, header);
-        // register the current height to track stable parachain confirmations
-        Self::set_parachain_height_from_hash(hash);
-    }
-
-    /// Store the height of the parachain when storing a Bitcoin header
-    fn set_parachain_height_from_hash(hash: H256Le) {
-        let height = <frame_system::Module<T>>::block_number();
-        <ParachainHeight<T>>::insert(hash, height);
     }
 
     /// update the chain_ref of a block header
@@ -1125,7 +1124,7 @@ impl<T: Config> Module<T> {
     /// * `prev_block_header`: previous block header
     /// * `block_height` : block height of new target
     fn compute_new_target(
-        prev_block_header: &RichBlockHeader<T::AccountId>,
+        prev_block_header: &RichBlockHeader<T::AccountId, T::BlockNumber>,
         block_height: u32,
     ) -> Result<U256, DispatchError> {
         // get time of last retarget
@@ -1506,13 +1505,12 @@ impl<T: Config> Module<T> {
     /// to flag potentially invalid blocks.
     ///
     /// # Arguments
-    /// * `block_hash` - hash of the block to check
-    pub fn check_parachain_confirmations(block_hash: H256Le) -> Result<(), DispatchError> {
+    /// * `para_height` - height of the parachain when the block was stored
+    pub fn check_parachain_confirmations(para_height: T::BlockNumber) -> Result<(), DispatchError> {
         let current_height = <frame_system::Module<T>>::block_number();
-        let submitted_height = <ParachainHeight<T>>::get(block_hash);
 
         ensure!(
-            submitted_height + Self::parachain_confirmations() <= current_height,
+            para_height + Self::parachain_confirmations() <= current_height,
             Error::<T>::ParachainConfirmations
         );
 
