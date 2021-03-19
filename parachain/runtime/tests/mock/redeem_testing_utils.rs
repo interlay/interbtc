@@ -3,8 +3,6 @@ use crate::*;
 pub const USER: [u8; 32] = ALICE;
 pub const VAULT: [u8; 32] = BOB;
 pub const USER_BTC_ADDRESS: BtcAddress = BtcAddress::P2PKH(H160([2u8; 20]));
-pub const DEFAULT_USER_FREE_BALANCE: u128 = 1_000_000;
-pub const DEFAULT_USER_LOCKED_BALANCE: u128 = 100_000;
 
 pub fn setup_cancelable_redeem(user: [u8; 32], vault: [u8; 32], collateral: u128, polka_btc: u128) -> H256 {
     let redeem_id = setup_redeem(polka_btc, user, vault, collateral);

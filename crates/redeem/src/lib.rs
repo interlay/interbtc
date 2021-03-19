@@ -465,7 +465,7 @@ impl<T: Config> Module<T> {
                 slashed_punishment_fee
             };
             // calculate additional amount to slash, a high SLA means we slash less
-            let slashing_amount_in_dot = ext::sla::calculate_slashed_amount::<T>(&vault_id, amount_polka_btc_in_dot)?;
+            let slashing_amount_in_dot = ext::sla::calculate_slashed_amount::<T>(&vault_id, amount_polka_btc_in_dot, reimburse)?;
 
             // slash the remaining amount from the vault to the fee pool
             let remaining_dot_to_be_slashed = slashing_amount_in_dot

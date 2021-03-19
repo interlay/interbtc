@@ -42,6 +42,11 @@ pub const FAUCET: [u8; 32] = [128u8; 32];
 pub const INITIAL_BALANCE: u128 = 1_000_000_000_000;
 pub const INITIAL_LIQUIDATION_VAULT_BALANCE: u128 = 1_000;
 
+pub const DEFAULT_USER_FREE_BALANCE: u128 = 1_000_000;
+pub const DEFAULT_USER_LOCKED_BALANCE: u128 = 100_000;
+pub const DEFAULT_USER_FREE_TOKENS: u128 = 10_000_000;
+pub const DEFAULT_USER_LOCKED_TOKENS: u128 = 1000;
+
 pub const CONFIRMATIONS: u32 = 6;
 
 pub type BTCRelayCall = btc_relay::Call<Runtime>;
@@ -69,6 +74,15 @@ pub type ReplaceModule = replace::Module<Runtime>;
 
 pub type StakedRelayersCall = staked_relayers::Call<Runtime>;
 pub type StakedRelayersModule = staked_relayers::Module<Runtime>;
+
+pub fn default_user_state() -> UserData {
+    UserData {
+        free_balance: DEFAULT_USER_FREE_BALANCE,
+        locked_balance: DEFAULT_USER_LOCKED_BALANCE,
+        locked_tokens: DEFAULT_USER_LOCKED_TOKENS,
+        free_tokens: DEFAULT_USER_FREE_TOKENS,
+    }
+}
 
 pub fn origin_of(account_id: AccountId) -> <Runtime as frame_system::Config>::Origin {
     <Runtime as frame_system::Config>::Origin::signed(account_id)

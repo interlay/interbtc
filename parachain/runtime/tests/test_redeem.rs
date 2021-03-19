@@ -233,11 +233,13 @@ fn integration_test_redeem_polka_btc_cancel_reimburse() {
         let vault = BOB;
         let amount_btc = 100000;
 
+        UserData::force_to(user, default_user_state());
+
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-            FixedU128::checked_from_integer(10).unwrap() // 10 planck/satoshi
+            FixedU128::one() 
         ));
 
-        let initial_balance_dot = CollateralModule::get_balance_from_account(&account_of(user));
+        let c = UserData::get(user);
 
         let redeem_id = setup_cancelable_redeem(user, vault, 100000000, amount_btc);
         let redeem = RedeemModule::get_open_redeem_request_from_id(&redeem_id).unwrap();
@@ -246,40 +248,28 @@ fn integration_test_redeem_polka_btc_cancel_reimburse() {
         let punishment_fee = FeeModule::get_punishment_fee(amount_without_fee_dot).unwrap();
         assert!(punishment_fee > 0);
 
-        // get initial balance - the setup call above will have minted and locked polkabtc
-        let initial_balance_btc = TreasuryModule::get_balance_from_account(account_of(user))
-            + TreasuryModule::get_locked_balance_from_account(account_of(user));
-
-        let sla_score_before = FixedI128::from(60);
-        SlaModule::set_vault_sla(&account_of(vault), sla_score_before);
-
+        SlaModule::set_vault_sla(&account_of(vault), FixedI128::from(80));
+        let a = UserData::get(user);
         // alice cancels redeem request and chooses to reimburse
         assert_ok!(Call::Redeem(RedeemCall::cancel_redeem(redeem_id, true)).dispatch(origin_of(account_of(user))));
+        let b = UserData::get(user);
 
-        let new_balance = CollateralModule::get_balance_from_account(&account_of(user));
-
-        // balance should have increased by punishment_fee plus amount_without_fee_dot
         assert_eq!(
-            new_balance,
-            initial_balance_dot + amount_without_fee_dot + punishment_fee
+            FeePool::get(),
+            FeePool {
+                balance: amount_without_fee_dot / 20, // with sla of 80, vault gets slashed for 115%; 110 to user, 5 to fee pool
+                tokens: redeem.fee,
+            }
         );
 
-        // user loses the requested btc, including fee
         assert_eq!(
-            TreasuryModule::get_balance_from_account(account_of(user)),
-            initial_balance_btc - amount_btc
+            UserData::get(user),
+            UserData{
+                free_balance: DEFAULT_USER_FREE_BALANCE + amount_without_fee_dot + punishment_fee,
+                free_tokens: DEFAULT_USER_FREE_TOKENS - amount_btc,
+                ..default_user_state()
+            }
         );
-        // fee is transferred to fee pool
-        assert_eq!(FeeModule::epoch_rewards_polka_btc(), redeem.fee);
-        // fee pool has some amount of dot
-        assert!(FeeModule::epoch_rewards_dot() > 0);
-
-        // vault's SLA is reduced by redeem failure amount
-        let expected_sla = FixedI128::max(
-            FixedI128::zero(),
-            sla_score_before + SlaModule::vault_redeem_failure_sla_change(),
-        );
-        assert_eq!(SlaModule::vault_sla(account_of(vault)), expected_sla);
     });
 }
 

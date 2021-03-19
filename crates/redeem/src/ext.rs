@@ -139,8 +139,9 @@ pub(crate) mod sla {
     pub fn calculate_slashed_amount<T: sla::Config>(
         vault_id: &T::AccountId,
         stake: DOT<T>,
+        reimburse: bool,
     ) -> Result<DOT<T>, DispatchError> {
-        <sla::Module<T>>::calculate_slashed_amount(vault_id, stake)
+        <sla::Module<T>>::calculate_slashed_amount(vault_id, stake, reimburse)
     }
 }
 

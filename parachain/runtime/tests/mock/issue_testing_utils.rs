@@ -7,11 +7,6 @@ pub const PROOF_SUBMITTER: [u8; 32] = CAROL;
 pub const DEFAULT_GRIEFING_COLLATERAL: u128 = 5_000;
 pub const DEFAULT_COLLATERAL: u128 = 1_000_000;
 
-pub const DEFAULT_USER_FREE_BALANCE: u128 = 1_000_000;
-pub const DEFAULT_USER_LOCKED_BALANCE: u128 = 100_000;
-pub const DEFAULT_USER_FREE_TOKENS: u128 = 1000;
-pub const DEFAULT_USER_LOCKED_TOKENS: u128 = 1000;
-
 pub fn request_issue(amount_btc: u128) -> (H256, IssueRequest<AccountId32, u32, u128, u128>) {
     RequestIssueBuilder::new(amount_btc).request()
 }
@@ -134,15 +129,6 @@ impl ExecuteIssueBuilder {
 
 pub fn execute_issue(issue_id: H256) {
     ExecuteIssueBuilder::new(issue_id).assert_execute()
-}
-
-pub fn default_user_state() -> UserData {
-    UserData {
-        free_balance: DEFAULT_USER_FREE_BALANCE,
-        locked_balance: DEFAULT_USER_LOCKED_BALANCE,
-        locked_tokens: DEFAULT_USER_LOCKED_TOKENS,
-        free_tokens: DEFAULT_USER_FREE_TOKENS,
-    }
 }
 
 pub fn assert_issue_request_event() -> H256 {
