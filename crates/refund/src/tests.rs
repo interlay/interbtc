@@ -34,7 +34,7 @@ fn test_refund_succeeds() {
             })
             .unwrap();
         let refund_id = match captured_event {
-            RawEvent::RequestRefund(refund_id, issuer, 995, vault, _btc_address, issue)
+            RawEvent::RequestRefund(refund_id, issuer, 995, 5, vault, _btc_address, issue)
                 if issuer == USER && vault == VAULT && issue == issue_id =>
             {
                 Some(refund_id)
