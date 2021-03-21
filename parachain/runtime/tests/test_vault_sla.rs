@@ -147,7 +147,6 @@ fn test_sla_remains_unchanged_when_liquidated() {
 #[test]
 fn test_sla_increase_for_underpayed_issue() {
     test_with(|| {
-        let initial_user_balance = UserData::get(USER).free_balance;
         let (issue_id, issue) = request_issue(4_000);
 
         // only pay 25%

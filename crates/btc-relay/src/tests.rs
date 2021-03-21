@@ -107,7 +107,7 @@ fn initialize_once_succeeds() {
         let block_header_hash = block_header.hash();
         BTCRelay::best_block_exists.mock_safe(|| MockResult::Return(false));
 
-        assert_ok!(BTCRelay::initialize(Origin::signed(3), block_header, block_height));
+        assert_ok!(BTCRelay::initialize(3, block_header, block_height));
 
         let init_event = TestEvent::btc_relay(Event::Initialized(block_height, block_header_hash, 3));
         assert!(System::events().iter().any(|a| a.event == init_event));
@@ -123,7 +123,7 @@ fn initialize_best_block_already_set_fails() {
         BTCRelay::best_block_exists.mock_safe(|| MockResult::Return(true));
 
         assert_err!(
-            BTCRelay::initialize(Origin::signed(3), raw_block_header, block_height),
+            BTCRelay::initialize(3, raw_block_header, block_height),
             TestError::AlreadyInitialized
         );
     })
@@ -156,7 +156,7 @@ fn store_block_header_on_mainchain_succeeds() {
         BTCRelay::get_block_chain_from_id.mock_safe(move |_: u32| MockResult::Return(Ok(prev_blockchain.clone())));
 
         let block_header_hash = block_header.hash();
-        assert_ok!(BTCRelay::store_block_header(Origin::signed(3), block_header));
+        assert_ok!(BTCRelay::store_block_header(&3, block_header));
 
         let store_main_event =
             TestEvent::btc_relay(Event::StoreMainChainHeader(block_height + 1, block_header_hash, 3));
@@ -194,7 +194,7 @@ fn store_block_header_on_fork_succeeds() {
         BTCRelay::get_block_chain_from_id.mock_safe(move |_: u32| MockResult::Return(Ok(prev_blockchain.clone())));
 
         let block_header_hash = block_header.hash();
-        assert_ok!(BTCRelay::store_block_header(Origin::signed(3), block_header));
+        assert_ok!(BTCRelay::store_block_header(&3, block_header));
 
         let store_fork_event =
             TestEvent::btc_relay(Event::StoreForkHeader(chain_ref, block_height, block_header_hash, 3));
@@ -211,7 +211,7 @@ fn store_block_header_parachain_shutdown_fails() {
             .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainShutdown.into())));
 
         assert_err!(
-            BTCRelay::store_block_header(Origin::signed(3), block_header),
+            BTCRelay::store_block_header(&3, block_header),
             SecurityError::ParachainShutdown,
         );
     })
@@ -1559,14 +1559,14 @@ fn store_generated_block_headers() {
 
     run_test(|| {
         let mut last_block = BlockBuilder::new().with_coinbase(&miner, 50, 0).mine(target).unwrap();
-        assert_ok!(BTCRelay::initialize(Origin::signed(3), get_header(&last_block), 0));
+        assert_ok!(BTCRelay::initialize(3, get_header(&last_block), 0));
         for i in 1..20 {
             last_block = BlockBuilder::new()
                 .with_coinbase(&miner, 50, i)
                 .with_previous_hash(last_block.header.hash().unwrap())
                 .mine(target)
                 .unwrap();
-            assert_ok!(BTCRelay::store_block_header(Origin::signed(3), get_header(&last_block)));
+            assert_ok!(BTCRelay::store_block_header(&3, get_header(&last_block)));
         }
         let main_chain: BlockChain = BTCRelay::get_block_chain_from_id(crate::MAIN_CHAIN_ID).unwrap();
         assert_eq!(main_chain.start_height, 0);
@@ -1784,79 +1784,6 @@ fn test_remove_blockchain_from_chain() {
         let mut chains = <Chains>::iter().collect::<Vec<(u32, u32)>>();
         chains.sort_by_key(|k| k.0);
         assert_eq!(chains, vec![(0, 0), (2, 5)]);
-    })
-}
-
-#[test]
-fn test_ensure_relayer_authorized() {
-    use crate::{sp_api_hidden_includes_decl_storage::hidden_include::StorageValue, DisableRelayerAuth};
-
-    run_test(|| {
-        DisableRelayerAuth::set(true);
-        assert_ok!(BTCRelay::ensure_relayer_authorized(0));
-
-        DisableRelayerAuth::set(false);
-        assert_err!(BTCRelay::ensure_relayer_authorized(0), TestError::RelayerNotAuthorized);
-
-        BTCRelay::register_authorized_relayer(0);
-        assert_ok!(BTCRelay::ensure_relayer_authorized(0));
-
-        BTCRelay::deregister_authorized_relayer(0);
-        assert_err!(BTCRelay::ensure_relayer_authorized(0), TestError::RelayerNotAuthorized);
-    })
-}
-
-#[test]
-fn test_store_block_header_and_update_sla_succeeds() {
-    run_test(|| {
-        BTCRelay::_store_block_header.mock_safe(|_, _| MockResult::Return(Ok(())));
-
-        ext::sla::event_update_relayer_sla::<Test>.mock_safe(|&relayer_id, event| {
-            assert_eq!(relayer_id, 0);
-            assert_eq!(event, ext::sla::RelayerEvent::BlockSubmission);
-            MockResult::Return(Ok(()))
-        });
-
-        assert_ok!(BTCRelay::_store_block_header_and_update_sla(
-            0,
-            RawBlockHeader::default()
-        ));
-    })
-}
-
-#[test]
-fn test_store_block_header_and_update_sla_succeeds_with_duplicate() {
-    run_test(|| {
-        BTCRelay::_store_block_header.mock_safe(|_, _| MockResult::Return(Err(TestError::DuplicateBlock.into())));
-
-        BTCRelay::get_best_block.mock_safe(|| MockResult::Return(RawBlockHeader::default().hash()));
-
-        ext::sla::event_update_relayer_sla::<Test>.mock_safe(|&relayer_id, event| {
-            assert_eq!(relayer_id, 0);
-            assert_eq!(event, ext::sla::RelayerEvent::DuplicateBlockSubmission);
-            MockResult::Return(Ok(()))
-        });
-
-        assert_ok!(BTCRelay::_store_block_header_and_update_sla(
-            0,
-            RawBlockHeader::default()
-        ));
-    })
-}
-
-#[test]
-fn test_store_block_header_and_update_sla_fails_with_invalid() {
-    run_test(|| {
-        BTCRelay::_store_block_header.mock_safe(|_, _| MockResult::Return(Err(TestError::DiffTargetHeader.into())));
-
-        ext::sla::event_update_relayer_sla::<Test>.mock_safe(|_, _| {
-            panic!("Should not call sla update for invalid block");
-        });
-
-        assert_err!(
-            BTCRelay::_store_block_header_and_update_sla(0, RawBlockHeader::default()),
-            TestError::DiffTargetHeader
-        );
     })
 }
 

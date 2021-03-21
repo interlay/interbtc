@@ -42,16 +42,3 @@ pub(crate) mod security {
         <security::Module<T>>::insert_error(error)
     }
 }
-
-#[cfg_attr(test, mockable)]
-pub(crate) mod sla {
-    use frame_support::dispatch::DispatchError;
-    pub use sla::types::RelayerEvent;
-
-    pub fn event_update_relayer_sla<T: sla::Config>(
-        relayer_id: &T::AccountId,
-        event: RelayerEvent,
-    ) -> Result<(), DispatchError> {
-        <sla::Module<T>>::event_update_relayer_sla(relayer_id, event)
-    }
-}
