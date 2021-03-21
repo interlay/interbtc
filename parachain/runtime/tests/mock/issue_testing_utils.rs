@@ -76,7 +76,7 @@ pub struct ExecuteIssueBuilder {
     amount: u128,
     submitter: [u8; 32],
     register_submitter_as_vault: bool,
-    relayer: [u8; 32],
+    relayer: Option<[u8; 32]>,
 }
 
 impl ExecuteIssueBuilder {
@@ -88,7 +88,7 @@ impl ExecuteIssueBuilder {
             amount: issue.fee + issue.amount,
             submitter: PROOF_SUBMITTER,
             register_submitter_as_vault: true,
-            relayer: ALICE,
+            relayer: None,
         }
     }
 
@@ -103,7 +103,7 @@ impl ExecuteIssueBuilder {
         self
     }
 
-    pub fn with_relayer(&mut self, relayer: [u8; 32]) -> &mut Self {
+    pub fn with_relayer(&mut self, relayer: Option<[u8; 32]>) -> &mut Self {
         self.relayer = relayer;
         self
     }
