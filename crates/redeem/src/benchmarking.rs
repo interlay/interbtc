@@ -44,8 +44,6 @@ benchmarks! {
         let vault_id: T::AccountId = account("Vault", 0, 0);
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
-        BtcRelay::<T>::register_authorized_relayer(relayer_id.clone());
-
         let origin_btc_address = BtcAddress::P2PKH(H160::zero());
 
         let redeem_id = H256::zero();
@@ -71,7 +69,8 @@ benchmarks! {
 
         let block_hash = block.header.hash().unwrap();
         let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
-        BtcRelay::<T>::_initialize(relayer_id.clone(), block_header, height).unwrap();
+
+        BtcRelay::<T>::initialize(relayer_id.clone(), block_header, height).unwrap();
 
         let value = 0;
         let transaction = TransactionBuilder::new()
@@ -110,7 +109,7 @@ benchmarks! {
         let raw_tx = transaction.format_with(true);
 
         let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
-        BtcRelay::<T>::_store_block_header(relayer_id, block_header).unwrap();
+        BtcRelay::<T>::store_block_header(&relayer_id, block_header).unwrap();
 
     }: _(RawOrigin::Signed(vault_id), redeem_id, tx_id, proof, raw_tx)
 

@@ -26,6 +26,55 @@ fn dummy_public_key() -> BtcPublicKey {
 }
 
 benchmarks! {
+
+    initialize {
+        let height = 0u32;
+        let origin: T::AccountId = account("Origin", 0, 0);
+        let stake = 100u32;
+
+        let address = BtcAddress::P2PKH(H160::from([0; 20]));
+        let block = BlockBuilder::new()
+            .with_version(2)
+            .with_coinbase(&address, 50, 3)
+            .with_timestamp(1588813835)
+            .mine(U256::from(2).pow(254.into())).unwrap();
+        let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
+        <ActiveStakedRelayers<T>>::insert(&origin, StakedRelayer { stake: stake.into(), height: System::<T>::block_number() });
+    }: _(RawOrigin::Signed(origin), block_header, height.into())
+
+    store_block_header {
+        let origin: T::AccountId = account("Origin", 0, 0);
+
+        let address = BtcAddress::P2PKH(H160::from([0; 20]));
+        let height = 0;
+        let stake = 100u32;
+
+        let init_block = BlockBuilder::new()
+            .with_version(2)
+            .with_coinbase(&address, 50, 3)
+            .with_timestamp(1588813835)
+            .mine(U256::from(2).pow(254.into())).unwrap();
+
+        let init_block_hash = init_block.header.hash().unwrap();
+        let raw_block_header = RawBlockHeader::from_bytes(&init_block.header.try_format().unwrap())
+            .expect("could not serialize block header");
+
+            <ActiveStakedRelayers<T>>::insert(&origin, StakedRelayer { stake: stake.into(), height: System::<T>::block_number() });
+
+        BtcRelay::<T>::initialize(origin.clone(), raw_block_header, height).unwrap();
+
+        let block = BlockBuilder::new()
+            .with_previous_hash(init_block_hash)
+            .with_version(2)
+            .with_coinbase(&address, 50, 3)
+            .with_timestamp(1588814835)
+            .mine(U256::from(2).pow(254.into())).unwrap();
+
+        let raw_block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap())
+            .expect("could not serialize block header");
+
+    }: _(RawOrigin::Signed(origin), raw_block_header)
+
     register_staked_relayer {
         let origin: T::AccountId = account("Origin", 0, 0);
         let u in 100 .. 1000;
@@ -75,8 +124,6 @@ benchmarks! {
         let origin: T::AccountId = account("Origin", 0, 0);
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
-        BtcRelay::<T>::register_authorized_relayer(relayer_id.clone());
-
         let stake: u32 = 100;
         StakedRelayers::<T>::insert_active_staked_relayer(&origin, stake.into(), System::<T>::block_number());
 
@@ -106,7 +153,7 @@ benchmarks! {
 
         let block_hash = block.header.hash().unwrap();
         let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
-        BtcRelay::<T>::_initialize(relayer_id.clone(), block_header, height).unwrap();
+        BtcRelay::<T>::initialize(relayer_id.clone(), block_header, height).unwrap();
 
         let value = 0;
         let transaction = TransactionBuilder::new()
@@ -147,7 +194,7 @@ benchmarks! {
         let raw_tx = transaction.format_with(true);
 
         let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
-        BtcRelay::<T>::_store_block_header(relayer_id, block_header).unwrap();
+        BtcRelay::<T>::store_block_header(&relayer_id, block_header).unwrap();
 
     }: _(RawOrigin::Signed(origin), vault_id, tx_id, proof, raw_tx)
 
@@ -239,6 +286,8 @@ mod tests {
             .unwrap();
         })
         .execute_with(|| {
+            assert_ok!(test_benchmark_initialize::<Test>());
+            assert_ok!(test_benchmark_store_block_header::<Test>());
             assert_ok!(test_benchmark_register_staked_relayer::<Test>());
             assert_ok!(test_benchmark_deregister_staked_relayer::<Test>());
             assert_ok!(test_benchmark_suggest_status_update::<Test>());
