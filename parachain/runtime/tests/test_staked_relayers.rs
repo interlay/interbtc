@@ -50,6 +50,7 @@ fn integration_test_report_vault_theft() {
             .with_address(other_btc_address)
             .with_amount(amount)
             .with_confirmations(7)
+            .with_relayer(Some(ALICE))
             .mine();
 
         // check sla increase for the block submission. The call above will have submitted 7 blocks

@@ -42,8 +42,6 @@ benchmarks! {
         let vault_id: T::AccountId = account("Vault", 0, 0);
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
-        BtcRelay::<T>::register_authorized_relayer(relayer_id.clone());
-
         let vault_btc_address = BtcAddress::P2SH(H160::zero());
         let value: u32 = 2;
 
@@ -64,7 +62,7 @@ benchmarks! {
 
         let block_hash = block.header.hash().unwrap();
         let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
-        BtcRelay::<T>::_initialize(relayer_id.clone(), block_header, height).unwrap();
+        BtcRelay::<T>::initialize(relayer_id.clone(), block_header, height).unwrap();
 
         let transaction = TransactionBuilder::new()
             .with_version(2)
@@ -102,7 +100,7 @@ benchmarks! {
         let raw_tx = transaction.format_with(true);
 
         let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
-        BtcRelay::<T>::_store_block_header(relayer_id, block_header).unwrap();
+        BtcRelay::<T>::store_block_header(&relayer_id, block_header).unwrap();
 
         VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());
         ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()).unwrap();

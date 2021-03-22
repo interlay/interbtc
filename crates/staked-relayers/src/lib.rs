@@ -29,7 +29,7 @@ pub use security;
 
 use crate::types::{PolkaBTC, ProposalStatus, StakedRelayer, StatusUpdate, StatusUpdateId, Tally, Votes, DOT};
 use bitcoin::{parser::parse_transaction, types::*};
-use btc_relay::BtcAddress;
+use btc_relay::{BtcAddress, Error as BtcRelayError};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
@@ -46,6 +46,7 @@ use sp_std::{collections::btree_set::BTreeSet, convert::TryInto, vec::Vec};
 use vault_registry::Wallet;
 
 pub trait WeightInfo {
+    fn initialize() -> Weight;
     fn register_staked_relayer() -> Weight;
     fn deregister_staked_relayer() -> Weight;
     fn suggest_status_update() -> Weight;
@@ -58,6 +59,7 @@ pub trait WeightInfo {
     fn remove_inactive_status_update() -> Weight;
     fn set_maturity_period() -> Weight;
     fn evaluate_status_update() -> Weight;
+    fn store_block_header() -> Weight;
 }
 
 /// ## Configuration
@@ -145,6 +147,43 @@ decl_module! {
 
             0
         }
+
+        /// One time function to initialize the BTC-Relay with the first block
+        ///
+        /// # Arguments
+        ///
+        /// * `block_header_bytes` - 80 byte raw Bitcoin block header.
+        /// * `block_height` - starting Bitcoin block height of the submitted block header.
+        ///
+        /// # <weight>
+        /// - Storage Reads:
+        /// 	- One storage read to check that parachain is not shutdown. O(1)
+        /// 	- One storage read to check if relayer authorization is disabled. O(1)
+        /// 	- One storage read to check if relayer is authorized. O(1)
+        /// - Storage Writes:
+        ///     - One storage write to store block hash. O(1)
+        ///     - One storage write to store block header. O(1)
+        /// 	- One storage write to initialize main chain. O(1)
+        ///     - One storage write to store best block hash. O(1)
+        ///     - One storage write to store best block height. O(1)
+        /// - Events:
+        /// 	- One event for initialization.
+        ///
+        /// Total Complexity: O(1)
+        /// # </weight>
+        #[weight = <T as Config>::WeightInfo::initialize()]
+        #[transactional]
+        fn initialize(
+            origin,
+            raw_block_header: RawBlockHeader,
+            block_height: u32)
+            -> DispatchResult
+        {
+            let relayer = ensure_signed(origin)?;
+            Self::ensure_relayer_is_registered(&relayer)?;
+            ext::btc_relay::initialize::<T>(relayer, raw_block_header, block_height)
+        }
+
         /// Registers a new Staked Relayer, locking the provided collateral, which must exceed `STAKED_RELAYER_STAKE`.
         ///
         /// # Arguments
@@ -173,8 +212,6 @@ decl_module! {
             ext::collateral::lock_collateral::<T>(&signer, stake)?;
             ext::sla::initialize_relayer_stake::<T>(&signer, stake)?;
 
-            ext::btc_relay::register_authorized_relayer::<T>(signer.clone());
-
             let height = <frame_system::Module<T>>::block_number();
             let maturity = height + Self::get_maturity_period();
             Self::insert_inactive_staked_relayer(&signer, stake, maturity);
@@ -195,12 +232,77 @@ decl_module! {
             Self::ensure_staked_relayer_is_not_voting(&signer)?;
             ext::collateral::release_collateral::<T>(&signer, staked_relayer.stake)?;
 
-            // TODO: check relayer has not proposed recently
-            ext::btc_relay::deregister_authorized_relayer::<T>(signer.clone());
-
             // TODO: require unbonding period
             Self::remove_active_staked_relayer(&signer);
             Self::deposit_event(<Event<T>>::DeregisterStakedRelayer(signer));
+            Ok(())
+        }
+
+        /// Stores a single new block header
+        ///
+        /// # Arguments
+        ///
+        /// * `raw_block_header` - 80 byte raw Bitcoin block header.
+        ///
+        /// # <weight>
+        /// Key: C (len of chains), P (len of positions)
+        /// - Storage Reads:
+        /// 	- One storage read to check that parachain is not shutdown. O(1)
+        /// 	- One storage read to check if relayer authorization is disabled. O(1)
+        /// 	- One storage read to check if relayer is authorized. O(1)
+        /// 	- One storage read to check if block header is stored. O(1)
+        /// 	- One storage read to retrieve parent block hash. O(1)
+        /// 	- One storage read to check if difficulty check is disabled. O(1)
+        /// 	- One storage read to retrieve last re-target. O(1)
+        /// 	- One storage read to retrieve all Chains. O(C)
+        /// - Storage Writes:
+        ///     - One storage write to store block hash. O(1)
+        ///     - One storage write to store block header. O(1)
+        /// 	- One storage mutate to extend main chain. O(1)
+        ///     - One storage write to store best block hash. O(1)
+        ///     - One storage write to store best block height. O(1)
+        /// - Notable Computation:
+        /// 	- O(P) sort to reorg chains.
+        /// - External Module Operations:
+        /// 	- Updates relayer sla score.
+        /// - Events:
+        /// 	- One event for block stored (fork or extension).
+        ///
+        /// Total Complexity: O(C + P)
+        /// # </weight>
+        #[weight = <T as Config>::WeightInfo::store_block_header()]
+        #[transactional]
+        fn store_block_header(
+            origin, raw_block_header: RawBlockHeader
+        ) -> DispatchResult {
+            let relayer = ensure_signed(origin)?;
+
+            Self::ensure_relayer_is_registered(&relayer)?;
+            Self::store_block_header_and_update_sla(&relayer, raw_block_header)
+        }
+
+        /// Stores multiple new block headers
+        ///
+        /// # Arguments
+        ///
+        /// * `raw_block_headers` - vector of Bitcoin block headers.
+        ///
+        /// # <weight>
+        /// - As in `store_block_header`, multiplied by the number of concatenated headers.
+        /// # </weight>
+        #[weight = <T as Config>::WeightInfo::store_block_header().saturating_mul(raw_block_headers.len() as u64)]
+        #[transactional]
+        fn store_block_headers(
+            origin, raw_block_headers: Vec<RawBlockHeader>
+        ) -> DispatchResult {
+            let relayer = ensure_signed(origin)?;
+
+            Self::ensure_relayer_is_registered(&relayer)?;
+
+            for raw_block_header in raw_block_headers {
+                Self::store_block_header_and_update_sla(&relayer, raw_block_header)?;
+            }
+
             Ok(())
         }
 
@@ -405,7 +507,7 @@ decl_module! {
         #[transactional]
         fn report_vault_theft(origin, vault_id: T::AccountId, tx_id: H256Le, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
-            Self::ensure_relayer_is_registered(&signer)?;
+            Self::ensure_relayer_is_active(&signer)?;
 
             // liquidated vaults are removed, so no need for check here
 
@@ -443,7 +545,7 @@ decl_module! {
         #[transactional]
         fn report_vault_under_liquidation_threshold(origin, vault_id: T::AccountId)  -> DispatchResult {
             let signer = ensure_signed(origin)?;
-            Self::ensure_relayer_is_registered(&signer)?;
+            Self::ensure_relayer_is_active(&signer)?;
 
             // ensure that the vault is eligible for liquidation
             ensure!(
@@ -472,7 +574,7 @@ decl_module! {
         #[transactional]
         fn report_oracle_offline(origin) -> DispatchResult {
             let signer = ensure_signed(origin)?;
-            Self::ensure_relayer_is_registered(&signer)?;
+            Self::ensure_relayer_is_active(&signer)?;
 
             ensure!(
                 !ext::security::get_errors::<T>().contains(&ErrorCode::OracleOffline),
@@ -702,6 +804,20 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+    fn store_block_header_and_update_sla(relayer: &T::AccountId, raw_block_header: RawBlockHeader) -> DispatchResult {
+        match ext::btc_relay::store_block_header::<T>(relayer, raw_block_header) {
+            Ok(_) => {
+                ext::sla::event_update_relayer_sla::<T>(relayer, ext::sla::RelayerEvent::BlockSubmission)?;
+                Ok(())
+            }
+            Err(err) if err == DispatchError::from(BtcRelayError::<T>::DuplicateBlock) => {
+                ext::sla::event_update_relayer_sla::<T>(relayer, ext::sla::RelayerEvent::DuplicateBlockSubmission)?;
+                Ok(())
+            }
+            x => x,
+        }
+    }
+
     /// Should throw if not called by the governance account.
     ///
     /// # Arguments
@@ -712,13 +828,26 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+    /// Ensure a staked relayer is active.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - account id of the relayer
+    pub(crate) fn ensure_relayer_is_active(id: &T::AccountId) -> DispatchResult {
+        ensure!(<ActiveStakedRelayers<T>>::contains_key(id), Error::<T>::NotRegistered,);
+        Ok(())
+    }
+
     /// Ensure a staked relayer is registered.
     ///
     /// # Arguments
     ///
     /// * `id` - account id of the relayer
     pub(crate) fn ensure_relayer_is_registered(id: &T::AccountId) -> DispatchResult {
-        ensure!(<ActiveStakedRelayers<T>>::contains_key(id), Error::<T>::NotRegistered,);
+        ensure!(
+            <ActiveStakedRelayers<T>>::contains_key(id) || <InactiveStakedRelayers<T>>::contains_key(id),
+            Error::<T>::NotRegistered,
+        );
         Ok(())
     }
 
@@ -730,7 +859,7 @@ impl<T: Config> Module<T> {
     pub(crate) fn get_active_staked_relayer(
         id: &T::AccountId,
     ) -> Result<StakedRelayer<DOT<T>, T::BlockNumber>, DispatchError> {
-        Self::ensure_relayer_is_registered(id)?;
+        Self::ensure_relayer_is_active(id)?;
         Ok(<ActiveStakedRelayers<T>>::get(id))
     }
 

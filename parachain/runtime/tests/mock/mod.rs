@@ -374,13 +374,13 @@ pub struct TransactionGenerator {
     return_data: Option<H256>,
     script: Vec<u8>,
     confirmations: u32,
-    relayer: [u8; 32],
+    relayer: Option<[u8; 32]>,
 }
 
 impl TransactionGenerator {
     pub fn new() -> Self {
         Self {
-            relayer: ALICE,
+            relayer: None,
             confirmations: 7,
             amount: 100,
             script: vec![
@@ -418,7 +418,7 @@ impl TransactionGenerator {
         self.confirmations = confirmations;
         self
     }
-    pub fn with_relayer(&mut self, relayer: [u8; 32]) -> &mut Self {
+    pub fn with_relayer(&mut self, relayer: Option<[u8; 32]>) -> &mut Self {
         self.relayer = relayer;
         self
     }
@@ -437,12 +437,11 @@ impl TransactionGenerator {
         let raw_init_block_header = RawBlockHeader::from_bytes(&init_block.header.try_format().unwrap())
             .expect("could not serialize block header");
 
-        match Call::BTCRelay(BTCRelayCall::initialize(
+        match BTCRelayModule::initialize(
+            account_of(ALICE),
             raw_init_block_header.try_into().expect("bad block header"),
             height,
-        ))
-        .dispatch(origin_of(account_of(ALICE)))
-        {
+        ) {
             Ok(_) => {}
             Err(e) if e == BTCRelayError::AlreadyInitialized.into() => {}
             _ => panic!("Failed to initialize btc relay"),
@@ -487,11 +486,11 @@ impl TransactionGenerator {
         let bytes_proof = proof.try_format().unwrap();
         let raw_tx = transaction.format_with(true);
 
-        assert_ok!(Call::BTCRelay(BTCRelayCall::store_block_header(
-            raw_block_header.try_into().expect("bad block header")
-        ))
-        .dispatch(origin_of(account_of(self.relayer))));
-        assert_store_main_chain_header_event(height, block.header.hash().unwrap(), account_of(self.relayer));
+        // let _ = Call::StakedRelayers(StakedRelayersCall::register_staked_relayer(
+        //     100,
+        // ))
+        // .dispatch(origin_of(account_of(self.relayer)));
+        self.relay(height, &block, raw_block_header);
 
         // Mine six new blocks to get over required confirmations
         let mut prev_block_hash = block.header.hash().unwrap();
@@ -509,17 +508,32 @@ impl TransactionGenerator {
 
             let raw_conf_block_header = RawBlockHeader::from_bytes(&conf_block.header.try_format().unwrap())
                 .expect("could not serialize block header");
-            assert_ok!(Call::BTCRelay(BTCRelayCall::store_block_header(
-                raw_conf_block_header.try_into().expect("bad block header"),
-            ))
-            .dispatch(origin_of(account_of(self.relayer))));
-
-            assert_store_main_chain_header_event(height, conf_block.header.hash().unwrap(), account_of(self.relayer));
+            self.relay(height, &conf_block, raw_conf_block_header);
 
             prev_block_hash = conf_block.header.hash().unwrap();
         }
 
         (tx_id, tx_block_height, bytes_proof, raw_tx)
+    }
+
+    fn relay(&self, height: u32, block: &Block, raw_block_header: RawBlockHeader) {
+        if let Some(relayer) = self.relayer {
+            let _ = Call::StakedRelayers(StakedRelayersCall::register_staked_relayer(100))
+                .dispatch(origin_of(account_of(relayer)));
+
+            assert_ok!(Call::StakedRelayers(StakedRelayersCall::store_block_header(
+                raw_block_header.try_into().expect("bad block header")
+            ))
+            .dispatch(origin_of(account_of(relayer))));
+            assert_store_main_chain_header_event(height, block.header.hash().unwrap(), account_of(relayer));
+        } else {
+            // bypass staked relayer module
+            assert_ok!(BTCRelayModule::store_block_header(
+                &account_of(ALICE),
+                raw_block_header.try_into().expect("bad block header")
+            ));
+            assert_store_main_chain_header_event(height, block.header.hash().unwrap(), account_of(ALICE));
+        }
     }
 }
 
