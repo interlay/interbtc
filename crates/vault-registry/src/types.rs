@@ -1,15 +1,20 @@
-use crate::sp_api_hidden_includes_decl_storage::hidden_include::StorageValue;
-use crate::{ext, Config, Error, Module};
+use crate::{
+    ext, sp_api_hidden_includes_decl_storage::hidden_include::StorageValue, Config, Error, Module,
+};
 use codec::{Decode, Encode, HasCompact};
-use frame_support::traits::Currency;
+use frame_support::traits::BalanceStatus;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
-    ensure, StorageMap,
+    ensure,
+    traits::Currency,
+    StorageMap,
 };
 use sp_arithmetic::FixedPointNumber;
 use sp_core::H256;
 use sp_runtime::traits::{CheckedAdd, CheckedSub, Zero};
+use sp_std::collections::btree_map::BTreeMap;
 use sp_std::collections::btree_set::BTreeSet;
+use sp_std::vec::Vec;
 
 #[cfg(test)]
 use mocktopus::macros::mockable;
@@ -126,7 +131,7 @@ impl Default for VaultStatus {
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct Vault<AccountId, BlockNumber, PolkaBTC, DOT> {
+pub struct Vault<AccountId: Ord, BlockNumber, PolkaBTC, DOT> {
     // Account identifier of the Vault
     pub id: AccountId,
     // number of PolkaBTC tokens that have been requested for a replace through
@@ -148,6 +153,15 @@ pub struct Vault<AccountId, BlockNumber, PolkaBTC, DOT> {
     pub banned_until: Option<BlockNumber>,
     /// Current status of the vault
     pub status: VaultStatus,
+    /// `true` if the Vault opted in to being a Nomination Operator,
+    /// `false` otherwise
+    pub nomination_operator: bool,
+    pub nominators: BTreeMap<AccountId, DOT>,
+    pub total_nominated_collateral: DOT,
+    /// Vector of (Maturity Block, DOT to withdraw)
+    pub pending_operator_withdrawals: Vec<(BlockNumber, DOT)>,
+    /// Vector of (Maturity Block, Nominator Id, DOT to withdraw)
+    pub pending_nominator_withdrawals: Vec<(BlockNumber, AccountId, DOT)>,
 }
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
@@ -163,7 +177,7 @@ pub struct SystemVault<AccountId, PolkaBTC> {
     pub to_be_redeemed_tokens: PolkaBTC,
 }
 
-impl<AccountId, BlockNumber, PolkaBTC: HasCompact + Default, DOT: HasCompact + Default>
+impl<AccountId: Ord, BlockNumber, PolkaBTC: HasCompact + Default, DOT: HasCompact + Default>
     Vault<AccountId, BlockNumber, PolkaBTC, DOT>
 {
     pub(crate) fn new(
@@ -181,6 +195,11 @@ impl<AccountId, BlockNumber, PolkaBTC: HasCompact + Default, DOT: HasCompact + D
             backing_collateral: Default::default(),
             banned_until: None,
             status: VaultStatus::Active,
+            nomination_operator: Default::default(),
+            nominators: Default::default(),
+            total_nominated_collateral: Default::default(),
+            pending_nominator_withdrawals: Default::default(),
+            pending_operator_withdrawals: Default::default(),
         }
     }
 
@@ -333,11 +352,16 @@ impl<T: Config> RichVault<T> {
     }
 
     pub fn withdraw_collateral(&mut self, collateral: DOT<T>) -> DispatchResult {
-        let new_collateral = self
+        let remaining_collateral = self
             .data
             .backing_collateral
             .checked_sub(&collateral)
             .ok_or(Error::<T>::InsufficientCollateral)?;
+
+        ensure!(
+            remaining_collateral.ge(&self.data.total_nominated_collateral),
+            Error::<T>::InsufficientCollateral
+        );
 
         let tokens = self
             .data
@@ -345,10 +369,221 @@ impl<T: Config> RichVault<T> {
             .checked_add(&self.data.to_be_issued_tokens)
             .ok_or(Error::<T>::ArithmeticOverflow)?;
         ensure!(
-            !Module::<T>::is_collateral_below_secure_threshold(new_collateral, tokens)?,
+            !Module::<T>::is_collateral_below_secure_threshold(remaining_collateral, tokens)?,
             Error::<T>::InsufficientCollateral
         );
         self.force_withdraw_collateral(collateral)
+    }
+
+    pub fn opt_in_to_nomination(&mut self) -> DispatchResult {
+        ensure!(
+            !self.data.nomination_operator,
+            Error::<T>::VaultAlreadyOptedInToNomination
+        );
+        self.update(|v| {
+            v.nomination_operator = true;
+            Ok(())
+        })
+    }
+
+    pub fn opt_out_of_nomination(&mut self) -> DispatchResult {
+        ensure!(
+            self.data.nomination_operator,
+            Error::<T>::VaultAlreadyOptedOutOfNomination
+        );
+        ensure!(
+            self.data.total_nominated_collateral.is_zero()
+                || (self.data.issued_tokens.is_zero() && self.data.to_be_issued_tokens.is_zero()),
+            Error::<T>::VaultNotQualifiedToOptOutOfNomination
+        );
+        if self.data.nominators.len() > 0 {
+            self.refund_nominated_collateral()?;
+        }
+        self.update(|v| {
+            v.nomination_operator = false;
+            Ok(())
+        })
+    }
+
+    fn refund_nominated_collateral(&mut self) -> DispatchResult {
+        for (nominator_id, nominated_collateral) in &self.data.nominators {
+            <collateral::Module<T>>::repatriate_reserved(
+                self.data.id.clone(),
+                nominator_id.clone(),
+                *nominated_collateral,
+                BalanceStatus::Free,
+            )?;
+        }
+        // Erase nominator data
+        self.update(|v| {
+            v.nominators = Default::default();
+            v.total_nominated_collateral = Default::default();
+            Ok(())
+        })
+    }
+
+    pub fn deposit_nominated_collateral(
+        &mut self,
+        nominator_id: T::AccountId,
+        collateral: DOT<T>,
+    ) -> DispatchResult {
+        let new_nominated_collateral = self
+            .data
+            .total_nominated_collateral
+            .checked_add(&(collateral.clone()))
+            .ok_or(Error::<T>::ArithmeticOverflow)?;
+
+        let vault_collateral = self
+            .data
+            .backing_collateral
+            .checked_sub(&(self.data.total_nominated_collateral).clone())
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+
+        ensure!(
+            !Module::<T>::is_nominated_collateral_below_limit_rate(
+                vault_collateral,
+                new_nominated_collateral
+            )?,
+            Error::<T>::InsufficientCollateral
+        );
+        // Lock the Nominator's collateral
+        ext::collateral::lock::<T>(&nominator_id, collateral)?;
+        <collateral::Module<T>>::repatriate_reserved(
+            nominator_id.clone(),
+            self.data.id.clone(),
+            collateral,
+            BalanceStatus::Reserved,
+        )?;
+        // Increase the sum of nominated collateral for this vault
+        self.update(|v| {
+            v.total_nominated_collateral = collateral
+                .checked_add(&v.total_nominated_collateral)
+                .ok_or(Error::<T>::ArithmeticOverflow)?;
+            Ok(())
+        })?;
+
+        self.update_nominator_entry(nominator_id.clone(), collateral, false)?;
+        // Increase the system backing collateral
+        self.update(|v| {
+            v.backing_collateral = collateral
+                .checked_add(&v.backing_collateral)
+                .ok_or(Error::<T>::ArithmeticOverflow)?;
+            Ok(())
+        })?;
+        Module::<T>::increase_total_backing_collateral(collateral)
+    }
+
+    pub fn withdraw_nominated_collateral(
+        &mut self,
+        nominator_id: T::AccountId,
+        collateral: DOT<T>,
+    ) -> DispatchResult {
+        let nominated_collateral = self
+            .data
+            .nominators
+            .get(&(nominator_id.clone()))
+            .ok_or(Error::<T>::NominatorNotFound)?;
+        ensure!(
+            collateral.le(&(nominated_collateral.clone())),
+            Error::<T>::TooLittleDelegatedCollateral
+        );
+        <collateral::Module<T>>::repatriate_reserved(
+            self.data.id.clone(),
+            nominator_id.clone(),
+            collateral,
+            BalanceStatus::Free,
+        )?;
+
+        // Decrease the sum of nominated collateral for this vault
+        self.update(|v| {
+            v.total_nominated_collateral = v
+                .total_nominated_collateral
+                .checked_sub(&collateral.clone())
+                .ok_or(Error::<T>::ArithmeticUnderflow)?;
+            Ok(())
+        })?;
+
+        self.update_nominator_entry(nominator_id.clone(), collateral, true)?;
+
+        // Decrease the system backing collateral
+        self.update(|v| {
+            v.backing_collateral = v
+                .backing_collateral
+                .checked_sub(&collateral)
+                .ok_or(Error::<T>::ArithmeticUnderflow)?;
+            Ok(())
+        })?;
+        Module::<T>::decrease_total_backing_collateral(collateral)
+    }
+
+    fn update_nominator_entry(
+        &mut self,
+        nominator_id: T::AccountId,
+        collateral: DOT<T>,
+        decrease: bool,
+    ) -> DispatchResult {
+        // If the remaining nominated collateral is zero, remove nominator from
+        // the `nominators` map. Otherwise, update the map.
+        let cloned_vault = self.data.clone();
+        let nominated_collateral = cloned_vault
+            .nominators
+            .get(&(nominator_id.clone()))
+            .ok_or(Error::<T>::NominatorNotFound)?;
+
+        if decrease {
+            self.decrease_nominator_collateral(
+                nominator_id.clone(),
+                collateral,
+                *nominated_collateral,
+            )
+        } else {
+            self.increase_nominator_collateral(
+                nominator_id.clone(),
+                collateral,
+                *nominated_collateral,
+            )
+        }
+    }
+
+    fn decrease_nominator_collateral(
+        &mut self,
+        nominator_id: T::AccountId,
+        collateral: DOT<T>,
+        nominated_collateral: DOT<T>,
+    ) -> DispatchResult {
+        if nominated_collateral.eq(&collateral.clone()) {
+            self.update(|v| {
+                v.nominators.remove(&(nominator_id.clone()));
+                Ok(())
+            })
+        } else {
+            let remaining_nominated_collateral = nominated_collateral
+                .checked_sub(&collateral.clone())
+                .ok_or(Error::<T>::ArithmeticUnderflow)?;
+
+            self.update(|v| {
+                v.nominators
+                    .insert(nominator_id.clone(), remaining_nominated_collateral);
+                Ok(())
+            })
+        }
+    }
+
+    fn increase_nominator_collateral(
+        &mut self,
+        nominator_id: T::AccountId,
+        collateral: DOT<T>,
+        nominated_collateral: DOT<T>,
+    ) -> DispatchResult {
+        let new_nominated_collateral = collateral
+            .checked_add(&nominated_collateral)
+            .ok_or(Error::<T>::ArithmeticOverflow)?;
+
+        self.update(|v| {
+            v.nominators
+                .insert(nominator_id.clone(), new_nominated_collateral);
+            Ok(())
+        })
     }
 
     pub fn get_collateral(&self) -> DOT<T> {
@@ -539,6 +774,22 @@ impl<T: Config> RichVault<T> {
             to_slash,
         )?;
 
+        let nominated_collateral_to_slash =
+            self.get_nominated_collateral_to_slash(self.data.backing_collateral, to_slash, status)?;
+
+        let nominated_collateral_remaining = self
+            .data
+            .total_nominated_collateral
+            .checked_sub(&nominated_collateral_to_slash.clone())
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+
+        self.update(|v| {
+            v.total_nominated_collateral = nominated_collateral_remaining;
+            Ok(())
+        })?;
+        // Slash nominators proportionally
+        self.slash_nominators_by(nominated_collateral_to_slash)?;
+
         // everything above the secure threshold we release
         let to_release = backing_collateral
             .checked_sub(&liquidated_collateral)
@@ -561,6 +812,121 @@ impl<T: Config> RichVault<T> {
         });
 
         Ok(())
+    }
+
+    pub fn get_nominated_collateral_to_slash(
+        &mut self,
+        backing_collateral: DOT<T>,
+        total_amount_to_slash: DOT<T>,
+        status: VaultStatus,
+    ) -> Result<DOT<T>, DispatchError> {
+        let vault_collateral = backing_collateral
+            .checked_sub(&self.data.total_nominated_collateral)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+        let nominated_collateral_to_slash: DOT<T> = if status.eq(&VaultStatus::CommittedTheft) {
+            total_amount_to_slash
+                .checked_sub(&vault_collateral.clone())
+                .map_or(0u32.into(), |x| x)
+        } else {
+            let to_slash_u128 = Module::<T>::dot_to_u128(total_amount_to_slash)?;
+            let total_nominated_collateral_u128 =
+                Module::<T>::dot_to_u128(self.data.total_nominated_collateral)?;
+            let vault_collateral_u128 = Module::<T>::dot_to_u128(vault_collateral)?;
+            let nominator_collateral_proportion = total_nominated_collateral_u128
+                .checked_div(vault_collateral_u128)
+                .ok_or(Error::<T>::ArithmeticUnderflow)?;
+            let nominated_collateral_to_slash_u128 = nominator_collateral_proportion
+                .checked_mul(to_slash_u128)
+                .ok_or(Error::<T>::ArithmeticOverflow)?;
+            Module::<T>::u128_to_dot(nominated_collateral_to_slash_u128)?
+        };
+        Ok(nominated_collateral_to_slash)
+    }
+
+    pub fn slash_nominators_by(&mut self, amount_to_slash: DOT<T>) -> DispatchResult {
+        let amount_to_slash_u128 = Module::<T>::dot_to_u128(amount_to_slash)?;
+        let mut nominators = self.data.nominators.clone();
+        let vault_clone = self.data.clone();
+        for (nominator_id, _) in &vault_clone.nominators {
+            let nominated_collateral_proportion =
+                self.get_nominated_collateral_proportion_for(nominator_id.clone())?;
+            let nominated_collateral_to_slash = nominated_collateral_proportion
+                .checked_mul(amount_to_slash_u128)
+                .ok_or(Error::<T>::ArithmeticOverflow)?;
+            let remaining_nominator_collateral: DOT<T> = match nominators.get(&(nominator_id)) {
+                Some(x) => {
+                    let x_u128 = Module::<T>::dot_to_u128(*x)?;
+                    let remaining_collateral_u128 = x_u128
+                        .checked_sub(nominated_collateral_to_slash)
+                        .ok_or(Error::<T>::ArithmeticUnderflow)?;
+                    Module::<T>::u128_to_dot(remaining_collateral_u128)?
+                }
+                None => 0u32.into(),
+            };
+            if !remaining_nominator_collateral.is_zero() {
+                nominators.insert(nominator_id.clone(), remaining_nominator_collateral);
+            } else {
+                nominators.remove(&nominator_id.clone());
+            }
+        }
+
+        self.update(|v| {
+            v.nominators = nominators.clone();
+            Ok(())
+        })
+    }
+
+    pub fn get_nominated_collateral_proportion_for(
+        &mut self,
+        nominator_id: T::AccountId,
+    ) -> Result<u128, DispatchError> {
+        let nominated_collateral = self
+            .data
+            .nominators
+            .get(&(nominator_id.clone()))
+            .ok_or(Error::<T>::NominatorNotFound)?;
+        let nominated_collateral_u128 = Module::<T>::dot_to_u128(nominated_collateral.clone())?;
+        let total_nominated_collateral_u128 =
+            Module::<T>::dot_to_u128(self.data.total_nominated_collateral)?;
+        Ok(nominated_collateral_u128
+            .checked_div(total_nominated_collateral_u128)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?)
+    }
+
+    pub fn remove_pending_operator_withdrawal(&mut self, index: usize) {
+        let _ = self.update(|v| {
+            v.pending_operator_withdrawals.remove(index);
+            Ok(())
+        });
+    }
+
+    pub fn add_pending_operator_withdrawal(
+        &mut self,
+        withdrawal_request: (T::BlockNumber, DOT<T>),
+    ) {
+        let _ = self.update(|v| {
+            v.pending_operator_withdrawals
+                .push(withdrawal_request.clone());
+            Ok(())
+        });
+    }
+
+    pub fn remove_pending_nominator_withdrawal(&mut self, index: usize) {
+        let _ = self.update(|v| {
+            v.pending_nominator_withdrawals.remove(index);
+            Ok(())
+        });
+    }
+
+    pub fn add_pending_nominator_withdrawal(
+        &mut self,
+        withdrawal_request: (T::BlockNumber, T::AccountId, DOT<T>),
+    ) {
+        let _ = self.update(|v| {
+            v.pending_nominator_withdrawals
+                .push(withdrawal_request.clone());
+            Ok(())
+        });
     }
 
     pub fn ensure_not_banned(&self, height: T::BlockNumber) -> DispatchResult {

@@ -31,4 +31,20 @@ impl crate::WeightInfo for () {
             .saturating_add(DbWeight::get().reads(2 as Weight))
             .saturating_add(DbWeight::get().writes(2 as Weight))
     }
+
+    fn opt_in_to_nomination() -> Weight {
+        todo!()
+    }
+
+    fn opt_out_of_nomination() -> Weight {
+        todo!()
+    }
+
+    fn deposit_nominated_collateral() -> Weight {
+        todo!()
+    }
+
+    fn withdraw_nominated_collateral() -> Weight {
+        todo!()
+    }
 }

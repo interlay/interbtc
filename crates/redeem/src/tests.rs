@@ -72,6 +72,11 @@ fn test_request_redeem_fails_with_amount_exceeds_user_balance() {
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
                 status: VaultStatus::Active,
+                nomination_operator: false,
+                nominators: Default::default(),
+                total_nominated_collateral: 0,
+                pending_operator_withdrawals: Default::default(),
+                pending_nominator_withdrawals: Default::default(),
             }))
         });
         <treasury::Module<Test>>::mint(ALICE, 2);
@@ -99,6 +104,11 @@ fn test_request_redeem_fails_with_amount_below_minimum() {
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
                 status: VaultStatus::Active,
+                nomination_operator: false,
+                nominators: Default::default(),
+                total_nominated_collateral: 0,
+                pending_operator_withdrawals: Default::default(),
+                pending_nominator_withdrawals: Default::default(),
             },
         );
 
@@ -150,6 +160,11 @@ fn test_request_redeem_fails_with_vault_banned() {
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: Some(1),
                 status: VaultStatus::Active,
+                nomination_operator: false,
+                nominators: Default::default(),
+                total_nominated_collateral: 0,
+                pending_operator_withdrawals: Default::default(),
+                pending_nominator_withdrawals: Default::default(),
             }))
         });
         ext::vault_registry::ensure_not_banned::<Test>
@@ -176,6 +191,11 @@ fn test_request_redeem_fails_with_vault_liquidated() {
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: Some(1),
                 status: VaultStatus::Liquidated,
+                nomination_operator: false,
+                nominators: Default::default(),
+                total_nominated_collateral: 0,
+                pending_operator_withdrawals: Default::default(),
+                pending_nominator_withdrawals: Default::default(),
             }))
         });
 
@@ -202,6 +222,11 @@ fn test_request_redeem_fails_with_amount_exceeds_vault_balance() {
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
                 status: VaultStatus::Active,
+                nomination_operator: false,
+                nominators: Default::default(),
+                total_nominated_collateral: 0,
+                pending_operator_withdrawals: Default::default(),
+                pending_nominator_withdrawals: Default::default(),
             }))
         });
         <treasury::Module<Test>>::mint(ALICE, 2);
@@ -231,6 +256,11 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
                 status: VaultStatus::Active,
+                nomination_operator: false,
+                nominators: Default::default(),
+                total_nominated_collateral: 0,
+                pending_operator_withdrawals: Default::default(),
+                pending_nominator_withdrawals: Default::default(),
             },
         );
 
@@ -359,6 +389,11 @@ fn test_execute_redeem_succeeds_with_another_account() {
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
                 status: VaultStatus::Active,
+                nomination_operator: false,
+                nominators: Default::default(),
+                total_nominated_collateral: 0,
+                pending_operator_withdrawals: Default::default(),
+                pending_nominator_withdrawals: Default::default(),
             },
         );
         ext::btc_relay::verify_transaction_inclusion::<Test>
@@ -468,6 +503,11 @@ fn test_execute_redeem_succeeds() {
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
                 status: VaultStatus::Active,
+                nomination_operator: false,
+                nominators: Default::default(),
+                total_nominated_collateral: 0,
+                pending_operator_withdrawals: Default::default(),
+                pending_nominator_withdrawals: Default::default(),
             },
         );
         ext::btc_relay::verify_transaction_inclusion::<Test>

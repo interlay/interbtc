@@ -1,7 +1,7 @@
 use btc_parachain_runtime::{
     AccountId, BTCRelayConfig, DOTConfig, ExchangeRateOracleConfig, FeeConfig, GenesisConfig,
     IssueConfig, PolkaBTCConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature, SlaConfig,
-    StakedRelayersConfig, SudoConfig, SystemConfig, VaultRegistryConfig, DAYS, MINUTES,
+    StakedRelayersConfig, SudoConfig, SystemConfig, VaultRegistryConfig, DAYS, HOURS, MINUTES,
     WASM_BINARY,
 };
 
@@ -424,6 +424,10 @@ fn testnet_genesis(
             premium_redeem_threshold: FixedU128::checked_from_rational(135, 100).unwrap(), // 135%
             auction_collateral_threshold: FixedU128::checked_from_rational(120, 100).unwrap(), // 120%
             liquidation_collateral_threshold: FixedU128::checked_from_rational(110, 100).unwrap(), // 110%
+            nominated_collateral_upper_limit_rate: FixedU128::checked_from_rational(50, 100)
+                .unwrap(), // 50%
+            operator_unbonding_period: 24 * HOURS,
+            nominator_unbonding_period: 12 * HOURS,
             liquidation_vault_account_id: liquidation_vault,
         },
         fee: FeeConfig {
@@ -444,6 +448,7 @@ fn testnet_genesis(
             relayer_rewards: FixedU128::checked_from_rational(3, 100).unwrap(),
             maintainer_rewards: FixedU128::checked_from_rational(20, 100).unwrap(),
             collator_rewards: FixedU128::checked_from_integer(0).unwrap(),
+            nomination_rewards: FixedU128::checked_from_rational(0, 100).unwrap(),
         },
         sla: SlaConfig {
             vault_target_sla: FixedI128::from(100),

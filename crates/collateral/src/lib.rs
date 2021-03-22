@@ -12,7 +12,7 @@ mod mock;
 mod tests;
 
 use frame_support::dispatch::{DispatchError, DispatchResult};
-use frame_support::traits::{Currency, ExistenceRequirement, ReservableCurrency};
+use frame_support::traits::{BalanceStatus, Currency, ExistenceRequirement, ReservableCurrency};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, ensure, sp_runtime::ModuleId,
 };
@@ -174,6 +174,29 @@ impl<T: Config> Module<T> {
             Error::<T>::InsufficientCollateralAvailable
         );
         Self::slash_collateral_saturated(sender, receiver, amount)?;
+        Ok(())
+    }
+
+    /// Transfer DOT from a sender a receiver. Can only fail if
+    /// the sender account has too little locked DOT.
+    ///
+    /// # Arguments
+    ///
+    /// * `sender` - the account to take DOT from
+    /// * `receiver` - the receiver of the DOT
+    /// * `amount` - the to be transferred amount
+    /// * `status` - the status of the amount, once transferred (`reserved` or `free`)
+    pub fn repatriate_reserved(
+        sender: T::AccountId,
+        receiver: T::AccountId,
+        amount: BalanceOf<T>,
+        status: BalanceStatus,
+    ) -> DispatchResult {
+        ensure!(
+            T::DOT::reserved_balance(&sender) >= amount,
+            Error::<T>::InsufficientCollateralAvailable
+        );
+        T::DOT::repatriate_reserved(&sender, &receiver, amount, status)?;
         Ok(())
     }
 

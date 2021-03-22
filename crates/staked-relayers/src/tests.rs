@@ -1182,6 +1182,11 @@ fn test_is_transaction_invalid_fails_with_valid_merge_transaction() {
                 wallet: wallet.clone(),
                 banned_until: None,
                 status: VaultStatus::Active,
+                nomination_operator: false,
+                nominators: Default::default(),
+                total_nominated_collateral: 0,
+                pending_operator_withdrawals: Default::default(),
+                pending_nominator_withdrawals: Default::default(),
             }))
         });
 
@@ -1242,6 +1247,11 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
                 wallet: wallet.clone(),
                 banned_until: None,
                 status: VaultStatus::Active,
+                nomination_operator: false,
+                nominators: Default::default(),
+                total_nominated_collateral: 0,
+                pending_operator_withdrawals: Default::default(),
+                pending_nominator_withdrawals: Default::default(),
             }))
         });
 
@@ -1410,6 +1420,11 @@ fn test_is_transaction_invalid_fails_with_valid_merge_testnet_transaction() {
                 wallet: wallet.clone(),
                 banned_until: None,
                 status: VaultStatus::Active,
+                nomination_operator: false,
+                nominators: Default::default(),
+                total_nominated_collateral: 0,
+                pending_operator_withdrawals: Default::default(),
+                pending_nominator_withdrawals: Default::default(),
             }))
         });
 

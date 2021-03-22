@@ -25,6 +25,7 @@ use frame_system::{ensure_root, ensure_signed};
 use mocktopus::macros::mockable;
 use primitive_types::H256;
 use sp_runtime::traits::CheckedSub;
+use sp_runtime::traits::Zero;
 use sp_runtime::ModuleId;
 use sp_std::convert::TryInto;
 use sp_std::vec::Vec;
@@ -287,6 +288,14 @@ impl<T: Config> Module<T> {
         if amount_btc > vault.issued_tokens {
             amount_btc = vault.issued_tokens;
         }
+
+        // Check that the vault has no nominated collateral.
+        // Otherwise, replacement would break the trust assumption
+        ensure!(
+            vault.total_nominated_collateral.is_zero(),
+            Error::<T>::VaultUsesNominatedCollateral
+        );
+
         // check amount_btc is above the minimum
         let dust_value = <ReplaceBtcDustValue<T>>::get();
         ensure!(amount_btc >= dust_value, Error::<T>::AmountBelowDustAmount);
@@ -760,6 +769,7 @@ decl_error! {
         VaultOverAuctionThreshold,
         CancelAcceptedRequest,
         CollateralBelowSecureThreshold,
+        VaultUsesNominatedCollateral,
         ReplacePeriodExpired,
         ReplacePeriodNotExpired,
         ReplaceCompleted,

@@ -184,7 +184,10 @@ impl ExtBuilder {
             auction_collateral_threshold: FixedU128::one(),
             premium_redeem_threshold: FixedU128::one(),
             liquidation_collateral_threshold: FixedU128::one(),
+            nominated_collateral_upper_limit_rate: FixedU128::one(),
             liquidation_vault_account_id: 0,
+            nominator_unbonding_period: Default::default(),
+            operator_unbonding_period: Default::default(),
         }
         .assimilate_storage(&mut storage)
         .unwrap();
