@@ -424,10 +424,6 @@ fn testnet_genesis(
             premium_redeem_threshold: FixedU128::checked_from_rational(135, 100).unwrap(), // 135%
             auction_collateral_threshold: FixedU128::checked_from_rational(120, 100).unwrap(), // 120%
             liquidation_collateral_threshold: FixedU128::checked_from_rational(110, 100).unwrap(), // 110%
-            nominated_collateral_upper_limit_rate: FixedU128::checked_from_rational(50, 100)
-                .unwrap(), // 50%
-            operator_unbonding_period: 24 * HOURS,
-            nominator_unbonding_period: 12 * HOURS,
             liquidation_vault_account_id: liquidation_vault,
         },
         fee: FeeConfig {
@@ -469,6 +465,13 @@ fn testnet_genesis(
         },
         refund: RefundConfig {
             refund_btc_dust_value: 1000,
+        },
+        nomination: NominationConfig {
+            nomination_enabled: true,
+            nominated_collateral_upper_limit_rate: FixedU128::checked_from_rational(50, 100)
+                .unwrap(), // 50%
+            operator_unbonding_period: 24 * HOURS,
+            nominator_unbonding_period: 12 * HOURS,
         },
     }
 }

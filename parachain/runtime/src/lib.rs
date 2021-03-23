@@ -520,6 +520,14 @@ impl replace::Config for Runtime {
     type WeightInfo = ();
 }
 
+pub use nomination::RawEvent as RawNominationEvent;
+
+impl nomination::Config for Runtime {
+    type Event = Event;
+    type UnsignedFixedPoint = FixedU128;
+    type WeightInfo = ();
+}
+
 macro_rules! construct_polkabtc_runtime {
 	($( $modules:tt )*) => {
 		#[allow(clippy::large_enum_variant)]
@@ -556,6 +564,7 @@ macro_rules! construct_polkabtc_runtime {
                 Fee: fee::{Module, Call, Config<T>, Storage, Event<T>},
                 Sla: sla::{Module, Call, Config<T>, Storage, Event<T>},
                 Refund: refund::{Module, Call, Config<T>, Storage, Event<T>},
+                Nomination: nomination::{Module, Call, Config<T>, Storage, Event<T>},
 
 				$($modules)*
 			}
@@ -778,6 +787,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, staked_relayers, StakedRelayers);
             add_benchmark!(params, batches, vault_registry, VaultRegistry);
             add_benchmark!(params, batches, fee, Fee);
+            add_benchmark!(params, batches, nomination, Nomination);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)

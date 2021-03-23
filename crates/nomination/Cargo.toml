@@ -1,5 +1,5 @@
 [package]
-name = "vault-registry"
+name = "nomination"
 version = '0.5.0'
 authors = ["Interlay Ltd"]
 edition = "2018"
@@ -25,12 +25,9 @@ pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "
 pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 
 # Parachain dependencies
-bitcoin = { path = "../bitcoin", default-features = false }
 collateral = { path = "../collateral", default-features = false }
-exchange-rate-oracle = { path = "../exchange-rate-oracle", default-features = false }
 security = { path = "../security", default-features = false }
 treasury = { path = "../treasury", default-features = false }
-nomination = { path = "../nomination", default-features = false }
 
 [dev-dependencies]
 mocktopus = "0.7.0"
@@ -54,9 +51,7 @@ std = [
   'pallet-balances/std',
   'pallet-timestamp/std',
   'pallet-randomness-collective-flip/std',
-  'bitcoin/std',
   'collateral/std',
-  'exchange-rate-oracle/std',
   'security/std',
   'treasury/std',
 ]

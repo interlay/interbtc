@@ -39,7 +39,6 @@ use sp_arithmetic::FixedPointNumber;
 use sp_std::convert::TryInto;
 use sp_std::vec::*;
 use types::{Inner, PolkaBTC, UnsignedFixedPoint, DOT};
-use vault_registry::types::RichVault;
 
 pub trait WeightInfo {
     fn withdraw_polka_btc() -> Weight;
@@ -272,13 +271,13 @@ impl<T: Config> Module<T> {
             total_vault_rewards_for_issued_in_dot,
             total_vault_rewards_for_locked_in_dot,
         )? {
-            let mut rich_vault: RichVault<T> =
-                VaultRegistry::get_active_rich_vault_from_id(&account)?;
-            let vault_reward_proportion = rich_vault.get_vault_collateral_proportion()
-                + rich_vault.get_nominator_collateral_proportion()
-                    * (1 - Self::nominator_rewards());
-            let nominator_reward_proportion =
-                rich_vault.get_nominator_collateral_proportion() * (Self::nominator_rewards());
+            // let mut rich_vault: RichVault<T> =
+            //     VaultRegistry::get_active_rich_vault_from_id(&account)?;
+            // let vault_reward_proportion = rich_vault.get_vault_collateral_proportion()
+            //     + rich_vault.get_nominator_collateral_proportion()
+            //         * (1 - Self::nominator_rewards());
+            // let nominator_reward_proportion =
+            //     rich_vault.get_nominator_collateral_proportion() * (Self::nominator_rewards());
 
             // 1. Find amount in dot and polkabtc for each nomination party
             // 2. Iterate through nominators, get their proportion and multiply by dot/polkabtc amounts and increase

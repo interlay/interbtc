@@ -86,3 +86,40 @@ pub(crate) mod security {
         <security::Module<T>>::ensure_parachain_does_not_have_errors(error_codes)
     }
 }
+
+#[cfg_attr(test, mockable)]
+pub(crate) mod nomination {
+    use sp_runtime::DispatchError;
+
+    pub fn is_nomination_enabled<T: nomination::Config>() -> Result<bool, DispatchError> {
+        <nomination::Module<T>>::is_nomination_enabled()
+    }
+
+    pub fn slash_nominators(
+        vault_id: T::AccountId,
+        status: VaultStatus,
+        to_slash: DOT<T>,
+        backing_collateral_before_slashing: DOT<T>,
+    ) -> DispatchResult {
+        <nomination::Module<T>>::slash_nominators(
+            vault_id,
+            status,
+            to_slash,
+            backing_collateral_before_slashing,
+        )
+    }
+
+    pub fn opt_in_to_nomination(operator_id: &T::AccountId) -> DispatchResult {
+        <nomination::Module<T>>::opt_in_to_nomination(operator_id)
+    }
+
+    pub fn opt_out_of_nomination(operator_id: &T::AccountId) -> DispatchResult {
+        <nomination::Module<T>>::opt_out_of_nomination(operator_id)
+    }
+
+    pub fn get_total_nominated_collateral(
+        operator_id: &T::AccountId,
+    ) -> Result<DOT<T>, DispatchError> {
+        <nomination::Module<T>>::opt_in_to_nomination(operator_id)
+    }
+}

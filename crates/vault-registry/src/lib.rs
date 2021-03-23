@@ -127,18 +127,6 @@ decl_storage! {
         /// LiquidationVault and claims are later handled via the LiquidationVault.
         LiquidationVaultAccountId get(fn liquidation_vault_account_id) config(): T::AccountId;
 
-        /// Upper limit, expressed as a rate out of a Vault's collateral, that can be
-        /// nominated as collateral
-        NominatedCollateralUpperLimitRate get(fn nominated_collateral_upper_limit_rate) config(): UnsignedFixedPoint<T>;
-
-        /// Base unbonding period by which collateral withdrawal requests from Vault Operators
-        /// are delayed
-        OperatorUnbondingPeriod get(fn operator_unbonding_period) config(): T::BlockNumber;
-
-        /// Base unbonding period by which collateral withdrawal requests from Vault Nominators
-        /// are delayed
-        NominatorUnbondingPeriod get(fn nominator_unbonding_period) config(): T::BlockNumber;
-
         LiquidationVault get(fn liquidation_vault) build(|config: &GenesisConfig<T>| {
             SystemVault {
                 id: config.liquidation_vault_account_id.clone(),
@@ -209,35 +197,6 @@ decl_module! {
             Self::_opt_out_of_nomination(&ensure_signed(origin)?)
         }
 
-        /// Nominate collateral to a Vault Operator
-        #[weight = <T as Config>::WeightInfo::deposit_nominated_collateral()]
-        #[transactional]
-        fn deposit_nominated_collateral(origin, vault_id: T::AccountId, collateral: DOT<T>) -> DispatchResult {
-            Self::_deposit_nominated_collateral(&ensure_signed(origin)?, &vault_id, collateral)
-        }
-
-        /// Withdraw collateral from a Vault Operator
-        #[weight = <T as Config>::WeightInfo::withdraw_nominated_collateral()]
-        #[transactional]
-        fn withdraw_nominated_collateral(origin, vault_id: T::AccountId, collateral: DOT<T>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
-            let height = <frame_system::Module<T>>::block_number();
-
-            let nominator_unbonding_period = Self::get_nominator_unbonding_period();
-            let nominator_unbonding_period_u128 = Self::blocknumber_to_u128(nominator_unbonding_period)?;
-
-            let scaled_nominator_unbonding_period_u128 = vault
-            .get_nominated_collateral_proportion_for(sender)?
-            .checked_mul(nominator_unbonding_period_u128)
-            .ok_or(Error::<T>::ArithmeticOverflow)?;
-
-            let scaled_nominator_unbonding_period = Self::u128_to_blocknumber(scaled_nominator_unbonding_period_u128)?;
-            let maturity = height + scaled_nominator_unbonding_period;
-            vault.add_pending_operator_withdrawal((maturity, collateral));
-            Ok(())
-        }
-
         /// Locks additional collateral as a security against stealing the
         /// Bitcoin locked with it.
         ///
@@ -286,18 +245,12 @@ decl_module! {
             let sender = ensure_signed(origin)?;
             ext::security::ensure_parachain_status_running::<T>()?;
             let mut vault = Self::get_active_rich_vault_from_id(&sender)?;
-            if vault.data.nomination_operator {
-                let height = <frame_system::Module<T>>::block_number();
-                let maturity = height + Self::get_operator_unbonding_period();
-                vault.add_pending_operator_withdrawal((maturity, amount));
-            } else {
-                vault.withdraw_collateral(amount)?;
-                Self::deposit_event(Event::<T>::WithdrawCollateral(
-                    sender.clone(),
-                    amount,
-                    vault.get_collateral(),
-                ));
-            }
+            vault.withdraw_collateral(amount)?;
+            Self::deposit_event(Event::<T>::WithdrawCollateral(
+                sender.clone(),
+                amount,
+                vault.get_collateral(),
+            ));
 
             Ok(())
         }
@@ -340,37 +293,6 @@ decl_module! {
 impl<T: Config> Module<T> {
     fn begin_block(height: T::BlockNumber) -> DispatchResult {
         Self::liquidate_undercollateralized_vaults();
-        Self::update_pending_nomination_withdrawals(height)?;
-        Ok(())
-    }
-
-    fn update_pending_nomination_withdrawals(height: T::BlockNumber) -> DispatchResult {
-        for (id, vault) in <Vaults<T>>::iter() {
-            for (index, (unbonding_block, amount)) in
-                vault.pending_operator_withdrawals.iter().enumerate()
-            {
-                Self::try_unbonding_withdrawal(
-                    &id.clone(),
-                    &id.clone(),
-                    *amount,
-                    height,
-                    *unbonding_block,
-                    index,
-                )?;
-            }
-            for (index, (unbonding_block, nominator_id, amount)) in
-                vault.pending_nominator_withdrawals.iter().enumerate()
-            {
-                Self::try_unbonding_withdrawal(
-                    &id.clone(),
-                    &nominator_id,
-                    *amount,
-                    height,
-                    *unbonding_block,
-                    index,
-                )?;
-            }
-        }
         Ok(())
     }
 
@@ -463,48 +385,31 @@ impl<T: Config> Module<T> {
     /// # Arguments
     /// * `vault_id` - the id of the vault to mark as Nomination Operator
     pub fn _opt_in_to_nomination(vault_id: &T::AccountId) -> DispatchResult {
-        // let vault_id_copy =
-        let mut vault = Self::get_active_rich_vault_from_id(&(vault_id.clone()))?;
-        vault.opt_in_to_nomination()?;
-        Self::deposit_event(Event::<T>::NominationOptIn(vault_id.clone()));
-        Ok(())
+        ext::security::ensure_parachain_status_running::<T>()?;
+        ensure!(
+            ext::nomination::is_nomination_enabled(),
+            Error::<T>::VaultNominationDisabled
+        );
+        ensure!(Self::vault_exists(&vault_id), Error::<T>::VaultNotFound);
+        ext::nomination::opt_in_to_nomination(vault_id);
     }
 
     pub fn _opt_out_of_nomination(vault_id: &T::AccountId) -> DispatchResult {
+        ext::security::ensure_parachain_status_running::<T>()?;
+        ensure!(
+            ext::nomination::is_nomination_enabled(),
+            Error::<T>::VaultNominationDisabled
+        );
+        ensure!(Self::vault_exists(&vault_id), Error::<T>::VaultNotFound);
+
         let mut vault = Self::get_active_rich_vault_from_id(&(vault_id.clone()))?;
-        vault.opt_out_of_nomination()?;
-        Self::deposit_event(Event::<T>::NominationOptOut(vault_id.clone()));
-        Ok(())
-    }
-
-    pub fn _deposit_nominated_collateral(
-        nominator_id: &T::AccountId,
-        vault_id: &T::AccountId,
-        collateral: DOT<T>,
-    ) -> DispatchResult {
-        let mut vault = Self::get_active_rich_vault_from_id(vault_id)?;
-        vault.deposit_nominated_collateral(nominator_id.clone(), collateral)?;
-        Self::deposit_event(Event::<T>::IncreaseNominatedCollateral(
-            nominator_id.clone(),
-            vault_id.clone(),
-            collateral,
-        ));
-        Ok(())
-    }
-
-    pub fn _withdraw_nominated_collateral(
-        nominator_id: &T::AccountId,
-        vault_id: &T::AccountId,
-        collateral: DOT<T>,
-    ) -> DispatchResult {
-        let mut vault = Self::get_active_rich_vault_from_id(vault_id)?;
-        vault.withdraw_nominated_collateral(nominator_id.clone(), collateral)?;
-        Self::deposit_event(Event::<T>::DecreaseNominatedCollateral(
-            nominator_id.clone(),
-            vault_id.clone(),
-            collateral,
-        ));
-        Ok(())
+        let total_nominated_collateral = ext::nomination::get_total_nominated_collateral(vault_id);
+        ensure!(
+            total_nominated_collateral.is_zero()
+                || (vault.data.issued_tokens.is_zero() && vault.data.to_be_issued_tokens.is_zero()),
+            Error::<T>::VaultNotQualifiedToOptOutOfNomination
+        );
+        ext::nomination::opt_out_of_nomination(vault_id)?;
     }
 
     pub fn get_vault_from_id(vault_id: &T::AccountId) -> Result<DefaultVault<T>, DispatchError> {
@@ -1312,40 +1217,12 @@ impl<T: Config> Module<T> {
         <LiquidationCollateralThreshold<T>>::set(threshold);
     }
 
-    pub fn is_nominated_collateral_below_limit_rate(
-        vault_collateral: DOT<T>,
-        nominated_collateral: DOT<T>,
-    ) -> Result<bool, DispatchError> {
-        let limit_rate = <NominatedCollateralUpperLimitRate<T>>::get();
-        let vault_collateral_inner = Self::dot_to_inner_fixed_point(vault_collateral)?;
-        let nominated_collateral_inner = Self::dot_to_inner_fixed_point(nominated_collateral)?;
-
-        let limit_collateral =
-            UnsignedFixedPoint::<T>::checked_from_integer(vault_collateral_inner)
-                .ok_or(Error::<T>::TryIntoIntError)?
-                .checked_mul(&limit_rate)
-                .ok_or(Error::<T>::ArithmeticOverflow)?;
-        Ok(
-            UnsignedFixedPoint::<T>::checked_from_integer(nominated_collateral_inner)
-                .ok_or(Error::<T>::TryIntoIntError)?
-                .le(&limit_collateral),
-        )
-    }
-
-    pub fn set_nominated_collateral_upper_limit_rate(limit: UnsignedFixedPoint<T>) {
-        <NominatedCollateralUpperLimitRate<T>>::set(limit);
-    }
-
     pub fn get_premium_redeem_threshold() -> UnsignedFixedPoint<T> {
         <PremiumRedeemThreshold<T>>::get()
     }
 
     pub fn get_liquidation_collateral_threshold() -> UnsignedFixedPoint<T> {
         <LiquidationCollateralThreshold<T>>::get()
-    }
-
-    pub fn get_nominated_collateral_upper_limit_rate() -> UnsignedFixedPoint<T> {
-        <NominatedCollateralUpperLimitRate<T>>::get()
     }
 
     pub fn is_over_minimum_collateral(amount: DOT<T>) -> bool {
@@ -1590,7 +1467,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Like get_rich_vault_from_id, but only returns active vaults
-    pub fn get_active_rich_vault_from_id(
+    fn get_active_rich_vault_from_id(
         vault_id: &T::AccountId,
     ) -> Result<RichVault<T>, DispatchError> {
         Ok(Self::get_active_vault_from_id(vault_id)?.into())
@@ -1736,17 +1613,6 @@ impl<T: Config> Module<T> {
         TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
-    fn dot_to_inner_fixed_point(
-        x: DOT<T>,
-    ) -> Result<<<T as Config>::UnsignedFixedPoint as FixedPointNumber>::Inner, DispatchError> {
-        let x_u128 = Self::dot_to_u128(x)?;
-
-        // calculate how many tokens should be maximally issued given the threshold.
-        let vault_collateral_as_inner =
-            TryInto::try_into(x_u128).map_err(|_| Error::<T>::TryIntoIntError)?;
-        Ok(vault_collateral_as_inner)
-    }
-
     fn u128_to_dot(x: u128) -> Result<DOT<T>, DispatchError> {
         TryInto::<DOT<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
@@ -1777,22 +1643,6 @@ impl<T: Config> Module<T> {
         let btc_address = vault.new_deposit_address(secure_id)?;
         Ok(btc_address)
     }
-
-    pub fn get_operator_unbonding_period() -> T::BlockNumber {
-        <OperatorUnbondingPeriod<T>>::get()
-    }
-
-    pub fn get_nominator_unbonding_period() -> T::BlockNumber {
-        <NominatorUnbondingPeriod<T>>::get()
-    }
-
-    fn blocknumber_to_u128(x: T::BlockNumber) -> Result<u128, DispatchError> {
-        TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
-    }
-
-    fn u128_to_blocknumber(x: u128) -> Result<T::BlockNumber, DispatchError> {
-        TryInto::<T::BlockNumber>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
-    }
 }
 
 decl_event! {
@@ -1820,10 +1670,7 @@ decl_event! {
         RedeemTokensLiquidation(AccountId, PolkaBTC, DOT),
         ReplaceTokens(AccountId, AccountId, PolkaBTC, DOT),
         LiquidateVault(AccountId, PolkaBTC, PolkaBTC, PolkaBTC, PolkaBTC, DOT, VaultStatus),
-        NominationOptIn(AccountId),
-        NominationOptOut(AccountId),
-        IncreaseNominatedCollateral(AccountId, AccountId, DOT),
-        DecreaseNominatedCollateral(AccountId, AccountId, DOT),
+
     }
 }
 
@@ -1839,13 +1686,7 @@ decl_error! {
         // FIXME: ERR_MIN_AMOUNT in spec
         /// Returned if a vault tries to register while already being registered
         VaultAlreadyRegistered,
-        VaultAlreadyOptedInToNomination,
-        VaultAlreadyOptedOutOfNomination,
-        VaultNotQualifiedToOptOutOfNomination,
         VaultNotFound,
-        NominatorLiquidationFailed,
-        NominatorNotFound,
-        TooLittleDelegatedCollateral,
         /// The Bitcoin Address has already been registered
         ReservedDepositAddress,
         /// Collateralization is infinite if no tokens are issued
@@ -1860,7 +1701,8 @@ decl_error! {
         TryIntoIntError,
         InvalidSecretKey,
         InvalidPublicKey,
-        WithdrawalNotUnbonded,
+        VaultNominationDisabled,
+        VaultNotQualifiedToOptOutOfNomination
     }
 }
 
