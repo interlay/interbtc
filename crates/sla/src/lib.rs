@@ -338,8 +338,12 @@ impl<T: Config> Module<T> {
     ///
     /// * `vault_id` - account of the vault in question
     /// * `stake` - the amount of collateral placed for the redeem/replace
-    /// * `reimburse` - if true, this function returns 110-130%. If false, it returns 10-30% 
-    pub fn calculate_slashed_amount(vault_id: &T::AccountId, stake: DOT<T>, reimburse: bool) -> Result<DOT<T>, DispatchError> {
+    /// * `reimburse` - if true, this function returns 110-130%. If false, it returns 10-30%
+    pub fn calculate_slashed_amount(
+        vault_id: &T::AccountId,
+        stake: DOT<T>,
+        reimburse: bool,
+    ) -> Result<DOT<T>, DispatchError> {
         let current_sla = <VaultSla<T>>::get(vault_id);
 
         let liquidation_threshold = ext::vault_registry::get_liquidation_collateral_threshold::<T>();
@@ -347,11 +351,12 @@ impl<T: Config> Module<T> {
         let premium_redeem_threshold = ext::vault_registry::get_premium_redeem_threshold::<T>();
         let premium_redeem_threshold = Self::fixed_point_unsigned_to_signed(premium_redeem_threshold)?;
 
-        let total = Self::_calculate_slashed_amount(current_sla, stake, liquidation_threshold, premium_redeem_threshold)?;
+        let total =
+            Self::_calculate_slashed_amount(current_sla, stake, liquidation_threshold, premium_redeem_threshold)?;
 
         if reimburse {
             Ok(total)
-        }         else {
+        } else {
             // vault is already losing the btc, so subtract the equivalent value of the lost btc
             Ok(total.checked_sub(&stake).ok_or(Error::<T>::ArithmeticUnderflow)?)
         }
