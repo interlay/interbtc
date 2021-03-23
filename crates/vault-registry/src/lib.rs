@@ -35,7 +35,7 @@ use frame_support::{
     weights::Weight,
     IterableStorageMap,
 };
-use frame_system::{ensure_root, ensure_signed};
+use frame_system::ensure_signed;
 use primitive_types::U256;
 use security::ErrorCode;
 use sp_arithmetic::{traits::*, FixedPointNumber};
@@ -236,7 +236,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Registers a new Bitcoin public key for the vault.
+        /// Registers a new Bitcoin address for the vault.
         ///
         /// # Arguments
         /// * `public_key` - the BTC public key of the vault to update
@@ -251,10 +251,6 @@ decl_module! {
             Ok(())
         }
 
-        /// Registers a new Bitcoin address for the vault.
-        ///
-        /// # Arguments
-        /// * `btc_address` - the BTC address to register
         #[weight = <T as Config>::WeightInfo::register_address()]
         #[transactional]
         fn register_address(origin, btc_address: BtcAddress) -> DispatchResult {
@@ -263,20 +259,6 @@ decl_module! {
             Self::insert_vault_deposit_address(&account_id, btc_address.clone())?;
             Self::deposit_event(Event::<T>::RegisterAddress(account_id, btc_address));
             Ok(())
-        }
-
-        /// Insert the specified `vault` with the given `vault_id` into storage.
-        ///
-        /// # Arguments
-        ///
-        /// * `origin` - the dispatch origin of this call (must be _Root_)
-        /// * `vault_id` - account id of the vault
-        /// * `vault` - vault struct with public key & addresses
-        #[weight = 0]
-        #[transactional]
-        pub fn insert_parachain_vault(origin, vault_id: T::AccountId, vault: DefaultVault<T>) {
-            ensure_root(origin)?;
-            Self::insert_vault(&vault_id, vault);
         }
 
         fn on_initialize(n: T::BlockNumber) -> Weight {
@@ -931,7 +913,7 @@ impl<T: Config> Module<T> {
         Ok(total)
     }
 
-    pub fn insert_vault(id: &T::AccountId, vault: DefaultVault<T>) {
+    pub fn insert_vault(id: &T::AccountId, vault: Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>) {
         <Vaults<T>>::insert(id, vault)
     }
 
