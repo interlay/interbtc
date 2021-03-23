@@ -116,8 +116,7 @@ impl Default for VaultStatus {
     }
 }
 
-#[derive(Encode, Decode, Default, Clone, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
+#[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
 pub struct Vault<AccountId, BlockNumber, PolkaBTC, DOT> {
     // Account identifier of the Vault
     pub id: AccountId,
