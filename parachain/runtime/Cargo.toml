@@ -35,6 +35,7 @@ pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "r
 pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 pallet-sudo = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
+pallet-utility = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 pallet-collective = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 pallet-society = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
@@ -124,6 +125,7 @@ std = [
   "pallet-randomness-collective-flip/std",
   "pallet-timestamp/std",
   "pallet-sudo/std",
+  "pallet-utility/std",
   "pallet-transaction-payment/std",
   "pallet-collective/std",
   "pallet-society/std",

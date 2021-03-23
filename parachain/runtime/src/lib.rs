@@ -291,6 +291,12 @@ impl pallet_sudo::Config for Runtime {
     type Event = Event;
 }
 
+impl pallet_utility::Config for Runtime {
+    type Call = Call;
+    type Event = Event;
+    type WeightInfo = ();
+}
+
 #[cfg(feature = "cumulus-polkadot")]
 impl cumulus_parachain_system::Config for Runtime {
     type Event = Event;
@@ -529,6 +535,7 @@ macro_rules! construct_polkabtc_runtime {
                 System: frame_system::{Module, Call, Storage, Config, Event<T>},
                 Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
                 Sudo: pallet_sudo::{Module, Call, Storage, Config<T>, Event<T>},
+                Utility: pallet_utility::{Module, Call, Event},
                 RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
                 TransactionPayment: pallet_transaction_payment::{Module, Storage},
 
