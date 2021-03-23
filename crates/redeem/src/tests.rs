@@ -1,6 +1,6 @@
 use crate::{ext, has_request_expired, mock::*};
 
-use crate::types::{PolkaBTC, RedeemRequest, DOT};
+use crate::types::{PolkaBTC, RedeemRequest, RedeemRequestStatus, DOT};
 use bitcoin::types::H256Le;
 use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
@@ -262,16 +262,12 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
             RedeemRequest {
                 vault: BOB,
                 opentime: 1,
-                amount_polka_btc: amount - redeem_fee,
                 fee: redeem_fee,
                 amount_btc: amount - redeem_fee,
-                amount_dot: 0,
                 premium_dot: 0,
                 redeemer: redeemer.clone(),
                 btc_address: BtcAddress::P2PKH(H160::zero()),
-                completed: false,
-                cancelled: false,
-                reimburse: false,
+                status: RedeemRequestStatus::Pending,
             }
         );
     })
@@ -348,16 +344,12 @@ fn test_execute_redeem_succeeds_with_another_account() {
             RedeemRequest {
                 vault: BOB,
                 opentime: 40,
-                amount_polka_btc: 100,
                 fee: 0,
                 amount_btc: 100,
-                amount_dot: 0,
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: BtcAddress::random(),
-                completed: false,
-                cancelled: false,
-                reimburse: false,
+                status: RedeemRequestStatus::Pending,
             },
         );
 
@@ -386,7 +378,7 @@ fn test_execute_redeem_succeeds_with_another_account() {
         assert_emitted!(Event::ExecuteRedeem(H256([0; 32]), ALICE, 100, 0, BOB));
         assert_err!(
             Redeem::get_open_redeem_request_from_id(&H256([0u8; 32])),
-            TestError::RedeemCompleted,
+            TestError::InvalidRedeemStatus,
         );
     })
 }
@@ -400,16 +392,12 @@ fn test_execute_redeem_fails_with_commit_period_expired() {
             MockResult::Return(Ok(RedeemRequest {
                 vault: BOB,
                 opentime: 20,
-                amount_polka_btc: 0,
                 fee: 0,
                 amount_btc: 0,
-                amount_dot: 0,
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: BtcAddress::random(),
-                completed: false,
-                cancelled: false,
-                reimburse: false,
+                status: RedeemRequestStatus::Pending,
             }))
         });
 
@@ -454,16 +442,12 @@ fn test_execute_redeem_succeeds() {
             RedeemRequest {
                 vault: BOB,
                 opentime: 40,
-                amount_polka_btc: 100,
                 fee: 0,
                 amount_btc: 100,
-                amount_dot: 0,
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: BtcAddress::random(),
-                completed: false,
-                cancelled: false,
-                reimburse: false,
+                status: RedeemRequestStatus::Pending,
             },
         );
 
@@ -492,7 +476,7 @@ fn test_execute_redeem_succeeds() {
         assert_emitted!(Event::ExecuteRedeem(H256([0; 32]), ALICE, 100, 0, BOB));
         assert_err!(
             Redeem::get_open_redeem_request_from_id(&H256([0u8; 32])),
-            TestError::RedeemCompleted,
+            TestError::InvalidRedeemStatus,
         );
     })
 }
@@ -516,16 +500,12 @@ fn test_cancel_redeem_fails_with_time_not_expired() {
             MockResult::Return(Ok(RedeemRequest {
                 vault: BOB,
                 opentime: 0,
-                amount_polka_btc: 0,
                 fee: 0,
                 amount_btc: 0,
-                amount_dot: 0,
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: BtcAddress::random(),
-                completed: false,
-                cancelled: false,
-                reimburse: false,
+                status: RedeemRequestStatus::Pending,
             }))
         });
 
@@ -545,16 +525,12 @@ fn test_cancel_redeem_fails_with_unauthorized_caller() {
             MockResult::Return(Ok(RedeemRequest {
                 vault: BOB,
                 opentime: 0,
-                amount_polka_btc: 0,
                 fee: 0,
                 amount_btc: 0,
-                amount_dot: 0,
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: BtcAddress::random(),
-                completed: false,
-                cancelled: false,
-                reimburse: false,
+                status: RedeemRequestStatus::Pending,
             }))
         });
 
@@ -573,16 +549,12 @@ fn test_cancel_redeem_succeeds() {
             RedeemRequest {
                 vault: BOB,
                 opentime: 10,
-                amount_polka_btc: 0,
                 fee: 0,
                 amount_btc: 0,
-                amount_dot: 0,
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: BtcAddress::random(),
-                completed: false,
-                cancelled: false,
-                reimburse: false,
+                status: RedeemRequestStatus::Pending,
             },
         );
 
@@ -592,7 +564,7 @@ fn test_cancel_redeem_succeeds() {
             assert_eq!(vault, BOB);
             MockResult::Return(Ok(()))
         });
-        ext::sla::calculate_slashed_amount::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(0)));
+        ext::sla::calculate_slashed_amount::<Test>.mock_safe(move |_, _, _| MockResult::Return(Ok(0)));
         ext::vault_registry::slash_collateral_saturated::<Test>.mock_safe(move |_, _, _| MockResult::Return(Ok(0)));
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(vault_registry::types::Vault {
@@ -604,7 +576,7 @@ fn test_cancel_redeem_succeeds() {
         assert_ok!(Redeem::cancel_redeem(Origin::signed(ALICE), H256([0u8; 32]), false));
         assert_err!(
             Redeem::get_open_redeem_request_from_id(&H256([0u8; 32])),
-            TestError::RedeemCancelled,
+            TestError::InvalidRedeemStatus,
         );
         assert_emitted!(Event::CancelRedeem(H256([0; 32]), ALICE, BOB, 0, false));
     })

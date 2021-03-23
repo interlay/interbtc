@@ -38,6 +38,7 @@ pub const FEE_POOL: [u8; 32] = [4u8; 32];
 pub const MAINTAINER: [u8; 32] = [5u8; 32];
 
 pub const FAUCET: [u8; 32] = [128u8; 32];
+pub const DUMMY: [u8; 32] = [255u8; 32];
 
 pub const INITIAL_BALANCE: u128 = 1_000_000_000_000;
 pub const INITIAL_LIQUIDATION_VAULT_BALANCE: u128 = 1_000;
@@ -46,6 +47,14 @@ pub const DEFAULT_USER_FREE_BALANCE: u128 = 1_000_000;
 pub const DEFAULT_USER_LOCKED_BALANCE: u128 = 100_000;
 pub const DEFAULT_USER_FREE_TOKENS: u128 = 10_000_000;
 pub const DEFAULT_USER_LOCKED_TOKENS: u128 = 1000;
+
+pub const DEFAULT_VAULT_TO_BE_ISSUED: u128 = 10_000;
+pub const DEFAULT_VAULT_ISSUED: u128 = 100_000;
+pub const DEFAULT_VAULT_TO_BE_REDEEMED: u128 = 20_000;
+pub const DEFAULT_VAULT_BACKING_COLLATERAL: u128 = 1_000_000;
+pub const DEFAULT_VAULT_GRIEFING_COLLATERAL: u128 = 30_000;
+pub const DEFAULT_VAULT_FREE_BALANCE: u128 = 200_000;
+pub const DEFAULT_VAULT_FREE_TOKENS: u128 = 0;
 
 pub const CONFIRMATIONS: u32 = 6;
 
@@ -84,6 +93,18 @@ pub fn default_user_state() -> UserData {
     }
 }
 
+pub fn default_vault_state() -> CoreVaultData {
+    CoreVaultData {
+        to_be_issued: DEFAULT_VAULT_TO_BE_ISSUED,
+        issued: DEFAULT_VAULT_ISSUED,
+        to_be_redeemed: DEFAULT_VAULT_TO_BE_REDEEMED,
+        backing_collateral: DEFAULT_VAULT_BACKING_COLLATERAL,
+        griefing_collateral: DEFAULT_VAULT_GRIEFING_COLLATERAL,
+        free_balance: DEFAULT_VAULT_FREE_BALANCE,
+        free_tokens: 0,
+    }
+}
+
 pub fn origin_of(account_id: AccountId) -> <Runtime as frame_system::Config>::Origin {
     <Runtime as frame_system::Config>::Origin::signed(account_id)
 }
@@ -92,7 +113,7 @@ pub fn account_of(address: [u8; 32]) -> AccountId {
     AccountId::from(address)
 }
 
-#[derive(Debug, PartialEq, Default)]
+#[derive(Debug, PartialEq, Default, Clone)]
 pub struct UserData {
     pub free_balance: u128,
     pub locked_balance: u128,
@@ -116,9 +137,9 @@ impl UserData {
         let old = Self::get(id.clone());
         let account_id = account_of(id);
 
-        if old.free_tokens > new.free_tokens || old.locked_tokens > new.locked_tokens {
-            unimplemented!()
-        }
+        // set tokens to 0
+        TreasuryModule::lock(account_id.clone(), old.free_tokens).unwrap();
+        TreasuryModule::burn(account_id.clone(), old.free_tokens + old.locked_tokens).unwrap();
 
         // set free balance:
         CollateralModule::transfer(account_id.clone(), account_of(FAUCET), old.free_balance).unwrap();
@@ -130,12 +151,11 @@ impl UserData {
         CollateralModule::lock_collateral(&account_id, new.locked_balance).unwrap();
 
         // set free_tokens
-        TreasuryModule::mint(account_id.clone(), new.free_tokens - old.free_tokens);
+        TreasuryModule::mint(account_id.clone(), new.free_tokens);
 
         // set locked_tokens
-        let locked_tokens_to_add = new.locked_tokens - old.locked_tokens;
-        TreasuryModule::mint(account_id.clone(), locked_tokens_to_add);
-        TreasuryModule::lock(account_id.clone(), locked_tokens_to_add).unwrap();
+        TreasuryModule::mint(account_id.clone(), new.locked_tokens);
+        TreasuryModule::lock(account_id.clone(), new.locked_tokens).unwrap();
 
         // sanity check:
         assert_eq!(Self::get(id), new);
@@ -144,7 +164,7 @@ impl UserData {
     }
 }
 
-#[derive(Debug, PartialEq, Default)]
+#[derive(Debug, PartialEq, Default, Clone)]
 pub struct FeePool {
     pub balance: u128,
     pub tokens: u128,
@@ -159,7 +179,7 @@ impl FeePool {
     }
 }
 
-#[derive(Debug, PartialEq, Default)]
+#[derive(Debug, PartialEq, Default, Clone)]
 pub struct CoreVaultData {
     pub to_be_issued: u128,
     pub issued: u128,
@@ -167,6 +187,7 @@ pub struct CoreVaultData {
     pub backing_collateral: u128,
     pub griefing_collateral: u128,
     pub free_balance: u128,
+    pub free_tokens: u128,
 }
 
 impl CoreVaultData {
@@ -185,6 +206,7 @@ impl CoreVaultData {
                 .current_balance()
                 .unwrap(),
             free_balance: CollateralModule::get_balance_from_account(&account_id),
+            free_tokens: TreasuryModule::get_balance_from_account(account_id.clone()),
         }
     }
     #[allow(dead_code)]
@@ -198,6 +220,7 @@ impl CoreVaultData {
             backing_collateral: CurrencySource::<Runtime>::LiquidationVault.current_balance().unwrap(),
             griefing_collateral: 0,
             free_balance: CollateralModule::get_balance_from_account(&account_id),
+            free_tokens: TreasuryModule::get_balance_from_account(account_id.clone()),
         }
     }
     #[allow(dead_code)]
@@ -214,46 +237,46 @@ impl CoreVaultData {
         .unwrap();
 
         let current = CoreVaultData::vault(vault);
-        if current.to_be_issued < state.to_be_issued {
-            assert_ok!(VaultRegistryModule::try_increase_to_be_issued_tokens(
-                &account_of(vault),
-                state.to_be_issued - current.to_be_issued
-            ));
-        } else {
-            assert_ok!(VaultRegistryModule::decrease_to_be_issued_tokens(
-                &account_of(vault),
-                current.to_be_issued - state.to_be_issued
-            ));
-        }
 
-        if current.issued < state.issued {
-            assert_ok!(VaultRegistryModule::try_increase_to_be_issued_tokens(
-                &account_of(vault),
-                state.issued - current.issued
-            ));
+        // set all token types to 0
+        assert_ok!(VaultRegistryModule::decrease_to_be_issued_tokens(
+            &account_of(vault),
+            current.to_be_issued
+        ));
+        assert_ok!(VaultRegistryModule::decrease_to_be_redeemed_tokens(
+            &account_of(vault),
+            current.to_be_redeemed
+        ));
+        assert_ok!(VaultRegistryModule::try_increase_to_be_redeemed_tokens(
+            &account_of(vault),
+            current.issued
+        ));
+        assert_ok!(VaultRegistryModule::decrease_tokens(
+            &account_of(vault),
+            &account_of(DUMMY),
+            current.issued,
+        ));
+        assert_ok!(TreasuryModule::lock(account_of(vault), current.free_tokens));
+        assert_ok!(TreasuryModule::burn(account_of(vault), current.free_tokens));
 
-            assert_ok!(VaultRegistryModule::issue_tokens(
-                &account_of(vault),
-                state.issued - current.issued
-            ));
-        } else {
-            assert_ok!(VaultRegistryModule::try_increase_to_be_redeemed_tokens(
-                &account_of(vault),
-                current.issued - state.issued
-            ));
-            assert_ok!(VaultRegistryModule::redeem_tokens(
-                &account_of(vault),
-                current.issued - state.issued,
-                0,
-                &account_of(vault)
-            ));
-        }
-        if current.to_be_redeemed < state.to_be_redeemed {
-            assert_ok!(VaultRegistryModule::try_increase_to_be_redeemed_tokens(
-                &account_of(vault),
-                state.to_be_redeemed - current.to_be_redeemed
-            ));
-        }
+        // set to-be-issued
+        assert_ok!(VaultRegistryModule::try_increase_to_be_issued_tokens(
+            &account_of(vault),
+            state.to_be_issued
+        ));
+        // set issued (2 steps)
+        assert_ok!(VaultRegistryModule::try_increase_to_be_issued_tokens(
+            &account_of(vault),
+            state.issued
+        ));
+        assert_ok!(VaultRegistryModule::issue_tokens(&account_of(vault), state.issued));
+        // set to-be-redeemed
+        assert_ok!(VaultRegistryModule::try_increase_to_be_redeemed_tokens(
+            &account_of(vault),
+            state.to_be_redeemed
+        ));
+        // set free tokens:
+        TreasuryModule::mint(account_of(vault), state.free_tokens);
 
         // clear all balances
         VaultRegistryModule::slash_collateral(
@@ -304,6 +327,53 @@ impl CoreVaultData {
         // since the function is only partially implemented, check that we achieved the
         // desired stae
         assert_eq!(CoreVaultData::vault(vault), state);
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct ParachainState {
+    user: UserData,
+    vault: CoreVaultData,
+    liquidation_vault: CoreVaultData,
+    fee_pool: FeePool,
+}
+
+impl Default for ParachainState {
+    fn default() -> Self {
+        Self {
+            user: default_user_state(),
+            vault: default_vault_state(),
+            liquidation_vault: CoreVaultData {
+                free_balance: INITIAL_LIQUIDATION_VAULT_BALANCE,
+                ..Default::default()
+            },
+            fee_pool: Default::default(),
+        }
+    }
+}
+
+impl ParachainState {
+    pub fn get() -> Self {
+        Self {
+            user: UserData::get(ALICE),
+            vault: CoreVaultData::vault(BOB),
+            liquidation_vault: CoreVaultData::liquidation_vault(),
+            fee_pool: FeePool::get(),
+        }
+    }
+
+    pub fn with_changes(
+        &self,
+        f: impl FnOnce(&mut UserData, &mut CoreVaultData, &mut CoreVaultData, &mut FeePool) -> (),
+    ) -> Self {
+        let mut state = self.clone();
+        f(
+            &mut state.user,
+            &mut state.vault,
+            &mut state.liquidation_vault,
+            &mut state.fee_pool,
+        );
+        state
     }
 }
 #[allow(dead_code)]

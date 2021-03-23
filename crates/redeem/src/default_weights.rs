@@ -29,4 +29,10 @@ impl crate::WeightInfo for () {
     fn set_redeem_period() -> Weight {
         (3_376_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
     }
+    // note: placeholder value
+    fn mint_tokens_for_reimbursed_redeem() -> Weight {
+        (168_952_000 as Weight)
+            .saturating_add(DbWeight::get().reads(14 as Weight))
+            .saturating_add(DbWeight::get().writes(5 as Weight))
+    }
 }

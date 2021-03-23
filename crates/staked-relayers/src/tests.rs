@@ -12,7 +12,7 @@ use bitcoin::{
 use btc_relay::{BtcAddress, BtcPublicKey, Error as BtcRelayError};
 use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
-use redeem::types::RedeemRequest;
+use redeem::types::{RedeemRequest, RedeemRequestStatus};
 use replace::types::ReplaceRequest;
 use security::types::{ErrorCode, StatusCode};
 use sp_core::{H160, H256};
@@ -1192,16 +1192,12 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
             MockResult::Return(Ok(RedeemRequest {
                 vault: BOB,
                 opentime: 0,
-                amount_polka_btc: 0,
                 fee: 0,
                 amount_btc: 100,
-                amount_dot: 0,
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: recipient_address,
-                completed: false,
-                cancelled: false,
-                reimburse: false,
+                status: RedeemRequestStatus::Pending,
             }))
         });
 

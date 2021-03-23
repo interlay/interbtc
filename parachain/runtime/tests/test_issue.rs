@@ -263,6 +263,7 @@ fn integration_test_issue_refund() {
             CoreVaultData {
                 issued: issue.amount + 4 * issue.fee,
                 backing_collateral: 2000,
+                free_tokens: issue.fee * 3,
                 ..Default::default()
             },
         );

@@ -25,29 +25,7 @@ pub fn setup_cancelable_redeem(user: [u8; 32], vault: [u8; 32], collateral: u128
     redeem_id
 }
 
-pub fn setup_redeem(polka_btc: u128, user: [u8; 32], vault: [u8; 32], collateral: u128) -> H256 {
-    SystemModule::set_block_number(1);
-
-    set_default_thresholds();
-
-    assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
-
-    let fee = FeeModule::get_redeem_fee(polka_btc).unwrap();
-
-    // burn surplus free balance to make checking easier
-    CollateralModule::transfer(
-        account_of(vault),
-        account_of(FAUCET),
-        CollateralModule::get_balance_from_account(&account_of(vault)) - collateral,
-    )
-    .unwrap();
-
-    // create tokens for the vault and user
-    force_issue_tokens(user, vault, collateral, polka_btc - fee);
-
-    // mint tokens to the user such that he can afford the fee
-    TreasuryModule::mint(user.into(), fee);
-
+pub fn setup_redeem(polka_btc: u128, user: [u8; 32], vault: [u8; 32], _collateral: u128) -> H256 {
     // alice requests to redeem polka_btc from Bob
     assert_ok!(Call::Redeem(RedeemCall::request_redeem(
         polka_btc,
