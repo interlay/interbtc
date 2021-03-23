@@ -775,7 +775,7 @@ impl<T: Config> RichVault<T> {
         )?;
 
         let nominated_collateral_to_slash =
-            self.get_nominated_collateral_to_slash(self.data.backing_collateral, to_slash, status)?;
+            self.get_nominated_collateral_to_slash(to_slash, status)?;
 
         let nominated_collateral_remaining = self
             .data
@@ -816,31 +816,66 @@ impl<T: Config> RichVault<T> {
 
     pub fn get_nominated_collateral_to_slash(
         &mut self,
-        backing_collateral: DOT<T>,
         total_amount_to_slash: DOT<T>,
         status: VaultStatus,
     ) -> Result<DOT<T>, DispatchError> {
-        let vault_collateral = backing_collateral
-            .checked_sub(&self.data.total_nominated_collateral)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?;
         let nominated_collateral_to_slash: DOT<T> = if status.eq(&VaultStatus::CommittedTheft) {
+            let vault_collateral = self.get_vault_collateral()?;
             total_amount_to_slash
                 .checked_sub(&vault_collateral.clone())
                 .map_or(0u32.into(), |x| x)
         } else {
             let to_slash_u128 = Module::<T>::dot_to_u128(total_amount_to_slash)?;
-            let total_nominated_collateral_u128 =
-                Module::<T>::dot_to_u128(self.data.total_nominated_collateral)?;
-            let vault_collateral_u128 = Module::<T>::dot_to_u128(vault_collateral)?;
-            let nominator_collateral_proportion = total_nominated_collateral_u128
-                .checked_div(vault_collateral_u128)
-                .ok_or(Error::<T>::ArithmeticUnderflow)?;
+            let nominator_collateral_proportion = self.get_nominator_collateral_proportion()?;
             let nominated_collateral_to_slash_u128 = nominator_collateral_proportion
                 .checked_mul(to_slash_u128)
                 .ok_or(Error::<T>::ArithmeticOverflow)?;
             Module::<T>::u128_to_dot(nominated_collateral_to_slash_u128)?
         };
         Ok(nominated_collateral_to_slash)
+    }
+
+    pub fn get_vault_collateral(&mut self) -> Result<DOT<T>, DispatchError> {
+        Ok(self
+            .data
+            .backing_collateral
+            .checked_sub(&self.data.total_nominated_collateral)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?)
+    }
+
+    pub fn get_vault_collateral_proportion(&mut self) -> Result<u128, DispatchError> {
+        let vault_collateral = self.get_vault_collateral()?;
+        let vault_collateral_u128 = Module::<T>::dot_to_u128(vault_collateral)?;
+        let backing_collateral_u128 = Module::<T>::dot_to_u128(self.data.backing_collateral)?;
+        Ok(vault_collateral_u128
+            .checked_div(backing_collateral_u128)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?)
+    }
+
+    pub fn get_nominator_collateral_proportion(&mut self) -> Result<u128, DispatchError> {
+        let total_nominated_collateral_u128 =
+            Module::<T>::dot_to_u128(self.data.total_nominated_collateral)?;
+        let backing_collateral_u128 = Module::<T>::dot_to_u128(self.data.backing_collateral)?;
+        Ok(total_nominated_collateral_u128
+            .checked_div(backing_collateral_u128)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?)
+    }
+
+    pub fn get_nominated_collateral_proportion_for(
+        &mut self,
+        nominator_id: T::AccountId,
+    ) -> Result<u128, DispatchError> {
+        let nominated_collateral = self
+            .data
+            .nominators
+            .get(&(nominator_id.clone()))
+            .ok_or(Error::<T>::NominatorNotFound)?;
+        let nominated_collateral_u128 = Module::<T>::dot_to_u128(nominated_collateral.clone())?;
+        let total_nominated_collateral_u128 =
+            Module::<T>::dot_to_u128(self.data.total_nominated_collateral)?;
+        Ok(nominated_collateral_u128
+            .checked_div(total_nominated_collateral_u128)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?)
     }
 
     pub fn slash_nominators_by(&mut self, amount_to_slash: DOT<T>) -> DispatchResult {
@@ -874,23 +909,6 @@ impl<T: Config> RichVault<T> {
             v.nominators = nominators.clone();
             Ok(())
         })
-    }
-
-    pub fn get_nominated_collateral_proportion_for(
-        &mut self,
-        nominator_id: T::AccountId,
-    ) -> Result<u128, DispatchError> {
-        let nominated_collateral = self
-            .data
-            .nominators
-            .get(&(nominator_id.clone()))
-            .ok_or(Error::<T>::NominatorNotFound)?;
-        let nominated_collateral_u128 = Module::<T>::dot_to_u128(nominated_collateral.clone())?;
-        let total_nominated_collateral_u128 =
-            Module::<T>::dot_to_u128(self.data.total_nominated_collateral)?;
-        Ok(nominated_collateral_u128
-            .checked_div(total_nominated_collateral_u128)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?)
     }
 
     pub fn remove_pending_operator_withdrawal(&mut self, index: usize) {

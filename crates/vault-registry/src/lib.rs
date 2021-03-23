@@ -1590,7 +1590,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Like get_rich_vault_from_id, but only returns active vaults
-    fn get_active_rich_vault_from_id(
+    pub fn get_active_rich_vault_from_id(
         vault_id: &T::AccountId,
     ) -> Result<RichVault<T>, DispatchError> {
         Ok(Self::get_active_vault_from_id(vault_id)?.into())
