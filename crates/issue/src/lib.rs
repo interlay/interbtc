@@ -26,7 +26,7 @@ mod ext;
 pub mod types;
 
 #[doc(inline)]
-pub use crate::types::IssueRequest;
+pub use crate::types::{IssueRequest, IssueRequestStatus};
 
 use crate::types::{PolkaBTC, Version, DOT};
 use bitcoin::types::H256Le;
@@ -244,11 +244,10 @@ impl<T: Config> Module<T> {
                 requester: requester.clone(),
                 btc_address: btc_address.clone(),
                 btc_public_key: vault.wallet.public_key.clone(),
-                completed: false,
-                cancelled: false,
                 amount: amount_polkabtc,
                 fee: fee_polkabtc,
                 griefing_collateral,
+                status: IssueRequestStatus::Pending,
             },
         );
 
@@ -277,6 +276,7 @@ impl<T: Config> Module<T> {
         ext::security::ensure_parachain_status_running::<T>()?;
 
         let mut issue = Self::get_issue_request_from_id(&issue_id)?;
+        let mut maybe_refund_id = None;
         // allow anyone to complete issue request
         let requester = issue.requester.clone();
 
@@ -344,7 +344,7 @@ impl<T: Config> Module<T> {
                     }
                     Err(_) => {
                         // vault does not have enough collateral to accept the over payment, so refund.
-                        ext::refund::request_refund::<T>(
+                        maybe_refund_id = ext::refund::request_refund::<T>(
                             surplus_btc,
                             issue.vault.clone(),
                             issue.requester,
@@ -383,8 +383,7 @@ impl<T: Config> Module<T> {
             }
         }
 
-        // Remove issue request from storage
-        Self::remove_issue_request(issue_id, false);
+        Self::set_issue_status(issue_id, IssueRequestStatus::Completed(maybe_refund_id));
 
         Self::deposit_event(<Event<T>>::ExecuteIssue(
             issue_id,
@@ -423,8 +422,7 @@ impl<T: Config> Module<T> {
             )?;
             ext::fee::increase_dot_rewards_for_epoch::<T>(issue.griefing_collateral);
         }
-        // Remove issue request from storage
-        Self::remove_issue_request(issue_id, true);
+        Self::set_issue_status(issue_id, IssueRequestStatus::Cancelled);
 
         Self::deposit_event(<Event<T>>::CancelIssue(issue_id, requester, issue.griefing_collateral));
         Ok(())
@@ -460,16 +458,14 @@ impl<T: Config> Module<T> {
         issue_id: &H256,
     ) -> Result<IssueRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
         ensure!(<IssueRequests<T>>::contains_key(*issue_id), Error::<T>::IssueIdNotFound);
+
+        let issue_request = <IssueRequests<T>>::get(issue_id);
         // NOTE: temporary workaround until we delete
-        ensure!(
-            !<IssueRequests<T>>::get(*issue_id).completed,
-            Error::<T>::IssueCompleted
-        );
-        ensure!(
-            !<IssueRequests<T>>::get(*issue_id).cancelled,
-            Error::<T>::IssueCancelled
-        );
-        Ok(<IssueRequests<T>>::get(*issue_id))
+        match issue_request.status {
+            IssueRequestStatus::Completed(_) => Err(Error::<T>::IssueCompleted.into()),
+            IssueRequestStatus::Cancelled => Err(Error::<T>::IssueCancelled.into()),
+            IssueRequestStatus::Pending => Ok(issue_request),
+        }
     }
 
     /// update the fee & amount in an issue request based on the actually transferred amount
@@ -497,11 +493,10 @@ impl<T: Config> Module<T> {
         <IssueRequests<T>>::insert(key, value)
     }
 
-    fn remove_issue_request(id: H256, cancelled: bool) {
+    fn set_issue_status(id: H256, status: IssueRequestStatus) {
         // TODO: delete issue request from storage
         <IssueRequests<T>>::mutate(id, |request| {
-            request.completed = !cancelled;
-            request.cancelled = cancelled;
+            request.status = status;
         });
     }
 

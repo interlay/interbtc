@@ -37,10 +37,6 @@ impl RequestIssueBuilder {
     }
 
     pub fn request(&self) -> (H256, IssueRequest<AccountId32, u32, u128, u128>) {
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
-
-        SystemModule::set_block_number(1);
-
         try_register_vault(DEFAULT_COLLATERAL, self.vault);
 
         // alice requests polka_btc by locking btc with bob
@@ -50,13 +46,6 @@ impl RequestIssueBuilder {
             DEFAULT_GRIEFING_COLLATERAL
         ))
         .dispatch(origin_of(account_of(self.user))));
-
-        CollateralModule::transfer(
-            account_of(self.vault),
-            account_of(FAUCET),
-            CollateralModule::get_balance_from_account(&account_of(self.vault)),
-        )
-        .unwrap();
 
         let issue_id = assert_issue_request_event();
         let issue = IssueModule::get_issue_request_from_id(&issue_id).unwrap();

@@ -1,6 +1,7 @@
 use btc_relay::{BtcAddress, BtcPublicKey};
 use codec::{Decode, Encode};
 use frame_support::traits::Currency;
+use primitive_types::H256;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -17,6 +18,21 @@ pub(crate) type DOT<T> = <<T as collateral::Config>::DOT as Currency<<T as frame
 
 pub(crate) type PolkaBTC<T> =
     <<T as treasury::Config>::PolkaBTC as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+
+#[derive(Encode, Decode, Clone, PartialEq)]
+#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+pub enum IssueRequestStatus {
+    Pending,
+    /// optional refund ID
+    Completed(Option<H256>),
+    Cancelled,
+}
+
+impl Default for IssueRequestStatus {
+    fn default() -> Self {
+        IssueRequestStatus::Pending
+    }
+}
 
 // Due to a known bug in serde we need to specify how u128 is (de)serialized.
 // See https://github.com/paritytech/substrate/issues/4641
@@ -43,8 +59,7 @@ pub struct IssueRequest<AccountId, BlockNumber, PolkaBTC, DOT> {
     pub requester: AccountId,
     pub btc_address: BtcAddress,
     pub btc_public_key: BtcPublicKey,
-    pub completed: bool,
-    pub cancelled: bool,
+    pub status: IssueRequestStatus,
 }
 
 #[cfg(feature = "std")]

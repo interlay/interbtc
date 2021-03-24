@@ -196,7 +196,7 @@ pub(crate) mod refund {
         issuer: T::AccountId,
         btc_address: BtcAddress,
         issue_id: H256,
-    ) -> Result<(), DispatchError> {
+    ) -> Result<Option<H256>, DispatchError> {
         <refund::Module<T>>::request_refund(total_amount_btc, vault_id, issuer, btc_address, issue_id)
     }
 }
