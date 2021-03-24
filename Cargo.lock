@@ -453,7 +453,7 @@ dependencies = [
 
 [[package]]
 name = "bitcoin"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "bitcoin_hashes",
  "frame-support",
@@ -629,7 +629,7 @@ dependencies = [
 
 [[package]]
 name = "btc-parachain"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "btc-parachain-rpc",
  "btc-parachain-runtime",
@@ -663,7 +663,7 @@ dependencies = [
 
 [[package]]
 name = "btc-parachain-rpc"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "btc-parachain-runtime",
  "jsonrpc-core",
@@ -689,7 +689,7 @@ dependencies = [
 
 [[package]]
 name = "btc-parachain-runtime"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "bitcoin",
  "btc-relay",
@@ -765,7 +765,7 @@ dependencies = [
 
 [[package]]
 name = "btc-parachain-service"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "btc-parachain-rpc",
  "btc-parachain-runtime",
@@ -813,7 +813,7 @@ dependencies = [
 
 [[package]]
 name = "btc-relay"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "bitcoin",
  "collateral",
@@ -1047,7 +1047,7 @@ dependencies = [
 
 [[package]]
 name = "collateral"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -1868,7 +1868,7 @@ checksum = "f7531096570974c3a9dcf9e4b8e1cede1ec26cf5046219fb3b9d897503b9be59"
 
 [[package]]
 name = "exchange-rate-oracle"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "collateral",
  "frame-benchmarking",
@@ -1951,7 +1951,7 @@ dependencies = [
 
 [[package]]
 name = "fee"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "collateral",
  "exchange-rate-oracle",
@@ -3041,7 +3041,7 @@ checksum = "47be2f14c678be2fdcab04ab1171db51b2762ce6f0a8ee87c8dd4a04ed216135"
 
 [[package]]
 name = "issue"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "bitcoin",
  "btc-relay",
@@ -4232,7 +4232,7 @@ dependencies = [
 
 [[package]]
 name = "module-exchange-rate-oracle-rpc"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jsonrpc-core",
  "jsonrpc-core-client",
@@ -4247,7 +4247,7 @@ dependencies = [
 
 [[package]]
 name = "module-exchange-rate-oracle-rpc-runtime-api"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
@@ -4258,7 +4258,7 @@ dependencies = [
 
 [[package]]
 name = "module-issue-rpc"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jsonrpc-core",
  "jsonrpc-core-client",
@@ -4273,7 +4273,7 @@ dependencies = [
 
 [[package]]
 name = "module-issue-rpc-runtime-api"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
@@ -4283,7 +4283,7 @@ dependencies = [
 
 [[package]]
 name = "module-redeem-rpc"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jsonrpc-core",
  "jsonrpc-core-client",
@@ -4298,7 +4298,7 @@ dependencies = [
 
 [[package]]
 name = "module-redeem-rpc-runtime-api"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
@@ -4308,7 +4308,7 @@ dependencies = [
 
 [[package]]
 name = "module-refund-rpc"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jsonrpc-core",
  "jsonrpc-core-client",
@@ -4323,7 +4323,7 @@ dependencies = [
 
 [[package]]
 name = "module-refund-rpc-runtime-api"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
@@ -4333,7 +4333,7 @@ dependencies = [
 
 [[package]]
 name = "module-replace-rpc"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jsonrpc-core",
  "jsonrpc-core-client",
@@ -4348,7 +4348,7 @@ dependencies = [
 
 [[package]]
 name = "module-replace-rpc-runtime-api"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
@@ -4358,7 +4358,7 @@ dependencies = [
 
 [[package]]
 name = "module-sla-rpc"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jsonrpc-core",
  "jsonrpc-core-client",
@@ -4374,7 +4374,7 @@ dependencies = [
 
 [[package]]
 name = "module-sla-rpc-runtime-api"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "frame-support",
  "module-exchange-rate-oracle-rpc-runtime-api",
@@ -4385,7 +4385,7 @@ dependencies = [
 
 [[package]]
 name = "module-staked-relayers-rpc"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jsonrpc-core",
  "jsonrpc-core-client",
@@ -4400,7 +4400,7 @@ dependencies = [
 
 [[package]]
 name = "module-staked-relayers-rpc-runtime-api"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
@@ -5283,7 +5283,7 @@ dependencies = [
 
 [[package]]
 name = "parachain-info"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "cumulus-primitives-core",
  "frame-support",
@@ -5294,7 +5294,7 @@ dependencies = [
 
 [[package]]
 name = "parachain-tokens"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "collateral",
  "cumulus-primitives-core",
@@ -7105,7 +7105,7 @@ dependencies = [
 
 [[package]]
 name = "redeem"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "bitcoin",
  "btc-relay",
@@ -7201,7 +7201,7 @@ dependencies = [
 
 [[package]]
 name = "refund"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "bitcoin",
  "btc-relay",
@@ -7307,7 +7307,7 @@ dependencies = [
 
 [[package]]
 name = "replace"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "bitcoin",
  "btc-relay",
@@ -8657,7 +8657,7 @@ dependencies = [
 
 [[package]]
 name = "security"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -8899,7 +8899,7 @@ dependencies = [
 
 [[package]]
 name = "sla"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "collateral",
  "exchange-rate-oracle",
@@ -9662,7 +9662,7 @@ checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
 name = "staked-relayers"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "bitcoin",
  "btc-relay",
@@ -10430,7 +10430,7 @@ dependencies = [
 
 [[package]]
 name = "treasury"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -10655,7 +10655,7 @@ dependencies = [
 
 [[package]]
 name = "vault-registry"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "bitcoin",
  "collateral",
