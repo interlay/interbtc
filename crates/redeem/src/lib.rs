@@ -566,7 +566,7 @@ impl<T: Config> Module<T> {
         let redeem = <RedeemRequests<T>>::get(&redeem_id);
         ensure!(
             matches!(redeem.status, RedeemRequestStatus::Reimbursed(false)),
-            Error::<T>::InvalidRedeemStatus
+            Error::<T>::RedeemCancelled
         );
 
         ensure!(redeem.vault == vault_id, Error::<T>::UnauthorizedUser);
@@ -633,15 +633,19 @@ impl<T: Config> Module<T> {
         redeem_id: &H256,
     ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
         ensure!(
-            <RedeemRequests<T>>::contains_key(*redeem_id),
+            <RedeemRequests<T>>::contains_key(redeem_id),
             Error::<T>::RedeemIdNotFound
         );
         // NOTE: temporary workaround until we delete
-        ensure!(
-            <RedeemRequests<T>>::get(*redeem_id).status == RedeemRequestStatus::Pending,
-            Error::<T>::InvalidRedeemStatus
-        );
-        Ok(<RedeemRequests<T>>::get(*redeem_id))
+
+        let request = <RedeemRequests<T>>::get(redeem_id);
+        match request.status {
+            RedeemRequestStatus::Pending => Ok(request),
+            RedeemRequestStatus::Completed => Err(Error::<T>::RedeemCompleted.into()),
+            RedeemRequestStatus::Reimbursed(_) | RedeemRequestStatus::Retried => {
+                Err(Error::<T>::RedeemCancelled.into())
+            }
+        }
     }
 
     /// Fetch a pre-existing open or completed redeem request or throw.
@@ -657,14 +661,17 @@ impl<T: Config> Module<T> {
             <RedeemRequests<T>>::contains_key(*redeem_id),
             Error::<T>::RedeemIdNotFound
         );
+
+        let request = <RedeemRequests<T>>::get(*redeem_id);
+
         ensure!(
             matches!(
-                <RedeemRequests<T>>::get(*redeem_id).status,
+                request.status,
                 RedeemRequestStatus::Pending | RedeemRequestStatus::Completed
             ),
-            Error::<T>::InvalidRedeemStatus
+            Error::<T>::RedeemCancelled
         );
-        Ok(<RedeemRequests<T>>::get(*redeem_id))
+        Ok(request)
     }
 
     fn u128_to_dot(x: u128) -> Result<DOT<T>, DispatchError> {
@@ -684,7 +691,8 @@ decl_error! {
         CommitPeriodExpired,
         UnauthorizedUser,
         TimeNotExpired,
-        InvalidRedeemStatus,
+        RedeemCancelled,
+        RedeemCompleted,
         RedeemIdNotFound,
         /// Unable to convert value
         TryIntoIntError,

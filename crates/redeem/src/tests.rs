@@ -378,7 +378,7 @@ fn test_execute_redeem_succeeds_with_another_account() {
         assert_emitted!(Event::ExecuteRedeem(H256([0; 32]), ALICE, 100, 0, BOB));
         assert_err!(
             Redeem::get_open_redeem_request_from_id(&H256([0u8; 32])),
-            TestError::InvalidRedeemStatus,
+            TestError::RedeemCompleted,
         );
     })
 }
@@ -476,7 +476,7 @@ fn test_execute_redeem_succeeds() {
         assert_emitted!(Event::ExecuteRedeem(H256([0; 32]), ALICE, 100, 0, BOB));
         assert_err!(
             Redeem::get_open_redeem_request_from_id(&H256([0u8; 32])),
-            TestError::InvalidRedeemStatus,
+            TestError::RedeemCompleted,
         );
     })
 }
@@ -576,7 +576,7 @@ fn test_cancel_redeem_succeeds() {
         assert_ok!(Redeem::cancel_redeem(Origin::signed(ALICE), H256([0u8; 32]), false));
         assert_err!(
             Redeem::get_open_redeem_request_from_id(&H256([0u8; 32])),
-            TestError::InvalidRedeemStatus,
+            TestError::RedeemCancelled,
         );
         assert_emitted!(Event::CancelRedeem(H256([0; 32]), ALICE, BOB, 0, false));
     })
