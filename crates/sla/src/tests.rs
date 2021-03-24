@@ -139,24 +139,10 @@ fn test_event_update_relayer_sla_succeeds() {
         );
 
         <crate::RelayerSla<Test>>::insert(ALICE, FixedI128::from(50));
-        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::CorrectLiquidationReport).unwrap();
-        assert_eq!(
-            <crate::RelayerSla<Test>>::get(ALICE),
-            FixedI128::from(50) + <crate::RelayerCorrectLiquidationReport<Test>>::get(),
-        );
-
-        <crate::RelayerSla<Test>>::insert(ALICE, FixedI128::from(50));
         Sla::event_update_relayer_sla(&ALICE, RelayerEvent::CorrectTheftReport).unwrap();
         assert_eq!(
             <crate::RelayerSla<Test>>::get(ALICE),
             FixedI128::from(50) + <crate::RelayerCorrectTheftReport<Test>>::get(),
-        );
-
-        <crate::RelayerSla<Test>>::insert(ALICE, FixedI128::from(50));
-        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::CorrectOracleOfflineReport).unwrap();
-        assert_eq!(
-            <crate::RelayerSla<Test>>::get(ALICE),
-            FixedI128::from(50) + <crate::RelayerCorrectOracleOfflineReport<Test>>::get(),
         );
 
         <crate::RelayerSla<Test>>::insert(ALICE, FixedI128::from(50));

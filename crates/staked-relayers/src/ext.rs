@@ -30,13 +30,6 @@ pub(crate) mod collateral {
 }
 
 #[cfg_attr(test, mockable)]
-pub(crate) mod oracle {
-    pub(crate) fn is_max_delay_passed<T: exchange_rate_oracle::Config>() -> bool {
-        <exchange_rate_oracle::Module<T>>::is_max_delay_passed()
-    }
-}
-
-#[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
     use crate::{PolkaBTC, DOT};
     use ::vault_registry::VaultStatus;
@@ -46,16 +39,6 @@ pub(crate) mod vault_registry {
         vault_id: &T::AccountId,
     ) -> Result<vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
         <vault_registry::Module<T>>::get_active_vault_from_id(vault_id)
-    }
-
-    pub fn is_vault_below_liquidation_threshold<T: vault_registry::Config>(
-        vault_id: &T::AccountId,
-    ) -> Result<bool, DispatchError> {
-        <vault_registry::Module<T>>::is_vault_below_liquidation_threshold(vault_id)
-    }
-
-    pub fn liquidate_vault<T: vault_registry::Config>(vault_id: &T::AccountId) -> DispatchResult {
-        <vault_registry::Module<T>>::liquidate_vault(vault_id)
     }
 
     pub fn liquidate_theft_vault<T: vault_registry::Config>(vault_id: &T::AccountId) -> DispatchResult {
@@ -84,6 +67,7 @@ pub(crate) mod security {
         <security::Module<T>>::remove_error(error_code)
     }
 
+    #[allow(dead_code)]
     pub(crate) fn get_errors<T: security::Config>() -> BTreeSet<ErrorCode> {
         <security::Module<T>>::get_errors()
     }
