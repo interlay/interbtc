@@ -6,12 +6,9 @@ use bitcoin::{
 };
 use btc_relay::{BtcAddress, BtcPublicKey, Module as BtcRelay};
 use collateral::Module as Collateral;
-use exchange_rate_oracle::Module as ExchangeRateOracle;
 use frame_benchmarking::{account, benchmarks};
 use frame_system::{Module as System, RawOrigin};
-// use pallet_timestamp::Now;
 use sp_core::{H160, U256};
-use sp_runtime::FixedPointNumber;
 use sp_std::prelude::*;
 use vault_registry::{
     types::{Vault, Wallet},
@@ -198,36 +195,6 @@ benchmarks! {
 
     }: _(RawOrigin::Signed(origin), vault_id, tx_id, proof, raw_tx)
 
-    report_vault_under_liquidation_threshold {
-        let origin: T::AccountId = account("Origin", 0, 0);
-        let stake: u32 = 100;
-        StakedRelayers::<T>::insert_active_staked_relayer(&origin, stake.into(), System::<T>::block_number());
-
-        let vault_id: T::AccountId = account("Vault", 0, 0);
-        let mut vault = Vault::default();
-        vault.id = vault_id.clone();
-        vault.issued_tokens = 100_000u32.into();
-        vault.wallet = Wallet::new(dummy_public_key());
-        VaultRegistry::<T>::insert_vault(
-            &vault_id,
-            vault
-        );
-
-        ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()).unwrap();
-
-        let threshold = <T as vault_registry::Config>::UnsignedFixedPoint::checked_from_rational(200, 100).unwrap(); // 200%
-        VaultRegistry::<T>::set_liquidation_collateral_threshold(threshold);
-
-    }: _(RawOrigin::Signed(origin), vault_id)
-
-    // FIXME: broken on no_std
-    // report_oracle_offline {
-    //     let origin: T::AccountId = account("Origin", 0, 0);
-    //     let stake = 100;
-    //     StakedRelayers::<T>::insert_active_staked_relayer(&origin, stake.into(), System::<T>::block_number());
-    //     <Now<T>>::set(<Now<T>>::get() + 10000.into());
-    // }: _(RawOrigin::Signed(origin))
-
     remove_active_status_update {
         let status_update = StatusUpdate::default();
         let status_update_id = StakedRelayers::<T>::insert_active_status_update(status_update);
@@ -268,9 +235,7 @@ mod tests {
                 relayer_duplicate_block_submission: FixedI128::from(1),
                 relayer_correct_no_data_vote_or_report: FixedI128::from(1),
                 relayer_correct_invalid_vote_or_report: FixedI128::from(10),
-                relayer_correct_liquidation_report: FixedI128::from(1),
                 relayer_correct_theft_report: FixedI128::from(1),
-                relayer_correct_oracle_offline_report: FixedI128::from(1),
                 relayer_false_no_data_vote_or_report: FixedI128::from(-10),
                 relayer_false_invalid_vote_or_report: FixedI128::from(-100),
                 relayer_ignored_vote: FixedI128::from(-10),
@@ -295,8 +260,6 @@ mod tests {
             assert_ok!(test_benchmark_force_status_update::<Test>());
             assert_ok!(test_benchmark_slash_staked_relayer::<Test>());
             assert_ok!(test_benchmark_report_vault_theft::<Test>());
-            assert_ok!(test_benchmark_report_vault_under_liquidation_threshold::<Test>());
-            // assert_ok!(test_benchmark_report_oracle_offline::<Test>());
             assert_ok!(test_benchmark_remove_active_status_update::<Test>());
             assert_ok!(test_benchmark_remove_inactive_status_update::<Test>());
         });
