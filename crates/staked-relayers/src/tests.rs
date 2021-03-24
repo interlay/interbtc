@@ -829,7 +829,6 @@ fn test_report_vault_fails_with_non_vault_transaction() {
         ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), Some(btc_address)))));
         ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(())));
-        ext::vault_registry::liquidate_vault::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
 
         assert_err!(
             StakedRelayers::report_vault_theft(
@@ -890,109 +889,6 @@ fn test_report_vault_theft_succeeds() {
             vec![0u8; 32],
         ));
         assert_emitted!(Event::VaultTheft(BOB, H256Le::zero()));
-    })
-}
-
-#[test]
-fn test_report_vault_under_liquidation_threshold_fails() {
-    run_test(|| {
-        let relayer = ALICE;
-        let vault = BOB;
-
-        StakedRelayers::ensure_relayer_is_active.mock_safe(|_| MockResult::Return(Ok(())));
-
-        ext::vault_registry::is_vault_below_liquidation_threshold::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(false)));
-
-        assert_err!(
-            StakedRelayers::report_vault_under_liquidation_threshold(Origin::signed(relayer), vault),
-            TestError::CollateralOk
-        );
-    })
-}
-
-#[test]
-fn test_report_vault_under_liquidation_threshold_succeeds() {
-    run_test(|| {
-        let relayer = ALICE;
-        let vault = BOB;
-
-        StakedRelayers::ensure_relayer_is_active.mock_safe(|_| MockResult::Return(Ok(())));
-
-        ext::vault_registry::is_vault_below_liquidation_threshold::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(true)));
-
-        ext::vault_registry::liquidate_vault::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
-
-        assert_ok!(StakedRelayers::report_vault_under_liquidation_threshold(
-            Origin::signed(relayer),
-            vault
-        ));
-        assert_emitted!(Event::VaultUnderLiquidationThreshold(BOB));
-
-        // liquidating a single vault shouldn't stop the parachain from running
-        let parachain_status = ext::security::get_parachain_status::<Test>();
-        assert_eq!(parachain_status, StatusCode::Running);
-    })
-}
-
-#[test]
-fn test_report_vault_under_liquidation_threshold_fails_with_not_registered() {
-    run_test(|| {
-        assert_err!(
-            StakedRelayers::report_vault_under_liquidation_threshold(Origin::signed(ALICE), CAROL),
-            TestError::NotRegistered,
-        );
-    })
-}
-
-#[test]
-fn test_report_oracle_offline_fails_with_not_registered() {
-    run_test(|| {
-        let relayer = Origin::signed(ALICE);
-        assert_err!(StakedRelayers::report_oracle_offline(relayer), TestError::NotRegistered,);
-    })
-}
-
-#[test]
-fn test_report_oracle_offline_fails_with_already_reported() {
-    run_test(|| {
-        let relayer = Origin::signed(ALICE);
-        let amount: Balance = 3;
-        inject_active_staked_relayer(&ALICE, amount);
-
-        ext::security::get_errors::<Test>
-            .mock_safe(|| MockResult::Return([ErrorCode::OracleOffline].iter().cloned().collect()));
-        assert_err!(
-            StakedRelayers::report_oracle_offline(relayer),
-            TestError::OracleAlreadyReported,
-        );
-    })
-}
-
-#[test]
-fn test_report_oracle_offline_fails_with_oracle_online() {
-    run_test(|| {
-        let relayer = Origin::signed(ALICE);
-        let amount: Balance = 3;
-        inject_active_staked_relayer(&ALICE, amount);
-
-        ext::oracle::is_max_delay_passed::<Test>.mock_safe(|| MockResult::Return(false));
-        assert_err!(StakedRelayers::report_oracle_offline(relayer), TestError::OracleOnline,);
-    })
-}
-
-#[test]
-fn test_report_oracle_offline_succeeds() {
-    run_test(|| {
-        let relayer = Origin::signed(ALICE);
-        let amount: Balance = 3;
-        inject_active_staked_relayer(&ALICE, amount);
-
-        ext::oracle::is_max_delay_passed::<Test>.mock_safe(|| MockResult::Return(true));
-
-        assert_ok!(StakedRelayers::report_oracle_offline(relayer));
-        assert_emitted!(Event::OracleOffline());
     })
 }
 

@@ -54,7 +54,6 @@ pub trait WeightInfo {
     fn force_status_update() -> Weight;
     fn slash_staked_relayer() -> Weight;
     fn report_vault_theft() -> Weight;
-    fn report_vault_under_liquidation_threshold() -> Weight;
     fn remove_active_status_update() -> Weight;
     fn remove_inactive_status_update() -> Weight;
     fn set_maturity_period() -> Weight;
@@ -535,64 +534,6 @@ decl_module! {
                 vault_id,
                 tx_id
             ));
-
-            Ok(())
-        }
-
-        /// A Staked Relayer reports that a Vault is undercollateralized (i.e. below the LiquidationCollateralThreshold as defined in Vault Registry).
-        /// If the collateral falls below this rate, we flag the Vault for liquidation.
-        #[weight = <T as Config>::WeightInfo::report_vault_under_liquidation_threshold()]
-        #[transactional]
-        fn report_vault_under_liquidation_threshold(origin, vault_id: T::AccountId)  -> DispatchResult {
-            let signer = ensure_signed(origin)?;
-            Self::ensure_relayer_is_active(&signer)?;
-
-            // ensure that the vault is eligible for liquidation
-            ensure!(
-                // NOTE: the liquidation threshold expresses the percentage of collateral
-                // required for the vault relative to the exchange rate. If the vault is
-                // under this percentage it is flagged for liquidation.
-                ext::vault_registry::is_vault_below_liquidation_threshold::<T>(&vault_id)?,
-                Error::<T>::CollateralOk,
-            );
-
-            ext::vault_registry::liquidate_vault::<T>(&vault_id)?;
-
-            // reward relayer for this report by increasing its sla
-            ext::sla::event_update_relayer_sla::<T>(&signer, ext::sla::RelayerEvent::CorrectLiquidationReport)?;
-
-            Self::deposit_event(<Event<T>>::VaultUnderLiquidationThreshold(
-                vault_id
-            ));
-
-            Ok(())
-        }
-
-        /// A Staked Relayer reports that the Exchange Rate Oracle is offline. This function checks if the last exchange
-        /// rate data in the Exchange Rate Oracle is indeed older than the indicated threshold.
-        #[weight = 1000]
-        #[transactional]
-        fn report_oracle_offline(origin) -> DispatchResult {
-            let signer = ensure_signed(origin)?;
-            Self::ensure_relayer_is_active(&signer)?;
-
-            ensure!(
-                !ext::security::get_errors::<T>().contains(&ErrorCode::OracleOffline),
-                Error::<T>::OracleAlreadyReported,
-            );
-
-            ensure!(
-                ext::oracle::is_max_delay_passed::<T>(),
-                Error::<T>::OracleOnline,
-            );
-
-            ext::security::set_status::<T>(StatusCode::Error);
-            ext::security::insert_error::<T>(ErrorCode::OracleOffline);
-
-            // reward relayer for this report by increasing its sla
-            ext::sla::event_update_relayer_sla::<T>(&signer, ext::sla::RelayerEvent::CorrectOracleOfflineReport)?;
-
-            Self::deposit_event(<Event<T>>::OracleOffline());
 
             Ok(())
         }
