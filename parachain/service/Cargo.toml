@@ -1,8 +1,8 @@
 [package]
-authors = ['Interlay Ltd']
-edition = '2018'
-name = 'btc-parachain-service'
-version = '0.5.1'
+authors = ["Interlay Ltd"]
+edition = "2018"
+name = "btc-parachain-service"
+version = "0.6.0"
 
 [dependencies]
 
