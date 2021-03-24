@@ -28,7 +28,7 @@ pub mod types;
 #[doc(inline)]
 pub use crate::types::{RedeemRequest, RedeemRequestStatus};
 
-use crate::types::{PolkaBTC, Version, DOT};
+use crate::types::{PolkaBTC, RedeemRequestV1, Version, DOT};
 use bitcoin::types::H256Le;
 use btc_relay::BtcAddress;
 use frame_support::{
@@ -88,7 +88,7 @@ decl_storage! {
         RedeemBtcDustValue get(fn redeem_btc_dust_value) config(): PolkaBTC<T>;
 
         /// Build storage at V1 (requires default 0).
-        StorageVersion get(fn storage_version) build(|_| Version::V1): Version = Version::V0;
+        StorageVersion get(fn storage_version) build(|_| Version::V2): Version = Version::V0;
     }
 }
 
@@ -130,8 +130,38 @@ decl_module! {
 
         /// Upgrade the runtime depending on the current `StorageVersion`.
         fn on_runtime_upgrade() -> Weight {
+            use frame_support::{migration::StorageKeyIterator, Blake2_128Concat};
+
+            if matches!(Self::storage_version(), Version::V0 | Version::V1) {
+                StorageKeyIterator::<H256, RedeemRequestV1<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, Blake2_128Concat>::new(<RedeemRequests<T>>::module_prefix(), b"RedeemRequests")
+                    .drain()
+                    .for_each(|(id, request_v1)| {
+                        let status = match (request_v1.completed,request_v1.cancelled, request_v1.reimburse) {
+                            (false, false, false) => RedeemRequestStatus::Pending,
+                            (true, false, false) => RedeemRequestStatus::Completed,
+                            (false, true, true) => RedeemRequestStatus::Reimbursed(true),
+                            (false, true, false) => RedeemRequestStatus::Retried,
+                            _ => RedeemRequestStatus::Completed, // should never happen
+                        };
+                        let request_v2 = RedeemRequest {
+                            vault: request_v1.vault,
+                            opentime: request_v1.opentime,
+                            fee: request_v1.fee,
+                            amount_btc: request_v1.amount_btc,
+                            premium_dot: request_v1.premium_dot,
+                            redeemer: request_v1.redeemer,
+                            btc_address: request_v1.btc_address,
+                            status
+                        };
+                        <RedeemRequests<T>>::insert(id, request_v2);
+                    });
+
+                StorageVersion::put(Version::V2);
+            }
+
             0
         }
+
 
         /// A user requests to start the redeem procedure. This function checks the BTC Parachain
         /// status in Security and decides how the Redeem process is to be executed. If no `vault_id`

@@ -28,7 +28,7 @@ pub mod types;
 #[doc(inline)]
 pub use crate::types::{IssueRequest, IssueRequestStatus};
 
-use crate::types::{PolkaBTC, Version, DOT};
+use crate::types::{IssueRequestV1, PolkaBTC, Version, DOT};
 use bitcoin::types::H256Le;
 use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::{
@@ -85,7 +85,7 @@ decl_storage! {
         IssuePeriod get(fn issue_period) config(): T::BlockNumber;
 
         /// Build storage at V1 (requires default 0).
-        StorageVersion get(fn storage_version) build(|_| Version::V1): Version = Version::V0;
+        StorageVersion get(fn storage_version) build(|_| Version::V2): Version = Version::V0;
     }
 }
 
@@ -126,8 +126,48 @@ decl_module! {
 
         /// Upgrade the runtime depending on the current `StorageVersion`.
         fn on_runtime_upgrade() -> Weight {
+            use frame_support::{migration::StorageKeyIterator, Blake2_128Concat};
+
+            if matches!(Self::storage_version(), Version::V0 | Version::V1) {
+                StorageKeyIterator::<H256, IssueRequestV1<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, Blake2_128Concat>::new(<IssueRequests<T>>::module_prefix(), b"IssueRequests")
+                    .drain()
+                    .for_each(|(id, request_v1)| {
+                        let status = match (request_v1.completed,request_v1.cancelled) {
+                            (false, false) => IssueRequestStatus::Pending,
+                            (false, true) => IssueRequestStatus::Cancelled,
+                            (true, false) => {
+                                let refunds = ext::refund::get_refund_requests_for_account::<T>(request_v1.vault.clone());
+                                let maybe_refund = refunds.into_iter().find_map(|(refund_id, refund)| {
+                                    if refund.issue_id == id {
+                                        Some(refund_id)
+                                    } else {
+                                        None
+                                    }
+                                });
+                                IssueRequestStatus::Completed(maybe_refund)
+                            },
+                            (true, true) => IssueRequestStatus::Completed(None), // should never happen
+                        };
+                        let request_v2 = IssueRequest {
+                            vault: request_v1.vault,
+                            opentime: request_v1.opentime,
+                            griefing_collateral: request_v1.griefing_collateral,
+                            amount: request_v1.amount,
+                            fee: request_v1.fee,
+                            requester: request_v1.requester,
+                            btc_address: request_v1.btc_address,
+                            btc_public_key: request_v1.btc_public_key,
+                            status
+                        };
+                        <IssueRequests<T>>::insert(id, request_v2);
+                    });
+
+                StorageVersion::put(Version::V2);
+            }
+
             0
         }
+
 
         /// Request the issuance of PolkaBTC
         ///

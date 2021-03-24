@@ -185,10 +185,11 @@ pub(crate) mod fee {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod refund {
-    use crate::types::PolkaBTC;
+    use crate::{types::PolkaBTC, Vec};
     use btc_relay::BtcAddress;
     use frame_support::dispatch::DispatchError;
     use primitive_types::H256;
+    use refund::types::RefundRequest;
 
     pub fn request_refund<T: refund::Config>(
         total_amount_btc: PolkaBTC<T>,
@@ -198,5 +199,11 @@ pub(crate) mod refund {
         issue_id: H256,
     ) -> Result<Option<H256>, DispatchError> {
         <refund::Module<T>>::request_refund(total_amount_btc, vault_id, issuer, btc_address, issue_id)
+    }
+
+    pub fn get_refund_requests_for_account<T: refund::Config>(
+        account_id: T::AccountId,
+    ) -> Vec<(H256, RefundRequest<T::AccountId, PolkaBTC<T>>)> {
+        <refund::Module<T>>::get_refund_requests_for_account(account_id)
     }
 }
