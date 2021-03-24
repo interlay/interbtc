@@ -140,12 +140,6 @@ decl_storage! {
 
         /// Whether the module should perform OP_RETURN checks.
         DisableOpReturnCheck get(fn disable_op_return_check) config(): bool;
-
-        /// Whether to disable relayer authorization.
-        DisableRelayerAuth get(fn disable_relayer_auth) config(): bool;
-
-        /// Accounts that are able to submit block headers.
-        AuthorizedRelayers: map hasher(blake2_128_concat) T::AccountId => bool;
     }
 }
 

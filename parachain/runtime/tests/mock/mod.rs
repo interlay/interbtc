@@ -630,7 +630,6 @@ impl ExtBuilder {
             disable_difficulty_check: false,
             disable_inclusion_check: false,
             disable_op_return_check: false,
-            disable_relayer_auth: true,
         }
         .assimilate_storage(&mut storage)
         .unwrap();
