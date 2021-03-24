@@ -13,10 +13,14 @@ const RELAYER_2: [u8; 32] = GRACE;
 
 fn test_with(execute: impl Fn(Currency) -> ()) {
     ExtBuilder::build().execute_with(|| {
+        SystemModule::set_block_number(1);
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
         setup_dot_reward();
         execute(Currency::DOT);
     });
     ExtBuilder::build().execute_with(|| {
+        SystemModule::set_block_number(1);
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
         execute(Currency::PolkaBTC);
     });
 }
@@ -107,6 +111,8 @@ fn setup_dot_reward() {
 }
 
 fn set_issued_and_backing(vault: [u8; 32], amount_issued: u128, backing: u128) {
+    SystemModule::set_block_number(1);
+
     // we want issued to be 100 times amount_issued, _including fees_
     let amount_issued = 100 * amount_issued;
     let fee = FeeModule::get_issue_fee_from_total(amount_issued).unwrap();
