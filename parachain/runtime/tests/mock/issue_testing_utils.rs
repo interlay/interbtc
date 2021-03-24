@@ -7,11 +7,6 @@ pub const PROOF_SUBMITTER: [u8; 32] = CAROL;
 pub const DEFAULT_GRIEFING_COLLATERAL: u128 = 5_000;
 pub const DEFAULT_COLLATERAL: u128 = 1_000_000;
 
-pub const DEFAULT_USER_FREE_BALANCE: u128 = 1_000_000;
-pub const DEFAULT_USER_LOCKED_BALANCE: u128 = 100_000;
-pub const DEFAULT_USER_FREE_TOKENS: u128 = 1000;
-pub const DEFAULT_USER_LOCKED_TOKENS: u128 = 1000;
-
 pub fn request_issue(amount_btc: u128) -> (H256, IssueRequest<AccountId32, u32, u128, u128>) {
     RequestIssueBuilder::new(amount_btc).request()
 }
@@ -42,10 +37,6 @@ impl RequestIssueBuilder {
     }
 
     pub fn request(&self) -> (H256, IssueRequest<AccountId32, u32, u128, u128>) {
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
-
-        SystemModule::set_block_number(1);
-
         try_register_vault(DEFAULT_COLLATERAL, self.vault);
 
         // alice requests polka_btc by locking btc with bob
@@ -55,13 +46,6 @@ impl RequestIssueBuilder {
             DEFAULT_GRIEFING_COLLATERAL
         ))
         .dispatch(origin_of(account_of(self.user))));
-
-        CollateralModule::transfer(
-            account_of(self.vault),
-            account_of(FAUCET),
-            CollateralModule::get_balance_from_account(&account_of(self.vault)),
-        )
-        .unwrap();
 
         let issue_id = assert_issue_request_event();
         let issue = IssueModule::get_issue_request_from_id(&issue_id).unwrap();
@@ -76,7 +60,7 @@ pub struct ExecuteIssueBuilder {
     amount: u128,
     submitter: [u8; 32],
     register_submitter_as_vault: bool,
-    relayer: [u8; 32],
+    relayer: Option<[u8; 32]>,
 }
 
 impl ExecuteIssueBuilder {
@@ -88,7 +72,7 @@ impl ExecuteIssueBuilder {
             amount: issue.fee + issue.amount,
             submitter: PROOF_SUBMITTER,
             register_submitter_as_vault: true,
-            relayer: ALICE,
+            relayer: None,
         }
     }
 
@@ -103,7 +87,7 @@ impl ExecuteIssueBuilder {
         self
     }
 
-    pub fn with_relayer(&mut self, relayer: [u8; 32]) -> &mut Self {
+    pub fn with_relayer(&mut self, relayer: Option<[u8; 32]>) -> &mut Self {
         self.relayer = relayer;
         self
     }
@@ -136,15 +120,6 @@ pub fn execute_issue(issue_id: H256) {
     ExecuteIssueBuilder::new(issue_id).assert_execute()
 }
 
-pub fn default_user_state() -> UserData {
-    UserData {
-        free_balance: DEFAULT_USER_FREE_BALANCE,
-        locked_balance: DEFAULT_USER_LOCKED_BALANCE,
-        locked_tokens: DEFAULT_USER_LOCKED_TOKENS,
-        free_tokens: DEFAULT_USER_FREE_TOKENS,
-    }
-}
-
 pub fn assert_issue_request_event() -> H256 {
     let events = SystemModule::events();
     let record = events.iter().rev().find(|record| match record.event {
@@ -163,7 +138,7 @@ pub fn assert_refund_request_event() -> H256 {
     SystemModule::events()
         .iter()
         .find_map(|record| match record.event {
-            Event::refund(RefundEvent::RequestRefund(id, _, _, _, _, _)) => Some(id),
+            Event::refund(RefundEvent::RequestRefund(id, _, _, _, _, _, _)) => Some(id),
             _ => None,
         })
         .expect("request refund event not found")

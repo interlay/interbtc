@@ -72,8 +72,8 @@ decl_event!(
         AccountId = <T as frame_system::Config>::AccountId,
         PolkaBTC = PolkaBTC<T>,
     {
-        /// refund_id, issuer, amount, vault, btc_address, issue_id
-        RequestRefund(H256, AccountId, PolkaBTC, AccountId, BtcAddress, H256),
+        /// refund_id, issuer, amount_without_fee, fee, vault, btc_address, issue_id
+        RequestRefund(H256, AccountId, PolkaBTC, PolkaBTC, AccountId, BtcAddress, H256),
         /// refund_id, issuer, vault, amount
         ExecuteRefund(H256, AccountId, AccountId, PolkaBTC),
     }
@@ -124,7 +124,7 @@ impl<T: Config> Module<T> {
         issuer: T::AccountId,
         btc_address: BtcAddress,
         issue_id: H256,
-    ) -> Result<(), DispatchError> {
+    ) -> Result<Option<H256>, DispatchError> {
         let fee_polka_btc = ext::fee::get_refund_fee_from_total::<T>(total_amount_btc)?;
         let net_refund_amount_polka_btc = total_amount_btc
             .checked_sub(&fee_polka_btc)
@@ -133,7 +133,7 @@ impl<T: Config> Module<T> {
         // Only refund if the amount is above the dust value
         let dust_amount = <RefundBtcDustValue<T>>::get();
         if net_refund_amount_polka_btc < dust_amount {
-            return Ok(());
+            return Ok(None);
         }
 
         let refund_id = ext::security::get_secure_id::<T>(&issuer);
@@ -151,15 +151,16 @@ impl<T: Config> Module<T> {
         <RefundRequests<T>>::insert(refund_id, request.clone());
 
         Self::deposit_event(<Event<T>>::RequestRefund(
-            refund_id,
+            refund_id.clone(),
             request.issuer,
             request.amount_polka_btc,
+            request.fee,
             request.vault,
             request.btc_address,
             request.issue_id,
         ));
 
-        Ok(())
+        Ok(Some(refund_id))
     }
 
     /// Finalizes a refund. Typically called by the vault client that performed the refund.

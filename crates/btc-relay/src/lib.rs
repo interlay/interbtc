@@ -51,7 +51,7 @@ pub use weights::WeightInfo;
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
 /// For further reference, see the [specification](https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/spec/data-model.html).
-pub trait Config: frame_system::Config + security::Config + sla::Config {
+pub trait Config: frame_system::Config + security::Config {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 
@@ -103,7 +103,7 @@ decl_storage! {
     trait Store for Module<T: Config> as BTCRelay {
         /// ## Storage
         /// Store Bitcoin block headers
-        BlockHeaders: map hasher(blake2_128_concat) H256Le => RichBlockHeader<T::AccountId>;
+        BlockHeaders: map hasher(blake2_128_concat) H256Le => RichBlockHeader<T::AccountId, T::BlockNumber>;
 
         /// Priority queue of BlockChain elements, ordered by the maximum height (descending).
         /// The first index into this mapping (0) is considered to be the longest chain. The value
@@ -126,9 +126,6 @@ decl_storage! {
         /// Increment-only counter used to track new BlockChain entries
         ChainCounter: u32;
 
-        /// Registers the parachain height upon storing a block
-        ParachainHeight: map hasher(blake2_128_concat) H256Le => T::BlockNumber;
-
         /// Global security parameter k for stable Bitcoin transactions
         StableBitcoinConfirmations get(fn bitcoin_confirmations) config(): u32;
 
@@ -143,12 +140,6 @@ decl_storage! {
 
         /// Whether the module should perform OP_RETURN checks.
         DisableOpReturnCheck get(fn disable_op_return_check) config(): bool;
-
-        /// Whether to disable relayer authorization.
-        DisableRelayerAuth get(fn disable_relayer_auth) config(): bool;
-
-        /// Accounts that are able to submit block headers.
-        AuthorizedRelayers: map hasher(blake2_128_concat) T::AccountId => bool;
     }
 }
 
@@ -172,104 +163,6 @@ decl_module! {
 
         // Initializing events
         fn deposit_event() = default;
-
-        /// One time function to initialize the BTC-Relay with the first block
-        ///
-        /// # Arguments
-        ///
-        /// * `block_header_bytes` - 80 byte raw Bitcoin block header.
-        /// * `block_height` - starting Bitcoin block height of the submitted block header.
-        ///
-        /// # <weight>
-        /// - Storage Reads:
-        /// 	- One storage read to check that parachain is not shutdown. O(1)
-        /// 	- One storage read to check if relayer authorization is disabled. O(1)
-        /// 	- One storage read to check if relayer is authorized. O(1)
-        /// - Storage Writes:
-        ///     - One storage write to store block hash. O(1)
-        ///     - One storage write to store block header. O(1)
-        /// 	- One storage write to initialize main chain. O(1)
-        ///     - One storage write to store best block hash. O(1)
-        ///     - One storage write to store best block height. O(1)
-        /// - Events:
-        /// 	- One event for initialization.
-        ///
-        /// Total Complexity: O(1)
-        /// # </weight>
-        #[weight = <T as Config>::WeightInfo::initialize()]
-        #[transactional]
-        fn initialize(
-            origin,
-            raw_block_header: RawBlockHeader,
-            block_height: u32)
-            -> DispatchResult
-        {
-            let relayer = ensure_signed(origin)?;
-            Self::_initialize(relayer, raw_block_header, block_height)
-        }
-
-        /// Stores a single new block header
-        ///
-        /// # Arguments
-        ///
-        /// * `raw_block_header` - 80 byte raw Bitcoin block header.
-        ///
-        /// # <weight>
-        /// Key: C (len of chains), P (len of positions)
-        /// - Storage Reads:
-        /// 	- One storage read to check that parachain is not shutdown. O(1)
-        /// 	- One storage read to check if relayer authorization is disabled. O(1)
-        /// 	- One storage read to check if relayer is authorized. O(1)
-        /// 	- One storage read to check if block header is stored. O(1)
-        /// 	- One storage read to retrieve parent block hash. O(1)
-        /// 	- One storage read to check if difficulty check is disabled. O(1)
-        /// 	- One storage read to retrieve last re-target. O(1)
-        /// 	- One storage read to retrieve all Chains. O(C)
-        /// - Storage Writes:
-        ///     - One storage write to store block hash. O(1)
-        ///     - One storage write to store block header. O(1)
-        /// 	- One storage mutate to extend main chain. O(1)
-        ///     - One storage write to store best block hash. O(1)
-        ///     - One storage write to store best block height. O(1)
-        /// - Notable Computation:
-        /// 	- O(P) sort to reorg chains.
-        /// - External Module Operations:
-        /// 	- Updates relayer sla score.
-        /// - Events:
-        /// 	- One event for block stored (fork or extension).
-        ///
-        /// Total Complexity: O(C + P)
-        /// # </weight>
-        #[weight = <T as Config>::WeightInfo::store_block_header()]
-        #[transactional]
-        fn store_block_header(
-            origin, raw_block_header: RawBlockHeader
-        ) -> DispatchResult {
-            let relayer = ensure_signed(origin)?;
-            Self::_store_block_header_and_update_sla(relayer, raw_block_header)
-        }
-
-        /// Stores multiple new block headers
-        ///
-        /// # Arguments
-        ///
-        /// * `raw_block_headers` - vector of Bitcoin block headers.
-        ///
-        /// # <weight>
-        /// - As in `store_block_header`, multiplied by the number of concatenated headers.
-        /// # </weight>
-        #[weight = <T as Config>::WeightInfo::store_block_header().saturating_mul(raw_block_headers.len() as u64)]
-        #[transactional]
-        fn store_block_headers(
-            origin, raw_block_headers: Vec<RawBlockHeader>
-        ) -> DispatchResult {
-            let relayer = ensure_signed(origin)?;
-            // TODO: can we optimize this?
-            for raw_block_header in raw_block_headers {
-                Self::_store_block_header_and_update_sla(relayer.clone(), raw_block_header)?;
-            }
-            Ok(())
-        }
 
         /// Verifies the inclusion of `tx_id` and validates the given raw Bitcoin transaction, according to the
         /// supported transaction format (see <https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/intro/accepted-format.html>)
@@ -407,48 +300,27 @@ decl_module! {
 
 #[cfg_attr(test, mockable)]
 impl<T: Config> Module<T> {
-    /// Ensure the given `relayer` is authorized or
-    /// return `Ok(())` if this check is disabled.
-    ///
-    /// # Arguments
-    ///
-    /// * `relayer` - block submitter
-    fn ensure_relayer_authorized(relayer: T::AccountId) -> DispatchResult {
-        ensure!(
-            Self::disable_relayer_auth() || <AuthorizedRelayers<T>>::contains_key(relayer),
-            Error::<T>::RelayerNotAuthorized
-        );
-        Ok(())
-    }
-
-    pub fn register_authorized_relayer(relayer: T::AccountId) {
-        <AuthorizedRelayers<T>>::insert(relayer, true);
-    }
-
-    pub fn deregister_authorized_relayer(relayer: T::AccountId) {
-        <AuthorizedRelayers<T>>::remove(relayer);
-    }
-
-    pub fn _initialize(relayer: T::AccountId, raw_block_header: RawBlockHeader, block_height: u32) -> DispatchResult {
+    pub fn initialize(relayer: T::AccountId, raw_block_header: RawBlockHeader, block_height: u32) -> DispatchResult {
         // Check if BTC-Relay was already initialized
         ensure!(!Self::best_block_exists(), Error::<T>::AlreadyInitialized);
-
-        // check if the relayer is registered
-        Self::ensure_relayer_authorized(relayer.clone())?;
 
         // Parse the block header bytes to extract the required info
         let basic_block_header = parse_block_header(&raw_block_header).map_err(|err| Error::<T>::from(err))?;
         let block_header_hash = raw_block_header.hash();
 
+        // register the current height to track stable parachain confirmations
+        let para_height = <frame_system::Module<T>>::block_number();
+
         // construct the BlockChain struct
         let blockchain = Self::initialize_blockchain(block_height, block_header_hash);
         // Create rich block header
-        let block_header = RichBlockHeader::<T::AccountId> {
+        let block_header = RichBlockHeader::<T::AccountId, T::BlockNumber> {
             block_hash: block_header_hash,
             block_header: basic_block_header,
             block_height: block_height,
             chain_ref: blockchain.chain_id,
             account_id: relayer.clone(),
+            para_height,
         };
 
         // Store a new BlockHeader struct in BlockHeaders
@@ -470,31 +342,23 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    // TODO: wrap sla update via staked-relayers pallet
-    fn _store_block_header_and_update_sla(relayer: T::AccountId, raw_block_header: RawBlockHeader) -> DispatchResult {
-        if let Err(err) = Self::_store_block_header(relayer.clone(), raw_block_header) {
+    /// wraps _store_block_header, but differentiates between DuplicateError and OutdatedError
+    #[transactional]
+    pub fn store_block_header(relayer: &T::AccountId, raw_block_header: RawBlockHeader) -> DispatchResult {
+        let ret = Self::_store_block_header(relayer, raw_block_header);
+        if let Err(err) = ret {
             if err == DispatchError::from(Error::<T>::DuplicateBlock) {
-                // only accept duplicate if it is the chain head
+                // if this is not the chain head, return OutdatedBlock error
                 let this_header_hash = raw_block_header.hash();
                 let best_header_hash = Self::get_best_block();
                 ensure!(this_header_hash == best_header_hash, Error::<T>::OutdatedBlock);
-                ext::sla::event_update_relayer_sla::<T>(&relayer, ext::sla::RelayerEvent::DuplicateBlockSubmission)?;
-                return Ok(());
             }
-            return Err(err);
         }
-
-        ext::sla::event_update_relayer_sla::<T>(&relayer, ext::sla::RelayerEvent::BlockSubmission)?;
-        Ok(())
+        ret
     }
-
-    #[transactional]
-    pub fn _store_block_header(relayer: T::AccountId, raw_block_header: RawBlockHeader) -> DispatchResult {
+    fn _store_block_header(relayer: &T::AccountId, raw_block_header: RawBlockHeader) -> DispatchResult {
         // Make sure Parachain is not shutdown
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-
-        // check if the relayer is registered
-        Self::ensure_relayer_authorized(relayer.clone())?;
 
         // Parse the block header bytes to extract the required info
         let basic_block_header = Self::verify_block_header(&raw_block_header)?;
@@ -529,13 +393,17 @@ impl<T: Config> Module<T> {
             Self::extend_blockchain(current_block_height, &block_header_hash, prev_blockchain)?
         };
 
+        // register the current height to track stable parachain confirmations
+        let para_height = <frame_system::Module<T>>::block_number();
+
         // Create rich block header
-        let block_header = RichBlockHeader::<T::AccountId> {
+        let block_header = RichBlockHeader::<T::AccountId, T::BlockNumber> {
             block_hash: block_header_hash,
             block_header: basic_block_header,
             block_height: current_block_height,
             chain_ref: blockchain.chain_id,
             account_id: relayer.clone(),
+            para_height,
         };
 
         // Store a new BlockHeader struct in BlockHeaders
@@ -570,7 +438,7 @@ impl<T: Config> Module<T> {
             Self::deposit_event(<Event<T>>::StoreMainChainHeader(
                 current_block_height,
                 block_header_hash,
-                relayer,
+                relayer.clone(),
             ));
         } else {
             // created a new fork or updated an existing one
@@ -578,7 +446,7 @@ impl<T: Config> Module<T> {
                 blockchain.chain_id,
                 current_block_height,
                 block_header_hash,
-                relayer,
+                relayer.clone(),
             ));
         };
 
@@ -612,7 +480,7 @@ impl<T: Config> Module<T> {
         Self::check_bitcoin_confirmations(best_block_height, confirmations, block_height)?;
 
         // This call fails if the block was stored too recently
-        Self::check_parachain_confirmations(rich_header.block_hash)?;
+        Self::check_parachain_confirmations(rich_header.para_height)?;
 
         let proof_result = Self::verify_merkle_proof(&merkle_proof)?;
 
@@ -874,7 +742,9 @@ impl<T: Config> Module<T> {
     }
 
     /// Get a block header from its hash
-    fn get_block_header_from_hash(block_hash: H256Le) -> Result<RichBlockHeader<T::AccountId>, DispatchError> {
+    fn get_block_header_from_hash(
+        block_hash: H256Le,
+    ) -> Result<RichBlockHeader<T::AccountId, T::BlockNumber>, DispatchError> {
         if <BlockHeaders<T>>::contains_key(block_hash) {
             return Ok(<BlockHeaders<T>>::get(block_hash));
         }
@@ -890,7 +760,7 @@ impl<T: Config> Module<T> {
     fn get_block_header_from_height(
         blockchain: &BlockChain,
         block_height: u32,
-    ) -> Result<RichBlockHeader<T::AccountId>, DispatchError> {
+    ) -> Result<RichBlockHeader<T::AccountId, T::BlockNumber>, DispatchError> {
         let block_hash = Self::get_block_hash(blockchain.chain_id, block_height)?;
         Self::get_block_header_from_hash(block_hash)
     }
@@ -945,16 +815,8 @@ impl<T: Config> Module<T> {
     }
 
     /// Set a new block header
-    fn set_block_header_from_hash(hash: H256Le, header: &RichBlockHeader<T::AccountId>) {
+    fn set_block_header_from_hash(hash: H256Le, header: &RichBlockHeader<T::AccountId, T::BlockNumber>) {
         <BlockHeaders<T>>::insert(hash, header);
-        // register the current height to track stable parachain confirmations
-        Self::set_parachain_height_from_hash(hash);
-    }
-
-    /// Store the height of the parachain when storing a Bitcoin header
-    fn set_parachain_height_from_hash(hash: H256Le) {
-        let height = <frame_system::Module<T>>::block_number();
-        <ParachainHeight<T>>::insert(hash, height);
     }
 
     /// update the chain_ref of a block header
@@ -1125,7 +987,7 @@ impl<T: Config> Module<T> {
     /// * `prev_block_header`: previous block header
     /// * `block_height` : block height of new target
     fn compute_new_target(
-        prev_block_header: &RichBlockHeader<T::AccountId>,
+        prev_block_header: &RichBlockHeader<T::AccountId, T::BlockNumber>,
         block_height: u32,
     ) -> Result<U256, DispatchError> {
         // get time of last retarget
@@ -1506,13 +1368,12 @@ impl<T: Config> Module<T> {
     /// to flag potentially invalid blocks.
     ///
     /// # Arguments
-    /// * `block_hash` - hash of the block to check
-    pub fn check_parachain_confirmations(block_hash: H256Le) -> Result<(), DispatchError> {
+    /// * `para_height` - height of the parachain when the block was stored
+    pub fn check_parachain_confirmations(para_height: T::BlockNumber) -> Result<(), DispatchError> {
         let current_height = <frame_system::Module<T>>::block_number();
-        let submitted_height = <ParachainHeight<T>>::get(block_hash);
 
         ensure!(
-            submitted_height + Self::parachain_confirmations() <= current_height,
+            para_height + Self::parachain_confirmations() <= current_height,
             Error::<T>::ParachainConfirmations
         );
 

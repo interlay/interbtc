@@ -16,6 +16,10 @@ fn initial_sla() -> FixedI128 {
 
 fn test_with<R>(execute: impl FnOnce() -> R) -> R {
     ExtBuilder::build().execute_with(|| {
+        SystemModule::set_block_number(1);
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
+        set_default_thresholds();
+
         SlaModule::set_vault_sla(&account_of(VAULT), initial_sla());
         SlaModule::set_vault_sla(&account_of(PROOF_SUBMITTER), initial_sla());
 
@@ -117,6 +121,9 @@ fn test_sla_increase_for_refund() {
 #[test]
 fn test_sla_decrease_for_redeem_failure() {
     test_with(|| {
+        UserData::force_to(USER, default_user_state());
+        CoreVaultData::force_to(VAULT, default_vault_state());
+
         let redeem_id = setup_cancelable_redeem(USER, VAULT, 10_000, 1_000);
 
         cancel_redeem(redeem_id, USER, true);
@@ -147,7 +154,6 @@ fn test_sla_remains_unchanged_when_liquidated() {
 #[test]
 fn test_sla_increase_for_underpayed_issue() {
     test_with(|| {
-        let initial_user_balance = UserData::get(USER).free_balance;
         let (issue_id, issue) = request_issue(4_000);
 
         // only pay 25%

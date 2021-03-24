@@ -38,9 +38,23 @@ pub const FEE_POOL: [u8; 32] = [4u8; 32];
 pub const MAINTAINER: [u8; 32] = [5u8; 32];
 
 pub const FAUCET: [u8; 32] = [128u8; 32];
+pub const DUMMY: [u8; 32] = [255u8; 32];
 
 pub const INITIAL_BALANCE: u128 = 1_000_000_000_000;
 pub const INITIAL_LIQUIDATION_VAULT_BALANCE: u128 = 1_000;
+
+pub const DEFAULT_USER_FREE_BALANCE: u128 = 1_000_000;
+pub const DEFAULT_USER_LOCKED_BALANCE: u128 = 100_000;
+pub const DEFAULT_USER_FREE_TOKENS: u128 = 10_000_000;
+pub const DEFAULT_USER_LOCKED_TOKENS: u128 = 1000;
+
+pub const DEFAULT_VAULT_TO_BE_ISSUED: u128 = 10_000;
+pub const DEFAULT_VAULT_ISSUED: u128 = 100_000;
+pub const DEFAULT_VAULT_TO_BE_REDEEMED: u128 = 20_000;
+pub const DEFAULT_VAULT_BACKING_COLLATERAL: u128 = 1_000_000;
+pub const DEFAULT_VAULT_GRIEFING_COLLATERAL: u128 = 30_000;
+pub const DEFAULT_VAULT_FREE_BALANCE: u128 = 200_000;
+pub const DEFAULT_VAULT_FREE_TOKENS: u128 = 0;
 
 pub const CONFIRMATIONS: u32 = 6;
 
@@ -70,6 +84,27 @@ pub type ReplaceModule = replace::Module<Runtime>;
 pub type StakedRelayersCall = staked_relayers::Call<Runtime>;
 pub type StakedRelayersModule = staked_relayers::Module<Runtime>;
 
+pub fn default_user_state() -> UserData {
+    UserData {
+        free_balance: DEFAULT_USER_FREE_BALANCE,
+        locked_balance: DEFAULT_USER_LOCKED_BALANCE,
+        locked_tokens: DEFAULT_USER_LOCKED_TOKENS,
+        free_tokens: DEFAULT_USER_FREE_TOKENS,
+    }
+}
+
+pub fn default_vault_state() -> CoreVaultData {
+    CoreVaultData {
+        to_be_issued: DEFAULT_VAULT_TO_BE_ISSUED,
+        issued: DEFAULT_VAULT_ISSUED,
+        to_be_redeemed: DEFAULT_VAULT_TO_BE_REDEEMED,
+        backing_collateral: DEFAULT_VAULT_BACKING_COLLATERAL,
+        griefing_collateral: DEFAULT_VAULT_GRIEFING_COLLATERAL,
+        free_balance: DEFAULT_VAULT_FREE_BALANCE,
+        free_tokens: 0,
+    }
+}
+
 pub fn origin_of(account_id: AccountId) -> <Runtime as frame_system::Config>::Origin {
     <Runtime as frame_system::Config>::Origin::signed(account_id)
 }
@@ -78,7 +113,7 @@ pub fn account_of(address: [u8; 32]) -> AccountId {
     AccountId::from(address)
 }
 
-#[derive(Debug, PartialEq, Default)]
+#[derive(Debug, PartialEq, Default, Clone)]
 pub struct UserData {
     pub free_balance: u128,
     pub locked_balance: u128,
@@ -102,9 +137,9 @@ impl UserData {
         let old = Self::get(id.clone());
         let account_id = account_of(id);
 
-        if old.free_tokens > new.free_tokens || old.locked_tokens > new.locked_tokens {
-            unimplemented!()
-        }
+        // set tokens to 0
+        TreasuryModule::lock(account_id.clone(), old.free_tokens).unwrap();
+        TreasuryModule::burn(account_id.clone(), old.free_tokens + old.locked_tokens).unwrap();
 
         // set free balance:
         CollateralModule::transfer(account_id.clone(), account_of(FAUCET), old.free_balance).unwrap();
@@ -116,12 +151,11 @@ impl UserData {
         CollateralModule::lock_collateral(&account_id, new.locked_balance).unwrap();
 
         // set free_tokens
-        TreasuryModule::mint(account_id.clone(), new.free_tokens - old.free_tokens);
+        TreasuryModule::mint(account_id.clone(), new.free_tokens);
 
         // set locked_tokens
-        let locked_tokens_to_add = new.locked_tokens - old.locked_tokens;
-        TreasuryModule::mint(account_id.clone(), locked_tokens_to_add);
-        TreasuryModule::lock(account_id.clone(), locked_tokens_to_add).unwrap();
+        TreasuryModule::mint(account_id.clone(), new.locked_tokens);
+        TreasuryModule::lock(account_id.clone(), new.locked_tokens).unwrap();
 
         // sanity check:
         assert_eq!(Self::get(id), new);
@@ -130,7 +164,7 @@ impl UserData {
     }
 }
 
-#[derive(Debug, PartialEq, Default)]
+#[derive(Debug, PartialEq, Default, Clone)]
 pub struct FeePool {
     pub balance: u128,
     pub tokens: u128,
@@ -145,7 +179,7 @@ impl FeePool {
     }
 }
 
-#[derive(Debug, PartialEq, Default)]
+#[derive(Debug, PartialEq, Default, Clone)]
 pub struct CoreVaultData {
     pub to_be_issued: u128,
     pub issued: u128,
@@ -153,6 +187,7 @@ pub struct CoreVaultData {
     pub backing_collateral: u128,
     pub griefing_collateral: u128,
     pub free_balance: u128,
+    pub free_tokens: u128,
 }
 
 impl CoreVaultData {
@@ -171,6 +206,7 @@ impl CoreVaultData {
                 .current_balance()
                 .unwrap(),
             free_balance: CollateralModule::get_balance_from_account(&account_id),
+            free_tokens: TreasuryModule::get_balance_from_account(account_id.clone()),
         }
     }
     #[allow(dead_code)]
@@ -184,6 +220,7 @@ impl CoreVaultData {
             backing_collateral: CurrencySource::<Runtime>::LiquidationVault.current_balance().unwrap(),
             griefing_collateral: 0,
             free_balance: CollateralModule::get_balance_from_account(&account_id),
+            free_tokens: TreasuryModule::get_balance_from_account(account_id.clone()),
         }
     }
     #[allow(dead_code)]
@@ -200,46 +237,46 @@ impl CoreVaultData {
         .unwrap();
 
         let current = CoreVaultData::vault(vault);
-        if current.to_be_issued < state.to_be_issued {
-            assert_ok!(VaultRegistryModule::try_increase_to_be_issued_tokens(
-                &account_of(vault),
-                state.to_be_issued - current.to_be_issued
-            ));
-        } else {
-            assert_ok!(VaultRegistryModule::decrease_to_be_issued_tokens(
-                &account_of(vault),
-                current.to_be_issued - state.to_be_issued
-            ));
-        }
 
-        if current.issued < state.issued {
-            assert_ok!(VaultRegistryModule::try_increase_to_be_issued_tokens(
-                &account_of(vault),
-                state.issued - current.issued
-            ));
+        // set all token types to 0
+        assert_ok!(VaultRegistryModule::decrease_to_be_issued_tokens(
+            &account_of(vault),
+            current.to_be_issued
+        ));
+        assert_ok!(VaultRegistryModule::decrease_to_be_redeemed_tokens(
+            &account_of(vault),
+            current.to_be_redeemed
+        ));
+        assert_ok!(VaultRegistryModule::try_increase_to_be_redeemed_tokens(
+            &account_of(vault),
+            current.issued
+        ));
+        assert_ok!(VaultRegistryModule::decrease_tokens(
+            &account_of(vault),
+            &account_of(DUMMY),
+            current.issued,
+        ));
+        assert_ok!(TreasuryModule::lock(account_of(vault), current.free_tokens));
+        assert_ok!(TreasuryModule::burn(account_of(vault), current.free_tokens));
 
-            assert_ok!(VaultRegistryModule::issue_tokens(
-                &account_of(vault),
-                state.issued - current.issued
-            ));
-        } else {
-            assert_ok!(VaultRegistryModule::try_increase_to_be_redeemed_tokens(
-                &account_of(vault),
-                current.issued - state.issued
-            ));
-            assert_ok!(VaultRegistryModule::redeem_tokens(
-                &account_of(vault),
-                current.issued - state.issued,
-                0,
-                &account_of(vault)
-            ));
-        }
-        if current.to_be_redeemed < state.to_be_redeemed {
-            assert_ok!(VaultRegistryModule::try_increase_to_be_redeemed_tokens(
-                &account_of(vault),
-                state.to_be_redeemed - current.to_be_redeemed
-            ));
-        }
+        // set to-be-issued
+        assert_ok!(VaultRegistryModule::try_increase_to_be_issued_tokens(
+            &account_of(vault),
+            state.to_be_issued
+        ));
+        // set issued (2 steps)
+        assert_ok!(VaultRegistryModule::try_increase_to_be_issued_tokens(
+            &account_of(vault),
+            state.issued
+        ));
+        assert_ok!(VaultRegistryModule::issue_tokens(&account_of(vault), state.issued));
+        // set to-be-redeemed
+        assert_ok!(VaultRegistryModule::try_increase_to_be_redeemed_tokens(
+            &account_of(vault),
+            state.to_be_redeemed
+        ));
+        // set free tokens:
+        TreasuryModule::mint(account_of(vault), state.free_tokens);
 
         // clear all balances
         VaultRegistryModule::slash_collateral(
@@ -290,6 +327,53 @@ impl CoreVaultData {
         // since the function is only partially implemented, check that we achieved the
         // desired stae
         assert_eq!(CoreVaultData::vault(vault), state);
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct ParachainState {
+    user: UserData,
+    vault: CoreVaultData,
+    liquidation_vault: CoreVaultData,
+    fee_pool: FeePool,
+}
+
+impl Default for ParachainState {
+    fn default() -> Self {
+        Self {
+            user: default_user_state(),
+            vault: default_vault_state(),
+            liquidation_vault: CoreVaultData {
+                free_balance: INITIAL_LIQUIDATION_VAULT_BALANCE,
+                ..Default::default()
+            },
+            fee_pool: Default::default(),
+        }
+    }
+}
+
+impl ParachainState {
+    pub fn get() -> Self {
+        Self {
+            user: UserData::get(ALICE),
+            vault: CoreVaultData::vault(BOB),
+            liquidation_vault: CoreVaultData::liquidation_vault(),
+            fee_pool: FeePool::get(),
+        }
+    }
+
+    pub fn with_changes(
+        &self,
+        f: impl FnOnce(&mut UserData, &mut CoreVaultData, &mut CoreVaultData, &mut FeePool) -> (),
+    ) -> Self {
+        let mut state = self.clone();
+        f(
+            &mut state.user,
+            &mut state.vault,
+            &mut state.liquidation_vault,
+            &mut state.fee_pool,
+        );
+        state
     }
 }
 #[allow(dead_code)]
@@ -374,13 +458,13 @@ pub struct TransactionGenerator {
     return_data: Option<H256>,
     script: Vec<u8>,
     confirmations: u32,
-    relayer: [u8; 32],
+    relayer: Option<[u8; 32]>,
 }
 
 impl TransactionGenerator {
     pub fn new() -> Self {
         Self {
-            relayer: ALICE,
+            relayer: None,
             confirmations: 7,
             amount: 100,
             script: vec![
@@ -418,7 +502,7 @@ impl TransactionGenerator {
         self.confirmations = confirmations;
         self
     }
-    pub fn with_relayer(&mut self, relayer: [u8; 32]) -> &mut Self {
+    pub fn with_relayer(&mut self, relayer: Option<[u8; 32]>) -> &mut Self {
         self.relayer = relayer;
         self
     }
@@ -437,12 +521,11 @@ impl TransactionGenerator {
         let raw_init_block_header = RawBlockHeader::from_bytes(&init_block.header.try_format().unwrap())
             .expect("could not serialize block header");
 
-        match Call::BTCRelay(BTCRelayCall::initialize(
+        match BTCRelayModule::initialize(
+            account_of(ALICE),
             raw_init_block_header.try_into().expect("bad block header"),
             height,
-        ))
-        .dispatch(origin_of(account_of(ALICE)))
-        {
+        ) {
             Ok(_) => {}
             Err(e) if e == BTCRelayError::AlreadyInitialized.into() => {}
             _ => panic!("Failed to initialize btc relay"),
@@ -487,11 +570,11 @@ impl TransactionGenerator {
         let bytes_proof = proof.try_format().unwrap();
         let raw_tx = transaction.format_with(true);
 
-        assert_ok!(Call::BTCRelay(BTCRelayCall::store_block_header(
-            raw_block_header.try_into().expect("bad block header")
-        ))
-        .dispatch(origin_of(account_of(self.relayer))));
-        assert_store_main_chain_header_event(height, block.header.hash().unwrap(), account_of(self.relayer));
+        // let _ = Call::StakedRelayers(StakedRelayersCall::register_staked_relayer(
+        //     100,
+        // ))
+        // .dispatch(origin_of(account_of(self.relayer)));
+        self.relay(height, &block, raw_block_header);
 
         // Mine six new blocks to get over required confirmations
         let mut prev_block_hash = block.header.hash().unwrap();
@@ -509,17 +592,32 @@ impl TransactionGenerator {
 
             let raw_conf_block_header = RawBlockHeader::from_bytes(&conf_block.header.try_format().unwrap())
                 .expect("could not serialize block header");
-            assert_ok!(Call::BTCRelay(BTCRelayCall::store_block_header(
-                raw_conf_block_header.try_into().expect("bad block header"),
-            ))
-            .dispatch(origin_of(account_of(self.relayer))));
-
-            assert_store_main_chain_header_event(height, conf_block.header.hash().unwrap(), account_of(self.relayer));
+            self.relay(height, &conf_block, raw_conf_block_header);
 
             prev_block_hash = conf_block.header.hash().unwrap();
         }
 
         (tx_id, tx_block_height, bytes_proof, raw_tx)
+    }
+
+    fn relay(&self, height: u32, block: &Block, raw_block_header: RawBlockHeader) {
+        if let Some(relayer) = self.relayer {
+            let _ = Call::StakedRelayers(StakedRelayersCall::register_staked_relayer(100))
+                .dispatch(origin_of(account_of(relayer)));
+
+            assert_ok!(Call::StakedRelayers(StakedRelayersCall::store_block_header(
+                raw_block_header.try_into().expect("bad block header")
+            ))
+            .dispatch(origin_of(account_of(relayer))));
+            assert_store_main_chain_header_event(height, block.header.hash().unwrap(), account_of(relayer));
+        } else {
+            // bypass staked relayer module
+            assert_ok!(BTCRelayModule::store_block_header(
+                &account_of(ALICE),
+                raw_block_header.try_into().expect("bad block header")
+            ));
+            assert_store_main_chain_header_event(height, block.header.hash().unwrap(), account_of(ALICE));
+        }
     }
 }
 
@@ -616,7 +714,6 @@ impl ExtBuilder {
             disable_difficulty_check: false,
             disable_inclusion_check: false,
             disable_op_return_check: false,
-            disable_relayer_auth: true,
         }
         .assimilate_storage(&mut storage)
         .unwrap();
@@ -684,9 +781,7 @@ impl ExtBuilder {
             relayer_duplicate_block_submission: FixedI128::from(1),
             relayer_correct_no_data_vote_or_report: FixedI128::from(1),
             relayer_correct_invalid_vote_or_report: FixedI128::from(10),
-            relayer_correct_liquidation_report: FixedI128::from(1),
             relayer_correct_theft_report: FixedI128::from(1),
-            relayer_correct_oracle_offline_report: FixedI128::from(1),
             relayer_false_no_data_vote_or_report: FixedI128::from(-10),
             relayer_false_invalid_vote_or_report: FixedI128::from(-100),
             relayer_ignored_vote: FixedI128::from(-10),

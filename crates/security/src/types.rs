@@ -34,8 +34,6 @@ pub enum ErrorCode {
     InvalidBTCRelay = 2,
     /// The exchangeRateOracle experienced a liveness failure (no up-to-date exchange rate available)
     OracleOffline = 3,
-    /// The entire system is undercollateralized, only partial redeems should be allowed
-    Liquidation = 4,
 }
 
 impl Default for ErrorCode {

@@ -1269,7 +1269,7 @@ impl<T: Config> Module<T> {
     fn check_parachain_not_shutdown_and_not_errors(error_codes: Vec<ErrorCode>) -> DispatchResult {
         // Parachain must not be shutdown
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-        // There must not be in InvalidBTCRelay, OracleOffline or Liquidation error state
+        // Ensure error state does not contain InvalidBTCRelay or OracleOffline
         ext::security::ensure_parachain_does_not_have_errors::<T>(error_codes)
     }
 

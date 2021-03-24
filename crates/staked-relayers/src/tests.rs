@@ -7,12 +7,12 @@ use crate::{
 };
 use bitcoin::{
     formatter::Formattable,
-    types::{H256Le, TransactionBuilder, TransactionInputBuilder, TransactionOutput},
+    types::{H256Le, RawBlockHeader, TransactionBuilder, TransactionInputBuilder, TransactionOutput},
 };
-use btc_relay::{BtcAddress, BtcPublicKey};
+use btc_relay::{BtcAddress, BtcPublicKey, Error as BtcRelayError};
 use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
-use redeem::types::RedeemRequest;
+use redeem::types::{RedeemRequest, RedeemRequestStatus};
 use replace::types::ReplaceRequest;
 use security::types::{ErrorCode, StatusCode};
 use sp_core::{H160, H256};
@@ -829,7 +829,6 @@ fn test_report_vault_fails_with_non_vault_transaction() {
         ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), Some(btc_address)))));
         ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(())));
-        ext::vault_registry::liquidate_vault::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
 
         assert_err!(
             StakedRelayers::report_vault_theft(
@@ -890,109 +889,6 @@ fn test_report_vault_theft_succeeds() {
             vec![0u8; 32],
         ));
         assert_emitted!(Event::VaultTheft(BOB, H256Le::zero()));
-    })
-}
-
-#[test]
-fn test_report_vault_under_liquidation_threshold_fails() {
-    run_test(|| {
-        let relayer = ALICE;
-        let vault = BOB;
-
-        StakedRelayers::ensure_relayer_is_registered.mock_safe(|_| MockResult::Return(Ok(())));
-
-        ext::vault_registry::is_vault_below_liquidation_threshold::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(false)));
-
-        assert_err!(
-            StakedRelayers::report_vault_under_liquidation_threshold(Origin::signed(relayer), vault),
-            TestError::CollateralOk
-        );
-    })
-}
-
-#[test]
-fn test_report_vault_under_liquidation_threshold_succeeds() {
-    run_test(|| {
-        let relayer = ALICE;
-        let vault = BOB;
-
-        StakedRelayers::ensure_relayer_is_registered.mock_safe(|_| MockResult::Return(Ok(())));
-
-        ext::vault_registry::is_vault_below_liquidation_threshold::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(true)));
-
-        ext::vault_registry::liquidate_vault::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
-
-        assert_ok!(StakedRelayers::report_vault_under_liquidation_threshold(
-            Origin::signed(relayer),
-            vault
-        ));
-        assert_emitted!(Event::VaultUnderLiquidationThreshold(BOB));
-
-        // liquidating a single vault shouldn't stop the parachain from running
-        let parachain_status = ext::security::get_parachain_status::<Test>();
-        assert_eq!(parachain_status, StatusCode::Running);
-    })
-}
-
-#[test]
-fn test_report_vault_under_liquidation_threshold_fails_with_not_registered() {
-    run_test(|| {
-        assert_err!(
-            StakedRelayers::report_vault_under_liquidation_threshold(Origin::signed(ALICE), CAROL),
-            TestError::NotRegistered,
-        );
-    })
-}
-
-#[test]
-fn test_report_oracle_offline_fails_with_not_registered() {
-    run_test(|| {
-        let relayer = Origin::signed(ALICE);
-        assert_err!(StakedRelayers::report_oracle_offline(relayer), TestError::NotRegistered,);
-    })
-}
-
-#[test]
-fn test_report_oracle_offline_fails_with_already_reported() {
-    run_test(|| {
-        let relayer = Origin::signed(ALICE);
-        let amount: Balance = 3;
-        inject_active_staked_relayer(&ALICE, amount);
-
-        ext::security::get_errors::<Test>
-            .mock_safe(|| MockResult::Return([ErrorCode::OracleOffline].iter().cloned().collect()));
-        assert_err!(
-            StakedRelayers::report_oracle_offline(relayer),
-            TestError::OracleAlreadyReported,
-        );
-    })
-}
-
-#[test]
-fn test_report_oracle_offline_fails_with_oracle_online() {
-    run_test(|| {
-        let relayer = Origin::signed(ALICE);
-        let amount: Balance = 3;
-        inject_active_staked_relayer(&ALICE, amount);
-
-        ext::oracle::is_max_delay_passed::<Test>.mock_safe(|| MockResult::Return(false));
-        assert_err!(StakedRelayers::report_oracle_offline(relayer), TestError::OracleOnline,);
-    })
-}
-
-#[test]
-fn test_report_oracle_offline_succeeds() {
-    run_test(|| {
-        let relayer = Origin::signed(ALICE);
-        let amount: Balance = 3;
-        inject_active_staked_relayer(&ALICE, amount);
-
-        ext::oracle::is_max_delay_passed::<Test>.mock_safe(|| MockResult::Return(true));
-
-        assert_ok!(StakedRelayers::report_oracle_offline(relayer));
-        assert_emitted!(Event::OracleOffline());
     })
 }
 
@@ -1192,16 +1088,12 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
             MockResult::Return(Ok(RedeemRequest {
                 vault: BOB,
                 opentime: 0,
-                amount_polka_btc: 0,
                 fee: 0,
                 amount_btc: 100,
-                amount_dot: 0,
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: recipient_address,
-                completed: false,
-                cancelled: false,
-                reimburse: false,
+                status: RedeemRequestStatus::Pending,
             }))
         });
 
@@ -1424,5 +1316,41 @@ fn runtime_upgrade_succeeds() {
         <crate::ActiveStakedRelayers<Test>>::insert(ALICE, StakedRelayer { height: 0, stake: 10 });
 
         assert_ok!(StakedRelayers::_on_runtime_upgrade());
+    })
+}
+
+#[test]
+fn test_store_block_header_and_update_sla_succeeds_with_duplicate() {
+    run_test(|| {
+        ext::btc_relay::store_block_header::<Test>
+            .mock_safe(|_, _| MockResult::Return(Err(BtcRelayError::<Test>::DuplicateBlock.into())));
+
+        ext::sla::event_update_relayer_sla::<Test>.mock_safe(|&relayer_id, event| {
+            assert_eq!(relayer_id, 0);
+            assert_eq!(event, ext::sla::RelayerEvent::DuplicateBlockSubmission);
+            MockResult::Return(Ok(()))
+        });
+
+        assert_ok!(StakedRelayers::store_block_header_and_update_sla(
+            &0,
+            RawBlockHeader::default()
+        ));
+    })
+}
+
+#[test]
+fn test_store_block_header_and_update_sla_fails_with_invalid() {
+    run_test(|| {
+        ext::btc_relay::store_block_header::<Test>
+            .mock_safe(|_, _| MockResult::Return(Err(BtcRelayError::<Test>::DiffTargetHeader.into())));
+
+        ext::sla::event_update_relayer_sla::<Test>.mock_safe(|_, _| {
+            panic!("Should not call sla update for invalid block");
+        });
+
+        assert_err!(
+            StakedRelayers::store_block_header_and_update_sla(&0, RawBlockHeader::default()),
+            BtcRelayError::<Test>::DiffTargetHeader
+        );
     })
 }

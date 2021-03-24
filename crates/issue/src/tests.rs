@@ -212,7 +212,7 @@ fn test_execute_issue_overpayment_succeeds() {
             // check that request_refund is not called..
             ext::refund::request_refund::<Test>.mock_raw(|_, _, _, _, _| {
                 refund_called = true;
-                MockResult::Return(Ok(()))
+                MockResult::Return(Ok(None))
             });
 
             assert_ok!(execute_issue(ALICE, &issue_id));
@@ -256,7 +256,7 @@ fn test_execute_issue_refund_succeeds() {
             ext::refund::request_refund::<Test>.mock_raw(|amount, _, _, _, _| {
                 refund_called = true;
                 assert_eq!(amount, 100);
-                MockResult::Return(Ok(()))
+                MockResult::Return(Ok(None))
             });
             assert_ok!(execute_issue(ALICE, &issue_id));
             assert_eq!(refund_called, true);

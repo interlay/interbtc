@@ -76,9 +76,7 @@ decl_storage! {
         RelayerDuplicateBlockSubmission get(fn relayer_duplicate_block_submission) config(): T::SignedFixedPoint;
         RelayerCorrectNoDataVoteOrReport get(fn relayer_correct_no_data_vote_or_report) config(): T::SignedFixedPoint;
         RelayerCorrectInvalidVoteOrReport get(fn relayer_correct_invalid_vote_or_report) config(): T::SignedFixedPoint;
-        RelayerCorrectLiquidationReport get(fn relayer_correct_liquidation_report) config(): T::SignedFixedPoint;
         RelayerCorrectTheftReport get(fn relayer_correct_theft_report) config(): T::SignedFixedPoint;
-        RelayerCorrectOracleOfflineReport get(fn relayer_correct_oracle_offline_report) config(): T::SignedFixedPoint;
         RelayerFalseNoDataVoteOrReport get(fn relayer_false_no_data_vote_or_report) config(): T::SignedFixedPoint;
         RelayerFalseInvalidVoteOrReport get(fn relayer_false_invalid_vote_or_report) config(): T::SignedFixedPoint;
         RelayerIgnoredVote get(fn relayer_ignored_vote) config(): T::SignedFixedPoint;
@@ -340,7 +338,12 @@ impl<T: Config> Module<T> {
     ///
     /// * `vault_id` - account of the vault in question
     /// * `stake` - the amount of collateral placed for the redeem/replace
-    pub fn calculate_slashed_amount(vault_id: &T::AccountId, stake: DOT<T>) -> Result<DOT<T>, DispatchError> {
+    /// * `reimburse` - if true, this function returns 110-130%. If false, it returns 10-30%
+    pub fn calculate_slashed_amount(
+        vault_id: &T::AccountId,
+        stake: DOT<T>,
+        reimburse: bool,
+    ) -> Result<DOT<T>, DispatchError> {
         let current_sla = <VaultSla<T>>::get(vault_id);
 
         let liquidation_threshold = ext::vault_registry::get_liquidation_collateral_threshold::<T>();
@@ -348,7 +351,15 @@ impl<T: Config> Module<T> {
         let premium_redeem_threshold = ext::vault_registry::get_premium_redeem_threshold::<T>();
         let premium_redeem_threshold = Self::fixed_point_unsigned_to_signed(premium_redeem_threshold)?;
 
-        Self::_calculate_slashed_amount(current_sla, stake, liquidation_threshold, premium_redeem_threshold)
+        let total =
+            Self::_calculate_slashed_amount(current_sla, stake, liquidation_threshold, premium_redeem_threshold)?;
+
+        if reimburse {
+            Ok(total)
+        } else {
+            // vault is already losing the btc, so subtract the equivalent value of the lost btc
+            Ok(total.checked_sub(&stake).ok_or(Error::<T>::ArithmeticUnderflow)?)
+        }
     }
 
     /// Explicitly set the vault's SLA score, used in tests.
@@ -453,9 +464,7 @@ impl<T: Config> Module<T> {
             RelayerEvent::DuplicateBlockSubmission => <RelayerDuplicateBlockSubmission<T>>::get(),
             RelayerEvent::CorrectNoDataVoteOrReport => <RelayerCorrectNoDataVoteOrReport<T>>::get(),
             RelayerEvent::CorrectInvalidVoteOrReport => <RelayerCorrectInvalidVoteOrReport<T>>::get(),
-            RelayerEvent::CorrectLiquidationReport => <RelayerCorrectLiquidationReport<T>>::get(),
             RelayerEvent::CorrectTheftReport => <RelayerCorrectTheftReport<T>>::get(),
-            RelayerEvent::CorrectOracleOfflineReport => <RelayerCorrectOracleOfflineReport<T>>::get(),
             RelayerEvent::FalseNoDataVoteOrReport => <RelayerFalseNoDataVoteOrReport<T>>::get(),
             RelayerEvent::FalseInvalidVoteOrReport => <RelayerFalseInvalidVoteOrReport<T>>::get(),
             RelayerEvent::IgnoredVote => <RelayerIgnoredVote<T>>::get(),
@@ -469,9 +478,7 @@ impl<T: Config> Module<T> {
             RelayerEvent::DuplicateBlockSubmission => <RelayerDuplicateBlockSubmission<T>>::set(value),
             RelayerEvent::CorrectNoDataVoteOrReport => <RelayerCorrectNoDataVoteOrReport<T>>::set(value),
             RelayerEvent::CorrectInvalidVoteOrReport => <RelayerCorrectInvalidVoteOrReport<T>>::set(value),
-            RelayerEvent::CorrectLiquidationReport => <RelayerCorrectLiquidationReport<T>>::set(value),
             RelayerEvent::CorrectTheftReport => <RelayerCorrectTheftReport<T>>::set(value),
-            RelayerEvent::CorrectOracleOfflineReport => <RelayerCorrectOracleOfflineReport<T>>::set(value),
             RelayerEvent::FalseNoDataVoteOrReport => <RelayerFalseNoDataVoteOrReport<T>>::set(value),
             RelayerEvent::FalseInvalidVoteOrReport => <RelayerFalseInvalidVoteOrReport<T>>::set(value),
             RelayerEvent::IgnoredVote => <RelayerIgnoredVote<T>>::set(value),
