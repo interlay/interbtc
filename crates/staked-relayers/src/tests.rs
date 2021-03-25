@@ -13,7 +13,7 @@ use btc_relay::{BtcAddress, BtcPublicKey, Error as BtcRelayError};
 use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
 use redeem::types::{RedeemRequest, RedeemRequestStatus};
-use replace::types::ReplaceRequest;
+use replace::types::{ReplaceRequest, ReplaceRequestStatus};
 use security::types::{ErrorCode, StatusCode};
 use sp_core::{H160, H256};
 use std::{convert::TryInto, str::FromStr};
@@ -1017,6 +1017,7 @@ fn test_is_transaction_invalid_fails_with_valid_merge_transaction() {
             MockResult::Return(Ok(Vault {
                 id: BOB,
                 to_be_replaced_tokens: 0,
+                replace_collateral: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
@@ -1077,6 +1078,7 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
+                replace_collateral: 0,
                 backing_collateral: 0,
                 wallet: wallet.clone(),
                 banned_until: None,
@@ -1138,15 +1140,13 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
         ext::replace::get_open_or_completed_replace_request::<Test>.mock_safe(move |_| {
             MockResult::Return(Ok(ReplaceRequest {
                 old_vault: BOB,
-                open_time: 0,
                 amount: 100,
                 griefing_collateral: 0,
-                new_vault: None,
+                new_vault: ALICE,
                 collateral: 0,
-                accept_time: None,
-                btc_address: Some(recipient_address),
-                completed: false,
-                cancelled: false,
+                accept_time: 1,
+                btc_address: recipient_address,
+                status: ReplaceRequestStatus::Pending,
             }))
         });
 
@@ -1229,6 +1229,7 @@ fn test_is_transaction_invalid_fails_with_valid_merge_testnet_transaction() {
             MockResult::Return(Ok(Vault {
                 id: BOB,
                 to_be_replaced_tokens: 0,
+                replace_collateral: 0,
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,

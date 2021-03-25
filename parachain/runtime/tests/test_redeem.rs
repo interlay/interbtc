@@ -13,6 +13,17 @@ fn test_with<R>(execute: impl FnOnce() -> R) -> R {
     })
 }
 
+/// to-be-replaced & replace_collateral are decreased in request_redeem
+fn consume_to_be_replaced(vault: &mut CoreVaultData, amount_btc: u128) {
+    let released_replace_collateral = (amount_btc * vault.replace_collateral) / vault.to_be_replaced;
+
+    vault.replace_collateral -= released_replace_collateral;
+    vault.griefing_collateral -= released_replace_collateral;
+    vault.free_balance += released_replace_collateral;
+
+    vault.to_be_replaced -= amount_btc;
+}
+
 #[test]
 fn integration_test_redeem_should_fail_if_not_running() {
     test_with(|| {
@@ -47,6 +58,7 @@ fn integration_test_redeem_polka_btc_execute() {
                 vault.issued -= redeem.amount_btc;
                 user.free_tokens -= polka_btc;
                 fee_pool.tokens += redeem.fee;
+                consume_to_be_replaced(vault, redeem.amount_btc);
             })
         );
     });
@@ -98,6 +110,7 @@ fn integration_test_premium_redeem_polka_btc_execute() {
                 // premium dot is moved from vault to user
                 vault.backing_collateral -= redeem.premium_dot;
                 user.free_balance += redeem.premium_dot;
+                consume_to_be_replaced(vault, redeem.amount_btc);
             })
         );
 
@@ -183,6 +196,8 @@ fn integration_test_redeem_polka_btc_cancel_reimburse_sufficient_collateral_for_
 
                 user.free_balance += amount_without_fee_dot + punishment_fee;
                 user.free_tokens -= amount_btc;
+
+                consume_to_be_replaced(vault, redeem.amount_btc);
             })
         );
     });
@@ -231,6 +246,8 @@ fn integration_test_redeem_polka_btc_cancel_reimburse_insufficient_collateral_fo
 
                 user.free_balance += amount_without_fee_dot + punishment_fee;
                 user.free_tokens -= amount_btc;
+
+                consume_to_be_replaced(vault, redeem.amount_btc);
             })
         );
 
@@ -282,6 +299,8 @@ fn integration_test_redeem_polka_btc_cancel_no_reimburse() {
                 vault.backing_collateral -= punishment_fee + amount_without_fee_dot / 20;
 
                 user.free_balance += punishment_fee;
+
+                consume_to_be_replaced(vault, redeem.amount_btc);
             })
         );
     });
@@ -303,6 +322,8 @@ fn integration_test_redeem_polka_btc_cancel_liquidated_no_reimburse() {
                 to_be_issued: 0,
                 to_be_redeemed: redeem.amount_btc * 4,
                 backing_collateral: collateral_vault,
+                to_be_replaced: 0,
+                replace_collateral: 0,
                 ..default_vault_state()
             },
         );
@@ -353,6 +374,8 @@ fn integration_test_redeem_polka_btc_cancel_liquidated_reimburse() {
                 to_be_issued: 0,
                 to_be_redeemed: redeem.amount_btc * 4,
                 backing_collateral: collateral_vault,
+                to_be_replaced: 0,
+                replace_collateral: 0,
                 ..default_vault_state()
             },
         );
@@ -477,13 +500,6 @@ fn integration_test_redeem_banning() {
 
         // can still make a replace request now
         assert_ok!(Call::Replace(ReplaceCall::request_replace(100, 100)).dispatch(origin_of(account_of(VAULT))));
-        let replace_id = SystemModule::events()
-            .iter()
-            .find_map(|r| match r.event {
-                Event::replace(ReplaceEvent::RequestReplace(id, _, _, _)) => Some(id.clone()),
-                _ => None,
-            })
-            .unwrap();
 
         // cancel the redeem, this should ban the vault
         cancel_redeem(redeem_id, USER, true);
@@ -513,8 +529,13 @@ fn integration_test_redeem_banning() {
 
         // can not accept replace of banned vault
         assert_noop!(
-            Call::Replace(ReplaceCall::accept_replace(replace_id, 1000, BtcAddress::default()))
-                .dispatch(origin_of(account_of(VAULT))),
+            Call::Replace(ReplaceCall::accept_replace(
+                account_of(VAULT),
+                1000,
+                1000,
+                BtcAddress::default()
+            ))
+            .dispatch(origin_of(account_of(VAULT))),
             VaultRegistryError::VaultBanned,
         );
 

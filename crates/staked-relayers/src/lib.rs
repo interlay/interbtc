@@ -1186,13 +1186,10 @@ impl<T: Config> Module<T> {
             // replace requests
             match ext::replace::get_open_or_completed_replace_request::<T>(&request_id) {
                 Ok(req) => {
-                    if let Some(btc_address) = req.btc_address {
-                        // only check replace if we have a valid btc_address
-                        ensure!(
-                            !Self::is_valid_request_transaction(req.amount, btc_address, &payments, &vault.wallet,),
-                            Error::<T>::ValidReplaceTransaction
-                        );
-                    }
+                    ensure!(
+                        !Self::is_valid_request_transaction(req.amount, req.btc_address, &payments, &vault.wallet,),
+                        Error::<T>::ValidReplaceTransaction
+                    );
                 }
                 Err(_) => (),
             };

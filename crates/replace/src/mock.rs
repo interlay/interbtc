@@ -172,15 +172,13 @@ impl Config for Test {
 
 pub type TestEvent = Event;
 pub type TestError = Error<Test>;
-pub type SecurityError = security::Error<Test>;
-pub type VaultRegistryError = vault_registry::Error<Test>;
 
-pub const ALICE: AccountId = 1;
-pub const BOB: AccountId = 2;
+pub const OLD_VAULT: AccountId = 1;
+pub const NEW_VAULT: AccountId = 2;
 pub const CAROL: AccountId = 3;
 
-pub const ALICE_BALANCE: u64 = 1_000_000;
-pub const BOB_BALANCE: u64 = 1_000_000;
+pub const OLD_VAULT_BALANCE: u64 = 1_000_000;
+pub const NEW_VAULT_BALANCE: u64 = 1_000_000;
 pub const CAROL_BALANCE: u64 = 1_000_000;
 
 pub struct ExtBuilder;
@@ -227,7 +225,11 @@ impl ExtBuilder {
 
     pub fn build() -> sp_io::TestExternalities {
         ExtBuilder::build_with(pallet_balances::GenesisConfig::<Test, pallet_balances::Instance1> {
-            balances: vec![(ALICE, ALICE_BALANCE), (BOB, BOB_BALANCE), (CAROL, CAROL_BALANCE)],
+            balances: vec![
+                (OLD_VAULT, OLD_VAULT_BALANCE),
+                (NEW_VAULT, NEW_VAULT_BALANCE),
+                (CAROL, CAROL_BALANCE),
+            ],
         })
     }
 }

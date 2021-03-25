@@ -138,6 +138,13 @@ pub(crate) mod vault_registry {
     pub fn issue_tokens<T: vault_registry::Config>(vault_id: &T::AccountId, amount: PolkaBTC<T>) -> DispatchResult {
         <vault_registry::Module<T>>::issue_tokens(vault_id, amount)
     }
+
+    pub fn decrease_to_be_replaced_tokens<T: vault_registry::Config>(
+        vault_id: &T::AccountId,
+        tokens: PolkaBTC<T>,
+    ) -> Result<(PolkaBTC<T>, DOT<T>), DispatchError> {
+        <vault_registry::Module<T>>::decrease_to_be_replaced_tokens(vault_id, tokens)
+    }
 }
 
 #[cfg_attr(test, mockable)]
@@ -247,5 +254,15 @@ pub(crate) mod fee {
 
     pub fn get_premium_redeem_fee<T: fee::Config>(amount: DOT<T>) -> Result<DOT<T>, DispatchError> {
         <fee::Module<T>>::get_premium_redeem_fee(amount)
+    }
+}
+
+#[cfg_attr(test, mockable)]
+pub(crate) mod collateral {
+    use crate::DOT;
+    use frame_support::dispatch::DispatchResult;
+
+    pub fn release_collateral<T: collateral::Config>(sender: &T::AccountId, amount: DOT<T>) -> DispatchResult {
+        <collateral::Module<T>>::release_collateral(sender, amount)
     }
 }

@@ -280,7 +280,7 @@ fn try_increase_to_be_replaced_tokens_succeeds() {
 
         assert_ok!(VaultRegistry::try_increase_to_be_issued_tokens(&id, 50),);
         assert_ok!(VaultRegistry::issue_tokens(&id, 50));
-        let res = VaultRegistry::try_increase_to_be_replaced_tokens(&id, 50);
+        let res = VaultRegistry::try_increase_to_be_replaced_tokens(&id, 50, 50);
         assert_ok!(res);
         let vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
         assert_eq!(vault.data.issued_tokens, 50);
@@ -294,7 +294,7 @@ fn try_increase_to_be_replaced_tokens_fails_with_insufficient_tokens() {
     run_test(|| {
         let id = create_sample_vault();
 
-        let res = VaultRegistry::try_increase_to_be_replaced_tokens(&id, 50);
+        let res = VaultRegistry::try_increase_to_be_replaced_tokens(&id, 50, 50);
 
         // important: should not change the storage state
         assert_noop!(res, TestError::InsufficientTokensCommitted);
@@ -632,7 +632,8 @@ fn liquidate_succeeds() {
             vault_orig.to_be_redeemed_tokens,
             vault_orig.to_be_replaced_tokens,
             vault_orig.backing_collateral,
-            VaultStatus::Liquidated
+            VaultStatus::Liquidated,
+            vault_orig.replace_collateral,
         ));
 
         let moved_collateral = (collateral_before * (issued_tokens + to_be_issued_tokens - to_be_redeemed_tokens))
@@ -720,7 +721,8 @@ fn liquidate_at_most_secure_threshold() {
             vault_orig.to_be_redeemed_tokens,
             vault_orig.to_be_replaced_tokens,
             vault_orig.backing_collateral,
-            VaultStatus::Liquidated
+            VaultStatus::Liquidated,
+            vault_orig.replace_collateral,
         ));
 
         let moved_collateral = (used_collateral * (issued_tokens + to_be_issued_tokens - to_be_redeemed_tokens))
@@ -783,7 +785,8 @@ fn liquidate_with_status_succeeds() {
             vault_orig.to_be_redeemed_tokens,
             vault_orig.to_be_replaced_tokens,
             vault_orig.backing_collateral,
-            VaultStatus::CommittedTheft
+            VaultStatus::CommittedTheft,
+            vault_orig.replace_collateral,
         ));
     });
 }
@@ -1537,4 +1540,66 @@ fn get_first_vault_with_sufficient_collateral_returns_different_vaults_for_diffe
         // check that all vaults have been selected at least once
         assert!(vault_ids.iter().all(|&x| selected_ids.iter().any(|&y| x == y)));
     });
+}
+
+#[test]
+fn test_try_increase_to_be_replaced_tokens() {
+    run_test(|| {
+        let issue_tokens: u128 = 4;
+        let vault_id = create_sample_vault_andissue_tokens(issue_tokens);
+        assert_ok!(VaultRegistry::try_increase_to_be_redeemed_tokens(&vault_id, 1));
+
+        let (total_btc, total_dot) = VaultRegistry::try_increase_to_be_replaced_tokens(&vault_id, 2, 10).unwrap();
+        assert!(total_btc == 2);
+        assert!(total_dot == 10);
+
+        // check that we can't request more than we have issued tokens
+        assert_noop!(
+            VaultRegistry::try_increase_to_be_replaced_tokens(&vault_id, 3, 10),
+            TestError::InsufficientTokensCommitted
+        );
+
+        // check that we can't request replacement for tokens that are marked as to-be-redeemed
+        assert_noop!(
+            VaultRegistry::try_increase_to_be_replaced_tokens(&vault_id, 2, 10),
+            TestError::InsufficientTokensCommitted
+        );
+
+        let (total_btc, total_dot) = VaultRegistry::try_increase_to_be_replaced_tokens(&vault_id, 1, 20).unwrap();
+        assert!(total_btc == 3);
+        assert!(total_dot == 30);
+
+        // check that is was written to storage
+        let vault = VaultRegistry::get_active_vault_from_id(&vault_id).unwrap();
+        assert_eq!(vault.to_be_replaced_tokens, 3);
+        assert_eq!(vault.replace_collateral, 30);
+    })
+}
+
+#[test]
+fn test_decrease_to_be_replaced_tokens_over_capacity() {
+    run_test(|| {
+        let issue_tokens: u128 = 4;
+        let vault_id = create_sample_vault_andissue_tokens(issue_tokens);
+
+        assert_ok!(VaultRegistry::try_increase_to_be_replaced_tokens(&vault_id, 4, 10));
+
+        let (tokens, collateral) = VaultRegistry::decrease_to_be_replaced_tokens(&vault_id, 5).unwrap();
+        assert_eq!(tokens, 4);
+        assert_eq!(collateral, 10);
+    })
+}
+
+#[test]
+fn test_decrease_to_be_replaced_tokens_below_capacity() {
+    run_test(|| {
+        let issue_tokens: u128 = 4;
+        let vault_id = create_sample_vault_andissue_tokens(issue_tokens);
+
+        assert_ok!(VaultRegistry::try_increase_to_be_replaced_tokens(&vault_id, 4, 10));
+
+        let (tokens, collateral) = VaultRegistry::decrease_to_be_replaced_tokens(&vault_id, 3).unwrap();
+        assert_eq!(tokens, 3);
+        assert_eq!(collateral, 7);
+    })
 }

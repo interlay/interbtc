@@ -326,6 +326,17 @@ impl<T: Config> Module<T> {
             Self::u128_to_dot(0u128)?
         };
 
+        // decrease to-be-replaced tokens - when the vault requests tokens to be replaced, it
+        // want to get rid of tokens, and it does not matter whether this is through a redeem,
+        // or a replace. As such, we decrease the to-be-replaced tokens here. This call will
+        // never fail due to insufficient to-be-replaced tokens
+        let (_, griefing_collateral) =
+            ext::vault_registry::decrease_to_be_replaced_tokens::<T>(&vault_id, redeem_amount_polka_btc)?;
+        // release the griefing collateral that is locked for the replace request
+        if !griefing_collateral.is_zero() {
+            ext::collateral::release_collateral::<T>(&vault_id, griefing_collateral)?;
+        }
+
         Self::insert_redeem_request(
             redeem_id,
             RedeemRequest {
