@@ -72,8 +72,8 @@ decl_event!(
         AccountId = <T as frame_system::Config>::AccountId,
         PolkaBTC = PolkaBTC<T>,
     {
-        /// refund_id, issuer, amount_without_fee, fee, vault, btc_address, issue_id
-        RequestRefund(H256, AccountId, PolkaBTC, PolkaBTC, AccountId, BtcAddress, H256),
+        /// refund_id, issuer, amount_without_fee, vault, btc_address, issue_id, fee
+        RequestRefund(H256, AccountId, PolkaBTC, AccountId, BtcAddress, H256, PolkaBTC),
         /// refund_id, issuer, vault, amount
         ExecuteRefund(H256, AccountId, AccountId, PolkaBTC),
     }
@@ -154,10 +154,10 @@ impl<T: Config> Module<T> {
             refund_id.clone(),
             request.issuer,
             request.amount_polka_btc,
-            request.fee,
             request.vault,
             request.btc_address,
             request.issue_id,
+            request.fee,
         ));
 
         Ok(Some(refund_id))
