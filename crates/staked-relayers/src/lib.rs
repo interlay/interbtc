@@ -280,31 +280,6 @@ decl_module! {
             Self::store_block_header_and_update_sla(&relayer, raw_block_header)
         }
 
-        /// Stores multiple new block headers
-        ///
-        /// # Arguments
-        ///
-        /// * `raw_block_headers` - vector of Bitcoin block headers.
-        ///
-        /// # <weight>
-        /// - As in `store_block_header`, multiplied by the number of concatenated headers.
-        /// # </weight>
-        #[weight = <T as Config>::WeightInfo::store_block_header().saturating_mul(raw_block_headers.len() as u64)]
-        #[transactional]
-        fn store_block_headers(
-            origin, raw_block_headers: Vec<RawBlockHeader>
-        ) -> DispatchResult {
-            let relayer = ensure_signed(origin)?;
-
-            Self::ensure_relayer_is_registered(&relayer)?;
-
-            for raw_block_header in raw_block_headers {
-                Self::store_block_header_and_update_sla(&relayer, raw_block_header)?;
-            }
-
-            Ok(())
-        }
-
         /// Suggest a new status update and opens it up for voting.
         ///
         /// # Arguments
