@@ -1,8 +1,11 @@
 use btc_parachain_runtime::{
-    AccountId, BTCRelayConfig, DOTConfig, ExchangeRateOracleConfig, FeeConfig, GenesisConfig, IssueConfig,
+    AccountId, BTCRelayConfig, BlockNumber, DOTConfig, ExchangeRateOracleConfig, FeeConfig, GenesisConfig, IssueConfig,
     PolkaBTCConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature, SlaConfig, StakedRelayersConfig, SudoConfig,
-    SystemConfig, VaultRegistryConfig, DAYS, MINUTES, WASM_BINARY,
+    SystemConfig, VaultRegistryConfig, DAYS, MILLISECS_PER_BLOCK, MINUTES, TARGET_SPACING, WASM_BINARY,
 };
+
+const BITCOIN_SPACING_MS: u32 = TARGET_SPACING * 1000;
+const BLOCK_SPACING: BlockNumber = BITCOIN_SPACING_MS / MILLISECS_PER_BLOCK as BlockNumber;
 
 #[cfg(feature = "aura-grandpa")]
 use {
@@ -300,13 +303,23 @@ pub fn development_config(#[cfg(feature = "cumulus-polkadot")] id: ParaId) -> Ch
                     #[cfg(feature = "runtime-benchmarks")]
                     account("Vault", 0, 0),
                 ],
-                vec![(
-                    get_account_id_from_seed::<sr25519::Public>("Bob"),
-                    "Bob".as_bytes().to_vec(),
-                )],
+                vec![
+                    (
+                        get_account_id_from_seed::<sr25519::Public>("Alice"),
+                        "Alice".as_bytes().to_vec(),
+                    ),
+                    (
+                        get_account_id_from_seed::<sr25519::Public>("Bob"),
+                        "Bob".as_bytes().to_vec(),
+                    ),
+                    (
+                        get_account_id_from_seed::<sr25519::Public>("Charlie"),
+                        "Charlie".as_bytes().to_vec(),
+                    ),
+                ],
                 #[cfg(feature = "cumulus-polkadot")]
                 id,
-                0,
+                1,
             )
         },
         Vec::new(),
@@ -379,8 +392,7 @@ fn testnet_genesis(
         },
         btc_relay: BTCRelayConfig {
             bitcoin_confirmations,
-            // TODO: `parachain_confirmations: bitcoin_confirmations.saturating_mul(SECS_PER_BLOCK)`
-            parachain_confirmations: 0,
+            parachain_confirmations: bitcoin_confirmations.saturating_mul(BLOCK_SPACING),
             disable_difficulty_check: true,
             disable_inclusion_check: false,
             disable_op_return_check: false,
