@@ -135,6 +135,9 @@ pipeline {
     post {
         always {
             script {
+                env.GIT_COMMIT_MSG = sh (script: 'git log -1 --pretty=%B ${GIT_COMMIT}', returnStdout: true).trim()
+                env.GIT_AUTHOR = sh (script: 'git log -1 --pretty=%cn ${GIT_COMMIT}', returnStdout: true).trim()
+
                 discordSend(
                     title: "${env.JOB_NAME} Finished ${currentBuild.currentResult}",
                     description:  "```${env.GIT_COMMIT_MSG}```",
