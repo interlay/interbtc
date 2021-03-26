@@ -8,11 +8,13 @@ pipeline {
         RUSTC_WRAPPER = '/usr/local/bin/sccache'
         CI = 'true'
         GITHUB_TOKEN = credentials('ns212-github-token')
+        DISCORD_WEBHOOK_URL = credentials('discord_webhook_url')
     }
 
     options {
         timestamps()
         ansiColor('xterm')
+        buildDiscarder(logRotator(artifactDaysToKeepStr: '7', artifactNumToKeepStr: '5'))
     }
 
     stages {
@@ -118,14 +120,34 @@ pipeline {
             }
             steps {
                 sh '''
-                    wget -q -O - https://github.com/cli/cli/releases/download/v1.6.2/gh_1.6.2_linux_amd64.tar.gz | tar xzf -
-                    ./gh_1.6.2_linux_amd64/bin/gh auth status
                     wget -q -O - https://github.com/git-chglog/git-chglog/releases/download/v0.10.0/git-chglog_0.10.0_linux_amd64.tar.gz | tar xzf -
                     #export PREV_TAG=$(git describe --abbrev=0 --tags `git rev-list --tags --skip=1 --max-count=1`)
                     #export TAG_NAME=$(git describe --abbrev=0 --tags `git rev-list --tags --skip=0 --max-count=1`)
                     ./git-chglog --output CHANGELOG.md $TAG_NAME
+                     wget -q -O - https://github.com/cli/cli/releases/download/v1.6.2/gh_1.6.2_linux_amd64.tar.gz | tar xzf -
+                    ./gh_1.6.2_linux_amd64/bin/gh auth status
+                    ./gh_1.6.2_linux_amd64/bin/gh release -R $GIT_URL create $TAG_NAME --title $TAG_NAME -F CHANGELOG.md -d'
                 '''
-                sh 'gh release -R $GIT_URL create $TAG_NAME --title $TAG_NAME -F CHANGELOG.md -d'
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                env.GIT_COMMIT_MSG = sh (script: 'git log -1 --pretty=%B ${GIT_COMMIT}', returnStdout: true).trim()
+                env.GIT_AUTHOR = sh (script: 'git log -1 --pretty=%cn ${GIT_COMMIT}', returnStdout: true).trim()
+
+                discordSend(
+                    title: "${env.JOB_NAME} Finished ${currentBuild.currentResult}",
+                    description:  "```${env.GIT_COMMIT_MSG}```",
+                    image: '',
+                    link: "$env.RUN_DISPLAY_URL",
+                    successful: currentBuild.resultIsBetterOrEqualTo("SUCCESS"),
+                    thumbnail: 'https://wiki.jenkins-ci.org/download/attachments/2916393/headshot.png',
+                    result: currentBuild.currentResult,
+                    webhookURL: DISCORD_WEBHOOK_URL
+                )
             }
         }
     }
