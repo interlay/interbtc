@@ -8,6 +8,7 @@ pipeline {
         RUSTC_WRAPPER = '/usr/local/bin/sccache'
         CI = 'true'
         GITHUB_TOKEN = credentials('ns212-github-token')
+        DISCORD_WEBHOOK_URL = credentials('discord_webhook_url')
     }
 
     options {
@@ -127,6 +128,23 @@ pipeline {
                     ./gh_1.6.2_linux_amd64/bin/gh auth status
                     ./gh_1.6.2_linux_amd64/bin/gh release -R $GIT_URL create $TAG_NAME --title $TAG_NAME -F CHANGELOG.md -d'
                 '''
+            }
+        }
+    }
+
+    post {
+        always {
+            script {
+                discordSend(
+                    title: "${env.JOB_NAME} Finished ${currentBuild.currentResult}",
+                    description:  "```${env.GIT_COMMIT_MSG}```",
+                    image: '',
+                    link: "$env.RUN_DISPLAY_URL",
+                    successful: currentBuild.resultIsBetterOrEqualTo("SUCCESS"),
+                    thumbnail: 'https://wiki.jenkins-ci.org/download/attachments/2916393/headshot.png',
+                    result: currentBuild.currentResult,
+                    webhookURL: DISCORD_WEBHOOK_URL
+                )
             }
         }
     }
