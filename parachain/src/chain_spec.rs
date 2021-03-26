@@ -1,8 +1,11 @@
 use btc_parachain_runtime::{
-    AccountId, BTCRelayConfig, DOTConfig, ExchangeRateOracleConfig, FeeConfig, GenesisConfig, IssueConfig,
+    AccountId, BTCRelayConfig, BlockNumber, DOTConfig, ExchangeRateOracleConfig, FeeConfig, GenesisConfig, IssueConfig,
     PolkaBTCConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature, SlaConfig, StakedRelayersConfig, SudoConfig,
-    SystemConfig, VaultRegistryConfig, DAYS, MINUTES, WASM_BINARY,
+    SystemConfig, VaultRegistryConfig, DAYS, MILLISECS_PER_BLOCK, MINUTES, TARGET_SPACING, WASM_BINARY,
 };
+
+const BITCOIN_SPACING_MS: u32 = TARGET_SPACING * 1000;
+const BLOCK_SPACING: BlockNumber = BITCOIN_SPACING_MS / MILLISECS_PER_BLOCK as BlockNumber;
 
 #[cfg(feature = "aura-grandpa")]
 use {
@@ -389,7 +392,7 @@ fn testnet_genesis(
         },
         btc_relay: BTCRelayConfig {
             bitcoin_confirmations,
-            parachain_confirmations: bitcoin_confirmations.saturating_mul(MINUTES),
+            parachain_confirmations: bitcoin_confirmations.saturating_mul(BLOCK_SPACING),
             disable_difficulty_check: true,
             disable_inclusion_check: false,
             disable_op_return_check: false,
