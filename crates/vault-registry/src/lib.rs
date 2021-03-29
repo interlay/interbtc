@@ -73,7 +73,7 @@ pub trait Config:
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 
-    type RandomnessSource: Randomness<H256>;
+    type RandomnessSource: Randomness<H256, Self::BlockNumber>;
 
     type UnsignedFixedPoint: FixedPointNumber + Encode + EncodeLike + Decode;
 
@@ -918,7 +918,7 @@ impl<T: Config> Module<T> {
     }
 
     pub fn ban_vault(vault_id: T::AccountId) -> DispatchResult {
-        let height = <frame_system::Module<T>>::block_number();
+        let height = <frame_system::Pallet<T>>::block_number();
         let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
         vault.ban_until(height + Self::punishment_delay());
         Ok(())
@@ -1255,7 +1255,7 @@ impl<T: Config> Module<T> {
         // convert into a slice. Endianness of the conversion function is arbitrary chosen
         let bytes = &raw_subject.to_be_bytes();
 
-        let rand_hash = T::RandomnessSource::random(bytes);
+        let (rand_hash, _) = T::RandomnessSource::random(bytes);
 
         let ret = rand_hash.to_low_u64_le() % (limit as u64);
         ret as usize

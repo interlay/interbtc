@@ -199,7 +199,7 @@ fn test_get_nonce() {
 #[test]
 fn testget_secure_id() {
     run_test(|| {
-        frame_system::Module::<Test>::set_parent_hash(H256::zero());
+        frame_system::Pallet::<Test>::set_parent_hash(H256::zero());
         assert_eq!(
             Security::get_secure_id(&1),
             H256::from_slice(&[

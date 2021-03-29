@@ -272,7 +272,7 @@ impl<T: Config> Module<T> {
         hasher.input(Self::get_nonce().encode());
         // supplement with prev block hash to prevent replays
         // even if the `Nonce` is reset (i.e. purge-chain)
-        hasher.input(frame_system::Module::<T>::parent_hash());
+        hasher.input(frame_system::Pallet::<T>::parent_hash());
         let mut result = [0; 32];
         result.copy_from_slice(&hasher.result()[..]);
         H256(result)

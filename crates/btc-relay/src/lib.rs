@@ -309,7 +309,7 @@ impl<T: Config> Module<T> {
         let block_header_hash = raw_block_header.hash();
 
         // register the current height to track stable parachain confirmations
-        let para_height = <frame_system::Module<T>>::block_number();
+        let para_height = <frame_system::Pallet<T>>::block_number();
 
         // construct the BlockChain struct
         let blockchain = Self::initialize_blockchain(block_height, block_header_hash);
@@ -394,7 +394,7 @@ impl<T: Config> Module<T> {
         };
 
         // register the current height to track stable parachain confirmations
-        let para_height = <frame_system::Module<T>>::block_number();
+        let para_height = <frame_system::Pallet<T>>::block_number();
 
         // Create rich block header
         let block_header = RichBlockHeader::<T::AccountId, T::BlockNumber> {
@@ -1370,7 +1370,7 @@ impl<T: Config> Module<T> {
     /// # Arguments
     /// * `para_height` - height of the parachain when the block was stored
     pub fn check_parachain_confirmations(para_height: T::BlockNumber) -> Result<(), DispatchError> {
-        let current_height = <frame_system::Module<T>>::block_number();
+        let current_height = <frame_system::Pallet<T>>::block_number();
 
         ensure!(
             para_height + Self::parachain_confirmations() <= current_height,

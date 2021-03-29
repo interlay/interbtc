@@ -253,7 +253,7 @@ impl<T: Config> Module<T> {
         // Check that Parachain is RUNNING
         ext::security::ensure_parachain_status_running::<T>()?;
 
-        let height = <frame_system::Module<T>>::block_number();
+        let height = <frame_system::Pallet<T>>::block_number();
         let vault = ext::vault_registry::get_active_vault_from_id::<T>(&vault_id)?;
         // Check that the vault is currently not banned
         ext::vault_registry::ensure_not_banned::<T>(&vault_id, height)?;
@@ -546,7 +546,7 @@ impl<T: Config> Module<T> {
 }
 
 fn has_request_expired<T: Config>(opentime: T::BlockNumber, period: T::BlockNumber) -> bool {
-    let height = <frame_system::Module<T>>::block_number();
+    let height = <frame_system::Pallet<T>>::block_number();
     height > opentime + period
 }
 

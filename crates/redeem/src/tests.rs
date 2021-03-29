@@ -519,7 +519,7 @@ fn test_cancel_redeem_fails_with_time_not_expired() {
 #[test]
 fn test_cancel_redeem_fails_with_unauthorized_caller() {
     run_test(|| {
-        <frame_system::Module<Test>>::set_block_number(20);
+        <frame_system::Pallet<Test>>::set_block_number(20);
 
         Redeem::get_open_redeem_request_from_id.mock_safe(|_| {
             MockResult::Return(Ok(RedeemRequest {

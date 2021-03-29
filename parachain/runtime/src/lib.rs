@@ -435,14 +435,14 @@ pub use collateral::RawEvent as CollateralEvent;
 
 impl collateral::Config for Runtime {
     type Event = Event;
-    type DOT = pallet_balances::Module<Runtime, pallet_balances::Instance1>;
+    type DOT = pallet_balances::Pallet<Runtime, pallet_balances::Instance1>;
 }
 
 pub use treasury::RawEvent as TreasuryEvent;
 
 impl treasury::Config for Runtime {
     type Event = Event;
-    type PolkaBTC = pallet_balances::Module<Runtime, pallet_balances::Instance2>;
+    type PolkaBTC = pallet_balances::Pallet<Runtime, pallet_balances::Instance2>;
 }
 
 impl security::Config for Runtime {
@@ -532,34 +532,34 @@ macro_rules! construct_polkabtc_runtime {
                 NodeBlock = opaque::Block,
                 UncheckedExtrinsic = UncheckedExtrinsic
             {
-                System: frame_system::{Module, Call, Storage, Config, Event<T>},
-                Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
-                Sudo: pallet_sudo::{Module, Call, Storage, Config<T>, Event<T>},
-                Utility: pallet_utility::{Module, Call, Event},
-                RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Module, Call, Storage},
-                TransactionPayment: pallet_transaction_payment::{Module, Storage},
+                System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
+                Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
+                Sudo: pallet_sudo::{Pallet, Call, Storage, Config<T>, Event<T>},
+                Utility: pallet_utility::{Pallet, Call, Event},
+                RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Pallet, Call, Storage},
+                TransactionPayment: pallet_transaction_payment::{Pallet, Storage},
 
                 // Tokens & Balances
-                DOT: pallet_balances::<Instance1>::{Module, Call, Storage, Config<T>, Event<T>},
-                PolkaBTC: pallet_balances::<Instance2>::{Module, Call, Storage, Config<T>, Event<T>},
+                DOT: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
+                PolkaBTC: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
 
-                Collateral: collateral::{Module, Call, Storage, Event<T>},
-                Treasury: treasury::{Module, Call, Storage, Event<T>},
+                Collateral: collateral::{Pallet, Call, Storage, Event<T>},
+                Treasury: treasury::{Pallet, Call, Storage, Event<T>},
 
                 // Bitcoin SPV
-                BTCRelay: btc_relay::{Module, Call, Config<T>, Storage, Event<T>},
+                BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},
 
                 // Operational
-                Security: security::{Module, Call, Storage, Event},
-                StakedRelayers: staked_relayers::{Module, Call, Config<T>, Storage, Event<T>},
-                VaultRegistry: vault_registry::{Module, Call, Config<T>, Storage, Event<T>},
-                ExchangeRateOracle: exchange_rate_oracle::{Module, Call, Config<T>, Storage, Event<T>},
-                Issue: issue::{Module, Call, Config<T>, Storage, Event<T>},
-                Redeem: redeem::{Module, Call, Config<T>, Storage, Event<T>},
-                Replace: replace::{Module, Call, Config<T>, Storage, Event<T>},
-                Fee: fee::{Module, Call, Config<T>, Storage, Event<T>},
-                Sla: sla::{Module, Call, Config<T>, Storage, Event<T>},
-                Refund: refund::{Module, Call, Config<T>, Storage, Event<T>},
+                Security: security::{Pallet, Call, Storage, Event},
+                StakedRelayers: staked_relayers::{Pallet, Call, Config<T>, Storage, Event<T>},
+                VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>},
+                ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
+                Issue: issue::{Pallet, Call, Config<T>, Storage, Event<T>},
+                Redeem: redeem::{Pallet, Call, Config<T>, Storage, Event<T>},
+                Replace: replace::{Pallet, Call, Config<T>, Storage, Event<T>},
+                Fee: fee::{Pallet, Call, Config<T>, Storage, Event<T>},
+                Sla: sla::{Pallet, Call, Config<T>, Storage, Event<T>},
+                Refund: refund::{Pallet, Call, Config<T>, Storage, Event<T>},
 
 				$($modules)*
 			}
@@ -569,16 +569,16 @@ macro_rules! construct_polkabtc_runtime {
 
 #[cfg(feature = "cumulus-polkadot")]
 construct_polkabtc_runtime! {
-    ParachainSystem: cumulus_parachain_system::{Module, Call, Storage, Inherent, Event},
-    ParachainInfo: parachain_info::{Module, Storage, Config},
-    ParachainTokens: parachain_tokens::{Module, Storage, Call, Event<T>},
-    XcmHandler: xcm_handler::{Module, Event<T>, Origin, Call},
+    ParachainSystem: cumulus_parachain_system::{Pallet, Call, Storage, Inherent, Event},
+    ParachainInfo: parachain_info::{Pallet, Storage, Config},
+    ParachainTokens: parachain_tokens::{Pallet, Storage, Call, Event<T>},
+    XcmHandler: xcm_handler::{Pallet, Event<T>, Origin, Call},
 }
 
 #[cfg(feature = "aura-grandpa")]
 construct_polkabtc_runtime! {
-    Aura: pallet_aura::{Module, Config<T>},
-    Grandpa: pallet_grandpa::{Module, Call, Storage, Config, Event},
+    Aura: pallet_aura::{Pallet, Config<T>},
+    Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event},
 }
 
 /// The address format for describing accounts.
@@ -607,7 +607,7 @@ pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signatu
 pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Call, SignedExtra>;
 /// Executive: handles dispatch to the various modules.
 pub type Executive =
-    frame_executive::Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllModules>;
+    frame_executive::Executive<Runtime, Block, frame_system::ChainContext<Runtime>, Runtime, AllPallets>;
 
 #[cfg(not(feature = "disable-runtime-api"))]
 impl_runtime_apis! {
@@ -652,7 +652,7 @@ impl_runtime_apis! {
         }
 
         fn random_seed() -> <Block as BlockT>::Hash {
-            RandomnessCollectiveFlip::random_seed()
+            RandomnessCollectiveFlip::random_seed().0
         }
     }
 
@@ -673,8 +673,8 @@ impl_runtime_apis! {
 
     #[cfg(feature = "aura-grandpa")]
     impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
-        fn slot_duration() -> u64 {
-            Aura::slot_duration()
+        fn slot_duration() -> sp_consensus_aura::SlotDuration {
+            sp_consensus_aura::SlotDuration::from_millis(Aura::slot_duration())
         }
 
         fn authorities() -> Vec<AuraId> {
