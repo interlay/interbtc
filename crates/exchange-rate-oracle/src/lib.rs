@@ -346,7 +346,7 @@ impl<T: Config> Module<T> {
 
     /// Returns the current timestamp
     fn get_current_time() -> T::Moment {
-        <pallet_timestamp::Module<T>>::get()
+        <pallet_timestamp::Pallet<T>>::get()
     }
 
     /// Add a new authorized oracle

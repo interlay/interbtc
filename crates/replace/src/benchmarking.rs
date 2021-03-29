@@ -7,7 +7,7 @@ use bitcoin::{
 use btc_relay::{BtcAddress, BtcPublicKey, Module as BtcRelay};
 use exchange_rate_oracle::Module as ExchangeRateOracle;
 use frame_benchmarking::{account, benchmarks};
-use frame_system::{Module as System, RawOrigin};
+use frame_system::{Pallet as System, RawOrigin};
 use sp_core::{H160, H256, U256};
 use sp_runtime::FixedPointNumber;
 use sp_std::prelude::*;

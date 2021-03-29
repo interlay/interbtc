@@ -7,7 +7,7 @@ use bitcoin::{
 use btc_relay::{BtcAddress, BtcPublicKey, Module as BtcRelay};
 use collateral::Module as Collateral;
 use frame_benchmarking::{account, benchmarks};
-use frame_system::{Module as System, RawOrigin};
+use frame_system::{Pallet as System, RawOrigin};
 use sp_core::{H160, U256};
 use sp_std::prelude::*;
 use vault_registry::{

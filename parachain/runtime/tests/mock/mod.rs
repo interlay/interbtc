@@ -635,7 +635,7 @@ pub fn generate_transaction_and_mine(
 }
 
 #[allow(dead_code)]
-pub type SystemModule = frame_system::Module<Runtime>;
+pub type SystemModule = frame_system::Pallet<Runtime>;
 
 #[allow(dead_code)]
 pub type SecurityModule = security::Module<Runtime>;

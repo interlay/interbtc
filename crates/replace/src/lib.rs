@@ -703,12 +703,12 @@ impl<T: Config> Module<T> {
     }
 
     fn current_height() -> T::BlockNumber {
-        <frame_system::Module<T>>::block_number()
+        <frame_system::Pallet<T>>::block_number()
     }
 }
 
 fn has_request_expired<T: Config>(opentime: T::BlockNumber, period: T::BlockNumber) -> bool {
-    let height = <frame_system::Module<T>>::block_number();
+    let height = <frame_system::Pallet<T>>::block_number();
     height > opentime + period
 }
 

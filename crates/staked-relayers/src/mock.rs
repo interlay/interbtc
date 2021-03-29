@@ -19,27 +19,27 @@ frame_support::construct_runtime!(
         NodeBlock = Block,
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
-        System: frame_system::{Module, Call, Storage, Config, Event<T>},
-        Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
+        System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
+        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 
         // Tokens & Balances
-        DOT: pallet_balances::<Instance1>::{Module, Call, Storage, Config<T>, Event<T>},
-        PolkaBTC: pallet_balances::<Instance2>::{Module, Call, Storage, Config<T>, Event<T>},
+        DOT: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
+        PolkaBTC: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
 
-        Collateral: collateral::{Module, Call, Storage, Event<T>},
-        Treasury: treasury::{Module, Call, Storage, Event<T>},
+        Collateral: collateral::{Pallet, Call, Storage, Event<T>},
+        Treasury: treasury::{Pallet, Call, Storage, Event<T>},
 
         // Operational
-        BTCRelay: btc_relay::{Module, Call, Config<T>, Storage, Event<T>},
-        Security: security::{Module, Call, Storage, Event},
-        StakedRelayers: staked_relayers::{Module, Call, Config<T>, Storage, Event<T>},
-        VaultRegistry: vault_registry::{Module, Call, Config<T>, Storage, Event<T>},
-        ExchangeRateOracle: exchange_rate_oracle::{Module, Call, Config<T>, Storage, Event<T>},
-        Redeem: redeem::{Module, Call, Config<T>, Storage, Event<T>},
-        Replace: replace::{Module, Call, Config<T>, Storage, Event<T>},
-        Fee: fee::{Module, Call, Config<T>, Storage, Event<T>},
-        Sla: sla::{Module, Call, Config<T>, Storage, Event<T>},
-        Refund: refund::{Module, Call, Config<T>, Storage, Event<T>},
+        BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},
+        Security: security::{Pallet, Call, Storage, Event},
+        StakedRelayers: staked_relayers::{Pallet, Call, Config<T>, Storage, Event<T>},
+        VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>},
+        ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
+        Redeem: redeem::{Pallet, Call, Config<T>, Storage, Event<T>},
+        Replace: replace::{Pallet, Call, Config<T>, Storage, Event<T>},
+        Fee: fee::{Pallet, Call, Config<T>, Storage, Event<T>},
+        Sla: sla::{Pallet, Call, Config<T>, Storage, Event<T>},
+        Refund: refund::{Pallet, Call, Config<T>, Storage, Event<T>},
     }
 );
 
@@ -131,14 +131,14 @@ impl security::Config for Test {
 
 impl vault_registry::Config for Test {
     type Event = TestEvent;
-    type RandomnessSource = pallet_randomness_collective_flip::Module<Test>;
+    type RandomnessSource = pallet_randomness_collective_flip::Pallet<Test>;
     type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
 }
 
 impl treasury::Config for Test {
     type Event = TestEvent;
-    type PolkaBTC = pallet_balances::Module<Test, pallet_balances::Instance2>;
+    type PolkaBTC = pallet_balances::Pallet<Test, pallet_balances::Instance2>;
 }
 
 impl exchange_rate_oracle::Config for Test {
@@ -165,7 +165,7 @@ impl refund::Config for Test {
 
 impl collateral::Config for Test {
     type Event = TestEvent;
-    type DOT = pallet_balances::Module<Test, pallet_balances::Instance1>;
+    type DOT = pallet_balances::Pallet<Test, pallet_balances::Instance1>;
 }
 
 impl btc_relay::Config for Test {
