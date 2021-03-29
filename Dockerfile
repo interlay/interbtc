@@ -12,7 +12,7 @@ RUN apt-get update && \
     apt-get dist-upgrade -y -o Dpkg::Options::="--force-confold" && \
     apt-get install -y cmake pkg-config libssl-dev git clang
 
-ARG TOOLCHAIN=nightly-2021-02-15
+ARG TOOLCHAIN=nightly-2021-03-15
 
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y && \
     export PATH="$PATH:$HOME/.cargo/bin" && \

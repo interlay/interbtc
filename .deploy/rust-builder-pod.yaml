@@ -16,7 +16,7 @@ spec:
   containers:
     - name: jnlp
     - name: rust
-      image: registry.gitlab.com/interlay/containers/rust-base:nightly-2021-02-15
+      image: registry.gitlab.com/interlay/containers/rust-base:nightly-2021-03-15
       imagePullPolicy: Always
       command:
         - cat
