@@ -67,6 +67,9 @@ pub trait WeightInfo {
     fn opt_out_of_nomination() -> Weight;
     fn deposit_nominated_collateral() -> Weight;
     fn withdraw_nominated_collateral() -> Weight;
+    fn request_collateral_withdrawal() -> Weight;
+    fn execute_collateral_withdrawal() -> Weight;
+    // fn cancel_collateral_withdrawal() -> Weight;
 }
 
 /// ## Configuration and Constants
@@ -77,6 +80,7 @@ pub trait Config:
     + treasury::Config
     + exchange_rate_oracle::Config
     + security::Config
+    + nomination::Config
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
@@ -241,8 +245,8 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::withdraw_collateral()]
         #[transactional]
         fn withdraw_collateral(origin, amount: DOT<T>) -> DispatchResult {
-            // create withdrawal request if opted-in as operator, withdraw directly otherwise
             let sender = ensure_signed(origin)?;
+            ensure!(!ext::nomination::is_operator::<T>(&sender)?, Error::<T>::NominationOperatorCannotWithdrawDirectly);
             ext::security::ensure_parachain_status_running::<T>()?;
             let mut vault = Self::get_active_rich_vault_from_id(&sender)?;
             vault.withdraw_collateral(amount)?;
@@ -253,6 +257,32 @@ decl_module! {
             ));
 
             Ok(())
+        }
+
+        #[weight = <T as Config>::WeightInfo::deposit_nominated_collateral()]
+        #[transactional]
+        fn deposit_nominated_collateral(origin, operator_id: T::AccountId, amount: DOT<T>) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            ext::security::ensure_parachain_status_running::<T>()?;
+            Self::_lock_additional_collateral(&operator_id, amount)?;
+            let vault = Self::get_active_rich_vault_from_id(&sender)?;
+            ext::nomination::deposit_nominated_collateral::<T>(&sender, &operator_id, amount, vault.data.backing_collateral)
+        }
+
+        #[weight = <T as Config>::WeightInfo::request_collateral_withdrawal()]
+        #[transactional]
+        fn request_collateral_withdrawal(origin, operator_id: T::AccountId, amount: DOT<T>) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            ext::security::ensure_parachain_status_running::<T>()?;
+            Self::_request_collateral_withdrawal(&sender, &operator_id, amount)
+        }
+
+        #[weight = <T as Config>::WeightInfo::execute_collateral_withdrawal()]
+        #[transactional]
+        fn execute_collateral_withdrawal(origin, operator_id: T::AccountId, request_id: H256) -> DispatchResult {
+            let account_id = ensure_signed(origin)?;
+            ext::security::ensure_parachain_status_running::<T>()?;
+            Self::_execute_collateral_withdrawal(&account_id, &operator_id, request_id)
         }
 
         /// Registers a new Bitcoin address for the vault.
@@ -291,7 +321,7 @@ decl_module! {
 
 #[cfg_attr(test, mockable)]
 impl<T: Config> Module<T> {
-    fn begin_block(height: T::BlockNumber) -> DispatchResult {
+    fn begin_block(_height: T::BlockNumber) -> DispatchResult {
         Self::liquidate_undercollateralized_vaults();
         Ok(())
     }
@@ -300,44 +330,43 @@ impl<T: Config> Module<T> {
     ///
     /// # Arguments
     ///
-    /// * `id` - AccountId of the withdrawer
+    /// * `withdrawer_id` - AccountId of the withdrawer
     /// * `vault_id` - AccountId of the vault
     /// * `amount` - DOt amount to withdraw
     /// * `height` - current block height
     /// * `maturity` - height at request time + unbonding period
-    fn try_unbonding_withdrawal(
-        id: &T::AccountId,
-        vault_id: &T::AccountId,
-        amount: DOT<T>,
-        height: T::BlockNumber,
-        maturity: T::BlockNumber,
-        index: usize,
+    fn _execute_collateral_withdrawal(
+        withdrawer_id: &T::AccountId,
+        operator_id: &T::AccountId,
+        request_id: H256,
     ) -> DispatchResult {
-        ensure!(height >= maturity, Error::<T>::WithdrawalNotUnbonded);
-        Self::unbond_withdrawal(id, vault_id, amount, index)?;
-        Ok(())
+        if withdrawer_id.eq(operator_id) {
+            ext::nomination::execute_operator_withdrawal::<T>(operator_id, request_id)
+        } else {
+            ext::nomination::execute_nominator_withdrawal::<T>(
+                operator_id,
+                withdrawer_id,
+                request_id,
+            )
+        }
     }
 
-    fn unbond_withdrawal(
-        id: &T::AccountId,
-        vault_id: &T::AccountId,
+    fn _request_collateral_withdrawal(
+        withdrawer_id: &T::AccountId,
+        operator_id: &T::AccountId,
         amount: DOT<T>,
-        index: usize,
     ) -> DispatchResult {
-        // If the id of the withdrawer is the equal to the vault id,
-        // it is the vault requesting to withdraw
-        if id.eq(vault_id) {
-            if Self::_withdraw_collateral(vault_id, amount).is_ok() {
-                let mut rich_vault = Self::get_active_rich_vault_from_id(&vault_id)?;
-                rich_vault.remove_pending_operator_withdrawal(index);
-            }
+        if withdrawer_id.eq(operator_id) {
+            let vault = Self::get_rich_vault_from_id(operator_id)?;
+            ext::nomination::request_operator_withdrawal::<T>(
+                operator_id,
+                amount,
+                vault.data.backing_collateral,
+            )
+            // reduce backing_collateral
         } else {
-            if Self::_withdraw_nominated_collateral(id, vault_id, amount).is_ok() {
-                let mut rich_vault = Self::get_active_rich_vault_from_id(&vault_id)?;
-                rich_vault.remove_pending_nominator_withdrawal(index);
-            }
+            ext::nomination::request_nominator_withdrawal::<T>(operator_id, withdrawer_id, amount)
         }
-        Ok(())
     }
 
     fn _on_runtime_upgrade() {
@@ -387,29 +416,31 @@ impl<T: Config> Module<T> {
     pub fn _opt_in_to_nomination(vault_id: &T::AccountId) -> DispatchResult {
         ext::security::ensure_parachain_status_running::<T>()?;
         ensure!(
-            ext::nomination::is_nomination_enabled(),
+            ext::nomination::is_nomination_enabled::<T>()?,
             Error::<T>::VaultNominationDisabled
         );
         ensure!(Self::vault_exists(&vault_id), Error::<T>::VaultNotFound);
-        ext::nomination::opt_in_to_nomination(vault_id);
+        ext::nomination::opt_in_to_nomination::<T>(vault_id)
     }
 
     pub fn _opt_out_of_nomination(vault_id: &T::AccountId) -> DispatchResult {
         ext::security::ensure_parachain_status_running::<T>()?;
         ensure!(
-            ext::nomination::is_nomination_enabled(),
+            ext::nomination::is_nomination_enabled::<T>()?,
             Error::<T>::VaultNominationDisabled
         );
         ensure!(Self::vault_exists(&vault_id), Error::<T>::VaultNotFound);
 
-        let mut vault = Self::get_active_rich_vault_from_id(&(vault_id.clone()))?;
-        let total_nominated_collateral = ext::nomination::get_total_nominated_collateral(vault_id);
+        let vault = Self::get_active_rich_vault_from_id(&(vault_id.clone()))?;
+        let total_nominated_collateral =
+            ext::nomination::get_total_nominated_collateral::<T>(vault_id)?;
+        let zero_dot: DOT<T> = 0u32.into();
         ensure!(
-            total_nominated_collateral.is_zero()
+            total_nominated_collateral.eq(&zero_dot)
                 || (vault.data.issued_tokens.is_zero() && vault.data.to_be_issued_tokens.is_zero()),
             Error::<T>::VaultNotQualifiedToOptOutOfNomination
         );
-        ext::nomination::opt_out_of_nomination(vault_id)?;
+        ext::nomination::opt_out_of_nomination::<T>(vault_id)
     }
 
     pub fn get_vault_from_id(vault_id: &T::AccountId) -> Result<DefaultVault<T>, DispatchError> {
@@ -1702,7 +1733,8 @@ decl_error! {
         InvalidSecretKey,
         InvalidPublicKey,
         VaultNominationDisabled,
-        VaultNotQualifiedToOptOutOfNomination
+        VaultNotQualifiedToOptOutOfNomination,
+        NominationOperatorCannotWithdrawDirectly,
     }
 }
 

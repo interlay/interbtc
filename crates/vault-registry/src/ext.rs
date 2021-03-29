@@ -89,13 +89,18 @@ pub(crate) mod security {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod nomination {
+    use frame_support::dispatch::DispatchResult;
+    pub use nomination::VaultStatus;
+    use primitive_types::H256;
     use sp_runtime::DispatchError;
+
+    use crate::types::DOT;
 
     pub fn is_nomination_enabled<T: nomination::Config>() -> Result<bool, DispatchError> {
         <nomination::Module<T>>::is_nomination_enabled()
     }
 
-    pub fn slash_nominators(
+    pub fn slash_nominators<T: nomination::Config>(
         vault_id: T::AccountId,
         status: VaultStatus,
         to_slash: DOT<T>,
@@ -109,17 +114,80 @@ pub(crate) mod nomination {
         )
     }
 
-    pub fn opt_in_to_nomination(operator_id: &T::AccountId) -> DispatchResult {
+    pub fn opt_in_to_nomination<T: nomination::Config>(
+        operator_id: &T::AccountId,
+    ) -> DispatchResult {
         <nomination::Module<T>>::opt_in_to_nomination(operator_id)
     }
 
-    pub fn opt_out_of_nomination(operator_id: &T::AccountId) -> DispatchResult {
+    pub fn opt_out_of_nomination<T: nomination::Config>(
+        operator_id: &T::AccountId,
+    ) -> DispatchResult {
         <nomination::Module<T>>::opt_out_of_nomination(operator_id)
     }
 
-    pub fn get_total_nominated_collateral(
+    pub fn get_total_nominated_collateral<T: nomination::Config>(
         operator_id: &T::AccountId,
     ) -> Result<DOT<T>, DispatchError> {
-        <nomination::Module<T>>::opt_in_to_nomination(operator_id)
+        <nomination::Module<T>>::get_total_nominated_collateral(operator_id)
+    }
+
+    pub fn is_operator<T: nomination::Config>(
+        operator_id: &T::AccountId,
+    ) -> Result<bool, DispatchError> {
+        <nomination::Module<T>>::is_operator(operator_id)
+    }
+
+    pub fn deposit_nominated_collateral<T: nomination::Config>(
+        nominator_id: &T::AccountId,
+        vault_id: &T::AccountId,
+        collateral: DOT<T>,
+        backing_collateral: DOT<T>,
+    ) -> DispatchResult {
+        <nomination::Module<T>>::deposit_nominated_collateral(
+            nominator_id,
+            vault_id,
+            collateral,
+            backing_collateral,
+        )
+    }
+
+    pub fn request_operator_withdrawal<T: nomination::Config>(
+        operator_id: &T::AccountId,
+        collateral_to_withdraw: DOT<T>,
+        backing_collateral_before_withdrawal: DOT<T>,
+    ) -> DispatchResult {
+        <nomination::Module<T>>::request_operator_withdrawal(
+            operator_id,
+            collateral_to_withdraw,
+            backing_collateral_before_withdrawal,
+        )
+    }
+
+    pub fn request_nominator_withdrawal<T: nomination::Config>(
+        operator_id: &T::AccountId,
+        nominator_id: &T::AccountId,
+        collateral_to_withdraw: DOT<T>,
+    ) -> DispatchResult {
+        <nomination::Module<T>>::request_nominator_withdrawal(
+            operator_id,
+            nominator_id,
+            collateral_to_withdraw,
+        )
+    }
+
+    pub fn execute_operator_withdrawal<T: nomination::Config>(
+        operator_id: &T::AccountId,
+        request_id: H256,
+    ) -> DispatchResult {
+        <nomination::Module<T>>::execute_operator_withdrawal(operator_id, request_id)
+    }
+
+    pub fn execute_nominator_withdrawal<T: nomination::Config>(
+        operator_id: &T::AccountId,
+        nominator_id: &T::AccountId,
+        request_id: H256,
+    ) -> DispatchResult {
+        <nomination::Module<T>>::execute_nominator_withdrawal(operator_id, nominator_id, request_id)
     }
 }

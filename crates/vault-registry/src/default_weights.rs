@@ -47,4 +47,16 @@ impl crate::WeightInfo for () {
     fn withdraw_nominated_collateral() -> Weight {
         todo!()
     }
+
+    fn request_collateral_withdrawal() -> Weight {
+        todo!()
+    }
+
+    fn execute_collateral_withdrawal() -> Weight {
+        todo!()
+    }
+
+    // fn withdraw_nominated_collateral() -> Weight {
+    //     todo!()
+    // }
 }

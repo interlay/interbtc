@@ -226,11 +226,7 @@ impl ExtBuilder {
             auction_collateral_threshold: FixedU128::checked_from_rational(150, 100).unwrap(),
             premium_redeem_threshold: FixedU128::checked_from_rational(120, 100).unwrap(),
             liquidation_collateral_threshold: FixedU128::checked_from_rational(110, 100).unwrap(),
-            nominated_collateral_upper_limit_rate: FixedU128::checked_from_rational(50, 100)
-                .unwrap(),
             liquidation_vault_account_id: 0,
-            nominator_unbonding_period: Default::default(),
-            operator_unbonding_period: Default::default(),
         }
         .assimilate_storage(&mut storage)
         .unwrap();

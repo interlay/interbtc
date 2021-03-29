@@ -2,7 +2,6 @@ use crate::{
     ext, sp_api_hidden_includes_decl_storage::hidden_include::StorageValue, Config, Error, Module,
 };
 use codec::{Decode, Encode, HasCompact};
-use frame_support::traits::BalanceStatus;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
@@ -124,6 +123,16 @@ pub enum VaultStatus {
 impl Default for VaultStatus {
     fn default() -> Self {
         VaultStatus::Active
+    }
+}
+
+impl Into<ext::nomination::VaultStatus> for VaultStatus {
+    fn into(self) -> ext::nomination::VaultStatus {
+        match self {
+            VaultStatus::Active => ext::nomination::VaultStatus::Active,
+            VaultStatus::Liquidated => ext::nomination::VaultStatus::Liquidated,
+            VaultStatus::CommittedTheft => ext::nomination::VaultStatus::CommittedTheft,
+        }
     }
 }
 
@@ -323,6 +332,20 @@ impl<T: Config> RichVault<T> {
         ext::collateral::lock::<T>(&self.data.id, collateral)
     }
 
+    pub fn deposit_nominated_collateral(
+        &mut self,
+        nominator_id: &T::AccountId,
+        collateral: DOT<T>,
+    ) -> DispatchResult {
+        self.increase_collateral(collateral)?;
+        ext::nomination::deposit_nominated_collateral::<T>(
+            nominator_id,
+            &self.id(),
+            collateral,
+            self.data.backing_collateral,
+        )
+    }
+
     pub(crate) fn force_withdraw_collateral(&mut self, collateral: DOT<T>) -> DispatchResult {
         self.update(|v| {
             v.backing_collateral = v
@@ -336,18 +359,15 @@ impl<T: Config> RichVault<T> {
     }
 
     pub fn withdraw_collateral(&mut self, collateral: DOT<T>) -> DispatchResult {
-        let withdrawable_collateral = if ext::nomination::is_nomination_enabled::<T>()? {
-            // let unbonded_collateral =
-            // min(unbonded_collateral, collateral)
-            Default::default()
-        } else {
-            collateral
-        };
-
+        ensure!(
+            !(ext::nomination::is_nomination_enabled::<T>()?
+                && ext::nomination::is_operator::<T>(&self.id())?),
+            Error::<T>::NominationOperatorCannotWithdrawDirectly
+        );
         let remaining_collateral = self
             .data
             .backing_collateral
-            .checked_sub(&withdrawable_collateral)
+            .checked_sub(&collateral)
             .ok_or(Error::<T>::InsufficientCollateral)?;
 
         let tokens = self
@@ -359,7 +379,7 @@ impl<T: Config> RichVault<T> {
             !Module::<T>::is_collateral_below_secure_threshold(remaining_collateral, tokens)?,
             Error::<T>::InsufficientCollateral
         );
-        self.force_withdraw_collateral(withdrawable_collateral)
+        self.force_withdraw_collateral(collateral)
     }
 
     pub fn get_collateral(&self) -> DOT<T> {
@@ -551,7 +571,12 @@ impl<T: Config> RichVault<T> {
         )?;
 
         if ext::nomination::is_nomination_enabled::<T>()? {
-            exit::nomination::slash_nominators(self.id(), status, to_slash, backing_collateral);
+            ext::nomination::slash_nominators::<T>(
+                self.id(),
+                status.into(),
+                to_slash,
+                backing_collateral,
+            )?;
         }
 
         // everything above the secure threshold we release

@@ -1,8 +1,8 @@
 use btc_parachain_runtime::{
     AccountId, BTCRelayConfig, DOTConfig, ExchangeRateOracleConfig, FeeConfig, GenesisConfig,
-    IssueConfig, PolkaBTCConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature, SlaConfig,
-    StakedRelayersConfig, SudoConfig, SystemConfig, VaultRegistryConfig, DAYS, HOURS, MINUTES,
-    WASM_BINARY,
+    IssueConfig, NominationConfig, PolkaBTCConfig, RedeemConfig, RefundConfig, ReplaceConfig,
+    Signature, SlaConfig, StakedRelayersConfig, SudoConfig, SystemConfig, VaultRegistryConfig,
+    DAYS, HOURS, MINUTES, WASM_BINARY,
 };
 
 #[cfg(feature = "aura-grandpa")]
@@ -468,8 +468,8 @@ fn testnet_genesis(
         },
         nomination: NominationConfig {
             nomination_enabled: true,
-            nominated_collateral_upper_limit_rate: FixedU128::checked_from_rational(50, 100)
-                .unwrap(), // 50%
+            max_nomination_ratio: FixedU128::checked_from_rational(50, 100).unwrap(), // 50%
+            collateral_to_be_withdrawn: 0,
             operator_unbonding_period: 24 * HOURS,
             nominator_unbonding_period: 12 * HOURS,
         },
