@@ -8,7 +8,7 @@ use mocktopus::mocking::*;
 use primitive_types::H256;
 use sp_core::H160;
 use sp_std::convert::TryInto;
-use vault_registry::{Vault, VaultStatus, Wallet};
+use vault_registry::{VaultStatus, Wallet};
 
 type Event = crate::Event<Test>;
 
@@ -53,20 +53,6 @@ fn dummy_public_key() -> BtcPublicKey {
 #[test]
 fn test_request_redeem_fails_with_amount_exceeds_user_balance() {
     run_test(|| {
-        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|_| {
-            MockResult::Return(Ok(Vault {
-                id: BOB,
-                to_be_replaced_tokens: 0,
-                to_be_issued_tokens: 0,
-                issued_tokens: 10,
-                to_be_redeemed_tokens: 0,
-                replace_collateral: 0,
-                backing_collateral: 0,
-                wallet: Wallet::new(dummy_public_key()),
-                banned_until: None,
-                status: VaultStatus::Active,
-            }))
-        });
         <treasury::Module<Test>>::mint(ALICE, 2);
         let amount = 10_000_000;
         assert_err!(
@@ -126,20 +112,6 @@ fn test_request_redeem_fails_with_vault_not_found() {
 #[test]
 fn test_request_redeem_fails_with_vault_banned() {
     run_test(|| {
-        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|_| {
-            MockResult::Return(Ok(Vault {
-                id: BOB,
-                to_be_replaced_tokens: 0,
-                to_be_issued_tokens: 0,
-                issued_tokens: 0,
-                to_be_redeemed_tokens: 0,
-                backing_collateral: 0,
-                replace_collateral: 0,
-                wallet: Wallet::new(dummy_public_key()),
-                banned_until: Some(1),
-                status: VaultStatus::Active,
-            }))
-        });
         ext::vault_registry::ensure_not_banned::<Test>
             .mock_safe(|_, _| MockResult::Return(Err(VaultRegistryError::VaultBanned.into())));
 
@@ -153,54 +125,10 @@ fn test_request_redeem_fails_with_vault_banned() {
 #[test]
 fn test_request_redeem_fails_with_vault_liquidated() {
     run_test(|| {
-        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|_| {
-            MockResult::Return(Ok(Vault {
-                id: BOB,
-                to_be_replaced_tokens: 0,
-                to_be_issued_tokens: 0,
-                issued_tokens: 5,
-                to_be_redeemed_tokens: 0,
-                backing_collateral: 0,
-                replace_collateral: 0,
-                wallet: Wallet::new(dummy_public_key()),
-                banned_until: Some(1),
-                status: VaultStatus::Liquidated,
-            }))
-        });
-
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         assert_err!(
             Redeem::request_redeem(Origin::signed(ALICE), 3, BtcAddress::random(), BOB),
             VaultRegistryError::VaultNotFound
-        );
-    })
-}
-
-#[test]
-fn test_request_redeem_fails_with_amount_exceeds_vault_balance() {
-    run_test(|| {
-        ext::oracle::btc_to_dots::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
-        ext::vault_registry::get_active_vault_from_id::<Test>.mock_safe(|_| {
-            MockResult::Return(Ok(Vault {
-                id: BOB,
-                to_be_replaced_tokens: 0,
-                to_be_issued_tokens: 0,
-                issued_tokens: 10,
-                to_be_redeemed_tokens: 0,
-                backing_collateral: 0,
-                replace_collateral: 0,
-                wallet: Wallet::new(dummy_public_key()),
-                banned_until: None,
-                status: VaultStatus::Active,
-            }))
-        });
-        <treasury::Module<Test>>::mint(ALICE, 2);
-
-        ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-        let amount = 11;
-        assert_err!(
-            Redeem::request_redeem(Origin::signed(ALICE), amount, BtcAddress::default(), BOB),
-            TestError::AmountExceedsVaultBalance
         );
     })
 }

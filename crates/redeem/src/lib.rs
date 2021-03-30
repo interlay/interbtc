@@ -296,13 +296,8 @@ impl<T: Config> Module<T> {
             .checked_sub(&fee_polka_btc)
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
-        let vault = ext::vault_registry::get_active_vault_from_id::<T>(&vault_id)?;
         let height = <frame_system::Pallet<T>>::block_number();
         ext::vault_registry::ensure_not_banned::<T>(&vault_id, height)?;
-        ensure!(
-            redeem_amount_polka_btc <= vault.issued_tokens,
-            Error::<T>::AmountExceedsVaultBalance
-        );
 
         // only allow requests of amount above above the minimum
         let dust_value = <RedeemBtcDustValue<T>>::get();

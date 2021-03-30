@@ -15,13 +15,14 @@ fn test_with<R>(execute: impl FnOnce() -> R) -> R {
 
 /// to-be-replaced & replace_collateral are decreased in request_redeem
 fn consume_to_be_replaced(vault: &mut CoreVaultData, amount_btc: u128) {
-    let released_replace_collateral = (amount_btc * vault.replace_collateral) / vault.to_be_replaced;
+    let to_be_replaced_decrease = amount_btc.min(vault.to_be_replaced);
+    let released_replace_collateral = (vault.replace_collateral * to_be_replaced_decrease) / vault.to_be_replaced;
 
     vault.replace_collateral -= released_replace_collateral;
     vault.griefing_collateral -= released_replace_collateral;
     vault.free_balance += released_replace_collateral;
 
-    vault.to_be_replaced -= amount_btc;
+    vault.to_be_replaced -= to_be_replaced_decrease;
 }
 
 #[test]
@@ -39,6 +40,73 @@ fn integration_test_redeem_should_fail_if_not_running() {
             SecurityError::ParachainNotRunning,
         );
     });
+}
+
+mod request_redeem_tests {
+    use super::*;
+
+    fn calculate_vault_capacity() -> u128 {
+        let redeemable_tokens = DEFAULT_VAULT_ISSUED - DEFAULT_VAULT_TO_BE_REDEEMED;
+
+        // we are able to redeem `redeemable_tokens`. However, when requesting a redeem,
+        // the fee is subtracted for this amount. As such, a user is able to request more
+        // than `redeemable_tokens`. A first approximation of the limit is redeemable_tokens+fee,
+        // however, this slightly underestimates it. Since the actual fee rate is not exposed,
+        // use an iterative process to find the maximum redeem request amount.
+        let mut ret = redeemable_tokens + FeeModule::get_redeem_fee(redeemable_tokens).unwrap();
+
+        loop {
+            let actually_redeemed_tokens = ret - FeeModule::get_redeem_fee(ret).unwrap();
+            if actually_redeemed_tokens > redeemable_tokens {
+                return ret - 1;
+            }
+            ret += 1;
+        }
+    }
+
+    #[test]
+    fn integration_test_request_redeem_at_capacity_succeeds() {
+        test_with(|| {
+            let amount = calculate_vault_capacity();
+            assert_ok!(Call::Redeem(RedeemCall::request_redeem(
+                amount,
+                BtcAddress::default(),
+                account_of(VAULT)
+            ))
+            .dispatch(origin_of(account_of(USER))));
+
+            let redeem_id = assert_redeem_request_event();
+            let redeem = RedeemModule::get_open_redeem_request_from_id(&redeem_id).unwrap();
+
+            assert_eq!(amount, redeem.fee + redeem.amount_btc);
+
+            assert_eq!(
+                ParachainState::get(),
+                ParachainState::default().with_changes(|user, vault, _, _| {
+                    vault.to_be_redeemed += redeem.amount_btc;
+                    user.free_tokens -= redeem.amount_btc + redeem.fee;
+                    user.locked_tokens += redeem.amount_btc + redeem.fee;
+                    consume_to_be_replaced(vault, redeem.amount_btc);
+                })
+            );
+        });
+    }
+
+    #[test]
+    fn integration_test_request_redeem_above_capacity_fails() {
+        test_with(|| {
+            let amount = calculate_vault_capacity() + 1;
+            assert_noop!(
+                Call::Redeem(RedeemCall::request_redeem(
+                    amount,
+                    BtcAddress::default(),
+                    account_of(VAULT)
+                ))
+                .dispatch(origin_of(account_of(USER))),
+                VaultRegistryError::InsufficientTokensCommitted
+            );
+        });
+    }
 }
 
 #[test]
