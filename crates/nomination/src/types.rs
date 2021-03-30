@@ -1,4 +1,3 @@
-use crate::VaultStatus;
 use crate::{Config, Error, Module};
 use codec::{Decode, Encode, HasCompact};
 use frame_support::traits::BalanceStatus;
@@ -10,6 +9,7 @@ use sp_std::collections::btree_map::BTreeMap;
 
 #[cfg(test)]
 use mocktopus::macros::mockable;
+use vault_registry::VaultStatus;
 
 pub(crate) type DOT<T> =
     <<T as collateral::Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -305,26 +305,29 @@ impl<T: Config> RichOperator<T> {
         })
     }
 
-    pub fn execute_operator_withdrawal(&mut self, request_id: H256) -> DispatchResult {
-        let withdrawal = *self
-            .data
-            .pending_withdrawals
-            .get(&request_id)
-            .ok_or(Error::<T>::WithdrawRequestNotFound)?;
-        let height = <frame_system::Module<T>>::block_number();
-        ensure!(
-            withdrawal.0.ge(&height),
-            Error::<T>::WithdrawRequestNotMatured
-        );
-        self.remove_pending_operator_withdrawal(request_id);
-        self.update(|v| {
-            v.pending_withdrawals.remove(&request_id);
-            v.collateral_to_be_withdrawn = v
-                .collateral_to_be_withdrawn
-                .checked_sub(&withdrawal.1)
-                .ok_or(Error::<T>::ArithmeticUnderflow)?;
-            Ok(())
-        })
+    pub fn execute_operator_withdrawal(&mut self) -> DispatchResult {
+        // find mature request ids
+        // compute the sum to withdraw and increase the backing collateral again
+        // let withdrawal = *self
+        //     .data
+        //     .pending_withdrawals
+        //     .get(&request_id)
+        //     .ok_or(Error::<T>::WithdrawRequestNotFound)?;
+        // let height = <frame_system::Module<T>>::block_number();
+        // ensure!(
+        //     withdrawal.0.ge(&height),
+        //     Error::<T>::WithdrawRequestNotMatured
+        // );
+        // self.remove_pending_operator_withdrawal(request_id);
+        // self.update(|v| {
+        //     v.pending_withdrawals.remove(&request_id);
+        //     v.collateral_to_be_withdrawn = v
+        //         .collateral_to_be_withdrawn
+        //         .checked_sub(&withdrawal.1)
+        //         .ok_or(Error::<T>::ArithmeticUnderflow)?;
+        //     Ok(())
+        // })
+        Ok(())
     }
 
     pub fn remove_pending_operator_withdrawal(&mut self, request_id: H256) {
@@ -361,39 +364,39 @@ impl<T: Config> RichOperator<T> {
         });
     }
 
-    pub fn execute_nominator_withdrawal(
-        &mut self,
-        nominator_id: T::AccountId,
-        request_id: H256,
-    ) -> DispatchResult {
-        let nominators = self.data.nominators.clone();
-        let nominator = nominators
-            .get(&(nominator_id.clone()))
-            .ok_or(Error::<T>::NominatorNotFound)?;
-        let withdrawal = nominator
-            .pending_withdrawals
-            .get(&request_id)
-            .ok_or(Error::<T>::WithdrawRequestNotFound)?;
+    pub fn execute_nominator_withdrawal(&mut self, _nominator_id: T::AccountId) -> DispatchResult {
+        // find mature request ids
+        // compute the sum to withdraw and increase the backing collateral again
 
-        let height = <frame_system::Module<T>>::block_number();
-        ensure!(
-            withdrawal.0.ge(&height),
-            Error::<T>::WithdrawRequestNotMatured
-        );
-        self.remove_pending_nominator_withdrawal(nominator_id.clone(), request_id);
-        self.update(|v| {
-            let mut nominator = v
-                .nominators
-                .get(&nominator_id)
-                .ok_or(Error::<T>::NominatorNotFound)?
-                .clone();
-            nominator.collateral_to_be_withdrawn = nominator
-                .collateral_to_be_withdrawn
-                .checked_sub(&withdrawal.1)
-                .ok_or(Error::<T>::ArithmeticUnderflow)?;
-            v.nominators.insert(nominator_id.clone(), nominator);
-            Ok(())
-        })
+        // let nominators = self.data.nominators.clone();
+        // let nominator = nominators
+        //     .get(&(nominator_id.clone()))
+        //     .ok_or(Error::<T>::NominatorNotFound)?;
+        // let withdrawal = nominator
+        //     .pending_withdrawals
+        //     .get(&request_id)
+        //     .ok_or(Error::<T>::WithdrawRequestNotFound)?;
+
+        // let height = <frame_system::Module<T>>::block_number();
+        // ensure!(
+        //     withdrawal.0.ge(&height),
+        //     Error::<T>::WithdrawRequestNotMatured
+        // );
+        // self.remove_pending_nominator_withdrawal(nominator_id.clone(), request_id);
+        // self.update(|v| {
+        //     let mut nominator = v
+        //         .nominators
+        //         .get(&nominator_id)
+        //         .ok_or(Error::<T>::NominatorNotFound)?
+        //         .clone();
+        //     nominator.collateral_to_be_withdrawn = nominator
+        //         .collateral_to_be_withdrawn
+        //         .checked_sub(&withdrawal.1)
+        //         .ok_or(Error::<T>::ArithmeticUnderflow)?;
+        //     v.nominators.insert(nominator_id.clone(), nominator);
+        //     Ok(())
+        // })
+        Ok(())
     }
 
     pub fn remove_pending_nominator_withdrawal(

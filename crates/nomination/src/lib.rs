@@ -13,11 +13,12 @@ use sp_std::convert::TryInto;
 
 use codec::{Decode, Encode, EncodeLike};
 
+use ext::vault_registry::VaultStatus;
 use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::traits::Currency;
 use frame_support::weights::Weight;
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure, transactional};
-use frame_system::ensure_root;
+use frame_system::{ensure_root, ensure_signed};
 use primitive_types::H256;
 use sp_arithmetic::FixedPointNumber;
 use sp_runtime::traits::CheckedMul;
@@ -27,38 +28,25 @@ pub(crate) type DOT<T> =
     <<T as collateral::Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 pub(crate) type UnsignedFixedPoint<T> = <T as Config>::UnsignedFixedPoint;
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug)]
-pub enum VaultStatus {
-    /// Vault is active
-    Active = 0,
-
-    /// Vault has been liquidated
-    Liquidated = 1,
-
-    /// Vault theft has been reported
-    CommittedTheft = 2,
-}
-
-impl Default for VaultStatus {
-    fn default() -> Self {
-        VaultStatus::Active
-    }
-}
 
 pub trait WeightInfo {
+    fn set_nomination_enabled() -> Weight;
     fn opt_in_to_nomination() -> Weight;
     fn opt_out_of_nomination() -> Weight;
     fn deposit_nominated_collateral() -> Weight;
-    fn withdraw_nominated_collateral() -> Weight;
-    fn request_operator_withdrawal() -> Weight;
-    fn request_nominator_withdrawal() -> Weight;
-    fn set_nomination_enabled() -> Weight;
+    fn request_collateral_withdrawal() -> Weight;
+    fn execute_collateral_withdrawal() -> Weight;
+    // fn cancel_collateral_withdrawal() -> Weight;
 }
 
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
 pub trait Config:
-    frame_system::Config + collateral::Config + treasury::Config + security::Config
+    frame_system::Config
+    + collateral::Config
+    + treasury::Config
+    + security::Config
+    + vault_registry::Config
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
@@ -148,6 +136,45 @@ decl_module! {
             ensure_root(origin)?;
             <NominationEnabled>::set(enabled);
         }
+
+        /// Become an Operator in the Vault Nomination protocol
+        #[weight = <T as Config>::WeightInfo::opt_in_to_nomination()]
+        #[transactional]
+        fn opt_in_to_nomination(origin) -> DispatchResult {
+            Self::_opt_in_to_nomination(&ensure_signed(origin)?)
+        }
+
+        /// Deregister from being Operator in the Vault Nomination protocol
+        #[weight = <T as Config>::WeightInfo::opt_out_of_nomination()]
+        #[transactional]
+        fn opt_out_of_nomination(origin) -> DispatchResult {
+            Self::_opt_out_of_nomination(&ensure_signed(origin)?)
+        }
+
+        #[weight = <T as Config>::WeightInfo::deposit_nominated_collateral()]
+        #[transactional]
+        fn deposit_nominated_collateral(origin, operator_id: T::AccountId, amount: DOT<T>) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            ext::security::ensure_parachain_status_running::<T>()?;
+            ext::vault_registry::lock_additional_collateral_from_address::<T>(&operator_id, amount, &sender)?;
+            Self::_deposit_nominated_collateral(&sender, &operator_id, amount)
+        }
+
+        #[weight = <T as Config>::WeightInfo::request_collateral_withdrawal()]
+        #[transactional]
+        fn request_collateral_withdrawal(origin, operator_id: T::AccountId, amount: DOT<T>) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            ext::security::ensure_parachain_status_running::<T>()?;
+            Self::_request_collateral_withdrawal(&sender, &operator_id, amount)
+        }
+
+        #[weight = <T as Config>::WeightInfo::execute_collateral_withdrawal()]
+        #[transactional]
+        fn execute_collateral_withdrawal(origin, operator_id: T::AccountId) -> DispatchResult {
+            let account_id = ensure_signed(origin)?;
+            ext::security::ensure_parachain_status_running::<T>()?;
+            Self::_execute_collateral_withdrawal(&account_id, &operator_id)
+        }
     }
 }
 
@@ -196,6 +223,74 @@ impl<T: Config> Module<T> {
         <NominatorUnbondingPeriod<T>>::get()
     }
 
+    /// Liquidates a vault, transferring all of its token balances to the `LiquidationVault`.
+    /// Delegates to `liquidate_vault_with_status`, using `Liquidated` status
+    pub fn liquidate_operator(vault_id: &T::AccountId) -> DispatchResult {
+        Self::liquidate_operator_with_status(vault_id, VaultStatus::Liquidated)
+    }
+
+    /// Liquidates a vault, transferring all of its token balances to the
+    /// `LiquidationVault`, as well as the DOT collateral
+    ///
+    /// # Arguments
+    /// * `vault_id` - the id of the vault to liquidate
+    /// * `status` - status with which to liquidate the vault
+    ///
+    /// # Errors
+    /// * `VaultNotFound` - if the vault to liquidate does not exist
+    pub fn liquidate_operator_with_status(
+        vault_id: &T::AccountId,
+        status: VaultStatus,
+    ) -> DispatchResult {
+        let backing_collateral_before_slashing =
+            ext::vault_registry::get_backing_collateral::<T>(&vault_id.clone())?;
+        let to_slash = ext::vault_registry::liquidate_vault_with_status::<T>(vault_id, status)?;
+        Self::slash_nominators(
+            vault_id.clone(),
+            status,
+            to_slash,
+            backing_collateral_before_slashing,
+        )
+    }
+
+    /// Unbond collateral withdrawal if mature.
+    ///
+    /// # Arguments
+    ///
+    /// * `withdrawer_id` - AccountId of the withdrawer
+    /// * `vault_id` - AccountId of the vault
+    /// * `amount` - DOt amount to withdraw
+    /// * `height` - current block height
+    /// * `maturity` - height at request time + unbonding period
+    fn _execute_collateral_withdrawal(
+        withdrawer_id: &T::AccountId,
+        operator_id: &T::AccountId,
+    ) -> DispatchResult {
+        if withdrawer_id.eq(operator_id) {
+            Self::execute_operator_withdrawal(operator_id)
+        } else {
+            Self::execute_nominator_withdrawal(operator_id, withdrawer_id)
+        }
+    }
+
+    fn _request_collateral_withdrawal(
+        withdrawer_id: &T::AccountId,
+        operator_id: &T::AccountId,
+        amount: DOT<T>,
+    ) -> DispatchResult {
+        if withdrawer_id.eq(operator_id) {
+            let backing_collateral = ext::vault_registry::get_backing_collateral::<T>(operator_id)?;
+            Self::request_operator_withdrawal(operator_id, amount, backing_collateral)?
+        } else {
+            Self::request_nominator_withdrawal(operator_id, withdrawer_id, amount)?
+        };
+        // lower operator collateralization
+        ext::vault_registry::decrease_backing_collateral::<T>(operator_id, amount)
+        // TODO: refund a certain amount, proportionally, based on the Max Nomination Ratio
+
+        // increase to_be_withdrawn_collateral?
+    }
+
     pub fn request_operator_withdrawal(
         operator_id: &T::AccountId,
         collateral_to_withdraw: DOT<T>,
@@ -224,16 +319,13 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    pub fn execute_operator_withdrawal(
-        operator_id: &T::AccountId,
-        request_id: H256,
-    ) -> DispatchResult {
+    pub fn execute_operator_withdrawal(operator_id: &T::AccountId) -> DispatchResult {
         ensure!(
             Self::is_operator(operator_id)?,
             Error::<T>::VaultNotOptedInToNomination
         );
         let mut operator = Self::get_rich_operator_from_id(operator_id)?;
-        operator.execute_operator_withdrawal(request_id)
+        operator.execute_operator_withdrawal()
     }
 
     pub fn request_nominator_withdrawal(
@@ -274,22 +366,21 @@ impl<T: Config> Module<T> {
     pub fn execute_nominator_withdrawal(
         operator_id: &T::AccountId,
         nominator_id: &T::AccountId,
-        request_id: H256,
     ) -> DispatchResult {
         ensure!(
             Self::is_operator(operator_id)?,
             Error::<T>::VaultNotOptedInToNomination
         );
         let mut operator = Self::get_rich_operator_from_id(operator_id)?;
-        operator.execute_nominator_withdrawal(nominator_id.clone(), request_id)
+        operator.execute_nominator_withdrawal(nominator_id.clone())
     }
 
-    pub fn deposit_nominated_collateral(
+    pub fn _deposit_nominated_collateral(
         nominator_id: &T::AccountId,
         operator_id: &T::AccountId,
         collateral: DOT<T>,
-        backing_collateral: DOT<T>,
     ) -> DispatchResult {
+        let backing_collateral = ext::vault_registry::get_backing_collateral::<T>(operator_id)?;
         let mut operator = Self::get_rich_operator_from_id(operator_id)?;
         operator.deposit_nominated_collateral(
             nominator_id.clone(),
@@ -331,7 +422,20 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    pub fn opt_in_to_nomination(operator_id: &T::AccountId) -> DispatchResult {
+    /// Mark Vault as an Operator in the Vault Nomination protocol
+    ///
+    /// # Arguments
+    /// * `vault_id` - the id of the vault to mark as Nomination Operator
+    pub fn _opt_in_to_nomination(operator_id: &T::AccountId) -> DispatchResult {
+        ext::security::ensure_parachain_status_running::<T>()?;
+        ensure!(
+            Self::is_nomination_enabled()?,
+            Error::<T>::VaultNominationDisabled
+        );
+        ensure!(
+            ext::vault_registry::vault_exists::<T>(&operator_id),
+            Error::<T>::OperatorNotFound
+        );
         ensure!(
             !<Operators<T>>::contains_key(operator_id),
             Error::<T>::VaultAlreadyOptedInToNomination
@@ -341,16 +445,21 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    pub fn opt_out_of_nomination(operator_id: &T::AccountId) -> DispatchResult {
+    pub fn _opt_out_of_nomination(operator_id: &T::AccountId) -> DispatchResult {
+        ext::security::ensure_parachain_status_running::<T>()?;
+        ensure!(
+            Self::is_nomination_enabled()?,
+            Error::<T>::VaultNominationDisabled
+        );
+
+        ext::vault_registry::set_is_nomination_operator::<T>(&operator_id, true);
         ensure!(
             <Operators<T>>::contains_key(operator_id),
             Error::<T>::VaultNotOptedInToNomination
         );
         let mut operator = Self::get_rich_operator_from_id(operator_id)?;
 
-        if operator.data.nominators.len() > 0 {
-            operator.refund_nominated_collateral()?;
-        }
+        operator.refund_nominated_collateral()?;
         <Operators<T>>::remove(operator_id);
 
         Self::deposit_event(Event::<T>::NominationOptOut(operator_id.clone()));
@@ -430,6 +539,7 @@ decl_error! {
         WithdrawRequestNotFound,
         WithdrawRequestNotMatured,
         InsufficientCollateral,
-        FailedToAddNominator
+        FailedToAddNominator,
+        VaultNominationDisabled,
     }
 }

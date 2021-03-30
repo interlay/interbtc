@@ -35,6 +35,7 @@ sla = { path = "../sla", default-features = false }
 treasury = { path = "../treasury", default-features = false }
 vault-registry = { path = "../vault-registry", default-features = false }
 refund = { path = "../refund", default-features = false }
+nomination = { path = "../../crates/nomination", default-features = false }
 
 [dev-dependencies]
 mocktopus = "0.7.0"
@@ -71,6 +72,7 @@ std = [
   "treasury/std",
   "vault-registry/std",
   "refund/std",
+  "nomination/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",

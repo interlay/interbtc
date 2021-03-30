@@ -64,10 +64,11 @@ pub(crate) mod vault_registry {
     pub fn liquidate_theft_vault<T: vault_registry::Config>(
         vault_id: &T::AccountId,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::liquidate_vault_with_status(
+        let _ = <vault_registry::Module<T>>::liquidate_vault_with_status(
             vault_id,
             VaultStatus::CommittedTheft,
-        )
+        )?;
+        Ok(())
     }
 }
 
@@ -214,5 +215,36 @@ pub(crate) mod sla {
         stakes: Vec<(T::AccountId, DOT<T>)>,
     ) -> Result<(), DispatchError> {
         <sla::Module<T>>::_on_runtime_upgrade(stakes)
+    }
+}
+
+#[cfg_attr(test, mockable)]
+pub(crate) mod nomination {
+
+    use frame_support::dispatch::DispatchResult;
+    use sp_runtime::DispatchError;
+    use vault_registry::VaultStatus;
+
+    pub fn liquidate_operator<T: nomination::Config>(vault_id: &T::AccountId) -> DispatchResult {
+        <nomination::Module<T>>::liquidate_operator(vault_id)
+    }
+
+    pub fn liquidate_theft_operator<T: nomination::Config>(
+        vault_id: &T::AccountId,
+    ) -> DispatchResult {
+        <nomination::Module<T>>::liquidate_operator_with_status(
+            vault_id,
+            VaultStatus::CommittedTheft,
+        )
+    }
+
+    pub fn is_nomination_enabled<T: nomination::Config>() -> Result<bool, DispatchError> {
+        <nomination::Module<T>>::is_nomination_enabled()
+    }
+
+    pub fn is_operator<T: nomination::Config>(
+        operator_id: &T::AccountId,
+    ) -> Result<bool, DispatchError> {
+        <nomination::Module<T>>::is_operator(operator_id)
     }
 }

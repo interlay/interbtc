@@ -219,7 +219,6 @@ pub(crate) mod fee {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod nomination {
-    pub use nomination::VaultStatus;
     use sp_runtime::DispatchError;
 
     use crate::types::DOT;

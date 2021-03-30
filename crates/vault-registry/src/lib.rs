@@ -63,13 +63,6 @@ pub trait WeightInfo {
     fn withdraw_collateral() -> Weight;
     fn update_public_key() -> Weight;
     fn register_address() -> Weight;
-    fn opt_in_to_nomination() -> Weight;
-    fn opt_out_of_nomination() -> Weight;
-    fn deposit_nominated_collateral() -> Weight;
-    fn withdraw_nominated_collateral() -> Weight;
-    fn request_collateral_withdrawal() -> Weight;
-    fn execute_collateral_withdrawal() -> Weight;
-    // fn cancel_collateral_withdrawal() -> Weight;
 }
 
 /// ## Configuration and Constants
@@ -80,7 +73,6 @@ pub trait Config:
     + treasury::Config
     + exchange_rate_oracle::Config
     + security::Config
-    + nomination::Config
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
@@ -151,6 +143,9 @@ decl_storage! {
 
         /// Build storage at V1 (requires default 0).
         StorageVersion get(fn storage_version) build(|_| Version::V1): Version = Version::V0;
+
+        /// Map of Vault Operators
+        IsNominationOperator: map hasher(blake2_128_concat) T::AccountId => bool;
     }
 }
 
@@ -187,20 +182,6 @@ decl_module! {
             Self::_register_vault(&ensure_signed(origin)?, collateral, public_key)
         }
 
-        /// Become an Operator in the Vault Nomination protocol
-        #[weight = <T as Config>::WeightInfo::opt_in_to_nomination()]
-        #[transactional]
-        fn opt_in_to_nomination(origin) -> DispatchResult {
-            Self::_opt_in_to_nomination(&ensure_signed(origin)?)
-        }
-
-        /// Deregister from being Operator in the Vault Nomination protocol
-        #[weight = <T as Config>::WeightInfo::opt_out_of_nomination()]
-        #[transactional]
-        fn opt_out_of_nomination(origin) -> DispatchResult {
-            Self::_opt_out_of_nomination(&ensure_signed(origin)?)
-        }
-
         /// Locks additional collateral as a security against stealing the
         /// Bitcoin locked with it.
         ///
@@ -213,19 +194,7 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::lock_additional_collateral()]
         #[transactional]
         fn lock_additional_collateral(origin, amount: DOT<T>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-
-            Self::check_parachain_not_shutdown_and_not_errors([ErrorCode::OracleOffline].to_vec())?;
-
-            let mut vault = Self::get_active_rich_vault_from_id(&sender)?;
-            vault.increase_collateral(amount)?;
-            Self::deposit_event(Event::<T>::LockAdditionalCollateral(
-                vault.id(),
-                amount,
-                vault.get_collateral(),
-                vault.get_free_collateral()?,
-            ));
-            Ok(())
+            Self::_lock_additional_collateral(&ensure_signed(origin)?, amount)
         }
 
         /// Withdraws `amount` of the collateral from the amount locked by
@@ -246,43 +215,10 @@ decl_module! {
         #[transactional]
         fn withdraw_collateral(origin, amount: DOT<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            ensure!(!ext::nomination::is_operator::<T>(&sender)?, Error::<T>::NominationOperatorCannotWithdrawDirectly);
+            let is_operator = <IsNominationOperator<T>>::get(sender.clone());
+            ensure!(!is_operator, Error::<T>::NominationOperatorCannotWithdrawDirectly);
             ext::security::ensure_parachain_status_running::<T>()?;
-            let mut vault = Self::get_active_rich_vault_from_id(&sender)?;
-            vault.withdraw_collateral(amount)?;
-            Self::deposit_event(Event::<T>::WithdrawCollateral(
-                sender.clone(),
-                amount,
-                vault.get_collateral(),
-            ));
-
-            Ok(())
-        }
-
-        #[weight = <T as Config>::WeightInfo::deposit_nominated_collateral()]
-        #[transactional]
-        fn deposit_nominated_collateral(origin, operator_id: T::AccountId, amount: DOT<T>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            ext::security::ensure_parachain_status_running::<T>()?;
-            Self::_lock_additional_collateral(&operator_id, amount)?;
-            let vault = Self::get_active_rich_vault_from_id(&sender)?;
-            ext::nomination::deposit_nominated_collateral::<T>(&sender, &operator_id, amount, vault.data.backing_collateral)
-        }
-
-        #[weight = <T as Config>::WeightInfo::request_collateral_withdrawal()]
-        #[transactional]
-        fn request_collateral_withdrawal(origin, operator_id: T::AccountId, amount: DOT<T>) -> DispatchResult {
-            let sender = ensure_signed(origin)?;
-            ext::security::ensure_parachain_status_running::<T>()?;
-            Self::_request_collateral_withdrawal(&sender, &operator_id, amount)
-        }
-
-        #[weight = <T as Config>::WeightInfo::execute_collateral_withdrawal()]
-        #[transactional]
-        fn execute_collateral_withdrawal(origin, operator_id: T::AccountId, request_id: H256) -> DispatchResult {
-            let account_id = ensure_signed(origin)?;
-            ext::security::ensure_parachain_status_running::<T>()?;
-            Self::_execute_collateral_withdrawal(&account_id, &operator_id, request_id)
+            Self::_withdraw_collateral(&sender, amount)
         }
 
         /// Registers a new Bitcoin address for the vault.
@@ -326,49 +262,6 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Unbond collateral withdrawal if mature.
-    ///
-    /// # Arguments
-    ///
-    /// * `withdrawer_id` - AccountId of the withdrawer
-    /// * `vault_id` - AccountId of the vault
-    /// * `amount` - DOt amount to withdraw
-    /// * `height` - current block height
-    /// * `maturity` - height at request time + unbonding period
-    fn _execute_collateral_withdrawal(
-        withdrawer_id: &T::AccountId,
-        operator_id: &T::AccountId,
-        request_id: H256,
-    ) -> DispatchResult {
-        if withdrawer_id.eq(operator_id) {
-            ext::nomination::execute_operator_withdrawal::<T>(operator_id, request_id)
-        } else {
-            ext::nomination::execute_nominator_withdrawal::<T>(
-                operator_id,
-                withdrawer_id,
-                request_id,
-            )
-        }
-    }
-
-    fn _request_collateral_withdrawal(
-        withdrawer_id: &T::AccountId,
-        operator_id: &T::AccountId,
-        amount: DOT<T>,
-    ) -> DispatchResult {
-        if withdrawer_id.eq(operator_id) {
-            let vault = Self::get_rich_vault_from_id(operator_id)?;
-            ext::nomination::request_operator_withdrawal::<T>(
-                operator_id,
-                amount,
-                vault.data.backing_collateral,
-            )
-            // reduce backing_collateral
-        } else {
-            ext::nomination::request_nominator_withdrawal::<T>(operator_id, withdrawer_id, amount)
-        }
-    }
-
     fn _on_runtime_upgrade() {
         // initialize TotalUserVaultBackingCollateral
         let total = <Vaults<T>>::iter()
@@ -409,40 +302,6 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Mark Vault as an Operator in the Vault Nomination protocol
-    ///
-    /// # Arguments
-    /// * `vault_id` - the id of the vault to mark as Nomination Operator
-    pub fn _opt_in_to_nomination(vault_id: &T::AccountId) -> DispatchResult {
-        ext::security::ensure_parachain_status_running::<T>()?;
-        ensure!(
-            ext::nomination::is_nomination_enabled::<T>()?,
-            Error::<T>::VaultNominationDisabled
-        );
-        ensure!(Self::vault_exists(&vault_id), Error::<T>::VaultNotFound);
-        ext::nomination::opt_in_to_nomination::<T>(vault_id)
-    }
-
-    pub fn _opt_out_of_nomination(vault_id: &T::AccountId) -> DispatchResult {
-        ext::security::ensure_parachain_status_running::<T>()?;
-        ensure!(
-            ext::nomination::is_nomination_enabled::<T>()?,
-            Error::<T>::VaultNominationDisabled
-        );
-        ensure!(Self::vault_exists(&vault_id), Error::<T>::VaultNotFound);
-
-        let vault = Self::get_active_rich_vault_from_id(&(vault_id.clone()))?;
-        let total_nominated_collateral =
-            ext::nomination::get_total_nominated_collateral::<T>(vault_id)?;
-        let zero_dot: DOT<T> = 0u32.into();
-        ensure!(
-            total_nominated_collateral.eq(&zero_dot)
-                || (vault.data.issued_tokens.is_zero() && vault.data.to_be_issued_tokens.is_zero()),
-            Error::<T>::VaultNotQualifiedToOptOutOfNomination
-        );
-        ext::nomination::opt_out_of_nomination::<T>(vault_id)
-    }
-
     pub fn get_vault_from_id(vault_id: &T::AccountId) -> Result<DefaultVault<T>, DispatchError> {
         ensure!(Self::vault_exists(&vault_id), Error::<T>::VaultNotFound);
         let vault = <Vaults<T>>::get(vault_id);
@@ -470,25 +329,70 @@ impl<T: Config> Module<T> {
         <LiquidationVault<T>>::get()
     }
 
+    pub fn increase_backing_collateral(vault_id: &T::AccountId, amount: DOT<T>) -> DispatchResult {
+        ensure!(
+            Self::is_nomination_operator(vault_id),
+            Error::<T>::VaultIsNotANominationOperator
+        );
+        let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
+        vault.increase_backing_collateral(amount)
+    }
+
+    pub fn decrease_backing_collateral(vault_id: &T::AccountId, amount: DOT<T>) -> DispatchResult {
+        ensure!(
+            Self::is_nomination_operator(vault_id),
+            Error::<T>::VaultIsNotANominationOperator
+        );
+        let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
+        vault.decrease_backing_collateral(amount)
+    }
+
     /// Locks `amount` DOT to be used for backing PolkaBTC
     ///
     /// # Arguments
     /// * `vault_id` - the id of the vault from which to increase to-be-issued tokens
     /// * `amount` - the amount of DOT to be locked
-    pub fn _lock_additional_collateral(vault_id: &T::AccountId, amount: DOT<T>) -> DispatchResult {
-        let mut vault = Self::get_active_rich_vault_from_id(vault_id)?;
-        vault.increase_collateral(amount)?;
+    pub fn _lock_additional_collateral(
+        vault_id: &T::AccountId,
+        collateral: DOT<T>,
+    ) -> DispatchResult {
+        Self::_lock_additional_collateral_from_address(vault_id, collateral, vault_id)
+    }
+
+    pub fn _lock_additional_collateral_from_address(
+        vault_id: &T::AccountId,
+        collateral: DOT<T>,
+        depositor_id: &T::AccountId,
+    ) -> DispatchResult {
+        Self::check_parachain_not_shutdown_and_not_errors([ErrorCode::OracleOffline].to_vec())?;
+
+        let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
+        vault.increase_collateral_from_address(collateral, depositor_id)?;
+        Self::deposit_event(Event::<T>::LockAdditionalCollateral(
+            vault.id(),
+            collateral,
+            vault.get_collateral(),
+            vault.get_free_collateral()?,
+        ));
         Ok(())
     }
 
-    /// Frees `amount` DOT to the free balance
-    ///
-    /// # Arguments
-    /// * `vault_id` - the id of the vault from which to increase to-be-issued tokens
-    /// * `amount` - the amount of DOT to be unlocked
-    pub fn _withdraw_collateral(vault_id: &T::AccountId, amount: DOT<T>) -> DispatchResult {
-        let mut vault = Self::get_active_rich_vault_from_id(vault_id)?;
-        vault.withdraw_collateral(amount)?;
+    pub fn _withdraw_collateral(vault_id: &T::AccountId, collateral: DOT<T>) -> DispatchResult {
+        Self::_withdraw_collateral_to_address(vault_id, collateral, vault_id)
+    }
+
+    pub fn _withdraw_collateral_to_address(
+        vault_id: &T::AccountId,
+        collateral: DOT<T>,
+        payee_id: &T::AccountId,
+    ) -> DispatchResult {
+        let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
+        vault.withdraw_collateral_to_address(collateral, payee_id)?;
+        Self::deposit_event(Event::<T>::WithdrawCollateral(
+            vault_id.clone(),
+            collateral,
+            vault.get_collateral(),
+        ));
         Ok(())
     }
 
@@ -1074,7 +978,8 @@ impl<T: Config> Module<T> {
     /// Liquidates a vault, transferring all of its token balances to the `LiquidationVault`.
     /// Delegates to `liquidate_vault_with_status`, using `Liquidated` status
     pub fn liquidate_vault(vault_id: &T::AccountId) -> DispatchResult {
-        Self::liquidate_vault_with_status(vault_id, VaultStatus::Liquidated)
+        let _ = Self::liquidate_vault_with_status(vault_id, VaultStatus::Liquidated)?;
+        Ok(())
     }
 
     /// Liquidates a vault, transferring all of its token balances to the
@@ -1089,7 +994,7 @@ impl<T: Config> Module<T> {
     pub fn liquidate_vault_with_status(
         vault_id: &T::AccountId,
         status: VaultStatus,
-    ) -> DispatchResult {
+    ) -> Result<DOT<T>, DispatchError> {
         // Parachain must not be shutdown
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
@@ -1097,7 +1002,7 @@ impl<T: Config> Module<T> {
         let vault_orig = vault.data.clone();
         let mut liquidation_vault = Self::get_rich_liquidation_vault();
 
-        vault.liquidate(&mut liquidation_vault, status)?;
+        let to_slash = vault.liquidate(&mut liquidation_vault, status)?;
 
         Self::deposit_event(Event::<T>::LiquidateVault(
             vault_id.clone(),
@@ -1108,7 +1013,7 @@ impl<T: Config> Module<T> {
             vault_orig.backing_collateral,
             status,
         ));
-        Ok(())
+        Ok(to_slash)
     }
 
     pub(crate) fn increase_total_backing_collateral(amount: DOT<T>) -> DispatchResult {
@@ -1119,6 +1024,15 @@ impl<T: Config> Module<T> {
         <TotalUserVaultBackingCollateral<T>>::set(new);
 
         Ok(())
+    }
+
+    pub fn increase_vault_backing_collateral(
+        amount: DOT<T>,
+        vault_id: &T::AccountId,
+    ) -> DispatchResult {
+        let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
+        vault.increase_collateral(amount)?;
+        Self::increase_total_backing_collateral(amount)
     }
 
     pub(crate) fn decrease_total_backing_collateral(amount: DOT<T>) -> DispatchResult {
@@ -1232,6 +1146,10 @@ impl<T: Config> Module<T> {
         Self::is_collateral_below_threshold(collateral, btc_amount, threshold)
     }
 
+    pub fn set_is_nomination_operator(vault_id: &T::AccountId, is_operator: bool) {
+        <IsNominationOperator<T>>::insert(vault_id, is_operator);
+    }
+
     pub fn set_secure_collateral_threshold(threshold: UnsignedFixedPoint<T>) {
         <SecureCollateralThreshold<T>>::set(threshold);
     }
@@ -1258,6 +1176,10 @@ impl<T: Config> Module<T> {
 
     pub fn is_over_minimum_collateral(amount: DOT<T>) -> bool {
         amount > Self::get_minimum_collateral_vault()
+    }
+
+    pub fn is_nomination_operator(vault_id: &T::AccountId) -> bool {
+        <IsNominationOperator<T>>::get(vault_id)
     }
 
     /// return (collateral * Numerator) / denominator, used when dealing with liquidated vaults
@@ -1427,6 +1349,22 @@ impl<T: Config> Module<T> {
         vault.issuable_tokens()
     }
 
+    /// Get the amount of tokens issued by a vault
+    pub fn get_issued_tokens_from_vault(
+        vault_id: T::AccountId,
+    ) -> Result<PolkaBTC<T>, DispatchError> {
+        let vault = Self::get_active_rich_vault_from_id(&vault_id)?;
+        Ok(vault.issued_tokens())
+    }
+
+    /// Get the amount of tokens issued by a vault
+    pub fn get_to_be_issued_tokens_from_vault(
+        vault_id: T::AccountId,
+    ) -> Result<PolkaBTC<T>, DispatchError> {
+        let vault = Self::get_active_rich_vault_from_id(&vault_id)?;
+        Ok(vault.to_be_issued_tokens())
+    }
+
     /// Get the current collateralization of a vault
     pub fn get_collateralization_from_vault(
         vault_id: T::AccountId,
@@ -1491,6 +1429,10 @@ impl<T: Config> Module<T> {
         Ok(required_collateral)
     }
 
+    pub fn vault_exists(id: &T::AccountId) -> bool {
+        <Vaults<T>>::contains_key(id)
+    }
+
     /// Private getters and setters
 
     fn get_rich_vault_from_id(vault_id: &T::AccountId) -> Result<RichVault<T>, DispatchError> {
@@ -1506,10 +1448,6 @@ impl<T: Config> Module<T> {
 
     fn get_rich_liquidation_vault() -> RichSystemVault<T> {
         Into::<RichSystemVault<T>>::into(Self::get_liquidation_vault())
-    }
-
-    fn vault_exists(id: &T::AccountId) -> bool {
-        <Vaults<T>>::contains_key(id)
     }
 
     fn get_minimum_collateral_vault() -> DOT<T> {
@@ -1701,7 +1639,6 @@ decl_event! {
         RedeemTokensLiquidation(AccountId, PolkaBTC, DOT),
         ReplaceTokens(AccountId, AccountId, PolkaBTC, DOT),
         LiquidateVault(AccountId, PolkaBTC, PolkaBTC, PolkaBTC, PolkaBTC, DOT, VaultStatus),
-
     }
 }
 
@@ -1732,9 +1669,8 @@ decl_error! {
         TryIntoIntError,
         InvalidSecretKey,
         InvalidPublicKey,
-        VaultNominationDisabled,
-        VaultNotQualifiedToOptOutOfNomination,
         NominationOperatorCannotWithdrawDirectly,
+        VaultIsNotANominationOperator,
     }
 }
 

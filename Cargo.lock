@@ -4607,6 +4607,7 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "treasury",
+ "vault-registry",
 ]
 
 [[package]]
@@ -9723,6 +9724,7 @@ dependencies = [
  "frame-system",
  "hex",
  "mocktopus",
+ "nomination",
  "pallet-balances",
  "pallet-randomness-collective-flip",
  "pallet-timestamp",
@@ -10714,7 +10716,6 @@ dependencies = [
  "frame-support",
  "frame-system",
  "mocktopus",
- "nomination",
  "pallet-balances",
  "pallet-randomness-collective-flip",
  "pallet-timestamp",

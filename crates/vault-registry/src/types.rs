@@ -126,16 +126,6 @@ impl Default for VaultStatus {
     }
 }
 
-impl Into<ext::nomination::VaultStatus> for VaultStatus {
-    fn into(self) -> ext::nomination::VaultStatus {
-        match self {
-            VaultStatus::Active => ext::nomination::VaultStatus::Active,
-            VaultStatus::Liquidated => ext::nomination::VaultStatus::Liquidated,
-            VaultStatus::CommittedTheft => ext::nomination::VaultStatus::CommittedTheft,
-        }
-    }
-}
-
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct Vault<AccountId, BlockNumber, PolkaBTC, DOT> {
@@ -215,6 +205,8 @@ pub trait UpdatableVault<T: Config> {
 
     fn issued_tokens(&self) -> PolkaBTC<T>;
 
+    fn to_be_issued_tokens(&self) -> PolkaBTC<T>;
+
     fn force_issue_tokens(&mut self, tokens: PolkaBTC<T>) -> DispatchResult;
 
     fn force_increase_to_be_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult;
@@ -248,6 +240,10 @@ impl<T: Config> UpdatableVault<T> for RichVault<T> {
 
     fn issued_tokens(&self) -> PolkaBTC<T> {
         self.data.issued_tokens
+    }
+
+    fn to_be_issued_tokens(&self) -> PolkaBTC<T> {
+        self.data.to_be_issued_tokens
     }
 
     fn force_issue_tokens(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
@@ -321,65 +317,91 @@ impl<T: Config> RichVault<T> {
             .ok_or(Error::<T>::ArithmeticOverflow)?)
     }
 
-    pub fn increase_collateral(&mut self, collateral: DOT<T>) -> DispatchResult {
+    pub fn increase_backing_collateral(&mut self, amount: DOT<T>) -> DispatchResult {
         self.update(|v| {
-            v.backing_collateral = collateral
+            v.backing_collateral = amount
                 .checked_add(&v.backing_collateral)
                 .ok_or(Error::<T>::ArithmeticOverflow)?;
             Ok(())
-        })?;
-        Module::<T>::increase_total_backing_collateral(collateral)?;
-        ext::collateral::lock::<T>(&self.data.id, collateral)
+        })
     }
 
-    pub fn deposit_nominated_collateral(
-        &mut self,
-        nominator_id: &T::AccountId,
-        collateral: DOT<T>,
-    ) -> DispatchResult {
-        self.increase_collateral(collateral)?;
-        ext::nomination::deposit_nominated_collateral::<T>(
-            nominator_id,
-            &self.id(),
-            collateral,
-            self.data.backing_collateral,
-        )
+    pub fn decrease_backing_collateral(&mut self, amount: DOT<T>) -> DispatchResult {
+        ensure!(
+            self.is_withdrawal_safe(amount)?,
+            Error::<T>::InsufficientCollateral
+        );
+        self.force_decrease_backing_collateral(amount)
     }
 
-    pub(crate) fn force_withdraw_collateral(&mut self, collateral: DOT<T>) -> DispatchResult {
+    pub fn force_decrease_backing_collateral(&mut self, amount: DOT<T>) -> DispatchResult {
         self.update(|v| {
             v.backing_collateral = v
                 .backing_collateral
-                .checked_sub(&collateral)
+                .checked_sub(&amount)
                 .ok_or(Error::<T>::ArithmeticUnderflow)?;
             Ok(())
         })?;
-        Module::<T>::decrease_total_backing_collateral(collateral)?;
-        ext::collateral::release_collateral::<T>(&self.data.id, collateral)
+        Module::<T>::decrease_total_backing_collateral(amount)
     }
 
-    pub fn withdraw_collateral(&mut self, collateral: DOT<T>) -> DispatchResult {
-        ensure!(
-            !(ext::nomination::is_nomination_enabled::<T>()?
-                && ext::nomination::is_operator::<T>(&self.id())?),
-            Error::<T>::NominationOperatorCannotWithdrawDirectly
-        );
+    pub fn increase_collateral(&mut self, collateral: DOT<T>) -> DispatchResult {
+        self.increase_collateral_from_address(collateral, &self.data.id.clone())
+    }
+
+    pub fn increase_collateral_from_address(
+        &mut self,
+        collateral: DOT<T>,
+        depositor_id: &T::AccountId,
+    ) -> DispatchResult {
+        self.increase_backing_collateral(collateral)?;
+        Module::<T>::increase_total_backing_collateral(collateral)?;
+        ext::collateral::lock::<T>(depositor_id, collateral)
+    }
+
+    pub fn is_withdrawal_safe(&mut self, collateral: DOT<T>) -> Result<bool, DispatchError> {
         let remaining_collateral = self
             .data
             .backing_collateral
             .checked_sub(&collateral)
             .ok_or(Error::<T>::InsufficientCollateral)?;
-
         let tokens = self
             .data
             .issued_tokens
             .checked_add(&self.data.to_be_issued_tokens)
             .ok_or(Error::<T>::ArithmeticOverflow)?;
+        let is_safe =
+            !Module::<T>::is_collateral_below_secure_threshold(remaining_collateral, tokens)?;
+        Ok(is_safe)
+    }
+
+    pub(crate) fn force_withdraw_collateral(&mut self, collateral: DOT<T>) -> DispatchResult {
+        self.force_withdraw_collateral_to_address(collateral, &self.data.id.clone())
+    }
+
+    pub(crate) fn force_withdraw_collateral_to_address(
+        &mut self,
+        collateral: DOT<T>,
+        payee_id: &T::AccountId,
+    ) -> DispatchResult {
+        self.force_decrease_backing_collateral(collateral)?;
+        ext::collateral::release_collateral::<T>(payee_id, collateral)
+    }
+
+    pub fn withdraw_collateral(&mut self, collateral: DOT<T>) -> DispatchResult {
+        self.withdraw_collateral_to_address(collateral, &self.data.id.clone())
+    }
+
+    pub fn withdraw_collateral_to_address(
+        &mut self,
+        collateral: DOT<T>,
+        payee_id: &T::AccountId,
+    ) -> DispatchResult {
         ensure!(
-            !Module::<T>::is_collateral_below_secure_threshold(remaining_collateral, tokens)?,
+            self.is_withdrawal_safe(collateral)?,
             Error::<T>::InsufficientCollateral
         );
-        self.force_withdraw_collateral(collateral)
+        self.force_withdraw_collateral_to_address(collateral, payee_id)
     }
 
     pub fn get_collateral(&self) -> DOT<T> {
@@ -547,7 +569,7 @@ impl<T: Config> RichVault<T> {
         &mut self,
         liquidation_vault: &mut V,
         status: VaultStatus,
-    ) -> DispatchResult {
+    ) -> Result<DOT<T>, DispatchError> {
         let backing_collateral = self.data.backing_collateral;
 
         // we liquidate at most SECURE_THRESHOLD * backing.
@@ -570,15 +592,6 @@ impl<T: Config> RichVault<T> {
             to_slash,
         )?;
 
-        if ext::nomination::is_nomination_enabled::<T>()? {
-            ext::nomination::slash_nominators::<T>(
-                self.id(),
-                status.into(),
-                to_slash,
-                backing_collateral,
-            )?;
-        }
-
         // everything above the secure threshold we release
         let to_release = backing_collateral
             .checked_sub(&liquidated_collateral)
@@ -600,7 +613,7 @@ impl<T: Config> RichVault<T> {
             Ok(())
         });
 
-        Ok(())
+        Ok(to_slash)
     }
 
     pub fn ensure_not_banned(&self, height: T::BlockNumber) -> DispatchResult {
@@ -706,6 +719,10 @@ impl<T: Config> UpdatableVault<T> for RichSystemVault<T> {
 
     fn issued_tokens(&self) -> PolkaBTC<T> {
         self.data.issued_tokens
+    }
+
+    fn to_be_issued_tokens(&self) -> PolkaBTC<T> {
+        self.data.to_be_issued_tokens
     }
 
     fn force_issue_tokens(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
