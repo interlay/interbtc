@@ -105,9 +105,8 @@ fn test_request_issue_succeeds() {
         let origin = ALICE;
         let vault = BOB;
         let amount: Balance = 3;
-        let issue_fee = 5;
+        let issue_fee = 1;
         let issue_griefing_collateral = 20;
-        let total_amount = amount + issue_fee;
 
         ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
@@ -122,7 +121,7 @@ fn test_request_issue_succeeds() {
         let request_issue_event = TestEvent::issue(RawEvent::RequestIssue(
             issue_id,
             origin,
-            total_amount,
+            amount - issue_fee,
             issue_fee,
             issue_griefing_collateral,
             vault,
