@@ -114,9 +114,7 @@ fn set_issued_and_backing(vault: [u8; 32], amount_issued: u128, backing: u128) {
     SystemModule::set_block_number(1);
 
     // we want issued to be 100 times amount_issued, _including fees_
-    let amount_issued = 100 * amount_issued;
-    let fee = FeeModule::get_issue_fee_from_total(amount_issued).unwrap();
-    let request_amount = amount_issued - fee;
+    let request_amount = 100 * amount_issued;
 
     let (issue_id, _) = RequestIssueBuilder::new(request_amount).with_vault(vault).request();
     ExecuteIssueBuilder::new(issue_id)

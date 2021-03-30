@@ -174,7 +174,8 @@ decl_module! {
         /// # Arguments
         ///
         /// * `origin` - sender of the transaction
-        /// * `amount` - amount of PolkaBTC
+        /// * `amount` - amount of BTC the user wants to convert to PolkaBTC. Note that the amount of
+        /// PolkaBTC received will be less, because a fee is subtracted.
         /// * `vault` - address of the vault
         /// * `griefing_collateral` - amount of DOT
         #[weight = <T as Config>::WeightInfo::request_issue()]
@@ -246,7 +247,7 @@ impl<T: Config> Module<T> {
     /// Requests CBA issuance, returns unique tracking ID.
     fn _request_issue(
         requester: T::AccountId,
-        amount_polkabtc: PolkaBTC<T>,
+        amount_btc: PolkaBTC<T>,
         vault_id: T::AccountId,
         griefing_collateral: DOT<T>,
     ) -> Result<H256, DispatchError> {
@@ -258,7 +259,8 @@ impl<T: Config> Module<T> {
         // Check that the vault is currently not banned
         ext::vault_registry::ensure_not_banned::<T>(&vault_id, height)?;
 
-        let amount_dot = ext::oracle::btc_to_dots::<T>(amount_polkabtc)?;
+        // calculate griefing collateral based on the total amount of tokens to be issued
+        let amount_dot = ext::oracle::btc_to_dots::<T>(amount_btc)?;
         let expected_griefing_collateral = ext::fee::get_issue_griefing_collateral::<T>(amount_dot)?;
 
         ensure!(
@@ -267,39 +269,37 @@ impl<T: Config> Module<T> {
         );
         ext::collateral::lock_collateral::<T>(&requester, griefing_collateral)?;
 
-        let fee_polkabtc = ext::fee::get_issue_fee::<T>(amount_polkabtc)?;
-        let amount_btc = amount_polkabtc + fee_polkabtc;
-
-        let issue_id = ext::security::get_secure_id::<T>(&requester);
-
         ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&vault_id, amount_btc)?;
 
+        let fee_polkabtc = ext::fee::get_issue_fee::<T>(amount_btc)?;
+        let user_polkabtc = amount_btc
+            .checked_sub(&fee_polkabtc)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+        let issue_id = ext::security::get_secure_id::<T>(&requester);
         let btc_address = ext::vault_registry::register_deposit_address::<T>(&vault_id, issue_id)?;
 
-        Self::insert_issue_request(
-            issue_id,
-            IssueRequest {
-                vault: vault_id.clone(),
-                opentime: height,
-                requester: requester.clone(),
-                btc_address: btc_address.clone(),
-                btc_public_key: vault.wallet.public_key.clone(),
-                amount: amount_polkabtc,
-                fee: fee_polkabtc,
-                griefing_collateral,
-                status: IssueRequestStatus::Pending,
-            },
-        );
+        let request = IssueRequest {
+            vault: vault_id,
+            opentime: height,
+            requester: requester,
+            btc_address: btc_address,
+            btc_public_key: vault.wallet.public_key,
+            amount: user_polkabtc,
+            fee: fee_polkabtc,
+            griefing_collateral,
+            status: IssueRequestStatus::Pending,
+        };
+        Self::insert_issue_request(&issue_id, &request);
 
         Self::deposit_event(<Event<T>>::RequestIssue(
             issue_id,
-            requester,
-            amount_btc,
-            fee_polkabtc,
-            griefing_collateral,
-            vault_id,
-            btc_address,
-            vault.wallet.public_key,
+            request.requester,
+            request.amount,
+            request.fee,
+            request.griefing_collateral,
+            request.vault,
+            request.btc_address,
+            request.btc_public_key,
         ));
         Ok(issue_id)
     }
@@ -515,7 +515,7 @@ impl<T: Config> Module<T> {
         transferred_btc: PolkaBTC<T>,
     ) -> Result<(), DispatchError> {
         // Current vault can handle the surplus; update the issue request
-        issue.fee = ext::fee::get_issue_fee_from_total::<T>(transferred_btc)?;
+        issue.fee = ext::fee::get_issue_fee::<T>(transferred_btc)?;
         issue.amount = transferred_btc
             .checked_sub(&issue.fee)
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
@@ -529,7 +529,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn insert_issue_request(key: H256, value: IssueRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>) {
+    fn insert_issue_request(key: &H256, value: &IssueRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>) {
         <IssueRequests<T>>::insert(key, value)
     }
 

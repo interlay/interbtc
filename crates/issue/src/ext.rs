@@ -170,10 +170,6 @@ pub(crate) mod fee {
         <fee::Module<T>>::get_issue_fee(amount)
     }
 
-    pub fn get_issue_fee_from_total<T: fee::Config>(amount: PolkaBTC<T>) -> Result<PolkaBTC<T>, DispatchError> {
-        <fee::Module<T>>::get_issue_fee_from_total(amount)
-    }
-
     pub fn get_issue_griefing_collateral<T: fee::Config>(amount: DOT<T>) -> Result<DOT<T>, DispatchError> {
         <fee::Module<T>>::get_issue_griefing_collateral(amount)
     }

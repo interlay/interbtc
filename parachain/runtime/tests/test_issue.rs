@@ -42,6 +42,58 @@ fn integration_test_issue_should_fail_if_not_running() {
 }
 
 #[test]
+fn integration_test_request_issue_at_capacity_succeeds() {
+    test_with_initialized_vault(|| {
+        let amount = VaultRegistryModule::get_issuable_tokens_from_vault(account_of(VAULT)).unwrap();
+        let (issue_id, _) = request_issue(amount);
+        execute_issue(issue_id);
+    });
+}
+
+#[test]
+fn integration_test_request_issue_above_capacity_fails() {
+    test_with_initialized_vault(|| {
+        let amount = 1 + VaultRegistryModule::get_issuable_tokens_from_vault(account_of(VAULT)).unwrap();
+        assert_noop!(
+            Call::Issue(IssueCall::request_issue(
+                amount,
+                account_of(VAULT),
+                DEFAULT_GRIEFING_COLLATERAL
+            ))
+            .dispatch(origin_of(account_of(USER))),
+            VaultRegistryError::ExceedingVaultLimit
+        );
+    });
+}
+
+#[test]
+fn integration_test_request_with_griefing_collateral_at_minimum_succeeds() {
+    test_with_initialized_vault(|| {
+        let amount = 10_000;
+        let amount_in_dot = ExchangeRateOracleModule::btc_to_dots(amount).unwrap();
+        let griefing_collateral = FeeModule::get_issue_griefing_collateral(amount_in_dot).unwrap();
+        assert_ok!(
+            Call::Issue(IssueCall::request_issue(amount, account_of(VAULT), griefing_collateral))
+                .dispatch(origin_of(account_of(USER)))
+        );
+    });
+}
+
+#[test]
+fn integration_test_request_with_griefing_collateral_below_minimum_fails() {
+    test_with_initialized_vault(|| {
+        let amount = 10_000;
+        let amount_in_dot = ExchangeRateOracleModule::btc_to_dots(amount).unwrap();
+        let griefing_collateral = FeeModule::get_issue_griefing_collateral(amount_in_dot).unwrap() - 1;
+        assert_noop!(
+            Call::Issue(IssueCall::request_issue(amount, account_of(VAULT), griefing_collateral))
+                .dispatch(origin_of(account_of(USER))),
+            IssueError::InsufficientCollateral
+        );
+    });
+}
+
+#[test]
 fn integration_test_issue_polka_btc_execute_succeeds() {
     test_with(|| {
         let vault_proof_submitter = CAROL;
@@ -89,14 +141,17 @@ fn integration_test_issue_polka_btc_execute_bookkeeping() {
     test_with_initialized_vault(|| {
         let requested_btc = 1000;
         let (issue_id, issue) = request_issue(requested_btc);
+
+        assert_eq!(issue.fee + issue.amount, requested_btc);
+
         execute_issue(issue_id);
 
         assert_eq!(
             ParachainState::get(),
             ParachainState::default().with_changes(|user, vault, _, fee_pool| {
-                user.free_tokens += requested_btc;
+                user.free_tokens += issue.amount;
                 fee_pool.tokens += issue.fee;
-                vault.issued += issue.fee + requested_btc;
+                vault.issued += issue.fee + issue.amount;
             })
         );
     });
@@ -161,9 +216,9 @@ fn integration_test_issue_overpayment() {
         assert_eq!(
             ParachainState::get(),
             ParachainState::default().with_changes(|user, vault, _, fee_pool| {
-                user.free_tokens += 2 * requested_btc;
+                user.free_tokens += 2 * issue.amount;
                 fee_pool.tokens += 2 * issue.fee;
-                vault.issued += 2 * (issue.fee + requested_btc);
+                vault.issued += sent_btc;
             })
         );
     });
@@ -199,9 +254,9 @@ fn integration_test_issue_refund() {
         assert_eq!(
             post_redeem_state,
             initial_state.with_changes(|user, vault, _, fee_pool| {
-                user.free_tokens += requested_btc;
+                user.free_tokens += issue.amount;
                 fee_pool.tokens += issue.fee;
-                vault.issued += issue.fee + requested_btc;
+                vault.issued += issue.fee + issue.amount;
             })
         );
 
@@ -239,9 +294,9 @@ fn integration_test_issue_underpayment_succeeds() {
                 fee_pool.balance += slashed_griefing_collateral;
 
                 // token updating as if only 25% was requested
-                user.free_tokens += requested_btc / 4;
+                user.free_tokens += issue.amount / 4;
                 fee_pool.tokens += issue.fee / 4;
-                vault.issued += (issue.fee + requested_btc) / 4;
+                vault.issued += (issue.fee + issue.amount) / 4;
             })
         );
     });

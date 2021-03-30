@@ -358,24 +358,6 @@ impl<T: Config> Module<T> {
         Self::btc_for(amount, <IssueFee<T>>::get())
     }
 
-    /// Calculate the fee portion of a total amount. For `amount = fee + issued_polkabtc`, this
-    /// function returns `fee`.
-    ///
-    /// # Arguments
-    ///
-    /// * `amount` - total amount in PolkaBTC
-    pub fn get_issue_fee_from_total(amount: PolkaBTC<T>) -> Result<PolkaBTC<T>, DispatchError> {
-        // calculate 'percentage' = x / (1+x)
-        let percentage = <IssueFee<T>>::get()
-            .checked_div(
-                &<IssueFee<T>>::get()
-                    .checked_add(&UnsignedFixedPoint::<T>::one())
-                    .ok_or(Error::<T>::ArithmeticOverflow)?,
-            )
-            .ok_or(Error::<T>::ArithmeticUnderflow)?;
-        Self::btc_for(amount, percentage)
-    }
-
     /// Calculate the required issue griefing collateral in DOT.
     ///
     /// # Arguments
