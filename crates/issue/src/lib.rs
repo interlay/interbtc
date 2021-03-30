@@ -247,7 +247,7 @@ impl<T: Config> Module<T> {
     /// Requests CBA issuance, returns unique tracking ID.
     fn _request_issue(
         requester: T::AccountId,
-        amount_btc: PolkaBTC<T>,
+        amount_requested: PolkaBTC<T>,
         vault_id: T::AccountId,
         griefing_collateral: DOT<T>,
     ) -> Result<H256, DispatchError> {
@@ -260,7 +260,7 @@ impl<T: Config> Module<T> {
         ext::vault_registry::ensure_not_banned::<T>(&vault_id, height)?;
 
         // calculate griefing collateral based on the total amount of tokens to be issued
-        let amount_dot = ext::oracle::btc_to_dots::<T>(amount_btc)?;
+        let amount_dot = ext::oracle::btc_to_dots::<T>(amount_requested)?;
         let expected_griefing_collateral = ext::fee::get_issue_griefing_collateral::<T>(amount_dot)?;
 
         ensure!(
@@ -269,12 +269,14 @@ impl<T: Config> Module<T> {
         );
         ext::collateral::lock_collateral::<T>(&requester, griefing_collateral)?;
 
-        ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&vault_id, amount_btc)?;
+        ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&vault_id, amount_requested)?;
 
-        let fee_polkabtc = ext::fee::get_issue_fee::<T>(amount_btc)?;
-        let user_polkabtc = amount_btc
+        let fee_polkabtc = ext::fee::get_issue_fee::<T>(amount_requested)?;
+        // calculate the amount of polkabtc that will be transferred to the user upon execution
+        let user_polkabtc = amount_requested
             .checked_sub(&fee_polkabtc)
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
+
         let issue_id = ext::security::get_secure_id::<T>(&requester);
         let btc_address = ext::vault_registry::register_deposit_address::<T>(&vault_id, issue_id)?;
 
