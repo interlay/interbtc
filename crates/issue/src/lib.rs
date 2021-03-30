@@ -271,10 +271,10 @@ impl<T: Config> Module<T> {
 
         ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&vault_id, amount_requested)?;
 
-        let fee_polkabtc = ext::fee::get_issue_fee::<T>(amount_requested)?;
+        let fee = ext::fee::get_issue_fee::<T>(amount_requested)?;
         // calculate the amount of polkabtc that will be transferred to the user upon execution
-        let user_polkabtc = amount_requested
-            .checked_sub(&fee_polkabtc)
+        let amount_user = amount_requested
+            .checked_sub(&fee)
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
         let issue_id = ext::security::get_secure_id::<T>(&requester);
@@ -286,8 +286,8 @@ impl<T: Config> Module<T> {
             requester: requester,
             btc_address: btc_address,
             btc_public_key: vault.wallet.public_key,
-            amount: user_polkabtc,
-            fee: fee_polkabtc,
+            amount: amount_user,
+            fee: fee,
             griefing_collateral,
             status: IssueRequestStatus::Pending,
         };
