@@ -98,6 +98,10 @@ primitive-types = { version = "0.9.0", default-features = false, features = ["co
 [build-dependencies]
 substrate-wasm-builder = "3.0.0"
 
+# TODO: enable weak dependency activation when available
+# https://github.com/rust-lang/cargo/issues/8832
+# https://github.com/paritytech/substrate/issues/8161
+
 [features]
 default = ["std"]
 std = [

@@ -162,18 +162,15 @@ decl_module! {
             0
         }
 
-
-        /// A user requests to start the redeem procedure. This function checks the BTC Parachain
-        /// status in Security and decides how the Redeem process is to be executed. If no `vault_id`
-        /// is given the user's polkaBtc is burnt in exchange for liquidated collateral at the current
-        /// exchange rate.
+        /// Initializes a request to burn PolkaBTC against a Vault with sufficient tokens. It will
+        /// also ensure that the Parachain status is RUNNING.
         ///
         /// # Arguments
         ///
         /// * `origin` - sender of the transaction
         /// * `amount` - amount of PolkaBTC
         /// * `btc_address` - the address to receive BTC
-        /// * `vault_id` - [optional] address of the vault
+        /// * `vault_id` - address of the vault
         #[weight = <T as Config>::WeightInfo::request_redeem()]
         #[transactional]
         fn request_redeem(origin, amount_polka_btc: PolkaBTC<T>, btc_address: BtcAddress, vault_id: T::AccountId)
@@ -184,6 +181,14 @@ decl_module! {
             Ok(())
         }
 
+        /// When a Vault is liquidated, its DOT collateral is slashed up to 150% of the liquidated BTC value.
+        /// To re-establish the physical 1:1 peg between BTC and PolkaBTC, the PolkaBTC bridge allows users
+        /// to burn PolkaBTC in return for DOT at a premium rate.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - sender of the transaction
+        /// * `amount_polka_btc` - amount of PolkaBTC to burn
         #[weight = <T as Config>::WeightInfo::liquidation_redeem()]
         #[transactional]
         fn liquidation_redeem(origin, amount_polka_btc: PolkaBTC<T>) -> DispatchResult
