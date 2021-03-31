@@ -49,6 +49,8 @@ use crate::types::{
 #[doc(inline)]
 pub use crate::types::{BtcPublicKey, CurrencySource, SystemVault, Vault, VaultStatus, Wallet};
 
+use crate::types::VaultV1;
+
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
 pub struct RegisterRequest<AccountId, DateTime> {
@@ -152,7 +154,32 @@ decl_module! {
 
         /// Upgrade the runtime depending on the current `StorageVersion`.
         fn on_runtime_upgrade() -> Weight {
-            Self::_on_runtime_upgrade();
+            use frame_support::{migration::StorageKeyIterator, Blake2_128Concat};
+
+            if matches!(Self::storage_version(), Version::V0 | Version::V1) {
+                StorageKeyIterator::<T::AccountId, VaultV1<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, Blake2_128Concat>::new(<Vaults<T>>::module_prefix(), b"Vaults")
+                    .drain()
+                    .for_each(|(id, vault_v1)| {
+                        let vault_v2 = Vault{
+                            id: vault_v1.id,
+                            to_be_issued_tokens: vault_v1.to_be_issued_tokens,
+                            issued_tokens: vault_v1.issued_tokens,
+                            to_be_redeemed_tokens: vault_v1.to_be_redeemed_tokens,
+                            wallet: vault_v1.wallet,
+                            backing_collateral: vault_v1.backing_collateral,
+                            banned_until: vault_v1.banned_until,
+                            status: vault_v1.status,
+
+                            // unaccepted V1 replace requests are closed upon upgrade
+                            replace_collateral: 0u32.into(),
+                            to_be_replaced_tokens: 0u32.into(),
+                        };
+                        // ignore requests that have `None` fields, they have not been accepted yet
+                        <Vaults<T>>::insert(id, vault_v2);
+                    });
+
+                StorageVersion::put(Version::V2);
+            }
 
             0
         }
@@ -459,12 +486,27 @@ impl<T: Config> Module<T> {
         Ok(btc_address)
     }
 
-    /// checks if there are sufficient issued tokens that can be replaced. If so, it
-    /// is increased.
+    /// returns the amount of tokens that a vault can request to be replaced on top of the
+    /// current to-be-replaced tokens
+    pub fn requestable_to_be_replaced_tokens(vault_id: &T::AccountId) -> Result<PolkaBTC<T>, DispatchError> {
+        let vault = Self::get_active_vault_from_id(&vault_id)?;
+
+        let requestable_increase = vault
+            .issued_tokens
+            .checked_sub(&vault.to_be_replaced_tokens)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?
+            .checked_sub(&vault.to_be_redeemed_tokens)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+
+        Ok(requestable_increase)
+    }
+
+    /// returns the new total to-be-replaced and replace-collateral
     pub fn try_increase_to_be_replaced_tokens(
         vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
-    ) -> Result<(), DispatchError> {
+        griefing_collateral: DOT<T>,
+    ) -> Result<(PolkaBTC<T>, DOT<T>), DispatchError> {
         ext::security::ensure_parachain_status_running::<T>()?;
         let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
 
@@ -473,29 +515,56 @@ impl<T: Config> Module<T> {
             .to_be_replaced_tokens
             .checked_add(&tokens)
             .ok_or(Error::<T>::ArithmeticOverflow)?;
+        let new_collateral = vault
+            .data
+            .replace_collateral
+            .checked_add(&griefing_collateral)
+            .ok_or(Error::<T>::ArithmeticOverflow)?;
 
-        let required_tokens = new_to_be_replaced
+        let total_decreasing_tokens = new_to_be_replaced
             .checked_add(&vault.data.to_be_redeemed_tokens)
             .ok_or(Error::<T>::ArithmeticOverflow)?;
 
         ensure!(
-            vault.data.issued_tokens >= required_tokens,
+            total_decreasing_tokens <= vault.data.issued_tokens,
             Error::<T>::InsufficientTokensCommitted
         );
 
-        vault.increase_to_be_replaced(tokens)?;
+        vault.set_to_be_replaced_amount(new_to_be_replaced, new_collateral)?;
 
         Self::deposit_event(Event::<T>::IncreaseToBeReplacedTokens(vault.id(), tokens));
 
-        Ok(())
+        Ok((new_to_be_replaced, new_collateral))
     }
 
-    pub fn decrease_to_be_replaced_tokens(vault_id: &T::AccountId, tokens: PolkaBTC<T>) -> Result<(), DispatchError> {
+    pub fn decrease_to_be_replaced_tokens(
+        vault_id: &T::AccountId,
+        tokens: PolkaBTC<T>,
+    ) -> Result<(PolkaBTC<T>, DOT<T>), DispatchError> {
         ext::security::ensure_parachain_status_running::<T>()?;
         let mut vault = Self::get_rich_vault_from_id(&vault_id)?;
-        vault.decrease_to_be_replaced(tokens)?;
 
-        Ok(())
+        let initial_to_be_replaced = vault.data.to_be_replaced_tokens;
+        let initial_griefing_collateral = vault.data.replace_collateral;
+
+        let used_tokens = tokens.min(vault.data.to_be_replaced_tokens);
+
+        let used_collateral =
+            Self::calculate_collateral(initial_griefing_collateral, used_tokens, initial_to_be_replaced)?;
+
+        // make sure we don't use too much if a rounding error occurs
+        let used_collateral = used_collateral.min(initial_griefing_collateral);
+
+        let new_to_be_replaced = initial_to_be_replaced
+            .checked_sub(&used_tokens)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+        let new_collateral = initial_griefing_collateral
+            .checked_sub(&used_collateral)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+
+        vault.set_to_be_replaced_amount(new_to_be_replaced, new_collateral)?;
+
+        Ok((used_tokens, used_collateral))
     }
 
     /// Decreases the amount of tokens to be issued in the next issue request from the
@@ -864,6 +933,7 @@ impl<T: Config> Module<T> {
             vault_orig.to_be_replaced_tokens,
             vault_orig.backing_collateral,
             status,
+            vault_orig.replace_collateral,
         ));
         Ok(())
     }
@@ -962,6 +1032,15 @@ impl<T: Config> Module<T> {
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
         Self::is_collateral_below_threshold(collateral, tokens, <LiquidationCollateralThreshold<T>>::get())
+    }
+
+    pub fn get_auctionable_tokens(vault_id: &T::AccountId) -> Result<PolkaBTC<T>, DispatchError> {
+        let vault = Self::get_rich_vault_from_id(&vault_id)?.data;
+
+        Ok(vault
+            .issued_tokens
+            .checked_sub(&vault.to_be_redeemed_tokens)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?)
     }
 
     pub fn is_collateral_below_secure_threshold(
@@ -1415,7 +1494,7 @@ decl_event! {
         RedeemTokensLiquidatedVault(AccountId, PolkaBTC, DOT),
         RedeemTokensLiquidation(AccountId, PolkaBTC, DOT),
         ReplaceTokens(AccountId, AccountId, PolkaBTC, DOT),
-        LiquidateVault(AccountId, PolkaBTC, PolkaBTC, PolkaBTC, PolkaBTC, DOT, VaultStatus),
+        LiquidateVault(AccountId, PolkaBTC, PolkaBTC, PolkaBTC, PolkaBTC, DOT, VaultStatus, DOT),
     }
 }
 

@@ -77,6 +77,7 @@ fn test_request_issue_banned_fails() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
+                replace_collateral: 0,
                 backing_collateral: 0,
                 wallet: Wallet::new(BtcPublicKey::default()),
                 banned_until: Some(1),

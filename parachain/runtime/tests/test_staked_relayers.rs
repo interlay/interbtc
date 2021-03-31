@@ -77,18 +77,3 @@ fn integration_test_report_vault_theft() {
         assert_eq!(SlaModule::relayer_sla(account_of(ALICE)), expected_sla);
     });
 }
-fn setup_registered_relayer() {
-    SystemModule::set_block_number(1);
-
-    assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
-
-    // register as staked relayer
-    assert_ok!(
-        Call::StakedRelayers(StakedRelayersCall::register_staked_relayer(100)).dispatch(origin_of(account_of(RELAYER)))
-    );
-
-    SystemModule::set_block_number(StakedRelayersModule::get_maturity_period() + 100);
-
-    // manually activate
-    assert_ok!(StakedRelayersModule::activate_staked_relayer(&account_of(RELAYER)));
-}

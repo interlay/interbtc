@@ -19,6 +19,7 @@ pub use vault_registry::CurrencySource;
 
 pub use issue::IssueRequest;
 pub use refund::RefundRequest;
+pub use replace::ReplaceRequest;
 pub use sp_runtime::AccountId32;
 pub use std::convert::TryFrom;
 
@@ -55,6 +56,8 @@ pub const DEFAULT_VAULT_BACKING_COLLATERAL: u128 = 1_000_000;
 pub const DEFAULT_VAULT_GRIEFING_COLLATERAL: u128 = 30_000;
 pub const DEFAULT_VAULT_FREE_BALANCE: u128 = 200_000;
 pub const DEFAULT_VAULT_FREE_TOKENS: u128 = 0;
+pub const DEFAULT_VAULT_REPLACE_COLLATERAL: u128 = 20_000;
+pub const DEFAULT_VAULT_TO_BE_REPLACED: u128 = 40_000;
 
 pub const CONFIRMATIONS: u32 = 6;
 
@@ -102,6 +105,8 @@ pub fn default_vault_state() -> CoreVaultData {
         griefing_collateral: DEFAULT_VAULT_GRIEFING_COLLATERAL,
         free_balance: DEFAULT_VAULT_FREE_BALANCE,
         free_tokens: 0,
+        replace_collateral: DEFAULT_VAULT_REPLACE_COLLATERAL,
+        to_be_replaced: DEFAULT_VAULT_TO_BE_REPLACED,
     }
 }
 
@@ -188,6 +193,8 @@ pub struct CoreVaultData {
     pub griefing_collateral: u128,
     pub free_balance: u128,
     pub free_tokens: u128,
+    pub to_be_replaced: u128,
+    pub replace_collateral: u128,
 }
 
 impl CoreVaultData {
@@ -207,6 +214,8 @@ impl CoreVaultData {
                 .unwrap(),
             free_balance: CollateralModule::get_balance_from_account(&account_id),
             free_tokens: TreasuryModule::get_balance_from_account(account_id.clone()),
+            to_be_replaced: vault.to_be_replaced_tokens,
+            replace_collateral: vault.replace_collateral,
         }
     }
     #[allow(dead_code)]
@@ -221,10 +230,17 @@ impl CoreVaultData {
             griefing_collateral: 0,
             free_balance: CollateralModule::get_balance_from_account(&account_id),
             free_tokens: TreasuryModule::get_balance_from_account(account_id.clone()),
+            to_be_replaced: 0,
+            replace_collateral: 0,
         }
     }
+
     #[allow(dead_code)]
     pub fn force_to(vault: [u8; 32], state: CoreVaultData) {
+        // replace collateral is part of griefing collateral, so it needs to smaller or equal
+        assert!(state.griefing_collateral >= state.replace_collateral);
+        assert!(state.to_be_replaced + state.to_be_redeemed <= state.issued);
+
         // register vault if not yet registered
         try_register_vault(100, vault);
 
@@ -256,6 +272,10 @@ impl CoreVaultData {
             &account_of(DUMMY),
             current.issued,
         ));
+        assert_ok!(VaultRegistryModule::decrease_to_be_replaced_tokens(
+            &account_of(vault),
+            current.to_be_replaced,
+        ));
         assert_ok!(TreasuryModule::lock(account_of(vault), current.free_tokens));
         assert_ok!(TreasuryModule::burn(account_of(vault), current.free_tokens));
 
@@ -275,6 +295,13 @@ impl CoreVaultData {
             &account_of(vault),
             state.to_be_redeemed
         ));
+        // set to-be-replaced:
+        assert_ok!(VaultRegistryModule::try_increase_to_be_replaced_tokens(
+            &account_of(vault),
+            state.to_be_replaced,
+            state.replace_collateral
+        ));
+
         // set free tokens:
         TreasuryModule::mint(account_of(vault), state.free_tokens);
 
@@ -324,8 +351,7 @@ impl CoreVaultData {
         )
         .unwrap();
 
-        // since the function is only partially implemented, check that we achieved the
-        // desired stae
+        // check that we achieved the desired state
         assert_eq!(CoreVaultData::vault(vault), state);
     }
 }
@@ -373,6 +399,46 @@ impl ParachainState {
             &mut state.liquidation_vault,
             &mut state.fee_pool,
         );
+        state
+    }
+}
+
+// todo: merge with ParachainState
+#[derive(Debug, PartialEq, Clone)]
+pub struct ParachainTwoVaultState {
+    vault1: CoreVaultData,
+    vault2: CoreVaultData,
+    liquidation_vault: CoreVaultData,
+}
+
+impl Default for ParachainTwoVaultState {
+    fn default() -> Self {
+        Self {
+            vault1: default_vault_state(),
+            vault2: default_vault_state(),
+            liquidation_vault: CoreVaultData {
+                free_balance: INITIAL_LIQUIDATION_VAULT_BALANCE,
+                ..Default::default()
+            },
+        }
+    }
+}
+
+impl ParachainTwoVaultState {
+    pub fn get() -> Self {
+        Self {
+            vault1: CoreVaultData::vault(BOB),
+            vault2: CoreVaultData::vault(CAROL),
+            liquidation_vault: CoreVaultData::liquidation_vault(),
+        }
+    }
+
+    pub fn with_changes(
+        &self,
+        f: impl FnOnce(&mut CoreVaultData, &mut CoreVaultData, &mut CoreVaultData) -> (),
+    ) -> Self {
+        let mut state = self.clone();
+        f(&mut state.vault1, &mut state.vault2, &mut state.liquidation_vault);
         state
     }
 }
@@ -743,7 +809,7 @@ impl ExtBuilder {
 
         replace::GenesisConfig::<Runtime> {
             replace_period: 10,
-            replace_btc_dust_value: 1,
+            replace_btc_dust_value: 2,
         }
         .assimilate_storage(&mut storage)
         .unwrap();

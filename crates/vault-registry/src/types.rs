@@ -23,6 +23,8 @@ pub enum Version {
     V0,
     /// BtcAddress type with script format.
     V1,
+    /// added replace_collateral to vault
+    V2,
 }
 
 #[derive(Debug, PartialEq)]
@@ -121,6 +123,35 @@ impl Default for VaultStatus {
 pub struct Vault<AccountId, BlockNumber, PolkaBTC, DOT> {
     // Account identifier of the Vault
     pub id: AccountId,
+    // Number of PolkaBTC tokens pending issue
+    pub to_be_issued_tokens: PolkaBTC,
+    // Number of issued PolkaBTC tokens
+    pub issued_tokens: PolkaBTC,
+    // Number of PolkaBTC tokens pending redeem
+    pub to_be_redeemed_tokens: PolkaBTC,
+    // Bitcoin address of this Vault (P2PKH, P2SH, P2PKH, P2WSH)
+    pub wallet: Wallet,
+    // amount of DOT collateral that is locked to back PolkaBTC tokens. Note that
+    // this excludes griefing collateral.
+    pub backing_collateral: DOT,
+    // number of PolkaBTC tokens that have been requested for a replace through
+    // `request_replace`, but that have not been accepted yet by a new_vault.
+    pub to_be_replaced_tokens: PolkaBTC,
+    /// Amount of DOT that is locked as griefing collateral to be payed out if
+    /// the old_vault fails to call execute_replace
+    pub replace_collateral: DOT,
+    // Block height until which this Vault is banned from being
+    // used for Issue, Redeem (except during automatic liquidation) and Replace .
+    pub banned_until: Option<BlockNumber>,
+    /// Current status of the vault
+    pub status: VaultStatus,
+}
+
+#[derive(Encode, Decode, Default, Clone, PartialEq)]
+#[cfg_attr(feature = "std", derive(Debug))]
+pub struct VaultV1<AccountId, BlockNumber, PolkaBTC, DOT> {
+    // Account identifier of the Vault
+    pub id: AccountId,
     // number of PolkaBTC tokens that have been requested for a replace through
     // `request_replace`, but that have not been accepted yet by a new_vault.
     pub to_be_replaced_tokens: PolkaBTC,
@@ -164,6 +195,7 @@ impl<AccountId, BlockNumber, PolkaBTC: HasCompact + Default, DOT: HasCompact + D
             id,
             wallet,
             to_be_replaced_tokens: Default::default(),
+            replace_collateral: Default::default(),
             to_be_issued_tokens: Default::default(),
             issued_tokens: Default::default(),
             to_be_redeemed_tokens: Default::default(),
@@ -388,22 +420,14 @@ impl<T: Config> RichVault<T> {
         Ok(redeemable_tokens)
     }
 
-    pub(crate) fn increase_to_be_replaced(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
+    pub(crate) fn set_to_be_replaced_amount(
+        &mut self,
+        tokens: PolkaBTC<T>,
+        griefing_collateral: DOT<T>,
+    ) -> DispatchResult {
         self.update(|v| {
-            v.to_be_replaced_tokens = v
-                .to_be_replaced_tokens
-                .checked_add(&tokens)
-                .ok_or(Error::<T>::ArithmeticOverflow)?;
-            Ok(())
-        })
-    }
-
-    pub(crate) fn decrease_to_be_replaced(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
-        self.update(|v| {
-            v.to_be_replaced_tokens = v
-                .to_be_replaced_tokens
-                .checked_sub(&tokens)
-                .ok_or(Error::<T>::ArithmeticUnderflow)?;
+            v.to_be_replaced_tokens = tokens;
+            v.replace_collateral = griefing_collateral;
             Ok(())
         })
     }
