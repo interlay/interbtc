@@ -481,7 +481,6 @@ decl_module! {
         #[transactional]
         fn report_vault_theft(origin, vault_id: T::AccountId, tx_id: H256Le, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
-            Self::ensure_relayer_is_active(&signer)?;
 
             // liquidated vaults are removed, so no need for check here
 
@@ -502,8 +501,10 @@ decl_module! {
                 reports.insert(vault_id.clone());
             });
 
-            // reward relayer for this report by increasing its sla
-            ext::sla::event_update_relayer_sla::<T>(&signer, ext::sla::RelayerEvent::CorrectTheftReport)?;
+            // if the report is made by a relayer, reward it by increasing its sla
+            if Self::relayer_is_registered(&signer) {
+                ext::sla::event_update_relayer_sla::<T>(&signer, ext::sla::RelayerEvent::CorrectTheftReport)?;
+            }
 
             Self::deposit_event(<Event<T>>::VaultTheft(
                 vault_id,
@@ -754,17 +755,21 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+    fn relayer_is_registered(id: &T::AccountId) -> bool {
+        <ActiveStakedRelayers<T>>::contains_key(id) || <InactiveStakedRelayers<T>>::contains_key(id)
+    }
+
     /// Ensure a staked relayer is registered.
     ///
     /// # Arguments
     ///
     /// * `id` - account id of the relayer
     pub(crate) fn ensure_relayer_is_registered(id: &T::AccountId) -> DispatchResult {
-        ensure!(
-            <ActiveStakedRelayers<T>>::contains_key(id) || <InactiveStakedRelayers<T>>::contains_key(id),
-            Error::<T>::NotRegistered,
-        );
-        Ok(())
+        if Self::relayer_is_registered(id) {
+            Ok(())
+        } else {
+            Err(Error::<T>::NotRegistered.into())
+        }
     }
 
     /// Gets the active staked relayer or throws an error.

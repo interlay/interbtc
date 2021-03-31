@@ -8,8 +8,7 @@ use vault_registry::Vault;
 pub const RELAYER: [u8; 32] = ALICE;
 pub const VAULT: [u8; 32] = BOB;
 
-#[test]
-fn integration_test_report_vault_theft() {
+fn test_vault_theft(submit_by_relayer: bool) {
     ExtBuilder::build().execute_with(|| {
         let user = ALICE;
         let vault = BOB;
@@ -64,16 +63,36 @@ fn integration_test_report_vault_theft() {
 
         SystemModule::set_block_number(1000);
 
-        assert_ok!(Call::StakedRelayers(StakedRelayersCall::report_vault_theft(
-            account_of(vault),
-            tx_id,
-            proof,
-            raw_tx
-        ))
-        .dispatch(origin_of(account_of(user))));
+        if submit_by_relayer {
+            assert_ok!(Call::StakedRelayers(StakedRelayersCall::report_vault_theft(
+                account_of(vault),
+                tx_id,
+                proof,
+                raw_tx
+            ))
+            .dispatch(origin_of(account_of(user))));
 
-        // check sla increase for the theft report
-        expected_sla = expected_sla + SlaModule::relayer_correct_theft_report();
-        assert_eq!(SlaModule::relayer_sla(account_of(ALICE)), expected_sla);
+            // check sla increase for the theft report
+            expected_sla = expected_sla + SlaModule::relayer_correct_theft_report();
+            assert_eq!(SlaModule::relayer_sla(account_of(ALICE)), expected_sla);
+        } else {
+            assert_ok!(Call::StakedRelayers(StakedRelayersCall::report_vault_theft(
+                account_of(vault),
+                tx_id,
+                proof,
+                raw_tx
+            ))
+            .dispatch(origin_of(account_of(CAROL))));
+        }
     });
+}
+
+#[test]
+fn integration_test_report_vault_theft_by_relayer() {
+    test_vault_theft(true);
+}
+
+#[test]
+fn integration_test_report_vault_theft_by_non_relayer() {
+    test_vault_theft(false);
 }
