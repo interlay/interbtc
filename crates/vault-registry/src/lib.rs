@@ -49,7 +49,7 @@ use crate::types::{
 #[doc(inline)]
 pub use crate::types::{BtcPublicKey, CurrencySource, SystemVault, Vault, VaultStatus, Wallet};
 
-use crate::types::VaultV1;
+use crate::types::{VaultStatusV2, VaultV2};
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
@@ -65,6 +65,7 @@ pub trait WeightInfo {
     fn withdraw_collateral() -> Weight;
     fn update_public_key() -> Weight;
     fn register_address() -> Weight;
+    fn accept_new_issues() -> Weight;
 }
 
 /// ## Configuration and Constants
@@ -156,29 +157,32 @@ decl_module! {
         fn on_runtime_upgrade() -> Weight {
             use frame_support::{migration::StorageKeyIterator, Blake2_128Concat};
 
-            if matches!(Self::storage_version(), Version::V0 | Version::V1) {
-                StorageKeyIterator::<T::AccountId, VaultV1<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, Blake2_128Concat>::new(<Vaults<T>>::module_prefix(), b"Vaults")
+            if matches!(Self::storage_version(), Version::V2) {
+                StorageKeyIterator::<T::AccountId, VaultV2<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, Blake2_128Concat>::new(<Vaults<T>>::module_prefix(), b"Vaults")
                     .drain()
-                    .for_each(|(id, vault_v1)| {
-                        let vault_v2 = Vault{
-                            id: vault_v1.id,
-                            to_be_issued_tokens: vault_v1.to_be_issued_tokens,
-                            issued_tokens: vault_v1.issued_tokens,
-                            to_be_redeemed_tokens: vault_v1.to_be_redeemed_tokens,
-                            wallet: vault_v1.wallet,
-                            backing_collateral: vault_v1.backing_collateral,
-                            banned_until: vault_v1.banned_until,
-                            status: vault_v1.status,
-
-                            // unaccepted V1 replace requests are closed upon upgrade
-                            replace_collateral: 0u32.into(),
-                            to_be_replaced_tokens: 0u32.into(),
+                    .for_each(|(id, legacy_vault)| {
+                        let new_vault = Vault{
+                            id: legacy_vault.id,
+                            to_be_issued_tokens: legacy_vault.to_be_issued_tokens,
+                            issued_tokens: legacy_vault.issued_tokens,
+                            to_be_redeemed_tokens: legacy_vault.to_be_redeemed_tokens,
+                            wallet: legacy_vault.wallet,
+                            backing_collateral: legacy_vault.backing_collateral,
+                            banned_until: legacy_vault.banned_until,
+                            replace_collateral: legacy_vault.replace_collateral,
+                            to_be_replaced_tokens: legacy_vault.to_be_replaced_tokens,
+                            status: {
+                                match legacy_vault.status {
+                                    VaultStatusV2::Active => VaultStatus::Active(true),
+                                    VaultStatusV2::Liquidated => VaultStatus::Liquidated,
+                                    VaultStatusV2::CommittedTheft => VaultStatus::CommittedTheft,
+                                }
+                            },
                         };
-                        // ignore requests that have `None` fields, they have not been accepted yet
-                        <Vaults<T>>::insert(id, vault_v2);
+                        <Vaults<T>>::insert(id, new_vault);
                     });
 
-                StorageVersion::put(Version::V2);
+                StorageVersion::put(Version::V3);
             }
 
             0
@@ -288,6 +292,23 @@ decl_module! {
             Ok(())
         }
 
+        /// Configures whether or not the vaul accepts new issues.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - sender of the transaction (i.e. the vault)
+        /// * `accept_new_issues` - true indicates that the vault accepts new issues
+        ///
+        /// # Weight: `O(1)`
+        #[weight = <T as Config>::WeightInfo::accept_new_issues()]
+        #[transactional]
+        fn accept_new_issues(origin, accept_new_issues: bool) -> DispatchResult  {
+            let vault_id = ensure_signed(origin)?;
+            let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
+            vault.set_accept_new_issues(accept_new_issues)?;
+            Ok(())
+        }
+
         fn on_initialize(n: T::BlockNumber) -> Weight {
             if let Err(e) = Self::begin_block(n) {
                 sp_runtime::print(e);
@@ -349,7 +370,10 @@ impl<T: Config> Module<T> {
     /// Like get_vault_from_id, but additionally checks that the vault is active
     pub fn get_active_vault_from_id(vault_id: &T::AccountId) -> Result<DefaultVault<T>, DispatchError> {
         let vault = Self::get_vault_from_id(vault_id)?;
-        ensure!(vault.status == VaultStatus::Active, Error::<T>::VaultNotFound);
+        ensure!(
+            matches!(vault.status, VaultStatus::Active(_)),
+            Error::<T>::VaultNotFound
+        );
         Ok(vault)
     }
 
@@ -1127,6 +1151,10 @@ impl<T: Config> Module<T> {
             .filter_map(|v| {
                 // iterator returns tuple of (AccountId, Vault<T>), we check the vault and return the accountid
                 let vault = Into::<RichVault<T>>::into(v.1);
+                // make sure the vault accepts new issues
+                if vault.data.status != VaultStatus::Active(true) {
+                    return None;
+                }
                 let issuable_tokens = vault.issuable_tokens().ok()?;
                 if issuable_tokens >= amount {
                     Some(v.0)
@@ -1209,6 +1237,9 @@ impl<T: Config> Module<T> {
     pub fn get_vaults_with_issuable_tokens() -> Result<Vec<(T::AccountId, PolkaBTC<T>)>, DispatchError> {
         let mut vaults_with_issuable_tokens = <Vaults<T>>::iter()
             .filter_map(|(account_id, _vault)| {
+                // NOTE: we are not checking if the vault accepts new issues here - if not, then
+                // get_issuable_tokens_from_vault will return 0, and we will filter them out below
+
                 // iterator returns tuple of (AccountId, Vault<T>),
                 match Self::get_issuable_tokens_from_vault(account_id.clone()).ok() {
                     Some(issuable_tokens) => {
@@ -1234,6 +1265,11 @@ impl<T: Config> Module<T> {
     /// Get the amount of tokens a vault can issue
     pub fn get_issuable_tokens_from_vault(vault_id: T::AccountId) -> Result<PolkaBTC<T>, DispatchError> {
         let vault = Self::get_active_rich_vault_from_id(&vault_id)?;
+        // make sure the vault accepts new issue requests.
+        // NOTE: get_vaults_with_issuable_tokens depends on this check
+        if vault.data.status != VaultStatus::Active(true) {
+            return Ok(0u32.into());
+        }
         vault.issuable_tokens()
     }
 

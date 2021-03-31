@@ -166,6 +166,18 @@ mod accept_replace_tests {
     }
 
     #[test]
+    fn integration_test_replace_accept_replace_by_vault_that_does_not_accept_issues_succeeds() {
+        test_with(|| {
+            assert_ok!(Call::VaultRegistry(VaultRegistryCall::accept_new_issues(false))
+                .dispatch(origin_of(account_of(NEW_VAULT))));
+
+            let (_, replace) = accept_replace(1000, 1000);
+
+            assert_state_after_accept_replace_correct(&replace);
+        });
+    }
+
+    #[test]
     fn integration_test_replace_accept_replace_below_dust_fails() {
         test_with(|| {
             // if the new_vault _asks_ for an amount below below DUST, it gets rejected

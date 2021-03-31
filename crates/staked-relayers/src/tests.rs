@@ -1008,7 +1008,7 @@ fn test_is_transaction_invalid_fails_with_valid_merge_transaction() {
                 backing_collateral: 0,
                 wallet: wallet.clone(),
                 banned_until: None,
-                status: VaultStatus::Active,
+                status: VaultStatus::Active(true),
             }))
         });
 
@@ -1066,7 +1066,7 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
                 backing_collateral: 0,
                 wallet: wallet.clone(),
                 banned_until: None,
-                status: VaultStatus::Active,
+                status: VaultStatus::Active(true),
             }))
         });
 
@@ -1220,7 +1220,7 @@ fn test_is_transaction_invalid_fails_with_valid_merge_testnet_transaction() {
                 backing_collateral: 0,
                 wallet: wallet.clone(),
                 banned_until: None,
-                status: VaultStatus::Active,
+                status: VaultStatus::Active(true),
             }))
         });
 

@@ -25,6 +25,8 @@ pub enum Version {
     V1,
     /// added replace_collateral to vault
     V2,
+    /// changed vaultStatus enum
+    V3,
 }
 
 #[derive(Debug, PartialEq)]
@@ -102,19 +104,19 @@ impl Wallet {
 
 #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug)]
 pub enum VaultStatus {
-    /// Vault is active
-    Active = 0,
+    /// Vault is active - bool=true indicates that the vault accepts new issue requests
+    Active(bool),
 
     /// Vault has been liquidated
-    Liquidated = 1,
+    Liquidated,
 
     /// Vault theft has been reported
-    CommittedTheft = 2,
+    CommittedTheft,
 }
 
 impl Default for VaultStatus {
     fn default() -> Self {
-        VaultStatus::Active
+        VaultStatus::Active(true)
     }
 }
 
@@ -147,14 +149,29 @@ pub struct Vault<AccountId, BlockNumber, PolkaBTC, DOT> {
     pub status: VaultStatus,
 }
 
+#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug)]
+pub enum VaultStatusV2 {
+    /// Vault is active
+    Active = 0,
+
+    /// Vault has been liquidated
+    Liquidated = 1,
+
+    /// Vault theft has been reported
+    CommittedTheft = 2,
+}
+
+impl Default for VaultStatusV2 {
+    fn default() -> Self {
+        VaultStatusV2::Active
+    }
+}
+
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct VaultV1<AccountId, BlockNumber, PolkaBTC, DOT> {
+pub struct VaultV2<AccountId, BlockNumber, PolkaBTC, DOT> {
     // Account identifier of the Vault
     pub id: AccountId,
-    // number of PolkaBTC tokens that have been requested for a replace through
-    // `request_replace`, but that have not been accepted yet by a new_vault.
-    pub to_be_replaced_tokens: PolkaBTC,
     // Number of PolkaBTC tokens pending issue
     pub to_be_issued_tokens: PolkaBTC,
     // Number of issued PolkaBTC tokens
@@ -166,11 +183,17 @@ pub struct VaultV1<AccountId, BlockNumber, PolkaBTC, DOT> {
     // amount of DOT collateral that is locked to back PolkaBTC tokens. Note that
     // this excludes griefing collateral.
     pub backing_collateral: DOT,
+    // number of PolkaBTC tokens that have been requested for a replace through
+    // `request_replace`, but that have not been accepted yet by a new_vault.
+    pub to_be_replaced_tokens: PolkaBTC,
+    /// Amount of DOT that is locked as griefing collateral to be payed out if
+    /// the old_vault fails to call execute_replace
+    pub replace_collateral: DOT,
     // Block height until which this Vault is banned from being
     // used for Issue, Redeem (except during automatic liquidation) and Replace .
     pub banned_until: Option<BlockNumber>,
     /// Current status of the vault
-    pub status: VaultStatus,
+    pub status: VaultStatusV2,
 }
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
@@ -201,7 +224,7 @@ impl<AccountId, BlockNumber, PolkaBTC: HasCompact + Default, DOT: HasCompact + D
             to_be_redeemed_tokens: Default::default(),
             backing_collateral: Default::default(),
             banned_until: None,
-            status: VaultStatus::Active,
+            status: VaultStatus::Active(true),
         }
     }
 
@@ -428,6 +451,13 @@ impl<T: Config> RichVault<T> {
         self.update(|v| {
             v.to_be_replaced_tokens = tokens;
             v.replace_collateral = griefing_collateral;
+            Ok(())
+        })
+    }
+
+    pub(crate) fn set_accept_new_issues(&mut self, accept_new_issues: bool) -> DispatchResult {
+        self.update(|v| {
+            v.status = VaultStatus::Active(accept_new_issues);
             Ok(())
         })
     }

@@ -41,56 +41,78 @@ fn integration_test_issue_should_fail_if_not_running() {
     });
 }
 
-#[test]
-fn integration_test_request_issue_at_capacity_succeeds() {
-    test_with_initialized_vault(|| {
-        let amount = VaultRegistryModule::get_issuable_tokens_from_vault(account_of(VAULT)).unwrap();
-        let (issue_id, _) = request_issue(amount);
-        execute_issue(issue_id);
-    });
-}
+mod request_issue_tests {
+    use super::*;
 
-#[test]
-fn integration_test_request_issue_above_capacity_fails() {
-    test_with_initialized_vault(|| {
-        let amount = 1 + VaultRegistryModule::get_issuable_tokens_from_vault(account_of(VAULT)).unwrap();
-        assert_noop!(
-            Call::Issue(IssueCall::request_issue(
-                amount,
-                account_of(VAULT),
-                DEFAULT_GRIEFING_COLLATERAL
-            ))
-            .dispatch(origin_of(account_of(USER))),
-            VaultRegistryError::ExceedingVaultLimit
-        );
-    });
-}
+    #[test]
+    fn integration_test_request_issue_at_capacity_succeeds() {
+        test_with_initialized_vault(|| {
+            let amount = VaultRegistryModule::get_issuable_tokens_from_vault(account_of(VAULT)).unwrap();
+            let (issue_id, _) = request_issue(amount);
+            execute_issue(issue_id);
+        });
+    }
 
-#[test]
-fn integration_test_request_with_griefing_collateral_at_minimum_succeeds() {
-    test_with_initialized_vault(|| {
-        let amount = 10_000;
-        let amount_in_dot = ExchangeRateOracleModule::btc_to_dots(amount).unwrap();
-        let griefing_collateral = FeeModule::get_issue_griefing_collateral(amount_in_dot).unwrap();
-        assert_ok!(
-            Call::Issue(IssueCall::request_issue(amount, account_of(VAULT), griefing_collateral))
-                .dispatch(origin_of(account_of(USER)))
-        );
-    });
-}
-
-#[test]
-fn integration_test_request_with_griefing_collateral_below_minimum_fails() {
-    test_with_initialized_vault(|| {
-        let amount = 10_000;
-        let amount_in_dot = ExchangeRateOracleModule::btc_to_dots(amount).unwrap();
-        let griefing_collateral = FeeModule::get_issue_griefing_collateral(amount_in_dot).unwrap() - 1;
-        assert_noop!(
-            Call::Issue(IssueCall::request_issue(amount, account_of(VAULT), griefing_collateral))
+    #[test]
+    fn integration_test_request_issue_above_capacity_fails() {
+        test_with_initialized_vault(|| {
+            let amount = 1 + VaultRegistryModule::get_issuable_tokens_from_vault(account_of(VAULT)).unwrap();
+            assert_noop!(
+                Call::Issue(IssueCall::request_issue(
+                    amount,
+                    account_of(VAULT),
+                    DEFAULT_GRIEFING_COLLATERAL
+                ))
                 .dispatch(origin_of(account_of(USER))),
-            IssueError::InsufficientCollateral
-        );
-    });
+                VaultRegistryError::ExceedingVaultLimit
+            );
+        });
+    }
+
+    #[test]
+    fn integration_test_request_with_griefing_collateral_at_minimum_succeeds() {
+        test_with_initialized_vault(|| {
+            let amount = 10_000;
+            let amount_in_dot = ExchangeRateOracleModule::btc_to_dots(amount).unwrap();
+            let griefing_collateral = FeeModule::get_issue_griefing_collateral(amount_in_dot).unwrap();
+            assert_ok!(
+                Call::Issue(IssueCall::request_issue(amount, account_of(VAULT), griefing_collateral))
+                    .dispatch(origin_of(account_of(USER)))
+            );
+        });
+    }
+
+    #[test]
+    fn integration_test_request_with_griefing_collateral_below_minimum_fails() {
+        test_with_initialized_vault(|| {
+            assert_ok!(
+                Call::VaultRegistry(VaultRegistryCall::accept_new_issues(false)).dispatch(origin_of(account_of(VAULT)))
+            );
+            assert_noop!(
+                Call::Issue(IssueCall::request_issue(
+                    1000,
+                    account_of(VAULT),
+                    DEFAULT_GRIEFING_COLLATERAL
+                ))
+                .dispatch(origin_of(account_of(USER))),
+                IssueError::VaultNotAcceptingNewIssues
+            );
+        });
+    }
+
+    #[test]
+    fn integration_test_request_not_accepting_new_issues_fails() {
+        test_with_initialized_vault(|| {
+            let amount = 10_000;
+            let amount_in_dot = ExchangeRateOracleModule::btc_to_dots(amount).unwrap();
+            let griefing_collateral = FeeModule::get_issue_griefing_collateral(amount_in_dot).unwrap() - 1;
+            assert_noop!(
+                Call::Issue(IssueCall::request_issue(amount, account_of(VAULT), griefing_collateral))
+                    .dispatch(origin_of(account_of(USER))),
+                IssueError::InsufficientCollateral
+            );
+        });
+    }
 }
 
 #[test]
