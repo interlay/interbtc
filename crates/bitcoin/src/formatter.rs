@@ -81,13 +81,13 @@ impl Formattable for CompactUint {
         if self.value < 0xfd {
             formatter.format(self.value as u8);
         } else if self.value < u16::max_value() as u64 {
-            formatter.format(0xfd as u8);
+            formatter.format(0xfd_u8);
             formatter.format(self.value as u16);
         } else if self.value < u32::max_value() as u64 {
-            formatter.format(0xfe as u8);
+            formatter.format(0xfe_u8);
             formatter.format(self.value as u32);
         } else {
-            formatter.format(0xff as u8);
+            formatter.format(0xff_u8);
             formatter.format(self.value);
         }
         formatter.result()

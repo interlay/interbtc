@@ -1525,8 +1525,8 @@ decl_error! {
         BlockHeightOverflow,
         /// Underflow of stored blockchains counter
         ChainsUnderflow,
-        /// EOS reached while parsing
-        EOS,
+        /// EndOfFile reached while parsing
+        EndOfFile,
         /// Format of the header is invalid
         MalformedHeader,
         /// Format of the BIP141 witness transaction output is invalid
@@ -1563,7 +1563,7 @@ impl<T: Config> From<BitcoinError> for Error<T> {
         match err {
             BitcoinError::MalformedMerkleProof => Self::MalformedMerkleProof,
             BitcoinError::InvalidMerkleProof => Self::InvalidMerkleProof,
-            BitcoinError::EOS => Self::EOS,
+            BitcoinError::EndOfFile => Self::EndOfFile,
             BitcoinError::MalformedHeader => Self::MalformedHeader,
             BitcoinError::MalformedTransaction => Self::MalformedTransaction,
             BitcoinError::UnsupportedInputFormat => Self::UnsupportedInputFormat,

@@ -60,12 +60,7 @@ impl MerkleTree {
         height
     }
 
-    pub fn compute_root(
-        index: u32,
-        height: u32,
-        transactions_count: u32,
-        hashes: &Vec<H256Le>,
-    ) -> Result<H256Le, Error> {
+    pub fn compute_root(index: u32, height: u32, transactions_count: u32, hashes: &[H256Le]) -> Result<H256Le, Error> {
         if height == 0 {
             Ok(hashes[index as usize])
         } else {
@@ -121,7 +116,7 @@ impl MerkleProof {
     ) -> Result<H256Le, Error> {
         // this code is ported from the official Bitcoin client:
         // https://github.com/bitcoin/bitcoin/blob/99813a9745fe10a58bedd7a4cb721faf14f907a4/src/merkleblock.cpp
-        let parent_of_hash = *self.flag_bits.get(traversal.bits_used).ok_or(Error::EOS)?;
+        let parent_of_hash = *self.flag_bits.get(traversal.bits_used).ok_or(Error::EndOfFile)?;
         traversal.bits_used = traversal.bits_used.checked_add(1).ok_or(Error::ArithmeticOverflow)?;
 
         if height == 0 || !parent_of_hash {
@@ -243,9 +238,9 @@ impl MerkleProof {
 
         Ok(MerkleProof {
             block_header,
+            flag_bits,
             transactions_count,
             hashes,
-            flag_bits,
         })
     }
 
