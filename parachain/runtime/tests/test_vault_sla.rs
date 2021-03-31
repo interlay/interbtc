@@ -35,7 +35,7 @@ fn test_sla_increase_for_issue() {
 
         // check the sla increase for processing the issue
         let expected_sla_increase = SlaModule::vault_executed_issue_max_sla_change()
-            * FixedI128::checked_from_rational(1000, issue.amount + issue.fee).unwrap();
+            * FixedI128::checked_from_rational(issue.amount, issue.amount + issue.fee).unwrap();
         assert_eq!(
             SlaModule::vault_sla(account_of(VAULT)),
             initial_sla() + expected_sla_increase
@@ -68,7 +68,7 @@ fn test_sla_increase_for_submitting_proof_for_issue_against_self() {
             .assert_execute();
 
         let expected_sla_increase_for_issue = SlaModule::vault_executed_issue_max_sla_change()
-            * FixedI128::checked_from_rational(1000, issue.amount + issue.fee).unwrap();
+            * FixedI128::checked_from_rational(issue.amount, issue.amount + issue.fee).unwrap();
         let expected_sla_increase_for_proof_submission = SlaModule::vault_submitted_issue_proof();
 
         // check that the vault who submitted the proof is rewarded with both SLA rewards
@@ -99,7 +99,7 @@ fn test_sla_increase_for_refund() {
             .assert_execute();
 
         let expected_sla_increase_for_issue = SlaModule::vault_executed_issue_max_sla_change()
-            * FixedI128::checked_from_rational(1000, issue.amount + issue.fee).unwrap();
+            * FixedI128::checked_from_rational(issue.amount, issue.amount + issue.fee).unwrap();
 
         // check that the vault who submitted the proof is rewarded for issue
         assert_eq!(
@@ -164,7 +164,7 @@ fn test_sla_increase_for_underpayed_issue() {
 
         // check the sla increase
         let expected_sla_increase = SlaModule::vault_executed_issue_max_sla_change()
-            * FixedI128::checked_from_rational(4000, issue.amount + issue.fee).unwrap();
+            * FixedI128::checked_from_rational(issue.amount, issue.amount + issue.fee).unwrap();
         assert_eq!(
             SlaModule::vault_sla(account_of(VAULT)),
             initial_sla() + expected_sla_increase

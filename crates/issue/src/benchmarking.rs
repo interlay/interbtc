@@ -51,7 +51,7 @@ benchmarks! {
         issue_request.vault = vault_id.clone();
         issue_request.btc_address = vault_btc_address;
         issue_request.amount = value.into();
-        Issue::<T>::insert_issue_request(issue_id, issue_request);
+        Issue::<T>::insert_issue_request(&issue_id, &issue_request);
 
         let height = 0;
         let block = BlockBuilder::new()
@@ -119,7 +119,7 @@ benchmarks! {
         let mut issue_request = IssueRequest::default();
         issue_request.requester = origin.clone();
         issue_request.vault = vault_id.clone();
-        Issue::<T>::insert_issue_request(issue_id, issue_request);
+        Issue::<T>::insert_issue_request(&issue_id, &issue_request);
         System::<T>::set_block_number(System::<T>::block_number() + Issue::<T>::issue_period() + 10u32.into());
 
         let mut vault = Vault::default();
