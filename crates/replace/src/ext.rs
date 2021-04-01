@@ -76,11 +76,8 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::is_vault_below_auction_threshold(&vault_id)
     }
 
-    pub fn ensure_not_banned<T: vault_registry::Config>(
-        vault: &T::AccountId,
-        height: T::BlockNumber,
-    ) -> DispatchResult {
-        <vault_registry::Module<T>>::_ensure_not_banned(vault, height)
+    pub fn ensure_not_banned<T: vault_registry::Config>(vault: &T::AccountId) -> DispatchResult {
+        <vault_registry::Module<T>>::_ensure_not_banned(vault)
     }
 
     pub fn insert_vault_deposit_address<T: vault_registry::Config>(

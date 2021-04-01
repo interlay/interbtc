@@ -120,7 +120,7 @@ benchmarks! {
         issue_request.requester = origin.clone();
         issue_request.vault = vault_id.clone();
         Issue::<T>::insert_issue_request(&issue_id, &issue_request);
-        System::<T>::set_block_number(System::<T>::block_number() + Issue::<T>::issue_period() + 10u32.into());
+        System::<T>::set_block_number(Security::active_block_number() + Issue::<T>::issue_period() + 10u32.into());
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();

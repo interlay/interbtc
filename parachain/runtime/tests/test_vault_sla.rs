@@ -16,7 +16,7 @@ fn initial_sla() -> FixedI128 {
 
 fn test_with<R>(execute: impl FnOnce() -> R) -> R {
     ExtBuilder::build().execute_with(|| {
-        SystemModule::set_block_number(1);
+        SecurityModule::set_active_block_number(1);
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
         set_default_thresholds();
 

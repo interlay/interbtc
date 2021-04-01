@@ -239,10 +239,10 @@ impl<T: Config> Module<T> {
         // Check that Parachain is RUNNING
         ext::security::ensure_parachain_status_running::<T>()?;
 
-        let height = <frame_system::Pallet<T>>::block_number();
+        let height = ext::security::active_block_number::<T>();
         let vault = ext::vault_registry::get_active_vault_from_id::<T>(&vault_id)?;
         // Check that the vault is currently not banned
-        ext::vault_registry::ensure_not_banned::<T>(&vault_id, height)?;
+        ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;
 
         // calculate griefing collateral based on the total amount of tokens to be issued
         let amount_dot = ext::oracle::btc_to_dots::<T>(amount_requested)?;

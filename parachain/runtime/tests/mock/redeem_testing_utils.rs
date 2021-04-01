@@ -8,7 +8,7 @@ pub fn setup_cancelable_redeem(user: [u8; 32], vault: [u8; 32], collateral: u128
     let redeem_id = setup_redeem(polka_btc, user, vault, collateral);
 
     // expire request without transferring btc
-    SystemModule::set_block_number(RedeemModule::redeem_period() + 1 + 1);
+    SecurityModule::set_active_block_number(RedeemModule::redeem_period() + 1 + 1);
 
     // bob cannot execute past expiry
     assert_noop!(
@@ -57,7 +57,7 @@ pub fn execute_redeem(polka_btc: u128, redeem_id: H256) {
     let (tx_id, _tx_block_height, merkle_proof, raw_tx) =
         generate_transaction_and_mine(USER_BTC_ADDRESS, polka_btc, Some(redeem_id));
 
-    SystemModule::set_block_number(1 + CONFIRMATIONS);
+    SecurityModule::set_active_block_number(1 + CONFIRMATIONS);
 
     assert_ok!(
         Call::Redeem(RedeemCall::execute_redeem(redeem_id, tx_id, merkle_proof, raw_tx))

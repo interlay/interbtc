@@ -69,11 +69,8 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::issue_tokens(vault_id, amount)
     }
 
-    pub fn ensure_not_banned<T: vault_registry::Config>(
-        vault: &T::AccountId,
-        height: T::BlockNumber,
-    ) -> DispatchResult {
-        <vault_registry::Module<T>>::_ensure_not_banned(vault, height)
+    pub fn ensure_not_banned<T: vault_registry::Config>(vault: &T::AccountId) -> DispatchResult {
+        <vault_registry::Module<T>>::_ensure_not_banned(vault)
     }
 
     pub fn decrease_to_be_issued_tokens<T: vault_registry::Config>(

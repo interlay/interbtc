@@ -121,9 +121,9 @@ benchmarks! {
         let mut redeem_request = RedeemRequest::default();
         redeem_request.vault = vault_id.clone();
         redeem_request.redeemer = origin.clone();
-        redeem_request.opentime = System::<T>::block_number();
+        redeem_request.opentime = Security::active_block_number();
         Redeem::<T>::insert_redeem_request(redeem_id, redeem_request);
-        System::<T>::set_block_number(System::<T>::block_number() + Redeem::<T>::redeem_period() + 10u32.into());
+        System::<T>::set_block_number(Security::active_block_number() + Redeem::<T>::redeem_period() + 10u32.into());
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();

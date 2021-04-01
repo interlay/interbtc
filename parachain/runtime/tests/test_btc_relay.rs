@@ -12,7 +12,7 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
         // load blocks with transactions
         let test_data = get_bitcoin_testdata();
 
-        SystemModule::set_block_number(1);
+        SecurityModule::set_active_block_number(1);
 
         // store all block headers. parachain_genesis is the first block
         // known in the parachain. Any block before will be rejected
@@ -34,7 +34,7 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
 
             assert_store_main_chain_header_event(block.height, block.get_block_hash(), account_of(ALICE));
         }
-        SystemModule::set_block_number(1 + CONFIRMATIONS);
+        SecurityModule::set_active_block_number(1 + CONFIRMATIONS);
         // verify all transaction
         let current_height = btc_relay::Module::<Runtime>::get_best_block_height();
         for block in test_data.iter() {

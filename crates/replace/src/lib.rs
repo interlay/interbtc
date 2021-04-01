@@ -307,7 +307,7 @@ impl<T: Config> Module<T> {
 
         // check vault is not banned
         let height = Self::current_height();
-        ext::vault_registry::ensure_not_banned::<T>(&vault_id, height)?;
+        ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;
 
         let requestable_tokens = ext::vault_registry::requestable_to_be_replaced_tokens::<T>(&vault_id)?;
         let to_be_replaced_increase = amount_btc.min(requestable_tokens);
@@ -577,7 +577,7 @@ impl<T: Config> Module<T> {
 
         // Check that new vault is not currently banned
         let height = Self::current_height();
-        ext::vault_registry::ensure_not_banned::<T>(&new_vault_id, height)?;
+        ext::vault_registry::ensure_not_banned::<T>(&new_vault_id)?;
 
         // Add the new replace address to the vault's wallet,
         // this should also verify that the vault exists
@@ -698,7 +698,7 @@ impl<T: Config> Module<T> {
     }
 
     fn current_height() -> T::BlockNumber {
-        <frame_system::Pallet<T>>::block_number()
+        ext::security::active_block_number::<T>()
     }
 }
 

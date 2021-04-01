@@ -17,7 +17,6 @@ pub const DEFAULT_GRIEFING_COLLATERAL: u128 = 5_000;
 
 fn test_with<R>(execute: impl FnOnce() -> R) -> R {
     ExtBuilder::build().execute_with(|| {
-        SystemModule::set_block_number(1);
         SecurityModule::set_active_block_number(1);
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
         set_default_thresholds();
@@ -683,7 +682,6 @@ fn integration_test_replace_execute_replace() {
     ExtBuilder::build().execute_with(|| {
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
         set_default_thresholds();
-        SystemModule::set_block_number(1);
         SecurityModule::set_active_block_number(1);
 
         let user = CAROL;
@@ -727,7 +725,7 @@ fn integration_test_replace_execute_replace() {
         let (tx_id, _tx_block_height, merkle_proof, raw_tx) =
             generate_transaction_and_mine(new_vault_btc_address, polkabtc, Some(replace_id));
 
-        SystemModule::set_block_number(1 + CONFIRMATIONS);
+        SecurityModule::set_active_block_number(1 + CONFIRMATIONS);
         let r = Call::Replace(ReplaceCall::execute_replace(replace_id, tx_id, merkle_proof, raw_tx))
             .dispatch(origin_of(account_of(old_vault)));
         assert_ok!(r);
@@ -739,7 +737,6 @@ fn integration_test_replace_cancel_replace() {
     ExtBuilder::build().execute_with(|| {
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
         set_default_thresholds();
-        SystemModule::set_block_number(1);
         SecurityModule::set_active_block_number(1);
 
         let amount = 1000;
@@ -781,7 +778,6 @@ fn integration_test_replace_cancel_auction_replace() {
     ExtBuilder::build().execute_with(|| {
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
         set_default_thresholds();
-        SystemModule::set_block_number(1);
         SecurityModule::set_active_block_number(1);
         let new_vault_btc_address = BtcAddress::P2PKH(H160([2; 20]));
 
@@ -941,7 +937,6 @@ fn integration_test_replace_cancel_repeatedly_fails() {
 fn setup_replace(polkabtc: u128) -> H256 {
     assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
     set_default_thresholds();
-    SystemModule::set_block_number(1);
     SecurityModule::set_active_block_number(1);
 
     // burn surplus free balance to make checking easier
@@ -1001,7 +996,7 @@ fn execute_replace(replace_id: H256) {
     let (tx_id, _tx_block_height, merkle_proof, raw_tx) =
         generate_transaction_and_mine(replace.btc_address, replace.amount, Some(replace_id));
 
-    SystemModule::set_block_number(1 + CONFIRMATIONS);
+    SecurityModule::set_active_block_number(1 + CONFIRMATIONS);
     assert_ok!(
         Call::Replace(ReplaceCall::execute_replace(replace_id, tx_id, merkle_proof, raw_tx,))
             .dispatch(origin_of(account_of(OLD_VAULT)))

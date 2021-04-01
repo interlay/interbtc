@@ -4,7 +4,7 @@ use mock::{redeem_testing_utils::*, *};
 
 fn test_with<R>(execute: impl FnOnce() -> R) -> R {
     ExtBuilder::build().execute_with(|| {
-        SystemModule::set_block_number(1);
+        SecurityModule::set_active_block_number(1);
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
         set_default_thresholds();
         UserData::force_to(USER, default_user_state());
@@ -159,7 +159,7 @@ fn integration_test_premium_redeem_polka_btc_execute() {
         let (tx_id, _tx_block_height, merkle_proof, raw_tx) =
             generate_transaction_and_mine(user_btc_address, polka_btc, Some(redeem_id));
 
-        SystemModule::set_block_number(1 + CONFIRMATIONS);
+        SecurityModule::set_active_block_number(1 + CONFIRMATIONS);
 
         assert_ok!(
             Call::Redeem(RedeemCall::execute_redeem(redeem_id, tx_id, merkle_proof, raw_tx))
@@ -319,7 +319,7 @@ fn integration_test_redeem_polka_btc_cancel_reimburse_insufficient_collateral_fo
             })
         );
 
-        SystemModule::set_block_number(100000000);
+        SecurityModule::set_active_block_number(100000000);
         CoreVaultData::force_to(
             VAULT,
             CoreVaultData {
@@ -608,7 +608,7 @@ fn integration_test_redeem_banning() {
         );
 
         // check that the ban is not permanent
-        SystemModule::set_block_number(100000000);
+        SecurityModule::set_active_block_number(100000000);
         assert_ok!(
             Call::Issue(IssueCall::request_issue(50, account_of(VAULT), 50)).dispatch(origin_of(account_of(USER)))
         );

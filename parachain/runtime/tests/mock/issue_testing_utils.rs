@@ -101,7 +101,7 @@ impl ExecuteIssueBuilder {
             .with_relayer(self.relayer)
             .mine();
 
-        SystemModule::set_block_number(1 + CONFIRMATIONS);
+        SecurityModule::set_active_block_number(1 + CONFIRMATIONS);
 
         if self.register_submitter_as_vault {
             try_register_vault(DEFAULT_COLLATERAL, self.submitter);
@@ -154,7 +154,7 @@ pub fn execute_refund(vault_id: [u8; 32]) -> (H256, RefundRequest<AccountId, u12
     let (tx_id, _height, proof, raw_tx) =
         generate_transaction_and_mine(refund_address, refund.amount_polka_btc, Some(refund_id));
 
-    SystemModule::set_block_number((1 + CONFIRMATIONS) * 2);
+    SecurityModule::set_active_block_number((1 + CONFIRMATIONS) * 2);
 
     assert_ok!(
         Call::Refund(RefundCall::execute_refund(refund_id, tx_id, proof, raw_tx))
@@ -166,7 +166,7 @@ pub fn execute_refund(vault_id: [u8; 32]) -> (H256, RefundRequest<AccountId, u12
 
 pub fn cancel_issue(issue_id: H256, vault: [u8; 32]) {
     // expire request without transferring btc
-    SystemModule::set_block_number(IssueModule::issue_period() + 1 + 1);
+    SecurityModule::set_active_block_number(IssueModule::issue_period() + 1 + 1);
 
     // cancel issue request
     assert_ok!(Call::Issue(IssueCall::cancel_issue(issue_id)).dispatch(origin_of(account_of(vault))));

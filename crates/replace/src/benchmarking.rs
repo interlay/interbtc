@@ -200,7 +200,7 @@ benchmarks! {
         replace_request.new_vault = new_vault_id.clone();
         replace_request.amount = amount.into();
         Replace::<T>::insert_replace_request(&replace_id, &replace_request);
-        System::<T>::set_block_number(System::<T>::block_number() + Replace::<T>::replace_period() + 10u32.into());
+        System::<T>::set_block_number(Security::active_block_number() + Replace::<T>::replace_period() + 10u32.into());
 
         VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());
 
