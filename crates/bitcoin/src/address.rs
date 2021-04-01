@@ -112,12 +112,6 @@ impl From<[u8; PUBLIC_KEY_SIZE]> for PublicKey {
     }
 }
 
-impl Into<[u8; PUBLIC_KEY_SIZE]> for PublicKey {
-    fn into(self) -> [u8; PUBLIC_KEY_SIZE] {
-        self.0
-    }
-}
-
 #[cfg(feature = "std")]
 impl serde::Serialize for PublicKey {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>

@@ -2,7 +2,7 @@
 pub enum Error {
     MalformedMerkleProof,
     InvalidMerkleProof,
-    EOS,
+    EndOfFile,
     MalformedHeader,
     MalformedTransaction,
     UnsupportedInputFormat,

@@ -473,7 +473,7 @@ fn generate_coinbase_transaction(
         .with_previous_index(u32::max_value())
         .with_previous_hash(H256Le::zero())
         .with_height(height)
-        .add_witness(&vec![0; 32])
+        .add_witness(&[0; 32])
         .with_sequence(u32::max_value());
     if let Some(script) = input_script {
         input_builder.with_script(&script);
