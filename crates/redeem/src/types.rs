@@ -46,6 +46,7 @@ impl Default for RedeemRequestStatus {
 pub struct RedeemRequest<AccountId, BlockNumber, PolkaBTC, DOT> {
     pub vault: AccountId,
     pub opentime: ActiveBlockNumber<BlockNumber>,
+    pub period: BlockNumber,
     #[cfg_attr(feature = "std", serde(bound(deserialize = "PolkaBTC: std::str::FromStr")))]
     #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
     #[cfg_attr(feature = "std", serde(bound(serialize = "PolkaBTC: std::fmt::Display")))]

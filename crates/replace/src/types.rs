@@ -59,6 +59,7 @@ pub struct ReplaceRequest<AccountId, BlockNumber, PolkaBTC, DOT> {
     #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
     pub collateral: DOT,
     pub accept_time: ActiveBlockNumber<BlockNumber>,
+    pub period: BlockNumber,
     pub btc_address: BtcAddress,
     pub status: ReplaceRequestStatus,
 }

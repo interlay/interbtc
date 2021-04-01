@@ -136,6 +136,7 @@ decl_module! {
                         let new_request = IssueRequest {
                             vault: old_request.vault,
                             opentime: ActiveBlockNumber(old_request.opentime),
+                            period: Self::issue_period(),
                             griefing_collateral: old_request.griefing_collateral,
                             amount: old_request.amount,
                             fee: old_request.fee,
@@ -274,6 +275,7 @@ impl<T: Config> Module<T> {
             amount: amount_user,
             fee,
             griefing_collateral,
+            period: Self::issue_period(),
             status: IssueRequestStatus::Pending,
         };
         Self::insert_issue_request(&issue_id, &request);
@@ -309,7 +311,7 @@ impl<T: Config> Module<T> {
 
         // only executable before the request has expired
         ensure!(
-            !ext::security::has_expired::<T>(&issue.opentime, Self::issue_period()),
+            !ext::security::has_expired::<T>(&issue.opentime, Self::issue_period().max(issue.period)),
             Error::<T>::CommitPeriodExpired
         );
 
@@ -427,7 +429,7 @@ impl<T: Config> Module<T> {
 
         // only cancellable after the request has expired
         ensure!(
-            ext::security::has_expired::<T>(&issue.opentime, Self::issue_period()),
+            ext::security::has_expired::<T>(&issue.opentime, Self::issue_period().max(issue.period)),
             Error::<T>::TimeNotExpired
         );
 

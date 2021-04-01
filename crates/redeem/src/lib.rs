@@ -140,6 +140,7 @@ decl_module! {
                         let new_request = RedeemRequest {
                             vault: old_request.vault,
                             opentime: ActiveBlockNumber(old_request.opentime),
+                            period: Self::redeem_period(),
                             fee: old_request.fee,
                             amount_btc: old_request.amount_btc,
                             premium_dot: old_request.premium_dot,
@@ -340,6 +341,7 @@ impl<T: Config> Module<T> {
                 amount_btc: redeem_amount_polka_btc,
                 // TODO: reimplement partial redeem for system liquidation
                 premium_dot,
+                period: Self::redeem_period(),
                 redeemer: redeemer.clone(),
                 btc_address: btc_address.clone(),
                 status: RedeemRequestStatus::Pending,
@@ -391,7 +393,7 @@ impl<T: Config> Module<T> {
 
         // only executable before the request has expired
         ensure!(
-            !ext::security::has_expired::<T>(&redeem.opentime, Self::redeem_period()),
+            !ext::security::has_expired::<T>(&redeem.opentime, Self::redeem_period().max(redeem.period)),
             Error::<T>::CommitPeriodExpired
         );
 
@@ -441,7 +443,7 @@ impl<T: Config> Module<T> {
 
         // only cancellable after the request has expired
         ensure!(
-            ext::security::has_expired::<T>(&redeem.opentime, Self::redeem_period()),
+            ext::security::has_expired::<T>(&redeem.opentime, Self::redeem_period().max(redeem.period)),
             Error::<T>::TimeNotExpired
         );
 

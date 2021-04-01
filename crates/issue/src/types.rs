@@ -46,6 +46,7 @@ impl Default for IssueRequestStatus {
 pub struct IssueRequest<AccountId, BlockNumber, PolkaBTC, DOT> {
     pub vault: AccountId,
     pub opentime: ActiveBlockNumber<BlockNumber>,
+    pub period: BlockNumber,
     #[cfg_attr(feature = "std", serde(bound(deserialize = "DOT: std::str::FromStr")))]
     #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
     #[cfg_attr(feature = "std", serde(bound(serialize = "DOT: std::fmt::Display")))]

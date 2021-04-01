@@ -161,6 +161,7 @@ decl_module! {
                                 griefing_collateral: request_v1.griefing_collateral,
                                 collateral: request_v1.collateral,
                                 accept_time: ActiveBlockNumber(request_v1.accept_time?),
+                                period: Self::replace_period(),
                                 btc_address: request_v1.btc_address?,
                                 status
                             })
@@ -464,7 +465,7 @@ impl<T: Config> Module<T> {
 
         // only executable before the request has expired
         ensure!(
-            !ext::security::has_expired::<T>(&replace.accept_time, Self::replace_period()),
+            !ext::security::has_expired::<T>(&replace.accept_time, Self::replace_period().max(replace.period)),
             Error::<T>::ReplacePeriodExpired
         );
 
@@ -513,7 +514,7 @@ impl<T: Config> Module<T> {
 
         // only cancellable after the request has expired
         ensure!(
-            ext::security::has_expired::<T>(&replace.accept_time, Self::replace_period()),
+            ext::security::has_expired::<T>(&replace.accept_time, Self::replace_period().max(replace.period)),
             Error::<T>::ReplacePeriodNotExpired
         );
 
@@ -625,6 +626,7 @@ impl<T: Config> Module<T> {
             btc_address: btc_address,
             griefing_collateral: if is_auction { 0u32.into() } else { griefing_collateral },
             amount: actual_btc,
+            period: Self::replace_period(),
             status: ReplaceRequestStatus::Pending,
         };
 
