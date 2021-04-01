@@ -1,7 +1,6 @@
 use btc_relay::BtcAddress;
 use codec::{Decode, Encode};
 use frame_support::traits::Currency;
-use security::ActiveBlockNumber;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sp_core::H160;
@@ -58,7 +57,7 @@ pub struct ReplaceRequest<AccountId, BlockNumber, PolkaBTC, DOT> {
     #[cfg_attr(feature = "std", serde(bound(serialize = "DOT: std::fmt::Display")))]
     #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
     pub collateral: DOT,
-    pub accept_time: ActiveBlockNumber<BlockNumber>,
+    pub accept_time: BlockNumber,
     pub period: BlockNumber,
     pub btc_address: BtcAddress,
     pub status: ReplaceRequestStatus,

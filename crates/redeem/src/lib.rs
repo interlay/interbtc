@@ -39,7 +39,6 @@ use frame_support::{
 };
 use frame_system::{ensure_root, ensure_signed};
 use primitive_types::H256;
-use security::ActiveBlockNumber;
 use sp_runtime::{traits::*, ModuleId};
 use sp_std::{convert::TryInto, vec::Vec};
 use vault_registry::CurrencySource;
@@ -139,7 +138,7 @@ decl_module! {
                     .for_each(|(id, old_request)| {
                         let new_request = RedeemRequest {
                             vault: old_request.vault,
-                            opentime: ActiveBlockNumber(old_request.opentime),
+                            opentime: old_request.opentime,
                             period: Self::redeem_period(),
                             fee: old_request.fee,
                             amount_btc: old_request.amount_btc,
@@ -393,7 +392,7 @@ impl<T: Config> Module<T> {
 
         // only executable before the request has expired
         ensure!(
-            !ext::security::has_expired::<T>(&redeem.opentime, Self::redeem_period().max(redeem.period)),
+            !ext::security::has_expired::<T>(redeem.opentime, Self::redeem_period().max(redeem.period))?,
             Error::<T>::CommitPeriodExpired
         );
 
@@ -443,7 +442,7 @@ impl<T: Config> Module<T> {
 
         // only cancellable after the request has expired
         ensure!(
-            ext::security::has_expired::<T>(&redeem.opentime, Self::redeem_period().max(redeem.period)),
+            ext::security::has_expired::<T>(redeem.opentime, Self::redeem_period().max(redeem.period))?,
             Error::<T>::TimeNotExpired
         );
 

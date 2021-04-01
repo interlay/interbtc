@@ -39,7 +39,6 @@ use frame_support::{
 };
 use frame_system::{ensure_root, ensure_signed};
 use primitive_types::H256;
-use security::ActiveBlockNumber;
 use sp_runtime::{traits::*, ModuleId};
 use sp_std::{convert::TryInto, vec::Vec};
 use vault_registry::CurrencySource;
@@ -135,7 +134,7 @@ decl_module! {
                     .for_each(|(id, old_request)| {
                         let new_request = IssueRequest {
                             vault: old_request.vault,
-                            opentime: ActiveBlockNumber(old_request.opentime),
+                            opentime: old_request.opentime,
                             period: Self::issue_period(),
                             griefing_collateral: old_request.griefing_collateral,
                             amount: old_request.amount,
@@ -311,7 +310,7 @@ impl<T: Config> Module<T> {
 
         // only executable before the request has expired
         ensure!(
-            !ext::security::has_expired::<T>(&issue.opentime, Self::issue_period().max(issue.period)),
+            !ext::security::has_expired::<T>(issue.opentime, Self::issue_period().max(issue.period))?,
             Error::<T>::CommitPeriodExpired
         );
 
@@ -429,7 +428,7 @@ impl<T: Config> Module<T> {
 
         // only cancellable after the request has expired
         ensure!(
-            ext::security::has_expired::<T>(&issue.opentime, Self::issue_period().max(issue.period)),
+            ext::security::has_expired::<T>(issue.opentime, Self::issue_period().max(issue.period))?,
             Error::<T>::TimeNotExpired
         );
 

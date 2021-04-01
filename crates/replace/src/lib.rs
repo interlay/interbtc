@@ -33,7 +33,6 @@ use btc_relay::BtcAddress;
 pub use crate::types::{ReplaceRequest, ReplaceRequestStatus};
 
 use crate::types::{PolkaBTC, ReplaceRequestV1, Version, DOT};
-use security::ActiveBlockNumber;
 use vault_registry::CurrencySource;
 
 mod ext;
@@ -160,15 +159,15 @@ decl_module! {
                                 amount: request_v1.amount,
                                 griefing_collateral: request_v1.griefing_collateral,
                                 collateral: request_v1.collateral,
-                                accept_time: ActiveBlockNumber(request_v1.accept_time?),
+                                accept_time: request_v1.accept_time?,
                                 period: Self::replace_period(),
                                 btc_address: request_v1.btc_address?,
                                 status
                             })
                         };
-                        let request_v2 = construct_request();
+                        let new_request = construct_request();
                         // ignore requests that have `None` fields, they have not been accepted yet
-                        if let Some(request) = request_v2 {
+                        if let Some(request) = new_request {
                             <ReplaceRequests<T>>::insert(id, request);
                         }
                     });
@@ -465,7 +464,7 @@ impl<T: Config> Module<T> {
 
         // only executable before the request has expired
         ensure!(
-            !ext::security::has_expired::<T>(&replace.accept_time, Self::replace_period().max(replace.period)),
+            !ext::security::has_expired::<T>(replace.accept_time, Self::replace_period().max(replace.period))?,
             Error::<T>::ReplacePeriodExpired
         );
 
@@ -514,7 +513,7 @@ impl<T: Config> Module<T> {
 
         // only cancellable after the request has expired
         ensure!(
-            ext::security::has_expired::<T>(&replace.accept_time, Self::replace_period().max(replace.period)),
+            ext::security::has_expired::<T>(replace.accept_time, Self::replace_period().max(replace.period))?,
             Error::<T>::ReplacePeriodNotExpired
         );
 

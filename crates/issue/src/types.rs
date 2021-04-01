@@ -2,7 +2,6 @@ use btc_relay::{BtcAddress, BtcPublicKey};
 use codec::{Decode, Encode};
 use frame_support::traits::Currency;
 use primitive_types::H256;
-use security::ActiveBlockNumber;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -45,7 +44,7 @@ impl Default for IssueRequestStatus {
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 pub struct IssueRequest<AccountId, BlockNumber, PolkaBTC, DOT> {
     pub vault: AccountId,
-    pub opentime: ActiveBlockNumber<BlockNumber>,
+    pub opentime: BlockNumber,
     pub period: BlockNumber,
     #[cfg_attr(feature = "std", serde(bound(deserialize = "DOT: std::str::FromStr")))]
     #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]

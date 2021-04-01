@@ -5,7 +5,7 @@
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use crate::sp_api_hidden_includes_decl_storage::hidden_include::sp_runtime::traits::Saturating;
+use sp_runtime::traits::*;
 
 pub mod types;
 
@@ -22,11 +22,14 @@ extern crate mocktopus;
 use mocktopus::macros::mockable;
 
 #[doc(inline)]
-pub use crate::types::{ActiveBlockNumber, ErrorCode, StatusCode};
+pub use crate::types::{ErrorCode, StatusCode};
 
 use codec::Encode;
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, transactional, weights::Weight,
+    decl_error, decl_event, decl_module, decl_storage,
+    dispatch::{DispatchError, DispatchResult},
+    transactional,
+    weights::Weight,
 };
 use frame_system::ensure_root;
 use primitive_types::H256;
@@ -55,7 +58,7 @@ decl_storage! {
         Nonce: U256;
 
         /// like frame_system::block_number, but this one only if the parachain status is RUNNING.
-        ActiveBlockCount get(fn active_block_number): ActiveBlockNumber<T::BlockNumber>;
+        ActiveBlockCount get(fn active_block_number): T::BlockNumber;
     }
 }
 
@@ -70,14 +73,14 @@ decl_module! {
         fn on_runtime_upgrade() -> Weight {
             if !ActiveBlockCount::<T>::exists() {
                 let chain_height = <frame_system::Pallet<T>>::block_number();
-                ActiveBlockCount::<T>::set(ActiveBlockNumber(chain_height));
+                ActiveBlockCount::<T>::set(chain_height);
             }
             0
         }
 
         fn on_initialize(_chain_height: T::BlockNumber) -> Weight {
             <ActiveBlockCount<T>>::mutate(|n| {
-                n.0 = n.0.saturating_add(1u32.into());
+                *n = n.saturating_add(1u32.into());
             });
 
             0
@@ -250,8 +253,9 @@ impl<T: Config> Module<T> {
         })
     }
 
-    pub fn has_expired(open_time: &ActiveBlockNumber<T::BlockNumber>, period: T::BlockNumber) -> bool {
-        Self::active_block_number().0 > open_time.0 + period
+    pub fn has_expired(opentime: T::BlockNumber, period: T::BlockNumber) -> Result<bool, DispatchError> {
+        let expiration_block = opentime.checked_add(&period).ok_or(Error::<T>::ArithmeticOverflow)?;
+        Ok(Self::active_block_number() > expiration_block)
     }
 
     fn recover_from_(error_codes: Vec<ErrorCode>) {
@@ -308,7 +312,7 @@ impl<T: Config> Module<T> {
 
     /// for testing purposes only!
     pub fn set_active_block_number(n: T::BlockNumber) {
-        ActiveBlockCount::<T>::set(ActiveBlockNumber(n));
+        ActiveBlockCount::<T>::set(n);
     }
 }
 
@@ -328,6 +332,7 @@ decl_error! {
         ParachainOracleOfflineError,
         ParachainLiquidationError,
         InvalidErrorCode,
+        ArithmeticOverflow
     }
 }
 

@@ -1,7 +1,6 @@
 use btc_relay::BtcAddress;
 use codec::{Decode, Encode};
 use frame_support::traits::Currency;
-use security::ActiveBlockNumber;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -45,7 +44,7 @@ impl Default for RedeemRequestStatus {
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 pub struct RedeemRequest<AccountId, BlockNumber, PolkaBTC, DOT> {
     pub vault: AccountId,
-    pub opentime: ActiveBlockNumber<BlockNumber>,
+    pub opentime: BlockNumber,
     pub period: BlockNumber,
     #[cfg_attr(feature = "std", serde(bound(deserialize = "PolkaBTC: std::str::FromStr")))]
     #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
