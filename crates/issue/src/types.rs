@@ -2,6 +2,7 @@ use btc_relay::{BtcAddress, BtcPublicKey};
 use codec::{Decode, Encode};
 use frame_support::traits::Currency;
 use primitive_types::H256;
+use security::ActiveBlockNumber;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -14,6 +15,8 @@ pub enum Version {
     V1,
     /// IssueRequestStatus
     V2,
+    /// ActiveBlockNumber
+    V3,
 }
 
 pub(crate) type DOT<T> = <<T as collateral::Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -42,7 +45,7 @@ impl Default for IssueRequestStatus {
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 pub struct IssueRequest<AccountId, BlockNumber, PolkaBTC, DOT> {
     pub vault: AccountId,
-    pub opentime: BlockNumber,
+    pub opentime: ActiveBlockNumber<BlockNumber>,
     #[cfg_attr(feature = "std", serde(bound(deserialize = "DOT: std::str::FromStr")))]
     #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
     #[cfg_attr(feature = "std", serde(bound(serialize = "DOT: std::fmt::Display")))]
@@ -70,7 +73,7 @@ pub struct IssueRequest<AccountId, BlockNumber, PolkaBTC, DOT> {
 // See https://github.com/paritytech/substrate/issues/4641
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-pub struct IssueRequestV1<AccountId, BlockNumber, PolkaBTC, DOT> {
+pub struct IssueRequestV2<AccountId, BlockNumber, PolkaBTC, DOT> {
     pub vault: AccountId,
     pub opentime: BlockNumber,
     #[cfg_attr(feature = "std", serde(bound(deserialize = "DOT: std::str::FromStr")))]
@@ -82,17 +85,18 @@ pub struct IssueRequestV1<AccountId, BlockNumber, PolkaBTC, DOT> {
     #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
     #[cfg_attr(feature = "std", serde(bound(serialize = "PolkaBTC: std::fmt::Display")))]
     #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
+    /// the number of tokens that will be transfered to the user (as such, this does not include the fee)
     pub amount: PolkaBTC,
     #[cfg_attr(feature = "std", serde(bound(deserialize = "PolkaBTC: std::str::FromStr")))]
     #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
     #[cfg_attr(feature = "std", serde(bound(serialize = "PolkaBTC: std::fmt::Display")))]
     #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
+    /// the number of tokens that will be tranferred to the fee pool
     pub fee: PolkaBTC,
     pub requester: AccountId,
     pub btc_address: BtcAddress,
     pub btc_public_key: BtcPublicKey,
-    pub completed: bool,
-    pub cancelled: bool,
+    pub status: IssueRequestStatus,
 }
 
 #[cfg(feature = "std")]

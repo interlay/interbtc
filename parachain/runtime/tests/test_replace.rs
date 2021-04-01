@@ -18,6 +18,7 @@ pub const DEFAULT_GRIEFING_COLLATERAL: u128 = 5_000;
 fn test_with<R>(execute: impl FnOnce() -> R) -> R {
     ExtBuilder::build().execute_with(|| {
         SystemModule::set_block_number(1);
+        SecurityModule::set_active_block_number(1);
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
         set_default_thresholds();
         UserData::force_to(USER, default_user_state());
@@ -55,7 +56,7 @@ pub fn assert_auction_event() -> H256 {
         .iter()
         .rev()
         .find_map(|record| match record.event {
-            Event::replace(ReplaceEvent::AuctionReplace(id, _, _, _, _, _, _, _, _)) => Some(id),
+            Event::replace(ReplaceEvent::AuctionReplace(id, _, _, _, _, _, _, _)) => Some(id),
             _ => None,
         })
         .unwrap()
@@ -630,7 +631,7 @@ fn integration_test_replace_auction_replace() {
     ExtBuilder::build().execute_with(|| {
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
         set_default_thresholds();
-        SystemModule::set_block_number(1);
+        SecurityModule::set_active_block_number(1);
 
         let user = CAROL;
         let old_vault = ALICE;
@@ -683,6 +684,7 @@ fn integration_test_replace_execute_replace() {
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
         set_default_thresholds();
         SystemModule::set_block_number(1);
+        SecurityModule::set_active_block_number(1);
 
         let user = CAROL;
         let old_vault = ALICE;
@@ -738,6 +740,7 @@ fn integration_test_replace_cancel_replace() {
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
         set_default_thresholds();
         SystemModule::set_block_number(1);
+        SecurityModule::set_active_block_number(1);
 
         let amount = 1000;
         //FIXME: get this from storage
@@ -768,7 +771,7 @@ fn integration_test_replace_cancel_replace() {
 
         // set block height
         // alice cancels replacement
-        SystemModule::set_block_number(30);
+        SecurityModule::set_active_block_number(30);
         assert_ok!(Call::Replace(ReplaceCall::cancel_replace(replace_id)).dispatch(origin_of(account_of(ALICE))));
     });
 }
@@ -779,6 +782,7 @@ fn integration_test_replace_cancel_auction_replace() {
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
         set_default_thresholds();
         SystemModule::set_block_number(1);
+        SecurityModule::set_active_block_number(1);
         let new_vault_btc_address = BtcAddress::P2PKH(H160([2; 20]));
 
         let user = CAROL;
@@ -833,7 +837,7 @@ fn integration_test_replace_cancel_auction_replace() {
 
         let replace_id = assert_auction_event();
 
-        SystemModule::set_block_number(30);
+        SecurityModule::set_active_block_number(30);
 
         assert_ok!(Call::Replace(ReplaceCall::cancel_replace(replace_id)).dispatch(origin_of(account_of(BOB))));
 
@@ -857,7 +861,7 @@ fn integration_test_replace_cancel_repeatedly_fails() {
     ExtBuilder::build().execute_with(|| {
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
         set_default_thresholds();
-        SystemModule::set_block_number(1);
+        SecurityModule::set_active_block_number(1);
 
         let user = CAROL;
         let old_vault = ALICE;
@@ -938,6 +942,7 @@ fn setup_replace(polkabtc: u128) -> H256 {
     assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
     set_default_thresholds();
     SystemModule::set_block_number(1);
+    SecurityModule::set_active_block_number(1);
 
     // burn surplus free balance to make checking easier
     CollateralModule::transfer(
@@ -1006,7 +1011,7 @@ fn execute_replace(replace_id: H256) {
 fn cancel_replace(replace_id: H256) {
     // set block height
     // alice cancels replacement
-    SystemModule::set_block_number(30);
+    SecurityModule::set_active_block_number(30);
     assert_ok!(Call::Replace(ReplaceCall::cancel_replace(replace_id)).dispatch(origin_of(account_of(NEW_VAULT))));
 }
 #[test]
@@ -1529,7 +1534,7 @@ fn integration_test_issue_using_griefing_collateral_fails() {
     ExtBuilder::build().execute_with(|| {
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
         set_default_thresholds();
-        SystemModule::set_block_number(1);
+        SecurityModule::set_active_block_number(1);
 
         let amount = 1000;
         let collateral = amount * 2;

@@ -166,6 +166,7 @@ pub(crate) mod collateral {
 pub(crate) mod security {
     use frame_support::dispatch::DispatchResult;
     use primitive_types::H256;
+    use security::ActiveBlockNumber;
 
     pub fn get_secure_id<T: security::Config>(id: &T::AccountId) -> H256 {
         <security::Module<T>>::get_secure_id(id)
@@ -173,6 +174,17 @@ pub(crate) mod security {
 
     pub fn ensure_parachain_status_running<T: security::Config>() -> DispatchResult {
         <security::Module<T>>::ensure_parachain_status_running()
+    }
+
+    pub fn active_block_number<T: security::Config>() -> ActiveBlockNumber<T::BlockNumber> {
+        <security::Module<T>>::active_block_number()
+    }
+
+    pub fn has_expired<T: security::Config>(
+        open_time: &ActiveBlockNumber<T::BlockNumber>,
+        period: T::BlockNumber,
+    ) -> bool {
+        <security::Module<T>>::has_expired(open_time, period)
     }
 }
 

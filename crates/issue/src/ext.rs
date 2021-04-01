@@ -119,6 +119,7 @@ pub(crate) mod treasury {
 pub(crate) mod security {
     use frame_support::dispatch::DispatchResult;
     use primitive_types::H256;
+    use security::ActiveBlockNumber;
 
     pub fn get_secure_id<T: security::Config>(id: &T::AccountId) -> H256 {
         <security::Module<T>>::get_secure_id(id)
@@ -126,6 +127,17 @@ pub(crate) mod security {
 
     pub fn ensure_parachain_status_running<T: security::Config>() -> DispatchResult {
         <security::Module<T>>::ensure_parachain_status_running()
+    }
+
+    pub fn active_block_number<T: security::Config>() -> ActiveBlockNumber<T::BlockNumber> {
+        <security::Module<T>>::active_block_number()
+    }
+
+    pub fn has_expired<T: security::Config>(
+        open_time: &ActiveBlockNumber<T::BlockNumber>,
+        period: T::BlockNumber,
+    ) -> bool {
+        <security::Module<T>>::has_expired(open_time, period)
     }
 }
 
@@ -181,11 +193,10 @@ pub(crate) mod fee {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod refund {
-    use crate::{types::PolkaBTC, Vec};
+    use crate::types::PolkaBTC;
     use btc_relay::BtcAddress;
     use frame_support::dispatch::DispatchError;
     use primitive_types::H256;
-    use refund::types::RefundRequest;
 
     pub fn request_refund<T: refund::Config>(
         total_amount_btc: PolkaBTC<T>,
@@ -195,11 +206,5 @@ pub(crate) mod refund {
         issue_id: H256,
     ) -> Result<Option<H256>, DispatchError> {
         <refund::Module<T>>::request_refund(total_amount_btc, vault_id, issuer, btc_address, issue_id)
-    }
-
-    pub fn get_refund_requests_for_account<T: refund::Config>(
-        account_id: T::AccountId,
-    ) -> Vec<(H256, RefundRequest<T::AccountId, PolkaBTC<T>>)> {
-        <refund::Module<T>>::get_refund_requests_for_account(account_id)
     }
 }

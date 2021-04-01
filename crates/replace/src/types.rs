@@ -1,6 +1,7 @@
 use btc_relay::BtcAddress;
 use codec::{Decode, Encode};
 use frame_support::traits::Currency;
+use security::ActiveBlockNumber;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sp_core::H160;
@@ -14,6 +15,8 @@ pub enum Version {
     V1,
     /// Status, make all fields non-optional, remove open_time
     V2,
+    /// active block number
+    V3,
 }
 
 pub(crate) type DOT<T> = <<T as collateral::Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -38,6 +41,31 @@ impl Default for ReplaceRequestStatus {
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 pub struct ReplaceRequest<AccountId, BlockNumber, PolkaBTC, DOT> {
+    pub old_vault: AccountId,
+    pub new_vault: AccountId,
+    #[cfg_attr(feature = "std", serde(bound(deserialize = "PolkaBTC: std::str::FromStr")))]
+    #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
+    #[cfg_attr(feature = "std", serde(bound(serialize = "PolkaBTC: std::fmt::Display")))]
+    #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
+    pub amount: PolkaBTC,
+    #[cfg_attr(feature = "std", serde(bound(deserialize = "DOT: std::str::FromStr")))]
+    #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
+    #[cfg_attr(feature = "std", serde(bound(serialize = "DOT: std::fmt::Display")))]
+    #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
+    pub griefing_collateral: DOT,
+    #[cfg_attr(feature = "std", serde(bound(deserialize = "DOT: std::str::FromStr")))]
+    #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
+    #[cfg_attr(feature = "std", serde(bound(serialize = "DOT: std::fmt::Display")))]
+    #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
+    pub collateral: DOT,
+    pub accept_time: ActiveBlockNumber<BlockNumber>,
+    pub btc_address: BtcAddress,
+    pub status: ReplaceRequestStatus,
+}
+
+#[derive(Encode, Decode, Default, Clone, PartialEq)]
+#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+pub struct ReplaceRequestV2<AccountId, BlockNumber, PolkaBTC, DOT> {
     pub old_vault: AccountId,
     pub new_vault: AccountId,
     #[cfg_attr(feature = "std", serde(bound(deserialize = "PolkaBTC: std::str::FromStr")))]

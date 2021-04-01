@@ -33,6 +33,7 @@ use btc_relay::BtcAddress;
 pub use crate::types::{ReplaceRequest, ReplaceRequestStatus};
 
 use crate::types::{PolkaBTC, ReplaceRequestV1, Version, DOT};
+use security::ActiveBlockNumber;
 use vault_registry::CurrencySource;
 
 mod ext;
@@ -103,7 +104,6 @@ decl_event!(
         AccountId = <T as frame_system::Config>::AccountId,
         PolkaBTC = PolkaBTC<T>,
         DOT = DOT<T>,
-        BlockNumber = <T as frame_system::Config>::BlockNumber,
     {
         // [old_vault_id, amount_btc, griefing_collateral]
         RequestReplace(AccountId, PolkaBTC, DOT),
@@ -114,15 +114,14 @@ decl_event!(
         // [replace_id, old_vault_id, new_vault_id]
         ExecuteReplace(H256, AccountId, AccountId),
         AuctionReplace(
-            H256,        // replace_id
-            AccountId,   // old_vault_id
-            AccountId,   // new_vault_id
-            PolkaBTC,    // btc_amount
-            DOT,         // collateral
-            DOT,         // reward
-            DOT,         // griefing_collateral
-            BlockNumber, // current_height
-            BtcAddress,  // btc_address
+            H256,       // replace_id
+            AccountId,  // old_vault_id
+            AccountId,  // new_vault_id
+            PolkaBTC,   // btc_amount
+            DOT,        // collateral
+            DOT,        // reward
+            DOT,        // griefing_collateral
+            BtcAddress, // btc_address
         ),
         // [replace_id, new_vault_id, old_vault_id, griefing_collateral]
         CancelReplace(H256, AccountId, AccountId, DOT),
@@ -161,7 +160,7 @@ decl_module! {
                                 amount: request_v1.amount,
                                 griefing_collateral: request_v1.griefing_collateral,
                                 collateral: request_v1.collateral,
-                                accept_time: request_v1.accept_time?,
+                                accept_time: ActiveBlockNumber(request_v1.accept_time?),
                                 btc_address: request_v1.btc_address?,
                                 status
                             })
@@ -173,9 +172,8 @@ decl_module! {
                         }
                     });
 
-                StorageVersion::put(Version::V2);
+                StorageVersion::put(Version::V3);
             }
-
             0
         }
 
@@ -442,7 +440,6 @@ impl<T: Config> Module<T> {
             replace.collateral,
             reward,
             replace.griefing_collateral,
-            replace.accept_time,
             replace.btc_address,
         ));
 
@@ -467,7 +464,7 @@ impl<T: Config> Module<T> {
 
         // only executable before the request has expired
         ensure!(
-            !Self::has_request_expired(replace.accept_time, Self::replace_period()),
+            !ext::security::has_expired::<T>(&replace.accept_time, Self::replace_period()),
             Error::<T>::ReplacePeriodExpired
         );
 
@@ -516,7 +513,7 @@ impl<T: Config> Module<T> {
 
         // only cancellable after the request has expired
         ensure!(
-            Self::has_request_expired(replace.accept_time, Self::replace_period()),
+            ext::security::has_expired::<T>(&replace.accept_time, Self::replace_period()),
             Error::<T>::ReplacePeriodNotExpired
         );
 
@@ -623,7 +620,7 @@ impl<T: Config> Module<T> {
         let replace = ReplaceRequest {
             old_vault: old_vault_id,
             new_vault: new_vault_id,
-            accept_time: height,
+            accept_time: ext::security::active_block_number::<T>(),
             collateral: actual_new_vault_collateral,
             btc_address: btc_address,
             griefing_collateral: if is_auction { 0u32.into() } else { griefing_collateral },
@@ -701,11 +698,6 @@ impl<T: Config> Module<T> {
 
     fn current_height() -> T::BlockNumber {
         <frame_system::Pallet<T>>::block_number()
-    }
-
-    fn has_request_expired(opentime: T::BlockNumber, period: T::BlockNumber) -> bool {
-        let height = <frame_system::Pallet<T>>::block_number();
-        height > opentime + period
     }
 }
 

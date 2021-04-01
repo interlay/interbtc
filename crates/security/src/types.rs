@@ -1,6 +1,13 @@
 use codec::{Decode, Encode};
 use sp_std::{cmp::Ord, fmt::Debug};
 
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
+
+#[derive(Encode, Decode, Clone, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
+pub struct ActiveBlockNumber<T>(pub T);
+
 /// Enum indicating the status of the BTC Parachain.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
 pub enum StatusCode {
