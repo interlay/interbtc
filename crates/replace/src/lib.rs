@@ -306,7 +306,6 @@ impl<T: Config> Module<T> {
         ext::security::ensure_parachain_status_running::<T>()?;
 
         // check vault is not banned
-        let height = Self::current_height();
         ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;
 
         let requestable_tokens = ext::vault_registry::requestable_to_be_replaced_tokens::<T>(&vault_id)?;
@@ -576,7 +575,6 @@ impl<T: Config> Module<T> {
         ext::security::ensure_parachain_status_running::<T>()?;
 
         // Check that new vault is not currently banned
-        let height = Self::current_height();
         ext::vault_registry::ensure_not_banned::<T>(&new_vault_id)?;
 
         // Add the new replace address to the vault's wallet,
@@ -695,10 +693,6 @@ impl<T: Config> Module<T> {
                 req.status = status;
             }
         });
-    }
-
-    fn current_height() -> T::BlockNumber {
-        ext::security::active_block_number::<T>()
     }
 }
 

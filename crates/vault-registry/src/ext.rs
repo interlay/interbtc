@@ -74,4 +74,8 @@ pub(crate) mod security {
     pub fn ensure_parachain_does_not_have_errors<T: security::Config>(error_codes: Vec<ErrorCode>) -> DispatchResult {
         <security::Module<T>>::ensure_parachain_does_not_have_errors(error_codes)
     }
+
+    pub fn active_block_number<T: security::Config>() -> T::BlockNumber {
+        <security::Module<T>>::active_block_number()
+    }
 }

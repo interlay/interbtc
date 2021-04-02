@@ -7,7 +7,8 @@ use bitcoin::{
 use btc_relay::{BtcAddress, BtcPublicKey, Module as BtcRelay};
 use collateral::Module as Collateral;
 use frame_benchmarking::{account, benchmarks};
-use frame_system::{Pallet as System, RawOrigin};
+use frame_system::RawOrigin;
+use security::Module as Security;
 use sp_core::{H160, U256};
 use sp_std::prelude::*;
 use vault_registry::{
@@ -36,7 +37,7 @@ benchmarks! {
             .with_timestamp(1588813835)
             .mine(U256::from(2).pow(254.into())).unwrap();
         let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
-        <ActiveStakedRelayers<T>>::insert(&origin, StakedRelayer { stake: stake.into(), height: Security::active_block_number() });
+        <ActiveStakedRelayers<T>>::insert(&origin, StakedRelayer { stake: stake.into(), height: Security::<T>::active_block_number() });
     }: _(RawOrigin::Signed(origin), block_header, height.into())
 
     store_block_header {
@@ -56,7 +57,7 @@ benchmarks! {
         let raw_block_header = RawBlockHeader::from_bytes(&init_block.header.try_format().unwrap())
             .expect("could not serialize block header");
 
-            <ActiveStakedRelayers<T>>::insert(&origin, StakedRelayer { stake: stake.into(), height: Security::active_block_number() });
+            <ActiveStakedRelayers<T>>::insert(&origin, StakedRelayer { stake: stake.into(), height: Security::<T>::active_block_number() });
 
         BtcRelay::<T>::initialize(origin.clone(), raw_block_header, height).unwrap();
 
@@ -83,7 +84,7 @@ benchmarks! {
     deregister_staked_relayer {
         let origin: T::AccountId = account("Origin", 0, 0);
         let stake: u32 = 100;
-        <ActiveStakedRelayers<T>>::insert(&origin, StakedRelayer { stake: stake.into(), height: Security::active_block_number() });
+        <ActiveStakedRelayers<T>>::insert(&origin, StakedRelayer { stake: stake.into(), height: Security::<T>::active_block_number() });
         Collateral::<T>::lock_collateral(&origin, stake.into()).unwrap();
     }: _(RawOrigin::Signed(origin))
 
@@ -92,13 +93,13 @@ benchmarks! {
         let stake: u32 = 100;
         let deposit: u32 = 1000;
         let status_code = StatusCode::Error;
-        StakedRelayers::<T>::insert_active_staked_relayer(&origin, stake.into(), Security::active_block_number());
+        StakedRelayers::<T>::insert_active_staked_relayer(&origin, stake.into(), Security::<T>::active_block_number());
     }: _(RawOrigin::Signed(origin), deposit.into(), status_code, None, None, None, vec![])
 
     vote_on_status_update {
         let origin: T::AccountId = account("Origin", 0, 0);
         let stake: u32 = 100;
-        StakedRelayers::<T>::insert_active_staked_relayer(&origin, stake.into(), Security::active_block_number());
+        StakedRelayers::<T>::insert_active_staked_relayer(&origin, stake.into(), Security::<T>::active_block_number());
         let status_update = StatusUpdate::default();
         let status_update_id = StakedRelayers::<T>::insert_active_status_update(status_update);
     }: _(RawOrigin::Signed(origin), status_update_id, true)
@@ -112,7 +113,7 @@ benchmarks! {
         let origin: T::AccountId = account("Origin", 0, 0);
         let staked_relayer: T::AccountId = account("Vault", 0, 0);
         let stake: u32 = 100;
-        StakedRelayers::<T>::insert_active_staked_relayer(&staked_relayer, stake.into(), Security::active_block_number());
+        StakedRelayers::<T>::insert_active_staked_relayer(&staked_relayer, stake.into(), Security::<T>::active_block_number());
         Collateral::<T>::lock_collateral(&staked_relayer, stake.into()).unwrap();
 
     }: _(RawOrigin::Signed(origin), staked_relayer)
@@ -122,7 +123,7 @@ benchmarks! {
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
         let stake: u32 = 100;
-        StakedRelayers::<T>::insert_active_staked_relayer(&origin, stake.into(), Security::active_block_number());
+        StakedRelayers::<T>::insert_active_staked_relayer(&origin, stake.into(), Security::<T>::active_block_number());
 
         let vault_address = BtcAddress::P2PKH(H160::from_slice(&[
             126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8,

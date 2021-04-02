@@ -736,10 +736,12 @@ pub type CollateralModule = collateral::Module<Runtime>;
 #[allow(dead_code)]
 pub type TreasuryModule = treasury::Module<Runtime>;
 
-pub struct ExtBuilder;
+pub struct ExtBuilder {
+    test_externalities: sp_io::TestExternalities,
+}
 
 impl ExtBuilder {
-    pub fn build() -> sp_io::TestExternalities {
+    pub fn build() -> Self {
         let mut storage = frame_system::GenesisConfig::default()
             .build_storage::<Runtime>()
             .unwrap();
@@ -855,6 +857,18 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage)
         .unwrap();
 
-        sp_io::TestExternalities::from(storage)
+        Self {
+            test_externalities: sp_io::TestExternalities::from(storage),
+        }
+    }
+
+    /// do setup common to all integration tests, then execute the callback
+    pub fn execute_with<R>(mut self, execute: impl FnOnce() -> R) -> R {
+        self.test_externalities.execute_with(|| {
+            SystemModule::set_block_number(1); // required to be able to dispatch functions
+            SecurityModule::set_active_block_number(1);
+
+            execute()
+        })
     }
 }

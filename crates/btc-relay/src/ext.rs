@@ -41,4 +41,8 @@ pub(crate) mod security {
     pub fn insert_error<T: security::Config>(error: ErrorCode) -> () {
         <security::Module<T>>::insert_error(error)
     }
+
+    pub fn active_block_number<T: security::Config>() -> T::BlockNumber {
+        <security::Module<T>>::active_block_number()
+    }
 }

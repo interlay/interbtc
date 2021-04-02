@@ -211,6 +211,7 @@ where
     ext::oracle::btc_to_dots::<Test>.mock_safe(|v| MockResult::Return(Ok(v)));
     ExtBuilder::build().execute_with(|| {
         System::set_block_number(1);
+        Security::set_active_block_number(1);
         test()
     })
 }

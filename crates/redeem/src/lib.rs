@@ -295,7 +295,6 @@ impl<T: Config> Module<T> {
             .checked_sub(&fee_polka_btc)
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
-        let height = ext::security::active_block_number::<T>();
         ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;
 
         // only allow requests of amount above above the minimum

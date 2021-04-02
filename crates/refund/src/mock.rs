@@ -195,6 +195,7 @@ where
             FixedU128::one()
         ));
         System::set_block_number(1);
+        Security::set_active_block_number(1);
         test();
     });
 }

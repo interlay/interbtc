@@ -1072,6 +1072,7 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
 
         ext::redeem::get_open_or_completed_redeem_request_from_id::<Test>.mock_safe(move |_| {
             MockResult::Return(Ok(RedeemRequest {
+                period: 0,
                 vault: BOB,
                 opentime: 0,
                 fee: 0,
@@ -1123,6 +1124,7 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
 
         ext::replace::get_open_or_completed_replace_request::<Test>.mock_safe(move |_| {
             MockResult::Return(Ok(ReplaceRequest {
+                period: 0,
                 old_vault: BOB,
                 amount: 100,
                 griefing_collateral: 0,

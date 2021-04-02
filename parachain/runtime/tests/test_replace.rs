@@ -17,7 +17,6 @@ pub const DEFAULT_GRIEFING_COLLATERAL: u128 = 5_000;
 
 fn test_with<R>(execute: impl FnOnce() -> R) -> R {
     ExtBuilder::build().execute_with(|| {
-        SecurityModule::set_active_block_number(1);
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
         set_default_thresholds();
         UserData::force_to(USER, default_user_state());

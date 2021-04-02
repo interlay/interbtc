@@ -239,7 +239,6 @@ impl<T: Config> Module<T> {
         // Check that Parachain is RUNNING
         ext::security::ensure_parachain_status_running::<T>()?;
 
-        let height = ext::security::active_block_number::<T>();
         let vault = ext::vault_registry::get_active_vault_from_id::<T>(&vault_id)?;
         // Check that the vault is currently not banned
         ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;

@@ -12,11 +12,11 @@ use crate::{
 use frame_support::{assert_err, assert_noop, assert_ok, StorageMap};
 use mocktopus::mocking::*;
 use primitive_types::U256;
+use security::Module as Security;
 use sp_arithmetic::{FixedPointNumber, FixedU128};
 use sp_runtime::traits::Header;
 use sp_std::convert::TryInto;
 use std::{collections::HashMap, rc::Rc};
-
 type Event = crate::Event<Test>;
 
 // use macro to avoid messing up stack trace
@@ -1424,7 +1424,7 @@ fn setup_block(i: u64, parent_hash: H256) -> H256 {
     <pallet_randomness_collective_flip::Module<Test>>::on_initialize(i);
 
     let header = System::finalize();
-    System::set_block_number(*header.number());
+    Security::<Test>::set_active_block_number(*header.number());
     header.hash()
 }
 
