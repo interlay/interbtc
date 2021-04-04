@@ -1,4 +1,5 @@
 use crate::*;
+use frame_support::transactional;
 
 pub const USER: [u8; 32] = ALICE;
 pub const VAULT: [u8; 32] = BOB;
@@ -6,7 +7,6 @@ pub const PROOF_SUBMITTER: [u8; 32] = CAROL;
 
 pub const DEFAULT_GRIEFING_COLLATERAL: u128 = 5_000;
 pub const DEFAULT_COLLATERAL: u128 = 1_000_000;
-
 pub fn request_issue(amount_btc: u128) -> (H256, IssueRequest<AccountId32, u32, u128, u128>) {
     RequestIssueBuilder::new(amount_btc).request()
 }
@@ -92,6 +92,7 @@ impl ExecuteIssueBuilder {
         self
     }
 
+    #[transactional]
     pub fn execute(&self) -> DispatchResultWithPostInfo {
         // send the btc from the user to the vault
         let (tx_id, _height, proof, raw_tx) = TransactionGenerator::new()
@@ -101,7 +102,7 @@ impl ExecuteIssueBuilder {
             .with_relayer(self.relayer)
             .mine();
 
-        SecurityModule::set_active_block_number(1 + CONFIRMATIONS);
+        SecurityModule::set_active_block_number(SecurityModule::active_block_number() + CONFIRMATIONS);
 
         if self.register_submitter_as_vault {
             try_register_vault(DEFAULT_COLLATERAL, self.submitter);

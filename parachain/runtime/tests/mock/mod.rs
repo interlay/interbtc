@@ -7,7 +7,7 @@ pub use bitcoin::{
 };
 pub use btc_parachain_runtime::{AccountId, Call, Event, Runtime};
 pub use btc_relay::{BtcAddress, BtcPublicKey};
-pub use frame_support::{assert_noop, assert_ok, dispatch::DispatchResultWithPostInfo};
+pub use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchResultWithPostInfo};
 pub use mocktopus::mocking::*;
 pub use primitive_types::{H256, U256};
 pub use security::{ErrorCode, StatusCode};
@@ -18,6 +18,7 @@ pub use sp_std::convert::TryInto;
 pub use vault_registry::CurrencySource;
 
 pub use issue::IssueRequest;
+pub use redeem::RedeemRequest;
 pub use refund::RefundRequest;
 pub use replace::ReplaceRequest;
 pub use sp_runtime::AccountId32;
@@ -108,6 +109,10 @@ pub fn default_vault_state() -> CoreVaultData {
         replace_collateral: DEFAULT_VAULT_REPLACE_COLLATERAL,
         to_be_replaced: DEFAULT_VAULT_TO_BE_REPLACED,
     }
+}
+
+pub fn root() -> <Runtime as frame_system::Config>::Origin {
+    <Runtime as frame_system::Config>::Origin::root()
 }
 
 pub fn origin_of(account_id: AccountId) -> <Runtime as frame_system::Config>::Origin {
