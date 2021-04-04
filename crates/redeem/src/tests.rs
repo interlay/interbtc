@@ -203,6 +203,7 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
                 premium_dot: 0,
                 redeemer: redeemer.clone(),
                 btc_address: BtcAddress::P2PKH(H160::zero()),
+                open_bitcoin_height: 0,
                 status: RedeemRequestStatus::Pending,
             }
         );
@@ -287,6 +288,7 @@ fn test_execute_redeem_succeeds_with_another_account() {
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: BtcAddress::random(),
+                open_bitcoin_height: 0,
                 status: RedeemRequestStatus::Pending,
             },
         );
@@ -336,6 +338,7 @@ fn test_execute_redeem_fails_with_commit_period_expired() {
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: BtcAddress::random(),
+                open_bitcoin_height: 0,
                 status: RedeemRequestStatus::Pending,
             }))
         });
@@ -388,6 +391,7 @@ fn test_execute_redeem_succeeds() {
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: BtcAddress::random(),
+                open_bitcoin_height: 0,
                 status: RedeemRequestStatus::Pending,
             },
         );
@@ -447,6 +451,7 @@ fn test_cancel_redeem_fails_with_time_not_expired() {
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: BtcAddress::random(),
+                open_bitcoin_height: 0,
                 status: RedeemRequestStatus::Pending,
             }))
         });
@@ -473,6 +478,7 @@ fn test_cancel_redeem_fails_with_unauthorized_caller() {
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: BtcAddress::random(),
+                open_bitcoin_height: 0,
                 status: RedeemRequestStatus::Pending,
             }))
         });
@@ -498,6 +504,7 @@ fn test_cancel_redeem_succeeds() {
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: BtcAddress::random(),
+                open_bitcoin_height: 0,
                 status: RedeemRequestStatus::Pending,
             },
         );

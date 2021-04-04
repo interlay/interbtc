@@ -43,6 +43,7 @@ fn test_request() -> ReplaceRequest<u64, u64, u64, u64> {
         griefing_collateral: 0,
         btc_address: BtcAddress::default(),
         collateral: 20,
+        open_bitcoin_height: 0,
         status: ReplaceRequestStatus::Pending,
     }
 }

@@ -20,6 +20,10 @@ pub(crate) mod btc_relay {
     ) -> Result<(BtcAddress, i64), DispatchError> {
         <btc_relay::Module<T>>::_validate_transaction(raw_tx, minimum_btc, btc_address, redeem_id)
     }
+
+    pub fn get_best_block_height<T: btc_relay::Config>() -> u32 {
+        <btc_relay::Module<T>>::get_best_block_height()
+    }
 }
 
 #[cfg_attr(test, mockable)]

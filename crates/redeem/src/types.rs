@@ -13,7 +13,7 @@ pub enum Version {
     V1,
     /// RedeemRequestStatus, removed amount_dot and amount_polka_btc
     V2,
-    /// ActiveBlockNumber
+    /// ActiveBlockNumber, open_bitcoin_height
     V3,
 }
 
@@ -66,6 +66,7 @@ pub struct RedeemRequest<AccountId, BlockNumber, PolkaBTC, DOT> {
     pub premium_dot: DOT,
     pub redeemer: AccountId,
     pub btc_address: BtcAddress,
+    pub open_bitcoin_height: u32,
     pub status: RedeemRequestStatus,
 }
 

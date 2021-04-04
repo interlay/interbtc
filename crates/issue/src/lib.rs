@@ -142,6 +142,7 @@ decl_module! {
                             requester: old_request.requester,
                             btc_address: old_request.btc_address,
                             btc_public_key: old_request.btc_public_key,
+                            open_bitcoin_height: 1969929, // extra conservative, testnet height at april 4th
                             status: old_request.status,
                         };
                         <IssueRequests<T>>::insert(id, new_request);
@@ -274,6 +275,7 @@ impl<T: Config> Module<T> {
             fee,
             griefing_collateral,
             period: Self::issue_period(),
+            open_bitcoin_height: ext::btc_relay::get_best_block_height::<T>(),
             status: IssueRequestStatus::Pending,
         };
         Self::insert_issue_request(&issue_id, &request);
