@@ -243,6 +243,10 @@ impl frame_system::Config for Runtime {
     type BlockWeights = RuntimeBlockWeights;
     type BlockLength = RuntimeBlockLength;
     type SS58Prefix = SS58Prefix;
+    #[cfg(feature = "aura-grandpa")]
+    type OnSetCode = ();
+    #[cfg(feature = "cumulus-polkadot")]
+    type OnSetCode = ParachainSystem;
 }
 
 #[cfg(feature = "aura-grandpa")]
@@ -303,7 +307,7 @@ impl cumulus_parachain_system::Config for Runtime {
     type OnValidationData = ();
     type SelfParaId = parachain_info::Module<Runtime>;
     type DownwardMessageHandlers = XcmHandler;
-    type HrmpMessageHandlers = XcmHandler;
+    type XcmpMessageHandlers = XcmHandler;
 }
 
 #[cfg(feature = "cumulus-polkadot")]
@@ -364,7 +368,7 @@ impl xcm_handler::Config for Runtime {
     type Event = Event;
     type XcmExecutor = XcmExecutor<XcmConfig>;
     type UpwardMessageSender = ParachainSystem;
-    type HrmpMessageSender = ParachainSystem;
+    type XcmpMessageSender = ParachainSystem;
     type SendXcmOrigin = EnsureRoot<AccountId>;
     type AccountIdConverter = LocationConverter;
 }
