@@ -221,6 +221,8 @@ fn integration_test_issue_overpayment() {
                 vault.issued += sent_btc;
             })
         );
+
+        assert_issue_amount_change_event(issue_id, 2 * issue.amount, 2 * issue.fee, 0);
     });
 }
 
@@ -285,11 +287,12 @@ fn integration_test_issue_underpayment_succeeds() {
             .with_submitter(USER, false)
             .assert_execute();
 
+        let slashed_griefing_collateral = (issue.griefing_collateral * 3) / 4;
+
         assert_eq!(
             ParachainState::get(),
             ParachainState::default().with_changes(|user, vault, _, fee_pool| {
                 // user loses 75% of griefing collateral for having only fulfilled 25%
-                let slashed_griefing_collateral = (issue.griefing_collateral * 3) / 4;
                 user.free_balance -= slashed_griefing_collateral;
                 fee_pool.balance += slashed_griefing_collateral;
 
@@ -299,6 +302,8 @@ fn integration_test_issue_underpayment_succeeds() {
                 vault.issued += (issue.fee + issue.amount) / 4;
             })
         );
+
+        assert_issue_amount_change_event(issue_id, issue.amount / 4, issue.fee / 4, slashed_griefing_collateral);
     });
 }
 

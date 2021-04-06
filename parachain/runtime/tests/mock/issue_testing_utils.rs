@@ -120,6 +120,17 @@ pub fn execute_issue(issue_id: H256) {
     ExecuteIssueBuilder::new(issue_id).assert_execute()
 }
 
+pub fn assert_issue_amount_change_event(issue_id: H256, amount: u128, fee: u128, confiscated_collateral: u128) {
+    let expected_event = IssueEvent::IssueAmountChange(issue_id, amount, fee, confiscated_collateral);
+    let events = SystemModule::events();
+    let records: Vec<_> = events
+        .iter()
+        .rev()
+        .filter(|record| matches!(&record.event, Event::issue(x) if x == &expected_event))
+        .collect();
+    assert_eq!(records.len(), 1);
+}
+
 pub fn assert_issue_request_event() -> H256 {
     let events = SystemModule::events();
     let record = events.iter().rev().find(|record| match record.event {

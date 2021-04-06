@@ -100,13 +100,15 @@ decl_event!(
         RequestIssue(
             H256,         // issue_id
             AccountId,    // requester
-            PolkaBTC,     // amount_btc
-            PolkaBTC,     // fee_polkabtc
+            PolkaBTC,     // amount
+            PolkaBTC,     // fee
             DOT,          // griefing_collateral
             AccountId,    // vault_id
             BtcAddress,   // vault deposit address
             BtcPublicKey, // vault public key
         ),
+        // issue_id, amount, fee, confiscated_griefing_collateral
+        IssueAmountChange(H256, PolkaBTC, PolkaBTC, DOT),
         // [issue_id, requester, total_amount, vault]
         ExecuteIssue(H256, AccountId, PolkaBTC, AccountId),
         // [issue_id, requester, griefing_collateral]
@@ -367,7 +369,7 @@ impl<T: Config> Module<T> {
             )?;
             ext::fee::increase_dot_rewards_for_epoch::<T>(slashed_collateral);
 
-            Self::update_issue_amount(&issue_id, &mut issue, amount_transferred)?;
+            Self::update_issue_amount(&issue_id, &mut issue, amount_transferred, slashed_collateral)?;
         } else {
             // release griefing collateral
             ext::collateral::release_collateral::<T>(&requester, issue.griefing_collateral)?;
@@ -382,7 +384,7 @@ impl<T: Config> Module<T> {
                 match ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&issue.vault, surplus_btc) {
                     Ok(_) => {
                         // Current vault can handle the surplus; update the issue request
-                        Self::update_issue_amount(&issue_id, &mut issue, amount_transferred)?;
+                        Self::update_issue_amount(&issue_id, &mut issue, amount_transferred, 0u32.into())?;
                     }
                     Err(_) => {
                         // vault does not have enough collateral to accept the over payment, so refund.
@@ -515,6 +517,7 @@ impl<T: Config> Module<T> {
         issue_id: &H256,
         issue: &mut IssueRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
         transferred_btc: PolkaBTC<T>,
+        confiscated_griefing_collateral: DOT<T>,
     ) -> Result<(), DispatchError> {
         // Current vault can handle the surplus; update the issue request
         issue.fee = ext::fee::get_issue_fee::<T>(transferred_btc)?;
@@ -527,6 +530,13 @@ impl<T: Config> Module<T> {
             x.fee = issue.fee;
             x.amount = issue.amount;
         });
+
+        Self::deposit_event(<Event<T>>::IssueAmountChange(
+            issue_id.clone(),
+            issue.amount,
+            issue.fee,
+            confiscated_griefing_collateral,
+        ));
 
         Ok(())
     }
