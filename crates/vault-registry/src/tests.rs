@@ -100,7 +100,7 @@ fn create_vault_and_issue_tokens(
     id
 }
 
-fn create_sample_vault_andissue_tokens(issue_tokens: u128) -> <Test as frame_system::Config>::AccountId {
+fn create_sample_vault_and_issue_tokens(issue_tokens: u128) -> <Test as frame_system::Config>::AccountId {
     create_vault_and_issue_tokens(issue_tokens, DEFAULT_COLLATERAL, DEFAULT_ID)
 }
 
@@ -1080,7 +1080,7 @@ fn get_collateralization_from_vault_fails_with_no_tokens_issued() {
 fn get_collateralization_from_vault_succeeds() {
     run_test(|| {
         let issue_tokens: u128 = DEFAULT_COLLATERAL / 10 / 2; // = 5
-        let id = create_sample_vault_andissue_tokens(issue_tokens);
+        let id = create_sample_vault_and_issue_tokens(issue_tokens);
 
         assert_eq!(
             VaultRegistry::get_collateralization_from_vault(id, false),
@@ -1093,7 +1093,7 @@ fn get_collateralization_from_vault_succeeds() {
 fn get_unsettled_collateralization_from_vault_succeeds() {
     run_test(|| {
         let issue_tokens: u128 = DEFAULT_COLLATERAL / 10 / 4; // = 2
-        let id = create_sample_vault_andissue_tokens(issue_tokens);
+        let id = create_sample_vault_and_issue_tokens(issue_tokens);
 
         assert_ok!(VaultRegistry::try_increase_to_be_issued_tokens(&id, issue_tokens),);
 
@@ -1108,7 +1108,7 @@ fn get_unsettled_collateralization_from_vault_succeeds() {
 fn get_settled_collateralization_from_vault_succeeds() {
     run_test(|| {
         let issue_tokens: u128 = DEFAULT_COLLATERAL / 10 / 4; // = 2
-        let id = create_sample_vault_andissue_tokens(issue_tokens);
+        let id = create_sample_vault_and_issue_tokens(issue_tokens);
 
         assert_ok!(VaultRegistry::try_increase_to_be_issued_tokens(&id, issue_tokens),);
 
@@ -1120,23 +1120,10 @@ fn get_settled_collateralization_from_vault_succeeds() {
 }
 
 #[test]
-fn get_first_vault_with_sufficient_collateral_succeeds() {
-    run_test(|| {
-        let issue_tokens: u128 = 4;
-        let id = create_sample_vault_andissue_tokens(issue_tokens);
-
-        assert_eq!(
-            VaultRegistry::get_first_vault_with_sufficient_collateral(issue_tokens),
-            Ok(id)
-        );
-    })
-}
-
-#[test]
 fn get_vaults_below_premium_collaterlization_fails() {
     run_test(|| {
         let issue_tokens: u128 = 4;
-        let _id = create_sample_vault_andissue_tokens(issue_tokens);
+        let _id = create_sample_vault_and_issue_tokens(issue_tokens);
 
         assert_err!(
             VaultRegistry::get_premium_redeem_vaults(),
@@ -1181,161 +1168,140 @@ fn get_vaults_below_premium_collaterlization_succeeds() {
     })
 }
 
-#[test]
-fn get_vaults_with_issuable_tokens_succeeds() {
-    run_test(|| {
-        let id1 = 3;
-        let collateral1 = 100;
-        create_vault_with_collateral(id1, collateral1);
-        let issuable_tokens1 =
-            VaultRegistry::get_issuable_tokens_from_vault(id1.clone()).expect("Sample vault is unable to issue tokens");
+mod get_vaults_with_issuable_tokens_tests {
+    use super::*;
 
-        let id2 = 4;
-        let collateral2 = 50;
-        create_vault_with_collateral(id2, collateral2);
-        let issuable_tokens2 =
-            VaultRegistry::get_issuable_tokens_from_vault(id2.clone()).expect("Sample vault is unable to issue tokens");
+    #[test]
+    fn get_vaults_with_issuable_tokens_succeeds() {
+        run_test(|| {
+            let id1 = 3;
+            let collateral1 = 100;
+            create_vault_with_collateral(id1, collateral1);
+            let issuable_tokens1 = VaultRegistry::get_issuable_tokens_from_vault(id1.clone())
+                .expect("Sample vault is unable to issue tokens");
 
-        // Check result is ordered in descending order
-        assert_eq!(issuable_tokens1.gt(&issuable_tokens2), true);
-        assert_eq!(
-            VaultRegistry::get_vaults_with_issuable_tokens(),
-            Ok(vec!((id1, issuable_tokens1), (id2, issuable_tokens2)))
-        );
-    })
+            let id2 = 4;
+            let collateral2 = 50;
+            create_vault_with_collateral(id2, collateral2);
+            let issuable_tokens2 = VaultRegistry::get_issuable_tokens_from_vault(id2.clone())
+                .expect("Sample vault is unable to issue tokens");
+
+            // Check result is ordered in descending order
+            assert_eq!(issuable_tokens1.gt(&issuable_tokens2), true);
+            assert_eq!(
+                VaultRegistry::get_vaults_with_issuable_tokens(),
+                Ok(vec!((id1, issuable_tokens1), (id2, issuable_tokens2)))
+            );
+        })
+    }
+
+    #[test]
+    fn get_vaults_with_issuable_tokens_succeeds_when_there_are_liquidated_vaults() {
+        run_test(|| {
+            let id1 = 3;
+            let collateral1 = 100;
+            create_vault_with_collateral(id1, collateral1);
+            let issuable_tokens1 = VaultRegistry::get_issuable_tokens_from_vault(id1.clone())
+                .expect("Sample vault is unable to issue tokens");
+
+            let id2 = 4;
+            let collateral2 = 50;
+            create_vault_with_collateral(id2, collateral2);
+
+            // liquidate vault
+            assert_ok!(VaultRegistry::liquidate_vault_with_status(
+                &id2,
+                VaultStatus::Liquidated
+            ));
+
+            assert_eq!(
+                VaultRegistry::get_vaults_with_issuable_tokens(),
+                Ok(vec!((id1, issuable_tokens1)))
+            );
+        })
+    }
+
+    #[test]
+    fn get_vaults_with_issuable_tokens_filters_out_banned_vaults() {
+        run_test(|| {
+            let id1 = 3;
+            let collateral1 = 100;
+            create_vault_with_collateral(id1, collateral1);
+            let issuable_tokens1 = VaultRegistry::get_issuable_tokens_from_vault(id1.clone())
+                .expect("Sample vault is unable to issue tokens");
+
+            let id2 = 4;
+            let collateral2 = 50;
+            create_vault_with_collateral(id2, collateral2);
+
+            // ban the vault
+            let mut vault = VaultRegistry::get_rich_vault_from_id(&id2).unwrap();
+            vault.ban_until(1000);
+
+            let issuable_tokens2 = VaultRegistry::get_issuable_tokens_from_vault(id2.clone())
+                .expect("Sample vault is unable to issue tokens");
+
+            assert_eq!(issuable_tokens2, 0);
+
+            // Check that the banned vault is not returned by get_vaults_with_issuable_tokens
+            assert_eq!(
+                VaultRegistry::get_vaults_with_issuable_tokens(),
+                Ok(vec!((id1, issuable_tokens1)))
+            );
+        })
+    }
+
+    #[test]
+    fn get_vaults_with_issuable_tokens_filters_out_vault_that_do_not_accept_new_issues() {
+        run_test(|| {
+            let id1 = 3;
+            let collateral1 = 100;
+            create_vault_with_collateral(id1, collateral1);
+            let issuable_tokens1 = VaultRegistry::get_issuable_tokens_from_vault(id1.clone())
+                .expect("Sample vault is unable to issue tokens");
+
+            let id2 = 4;
+            let collateral2 = 50;
+            create_vault_with_collateral(id2, collateral2);
+            assert_ok!(VaultRegistry::accept_new_issues(Origin::signed(id2), false));
+
+            // Check that the vault that does not accept issues is not returned by get_vaults_with_issuable_tokens
+            assert_eq!(
+                VaultRegistry::get_vaults_with_issuable_tokens(),
+                Ok(vec!((id1, issuable_tokens1)))
+            );
+        })
+    }
+
+    #[test]
+    fn get_vaults_with_issuable_tokens_fails() {
+        run_test(|| {
+            let issue_tokens: u128 = 50;
+            let id = create_sample_vault();
+            set_default_thresholds();
+
+            VaultRegistry::try_increase_to_be_issued_tokens(&id, issue_tokens).unwrap();
+            // issue 50 tokens at 200% rate
+            assert_ok!(VaultRegistry::issue_tokens(&id, issue_tokens));
+            let vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
+            assert_eq!(vault.data.issued_tokens, issue_tokens);
+            assert_eq!(vault.data.to_be_redeemed_tokens, 0);
+
+            // update the exchange rate
+            ext::oracle::dots_to_btc::<Test>.mock_safe(move |x| MockResult::Return(Ok((x / 2).into())));
+
+            assert_err!(
+                VaultRegistry::get_vaults_with_issuable_tokens(),
+                TestError::NoVaultWithIssuableTokens
+            );
+        })
+    }
 }
-
-#[test]
-fn get_vaults_with_issuable_tokens_succeeds_when_there_are_liquidated_vaults() {
-    run_test(|| {
-        let id1 = 3;
-        let collateral1 = 100;
-        create_vault_with_collateral(id1, collateral1);
-        let issuable_tokens1 =
-            VaultRegistry::get_issuable_tokens_from_vault(id1.clone()).expect("Sample vault is unable to issue tokens");
-
-        let id2 = 4;
-        let collateral2 = 50;
-        create_vault_with_collateral(id2, collateral2);
-
-        // liquidate vault
-        assert_ok!(VaultRegistry::liquidate_vault_with_status(
-            &id2,
-            VaultStatus::Liquidated
-        ));
-
-        assert_eq!(
-            VaultRegistry::get_vaults_with_issuable_tokens(),
-            Ok(vec!((id1, issuable_tokens1)))
-        );
-    })
-}
-
-#[test]
-fn get_vaults_with_issuable_tokens_filters_out_banned_vaults() {
-    run_test(|| {
-        let id1 = 3;
-        let collateral1 = 100;
-        create_vault_with_collateral(id1, collateral1);
-        let issuable_tokens1 =
-            VaultRegistry::get_issuable_tokens_from_vault(id1.clone()).expect("Sample vault is unable to issue tokens");
-
-        let id2 = 4;
-        let collateral2 = 50;
-        create_vault_with_collateral(id2, collateral2);
-
-        // ban the vault
-        let mut vault = VaultRegistry::get_rich_vault_from_id(&id2).unwrap();
-        vault.ban_until(1000);
-
-        let issuable_tokens2 =
-            VaultRegistry::get_issuable_tokens_from_vault(id2.clone()).expect("Sample vault is unable to issue tokens");
-
-        assert_eq!(issuable_tokens2, 0);
-
-        // Check that the banned vault is not returned by get_vaults_with_issuable_tokens
-        assert_eq!(
-            VaultRegistry::get_vaults_with_issuable_tokens(),
-            Ok(vec!((id1, issuable_tokens1)))
-        );
-    })
-}
-
-#[test]
-fn get_vaults_with_issuable_tokens_fails() {
-    run_test(|| {
-        let issue_tokens: u128 = 50;
-        let id = create_sample_vault();
-        set_default_thresholds();
-
-        VaultRegistry::try_increase_to_be_issued_tokens(&id, issue_tokens).unwrap();
-        // issue 50 tokens at 200% rate
-        assert_ok!(VaultRegistry::issue_tokens(&id, issue_tokens));
-        let vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
-        assert_eq!(vault.data.issued_tokens, issue_tokens);
-        assert_eq!(vault.data.to_be_redeemed_tokens, 0);
-
-        // update the exchange rate
-        ext::oracle::dots_to_btc::<Test>.mock_safe(move |x| MockResult::Return(Ok((x / 2).into())));
-
-        assert_err!(
-            VaultRegistry::get_vaults_with_issuable_tokens(),
-            TestError::NoVaultWithIssuableTokens
-        );
-    })
-}
-
-#[test]
-fn get_first_vault_with_sufficient_tokens_succeeds() {
-    run_test(|| {
-        let issue_tokens: u128 = DEFAULT_COLLATERAL / 10 / 2; // = 5
-        let id = create_sample_vault_andissue_tokens(issue_tokens);
-
-        assert_eq!(
-            VaultRegistry::get_first_vault_with_sufficient_tokens(issue_tokens),
-            Ok(id)
-        );
-    })
-}
-
-#[test]
-fn get_first_vault_with_sufficient_tokens_considers_to_be_redeemed() {
-    run_test(|| {
-        let issue_tokens: u128 = DEFAULT_COLLATERAL / 10 / 2; // = 5
-        let id = create_sample_vault_andissue_tokens(issue_tokens);
-        let mut vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
-
-        assert_ok!(vault.increase_to_be_redeemed(2));
-
-        assert_noop!(
-            VaultRegistry::get_first_vault_with_sufficient_tokens(issue_tokens),
-            TestError::NoVaultWithSufficientTokens
-        );
-
-        assert_eq!(VaultRegistry::get_first_vault_with_sufficient_tokens(3), Ok(id));
-    })
-}
-
-#[test]
-fn get_first_vault_with_sufficient_tokens_filters_banned_vaults() {
-    run_test(|| {
-        let issue_tokens: u128 = DEFAULT_COLLATERAL / 10 / 2; // = 5
-        let id = create_sample_vault_andissue_tokens(issue_tokens);
-        let mut vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
-        vault.ban_until(1000);
-
-        assert_noop!(
-            VaultRegistry::get_first_vault_with_sufficient_tokens(issue_tokens),
-            TestError::NoVaultWithSufficientTokens
-        );
-    })
-}
-
 #[test]
 fn get_total_collateralization_with_tokens_issued() {
     run_test(|| {
         let issue_tokens: u128 = DEFAULT_COLLATERAL / 10 / 2; // = 5
-        let _id = create_sample_vault_andissue_tokens(issue_tokens);
+        let _id = create_sample_vault_and_issue_tokens(issue_tokens);
 
         assert_eq!(
             VaultRegistry::get_total_collateralization(),
@@ -1465,88 +1431,190 @@ fn runtime_upgrade_succeeds() {
     })
 }
 
-#[test]
-fn get_first_vault_with_sufficient_tokens_returns_different_vaults_for_different_amounts() {
-    run_test(|| {
-        setup_blocks(100);
+mod get_first_vault_with_sufficient_tokens_tests {
+    use super::*;
 
-        let vault_ids = MULTI_VAULT_TEST_IDS
-            .iter()
-            .map(|&i| create_vault_and_issue_tokens(MULTI_VAULT_TEST_COLLATERAL / 100, MULTI_VAULT_TEST_COLLATERAL, i))
-            .collect::<Vec<_>>();
-        let selected_ids = (1..50)
-            .map(|i| VaultRegistry::get_first_vault_with_sufficient_tokens(i).unwrap())
-            .collect::<Vec<_>>();
+    #[test]
+    fn get_first_vault_with_sufficient_tokens_succeeds() {
+        run_test(|| {
+            let issue_tokens: u128 = DEFAULT_COLLATERAL / 10 / 2; // = 5
+            let id = create_sample_vault_and_issue_tokens(issue_tokens);
 
-        // check that all vaults have been selected at least once
-        assert!(vault_ids.iter().all(|&x| selected_ids.iter().any(|&y| x == y)));
-    });
+            assert_eq!(
+                VaultRegistry::get_first_vault_with_sufficient_tokens(issue_tokens),
+                Ok(id)
+            );
+        })
+    }
+
+    #[test]
+    fn get_first_vault_with_sufficient_tokens_considers_to_be_redeemed() {
+        run_test(|| {
+            let issue_tokens: u128 = DEFAULT_COLLATERAL / 10 / 2; // = 5
+            let id = create_sample_vault_and_issue_tokens(issue_tokens);
+            let mut vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
+
+            assert_ok!(vault.increase_to_be_redeemed(2));
+
+            assert_noop!(
+                VaultRegistry::get_first_vault_with_sufficient_tokens(issue_tokens),
+                TestError::NoVaultWithSufficientTokens
+            );
+
+            assert_eq!(VaultRegistry::get_first_vault_with_sufficient_tokens(3), Ok(id));
+        })
+    }
+
+    #[test]
+    fn get_first_vault_with_sufficient_tokens_filters_banned_vaults() {
+        run_test(|| {
+            let issue_tokens: u128 = DEFAULT_COLLATERAL / 10 / 2; // = 5
+            let id = create_sample_vault_and_issue_tokens(issue_tokens);
+            let mut vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
+            vault.ban_until(1000);
+
+            assert_noop!(
+                VaultRegistry::get_first_vault_with_sufficient_tokens(issue_tokens),
+                TestError::NoVaultWithSufficientTokens
+            );
+        })
+    }
+
+    #[test]
+    fn get_first_vault_with_sufficient_tokens_returns_different_vaults_for_different_amounts() {
+        run_test(|| {
+            setup_blocks(100);
+
+            let vault_ids = MULTI_VAULT_TEST_IDS
+                .iter()
+                .map(|&i| {
+                    create_vault_and_issue_tokens(MULTI_VAULT_TEST_COLLATERAL / 100, MULTI_VAULT_TEST_COLLATERAL, i)
+                })
+                .collect::<Vec<_>>();
+            let selected_ids = (1..50)
+                .map(|i| VaultRegistry::get_first_vault_with_sufficient_tokens(i).unwrap())
+                .collect::<Vec<_>>();
+
+            // check that all vaults have been selected at least once
+            assert!(vault_ids.iter().all(|&x| selected_ids.iter().any(|&y| x == y)));
+        });
+    }
+
+    #[test]
+    fn get_first_vault_with_sufficient_tokens_returns_different_vaults_for_different_blocks() {
+        run_test(|| {
+            setup_blocks(100);
+
+            let vault_ids = MULTI_VAULT_TEST_IDS
+                .iter()
+                .map(|&i| {
+                    create_vault_and_issue_tokens(MULTI_VAULT_TEST_COLLATERAL / 100, MULTI_VAULT_TEST_COLLATERAL, i)
+                })
+                .collect::<Vec<_>>();
+            let selected_ids = (101..150)
+                .map(|i| {
+                    setup_block(i, System::parent_hash());
+                    VaultRegistry::get_first_vault_with_sufficient_tokens(5).unwrap()
+                })
+                .collect::<Vec<_>>();
+
+            // check that all vaults have been selected at least once
+            assert!(vault_ids.iter().all(|&x| selected_ids.iter().any(|&y| x == y)));
+        });
+    }
 }
 
-#[test]
-fn get_first_vault_with_sufficient_tokens_returns_different_vaults_for_different_blocks() {
-    run_test(|| {
-        setup_blocks(100);
+mod get_first_vault_with_sufficient_collateral_test {
+    use super::*;
 
-        let vault_ids = MULTI_VAULT_TEST_IDS
-            .iter()
-            .map(|&i| create_vault_and_issue_tokens(MULTI_VAULT_TEST_COLLATERAL / 100, MULTI_VAULT_TEST_COLLATERAL, i))
-            .collect::<Vec<_>>();
-        let selected_ids = (101..150)
-            .map(|i| {
-                setup_block(i, System::parent_hash());
-                VaultRegistry::get_first_vault_with_sufficient_tokens(5).unwrap()
-            })
-            .collect::<Vec<_>>();
+    #[test]
+    fn get_first_vault_with_sufficient_collateral_succeeds() {
+        run_test(|| {
+            let issue_tokens: u128 = 4;
+            let id = create_sample_vault_and_issue_tokens(issue_tokens);
 
-        // check that all vaults have been selected at least once
-        assert!(vault_ids.iter().all(|&x| selected_ids.iter().any(|&y| x == y)));
-    });
-}
-#[test]
-fn get_first_vault_with_sufficient_collateral_returns_different_vaults_for_different_amounts() {
-    run_test(|| {
-        setup_blocks(100);
+            assert_eq!(
+                VaultRegistry::get_first_vault_with_sufficient_collateral(issue_tokens),
+                Ok(id)
+            );
+        })
+    }
 
-        let vault_ids = MULTI_VAULT_TEST_IDS
-            .iter()
-            .map(|&i| create_vault_and_issue_tokens(MULTI_VAULT_TEST_COLLATERAL / 100, MULTI_VAULT_TEST_COLLATERAL, i))
-            .collect::<Vec<_>>();
-        let selected_ids = (1..50)
-            .map(|i| VaultRegistry::get_first_vault_with_sufficient_collateral(i).unwrap())
-            .collect::<Vec<_>>();
+    #[test]
+    fn get_first_vault_with_sufficient_collateral_with_no_suitable_vaults_fails() {
+        run_test(|| {
+            create_sample_vault_and_issue_tokens(4);
 
-        // check that all vaults have been selected at least once
-        assert!(vault_ids.iter().all(|&x| selected_ids.iter().any(|&y| x == y)));
-    });
-}
+            assert_err!(
+                VaultRegistry::get_first_vault_with_sufficient_collateral(5),
+                TestError::NoVaultWithSufficientCollateral
+            );
+        })
+    }
 
-#[test]
-fn get_first_vault_with_sufficient_collateral_returns_different_vaults_for_different_blocks() {
-    run_test(|| {
-        setup_blocks(100);
+    #[test]
+    fn get_first_vault_with_sufficient_collateral_filters_vaults_that_do_not_accept_new_issues() {
+        run_test(|| {
+            let issue_tokens: u128 = 4;
+            let id = create_sample_vault_and_issue_tokens(issue_tokens);
+            assert_ok!(VaultRegistry::accept_new_issues(Origin::signed(id), false));
 
-        let vault_ids = MULTI_VAULT_TEST_IDS
-            .iter()
-            .map(|&i| create_vault_and_issue_tokens(MULTI_VAULT_TEST_COLLATERAL / 100, MULTI_VAULT_TEST_COLLATERAL, i))
-            .collect::<Vec<_>>();
-        let selected_ids = (101..150)
-            .map(|i| {
-                setup_block(i, System::parent_hash());
-                VaultRegistry::get_first_vault_with_sufficient_collateral(5).unwrap()
-            })
-            .collect::<Vec<_>>();
+            assert_err!(
+                VaultRegistry::get_first_vault_with_sufficient_collateral(issue_tokens),
+                TestError::NoVaultWithSufficientCollateral
+            );
+        })
+    }
 
-        // check that all vaults have been selected at least once
-        assert!(vault_ids.iter().all(|&x| selected_ids.iter().any(|&y| x == y)));
-    });
+    #[test]
+    fn get_first_vault_with_sufficient_collateral_returns_different_vaults_for_different_amounts() {
+        run_test(|| {
+            setup_blocks(100);
+
+            let vault_ids = MULTI_VAULT_TEST_IDS
+                .iter()
+                .map(|&i| {
+                    create_vault_and_issue_tokens(MULTI_VAULT_TEST_COLLATERAL / 100, MULTI_VAULT_TEST_COLLATERAL, i)
+                })
+                .collect::<Vec<_>>();
+            let selected_ids = (1..50)
+                .map(|i| VaultRegistry::get_first_vault_with_sufficient_collateral(i).unwrap())
+                .collect::<Vec<_>>();
+
+            // check that all vaults have been selected at least once
+            assert!(vault_ids.iter().all(|&x| selected_ids.iter().any(|&y| x == y)));
+        });
+    }
+
+    #[test]
+    fn get_first_vault_with_sufficient_collateral_returns_different_vaults_for_different_blocks() {
+        run_test(|| {
+            setup_blocks(100);
+
+            let vault_ids = MULTI_VAULT_TEST_IDS
+                .iter()
+                .map(|&i| {
+                    create_vault_and_issue_tokens(MULTI_VAULT_TEST_COLLATERAL / 100, MULTI_VAULT_TEST_COLLATERAL, i)
+                })
+                .collect::<Vec<_>>();
+            let selected_ids = (101..150)
+                .map(|i| {
+                    setup_block(i, System::parent_hash());
+                    VaultRegistry::get_first_vault_with_sufficient_collateral(5).unwrap()
+                })
+                .collect::<Vec<_>>();
+
+            // check that all vaults have been selected at least once
+            assert!(vault_ids.iter().all(|&x| selected_ids.iter().any(|&y| x == y)));
+        });
+    }
 }
 
 #[test]
 fn test_try_increase_to_be_replaced_tokens() {
     run_test(|| {
         let issue_tokens: u128 = 4;
-        let vault_id = create_sample_vault_andissue_tokens(issue_tokens);
+        let vault_id = create_sample_vault_and_issue_tokens(issue_tokens);
         assert_ok!(VaultRegistry::try_increase_to_be_redeemed_tokens(&vault_id, 1));
 
         let (total_btc, total_dot) = VaultRegistry::try_increase_to_be_replaced_tokens(&vault_id, 2, 10).unwrap();
@@ -1580,7 +1648,7 @@ fn test_try_increase_to_be_replaced_tokens() {
 fn test_decrease_to_be_replaced_tokens_over_capacity() {
     run_test(|| {
         let issue_tokens: u128 = 4;
-        let vault_id = create_sample_vault_andissue_tokens(issue_tokens);
+        let vault_id = create_sample_vault_and_issue_tokens(issue_tokens);
 
         assert_ok!(VaultRegistry::try_increase_to_be_replaced_tokens(&vault_id, 4, 10));
 
@@ -1594,7 +1662,7 @@ fn test_decrease_to_be_replaced_tokens_over_capacity() {
 fn test_decrease_to_be_replaced_tokens_below_capacity() {
     run_test(|| {
         let issue_tokens: u128 = 4;
-        let vault_id = create_sample_vault_andissue_tokens(issue_tokens);
+        let vault_id = create_sample_vault_and_issue_tokens(issue_tokens);
 
         assert_ok!(VaultRegistry::try_increase_to_be_replaced_tokens(&vault_id, 4, 10));
 

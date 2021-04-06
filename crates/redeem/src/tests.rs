@@ -78,7 +78,7 @@ fn test_request_redeem_fails_with_amount_below_minimum() {
                 backing_collateral: 0,
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
-                status: VaultStatus::Active,
+                status: VaultStatus::Active(true),
             },
         );
 
@@ -149,7 +149,7 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
                 backing_collateral: 0,
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
-                status: VaultStatus::Active,
+                status: VaultStatus::Active(true),
             },
         );
 
@@ -267,7 +267,7 @@ fn test_execute_redeem_succeeds_with_another_account() {
                 replace_collateral: 0,
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
-                status: VaultStatus::Active,
+                status: VaultStatus::Active(true),
             },
         );
         ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
@@ -366,7 +366,7 @@ fn test_execute_redeem_succeeds() {
                 replace_collateral: 0,
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
-                status: VaultStatus::Active,
+                status: VaultStatus::Active(true),
             },
         );
         ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
@@ -504,7 +504,7 @@ fn test_cancel_redeem_succeeds() {
         ext::vault_registry::slash_collateral_saturated::<Test>.mock_safe(move |_, _, _| MockResult::Return(Ok(0)));
         ext::vault_registry::get_vault_from_id::<Test>.mock_safe(|_| {
             MockResult::Return(Ok(vault_registry::types::Vault {
-                status: VaultStatus::Active,
+                status: VaultStatus::Active(true),
                 ..Default::default()
             }))
         });

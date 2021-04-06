@@ -81,7 +81,7 @@ fn test_request_issue_banned_fails() {
                 backing_collateral: 0,
                 wallet: Wallet::new(BtcPublicKey::default()),
                 banned_until: Some(1),
-                status: VaultStatus::Active,
+                status: VaultStatus::Active(true),
             },
         );
         assert_noop!(request_issue(ALICE, 3, BOB, 0), VaultRegistryError::VaultBanned);

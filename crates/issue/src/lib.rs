@@ -41,7 +41,7 @@ use frame_system::{ensure_root, ensure_signed};
 use primitive_types::H256;
 use sp_runtime::{traits::*, ModuleId};
 use sp_std::{convert::TryInto, vec::Vec};
-use vault_registry::CurrencySource;
+use vault_registry::{CurrencySource, VaultStatus};
 
 /// The issue module id, used for deriving its sovereign account ID.
 const _MODULE_ID: ModuleId = ModuleId(*b"issuemod");
@@ -258,6 +258,13 @@ impl<T: Config> Module<T> {
 
         let height = <frame_system::Pallet<T>>::block_number();
         let vault = ext::vault_registry::get_active_vault_from_id::<T>(&vault_id)?;
+
+        // ensure that the vault is accepting new issues
+        ensure!(
+            vault.status == VaultStatus::Active(true),
+            Error::<T>::VaultNotAcceptingNewIssues
+        );
+
         // Check that the vault is currently not banned
         ext::vault_registry::ensure_not_banned::<T>(&vault_id, height)?;
 
@@ -570,6 +577,7 @@ decl_error! {
         TimeNotExpired,
         IssueCompleted,
         IssueCancelled,
+        VaultNotAcceptingNewIssues,
         /// Unable to convert value
         TryIntoIntError,
         ArithmeticUnderflow,
