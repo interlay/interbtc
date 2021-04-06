@@ -58,7 +58,6 @@ polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = 
 xcm = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", default-features = false, optional = true }
 xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", default-features = false, optional = true }
 xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", default-features = false, optional = true }
-rococo-runtime = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", default-features = false, optional = true }
 
 # Parachain dependencies
 btc-relay = { path = "../../crates/btc-relay", default-features = false }
@@ -148,7 +147,6 @@ std = [
   "xcm-builder/std",
   "xcm-executor/std",
   "xcm-handler/std",
-  "rococo-runtime/std",
 
   "btc-relay/std",
   "collateral/std",
@@ -187,8 +185,6 @@ runtime-benchmarks = [
   "pallet-society/runtime-benchmarks",
   "pallet-collective/runtime-benchmarks",
 
-  "rococo-runtime/runtime-benchmarks",
-
   "btc-relay/runtime-benchmarks",
   "exchange-rate-oracle/runtime-benchmarks",
   "issue/runtime-benchmarks",
@@ -206,7 +202,6 @@ cumulus-polkadot = [
   "xcm-builder",
   "xcm-executor",
   "xcm-handler",
-  "rococo-runtime",
 
   "parachain-info",
   "parachain-tokens",

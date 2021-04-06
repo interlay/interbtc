@@ -35,7 +35,7 @@ sc-service = { git = "https://github.com/paritytech/substrate", branch = "rococo
 sc-telemetry = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
 sc-chain-spec = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
 sc-tracing = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
 sp-consensus-aura = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
 sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
