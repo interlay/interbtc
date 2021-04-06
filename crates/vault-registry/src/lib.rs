@@ -295,7 +295,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Configures whether or not the vaul accepts new issues.
+        /// Configures whether or not the vault accepts new issues.
         ///
         /// # Arguments
         ///
@@ -308,8 +308,7 @@ decl_module! {
         fn accept_new_issues(origin, accept_new_issues: bool) -> DispatchResult  {
             let vault_id = ensure_signed(origin)?;
             let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
-            vault.set_accept_new_issues(accept_new_issues)?;
-            Ok(())
+            vault.set_accept_new_issues(accept_new_issues)
         }
 
         fn on_initialize(n: T::BlockNumber) -> Weight {
