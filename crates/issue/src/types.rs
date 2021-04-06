@@ -14,7 +14,7 @@ pub enum Version {
     V1,
     /// IssueRequestStatus
     V2,
-    /// ActiveBlockNumber, open_bitcoin_height
+    /// ActiveBlockNumber, btc_height
     V3,
 }
 
@@ -66,7 +66,7 @@ pub struct IssueRequest<AccountId, BlockNumber, PolkaBTC, DOT> {
     pub requester: AccountId,
     pub btc_address: BtcAddress,
     pub btc_public_key: BtcPublicKey,
-    pub open_bitcoin_height: u32,
+    pub btc_height: u32,
     pub status: IssueRequestStatus,
 }
 

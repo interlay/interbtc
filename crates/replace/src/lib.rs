@@ -162,7 +162,7 @@ decl_module! {
                                 accept_time: request_v1.accept_time?,
                                 period: Self::replace_period(),
                                 btc_address: request_v1.btc_address?,
-                                open_bitcoin_height: 1969929, // extra conservative, testnet height at april 4th
+                                btc_height: 1969929, // extra conservative, testnet height at april 4th
                                 status
                             })
                         };
@@ -625,7 +625,7 @@ impl<T: Config> Module<T> {
             griefing_collateral: if is_auction { 0u32.into() } else { griefing_collateral },
             amount: actual_btc,
             period: Self::replace_period(),
-            open_bitcoin_height: ext::btc_relay::get_best_block_height::<T>(),
+            btc_height: ext::btc_relay::get_best_block_height::<T>(),
             status: ReplaceRequestStatus::Pending,
         };
 

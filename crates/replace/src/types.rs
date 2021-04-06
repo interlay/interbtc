@@ -14,7 +14,7 @@ pub enum Version {
     V1,
     /// Status, make all fields non-optional, remove open_time
     V2,
-    /// active block number, open_bitcoin_height
+    /// active block number, btc_height
     V3,
 }
 
@@ -60,7 +60,7 @@ pub struct ReplaceRequest<AccountId, BlockNumber, PolkaBTC, DOT> {
     pub accept_time: BlockNumber,
     pub period: BlockNumber,
     pub btc_address: BtcAddress,
-    pub open_bitcoin_height: u32,
+    pub btc_height: u32,
     pub status: ReplaceRequestStatus,
 }
 

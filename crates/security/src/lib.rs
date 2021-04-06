@@ -57,7 +57,11 @@ decl_storage! {
         /// for e.g. issue, redeem or replace requests (for OP_RETURN field in Bitcoin).
         Nonce: U256;
 
-        /// like frame_system::block_number, but this one only if the parachain status is RUNNING.
+        /// Like frame_system::block_number, but this one only increments if the parachain status is RUNNING.
+        /// This variable is used to keep track of durations, such as the issue/redeem/replace expiry. If the
+        /// parachain is not RUNNING, no payment proofs can be submitted, and it wouldn't be fair to punish
+        /// the user/vault. By using this variable we ensure that they have sufficient time to submit their
+        /// proof.
         ActiveBlockCount get(fn active_block_number): T::BlockNumber;
     }
 }

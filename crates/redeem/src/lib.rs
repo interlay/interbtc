@@ -145,7 +145,7 @@ decl_module! {
                             premium_dot: old_request.premium_dot,
                             redeemer: old_request.redeemer,
                             btc_address: old_request.btc_address,
-                            open_bitcoin_height: 1969929, // extra conservative, testnet height at april 4th
+                            btc_height: 1969929, // extra conservative, testnet height at april 4th
                             status: old_request.status,
                         };
                         <RedeemRequests<T>>::insert(id, new_request);
@@ -343,7 +343,7 @@ impl<T: Config> Module<T> {
                 period: Self::redeem_period(),
                 redeemer: redeemer.clone(),
                 btc_address: btc_address.clone(),
-                open_bitcoin_height: ext::btc_relay::get_best_block_height::<T>(),
+                btc_height: ext::btc_relay::get_best_block_height::<T>(),
                 status: RedeemRequestStatus::Pending,
             },
         );

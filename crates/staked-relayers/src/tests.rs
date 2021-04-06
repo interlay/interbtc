@@ -1080,7 +1080,7 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: recipient_address,
-                open_bitcoin_height: 0,
+                btc_height: 0,
                 status: RedeemRequestStatus::Pending,
             }))
         });
@@ -1133,7 +1133,7 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
                 collateral: 0,
                 accept_time: 1,
                 btc_address: recipient_address,
-                open_bitcoin_height: 0,
+                btc_height: 0,
                 status: ReplaceRequestStatus::Pending,
             }))
         });
