@@ -614,7 +614,7 @@ fn integration_test_redeem_polka_btc_execute_liquidated() {
 #[test]
 fn integration_test_redeem_banning() {
     test_with(|| {
-        let new_vault = CAROL;
+        let vault2 = CAROL;
 
         let redeem_id = setup_cancelable_redeem(USER, VAULT, 10_000, 1_000);
 
@@ -636,12 +636,13 @@ fn integration_test_redeem_banning() {
                 ..UserData::get(USER)
             },
         );
+
+        // setup vault2 to be auctionable
         CoreVaultData::force_to(
-            new_vault,
+            vault2,
             CoreVaultData {
-                issued: 1000000,
-                backing_collateral: 10000000,
-                ..Default::default()
+                backing_collateral: 500,
+                ..default_vault_state()
             },
         );
 
@@ -674,10 +675,22 @@ fn integration_test_redeem_banning() {
             VaultRegistryError::VaultBanned,
         );
 
-        // can not accept replace of banned vault
+        // banned vault can not accept replace
         assert_noop!(
             Call::Replace(ReplaceCall::accept_replace(
-                account_of(VAULT),
+                account_of(vault2),
+                1000,
+                1000,
+                BtcAddress::default()
+            ))
+            .dispatch(origin_of(account_of(VAULT))),
+            VaultRegistryError::VaultBanned,
+        );
+
+        // banned vault can not auction replace
+        assert_noop!(
+            Call::Replace(ReplaceCall::auction_replace(
+                account_of(vault2),
                 1000,
                 1000,
                 BtcAddress::default()
