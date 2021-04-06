@@ -305,7 +305,6 @@ pub fn set_default_thresholds() {
     VaultRegistryModule::set_auction_collateral_threshold(auction);
     VaultRegistryModule::set_premium_redeem_threshold(premium);
     VaultRegistryModule::set_liquidation_collateral_threshold(liquidation);
-    VaultRegistryModule::set_nominated_collateral_upper_limit_rate(nomination);
 }
 
 pub fn dummy_public_key() -> BtcPublicKey {
@@ -644,11 +643,7 @@ impl ExtBuilder {
             auction_collateral_threshold: FixedU128::checked_from_rational(120, 100).unwrap(),
             premium_redeem_threshold: FixedU128::checked_from_rational(135, 100).unwrap(),
             liquidation_collateral_threshold: FixedU128::checked_from_rational(110, 100).unwrap(),
-            nominated_collateral_upper_limit_rate: FixedU128::checked_from_rational(50, 100)
-                .unwrap(),
             liquidation_vault_account_id: account_of(LIQUIDATION_VAULT),
-            nominator_unbonding_period: Default::default(),
-            operator_unbonding_period: Default::default(),
         }
         .assimilate_storage(&mut storage)
         .unwrap();

@@ -51,13 +51,11 @@ fn set_default_thresholds() {
     let auction = FixedU128::checked_from_rational(150, 100).unwrap(); // 150%
     let premium = FixedU128::checked_from_rational(120, 100).unwrap(); // 120%
     let liquidation = FixedU128::checked_from_rational(110, 100).unwrap(); // 110%
-    let nomination = FixedU128::checked_from_rational(50, 100).unwrap(); // 50%
 
     VaultRegistry::set_secure_collateral_threshold(secure);
     VaultRegistry::set_auction_collateral_threshold(auction);
     VaultRegistry::set_premium_redeem_threshold(premium);
     VaultRegistry::set_liquidation_collateral_threshold(liquidation);
-    VaultRegistry::set_nominated_collateral_upper_limit_rate(nomination);
 }
 
 fn dummy_public_key() -> BtcPublicKey {

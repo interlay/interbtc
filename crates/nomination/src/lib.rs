@@ -15,19 +15,13 @@ use codec::{Decode, Encode, EncodeLike};
 
 use ext::vault_registry::VaultStatus;
 use frame_support::dispatch::{DispatchError, DispatchResult};
-use frame_support::traits::Currency;
 use frame_support::weights::Weight;
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure, transactional};
 use frame_system::{ensure_root, ensure_signed};
 use primitive_types::H256;
 use sp_arithmetic::FixedPointNumber;
 use sp_runtime::traits::CheckedMul;
-use types::{DefaultOperator, Operator, RichOperator};
-
-pub(crate) type DOT<T> =
-    <<T as collateral::Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-
-pub(crate) type UnsignedFixedPoint<T> = <T as Config>::UnsignedFixedPoint;
+use types::{DefaultOperator, Operator, RichOperator, UnsignedFixedPoint, DOT};
 
 pub trait WeightInfo {
     fn set_nomination_enabled() -> Weight;
@@ -47,6 +41,7 @@ pub trait Config:
     + treasury::Config
     + security::Config
     + vault_registry::Config
+    + fee::Config
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
@@ -184,8 +179,8 @@ impl<T: Config> Module<T> {
         nominated_collateral: DOT<T>,
     ) -> Result<bool, DispatchError> {
         let max_nomination_ratio = Self::get_max_nomination_ratio();
-        let vault_collateral_inner = Self::dot_to_inner_fixed_point(vault_collateral)?;
-        let nominated_collateral_inner = Self::dot_to_inner_fixed_point(nominated_collateral)?;
+        let vault_collateral_inner = ext::fee::dot_to_inner::<T>(vault_collateral)?;
+        let nominated_collateral_inner = ext::fee::dot_to_inner::<T>(nominated_collateral)?;
 
         let max_nominated_collateral =
             UnsignedFixedPoint::<T>::checked_from_integer(vault_collateral_inner)
@@ -242,15 +237,8 @@ impl<T: Config> Module<T> {
         vault_id: &T::AccountId,
         status: VaultStatus,
     ) -> DispatchResult {
-        let backing_collateral_before_slashing =
-            ext::vault_registry::get_backing_collateral::<T>(&vault_id.clone())?;
         let to_slash = ext::vault_registry::liquidate_vault_with_status::<T>(vault_id, status)?;
-        Self::slash_nominators(
-            vault_id.clone(),
-            status,
-            to_slash,
-            backing_collateral_before_slashing,
-        )
+        Self::slash_nominators(vault_id.clone(), status, to_slash)
     }
 
     /// Unbond collateral withdrawal if mature.
@@ -279,22 +267,16 @@ impl<T: Config> Module<T> {
         amount: DOT<T>,
     ) -> DispatchResult {
         if withdrawer_id.eq(operator_id) {
-            let backing_collateral = ext::vault_registry::get_backing_collateral::<T>(operator_id)?;
-            Self::request_operator_withdrawal(operator_id, amount, backing_collateral)?
+            Self::request_operator_withdrawal(operator_id, amount)?
         } else {
             Self::request_nominator_withdrawal(operator_id, withdrawer_id, amount)?
         };
-        // lower operator collateralization
         ext::vault_registry::decrease_backing_collateral::<T>(operator_id, amount)
-        // TODO: refund a certain amount, proportionally, based on the Max Nomination Ratio
-
-        // increase to_be_withdrawn_collateral?
     }
 
     pub fn request_operator_withdrawal(
         operator_id: &T::AccountId,
         collateral_to_withdraw: DOT<T>,
-        backing_collateral_before_withdrawal: DOT<T>,
     ) -> DispatchResult {
         ensure!(
             Self::is_operator(operator_id)?,
@@ -304,12 +286,11 @@ impl<T: Config> Module<T> {
         let request_id = ext::security::get_secure_id::<T>(operator_id);
         let height = <frame_system::Module<T>>::block_number();
         let maturity = height + Self::get_operator_unbonding_period();
-        operator.add_pending_operator_withdrawal(
-            request_id,
-            collateral_to_withdraw,
-            backing_collateral_before_withdrawal,
-            maturity,
-        )?;
+        operator.add_pending_operator_withdrawal(request_id, collateral_to_withdraw, maturity)?;
+        // get operator collateral
+        // get nominator collateral
+        // compute max nominator collateral using Max Nomination ratio
+        // create proportional refunds for collateral difference
         Self::deposit_event(Event::<T>::RequestOperatorCollateralWithdrawal(
             request_id,
             operator_id.clone(),
@@ -342,7 +323,7 @@ impl<T: Config> Module<T> {
         let nominator_unbonding_period_u128 =
             Self::blocknumber_to_u128(Self::get_nominator_unbonding_period())?;
         let scaled_nominator_unbonding_period_u128 = operator
-            .get_nominated_collateral_proportion_for(nominator_id.clone())?
+            .get_nominator_collateral_proportion(nominator_id.clone())?
             .checked_mul(nominator_unbonding_period_u128)
             .ok_or(Error::<T>::ArithmeticOverflow)?;
         let maturity = height + Self::u128_to_blocknumber(scaled_nominator_unbonding_period_u128)?;
@@ -414,10 +395,9 @@ impl<T: Config> Module<T> {
         vault_id: T::AccountId,
         status: VaultStatus,
         to_slash: DOT<T>,
-        backing_collateral_before_slashing: DOT<T>,
     ) -> DispatchResult {
         let mut operator = Self::get_rich_operator_from_id(&vault_id.clone())?;
-        operator.slash_nominators(status, to_slash, backing_collateral_before_slashing)?;
+        operator.slash_nominators(status, to_slash)?;
         <Operators<T>>::insert(operator.id(), operator.data.clone());
         Ok(())
     }
@@ -459,7 +439,7 @@ impl<T: Config> Module<T> {
         );
         let mut operator = Self::get_rich_operator_from_id(operator_id)?;
 
-        operator.refund_nominated_collateral()?;
+        operator.force_refund_nominated_collateral()?;
         <Operators<T>>::remove(operator_id);
 
         Self::deposit_event(Event::<T>::NominationOptOut(operator_id.clone()));
@@ -507,17 +487,6 @@ impl<T: Config> Module<T> {
 
     fn u128_to_blocknumber(x: u128) -> Result<T::BlockNumber, DispatchError> {
         TryInto::<T::BlockNumber>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
-    }
-
-    fn dot_to_inner_fixed_point(
-        x: DOT<T>,
-    ) -> Result<<<T as Config>::UnsignedFixedPoint as FixedPointNumber>::Inner, DispatchError> {
-        let x_u128 = Self::dot_to_u128(x)?;
-
-        // calculate how many tokens should be maximally issued given the threshold.
-        let vault_collateral_as_inner =
-            TryInto::try_into(x_u128).map_err(|_| Error::<T>::TryIntoIntError)?;
-        Ok(vault_collateral_as_inner)
     }
 }
 

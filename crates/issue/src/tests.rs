@@ -112,11 +112,6 @@ fn test_request_issue_banned_fails() {
                 wallet: Wallet::new(BtcPublicKey::default()),
                 banned_until: Some(1),
                 status: VaultStatus::Active,
-                nomination_operator: false,
-                nominators: Default::default(),
-                total_nominated_collateral: 0,
-                pending_operator_withdrawals: Default::default(),
-                pending_nominator_withdrawals: Default::default(),
             },
         );
         assert_noop!(

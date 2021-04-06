@@ -40,6 +40,7 @@ frame_support::construct_runtime!(
         Fee: fee::{Module, Call, Config<T>, Storage, Event<T>},
         Sla: sla::{Module, Call, Config<T>, Storage, Event<T>},
         Refund: refund::{Module, Call, Config<T>, Storage, Event<T>},
+        Nomination: nomination::{Module, Call, Config<T>, Storage, Event<T>},
     }
 );
 
@@ -180,6 +181,12 @@ impl redeem::Config for Test {
 
 impl replace::Config for Test {
     type Event = TestEvent;
+    type WeightInfo = ();
+}
+
+impl nomination::Config for Test {
+    type Event = TestEvent;
+    type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
 }
 

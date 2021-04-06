@@ -65,11 +65,6 @@ fn test_vault() -> Vault<u64, u64, u64, u64> {
         to_be_redeemed_tokens: 0,
         backing_collateral: 0,
         status: VaultStatus::Active,
-        nomination_operator: false,
-        nominators: Default::default(),
-        total_nominated_collateral: 0,
-        pending_operator_withdrawals: Default::default(),
-        pending_nominator_withdrawals: Default::default(),
     }
 }
 
@@ -136,11 +131,6 @@ fn test_request_replace_transfer_zero_fails() {
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
                 status: VaultStatus::Active,
-                nomination_operator: false,
-                nominators: Default::default(),
-                total_nominated_collateral: 0,
-                pending_operator_withdrawals: Default::default(),
-                pending_nominator_withdrawals: Default::default(),
             }))
         });
         assert_noop!(request_replace(BOB, 0, 0), TestError::AmountBelowDustAmount);
@@ -173,11 +163,6 @@ fn test_request_replace_vault_banned_fails() {
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: Some(1),
                 status: VaultStatus::Active,
-                nomination_operator: false,
-                nominators: Default::default(),
-                total_nominated_collateral: 0,
-                pending_operator_withdrawals: Default::default(),
-                pending_nominator_withdrawals: Default::default(),
             }))
         });
         assert_noop!(
@@ -207,11 +192,6 @@ fn test_request_replace_amount_below_dust_value_fails() {
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
                 status: VaultStatus::Active,
-                nomination_operator: false,
-                nominators: Default::default(),
-                total_nominated_collateral: 0,
-                pending_operator_withdrawals: Default::default(),
-                pending_nominator_withdrawals: Default::default(),
             }))
         });
         ext::vault_registry::is_over_minimum_collateral::<Test>
@@ -248,11 +228,6 @@ fn test_request_replace_insufficient_griefing_collateral_fails() {
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
                 status: VaultStatus::Active,
-                nomination_operator: false,
-                nominators: Default::default(),
-                total_nominated_collateral: 0,
-                pending_operator_withdrawals: Default::default(),
-                pending_nominator_withdrawals: Default::default(),
             }))
         });
         ext::vault_registry::is_over_minimum_collateral::<Test>

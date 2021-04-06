@@ -1,9 +1,10 @@
-use crate::{Config, Error, Module};
+use crate::{ext, Config, Error, Module};
 use codec::{Decode, Encode, HasCompact};
 use frame_support::traits::BalanceStatus;
 use frame_support::{dispatch::DispatchResult, ensure, traits::Currency, StorageMap};
+use sp_arithmetic::FixedPointNumber;
 use sp_core::H256;
-use sp_runtime::traits::{CheckedAdd, CheckedSub};
+use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedSub, Saturating};
 use sp_runtime::DispatchError;
 use sp_std::collections::btree_map::BTreeMap;
 
@@ -13,6 +14,11 @@ use vault_registry::VaultStatus;
 
 pub(crate) type DOT<T> =
     <<T as collateral::Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub(crate) type UnsignedFixedPoint<T> = <T as fee::Config>::UnsignedFixedPoint;
+pub(crate) type Inner<T> = <<T as fee::Config>::UnsignedFixedPoint as FixedPointNumber>::Inner;
+// pub(crate) type PolkaBTC<T> = <<T as treasury::Config>::PolkaBTC as Currency<
+//     <T as frame_system::Config>::AccountId,
+// >>::Balance;
 
 pub struct RichOperator<T: Config> {
     pub(crate) data: DefaultOperator<T>,
@@ -89,15 +95,8 @@ impl<T: Config> RichOperator<T> {
         self.data.id.clone()
     }
 
-    pub fn refund_nominated_collateral(&mut self) -> DispatchResult {
-        for (nominator_id, nominator) in &self.data.nominators {
-            <collateral::Module<T>>::repatriate_reserved(
-                self.data.id.clone(),
-                nominator_id.clone(),
-                nominator.collateral,
-                BalanceStatus::Free,
-            )?;
-        }
+    pub fn force_refund_nominated_collateral(&mut self) -> DispatchResult {
+        self.force_refund_nominators_proportionally(self.data.total_nominated_collateral)?;
         // Erase nominator data
         self.update(|v| {
             v.nominators = Default::default();
@@ -234,17 +233,11 @@ impl<T: Config> RichOperator<T> {
     }
 
     pub fn slash_nominators_by(&mut self, amount_to_slash: DOT<T>) -> DispatchResult {
-        let amount_to_slash_u128 = Module::<T>::dot_to_u128(amount_to_slash)?;
         let nominators = self.data.nominators.clone();
         let vault_clone = self.data.clone();
         for (nominator_id, _) in &vault_clone.nominators {
-            let nominated_collateral_proportion =
-                self.get_nominated_collateral_proportion_for(nominator_id.clone())?;
-            let nominated_collateral_to_slash_u128 = nominated_collateral_proportion
-                .checked_mul(amount_to_slash_u128)
-                .ok_or(Error::<T>::ArithmeticOverflow)?;
             let nominated_collateral_to_slash =
-                Module::<T>::u128_to_dot(nominated_collateral_to_slash_u128)?;
+                self.scale_amount_by_nominator_proportion(amount_to_slash, nominator_id.clone())?;
             self.update_nominator_collateral(
                 nominator_id.clone(),
                 nominated_collateral_to_slash,
@@ -258,7 +251,21 @@ impl<T: Config> RichOperator<T> {
         })
     }
 
-    pub fn get_nominated_collateral_proportion_for(
+    pub fn scale_amount_by_nominator_proportion(
+        &mut self,
+        amount: DOT<T>,
+        nominator_id: T::AccountId,
+    ) -> Result<DOT<T>, DispatchError> {
+        let amount_u128 = Module::<T>::dot_to_u128(amount)?;
+        let nominated_collateral_proportion =
+            self.get_nominator_collateral_proportion(nominator_id.clone())?;
+        let nominated_collateral_to_slash_u128 = nominated_collateral_proportion
+            .checked_mul(amount_u128)
+            .ok_or(Error::<T>::ArithmeticOverflow)?;
+        Module::<T>::u128_to_dot(nominated_collateral_to_slash_u128)
+    }
+
+    pub fn get_nominator_collateral_proportion(
         &mut self,
         nominator_id: T::AccountId,
     ) -> Result<u128, DispatchError> {
@@ -281,19 +288,27 @@ impl<T: Config> RichOperator<T> {
         &mut self,
         request_id: H256,
         collateral_to_withdraw: DOT<T>,
-        backing_collateral_before_withdrawal: DOT<T>,
         maturity: T::BlockNumber,
     ) -> DispatchResult {
-        let remaining_backing_collateral = backing_collateral_before_withdrawal
+        let operator_collateral = self.get_operator_collateral()?;
+        let remaining_operator_collateral = operator_collateral
             .checked_sub(&collateral_to_withdraw)
             .ok_or(Error::<T>::ArithmeticOverflow)?;
-        ensure!(
-            !Module::<T>::is_collateral_below_max_nomination_ratio(
-                remaining_backing_collateral,
-                self.data.total_nominated_collateral
-            )?,
-            Error::<T>::InsufficientCollateral
-        );
+
+        let max_nominatable_collateral =
+            self.get_max_nominatable_collateral(remaining_operator_collateral)?;
+        let nominated_collateral_to_refund = self
+            .data
+            .total_nominated_collateral
+            .saturating_sub(max_nominatable_collateral);
+        let zero_dot: DOT<T> = 0u32.into();
+        if !nominated_collateral_to_refund.eq(&zero_dot) {
+            // The Nominators are not assumed to be trusted by the Operator.
+            // Unless the refund is forced (not subject to unbonding), a Nominator might cancel the
+            // refund request and cause the Max Nomination Ratio to be exceeded.
+            // As such, we need to force refund.
+            self.force_refund_nominators_proportionally(nominated_collateral_to_refund)?;
+        }
         self.update(|v| {
             v.pending_withdrawals
                 .insert(request_id, (maturity, collateral_to_withdraw));
@@ -303,6 +318,21 @@ impl<T: Config> RichOperator<T> {
                 .ok_or(Error::<T>::ArithmeticOverflow)?;
             Ok(())
         })
+    }
+
+    pub fn force_refund_nominators_proportionally(&mut self, amount: DOT<T>) -> DispatchResult {
+        let data_clone = self.data.clone();
+        for nominator_id in data_clone.nominators.keys() {
+            let nominator_collateral_to_refund =
+                self.scale_amount_by_nominator_proportion(amount, nominator_id.clone())?;
+            <collateral::Module<T>>::repatriate_reserved(
+                self.data.id.clone(),
+                nominator_id.clone(),
+                nominator_collateral_to_refund,
+                BalanceStatus::Free,
+            )?;
+        }
+        Ok(())
     }
 
     pub fn execute_operator_withdrawal(&mut self) -> DispatchResult {
@@ -420,17 +450,9 @@ impl<T: Config> RichOperator<T> {
         Ok(self.data.nominators.contains_key(&nominator_id))
     }
 
-    pub fn slash_nominators(
-        &mut self,
-        status: VaultStatus,
-        to_slash: DOT<T>,
-        backing_collateral_before_slashing: DOT<T>,
-    ) -> DispatchResult {
-        let nominated_collateral_to_slash = self.get_nominated_collateral_to_slash(
-            to_slash,
-            status,
-            backing_collateral_before_slashing,
-        )?;
+    pub fn slash_nominators(&mut self, status: VaultStatus, to_slash: DOT<T>) -> DispatchResult {
+        let nominated_collateral_to_slash =
+            self.get_nominated_collateral_to_slash(to_slash, status)?;
 
         let nominated_collateral_remaining = self
             .data
@@ -450,17 +472,15 @@ impl<T: Config> RichOperator<T> {
         &mut self,
         total_amount_to_slash: DOT<T>,
         status: VaultStatus,
-        backing_collateral: DOT<T>,
     ) -> Result<DOT<T>, DispatchError> {
         let nominated_collateral_to_slash: DOT<T> = if status.eq(&VaultStatus::CommittedTheft) {
-            let vault_collateral = self.get_operator_collateral(backing_collateral)?;
+            let vault_collateral = self.get_operator_collateral()?;
             total_amount_to_slash
                 .checked_sub(&vault_collateral.clone())
                 .map_or(0u32.into(), |x| x)
         } else {
             let to_slash_u128 = Module::<T>::dot_to_u128(total_amount_to_slash)?;
-            let nominator_collateral_proportion =
-                self.get_nominated_collateral_proportion(backing_collateral)?;
+            let nominator_collateral_proportion = self.get_nominated_collateral_proportion()?;
             let nominated_collateral_to_slash_u128 = nominator_collateral_proportion
                 .checked_mul(to_slash_u128)
                 .ok_or(Error::<T>::ArithmeticOverflow)?;
@@ -469,36 +489,54 @@ impl<T: Config> RichOperator<T> {
         Ok(nominated_collateral_to_slash)
     }
 
-    pub fn get_operator_collateral(
-        &mut self,
-        backing_collateral: DOT<T>,
-    ) -> Result<DOT<T>, DispatchError> {
+    pub fn get_operator_collateral(&mut self) -> Result<DOT<T>, DispatchError> {
+        let backing_collateral = ext::vault_registry::get_backing_collateral::<T>(&self.id())?;
         Ok(backing_collateral
             .checked_sub(&self.data.total_nominated_collateral)
             .ok_or(Error::<T>::ArithmeticUnderflow)?)
     }
 
-    pub fn get_operator_collateral_proportion(
-        &mut self,
-        backing_collateral: DOT<T>,
-    ) -> Result<u128, DispatchError> {
-        let operator_collateral = self.get_operator_collateral(backing_collateral)?;
+    pub fn get_operator_collateral_proportion(&mut self) -> Result<u128, DispatchError> {
+        let operator_collateral = self.get_operator_collateral()?;
         let operator_collateral_u128 = Module::<T>::dot_to_u128(operator_collateral)?;
+        let backing_collateral = ext::vault_registry::get_backing_collateral::<T>(&self.id())?;
         let backing_collateral_u128 = Module::<T>::dot_to_u128(backing_collateral)?;
         Ok(operator_collateral_u128
             .checked_div(backing_collateral_u128)
             .ok_or(Error::<T>::ArithmeticUnderflow)?)
     }
 
-    pub fn get_nominated_collateral_proportion(
-        &mut self,
-        backing_collateral: DOT<T>,
-    ) -> Result<u128, DispatchError> {
+    pub fn get_nominated_collateral_proportion(&mut self) -> Result<u128, DispatchError> {
         let total_nominated_collateral_u128 =
             Module::<T>::dot_to_u128(self.data.total_nominated_collateral)?;
+        let backing_collateral = ext::vault_registry::get_backing_collateral::<T>(&self.id())?;
         let backing_collateral_u128 = Module::<T>::dot_to_u128(backing_collateral)?;
         Ok(total_nominated_collateral_u128
             .checked_div(backing_collateral_u128)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?)
+    }
+
+    pub fn get_max_nominatable_collateral(
+        &mut self,
+        operator_collateral: DOT<T>,
+    ) -> Result<DOT<T>, DispatchError> {
+        let operator_collateral_inner = ext::fee::dot_to_inner::<T>(operator_collateral)?;
+        let max_nomination_ratio = Module::<T>::max_nomination_ratio();
+        let max_nominatable_collateral =
+            UnsignedFixedPoint::<T>::checked_from_integer(operator_collateral_inner)
+                .ok_or(Error::<T>::TryIntoIntError)?
+                .checked_div(&max_nomination_ratio)
+                .ok_or(Error::<T>::ArithmeticOverflow)?;
+        ext::fee::inner_to_dot::<T>(max_nominatable_collateral.into_inner())
+    }
+
+    pub fn get_nomination_ratio(&mut self) -> Result<u128, DispatchError> {
+        let operator_collateral = self.get_operator_collateral()?;
+        let operator_collateral_u128 = Module::<T>::dot_to_u128(operator_collateral)?;
+        let total_nominated_collateral_u128 =
+            Module::<T>::dot_to_u128(self.data.total_nominated_collateral)?;
+        Ok(total_nominated_collateral_u128
+            .checked_div(operator_collateral_u128)
             .ok_or(Error::<T>::ArithmeticUnderflow)?)
     }
 

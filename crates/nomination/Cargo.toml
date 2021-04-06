@@ -29,6 +29,7 @@ collateral = { path = "../collateral", default-features = false }
 security = { path = "../security", default-features = false }
 treasury = { path = "../treasury", default-features = false }
 vault-registry = { path = "../vault-registry", default-features = false }
+fee = { path = "../fee", default-features = false }
 
 [dev-dependencies]
 mocktopus = "0.7.0"
@@ -56,6 +57,7 @@ std = [
   'security/std',
   'treasury/std',
 	"vault-registry/std",
+  'fee/std',
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",

@@ -86,3 +86,18 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::set_is_nomination_operator(vault_id, is_operator)
     }
 }
+
+#[cfg_attr(test, mockable)]
+pub(crate) mod fee {
+    use crate::types::{Inner, DOT};
+
+    use frame_support::dispatch::DispatchError;
+
+    pub fn inner_to_dot<T: fee::Config>(x: Inner<T>) -> Result<DOT<T>, DispatchError> {
+        <fee::Module<T>>::inner_to_dot(x)
+    }
+
+    pub fn dot_to_inner<T: fee::Config>(x: DOT<T>) -> Result<Inner<T>, DispatchError> {
+        <fee::Module<T>>::dot_to_inner(x)
+    }
+}

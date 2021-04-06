@@ -37,6 +37,7 @@ frame_support::construct_runtime!(
         Replace: replace::{Module, Call, Config<T>, Storage, Event<T>},
         Fee: fee::{Module, Call, Config<T>, Storage, Event<T>},
         Sla: sla::{Module, Call, Config<T>, Storage, Event<T>},
+        Nomination: nomination::{Module, Call, Config<T>, Storage, Event<T>},
     }
 );
 
@@ -140,6 +141,12 @@ impl treasury::Config for Test {
 impl sla::Config for Test {
     type Event = TestEvent;
     type SignedFixedPoint = FixedI128;
+}
+
+impl nomination::Config for Test {
+    type Event = TestEvent;
+    type UnsignedFixedPoint = FixedU128;
+    type WeightInfo = ();
 }
 
 parameter_types! {

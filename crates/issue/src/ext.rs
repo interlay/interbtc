@@ -175,6 +175,7 @@ pub(crate) mod sla {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod fee {
+    // use crate::types::{Inner, PolkaBTC, DOT};
     use crate::types::{PolkaBTC, DOT};
     use frame_support::dispatch::DispatchError;
 
@@ -203,6 +204,14 @@ pub(crate) mod fee {
     pub fn increase_polka_btc_rewards_for_epoch<T: fee::Config>(amount: PolkaBTC<T>) {
         <fee::Module<T>>::increase_polka_btc_rewards_for_epoch(amount)
     }
+
+    // pub fn inner_to_dot<T: fee::Config>(x: Inner<T>) -> Result<DOT<T>, DispatchError> {
+    //     <fee::Module<T>>::inner_to_dot(x)
+    // }
+
+    // pub fn dot_to_inner<T: fee::Config>(x: DOT<T>) -> Result<Inner<T>, DispatchError> {
+    //     <fee::Module<T>>::dot_to_inner(x)
+    // }
 }
 
 #[cfg_attr(test, mockable)]

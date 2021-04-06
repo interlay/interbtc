@@ -477,6 +477,18 @@ impl<T: Config> Module<T> {
         Self::btc_for(amount, percentage)
     }
 
+    pub fn dot_to_inner(x: DOT<T>) -> Result<Inner<T>, DispatchError> {
+        // TODO: concrete type is the same, circumvent this conversion
+        let y = TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError)?;
+        TryInto::<Inner<T>>::try_into(y).map_err(|_| Error::<T>::TryIntoIntError.into())
+    }
+
+    pub fn inner_to_dot(x: Inner<T>) -> Result<DOT<T>, DispatchError> {
+        // TODO: add try_into for `FixedPointOperand` upstream
+        let y = UniqueSaturatedInto::<u128>::unique_saturated_into(x);
+        TryInto::<DOT<T>>::try_into(y).map_err(|_| Error::<T>::TryIntoIntError.into())
+    }
+
     // Private functions internal to this pallet
 
     fn btc_to_inner(x: PolkaBTC<T>) -> Result<Inner<T>, DispatchError> {
@@ -489,18 +501,6 @@ impl<T: Config> Module<T> {
         // TODO: add try_into for `FixedPointOperand` upstream
         let y = UniqueSaturatedInto::<u128>::unique_saturated_into(x);
         TryInto::<PolkaBTC<T>>::try_into(y).map_err(|_| Error::<T>::TryIntoIntError.into())
-    }
-
-    fn dot_to_inner(x: DOT<T>) -> Result<Inner<T>, DispatchError> {
-        // TODO: concrete type is the same, circumvent this conversion
-        let y = TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError)?;
-        TryInto::<Inner<T>>::try_into(y).map_err(|_| Error::<T>::TryIntoIntError.into())
-    }
-
-    fn inner_to_dot(x: Inner<T>) -> Result<DOT<T>, DispatchError> {
-        // TODO: add try_into for `FixedPointOperand` upstream
-        let y = UniqueSaturatedInto::<u128>::unique_saturated_into(x);
-        TryInto::<DOT<T>>::try_into(y).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
     /// Take the `percentage` of an `amount`
