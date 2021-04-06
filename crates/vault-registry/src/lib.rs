@@ -1198,29 +1198,23 @@ impl<T: Config> Module<T> {
         }
     }
 
-    /// Get all vaults below the premium redeem threshold
-    /// Checks three conditions:
-    /// 1. the vault must have tokens issued
-    /// 2. the vault must be available to redeem tokens (not all issued tokens currently bein part of redeem/replace
-    /// processes) 3. the vault must be below the premium redeem threshold
+    /// Get all vaults that:
+    /// - are below the premium redeem threshold, and
+    /// - have a non-zero amount of redeemable tokens, and thus
+    /// - are not banned
     ///
     /// Maybe returns a tuple of (VaultId, RedeemableTokens)
     /// The redeemable tokens are the currently vault.issued_tokens - the vault.to_be_redeemed_tokens
     pub fn get_premium_redeem_vaults() -> Result<Vec<(T::AccountId, PolkaBTC<T>)>, DispatchError> {
         let mut suitable_vaults = <Vaults<T>>::iter()
             .filter_map(|(account_id, vault)| {
-                // iterator returns tuple of (AccountId, Vault<T>),
-                if !vault.issued_tokens.is_zero()
-                    && !vault
-                        .issued_tokens
-                        .saturating_sub(vault.to_be_redeemed_tokens)
-                        .is_zero()
-                    && Self::is_vault_below_premium_threshold(&account_id).unwrap_or(false)
+                let rich_vault: RichVault<T> = vault.into();
+
+                let redeemable_tokens = rich_vault.redeemable_tokens().ok()?;
+
+                if !redeemable_tokens.is_zero() && Self::is_vault_below_premium_threshold(&account_id).unwrap_or(false)
                 {
-                    Some((
-                        account_id,
-                        vault.issued_tokens.saturating_sub(vault.to_be_redeemed_tokens),
-                    ))
+                    Some((account_id, redeemable_tokens))
                 } else {
                     None
                 }

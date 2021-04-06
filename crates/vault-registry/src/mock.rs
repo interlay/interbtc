@@ -203,6 +203,18 @@ impl ExtBuilder {
     }
 }
 
+fn set_default_thresholds() {
+    let secure = FixedU128::checked_from_rational(200, 100).unwrap(); // 200%
+    let auction = FixedU128::checked_from_rational(150, 100).unwrap(); // 150%
+    let premium = FixedU128::checked_from_rational(120, 100).unwrap(); // 120%
+    let liquidation = FixedU128::checked_from_rational(110, 100).unwrap(); // 110%
+
+    VaultRegistry::set_secure_collateral_threshold(secure);
+    VaultRegistry::set_auction_collateral_threshold(auction);
+    VaultRegistry::set_premium_redeem_threshold(premium);
+    VaultRegistry::set_liquidation_collateral_threshold(liquidation);
+}
+
 pub fn run_test<T>(test: T) -> ()
 where
     T: FnOnce() -> (),
@@ -213,6 +225,7 @@ where
     ExtBuilder::build().execute_with(|| {
         System::set_block_number(1);
         Security::set_active_block_number(1);
+        set_default_thresholds();
         test()
     })
 }
