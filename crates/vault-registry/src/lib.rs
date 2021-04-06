@@ -49,7 +49,7 @@ use crate::types::{
 #[doc(inline)]
 pub use crate::types::{BtcPublicKey, CurrencySource, SystemVault, Vault, VaultStatus, Wallet};
 
-use crate::types::{VaultStatusV2, VaultV2};
+use crate::types::{VaultStatusV1, VaultV1};
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
@@ -157,8 +157,8 @@ decl_module! {
         fn on_runtime_upgrade() -> Weight {
             use frame_support::{migration::StorageKeyIterator, Blake2_128Concat};
 
-            if matches!(Self::storage_version(), Version::V2) {
-                StorageKeyIterator::<T::AccountId, VaultV2<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, Blake2_128Concat>::new(<Vaults<T>>::module_prefix(), b"Vaults")
+            if matches!(Self::storage_version(), Version::V0 | Version::V1) {
+                StorageKeyIterator::<T::AccountId, VaultV1<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, Blake2_128Concat>::new(<Vaults<T>>::module_prefix(), b"Vaults")
                     .drain()
                     .for_each(|(id, legacy_vault)| {
                         let new_vault = Vault{
@@ -169,20 +169,23 @@ decl_module! {
                             wallet: legacy_vault.wallet,
                             backing_collateral: legacy_vault.backing_collateral,
                             banned_until: legacy_vault.banned_until,
-                            replace_collateral: legacy_vault.replace_collateral,
-                            to_be_replaced_tokens: legacy_vault.to_be_replaced_tokens,
+
+                            // unaccepted V1 replace requests are closed upon upgrade
+                            replace_collateral: 0u32.into(),
+                            to_be_replaced_tokens: 0u32.into(),
+
                             status: {
                                 match legacy_vault.status {
-                                    VaultStatusV2::Active => VaultStatus::Active(true),
-                                    VaultStatusV2::Liquidated => VaultStatus::Liquidated,
-                                    VaultStatusV2::CommittedTheft => VaultStatus::CommittedTheft,
+                                    VaultStatusV1::Active => VaultStatus::Active(true),
+                                    VaultStatusV1::Liquidated => VaultStatus::Liquidated,
+                                    VaultStatusV1::CommittedTheft => VaultStatus::CommittedTheft,
                                 }
                             },
                         };
                         <Vaults<T>>::insert(id, new_vault);
                     });
 
-                StorageVersion::put(Version::V3);
+                StorageVersion::put(Version::V2);
             }
 
             0

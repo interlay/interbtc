@@ -23,10 +23,8 @@ pub enum Version {
     V0,
     /// BtcAddress type with script format.
     V1,
-    /// added replace_collateral to vault
+    /// added replace_collateral to vault, changed vaultStatus enum
     V2,
-    /// changed vaultStatus enum
-    V3,
 }
 
 #[derive(Debug, PartialEq)]
@@ -150,7 +148,7 @@ pub struct Vault<AccountId, BlockNumber, PolkaBTC, DOT> {
 }
 
 #[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug)]
-pub enum VaultStatusV2 {
+pub enum VaultStatusV1 {
     /// Vault is active
     Active = 0,
 
@@ -161,17 +159,20 @@ pub enum VaultStatusV2 {
     CommittedTheft = 2,
 }
 
-impl Default for VaultStatusV2 {
+impl Default for VaultStatusV1 {
     fn default() -> Self {
-        VaultStatusV2::Active
+        VaultStatusV1::Active
     }
 }
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct VaultV2<AccountId, BlockNumber, PolkaBTC, DOT> {
+pub struct VaultV1<AccountId, BlockNumber, PolkaBTC, DOT> {
     // Account identifier of the Vault
     pub id: AccountId,
+    // number of PolkaBTC tokens that have been requested for a replace through
+    // `request_replace`, but that have not been accepted yet by a new_vault.
+    pub to_be_replaced_tokens: PolkaBTC,
     // Number of PolkaBTC tokens pending issue
     pub to_be_issued_tokens: PolkaBTC,
     // Number of issued PolkaBTC tokens
@@ -183,17 +184,11 @@ pub struct VaultV2<AccountId, BlockNumber, PolkaBTC, DOT> {
     // amount of DOT collateral that is locked to back PolkaBTC tokens. Note that
     // this excludes griefing collateral.
     pub backing_collateral: DOT,
-    // number of PolkaBTC tokens that have been requested for a replace through
-    // `request_replace`, but that have not been accepted yet by a new_vault.
-    pub to_be_replaced_tokens: PolkaBTC,
-    /// Amount of DOT that is locked as griefing collateral to be payed out if
-    /// the old_vault fails to call execute_replace
-    pub replace_collateral: DOT,
     // Block height until which this Vault is banned from being
     // used for Issue, Redeem (except during automatic liquidation) and Replace .
     pub banned_until: Option<BlockNumber>,
     /// Current status of the vault
-    pub status: VaultStatusV2,
+    pub status: VaultStatusV1,
 }
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
