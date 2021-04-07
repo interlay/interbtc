@@ -113,7 +113,7 @@ mod accept_replace_tests {
     }
 
     #[test]
-    fn integration_test_replace_accept_replace_at_capacity() {
+    fn integration_test_replace_accept_replace_at_capacity_succeeds() {
         test_with(|| {
             let accept_amount = DEFAULT_VAULT_TO_BE_REPLACED;
             let new_vault_additional_collateral = 10_000;
@@ -129,7 +129,7 @@ mod accept_replace_tests {
     }
 
     #[test]
-    fn integration_test_replace_accept_replace_below_capacity() {
+    fn integration_test_replace_accept_replace_below_capacity_succeeds() {
         test_with(|| {
             // accept only 25%
 
@@ -147,7 +147,7 @@ mod accept_replace_tests {
     }
 
     #[test]
-    fn integration_test_replace_accept_replace_above_capacity() {
+    fn integration_test_replace_accept_replace_above_capacity_succeeds() {
         test_with(|| {
             // try to accept 400%
 
@@ -212,6 +212,22 @@ mod accept_replace_tests {
             );
         });
     }
+
+    #[test]
+    fn integration_test_replace_accept_replace_self_fails() {
+        test_with(|| {
+            assert_noop!(
+                Call::Replace(ReplaceCall::accept_replace(
+                    account_of(OLD_VAULT),
+                    DEFAULT_VAULT_TO_BE_REPLACED,
+                    10_000,
+                    BtcAddress::P2PKH(H160([1; 20]))
+                ))
+                .dispatch(origin_of(account_of(OLD_VAULT))),
+                ReplaceError::ReplaceSelfNotAllowed
+            );
+        });
+    }
 }
 
 #[cfg(test)]
@@ -256,7 +272,7 @@ mod auction_replace_tests {
     }
 
     #[test]
-    fn integration_test_replace_auction_replace_at_capacity() {
+    fn integration_test_replace_auction_replace_at_capacity_succeeds() {
         test_with(|| {
             // auction 100% of to-be-replaced
             let auction_amount = DEFAULT_VAULT_TO_BE_REPLACED;
@@ -273,7 +289,7 @@ mod auction_replace_tests {
     }
 
     #[test]
-    fn integration_test_replace_auction_replace_below_capacity() {
+    fn integration_test_replace_auction_replace_below_capacity_succeeds() {
         test_with(|| {
             // auction 25% of to-be-replaced
 
@@ -291,7 +307,7 @@ mod auction_replace_tests {
     }
 
     #[test]
-    fn integration_test_replace_auction_replace_above_requested_capacity() {
+    fn integration_test_replace_auction_replace_above_requested_capacity_succeeds() {
         test_with(|| {
             // try 200% of to-be-replaced, but still below total issued tokens
 
@@ -309,7 +325,7 @@ mod auction_replace_tests {
     }
 
     #[test]
-    fn integration_test_replace_auction_replace_above_auctionable_capacity() {
+    fn integration_test_replace_auction_replace_above_auctionable_capacity_succeeds() {
         test_with(|| {
             // try 200% of auctionable tokens
 
@@ -327,7 +343,7 @@ mod auction_replace_tests {
     }
 
     #[test]
-    fn integration_test_replace_auction_replace_below_dust() {
+    fn integration_test_replace_auction_replace_below_dust_fails() {
         test_with(|| {
             // if the new_vault _asks_ for an amount below below DUST, it gets rejected
 
@@ -379,6 +395,22 @@ mod auction_replace_tests {
                 BtcAddress::P2PKH(H160([1; 20]))
             ))
             .dispatch(origin_of(account_of(NEW_VAULT))));
+        });
+    }
+
+    #[test]
+    fn integration_test_replace_auction_replace_self_fails() {
+        test_with(|| {
+            assert_noop!(
+                Call::Replace(ReplaceCall::auction_replace(
+                    account_of(OLD_VAULT),
+                    DEFAULT_VAULT_TO_BE_REPLACED,
+                    10_000,
+                    BtcAddress::P2PKH(H160([1; 20]))
+                ))
+                .dispatch(origin_of(account_of(OLD_VAULT))),
+                ReplaceError::ReplaceSelfNotAllowed
+            );
         });
     }
 }

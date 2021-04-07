@@ -575,6 +575,9 @@ impl<T: Config> Module<T> {
         // Check that Parachain status is RUNNING
         ext::security::ensure_parachain_status_running::<T>()?;
 
+        // don't allow vaults to replace themselves
+        ensure!(old_vault_id != new_vault_id, Error::<T>::ReplaceSelfNotAllowed);
+
         // Check that new vault is not currently banned
         ext::vault_registry::ensure_not_banned::<T>(&new_vault_id)?;
 
@@ -706,6 +709,7 @@ decl_error! {
         NoPendingRequest,
         UnauthorizedVault,
         VaultOverAuctionThreshold,
+        ReplaceSelfNotAllowed,
         CancelAcceptedRequest,
         CollateralBelowSecureThreshold,
         ReplacePeriodExpired,
