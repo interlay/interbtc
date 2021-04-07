@@ -72,9 +72,6 @@ decl_storage! {
         /// are delayed
         NominatorUnbondingPeriod get(fn nominator_unbonding_period) config(): T::BlockNumber;
 
-        /// Sum of collateral in pending withdraw requests
-        CollateralToBeWithdrawn get(fn collateral_to_be_withdrawn) config(): DOT<T>;
-
         /// Map of Vault Operators
         Operators: map hasher(blake2_128_concat) T::AccountId => Operator<T::AccountId, T::BlockNumber, DOT<T>>;
     }
@@ -98,16 +95,18 @@ decl_event!(
         WithdrawNominatedCollateral(AccountId, AccountId, DOT),
         // [request_id, operator_id, maturity_block, collateral]
         RequestOperatorCollateralWithdrawal(H256, AccountId, BlockNumber, DOT),
-        // [request_id, operator_id, collateral]
-        ExecuteOperatorCollateralWithdrawal(H256, AccountId, DOT),
+        // [operator_id, collateral]
+        ExecuteOperatorCollateralWithdrawal(AccountId, DOT),
         // [request_id, operator_id, collateral]
         CancelOperatorCollateralWithdrawal(H256, AccountId, DOT),
         // [request_id, nominator_id, operator_id, maturity_block, collateral]
         RequestNominatorCollateralWithdrawal(H256, AccountId, AccountId, BlockNumber, DOT),
-        // [request_id, nominator_id, operator_id, collateral]
-        ExecuteNominatorCollateralWithdrawal(H256, AccountId, AccountId, DOT),
+        // [nominator_id, operator_id, collateral]
+        ExecuteNominatorCollateralWithdrawal(AccountId, AccountId, DOT),
         // [request_id, nominator_id, operator_id, collateral]
         CancelNominatorCollateralWithdrawal(H256, AccountId, AccountId, DOT),
+        // [operator_id, collateral, status]
+        SlashCollateral(AccountId, DOT, VaultStatus),
     }
 );
 
@@ -234,11 +233,16 @@ impl<T: Config> Module<T> {
     /// # Errors
     /// * `VaultNotFound` - if the vault to liquidate does not exist
     pub fn liquidate_operator_with_status(
-        vault_id: &T::AccountId,
+        operator_id: &T::AccountId,
         status: VaultStatus,
     ) -> DispatchResult {
-        let to_slash = ext::vault_registry::liquidate_vault_with_status::<T>(vault_id, status)?;
-        Self::slash_nominators(vault_id.clone(), status, to_slash)
+        let to_slash = ext::vault_registry::liquidate_vault_with_status::<T>(operator_id, status)?;
+        Self::deposit_event(Event::<T>::SlashCollateral(
+            operator_id.clone(),
+            to_slash,
+            status,
+        ));
+        Self::slash_nominators(operator_id.clone(), status, to_slash)
     }
 
     /// Unbond collateral withdrawal if mature.
@@ -302,11 +306,17 @@ impl<T: Config> Module<T> {
 
     pub fn execute_operator_withdrawal(operator_id: &T::AccountId) -> DispatchResult {
         ensure!(
-            Self::is_operator(operator_id)?,
+            Self::is_operator(&operator_id)?,
             Error::<T>::VaultNotOptedInToNomination
         );
         let mut operator = Self::get_rich_operator_from_id(operator_id)?;
-        operator.execute_operator_withdrawal()
+        // For every matured request, an event is emitted inside the object method
+        let matured_collateral = operator.execute_operator_withdrawal()?;
+        Self::deposit_event(Event::<T>::ExecuteOperatorCollateralWithdrawal(
+            operator_id.clone(),
+            matured_collateral,
+        ));
+        Ok(())
     }
 
     pub fn request_nominator_withdrawal(
@@ -319,21 +329,15 @@ impl<T: Config> Module<T> {
             Error::<T>::VaultNotOptedInToNomination
         );
         let mut operator = Self::get_rich_operator_from_id(operator_id)?;
-        let height = <frame_system::Module<T>>::block_number();
-        let nominator_unbonding_period_u128 =
-            Self::blocknumber_to_u128(Self::get_nominator_unbonding_period())?;
-        let scaled_nominator_unbonding_period_u128 = operator
-            .get_nominator_collateral_proportion(nominator_id.clone())?
-            .checked_mul(nominator_unbonding_period_u128)
-            .ok_or(Error::<T>::ArithmeticOverflow)?;
-        let maturity = height + Self::u128_to_blocknumber(scaled_nominator_unbonding_period_u128)?;
         let request_id = ext::security::get_secure_id::<T>(operator_id);
+        let height = <frame_system::Module<T>>::block_number();
+        let maturity = height + Self::get_nominator_unbonding_period();
         operator.add_pending_nominator_withdrawal(
             nominator_id.clone(),
             request_id,
             collateral_to_withdraw,
             maturity,
-        );
+        )?;
         Self::deposit_event(Event::<T>::RequestNominatorCollateralWithdrawal(
             request_id,
             nominator_id.clone(),
@@ -353,7 +357,13 @@ impl<T: Config> Module<T> {
             Error::<T>::VaultNotOptedInToNomination
         );
         let mut operator = Self::get_rich_operator_from_id(operator_id)?;
-        operator.execute_nominator_withdrawal(nominator_id.clone())
+        let matured_collateral = operator.execute_nominator_withdrawal(nominator_id.clone())?;
+        Self::deposit_event(Event::<T>::ExecuteNominatorCollateralWithdrawal(
+            nominator_id.clone(),
+            operator_id.clone(),
+            matured_collateral,
+        ));
+        Ok(())
     }
 
     pub fn _deposit_nominated_collateral(
@@ -422,6 +432,8 @@ impl<T: Config> Module<T> {
         );
         let operator: RichOperator<T> = Operator::new(operator_id.clone()).into();
         <Operators<T>>::insert(operator_id, operator.data.clone());
+
+        Self::deposit_event(Event::<T>::NominationOptIn(operator_id.clone()));
         Ok(())
     }
 
@@ -480,14 +492,6 @@ impl<T: Config> Module<T> {
     fn u128_to_dot(x: u128) -> Result<DOT<T>, DispatchError> {
         TryInto::<DOT<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
-
-    fn blocknumber_to_u128(x: T::BlockNumber) -> Result<u128, DispatchError> {
-        TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
-    }
-
-    fn u128_to_blocknumber(x: u128) -> Result<T::BlockNumber, DispatchError> {
-        TryInto::<T::BlockNumber>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
-    }
 }
 
 decl_error! {
@@ -499,7 +503,7 @@ decl_error! {
         WithdrawalNotUnbonded,
         NominatorLiquidationFailed,
         NominatorNotFound,
-        TooLittleDelegatedCollateral,
+        TooLittleNominatedCollateral,
         VaultAlreadyOptedInToNomination,
         VaultNotOptedInToNomination,
         VaultNotQualifiedToOptOutOfNomination,
@@ -510,5 +514,6 @@ decl_error! {
         InsufficientCollateral,
         FailedToAddNominator,
         VaultNominationDisabled,
+        DepositViolatesMaxNominationRatio
     }
 }

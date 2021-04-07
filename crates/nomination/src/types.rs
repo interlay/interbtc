@@ -1,12 +1,12 @@
 use crate::{ext, Config, Error, Module};
 use codec::{Decode, Encode, HasCompact};
-use frame_support::traits::BalanceStatus;
 use frame_support::{dispatch::DispatchResult, ensure, traits::Currency, StorageMap};
 use sp_arithmetic::FixedPointNumber;
 use sp_core::H256;
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedSub, Saturating};
 use sp_runtime::DispatchError;
 use sp_std::collections::btree_map::BTreeMap;
+use sp_std::vec::Vec;
 
 #[cfg(test)]
 use mocktopus::macros::mockable;
@@ -16,9 +16,6 @@ pub(crate) type DOT<T> =
     <<T as collateral::Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 pub(crate) type UnsignedFixedPoint<T> = <T as fee::Config>::UnsignedFixedPoint;
 pub(crate) type Inner<T> = <<T as fee::Config>::UnsignedFixedPoint as FixedPointNumber>::Inner;
-// pub(crate) type PolkaBTC<T> = <<T as treasury::Config>::PolkaBTC as Currency<
-//     <T as frame_system::Config>::AccountId,
-// >>::Balance;
 
 pub struct RichOperator<T: Config> {
     pub(crate) data: DefaultOperator<T>,
@@ -97,12 +94,20 @@ impl<T: Config> RichOperator<T> {
 
     pub fn force_refund_nominated_collateral(&mut self) -> DispatchResult {
         self.force_refund_nominators_proportionally(self.data.total_nominated_collateral)?;
-        // Erase nominator data
-        self.update(|v| {
-            v.nominators = Default::default();
-            v.total_nominated_collateral = Default::default();
-            Ok(())
-        })
+        Ok(())
+    }
+
+    pub fn force_refund_nominators_proportionally(&mut self, amount: DOT<T>) -> DispatchResult {
+        let data_clone = self.data.clone();
+        for nominator_id in data_clone.nominators.keys() {
+            let nominator_collateral_to_refund =
+                self.scale_amount_by_nominator_proportion(amount, nominator_id.clone())?;
+            self.withdraw_nominated_collateral(
+                nominator_id.clone(),
+                nominator_collateral_to_refund,
+            )?;
+        }
+        Ok(())
     }
 
     pub fn deposit_nominated_collateral(
@@ -126,18 +131,10 @@ impl<T: Config> RichOperator<T> {
                 vault_collateral,
                 new_nominated_collateral
             )?,
-            Error::<T>::InsufficientCollateral
+            Error::<T>::DepositViolatesMaxNominationRatio
         );
-        // Increase the sum of nominated collateral for this vault
-        self.update(|v| {
-            v.total_nominated_collateral = collateral
-                .checked_add(&v.total_nominated_collateral)
-                .ok_or(Error::<T>::ArithmeticOverflow)?;
-            Ok(())
-        })?;
-
+        // If the depositor is not in the `nominators` map, add them.
         if !self.is_nominator(&nominator_id)? {
-            // self.data.nominators.insert(nominator_id.clone(), new_nominator);
             self.update(|v| {
                 v.nominators.insert(
                     nominator_id.clone(),
@@ -146,8 +143,7 @@ impl<T: Config> RichOperator<T> {
                 Ok(())
             })?;
         };
-
-        self.update_nominator_collateral(nominator_id.clone(), collateral, false)
+        self.increase_nominator_collateral(nominator_id, collateral)
     }
 
     pub fn withdraw_nominated_collateral(
@@ -162,66 +158,14 @@ impl<T: Config> RichOperator<T> {
             .ok_or(Error::<T>::NominatorNotFound)?;
         ensure!(
             collateral.le(&nominator.collateral),
-            Error::<T>::TooLittleDelegatedCollateral
+            Error::<T>::TooLittleNominatedCollateral
         );
-        <collateral::Module<T>>::repatriate_reserved(
-            self.data.id.clone(),
-            nominator_id.clone(),
+        self.decrease_nominator_collateral(nominator_id.clone(), collateral)?;
+        ext::vault_registry::withdraw_collateral_to_address::<T>(
+            &self.id(),
             collateral,
-            BalanceStatus::Free,
-        )?;
-
-        // Decrease the sum of nominated collateral for this vault
-        self.update(|v| {
-            v.total_nominated_collateral = v
-                .total_nominated_collateral
-                .checked_sub(&collateral.clone())
-                .ok_or(Error::<T>::ArithmeticUnderflow)?;
-            Ok(())
-        })?;
-
-        self.update_nominator_collateral(nominator_id.clone(), collateral, true)
-    }
-
-    fn update_nominator_collateral(
-        &mut self,
-        nominator_id: T::AccountId,
-        collateral: DOT<T>,
-        decrease: bool,
-    ) -> DispatchResult {
-        // If the remaining nominated collateral is zero, remove nominator from
-        // the `nominators` map. Otherwise, update the map.
-        let cloned_vault = self.data.clone();
-        let nominator = cloned_vault
-            .nominators
-            .get(&(nominator_id.clone()))
-            .ok_or(Error::<T>::NominatorNotFound)?;
-
-        if decrease {
-            self.decrease_nominator_collateral(
-                nominator_id.clone(),
-                collateral,
-                nominator.collateral,
-            )
-        } else {
-            self.increase_nominator_collateral(nominator_id.clone(), collateral)
-        }
-    }
-
-    fn decrease_nominator_collateral(
-        &mut self,
-        nominator_id: T::AccountId,
-        decrease_by: DOT<T>,
-        nominated_collateral: DOT<T>,
-    ) -> DispatchResult {
-        if nominated_collateral.eq(&decrease_by.clone()) {
-            self.update(|v| {
-                v.nominators.remove(&(nominator_id.clone()));
-                Ok(())
-            })
-        } else {
-            self.update_nominator_collateral(nominator_id.clone(), decrease_by, true)
-        }
+            &nominator_id,
+        )
     }
 
     fn increase_nominator_collateral(
@@ -229,26 +173,80 @@ impl<T: Config> RichOperator<T> {
         nominator_id: T::AccountId,
         increase_by: DOT<T>,
     ) -> DispatchResult {
-        self.update_nominator_collateral(nominator_id.clone(), increase_by, false)
+        // Increase the sum of nominated collateral for this operator
+        self.update(|v| {
+            v.total_nominated_collateral = v
+                .total_nominated_collateral
+                .checked_sub(&increase_by.clone())
+                .ok_or(Error::<T>::ArithmeticOverflow)?;
+            Ok(())
+        })?;
+        self.update(|v| {
+            let mut nominator = v
+                .nominators
+                .get(&nominator_id)
+                .ok_or(Error::<T>::NominatorNotFound)?
+                .clone();
+            nominator.collateral = nominator
+                .collateral
+                .checked_add(&increase_by)
+                .ok_or(Error::<T>::ArithmeticOverflow)?;
+            v.nominators.insert(nominator_id.clone(), nominator);
+            Ok(())
+        })
+    }
+
+    fn decrease_nominator_collateral(
+        &mut self,
+        nominator_id: T::AccountId,
+        decrease_by: DOT<T>,
+    ) -> DispatchResult {
+        // Decrease the sum of nominated collateral for this operator
+        self.update(|v| {
+            v.total_nominated_collateral = v
+                .total_nominated_collateral
+                .checked_sub(&decrease_by.clone())
+                .ok_or(Error::<T>::ArithmeticUnderflow)?;
+            Ok(())
+        })?;
+        let nominator = self
+            .data
+            .nominators
+            .get(&(nominator_id.clone()))
+            .ok_or(Error::<T>::NominatorNotFound)?;
+        if nominator.collateral.eq(&decrease_by.clone()) {
+            self.update(|v| {
+                v.nominators.remove(&(nominator_id.clone()));
+                Ok(())
+            })
+        } else {
+            self.update(|v| {
+                let mut nominator = v
+                    .nominators
+                    .get(&nominator_id)
+                    .ok_or(Error::<T>::NominatorNotFound)?
+                    .clone();
+                nominator.collateral = nominator
+                    .collateral
+                    .checked_sub(&decrease_by)
+                    .ok_or(Error::<T>::ArithmeticUnderflow)?;
+                v.nominators.insert(nominator_id.clone(), nominator);
+                Ok(())
+            })
+        }
     }
 
     pub fn slash_nominators_by(&mut self, amount_to_slash: DOT<T>) -> DispatchResult {
-        let nominators = self.data.nominators.clone();
         let vault_clone = self.data.clone();
         for (nominator_id, _) in &vault_clone.nominators {
             let nominated_collateral_to_slash =
                 self.scale_amount_by_nominator_proportion(amount_to_slash, nominator_id.clone())?;
-            self.update_nominator_collateral(
+            self.decrease_nominator_collateral(
                 nominator_id.clone(),
                 nominated_collateral_to_slash,
-                true,
             )?;
         }
-
-        self.update(|v| {
-            v.nominators = nominators.clone();
-            Ok(())
-        })
+        Ok(())
     }
 
     pub fn scale_amount_by_nominator_proportion(
@@ -290,25 +288,33 @@ impl<T: Config> RichOperator<T> {
         collateral_to_withdraw: DOT<T>,
         maturity: T::BlockNumber,
     ) -> DispatchResult {
+        // If `collateral_to_withdraw` is larger than (operator_collateral - collateral_to_be_withdrawn),
+        // the following throws an error.
         let operator_collateral = self.get_operator_collateral()?;
         let remaining_operator_collateral = operator_collateral
+            .checked_sub(&self.data.collateral_to_be_withdrawn)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?
             .checked_sub(&collateral_to_withdraw)
-            .ok_or(Error::<T>::ArithmeticOverflow)?;
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
+        // Trigger forced refunds if remaining nominated collateral would
+        // exceed the Max Nomination Ratio.
         let max_nominatable_collateral =
             self.get_max_nominatable_collateral(remaining_operator_collateral)?;
-        let nominated_collateral_to_refund = self
+        let nominated_collateral_to_force_refund = self
             .data
             .total_nominated_collateral
             .saturating_sub(max_nominatable_collateral);
         let zero_dot: DOT<T> = 0u32.into();
-        if !nominated_collateral_to_refund.eq(&zero_dot) {
+        if !nominated_collateral_to_force_refund.eq(&zero_dot) {
             // The Nominators are not assumed to be trusted by the Operator.
             // Unless the refund is forced (not subject to unbonding), a Nominator might cancel the
             // refund request and cause the Max Nomination Ratio to be exceeded.
             // As such, we need to force refund.
-            self.force_refund_nominators_proportionally(nominated_collateral_to_refund)?;
+            self.force_refund_nominators_proportionally(nominated_collateral_to_force_refund)?;
         }
+
+        // Add withdrawal request and increase collateral to-be-withdrawn
         self.update(|v| {
             v.pending_withdrawals
                 .insert(request_id, (maturity, collateral_to_withdraw));
@@ -320,51 +326,58 @@ impl<T: Config> RichOperator<T> {
         })
     }
 
-    pub fn force_refund_nominators_proportionally(&mut self, amount: DOT<T>) -> DispatchResult {
-        let data_clone = self.data.clone();
-        for nominator_id in data_clone.nominators.keys() {
-            let nominator_collateral_to_refund =
-                self.scale_amount_by_nominator_proportion(amount, nominator_id.clone())?;
-            <collateral::Module<T>>::repatriate_reserved(
-                self.data.id.clone(),
-                nominator_id.clone(),
-                nominator_collateral_to_refund,
-                BalanceStatus::Free,
-            )?;
+    pub fn execute_operator_withdrawal(&mut self) -> Result<DOT<T>, DispatchError> {
+        let matured_operator_withdrawal_requests =
+            Self::get_matured_withdrawal_requests(self.data.pending_withdrawals.clone());
+        let mut matured_collateral_to_withdraw: DOT<T> = 0u32.into();
+        for withdrawal in matured_operator_withdrawal_requests.iter() {
+            self.remove_pending_operator_withdrawal(withdrawal.0)?;
+            matured_collateral_to_withdraw = matured_collateral_to_withdraw
+                .checked_add(&withdrawal.1 .1)
+                .ok_or(Error::<T>::ArithmeticOverflow)?;
         }
-        Ok(())
+        // The backing collateral was decreased when the withdrawal requests were made,
+        // to prevent issuing with the to-be-withdrawn collateral.
+        // Now, increase the backing collateral back, so it can be withdrawn using the
+        // standard function from the vault_registry.
+        ext::vault_registry::increase_backing_collateral::<T>(
+            &self.id(),
+            matured_collateral_to_withdraw,
+        )?;
+        ext::vault_registry::withdraw_collateral_to_address::<T>(
+            &self.id(),
+            matured_collateral_to_withdraw,
+            &self.id(),
+        )?;
+        Ok(matured_collateral_to_withdraw)
     }
 
-    pub fn execute_operator_withdrawal(&mut self) -> DispatchResult {
-        // find mature request ids
-        // compute the sum to withdraw and increase the backing collateral again
-        // let withdrawal = *self
-        //     .data
-        //     .pending_withdrawals
-        //     .get(&request_id)
-        //     .ok_or(Error::<T>::WithdrawRequestNotFound)?;
-        // let height = <frame_system::Module<T>>::block_number();
-        // ensure!(
-        //     withdrawal.0.ge(&height),
-        //     Error::<T>::WithdrawRequestNotMatured
-        // );
-        // self.remove_pending_operator_withdrawal(request_id);
-        // self.update(|v| {
-        //     v.pending_withdrawals.remove(&request_id);
-        //     v.collateral_to_be_withdrawn = v
-        //         .collateral_to_be_withdrawn
-        //         .checked_sub(&withdrawal.1)
-        //         .ok_or(Error::<T>::ArithmeticUnderflow)?;
-        //     Ok(())
-        // })
-        Ok(())
+    pub fn get_matured_withdrawal_requests(
+        requests: BTreeMap<H256, (T::BlockNumber, DOT<T>)>,
+    ) -> Vec<(H256, (T::BlockNumber, DOT<T>))> {
+        let height = <frame_system::Module<T>>::block_number();
+        requests
+            .clone()
+            .iter()
+            .filter(|withdrawal_request| withdrawal_request.1 .0.ge(&height))
+            .map(|withdrawal_request| (withdrawal_request.0.clone(), withdrawal_request.1.clone()))
+            .collect::<Vec<(H256, (T::BlockNumber, DOT<T>))>>()
     }
 
-    pub fn remove_pending_operator_withdrawal(&mut self, request_id: H256) {
-        let _ = self.update(|v| {
+    pub fn remove_pending_operator_withdrawal(&mut self, request_id: H256) -> DispatchResult {
+        let withdrawal = *self
+            .data
+            .pending_withdrawals
+            .get(&request_id)
+            .ok_or(Error::<T>::WithdrawRequestNotFound)?;
+        self.update(|v| {
+            v.collateral_to_be_withdrawn = v
+                .collateral_to_be_withdrawn
+                .checked_sub(&withdrawal.1)
+                .ok_or(Error::<T>::ArithmeticUnderflow)?;
             v.pending_withdrawals.remove(&request_id);
             Ok(())
-        });
+        })
     }
 
     // Nominator functionality
@@ -375,8 +388,24 @@ impl<T: Config> RichOperator<T> {
         request_id: H256,
         collateral_to_withdraw: DOT<T>,
         maturity: T::BlockNumber,
-    ) {
-        let _ = self.update(|v| {
+    ) -> DispatchResult {
+        // Ensure that the Nominator has enough collateral for the withdrawal
+        let nominator = self
+            .data
+            .nominators
+            .get(&(nominator_id.clone()))
+            .ok_or(Error::<T>::NominatorNotFound)?;
+        let withdrawable_collateral = nominator
+            .collateral
+            .checked_sub(&nominator.collateral_to_be_withdrawn)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
+        ensure!(
+            collateral_to_withdraw.le(&withdrawable_collateral),
+            Error::<T>::TooLittleNominatedCollateral
+        );
+
+        // Add withdrawal request and increase collateral to-be-withdrawn
+        self.update(|v| {
             let mut nominator = v
                 .nominators
                 .get(&nominator_id)
@@ -391,59 +420,66 @@ impl<T: Config> RichOperator<T> {
                 .ok_or(Error::<T>::ArithmeticOverflow)?;
             v.nominators.insert(nominator_id.clone(), nominator);
             Ok(())
-        });
+        })
     }
 
-    pub fn execute_nominator_withdrawal(&mut self, _nominator_id: T::AccountId) -> DispatchResult {
-        // find mature request ids
-        // compute the sum to withdraw and increase the backing collateral again
-
-        // let nominators = self.data.nominators.clone();
-        // let nominator = nominators
-        //     .get(&(nominator_id.clone()))
-        //     .ok_or(Error::<T>::NominatorNotFound)?;
-        // let withdrawal = nominator
-        //     .pending_withdrawals
-        //     .get(&request_id)
-        //     .ok_or(Error::<T>::WithdrawRequestNotFound)?;
-
-        // let height = <frame_system::Module<T>>::block_number();
-        // ensure!(
-        //     withdrawal.0.ge(&height),
-        //     Error::<T>::WithdrawRequestNotMatured
-        // );
-        // self.remove_pending_nominator_withdrawal(nominator_id.clone(), request_id);
-        // self.update(|v| {
-        //     let mut nominator = v
-        //         .nominators
-        //         .get(&nominator_id)
-        //         .ok_or(Error::<T>::NominatorNotFound)?
-        //         .clone();
-        //     nominator.collateral_to_be_withdrawn = nominator
-        //         .collateral_to_be_withdrawn
-        //         .checked_sub(&withdrawal.1)
-        //         .ok_or(Error::<T>::ArithmeticUnderflow)?;
-        //     v.nominators.insert(nominator_id.clone(), nominator);
-        //     Ok(())
-        // })
-        Ok(())
+    pub fn execute_nominator_withdrawal(
+        &mut self,
+        nominator_id: T::AccountId,
+    ) -> Result<DOT<T>, DispatchError> {
+        let nominators = self.data.nominators.clone();
+        let nominator = nominators
+            .get(&nominator_id.clone())
+            .ok_or(Error::<T>::NominatorNotFound)?
+            .clone();
+        let matured_nominator_withdrawal_requests =
+            Self::get_matured_withdrawal_requests(nominator.pending_withdrawals);
+        let mut matured_collateral_to_withdraw: DOT<T> = 0u32.into();
+        for withdrawal in matured_nominator_withdrawal_requests.iter() {
+            self.remove_pending_nominator_withdrawal(nominator_id.clone(), withdrawal.0)?;
+            matured_collateral_to_withdraw = matured_collateral_to_withdraw
+                .checked_add(&withdrawal.1 .1)
+                .ok_or(Error::<T>::ArithmeticOverflow)?;
+        }
+        // The backing collateral was decreased when the withdrawal requests were made,
+        // to prevent issuing with the to-be-withdrawn collateral.
+        // Now, increase the backing collateral back, so it can be withdrawn using the
+        // standard function from the vault_registry.
+        ext::vault_registry::increase_backing_collateral::<T>(
+            &self.id(),
+            matured_collateral_to_withdraw,
+        )?;
+        ext::vault_registry::withdraw_collateral_to_address::<T>(
+            &self.id(),
+            matured_collateral_to_withdraw,
+            &nominator_id,
+        )?;
+        Ok(matured_collateral_to_withdraw)
     }
 
     pub fn remove_pending_nominator_withdrawal(
         &mut self,
         nominator_id: T::AccountId,
         request_id: H256,
-    ) {
-        let _ = self.update(|v| {
+    ) -> DispatchResult {
+        self.update(|v| {
             let mut nominator = v
                 .nominators
                 .get(&nominator_id)
                 .ok_or(Error::<T>::NominatorNotFound)?
                 .clone();
+            let withdrawal = nominator
+                .pending_withdrawals
+                .get(&request_id)
+                .ok_or(Error::<T>::WithdrawRequestNotFound)?;
+            nominator.collateral_to_be_withdrawn = nominator
+                .collateral_to_be_withdrawn
+                .checked_sub(&withdrawal.1)
+                .ok_or(Error::<T>::ArithmeticUnderflow)?;
             nominator.pending_withdrawals.remove(&request_id);
             v.nominators.insert(nominator_id.clone(), nominator);
             Ok(())
-        });
+        })
     }
 
     pub fn is_nominator(&mut self, nominator_id: &T::AccountId) -> Result<bool, DispatchError> {

@@ -21,13 +21,6 @@ pub(crate) mod vault_registry {
     pub use ::vault_registry::VaultStatus;
     pub use frame_support::dispatch::{DispatchError, DispatchResult};
 
-    // pub fn lock_additional_collateral<T: vault_registry::Config>(
-    //     vault_id: &T::AccountId,
-    //     collateral: DOT<T>,
-    // ) -> DispatchResult {
-    //     <vault_registry::Module<T>>::_lock_additional_collateral(vault_id, collateral)
-    // }
-
     pub fn get_backing_collateral<T: vault_registry::Config>(
         vault_id: &T::AccountId,
     ) -> Result<DOT<T>, DispatchError> {
@@ -41,12 +34,12 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::liquidate_vault_with_status(vault_id, status)
     }
 
-    // pub fn increase_backing_collateral<T: vault_registry::Config>(
-    //     vault_id: &T::AccountId,
-    //     amount: DOT<T>,
-    // ) -> DispatchResult {
-    //     <vault_registry::Module<T>>::increase_backing_collateral(vault_id, amount)
-    // }
+    pub fn increase_backing_collateral<T: vault_registry::Config>(
+        vault_id: &T::AccountId,
+        amount: DOT<T>,
+    ) -> DispatchResult {
+        <vault_registry::Module<T>>::increase_backing_collateral(vault_id, amount)
+    }
 
     pub fn decrease_backing_collateral<T: vault_registry::Config>(
         vault_id: &T::AccountId,
@@ -67,13 +60,13 @@ pub(crate) mod vault_registry {
         )
     }
 
-    // pub fn withdraw_collateral_to_address<T: vault_registry::Config>(
-    //     vault_id: &T::AccountId,
-    //     collateral: DOT<T>,
-    //     payee_id: &T::AccountId,
-    // ) -> DispatchResult {
-    //     <vault_registry::Module<T>>::_withdraw_collateral_to_address(vault_id, collateral, payee_id)
-    // }
+    pub fn withdraw_collateral_to_address<T: vault_registry::Config>(
+        vault_id: &T::AccountId,
+        collateral: DOT<T>,
+        payee_id: &T::AccountId,
+    ) -> DispatchResult {
+        <vault_registry::Module<T>>::_withdraw_collateral_to_address(vault_id, collateral, payee_id)
+    }
 
     pub fn vault_exists<T: vault_registry::Config>(id: &T::AccountId) -> bool {
         <vault_registry::Module<T>>::vault_exists(id)

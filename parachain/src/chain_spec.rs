@@ -468,9 +468,8 @@ fn testnet_genesis(
         },
         nomination: NominationConfig {
             nomination_enabled: true,
-            max_nomination_ratio: FixedU128::checked_from_rational(50, 100).unwrap(), // 50%
-            collateral_to_be_withdrawn: 0,
             operator_unbonding_period: 24 * HOURS,
+            max_nomination_ratio: FixedU128::checked_from_rational(50, 100).unwrap(), // 50%
             nominator_unbonding_period: 12 * HOURS,
         },
     }
