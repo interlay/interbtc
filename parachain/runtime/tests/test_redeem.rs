@@ -4,7 +4,7 @@ use mock::{redeem_testing_utils::*, *};
 
 fn test_with<R>(execute: impl FnOnce() -> R) -> R {
     ExtBuilder::build().execute_with(|| {
-        SystemModule::set_block_number(1);
+        SecurityModule::set_active_block_number(1);
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
         set_default_thresholds();
         UserData::force_to(USER, default_user_state());
@@ -109,6 +109,85 @@ mod request_redeem_tests {
     }
 }
 
+mod expiry_test {
+    use super::*;
+
+    fn set_redeem_period(period: u32) {
+        assert_ok!(Call::Redeem(RedeemCall::set_redeem_period(period)).dispatch(root()));
+    }
+
+    fn request_redeem() -> H256 {
+        assert_ok!(Call::Redeem(RedeemCall::request_redeem(
+            4_000,
+            BtcAddress::default(),
+            account_of(VAULT)
+        ))
+        .dispatch(origin_of(account_of(USER))));
+        // get the redeem id
+        assert_redeem_request_event()
+    }
+
+    fn execute_redeem(redeem_id: H256) -> DispatchResultWithPostInfo {
+        ExecuteRedeemBuilder::new(redeem_id).execute()
+    }
+
+    fn cancel_redeem(redeem_id: H256) -> DispatchResultWithPostInfo {
+        Call::Redeem(RedeemCall::cancel_redeem(redeem_id, true)).dispatch(origin_of(account_of(USER)))
+    }
+
+    #[test]
+    fn integration_test_redeem_expiry_no_period_change_pre_expiry() {
+        test_with(|| {
+            set_redeem_period(100);
+            let redeem_id = request_redeem();
+            SecurityModule::set_active_block_number(75);
+
+            assert_noop!(cancel_redeem(redeem_id), RedeemError::TimeNotExpired);
+            assert_ok!(execute_redeem(redeem_id));
+        });
+    }
+
+    #[test]
+    fn integration_test_redeem_expiry_no_period_change_post_expiry() {
+        test_with(|| {
+            set_redeem_period(100);
+            let redeem_id = request_redeem();
+            SecurityModule::set_active_block_number(110);
+
+            assert_noop!(execute_redeem(redeem_id), RedeemError::CommitPeriodExpired);
+            assert_ok!(cancel_redeem(redeem_id));
+        });
+    }
+
+    #[test]
+    fn integration_test_redeem_expiry_with_period_decrease() {
+        test_with(|| {
+            set_redeem_period(200);
+            let redeem_id = request_redeem();
+            SecurityModule::set_active_block_number(110);
+            set_redeem_period(100);
+
+            // request still uses period = 200, so cancel fails and execute succeeds
+            assert_noop!(cancel_redeem(redeem_id), RedeemError::TimeNotExpired);
+            assert_ok!(execute_redeem(redeem_id));
+        });
+    }
+
+    #[test]
+    fn integration_test_redeem_expiry_with_period_increase() {
+        test_with(|| {
+            set_redeem_period(100);
+            let redeem_id = request_redeem();
+            SecurityModule::set_active_block_number(110);
+            set_redeem_period(200);
+
+            // request uses period = 200, so execute succeeds and cancel fails
+            assert_noop!(cancel_redeem(redeem_id), RedeemError::TimeNotExpired);
+            assert_ok!(execute_redeem(redeem_id));
+        });
+    }
+}
+
 #[test]
 fn integration_test_redeem_polka_btc_execute() {
     test_with(|| {
@@ -118,7 +197,7 @@ fn integration_test_redeem_polka_btc_execute() {
         let redeem_id = setup_redeem(polka_btc, USER, VAULT, collateral_vault);
         let redeem = RedeemModule::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
-        execute_redeem(polka_btc, redeem_id);
+        execute_redeem(redeem_id);
 
         assert_eq!(
             ParachainState::get(),
@@ -159,7 +238,7 @@ fn integration_test_premium_redeem_polka_btc_execute() {
         let (tx_id, _tx_block_height, merkle_proof, raw_tx) =
             generate_transaction_and_mine(user_btc_address, polka_btc, Some(redeem_id));
 
-        SystemModule::set_block_number(1 + CONFIRMATIONS);
+        SecurityModule::set_active_block_number(1 + CONFIRMATIONS);
 
         assert_ok!(
             Call::Redeem(RedeemCall::execute_redeem(redeem_id, tx_id, merkle_proof, raw_tx))
@@ -319,7 +398,7 @@ fn integration_test_redeem_polka_btc_cancel_reimburse_insufficient_collateral_fo
             })
         );
 
-        SystemModule::set_block_number(100000000);
+        SecurityModule::set_active_block_number(100000000);
         CoreVaultData::force_to(
             VAULT,
             CoreVaultData {
@@ -506,7 +585,7 @@ fn integration_test_redeem_polka_btc_execute_liquidated() {
 
         let post_liquidation_state = ParachainState::get();
 
-        execute_redeem(polka_btc, redeem_id);
+        execute_redeem(redeem_id);
 
         // NOTE: changes are relative the the post liquidation state
         assert_eq!(
@@ -608,7 +687,7 @@ fn integration_test_redeem_banning() {
         );
 
         // check that the ban is not permanent
-        SystemModule::set_block_number(100000000);
+        SecurityModule::set_active_block_number(100000000);
         assert_ok!(
             Call::Issue(IssueCall::request_issue(50, account_of(VAULT), 50)).dispatch(origin_of(account_of(USER)))
         );

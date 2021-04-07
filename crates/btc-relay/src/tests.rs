@@ -1512,7 +1512,7 @@ fn test_check_bitcoin_confirmations_secure_insufficient_stable_confs_succeeds() 
 #[test]
 fn test_check_parachain_confirmations_succeeds() {
     run_test(|| {
-        System::set_block_number(5 + PARACHAIN_CONFIRMATIONS);
+        Security::set_active_block_number(5 + PARACHAIN_CONFIRMATIONS);
         assert_ok!(BTCRelay::check_parachain_confirmations(0));
     });
 }
@@ -1520,7 +1520,7 @@ fn test_check_parachain_confirmations_succeeds() {
 #[test]
 fn test_check_parachain_confirmations_insufficient_confs_fails() {
     run_test(|| {
-        System::set_block_number(0);
+        Security::set_active_block_number(0);
         assert_err!(
             BTCRelay::check_parachain_confirmations(0),
             TestError::ParachainConfirmations

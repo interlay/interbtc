@@ -28,7 +28,7 @@ pub mod types;
 #[doc(inline)]
 pub use crate::types::{RedeemRequest, RedeemRequestStatus};
 
-use crate::types::{PolkaBTC, RedeemRequestV1, Version, DOT};
+use crate::types::{PolkaBTC, RedeemRequestV2, Version, DOT};
 use bitcoin::types::H256Le;
 use btc_relay::BtcAddress;
 use frame_support::{
@@ -132,31 +132,26 @@ decl_module! {
         fn on_runtime_upgrade() -> Weight {
             use frame_support::{migration::StorageKeyIterator, Blake2_128Concat};
 
-            if matches!(Self::storage_version(), Version::V0 | Version::V1) {
-                StorageKeyIterator::<H256, RedeemRequestV1<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, Blake2_128Concat>::new(<RedeemRequests<T>>::module_prefix(), b"RedeemRequests")
+            if matches!(Self::storage_version(), Version::V2) {
+                StorageKeyIterator::<H256, RedeemRequestV2<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, Blake2_128Concat>::new(<RedeemRequests<T>>::module_prefix(), b"RedeemRequests")
                     .drain()
-                    .for_each(|(id, request_v1)| {
-                        let status = match (request_v1.completed,request_v1.cancelled, request_v1.reimburse) {
-                            (false, false, false) => RedeemRequestStatus::Pending,
-                            (true, false, false) => RedeemRequestStatus::Completed,
-                            (false, true, true) => RedeemRequestStatus::Reimbursed(true),
-                            (false, true, false) => RedeemRequestStatus::Retried,
-                            _ => RedeemRequestStatus::Completed, // should never happen
+                    .for_each(|(id, old_request)| {
+                        let new_request = RedeemRequest {
+                            vault: old_request.vault,
+                            opentime: old_request.opentime,
+                            period: Self::redeem_period(),
+                            fee: old_request.fee,
+                            amount_btc: old_request.amount_btc,
+                            premium_dot: old_request.premium_dot,
+                            redeemer: old_request.redeemer,
+                            btc_address: old_request.btc_address,
+                            btc_height: 1969929, // extra conservative, testnet height at april 4th
+                            status: old_request.status,
                         };
-                        let request_v2 = RedeemRequest {
-                            vault: request_v1.vault,
-                            opentime: request_v1.opentime,
-                            fee: request_v1.fee,
-                            amount_btc: request_v1.amount_btc,
-                            premium_dot: request_v1.premium_dot,
-                            redeemer: request_v1.redeemer,
-                            btc_address: request_v1.btc_address,
-                            status
-                        };
-                        <RedeemRequests<T>>::insert(id, request_v2);
+                        <RedeemRequests<T>>::insert(id, new_request);
                     });
 
-                StorageVersion::put(Version::V2);
+                StorageVersion::put(Version::V3);
             }
 
             0
@@ -301,8 +296,7 @@ impl<T: Config> Module<T> {
             .checked_sub(&fee_polka_btc)
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
-        let height = <frame_system::Pallet<T>>::block_number();
-        ext::vault_registry::ensure_not_banned::<T>(&vault_id, height)?;
+        ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;
 
         // only allow requests of amount above above the minimum
         let dust_value = <RedeemBtcDustValue<T>>::get();
@@ -341,13 +335,15 @@ impl<T: Config> Module<T> {
             redeem_id,
             RedeemRequest {
                 vault: vault_id.clone(),
-                opentime: height,
+                opentime: ext::security::active_block_number::<T>(),
                 fee: fee_polka_btc,
                 amount_btc: redeem_amount_polka_btc,
                 // TODO: reimplement partial redeem for system liquidation
                 premium_dot,
+                period: Self::redeem_period(),
                 redeemer: redeemer.clone(),
                 btc_address: btc_address.clone(),
+                btc_height: ext::btc_relay::get_best_block_height::<T>(),
                 status: RedeemRequestStatus::Pending,
             },
         );
@@ -397,7 +393,7 @@ impl<T: Config> Module<T> {
 
         // only executable before the request has expired
         ensure!(
-            !has_request_expired::<T>(redeem.opentime, Self::redeem_period()),
+            !ext::security::has_expired::<T>(redeem.opentime, Self::redeem_period().max(redeem.period))?,
             Error::<T>::CommitPeriodExpired
         );
 
@@ -447,7 +443,7 @@ impl<T: Config> Module<T> {
 
         // only cancellable after the request has expired
         ensure!(
-            has_request_expired::<T>(redeem.opentime, Self::redeem_period()),
+            ext::security::has_expired::<T>(redeem.opentime, Self::redeem_period().max(redeem.period))?,
             Error::<T>::TimeNotExpired
         );
 
@@ -688,11 +684,6 @@ impl<T: Config> Module<T> {
     fn u128_to_dot(x: u128) -> Result<DOT<T>, DispatchError> {
         TryInto::<DOT<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
-}
-
-fn has_request_expired<T: Config>(opentime: T::BlockNumber, period: T::BlockNumber) -> bool {
-    let height = <frame_system::Pallet<T>>::block_number();
-    height > opentime + period
 }
 
 decl_error! {

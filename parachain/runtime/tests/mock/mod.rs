@@ -7,7 +7,7 @@ pub use bitcoin::{
 };
 pub use btc_parachain_runtime::{AccountId, Call, Event, Runtime};
 pub use btc_relay::{BtcAddress, BtcPublicKey};
-pub use frame_support::{assert_noop, assert_ok, dispatch::DispatchResultWithPostInfo};
+pub use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchResultWithPostInfo};
 pub use mocktopus::mocking::*;
 pub use primitive_types::{H256, U256};
 pub use security::{ErrorCode, StatusCode};
@@ -18,6 +18,7 @@ pub use sp_std::convert::TryInto;
 pub use vault_registry::CurrencySource;
 
 pub use issue::IssueRequest;
+pub use redeem::RedeemRequest;
 pub use refund::RefundRequest;
 pub use replace::ReplaceRequest;
 pub use sp_runtime::AccountId32;
@@ -108,6 +109,10 @@ pub fn default_vault_state() -> CoreVaultData {
         replace_collateral: DEFAULT_VAULT_REPLACE_COLLATERAL,
         to_be_replaced: DEFAULT_VAULT_TO_BE_REPLACED,
     }
+}
+
+pub fn root() -> <Runtime as frame_system::Config>::Origin {
+    <Runtime as frame_system::Config>::Origin::root()
 }
 
 pub fn origin_of(account_id: AccountId) -> <Runtime as frame_system::Config>::Origin {
@@ -736,10 +741,12 @@ pub type CollateralModule = collateral::Module<Runtime>;
 #[allow(dead_code)]
 pub type TreasuryModule = treasury::Module<Runtime>;
 
-pub struct ExtBuilder;
+pub struct ExtBuilder {
+    test_externalities: sp_io::TestExternalities,
+}
 
 impl ExtBuilder {
-    pub fn build() -> sp_io::TestExternalities {
+    pub fn build() -> Self {
         let mut storage = frame_system::GenesisConfig::default()
             .build_storage::<Runtime>()
             .unwrap();
@@ -855,6 +862,18 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage)
         .unwrap();
 
-        sp_io::TestExternalities::from(storage)
+        Self {
+            test_externalities: sp_io::TestExternalities::from(storage),
+        }
+    }
+
+    /// do setup common to all integration tests, then execute the callback
+    pub fn execute_with<R>(mut self, execute: impl FnOnce() -> R) -> R {
+        self.test_externalities.execute_with(|| {
+            SystemModule::set_block_number(1); // required to be able to dispatch functions
+            SecurityModule::set_active_block_number(1);
+
+            execute()
+        })
     }
 }

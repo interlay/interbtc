@@ -8,7 +8,8 @@ use bitcoin::{
     },
 };
 use frame_benchmarking::{account, benchmarks};
-use frame_system::{Pallet as System, RawOrigin};
+use frame_system::RawOrigin;
+use security::Module as Security;
 use sp_core::{H256, U256};
 use sp_std::prelude::*;
 
@@ -88,7 +89,7 @@ benchmarks! {
         let proof = block.merkle_proof(&vec![tx_id]).unwrap().try_format().unwrap();
         let raw_tx = transaction.format_with(true);
 
-        System::<T>::set_block_number(100u32.into());
+        Security::<T>::set_active_block_number(100u32.into());
 
     }: _(RawOrigin::Signed(origin), tx_id, proof, Some(0), raw_tx, value.into(), address, Some(op_return))
 
@@ -108,7 +109,7 @@ benchmarks! {
         let tx_block_height = height;
         let proof = block.merkle_proof(&vec![tx_id]).unwrap().try_format().unwrap();
 
-        System::<T>::set_block_number(100u32.into());
+        Security::<T>::set_active_block_number(100u32.into());
 
     }: _(RawOrigin::Signed(origin), tx_id, proof, Some(0))
 

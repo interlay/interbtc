@@ -7,7 +7,8 @@ use bitcoin::{
 use btc_relay::{BtcAddress, BtcPublicKey, Module as BtcRelay};
 use exchange_rate_oracle::Module as ExchangeRateOracle;
 use frame_benchmarking::{account, benchmarks};
-use frame_system::{Pallet as System, RawOrigin};
+use frame_system::RawOrigin;
+use security::Module as Security;
 use sp_core::{H160, H256, U256};
 use sp_runtime::FixedPointNumber;
 use sp_std::prelude::*;
@@ -200,7 +201,7 @@ benchmarks! {
         replace_request.new_vault = new_vault_id.clone();
         replace_request.amount = amount.into();
         Replace::<T>::insert_replace_request(&replace_id, &replace_request);
-        System::<T>::set_block_number(System::<T>::block_number() + Replace::<T>::replace_period() + 10u32.into());
+        Security::<T>::set_active_block_number(Security::<T>::active_block_number() + Replace::<T>::replace_period() + 10u32.into());
 
         VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());
 

@@ -1,4 +1,4 @@
-use crate::{ext, has_request_expired, mock::*};
+use crate::{ext, mock::*};
 
 use crate::types::{PolkaBTC, RedeemRequest, RedeemRequestStatus, DOT};
 use bitcoin::types::H256Le;
@@ -6,6 +6,7 @@ use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
 use primitive_types::H256;
+use security::Module as Security;
 use sp_core::H160;
 use sp_std::convert::TryInto;
 use vault_registry::{VaultStatus, Wallet};
@@ -113,7 +114,7 @@ fn test_request_redeem_fails_with_vault_not_found() {
 fn test_request_redeem_fails_with_vault_banned() {
     run_test(|| {
         ext::vault_registry::ensure_not_banned::<Test>
-            .mock_safe(|_, _| MockResult::Return(Err(VaultRegistryError::VaultBanned.into())));
+            .mock_safe(|_| MockResult::Return(Err(VaultRegistryError::VaultBanned.into())));
 
         assert_err!(
             Redeem::request_redeem(Origin::signed(ALICE), 0, BtcAddress::default(), BOB),
@@ -125,7 +126,7 @@ fn test_request_redeem_fails_with_vault_banned() {
 #[test]
 fn test_request_redeem_fails_with_vault_liquidated() {
     run_test(|| {
-        ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
         assert_err!(
             Redeem::request_redeem(Origin::signed(ALICE), 3, BtcAddress::random(), BOB),
             VaultRegistryError::VaultNotFound
@@ -194,6 +195,7 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
         assert_ok!(
             Redeem::get_open_redeem_request_from_id(&H256([0; 32])),
             RedeemRequest {
+                period: Redeem::redeem_period(),
                 vault: BOB,
                 opentime: 1,
                 fee: redeem_fee,
@@ -201,6 +203,7 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
                 premium_dot: 0,
                 redeemer: redeemer.clone(),
                 btc_address: BtcAddress::P2PKH(H160::zero()),
+                btc_height: 0,
                 status: RedeemRequestStatus::Pending,
             }
         );
@@ -254,7 +257,7 @@ fn test_execute_redeem_fails_with_redeem_id_not_found() {
 fn test_execute_redeem_succeeds_with_another_account() {
     run_test(|| {
         ext::oracle::btc_to_dots::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
-        System::set_block_number(40);
+        Security::<Test>::set_active_block_number(40);
         <vault_registry::Module<Test>>::insert_vault(
             &BOB,
             vault_registry::Vault {
@@ -277,6 +280,7 @@ fn test_execute_redeem_succeeds_with_another_account() {
         inject_redeem_request(
             H256([0u8; 32]),
             RedeemRequest {
+                period: 0,
                 vault: BOB,
                 opentime: 40,
                 fee: 0,
@@ -284,6 +288,7 @@ fn test_execute_redeem_succeeds_with_another_account() {
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: BtcAddress::random(),
+                btc_height: 0,
                 status: RedeemRequestStatus::Pending,
             },
         );
@@ -321,10 +326,11 @@ fn test_execute_redeem_succeeds_with_another_account() {
 #[test]
 fn test_execute_redeem_fails_with_commit_period_expired() {
     run_test(|| {
-        System::set_block_number(40);
+        Security::<Test>::set_active_block_number(40);
 
         Redeem::get_open_redeem_request_from_id.mock_safe(|_| {
             MockResult::Return(Ok(RedeemRequest {
+                period: 0,
                 vault: BOB,
                 opentime: 20,
                 fee: 0,
@@ -332,6 +338,7 @@ fn test_execute_redeem_fails_with_commit_period_expired() {
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: BtcAddress::random(),
+                btc_height: 0,
                 status: RedeemRequestStatus::Pending,
             }))
         });
@@ -353,7 +360,7 @@ fn test_execute_redeem_fails_with_commit_period_expired() {
 fn test_execute_redeem_succeeds() {
     run_test(|| {
         ext::oracle::btc_to_dots::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
-        System::set_block_number(40);
+        Security::<Test>::set_active_block_number(40);
         <vault_registry::Module<Test>>::insert_vault(
             &BOB,
             vault_registry::Vault {
@@ -376,6 +383,7 @@ fn test_execute_redeem_succeeds() {
         inject_redeem_request(
             H256([0u8; 32]),
             RedeemRequest {
+                period: 0,
                 vault: BOB,
                 opentime: 40,
                 fee: 0,
@@ -383,6 +391,7 @@ fn test_execute_redeem_succeeds() {
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: BtcAddress::random(),
+                btc_height: 0,
                 status: RedeemRequestStatus::Pending,
             },
         );
@@ -430,10 +439,11 @@ fn test_cancel_redeem_fails_with_redeem_id_not_found() {
 #[test]
 fn test_cancel_redeem_fails_with_time_not_expired() {
     run_test(|| {
-        System::set_block_number(10);
+        Security::<Test>::set_active_block_number(10);
 
         Redeem::get_open_redeem_request_from_id.mock_safe(|_| {
             MockResult::Return(Ok(RedeemRequest {
+                period: 0,
                 vault: BOB,
                 opentime: 0,
                 fee: 0,
@@ -441,6 +451,7 @@ fn test_cancel_redeem_fails_with_time_not_expired() {
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: BtcAddress::random(),
+                btc_height: 0,
                 status: RedeemRequestStatus::Pending,
             }))
         });
@@ -455,10 +466,11 @@ fn test_cancel_redeem_fails_with_time_not_expired() {
 #[test]
 fn test_cancel_redeem_fails_with_unauthorized_caller() {
     run_test(|| {
-        <frame_system::Pallet<Test>>::set_block_number(20);
+        Security::<Test>::set_active_block_number(20);
 
         Redeem::get_open_redeem_request_from_id.mock_safe(|_| {
             MockResult::Return(Ok(RedeemRequest {
+                period: 0,
                 vault: BOB,
                 opentime: 0,
                 fee: 0,
@@ -466,6 +478,7 @@ fn test_cancel_redeem_fails_with_unauthorized_caller() {
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: BtcAddress::random(),
+                btc_height: 0,
                 status: RedeemRequestStatus::Pending,
             }))
         });
@@ -483,6 +496,7 @@ fn test_cancel_redeem_succeeds() {
         inject_redeem_request(
             H256([0u8; 32]),
             RedeemRequest {
+                period: 0,
                 vault: BOB,
                 opentime: 10,
                 fee: 0,
@@ -490,11 +504,13 @@ fn test_cancel_redeem_succeeds() {
                 premium_dot: 0,
                 redeemer: ALICE,
                 btc_address: BtcAddress::random(),
+                btc_height: 0,
                 status: RedeemRequestStatus::Pending,
             },
         );
 
-        System::set_block_number(System::block_number() + Redeem::redeem_period() + 10);
+        let current_block_number = ext::security::active_block_number::<Test>();
+        Security::<Test>::set_active_block_number(current_block_number + Redeem::redeem_period() + 10);
 
         ext::vault_registry::ban_vault::<Test>.mock_safe(move |vault| {
             assert_eq!(vault, BOB);
@@ -526,14 +542,5 @@ fn test_set_redeem_period_only_root() {
             DispatchError::BadOrigin
         );
         assert_ok!(Redeem::set_redeem_period(Origin::root(), 1));
-    })
-}
-
-#[test]
-fn test_has_request_expired() {
-    run_test(|| {
-        System::set_block_number(130);
-        assert!(has_request_expired::<Test>(50, 50));
-        assert!(!has_request_expired::<Test>(120, 50));
     })
 }

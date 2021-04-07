@@ -5,7 +5,7 @@ use mock::{issue_testing_utils::*, *};
 
 fn test_with<R>(execute: impl FnOnce() -> R) -> R {
     ExtBuilder::build().execute_with(|| {
-        SystemModule::set_block_number(1);
+        SecurityModule::set_active_block_number(1);
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
         UserData::force_to(USER, default_user_state());
         execute()
@@ -18,6 +18,75 @@ fn test_with_initialized_vault<R>(execute: impl FnOnce() -> R) -> R {
         execute()
     })
 }
+
+mod expiry_test {
+    use super::*;
+
+    fn set_issue_period(period: u32) {
+        assert_ok!(Call::Issue(IssueCall::set_issue_period(period)).dispatch(root()));
+    }
+
+    fn execute_issue(issue_id: H256) -> DispatchResultWithPostInfo {
+        ExecuteIssueBuilder::new(issue_id).execute()
+    }
+
+    fn cancel_issue(issue_id: H256) -> DispatchResultWithPostInfo {
+        Call::Issue(IssueCall::cancel_issue(issue_id)).dispatch(origin_of(account_of(USER)))
+    }
+
+    #[test]
+    fn integration_test_issue_expiry_no_period_change_pre_expiry() {
+        test_with(|| {
+            set_issue_period(100);
+            let (issue_id, _) = request_issue(4_000);
+            SecurityModule::set_active_block_number(75);
+
+            assert_noop!(cancel_issue(issue_id), IssueError::TimeNotExpired);
+            assert_ok!(execute_issue(issue_id));
+        });
+    }
+
+    #[test]
+    fn integration_test_issue_expiry_no_period_change_post_expiry() {
+        test_with(|| {
+            set_issue_period(100);
+            let (issue_id, _) = request_issue(4_000);
+            SecurityModule::set_active_block_number(110);
+
+            assert_noop!(execute_issue(issue_id), IssueError::CommitPeriodExpired);
+            assert_ok!(cancel_issue(issue_id));
+        });
+    }
+
+    #[test]
+    fn integration_test_issue_expiry_with_period_decrease() {
+        test_with(|| {
+            set_issue_period(200);
+            let (issue_id, _) = request_issue(4_000);
+            SecurityModule::set_active_block_number(110);
+            set_issue_period(100);
+
+            // request still uses period = 200, so cancel fails and execute succeeds
+            assert_noop!(cancel_issue(issue_id), IssueError::TimeNotExpired);
+            assert_ok!(execute_issue(issue_id));
+        });
+    }
+
+    #[test]
+    fn integration_test_issue_expiry_with_period_increase() {
+        test_with(|| {
+            set_issue_period(100);
+            let (issue_id, _) = request_issue(4_000);
+            SecurityModule::set_active_block_number(110);
+            set_issue_period(200);
+
+            // request uses period = 200, so execute succeeds and cancel fails
+            assert_noop!(cancel_issue(issue_id), IssueError::TimeNotExpired);
+            assert_ok!(execute_issue(issue_id));
+        });
+    }
+}
+
 #[test]
 fn integration_test_issue_should_fail_if_not_running() {
     test_with(|| {
@@ -150,7 +219,7 @@ fn integration_test_issue_polka_btc_execute_succeeds() {
         // send the btc from the user to the vault
         let (tx_id, _height, proof, raw_tx) = generate_transaction_and_mine(vault_btc_address, total_amount_btc, None);
 
-        SystemModule::set_block_number(1 + CONFIRMATIONS);
+        SecurityModule::set_active_block_number(1 + CONFIRMATIONS);
 
         // alice executes the issue by confirming the btc transaction
         assert_ok!(Call::Issue(IssueCall::execute_issue(issue_id, tx_id, proof, raw_tx))
@@ -351,7 +420,7 @@ fn integration_test_issue_polka_btc_cancel() {
         // random non-zero starting state
         let (issue_id, issue) = RequestIssueBuilder::new(10_000).request();
 
-        SystemModule::set_block_number(IssueModule::issue_period() + 1 + 1);
+        SecurityModule::set_active_block_number(IssueModule::issue_period() + 1 + 1);
 
         // alice cannot execute past expiry
         assert_noop!(
@@ -383,7 +452,7 @@ fn integration_test_issue_polka_btc_cancel_liquidated() {
     test_with_initialized_vault(|| {
         let (issue_id, issue) = RequestIssueBuilder::new(10_000).request();
 
-        SystemModule::set_block_number(IssueModule::issue_period() + 1 + 1);
+        SecurityModule::set_active_block_number(IssueModule::issue_period() + 1 + 1);
 
         // alice cannot execute past expiry
         assert_noop!(

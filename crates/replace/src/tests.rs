@@ -35,6 +35,7 @@ macro_rules! assert_event_matches {
 }
 fn test_request() -> ReplaceRequest<u64, u64, u64, u64> {
     ReplaceRequest {
+        period: 0,
         new_vault: NEW_VAULT,
         old_vault: OLD_VAULT,
         accept_time: 1,
@@ -42,6 +43,7 @@ fn test_request() -> ReplaceRequest<u64, u64, u64, u64> {
         griefing_collateral: 0,
         btc_address: BtcAddress::default(),
         collateral: 20,
+        btc_height: 0,
         status: ReplaceRequestStatus::Pending,
     }
 }
@@ -50,7 +52,7 @@ mod request_replace_tests {
     use super::*;
 
     fn setup_mocks() {
-        ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
         ext::vault_registry::requestable_to_be_replaced_tokens::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(1000000)));
         ext::vault_registry::try_increase_to_be_replaced_tokens::<Test>
@@ -109,7 +111,7 @@ mod accept_replace_tests {
     use super::*;
 
     fn setup_mocks() {
-        ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
         ext::vault_registry::insert_vault_deposit_address::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::decrease_to_be_replaced_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok((5, 10))));
         ext::vault_registry::try_lock_additional_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
@@ -170,7 +172,7 @@ mod auction_replace_tests {
 
     fn setup_mocks() {
         ext::vault_registry::is_vault_below_auction_threshold::<Test>.mock_safe(|_| MockResult::Return(Ok(true)));
-        ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
         ext::vault_registry::insert_vault_deposit_address::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::decrease_to_be_replaced_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok((5, 10))));
         ext::collateral::release_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
@@ -192,7 +194,7 @@ mod auction_replace_tests {
                 10,
                 BtcAddress::default()
             ));
-            assert_event_matches!(Event::AuctionReplace(_, OLD_VAULT, NEW_VAULT, 5, 10, _, _, _, addr) if addr == BtcAddress::default());
+            assert_event_matches!(Event::AuctionReplace(_, OLD_VAULT, NEW_VAULT, 5, 10, _, _, addr) if addr == BtcAddress::default());
         })
     }
 
@@ -209,7 +211,7 @@ mod auction_replace_tests {
                 10,
                 BtcAddress::default()
             ));
-            assert_event_matches!(Event::AuctionReplace(_, OLD_VAULT, NEW_VAULT, 4, 8, _, _, _, addr) if addr == BtcAddress::default());
+            assert_event_matches!(Event::AuctionReplace(_, OLD_VAULT, NEW_VAULT, 4, 8, _, _, addr) if addr == BtcAddress::default());
         })
     }
 
@@ -261,7 +263,7 @@ mod execute_replace_test {
         });
 
         Replace::replace_period.mock_safe(|| MockResult::Return(20));
-        Replace::has_request_expired.mock_safe(|_, _| MockResult::Return(false));
+        ext::security::has_expired::<Test>.mock_safe(|_, _| MockResult::Return(Ok(false)));
         ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::btc_relay::validate_transaction::<Test>
             .mock_safe(|_, _, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 0))));
@@ -287,7 +289,7 @@ mod execute_replace_test {
     fn test_execute_replace_after_expiry_fails() {
         run_test(|| {
             setup_mocks();
-            Replace::has_request_expired.mock_safe(|_, _| MockResult::Return(true));
+            ext::security::has_expired::<Test>.mock_safe(|_, _| MockResult::Return(Ok(true)));
 
             assert_err!(
                 Replace::_execute_replace(H256::zero(), H256Le::zero(), Vec::new(), Vec::new()),
@@ -309,7 +311,7 @@ mod cancel_replace_tests {
         });
 
         Replace::replace_period.mock_safe(|| MockResult::Return(20));
-        Replace::has_request_expired.mock_safe(|_, _| MockResult::Return(true));
+        ext::security::has_expired::<Test>.mock_safe(|_, _| MockResult::Return(Ok(true)));
         ext::vault_registry::is_vault_liquidated::<Test>.mock_safe(|_| MockResult::Return(Ok(false)));
         ext::vault_registry::cancel_replace_tokens::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));
         ext::vault_registry::slash_collateral::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));
@@ -322,19 +324,6 @@ mod cancel_replace_tests {
             setup_mocks();
             assert_ok!(Replace::_cancel_replace(NEW_VAULT, H256::zero(),));
             assert_event_matches!(Event::CancelReplace(_, NEW_VAULT, OLD_VAULT, _));
-        })
-    }
-
-    #[test]
-    fn test_cancel_replace_after_expiry_fails() {
-        run_test(|| {
-            setup_mocks();
-            Replace::has_request_expired.mock_safe(|_, _| MockResult::Return(false));
-
-            assert_err!(
-                Replace::_cancel_replace(NEW_VAULT, H256::zero(),),
-                TestError::ReplacePeriodNotExpired
-            );
         })
     }
 

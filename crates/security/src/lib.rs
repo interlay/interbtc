@@ -5,6 +5,8 @@
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use sp_runtime::traits::*;
+
 pub mod types;
 
 #[cfg(test)]
@@ -23,7 +25,12 @@ use mocktopus::macros::mockable;
 pub use crate::types::{ErrorCode, StatusCode};
 
 use codec::Encode;
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, transactional};
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage,
+    dispatch::{DispatchError, DispatchResult},
+    transactional,
+    weights::Weight,
+};
 use frame_system::ensure_root;
 use primitive_types::H256;
 use sha2::{Digest, Sha256};
@@ -49,6 +56,13 @@ decl_storage! {
         /// Integer increment-only counter, used to prevent collisions when generating identifiers
         /// for e.g. issue, redeem or replace requests (for OP_RETURN field in Bitcoin).
         Nonce: U256;
+
+        /// Like frame_system::block_number, but this one only increments if the parachain status is RUNNING.
+        /// This variable is used to keep track of durations, such as the issue/redeem/replace expiry. If the
+        /// parachain is not RUNNING, no payment proofs can be submitted, and it wouldn't be fair to punish
+        /// the user/vault. By using this variable we ensure that they have sufficient time to submit their
+        /// proof.
+        ActiveBlockCount get(fn active_block_number): T::BlockNumber;
     }
 }
 
@@ -58,6 +72,23 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
+
+        /// Upgrade the runtime depending on the current `StorageVersion`.
+        fn on_runtime_upgrade() -> Weight {
+            if !ActiveBlockCount::<T>::exists() {
+                let chain_height = <frame_system::Pallet<T>>::block_number();
+                ActiveBlockCount::<T>::set(chain_height);
+            }
+            0
+        }
+
+        fn on_initialize(_chain_height: T::BlockNumber) -> Weight {
+            <ActiveBlockCount<T>>::mutate(|n| {
+                *n = n.saturating_add(1u32.into());
+            });
+
+            0
+        }
 
         /// Set the parachain status code.
         ///
@@ -226,6 +257,11 @@ impl<T: Config> Module<T> {
         })
     }
 
+    pub fn has_expired(opentime: T::BlockNumber, period: T::BlockNumber) -> Result<bool, DispatchError> {
+        let expiration_block = opentime.checked_add(&period).ok_or(Error::<T>::ArithmeticOverflow)?;
+        Ok(Self::active_block_number() > expiration_block)
+    }
+
     fn recover_from_(error_codes: Vec<ErrorCode>) {
         for error_code in error_codes.clone() {
             Self::remove_error(error_code);
@@ -277,6 +313,11 @@ impl<T: Config> Module<T> {
         result.copy_from_slice(&hasher.result()[..]);
         H256(result)
     }
+
+    /// for testing purposes only!
+    pub fn set_active_block_number(n: T::BlockNumber) {
+        ActiveBlockCount::<T>::set(n);
+    }
 }
 
 decl_event!(
@@ -295,6 +336,7 @@ decl_error! {
         ParachainOracleOfflineError,
         ParachainLiquidationError,
         InvalidErrorCode,
+        ArithmeticOverflow
     }
 }
 

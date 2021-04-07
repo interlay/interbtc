@@ -6,7 +6,8 @@ use bitcoin::{
 };
 use btc_relay::{BtcAddress, BtcPublicKey, Module as BtcRelay};
 use frame_benchmarking::{account, benchmarks};
-use frame_system::{Pallet as System, RawOrigin};
+use frame_system::RawOrigin;
+use security::Module as Security;
 use sp_core::{H160, H256, U256};
 use sp_std::prelude::*;
 use vault_registry::{
@@ -121,9 +122,10 @@ benchmarks! {
         let mut redeem_request = RedeemRequest::default();
         redeem_request.vault = vault_id.clone();
         redeem_request.redeemer = origin.clone();
-        redeem_request.opentime = System::<T>::block_number();
+        redeem_request.opentime = Security::<T>::active_block_number();
         Redeem::<T>::insert_redeem_request(redeem_id, redeem_request);
-        System::<T>::set_block_number(System::<T>::block_number() + Redeem::<T>::redeem_period() + 10u32.into());
+        Security::<T>::set_active_block_number(Security::<T>::active_block_number() + Redeem::<T>::redeem_period() + 10u32.into());
+
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();

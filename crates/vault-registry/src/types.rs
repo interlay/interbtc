@@ -409,7 +409,7 @@ impl<T: Config> RichVault<T> {
 
     pub fn issuable_tokens(&self) -> Result<PolkaBTC<T>, DispatchError> {
         // unable to issue additional tokens when banned
-        if self.is_banned(<frame_system::Pallet<T>>::block_number()) {
+        if self.is_banned() {
             return Ok(0u32.into());
         }
 
@@ -425,7 +425,7 @@ impl<T: Config> RichVault<T> {
 
     pub fn redeemable_tokens(&self) -> Result<PolkaBTC<T>, DispatchError> {
         // unable to redeem additional tokens when banned
-        if self.is_banned(<frame_system::Pallet<T>>::block_number()) {
+        if self.is_banned() {
             return Ok(0u32.into());
         }
 
@@ -519,18 +519,18 @@ impl<T: Config> RichVault<T> {
         Ok(())
     }
 
-    pub fn ensure_not_banned(&self, height: T::BlockNumber) -> DispatchResult {
-        if self.is_banned(height) {
+    pub fn ensure_not_banned(&self) -> DispatchResult {
+        if self.is_banned() {
             Err(Error::<T>::VaultBanned.into())
         } else {
             Ok(())
         }
     }
 
-    pub(crate) fn is_banned(&self, height: T::BlockNumber) -> bool {
+    pub(crate) fn is_banned(&self) -> bool {
         match self.data.banned_until {
             None => false,
-            Some(until) => height <= until,
+            Some(until) => ext::security::active_block_number::<T>() <= until,
         }
     }
 

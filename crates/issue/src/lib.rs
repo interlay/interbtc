@@ -28,7 +28,7 @@ pub mod types;
 #[doc(inline)]
 pub use crate::types::{IssueRequest, IssueRequestStatus};
 
-use crate::types::{IssueRequestV1, PolkaBTC, Version, DOT};
+use crate::types::{IssueRequestV2, PolkaBTC, Version, DOT};
 use bitcoin::types::H256Le;
 use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::{
@@ -130,41 +130,27 @@ decl_module! {
         fn on_runtime_upgrade() -> Weight {
             use frame_support::{migration::StorageKeyIterator, Blake2_128Concat};
 
-            if matches!(Self::storage_version(), Version::V0 | Version::V1) {
-                StorageKeyIterator::<H256, IssueRequestV1<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, Blake2_128Concat>::new(<IssueRequests<T>>::module_prefix(), b"IssueRequests")
+            if matches!(Self::storage_version(), Version::V2) {
+                StorageKeyIterator::<H256, IssueRequestV2<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, Blake2_128Concat>::new(<IssueRequests<T>>::module_prefix(), b"IssueRequests")
                     .drain()
-                    .for_each(|(id, request_v1)| {
-                        let status = match (request_v1.completed,request_v1.cancelled) {
-                            (false, false) => IssueRequestStatus::Pending,
-                            (false, true) => IssueRequestStatus::Cancelled,
-                            (true, false) => {
-                                let refunds = ext::refund::get_refund_requests_for_account::<T>(request_v1.vault.clone());
-                                let maybe_refund = refunds.into_iter().find_map(|(refund_id, refund)| {
-                                    if refund.issue_id == id {
-                                        Some(refund_id)
-                                    } else {
-                                        None
-                                    }
-                                });
-                                IssueRequestStatus::Completed(maybe_refund)
-                            },
-                            (true, true) => IssueRequestStatus::Completed(None), // should never happen
+                    .for_each(|(id, old_request)| {
+                        let new_request = IssueRequest {
+                            vault: old_request.vault,
+                            opentime: old_request.opentime,
+                            period: Self::issue_period(),
+                            griefing_collateral: old_request.griefing_collateral,
+                            amount: old_request.amount,
+                            fee: old_request.fee,
+                            requester: old_request.requester,
+                            btc_address: old_request.btc_address,
+                            btc_public_key: old_request.btc_public_key,
+                            btc_height: 1969929, // extra conservative, testnet height at april 4th
+                            status: old_request.status,
                         };
-                        let request_v2 = IssueRequest {
-                            vault: request_v1.vault,
-                            opentime: request_v1.opentime,
-                            griefing_collateral: request_v1.griefing_collateral,
-                            amount: request_v1.amount,
-                            fee: request_v1.fee,
-                            requester: request_v1.requester,
-                            btc_address: request_v1.btc_address,
-                            btc_public_key: request_v1.btc_public_key,
-                            status
-                        };
-                        <IssueRequests<T>>::insert(id, request_v2);
+                        <IssueRequests<T>>::insert(id, new_request);
                     });
 
-                StorageVersion::put(Version::V2);
+                StorageVersion::put(Version::V3);
             }
 
             0
@@ -256,7 +242,6 @@ impl<T: Config> Module<T> {
         // Check that Parachain is RUNNING
         ext::security::ensure_parachain_status_running::<T>()?;
 
-        let height = <frame_system::Pallet<T>>::block_number();
         let vault = ext::vault_registry::get_active_vault_from_id::<T>(&vault_id)?;
 
         // ensure that the vault is accepting new issues
@@ -266,7 +251,7 @@ impl<T: Config> Module<T> {
         );
 
         // Check that the vault is currently not banned
-        ext::vault_registry::ensure_not_banned::<T>(&vault_id, height)?;
+        ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;
 
         // calculate griefing collateral based on the total amount of tokens to be issued
         let amount_dot = ext::oracle::btc_to_dots::<T>(amount_requested)?;
@@ -291,13 +276,15 @@ impl<T: Config> Module<T> {
 
         let request = IssueRequest {
             vault: vault_id,
-            opentime: height,
-            requester: requester,
-            btc_address: btc_address,
+            opentime: ext::security::active_block_number::<T>(),
+            requester,
+            btc_address,
             btc_public_key: vault.wallet.public_key,
             amount: amount_user,
-            fee: fee,
+            fee,
             griefing_collateral,
+            period: Self::issue_period(),
+            btc_height: ext::btc_relay::get_best_block_height::<T>(),
             status: IssueRequestStatus::Pending,
         };
         Self::insert_issue_request(&issue_id, &request);
@@ -333,7 +320,7 @@ impl<T: Config> Module<T> {
 
         // only executable before the request has expired
         ensure!(
-            !has_request_expired::<T>(issue.opentime, Self::issue_period()),
+            !ext::security::has_expired::<T>(issue.opentime, Self::issue_period().max(issue.period))?,
             Error::<T>::CommitPeriodExpired
         );
 
@@ -451,7 +438,7 @@ impl<T: Config> Module<T> {
 
         // only cancellable after the request has expired
         ensure!(
-            has_request_expired::<T>(issue.opentime, Self::issue_period()),
+            ext::security::has_expired::<T>(issue.opentime, Self::issue_period().max(issue.period))?,
             Error::<T>::TimeNotExpired
         );
 
@@ -562,11 +549,6 @@ impl<T: Config> Module<T> {
     fn u128_to_btc(x: u128) -> Result<PolkaBTC<T>, DispatchError> {
         TryInto::<PolkaBTC<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
-}
-
-fn has_request_expired<T: Config>(opentime: T::BlockNumber, period: T::BlockNumber) -> bool {
-    let height = <frame_system::Pallet<T>>::block_number();
-    height > opentime + period
 }
 
 decl_error! {

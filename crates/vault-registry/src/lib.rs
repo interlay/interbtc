@@ -1014,15 +1014,15 @@ impl<T: Config> Module<T> {
     }
 
     pub fn ban_vault(vault_id: T::AccountId) -> DispatchResult {
-        let height = <frame_system::Pallet<T>>::block_number();
+        let height = ext::security::active_block_number::<T>();
         let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
         vault.ban_until(height + Self::punishment_delay());
         Ok(())
     }
 
-    pub fn _ensure_not_banned(vault_id: &T::AccountId, height: T::BlockNumber) -> DispatchResult {
+    pub fn _ensure_not_banned(vault_id: &T::AccountId) -> DispatchResult {
         let vault = Self::get_active_rich_vault_from_id(&vault_id)?;
-        vault.ensure_not_banned(height)
+        vault.ensure_not_banned()
     }
 
     /// Threshold checks

@@ -7,7 +7,7 @@ use bitcoin::{
 use btc_relay::{BtcAddress, BtcPublicKey, Module as BtcRelay};
 use exchange_rate_oracle::Module as ExchangeRateOracle;
 use frame_benchmarking::{account, benchmarks};
-use frame_system::{Pallet as System, RawOrigin};
+use frame_system::RawOrigin;
 use security::Module as Security;
 use sp_core::{H160, H256, U256};
 use sp_runtime::FixedPointNumber;
@@ -120,7 +120,7 @@ benchmarks! {
         issue_request.requester = origin.clone();
         issue_request.vault = vault_id.clone();
         Issue::<T>::insert_issue_request(&issue_id, &issue_request);
-        System::<T>::set_block_number(System::<T>::block_number() + Issue::<T>::issue_period() + 10u32.into());
+        Security::<T>::set_active_block_number(Security::<T>::active_block_number() + Issue::<T>::issue_period() + 10u32.into());
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();

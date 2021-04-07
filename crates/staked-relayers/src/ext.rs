@@ -71,6 +71,10 @@ pub(crate) mod security {
     pub(crate) fn get_errors<T: security::Config>() -> BTreeSet<ErrorCode> {
         <security::Module<T>>::get_errors()
     }
+
+    pub fn active_block_number<T: security::Config>() -> T::BlockNumber {
+        <security::Module<T>>::active_block_number()
+    }
 }
 
 #[cfg_attr(test, mockable)]

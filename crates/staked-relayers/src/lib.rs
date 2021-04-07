@@ -211,7 +211,7 @@ decl_module! {
             ext::collateral::lock_collateral::<T>(&signer, stake)?;
             ext::sla::initialize_relayer_stake::<T>(&signer, stake)?;
 
-            let height = <frame_system::Pallet<T>>::block_number();
+            let height = ext::security::active_block_number::<T>();
             let maturity = height + Self::get_maturity_period();
             Self::insert_inactive_staked_relayer(&signer, stake, maturity);
             Self::deposit_event(<Event<T>>::RegisterStakedRelayer(signer, maturity, stake));
@@ -364,7 +364,7 @@ decl_module! {
             let mut tally = Tally::default();
             tally.aye.insert(signer.clone(), staked_relayer.stake);
 
-            let height = <frame_system::Pallet<T>>::block_number();
+            let height = ext::security::active_block_number::<T>();
             let status_update_id = Self::insert_active_status_update(StatusUpdate{
                 new_status_code: status_code.clone(),
                 old_status_code: ext::security::get_parachain_status::<T>(),
@@ -679,7 +679,7 @@ impl<T: Config> Module<T> {
     /// * `id` - AccountId of the caller.
     pub fn activate_staked_relayer(id: &T::AccountId) -> DispatchResult {
         let staked_relayer = Self::get_inactive_staked_relayer(id)?;
-        let height = <frame_system::Pallet<T>>::block_number();
+        let height = ext::security::active_block_number::<T>();
         Self::try_bond_staked_relayer(id, staked_relayer.stake, height, staked_relayer.height)?;
         Ok(())
     }

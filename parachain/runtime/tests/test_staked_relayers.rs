@@ -20,7 +20,7 @@ fn test_vault_theft(submit_by_relayer: bool) {
         ]));
         let other_btc_address = BtcAddress::P2SH(H160([1; 20]));
 
-        SystemModule::set_block_number(1);
+        SecurityModule::set_active_block_number(1);
 
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
         VaultRegistryModule::insert_vault(&account_of(LIQUIDATION_VAULT), Vault::default());
@@ -38,7 +38,7 @@ fn test_vault_theft(submit_by_relayer: bool) {
         assert_ok!(Call::StakedRelayers(StakedRelayersCall::register_staked_relayer(100))
             .dispatch(origin_of(account_of(user))));
 
-        SystemModule::set_block_number(StakedRelayersModule::get_maturity_period() + 100);
+        SecurityModule::set_active_block_number(StakedRelayersModule::get_maturity_period() + 100);
 
         // manually activate
         assert_ok!(StakedRelayersModule::activate_staked_relayer(&account_of(user)));
@@ -61,7 +61,7 @@ fn test_vault_theft(submit_by_relayer: bool) {
                 .unwrap();
         assert_eq!(SlaModule::relayer_sla(account_of(ALICE)), expected_sla);
 
-        SystemModule::set_block_number(1000);
+        SecurityModule::set_active_block_number(1000);
 
         if submit_by_relayer {
             assert_ok!(Call::StakedRelayers(StakedRelayersCall::report_vault_theft(

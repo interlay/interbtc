@@ -1,4 +1,4 @@
-use crate::{ext, has_request_expired, mock::*, Config, PolkaBTC, RawEvent, DOT};
+use crate::{ext, mock::*, Config, PolkaBTC, RawEvent, DOT};
 use bitcoin::types::H256Le;
 use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
@@ -28,7 +28,7 @@ fn request_issue(
 }
 
 fn request_issue_ok(origin: AccountId, amount: Balance, vault: AccountId, collateral: Balance) -> H256 {
-    ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+    ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
 
     // Default: Parachain status is "RUNNING". Set manually for failure testing
     ext::security::ensure_parachain_status_running::<Test>.mock_safe(|| MockResult::Return(Ok(())));
@@ -68,7 +68,6 @@ fn test_request_issue_banned_fails() {
         assert_ok!(<exchange_rate_oracle::Module<Test>>::_set_exchange_rate(
             FixedU128::one()
         ));
-        <frame_system::Pallet<Test>>::set_block_number(0);
         <vault_registry::Module<Test>>::insert_vault(
             &BOB,
             vault_registry::Vault {
@@ -93,7 +92,7 @@ fn test_request_issue_insufficient_collateral_fails() {
     run_test(|| {
         ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
-        ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
         ext::oracle::btc_to_dots::<Test>.mock_safe(|_| MockResult::Return(Ok(10000000)));
 
         assert_noop!(request_issue(ALICE, 3, BOB, 0), TestError::InsufficientCollateral,);
@@ -149,7 +148,7 @@ fn test_execute_issue_commit_period_expired_fails() {
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
 
         let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
-        <frame_system::Pallet<Test>>::set_block_number(20);
+        <security::Module<Test>>::set_active_block_number(20);
         assert_noop!(execute_issue(ALICE, &issue_id), TestError::CommitPeriodExpired);
     })
 }
@@ -164,7 +163,7 @@ fn test_execute_issue_succeeds() {
         ext::vault_registry::is_vault_liquidated::<Test>.mock_safe(|_| MockResult::Return(Ok(false)));
 
         let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
-        <frame_system::Pallet<Test>>::set_block_number(5);
+        <security::Module<Test>>::set_active_block_number(5);
 
         ext::security::ensure_parachain_status_running::<Test>.mock_safe(|| MockResult::Return(Ok(())));
         ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
@@ -188,7 +187,7 @@ fn test_execute_issue_overpayment_succeeds() {
         ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
         let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
-        <frame_system::Pallet<Test>>::set_block_number(5);
+        <security::Module<Test>>::set_active_block_number(5);
         ext::security::ensure_parachain_status_running::<Test>.mock_safe(|| MockResult::Return(Ok(())));
 
         ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
@@ -230,7 +229,7 @@ fn test_execute_issue_refund_succeeds() {
         ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
         let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
-        <frame_system::Pallet<Test>>::set_block_number(5);
+        <security::Module<Test>>::set_active_block_number(5);
         ext::security::ensure_parachain_status_running::<Test>.mock_safe(|| MockResult::Return(Ok(())));
 
         ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
@@ -273,14 +272,12 @@ fn test_cancel_issue_not_found_fails() {
 #[test]
 fn test_cancel_issue_not_expired_fails() {
     run_test(|| {
-        <frame_system::Pallet<Test>>::set_block_number(1);
-
         ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
 
         let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
         // issue period is 10, we issued at block 1, so at block 5 the cancel should fail
-        <frame_system::Pallet<Test>>::set_block_number(5);
+        <security::Module<Test>>::set_active_block_number(5);
         assert_noop!(cancel_issue(ALICE, &issue_id), TestError::TimeNotExpired,);
     })
 }
@@ -288,8 +285,6 @@ fn test_cancel_issue_not_expired_fails() {
 #[test]
 fn test_cancel_issue_succeeds() {
     run_test(|| {
-        <frame_system::Pallet<Test>>::set_block_number(1);
-
         ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
 
@@ -301,7 +296,7 @@ fn test_cancel_issue_succeeds() {
 
         let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
         // issue period is 10, we issued at block 1, so at block 15 the cancel should succeed
-        <frame_system::Pallet<Test>>::set_block_number(15);
+        <security::Module<Test>>::set_active_block_number(15);
         assert_ok!(cancel_issue(ALICE, &issue_id));
     })
 }
@@ -346,14 +341,5 @@ fn test_set_issue_period_only_root() {
             DispatchError::BadOrigin
         );
         assert_ok!(Issue::set_issue_period(Origin::root(), 1));
-    })
-}
-
-#[test]
-fn test_has_request_expired() {
-    run_test(|| {
-        System::set_block_number(45);
-        assert!(has_request_expired::<Test>(9, 20));
-        assert!(!has_request_expired::<Test>(30, 24));
     })
 }

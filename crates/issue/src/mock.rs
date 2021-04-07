@@ -245,6 +245,7 @@ where
         assert_ok!(<exchange_rate_oracle::Module<Test>>::_set_exchange_rate(
             FixedU128::one()
         ));
+        Security::set_active_block_number(1);
         System::set_block_number(1);
         test();
     });

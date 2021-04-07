@@ -20,6 +20,10 @@ pub(crate) mod btc_relay {
     ) -> Result<(BtcAddress, i64), DispatchError> {
         <btc_relay::Module<T>>::_validate_transaction(raw_tx, minimum_btc, btc_address, redeem_id)
     }
+
+    pub fn get_best_block_height<T: btc_relay::Config>() -> u32 {
+        <btc_relay::Module<T>>::get_best_block_height()
+    }
 }
 
 #[cfg_attr(test, mockable)]
@@ -89,11 +93,8 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::ban_vault(vault_id)
     }
 
-    pub fn ensure_not_banned<T: vault_registry::Config>(
-        vault: &T::AccountId,
-        height: T::BlockNumber,
-    ) -> DispatchResult {
-        <vault_registry::Module<T>>::_ensure_not_banned(vault, height)
+    pub fn ensure_not_banned<T: vault_registry::Config>(vault: &T::AccountId) -> DispatchResult {
+        <vault_registry::Module<T>>::_ensure_not_banned(vault)
     }
 
     pub fn is_vault_below_premium_threshold<T: vault_registry::Config>(
@@ -209,6 +210,17 @@ pub(crate) mod security {
 
     pub fn ensure_parachain_status_running<T: security::Config>() -> Result<(), DispatchError> {
         <security::Module<T>>::ensure_parachain_status_running()
+    }
+
+    pub fn active_block_number<T: security::Config>() -> T::BlockNumber {
+        <security::Module<T>>::active_block_number()
+    }
+
+    pub fn has_expired<T: security::Config>(
+        opentime: T::BlockNumber,
+        period: T::BlockNumber,
+    ) -> Result<bool, DispatchError> {
+        <security::Module<T>>::has_expired(opentime, period)
     }
 }
 

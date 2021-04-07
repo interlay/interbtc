@@ -103,7 +103,6 @@ decl_event!(
         AccountId = <T as frame_system::Config>::AccountId,
         PolkaBTC = PolkaBTC<T>,
         DOT = DOT<T>,
-        BlockNumber = <T as frame_system::Config>::BlockNumber,
     {
         // [old_vault_id, amount_btc, griefing_collateral]
         RequestReplace(AccountId, PolkaBTC, DOT),
@@ -114,15 +113,14 @@ decl_event!(
         // [replace_id, old_vault_id, new_vault_id]
         ExecuteReplace(H256, AccountId, AccountId),
         AuctionReplace(
-            H256,        // replace_id
-            AccountId,   // old_vault_id
-            AccountId,   // new_vault_id
-            PolkaBTC,    // btc_amount
-            DOT,         // collateral
-            DOT,         // reward
-            DOT,         // griefing_collateral
-            BlockNumber, // current_height
-            BtcAddress,  // btc_address
+            H256,       // replace_id
+            AccountId,  // old_vault_id
+            AccountId,  // new_vault_id
+            PolkaBTC,   // btc_amount
+            DOT,        // collateral
+            DOT,        // reward
+            DOT,        // griefing_collateral
+            BtcAddress, // btc_address
         ),
         // [replace_id, new_vault_id, old_vault_id, griefing_collateral]
         CancelReplace(H256, AccountId, AccountId, DOT),
@@ -162,20 +160,21 @@ decl_module! {
                                 griefing_collateral: request_v1.griefing_collateral,
                                 collateral: request_v1.collateral,
                                 accept_time: request_v1.accept_time?,
+                                period: Self::replace_period(),
                                 btc_address: request_v1.btc_address?,
+                                btc_height: 1969929, // extra conservative, testnet height at april 4th
                                 status
                             })
                         };
-                        let request_v2 = construct_request();
+                        let new_request = construct_request();
                         // ignore requests that have `None` fields, they have not been accepted yet
-                        if let Some(request) = request_v2 {
+                        if let Some(request) = new_request {
                             <ReplaceRequests<T>>::insert(id, request);
                         }
                     });
 
-                StorageVersion::put(Version::V2);
+                StorageVersion::put(Version::V3);
             }
-
             0
         }
 
@@ -308,8 +307,7 @@ impl<T: Config> Module<T> {
         ext::security::ensure_parachain_status_running::<T>()?;
 
         // check vault is not banned
-        let height = Self::current_height();
-        ext::vault_registry::ensure_not_banned::<T>(&vault_id, height)?;
+        ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;
 
         let requestable_tokens = ext::vault_registry::requestable_to_be_replaced_tokens::<T>(&vault_id)?;
         let to_be_replaced_increase = amount_btc.min(requestable_tokens);
@@ -442,7 +440,6 @@ impl<T: Config> Module<T> {
             replace.collateral,
             reward,
             replace.griefing_collateral,
-            replace.accept_time,
             replace.btc_address,
         ));
 
@@ -467,7 +464,7 @@ impl<T: Config> Module<T> {
 
         // only executable before the request has expired
         ensure!(
-            !Self::has_request_expired(replace.accept_time, Self::replace_period()),
+            !ext::security::has_expired::<T>(replace.accept_time, Self::replace_period().max(replace.period))?,
             Error::<T>::ReplacePeriodExpired
         );
 
@@ -516,7 +513,7 @@ impl<T: Config> Module<T> {
 
         // only cancellable after the request has expired
         ensure!(
-            Self::has_request_expired(replace.accept_time, Self::replace_period()),
+            ext::security::has_expired::<T>(replace.accept_time, Self::replace_period().max(replace.period))?,
             Error::<T>::ReplacePeriodNotExpired
         );
 
@@ -579,8 +576,7 @@ impl<T: Config> Module<T> {
         ext::security::ensure_parachain_status_running::<T>()?;
 
         // Check that new vault is not currently banned
-        let height = Self::current_height();
-        ext::vault_registry::ensure_not_banned::<T>(&new_vault_id, height)?;
+        ext::vault_registry::ensure_not_banned::<T>(&new_vault_id)?;
 
         // Add the new replace address to the vault's wallet,
         // this should also verify that the vault exists
@@ -623,11 +619,13 @@ impl<T: Config> Module<T> {
         let replace = ReplaceRequest {
             old_vault: old_vault_id,
             new_vault: new_vault_id,
-            accept_time: height,
+            accept_time: ext::security::active_block_number::<T>(),
             collateral: actual_new_vault_collateral,
             btc_address: btc_address,
             griefing_collateral: if is_auction { 0u32.into() } else { griefing_collateral },
             amount: actual_btc,
+            period: Self::replace_period(),
+            btc_height: ext::btc_relay::get_best_block_height::<T>(),
             status: ReplaceRequestStatus::Pending,
         };
 
@@ -697,15 +695,6 @@ impl<T: Config> Module<T> {
                 req.status = status;
             }
         });
-    }
-
-    fn current_height() -> T::BlockNumber {
-        <frame_system::Pallet<T>>::block_number()
-    }
-
-    fn has_request_expired(opentime: T::BlockNumber, period: T::BlockNumber) -> bool {
-        let height = <frame_system::Pallet<T>>::block_number();
-        height > opentime + period
     }
 }
 
