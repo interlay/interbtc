@@ -67,6 +67,8 @@ pub type BTCRelayModule = btc_relay::Module<Runtime>;
 pub type BTCRelayError = btc_relay::Error<Runtime>;
 pub type BTCRelayEvent = btc_relay::Event<Runtime>;
 
+pub type CollateralError = collateral::Error<Runtime>;
+
 pub type IssueCall = issue::Call<Runtime>;
 pub type IssueModule = issue::Module<Runtime>;
 pub type IssueEvent = issue::Event<Runtime>;
@@ -872,6 +874,9 @@ impl ExtBuilder {
         self.test_externalities.execute_with(|| {
             SystemModule::set_block_number(1); // required to be able to dispatch functions
             SecurityModule::set_active_block_number(1);
+
+            assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
+            set_default_thresholds();
 
             execute()
         })
