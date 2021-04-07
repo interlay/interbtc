@@ -87,6 +87,14 @@ The Substrate runtime makes use of various custom pallets that are found in the 
 curl https://sh.rustup.rs -sSf | sh
 ```
 
+Please also install the following dependencies:
+
+- `cmake`
+- `clang` (>=10.0.0)
+- `clang-dev`
+- `libc6-dev`
+- `libssl-dev`
+
 ### Installation
 
 Building requires `nightly`. Run the following commands to set it up:
