@@ -305,7 +305,7 @@ impl<T: Config> Module<T> {
         ensure!(!Self::best_block_exists(), Error::<T>::AlreadyInitialized);
 
         // Parse the block header bytes to extract the required info
-        let basic_block_header = parse_block_header(&raw_block_header).map_err(|err| Error::<T>::from(err))?;
+        let basic_block_header = parse_block_header(&raw_block_header).map_err(Error::<T>::from)?;
         let block_header_hash = raw_block_header.hash();
 
         // register the current height to track stable parachain confirmations
@@ -317,7 +317,7 @@ impl<T: Config> Module<T> {
         let block_header = RichBlockHeader::<T::AccountId, T::BlockNumber> {
             block_hash: block_header_hash,
             block_header: basic_block_header,
-            block_height: block_height,
+            block_height,
             chain_ref: blockchain.chain_id,
             account_id: relayer.clone(),
             para_height,
@@ -468,7 +468,7 @@ impl<T: Config> Module<T> {
         let merkle_proof = Self::parse_merkle_proof(&raw_merkle_proof)?;
 
         let rich_header =
-            Self::get_block_header_from_hash(merkle_proof.block_header.hash().map_err(|err| Error::<T>::from(err))?)?;
+            Self::get_block_header_from_hash(merkle_proof.block_header.hash().map_err(Error::<T>::from)?)?;
 
         ensure!(rich_header.chain_ref == MAIN_CHAIN_ID, Error::<T>::InvalidChainID);
 
@@ -650,7 +650,6 @@ impl<T: Config> Module<T> {
         let transaction = Self::parse_transaction(&raw_tx)?;
 
         let input_address = transaction
-            .clone()
             .inputs
             .get(0)
             .ok_or(Error::<T>::MalformedTransaction)?
@@ -659,21 +658,19 @@ impl<T: Config> Module<T> {
 
         let extr_payment_value = if Self::is_op_return_disabled() {
             Self::extract_payment_value(transaction, recipient_btc_address)?
+        } else if let Some(op_return_id) = op_return_id {
+            // NOTE: op_return UTXO should not contain any value
+            let (extr_payment_value, extr_op_return) =
+                Self::extract_payment_value_and_op_return(transaction, recipient_btc_address)?;
+
+            // Check if data UTXO has correct OP_RETURN value
+            ensure!(extr_op_return == op_return_id, Error::<T>::InvalidOpReturn);
+
+            extr_payment_value
         } else {
-            if let Some(op_return_id) = op_return_id {
-                // NOTE: op_return UTXO should not contain any value
-                let (extr_payment_value, extr_op_return) =
-                    Self::extract_payment_value_and_op_return(transaction, recipient_btc_address)?;
-
-                // Check if data UTXO has correct OP_RETURN value
-                ensure!(extr_op_return == op_return_id, Error::<T>::InvalidOpReturn);
-
-                extr_payment_value
-            } else {
-                // using the on-chain key derivation scheme we only expect a simple
-                // payment to the vault's new deposit address
-                Self::extract_payment_value(transaction, recipient_btc_address)?
-            }
+            // using the on-chain key derivation scheme we only expect a simple
+            // payment to the vault's new deposit address
+            Self::extract_payment_value(transaction, recipient_btc_address)?
         };
 
         // If a minimum was specified, check if the transferred amount is sufficient
@@ -920,7 +917,7 @@ impl<T: Config> Module<T> {
 
     // Wrapper functions around bitcoin lib for testing purposes
     fn parse_transaction(raw_tx: &[u8]) -> Result<Transaction, DispatchError> {
-        Ok(parse_transaction(&raw_tx).map_err(|err| Error::<T>::from(err))?)
+        Ok(parse_transaction(&raw_tx).map_err(Error::<T>::from)?)
     }
 
     fn parse_merkle_proof(raw_merkle_proof: &[u8]) -> Result<MerkleProof, DispatchError> {
@@ -941,7 +938,7 @@ impl<T: Config> Module<T> {
     ///
     /// * `pure_block_header` - PureBlockHeader representation of the 80-byte block header
     fn verify_block_header(raw_block_header: &RawBlockHeader) -> Result<BlockHeader, DispatchError> {
-        let basic_block_header = parse_block_header(&raw_block_header).map_err(|err| Error::<T>::from(err))?;
+        let basic_block_header = parse_block_header(&raw_block_header).map_err(Error::<T>::from)?;
 
         let block_header_hash = raw_block_header.hash();
 
@@ -1150,7 +1147,7 @@ impl<T: Config> Module<T> {
         }
 
         // TODO: remove, fix for rm head_index
-        if let None = <Chains>::get(0) {
+        if <Chains>::get(0).is_none() {
             <Chains>::insert(0, 0);
         }
 
@@ -1348,7 +1345,7 @@ impl<T: Config> Module<T> {
         req_confs: Option<u32>,
         tx_block_height: u32,
     ) -> Result<(), DispatchError> {
-        let required_confirmations = req_confs.unwrap_or_else(|| Self::get_stable_transaction_confirmations());
+        let required_confirmations = req_confs.unwrap_or_else(Self::get_stable_transaction_confirmations);
 
         let required_mainchain_height = tx_block_height
             .checked_add(required_confirmations)
@@ -1431,7 +1428,8 @@ impl<T: Config> Module<T> {
         if ext::security::is_parachain_error_invalid_btcrelay::<T>()
             || ext::security::is_parachain_error_no_data_btcrelay::<T>()
         {
-            Ok(ext::security::recover_from_btc_relay_failure::<T>())
+            ext::security::recover_from_btc_relay_failure::<T>();
+            Ok(())
         } else {
             Ok(())
         }

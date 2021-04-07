@@ -96,7 +96,7 @@ benchmarks! {
             .mine(U256::from(2).pow(254.into())).unwrap();
 
         let tx_id = transaction.tx_id();
-        let proof = block.merkle_proof(&vec![tx_id]).unwrap().try_format().unwrap();
+        let proof = block.merkle_proof(&[tx_id]).unwrap().try_format().unwrap();
         let raw_tx = transaction.format_with(true);
 
         let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();

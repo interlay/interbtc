@@ -139,7 +139,7 @@ decl_module! {
                 }
 
                 if let Some(account_id) = take_storage_value::<T::AccountId>(b"ExchangeRateOracle", b"AuthorizedOracle") {
-                    let name = take_storage_item::<T::AccountId, Vec<u8>, Twox128>(b"ExchangeRateOracle", b"OracleNames", account_id.clone()).unwrap_or(vec![]);
+                    let name = take_storage_item::<T::AccountId, Vec<u8>, Twox128>(b"ExchangeRateOracle", b"OracleNames", account_id.clone()).unwrap_or_default();
                     <AuthorizedOracles<T>>::insert(account_id, name);
                 }
 

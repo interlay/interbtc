@@ -102,9 +102,9 @@ impl ExtBuilder {
     }
 }
 
-pub fn run_test<T>(test: T) -> ()
+pub fn run_test<T>(test: T)
 where
-    T: FnOnce() -> (),
+    T: FnOnce(),
 {
     ExtBuilder::build().execute_with(|| {
         System::set_block_number(1);

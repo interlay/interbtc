@@ -315,7 +315,7 @@ mod tests {
     fn test_mock_verify_proof() {
         let mock_proof_result = sample_valid_proof_result();
 
-        let proof = MerkleProof::parse(&hex::decode(&PROOF_HEX[..]).unwrap()).unwrap();
+        let proof = MerkleProof::parse(&hex::decode(PROOF_HEX).unwrap()).unwrap();
         MerkleProof::verify_proof.mock_safe(move |_| MockResult::Return(Ok(mock_proof_result)));
 
         let res = MerkleProof::verify_proof(&proof).unwrap();
@@ -324,7 +324,7 @@ mod tests {
 
     #[test]
     fn test_parse_proof() {
-        let raw_proof = hex::decode(&PROOF_HEX[..]).unwrap();
+        let raw_proof = hex::decode(PROOF_HEX).unwrap();
         let proof = MerkleProof::parse(&raw_proof).unwrap();
         let expected_merkle_root =
             H256::from_str("a0e8ab249b25ef31da538262ab8b2885ce63ca82a22fd0efdce76ea6920d1f90").unwrap();
@@ -349,7 +349,7 @@ mod tests {
 
     #[test]
     fn test_compute_tree_width() {
-        let proof = MerkleProof::parse(&hex::decode(&PROOF_HEX[..]).unwrap()).unwrap();
+        let proof = MerkleProof::parse(&hex::decode(PROOF_HEX).unwrap()).unwrap();
         assert_eq!(proof.compute_partial_tree_width(0), proof.transactions_count);
         assert_eq!(proof.compute_partial_tree_width(1), proof.transactions_count / 2 + 1);
         assert_eq!(proof.compute_partial_tree_width(12), 1);
@@ -357,13 +357,13 @@ mod tests {
 
     #[test]
     fn test_compute_merkle_proof_tree_height() {
-        let proof = MerkleProof::parse(&hex::decode(&PROOF_HEX[..]).unwrap()).unwrap();
+        let proof = MerkleProof::parse(&hex::decode(PROOF_HEX).unwrap()).unwrap();
         assert_eq!(proof.compute_partial_tree_height(), 12);
     }
 
     #[test]
     fn test_extract_hash() {
-        let proof = MerkleProof::parse(&hex::decode(&PROOF_HEX[..]).unwrap()).unwrap();
+        let proof = MerkleProof::parse(&hex::decode(PROOF_HEX).unwrap()).unwrap();
         let merkle_root = H256Le::from_bytes_le(&proof.block_header.merkle_root.to_bytes_le());
         let result = proof.verify_proof().unwrap();
         assert_eq!(result.extracted_root, merkle_root);

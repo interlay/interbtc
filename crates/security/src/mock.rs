@@ -3,7 +3,7 @@ use crate::{Config, Error};
 use frame_support::parameter_types;
 use mocktopus::mocking::clear_mocks;
 use sp_core::H256;
-use sp_io;
+
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
@@ -75,9 +75,9 @@ impl ExtBuilder {
     }
 }
 
-pub fn run_test<T>(test: T) -> ()
+pub fn run_test<T>(test: T)
 where
-    T: FnOnce() -> (),
+    T: FnOnce(),
 {
     clear_mocks();
     ExtBuilder::build().execute_with(|| {

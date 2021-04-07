@@ -2,8 +2,8 @@ use bitcoin::types::{H256Le, RawBlockHeader};
 use serde::Deserialize;
 use std::{fs, path::PathBuf};
 
-const ERR_FILE_NOT_FOUND: &'static str = "Testdata not found. Please run the python script under the parachain/scripts folder to obtain bitcoin blocks and transactions.";
-const ERR_JSON_FORMAT: &'static str = "JSON was not well-formatted";
+const ERR_FILE_NOT_FOUND: &str = "Testdata not found. Please run the python script under the parachain/scripts folder to obtain bitcoin blocks and transactions.";
+const ERR_JSON_FORMAT: &str = "JSON was not well-formatted";
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct Block {

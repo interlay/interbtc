@@ -94,7 +94,7 @@ fn test_request_redeem_fails_with_amount_below_minimum() {
         });
 
         assert_err!(
-            Redeem::request_redeem(Origin::signed(redeemer.clone()), 1, BtcAddress::random(), BOB),
+            Redeem::request_redeem(Origin::signed(redeemer), 1, BtcAddress::random(), BOB),
             TestError::AmountBelowDustAmount
         );
     })
@@ -177,7 +177,7 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
         ext::fee::get_redeem_fee::<Test>.mock_safe(move |_| MockResult::Return(Ok(redeem_fee)));
 
         assert_ok!(Redeem::request_redeem(
-            Origin::signed(redeemer.clone()),
+            Origin::signed(redeemer),
             amount,
             BtcAddress::P2PKH(H160::zero()),
             BOB
@@ -185,7 +185,7 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
 
         assert_emitted!(Event::RequestRedeem(
             H256([0; 32]),
-            redeemer.clone(),
+            redeemer,
             amount - redeem_fee,
             redeem_fee,
             0,
@@ -201,7 +201,7 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
                 fee: redeem_fee,
                 amount_btc: amount - redeem_fee,
                 premium_dot: 0,
-                redeemer: redeemer.clone(),
+                redeemer,
                 btc_address: BtcAddress::P2PKH(H160::zero()),
                 btc_height: 0,
                 status: RedeemRequestStatus::Pending,

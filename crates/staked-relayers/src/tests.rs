@@ -160,7 +160,7 @@ fn inject_active_staked_relayer(id: &AccountId, stake: Balance) {
 
 fn inject_status_update(proposer: AccountId) -> u64 {
     let mut tally = Tally::default();
-    tally.aye.insert(proposer.clone(), 10);
+    tally.aye.insert(proposer, 10);
 
     StakedRelayers::insert_active_status_update(StatusUpdate {
         new_status_code: StatusCode::Error,
@@ -171,9 +171,9 @@ fn inject_status_update(proposer: AccountId) -> u64 {
         end: DEFAULT_END_HEIGHT,
         proposal_status: ProposalStatus::Pending,
         btc_block_hash: None,
-        proposer: proposer,
+        proposer,
         deposit: 10,
-        tally: tally,
+        tally,
         message: vec![],
     })
 }
@@ -754,10 +754,9 @@ fn test_slash_staked_relayer_succeeds() {
         StakedRelayers::only_governance.mock_safe(|_| MockResult::Return(Ok(())));
         let amount: Balance = 5;
         inject_active_staked_relayer(&BOB, amount);
-        ext::collateral::slash_collateral::<Test>.mock_safe(|sender, receiver, amount| {
+        ext::collateral::slash_collateral::<Test>.mock_safe(|sender, receiver, _amount| {
             assert_eq!(sender, BOB);
             assert_eq!(receiver, ALICE);
-            assert_eq!(amount, amount);
             MockResult::Return(Ok(()))
         });
 
@@ -783,7 +782,7 @@ fn test_report_vault_passes_with_vault_transaction() {
             126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8, 50, 170,
         ]));
         ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), Some(btc_address)))));
+            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault, Some(btc_address)))));
         ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(())));
         ext::vault_registry::liquidate_theft_vault::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
 
@@ -811,7 +810,7 @@ fn test_report_vault_fails_with_non_vault_transaction() {
         ]));
 
         ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), Some(btc_address)))));
+            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault, Some(btc_address)))));
         ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(())));
 
         assert_err!(
@@ -840,7 +839,7 @@ fn test_report_vault_succeeds_with_segwit_transaction() {
             164, 180, 202, 72, 222, 11, 63, 255, 193, 84, 4, 161, 172, 220, 141, 186, 174, 34, 105, 85,
         ]));
         ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), Some(btc_address)))));
+            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault, Some(btc_address)))));
         ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(())));
         ext::vault_registry::liquidate_theft_vault::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
 
@@ -881,26 +880,22 @@ fn test_is_valid_merge_transaction_fails() {
     run_test(|| {
         let vault = BOB;
         ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), None))));
+            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault, None))));
 
         let address1 = BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
 
         let address2 = BtcAddress::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
 
         assert_eq!(
-            StakedRelayers::is_valid_merge_transaction(
-                &vec![(100, address1)],
-                &vec![],
-                &Wallet::new(dummy_public_key())
-            ),
+            StakedRelayers::is_valid_merge_transaction(&[(100, address1)], &[], &Wallet::new(dummy_public_key())),
             false,
             "payment to unknown recipient"
         );
 
         assert_eq!(
             StakedRelayers::is_valid_merge_transaction(
-                &vec![(100, address2)],
-                &vec![(0, vec![])],
+                &[(100, address2)],
+                &[(0, vec![])],
                 &Wallet::new(dummy_public_key())
             ),
             false,
@@ -914,7 +909,7 @@ fn test_is_valid_merge_transaction_succeeds() {
     run_test(|| {
         let vault = BOB;
         ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), None))));
+            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault, None))));
 
         let address = BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
 
@@ -922,7 +917,7 @@ fn test_is_valid_merge_transaction_succeeds() {
         wallet.add_btc_address(address);
 
         assert_eq!(
-            StakedRelayers::is_valid_merge_transaction(&vec![(100, address.clone())], &vec![], &wallet),
+            StakedRelayers::is_valid_merge_transaction(&[(100, address)], &[], &wallet),
             true
         );
     })
@@ -933,7 +928,7 @@ fn test_is_valid_request_transaction_fails() {
     run_test(|| {
         let vault = BOB;
         ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault.clone(), None))));
+            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault, None))));
 
         let address1 = BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
 
@@ -945,13 +940,13 @@ fn test_is_valid_request_transaction_fails() {
         let actual_value: i32 = 50;
 
         let request_value = 100;
-        let request_address = address1.clone();
+        let request_address = address1;
 
         assert_eq!(
             StakedRelayers::is_valid_request_transaction(
                 request_value,
                 request_address,
-                &vec![(actual_value.try_into().unwrap(), address1.clone())],
+                &[(actual_value.try_into().unwrap(), address1)],
                 &wallet
             ),
             false
@@ -976,7 +971,7 @@ fn test_is_valid_request_transaction_succeeds() {
             StakedRelayers::is_valid_request_transaction(
                 request_value,
                 recipient_address,
-                &vec![
+                &[
                     (request_value.try_into().unwrap(), recipient_address),
                     (change_value.try_into().unwrap(), vault_address)
                 ],

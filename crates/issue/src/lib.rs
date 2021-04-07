@@ -415,7 +415,7 @@ impl<T: Config> Module<T> {
 
         // if it was a vault that did the execution on behalf of someone else, reward it by
         // increasing its SLA score
-        if &requester != &executor {
+        if requester != executor {
             if let Ok(vault) = ext::vault_registry::get_active_vault_from_id::<T>(&executor) {
                 ext::sla::event_update_vault_sla::<T>(&vault.id, ext::sla::VaultEvent::SubmittedIssueProof)?;
             }
@@ -526,7 +526,7 @@ impl<T: Config> Module<T> {
         });
 
         Self::deposit_event(<Event<T>>::IssueAmountChange(
-            issue_id.clone(),
+            *issue_id,
             issue.amount,
             issue.fee,
             confiscated_griefing_collateral,

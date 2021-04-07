@@ -37,7 +37,7 @@ impl ExecuteRedeemBuilder {
     pub fn execute(&self) -> DispatchResultWithPostInfo {
         // send the btc from the user to the vault
         let (tx_id, _height, proof, raw_tx) = TransactionGenerator::new()
-            .with_address(self.redeem.btc_address.clone())
+            .with_address(self.redeem.btc_address)
             .with_amount(self.amount)
             .with_op_return(Some(self.redeem_id))
             .mine();
@@ -94,12 +94,12 @@ pub fn assert_redeem_request_event() -> H256 {
     let ids = events
         .iter()
         .filter_map(|r| match r.event {
-            Event::redeem(RedeemEvent::RequestRedeem(id, _, _, _, _, _, _)) => Some(id.clone()),
+            Event::redeem(RedeemEvent::RequestRedeem(id, _, _, _, _, _, _)) => Some(id),
             _ => None,
         })
         .collect::<Vec<H256>>();
     assert_eq!(ids.len(), 1);
-    ids[0].clone()
+    ids[0]
 }
 
 pub fn execute_redeem(redeem_id: H256) {

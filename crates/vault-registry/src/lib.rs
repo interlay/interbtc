@@ -263,7 +263,7 @@ decl_module! {
             let vault = Self::get_active_rich_vault_from_id(&sender)?;
 
             Self::deposit_event(Event::<T>::WithdrawCollateral(
-                sender.clone(),
+                sender,
                 amount,
                 vault.get_collateral(),
             ));
@@ -290,7 +290,7 @@ decl_module! {
         fn register_address(origin, btc_address: BtcAddress) -> DispatchResult {
             let account_id = ensure_signed(origin)?;
             ext::security::ensure_parachain_status_running::<T>()?;
-            Self::insert_vault_deposit_address(&account_id, btc_address.clone())?;
+            Self::insert_vault_deposit_address(&account_id, btc_address)?;
             Self::deposit_event(Event::<T>::RegisterAddress(account_id, btc_address));
             Ok(())
         }
@@ -348,7 +348,7 @@ impl<T: Config> Module<T> {
         );
         ensure!(!Self::vault_exists(vault_id), Error::<T>::VaultAlreadyRegistered);
 
-        let vault = Vault::new(vault_id.clone(), public_key).into();
+        let vault = Vault::new(vault_id.clone(), public_key);
         Self::insert_vault(vault_id, vault);
 
         Self::try_lock_additional_collateral(vault_id, collateral)?;
@@ -1464,7 +1464,7 @@ impl<T: Config> Module<T> {
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
         let max_btc_raw = UniqueSaturatedInto::<u128>::unique_saturated_into(max_btc_as_inner);
 
-        Ok(Self::u128_to_polkabtc(max_btc_raw)?)
+        Self::u128_to_polkabtc(max_btc_raw)
     }
 
     fn polkabtc_to_u128(x: PolkaBTC<T>) -> Result<u128, DispatchError> {

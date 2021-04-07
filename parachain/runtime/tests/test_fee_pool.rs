@@ -11,7 +11,7 @@ const ISSUE_RELAYER: [u8; 32] = EVE;
 const RELAYER_1: [u8; 32] = FRANK;
 const RELAYER_2: [u8; 32] = GRACE;
 
-fn test_with(execute: impl Fn(Currency) -> ()) {
+fn test_with(execute: impl Fn(Currency)) {
     ExtBuilder::build().execute_with(|| {
         SecurityModule::set_active_block_number(1);
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));

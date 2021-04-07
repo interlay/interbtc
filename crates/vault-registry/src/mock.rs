@@ -215,9 +215,9 @@ fn set_default_thresholds() {
     VaultRegistry::set_liquidation_collateral_threshold(liquidation);
 }
 
-pub fn run_test<T>(test: T) -> ()
+pub fn run_test<T>(test: T)
 where
-    T: FnOnce() -> (),
+    T: FnOnce(),
 {
     clear_mocks();
     ext::oracle::dots_to_btc::<Test>.mock_safe(|v| MockResult::Return(Ok(v)));

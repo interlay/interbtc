@@ -80,7 +80,7 @@ pub fn new_partial(
 
     let import_queue = sc_consensus_aura::import_queue::<AuraPair, _, _, _, _, _>(ImportQueueParams {
         block_import: aura_block_import.clone(),
-        justification_import: Some(Box::new(grandpa_block_import.clone())),
+        justification_import: Some(Box::new(grandpa_block_import)),
         client: client.clone(),
         inherent_data_providers: inherent_data_providers.clone(),
         spawner: &task_manager.spawn_essential_handle(),
@@ -193,7 +193,7 @@ pub fn new_full(mut config: Configuration) -> Result<(TaskManager, RpcHandlers),
             select_chain,
             block_import,
             proposer_factory,
-            inherent_data_providers: inherent_data_providers.clone(),
+            inherent_data_providers,
             force_authoring,
             backoff_authoring_blocks,
             keystore: keystore_container.sync_keystore(),
@@ -297,7 +297,7 @@ pub fn new_light(mut config: Configuration) -> Result<(TaskManager, RpcHandlers)
     let (grandpa_block_import, _) = sc_finality_grandpa::block_import(
         client.clone(),
         &(client.clone() as Arc<_>),
-        select_chain.clone(),
+        select_chain,
         telemetry.as_ref().map(|x| x.handle()),
     )?;
 
@@ -305,8 +305,8 @@ pub fn new_light(mut config: Configuration) -> Result<(TaskManager, RpcHandlers)
         sc_consensus_aura::AuraBlockImport::<_, _, _, AuraPair>::new(grandpa_block_import.clone(), client.clone());
 
     let import_queue = sc_consensus_aura::import_queue::<AuraPair, _, _, _, _, _>(ImportQueueParams {
-        block_import: aura_block_import.clone(),
-        justification_import: Some(Box::new(grandpa_block_import.clone())),
+        block_import: aura_block_import,
+        justification_import: Some(Box::new(grandpa_block_import)),
         client: client.clone(),
         inherent_data_providers: InherentDataProviders::new(),
         spawner: &task_manager.spawn_essential_handle(),

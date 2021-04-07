@@ -33,12 +33,12 @@ pub(crate) mod security {
     }
 
     #[cfg(test)]
-    pub fn set_status<T: security::Config>(status: StatusCode) -> () {
+    pub fn set_status<T: security::Config>(status: StatusCode) {
         <security::Module<T>>::set_status(status)
     }
 
     #[cfg(test)]
-    pub fn insert_error<T: security::Config>(error: ErrorCode) -> () {
+    pub fn insert_error<T: security::Config>(error: ErrorCode) {
         <security::Module<T>>::insert_error(error)
     }
 

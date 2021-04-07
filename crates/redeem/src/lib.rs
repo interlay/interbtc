@@ -342,7 +342,7 @@ impl<T: Config> Module<T> {
                 premium_dot,
                 period: Self::redeem_period(),
                 redeemer: redeemer.clone(),
-                btc_address: btc_address.clone(),
+                btc_address,
                 btc_height: ext::btc_relay::get_best_block_height::<T>(),
                 status: RedeemRequestStatus::Pending,
             },
@@ -487,13 +487,12 @@ impl<T: Config> Module<T> {
                 )?
             } else {
                 // user chose to keep his PolkaBTC - only transfer it the punishment fee
-                let slashed_punishment_fee = ext::vault_registry::slash_collateral_saturated::<T>(
+                // returns the amount actually slashed
+                ext::vault_registry::slash_collateral_saturated::<T>(
                     CurrencySource::Backing(vault_id.clone()),
                     CurrencySource::FreeBalance(redeemer.clone()),
                     punishment_fee_in_dot,
-                )?;
-
-                slashed_punishment_fee
+                )?
             };
             // calculate additional amount to slash, a high SLA means we slash less
             let slashing_amount_in_dot =

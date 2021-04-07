@@ -7,6 +7,6 @@ use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 
 impl crate::WeightInfo for () {
     fn execute_refund() -> Weight {
-        (100_000_000 as Weight)
+        100_000_000_u64
     }
 }

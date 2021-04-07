@@ -489,8 +489,8 @@ impl<T: Config> Module<T> {
         ext::vault_registry::replace_tokens::<T>(
             old_vault_id.clone(),
             new_vault_id.clone(),
-            replace.amount.clone(),
-            replace.collateral.clone(),
+            replace.amount,
+            replace.collateral,
         )?;
 
         // if the old vault has not been liquidated, give it back its griefing collateral
@@ -545,10 +545,10 @@ impl<T: Config> Module<T> {
 
         // if the new_vault locked additional collateral especially for this replace,
         // release it if it does not cause him to be undercollateralized
-        if !ext::vault_registry::is_vault_liquidated::<T>(&new_vault_id)? {
-            if ext::vault_registry::is_allowed_to_withdraw_collateral::<T>(&new_vault_id, replace.collateral)? {
-                ext::vault_registry::force_withdraw_collateral::<T>(&new_vault_id, replace.collateral)?;
-            }
+        if !ext::vault_registry::is_vault_liquidated::<T>(&new_vault_id)?
+            && ext::vault_registry::is_allowed_to_withdraw_collateral::<T>(&new_vault_id, replace.collateral)?
+        {
+            ext::vault_registry::force_withdraw_collateral::<T>(&new_vault_id, replace.collateral)?;
         }
 
         // Remove the ReplaceRequest from ReplaceRequests
@@ -583,7 +583,7 @@ impl<T: Config> Module<T> {
 
         // Add the new replace address to the vault's wallet,
         // this should also verify that the vault exists
-        ext::vault_registry::insert_vault_deposit_address::<T>(&new_vault_id, btc_address.clone())?;
+        ext::vault_registry::insert_vault_deposit_address::<T>(&new_vault_id, btc_address)?;
 
         // decrease old-vault's to-be-replaced tokens
         let (freely_redeemable_tokens, griefing_collateral) =
@@ -624,7 +624,7 @@ impl<T: Config> Module<T> {
             new_vault: new_vault_id,
             accept_time: ext::security::active_block_number::<T>(),
             collateral: actual_new_vault_collateral,
-            btc_address: btc_address,
+            btc_address,
             griefing_collateral: if is_auction { 0u32.into() } else { griefing_collateral },
             amount: actual_btc,
             period: Self::replace_period(),

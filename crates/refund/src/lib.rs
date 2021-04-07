@@ -139,19 +139,19 @@ impl<T: Config> Module<T> {
         let refund_id = ext::security::get_secure_id::<T>(&issuer);
 
         let request = RefundRequest {
-            vault: vault_id.clone(),
+            vault: vault_id,
             amount_polka_btc: net_refund_amount_polka_btc,
             fee: fee_polka_btc,
             amount_btc: total_amount_btc,
             issuer,
-            btc_address: btc_address.clone(),
+            btc_address,
             issue_id,
             completed: false,
         };
         <RefundRequests<T>>::insert(refund_id, request.clone());
 
         Self::deposit_event(<Event<T>>::RequestRefund(
-            refund_id.clone(),
+            refund_id,
             request.issuer,
             request.amount_polka_btc,
             request.vault,

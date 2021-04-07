@@ -28,14 +28,11 @@ fn test_with<R>(execute: impl FnOnce() -> R) -> R {
 
 fn assert_request_event() {
     let events = SystemModule::events();
-    let ids = events
-        .iter()
-        .filter_map(|r| match r.event {
-            Event::replace(ReplaceEvent::RequestReplace(_, _, _)) => Some(()),
-            _ => None,
-        })
-        .collect::<Vec<_>>();
-    assert_eq!(ids.len(), 1);
+    let ids = events.iter().filter_map(|r| match r.event {
+        Event::replace(ReplaceEvent::RequestReplace(_, _, _)) => Some(()),
+        _ => None,
+    });
+    assert_eq!(ids.count(), 1);
 }
 
 pub fn assert_accept_event() -> H256 {
@@ -672,7 +669,7 @@ mod expiry_test {
     use super::*;
 
     /// test replace created by accept and auction
-    fn test_with(initial_period: u32, execute: impl Fn(H256) -> ()) {
+    fn test_with(initial_period: u32, execute: impl Fn(H256)) {
         let amount_btc = 5_000;
         let griefing_collateral = 1000;
         super::test_with(|| {
@@ -1107,9 +1104,7 @@ fn setup_replace(polkabtc: u128) -> H256 {
     ))
     .dispatch(origin_of(account_of(NEW_VAULT))));
 
-    let replace_id = assert_accept_event();
-
-    replace_id
+    assert_accept_event()
 }
 
 fn execute_replace(replace_id: H256) -> DispatchResultWithPostInfo {

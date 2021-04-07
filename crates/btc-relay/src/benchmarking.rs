@@ -86,7 +86,7 @@ benchmarks! {
         let (block, transaction) = mine_block_with_one_tx::<T>(origin.clone(), block, &address, value, &op_return);
 
         let tx_id = transaction.tx_id();
-        let proof = block.merkle_proof(&vec![tx_id]).unwrap().try_format().unwrap();
+        let proof = block.merkle_proof(&[tx_id]).unwrap().try_format().unwrap();
         let raw_tx = transaction.format_with(true);
 
         Security::<T>::set_active_block_number(100u32.into());
@@ -107,7 +107,7 @@ benchmarks! {
 
         let tx_id = transaction.tx_id();
         let tx_block_height = height;
-        let proof = block.merkle_proof(&vec![tx_id]).unwrap().try_format().unwrap();
+        let proof = block.merkle_proof(&[tx_id]).unwrap().try_format().unwrap();
 
         Security::<T>::set_active_block_number(100u32.into());
 
