@@ -28,30 +28,21 @@ pub(crate) mod security {
         <security::Module<T>>::is_parachain_error_no_data_btcrelay()
     }
 
-    pub fn recover_from_btc_relay_failure<T: security::Config>() -> UnitResult {
+    pub fn recover_from_btc_relay_failure<T: security::Config>() {
         <security::Module<T>>::recover_from_btc_relay_failure()
     }
 
     #[cfg(test)]
-    pub fn set_status<T: security::Config>(status: StatusCode) -> () {
+    pub fn set_status<T: security::Config>(status: StatusCode) {
         <security::Module<T>>::set_status(status)
     }
 
     #[cfg(test)]
-    pub fn insert_error<T: security::Config>(error: ErrorCode) -> () {
+    pub fn insert_error<T: security::Config>(error: ErrorCode) {
         <security::Module<T>>::insert_error(error)
     }
-}
 
-#[cfg_attr(test, mockable)]
-pub(crate) mod sla {
-    use frame_support::dispatch::DispatchError;
-    pub use sla::types::RelayerEvent;
-
-    pub fn event_update_relayer_sla<T: sla::Config>(
-        relayer_id: &T::AccountId,
-        event: RelayerEvent,
-    ) -> Result<(), DispatchError> {
-        <sla::Module<T>>::event_update_relayer_sla(relayer_id, event)
+    pub fn active_block_number<T: security::Config>() -> T::BlockNumber {
+        <security::Module<T>>::active_block_number()
     }
 }

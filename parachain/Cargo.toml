@@ -1,23 +1,23 @@
 [package]
-authors = ['Interlay Ltd']
-build = 'build.rs'
-edition = '2018'
-name = 'btc-parachain'
-version = '0.5.0'
+authors = ["Interlay Ltd"]
+build = "build.rs"
+edition = "2018"
+name = "btc-parachain"
+version = "0.6.0"
 
 [package.metadata.docs.rs]
-targets = ['x86_64-unknown-linux-gnu']
+targets = ["x86_64-unknown-linux-gnu"]
 
 [[bin]]
-name = 'btc-parachain'
+name = "btc-parachain"
 
 [build-dependencies.substrate-build-script-utils]
-version = '2.0.0'
+version = "2.0.0"
 
 [dependencies]
 structopt = "0.3.20"
-log = '0.4.8'
-codec = { package = 'parity-scale-codec', version = "2.0.0" }
+log = "0.4.8"
+codec = { package = "parity-scale-codec", version = "2.0.0" }
 serde = { version = "1.0.101", features = ["derive"] }
 hex-literal = "0.2.1"
 
@@ -35,7 +35,7 @@ sc-service = { git = "https://github.com/paritytech/substrate", branch = "rococo
 sc-telemetry = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
 sc-chain-spec = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
 sc-tracing = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
 sp-consensus-aura = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }
 sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1" }

@@ -10,8 +10,8 @@
 ### Editors ###
 .idea
 /target/*
-
 */launch.json
+.vscode
 
 ## Rococo
 genesis-state*

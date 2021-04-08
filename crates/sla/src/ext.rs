@@ -17,15 +17,12 @@ pub(crate) mod vault_registry {
 
     pub fn get_vault_from_id<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-    ) -> Result<
-        vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
-        DispatchError,
-    > {
+    ) -> Result<vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
         <vault_registry::Module<T>>::get_vault_from_id(vault_id)
     }
 
-    pub fn get_premium_redeem_threshold<T: vault_registry::Config>(
-    ) -> <T as vault_registry::Config>::UnsignedFixedPoint {
+    pub fn get_premium_redeem_threshold<T: vault_registry::Config>() -> <T as vault_registry::Config>::UnsignedFixedPoint
+    {
         <vault_registry::Module<T>>::get_premium_redeem_threshold()
     }
 
@@ -46,9 +43,7 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::get_total_backing_collateral(include_liquidation_vault)
     }
 
-    pub fn get_backing_collateral<T: vault_registry::Config>(
-        vault_id: &T::AccountId,
-    ) -> Result<DOT<T>, DispatchError> {
+    pub fn get_backing_collateral<T: vault_registry::Config>(vault_id: &T::AccountId) -> Result<DOT<T>, DispatchError> {
         <vault_registry::Module<T>>::get_backing_collateral(vault_id)
     }
 }

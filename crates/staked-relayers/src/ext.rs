@@ -30,13 +30,6 @@ pub(crate) mod collateral {
 }
 
 #[cfg_attr(test, mockable)]
-pub(crate) mod oracle {
-    pub(crate) fn is_max_delay_passed<T: exchange_rate_oracle::Config>() -> bool {
-        <exchange_rate_oracle::Module<T>>::is_max_delay_passed()
-    }
-}
-
-#[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
     use crate::{PolkaBTC, DOT};
     use ::vault_registry::VaultStatus;
@@ -44,31 +37,12 @@ pub(crate) mod vault_registry {
 
     pub fn get_active_vault_from_id<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-    ) -> Result<
-        vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
-        DispatchError,
-    > {
+    ) -> Result<vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
         <vault_registry::Module<T>>::get_active_vault_from_id(vault_id)
     }
 
-    pub fn is_vault_below_liquidation_threshold<T: vault_registry::Config>(
-        vault_id: &T::AccountId,
-    ) -> Result<bool, DispatchError> {
-        <vault_registry::Module<T>>::is_vault_below_liquidation_threshold(vault_id)
-    }
-
-    pub fn liquidate_vault<T: vault_registry::Config>(vault_id: &T::AccountId) -> DispatchResult {
-        <vault_registry::Module<T>>::liquidate_vault(vault_id)
-    }
-
-    pub fn liquidate_theft_vault<T: vault_registry::Config>(
-        vault_id: &T::AccountId,
-    ) -> DispatchResult {
-        let _ = <vault_registry::Module<T>>::liquidate_vault_with_status(
-            vault_id,
-            VaultStatus::CommittedTheft,
-        )?;
-        Ok(())
+    pub fn liquidate_theft_vault<T: vault_registry::Config>(vault_id: &T::AccountId) -> DispatchResult {
+        <vault_registry::Module<T>>::liquidate_vault_with_status(vault_id, VaultStatus::CommittedTheft)
     }
 }
 
@@ -93,30 +67,43 @@ pub(crate) mod security {
         <security::Module<T>>::remove_error(error_code)
     }
 
+    #[allow(dead_code)]
     pub(crate) fn get_errors<T: security::Config>() -> BTreeSet<ErrorCode> {
         <security::Module<T>>::get_errors()
+    }
+
+    pub fn active_block_number<T: security::Config>() -> T::BlockNumber {
+        <security::Module<T>>::active_block_number()
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod btc_relay {
-    use bitcoin::types::{H256Le, Transaction};
+    use bitcoin::types::{H256Le, RawBlockHeader, Transaction};
     use btc_relay::BtcAddress;
     use frame_support::dispatch::DispatchResult;
     use security::types::ErrorCode;
     use sp_std::prelude::*;
 
-    pub(crate) fn flag_block_error<T: btc_relay::Config>(
-        block_hash: H256Le,
-        error: ErrorCode,
+    pub fn initialize<T: btc_relay::Config>(
+        relayer: T::AccountId,
+        raw_block_header: RawBlockHeader,
+        block_height: u32,
     ) -> DispatchResult {
+        <btc_relay::Module<T>>::initialize(relayer, raw_block_header, block_height)
+    }
+
+    pub fn store_block_header<T: btc_relay::Config>(
+        relayer: &T::AccountId,
+        raw_block_header: RawBlockHeader,
+    ) -> DispatchResult {
+        <btc_relay::Module<T>>::store_block_header(relayer, raw_block_header)
+    }
+    pub(crate) fn flag_block_error<T: btc_relay::Config>(block_hash: H256Le, error: ErrorCode) -> DispatchResult {
         <btc_relay::Module<T>>::flag_block_error(block_hash, error)
     }
 
-    pub(crate) fn clear_block_error<T: btc_relay::Config>(
-        block_hash: H256Le,
-        error: ErrorCode,
-    ) -> DispatchResult {
+    pub(crate) fn clear_block_error<T: btc_relay::Config>(block_hash: H256Le, error: ErrorCode) -> DispatchResult {
         <btc_relay::Module<T>>::clear_block_error(block_hash, error)
     }
 
@@ -136,14 +123,6 @@ pub(crate) mod btc_relay {
     ) -> Result<(Vec<(i64, BtcAddress)>, Vec<(i64, Vec<u8>)>), btc_relay::Error<T>> {
         <btc_relay::Module<T>>::extract_outputs(tx)
     }
-
-    pub(crate) fn register_authorized_relayer<T: btc_relay::Config>(who: T::AccountId) {
-        <btc_relay::Module<T>>::register_authorized_relayer(who)
-    }
-
-    pub(crate) fn deregister_authorized_relayer<T: btc_relay::Config>(who: T::AccountId) {
-        <btc_relay::Module<T>>::deregister_authorized_relayer(who)
-    }
 }
 
 #[cfg_attr(test, mockable)]
@@ -155,8 +134,7 @@ pub(crate) mod redeem {
 
     pub(crate) fn get_open_or_completed_redeem_request_from_id<T: redeem::Config>(
         id: &H256,
-    ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError>
-    {
+    ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
         <redeem::Module<T>>::get_open_or_completed_redeem_request_from_id(id)
     }
 }
@@ -170,8 +148,7 @@ pub(crate) mod replace {
 
     pub(crate) fn get_open_or_completed_replace_request<T: replace::Config>(
         id: &H256,
-    ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError>
-    {
+    ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
         <replace::Module<T>>::get_open_or_completed_replace_request(id)
     }
 }
@@ -211,9 +188,7 @@ pub(crate) mod sla {
         <sla::Module<T>>::initialize_relayer_stake(relayer_id, stake)
     }
 
-    pub fn _on_runtime_upgrade<T: sla::Config>(
-        stakes: Vec<(T::AccountId, DOT<T>)>,
-    ) -> Result<(), DispatchError> {
+    pub fn _on_runtime_upgrade<T: sla::Config>(stakes: Vec<(T::AccountId, DOT<T>)>) -> Result<(), DispatchError> {
         <sla::Module<T>>::_on_runtime_upgrade(stakes)
     }
 }
@@ -229,22 +204,15 @@ pub(crate) mod nomination {
         <nomination::Module<T>>::liquidate_operator(vault_id)
     }
 
-    pub fn liquidate_theft_operator<T: nomination::Config>(
-        vault_id: &T::AccountId,
-    ) -> DispatchResult {
-        <nomination::Module<T>>::liquidate_operator_with_status(
-            vault_id,
-            VaultStatus::CommittedTheft,
-        )
+    pub fn liquidate_theft_operator<T: nomination::Config>(vault_id: &T::AccountId) -> DispatchResult {
+        <nomination::Module<T>>::liquidate_operator_with_status(vault_id, VaultStatus::CommittedTheft)
     }
 
     pub fn is_nomination_enabled<T: nomination::Config>() -> Result<bool, DispatchError> {
         <nomination::Module<T>>::is_nomination_enabled()
     }
 
-    pub fn is_operator<T: nomination::Config>(
-        operator_id: &T::AccountId,
-    ) -> Result<bool, DispatchError> {
+    pub fn is_operator<T: nomination::Config>(operator_id: &T::AccountId) -> Result<bool, DispatchError> {
         <nomination::Module<T>>::is_operator(operator_id)
     }
 }

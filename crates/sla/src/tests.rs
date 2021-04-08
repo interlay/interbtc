@@ -1,8 +1,7 @@
-use crate::ext;
-use crate::mock::*;
-use crate::sp_api_hidden_includes_decl_storage::hidden_include::StorageMap;
-use crate::sp_api_hidden_includes_decl_storage::hidden_include::StorageValue;
 use crate::{
+    ext,
+    mock::*,
+    sp_api_hidden_includes_decl_storage::hidden_include::{StorageMap, StorageValue},
     types::{RelayerEvent, VaultEvent},
     RelayerSla, TotalRelayerScore,
 };
@@ -82,8 +81,7 @@ fn test_calculate_slashed_amount_big_stake() {
 fn test_event_update_vault_sla_succeeds() {
     run_test(|| {
         let amount = 100u64;
-        ext::vault_registry::get_backing_collateral::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(ALICE_STAKE as u64)));
+        ext::vault_registry::get_backing_collateral::<Test>.mock_safe(|_| MockResult::Return(Ok(ALICE_STAKE as u64)));
         ext::treasury::get_total_supply::<Test>.mock_safe(move || MockResult::Return(amount));
 
         Sla::event_update_vault_sla(&ALICE, VaultEvent::ExecutedIssue(amount)).unwrap();
@@ -98,8 +96,7 @@ fn test_event_update_vault_sla_succeeds() {
 fn test_event_update_vault_sla_half_size_increase() {
     run_test(|| {
         let amount = 100u64;
-        ext::vault_registry::get_backing_collateral::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(ALICE_STAKE as u64)));
+        ext::vault_registry::get_backing_collateral::<Test>.mock_safe(|_| MockResult::Return(Ok(ALICE_STAKE as u64)));
         ext::treasury::get_total_supply::<Test>.mock_safe(move || MockResult::Return(amount * 2));
 
         Sla::event_update_vault_sla(&ALICE, VaultEvent::ExecutedIssue(amount)).unwrap();
@@ -117,10 +114,7 @@ fn test_event_update_relayer_sla_succeeds() {
 
         for i in 0..100 {
             Sla::event_update_relayer_sla(&ALICE, RelayerEvent::BlockSubmission).unwrap();
-            assert_eq!(
-                <crate::RelayerSla<Test>>::get(ALICE),
-                FixedI128::from(i + 1)
-            );
+            assert_eq!(<crate::RelayerSla<Test>>::get(ALICE), FixedI128::from(i + 1));
         }
 
         <crate::RelayerSla<Test>>::insert(ALICE, FixedI128::from(50));
@@ -145,24 +139,10 @@ fn test_event_update_relayer_sla_succeeds() {
         );
 
         <crate::RelayerSla<Test>>::insert(ALICE, FixedI128::from(50));
-        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::CorrectLiquidationReport).unwrap();
-        assert_eq!(
-            <crate::RelayerSla<Test>>::get(ALICE),
-            FixedI128::from(50) + <crate::RelayerCorrectLiquidationReport<Test>>::get(),
-        );
-
-        <crate::RelayerSla<Test>>::insert(ALICE, FixedI128::from(50));
         Sla::event_update_relayer_sla(&ALICE, RelayerEvent::CorrectTheftReport).unwrap();
         assert_eq!(
             <crate::RelayerSla<Test>>::get(ALICE),
             FixedI128::from(50) + <crate::RelayerCorrectTheftReport<Test>>::get(),
-        );
-
-        <crate::RelayerSla<Test>>::insert(ALICE, FixedI128::from(50));
-        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::CorrectOracleOfflineReport).unwrap();
-        assert_eq!(
-            <crate::RelayerSla<Test>>::get(ALICE),
-            FixedI128::from(50) + <crate::RelayerCorrectOracleOfflineReport<Test>>::get(),
         );
 
         <crate::RelayerSla<Test>>::insert(ALICE, FixedI128::from(50));
@@ -245,10 +225,7 @@ fn test_event_update_relayer_total_sla_score() {
 
         // decrease in alice' score all the way to 0 -> total be equal to bob's part
         Sla::event_update_relayer_sla(&ALICE, RelayerEvent::FalseInvalidVoteOrReport).unwrap();
-        assert_eq!(
-            <TotalRelayerScore<Test>>::get(),
-            FixedI128::from(BOB_STAKE as i128)
-        );
+        assert_eq!(<TotalRelayerScore<Test>>::get(), FixedI128::from(BOB_STAKE as i128));
     })
 }
 
@@ -272,20 +249,14 @@ fn test_calculate_reward() {
         }
 
         // equal sla, but alice and bob have 1:4 staked collateral ratio
-        assert_eq!(
-            Sla::_calculate_relayer_reward(&ALICE, 1_000_000),
-            Ok(200_000)
-        );
+        assert_eq!(Sla::_calculate_relayer_reward(&ALICE, 1_000_000), Ok(200_000));
 
         for _ in 0..30 {
             Sla::event_update_relayer_sla(&ALICE, RelayerEvent::BlockSubmission).unwrap();
         }
 
         // alice and bob have 4:1 sla ratio, and 1:4 staked collateral ratio, so both get 50%
-        assert_eq!(
-            Sla::_calculate_relayer_reward(&ALICE, 1_000_000),
-            Ok(500_000)
-        );
+        assert_eq!(Sla::_calculate_relayer_reward(&ALICE, 1_000_000), Ok(500_000));
     })
 }
 

@@ -19,15 +19,15 @@ frame_support::construct_runtime!(
         NodeBlock = Block,
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
-        System: frame_system::{Module, Call, Storage, Config, Event<T>},
-        Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
-        Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
+        System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
+        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
+        Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
 
         // Operational
-        Collateral: collateral::{Module, Call, Storage, Event<T>},
-        Treasury: treasury::{Module, Call, Storage, Event<T>},
-        Security: security::{Module, Call, Storage, Event},
-        ExchangeRateOracle: exchange_rate_oracle::{Module, Call, Config<T>, Storage, Event<T>},
+        Collateral: collateral::{Pallet, Call, Storage, Event<T>},
+        Treasury: treasury::{Pallet, Call, Storage, Event<T>},
+        Security: security::{Pallet, Call, Storage, Event},
+        ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
     }
 );
 
@@ -63,6 +63,7 @@ impl frame_system::Config for Test {
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
     type SS58Prefix = SS58Prefix;
+    type OnSetCode = ();
 }
 
 impl Config for Test {
@@ -118,9 +119,7 @@ pub struct ExtBuilder;
 
 impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
-        let mut storage = frame_system::GenesisConfig::default()
-            .build_storage::<Test>()
-            .unwrap();
+        let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
         exchange_rate_oracle::GenesisConfig::<Test> {
             authorized_oracles: vec![(0, "test".as_bytes().to_vec())],
@@ -133,12 +132,13 @@ impl ExtBuilder {
     }
 }
 
-pub fn run_test<T>(test: T) -> ()
+pub fn run_test<T>(test: T)
 where
-    T: FnOnce() -> (),
+    T: FnOnce(),
 {
     clear_mocks();
     ExtBuilder::build().execute_with(|| {
+        Security::set_active_block_number(1);
         System::set_block_number(1);
         test();
     });

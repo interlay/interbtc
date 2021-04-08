@@ -1,9 +1,7 @@
 use crate as vault_registry;
 use crate::{ext, Config, Error};
-use frame_support::parameter_types;
-use frame_support::traits::StorageMapShim;
-use mocktopus::mocking::clear_mocks;
-use mocktopus::mocking::{MockResult, Mockable};
+use frame_support::{parameter_types, traits::StorageMapShim};
+use mocktopus::mocking::{clear_mocks, MockResult, Mockable};
 use sp_arithmetic::{FixedPointNumber, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
@@ -21,20 +19,20 @@ frame_support::construct_runtime!(
         NodeBlock = Block,
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
-        System: frame_system::{Module, Call, Storage, Config, Event<T>},
-        Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
+        System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
+        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 
         // Tokens & Balances
-        DOT: pallet_balances::<Instance1>::{Module, Call, Storage, Config<T>, Event<T>},
-        PolkaBTC: pallet_balances::<Instance2>::{Module, Call, Storage, Config<T>, Event<T>},
+        DOT: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
+        PolkaBTC: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
 
-        Collateral: collateral::{Module, Call, Storage, Event<T>},
-        Treasury: treasury::{Module, Call, Storage, Event<T>},
+        Collateral: collateral::{Pallet, Call, Storage, Event<T>},
+        Treasury: treasury::{Pallet, Call, Storage, Event<T>},
 
         // Operational
-        Security: security::{Module, Call, Storage, Event},
-        VaultRegistry: vault_registry::{Module, Call, Config<T>, Storage, Event<T>},
-        ExchangeRateOracle: exchange_rate_oracle::{Module, Call, Config<T>, Storage, Event<T>},
+        Security: security::{Pallet, Call, Storage, Event},
+        VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>},
+        ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
     }
 );
 
@@ -70,6 +68,7 @@ impl frame_system::Config for Test {
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
     type SS58Prefix = SS58Prefix;
+    type OnSetCode = ();
 }
 
 parameter_types! {
@@ -111,12 +110,12 @@ impl pallet_balances::Config<pallet_balances::Instance2> for Test {
 
 impl collateral::Config for Test {
     type Event = TestEvent;
-    type DOT = pallet_balances::Module<Test, pallet_balances::Instance1>;
+    type DOT = pallet_balances::Pallet<Test, pallet_balances::Instance1>;
 }
 
 impl treasury::Config for Test {
     type Event = TestEvent;
-    type PolkaBTC = pallet_balances::Module<Test, pallet_balances::Instance2>;
+    type PolkaBTC = pallet_balances::Pallet<Test, pallet_balances::Instance2>;
 }
 
 parameter_types! {
@@ -166,9 +165,7 @@ impl ExtBuilder {
     pub fn build_with(
         conf: pallet_balances::GenesisConfig<Test, pallet_balances::Instance1>,
     ) -> sp_io::TestExternalities {
-        let mut storage = frame_system::GenesisConfig::default()
-            .build_storage::<Test>()
-            .unwrap();
+        let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
         conf.assimilate_storage(&mut storage).unwrap();
 
@@ -192,31 +189,43 @@ impl ExtBuilder {
         sp_io::TestExternalities::from(storage)
     }
     pub fn build() -> sp_io::TestExternalities {
-        ExtBuilder::build_with(
-            pallet_balances::GenesisConfig::<Test, pallet_balances::Instance1> {
-                balances: vec![
-                    (DEFAULT_ID, DEFAULT_COLLATERAL),
-                    (OTHER_ID, DEFAULT_COLLATERAL),
-                    (RICH_ID, RICH_COLLATERAL),
-                    (MULTI_VAULT_TEST_IDS[0], MULTI_VAULT_TEST_COLLATERAL),
-                    (MULTI_VAULT_TEST_IDS[1], MULTI_VAULT_TEST_COLLATERAL),
-                    (MULTI_VAULT_TEST_IDS[2], MULTI_VAULT_TEST_COLLATERAL),
-                    (MULTI_VAULT_TEST_IDS[3], MULTI_VAULT_TEST_COLLATERAL),
-                ],
-            },
-        )
+        ExtBuilder::build_with(pallet_balances::GenesisConfig::<Test, pallet_balances::Instance1> {
+            balances: vec![
+                (DEFAULT_ID, DEFAULT_COLLATERAL),
+                (OTHER_ID, DEFAULT_COLLATERAL),
+                (RICH_ID, RICH_COLLATERAL),
+                (MULTI_VAULT_TEST_IDS[0], MULTI_VAULT_TEST_COLLATERAL),
+                (MULTI_VAULT_TEST_IDS[1], MULTI_VAULT_TEST_COLLATERAL),
+                (MULTI_VAULT_TEST_IDS[2], MULTI_VAULT_TEST_COLLATERAL),
+                (MULTI_VAULT_TEST_IDS[3], MULTI_VAULT_TEST_COLLATERAL),
+            ],
+        })
     }
 }
 
-pub fn run_test<T>(test: T) -> ()
+fn set_default_thresholds() {
+    let secure = FixedU128::checked_from_rational(200, 100).unwrap(); // 200%
+    let auction = FixedU128::checked_from_rational(150, 100).unwrap(); // 150%
+    let premium = FixedU128::checked_from_rational(120, 100).unwrap(); // 120%
+    let liquidation = FixedU128::checked_from_rational(110, 100).unwrap(); // 110%
+
+    VaultRegistry::set_secure_collateral_threshold(secure);
+    VaultRegistry::set_auction_collateral_threshold(auction);
+    VaultRegistry::set_premium_redeem_threshold(premium);
+    VaultRegistry::set_liquidation_collateral_threshold(liquidation);
+}
+
+pub fn run_test<T>(test: T)
 where
-    T: FnOnce() -> (),
+    T: FnOnce(),
 {
     clear_mocks();
     ext::oracle::dots_to_btc::<Test>.mock_safe(|v| MockResult::Return(Ok(v)));
     ext::oracle::btc_to_dots::<Test>.mock_safe(|v| MockResult::Return(Ok(v)));
     ExtBuilder::build().execute_with(|| {
         System::set_block_number(1);
+        Security::set_active_block_number(1);
+        set_default_thresholds();
         test()
     })
 }

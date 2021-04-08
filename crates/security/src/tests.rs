@@ -1,7 +1,5 @@
-use crate::mock::*;
-use crate::ErrorCode;
-use crate::StatusCode;
-use frame_support::{assert_noop, assert_ok, dispatch::DispatchResult};
+use crate::{mock::*, ErrorCode, StatusCode};
+use frame_support::{assert_noop, assert_ok};
 use sp_core::H256;
 
 type Event = crate::Event;
@@ -14,10 +12,7 @@ macro_rules! assert_emitted {
     ($event:expr, $times:expr) => {
         let test_event = TestEvent::security($event);
         assert_eq!(
-            System::events()
-                .iter()
-                .filter(|a| a.event == test_event)
-                .count(),
+            System::events().iter().filter(|a| a.event == test_event).count(),
             $times
         );
     };
@@ -108,31 +103,28 @@ fn test_ensure_parachain_does_not_have_errors() {
 fn test_ensure_parachain_is_running_or_only_has_errors() {
     run_test(|| {
         Security::set_status(StatusCode::Running);
-        assert_ok!(Security::ensure_parachain_is_running_or_only_has_errors(
-            vec![]
-        ));
+        assert_ok!(Security::ensure_parachain_is_running_or_only_has_errors(vec![]));
 
         Security::set_status(StatusCode::Error);
-        assert_ok!(Security::ensure_parachain_is_running_or_only_has_errors(
-            vec![ErrorCode::InvalidBTCRelay]
-        ));
+        assert_ok!(Security::ensure_parachain_is_running_or_only_has_errors(vec![
+            ErrorCode::InvalidBTCRelay
+        ]));
 
         Security::insert_error(ErrorCode::InvalidBTCRelay);
-        assert_ok!(Security::ensure_parachain_is_running_or_only_has_errors(
-            vec![ErrorCode::InvalidBTCRelay]
-        ));
+        assert_ok!(Security::ensure_parachain_is_running_or_only_has_errors(vec![
+            ErrorCode::InvalidBTCRelay
+        ]));
 
         Security::insert_error(ErrorCode::NoDataBTCRelay);
         assert_noop!(
-            Security::ensure_parachain_is_running_or_only_has_errors(vec![
-                ErrorCode::InvalidBTCRelay
-            ]),
+            Security::ensure_parachain_is_running_or_only_has_errors(vec![ErrorCode::InvalidBTCRelay]),
             TestError::NoDataBTCRelay
         );
 
-        assert_ok!(Security::ensure_parachain_is_running_or_only_has_errors(
-            vec![ErrorCode::InvalidBTCRelay, ErrorCode::NoDataBTCRelay]
-        ));
+        assert_ok!(Security::ensure_parachain_is_running_or_only_has_errors(vec![
+            ErrorCode::InvalidBTCRelay,
+            ErrorCode::NoDataBTCRelay
+        ]));
     })
 }
 
@@ -163,23 +155,14 @@ fn test_is_parachain_error_oracle_offline() {
     })
 }
 
-#[test]
-fn test_is_parachain_error_liquidation() {
-    run_test(|| {
-        Security::set_status(StatusCode::Error);
-        Security::insert_error(ErrorCode::Liquidation);
-        assert_eq!(Security::is_parachain_error_liquidation(), true);
-    })
-}
-
 fn test_recover_from_<F>(recover: F, error_codes: Vec<ErrorCode>)
 where
-    F: FnOnce() -> DispatchResult,
+    F: FnOnce(),
 {
     for err in &error_codes {
         Security::insert_error(err.clone());
     }
-    assert_ok!(recover());
+    recover();
     for err in &error_codes {
         assert_eq!(Security::get_errors().contains(&err), false);
     }
@@ -188,22 +171,9 @@ where
 }
 
 #[test]
-fn test_recover_from_liquidation_succeeds() {
-    run_test(|| {
-        test_recover_from_(
-            Security::recover_from_liquidation,
-            vec![ErrorCode::Liquidation],
-        );
-    })
-}
-
-#[test]
 fn test_recover_from_oracle_offline_succeeds() {
     run_test(|| {
-        test_recover_from_(
-            Security::recover_from_oracle_offline,
-            vec![ErrorCode::OracleOffline],
-        );
+        test_recover_from_(Security::recover_from_oracle_offline, vec![ErrorCode::OracleOffline]);
     })
 }
 
@@ -229,12 +199,12 @@ fn test_get_nonce() {
 #[test]
 fn testget_secure_id() {
     run_test(|| {
-        frame_system::Module::<Test>::set_parent_hash(H256::zero());
+        frame_system::Pallet::<Test>::set_parent_hash(H256::zero());
         assert_eq!(
             Security::get_secure_id(&1),
             H256::from_slice(&[
-                71, 121, 67, 63, 246, 65, 71, 242, 66, 184, 148, 234, 23, 56, 62, 52, 108, 82, 213,
-                33, 160, 200, 214, 1, 13, 46, 37, 138, 95, 245, 117, 109
+                71, 121, 67, 63, 246, 65, 71, 242, 66, 184, 148, 234, 23, 56, 62, 52, 108, 82, 213, 33, 160, 200, 214,
+                1, 13, 46, 37, 138, 95, 245, 117, 109
             ])
         );
     })

@@ -1,9 +1,9 @@
 mod mock;
-use mock::issue_testing_utils::{
-    self, execute_issue, execute_refund, request_issue, ExecuteIssueBuilder,
+use mock::{
+    issue_testing_utils::{self, execute_issue, execute_refund, request_issue, ExecuteIssueBuilder},
+    redeem_testing_utils::{cancel_redeem, setup_cancelable_redeem},
+    *,
 };
-use mock::redeem_testing_utils::{cancel_redeem, setup_cancelable_redeem};
-use mock::*;
 
 const USER: [u8; 32] = issue_testing_utils::USER;
 const VAULT: [u8; 32] = issue_testing_utils::VAULT;
@@ -16,6 +16,10 @@ fn initial_sla() -> FixedI128 {
 
 fn test_with<R>(execute: impl FnOnce() -> R) -> R {
     ExtBuilder::build().execute_with(|| {
+        SecurityModule::set_active_block_number(1);
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
+        set_default_thresholds();
+
         SlaModule::set_vault_sla(&account_of(VAULT), initial_sla());
         SlaModule::set_vault_sla(&account_of(PROOF_SUBMITTER), initial_sla());
 
@@ -31,7 +35,7 @@ fn test_sla_increase_for_issue() {
 
         // check the sla increase for processing the issue
         let expected_sla_increase = SlaModule::vault_executed_issue_max_sla_change()
-            * FixedI128::checked_from_rational(1000, issue.amount + issue.fee).unwrap();
+            * FixedI128::checked_from_rational(issue.amount, issue.amount + issue.fee).unwrap();
         assert_eq!(
             SlaModule::vault_sla(account_of(VAULT)),
             initial_sla() + expected_sla_increase
@@ -60,19 +64,17 @@ fn test_sla_increase_for_submitting_proof_for_issue_against_self() {
 
         let (issue_id, issue) = request_issue(1000);
         ExecuteIssueBuilder::new(issue_id)
-            .with_submitter(VAULT)
-            .execute();
+            .with_submitter(VAULT, true)
+            .assert_execute();
 
         let expected_sla_increase_for_issue = SlaModule::vault_executed_issue_max_sla_change()
-            * FixedI128::checked_from_rational(1000, issue.amount + issue.fee).unwrap();
+            * FixedI128::checked_from_rational(issue.amount, issue.amount + issue.fee).unwrap();
         let expected_sla_increase_for_proof_submission = SlaModule::vault_submitted_issue_proof();
 
         // check that the vault who submitted the proof is rewarded with both SLA rewards
         assert_eq!(
             SlaModule::vault_sla(account_of(VAULT)),
-            initial_sla()
-                + expected_sla_increase_for_issue
-                + expected_sla_increase_for_proof_submission
+            initial_sla() + expected_sla_increase_for_issue + expected_sla_increase_for_proof_submission
         );
     })
 }
@@ -94,10 +96,10 @@ fn test_sla_increase_for_refund() {
         // overpay by a factor of 4
         ExecuteIssueBuilder::new(issue_id)
             .with_amount(4 * (issue.amount + issue.fee))
-            .execute();
+            .assert_execute();
 
         let expected_sla_increase_for_issue = SlaModule::vault_executed_issue_max_sla_change()
-            * FixedI128::checked_from_rational(1000, issue.amount + issue.fee).unwrap();
+            * FixedI128::checked_from_rational(issue.amount, issue.amount + issue.fee).unwrap();
 
         // check that the vault who submitted the proof is rewarded for issue
         assert_eq!(
@@ -119,6 +121,9 @@ fn test_sla_increase_for_refund() {
 #[test]
 fn test_sla_decrease_for_redeem_failure() {
     test_with(|| {
+        UserData::force_to(USER, default_user_state());
+        CoreVaultData::force_to(VAULT, default_vault_state());
+
         let redeem_id = setup_cancelable_redeem(USER, VAULT, 10_000, 1_000);
 
         cancel_redeem(redeem_id, USER, true);
@@ -144,4 +149,25 @@ fn test_sla_remains_unchanged_when_liquidated() {
         // sla remains unchanged if vault has been liquidated
         assert_eq!(SlaModule::vault_sla(account_of(VAULT)), initial_sla());
     })
+}
+
+#[test]
+fn test_sla_increase_for_underpayed_issue() {
+    test_with(|| {
+        let (issue_id, issue) = request_issue(4_000);
+
+        // only pay 25%
+        ExecuteIssueBuilder::new(issue_id)
+            .with_amount((issue.amount + issue.fee) / 4)
+            .with_submitter(USER, false)
+            .assert_execute();
+
+        // check the sla increase
+        let expected_sla_increase = SlaModule::vault_executed_issue_max_sla_change()
+            * FixedI128::checked_from_rational(issue.amount, issue.amount + issue.fee).unwrap();
+        assert_eq!(
+            SlaModule::vault_sla(account_of(VAULT)),
+            initial_sla() + expected_sla_increase
+        );
+    });
 }

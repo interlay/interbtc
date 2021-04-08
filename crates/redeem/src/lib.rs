@@ -26,25 +26,21 @@ mod ext;
 pub mod types;
 
 #[doc(inline)]
-pub use crate::types::RedeemRequest;
+pub use crate::types::{RedeemRequest, RedeemRequestStatus};
 
-use crate::types::{PolkaBTC, Version, DOT};
+use crate::types::{PolkaBTC, RedeemRequestV2, Version, DOT};
 use bitcoin::types::H256Le;
 use btc_relay::BtcAddress;
-use frame_support::transactional;
-use frame_support::weights::Weight;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
-    ensure,
+    ensure, transactional,
+    weights::Weight,
 };
 use frame_system::{ensure_root, ensure_signed};
 use primitive_types::H256;
-use security::ErrorCode;
-use sp_runtime::traits::*;
-use sp_runtime::ModuleId;
-use sp_std::convert::TryInto;
-use sp_std::vec::Vec;
+use sp_runtime::{traits::*, ModuleId};
+use sp_std::{convert::TryInto, vec::Vec};
 use vault_registry::CurrencySource;
 
 /// The redeem module id, used for deriving its sovereign account ID.
@@ -56,6 +52,7 @@ pub trait WeightInfo {
     fn execute_redeem() -> Weight;
     fn cancel_redeem() -> Weight;
     fn set_redeem_period() -> Weight;
+    fn mint_tokens_for_reimbursed_redeem() -> Weight;
 }
 
 /// The pallet's configuration trait.
@@ -91,7 +88,7 @@ decl_storage! {
         RedeemBtcDustValue get(fn redeem_btc_dust_value) config(): PolkaBTC<T>;
 
         /// Build storage at V1 (requires default 0).
-        StorageVersion get(fn storage_version) build(|_| Version::V1): Version = Version::V0;
+        StorageVersion get(fn storage_version) build(|_| Version::V2): Version = Version::V0;
     }
 }
 
@@ -133,20 +130,42 @@ decl_module! {
 
         /// Upgrade the runtime depending on the current `StorageVersion`.
         fn on_runtime_upgrade() -> Weight {
+            use frame_support::{migration::StorageKeyIterator, Blake2_128Concat};
+
+            if matches!(Self::storage_version(), Version::V2) {
+                StorageKeyIterator::<H256, RedeemRequestV2<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, Blake2_128Concat>::new(<RedeemRequests<T>>::module_prefix(), b"RedeemRequests")
+                    .drain()
+                    .for_each(|(id, old_request)| {
+                        let new_request = RedeemRequest {
+                            vault: old_request.vault,
+                            opentime: old_request.opentime,
+                            period: Self::redeem_period(),
+                            fee: old_request.fee,
+                            amount_btc: old_request.amount_btc,
+                            premium_dot: old_request.premium_dot,
+                            redeemer: old_request.redeemer,
+                            btc_address: old_request.btc_address,
+                            btc_height: 1969929, // extra conservative, testnet height at april 4th
+                            status: old_request.status,
+                        };
+                        <RedeemRequests<T>>::insert(id, new_request);
+                    });
+
+                StorageVersion::put(Version::V3);
+            }
+
             0
         }
 
-        /// A user requests to start the redeem procedure. This function checks the BTC Parachain
-        /// status in Security and decides how the Redeem process is to be executed. If no `vault_id`
-        /// is given the user's polkaBtc is burnt in exchange for liquidated collateral at the current
-        /// exchange rate.
+        /// Initializes a request to burn PolkaBTC against a Vault with sufficient tokens. It will
+        /// also ensure that the Parachain status is RUNNING.
         ///
         /// # Arguments
         ///
         /// * `origin` - sender of the transaction
         /// * `amount` - amount of PolkaBTC
         /// * `btc_address` - the address to receive BTC
-        /// * `vault_id` - [optional] address of the vault
+        /// * `vault_id` - address of the vault
         #[weight = <T as Config>::WeightInfo::request_redeem()]
         #[transactional]
         fn request_redeem(origin, amount_polka_btc: PolkaBTC<T>, btc_address: BtcAddress, vault_id: T::AccountId)
@@ -157,6 +176,14 @@ decl_module! {
             Ok(())
         }
 
+        /// When a Vault is liquidated, its DOT collateral is slashed up to 150% of the liquidated BTC value.
+        /// To re-establish the physical 1:1 peg between BTC and PolkaBTC, the PolkaBTC bridge allows users
+        /// to burn PolkaBTC in return for DOT at a premium rate.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - sender of the transaction
+        /// * `amount_polka_btc` - amount of PolkaBTC to burn
         #[weight = <T as Config>::WeightInfo::liquidation_redeem()]
         #[transactional]
         fn liquidation_redeem(origin, amount_polka_btc: PolkaBTC<T>) -> DispatchResult
@@ -223,6 +250,27 @@ decl_module! {
             ensure_root(origin)?;
             <RedeemPeriod<T>>::set(period);
         }
+
+        /// Mint tokens for a redeem that was cancelled with reimburse=true. This is
+        /// only possible if at the time of the cancel_redeem, the vault did not have
+        /// sufficient collateral after being slashed to back the tokens that the user
+        /// used to hold.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - the dispatch origin of this call (must be _Root_)
+        /// * `redeem_id` - identifier of redeem request as output from request_redeem
+        ///
+        /// # Weight: `O(1)`
+        #[weight = <T as Config>::WeightInfo::set_redeem_period()]
+        #[transactional]
+        fn mint_tokens_for_reimbursed_redeem(origin, redeem_id: H256)
+            -> DispatchResult
+        {
+            let redeemer = ensure_signed(origin)?;
+            Self::_mint_tokens_for_reimbursed_redeem(redeemer, redeem_id)?;
+            Ok(())
+        }
     }
 }
 
@@ -235,7 +283,7 @@ impl<T: Config> Module<T> {
         btc_address: BtcAddress,
         vault_id: T::AccountId,
     ) -> Result<H256, DispatchError> {
-        Self::ensure_parachain_running_or_error_liquidated()?;
+        ext::security::ensure_parachain_status_running::<T>()?;
 
         let redeemer_balance = ext::treasury::get_balance::<T>(redeemer.clone());
         ensure!(
@@ -248,13 +296,7 @@ impl<T: Config> Module<T> {
             .checked_sub(&fee_polka_btc)
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
-        let vault = ext::vault_registry::get_active_vault_from_id::<T>(&vault_id)?;
-        let height = <frame_system::Module<T>>::block_number();
-        ext::vault_registry::ensure_not_banned::<T>(&vault_id, height)?;
-        ensure!(
-            redeem_amount_polka_btc <= vault.issued_tokens,
-            Error::<T>::AmountExceedsVaultBalance
-        );
+        ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;
 
         // only allow requests of amount above above the minimum
         let dust_value = <RedeemBtcDustValue<T>>::get();
@@ -264,41 +306,45 @@ impl<T: Config> Module<T> {
             Error::<T>::AmountBelowDustAmount
         );
 
-        ext::vault_registry::increase_to_be_redeemed_tokens::<T>(
-            &vault_id,
-            redeem_amount_polka_btc,
-        )?;
+        ext::vault_registry::try_increase_to_be_redeemed_tokens::<T>(&vault_id, redeem_amount_polka_btc)?;
 
         // lock full amount (inc. fee)
         ext::treasury::lock::<T>(redeemer.clone(), amount_polka_btc)?;
         let redeem_id = ext::security::get_secure_id::<T>(&redeemer);
 
-        let below_premium_redeem =
-            ext::vault_registry::is_vault_below_premium_threshold::<T>(&vault_id)?;
+        let below_premium_redeem = ext::vault_registry::is_vault_below_premium_threshold::<T>(&vault_id)?;
         let premium_dot = if below_premium_redeem {
-            let redeem_amount_polka_btc_in_dot =
-                ext::oracle::btc_to_dots::<T>(redeem_amount_polka_btc)?;
+            let redeem_amount_polka_btc_in_dot = ext::oracle::btc_to_dots::<T>(redeem_amount_polka_btc)?;
             ext::fee::get_premium_redeem_fee::<T>(redeem_amount_polka_btc_in_dot)?
         } else {
             Self::u128_to_dot(0u128)?
         };
 
+        // decrease to-be-replaced tokens - when the vault requests tokens to be replaced, it
+        // want to get rid of tokens, and it does not matter whether this is through a redeem,
+        // or a replace. As such, we decrease the to-be-replaced tokens here. This call will
+        // never fail due to insufficient to-be-replaced tokens
+        let (_, griefing_collateral) =
+            ext::vault_registry::decrease_to_be_replaced_tokens::<T>(&vault_id, redeem_amount_polka_btc)?;
+        // release the griefing collateral that is locked for the replace request
+        if !griefing_collateral.is_zero() {
+            ext::collateral::release_collateral::<T>(&vault_id, griefing_collateral)?;
+        }
+
         Self::insert_redeem_request(
             redeem_id,
             RedeemRequest {
                 vault: vault_id.clone(),
-                opentime: height,
-                amount_polka_btc: redeem_amount_polka_btc,
+                opentime: ext::security::active_block_number::<T>(),
                 fee: fee_polka_btc,
                 amount_btc: redeem_amount_polka_btc,
                 // TODO: reimplement partial redeem for system liquidation
-                amount_dot: Self::u128_to_dot(0u128)?,
                 premium_dot,
+                period: Self::redeem_period(),
                 redeemer: redeemer.clone(),
-                btc_address: btc_address.clone(),
-                completed: false,
-                cancelled: false,
-                reimburse: false,
+                btc_address,
+                btc_height: ext::btc_relay::get_best_block_height::<T>(),
+                status: RedeemRequestStatus::Pending,
             },
         );
 
@@ -316,11 +362,8 @@ impl<T: Config> Module<T> {
         Ok(redeem_id)
     }
 
-    fn _liquidation_redeem(
-        redeemer: T::AccountId,
-        amount_polka_btc: PolkaBTC<T>,
-    ) -> Result<(), DispatchError> {
-        Self::ensure_parachain_running_or_error_liquidated()?;
+    fn _liquidation_redeem(redeemer: T::AccountId, amount_polka_btc: PolkaBTC<T>) -> Result<(), DispatchError> {
+        ext::security::ensure_parachain_status_running::<T>()?;
 
         let redeemer_balance = ext::treasury::get_balance::<T>(redeemer.clone());
         ensure!(
@@ -344,56 +387,51 @@ impl<T: Config> Module<T> {
         merkle_proof: Vec<u8>,
         raw_tx: Vec<u8>,
     ) -> Result<(), DispatchError> {
-        Self::ensure_parachain_running_or_error_liquidated()?;
+        ext::security::ensure_parachain_status_running::<T>()?;
 
         let redeem = Self::get_open_redeem_request_from_id(&redeem_id)?;
 
         // only executable before the request has expired
         ensure!(
-            !has_request_expired::<T>(redeem.opentime, Self::redeem_period()),
+            !ext::security::has_expired::<T>(redeem.opentime, Self::redeem_period().max(redeem.period))?,
             Error::<T>::CommitPeriodExpired
         );
 
-        let amount: usize = redeem
-            .amount_btc
-            .try_into()
-            .map_err(|_e| Error::<T>::TryIntoIntError)?;
+        let amount: usize = redeem.amount_btc.try_into().map_err(|_e| Error::<T>::TryIntoIntError)?;
         ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
         // NOTE: vault client must register change addresses before
         // sending the bitcoin transaction
         ext::btc_relay::validate_transaction::<T>(
             raw_tx,
-            amount as i64,
+            Some(amount as i64),
             redeem.btc_address,
             Some(redeem_id.clone().as_bytes().to_vec()),
         )?;
 
-        let amount_polka_btc = redeem.amount_polka_btc;
-        let fee_polka_btc = redeem.fee;
-        // burn amount (minus fee)
-        ext::treasury::burn::<T>(redeem.redeemer.clone(), amount_polka_btc)?;
+        // burn amount (without fee)
+        ext::treasury::burn::<T>(redeem.redeemer.clone(), redeem.amount_btc)?;
 
         // send fees to pool
         ext::treasury::unlock_and_transfer::<T>(
             redeem.redeemer.clone(),
             ext::fee::fee_pool_account_id::<T>(),
-            fee_polka_btc,
+            redeem.fee,
         )?;
-        ext::fee::increase_polka_btc_rewards_for_epoch::<T>(fee_polka_btc);
+        ext::fee::increase_polka_btc_rewards_for_epoch::<T>(redeem.fee);
 
         ext::vault_registry::redeem_tokens::<T>(
             &redeem.vault,
-            amount_polka_btc,
+            redeem.amount_btc,
             redeem.premium_dot,
             &redeem.redeemer,
         )?;
 
-        Self::remove_redeem_request(redeem_id, false, false);
+        Self::set_redeem_status(redeem_id, RedeemRequestStatus::Completed);
         Self::deposit_event(<Event<T>>::ExecuteRedeem(
             redeem_id,
             redeem.redeemer,
-            amount_polka_btc,
-            fee_polka_btc,
+            redeem.amount_btc,
+            redeem.fee,
             redeem.vault,
         ));
         Ok(())
@@ -405,7 +443,7 @@ impl<T: Config> Module<T> {
 
         // only cancellable after the request has expired
         ensure!(
-            has_request_expired::<T>(redeem.opentime, Self::redeem_period()),
+            ext::security::has_expired::<T>(redeem.opentime, Self::redeem_period().max(redeem.period))?,
             Error::<T>::TimeNotExpired
         );
 
@@ -414,40 +452,6 @@ impl<T: Config> Module<T> {
 
         let amount_polka_btc_in_dot = ext::oracle::btc_to_dots::<T>(redeem.amount_btc)?;
         let punishment_fee_in_dot = ext::fee::get_punishment_fee::<T>(amount_polka_btc_in_dot)?;
-
-        // first update the polkabtc tokens; this logic is the same regardless of whether or not the vault is liquidated
-        if reimburse {
-            // decrease to_be_redeemed & issued
-            ext::vault_registry::decrease_tokens::<T>(
-                &vault_id,
-                &redeem.redeemer,
-                redeem.amount_polka_btc,
-            )?;
-
-            // Transfer the transaction fee to the pool. Even though the redeem was not
-            // successful, the user receives a premium in DOT, so it's to take the fee.
-            ext::treasury::unlock_and_transfer::<T>(
-                redeem.redeemer.clone(),
-                ext::fee::fee_pool_account_id::<T>(),
-                redeem.fee,
-            )?;
-            ext::fee::increase_polka_btc_rewards_for_epoch::<T>(redeem.fee);
-
-            // burn user's PolkaBTC, excluding fee
-            ext::treasury::burn::<T>(redeem.redeemer.clone(), redeem.amount_btc)?;
-        } else {
-            ext::vault_registry::decrease_to_be_redeemed_tokens::<T>(
-                &vault_id,
-                redeem.amount_polka_btc,
-            )?;
-
-            // unlock user's PolkaBTC, including fee
-            let total_polka_btc = redeem
-                .amount_btc
-                .checked_add(&redeem.fee)
-                .ok_or(Error::<T>::ArithmeticOverflow)?;
-            ext::treasury::unlock::<T>(redeemer.clone(), total_polka_btc)?;
-        }
 
         // now update the collateral; the logic is different for liquidated vaults.
         let slashed_amount = if vault.is_liquidated() {
@@ -483,17 +487,16 @@ impl<T: Config> Module<T> {
                 )?
             } else {
                 // user chose to keep his PolkaBTC - only transfer it the punishment fee
-                let slashed_punishment_fee = ext::vault_registry::slash_collateral_saturated::<T>(
+                // returns the amount actually slashed
+                ext::vault_registry::slash_collateral_saturated::<T>(
                     CurrencySource::Backing(vault_id.clone()),
                     CurrencySource::FreeBalance(redeemer.clone()),
                     punishment_fee_in_dot,
-                )?;
-
-                slashed_punishment_fee
+                )?
             };
             // calculate additional amount to slash, a high SLA means we slash less
             let slashing_amount_in_dot =
-                ext::sla::calculate_slashed_amount::<T>(&vault_id, amount_polka_btc_in_dot)?;
+                ext::sla::calculate_slashed_amount::<T>(&vault_id, amount_polka_btc_in_dot, reimburse)?;
 
             // slash the remaining amount from the vault to the fee pool
             let remaining_dot_to_be_slashed = slashing_amount_in_dot
@@ -512,8 +515,44 @@ impl<T: Config> Module<T> {
             slashing_amount_in_dot
         };
 
+        // first update the polkabtc tokens; this logic is the same regardless of whether or not the vault is liquidated
+        if reimburse {
+            // Transfer the transaction fee to the pool. Even though the redeem was not
+            // successful, the user receives a premium in DOT, so it's to take the fee.
+            ext::treasury::unlock_and_transfer::<T>(
+                redeem.redeemer.clone(),
+                ext::fee::fee_pool_account_id::<T>(),
+                redeem.fee,
+            )?;
+            ext::fee::increase_polka_btc_rewards_for_epoch::<T>(redeem.fee);
+
+            if ext::vault_registry::is_vault_below_secure_threshold::<T>(&redeem.vault)? {
+                // vault can not afford to back the tokens that he would receive, so we burn it
+                ext::treasury::burn::<T>(redeemer.clone(), redeem.amount_btc)?;
+                ext::vault_registry::decrease_tokens::<T>(&redeem.vault, &redeem.redeemer, redeem.amount_btc)?;
+                Self::set_redeem_status(redeem_id, RedeemRequestStatus::Reimbursed(false));
+            } else {
+                // Transfer the rest of the user's PolkaBTC (i.e. excluding fee) to the vault
+                ext::treasury::unlock_and_transfer::<T>(
+                    redeem.redeemer.clone(),
+                    redeem.vault.clone(),
+                    redeem.amount_btc,
+                )?;
+                ext::vault_registry::decrease_to_be_redeemed_tokens::<T>(&vault_id, redeem.amount_btc)?;
+                Self::set_redeem_status(redeem_id, RedeemRequestStatus::Reimbursed(true));
+            }
+        } else {
+            // unlock user's PolkaBTC, including fee
+            let total_polka_btc = redeem
+                .amount_btc
+                .checked_add(&redeem.fee)
+                .ok_or(Error::<T>::ArithmeticOverflow)?;
+            ext::treasury::unlock::<T>(redeemer.clone(), total_polka_btc)?;
+            ext::vault_registry::decrease_to_be_redeemed_tokens::<T>(&vault_id, redeem.amount_btc)?;
+            Self::set_redeem_status(redeem_id, RedeemRequestStatus::Retried);
+        }
+
         ext::sla::event_update_vault_sla::<T>(&vault_id, ext::sla::VaultEvent::RedeemFailure)?;
-        Self::remove_redeem_request(redeem_id, true, reimburse);
         Self::deposit_event(<Event<T>>::CancelRedeem(
             redeem_id,
             redeemer,
@@ -525,11 +564,26 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Ensure that the parachain is running or the system is in liquidation
-    fn ensure_parachain_running_or_error_liquidated() -> DispatchResult {
-        ext::security::ensure_parachain_is_running_or_only_has_errors::<T>(
-            [ErrorCode::Liquidation].to_vec(),
-        )
+    fn _mint_tokens_for_reimbursed_redeem(vault_id: T::AccountId, redeem_id: H256) -> DispatchResult {
+        ensure!(
+            <RedeemRequests<T>>::contains_key(&redeem_id),
+            Error::<T>::RedeemIdNotFound
+        );
+        let redeem = <RedeemRequests<T>>::get(&redeem_id);
+        ensure!(
+            matches!(redeem.status, RedeemRequestStatus::Reimbursed(false)),
+            Error::<T>::RedeemCancelled
+        );
+
+        ensure!(redeem.vault == vault_id, Error::<T>::UnauthorizedUser);
+
+        ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&vault_id, redeem.amount_btc)?;
+        ext::vault_registry::issue_tokens::<T>(&vault_id, redeem.amount_btc)?;
+        ext::treasury::mint::<T>(vault_id, redeem.amount_btc);
+
+        Self::set_redeem_status(redeem_id, RedeemRequestStatus::Completed);
+
+        Ok(())
     }
 
     /// Insert a new redeem request into state.
@@ -538,19 +592,14 @@ impl<T: Config> Module<T> {
     ///
     /// * `key` - 256-bit identifier of the redeem request
     /// * `value` - the redeem request
-    fn insert_redeem_request(
-        key: H256,
-        value: RedeemRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
-    ) {
+    fn insert_redeem_request(key: H256, value: RedeemRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>) {
         <RedeemRequests<T>>::insert(key, value)
     }
 
-    fn remove_redeem_request(id: H256, cancelled: bool, reimburse: bool) {
+    fn set_redeem_status(id: H256, status: RedeemRequestStatus) {
         // TODO: delete redeem request from storage
         <RedeemRequests<T>>::mutate(id, |request| {
-            request.completed = !cancelled;
-            request.cancelled = cancelled;
-            request.reimburse = reimburse
+            request.status = status;
         });
     }
 
@@ -561,10 +610,7 @@ impl<T: Config> Module<T> {
     /// * `account_id` - user account id
     pub fn get_redeem_requests_for_account(
         account_id: T::AccountId,
-    ) -> Vec<(
-        H256,
-        RedeemRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
-    )> {
+    ) -> Vec<(H256, RedeemRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>)> {
         <RedeemRequests<T>>::iter()
             .filter(|(_, request)| request.redeemer == account_id)
             .collect::<Vec<_>>()
@@ -577,10 +623,7 @@ impl<T: Config> Module<T> {
     /// * `account_id` - vault account id
     pub fn get_redeem_requests_for_vault(
         account_id: T::AccountId,
-    ) -> Vec<(
-        H256,
-        RedeemRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
-    )> {
+    ) -> Vec<(H256, RedeemRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>)> {
         <RedeemRequests<T>>::iter()
             .filter(|(_, request)| request.vault == account_id)
             .collect::<Vec<_>>()
@@ -594,22 +637,21 @@ impl<T: Config> Module<T> {
     /// * `redeem_id` - 256-bit identifier of the redeem request
     pub fn get_open_redeem_request_from_id(
         redeem_id: &H256,
-    ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError>
-    {
+    ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
         ensure!(
-            <RedeemRequests<T>>::contains_key(*redeem_id),
+            <RedeemRequests<T>>::contains_key(redeem_id),
             Error::<T>::RedeemIdNotFound
         );
         // NOTE: temporary workaround until we delete
-        ensure!(
-            !<RedeemRequests<T>>::get(*redeem_id).completed,
-            Error::<T>::RedeemCompleted
-        );
-        ensure!(
-            !<RedeemRequests<T>>::get(*redeem_id).cancelled,
-            Error::<T>::RedeemCancelled
-        );
-        Ok(<RedeemRequests<T>>::get(*redeem_id))
+
+        let request = <RedeemRequests<T>>::get(redeem_id);
+        match request.status {
+            RedeemRequestStatus::Pending => Ok(request),
+            RedeemRequestStatus::Completed => Err(Error::<T>::RedeemCompleted.into()),
+            RedeemRequestStatus::Reimbursed(_) | RedeemRequestStatus::Retried => {
+                Err(Error::<T>::RedeemCancelled.into())
+            }
+        }
     }
 
     /// Fetch a pre-existing open or completed redeem request or throw.
@@ -620,27 +662,27 @@ impl<T: Config> Module<T> {
     /// * `redeem_id` - 256-bit identifier of the redeem request
     pub fn get_open_or_completed_redeem_request_from_id(
         redeem_id: &H256,
-    ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError>
-    {
+    ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
         ensure!(
             <RedeemRequests<T>>::contains_key(*redeem_id),
             Error::<T>::RedeemIdNotFound
         );
+
+        let request = <RedeemRequests<T>>::get(*redeem_id);
+
         ensure!(
-            !<RedeemRequests<T>>::get(*redeem_id).cancelled,
+            matches!(
+                request.status,
+                RedeemRequestStatus::Pending | RedeemRequestStatus::Completed
+            ),
             Error::<T>::RedeemCancelled
         );
-        Ok(<RedeemRequests<T>>::get(*redeem_id))
+        Ok(request)
     }
 
     fn u128_to_dot(x: u128) -> Result<DOT<T>, DispatchError> {
         TryInto::<DOT<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
-}
-
-fn has_request_expired<T: Config>(opentime: T::BlockNumber, period: T::BlockNumber) -> bool {
-    let height = <frame_system::Module<T>>::block_number();
-    height > opentime + period
 }
 
 decl_error! {
@@ -650,8 +692,8 @@ decl_error! {
         CommitPeriodExpired,
         UnauthorizedUser,
         TimeNotExpired,
-        RedeemCompleted,
         RedeemCancelled,
+        RedeemCompleted,
         RedeemIdNotFound,
         /// Unable to convert value
         TryIntoIntError,

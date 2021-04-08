@@ -3,8 +3,7 @@ extern crate mocktopus;
 
 extern crate bitcoin_hashes;
 
-use bitcoin_hashes::hash160::Hash as Hash160;
-use bitcoin_hashes::Hash;
+use bitcoin_hashes::{hash160::Hash as Hash160, Hash};
 
 #[cfg(test)]
 use mocktopus::macros::mockable;
@@ -13,8 +12,7 @@ use crate::Error;
 use primitive_types::U256;
 use sp_std::prelude::*;
 
-use crate::address::Address;
-use crate::types::*;
+use crate::{address::Address, types::*};
 
 /// Type to be parsed from a bytes array
 pub(crate) trait Parsable: Sized {
@@ -23,11 +21,7 @@ pub(crate) trait Parsable: Sized {
 
 /// Type to be parsed from a bytes array using extra metadata
 pub(crate) trait ParsableMeta<Metadata>: Sized {
-    fn parse_with(
-        raw_bytes: &[u8],
-        position: usize,
-        extra: Metadata,
-    ) -> Result<(Self, usize), Error>;
+    fn parse_with(raw_bytes: &[u8], position: usize, extra: Metadata) -> Result<(Self, usize), Error>;
 }
 
 /// Macro to generate `Parsable` implementation of uint types
@@ -36,7 +30,7 @@ macro_rules! make_parsable_int {
         impl Parsable for $type {
             fn parse(raw_bytes: &[u8], position: usize) -> Result<($type, usize), Error> {
                 if position + $bytes > raw_bytes.len() {
-                    return Err(Error::EOS);
+                    return Err(Error::EndOfFile);
                 }
                 let mut value_bytes: [u8; $bytes] = Default::default();
                 value_bytes.copy_from_slice(&raw_bytes[position..position + $bytes]);
@@ -59,15 +53,14 @@ make_parsable_int!(i64, 8);
 impl Parsable for CompactUint {
     fn parse(raw_bytes: &[u8], position: usize) -> Result<(CompactUint, usize), Error> {
         let last_byte = sp_std::cmp::min(position + 3, raw_bytes.len());
-        let (value, bytes_consumed) =
-            parse_compact_uint(raw_bytes.get(position..last_byte).ok_or(Error::EOS)?)?;
+        let (value, bytes_consumed) = parse_compact_uint(raw_bytes.get(position..last_byte).ok_or(Error::EndOfFile)?)?;
         Ok((CompactUint { value }, bytes_consumed))
     }
 }
 
 impl Parsable for BlockHeader {
     fn parse(raw_bytes: &[u8], position: usize) -> Result<(BlockHeader, usize), Error> {
-        let slice = raw_bytes.get(position..position + 80).ok_or(Error::EOS)?;
+        let slice = raw_bytes.get(position..position + 80).ok_or(Error::EndOfFile)?;
         let header_bytes = RawBlockHeader::from_bytes(slice)?;
         let block_header = parse_block_header(&header_bytes)?;
         Ok((block_header, 80))
@@ -76,7 +69,7 @@ impl Parsable for BlockHeader {
 
 impl Parsable for H256Le {
     fn parse(raw_bytes: &[u8], position: usize) -> Result<(H256Le, usize), Error> {
-        let slice = raw_bytes.get(position..position + 32).ok_or(Error::EOS)?;
+        let slice = raw_bytes.get(position..position + 32).ok_or(Error::EndOfFile)?;
         Ok((H256Le::from_bytes_le(slice), 32))
     }
 }
@@ -84,7 +77,7 @@ impl Parsable for H256Le {
 impl<T: Parsable> Parsable for Vec<T> {
     fn parse(raw_bytes: &[u8], position: usize) -> Result<(Vec<T>, usize), Error> {
         let mut result: Vec<T> = Vec::new();
-        let slice = raw_bytes.get(position..).ok_or(Error::EOS)?;
+        let slice = raw_bytes.get(position..).ok_or(Error::EndOfFile)?;
         let mut parser = BytesParser::new(slice);
         let count: CompactUint = parser.parse()?;
         for _ in 0..count.value {
@@ -100,7 +93,7 @@ where
 {
     fn parse_with(raw_bytes: &[u8], position: usize, extra: U) -> Result<(Vec<T>, usize), Error> {
         let mut result: Vec<T> = Vec::new();
-        let slice = raw_bytes.get(position..).ok_or(Error::EOS)?;
+        let slice = raw_bytes.get(position..).ok_or(Error::EndOfFile)?;
         let mut parser = BytesParser::new(slice);
         let count: CompactUint = parser.parse()?;
         for _ in 0..count.value {
@@ -112,7 +105,7 @@ where
 
 impl Parsable for Vec<bool> {
     fn parse(raw_bytes: &[u8], position: usize) -> Result<(Vec<bool>, usize), Error> {
-        let byte = *raw_bytes.get(position).ok_or(Error::EOS)?;
+        let byte = *raw_bytes.get(position).ok_or(Error::EndOfFile)?;
         let mut flag_bits = Vec::new();
         for i in 0..8 {
             let mask = 1 << i;
@@ -124,19 +117,15 @@ impl Parsable for Vec<bool> {
 }
 
 impl ParsableMeta<i32> for TransactionInput {
-    fn parse_with(
-        raw_bytes: &[u8],
-        position: usize,
-        version: i32,
-    ) -> Result<(TransactionInput, usize), Error> {
-        let slice = raw_bytes.get(position..).ok_or(Error::EOS)?;
+    fn parse_with(raw_bytes: &[u8], position: usize, version: i32) -> Result<(TransactionInput, usize), Error> {
+        let slice = raw_bytes.get(position..).ok_or(Error::EndOfFile)?;
         parse_transaction_input(slice, version)
     }
 }
 
 impl Parsable for TransactionOutput {
     fn parse(raw_bytes: &[u8], position: usize) -> Result<(TransactionOutput, usize), Error> {
-        let slice = raw_bytes.get(position..).ok_or(Error::EOS)?;
+        let slice = raw_bytes.get(position..).ok_or(Error::EndOfFile)?;
         parse_transaction_output(slice)
     }
 }
@@ -144,24 +133,19 @@ impl Parsable for TransactionOutput {
 impl Parsable for U256 {
     fn parse(raw_bytes: &[u8], position: usize) -> Result<(U256, usize), Error> {
         if position + 4 > raw_bytes.len() {
-            return Err(Error::EOS);
+            return Err(Error::EndOfFile);
         }
         let raw_exponent = raw_bytes[position + 3];
         if raw_exponent < 3 {
             return Err(Error::MalformedHeader);
         }
         let exponent = raw_exponent - 3;
-        let mantissa_slice = raw_bytes.get(position..position + 3).ok_or(Error::EOS)?;
+        let mantissa_slice = raw_bytes.get(position..position + 3).ok_or(Error::EndOfFile)?;
         let mantissa = U256::from_little_endian(mantissa_slice);
         let offset = U256::from(256)
             .checked_pow(U256::from(exponent))
             .ok_or(Error::ArithmeticOverflow)?;
-        Ok((
-            mantissa
-                .checked_mul(offset)
-                .ok_or(Error::ArithmeticOverflow)?,
-            4,
-        ))
+        Ok((mantissa.checked_mul(offset).ok_or(Error::ArithmeticOverflow)?, 4))
     }
 }
 
@@ -196,10 +180,7 @@ impl BytesParser {
 
     /// Peeks at the next byte without updating the parser head.
     pub(crate) fn next(&self) -> Result<u8, Error> {
-        self.raw_bytes
-            .get(self.position)
-            .ok_or(Error::EOS)
-            .map(|i| i.clone())
+        self.raw_bytes.get(self.position).ok_or(Error::EndOfFile).map(|i| *i)
     }
 
     /// This is the same as `parse` but allows to pass extra data to the parser
@@ -223,7 +204,7 @@ impl BytesParser {
         let bytes = self
             .raw_bytes
             .get(self.position..self.position + bytes_count)
-            .ok_or(Error::EOS)?;
+            .ok_or(Error::EndOfFile)?;
         self.position = self
             .position
             .checked_add(bytes_count)
@@ -262,8 +243,8 @@ pub fn parse_block_header(raw_header: &RawBlockHeader) -> Result<BlockHeader, Er
         target,
         timestamp,
         version,
-        nonce,
         hash_prev_block,
+        nonce,
     };
 
     Ok(block_header)
@@ -275,20 +256,20 @@ pub fn parse_block_header(raw_header: &RawBlockHeader) -> Result<BlockHeader, Er
 ///
 /// * `varint` - A slice containing the header
 pub fn parse_compact_uint(varint: &[u8]) -> Result<(u64, usize), Error> {
-    match varint.get(0).ok_or(Error::EOS)? {
+    match varint.get(0).ok_or(Error::EndOfFile)? {
         0xfd => {
             let mut num_bytes: [u8; 2] = Default::default();
-            num_bytes.copy_from_slice(&varint.get(1..3).ok_or(Error::EOS)?);
+            num_bytes.copy_from_slice(&varint.get(1..3).ok_or(Error::EndOfFile)?);
             Ok((u16::from_le_bytes(num_bytes) as u64, 3))
         }
         0xfe => {
             let mut num_bytes: [u8; 4] = Default::default();
-            num_bytes.copy_from_slice(&varint.get(1..5).ok_or(Error::EOS)?);
+            num_bytes.copy_from_slice(&varint.get(1..5).ok_or(Error::EndOfFile)?);
             Ok((u32::from_le_bytes(num_bytes) as u64, 5))
         }
         0xff => {
             let mut num_bytes: [u8; 8] = Default::default();
-            num_bytes.copy_from_slice(&varint.get(1..9).ok_or(Error::EOS)?);
+            num_bytes.copy_from_slice(&varint.get(1..9).ok_or(Error::EndOfFile)?);
             Ok((u64::from_le_bytes(num_bytes) as u64, 9))
         }
         &n => Ok((n as u64, 1)),
@@ -351,10 +332,7 @@ pub fn parse_transaction(raw_transaction: &[u8]) -> Result<Transaction, Error> {
 }
 
 /// Parses a transaction input
-fn parse_transaction_input(
-    raw_input: &[u8],
-    version: i32,
-) -> Result<(TransactionInput, usize), Error> {
+fn parse_transaction_input(raw_input: &[u8], version: i32) -> Result<(TransactionInput, usize), Error> {
     let mut parser = BytesParser::new(raw_input);
     let previous_hash: H256Le = parser.parse()?;
     let previous_index: u32 = parser.parse()?;
@@ -372,11 +350,11 @@ fn parse_transaction_input(
     let height = if is_coinbase && version == 2 {
         // https://github.com/bitcoin/bips/blob/master/bip-0034.mediawiki
         let height_size: u64 = parser.parse::<CompactUint>()?.value;
-        script_size = script_size.checked_sub(height_size + 1).ok_or(Error::EOS)?;
+        script_size = script_size.checked_sub(height_size + 1).ok_or(Error::EndOfFile)?;
 
         let mut buffer = [0u8; 4];
         let bytes = parser.read(height_size as usize)?;
-        buffer[..3].copy_from_slice(bytes.get(0..3).ok_or(Error::EOS)?);
+        buffer[..3].copy_from_slice(bytes.get(0..3).ok_or(Error::EndOfFile)?);
 
         Some(u32::from_le_bytes(buffer))
     } else {
@@ -429,7 +407,7 @@ pub(crate) fn extract_address_hash_scriptsig(input_script: &[u8]) -> Result<Addr
     let mut p2pkh = true;
 
     // Multisig OBOE hack -> p2sh
-    if *input_script.get(0).ok_or(Error::EOS)? == OpCode::Op0 as u8 {
+    if *input_script.get(0).ok_or(Error::EndOfFile)? == OpCode::Op0 as u8 {
         parser.parse::<u8>()?;
         p2pkh = false;
     }
@@ -441,9 +419,7 @@ pub(crate) fn extract_address_hash_scriptsig(input_script: &[u8]) -> Result<Addr
         // NOTE: we probably will not reach this as `extract_address`
         // will first check the witness and get the `P2WPKHv0`
         let sig = parser.read(sig_size as usize)?;
-        return Ok(Address::P2SH(H160::from_slice(
-            &Hash160::hash(&sig).to_vec(),
-        )));
+        return Ok(Address::P2SH(H160::from_slice(&Hash160::hash(&sig).to_vec())));
     }
 
     let _sig = parser.read(sig_size as usize)?;
@@ -456,15 +432,15 @@ pub(crate) fn extract_address_hash_scriptsig(input_script: &[u8]) -> Result<Addr
     }
     let redeem_script = parser.read(redeem_script_size as usize)?;
     let hash = H160::from_slice(&Hash160::hash(&redeem_script).to_vec());
-    return Ok(if p2pkh {
+    Ok(if p2pkh {
         Address::P2PKH(hash)
     } else {
         Address::P2SH(hash)
-    });
+    })
 }
 
 pub(crate) fn extract_op_return_data(output_script: &[u8]) -> Result<Vec<u8>, Error> {
-    if *output_script.get(0).ok_or(Error::EOS)? != OpCode::OpReturn as u8 {
+    if *output_script.get(0).ok_or(Error::EndOfFile)? != OpCode::OpReturn as u8 {
         return Err(Error::MalformedOpReturnOutput);
     }
     // Check for max OP_RETURN size
@@ -473,7 +449,7 @@ pub(crate) fn extract_op_return_data(output_script: &[u8]) -> Result<Vec<u8>, Er
         return Err(Error::MalformedOpReturnOutput);
     }
 
-    let result = output_script.get(2..).ok_or(Error::EOS)?;
+    let result = output_script.get(2..).ok_or(Error::EndOfFile)?;
 
     if result.len() != output_script[1] as usize {
         return Err(Error::MalformedOpReturnOutput);
@@ -504,8 +480,7 @@ pub(crate) mod tests {
             format!("{:x}", parsed_header.hash_prev_block),
             "00000000000000000cca48eb4b330d91e8d946d344ca302a86a280161b0bffb6"
         );
-        let expected_target =
-            String::from("680733321990486529407107157001552378184394215934016880640");
+        let expected_target = String::from("680733321990486529407107157001552378184394215934016880640");
         assert_eq!(parsed_header.target.to_string(), expected_target);
     }
 
@@ -515,10 +490,7 @@ pub(crate) mod tests {
             (&[1, 2, 3][..], (1, 1)),
             (&[253, 2, 3][..], (770, 3)),
             (&[254, 2, 3, 8, 1, 8][..], (17302274, 5)),
-            (
-                &[255, 6, 0xa, 3, 8, 1, 0xb, 2, 7, 8][..],
-                (504978207276206598, 9),
-            ),
+            (&[255, 6, 0xa, 3, 8, 1, 0xb, 2, 7, 8][..], (504978207276206598, 9)),
         ];
         for (input, expected) in cases.iter() {
             assert_eq!(parse_compact_uint(input).unwrap(), *expected);
@@ -624,8 +596,7 @@ pub(crate) mod tests {
         assert_eq!(input.height, None);
         assert_eq!(input.script.len(), 73);
 
-        let previous_hash =
-            H256Le::from_hex_le("7b1eabe0209b1fe794124575ef807057c77ada2138ae4fa8d6c4de0398a14f3f");
+        let previous_hash = H256Le::from_hex_le("7b1eabe0209b1fe794124575ef807057c77ada2138ae4fa8d6c4de0398a14f3f");
         assert_eq!(input.previous_hash, previous_hash);
     }
 
@@ -735,8 +706,7 @@ pub(crate) mod tests {
         let transaction = parse_transaction(&tx_bytes).unwrap();
 
         let address = Address::P2PKH(H160([
-            126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8,
-            50, 170,
+            126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8, 50, 170,
         ]));
         let extr_address = extract_address_hash_scriptsig(&transaction.inputs[0].script).unwrap();
 
@@ -750,8 +720,7 @@ pub(crate) mod tests {
         let transaction = parse_transaction(&tx_bytes).unwrap();
 
         let address = Address::P2SH(H160([
-            233, 195, 221, 12, 7, 170, 199, 97, 121, 235, 199, 106, 108, 120, 212, 214, 124, 108,
-            22, 10,
+            233, 195, 221, 12, 7, 170, 199, 97, 121, 235, 199, 106, 108, 120, 212, 214, 124, 108, 22, 10,
         ]));
         let extr_address = extract_address_hash_scriptsig(&transaction.inputs[0].script).unwrap();
 
@@ -763,10 +732,9 @@ pub(crate) mod tests {
         let expected = Address::P2SH(H160::from_slice(
             &hex::decode("068a6a2ec6be7d6e7aac1657445154c52db0cef8").unwrap(),
         ));
-        let actual = extract_address_hash_scriptsig(
-            &hex::decode("160014473ca3f4d726ce9c21af7cdc3fcc13264f681b04").unwrap(),
-        )
-        .unwrap();
+        let actual =
+            extract_address_hash_scriptsig(&hex::decode("160014473ca3f4d726ce9c21af7cdc3fcc13264f681b04").unwrap())
+                .unwrap();
 
         assert_eq!(actual, expected);
     }

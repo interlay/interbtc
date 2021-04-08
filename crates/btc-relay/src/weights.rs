@@ -35,8 +35,6 @@ use sp_std::marker::PhantomData;
 
 /// Weight functions needed for btc_relay.
 pub trait WeightInfo {
-    fn initialize() -> Weight;
-    fn store_block_header() -> Weight;
     fn verify_and_validate_transaction() -> Weight;
     fn verify_transaction_inclusion() -> Weight;
     fn validate_transaction() -> Weight;
@@ -45,46 +43,26 @@ pub trait WeightInfo {
 /// Weights for btc_relay using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-    fn initialize() -> Weight {
-        (52_558_000 as Weight)
-            .saturating_add(T::DbWeight::get().reads(3 as Weight))
-            .saturating_add(T::DbWeight::get().writes(7 as Weight))
-    }
-    fn store_block_header() -> Weight {
-        (123_623_000 as Weight)
-            .saturating_add(T::DbWeight::get().reads(13 as Weight))
-            .saturating_add(T::DbWeight::get().writes(8 as Weight))
-    }
     fn verify_and_validate_transaction() -> Weight {
-        (99_474_000 as Weight).saturating_add(T::DbWeight::get().reads(9 as Weight))
+        99_474_000_u64.saturating_add(T::DbWeight::get().reads(9_u64))
     }
     fn verify_transaction_inclusion() -> Weight {
-        (55_622_000 as Weight).saturating_add(T::DbWeight::get().reads(8 as Weight))
+        55_622_000_u64.saturating_add(T::DbWeight::get().reads(8_u64))
     }
     fn validate_transaction() -> Weight {
-        (15_739_000 as Weight).saturating_add(T::DbWeight::get().reads(1 as Weight))
+        15_739_000_u64.saturating_add(T::DbWeight::get().reads(1_u64))
     }
 }
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
-    fn initialize() -> Weight {
-        (52_558_000 as Weight)
-            .saturating_add(RocksDbWeight::get().reads(3 as Weight))
-            .saturating_add(RocksDbWeight::get().writes(7 as Weight))
-    }
-    fn store_block_header() -> Weight {
-        (123_623_000 as Weight)
-            .saturating_add(RocksDbWeight::get().reads(13 as Weight))
-            .saturating_add(RocksDbWeight::get().writes(8 as Weight))
-    }
     fn verify_and_validate_transaction() -> Weight {
-        (99_474_000 as Weight).saturating_add(RocksDbWeight::get().reads(9 as Weight))
+        99_474_000_u64.saturating_add(RocksDbWeight::get().reads(9_u64))
     }
     fn verify_transaction_inclusion() -> Weight {
-        (55_622_000 as Weight).saturating_add(RocksDbWeight::get().reads(8 as Weight))
+        55_622_000_u64.saturating_add(RocksDbWeight::get().reads(8_u64))
     }
     fn validate_transaction() -> Weight {
-        (15_739_000 as Weight).saturating_add(RocksDbWeight::get().reads(1 as Weight))
+        15_739_000_u64.saturating_add(RocksDbWeight::get().reads(1_u64))
     }
 }

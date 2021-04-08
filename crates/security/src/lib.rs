@@ -5,6 +5,8 @@
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use sp_runtime::traits::*;
+
 pub mod types;
 
 #[cfg(test)]
@@ -23,15 +25,17 @@ use mocktopus::macros::mockable;
 pub use crate::types::{ErrorCode, StatusCode};
 
 use codec::Encode;
-use frame_support::transactional;
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult};
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage,
+    dispatch::{DispatchError, DispatchResult},
+    transactional,
+    weights::Weight,
+};
 use frame_system::ensure_root;
 use primitive_types::H256;
 use sha2::{Digest, Sha256};
 use sp_core::U256;
-use sp_std::collections::btree_set::BTreeSet;
-use sp_std::iter::FromIterator;
-use sp_std::prelude::*;
+use sp_std::{collections::btree_set::BTreeSet, iter::FromIterator, prelude::*};
 
 /// ## Configuration
 /// The pallet's configuration trait.
@@ -52,6 +56,13 @@ decl_storage! {
         /// Integer increment-only counter, used to prevent collisions when generating identifiers
         /// for e.g. issue, redeem or replace requests (for OP_RETURN field in Bitcoin).
         Nonce: U256;
+
+        /// Like frame_system::block_number, but this one only increments if the parachain status is RUNNING.
+        /// This variable is used to keep track of durations, such as the issue/redeem/replace expiry. If the
+        /// parachain is not RUNNING, no payment proofs can be submitted, and it wouldn't be fair to punish
+        /// the user/vault. By using this variable we ensure that they have sufficient time to submit their
+        /// proof.
+        ActiveBlockCount get(fn active_block_number): T::BlockNumber;
     }
 }
 
@@ -61,6 +72,23 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
+
+        /// Upgrade the runtime depending on the current `StorageVersion`.
+        fn on_runtime_upgrade() -> Weight {
+            if !ActiveBlockCount::<T>::exists() {
+                let chain_height = <frame_system::Pallet<T>>::block_number();
+                ActiveBlockCount::<T>::set(chain_height);
+            }
+            0
+        }
+
+        fn on_initialize(_chain_height: T::BlockNumber) -> Weight {
+            <ActiveBlockCount<T>>::mutate(|n| {
+                *n = n.saturating_add(1u32.into());
+            });
+
+            0
+        }
 
         /// Set the parachain status code.
         ///
@@ -156,9 +184,7 @@ impl<T: Config> Module<T> {
     ///
     /// Returns the first unexpected error that is encountered,
     /// or Ok(()) if only expected errors / no errors at all were found
-    pub fn ensure_parachain_is_running_or_only_has_errors(
-        error_codes: Vec<ErrorCode>,
-    ) -> DispatchResult {
+    pub fn ensure_parachain_is_running_or_only_has_errors(error_codes: Vec<ErrorCode>) -> DispatchResult {
         if <ParachainStatus>::get() == StatusCode::Running {
             Ok(())
         } else if <ParachainStatus>::get() == StatusCode::Error {
@@ -177,26 +203,17 @@ impl<T: Config> Module<T> {
 
     /// Checks if the Parachain has a NoDataBTCRelay Error state
     pub fn is_parachain_error_no_data_btcrelay() -> bool {
-        <ParachainStatus>::get() == StatusCode::Error
-            && <Errors>::get().contains(&ErrorCode::NoDataBTCRelay)
+        <ParachainStatus>::get() == StatusCode::Error && <Errors>::get().contains(&ErrorCode::NoDataBTCRelay)
     }
 
     /// Checks if the Parachain has a InvalidBTCRelay Error state
     pub fn is_parachain_error_invalid_btcrelay() -> bool {
-        <ParachainStatus>::get() == StatusCode::Error
-            && <Errors>::get().contains(&ErrorCode::InvalidBTCRelay)
+        <ParachainStatus>::get() == StatusCode::Error && <Errors>::get().contains(&ErrorCode::InvalidBTCRelay)
     }
 
     /// Checks if the Parachain has a OracleOffline Error state
     pub fn is_parachain_error_oracle_offline() -> bool {
-        <ParachainStatus>::get() == StatusCode::Error
-            && <Errors>::get().contains(&ErrorCode::OracleOffline)
-    }
-
-    /// Checks if the Parachain has a Liquidation Error state
-    pub fn is_parachain_error_liquidation() -> bool {
-        <ParachainStatus>::get() == StatusCode::Error
-            && <Errors>::get().contains(&ErrorCode::Liquidation)
+        <ParachainStatus>::get() == StatusCode::Error && <Errors>::get().contains(&ErrorCode::OracleOffline)
     }
 
     /// Gets the current `StatusCode`.
@@ -240,7 +257,12 @@ impl<T: Config> Module<T> {
         })
     }
 
-    fn recover_from_(error_codes: Vec<ErrorCode>) -> DispatchResult {
+    pub fn has_expired(opentime: T::BlockNumber, period: T::BlockNumber) -> Result<bool, DispatchError> {
+        let expiration_block = opentime.checked_add(&period).ok_or(Error::<T>::ArithmeticOverflow)?;
+        Ok(Self::active_block_number() > expiration_block)
+    }
+
+    fn recover_from_(error_codes: Vec<ErrorCode>) {
         for error_code in error_codes.clone() {
             Self::remove_error(error_code);
         }
@@ -249,30 +271,19 @@ impl<T: Config> Module<T> {
             Self::set_status(StatusCode::Running);
         }
 
-        Self::deposit_event(Event::RecoverFromErrors(
-            Self::get_parachain_status(),
-            error_codes,
-        ));
-
-        Ok(())
-    }
-
-    /// Recovers the BTC Parachain state from a `LIQUIDATION` error
-    /// and sets ParachainStatus to `RUNNING` if there are no other errors.
-    pub fn recover_from_liquidation() -> DispatchResult {
-        Self::recover_from_(vec![ErrorCode::Liquidation])
+        Self::deposit_event(Event::RecoverFromErrors(Self::get_parachain_status(), error_codes));
     }
 
     /// Recovers the BTC Parachain state from an `ORACLE_OFFLINE` error
     /// and sets ParachainStatus to `RUNNING` if there are no other errors.
-    pub fn recover_from_oracle_offline() -> DispatchResult {
+    pub fn recover_from_oracle_offline() {
         Self::recover_from_(vec![ErrorCode::OracleOffline])
     }
 
     /// Recovers the BTC Parachain state from a `NO_DATA_BTC_RELAY` or `INVALID_BTC_RELAY` error
     /// (when a chain reorganization occurs and the new main chain has no errors)
     /// and sets ParachainStatus to `RUNNING` if there are no other errors.
-    pub fn recover_from_btc_relay_failure() -> DispatchResult {
+    pub fn recover_from_btc_relay_failure() {
         Self::recover_from_(vec![ErrorCode::InvalidBTCRelay, ErrorCode::NoDataBTCRelay])
     }
 
@@ -297,10 +308,15 @@ impl<T: Config> Module<T> {
         hasher.input(Self::get_nonce().encode());
         // supplement with prev block hash to prevent replays
         // even if the `Nonce` is reset (i.e. purge-chain)
-        hasher.input(frame_system::Module::<T>::parent_hash());
+        hasher.input(frame_system::Pallet::<T>::parent_hash());
         let mut result = [0; 32];
         result.copy_from_slice(&hasher.result()[..]);
         H256(result)
+    }
+
+    /// for testing purposes only!
+    pub fn set_active_block_number(n: T::BlockNumber) {
+        ActiveBlockCount::<T>::set(n);
     }
 }
 
@@ -320,6 +336,7 @@ decl_error! {
         ParachainOracleOfflineError,
         ParachainLiquidationError,
         InvalidErrorCode,
+        ArithmeticOverflow
     }
 }
 
@@ -329,7 +346,6 @@ impl<T: Config> From<ErrorCode> for Error<T> {
             ErrorCode::NoDataBTCRelay => Error::NoDataBTCRelay,
             ErrorCode::InvalidBTCRelay => Error::InvalidBTCRelay,
             ErrorCode::OracleOffline => Error::ParachainOracleOfflineError,
-            ErrorCode::Liquidation => Error::ParachainLiquidationError,
             _ => Error::InvalidErrorCode,
         }
     }

@@ -19,24 +19,24 @@ frame_support::construct_runtime!(
         NodeBlock = Block,
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
-        System: frame_system::{Module, Call, Storage, Config, Event<T>},
-        Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
+        System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
+        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 
         // Tokens & Balances
-        DOT: pallet_balances::<Instance1>::{Module, Call, Storage, Config<T>, Event<T>},
-        PolkaBTC: pallet_balances::<Instance2>::{Module, Call, Storage, Config<T>, Event<T>},
+        DOT: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
+        PolkaBTC: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
 
-        Collateral: collateral::{Module, Call, Storage, Event<T>},
-        Treasury: treasury::{Module, Call, Storage, Event<T>},
+        Collateral: collateral::{Pallet, Call, Storage, Event<T>},
+        Treasury: treasury::{Pallet, Call, Storage, Event<T>},
 
         // Operational
-        BTCRelay: btc_relay::{Module, Call, Config<T>, Storage, Event<T>},
-        Security: security::{Module, Call, Storage, Event},
-        VaultRegistry: vault_registry::{Module, Call, Config<T>, Storage, Event<T>},
-        ExchangeRateOracle: exchange_rate_oracle::{Module, Call, Config<T>, Storage, Event<T>},
-        Redeem: redeem::{Module, Call, Config<T>, Storage, Event<T>},
-        Fee: fee::{Module, Call, Config<T>, Storage, Event<T>},
-        Sla: sla::{Module, Call, Config<T>, Storage, Event<T>},
+        BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},
+        Security: security::{Pallet, Call, Storage, Event},
+        VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>},
+        ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
+        Redeem: redeem::{Pallet, Call, Config<T>, Storage, Event<T>},
+        Fee: fee::{Pallet, Call, Config<T>, Storage, Event<T>},
+        Sla: sla::{Pallet, Call, Config<T>, Storage, Event<T>},
     }
 );
 
@@ -72,6 +72,7 @@ impl frame_system::Config for Test {
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
     type SS58Prefix = SS58Prefix;
+    type OnSetCode = ();
 }
 
 parameter_types! {
@@ -120,7 +121,7 @@ impl vault_registry::Config for Test {
 
 impl collateral::Config for Test {
     type Event = TestEvent;
-    type DOT = pallet_balances::Module<Test, pallet_balances::Instance1>;
+    type DOT = pallet_balances::Pallet<Test, pallet_balances::Instance1>;
 }
 
 impl btc_relay::Config for Test {
@@ -134,7 +135,7 @@ impl security::Config for Test {
 
 impl treasury::Config for Test {
     type Event = TestEvent;
-    type PolkaBTC = pallet_balances::Module<Test, pallet_balances::Instance2>;
+    type PolkaBTC = pallet_balances::Pallet<Test, pallet_balances::Instance2>;
 }
 
 parameter_types! {
@@ -189,9 +190,7 @@ impl ExtBuilder {
         dot_balances: pallet_balances::GenesisConfig<Test, pallet_balances::Instance1>,
         btc_balances: pallet_balances::GenesisConfig<Test, pallet_balances::Instance2>,
     ) -> sp_io::TestExternalities {
-        let mut storage = frame_system::GenesisConfig::default()
-            .build_storage::<Test>()
-            .unwrap();
+        let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
         dot_balances.assimilate_storage(&mut storage).unwrap();
         btc_balances.assimilate_storage(&mut storage).unwrap();
@@ -199,12 +198,12 @@ impl ExtBuilder {
         fee::GenesisConfig::<Test> {
             issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
             issue_griefing_collateral: FixedU128::checked_from_rational(5, 100000).unwrap(), // 0.005%
-            refund_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),                  // 0.5%
-            redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(),                  // 0.5%
-            premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
-            auction_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(),           // 5%
-            punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(),                // 10%
-            replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(),   // 10%
+            refund_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
+            redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
+            premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(), // 5%
+            auction_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(), // 5%
+            punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
+            replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
             fee_pool_account_id: 0,
             maintainer_account_id: 1,
             epoch_period: 5,
@@ -239,11 +238,10 @@ impl ExtBuilder {
             vault_refunded: FixedI128::from(1),
             relayer_target_sla: FixedI128::from(100),
             relayer_block_submission: FixedI128::from(1),
+            relayer_duplicate_block_submission: FixedI128::from(1),
             relayer_correct_no_data_vote_or_report: FixedI128::from(1),
             relayer_correct_invalid_vote_or_report: FixedI128::from(10),
-            relayer_correct_liquidation_report: FixedI128::from(1),
             relayer_correct_theft_report: FixedI128::from(1),
-            relayer_correct_oracle_offline_report: FixedI128::from(1),
             relayer_false_no_data_vote_or_report: FixedI128::from(-10),
             relayer_false_invalid_vote_or_report: FixedI128::from(-100),
             relayer_ignored_vote: FixedI128::from(-10),
@@ -264,32 +262,25 @@ impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
         ExtBuilder::build_with(
             pallet_balances::GenesisConfig::<Test, pallet_balances::Instance1> {
-                balances: vec![
-                    (ALICE, ALICE_BALANCE),
-                    (BOB, BOB_BALANCE),
-                    (CAROL, CAROL_BALANCE),
-                ],
+                balances: vec![(ALICE, ALICE_BALANCE), (BOB, BOB_BALANCE), (CAROL, CAROL_BALANCE)],
             },
             pallet_balances::GenesisConfig::<Test, pallet_balances::Instance2> {
-                balances: vec![
-                    (ALICE, ALICE_BALANCE),
-                    (BOB, BOB_BALANCE),
-                    (CAROL, CAROL_BALANCE),
-                ],
+                balances: vec![(ALICE, ALICE_BALANCE), (BOB, BOB_BALANCE), (CAROL, CAROL_BALANCE)],
             },
         )
     }
 }
 
-pub fn run_test<T>(test: T) -> ()
+pub fn run_test<T>(test: T)
 where
-    T: FnOnce() -> (),
+    T: FnOnce(),
 {
     clear_mocks();
     ExtBuilder::build().execute_with(|| {
         assert_ok!(<exchange_rate_oracle::Module<Test>>::_set_exchange_rate(
             FixedU128::one()
         ));
+        Security::set_active_block_number(1);
         System::set_block_number(1);
         test();
     });

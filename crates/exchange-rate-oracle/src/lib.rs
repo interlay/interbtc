@@ -25,24 +25,26 @@ extern crate mocktopus;
 use mocktopus::macros::mockable;
 
 use codec::{Decode, Encode, EncodeLike};
-use frame_support::dispatch::{DispatchError, DispatchResult};
-use frame_support::traits::Currency;
-use frame_support::transactional;
-use frame_support::weights::Weight;
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure};
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage,
+    dispatch::{DispatchError, DispatchResult},
+    ensure,
+    traits::Currency,
+    transactional,
+    weights::Weight,
+};
 use frame_system::{ensure_root, ensure_signed};
-use sp_arithmetic::traits::UniqueSaturatedInto;
-use sp_arithmetic::traits::*;
-use sp_arithmetic::FixedPointNumber;
-use sp_std::convert::TryInto;
-use sp_std::vec::Vec;
+use security::{ErrorCode, StatusCode};
+use sp_arithmetic::{
+    traits::{UniqueSaturatedInto, *},
+    FixedPointNumber,
+};
+use sp_std::{convert::TryInto, vec::Vec};
 
-pub(crate) type DOT<T> =
-    <<T as collateral::Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub(crate) type DOT<T> = <<T as collateral::Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-pub(crate) type PolkaBTC<T> = <<T as treasury::Config>::PolkaBTC as Currency<
-    <T as frame_system::Config>::AccountId,
->>::Balance;
+pub(crate) type PolkaBTC<T> =
+    <<T as treasury::Config>::PolkaBTC as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 pub(crate) type UnsignedFixedPoint<T> = <T as Config>::UnsignedFixedPoint;
 
@@ -70,11 +72,7 @@ const DOT_DECIMALS: u32 = 10;
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
 pub trait Config:
-    frame_system::Config
-    + pallet_timestamp::Config
-    + treasury::Config
-    + collateral::Config
-    + security::Config
+    frame_system::Config + pallet_timestamp::Config + treasury::Config + collateral::Config + security::Config
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
@@ -141,13 +139,19 @@ decl_module! {
                 }
 
                 if let Some(account_id) = take_storage_value::<T::AccountId>(b"ExchangeRateOracle", b"AuthorizedOracle") {
-                    let name = take_storage_item::<T::AccountId, Vec<u8>, Twox128>(b"ExchangeRateOracle", b"OracleNames", account_id.clone()).unwrap_or(vec![]);
+                    let name = take_storage_item::<T::AccountId, Vec<u8>, Twox128>(b"ExchangeRateOracle", b"OracleNames", account_id.clone()).unwrap_or_default();
                     <AuthorizedOracles<T>>::insert(account_id, name);
                 }
 
                 StorageVersion::put(Version::V1);
             }
 
+            0
+        }
+
+        fn on_initialize(n: T::BlockNumber) -> Weight {
+            Self::begin_block(n);
+            // TODO: calculate weight
             0
         }
 
@@ -232,6 +236,12 @@ decl_module! {
 
 #[cfg_attr(test, mockable)]
 impl<T: Config> Module<T> {
+    fn begin_block(_height: T::BlockNumber) {
+        if Self::is_max_delay_passed() {
+            Self::report_oracle_offline();
+        }
+    }
+
     /// Public getters
 
     /// Get the exchange rate in planck per satoshi
@@ -246,11 +256,9 @@ impl<T: Config> Module<T> {
         dot_per_btc: UnsignedFixedPoint<T>,
     ) -> Result<UnsignedFixedPoint<T>, DispatchError> {
         // safe to unwrap because we only use constants
-        let conversion_factor = UnsignedFixedPoint::<T>::checked_from_rational(
-            10_u128.pow(DOT_DECIMALS),
-            10_u128.pow(BTC_DECIMALS),
-        )
-        .unwrap();
+        let conversion_factor =
+            UnsignedFixedPoint::<T>::checked_from_rational(10_u128.pow(DOT_DECIMALS), 10_u128.pow(BTC_DECIMALS))
+                .unwrap();
 
         dot_per_btc
             .checked_mul(&conversion_factor)
@@ -264,12 +272,8 @@ impl<T: Config> Module<T> {
     pub fn btc_to_dots(amount: PolkaBTC<T>) -> Result<DOT<T>, DispatchError> {
         let rate = Self::get_exchange_rate()?;
         let raw_amount = Self::into_u128(amount)?;
-        let converted = rate
-            .checked_mul_int(raw_amount)
-            .ok_or(Error::<T>::ArithmeticOverflow)?;
-        let result = converted
-            .try_into()
-            .map_err(|_e| Error::<T>::TryIntoIntError)?;
+        let converted = rate.checked_mul_int(raw_amount).ok_or(Error::<T>::ArithmeticOverflow)?;
+        let result = converted.try_into().map_err(|_e| Error::<T>::TryIntoIntError)?;
         Ok(result)
     }
 
@@ -281,9 +285,7 @@ impl<T: Config> Module<T> {
         }
 
         // The code below performs `raw_amount/rate`, plus necessary type conversions
-        let dot_as_inner: Inner<T> = raw_amount
-            .try_into()
-            .map_err(|_| Error::<T>::TryIntoIntError)?;
+        let dot_as_inner: Inner<T> = raw_amount.try_into().map_err(|_| Error::<T>::TryIntoIntError)?;
         let btc_raw: u128 = T::UnsignedFixedPoint::checked_from_integer(dot_as_inner)
             .ok_or(Error::<T>::TryIntoIntError)?
             .checked_div(&rate)
@@ -292,9 +294,7 @@ impl<T: Config> Module<T> {
             .checked_div(&UnsignedFixedPoint::<T>::accuracy())
             .ok_or(Error::<T>::ArithmeticUnderflow)?
             .unique_saturated_into();
-        btc_raw
-            .try_into()
-            .map_err(|_e| Error::<T>::TryIntoIntError.into())
+        btc_raw.try_into().map_err(|_e| Error::<T>::TryIntoIntError.into())
     }
 
     pub fn get_last_exchange_rate_time() -> T::Moment {
@@ -315,7 +315,7 @@ impl<T: Config> Module<T> {
         <ExchangeRate<T>>::put(planck_per_satoshi);
         // recover if the max delay was already passed
         if Self::is_max_delay_passed() {
-            Self::recover_from_oracle_offline()?;
+            Self::recover_from_oracle_offline();
         }
         let now = Self::get_current_time();
         Self::set_last_exchange_rate_time(now);
@@ -326,7 +326,12 @@ impl<T: Config> Module<T> {
         <LastExchangeRateTime<T>>::put(time);
     }
 
-    fn recover_from_oracle_offline() -> DispatchResult {
+    fn report_oracle_offline() {
+        ext::security::set_status::<T>(StatusCode::Error);
+        ext::security::insert_error::<T>(ErrorCode::OracleOffline);
+    }
+
+    fn recover_from_oracle_offline() {
         ext::security::recover_from_oracle_offline::<T>()
     }
 
@@ -341,7 +346,7 @@ impl<T: Config> Module<T> {
 
     /// Returns the current timestamp
     fn get_current_time() -> T::Moment {
-        <pallet_timestamp::Module<T>>::get()
+        <pallet_timestamp::Pallet<T>>::get()
     }
 
     /// Add a new authorized oracle
@@ -376,7 +381,9 @@ decl_error! {
         MissingExchangeRate,
         /// Unable to convert value
         TryIntoIntError,
+        /// Mathematical operation caused an overflow
         ArithmeticOverflow,
+        /// Mathematical operation caused an underflow
         ArithmeticUnderflow,
     }
 }

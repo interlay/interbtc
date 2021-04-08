@@ -1,8 +1,8 @@
 [package]
-authors = ['Interlay Ltd']
-edition = '2018'
+authors = ["Interlay Ltd"]
+edition = "2018"
 name = 'btc-parachain-runtime'
-version = '0.5.1'
+version = "0.6.0"
 
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']
@@ -35,6 +35,7 @@ pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "r
 pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 pallet-sudo = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
+pallet-utility = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 pallet-transaction-payment = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 pallet-collective = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 pallet-society = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
@@ -57,7 +58,6 @@ polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = 
 xcm = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", default-features = false, optional = true }
 xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", default-features = false, optional = true }
 xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", default-features = false, optional = true }
-rococo-runtime = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", default-features = false, optional = true }
 
 # Parachain dependencies
 btc-relay = { path = "../../crates/btc-relay", default-features = false }
@@ -98,6 +98,10 @@ primitive-types = { version = "0.9.0", default-features = false, features = ["co
 [build-dependencies]
 substrate-wasm-builder = "3.0.0"
 
+# TODO: enable weak dependency activation when available
+# https://github.com/rust-lang/cargo/issues/8832
+# https://github.com/paritytech/substrate/issues/8161
+
 [features]
 default = ["std"]
 std = [
@@ -125,6 +129,7 @@ std = [
   "pallet-randomness-collective-flip/std",
   "pallet-timestamp/std",
   "pallet-sudo/std",
+  "pallet-utility/std",
   "pallet-transaction-payment/std",
   "pallet-collective/std",
   "pallet-society/std",
@@ -143,7 +148,6 @@ std = [
   "xcm-builder/std",
   "xcm-executor/std",
   "xcm-handler/std",
-  "rococo-runtime/std",
 
   "btc-relay/std",
   "collateral/std",
@@ -182,8 +186,6 @@ runtime-benchmarks = [
   "pallet-society/runtime-benchmarks",
   "pallet-collective/runtime-benchmarks",
 
-  "rococo-runtime/runtime-benchmarks",
-
   "btc-relay/runtime-benchmarks",
   "exchange-rate-oracle/runtime-benchmarks",
   "issue/runtime-benchmarks",
@@ -201,7 +203,6 @@ cumulus-polkadot = [
   "xcm-builder",
   "xcm-executor",
   "xcm-handler",
-  "rococo-runtime",
 
   "parachain-info",
   "parachain-tokens",

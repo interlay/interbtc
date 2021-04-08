@@ -87,17 +87,25 @@ The Substrate runtime makes use of various custom pallets that are found in the 
 curl https://sh.rustup.rs -sSf | sh
 ```
 
+Please also install the following dependencies:
+
+- `cmake`
+- `clang` (>=10.0.0)
+- `clang-dev`
+- `libc6-dev`
+- `libssl-dev`
+
 ### Installation
 
 Building requires `nightly`. Run the following commands to set it up:
 
 ```
-rustup toolchain install nightly-2021-01-25
-rustup default nightly-2021-01-25
+rustup toolchain install nightly-2021-03-15
+rustup default nightly-2021-03-15
 rustup component add rustfmt
 rustup component add rls
 rustup toolchain install nightly
-rustup target add wasm32-unknown-unknown --toolchain nightly-2021-01-25
+rustup target add wasm32-unknown-unknown --toolchain nightly-2021-03-15
 ```
 
 To build, run:

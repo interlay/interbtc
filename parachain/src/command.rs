@@ -33,10 +33,7 @@ use {
     cumulus_service::genesis::generate_genesis_block,
     log::info,
     polkadot_parachain::primitives::AccountIdConversion,
-    sc_cli::{
-        CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams, NetworkParams,
-        SharedParams,
-    },
+    sc_cli::{CliConfiguration, DefaultConfigurationValues, ImportParams, KeystoreParams, NetworkParams, SharedParams},
     sc_service::config::{BasePath, PrometheusConfig},
     sp_core::hexdisplay::HexDisplay,
     sp_runtime::traits::Block as BlockT,
@@ -60,9 +57,7 @@ fn load_spec(
             #[cfg(feature = "cumulus-polkadot")]
             para_id,
         ))),
-        path => Ok(Box::new(chain_spec::ChainSpec::from_json_file(
-            path.into(),
-        )?)),
+        path => Ok(Box::new(chain_spec::ChainSpec::from_json_file(path.into())?)),
     }
 }
 
@@ -135,8 +130,7 @@ impl SubstrateCli for RelayChainCli {
     }
 
     fn load_spec(&self, id: &str) -> std::result::Result<Box<dyn sc_service::ChainSpec>, String> {
-        polkadot_cli::Cli::from_iter([RelayChainCli::executable_name().to_string()].iter())
-            .load_spec(id)
+        polkadot_cli::Cli::from_iter([RelayChainCli::executable_name().to_string()].iter()).load_spec(id)
     }
 
     fn native_runtime_version(chain_spec: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
@@ -179,9 +173,7 @@ pub fn run() -> Result<()> {
             let runner = cli.create_runner(cmd)?;
             runner.async_run(|config| {
                 let PartialComponents {
-                    client,
-                    task_manager,
-                    ..
+                    client, task_manager, ..
                 } = btc_parachain_service::new_partial(&config)?;
                 Ok((cmd.run(client, config.database), task_manager))
             })
@@ -190,9 +182,7 @@ pub fn run() -> Result<()> {
             let runner = cli.create_runner(cmd)?;
             runner.async_run(|config| {
                 let PartialComponents {
-                    client,
-                    task_manager,
-                    ..
+                    client, task_manager, ..
                 } = btc_parachain_service::new_partial(&config)?;
                 Ok((cmd.run(client, config.chain_spec), task_manager))
             })
@@ -267,8 +257,7 @@ pub fn run() -> Result<()> {
             builder.with_profiling(sc_tracing::TracingReceiver::Log, "");
             let _ = builder.init();
 
-            let raw_wasm_blob =
-                extract_genesis_wasm(&cli.load_spec(&params.chain.clone().unwrap_or_default())?)?;
+            let raw_wasm_blob = extract_genesis_wasm(&cli.load_spec(&params.chain.clone().unwrap_or_default())?)?;
             let output_buf = if params.raw {
                 raw_wasm_blob
             } else {
@@ -320,17 +309,14 @@ async fn start_node(cli: Cli, config: Configuration) -> sc_service::error::Resul
 
     let id = ParaId::from(cli.run.parachain_id.or(para_id).unwrap_or(100));
 
-    let parachain_account =
-        AccountIdConversion::<polkadot_primitives::v0::AccountId>::into_account(&id);
+    let parachain_account = AccountIdConversion::<polkadot_primitives::v0::AccountId>::into_account(&id);
 
-    let block: Block =
-        generate_genesis_block(&config.chain_spec).map_err(|e| format!("{:?}", e))?;
+    let block: Block = generate_genesis_block(&config.chain_spec).map_err(|e| format!("{:?}", e))?;
     let genesis_state = format!("0x{:?}", HexDisplay::from(&block.header().encode()));
 
     let task_executor = config.task_executor.clone();
-    let polkadot_config =
-        SubstrateCli::create_configuration(&polkadot_cli, &polkadot_cli, task_executor, None)
-            .map_err(|err| format!("Relay chain argument error: {}", err))?;
+    let polkadot_config = SubstrateCli::create_configuration(&polkadot_cli, &polkadot_cli, task_executor)
+        .map_err(|err| format!("Relay chain argument error: {}", err))?;
     let collator = cli.run.base.validator || cli.collator;
 
     info!("Parachain id: {:?}", id);
@@ -403,7 +389,7 @@ impl CliConfiguration<Self> for RelayChainCli {
         self.base.base.prometheus_config(default_listen_port)
     }
 
-    fn init<C: SubstrateCli>(&self) -> Result<sc_telemetry::TelemetryWorker> {
+    fn init<C: SubstrateCli>(&self) -> Result<()> {
         unreachable!("PolkadotCli is never initialized; qed");
     }
 

@@ -13,14 +13,15 @@ mod tests;
 #[cfg(test)]
 extern crate mocktopus;
 
-use frame_support::traits::{Currency, ExistenceRequirement, ReservableCurrency};
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+    decl_error, decl_event, decl_module, decl_storage,
+    dispatch::DispatchResult,
+    ensure,
+    traits::{Currency, ExistenceRequirement, ReservableCurrency},
 };
 use sp_runtime::ModuleId;
 
-type BalanceOf<T> =
-    <<T as Config>::PolkaBTC as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+type BalanceOf<T> = <<T as Config>::PolkaBTC as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 /// The treasury's module id, used for deriving its sovereign account ID.
 const _MODULE_ID: ModuleId = ModuleId(*b"ily/trsy");
@@ -189,17 +190,8 @@ impl<T: Config> Module<T> {
     /// * `source` - the account transferring tokens
     /// * `destination` - the account receiving tokens
     /// * `amount` - amount of PolkaBTC
-    pub fn transfer(
-        source: T::AccountId,
-        destination: T::AccountId,
-        amount: BalanceOf<T>,
-    ) -> DispatchResult {
-        T::PolkaBTC::transfer(
-            &source,
-            &destination,
-            amount,
-            ExistenceRequirement::AllowDeath,
-        )
+    pub fn transfer(source: T::AccountId, destination: T::AccountId, amount: BalanceOf<T>) -> DispatchResult {
+        T::PolkaBTC::transfer(&source, &destination, amount, ExistenceRequirement::AllowDeath)
     }
 
     /// Transfer locked PolkaBTC to the free balance of another account

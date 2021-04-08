@@ -7,36 +7,36 @@ use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 
 impl crate::WeightInfo for () {
     fn request_replace() -> Weight {
-        (142_819_000 as Weight)
-            .saturating_add(DbWeight::get().reads(6 as Weight))
-            .saturating_add(DbWeight::get().writes(5 as Weight))
+        142_819_000_u64
+            .saturating_add(DbWeight::get().reads(6_u64))
+            .saturating_add(DbWeight::get().writes(5_u64))
     }
     fn withdraw_replace() -> Weight {
-        (132_256_000 as Weight)
-            .saturating_add(DbWeight::get().reads(10 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
+        132_256_000_u64
+            .saturating_add(DbWeight::get().reads(10_u64))
+            .saturating_add(DbWeight::get().writes(3_u64))
     }
     fn accept_replace() -> Weight {
-        (124_104_000 as Weight)
-            .saturating_add(DbWeight::get().reads(10 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
+        124_104_000_u64
+            .saturating_add(DbWeight::get().reads(10_u64))
+            .saturating_add(DbWeight::get().writes(3_u64))
     }
     fn auction_replace() -> Weight {
-        (188_428_000 as Weight)
-            .saturating_add(DbWeight::get().reads(13 as Weight))
-            .saturating_add(DbWeight::get().writes(5 as Weight))
+        188_428_000_u64
+            .saturating_add(DbWeight::get().reads(13_u64))
+            .saturating_add(DbWeight::get().writes(5_u64))
     }
     fn execute_replace() -> Weight {
-        (218_546_000 as Weight)
-            .saturating_add(DbWeight::get().reads(12 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
+        218_546_000_u64
+            .saturating_add(DbWeight::get().reads(12_u64))
+            .saturating_add(DbWeight::get().writes(3_u64))
     }
     fn cancel_replace() -> Weight {
-        (97_129_000 as Weight)
-            .saturating_add(DbWeight::get().reads(5 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
+        97_129_000_u64
+            .saturating_add(DbWeight::get().reads(5_u64))
+            .saturating_add(DbWeight::get().writes(3_u64))
     }
     fn set_replace_period() -> Weight {
-        (3_300_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
+        3_300_000_u64.saturating_add(DbWeight::get().writes(1_u64))
     }
 }

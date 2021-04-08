@@ -6,8 +6,7 @@
 #![warn(missing_docs)]
 
 use btc_parachain_runtime::{
-    opaque::Block, AccountId, Balance, BlockNumber, Index, IssueRequest, RedeemRequest,
-    RefundRequest, ReplaceRequest,
+    opaque::Block, AccountId, Balance, BlockNumber, Index, IssueRequest, RedeemRequest, RefundRequest, ReplaceRequest,
 };
 pub use sc_rpc_api::DenyUnsafe;
 use sp_api::ProvideRuntimeApi;
@@ -40,13 +39,7 @@ where
     C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
     C::Api: module_exchange_rate_oracle_rpc::ExchangeRateOracleRuntimeApi<Block, Balance, Balance>,
     C::Api: module_staked_relayers_rpc::StakedRelayersRuntimeApi<Block, AccountId>,
-    C::Api: module_vault_registry_rpc::VaultRegistryRuntimeApi<
-        Block,
-        AccountId,
-        Balance,
-        Balance,
-        FixedU128,
-    >,
+    C::Api: module_vault_registry_rpc::VaultRegistryRuntimeApi<Block, AccountId, Balance, Balance, FixedU128>,
     C::Api: module_issue_rpc::IssueRuntimeApi<
         Block,
         AccountId,
@@ -59,12 +52,7 @@ where
         H256,
         RedeemRequest<AccountId, BlockNumber, Balance, Balance>,
     >,
-    C::Api: module_refund_rpc::RefundRuntimeApi<
-        Block,
-        AccountId,
-        H256,
-        RefundRequest<AccountId, Balance>,
-    >,
+    C::Api: module_refund_rpc::RefundRuntimeApi<Block, AccountId, H256, RefundRequest<AccountId, Balance>>,
     C::Api: module_replace_rpc::ReplaceRuntimeApi<
         Block,
         AccountId,
@@ -105,13 +93,9 @@ where
         client.clone(),
     )));
 
-    io.extend_with(StakedRelayersApi::to_delegate(StakedRelayers::new(
-        client.clone(),
-    )));
+    io.extend_with(StakedRelayersApi::to_delegate(StakedRelayers::new(client.clone())));
 
-    io.extend_with(VaultRegistryApi::to_delegate(VaultRegistry::new(
-        client.clone(),
-    )));
+    io.extend_with(VaultRegistryApi::to_delegate(VaultRegistry::new(client.clone())));
 
     io.extend_with(IssueApi::to_delegate(Issue::new(client.clone())));
 
@@ -119,7 +103,7 @@ where
 
     io.extend_with(RefundApi::to_delegate(Refund::new(client.clone())));
 
-    io.extend_with(ReplaceApi::to_delegate(Replace::new(client.clone())));
+    io.extend_with(ReplaceApi::to_delegate(Replace::new(client)));
 
     io
 }

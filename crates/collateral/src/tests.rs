@@ -142,8 +142,7 @@ fn test_release_collateral_partially_succeeds() {
         let init_total = Collateral::get_total_collateral();
 
         assert_ok!(Collateral::release_collateral(&sender, release_amount));
-        let release_event =
-            TestEvent::collateral(RawEvent::ReleaseCollateral(ALICE, release_amount));
+        let release_event = TestEvent::collateral(RawEvent::ReleaseCollateral(ALICE, release_amount));
 
         assert!(System::events().iter().any(|a| a.event == release_event));
 
@@ -225,8 +224,7 @@ fn test_slash_collateral_partially_succeeds() {
         let init_total = Collateral::get_total_collateral();
 
         assert_ok!(Collateral::slash_collateral(sender, receiver, slash_amount));
-        let slash_event =
-            TestEvent::collateral(RawEvent::SlashCollateral(ALICE, BOB, slash_amount));
+        let slash_event = TestEvent::collateral(RawEvent::SlashCollateral(ALICE, BOB, slash_amount));
 
         assert!(System::events().iter().any(|a| a.event == slash_event));
 

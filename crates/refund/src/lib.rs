@@ -22,16 +22,13 @@ pub mod types;
 
 use bitcoin::types::H256Le;
 use btc_relay::BtcAddress;
-use frame_support::transactional;
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError, ensure,
-    weights::Weight,
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError, ensure, transactional, weights::Weight,
 };
 use frame_system::ensure_signed;
 use primitive_types::H256;
 use sp_runtime::traits::CheckedSub;
-use sp_std::convert::TryInto;
-use sp_std::vec::Vec;
+use sp_std::{convert::TryInto, vec::Vec};
 use types::PolkaBTC;
 pub use types::RefundRequest;
 
@@ -75,8 +72,8 @@ decl_event!(
         AccountId = <T as frame_system::Config>::AccountId,
         PolkaBTC = PolkaBTC<T>,
     {
-        /// refund_id, issuer, amount, vault, btc_address, issue_id
-        RequestRefund(H256, AccountId, PolkaBTC, AccountId, BtcAddress, H256),
+        /// refund_id, issuer, amount_without_fee, vault, btc_address, issue_id, fee
+        RequestRefund(H256, AccountId, PolkaBTC, AccountId, BtcAddress, H256, PolkaBTC),
         /// refund_id, issuer, vault, amount
         ExecuteRefund(H256, AccountId, AccountId, PolkaBTC),
     }
@@ -117,8 +114,7 @@ impl<T: Config> Module<T> {
     ///
     /// # Arguments
     ///
-    /// * `total_amount_btc` - the amount that the user has overpaid. This is the amount that
-    ///     will be refunded.
+    /// * `total_amount_btc` - the amount that the user has overpaid. This is the amount that will be refunded.
     /// * `vault_id` - id of the vault the issue was made to
     /// * `issuer` - id of the user that made the issue request
     /// * `btc_address` - the btc address that should receive the refund
@@ -128,7 +124,7 @@ impl<T: Config> Module<T> {
         issuer: T::AccountId,
         btc_address: BtcAddress,
         issue_id: H256,
-    ) -> Result<(), DispatchError> {
+    ) -> Result<Option<H256>, DispatchError> {
         let fee_polka_btc = ext::fee::get_refund_fee_from_total::<T>(total_amount_btc)?;
         let net_refund_amount_polka_btc = total_amount_btc
             .checked_sub(&fee_polka_btc)
@@ -137,18 +133,18 @@ impl<T: Config> Module<T> {
         // Only refund if the amount is above the dust value
         let dust_amount = <RefundBtcDustValue<T>>::get();
         if net_refund_amount_polka_btc < dust_amount {
-            return Ok(());
+            return Ok(None);
         }
 
         let refund_id = ext::security::get_secure_id::<T>(&issuer);
 
         let request = RefundRequest {
-            vault: vault_id.clone(),
+            vault: vault_id,
             amount_polka_btc: net_refund_amount_polka_btc,
             fee: fee_polka_btc,
             amount_btc: total_amount_btc,
             issuer,
-            btc_address: btc_address.clone(),
+            btc_address,
             issue_id,
             completed: false,
         };
@@ -161,17 +157,18 @@ impl<T: Config> Module<T> {
             request.vault,
             request.btc_address,
             request.issue_id,
+            request.fee,
         ));
 
-        Ok(())
+        Ok(Some(refund_id))
     }
 
     /// Finalizes a refund. Typically called by the vault client that performed the refund.
     ///
     /// # Arguments
     ///
-    /// * `refund_id` - identifier of a refund request. This ID can be obtained by
-    ///     listening to the RequestRefund event, or by querying the open refunds.
+    /// * `refund_id` - identifier of a refund request. This ID can be obtained by listening to the RequestRefund event,
+    ///   or by querying the open refunds.
     /// * `tx_id` - transaction hash
     /// * `merkle_proof` - raw bytes of the proof
     /// * `raw_tx` - raw bytes of the transaction
@@ -191,13 +188,13 @@ impl<T: Config> Module<T> {
         ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
         ext::btc_relay::validate_transaction::<T>(
             raw_tx,
-            amount as i64,
+            Some(amount as i64),
             request.btc_address,
             Some(refund_id.as_bytes().to_vec()),
         )?;
 
         // mint polkabtc corresponding to the fee. Note that this can fail
-        ext::vault_registry::increase_to_be_issued_tokens::<T>(&request.vault, request.fee)?;
+        ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&request.vault, request.fee)?;
         ext::vault_registry::issue_tokens::<T>(&request.vault, request.fee)?;
         ext::treasury::mint::<T>(request.vault.clone(), request.fee);
 
@@ -268,14 +265,13 @@ impl<T: Config> Module<T> {
             .collect::<Vec<_>>()
     }
 
-    /// Return the refund request corresponding to the specified issue ID, or return an error. This function is exposed as RPC.
+    /// Return the refund request corresponding to the specified issue ID, or return an error. This function is exposed
+    /// as RPC.
     ///
     /// # Arguments
     ///
     /// * `issue_id` - The ID of an issue request
-    pub fn get_refund_requests_by_issue_id(
-        issue_id: H256,
-    ) -> Option<(H256, RefundRequest<T::AccountId, PolkaBTC<T>>)> {
+    pub fn get_refund_requests_by_issue_id(issue_id: H256) -> Option<(H256, RefundRequest<T::AccountId, PolkaBTC<T>>)> {
         <RefundRequests<T>>::iter().find(|(_, request)| request.issue_id == issue_id)
     }
 

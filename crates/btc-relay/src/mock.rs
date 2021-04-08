@@ -22,22 +22,22 @@ frame_support::construct_runtime!(
         NodeBlock = Block,
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
-        System: frame_system::{Module, Call, Storage, Config, Event<T>},
-        Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
+        System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
+        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 
         // Tokens & Balances
-        DOT: pallet_balances::<Instance1>::{Module, Call, Storage, Config<T>, Event<T>},
-        PolkaBTC: pallet_balances::<Instance2>::{Module, Call, Storage, Config<T>, Event<T>},
+        DOT: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
+        PolkaBTC: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
 
-        Collateral: collateral::{Module, Call, Storage, Event<T>},
-        Treasury: treasury::{Module, Call, Storage, Event<T>},
+        Collateral: collateral::{Pallet, Call, Storage, Event<T>},
+        Treasury: treasury::{Pallet, Call, Storage, Event<T>},
 
         // Operational
-        BTCRelay: btc_relay::{Module, Call, Config<T>, Storage, Event<T>},
-        Security: security::{Module, Call, Storage, Event},
-        VaultRegistry: vault_registry::{Module, Call, Config<T>, Storage, Event<T>},
-        ExchangeRateOracle: exchange_rate_oracle::{Module, Call, Config<T>, Storage, Event<T>},
-        Sla: sla::{Module, Call, Config<T>, Storage, Event<T>},
+        BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},
+        Security: security::{Pallet, Call, Storage, Event},
+        VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>},
+        ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
+        Sla: sla::{Pallet, Call, Config<T>, Storage, Event<T>},
     }
 );
 
@@ -73,6 +73,7 @@ impl frame_system::Config for Test {
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
     type SS58Prefix = SS58Prefix;
+    type OnSetCode = ();
 }
 
 parameter_types! {
@@ -124,12 +125,12 @@ impl sla::Config for Test {
 
 impl treasury::Config for Test {
     type Event = TestEvent;
-    type PolkaBTC = pallet_balances::Module<Test, pallet_balances::Instance2>;
+    type PolkaBTC = pallet_balances::Pallet<Test, pallet_balances::Instance2>;
 }
 
 impl collateral::Config for Test {
     type Event = TestEvent;
-    type DOT = pallet_balances::Module<Test, pallet_balances::Instance1>;
+    type DOT = pallet_balances::Pallet<Test, pallet_balances::Instance1>;
 }
 
 impl vault_registry::Config for Test {
@@ -168,9 +169,7 @@ pub struct ExtBuilder;
 
 impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
-        let mut storage = frame_system::GenesisConfig::default()
-            .build_storage::<Test>()
-            .unwrap();
+        let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
         btc_relay::GenesisConfig::<Test> {
             bitcoin_confirmations: BITCOIN_CONFIRMATIONS,
@@ -178,7 +177,6 @@ impl ExtBuilder {
             disable_difficulty_check: false,
             disable_inclusion_check: false,
             disable_op_return_check: false,
-            disable_relayer_auth: true,
         }
         .assimilate_storage(&mut storage)
         .unwrap();
@@ -187,13 +185,14 @@ impl ExtBuilder {
     }
 }
 
-pub fn run_test<T>(test: T) -> ()
+pub fn run_test<T>(test: T)
 where
-    T: FnOnce() -> (),
+    T: FnOnce(),
 {
     clear_mocks();
     ExtBuilder::build().execute_with(|| {
         System::set_block_number(1);
+        Security::set_active_block_number(1);
         test();
     });
 }

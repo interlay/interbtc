@@ -7,6 +7,11 @@ use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 
 impl crate::WeightInfo for () {
     // WARNING! Some components were not used: ["u"]
+    fn initialize() -> Weight {
+        (52_558_000 as Weight)
+            .saturating_add(DbWeight::get().reads(3 as Weight))
+            .saturating_add(DbWeight::get().writes(7 as Weight))
+    }
     fn register_staked_relayer() -> Weight {
         (79_756_000 as Weight)
             .saturating_add(DbWeight::get().reads(4 as Weight))
@@ -42,11 +47,6 @@ impl crate::WeightInfo for () {
             .saturating_add(DbWeight::get().reads(16 as Weight))
             .saturating_add(DbWeight::get().writes(5 as Weight))
     }
-    fn report_vault_under_liquidation_threshold() -> Weight {
-        (175_084_000 as Weight)
-            .saturating_add(DbWeight::get().reads(12 as Weight))
-            .saturating_add(DbWeight::get().writes(4 as Weight))
-    }
     fn remove_active_status_update() -> Weight {
         (5_585_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
     }
@@ -58,5 +58,10 @@ impl crate::WeightInfo for () {
     }
     fn evaluate_status_update() -> Weight {
         (5_571_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn store_block_header() -> Weight {
+        (123_623_000 as Weight)
+            .saturating_add(DbWeight::get().reads(13 as Weight))
+            .saturating_add(DbWeight::get().writes(8 as Weight))
     }
 }

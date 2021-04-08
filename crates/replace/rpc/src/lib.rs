@@ -56,8 +56,8 @@ impl From<Error> for i64 {
     }
 }
 
-impl<C, Block, AccountId, H256, ReplaceRequest>
-    ReplaceApi<<Block as BlockT>::Hash, AccountId, H256, ReplaceRequest> for Replace<C, Block>
+impl<C, Block, AccountId, H256, ReplaceRequest> ReplaceApi<<Block as BlockT>::Hash, AccountId, H256, ReplaceRequest>
+    for Replace<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,

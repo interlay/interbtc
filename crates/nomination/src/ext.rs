@@ -21,9 +21,7 @@ pub(crate) mod vault_registry {
     pub use ::vault_registry::VaultStatus;
     pub use frame_support::dispatch::{DispatchError, DispatchResult};
 
-    pub fn get_backing_collateral<T: vault_registry::Config>(
-        vault_id: &T::AccountId,
-    ) -> Result<DOT<T>, DispatchError> {
+    pub fn get_backing_collateral<T: vault_registry::Config>(vault_id: &T::AccountId) -> Result<DOT<T>, DispatchError> {
         <vault_registry::Module<T>>::get_backing_collateral(vault_id)
     }
 
@@ -53,11 +51,7 @@ pub(crate) mod vault_registry {
         collateral: DOT<T>,
         depositor_id: &T::AccountId,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::_lock_additional_collateral_from_address(
-            vault_id,
-            collateral,
-            depositor_id,
-        )
+        <vault_registry::Module<T>>::try_lock_additional_collateral_from_address(vault_id, collateral, depositor_id)
     }
 
     pub fn withdraw_collateral_to_address<T: vault_registry::Config>(
@@ -65,17 +59,14 @@ pub(crate) mod vault_registry {
         collateral: DOT<T>,
         payee_id: &T::AccountId,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::_withdraw_collateral_to_address(vault_id, collateral, payee_id)
+        <vault_registry::Module<T>>::try_withdraw_collateral_to_address(vault_id, collateral, payee_id)
     }
 
     pub fn vault_exists<T: vault_registry::Config>(id: &T::AccountId) -> bool {
         <vault_registry::Module<T>>::vault_exists(id)
     }
 
-    pub fn set_is_nomination_operator<T: vault_registry::Config>(
-        vault_id: &T::AccountId,
-        is_operator: bool,
-    ) {
+    pub fn set_is_nomination_operator<T: vault_registry::Config>(vault_id: &T::AccountId, is_operator: bool) {
         <vault_registry::Module<T>>::set_is_nomination_operator(vault_id, is_operator)
     }
 }

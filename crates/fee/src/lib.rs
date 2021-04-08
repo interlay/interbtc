@@ -26,18 +26,15 @@ extern crate mocktopus;
 use mocktopus::macros::mockable;
 
 use codec::{Decode, Encode, EncodeLike};
-use frame_support::transactional;
-use frame_support::{decl_error, decl_event, decl_module, decl_storage};
 use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
-    ensure,
+    ensure, transactional,
     weights::Weight,
 };
 use frame_system::ensure_signed;
-use sp_arithmetic::traits::*;
-use sp_arithmetic::FixedPointNumber;
-use sp_std::convert::TryInto;
-use sp_std::vec::*;
+use sp_arithmetic::{traits::*, FixedPointNumber};
+use sp_std::{convert::TryInto, vec::*};
 use types::{Inner, PolkaBTC, UnsignedFixedPoint, DOT};
 
 pub trait WeightInfo {
@@ -46,9 +43,7 @@ pub trait WeightInfo {
 }
 
 /// The pallet's configuration trait.
-pub trait Config:
-    frame_system::Config + collateral::Config + treasury::Config + sla::Config
-{
+pub trait Config: frame_system::Config + collateral::Config + treasury::Config + sla::Config {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 
@@ -259,10 +254,8 @@ impl<T: Config> Module<T> {
     /// then clears the current epoch rewards.
     pub fn update_rewards_for_epoch() -> DispatchResult {
         // calculate vault rewards
-        let (
-            total_vault_rewards_for_issued_in_polka_btc,
-            total_vault_rewards_for_locked_in_polka_btc,
-        ) = Self::vault_rewards_for_epoch_in_polka_btc()?;
+        let (total_vault_rewards_for_issued_in_polka_btc, total_vault_rewards_for_locked_in_polka_btc) =
+            Self::vault_rewards_for_epoch_in_polka_btc()?;
         let (total_vault_rewards_for_issued_in_dot, total_vault_rewards_for_locked_in_dot) =
             Self::vault_rewards_for_epoch_in_dot()?;
         for (account, amount_in_polka_btc, amount_in_dot) in ext::sla::get_vault_rewards::<T>(
@@ -302,10 +295,9 @@ impl<T: Config> Module<T> {
         // calculate staked relayer rewards
         let total_relayer_rewards_in_polka_btc = Self::relayer_rewards_for_epoch_in_polka_btc()?;
         let total_relayer_rewards_in_dot = Self::relayer_rewards_for_epoch_in_dot()?;
-        for (account, amount_in_polka_btc, amount_in_dot) in ext::sla::get_relayer_rewards::<T>(
-            total_relayer_rewards_in_polka_btc,
-            total_relayer_rewards_in_dot,
-        )? {
+        for (account, amount_in_polka_btc, amount_in_dot) in
+            ext::sla::get_relayer_rewards::<T>(total_relayer_rewards_in_polka_btc, total_relayer_rewards_in_dot)?
+        {
             // increase polka_btc rewards
             <TotalRewardsPolkaBTC<T>>::insert(
                 account.clone(),
@@ -325,8 +317,7 @@ impl<T: Config> Module<T> {
         // calculate maintainer rewards
         let maintainer_account_id = Self::maintainer_account_id();
         // increase polka_DOT rewards
-        let total_maintainer_rewards_in_polka_btc =
-            Self::maintainer_rewards_for_epoch_in_polka_btc()?;
+        let total_maintainer_rewards_in_polka_btc = Self::maintainer_rewards_for_epoch_in_polka_btc()?;
         <TotalRewardsPolkaBTC<T>>::insert(
             maintainer_account_id.clone(),
             <TotalRewardsPolkaBTC<T>>::get(maintainer_account_id.clone())
@@ -337,7 +328,7 @@ impl<T: Config> Module<T> {
         let total_maintainer_rewards_in_dot = Self::maintainer_rewards_for_epoch_in_dot()?;
         <TotalRewardsDOT<T>>::insert(
             maintainer_account_id.clone(),
-            <TotalRewardsDOT<T>>::get(maintainer_account_id.clone())
+            <TotalRewardsDOT<T>>::get(maintainer_account_id)
                 .checked_add(&total_maintainer_rewards_in_dot)
                 .ok_or(Error::<T>::ArithmeticOverflow)?,
         );
@@ -381,24 +372,6 @@ impl<T: Config> Module<T> {
     /// * `amount` - issue amount in PolkaBTC
     pub fn get_issue_fee(amount: PolkaBTC<T>) -> Result<PolkaBTC<T>, DispatchError> {
         Self::btc_for(amount, <IssueFee<T>>::get())
-    }
-
-    /// Calculate the fee portion of a total amount. For `amount = fee + issued_polkabtc`, this
-    /// function returns `fee`.
-    ///
-    /// # Arguments
-    ///
-    /// * `amount` - total amount in PolkaBTC
-    pub fn get_issue_fee_from_total(amount: PolkaBTC<T>) -> Result<PolkaBTC<T>, DispatchError> {
-        // calculate 'percentage' = x / (1+x)
-        let percentage = <IssueFee<T>>::get()
-            .checked_div(
-                &<IssueFee<T>>::get()
-                    .checked_add(&UnsignedFixedPoint::<T>::one())
-                    .ok_or(Error::<T>::ArithmeticOverflow)?,
-            )
-            .ok_or(Error::<T>::ArithmeticUnderflow)?;
-        Self::btc_for(amount, percentage)
     }
 
     /// Calculate the required issue griefing collateral in DOT.
@@ -504,10 +477,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Take the `percentage` of an `amount`
-    fn calculate_for(
-        amount: Inner<T>,
-        percentage: UnsignedFixedPoint<T>,
-    ) -> Result<Inner<T>, DispatchError> {
+    fn calculate_for(amount: Inner<T>, percentage: UnsignedFixedPoint<T>) -> Result<Inner<T>, DispatchError> {
         // we add 0.5 before we do the final integer division to round the result we return.
         // note that unwrapping is safe because we use a constant
         let rounding_addition = UnsignedFixedPoint::<T>::checked_from_rational(1, 2).unwrap();
@@ -523,40 +493,27 @@ impl<T: Config> Module<T> {
             .ok_or(Error::<T>::ArithmeticUnderflow.into())
     }
 
-    fn btc_for(
-        amount: PolkaBTC<T>,
-        percentage: UnsignedFixedPoint<T>,
-    ) -> Result<PolkaBTC<T>, DispatchError> {
-        Self::inner_to_btc(Self::calculate_for(
-            Self::btc_to_inner(amount)?,
-            percentage,
-        )?)
+    fn btc_for(amount: PolkaBTC<T>, percentage: UnsignedFixedPoint<T>) -> Result<PolkaBTC<T>, DispatchError> {
+        Self::inner_to_btc(Self::calculate_for(Self::btc_to_inner(amount)?, percentage)?)
     }
 
     fn dot_for(amount: DOT<T>, percentage: UnsignedFixedPoint<T>) -> Result<DOT<T>, DispatchError> {
-        Self::inner_to_dot(Self::calculate_for(
-            Self::dot_to_inner(amount)?,
-            percentage,
-        )?)
+        Self::inner_to_dot(Self::calculate_for(Self::dot_to_inner(amount)?, percentage)?)
     }
 
     #[allow(dead_code)]
     /// Helper for validating the `chain_spec` parameters
     fn ensure_rationals_sum_to_one(dist: Vec<UnsignedFixedPoint<T>>) -> DispatchResult {
-        let sum = dist
-            .iter()
-            .fold(UnsignedFixedPoint::<T>::default(), |a, &b| a + b);
-        let one =
-            UnsignedFixedPoint::<T>::checked_from_integer(Module::<T>::btc_to_inner(1u32.into())?)
-                .ok_or(Error::<T>::ArithmeticOverflow)?;
+        let sum = dist.iter().fold(UnsignedFixedPoint::<T>::default(), |a, &b| a + b);
+        let one = UnsignedFixedPoint::<T>::checked_from_integer(Module::<T>::btc_to_inner(1u32.into())?)
+            .ok_or(Error::<T>::ArithmeticOverflow)?;
         ensure!(sum == one, Error::<T>::InvalidRewardDist);
         Ok(())
     }
 
     /// Total epoch rewards in PolkaBTC for vaults
     fn vault_rewards_for_epoch_in_polka_btc() -> Result<(PolkaBTC<T>, PolkaBTC<T>), DispatchError> {
-        let total_vault_rewards =
-            Self::btc_for(Self::epoch_rewards_polka_btc(), Self::vault_rewards())?;
+        let total_vault_rewards = Self::btc_for(Self::epoch_rewards_polka_btc(), Self::vault_rewards())?;
         Ok((
             Self::btc_for(total_vault_rewards, Self::vault_rewards_issued())?,
             Self::btc_for(total_vault_rewards, Self::vault_rewards_locked())?,

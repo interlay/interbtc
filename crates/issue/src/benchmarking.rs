@@ -1,26 +1,26 @@
 use super::*;
 use crate::Module as Issue;
-use bitcoin::formatter::{Formattable, TryFormattable};
-use bitcoin::types::{
-    BlockBuilder, RawBlockHeader, TransactionBuilder, TransactionInputBuilder, TransactionOutput,
+use bitcoin::{
+    formatter::{Formattable, TryFormattable},
+    types::{BlockBuilder, RawBlockHeader, TransactionBuilder, TransactionInputBuilder, TransactionOutput},
 };
-use btc_relay::Module as BtcRelay;
-use btc_relay::{BtcAddress, BtcPublicKey};
+use btc_relay::{BtcAddress, BtcPublicKey, Module as BtcRelay};
 use exchange_rate_oracle::Module as ExchangeRateOracle;
 use frame_benchmarking::{account, benchmarks};
-use frame_system::Module as System;
 use frame_system::RawOrigin;
 use security::Module as Security;
 use sp_core::{H160, H256, U256};
 use sp_runtime::FixedPointNumber;
 use sp_std::prelude::*;
-use vault_registry::types::{Vault, Wallet};
-use vault_registry::Module as VaultRegistry;
+use vault_registry::{
+    types::{Vault, Wallet},
+    Module as VaultRegistry,
+};
 
 fn dummy_public_key() -> BtcPublicKey {
     BtcPublicKey([
-        2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55,
-        18, 45, 222, 180, 119, 54, 243, 97, 173, 150, 161, 169, 230,
+        2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55, 18, 45, 222, 180,
+        119, 54, 243, 97, 173, 150, 161, 169, 230,
     ])
 }
 
@@ -42,8 +42,6 @@ benchmarks! {
         let vault_id: T::AccountId = account("Vault", 0, 0);
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
-        BtcRelay::<T>::register_authorized_relayer(relayer_id.clone());
-
         let vault_btc_address = BtcAddress::P2SH(H160::zero());
         let value: u32 = 2;
 
@@ -53,7 +51,7 @@ benchmarks! {
         issue_request.vault = vault_id.clone();
         issue_request.btc_address = vault_btc_address;
         issue_request.amount = value.into();
-        Issue::<T>::insert_issue_request(issue_id, issue_request);
+        Issue::<T>::insert_issue_request(&issue_id, &issue_request);
 
         let height = 0;
         let block = BlockBuilder::new()
@@ -64,7 +62,7 @@ benchmarks! {
 
         let block_hash = block.header.hash().unwrap();
         let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
-        BtcRelay::<T>::_initialize(relayer_id.clone(), block_header, height).unwrap();
+        BtcRelay::<T>::initialize(relayer_id.clone(), block_header, height).unwrap();
 
         let transaction = TransactionBuilder::new()
             .with_version(2)
@@ -98,17 +96,17 @@ benchmarks! {
             .mine(U256::from(2).pow(254.into())).unwrap();
 
         let tx_id = transaction.tx_id();
-        let proof = block.merkle_proof(&vec![tx_id]).unwrap().try_format().unwrap();
+        let proof = block.merkle_proof(&[tx_id]).unwrap().try_format().unwrap();
         let raw_tx = transaction.format_with(true);
 
         let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
-        BtcRelay::<T>::_store_block_header(relayer_id, block_header).unwrap();
+        BtcRelay::<T>::store_block_header(&relayer_id, block_header).unwrap();
 
         VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());
         ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()).unwrap();
         VaultRegistry::<T>::_register_vault(&vault_id, 100000000u32.into(), dummy_public_key()).unwrap();
 
-        VaultRegistry::<T>::increase_to_be_issued_tokens(&vault_id, value.into()).unwrap();
+        VaultRegistry::<T>::try_increase_to_be_issued_tokens(&vault_id, value.into()).unwrap();
         let secure_id = Security::<T>::get_secure_id(&vault_id);
         VaultRegistry::<T>::register_deposit_address(&vault_id, secure_id).unwrap();
     }: _(RawOrigin::Signed(origin), issue_id, tx_id, proof, raw_tx)
@@ -121,8 +119,8 @@ benchmarks! {
         let mut issue_request = IssueRequest::default();
         issue_request.requester = origin.clone();
         issue_request.vault = vault_id.clone();
-        Issue::<T>::insert_issue_request(issue_id, issue_request);
-        System::<T>::set_block_number(System::<T>::block_number() + Issue::<T>::issue_period() + 10u32.into());
+        Issue::<T>::insert_issue_request(&issue_id, &issue_request);
+        Security::<T>::set_active_block_number(Security::<T>::active_block_number() + Issue::<T>::issue_period() + 10u32.into());
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
@@ -147,14 +145,9 @@ mod tests {
 
     #[test]
     fn test_benchmarks() {
-        ExtBuilder::build_with(
-            pallet_balances::GenesisConfig::<Test, pallet_balances::Instance1> {
-                balances: vec![
-                    (account("Origin", 0, 0), 1 << 32),
-                    (account("Vault", 0, 0), 1 << 32),
-                ],
-            },
-        )
+        ExtBuilder::build_with(pallet_balances::GenesisConfig::<Test, pallet_balances::Instance1> {
+            balances: vec![(account("Origin", 0, 0), 1 << 32), (account("Vault", 0, 0), 1 << 32)],
+        })
         .execute_with(|| {
             assert_ok!(test_benchmark_request_issue::<Test>());
             assert_ok!(test_benchmark_execute_issue::<Test>());

@@ -75,10 +75,7 @@ fn test_lock_fails() {
         let init_locked_balance = Treasury::get_locked_balance_from_account(ALICE);
         let init_total_supply = Treasury::get_total_supply();
 
-        assert_err!(
-            Treasury::lock(redeemer, amount),
-            TestError::InsufficientFunds
-        );
+        assert_err!(Treasury::lock(redeemer, amount), TestError::InsufficientFunds);
 
         let balance = Treasury::get_balance_from_account(ALICE);
         let locked_balance = Treasury::get_locked_balance_from_account(ALICE);
@@ -127,10 +124,7 @@ fn test_burn_fails() {
         let init_locked_balance = Treasury::get_locked_balance_from_account(ALICE);
         let init_total_supply = Treasury::get_total_supply();
 
-        assert_err!(
-            Treasury::burn(redeemer, amount),
-            TestError::InsufficientLockedFunds
-        );
+        assert_err!(Treasury::burn(redeemer, amount), TestError::InsufficientLockedFunds);
 
         let balance = Treasury::get_balance_from_account(ALICE);
         let locked_balance = Treasury::get_locked_balance_from_account(ALICE);

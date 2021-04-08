@@ -1,7 +1,8 @@
 use codec::{Decode, Encode};
-use frame_support::runtime_print;
-use frame_support::traits::Currency;
-use frame_support::traits::{ExistenceRequirement::AllowDeath, WithdrawReasons};
+use frame_support::{
+    runtime_print,
+    traits::{Currency, ExistenceRequirement::AllowDeath, WithdrawReasons},
+};
 use sp_runtime::traits::{CheckedConversion, SaturatedConversion};
 use sp_std::{
     convert::{TryFrom, TryInto},
@@ -21,12 +22,10 @@ use xcm_executor::traits::FilterAssetLocation;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
-pub(crate) type DOT<T> =
-    <<T as collateral::Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub(crate) type DOT<T> = <<T as collateral::Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-pub(crate) type PolkaBTC<T> = <<T as treasury::Config>::PolkaBTC as Currency<
-    <T as frame_system::Config>::AccountId,
->>::Balance;
+pub(crate) type PolkaBTC<T> =
+    <<T as treasury::Config>::PolkaBTC as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 #[cfg(feature = "disable-native-filter")]
 pub struct NativeAsset;
@@ -99,10 +98,7 @@ impl<
         Ok(())
     }
 
-    fn withdraw_asset(
-        asset: &MultiAsset,
-        location: &MultiLocation,
-    ) -> Result<MultiAsset, XcmError> {
+    fn withdraw_asset(asset: &MultiAsset, location: &MultiLocation) -> Result<MultiAsset, XcmError> {
         runtime_print!("Withdraw asset: {:?}, location: {:?}", asset, location);
         let who = AccountIdConverter::from_location(location).ok_or(XcmError::BadOrigin)?;
         let currency_id = currency_id_from_asset(asset).ok_or(XcmError::Unimplemented)?;

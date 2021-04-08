@@ -22,25 +22,21 @@ pub mod types;
 
 use crate::types::{Inner, RelayerEvent, VaultEvent};
 use codec::{Decode, Encode, EncodeLike};
-use frame_support::traits::Currency;
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError};
-use sp_arithmetic::traits::*;
-use sp_arithmetic::FixedPointNumber;
-use sp_std::convert::TryInto;
-use sp_std::vec::Vec;
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError, traits::Currency, transactional,
+};
+use frame_system::ensure_root;
+use sp_arithmetic::{traits::*, FixedPointNumber};
+use sp_std::{convert::TryInto, vec::Vec};
 
-pub(crate) type DOT<T> =
-    <<T as collateral::Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-pub(crate) type PolkaBTC<T> = <<T as treasury::Config>::PolkaBTC as Currency<
-    <T as frame_system::Config>::AccountId,
->>::Balance;
+pub(crate) type DOT<T> = <<T as collateral::Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub(crate) type PolkaBTC<T> =
+    <<T as treasury::Config>::PolkaBTC as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 pub(crate) type SignedFixedPoint<T> = <T as Config>::SignedFixedPoint;
 
 /// The pallet's configuration trait.
-pub trait Config:
-    frame_system::Config + collateral::Config + treasury::Config + vault_registry::Config
-{
+pub trait Config: frame_system::Config + collateral::Config + treasury::Config + vault_registry::Config {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 
@@ -77,11 +73,10 @@ decl_storage! {
         VaultSubmittedIssueProof get(fn vault_submitted_issue_proof) config(): T::SignedFixedPoint;
         VaultRefunded get(fn vault_refunded) config(): T::SignedFixedPoint;
         RelayerBlockSubmission get(fn relayer_block_submission) config(): T::SignedFixedPoint;
+        RelayerDuplicateBlockSubmission get(fn relayer_duplicate_block_submission) config(): T::SignedFixedPoint;
         RelayerCorrectNoDataVoteOrReport get(fn relayer_correct_no_data_vote_or_report) config(): T::SignedFixedPoint;
         RelayerCorrectInvalidVoteOrReport get(fn relayer_correct_invalid_vote_or_report) config(): T::SignedFixedPoint;
-        RelayerCorrectLiquidationReport get(fn relayer_correct_liquidation_report) config(): T::SignedFixedPoint;
         RelayerCorrectTheftReport get(fn relayer_correct_theft_report) config(): T::SignedFixedPoint;
-        RelayerCorrectOracleOfflineReport get(fn relayer_correct_oracle_offline_report) config(): T::SignedFixedPoint;
         RelayerFalseNoDataVoteOrReport get(fn relayer_false_no_data_vote_or_report) config(): T::SignedFixedPoint;
         RelayerFalseInvalidVoteOrReport get(fn relayer_false_invalid_vote_or_report) config(): T::SignedFixedPoint;
         RelayerIgnoredVote get(fn relayer_ignored_vote) config(): T::SignedFixedPoint;
@@ -111,6 +106,22 @@ decl_module! {
 
         // Initialize events
         fn deposit_event() = default;
+
+        /// Set the sla delta for the given relayer event.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - the dispatch origin of this call (must be _Root_)
+        /// * `event` - relayer event to update
+        /// * `value` - sla delta
+        ///
+        /// # Weight: `O(1)`
+        #[weight = 0]
+        #[transactional]
+        pub fn set_relayer_sla(origin, event: RelayerEvent, value: T::SignedFixedPoint) {
+            ensure_root(origin)?;
+            Self::_set_relayer_sla(event, value);
+        }
     }
 }
 
@@ -130,9 +141,7 @@ impl<T: Config> Module<T> {
             let score = Self::relayer_sla(&relayer_id)
                 .checked_mul(&stake_fixed_point)
                 .ok_or(Error::<T>::ArithmeticOverflow)?;
-            total_score = total_score
-                .checked_add(&score)
-                .ok_or(Error::<T>::ArithmeticOverflow)?;
+            total_score = total_score.checked_add(&score).ok_or(Error::<T>::ArithmeticOverflow)?;
         }
         <TotalRelayerScore<T>>::set(total_score);
         Ok(())
@@ -164,11 +173,7 @@ impl<T: Config> Module<T> {
         let bounded_new_sla = Self::_limit(T::SignedFixedPoint::zero(), new_sla, max_sla);
 
         <VaultSla<T>>::insert(vault_id, bounded_new_sla);
-        Self::deposit_event(<Event<T>>::UpdateVaultSLA(
-            vault_id.clone(),
-            bounded_new_sla,
-            delta_sla,
-        ));
+        Self::deposit_event(<Event<T>>::UpdateVaultSLA(vault_id.clone(), bounded_new_sla, delta_sla));
 
         Ok(())
     }
@@ -179,12 +184,9 @@ impl<T: Config> Module<T> {
     ///
     /// * `relayer_id` - account id of the relayer
     /// * `event` - the event that has happened
-    pub fn event_update_relayer_sla(
-        relayer_id: &T::AccountId,
-        event: RelayerEvent,
-    ) -> Result<(), DispatchError> {
+    pub fn event_update_relayer_sla(relayer_id: &T::AccountId, event: RelayerEvent) -> Result<(), DispatchError> {
         let current_sla = <RelayerSla<T>>::get(relayer_id);
-        let delta_sla = Self::_relayer_sla_change(event);
+        let delta_sla = Self::_get_relayer_sla(event);
 
         let max = <RelayerTargetSla<T>>::get(); // todo: check that this is indeed the max
         let min = T::SignedFixedPoint::zero();
@@ -207,16 +209,11 @@ impl<T: Config> Module<T> {
                 let new_total_relayer_score = total_relayer_score.checked_add(&delta_score)?;
                 Some(new_total_relayer_score)
             };
-            let new_total =
-                calculate_new_total_relayer_score().ok_or(Error::<T>::InvalidTotalRelayerScore)?;
+            let new_total = calculate_new_total_relayer_score().ok_or(Error::<T>::InvalidTotalRelayerScore)?;
 
             <TotalRelayerScore<T>>::set(new_total);
             <RelayerSla<T>>::insert(relayer_id, new_sla);
-            Self::deposit_event(<Event<T>>::UpdateRelayerSLA(
-                relayer_id.clone(),
-                new_sla,
-                delta_sla,
-            ));
+            Self::deposit_event(<Event<T>>::UpdateRelayerSLA(relayer_id.clone(), new_sla, delta_sla));
         }
 
         Ok(())
@@ -232,16 +229,11 @@ impl<T: Config> Module<T> {
         total_reward_for_issued_in_dot: DOT<T>,
         total_reward_for_locked_in_dot: DOT<T>,
     ) -> Result<Vec<(T::AccountId, PolkaBTC<T>, DOT<T>)>, DispatchError> {
-        let total_issued =
-            Self::polkabtc_to_u128(ext::vault_registry::get_total_issued_tokens::<T>(false)?)?;
-        let total_locked = Self::dot_to_u128(ext::vault_registry::get_total_backing_collateral::<
-            T,
-        >(false)?)?;
+        let total_issued = Self::polkabtc_to_u128(ext::vault_registry::get_total_issued_tokens::<T>(false)?)?;
+        let total_locked = Self::dot_to_u128(ext::vault_registry::get_total_backing_collateral::<T>(false)?)?;
 
-        let total_reward_for_issued_in_polka_btc =
-            Self::polkabtc_to_u128(total_reward_for_issued_in_polka_btc)?;
-        let total_reward_for_locked_in_polka_btc =
-            Self::polkabtc_to_u128(total_reward_for_locked_in_polka_btc)?;
+        let total_reward_for_issued_in_polka_btc = Self::polkabtc_to_u128(total_reward_for_issued_in_polka_btc)?;
+        let total_reward_for_locked_in_polka_btc = Self::polkabtc_to_u128(total_reward_for_locked_in_polka_btc)?;
 
         let total_reward_for_issued_in_dot = Self::dot_to_u128(total_reward_for_issued_in_dot)?;
         let total_reward_for_locked_in_dot = Self::dot_to_u128(total_reward_for_locked_in_dot)?;
@@ -297,7 +289,7 @@ impl<T: Config> Module<T> {
         };
 
         <VaultSla<T>>::iter()
-            .filter_map(|(account_id, _)| calculate_reward(account_id.clone()).transpose())
+            .filter_map(|(account_id, _)| calculate_reward(account_id).transpose())
             .collect()
     }
 
@@ -346,25 +338,28 @@ impl<T: Config> Module<T> {
     ///
     /// * `vault_id` - account of the vault in question
     /// * `stake` - the amount of collateral placed for the redeem/replace
+    /// * `reimburse` - if true, this function returns 110-130%. If false, it returns 10-30%
     pub fn calculate_slashed_amount(
         vault_id: &T::AccountId,
         stake: DOT<T>,
+        reimburse: bool,
     ) -> Result<DOT<T>, DispatchError> {
         let current_sla = <VaultSla<T>>::get(vault_id);
 
-        let liquidation_threshold =
-            ext::vault_registry::get_liquidation_collateral_threshold::<T>();
+        let liquidation_threshold = ext::vault_registry::get_liquidation_collateral_threshold::<T>();
         let liquidation_threshold = Self::fixed_point_unsigned_to_signed(liquidation_threshold)?;
         let premium_redeem_threshold = ext::vault_registry::get_premium_redeem_threshold::<T>();
-        let premium_redeem_threshold =
-            Self::fixed_point_unsigned_to_signed(premium_redeem_threshold)?;
+        let premium_redeem_threshold = Self::fixed_point_unsigned_to_signed(premium_redeem_threshold)?;
 
-        Self::_calculate_slashed_amount(
-            current_sla,
-            stake,
-            liquidation_threshold,
-            premium_redeem_threshold,
-        )
+        let total =
+            Self::_calculate_slashed_amount(current_sla, stake, liquidation_threshold, premium_redeem_threshold)?;
+
+        if reimburse {
+            Ok(total)
+        } else {
+            // vault is already losing the btc, so subtract the equivalent value of the lost btc
+            Ok(total.checked_sub(&stake).ok_or(Error::<T>::ArithmeticUnderflow)?)
+        }
     }
 
     /// Explicitly set the vault's SLA score, used in tests.
@@ -374,13 +369,9 @@ impl<T: Config> Module<T> {
 
     /// initializes the relayer's stake. Not that this module assumes that once set, the stake
     /// remains unchanged forever
-    pub fn initialize_relayer_stake(
-        relayer_id: &T::AccountId,
-        stake: DOT<T>,
-    ) -> Result<(), DispatchError> {
+    pub fn initialize_relayer_stake(relayer_id: &T::AccountId, stake: DOT<T>) -> Result<(), DispatchError> {
         let stake = Self::dot_to_u128(stake)?;
-        let stake = T::SignedFixedPoint::checked_from_rational(stake, 1u128)
-            .ok_or(Error::<T>::TryIntoIntError)?;
+        let stake = T::SignedFixedPoint::checked_from_rational(stake, 1u128).ok_or(Error::<T>::TryIntoIntError)?;
         <RelayerStake<T>>::insert(relayer_id, stake);
 
         Ok(())
@@ -417,7 +408,7 @@ impl<T: Config> Module<T> {
             stake_scaling_factor.checked_mul_int(stake)
         };
         let slashed_raw = calculate_slashed_collateral().ok_or(Error::<T>::InvalidSlashedAmount)?;
-        Ok(Self::u128_to_dot(slashed_raw)?)
+        Self::u128_to_dot(slashed_raw)
     }
 
     /// Calculates the potential sla change for when an issue has been completed on the given vault.
@@ -429,9 +420,7 @@ impl<T: Config> Module<T> {
     ///
     /// * `amount` - the amount of polkabtc that was issued
     /// * `vault_id` - account of the vault
-    fn _executed_issue_sla_change(
-        amount: PolkaBTC<T>,
-    ) -> Result<T::SignedFixedPoint, DispatchError> {
+    fn _executed_issue_sla_change(amount: PolkaBTC<T>) -> Result<T::SignedFixedPoint, DispatchError> {
         // update the number of issues performed
         let mut count = <TotalIssueCount>::get();
         count = count.checked_add(1).ok_or(Error::<T>::ArithmeticOverflow)?;
@@ -440,8 +429,8 @@ impl<T: Config> Module<T> {
         // TODO: fix this
         let total = ext::treasury::get_total_supply::<T>();
         let total_raw = Self::polkabtc_to_u128(total)?;
-        let average = T::SignedFixedPoint::checked_from_rational(total_raw, count)
-            .ok_or(Error::<T>::TryIntoIntError)?;
+        let average =
+            T::SignedFixedPoint::checked_from_rational(total_raw, count).ok_or(Error::<T>::TryIntoIntError)?;
 
         let max_sla_change = <VaultExecutedIssueMaxSlaChange<T>>::get();
 
@@ -453,20 +442,12 @@ impl<T: Config> Module<T> {
             .checked_mul(&max_sla_change)
             .ok_or(Error::<T>::ArithmeticOverflow)?;
 
-        let ret = Self::_limit(
-            T::SignedFixedPoint::zero(),
-            potential_sla_increase,
-            max_sla_change,
-        );
+        let ret = Self::_limit(T::SignedFixedPoint::zero(), potential_sla_increase, max_sla_change);
         Ok(ret)
     }
 
     /// returns `value` if it is between `min` and `max`; otherwise it returns the bound
-    fn _limit(
-        min: T::SignedFixedPoint,
-        value: T::SignedFixedPoint,
-        max: T::SignedFixedPoint,
-    ) -> T::SignedFixedPoint {
+    fn _limit(min: T::SignedFixedPoint, value: T::SignedFixedPoint, max: T::SignedFixedPoint) -> T::SignedFixedPoint {
         if value < min {
             min
         } else if value > max {
@@ -477,29 +458,35 @@ impl<T: Config> Module<T> {
     }
 
     /// Gets the SLA change corresponding to the given event from storage
-    fn _relayer_sla_change(event: RelayerEvent) -> T::SignedFixedPoint {
+    fn _get_relayer_sla(event: RelayerEvent) -> T::SignedFixedPoint {
         match event {
             RelayerEvent::BlockSubmission => <RelayerBlockSubmission<T>>::get(),
+            RelayerEvent::DuplicateBlockSubmission => <RelayerDuplicateBlockSubmission<T>>::get(),
             RelayerEvent::CorrectNoDataVoteOrReport => <RelayerCorrectNoDataVoteOrReport<T>>::get(),
-            RelayerEvent::CorrectInvalidVoteOrReport => {
-                <RelayerCorrectInvalidVoteOrReport<T>>::get()
-            }
-            RelayerEvent::CorrectLiquidationReport => <RelayerCorrectLiquidationReport<T>>::get(),
+            RelayerEvent::CorrectInvalidVoteOrReport => <RelayerCorrectInvalidVoteOrReport<T>>::get(),
             RelayerEvent::CorrectTheftReport => <RelayerCorrectTheftReport<T>>::get(),
-            RelayerEvent::CorrectOracleOfflineReport => {
-                <RelayerCorrectOracleOfflineReport<T>>::get()
-            }
             RelayerEvent::FalseNoDataVoteOrReport => <RelayerFalseNoDataVoteOrReport<T>>::get(),
             RelayerEvent::FalseInvalidVoteOrReport => <RelayerFalseInvalidVoteOrReport<T>>::get(),
             RelayerEvent::IgnoredVote => <RelayerIgnoredVote<T>>::get(),
         }
     }
 
+    /// Updates the SLA change corresponding to the given event in storage
+    fn _set_relayer_sla(event: RelayerEvent, value: T::SignedFixedPoint) {
+        match event {
+            RelayerEvent::BlockSubmission => <RelayerBlockSubmission<T>>::set(value),
+            RelayerEvent::DuplicateBlockSubmission => <RelayerDuplicateBlockSubmission<T>>::set(value),
+            RelayerEvent::CorrectNoDataVoteOrReport => <RelayerCorrectNoDataVoteOrReport<T>>::set(value),
+            RelayerEvent::CorrectInvalidVoteOrReport => <RelayerCorrectInvalidVoteOrReport<T>>::set(value),
+            RelayerEvent::CorrectTheftReport => <RelayerCorrectTheftReport<T>>::set(value),
+            RelayerEvent::FalseNoDataVoteOrReport => <RelayerFalseNoDataVoteOrReport<T>>::set(value),
+            RelayerEvent::FalseInvalidVoteOrReport => <RelayerFalseInvalidVoteOrReport<T>>::set(value),
+            RelayerEvent::IgnoredVote => <RelayerIgnoredVote<T>>::set(value),
+        }
+    }
+
     /// Calculate the reward of a given relayer, given the total reward for the whole relayer pool
-    fn _calculate_relayer_reward(
-        relayer_id: &T::AccountId,
-        total_reward: u128,
-    ) -> Result<u128, DispatchError> {
+    fn _calculate_relayer_reward(relayer_id: &T::AccountId, total_reward: u128) -> Result<u128, DispatchError> {
         let stake = Self::get_relayer_stake(&relayer_id);
         let sla = <RelayerSla<T>>::get(&relayer_id);
         let total_relayer_score = <TotalRelayerScore<T>>::get();
@@ -522,17 +509,14 @@ impl<T: Config> Module<T> {
     }
 
     /// Convert a given threshold from the vault registry to a signed fixed point type
-    fn fixed_point_unsigned_to_signed<U: FixedPointNumber>(
-        value: U,
-    ) -> Result<SignedFixedPoint<T>, DispatchError> {
+    fn fixed_point_unsigned_to_signed<U: FixedPointNumber>(value: U) -> Result<SignedFixedPoint<T>, DispatchError> {
         let raw: i128 = value
             .into_inner()
             .unique_saturated_into()
             .try_into()
             .map_err(|_| Error::<T>::TryIntoIntError)?;
 
-        let ret = T::SignedFixedPoint::checked_from_rational(raw, U::accuracy())
-            .ok_or(Error::<T>::TryIntoIntError)?;
+        let ret = T::SignedFixedPoint::checked_from_rational(raw, U::accuracy()).ok_or(Error::<T>::TryIntoIntError)?;
         Ok(ret)
     }
 

@@ -3,17 +3,12 @@ use codec::{Decode, Encode};
 use frame_support::traits::Currency;
 use security::types::{ErrorCode, StatusCode};
 use sp_arithmetic::traits::Saturating;
-use sp_std::cmp::Ord;
-use sp_std::collections::btree_set::BTreeSet;
-use sp_std::fmt::Debug;
-use sp_std::prelude::Vec;
+use sp_std::{cmp::Ord, collections::btree_set::BTreeSet, fmt::Debug, prelude::Vec};
 
-pub(crate) type DOT<T> =
-    <<T as collateral::Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub(crate) type DOT<T> = <<T as collateral::Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-pub(crate) type PolkaBTC<T> = <<T as treasury::Config>::PolkaBTC as Currency<
-    <T as frame_system::Config>::AccountId,
->>::Balance;
+pub(crate) type PolkaBTC<T> =
+    <<T as treasury::Config>::PolkaBTC as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 pub type StatusUpdateId = u64;
 
@@ -85,9 +80,11 @@ impl<AccountId: Ord, Balance: Clone + Saturating> Votes<AccountId, Balance> {
 /// democracy pallet in FRAME with restricted functionality.
 #[derive(Encode, Decode, Default, Clone, PartialEq, Debug)]
 pub struct Tally<AccountId: Ord, Balance: Clone + PartialOrd + Saturating> {
-    /// Set of accounts which have voted FOR this status update. This can be either Staked Relayers or the Governance Mechanism.
+    /// Set of accounts which have voted FOR this status update. This can be either Staked Relayers or the Governance
+    /// Mechanism.
     pub(crate) aye: Votes<AccountId, Balance>,
-    /// Set of accounts which have voted AGAINST this status update. This can be either Staked Relayers or the Governance Mechanism.
+    /// Set of accounts which have voted AGAINST this status update. This can be either Staked Relayers or the
+    /// Governance Mechanism.
     pub(crate) nay: Votes<AccountId, Balance>,
 }
 
@@ -106,13 +103,13 @@ impl<AccountId: Ord + Clone, Balance: Clone + PartialOrd + Saturating> Tally<Acc
     /// Returns false if the account has already voted.
     pub(crate) fn vote(&mut self, id: AccountId, stake: Balance, approve: bool) -> bool {
         if self.contains(&id) {
-            return false;
+            false
         } else if approve {
             self.aye.insert(id, stake);
-            return true;
+            true
         } else {
             self.nay.insert(id, stake);
-            return true;
+            true
         }
     }
 }

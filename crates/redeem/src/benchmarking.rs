@@ -1,23 +1,24 @@
 use super::*;
 use crate::Module as Redeem;
-use bitcoin::formatter::{Formattable, TryFormattable};
-use bitcoin::types::{
-    BlockBuilder, RawBlockHeader, TransactionBuilder, TransactionInputBuilder, TransactionOutput,
+use bitcoin::{
+    formatter::{Formattable, TryFormattable},
+    types::{BlockBuilder, RawBlockHeader, TransactionBuilder, TransactionInputBuilder, TransactionOutput},
 };
-use btc_relay::Module as BtcRelay;
-use btc_relay::{BtcAddress, BtcPublicKey};
+use btc_relay::{BtcAddress, BtcPublicKey, Module as BtcRelay};
 use frame_benchmarking::{account, benchmarks};
-use frame_system::Module as System;
 use frame_system::RawOrigin;
+use security::Module as Security;
 use sp_core::{H160, H256, U256};
 use sp_std::prelude::*;
-use vault_registry::types::{Vault, Wallet};
-use vault_registry::Module as VaultRegistry;
+use vault_registry::{
+    types::{Vault, Wallet},
+    Module as VaultRegistry,
+};
 
 fn dummy_public_key() -> BtcPublicKey {
     BtcPublicKey([
-        2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55,
-        18, 45, 222, 180, 119, 54, 243, 97, 173, 150, 161, 169, 230,
+        2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55, 18, 45, 222, 180,
+        119, 54, 243, 97, 173, 150, 161, 169, 230,
     ])
 }
 
@@ -44,8 +45,6 @@ benchmarks! {
         let vault_id: T::AccountId = account("Vault", 0, 0);
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
-        BtcRelay::<T>::register_authorized_relayer(relayer_id.clone());
-
         let origin_btc_address = BtcAddress::P2PKH(H160::zero());
 
         let redeem_id = H256::zero();
@@ -71,7 +70,8 @@ benchmarks! {
 
         let block_hash = block.header.hash().unwrap();
         let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
-        BtcRelay::<T>::_initialize(relayer_id.clone(), block_header, height).unwrap();
+
+        BtcRelay::<T>::initialize(relayer_id.clone(), block_header, height).unwrap();
 
         let value = 0;
         let transaction = TransactionBuilder::new()
@@ -106,11 +106,11 @@ benchmarks! {
             .mine(U256::from(2).pow(254.into())).unwrap();
 
         let tx_id = transaction.tx_id();
-        let proof = block.merkle_proof(&vec![tx_id]).unwrap().try_format().unwrap();
+        let proof = block.merkle_proof(&[tx_id]).unwrap().try_format().unwrap();
         let raw_tx = transaction.format_with(true);
 
         let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
-        BtcRelay::<T>::_store_block_header(relayer_id, block_header).unwrap();
+        BtcRelay::<T>::store_block_header(&relayer_id, block_header).unwrap();
 
     }: _(RawOrigin::Signed(vault_id), redeem_id, tx_id, proof, raw_tx)
 
@@ -122,9 +122,10 @@ benchmarks! {
         let mut redeem_request = RedeemRequest::default();
         redeem_request.vault = vault_id.clone();
         redeem_request.redeemer = origin.clone();
-        redeem_request.opentime = System::<T>::block_number();
+        redeem_request.opentime = Security::<T>::active_block_number();
         Redeem::<T>::insert_redeem_request(redeem_id, redeem_request);
-        System::<T>::set_block_number(System::<T>::block_number() + Redeem::<T>::redeem_period() + 10u32.into());
+        Security::<T>::set_active_block_number(Security::<T>::active_block_number() + Redeem::<T>::redeem_period() + 10u32.into());
+
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
@@ -151,16 +152,10 @@ mod tests {
     fn test_benchmarks() {
         ExtBuilder::build_with(
             pallet_balances::GenesisConfig::<Test, pallet_balances::Instance1> {
-                balances: vec![
-                    (account("Origin", 0, 0), 1 << 32),
-                    (account("Vault", 0, 0), 1 << 32),
-                ],
+                balances: vec![(account("Origin", 0, 0), 1 << 32), (account("Vault", 0, 0), 1 << 32)],
             },
             pallet_balances::GenesisConfig::<Test, pallet_balances::Instance2> {
-                balances: vec![
-                    (account("Origin", 0, 0), 1 << 32),
-                    (account("Vault", 0, 0), 1 << 32),
-                ],
+                balances: vec![(account("Origin", 0, 0), 1 << 32), (account("Vault", 0, 0), 1 << 32)],
             },
         )
         .execute_with(|| {

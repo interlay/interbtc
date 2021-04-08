@@ -6,9 +6,7 @@ pub(crate) mod fee {
     use crate::types::PolkaBTC;
     use frame_support::dispatch::DispatchError;
 
-    pub fn get_refund_fee_from_total<T: fee::Config>(
-        amount: PolkaBTC<T>,
-    ) -> Result<PolkaBTC<T>, DispatchError> {
+    pub fn get_refund_fee_from_total<T: fee::Config>(amount: PolkaBTC<T>) -> Result<PolkaBTC<T>, DispatchError> {
         <fee::Module<T>>::get_refund_fee_from_total(amount)
     }
 }
@@ -34,19 +32,16 @@ pub(crate) mod btc_relay {
     use frame_support::dispatch::{DispatchError, DispatchResult};
     use sp_std::vec::Vec;
 
-    pub fn verify_transaction_inclusion<T: btc_relay::Config>(
-        tx_id: H256Le,
-        merkle_proof: Vec<u8>,
-    ) -> DispatchResult {
+    pub fn verify_transaction_inclusion<T: btc_relay::Config>(tx_id: H256Le, merkle_proof: Vec<u8>) -> DispatchResult {
         <btc_relay::Module<T>>::_verify_transaction_inclusion(tx_id, merkle_proof, None)
     }
     pub fn validate_transaction<T: btc_relay::Config>(
         raw_tx: Vec<u8>,
-        amount: i64,
+        minimum_btc: Option<i64>,
         btc_address: BtcAddress,
         refund_id: Option<Vec<u8>>,
     ) -> Result<(BtcAddress, i64), DispatchError> {
-        <btc_relay::Module<T>>::_validate_transaction(raw_tx, amount, btc_address, refund_id)
+        <btc_relay::Module<T>>::_validate_transaction(raw_tx, minimum_btc, btc_address, refund_id)
     }
 }
 
@@ -73,17 +68,14 @@ pub(crate) mod vault_registry {
     use crate::types::PolkaBTC;
     use frame_support::dispatch::{DispatchError, DispatchResult};
 
-    pub fn increase_to_be_issued_tokens<T: vault_registry::Config>(
+    pub fn try_increase_to_be_issued_tokens<T: vault_registry::Config>(
         vault_id: &T::AccountId,
         amount: PolkaBTC<T>,
     ) -> Result<(), DispatchError> {
-        <vault_registry::Module<T>>::increase_to_be_issued_tokens(vault_id, amount)
+        <vault_registry::Module<T>>::try_increase_to_be_issued_tokens(vault_id, amount)
     }
 
-    pub fn issue_tokens<T: vault_registry::Config>(
-        vault_id: &T::AccountId,
-        amount: PolkaBTC<T>,
-    ) -> DispatchResult {
+    pub fn issue_tokens<T: vault_registry::Config>(vault_id: &T::AccountId, amount: PolkaBTC<T>) -> DispatchResult {
         <vault_registry::Module<T>>::issue_tokens(vault_id, amount)
     }
 }

@@ -5,9 +5,12 @@
 mod types;
 
 use cumulus_primitives::ParaId;
-use frame_support::dispatch::{DispatchError, DispatchResult};
-use frame_support::transactional;
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, traits::Get};
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage,
+    dispatch::{DispatchError, DispatchResult},
+    traits::Get,
+    transactional,
+};
 use frame_system::ensure_signed;
 use sp_runtime::traits::Convert;
 use sp_std::{convert::TryInto, prelude::*};
@@ -87,7 +90,7 @@ decl_module! {
                     CurrencyId::DOT,
                     raw_amount
                 ),
-            ).map_err(|err| Error::<T>::from(err))?;
+            ).map_err(Error::<T>::from)?;
 
             Self::deposit_event(Event::<T>::TransferDOT(
                 who,
@@ -128,7 +131,7 @@ decl_module! {
                     CurrencyId::PolkaBTC,
                     raw_amount
                 ),
-            ).map_err(|err| Error::<T>::from(err))?;
+            ).map_err(Error::<T>::from)?;
 
             Self::deposit_event(Event::<T>::TransferPolkaBTC(
                 who,

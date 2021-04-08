@@ -1,6 +1,6 @@
 [package]
 name = "module-sla-rpc"
-version = '0.5.0'
+version = "0.6.0"
 authors = ["Interlay Ltd"]
 edition = "2018"
 
