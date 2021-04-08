@@ -289,10 +289,6 @@ impl<T: Config> Module<T> {
         let height = <frame_system::Pallet<T>>::block_number();
         let maturity = height + Self::get_operator_unbonding_period();
         operator.add_pending_operator_withdrawal(request_id, collateral_to_withdraw, maturity)?;
-        // get operator collateral
-        // get nominator collateral
-        // compute max nominator collateral using Max Nomination ratio
-        // create proportional refunds for collateral difference
         Self::deposit_event(Event::<T>::RequestOperatorCollateralWithdrawal(
             request_id,
             operator_id.clone(),
