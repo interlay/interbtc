@@ -122,6 +122,8 @@ impl<T: Config> Module<T> {
         btc_address: BtcAddress,
         issue_id: H256,
     ) -> Result<Option<H256>, DispatchError> {
+        ext::security::ensure_parachain_status_running::<T>()?;
+
         let fee_polka_btc = ext::fee::get_refund_fee_from_total::<T>(total_amount_btc)?;
         let net_refund_amount_polka_btc = total_amount_btc
             .checked_sub(&fee_polka_btc)
@@ -169,6 +171,8 @@ impl<T: Config> Module<T> {
     /// * `merkle_proof` - raw bytes of the proof
     /// * `raw_tx` - raw bytes of the transaction
     fn _execute_refund(refund_id: H256, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> Result<(), DispatchError> {
+        ext::security::ensure_parachain_status_running::<T>()?;
+
         let request = Self::get_open_refund_request_from_id(&refund_id)?;
 
         // verify the payment

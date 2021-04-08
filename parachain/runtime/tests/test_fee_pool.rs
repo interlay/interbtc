@@ -253,3 +253,19 @@ fn test_maintainer_fee_pool_withdrawal() {
         assert_eq_modulo_rounding!(get_rewards(currency, MAINTAINER), maintainer_rewards);
     })
 }
+
+#[test]
+fn integration_test_fee_with_parachain_shutdown_fails() {
+    ExtBuilder::build().execute_with(|| {
+        SecurityModule::set_status(StatusCode::Shutdown);
+
+        assert_noop!(
+            Call::Fee(FeeCall::withdraw_polka_btc(0)).dispatch(origin_of(account_of(ALICE))),
+            SecurityError::ParachainNotRunning
+        );
+        assert_noop!(
+            Call::Fee(FeeCall::withdraw_dot(0)).dispatch(origin_of(account_of(ALICE))),
+            SecurityError::ParachainNotRunning
+        );
+    })
+}

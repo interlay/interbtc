@@ -60,3 +60,43 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
         }
     })
 }
+
+#[test]
+fn integration_test_btc_relay_with_parachain_shutdown_fails() {
+    ExtBuilder::build().execute_with(|| {
+        SecurityModule::set_status(StatusCode::Shutdown);
+
+        assert_noop!(
+            Call::BTCRelay(BTCRelayCall::verify_and_validate_transaction(
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                Default::default()
+            ))
+            .dispatch(origin_of(account_of(ALICE))),
+            SecurityError::ParachainNotRunning
+        );
+        assert_noop!(
+            Call::BTCRelay(BTCRelayCall::verify_transaction_inclusion(
+                Default::default(),
+                Default::default(),
+                Default::default()
+            ))
+            .dispatch(origin_of(account_of(ALICE))),
+            SecurityError::ParachainNotRunning
+        );
+        assert_noop!(
+            Call::BTCRelay(BTCRelayCall::validate_transaction(
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                Default::default()
+            ))
+            .dispatch(origin_of(account_of(ALICE))),
+            SecurityError::ParachainNotRunning
+        );
+    })
+}

@@ -88,7 +88,7 @@ mod expiry_test {
 }
 
 #[test]
-fn integration_test_issue_should_fail_if_not_running() {
+fn integration_test_issue_with_parachain_shutdown_fails() {
     test_with(|| {
         SecurityModule::set_status(StatusCode::Shutdown);
 
@@ -98,8 +98,27 @@ fn integration_test_issue_should_fail_if_not_running() {
         );
 
         assert_noop!(
-            Call::Issue(IssueCall::execute_issue(H256([0; 32]), vec![0u8; 32], vec![0u8; 32]))
-                .dispatch(origin_of(account_of(ALICE))),
+            Call::Issue(IssueCall::cancel_issue(H256([0; 32]),)).dispatch(origin_of(account_of(ALICE))),
+            SecurityError::ParachainNotRunning,
+        );
+
+        assert_noop!(
+            Call::Issue(IssueCall::execute_issue(
+                Default::default(),
+                Default::default(),
+                Default::default()
+            ))
+            .dispatch(origin_of(account_of(ALICE))),
+            SecurityError::ParachainNotRunning,
+        );
+
+        assert_noop!(
+            Call::Refund(RefundCall::execute_refund(
+                Default::default(),
+                Default::default(),
+                Default::default()
+            ))
+            .dispatch(origin_of(account_of(ALICE))),
             SecurityError::ParachainNotRunning,
         );
     });

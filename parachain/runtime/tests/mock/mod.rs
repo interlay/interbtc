@@ -68,6 +68,14 @@ pub type BTCRelayError = btc_relay::Error<Runtime>;
 pub type BTCRelayEvent = btc_relay::Event<Runtime>;
 
 pub type CollateralError = collateral::Error<Runtime>;
+pub type CollateralModule = collateral::Module<Runtime>;
+
+pub type ExchangeRateOracleCall = exchange_rate_oracle::Call<Runtime>;
+pub type ExchangeRateOracleModule = exchange_rate_oracle::Module<Runtime>;
+
+pub type FeeCall = fee::Call<Runtime>;
+pub type FeeError = fee::Error<Runtime>;
+pub type FeeModule = fee::Module<Runtime>;
 
 pub type IssueCall = issue::Call<Runtime>;
 pub type IssuePallet = issue::Pallet<Runtime>;
@@ -81,7 +89,6 @@ pub type RefundEvent = refund::Event<Runtime>;
 pub type RedeemCall = redeem::Call<Runtime>;
 pub type RedeemPallet = redeem::Pallet<Runtime>;
 pub type RedeemEvent = redeem::Event<Runtime>;
-pub type RedeemError = redeem::Error<Runtime>;
 
 pub type ReplaceCall = replace::Call<Runtime>;
 pub type ReplaceEvent = replace::Event<Runtime>;
@@ -89,6 +96,22 @@ pub type ReplacePallet = replace::Pallet<Runtime>;
 
 pub type StakedRelayersCall = staked_relayers::Call<Runtime>;
 pub type StakedRelayersPallet = staked_relayers::Pallet<Runtime>;
+
+pub type SecurityError = security::Error<Runtime>;
+pub type SecurityPallet = security::Pallet<Runtime>;
+
+pub type SlaPallet = sla::Pallet<Runtime>;
+
+pub type StakedRelayersCall = staked_relayers::Call<Runtime>;
+pub type StakedRelayersPallet = staked_relayers::Pallet<Runtime>;
+
+pub type SystemModule = frame_system::Pallet<Runtime>;
+
+pub type TreasuryModule = treasury::Module<Runtime>;
+
+pub type VaultRegistryCall = vault_registry::Call<Runtime>;
+pub type VaultRegistryError = vault_registry::Error<Runtime>;
+pub type VaultRegistryPallet = vault_registry::Pallet<Runtime>;
 
 pub fn default_user_state() -> UserData {
     UserData {
@@ -696,42 +719,6 @@ pub fn generate_transaction_and_mine(
         .mine();
     (tx_id, height, proof, raw_tx)
 }
-
-#[allow(dead_code)]
-pub type SystemModule = frame_system::Pallet<Runtime>;
-
-#[allow(dead_code)]
-pub type SecurityModule = security::Pallet<Runtime>;
-#[allow(dead_code)]
-pub type SecurityError = security::Error<Runtime>;
-
-#[allow(dead_code)]
-pub type VaultRegistryCall = vault_registry::Call<Runtime>;
-#[allow(dead_code)]
-pub type VaultRegistryPallet = vault_registry::Pallet<Runtime>;
-#[allow(dead_code)]
-pub type VaultRegistryError = vault_registry::Error<Runtime>;
-
-#[allow(dead_code)]
-pub type ExchangeRateOracleCall = exchange_rate_oracle::Call<Runtime>;
-#[allow(dead_code)]
-pub type ExchangeRateOracleModule = exchange_rate_oracle::Pallet<Runtime>;
-
-#[allow(dead_code)]
-pub type SlaPallet = sla::Pallet<Runtime>;
-
-#[allow(dead_code)]
-pub type FeePallet = fee::Pallet<Runtime>;
-#[allow(dead_code)]
-pub type FeeCall = fee::Call<Runtime>;
-#[allow(dead_code)]
-pub type FeeError = fee::Error<Runtime>;
-
-#[allow(dead_code)]
-pub type CollateralModule = collateral::Pallet<Runtime>;
-
-#[allow(dead_code)]
-pub type TreasuryModule = treasury::Pallet<Runtime>;
 
 pub struct ExtBuilder {
     test_externalities: sp_io::TestExternalities,

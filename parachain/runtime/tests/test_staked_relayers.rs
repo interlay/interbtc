@@ -90,3 +90,40 @@ fn integration_test_report_vault_theft_by_relayer() {
 fn integration_test_report_vault_theft_by_non_relayer() {
     test_vault_theft(false);
 }
+
+#[test]
+fn test_staked_relayer_parachain_status_check_fails() {
+    ExtBuilder::build().execute_with(|| {
+        SecurityModule::set_status(StatusCode::Shutdown);
+
+        assert_noop!(
+            Call::StakedRelayers(StakedRelayersCall::initialize(Default::default(), 0))
+                .dispatch(origin_of(account_of(ALICE))),
+            SecurityError::ParachainNotRunning
+        );
+        assert_noop!(
+            Call::StakedRelayers(StakedRelayersCall::register_staked_relayer(0)).dispatch(origin_of(account_of(ALICE))),
+            SecurityError::ParachainNotRunning
+        );
+        assert_noop!(
+            Call::StakedRelayers(StakedRelayersCall::deregister_staked_relayer())
+                .dispatch(origin_of(account_of(ALICE))),
+            SecurityError::ParachainNotRunning
+        );
+        assert_noop!(
+            Call::StakedRelayers(StakedRelayersCall::store_block_header(Default::default()))
+                .dispatch(origin_of(account_of(ALICE))),
+            SecurityError::ParachainNotRunning
+        );
+        assert_noop!(
+            Call::StakedRelayers(StakedRelayersCall::report_vault_theft(
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                Default::default()
+            ))
+            .dispatch(origin_of(account_of(ALICE))),
+            SecurityError::ParachainNotRunning
+        );
+    })
+}

@@ -39,7 +39,9 @@ use sp_std::{convert::TryInto, vec::*};
 use types::{Inner, PolkaBTC, UnsignedFixedPoint, DOT};
 
 /// The pallet's configuration trait.
-pub trait Config: frame_system::Config + collateral::Config + treasury::Config + sla::Config {
+pub trait Config:
+    frame_system::Config + collateral::Config + treasury::Config + sla::Config + security::Config
+{
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 
@@ -196,6 +198,7 @@ decl_module! {
         #[transactional]
         fn withdraw_polka_btc(origin, amount: PolkaBTC<T>) -> DispatchResult
         {
+            ext::security::ensure_parachain_status_running::<T>()?;
             let signer = ensure_signed(origin)?;
             <TotalRewardsPolkaBTC<T>>::insert(signer.clone(), <TotalRewardsPolkaBTC<T>>::get(signer.clone()).checked_sub(&amount).ok_or(Error::<T>::InsufficientFunds)?);
             ext::treasury::transfer::<T>(Self::fee_pool_account_id(), signer.clone(), amount)?;
@@ -216,6 +219,7 @@ decl_module! {
         #[transactional]
         fn withdraw_dot(origin, amount: DOT<T>) -> DispatchResult
         {
+            ext::security::ensure_parachain_status_running::<T>()?;
             let signer = ensure_signed(origin)?;
             <TotalRewardsDOT<T>>::insert(signer.clone(), <TotalRewardsDOT<T>>::get(signer.clone()).checked_sub(&amount).ok_or(Error::<T>::InsufficientFunds)?);
             ext::collateral::transfer::<T>(Self::fee_pool_account_id(), signer.clone(), amount)?;

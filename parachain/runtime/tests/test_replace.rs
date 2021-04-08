@@ -798,6 +798,61 @@ fn integration_test_replace_auction_replace() {
 }
 
 #[test]
+fn integration_test_replace_with_parachain_shutdown_fails() {
+    test_with(|| {
+        SecurityModule::set_status(StatusCode::Shutdown);
+        // make vault auctionable
+        VaultRegistryModule::set_auction_collateral_threshold(FixedU128::from(10_000));
+
+        assert_noop!(
+            Call::Replace(ReplaceCall::request_replace(0, 0)).dispatch(origin_of(account_of(OLD_VAULT))),
+            SecurityError::ParachainNotRunning,
+        );
+        assert_noop!(
+            Call::Replace(ReplaceCall::withdraw_replace(0,)).dispatch(origin_of(account_of(OLD_VAULT))),
+            SecurityError::ParachainNotRunning
+        );
+        assert_noop!(
+            Call::Replace(ReplaceCall::accept_replace(
+                Default::default(),
+                0,
+                0,
+                Default::default()
+            ))
+            .dispatch(origin_of(account_of(OLD_VAULT))),
+            SecurityError::ParachainNotRunning
+        );
+
+        assert_noop!(
+            Call::Replace(ReplaceCall::auction_replace(
+                account_of(OLD_VAULT),
+                0,
+                0,
+                Default::default()
+            ))
+            .dispatch(origin_of(account_of(OLD_VAULT))),
+            SecurityError::ParachainNotRunning
+        );
+
+        assert_noop!(
+            Call::Replace(ReplaceCall::execute_replace(
+                Default::default(),
+                Default::default(),
+                Default::default(),
+                Default::default()
+            ))
+            .dispatch(origin_of(account_of(OLD_VAULT))),
+            SecurityError::ParachainNotRunning
+        );
+
+        assert_noop!(
+            Call::Replace(ReplaceCall::cancel_replace(Default::default())).dispatch(origin_of(account_of(OLD_VAULT))),
+            SecurityError::ParachainNotRunning
+        );
+    })
+}
+
+#[test]
 fn integration_test_replace_execute_replace() {
     ExtBuilder::build().execute_with(|| {
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));

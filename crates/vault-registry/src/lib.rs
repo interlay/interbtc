@@ -215,7 +215,7 @@ decl_module! {
         fn lock_additional_collateral(origin, amount: DOT<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
-            Self::check_parachain_not_shutdown_and_not_errors([ErrorCode::OracleOffline].to_vec())?;
+            ext::security::ensure_parachain_status_running::<T>()?;
 
             Self::try_lock_additional_collateral(&sender, amount)?;
 
@@ -298,6 +298,7 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::accept_new_issues()]
         #[transactional]
         fn accept_new_issues(origin, accept_new_issues: bool) -> DispatchResult  {
+            ext::security::ensure_parachain_status_running::<T>()?;
             let vault_id = ensure_signed(origin)?;
             let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
             vault.set_accept_new_issues(accept_new_issues)

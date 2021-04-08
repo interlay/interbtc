@@ -259,7 +259,7 @@ decl_module! {
         fn mint_tokens_for_reimbursed_redeem(origin, redeem_id: H256)
             -> DispatchResult
         {
-            let redeemer = ensure_signed(origin)?;
+        let redeemer = ensure_signed(origin)?;
             Self::_mint_tokens_for_reimbursed_redeem(redeemer, redeem_id)?;
             Ok(())
         }
@@ -426,6 +426,8 @@ impl<T: Config> Module<T> {
     }
 
     fn _cancel_redeem(redeemer: T::AccountId, redeem_id: H256, reimburse: bool) -> DispatchResult {
+        ext::security::ensure_parachain_status_running::<T>()?;
+
         let redeem = Self::get_open_redeem_request_from_id(&redeem_id)?;
         ensure!(redeemer == redeem.redeemer, Error::<T>::UnauthorizedUser);
 
@@ -553,6 +555,7 @@ impl<T: Config> Module<T> {
     }
 
     fn _mint_tokens_for_reimbursed_redeem(vault_id: T::AccountId, redeem_id: H256) -> DispatchResult {
+        ext::security::ensure_parachain_status_running::<T>()?;
         ensure!(
             <RedeemRequests<T>>::contains_key(&redeem_id),
             Error::<T>::RedeemIdNotFound

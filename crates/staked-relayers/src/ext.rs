@@ -48,6 +48,7 @@ pub(crate) mod vault_registry {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod security {
+    use frame_support::dispatch::DispatchResult;
     use security::types::{ErrorCode, StatusCode};
     use sp_std::collections::btree_set::BTreeSet;
 
@@ -74,6 +75,10 @@ pub(crate) mod security {
 
     pub fn active_block_number<T: security::Config>() -> T::BlockNumber {
         <security::Pallet<T>>::active_block_number()
+    }
+
+    pub fn ensure_parachain_status_running<T: security::Config>() -> DispatchResult {
+        <security::Module<T>>::ensure_parachain_status_running()
     }
 }
 

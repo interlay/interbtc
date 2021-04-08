@@ -432,6 +432,9 @@ impl<T: Config> Module<T> {
 
     /// Cancels CBA issuance if time has expired and slashes collateral.
     fn _cancel_issue(requester: T::AccountId, issue_id: H256) -> Result<(), DispatchError> {
+        // Check that Parachain is RUNNING
+        ext::security::ensure_parachain_status_running::<T>()?;
+
         let issue = Self::get_issue_request_from_id(&issue_id)?;
 
         // only cancellable after the request has expired
