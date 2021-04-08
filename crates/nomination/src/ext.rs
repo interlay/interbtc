@@ -59,7 +59,7 @@ pub(crate) mod vault_registry {
         collateral: DOT<T>,
         payee_id: &T::AccountId,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::try_withdraw_collateral_to_address(vault_id, collateral, payee_id)
+        <vault_registry::Module<T>>::try_withdraw_collateral_from_address(vault_id, collateral, payee_id)
     }
 
     pub fn vault_exists<T: vault_registry::Config>(id: &T::AccountId) -> bool {

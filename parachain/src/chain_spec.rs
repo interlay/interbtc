@@ -1,7 +1,7 @@
 use btc_parachain_runtime::{
     AccountId, BTCRelayConfig, BlockNumber, DOTConfig, ExchangeRateOracleConfig, FeeConfig, GenesisConfig, IssueConfig,
     NominationConfig, PolkaBTCConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature, SlaConfig,
-    StakedRelayersConfig, SudoConfig, SystemConfig, VaultRegistryConfig, DAYS, MILLISECS_PER_BLOCK, MINUTES,
+    StakedRelayersConfig, SudoConfig, SystemConfig, VaultRegistryConfig, DAYS, HOURS, MILLISECS_PER_BLOCK, MINUTES,
     TARGET_SPACING, WASM_BINARY,
 };
 

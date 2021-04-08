@@ -14,9 +14,12 @@ use sp_std::convert::TryInto;
 use codec::{Decode, Encode, EncodeLike};
 
 use ext::vault_registry::VaultStatus;
-use frame_support::dispatch::{DispatchError, DispatchResult};
-use frame_support::weights::Weight;
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, ensure, transactional};
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage,
+    dispatch::{DispatchError, DispatchResult},
+    ensure, transactional,
+    weights::Weight,
+};
 use frame_system::{ensure_root, ensure_signed};
 use primitive_types::H256;
 use sp_arithmetic::FixedPointNumber;
@@ -36,12 +39,7 @@ pub trait WeightInfo {
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
 pub trait Config:
-    frame_system::Config
-    + collateral::Config
-    + treasury::Config
-    + security::Config
-    + vault_registry::Config
-    + fee::Config
+    frame_system::Config + collateral::Config + treasury::Config + security::Config + vault_registry::Config + fee::Config
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
@@ -181,11 +179,10 @@ impl<T: Config> Module<T> {
         let vault_collateral_inner = ext::fee::dot_to_inner::<T>(vault_collateral)?;
         let nominated_collateral_inner = ext::fee::dot_to_inner::<T>(nominated_collateral)?;
 
-        let max_nominated_collateral =
-            UnsignedFixedPoint::<T>::checked_from_integer(vault_collateral_inner)
-                .ok_or(Error::<T>::TryIntoIntError)?
-                .checked_mul(&max_nomination_ratio)
-                .ok_or(Error::<T>::ArithmeticOverflow)?;
+        let max_nominated_collateral = UnsignedFixedPoint::<T>::checked_from_integer(vault_collateral_inner)
+            .ok_or(Error::<T>::TryIntoIntError)?
+            .checked_mul(&max_nomination_ratio)
+            .ok_or(Error::<T>::ArithmeticOverflow)?;
         Ok(
             UnsignedFixedPoint::<T>::checked_from_integer(nominated_collateral_inner)
                 .ok_or(Error::<T>::TryIntoIntError)?
@@ -232,16 +229,9 @@ impl<T: Config> Module<T> {
     ///
     /// # Errors
     /// * `VaultNotFound` - if the vault to liquidate does not exist
-    pub fn liquidate_operator_with_status(
-        operator_id: &T::AccountId,
-        status: VaultStatus,
-    ) -> DispatchResult {
+    pub fn liquidate_operator_with_status(operator_id: &T::AccountId, status: VaultStatus) -> DispatchResult {
         let to_slash = ext::vault_registry::liquidate_vault_with_status::<T>(operator_id, status)?;
-        Self::deposit_event(Event::<T>::SlashCollateral(
-            operator_id.clone(),
-            to_slash,
-            status,
-        ));
+        Self::deposit_event(Event::<T>::SlashCollateral(operator_id.clone(), to_slash, status));
         Self::slash_nominators(operator_id.clone(), status, to_slash)
     }
 
@@ -254,10 +244,7 @@ impl<T: Config> Module<T> {
     /// * `amount` - DOt amount to withdraw
     /// * `height` - current block height
     /// * `maturity` - height at request time + unbonding period
-    fn _execute_collateral_withdrawal(
-        withdrawer_id: &T::AccountId,
-        operator_id: &T::AccountId,
-    ) -> DispatchResult {
+    fn _execute_collateral_withdrawal(withdrawer_id: &T::AccountId, operator_id: &T::AccountId) -> DispatchResult {
         if withdrawer_id.eq(operator_id) {
             Self::execute_operator_withdrawal(operator_id)
         } else {
@@ -278,17 +265,11 @@ impl<T: Config> Module<T> {
         ext::vault_registry::decrease_backing_collateral::<T>(operator_id, amount)
     }
 
-    pub fn request_operator_withdrawal(
-        operator_id: &T::AccountId,
-        collateral_to_withdraw: DOT<T>,
-    ) -> DispatchResult {
-        ensure!(
-            Self::is_operator(operator_id)?,
-            Error::<T>::VaultNotOptedInToNomination
-        );
+    pub fn request_operator_withdrawal(operator_id: &T::AccountId, collateral_to_withdraw: DOT<T>) -> DispatchResult {
+        ensure!(Self::is_operator(operator_id)?, Error::<T>::VaultNotOptedInToNomination);
         let mut operator = Self::get_rich_operator_from_id(operator_id)?;
         let request_id = ext::security::get_secure_id::<T>(operator_id);
-        let height = <frame_system::Module<T>>::block_number();
+        let height = <frame_system::Pallet<T>>::block_number();
         let maturity = height + Self::get_operator_unbonding_period();
         operator.add_pending_operator_withdrawal(request_id, collateral_to_withdraw, maturity)?;
         // get operator collateral
@@ -324,13 +305,10 @@ impl<T: Config> Module<T> {
         nominator_id: &T::AccountId,
         collateral_to_withdraw: DOT<T>,
     ) -> DispatchResult {
-        ensure!(
-            Self::is_operator(operator_id)?,
-            Error::<T>::VaultNotOptedInToNomination
-        );
+        ensure!(Self::is_operator(operator_id)?, Error::<T>::VaultNotOptedInToNomination);
         let mut operator = Self::get_rich_operator_from_id(operator_id)?;
         let request_id = ext::security::get_secure_id::<T>(operator_id);
-        let height = <frame_system::Module<T>>::block_number();
+        let height = <frame_system::Pallet<T>>::block_number();
         let maturity = height + Self::get_nominator_unbonding_period();
         operator.add_pending_nominator_withdrawal(
             nominator_id.clone(),
@@ -348,14 +326,8 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    pub fn execute_nominator_withdrawal(
-        operator_id: &T::AccountId,
-        nominator_id: &T::AccountId,
-    ) -> DispatchResult {
-        ensure!(
-            Self::is_operator(operator_id)?,
-            Error::<T>::VaultNotOptedInToNomination
-        );
+    pub fn execute_nominator_withdrawal(operator_id: &T::AccountId, nominator_id: &T::AccountId) -> DispatchResult {
+        ensure!(Self::is_operator(operator_id)?, Error::<T>::VaultNotOptedInToNomination);
         let mut operator = Self::get_rich_operator_from_id(operator_id)?;
         let matured_collateral = operator.execute_nominator_withdrawal(nominator_id.clone())?;
         Self::deposit_event(Event::<T>::ExecuteNominatorCollateralWithdrawal(
@@ -373,11 +345,7 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         let backing_collateral = ext::vault_registry::get_backing_collateral::<T>(operator_id)?;
         let mut operator = Self::get_rich_operator_from_id(operator_id)?;
-        operator.deposit_nominated_collateral(
-            nominator_id.clone(),
-            collateral,
-            backing_collateral,
-        )?;
+        operator.deposit_nominated_collateral(nominator_id.clone(), collateral, backing_collateral)?;
         Self::deposit_event(Event::<T>::IncreaseNominatedCollateral(
             nominator_id.clone(),
             operator_id.clone(),
@@ -401,11 +369,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    pub fn slash_nominators(
-        vault_id: T::AccountId,
-        status: VaultStatus,
-        to_slash: DOT<T>,
-    ) -> DispatchResult {
+    pub fn slash_nominators(vault_id: T::AccountId, status: VaultStatus, to_slash: DOT<T>) -> DispatchResult {
         let mut operator = Self::get_rich_operator_from_id(&vault_id.clone())?;
         operator.slash_nominators(status, to_slash)?;
         <Operators<T>>::insert(operator.id(), operator.data.clone());
@@ -418,10 +382,7 @@ impl<T: Config> Module<T> {
     /// * `vault_id` - the id of the vault to mark as Nomination Operator
     pub fn _opt_in_to_nomination(operator_id: &T::AccountId) -> DispatchResult {
         ext::security::ensure_parachain_status_running::<T>()?;
-        ensure!(
-            Self::is_nomination_enabled()?,
-            Error::<T>::VaultNominationDisabled
-        );
+        ensure!(Self::is_nomination_enabled()?, Error::<T>::VaultNominationDisabled);
         ensure!(
             ext::vault_registry::vault_exists::<T>(&operator_id),
             Error::<T>::OperatorNotFound
@@ -439,10 +400,7 @@ impl<T: Config> Module<T> {
 
     pub fn _opt_out_of_nomination(operator_id: &T::AccountId) -> DispatchResult {
         ext::security::ensure_parachain_status_running::<T>()?;
-        ensure!(
-            Self::is_nomination_enabled()?,
-            Error::<T>::VaultNominationDisabled
-        );
+        ensure!(Self::is_nomination_enabled()?, Error::<T>::VaultNominationDisabled);
 
         ext::vault_registry::set_is_nomination_operator::<T>(&operator_id, true);
         ensure!(
@@ -466,22 +424,16 @@ impl<T: Config> Module<T> {
         Ok(<Operators<T>>::contains_key(&operator_id))
     }
 
-    pub fn get_total_nominated_collateral(
-        operator_id: &T::AccountId,
-    ) -> Result<DOT<T>, DispatchError> {
+    pub fn get_total_nominated_collateral(operator_id: &T::AccountId) -> Result<DOT<T>, DispatchError> {
         let operator = Self::get_rich_operator_from_id(operator_id)?;
         Ok(operator.data.total_nominated_collateral)
     }
 
-    pub fn get_operator_from_id(
-        operator_id: &T::AccountId,
-    ) -> Result<DefaultOperator<T>, Error<T>> {
+    pub fn get_operator_from_id(operator_id: &T::AccountId) -> Result<DefaultOperator<T>, Error<T>> {
         Ok(<Operators<T>>::get(operator_id))
     }
 
-    fn get_rich_operator_from_id(
-        operator_id: &T::AccountId,
-    ) -> Result<RichOperator<T>, DispatchError> {
+    fn get_rich_operator_from_id(operator_id: &T::AccountId) -> Result<RichOperator<T>, DispatchError> {
         Ok(Self::get_operator_from_id(operator_id)?.into())
     }
 

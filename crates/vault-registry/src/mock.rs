@@ -150,6 +150,7 @@ pub type TestEvent = Event;
 pub type TestError = Error<Test>;
 pub type SecurityError = security::Error<Test>;
 pub type CollateralError = collateral::Error<Test>;
+pub type LiquidationTarget = vault_registry::LiquidationTarget;
 
 pub struct ExtBuilder;
 

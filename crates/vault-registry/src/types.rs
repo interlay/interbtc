@@ -375,19 +375,13 @@ impl<T: Config> RichVault<T> {
     }
 
     pub fn decrease_backing_collateral(&mut self, amount: DOT<T>) -> DispatchResult {
-        ensure!(self.is_withdrawal_safe(amount)?, Error::<T>::InsufficientCollateral);
-        self.force_decrease_backing_collateral(amount)
-    }
-
-    pub fn force_decrease_backing_collateral(&mut self, amount: DOT<T>) -> DispatchResult {
         self.update(|v| {
             v.backing_collateral = v
                 .backing_collateral
                 .checked_sub(&amount)
                 .ok_or(Error::<T>::ArithmeticUnderflow)?;
             Ok(())
-        })?;
-        Module::<T>::decrease_total_backing_collateral(amount)
+        })
     }
 
     pub fn is_withdrawal_safe(&mut self, collateral: DOT<T>) -> Result<bool, DispatchError> {
@@ -403,19 +397,6 @@ impl<T: Config> RichVault<T> {
             .ok_or(Error::<T>::ArithmeticOverflow)?;
         let is_safe = !Module::<T>::is_collateral_below_secure_threshold(remaining_collateral, tokens)?;
         Ok(is_safe)
-    }
-
-    pub(crate) fn force_withdraw_collateral(&mut self, collateral: DOT<T>) -> DispatchResult {
-        self.force_withdraw_collateral_to_address(collateral, &self.data.id.clone())
-    }
-
-    pub(crate) fn force_withdraw_collateral_to_address(
-        &mut self,
-        collateral: DOT<T>,
-        payee_id: &T::AccountId,
-    ) -> DispatchResult {
-        self.force_decrease_backing_collateral(collateral)?;
-        ext::collateral::release_collateral::<T>(payee_id, collateral)
     }
 
     pub fn get_collateral(&self) -> DOT<T> {

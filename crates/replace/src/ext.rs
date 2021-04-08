@@ -228,9 +228,7 @@ pub(crate) mod nomination {
         <nomination::Module<T>>::get_total_nominated_collateral(operator_id)
     }
 
-    pub fn is_operator<T: nomination::Config>(
-        operator_id: &T::AccountId,
-    ) -> Result<bool, DispatchError> {
+    pub fn is_operator<T: nomination::Config>(operator_id: &T::AccountId) -> Result<bool, DispatchError> {
         <nomination::Module<T>>::is_operator(operator_id)
     }
 }

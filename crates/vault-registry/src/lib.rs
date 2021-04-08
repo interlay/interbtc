@@ -59,6 +59,12 @@ pub struct RegisterRequest<AccountId, DateTime> {
     timeout: DateTime,
 }
 
+#[derive(Encode, Decode, Eq, PartialEq)]
+pub enum LiquidationTarget {
+    OperatorsOnly,
+    NonOperatorsOnly,
+}
+
 pub trait WeightInfo {
     fn register_vault() -> Weight;
     fn lock_additional_collateral() -> Weight;
@@ -328,7 +334,7 @@ decl_module! {
 #[cfg_attr(test, mockable)]
 impl<T: Config> Module<T> {
     fn begin_block(_height: T::BlockNumber) -> DispatchResult {
-        Self::liquidate_undercollateralized_vaults();
+        Self::liquidate_undercollateralized_vaults(LiquidationTarget::NonOperatorsOnly)?;
         Ok(())
     }
 
@@ -425,7 +431,12 @@ impl<T: Config> Module<T> {
         // will fail if free_balance is insufficient
         ext::collateral::lock::<T>(depositor_id, amount)?;
         if !vault_id.eq(depositor_id) {
-            ext::collateral::repatriate_reserved::<T>(depositor_id, vault_id, amount, BalanceStatus::Reserved)?;
+            ext::collateral::repatriate_reserved::<T>(
+                depositor_id.clone(),
+                vault_id.clone(),
+                amount,
+                BalanceStatus::Reserved,
+            )?;
         }
 
         Module::<T>::increase_total_backing_collateral(amount)?;
@@ -435,6 +446,10 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+    pub fn force_withdraw_collateral(vault_id: &T::AccountId, amount: DOT<T>) -> DispatchResult {
+        Self::force_withdraw_collateral_from_address(vault_id, amount, vault_id)
+    }
+
     pub fn force_withdraw_collateral_from_address(
         vault_id: &T::AccountId,
         amount: DOT<T>,
@@ -442,7 +457,7 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         let mut vault = Self::get_rich_vault_from_id(vault_id)?;
 
-        ext::collateral::repatriate_reserved::<T>(vault_id, payee_id, amount, BalanceStatus::FreeBalance)?;
+        ext::collateral::repatriate_reserved::<T>(vault_id.clone(), payee_id.clone(), amount, BalanceStatus::Free)?;
 
         Module::<T>::decrease_total_backing_collateral(amount)?;
 
@@ -452,10 +467,10 @@ impl<T: Config> Module<T> {
     }
 
     pub fn try_withdraw_collateral(vault_id: &T::AccountId, amount: DOT<T>) -> DispatchResult {
-        Self::try_withdraw_collateral_to_address(vault_id, amount, vault_id)
+        Self::try_withdraw_collateral_from_address(vault_id, amount, vault_id)
     }
 
-    pub fn try_withdraw_collateral_to_address(
+    pub fn try_withdraw_collateral_from_address(
         vault_id: &T::AccountId,
         amount: DOT<T>,
         payee_id: &T::AccountId,
@@ -465,7 +480,7 @@ impl<T: Config> Module<T> {
             Error::<T>::InsufficientCollateral
         );
 
-        Self::force_withdraw_collateral(vault_id, amount)?;
+        Self::force_withdraw_collateral_from_address(vault_id, amount, payee_id)?;
 
         Ok(())
     }
@@ -957,7 +972,9 @@ impl<T: Config> Module<T> {
     }
 
     /// Automatically liquidates all vaults under the secure threshold
-    fn liquidate_undercollateralized_vaults() -> Vec<(T::AccountId, DOT<T>)> {
+    fn liquidate_undercollateralized_vaults(
+        liquidation_target: LiquidationTarget,
+    ) -> Result<Vec<(T::AccountId, DOT<T>)>, DispatchError> {
         // TODO: report system undercollateralization to security
         let vaults_to_liquidate = <Vaults<T>>::iter()
             .filter_map(|(vault_id, _)| {
@@ -972,19 +989,30 @@ impl<T: Config> Module<T> {
             })
             .collect::<Vec<T::AccountId>>();
 
-        vaults_to_liquidate
-            .map(|vault_id| {
-                let to_slash = Self::liquidate_vault(&vault_id);
-                (vault_id, to_slash)
+        let amounts_to_slash = vaults_to_liquidate
+            .iter()
+            .filter_map(|vault_id| {
+                let is_operator = <IsNominationOperator<T>>::get(vault_id.clone());
+                if (is_operator && liquidation_target.eq(&LiquidationTarget::OperatorsOnly))
+                    || (!is_operator && liquidation_target.eq(&LiquidationTarget::NonOperatorsOnly))
+                {
+                    if let Some(to_slash) = Self::liquidate_vault(&vault_id).ok() {
+                        Some((vault_id.clone(), to_slash))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
             })
-            .collect::<Vec<(T::AccountId, DOT<T>)>>()
+            .collect::<Vec<(T::AccountId, DOT<T>)>>();
+        Ok(amounts_to_slash)
     }
 
     /// Liquidates a vault, transferring all of its token balances to the `LiquidationVault`.
     /// Delegates to `liquidate_vault_with_status`, using `Liquidated` status
-    pub fn liquidate_vault(vault_id: &T::AccountId) -> DispatchResult {
-        let _ = Self::liquidate_vault_with_status(vault_id, VaultStatus::Liquidated)?;
-        Ok(())
+    pub fn liquidate_vault(vault_id: &T::AccountId) -> Result<DOT<T>, DispatchError> {
+        Self::liquidate_vault_with_status(vault_id, VaultStatus::Liquidated)
     }
 
     /// Liquidates a vault, transferring all of its token balances to the
@@ -1027,12 +1055,6 @@ impl<T: Config> Module<T> {
         <TotalUserVaultBackingCollateral<T>>::set(new);
 
         Ok(())
-    }
-
-    pub fn increase_vault_backing_collateral(amount: DOT<T>, vault_id: &T::AccountId) -> DispatchResult {
-        let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
-        vault.increase_collateral(amount)?;
-        Self::increase_total_backing_collateral(amount)
     }
 
     pub(crate) fn decrease_total_backing_collateral(amount: DOT<T>) -> DispatchResult {

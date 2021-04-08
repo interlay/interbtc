@@ -40,7 +40,7 @@ frame_support::construct_runtime!(
         Fee: fee::{Pallet, Call, Config<T>, Storage, Event<T>},
         Sla: sla::{Pallet, Call, Config<T>, Storage, Event<T>},
         Refund: refund::{Pallet, Call, Config<T>, Storage, Event<T>},
-        Nomination: nomination::{Module, Call, Config<T>, Storage, Event<T>},
+        Nomination: nomination::{Pallet, Call, Config<T>, Storage, Event<T>},
     }
 );
 

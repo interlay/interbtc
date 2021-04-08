@@ -50,7 +50,7 @@ benchmarks! {
             VaultRegistry::<T>::_register_vault(&origin, 1234u32.into(), dummy_public_key()).unwrap();
         }
     }: {
-        VaultRegistry::<T>::liquidate_undercollateralized_vaults()
+        VaultRegistry::<T>::liquidate_undercollateralized_vaults(LiquidationTarget::NonOperatorsOnly).unwrap()
     }
 }
 

@@ -460,7 +460,6 @@ pub fn set_default_thresholds() {
     let auction = FixedU128::checked_from_rational(120, 100).unwrap();
     let premium = FixedU128::checked_from_rational(135, 100).unwrap();
     let liquidation = FixedU128::checked_from_rational(110, 100).unwrap();
-    let nomination = FixedU128::checked_from_rational(50, 100).unwrap();
 
     VaultRegistryModule::set_secure_collateral_threshold(secure);
     VaultRegistryModule::set_auction_collateral_threshold(auction);
