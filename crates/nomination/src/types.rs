@@ -439,8 +439,8 @@ impl<T: Config> RichOperator<T> {
         Ok(self.data.nominators.contains_key(&nominator_id))
     }
 
-    pub fn slash_nominators(&mut self, status: VaultStatus, to_slash: DOT<T>) -> DispatchResult {
-        let nominated_collateral_to_slash = self.get_nominated_collateral_to_slash(to_slash, status)?;
+    pub fn slash_nominators(&mut self, status: VaultStatus, total_slahsed_amount: DOT<T>) -> DispatchResult {
+        let nominated_collateral_to_slash = self.get_nominated_collateral_to_slash(total_slahsed_amount, status)?;
 
         let nominated_collateral_remaining = self
             .data
@@ -458,16 +458,16 @@ impl<T: Config> RichOperator<T> {
 
     pub fn get_nominated_collateral_to_slash(
         &mut self,
-        total_amount_to_slash: DOT<T>,
+        total_slahed_amount: DOT<T>,
         status: VaultStatus,
     ) -> Result<DOT<T>, DispatchError> {
         let nominated_collateral_to_slash: DOT<T> = if status.eq(&VaultStatus::CommittedTheft) {
             let vault_collateral = self.get_operator_collateral()?;
-            total_amount_to_slash
+            total_slahed_amount
                 .checked_sub(&vault_collateral.clone())
                 .map_or(0u32.into(), |x| x)
         } else {
-            let to_slash_u128 = Module::<T>::dot_to_u128(total_amount_to_slash)?;
+            let to_slash_u128 = Module::<T>::dot_to_u128(total_slahed_amount)?;
             let nominator_collateral_proportion = self.get_nominated_collateral_proportion()?;
             let nominated_collateral_to_slash_u128 = nominator_collateral_proportion
                 .checked_mul(to_slash_u128)

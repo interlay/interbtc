@@ -25,6 +25,7 @@ use primitive_types::H256;
 use sp_arithmetic::FixedPointNumber;
 use sp_runtime::traits::CheckedMul;
 use types::{DefaultOperator, Operator, RichOperator, UnsignedFixedPoint, DOT};
+use vault_registry::LiquidationTarget;
 
 pub trait WeightInfo {
     fn set_nomination_enabled() -> Weight;
@@ -167,10 +168,26 @@ decl_module! {
             ext::security::ensure_parachain_status_running::<T>()?;
             Self::_execute_collateral_withdrawal(&account_id, &operator_id)
         }
+
+        fn on_initialize(n: T::BlockNumber) -> Weight {
+            if let Err(e) = Self::begin_block(n) {
+                sp_runtime::print(e);
+            }
+            0
+        }
     }
 }
 
 impl<T: Config> Module<T> {
+    fn begin_block(_height: T::BlockNumber) -> DispatchResult {
+        let liquidated_operator_amounts =
+            ext::vault_registry::liquidate_undercollateralized_vaults::<T>(LiquidationTarget::OperatorsOnly)?;
+        for (operator_id, total_slashed_amount) in liquidated_operator_amounts {
+            Self::slash_nominators(operator_id.clone(), VaultStatus::Liquidated, total_slashed_amount)?;
+        }
+        Ok(())
+    }
+
     pub fn is_collateral_below_max_nomination_ratio(
         vault_collateral: DOT<T>,
         nominated_collateral: DOT<T>,
@@ -369,9 +386,13 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    pub fn slash_nominators(vault_id: T::AccountId, status: VaultStatus, to_slash: DOT<T>) -> DispatchResult {
+    pub fn slash_nominators(
+        vault_id: T::AccountId,
+        status: VaultStatus,
+        total_slahsed_amount: DOT<T>,
+    ) -> DispatchResult {
         let mut operator = Self::get_rich_operator_from_id(&vault_id.clone())?;
-        operator.slash_nominators(status, to_slash)?;
+        operator.slash_nominators(status, total_slahsed_amount)?;
         <Operators<T>>::insert(operator.id(), operator.data.clone());
         Ok(())
     }

@@ -972,7 +972,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Automatically liquidates all vaults under the secure threshold
-    fn liquidate_undercollateralized_vaults(
+    pub fn liquidate_undercollateralized_vaults(
         liquidation_target: LiquidationTarget,
     ) -> Result<Vec<(T::AccountId, DOT<T>)>, DispatchError> {
         // TODO: report system undercollateralization to security
