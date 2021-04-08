@@ -59,7 +59,7 @@ fn init_zero_vault<T: Config>(id: T::AccountId) -> Vault<T::AccountId, T::BlockN
 }
 
 fn get_dummy_request_id() -> H256 {
-    return H256::zero();
+    H256::zero()
 }
 
 #[test]

@@ -312,7 +312,7 @@ impl<T: Config> Module<T> {
         let total_maintainer_rewards_in_dot = Self::maintainer_rewards_for_epoch_in_dot()?;
         <TotalRewardsDOT<T>>::insert(
             maintainer_account_id.clone(),
-            <TotalRewardsDOT<T>>::get(maintainer_account_id.clone())
+            <TotalRewardsDOT<T>>::get(maintainer_account_id)
                 .checked_add(&total_maintainer_rewards_in_dot)
                 .ok_or(Error::<T>::ArithmeticOverflow)?,
         );

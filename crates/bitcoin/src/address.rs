@@ -277,7 +277,7 @@ mod tests {
         let vault_public_key = PublicKey(vault_public_key.serialize());
 
         // D = V * c
-        let deposit_public_key = vault_public_key.new_deposit_public_key(secure_id.clone()).unwrap();
+        let deposit_public_key = vault_public_key.new_deposit_public_key(secure_id).unwrap();
 
         // d = v * c
         vault_secret_key

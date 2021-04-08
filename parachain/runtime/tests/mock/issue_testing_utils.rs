@@ -96,7 +96,7 @@ impl ExecuteIssueBuilder {
     pub fn execute(&self) -> DispatchResultWithPostInfo {
         // send the btc from the user to the vault
         let (tx_id, _height, proof, raw_tx) = TransactionGenerator::new()
-            .with_address(self.issue.btc_address.clone())
+            .with_address(self.issue.btc_address)
             .with_amount(self.amount)
             .with_op_return(None)
             .with_relayer(self.relayer)
@@ -134,16 +134,17 @@ pub fn assert_issue_amount_change_event(issue_id: H256, amount: u128, fee: u128,
 
 pub fn assert_issue_request_event() -> H256 {
     let events = SystemModule::events();
-    let record = events.iter().rev().find(|record| match record.event {
-        Event::issue(IssueEvent::RequestIssue(_, _, _, _, _, _, _, _)) => true,
-        _ => false,
+    let record = events.iter().rev().find(|record| {
+        matches!(
+            record.event,
+            Event::issue(IssueEvent::RequestIssue(_, _, _, _, _, _, _, _))
+        )
     });
-    let id = if let Event::issue(IssueEvent::RequestIssue(id, _, _, _, _, _, _, _)) = record.unwrap().event {
+    if let Event::issue(IssueEvent::RequestIssue(id, _, _, _, _, _, _, _)) = record.unwrap().event {
         id
     } else {
         panic!("request issue event not found")
-    };
-    id
+    }
 }
 
 pub fn assert_refund_request_event() -> H256 {

@@ -90,7 +90,7 @@ decl_module! {
                     CurrencyId::DOT,
                     raw_amount
                 ),
-            ).map_err(|err| Error::<T>::from(err))?;
+            ).map_err(Error::<T>::from)?;
 
             Self::deposit_event(Event::<T>::TransferDOT(
                 who,
@@ -131,7 +131,7 @@ decl_module! {
                     CurrencyId::PolkaBTC,
                     raw_amount
                 ),
-            ).map_err(|err| Error::<T>::from(err))?;
+            ).map_err(Error::<T>::from)?;
 
             Self::deposit_event(Event::<T>::TransferPolkaBTC(
                 who,

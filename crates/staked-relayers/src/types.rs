@@ -103,13 +103,13 @@ impl<AccountId: Ord + Clone, Balance: Clone + PartialOrd + Saturating> Tally<Acc
     /// Returns false if the account has already voted.
     pub(crate) fn vote(&mut self, id: AccountId, stake: Balance, approve: bool) -> bool {
         if self.contains(&id) {
-            return false;
+            false
         } else if approve {
             self.aye.insert(id, stake);
-            return true;
+            true
         } else {
             self.nay.insert(id, stake);
-            return true;
+            true
         }
     }
 }

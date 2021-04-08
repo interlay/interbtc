@@ -464,7 +464,7 @@ mod tests {
 
     #[test]
     fn test_format_merkle_proof() {
-        let proof = MerkleProof::parse(&hex::decode(&PROOF_HEX[..]).unwrap()).unwrap();
+        let proof = MerkleProof::parse(&hex::decode(PROOF_HEX).unwrap()).unwrap();
         let expected = hex::decode(PROOF_HEX).unwrap();
         assert_eq!(proof.try_format().unwrap(), expected);
     }

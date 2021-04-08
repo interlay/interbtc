@@ -289,7 +289,7 @@ impl<T: Config> Module<T> {
         };
 
         <VaultSla<T>>::iter()
-            .filter_map(|(account_id, _)| calculate_reward(account_id.clone()).transpose())
+            .filter_map(|(account_id, _)| calculate_reward(account_id).transpose())
             .collect()
     }
 
@@ -408,7 +408,7 @@ impl<T: Config> Module<T> {
             stake_scaling_factor.checked_mul_int(stake)
         };
         let slashed_raw = calculate_slashed_collateral().ok_or(Error::<T>::InvalidSlashedAmount)?;
-        Ok(Self::u128_to_dot(slashed_raw)?)
+        Self::u128_to_dot(slashed_raw)
     }
 
     /// Calculates the potential sla change for when an issue has been completed on the given vault.

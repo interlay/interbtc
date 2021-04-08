@@ -45,8 +45,8 @@ fn get_block_header_from_hash_succeeds() {
         let rich_header = RichBlockHeader::<AccountId, BlockNumber> {
             block_hash: H256Le::zero(),
             block_header: BlockHeader::from_le_bytes(&block_header).unwrap(),
-            block_height: block_height,
-            chain_ref: chain_ref,
+            block_height,
+            chain_ref,
             account_id: Default::default(),
             para_height: Default::default(),
         };
@@ -145,8 +145,8 @@ fn store_block_header_on_mainchain_succeeds() {
         let rich_header = RichBlockHeader::<AccountId, BlockNumber> {
             block_hash: H256Le::zero(),
             block_header: parse_block_header(&block_header).unwrap(),
-            block_height: block_height,
-            chain_ref: chain_ref,
+            block_height,
+            chain_ref,
             account_id: Default::default(),
             para_height: Default::default(),
         };
@@ -184,7 +184,7 @@ fn store_block_header_on_fork_succeeds() {
             block_hash: H256Le::zero(),
             block_header: parse_block_header(&block_header).unwrap(),
             block_height: block_height - 1,
-            chain_ref: chain_ref,
+            chain_ref,
             account_id: Default::default(),
             para_height: Default::default(),
         };
@@ -953,8 +953,7 @@ fn test_verify_and_validate_transaction_succeeds() {
             BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let op_return_id =
             hex::decode("aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned()).unwrap();
-        BTCRelay::_validate_transaction
-            .mock_safe(move |_, _, _, _| MockResult::Return(Ok((recipient_btc_address.clone(), 0))));
+        BTCRelay::_validate_transaction.mock_safe(move |_, _, _, _| MockResult::Return(Ok((recipient_btc_address, 0))));
         BTCRelay::_verify_transaction_inclusion.mock_safe(move |_, _, _| MockResult::Return(Ok(())));
 
         assert_ok!(BTCRelay::verify_and_validate_transaction(
@@ -982,8 +981,8 @@ fn test_flag_block_error_succeeds() {
         let rich_header = RichBlockHeader::<AccountId, BlockNumber> {
             block_hash: H256Le::zero(),
             block_header: BlockHeader::from_le_bytes(&block_header).unwrap(),
-            block_height: block_height,
-            chain_ref: chain_ref,
+            block_height,
+            chain_ref,
             account_id: Default::default(),
             para_height: Default::default(),
         };
@@ -1022,8 +1021,8 @@ fn test_flag_block_error_fails() {
         let rich_header = RichBlockHeader::<AccountId, BlockNumber> {
             block_hash: H256Le::zero(),
             block_header: BlockHeader::from_le_bytes(&block_header).unwrap(),
-            block_height: block_height,
-            chain_ref: chain_ref,
+            block_height,
+            chain_ref,
             account_id: Default::default(),
             para_height: Default::default(),
         };
@@ -1055,8 +1054,8 @@ fn test_clear_block_error_succeeds() {
         let rich_header = RichBlockHeader::<AccountId, BlockNumber> {
             block_hash: H256Le::zero(),
             block_header: BlockHeader::from_le_bytes(&block_header).unwrap(),
-            block_height: block_height,
-            chain_ref: chain_ref,
+            block_height,
+            chain_ref,
             account_id: Default::default(),
             para_height: Default::default(),
         };
@@ -1080,8 +1079,7 @@ fn test_clear_block_error_succeeds() {
             } else if error == ErrorCode::InvalidBTCRelay {
                 assert!(!curr_chain.invalid.contains(&block_height));
             };
-            let error_event =
-                TestEvent::btc_relay(Event::ClearBlockError(rich_header.block_hash, chain_ref, error.clone()));
+            let error_event = TestEvent::btc_relay(Event::ClearBlockError(rich_header.block_hash, chain_ref, error));
             assert!(System::events().iter().any(|a| a.event == error_event));
         };
 
@@ -1111,8 +1109,8 @@ fn test_clear_block_error_fails() {
         let rich_header = RichBlockHeader::<AccountId, BlockNumber> {
             block_hash: H256Le::zero(),
             block_header: BlockHeader::from_le_bytes(&block_header).unwrap(),
-            block_height: block_height,
-            chain_ref: chain_ref,
+            block_height,
+            chain_ref,
             account_id: Default::default(),
             para_height: Default::default(),
         };
@@ -1224,12 +1222,12 @@ fn test_verify_transaction_inclusion_succeeds() {
 
         let fork = get_empty_block_chain_from_chain_id_and_height(fork_ref, start, fork_chain_height);
 
-        BTCRelay::get_chain_id_from_position.mock_safe(move |_| MockResult::Return(Ok(fork_ref.clone())));
+        BTCRelay::get_chain_id_from_position.mock_safe(move |_| MockResult::Return(Ok(fork_ref)));
         BTCRelay::get_block_chain_from_id.mock_safe(move |id| {
-            if id == chain_ref.clone() {
-                return MockResult::Return(Ok(main.clone()));
+            if id == chain_ref {
+                MockResult::Return(Ok(main.clone()))
             } else {
-                return MockResult::Return(Ok(fork.clone()));
+                MockResult::Return(Ok(fork.clone()))
             }
         });
 
@@ -1270,10 +1268,10 @@ fn test_verify_transaction_inclusion_empty_fork_succeeds() {
         let main = get_empty_block_chain_from_chain_id_and_height(chain_ref, start, main_chain_height);
 
         BTCRelay::get_block_chain_from_id.mock_safe(move |id| {
-            if id == chain_ref.clone() {
-                return MockResult::Return(Ok(main.clone()));
+            if id == chain_ref {
+                MockResult::Return(Ok(main.clone()))
             } else {
-                return MockResult::Return(Err(TestError::InvalidChainID.into()));
+                MockResult::Return(Err(TestError::InvalidChainID.into()))
             }
         });
 
@@ -1322,12 +1320,12 @@ fn test_verify_transaction_inclusion_invalid_tx_id_fails() {
 
         let fork = get_empty_block_chain_from_chain_id_and_height(fork_ref, start, fork_chain_height);
 
-        BTCRelay::get_chain_id_from_position.mock_safe(move |_| MockResult::Return(Ok(fork_ref.clone())));
+        BTCRelay::get_chain_id_from_position.mock_safe(move |_| MockResult::Return(Ok(fork_ref)));
         BTCRelay::get_block_chain_from_id.mock_safe(move |id| {
-            if id == chain_ref.clone() {
-                return MockResult::Return(Ok(main.clone()));
+            if id == chain_ref {
+                MockResult::Return(Ok(main.clone()))
             } else {
-                return MockResult::Return(Ok(fork.clone()));
+                MockResult::Return(Ok(fork.clone()))
             }
         });
 
@@ -1375,12 +1373,12 @@ fn test_verify_transaction_inclusion_invalid_merkle_root_fails() {
 
         let fork = get_empty_block_chain_from_chain_id_and_height(fork_ref, start, fork_chain_height);
 
-        BTCRelay::get_chain_id_from_position.mock_safe(move |_| MockResult::Return(Ok(fork_ref.clone())));
+        BTCRelay::get_chain_id_from_position.mock_safe(move |_| MockResult::Return(Ok(fork_ref)));
         BTCRelay::get_block_chain_from_id.mock_safe(move |id| {
-            if id == chain_ref.clone() {
-                return MockResult::Return(Ok(main.clone()));
+            if id == chain_ref {
+                MockResult::Return(Ok(main.clone()))
             } else {
-                return MockResult::Return(Ok(fork.clone()));
+                MockResult::Return(Ok(fork.clone()))
             }
         });
 
@@ -1789,9 +1787,9 @@ fn test_remove_blockchain_from_chain() {
 
 /// # Util functions
 
-const SAMPLE_TX_ID: &'static str = "c8589f304d3b9df1d4d8b3d15eb6edaaa2af9d796e9d9ace12b31f293705c5e9";
+const SAMPLE_TX_ID: &str = "c8589f304d3b9df1d4d8b3d15eb6edaaa2af9d796e9d9ace12b31f293705c5e9";
 
-const SAMPLE_MERKLE_ROOT: &'static str = "1EE1FB90996CA1D5DCD12866BA9066458BF768641215933D7D8B3A10EF79D090";
+const SAMPLE_MERKLE_ROOT: &str = "1EE1FB90996CA1D5DCD12866BA9066458BF768641215933D7D8B3A10EF79D090";
 
 fn sample_merkle_proof() -> MerkleProof {
     MerkleProof {
@@ -1826,8 +1824,8 @@ fn sample_valid_proof_result() -> ProofResult {
 
 fn get_empty_block_chain_from_chain_id_and_height(chain_id: u32, start_height: u32, block_height: u32) -> BlockChain {
     let blockchain = BlockChain {
-        chain_id: chain_id,
-        start_height: start_height,
+        chain_id,
+        start_height,
         max_height: block_height,
         no_data: BTreeSet::new(),
         invalid: BTreeSet::new(),
@@ -1869,7 +1867,7 @@ fn store_blockchain_and_random_headers(id: u32, start_height: u32, max_height: u
         let block_hash = H256Le::from_bytes_be(fake_block.as_slice());
 
         let rich_header = RichBlockHeader::<AccountId, BlockNumber> {
-            block_hash: block_hash,
+            block_hash,
             block_header: BlockHeader::from_le_bytes(&block_header).unwrap(),
             block_height: height,
             chain_ref: id,
@@ -1896,8 +1894,8 @@ fn sample_parsed_genesis_header(chain_ref: u32, block_height: u32) -> RichBlockH
     RichBlockHeader::<AccountId, BlockNumber> {
         block_hash: genesis_header.hash(),
         block_header: parse_block_header(&genesis_header).unwrap(),
-        block_height: block_height,
-        chain_ref: chain_ref,
+        block_height,
+        chain_ref,
         account_id: Default::default(),
         para_height: Default::default(),
     }
@@ -1921,8 +1919,8 @@ fn sample_parsed_first_block(chain_ref: u32, block_height: u32) -> RichBlockHead
     RichBlockHeader::<AccountId, BlockNumber> {
         block_hash: block_header.hash(),
         block_header: parse_block_header(&block_header).unwrap(),
-        block_height: block_height,
-        chain_ref: chain_ref,
+        block_height,
+        chain_ref,
         account_id: Default::default(),
         para_height: Default::default(),
     }
@@ -1970,8 +1968,8 @@ fn sample_rich_tx_block_header(chain_ref: u32, block_height: u32) -> RichBlockHe
     RichBlockHeader::<AccountId, BlockNumber> {
         block_hash: raw_header.hash(),
         block_header: parse_block_header(&raw_header).unwrap(),
-        block_height: block_height,
-        chain_ref: chain_ref,
+        block_height,
+        chain_ref,
         account_id: Default::default(),
         para_height: Default::default(),
     }
@@ -2036,7 +2034,7 @@ fn sample_transaction_parsed(outputs: &Vec<TransactionOutput>) -> Transaction {
 
     Transaction {
         version: 2,
-        inputs: inputs,
+        inputs,
         outputs: outputs.to_vec(),
         block_height: Some(203),
         locktime: Some(0),

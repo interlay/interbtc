@@ -146,7 +146,7 @@ impl UserData {
     }
     #[allow(dead_code)]
     pub fn force_to(id: [u8; 32], new: Self) -> Self {
-        let old = Self::get(id.clone());
+        let old = Self::get(id);
         let account_id = account_of(id);
 
         // set tokens to 0
@@ -167,7 +167,7 @@ impl UserData {
 
         // set locked_tokens
         TreasuryModule::mint(account_id.clone(), new.locked_tokens);
-        TreasuryModule::lock(account_id.clone(), new.locked_tokens).unwrap();
+        TreasuryModule::lock(account_id, new.locked_tokens).unwrap();
 
         // sanity check:
         assert_eq!(Self::get(id), new);
@@ -397,7 +397,7 @@ impl ParachainState {
 
     pub fn with_changes(
         &self,
-        f: impl FnOnce(&mut UserData, &mut CoreVaultData, &mut CoreVaultData, &mut FeePool) -> (),
+        f: impl FnOnce(&mut UserData, &mut CoreVaultData, &mut CoreVaultData, &mut FeePool),
     ) -> Self {
         let mut state = self.clone();
         f(
@@ -440,10 +440,7 @@ impl ParachainTwoVaultState {
         }
     }
 
-    pub fn with_changes(
-        &self,
-        f: impl FnOnce(&mut CoreVaultData, &mut CoreVaultData, &mut CoreVaultData) -> (),
-    ) -> Self {
+    pub fn with_changes(&self, f: impl FnOnce(&mut CoreVaultData, &mut CoreVaultData, &mut CoreVaultData)) -> Self {
         let mut state = self.clone();
         f(&mut state.vault1, &mut state.vault2, &mut state.liquidation_vault);
         state
@@ -452,7 +449,7 @@ impl ParachainTwoVaultState {
 #[allow(dead_code)]
 pub fn drop_exchange_rate_and_liquidate(vault: [u8; 32]) {
     assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
-        FixedU128::checked_from_integer(1_0000_000_000).unwrap()
+        FixedU128::checked_from_integer(10_000_000_000).unwrap()
     ));
     assert_ok!(VaultRegistryModule::liquidate_vault(&account_of(vault)));
 }
@@ -479,7 +476,7 @@ pub fn dummy_public_key() -> BtcPublicKey {
 
 #[allow(dead_code)]
 pub fn try_register_vault(collateral: u128, vault: [u8; 32]) {
-    if let Err(_) = VaultRegistryModule::get_vault_from_id(&account_of(vault)) {
+    if VaultRegistryModule::get_vault_from_id(&account_of(vault)).is_err() {
         assert_ok!(
             Call::VaultRegistry(VaultRegistryCall::register_vault(collateral, dummy_public_key()))
                 .dispatch(origin_of(account_of(vault)))
@@ -512,8 +509,7 @@ pub fn force_issue_tokens(user: [u8; 32], vault: [u8; 32], collateral: u128, tok
 pub fn required_collateral_for_issue(issue_btc: u128) -> u128 {
     let fee_amount_btc = FeeModule::get_issue_fee(issue_btc).unwrap();
     let total_amount_btc = issue_btc + fee_amount_btc;
-    let collateral_vault = VaultRegistryModule::get_required_collateral_for_polkabtc(total_amount_btc).unwrap();
-    collateral_vault
+    VaultRegistryModule::get_required_collateral_for_polkabtc(total_amount_btc).unwrap()
 }
 
 pub fn assert_store_main_chain_header_event(height: u32, hash: H256Le, relayer: AccountId) {
@@ -594,11 +590,7 @@ impl TransactionGenerator {
         let raw_init_block_header = RawBlockHeader::from_bytes(&init_block.header.try_format().unwrap())
             .expect("could not serialize block header");
 
-        match BTCRelayModule::initialize(
-            account_of(ALICE),
-            raw_init_block_header.try_into().expect("bad block header"),
-            height,
-        ) {
+        match BTCRelayModule::initialize(account_of(ALICE), raw_init_block_header, height) {
             Ok(_) => {}
             Err(e) if e == BTCRelayError::AlreadyInitialized.into() => {}
             _ => panic!("Failed to initialize btc relay"),
@@ -617,7 +609,7 @@ impl TransactionGenerator {
                 .build(),
         );
 
-        transaction_builder.add_output(TransactionOutput::payment(value.into(), &self.address));
+        transaction_builder.add_output(TransactionOutput::payment(value, &self.address));
         if let Some(op_return_data) = self.return_data {
             transaction_builder.add_output(TransactionOutput::op_return(0, op_return_data.as_bytes()));
         }
@@ -639,7 +631,7 @@ impl TransactionGenerator {
 
         let tx_id = transaction.tx_id();
         let tx_block_height = height;
-        let proof = block.merkle_proof(&vec![tx_id]).unwrap();
+        let proof = block.merkle_proof(&[tx_id]).unwrap();
         let bytes_proof = proof.try_format().unwrap();
         let raw_tx = transaction.format_with(true);
 
@@ -678,17 +670,14 @@ impl TransactionGenerator {
             let _ = Call::StakedRelayers(StakedRelayersCall::register_staked_relayer(100))
                 .dispatch(origin_of(account_of(relayer)));
 
-            assert_ok!(Call::StakedRelayers(StakedRelayersCall::store_block_header(
-                raw_block_header.try_into().expect("bad block header")
-            ))
-            .dispatch(origin_of(account_of(relayer))));
+            assert_ok!(
+                Call::StakedRelayers(StakedRelayersCall::store_block_header(raw_block_header))
+                    .dispatch(origin_of(account_of(relayer)))
+            );
             assert_store_main_chain_header_event(height, block.header.hash().unwrap(), account_of(relayer));
         } else {
             // bypass staked relayer module
-            assert_ok!(BTCRelayModule::store_block_header(
-                &account_of(ALICE),
-                raw_block_header.try_into().expect("bad block header")
-            ));
+            assert_ok!(BTCRelayModule::store_block_header(&account_of(ALICE), raw_block_header));
             assert_store_main_chain_header_event(height, block.header.hash().unwrap(), account_of(ALICE));
         }
     }

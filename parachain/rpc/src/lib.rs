@@ -103,7 +103,7 @@ where
 
     io.extend_with(RefundApi::to_delegate(Refund::new(client.clone())));
 
-    io.extend_with(ReplaceApi::to_delegate(Replace::new(client.clone())));
+    io.extend_with(ReplaceApi::to_delegate(Replace::new(client)));
 
     io
 }

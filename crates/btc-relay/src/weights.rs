@@ -44,25 +44,25 @@ pub trait WeightInfo {
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
     fn verify_and_validate_transaction() -> Weight {
-        (99_474_000 as Weight).saturating_add(T::DbWeight::get().reads(9 as Weight))
+        99_474_000_u64.saturating_add(T::DbWeight::get().reads(9_u64))
     }
     fn verify_transaction_inclusion() -> Weight {
-        (55_622_000 as Weight).saturating_add(T::DbWeight::get().reads(8 as Weight))
+        55_622_000_u64.saturating_add(T::DbWeight::get().reads(8_u64))
     }
     fn validate_transaction() -> Weight {
-        (15_739_000 as Weight).saturating_add(T::DbWeight::get().reads(1 as Weight))
+        15_739_000_u64.saturating_add(T::DbWeight::get().reads(1_u64))
     }
 }
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
     fn verify_and_validate_transaction() -> Weight {
-        (99_474_000 as Weight).saturating_add(RocksDbWeight::get().reads(9 as Weight))
+        99_474_000_u64.saturating_add(RocksDbWeight::get().reads(9_u64))
     }
     fn verify_transaction_inclusion() -> Weight {
-        (55_622_000 as Weight).saturating_add(RocksDbWeight::get().reads(8 as Weight))
+        55_622_000_u64.saturating_add(RocksDbWeight::get().reads(8_u64))
     }
     fn validate_transaction() -> Weight {
-        (15_739_000 as Weight).saturating_add(RocksDbWeight::get().reads(1 as Weight))
+        15_739_000_u64.saturating_add(RocksDbWeight::get().reads(1_u64))
     }
 }

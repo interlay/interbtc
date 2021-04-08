@@ -73,7 +73,7 @@ fn create_vault_and_issue_tokens(
     let id = create_vault_with_collateral(id, collateral);
 
     // exchange rate 1 Satoshi = 10 Planck (smallest unit of DOT)
-    ext::oracle::dots_to_btc::<Test>.mock_safe(move |x| MockResult::Return(Ok((x / 10).into())));
+    ext::oracle::dots_to_btc::<Test>.mock_safe(move |x| MockResult::Return(Ok(x / 10)));
 
     // issue PolkaBTC with 200% collateralization of DEFAULT_COLLATERAL
     assert_ok!(VaultRegistry::try_increase_to_be_issued_tokens(&id, issue_tokens,));
@@ -762,7 +762,7 @@ fn is_collateral_below_threshold_true_succeeds() {
         let btc_amount = 50;
         let threshold = FixedU128::checked_from_rational(201, 100).unwrap(); // 201%
 
-        ext::oracle::dots_to_btc::<Test>.mock_safe(move |_| MockResult::Return(Ok(collateral.clone())));
+        ext::oracle::dots_to_btc::<Test>.mock_safe(move |_| MockResult::Return(Ok(collateral)));
 
         assert_eq!(
             VaultRegistry::is_collateral_below_threshold(collateral, btc_amount, threshold),
@@ -829,7 +829,7 @@ fn is_collateral_below_threshold_false_succeeds() {
         let btc_amount = 50;
         let threshold = FixedU128::checked_from_rational(200, 100).unwrap(); // 200%
 
-        ext::oracle::dots_to_btc::<Test>.mock_safe(move |_| MockResult::Return(Ok(collateral.clone())));
+        ext::oracle::dots_to_btc::<Test>.mock_safe(move |_| MockResult::Return(Ok(collateral)));
 
         assert_eq!(
             VaultRegistry::is_collateral_below_threshold(collateral, btc_amount, threshold),
@@ -844,7 +844,7 @@ fn calculate_max_polkabtc_from_collateral_for_threshold_succeeds() {
         let collateral: u128 = u64::MAX as u128;
         let threshold = FixedU128::checked_from_rational(200, 100).unwrap(); // 200%
 
-        ext::oracle::dots_to_btc::<Test>.mock_safe(move |_| MockResult::Return(Ok(collateral.clone())));
+        ext::oracle::dots_to_btc::<Test>.mock_safe(move |_| MockResult::Return(Ok(collateral)));
 
         assert_eq!(
             VaultRegistry::calculate_max_polkabtc_from_collateral_for_threshold(collateral, threshold),
@@ -874,15 +874,15 @@ fn test_threshold_equivalent_to_legacy_calculation() {
             .checked_div(threshold.into())
             .unwrap_or(0.into());
 
-        Ok(VaultRegistry::u128_to_polkabtc(scaled_max_tokens.try_into()?)?)
+        VaultRegistry::u128_to_polkabtc(scaled_max_tokens.try_into()?)
     }
 
     run_test(|| {
         let threshold = FixedU128::checked_from_rational(199999, 100000).unwrap(); // 199.999%
         let random_start = 987529462328 as u128;
         for btc in random_start..random_start + 199999 {
-            ext::oracle::dots_to_btc::<Test>.mock_safe(move |x| MockResult::Return(Ok(x.clone())));
-            ext::oracle::btc_to_dots::<Test>.mock_safe(move |x| MockResult::Return(Ok(x.clone())));
+            ext::oracle::dots_to_btc::<Test>.mock_safe(move |x| MockResult::Return(Ok(x)));
+            ext::oracle::btc_to_dots::<Test>.mock_safe(move |x| MockResult::Return(Ok(x)));
             let old = legacy_calculate_max_polkabtc_from_collateral_for_threshold(btc, 199999).unwrap();
             let new = VaultRegistry::calculate_max_polkabtc_from_collateral_for_threshold(btc, threshold).unwrap();
             assert_eq!(old, new);
@@ -925,8 +925,8 @@ fn test_get_required_collateral_threshold_equivalent_to_legacy_calculation_() {
         let threshold = FixedU128::checked_from_rational(199999, 100000).unwrap(); // 199.999%
         let random_start = 987529462328 as u128;
         for btc in random_start..random_start + 199999 {
-            ext::oracle::dots_to_btc::<Test>.mock_safe(move |x| MockResult::Return(Ok(x.clone())));
-            ext::oracle::btc_to_dots::<Test>.mock_safe(move |x| MockResult::Return(Ok(x.clone())));
+            ext::oracle::dots_to_btc::<Test>.mock_safe(move |x| MockResult::Return(Ok(x)));
+            ext::oracle::btc_to_dots::<Test>.mock_safe(move |x| MockResult::Return(Ok(x)));
             let old = legacy_get_required_collateral_for_polkabtc_with_threshold(btc, 199999);
             let new = VaultRegistry::get_required_collateral_for_polkabtc_with_threshold(btc, threshold);
             assert_eq!(old, new);
@@ -940,8 +940,8 @@ fn get_required_collateral_for_polkabtc_with_threshold_succeeds() {
         let threshold = FixedU128::checked_from_rational(19999, 10000).unwrap(); // 199.99%
         let random_start = 987529387592 as u128;
         for btc in random_start..random_start + 19999 {
-            ext::oracle::dots_to_btc::<Test>.mock_safe(move |x| MockResult::Return(Ok(x.clone())));
-            ext::oracle::btc_to_dots::<Test>.mock_safe(move |x| MockResult::Return(Ok(x.clone())));
+            ext::oracle::dots_to_btc::<Test>.mock_safe(move |x| MockResult::Return(Ok(x)));
+            ext::oracle::btc_to_dots::<Test>.mock_safe(move |x| MockResult::Return(Ok(x)));
 
             let min_collateral =
                 VaultRegistry::get_required_collateral_for_polkabtc_with_threshold(btc, threshold).unwrap();
@@ -1177,14 +1177,14 @@ mod get_vaults_with_issuable_tokens_tests {
             let id1 = 3;
             let collateral1 = 100;
             create_vault_with_collateral(id1, collateral1);
-            let issuable_tokens1 = VaultRegistry::get_issuable_tokens_from_vault(id1.clone())
-                .expect("Sample vault is unable to issue tokens");
+            let issuable_tokens1 =
+                VaultRegistry::get_issuable_tokens_from_vault(id1).expect("Sample vault is unable to issue tokens");
 
             let id2 = 4;
             let collateral2 = 50;
             create_vault_with_collateral(id2, collateral2);
-            let issuable_tokens2 = VaultRegistry::get_issuable_tokens_from_vault(id2.clone())
-                .expect("Sample vault is unable to issue tokens");
+            let issuable_tokens2 =
+                VaultRegistry::get_issuable_tokens_from_vault(id2).expect("Sample vault is unable to issue tokens");
 
             // Check result is ordered in descending order
             assert_eq!(issuable_tokens1.gt(&issuable_tokens2), true);
@@ -1200,8 +1200,8 @@ mod get_vaults_with_issuable_tokens_tests {
             let id1 = 3;
             let collateral1 = 100;
             create_vault_with_collateral(id1, collateral1);
-            let issuable_tokens1 = VaultRegistry::get_issuable_tokens_from_vault(id1.clone())
-                .expect("Sample vault is unable to issue tokens");
+            let issuable_tokens1 =
+                VaultRegistry::get_issuable_tokens_from_vault(id1).expect("Sample vault is unable to issue tokens");
 
             let id2 = 4;
             let collateral2 = 50;
@@ -1226,8 +1226,8 @@ mod get_vaults_with_issuable_tokens_tests {
             let id1 = 3;
             let collateral1 = 100;
             create_vault_with_collateral(id1, collateral1);
-            let issuable_tokens1 = VaultRegistry::get_issuable_tokens_from_vault(id1.clone())
-                .expect("Sample vault is unable to issue tokens");
+            let issuable_tokens1 =
+                VaultRegistry::get_issuable_tokens_from_vault(id1).expect("Sample vault is unable to issue tokens");
 
             let id2 = 4;
             let collateral2 = 50;
@@ -1237,8 +1237,8 @@ mod get_vaults_with_issuable_tokens_tests {
             let mut vault = VaultRegistry::get_rich_vault_from_id(&id2).unwrap();
             vault.ban_until(1000);
 
-            let issuable_tokens2 = VaultRegistry::get_issuable_tokens_from_vault(id2.clone())
-                .expect("Sample vault is unable to issue tokens");
+            let issuable_tokens2 =
+                VaultRegistry::get_issuable_tokens_from_vault(id2).expect("Sample vault is unable to issue tokens");
 
             assert_eq!(issuable_tokens2, 0);
 
@@ -1256,8 +1256,8 @@ mod get_vaults_with_issuable_tokens_tests {
             let id1 = 3;
             let collateral1 = 100;
             create_vault_with_collateral(id1, collateral1);
-            let issuable_tokens1 = VaultRegistry::get_issuable_tokens_from_vault(id1.clone())
-                .expect("Sample vault is unable to issue tokens");
+            let issuable_tokens1 =
+                VaultRegistry::get_issuable_tokens_from_vault(id1).expect("Sample vault is unable to issue tokens");
 
             let id2 = 4;
             let collateral2 = 50;
@@ -1286,7 +1286,7 @@ mod get_vaults_with_issuable_tokens_tests {
             assert_eq!(vault.data.to_be_redeemed_tokens, 0);
 
             // update the exchange rate
-            ext::oracle::dots_to_btc::<Test>.mock_safe(move |x| MockResult::Return(Ok((x / 2).into())));
+            ext::oracle::dots_to_btc::<Test>.mock_safe(move |x| MockResult::Return(Ok(x / 2)));
 
             assert_err!(
                 VaultRegistry::get_vaults_with_issuable_tokens(),

@@ -970,7 +970,7 @@ mod tests {
             .unwrap();
 
         // FIXME: flag_bits incorrect
-        let proof = block.merkle_proof(&vec![transaction.tx_id()]).unwrap();
+        let proof = block.merkle_proof(&[transaction.tx_id()]).unwrap();
         let bytes = proof.try_format().unwrap();
         MerkleProof::parse(&bytes).unwrap();
     }

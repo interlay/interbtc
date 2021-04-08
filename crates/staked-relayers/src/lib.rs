@@ -297,7 +297,7 @@ decl_module! {
 
             // voting is disabled, for now only root can vote. Return Ok to clients so they
             // don't get concerned about an error message.
-            if let Err(_) = Self::only_governance(&signer) {
+            if Self::only_governance(&signer).is_err() {
                 return Ok(())
             }
 
@@ -375,9 +375,9 @@ decl_module! {
                 proposal_status: ProposalStatus::Pending,
                 btc_block_hash: block_hash,
                 proposer: signer.clone(),
-                deposit: deposit,
-                tally: tally,
-                message: message,
+                deposit,
+                tally,
+                message,
             });
 
             Self::deposit_event(<Event<T>>::StatusUpdateSuggested(status_update_id, signer, status_code, add_error, remove_error, block_hash));
@@ -1018,10 +1018,10 @@ impl<T: Config> Module<T> {
         Self::slash_staked_relayers(&status_update.add_error, &status_update.tally.nay)?;
         Self::deposit_event(<Event<T>>::ExecuteStatusUpdate(
             status_update_id,
-            status_code.clone(),
+            status_code,
             status_update.add_error.clone(),
             status_update.remove_error.clone(),
-            status_update.btc_block_hash.clone(),
+            status_update.btc_block_hash,
         ));
         Ok(())
     }
@@ -1058,11 +1058,11 @@ impl<T: Config> Module<T> {
     /// * `op_returns` - all op_return outputs extracted from tx
     /// * `wallet` - vault btc addresses
     pub(crate) fn is_valid_merge_transaction(
-        payments: &Vec<(i64, BtcAddress)>,
-        op_returns: &Vec<(i64, Vec<u8>)>,
+        payments: &[(i64, BtcAddress)],
+        op_returns: &[(i64, Vec<u8>)],
         wallet: &Wallet,
     ) -> bool {
-        if op_returns.len() > 0 {
+        if !op_returns.is_empty() {
             // migration should only contain payments
             return false;
         }
@@ -1073,7 +1073,7 @@ impl<T: Config> Module<T> {
             }
         }
 
-        return true;
+        true
     }
 
     /// Checks if the vault is sending a valid request transaction.
@@ -1087,7 +1087,7 @@ impl<T: Config> Module<T> {
     pub(crate) fn is_valid_request_transaction(
         request_value: PolkaBTC<T>,
         request_address: BtcAddress,
-        payments: &Vec<(i64, BtcAddress)>,
+        payments: &[(i64, BtcAddress)],
         wallet: &Wallet,
     ) -> bool {
         let request_value = match TryInto::<u64>::try_into(request_value).map_err(|_e| Error::<T>::TryIntoIntError) {
@@ -1110,7 +1110,7 @@ impl<T: Config> Module<T> {
 
         // tx has sufficient payment to recipient and
         // all refunds are to wallet addresses
-        return true;
+        true
     }
 
     /// Check if a vault transaction is invalid. Returns `Ok` if invalid or `Err` otherwise.
@@ -1156,21 +1156,16 @@ impl<T: Config> Module<T> {
         // * vault: any "spare change" the vault is transferring
 
         // should only err if there are too many outputs
-        if let Ok((payments, op_returns)) = ext::btc_relay::extract_outputs::<T>(tx.clone()) {
+        if let Ok((payments, op_returns)) = ext::btc_relay::extract_outputs::<T>(tx) {
             // check if the transaction is a "migration"
             ensure!(
                 !Self::is_valid_merge_transaction(&payments, &op_returns, &vault.wallet),
                 Error::<T>::ValidMergeTransaction
             );
 
-            if op_returns.len() != 1 {
-                // we only expect one op_return output
-                return Ok(());
-            } else if op_returns[0].0 > 0 {
-                // op_return output should not burn value
-                return Ok(());
-            } else if op_returns[0].1.len() < 32 {
-                // request id is expected to be 32 bytes (256 bits)
+            // we only expect one op_return output, the op_return output should not burn value, and
+            // the request_id is expected to be 32 bytes
+            if op_returns.len() != 1 || op_returns[0].0 > 0 || op_returns[0].1.len() < 32 {
                 return Ok(());
             }
 
@@ -1178,41 +1173,32 @@ impl<T: Config> Module<T> {
             let request_id = H256::from_slice(&op_returns[0].1[..32]);
 
             // redeem requests
-            match ext::redeem::get_open_or_completed_redeem_request_from_id::<T>(&request_id) {
-                Ok(req) => {
-                    ensure!(
-                        !Self::is_valid_request_transaction(req.amount_btc, req.btc_address, &payments, &vault.wallet,),
-                        Error::<T>::ValidRedeemTransaction
-                    );
-                }
-                Err(_) => (),
+            if let Ok(req) = ext::redeem::get_open_or_completed_redeem_request_from_id::<T>(&request_id) {
+                ensure!(
+                    !Self::is_valid_request_transaction(req.amount_btc, req.btc_address, &payments, &vault.wallet,),
+                    Error::<T>::ValidRedeemTransaction
+                );
             };
 
             // replace requests
-            match ext::replace::get_open_or_completed_replace_request::<T>(&request_id) {
-                Ok(req) => {
-                    ensure!(
-                        !Self::is_valid_request_transaction(req.amount, req.btc_address, &payments, &vault.wallet,),
-                        Error::<T>::ValidReplaceTransaction
-                    );
-                }
-                Err(_) => (),
+            if let Ok(req) = ext::replace::get_open_or_completed_replace_request::<T>(&request_id) {
+                ensure!(
+                    !Self::is_valid_request_transaction(req.amount, req.btc_address, &payments, &vault.wallet,),
+                    Error::<T>::ValidReplaceTransaction
+                );
             };
 
             // refund requests
-            match ext::refund::get_open_or_completed_refund_request_from_id::<T>(&request_id) {
-                Ok(req) => {
-                    ensure!(
-                        !Self::is_valid_request_transaction(
-                            req.amount_polka_btc,
-                            req.btc_address,
-                            &payments,
-                            &vault.wallet,
-                        ),
-                        Error::<T>::ValidRefundTransaction
-                    );
-                }
-                Err(_) => (),
+            if let Ok(req) = ext::refund::get_open_or_completed_refund_request_from_id::<T>(&request_id) {
+                ensure!(
+                    !Self::is_valid_request_transaction(
+                        req.amount_polka_btc,
+                        req.btc_address,
+                        &payments,
+                        &vault.wallet,
+                    ),
+                    Error::<T>::ValidRefundTransaction
+                );
             };
         }
 
