@@ -3,7 +3,6 @@ use codec::{Decode, Encode};
 use frame_support::traits::Currency;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-// use sp_runtime::FixedPointNumber;
 
 /// Storage version.
 #[derive(Encode, Decode, Eq, PartialEq)]
@@ -16,7 +15,6 @@ pub enum Version {
 
 pub(crate) type DOT<T> =
     <<T as collateral::Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-// pub(crate) type Inner<T> = <<T as fee::Config>::UnsignedFixedPoint as FixedPointNumber>::Inner;
 pub(crate) type PolkaBTC<T> = <<T as treasury::Config>::PolkaBTC as Currency<
     <T as frame_system::Config>::AccountId,
 >>::Balance;
