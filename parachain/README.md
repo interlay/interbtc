@@ -140,3 +140,15 @@ impl crate::WeightInfo for () {
 ```
 
 In the future this process will be automated using [handlebars](https://handlebarsjs.com/) templates.
+
+## Code Coverage
+
+To generate a code coverage report, install and run tarpaulin:
+
+```shell
+cargo install cargo-tarpaulin
+cargo tarpaulin -v \
+  --exclude-files '/test,/mock.rs,/mock/mod.rs,/default_weights.rs,/weights.rs,/ext.rs,/runtime-api/,/benchmarking.rs,parachain/*' \
+  --out Html \
+  --output-dir "./cov"
+```
