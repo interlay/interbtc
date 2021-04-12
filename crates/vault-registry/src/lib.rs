@@ -12,6 +12,7 @@ pub mod types;
 mod benchmarking;
 
 mod default_weights;
+pub use default_weights::WeightInfo;
 
 #[cfg(test)]
 mod tests;
@@ -57,15 +58,6 @@ pub struct RegisterRequest<AccountId, DateTime> {
     registration_id: H256,
     vault: AccountId,
     timeout: DateTime,
-}
-
-pub trait WeightInfo {
-    fn register_vault() -> Weight;
-    fn lock_additional_collateral() -> Weight;
-    fn withdraw_collateral() -> Weight;
-    fn update_public_key() -> Weight;
-    fn register_address() -> Weight;
-    fn accept_new_issues() -> Weight;
 }
 
 /// ## Configuration and Constants

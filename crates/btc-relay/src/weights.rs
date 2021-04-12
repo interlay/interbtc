@@ -31,27 +31,12 @@ use frame_support::{
     traits::Get,
     weights::{constants::RocksDbWeight, Weight},
 };
-use sp_std::marker::PhantomData;
 
 /// Weight functions needed for btc_relay.
 pub trait WeightInfo {
     fn verify_and_validate_transaction() -> Weight;
     fn verify_transaction_inclusion() -> Weight;
     fn validate_transaction() -> Weight;
-}
-
-/// Weights for btc_relay using the Substrate node and recommended hardware.
-pub struct SubstrateWeight<T>(PhantomData<T>);
-impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-    fn verify_and_validate_transaction() -> Weight {
-        99_474_000_u64.saturating_add(T::DbWeight::get().reads(9_u64))
-    }
-    fn verify_transaction_inclusion() -> Weight {
-        55_622_000_u64.saturating_add(T::DbWeight::get().reads(8_u64))
-    }
-    fn validate_transaction() -> Weight {
-        15_739_000_u64.saturating_add(T::DbWeight::get().reads(1_u64))
-    }
 }
 
 // For backwards compatibility and tests

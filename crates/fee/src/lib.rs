@@ -9,6 +9,7 @@
 mod benchmarking;
 
 mod default_weights;
+pub use default_weights::WeightInfo;
 
 #[cfg(test)]
 mod mock;
@@ -36,11 +37,6 @@ use frame_system::ensure_signed;
 use sp_arithmetic::{traits::*, FixedPointNumber};
 use sp_std::{convert::TryInto, vec::*};
 use types::{Inner, PolkaBTC, UnsignedFixedPoint, DOT};
-
-pub trait WeightInfo {
-    fn withdraw_polka_btc() -> Weight;
-    fn withdraw_dot() -> Weight;
-}
 
 /// The pallet's configuration trait.
 pub trait Config: frame_system::Config + collateral::Config + treasury::Config + sla::Config {

@@ -5,11 +5,12 @@ use bitcoin::{
     types::{BlockBuilder, RawBlockHeader, TransactionBuilder, TransactionInputBuilder, TransactionOutput},
 };
 use btc_relay::{BtcAddress, BtcPublicKey, Module as BtcRelay};
-use frame_benchmarking::{account, benchmarks};
+use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
 use security::Module as Security;
 use sp_core::{H160, H256, U256};
 use sp_std::prelude::*;
+use treasury::Module as Treasury;
 use vault_registry::{
     types::{Vault, Wallet},
     Module as VaultRegistry,
@@ -37,6 +38,8 @@ benchmarks! {
             &vault_id,
             vault
         );
+
+        Treasury::<T>::mint(origin.clone(), amount);
 
     }: _(RawOrigin::Signed(origin), amount, btc_address, vault_id.clone())
 
@@ -71,6 +74,7 @@ benchmarks! {
         let block_hash = block.header.hash().unwrap();
         let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
 
+        Security::<T>::set_active_block_number(1u32.into());
         BtcRelay::<T>::initialize(relayer_id.clone(), block_header, height).unwrap();
 
         let value = 0;
@@ -110,11 +114,13 @@ benchmarks! {
         let raw_tx = transaction.format_with(true);
 
         let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
+
         BtcRelay::<T>::store_block_header(&relayer_id, block_header).unwrap();
+        Security::<T>::set_active_block_number(Security::<T>::active_block_number() + BtcRelay::<T>::parachain_confirmations() + 1u32.into());
 
     }: _(RawOrigin::Signed(vault_id), redeem_id, tx_id, proof, raw_tx)
 
-    cancel_redeem {
+    cancel_redeem_reimburse {
         let origin: T::AccountId = account("Origin", 0, 0);
         let vault_id: T::AccountId = account("Vault", 0, 0);
 
@@ -134,35 +140,37 @@ benchmarks! {
             &vault_id,
             vault
         );
+    }: cancel_redeem(RawOrigin::Signed(origin), redeem_id, true)
 
-    }: _(RawOrigin::Signed(origin), redeem_id, true)
+    cancel_redeem_retry {
+        let origin: T::AccountId = account("Origin", 0, 0);
+        let vault_id: T::AccountId = account("Vault", 0, 0);
+
+        let redeem_id = H256::zero();
+        let mut redeem_request = RedeemRequest::default();
+        redeem_request.vault = vault_id.clone();
+        redeem_request.redeemer = origin.clone();
+        redeem_request.opentime = Security::<T>::active_block_number();
+        Redeem::<T>::insert_redeem_request(redeem_id, redeem_request);
+        Security::<T>::set_active_block_number(Security::<T>::active_block_number() + Redeem::<T>::redeem_period() + 10u32.into());
+
+
+        let mut vault = Vault::default();
+        vault.id = vault_id.clone();
+        vault.wallet = Wallet::new(dummy_public_key());
+        VaultRegistry::<T>::insert_vault(
+            &vault_id,
+            vault
+        );
+    }: cancel_redeem(RawOrigin::Signed(origin), redeem_id, false)
 
     set_redeem_period {
     }: _(RawOrigin::Root, 1u32.into())
 
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::mock::{ExtBuilder, Test};
-    use frame_support::assert_ok;
-
-    #[test]
-    fn test_benchmarks() {
-        ExtBuilder::build_with(
-            pallet_balances::GenesisConfig::<Test, pallet_balances::Instance1> {
-                balances: vec![(account("Origin", 0, 0), 1 << 32), (account("Vault", 0, 0), 1 << 32)],
-            },
-            pallet_balances::GenesisConfig::<Test, pallet_balances::Instance2> {
-                balances: vec![(account("Origin", 0, 0), 1 << 32), (account("Vault", 0, 0), 1 << 32)],
-            },
-        )
-        .execute_with(|| {
-            assert_ok!(test_benchmark_request_redeem::<Test>());
-            assert_ok!(test_benchmark_execute_redeem::<Test>());
-            assert_ok!(test_benchmark_cancel_redeem::<Test>());
-            assert_ok!(test_benchmark_set_redeem_period::<Test>());
-        });
-    }
-}
+impl_benchmark_test_suite!(
+    Redeem,
+    crate::mock::ExtBuilder::build_with(Default::default(), Default::default()),
+    crate::mock::Test
+);

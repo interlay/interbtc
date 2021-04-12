@@ -9,6 +9,7 @@
 mod benchmarking;
 
 mod default_weights;
+pub use default_weights::WeightInfo;
 
 #[cfg(test)]
 mod mock;
@@ -45,13 +46,6 @@ use vault_registry::{CurrencySource, VaultStatus};
 
 /// The issue module id, used for deriving its sovereign account ID.
 const _MODULE_ID: ModuleId = ModuleId(*b"issuemod");
-
-pub trait WeightInfo {
-    fn request_issue() -> Weight;
-    fn execute_issue() -> Weight;
-    fn cancel_issue() -> Weight;
-    fn set_issue_period() -> Weight;
-}
 
 /// The pallet's configuration trait.
 pub trait Config:

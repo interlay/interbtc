@@ -5,6 +5,15 @@
 
 use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 
+pub trait WeightInfo {
+    fn register_vault() -> Weight;
+    fn lock_additional_collateral() -> Weight;
+    fn withdraw_collateral() -> Weight;
+    fn update_public_key() -> Weight;
+    fn register_address() -> Weight;
+    fn accept_new_issues() -> Weight;
+}
+
 impl crate::WeightInfo for () {
     fn register_vault() -> Weight {
         (91_914_000 as Weight)

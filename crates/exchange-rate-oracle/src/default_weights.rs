@@ -5,6 +5,13 @@
 
 use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 
+pub trait WeightInfo {
+    fn set_exchange_rate() -> Weight;
+    fn set_btc_tx_fees_per_byte() -> Weight;
+    fn insert_authorized_oracle() -> Weight;
+    fn remove_authorized_oracle() -> Weight;
+}
+
 impl crate::WeightInfo for () {
     // WARNING! Some components were not used: ["u"]
     fn set_exchange_rate() -> Weight {

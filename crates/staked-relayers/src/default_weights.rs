@@ -5,6 +5,22 @@
 
 use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 
+pub trait WeightInfo {
+    fn initialize() -> Weight;
+    fn register_staked_relayer() -> Weight;
+    fn deregister_staked_relayer() -> Weight;
+    fn suggest_status_update() -> Weight;
+    fn vote_on_status_update() -> Weight;
+    fn force_status_update() -> Weight;
+    fn slash_staked_relayer() -> Weight;
+    fn report_vault_theft() -> Weight;
+    fn remove_active_status_update() -> Weight;
+    fn remove_inactive_status_update() -> Weight;
+    fn set_maturity_period() -> Weight;
+    fn evaluate_status_update() -> Weight;
+    fn store_block_header() -> Weight;
+}
+
 impl crate::WeightInfo for () {
     // WARNING! Some components were not used: ["u"]
     fn initialize() -> Weight {

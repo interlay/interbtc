@@ -121,25 +121,11 @@ cargo run --features runtime-benchmarks --release -- \
   --extrinsic "*" \
   --steps 100 \
   --repeat 10 \
-  --output
+  --output ../crates/issue/src/default_weights.rs \
+  --template ../.deploy/weight-template.hbs
 ```
 
-This will produce a new file (`./parachain/issue.rs`) which you should copy into the corresponding pallet.
-
-Rename this to `default_weights.rs` and modify the contents as follows:
-
-```rust
-// Change this
-pub struct WeightInfo;
-impl issue::WeightInfo for WeightInfo {
-...
-
-// To this
-impl crate::WeightInfo for () {
-...
-```
-
-In the future this process will be automated using [handlebars](https://handlebarsjs.com/) templates.
+This will overwrite the default weights (i.e. in the example, `../crates/issue/src/default_weights.rs`).
 
 ## Code Coverage
 
