@@ -41,7 +41,7 @@ pub use bitcoin::{self, Address as BtcAddress, PublicKey as BtcPublicKey};
 use bitcoin::{
     merkle::{MerkleProof, ProofResult},
     parser::{parse_block_header, parse_transaction},
-    types::{BlockChain, BlockHeader, H256Le, RawBlockHeader, Transaction},
+    types::{BlockChain, BlockHeader, H256Le, RawBlockHeader, Transaction, TransactionOutput},
     Error as BitcoinError,
 };
 use security::types::ErrorCode;
@@ -151,9 +151,22 @@ macro_rules! extract_op_return {
                     data
                 } else
             )*
-            { return Err(Error::<T>::NotOpReturn.into()); }
+            { return None; }
         }
     };
+}
+
+fn maybe_get_payment_value(output: &TransactionOutput, recipient_btc_address: &BtcAddress) -> Option<i64> {
+    match output.extract_address() {
+        Ok(extr_recipient_btc_address) => {
+            if *recipient_btc_address == extr_recipient_btc_address {
+                Some(output.value)
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
 }
 
 decl_module! {
@@ -187,8 +200,8 @@ decl_module! {
             raw_tx: Vec<u8>,
             minimum_btc: i64,
             recipient_btc_address: BtcAddress,
-            op_return_id: Option<Vec<u8>>)
-        -> DispatchResult {
+            op_return_id: Option<Vec<u8>>
+        ) -> DispatchResult {
             let _ = ensure_signed(origin)?;
 
             let transaction = Self::parse_transaction(&raw_tx)?;
@@ -233,8 +246,8 @@ decl_module! {
             origin,
             tx_id: H256Le,
             raw_merkle_proof: Vec<u8>,
-            confirmations: Option<u32>)
-        -> DispatchResult {
+            confirmations: Option<u32>
+        ) -> DispatchResult {
             let _ = ensure_signed(origin)?;
             Self::_verify_transaction_inclusion(tx_id, raw_merkle_proof, confirmations)?;
             Ok(())
@@ -356,6 +369,7 @@ impl<T: Config> Module<T> {
         }
         ret
     }
+
     fn _store_block_header(relayer: &T::AccountId, raw_block_header: RawBlockHeader) -> DispatchResult {
         // Make sure Parachain is not shutdown
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
@@ -541,37 +555,29 @@ impl<T: Config> Module<T> {
         );
 
         // Check if payment is first output
-        match transaction.outputs.get(0).map(|output| output.extract_address()) {
-            Some(Ok(extr_recipient_btc_address)) => {
-                if recipient_btc_address == extr_recipient_btc_address {
-                    return Ok(transaction.outputs[0].value);
-                }
-            }
-            _ => (),
-        };
+        let output0 = transaction
+            .outputs
+            .get(0)
+            .and_then(|output| maybe_get_payment_value(output, &recipient_btc_address));
 
         // Check if payment is second output
-        match transaction.outputs.get(1).map(|output| output.extract_address()) {
-            Some(Ok(extr_recipient_btc_address)) => {
-                if recipient_btc_address == extr_recipient_btc_address {
-                    return Ok(transaction.outputs[1].value);
-                }
-            }
-            _ => (),
-        };
+        let output1 = transaction
+            .outputs
+            .get(1)
+            .and_then(|output| maybe_get_payment_value(output, &recipient_btc_address));
 
         // Check if payment is third output
-        match transaction.outputs.get(1).map(|output| output.extract_address()) {
-            Some(Ok(extr_recipient_btc_address)) => {
-                if recipient_btc_address == extr_recipient_btc_address {
-                    return Ok(transaction.outputs[2].value);
-                }
-            }
-            _ => (),
-        };
+        let output2 = transaction
+            .outputs
+            .get(2)
+            .and_then(|output| maybe_get_payment_value(output, &recipient_btc_address));
 
-        // Payment UTXO sends to incorrect address
-        Err(Error::<T>::WrongRecipient.into())
+        match (output0, output1, output2) {
+            (Some(o), None, None) | (None, Some(o), None) | (None, None, Some(o)) => Ok(o),
+            // Payment UTXO sends to an incorrect address
+            // OR contains a duplicate recipient
+            _ => Err(Error::<T>::InvalidPayment.into()),
+        }
     }
 
     /// Extract the payment value and `OP_RETURN` payload from the first
@@ -593,46 +599,48 @@ impl<T: Config> Module<T> {
         );
 
         // Check if payment is first output
-        match transaction.outputs[0].extract_address() {
-            Ok(extr_recipient_btc_address) => {
-                if recipient_btc_address == extr_recipient_btc_address {
-                    return Ok((
-                        transaction.outputs[0].value,
-                        extract_op_return!(transaction.outputs.get(1), transaction.outputs.get(2)),
-                    ));
-                }
-            }
-            Err(_) => (),
-        };
+        let output0 = transaction
+            .outputs
+            .get(0)
+            .filter(|output| matches!(output.extract_address(), Ok(address) if address == recipient_btc_address))
+            .and_then(|output| {
+                Some((
+                    output.value,
+                    extract_op_return!(transaction.outputs.get(1), transaction.outputs.get(2)),
+                ))
+            });
 
         // Check if payment is second output
-        match transaction.outputs[1].extract_address() {
-            Ok(extr_recipient_btc_address) => {
-                if recipient_btc_address == extr_recipient_btc_address {
-                    return Ok((
-                        transaction.outputs[1].value,
-                        extract_op_return!(transaction.outputs.get(0), transaction.outputs.get(2)),
-                    ));
-                }
-            }
-            Err(_) => (),
-        };
+        let output1 = transaction
+            .outputs
+            .get(1)
+            .filter(|output| matches!(output.extract_address(), Ok(address) if address == recipient_btc_address))
+            .and_then(|output| {
+                Some((
+                    output.value,
+                    extract_op_return!(transaction.outputs.get(0), transaction.outputs.get(2)),
+                ))
+            });
 
         // Check if payment is third output
-        match transaction.outputs.get(2).map(|output| output.extract_address()) {
-            Some(Ok(extr_recipient_btc_address)) => {
-                if recipient_btc_address == extr_recipient_btc_address {
-                    return Ok((
-                        transaction.outputs[2].value,
-                        extract_op_return!(transaction.outputs.get(0), transaction.outputs.get(1)),
-                    ));
-                }
-            }
-            _ => (),
-        };
+        let output2 = transaction
+            .outputs
+            .get(2)
+            .filter(|output| matches!(output.extract_address(), Ok(address) if address == recipient_btc_address))
+            .and_then(|output| {
+                Some((
+                    output.value,
+                    extract_op_return!(transaction.outputs.get(0), transaction.outputs.get(1)),
+                ))
+            });
 
-        // Payment UTXO sends to incorrect address
-        Err(Error::<T>::WrongRecipient.into())
+        match (output0, output1, output2) {
+            (Some(o), None, None) | (None, Some(o), None) | (None, None, Some(o)) => Ok(o),
+            // Payment UTXO sends to an incorrect address
+            // OR contains a duplicate recipient
+            // OR does not contain an OP_RETURN output
+            _ => Err(Error::<T>::InvalidPayment.into()),
+        }
     }
 
     pub fn is_op_return_disabled() -> bool {
@@ -1498,15 +1506,13 @@ decl_error! {
         /// Transaction has incorrect format
         MalformedTransaction,
         /// Incorrect recipient Bitcoin address
-        WrongRecipient,
+        InvalidPayment,
         /// Incorrect transaction output format
         InvalidOutputFormat,
         /// Incorrect identifier in OP_RETURN field
         InvalidOpReturn,
         /// Invalid transaction version
         InvalidTxVersion,
-        /// Expecting OP_RETURN output, but got another type
-        NotOpReturn,
         /// Error code not applicable to blocks
         UnknownErrorcode,
         /// Blockchain with requested ID not found
