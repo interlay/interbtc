@@ -1,6 +1,9 @@
 use super::*;
-use crate::{types::BtcPublicKey, Module as VaultRegistry};
-use frame_benchmarking::{account, benchmarks};
+use crate::{
+    sp_api_hidden_includes_decl_storage::hidden_include::traits::Currency, types::BtcPublicKey, Module as VaultRegistry,
+};
+use exchange_rate_oracle::Module as ExchangeRateOracle;
+use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
 use sp_std::prelude::*;
 
@@ -14,6 +17,7 @@ fn dummy_public_key() -> BtcPublicKey {
 benchmarks! {
     register_vault {
         let origin: T::AccountId = account("Origin", 0, 0);
+        let _ = T::DOT::make_free_balance_be(&origin, (1u32 << 31).into());
         let amount: u32 = 100;
         let public_key = BtcPublicKey::default();
     }: _(RawOrigin::Signed(origin.clone()), amount.into(), public_key)
@@ -23,6 +27,7 @@ benchmarks! {
 
     lock_additional_collateral {
         let origin: T::AccountId = account("Origin", 0, 0);
+        let _ = T::DOT::make_free_balance_be(&origin, (1u32 << 31).into());
         let u in 0 .. 100;
         VaultRegistry::<T>::_register_vault(&origin, 1234u32.into(), dummy_public_key()).unwrap();
     }: _(RawOrigin::Signed(origin), u.into())
@@ -31,6 +36,7 @@ benchmarks! {
 
     withdraw_collateral {
         let origin: T::AccountId = account("Origin", 0, 0);
+        let _ = T::DOT::make_free_balance_be(&origin, (1u32 << 31).into());
         let u in 0 .. 100;
         VaultRegistry::<T>::_register_vault(&origin, u.into(), dummy_public_key()).unwrap();
     }: _(RawOrigin::Signed(origin), u.into())
@@ -39,38 +45,43 @@ benchmarks! {
 
     update_public_key {
         let origin: T::AccountId = account("Origin", 0, 0);
+        let _ = T::DOT::make_free_balance_be(&origin, (1u32 << 31).into());
         VaultRegistry::<T>::_register_vault(&origin, 1234u32.into(), dummy_public_key()).unwrap();
     }: _(RawOrigin::Signed(origin), BtcPublicKey::default())
+
+    register_address {
+        let origin: T::AccountId = account("Origin", 0, 0);
+        let _ = T::DOT::make_free_balance_be(&origin, (1u32 << 31).into());
+        VaultRegistry::<T>::_register_vault(&origin, 1234u32.into(), dummy_public_key()).unwrap();
+    }: _(RawOrigin::Signed(origin), BtcAddress::default())
+
+    accept_new_issues {
+        let origin: T::AccountId = account("Origin", 0, 0);
+        let _ = T::DOT::make_free_balance_be(&origin, (1u32 << 31).into());
+        VaultRegistry::<T>::_register_vault(&origin, 1234u32.into(), dummy_public_key()).unwrap();
+    }: _(RawOrigin::Signed(origin), true)
 
     liquidate_undercollateralized_vaults {
         let u in 0 .. 100;
 
+        ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()).unwrap();
+
         for i in 0..u {
             let origin: T::AccountId = account("Origin", i, 0);
-            VaultRegistry::<T>::_register_vault(&origin, 1234u32.into(), dummy_public_key()).unwrap();
+            let _ = T::DOT::make_free_balance_be(&origin, (1u32 << 31).into());
+            VaultRegistry::<T>::_register_vault(&origin, 1234567u32.into(), dummy_public_key()).unwrap();
+        }
+        // sanity check
+        if u > 0 {
+            assert_eq!(VaultRegistry::<T>::get_vaults_with_issuable_tokens().unwrap().len(), u as usize);
         }
     }: {
         VaultRegistry::<T>::liquidate_undercollateralized_vaults()
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::mock::{ExtBuilder, Test};
-    use frame_support::assert_ok;
-
-    #[test]
-    fn test_benchmarks() {
-        ExtBuilder::build_with(pallet_balances::GenesisConfig::<Test, pallet_balances::Instance1> {
-            balances: (0..100).map(|i| (account("Origin", i, 0), 1 << 64)).collect(),
-        })
-        .execute_with(|| {
-            assert_ok!(test_benchmark_register_vault::<Test>());
-            assert_ok!(test_benchmark_lock_additional_collateral::<Test>());
-            assert_ok!(test_benchmark_withdraw_collateral::<Test>());
-            assert_ok!(test_benchmark_update_public_key::<Test>());
-            assert_ok!(test_benchmark_liquidate_undercollateralized_vaults::<Test>());
-        });
-    }
-}
+impl_benchmark_test_suite!(
+    VaultRegistry,
+    crate::mock::ExtBuilder::build_with(Default::default()),
+    crate::mock::Test
+);

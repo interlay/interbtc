@@ -774,11 +774,41 @@ fn is_collateral_below_threshold_true_succeeds() {
 #[test]
 fn test_liquidate_undercollateralized_vaults_no_liquidation() {
     run_test(|| {
-        Vaults::<Test>::insert(0, Vault::default());
-        Vaults::<Test>::insert(1, Vault::default());
-        Vaults::<Test>::insert(2, Vault::default());
-        Vaults::<Test>::insert(3, Vault::default());
-        Vaults::<Test>::insert(4, Vault::default());
+        Vaults::<Test>::insert(
+            0,
+            Vault {
+                id: 0,
+                ..Default::default()
+            },
+        );
+        Vaults::<Test>::insert(
+            1,
+            Vault {
+                id: 1,
+                ..Default::default()
+            },
+        );
+        Vaults::<Test>::insert(
+            2,
+            Vault {
+                id: 2,
+                ..Default::default()
+            },
+        );
+        Vaults::<Test>::insert(
+            3,
+            Vault {
+                id: 3,
+                ..Default::default()
+            },
+        );
+        Vaults::<Test>::insert(
+            4,
+            Vault {
+                id: 4,
+                ..Default::default()
+            },
+        );
 
         let vaults: HashMap<<Test as frame_system::Config>::AccountId, bool> =
             vec![(0, false), (1, false), (2, false), (3, false), (4, false)]
@@ -786,7 +816,7 @@ fn test_liquidate_undercollateralized_vaults_no_liquidation() {
                 .collect();
 
         VaultRegistry::is_vault_below_liquidation_threshold
-            .mock_safe(move |id| MockResult::Return(Ok(*vaults.get(id).unwrap())));
+            .mock_safe(move |vault, _| MockResult::Return(Ok(*vaults.get(&vault.id).unwrap())));
         VaultRegistry::liquidate_vault.mock_safe(move |_| {
             panic!("Should not liquidate any vaults");
         });
@@ -798,11 +828,41 @@ fn test_liquidate_undercollateralized_vaults_no_liquidation() {
 #[test]
 fn test_liquidate_undercollateralized_vaults_succeeds() {
     run_test(|| {
-        Vaults::<Test>::insert(0, Vault::default());
-        Vaults::<Test>::insert(1, Vault::default());
-        Vaults::<Test>::insert(2, Vault::default());
-        Vaults::<Test>::insert(3, Vault::default());
-        Vaults::<Test>::insert(4, Vault::default());
+        Vaults::<Test>::insert(
+            0,
+            Vault {
+                id: 0,
+                ..Default::default()
+            },
+        );
+        Vaults::<Test>::insert(
+            1,
+            Vault {
+                id: 1,
+                ..Default::default()
+            },
+        );
+        Vaults::<Test>::insert(
+            2,
+            Vault {
+                id: 2,
+                ..Default::default()
+            },
+        );
+        Vaults::<Test>::insert(
+            3,
+            Vault {
+                id: 3,
+                ..Default::default()
+            },
+        );
+        Vaults::<Test>::insert(
+            4,
+            Vault {
+                id: 4,
+                ..Default::default()
+            },
+        );
 
         let vaults: HashMap<<Test as frame_system::Config>::AccountId, bool> =
             vec![(0, true), (1, false), (2, true), (3, false), (4, false)]
@@ -812,7 +872,7 @@ fn test_liquidate_undercollateralized_vaults_succeeds() {
         let vaults2 = vaults1.clone();
 
         VaultRegistry::is_vault_below_liquidation_threshold
-            .mock_safe(move |id| MockResult::Return(Ok(*vaults1.get(id).unwrap())));
+            .mock_safe(move |vault, _| MockResult::Return(Ok(*vaults1.get(&vault.id).unwrap())));
         VaultRegistry::liquidate_vault.mock_safe(move |id| {
             assert!(vaults2.get(id).unwrap());
             MockResult::Return(Ok(()))
@@ -1019,7 +1079,12 @@ fn is_vault_below_liquidation_threshold_true_succeeds() {
         ext::collateral::for_account::<Test>.mock_safe(|_| MockResult::Return(DEFAULT_COLLATERAL));
         ext::oracle::dots_to_btc::<Test>.mock_safe(|_| MockResult::Return(Ok(DEFAULT_COLLATERAL / 2)));
 
-        assert_eq!(VaultRegistry::is_vault_below_liquidation_threshold(&id), Ok(true));
+        let vault = VaultRegistry::get_vault_from_id(&id).unwrap();
+        let threshold = VaultRegistry::get_liquidation_collateral_threshold();
+        assert_eq!(
+            VaultRegistry::is_vault_below_liquidation_threshold(&vault, threshold),
+            Ok(true)
+        );
     })
 }
 

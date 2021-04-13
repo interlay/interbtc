@@ -17,13 +17,15 @@ extern crate mocktopus;
 use mocktopus::macros::mockable;
 
 mod default_weights;
+pub use default_weights::WeightInfo;
+
 mod ext;
 pub mod types;
 
 use bitcoin::types::H256Le;
 use btc_relay::BtcAddress;
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError, ensure, transactional, weights::Weight,
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError, ensure, transactional,
 };
 use frame_system::ensure_signed;
 use primitive_types::H256;
@@ -31,10 +33,6 @@ use sp_runtime::traits::CheckedSub;
 use sp_std::{convert::TryInto, vec::Vec};
 use types::PolkaBTC;
 pub use types::RefundRequest;
-
-pub trait WeightInfo {
-    fn execute_refund() -> Weight;
-}
 
 /// The pallet's configuration trait.
 pub trait Config:

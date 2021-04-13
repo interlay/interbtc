@@ -5,6 +5,16 @@
 
 use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 
+pub trait WeightInfo {
+    fn request_replace() -> Weight;
+    fn withdraw_replace() -> Weight;
+    fn accept_replace() -> Weight;
+    fn auction_replace() -> Weight;
+    fn execute_replace() -> Weight;
+    fn cancel_replace() -> Weight;
+    fn set_replace_period() -> Weight;
+}
+
 impl crate::WeightInfo for () {
     fn request_replace() -> Weight {
         142_819_000_u64

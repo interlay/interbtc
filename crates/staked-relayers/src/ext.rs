@@ -78,6 +78,13 @@ pub(crate) mod security {
 }
 
 #[cfg_attr(test, mockable)]
+pub(crate) mod fee {
+    pub fn fee_pool_account_id<T: fee::Config>() -> T::AccountId {
+        <fee::Module<T>>::fee_pool_account_id()
+    }
+}
+
+#[cfg_attr(test, mockable)]
 pub(crate) mod btc_relay {
     use bitcoin::types::{H256Le, RawBlockHeader, Transaction};
     use btc_relay::BtcAddress;

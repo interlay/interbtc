@@ -1,12 +1,12 @@
 use super::*;
-use crate::Module as StakedRelayers;
+use crate::{sp_api_hidden_includes_decl_storage::hidden_include::traits::Currency, Module as StakedRelayers};
 use bitcoin::{
     formatter::{Formattable, TryFormattable},
     types::{BlockBuilder, H256Le, RawBlockHeader, TransactionBuilder, TransactionInputBuilder, TransactionOutput},
 };
 use btc_relay::{BtcAddress, BtcPublicKey, Module as BtcRelay};
 use collateral::Module as Collateral;
-use frame_benchmarking::{account, benchmarks};
+use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
 use security::Module as Security;
 use sp_core::{H160, U256};
@@ -15,7 +15,6 @@ use vault_registry::{
     types::{Vault, Wallet},
     Module as VaultRegistry,
 };
-
 fn dummy_public_key() -> BtcPublicKey {
     BtcPublicKey([
         2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55, 18, 45, 222, 180,
@@ -75,6 +74,7 @@ benchmarks! {
 
     register_staked_relayer {
         let origin: T::AccountId = account("Origin", 0, 0);
+        let _ = T::DOT::make_free_balance_be(&origin, (1u32 << 31).into());
         let u in 100 .. 1000;
     }: _(RawOrigin::Signed(origin.clone()), u.into())
     verify {
@@ -83,40 +83,21 @@ benchmarks! {
 
     deregister_staked_relayer {
         let origin: T::AccountId = account("Origin", 0, 0);
+        let _ = T::DOT::make_free_balance_be(&origin, (1u32 << 31).into());
         let stake: u32 = 100;
         <ActiveStakedRelayers<T>>::insert(&origin, StakedRelayer { stake: stake.into(), height: Security::<T>::active_block_number() });
         Collateral::<T>::lock_collateral(&origin, stake.into()).unwrap();
     }: _(RawOrigin::Signed(origin))
 
-    suggest_status_update {
-        let origin: T::AccountId = account("Origin", 0, 0);
-        let stake: u32 = 100;
-        let deposit: u32 = 1000;
-        let status_code = StatusCode::Error;
-        StakedRelayers::<T>::insert_active_staked_relayer(&origin, stake.into(), Security::<T>::active_block_number());
-    }: _(RawOrigin::Signed(origin), deposit.into(), status_code, None, None, None, vec![])
-
-    vote_on_status_update {
-        let origin: T::AccountId = account("Origin", 0, 0);
-        let stake: u32 = 100;
-        StakedRelayers::<T>::insert_active_staked_relayer(&origin, stake.into(), Security::<T>::active_block_number());
-        let status_update = StatusUpdate::default();
-        let status_update_id = StakedRelayers::<T>::insert_active_status_update(status_update);
-    }: _(RawOrigin::Signed(origin), status_update_id, true)
-
-    force_status_update {
-        let origin: T::AccountId = account("Origin", 0, 0);
-        let status_code = StatusCode::Error;
-    }: _(RawOrigin::Signed(origin), status_code, None, None)
-
     slash_staked_relayer {
-        let origin: T::AccountId = account("Origin", 0, 0);
         let staked_relayer: T::AccountId = account("Vault", 0, 0);
+        let _ = T::DOT::make_free_balance_be(&staked_relayer, (1u32 << 31).into());
+
         let stake: u32 = 100;
         StakedRelayers::<T>::insert_active_staked_relayer(&staked_relayer, stake.into(), Security::<T>::active_block_number());
         Collateral::<T>::lock_collateral(&staked_relayer, stake.into()).unwrap();
 
-    }: _(RawOrigin::Signed(origin), staked_relayer)
+    }: _(RawOrigin::Root, staked_relayer)
 
     report_vault_theft {
         let origin: T::AccountId = account("Origin", 0, 0);
@@ -151,6 +132,7 @@ benchmarks! {
 
         let block_hash = block.header.hash().unwrap();
         let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
+        Security::<T>::set_active_block_number(1u32.into());
         BtcRelay::<T>::initialize(relayer_id.clone(), block_header, height).unwrap();
 
         let value = 0;
@@ -193,76 +175,13 @@ benchmarks! {
 
         let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
         BtcRelay::<T>::store_block_header(&relayer_id, block_header).unwrap();
+        Security::<T>::set_active_block_number(Security::<T>::active_block_number() + BtcRelay::<T>::parachain_confirmations() + 1u32.into());
 
     }: _(RawOrigin::Signed(origin), vault_id, tx_id, proof, raw_tx)
-
-    remove_active_status_update {
-        let status_update = StatusUpdate::default();
-        let status_update_id = StakedRelayers::<T>::insert_active_status_update(status_update);
-    }: _(RawOrigin::Root, status_update_id)
-
-    remove_inactive_status_update {
-        let status_update_id = 0;
-        let status_update = StatusUpdate::default();
-        StakedRelayers::<T>::insert_inactive_status_update(status_update_id, &status_update);
-    }: _(RawOrigin::Root, status_update_id)
-
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::mock::{ExtBuilder, Test};
-    use frame_support::assert_ok;
-    use sp_arithmetic::FixedI128;
-
-    #[test]
-    fn test_benchmarks() {
-        ExtBuilder::build_with(|storage| {
-            pallet_balances::GenesisConfig::<Test, pallet_balances::Instance1> {
-                balances: vec![(account("Origin", 0, 0), 1 << 32), (account("Vault", 0, 0), 1 << 32)],
-            }
-            .assimilate_storage(storage)
-            .unwrap();
-
-            sla::GenesisConfig::<Test> {
-                vault_target_sla: FixedI128::from(100),
-                vault_redeem_failure_sla_change: FixedI128::from(0),
-                vault_executed_issue_max_sla_change: FixedI128::from(0),
-                vault_submitted_issue_proof: FixedI128::from(0),
-                vault_refunded: FixedI128::from(1),
-                relayer_target_sla: FixedI128::from(100),
-                relayer_block_submission: FixedI128::from(1),
-                relayer_duplicate_block_submission: FixedI128::from(1),
-                relayer_correct_no_data_vote_or_report: FixedI128::from(1),
-                relayer_correct_invalid_vote_or_report: FixedI128::from(10),
-                relayer_correct_theft_report: FixedI128::from(1),
-                relayer_false_no_data_vote_or_report: FixedI128::from(-10),
-                relayer_false_invalid_vote_or_report: FixedI128::from(-100),
-                relayer_ignored_vote: FixedI128::from(-10),
-            }
-            .assimilate_storage(storage)
-            .unwrap();
-
-            GenesisConfig::<Test> {
-                gov_id: account("Origin", 0, 0),
-                maturity_period: 10,
-            }
-            .assimilate_storage(storage)
-            .unwrap();
-        })
-        .execute_with(|| {
-            assert_ok!(test_benchmark_initialize::<Test>());
-            assert_ok!(test_benchmark_store_block_header::<Test>());
-            assert_ok!(test_benchmark_register_staked_relayer::<Test>());
-            assert_ok!(test_benchmark_deregister_staked_relayer::<Test>());
-            assert_ok!(test_benchmark_suggest_status_update::<Test>());
-            assert_ok!(test_benchmark_vote_on_status_update::<Test>());
-            assert_ok!(test_benchmark_force_status_update::<Test>());
-            assert_ok!(test_benchmark_slash_staked_relayer::<Test>());
-            assert_ok!(test_benchmark_report_vault_theft::<Test>());
-            assert_ok!(test_benchmark_remove_active_status_update::<Test>());
-            assert_ok!(test_benchmark_remove_inactive_status_update::<Test>());
-        });
-    }
-}
+impl_benchmark_test_suite!(
+    StakedRelayers,
+    crate::mock::ExtBuilder::build_with(|_| {}),
+    crate::mock::Test
+);

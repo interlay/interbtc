@@ -9,6 +9,7 @@
 mod benchmarking;
 
 mod default_weights;
+pub use default_weights::WeightInfo;
 
 #[cfg(test)]
 extern crate mocktopus;
@@ -46,16 +47,6 @@ mod tests;
 
 /// The replace module id, used for deriving its sovereign account ID.
 const _MODULE_ID: ModuleId = ModuleId(*b"replacem");
-
-pub trait WeightInfo {
-    fn request_replace() -> Weight;
-    fn withdraw_replace() -> Weight;
-    fn accept_replace() -> Weight;
-    fn auction_replace() -> Weight;
-    fn execute_replace() -> Weight;
-    fn cancel_replace() -> Weight;
-    fn set_replace_period() -> Weight;
-}
 
 /// The pallet's configuration trait.
 pub trait Config:

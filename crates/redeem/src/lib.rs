@@ -9,6 +9,7 @@
 mod benchmarking;
 
 mod default_weights;
+pub use default_weights::WeightInfo;
 
 #[cfg(test)]
 mod mock;
@@ -45,15 +46,6 @@ use vault_registry::CurrencySource;
 
 /// The redeem module id, used for deriving its sovereign account ID.
 const _MODULE_ID: ModuleId = ModuleId(*b"i/redeem");
-
-pub trait WeightInfo {
-    fn request_redeem() -> Weight;
-    fn liquidation_redeem() -> Weight;
-    fn execute_redeem() -> Weight;
-    fn cancel_redeem() -> Weight;
-    fn set_redeem_period() -> Weight;
-    fn mint_tokens_for_reimbursed_redeem() -> Weight;
-}
 
 /// The pallet's configuration trait.
 pub trait Config:
@@ -226,7 +218,7 @@ decl_module! {
         /// * `reimburse` - specifying if the user wishes to be reimbursed in DOT
         /// and slash the Vault, or wishes to keep the PolkaBTC (and retry
         /// Redeem with another Vault)
-        #[weight = <T as Config>::WeightInfo::cancel_redeem()]
+        #[weight = if *reimburse { <T as Config>::WeightInfo::cancel_redeem_reimburse() } else { <T as Config>::WeightInfo::cancel_redeem_retry() }]
         #[transactional]
         fn cancel_redeem(origin, redeem_id: H256, reimburse: bool)
             -> DispatchResult

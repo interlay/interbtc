@@ -12,7 +12,8 @@ mod types;
 #[cfg(any(feature = "runtime-benchmarks", test))]
 mod benchmarking;
 
-pub mod weights;
+mod default_weights;
+pub use default_weights::WeightInfo;
 
 #[cfg(test)]
 mod tests;
@@ -46,7 +47,6 @@ use bitcoin::{
 };
 use security::types::ErrorCode;
 pub use types::RichBlockHeader;
-pub use weights::WeightInfo;
 
 /// ## Configuration and Constants
 /// The pallet's configuration trait.

@@ -5,6 +5,11 @@
 
 use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 
+pub trait WeightInfo {
+    fn withdraw_polka_btc() -> Weight;
+    fn withdraw_dot() -> Weight;
+}
+
 impl crate::WeightInfo for () {
     fn withdraw_polka_btc() -> Weight {
         124_557_000_u64

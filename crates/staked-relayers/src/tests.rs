@@ -726,13 +726,11 @@ fn test_force_status_update_succeeds() {
 }
 
 #[test]
-fn test_slash_staked_relayer_fails_with_governance_only() {
+fn test_slash_staked_relayer_fails_with_non_root() {
     run_test(|| {
-        StakedRelayers::only_governance.mock_safe(|_| MockResult::Return(Err(TestError::GovernanceOnly.into())));
-
         assert_err!(
             StakedRelayers::slash_staked_relayer(Origin::signed(ALICE), BOB),
-            TestError::GovernanceOnly,
+            DispatchError::BadOrigin
         );
     })
 }
@@ -740,9 +738,8 @@ fn test_slash_staked_relayer_fails_with_governance_only() {
 #[test]
 fn test_slash_staked_relayer_fails_with_not_registered() {
     run_test(|| {
-        StakedRelayers::only_governance.mock_safe(|_| MockResult::Return(Ok(())));
         assert_err!(
-            StakedRelayers::slash_staked_relayer(Origin::signed(ALICE), BOB),
+            StakedRelayers::slash_staked_relayer(Origin::root(), BOB),
             TestError::NotRegistered,
         );
     })
@@ -751,16 +748,15 @@ fn test_slash_staked_relayer_fails_with_not_registered() {
 #[test]
 fn test_slash_staked_relayer_succeeds() {
     run_test(|| {
-        StakedRelayers::only_governance.mock_safe(|_| MockResult::Return(Ok(())));
         let amount: Balance = 5;
         inject_active_staked_relayer(&BOB, amount);
         ext::collateral::slash_collateral::<Test>.mock_safe(|sender, receiver, _amount| {
             assert_eq!(sender, BOB);
-            assert_eq!(receiver, ALICE);
+            assert_eq!(receiver, ext::fee::fee_pool_account_id::<Test>());
             MockResult::Return(Ok(()))
         });
 
-        assert_ok!(StakedRelayers::slash_staked_relayer(Origin::signed(ALICE), BOB));
+        assert_ok!(StakedRelayers::slash_staked_relayer(Origin::root(), BOB));
         assert_err!(
             StakedRelayers::get_active_staked_relayer(&BOB),
             TestError::NotRegistered

@@ -12,6 +12,7 @@ pub mod types;
 mod benchmarking;
 
 mod default_weights;
+pub use default_weights::WeightInfo;
 
 #[cfg(test)]
 mod tests;
@@ -57,15 +58,6 @@ pub struct RegisterRequest<AccountId, DateTime> {
     registration_id: H256,
     vault: AccountId,
     timeout: DateTime,
-}
-
-pub trait WeightInfo {
-    fn register_vault() -> Weight;
-    fn lock_additional_collateral() -> Weight;
-    fn withdraw_collateral() -> Weight;
-    fn update_public_key() -> Weight;
-    fn register_address() -> Weight;
-    fn accept_new_issues() -> Weight;
 }
 
 /// ## Configuration and Constants
@@ -311,22 +303,15 @@ decl_module! {
             vault.set_accept_new_issues(accept_new_issues)
         }
 
-        fn on_initialize(n: T::BlockNumber) -> Weight {
-            if let Err(e) = Self::begin_block(n) {
-                sp_runtime::print(e);
-            }
-            0
+        fn on_initialize(_n: T::BlockNumber) -> Weight {
+            let num_vaults =         Self::liquidate_undercollateralized_vaults();
+            <T as Config>::WeightInfo::liquidate_undercollateralized_vaults(num_vaults)
         }
     }
 }
 
 #[cfg_attr(test, mockable)]
 impl<T: Config> Module<T> {
-    fn begin_block(_height: T::BlockNumber) -> DispatchResult {
-        Self::liquidate_undercollateralized_vaults();
-        Ok(())
-    }
-
     fn _on_runtime_upgrade() {
         // initialize TotalUserVaultBackingCollateral
         let total = <Vaults<T>>::iter()
@@ -904,26 +889,17 @@ impl<T: Config> Module<T> {
     }
 
     /// Automatically liquidates all vaults under the secure threshold
-    fn liquidate_undercollateralized_vaults() {
+    fn liquidate_undercollateralized_vaults() -> u32 {
+        let mut num_vaults = 0u32;
+        let liquidation_threshold = <LiquidationCollateralThreshold<T>>::get();
         // TODO: report system undercollateralization to security
-        let vaults_to_liquidate = <Vaults<T>>::iter()
-            .filter_map(|(vault_id, _)| {
-                if Self::is_vault_below_liquidation_threshold(&vault_id)
-                    .ok()
-                    .unwrap_or(false)
-                {
-                    Some(vault_id)
-                } else {
-                    None
-                }
-            })
-            .collect::<Vec<T::AccountId>>();
-
-        for vault_id in vaults_to_liquidate {
-            // ignore conversion errors since we cannot do anything
-            // other than liquidate remaining vaults
-            let _ = Self::liquidate_vault(&vault_id);
+        for (vault_id, vault) in <Vaults<T>>::iter() {
+            num_vaults = num_vaults.saturating_add(1);
+            if Self::is_vault_below_liquidation_threshold(&vault, liquidation_threshold).unwrap_or(false) {
+                let _ = Self::liquidate_vault(&vault_id);
+            }
         }
+        num_vaults
     }
 
     /// Liquidates a vault, transferring all of its token balances to the `LiquidationVault`.
@@ -1044,20 +1020,17 @@ impl<T: Config> Module<T> {
 
     /// check if the vault is below the liquidation threshold. In contrast to other thresholds,
     /// this is checked as ratio of `collateral / (issued - to_be_redeemed)`.
-    pub fn is_vault_below_liquidation_threshold(vault_id: &T::AccountId) -> Result<bool, DispatchError> {
-        let vault = Self::get_rich_vault_from_id(&vault_id)?;
-
-        // the current locked backing collateral by the vault
-        let collateral = Self::get_backing_collateral(vault_id)?;
-
+    pub fn is_vault_below_liquidation_threshold(
+        vault: &Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
+        liquidation_threshold: UnsignedFixedPoint<T>,
+    ) -> Result<bool, DispatchError> {
         // the currently issued tokens in PolkaBTC
         let tokens = vault
-            .data
             .issued_tokens
-            .checked_sub(&vault.data.to_be_redeemed_tokens)
+            .checked_sub(&vault.to_be_redeemed_tokens)
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
-        Self::is_collateral_below_threshold(collateral, tokens, <LiquidationCollateralThreshold<T>>::get())
+        Self::is_collateral_below_threshold(vault.backing_collateral, tokens, liquidation_threshold)
     }
 
     pub fn get_auctionable_tokens(vault_id: &T::AccountId) -> Result<PolkaBTC<T>, DispatchError> {

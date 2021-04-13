@@ -12,6 +12,7 @@ pub mod types;
 mod benchmarking;
 
 mod default_weights;
+pub use default_weights::WeightInfo;
 
 #[cfg(test)]
 mod mock;
@@ -45,22 +46,6 @@ use security::types::{ErrorCode, StatusCode};
 use sp_std::{collections::btree_set::BTreeSet, convert::TryInto, vec::Vec};
 use vault_registry::Wallet;
 
-pub trait WeightInfo {
-    fn initialize() -> Weight;
-    fn register_staked_relayer() -> Weight;
-    fn deregister_staked_relayer() -> Weight;
-    fn suggest_status_update() -> Weight;
-    fn vote_on_status_update() -> Weight;
-    fn force_status_update() -> Weight;
-    fn slash_staked_relayer() -> Weight;
-    fn report_vault_theft() -> Weight;
-    fn remove_active_status_update() -> Weight;
-    fn remove_inactive_status_update() -> Weight;
-    fn set_maturity_period() -> Weight;
-    fn evaluate_status_update() -> Weight;
-    fn store_block_header() -> Weight;
-}
-
 /// ## Configuration
 /// The pallet's configuration trait.
 pub trait Config:
@@ -73,6 +58,7 @@ pub trait Config:
     + replace::Config
     + refund::Config
     + sla::Config
+    + fee::Config
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
@@ -454,11 +440,10 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::slash_staked_relayer()]
         #[transactional]
         fn slash_staked_relayer(origin, staked_relayer_id: T::AccountId) -> DispatchResult {
-            let signer = ensure_signed(origin)?;
-            Self::only_governance(&signer)?;
+            ensure_root(origin)?;
 
             let staked_relayer = Self::get_active_staked_relayer(&staked_relayer_id)?;
-            ext::collateral::slash_collateral::<T>(staked_relayer_id.clone(), signer, staked_relayer.stake)?;
+            ext::collateral::slash_collateral::<T>(staked_relayer_id.clone(), ext::fee::fee_pool_account_id::<T>(), staked_relayer.stake)?;
             Self::remove_active_staked_relayer(&staked_relayer_id);
 
             Self::deposit_event(<Event<T>>::SlashStakedRelayer(
