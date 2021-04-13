@@ -1,0 +1,108 @@
+image: "registry.gitlab.com/interlay/containers/rust-base:nightly-2021-03-15"
+
+.rust-vars: &rust-vars
+  CARGO_HOME: $CI_PROJECT_DIR/.cargo
+  RUSTC_WRAPPER: /usr/local/bin/sccache
+
+.rust-before-script: &rustup_sscache
+  before_script:
+    - rustup show
+    - rustc --version
+    - rustfmt --version
+    - cargo --version
+    - SCCACHE_START_SERVER=1 SCCACHE_IDLE_TIMEOUT=0 sccache
+    - sccache -s
+
+# Declare stages
+stages:
+  - test
+  - build # for builds & tests
+  - publish
+
+test:
+  stage: test
+  variables:
+    <<: *rust-vars
+  <<: *rustup_sscache
+  script:
+    - cargo fmt -- --check
+    - cargo check --workspace --release
+    - cargo test --workspace --release
+
+
+build-standalone:
+  stage: build
+  variables:
+    <<: *rust-vars
+    ARTIFACT_BIN_PATH: btc-parachain
+  <<: *rustup_sscache
+  script:
+    - cargo build --manifest-path parachain/Cargo.toml --release --no-default-features --features aura-grandpa
+  artifacts:
+    name: "${CI_COMMIT_REF_SLUG}-standalone"
+    paths:
+      - target/release/${ARTIFACT_BIN_PATH}
+
+build-parachain:
+  stage: build
+  variables:
+    <<: *rust-vars
+    ARTIFACT_BIN_PATH: btc-parachain
+  <<: *rustup_sscache
+  script:
+    - cargo build --manifest-path parachain/Cargo.toml --release --no-default-features --features cumulus-polkadot
+  artifacts:
+    name: "${CI_COMMIT_REF_SLUG}-parachain"
+    paths:
+      - target/release/${ARTIFACT_BIN_PATH}
+
+docker-publish-standalone:
+  stage: publish
+  dependencies:
+    - build-standalone
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  script:
+    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
+    - |
+      /kaniko/executor \
+      --build-arg BINARY=btc-parachain \
+      --context ${CI_PROJECT_DIR} \
+      --dockerfile ${CI_PROJECT_DIR}/Dockerfile_release \
+      --destination ${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}-$(date +%s) \
+      --destination ${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_SLUG}
+  # only:
+  #   - tags
+  #   - master
+  #   - dev
+  #   - alpha
+  #   - beta
+  #   - rococo
+  #   - web # For pipelines created by using Run pipeline button in the GitLab UI, from the project’s CI/CD > Pipelines section.
+
+docker-publish-parachain:
+  stage: publish
+  dependencies:
+    - build-parachain
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  script:
+    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
+    - |
+      /kaniko/executor \
+      --build-arg BINARY=btc-parachain \
+      --context ${CI_PROJECT_DIR} \
+      --dockerfile ${CI_PROJECT_DIR}/Dockerfile_release \
+      --destination ${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}-$(date +%s) \
+      --destination ${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_SLUG}
+  # only:
+  #   - tags
+  #   - master
+  #   - dev
+  #   - alpha
+  #   - beta
+  #   - rococo
+  #   - web # For pipelines created by using Run pipeline button in the GitLab UI, from the project’s CI/CD > Pipelines section.
+
