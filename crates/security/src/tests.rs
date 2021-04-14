@@ -33,7 +33,7 @@ fn test_get_and_set_status() {
 fn test_is_ensure_parachain_running_succeeds() {
     run_test(|| {
         Security::set_status(StatusCode::Running);
-        assert_ok!(Security::ensure_parachain_status_not_shutdown());
+        assert_ok!(Security::ensure_parachain_status_running());
     })
 }
 
@@ -42,13 +42,13 @@ fn test_is_ensure_parachain_running_fails() {
     run_test(|| {
         Security::set_status(StatusCode::Error);
         assert_noop!(
-            Security::ensure_parachain_status_not_shutdown(),
+            Security::ensure_parachain_status_running(),
             TestError::ParachainNotRunning
         );
 
         Security::set_status(StatusCode::Shutdown);
         assert_noop!(
-            Security::ensure_parachain_status_not_shutdown(),
+            Security::ensure_parachain_status_running(),
             TestError::ParachainNotRunning
         );
     })
@@ -73,58 +73,6 @@ fn test_is_ensure_parachain_not_shutdown_fails() {
             Security::ensure_parachain_status_not_shutdown(),
             TestError::ParachainShutdown
         );
-    })
-}
-
-#[test]
-fn test_ensure_parachain_does_not_have_errors() {
-    run_test(|| {
-        Security::set_status(StatusCode::Running);
-        assert_ok!(Security::ensure_parachain_does_not_have_errors(vec![
-            ErrorCode::InvalidBTCRelay
-        ],));
-
-        Security::set_status(StatusCode::Error);
-        assert_ok!(Security::ensure_parachain_does_not_have_errors(vec![
-            ErrorCode::InvalidBTCRelay
-        ],));
-
-        Security::insert_error(ErrorCode::InvalidBTCRelay);
-        assert_noop!(
-            Security::ensure_parachain_does_not_have_errors(vec![ErrorCode::InvalidBTCRelay]),
-            TestError::InvalidBTCRelay
-        );
-
-        assert_ok!(Security::ensure_parachain_does_not_have_errors(vec![]));
-    })
-}
-
-#[test]
-fn test_ensure_parachain_is_running_or_only_has_errors() {
-    run_test(|| {
-        Security::set_status(StatusCode::Running);
-        assert_ok!(Security::ensure_parachain_is_running_or_only_has_errors(vec![]));
-
-        Security::set_status(StatusCode::Error);
-        assert_ok!(Security::ensure_parachain_is_running_or_only_has_errors(vec![
-            ErrorCode::InvalidBTCRelay
-        ]));
-
-        Security::insert_error(ErrorCode::InvalidBTCRelay);
-        assert_ok!(Security::ensure_parachain_is_running_or_only_has_errors(vec![
-            ErrorCode::InvalidBTCRelay
-        ]));
-
-        Security::insert_error(ErrorCode::NoDataBTCRelay);
-        assert_noop!(
-            Security::ensure_parachain_is_running_or_only_has_errors(vec![ErrorCode::InvalidBTCRelay]),
-            TestError::NoDataBTCRelay
-        );
-
-        assert_ok!(Security::ensure_parachain_is_running_or_only_has_errors(vec![
-            ErrorCode::InvalidBTCRelay,
-            ErrorCode::NoDataBTCRelay
-        ]));
     })
 }
 

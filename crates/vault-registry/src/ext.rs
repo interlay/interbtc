@@ -60,8 +60,6 @@ pub(crate) mod oracle {
 #[cfg_attr(test, mockable)]
 pub(crate) mod security {
     use frame_support::dispatch::DispatchResult;
-    use security::ErrorCode;
-    use sp_std::vec::Vec;
 
     pub fn ensure_parachain_status_not_shutdown<T: security::Config>() -> DispatchResult {
         <security::Pallet<T>>::ensure_parachain_status_not_shutdown()

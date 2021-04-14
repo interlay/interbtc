@@ -38,7 +38,6 @@ use frame_support::{
 };
 use frame_system::ensure_signed;
 use primitive_types::U256;
-use security::ErrorCode;
 use sp_arithmetic::{traits::*, FixedPointNumber};
 use sp_core::H256;
 use sp_std::{convert::TryInto, vec::Vec};
