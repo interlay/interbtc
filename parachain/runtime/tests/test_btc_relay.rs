@@ -8,7 +8,7 @@ type BTCRelayError = btc_relay::Error<Runtime>;
 
 #[test]
 fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
-    ExtBuilder::build().execute_with(|| {
+    ExtBuilder::build().execute_without_relay_init(|| {
         // load blocks with transactions
         let test_data = get_bitcoin_testdata();
 

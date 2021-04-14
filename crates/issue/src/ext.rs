@@ -27,6 +27,10 @@ pub(crate) mod btc_relay {
     pub fn get_best_block_height<T: btc_relay::Config>() -> u32 {
         <btc_relay::Module<T>>::get_best_block_height()
     }
+
+    pub fn is_fully_initialized<T: btc_relay::Config>() -> Result<bool, DispatchError> {
+        <btc_relay::Module<T>>::is_fully_initialized()
+    }
 }
 
 #[cfg_attr(test, mockable)]

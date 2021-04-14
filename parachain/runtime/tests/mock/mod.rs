@@ -859,7 +859,17 @@ impl ExtBuilder {
     }
 
     /// do setup common to all integration tests, then execute the callback
-    pub fn execute_with<R>(mut self, execute: impl FnOnce() -> R) -> R {
+    pub fn execute_with<R>(self, execute: impl FnOnce() -> R) -> R {
+        self.execute_without_relay_init(|| {
+            // initialize btc relay
+            let _ = TransactionGenerator::new().with_confirmations(7).mine();
+
+            execute()
+        })
+    }
+
+    /// used for btc-relay test
+    pub fn execute_without_relay_init<R>(mut self, execute: impl FnOnce() -> R) -> R {
         self.test_externalities.execute_with(|| {
             SystemModule::set_block_number(1); // required to be able to dispatch functions
             SecurityModule::set_active_block_number(1);
