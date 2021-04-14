@@ -466,7 +466,7 @@ fn swap_main_blockchain_succeeds() {
         );
 
         // check that the parachain has recovered
-        assert_ok!(ext::security::ensure_parachain_status_running::<Test>());
+        assert_ok!(ext::security::ensure_parachain_status_not_shutdown::<Test>());
         assert!(!ext::security::is_parachain_error_no_data_btcrelay::<Test>());
 
         // check that the old main chain is stored in a old fork
@@ -1086,13 +1086,13 @@ fn test_clear_block_error_succeeds() {
         clear_error(ErrorCode::NoDataBTCRelay);
         // ensure not recovered while there are still invalid blocks
         assert_err!(
-            ext::security::ensure_parachain_status_running::<Test>(),
+            ext::security::ensure_parachain_status_not_shutdown::<Test>(),
             SecurityError::ParachainNotRunning
         );
         assert!(ext::security::is_parachain_error_invalid_btcrelay::<Test>());
         clear_error(ErrorCode::InvalidBTCRelay);
 
-        assert_ok!(ext::security::ensure_parachain_status_running::<Test>());
+        assert_ok!(ext::security::ensure_parachain_status_not_shutdown::<Test>());
         assert!(!ext::security::is_parachain_error_invalid_btcrelay::<Test>());
         assert!(!ext::security::is_parachain_error_no_data_btcrelay::<Test>());
     })

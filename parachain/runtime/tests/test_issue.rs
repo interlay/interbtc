@@ -94,12 +94,12 @@ fn integration_test_issue_with_parachain_shutdown_fails() {
 
         assert_noop!(
             Call::Issue(IssueCall::request_issue(0, account_of(BOB), 0)).dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainNotRunning,
+            SecurityError::ParachainShutdown,
         );
 
         assert_noop!(
             Call::Issue(IssueCall::cancel_issue(H256([0; 32]),)).dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainNotRunning,
+            SecurityError::ParachainShutdown,
         );
 
         assert_noop!(
@@ -109,7 +109,7 @@ fn integration_test_issue_with_parachain_shutdown_fails() {
                 Default::default()
             ))
             .dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainNotRunning,
+            SecurityError::ParachainShutdown,
         );
 
         assert_noop!(
@@ -119,7 +119,7 @@ fn integration_test_issue_with_parachain_shutdown_fails() {
                 Default::default()
             ))
             .dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainNotRunning,
+            SecurityError::ParachainShutdown,
         );
     });
 }

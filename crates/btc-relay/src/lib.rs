@@ -207,7 +207,7 @@ decl_module! {
             recipient_btc_address: BtcAddress,
             op_return_id: Option<Vec<u8>>)
         -> DispatchResult {
-            ext::security::ensure_parachain_status_running::<T>()?;
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let _ = ensure_signed(origin)?;
 
             let transaction = Self::parse_transaction(&raw_tx)?;
@@ -252,14 +252,9 @@ decl_module! {
             origin,
             tx_id: H256Le,
             raw_merkle_proof: Vec<u8>,
-<<<<<<< HEAD
-            confirmations: Option<u32>
-        ) -> DispatchResult {
-=======
             confirmations: Option<u32>)
         -> DispatchResult {
-            ext::security::ensure_parachain_status_running::<T>()?;
->>>>>>> test: parachain shutdown check
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let _ = ensure_signed(origin)?;
             Self::_verify_transaction_inclusion(tx_id, raw_merkle_proof, confirmations)?;
             Ok(())
@@ -284,7 +279,7 @@ decl_module! {
             recipient_btc_address: BtcAddress,
             op_return_id: Option<Vec<u8>>
         ) -> DispatchResult {
-            ext::security::ensure_parachain_status_running::<T>()?;
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let _ = ensure_signed(origin)?;
             Self::_validate_transaction(raw_tx, Some(minimum_btc), recipient_btc_address, op_return_id)?;
             Ok(())

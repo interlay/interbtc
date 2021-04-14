@@ -140,15 +140,6 @@ decl_module! {
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
 impl<T: Config> Module<T> {
-    /// Ensures the Parachain is RUNNING
-    pub fn ensure_parachain_status_running() -> DispatchResult {
-        if <ParachainStatus>::get() == StatusCode::Running {
-            Ok(())
-        } else {
-            Err(Error::<T>::ParachainNotRunning.into())
-        }
-    }
-
     /// Ensures the Parachain is not SHUTDOWN
     pub fn ensure_parachain_status_not_shutdown() -> DispatchResult {
         if <ParachainStatus>::get() != StatusCode::Shutdown {

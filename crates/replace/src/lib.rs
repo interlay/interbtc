@@ -299,7 +299,7 @@ impl<T: Config> Module<T> {
         griefing_collateral: DOT<T>,
     ) -> DispatchResult {
         // Check that Parachain status is RUNNING
-        ext::security::ensure_parachain_status_running::<T>()?;
+        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
         // check vault is not banned
         ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;
@@ -443,7 +443,7 @@ impl<T: Config> Module<T> {
 
     fn _execute_replace(replace_id: H256, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> Result<(), DispatchError> {
         // Check that Parachain status is RUNNING
-        ext::security::ensure_parachain_status_running::<T>()?;
+        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
         // Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
         let replace = Self::get_open_replace_request(&replace_id)?;
@@ -497,7 +497,7 @@ impl<T: Config> Module<T> {
 
     fn _cancel_replace(caller: T::AccountId, replace_id: H256) -> Result<(), DispatchError> {
         // Check that Parachain status is RUNNING
-        ext::security::ensure_parachain_status_running::<T>()?;
+        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
         // Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
         let replace = Self::get_open_replace_request(&replace_id)?;
@@ -564,7 +564,7 @@ impl<T: Config> Module<T> {
         is_auction: bool,
     ) -> Result<(H256, ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>), DispatchError> {
         // Check that Parachain status is RUNNING
-        ext::security::ensure_parachain_status_running::<T>()?;
+        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
         // don't allow vaults to replace themselves
         ensure!(old_vault_id != new_vault_id, Error::<T>::ReplaceSelfNotAllowed);

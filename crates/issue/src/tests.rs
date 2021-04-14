@@ -16,7 +16,7 @@ fn request_issue(
     collateral: Balance,
 ) -> Result<H256, DispatchError> {
     // Default: Parachain status is "RUNNING". Set manually for failure testing
-    ext::security::ensure_parachain_status_running::<Test>.mock_safe(|| MockResult::Return(Ok(())));
+    ext::security::ensure_parachain_status_not_shutdown::<Test>.mock_safe(|| MockResult::Return(Ok(())));
 
     ext::security::get_secure_id::<Test>.mock_safe(|_| MockResult::Return(get_dummy_request_id()));
 
@@ -31,7 +31,7 @@ fn request_issue_ok(origin: AccountId, amount: Balance, vault: AccountId, collat
     ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
 
     // Default: Parachain status is "RUNNING". Set manually for failure testing
-    ext::security::ensure_parachain_status_running::<Test>.mock_safe(|| MockResult::Return(Ok(())));
+    ext::security::ensure_parachain_status_not_shutdown::<Test>.mock_safe(|| MockResult::Return(Ok(())));
 
     ext::security::get_secure_id::<Test>.mock_safe(|_| MockResult::Return(get_dummy_request_id()));
 
@@ -43,7 +43,7 @@ fn request_issue_ok(origin: AccountId, amount: Balance, vault: AccountId, collat
 }
 
 fn execute_issue(origin: AccountId, issue_id: &H256) -> Result<(), DispatchError> {
-    ext::security::ensure_parachain_status_running::<Test>.mock_safe(|| MockResult::Return(Ok(())));
+    ext::security::ensure_parachain_status_not_shutdown::<Test>.mock_safe(|| MockResult::Return(Ok(())));
 
     Issue::_execute_issue(origin, *issue_id, vec![0u8; 100], vec![0u8; 100])
 }
@@ -165,7 +165,7 @@ fn test_execute_issue_succeeds() {
         let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
         <security::Pallet<Test>>::set_active_block_number(5);
 
-        ext::security::ensure_parachain_status_running::<Test>.mock_safe(|| MockResult::Return(Ok(())));
+        ext::security::ensure_parachain_status_not_shutdown::<Test>.mock_safe(|| MockResult::Return(Ok(())));
         ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::btc_relay::validate_transaction::<Test>
             .mock_safe(|_, _, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 3))));
@@ -188,7 +188,7 @@ fn test_execute_issue_overpayment_succeeds() {
 
         let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
         <security::Pallet<Test>>::set_active_block_number(5);
-        ext::security::ensure_parachain_status_running::<Test>.mock_safe(|| MockResult::Return(Ok(())));
+        ext::security::ensure_parachain_status_not_shutdown::<Test>.mock_safe(|| MockResult::Return(Ok(())));
 
         ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
@@ -230,7 +230,7 @@ fn test_execute_issue_refund_succeeds() {
 
         let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
         <security::Pallet<Test>>::set_active_block_number(5);
-        ext::security::ensure_parachain_status_running::<Test>.mock_safe(|| MockResult::Return(Ok(())));
+        ext::security::ensure_parachain_status_not_shutdown::<Test>.mock_safe(|| MockResult::Return(Ok(())));
 
         ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
@@ -308,7 +308,7 @@ fn test_request_issue_parachain_not_running_fails() {
         let vault = BOB;
         let amount: Balance = 3;
 
-        ext::security::ensure_parachain_status_running::<Test>
+        ext::security::ensure_parachain_status_not_shutdown::<Test>
             .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainNotRunning.into())));
 
         assert_noop!(
@@ -323,7 +323,7 @@ fn test_execute_issue_parachain_not_running_fails() {
     run_test(|| {
         let origin = ALICE;
 
-        ext::security::ensure_parachain_status_running::<Test>
+        ext::security::ensure_parachain_status_not_shutdown::<Test>
             .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainNotRunning.into())));
 
         assert_noop!(

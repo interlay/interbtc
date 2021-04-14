@@ -261,11 +261,11 @@ fn integration_test_fee_with_parachain_shutdown_fails() {
 
         assert_noop!(
             Call::Fee(FeeCall::withdraw_polka_btc(0)).dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainNotRunning
+            SecurityError::ParachainShutdown
         );
         assert_noop!(
             Call::Fee(FeeCall::withdraw_dot(0)).dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainNotRunning
+            SecurityError::ParachainShutdown
         );
     })
 }

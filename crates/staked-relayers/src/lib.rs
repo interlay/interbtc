@@ -471,6 +471,7 @@ decl_module! {
         #[transactional]
         fn report_vault_theft(origin, vault_id: T::AccountId, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
             ext::security::ensure_parachain_status_running::<T>()?;
+            let signer = ensure_signed(origin)?;
 
             let tx_id = sha256d_le(&raw_tx);
 

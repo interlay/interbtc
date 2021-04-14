@@ -61,7 +61,7 @@ pub(crate) mod sla {
 pub(crate) mod security {
     use frame_support::dispatch::DispatchError;
 
-    pub fn ensure_parachain_status_running<T: security::Config>() -> Result<(), DispatchError> {
-        <security::Module<T>>::ensure_parachain_status_running()
+    pub fn ensure_parachain_status_not_shutdown<T: security::Config>() -> Result<(), DispatchError> {
+        <security::Module<T>>::ensure_parachain_status_not_shutdown()
     }
 }

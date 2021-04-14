@@ -37,7 +37,7 @@ fn integration_test_redeem_with_parachain_shutdown_fails() {
                 account_of(BOB),
             ))
             .dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainNotRunning,
+            SecurityError::ParachainShutdown,
         );
 
         assert_noop!(
@@ -48,27 +48,27 @@ fn integration_test_redeem_with_parachain_shutdown_fails() {
                 Default::default()
             ))
             .dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainNotRunning,
+            SecurityError::ParachainShutdown,
         );
 
         assert_noop!(
             Call::Redeem(RedeemCall::cancel_redeem(Default::default(), false)).dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainNotRunning,
+            SecurityError::ParachainShutdown,
         );
         assert_noop!(
             Call::Redeem(RedeemCall::cancel_redeem(Default::default(), true)).dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainNotRunning,
+            SecurityError::ParachainShutdown,
         );
 
         assert_noop!(
             Call::Redeem(RedeemCall::liquidation_redeem(1000)).dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainNotRunning,
+            SecurityError::ParachainShutdown,
         );
 
         assert_noop!(
             Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem(Default::default()))
                 .dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainNotRunning,
+            SecurityError::ParachainShutdown,
         );
     });
 }
@@ -226,12 +226,12 @@ fn integration_test_redeem_parachain_status_shutdown_fails() {
 
         assert_noop!(
             Call::Issue(IssueCall::request_issue(0, account_of(BOB), 0)).dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainNotRunning,
+            SecurityError::ParachainShutdown,
         );
 
         assert_noop!(
             Call::Issue(IssueCall::cancel_issue(H256([0; 32]),)).dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainNotRunning,
+            SecurityError::ParachainShutdown,
         );
 
         assert_noop!(
@@ -242,7 +242,7 @@ fn integration_test_redeem_parachain_status_shutdown_fails() {
                 vec![0u8; 32]
             ))
             .dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainNotRunning,
+            SecurityError::ParachainShutdown,
         );
     });
 }

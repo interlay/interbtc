@@ -215,7 +215,7 @@ decl_module! {
         fn lock_additional_collateral(origin, amount: DOT<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
-            ext::security::ensure_parachain_status_running::<T>()?;
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
             Self::try_lock_additional_collateral(&sender, amount)?;
 
@@ -248,7 +248,7 @@ decl_module! {
         #[transactional]
         fn withdraw_collateral(origin, amount: DOT<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
-            ext::security::ensure_parachain_status_running::<T>()?;
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
             Self::try_withdraw_collateral(&sender, amount)?;
 
@@ -270,7 +270,7 @@ decl_module! {
         #[transactional]
         fn update_public_key(origin, public_key: BtcPublicKey) -> DispatchResult {
             let account_id = ensure_signed(origin)?;
-            ext::security::ensure_parachain_status_running::<T>()?;
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let mut vault = Self::get_active_rich_vault_from_id(&account_id)?;
             vault.update_public_key(public_key.clone());
             Self::deposit_event(Event::<T>::UpdatePublicKey(account_id, public_key));
@@ -281,7 +281,7 @@ decl_module! {
         #[transactional]
         fn register_address(origin, btc_address: BtcAddress) -> DispatchResult {
             let account_id = ensure_signed(origin)?;
-            ext::security::ensure_parachain_status_running::<T>()?;
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             Self::insert_vault_deposit_address(&account_id, btc_address)?;
             Self::deposit_event(Event::<T>::RegisterAddress(account_id, btc_address));
             Ok(())
@@ -298,7 +298,7 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::accept_new_issues()]
         #[transactional]
         fn accept_new_issues(origin, accept_new_issues: bool) -> DispatchResult  {
-            ext::security::ensure_parachain_status_running::<T>()?;
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let vault_id = ensure_signed(origin)?;
             let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
             vault.set_accept_new_issues(accept_new_issues)
@@ -326,7 +326,7 @@ impl<T: Config> Module<T> {
     /// Public functions
 
     pub fn _register_vault(vault_id: &T::AccountId, collateral: DOT<T>, public_key: BtcPublicKey) -> DispatchResult {
-        ext::security::ensure_parachain_status_running::<T>()?;
+        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
         ensure!(
             collateral >= Self::get_minimum_collateral_vault(),
@@ -476,7 +476,7 @@ impl<T: Config> Module<T> {
     /// * `vault_id` - the id of the vault from which to increase to-be-issued tokens
     /// * `tokens` - the amount of tokens to be reserved
     pub fn try_increase_to_be_issued_tokens(vault_id: &T::AccountId, tokens: PolkaBTC<T>) -> Result<(), DispatchError> {
-        ext::security::ensure_parachain_status_running::<T>()?;
+        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
         let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
 
         let issuable_tokens = vault.issuable_tokens()?;
@@ -519,7 +519,7 @@ impl<T: Config> Module<T> {
         tokens: PolkaBTC<T>,
         griefing_collateral: DOT<T>,
     ) -> Result<(PolkaBTC<T>, DOT<T>), DispatchError> {
-        ext::security::ensure_parachain_status_running::<T>()?;
+        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
         let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
 
         let new_to_be_replaced = vault
@@ -553,7 +553,7 @@ impl<T: Config> Module<T> {
         vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
     ) -> Result<(PolkaBTC<T>, DOT<T>), DispatchError> {
-        ext::security::ensure_parachain_status_running::<T>()?;
+        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
         let mut vault = Self::get_rich_vault_from_id(&vault_id)?;
 
         let initial_to_be_replaced = vault.data.to_be_replaced_tokens;
@@ -1282,7 +1282,7 @@ impl<T: Config> Module<T> {
     /// # Arguments
     /// * `amount_btc` - the amount of polkabtc
     pub fn get_required_collateral_for_polkabtc(amount_btc: PolkaBTC<T>) -> Result<DOT<T>, DispatchError> {
-        ext::security::ensure_parachain_status_running::<T>()?;
+        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
         let threshold = <SecureCollateralThreshold<T>>::get();
         let collateral = Self::get_required_collateral_for_polkabtc_with_threshold(amount_btc, threshold)?;
@@ -1292,7 +1292,7 @@ impl<T: Config> Module<T> {
     /// Get the amount of collateral required for the given vault to be at the
     /// current SecureCollateralThreshold with the current exchange rate
     pub fn get_required_collateral_for_vault(vault_id: T::AccountId) -> Result<DOT<T>, DispatchError> {
-        ext::security::ensure_parachain_status_running::<T>()?;
+        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
         let vault = Self::get_active_rich_vault_from_id(&vault_id)?;
         let issued_tokens = vault.data.issued_tokens + vault.data.to_be_issued_tokens;

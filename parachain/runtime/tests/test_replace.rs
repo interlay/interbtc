@@ -421,7 +421,7 @@ mod request_replace_tests {
 
             assert_noop!(
                 Call::Replace(ReplaceCall::request_replace(0, 0)).dispatch(origin_of(account_of(OLD_VAULT))),
-                SecurityError::ParachainNotRunning,
+                SecurityError::ParachainShutdown,
             );
         });
     }
@@ -806,11 +806,11 @@ fn integration_test_replace_with_parachain_shutdown_fails() {
 
         assert_noop!(
             Call::Replace(ReplaceCall::request_replace(0, 0)).dispatch(origin_of(account_of(OLD_VAULT))),
-            SecurityError::ParachainNotRunning,
+            SecurityError::ParachainShutdown,
         );
         assert_noop!(
             Call::Replace(ReplaceCall::withdraw_replace(0,)).dispatch(origin_of(account_of(OLD_VAULT))),
-            SecurityError::ParachainNotRunning
+            SecurityError::ParachainShutdown
         );
         assert_noop!(
             Call::Replace(ReplaceCall::accept_replace(
@@ -820,7 +820,7 @@ fn integration_test_replace_with_parachain_shutdown_fails() {
                 Default::default()
             ))
             .dispatch(origin_of(account_of(OLD_VAULT))),
-            SecurityError::ParachainNotRunning
+            SecurityError::ParachainShutdown
         );
 
         assert_noop!(
@@ -831,7 +831,7 @@ fn integration_test_replace_with_parachain_shutdown_fails() {
                 Default::default()
             ))
             .dispatch(origin_of(account_of(OLD_VAULT))),
-            SecurityError::ParachainNotRunning
+            SecurityError::ParachainShutdown
         );
 
         assert_noop!(
@@ -842,12 +842,12 @@ fn integration_test_replace_with_parachain_shutdown_fails() {
                 Default::default()
             ))
             .dispatch(origin_of(account_of(OLD_VAULT))),
-            SecurityError::ParachainNotRunning
+            SecurityError::ParachainShutdown
         );
 
         assert_noop!(
             Call::Replace(ReplaceCall::cancel_replace(Default::default())).dispatch(origin_of(account_of(OLD_VAULT))),
-            SecurityError::ParachainNotRunning
+            SecurityError::ParachainShutdown
         );
     })
 }

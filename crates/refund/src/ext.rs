@@ -54,8 +54,8 @@ pub(crate) mod security {
         <security::Pallet<T>>::get_secure_id(id)
     }
 
-    pub fn ensure_parachain_status_running<T: security::Config>() -> DispatchResult {
-        <security::Module<T>>::ensure_parachain_status_running()
+    pub fn ensure_parachain_status_not_shutdown<T: security::Config>() -> DispatchResult {
+        <security::Module<T>>::ensure_parachain_status_not_shutdown()
     }
 }
 

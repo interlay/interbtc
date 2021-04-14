@@ -134,30 +134,30 @@ fn integration_test_vault_registry_with_parachain_shutdown_fails() {
         assert_noop!(
             Call::VaultRegistry(VaultRegistryCall::register_vault(0, Default::default()))
                 .dispatch(origin_of(account_of(VAULT))),
-            SecurityError::ParachainNotRunning
+            SecurityError::ParachainShutdown
         );
         assert_noop!(
             Call::VaultRegistry(VaultRegistryCall::lock_additional_collateral(0))
                 .dispatch(origin_of(account_of(VAULT))),
-            SecurityError::ParachainNotRunning
+            SecurityError::ParachainShutdown
         );
         assert_noop!(
             Call::VaultRegistry(VaultRegistryCall::withdraw_collateral(0)).dispatch(origin_of(account_of(VAULT))),
-            SecurityError::ParachainNotRunning
+            SecurityError::ParachainShutdown
         );
         assert_noop!(
             Call::VaultRegistry(VaultRegistryCall::update_public_key(Default::default()))
                 .dispatch(origin_of(account_of(VAULT))),
-            SecurityError::ParachainNotRunning
+            SecurityError::ParachainShutdown
         );
         assert_noop!(
             Call::VaultRegistry(VaultRegistryCall::register_address(Default::default()))
                 .dispatch(origin_of(account_of(VAULT))),
-            SecurityError::ParachainNotRunning
+            SecurityError::ParachainShutdown
         );
         assert_noop!(
             Call::VaultRegistry(VaultRegistryCall::accept_new_issues(false)).dispatch(origin_of(account_of(VAULT))),
-            SecurityError::ParachainNotRunning
+            SecurityError::ParachainShutdown
         );
     });
 }

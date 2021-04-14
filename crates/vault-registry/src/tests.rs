@@ -1041,7 +1041,7 @@ fn _is_vault_below_auction_threshold_false_succeeds() {
 #[test]
 fn register_vault_parachain_not_running_fails() {
     run_test(|| {
-        ext::security::ensure_parachain_status_running::<Test>
+        ext::security::ensure_parachain_status_not_shutdown::<Test>
             .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainNotRunning.into())));
 
         assert_noop!(

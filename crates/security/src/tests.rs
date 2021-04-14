@@ -33,7 +33,7 @@ fn test_get_and_set_status() {
 fn test_is_ensure_parachain_running_succeeds() {
     run_test(|| {
         Security::set_status(StatusCode::Running);
-        assert_ok!(Security::ensure_parachain_status_running());
+        assert_ok!(Security::ensure_parachain_status_not_shutdown());
     })
 }
 
@@ -42,13 +42,13 @@ fn test_is_ensure_parachain_running_fails() {
     run_test(|| {
         Security::set_status(StatusCode::Error);
         assert_noop!(
-            Security::ensure_parachain_status_running(),
+            Security::ensure_parachain_status_not_shutdown(),
             TestError::ParachainNotRunning
         );
 
         Security::set_status(StatusCode::Shutdown);
         assert_noop!(
-            Security::ensure_parachain_status_running(),
+            Security::ensure_parachain_status_not_shutdown(),
             TestError::ParachainNotRunning
         );
     })

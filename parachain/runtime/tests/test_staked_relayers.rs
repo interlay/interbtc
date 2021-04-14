@@ -99,21 +99,21 @@ fn test_staked_relayer_parachain_status_check_fails() {
         assert_noop!(
             Call::StakedRelayers(StakedRelayersCall::initialize(Default::default(), 0))
                 .dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainNotRunning
+            SecurityError::ParachainShutdown
         );
         assert_noop!(
             Call::StakedRelayers(StakedRelayersCall::register_staked_relayer(0)).dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainNotRunning
+            SecurityError::ParachainShutdown
         );
         assert_noop!(
             Call::StakedRelayers(StakedRelayersCall::deregister_staked_relayer())
                 .dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainNotRunning
+            SecurityError::ParachainShutdown
         );
         assert_noop!(
             Call::StakedRelayers(StakedRelayersCall::store_block_header(Default::default()))
                 .dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainNotRunning
+            SecurityError::ParachainShutdown
         );
         assert_noop!(
             Call::StakedRelayers(StakedRelayersCall::report_vault_theft(
@@ -123,7 +123,7 @@ fn test_staked_relayer_parachain_status_check_fails() {
                 Default::default()
             ))
             .dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainNotRunning
+            SecurityError::ParachainShutdown
         );
     })
 }

@@ -77,8 +77,8 @@ pub(crate) mod security {
         <security::Pallet<T>>::active_block_number()
     }
 
-    pub fn ensure_parachain_status_running<T: security::Config>() -> DispatchResult {
-        <security::Module<T>>::ensure_parachain_status_running()
+    pub fn ensure_parachain_status_not_shutdown<T: security::Config>() -> DispatchResult {
+        <security::Module<T>>::ensure_parachain_status_not_shutdown()
     }
 }
 

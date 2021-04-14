@@ -63,10 +63,6 @@ pub(crate) mod security {
     use security::ErrorCode;
     use sp_std::vec::Vec;
 
-    pub fn ensure_parachain_status_running<T: security::Config>() -> DispatchResult {
-        <security::Pallet<T>>::ensure_parachain_status_running()
-    }
-
     pub fn ensure_parachain_status_not_shutdown<T: security::Config>() -> DispatchResult {
         <security::Pallet<T>>::ensure_parachain_status_not_shutdown()
     }

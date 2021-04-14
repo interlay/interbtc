@@ -275,7 +275,7 @@ impl<T: Config> Module<T> {
         btc_address: BtcAddress,
         vault_id: T::AccountId,
     ) -> Result<H256, DispatchError> {
-        ext::security::ensure_parachain_status_running::<T>()?;
+        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
         let redeemer_balance = ext::treasury::get_balance::<T>(redeemer.clone());
         ensure!(
@@ -355,7 +355,7 @@ impl<T: Config> Module<T> {
     }
 
     fn _liquidation_redeem(redeemer: T::AccountId, amount_polka_btc: PolkaBTC<T>) -> Result<(), DispatchError> {
-        ext::security::ensure_parachain_status_running::<T>()?;
+        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
         let redeemer_balance = ext::treasury::get_balance::<T>(redeemer.clone());
         ensure!(
@@ -374,7 +374,7 @@ impl<T: Config> Module<T> {
     }
 
     fn _execute_redeem(redeem_id: H256, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> Result<(), DispatchError> {
-        ext::security::ensure_parachain_status_running::<T>()?;
+        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
         let redeem = Self::get_open_redeem_request_from_id(&redeem_id)?;
 
@@ -426,7 +426,7 @@ impl<T: Config> Module<T> {
     }
 
     fn _cancel_redeem(redeemer: T::AccountId, redeem_id: H256, reimburse: bool) -> DispatchResult {
-        ext::security::ensure_parachain_status_running::<T>()?;
+        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
         let redeem = Self::get_open_redeem_request_from_id(&redeem_id)?;
         ensure!(redeemer == redeem.redeemer, Error::<T>::UnauthorizedUser);
@@ -555,7 +555,7 @@ impl<T: Config> Module<T> {
     }
 
     fn _mint_tokens_for_reimbursed_redeem(vault_id: T::AccountId, redeem_id: H256) -> DispatchResult {
-        ext::security::ensure_parachain_status_running::<T>()?;
+        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
         ensure!(
             <RedeemRequests<T>>::contains_key(&redeem_id),
             Error::<T>::RedeemIdNotFound
