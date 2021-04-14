@@ -67,10 +67,6 @@ pub(crate) mod security {
         <security::Pallet<T>>::ensure_parachain_status_not_shutdown()
     }
 
-    pub fn ensure_parachain_does_not_have_errors<T: security::Config>(error_codes: Vec<ErrorCode>) -> DispatchResult {
-        <security::Pallet<T>>::ensure_parachain_does_not_have_errors(error_codes)
-    }
-
     pub fn active_block_number<T: security::Config>() -> T::BlockNumber {
         <security::Pallet<T>>::active_block_number()
     }

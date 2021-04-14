@@ -142,55 +142,21 @@ decl_module! {
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
 impl<T: Config> Module<T> {
+    /// Ensures the Parachain is RUNNING
+    pub fn ensure_parachain_status_running() -> DispatchResult {
+        if <ParachainStatus>::get() == StatusCode::Running {
+            Ok(())
+        } else {
+            Err(Error::<T>::ParachainNotRunning.into())
+        }
+    }
+
     /// Ensures the Parachain is not SHUTDOWN
     pub fn ensure_parachain_status_not_shutdown() -> DispatchResult {
         if <ParachainStatus>::get() != StatusCode::Shutdown {
             Ok(())
         } else {
             Err(Error::<T>::ParachainShutdown.into())
-        }
-    }
-
-    /// Ensures that the parachain DOES NOT have the given errors
-    ///
-    /// # Arguments
-    ///
-    ///   * `error_codes` - list of `ErrorCode` to be checked
-    ///
-    /// Returns the first error that is encountered, or Ok(()) if none of the errors were found
-    pub fn ensure_parachain_does_not_have_errors(error_codes: Vec<ErrorCode>) -> DispatchResult {
-        if <ParachainStatus>::get() == StatusCode::Error {
-            for error_code in error_codes {
-                if <Errors>::get().contains(&error_code) {
-                    return Err(Error::<T>::from(error_code).into());
-                }
-            }
-        }
-        Ok(())
-    }
-
-    /// Ensures that the parachain is RUNNING or ONLY HAS specific errors
-    ///
-    /// # Arguments
-    ///
-    ///   * `error_codes` - list of `ErrorCode` to be checked
-    ///
-    /// Returns the first unexpected error that is encountered,
-    /// or Ok(()) if only expected errors / no errors at all were found
-    pub fn ensure_parachain_is_running_or_only_has_errors(error_codes: Vec<ErrorCode>) -> DispatchResult {
-        if <ParachainStatus>::get() == StatusCode::Running {
-            Ok(())
-        } else if <ParachainStatus>::get() == StatusCode::Error {
-            let error_set: BTreeSet<ErrorCode> = FromIterator::from_iter(error_codes);
-            for error_code in <Errors>::get().iter() {
-                // check if error is set
-                if !error_set.contains(&error_code) {
-                    return Err(Error::<T>::from(error_code.clone()).into());
-                }
-            }
-            Ok(())
-        } else {
-            Err(Error::<T>::ParachainNotRunning.into())
         }
     }
 
