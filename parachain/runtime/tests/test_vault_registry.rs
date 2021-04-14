@@ -159,5 +159,6 @@ fn integration_test_vault_registry_with_parachain_shutdown_fails() {
             Call::VaultRegistry(VaultRegistryCall::accept_new_issues(false)).dispatch(origin_of(account_of(VAULT))),
             SecurityError::ParachainShutdown
         );
+        assert_noop!(VaultRegistryModule::_on_initialize(), SecurityError::ParachainShutdown);
     });
 }

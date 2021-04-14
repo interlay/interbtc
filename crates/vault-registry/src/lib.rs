@@ -198,6 +198,7 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::register_vault()]
         #[transactional]
         fn register_vault(origin, collateral: DOT<T>, public_key: BtcPublicKey) -> DispatchResult {
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             Self::_register_vault(&ensure_signed(origin)?, collateral, public_key)
         }
 
@@ -305,8 +306,10 @@ decl_module! {
         }
 
         fn on_initialize(_n: T::BlockNumber) -> Weight {
-            let num_vaults =         Self::liquidate_undercollateralized_vaults();
-            <T as Config>::WeightInfo::liquidate_undercollateralized_vaults(num_vaults)
+            match Self::_on_initialize() {
+                Ok(weight) => weight,
+                _ => <T as Config>::WeightInfo::liquidate_undercollateralized_vaults(0)
+            }
         }
     }
 }
@@ -323,11 +326,16 @@ impl<T: Config> Module<T> {
         <TotalUserVaultBackingCollateral<T>>::set(total);
     }
 
+    pub fn _on_initialize() -> Result<Weight, DispatchError> {
+        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
+
+        let num_vaults = Self::liquidate_undercollateralized_vaults();
+        let weight = <T as Config>::WeightInfo::liquidate_undercollateralized_vaults(num_vaults);
+        Ok(weight)
+    }
     /// Public functions
 
     pub fn _register_vault(vault_id: &T::AccountId, collateral: DOT<T>, public_key: BtcPublicKey) -> DispatchResult {
-        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-
         ensure!(
             collateral >= Self::get_minimum_collateral_vault(),
             Error::<T>::InsufficientVaultCollateralAmount
