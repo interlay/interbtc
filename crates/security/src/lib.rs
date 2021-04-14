@@ -83,9 +83,11 @@ decl_module! {
         }
 
         fn on_initialize(_chain_height: T::BlockNumber) -> Weight {
-            <ActiveBlockCount<T>>::mutate(|n| {
-                *n = n.saturating_add(1u32.into());
-            });
+            if status() == StatusCode::Running {
+                <ActiveBlockCount<T>>::mutate(|n| {
+                    *n = n.saturating_add(1u32.into());
+                });
+            }
 
             0
         }
