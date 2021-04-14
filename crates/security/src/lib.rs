@@ -35,7 +35,7 @@ use frame_system::ensure_root;
 use primitive_types::H256;
 use sha2::{Digest, Sha256};
 use sp_core::U256;
-use sp_std::{collections::btree_set::BTreeSet, iter::FromIterator, prelude::*};
+use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
 /// ## Configuration
 /// The pallet's configuration trait.
@@ -83,7 +83,7 @@ decl_module! {
         }
 
         fn on_initialize(_chain_height: T::BlockNumber) -> Weight {
-            if status() == StatusCode::Running {
+            if Self::status() == StatusCode::Running {
                 <ActiveBlockCount<T>>::mutate(|n| {
                     *n = n.saturating_add(1u32.into());
                 });
