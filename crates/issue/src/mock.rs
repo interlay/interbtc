@@ -1,7 +1,7 @@
 use crate as issue;
-use crate::{Config, Error};
+use crate::{ext, Config, Error};
 use frame_support::{assert_ok, parameter_types, traits::StorageMapShim};
-use mocktopus::mocking::clear_mocks;
+use mocktopus::mocking::*;
 use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
@@ -247,6 +247,8 @@ where
         ));
         Security::set_active_block_number(1);
         System::set_block_number(1);
+
+        ext::btc_relay::is_fully_initialized::<Test>.mock_safe(|| MockResult::Return(Ok(true)));
         test();
     });
 }

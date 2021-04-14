@@ -30,13 +30,64 @@ benchmarks! {
         let amount: u32 = 100;
         let vault_id: T::AccountId = account("Vault", 0, 0);
         let griefing: u32 = 100;
+        let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
         let _ = T::DOT::make_free_balance_be(&origin, (1u32 << 31).into());
         let _ = T::DOT::make_free_balance_be(&vault_id, (1u32 << 31).into());
+        let _ = T::DOT::make_free_balance_be(&relayer_id, (1u32 << 31).into());
 
         ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()).unwrap();
         VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());// 0.001%
         VaultRegistry::<T>::_register_vault(&vault_id, 100000000u32.into(), dummy_public_key()).unwrap();
+
+        // initialize relay
+
+        let height = 0;
+        let block = BlockBuilder::new()
+            .with_version(2)
+            .with_coinbase(&BtcAddress::P2SH(H160::zero()), 50, 3)
+            .with_timestamp(1588813835)
+            .mine(U256::from(2).pow(254.into())).unwrap();
+        let block_hash = block.header.hash().unwrap();
+        let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
+        Security::<T>::set_active_block_number(1u32.into());
+        BtcRelay::<T>::initialize(relayer_id.clone(), block_header, height).unwrap();
+
+        let vault_btc_address = BtcAddress::P2SH(H160::zero());
+
+        let transaction = TransactionBuilder::new()
+        .with_version(2)
+        .add_input(
+            TransactionInputBuilder::new()
+                .with_coinbase(false)
+                .with_previous_hash(block.transactions[0].hash())
+                .with_script(&[
+                    0, 71, 48, 68, 2, 32, 91, 128, 41, 150, 96, 53, 187, 63, 230, 129, 53, 234,
+                    210, 186, 21, 187, 98, 38, 255, 112, 30, 27, 228, 29, 132, 140, 155, 62, 123,
+                    216, 232, 168, 2, 32, 72, 126, 179, 207, 142, 8, 99, 8, 32, 78, 244, 166, 106,
+                    160, 207, 227, 61, 210, 172, 234, 234, 93, 59, 159, 79, 12, 194, 240, 212, 3,
+                    120, 50, 1, 71, 81, 33, 3, 113, 209, 131, 177, 9, 29, 242, 229, 15, 217, 247,
+                    165, 78, 111, 80, 79, 50, 200, 117, 80, 30, 233, 210, 167, 133, 175, 62, 253,
+                    134, 127, 212, 51, 33, 2, 128, 200, 184, 235, 148, 25, 43, 34, 28, 173, 55, 54,
+                    189, 164, 187, 243, 243, 152, 7, 84, 210, 85, 156, 238, 77, 97, 188, 240, 162,
+                    197, 105, 62, 82, 174,
+                ])
+                .build(),
+        )
+        .add_output(TransactionOutput::payment(123123, &vault_btc_address))
+        .add_output(TransactionOutput::op_return(0, H256::zero().as_bytes()))
+        .build();
+
+        let block = BlockBuilder::new()
+            .with_previous_hash(block_hash)
+            .with_version(2)
+            .with_timestamp(1588813835)
+            .add_transaction(transaction)
+            .mine(U256::from(2).pow(254.into())).unwrap();
+
+        let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
+        BtcRelay::<T>::store_block_header(&relayer_id, block_header).unwrap();
+        Security::<T>::set_active_block_number(Security::<T>::active_block_number() + BtcRelay::<T>::parachain_confirmations());
 
     }: _(RawOrigin::Signed(origin), amount.into(), vault_id, griefing.into())
 
