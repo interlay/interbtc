@@ -510,3 +510,35 @@ fn integration_test_issue_polka_btc_execute_liquidated() {
         );
     });
 }
+
+#[test]
+fn integration_test_issue_with_unrelated_rawtx_and_txid_fails() {
+    test_with_initialized_vault(|| {
+        let (issue_id, issue) = request_issue(1000);
+        let (tx_id, _height, proof, raw_tx, mut transaction) = TransactionGenerator::new()
+            .with_address(issue.btc_address)
+            .with_amount(1)
+            .with_op_return(None)
+            .mine();
+
+        SecurityModule::set_active_block_number(SecurityModule::active_block_number() + CONFIRMATIONS);
+
+        // fail due to insufficient amount
+        assert_noop!(
+            Call::Issue(IssueCall::execute_issue(issue_id, tx_id, proof.clone(), raw_tx))
+                .dispatch(origin_of(account_of(CAROL))),
+            IssueError::InvalidExecutor
+        );
+
+        // increase the amount in the raw_tx, but not in the blockchain. This should definitely fail
+        transaction.outputs[0].value = 1000;
+        assert!(Call::Issue(IssueCall::execute_issue(
+            issue_id,
+            tx_id,
+            proof,
+            transaction.format_with(true)
+        ))
+        .dispatch(origin_of(account_of(CAROL)))
+        .is_err());
+    })
+}

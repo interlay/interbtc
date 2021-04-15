@@ -95,7 +95,7 @@ impl ExecuteIssueBuilder {
     #[transactional]
     pub fn execute(&self) -> DispatchResultWithPostInfo {
         // send the btc from the user to the vault
-        let (tx_id, _height, proof, raw_tx) = TransactionGenerator::new()
+        let (tx_id, _height, proof, raw_tx, _) = TransactionGenerator::new()
             .with_address(self.issue.btc_address)
             .with_amount(self.amount)
             .with_op_return(None)

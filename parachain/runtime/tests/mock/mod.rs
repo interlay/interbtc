@@ -575,7 +575,7 @@ impl TransactionGenerator {
         self.relayer = relayer;
         self
     }
-    pub fn mine(&self) -> (H256Le, u32, Vec<u8>, Vec<u8>) {
+    pub fn mine(&self) -> (H256Le, u32, Vec<u8>, Vec<u8>, Transaction) {
         let mut height = 1;
         let extra_confirmations = self.confirmations - 1;
 
@@ -662,7 +662,7 @@ impl TransactionGenerator {
             prev_block_hash = conf_block.header.hash().unwrap();
         }
 
-        (tx_id, tx_block_height, bytes_proof, raw_tx)
+        (tx_id, tx_block_height, bytes_proof, raw_tx, transaction)
     }
 
     fn relay(&self, height: u32, block: &Block, raw_block_header: RawBlockHeader) {
@@ -689,11 +689,12 @@ pub fn generate_transaction_and_mine(
     amount: u128,
     return_data: Option<H256>,
 ) -> (H256Le, u32, Vec<u8>, Vec<u8>) {
-    TransactionGenerator::new()
+    let (tx_id, height, proof, raw_tx, _) = TransactionGenerator::new()
         .with_address(address)
         .with_amount(amount)
         .with_op_return(return_data)
-        .mine()
+        .mine();
+    (tx_id, height, proof, raw_tx)
 }
 
 #[allow(dead_code)]

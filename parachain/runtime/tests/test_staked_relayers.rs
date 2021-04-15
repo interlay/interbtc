@@ -45,7 +45,7 @@ fn test_vault_theft(submit_by_relayer: bool) {
 
         let initial_sla = SlaModule::relayer_sla(account_of(ALICE));
 
-        let (tx_id, _height, proof, raw_tx) = TransactionGenerator::new()
+        let (tx_id, _height, proof, raw_tx, _) = TransactionGenerator::new()
             .with_address(other_btc_address)
             .with_amount(amount)
             .with_confirmations(7)
