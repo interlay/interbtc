@@ -305,7 +305,7 @@ impl pallet_utility::Config for Runtime {
 impl cumulus_parachain_system::Config for Runtime {
     type Event = Event;
     type OnValidationData = ();
-    type SelfParaId = parachain_info::Module<Runtime>;
+    type SelfParaId = parachain_info::Pallet<Runtime>;
     type DownwardMessageHandlers = XcmHandler;
     type XcmpMessageHandlers = XcmHandler;
 }

@@ -53,10 +53,10 @@ mod request_redeem_tests {
         // than `redeemable_tokens`. A first approximation of the limit is redeemable_tokens+fee,
         // however, this slightly underestimates it. Since the actual fee rate is not exposed,
         // use an iterative process to find the maximum redeem request amount.
-        let mut ret = redeemable_tokens + FeeModule::get_redeem_fee(redeemable_tokens).unwrap();
+        let mut ret = redeemable_tokens + FeePallet::get_redeem_fee(redeemable_tokens).unwrap();
 
         loop {
-            let actually_redeemed_tokens = ret - FeeModule::get_redeem_fee(ret).unwrap();
+            let actually_redeemed_tokens = ret - FeePallet::get_redeem_fee(ret).unwrap();
             if actually_redeemed_tokens > redeemable_tokens {
                 return ret - 1;
             }
@@ -76,7 +76,7 @@ mod request_redeem_tests {
             .dispatch(origin_of(account_of(USER))));
 
             let redeem_id = assert_redeem_request_event();
-            let redeem = RedeemModule::get_open_redeem_request_from_id(&redeem_id).unwrap();
+            let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
             assert_eq!(amount, redeem.fee + redeem.amount_btc);
 
@@ -195,7 +195,7 @@ fn integration_test_redeem_polka_btc_execute() {
         let collateral_vault = 1_000_000;
 
         let redeem_id = setup_redeem(polka_btc, USER, VAULT, collateral_vault);
-        let redeem = RedeemModule::get_open_redeem_request_from_id(&redeem_id).unwrap();
+        let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
         execute_redeem(redeem_id);
 
@@ -232,7 +232,7 @@ fn integration_test_premium_redeem_polka_btc_execute() {
 
         // assert that request happened and extract the id
         let redeem_id = assert_redeem_request_event();
-        let redeem = RedeemModule::get_open_redeem_request_from_id(&redeem_id).unwrap();
+        let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
         // send the btc from the vault to the user
         let (tx_id, _tx_block_height, merkle_proof, raw_tx) =
@@ -320,13 +320,13 @@ fn integration_test_redeem_polka_btc_cancel_reimburse_sufficient_collateral_for_
         let amount_btc = 10_000;
 
         let redeem_id = setup_cancelable_redeem(USER, VAULT, 100000000, amount_btc);
-        let redeem = RedeemModule::get_open_redeem_request_from_id(&redeem_id).unwrap();
+        let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
         let amount_without_fee_dot = ExchangeRateOracleModule::btc_to_dots(redeem.amount_btc).unwrap();
 
-        let punishment_fee = FeeModule::get_punishment_fee(amount_without_fee_dot).unwrap();
+        let punishment_fee = FeePallet::get_punishment_fee(amount_without_fee_dot).unwrap();
         assert!(punishment_fee > 0);
 
-        SlaModule::set_vault_sla(&account_of(VAULT), FixedI128::from(80));
+        SlaPallet::set_vault_sla(&account_of(VAULT), FixedI128::from(80));
         // alice cancels redeem request and chooses to reimburse
         assert_ok!(Call::Redeem(RedeemCall::cancel_redeem(redeem_id, true)).dispatch(origin_of(account_of(USER))));
 
@@ -358,7 +358,7 @@ fn integration_test_redeem_polka_btc_cancel_reimburse_insufficient_collateral_fo
         // set collateral to the minimum amount required, such that the vault can not afford to both
         // reimburse and keep backing his current tokens
         let required_collateral =
-            VaultRegistryModule::get_required_collateral_for_polkabtc(DEFAULT_VAULT_ISSUED).unwrap();
+            VaultRegistryPallet::get_required_collateral_for_polkabtc(DEFAULT_VAULT_ISSUED).unwrap();
         CoreVaultData::force_to(
             VAULT,
             CoreVaultData {
@@ -369,13 +369,13 @@ fn integration_test_redeem_polka_btc_cancel_reimburse_insufficient_collateral_fo
         let initial_state = ParachainState::get();
 
         let redeem_id = setup_cancelable_redeem(USER, VAULT, 100000000, amount_btc);
-        let redeem = RedeemModule::get_open_redeem_request_from_id(&redeem_id).unwrap();
+        let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
         let amount_without_fee_dot = ExchangeRateOracleModule::btc_to_dots(redeem.amount_btc).unwrap();
 
-        let punishment_fee = FeeModule::get_punishment_fee(amount_without_fee_dot).unwrap();
+        let punishment_fee = FeePallet::get_punishment_fee(amount_without_fee_dot).unwrap();
         assert!(punishment_fee > 0);
 
-        SlaModule::set_vault_sla(&account_of(VAULT), FixedI128::from(80));
+        SlaPallet::set_vault_sla(&account_of(VAULT), FixedI128::from(80));
         // alice cancels redeem request and chooses to reimburse
         assert_ok!(Call::Redeem(RedeemCall::cancel_redeem(redeem_id, true)).dispatch(origin_of(account_of(USER))));
 
@@ -426,13 +426,13 @@ fn integration_test_redeem_polka_btc_cancel_no_reimburse() {
         let amount_btc = 10_000;
 
         let redeem_id = setup_cancelable_redeem(USER, VAULT, 100000000, amount_btc);
-        let redeem = RedeemModule::get_open_redeem_request_from_id(&redeem_id).unwrap();
+        let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
         let amount_without_fee_dot = ExchangeRateOracleModule::btc_to_dots(redeem.amount_btc).unwrap();
 
-        let punishment_fee = FeeModule::get_punishment_fee(amount_without_fee_dot).unwrap();
+        let punishment_fee = FeePallet::get_punishment_fee(amount_without_fee_dot).unwrap();
         assert!(punishment_fee > 0);
 
-        SlaModule::set_vault_sla(&account_of(VAULT), FixedI128::from(80));
+        SlaPallet::set_vault_sla(&account_of(VAULT), FixedI128::from(80));
         // alice cancels redeem request and chooses not to reimburse
         assert_ok!(Call::Redeem(RedeemCall::cancel_redeem(redeem_id, false)).dispatch(origin_of(account_of(USER))));
 
@@ -459,7 +459,7 @@ fn integration_test_redeem_polka_btc_cancel_liquidated_no_reimburse() {
         let polka_btc = 1_000;
         let collateral_vault = 1_000_000;
         let redeem_id = setup_cancelable_redeem(USER, VAULT, collateral_vault, polka_btc);
-        let redeem = RedeemModule::get_open_redeem_request_from_id(&redeem_id).unwrap();
+        let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
         // setup vault state such that 1/4th of its collateral is freed after successful redeem
         CoreVaultData::force_to(
@@ -511,7 +511,7 @@ fn integration_test_redeem_polka_btc_cancel_liquidated_reimburse() {
         let polka_btc = 1_000;
         let collateral_vault = 1_000_000;
         let redeem_id = setup_cancelable_redeem(USER, VAULT, collateral_vault, polka_btc);
-        let redeem = RedeemModule::get_open_redeem_request_from_id(&redeem_id).unwrap();
+        let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
         // setup vault state such that 1/4th of its collateral is freed after successful redeem
         CoreVaultData::force_to(
@@ -563,12 +563,12 @@ fn integration_test_redeem_polka_btc_cancel_liquidated_reimburse() {
 fn integration_test_redeem_polka_btc_execute_liquidated() {
     test_with(|| {
         let polka_btc = 1_000;
-        let fee = FeeModule::get_redeem_fee(polka_btc).unwrap();
+        let fee = FeePallet::get_redeem_fee(polka_btc).unwrap();
         let collateral_vault = 1_000_000;
         let amount_without_fee = polka_btc - fee;
 
         let redeem_id = setup_redeem(polka_btc, USER, VAULT, collateral_vault);
-        let redeem = RedeemModule::get_open_redeem_request_from_id(&redeem_id).unwrap();
+        let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
         // setup vault state such that 1/4th of its collateral is freed after successful redeem
         CoreVaultData::force_to(

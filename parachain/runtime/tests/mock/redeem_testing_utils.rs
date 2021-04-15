@@ -14,7 +14,7 @@ pub struct ExecuteRedeemBuilder {
 
 impl ExecuteRedeemBuilder {
     pub fn new(redeem_id: H256) -> Self {
-        let redeem = RedeemModule::get_open_redeem_request_from_id(&redeem_id).unwrap();
+        let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
         Self {
             redeem_id,
             redeem: redeem.clone(),
@@ -58,7 +58,7 @@ pub fn setup_cancelable_redeem(user: [u8; 32], vault: [u8; 32], collateral: u128
     let redeem_id = setup_redeem(polka_btc, user, vault, collateral);
 
     // expire request without transferring btc
-    SecurityModule::set_active_block_number(RedeemModule::redeem_period() + 1 + 1);
+    SecurityModule::set_active_block_number(RedeemPallet::redeem_period() + 1 + 1);
 
     // bob cannot execute past expiry
     assert_noop!(

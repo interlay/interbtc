@@ -6,7 +6,7 @@ use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
 use primitive_types::H256;
-use security::Module as Security;
+use security::Pallet as Security;
 use sp_core::H160;
 use sp_std::convert::TryInto;
 use vault_registry::{VaultStatus, Wallet};
@@ -54,7 +54,7 @@ fn dummy_public_key() -> BtcPublicKey {
 #[test]
 fn test_request_redeem_fails_with_amount_exceeds_user_balance() {
     run_test(|| {
-        <treasury::Module<Test>>::mint(ALICE, 2);
+        <treasury::Pallet<Test>>::mint(ALICE, 2);
         let amount = 10_000_000;
         assert_err!(
             Redeem::request_redeem(Origin::signed(ALICE), amount, BtcAddress::default(), BOB),
@@ -67,7 +67,7 @@ fn test_request_redeem_fails_with_amount_exceeds_user_balance() {
 fn test_request_redeem_fails_with_amount_below_minimum() {
     run_test(|| {
         ext::oracle::btc_to_dots::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
-        <vault_registry::Module<Test>>::insert_vault(
+        <vault_registry::Pallet<Test>>::insert_vault(
             &BOB,
             vault_registry::Vault {
                 id: BOB,
@@ -138,7 +138,7 @@ fn test_request_redeem_fails_with_vault_liquidated() {
 fn test_request_redeem_succeeds_with_normal_redeem() {
     run_test(|| {
         ext::oracle::btc_to_dots::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
-        <vault_registry::Module<Test>>::insert_vault(
+        <vault_registry::Pallet<Test>>::insert_vault(
             &BOB,
             vault_registry::Vault {
                 id: BOB,
@@ -258,7 +258,7 @@ fn test_execute_redeem_succeeds_with_another_account() {
     run_test(|| {
         ext::oracle::btc_to_dots::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
         Security::<Test>::set_active_block_number(40);
-        <vault_registry::Module<Test>>::insert_vault(
+        <vault_registry::Pallet<Test>>::insert_vault(
             &BOB,
             vault_registry::Vault {
                 id: BOB,
@@ -361,7 +361,7 @@ fn test_execute_redeem_succeeds() {
     run_test(|| {
         ext::oracle::btc_to_dots::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
         Security::<Test>::set_active_block_number(40);
-        <vault_registry::Module<Test>>::insert_vault(
+        <vault_registry::Pallet<Test>>::insert_vault(
             &BOB,
             vault_registry::Vault {
                 id: BOB,

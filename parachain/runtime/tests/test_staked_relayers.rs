@@ -20,13 +20,16 @@ fn test_vault_theft(submit_by_relayer: bool) {
         ]));
         let other_btc_address = BtcAddress::P2SH(H160([1; 20]));
 
-        VaultRegistryModule::insert_vault(&account_of(LIQUIDATION_VAULT), Vault::default());
+        SecurityModule::set_active_block_number(1);
+
+        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
+        VaultRegistryPallet::insert_vault(&account_of(LIQUIDATION_VAULT), Vault::default());
         // assert_ok!(CollateralModule::lock_collateral(&account_of(vault), collateral_vault));
         assert_ok!(
             Call::VaultRegistry(VaultRegistryCall::register_vault(collateral_vault, dummy_public_key()))
                 .dispatch(origin_of(account_of(vault)))
         );
-        assert_ok!(VaultRegistryModule::insert_vault_deposit_address(
+        assert_ok!(VaultRegistryPallet::insert_vault_deposit_address(
             &account_of(vault),
             vault_btc_address
         ));
@@ -35,12 +38,12 @@ fn test_vault_theft(submit_by_relayer: bool) {
         assert_ok!(Call::StakedRelayers(StakedRelayersCall::register_staked_relayer(100))
             .dispatch(origin_of(account_of(user))));
 
-        SecurityModule::set_active_block_number(StakedRelayersModule::get_maturity_period() + 100);
+        SecurityModule::set_active_block_number(StakedRelayersPallet::get_maturity_period() + 100);
 
         // manually activate
-        assert_ok!(StakedRelayersModule::activate_staked_relayer(&account_of(user)));
+        assert_ok!(StakedRelayersPallet::activate_staked_relayer(&account_of(user)));
 
-        let initial_sla = SlaModule::relayer_sla(account_of(ALICE));
+        let initial_sla = SlaPallet::relayer_sla(account_of(ALICE));
 
         let (tx_id, _height, proof, raw_tx) = TransactionGenerator::new()
             .with_address(other_btc_address)
@@ -54,9 +57,9 @@ fn test_vault_theft(submit_by_relayer: bool) {
         let mut expected_sla = initial_sla
             + FixedI128::checked_from_integer(7)
                 .unwrap()
-                .checked_mul(&SlaModule::relayer_block_submission())
+                .checked_mul(&SlaPallet::relayer_block_submission())
                 .unwrap();
-        assert_eq!(SlaModule::relayer_sla(account_of(ALICE)), expected_sla);
+        assert_eq!(SlaPallet::relayer_sla(account_of(ALICE)), expected_sla);
 
         SecurityModule::set_active_block_number(1000);
 
@@ -70,8 +73,8 @@ fn test_vault_theft(submit_by_relayer: bool) {
             .dispatch(origin_of(account_of(user))));
 
             // check sla increase for the theft report
-            expected_sla = expected_sla + SlaModule::relayer_correct_theft_report();
-            assert_eq!(SlaModule::relayer_sla(account_of(ALICE)), expected_sla);
+            expected_sla = expected_sla + SlaPallet::relayer_correct_theft_report();
+            assert_eq!(SlaPallet::relayer_sla(account_of(ALICE)), expected_sla);
         } else {
             assert_ok!(Call::StakedRelayers(StakedRelayersCall::report_vault_theft(
                 account_of(vault),

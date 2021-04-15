@@ -1,8 +1,8 @@
 use super::*;
 use crate::{
-    sp_api_hidden_includes_decl_storage::hidden_include::traits::Currency, types::BtcPublicKey, Module as VaultRegistry,
+    sp_api_hidden_includes_decl_storage::hidden_include::traits::Currency, types::BtcPublicKey, Pallet as VaultRegistry,
 };
-use exchange_rate_oracle::Module as ExchangeRateOracle;
+use exchange_rate_oracle::Pallet as ExchangeRateOracle;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
 use sp_std::prelude::*;

@@ -116,7 +116,7 @@ mod request_issue_tests {
     #[test]
     fn integration_test_request_issue_at_capacity_succeeds() {
         test_with_initialized_vault(|| {
-            let amount = VaultRegistryModule::get_issuable_tokens_from_vault(account_of(VAULT)).unwrap();
+            let amount = VaultRegistryPallet::get_issuable_tokens_from_vault(account_of(VAULT)).unwrap();
             let (issue_id, _) = request_issue(amount);
             execute_issue(issue_id);
         });
@@ -125,7 +125,7 @@ mod request_issue_tests {
     #[test]
     fn integration_test_request_issue_above_capacity_fails() {
         test_with_initialized_vault(|| {
-            let amount = 1 + VaultRegistryModule::get_issuable_tokens_from_vault(account_of(VAULT)).unwrap();
+            let amount = 1 + VaultRegistryPallet::get_issuable_tokens_from_vault(account_of(VAULT)).unwrap();
             assert_noop!(
                 Call::Issue(IssueCall::request_issue(
                     amount,
@@ -143,7 +143,7 @@ mod request_issue_tests {
         test_with_initialized_vault(|| {
             let amount = 10_000;
             let amount_in_dot = ExchangeRateOracleModule::btc_to_dots(amount).unwrap();
-            let griefing_collateral = FeeModule::get_issue_griefing_collateral(amount_in_dot).unwrap();
+            let griefing_collateral = FeePallet::get_issue_griefing_collateral(amount_in_dot).unwrap();
             assert_ok!(
                 Call::Issue(IssueCall::request_issue(amount, account_of(VAULT), griefing_collateral))
                     .dispatch(origin_of(account_of(USER)))
@@ -174,7 +174,7 @@ mod request_issue_tests {
         test_with_initialized_vault(|| {
             let amount = 10_000;
             let amount_in_dot = ExchangeRateOracleModule::btc_to_dots(amount).unwrap();
-            let griefing_collateral = FeeModule::get_issue_griefing_collateral(amount_in_dot).unwrap() - 1;
+            let griefing_collateral = FeePallet::get_issue_griefing_collateral(amount_in_dot).unwrap() - 1;
             assert_noop!(
                 Call::Issue(IssueCall::request_issue(amount, account_of(VAULT), griefing_collateral))
                     .dispatch(origin_of(account_of(USER))),
@@ -230,7 +230,7 @@ fn integration_test_issue_polka_btc_execute_succeeds() {
         .dispatch(origin_of(account_of(USER))));
 
         let issue_id = assert_issue_request_event();
-        let issue_request = IssueModule::get_issue_request_from_id(&issue_id).unwrap();
+        let issue_request = IssuePallet::get_issue_request_from_id(&issue_id).unwrap();
         let vault_btc_address = issue_request.btc_address;
         let fee_amount_btc = issue_request.fee;
         let total_amount_btc = amount_btc + fee_amount_btc;
@@ -344,7 +344,7 @@ fn integration_test_issue_refund() {
 
         // make sure we don't have enough collateral to fulfil the overpayment
         let current_minimum_collateral =
-            VaultRegistryModule::get_required_collateral_for_vault(account_of(VAULT)).unwrap();
+            VaultRegistryPallet::get_required_collateral_for_vault(account_of(VAULT)).unwrap();
         CoreVaultData::force_to(
             VAULT,
             CoreVaultData {
@@ -439,7 +439,7 @@ fn integration_test_issue_polka_btc_cancel() {
         // random non-zero starting state
         let (issue_id, issue) = RequestIssueBuilder::new(10_000).request();
 
-        SecurityModule::set_active_block_number(IssueModule::issue_period() + 1 + 1);
+        SecurityModule::set_active_block_number(IssuePallet::issue_period() + 1 + 1);
 
         // alice cannot execute past expiry
         assert_noop!(
@@ -471,7 +471,7 @@ fn integration_test_issue_polka_btc_cancel_liquidated() {
     test_with_initialized_vault(|| {
         let (issue_id, issue) = RequestIssueBuilder::new(10_000).request();
 
-        SecurityModule::set_active_block_number(IssueModule::issue_period() + 1 + 1);
+        SecurityModule::set_active_block_number(IssuePallet::issue_period() + 1 + 1);
 
         // alice cannot execute past expiry
         assert_noop!(

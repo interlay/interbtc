@@ -67,7 +67,7 @@ fn accept_replace(amount_btc: u128, griefing_collateral: u128) -> (H256, Replace
     .dispatch(origin_of(account_of(NEW_VAULT))));
 
     let replace_id = assert_accept_event();
-    let replace = ReplaceModule::get_open_replace_request(&replace_id).unwrap();
+    let replace = ReplacePallet::get_open_replace_request(&replace_id).unwrap();
     (replace_id, replace)
 }
 
@@ -84,7 +84,7 @@ fn auction_replace(
     .dispatch(origin_of(account_of(NEW_VAULT))));
 
     let replace_id = assert_auction_event();
-    let replace = ReplaceModule::get_open_replace_request(&replace_id).unwrap();
+    let replace = ReplacePallet::get_open_replace_request(&replace_id).unwrap();
     (replace_id, replace)
 }
 
@@ -233,7 +233,7 @@ mod auction_replace_tests {
 
     fn test_with<R>(execute: impl FnOnce() -> R) -> R {
         super::test_with(|| {
-            VaultRegistryModule::set_auction_collateral_threshold(FixedU128::from(10_000));
+            VaultRegistryPallet::set_auction_collateral_threshold(FixedU128::from(10_000));
             execute()
         })
     }
@@ -246,7 +246,7 @@ mod auction_replace_tests {
                 new_vault.backing_collateral += replace.collateral;
 
                 // new-vault gets the reward
-                let reward = FeeModule::get_auction_redeem_fee(replace.amount).unwrap();
+                let reward = FeePallet::get_auction_redeem_fee(replace.amount).unwrap();
                 new_vault.backing_collateral += reward;
                 old_vault.backing_collateral -= reward;
 
@@ -776,7 +776,7 @@ fn integration_test_replace_auction_replace() {
         ));
 
         let initial_old_vault_collateral =
-            collateral::Module::<Runtime>::get_collateral_from_account(&account_of(old_vault));
+            collateral::Pallet::<Runtime>::get_collateral_from_account(&account_of(old_vault));
 
         // new_vault takes over old_vault's position
         assert_ok!(Call::Replace(ReplaceCall::auction_replace(
@@ -788,11 +788,11 @@ fn integration_test_replace_auction_replace() {
         .dispatch(origin_of(account_of(new_vault))));
 
         let final_old_vault_collateral =
-            collateral::Module::<Runtime>::get_collateral_from_account(&account_of(old_vault));
+            collateral::Pallet::<Runtime>::get_collateral_from_account(&account_of(old_vault));
 
         // auction fee is taken from old vault collateral
         let replace_amount_dot = ExchangeRateOracleModule::btc_to_dots(polkabtc).unwrap();
-        let auction_fee = FeeModule::get_auction_redeem_fee(replace_amount_dot).unwrap();
+        let auction_fee = FeePallet::get_auction_redeem_fee(replace_amount_dot).unwrap();
         assert_eq!(final_old_vault_collateral, initial_old_vault_collateral - auction_fee);
     });
 }
@@ -925,9 +925,9 @@ fn integration_test_replace_cancel_auction_replace() {
         ));
 
         let initial_new_vault_collateral =
-            collateral::Module::<Runtime>::get_collateral_from_account(&account_of(new_vault));
+            collateral::Pallet::<Runtime>::get_collateral_from_account(&account_of(new_vault));
         let initial_old_vault_collateral =
-            collateral::Module::<Runtime>::get_collateral_from_account(&account_of(old_vault));
+            collateral::Pallet::<Runtime>::get_collateral_from_account(&account_of(old_vault));
 
         // new_vault takes over old_vault's position
         assert_ok!(Call::Replace(ReplaceCall::auction_replace(
@@ -940,14 +940,14 @@ fn integration_test_replace_cancel_auction_replace() {
 
         // check old vault collateral
         let replace_amount_dot = ExchangeRateOracleModule::btc_to_dots(polkabtc).unwrap();
-        let auction_fee = FeeModule::get_auction_redeem_fee(replace_amount_dot).unwrap();
+        let auction_fee = FeePallet::get_auction_redeem_fee(replace_amount_dot).unwrap();
         assert_eq!(
-            collateral::Module::<Runtime>::get_collateral_from_account(&account_of(old_vault)),
+            collateral::Pallet::<Runtime>::get_collateral_from_account(&account_of(old_vault)),
             initial_old_vault_collateral - auction_fee
         );
         // check new vault collateral
         assert_eq!(
-            collateral::Module::<Runtime>::get_collateral_from_account(&account_of(new_vault)),
+            collateral::Pallet::<Runtime>::get_collateral_from_account(&account_of(new_vault)),
             initial_new_vault_collateral + auction_fee + replace_collateral
         );
 
@@ -959,14 +959,14 @@ fn integration_test_replace_cancel_auction_replace() {
 
         // check old vault collateral
         assert_eq!(
-            collateral::Module::<Runtime>::get_collateral_from_account(&account_of(old_vault)),
+            collateral::Pallet::<Runtime>::get_collateral_from_account(&account_of(old_vault)),
             initial_old_vault_collateral - auction_fee
         );
 
         // check new vault collateral. It should have received auction fee, griefing collateral and
         // the collateral that was reserved for this replace should have been released
         assert_eq!(
-            collateral::Module::<Runtime>::get_collateral_from_account(&account_of(new_vault)),
+            collateral::Pallet::<Runtime>::get_collateral_from_account(&account_of(new_vault)),
             initial_new_vault_collateral + auction_fee
         );
     });
@@ -1006,9 +1006,9 @@ fn integration_test_replace_cancel_repeatedly_fails() {
         ));
 
         // let initial_new_vault_collateral =
-        //     collateral::Module::<Runtime>::get_collateral_from_account(&account_of(new_vault));
+        //     collateral::Pallet::<Runtime>::get_collateral_from_account(&account_of(new_vault));
         // let initial_old_vault_collateral =
-        //     collateral::Module::<Runtime>::get_collateral_from_account(&account_of(old_vault));
+        //     collateral::Pallet::<Runtime>::get_collateral_from_account(&account_of(old_vault));
 
         // new_vault takes over old_vault's position
         assert_ok!(Call::Replace(ReplaceCall::auction_replace(
@@ -1108,7 +1108,7 @@ fn setup_replace(polkabtc: u128) -> H256 {
 }
 
 fn execute_replace(replace_id: H256) -> DispatchResultWithPostInfo {
-    let replace = ReplaceModule::get_open_replace_request(&replace_id).unwrap();
+    let replace = ReplacePallet::get_open_replace_request(&replace_id).unwrap();
 
     // send the btc from the old_vault to the new_vault
     let (tx_id, _tx_block_height, merkle_proof, raw_tx) =

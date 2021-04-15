@@ -1,5 +1,5 @@
 use super::*;
-// use crate::Module as Fee;
+// use crate::Pallet as Fee;
 use frame_benchmarking::{account, benchmarks, whitelisted_caller};
 use frame_support::{traits::Currency, StorageMap};
 use frame_system::RawOrigin;

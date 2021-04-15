@@ -12,7 +12,7 @@ use crate::{
 use frame_support::{assert_err, assert_noop, assert_ok, StorageMap};
 use mocktopus::mocking::*;
 use primitive_types::U256;
-use security::Module as Security;
+use security::Pallet as Security;
 use sp_arithmetic::{FixedPointNumber, FixedU128};
 use sp_runtime::traits::Header;
 use sp_std::convert::TryInto;
@@ -81,7 +81,7 @@ fn create_vault_and_issue_tokens(
     assert_ok!(res);
 
     // mint tokens to the vault
-    treasury::Module::<Test>::mint(id, issue_tokens);
+    treasury::Pallet::<Test>::mint(id, issue_tokens);
 
     id
 }

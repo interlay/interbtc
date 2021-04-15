@@ -1,4 +1,4 @@
-use crate::{ext, sp_api_hidden_includes_decl_storage::hidden_include::StorageValue, Config, Error, Module};
+use crate::{ext, sp_api_hidden_includes_decl_storage::hidden_include::StorageValue, Config, Error, Pallet};
 use codec::{Decode, Encode, HasCompact};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
@@ -43,14 +43,14 @@ impl<T: Config> CurrencySource<T> {
     pub fn account_id(&self) -> <T as frame_system::Config>::AccountId {
         match self {
             CurrencySource::Backing(x) | CurrencySource::Griefing(x) | CurrencySource::FreeBalance(x) => x.clone(),
-            CurrencySource::LiquidationVault => Module::<T>::get_rich_liquidation_vault().data.id,
+            CurrencySource::LiquidationVault => Pallet::<T>::get_rich_liquidation_vault().data.id,
         }
     }
     pub fn current_balance(&self) -> Result<DOT<T>, DispatchError> {
         match self {
-            CurrencySource::Backing(x) => Ok(Module::<T>::get_rich_vault_from_id(&x)?.data.backing_collateral),
+            CurrencySource::Backing(x) => Ok(Pallet::<T>::get_rich_vault_from_id(&x)?.data.backing_collateral),
             CurrencySource::Griefing(x) => {
-                let backing_collateral = match Module::<T>::get_rich_vault_from_id(&x) {
+                let backing_collateral = match Pallet::<T>::get_rich_vault_from_id(&x) {
                     Ok(vault) => vault.data.backing_collateral,
                     Err(_) => 0u32.into(),
                 };
@@ -266,7 +266,7 @@ impl<T: Config> UpdatableVault<T> for RichVault<T> {
 
     fn increase_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
         if self.data.is_liquidated() {
-            Module::<T>::get_rich_liquidation_vault().increase_issued(tokens)
+            Pallet::<T>::get_rich_liquidation_vault().increase_issued(tokens)
         } else {
             self.update(|v| {
                 v.issued_tokens = v
@@ -306,7 +306,7 @@ impl<T: Config> UpdatableVault<T> for RichVault<T> {
 
     fn decrease_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
         if self.data.is_liquidated() {
-            Module::<T>::get_rich_liquidation_vault().decrease_issued(tokens)
+            Pallet::<T>::get_rich_liquidation_vault().decrease_issued(tokens)
         } else {
             self.update(|v| {
                 v.issued_tokens = v
@@ -320,7 +320,7 @@ impl<T: Config> UpdatableVault<T> for RichVault<T> {
 
     fn decrease_to_be_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
         if self.data.is_liquidated() {
-            Module::<T>::get_rich_liquidation_vault().decrease_to_be_issued(tokens)
+            Pallet::<T>::get_rich_liquidation_vault().decrease_to_be_issued(tokens)
         } else {
             self.update(|v| {
                 v.to_be_issued_tokens = v
@@ -335,7 +335,7 @@ impl<T: Config> UpdatableVault<T> for RichVault<T> {
     fn decrease_to_be_redeemed(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
         // in addition to the change to this vault, _also_ change the liquidation vault
         if self.data.is_liquidated() {
-            Module::<T>::get_rich_liquidation_vault().decrease_to_be_redeemed(tokens)?;
+            Pallet::<T>::get_rich_liquidation_vault().decrease_to_be_redeemed(tokens)?;
         }
 
         self.update(|v| {
@@ -394,15 +394,15 @@ impl<T: Config> RichVault<T> {
         let issued_tokens = self.data.issued_tokens + self.data.to_be_issued_tokens;
         let issued_tokens_in_dot = ext::oracle::btc_to_dots::<T>(issued_tokens)?;
 
-        let raw_issued_tokens_in_dot = Module::<T>::dot_to_u128(issued_tokens_in_dot)?;
+        let raw_issued_tokens_in_dot = Pallet::<T>::dot_to_u128(issued_tokens_in_dot)?;
 
-        let secure_threshold = Module::<T>::secure_collateral_threshold();
+        let secure_threshold = Pallet::<T>::secure_collateral_threshold();
 
         let raw_used_collateral = secure_threshold
             .checked_mul_int(raw_issued_tokens_in_dot)
             .ok_or(Error::<T>::ArithmeticOverflow)?;
 
-        let used_collateral = Module::<T>::u128_to_dot(raw_used_collateral)?;
+        let used_collateral = Pallet::<T>::u128_to_dot(raw_used_collateral)?;
 
         Ok(self.data.backing_collateral.min(used_collateral))
     }
@@ -415,10 +415,10 @@ impl<T: Config> RichVault<T> {
 
         let free_collateral = self.get_free_collateral()?;
 
-        let secure_threshold = Module::<T>::secure_collateral_threshold();
+        let secure_threshold = Pallet::<T>::secure_collateral_threshold();
 
         let issuable =
-            Module::<T>::calculate_max_polkabtc_from_collateral_for_threshold(free_collateral, secure_threshold)?;
+            Pallet::<T>::calculate_max_polkabtc_from_collateral_for_threshold(free_collateral, secure_threshold)?;
 
         Ok(issuable)
     }
@@ -481,7 +481,7 @@ impl<T: Config> RichVault<T> {
         // amount of tokens being backed
         let backing_tokens = self.backed_tokens()?;
 
-        let to_slash = Module::<T>::calculate_collateral(
+        let to_slash = Pallet::<T>::calculate_collateral(
             liquidated_collateral,
             backing_tokens
                 .checked_sub(&self.data.to_be_redeemed_tokens)
@@ -489,7 +489,7 @@ impl<T: Config> RichVault<T> {
             backing_tokens,
         )?;
 
-        Module::<T>::slash_collateral(
+        Pallet::<T>::slash_collateral(
             CurrencySource::Backing(self.id()),
             CurrencySource::LiquidationVault,
             to_slash,
@@ -500,7 +500,7 @@ impl<T: Config> RichVault<T> {
             .checked_sub(&liquidated_collateral)
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
         if !to_release.is_zero() {
-            Module::<T>::force_withdraw_collateral(&self.data.id, to_release)?;
+            Pallet::<T>::force_withdraw_collateral(&self.data.id, to_release)?;
         }
 
         // Copy all tokens to the liquidation vault

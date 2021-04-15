@@ -36,7 +36,7 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
         }
         SecurityModule::set_active_block_number(1 + CONFIRMATIONS);
         // verify all transaction
-        let current_height = btc_relay::Module::<Runtime>::get_best_block_height();
+        let current_height = btc_relay::Pallet::<Runtime>::get_best_block_height();
         for block in test_data.iter() {
             for tx in &block.test_txs {
                 let txid = tx.get_txid();

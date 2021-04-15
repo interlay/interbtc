@@ -136,7 +136,7 @@ decl_storage! {
     add_extra_genesis {
         // don't allow an invalid reward distribution
         build(|config| {
-            Module::<T>::ensure_rationals_sum_to_one(
+            Pallet::<T>::ensure_rationals_sum_to_one(
                 vec![
                     config.vault_rewards,
                     config.relayer_rewards,
@@ -145,7 +145,7 @@ decl_storage! {
                 ]
             ).unwrap();
 
-            Module::<T>::ensure_rationals_sum_to_one(
+            Pallet::<T>::ensure_rationals_sum_to_one(
                 vec![
                     config.vault_rewards_issued,
                     config.vault_rewards_locked,
@@ -485,7 +485,7 @@ impl<T: Config> Module<T> {
     /// Helper for validating the `chain_spec` parameters
     fn ensure_rationals_sum_to_one(dist: Vec<UnsignedFixedPoint<T>>) -> DispatchResult {
         let sum = dist.iter().fold(UnsignedFixedPoint::<T>::default(), |a, &b| a + b);
-        let one = UnsignedFixedPoint::<T>::checked_from_integer(Module::<T>::btc_to_inner(1u32.into())?)
+        let one = UnsignedFixedPoint::<T>::checked_from_integer(Pallet::<T>::btc_to_inner(1u32.into())?)
             .ok_or(Error::<T>::ArithmeticOverflow)?;
         ensure!(sum == one, Error::<T>::InvalidRewardDist);
         Ok(())
