@@ -1,5 +1,5 @@
 use crate::{ext, mock::*, Config, PolkaBTC, RawEvent, DOT};
-use bitcoin::types::H256Le;
+
 use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
@@ -45,7 +45,7 @@ fn request_issue_ok(origin: AccountId, amount: Balance, vault: AccountId, collat
 fn execute_issue(origin: AccountId, issue_id: &H256) -> Result<(), DispatchError> {
     ext::security::ensure_parachain_status_running::<Test>.mock_safe(|| MockResult::Return(Ok(())));
 
-    Issue::_execute_issue(origin, *issue_id, H256Le::zero(), vec![0u8; 100], vec![0u8; 100])
+    Issue::_execute_issue(origin, *issue_id, vec![0u8; 100], vec![0u8; 100])
 }
 
 fn cancel_issue(origin: AccountId, issue_id: &H256) -> Result<(), DispatchError> {
@@ -327,7 +327,7 @@ fn test_execute_issue_parachain_not_running_fails() {
             .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainNotRunning.into())));
 
         assert_noop!(
-            Issue::_execute_issue(origin, H256::zero(), H256Le::zero(), vec![0u8; 100], vec![0u8; 100],),
+            Issue::_execute_issue(origin, H256::zero(), vec![0u8; 100], vec![0u8; 100],),
             SecurityError::ParachainNotRunning
         );
     })

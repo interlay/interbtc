@@ -98,13 +98,8 @@ fn integration_test_issue_should_fail_if_not_running() {
         );
 
         assert_noop!(
-            Call::Issue(IssueCall::execute_issue(
-                H256([0; 32]),
-                H256Le::zero(),
-                vec![0u8; 32],
-                vec![0u8; 32]
-            ))
-            .dispatch(origin_of(account_of(ALICE))),
+            Call::Issue(IssueCall::execute_issue(H256([0; 32]), vec![0u8; 32], vec![0u8; 32]))
+                .dispatch(origin_of(account_of(ALICE))),
             SecurityError::ParachainNotRunning,
         );
     });
@@ -236,12 +231,12 @@ fn integration_test_issue_polka_btc_execute_succeeds() {
         let total_amount_btc = amount_btc + fee_amount_btc;
 
         // send the btc from the user to the vault
-        let (tx_id, _height, proof, raw_tx) = generate_transaction_and_mine(vault_btc_address, total_amount_btc, None);
+        let (_tx_id, _height, proof, raw_tx) = generate_transaction_and_mine(vault_btc_address, total_amount_btc, None);
 
         SecurityModule::set_active_block_number(1 + CONFIRMATIONS);
 
         // alice executes the issue by confirming the btc transaction
-        assert_ok!(Call::Issue(IssueCall::execute_issue(issue_id, tx_id, proof, raw_tx))
+        assert_ok!(Call::Issue(IssueCall::execute_issue(issue_id, proof, raw_tx))
             .dispatch(origin_of(account_of(vault_proof_submitter))));
     });
 }
@@ -443,13 +438,7 @@ fn integration_test_issue_polka_btc_cancel() {
 
         // alice cannot execute past expiry
         assert_noop!(
-            Call::Issue(IssueCall::execute_issue(
-                issue_id,
-                H256Le::from_bytes_le(&[0; 32]),
-                vec![],
-                vec![]
-            ))
-            .dispatch(origin_of(account_of(VAULT))),
+            Call::Issue(IssueCall::execute_issue(issue_id, vec![], vec![])).dispatch(origin_of(account_of(VAULT))),
             IssueError::CommitPeriodExpired
         );
 
@@ -475,13 +464,7 @@ fn integration_test_issue_polka_btc_cancel_liquidated() {
 
         // alice cannot execute past expiry
         assert_noop!(
-            Call::Issue(IssueCall::execute_issue(
-                issue_id,
-                H256Le::from_bytes_le(&[0; 32]),
-                vec![],
-                vec![]
-            ))
-            .dispatch(origin_of(account_of(VAULT))),
+            Call::Issue(IssueCall::execute_issue(issue_id, vec![], vec![])).dispatch(origin_of(account_of(VAULT))),
             IssueError::CommitPeriodExpired
         );
 
@@ -528,4 +511,33 @@ fn integration_test_issue_polka_btc_execute_liquidated() {
             })
         );
     });
+}
+
+#[test]
+fn integration_test_issue_with_unrelated_rawtx_and_txid_fails() {
+    test_with_initialized_vault(|| {
+        let (issue_id, issue) = request_issue(1000);
+        let (_tx_id, _height, proof, raw_tx, mut transaction) = TransactionGenerator::new()
+            .with_address(issue.btc_address)
+            .with_amount(1)
+            .with_op_return(None)
+            .mine();
+
+        SecurityModule::set_active_block_number(SecurityModule::active_block_number() + CONFIRMATIONS);
+
+        // fail due to insufficient amount
+        assert_noop!(
+            Call::Issue(IssueCall::execute_issue(issue_id, proof.clone(), raw_tx))
+                .dispatch(origin_of(account_of(CAROL))),
+            IssueError::InvalidExecutor
+        );
+
+        // increase the amount in the raw_tx, but not in the blockchain. This should definitely fail
+        transaction.outputs[0].value = 1000;
+        assert_noop!(
+            Call::Issue(IssueCall::execute_issue(issue_id, proof, transaction.format_with(true)))
+                .dispatch(origin_of(account_of(CAROL))),
+            BTCRelayError::InvalidTxid
+        );
+    })
 }

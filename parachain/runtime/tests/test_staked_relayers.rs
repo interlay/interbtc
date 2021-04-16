@@ -45,7 +45,7 @@ fn test_vault_theft(submit_by_relayer: bool) {
 
         let initial_sla = SlaPallet::relayer_sla(account_of(ALICE));
 
-        let (tx_id, _height, proof, raw_tx) = TransactionGenerator::new()
+        let (_tx_id, _height, proof, raw_tx, _) = TransactionGenerator::new()
             .with_address(other_btc_address)
             .with_amount(amount)
             .with_confirmations(7)
@@ -64,25 +64,19 @@ fn test_vault_theft(submit_by_relayer: bool) {
         SecurityModule::set_active_block_number(1000);
 
         if submit_by_relayer {
-            assert_ok!(Call::StakedRelayers(StakedRelayersCall::report_vault_theft(
-                account_of(vault),
-                tx_id,
-                proof,
-                raw_tx
-            ))
-            .dispatch(origin_of(account_of(user))));
+            assert_ok!(
+                Call::StakedRelayers(StakedRelayersCall::report_vault_theft(account_of(vault), proof, raw_tx))
+                    .dispatch(origin_of(account_of(user)))
+            );
 
             // check sla increase for the theft report
             expected_sla = expected_sla + SlaPallet::relayer_correct_theft_report();
             assert_eq!(SlaPallet::relayer_sla(account_of(ALICE)), expected_sla);
         } else {
-            assert_ok!(Call::StakedRelayers(StakedRelayersCall::report_vault_theft(
-                account_of(vault),
-                tx_id,
-                proof,
-                raw_tx
-            ))
-            .dispatch(origin_of(account_of(CAROL))));
+            assert_ok!(
+                Call::StakedRelayers(StakedRelayersCall::report_vault_theft(account_of(vault), proof, raw_tx))
+                    .dispatch(origin_of(account_of(CAROL)))
+            );
         }
     });
 }

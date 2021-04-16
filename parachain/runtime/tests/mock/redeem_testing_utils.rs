@@ -36,7 +36,7 @@ impl ExecuteRedeemBuilder {
     #[transactional]
     pub fn execute(&self) -> DispatchResultWithPostInfo {
         // send the btc from the user to the vault
-        let (tx_id, _height, proof, raw_tx) = TransactionGenerator::new()
+        let (_tx_id, _height, proof, raw_tx, _) = TransactionGenerator::new()
             .with_address(self.redeem.btc_address)
             .with_amount(self.amount)
             .with_op_return(Some(self.redeem_id))
@@ -45,7 +45,7 @@ impl ExecuteRedeemBuilder {
         SecurityModule::set_active_block_number(SecurityModule::active_block_number() + CONFIRMATIONS);
 
         // alice executes the redeemrequest by confirming the btc transaction
-        Call::Redeem(RedeemCall::execute_redeem(self.redeem_id, tx_id, proof, raw_tx))
+        Call::Redeem(RedeemCall::execute_redeem(self.redeem_id, proof, raw_tx))
             .dispatch(origin_of(self.submitter.clone()))
     }
 
@@ -62,13 +62,7 @@ pub fn setup_cancelable_redeem(user: [u8; 32], vault: [u8; 32], collateral: u128
 
     // bob cannot execute past expiry
     assert_noop!(
-        Call::Redeem(RedeemCall::execute_redeem(
-            redeem_id,
-            H256Le::from_bytes_le(&[0; 32]),
-            vec![],
-            vec![],
-        ))
-        .dispatch(origin_of(account_of(vault))),
+        Call::Redeem(RedeemCall::execute_redeem(redeem_id, vec![], vec![],)).dispatch(origin_of(account_of(vault))),
         RedeemError::CommitPeriodExpired,
     );
 

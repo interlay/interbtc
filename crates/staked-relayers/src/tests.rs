@@ -785,7 +785,6 @@ fn test_report_vault_passes_with_vault_transaction() {
         assert_ok!(StakedRelayers::report_vault_theft(
             Origin::signed(ALICE),
             CAROL,
-            H256Le::zero(),
             vec![0u8; 32],
             hex::decode(&raw_tx).unwrap()
         ),);
@@ -813,7 +812,6 @@ fn test_report_vault_fails_with_non_vault_transaction() {
             StakedRelayers::report_vault_theft(
                 Origin::signed(ALICE),
                 CAROL,
-                H256Le::zero(),
                 vec![0u8; 32],
                 hex::decode(&raw_tx).unwrap()
             ),
@@ -842,7 +840,6 @@ fn test_report_vault_succeeds_with_segwit_transaction() {
         assert_ok!(StakedRelayers::report_vault_theft(
             Origin::signed(ALICE),
             CAROL,
-            H256Le::zero(),
             vec![0u8; 32],
             hex::decode(&raw_tx).unwrap()
         ));
@@ -863,11 +860,13 @@ fn test_report_vault_theft_succeeds() {
         assert_ok!(StakedRelayers::report_vault_theft(
             relayer,
             BOB,
-            H256Le::zero(),
             vec![0u8; 32],
             vec![0u8; 32],
         ));
-        assert_emitted!(Event::VaultTheft(BOB, H256Le::zero()));
+        // check that the event has been emitted
+        assert!(System::events()
+            .iter()
+            .any(|a| matches!(a.event, TestEvent::staked_relayers(Event::VaultTheft(id, _)) if id == BOB)));
     })
 }
 

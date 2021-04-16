@@ -27,7 +27,7 @@ use primitive_types::H256;
 use sp_runtime::{traits::Zero, ModuleId};
 use sp_std::{convert::TryInto, vec::Vec};
 
-use bitcoin::types::H256Le;
+use bitcoin::utils::sha256d_le;
 use btc_relay::BtcAddress;
 
 #[doc(inline)]
@@ -248,15 +248,14 @@ decl_module! {
         ///
         /// * `origin` - sender of the transaction: the new vault
         /// * `replace_id` - the ID of the replacement request
-        /// * `tx_id` - the backing chain transaction id
         /// * `tx_block_height` - the blocked height of the backing transaction
         /// * 'merkle_proof' - the merkle root of the block
         /// * `raw_tx` - the transaction id in bytes
         #[weight = <T as Config>::WeightInfo::execute_replace()]
         #[transactional]
-        fn execute_replace(origin, replace_id: H256, tx_id: H256Le, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
+        fn execute_replace(origin, replace_id: H256, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
             let _ = ensure_signed(origin)?;
-            Self::_execute_replace(replace_id, tx_id, merkle_proof, raw_tx)?;
+            Self::_execute_replace(replace_id, merkle_proof, raw_tx)?;
             Ok(())
         }
 
@@ -442,12 +441,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn _execute_replace(
-        replace_id: H256,
-        tx_id: H256Le,
-        merkle_proof: Vec<u8>,
-        raw_tx: Vec<u8>,
-    ) -> Result<(), DispatchError> {
+    fn _execute_replace(replace_id: H256, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> Result<(), DispatchError> {
         // Check that Parachain status is RUNNING
         ext::security::ensure_parachain_status_running::<T>()?;
 
@@ -466,6 +460,7 @@ impl<T: Config> Module<T> {
 
         // Call verifyTransactionInclusion in BTC-Relay, providing txid, txBlockHeight, txIndex, and merkleProof as
         // parameters
+        let tx_id = sha256d_le(&raw_tx);
         ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
 
         // Call validateTransaction in BTC-Relay

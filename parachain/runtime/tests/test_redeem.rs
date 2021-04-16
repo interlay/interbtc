@@ -235,13 +235,13 @@ fn integration_test_premium_redeem_polka_btc_execute() {
         let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
         // send the btc from the vault to the user
-        let (tx_id, _tx_block_height, merkle_proof, raw_tx) =
+        let (_tx_id, _tx_block_height, merkle_proof, raw_tx) =
             generate_transaction_and_mine(user_btc_address, polka_btc, Some(redeem_id));
 
         SecurityModule::set_active_block_number(1 + CONFIRMATIONS);
 
         assert_ok!(
-            Call::Redeem(RedeemCall::execute_redeem(redeem_id, tx_id, merkle_proof, raw_tx))
+            Call::Redeem(RedeemCall::execute_redeem(redeem_id, merkle_proof, raw_tx))
                 .dispatch(origin_of(account_of(VAULT)))
         );
 

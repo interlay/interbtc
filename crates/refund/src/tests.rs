@@ -1,5 +1,4 @@
 use crate::{ext, mock::*, RawEvent};
-use bitcoin::types::H256Le;
 use btc_relay::BtcAddress;
 use frame_support::assert_ok;
 use mocktopus::mocking::*;
@@ -43,11 +42,6 @@ fn test_refund_succeeds() {
         }
         .unwrap();
 
-        assert_ok!(Refund::_execute_refund(
-            refund_id,
-            H256Le::zero(),
-            vec![0u8; 100],
-            vec![0u8; 100],
-        ));
+        assert_ok!(Refund::_execute_refund(refund_id, vec![0u8; 100], vec![0u8; 100],));
     })
 }
