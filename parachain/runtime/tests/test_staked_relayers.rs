@@ -20,9 +20,6 @@ fn test_vault_theft(submit_by_relayer: bool) {
         ]));
         let other_btc_address = BtcAddress::P2SH(H160([1; 20]));
 
-        SecurityModule::set_active_block_number(1);
-
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
         VaultRegistryModule::insert_vault(&account_of(LIQUIDATION_VAULT), Vault::default());
         // assert_ok!(CollateralModule::lock_collateral(&account_of(vault), collateral_vault));
         assert_ok!(

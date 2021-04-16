@@ -30,7 +30,9 @@ use mocktopus::macros::mockable;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
-    ensure, runtime_print, transactional, IterableStorageMap,
+    ensure, runtime_print, transactional,
+    weights::Weight,
+    IterableStorageMap,
 };
 use frame_system::{ensure_root, ensure_signed};
 use primitive_types::U256;
@@ -122,6 +124,9 @@ decl_storage! {
 
         /// Store the height of the best block
         BestBlockHeight: u32;
+
+        /// BTC height when the relay was initialized
+        StartBlockHeight: u32;
 
         /// Increment-only counter used to track new BlockChain entries
         ChainCounter: u32;
@@ -308,6 +313,13 @@ decl_module! {
             ensure_root(origin)?;
             Self::clear_block_error(block_hash, error)
         }
+
+        fn on_runtime_upgrade() -> Weight {
+            if !<StartBlockHeight>::exists() {
+                <StartBlockHeight>::set(0);
+            }
+            0
+        }
     }
 }
 
@@ -348,6 +360,7 @@ impl<T: Config> Module<T> {
         // Set BestBlock and BestBlockHeight to the submitted block
         Self::set_best_block(block_header_hash);
         Self::set_best_block_height(block_height);
+        <StartBlockHeight>::set(block_height);
 
         // Emit a Initialized Event
         Self::deposit_event(<Event<T>>::Initialized(block_height, block_header_hash, relayer));
@@ -687,6 +700,18 @@ impl<T: Config> Module<T> {
         }
 
         Ok((input_address, extr_payment_value))
+    }
+
+    pub fn is_fully_initialized() -> Result<bool, DispatchError> {
+        if !<StartBlockHeight>::exists() {
+            return Ok(false);
+        }
+
+        let required_height = <StartBlockHeight>::get()
+            .checked_add(<StableBitcoinConfirmations>::get())
+            .ok_or(Error::<T>::ArithmeticOverflow)?;
+        let best = <BestBlockHeight>::get();
+        Ok(best >= required_height)
     }
 
     // ********************************

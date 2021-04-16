@@ -236,6 +236,11 @@ impl<T: Config> Module<T> {
         // Check that Parachain is RUNNING
         ext::security::ensure_parachain_status_running::<T>()?;
 
+        ensure!(
+            ext::btc_relay::is_fully_initialized::<T>()?,
+            Error::<T>::WaitingForRelayerInitialization
+        );
+
         let vault = ext::vault_registry::get_active_vault_from_id::<T>(&vault_id)?;
 
         // ensure that the vault is accepting new issues
@@ -554,6 +559,7 @@ decl_error! {
         IssueCompleted,
         IssueCancelled,
         VaultNotAcceptingNewIssues,
+        WaitingForRelayerInitialization,
         /// Unable to convert value
         TryIntoIntError,
         ArithmeticUnderflow,

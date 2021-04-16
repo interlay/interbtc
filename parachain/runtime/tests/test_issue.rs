@@ -185,6 +185,25 @@ mod request_issue_tests {
 }
 
 #[test]
+fn integration_test_issue_fails_with_uninitialized_relay() {
+    ExtBuilder::build().execute_without_relay_init(|| {
+        assert_noop!(
+            Call::Issue(IssueCall::request_issue(0, Default::default(), 0)).dispatch(origin_of(account_of(USER))),
+            IssueError::WaitingForRelayerInitialization
+        );
+    });
+    ExtBuilder::build().execute_without_relay_init(|| {
+        // calls BTCRelay::initialize, but with insufficient confirmations
+        let _ = TransactionGenerator::new().with_confirmations(3).mine();
+
+        assert_noop!(
+            Call::Issue(IssueCall::request_issue(0, Default::default(), 0)).dispatch(origin_of(account_of(USER))),
+            IssueError::WaitingForRelayerInitialization
+        );
+    });
+}
+
+#[test]
 fn integration_test_issue_polka_btc_execute_succeeds() {
     test_with(|| {
         let vault_proof_submitter = CAROL;
