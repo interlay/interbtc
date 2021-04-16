@@ -71,7 +71,7 @@ decl_storage! {
     trait Store for Module<T: Config> as Replace {
         /// Vaults create replace requests to transfer locked collateral.
         /// This mapping provides access from a unique hash to a `ReplaceRequest`.
-        ReplaceRequests: map hasher(blake2_128_concat) H256 => Option<ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>>;
+        ReplaceRequests: map hasher(blake2_128_concat) H256 => ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>;
 
         /// The time difference in number of blocks between when a replace request is created
         /// and required completion time by a vault. The replace period has an upper limit
@@ -134,9 +134,14 @@ decl_module! {
             use frame_support::{migration::StorageKeyIterator, Blake2_128Concat};
 
             if matches!(Self::storage_version(), Version::V0 | Version::V1) {
-                StorageKeyIterator::<H256, ReplaceRequestV1<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, Blake2_128Concat>::new(<ReplaceRequests<T>>::module_prefix(), b"ReplaceRequests")
+                StorageKeyIterator::<H256, Option<ReplaceRequestV1<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>>, Blake2_128Concat>::new(<ReplaceRequests<T>>::module_prefix(), b"ReplaceRequests")
                     .drain()
-                    .for_each(|(id, request_v1)| {
+                    .filter_map(|(id, request_v1)|
+                        match request_v1 {
+                            Some(x) => Some((id, x)),
+                            None => None
+                        }
+                    ).for_each(|(id, request_v1)| {
                         let status = match (request_v1.completed,request_v1.cancelled) {
                             (false, false) => ReplaceRequestStatus::Pending,
                             (false, true) => ReplaceRequestStatus::Cancelled,
@@ -658,7 +663,10 @@ impl<T: Config> Module<T> {
     pub fn get_open_replace_request(
         id: &H256,
     ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
-        let request = <ReplaceRequests<T>>::get(id).ok_or(Error::<T>::ReplaceIdNotFound)?;
+        if !<ReplaceRequests<T>>::contains_key(id) {
+            return Err(Error::<T>::ReplaceIdNotFound.into());
+        }
+        let request = <ReplaceRequests<T>>::get(id);
         // NOTE: temporary workaround until we delete
         match request.status {
             ReplaceRequestStatus::Pending => Ok(request),
@@ -671,7 +679,10 @@ impl<T: Config> Module<T> {
     pub fn get_open_or_completed_replace_request(
         id: &H256,
     ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
-        let request = <ReplaceRequests<T>>::get(id).ok_or(Error::<T>::ReplaceIdNotFound)?;
+        if !<ReplaceRequests<T>>::contains_key(id) {
+            return Err(Error::<T>::ReplaceIdNotFound.into());
+        }
+        let request = <ReplaceRequests<T>>::get(id);
         match request.status {
             ReplaceRequestStatus::Pending | ReplaceRequestStatus::Completed => Ok(request),
             ReplaceRequestStatus::Cancelled => Err(Error::<T>::ReplaceCancelled.into()),
@@ -685,9 +696,7 @@ impl<T: Config> Module<T> {
     fn set_replace_status(key: &H256, status: ReplaceRequestStatus) {
         // TODO: delete old replace request from storage
         <ReplaceRequests<T>>::mutate(key, |request| {
-            if let Some(req) = request {
-                req.status = status;
-            }
+            request.status = status;
         });
     }
 }
