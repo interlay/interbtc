@@ -1,5 +1,14 @@
 image: "registry.gitlab.com/interlay/containers/rust-base:nightly-2021-03-15"
 
+.only-refs: &only_refs
+    only:
+        - tags
+        - master
+        - dev
+        - beta
+        - rococo
+        - web
+
 .rust-base-job:
   variables:
     CARGO_HOME: $CI_PROJECT_DIR/.cargo
@@ -26,6 +35,7 @@ image: "registry.gitlab.com/interlay/containers/rust-base:nightly-2021-03-15"
       --dockerfile ${CI_PROJECT_DIR}/Dockerfile_release \
       --destination ${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}-$(date +%s) \
       --destination ${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_SLUG}
+  <<: *only_refs
 
 stages:
   - test
@@ -74,28 +84,11 @@ docker-publish-standalone:
   extends:
     - .docker-base-job
 
-  # only:
-  #   - tags
-  #   - master
-  #   - dev
-  #   - alpha
-  #   - beta
-  #   - rococo
-  #   - web # For pipelines created by using Run pipeline button in the GitLab UI, from the project’s CI/CD > Pipelines section.
-
 docker-publish-parachain:
   dependencies:
     - build-parachain
   extends:
     - .docker-base-job
-  # only:
-  #   - tags
-  #   - master
-  #   - dev
-  #   - alpha
-  #   - beta
-  #   - rococo
-  #   - web # For pipelines created by using Run pipeline button in the GitLab UI, from the project’s CI/CD > Pipelines section.
 
 release-github:
   stage: release
