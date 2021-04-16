@@ -241,7 +241,7 @@ where
 {
     clear_mocks();
     ExtBuilder::build().execute_with(|| {
-        assert_ok!(<exchange_rate_oracle::Module<Test>>::_set_exchange_rate(
+        assert_ok!(<exchange_rate_oracle::Pallet<Test>>::_set_exchange_rate(
             FixedU128::one()
         ));
         System::set_block_number(1);

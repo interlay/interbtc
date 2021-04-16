@@ -37,7 +37,7 @@ fn setup_relayer(relayer: [u8; 32], sla: u32, stake: u128) {
     assert_ok!(Call::StakedRelayers(StakedRelayersCall::register_staked_relayer(stake))
         .dispatch(origin_of(account_of(relayer))));
     for _ in 0..sla {
-        SlaModule::event_update_relayer_sla(&account_of(relayer), sla::types::RelayerEvent::BlockSubmission).unwrap();
+        SlaPallet::event_update_relayer_sla(&account_of(relayer), sla::types::RelayerEvent::BlockSubmission).unwrap();
     }
 }
 
@@ -72,15 +72,15 @@ enum Currency {
 
 fn get_epoch_rewards(currency: Currency) -> u128 {
     match currency {
-        Currency::DOT => FeeModule::epoch_rewards_dot(),
-        Currency::PolkaBTC => FeeModule::epoch_rewards_polka_btc(),
+        Currency::DOT => FeePallet::epoch_rewards_dot(),
+        Currency::PolkaBTC => FeePallet::epoch_rewards_polka_btc(),
     }
 }
 
 fn get_rewards(currency: Currency, account: [u8; 32]) -> u128 {
     match currency {
         Currency::DOT => {
-            let amount = FeeModule::get_dot_rewards(&account_of(account));
+            let amount = FeePallet::get_dot_rewards(&account_of(account));
             assert_noop!(
                 Call::Fee(FeeCall::withdraw_dot(amount + 1)).dispatch(origin_of(account_of(account))),
                 FeeError::InsufficientFunds,
@@ -89,7 +89,7 @@ fn get_rewards(currency: Currency, account: [u8; 32]) -> u128 {
             amount
         }
         Currency::PolkaBTC => {
-            let amount = FeeModule::get_polka_btc_rewards(&account_of(account));
+            let amount = FeePallet::get_polka_btc_rewards(&account_of(account));
             assert_noop!(
                 Call::Fee(FeeCall::withdraw_dot(amount + 1)).dispatch(origin_of(account_of(account))),
                 FeeError::InsufficientFunds,
@@ -101,13 +101,13 @@ fn get_rewards(currency: Currency, account: [u8; 32]) -> u128 {
 }
 
 fn setup_dot_reward() {
-    VaultRegistryModule::slash_collateral(
+    VaultRegistryPallet::slash_collateral(
         CurrencySource::FreeBalance(account_of(FAUCET)),
-        CurrencySource::FreeBalance(FeeModule::fee_pool_account_id()),
+        CurrencySource::FreeBalance(FeePallet::fee_pool_account_id()),
         1000,
     )
     .unwrap();
-    FeeModule::increase_dot_rewards_for_epoch(1000);
+    FeePallet::increase_dot_rewards_for_epoch(1000);
 }
 
 fn set_issued_and_backing(vault: [u8; 32], amount_issued: u128, backing: u128) {
@@ -129,7 +129,7 @@ fn set_issued_and_backing(vault: [u8; 32], amount_issued: u128, backing: u128) {
             ..CoreVaultData::vault(vault)
         },
     );
-    VaultRegistryModule::slash_collateral(
+    VaultRegistryPallet::slash_collateral(
         CurrencySource::Backing(account_of(PROOF_SUBMITTER)),
         CurrencySource::FreeBalance(account_of(FAUCET)),
         CurrencySource::<Runtime>::Backing(account_of(PROOF_SUBMITTER))
@@ -149,7 +149,7 @@ fn test_vault_fee_pool_withdrawal() {
         let vault_rewards = (epoch_rewards * 70) / 100; // set at 70% in tests
 
         // simulate that we entered a new epoch
-        assert_ok!(FeeModule::update_rewards_for_epoch());
+        assert_ok!(FeePallet::update_rewards_for_epoch());
 
         // First vault gets 26% of the vault pool (20% of the 90% awarded by issued,
         // and 80% of the 10% awarded by collateral
@@ -171,7 +171,7 @@ fn test_vault_fee_pool_withdrawal_with_liquidated_vaults() {
         let vault_rewards = (epoch_rewards * 70) / 100; // set at 70% in tests
 
         // simulate that we entered a new epoch
-        assert_ok!(FeeModule::update_rewards_for_epoch());
+        assert_ok!(FeePallet::update_rewards_for_epoch());
 
         // First vault gets 100% of the vault pool
         assert_eq_modulo_rounding!(get_rewards(currency, VAULT1), vault_rewards);
@@ -189,7 +189,7 @@ fn test_vault_fee_pool_withdrawal_over_multiple_epochs() {
         let vault_epoch_1_rewards = (epoch_1_rewards * 70) / 100; // set at 70% in tests
 
         // simulate that we entered a new epoch
-        assert_ok!(FeeModule::update_rewards_for_epoch());
+        assert_ok!(FeePallet::update_rewards_for_epoch());
 
         set_issued_and_backing(VAULT2, 800, 200);
 
@@ -197,7 +197,7 @@ fn test_vault_fee_pool_withdrawal_over_multiple_epochs() {
         let vault_epoch_2_rewards = (epoch_2_rewards * 70) / 100; // set at 70% in tests
 
         // simulate that we entered a new epoch
-        assert_ok!(FeeModule::update_rewards_for_epoch());
+        assert_ok!(FeePallet::update_rewards_for_epoch());
 
         // First vault gets all of vault_epoch_1_rewards, plus 26% of the
         // vault_epoch_2_rewards (20% of the 90% awarded by issued,
@@ -217,7 +217,7 @@ fn test_relayer_fee_pool_withdrawal() {
         set_issued_and_backing(VAULT1, 1000, 1000);
 
         // make the used relayer irrelevant in fee calculations
-        SlaModule::event_update_relayer_sla(
+        SlaPallet::event_update_relayer_sla(
             &account_of(ISSUE_RELAYER),
             sla::types::RelayerEvent::FalseInvalidVoteOrReport,
         )
@@ -230,7 +230,7 @@ fn test_relayer_fee_pool_withdrawal() {
         let relayer_rewards = (epoch_rewards * 20) / 100; // set at 20% in tests
 
         // simulate that we entered a new epoch
-        assert_ok!(FeeModule::update_rewards_for_epoch());
+        assert_ok!(FeePallet::update_rewards_for_epoch());
 
         // First vault gets 20% of the vault pool
         assert_eq_modulo_rounding!(get_rewards(currency, RELAYER_1), (relayer_rewards * 20) / 100,);
@@ -248,7 +248,7 @@ fn test_maintainer_fee_pool_withdrawal() {
         let maintainer_rewards = (epoch_rewards * 10) / 100; // set at 10% in tests
 
         // simulate that we entered a new epoch
-        assert_ok!(FeeModule::update_rewards_for_epoch());
+        assert_ok!(FeePallet::update_rewards_for_epoch());
 
         assert_eq_modulo_rounding!(get_rewards(currency, MAINTAINER), maintainer_rewards);
     })

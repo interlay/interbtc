@@ -20,8 +20,8 @@ fn test_with<R>(execute: impl FnOnce() -> R) -> R {
         assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
         set_default_thresholds();
 
-        SlaModule::set_vault_sla(&account_of(VAULT), initial_sla());
-        SlaModule::set_vault_sla(&account_of(PROOF_SUBMITTER), initial_sla());
+        SlaPallet::set_vault_sla(&account_of(VAULT), initial_sla());
+        SlaPallet::set_vault_sla(&account_of(PROOF_SUBMITTER), initial_sla());
 
         execute()
     })
@@ -34,10 +34,10 @@ fn test_sla_increase_for_issue() {
         execute_issue(issue_id);
 
         // check the sla increase for processing the issue
-        let expected_sla_increase = SlaModule::vault_executed_issue_max_sla_change()
+        let expected_sla_increase = SlaPallet::vault_executed_issue_max_sla_change()
             * FixedI128::checked_from_rational(issue.amount, issue.amount + issue.fee).unwrap();
         assert_eq!(
-            SlaModule::vault_sla(account_of(VAULT)),
+            SlaPallet::vault_sla(account_of(VAULT)),
             initial_sla() + expected_sla_increase
         );
     })
@@ -51,8 +51,8 @@ fn test_sla_increase_for_proof_submitter() {
 
         // check that the vault who submitted the proof is rewarded with increased SLA score
         assert_eq!(
-            SlaModule::vault_sla(account_of(PROOF_SUBMITTER)),
-            initial_sla() + SlaModule::vault_submitted_issue_proof()
+            SlaPallet::vault_sla(account_of(PROOF_SUBMITTER)),
+            initial_sla() + SlaPallet::vault_submitted_issue_proof()
         );
     })
 }
@@ -67,13 +67,13 @@ fn test_sla_increase_for_submitting_proof_for_issue_against_self() {
             .with_submitter(VAULT, true)
             .assert_execute();
 
-        let expected_sla_increase_for_issue = SlaModule::vault_executed_issue_max_sla_change()
+        let expected_sla_increase_for_issue = SlaPallet::vault_executed_issue_max_sla_change()
             * FixedI128::checked_from_rational(issue.amount, issue.amount + issue.fee).unwrap();
-        let expected_sla_increase_for_proof_submission = SlaModule::vault_submitted_issue_proof();
+        let expected_sla_increase_for_proof_submission = SlaPallet::vault_submitted_issue_proof();
 
         // check that the vault who submitted the proof is rewarded with both SLA rewards
         assert_eq!(
-            SlaModule::vault_sla(account_of(VAULT)),
+            SlaPallet::vault_sla(account_of(VAULT)),
             initial_sla() + expected_sla_increase_for_issue + expected_sla_increase_for_proof_submission
         );
     })
@@ -98,21 +98,21 @@ fn test_sla_increase_for_refund() {
             .with_amount(4 * (issue.amount + issue.fee))
             .assert_execute();
 
-        let expected_sla_increase_for_issue = SlaModule::vault_executed_issue_max_sla_change()
+        let expected_sla_increase_for_issue = SlaPallet::vault_executed_issue_max_sla_change()
             * FixedI128::checked_from_rational(issue.amount, issue.amount + issue.fee).unwrap();
 
         // check that the vault who submitted the proof is rewarded for issue
         assert_eq!(
-            SlaModule::vault_sla(account_of(VAULT)),
+            SlaPallet::vault_sla(account_of(VAULT)),
             initial_sla() + expected_sla_increase_for_issue
         );
 
         // perform the refund
         execute_refund(VAULT);
 
-        let expected_sla_increase_for_refund = SlaModule::vault_refunded();
+        let expected_sla_increase_for_refund = SlaPallet::vault_refunded();
         assert_eq!(
-            SlaModule::vault_sla(account_of(VAULT)),
+            SlaPallet::vault_sla(account_of(VAULT)),
             initial_sla() + expected_sla_increase_for_issue + expected_sla_increase_for_refund
         );
     })
@@ -131,9 +131,9 @@ fn test_sla_decrease_for_redeem_failure() {
         // sla should have decreased, but not below 0
         let expected_sla = FixedI128::max(
             FixedI128::zero(),
-            initial_sla() + SlaModule::vault_redeem_failure_sla_change(),
+            initial_sla() + SlaPallet::vault_redeem_failure_sla_change(),
         );
-        assert_eq!(SlaModule::vault_sla(account_of(VAULT)), expected_sla);
+        assert_eq!(SlaPallet::vault_sla(account_of(VAULT)), expected_sla);
     })
 }
 
@@ -147,7 +147,7 @@ fn test_sla_remains_unchanged_when_liquidated() {
         execute_issue(issue_id);
 
         // sla remains unchanged if vault has been liquidated
-        assert_eq!(SlaModule::vault_sla(account_of(VAULT)), initial_sla());
+        assert_eq!(SlaPallet::vault_sla(account_of(VAULT)), initial_sla());
     })
 }
 
@@ -163,10 +163,10 @@ fn test_sla_increase_for_underpayed_issue() {
             .assert_execute();
 
         // check the sla increase
-        let expected_sla_increase = SlaModule::vault_executed_issue_max_sla_change()
+        let expected_sla_increase = SlaPallet::vault_executed_issue_max_sla_change()
             * FixedI128::checked_from_rational(issue.amount, issue.amount + issue.fee).unwrap();
         assert_eq!(
-            SlaModule::vault_sla(account_of(VAULT)),
+            SlaPallet::vault_sla(account_of(VAULT)),
             initial_sla() + expected_sla_increase
         );
     });

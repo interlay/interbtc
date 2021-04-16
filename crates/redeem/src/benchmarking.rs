@@ -1,16 +1,16 @@
 use super::*;
-use crate::Module as Redeem;
+use crate::Pallet as Redeem;
 use bitcoin::{
     formatter::{Formattable, TryFormattable},
     types::{BlockBuilder, RawBlockHeader, TransactionBuilder, TransactionInputBuilder, TransactionOutput},
 };
-use btc_relay::{BtcAddress, BtcPublicKey, Module as BtcRelay};
+use btc_relay::{BtcAddress, BtcPublicKey, Pallet as BtcRelay};
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
-use security::Module as Security;
+use security::Pallet as Security;
 use sp_core::{H160, H256, U256};
 use sp_std::prelude::*;
-use treasury::Module as Treasury;
+use treasury::Pallet as Treasury;
 use vault_registry::{
     types::{Vault, Wallet},
     Module as VaultRegistry,

@@ -373,7 +373,7 @@ impl<T: Config> Module<T> {
 
         // will fail if free_balance is insufficient
         ext::collateral::lock::<T>(vault_id, amount)?;
-        Module::<T>::increase_total_backing_collateral(amount)?;
+        Pallet::<T>::increase_total_backing_collateral(amount)?;
 
         vault.increase_backing_collateral(amount)?;
 
@@ -384,7 +384,7 @@ impl<T: Config> Module<T> {
         let mut vault = Self::get_rich_vault_from_id(vault_id)?;
 
         ext::collateral::release_collateral::<T>(vault_id, amount)?;
-        Module::<T>::decrease_total_backing_collateral(amount)?;
+        Pallet::<T>::decrease_total_backing_collateral(amount)?;
 
         vault.decrease_backing_collateral(amount)?;
 
@@ -416,7 +416,7 @@ impl<T: Config> Module<T> {
             .checked_add(&vault.to_be_issued_tokens)
             .ok_or(Error::<T>::ArithmeticOverflow)?;
 
-        let is_below_threshold = Module::<T>::is_collateral_below_secure_threshold(new_collateral, tokens)?;
+        let is_below_threshold = Pallet::<T>::is_collateral_below_secure_threshold(new_collateral, tokens)?;
 
         Ok(!is_below_threshold)
     }

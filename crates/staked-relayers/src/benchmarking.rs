@@ -1,14 +1,14 @@
 use super::*;
-use crate::{sp_api_hidden_includes_decl_storage::hidden_include::traits::Currency, Module as StakedRelayers};
+use crate::{sp_api_hidden_includes_decl_storage::hidden_include::traits::Currency, Pallet as StakedRelayers};
 use bitcoin::{
     formatter::{Formattable, TryFormattable},
     types::{BlockBuilder, H256Le, RawBlockHeader, TransactionBuilder, TransactionInputBuilder, TransactionOutput},
 };
-use btc_relay::{BtcAddress, BtcPublicKey, Module as BtcRelay};
-use collateral::Module as Collateral;
+use btc_relay::{BtcAddress, BtcPublicKey, Pallet as BtcRelay};
+use collateral::Pallet as Collateral;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
-use security::Module as Security;
+use security::Pallet as Security;
 use sp_core::{H160, U256};
 use sp_std::prelude::*;
 use vault_registry::{

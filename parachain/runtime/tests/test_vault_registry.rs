@@ -73,7 +73,7 @@ mod withdraw_collateral_test {
     use super::*;
 
     fn required_collateral() -> u128 {
-        VaultRegistryModule::get_required_collateral_for_vault(account_of(VAULT)).unwrap()
+        VaultRegistryPallet::get_required_collateral_for_vault(account_of(VAULT)).unwrap()
     }
 
     #[test]
