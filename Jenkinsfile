@@ -126,7 +126,7 @@ pipeline {
                     ./git-chglog --output CHANGELOG.md $TAG_NAME
                      wget -q -O - https://github.com/cli/cli/releases/download/v1.6.2/gh_1.6.2_linux_amd64.tar.gz | tar xzf -
                     ./gh_1.6.2_linux_amd64/bin/gh auth status
-                    ./gh_1.6.2_linux_amd64/bin/gh release -R $GIT_URL create $TAG_NAME --title $TAG_NAME -F CHANGELOG.md -d'
+                    ./gh_1.6.2_linux_amd64/bin/gh release -R $GIT_URL create $TAG_NAME --title $TAG_NAME -F CHANGELOG.md -d
                 '''
             }
         }
