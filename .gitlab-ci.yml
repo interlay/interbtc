@@ -1,0 +1,101 @@
+image: "registry.gitlab.com/interlay/containers/rust-base:nightly-2021-03-15"
+
+.only-refs: &only_refs
+    only:
+        - tags
+        - master
+        - dev
+        - beta
+        - rococo
+        - web
+
+.rust-base-job:
+  variables:
+    CARGO_HOME: $CI_PROJECT_DIR/.cargo
+    RUSTC_WRAPPER: /usr/local/bin/sccache
+  before_script:
+    - rustup show
+    - rustc --version
+    - rustfmt --version
+    - cargo --version
+    - SCCACHE_START_SERVER=1 SCCACHE_IDLE_TIMEOUT=0 sccache
+    - sccache -s
+
+.docker-base-job:
+  stage: publish
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  script:
+    - echo "{\"auths\":{\"$CI_REGISTRY\":{\"username\":\"$CI_REGISTRY_USER\",\"password\":\"$CI_REGISTRY_PASSWORD\"}}}" > /kaniko/.docker/config.json
+    - |
+      /kaniko/executor \
+      --build-arg BINARY=btc-parachain \
+      --context ${CI_PROJECT_DIR} \
+      --dockerfile ${CI_PROJECT_DIR}/Dockerfile_release \
+      --destination ${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}-$(date +%s) \
+      --destination ${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_SLUG}
+  <<: *only_refs
+
+stages:
+  - test
+  - build
+  - publish
+  - release
+
+test:
+  stage: test
+  extends:
+    - .rust-base-job
+  script:
+    - cargo fmt -- --check
+    - cargo check --workspace --release
+    - cargo test --workspace --release
+
+build-standalone:
+  stage: build
+  extends:
+    - .rust-base-job
+  variables:
+    ARTIFACT_BIN_PATH: btc-parachain
+  script:
+    - cargo build --manifest-path parachain/Cargo.toml --release --no-default-features --features aura-grandpa
+  artifacts:
+    name: "${CI_COMMIT_REF_SLUG}-standalone"
+    paths:
+      - target/release/${ARTIFACT_BIN_PATH}
+
+build-parachain:
+  stage: build
+  extends:
+    - .rust-base-job
+  variables:
+    ARTIFACT_BIN_PATH: btc-parachain
+  script:
+    - cargo build --manifest-path parachain/Cargo.toml --release --no-default-features --features cumulus-polkadot
+  artifacts:
+    name: "${CI_COMMIT_REF_SLUG}-parachain"
+    paths:
+      - target/release/${ARTIFACT_BIN_PATH}
+
+docker-publish-standalone:
+  dependencies:
+    - build-standalone
+  extends:
+    - .docker-base-job
+
+docker-publish-parachain:
+  dependencies:
+    - build-parachain
+  extends:
+    - .docker-base-job
+
+release-github:
+  stage: release
+  image: registry.gitlab.com/interlay/containers/github-publisher:master
+  script:
+    - gh auth status
+    - git-chglog --output CHANGELOG.md $CI_COMMIT_TAG
+    - gh release -R https://github.com/interlay/btc-parachain create $CI_COMMIT_TAG --title $CI_COMMIT_TAG -F CHANGELOG.md -d
+  only:
+    - tags
