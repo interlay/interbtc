@@ -27,7 +27,7 @@ use primitive_types::H256;
 use sp_runtime::{traits::Zero, ModuleId};
 use sp_std::{convert::TryInto, vec::Vec};
 
-use bitcoin::types::H256Le;
+use bitcoin::{types::H256Le, utils::sha256d_le};
 use btc_relay::BtcAddress;
 
 #[doc(inline)]
@@ -439,7 +439,7 @@ impl<T: Config> Module<T> {
 
     fn _execute_replace(
         replace_id: H256,
-        tx_id: H256Le,
+        _: H256Le,
         merkle_proof: Vec<u8>,
         raw_tx: Vec<u8>,
     ) -> Result<(), DispatchError> {
@@ -461,6 +461,7 @@ impl<T: Config> Module<T> {
 
         // Call verifyTransactionInclusion in BTC-Relay, providing txid, txBlockHeight, txIndex, and merkleProof as
         // parameters
+        let tx_id = sha256d_le(&raw_tx);
         ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
 
         // Call validateTransaction in BTC-Relay

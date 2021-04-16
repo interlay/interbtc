@@ -30,7 +30,7 @@ pub mod types;
 pub use crate::types::{RedeemRequest, RedeemRequestStatus};
 
 use crate::types::{PolkaBTC, RedeemRequestV2, Version, DOT};
-use bitcoin::types::H256Le;
+use bitcoin::{types::H256Le, utils::sha256d_le};
 use btc_relay::BtcAddress;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
@@ -375,7 +375,7 @@ impl<T: Config> Module<T> {
 
     fn _execute_redeem(
         redeem_id: H256,
-        tx_id: H256Le,
+        _: H256Le,
         merkle_proof: Vec<u8>,
         raw_tx: Vec<u8>,
     ) -> Result<(), DispatchError> {
@@ -390,6 +390,7 @@ impl<T: Config> Module<T> {
         );
 
         let amount: usize = redeem.amount_btc.try_into().map_err(|_e| Error::<T>::TryIntoIntError)?;
+        let tx_id = sha256d_le(&raw_tx);
         ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
         // NOTE: vault client must register change addresses before
         // sending the bitcoin transaction

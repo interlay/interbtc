@@ -30,7 +30,7 @@ pub mod types;
 pub use crate::types::{IssueRequest, IssueRequestStatus};
 
 use crate::types::{IssueRequestV2, PolkaBTC, Version, DOT};
-use bitcoin::types::H256Le;
+use bitcoin::{types::H256Le, utils::sha256d_le};
 use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
@@ -300,7 +300,7 @@ impl<T: Config> Module<T> {
     fn _execute_issue(
         executor: T::AccountId,
         issue_id: H256,
-        tx_id: H256Le,
+        _: H256Le,
         merkle_proof: Vec<u8>,
         raw_tx: Vec<u8>,
     ) -> Result<(), DispatchError> {
@@ -318,6 +318,7 @@ impl<T: Config> Module<T> {
             Error::<T>::CommitPeriodExpired
         );
 
+        let tx_id = sha256d_le(&raw_tx);
         ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
         let (refund_address, amount_transferred) =
             ext::btc_relay::validate_transaction::<T>(raw_tx, None, issue.btc_address, None)?;

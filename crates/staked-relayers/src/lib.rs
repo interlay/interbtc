@@ -29,7 +29,8 @@ use mocktopus::macros::mockable;
 pub use security;
 
 use crate::types::{PolkaBTC, ProposalStatus, StakedRelayer, StatusUpdate, StatusUpdateId, Tally, Votes, DOT};
-use bitcoin::{parser::parse_transaction, types::*};
+use bitcoin::{parser::parse_transaction, types::*, utils::sha256d_le};
+
 use btc_relay::{BtcAddress, Error as BtcRelayError};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
@@ -464,8 +465,10 @@ decl_module! {
         /// * `raw_tx`: The raw Bitcoin transaction.
         #[weight = <T as Config>::WeightInfo::report_vault_theft()]
         #[transactional]
-        fn report_vault_theft(origin, vault_id: T::AccountId, tx_id: H256Le, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
+        fn report_vault_theft(origin, vault_id: T::AccountId, _tx_id: H256Le, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
+
+            let tx_id = sha256d_le(&raw_tx);
 
             // liquidated vaults are removed, so no need for check here
 

@@ -532,13 +532,15 @@ fn integration_test_issue_with_unrelated_rawtx_and_txid_fails() {
 
         // increase the amount in the raw_tx, but not in the blockchain. This should definitely fail
         transaction.outputs[0].value = 1000;
-        assert!(Call::Issue(IssueCall::execute_issue(
-            issue_id,
-            tx_id,
-            proof,
-            transaction.format_with(true)
-        ))
-        .dispatch(origin_of(account_of(CAROL)))
-        .is_err());
+        assert_noop!(
+            Call::Issue(IssueCall::execute_issue(
+                issue_id,
+                tx_id,
+                proof,
+                transaction.format_with(true)
+            ))
+            .dispatch(origin_of(account_of(CAROL))),
+            BTCRelayError::InvalidTxid
+        );
     })
 }

@@ -22,7 +22,7 @@ pub use default_weights::WeightInfo;
 mod ext;
 pub mod types;
 
-use bitcoin::types::H256Le;
+use bitcoin::{types::H256Le, utils::sha256d_le};
 use btc_relay::BtcAddress;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError, ensure, transactional,
@@ -172,7 +172,7 @@ impl<T: Config> Module<T> {
     /// * `raw_tx` - raw bytes of the transaction
     fn _execute_refund(
         refund_id: H256,
-        tx_id: H256Le,
+        _: H256Le,
         merkle_proof: Vec<u8>,
         raw_tx: Vec<u8>,
     ) -> Result<(), DispatchError> {
@@ -183,6 +183,7 @@ impl<T: Config> Module<T> {
             .amount_polka_btc
             .try_into()
             .map_err(|_e| Error::<T>::TryIntoIntError)?;
+        let tx_id = sha256d_le(&raw_tx);
         ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
         ext::btc_relay::validate_transaction::<T>(
             raw_tx,
