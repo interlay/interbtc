@@ -95,7 +95,7 @@ impl ExecuteIssueBuilder {
     #[transactional]
     pub fn execute(&self) -> DispatchResultWithPostInfo {
         // send the btc from the user to the vault
-        let (tx_id, _height, proof, raw_tx, _) = TransactionGenerator::new()
+        let (_tx_id, _height, proof, raw_tx, _) = TransactionGenerator::new()
             .with_address(self.issue.btc_address)
             .with_amount(self.amount)
             .with_op_return(None)
@@ -109,7 +109,7 @@ impl ExecuteIssueBuilder {
         }
 
         // alice executes the issuerequest by confirming the btc transaction
-        Call::Issue(IssueCall::execute_issue(self.issue_id, tx_id, proof, raw_tx))
+        Call::Issue(IssueCall::execute_issue(self.issue_id, proof, raw_tx))
             .dispatch(origin_of(account_of(self.submitter)))
     }
     pub fn assert_execute(&self) {
@@ -164,14 +164,13 @@ pub fn execute_refund(vault_id: [u8; 32]) -> (H256, RefundRequest<AccountId, u12
     let refund_id = assert_refund_request_event();
     let refund = RefundModule::get_open_refund_request_from_id(&refund_id).unwrap();
 
-    let (tx_id, _height, proof, raw_tx) =
+    let (_tx_id, _height, proof, raw_tx) =
         generate_transaction_and_mine(refund_address, refund.amount_polka_btc, Some(refund_id));
 
     SecurityModule::set_active_block_number((1 + CONFIRMATIONS) * 2);
 
     assert_ok!(
-        Call::Refund(RefundCall::execute_refund(refund_id, tx_id, proof, raw_tx))
-            .dispatch(origin_of(account_of(vault_id)))
+        Call::Refund(RefundCall::execute_refund(refund_id, proof, raw_tx)).dispatch(origin_of(account_of(vault_id)))
     );
 
     (refund_id, refund)

@@ -30,7 +30,7 @@ pub mod types;
 pub use crate::types::{IssueRequest, IssueRequestStatus};
 
 use crate::types::{IssueRequestV2, PolkaBTC, Version, DOT};
-use bitcoin::{types::H256Le, utils::sha256d_le};
+use bitcoin::utils::sha256d_le;
 use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
@@ -176,17 +176,16 @@ decl_module! {
         ///
         /// * `origin` - sender of the transaction
         /// * `issue_id` - identifier of issue request as output from request_issue
-        /// * `tx_id` - transaction hash
         /// * `tx_block_height` - block number of backing chain
         /// * `merkle_proof` - raw bytes
         /// * `raw_tx` - raw bytes
         #[weight = <T as Config>::WeightInfo::execute_issue()]
         #[transactional]
-        fn execute_issue(origin, issue_id: H256, tx_id: H256Le, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
+        fn execute_issue(origin, issue_id: H256, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
             -> DispatchResult
         {
             let executor = ensure_signed(origin)?;
-            Self::_execute_issue(executor, issue_id, tx_id, merkle_proof, raw_tx)?;
+            Self::_execute_issue(executor, issue_id, merkle_proof, raw_tx)?;
             Ok(())
         }
 
@@ -300,7 +299,6 @@ impl<T: Config> Module<T> {
     fn _execute_issue(
         executor: T::AccountId,
         issue_id: H256,
-        _: H256Le,
         merkle_proof: Vec<u8>,
         raw_tx: Vec<u8>,
     ) -> Result<(), DispatchError> {

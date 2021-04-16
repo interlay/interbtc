@@ -465,7 +465,7 @@ decl_module! {
         /// * `raw_tx`: The raw Bitcoin transaction.
         #[weight = <T as Config>::WeightInfo::report_vault_theft()]
         #[transactional]
-        fn report_vault_theft(origin, vault_id: T::AccountId, _tx_id: H256Le, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
+        fn report_vault_theft(origin, vault_id: T::AccountId, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
             let signer = ensure_signed(origin)?;
 
             let tx_id = sha256d_le(&raw_tx);

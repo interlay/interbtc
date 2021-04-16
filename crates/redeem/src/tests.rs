@@ -1,7 +1,6 @@
 use crate::{ext, mock::*};
 
 use crate::types::{PolkaBTC, RedeemRequest, RedeemRequestStatus, DOT};
-use bitcoin::types::H256Le;
 use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
@@ -241,13 +240,7 @@ fn test_execute_redeem_fails_with_redeem_id_not_found() {
     run_test(|| {
         ext::oracle::btc_to_dots::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
         assert_err!(
-            Redeem::execute_redeem(
-                Origin::signed(BOB),
-                H256([0u8; 32]),
-                H256Le::zero(),
-                Vec::default(),
-                Vec::default()
-            ),
+            Redeem::execute_redeem(Origin::signed(BOB), H256([0u8; 32]), Vec::default(), Vec::default()),
             TestError::RedeemIdNotFound
         );
     })
@@ -311,7 +304,6 @@ fn test_execute_redeem_succeeds_with_another_account() {
         assert_ok!(Redeem::execute_redeem(
             Origin::signed(ALICE),
             H256([0u8; 32]),
-            H256Le::zero(),
             Vec::default(),
             Vec::default()
         ));
@@ -344,13 +336,7 @@ fn test_execute_redeem_fails_with_commit_period_expired() {
         });
 
         assert_err!(
-            Redeem::execute_redeem(
-                Origin::signed(BOB),
-                H256([0u8; 32]),
-                H256Le::zero(),
-                Vec::default(),
-                Vec::default()
-            ),
+            Redeem::execute_redeem(Origin::signed(BOB), H256([0u8; 32]), Vec::default(), Vec::default()),
             TestError::CommitPeriodExpired
         );
     })
@@ -414,7 +400,6 @@ fn test_execute_redeem_succeeds() {
         assert_ok!(Redeem::execute_redeem(
             Origin::signed(BOB),
             H256([0u8; 32]),
-            H256Le::zero(),
             Vec::default(),
             Vec::default()
         ));

@@ -30,7 +30,7 @@ pub mod types;
 pub use crate::types::{RedeemRequest, RedeemRequestStatus};
 
 use crate::types::{PolkaBTC, RedeemRequestV2, Version, DOT};
-use bitcoin::{types::H256Le, utils::sha256d_le};
+use bitcoin::utils::sha256d_le;
 use btc_relay::BtcAddress;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
@@ -199,11 +199,11 @@ decl_module! {
         /// * `raw_tx` - raw bytes
         #[weight = <T as Config>::WeightInfo::execute_redeem()]
         #[transactional]
-        fn execute_redeem(origin, redeem_id: H256, tx_id: H256Le, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
+        fn execute_redeem(origin, redeem_id: H256, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
             -> DispatchResult
         {
             let _ = ensure_signed(origin)?;
-            Self::_execute_redeem(redeem_id, tx_id, merkle_proof, raw_tx)?;
+            Self::_execute_redeem(redeem_id, merkle_proof, raw_tx)?;
             Ok(())
         }
 
@@ -373,12 +373,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn _execute_redeem(
-        redeem_id: H256,
-        _: H256Le,
-        merkle_proof: Vec<u8>,
-        raw_tx: Vec<u8>,
-    ) -> Result<(), DispatchError> {
+    fn _execute_redeem(redeem_id: H256, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> Result<(), DispatchError> {
         ext::security::ensure_parachain_status_running::<T>()?;
 
         let redeem = Self::get_open_redeem_request_from_id(&redeem_id)?;

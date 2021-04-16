@@ -842,11 +842,11 @@ fn integration_test_replace_execute_replace() {
         let replace_id = assert_accept_event();
 
         // send the btc from the old_vault to the new_vault
-        let (tx_id, _tx_block_height, merkle_proof, raw_tx) =
+        let (_tx_id, _tx_block_height, merkle_proof, raw_tx) =
             generate_transaction_and_mine(new_vault_btc_address, polkabtc, Some(replace_id));
 
         SecurityModule::set_active_block_number(1 + CONFIRMATIONS);
-        let r = Call::Replace(ReplaceCall::execute_replace(replace_id, tx_id, merkle_proof, raw_tx))
+        let r = Call::Replace(ReplaceCall::execute_replace(replace_id, merkle_proof, raw_tx))
             .dispatch(origin_of(account_of(old_vault)));
         assert_ok!(r);
     });
@@ -1111,12 +1111,12 @@ fn execute_replace(replace_id: H256) -> DispatchResultWithPostInfo {
     let replace = ReplaceModule::get_open_replace_request(&replace_id).unwrap();
 
     // send the btc from the old_vault to the new_vault
-    let (tx_id, _tx_block_height, merkle_proof, raw_tx) =
+    let (_tx_id, _tx_block_height, merkle_proof, raw_tx) =
         generate_transaction_and_mine(replace.btc_address, replace.amount, Some(replace_id));
 
     SecurityModule::set_active_block_number(SecurityModule::active_block_number() + CONFIRMATIONS);
 
-    Call::Replace(ReplaceCall::execute_replace(replace_id, tx_id, merkle_proof, raw_tx))
+    Call::Replace(ReplaceCall::execute_replace(replace_id, merkle_proof, raw_tx))
         .dispatch(origin_of(account_of(OLD_VAULT)))
 }
 

@@ -22,7 +22,7 @@ pub use default_weights::WeightInfo;
 mod ext;
 pub mod types;
 
-use bitcoin::{types::H256Le, utils::sha256d_le};
+use bitcoin::utils::sha256d_le;
 use btc_relay::BtcAddress;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError, ensure, transactional,
@@ -92,12 +92,11 @@ decl_module! {
         fn execute_refund(
             origin,
             refund_id: H256,
-            tx_id: H256Le,
             merkle_proof: Vec<u8>,
             raw_tx: Vec<u8>,
         ) -> Result<(), DispatchError> {
             ensure_signed(origin)?;
-            Self::_execute_refund(refund_id, tx_id, merkle_proof, raw_tx)
+            Self::_execute_refund(refund_id, merkle_proof, raw_tx)
         }
     }
 }
@@ -167,15 +166,9 @@ impl<T: Config> Module<T> {
     ///
     /// * `refund_id` - identifier of a refund request. This ID can be obtained by listening to the RequestRefund event,
     ///   or by querying the open refunds.
-    /// * `tx_id` - transaction hash
     /// * `merkle_proof` - raw bytes of the proof
     /// * `raw_tx` - raw bytes of the transaction
-    fn _execute_refund(
-        refund_id: H256,
-        _: H256Le,
-        merkle_proof: Vec<u8>,
-        raw_tx: Vec<u8>,
-    ) -> Result<(), DispatchError> {
+    fn _execute_refund(refund_id: H256, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> Result<(), DispatchError> {
         let request = Self::get_open_refund_request_from_id(&refund_id)?;
 
         // verify the payment

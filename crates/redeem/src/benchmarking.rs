@@ -118,7 +118,7 @@ benchmarks! {
         BtcRelay::<T>::store_block_header(&relayer_id, block_header).unwrap();
         Security::<T>::set_active_block_number(Security::<T>::active_block_number() + BtcRelay::<T>::parachain_confirmations() + 1u32.into());
 
-    }: _(RawOrigin::Signed(vault_id), redeem_id, tx_id, proof, raw_tx)
+    }: _(RawOrigin::Signed(vault_id), redeem_id, proof, raw_tx)
 
     cancel_redeem_reimburse {
         let origin: T::AccountId = account("Origin", 0, 0);
