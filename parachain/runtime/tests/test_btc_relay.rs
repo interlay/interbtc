@@ -12,7 +12,7 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
         // load blocks with transactions
         let test_data = get_bitcoin_testdata();
 
-        SecurityModule::set_active_block_number(1);
+        SecurityPallet::set_active_block_number(1);
 
         // store all block headers. parachain_genesis is the first block
         // known in the parachain. Any block before will be rejected
@@ -34,7 +34,7 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
 
             assert_store_main_chain_header_event(block.height, block.get_block_hash(), account_of(ALICE));
         }
-        SecurityModule::set_active_block_number(1 + CONFIRMATIONS);
+        SecurityPallet::set_active_block_number(1 + CONFIRMATIONS);
         // verify all transaction
         let current_height = btc_relay::Pallet::<Runtime>::get_best_block_height();
         for block in test_data.iter() {
@@ -64,7 +64,7 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
 #[test]
 fn integration_test_btc_relay_with_parachain_shutdown_fails() {
     ExtBuilder::build().execute_with(|| {
-        SecurityModule::set_status(StatusCode::Shutdown);
+        SecurityPallet::set_status(StatusCode::Shutdown);
 
         assert_noop!(
             Call::BTCRelay(BTCRelayCall::verify_and_validate_transaction(

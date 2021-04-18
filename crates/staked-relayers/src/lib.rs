@@ -165,7 +165,7 @@ decl_module! {
             block_height: u32)
             -> DispatchResult
         {
-            ext::security::ensure_parachain_status_running::<T>()?;
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let relayer = ensure_signed(origin)?;
             Self::ensure_relayer_is_registered(&relayer)?;
             ext::btc_relay::initialize::<T>(relayer, raw_block_header, block_height)
@@ -180,7 +180,7 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::register_staked_relayer()]
         #[transactional]
         fn register_staked_relayer(origin, stake: DOT<T>) -> DispatchResult {
-            ext::security::ensure_parachain_status_running::<T>()?;
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let signer = ensure_signed(origin)?;
 
             ensure!(
@@ -215,7 +215,7 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::deregister_staked_relayer()]
         #[transactional]
         fn deregister_staked_relayer(origin) -> DispatchResult {
-            ext::security::ensure_parachain_status_running::<T>()?;
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let signer = ensure_signed(origin)?;
             let staked_relayer = Self::get_active_staked_relayer(&signer)?;
             Self::ensure_staked_relayer_is_not_voting(&signer)?;
@@ -264,7 +264,7 @@ decl_module! {
         fn store_block_header(
             origin, raw_block_header: RawBlockHeader
         ) -> DispatchResult {
-            ext::security::ensure_parachain_status_running::<T>()?;
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let relayer = ensure_signed(origin)?;
 
             Self::ensure_relayer_is_registered(&relayer)?;
@@ -470,7 +470,7 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::report_vault_theft()]
         #[transactional]
         fn report_vault_theft(origin, vault_id: T::AccountId, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
-            ext::security::ensure_parachain_status_running::<T>()?;
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let signer = ensure_signed(origin)?;
 
             let tx_id = sha256d_le(&raw_tx);

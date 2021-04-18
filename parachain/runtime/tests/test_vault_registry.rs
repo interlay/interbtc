@@ -129,7 +129,7 @@ mod withdraw_collateral_test {
 #[test]
 fn integration_test_vault_registry_with_parachain_shutdown_fails() {
     test_with(|| {
-        SecurityModule::set_status(StatusCode::Shutdown);
+        SecurityPallet::set_status(StatusCode::Shutdown);
 
         assert_noop!(
             Call::VaultRegistry(VaultRegistryCall::register_vault(0, Default::default()))
@@ -159,6 +159,6 @@ fn integration_test_vault_registry_with_parachain_shutdown_fails() {
             Call::VaultRegistry(VaultRegistryCall::accept_new_issues(false)).dispatch(origin_of(account_of(VAULT))),
             SecurityError::ParachainShutdown
         );
-        assert_noop!(VaultRegistryModule::_on_initialize(), SecurityError::ParachainShutdown);
+        assert_noop!(VaultRegistryPallet::_on_initialize(), SecurityError::ParachainShutdown);
     });
 }

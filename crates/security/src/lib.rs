@@ -46,7 +46,7 @@ pub trait Config: frame_system::Config {
 
 // This pallet's storage items.
 decl_storage! {
-    trait Store for Module<T: Config> as SecurityModule {
+    trait Store for Module<T: Config> as SecurityPallet {
         /// Integer/Enum defining the current state of the BTC-Parachain.
         ParachainStatus get(fn status): StatusCode;
 

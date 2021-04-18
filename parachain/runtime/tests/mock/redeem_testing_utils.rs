@@ -42,7 +42,7 @@ impl ExecuteRedeemBuilder {
             .with_op_return(Some(self.redeem_id))
             .mine();
 
-        SecurityModule::set_active_block_number(SecurityModule::active_block_number() + CONFIRMATIONS);
+        SecurityPallet::set_active_block_number(SecurityPallet::active_block_number() + CONFIRMATIONS);
 
         // alice executes the redeemrequest by confirming the btc transaction
         Call::Redeem(RedeemCall::execute_redeem(self.redeem_id, proof, raw_tx))
@@ -58,7 +58,7 @@ pub fn setup_cancelable_redeem(user: [u8; 32], vault: [u8; 32], collateral: u128
     let redeem_id = setup_redeem(polka_btc, user, vault, collateral);
 
     // expire request without transferring btc
-    SecurityModule::set_active_block_number(RedeemPallet::redeem_period() + 1 + 1);
+    SecurityPallet::set_active_block_number(RedeemPallet::redeem_period() + 1 + 1);
 
     // bob cannot execute past expiry
     assert_noop!(

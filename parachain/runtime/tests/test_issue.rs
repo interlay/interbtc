@@ -5,8 +5,8 @@ use mock::{issue_testing_utils::*, *};
 
 fn test_with<R>(execute: impl FnOnce() -> R) -> R {
     ExtBuilder::build().execute_with(|| {
-        SecurityModule::set_active_block_number(1);
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
+        SecurityPallet::set_active_block_number(1);
+        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
         UserData::force_to(USER, default_user_state());
         execute()
     })
@@ -39,7 +39,7 @@ mod expiry_test {
         test_with(|| {
             set_issue_period(100);
             let (issue_id, _) = request_issue(4_000);
-            SecurityModule::set_active_block_number(75);
+            SecurityPallet::set_active_block_number(75);
 
             assert_noop!(cancel_issue(issue_id), IssueError::TimeNotExpired);
             assert_ok!(execute_issue(issue_id));
@@ -51,7 +51,7 @@ mod expiry_test {
         test_with(|| {
             set_issue_period(100);
             let (issue_id, _) = request_issue(4_000);
-            SecurityModule::set_active_block_number(110);
+            SecurityPallet::set_active_block_number(110);
 
             assert_noop!(execute_issue(issue_id), IssueError::CommitPeriodExpired);
             assert_ok!(cancel_issue(issue_id));
@@ -63,7 +63,7 @@ mod expiry_test {
         test_with(|| {
             set_issue_period(200);
             let (issue_id, _) = request_issue(4_000);
-            SecurityModule::set_active_block_number(110);
+            SecurityPallet::set_active_block_number(110);
             set_issue_period(100);
 
             // request still uses period = 200, so cancel fails and execute succeeds
@@ -77,7 +77,7 @@ mod expiry_test {
         test_with(|| {
             set_issue_period(100);
             let (issue_id, _) = request_issue(4_000);
-            SecurityModule::set_active_block_number(110);
+            SecurityPallet::set_active_block_number(110);
             set_issue_period(200);
 
             // request uses period = 200, so execute succeeds and cancel fails
@@ -90,7 +90,7 @@ mod expiry_test {
 #[test]
 fn integration_test_issue_with_parachain_shutdown_fails() {
     test_with(|| {
-        SecurityModule::set_status(StatusCode::Shutdown);
+        SecurityPallet::set_status(StatusCode::Shutdown);
 
         assert_noop!(
             Call::Issue(IssueCall::request_issue(0, account_of(BOB), 0)).dispatch(origin_of(account_of(ALICE))),
@@ -156,7 +156,7 @@ mod request_issue_tests {
     fn integration_test_request_with_griefing_collateral_at_minimum_succeeds() {
         test_with_initialized_vault(|| {
             let amount = 10_000;
-            let amount_in_dot = ExchangeRateOracleModule::btc_to_dots(amount).unwrap();
+            let amount_in_dot = ExchangeRateOraclePallet::btc_to_dots(amount).unwrap();
             let griefing_collateral = FeePallet::get_issue_griefing_collateral(amount_in_dot).unwrap();
             assert_ok!(
                 Call::Issue(IssueCall::request_issue(amount, account_of(VAULT), griefing_collateral))
@@ -187,7 +187,7 @@ mod request_issue_tests {
     fn integration_test_request_not_accepting_new_issues_fails() {
         test_with_initialized_vault(|| {
             let amount = 10_000;
-            let amount_in_dot = ExchangeRateOracleModule::btc_to_dots(amount).unwrap();
+            let amount_in_dot = ExchangeRateOraclePallet::btc_to_dots(amount).unwrap();
             let griefing_collateral = FeePallet::get_issue_griefing_collateral(amount_in_dot).unwrap() - 1;
             assert_noop!(
                 Call::Issue(IssueCall::request_issue(amount, account_of(VAULT), griefing_collateral))
@@ -252,7 +252,7 @@ fn integration_test_issue_polka_btc_execute_succeeds() {
         // send the btc from the user to the vault
         let (_tx_id, _height, proof, raw_tx) = generate_transaction_and_mine(vault_btc_address, total_amount_btc, None);
 
-        SecurityModule::set_active_block_number(1 + CONFIRMATIONS);
+        SecurityPallet::set_active_block_number(1 + CONFIRMATIONS);
 
         // alice executes the issue by confirming the btc transaction
         assert_ok!(Call::Issue(IssueCall::execute_issue(issue_id, proof, raw_tx))
@@ -453,7 +453,7 @@ fn integration_test_issue_polka_btc_cancel() {
         // random non-zero starting state
         let (issue_id, issue) = RequestIssueBuilder::new(10_000).request();
 
-        SecurityModule::set_active_block_number(IssuePallet::issue_period() + 1 + 1);
+        SecurityPallet::set_active_block_number(IssuePallet::issue_period() + 1 + 1);
 
         // alice cannot execute past expiry
         assert_noop!(
@@ -479,7 +479,7 @@ fn integration_test_issue_polka_btc_cancel_liquidated() {
     test_with_initialized_vault(|| {
         let (issue_id, issue) = RequestIssueBuilder::new(10_000).request();
 
-        SecurityModule::set_active_block_number(IssuePallet::issue_period() + 1 + 1);
+        SecurityPallet::set_active_block_number(IssuePallet::issue_period() + 1 + 1);
 
         // alice cannot execute past expiry
         assert_noop!(
@@ -542,7 +542,7 @@ fn integration_test_issue_with_unrelated_rawtx_and_txid_fails() {
             .with_op_return(None)
             .mine();
 
-        SecurityModule::set_active_block_number(SecurityModule::active_block_number() + CONFIRMATIONS);
+        SecurityPallet::set_active_block_number(SecurityPallet::active_block_number() + CONFIRMATIONS);
 
         // fail due to insufficient amount
         assert_noop!(
