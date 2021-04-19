@@ -4,8 +4,8 @@ use mock::{redeem_testing_utils::*, *};
 
 fn test_with<R>(execute: impl FnOnce() -> R) -> R {
     ExtBuilder::build().execute_with(|| {
-        SecurityModule::set_active_block_number(1);
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
+        SecurityPallet::set_active_block_number(1);
+        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
         set_default_thresholds();
         UserData::force_to(USER, default_user_state());
         CoreVaultData::force_to(VAULT, default_vault_state());
@@ -26,9 +26,9 @@ fn consume_to_be_replaced(vault: &mut CoreVaultData, amount_btc: u128) {
 }
 
 #[test]
-fn integration_test_redeem_should_fail_if_not_running() {
+fn integration_test_redeem_with_parachain_shutdown_fails() {
     test_with(|| {
-        SecurityModule::set_status(StatusCode::Shutdown);
+        SecurityPallet::set_status(StatusCode::Shutdown);
 
         assert_noop!(
             Call::Redeem(RedeemCall::request_redeem(
@@ -37,7 +37,37 @@ fn integration_test_redeem_should_fail_if_not_running() {
                 account_of(BOB),
             ))
             .dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainNotRunning,
+            SecurityError::ParachainShutdown,
+        );
+
+        assert_noop!(
+            Call::Redeem(RedeemCall::execute_redeem(
+                Default::default(),
+                Default::default(),
+                Default::default()
+            ))
+            .dispatch(origin_of(account_of(ALICE))),
+            SecurityError::ParachainShutdown,
+        );
+
+        assert_noop!(
+            Call::Redeem(RedeemCall::cancel_redeem(Default::default(), false)).dispatch(origin_of(account_of(ALICE))),
+            SecurityError::ParachainShutdown,
+        );
+        assert_noop!(
+            Call::Redeem(RedeemCall::cancel_redeem(Default::default(), true)).dispatch(origin_of(account_of(ALICE))),
+            SecurityError::ParachainShutdown,
+        );
+
+        assert_noop!(
+            Call::Redeem(RedeemCall::liquidation_redeem(1000)).dispatch(origin_of(account_of(ALICE))),
+            SecurityError::ParachainShutdown,
+        );
+
+        assert_noop!(
+            Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem(Default::default()))
+                .dispatch(origin_of(account_of(ALICE))),
+            SecurityError::ParachainShutdown,
         );
     });
 }
@@ -53,10 +83,10 @@ mod request_redeem_tests {
         // than `redeemable_tokens`. A first approximation of the limit is redeemable_tokens+fee,
         // however, this slightly underestimates it. Since the actual fee rate is not exposed,
         // use an iterative process to find the maximum redeem request amount.
-        let mut ret = redeemable_tokens + FeeModule::get_redeem_fee(redeemable_tokens).unwrap();
+        let mut ret = redeemable_tokens + FeePallet::get_redeem_fee(redeemable_tokens).unwrap();
 
         loop {
-            let actually_redeemed_tokens = ret - FeeModule::get_redeem_fee(ret).unwrap();
+            let actually_redeemed_tokens = ret - FeePallet::get_redeem_fee(ret).unwrap();
             if actually_redeemed_tokens > redeemable_tokens {
                 return ret - 1;
             }
@@ -76,7 +106,7 @@ mod request_redeem_tests {
             .dispatch(origin_of(account_of(USER))));
 
             let redeem_id = assert_redeem_request_event();
-            let redeem = RedeemModule::get_open_redeem_request_from_id(&redeem_id).unwrap();
+            let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
             assert_eq!(amount, redeem.fee + redeem.amount_btc);
 
@@ -140,7 +170,7 @@ mod expiry_test {
         test_with(|| {
             set_redeem_period(100);
             let redeem_id = request_redeem();
-            SecurityModule::set_active_block_number(75);
+            SecurityPallet::set_active_block_number(75);
 
             assert_noop!(cancel_redeem(redeem_id), RedeemError::TimeNotExpired);
             assert_ok!(execute_redeem(redeem_id));
@@ -152,7 +182,7 @@ mod expiry_test {
         test_with(|| {
             set_redeem_period(100);
             let redeem_id = request_redeem();
-            SecurityModule::set_active_block_number(110);
+            SecurityPallet::set_active_block_number(110);
 
             assert_noop!(execute_redeem(redeem_id), RedeemError::CommitPeriodExpired);
             assert_ok!(cancel_redeem(redeem_id));
@@ -164,7 +194,7 @@ mod expiry_test {
         test_with(|| {
             set_redeem_period(200);
             let redeem_id = request_redeem();
-            SecurityModule::set_active_block_number(110);
+            SecurityPallet::set_active_block_number(110);
             set_redeem_period(100);
 
             // request still uses period = 200, so cancel fails and execute succeeds
@@ -178,7 +208,7 @@ mod expiry_test {
         test_with(|| {
             set_redeem_period(100);
             let redeem_id = request_redeem();
-            SecurityModule::set_active_block_number(110);
+            SecurityPallet::set_active_block_number(110);
             set_redeem_period(200);
 
             // request uses period = 200, so execute succeeds and cancel fails
@@ -189,13 +219,36 @@ mod expiry_test {
 }
 
 #[test]
+fn integration_test_redeem_parachain_status_shutdown_fails() {
+    test_with(|| {
+        SecurityPallet::set_status(StatusCode::Shutdown);
+
+        assert_noop!(
+            Call::Issue(IssueCall::request_issue(0, account_of(BOB), 0)).dispatch(origin_of(account_of(ALICE))),
+            SecurityError::ParachainShutdown,
+        );
+
+        assert_noop!(
+            Call::Issue(IssueCall::cancel_issue(H256([0; 32]),)).dispatch(origin_of(account_of(ALICE))),
+            SecurityError::ParachainShutdown,
+        );
+
+        assert_noop!(
+            Call::Issue(IssueCall::execute_issue(H256([0; 32]), vec![0u8; 32], vec![0u8; 32]))
+                .dispatch(origin_of(account_of(ALICE))),
+            SecurityError::ParachainShutdown,
+        );
+    });
+}
+
+#[test]
 fn integration_test_redeem_polka_btc_execute() {
     test_with(|| {
         let polka_btc = 1_000;
         let collateral_vault = 1_000_000;
 
         let redeem_id = setup_redeem(polka_btc, USER, VAULT, collateral_vault);
-        let redeem = RedeemModule::get_open_redeem_request_from_id(&redeem_id).unwrap();
+        let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
         execute_redeem(redeem_id);
 
@@ -220,7 +273,7 @@ fn integration_test_premium_redeem_polka_btc_execute() {
 
         // make vault undercollateralized. Note that we place it under the liquidation threshold
         // as well, but as long as we don't call liquidate that's ok
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::from(100)));
+        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::from(100)));
 
         // alice requests to redeem polka_btc from Bob
         assert_ok!(Call::Redeem(RedeemCall::request_redeem(
@@ -232,16 +285,16 @@ fn integration_test_premium_redeem_polka_btc_execute() {
 
         // assert that request happened and extract the id
         let redeem_id = assert_redeem_request_event();
-        let redeem = RedeemModule::get_open_redeem_request_from_id(&redeem_id).unwrap();
+        let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
         // send the btc from the vault to the user
-        let (tx_id, _tx_block_height, merkle_proof, raw_tx) =
+        let (_tx_id, _tx_block_height, merkle_proof, raw_tx) =
             generate_transaction_and_mine(user_btc_address, polka_btc, Some(redeem_id));
 
-        SecurityModule::set_active_block_number(1 + CONFIRMATIONS);
+        SecurityPallet::set_active_block_number(1 + CONFIRMATIONS);
 
         assert_ok!(
-            Call::Redeem(RedeemCall::execute_redeem(redeem_id, tx_id, merkle_proof, raw_tx))
+            Call::Redeem(RedeemCall::execute_redeem(redeem_id, merkle_proof, raw_tx))
                 .dispatch(origin_of(account_of(VAULT)))
         );
 
@@ -320,13 +373,13 @@ fn integration_test_redeem_polka_btc_cancel_reimburse_sufficient_collateral_for_
         let amount_btc = 10_000;
 
         let redeem_id = setup_cancelable_redeem(USER, VAULT, 100000000, amount_btc);
-        let redeem = RedeemModule::get_open_redeem_request_from_id(&redeem_id).unwrap();
-        let amount_without_fee_dot = ExchangeRateOracleModule::btc_to_dots(redeem.amount_btc).unwrap();
+        let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
+        let amount_without_fee_dot = ExchangeRateOraclePallet::btc_to_dots(redeem.amount_btc).unwrap();
 
-        let punishment_fee = FeeModule::get_punishment_fee(amount_without_fee_dot).unwrap();
+        let punishment_fee = FeePallet::get_punishment_fee(amount_without_fee_dot).unwrap();
         assert!(punishment_fee > 0);
 
-        SlaModule::set_vault_sla(&account_of(VAULT), FixedI128::from(80));
+        SlaPallet::set_vault_sla(&account_of(VAULT), FixedI128::from(80));
         // alice cancels redeem request and chooses to reimburse
         assert_ok!(Call::Redeem(RedeemCall::cancel_redeem(redeem_id, true)).dispatch(origin_of(account_of(USER))));
 
@@ -358,7 +411,7 @@ fn integration_test_redeem_polka_btc_cancel_reimburse_insufficient_collateral_fo
         // set collateral to the minimum amount required, such that the vault can not afford to both
         // reimburse and keep backing his current tokens
         let required_collateral =
-            VaultRegistryModule::get_required_collateral_for_polkabtc(DEFAULT_VAULT_ISSUED).unwrap();
+            VaultRegistryPallet::get_required_collateral_for_polkabtc(DEFAULT_VAULT_ISSUED).unwrap();
         CoreVaultData::force_to(
             VAULT,
             CoreVaultData {
@@ -369,13 +422,13 @@ fn integration_test_redeem_polka_btc_cancel_reimburse_insufficient_collateral_fo
         let initial_state = ParachainState::get();
 
         let redeem_id = setup_cancelable_redeem(USER, VAULT, 100000000, amount_btc);
-        let redeem = RedeemModule::get_open_redeem_request_from_id(&redeem_id).unwrap();
-        let amount_without_fee_dot = ExchangeRateOracleModule::btc_to_dots(redeem.amount_btc).unwrap();
+        let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
+        let amount_without_fee_dot = ExchangeRateOraclePallet::btc_to_dots(redeem.amount_btc).unwrap();
 
-        let punishment_fee = FeeModule::get_punishment_fee(amount_without_fee_dot).unwrap();
+        let punishment_fee = FeePallet::get_punishment_fee(amount_without_fee_dot).unwrap();
         assert!(punishment_fee > 0);
 
-        SlaModule::set_vault_sla(&account_of(VAULT), FixedI128::from(80));
+        SlaPallet::set_vault_sla(&account_of(VAULT), FixedI128::from(80));
         // alice cancels redeem request and chooses to reimburse
         assert_ok!(Call::Redeem(RedeemCall::cancel_redeem(redeem_id, true)).dispatch(origin_of(account_of(USER))));
 
@@ -398,7 +451,7 @@ fn integration_test_redeem_polka_btc_cancel_reimburse_insufficient_collateral_fo
             })
         );
 
-        SecurityModule::set_active_block_number(100000000);
+        SecurityPallet::set_active_block_number(100000000);
         CoreVaultData::force_to(
             VAULT,
             CoreVaultData {
@@ -426,13 +479,13 @@ fn integration_test_redeem_polka_btc_cancel_no_reimburse() {
         let amount_btc = 10_000;
 
         let redeem_id = setup_cancelable_redeem(USER, VAULT, 100000000, amount_btc);
-        let redeem = RedeemModule::get_open_redeem_request_from_id(&redeem_id).unwrap();
-        let amount_without_fee_dot = ExchangeRateOracleModule::btc_to_dots(redeem.amount_btc).unwrap();
+        let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
+        let amount_without_fee_dot = ExchangeRateOraclePallet::btc_to_dots(redeem.amount_btc).unwrap();
 
-        let punishment_fee = FeeModule::get_punishment_fee(amount_without_fee_dot).unwrap();
+        let punishment_fee = FeePallet::get_punishment_fee(amount_without_fee_dot).unwrap();
         assert!(punishment_fee > 0);
 
-        SlaModule::set_vault_sla(&account_of(VAULT), FixedI128::from(80));
+        SlaPallet::set_vault_sla(&account_of(VAULT), FixedI128::from(80));
         // alice cancels redeem request and chooses not to reimburse
         assert_ok!(Call::Redeem(RedeemCall::cancel_redeem(redeem_id, false)).dispatch(origin_of(account_of(USER))));
 
@@ -459,7 +512,7 @@ fn integration_test_redeem_polka_btc_cancel_liquidated_no_reimburse() {
         let polka_btc = 1_000;
         let collateral_vault = 1_000_000;
         let redeem_id = setup_cancelable_redeem(USER, VAULT, collateral_vault, polka_btc);
-        let redeem = RedeemModule::get_open_redeem_request_from_id(&redeem_id).unwrap();
+        let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
         // setup vault state such that 1/4th of its collateral is freed after successful redeem
         CoreVaultData::force_to(
@@ -511,7 +564,7 @@ fn integration_test_redeem_polka_btc_cancel_liquidated_reimburse() {
         let polka_btc = 1_000;
         let collateral_vault = 1_000_000;
         let redeem_id = setup_cancelable_redeem(USER, VAULT, collateral_vault, polka_btc);
-        let redeem = RedeemModule::get_open_redeem_request_from_id(&redeem_id).unwrap();
+        let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
         // setup vault state such that 1/4th of its collateral is freed after successful redeem
         CoreVaultData::force_to(
@@ -563,12 +616,12 @@ fn integration_test_redeem_polka_btc_cancel_liquidated_reimburse() {
 fn integration_test_redeem_polka_btc_execute_liquidated() {
     test_with(|| {
         let polka_btc = 1_000;
-        let fee = FeeModule::get_redeem_fee(polka_btc).unwrap();
+        let fee = FeePallet::get_redeem_fee(polka_btc).unwrap();
         let collateral_vault = 1_000_000;
         let amount_without_fee = polka_btc - fee;
 
         let redeem_id = setup_redeem(polka_btc, USER, VAULT, collateral_vault);
-        let redeem = RedeemModule::get_open_redeem_request_from_id(&redeem_id).unwrap();
+        let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
         // setup vault state such that 1/4th of its collateral is freed after successful redeem
         CoreVaultData::force_to(
@@ -700,7 +753,7 @@ fn integration_test_redeem_banning() {
         );
 
         // check that the ban is not permanent
-        SecurityModule::set_active_block_number(100000000);
+        SecurityPallet::set_active_block_number(100000000);
         assert_ok!(
             Call::Issue(IssueCall::request_issue(50, account_of(VAULT), 50)).dispatch(origin_of(account_of(USER)))
         );

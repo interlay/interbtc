@@ -48,7 +48,7 @@ impl RequestIssueBuilder {
         .dispatch(origin_of(account_of(self.user))));
 
         let issue_id = assert_issue_request_event();
-        let issue = IssueModule::get_issue_request_from_id(&issue_id).unwrap();
+        let issue = IssuePallet::get_issue_request_from_id(&issue_id).unwrap();
 
         (issue_id, issue)
     }
@@ -65,7 +65,7 @@ pub struct ExecuteIssueBuilder {
 
 impl ExecuteIssueBuilder {
     pub fn new(issue_id: H256) -> Self {
-        let issue = IssueModule::get_issue_request_from_id(&issue_id).unwrap();
+        let issue = IssuePallet::get_issue_request_from_id(&issue_id).unwrap();
         Self {
             issue_id,
             issue: issue.clone(),
@@ -95,21 +95,21 @@ impl ExecuteIssueBuilder {
     #[transactional]
     pub fn execute(&self) -> DispatchResultWithPostInfo {
         // send the btc from the user to the vault
-        let (tx_id, _height, proof, raw_tx) = TransactionGenerator::new()
+        let (_tx_id, _height, proof, raw_tx, _) = TransactionGenerator::new()
             .with_address(self.issue.btc_address)
             .with_amount(self.amount)
             .with_op_return(None)
             .with_relayer(self.relayer)
             .mine();
 
-        SecurityModule::set_active_block_number(SecurityModule::active_block_number() + CONFIRMATIONS);
+        SecurityPallet::set_active_block_number(SecurityPallet::active_block_number() + CONFIRMATIONS);
 
         if self.register_submitter_as_vault {
             try_register_vault(DEFAULT_COLLATERAL, self.submitter);
         }
 
         // alice executes the issuerequest by confirming the btc transaction
-        Call::Issue(IssueCall::execute_issue(self.issue_id, tx_id, proof, raw_tx))
+        Call::Issue(IssueCall::execute_issue(self.issue_id, proof, raw_tx))
             .dispatch(origin_of(account_of(self.submitter)))
     }
     pub fn assert_execute(&self) {
@@ -162,16 +162,15 @@ pub fn execute_refund(vault_id: [u8; 32]) -> (H256, RefundRequest<AccountId, u12
     let refund_address = BtcAddress::from_script(&refund_address_script).unwrap();
 
     let refund_id = assert_refund_request_event();
-    let refund = RefundModule::get_open_refund_request_from_id(&refund_id).unwrap();
+    let refund = RefundPallet::get_open_refund_request_from_id(&refund_id).unwrap();
 
-    let (tx_id, _height, proof, raw_tx) =
+    let (_tx_id, _height, proof, raw_tx) =
         generate_transaction_and_mine(refund_address, refund.amount_polka_btc, Some(refund_id));
 
-    SecurityModule::set_active_block_number((1 + CONFIRMATIONS) * 2);
+    SecurityPallet::set_active_block_number((1 + CONFIRMATIONS) * 2);
 
     assert_ok!(
-        Call::Refund(RefundCall::execute_refund(refund_id, tx_id, proof, raw_tx))
-            .dispatch(origin_of(account_of(vault_id)))
+        Call::Refund(RefundCall::execute_refund(refund_id, proof, raw_tx)).dispatch(origin_of(account_of(vault_id)))
     );
 
     (refund_id, refund)
@@ -179,7 +178,7 @@ pub fn execute_refund(vault_id: [u8; 32]) -> (H256, RefundRequest<AccountId, u12
 
 pub fn cancel_issue(issue_id: H256, vault: [u8; 32]) {
     // expire request without transferring btc
-    SecurityModule::set_active_block_number(IssueModule::issue_period() + 1 + 1);
+    SecurityPallet::set_active_block_number(IssuePallet::issue_period() + 1 + 1);
 
     // cancel issue request
     assert_ok!(Call::Issue(IssueCall::cancel_issue(issue_id)).dispatch(origin_of(account_of(vault))));

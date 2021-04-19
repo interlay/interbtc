@@ -9,6 +9,7 @@
 mod benchmarking;
 
 mod default_weights;
+pub use default_weights::WeightInfo;
 
 #[cfg(test)]
 extern crate mocktopus;
@@ -26,7 +27,7 @@ use primitive_types::H256;
 use sp_runtime::{traits::Zero, ModuleId};
 use sp_std::{convert::TryInto, vec::Vec};
 
-use bitcoin::types::H256Le;
+use bitcoin::utils::sha256d_le;
 use btc_relay::BtcAddress;
 
 #[doc(inline)]
@@ -46,16 +47,6 @@ mod tests;
 
 /// The replace module id, used for deriving its sovereign account ID.
 const _MODULE_ID: ModuleId = ModuleId(*b"replacem");
-
-pub trait WeightInfo {
-    fn request_replace() -> Weight;
-    fn withdraw_replace() -> Weight;
-    fn accept_replace() -> Weight;
-    fn auction_replace() -> Weight;
-    fn execute_replace() -> Weight;
-    fn cancel_replace() -> Weight;
-    fn set_replace_period() -> Weight;
-}
 
 /// The pallet's configuration trait.
 pub trait Config:
@@ -81,7 +72,7 @@ decl_storage! {
     trait Store for Module<T: Config> as Replace {
         /// Vaults create replace requests to transfer locked collateral.
         /// This mapping provides access from a unique hash to a `ReplaceRequest`.
-        ReplaceRequests: map hasher(blake2_128_concat) H256 => Option<ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>>;
+        ReplaceRequests: map hasher(blake2_128_concat) H256 => ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>;
 
         /// The time difference in number of blocks between when a replace request is created
         /// and required completion time by a vault. The replace period has an upper limit
@@ -144,9 +135,14 @@ decl_module! {
             use frame_support::{migration::StorageKeyIterator, Blake2_128Concat};
 
             if matches!(Self::storage_version(), Version::V0 | Version::V1) {
-                StorageKeyIterator::<H256, ReplaceRequestV1<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, Blake2_128Concat>::new(<ReplaceRequests<T>>::module_prefix(), b"ReplaceRequests")
+                StorageKeyIterator::<H256, Option<ReplaceRequestV1<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>>, Blake2_128Concat>::new(<ReplaceRequests<T>>::module_prefix(), b"ReplaceRequests")
                     .drain()
-                    .for_each(|(id, request_v1)| {
+                    .filter_map(|(id, request_v1)|
+                        match request_v1 {
+                            Some(x) => Some((id, x)),
+                            None => None
+                        }
+                    ).for_each(|(id, request_v1)| {
                         let status = match (request_v1.completed,request_v1.cancelled) {
                             (false, false) => ReplaceRequestStatus::Pending,
                             (false, true) => ReplaceRequestStatus::Cancelled,
@@ -191,6 +187,7 @@ decl_module! {
         fn request_replace(origin, amount: PolkaBTC<T>, griefing_collateral: DOT<T>)
             -> DispatchResult
         {
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let old_vault = ensure_signed(origin)?;
             Self::_request_replace(old_vault, amount, griefing_collateral)?;
             Ok(())
@@ -206,6 +203,7 @@ decl_module! {
         fn withdraw_replace(origin, amount: PolkaBTC<T>)
             -> DispatchResult
         {
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let old_vault = ensure_signed(origin)?;
             Self::_withdraw_replace_request(old_vault, amount)?;
             Ok(())
@@ -224,6 +222,7 @@ decl_module! {
         fn accept_replace(origin, old_vault: T::AccountId, amount_btc: PolkaBTC<T>, collateral: DOT<T>, btc_address: BtcAddress)
             -> DispatchResult
         {
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let new_vault = ensure_signed(origin)?;
             Self::_accept_replace(old_vault, new_vault, amount_btc, collateral, btc_address)?;
             Ok(())
@@ -242,6 +241,7 @@ decl_module! {
         fn auction_replace(origin, old_vault: T::AccountId, btc_amount: PolkaBTC<T>, collateral: DOT<T>, btc_address: BtcAddress)
             -> DispatchResult
         {
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let new_vault = ensure_signed(origin)?;
             Self::_auction_replace(old_vault, new_vault, btc_amount, collateral, btc_address)?;
             Ok(())
@@ -253,15 +253,15 @@ decl_module! {
         ///
         /// * `origin` - sender of the transaction: the new vault
         /// * `replace_id` - the ID of the replacement request
-        /// * `tx_id` - the backing chain transaction id
         /// * `tx_block_height` - the blocked height of the backing transaction
         /// * 'merkle_proof' - the merkle root of the block
         /// * `raw_tx` - the transaction id in bytes
         #[weight = <T as Config>::WeightInfo::execute_replace()]
         #[transactional]
-        fn execute_replace(origin, replace_id: H256, tx_id: H256Le, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
+        fn execute_replace(origin, replace_id: H256, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let _ = ensure_signed(origin)?;
-            Self::_execute_replace(replace_id, tx_id, merkle_proof, raw_tx)?;
+            Self::_execute_replace(replace_id, merkle_proof, raw_tx)?;
             Ok(())
         }
 
@@ -274,6 +274,7 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::cancel_replace()]
         #[transactional]
         fn cancel_replace(origin, replace_id: H256) -> DispatchResult {
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let new_vault = ensure_signed(origin)?;
             Self::_cancel_replace(new_vault, replace_id)?;
             Ok(())
@@ -304,9 +305,6 @@ impl<T: Config> Module<T> {
         amount_btc: PolkaBTC<T>,
         griefing_collateral: DOT<T>,
     ) -> DispatchResult {
-        // Check that Parachain status is RUNNING
-        ext::security::ensure_parachain_status_running::<T>()?;
-
         // check vault is not banned
         ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;
 
@@ -454,15 +452,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn _execute_replace(
-        replace_id: H256,
-        tx_id: H256Le,
-        merkle_proof: Vec<u8>,
-        raw_tx: Vec<u8>,
-    ) -> Result<(), DispatchError> {
-        // Check that Parachain status is RUNNING
-        ext::security::ensure_parachain_status_running::<T>()?;
-
+    fn _execute_replace(replace_id: H256, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> Result<(), DispatchError> {
         // Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
         let replace = Self::get_open_replace_request(&replace_id)?;
 
@@ -478,6 +468,7 @@ impl<T: Config> Module<T> {
 
         // Call verifyTransactionInclusion in BTC-Relay, providing txid, txBlockHeight, txIndex, and merkleProof as
         // parameters
+        let tx_id = sha256d_le(&raw_tx);
         ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
 
         // Call validateTransaction in BTC-Relay
@@ -513,9 +504,6 @@ impl<T: Config> Module<T> {
     }
 
     fn _cancel_replace(caller: T::AccountId, replace_id: H256) -> Result<(), DispatchError> {
-        // Check that Parachain status is RUNNING
-        ext::security::ensure_parachain_status_running::<T>()?;
-
         // Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
         let replace = Self::get_open_replace_request(&replace_id)?;
 
@@ -580,9 +568,6 @@ impl<T: Config> Module<T> {
         btc_address: BtcAddress,
         is_auction: bool,
     ) -> Result<(H256, ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>), DispatchError> {
-        // Check that Parachain status is RUNNING
-        ext::security::ensure_parachain_status_running::<T>()?;
-
         // don't allow vaults to replace themselves
         ensure!(old_vault_id != new_vault_id, Error::<T>::ReplaceSelfNotAllowed);
 
@@ -675,7 +660,10 @@ impl<T: Config> Module<T> {
     pub fn get_open_replace_request(
         id: &H256,
     ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
-        let request = <ReplaceRequests<T>>::get(id).ok_or(Error::<T>::ReplaceIdNotFound)?;
+        if !<ReplaceRequests<T>>::contains_key(id) {
+            return Err(Error::<T>::ReplaceIdNotFound.into());
+        }
+        let request = <ReplaceRequests<T>>::get(id);
         // NOTE: temporary workaround until we delete
         match request.status {
             ReplaceRequestStatus::Pending => Ok(request),
@@ -688,7 +676,10 @@ impl<T: Config> Module<T> {
     pub fn get_open_or_completed_replace_request(
         id: &H256,
     ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
-        let request = <ReplaceRequests<T>>::get(id).ok_or(Error::<T>::ReplaceIdNotFound)?;
+        if !<ReplaceRequests<T>>::contains_key(id) {
+            return Err(Error::<T>::ReplaceIdNotFound.into());
+        }
+        let request = <ReplaceRequests<T>>::get(id);
         match request.status {
             ReplaceRequestStatus::Pending | ReplaceRequestStatus::Completed => Ok(request),
             ReplaceRequestStatus::Cancelled => Err(Error::<T>::ReplaceCancelled.into()),
@@ -702,9 +693,7 @@ impl<T: Config> Module<T> {
     fn set_replace_status(key: &H256, status: ReplaceRequestStatus) {
         // TODO: delete old replace request from storage
         <ReplaceRequests<T>>::mutate(key, |request| {
-            if let Some(req) = request {
-                req.status = status;
-            }
+            request.status = status;
         });
     }
 }

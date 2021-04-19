@@ -17,13 +17,15 @@ extern crate mocktopus;
 use mocktopus::macros::mockable;
 
 mod default_weights;
+pub use default_weights::WeightInfo;
+
 mod ext;
 pub mod types;
 
-use bitcoin::types::H256Le;
+use bitcoin::utils::sha256d_le;
 use btc_relay::BtcAddress;
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError, ensure, transactional, weights::Weight,
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError, ensure, transactional,
 };
 use frame_system::ensure_signed;
 use primitive_types::H256;
@@ -31,10 +33,6 @@ use sp_runtime::traits::CheckedSub;
 use sp_std::{convert::TryInto, vec::Vec};
 use types::PolkaBTC;
 pub use types::RefundRequest;
-
-pub trait WeightInfo {
-    fn execute_refund() -> Weight;
-}
 
 /// The pallet's configuration trait.
 pub trait Config:
@@ -94,12 +92,11 @@ decl_module! {
         fn execute_refund(
             origin,
             refund_id: H256,
-            tx_id: H256Le,
             merkle_proof: Vec<u8>,
             raw_tx: Vec<u8>,
         ) -> Result<(), DispatchError> {
             ensure_signed(origin)?;
-            Self::_execute_refund(refund_id, tx_id, merkle_proof, raw_tx)
+            Self::_execute_refund(refund_id, merkle_proof, raw_tx)
         }
     }
 }
@@ -125,6 +122,8 @@ impl<T: Config> Module<T> {
         btc_address: BtcAddress,
         issue_id: H256,
     ) -> Result<Option<H256>, DispatchError> {
+        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
+
         let fee_polka_btc = ext::fee::get_refund_fee_from_total::<T>(total_amount_btc)?;
         let net_refund_amount_polka_btc = total_amount_btc
             .checked_sub(&fee_polka_btc)
@@ -169,15 +168,11 @@ impl<T: Config> Module<T> {
     ///
     /// * `refund_id` - identifier of a refund request. This ID can be obtained by listening to the RequestRefund event,
     ///   or by querying the open refunds.
-    /// * `tx_id` - transaction hash
     /// * `merkle_proof` - raw bytes of the proof
     /// * `raw_tx` - raw bytes of the transaction
-    fn _execute_refund(
-        refund_id: H256,
-        tx_id: H256Le,
-        merkle_proof: Vec<u8>,
-        raw_tx: Vec<u8>,
-    ) -> Result<(), DispatchError> {
+    fn _execute_refund(refund_id: H256, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> Result<(), DispatchError> {
+        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
+
         let request = Self::get_open_refund_request_from_id(&refund_id)?;
 
         // verify the payment
@@ -185,6 +180,7 @@ impl<T: Config> Module<T> {
             .amount_polka_btc
             .try_into()
             .map_err(|_e| Error::<T>::TryIntoIntError)?;
+        let tx_id = sha256d_le(&raw_tx);
         ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
         ext::btc_relay::validate_transaction::<T>(
             raw_tx,

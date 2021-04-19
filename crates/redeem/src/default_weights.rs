@@ -5,6 +5,16 @@
 
 use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 
+pub trait WeightInfo {
+    fn request_redeem() -> Weight;
+    fn liquidation_redeem() -> Weight;
+    fn execute_redeem() -> Weight;
+    fn cancel_redeem_reimburse() -> Weight;
+    fn cancel_redeem_retry() -> Weight;
+    fn set_redeem_period() -> Weight;
+    fn mint_tokens_for_reimbursed_redeem() -> Weight;
+}
+
 impl crate::WeightInfo for () {
     fn request_redeem() -> Weight {
         179_175_000_u64
@@ -21,7 +31,12 @@ impl crate::WeightInfo for () {
             .saturating_add(DbWeight::get().reads(14_u64))
             .saturating_add(DbWeight::get().writes(4_u64))
     }
-    fn cancel_redeem() -> Weight {
+    fn cancel_redeem_reimburse() -> Weight {
+        168_952_000_u64
+            .saturating_add(DbWeight::get().reads(14_u64))
+            .saturating_add(DbWeight::get().writes(5_u64))
+    }
+    fn cancel_redeem_retry() -> Weight {
         168_952_000_u64
             .saturating_add(DbWeight::get().reads(14_u64))
             .saturating_add(DbWeight::get().writes(5_u64))

@@ -73,7 +73,7 @@ mod withdraw_collateral_test {
     use super::*;
 
     fn required_collateral() -> u128 {
-        VaultRegistryModule::get_required_collateral_for_vault(account_of(VAULT)).unwrap()
+        VaultRegistryPallet::get_required_collateral_for_vault(account_of(VAULT)).unwrap()
     }
 
     #[test]
@@ -124,4 +124,41 @@ mod withdraw_collateral_test {
             );
         });
     }
+}
+
+#[test]
+fn integration_test_vault_registry_with_parachain_shutdown_fails() {
+    test_with(|| {
+        SecurityPallet::set_status(StatusCode::Shutdown);
+
+        assert_noop!(
+            Call::VaultRegistry(VaultRegistryCall::register_vault(0, Default::default()))
+                .dispatch(origin_of(account_of(VAULT))),
+            SecurityError::ParachainShutdown
+        );
+        assert_noop!(
+            Call::VaultRegistry(VaultRegistryCall::lock_additional_collateral(0))
+                .dispatch(origin_of(account_of(VAULT))),
+            SecurityError::ParachainShutdown
+        );
+        assert_noop!(
+            Call::VaultRegistry(VaultRegistryCall::withdraw_collateral(0)).dispatch(origin_of(account_of(VAULT))),
+            SecurityError::ParachainShutdown
+        );
+        assert_noop!(
+            Call::VaultRegistry(VaultRegistryCall::update_public_key(Default::default()))
+                .dispatch(origin_of(account_of(VAULT))),
+            SecurityError::ParachainShutdown
+        );
+        assert_noop!(
+            Call::VaultRegistry(VaultRegistryCall::register_address(Default::default()))
+                .dispatch(origin_of(account_of(VAULT))),
+            SecurityError::ParachainShutdown
+        );
+        assert_noop!(
+            Call::VaultRegistry(VaultRegistryCall::accept_new_issues(false)).dispatch(origin_of(account_of(VAULT))),
+            SecurityError::ParachainShutdown
+        );
+        assert_noop!(VaultRegistryPallet::_on_initialize(), SecurityError::ParachainShutdown);
+    });
 }

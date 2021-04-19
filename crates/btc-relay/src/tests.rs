@@ -894,7 +894,7 @@ fn test_validate_transaction_wrong_recipient_fails() {
                 recipient_btc_address,
                 Some(op_return_id)
             ),
-            TestError::WrongRecipient
+            TestError::InvalidPayment
         )
     });
 }
@@ -1573,7 +1573,7 @@ fn store_generated_block_headers() {
 }
 
 #[test]
-fn test_extract_value_fails_with_wrong_recipient() {
+fn test_extract_value_fails_with_invalid_payment() {
     run_test(|| {
         let recipient_btc_address_0 = BtcAddress::P2SH(H160([0; 20]));
         let recipient_btc_address_1 = BtcAddress::P2SH(H160([1; 20]));
@@ -1585,7 +1585,7 @@ fn test_extract_value_fails_with_wrong_recipient() {
 
         assert_err!(
             BTCRelay::extract_payment_value(transaction, recipient_btc_address_1),
-            TestError::WrongRecipient
+            TestError::InvalidPayment
         );
     })
 }
@@ -1639,7 +1639,7 @@ fn test_extract_value_and_op_return_fails_with_no_op_return() {
 
         assert_err!(
             BTCRelay::extract_payment_value_and_op_return(transaction, recipient_btc_address_0),
-            TestError::NotOpReturn
+            TestError::InvalidPayment
         );
     })
 }
@@ -1659,7 +1659,7 @@ fn test_extract_value_and_op_return_fails_with_no_recipient() {
 
         assert_err!(
             BTCRelay::extract_payment_value_and_op_return(transaction, recipient_btc_address_0),
-            TestError::WrongRecipient
+            TestError::InvalidPayment
         );
     })
 }
@@ -1682,6 +1682,31 @@ fn test_extract_value_and_op_return_succeeds() {
 
         assert_eq!(extr_value, recipient_value);
         assert_eq!(extr_data, op_return);
+    })
+}
+
+#[test]
+fn test_extract_value_and_op_return_fails_with_return_to_self() {
+    run_test(|| {
+        let recipient_btc_address = BtcAddress::P2SH(H160::zero());
+        let recipient_value = 1000;
+        let recipient_value_change = 1234;
+        let op_return = vec![1; 32];
+
+        let transaction = TransactionBuilder::new()
+            .with_version(2)
+            .add_output(TransactionOutput::payment(
+                recipient_value_change,
+                &recipient_btc_address,
+            ))
+            .add_output(TransactionOutput::payment(recipient_value, &recipient_btc_address))
+            .add_output(TransactionOutput::op_return(0, &op_return))
+            .build();
+
+        assert_err!(
+            BTCRelay::extract_payment_value_and_op_return(transaction, recipient_btc_address),
+            TestError::InvalidPayment
+        );
     })
 }
 

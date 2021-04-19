@@ -5,6 +5,16 @@
 
 use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 
+pub trait WeightInfo {
+    fn register_vault() -> Weight;
+    fn lock_additional_collateral() -> Weight;
+    fn withdraw_collateral() -> Weight;
+    fn update_public_key() -> Weight;
+    fn register_address() -> Weight;
+    fn accept_new_issues() -> Weight;
+    fn liquidate_undercollateralized_vaults(u: u32) -> Weight;
+}
+
 impl crate::WeightInfo for () {
     fn register_vault() -> Weight {
         (91_914_000 as Weight)
@@ -35,5 +45,12 @@ impl crate::WeightInfo for () {
         (48_000_000 as Weight)
             .saturating_add(DbWeight::get().reads(1 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
+    }
+    fn liquidate_undercollateralized_vaults(u: u32) -> Weight {
+        (16_134_000 as Weight)
+            // Standard Error: 94_000
+            .saturating_add((33_877_000 as Weight).saturating_mul(u as Weight))
+            .saturating_add(DbWeight::get().reads(6 as Weight))
+            .saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(u as Weight)))
     }
 }

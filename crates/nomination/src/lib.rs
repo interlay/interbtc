@@ -179,8 +179,8 @@ decl_module! {
 
 impl<T: Config> Module<T> {
     fn begin_block(_height: T::BlockNumber) -> DispatchResult {
-        let liquidated_operator_amounts =
-            ext::vault_registry::liquidate_undercollateralized_vaults::<T>(LiquidationTarget::OperatorsOnly)?;
+        let (_, liquidated_operator_amounts) =
+            ext::vault_registry::liquidate_undercollateralized_vaults::<T>(LiquidationTarget::OperatorsOnly);
         for (operator_id, total_slashed_amount) in liquidated_operator_amounts {
             Self::slash_nominators(operator_id.clone(), VaultStatus::Liquidated, total_slashed_amount)?;
         }

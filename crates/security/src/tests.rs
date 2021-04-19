@@ -77,58 +77,6 @@ fn test_is_ensure_parachain_not_shutdown_fails() {
 }
 
 #[test]
-fn test_ensure_parachain_does_not_have_errors() {
-    run_test(|| {
-        Security::set_status(StatusCode::Running);
-        assert_ok!(Security::ensure_parachain_does_not_have_errors(vec![
-            ErrorCode::InvalidBTCRelay
-        ],));
-
-        Security::set_status(StatusCode::Error);
-        assert_ok!(Security::ensure_parachain_does_not_have_errors(vec![
-            ErrorCode::InvalidBTCRelay
-        ],));
-
-        Security::insert_error(ErrorCode::InvalidBTCRelay);
-        assert_noop!(
-            Security::ensure_parachain_does_not_have_errors(vec![ErrorCode::InvalidBTCRelay]),
-            TestError::InvalidBTCRelay
-        );
-
-        assert_ok!(Security::ensure_parachain_does_not_have_errors(vec![]));
-    })
-}
-
-#[test]
-fn test_ensure_parachain_is_running_or_only_has_errors() {
-    run_test(|| {
-        Security::set_status(StatusCode::Running);
-        assert_ok!(Security::ensure_parachain_is_running_or_only_has_errors(vec![]));
-
-        Security::set_status(StatusCode::Error);
-        assert_ok!(Security::ensure_parachain_is_running_or_only_has_errors(vec![
-            ErrorCode::InvalidBTCRelay
-        ]));
-
-        Security::insert_error(ErrorCode::InvalidBTCRelay);
-        assert_ok!(Security::ensure_parachain_is_running_or_only_has_errors(vec![
-            ErrorCode::InvalidBTCRelay
-        ]));
-
-        Security::insert_error(ErrorCode::NoDataBTCRelay);
-        assert_noop!(
-            Security::ensure_parachain_is_running_or_only_has_errors(vec![ErrorCode::InvalidBTCRelay]),
-            TestError::NoDataBTCRelay
-        );
-
-        assert_ok!(Security::ensure_parachain_is_running_or_only_has_errors(vec![
-            ErrorCode::InvalidBTCRelay,
-            ErrorCode::NoDataBTCRelay
-        ]));
-    })
-}
-
-#[test]
 fn test_is_parachain_error_no_data_btcrelay() {
     run_test(|| {
         Security::set_status(StatusCode::Error);
@@ -216,5 +164,32 @@ fn testget_secure_ids_not_equal() {
         let left = Security::get_secure_id(&1);
         let right = Security::get_secure_id(&1);
         assert_ne!(left, right);
+    })
+}
+
+#[test]
+fn testget_increment_active_block_succeeds() {
+    run_test(|| {
+        let initial_active_block = Security::active_block_number();
+        Security::set_status(StatusCode::Running);
+        Security::increment_active_block();
+        assert_eq!(Security::active_block_number(), initial_active_block + 1);
+    })
+}
+
+#[test]
+fn testget_active_block_not_incremented_if_not_running() {
+    run_test(|| {
+        let initial_active_block = Security::active_block_number();
+
+        // not updated if there is an error
+        Security::set_status(StatusCode::Error);
+        Security::increment_active_block();
+        assert_eq!(Security::active_block_number(), initial_active_block);
+
+        // not updated if there is shutdown
+        Security::set_status(StatusCode::Shutdown);
+        Security::increment_active_block();
+        assert_eq!(Security::active_block_number(), initial_active_block);
     })
 }

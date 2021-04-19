@@ -90,11 +90,12 @@ fn set_exchange_rate_fails_with_invalid_oracle_source() {
 }
 
 #[test]
-fn get_exchange_rate_fails_with_missing_exchange_rate() {
+fn getting_exchange_rate_fails_with_missing_exchange_rate() {
     run_test(|| {
         ExchangeRateOracle::is_max_delay_passed.mock_safe(|| MockResult::Return(true));
-        let result = ExchangeRateOracle::get_exchange_rate();
-        assert_err!(result, TestError::MissingExchangeRate);
+        assert_err!(ExchangeRateOracle::get_exchange_rate(), TestError::MissingExchangeRate);
+        assert_err!(ExchangeRateOracle::btc_to_dots(0), TestError::MissingExchangeRate);
+        assert_err!(ExchangeRateOracle::dots_to_btc(0), TestError::MissingExchangeRate);
     });
 }
 

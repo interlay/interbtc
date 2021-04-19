@@ -1,5 +1,5 @@
 use super::*;
-use crate::Module as BtcRelay;
+use crate::Pallet as BtcRelay;
 use bitcoin::{
     formatter::{Formattable, TryFormattable},
     types::{
@@ -9,7 +9,7 @@ use bitcoin::{
 };
 use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
-use security::Module as Security;
+use security::Pallet as Security;
 use sp_core::{H256, U256};
 use sp_std::prelude::*;
 

@@ -1,5 +1,5 @@
 use crate::{ext, mock::*, ReplaceRequest, ReplaceRequestStatus};
-use bitcoin::types::H256Le;
+
 use btc_relay::BtcAddress;
 use frame_support::{assert_err, assert_ok};
 use mocktopus::mocking::*;
@@ -275,12 +275,7 @@ mod execute_replace_test {
     fn test_execute_replace_succeeds() {
         run_test(|| {
             setup_mocks();
-            assert_ok!(Replace::_execute_replace(
-                H256::zero(),
-                H256Le::zero(),
-                Vec::new(),
-                Vec::new()
-            ));
+            assert_ok!(Replace::_execute_replace(H256::zero(), Vec::new(), Vec::new()));
             assert_event_matches!(Event::ExecuteReplace(_, OLD_VAULT, NEW_VAULT));
         })
     }
@@ -292,7 +287,7 @@ mod execute_replace_test {
             ext::security::has_expired::<Test>.mock_safe(|_, _| MockResult::Return(Ok(true)));
 
             assert_err!(
-                Replace::_execute_replace(H256::zero(), H256Le::zero(), Vec::new(), Vec::new()),
+                Replace::_execute_replace(H256::zero(), Vec::new(), Vec::new()),
                 TestError::ReplacePeriodExpired
             );
         })

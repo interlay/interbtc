@@ -9,6 +9,7 @@
 mod benchmarking;
 
 mod default_weights;
+pub use default_weights::WeightInfo;
 
 #[cfg(test)]
 mod mock;
@@ -29,7 +30,7 @@ pub mod types;
 pub use crate::types::{RedeemRequest, RedeemRequestStatus};
 
 use crate::types::{PolkaBTC, RedeemRequestV2, Version, DOT};
-use bitcoin::types::H256Le;
+use bitcoin::utils::sha256d_le;
 use btc_relay::BtcAddress;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
@@ -45,15 +46,6 @@ use vault_registry::CurrencySource;
 
 /// The redeem module id, used for deriving its sovereign account ID.
 const _MODULE_ID: ModuleId = ModuleId(*b"i/redeem");
-
-pub trait WeightInfo {
-    fn request_redeem() -> Weight;
-    fn liquidation_redeem() -> Weight;
-    fn execute_redeem() -> Weight;
-    fn cancel_redeem() -> Weight;
-    fn set_redeem_period() -> Weight;
-    fn mint_tokens_for_reimbursed_redeem() -> Weight;
-}
 
 /// The pallet's configuration trait.
 pub trait Config:
@@ -207,11 +199,11 @@ decl_module! {
         /// * `raw_tx` - raw bytes
         #[weight = <T as Config>::WeightInfo::execute_redeem()]
         #[transactional]
-        fn execute_redeem(origin, redeem_id: H256, tx_id: H256Le, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
+        fn execute_redeem(origin, redeem_id: H256, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
             -> DispatchResult
         {
             let _ = ensure_signed(origin)?;
-            Self::_execute_redeem(redeem_id, tx_id, merkle_proof, raw_tx)?;
+            Self::_execute_redeem(redeem_id, merkle_proof, raw_tx)?;
             Ok(())
         }
 
@@ -226,7 +218,7 @@ decl_module! {
         /// * `reimburse` - specifying if the user wishes to be reimbursed in DOT
         /// and slash the Vault, or wishes to keep the PolkaBTC (and retry
         /// Redeem with another Vault)
-        #[weight = <T as Config>::WeightInfo::cancel_redeem()]
+        #[weight = if *reimburse { <T as Config>::WeightInfo::cancel_redeem_reimburse() } else { <T as Config>::WeightInfo::cancel_redeem_retry() }]
         #[transactional]
         fn cancel_redeem(origin, redeem_id: H256, reimburse: bool)
             -> DispatchResult
@@ -267,7 +259,7 @@ decl_module! {
         fn mint_tokens_for_reimbursed_redeem(origin, redeem_id: H256)
             -> DispatchResult
         {
-            let redeemer = ensure_signed(origin)?;
+        let redeemer = ensure_signed(origin)?;
             Self::_mint_tokens_for_reimbursed_redeem(redeemer, redeem_id)?;
             Ok(())
         }
@@ -283,7 +275,7 @@ impl<T: Config> Module<T> {
         btc_address: BtcAddress,
         vault_id: T::AccountId,
     ) -> Result<H256, DispatchError> {
-        ext::security::ensure_parachain_status_running::<T>()?;
+        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
         let redeemer_balance = ext::treasury::get_balance::<T>(redeemer.clone());
         ensure!(
@@ -363,7 +355,7 @@ impl<T: Config> Module<T> {
     }
 
     fn _liquidation_redeem(redeemer: T::AccountId, amount_polka_btc: PolkaBTC<T>) -> Result<(), DispatchError> {
-        ext::security::ensure_parachain_status_running::<T>()?;
+        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
         let redeemer_balance = ext::treasury::get_balance::<T>(redeemer.clone());
         ensure!(
@@ -381,13 +373,8 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn _execute_redeem(
-        redeem_id: H256,
-        tx_id: H256Le,
-        merkle_proof: Vec<u8>,
-        raw_tx: Vec<u8>,
-    ) -> Result<(), DispatchError> {
-        ext::security::ensure_parachain_status_running::<T>()?;
+    fn _execute_redeem(redeem_id: H256, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> Result<(), DispatchError> {
+        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
         let redeem = Self::get_open_redeem_request_from_id(&redeem_id)?;
 
@@ -398,6 +385,7 @@ impl<T: Config> Module<T> {
         );
 
         let amount: usize = redeem.amount_btc.try_into().map_err(|_e| Error::<T>::TryIntoIntError)?;
+        let tx_id = sha256d_le(&raw_tx);
         ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
         // NOTE: vault client must register change addresses before
         // sending the bitcoin transaction
@@ -438,6 +426,8 @@ impl<T: Config> Module<T> {
     }
 
     fn _cancel_redeem(redeemer: T::AccountId, redeem_id: H256, reimburse: bool) -> DispatchResult {
+        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
+
         let redeem = Self::get_open_redeem_request_from_id(&redeem_id)?;
         ensure!(redeemer == redeem.redeemer, Error::<T>::UnauthorizedUser);
 
@@ -565,6 +555,7 @@ impl<T: Config> Module<T> {
     }
 
     fn _mint_tokens_for_reimbursed_redeem(vault_id: T::AccountId, redeem_id: H256) -> DispatchResult {
+        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
         ensure!(
             <RedeemRequests<T>>::contains_key(&redeem_id),
             Error::<T>::RedeemIdNotFound

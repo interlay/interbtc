@@ -1,7 +1,7 @@
 use crate as issue;
-use crate::{Config, Error};
+use crate::{ext, Config, Error};
 use frame_support::{assert_ok, parameter_types, traits::StorageMapShim};
-use mocktopus::mocking::clear_mocks;
+use mocktopus::mocking::*;
 use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
@@ -115,7 +115,7 @@ impl pallet_balances::Config<pallet_balances::Instance2> for Test {
 
 impl vault_registry::Config for Test {
     type Event = TestEvent;
-    type RandomnessSource = pallet_randomness_collective_flip::Module<Test>;
+    type RandomnessSource = pallet_randomness_collective_flip::Pallet<Test>;
     type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
 }
@@ -243,11 +243,13 @@ where
 {
     clear_mocks();
     ExtBuilder::build().execute_with(|| {
-        assert_ok!(<exchange_rate_oracle::Module<Test>>::_set_exchange_rate(
+        assert_ok!(<exchange_rate_oracle::Pallet<Test>>::_set_exchange_rate(
             FixedU128::one()
         ));
         Security::set_active_block_number(1);
         System::set_block_number(1);
+
+        ext::btc_relay::is_fully_initialized::<Test>.mock_safe(|| MockResult::Return(Ok(true)));
         test();
     });
 }

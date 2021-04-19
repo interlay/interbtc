@@ -1,14 +1,16 @@
 use super::*;
-use crate::{types::ReplaceRequest, Module as Replace};
+use crate::{
+    sp_api_hidden_includes_decl_storage::hidden_include::traits::Currency, types::ReplaceRequest, Pallet as Replace,
+};
 use bitcoin::{
     formatter::{Formattable, TryFormattable},
     types::{BlockBuilder, RawBlockHeader, TransactionBuilder, TransactionInputBuilder, TransactionOutput},
 };
-use btc_relay::{BtcAddress, BtcPublicKey, Module as BtcRelay};
-use exchange_rate_oracle::Module as ExchangeRateOracle;
-use frame_benchmarking::{account, benchmarks};
+use btc_relay::{BtcAddress, BtcPublicKey, Pallet as BtcRelay};
+use exchange_rate_oracle::Pallet as ExchangeRateOracle;
+use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
-use security::Module as Security;
+use security::Pallet as Security;
 use sp_core::{H160, H256, U256};
 use sp_runtime::FixedPointNumber;
 use sp_std::prelude::*;
@@ -27,6 +29,7 @@ fn dummy_public_key() -> BtcPublicKey {
 benchmarks! {
     request_replace {
         let vault_id: T::AccountId = account("Vault", 0, 0);
+        let _ = T::DOT::make_free_balance_be(&vault_id, (1u32 << 31).into());
         let amount = Replace::<T>::replace_btc_dust_value() + 1000u32.into();
         // TODO: calculate from exchange rate
         let griefing = 1000u32.into();
@@ -44,6 +47,7 @@ benchmarks! {
 
     withdraw_replace {
         let vault_id: T::AccountId = account("Vault", 0, 0);
+        let _ = T::DOT::make_free_balance_be(&vault_id, (1u32 << 31).into());
         let amount = 5u32;
         VaultRegistry::<T>::_register_vault(&vault_id, 100000000u32.into(), dummy_public_key()).unwrap();
 
@@ -62,14 +66,16 @@ benchmarks! {
     accept_replace {
         let old_vault_id: T::AccountId = account("Origin", 0, 0);
         let new_vault_id: T::AccountId = account("Vault", 0, 0);
-        let amount: u32 = 100;
+        let _ = T::DOT::make_free_balance_be(&old_vault_id, (1u32 << 31).into());
+        let _ = T::DOT::make_free_balance_be(&new_vault_id, (1u32 << 31).into());
+        let dust_value =  Replace::<T>::replace_btc_dust_value().try_into().unwrap_or(0u32);
+        let amount: u32 = dust_value + 100u32;
         let collateral: u32 = 1000;
 
         let new_vault_btc_address = BtcAddress::P2SH(H160([0; 20]));
 
         VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());
         ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()).unwrap();
-
         VaultRegistry::<T>::_register_vault(&old_vault_id, 100000000u32.into(), dummy_public_key()).unwrap();
 
         VaultRegistry::<T>::try_increase_to_be_issued_tokens(&old_vault_id, amount.into()).unwrap();
@@ -89,15 +95,18 @@ benchmarks! {
     auction_replace {
         let old_vault_id: T::AccountId = account("Origin", 0, 0);
         let new_vault_id: T::AccountId = account("Vault", 0, 0);
-        let btc_amount: u32 = 100;
-        let collateral: u32 = 1000;
+        let _ = T::DOT::make_free_balance_be(&old_vault_id, (1u32 << 31).into());
+        let _ = T::DOT::make_free_balance_be(&new_vault_id, (1u32 << 31).into());
+        let dust_value =  Replace::<T>::replace_btc_dust_value().try_into().unwrap_or(0u32);
+        let btc_amount: u32 = dust_value + 100;
+        let collateral: u32 = btc_amount * 2;
 
         let new_vault_btc_address = BtcAddress::P2SH(H160([0; 20]));
 
         ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()).unwrap();
 
-        VaultRegistry::<T>::_register_vault(&old_vault_id, 50u32.into(), dummy_public_key()).unwrap();
-        VaultRegistry::<T>::_register_vault(&new_vault_id, 50u32.into(), dummy_public_key()).unwrap();
+        VaultRegistry::<T>::_register_vault(&old_vault_id, collateral.into(), dummy_public_key()).unwrap();
+        VaultRegistry::<T>::_register_vault(&new_vault_id, collateral.into(), dummy_public_key()).unwrap();
 
         VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap()); // 0.001%
         VaultRegistry::<T>::set_auction_collateral_threshold(<T as vault_registry::Config>::UnsignedFixedPoint::checked_from_rational(10000, 100).unwrap()); // 10000%
@@ -147,6 +156,7 @@ benchmarks! {
 
         let block_hash = block.header.hash().unwrap();
         let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
+        Security::<T>::set_active_block_number(1u32.into());
         BtcRelay::<T>::initialize(relayer_id.clone(), block_header, height).unwrap();
 
         let value = 0;
@@ -187,12 +197,16 @@ benchmarks! {
 
         let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
         BtcRelay::<T>::store_block_header(&relayer_id, block_header).unwrap();
+        Security::<T>::set_active_block_number(Security::<T>::active_block_number() + BtcRelay::<T>::parachain_confirmations() + 1u32.into());
 
-    }: _(RawOrigin::Signed(old_vault_id), replace_id, tx_id, proof, raw_tx)
+    }: _(RawOrigin::Signed(old_vault_id), replace_id, proof, raw_tx)
 
     cancel_replace {
         let new_vault_id: T::AccountId = account("Origin", 0, 0);
         let old_vault_id: T::AccountId = account("Vault", 0, 0);
+        let _ = T::DOT::make_free_balance_be(&new_vault_id, (1u32 << 31).into());
+        let _ = T::DOT::make_free_balance_be(&old_vault_id, (1u32 << 31).into());
+
         let amount:u32 = 100;
 
         let replace_id = H256::zero();
@@ -222,25 +236,8 @@ benchmarks! {
 
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::mock::{ExtBuilder, Test};
-    use frame_support::assert_ok;
-
-    #[test]
-    fn test_benchmarks() {
-        ExtBuilder::build_with(pallet_balances::GenesisConfig::<Test, pallet_balances::Instance1> {
-            balances: vec![(account("Origin", 0, 0), 1 << 32), (account("Vault", 0, 0), 1 << 32)],
-        })
-        .execute_with(|| {
-            assert_ok!(test_benchmark_request_replace::<Test>());
-            assert_ok!(test_benchmark_withdraw_replace::<Test>());
-            assert_ok!(test_benchmark_accept_replace::<Test>());
-            assert_ok!(test_benchmark_auction_replace::<Test>());
-            assert_ok!(test_benchmark_execute_replace::<Test>());
-            assert_ok!(test_benchmark_cancel_replace::<Test>());
-            assert_ok!(test_benchmark_set_replace_period::<Test>());
-        });
-    }
-}
+impl_benchmark_test_suite!(
+    Replace,
+    crate::mock::ExtBuilder::build_with(Default::default()),
+    crate::mock::Test
+);

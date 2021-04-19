@@ -14,7 +14,7 @@ pub struct ExecuteRedeemBuilder {
 
 impl ExecuteRedeemBuilder {
     pub fn new(redeem_id: H256) -> Self {
-        let redeem = RedeemModule::get_open_redeem_request_from_id(&redeem_id).unwrap();
+        let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
         Self {
             redeem_id,
             redeem: redeem.clone(),
@@ -36,16 +36,16 @@ impl ExecuteRedeemBuilder {
     #[transactional]
     pub fn execute(&self) -> DispatchResultWithPostInfo {
         // send the btc from the user to the vault
-        let (tx_id, _height, proof, raw_tx) = TransactionGenerator::new()
+        let (_tx_id, _height, proof, raw_tx, _) = TransactionGenerator::new()
             .with_address(self.redeem.btc_address)
             .with_amount(self.amount)
             .with_op_return(Some(self.redeem_id))
             .mine();
 
-        SecurityModule::set_active_block_number(SecurityModule::active_block_number() + CONFIRMATIONS);
+        SecurityPallet::set_active_block_number(SecurityPallet::active_block_number() + CONFIRMATIONS);
 
         // alice executes the redeemrequest by confirming the btc transaction
-        Call::Redeem(RedeemCall::execute_redeem(self.redeem_id, tx_id, proof, raw_tx))
+        Call::Redeem(RedeemCall::execute_redeem(self.redeem_id, proof, raw_tx))
             .dispatch(origin_of(self.submitter.clone()))
     }
 
@@ -58,17 +58,11 @@ pub fn setup_cancelable_redeem(user: [u8; 32], vault: [u8; 32], collateral: u128
     let redeem_id = setup_redeem(polka_btc, user, vault, collateral);
 
     // expire request without transferring btc
-    SecurityModule::set_active_block_number(RedeemModule::redeem_period() + 1 + 1);
+    SecurityPallet::set_active_block_number(RedeemPallet::redeem_period() + 1 + 1);
 
     // bob cannot execute past expiry
     assert_noop!(
-        Call::Redeem(RedeemCall::execute_redeem(
-            redeem_id,
-            H256Le::from_bytes_le(&[0; 32]),
-            vec![],
-            vec![],
-        ))
-        .dispatch(origin_of(account_of(vault))),
+        Call::Redeem(RedeemCall::execute_redeem(redeem_id, vec![], vec![],)).dispatch(origin_of(account_of(vault))),
         RedeemError::CommitPeriodExpired,
     );
 

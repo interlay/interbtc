@@ -9,6 +9,7 @@
 mod benchmarking;
 
 mod default_weights;
+pub use default_weights::WeightInfo;
 
 #[cfg(test)]
 mod mock;
@@ -29,7 +30,7 @@ pub mod types;
 pub use crate::types::{IssueRequest, IssueRequestStatus};
 
 use crate::types::{IssueRequestV2, PolkaBTC, Version, DOT};
-use bitcoin::types::H256Le;
+use bitcoin::utils::sha256d_le;
 use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
@@ -45,13 +46,6 @@ use vault_registry::{CurrencySource, VaultStatus};
 
 /// The issue module id, used for deriving its sovereign account ID.
 const _MODULE_ID: ModuleId = ModuleId(*b"issuemod");
-
-pub trait WeightInfo {
-    fn request_issue() -> Weight;
-    fn execute_issue() -> Weight;
-    fn cancel_issue() -> Weight;
-    fn set_issue_period() -> Weight;
-}
 
 /// The pallet's configuration trait.
 pub trait Config:
@@ -182,17 +176,16 @@ decl_module! {
         ///
         /// * `origin` - sender of the transaction
         /// * `issue_id` - identifier of issue request as output from request_issue
-        /// * `tx_id` - transaction hash
         /// * `tx_block_height` - block number of backing chain
         /// * `merkle_proof` - raw bytes
         /// * `raw_tx` - raw bytes
         #[weight = <T as Config>::WeightInfo::execute_issue()]
         #[transactional]
-        fn execute_issue(origin, issue_id: H256, tx_id: H256Le, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
+        fn execute_issue(origin, issue_id: H256, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
             -> DispatchResult
         {
             let executor = ensure_signed(origin)?;
-            Self::_execute_issue(executor, issue_id, tx_id, merkle_proof, raw_tx)?;
+            Self::_execute_issue(executor, issue_id, merkle_proof, raw_tx)?;
             Ok(())
         }
 
@@ -240,7 +233,12 @@ impl<T: Config> Module<T> {
         griefing_collateral: DOT<T>,
     ) -> Result<H256, DispatchError> {
         // Check that Parachain is RUNNING
-        ext::security::ensure_parachain_status_running::<T>()?;
+        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
+
+        ensure!(
+            ext::btc_relay::is_fully_initialized::<T>()?,
+            Error::<T>::WaitingForRelayerInitialization
+        );
 
         let vault = ext::vault_registry::get_active_vault_from_id::<T>(&vault_id)?;
 
@@ -306,12 +304,11 @@ impl<T: Config> Module<T> {
     fn _execute_issue(
         executor: T::AccountId,
         issue_id: H256,
-        tx_id: H256Le,
         merkle_proof: Vec<u8>,
         raw_tx: Vec<u8>,
     ) -> Result<(), DispatchError> {
         // Check that Parachain is RUNNING
-        ext::security::ensure_parachain_status_running::<T>()?;
+        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
         let mut issue = Self::get_issue_request_from_id(&issue_id)?;
         let mut maybe_refund_id = None;
@@ -324,6 +321,7 @@ impl<T: Config> Module<T> {
             Error::<T>::CommitPeriodExpired
         );
 
+        let tx_id = sha256d_le(&raw_tx);
         ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
         let (refund_address, amount_transferred) =
             ext::btc_relay::validate_transaction::<T>(raw_tx, None, issue.btc_address, None)?;
@@ -434,6 +432,9 @@ impl<T: Config> Module<T> {
 
     /// Cancels CBA issuance if time has expired and slashes collateral.
     fn _cancel_issue(requester: T::AccountId, issue_id: H256) -> Result<(), DispatchError> {
+        // Check that Parachain is RUNNING
+        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
+
         let issue = Self::get_issue_request_from_id(&issue_id)?;
 
         // only cancellable after the request has expired
@@ -560,6 +561,7 @@ decl_error! {
         IssueCompleted,
         IssueCancelled,
         VaultNotAcceptingNewIssues,
+        WaitingForRelayerInitialization,
         /// Unable to convert value
         TryIntoIntError,
         ArithmeticUnderflow,

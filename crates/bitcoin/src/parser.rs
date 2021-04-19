@@ -294,6 +294,7 @@ pub fn parse_transaction(raw_transaction: &[u8]) -> Result<Transaction, Error> {
 
     let allow_witness = (version & SERIALIZE_TRANSACTION_NO_WITNESS) == 0;
 
+    // TODO: bound maximum?
     let mut inputs: Vec<TransactionInput> = parser.parse_with(version)?;
 
     let mut flags: u8 = 0;
@@ -302,6 +303,7 @@ pub fn parse_transaction(raw_transaction: &[u8]) -> Result<Transaction, Error> {
         inputs = parser.parse_with(version)?;
     }
 
+    // TODO: bound maximum?
     let outputs: Vec<TransactionOutput> = parser.parse()?;
 
     if (flags & 1) != 0 && allow_witness {

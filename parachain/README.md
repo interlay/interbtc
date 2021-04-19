@@ -121,22 +121,20 @@ cargo run --features runtime-benchmarks --release -- \
   --extrinsic "*" \
   --steps 100 \
   --repeat 10 \
-  --output
+  --output ../crates/issue/src/default_weights.rs \
+  --template ../.deploy/weight-template.hbs
 ```
 
-This will produce a new file (`./parachain/issue.rs`) which you should copy into the corresponding pallet.
+This will overwrite the default weights (i.e. in the example, `../crates/issue/src/default_weights.rs`).
 
-Rename this to `default_weights.rs` and modify the contents as follows:
+## Code Coverage
 
-```rust
-// Change this
-pub struct WeightInfo;
-impl issue::WeightInfo for WeightInfo {
-...
+To generate a code coverage report, install and run tarpaulin:
 
-// To this
-impl crate::WeightInfo for () {
-...
+```shell
+cargo install cargo-tarpaulin
+cargo tarpaulin -v \
+  --exclude-files '/test,/mock.rs,/mock/mod.rs,/default_weights.rs,/weights.rs,/ext.rs,/runtime-api/,/benchmarking.rs,parachain/*' \
+  --out Html \
+  --output-dir "./cov"
 ```
-
-In the future this process will be automated using [handlebars](https://handlebarsjs.com/) templates.

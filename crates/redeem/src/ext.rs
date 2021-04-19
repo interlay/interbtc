@@ -9,7 +9,7 @@ pub(crate) mod btc_relay {
     use sp_std::vec::Vec;
 
     pub fn verify_transaction_inclusion<T: btc_relay::Config>(tx_id: H256Le, merkle_proof: Vec<u8>) -> DispatchResult {
-        <btc_relay::Module<T>>::_verify_transaction_inclusion(tx_id, merkle_proof, None)
+        <btc_relay::Pallet<T>>::_verify_transaction_inclusion(tx_id, merkle_proof, None)
     }
 
     pub fn validate_transaction<T: btc_relay::Config>(
@@ -18,11 +18,11 @@ pub(crate) mod btc_relay {
         btc_address: BtcAddress,
         redeem_id: Option<Vec<u8>>,
     ) -> Result<(BtcAddress, i64), DispatchError> {
-        <btc_relay::Module<T>>::_validate_transaction(raw_tx, minimum_btc, btc_address, redeem_id)
+        <btc_relay::Pallet<T>>::_validate_transaction(raw_tx, minimum_btc, btc_address, redeem_id)
     }
 
     pub fn get_best_block_height<T: btc_relay::Config>() -> u32 {
-        <btc_relay::Module<T>>::get_best_block_height()
+        <btc_relay::Pallet<T>>::get_best_block_height()
     }
 }
 
@@ -33,7 +33,7 @@ pub(crate) mod vault_registry {
     use vault_registry::types::CurrencySource;
 
     pub fn get_backing_collateral<T: vault_registry::Config>(vault_id: &T::AccountId) -> Result<DOT<T>, DispatchError> {
-        <vault_registry::Module<T>>::get_backing_collateral(vault_id)
+        <vault_registry::Pallet<T>>::get_backing_collateral(vault_id)
     }
 
     pub fn slash_collateral<T: vault_registry::Config>(
@@ -41,7 +41,7 @@ pub(crate) mod vault_registry {
         to: CurrencySource<T>,
         amount: DOT<T>,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::slash_collateral(from, to, amount)
+        <vault_registry::Pallet<T>>::slash_collateral(from, to, amount)
     }
 
     pub fn slash_collateral_saturated<T: vault_registry::Config>(
@@ -49,20 +49,20 @@ pub(crate) mod vault_registry {
         to: CurrencySource<T>,
         amount: DOT<T>,
     ) -> Result<DOT<T>, DispatchError> {
-        <vault_registry::Module<T>>::slash_collateral_saturated(from, to, amount)
+        <vault_registry::Pallet<T>>::slash_collateral_saturated(from, to, amount)
     }
 
     pub fn get_vault_from_id<T: vault_registry::Config>(
         vault_id: &T::AccountId,
     ) -> Result<vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
-        <vault_registry::Module<T>>::get_vault_from_id(vault_id)
+        <vault_registry::Pallet<T>>::get_vault_from_id(vault_id)
     }
 
     pub fn try_increase_to_be_redeemed_tokens<T: vault_registry::Config>(
         vault_id: &T::AccountId,
         amount: PolkaBTC<T>,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::try_increase_to_be_redeemed_tokens(vault_id, amount)
+        <vault_registry::Pallet<T>>::try_increase_to_be_redeemed_tokens(vault_id, amount)
     }
 
     pub fn redeem_tokens<T: vault_registry::Config>(
@@ -71,7 +71,7 @@ pub(crate) mod vault_registry {
         premium: DOT<T>,
         redeemer_id: &T::AccountId,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::redeem_tokens(vault_id, tokens, premium, redeemer_id)
+        <vault_registry::Pallet<T>>::redeem_tokens(vault_id, tokens, premium, redeemer_id)
     }
 
     pub fn decrease_tokens<T: vault_registry::Config>(
@@ -79,41 +79,41 @@ pub(crate) mod vault_registry {
         user_id: &T::AccountId,
         tokens: PolkaBTC<T>,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::decrease_tokens(vault_id, user_id, tokens)
+        <vault_registry::Pallet<T>>::decrease_tokens(vault_id, user_id, tokens)
     }
 
     pub fn redeem_tokens_liquidation<T: vault_registry::Config>(
         redeemer_id: &T::AccountId,
         amount: PolkaBTC<T>,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::redeem_tokens_liquidation(redeemer_id, amount)
+        <vault_registry::Pallet<T>>::redeem_tokens_liquidation(redeemer_id, amount)
     }
 
     pub fn ban_vault<T: vault_registry::Config>(vault_id: T::AccountId) -> DispatchResult {
-        <vault_registry::Module<T>>::ban_vault(vault_id)
+        <vault_registry::Pallet<T>>::ban_vault(vault_id)
     }
 
     pub fn ensure_not_banned<T: vault_registry::Config>(vault: &T::AccountId) -> DispatchResult {
-        <vault_registry::Module<T>>::_ensure_not_banned(vault)
+        <vault_registry::Pallet<T>>::_ensure_not_banned(vault)
     }
 
     pub fn is_vault_below_premium_threshold<T: vault_registry::Config>(
         vault_id: &T::AccountId,
     ) -> Result<bool, DispatchError> {
-        <vault_registry::Module<T>>::is_vault_below_premium_threshold(vault_id)
+        <vault_registry::Pallet<T>>::is_vault_below_premium_threshold(vault_id)
     }
 
     pub fn is_vault_below_secure_threshold<T: vault_registry::Config>(
         vault_id: &T::AccountId,
     ) -> Result<bool, DispatchError> {
-        <vault_registry::Module<T>>::is_vault_below_secure_threshold(vault_id)
+        <vault_registry::Pallet<T>>::is_vault_below_secure_threshold(vault_id)
     }
 
     pub fn decrease_to_be_redeemed_tokens<T: vault_registry::Config>(
         vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::decrease_to_be_redeemed_tokens(vault_id, tokens)
+        <vault_registry::Pallet<T>>::decrease_to_be_redeemed_tokens(vault_id, tokens)
     }
 
     pub fn calculate_collateral<T: vault_registry::Config>(
@@ -121,25 +121,25 @@ pub(crate) mod vault_registry {
         numerator: PolkaBTC<T>,
         denominator: PolkaBTC<T>,
     ) -> Result<DOT<T>, DispatchError> {
-        <vault_registry::Module<T>>::calculate_collateral(collateral, numerator, denominator)
+        <vault_registry::Pallet<T>>::calculate_collateral(collateral, numerator, denominator)
     }
 
     pub fn try_increase_to_be_issued_tokens<T: vault_registry::Config>(
         vault_id: &T::AccountId,
         amount: PolkaBTC<T>,
     ) -> Result<(), DispatchError> {
-        <vault_registry::Module<T>>::try_increase_to_be_issued_tokens(vault_id, amount)
+        <vault_registry::Pallet<T>>::try_increase_to_be_issued_tokens(vault_id, amount)
     }
 
     pub fn issue_tokens<T: vault_registry::Config>(vault_id: &T::AccountId, amount: PolkaBTC<T>) -> DispatchResult {
-        <vault_registry::Module<T>>::issue_tokens(vault_id, amount)
+        <vault_registry::Pallet<T>>::issue_tokens(vault_id, amount)
     }
 
     pub fn decrease_to_be_replaced_tokens<T: vault_registry::Config>(
         vault_id: &T::AccountId,
         tokens: PolkaBTC<T>,
     ) -> Result<(PolkaBTC<T>, DOT<T>), DispatchError> {
-        <vault_registry::Module<T>>::decrease_to_be_replaced_tokens(vault_id, tokens)
+        <vault_registry::Pallet<T>>::decrease_to_be_replaced_tokens(vault_id, tokens)
     }
 }
 
@@ -153,7 +153,7 @@ pub(crate) mod sla {
         vault_id: &T::AccountId,
         event: VaultEvent<PolkaBTC<T>>,
     ) -> Result<(), DispatchError> {
-        <sla::Module<T>>::event_update_vault_sla(vault_id, event)
+        <sla::Pallet<T>>::event_update_vault_sla(vault_id, event)
     }
 
     pub fn calculate_slashed_amount<T: sla::Config>(
@@ -161,7 +161,7 @@ pub(crate) mod sla {
         stake: DOT<T>,
         reimburse: bool,
     ) -> Result<DOT<T>, DispatchError> {
-        <sla::Module<T>>::calculate_slashed_amount(vault_id, stake, reimburse)
+        <sla::Pallet<T>>::calculate_slashed_amount(vault_id, stake, reimburse)
     }
 }
 
@@ -171,19 +171,19 @@ pub(crate) mod treasury {
     use frame_support::dispatch::DispatchResult;
 
     pub fn get_balance<T: treasury::Config>(account: T::AccountId) -> PolkaBTC<T> {
-        <treasury::Module<T>>::get_balance_from_account(account)
+        <treasury::Pallet<T>>::get_balance_from_account(account)
     }
 
     pub fn lock<T: treasury::Config>(redeemer: T::AccountId, amount: PolkaBTC<T>) -> DispatchResult {
-        <treasury::Module<T>>::lock(redeemer, amount)
+        <treasury::Pallet<T>>::lock(redeemer, amount)
     }
 
     pub fn unlock<T: treasury::Config>(account: T::AccountId, amount: PolkaBTC<T>) -> DispatchResult {
-        <treasury::Module<T>>::unlock(account, amount)
+        <treasury::Pallet<T>>::unlock(account, amount)
     }
 
     pub fn burn<T: treasury::Config>(redeemer: T::AccountId, amount: PolkaBTC<T>) -> DispatchResult {
-        <treasury::Module<T>>::burn(redeemer, amount)
+        <treasury::Pallet<T>>::burn(redeemer, amount)
     }
 
     pub fn unlock_and_transfer<T: treasury::Config>(
@@ -191,11 +191,11 @@ pub(crate) mod treasury {
         destination: T::AccountId,
         amount: PolkaBTC<T>,
     ) -> DispatchResult {
-        <treasury::Module<T>>::unlock_and_transfer(source, destination, amount)
+        <treasury::Pallet<T>>::unlock_and_transfer(source, destination, amount)
     }
 
     pub fn mint<T: treasury::Config>(requester: T::AccountId, amount: PolkaBTC<T>) {
-        <treasury::Module<T>>::mint(requester, amount)
+        <treasury::Pallet<T>>::mint(requester, amount)
     }
 }
 
@@ -205,22 +205,22 @@ pub(crate) mod security {
     use primitive_types::H256;
 
     pub fn get_secure_id<T: security::Config>(id: &T::AccountId) -> H256 {
-        <security::Module<T>>::get_secure_id(id)
+        <security::Pallet<T>>::get_secure_id(id)
     }
 
-    pub fn ensure_parachain_status_running<T: security::Config>() -> Result<(), DispatchError> {
-        <security::Module<T>>::ensure_parachain_status_running()
+    pub fn ensure_parachain_status_not_shutdown<T: security::Config>() -> Result<(), DispatchError> {
+        <security::Pallet<T>>::ensure_parachain_status_not_shutdown()
     }
 
     pub fn active_block_number<T: security::Config>() -> T::BlockNumber {
-        <security::Module<T>>::active_block_number()
+        <security::Pallet<T>>::active_block_number()
     }
 
     pub fn has_expired<T: security::Config>(
         opentime: T::BlockNumber,
         period: T::BlockNumber,
     ) -> Result<bool, DispatchError> {
-        <security::Module<T>>::has_expired(opentime, period)
+        <security::Pallet<T>>::has_expired(opentime, period)
     }
 }
 
@@ -230,7 +230,7 @@ pub(crate) mod oracle {
     use frame_support::dispatch::DispatchError;
 
     pub fn btc_to_dots<T: exchange_rate_oracle::Config>(amount: PolkaBTC<T>) -> Result<DOT<T>, DispatchError> {
-        <exchange_rate_oracle::Module<T>>::btc_to_dots(amount)
+        <exchange_rate_oracle::Pallet<T>>::btc_to_dots(amount)
     }
 }
 
@@ -240,27 +240,27 @@ pub(crate) mod fee {
     use frame_support::dispatch::DispatchError;
 
     pub fn fee_pool_account_id<T: fee::Config>() -> T::AccountId {
-        <fee::Module<T>>::fee_pool_account_id()
+        <fee::Pallet<T>>::fee_pool_account_id()
     }
 
     pub fn get_redeem_fee<T: fee::Config>(amount: PolkaBTC<T>) -> Result<PolkaBTC<T>, DispatchError> {
-        <fee::Module<T>>::get_redeem_fee(amount)
+        <fee::Pallet<T>>::get_redeem_fee(amount)
     }
 
     pub fn increase_polka_btc_rewards_for_epoch<T: fee::Config>(amount: PolkaBTC<T>) {
-        <fee::Module<T>>::increase_polka_btc_rewards_for_epoch(amount)
+        <fee::Pallet<T>>::increase_polka_btc_rewards_for_epoch(amount)
     }
 
     pub fn increase_dot_rewards_for_epoch<T: fee::Config>(amount: DOT<T>) {
-        <fee::Module<T>>::increase_dot_rewards_for_epoch(amount)
+        <fee::Pallet<T>>::increase_dot_rewards_for_epoch(amount)
     }
 
     pub fn get_punishment_fee<T: fee::Config>(amount: DOT<T>) -> Result<DOT<T>, DispatchError> {
-        <fee::Module<T>>::get_punishment_fee(amount)
+        <fee::Pallet<T>>::get_punishment_fee(amount)
     }
 
     pub fn get_premium_redeem_fee<T: fee::Config>(amount: DOT<T>) -> Result<DOT<T>, DispatchError> {
-        <fee::Module<T>>::get_premium_redeem_fee(amount)
+        <fee::Pallet<T>>::get_premium_redeem_fee(amount)
     }
 }
 
@@ -270,6 +270,6 @@ pub(crate) mod collateral {
     use frame_support::dispatch::DispatchResult;
 
     pub fn release_collateral<T: collateral::Config>(sender: &T::AccountId, amount: DOT<T>) -> DispatchResult {
-        <collateral::Module<T>>::release_collateral(sender, amount)
+        <collateral::Pallet<T>>::release_collateral(sender, amount)
     }
 }

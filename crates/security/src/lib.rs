@@ -35,7 +35,7 @@ use frame_system::ensure_root;
 use primitive_types::H256;
 use sha2::{Digest, Sha256};
 use sp_core::U256;
-use sp_std::{collections::btree_set::BTreeSet, iter::FromIterator, prelude::*};
+use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
 /// ## Configuration
 /// The pallet's configuration trait.
@@ -46,7 +46,7 @@ pub trait Config: frame_system::Config {
 
 // This pallet's storage items.
 decl_storage! {
-    trait Store for Module<T: Config> as SecurityModule {
+    trait Store for Module<T: Config> as SecurityPallet {
         /// Integer/Enum defining the current state of the BTC-Parachain.
         ParachainStatus get(fn status): StatusCode;
 
@@ -83,9 +83,7 @@ decl_module! {
         }
 
         fn on_initialize(_chain_height: T::BlockNumber) -> Weight {
-            <ActiveBlockCount<T>>::mutate(|n| {
-                *n = n.saturating_add(1u32.into());
-            });
+            Self::increment_active_block();
 
             0
         }
@@ -155,49 +153,6 @@ impl<T: Config> Module<T> {
             Ok(())
         } else {
             Err(Error::<T>::ParachainShutdown.into())
-        }
-    }
-
-    /// Ensures that the parachain DOES NOT have the given errors
-    ///
-    /// # Arguments
-    ///
-    ///   * `error_codes` - list of `ErrorCode` to be checked
-    ///
-    /// Returns the first error that is encountered, or Ok(()) if none of the errors were found
-    pub fn ensure_parachain_does_not_have_errors(error_codes: Vec<ErrorCode>) -> DispatchResult {
-        if <ParachainStatus>::get() == StatusCode::Error {
-            for error_code in error_codes {
-                if <Errors>::get().contains(&error_code) {
-                    return Err(Error::<T>::from(error_code).into());
-                }
-            }
-        }
-        Ok(())
-    }
-
-    /// Ensures that the parachain is RUNNING or ONLY HAS specific errors
-    ///
-    /// # Arguments
-    ///
-    ///   * `error_codes` - list of `ErrorCode` to be checked
-    ///
-    /// Returns the first unexpected error that is encountered,
-    /// or Ok(()) if only expected errors / no errors at all were found
-    pub fn ensure_parachain_is_running_or_only_has_errors(error_codes: Vec<ErrorCode>) -> DispatchResult {
-        if <ParachainStatus>::get() == StatusCode::Running {
-            Ok(())
-        } else if <ParachainStatus>::get() == StatusCode::Error {
-            let error_set: BTreeSet<ErrorCode> = FromIterator::from_iter(error_codes);
-            for error_code in <Errors>::get().iter() {
-                // check if error is set
-                if !error_set.contains(&error_code) {
-                    return Err(Error::<T>::from(error_code.clone()).into());
-                }
-            }
-            Ok(())
-        } else {
-            Err(Error::<T>::ParachainNotRunning.into())
         }
     }
 
@@ -294,6 +249,14 @@ impl<T: Config> Module<T> {
             *n = res;
             *n
         })
+    }
+
+    fn increment_active_block() {
+        if Self::status() == StatusCode::Running {
+            <ActiveBlockCount<T>>::mutate(|n| {
+                *n = n.saturating_add(1u32.into());
+            });
+        }
     }
 
     /// Generates a 256-bit unique hash from an `AccountId` and the

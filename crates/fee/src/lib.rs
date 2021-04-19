@@ -9,6 +9,7 @@
 mod benchmarking;
 
 mod default_weights;
+pub use default_weights::WeightInfo;
 
 #[cfg(test)]
 mod mock;
@@ -37,13 +38,10 @@ use sp_arithmetic::{traits::*, FixedPointNumber};
 use sp_std::{convert::TryInto, vec::*};
 use types::{Inner, PolkaBTC, UnsignedFixedPoint, DOT};
 
-pub trait WeightInfo {
-    fn withdraw_polka_btc() -> Weight;
-    fn withdraw_dot() -> Weight;
-}
-
 /// The pallet's configuration trait.
-pub trait Config: frame_system::Config + collateral::Config + treasury::Config + sla::Config {
+pub trait Config:
+    frame_system::Config + collateral::Config + treasury::Config + sla::Config + security::Config
+{
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 
@@ -143,7 +141,7 @@ decl_storage! {
     add_extra_genesis {
         // don't allow an invalid reward distribution
         build(|config| {
-            Module::<T>::ensure_rationals_sum_to_one(
+            Pallet::<T>::ensure_rationals_sum_to_one(
                 vec![
                     config.vault_rewards,
                     config.relayer_rewards,
@@ -152,7 +150,7 @@ decl_storage! {
                 ]
             ).unwrap();
 
-            Module::<T>::ensure_rationals_sum_to_one(
+            Pallet::<T>::ensure_rationals_sum_to_one(
                 vec![
                     config.vault_rewards_issued,
                     config.vault_rewards_locked,
@@ -203,6 +201,7 @@ decl_module! {
         #[transactional]
         fn withdraw_polka_btc(origin, amount: PolkaBTC<T>) -> DispatchResult
         {
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let signer = ensure_signed(origin)?;
             <TotalRewardsPolkaBTC<T>>::insert(signer.clone(), <TotalRewardsPolkaBTC<T>>::get(signer.clone()).checked_sub(&amount).ok_or(Error::<T>::InsufficientFunds)?);
             ext::treasury::transfer::<T>(Self::fee_pool_account_id(), signer.clone(), amount)?;
@@ -223,6 +222,7 @@ decl_module! {
         #[transactional]
         fn withdraw_dot(origin, amount: DOT<T>) -> DispatchResult
         {
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let signer = ensure_signed(origin)?;
             <TotalRewardsDOT<T>>::insert(signer.clone(), <TotalRewardsDOT<T>>::get(signer.clone()).checked_sub(&amount).ok_or(Error::<T>::InsufficientFunds)?);
             ext::collateral::transfer::<T>(Self::fee_pool_account_id(), signer.clone(), amount)?;
@@ -504,7 +504,7 @@ impl<T: Config> Module<T> {
     /// Helper for validating the `chain_spec` parameters
     fn ensure_rationals_sum_to_one(dist: Vec<UnsignedFixedPoint<T>>) -> DispatchResult {
         let sum = dist.iter().fold(UnsignedFixedPoint::<T>::default(), |a, &b| a + b);
-        let one = UnsignedFixedPoint::<T>::checked_from_integer(Module::<T>::btc_to_inner(1u32.into())?)
+        let one = UnsignedFixedPoint::<T>::checked_from_integer(Pallet::<T>::btc_to_inner(1u32.into())?)
             .ok_or(Error::<T>::ArithmeticOverflow)?;
         ensure!(sum == one, Error::<T>::InvalidRewardDist);
         Ok(())

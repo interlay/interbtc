@@ -11,7 +11,7 @@ pub(crate) mod collateral {
         receiver: T::AccountId,
         amount: DOT<T>,
     ) -> DispatchResult {
-        <collateral::Module<T>>::transfer(sender, receiver, amount)
+        <collateral::Pallet<T>>::transfer(sender, receiver, amount)
     }
 }
 
@@ -25,7 +25,7 @@ pub(crate) mod treasury {
         receiver: T::AccountId,
         amount: PolkaBTC<T>,
     ) -> DispatchResult {
-        <treasury::Module<T>>::transfer(sender, receiver, amount)
+        <treasury::Pallet<T>>::transfer(sender, receiver, amount)
     }
 }
 
@@ -39,7 +39,7 @@ pub(crate) mod sla {
         total_reward_polka_btc: PolkaBTC<T>,
         total_reward_dot: DOT<T>,
     ) -> Result<Vec<(T::AccountId, PolkaBTC<T>, DOT<T>)>, DispatchError> {
-        <sla::Module<T>>::get_relayer_rewards(total_reward_polka_btc, total_reward_dot)
+        <sla::Pallet<T>>::get_relayer_rewards(total_reward_polka_btc, total_reward_dot)
     }
 
     pub fn get_vault_rewards<T: sla::Config>(
@@ -48,11 +48,20 @@ pub(crate) mod sla {
         total_reward_for_issued_in_dot: DOT<T>,
         total_reward_for_locked_in_dot: DOT<T>,
     ) -> Result<Vec<(T::AccountId, PolkaBTC<T>, DOT<T>)>, DispatchError> {
-        <sla::Module<T>>::get_vault_rewards(
+        <sla::Pallet<T>>::get_vault_rewards(
             total_reward_for_issued_in_polka_btc,
             total_reward_for_locked_in_polka_btc,
             total_reward_for_issued_in_dot,
             total_reward_for_locked_in_dot,
         )
+    }
+}
+
+#[cfg_attr(test, mockable)]
+pub(crate) mod security {
+    use frame_support::dispatch::DispatchError;
+
+    pub fn ensure_parachain_status_not_shutdown<T: security::Config>() -> Result<(), DispatchError> {
+        <security::Pallet<T>>::ensure_parachain_status_not_shutdown()
     }
 }

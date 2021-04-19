@@ -1,27 +1,37 @@
-//! THIS FILE WAS AUTO-GENERATED USING THE SUBSTRATE BENCHMARK CLI VERSION 2.0.0
-
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
+use frame_support::{
+    traits::Get,
+    weights::{constants::RocksDbWeight, Weight},
+};
 
-impl crate::WeightInfo for () {
+/// Weight functions needed for issue.
+pub trait WeightInfo {
+    fn request_issue() -> Weight;
+    fn execute_issue() -> Weight;
+    fn cancel_issue() -> Weight;
+    fn set_issue_period() -> Weight;
+}
+
+// For backwards compatibility and tests
+impl WeightInfo for () {
     fn request_issue() -> Weight {
-        452_088_000_u64
-            .saturating_add(DbWeight::get().reads(13_u64))
-            .saturating_add(DbWeight::get().writes(5_u64))
+        (11_798_074_000 as Weight)
+            .saturating_add(RocksDbWeight::get().reads(16 as Weight))
+            .saturating_add(RocksDbWeight::get().writes(5 as Weight))
     }
     fn execute_issue() -> Weight {
-        211_260_000_u64
-            .saturating_add(DbWeight::get().reads(14_u64))
-            .saturating_add(DbWeight::get().writes(3_u64))
+        (16_894_787_000 as Weight)
+            .saturating_add(RocksDbWeight::get().reads(24 as Weight))
+            .saturating_add(RocksDbWeight::get().writes(9 as Weight))
     }
     fn cancel_issue() -> Weight {
-        120_760_000_u64
-            .saturating_add(DbWeight::get().reads(6_u64))
-            .saturating_add(DbWeight::get().writes(3_u64))
+        (6_492_133_000 as Weight)
+            .saturating_add(RocksDbWeight::get().reads(9 as Weight))
+            .saturating_add(RocksDbWeight::get().writes(4 as Weight))
     }
     fn set_issue_period() -> Weight {
-        3_480_000_u64.saturating_add(DbWeight::get().writes(1_u64))
+        (204_239_000 as Weight).saturating_add(RocksDbWeight::get().writes(1 as Weight))
     }
 }

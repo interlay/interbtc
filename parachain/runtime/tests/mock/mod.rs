@@ -63,32 +63,53 @@ pub const DEFAULT_VAULT_TO_BE_REPLACED: u128 = 40_000;
 pub const CONFIRMATIONS: u32 = 6;
 
 pub type BTCRelayCall = btc_relay::Call<Runtime>;
-pub type BTCRelayModule = btc_relay::Module<Runtime>;
+pub type BTCRelayPallet = btc_relay::Pallet<Runtime>;
 pub type BTCRelayError = btc_relay::Error<Runtime>;
 pub type BTCRelayEvent = btc_relay::Event<Runtime>;
 
 pub type CollateralError = collateral::Error<Runtime>;
+pub type CollateralPallet = collateral::Pallet<Runtime>;
+
+pub type ExchangeRateOracleCall = exchange_rate_oracle::Call<Runtime>;
+pub type ExchangeRateOraclePallet = exchange_rate_oracle::Pallet<Runtime>;
+
+pub type FeeCall = fee::Call<Runtime>;
+pub type FeeError = fee::Error<Runtime>;
+pub type FeePallet = fee::Pallet<Runtime>;
 
 pub type IssueCall = issue::Call<Runtime>;
-pub type IssueModule = issue::Module<Runtime>;
+pub type IssuePallet = issue::Pallet<Runtime>;
 pub type IssueEvent = issue::Event<Runtime>;
 pub type IssueError = issue::Error<Runtime>;
 
 pub type RefundCall = refund::Call<Runtime>;
-pub type RefundModule = refund::Module<Runtime>;
+pub type RefundPallet = refund::Pallet<Runtime>;
 pub type RefundEvent = refund::Event<Runtime>;
 
 pub type RedeemCall = redeem::Call<Runtime>;
-pub type RedeemModule = redeem::Module<Runtime>;
-pub type RedeemEvent = redeem::Event<Runtime>;
+pub type RedeemPallet = redeem::Pallet<Runtime>;
 pub type RedeemError = redeem::Error<Runtime>;
+pub type RedeemEvent = redeem::Event<Runtime>;
 
 pub type ReplaceCall = replace::Call<Runtime>;
 pub type ReplaceEvent = replace::Event<Runtime>;
-pub type ReplaceModule = replace::Module<Runtime>;
+pub type ReplacePallet = replace::Pallet<Runtime>;
+
+pub type SecurityError = security::Error<Runtime>;
+pub type SecurityPallet = security::Pallet<Runtime>;
+
+pub type SlaPallet = sla::Pallet<Runtime>;
 
 pub type StakedRelayersCall = staked_relayers::Call<Runtime>;
-pub type StakedRelayersModule = staked_relayers::Module<Runtime>;
+pub type StakedRelayersPallet = staked_relayers::Pallet<Runtime>;
+
+pub type SystemModule = frame_system::Pallet<Runtime>;
+
+pub type TreasuryPallet = treasury::Pallet<Runtime>;
+
+pub type VaultRegistryCall = vault_registry::Call<Runtime>;
+pub type VaultRegistryError = vault_registry::Error<Runtime>;
+pub type VaultRegistryPallet = vault_registry::Pallet<Runtime>;
 
 pub fn default_user_state() -> UserData {
     UserData {
@@ -138,10 +159,10 @@ impl UserData {
     pub fn get(id: [u8; 32]) -> Self {
         let account_id = account_of(id);
         Self {
-            free_balance: CollateralModule::get_balance_from_account(&account_id),
-            locked_balance: CollateralModule::get_collateral_from_account(&account_id),
-            locked_tokens: TreasuryModule::get_locked_balance_from_account(account_id.clone()),
-            free_tokens: TreasuryModule::get_balance_from_account(account_id.clone()),
+            free_balance: CollateralPallet::get_balance_from_account(&account_id),
+            locked_balance: CollateralPallet::get_collateral_from_account(&account_id),
+            locked_tokens: TreasuryPallet::get_locked_balance_from_account(account_id.clone()),
+            free_tokens: TreasuryPallet::get_balance_from_account(account_id.clone()),
         }
     }
     #[allow(dead_code)]
@@ -150,24 +171,24 @@ impl UserData {
         let account_id = account_of(id);
 
         // set tokens to 0
-        TreasuryModule::lock(account_id.clone(), old.free_tokens).unwrap();
-        TreasuryModule::burn(account_id.clone(), old.free_tokens + old.locked_tokens).unwrap();
+        TreasuryPallet::lock(account_id.clone(), old.free_tokens).unwrap();
+        TreasuryPallet::burn(account_id.clone(), old.free_tokens + old.locked_tokens).unwrap();
 
         // set free balance:
-        CollateralModule::transfer(account_id.clone(), account_of(FAUCET), old.free_balance).unwrap();
-        CollateralModule::transfer(account_of(FAUCET), account_id.clone(), new.free_balance).unwrap();
+        CollateralPallet::transfer(account_id.clone(), account_of(FAUCET), old.free_balance).unwrap();
+        CollateralPallet::transfer(account_of(FAUCET), account_id.clone(), new.free_balance).unwrap();
 
         // set locked balance:
-        CollateralModule::slash_collateral(account_id.clone(), account_of(FAUCET), old.locked_balance).unwrap();
-        CollateralModule::transfer(account_of(FAUCET), account_id.clone(), new.locked_balance).unwrap();
-        CollateralModule::lock_collateral(&account_id, new.locked_balance).unwrap();
+        CollateralPallet::slash_collateral(account_id.clone(), account_of(FAUCET), old.locked_balance).unwrap();
+        CollateralPallet::transfer(account_of(FAUCET), account_id.clone(), new.locked_balance).unwrap();
+        CollateralPallet::lock_collateral(&account_id, new.locked_balance).unwrap();
 
         // set free_tokens
-        TreasuryModule::mint(account_id.clone(), new.free_tokens);
+        TreasuryPallet::mint(account_id.clone(), new.free_tokens);
 
         // set locked_tokens
-        TreasuryModule::mint(account_id.clone(), new.locked_tokens);
-        TreasuryModule::lock(account_id, new.locked_tokens).unwrap();
+        TreasuryPallet::mint(account_id.clone(), new.locked_tokens);
+        TreasuryPallet::lock(account_id, new.locked_tokens).unwrap();
 
         // sanity check:
         assert_eq!(Self::get(id), new);
@@ -185,8 +206,8 @@ pub struct FeePool {
 impl FeePool {
     pub fn get() -> Self {
         Self {
-            balance: FeeModule::epoch_rewards_dot(),
-            tokens: FeeModule::epoch_rewards_polka_btc(),
+            balance: FeePallet::epoch_rewards_dot(),
+            tokens: FeePallet::epoch_rewards_polka_btc(),
         }
     }
 }
@@ -208,7 +229,7 @@ impl CoreVaultData {
     #[allow(dead_code)]
     pub fn vault(vault: [u8; 32]) -> Self {
         let account_id = account_of(vault);
-        let vault = VaultRegistryModule::get_vault_from_id(&account_id).unwrap();
+        let vault = VaultRegistryPallet::get_vault_from_id(&account_id).unwrap();
         Self {
             to_be_issued: vault.to_be_issued_tokens,
             issued: vault.issued_tokens,
@@ -219,8 +240,8 @@ impl CoreVaultData {
             griefing_collateral: CurrencySource::<Runtime>::Griefing(account_id.clone())
                 .current_balance()
                 .unwrap(),
-            free_balance: CollateralModule::get_balance_from_account(&account_id),
-            free_tokens: TreasuryModule::get_balance_from_account(account_id.clone()),
+            free_balance: CollateralPallet::get_balance_from_account(&account_id),
+            free_tokens: TreasuryPallet::get_balance_from_account(account_id.clone()),
             to_be_replaced: vault.to_be_replaced_tokens,
             replace_collateral: vault.replace_collateral,
         }
@@ -228,15 +249,15 @@ impl CoreVaultData {
     #[allow(dead_code)]
     pub fn liquidation_vault() -> Self {
         let account_id = account_of(LIQUIDATION_VAULT);
-        let vault = VaultRegistryModule::get_liquidation_vault();
+        let vault = VaultRegistryPallet::get_liquidation_vault();
         Self {
             to_be_issued: vault.to_be_issued_tokens,
             issued: vault.issued_tokens,
             to_be_redeemed: vault.to_be_redeemed_tokens,
             backing_collateral: CurrencySource::<Runtime>::LiquidationVault.current_balance().unwrap(),
             griefing_collateral: 0,
-            free_balance: CollateralModule::get_balance_from_account(&account_id),
-            free_tokens: TreasuryModule::get_balance_from_account(account_id.clone()),
+            free_balance: CollateralPallet::get_balance_from_account(&account_id),
+            free_tokens: TreasuryPallet::get_balance_from_account(account_id.clone()),
             to_be_replaced: 0,
             replace_collateral: 0,
         }
@@ -252,68 +273,68 @@ impl CoreVaultData {
         try_register_vault(100, vault);
 
         // temporarily give vault a lot of backing collateral so we can set issued & to-be-issued to whatever we want
-        VaultRegistryModule::slash_collateral(
+        VaultRegistryPallet::slash_collateral(
             CurrencySource::FreeBalance(account_of(FAUCET)),
             CurrencySource::Backing(account_of(vault)),
-            CollateralModule::get_balance_from_account(&account_of(FAUCET)),
+            CollateralPallet::get_balance_from_account(&account_of(FAUCET)),
         )
         .unwrap();
 
         let current = CoreVaultData::vault(vault);
 
         // set all token types to 0
-        assert_ok!(VaultRegistryModule::decrease_to_be_issued_tokens(
+        assert_ok!(VaultRegistryPallet::decrease_to_be_issued_tokens(
             &account_of(vault),
             current.to_be_issued
         ));
-        assert_ok!(VaultRegistryModule::decrease_to_be_redeemed_tokens(
+        assert_ok!(VaultRegistryPallet::decrease_to_be_redeemed_tokens(
             &account_of(vault),
             current.to_be_redeemed
         ));
-        assert_ok!(VaultRegistryModule::try_increase_to_be_redeemed_tokens(
+        assert_ok!(VaultRegistryPallet::try_increase_to_be_redeemed_tokens(
             &account_of(vault),
             current.issued
         ));
-        assert_ok!(VaultRegistryModule::decrease_tokens(
+        assert_ok!(VaultRegistryPallet::decrease_tokens(
             &account_of(vault),
             &account_of(DUMMY),
             current.issued,
         ));
-        assert_ok!(VaultRegistryModule::decrease_to_be_replaced_tokens(
+        assert_ok!(VaultRegistryPallet::decrease_to_be_replaced_tokens(
             &account_of(vault),
             current.to_be_replaced,
         ));
-        assert_ok!(TreasuryModule::lock(account_of(vault), current.free_tokens));
-        assert_ok!(TreasuryModule::burn(account_of(vault), current.free_tokens));
+        assert_ok!(TreasuryPallet::lock(account_of(vault), current.free_tokens));
+        assert_ok!(TreasuryPallet::burn(account_of(vault), current.free_tokens));
 
         // set to-be-issued
-        assert_ok!(VaultRegistryModule::try_increase_to_be_issued_tokens(
+        assert_ok!(VaultRegistryPallet::try_increase_to_be_issued_tokens(
             &account_of(vault),
             state.to_be_issued
         ));
         // set issued (2 steps)
-        assert_ok!(VaultRegistryModule::try_increase_to_be_issued_tokens(
+        assert_ok!(VaultRegistryPallet::try_increase_to_be_issued_tokens(
             &account_of(vault),
             state.issued
         ));
-        assert_ok!(VaultRegistryModule::issue_tokens(&account_of(vault), state.issued));
+        assert_ok!(VaultRegistryPallet::issue_tokens(&account_of(vault), state.issued));
         // set to-be-redeemed
-        assert_ok!(VaultRegistryModule::try_increase_to_be_redeemed_tokens(
+        assert_ok!(VaultRegistryPallet::try_increase_to_be_redeemed_tokens(
             &account_of(vault),
             state.to_be_redeemed
         ));
         // set to-be-replaced:
-        assert_ok!(VaultRegistryModule::try_increase_to_be_replaced_tokens(
+        assert_ok!(VaultRegistryPallet::try_increase_to_be_replaced_tokens(
             &account_of(vault),
             state.to_be_replaced,
             state.replace_collateral
         ));
 
         // set free tokens:
-        TreasuryModule::mint(account_of(vault), state.free_tokens);
+        TreasuryPallet::mint(account_of(vault), state.free_tokens);
 
         // clear all balances
-        VaultRegistryModule::slash_collateral(
+        VaultRegistryPallet::slash_collateral(
             CurrencySource::Backing(account_of(vault)),
             CurrencySource::FreeBalance(account_of(FAUCET)),
             CurrencySource::<Runtime>::Backing(account_of(vault))
@@ -321,7 +342,7 @@ impl CoreVaultData {
                 .unwrap(),
         )
         .unwrap();
-        VaultRegistryModule::slash_collateral(
+        VaultRegistryPallet::slash_collateral(
             CurrencySource::Griefing(account_of(vault)),
             CurrencySource::FreeBalance(account_of(FAUCET)),
             CurrencySource::<Runtime>::Griefing(account_of(vault))
@@ -329,7 +350,7 @@ impl CoreVaultData {
                 .unwrap(),
         )
         .unwrap();
-        VaultRegistryModule::slash_collateral(
+        VaultRegistryPallet::slash_collateral(
             CurrencySource::FreeBalance(account_of(vault)),
             CurrencySource::FreeBalance(account_of(FAUCET)),
             CurrencySource::<Runtime>::FreeBalance(account_of(vault))
@@ -339,19 +360,19 @@ impl CoreVaultData {
         .unwrap();
 
         // now set balances to desired values
-        VaultRegistryModule::slash_collateral(
+        VaultRegistryPallet::slash_collateral(
             CurrencySource::FreeBalance(account_of(FAUCET)),
             CurrencySource::Backing(account_of(vault)),
             state.backing_collateral,
         )
         .unwrap();
-        VaultRegistryModule::slash_collateral(
+        VaultRegistryPallet::slash_collateral(
             CurrencySource::FreeBalance(account_of(FAUCET)),
             CurrencySource::Griefing(account_of(vault)),
             state.griefing_collateral,
         )
         .unwrap();
-        VaultRegistryModule::slash_collateral(
+        VaultRegistryPallet::slash_collateral(
             CurrencySource::FreeBalance(account_of(FAUCET)),
             CurrencySource::FreeBalance(account_of(vault)),
             state.free_balance,
@@ -448,10 +469,10 @@ impl ParachainTwoVaultState {
 }
 #[allow(dead_code)]
 pub fn drop_exchange_rate_and_liquidate(vault: [u8; 32]) {
-    assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(
+    assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
         FixedU128::checked_from_integer(10_000_000_000).unwrap()
     ));
-    assert_ok!(VaultRegistryModule::liquidate_vault(&account_of(vault)));
+    assert_ok!(VaultRegistryPallet::liquidate_vault(&account_of(vault)));
 }
 
 #[allow(dead_code)]
@@ -461,10 +482,10 @@ pub fn set_default_thresholds() {
     let premium = FixedU128::checked_from_rational(135, 100).unwrap();
     let liquidation = FixedU128::checked_from_rational(110, 100).unwrap();
 
-    VaultRegistryModule::set_secure_collateral_threshold(secure);
-    VaultRegistryModule::set_auction_collateral_threshold(auction);
-    VaultRegistryModule::set_premium_redeem_threshold(premium);
-    VaultRegistryModule::set_liquidation_collateral_threshold(liquidation);
+    VaultRegistryPallet::set_secure_collateral_threshold(secure);
+    VaultRegistryPallet::set_auction_collateral_threshold(auction);
+    VaultRegistryPallet::set_premium_redeem_threshold(premium);
+    VaultRegistryPallet::set_liquidation_collateral_threshold(liquidation);
 }
 
 pub fn dummy_public_key() -> BtcPublicKey {
@@ -476,7 +497,7 @@ pub fn dummy_public_key() -> BtcPublicKey {
 
 #[allow(dead_code)]
 pub fn try_register_vault(collateral: u128, vault: [u8; 32]) {
-    if VaultRegistryModule::get_vault_from_id(&account_of(vault)).is_err() {
+    if VaultRegistryPallet::get_vault_from_id(&account_of(vault)).is_err() {
         assert_ok!(
             Call::VaultRegistry(VaultRegistryCall::register_vault(collateral, dummy_public_key()))
                 .dispatch(origin_of(account_of(vault)))
@@ -493,23 +514,23 @@ pub fn force_issue_tokens(user: [u8; 32], vault: [u8; 32], collateral: u128, tok
     );
 
     // increase to be issued tokens
-    assert_ok!(VaultRegistryModule::try_increase_to_be_issued_tokens(
+    assert_ok!(VaultRegistryPallet::try_increase_to_be_issued_tokens(
         &account_of(vault),
         tokens
     ));
 
     // issue tokens
-    assert_ok!(VaultRegistryModule::issue_tokens(&account_of(vault), tokens));
+    assert_ok!(VaultRegistryPallet::issue_tokens(&account_of(vault), tokens));
 
     // mint tokens to the user
-    treasury::Module::<Runtime>::mint(user.into(), tokens);
+    treasury::Pallet::<Runtime>::mint(user.into(), tokens);
 }
 
 #[allow(dead_code)]
 pub fn required_collateral_for_issue(issue_btc: u128) -> u128 {
-    let fee_amount_btc = FeeModule::get_issue_fee(issue_btc).unwrap();
+    let fee_amount_btc = FeePallet::get_issue_fee(issue_btc).unwrap();
     let total_amount_btc = issue_btc + fee_amount_btc;
-    VaultRegistryModule::get_required_collateral_for_polkabtc(total_amount_btc).unwrap()
+    VaultRegistryPallet::get_required_collateral_for_polkabtc(total_amount_btc).unwrap()
 }
 
 pub fn assert_store_main_chain_header_event(height: u32, hash: H256Le, relayer: AccountId) {
@@ -575,7 +596,7 @@ impl TransactionGenerator {
         self.relayer = relayer;
         self
     }
-    pub fn mine(&self) -> (H256Le, u32, Vec<u8>, Vec<u8>) {
+    pub fn mine(&self) -> (H256Le, u32, Vec<u8>, Vec<u8>, Transaction) {
         let mut height = 1;
         let extra_confirmations = self.confirmations - 1;
 
@@ -590,13 +611,13 @@ impl TransactionGenerator {
         let raw_init_block_header = RawBlockHeader::from_bytes(&init_block.header.try_format().unwrap())
             .expect("could not serialize block header");
 
-        match BTCRelayModule::initialize(account_of(ALICE), raw_init_block_header, height) {
+        match BTCRelayPallet::initialize(account_of(ALICE), raw_init_block_header, height) {
             Ok(_) => {}
             Err(e) if e == BTCRelayError::AlreadyInitialized.into() => {}
             _ => panic!("Failed to initialize btc relay"),
         }
 
-        height = BTCRelayModule::get_best_block_height() + 1;
+        height = BTCRelayPallet::get_best_block_height() + 1;
 
         let value = self.amount as i64;
         let mut transaction_builder = TransactionBuilder::new();
@@ -616,7 +637,7 @@ impl TransactionGenerator {
 
         let transaction = transaction_builder.build();
 
-        let prev_hash = BTCRelayModule::get_best_block();
+        let prev_hash = BTCRelayPallet::get_best_block();
         let block = BlockBuilder::new()
             .with_previous_hash(prev_hash)
             .with_version(2)
@@ -662,7 +683,7 @@ impl TransactionGenerator {
             prev_block_hash = conf_block.header.hash().unwrap();
         }
 
-        (tx_id, tx_block_height, bytes_proof, raw_tx)
+        (tx_id, tx_block_height, bytes_proof, raw_tx, transaction)
     }
 
     fn relay(&self, height: u32, block: &Block, raw_block_header: RawBlockHeader) {
@@ -677,7 +698,7 @@ impl TransactionGenerator {
             assert_store_main_chain_header_event(height, block.header.hash().unwrap(), account_of(relayer));
         } else {
             // bypass staked relayer module
-            assert_ok!(BTCRelayModule::store_block_header(&account_of(ALICE), raw_block_header));
+            assert_ok!(BTCRelayPallet::store_block_header(&account_of(ALICE), raw_block_header));
             assert_store_main_chain_header_event(height, block.header.hash().unwrap(), account_of(ALICE));
         }
     }
@@ -689,48 +710,13 @@ pub fn generate_transaction_and_mine(
     amount: u128,
     return_data: Option<H256>,
 ) -> (H256Le, u32, Vec<u8>, Vec<u8>) {
-    TransactionGenerator::new()
+    let (tx_id, height, proof, raw_tx, _) = TransactionGenerator::new()
         .with_address(address)
         .with_amount(amount)
         .with_op_return(return_data)
-        .mine()
+        .mine();
+    (tx_id, height, proof, raw_tx)
 }
-
-#[allow(dead_code)]
-pub type SystemModule = frame_system::Pallet<Runtime>;
-
-#[allow(dead_code)]
-pub type SecurityModule = security::Module<Runtime>;
-#[allow(dead_code)]
-pub type SecurityError = security::Error<Runtime>;
-
-#[allow(dead_code)]
-pub type VaultRegistryCall = vault_registry::Call<Runtime>;
-#[allow(dead_code)]
-pub type VaultRegistryModule = vault_registry::Module<Runtime>;
-#[allow(dead_code)]
-pub type VaultRegistryError = vault_registry::Error<Runtime>;
-
-#[allow(dead_code)]
-pub type ExchangeRateOracleCall = exchange_rate_oracle::Call<Runtime>;
-#[allow(dead_code)]
-pub type ExchangeRateOracleModule = exchange_rate_oracle::Module<Runtime>;
-
-#[allow(dead_code)]
-pub type SlaModule = sla::Module<Runtime>;
-
-#[allow(dead_code)]
-pub type FeeModule = fee::Module<Runtime>;
-#[allow(dead_code)]
-pub type FeeCall = fee::Call<Runtime>;
-#[allow(dead_code)]
-pub type FeeError = fee::Error<Runtime>;
-
-#[allow(dead_code)]
-pub type CollateralModule = collateral::Module<Runtime>;
-
-#[allow(dead_code)]
-pub type TreasuryModule = treasury::Module<Runtime>;
 
 pub struct ExtBuilder {
     test_externalities: sp_io::TestExternalities,
@@ -860,12 +846,22 @@ impl ExtBuilder {
     }
 
     /// do setup common to all integration tests, then execute the callback
-    pub fn execute_with<R>(mut self, execute: impl FnOnce() -> R) -> R {
+    pub fn execute_with<R>(self, execute: impl FnOnce() -> R) -> R {
+        self.execute_without_relay_init(|| {
+            // initialize btc relay
+            let _ = TransactionGenerator::new().with_confirmations(7).mine();
+
+            execute()
+        })
+    }
+
+    /// used for btc-relay test
+    pub fn execute_without_relay_init<R>(mut self, execute: impl FnOnce() -> R) -> R {
         self.test_externalities.execute_with(|| {
             SystemModule::set_block_number(1); // required to be able to dispatch functions
-            SecurityModule::set_active_block_number(1);
+            SecurityPallet::set_active_block_number(1);
 
-            assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
+            assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
             set_default_thresholds();
 
             execute()

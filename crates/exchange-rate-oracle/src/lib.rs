@@ -11,6 +11,7 @@ mod ext;
 mod benchmarking;
 
 mod default_weights;
+pub use default_weights::WeightInfo;
 
 #[cfg(test)]
 mod tests;
@@ -57,13 +58,6 @@ pub enum Version {
     V0,
     /// BtcAddress type with script format.
     V1,
-}
-
-pub trait WeightInfo {
-    fn set_exchange_rate() -> Weight;
-    fn set_btc_tx_fees_per_byte() -> Weight;
-    fn insert_authorized_oracle() -> Weight;
-    fn remove_authorized_oracle() -> Weight;
 }
 
 const BTC_DECIMALS: u32 = 8;

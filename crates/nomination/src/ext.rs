@@ -78,7 +78,7 @@ pub(crate) mod vault_registry {
 
     pub fn liquidate_undercollateralized_vaults<T: vault_registry::Config>(
         liquidation_target: LiquidationTarget,
-    ) -> Result<Vec<(T::AccountId, DOT<T>)>, DispatchError> {
+    ) -> (u32, Vec<(T::AccountId, DOT<T>)>) {
         <vault_registry::Module<T>>::liquidate_undercollateralized_vaults(liquidation_target)
     }
 }

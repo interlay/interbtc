@@ -114,7 +114,7 @@ impl pallet_balances::Config<pallet_balances::Instance2> for Test {
 
 impl vault_registry::Config for Test {
     type Event = TestEvent;
-    type RandomnessSource = pallet_randomness_collective_flip::Module<Test>;
+    type RandomnessSource = pallet_randomness_collective_flip::Pallet<Test>;
     type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
 }
@@ -277,7 +277,7 @@ where
 {
     clear_mocks();
     ExtBuilder::build().execute_with(|| {
-        assert_ok!(<exchange_rate_oracle::Module<Test>>::_set_exchange_rate(
+        assert_ok!(<exchange_rate_oracle::Pallet<Test>>::_set_exchange_rate(
             FixedU128::one()
         ));
         Security::set_active_block_number(1);

@@ -12,6 +12,7 @@ pub mod types;
 mod benchmarking;
 
 mod default_weights;
+pub use default_weights::WeightInfo;
 
 #[cfg(test)]
 mod mock;
@@ -28,7 +29,8 @@ use mocktopus::macros::mockable;
 pub use security;
 
 use crate::types::{PolkaBTC, ProposalStatus, StakedRelayer, StatusUpdate, StatusUpdateId, Tally, Votes, DOT};
-use bitcoin::{parser::parse_transaction, types::*};
+use bitcoin::{parser::parse_transaction, types::*, utils::sha256d_le};
+
 use btc_relay::{BtcAddress, Error as BtcRelayError};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
@@ -45,22 +47,6 @@ use security::types::{ErrorCode, StatusCode};
 use sp_std::{collections::btree_set::BTreeSet, convert::TryInto, vec::Vec};
 use vault_registry::Wallet;
 
-pub trait WeightInfo {
-    fn initialize() -> Weight;
-    fn register_staked_relayer() -> Weight;
-    fn deregister_staked_relayer() -> Weight;
-    fn suggest_status_update() -> Weight;
-    fn vote_on_status_update() -> Weight;
-    fn force_status_update() -> Weight;
-    fn slash_staked_relayer() -> Weight;
-    fn report_vault_theft() -> Weight;
-    fn remove_active_status_update() -> Weight;
-    fn remove_inactive_status_update() -> Weight;
-    fn set_maturity_period() -> Weight;
-    fn evaluate_status_update() -> Weight;
-    fn store_block_header() -> Weight;
-}
-
 /// ## Configuration
 /// The pallet's configuration trait.
 pub trait Config:
@@ -73,6 +59,7 @@ pub trait Config:
     + replace::Config
     + refund::Config
     + sla::Config
+    + fee::Config
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
@@ -178,6 +165,7 @@ decl_module! {
             block_height: u32)
             -> DispatchResult
         {
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let relayer = ensure_signed(origin)?;
             Self::ensure_relayer_is_registered(&relayer)?;
             ext::btc_relay::initialize::<T>(relayer, raw_block_header, block_height)
@@ -192,6 +180,7 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::register_staked_relayer()]
         #[transactional]
         fn register_staked_relayer(origin, stake: DOT<T>) -> DispatchResult {
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let signer = ensure_signed(origin)?;
 
             ensure!(
@@ -226,6 +215,7 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::deregister_staked_relayer()]
         #[transactional]
         fn deregister_staked_relayer(origin) -> DispatchResult {
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let signer = ensure_signed(origin)?;
             let staked_relayer = Self::get_active_staked_relayer(&signer)?;
             Self::ensure_staked_relayer_is_not_voting(&signer)?;
@@ -274,6 +264,7 @@ decl_module! {
         fn store_block_header(
             origin, raw_block_header: RawBlockHeader
         ) -> DispatchResult {
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let relayer = ensure_signed(origin)?;
 
             Self::ensure_relayer_is_registered(&relayer)?;
@@ -454,11 +445,10 @@ decl_module! {
         #[weight = <T as Config>::WeightInfo::slash_staked_relayer()]
         #[transactional]
         fn slash_staked_relayer(origin, staked_relayer_id: T::AccountId) -> DispatchResult {
-            let signer = ensure_signed(origin)?;
-            Self::only_governance(&signer)?;
+            ensure_root(origin)?;
 
             let staked_relayer = Self::get_active_staked_relayer(&staked_relayer_id)?;
-            ext::collateral::slash_collateral::<T>(staked_relayer_id.clone(), signer, staked_relayer.stake)?;
+            ext::collateral::slash_collateral::<T>(staked_relayer_id.clone(), ext::fee::fee_pool_account_id::<T>(), staked_relayer.stake)?;
             Self::remove_active_staked_relayer(&staked_relayer_id);
 
             Self::deposit_event(<Event<T>>::SlashStakedRelayer(
@@ -479,8 +469,11 @@ decl_module! {
         /// * `raw_tx`: The raw Bitcoin transaction.
         #[weight = <T as Config>::WeightInfo::report_vault_theft()]
         #[transactional]
-        fn report_vault_theft(origin, vault_id: T::AccountId, tx_id: H256Le, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
+        fn report_vault_theft(origin, vault_id: T::AccountId, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let signer = ensure_signed(origin)?;
+
+            let tx_id = sha256d_le(&raw_tx);
 
             // liquidated vaults are removed, so no need for check here
 

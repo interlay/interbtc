@@ -12,7 +12,7 @@ use crate::{
 use frame_support::{assert_err, assert_noop, assert_ok, StorageMap};
 use mocktopus::mocking::*;
 use primitive_types::U256;
-use security::Module as Security;
+use security::Pallet as Security;
 use sp_arithmetic::{FixedPointNumber, FixedU128};
 use sp_runtime::traits::Header;
 use sp_std::convert::TryInto;
@@ -81,7 +81,7 @@ fn create_vault_and_issue_tokens(
     assert_ok!(res);
 
     // mint tokens to the vault
-    treasury::Module::<Test>::mint(id, issue_tokens);
+    treasury::Pallet::<Test>::mint(id, issue_tokens);
 
     id
 }
@@ -774,11 +774,41 @@ fn is_collateral_below_threshold_true_succeeds() {
 #[test]
 fn test_liquidate_undercollateralized_vaults_no_liquidation() {
     run_test(|| {
-        Vaults::<Test>::insert(0, Vault::default());
-        Vaults::<Test>::insert(1, Vault::default());
-        Vaults::<Test>::insert(2, Vault::default());
-        Vaults::<Test>::insert(3, Vault::default());
-        Vaults::<Test>::insert(4, Vault::default());
+        Vaults::<Test>::insert(
+            0,
+            Vault {
+                id: 0,
+                ..Default::default()
+            },
+        );
+        Vaults::<Test>::insert(
+            1,
+            Vault {
+                id: 1,
+                ..Default::default()
+            },
+        );
+        Vaults::<Test>::insert(
+            2,
+            Vault {
+                id: 2,
+                ..Default::default()
+            },
+        );
+        Vaults::<Test>::insert(
+            3,
+            Vault {
+                id: 3,
+                ..Default::default()
+            },
+        );
+        Vaults::<Test>::insert(
+            4,
+            Vault {
+                id: 4,
+                ..Default::default()
+            },
+        );
 
         let vaults: HashMap<<Test as frame_system::Config>::AccountId, bool> =
             vec![(0, false), (1, false), (2, false), (3, false), (4, false)]
@@ -786,23 +816,53 @@ fn test_liquidate_undercollateralized_vaults_no_liquidation() {
                 .collect();
 
         VaultRegistry::is_vault_below_liquidation_threshold
-            .mock_safe(move |id| MockResult::Return(Ok(*vaults.get(id).unwrap())));
+            .mock_safe(move |vault, _| MockResult::Return(Ok(*vaults.get(&vault.id).unwrap())));
         VaultRegistry::liquidate_vault.mock_safe(move |_| {
             panic!("Should not liquidate any vaults");
         });
 
-        VaultRegistry::liquidate_undercollateralized_vaults(LiquidationTarget::NonOperatorsOnly).unwrap();
+        VaultRegistry::liquidate_undercollateralized_vaults(LiquidationTarget::NonOperatorsOnly);
     });
 }
 
 #[test]
 fn test_liquidate_undercollateralized_vaults_succeeds() {
     run_test(|| {
-        Vaults::<Test>::insert(0, Vault::default());
-        Vaults::<Test>::insert(1, Vault::default());
-        Vaults::<Test>::insert(2, Vault::default());
-        Vaults::<Test>::insert(3, Vault::default());
-        Vaults::<Test>::insert(4, Vault::default());
+        Vaults::<Test>::insert(
+            0,
+            Vault {
+                id: 0,
+                ..Default::default()
+            },
+        );
+        Vaults::<Test>::insert(
+            1,
+            Vault {
+                id: 1,
+                ..Default::default()
+            },
+        );
+        Vaults::<Test>::insert(
+            2,
+            Vault {
+                id: 2,
+                ..Default::default()
+            },
+        );
+        Vaults::<Test>::insert(
+            3,
+            Vault {
+                id: 3,
+                ..Default::default()
+            },
+        );
+        Vaults::<Test>::insert(
+            4,
+            Vault {
+                id: 4,
+                ..Default::default()
+            },
+        );
 
         let vaults: HashMap<<Test as frame_system::Config>::AccountId, bool> =
             vec![(0, true), (1, false), (2, true), (3, false), (4, false)]
@@ -812,13 +872,13 @@ fn test_liquidate_undercollateralized_vaults_succeeds() {
         let vaults2 = vaults1.clone();
 
         VaultRegistry::is_vault_below_liquidation_threshold
-            .mock_safe(move |id| MockResult::Return(Ok(*vaults1.get(id).unwrap())));
+            .mock_safe(move |vault, _| MockResult::Return(Ok(*vaults1.get(&vault.id).unwrap())));
         VaultRegistry::liquidate_vault.mock_safe(move |id| {
             assert!(vaults2.get(id).unwrap());
             MockResult::Return(Ok(10u128))
         });
 
-        VaultRegistry::liquidate_undercollateralized_vaults(LiquidationTarget::NonOperatorsOnly).unwrap();
+        VaultRegistry::liquidate_undercollateralized_vaults(LiquidationTarget::NonOperatorsOnly);
     });
 }
 
@@ -981,7 +1041,7 @@ fn _is_vault_below_auction_threshold_false_succeeds() {
 #[test]
 fn register_vault_parachain_not_running_fails() {
     run_test(|| {
-        ext::security::ensure_parachain_status_running::<Test>
+        ext::security::ensure_parachain_status_not_shutdown::<Test>
             .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainNotRunning.into())));
 
         assert_noop!(
@@ -1019,7 +1079,12 @@ fn is_vault_below_liquidation_threshold_true_succeeds() {
         ext::collateral::for_account::<Test>.mock_safe(|_| MockResult::Return(DEFAULT_COLLATERAL));
         ext::oracle::dots_to_btc::<Test>.mock_safe(|_| MockResult::Return(Ok(DEFAULT_COLLATERAL / 2)));
 
-        assert_eq!(VaultRegistry::is_vault_below_liquidation_threshold(&id), Ok(true));
+        let vault = VaultRegistry::get_vault_from_id(&id).unwrap();
+        let threshold = VaultRegistry::get_liquidation_collateral_threshold();
+        assert_eq!(
+            VaultRegistry::is_vault_below_liquidation_threshold(&vault, threshold),
+            Ok(true)
+        );
     })
 }
 
@@ -1385,7 +1450,7 @@ fn wallet_has_btc_address_succeeds() {
 
 fn setup_block(i: u64, parent_hash: H256) -> H256 {
     System::initialize(&i, &parent_hash, &Default::default(), frame_system::InitKind::Full);
-    <pallet_randomness_collective_flip::Module<Test>>::on_initialize(i);
+    <pallet_randomness_collective_flip::Pallet<Test>>::on_initialize(i);
 
     let header = System::finalize();
     Security::<Test>::set_active_block_number(*header.number());
