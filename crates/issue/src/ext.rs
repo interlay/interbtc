@@ -29,7 +29,7 @@ pub(crate) mod btc_relay {
     }
 
     pub fn is_fully_initialized<T: btc_relay::Config>() -> Result<bool, DispatchError> {
-        <btc_relay::Module<T>>::is_fully_initialized()
+        <btc_relay::Pallet<T>>::is_fully_initialized()
     }
 }
 
@@ -129,8 +129,8 @@ pub(crate) mod security {
         <security::Pallet<T>>::get_secure_id(id)
     }
 
-    pub fn ensure_parachain_status_running<T: security::Config>() -> DispatchResult {
-        <security::Pallet<T>>::ensure_parachain_status_running()
+    pub fn ensure_parachain_status_not_shutdown<T: security::Config>() -> DispatchResult {
+        <security::Pallet<T>>::ensure_parachain_status_not_shutdown()
     }
 
     pub fn active_block_number<T: security::Config>() -> T::BlockNumber {

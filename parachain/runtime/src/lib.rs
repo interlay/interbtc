@@ -283,7 +283,6 @@ parameter_types! {
 }
 
 impl pallet_transaction_payment::Config for Runtime {
-    // type Currency = pallet_balances::Module<Runtime, pallet_balances::Instance1>;
     type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<DOT, ()>;
     type TransactionByteFee = TransactionByteFee;
     type WeightToFee = IdentityFee<Balance>;
@@ -754,7 +753,6 @@ impl_runtime_apis! {
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
             use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark, TrackedStorageKey};
 
-            // use frame_system_benchmarking::Module as SystemBench;
             impl frame_system_benchmarking::Config for Runtime {}
 
             let whitelist: Vec<TrackedStorageKey> = vec![

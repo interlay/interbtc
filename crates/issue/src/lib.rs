@@ -233,7 +233,7 @@ impl<T: Config> Module<T> {
         griefing_collateral: DOT<T>,
     ) -> Result<H256, DispatchError> {
         // Check that Parachain is RUNNING
-        ext::security::ensure_parachain_status_running::<T>()?;
+        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
         ensure!(
             ext::btc_relay::is_fully_initialized::<T>()?,
@@ -308,7 +308,7 @@ impl<T: Config> Module<T> {
         raw_tx: Vec<u8>,
     ) -> Result<(), DispatchError> {
         // Check that Parachain is RUNNING
-        ext::security::ensure_parachain_status_running::<T>()?;
+        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
         let mut issue = Self::get_issue_request_from_id(&issue_id)?;
         let mut maybe_refund_id = None;
@@ -432,6 +432,9 @@ impl<T: Config> Module<T> {
 
     /// Cancels CBA issuance if time has expired and slashes collateral.
     fn _cancel_issue(requester: T::AccountId, issue_id: H256) -> Result<(), DispatchError> {
+        // Check that Parachain is RUNNING
+        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
+
         let issue = Self::get_issue_request_from_id(&issue_id)?;
 
         // only cancellable after the request has expired

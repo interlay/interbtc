@@ -16,8 +16,8 @@ fn initial_sla() -> FixedI128 {
 
 fn test_with<R>(execute: impl FnOnce() -> R) -> R {
     ExtBuilder::build().execute_with(|| {
-        SecurityModule::set_active_block_number(1);
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
+        SecurityPallet::set_active_block_number(1);
+        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
         set_default_thresholds();
 
         SlaPallet::set_vault_sla(&account_of(VAULT), initial_sla());

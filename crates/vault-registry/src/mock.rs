@@ -137,7 +137,7 @@ impl exchange_rate_oracle::Config for Test {
 
 impl Config for Test {
     type Event = TestEvent;
-    type RandomnessSource = pallet_randomness_collective_flip::Module<Test>;
+    type RandomnessSource = pallet_randomness_collective_flip::Pallet<Test>;
     type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
 }

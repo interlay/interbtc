@@ -13,14 +13,14 @@ const RELAYER_2: [u8; 32] = GRACE;
 
 fn test_with(execute: impl Fn(Currency)) {
     ExtBuilder::build().execute_with(|| {
-        SecurityModule::set_active_block_number(1);
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
+        SecurityPallet::set_active_block_number(1);
+        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
         setup_dot_reward();
         execute(Currency::DOT);
     });
     ExtBuilder::build().execute_with(|| {
-        SecurityModule::set_active_block_number(1);
-        assert_ok!(ExchangeRateOracleModule::_set_exchange_rate(FixedU128::one()));
+        SecurityPallet::set_active_block_number(1);
+        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
         execute(Currency::PolkaBTC);
     });
 }
@@ -111,7 +111,7 @@ fn setup_dot_reward() {
 }
 
 fn set_issued_and_backing(vault: [u8; 32], amount_issued: u128, backing: u128) {
-    SecurityModule::set_active_block_number(1);
+    SecurityPallet::set_active_block_number(1);
 
     // we want issued to be 100 times amount_issued, _including fees_
     let request_amount = 100 * amount_issued;
@@ -251,5 +251,21 @@ fn test_maintainer_fee_pool_withdrawal() {
         assert_ok!(FeePallet::update_rewards_for_epoch());
 
         assert_eq_modulo_rounding!(get_rewards(currency, MAINTAINER), maintainer_rewards);
+    })
+}
+
+#[test]
+fn integration_test_fee_with_parachain_shutdown_fails() {
+    ExtBuilder::build().execute_with(|| {
+        SecurityPallet::set_status(StatusCode::Shutdown);
+
+        assert_noop!(
+            Call::Fee(FeeCall::withdraw_polka_btc(0)).dispatch(origin_of(account_of(ALICE))),
+            SecurityError::ParachainShutdown
+        );
+        assert_noop!(
+            Call::Fee(FeeCall::withdraw_dot(0)).dispatch(origin_of(account_of(ALICE))),
+            SecurityError::ParachainShutdown
+        );
     })
 }

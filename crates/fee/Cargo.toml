@@ -25,6 +25,7 @@ pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "r
 collateral = { path = "../collateral", default-features = false }
 treasury = { path = "../treasury", default-features = false }
 sla = { path = "../sla", default-features = false }
+security = { path = "../security", default-features = false }
 
 [dev-dependencies]
 mocktopus = "0.7.0"
@@ -32,7 +33,6 @@ frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch =
 pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 
-security = { path = "../security", default-features = false }
 exchange-rate-oracle = { path = "../exchange-rate-oracle", default-features = false }
 vault-registry = { path = "../vault-registry", default-features = false }
 
@@ -52,6 +52,7 @@ std = [
 	"pallet-balances/std",
 	"collateral/std",
 	"treasury/std",
+	"security/std",
 	"sla/std",
 ]
 runtime-benchmarks = [

@@ -1041,7 +1041,7 @@ fn _is_vault_below_auction_threshold_false_succeeds() {
 #[test]
 fn register_vault_parachain_not_running_fails() {
     run_test(|| {
-        ext::security::ensure_parachain_status_running::<Test>
+        ext::security::ensure_parachain_status_not_shutdown::<Test>
             .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainNotRunning.into())));
 
         assert_noop!(
@@ -1450,7 +1450,7 @@ fn wallet_has_btc_address_succeeds() {
 
 fn setup_block(i: u64, parent_hash: H256) -> H256 {
     System::initialize(&i, &parent_hash, &Default::default(), frame_system::InitKind::Full);
-    <pallet_randomness_collective_flip::Module<Test>>::on_initialize(i);
+    <pallet_randomness_collective_flip::Pallet<Test>>::on_initialize(i);
 
     let header = System::finalize();
     Security::<Test>::set_active_block_number(*header.number());

@@ -60,19 +60,9 @@ pub(crate) mod oracle {
 #[cfg_attr(test, mockable)]
 pub(crate) mod security {
     use frame_support::dispatch::DispatchResult;
-    use security::ErrorCode;
-    use sp_std::vec::Vec;
-
-    pub fn ensure_parachain_status_running<T: security::Config>() -> DispatchResult {
-        <security::Pallet<T>>::ensure_parachain_status_running()
-    }
 
     pub fn ensure_parachain_status_not_shutdown<T: security::Config>() -> DispatchResult {
         <security::Pallet<T>>::ensure_parachain_status_not_shutdown()
-    }
-
-    pub fn ensure_parachain_does_not_have_errors<T: security::Config>(error_codes: Vec<ErrorCode>) -> DispatchResult {
-        <security::Pallet<T>>::ensure_parachain_does_not_have_errors(error_codes)
     }
 
     pub fn active_block_number<T: security::Config>() -> T::BlockNumber {
