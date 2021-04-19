@@ -136,7 +136,7 @@ impl collateral::Config for Test {
 impl vault_registry::Config for Test {
     type Event = TestEvent;
     type UnsignedFixedPoint = FixedU128;
-    type RandomnessSource = pallet_randomness_collective_flip::Module<Test>;
+    type RandomnessSource = pallet_randomness_collective_flip::Pallet<Test>;
     type WeightInfo = ();
 }
 

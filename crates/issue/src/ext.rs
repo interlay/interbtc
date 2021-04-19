@@ -29,7 +29,7 @@ pub(crate) mod btc_relay {
     }
 
     pub fn is_fully_initialized<T: btc_relay::Config>() -> Result<bool, DispatchError> {
-        <btc_relay::Module<T>>::is_fully_initialized()
+        <btc_relay::Pallet<T>>::is_fully_initialized()
     }
 }
 

@@ -13,7 +13,7 @@ pub(crate) mod security {
 
     #[cfg(test)]
     pub fn ensure_parachain_status_running<T: security::Config>() -> UnitResult {
-        <security::Module<T>>::ensure_parachain_status_running()
+        <security::Pallet<T>>::ensure_parachain_status_running()
     }
 
     pub fn ensure_parachain_status_not_shutdown<T: security::Config>() -> UnitResult {

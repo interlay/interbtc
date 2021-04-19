@@ -68,10 +68,10 @@ pub type BTCRelayError = btc_relay::Error<Runtime>;
 pub type BTCRelayEvent = btc_relay::Event<Runtime>;
 
 pub type CollateralError = collateral::Error<Runtime>;
-pub type CollateralPallet = collateral::Module<Runtime>;
+pub type CollateralPallet = collateral::Pallet<Runtime>;
 
 pub type ExchangeRateOracleCall = exchange_rate_oracle::Call<Runtime>;
-pub type ExchangeRateOraclePallet = exchange_rate_oracle::Module<Runtime>;
+pub type ExchangeRateOraclePallet = exchange_rate_oracle::Pallet<Runtime>;
 
 pub type FeeCall = fee::Call<Runtime>;
 pub type FeeError = fee::Error<Runtime>;

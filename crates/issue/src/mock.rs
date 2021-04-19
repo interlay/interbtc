@@ -115,7 +115,7 @@ impl pallet_balances::Config<pallet_balances::Instance2> for Test {
 
 impl vault_registry::Config for Test {
     type Event = TestEvent;
-    type RandomnessSource = pallet_randomness_collective_flip::Module<Test>;
+    type RandomnessSource = pallet_randomness_collective_flip::Pallet<Test>;
     type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
 }

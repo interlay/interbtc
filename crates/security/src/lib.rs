@@ -83,11 +83,7 @@ decl_module! {
         }
 
         fn on_initialize(_chain_height: T::BlockNumber) -> Weight {
-            if Self::status() == StatusCode::Running {
-                <ActiveBlockCount<T>>::mutate(|n| {
-                    *n = n.saturating_add(1u32.into());
-                });
-            }
+            Self::increment_active_block();
 
             0
         }
@@ -253,6 +249,14 @@ impl<T: Config> Module<T> {
             *n = res;
             *n
         })
+    }
+
+    fn increment_active_block() {
+        if Self::status() == StatusCode::Running {
+            <ActiveBlockCount<T>>::mutate(|n| {
+                *n = n.saturating_add(1u32.into());
+            });
+        }
     }
 
     /// Generates a 256-bit unique hash from an `AccountId` and the
