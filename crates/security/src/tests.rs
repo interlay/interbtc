@@ -166,3 +166,30 @@ fn testget_secure_ids_not_equal() {
         assert_ne!(left, right);
     })
 }
+
+#[test]
+fn testget_increment_active_block_succeeds() {
+    run_test(|| {
+        let initial_active_block = Security::active_block_number();
+        Security::set_status(StatusCode::Running);
+        Security::increment_active_block();
+        assert_eq!(Security::active_block_number(), initial_active_block + 1);
+    })
+}
+
+#[test]
+fn testget_active_block_not_incremented_if_not_running() {
+    run_test(|| {
+        let initial_active_block = Security::active_block_number();
+
+        // not updated if there is an error
+        Security::set_status(StatusCode::Error);
+        Security::increment_active_block();
+        assert_eq!(Security::active_block_number(), initial_active_block);
+
+        // not updated if there is shutdown
+        Security::set_status(StatusCode::Shutdown);
+        Security::increment_active_block();
+        assert_eq!(Security::active_block_number(), initial_active_block);
+    })
+}
