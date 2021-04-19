@@ -165,8 +165,8 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Transfer DOT from a sender a receiver. Can only fail if
-    /// the sender account has too little locked DOT.
+    /// Transfer from a sender's locked balance to a receiver's `stauts` balance. 
+    /// Can only fail if the sender account has too little locked DOT.
     ///
     /// # Arguments
     ///
@@ -180,10 +180,6 @@ impl<T: Config> Module<T> {
         amount: BalanceOf<T>,
         status: BalanceStatus,
     ) -> DispatchResult {
-        ensure!(
-            T::DOT::reserved_balance(&sender) >= amount,
-            Error::<T>::InsufficientCollateralAvailable
-        );
         T::DOT::repatriate_reserved(&sender, &receiver, amount, status)?;
         Ok(())
     }

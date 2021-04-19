@@ -205,7 +205,7 @@ pub(crate) mod nomination {
         <nomination::Module<T>>::liquidate_operator_with_status(vault_id, VaultStatus::CommittedTheft)
     }
 
-    pub fn is_nomination_enabled<T: nomination::Config>() -> Result<bool, DispatchError> {
+    pub fn is_nomination_enabled<T: nomination::Config>() -> bool {
         <nomination::Module<T>>::is_nomination_enabled()
     }
 

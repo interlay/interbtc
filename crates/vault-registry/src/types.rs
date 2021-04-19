@@ -384,21 +384,6 @@ impl<T: Config> RichVault<T> {
         })
     }
 
-    pub fn is_withdrawal_safe(&mut self, collateral: DOT<T>) -> Result<bool, DispatchError> {
-        let remaining_collateral = self
-            .data
-            .backing_collateral
-            .checked_sub(&collateral)
-            .ok_or(Error::<T>::InsufficientCollateral)?;
-        let tokens = self
-            .data
-            .issued_tokens
-            .checked_add(&self.data.to_be_issued_tokens)
-            .ok_or(Error::<T>::ArithmeticOverflow)?;
-        let is_safe = !Module::<T>::is_collateral_below_secure_threshold(remaining_collateral, tokens)?;
-        Ok(is_safe)
-    }
-
     pub fn get_collateral(&self) -> DOT<T> {
         self.data.backing_collateral
     }

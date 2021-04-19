@@ -149,7 +149,6 @@ decl_storage! {
                     config.relayer_rewards,
                     config.maintainer_rewards,
                     config.collator_rewards,
-                    config.nomination_rewards,
                 ]
             ).unwrap();
 

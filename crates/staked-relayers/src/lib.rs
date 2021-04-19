@@ -495,7 +495,7 @@ decl_module! {
             ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
             Self::is_transaction_invalid(&vault_id, raw_tx)?;
 
-            if ext::nomination::is_nomination_enabled::<T>()? &&
+            if ext::nomination::is_nomination_enabled::<T>() &&
                 ext::nomination::is_operator::<T>(&vault_id)? {
                 ext::nomination::liquidate_theft_operator::<T>(&vault_id)?
             } else {

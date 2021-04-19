@@ -218,7 +218,7 @@ pub(crate) mod nomination {
 
     use crate::types::DOT;
 
-    pub fn is_nomination_enabled<T: nomination::Config>() -> Result<bool, DispatchError> {
+    pub fn is_nomination_enabled<T: nomination::Config>() -> bool {
         <nomination::Module<T>>::is_nomination_enabled()
     }
 

@@ -428,9 +428,13 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         let mut vault = Self::get_active_rich_vault_from_id(vault_id)?;
 
-        // will fail if free_balance is insufficient
+        // Will fail if free_balance is insufficient
         ext::collateral::lock::<T>(depositor_id, amount)?;
         if !vault_id.eq(depositor_id) {
+            // Transfer `amount` from the depositor's reserved balance
+            // to the Vault's reserved balance. `slash_collateral` cannot
+            // be used here, because it should be clear that the transfer
+            // must fail unless the depositor has enough balane.
             ext::collateral::repatriate_reserved::<T>(
                 depositor_id.clone(),
                 vault_id.clone(),
@@ -447,10 +451,10 @@ impl<T: Config> Module<T> {
     }
 
     pub fn force_withdraw_collateral(vault_id: &T::AccountId, amount: DOT<T>) -> DispatchResult {
-        Self::force_withdraw_collateral_from_address(vault_id, amount, vault_id)
+        Self::force_withdraw_collateral_to_address(vault_id, amount, vault_id)
     }
 
-    pub fn force_withdraw_collateral_from_address(
+    pub fn force_withdraw_collateral_to_address(
         vault_id: &T::AccountId,
         amount: DOT<T>,
         payee_id: &T::AccountId,
@@ -467,10 +471,10 @@ impl<T: Config> Module<T> {
     }
 
     pub fn try_withdraw_collateral(vault_id: &T::AccountId, amount: DOT<T>) -> DispatchResult {
-        Self::try_withdraw_collateral_from_address(vault_id, amount, vault_id)
+        Self::try_withdraw_collateral_to_address(vault_id, amount, vault_id)
     }
 
-    pub fn try_withdraw_collateral_from_address(
+    pub fn try_withdraw_collateral_to_address(
         vault_id: &T::AccountId,
         amount: DOT<T>,
         payee_id: &T::AccountId,
@@ -480,7 +484,7 @@ impl<T: Config> Module<T> {
             Error::<T>::InsufficientCollateral
         );
 
-        Self::force_withdraw_collateral_from_address(vault_id, amount, payee_id)?;
+        Self::force_withdraw_collateral_to_address(vault_id, amount, payee_id)?;
 
         Ok(())
     }
@@ -1358,12 +1362,6 @@ impl<T: Config> Module<T> {
             return Ok(0u32.into());
         }
         vault.issuable_tokens()
-    }
-
-    /// Get the amount of tokens issued by a vault
-    pub fn get_issued_tokens_from_vault(vault_id: T::AccountId) -> Result<PolkaBTC<T>, DispatchError> {
-        let vault = Self::get_active_rich_vault_from_id(&vault_id)?;
-        Ok(vault.issued_tokens())
     }
 
     /// Get the amount of tokens issued by a vault
