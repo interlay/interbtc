@@ -165,7 +165,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Transfer from a sender's locked balance to a receiver's `stauts` balance. 
+    /// Transfer from a sender's locked balance to a receiver's `stauts` balance.
     /// Can only fail if the sender account has too little locked DOT.
     ///
     /// # Arguments
