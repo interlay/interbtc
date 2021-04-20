@@ -179,7 +179,7 @@ decl_module! {
         /// * `stake`: to-be-locked collateral/stake in DOT
         #[weight = <T as Config>::WeightInfo::register_staked_relayer()]
         #[transactional]
-        fn register_staked_relayer(origin, stake: DOT<T>) -> DispatchResult {
+        fn register_staked_relayer(origin, #[compact] stake: DOT<T>) -> DispatchResult {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let signer = ensure_signed(origin)?;
 
@@ -283,7 +283,15 @@ decl_module! {
         /// * `message`: Message detailing reason for status update
         #[weight = <T as Config>::WeightInfo::suggest_status_update()]
         #[transactional]
-        fn suggest_status_update(origin, deposit: DOT<T>, status_code: StatusCode, add_error: Option<ErrorCode>, remove_error: Option<ErrorCode>, block_hash: Option<H256Le>, message: Vec<u8>) -> DispatchResult {
+        fn suggest_status_update(
+            origin,
+            #[compact] deposit: DOT<T>,
+            status_code: StatusCode,
+            add_error: Option<ErrorCode>,
+            remove_error: Option<ErrorCode>,
+            block_hash: Option<H256Le>,
+            message: Vec<u8>
+        ) -> DispatchResult {
             let signer = ensure_signed(origin)?;
 
             // voting is disabled, for now only root can vote. Return Ok to clients so they

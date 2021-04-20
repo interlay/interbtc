@@ -162,9 +162,12 @@ decl_module! {
         /// * `griefing_collateral` - amount of DOT
         #[weight = <T as Config>::WeightInfo::request_issue()]
         #[transactional]
-        fn request_issue(origin, amount: PolkaBTC<T>, vault_id: T::AccountId, griefing_collateral: DOT<T>)
-            -> DispatchResult
-        {
+        fn request_issue(
+            origin,
+            #[compact] amount: PolkaBTC<T>,
+            vault_id: T::AccountId,
+            #[compact] griefing_collateral: DOT<T>
+        ) -> DispatchResult {
             let requester = ensure_signed(origin)?;
             Self::_request_issue(requester, amount, vault_id, griefing_collateral)?;
             Ok(())
