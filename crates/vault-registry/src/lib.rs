@@ -31,7 +31,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
-    traits::{BalanceStatus, Randomness},
+    traits::Randomness,
     transactional,
     weights::Weight,
     IterableStorageMap,
@@ -420,24 +420,16 @@ impl<T: Config> Module<T> {
         depositor_id: &T::AccountId,
     ) -> DispatchResult {
         let mut vault = Self::get_active_rich_vault_from_id(vault_id)?;
-
-        // Will fail if free_balance is insufficient
-        ext::collateral::lock::<T>(depositor_id, amount)?;
         if !vault_id.eq(depositor_id) {
-            // Transfer `amount` from the depositor's reserved balance
-            // to the Vault's reserved balance. `slash_collateral` cannot
-            // be used here, because it should be clear that the transfer
-            // must fail unless the depositor has enough balane.
-            ext::collateral::repatriate_reserved::<T>(
-                depositor_id.clone(),
-                vault_id.clone(),
+            Self::slash_collateral(
+                CurrencySource::FreeBalance(depositor_id.clone()),
+                CurrencySource::Backing(vault_id.clone()),
                 amount,
-                BalanceStatus::Reserved,
             )?;
+        } else {
+            ext::collateral::lock::<T>(depositor_id, amount)?;
         }
-
         Module::<T>::increase_total_backing_collateral(amount)?;
-
         vault.increase_backing_collateral(amount)?;
 
         Ok(())
@@ -453,11 +445,18 @@ impl<T: Config> Module<T> {
         payee_id: &T::AccountId,
     ) -> DispatchResult {
         let mut vault = Self::get_rich_vault_from_id(vault_id)?;
-
-        ext::collateral::repatriate_reserved::<T>(vault_id.clone(), payee_id.clone(), amount, BalanceStatus::Free)?;
+        if !vault_id.eq(payee_id) {
+            Self::slash_collateral(
+                CurrencySource::Backing(vault_id.clone()),
+                CurrencySource::FreeBalance(payee_id.clone()),
+                amount,
+            )?;
+        } else {
+            ext::collateral::release_collateral::<T>(vault_id, amount)?;
+        }
         Module::<T>::decrease_total_backing_collateral(amount)?;
-
         vault.decrease_backing_collateral(amount)?;
+
         Ok(())
     }
 
@@ -515,7 +514,6 @@ impl<T: Config> Module<T> {
     }
 
     pub fn slash_collateral(from: CurrencySource<T>, to: CurrencySource<T>, amount: DOT<T>) -> DispatchResult {
-        // move funds to free balance of the source
         match from {
             CurrencySource::Backing(ref account) => {
                 Self::force_withdraw_collateral(account, amount)?;
@@ -531,7 +529,7 @@ impl<T: Config> Module<T> {
         // move from sender's free balance to receiver's free balance
         ext::collateral::transfer::<T>(&from.account_id(), &to.account_id(), amount)?;
 
-        // move funds to free balance of the source
+        // move receiver funds from free balance to specified currency source
         match to {
             CurrencySource::Backing(ref account) => {
                 Self::try_lock_additional_collateral(account, amount)?;

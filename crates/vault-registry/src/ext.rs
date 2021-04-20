@@ -4,11 +4,7 @@ use mocktopus::macros::mockable;
 #[cfg_attr(test, mockable)]
 pub(crate) mod collateral {
     use crate::types::DOT;
-    use frame_support::{
-        dispatch::DispatchResult,
-        traits::{BalanceStatus, Currency},
-    };
-    type BalanceOf<T> = <<T as collateral::Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+    use frame_support::dispatch::DispatchResult;
 
     pub fn transfer<T: collateral::Config>(
         source: &T::AccountId,
@@ -32,15 +28,6 @@ pub(crate) mod collateral {
 
     pub fn get_free_balance<T: collateral::Config>(id: &T::AccountId) -> DOT<T> {
         <collateral::Pallet<T>>::get_balance_from_account(id)
-    }
-
-    pub fn repatriate_reserved<T: collateral::Config>(
-        sender: T::AccountId,
-        receiver: T::AccountId,
-        amount: BalanceOf<T>,
-        status: BalanceStatus,
-    ) -> DispatchResult {
-        <collateral::Module<T>>::repatriate_reserved(sender, receiver, amount, status)
     }
 }
 

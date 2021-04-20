@@ -16,7 +16,7 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
     sp_runtime::ModuleId,
-    traits::{BalanceStatus, Currency, ExistenceRequirement, ReservableCurrency},
+    traits::{Currency, ExistenceRequirement, ReservableCurrency},
 };
 
 type BalanceOf<T> = <<T as Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -162,25 +162,6 @@ impl<T: Config> Module<T> {
             Error::<T>::InsufficientCollateralAvailable
         );
         Self::slash_collateral_saturated(sender, receiver, amount)?;
-        Ok(())
-    }
-
-    /// Transfer from a sender's locked balance to a receiver's `stauts` balance.
-    /// Can only fail if the sender account has too little locked DOT.
-    ///
-    /// # Arguments
-    ///
-    /// * `sender` - the account to take DOT from
-    /// * `receiver` - the receiver of the DOT
-    /// * `amount` - the to be transferred amount
-    /// * `status` - the status of the amount, once transferred (`reserved` or `free`)
-    pub fn repatriate_reserved(
-        sender: T::AccountId,
-        receiver: T::AccountId,
-        amount: BalanceOf<T>,
-        status: BalanceStatus,
-    ) -> DispatchResult {
-        T::DOT::repatriate_reserved(&sender, &receiver, amount, status)?;
         Ok(())
     }
 
