@@ -25,6 +25,7 @@ pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "
 bitcoin = { path = "../bitcoin", default-features = false }
 sla = { path = "../sla", default-features = false }
 security = { path = "../security", default-features = false }
+log = { version = "0.4.14", default-features = false }
 
 [dev-dependencies]
 mocktopus = "0.7.0"

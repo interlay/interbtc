@@ -496,6 +496,14 @@ impl vault_registry::Config for Runtime {
     type WeightInfo = ();
 }
 
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
+where
+    Call: From<C>,
+{
+    type OverarchingCall = Call;
+    type Extrinsic = UncheckedExtrinsic;
+}
+
 pub use exchange_rate_oracle::RawEvent as RawExchangeRateOracleEvent;
 
 impl exchange_rate_oracle::Config for Runtime {
@@ -585,7 +593,7 @@ macro_rules! construct_polkabtc_runtime {
                 // Operational
                 Security: security::{Pallet, Call, Storage, Event<T>},
                 StakedRelayers: staked_relayers::{Pallet, Call, Storage, Event<T>},
-                VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>},
+                VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned},
                 ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
                 Issue: issue::{Pallet, Call, Config<T>, Storage, Event<T>},
                 Redeem: redeem::{Pallet, Call, Config<T>, Storage, Event<T>},
