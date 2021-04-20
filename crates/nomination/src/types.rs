@@ -162,7 +162,6 @@ impl<T: Config> RichOperator<T> {
                 .collateral
                 .checked_add(&increase_by)
                 .ok_or(Error::<T>::ArithmeticOverflow)?;
-            v.nominators.insert(nominator_id.clone(), nominator);
             Ok(())
         })
     }
@@ -187,7 +186,6 @@ impl<T: Config> RichOperator<T> {
                     .collateral
                     .checked_sub(&decrease_by)
                     .ok_or(Error::<T>::ArithmeticUnderflow)?;
-                v.nominators.insert(nominator_id.clone(), nominator);
             }
             Ok(())
         })
@@ -329,7 +327,7 @@ impl<T: Config> RichOperator<T> {
         let withdrawable_collateral = nominator
             .collateral
             .checked_sub(&nominator.collateral_to_be_withdrawn)
-            .ok_or(Error::<T>::InsufficientCollateral)?;
+            .ok_or(Error::<T>::ArithmeticUnderflow)?;
         ensure!(
             collateral_to_withdraw <= withdrawable_collateral,
             Error::<T>::TooLittleNominatedCollateral
@@ -349,7 +347,6 @@ impl<T: Config> RichOperator<T> {
                 .collateral_to_be_withdrawn
                 .checked_add(&collateral_to_withdraw)
                 .ok_or(Error::<T>::ArithmeticOverflow)?;
-            v.nominators.insert(nominator_id.clone(), nominator);
             Ok(())
         })
     }
@@ -402,7 +399,6 @@ impl<T: Config> RichOperator<T> {
                 .checked_sub(&withdrawal.1)
                 .ok_or(Error::<T>::ArithmeticUnderflow)?;
             nominator.pending_withdrawals.remove(&request_id);
-            v.nominators.insert(nominator_id.clone(), nominator);
             Ok(())
         })
     }

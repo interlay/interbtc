@@ -939,9 +939,9 @@ impl<T: Config> Module<T> {
 
         for (vault_id, vault) in <Vaults<T>>::iter() {
             num_vaults = num_vaults.saturating_add(1);
-            if Self::is_vault_below_liquidation_threshold(&vault, liquidation_threshold).unwrap_or(false) {
-                if let Some(to_slash) = Self::liquidate_vault(&vault_id).ok() {
-                    if Self::is_liquidation_target(&vault_id, &liquidation_target) {
+            if Self::is_liquidation_target(&vault_id, &liquidation_target) {
+                if Self::is_vault_below_liquidation_threshold(&vault, liquidation_threshold).unwrap_or(false) {
+                    if let Some(to_slash) = Self::liquidate_vault(&vault_id).ok() {
                         amounts_slashed.push((vault_id.clone(), to_slash));
                     }
                 }
