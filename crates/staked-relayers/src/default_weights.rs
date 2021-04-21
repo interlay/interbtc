@@ -9,15 +9,8 @@ pub trait WeightInfo {
     fn initialize() -> Weight;
     fn register_staked_relayer() -> Weight;
     fn deregister_staked_relayer() -> Weight;
-    fn suggest_status_update() -> Weight;
-    fn vote_on_status_update() -> Weight;
-    fn force_status_update() -> Weight;
-    fn slash_staked_relayer() -> Weight;
     fn report_vault_theft() -> Weight;
-    fn remove_active_status_update() -> Weight;
-    fn remove_inactive_status_update() -> Weight;
-    fn set_maturity_period() -> Weight;
-    fn evaluate_status_update() -> Weight;
+    fn slash_staked_relayer() -> Weight;
     fn store_block_header() -> Weight;
 }
 
@@ -38,21 +31,6 @@ impl crate::WeightInfo for () {
             .saturating_add(DbWeight::get().reads(5 as Weight))
             .saturating_add(DbWeight::get().writes(4 as Weight))
     }
-    fn suggest_status_update() -> Weight {
-        (86_591_000 as Weight)
-            .saturating_add(DbWeight::get().reads(5 as Weight))
-            .saturating_add(DbWeight::get().writes(4 as Weight))
-    }
-    fn vote_on_status_update() -> Weight {
-        (45_633_000 as Weight)
-            .saturating_add(DbWeight::get().reads(2 as Weight))
-            .saturating_add(DbWeight::get().writes(1 as Weight))
-    }
-    fn force_status_update() -> Weight {
-        (30_442_000 as Weight)
-            .saturating_add(DbWeight::get().reads(2 as Weight))
-            .saturating_add(DbWeight::get().writes(2 as Weight))
-    }
     fn slash_staked_relayer() -> Weight {
         (109_555_000 as Weight)
             .saturating_add(DbWeight::get().reads(6 as Weight))
@@ -62,18 +40,6 @@ impl crate::WeightInfo for () {
         (251_206_000 as Weight)
             .saturating_add(DbWeight::get().reads(16 as Weight))
             .saturating_add(DbWeight::get().writes(5 as Weight))
-    }
-    fn remove_active_status_update() -> Weight {
-        (5_585_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
-    }
-    fn remove_inactive_status_update() -> Weight {
-        (5_571_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
-    }
-    fn set_maturity_period() -> Weight {
-        (5_571_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
-    }
-    fn evaluate_status_update() -> Weight {
-        (5_571_000 as Weight).saturating_add(DbWeight::get().writes(1 as Weight))
     }
     fn store_block_header() -> Weight {
         (123_623_000 as Weight)

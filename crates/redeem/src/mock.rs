@@ -248,12 +248,7 @@ impl ExtBuilder {
             relayer_target_sla: FixedI128::from(100),
             relayer_block_submission: FixedI128::from(1),
             relayer_duplicate_block_submission: FixedI128::from(1),
-            relayer_correct_no_data_vote_or_report: FixedI128::from(1),
-            relayer_correct_invalid_vote_or_report: FixedI128::from(10),
             relayer_correct_theft_report: FixedI128::from(1),
-            relayer_false_no_data_vote_or_report: FixedI128::from(-10),
-            relayer_false_invalid_vote_or_report: FixedI128::from(-100),
-            relayer_ignored_vote: FixedI128::from(-10),
         }
         .assimilate_storage(&mut storage)
         .unwrap();

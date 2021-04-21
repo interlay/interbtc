@@ -36,7 +36,7 @@ benchmarks! {
             .with_timestamp(1588813835)
             .mine(U256::from(2).pow(254.into())).unwrap();
         let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
-        <ActiveStakedRelayers<T>>::insert(&origin, StakedRelayer { stake: stake.into(), height: Security::<T>::active_block_number() });
+        <Stakes<T>>::insert(&origin, Into::<DOT<T>>::into(stake));
     }: _(RawOrigin::Signed(origin), block_header, height)
 
     store_block_header {
@@ -56,7 +56,7 @@ benchmarks! {
         let raw_block_header = RawBlockHeader::from_bytes(&init_block.header.try_format().unwrap())
             .expect("could not serialize block header");
 
-            <ActiveStakedRelayers<T>>::insert(&origin, StakedRelayer { stake: stake.into(), height: Security::<T>::active_block_number() });
+        <Stakes<T>>::insert(&origin, Into::<DOT<T>>::into(stake));
 
         BtcRelay::<T>::initialize(origin.clone(), raw_block_header, height).unwrap();
 
@@ -78,14 +78,14 @@ benchmarks! {
         let u in 100 .. 1000;
     }: _(RawOrigin::Signed(origin.clone()), u.into())
     verify {
-        assert_eq!(<InactiveStakedRelayers<T>>::get(origin).stake, u.into());
+        assert_eq!(<Stakes<T>>::get(origin), Into::<DOT<T>>::into(u));
     }
 
     deregister_staked_relayer {
         let origin: T::AccountId = account("Origin", 0, 0);
         let _ = T::DOT::make_free_balance_be(&origin, (1u32 << 31).into());
         let stake: u32 = 100;
-        <ActiveStakedRelayers<T>>::insert(&origin, StakedRelayer { stake: stake.into(), height: Security::<T>::active_block_number() });
+        <Stakes<T>>::insert(&origin, Into::<DOT<T>>::into(stake));
         Collateral::<T>::lock_collateral(&origin, stake.into()).unwrap();
     }: _(RawOrigin::Signed(origin))
 
@@ -94,7 +94,7 @@ benchmarks! {
         let _ = T::DOT::make_free_balance_be(&staked_relayer, (1u32 << 31).into());
 
         let stake: u32 = 100;
-        StakedRelayers::<T>::insert_active_staked_relayer(&staked_relayer, stake.into(), Security::<T>::active_block_number());
+        <Stakes<T>>::insert(&staked_relayer, Into::<DOT<T>>::into(stake));
         Collateral::<T>::lock_collateral(&staked_relayer, stake.into()).unwrap();
 
     }: _(RawOrigin::Root, staked_relayer)
@@ -104,7 +104,7 @@ benchmarks! {
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
         let stake: u32 = 100;
-        StakedRelayers::<T>::insert_active_staked_relayer(&origin, stake.into(), Security::<T>::active_block_number());
+        <Stakes<T>>::insert(&origin, Into::<DOT<T>>::into(stake));
 
         let vault_address = BtcAddress::P2PKH(H160::from_slice(&[
             126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8,

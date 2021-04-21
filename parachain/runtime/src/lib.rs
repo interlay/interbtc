@@ -572,7 +572,7 @@ macro_rules! construct_polkabtc_runtime {
 
                 // Operational
                 Security: security::{Pallet, Call, Storage, Event<T>},
-                StakedRelayers: staked_relayers::{Pallet, Call, Config<T>, Storage, Event<T>},
+                StakedRelayers: staked_relayers::{Pallet, Call, Storage, Event<T>},
                 VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>},
                 ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
                 Issue: issue::{Pallet, Call, Config<T>, Storage, Event<T>},

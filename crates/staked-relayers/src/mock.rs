@@ -33,7 +33,7 @@ frame_support::construct_runtime!(
         // Operational
         BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},
         Security: security::{Pallet, Call, Storage, Event<T>},
-        StakedRelayers: staked_relayers::{Pallet, Call, Config<T>, Storage, Event<T>},
+        StakedRelayers: staked_relayers::{Pallet, Call, Storage, Event<T>},
         VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>},
         ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
         Redeem: redeem::{Pallet, Call, Config<T>, Storage, Event<T>},
@@ -280,13 +280,6 @@ impl ExtBuilder {
                     (DAVE, DAVE_BALANCE),
                     (EVE, EVE_BALANCE),
                 ],
-            }
-            .assimilate_storage(storage)
-            .unwrap();
-
-            staked_relayers::GenesisConfig::<Test> {
-                gov_id: CAROL,
-                maturity_period: 10,
             }
             .assimilate_storage(storage)
             .unwrap();
