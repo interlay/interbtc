@@ -119,11 +119,11 @@ pub(crate) mod vault_registry {
         <vault_registry::Pallet<T>>::decrease_to_be_replaced_tokens(vault_id, tokens)
     }
 
-    pub fn try_lock_additional_collateral<T: vault_registry::Config>(
+    pub fn lock_additional_collateral<T: vault_registry::Config>(
         vault_id: &T::AccountId,
         amount: DOT<T>,
     ) -> Result<(), DispatchError> {
-        <vault_registry::Pallet<T>>::try_lock_additional_collateral(vault_id, amount)
+        <vault_registry::Pallet<T>>::_lock_additional_collateral(vault_id, amount)
     }
 
     pub fn force_withdraw_collateral<T: vault_registry::Config>(

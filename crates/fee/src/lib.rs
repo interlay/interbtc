@@ -449,16 +449,12 @@ impl<T: Config> Module<T> {
         Self::btc_for(amount, percentage)
     }
 
-    pub fn dot_to_inner(x: DOT<T>) -> Result<Inner<T>, DispatchError> {
-        // TODO: concrete type is the same, circumvent this conversion
-        let y = TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError)?;
-        TryInto::<Inner<T>>::try_into(y).map_err(|_| Error::<T>::TryIntoIntError.into())
+    pub fn btc_for(amount: PolkaBTC<T>, percentage: UnsignedFixedPoint<T>) -> Result<PolkaBTC<T>, DispatchError> {
+        Self::inner_to_btc(Self::calculate_for(Self::btc_to_inner(amount)?, percentage)?)
     }
 
-    pub fn inner_to_dot(x: Inner<T>) -> Result<DOT<T>, DispatchError> {
-        // TODO: add try_into for `FixedPointOperand` upstream
-        let y = UniqueSaturatedInto::<u128>::unique_saturated_into(x);
-        TryInto::<DOT<T>>::try_into(y).map_err(|_| Error::<T>::TryIntoIntError.into())
+    pub fn dot_for(amount: DOT<T>, percentage: UnsignedFixedPoint<T>) -> Result<DOT<T>, DispatchError> {
+        Self::inner_to_dot(Self::calculate_for(Self::dot_to_inner(amount)?, percentage)?)
     }
 
     // Private functions internal to this pallet
@@ -473,6 +469,18 @@ impl<T: Config> Module<T> {
         // TODO: add try_into for `FixedPointOperand` upstream
         let y = UniqueSaturatedInto::<u128>::unique_saturated_into(x);
         TryInto::<PolkaBTC<T>>::try_into(y).map_err(|_| Error::<T>::TryIntoIntError.into())
+    }
+
+    fn dot_to_inner(x: DOT<T>) -> Result<Inner<T>, DispatchError> {
+        // TODO: concrete type is the same, circumvent this conversion
+        let y = TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError)?;
+        TryInto::<Inner<T>>::try_into(y).map_err(|_| Error::<T>::TryIntoIntError.into())
+    }
+
+    fn inner_to_dot(x: Inner<T>) -> Result<DOT<T>, DispatchError> {
+        // TODO: add try_into for `FixedPointOperand` upstream
+        let y = UniqueSaturatedInto::<u128>::unique_saturated_into(x);
+        TryInto::<DOT<T>>::try_into(y).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
     /// Take the `percentage` of an `amount`
@@ -490,14 +498,6 @@ impl<T: Config> Module<T> {
             .into_inner()
             .checked_div(&UnsignedFixedPoint::<T>::accuracy())
             .ok_or(Error::<T>::ArithmeticUnderflow.into())
-    }
-
-    fn btc_for(amount: PolkaBTC<T>, percentage: UnsignedFixedPoint<T>) -> Result<PolkaBTC<T>, DispatchError> {
-        Self::inner_to_btc(Self::calculate_for(Self::btc_to_inner(amount)?, percentage)?)
-    }
-
-    fn dot_for(amount: DOT<T>, percentage: UnsignedFixedPoint<T>) -> Result<DOT<T>, DispatchError> {
-        Self::inner_to_dot(Self::calculate_for(Self::dot_to_inner(amount)?, percentage)?)
     }
 
     #[allow(dead_code)]

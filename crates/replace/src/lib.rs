@@ -602,7 +602,7 @@ impl<T: Config> Module<T> {
         let actual_new_vault_collateral =
             ext::vault_registry::calculate_collateral::<T>(collateral, actual_btc, amount_btc)?;
 
-        ext::vault_registry::try_lock_additional_collateral::<T>(&new_vault_id, actual_new_vault_collateral)?;
+        ext::vault_registry::lock_additional_collateral::<T>(&new_vault_id, actual_new_vault_collateral)?;
 
         // increase old-vault's to-be-redeemed tokens - this should never fail
         ext::vault_registry::try_increase_to_be_redeemed_tokens::<T>(&old_vault_id, actual_btc)?;

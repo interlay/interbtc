@@ -25,6 +25,7 @@ pub use sp_runtime::AccountId32;
 pub use std::convert::TryFrom;
 
 pub mod issue_testing_utils;
+pub mod nomination_testing_utils;
 pub mod redeem_testing_utils;
 
 pub const ALICE: [u8; 32] = [0u8; 32];
@@ -93,6 +94,7 @@ pub type RedeemEvent = redeem::Event<Runtime>;
 
 pub type ReplaceCall = replace::Call<Runtime>;
 pub type ReplaceEvent = replace::Event<Runtime>;
+pub type ReplaceError = replace::Error<Runtime>;
 pub type ReplacePallet = replace::Pallet<Runtime>;
 
 pub type SecurityError = security::Error<Runtime>;
@@ -110,6 +112,10 @@ pub type TreasuryPallet = treasury::Pallet<Runtime>;
 pub type VaultRegistryCall = vault_registry::Call<Runtime>;
 pub type VaultRegistryError = vault_registry::Error<Runtime>;
 pub type VaultRegistryPallet = vault_registry::Pallet<Runtime>;
+
+pub type NominationCall = nomination::Call<Runtime>;
+pub type NominationError = nomination::Error<Runtime>;
+pub type NominationPallet = nomination::Pallet<Runtime>;
 
 pub fn default_user_state() -> UserData {
     UserData {
@@ -473,6 +479,14 @@ pub fn drop_exchange_rate_and_liquidate(vault: [u8; 32]) {
         FixedU128::checked_from_integer(10_000_000_000).unwrap()
     ));
     assert_ok!(VaultRegistryPallet::liquidate_vault(&account_of(vault)));
+}
+
+#[allow(dead_code)]
+pub fn drop_exchange_rate_and_liquidate_operator(operator: [u8; 32]) {
+    assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
+        FixedU128::checked_from_integer(10_000_000_000).unwrap()
+    ));
+    assert_ok!(NominationPallet::liquidate_operator(&account_of(operator)));
 }
 
 #[allow(dead_code)]

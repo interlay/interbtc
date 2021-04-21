@@ -42,14 +42,14 @@ pub(crate) mod vault_registry {
         vault_id: &T::AccountId,
         amount: DOT<T>,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::increase_backing_collateral(vault_id, amount)
+        <vault_registry::Module<T>>::try_increase_backing_collateral(vault_id, amount)
     }
 
     pub fn decrease_backing_collateral<T: vault_registry::Config>(
         vault_id: &T::AccountId,
         amount: DOT<T>,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::decrease_backing_collateral(vault_id, amount)
+        <vault_registry::Module<T>>::try_decrease_backing_collateral(vault_id, amount)
     }
 
     pub fn lock_additional_collateral_from_address<T: vault_registry::Config>(
@@ -57,7 +57,7 @@ pub(crate) mod vault_registry {
         collateral: DOT<T>,
         depositor_id: &T::AccountId,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::try_lock_additional_collateral_from_address(vault_id, collateral, depositor_id)
+        <vault_registry::Module<T>>::_lock_additional_collateral_from_address(vault_id, collateral, depositor_id)
     }
 
     pub fn withdraw_collateral_to_address<T: vault_registry::Config>(
@@ -85,15 +85,10 @@ pub(crate) mod vault_registry {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod fee {
-    use crate::types::{Inner, DOT};
-
+    use crate::types::{UnsignedFixedPoint, DOT};
     use frame_support::dispatch::DispatchError;
 
-    pub fn inner_to_dot<T: fee::Config>(x: Inner<T>) -> Result<DOT<T>, DispatchError> {
-        <fee::Module<T>>::inner_to_dot(x)
-    }
-
-    pub fn dot_to_inner<T: fee::Config>(x: DOT<T>) -> Result<Inner<T>, DispatchError> {
-        <fee::Module<T>>::dot_to_inner(x)
+    pub fn dot_for<T: fee::Config>(amount: DOT<T>, percentage: UnsignedFixedPoint<T>) -> Result<DOT<T>, DispatchError> {
+        <fee::Module<T>>::dot_for(amount, percentage)
     }
 }

@@ -456,9 +456,10 @@ fn testnet_genesis(
             refund_btc_dust_value: 1000,
         },
         nomination: NominationConfig {
-            is_nomination_enabled: true,
+            is_nomination_enabled: false,
             get_operator_unbonding_period: 24 * HOURS,
             get_max_nomination_ratio: FixedU128::checked_from_rational(50, 100).unwrap(), // 50%
+            get_max_nominators_per_operator: 100,                                         // 50%
             get_nominator_unbonding_period: 12 * HOURS,
         },
     }

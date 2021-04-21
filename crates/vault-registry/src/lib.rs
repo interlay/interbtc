@@ -226,7 +226,7 @@ decl_module! {
 
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
-            Self::try_lock_additional_collateral(&sender, amount)?;
+            Self::_lock_additional_collateral(&sender, amount)?;
 
             let vault = Self::get_active_rich_vault_from_id(&sender)?;
 
@@ -355,7 +355,7 @@ impl<T: Config> Module<T> {
         let vault = Vault::new(vault_id.clone(), public_key);
         Self::insert_vault(vault_id, vault);
 
-        Self::try_lock_additional_collateral(vault_id, collateral)?;
+        Self::_lock_additional_collateral(vault_id, collateral)?;
 
         Self::deposit_event(Event::<T>::RegisterVault(vault_id.clone(), collateral));
 
@@ -387,19 +387,27 @@ impl<T: Config> Module<T> {
         <LiquidationVault<T>>::get()
     }
 
-    pub fn increase_backing_collateral(vault_id: &T::AccountId, amount: DOT<T>) -> DispatchResult {
+    pub fn try_increase_backing_collateral(vault_id: &T::AccountId, amount: DOT<T>) -> DispatchResult {
         ensure!(
             Self::is_nomination_operator(vault_id),
             Error::<T>::VaultIsNotANominationOperator
+        );
+        ensure!(
+            Self::is_allowed_to_withdraw_collateral(vault_id, amount)?,
+            Error::<T>::InsufficientCollateral
         );
         let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
         vault.increase_backing_collateral(amount)
     }
 
-    pub fn decrease_backing_collateral(vault_id: &T::AccountId, amount: DOT<T>) -> DispatchResult {
+    pub fn try_decrease_backing_collateral(vault_id: &T::AccountId, amount: DOT<T>) -> DispatchResult {
         ensure!(
             Self::is_nomination_operator(vault_id),
             Error::<T>::VaultIsNotANominationOperator
+        );
+        ensure!(
+            Self::is_allowed_to_withdraw_collateral(vault_id, amount)?,
+            Error::<T>::InsufficientCollateral
         );
         let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
         vault.decrease_backing_collateral(amount)
@@ -410,11 +418,11 @@ impl<T: Config> Module<T> {
     /// # Arguments
     /// * `vault_id` - the id of the vault from which to increase to-be-issued tokens
     /// * `amount` - the amount of DOT to be locked
-    pub fn try_lock_additional_collateral(vault_id: &T::AccountId, amount: DOT<T>) -> DispatchResult {
-        Self::try_lock_additional_collateral_from_address(vault_id, amount, vault_id)
+    pub fn _lock_additional_collateral(vault_id: &T::AccountId, amount: DOT<T>) -> DispatchResult {
+        Self::_lock_additional_collateral_from_address(vault_id, amount, vault_id)
     }
 
-    pub fn try_lock_additional_collateral_from_address(
+    pub fn _lock_additional_collateral_from_address(
         vault_id: &T::AccountId,
         amount: DOT<T>,
         depositor_id: &T::AccountId,
@@ -428,9 +436,9 @@ impl<T: Config> Module<T> {
             )?;
         } else {
             ext::collateral::lock::<T>(depositor_id, amount)?;
+            vault.increase_backing_collateral(amount)?;
         }
         Module::<T>::increase_total_backing_collateral(amount)?;
-        vault.increase_backing_collateral(amount)?;
 
         Ok(())
     }
@@ -453,9 +461,9 @@ impl<T: Config> Module<T> {
             )?;
         } else {
             ext::collateral::release_collateral::<T>(vault_id, amount)?;
+            vault.decrease_backing_collateral(amount)?;
         }
         Module::<T>::decrease_total_backing_collateral(amount)?;
-        vault.decrease_backing_collateral(amount)?;
 
         Ok(())
     }
@@ -532,7 +540,7 @@ impl<T: Config> Module<T> {
         // move receiver funds from free balance to specified currency source
         match to {
             CurrencySource::Backing(ref account) => {
-                Self::try_lock_additional_collateral(account, amount)?;
+                Self::_lock_additional_collateral(account, amount)?;
             }
             CurrencySource::Griefing(_) | CurrencySource::LiquidationVault => {
                 ext::collateral::lock::<T>(&to.account_id(), amount)?;
