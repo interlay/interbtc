@@ -2,7 +2,7 @@ use crate::{mock::*, ErrorCode, StatusCode};
 use frame_support::{assert_noop, assert_ok};
 use sp_core::H256;
 
-type Event = crate::Event;
+type Event = crate::Event<Test>;
 
 macro_rules! assert_emitted {
     ($event:expr) => {

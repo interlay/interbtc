@@ -26,7 +26,7 @@ frame_support::construct_runtime!(
         // Operational
         Collateral: collateral::{Pallet, Call, Storage, Event<T>},
         Treasury: treasury::{Pallet, Call, Storage, Event<T>},
-        Security: security::{Pallet, Call, Storage, Event},
+        Security: security::{Pallet, Call, Storage, Event<T>},
         ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
     }
 );
