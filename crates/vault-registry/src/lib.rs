@@ -205,7 +205,7 @@ decl_module! {
         /// * `InsufficientCollateralAvailable` - if the vault does not own enough collateral
         #[weight = <T as Config>::WeightInfo::register_vault()]
         #[transactional]
-        fn register_vault(origin, collateral: DOT<T>, public_key: BtcPublicKey) -> DispatchResult {
+        fn register_vault(origin, #[compact] collateral: DOT<T>, public_key: BtcPublicKey) -> DispatchResult {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             Self::_register_vault(&ensure_signed(origin)?, collateral, public_key)
         }
@@ -221,7 +221,7 @@ decl_module! {
         /// * `InsufficientCollateralAvailable` - if the vault does not own enough collateral
         #[weight = <T as Config>::WeightInfo::lock_additional_collateral()]
         #[transactional]
-        fn lock_additional_collateral(origin, amount: DOT<T>) -> DispatchResult {
+        fn lock_additional_collateral(origin, #[compact] amount: DOT<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
 
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
@@ -255,7 +255,7 @@ decl_module! {
         /// * `InsufficientCollateralAvailable` - if the vault does not own enough collateral
         #[weight = <T as Config>::WeightInfo::withdraw_collateral()]
         #[transactional]
-        fn withdraw_collateral(origin, amount: DOT<T>) -> DispatchResult {
+        fn withdraw_collateral(origin, #[compact] amount: DOT<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             let is_operator = <IsNominationOperator<T>>::get(sender.clone());
             ensure!(!is_operator, Error::<T>::NominationOperatorCannotWithdrawDirectly);

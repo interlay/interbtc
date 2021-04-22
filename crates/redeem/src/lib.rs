@@ -160,7 +160,7 @@ decl_module! {
         /// * `vault_id` - address of the vault
         #[weight = <T as Config>::WeightInfo::request_redeem()]
         #[transactional]
-        fn request_redeem(origin, amount_polka_btc: PolkaBTC<T>, btc_address: BtcAddress, vault_id: T::AccountId)
+        fn request_redeem(origin, #[compact] amount_polka_btc: PolkaBTC<T>, btc_address: BtcAddress, vault_id: T::AccountId)
             -> DispatchResult
         {
             let redeemer = ensure_signed(origin)?;
@@ -178,7 +178,7 @@ decl_module! {
         /// * `amount_polka_btc` - amount of PolkaBTC to burn
         #[weight = <T as Config>::WeightInfo::liquidation_redeem()]
         #[transactional]
-        fn liquidation_redeem(origin, amount_polka_btc: PolkaBTC<T>) -> DispatchResult
+        fn liquidation_redeem(origin, #[compact] amount_polka_btc: PolkaBTC<T>) -> DispatchResult
         {
             let redeemer = ensure_signed(origin)?;
             Self::_liquidation_redeem(redeemer, amount_polka_btc)?;

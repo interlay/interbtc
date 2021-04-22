@@ -199,7 +199,7 @@ decl_module! {
         /// * `amount` - amount of PolkaBTC
         #[weight = <T as Config>::WeightInfo::withdraw_polka_btc()]
         #[transactional]
-        fn withdraw_polka_btc(origin, amount: PolkaBTC<T>) -> DispatchResult
+        fn withdraw_polka_btc(origin, #[compact] amount: PolkaBTC<T>) -> DispatchResult
         {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let signer = ensure_signed(origin)?;
@@ -220,7 +220,7 @@ decl_module! {
         /// * `amount` - amount of DOT
         #[weight = <T as Config>::WeightInfo::withdraw_dot()]
         #[transactional]
-        fn withdraw_dot(origin, amount: DOT<T>) -> DispatchResult
+        fn withdraw_dot(origin, #[compact] amount: DOT<T>) -> DispatchResult
         {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let signer = ensure_signed(origin)?;

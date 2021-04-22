@@ -31,7 +31,7 @@ frame_support::construct_runtime!(
 
         // Operational
         BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},
-        Security: security::{Pallet, Call, Storage, Event},
+        Security: security::{Pallet, Call, Storage, Event<T>},
         VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>},
         ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
         Replace: replace::{Pallet, Call, Config<T>, Storage, Event<T>},

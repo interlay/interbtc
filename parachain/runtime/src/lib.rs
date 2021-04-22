@@ -561,7 +561,7 @@ macro_rules! construct_polkabtc_runtime {
                 BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},
 
                 // Operational
-                Security: security::{Pallet, Call, Storage, Event},
+                Security: security::{Pallet, Call, Storage, Event<T>},
                 StakedRelayers: staked_relayers::{Pallet, Call, Config<T>, Storage, Event<T>},
                 VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>},
                 ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
