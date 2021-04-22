@@ -70,7 +70,7 @@ decl_module! {
             para_id: ParaId,
             recipient: T::AccountId,
             network: NetworkId,
-            amount: DOT<T>,
+            #[compact] amount: DOT<T>,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
 
@@ -111,7 +111,7 @@ decl_module! {
             para_id: ParaId,
             recipient: T::AccountId,
             network: NetworkId,
-            amount: PolkaBTC<T>,
+            #[compact] amount: PolkaBTC<T>,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
 

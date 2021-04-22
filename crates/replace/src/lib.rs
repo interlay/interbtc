@@ -183,7 +183,7 @@ decl_module! {
         /// * `griefing_collateral` - amount of DOT
         #[weight = <T as Config>::WeightInfo::request_replace()]
         #[transactional]
-        fn request_replace(origin, amount: PolkaBTC<T>, griefing_collateral: DOT<T>)
+        fn request_replace(origin, #[compact] amount: PolkaBTC<T>, #[compact] griefing_collateral: DOT<T>)
             -> DispatchResult
         {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
@@ -218,7 +218,7 @@ decl_module! {
         /// * `btc_address` - the address that old-vault should transfer the btc to
         #[weight = <T as Config>::WeightInfo::accept_replace()]
         #[transactional]
-        fn accept_replace(origin, old_vault: T::AccountId, amount_btc: PolkaBTC<T>, collateral: DOT<T>, btc_address: BtcAddress)
+        fn accept_replace(origin, old_vault: T::AccountId, #[compact] amount_btc: PolkaBTC<T>, #[compact] collateral: DOT<T>, btc_address: BtcAddress)
             -> DispatchResult
         {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
@@ -237,7 +237,7 @@ decl_module! {
         /// * `collateral` - the collateral to be transferred over from old to new
         #[weight = <T as Config>::WeightInfo::auction_replace()]
         #[transactional]
-        fn auction_replace(origin, old_vault: T::AccountId, btc_amount: PolkaBTC<T>, collateral: DOT<T>, btc_address: BtcAddress)
+        fn auction_replace(origin, old_vault: T::AccountId, #[compact] btc_amount: PolkaBTC<T>, #[compact] collateral: DOT<T>, btc_address: BtcAddress)
             -> DispatchResult
         {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
