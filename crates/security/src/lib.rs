@@ -26,7 +26,6 @@ pub use crate::types::{ErrorCode, StatusCode};
 
 use codec::Encode;
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     transactional,
     weights::Weight,
@@ -37,42 +36,54 @@ use sha2::{Digest, Sha256};
 use sp_core::U256;
 use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
-/// ## Configuration
-/// The pallet's configuration trait.
-pub trait Config: frame_system::Config {
-    /// The overarching event type.
-    type Event: From<Event> + Into<<Self as frame_system::Config>::Event>;
-}
+pub use pallet::*;
 
-// This pallet's storage items.
-decl_storage! {
-    trait Store for Module<T: Config> as SecurityPallet {
-        /// Integer/Enum defining the current state of the BTC-Parachain.
-        ParachainStatus get(fn status): StatusCode;
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use frame_support::pallet_prelude::*;
+    use frame_system::pallet_prelude::*;
 
-        /// Set of ErrorCodes, indicating the reason for an "Error" ParachainStatus.
-        Errors get(fn errors): BTreeSet<ErrorCode>;
-
-        /// Integer increment-only counter, used to prevent collisions when generating identifiers
-        /// for e.g. issue, redeem or replace requests (for OP_RETURN field in Bitcoin).
-        Nonce: U256;
-
-        /// Like frame_system::block_number, but this one only increments if the parachain status is RUNNING.
-        /// This variable is used to keep track of durations, such as the issue/redeem/replace expiry. If the
-        /// parachain is not RUNNING, no payment proofs can be submitted, and it wouldn't be fair to punish
-        /// the user/vault. By using this variable we ensure that they have sufficient time to submit their
-        /// proof.
-        ActiveBlockCount get(fn active_block_number): T::BlockNumber;
+    /// ## Configuration
+    /// The pallet's configuration trait.
+    #[pallet::config]
+    pub trait Config: frame_system::Config {
+        /// The overarching event type.
+        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
     }
-}
 
-// The pallet's dispatchable functions.
-decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
-        type Error = Error<T>;
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    pub enum Event<T: Config> {
+        RecoverFromErrors(StatusCode, Vec<ErrorCode>),
+    }
 
-        fn deposit_event() = default;
+    #[pallet::error]
+    pub enum Error<T> {
+        NoDataBTCRelay,
+        InvalidBTCRelay,
+        ParachainNotRunning,
+        ParachainShutdown,
+        ParachainNotRunningOrLiquidation,
+        ParachainOracleOfflineError,
+        ParachainLiquidationError,
+        InvalidErrorCode,
+        ArithmeticOverflow,
+    }
 
+    impl<T: Config> From<ErrorCode> for Error<T> {
+        fn from(error_code: ErrorCode) -> Self {
+            match error_code {
+                ErrorCode::NoDataBTCRelay => Error::NoDataBTCRelay,
+                ErrorCode::InvalidBTCRelay => Error::InvalidBTCRelay,
+                ErrorCode::OracleOffline => Error::ParachainOracleOfflineError,
+                _ => Error::InvalidErrorCode,
+            }
+        }
+    }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
         /// Upgrade the runtime depending on the current `StorageVersion`.
         fn on_runtime_upgrade() -> Weight {
             if !ActiveBlockCount::<T>::exists() {
@@ -87,7 +98,38 @@ decl_module! {
 
             0
         }
+    }
 
+    /// Integer/Enum defining the current state of the BTC-Parachain.
+    #[pallet::storage]
+    #[pallet::getter(fn status)]
+    pub type ParachainStatus<T: Config> = StorageValue<_, StatusCode, ValueQuery>;
+
+    /// Set of ErrorCodes, indicating the reason for an "Error" ParachainStatus.
+    #[pallet::storage]
+    #[pallet::getter(fn errors)]
+    pub type Errors<T: Config> = StorageValue<_, BTreeSet<ErrorCode>, ValueQuery>;
+
+    /// Integer increment-only counter, used to prevent collisions when generating identifiers
+    /// for e.g. issue, redeem or replace requests (for OP_RETURN field in Bitcoin).
+    #[pallet::storage]
+    pub type Nonce<T: Config> = StorageValue<_, U256, ValueQuery>;
+
+    /// Like frame_system::block_number, but this one only increments if the parachain status is RUNNING.
+    /// This variable is used to keep track of durations, such as the issue/redeem/replace expiry. If the
+    /// parachain is not RUNNING, no payment proofs can be submitted, and it wouldn't be fair to punish
+    /// the user/vault. By using this variable we ensure that they have sufficient time to submit their
+    /// proof.
+    #[pallet::storage]
+    #[pallet::getter(fn active_block_number)]
+    pub type ActiveBlockCount<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
+
+    // The pallet's dispatchable functions.
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
         /// Set the parachain status code.
         ///
         /// # Arguments
@@ -96,11 +138,12 @@ decl_module! {
         /// * `status_code` - the status code to set
         ///
         /// # Weight: `O(1)`
-        #[weight = 0]
+        #[pallet::weight(0)]
         #[transactional]
-        pub fn set_parachain_status(origin, status_code: StatusCode) {
+        pub fn set_parachain_status(origin: OriginFor<T>, status_code: StatusCode) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             Self::set_status(status_code);
+            Ok(().into())
         }
 
         /// Insert a new parachain error.
@@ -111,11 +154,12 @@ decl_module! {
         /// * `error_code` - the error code to insert
         ///
         /// # Weight: `O(1)`
-        #[weight = 0]
+        #[pallet::weight(0)]
         #[transactional]
-        pub fn insert_parachain_error(origin, error_code: ErrorCode) {
+        pub fn insert_parachain_error(origin: OriginFor<T>, error_code: ErrorCode) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             Self::insert_error(error_code);
+            Ok(().into())
         }
 
         /// Remove a parachain error.
@@ -126,21 +170,22 @@ decl_module! {
         /// * `error_code` - the error code to remove
         ///
         /// # Weight: `O(1)`
-        #[weight = 0]
+        #[pallet::weight(0)]
         #[transactional]
-        pub fn remove_parachain_error(origin, error_code: ErrorCode) {
+        pub fn remove_parachain_error(origin: OriginFor<T>, error_code: ErrorCode) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             Self::remove_error(error_code);
+            Ok(().into())
         }
     }
 }
 
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     /// Ensures the Parachain is RUNNING
     pub fn ensure_parachain_status_running() -> DispatchResult {
-        if <ParachainStatus>::get() == StatusCode::Running {
+        if <ParachainStatus<T>>::get() == StatusCode::Running {
             Ok(())
         } else {
             Err(Error::<T>::ParachainNotRunning.into())
@@ -149,7 +194,7 @@ impl<T: Config> Module<T> {
 
     /// Ensures the Parachain is not SHUTDOWN
     pub fn ensure_parachain_status_not_shutdown() -> DispatchResult {
-        if <ParachainStatus>::get() != StatusCode::Shutdown {
+        if <ParachainStatus<T>>::get() != StatusCode::Shutdown {
             Ok(())
         } else {
             Err(Error::<T>::ParachainShutdown.into())
@@ -158,22 +203,22 @@ impl<T: Config> Module<T> {
 
     /// Checks if the Parachain has a NoDataBTCRelay Error state
     pub fn is_parachain_error_no_data_btcrelay() -> bool {
-        <ParachainStatus>::get() == StatusCode::Error && <Errors>::get().contains(&ErrorCode::NoDataBTCRelay)
+        <ParachainStatus<T>>::get() == StatusCode::Error && <Errors<T>>::get().contains(&ErrorCode::NoDataBTCRelay)
     }
 
     /// Checks if the Parachain has a InvalidBTCRelay Error state
     pub fn is_parachain_error_invalid_btcrelay() -> bool {
-        <ParachainStatus>::get() == StatusCode::Error && <Errors>::get().contains(&ErrorCode::InvalidBTCRelay)
+        <ParachainStatus<T>>::get() == StatusCode::Error && <Errors<T>>::get().contains(&ErrorCode::InvalidBTCRelay)
     }
 
     /// Checks if the Parachain has a OracleOffline Error state
     pub fn is_parachain_error_oracle_offline() -> bool {
-        <ParachainStatus>::get() == StatusCode::Error && <Errors>::get().contains(&ErrorCode::OracleOffline)
+        <ParachainStatus<T>>::get() == StatusCode::Error && <Errors<T>>::get().contains(&ErrorCode::OracleOffline)
     }
 
     /// Gets the current `StatusCode`.
     pub fn get_parachain_status() -> StatusCode {
-        <ParachainStatus>::get()
+        <ParachainStatus<T>>::get()
     }
 
     /// Sets the given `StatusCode`.
@@ -182,12 +227,12 @@ impl<T: Config> Module<T> {
     ///
     /// * `status_code` - to set in storage.
     pub fn set_status(status_code: StatusCode) {
-        <ParachainStatus>::set(status_code);
+        <ParachainStatus<T>>::set(status_code);
     }
 
     /// Get the current set of `ErrorCode`.
     pub fn get_errors() -> BTreeSet<ErrorCode> {
-        <Errors>::get()
+        <Errors<T>>::get()
     }
 
     /// Inserts the given `ErrorCode`.
@@ -196,7 +241,7 @@ impl<T: Config> Module<T> {
     ///
     /// * `error_code` - the error to insert.
     pub fn insert_error(error_code: ErrorCode) {
-        <Errors>::mutate(|errors| {
+        <Errors<T>>::mutate(|errors| {
             errors.insert(error_code);
         })
     }
@@ -207,7 +252,7 @@ impl<T: Config> Module<T> {
     ///
     /// * `error_code` - the error to remove.
     pub fn remove_error(error_code: ErrorCode) {
-        <Errors>::mutate(|errors| {
+        <Errors<T>>::mutate(|errors| {
             errors.remove(&error_code);
         })
     }
@@ -244,7 +289,7 @@ impl<T: Config> Module<T> {
 
     /// Increment and return the `Nonce`.
     fn get_nonce() -> U256 {
-        <Nonce>::mutate(|n| {
+        <Nonce<T>>::mutate(|n| {
             let (res, _) = (*n).overflowing_add(U256::one());
             *n = res;
             *n
@@ -280,36 +325,5 @@ impl<T: Config> Module<T> {
     /// for testing purposes only!
     pub fn set_active_block_number(n: T::BlockNumber) {
         ActiveBlockCount::<T>::set(n);
-    }
-}
-
-decl_event!(
-    pub enum Event {
-        RecoverFromErrors(StatusCode, Vec<ErrorCode>),
-    }
-);
-
-decl_error! {
-    pub enum Error for Module<T: Config> {
-        NoDataBTCRelay,
-        InvalidBTCRelay,
-        ParachainNotRunning,
-        ParachainShutdown,
-        ParachainNotRunningOrLiquidation,
-        ParachainOracleOfflineError,
-        ParachainLiquidationError,
-        InvalidErrorCode,
-        ArithmeticOverflow
-    }
-}
-
-impl<T: Config> From<ErrorCode> for Error<T> {
-    fn from(error_code: ErrorCode) -> Self {
-        match error_code {
-            ErrorCode::NoDataBTCRelay => Error::NoDataBTCRelay,
-            ErrorCode::InvalidBTCRelay => Error::InvalidBTCRelay,
-            ErrorCode::OracleOffline => Error::ParachainOracleOfflineError,
-            _ => Error::InvalidErrorCode,
-        }
     }
 }
