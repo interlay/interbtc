@@ -5,15 +5,12 @@ use crate::{
     types::{RelayerEvent, VaultEvent},
     RelayerSla, TotalRelayerScore,
 };
-use frame_support::assert_ok;
 
 use mocktopus::mocking::*;
 use sp_arithmetic::{FixedI128, FixedPointNumber};
 
 pub const ALICE: AccountId = 1;
 pub const BOB: AccountId = 2;
-pub const CAROL: AccountId = 3;
-pub const DAVE: AccountId = 4;
 
 pub const ALICE_STAKE: i128 = 1_000_000;
 pub const BOB_STAKE: i128 = 4_000_000;
@@ -82,7 +79,7 @@ fn test_event_update_vault_sla_succeeds() {
     run_test(|| {
         let amount = 100u64;
         ext::vault_registry::get_backing_collateral::<Test>.mock_safe(|_| MockResult::Return(Ok(ALICE_STAKE as u64)));
-        ext::treasury::get_total_supply::<Test>.mock_safe(move || MockResult::Return(amount));
+        crate::LifetimeIssued::set(amount.into());
 
         Sla::event_update_vault_sla(&ALICE, VaultEvent::ExecutedIssue(amount)).unwrap();
         assert_eq!(
@@ -97,7 +94,7 @@ fn test_event_update_vault_sla_half_size_increase() {
     run_test(|| {
         let amount = 100u64;
         ext::vault_registry::get_backing_collateral::<Test>.mock_safe(|_| MockResult::Return(Ok(ALICE_STAKE as u64)));
-        ext::treasury::get_total_supply::<Test>.mock_safe(move || MockResult::Return(amount * 2));
+        crate::LifetimeIssued::set(amount.into());
 
         Sla::event_update_vault_sla(&ALICE, VaultEvent::ExecutedIssue(amount)).unwrap();
         assert_eq!(
@@ -257,29 +254,5 @@ fn test_calculate_reward() {
 
         // alice and bob have 4:1 sla ratio, and 1:4 staked collateral ratio, so both get 50%
         assert_eq!(Sla::_calculate_relayer_reward(&ALICE, 1_000_000), Ok(500_000));
-    })
-}
-
-#[test]
-fn runtime_upgrade_succeeds() {
-    run_test(|| {
-        let setup_1 = vec![(ALICE, 1000), (BOB, 2000)];
-        <RelayerSla<Test>>::insert(ALICE, FixedI128::from(50));
-        <RelayerSla<Test>>::insert(BOB, FixedI128::from(100));
-        <RelayerSla<Test>>::insert(CAROL, FixedI128::from(0));
-        <RelayerSla<Test>>::insert(DAVE, FixedI128::from(75));
-
-        assert_ok!(Sla::_on_runtime_upgrade(setup_1));
-        assert_eq!(
-            <TotalRelayerScore<Test>>::get(),
-            FixedI128::from(1000 * 50 + 2000 * 100)
-        );
-
-        let setup_2 = vec![(BOB, 4000), (CAROL, 5000), (DAVE, 6000)];
-        assert_ok!(Sla::_on_runtime_upgrade(setup_2));
-        assert_eq!(
-            <TotalRelayerScore<Test>>::get(),
-            FixedI128::from(4000 * 100 + 5000 * 0 + 6000 * 75)
-        );
     })
 }

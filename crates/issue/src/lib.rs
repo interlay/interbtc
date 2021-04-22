@@ -411,7 +411,7 @@ impl<T: Config> Module<T> {
 
         if !ext::vault_registry::is_vault_liquidated::<T>(&issue.vault)? {
             // reward the vault for having issued PolkaBTC by increasing its sla
-            ext::sla::event_update_vault_sla::<T>(&issue.vault, ext::sla::VaultEvent::ExecutedIssue(issue.amount))?;
+            ext::sla::event_update_vault_sla::<T>(&issue.vault, ext::sla::VaultEvent::ExecutedIssue(total))?;
         }
 
         // if it was a vault that did the execution on behalf of someone else, reward it by
