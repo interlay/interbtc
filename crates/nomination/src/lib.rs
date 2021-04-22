@@ -127,11 +127,6 @@ decl_module! {
         // Initializing events
         fn deposit_event() = default;
 
-        /// Upgrade the runtime depending on the current `StorageVersion`.
-        fn on_runtime_upgrade() -> Weight {
-            0
-        }
-
         #[weight = <T as Config>::WeightInfo::set_nomination_enabled()]
         #[transactional]
         fn set_nomination_enabled(origin, enabled: bool) {

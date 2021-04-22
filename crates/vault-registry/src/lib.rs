@@ -940,7 +940,6 @@ impl<T: Config> Module<T> {
     pub fn liquidate_undercollateralized_vaults(
         liquidation_target: LiquidationTarget,
     ) -> (u32, Vec<(T::AccountId, DOT<T>)>) {
-        // TODO: report system undercollateralization to security
         let mut num_vaults = 0u32;
         let liquidation_threshold = <LiquidationCollateralThreshold<T>>::get();
         let mut amounts_slashed = Vec::new();

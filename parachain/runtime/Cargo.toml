@@ -162,6 +162,7 @@ std = [
   "issue/std",
   "redeem/std",
   "replace/std",
+  "refund/std",
   "nomination/std",
 
   "parachain-info/std",

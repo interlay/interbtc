@@ -263,6 +263,7 @@ impl<T: Config> Module<T> {
             total_vault_rewards_for_issued_in_dot,
             total_vault_rewards_for_locked_in_dot,
         )? {
+            // TODO: implement fee distribution for the nomination feature. Sketch pseudocode below
             // let mut rich_vault: RichVault<T> =
             //     VaultRegistry::get_active_rich_vault_from_id(&account)?;
             // let vault_reward_proportion = rich_vault.get_vault_collateral_proportion()
