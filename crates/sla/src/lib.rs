@@ -110,11 +110,7 @@ decl_module! {
         fn deposit_event() = default;
 
         fn on_runtime_upgrade() -> Weight {
-            if !LifetimeIssued::exists() {
-                let amount = ext::vault_registry::get_total_issued_tokens::<T>(false).unwrap();
-                let amount = Self::polkabtc_to_u128(amount).unwrap();
-                LifetimeIssued::set(amount);
-            }
+            Self::_on_runtime_upgrade();
             0
         }
 
@@ -140,6 +136,14 @@ decl_module! {
 #[cfg_attr(test, mockable)]
 impl<T: Config> Module<T> {
     // Public functions exposed to other pallets
+
+    fn _on_runtime_upgrade() {
+        if !LifetimeIssued::exists() {
+            let amount = ext::vault_registry::get_total_issued_tokens::<T>(false).unwrap();
+            let amount = Self::polkabtc_to_u128(amount).unwrap();
+            LifetimeIssued::set(amount);
+        }
+    }
 
     /// Update the SLA score of the vault on given the event.
     ///
@@ -429,9 +433,8 @@ impl<T: Config> Module<T> {
 
         // calculate the average on raw input rather than in fixed_point - we don't want to fail
         // if the result can not be losslessly represented. By using raw division we will be off
-        // but at most one Planck, which is acceptable. Note that the division can not fail, since
-        // we just incremented `count`, and being unsigned, it can not be 0 now.
-        let average_raw = total / count;
+        // but at most one Planck, which is acceptable
+        let average_raw = total.checked_div(count).ok_or(Error::<T>::ArithmeticOverflow)?;
 
         let average = T::SignedFixedPoint::checked_from_rational(average_raw, 1).ok_or(Error::<T>::TryIntoIntError)?;
 
