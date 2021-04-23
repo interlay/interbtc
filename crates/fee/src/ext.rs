@@ -6,6 +6,10 @@ pub(crate) mod collateral {
     use crate::DOT;
     use frame_support::dispatch::DispatchResult;
 
+    pub fn get_free_balance<T: collateral::Config>(id: &T::AccountId) -> DOT<T> {
+        <collateral::Pallet<T>>::get_balance_from_account(id)
+    }
+
     pub fn transfer<T: collateral::Config>(
         sender: T::AccountId,
         receiver: T::AccountId,
@@ -19,6 +23,10 @@ pub(crate) mod collateral {
 pub(crate) mod treasury {
     use crate::PolkaBTC;
     use frame_support::dispatch::DispatchResult;
+
+    pub fn get_free_balance<T: treasury::Config>(id: T::AccountId) -> PolkaBTC<T> {
+        <treasury::Pallet<T>>::get_balance_from_account(id)
+    }
 
     pub fn transfer<T: treasury::Config>(
         sender: T::AccountId,

@@ -30,18 +30,24 @@ use codec::{Decode, Encode, EncodeLike};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
-    ensure, transactional,
+    ensure,
+    traits::Get,
+    transactional,
     weights::Weight,
 };
 use frame_system::ensure_signed;
 use sp_arithmetic::{traits::*, FixedPointNumber};
+use sp_runtime::{traits::AccountIdConversion, ModuleId};
 use sp_std::{convert::TryInto, vec::*};
-use types::{Inner, PolkaBTC, UnsignedFixedPoint, DOT};
+use types::{Inner, PolkaBTC, UnsignedFixedPoint, Version, DOT};
 
 /// The pallet's configuration trait.
 pub trait Config:
     frame_system::Config + collateral::Config + treasury::Config + sla::Config + security::Config
 {
+    /// The fee module id, used for deriving its sovereign account ID.
+    type ModuleId: Get<ModuleId>;
+
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 
@@ -96,7 +102,7 @@ decl_storage! {
         ReplaceGriefingCollateral get(fn replace_griefing_collateral) config(): UnsignedFixedPoint<T>;
 
         /// AccountId of the fee pool.
-        FeePoolAccountId get(fn fee_pool_account_id) config(): T::AccountId;
+        FeePoolAccountId: T::AccountId;
 
         /// AccountId of the parachain maintainer.
         MaintainerAccountId get(fn maintainer_account_id) config(): T::AccountId;
@@ -134,6 +140,9 @@ decl_storage! {
 
         // NOTE: currently there are no collator rewards
         CollatorRewards get(fn collator_rewards) config(): UnsignedFixedPoint<T>;
+
+        /// Build storage at V1 (requires default 0).
+        StorageVersion get(fn storage_version) build(|_| Version::V1): Version = Version::V0;
     }
     add_extra_genesis {
         // don't allow an invalid reward distribution
@@ -174,11 +183,34 @@ decl_event!(
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Config> for enum Call where origin: T::Origin {
+        /// The fee module id, used for deriving its sovereign account ID.
+        const ModuleId: ModuleId = <T as Config>::ModuleId::get();
+
         // Initialize errors
         type Error = Error<T>;
 
         // Initialize events
         fn deposit_event() = default;
+
+        /// Upgrade the runtime depending on the current `StorageVersion`.
+        fn on_runtime_upgrade() -> Weight {
+            if Self::storage_version() == Version::V0 {
+                let next_account_id = Self::fee_pool_account_id();
+                let prev_account_id = <FeePoolAccountId<T>>::take();
+
+                // transfer collateral
+                let amount_dot = ext::collateral::get_free_balance::<T>(&prev_account_id);
+                ext::collateral::transfer::<T>(prev_account_id.clone(), next_account_id.clone(), amount_dot).expect("failed to transfer collateral");
+
+                // tranfer tokens
+                let amount_btc = ext::treasury::get_free_balance::<T>(prev_account_id.clone());
+                ext::treasury::transfer::<T>(prev_account_id, next_account_id, amount_btc).expect("failed to transfer tokens");
+
+                StorageVersion::put(Version::V1);
+            }
+
+            0
+        }
 
         fn on_initialize(n: T::BlockNumber) -> Weight {
             if let Err(e) = Self::begin_block(n) {
@@ -242,6 +274,14 @@ impl<T: Config> Module<T> {
         }
 
         Ok(())
+    }
+
+    /// The account ID of the fee pool.
+    ///
+    /// This actually does computation. If you need to keep using it, then make sure you cache the
+    /// value and only call this once.
+    pub fn fee_pool_account_id() -> T::AccountId {
+        <T as Config>::ModuleId::get().into_account()
     }
 
     // Public functions exposed to other pallets
