@@ -34,6 +34,7 @@ security = { path = "../security", default-features = false }
 sla = { path = "../sla", default-features = false }
 treasury = { path = "../treasury", default-features = false }
 vault-registry = { path = "../vault-registry", default-features = false }
+nomination = { path = "../nomination", default-features = false }
 
 [dev-dependencies]
 mocktopus = "0.7.0"

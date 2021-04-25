@@ -19,6 +19,7 @@ pub use sp_std::convert::TryInto;
 pub use vault_registry::CurrencySource;
 
 pub use issue::IssueRequest;
+use issue_testing_utils::{ExecuteIssueBuilder, RequestIssueBuilder};
 pub use nomination::Nominator;
 pub use redeem::RedeemRequest;
 pub use refund::RefundRequest;
@@ -44,6 +45,9 @@ pub const MAINTAINER: [u8; 32] = [5u8; 32];
 
 pub const FAUCET: [u8; 32] = [128u8; 32];
 pub const DUMMY: [u8; 32] = [255u8; 32];
+
+pub const PROOF_SUBMITTER: [u8; 32] = CAROL;
+pub const ISSUE_RELAYER: [u8; 32] = EVE;
 
 pub const INITIAL_BALANCE: u128 = 1_000_000_000_000;
 pub const INITIAL_LIQUIDATION_VAULT_BALANCE: u128 = 0;
@@ -421,10 +425,10 @@ impl Default for CoreNominatorData {
 
 impl CoreNominatorData {
     pub fn nominators(
-        nominators: Vec<(AccountId, Nominator<AccountId, BlockNumber, u128>)>,
+        nominators: Vec<Nominator<AccountId, BlockNumber, u128>>,
     ) -> BTreeMap<AccountId, CoreNominatorData> {
         let mut nominators_map: BTreeMap<AccountId, CoreNominatorData> = BTreeMap::new();
-        for (_, nominator) in nominators {
+        for nominator in nominators {
             nominators_map.insert(
                 nominator.id.clone(),
                 CoreNominatorData {
@@ -639,6 +643,31 @@ pub fn assert_store_main_chain_header_event(height: u32, hash: H256Le, relayer: 
 
     // store only main chain header
     assert!(events.iter().any(|a| a.event == store_event));
+}
+
+pub fn set_issued_and_backing(vault: [u8; 32], amount_issued: u128, backing: u128) {
+    SecurityPallet::set_active_block_number(1);
+    let (issue_id, _) = RequestIssueBuilder::new(amount_issued).with_vault(vault).request();
+    ExecuteIssueBuilder::new(issue_id)
+        .with_submitter(PROOF_SUBMITTER, true)
+        .with_relayer(Some(ISSUE_RELAYER))
+        .assert_execute();
+
+    CoreVaultData::force_to(
+        vault,
+        CoreVaultData {
+            backing_collateral: backing,
+            ..CoreVaultData::vault(vault)
+        },
+    );
+    VaultRegistryPallet::slash_collateral(
+        CurrencySource::Backing(account_of(PROOF_SUBMITTER)),
+        CurrencySource::FreeBalance(account_of(FAUCET)),
+        CurrencySource::<Runtime>::Backing(account_of(PROOF_SUBMITTER))
+            .current_balance()
+            .unwrap(),
+    )
+    .unwrap();
 }
 
 #[derive(Default, Clone, Debug)]

@@ -82,13 +82,3 @@ pub(crate) mod vault_registry {
         <vault_registry::Module<T>>::liquidate_undercollateralized_vaults(liquidation_target)
     }
 }
-
-#[cfg_attr(test, mockable)]
-pub(crate) mod fee {
-    use crate::types::{UnsignedFixedPoint, DOT};
-    use frame_support::dispatch::DispatchError;
-
-    pub fn dot_for<T: fee::Config>(amount: DOT<T>, percentage: UnsignedFixedPoint<T>) -> Result<DOT<T>, DispatchError> {
-        <fee::Module<T>>::dot_for(amount, percentage)
-    }
-}

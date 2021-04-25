@@ -26,6 +26,7 @@ collateral = { path = "../collateral", default-features = false }
 treasury = { path = "../treasury", default-features = false }
 sla = { path = "../sla", default-features = false }
 security = { path = "../security", default-features = false }
+nomination = { path = "../nomination", default-features = false }
 
 [dev-dependencies]
 mocktopus = "0.7.0"

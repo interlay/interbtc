@@ -29,8 +29,8 @@ use frame_support::{
 use frame_system::{ensure_root, ensure_signed};
 use primitive_types::H256;
 use sp_arithmetic::FixedPointNumber;
-use sp_runtime::traits::{CheckedAdd, Zero};
-use types::{DefaultOperator, RichOperator, UnsignedFixedPoint, DOT};
+use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, UniqueSaturatedInto, Zero};
+use types::{DefaultOperator, Inner, RichOperator, UnsignedFixedPoint, DOT};
 pub use types::{Nominator, Operator};
 use vault_registry::LiquidationTarget;
 
@@ -47,7 +47,7 @@ pub trait WeightInfo {
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
 pub trait Config:
-    frame_system::Config + collateral::Config + treasury::Config + security::Config + vault_registry::Config + fee::Config
+    frame_system::Config + collateral::Config + treasury::Config + security::Config + vault_registry::Config
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
@@ -425,9 +425,35 @@ impl<T: Config> Module<T> {
         Ok(operator.data.collateral_to_be_withdrawn)
     }
 
+    pub fn scale_amount_by_nominator_proportion_of_backing_collateral(
+        nominator_id: &T::AccountId,
+        operator_id: &T::AccountId,
+        amount: u128,
+    ) -> Result<u128, DispatchError> {
+        let operator = Self::get_rich_operator_from_id(operator_id)?;
+        operator.scale_amount_by_nominator_proportion_of_backing_collateral(amount, nominator_id)
+    }
+
+    pub fn scale_amount_by_nominator_proportion_of_nominated_collateral(
+        nominator_id: &T::AccountId,
+        operator_id: &T::AccountId,
+        amount: u128,
+    ) -> Result<u128, DispatchError> {
+        let operator = Self::get_rich_operator_from_id(operator_id)?;
+        operator.scale_amount_by_nominator_proportion_of_nominated_collateral(amount, nominator_id)
+    }
+
+    pub fn scale_amount_by_operator_proportion_of_backing_collateral(
+        operator_id: &T::AccountId,
+        amount: u128,
+    ) -> Result<u128, DispatchError> {
+        let operator = Self::get_rich_operator_from_id(operator_id)?;
+        operator.scale_amount_by_operator_proportion_of_backing_collateral(amount)
+    }
+
     pub fn get_nominators(
         operator_id: &T::AccountId,
-    ) -> Result<Vec<(T::AccountId, Nominator<T::AccountId, T::BlockNumber, DOT<T>>)>, DispatchError> {
+    ) -> Result<Vec<Nominator<T::AccountId, T::BlockNumber, DOT<T>>>, DispatchError> {
         let operator = Self::get_rich_operator_from_id(operator_id)?;
         Ok(operator.get_nominators())
     }
@@ -450,6 +476,39 @@ impl<T: Config> Module<T> {
 
     fn u128_to_dot(x: u128) -> Result<DOT<T>, DispatchError> {
         TryInto::<DOT<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
+    }
+
+    fn dot_for(amount: DOT<T>, percentage: UnsignedFixedPoint<T>) -> Result<DOT<T>, DispatchError> {
+        Self::inner_to_dot(Self::calculate_for(Self::dot_to_inner(amount)?, percentage)?)
+    }
+
+    /// Take the `percentage` of an `amount`
+    fn calculate_for(amount: Inner<T>, percentage: UnsignedFixedPoint<T>) -> Result<Inner<T>, DispatchError> {
+        // we add 0.5 before we do the final integer division to round the result we return.
+        // note that unwrapping is safe because we use a constant
+        let rounding_addition = UnsignedFixedPoint::<T>::checked_from_rational(1, 2).unwrap();
+
+        UnsignedFixedPoint::<T>::checked_from_integer(amount)
+            .ok_or(Error::<T>::ArithmeticOverflow)?
+            .checked_mul(&percentage)
+            .ok_or(Error::<T>::ArithmeticOverflow)?
+            .checked_add(&rounding_addition)
+            .ok_or(Error::<T>::ArithmeticOverflow)?
+            .into_inner()
+            .checked_div(&UnsignedFixedPoint::<T>::accuracy())
+            .ok_or(Error::<T>::ArithmeticUnderflow.into())
+    }
+
+    fn dot_to_inner(x: DOT<T>) -> Result<Inner<T>, DispatchError> {
+        // TODO: concrete type is the same, circumvent this conversion
+        let y = TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError)?;
+        TryInto::<Inner<T>>::try_into(y).map_err(|_| Error::<T>::TryIntoIntError.into())
+    }
+
+    fn inner_to_dot(x: Inner<T>) -> Result<DOT<T>, DispatchError> {
+        // TODO: add try_into for `FixedPointOperand` upstream
+        let y = UniqueSaturatedInto::<u128>::unique_saturated_into(x);
+        TryInto::<DOT<T>>::try_into(y).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 }
 

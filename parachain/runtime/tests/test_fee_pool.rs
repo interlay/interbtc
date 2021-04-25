@@ -1,13 +1,8 @@
 mod mock;
-use mock::{
-    issue_testing_utils::{ExecuteIssueBuilder, RequestIssueBuilder},
-    *,
-};
+use mock::*;
 
-const PROOF_SUBMITTER: [u8; 32] = BOB;
-const VAULT1: [u8; 32] = CAROL;
+const VAULT1: [u8; 32] = BOB;
 const VAULT2: [u8; 32] = DAVE;
-const ISSUE_RELAYER: [u8; 32] = EVE;
 const RELAYER_1: [u8; 32] = FRANK;
 const RELAYER_2: [u8; 32] = GRACE;
 
@@ -110,40 +105,11 @@ fn setup_dot_reward() {
     FeePallet::increase_dot_rewards_for_epoch(1000);
 }
 
-fn set_issued_and_backing(vault: [u8; 32], amount_issued: u128, backing: u128) {
-    SecurityPallet::set_active_block_number(1);
-
-    // we want issued to be 100 times amount_issued, _including fees_
-    let request_amount = 100 * amount_issued;
-
-    let (issue_id, _) = RequestIssueBuilder::new(request_amount).with_vault(vault).request();
-    ExecuteIssueBuilder::new(issue_id)
-        .with_submitter(PROOF_SUBMITTER, true)
-        .with_relayer(Some(ISSUE_RELAYER))
-        .assert_execute();
-
-    CoreVaultData::force_to(
-        vault,
-        CoreVaultData {
-            backing_collateral: 100 * backing,
-            ..CoreVaultData::vault(vault)
-        },
-    );
-    VaultRegistryPallet::slash_collateral(
-        CurrencySource::Backing(account_of(PROOF_SUBMITTER)),
-        CurrencySource::FreeBalance(account_of(FAUCET)),
-        CurrencySource::<Runtime>::Backing(account_of(PROOF_SUBMITTER))
-            .current_balance()
-            .unwrap(),
-    )
-    .unwrap();
-}
-
 #[test]
 fn test_vault_fee_pool_withdrawal() {
     test_with(|currency| {
-        set_issued_and_backing(VAULT1, 200, 800);
-        set_issued_and_backing(VAULT2, 800, 200);
+        set_issued_and_backing(VAULT1, 200 * 100, 800 * 100);
+        set_issued_and_backing(VAULT2, 800 * 100, 200 * 100);
 
         let epoch_rewards = get_epoch_rewards(currency);
         let vault_rewards = (epoch_rewards * 70) / 100; // set at 70% in tests
@@ -162,8 +128,8 @@ fn test_vault_fee_pool_withdrawal() {
 #[test]
 fn test_vault_fee_pool_withdrawal_with_liquidated_vaults() {
     test_with(|currency| {
-        set_issued_and_backing(VAULT1, 200, 800);
-        set_issued_and_backing(VAULT2, 800, 200);
+        set_issued_and_backing(VAULT1, 200 * 100, 800 * 100);
+        set_issued_and_backing(VAULT2, 800 * 100, 200 * 100);
 
         drop_exchange_rate_and_liquidate(VAULT2);
 
@@ -183,7 +149,7 @@ fn test_vault_fee_pool_withdrawal_with_liquidated_vaults() {
 #[test]
 fn test_vault_fee_pool_withdrawal_over_multiple_epochs() {
     test_with(|currency| {
-        set_issued_and_backing(VAULT1, 200, 800);
+        set_issued_and_backing(VAULT1, 200 * 100, 800 * 100);
 
         let epoch_1_rewards = get_epoch_rewards(currency);
         let vault_epoch_1_rewards = (epoch_1_rewards * 70) / 100; // set at 70% in tests
@@ -191,7 +157,7 @@ fn test_vault_fee_pool_withdrawal_over_multiple_epochs() {
         // simulate that we entered a new epoch
         assert_ok!(FeePallet::update_rewards_for_epoch());
 
-        set_issued_and_backing(VAULT2, 800, 200);
+        set_issued_and_backing(VAULT2, 800 * 100, 200 * 100);
 
         let epoch_2_rewards = get_epoch_rewards(currency);
         let vault_epoch_2_rewards = (epoch_2_rewards * 70) / 100; // set at 70% in tests
@@ -214,7 +180,7 @@ fn test_vault_fee_pool_withdrawal_over_multiple_epochs() {
 #[test]
 fn test_relayer_fee_pool_withdrawal() {
     test_with(|currency| {
-        set_issued_and_backing(VAULT1, 1000, 1000);
+        set_issued_and_backing(VAULT1, 1000 * 100, 1000 * 100);
 
         // make the used relayer irrelevant in fee calculations
         SlaPallet::event_update_relayer_sla(
@@ -242,7 +208,7 @@ fn test_relayer_fee_pool_withdrawal() {
 #[test]
 fn test_maintainer_fee_pool_withdrawal() {
     test_with(|currency| {
-        set_issued_and_backing(VAULT1, 1000, 1000);
+        set_issued_and_backing(VAULT1, 1000 * 100, 1000 * 100);
 
         let epoch_rewards = get_epoch_rewards(currency);
         let maintainer_rewards = (epoch_rewards * 10) / 100; // set at 10% in tests

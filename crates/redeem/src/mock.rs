@@ -38,6 +38,7 @@ frame_support::construct_runtime!(
         Redeem: redeem::{Pallet, Call, Config<T>, Storage, Event<T>},
         Fee: fee::{Pallet, Call, Config<T>, Storage, Event<T>},
         Sla: sla::{Pallet, Call, Config<T>, Storage, Event<T>},
+        Nomination: nomination::{Pallet, Call, Config<T>, Storage, Event<T>},
     }
 );
 
@@ -177,6 +178,12 @@ impl sla::Config for Test {
     type SignedFixedPoint = FixedI128;
 }
 
+impl nomination::Config for Test {
+    type Event = TestEvent;
+    type UnsignedFixedPoint = FixedU128;
+    type WeightInfo = ();
+}
+
 impl Config for Test {
     type Event = TestEvent;
     type WeightInfo = ();
@@ -261,6 +268,16 @@ impl ExtBuilder {
         redeem::GenesisConfig::<Test> {
             redeem_period: 10,
             redeem_btc_dust_value: 2,
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
+        nomination::GenesisConfig::<Test> {
+            is_nomination_enabled: true,
+            get_max_nomination_ratio: FixedU128::checked_from_rational(1, 150).unwrap(), // 150%,
+            get_max_nominators_per_operator: 1,
+            get_operator_unbonding_period: 100,
+            get_nominator_unbonding_period: 50,
         }
         .assimilate_storage(&mut storage)
         .unwrap();

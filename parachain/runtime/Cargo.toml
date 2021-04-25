@@ -103,7 +103,7 @@ substrate-wasm-builder = "3.0.0"
 # https://github.com/paritytech/substrate/issues/8161
 
 [features]
-default = ["std"]
+default = ["std", "aura-grandpa"]
 std = [
   "codec/std",
   "serde",

@@ -2,6 +2,8 @@ use crate::*;
 
 pub const USER: [u8; 32] = ALICE;
 pub const VAULT: [u8; 32] = BOB;
+pub const PROOF_SUBMITTER: [u8; 32] = CAROL;
+pub const ISSUE_RELAYER: [u8; 32] = EVE;
 
 pub const DEFAULT_GRIEFING_COLLATERAL: u128 = 5_000;
 pub const DEFAULT_BACKING_COLLATERAL: u128 = 1_000_000;
@@ -96,7 +98,6 @@ pub fn get_nominator_collateral() -> u128 {
     if nominators.len() == 0 {
         0
     } else {
-        let (_, nominator) = &nominators[0];
-        nominator.collateral
+        nominators[0].collateral
     }
 }

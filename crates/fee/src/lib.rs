@@ -43,7 +43,7 @@ use types::{Inner, PolkaBTC, UnsignedFixedPoint, Version, DOT};
 
 /// The pallet's configuration trait.
 pub trait Config:
-    frame_system::Config + collateral::Config + treasury::Config + sla::Config + security::Config
+    frame_system::Config + collateral::Config + treasury::Config + sla::Config + security::Config + nomination::Config
 {
     /// The fee module id, used for deriving its sovereign account ID.
     type ModuleId: Get<ModuleId>;
@@ -303,33 +303,17 @@ impl<T: Config> Module<T> {
             total_vault_rewards_for_issued_in_dot,
             total_vault_rewards_for_locked_in_dot,
         )? {
-            // TODO: implement fee distribution for the nomination feature. Sketch pseudocode below
-            // let mut rich_vault: RichVault<T> =
-            //     VaultRegistry::get_active_rich_vault_from_id(&account)?;
-            // let vault_reward_proportion = rich_vault.get_vault_collateral_proportion()
-            //     + rich_vault.get_nominator_collateral_proportion()
-            //         * (1 - Self::nominator_rewards());
-            // let nominator_reward_proportion =
-            //     rich_vault.get_nominator_collateral_proportion() * (Self::nominator_rewards());
+            let (vault_polka_btc_reward, vault_dot_reward) = if ext::nomination::is_operator::<T>(&account)? {
+                match Self::handle_nomination_rewards(&account, amount_in_polka_btc, amount_in_dot) {
+                    Ok(x) => x,
+                    Err(_) => (0u32.into(), 0u32.into()),
+                }
+            } else {
+                (amount_in_polka_btc, amount_in_dot)
+            };
 
-            // 1. Find amount in dot and polkabtc for each nomination party
-            // 2. Iterate through nominators, get their proportion and multiply by dot/polkabtc amounts and increase
-            // 3. Do the same as 2. for the Vault
-
-            // increase polka_btc rewards
-            <TotalRewardsPolkaBTC<T>>::insert(
-                account.clone(),
-                <TotalRewardsPolkaBTC<T>>::get(account.clone())
-                    .checked_add(&amount_in_polka_btc)
-                    .ok_or(Error::<T>::ArithmeticOverflow)?,
-            );
-            // increase dot rewards
-            <TotalRewardsDOT<T>>::insert(
-                account.clone(),
-                <TotalRewardsDOT<T>>::get(account.clone())
-                    .checked_add(&amount_in_dot)
-                    .ok_or(Error::<T>::ArithmeticOverflow)?,
-            );
+            Self::increase_polka_btc_reward(account.clone(), vault_polka_btc_reward)?;
+            Self::increase_dot_reward(account.clone(), vault_dot_reward)?;
         }
 
         // calculate staked relayer rewards
@@ -338,40 +322,17 @@ impl<T: Config> Module<T> {
         for (account, amount_in_polka_btc, amount_in_dot) in
             ext::sla::get_relayer_rewards::<T>(total_relayer_rewards_in_polka_btc, total_relayer_rewards_in_dot)?
         {
-            // increase polka_btc rewards
-            <TotalRewardsPolkaBTC<T>>::insert(
-                account.clone(),
-                <TotalRewardsPolkaBTC<T>>::get(account.clone())
-                    .checked_add(&amount_in_polka_btc)
-                    .ok_or(Error::<T>::ArithmeticOverflow)?,
-            );
-            // increase dot rewards
-            <TotalRewardsDOT<T>>::insert(
-                account.clone(),
-                <TotalRewardsDOT<T>>::get(account.clone())
-                    .checked_add(&amount_in_dot)
-                    .ok_or(Error::<T>::ArithmeticOverflow)?,
-            );
+            Self::increase_polka_btc_reward(account.clone(), amount_in_polka_btc)?;
+            Self::increase_dot_reward(account.clone(), amount_in_dot)?;
         }
 
         // calculate maintainer rewards
         let maintainer_account_id = Self::maintainer_account_id();
         // increase polka_DOT rewards
         let total_maintainer_rewards_in_polka_btc = Self::maintainer_rewards_for_epoch_in_polka_btc()?;
-        <TotalRewardsPolkaBTC<T>>::insert(
-            maintainer_account_id.clone(),
-            <TotalRewardsPolkaBTC<T>>::get(maintainer_account_id.clone())
-                .checked_add(&total_maintainer_rewards_in_polka_btc)
-                .ok_or(Error::<T>::ArithmeticOverflow)?,
-        );
-        // increase dot rewards
+        Self::increase_polka_btc_reward(maintainer_account_id.clone(), total_maintainer_rewards_in_polka_btc)?;
         let total_maintainer_rewards_in_dot = Self::maintainer_rewards_for_epoch_in_dot()?;
-        <TotalRewardsDOT<T>>::insert(
-            maintainer_account_id.clone(),
-            <TotalRewardsDOT<T>>::get(maintainer_account_id)
-                .checked_add(&total_maintainer_rewards_in_dot)
-                .ok_or(Error::<T>::ArithmeticOverflow)?,
-        );
+        Self::increase_dot_reward(maintainer_account_id.clone(), total_maintainer_rewards_in_dot)?;
 
         // clear total rewards for current epoch
         <EpochRewardsPolkaBTC<T>>::kill();
@@ -539,6 +500,61 @@ impl<T: Config> Module<T> {
             .into_inner()
             .checked_div(&UnsignedFixedPoint::<T>::accuracy())
             .ok_or(Error::<T>::ArithmeticUnderflow.into())
+    }
+
+    fn increase_polka_btc_reward(account: T::AccountId, reward: PolkaBTC<T>) -> DispatchResult {
+        <TotalRewardsPolkaBTC<T>>::insert(
+            account.clone(),
+            <TotalRewardsPolkaBTC<T>>::get(account.clone())
+                .checked_add(&reward)
+                .ok_or(Error::<T>::ArithmeticOverflow)?,
+        );
+        Ok(())
+    }
+
+    fn increase_dot_reward(account: T::AccountId, reward: DOT<T>) -> DispatchResult {
+        <TotalRewardsDOT<T>>::insert(
+            account.clone(),
+            <TotalRewardsDOT<T>>::get(account.clone())
+                .checked_add(&reward)
+                .ok_or(Error::<T>::ArithmeticOverflow)?,
+        );
+        Ok(())
+    }
+
+    fn handle_nomination_rewards(
+        operator_id: &T::AccountId,
+        total_polka_btc_reward: PolkaBTC<T>,
+        total_dot_reward: DOT<T>,
+    ) -> Result<(PolkaBTC<T>, DOT<T>), DispatchError> {
+        let total_reward_in_polka_btc_u128 = ext::sla::polkabtc_to_u128::<T>(total_polka_btc_reward)?;
+        let operator_polkabtc_reward = ext::sla::u128_to_polkabtc::<T>(
+            ext::nomination::scale_amount_by_operator_proportion::<T>(operator_id, total_reward_in_polka_btc_u128)?,
+        )?;
+
+        let total_reward_in_dot_u128 = ext::sla::dot_to_u128::<T>(total_dot_reward)?;
+        let operator_dot_reward = ext::sla::u128_to_dot::<T>(
+            ext::nomination::scale_amount_by_operator_proportion::<T>(operator_id, total_reward_in_dot_u128)?,
+        )?;
+        for nominator in ext::nomination::get_nominators::<T>(operator_id)? {
+            let nominator_polka_btc_reward =
+                ext::sla::u128_to_polkabtc::<T>(ext::nomination::scale_amount_by_nominator_proportion::<T>(
+                    &nominator.id,
+                    operator_id,
+                    total_reward_in_polka_btc_u128,
+                )?)?;
+            Self::increase_polka_btc_reward(nominator.id.clone(), nominator_polka_btc_reward)?;
+
+            let nominator_dot_reward =
+                ext::sla::u128_to_dot::<T>(ext::nomination::scale_amount_by_nominator_proportion::<T>(
+                    &nominator.id,
+                    operator_id,
+                    total_reward_in_dot_u128,
+                )?)?;
+            Self::increase_dot_reward(nominator.id.clone(), nominator_dot_reward)?;
+        }
+
+        Ok((operator_polkabtc_reward, operator_dot_reward))
     }
 
     #[allow(dead_code)]

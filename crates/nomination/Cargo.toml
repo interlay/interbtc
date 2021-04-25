@@ -29,7 +29,6 @@ collateral = { path = "../collateral", default-features = false }
 security = { path = "../security", default-features = false }
 treasury = { path = "../treasury", default-features = false }
 vault-registry = { path = "../vault-registry", default-features = false }
-fee = { path = "../fee", default-features = false }
 sla = { path = "../sla", default-features = false }
 exchange-rate-oracle = { path = "../exchange-rate-oracle", default-features = false }
 
@@ -59,7 +58,6 @@ std = [
   'security/std',
   'treasury/std',
 	"vault-registry/std",
-  'fee/std',
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",

@@ -3,7 +3,6 @@ use frame_support::transactional;
 
 pub const USER: [u8; 32] = ALICE;
 pub const VAULT: [u8; 32] = BOB;
-pub const PROOF_SUBMITTER: [u8; 32] = CAROL;
 
 pub const DEFAULT_GRIEFING_COLLATERAL: u128 = 5_000;
 pub const DEFAULT_COLLATERAL: u128 = 1_000_000;

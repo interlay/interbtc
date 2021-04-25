@@ -36,6 +36,7 @@ frame_support::construct_runtime!(
         ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
         Fee: fee::{Pallet, Call, Config<T>, Storage, Event<T>},
         Sla: sla::{Pallet, Call, Config<T>, Storage, Event<T>},
+        Nomination: nomination::{Pallet, Call, Config<T>, Storage, Event<T>},
     }
 );
 
@@ -161,6 +162,12 @@ impl sla::Config for Test {
 
 parameter_types! {
     pub const FeeModuleId: ModuleId = ModuleId(*b"mod/fees");
+}
+
+impl nomination::Config for Test {
+    type Event = TestEvent;
+    type UnsignedFixedPoint = FixedU128;
+    type WeightInfo = ();
 }
 
 impl Config for Test {

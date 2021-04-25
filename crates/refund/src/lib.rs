@@ -43,6 +43,7 @@ pub trait Config:
     + fee::Config
     + sla::Config
     + vault_registry::Config
+    + nomination::Config
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;

@@ -375,6 +375,22 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+    pub fn dot_to_u128(x: DOT<T>) -> Result<u128, DispatchError> {
+        TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
+    }
+
+    pub fn u128_to_dot(x: u128) -> Result<DOT<T>, DispatchError> {
+        TryInto::<DOT<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
+    }
+
+    pub fn polkabtc_to_u128(x: PolkaBTC<T>) -> Result<u128, DispatchError> {
+        TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
+    }
+
+    pub fn u128_to_polkabtc(x: u128) -> Result<PolkaBTC<T>, DispatchError> {
+        TryInto::<PolkaBTC<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
+    }
+
     // Private functions internal to this pallet
 
     /// Calculate the amount that is slashed when the the vault fails to execute; See the
@@ -524,22 +540,6 @@ impl<T: Config> Module<T> {
 
         let ret = T::SignedFixedPoint::checked_from_rational(raw, U::accuracy()).ok_or(Error::<T>::TryIntoIntError)?;
         Ok(ret)
-    }
-
-    fn dot_to_u128(x: DOT<T>) -> Result<u128, DispatchError> {
-        TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
-    }
-
-    fn u128_to_dot(x: u128) -> Result<DOT<T>, DispatchError> {
-        TryInto::<DOT<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
-    }
-
-    fn polkabtc_to_u128(x: PolkaBTC<T>) -> Result<u128, DispatchError> {
-        TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
-    }
-
-    fn u128_to_polkabtc(x: u128) -> Result<PolkaBTC<T>, DispatchError> {
-        TryInto::<PolkaBTC<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
     fn polkabtc_to_fixed_point(x: PolkaBTC<T>) -> Result<T::SignedFixedPoint, DispatchError> {

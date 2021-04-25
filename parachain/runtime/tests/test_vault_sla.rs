@@ -7,7 +7,6 @@ use mock::{
 
 const USER: [u8; 32] = issue_testing_utils::USER;
 const VAULT: [u8; 32] = issue_testing_utils::VAULT;
-const PROOF_SUBMITTER: [u8; 32] = issue_testing_utils::PROOF_SUBMITTER;
 
 // Would have been a const, but `FixedI128::from` is not a const fn
 fn initial_sla() -> FixedI128 {

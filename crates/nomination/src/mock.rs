@@ -33,7 +33,6 @@ frame_support::construct_runtime!(
         // Operational
         Security: security::{Pallet, Call, Storage, Event<T>},
         VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>},
-        Fee: fee::{Pallet, Call, Config<T>, Storage, Event<T>},
         Sla: sla::{Pallet, Call, Config<T>, Storage, Event<T>},
         ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
         Nomination: nomination::{Pallet, Call, Config<T>, Storage, Event<T>}
@@ -149,17 +148,6 @@ impl pallet_timestamp::Config for Test {
     type WeightInfo = ();
 }
 
-parameter_types! {
-    pub const FeeModuleId: ModuleId = ModuleId(*b"mod/fees");
-}
-
-impl fee::Config for Test {
-    type ModuleId = FeeModuleId;
-    type Event = TestEvent;
-    type UnsignedFixedPoint = FixedU128;
-    type WeightInfo = ();
-}
-
 impl sla::Config for Test {
     type Event = TestEvent;
     type SignedFixedPoint = FixedI128;
@@ -209,28 +197,6 @@ impl ExtBuilder {
             get_max_nominators_per_operator: 1,
             get_operator_unbonding_period: 100,
             get_nominator_unbonding_period: 50,
-        }
-        .assimilate_storage(&mut storage)
-        .unwrap();
-
-        fee::GenesisConfig::<Test> {
-            issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
-            issue_griefing_collateral: FixedU128::checked_from_rational(5, 100000).unwrap(), // 0.005%
-            refund_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
-            redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
-            premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(), // 5%
-            auction_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(), // 5%
-            punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
-            replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
-            maintainer_account_id: 1,
-            epoch_period: 5,
-            vault_rewards: FixedU128::checked_from_rational(77, 100).unwrap(),
-            vault_rewards_issued: FixedU128::checked_from_rational(90, 100).unwrap(),
-            vault_rewards_locked: FixedU128::checked_from_rational(10, 100).unwrap(),
-            relayer_rewards: FixedU128::checked_from_rational(3, 100).unwrap(),
-            maintainer_rewards: FixedU128::checked_from_rational(20, 100).unwrap(),
-            collator_rewards: FixedU128::checked_from_integer(0).unwrap(),
-            nomination_rewards: FixedU128::checked_from_rational(0, 100).unwrap(),
         }
         .assimilate_storage(&mut storage)
         .unwrap();

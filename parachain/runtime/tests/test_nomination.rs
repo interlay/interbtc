@@ -34,14 +34,6 @@ fn test_with_nomination_enabled_and_operator_registered<R>(execute: impl FnOnce(
 }
 
 #[test]
-fn test_regular_vaults_are_not_opted_in_to_nomination() {
-    test_with_nomination_enabled(|| {
-        assert_register_vault(CAROL);
-        assert_eq!(NominationPallet::is_operator(&account_of(CAROL)).unwrap(), false);
-    })
-}
-
-#[test]
 fn integration_test_vaults_can_opt_in() {
     test_with_nomination_enabled(|| {
         assert_register_operator(VAULT);
@@ -65,7 +57,7 @@ fn integration_test_operators_can_still_opt_out_if_disabled() {
 }
 
 #[test]
-fn integration_test_operators_with_nonzero_nomination_can_force_opt_opt() {
+fn integration_test_operators_with_nonzero_nomination_can_force_opt_out() {
     test_with_nomination_enabled_and_operator_registered(|| {
         assert_nominate_collateral(USER, VAULT, DEFAULT_NOMINATION);
         assert_eq!(
@@ -390,13 +382,44 @@ fn integration_test_attempting_to_register_too_many_nominators_fails() {
     });
 }
 
-// #[test]
-// fn test_withdrawal_request_can_be_cancelled() {
-//     run_test(|| {})
-// }
+#[test]
+fn test_nomination_fee_distribution() {
+    test_with_nomination_enabled_and_operator_registered(|| {
+        set_issued_and_backing(VAULT, 3000 * 100, DEFAULT_VAULT_BACKING_COLLATERAL * 100);
+
+        // Set the User's free_balance to a high value, to be able to reach
+        // the Max Nomination Ratio
+        UserData::force_to(
+            USER,
+            UserData {
+                free_balance: DEFAULT_USER_FREE_BALANCE * 50,
+                locked_balance: DEFAULT_USER_LOCKED_BALANCE,
+                locked_tokens: DEFAULT_USER_LOCKED_TOKENS,
+                free_tokens: DEFAULT_USER_FREE_TOKENS,
+            },
+        );
+        assert_nominate_collateral(USER, VAULT, DEFAULT_VAULT_BACKING_COLLATERAL * 50);
+
+        let parachain_state_before_reward_distribution = ParachainState::get();
+        // simulate that we entered a new epoch
+        assert_ok!(FeePallet::update_rewards_for_epoch());
+        let operator_reward = FeePallet::get_polka_btc_rewards(&account_of(VAULT));
+        let nominator_reward = FeePallet::get_polka_btc_rewards(&account_of(USER));
+
+        let expected_operator_reward: u128 = 76;
+        assert_eq!(
+            ParachainState::get(),
+            parachain_state_before_reward_distribution.with_changes(|_, _, _, fee_pool, _| {
+                fee_pool.tokens -= 1500;
+            })
+        );
+        assert_eq!(operator_reward, expected_operator_reward);
+        assert_eq!(nominator_reward, expected_operator_reward / 2);
+    })
+}
 
 // #[test]
-// fn test_nomination_fee_distribution() {
+// fn test_withdrawal_request_can_be_cancelled() {
 //     run_test(|| {})
 // }
 

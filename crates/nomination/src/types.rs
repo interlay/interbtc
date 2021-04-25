@@ -1,6 +1,7 @@
 use crate::{ext, Config, Error, Module};
 use codec::{Decode, Encode, HasCompact};
 use frame_support::{dispatch::DispatchResult, ensure, traits::Currency, StorageMap};
+use sp_arithmetic::FixedPointNumber;
 use sp_core::H256;
 use sp_runtime::{
     traits::{CheckedAdd, CheckedSub, Saturating, Zero},
@@ -13,7 +14,8 @@ use mocktopus::macros::mockable;
 use vault_registry::VaultStatus;
 
 pub(crate) type DOT<T> = <<T as collateral::Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-pub(crate) type UnsignedFixedPoint<T> = <T as fee::Config>::UnsignedFixedPoint;
+pub(crate) type UnsignedFixedPoint<T> = <T as Config>::UnsignedFixedPoint;
+pub(crate) type Inner<T> = <<T as Config>::UnsignedFixedPoint as FixedPointNumber>::Inner;
 
 pub struct RichOperator<T: Config> {
     pub(crate) data: DefaultOperator<T>,
@@ -85,12 +87,12 @@ impl<T: Config> RichOperator<T> {
         self.data.id.clone()
     }
 
-    pub fn get_nominators(&self) -> Vec<(T::AccountId, Nominator<T::AccountId, T::BlockNumber, DOT<T>>)> {
+    pub fn get_nominators(&self) -> Vec<Nominator<T::AccountId, T::BlockNumber, DOT<T>>> {
         self.data
             .nominators
             .iter()
-            .map(|(id, nominator)| (id.clone(), nominator.clone()))
-            .collect::<Vec<(_, _)>>()
+            .map(|(_, nominator)| nominator.clone())
+            .collect::<Vec<_>>()
     }
 
     pub fn force_refund_nominated_collateral(&mut self) -> DispatchResult {
@@ -100,8 +102,11 @@ impl<T: Config> RichOperator<T> {
 
     pub fn force_refund_nominators_proportionally(&mut self, amount: DOT<T>) -> DispatchResult {
         let data_clone = self.data.clone();
+        let amount_u128 = Module::<T>::dot_to_u128(amount)?;
         for nominator_id in data_clone.nominators.keys() {
-            let nominator_collateral_to_refund = self.scale_amount_by_nominator_proportion(amount, nominator_id)?;
+            let nominator_collateral_to_refund = Module::<T>::u128_to_dot(
+                self.scale_amount_by_nominator_proportion_of_nominated_collateral(amount_u128, nominator_id)?,
+            )?;
             self.withdraw_nominated_collateral(nominator_id.clone(), nominator_collateral_to_refund)?;
         }
         Ok(())
@@ -193,27 +198,53 @@ impl<T: Config> RichOperator<T> {
         })
     }
 
-    pub fn scale_amount_by_nominator_proportion(
+    pub fn scale_amount_by_nominator_proportion_of_nominated_collateral(
         &self,
-        amount: DOT<T>,
+        amount: u128,
         nominator_id: &T::AccountId,
-    ) -> Result<DOT<T>, DispatchError> {
-        let amount_u128 = Module::<T>::dot_to_u128(amount)?;
+    ) -> Result<u128, DispatchError> {
         let nominator = self
             .data
             .nominators
             .get(&nominator_id)
             .ok_or(Error::<T>::NominatorNotFound)?;
-        let nominated_collateral_u128 = Module::<T>::dot_to_u128(nominator.collateral)?;
-        let total_nominated_collateral_u128 = Module::<T>::dot_to_u128(self.data.total_nominated_collateral)?;
+        let nominator_collateral = Module::<T>::dot_to_u128(nominator.collateral)?;
+        let total_nominated_collateral = Module::<T>::dot_to_u128(self.data.total_nominated_collateral)?;
+        Self::scale_amount_by_proportion(amount, nominator_collateral, total_nominated_collateral)
+    }
 
-        // Multiply the amount by the Nominator's collateral proportion
-        let scaled_collateral_u128 = amount_u128
-            .checked_mul(nominated_collateral_u128)
+    pub fn scale_amount_by_nominator_proportion_of_backing_collateral(
+        &self,
+        amount: u128,
+        nominator_id: &T::AccountId,
+    ) -> Result<u128, DispatchError> {
+        let nominator = self
+            .data
+            .nominators
+            .get(&nominator_id)
+            .ok_or(Error::<T>::NominatorNotFound)?;
+        let nominator_collateral = Module::<T>::dot_to_u128(nominator.collateral)?;
+        let operator_backing_collateral =
+            Module::<T>::dot_to_u128(ext::vault_registry::get_backing_collateral::<T>(&self.id())?)?;
+        Self::scale_amount_by_proportion(amount, nominator_collateral, operator_backing_collateral)
+    }
+
+    pub fn scale_amount_by_operator_proportion_of_backing_collateral(
+        &self,
+        amount: u128,
+    ) -> Result<u128, DispatchError> {
+        let operator_collateral = Module::<T>::dot_to_u128(self.get_operator_collateral()?)?;
+        let operator_backing_collateral =
+            Module::<T>::dot_to_u128(ext::vault_registry::get_backing_collateral::<T>(&self.id())?)?;
+        Self::scale_amount_by_proportion(amount, operator_collateral, operator_backing_collateral)
+    }
+
+    pub fn scale_amount_by_proportion(amount: u128, numerator: u128, denominator: u128) -> Result<u128, DispatchError> {
+        Ok(amount
+            .checked_mul(numerator)
             .ok_or(Error::<T>::ArithmeticOverflow)?
-            .checked_div(total_nominated_collateral_u128)
-            .ok_or(Error::<T>::ArithmeticOverflow)?;
-        Module::<T>::u128_to_dot(scaled_collateral_u128)
+            .checked_div(denominator)
+            .ok_or(Error::<T>::ArithmeticOverflow)?)
     }
 
     // Operator functionality
@@ -412,13 +443,17 @@ impl<T: Config> RichOperator<T> {
     }
 
     pub fn slash_nominators(&mut self, status: VaultStatus, total_slashed_amount: DOT<T>) -> DispatchResult {
-        let nominated_collateral_to_slash = self.get_nominated_collateral_to_slash(total_slashed_amount, status)?;
+        let nominated_collateral_to_slash =
+            Module::<T>::dot_to_u128(self.get_nominated_collateral_to_slash(total_slashed_amount, status)?)?;
         // Slash nominators proportionally
         let vault_clone = self.data.clone();
         for (nominator_id, _) in &vault_clone.nominators {
-            let nominated_collateral_to_slash =
-                self.scale_amount_by_nominator_proportion(nominated_collateral_to_slash, nominator_id)?;
-            self.decrease_nominator_collateral(nominator_id.clone(), nominated_collateral_to_slash)?;
+            let nominator_collateral_to_slash =
+                Module::<T>::u128_to_dot(self.scale_amount_by_nominator_proportion_of_nominated_collateral(
+                    nominated_collateral_to_slash,
+                    nominator_id,
+                )?)?;
+            self.decrease_nominator_collateral(nominator_id.clone(), nominator_collateral_to_slash)?;
         }
 
         if status.eq(&VaultStatus::CommittedTheft) {
@@ -467,7 +502,7 @@ impl<T: Config> RichOperator<T> {
     }
 
     pub fn get_max_nominatable_collateral(&self, operator_collateral: DOT<T>) -> Result<DOT<T>, DispatchError> {
-        ext::fee::dot_for::<T>(operator_collateral, Module::<T>::get_max_nomination_ratio())
+        Module::<T>::dot_for(operator_collateral, Module::<T>::get_max_nomination_ratio())
     }
 
     pub fn get_nomination_ratio(&self) -> Result<u128, DispatchError> {
