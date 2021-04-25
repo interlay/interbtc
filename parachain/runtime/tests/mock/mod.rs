@@ -1,11 +1,12 @@
 #![allow(dead_code)]
+
 extern crate hex;
 
 pub use bitcoin::{
     formatter::{Formattable, TryFormattable},
     types::*,
 };
-pub use btc_parachain_runtime::{AccountId, Call, Event, Runtime};
+pub use btc_parachain_runtime::{AccountId, BlockNumber, Call, Event, Runtime};
 pub use btc_relay::{BtcAddress, BtcPublicKey};
 pub use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchResultWithPostInfo};
 pub use mocktopus::mocking::*;
@@ -18,11 +19,14 @@ pub use sp_std::convert::TryInto;
 pub use vault_registry::CurrencySource;
 
 pub use issue::IssueRequest;
+pub use nomination::Nominator;
 pub use redeem::RedeemRequest;
 pub use refund::RefundRequest;
 pub use replace::ReplaceRequest;
 pub use sp_runtime::AccountId32;
+use std::collections::BTreeMap;
 pub use std::convert::TryFrom;
+pub use vault_registry::{Vault, VaultStatus};
 
 pub mod issue_testing_utils;
 pub mod nomination_testing_utils;
@@ -60,6 +64,9 @@ pub const DEFAULT_VAULT_FREE_BALANCE: u128 = 200_000;
 pub const DEFAULT_VAULT_FREE_TOKENS: u128 = 0;
 pub const DEFAULT_VAULT_REPLACE_COLLATERAL: u128 = 20_000;
 pub const DEFAULT_VAULT_TO_BE_REPLACED: u128 = 40_000;
+
+pub const DEFAULT_NOMINATION_TOTAL_NOMINATED_COLLATERAL: u128 = 0;
+pub const DEFAULT_NOMINATION_COLLATERAL_TO_BE_WITHDRAWN: u128 = 0;
 
 pub const CONFIRMATIONS: u32 = 6;
 
@@ -137,6 +144,17 @@ pub fn default_vault_state() -> CoreVaultData {
         free_tokens: 0,
         replace_collateral: DEFAULT_VAULT_REPLACE_COLLATERAL,
         to_be_replaced: DEFAULT_VAULT_TO_BE_REPLACED,
+    }
+}
+
+pub fn default_operator_state() -> CoreOperatorData {
+    let default_nominators: BTreeMap<AccountId, Nominator<AccountId, BlockNumber, u128>> = BTreeMap::new();
+    let default_pending_withdrawals: BTreeMap<H256, (BlockNumber, u128)> = BTreeMap::new();
+    CoreOperatorData {
+        nominators: default_nominators,
+        total_nominated_collateral: DEFAULT_NOMINATION_TOTAL_NOMINATED_COLLATERAL,
+        pending_withdrawals: default_pending_withdrawals,
+        collateral_to_be_withdrawn: DEFAULT_NOMINATION_COLLATERAL_TO_BE_WITHDRAWN,
     }
 }
 
@@ -391,9 +409,39 @@ impl CoreVaultData {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+pub struct CoreOperatorData {
+    pub nominators: BTreeMap<AccountId, Nominator<AccountId, BlockNumber, u128>>,
+    pub total_nominated_collateral: u128,
+    pub pending_withdrawals: BTreeMap<H256, (u32, u128)>,
+    pub collateral_to_be_withdrawn: u128,
+}
+
+impl Default for CoreOperatorData {
+    fn default() -> Self {
+        default_operator_state()
+    }
+}
+
+impl CoreOperatorData {
+    pub fn operator(operator: [u8; 32]) -> Self {
+        let account_id = account_of(operator);
+        match NominationPallet::get_operator_from_id(&account_id) {
+            Ok(operator) => Self {
+                nominators: operator.nominators,
+                total_nominated_collateral: operator.total_nominated_collateral,
+                pending_withdrawals: operator.pending_withdrawals,
+                collateral_to_be_withdrawn: operator.collateral_to_be_withdrawn,
+            },
+            Err(_) => default_operator_state(),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub struct ParachainState {
     user: UserData,
     vault: CoreVaultData,
+    operator: CoreOperatorData,
     liquidation_vault: CoreVaultData,
     fee_pool: FeePool,
 }
@@ -403,6 +451,7 @@ impl Default for ParachainState {
         Self {
             user: default_user_state(),
             vault: default_vault_state(),
+            operator: default_operator_state(),
             liquidation_vault: CoreVaultData {
                 free_balance: INITIAL_LIQUIDATION_VAULT_BALANCE,
                 ..Default::default()
@@ -419,12 +468,13 @@ impl ParachainState {
             vault: CoreVaultData::vault(BOB),
             liquidation_vault: CoreVaultData::liquidation_vault(),
             fee_pool: FeePool::get(),
+            operator: CoreOperatorData::operator(BOB),
         }
     }
 
     pub fn with_changes(
         &self,
-        f: impl FnOnce(&mut UserData, &mut CoreVaultData, &mut CoreVaultData, &mut FeePool),
+        f: impl FnOnce(&mut UserData, &mut CoreVaultData, &mut CoreVaultData, &mut FeePool, &mut CoreOperatorData),
     ) -> Self {
         let mut state = self.clone();
         f(
@@ -432,6 +482,7 @@ impl ParachainState {
             &mut state.vault,
             &mut state.liquidation_vault,
             &mut state.fee_pool,
+            &mut state.operator,
         );
         state
     }
@@ -516,6 +567,13 @@ pub fn try_register_vault(collateral: u128, vault: [u8; 32]) {
             Call::VaultRegistry(VaultRegistryCall::register_vault(collateral, dummy_public_key()))
                 .dispatch(origin_of(account_of(vault)))
         );
+    };
+}
+
+#[allow(dead_code)]
+pub fn try_register_operator(operator: [u8; 32]) {
+    if NominationPallet::get_operator_from_id(&account_of(operator)).is_err() {
+        assert_ok!(Call::Nomination(NominationCall::opt_in_to_nomination()).dispatch(origin_of(account_of(operator))));
     };
 }
 

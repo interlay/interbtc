@@ -216,18 +216,6 @@ pub(crate) mod fee {
 pub(crate) mod nomination {
     use sp_runtime::DispatchError;
 
-    use crate::types::DOT;
-
-    pub fn is_nomination_enabled<T: nomination::Config>() -> bool {
-        <nomination::Module<T>>::is_nomination_enabled()
-    }
-
-    pub fn get_total_nominated_collateral<T: nomination::Config>(
-        operator_id: &T::AccountId,
-    ) -> Result<DOT<T>, DispatchError> {
-        <nomination::Module<T>>::get_total_nominated_collateral(operator_id)
-    }
-
     pub fn is_operator<T: nomination::Config>(operator_id: &T::AccountId) -> Result<bool, DispatchError> {
         <nomination::Module<T>>::is_operator(operator_id)
     }

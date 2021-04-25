@@ -28,7 +28,7 @@ mod lock_additional_collateral_test {
 
             assert_eq!(
                 ParachainState::get(),
-                ParachainState::default().with_changes(|_, vault, _, _| {
+                ParachainState::default().with_changes(|_, vault, _, _, _| {
                     vault.backing_collateral += amount;
                     vault.free_balance -= amount;
                 })
@@ -48,7 +48,7 @@ mod lock_additional_collateral_test {
 
             assert_eq!(
                 ParachainState::get(),
-                ParachainState::default().with_changes(|_, vault, _, _| {
+                ParachainState::default().with_changes(|_, vault, _, _, _| {
                     vault.backing_collateral += amount;
                     vault.free_balance -= amount;
                 })
@@ -86,7 +86,7 @@ mod withdraw_collateral_test {
 
             assert_eq!(
                 ParachainState::get(),
-                ParachainState::default().with_changes(|_, vault, _, _| {
+                ParachainState::default().with_changes(|_, vault, _, _, _| {
                     vault.backing_collateral -= amount;
                     vault.free_balance += amount;
                 })
@@ -104,7 +104,7 @@ mod withdraw_collateral_test {
 
             assert_eq!(
                 ParachainState::get(),
-                ParachainState::default().with_changes(|_, vault, _, _| {
+                ParachainState::default().with_changes(|_, vault, _, _, _| {
                     vault.backing_collateral -= amount;
                     vault.free_balance += amount;
                 })

@@ -308,12 +308,10 @@ impl<T: Config> Module<T> {
         // check vault is not banned
         ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;
 
-        // Check that the vault has no nominated collateral.
-        // Otherwise, replacement would break the trust assumption.
-        if ext::nomination::is_nomination_enabled::<T>() && ext::nomination::is_operator::<T>(&vault_id)? {
-            let nominated_collateral = ext::nomination::get_total_nominated_collateral::<T>(&vault_id)?;
-            ensure!(nominated_collateral.is_zero(), Error::<T>::VaultUsesNominatedCollateral);
-        }
+        ensure!(
+            !ext::nomination::is_operator::<T>(&vault_id)?,
+            Error::<T>::VaultIsNominationOperator
+        );
 
         let requestable_tokens = ext::vault_registry::requestable_to_be_replaced_tokens::<T>(&vault_id)?;
         let to_be_replaced_increase = amount_btc.min(requestable_tokens);
@@ -709,7 +707,7 @@ decl_error! {
         ReplaceSelfNotAllowed,
         CancelAcceptedRequest,
         CollateralBelowSecureThreshold,
-        VaultUsesNominatedCollateral,
+        VaultIsNominationOperator,
         ReplacePeriodExpired,
         ReplacePeriodNotExpired,
         ReplaceCompleted,

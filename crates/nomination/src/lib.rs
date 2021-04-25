@@ -30,7 +30,8 @@ use frame_system::{ensure_root, ensure_signed};
 use primitive_types::H256;
 use sp_arithmetic::FixedPointNumber;
 use sp_runtime::traits::{CheckedAdd, Zero};
-use types::{DefaultOperator, Nominator, Operator, RichOperator, UnsignedFixedPoint, DOT};
+use types::{DefaultOperator, RichOperator, UnsignedFixedPoint, DOT};
+pub use types::{Nominator, Operator};
 use vault_registry::LiquidationTarget;
 
 pub trait WeightInfo {

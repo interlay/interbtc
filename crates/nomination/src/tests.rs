@@ -28,14 +28,6 @@ fn register_vault(id: u64) {
 }
 
 #[test]
-fn test_regular_vaults_are_not_opted_in_to_nomination() {
-    run_test(|| {
-        register_vault(BOB);
-        assert_eq!(Nomination::is_operator(&BOB).unwrap(), false);
-    })
-}
-
-#[test]
 fn test_non_vaults_cannot_become_operators() {
     run_test(|| {
         assert_err!(

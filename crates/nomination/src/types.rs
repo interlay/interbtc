@@ -208,12 +208,12 @@ impl<T: Config> RichOperator<T> {
         let total_nominated_collateral_u128 = Module::<T>::dot_to_u128(self.data.total_nominated_collateral)?;
 
         // Multiply the amount by the Nominator's collateral proportion
-        let nominated_collateral_to_slash_u128 = amount_u128
+        let scaled_collateral_u128 = amount_u128
             .checked_mul(nominated_collateral_u128)
             .ok_or(Error::<T>::ArithmeticOverflow)?
             .checked_div(total_nominated_collateral_u128)
             .ok_or(Error::<T>::ArithmeticOverflow)?;
-        Module::<T>::u128_to_dot(nominated_collateral_to_slash_u128)
+        Module::<T>::u128_to_dot(scaled_collateral_u128)
     }
 
     // Operator functionality

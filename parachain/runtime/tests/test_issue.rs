@@ -272,7 +272,7 @@ fn integration_test_issue_polka_btc_execute_bookkeeping() {
 
         assert_eq!(
             ParachainState::get(),
-            ParachainState::default().with_changes(|user, vault, _, fee_pool| {
+            ParachainState::default().with_changes(|user, vault, _, fee_pool, _| {
                 user.free_tokens += issue.amount;
                 fee_pool.tokens += issue.fee;
                 vault.issued += issue.fee + issue.amount;
@@ -339,7 +339,7 @@ fn integration_test_issue_overpayment() {
 
         assert_eq!(
             ParachainState::get(),
-            ParachainState::default().with_changes(|user, vault, _, fee_pool| {
+            ParachainState::default().with_changes(|user, vault, _, fee_pool, _| {
                 user.free_tokens += 2 * issue.amount;
                 fee_pool.tokens += 2 * issue.fee;
                 vault.issued += sent_btc;
@@ -379,7 +379,7 @@ fn integration_test_issue_refund() {
         let post_redeem_state = ParachainState::get();
         assert_eq!(
             post_redeem_state,
-            initial_state.with_changes(|user, vault, _, fee_pool| {
+            initial_state.with_changes(|user, vault, _, fee_pool, _| {
                 user.free_tokens += issue.amount;
                 fee_pool.tokens += issue.fee;
                 vault.issued += issue.fee + issue.amount;
@@ -391,7 +391,7 @@ fn integration_test_issue_refund() {
 
         assert_eq!(
             ParachainState::get(),
-            post_redeem_state.with_changes(|_user, vault, _, _fee_pool| {
+            post_redeem_state.with_changes(|_user, vault, _, _fee_pool, _| {
                 vault.free_tokens += issue.fee * 3;
                 vault.issued += issue.fee * 3;
             })
@@ -415,7 +415,7 @@ fn integration_test_issue_underpayment_succeeds() {
 
         assert_eq!(
             ParachainState::get(),
-            ParachainState::default().with_changes(|user, vault, _, fee_pool| {
+            ParachainState::default().with_changes(|user, vault, _, fee_pool, _| {
                 // user loses 75% of griefing collateral for having only fulfilled 25%
                 user.free_balance -= slashed_griefing_collateral;
                 fee_pool.balance += slashed_griefing_collateral;
@@ -466,7 +466,7 @@ fn integration_test_issue_polka_btc_cancel() {
 
         assert_eq!(
             ParachainState::get(),
-            ParachainState::default().with_changes(|user, _vault, _, fee_pool| {
+            ParachainState::default().with_changes(|user, _vault, _, fee_pool, _| {
                 user.free_balance -= issue.griefing_collateral;
                 fee_pool.balance += issue.griefing_collateral;
             })
@@ -495,7 +495,7 @@ fn integration_test_issue_polka_btc_cancel_liquidated() {
 
         assert_eq!(
             ParachainState::get(),
-            post_liquidation_status.with_changes(|user, _vault, liquidation_vault, _fee_pool| {
+            post_liquidation_status.with_changes(|user, _vault, liquidation_vault, _fee_pool, _| {
                 // griefing collateral released instead of slashed
                 user.locked_balance -= issue.griefing_collateral;
                 user.free_balance += issue.griefing_collateral;
@@ -518,7 +518,7 @@ fn integration_test_issue_polka_btc_execute_liquidated() {
 
         assert_eq!(
             ParachainState::get(),
-            post_liquidation_status.with_changes(|user, _vault, liquidation_vault, fee_pool| {
+            post_liquidation_status.with_changes(|user, _vault, liquidation_vault, fee_pool, _| {
                 user.free_tokens += issue.amount;
                 fee_pool.tokens += issue.fee;
 
