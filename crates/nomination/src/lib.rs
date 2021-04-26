@@ -420,6 +420,11 @@ impl<T: Config> Module<T> {
         Ok(operator.data.total_nominated_collateral)
     }
 
+    pub fn get_collateral_to_be_withdrawn(operator_id: &T::AccountId) -> Result<DOT<T>, DispatchError> {
+        let operator = Self::get_rich_operator_from_id(operator_id)?;
+        Ok(operator.data.collateral_to_be_withdrawn)
+    }
+
     pub fn get_nominators(
         operator_id: &T::AccountId,
     ) -> Result<Vec<(T::AccountId, Nominator<T::AccountId, T::BlockNumber, DOT<T>>)>, DispatchError> {

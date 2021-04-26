@@ -68,11 +68,24 @@ fn integration_test_operators_can_still_opt_out_if_disabled() {
 fn integration_test_operators_with_nonzero_nomination_can_force_opt_opt() {
     test_with_nomination_enabled_and_operator_registered(|| {
         assert_nominate_collateral(USER, VAULT, DEFAULT_NOMINATION);
-        let user_collateral_balance_before_force_refund = CollateralPallet::get_balance_from_account(&account_of(USER));
-        assert_eq!(user_collateral_balance_before_force_refund, 900000);
+        assert_eq!(
+            ParachainState::get(),
+            ParachainState::default().with_changes(|user, vault, _, _, operator| {
+                user.free_balance -= DEFAULT_NOMINATION;
+                vault.backing_collateral += DEFAULT_NOMINATION;
+
+                let expected_nominator = CoreNominatorData {
+                    collateral: DEFAULT_NOMINATION,
+                    collateral_to_be_withdrawn: 0,
+                };
+                let mut expected_nominators = BTreeMap::<AccountId, CoreNominatorData>::new();
+                expected_nominators.insert(account_of(USER), expected_nominator.clone());
+                operator.nominators = expected_nominators;
+                operator.total_nominated_collateral = expected_nominator.collateral;
+            })
+        );
         assert_ok!(deregister_operator(VAULT));
-        let user_collateral_balance_after_force_refund = CollateralPallet::get_balance_from_account(&account_of(USER));
-        assert_eq!(user_collateral_balance_after_force_refund, 900000 + DEFAULT_NOMINATION);
+        assert_eq!(ParachainState::get(), ParachainState::default());
     });
 }
 
@@ -226,8 +239,6 @@ fn integration_test_operator_withdrawal_can_force_refund_nominators() {
             VAULT,
             operator_amount_to_withdraw
         ));
-        let act_operator = NominationPallet::get_operator_from_id(&account_of(VAULT)).unwrap();
-        let withdrawal_request_id = act_operator.pending_withdrawals.iter().collect::<Vec<_>>()[0].0;
 
         assert_eq!(
             ParachainState::get(),
@@ -241,25 +252,15 @@ fn integration_test_operator_withdrawal_can_force_refund_nominators() {
                 vault.free_balance += vault_withdrawal_to_reach_max_nominatio_ratio;
                 vault.griefing_collateral += operator_amount_to_withdraw;
 
-                let expected_nominator = Nominator {
-                    id: account_of(USER),
+                let expected_nominator = CoreNominatorData {
                     collateral: DEFAULT_NOMINATION - expected_nominator_force_refund,
-                    pending_withdrawals: BTreeMap::<H256, (BlockNumber, u128)>::new(),
                     collateral_to_be_withdrawn: 0,
                 };
-                let mut expected_nominators = BTreeMap::<AccountId, Nominator<AccountId, BlockNumber, u128>>::new();
+                let mut expected_nominators = BTreeMap::<AccountId, CoreNominatorData>::new();
                 expected_nominators.insert(account_of(USER), expected_nominator.clone());
                 operator.nominators = expected_nominators;
                 operator.total_nominated_collateral = expected_nominator.collateral;
                 operator.collateral_to_be_withdrawn = operator_amount_to_withdraw;
-
-                let expected_withdrawal_maturity = 1 + DEFAULT_OPERATOR_UNBONDING_PERIOD;
-                let mut expected_pending_withdrawals = BTreeMap::<H256, (BlockNumber, u128)>::new();
-                expected_pending_withdrawals.insert(
-                    *withdrawal_request_id,
-                    (expected_withdrawal_maturity, operator_amount_to_withdraw),
-                );
-                operator.pending_withdrawals = expected_pending_withdrawals;
             })
         );
     });
@@ -288,13 +289,11 @@ fn integration_test_liquidating_operators_for_low_collateralization_also_liquida
                 vault.issued = 0;
                 vault.backing_collateral = vault.backing_collateral + DEFAULT_NOMINATION - expected_slashed_amount;
 
-                let expected_nominator = Nominator {
-                    id: account_of(USER),
+                let expected_nominator = CoreNominatorData {
                     collateral: DEFAULT_NOMINATION - expected_nominator_slashed_amount,
-                    pending_withdrawals: BTreeMap::<H256, (BlockNumber, u128)>::new(),
                     collateral_to_be_withdrawn: 0,
                 };
-                let mut expected_nominators = BTreeMap::<AccountId, Nominator<AccountId, BlockNumber, u128>>::new();
+                let mut expected_nominators = BTreeMap::<AccountId, CoreNominatorData>::new();
                 expected_nominators.insert(account_of(USER), expected_nominator.clone());
                 operator.nominators = expected_nominators;
                 operator.total_nominated_collateral = expected_nominator.collateral;
