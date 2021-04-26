@@ -21,7 +21,7 @@ use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
     traits::{BlakeTwo256, Block as BlockT, IdentifyAccount, IdentityLookup, Verify},
     transaction_validity::{TransactionSource, TransactionValidity},
-    ApplyExtrinsicResult, MultiSignature,
+    ApplyExtrinsicResult, ModuleId, MultiSignature,
 };
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
@@ -472,7 +472,12 @@ impl staked_relayers::Config for Runtime {
 
 pub use vault_registry::RawEvent as VaultRegistryEvent;
 
+parameter_types! {
+    pub const VaultModuleId: ModuleId = ModuleId(*b"mod/vreg");
+}
+
 impl vault_registry::Config for Runtime {
+    type ModuleId = VaultModuleId;
     type Event = Event;
     type UnsignedFixedPoint = FixedU128;
     type RandomnessSource = RandomnessCollectiveFlip;
@@ -487,7 +492,12 @@ impl exchange_rate_oracle::Config for Runtime {
     type WeightInfo = ();
 }
 
+parameter_types! {
+    pub const FeeModuleId: ModuleId = ModuleId(*b"mod/fees");
+}
+
 impl fee::Config for Runtime {
+    type ModuleId = FeeModuleId;
     type Event = Event;
     type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();

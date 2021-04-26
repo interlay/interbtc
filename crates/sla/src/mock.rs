@@ -7,6 +7,7 @@ use sp_core::H256;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
+    ModuleId,
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -119,7 +120,12 @@ impl treasury::Config for Test {
     type PolkaBTC = pallet_balances::Pallet<Test, pallet_balances::Instance2>;
 }
 
+parameter_types! {
+    pub const VaultModuleId: ModuleId = ModuleId(*b"mod/vreg");
+}
+
 impl vault_registry::Config for Test {
+    type ModuleId = VaultModuleId;
     type Event = TestEvent;
     type RandomnessSource = pallet_randomness_collective_flip::Pallet<Test>;
     type UnsignedFixedPoint = FixedU128;

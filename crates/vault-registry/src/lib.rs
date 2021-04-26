@@ -31,7 +31,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
-    traits::Randomness,
+    traits::{Get, Randomness},
     transactional,
     weights::Weight,
     IterableStorageMap,
@@ -40,6 +40,7 @@ use frame_system::ensure_signed;
 use primitive_types::U256;
 use sp_arithmetic::{traits::*, FixedPointNumber};
 use sp_core::H256;
+use sp_runtime::{traits::AccountIdConversion, ModuleId};
 use sp_std::{convert::TryInto, vec::Vec};
 
 use crate::types::{
@@ -64,6 +65,9 @@ pub struct RegisterRequest<AccountId, DateTime> {
 pub trait Config:
     frame_system::Config + collateral::Config + treasury::Config + exchange_rate_oracle::Config + security::Config
 {
+    /// The vault module id, used for deriving its sovereign account ID.
+    type ModuleId: Get<ModuleId>;
+
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 
@@ -111,16 +115,9 @@ decl_storage! {
         /// to handle polkaBTC balances and DOT collateral of liquidated Vaults.
         /// That is, when a Vault is liquidated, its balances are transferred to
         /// LiquidationVault and claims are later handled via the LiquidationVault.
-        LiquidationVaultAccountId get(fn liquidation_vault_account_id) config(): T::AccountId;
+        LiquidationVaultAccountId: T::AccountId;
 
-        LiquidationVault get(fn liquidation_vault) build(|config: &GenesisConfig<T>| {
-            SystemVault {
-                id: config.liquidation_vault_account_id.clone(),
-                to_be_issued_tokens: Default::default(),
-                issued_tokens: Default::default(),
-                to_be_redeemed_tokens: Default::default(),
-            }
-        }): SystemVault<T::AccountId, PolkaBTC<T>>;
+        LiquidationVault get(fn liquidation_vault): SystemVault<PolkaBTC<T>>;
 
         /// Mapping of Vaults, using the respective Vault account identifier as key.
         Vaults: map hasher(blake2_128_concat) T::AccountId => Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>;
@@ -139,6 +136,10 @@ decl_storage! {
 // The pallet's dispatchable functions.
 decl_module! {
     pub struct Module<T: Config> for enum Call where origin: T::Origin {
+        /// The vault module id, used for deriving its sovereign account ID.
+        const ModuleId: ModuleId = T::ModuleId::get();
+
+        // Initialize errors
         type Error = Error<T>;
 
         // Initializing events
@@ -175,6 +176,17 @@ decl_module! {
                         };
                         <Vaults<T>>::insert(id, new_vault);
                     });
+
+                let next_account_id = Self::liquidation_vault_account_id();
+                let prev_account_id = <LiquidationVaultAccountId<T>>::take();
+
+                // transfer collateral
+                let amount_dot = ext::collateral::get_free_balance::<T>(&prev_account_id);
+                ext::collateral::transfer::<T>(&prev_account_id, &next_account_id, amount_dot).expect("failed to transfer collateral");
+
+                // tranfer tokens
+                let amount_btc = ext::treasury::get_free_balance::<T>(prev_account_id.clone());
+                ext::treasury::transfer::<T>(prev_account_id, next_account_id, amount_btc).expect("failed to transfer tokens");
 
                 StorageVersion::put(Version::V2);
             }
@@ -332,6 +344,15 @@ impl<T: Config> Module<T> {
         let weight = <T as Config>::WeightInfo::liquidate_undercollateralized_vaults(num_vaults);
         Ok(weight)
     }
+
+    /// The account ID of the liquidation vault.
+    ///
+    /// This actually does computation. If you need to keep using it, then make sure you cache the
+    /// value and only call this once.
+    pub fn liquidation_vault_account_id() -> T::AccountId {
+        T::ModuleId::get().into_account()
+    }
+
     /// Public functions
 
     pub fn _register_vault(vault_id: &T::AccountId, collateral: DOT<T>, public_key: BtcPublicKey) -> DispatchResult {

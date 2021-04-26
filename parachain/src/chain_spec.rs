@@ -98,8 +98,6 @@ pub fn local_config(#[cfg(feature = "cumulus-polkadot")] id: ParaId) -> ChainSpe
         move || {
             testnet_genesis(
                 get_account_id_from_seed::<sr25519::Public>("Alice"),
-                get_account_id_from_seed::<sr25519::Public>("LiquidationVault"),
-                get_account_id_from_seed::<sr25519::Public>("FeePool"),
                 get_account_id_from_seed::<sr25519::Public>("Maintainer"),
                 #[cfg(feature = "aura-grandpa")]
                 vec![],
@@ -156,8 +154,6 @@ pub fn rococo_testnet_config(id: ParaId) -> ChainSpec {
         move || {
             testnet_genesis(
                 get_account_id_from_string("5HeVGqvfpabwFqzV1DhiQmjaLQiFcTSmq2sH6f7atsXkgvtt"),
-                get_account_id_from_string("5CcXK1yKz4o68AJT3yBWjJPPXKDFvEFAi1L1Gkisy7n6MbGC"),
-                get_account_id_from_string("5GqMEqFQMfr2FEUBQ8yzh7NTGZUQQigfVELHnXXsUFve7TMN"),
                 get_account_id_from_string("5FqYNDWeJ9bwa3NhEryxscBELAMj54yrKqGaYNR9CjLZFYLB"),
                 vec![
                     get_account_id_from_string("5HeVGqvfpabwFqzV1DhiQmjaLQiFcTSmq2sH6f7atsXkgvtt"),
@@ -207,8 +203,6 @@ pub fn beta_testnet_config() -> ChainSpec {
         move || {
             testnet_genesis(
                 get_account_id_from_string("5HeVGqvfpabwFqzV1DhiQmjaLQiFcTSmq2sH6f7atsXkgvtt"),
-                get_account_id_from_string("5CcXK1yKz4o68AJT3yBWjJPPXKDFvEFAi1L1Gkisy7n6MbGC"),
-                get_account_id_from_string("5GqMEqFQMfr2FEUBQ8yzh7NTGZUQQigfVELHnXXsUFve7TMN"),
                 get_account_id_from_string("5FqYNDWeJ9bwa3NhEryxscBELAMj54yrKqGaYNR9CjLZFYLB"),
                 vec![
                     (
@@ -280,8 +274,6 @@ pub fn development_config(#[cfg(feature = "cumulus-polkadot")] id: ParaId) -> Ch
         move || {
             testnet_genesis(
                 get_account_id_from_seed::<sr25519::Public>("Alice"),
-                get_account_id_from_seed::<sr25519::Public>("LiquidationVault"),
-                get_account_id_from_seed::<sr25519::Public>("FeePool"),
                 get_account_id_from_seed::<sr25519::Public>("Maintainer"),
                 #[cfg(feature = "aura-grandpa")]
                 vec![authority_keys_from_seed("Alice")],
@@ -345,8 +337,6 @@ pub fn development_config(#[cfg(feature = "cumulus-polkadot")] id: ParaId) -> Ch
 
 fn testnet_genesis(
     root_key: AccountId,
-    liquidation_vault: AccountId,
-    fee_pool: AccountId,
     maintainer: AccountId,
     #[cfg(feature = "aura-grandpa")] initial_authorities: Vec<(AuraId, GrandpaId)>,
     endowed_accounts: Vec<AccountId>,
@@ -413,7 +403,6 @@ fn testnet_genesis(
             premium_redeem_threshold: FixedU128::checked_from_rational(135, 100).unwrap(),    // 135%
             auction_collateral_threshold: FixedU128::checked_from_rational(120, 100).unwrap(), // 120%
             liquidation_collateral_threshold: FixedU128::checked_from_rational(110, 100).unwrap(), // 110%
-            liquidation_vault_account_id: liquidation_vault,
         },
         fee: FeeConfig {
             issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
@@ -424,7 +413,6 @@ fn testnet_genesis(
             auction_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(), // 5%
             punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
             replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
-            fee_pool_account_id: fee_pool,
             maintainer_account_id: maintainer,
             epoch_period: 5,
             vault_rewards: FixedU128::checked_from_rational(77, 100).unwrap(),

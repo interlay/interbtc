@@ -6,7 +6,7 @@ use sp_core::H256;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
-    FixedI128, FixedPointNumber, FixedU128,
+    FixedI128, FixedPointNumber, FixedU128, ModuleId,
 };
 
 pub const VAULT: AccountId = 1;
@@ -125,7 +125,12 @@ impl treasury::Config for Test {
     type PolkaBTC = pallet_balances::Pallet<Test, pallet_balances::Instance2>;
 }
 
+parameter_types! {
+    pub const FeeModuleId: ModuleId = ModuleId(*b"mod/fees");
+}
+
 impl fee::Config for Test {
+    type ModuleId = FeeModuleId;
     type Event = TestEvent;
     type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
@@ -150,7 +155,12 @@ impl security::Config for Test {
     type Event = TestEvent;
 }
 
+parameter_types! {
+    pub const VaultModuleId: ModuleId = ModuleId(*b"mod/vreg");
+}
+
 impl vault_registry::Config for Test {
+    type ModuleId = VaultModuleId;
     type Event = TestEvent;
     type RandomnessSource = pallet_randomness_collective_flip::Pallet<Test>;
     type UnsignedFixedPoint = FixedU128;
