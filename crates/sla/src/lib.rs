@@ -24,6 +24,7 @@ use crate::types::{Inner, RelayerEvent, VaultEvent};
 use codec::{Decode, Encode, EncodeLike};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError, traits::Currency, transactional,
+    weights::Weight,
 };
 use frame_system::ensure_root;
 use sp_arithmetic::{traits::*, FixedPointNumber};
@@ -53,10 +54,11 @@ decl_storage! {
         // TODO: deduplicate this with the storage in the staked_relayers pallet
         RelayerStake get(fn relayer_stake): map hasher(blake2_128_concat) T::AccountId => T::SignedFixedPoint;
 
-
         // number of issues executed by all vaults together; used for calculating the average issue size,
         // which is used in SLA updates
         TotalIssueCount: u32;
+        // sum of all issue amounts
+        LifetimeIssued: u128;
 
         // sum of all relayer scores, used in relayer reward calculation
         TotalRelayerScore: T::SignedFixedPoint;
@@ -107,6 +109,11 @@ decl_module! {
         // Initialize events
         fn deposit_event() = default;
 
+        fn on_runtime_upgrade() -> Weight {
+            Self::_on_runtime_upgrade();
+            0
+        }
+
         /// Set the sla delta for the given relayer event.
         ///
         /// # Arguments
@@ -130,21 +137,12 @@ decl_module! {
 impl<T: Config> Module<T> {
     // Public functions exposed to other pallets
 
-    pub fn _on_runtime_upgrade(stakes: Vec<(T::AccountId, DOT<T>)>) -> Result<(), DispatchError> {
-        // clear all the old entries
-        <RelayerStake<T>>::drain().for_each(|_| {});
-
-        let mut total_score = SignedFixedPoint::<T>::zero();
-        for (relayer_id, stake) in stakes.into_iter() {
-            Self::initialize_relayer_stake(&relayer_id, stake)?;
-            let stake_fixed_point = <RelayerStake<T>>::get(&relayer_id);
-            let score = Self::relayer_sla(&relayer_id)
-                .checked_mul(&stake_fixed_point)
-                .ok_or(Error::<T>::ArithmeticOverflow)?;
-            total_score = total_score.checked_add(&score).ok_or(Error::<T>::ArithmeticOverflow)?;
+    fn _on_runtime_upgrade() {
+        if !LifetimeIssued::exists() {
+            let amount = ext::vault_registry::get_total_issued_tokens::<T>(false).unwrap();
+            let amount = Self::polkabtc_to_u128(amount).unwrap();
+            LifetimeIssued::set(amount);
         }
-        <TotalRelayerScore<T>>::set(total_score);
-        Ok(())
     }
 
     /// Update the SLA score of the vault on given the event.
@@ -421,16 +419,24 @@ impl<T: Config> Module<T> {
     /// * `amount` - the amount of polkabtc that was issued
     /// * `vault_id` - account of the vault
     fn _executed_issue_sla_change(amount: PolkaBTC<T>) -> Result<T::SignedFixedPoint, DispatchError> {
-        // update the number of issues performed
-        let mut count = <TotalIssueCount>::get();
-        count = count.checked_add(1).ok_or(Error::<T>::ArithmeticOverflow)?;
-        <TotalIssueCount>::set(count);
+        let amount_raw = Self::polkabtc_to_u128(amount)?;
 
-        // TODO: fix this
-        let total = ext::treasury::get_total_supply::<T>();
-        let total_raw = Self::polkabtc_to_u128(total)?;
-        let average =
-            T::SignedFixedPoint::checked_from_rational(total_raw, count).ok_or(Error::<T>::TryIntoIntError)?;
+        // update the number of issues performed
+        let count = TotalIssueCount::mutate(|x| {
+            *x = x.saturating_add(1);
+            *x as u128
+        });
+        let total = LifetimeIssued::mutate(|x| {
+            *x = x.saturating_add(amount_raw);
+            *x
+        });
+
+        // calculate the average on raw input rather than in fixed_point - we don't want to fail
+        // if the result can not be losslessly represented. By using raw division we will be off
+        // but at most one Planck, which is acceptable
+        let average_raw = total.checked_div(count).ok_or(Error::<T>::ArithmeticOverflow)?;
+
+        let average = T::SignedFixedPoint::checked_from_rational(average_raw, 1).ok_or(Error::<T>::TryIntoIntError)?;
 
         let max_sla_change = <VaultExecutedIssueMaxSlaChange<T>>::get();
 

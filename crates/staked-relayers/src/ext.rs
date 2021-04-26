@@ -184,7 +184,6 @@ pub(crate) mod sla {
     use crate::types::DOT;
     use frame_support::dispatch::DispatchError;
     pub use sla::types::RelayerEvent;
-    use sp_std::vec::Vec;
 
     pub fn event_update_relayer_sla<T: sla::Config>(
         relayer_id: &T::AccountId,
@@ -198,9 +197,5 @@ pub(crate) mod sla {
         stake: DOT<T>,
     ) -> Result<(), DispatchError> {
         <sla::Pallet<T>>::initialize_relayer_stake(relayer_id, stake)
-    }
-
-    pub fn _on_runtime_upgrade<T: sla::Config>(stakes: Vec<(T::AccountId, DOT<T>)>) -> Result<(), DispatchError> {
-        <sla::Pallet<T>>::_on_runtime_upgrade(stakes)
     }
 }
