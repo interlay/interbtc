@@ -7,6 +7,7 @@ use sp_core::H256;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
+    ModuleId,
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -126,7 +127,12 @@ impl exchange_rate_oracle::Config for Test {
     type WeightInfo = ();
 }
 
+parameter_types! {
+    pub const VaultModuleId: ModuleId = ModuleId(*b"mod/vreg");
+}
+
 impl vault_registry::Config for Test {
+    type ModuleId = VaultModuleId;
     type Event = TestEvent;
     type RandomnessSource = pallet_randomness_collective_flip::Pallet<Test>;
     type UnsignedFixedPoint = FixedU128;
@@ -153,7 +159,12 @@ impl sla::Config for Test {
     type SignedFixedPoint = FixedI128;
 }
 
+parameter_types! {
+    pub const FeeModuleId: ModuleId = ModuleId(*b"mod/fees");
+}
+
 impl Config for Test {
+    type ModuleId = FeeModuleId;
     type Event = TestEvent;
     type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();

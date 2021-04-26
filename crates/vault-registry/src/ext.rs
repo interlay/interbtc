@@ -34,9 +34,22 @@ pub(crate) mod collateral {
 #[cfg_attr(test, mockable)]
 pub(crate) mod treasury {
     use crate::types::PolkaBTC;
+    use frame_support::dispatch::DispatchResult;
 
     pub fn total_issued<T: treasury::Config>() -> PolkaBTC<T> {
         <treasury::Pallet<T>>::get_total_supply()
+    }
+
+    pub fn get_free_balance<T: treasury::Config>(id: T::AccountId) -> PolkaBTC<T> {
+        <treasury::Pallet<T>>::get_balance_from_account(id)
+    }
+
+    pub fn transfer<T: treasury::Config>(
+        sender: T::AccountId,
+        receiver: T::AccountId,
+        amount: PolkaBTC<T>,
+    ) -> DispatchResult {
+        <treasury::Pallet<T>>::transfer(sender, receiver, amount)
     }
 }
 

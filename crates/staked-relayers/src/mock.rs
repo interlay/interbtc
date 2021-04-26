@@ -7,6 +7,7 @@ use sp_core::H256;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
+    ModuleId,
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -131,7 +132,12 @@ impl security::Config for Test {
     type Event = TestEvent;
 }
 
+parameter_types! {
+    pub const VaultModuleId: ModuleId = ModuleId(*b"mod/vreg");
+}
+
 impl vault_registry::Config for Test {
+    type ModuleId = VaultModuleId;
     type Event = TestEvent;
     type RandomnessSource = pallet_randomness_collective_flip::Pallet<Test>;
     type UnsignedFixedPoint = FixedU128;
@@ -149,7 +155,12 @@ impl exchange_rate_oracle::Config for Test {
     type WeightInfo = ();
 }
 
+parameter_types! {
+    pub const FeeModuleId: ModuleId = ModuleId(*b"mod/fees");
+}
+
 impl fee::Config for Test {
+    type ModuleId = FeeModuleId;
     type Event = TestEvent;
     type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
@@ -241,7 +252,6 @@ impl ExtBuilder {
             auction_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(), // 5%
             punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
             replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
-            fee_pool_account_id: 0,
             maintainer_account_id: 1,
             epoch_period: 5,
             vault_rewards: FixedU128::checked_from_rational(77, 100).unwrap(),

@@ -2,15 +2,6 @@
 use mocktopus::macros::mockable;
 
 #[cfg_attr(test, mockable)]
-pub(crate) mod treasury {
-    use crate::PolkaBTC;
-
-    pub fn get_total_supply<T: treasury::Config>() -> PolkaBTC<T> {
-        <treasury::Pallet<T>>::get_total_supply()
-    }
-}
-
-#[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
     use crate::{PolkaBTC, DOT};
     use frame_support::dispatch::DispatchError;

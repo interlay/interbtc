@@ -40,15 +40,13 @@ pub const EVE: [u8; 32] = [11u8; 32];
 pub const FRANK: [u8; 32] = [12u8; 32];
 pub const GRACE: [u8; 32] = [13u8; 32];
 
-pub const LIQUIDATION_VAULT: [u8; 32] = [3u8; 32];
-pub const FEE_POOL: [u8; 32] = [4u8; 32];
 pub const MAINTAINER: [u8; 32] = [5u8; 32];
 
 pub const FAUCET: [u8; 32] = [128u8; 32];
 pub const DUMMY: [u8; 32] = [255u8; 32];
 
 pub const INITIAL_BALANCE: u128 = 1_000_000_000_000;
-pub const INITIAL_LIQUIDATION_VAULT_BALANCE: u128 = 1_000;
+pub const INITIAL_LIQUIDATION_VAULT_BALANCE: u128 = 0;
 
 pub const DEFAULT_USER_FREE_BALANCE: u128 = 1_000_000;
 pub const DEFAULT_USER_LOCKED_BALANCE: u128 = 100_000;
@@ -270,7 +268,7 @@ impl CoreVaultData {
     }
     #[allow(dead_code)]
     pub fn liquidation_vault() -> Self {
-        let account_id = account_of(LIQUIDATION_VAULT);
+        let account_id = VaultRegistryPallet::liquidation_vault_account_id();
         let vault = VaultRegistryPallet::get_liquidation_vault();
         Self {
             to_be_issued: vault.to_be_issued_tokens,
@@ -840,10 +838,6 @@ impl ExtBuilder {
                 (account_of(FRANK), INITIAL_BALANCE),
                 (account_of(GRACE), INITIAL_BALANCE),
                 (account_of(FAUCET), 1 << 60),
-                // create accounts for vault & fee pool; this needs a minimum amount because
-                // the parachain refuses to create accounts with a balance below `ExistentialDeposit`
-                (account_of(LIQUIDATION_VAULT), INITIAL_LIQUIDATION_VAULT_BALANCE),
-                (account_of(FEE_POOL), 1000),
             ],
         }
         .assimilate_storage(&mut storage)
@@ -877,7 +871,6 @@ impl ExtBuilder {
             auction_collateral_threshold: FixedU128::checked_from_rational(120, 100).unwrap(),
             premium_redeem_threshold: FixedU128::checked_from_rational(135, 100).unwrap(),
             liquidation_collateral_threshold: FixedU128::checked_from_rational(110, 100).unwrap(),
-            liquidation_vault_account_id: account_of(LIQUIDATION_VAULT),
         }
         .assimilate_storage(&mut storage)
         .unwrap();
@@ -909,7 +902,6 @@ impl ExtBuilder {
             auction_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(), // 5%
             punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
             replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
-            fee_pool_account_id: account_of(FEE_POOL),
             maintainer_account_id: account_of(MAINTAINER),
             epoch_period: 5,
             vault_rewards_issued: FixedU128::checked_from_rational(90, 100).unwrap(), // 90%

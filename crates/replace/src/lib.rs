@@ -200,7 +200,7 @@ decl_module! {
         /// * `origin` - sender of the transaction: the old vault
         #[weight = <T as Config>::WeightInfo::withdraw_replace()]
         #[transactional]
-        fn withdraw_replace(origin, amount: PolkaBTC<T>)
+        fn withdraw_replace(origin, #[compact] amount: PolkaBTC<T>)
             -> DispatchResult
         {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;

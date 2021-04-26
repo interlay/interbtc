@@ -30,15 +30,26 @@ fn test_with<R>(execute: impl FnOnce() -> R) -> R {
 #[test]
 fn test_sla_increase_for_issue() {
     test_with(|| {
-        let (issue_id, issue) = request_issue(1000);
+        let (issue_id, _) = request_issue(1000);
         execute_issue(issue_id);
 
         // check the sla increase for processing the issue
-        let expected_sla_increase = SlaPallet::vault_executed_issue_max_sla_change()
-            * FixedI128::checked_from_rational(issue.amount, issue.amount + issue.fee).unwrap();
+        let expected_sla_increase_1 = SlaPallet::vault_executed_issue_max_sla_change();
         assert_eq!(
             SlaPallet::vault_sla(account_of(VAULT)),
-            initial_sla() + expected_sla_increase
+            initial_sla() + expected_sla_increase_1
+        );
+
+        // now issue 600, which brings the average to 800 -> we should get 75% reward
+        let (issue_id, _) = request_issue(600);
+        execute_issue(issue_id);
+
+        // check the sla increase for processing the issue
+        let expected_sla_increase_2 =
+            SlaPallet::vault_executed_issue_max_sla_change() * FixedI128::checked_from_rational(600, 800).unwrap();
+        assert_eq!(
+            SlaPallet::vault_sla(account_of(VAULT)),
+            initial_sla() + expected_sla_increase_1 + expected_sla_increase_2
         );
     })
 }
@@ -62,13 +73,12 @@ fn test_sla_increase_for_submitting_proof_for_issue_against_self() {
     test_with(|| {
         // vault receives issue & executes it himself. Should get both SLA rewards
 
-        let (issue_id, issue) = request_issue(1000);
+        let (issue_id, _) = request_issue(1000);
         ExecuteIssueBuilder::new(issue_id)
             .with_submitter(VAULT, true)
             .assert_execute();
 
-        let expected_sla_increase_for_issue = SlaPallet::vault_executed_issue_max_sla_change()
-            * FixedI128::checked_from_rational(issue.amount, issue.amount + issue.fee).unwrap();
+        let expected_sla_increase_for_issue = SlaPallet::vault_executed_issue_max_sla_change();
         let expected_sla_increase_for_proof_submission = SlaPallet::vault_submitted_issue_proof();
 
         // check that the vault who submitted the proof is rewarded with both SLA rewards
@@ -98,8 +108,7 @@ fn test_sla_increase_for_refund() {
             .with_amount(4 * (issue.amount + issue.fee))
             .assert_execute();
 
-        let expected_sla_increase_for_issue = SlaPallet::vault_executed_issue_max_sla_change()
-            * FixedI128::checked_from_rational(issue.amount, issue.amount + issue.fee).unwrap();
+        let expected_sla_increase_for_issue = SlaPallet::vault_executed_issue_max_sla_change();
 
         // check that the vault who submitted the proof is rewarded for issue
         assert_eq!(
@@ -163,8 +172,7 @@ fn test_sla_increase_for_underpayed_issue() {
             .assert_execute();
 
         // check the sla increase
-        let expected_sla_increase = SlaPallet::vault_executed_issue_max_sla_change()
-            * FixedI128::checked_from_rational(issue.amount, issue.amount + issue.fee).unwrap();
+        let expected_sla_increase = SlaPallet::vault_executed_issue_max_sla_change();
         assert_eq!(
             SlaPallet::vault_sla(account_of(VAULT)),
             initial_sla() + expected_sla_increase

@@ -1,6 +1,6 @@
 use super::*;
-// use crate::Pallet as Fee;
-use frame_benchmarking::{account, benchmarks, whitelisted_caller};
+use crate::Pallet as Fee;
+use frame_benchmarking::{account, benchmarks};
 use frame_support::{traits::Currency, StorageMap};
 use frame_system::RawOrigin;
 use sp_std::prelude::*;
@@ -11,8 +11,7 @@ const ED_MULTIPLIER: u32 = 10;
 
 benchmarks! {
     withdraw_polka_btc {
-        let fee_pool: T::AccountId = whitelisted_caller();
-        <FeePoolAccountId::<T>>::set(fee_pool.clone());
+        let fee_pool: T::AccountId = Fee::<T>::fee_pool_account_id();
 
         let existential_deposit = <<T as treasury::Config>::PolkaBTC as Currency<_>>::minimum_balance();
         let balance = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
@@ -25,8 +24,7 @@ benchmarks! {
     }: _(RawOrigin::Signed(recipient), amount)
 
     withdraw_dot {
-        let fee_pool: T::AccountId = whitelisted_caller();
-        <FeePoolAccountId::<T>>::set(fee_pool.clone());
+        let fee_pool: T::AccountId = Fee::<T>::fee_pool_account_id();
 
         let existential_deposit = <<T as collateral::Config>::DOT as Currency<_>>::minimum_balance();
         let balance = existential_deposit.saturating_mul(ED_MULTIPLIER.into());

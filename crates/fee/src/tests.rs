@@ -147,7 +147,7 @@ fn test_withdraw_polka_btc_fails_with_insufficient_balance() {
 fn test_withdraw_polka_btc_succeeds() {
     run_test(|| {
         <TotalRewardsPolkaBTC<Test>>::insert(0, 1000);
-        ext::collateral::transfer::<Test>.mock_safe(|fee_pool, signer, amount| {
+        ext::treasury::transfer::<Test>.mock_safe(|fee_pool, signer, amount| {
             assert_eq!(Fee::fee_pool_account_id(), fee_pool);
             assert_eq!(signer, 0);
             assert_eq!(amount, 1000);

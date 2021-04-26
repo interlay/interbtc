@@ -43,7 +43,7 @@ impl<T: Config> CurrencySource<T> {
     pub fn account_id(&self) -> <T as frame_system::Config>::AccountId {
         match self {
             CurrencySource::Backing(x) | CurrencySource::Griefing(x) | CurrencySource::FreeBalance(x) => x.clone(),
-            CurrencySource::LiquidationVault => Pallet::<T>::get_rich_liquidation_vault().data.id,
+            CurrencySource::LiquidationVault => Pallet::<T>::liquidation_vault_account_id(),
         }
     }
     pub fn current_balance(&self) -> Result<DOT<T>, DispatchError> {
@@ -193,9 +193,7 @@ pub struct VaultV1<AccountId, BlockNumber, PolkaBTC, DOT> {
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug, serde::Serialize, serde::Deserialize))]
-pub struct SystemVault<AccountId, PolkaBTC> {
-    // Account identifier of the Vault
-    pub id: AccountId,
+pub struct SystemVault<PolkaBTC> {
     // Number of PolkaBTC tokens pending issue
     pub to_be_issued_tokens: PolkaBTC,
     // Number of issued PolkaBTC tokens
@@ -231,7 +229,7 @@ impl<AccountId: Ord, BlockNumber, PolkaBTC: HasCompact + Default, DOT: HasCompac
 pub type DefaultVault<T> =
     Vault<<T as frame_system::Config>::AccountId, <T as frame_system::Config>::BlockNumber, PolkaBTC<T>, DOT<T>>;
 
-pub type DefaultSystemVault<T> = SystemVault<<T as frame_system::Config>::AccountId, PolkaBTC<T>>;
+pub type DefaultSystemVault<T> = SystemVault<PolkaBTC<T>>;
 
 pub(crate) trait UpdatableVault<T: Config> {
     fn id(&self) -> T::AccountId;
@@ -623,7 +621,7 @@ impl<T: Config> RichSystemVault<T> {
 
 impl<T: Config> UpdatableVault<T> for RichSystemVault<T> {
     fn id(&self) -> T::AccountId {
-        self.data.id.clone()
+        Pallet::<T>::liquidation_vault_account_id()
     }
 
     fn issued_tokens(&self) -> PolkaBTC<T> {

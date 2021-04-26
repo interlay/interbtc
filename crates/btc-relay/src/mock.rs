@@ -7,6 +7,7 @@ use sp_core::H256;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
+    ModuleId,
 };
 
 pub const BITCOIN_CONFIRMATIONS: u32 = 6;
@@ -133,7 +134,12 @@ impl collateral::Config for Test {
     type DOT = pallet_balances::Pallet<Test, pallet_balances::Instance1>;
 }
 
+parameter_types! {
+    pub const VaultModuleId: ModuleId = ModuleId(*b"mod/vreg");
+}
+
 impl vault_registry::Config for Test {
+    type ModuleId = VaultModuleId;
     type Event = TestEvent;
     type UnsignedFixedPoint = FixedU128;
     type RandomnessSource = pallet_randomness_collective_flip::Pallet<Test>;

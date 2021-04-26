@@ -128,12 +128,6 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        fn on_runtime_upgrade() -> Weight {
-            Self::_on_runtime_upgrade().expect("runtime upgrade failed");
-
-            0
-        }
-
         /// One time function to initialize the BTC-Relay with the first block
         ///
         /// # Arguments
@@ -598,18 +592,6 @@ decl_module! {
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
 impl<T: Config> Module<T> {
-    #[transactional]
-    pub fn _on_runtime_upgrade() -> DispatchResult {
-        let active_relayers = <ActiveStakedRelayers<T>>::iter();
-        let inactive_relayers = <InactiveStakedRelayers<T>>::iter();
-        let stakes = active_relayers
-            .chain(inactive_relayers)
-            .map(|(relayer_id, relayer)| (relayer_id, relayer.stake))
-            .collect::<Vec<_>>();
-
-        ext::sla::_on_runtime_upgrade::<T>(stakes)
-    }
-
     fn begin_block(height: T::BlockNumber) -> DispatchResult {
         for (id, acc) in <InactiveStakedRelayers<T>>::iter() {
             let _ = Self::try_bond_staked_relayer(&id, acc.stake, height, acc.height);

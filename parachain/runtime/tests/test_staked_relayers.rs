@@ -23,8 +23,6 @@ fn test_vault_theft(submit_by_relayer: bool) {
         SecurityPallet::set_active_block_number(1);
 
         assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
-        VaultRegistryPallet::insert_vault(&account_of(LIQUIDATION_VAULT), Vault::default());
-        // assert_ok!(CollateralPallet::lock_collateral(&account_of(vault), collateral_vault));
         assert_ok!(
             Call::VaultRegistry(VaultRegistryCall::register_vault(collateral_vault, dummy_public_key()))
                 .dispatch(origin_of(account_of(vault)))
