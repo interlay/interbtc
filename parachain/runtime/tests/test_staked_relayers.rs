@@ -3,7 +3,6 @@ mod mock;
 use mock::*;
 use primitive_types::H256;
 use sp_runtime::traits::CheckedMul;
-use vault_registry::Vault;
 
 pub const RELAYER: [u8; 32] = ALICE;
 pub const VAULT: [u8; 32] = BOB;
