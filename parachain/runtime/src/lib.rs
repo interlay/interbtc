@@ -434,7 +434,7 @@ impl btc_relay::Config for Runtime {
     type WeightInfo = ();
 }
 
-pub use collateral::RawEvent as CollateralEvent;
+pub use collateral::Event as CollateralEvent;
 
 impl collateral::Config for Runtime {
     type Event = Event;

@@ -12,63 +12,69 @@ mod mock;
 mod tests;
 
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
-    sp_runtime::ModuleId,
     traits::{Currency, ExistenceRequirement, ReservableCurrency},
 };
 
 type BalanceOf<T> = <<T as Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-/// The collateral's module id, used for deriving its sovereign account ID.
-const _MODULE_ID: ModuleId = ModuleId(*b"ily/cltl");
+pub use pallet::*;
 
-/// The pallet's configuration trait.
-pub trait Config: frame_system::Config {
-    /// The DOT currency
-    type DOT: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use frame_support::pallet_prelude::*;
 
-    /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+    /// ## Configuration
+    /// The pallet's configuration trait.
+    #[pallet::config]
+    pub trait Config: frame_system::Config {
+        /// The DOT currency
+        type DOT: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
+
+        /// The overarching event type.
+        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+    }
+
+    // The pallet's events
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    #[pallet::metadata(T::AccountId = "AccountId", BalanceOf<T> = "Balance")]
+    pub enum Event<T: Config> {
+        LockCollateral(T::AccountId, BalanceOf<T>),
+        ReleaseCollateral(T::AccountId, BalanceOf<T>),
+        SlashCollateral(T::AccountId, T::AccountId, BalanceOf<T>),
+    }
+
+    #[pallet::error]
+    pub enum Error<T> {
+        /// Account has insufficient balance
+        InsufficientFunds,
+        /// Account has insufficient collateral
+        InsufficientCollateralAvailable,
+    }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {}
+
+    /// Note that an account's free and reserved balances are handled
+    /// through the Balances module.
+    ///
+    /// Total locked DOT collateral
+    #[pallet::storage]
+    pub type TotalCollateral<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
+
+    // The pallet's dispatchable functions.
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {}
 }
 
-// This pallet's storage items.
-decl_storage! {
-    trait Store for Module<T: Config> as Collateral {
-        /// ## Storage
-        /// Note that account's balances and locked balances are handled
-        /// through the Balances module.
-        ///
-        /// Total locked DOT collateral
-        TotalCollateral: BalanceOf<T>;
-    }
-}
-
-// The pallet's events
-decl_event!(
-    pub enum Event<T>
-    where
-        AccountId = <T as frame_system::Config>::AccountId,
-        Balance = BalanceOf<T>,
-    {
-        LockCollateral(AccountId, Balance),
-        ReleaseCollateral(AccountId, Balance),
-        SlashCollateral(AccountId, AccountId, Balance),
-    }
-);
-
-decl_module! {
-    /// The module declaration.
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
-        type Error = Error<T>;
-
-        // Initializing events
-        fn deposit_event() = default;
-    }
-}
-
-impl<T: Config> Module<T> {
+// "Internal" functions, callable by code.
+impl<T: Config> Pallet<T> {
     /// Total supply of DOT
     pub fn get_total_supply() -> BalanceOf<T> {
         T::DOT::total_issuance()
@@ -123,7 +129,7 @@ impl<T: Config> Module<T> {
 
         Self::increase_total_collateral(amount);
 
-        Self::deposit_event(RawEvent::LockCollateral(sender.clone(), amount));
+        Self::deposit_event(Event::LockCollateral(sender.clone(), amount));
         Ok(())
     }
 
@@ -142,7 +148,7 @@ impl<T: Config> Module<T> {
 
         Self::decrease_total_collateral(amount);
 
-        Self::deposit_event(RawEvent::ReleaseCollateral(sender.clone(), amount));
+        Self::deposit_event(Event::ReleaseCollateral(sender.clone(), amount));
 
         Ok(())
     }
@@ -189,21 +195,12 @@ impl<T: Config> Module<T> {
         // subtraction should not be able to fail since remainder <= amount
         let slashed_amount = amount - remainder;
 
-        Self::deposit_event(RawEvent::SlashCollateral(sender, receiver.clone(), slashed_amount));
+        Self::deposit_event(Event::SlashCollateral(sender, receiver.clone(), slashed_amount));
 
         // reserve the created amount for the receiver. This should not be able to fail, since the
         // call above will have created enough free balance to lock.
         T::DOT::reserve(&receiver, slashed_amount).map_err(|_| Error::<T>::InsufficientFunds)?;
 
         Ok(slashed_amount)
-    }
-}
-
-decl_error! {
-    pub enum Error for Module<T: Config> {
-        /// Account has insufficient balance
-        InsufficientFunds,
-        /// Account has insufficient collateral
-        InsufficientCollateralAvailable,
     }
 }
