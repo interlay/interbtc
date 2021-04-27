@@ -14,71 +14,72 @@ mod tests;
 extern crate mocktopus;
 
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
     dispatch::DispatchResult,
     ensure,
     traits::{Currency, ExistenceRequirement, ReservableCurrency},
 };
-use sp_runtime::ModuleId;
 
 type BalanceOf<T> = <<T as Config>::PolkaBTC as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-/// The treasury's module id, used for deriving its sovereign account ID.
-const _MODULE_ID: ModuleId = ModuleId(*b"ily/trsy");
+pub use pallet::*;
 
-/// The pallet's configuration trait.
-/// Instantiation of this pallet requires the existence of a module that
-/// implements Currency and ReservableCurrency. The Balances module can be used
-/// for this. The Balances module then gives functions for total supply, balances
-/// of accounts, and any function defined by the Currency and ReservableCurrency
-/// traits.
-pub trait Config: frame_system::Config {
-    /// The PolkaBTC currency
-    type PolkaBTC: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use frame_support::pallet_prelude::*;
 
-    /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+    /// The pallet's configuration trait.
+    /// Instantiation of this pallet requires the existence of a module that
+    /// implements Currency and ReservableCurrency. The Balances module can be used
+    /// for this. The Balances module then gives functions for total supply, balances
+    /// of accounts, and any function defined by the Currency and ReservableCurrency
+    /// traits.
+    #[pallet::config]
+    pub trait Config: frame_system::Config {
+        /// The PolkaBTC currency
+        type PolkaBTC: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
+
+        /// The overarching event type.
+        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+    }
+
+    // The pallet's events
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    #[pallet::metadata(T::AccountId = "AccountId", BalanceOf<T> = "Balance")]
+    pub enum Event<T: Config> {
+        Mint(T::AccountId, BalanceOf<T>),
+        Lock(T::AccountId, BalanceOf<T>),
+        Unlock(T::AccountId, BalanceOf<T>),
+        Burn(T::AccountId, BalanceOf<T>),
+    }
+
+    #[pallet::error]
+    pub enum Error<T> {
+        InsufficientFunds,
+        InsufficientLockedFunds,
+    }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {}
+
+    /// Note that account's balances and locked balances are handled
+    /// through the Balances module.
+    ///
+    /// Total locked PolkaDOT
+    #[pallet::storage]
+    pub type TotalLocked<T: Config> = StorageValue<_, BalanceOf<T>, ValueQuery>;
+
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
+
+    // The pallet's dispatchable functions.
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {}
 }
 
-// This pallet's storage items.
-decl_storage! {
-    trait Store for Module<T: Config> as Treasury {
-        /// ## Storage
-        /// Note that account's balances and locked balances are handled
-        /// through the Balances module.
-        ///
-        /// Total locked PolkaDOT
-        TotalLocked: BalanceOf<T>;
-    }
-}
-
-// The pallet's events
-decl_event!(
-    pub enum Event<T>
-    where
-        AccountId = <T as frame_system::Config>::AccountId,
-        Balance = BalanceOf<T>,
-    {
-        Mint(AccountId, Balance),
-        Lock(AccountId, Balance),
-        Unlock(AccountId, Balance),
-        Burn(AccountId, Balance),
-    }
-);
-
-// The pallet's dispatchable functions.
-decl_module! {
-    /// The module declaration.
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
-        type Error = Error<T>;
-
-        // Initializing events
-        // this is needed only if you are using events in your pallet
-        fn deposit_event() = default;
-    }
-}
-
-impl<T: Config> Module<T> {
+// "Internal" functions, callable by code.
+impl<T: Config> Pallet<T> {
     /// Total supply of PolkaBTC
     pub fn get_total_supply() -> BalanceOf<T> {
         T::PolkaBTC::total_issuance()
@@ -118,7 +119,7 @@ impl<T: Config> Module<T> {
         // adds the added amount to the requester's balance
         T::PolkaBTC::resolve_creating(&requester, minted_tokens);
 
-        Self::deposit_event(RawEvent::Mint(requester, amount));
+        Self::deposit_event(Event::Mint(requester, amount));
     }
 
     /// Lock PolkaBTC tokens to burn them. Note: this removes them from the
@@ -134,7 +135,7 @@ impl<T: Config> Module<T> {
         // update total locked balance
         Self::increase_total_locked(amount);
 
-        Self::deposit_event(RawEvent::Lock(redeemer, amount));
+        Self::deposit_event(Event::Lock(redeemer, amount));
         Ok(())
     }
 
@@ -154,7 +155,7 @@ impl<T: Config> Module<T> {
         // update total locked balance
         Self::decrease_total_locked(amount);
 
-        Self::deposit_event(RawEvent::Unlock(account, amount));
+        Self::deposit_event(Event::Unlock(account, amount));
         Ok(())
     }
 
@@ -177,7 +178,7 @@ impl<T: Config> Module<T> {
         // remainder should always be 0 and is checked above
         let (_burned_tokens, _remainder) = T::PolkaBTC::slash_reserved(&redeemer, amount);
 
-        Self::deposit_event(RawEvent::Burn(redeemer, amount));
+        Self::deposit_event(Event::Burn(redeemer, amount));
 
         Ok(())
     }
@@ -214,12 +215,5 @@ impl<T: Config> Module<T> {
         Self::decrease_total_locked(amount);
 
         Ok(())
-    }
-}
-
-decl_error! {
-    pub enum Error for Module<T: Config> {
-        InsufficientFunds,
-        InsufficientLockedFunds,
     }
 }
