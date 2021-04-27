@@ -211,17 +211,32 @@ fn test_vault_fee_pool_withdrawal_over_multiple_epochs() {
     })
 }
 
+fn reset_relayer_sla(account: AccountId) {
+    let tmp = SlaPallet::relayer_correct_theft_report();
+
+    assert_ok!(Call::Sla(SlaCall::set_relayer_sla(
+        sla::types::RelayerEvent::CorrectTheftReport,
+        FixedI128::from(-100)
+    ))
+    .dispatch(root()));
+
+    SlaPallet::event_update_relayer_sla(&account, sla::types::RelayerEvent::CorrectTheftReport).unwrap();
+
+    // restore value
+    assert_ok!(Call::Sla(SlaCall::set_relayer_sla(
+        sla::types::RelayerEvent::CorrectTheftReport,
+        tmp
+    ))
+    .dispatch(root()));
+}
+
 #[test]
 fn test_relayer_fee_pool_withdrawal() {
     test_with(|currency| {
         set_issued_and_backing(VAULT1, 1000, 1000);
 
         // make the used relayer irrelevant in fee calculations
-        SlaPallet::event_update_relayer_sla(
-            &account_of(ISSUE_RELAYER),
-            sla::types::RelayerEvent::FalseInvalidVoteOrReport,
-        )
-        .unwrap();
+        reset_relayer_sla(account_of(ISSUE_RELAYER));
 
         setup_relayer(RELAYER_1, 20, 100);
         setup_relayer(RELAYER_2, 40, 200);

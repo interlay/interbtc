@@ -1,27 +1,18 @@
 extern crate hex;
-use crate::{
-    ext,
-    mock::*,
-    types::{ProposalStatus, StakedRelayer, StatusUpdate, Tally, Votes},
-};
+use crate::{ext, mock::*, sp_api_hidden_includes_decl_storage::hidden_include::StorageMap, Stakes};
 use bitcoin::{
     formatter::Formattable,
     types::{H256Le, RawBlockHeader, TransactionBuilder, TransactionInputBuilder, TransactionOutput},
 };
 use btc_relay::{BtcAddress, BtcPublicKey, Error as BtcRelayError};
-use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
+use frame_support::{assert_err, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
 use redeem::types::{RedeemRequest, RedeemRequestStatus};
 use replace::types::{ReplaceRequest, ReplaceRequestStatus};
-use security::types::{ErrorCode, StatusCode};
 use sp_core::{H160, H256};
 use std::{convert::TryInto, str::FromStr};
 use vault_registry::{Vault, VaultStatus, Wallet};
-
 type Event = crate::Event<Test>;
-
-const DEFAULT_START_HEIGHT: u64 = 0;
-const DEFAULT_END_HEIGHT: u64 = 100;
 
 macro_rules! assert_emitted {
     ($event:expr) => {
@@ -34,13 +25,6 @@ macro_rules! assert_emitted {
             System::events().iter().filter(|a| a.event == test_event).count(),
             $times
         );
-    };
-}
-
-macro_rules! assert_not_emitted {
-    ($event:expr) => {
-        let test_event = TestEvent::staked_relayers($event);
-        assert!(!System::events().iter().any(|a| a.event == test_event));
     };
 }
 
@@ -79,8 +63,6 @@ fn test_register_staked_relayer_fails_with_insufficient_stake() {
 
 #[test]
 fn test_register_staked_relayer_succeeds() {
-    use crate::{sp_api_hidden_includes_decl_storage::hidden_include::StorageMap, InactiveStakedRelayers};
-
     run_test(|| {
         let relayer = Origin::signed(ALICE);
         let amount: Balance = 20;
@@ -88,8 +70,7 @@ fn test_register_staked_relayer_succeeds() {
         ext::collateral::lock_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
         assert_ok!(StakedRelayers::register_staked_relayer(relayer.clone(), amount));
-        assert_emitted!(Event::RegisterStakedRelayer(ALICE, 11, amount));
-        let maturity_height = System::block_number() + StakedRelayers::get_maturity_period();
+        assert_emitted!(Event::RegisterStakedRelayer(ALICE, amount));
 
         // re-registration not allowed
         assert_err!(
@@ -97,42 +78,7 @@ fn test_register_staked_relayer_succeeds() {
             TestError::AlreadyRegistered,
         );
 
-        assert_err!(
-            StakedRelayers::get_active_staked_relayer(&ALICE),
-            TestError::NotRegistered,
-        );
-
-        assert_eq!(
-            <InactiveStakedRelayers<Test>>::get(ALICE),
-            StakedRelayer {
-                stake: amount,
-                height: maturity_height,
-            }
-        );
-
-        assert_err!(
-            StakedRelayers::try_bond_staked_relayer(&ALICE, amount, 0, maturity_height),
-            TestError::NotMatured
-        );
-        assert_err!(
-            StakedRelayers::get_active_staked_relayer(&ALICE),
-            TestError::NotRegistered,
-        );
-
-        let current_height = 20;
-        assert_ok!(StakedRelayers::try_bond_staked_relayer(
-            &ALICE,
-            amount,
-            current_height,
-            maturity_height
-        ));
-        assert_ok!(
-            StakedRelayers::get_active_staked_relayer(&ALICE),
-            StakedRelayer {
-                stake: amount,
-                height: current_height,
-            }
-        );
+        assert_eq!(StakedRelayers::stakes(ALICE), amount);
     })
 }
 
@@ -148,579 +94,20 @@ fn test_deregister_staked_relayer_fails_with_not_registered() {
     })
 }
 
-fn inject_active_staked_relayer(id: &AccountId, stake: Balance) {
-    let height = System::block_number();
-    StakedRelayers::insert_active_staked_relayer(id, stake, height);
-    assert_ok!(
-        StakedRelayers::get_active_staked_relayer(id),
-        StakedRelayer { stake, height }
-    );
-}
-
-fn inject_status_update(proposer: AccountId) -> u64 {
-    let mut tally = Tally::default();
-    tally.aye.insert(proposer, 10);
-
-    StakedRelayers::insert_active_status_update(StatusUpdate {
-        new_status_code: StatusCode::Error,
-        old_status_code: StatusCode::Running,
-        add_error: None,
-        remove_error: None,
-        start: DEFAULT_START_HEIGHT,
-        end: DEFAULT_END_HEIGHT,
-        proposal_status: ProposalStatus::Pending,
-        btc_block_hash: None,
-        proposer,
-        deposit: 10,
-        tally,
-        message: vec![],
-    })
-}
-
-#[test]
-fn test_deregister_staked_relayer_fails_with_status_update_found() {
-    run_test(|| {
-        let relayer = Origin::signed(ALICE);
-        let amount: Balance = 3;
-        inject_active_staked_relayer(&ALICE, amount);
-        let _ = inject_status_update(ALICE);
-
-        assert_err!(
-            StakedRelayers::deregister_staked_relayer(relayer),
-            TestError::StatusUpdateFound,
-        );
-    })
-}
-
 #[test]
 fn test_deregister_staked_relayer_succeeds() {
     run_test(|| {
         let relayer = Origin::signed(ALICE);
         let amount: Balance = 3;
-        inject_active_staked_relayer(&ALICE, amount);
+        <Stakes<Test>>::insert(&ALICE, amount);
 
         ext::collateral::release_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
 
         assert_ok!(StakedRelayers::deregister_staked_relayer(relayer));
+
+        assert!(!<Stakes<Test>>::contains_key(&BOB));
+
         assert_emitted!(Event::DeregisterStakedRelayer(ALICE));
-    })
-}
-
-#[test]
-#[ignore]
-fn test_suggest_status_update_fails_with_not_registered() {
-    run_test(|| {
-        assert_err!(
-            StakedRelayers::suggest_status_update(
-                Origin::signed(ALICE),
-                20,
-                StatusCode::Error,
-                None,
-                None,
-                None,
-                vec![],
-            ),
-            TestError::NotRegistered,
-        );
-    })
-}
-
-#[test]
-#[ignore]
-fn test_suggest_status_update_fails_with_governance_only() {
-    run_test(|| {
-        StakedRelayers::only_governance.mock_safe(|_| MockResult::Return(Err(TestError::GovernanceOnly.into())));
-
-        assert_err!(
-            StakedRelayers::suggest_status_update(
-                Origin::signed(ALICE),
-                20,
-                StatusCode::Shutdown,
-                None,
-                None,
-                None,
-                vec![],
-            ),
-            TestError::GovernanceOnly,
-        );
-    })
-}
-
-#[test]
-fn test_suggest_status_update_fails_with_insufficient_deposit() {
-    run_test(|| {
-        StakedRelayers::only_governance.mock_safe(|_| MockResult::Return(Ok(())));
-        inject_active_staked_relayer(&ALICE, 20);
-
-        assert_err!(
-            StakedRelayers::suggest_status_update(
-                Origin::signed(ALICE),
-                0,
-                StatusCode::Error,
-                None,
-                None,
-                None,
-                vec![],
-            ),
-            TestError::InsufficientDeposit,
-        );
-    })
-}
-
-#[test]
-fn test_suggest_status_update_fails_with_message_too_big() {
-    run_test(|| {
-        StakedRelayers::only_governance.mock_safe(|_| MockResult::Return(Ok(())));
-        inject_active_staked_relayer(&ALICE, 20);
-
-        assert_err!(
-            StakedRelayers::suggest_status_update(
-                Origin::signed(ALICE),
-                20,
-                StatusCode::Error,
-                None,
-                None,
-                None,
-                Vec::from([0; 64]),
-            ),
-            TestError::MessageTooBig,
-        );
-    })
-}
-
-#[test]
-fn test_suggest_status_update_fails_with_no_block_hash_found() {
-    run_test(|| {
-        StakedRelayers::only_governance.mock_safe(|_| MockResult::Return(Ok(())));
-        ext::btc_relay::block_header_exists::<Test>.mock_safe(move |_| MockResult::Return(false));
-        inject_active_staked_relayer(&ALICE, 20);
-        assert_err!(
-            StakedRelayers::suggest_status_update(
-                Origin::signed(ALICE),
-                20,
-                StatusCode::Error,
-                Some(ErrorCode::InvalidBTCRelay),
-                None,
-                Some(H256Le::zero()),
-                vec![],
-            ),
-            TestError::BlockNotFound,
-        );
-    })
-}
-
-#[test]
-fn test_suggest_suggest_invalid_block_already_reported() {
-    run_test(|| {
-        StakedRelayers::only_governance.mock_safe(|_| MockResult::Return(Ok(())));
-        ext::btc_relay::block_header_exists::<Test>.mock_safe(move |_| MockResult::Return(true));
-        inject_active_staked_relayer(&ALICE, 20);
-
-        let mut status_update = StatusUpdate::default();
-        status_update.add_error = Some(ErrorCode::InvalidBTCRelay);
-        status_update.btc_block_hash = Some(H256Le::zero());
-        StakedRelayers::insert_active_status_update(status_update);
-
-        assert_err!(
-            StakedRelayers::suggest_status_update(
-                Origin::signed(ALICE),
-                20,
-                StatusCode::Error,
-                Some(ErrorCode::InvalidBTCRelay),
-                None,
-                Some(H256Le::zero()),
-                vec![],
-            ),
-            TestError::BlockAlreadyReported,
-        );
-    })
-}
-
-#[test]
-fn test_suggest_status_update_succeeds() {
-    run_test(|| {
-        StakedRelayers::only_governance.mock_safe(|_| MockResult::Return(Ok(())));
-        inject_active_staked_relayer(&ALICE, 20);
-
-        assert_ok!(StakedRelayers::suggest_status_update(
-            Origin::signed(ALICE),
-            20,
-            StatusCode::Error,
-            None,
-            None,
-            None,
-            vec![],
-        ));
-        assert_emitted!(Event::StatusUpdateSuggested(
-            1,
-            ALICE,
-            StatusCode::Error,
-            None,
-            None,
-            None
-        ));
-    })
-}
-
-macro_rules! decl_votes {
-    () => { Votes::default() };
-    ($($x:expr),*) => {
-        {
-            let mut set = Votes::default();
-            $(
-                set.insert($x.0, $x.1);
-            )*
-            set
-        }
-    };
-}
-
-#[test]
-fn test_tally_is_approved_or_rejected() {
-    run_test(|| {
-        let mut tally = Tally {
-            aye: decl_votes!((1, 5), (2, 5), (3, 5)),
-            nay: decl_votes!((4, 10), (5, 10), (6, 10)),
-        };
-
-        assert_eq!(tally.is_approved(), false);
-
-        tally.nay = decl_votes!();
-        assert_eq!(tally.is_approved(), true);
-    })
-}
-
-#[test]
-fn test_tally_vote() {
-    run_test(|| {
-        let mut tally = Tally {
-            aye: decl_votes!(),
-            nay: decl_votes!(),
-        };
-
-        tally.vote(1, 10, true);
-        tally.vote(2, 10, false);
-
-        assert_eq!(
-            tally,
-            Tally {
-                aye: decl_votes!((1, 10)),
-                nay: decl_votes!((2, 10)),
-            }
-        );
-    })
-}
-
-#[test]
-fn test_vote_on_status_update_fails_with_not_registered() {
-    run_test(|| {
-        assert_err!(
-            StakedRelayers::vote_on_status_update(Origin::signed(ALICE), 0, false),
-            TestError::NotRegistered,
-        );
-    })
-}
-
-#[test]
-fn test_vote_on_status_update_succeeds() {
-    run_test(|| {
-        let amount: Balance = 3;
-        inject_active_staked_relayer(&ALICE, amount);
-        inject_active_staked_relayer(&BOB, amount);
-        inject_active_staked_relayer(&CAROL, amount);
-        inject_active_staked_relayer(&DAVE, amount);
-        inject_active_staked_relayer(&EVE, amount);
-
-        ext::collateral::release_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-
-        let status_update_id = inject_status_update(ALICE);
-        assert_err!(
-            StakedRelayers::vote_on_status_update(Origin::signed(ALICE), status_update_id, true),
-            TestError::VoteAlreadyCast
-        );
-        StakedRelayers::end_block(3);
-        assert_not_emitted!(Event::ExecuteStatusUpdate(
-            status_update_id,
-            StatusCode::Error,
-            None,
-            None,
-            None
-        ));
-        assert_not_emitted!(Event::RejectStatusUpdate(
-            status_update_id,
-            StatusCode::Error,
-            None,
-            None
-        ));
-
-        assert_ok!(StakedRelayers::vote_on_status_update(
-            Origin::signed(CAROL),
-            status_update_id,
-            true
-        ));
-        StakedRelayers::end_block(3);
-        assert_not_emitted!(Event::ExecuteStatusUpdate(
-            status_update_id,
-            StatusCode::Error,
-            None,
-            None,
-            None
-        ));
-        assert_not_emitted!(Event::RejectStatusUpdate(
-            status_update_id,
-            StatusCode::Error,
-            None,
-            None
-        ));
-
-        assert_ok!(StakedRelayers::vote_on_status_update(
-            Origin::signed(BOB),
-            status_update_id,
-            true
-        ));
-        StakedRelayers::end_block(200);
-        assert_emitted!(Event::ExecuteStatusUpdate(
-            status_update_id,
-            StatusCode::Error,
-            None,
-            None,
-            None
-        ));
-
-        let status_update = StakedRelayers::inactive_status_update(status_update_id);
-        assert_eq!(status_update.proposal_status, ProposalStatus::Accepted);
-    })
-}
-
-#[test]
-fn test_vote_on_status_update_fails_with_vote_already_cast() {
-    run_test(|| {
-        let amount: Balance = 3;
-        inject_active_staked_relayer(&ALICE, amount);
-        inject_active_staked_relayer(&BOB, amount);
-        inject_active_staked_relayer(&CAROL, amount);
-
-        let status_update_id = inject_status_update(ALICE);
-
-        assert_err!(
-            StakedRelayers::vote_on_status_update(Origin::signed(ALICE), status_update_id, false),
-            TestError::VoteAlreadyCast
-        );
-
-        assert_ok!(StakedRelayers::vote_on_status_update(
-            Origin::signed(BOB),
-            status_update_id,
-            false
-        ));
-
-        assert_err!(
-            StakedRelayers::vote_on_status_update(Origin::signed(BOB), status_update_id, false),
-            TestError::VoteAlreadyCast
-        );
-    })
-}
-
-#[test]
-fn test_execute_status_update_fails_with_insufficient_yes_votes() {
-    run_test(|| {
-        let amount: Balance = 3;
-        inject_active_staked_relayer(&ALICE, amount);
-        inject_active_staked_relayer(&BOB, amount);
-        inject_active_staked_relayer(&CAROL, amount);
-        inject_active_staked_relayer(&DAVE, amount);
-        inject_active_staked_relayer(&EVE, amount);
-
-        let mut status_update = StatusUpdate::default();
-        status_update.tally.nay = decl_votes!((ALICE, 10), (BOB, 10), (CAROL, 10));
-        let status_update_id = StakedRelayers::insert_active_status_update(status_update.clone());
-
-        assert_err!(
-            StakedRelayers::execute_status_update(status_update_id, &mut status_update),
-            TestError::InsufficientYesVotes
-        );
-
-        assert_not_emitted!(Event::ExecuteStatusUpdate(
-            status_update_id,
-            StatusCode::default(),
-            None,
-            None,
-            None
-        ));
-    })
-}
-
-#[test]
-fn test_execute_status_update_fails_with_no_block_hash() {
-    run_test(|| {
-        let amount: Balance = 3;
-        inject_active_staked_relayer(&ALICE, amount);
-        inject_active_staked_relayer(&BOB, amount);
-        inject_active_staked_relayer(&CAROL, amount);
-        inject_active_staked_relayer(&DAVE, amount);
-        inject_active_staked_relayer(&EVE, amount);
-
-        let mut status_update = StatusUpdate {
-            new_status_code: StatusCode::Error,
-            old_status_code: StatusCode::Running,
-            add_error: Some(ErrorCode::NoDataBTCRelay),
-            remove_error: None,
-            start: DEFAULT_START_HEIGHT,
-            end: DEFAULT_END_HEIGHT,
-            proposal_status: ProposalStatus::Pending,
-            btc_block_hash: None,
-            proposer: ALICE,
-            deposit: 10,
-            tally: Tally {
-                aye: decl_votes!((ALICE, 10), (BOB, 10), (CAROL, 10)),
-                nay: decl_votes!(),
-            },
-            message: vec![],
-        };
-
-        let status_update_id = StakedRelayers::insert_active_status_update(status_update.clone());
-
-        assert_err!(
-            StakedRelayers::execute_status_update(status_update_id, &mut status_update),
-            TestError::ExpectedBlockHash
-        );
-    })
-}
-
-#[test]
-fn test_execute_status_update_succeeds() {
-    run_test(|| {
-        let amount: Balance = 3;
-        inject_active_staked_relayer(&ALICE, amount);
-        inject_active_staked_relayer(&BOB, amount);
-        inject_active_staked_relayer(&CAROL, amount);
-        inject_active_staked_relayer(&DAVE, amount);
-        inject_active_staked_relayer(&EVE, amount);
-
-        let mut status_update = StatusUpdate {
-            new_status_code: StatusCode::Error,
-            old_status_code: StatusCode::Running,
-            add_error: Some(ErrorCode::OracleOffline),
-            remove_error: None,
-            start: DEFAULT_START_HEIGHT,
-            end: DEFAULT_END_HEIGHT,
-            proposal_status: ProposalStatus::Pending,
-            btc_block_hash: Some(H256Le::zero()),
-            proposer: ALICE,
-            deposit: 10,
-            tally: Tally {
-                aye: decl_votes!((ALICE, 10), (BOB, 10), (CAROL, 10)),
-                nay: decl_votes!(),
-            },
-            message: vec![],
-        };
-        let status_update_id = StakedRelayers::insert_active_status_update(status_update.clone());
-
-        ext::collateral::release_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-        assert_ok!(StakedRelayers::execute_status_update(
-            status_update_id,
-            &mut status_update
-        ));
-
-        assert_emitted!(Event::ExecuteStatusUpdate(
-            status_update_id,
-            StatusCode::Error,
-            Some(ErrorCode::OracleOffline),
-            None,
-            Some(H256Le::zero())
-        ));
-    })
-}
-
-#[test]
-fn test_reject_status_update_fails_with_insufficient_no_votes() {
-    run_test(|| {
-        let amount: Balance = 3;
-        inject_active_staked_relayer(&ALICE, amount);
-        inject_active_staked_relayer(&BOB, amount);
-        inject_active_staked_relayer(&CAROL, amount);
-        inject_active_staked_relayer(&DAVE, amount);
-        inject_active_staked_relayer(&EVE, amount);
-
-        let mut status_update = StatusUpdate::default();
-        status_update.tally.aye = decl_votes!((ALICE, 10), (BOB, 10), (CAROL, 10));
-        let status_update_id = StakedRelayers::insert_active_status_update(status_update.clone());
-
-        assert_err!(
-            StakedRelayers::reject_status_update(status_update_id, &mut status_update),
-            TestError::InsufficientNoVotes
-        );
-
-        assert_not_emitted!(Event::RejectStatusUpdate(
-            status_update_id,
-            StatusCode::default(),
-            None,
-            None
-        ));
-    })
-}
-
-#[test]
-fn test_reject_status_update_succeeds() {
-    run_test(|| {
-        let amount: Balance = 3;
-        inject_active_staked_relayer(&ALICE, amount);
-        inject_active_staked_relayer(&BOB, amount);
-        inject_active_staked_relayer(&CAROL, amount);
-        inject_active_staked_relayer(&DAVE, amount);
-        inject_active_staked_relayer(&EVE, amount);
-
-        let mut status_update = StatusUpdate::default();
-        status_update.tally.nay = decl_votes!((ALICE, 10), (BOB, 10), (CAROL, 10));
-        let status_update_id = StakedRelayers::insert_active_status_update(status_update.clone());
-
-        assert_ok!(StakedRelayers::reject_status_update(
-            status_update_id,
-            &mut status_update
-        ));
-
-        assert_emitted!(Event::RejectStatusUpdate(
-            status_update_id,
-            StatusCode::default(),
-            None,
-            None
-        ));
-    })
-}
-
-#[test]
-fn test_force_status_update_fails_with_governance_only() {
-    run_test(|| {
-        StakedRelayers::only_governance.mock_safe(|_| MockResult::Return(Err(TestError::GovernanceOnly.into())));
-
-        assert_err!(
-            StakedRelayers::force_status_update(Origin::signed(ALICE), StatusCode::Shutdown, None, None),
-            TestError::GovernanceOnly,
-        );
-    })
-}
-
-#[test]
-fn test_force_status_update_succeeds() {
-    run_test(|| {
-        StakedRelayers::only_governance.mock_safe(|_| MockResult::Return(Ok(())));
-
-        assert_ok!(StakedRelayers::force_status_update(
-            Origin::signed(ALICE),
-            StatusCode::Shutdown,
-            Some(ErrorCode::OracleOffline),
-            None
-        ));
-
-        assert_eq!(ext::security::get_parachain_status::<Test>(), StatusCode::Shutdown);
-
-        assert_emitted!(Event::ForceStatusUpdate(
-            StatusCode::Shutdown,
-            Some(ErrorCode::OracleOffline),
-            None
-        ));
-
-        let errors = ext::security::get_errors::<Test>();
-        assert_eq!(errors.contains(&ErrorCode::OracleOffline), true);
     })
 }
 
@@ -748,7 +135,8 @@ fn test_slash_staked_relayer_fails_with_not_registered() {
 fn test_slash_staked_relayer_succeeds() {
     run_test(|| {
         let amount: Balance = 5;
-        inject_active_staked_relayer(&BOB, amount);
+        <Stakes<Test>>::insert(&BOB, amount);
+
         ext::collateral::slash_collateral::<Test>.mock_safe(|sender, receiver, _amount| {
             assert_eq!(sender, BOB);
             assert_eq!(receiver, ext::fee::fee_pool_account_id::<Test>());
@@ -756,10 +144,7 @@ fn test_slash_staked_relayer_succeeds() {
         });
 
         assert_ok!(StakedRelayers::slash_staked_relayer(Origin::root(), BOB));
-        assert_err!(
-            StakedRelayers::get_active_staked_relayer(&BOB),
-            TestError::NotRegistered
-        );
+        assert!(!<Stakes<Test>>::contains_key(&BOB));
         assert_emitted!(Event::SlashStakedRelayer(BOB));
     })
 }
@@ -770,7 +155,8 @@ fn test_report_vault_passes_with_vault_transaction() {
         let raw_tx = "0100000001c15041a06deb6b3818b022fac558da4ce2097f0860c8f642105bbad9d29be02a010000006c493046022100cfd2a2d332b29adce119c55a9fadd3c073332024b7e272513e51623ca15993480221009b482d7f7b4d479aff62bdcdaea54667737d56f8d4d63dd03ec3ef651ed9a25401210325f8b039a11861659c9bf03f43fc4ea055f3a71cd60c7b1fd474ab578f9977faffffffff0290d94000000000001976a9148ed243a7be26080a1a8cf96b53270665f1b8dd2388ac4083086b000000001976a9147e7d94d0ddc21d83bfbcfc7798e4547edf0832aa88ac00000000";
 
         let amount = 3;
-        inject_active_staked_relayer(&ALICE, amount);
+        <Stakes<Test>>::insert(&ALICE, amount);
+
         let vault = CAROL;
 
         let btc_address = BtcAddress::P2PKH(H160::from_slice(&[
@@ -796,7 +182,8 @@ fn test_report_vault_fails_with_non_vault_transaction() {
         let raw_tx = "0100000001c15041a06deb6b3818b022fac558da4ce2097f0860c8f642105bbad9d29be02a010000006c493046022100cfd2a2d332b29adce119c55a9fadd3c073332024b7e272513e51623ca15993480221009b482d7f7b4d479aff62bdcdaea54667737d56f8d4d63dd03ec3ef651ed9a25401210325f8b039a11861659c9bf03f43fc4ea055f3a71cd60c7b1fd474ab578f9977faffffffff0290d94000000000001976a9148ed243a7be26080a1a8cf96b53270665f1b8dd2388ac4083086b000000001976a9147e7d94d0ddc21d83bfbcfc7798e4547edf0832aa88ac00000000";
 
         let amount = 3;
-        inject_active_staked_relayer(&ALICE, amount);
+        <Stakes<Test>>::insert(&ALICE, amount);
+
         let vault = CAROL;
 
         let btc_address = BtcAddress::P2PKH(H160::from_slice(&[
@@ -825,7 +212,8 @@ fn test_report_vault_succeeds_with_segwit_transaction() {
         let raw_tx = "0200000000010140d43a99926d43eb0e619bf0b3d83b4a31f60c176beecfb9d35bf45e54d0f7420100000017160014a4b4ca48de0b3fffc15404a1acdc8dbaae226955ffffffff0100e1f5050000000017a9144a1154d50b03292b3024370901711946cb7cccc387024830450221008604ef8f6d8afa892dee0f31259b6ce02dd70c545cfcfed8148179971876c54a022076d771d6e91bed212783c9b06e0de600fab2d518fad6f15a2b191d7fbd262a3e0121039d25ab79f41f75ceaf882411fd41fa670a4c672c23ffaf0e361a969cde0692e800000000";
 
         let amount = 3;
-        inject_active_staked_relayer(&ALICE, amount);
+        <Stakes<Test>>::insert(&ALICE, amount);
+
         let vault = CAROL;
 
         let btc_address = BtcAddress::P2WPKHv0(H160::from_slice(&[
@@ -850,7 +238,7 @@ fn test_report_vault_theft_succeeds() {
     run_test(|| {
         let relayer = Origin::signed(ALICE);
         let amount: Balance = 3;
-        inject_active_staked_relayer(&ALICE, amount);
+        <Stakes<Test>>::insert(&ALICE, amount);
 
         ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(())));
         StakedRelayers::is_transaction_invalid.mock_safe(move |_, _| MockResult::Return(Ok(())));
@@ -1245,50 +633,6 @@ fn test_is_transaction_invalid_succeeds_with_testnet_transaction() {
 }
 
 #[test]
-fn test_get_status_counter_success() {
-    run_test(|| {
-        assert_eq!(u64::MAX.overflowing_add(2), (1, true));
-        assert_eq!(StakedRelayers::get_status_counter(), 1);
-        assert_eq!(StakedRelayers::get_status_counter(), 2);
-    })
-}
-
-#[test]
-fn test_remove_active_status_update_only_root() {
-    run_test(|| {
-        let status_update = StatusUpdate::default();
-        let status_update_id = StakedRelayers::insert_active_status_update(status_update);
-
-        assert_noop!(
-            StakedRelayers::remove_active_status_update(Origin::signed(ALICE), status_update_id),
-            DispatchError::BadOrigin
-        );
-        assert_ok!(StakedRelayers::remove_active_status_update(
-            Origin::root(),
-            status_update_id
-        ));
-    })
-}
-
-#[test]
-fn test_remove_inactive_status_update_only_root() {
-    run_test(|| {
-        let status_update_id = 0;
-        let status_update = StatusUpdate::default();
-        StakedRelayers::insert_inactive_status_update(status_update_id, &status_update);
-
-        assert_noop!(
-            StakedRelayers::remove_inactive_status_update(Origin::signed(ALICE), status_update_id),
-            DispatchError::BadOrigin
-        );
-        assert_ok!(StakedRelayers::remove_inactive_status_update(
-            Origin::root(),
-            status_update_id
-        ));
-    })
-}
-
-#[test]
 fn test_store_block_header_and_update_sla_succeeds_with_duplicate() {
     run_test(|| {
         ext::btc_relay::store_block_header::<Test>
@@ -1321,5 +665,40 @@ fn test_store_block_header_and_update_sla_fails_with_invalid() {
             StakedRelayers::store_block_header_and_update_sla(&0, RawBlockHeader::default()),
             BtcRelayError::<Test>::DiffTargetHeader
         );
+    })
+}
+
+#[test]
+fn test_runtime_upgrade() {
+    use crate::{sp_api_hidden_includes_decl_storage::hidden_include::StorageHasher, types::StakedRelayer};
+    use codec::Encode;
+    use frame_support::{storage::migration, Blake2_128Concat};
+
+    run_test(|| {
+        let active: StakedRelayer<Balance, BlockNumber> = StakedRelayer {
+            height: 51,
+            stake: 12u32.into(),
+        };
+        migration::put_storage_value(
+            b"Staking",
+            b"ActiveStakedRelayers",
+            &Blake2_128Concat::hash(&ALICE.encode()),
+            active,
+        );
+
+        let inactive: StakedRelayer<Balance, BlockNumber> = StakedRelayer {
+            height: 51,
+            stake: 13u32.into(),
+        };
+        migration::put_storage_value(
+            b"Staking",
+            b"ActiveStakedRelayers",
+            &Blake2_128Concat::hash(&BOB.encode()),
+            inactive,
+        );
+
+        StakedRelayers::_on_runtime_upgrade();
+        assert_eq!(crate::Stakes::<Test>::get(ALICE), 12);
+        assert_eq!(crate::Stakes::<Test>::get(BOB), 13);
     })
 }

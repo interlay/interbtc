@@ -50,32 +50,12 @@ pub(crate) mod vault_registry {
 #[cfg_attr(test, mockable)]
 pub(crate) mod security {
     use frame_support::dispatch::DispatchResult;
-    use security::types::{ErrorCode, StatusCode};
+    use security::types::ErrorCode;
     use sp_std::collections::btree_set::BTreeSet;
-
-    pub(crate) fn get_parachain_status<T: security::Config>() -> StatusCode {
-        <security::Pallet<T>>::get_parachain_status()
-    }
-
-    pub(crate) fn set_status<T: security::Config>(status_code: StatusCode) {
-        <security::Pallet<T>>::set_status(status_code)
-    }
-
-    pub(crate) fn insert_error<T: security::Config>(error_code: ErrorCode) {
-        <security::Pallet<T>>::insert_error(error_code)
-    }
-
-    pub(crate) fn remove_error<T: security::Config>(error_code: ErrorCode) {
-        <security::Pallet<T>>::remove_error(error_code)
-    }
 
     #[allow(dead_code)]
     pub(crate) fn get_errors<T: security::Config>() -> BTreeSet<ErrorCode> {
         <security::Pallet<T>>::get_errors()
-    }
-
-    pub fn active_block_number<T: security::Config>() -> T::BlockNumber {
-        <security::Pallet<T>>::active_block_number()
     }
 
     pub fn ensure_parachain_status_not_shutdown<T: security::Config>() -> DispatchResult {
@@ -95,7 +75,6 @@ pub(crate) mod btc_relay {
     use bitcoin::types::{H256Le, RawBlockHeader, Transaction};
     use btc_relay::BtcAddress;
     use frame_support::dispatch::DispatchResult;
-    use security::types::ErrorCode;
     use sp_std::prelude::*;
 
     pub fn initialize<T: btc_relay::Config>(
@@ -112,23 +91,12 @@ pub(crate) mod btc_relay {
     ) -> DispatchResult {
         <btc_relay::Pallet<T>>::store_block_header(relayer, raw_block_header)
     }
-    pub(crate) fn flag_block_error<T: btc_relay::Config>(block_hash: H256Le, error: ErrorCode) -> DispatchResult {
-        <btc_relay::Pallet<T>>::flag_block_error(block_hash, error)
-    }
-
-    pub(crate) fn clear_block_error<T: btc_relay::Config>(block_hash: H256Le, error: ErrorCode) -> DispatchResult {
-        <btc_relay::Pallet<T>>::clear_block_error(block_hash, error)
-    }
 
     pub(crate) fn verify_transaction_inclusion<T: btc_relay::Config>(
         tx_id: H256Le,
         raw_merkle_proof: Vec<u8>,
     ) -> DispatchResult {
         <btc_relay::Pallet<T>>::_verify_transaction_inclusion(tx_id, raw_merkle_proof, None)
-    }
-
-    pub(crate) fn block_header_exists<T: btc_relay::Config>(block_hash: H256Le) -> bool {
-        <btc_relay::Pallet<T>>::block_header_exists(block_hash)
     }
 
     pub(crate) fn extract_outputs<T: btc_relay::Config>(

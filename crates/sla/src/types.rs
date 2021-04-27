@@ -13,12 +13,7 @@ pub enum VaultEvent<PolkaBTC> {
 pub enum RelayerEvent {
     BlockSubmission,
     DuplicateBlockSubmission,
-    CorrectNoDataVoteOrReport,
-    CorrectInvalidVoteOrReport,
     CorrectTheftReport,
-    FalseNoDataVoteOrReport,
-    FalseInvalidVoteOrReport,
-    IgnoredVote,
 }
 
 pub(crate) type Inner<T> = <<T as Config>::SignedFixedPoint as FixedPointNumber>::Inner;

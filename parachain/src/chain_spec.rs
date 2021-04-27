@@ -1,8 +1,7 @@
 use btc_parachain_runtime::{
     AccountId, BTCRelayConfig, BlockNumber, DOTConfig, ExchangeRateOracleConfig, FeeConfig, GenesisConfig, IssueConfig,
-    NominationConfig, PolkaBTCConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature, SlaConfig,
-    StakedRelayersConfig, SudoConfig, SystemConfig, VaultRegistryConfig, DAYS, HOURS, MILLISECS_PER_BLOCK, MINUTES,
-    TARGET_SPACING, WASM_BINARY,
+    NominationConfig, PolkaBTCConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature, SlaConfig, SudoConfig,
+    SystemConfig, VaultRegistryConfig, DAYS, HOURS, MILLISECS_PER_BLOCK, TARGET_SPACING, WASM_BINARY,
 };
 
 const BITCOIN_SPACING_MS: u32 = TARGET_SPACING * 1000;
@@ -370,13 +369,6 @@ fn testnet_genesis(
             balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
         },
         pallet_balances_Instance2: PolkaBTCConfig { balances: vec![] },
-        staked_relayers: StakedRelayersConfig {
-            #[cfg(feature = "runtime-benchmarks")]
-            gov_id: account("Origin", 0, 0),
-            #[cfg(not(feature = "runtime-benchmarks"))]
-            gov_id: root_key,
-            maturity_period: 10 * MINUTES,
-        },
         exchange_rate_oracle: ExchangeRateOracleConfig {
             authorized_oracles,
             max_delay: 3600000, // one hour
@@ -433,12 +425,7 @@ fn testnet_genesis(
             relayer_target_sla: FixedI128::from(100),
             relayer_block_submission: FixedI128::from(1),
             relayer_duplicate_block_submission: FixedI128::from(1),
-            relayer_correct_no_data_vote_or_report: FixedI128::from(1),
-            relayer_correct_invalid_vote_or_report: FixedI128::from(10),
             relayer_correct_theft_report: FixedI128::from(1),
-            relayer_false_no_data_vote_or_report: FixedI128::from(-10),
-            relayer_false_invalid_vote_or_report: FixedI128::from(-100),
-            relayer_ignored_vote: FixedI128::from(-10),
         },
         refund: RefundConfig {
             refund_btc_dust_value: 1000,

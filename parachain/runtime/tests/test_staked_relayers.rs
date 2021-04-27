@@ -35,11 +35,6 @@ fn test_vault_theft(submit_by_relayer: bool) {
         assert_ok!(Call::StakedRelayers(StakedRelayersCall::register_staked_relayer(100))
             .dispatch(origin_of(account_of(user))));
 
-        SecurityPallet::set_active_block_number(StakedRelayersPallet::get_maturity_period() + 100);
-
-        // manually activate
-        assert_ok!(StakedRelayersPallet::activate_staked_relayer(&account_of(user)));
-
         let initial_sla = SlaPallet::relayer_sla(account_of(ALICE));
 
         let (_tx_id, _height, proof, raw_tx, _) = TransactionGenerator::new()

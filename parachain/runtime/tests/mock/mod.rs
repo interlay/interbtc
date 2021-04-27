@@ -106,6 +106,7 @@ pub type SecurityError = security::Error<Runtime>;
 pub type SecurityPallet = security::Pallet<Runtime>;
 
 pub type SlaPallet = sla::Pallet<Runtime>;
+pub type SlaCall = sla::Call<Runtime>;
 
 pub type StakedRelayersCall = staked_relayers::Call<Runtime>;
 pub type StakedRelayersPallet = staked_relayers::Pallet<Runtime>;
@@ -924,12 +925,7 @@ impl ExtBuilder {
             relayer_target_sla: FixedI128::from(100),
             relayer_block_submission: FixedI128::from(1),
             relayer_duplicate_block_submission: FixedI128::from(1),
-            relayer_correct_no_data_vote_or_report: FixedI128::from(1),
-            relayer_correct_invalid_vote_or_report: FixedI128::from(10),
             relayer_correct_theft_report: FixedI128::from(1),
-            relayer_false_no_data_vote_or_report: FixedI128::from(-10),
-            relayer_false_invalid_vote_or_report: FixedI128::from(-100),
-            relayer_ignored_vote: FixedI128::from(-10),
         }
         .assimilate_storage(&mut storage)
         .unwrap();

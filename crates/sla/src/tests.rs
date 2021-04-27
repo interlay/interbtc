@@ -122,17 +122,10 @@ fn test_event_update_relayer_sla_succeeds() {
         );
 
         <crate::RelayerSla<Test>>::insert(ALICE, FixedI128::from(50));
-        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::CorrectNoDataVoteOrReport).unwrap();
+        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::DuplicateBlockSubmission).unwrap();
         assert_eq!(
             <crate::RelayerSla<Test>>::get(ALICE),
-            FixedI128::from(50) + <crate::RelayerCorrectNoDataVoteOrReport<Test>>::get(),
-        );
-
-        <crate::RelayerSla<Test>>::insert(ALICE, FixedI128::from(50));
-        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::CorrectInvalidVoteOrReport).unwrap();
-        assert_eq!(
-            <crate::RelayerSla<Test>>::get(ALICE),
-            FixedI128::from(50) + <crate::RelayerCorrectInvalidVoteOrReport<Test>>::get(),
+            FixedI128::from(50) + <crate::RelayerDuplicateBlockSubmission<Test>>::get(),
         );
 
         <crate::RelayerSla<Test>>::insert(ALICE, FixedI128::from(50));
@@ -140,24 +133,6 @@ fn test_event_update_relayer_sla_succeeds() {
         assert_eq!(
             <crate::RelayerSla<Test>>::get(ALICE),
             FixedI128::from(50) + <crate::RelayerCorrectTheftReport<Test>>::get(),
-        );
-
-        <crate::RelayerSla<Test>>::insert(ALICE, FixedI128::from(50));
-        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::FalseNoDataVoteOrReport).unwrap();
-        assert_eq!(
-            <crate::RelayerSla<Test>>::get(ALICE),
-            FixedI128::from(50) + <crate::RelayerFalseNoDataVoteOrReport<Test>>::get(),
-        );
-
-        <crate::RelayerSla<Test>>::insert(ALICE, FixedI128::from(50));
-        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::FalseInvalidVoteOrReport).unwrap();
-        assert_eq!(<crate::RelayerSla<Test>>::get(ALICE), FixedI128::from(0));
-
-        <crate::RelayerSla<Test>>::insert(ALICE, FixedI128::from(50));
-        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::IgnoredVote).unwrap();
-        assert_eq!(
-            <crate::RelayerSla<Test>>::get(ALICE),
-            FixedI128::from(50) + <crate::RelayerIgnoredVote<Test>>::get(),
         );
     })
 }
@@ -167,14 +142,9 @@ fn test_event_update_relayer_sla_limits() {
     run_test(|| {
         Sla::get_relayer_stake.mock_safe(|_| MockResult::Return(FixedI128::from(ALICE_STAKE)));
 
-        // start at 5, add -100, result should be 0
-        <RelayerSla<Test>>::insert(ALICE, FixedI128::from(5));
-        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::FalseInvalidVoteOrReport).unwrap();
-        assert_eq!(<RelayerSla<Test>>::get(ALICE), FixedI128::from(0));
-
-        // start at 95, add 10, result should be 100
-        <RelayerSla<Test>>::insert(ALICE, FixedI128::from(95));
-        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::CorrectInvalidVoteOrReport).unwrap();
+        // start at 99.5, add 1, result should be 100
+        <RelayerSla<Test>>::insert(ALICE, FixedI128::checked_from_rational(9950, 100).unwrap());
+        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::BlockSubmission).unwrap();
         assert_eq!(<RelayerSla<Test>>::get(ALICE), FixedI128::from(100));
     })
 }
@@ -214,14 +184,16 @@ fn test_event_update_relayer_total_sla_score() {
         );
 
         // decrease in alice' score -> total should decrease
-        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::FalseNoDataVoteOrReport).unwrap();
+        Sla::_get_relayer_sla.mock_safe(move |_| MockResult::Return(FixedI128::from(-10)));
+        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::BlockSubmission).unwrap();
         assert_eq!(
             <TotalRelayerScore<Test>>::get(),
             FixedI128::from(ALICE_STAKE as i128 * 90 + BOB_STAKE as i128)
         );
 
-        // decrease in alice' score all the way to 0 -> total be equal to bob's part
-        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::FalseInvalidVoteOrReport).unwrap();
+        // decrease in alice' score all the way to 0 -> total should be equal to bob's part
+        Sla::_get_relayer_sla.mock_safe(move |_| MockResult::Return(FixedI128::from(-100)));
+        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::BlockSubmission).unwrap();
         assert_eq!(<TotalRelayerScore<Test>>::get(), FixedI128::from(BOB_STAKE as i128));
     })
 }

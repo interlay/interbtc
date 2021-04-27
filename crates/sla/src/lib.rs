@@ -76,12 +76,7 @@ decl_storage! {
         VaultRefunded get(fn vault_refunded) config(): T::SignedFixedPoint;
         RelayerBlockSubmission get(fn relayer_block_submission) config(): T::SignedFixedPoint;
         RelayerDuplicateBlockSubmission get(fn relayer_duplicate_block_submission) config(): T::SignedFixedPoint;
-        RelayerCorrectNoDataVoteOrReport get(fn relayer_correct_no_data_vote_or_report) config(): T::SignedFixedPoint;
-        RelayerCorrectInvalidVoteOrReport get(fn relayer_correct_invalid_vote_or_report) config(): T::SignedFixedPoint;
         RelayerCorrectTheftReport get(fn relayer_correct_theft_report) config(): T::SignedFixedPoint;
-        RelayerFalseNoDataVoteOrReport get(fn relayer_false_no_data_vote_or_report) config(): T::SignedFixedPoint;
-        RelayerFalseInvalidVoteOrReport get(fn relayer_false_invalid_vote_or_report) config(): T::SignedFixedPoint;
-        RelayerIgnoredVote get(fn relayer_ignored_vote) config(): T::SignedFixedPoint;
     }
 }
 
@@ -468,12 +463,7 @@ impl<T: Config> Module<T> {
         match event {
             RelayerEvent::BlockSubmission => <RelayerBlockSubmission<T>>::get(),
             RelayerEvent::DuplicateBlockSubmission => <RelayerDuplicateBlockSubmission<T>>::get(),
-            RelayerEvent::CorrectNoDataVoteOrReport => <RelayerCorrectNoDataVoteOrReport<T>>::get(),
-            RelayerEvent::CorrectInvalidVoteOrReport => <RelayerCorrectInvalidVoteOrReport<T>>::get(),
             RelayerEvent::CorrectTheftReport => <RelayerCorrectTheftReport<T>>::get(),
-            RelayerEvent::FalseNoDataVoteOrReport => <RelayerFalseNoDataVoteOrReport<T>>::get(),
-            RelayerEvent::FalseInvalidVoteOrReport => <RelayerFalseInvalidVoteOrReport<T>>::get(),
-            RelayerEvent::IgnoredVote => <RelayerIgnoredVote<T>>::get(),
         }
     }
 
@@ -482,12 +472,7 @@ impl<T: Config> Module<T> {
         match event {
             RelayerEvent::BlockSubmission => <RelayerBlockSubmission<T>>::set(value),
             RelayerEvent::DuplicateBlockSubmission => <RelayerDuplicateBlockSubmission<T>>::set(value),
-            RelayerEvent::CorrectNoDataVoteOrReport => <RelayerCorrectNoDataVoteOrReport<T>>::set(value),
-            RelayerEvent::CorrectInvalidVoteOrReport => <RelayerCorrectInvalidVoteOrReport<T>>::set(value),
             RelayerEvent::CorrectTheftReport => <RelayerCorrectTheftReport<T>>::set(value),
-            RelayerEvent::FalseNoDataVoteOrReport => <RelayerFalseNoDataVoteOrReport<T>>::set(value),
-            RelayerEvent::FalseInvalidVoteOrReport => <RelayerFalseInvalidVoteOrReport<T>>::set(value),
-            RelayerEvent::IgnoredVote => <RelayerIgnoredVote<T>>::set(value),
         }
     }
 
