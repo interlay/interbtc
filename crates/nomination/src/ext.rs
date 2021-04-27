@@ -21,7 +21,7 @@ pub(crate) mod security {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
-    use crate::DOT;
+    use crate::{UnsignedFixedPoint, DOT};
     pub use ::vault_registry::VaultStatus;
     pub use frame_support::dispatch::{DispatchError, DispatchResult};
     use sp_std::vec::Vec;
@@ -80,5 +80,13 @@ pub(crate) mod vault_registry {
         liquidation_target: LiquidationTarget,
     ) -> (u32, Vec<(T::AccountId, DOT<T>)>) {
         <vault_registry::Module<T>>::liquidate_undercollateralized_vaults(liquidation_target)
+    }
+
+    pub fn get_secure_collateral_threshold<T: vault_registry::Config>() -> UnsignedFixedPoint<T> {
+        <vault_registry::Module<T>>::secure_collateral_threshold()
+    }
+
+    pub fn get_auction_collateral_threshold<T: vault_registry::Config>() -> UnsignedFixedPoint<T> {
+        <vault_registry::Module<T>>::auction_collateral_threshold()
     }
 }

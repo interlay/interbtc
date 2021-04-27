@@ -14,8 +14,8 @@ use mocktopus::macros::mockable;
 use vault_registry::VaultStatus;
 
 pub(crate) type DOT<T> = <<T as collateral::Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-pub(crate) type UnsignedFixedPoint<T> = <T as Config>::UnsignedFixedPoint;
-pub(crate) type Inner<T> = <<T as Config>::UnsignedFixedPoint as FixedPointNumber>::Inner;
+pub(crate) type UnsignedFixedPoint<T> = <T as vault_registry::Config>::UnsignedFixedPoint;
+pub(crate) type Inner<T> = <<T as vault_registry::Config>::UnsignedFixedPoint as FixedPointNumber>::Inner;
 
 pub struct RichOperator<T: Config> {
     pub(crate) data: DefaultOperator<T>,
@@ -519,7 +519,7 @@ impl<T: Config> RichOperator<T> {
     }
 
     pub fn get_max_nominatable_collateral(&self, operator_collateral: DOT<T>) -> Result<DOT<T>, DispatchError> {
-        Module::<T>::dot_for(operator_collateral, Module::<T>::get_max_nomination_ratio())
+        Module::<T>::dot_for(operator_collateral, Module::<T>::get_max_nomination_ratio()?)
     }
 
     pub fn get_nomination_ratio(&self) -> Result<u128, DispatchError> {

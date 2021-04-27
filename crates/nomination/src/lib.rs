@@ -18,6 +18,7 @@ mod default_weights;
 use sp_std::{convert::TryInto, vec::Vec};
 
 use codec::{Decode, Encode, EncodeLike};
+use sp_runtime::traits::CheckedSub;
 
 use ext::vault_registry::VaultStatus;
 use frame_support::{
@@ -65,10 +66,6 @@ decl_storage! {
 
         /// Flag indicating whether this feature is enabled
         NominationEnabled get(fn is_nomination_enabled) config(): bool;
-
-        /// Upper limit, expressed as a rate out of a Vault's collateral, that can be
-        /// nominated as collateral
-        MaxNominationRatio get(fn get_max_nomination_ratio) config(): UnsignedFixedPoint<T>;
 
         /// Maximum number of nominators a single operator can have
         MaxNominatorsPerOperator get(fn get_max_nominators_per_operator) config(): u16;
@@ -198,11 +195,6 @@ impl<T: Config> Module<T> {
         for (operator_id, total_slashed_amount) in liquidated_operator_amounts {
             Self::slash_nominators(operator_id.clone(), VaultStatus::Liquidated, total_slashed_amount)?;
         }
-        Ok(())
-    }
-
-    pub fn set_max_nomination_ratio(limit: UnsignedFixedPoint<T>) -> DispatchResult {
-        <MaxNominationRatio<T>>::set(limit);
         Ok(())
     }
 
@@ -501,6 +493,16 @@ impl<T: Config> Module<T> {
     ) -> Result<u128, DispatchError> {
         let operator = Self::get_rich_operator_from_id(operator_id)?;
         operator.scale_amount_by_operator_proportion_of_backing_collateral(amount)
+    }
+
+    pub fn get_max_nomination_ratio() -> Result<UnsignedFixedPoint<T>, DispatchError> {
+        let secure_collateral_threshold = ext::vault_registry::get_secure_collateral_threshold::<T>();
+        let auction_collateral_threshold = ext::vault_registry::get_auction_collateral_threshold::<T>();
+        Ok(secure_collateral_threshold
+            .checked_div(&auction_collateral_threshold)
+            .ok_or(Error::<T>::ArithmeticUnderflow)?
+            .checked_sub(&<T as vault_registry::Config>::UnsignedFixedPoint::one())
+            .ok_or(Error::<T>::ArithmeticUnderflow)?)
     }
 
     pub fn get_nominators(

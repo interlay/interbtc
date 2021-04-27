@@ -10,7 +10,6 @@ fn test_with<R>(execute: impl FnOnce() -> R) -> R {
         assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
         UserData::force_to(USER, default_user_state());
         CoreVaultData::force_to(VAULT, default_vault_state());
-        NominationPallet::set_max_nomination_ratio(FixedU128::checked_from_rational(50, 100).unwrap()).unwrap();
         NominationPallet::set_max_nominators_per_operator(1).unwrap();
         NominationPallet::set_operator_unbonding_period(DEFAULT_OPERATOR_UNBONDING_PERIOD).unwrap();
         NominationPallet::set_nominator_unbonding_period(DEFAULT_NOMINATOR_UNBONDING_PERIOD).unwrap();
@@ -194,7 +193,7 @@ fn integration_test_operator_cannot_withdraw_directly() {
 fn integration_test_nominator_withdrawal_below_collateralization_threshold_fails() {
     test_with_nomination_enabled(|| {
         assert_ok!(
-            Call::VaultRegistry(VaultRegistryCall::withdraw_collateral(800000)).dispatch(origin_of(account_of(VAULT)))
+            Call::VaultRegistry(VaultRegistryCall::withdraw_collateral(600000)).dispatch(origin_of(account_of(VAULT)))
         );
         assert_register_operator(VAULT);
         assert_nominate_collateral(USER, VAULT, DEFAULT_NOMINATION);
@@ -202,7 +201,7 @@ fn integration_test_nominator_withdrawal_below_collateralization_threshold_fails
             FixedU128::checked_from_integer(3).unwrap()
         ));
         assert_noop!(
-            request_nominator_collateral_withdrawal(USER, VAULT, 10),
+            request_nominator_collateral_withdrawal(USER, VAULT, DEFAULT_NOMINATION),
             VaultRegistryError::InsufficientCollateral
         );
     });
@@ -211,7 +210,7 @@ fn integration_test_nominator_withdrawal_below_collateralization_threshold_fails
 #[test]
 fn integration_test_operator_withdrawal_can_force_refund_nominators() {
     test_with_nomination_enabled(|| {
-        let vault_withdrawal_to_reach_max_nominatio_ratio = 800000;
+        let vault_withdrawal_to_reach_max_nominatio_ratio = 600000;
         assert_ok!(Call::VaultRegistry(VaultRegistryCall::withdraw_collateral(
             vault_withdrawal_to_reach_max_nominatio_ratio
         ))
@@ -223,7 +222,7 @@ fn integration_test_operator_withdrawal_can_force_refund_nominators() {
         // So the force-refunded amount will be `max_nomination_ratio * amount_to_withdraw`
         let expected_nominator_force_refund = FeePallet::dot_for(
             operator_amount_to_withdraw,
-            NominationPallet::get_max_nomination_ratio(),
+            NominationPallet::get_max_nomination_ratio().unwrap(),
         )
         .unwrap();
 
@@ -398,7 +397,7 @@ fn integration_test_nomination_fee_distribution() {
                 free_tokens: DEFAULT_USER_FREE_TOKENS,
             },
         );
-        assert_nominate_collateral(USER, VAULT, DEFAULT_VAULT_BACKING_COLLATERAL * 50);
+        assert_nominate_collateral(USER, VAULT, DEFAULT_VAULT_BACKING_COLLATERAL * 25);
 
         let parachain_state_before_reward_distribution = ParachainState::get();
         // simulate that we entered a new epoch
@@ -406,7 +405,8 @@ fn integration_test_nomination_fee_distribution() {
         let operator_reward = FeePallet::get_polka_btc_rewards(&account_of(VAULT));
         let nominator_reward = FeePallet::get_polka_btc_rewards(&account_of(USER));
 
-        let expected_operator_reward: u128 = 76;
+        let expected_operator_reward: u128 = 99;
+        let expected_nominator_reward = expected_operator_reward / 4;
         assert_eq!(
             ParachainState::get(),
             parachain_state_before_reward_distribution.with_changes(|_, _, _, fee_pool, _| {
@@ -414,7 +414,7 @@ fn integration_test_nomination_fee_distribution() {
             })
         );
         assert_eq!(operator_reward, expected_operator_reward);
-        assert_eq!(nominator_reward, expected_operator_reward / 2);
+        assert_eq!(nominator_reward, expected_nominator_reward);
     })
 }
 
@@ -463,12 +463,17 @@ fn integration_test_withdrawal_request_cannot_be_cancelled_twice() {
     })
 }
 
-// #[test]
-// fn test_banning_an_operator_force_refunds_as_much_nominated_collateral_as_possible() {
-//     run_test(|| {})
-// }
+#[test]
+fn integration_test_maximum_nomination_ratio_calculation() {
+    test_with_nomination_enabled_and_operator_registered(|| {
+        assert_eq!(
+            NominationPallet::get_max_nomination_ratio().unwrap(),
+            FixedU128::checked_from_rational(25, 100).unwrap()
+        );
+    })
+}
 
 // #[test]
-// fn test_maximum_nomination_ratio_calculation() {
+// fn test_banning_an_operator_force_refunds_as_much_nominated_collateral_as_possible() {
 //     run_test(|| {})
 // }
