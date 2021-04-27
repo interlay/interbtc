@@ -390,6 +390,7 @@ fn testnet_genesis(
         },
         issue: IssueConfig { issue_period: DAYS },
         redeem: RedeemConfig {
+            redeem_transaction_size: 600,
             redeem_period: DAYS,
             redeem_btc_dust_value: 1000,
         },

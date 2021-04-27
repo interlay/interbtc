@@ -50,12 +50,14 @@ pub struct RedeemRequest<AccountId, BlockNumber, PolkaBTC, DOT> {
     #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
     #[cfg_attr(feature = "std", serde(bound(serialize = "PolkaBTC: std::fmt::Display")))]
     #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
-    /// Total redeem fees in PolkaBTC - taken from request amount
+    /// Total parachain fee in PolkaBTC - taken from request amount
     pub fee: PolkaBTC,
     #[cfg_attr(feature = "std", serde(bound(deserialize = "PolkaBTC: std::str::FromStr")))]
     #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
     #[cfg_attr(feature = "std", serde(bound(serialize = "PolkaBTC: std::fmt::Display")))]
     #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
+    /// Amount the vault should spend on the bitcoin inclusion fee - taken from request amount
+    pub transfer_fee_btc: PolkaBTC,
     /// Total amount of BTC for the vault to send
     pub amount_btc: PolkaBTC,
     #[cfg_attr(feature = "std", serde(bound(deserialize = "DOT: std::str::FromStr")))]

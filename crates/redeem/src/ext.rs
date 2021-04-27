@@ -227,7 +227,12 @@ pub(crate) mod security {
 #[cfg_attr(test, mockable)]
 pub(crate) mod oracle {
     use crate::types::{PolkaBTC, DOT};
+    use exchange_rate_oracle::BtcTxFeesPerByte;
     use frame_support::dispatch::DispatchError;
+
+    pub fn satoshi_per_bytes<T: fee::Config>() -> BtcTxFeesPerByte {
+        <exchange_rate_oracle::Pallet<T>>::satoshi_per_bytes()
+    }
 
     pub fn btc_to_dots<T: exchange_rate_oracle::Config>(amount: PolkaBTC<T>) -> Result<DOT<T>, DispatchError> {
         <exchange_rate_oracle::Pallet<T>>::btc_to_dots(amount)

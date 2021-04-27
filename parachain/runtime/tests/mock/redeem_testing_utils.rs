@@ -10,6 +10,7 @@ pub struct ExecuteRedeemBuilder {
     redeem: RedeemRequest<AccountId32, u32, u128, u128>,
     amount: u128,
     submitter: AccountId32,
+    inclusion_fee: u128,
 }
 
 impl ExecuteRedeemBuilder {
@@ -20,6 +21,7 @@ impl ExecuteRedeemBuilder {
             redeem: redeem.clone(),
             amount: redeem.fee + redeem.amount_btc,
             submitter: redeem.redeemer,
+            inclusion_fee: 0,
         }
     }
 
@@ -30,6 +32,11 @@ impl ExecuteRedeemBuilder {
 
     pub fn with_submitter(&mut self, submitter: [u8; 32]) -> &mut Self {
         self.submitter = account_of(submitter);
+        self
+    }
+
+    pub fn with_inclusion_fee(&mut self, inclusion_fee: u128) -> &mut Self {
+        self.inclusion_fee = inclusion_fee;
         self
     }
 
