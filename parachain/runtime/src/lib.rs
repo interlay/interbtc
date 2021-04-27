@@ -441,7 +441,7 @@ impl collateral::Config for Runtime {
     type DOT = pallet_balances::Pallet<Runtime, pallet_balances::Instance1>;
 }
 
-pub use treasury::RawEvent as TreasuryEvent;
+pub use treasury::Event as TreasuryEvent;
 
 impl treasury::Config for Runtime {
     type Event = Event;

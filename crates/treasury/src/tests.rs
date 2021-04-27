@@ -1,7 +1,8 @@
 /// Tests for Treasury
 use crate::mock::*;
-use crate::RawEvent;
 use frame_support::{assert_err, assert_ok};
+
+type Event = crate::Event<Test>;
 
 // use mocktopus::mocking::*;
 /// Total supply
@@ -27,7 +28,7 @@ fn test_mint_succeeds() {
         let init_total_supply = Treasury::get_total_supply();
 
         Treasury::mint(requester, amount);
-        let mint_event = TestEvent::treasury(RawEvent::Mint(ALICE, amount));
+        let mint_event = TestEvent::treasury(Event::Mint(ALICE, amount));
 
         assert!(System::events().iter().any(|a| a.event == mint_event));
 
@@ -51,7 +52,7 @@ fn test_lock_succeeds() {
         let init_total_supply = Treasury::get_total_supply();
 
         assert_ok!(Treasury::lock(redeemer, amount));
-        let lock_event = TestEvent::treasury(RawEvent::Lock(ALICE, amount));
+        let lock_event = TestEvent::treasury(Event::Lock(ALICE, amount));
 
         assert!(System::events().iter().any(|a| a.event == lock_event));
 
@@ -100,7 +101,7 @@ fn test_burn_succeeds() {
 
         assert_ok!(Treasury::lock(redeemer, amount));
         assert_ok!(Treasury::burn(redeemer, amount));
-        let burn_event = TestEvent::treasury(RawEvent::Burn(ALICE, amount));
+        let burn_event = TestEvent::treasury(Event::Burn(ALICE, amount));
 
         assert!(System::events().iter().any(|a| a.event == burn_event));
 
@@ -149,7 +150,7 @@ fn test_burn_partially_succeeds() {
 
         assert_ok!(Treasury::lock(redeemer, amount));
         assert_ok!(Treasury::burn(redeemer, burn_amount));
-        let burn_event = TestEvent::treasury(RawEvent::Burn(ALICE, burn_amount));
+        let burn_event = TestEvent::treasury(Event::Burn(ALICE, burn_amount));
 
         assert!(System::events().iter().any(|a| a.event == burn_event));
 
