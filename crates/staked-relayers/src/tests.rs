@@ -1071,6 +1071,7 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
                 btc_address: recipient_address,
                 btc_height: 0,
                 status: RedeemRequestStatus::Pending,
+                transfer_fee_btc: 0,
             }))
         });
 
