@@ -19,7 +19,7 @@ impl ExecuteRedeemBuilder {
         Self {
             redeem_id,
             redeem: redeem.clone(),
-            amount: redeem.fee + redeem.amount_btc,
+            amount: redeem.amount_btc,
             submitter: redeem.redeemer,
             inclusion_fee: 0,
         }

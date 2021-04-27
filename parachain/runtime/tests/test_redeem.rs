@@ -241,6 +241,49 @@ fn integration_test_redeem_parachain_status_shutdown_fails() {
     });
 }
 
+mod execute_redeem_payment_limits {
+    use super::*;
+
+    #[test]
+    fn integration_test_redeem_polka_btc_execute_underpayment_fails() {
+        test_with(|| {
+            let redeem_id = setup_redeem(10_000, USER, VAULT, 1_000_000);
+            let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
+
+            assert_noop!(
+                ExecuteRedeemBuilder::new(redeem_id)
+                    .with_amount(redeem.amount_btc - 1)
+                    .execute(),
+                BTCRelayError::InsufficientValue
+            );
+        });
+    }
+
+    #[test]
+    fn integration_test_redeem_polka_btc_execute_with_exact_amount_succeeds() {
+        test_with(|| {
+            let redeem_id = setup_redeem(10_000, USER, VAULT, 1_000_000);
+            let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
+
+            ExecuteRedeemBuilder::new(redeem_id)
+                .with_amount(redeem.amount_btc)
+                .assert_execute();
+        });
+    }
+
+    #[test]
+    fn integration_test_redeem_polka_btc_execute_overpayment_succeeds() {
+        test_with(|| {
+            let redeem_id = setup_redeem(10_000, USER, VAULT, 1_000_000);
+            let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
+
+            ExecuteRedeemBuilder::new(redeem_id)
+                .with_amount(redeem.amount_btc + 1)
+                .assert_execute();
+        });
+    }
+}
+
 #[test]
 fn integration_test_redeem_polka_btc_execute() {
     test_with(|| {
