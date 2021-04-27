@@ -412,7 +412,9 @@ fn parse_transaction_output(raw_output: &[u8]) -> Result<(TransactionOutput, usi
 pub(crate) fn extract_address_hash_witness(witness_script: &[u8]) -> Result<Address, Error> {
     if witness_script.len() == 33 {
         // compressed public key format
-        let prefix = *witness_script.get(0).ok_or(Error::EndOfFile)?;
+        let prefix = witness_script[0];
+        // first byte describes whether the Y-coordinate is even or odd, the remaining 32-bytes
+        // are the X-coordinate of the underlying point on the elliptic curve
         if prefix == SECP256K1_TAG_PUBKEY_EVEN || prefix == SECP256K1_TAG_PUBKEY_ODD {
             return Ok(Address::P2WPKHv0(H160::from_slice(
                 &Hash160::hash(witness_script).to_vec(),
