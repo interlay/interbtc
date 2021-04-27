@@ -58,6 +58,7 @@ pub trait Config:
     + exchange_rate_oracle::Config
     + fee::Config
     + sla::Config
+    + nomination::Config
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
@@ -306,6 +307,11 @@ impl<T: Config> Module<T> {
     ) -> DispatchResult {
         // check vault is not banned
         ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;
+
+        ensure!(
+            !ext::nomination::is_operator::<T>(&vault_id)?,
+            Error::<T>::VaultIsNominationOperator
+        );
 
         let requestable_tokens = ext::vault_registry::requestable_to_be_replaced_tokens::<T>(&vault_id)?;
         let to_be_replaced_increase = amount_btc.min(requestable_tokens);
@@ -594,7 +600,7 @@ impl<T: Config> Module<T> {
         let actual_new_vault_collateral =
             ext::vault_registry::calculate_collateral::<T>(collateral, actual_btc, amount_btc)?;
 
-        ext::vault_registry::try_lock_additional_collateral::<T>(&new_vault_id, actual_new_vault_collateral)?;
+        ext::vault_registry::lock_additional_collateral::<T>(&new_vault_id, actual_new_vault_collateral)?;
 
         // increase old-vault's to-be-redeemed tokens - this should never fail
         ext::vault_registry::try_increase_to_be_redeemed_tokens::<T>(&old_vault_id, actual_btc)?;
@@ -701,6 +707,7 @@ decl_error! {
         ReplaceSelfNotAllowed,
         CancelAcceptedRequest,
         CollateralBelowSecureThreshold,
+        VaultIsNominationOperator,
         ReplacePeriodExpired,
         ReplacePeriodNotExpired,
         ReplaceCompleted,

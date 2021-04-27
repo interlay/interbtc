@@ -723,6 +723,7 @@ dependencies = [
  "module-sla-rpc-runtime-api",
  "module-staked-relayers-rpc-runtime-api",
  "module-vault-registry-rpc-runtime-api",
+ "nomination",
  "pallet-aura",
  "pallet-balances",
  "pallet-collective",
@@ -4636,6 +4637,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "nomination"
+version = "0.5.0"
+dependencies = [
+ "collateral",
+ "exchange-rate-oracle",
+ "fee",
+ "fixed-hash 0.6.1",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "mocktopus",
+ "pallet-balances",
+ "pallet-randomness-collective-flip",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "primitive-types",
+ "security",
+ "serde",
+ "sla",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "treasury",
+ "vault-registry",
+]
+
+[[package]]
 name = "num-bigint"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7376,6 +7406,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "mocktopus",
+ "nomination",
  "pallet-balances",
  "pallet-randomness-collective-flip",
  "pallet-timestamp",
@@ -9734,6 +9765,7 @@ dependencies = [
  "frame-system",
  "hex",
  "mocktopus",
+ "nomination",
  "pallet-balances",
  "pallet-randomness-collective-flip",
  "pallet-timestamp",

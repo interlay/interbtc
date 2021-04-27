@@ -1,9 +1,9 @@
 use crate::{
     ext,
     mock::{
-        run_test, CollateralError, Origin, SecurityError, System, Test, TestError, TestEvent, VaultRegistry,
-        DEFAULT_COLLATERAL, DEFAULT_ID, MULTI_VAULT_TEST_COLLATERAL, MULTI_VAULT_TEST_IDS, OTHER_ID, RICH_COLLATERAL,
-        RICH_ID,
+        run_test, CollateralError, LiquidationTarget, Origin, SecurityError, System, Test, TestError, TestEvent,
+        VaultRegistry, DEFAULT_COLLATERAL, DEFAULT_ID, MULTI_VAULT_TEST_COLLATERAL, MULTI_VAULT_TEST_IDS, OTHER_ID,
+        RICH_COLLATERAL, RICH_ID,
     },
     sp_api_hidden_includes_decl_storage::hidden_include::traits::OnInitialize,
     types::{BtcAddress, PolkaBTC, DOT},
@@ -821,7 +821,7 @@ fn test_liquidate_undercollateralized_vaults_no_liquidation() {
             panic!("Should not liquidate any vaults");
         });
 
-        VaultRegistry::liquidate_undercollateralized_vaults();
+        VaultRegistry::liquidate_undercollateralized_vaults(LiquidationTarget::NonOperatorsOnly);
     });
 }
 
@@ -875,10 +875,10 @@ fn test_liquidate_undercollateralized_vaults_succeeds() {
             .mock_safe(move |vault, _| MockResult::Return(Ok(*vaults1.get(&vault.id).unwrap())));
         VaultRegistry::liquidate_vault.mock_safe(move |id| {
             assert!(vaults2.get(id).unwrap());
-            MockResult::Return(Ok(()))
+            MockResult::Return(Ok(10u128))
         });
 
-        VaultRegistry::liquidate_undercollateralized_vaults();
+        VaultRegistry::liquidate_undercollateralized_vaults(LiquidationTarget::NonOperatorsOnly);
     });
 }
 

@@ -41,6 +41,7 @@ frame_support::construct_runtime!(
         Fee: fee::{Pallet, Call, Config<T>, Storage, Event<T>},
         Sla: sla::{Pallet, Call, Config<T>, Storage, Event<T>},
         Refund: refund::{Pallet, Call, Config<T>, Storage, Event<T>},
+        Nomination: nomination::{Pallet, Call, Config<T>, Storage, Event<T>},
     }
 );
 
@@ -195,6 +196,12 @@ impl replace::Config for Test {
     type WeightInfo = ();
 }
 
+impl nomination::Config for Test {
+    type Event = TestEvent;
+    type UnsignedFixedPoint = FixedU128;
+    type WeightInfo = ();
+}
+
 parameter_types! {
     pub const MinimumDeposit: u64 = 10;
     pub const MinimumStake: u64 = 10;
@@ -253,6 +260,7 @@ impl ExtBuilder {
             relayer_rewards: FixedU128::checked_from_rational(3, 100).unwrap(),
             maintainer_rewards: FixedU128::checked_from_rational(20, 100).unwrap(),
             collator_rewards: FixedU128::checked_from_integer(0).unwrap(),
+            nomination_rewards: FixedU128::checked_from_rational(0, 100).unwrap(),
         }
         .assimilate_storage(&mut storage)
         .unwrap();

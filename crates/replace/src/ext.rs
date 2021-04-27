@@ -119,11 +119,11 @@ pub(crate) mod vault_registry {
         <vault_registry::Pallet<T>>::decrease_to_be_replaced_tokens(vault_id, tokens)
     }
 
-    pub fn try_lock_additional_collateral<T: vault_registry::Config>(
+    pub fn lock_additional_collateral<T: vault_registry::Config>(
         vault_id: &T::AccountId,
         amount: DOT<T>,
     ) -> Result<(), DispatchError> {
-        <vault_registry::Pallet<T>>::try_lock_additional_collateral(vault_id, amount)
+        <vault_registry::Pallet<T>>::_lock_additional_collateral(vault_id, amount)
     }
 
     pub fn force_withdraw_collateral<T: vault_registry::Config>(
@@ -209,5 +209,14 @@ pub(crate) mod fee {
 
     pub fn get_auction_redeem_fee<T: fee::Config>(amount: DOT<T>) -> Result<DOT<T>, DispatchError> {
         <fee::Pallet<T>>::get_auction_redeem_fee(amount)
+    }
+}
+
+#[cfg_attr(test, mockable)]
+pub(crate) mod nomination {
+    use sp_runtime::DispatchError;
+
+    pub fn is_operator<T: nomination::Config>(operator_id: &T::AccountId) -> Result<bool, DispatchError> {
+        <nomination::Module<T>>::is_operator(operator_id)
     }
 }

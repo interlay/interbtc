@@ -202,7 +202,7 @@ pub struct SystemVault<PolkaBTC> {
     pub to_be_redeemed_tokens: PolkaBTC,
 }
 
-impl<AccountId, BlockNumber, PolkaBTC: HasCompact + Default, DOT: HasCompact + Default>
+impl<AccountId: Ord, BlockNumber, PolkaBTC: HasCompact + Default, DOT: HasCompact + Default>
     Vault<AccountId, BlockNumber, PolkaBTC, DOT>
 {
     pub(crate) fn new(id: AccountId, public_key: BtcPublicKey) -> Vault<AccountId, BlockNumber, PolkaBTC, DOT> {
@@ -236,6 +236,8 @@ pub(crate) trait UpdatableVault<T: Config> {
 
     fn issued_tokens(&self) -> PolkaBTC<T>;
 
+    fn to_be_issued_tokens(&self) -> PolkaBTC<T>;
+
     fn increase_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult;
 
     fn increase_to_be_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult;
@@ -260,6 +262,10 @@ impl<T: Config> UpdatableVault<T> for RichVault<T> {
 
     fn issued_tokens(&self) -> PolkaBTC<T> {
         self.data.issued_tokens
+    }
+
+    fn to_be_issued_tokens(&self) -> PolkaBTC<T> {
+        self.data.to_be_issued_tokens
     }
 
     fn increase_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {
@@ -366,11 +372,11 @@ impl<T: Config> RichVault<T> {
         })
     }
 
-    pub(crate) fn decrease_backing_collateral(&mut self, collateral: DOT<T>) -> DispatchResult {
+    pub fn decrease_backing_collateral(&mut self, amount: DOT<T>) -> DispatchResult {
         self.update(|v| {
             v.backing_collateral = v
                 .backing_collateral
-                .checked_sub(&collateral)
+                .checked_sub(&amount)
                 .ok_or(Error::<T>::ArithmeticUnderflow)?;
             Ok(())
         })
@@ -470,7 +476,7 @@ impl<T: Config> RichVault<T> {
         &mut self,
         liquidation_vault: &mut V,
         status: VaultStatus,
-    ) -> DispatchResult {
+    ) -> Result<DOT<T>, DispatchError> {
         let backing_collateral = self.data.backing_collateral;
 
         // we liquidate at most SECURE_THRESHOLD * backing.
@@ -514,7 +520,7 @@ impl<T: Config> RichVault<T> {
             Ok(())
         });
 
-        Ok(())
+        Ok(to_slash)
     }
 
     pub fn ensure_not_banned(&self) -> DispatchResult {
@@ -620,6 +626,10 @@ impl<T: Config> UpdatableVault<T> for RichSystemVault<T> {
 
     fn issued_tokens(&self) -> PolkaBTC<T> {
         self.data.issued_tokens
+    }
+
+    fn to_be_issued_tokens(&self) -> PolkaBTC<T> {
+        self.data.to_be_issued_tokens
     }
 
     fn increase_issued(&mut self, tokens: PolkaBTC<T>) -> DispatchResult {

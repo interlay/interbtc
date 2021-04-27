@@ -1,7 +1,8 @@
 use btc_parachain_runtime::{
     AccountId, BTCRelayConfig, BlockNumber, DOTConfig, ExchangeRateOracleConfig, FeeConfig, GenesisConfig, IssueConfig,
-    PolkaBTCConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature, SlaConfig, StakedRelayersConfig, SudoConfig,
-    SystemConfig, VaultRegistryConfig, DAYS, MILLISECS_PER_BLOCK, MINUTES, TARGET_SPACING, WASM_BINARY,
+    NominationConfig, PolkaBTCConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature, SlaConfig,
+    StakedRelayersConfig, SudoConfig, SystemConfig, VaultRegistryConfig, DAYS, HOURS, MILLISECS_PER_BLOCK, MINUTES,
+    TARGET_SPACING, WASM_BINARY,
 };
 
 const BITCOIN_SPACING_MS: u32 = TARGET_SPACING * 1000;
@@ -421,6 +422,7 @@ fn testnet_genesis(
             relayer_rewards: FixedU128::checked_from_rational(3, 100).unwrap(),
             maintainer_rewards: FixedU128::checked_from_rational(20, 100).unwrap(),
             collator_rewards: FixedU128::checked_from_integer(0).unwrap(),
+            nomination_rewards: FixedU128::checked_from_rational(0, 100).unwrap(),
         },
         sla: SlaConfig {
             vault_target_sla: FixedI128::from(100),
@@ -440,6 +442,13 @@ fn testnet_genesis(
         },
         refund: RefundConfig {
             refund_btc_dust_value: 1000,
+        },
+        nomination: NominationConfig {
+            is_nomination_enabled: false,
+            get_operator_unbonding_period: 24 * HOURS,
+            get_max_nomination_ratio: FixedU128::checked_from_rational(50, 100).unwrap(), // 50%
+            get_max_nominators_per_operator: 100,                                         // 50%
+            get_nominator_unbonding_period: 12 * HOURS,
         },
     }
 }

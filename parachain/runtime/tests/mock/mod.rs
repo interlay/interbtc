@@ -1,11 +1,12 @@
 #![allow(dead_code)]
+
 extern crate hex;
 
 pub use bitcoin::{
     formatter::{Formattable, TryFormattable},
     types::*,
 };
-pub use btc_parachain_runtime::{AccountId, Call, Event, Runtime};
+pub use btc_parachain_runtime::{AccountId, BlockNumber, Call, Event, Runtime};
 pub use btc_relay::{BtcAddress, BtcPublicKey};
 pub use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchResultWithPostInfo};
 pub use mocktopus::mocking::*;
@@ -18,13 +19,17 @@ pub use sp_std::convert::TryInto;
 pub use vault_registry::CurrencySource;
 
 pub use issue::IssueRequest;
+pub use nomination::Nominator;
 pub use redeem::RedeemRequest;
 pub use refund::RefundRequest;
 pub use replace::ReplaceRequest;
 pub use sp_runtime::AccountId32;
+use std::collections::BTreeMap;
 pub use std::convert::TryFrom;
+pub use vault_registry::{Vault, VaultStatus};
 
 pub mod issue_testing_utils;
+pub mod nomination_testing_utils;
 pub mod redeem_testing_utils;
 
 pub const ALICE: [u8; 32] = [0u8; 32];
@@ -57,6 +62,9 @@ pub const DEFAULT_VAULT_FREE_BALANCE: u128 = 200_000;
 pub const DEFAULT_VAULT_FREE_TOKENS: u128 = 0;
 pub const DEFAULT_VAULT_REPLACE_COLLATERAL: u128 = 20_000;
 pub const DEFAULT_VAULT_TO_BE_REPLACED: u128 = 40_000;
+
+pub const DEFAULT_NOMINATION_TOTAL_NOMINATED_COLLATERAL: u128 = 0;
+pub const DEFAULT_NOMINATION_COLLATERAL_TO_BE_WITHDRAWN: u128 = 0;
 
 pub const CONFIRMATIONS: u32 = 6;
 
@@ -91,6 +99,7 @@ pub type RedeemEvent = redeem::Event<Runtime>;
 
 pub type ReplaceCall = replace::Call<Runtime>;
 pub type ReplaceEvent = replace::Event<Runtime>;
+pub type ReplaceError = replace::Error<Runtime>;
 pub type ReplacePallet = replace::Pallet<Runtime>;
 
 pub type SecurityError = security::Error<Runtime>;
@@ -108,6 +117,10 @@ pub type TreasuryPallet = treasury::Pallet<Runtime>;
 pub type VaultRegistryCall = vault_registry::Call<Runtime>;
 pub type VaultRegistryError = vault_registry::Error<Runtime>;
 pub type VaultRegistryPallet = vault_registry::Pallet<Runtime>;
+
+pub type NominationCall = nomination::Call<Runtime>;
+pub type NominationError = nomination::Error<Runtime>;
+pub type NominationPallet = nomination::Pallet<Runtime>;
 
 pub fn default_user_state() -> UserData {
     UserData {
@@ -129,6 +142,15 @@ pub fn default_vault_state() -> CoreVaultData {
         free_tokens: 0,
         replace_collateral: DEFAULT_VAULT_REPLACE_COLLATERAL,
         to_be_replaced: DEFAULT_VAULT_TO_BE_REPLACED,
+    }
+}
+
+pub fn default_operator_state() -> CoreOperatorData {
+    let default_nominators: BTreeMap<AccountId, CoreNominatorData> = BTreeMap::new();
+    CoreOperatorData {
+        nominators: default_nominators,
+        total_nominated_collateral: DEFAULT_NOMINATION_TOTAL_NOMINATED_COLLATERAL,
+        collateral_to_be_withdrawn: DEFAULT_NOMINATION_COLLATERAL_TO_BE_WITHDRAWN,
     }
 }
 
@@ -383,9 +405,71 @@ impl CoreVaultData {
 }
 
 #[derive(Debug, PartialEq, Clone)]
+pub struct CoreNominatorData {
+    pub collateral: u128,
+    pub collateral_to_be_withdrawn: u128,
+}
+
+impl Default for CoreNominatorData {
+    fn default() -> Self {
+        CoreNominatorData {
+            collateral: 0,
+            collateral_to_be_withdrawn: 0,
+        }
+    }
+}
+
+impl CoreNominatorData {
+    pub fn nominators(
+        nominators: Vec<(AccountId, Nominator<AccountId, BlockNumber, u128>)>,
+    ) -> BTreeMap<AccountId, CoreNominatorData> {
+        let mut nominators_map: BTreeMap<AccountId, CoreNominatorData> = BTreeMap::new();
+        for (_, nominator) in nominators {
+            nominators_map.insert(
+                nominator.id.clone(),
+                CoreNominatorData {
+                    collateral: nominator.collateral,
+                    collateral_to_be_withdrawn: nominator.collateral_to_be_withdrawn,
+                },
+            );
+        }
+        nominators_map
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
+pub struct CoreOperatorData {
+    pub nominators: BTreeMap<AccountId, CoreNominatorData>,
+    pub total_nominated_collateral: u128,
+    pub collateral_to_be_withdrawn: u128,
+}
+
+impl Default for CoreOperatorData {
+    fn default() -> Self {
+        default_operator_state()
+    }
+}
+
+impl CoreOperatorData {
+    pub fn operator(operator: [u8; 32]) -> Self {
+        let account_id = account_of(operator);
+        match NominationPallet::is_operator(&account_id) {
+            Ok(true) => Self {
+                nominators: CoreNominatorData::nominators(NominationPallet::get_nominators(&account_id).unwrap()),
+                total_nominated_collateral: NominationPallet::get_total_nominated_collateral(&account_id).unwrap(),
+                collateral_to_be_withdrawn: NominationPallet::get_collateral_to_be_withdrawn(&account_id).unwrap(),
+            },
+            Ok(false) => default_operator_state(),
+            Err(_) => default_operator_state(),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub struct ParachainState {
     user: UserData,
     vault: CoreVaultData,
+    operator: CoreOperatorData,
     liquidation_vault: CoreVaultData,
     fee_pool: FeePool,
 }
@@ -395,6 +479,7 @@ impl Default for ParachainState {
         Self {
             user: default_user_state(),
             vault: default_vault_state(),
+            operator: default_operator_state(),
             liquidation_vault: CoreVaultData {
                 free_balance: INITIAL_LIQUIDATION_VAULT_BALANCE,
                 ..Default::default()
@@ -411,12 +496,13 @@ impl ParachainState {
             vault: CoreVaultData::vault(BOB),
             liquidation_vault: CoreVaultData::liquidation_vault(),
             fee_pool: FeePool::get(),
+            operator: CoreOperatorData::operator(BOB),
         }
     }
 
     pub fn with_changes(
         &self,
-        f: impl FnOnce(&mut UserData, &mut CoreVaultData, &mut CoreVaultData, &mut FeePool),
+        f: impl FnOnce(&mut UserData, &mut CoreVaultData, &mut CoreVaultData, &mut FeePool, &mut CoreOperatorData),
     ) -> Self {
         let mut state = self.clone();
         f(
@@ -424,6 +510,7 @@ impl ParachainState {
             &mut state.vault,
             &mut state.liquidation_vault,
             &mut state.fee_pool,
+            &mut state.operator,
         );
         state
     }
@@ -474,6 +561,14 @@ pub fn drop_exchange_rate_and_liquidate(vault: [u8; 32]) {
 }
 
 #[allow(dead_code)]
+pub fn drop_exchange_rate_and_liquidate_operator(operator: [u8; 32]) {
+    assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
+        FixedU128::checked_from_integer(10_000_000_000).unwrap()
+    ));
+    assert_ok!(NominationPallet::liquidate_operator(&account_of(operator)));
+}
+
+#[allow(dead_code)]
 pub fn set_default_thresholds() {
     let secure = FixedU128::checked_from_rational(150, 100).unwrap();
     let auction = FixedU128::checked_from_rational(120, 100).unwrap();
@@ -500,6 +595,13 @@ pub fn try_register_vault(collateral: u128, vault: [u8; 32]) {
             Call::VaultRegistry(VaultRegistryCall::register_vault(collateral, dummy_public_key()))
                 .dispatch(origin_of(account_of(vault)))
         );
+    };
+}
+
+#[allow(dead_code)]
+pub fn try_register_operator(operator: [u8; 32]) {
+    if NominationPallet::get_operator_from_id(&account_of(operator)).is_err() {
+        assert_ok!(Call::Nomination(NominationCall::opt_in_to_nomination()).dispatch(origin_of(account_of(operator))));
     };
 }
 
@@ -808,6 +910,7 @@ impl ExtBuilder {
             relayer_rewards: FixedU128::checked_from_rational(20, 100).unwrap(),      // 20%
             maintainer_rewards: FixedU128::checked_from_rational(10, 100).unwrap(),   // 10%
             collator_rewards: FixedU128::checked_from_rational(0, 100).unwrap(),      // 0%
+            nomination_rewards: FixedU128::checked_from_rational(0, 100).unwrap(),    // 0%
         }
         .assimilate_storage(&mut storage)
         .unwrap();

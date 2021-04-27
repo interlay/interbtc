@@ -73,6 +73,7 @@ issue = { path = "../../crates/issue", default-features = false }
 redeem = { path = "../../crates/redeem", default-features = false }
 replace = { path = "../../crates/replace", default-features = false }
 refund = { path = "../../crates/refund", default-features = false }
+nomination = { path = "../../crates/nomination", default-features = false }
 
 parachain-info = { path = "../../crates/parachain-info", default-features = false, optional = true }
 parachain-tokens = { path = "../../crates/parachain-tokens", default-features = false, optional = true }
@@ -162,6 +163,7 @@ std = [
   "redeem/std",
   "replace/std",
   "refund/std",
+  "nomination/std",
 
   "parachain-info/std",
   "parachain-tokens/std",

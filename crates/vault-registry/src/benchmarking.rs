@@ -76,7 +76,7 @@ benchmarks! {
             assert_eq!(VaultRegistry::<T>::get_vaults_with_issuable_tokens().unwrap().len(), u as usize);
         }
     }: {
-        VaultRegistry::<T>::liquidate_undercollateralized_vaults()
+        VaultRegistry::<T>::liquidate_undercollateralized_vaults(LiquidationTarget::NonOperatorsOnly)
     }
 }
 

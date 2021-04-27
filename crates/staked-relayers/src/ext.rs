@@ -42,7 +42,8 @@ pub(crate) mod vault_registry {
     }
 
     pub fn liquidate_theft_vault<T: vault_registry::Config>(vault_id: &T::AccountId) -> DispatchResult {
-        <vault_registry::Pallet<T>>::liquidate_vault_with_status(vault_id, VaultStatus::CommittedTheft)
+        let _ = <vault_registry::Module<T>>::liquidate_vault_with_status(vault_id, VaultStatus::CommittedTheft)?;
+        Ok(())
     }
 }
 
@@ -197,5 +198,25 @@ pub(crate) mod sla {
         stake: DOT<T>,
     ) -> Result<(), DispatchError> {
         <sla::Pallet<T>>::initialize_relayer_stake(relayer_id, stake)
+    }
+}
+
+#[cfg_attr(test, mockable)]
+pub(crate) mod nomination {
+
+    use frame_support::dispatch::DispatchResult;
+    use sp_runtime::DispatchError;
+    use vault_registry::VaultStatus;
+
+    pub fn liquidate_theft_operator<T: nomination::Config>(vault_id: &T::AccountId) -> DispatchResult {
+        <nomination::Module<T>>::liquidate_operator_with_status(vault_id, VaultStatus::CommittedTheft)
+    }
+
+    pub fn is_nomination_enabled<T: nomination::Config>() -> bool {
+        <nomination::Module<T>>::is_nomination_enabled()
+    }
+
+    pub fn is_operator<T: nomination::Config>(operator_id: &T::AccountId) -> Result<bool, DispatchError> {
+        <nomination::Module<T>>::is_operator(operator_id)
     }
 }
