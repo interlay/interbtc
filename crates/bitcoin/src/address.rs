@@ -2,7 +2,7 @@ use crate::{types::*, Error, Script};
 use bitcoin_hashes::{hash160::Hash as Hash160, Hash};
 use codec::{Decode, Encode};
 use sha2::{Digest, Sha256};
-use sp_core::H160;
+use sp_core::{H160, H256};
 
 use secp256k1::{constants::PUBLIC_KEY_SIZE, Error as Secp256k1Error, PublicKey as Secp256k1PublicKey};
 
@@ -12,21 +12,22 @@ use secp256k1::{constants::PUBLIC_KEY_SIZE, Error as Secp256k1Error, PublicKey a
 #[derive(Encode, Decode, Clone, Ord, PartialOrd, PartialEq, Eq, Debug, Copy)]
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize, std::hash::Hash))]
 pub enum Address {
+    // input: {signature} {pubkey}
+    // output: OP_DUP OP_HASH160 {hash160(pubkey)} OP_EQUALVERIFY OP_CHECKSIG
+    // witness: <>
     P2PKH(H160),
+    // input: [redeem_script_sig ...] {redeem_script}
+    // output: OP_HASH160 {hash160(redeem_script)} OP_EQUAL
+    // witness: <?>
     P2SH(H160),
+    // input: <>
+    // output: OP_0 {hash160(pubkey)}
+    // witness: {signature} {pubkey}
     P2WPKHv0(H160),
-}
-
-#[cfg(feature = "std")]
-impl std::fmt::Display for Address {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let addr = match self {
-            Self::P2PKH(hash) => (hash, "p2pkh"),
-            Self::P2SH(hash) => (hash, "p2sh"),
-            Self::P2WPKHv0(hash) => (hash, "p2wpkh"),
-        };
-        write!(f, "{} ({})", addr.0, addr.1)
-    }
+    // input: <>
+    // output: OP_0 {sha256(redeem_script)}
+    // witness: [redeem_script_sig ...] {redeem_script}
+    P2WSHv0(H256),
 }
 
 impl Address {
@@ -41,6 +42,9 @@ impl Address {
         } else if script.is_p2wpkh_v0() {
             // 0x00 0x14 (20 bytes len) - <20 bytes hash>
             Ok(Self::P2WPKHv0(H160::from_slice(&script.as_bytes()[2..])))
+        } else if script.is_p2wsh_v0() {
+            // 0x00 0x20 (32 bytes len) - <32 bytes hash>
+            Ok(Self::P2WSHv0(H256::from_slice(&script.as_bytes()[2..])))
         } else {
             Err(Error::InvalidBtcAddress)
         }
@@ -73,14 +77,13 @@ impl Address {
                 script.append(pub_key_hash);
                 script
             }
-        }
-    }
-
-    pub fn hash(&self) -> H160 {
-        match *self {
-            Address::P2PKH(hash) => hash,
-            Address::P2SH(hash) => hash,
-            Address::P2WPKHv0(hash) => hash,
+            Self::P2WSHv0(script_hash) => {
+                let mut script = Script::new();
+                script.append(OpCode::Op0);
+                script.append(HASH256_SIZE_HEX);
+                script.append(script_hash);
+                script
+            }
         }
     }
 

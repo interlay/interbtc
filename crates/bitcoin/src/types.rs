@@ -3,12 +3,10 @@ extern crate hex;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use bitcoin_hashes::{hash160::Hash as Hash160, Hash};
-
 use crate::{
     formatter::{Formattable, TryFormattable},
     merkle::{MerkleProof, MerkleTree},
-    parser::extract_address_hash_scriptsig,
+    parser::{extract_address_hash_scriptsig, extract_address_hash_witness},
     utils::{log2, reverse_endianness, sha256d_le},
     Address, Error, Script,
 };
@@ -234,6 +232,7 @@ impl sp_std::fmt::Debug for RawBlockHeader {
 pub const P2PKH_SCRIPT_SIZE: u32 = 25;
 pub const P2SH_SCRIPT_SIZE: u32 = 23;
 pub const HASH160_SIZE_HEX: u8 = 0x14;
+pub const HASH256_SIZE_HEX: u8 = 0x20;
 pub const MAX_OPRETURN_SIZE: usize = 83;
 
 /// Structs
@@ -276,15 +275,10 @@ impl TransactionInput {
     }
 
     pub fn extract_address(&self) -> Result<Address, Error> {
-        // Witness
-        if !self.witness.is_empty() && self.flags == 0 {
-            return Ok(Address::P2WPKHv0(H160::from_slice(
-                &Hash160::hash(&self.witness[1]).to_vec(),
-            )));
-        }
-
-        // P2PKH or P2SH
-        extract_address_hash_scriptsig(&self.script)
+        let witness_script = self.witness.last();
+        witness_script.map_or(extract_address_hash_scriptsig(&self.script), |w| {
+            extract_address_hash_witness(w)
+        })
     }
 }
 
@@ -991,16 +985,35 @@ mod tests {
     }
 
     #[test]
-    fn extract_witness_address_p2wsh() {
-        let raw_tx = "020000000001027113554199c88273f7f04d18a0dca69145ea863f31519a790b346579b9b55f090100000017160014d6ad6711da30f4349a0d8c387a515bff10ecd507fdffffff90a9eb7550a8308c629014f3f685d2d72e9e7de6bd199c3a9615b567206889430100000017160014cce6d8dffda77f56e237389f48417f10659c2e42fdffffff0228641c000000000017a914d980c4240e77b76d48051c791f68831d23ad3e8687400d03000000000017a914e9c3dd0c07aac76179ebc76a6c78d4d67c6c160a870248304502210088b0fb4b40af9620f785f265c2e2f7436018391d9db34eee3bc1ebd796fbce96022015151182eaa595e090c8030d9f979b920aae276c385dfc66ac2d77160a27453b01210266dd88be116711227e2e953daa008cca45ce5cc0aa4b584c20ae6ddb9ce0212d0247304402204b2fdd767ab93b30a43042c3287ae78d06d1418084fe88350b0aaf06bebe02fe02202d850fc5887d948307fdade871de3714d867610643f6507e511d14dad86fe3ce012102593012612326b4c07e6f0234bac5ff62b5ed12afe77e2900474ca36b3bfa528075f50700";
+    fn extract_witness_address_p2wsh_input() {
+        // 7554ff97e5a0d879eb5f81195919b1ae46183cf804ed222cc27acabb76ecad9c (1583549)
+        let raw_tx = "01000000000101fcb9d97fc77e4a5645df64b03c493f6117f46a58b2f58593ba3d4bfdc31266f90200000000ffffffff01b88201000000000017a914a89aec4cd53e6d74215332459b7fea3ec4aca975870248304502210097096b8b05e5979a738949c6f332bc35d279da0c19b760beb225e27d41f5af5802202dd4004158e2d372b0c076376a9b9033ebb5589ff9c8e129f0dbb8c80e4d5ec30123210279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798ac00000000";
         let tx_bytes = hex::decode(&raw_tx).unwrap();
         let transaction = parse_transaction(&tx_bytes).unwrap();
 
-        let address = Address::P2WPKHv0(H160([
-            214, 173, 103, 17, 218, 48, 244, 52, 154, 13, 140, 56, 122, 81, 91, 255, 16, 236, 213, 7,
+        let address = Address::P2WSHv0(H256([
+            24, 99, 20, 60, 20, 197, 22, 104, 4, 189, 25, 32, 51, 86, 218, 19, 108, 152, 86, 120, 205, 77, 39, 161,
+            184, 198, 50, 150, 4, 144, 50, 98,
         ]));
 
         let extr_address = transaction.inputs[0].extract_address().unwrap();
+
+        assert_eq!(&extr_address, &address);
+    }
+
+    #[test]
+    fn extract_witness_address_p2wsh_output() {
+        // d2853110a8b1dc1f670b0fc3bb8441b2a9e94ede13751a08e788da2250d938fa (1717580)
+        let raw_tx = "02000000000101f46a33da6e2488101516a1087b755d9523cf13c26b7038782ed2b6334789d61d010000001716001428e31af3bbf39bb5137efb54fb0c4843f20fde47ffffffff02e8030000000000002200201863143c14c5166804bd19203356da136c985678cd4d27a1b8c63296049032623ec057020000000017a91408b94c89e0dc283638716d571daefb9633c4d121870247304402205bf259e237b20ec437e53e44891599571439c4db16e656d225b850acd3871e9502201a0169eb0e925331f1018a54b55c6dd36951e494c56f3fc7ddc266a6384560ec012102ac1d49442824063855aef270fceaab850e87f897ba146a8c7ee2c9f6e78e13e900000000";
+        let tx_bytes = hex::decode(&raw_tx).unwrap();
+        let transaction = parse_transaction(&tx_bytes).unwrap();
+
+        let address = Address::P2WSHv0(H256([
+            24, 99, 20, 60, 20, 197, 22, 104, 4, 189, 25, 32, 51, 86, 218, 19, 108, 152, 86, 120, 205, 77, 39, 161,
+            184, 198, 50, 150, 4, 144, 50, 98,
+        ]));
+
+        let extr_address = transaction.outputs[0].extract_address().unwrap();
 
         assert_eq!(&extr_address, &address);
     }
