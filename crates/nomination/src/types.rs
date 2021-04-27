@@ -288,7 +288,10 @@ impl<T: Config> RichOperator<T> {
                 .checked_add(&collateral_to_withdraw)
                 .ok_or(Error::<T>::ArithmeticOverflow)?;
             Ok(())
-        })
+        })?;
+        // Lower the Operator's backing_collateral, to prevent them from issuing with the
+        // to-be-withdrawn collateral.
+        ext::vault_registry::decrease_backing_collateral::<T>(&self.id(), collateral_to_withdraw)
     }
 
     pub fn execute_operator_withdrawal(&mut self) -> Result<DOT<T>, DispatchError> {
@@ -327,18 +330,26 @@ impl<T: Config> RichOperator<T> {
     }
 
     pub fn remove_pending_operator_withdrawal(&mut self, request_id: H256) -> DispatchResult {
-        let withdrawal = *self
+        let (_, withdrawal_amount) = *self
             .data
             .pending_withdrawals
             .get_mut(&request_id)
-            .ok_or(Error::<T>::WithdrawRequestNotFound)?;
+            .ok_or(Error::<T>::WithdrawalRequestNotFound)?;
         self.update(|v| {
             v.collateral_to_be_withdrawn = v
                 .collateral_to_be_withdrawn
-                .checked_sub(&withdrawal.1)
+                .checked_sub(&withdrawal_amount)
                 .ok_or(Error::<T>::ArithmeticUnderflow)?;
             v.pending_withdrawals.remove(&request_id);
-            Ok(())
+
+            // The Operator's backing collateral was decreased when the withdrawal request
+            // was made, to prevent issuing with the to-be-withdrawn collateral.
+            // Irrespective of this function being called by `execute_withdrawal` or
+            // `cancel_withdrawal`, the backing collateral needs to be increased back
+            // in the vault_registry. In the former case, this is because collateral
+            // is actually transferred to the withdrawer's account via the standard
+            // function from the vault_registry (which subtracts from the backing collateral).
+            ext::vault_registry::increase_backing_collateral::<T>(&v.id, withdrawal_amount)
         })
     }
 
@@ -382,7 +393,10 @@ impl<T: Config> RichOperator<T> {
                 .ok_or(Error::<T>::ArithmeticOverflow)?;
             v.nominators.insert(nominator_id.clone(), nominator);
             Ok(())
-        })
+        })?;
+        // Lower the Operator's backing_collateral, to prevent them from issuing with the
+        // to-be-withdrawn collateral.
+        ext::vault_registry::decrease_backing_collateral::<T>(&self.id(), collateral_to_withdraw)
     }
 
     pub fn execute_nominator_withdrawal(&mut self, nominator_id: T::AccountId) -> Result<DOT<T>, DispatchError> {
@@ -395,16 +409,11 @@ impl<T: Config> RichOperator<T> {
             Self::get_matured_withdrawal_requests(&nominator.pending_withdrawals);
         let mut matured_collateral_to_withdraw: DOT<T> = 0u32.into();
         for withdrawal in matured_nominator_withdrawal_requests.iter() {
-            self.remove_pending_nominator_withdrawal(nominator_id.clone(), withdrawal.0)?;
+            self.remove_pending_nominator_withdrawal(&nominator_id, withdrawal.0)?;
             matured_collateral_to_withdraw = matured_collateral_to_withdraw
                 .checked_add(&withdrawal.1 .1)
                 .ok_or(Error::<T>::ArithmeticOverflow)?;
         }
-        // The backing collateral was decreased when the withdrawal requests were made,
-        // to prevent issuing with the to-be-withdrawn collateral.
-        // Now, increase the backing collateral back, so it can be withdrawn using the
-        // standard function from the vault_registry.
-        ext::vault_registry::increase_backing_collateral::<T>(&self.id(), matured_collateral_to_withdraw)?;
         ext::vault_registry::withdraw_collateral_to_address::<T>(
             &self.id(),
             matured_collateral_to_withdraw,
@@ -415,7 +424,7 @@ impl<T: Config> RichOperator<T> {
 
     pub fn remove_pending_nominator_withdrawal(
         &mut self,
-        nominator_id: T::AccountId,
+        nominator_id: &T::AccountId,
         request_id: H256,
     ) -> DispatchResult {
         self.update(|v| {
@@ -424,17 +433,25 @@ impl<T: Config> RichOperator<T> {
                 .get_mut(&nominator_id)
                 .ok_or(Error::<T>::NominatorNotFound)?
                 .clone();
-            let withdrawal = nominator
+            let (_, withdrawal_amount) = *nominator
                 .pending_withdrawals
                 .get_mut(&request_id)
-                .ok_or(Error::<T>::WithdrawRequestNotFound)?;
+                .ok_or(Error::<T>::WithdrawalRequestNotFound)?;
             nominator.collateral_to_be_withdrawn = nominator
                 .collateral_to_be_withdrawn
-                .checked_sub(&withdrawal.1)
+                .checked_sub(&withdrawal_amount)
                 .ok_or(Error::<T>::ArithmeticUnderflow)?;
             nominator.pending_withdrawals.remove(&request_id);
             v.nominators.insert(nominator_id.clone(), nominator);
-            Ok(())
+
+            // The Operator's backing collateral was decreased when the withdrawal request
+            // was made, to prevent issuing with the to-be-withdrawn collateral.
+            // Irrespective of this function being called by `execute_withdrawal` or
+            // `cancel_withdrawal`, the backing collateral needs to be increased back
+            // in the vault_registry. In the former case, this is because collateral
+            // is actually transferred to the withdrawer's account via the standard
+            // function from the vault_registry (which subtracts from the backing collateral).
+            ext::vault_registry::increase_backing_collateral::<T>(&v.id, withdrawal_amount)
         })
     }
 

@@ -383,7 +383,7 @@ fn integration_test_attempting_to_register_too_many_nominators_fails() {
 }
 
 #[test]
-fn test_nomination_fee_distribution() {
+fn integration_test_nomination_fee_distribution() {
     test_with_nomination_enabled_and_operator_registered(|| {
         set_issued_and_backing(VAULT, 3000 * 100, DEFAULT_VAULT_BACKING_COLLATERAL * 100);
 
@@ -418,10 +418,50 @@ fn test_nomination_fee_distribution() {
     })
 }
 
-// #[test]
-// fn test_withdrawal_request_can_be_cancelled() {
-//     run_test(|| {})
-// }
+#[test]
+fn integration_test_pending_nominator_withdrawal_request_can_be_cancelled() {
+    test_with_nomination_enabled_and_operator_registered(|| {
+        assert_nominate_collateral(USER, VAULT, DEFAULT_NOMINATION);
+        assert_request_nominator_collateral_withdrawal(USER, VAULT, DEFAULT_NOMINATION);
+        let request_id = assert_nominator_withdrawal_request_event();
+        assert_ok!(cancel_nominator_collateral_withdrawal(USER, VAULT, request_id));
+    })
+}
+
+#[test]
+fn integration_test_matured_nominator_withdrawal_request_can_be_cancelled() {
+    test_with_nomination_enabled_and_operator_registered(|| {
+        assert_nominate_collateral(USER, VAULT, DEFAULT_NOMINATION);
+        assert_request_nominator_collateral_withdrawal(USER, VAULT, DEFAULT_NOMINATION);
+        let request_id = assert_nominator_withdrawal_request_event();
+        SecurityPallet::set_active_block_number(DEFAULT_NOMINATOR_UNBONDING_PERIOD + 1);
+        assert_ok!(cancel_nominator_collateral_withdrawal(USER, VAULT, request_id));
+    })
+}
+
+#[test]
+fn integration_test_pending_operator_withdrawal_request_can_be_cancelled() {
+    test_with_nomination_enabled_and_operator_registered(|| {
+        assert_nominate_collateral(USER, VAULT, DEFAULT_NOMINATION / 2);
+        assert_request_operator_collateral_withdrawal(VAULT, DEFAULT_NOMINATION);
+        let request_id = assert_operator_withdrawal_request_event();
+        assert_ok!(cancel_operator_collateral_withdrawal(VAULT, request_id));
+    })
+}
+
+#[test]
+fn integration_test_withdrawal_request_cannot_be_cancelled_twice() {
+    test_with_nomination_enabled_and_operator_registered(|| {
+        assert_nominate_collateral(USER, VAULT, DEFAULT_NOMINATION);
+        assert_request_nominator_collateral_withdrawal(USER, VAULT, DEFAULT_NOMINATION);
+        let request_id = assert_nominator_withdrawal_request_event();
+        assert_ok!(cancel_nominator_collateral_withdrawal(USER, VAULT, request_id));
+        assert_noop!(
+            cancel_nominator_collateral_withdrawal(USER, VAULT, request_id),
+            NominationError::WithdrawalRequestNotFound
+        );
+    })
+}
 
 // #[test]
 // fn test_banning_an_operator_force_refunds_as_much_nominated_collateral_as_possible() {

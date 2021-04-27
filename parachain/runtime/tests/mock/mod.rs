@@ -124,6 +124,7 @@ pub type VaultRegistryPallet = vault_registry::Pallet<Runtime>;
 
 pub type NominationCall = nomination::Call<Runtime>;
 pub type NominationError = nomination::Error<Runtime>;
+pub type NominationEvent = nomination::Event<Runtime>;
 pub type NominationPallet = nomination::Pallet<Runtime>;
 
 pub fn default_user_state() -> UserData {
