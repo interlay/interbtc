@@ -409,19 +409,25 @@ fn parse_transaction_output(raw_output: &[u8]) -> Result<(TransactionOutput, usi
     ))
 }
 
-pub(crate) fn extract_address_hash_witness(witness_script: &[u8]) -> Result<Address, Error> {
+pub(crate) fn extract_address_hash_witness<B: AsRef<[u8]>>(witness_script: B) -> Result<Address, Error> {
+    let witness_script = witness_script.as_ref();
+    // first check if the witness is the compressed public key
+    // https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#p2wpkh
     if witness_script.len() == 33 {
-        // compressed public key format
         let prefix = witness_script[0];
-        // first byte describes whether the Y-coordinate is even or odd, the remaining 32-bytes
-        // are the X-coordinate of the underlying point on the elliptic curve
+        // the first byte describes whether the Y-coordinate is even or odd, the remaining
+        // 32-bytes are the X-coordinate of the underlying point on the elliptic curve
         if prefix == SECP256K1_TAG_PUBKEY_EVEN || prefix == SECP256K1_TAG_PUBKEY_ODD {
             return Ok(Address::P2WPKHv0(H160::from_slice(
                 &Hash160::hash(witness_script).to_vec(),
             )));
         }
+        // NOTE: as defined in BIP143, version 0 witness programs do
+        // not support uncompressed public keys
     }
 
+    // otherwise assume that the witness is the redeem script
+    // https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#p2wsh
     let mut hasher = Sha256::default();
     hasher.input(witness_script);
     Ok(Address::P2WSHv0(H256::from_slice(&hasher.result()[..])))

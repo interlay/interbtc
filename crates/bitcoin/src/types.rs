@@ -275,10 +275,13 @@ impl TransactionInput {
     }
 
     pub fn extract_address(&self) -> Result<Address, Error> {
+        // the last element in the witness slice is either the
+        // compressed public key (P2WPKH) or the redeem script (P2WSH)
         let witness_script = self.witness.last();
-        witness_script.map_or(extract_address_hash_scriptsig(&self.script), |w| {
-            extract_address_hash_witness(w)
-        })
+        witness_script.map_or(
+            extract_address_hash_scriptsig(&self.script),
+            extract_address_hash_witness,
+        )
     }
 }
 
