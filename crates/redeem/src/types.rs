@@ -13,7 +13,7 @@ pub enum Version {
     V1,
     /// RedeemRequestStatus, removed amount_dot and amount_polka_btc
     V2,
-    /// ActiveBlockNumber, btc_height
+    /// ActiveBlockNumber, btc_height, transfer_fee_btc
     V3,
 }
 

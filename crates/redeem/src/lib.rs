@@ -103,11 +103,12 @@ decl_event!(
             DOT,        // premium_dot
             AccountId,  // vault_id
             BtcAddress, // user btc_address
+            PolkaBTC,   // transfer_fee_btc
         ),
         // [redeemer, amount_polka_btc]
         LiquidationRedeem(AccountId, PolkaBTC),
-        // [redeem_id, redeemer, amount_polka_btc, fee_polka_btc, vault, transfer_fee_btc]
-        ExecuteRedeem(H256, AccountId, PolkaBTC, PolkaBTC, AccountId, PolkaBTC),
+        // [redeem_id, redeemer, amount_polka_btc, fee_polka_btc, vault]
+        ExecuteRedeem(H256, AccountId, PolkaBTC, PolkaBTC, AccountId),
         // [redeem_id, redeemer, vault_id, slashing_amount_in_dot, reimburse]
         CancelRedeem(H256, AccountId, AccountId, DOT, bool),
     }
@@ -362,6 +363,7 @@ impl<T: Config> Module<T> {
             premium_dot,
             vault_id,
             btc_address,
+            inclusion_fee,
         ));
 
         Ok(redeem_id)
@@ -433,7 +435,6 @@ impl<T: Config> Module<T> {
             redeem.amount_btc,
             redeem.fee,
             redeem.vault,
-            redeem.transfer_fee_btc,
         ));
         Ok(())
     }
