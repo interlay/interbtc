@@ -25,9 +25,8 @@ pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "
 pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 
 # Parachain dependencies
-collateral = { path = "../collateral", default-features = false }
+currency = { path = "../currency", default-features = false }
 security = { path = "../security", default-features = false }
-treasury = { path = "../treasury", default-features = false }
 vault-registry = { path = "../vault-registry", default-features = false }
 fee = { path = "../fee", default-features = false }
 sla = { path = "../sla", default-features = false }
@@ -55,9 +54,8 @@ std = [
   'pallet-balances/std',
   'pallet-timestamp/std',
   'pallet-randomness-collective-flip/std',
-  'collateral/std',
+  'currency/std',
   'security/std',
-  'treasury/std',
 	"vault-registry/std",
   'fee/std',
 ]

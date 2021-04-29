@@ -63,8 +63,10 @@ pub(crate) mod security {
 pub(crate) mod treasury {
     use crate::types::PolkaBTC;
 
-    pub fn mint<T: treasury::Config>(requester: T::AccountId, amount: PolkaBTC<T>) {
-        <treasury::Pallet<T>>::mint(requester, amount)
+    type TreasuryPallet<T> = currency::Pallet<T, currency::Treasury>;
+
+    pub fn mint<T: currency::Config<currency::Treasury>>(requester: T::AccountId, amount: PolkaBTC<T>) {
+        TreasuryPallet::<T>::mint(requester, amount)
     }
 }
 

@@ -25,14 +25,13 @@ pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "
 pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 
 # Parachain dependencies
-treasury = { path = "../treasury", default-features = false }
+currency = { path = "../currency", default-features = false }
 redeem = { path = "../redeem", default-features = false }
 fee = { path = "../fee", default-features = false }
 sla = { path = "../sla", default-features = false }
 vault-registry = { path = "../vault-registry", default-features = false }
 exchange-rate-oracle = { path = "../exchange-rate-oracle", default-features = false }
 btc-relay = { path = "../btc-relay", default-features = false }
-collateral = { path = "../collateral", default-features = false }
 security = { path = "../security", default-features = false }
 bitcoin = { path = "../bitcoin", default-features = false }
 
@@ -52,7 +51,7 @@ std = [
 	"sp-arithmetic/std",
 	"frame-system/std",
 	"pallet-balances/std",
-	"treasury/std",
+	"currency/std",
 	"redeem/std",
 	"fee/std",
 	"sla/std",
@@ -61,7 +60,6 @@ std = [
 	"pallet-timestamp/std",
 	"sp-arithmetic/std",
 	"btc-relay/std",
-	"collateral/std",
 	"primitive-types/std",
 	"security/std",
 	"bitcoin/std",

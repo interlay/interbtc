@@ -73,8 +73,8 @@ pub type BTCRelayPallet = btc_relay::Pallet<Runtime>;
 pub type BTCRelayError = btc_relay::Error<Runtime>;
 pub type BTCRelayEvent = btc_relay::Event<Runtime>;
 
-pub type CollateralError = collateral::Error<Runtime>;
-pub type CollateralPallet = collateral::Pallet<Runtime>;
+pub type CollateralError = currency::Error<Runtime, currency::Collateral>;
+pub type CollateralPallet = currency::Pallet<Runtime, currency::Collateral>;
 
 pub type ExchangeRateOracleCall = exchange_rate_oracle::Call<Runtime>;
 pub type ExchangeRateOraclePallet = exchange_rate_oracle::Pallet<Runtime>;
@@ -113,7 +113,7 @@ pub type StakedRelayersPallet = staked_relayers::Pallet<Runtime>;
 
 pub type SystemModule = frame_system::Pallet<Runtime>;
 
-pub type TreasuryPallet = treasury::Pallet<Runtime>;
+pub type TreasuryPallet = currency::Pallet<Runtime, currency::Treasury>;
 
 pub type VaultRegistryCall = vault_registry::Call<Runtime>;
 pub type VaultRegistryError = vault_registry::Error<Runtime>;
@@ -180,10 +180,10 @@ impl UserData {
     pub fn get(id: [u8; 32]) -> Self {
         let account_id = account_of(id);
         Self {
-            free_balance: CollateralPallet::get_balance_from_account(&account_id),
-            locked_balance: CollateralPallet::get_collateral_from_account(&account_id),
-            locked_tokens: TreasuryPallet::get_locked_balance_from_account(account_id.clone()),
-            free_tokens: TreasuryPallet::get_balance_from_account(account_id.clone()),
+            free_balance: CollateralPallet::get_free_balance(&account_id),
+            locked_balance: CollateralPallet::get_reserved_balance(&account_id),
+            locked_tokens: TreasuryPallet::get_reserved_balance(&account_id),
+            free_tokens: TreasuryPallet::get_free_balance(&account_id),
         }
     }
     #[allow(dead_code)]
@@ -192,24 +192,24 @@ impl UserData {
         let account_id = account_of(id);
 
         // set tokens to 0
-        TreasuryPallet::lock(account_id.clone(), old.free_tokens).unwrap();
-        TreasuryPallet::burn(account_id.clone(), old.free_tokens + old.locked_tokens).unwrap();
+        TreasuryPallet::lock(&account_id, old.free_tokens).unwrap();
+        TreasuryPallet::burn(&account_id, old.free_tokens + old.locked_tokens).unwrap();
 
         // set free balance:
-        CollateralPallet::transfer(account_id.clone(), account_of(FAUCET), old.free_balance).unwrap();
-        CollateralPallet::transfer(account_of(FAUCET), account_id.clone(), new.free_balance).unwrap();
+        CollateralPallet::transfer(&account_id, &account_of(FAUCET), old.free_balance).unwrap();
+        CollateralPallet::transfer(&account_of(FAUCET), &account_id, new.free_balance).unwrap();
 
         // set locked balance:
-        CollateralPallet::slash_collateral(account_id.clone(), account_of(FAUCET), old.locked_balance).unwrap();
-        CollateralPallet::transfer(account_of(FAUCET), account_id.clone(), new.locked_balance).unwrap();
-        CollateralPallet::lock_collateral(&account_id, new.locked_balance).unwrap();
+        CollateralPallet::slash(account_id.clone(), account_of(FAUCET), old.locked_balance).unwrap();
+        CollateralPallet::transfer(&account_of(FAUCET), &account_id, new.locked_balance).unwrap();
+        CollateralPallet::lock(&account_id, new.locked_balance).unwrap();
 
         // set free_tokens
         TreasuryPallet::mint(account_id.clone(), new.free_tokens);
 
         // set locked_tokens
         TreasuryPallet::mint(account_id.clone(), new.locked_tokens);
-        TreasuryPallet::lock(account_id, new.locked_tokens).unwrap();
+        TreasuryPallet::lock(&account_id, new.locked_tokens).unwrap();
 
         // sanity check:
         assert_eq!(Self::get(id), new);
@@ -261,8 +261,8 @@ impl CoreVaultData {
             griefing_collateral: CurrencySource::<Runtime>::Griefing(account_id.clone())
                 .current_balance()
                 .unwrap(),
-            free_balance: CollateralPallet::get_balance_from_account(&account_id),
-            free_tokens: TreasuryPallet::get_balance_from_account(account_id.clone()),
+            free_balance: CollateralPallet::get_free_balance(&account_id),
+            free_tokens: TreasuryPallet::get_free_balance(&account_id),
             to_be_replaced: vault.to_be_replaced_tokens,
             replace_collateral: vault.replace_collateral,
         }
@@ -277,8 +277,8 @@ impl CoreVaultData {
             to_be_redeemed: vault.to_be_redeemed_tokens,
             backing_collateral: CurrencySource::<Runtime>::LiquidationVault.current_balance().unwrap(),
             griefing_collateral: 0,
-            free_balance: CollateralPallet::get_balance_from_account(&account_id),
-            free_tokens: TreasuryPallet::get_balance_from_account(account_id.clone()),
+            free_balance: CollateralPallet::get_free_balance(&account_id),
+            free_tokens: TreasuryPallet::get_free_balance(&account_id),
             to_be_replaced: 0,
             replace_collateral: 0,
         }
@@ -297,7 +297,7 @@ impl CoreVaultData {
         VaultRegistryPallet::slash_collateral(
             CurrencySource::FreeBalance(account_of(FAUCET)),
             CurrencySource::Backing(account_of(vault)),
-            CollateralPallet::get_balance_from_account(&account_of(FAUCET)),
+            CollateralPallet::get_free_balance(&account_of(FAUCET)),
         )
         .unwrap();
 
@@ -325,8 +325,8 @@ impl CoreVaultData {
             &account_of(vault),
             current.to_be_replaced,
         ));
-        assert_ok!(TreasuryPallet::lock(account_of(vault), current.free_tokens));
-        assert_ok!(TreasuryPallet::burn(account_of(vault), current.free_tokens));
+        assert_ok!(TreasuryPallet::lock(&account_of(vault), current.free_tokens));
+        assert_ok!(TreasuryPallet::burn(&account_of(vault), current.free_tokens));
 
         // set to-be-issued
         assert_ok!(VaultRegistryPallet::try_increase_to_be_issued_tokens(
@@ -624,7 +624,7 @@ pub fn force_issue_tokens(user: [u8; 32], vault: [u8; 32], collateral: u128, tok
     assert_ok!(VaultRegistryPallet::issue_tokens(&account_of(vault), tokens));
 
     // mint tokens to the user
-    treasury::Pallet::<Runtime>::mint(user.into(), tokens);
+    currency::Pallet::<Runtime, currency::Treasury>::mint(user.into(), tokens);
 }
 
 #[allow(dead_code)]

@@ -47,7 +47,12 @@ pub trait WeightInfo {
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
 pub trait Config:
-    frame_system::Config + collateral::Config + treasury::Config + security::Config + vault_registry::Config + fee::Config
+    frame_system::Config
+    + currency::Config<currency::Collateral>
+    + currency::Config<currency::Treasury>
+    + security::Config
+    + vault_registry::Config
+    + fee::Config
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;

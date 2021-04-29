@@ -14,10 +14,14 @@ fn dummy_public_key() -> BtcPublicKey {
     ])
 }
 
+fn make_free_balance_be<T: currency::Config<currency::Collateral>>(account_id: &T::AccountId, amount: DOT<T>) {
+    <<T as currency::Config<currency::Collateral>>::Currency>::make_free_balance_be(account_id, amount);
+}
+
 benchmarks! {
     register_vault {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let _ = T::DOT::make_free_balance_be(&origin, (1u32 << 31).into());
+        make_free_balance_be::<T>(&origin, (1u32 << 31).into());
         let amount: u32 = 100;
         let public_key = BtcPublicKey::default();
     }: _(RawOrigin::Signed(origin.clone()), amount.into(), public_key)
@@ -27,8 +31,8 @@ benchmarks! {
 
     lock_additional_collateral {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let _ = T::DOT::make_free_balance_be(&origin, (1u32 << 31).into());
         let u in 0 .. 100;
+        make_free_balance_be::<T>(&origin, (1u32 << 31).into());
         VaultRegistry::<T>::_register_vault(&origin, 1234u32.into(), dummy_public_key()).unwrap();
     }: _(RawOrigin::Signed(origin), u.into())
     verify {
@@ -36,8 +40,8 @@ benchmarks! {
 
     withdraw_collateral {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let _ = T::DOT::make_free_balance_be(&origin, (1u32 << 31).into());
         let u in 0 .. 100;
+        make_free_balance_be::<T>(&origin, (1u32 << 31).into());
         VaultRegistry::<T>::_register_vault(&origin, u.into(), dummy_public_key()).unwrap();
     }: _(RawOrigin::Signed(origin), u.into())
     verify {
@@ -45,19 +49,19 @@ benchmarks! {
 
     update_public_key {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let _ = T::DOT::make_free_balance_be(&origin, (1u32 << 31).into());
+        make_free_balance_be::<T>(&origin, (1u32 << 31).into());
         VaultRegistry::<T>::_register_vault(&origin, 1234u32.into(), dummy_public_key()).unwrap();
     }: _(RawOrigin::Signed(origin), BtcPublicKey::default())
 
     register_address {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let _ = T::DOT::make_free_balance_be(&origin, (1u32 << 31).into());
+        make_free_balance_be::<T>(&origin, (1u32 << 31).into());
         VaultRegistry::<T>::_register_vault(&origin, 1234u32.into(), dummy_public_key()).unwrap();
     }: _(RawOrigin::Signed(origin), BtcAddress::default())
 
     accept_new_issues {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let _ = T::DOT::make_free_balance_be(&origin, (1u32 << 31).into());
+        make_free_balance_be::<T>(&origin, (1u32 << 31).into());
         VaultRegistry::<T>::_register_vault(&origin, 1234u32.into(), dummy_public_key()).unwrap();
     }: _(RawOrigin::Signed(origin), true)
 
@@ -68,7 +72,7 @@ benchmarks! {
 
         for i in 0..u {
             let origin: T::AccountId = account("Origin", i, 0);
-            let _ = T::DOT::make_free_balance_be(&origin, (1u32 << 31).into());
+            make_free_balance_be::<T>(&origin, (1u32 << 31).into());
             VaultRegistry::<T>::_register_vault(&origin, 1234567u32.into(), dummy_public_key()).unwrap();
         }
         // sanity check

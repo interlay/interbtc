@@ -10,11 +10,12 @@ use frame_system::RawOrigin;
 use security::Pallet as Security;
 use sp_core::{H160, H256, U256};
 use sp_std::prelude::*;
-use treasury::Pallet as Treasury;
 use vault_registry::{
     types::{Vault, Wallet},
     Module as VaultRegistry,
 };
+
+type Treasury<T> = currency::Pallet<T, currency::Treasury>;
 
 fn dummy_public_key() -> BtcPublicKey {
     BtcPublicKey([

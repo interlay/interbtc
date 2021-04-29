@@ -69,7 +69,11 @@ pub enum LiquidationTarget {
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
 pub trait Config:
-    frame_system::Config + collateral::Config + treasury::Config + exchange_rate_oracle::Config + security::Config
+    frame_system::Config
+    + currency::Config<currency::Collateral>
+    + currency::Config<currency::Treasury>
+    + exchange_rate_oracle::Config
+    + security::Config
 {
     /// The vault module id, used for deriving its sovereign account ID.
     type ModuleId: Get<ModuleId>;

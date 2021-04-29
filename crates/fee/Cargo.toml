@@ -22,8 +22,7 @@ frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch =
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 
 # Parachain dependencies
-collateral = { path = "../collateral", default-features = false }
-treasury = { path = "../treasury", default-features = false }
+currency = { path = "../currency", default-features = false }
 sla = { path = "../sla", default-features = false }
 security = { path = "../security", default-features = false }
 
@@ -50,8 +49,7 @@ std = [
 	"frame-system/std",
 	"frame-benchmarking/std",
 	"pallet-balances/std",
-	"collateral/std",
-	"treasury/std",
+	"currency/std",
 	"security/std",
 	"sla/std",
 ]

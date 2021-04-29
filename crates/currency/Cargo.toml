@@ -1,9 +1,9 @@
 [package]
 authors = ["Interlay Ltd"]
-description = "Collateral module"
+description = "Currency module"
 edition = "2018"
 homepage = "https://interlay.gitlab.io/polkabtc-spec/spec/collateral.html"
-name = "collateral"
+name = "currency"
 version = "0.6.0"
 
 [dependencies]

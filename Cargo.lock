@@ -699,10 +699,10 @@ version = "0.6.0"
 dependencies = [
  "bitcoin",
  "btc-relay",
- "collateral",
  "cumulus-pallet-parachain-system",
  "cumulus-pallet-xcm-handler",
  "cumulus-primitives-core",
+ "currency",
  "exchange-rate-oracle",
  "fee",
  "frame-benchmarking",
@@ -762,7 +762,6 @@ dependencies = [
  "sp-version",
  "staked-relayers",
  "substrate-wasm-builder",
- "treasury",
  "vault-registry",
  "xcm",
  "xcm-builder",
@@ -822,7 +821,7 @@ name = "btc-relay"
 version = "0.6.0"
 dependencies = [
  "bitcoin",
- "collateral",
+ "currency",
  "exchange-rate-oracle",
  "frame-benchmarking",
  "frame-support",
@@ -842,7 +841,6 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
- "treasury",
  "vault-registry",
 ]
 
@@ -1055,20 +1053,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ddfc5b9aa5d4507acaf872de71051dfd0e309860e88966e1051e462a077aac4f"
 dependencies = [
  "bitflags",
-]
-
-[[package]]
-name = "collateral"
-version = "0.6.0"
-dependencies = [
- "frame-support",
- "frame-system",
- "pallet-balances",
- "parity-scale-codec",
- "serde",
- "sp-core",
- "sp-io",
- "sp-runtime",
 ]
 
 [[package]]
@@ -1585,6 +1569,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "currency"
+version = "0.6.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+]
+
+[[package]]
 name = "curve25519-dalek"
 version = "2.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1892,7 +1890,7 @@ checksum = "f7531096570974c3a9dcf9e4b8e1cede1ec26cf5046219fb3b9d897503b9be59"
 name = "exchange-rate-oracle"
 version = "0.6.0"
 dependencies = [
- "collateral",
+ "currency",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -1907,7 +1905,6 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
- "treasury",
 ]
 
 [[package]]
@@ -1975,7 +1972,7 @@ dependencies = [
 name = "fee"
 version = "0.6.0"
 dependencies = [
- "collateral",
+ "currency",
  "exchange-rate-oracle",
  "frame-benchmarking",
  "frame-support",
@@ -1993,7 +1990,6 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
- "treasury",
  "vault-registry",
 ]
 
@@ -3086,7 +3082,7 @@ version = "0.6.0"
 dependencies = [
  "bitcoin",
  "btc-relay",
- "collateral",
+ "currency",
  "exchange-rate-oracle",
  "fee",
  "frame-benchmarking",
@@ -3108,7 +3104,6 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
- "treasury",
  "vault-registry",
 ]
 
@@ -4640,7 +4635,7 @@ dependencies = [
 name = "nomination"
 version = "0.5.0"
 dependencies = [
- "collateral",
+ "currency",
  "exchange-rate-oracle",
  "fee",
  "fixed-hash 0.6.1",
@@ -4661,7 +4656,6 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
- "treasury",
  "vault-registry",
 ]
 
@@ -5364,8 +5358,8 @@ dependencies = [
 name = "parachain-tokens"
 version = "0.6.0"
 dependencies = [
- "collateral",
  "cumulus-primitives-core",
+ "currency",
  "frame-support",
  "frame-system",
  "parity-scale-codec",
@@ -5373,7 +5367,6 @@ dependencies = [
  "sp-arithmetic",
  "sp-runtime",
  "sp-std",
- "treasury",
  "xcm",
  "xcm-executor",
 ]
@@ -7192,7 +7185,7 @@ version = "0.6.0"
 dependencies = [
  "bitcoin",
  "btc-relay",
- "collateral",
+ "currency",
  "exchange-rate-oracle",
  "fee",
  "frame-benchmarking",
@@ -7213,7 +7206,6 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
- "treasury",
  "vault-registry",
 ]
 
@@ -7292,7 +7284,7 @@ version = "0.6.0"
 dependencies = [
  "bitcoin",
  "btc-relay",
- "collateral",
+ "currency",
  "exchange-rate-oracle",
  "fee",
  "frame-support",
@@ -7313,7 +7305,6 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
- "treasury",
  "vault-registry",
 ]
 
@@ -7399,7 +7390,7 @@ version = "0.6.0"
 dependencies = [
  "bitcoin",
  "btc-relay",
- "collateral",
+ "currency",
  "exchange-rate-oracle",
  "fee",
  "frame-benchmarking",
@@ -7421,7 +7412,6 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
- "treasury",
  "vault-registry",
 ]
 
@@ -8992,7 +8982,7 @@ dependencies = [
 name = "sla"
 version = "0.6.0"
 dependencies = [
- "collateral",
+ "currency",
  "exchange-rate-oracle",
  "frame-support",
  "frame-system",
@@ -9008,7 +8998,6 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
- "treasury",
  "vault-registry",
 ]
 
@@ -9757,7 +9746,7 @@ version = "0.6.0"
 dependencies = [
  "bitcoin",
  "btc-relay",
- "collateral",
+ "currency",
  "exchange-rate-oracle",
  "fee",
  "frame-benchmarking",
@@ -9783,7 +9772,6 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
- "treasury",
  "vault-registry",
 ]
 
@@ -10546,23 +10534,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "treasury"
-version = "0.6.0"
-dependencies = [
- "frame-support",
- "frame-system",
- "mocktopus",
- "pallet-balances",
- "parity-scale-codec",
- "safe-mix",
- "serde",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
 name = "trie-db"
 version = "0.22.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10775,7 +10746,7 @@ name = "vault-registry"
 version = "0.6.0"
 dependencies = [
  "bitcoin",
- "collateral",
+ "currency",
  "exchange-rate-oracle",
  "fixed-hash 0.6.1",
  "frame-benchmarking",
@@ -10794,7 +10765,6 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
- "treasury",
 ]
 
 [[package]]

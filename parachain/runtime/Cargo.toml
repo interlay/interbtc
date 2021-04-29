@@ -61,8 +61,7 @@ xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "rococ
 
 # Parachain dependencies
 btc-relay = { path = "../../crates/btc-relay", default-features = false }
-collateral = { path = "../../crates/collateral", default-features = false }
-treasury = { path = "../../crates/treasury", default-features = false }
+currency = { path = "../../crates/currency", default-features = false }
 security = { path = "../../crates/security", default-features = false }
 staked-relayers = { path = "../../crates/staked-relayers", default-features = false }
 vault-registry = { path = "../../crates/vault-registry", default-features = false }
@@ -150,8 +149,7 @@ std = [
   "xcm-handler/std",
 
   "btc-relay/std",
-  "collateral/std",
-  "treasury/std",
+  "currency/std",
   "security/std",
   "staked-relayers/std",
   "vault-registry/std",

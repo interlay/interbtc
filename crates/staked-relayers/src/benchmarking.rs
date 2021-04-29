@@ -5,7 +5,6 @@ use bitcoin::{
     types::{BlockBuilder, H256Le, RawBlockHeader, TransactionBuilder, TransactionInputBuilder, TransactionOutput},
 };
 use btc_relay::{BtcAddress, BtcPublicKey, Pallet as BtcRelay};
-use collateral::Pallet as Collateral;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
 use security::Pallet as Security;
@@ -15,11 +14,16 @@ use vault_registry::{
     types::{Vault, Wallet},
     Module as VaultRegistry,
 };
+
 fn dummy_public_key() -> BtcPublicKey {
     BtcPublicKey([
         2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55, 18, 45, 222, 180,
         119, 54, 243, 97, 173, 150, 161, 169, 230,
     ])
+}
+
+fn make_free_balance_be<T: currency::Config<currency::Collateral>>(account_id: &T::AccountId, amount: DOT<T>) {
+    <<T as currency::Config<currency::Collateral>>::Currency>::make_free_balance_be(account_id, amount);
 }
 
 benchmarks! {
@@ -74,8 +78,8 @@ benchmarks! {
 
     register_staked_relayer {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let _ = T::DOT::make_free_balance_be(&origin, (1u32 << 31).into());
         let u in 100 .. 1000;
+        make_free_balance_be::<T>(&origin, (1u32 << 31).into());
     }: _(RawOrigin::Signed(origin.clone()), u.into())
     verify {
         assert_eq!(<Stakes<T>>::get(origin), Into::<DOT<T>>::into(u));
@@ -83,19 +87,19 @@ benchmarks! {
 
     deregister_staked_relayer {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let _ = T::DOT::make_free_balance_be(&origin, (1u32 << 31).into());
+        make_free_balance_be::<T>(&origin, (1u32 << 31).into());
         let stake: u32 = 100;
         <Stakes<T>>::insert(&origin, Into::<DOT<T>>::into(stake));
-        Collateral::<T>::lock_collateral(&origin, stake.into()).unwrap();
+        ext::collateral::lock_collateral::<T>(&origin, stake.into()).unwrap();
     }: _(RawOrigin::Signed(origin))
 
     slash_staked_relayer {
         let staked_relayer: T::AccountId = account("Vault", 0, 0);
-        let _ = T::DOT::make_free_balance_be(&staked_relayer, (1u32 << 31).into());
+        make_free_balance_be::<T>(&staked_relayer, (1u32 << 31).into());
 
         let stake: u32 = 100;
         <Stakes<T>>::insert(&staked_relayer, Into::<DOT<T>>::into(stake));
-        Collateral::<T>::lock_collateral(&staked_relayer, stake.into()).unwrap();
+        ext::collateral::lock_collateral::<T>(&staked_relayer, stake.into()).unwrap();
 
     }: _(RawOrigin::Root, staked_relayer)
 

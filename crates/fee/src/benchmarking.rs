@@ -13,9 +13,9 @@ benchmarks! {
     withdraw_polka_btc {
         let fee_pool: T::AccountId = Fee::<T>::fee_pool_account_id();
 
-        let existential_deposit = <<T as treasury::Config>::PolkaBTC as Currency<_>>::minimum_balance();
+        let existential_deposit = <<T as currency::Config<currency::Treasury>>::Currency as Currency<_>>::minimum_balance();
         let balance = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
-        let _ = <<T as treasury::Config>::PolkaBTC as Currency<_>>::make_free_balance_be(&fee_pool, balance);
+        let _ = <<T as currency::Config<currency::Treasury>>::Currency as Currency<_>>::make_free_balance_be(&fee_pool, balance);
 
         let recipient: T::AccountId = account("recipient", 0, SEED);
         let amount = existential_deposit.saturating_mul((ED_MULTIPLIER - 1).into()) + 1u32.into();
@@ -26,9 +26,9 @@ benchmarks! {
     withdraw_dot {
         let fee_pool: T::AccountId = Fee::<T>::fee_pool_account_id();
 
-        let existential_deposit = <<T as collateral::Config>::DOT as Currency<_>>::minimum_balance();
+        let existential_deposit = <<T as currency::Config<currency::Collateral>>::Currency as Currency<_>>::minimum_balance();
         let balance = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
-        let _ = <<T as collateral::Config>::DOT as Currency<_>>::make_free_balance_be(&fee_pool, balance);
+        let _ = <<T as currency::Config<currency::Collateral>>::Currency as Currency<_>>::make_free_balance_be(&fee_pool, balance);
 
         let recipient: T::AccountId = account("recipient", 0, SEED);
         let amount = existential_deposit.saturating_mul((ED_MULTIPLIER - 1).into()) + 1u32.into();

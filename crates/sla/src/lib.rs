@@ -30,14 +30,23 @@ use frame_system::ensure_root;
 use sp_arithmetic::{traits::*, FixedPointNumber};
 use sp_std::{convert::TryInto, vec::Vec};
 
-pub(crate) type DOT<T> = <<T as collateral::Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-pub(crate) type PolkaBTC<T> =
-    <<T as treasury::Config>::PolkaBTC as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub(crate) type DOT<T> = <<T as currency::Config<currency::Instance1>>::Currency as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::Balance;
+
+pub(crate) type PolkaBTC<T> = <<T as currency::Config<currency::Instance2>>::Currency as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::Balance;
 
 pub(crate) type SignedFixedPoint<T> = <T as Config>::SignedFixedPoint;
 
 /// The pallet's configuration trait.
-pub trait Config: frame_system::Config + collateral::Config + treasury::Config + vault_registry::Config {
+pub trait Config:
+    frame_system::Config
+    + currency::Config<currency::Collateral>
+    + currency::Config<currency::Treasury>
+    + vault_registry::Config
+{
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 

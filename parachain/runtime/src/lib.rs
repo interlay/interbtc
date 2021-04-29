@@ -434,18 +434,14 @@ impl btc_relay::Config for Runtime {
     type WeightInfo = ();
 }
 
-pub use collateral::Event as CollateralEvent;
-
-impl collateral::Config for Runtime {
+impl currency::Config<currency::Collateral> for Runtime {
     type Event = Event;
-    type DOT = pallet_balances::Pallet<Runtime, pallet_balances::Instance1>;
+    type Currency = pallet_balances::Pallet<Runtime, pallet_balances::Instance1>;
 }
 
-pub use treasury::Event as TreasuryEvent;
-
-impl treasury::Config for Runtime {
+impl currency::Config<currency::Treasury> for Runtime {
     type Event = Event;
-    type PolkaBTC = pallet_balances::Pallet<Runtime, pallet_balances::Instance2>;
+    type Currency = pallet_balances::Pallet<Runtime, pallet_balances::Instance2>;
 }
 
 impl security::Config for Runtime {
@@ -564,8 +560,8 @@ macro_rules! construct_polkabtc_runtime {
                 DOT: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
                 PolkaBTC: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
 
-                Collateral: collateral::{Pallet, Call, Storage, Event<T>},
-                Treasury: treasury::{Pallet, Call, Storage, Event<T>},
+                Collateral: currency::<Instance1>::{Pallet, Call, Storage, Event<T>},
+                Treasury: currency::<Instance2>::{Pallet, Call, Storage, Event<T>},
 
                 // Bitcoin SPV
                 BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},

@@ -776,7 +776,7 @@ fn integration_test_replace_auction_replace() {
         ));
 
         let initial_old_vault_collateral =
-            collateral::Pallet::<Runtime>::get_collateral_from_account(&account_of(old_vault));
+            currency::Pallet::<Runtime, currency::Collateral>::get_reserved_balance(&account_of(old_vault));
 
         // new_vault takes over old_vault's position
         assert_ok!(Call::Replace(ReplaceCall::auction_replace(
@@ -788,7 +788,7 @@ fn integration_test_replace_auction_replace() {
         .dispatch(origin_of(account_of(new_vault))));
 
         let final_old_vault_collateral =
-            collateral::Pallet::<Runtime>::get_collateral_from_account(&account_of(old_vault));
+            currency::Pallet::<Runtime, currency::Collateral>::get_reserved_balance(&account_of(old_vault));
 
         // auction fee is taken from old vault collateral
         let replace_amount_dot = ExchangeRateOraclePallet::btc_to_dots(polkabtc).unwrap();
@@ -979,9 +979,9 @@ fn integration_test_replace_cancel_auction_replace() {
         ));
 
         let initial_new_vault_collateral =
-            collateral::Pallet::<Runtime>::get_collateral_from_account(&account_of(new_vault));
+            currency::Pallet::<Runtime, currency::Collateral>::get_reserved_balance(&account_of(new_vault));
         let initial_old_vault_collateral =
-            collateral::Pallet::<Runtime>::get_collateral_from_account(&account_of(old_vault));
+            currency::Pallet::<Runtime, currency::Collateral>::get_reserved_balance(&account_of(old_vault));
 
         // new_vault takes over old_vault's position
         assert_ok!(Call::Replace(ReplaceCall::auction_replace(
@@ -996,12 +996,12 @@ fn integration_test_replace_cancel_auction_replace() {
         let replace_amount_dot = ExchangeRateOraclePallet::btc_to_dots(polkabtc).unwrap();
         let auction_fee = FeePallet::get_auction_redeem_fee(replace_amount_dot).unwrap();
         assert_eq!(
-            collateral::Pallet::<Runtime>::get_collateral_from_account(&account_of(old_vault)),
+            currency::Pallet::<Runtime, currency::Collateral>::get_reserved_balance(&account_of(old_vault)),
             initial_old_vault_collateral - auction_fee
         );
         // check new vault collateral
         assert_eq!(
-            collateral::Pallet::<Runtime>::get_collateral_from_account(&account_of(new_vault)),
+            currency::Pallet::<Runtime, currency::Collateral>::get_reserved_balance(&account_of(new_vault)),
             initial_new_vault_collateral + auction_fee + replace_collateral
         );
 
@@ -1013,14 +1013,14 @@ fn integration_test_replace_cancel_auction_replace() {
 
         // check old vault collateral
         assert_eq!(
-            collateral::Pallet::<Runtime>::get_collateral_from_account(&account_of(old_vault)),
+            currency::Pallet::<Runtime, currency::Collateral>::get_reserved_balance(&account_of(old_vault)),
             initial_old_vault_collateral - auction_fee
         );
 
         // check new vault collateral. It should have received auction fee, griefing collateral and
         // the collateral that was reserved for this replace should have been released
         assert_eq!(
-            collateral::Pallet::<Runtime>::get_collateral_from_account(&account_of(new_vault)),
+            currency::Pallet::<Runtime, currency::Collateral>::get_reserved_balance(&account_of(new_vault)),
             initial_new_vault_collateral + auction_fee
         );
     });
@@ -1060,9 +1060,9 @@ fn integration_test_replace_cancel_repeatedly_fails() {
         ));
 
         // let initial_new_vault_collateral =
-        //     collateral::Pallet::<Runtime>::get_collateral_from_account(&account_of(new_vault));
+        //     currency::Pallet::<Runtime, currency::Collateral>::get_reserved_balance(&account_of(new_vault));
         // let initial_old_vault_collateral =
-        //     collateral::Pallet::<Runtime>::get_collateral_from_account(&account_of(old_vault));
+        //     currency::Pallet::<Runtime, currency::Collateral>::get_reserved_balance(&account_of(old_vault));
 
         // new_vault takes over old_vault's position
         assert_ok!(Call::Replace(ReplaceCall::auction_replace(
@@ -1115,17 +1115,15 @@ fn setup_replace(polkabtc: u128) -> H256 {
 
     // burn surplus free balance to make checking easier
     CollateralPallet::transfer(
-        account_of(OLD_VAULT),
-        account_of(FAUCET),
-        CollateralPallet::get_balance_from_account(&account_of(OLD_VAULT))
-            - DEFAULT_COLLATERAL
-            - DEFAULT_GRIEFING_COLLATERAL,
+        &account_of(OLD_VAULT),
+        &account_of(FAUCET),
+        CollateralPallet::get_free_balance(&account_of(OLD_VAULT)) - DEFAULT_COLLATERAL - DEFAULT_GRIEFING_COLLATERAL,
     )
     .unwrap();
     CollateralPallet::transfer(
-        account_of(NEW_VAULT),
-        account_of(FAUCET),
-        CollateralPallet::get_balance_from_account(&account_of(NEW_VAULT)) - DEFAULT_COLLATERAL,
+        &account_of(NEW_VAULT),
+        &account_of(FAUCET),
+        CollateralPallet::get_free_balance(&account_of(NEW_VAULT)) - DEFAULT_COLLATERAL,
     )
     .unwrap();
 

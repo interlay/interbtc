@@ -6,26 +6,28 @@ pub(crate) mod collateral {
     use crate::types::DOT;
     use frame_support::dispatch::{DispatchError, DispatchResult};
 
-    pub(crate) fn lock_collateral<T: collateral::Config>(
+    type CollateralPallet<T> = currency::Pallet<T, currency::Collateral>;
+
+    pub(crate) fn lock_collateral<T: currency::Config<currency::Collateral>>(
         sender: &T::AccountId,
         amount: DOT<T>,
     ) -> Result<(), DispatchError> {
-        <collateral::Pallet<T>>::lock_collateral(sender, amount)
+        CollateralPallet::<T>::lock(sender, amount)
     }
 
-    pub(crate) fn release_collateral<T: collateral::Config>(
+    pub(crate) fn release_collateral<T: currency::Config<currency::Collateral>>(
         sender: &T::AccountId,
         amount: DOT<T>,
     ) -> Result<(), DispatchError> {
-        <collateral::Pallet<T>>::release_collateral(sender, amount)
+        CollateralPallet::<T>::release(sender, amount)
     }
 
-    pub fn slash_collateral<T: collateral::Config>(
+    pub fn slash_collateral<T: currency::Config<currency::Collateral>>(
         sender: T::AccountId,
         receiver: T::AccountId,
         amount: DOT<T>,
     ) -> DispatchResult {
-        <collateral::Pallet<T>>::slash_collateral(sender, receiver, amount)
+        CollateralPallet::<T>::slash(sender, receiver, amount)
     }
 }
 

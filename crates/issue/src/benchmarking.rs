@@ -24,6 +24,10 @@ fn dummy_public_key() -> BtcPublicKey {
     ])
 }
 
+fn make_free_balance_be<T: currency::Config<currency::Collateral>>(account_id: &T::AccountId, amount: DOT<T>) {
+    <<T as currency::Config<currency::Collateral>>::Currency>::make_free_balance_be(account_id, amount);
+}
+
 benchmarks! {
     request_issue {
         let origin: T::AccountId = account("Origin", 0, 0);
@@ -32,9 +36,9 @@ benchmarks! {
         let griefing: u32 = 100;
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
-        let _ = T::DOT::make_free_balance_be(&origin, (1u32 << 31).into());
-        let _ = T::DOT::make_free_balance_be(&vault_id, (1u32 << 31).into());
-        let _ = T::DOT::make_free_balance_be(&relayer_id, (1u32 << 31).into());
+        make_free_balance_be::<T>(&origin, (1u32 << 31).into());
+        make_free_balance_be::<T>(&vault_id, (1u32 << 31).into());
+        make_free_balance_be::<T>(&relayer_id, (1u32 << 31).into());
 
         ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()).unwrap();
         VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());// 0.001%
@@ -96,9 +100,9 @@ benchmarks! {
         let vault_id: T::AccountId = account("Vault", 0, 0);
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
-        let _ = T::DOT::make_free_balance_be(&origin, (1u32 << 31).into());
-        let _ = T::DOT::make_free_balance_be(&vault_id, (1u32 << 31).into());
-        let _ = T::DOT::make_free_balance_be(&relayer_id, (1u32 << 31).into());
+        make_free_balance_be::<T>(&origin, (1u32 << 31).into());
+        make_free_balance_be::<T>(&vault_id, (1u32 << 31).into());
+        make_free_balance_be::<T>(&relayer_id, (1u32 << 31).into());
 
         let vault_btc_address = BtcAddress::P2SH(H160::zero());
         let value: u32 = 2;
@@ -175,8 +179,8 @@ benchmarks! {
         let origin: T::AccountId = account("Origin", 0, 0);
         let vault_id: T::AccountId = account("Vault", 0, 0);
 
-        let _ = T::DOT::make_free_balance_be(&origin, (1u32 << 31).into());
-        let _ = T::DOT::make_free_balance_be(&vault_id, (1u32 << 31).into());
+        make_free_balance_be::<T>(&origin, (1u32 << 31).into());
+        make_free_balance_be::<T>(&vault_id, (1u32 << 31).into());
 
         let issue_id = H256::zero();
         let mut issue_request = IssueRequest::default();

@@ -42,10 +42,13 @@ use sp_arithmetic::{
 };
 use sp_std::{convert::TryInto, vec::Vec};
 
-pub(crate) type DOT<T> = <<T as collateral::Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub(crate) type DOT<T> = <<T as currency::Config<currency::Instance1>>::Currency as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::Balance;
 
-pub(crate) type PolkaBTC<T> =
-    <<T as treasury::Config>::PolkaBTC as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub(crate) type PolkaBTC<T> = <<T as currency::Config<currency::Instance2>>::Currency as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::Balance;
 
 pub(crate) type UnsignedFixedPoint<T> = <T as Config>::UnsignedFixedPoint;
 
@@ -66,7 +69,11 @@ const DOT_DECIMALS: u32 = 10;
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
 pub trait Config:
-    frame_system::Config + pallet_timestamp::Config + treasury::Config + collateral::Config + security::Config
+    frame_system::Config
+    + pallet_timestamp::Config
+    + currency::Config<currency::Collateral>
+    + currency::Config<currency::Treasury>
+    + security::Config
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;

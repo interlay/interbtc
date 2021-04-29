@@ -81,7 +81,7 @@ fn create_vault_and_issue_tokens(
     assert_ok!(res);
 
     // mint tokens to the vault
-    treasury::Pallet::<Test>::mint(id, issue_tokens);
+    currency::Pallet::<Test, currency::Instance2>::mint(id, issue_tokens);
 
     id
 }
@@ -115,7 +115,7 @@ fn register_vault_fails_when_account_funds_too_low() {
     run_test(|| {
         let collateral = DEFAULT_COLLATERAL + 1;
         let result = VaultRegistry::register_vault(Origin::signed(DEFAULT_ID), collateral, dummy_public_key());
-        assert_err!(result, CollateralError::InsufficientFunds);
+        assert_err!(result, CollateralError::InsufficientFreeBalance);
         assert_not_emitted!(Event::RegisterVault(DEFAULT_ID, collateral));
     });
 }

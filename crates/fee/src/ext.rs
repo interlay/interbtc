@@ -6,16 +6,18 @@ pub(crate) mod collateral {
     use crate::DOT;
     use frame_support::dispatch::DispatchResult;
 
-    pub fn get_free_balance<T: collateral::Config>(id: &T::AccountId) -> DOT<T> {
-        <collateral::Pallet<T>>::get_balance_from_account(id)
+    type CollateralPallet<T> = currency::Pallet<T, currency::Collateral>;
+
+    pub fn get_free_balance<T: currency::Config<currency::Collateral>>(id: &T::AccountId) -> DOT<T> {
+        CollateralPallet::<T>::get_free_balance(id)
     }
 
-    pub fn transfer<T: collateral::Config>(
+    pub fn transfer<T: currency::Config<currency::Collateral>>(
         sender: T::AccountId,
         receiver: T::AccountId,
         amount: DOT<T>,
     ) -> DispatchResult {
-        <collateral::Pallet<T>>::transfer(sender, receiver, amount)
+        CollateralPallet::<T>::transfer(&sender, &receiver, amount)
     }
 }
 
@@ -24,16 +26,18 @@ pub(crate) mod treasury {
     use crate::PolkaBTC;
     use frame_support::dispatch::DispatchResult;
 
-    pub fn get_free_balance<T: treasury::Config>(id: T::AccountId) -> PolkaBTC<T> {
-        <treasury::Pallet<T>>::get_balance_from_account(id)
+    type TreasuryPallet<T> = currency::Pallet<T, currency::Treasury>;
+
+    pub fn get_free_balance<T: currency::Config<currency::Treasury>>(id: T::AccountId) -> PolkaBTC<T> {
+        TreasuryPallet::<T>::get_free_balance(&id)
     }
 
-    pub fn transfer<T: treasury::Config>(
+    pub fn transfer<T: currency::Config<currency::Treasury>>(
         sender: T::AccountId,
         receiver: T::AccountId,
         amount: PolkaBTC<T>,
     ) -> DispatchResult {
-        <treasury::Pallet<T>>::transfer(sender, receiver, amount)
+        TreasuryPallet::<T>::transfer(&sender, &receiver, amount)
     }
 }
 

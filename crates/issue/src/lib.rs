@@ -51,9 +51,9 @@ const _MODULE_ID: ModuleId = ModuleId(*b"issuemod");
 pub trait Config:
     frame_system::Config
     + vault_registry::Config
-    + collateral::Config
+    + currency::Config<currency::Collateral>
+    + currency::Config<currency::Treasury>
     + btc_relay::Config
-    + treasury::Config
     + exchange_rate_oracle::Config
     + fee::Config
     + sla::Config

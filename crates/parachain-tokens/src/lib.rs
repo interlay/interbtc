@@ -20,7 +20,9 @@ use xcm::v0::{Error as XcmError, ExecuteXcm, Junction::*, MultiAsset, NetworkId,
 use xcm_executor::traits::LocationConversion;
 
 /// Configuration trait of this pallet.
-pub trait Config: frame_system::Config + collateral::Config + treasury::Config {
+pub trait Config:
+    frame_system::Config + currency::Config<currency::Collateral> + currency::Config<currency::Treasury>
+{
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 

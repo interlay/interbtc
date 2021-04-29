@@ -27,8 +27,8 @@ frame_support::construct_runtime!(
         DOT: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
         PolkaBTC: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
 
-        Collateral: collateral::{Pallet, Call, Storage, Event<T>},
-        Treasury: treasury::{Pallet, Call, Storage, Event<T>},
+        Collateral: currency::<Instance1>::{Pallet, Call, Storage, Event<T>},
+        Treasury: currency::<Instance2>::{Pallet, Call, Storage, Event<T>},
 
         // Operational
         Security: security::{Pallet, Call, Storage, Event<T>},
@@ -112,6 +112,16 @@ impl pallet_balances::Config<pallet_balances::Instance2> for Test {
     type WeightInfo = ();
 }
 
+impl currency::Config<currency::Collateral> for Test {
+    type Event = TestEvent;
+    type Currency = pallet_balances::Pallet<Test, pallet_balances::Instance1>;
+}
+
+impl currency::Config<currency::Treasury> for Test {
+    type Event = TestEvent;
+    type Currency = pallet_balances::Pallet<Test, pallet_balances::Instance2>;
+}
+
 parameter_types! {
     pub const VaultModuleId: ModuleId = ModuleId(*b"mod/vreg");
 }
@@ -124,18 +134,8 @@ impl vault_registry::Config for Test {
     type WeightInfo = ();
 }
 
-impl collateral::Config for Test {
-    type Event = TestEvent;
-    type DOT = pallet_balances::Pallet<Test, pallet_balances::Instance1>;
-}
-
 impl security::Config for Test {
     type Event = TestEvent;
-}
-
-impl treasury::Config for Test {
-    type Event = TestEvent;
-    type PolkaBTC = pallet_balances::Pallet<Test, pallet_balances::Instance2>;
 }
 
 parameter_types! {

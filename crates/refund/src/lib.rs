@@ -37,9 +37,9 @@ pub use types::RefundRequest;
 /// The pallet's configuration trait.
 pub trait Config:
     frame_system::Config
-    + treasury::Config
     + btc_relay::Config
-    + collateral::Config
+    + currency::Config<currency::Collateral>
+    + currency::Config<currency::Treasury>
     + fee::Config
     + sla::Config
     + vault_registry::Config

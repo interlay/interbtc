@@ -43,7 +43,11 @@ use types::{Inner, PolkaBTC, UnsignedFixedPoint, Version, DOT};
 
 /// The pallet's configuration trait.
 pub trait Config:
-    frame_system::Config + collateral::Config + treasury::Config + sla::Config + security::Config
+    frame_system::Config
+    + currency::Config<currency::Collateral>
+    + currency::Config<currency::Treasury>
+    + sla::Config
+    + security::Config
 {
     /// The fee module id, used for deriving its sovereign account ID.
     type ModuleId: Get<ModuleId>;

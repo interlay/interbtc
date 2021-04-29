@@ -19,8 +19,7 @@ xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "rococ
 cumulus-primitives = { package = "cumulus-primitives-core", git = "https://github.com/paritytech/cumulus", branch = "rococo-v1", default-features = false }
 
 # Parachain dependencies
-collateral = { path = "../collateral", default-features = false }
-treasury = { path = "../treasury", default-features = false }
+currency = { path = "../currency", default-features = false }
 
 [features]
 default = ["std"]
@@ -37,7 +36,6 @@ std = [
     "xcm-executor/std",
     "cumulus-primitives/std",
 
-    "collateral/std",
-    "treasury/std",
+    "currency/std",
 ]
 disable-native-filter = []

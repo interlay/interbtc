@@ -170,32 +170,43 @@ pub(crate) mod treasury {
     use crate::types::PolkaBTC;
     use frame_support::dispatch::DispatchResult;
 
-    pub fn get_balance<T: treasury::Config>(account: T::AccountId) -> PolkaBTC<T> {
-        <treasury::Pallet<T>>::get_balance_from_account(account)
+    type TreasuryPallet<T> = currency::Pallet<T, currency::Treasury>;
+
+    pub fn get_balance<T: currency::Config<currency::Treasury>>(account: T::AccountId) -> PolkaBTC<T> {
+        TreasuryPallet::<T>::get_free_balance(&account)
     }
 
-    pub fn lock<T: treasury::Config>(redeemer: T::AccountId, amount: PolkaBTC<T>) -> DispatchResult {
-        <treasury::Pallet<T>>::lock(redeemer, amount)
+    pub fn lock<T: currency::Config<currency::Treasury>>(
+        redeemer: T::AccountId,
+        amount: PolkaBTC<T>,
+    ) -> DispatchResult {
+        TreasuryPallet::<T>::lock(&redeemer, amount)
     }
 
-    pub fn unlock<T: treasury::Config>(account: T::AccountId, amount: PolkaBTC<T>) -> DispatchResult {
-        <treasury::Pallet<T>>::unlock(account, amount)
+    pub fn unlock<T: currency::Config<currency::Treasury>>(
+        account: T::AccountId,
+        amount: PolkaBTC<T>,
+    ) -> DispatchResult {
+        TreasuryPallet::<T>::unlock(account, amount)
     }
 
-    pub fn burn<T: treasury::Config>(redeemer: T::AccountId, amount: PolkaBTC<T>) -> DispatchResult {
-        <treasury::Pallet<T>>::burn(redeemer, amount)
+    pub fn burn<T: currency::Config<currency::Treasury>>(
+        redeemer: T::AccountId,
+        amount: PolkaBTC<T>,
+    ) -> DispatchResult {
+        TreasuryPallet::<T>::burn(&redeemer, amount)
     }
 
-    pub fn unlock_and_transfer<T: treasury::Config>(
+    pub fn unlock_and_transfer<T: currency::Config<currency::Treasury>>(
         source: T::AccountId,
         destination: T::AccountId,
         amount: PolkaBTC<T>,
     ) -> DispatchResult {
-        <treasury::Pallet<T>>::unlock_and_transfer(source, destination, amount)
+        TreasuryPallet::<T>::unlock_and_transfer(source, destination, amount)
     }
 
-    pub fn mint<T: treasury::Config>(requester: T::AccountId, amount: PolkaBTC<T>) {
-        <treasury::Pallet<T>>::mint(requester, amount)
+    pub fn mint<T: currency::Config<currency::Treasury>>(requester: T::AccountId, amount: PolkaBTC<T>) {
+        TreasuryPallet::<T>::mint(requester, amount)
     }
 }
 
@@ -269,7 +280,12 @@ pub(crate) mod collateral {
     use crate::DOT;
     use frame_support::dispatch::DispatchResult;
 
-    pub fn release_collateral<T: collateral::Config>(sender: &T::AccountId, amount: DOT<T>) -> DispatchResult {
-        <collateral::Pallet<T>>::release_collateral(sender, amount)
+    type CollateralPallet<T> = currency::Pallet<T, currency::Collateral>;
+
+    pub fn release_collateral<T: currency::Config<currency::Collateral>>(
+        sender: &T::AccountId,
+        amount: DOT<T>,
+    ) -> DispatchResult {
+        CollateralPallet::<T>::release(sender, amount)
     }
 }
