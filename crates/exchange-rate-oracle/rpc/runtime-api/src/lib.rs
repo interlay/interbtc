@@ -33,16 +33,16 @@ fn deserialize_from_string<'de, D: Deserializer<'de>, T: std::str::FromStr>(dese
 }
 
 sp_api::decl_runtime_apis! {
-    pub trait ExchangeRateOracleApi<PolkaBTC, DOT> where
-        PolkaBTC: Codec,
-        DOT: Codec,
+    pub trait ExchangeRateOracleApi<Issuing, Backing> where
+        Issuing: Codec,
+        Backing: Codec,
     {
         fn btc_to_dots(
-            amount: BalanceWrapper<PolkaBTC>
-        ) -> Result<BalanceWrapper<DOT>, DispatchError>;
+            amount: BalanceWrapper<Issuing>
+        ) -> Result<BalanceWrapper<Backing>, DispatchError>;
 
         fn dots_to_btc(
-            amount: BalanceWrapper<DOT>
-        ) -> Result<BalanceWrapper<PolkaBTC>, DispatchError>;
+            amount: BalanceWrapper<Backing>
+        ) -> Result<BalanceWrapper<Issuing>, DispatchError>;
     }
 }

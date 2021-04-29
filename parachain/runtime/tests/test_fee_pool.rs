@@ -16,12 +16,12 @@ fn test_with(execute: impl Fn(Currency)) {
         SecurityPallet::set_active_block_number(1);
         assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
         setup_dot_reward();
-        execute(Currency::DOT);
+        execute(Currency::Backing);
     });
     ExtBuilder::build().execute_with(|| {
         SecurityPallet::set_active_block_number(1);
         assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
-        execute(Currency::PolkaBTC);
+        execute(Currency::Issuing);
     });
 }
 
@@ -66,20 +66,20 @@ macro_rules! assert_eq_modulo_rounding {
 
 #[derive(Copy, Clone)]
 enum Currency {
-    DOT,
-    PolkaBTC,
+    Backing,
+    Issuing,
 }
 
 fn get_epoch_rewards(currency: Currency) -> u128 {
     match currency {
-        Currency::DOT => FeePallet::epoch_rewards_dot(),
-        Currency::PolkaBTC => FeePallet::epoch_rewards_polka_btc(),
+        Currency::Backing => FeePallet::epoch_rewards_dot(),
+        Currency::Issuing => FeePallet::epoch_rewards_polka_btc(),
     }
 }
 
 fn get_rewards(currency: Currency, account: [u8; 32]) -> u128 {
     match currency {
-        Currency::DOT => {
+        Currency::Backing => {
             let amount = FeePallet::get_dot_rewards(&account_of(account));
             assert_noop!(
                 Call::Fee(FeeCall::withdraw_dot(amount + 1)).dispatch(origin_of(account_of(account))),
@@ -88,7 +88,7 @@ fn get_rewards(currency: Currency, account: [u8; 32]) -> u128 {
             assert_ok!(Call::Fee(FeeCall::withdraw_dot(amount)).dispatch(origin_of(account_of(account))));
             amount
         }
-        Currency::PolkaBTC => {
+        Currency::Issuing => {
             let amount = FeePallet::get_polka_btc_rewards(&account_of(account));
             assert_noop!(
                 Call::Fee(FeeCall::withdraw_dot(amount + 1)).dispatch(origin_of(account_of(account))),

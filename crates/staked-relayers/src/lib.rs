@@ -1,4 +1,4 @@
-//! # PolkaBTC Staked Relayers Module
+//! # Staked Relayers Module
 //! Based on the [specification](https://interlay.gitlab.io/polkabtc-spec/spec/staked-relayers.html).
 
 #![deny(warnings)]
@@ -28,7 +28,7 @@ use mocktopus::macros::mockable;
 
 pub use security;
 
-use crate::types::{PolkaBTC, StakedRelayer, DOT};
+use crate::types::{Backing, Issuing, StakedRelayer};
 use bitcoin::{parser::parse_transaction, types::*, utils::sha256d_le};
 
 use btc_relay::{BtcAddress, Error as BtcRelayError};
@@ -68,10 +68,10 @@ pub trait Config:
     type WeightInfo: WeightInfo;
 
     /// The minimum amount of deposit required to propose an update.
-    type MinimumDeposit: Get<DOT<Self>>;
+    type MinimumDeposit: Get<Backing<Self>>;
 
     /// The minimum amount of stake required to participate.
-    type MinimumStake: Get<DOT<Self>>;
+    type MinimumStake: Get<Backing<Self>>;
 
     /// How often (in blocks) to check for new votes.
     type VotingPeriod: Get<Self::BlockNumber>;
@@ -83,7 +83,7 @@ pub trait Config:
 // This pallet's storage items.
 decl_storage! {
     trait Store for Module<T: Config> as Staking {
-        Stakes get(fn stakes): map hasher(blake2_128_concat) T::AccountId => DOT<T>;
+        Stakes get(fn stakes): map hasher(blake2_128_concat) T::AccountId => Backing<T>;
 
         /// Mapping of Bitcoin transaction identifiers (SHA256 hashes) to account
         /// identifiers of Vaults accused of theft.
@@ -147,10 +147,10 @@ decl_module! {
         /// # Arguments
         ///
         /// * `origin`: The account of the Staked Relayer to be registered
-        /// * `stake`: to-be-locked collateral/stake in DOT
+        /// * `stake`: to-be-locked collateral/stake in Backing
         #[weight = <T as Config>::WeightInfo::register_staked_relayer()]
         #[transactional]
-        fn register_staked_relayer(origin, #[compact] stake: DOT<T>) -> DispatchResult {
+        fn register_staked_relayer(origin, #[compact] stake: Backing<T>) -> DispatchResult {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let signer = ensure_signed(origin)?;
 
@@ -327,7 +327,7 @@ impl<T: Config> Module<T> {
     fn _on_runtime_upgrade() {
         use frame_support::{migration::StorageKeyIterator, Blake2_128Concat};
 
-        StorageKeyIterator::<T::AccountId, StakedRelayer<DOT<T>, T::BlockNumber>, Blake2_128Concat>::new(
+        StorageKeyIterator::<T::AccountId, StakedRelayer<Backing<T>, T::BlockNumber>, Blake2_128Concat>::new(
             <Stakes<T>>::module_prefix(),
             b"ActiveStakedRelayers",
         )
@@ -336,7 +336,7 @@ impl<T: Config> Module<T> {
             <Stakes<T>>::insert(account_id, relayer.stake);
         });
 
-        StorageKeyIterator::<T::AccountId, StakedRelayer<DOT<T>, T::BlockNumber>, Blake2_128Concat>::new(
+        StorageKeyIterator::<T::AccountId, StakedRelayer<Backing<T>, T::BlockNumber>, Blake2_128Concat>::new(
             <Stakes<T>>::module_prefix(),
             b"InactiveStakedRelayers",
         )
@@ -413,7 +413,7 @@ impl<T: Config> Module<T> {
     /// * `payments` - all payment outputs extracted from tx
     /// * `wallet` - vault btc addresses
     pub(crate) fn is_valid_request_transaction(
-        request_value: PolkaBTC<T>,
+        request_value: Issuing<T>,
         request_address: BtcAddress,
         payments: &[(i64, BtcAddress)],
         wallet: &Wallet,
@@ -538,9 +538,9 @@ decl_event!(
     pub enum Event<T>
     where
         AccountId = <T as frame_system::Config>::AccountId,
-        DOT = DOT<T>,
+        Backing = Backing<T>,
     {
-        RegisterStakedRelayer(AccountId, DOT),
+        RegisterStakedRelayer(AccountId, Backing),
         DeregisterStakedRelayer(AccountId),
         SlashStakedRelayer(AccountId),
         VaultTheft(AccountId, H256Le),

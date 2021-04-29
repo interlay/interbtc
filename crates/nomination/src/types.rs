@@ -12,7 +12,7 @@ use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 use mocktopus::macros::mockable;
 use vault_registry::VaultStatus;
 
-pub(crate) type DOT<T> = <<T as currency::Config<currency::Instance1>>::Currency as Currency<
+pub(crate) type Backing<T> = <<T as currency::Config<currency::Instance1>>::Currency as Currency<
     <T as frame_system::Config>::AccountId,
 >>::Balance;
 
@@ -23,20 +23,20 @@ pub struct RichOperator<T: Config> {
 }
 
 pub type DefaultOperator<T> =
-    Operator<<T as frame_system::Config>::AccountId, <T as frame_system::Config>::BlockNumber, DOT<T>>;
+    Operator<<T as frame_system::Config>::AccountId, <T as frame_system::Config>::BlockNumber, Backing<T>>;
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug, serde::Serialize, serde::Deserialize))]
-pub struct Nominator<AccountId: Ord, BlockNumber, DOT> {
+pub struct Nominator<AccountId: Ord, BlockNumber, Backing> {
     pub id: AccountId,
-    pub collateral: DOT,
-    /// Map of request_id => (Maturity Block, DOT to withdraw)
-    pub pending_withdrawals: BTreeMap<H256, (BlockNumber, DOT)>,
-    pub collateral_to_be_withdrawn: DOT,
+    pub collateral: Backing,
+    /// Map of request_id => (Maturity Block, collateral to withdraw)
+    pub pending_withdrawals: BTreeMap<H256, (BlockNumber, Backing)>,
+    pub collateral_to_be_withdrawn: Backing,
 }
 
-impl<AccountId: Ord, BlockNumber, DOT: HasCompact + Default> Nominator<AccountId, BlockNumber, DOT> {
-    pub(crate) fn new(id: AccountId) -> Nominator<AccountId, BlockNumber, DOT> {
+impl<AccountId: Ord, BlockNumber, Backing: HasCompact + Default> Nominator<AccountId, BlockNumber, Backing> {
+    pub(crate) fn new(id: AccountId) -> Nominator<AccountId, BlockNumber, Backing> {
         Nominator {
             id,
             collateral: Default::default(),
@@ -48,18 +48,18 @@ impl<AccountId: Ord, BlockNumber, DOT: HasCompact + Default> Nominator<AccountId
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug, serde::Serialize, serde::Deserialize))]
-pub struct Operator<AccountId: Ord, BlockNumber, DOT> {
+pub struct Operator<AccountId: Ord, BlockNumber, Backing> {
     // Account identifier of the Vault
     pub id: AccountId,
-    pub nominators: BTreeMap<AccountId, Nominator<AccountId, BlockNumber, DOT>>,
-    pub total_nominated_collateral: DOT,
-    /// Map of request_id => (Maturity Block, DOT to withdraw)
-    pub pending_withdrawals: BTreeMap<H256, (BlockNumber, DOT)>,
-    pub collateral_to_be_withdrawn: DOT,
+    pub nominators: BTreeMap<AccountId, Nominator<AccountId, BlockNumber, Backing>>,
+    pub total_nominated_collateral: Backing,
+    /// Map of request_id => (Maturity Block, collateral to withdraw)
+    pub pending_withdrawals: BTreeMap<H256, (BlockNumber, Backing)>,
+    pub collateral_to_be_withdrawn: Backing,
 }
 
-impl<AccountId: Ord, BlockNumber, DOT: HasCompact + Default> Operator<AccountId, BlockNumber, DOT> {
-    pub(crate) fn new(id: AccountId) -> Operator<AccountId, BlockNumber, DOT> {
+impl<AccountId: Ord, BlockNumber, Backing: HasCompact + Default> Operator<AccountId, BlockNumber, Backing> {
+    pub(crate) fn new(id: AccountId) -> Operator<AccountId, BlockNumber, Backing> {
         Operator {
             id,
             nominators: Default::default(),
@@ -88,7 +88,7 @@ impl<T: Config> RichOperator<T> {
         self.data.id.clone()
     }
 
-    pub fn get_nominators(&self) -> Vec<(T::AccountId, Nominator<T::AccountId, T::BlockNumber, DOT<T>>)> {
+    pub fn get_nominators(&self) -> Vec<(T::AccountId, Nominator<T::AccountId, T::BlockNumber, Backing<T>>)> {
         self.data
             .nominators
             .iter()
@@ -101,7 +101,7 @@ impl<T: Config> RichOperator<T> {
         Ok(())
     }
 
-    pub fn force_refund_nominators_proportionally(&mut self, amount: DOT<T>) -> DispatchResult {
+    pub fn force_refund_nominators_proportionally(&mut self, amount: Backing<T>) -> DispatchResult {
         let data_clone = self.data.clone();
         for nominator_id in data_clone.nominators.keys() {
             let nominator_collateral_to_refund = self.scale_amount_by_nominator_proportion(amount, nominator_id)?;
@@ -110,7 +110,11 @@ impl<T: Config> RichOperator<T> {
         Ok(())
     }
 
-    pub fn deposit_nominated_collateral(&mut self, nominator_id: T::AccountId, collateral: DOT<T>) -> DispatchResult {
+    pub fn deposit_nominated_collateral(
+        &mut self,
+        nominator_id: T::AccountId,
+        collateral: Backing<T>,
+    ) -> DispatchResult {
         let new_nominated_collateral = self
             .data
             .total_nominated_collateral
@@ -135,7 +139,11 @@ impl<T: Config> RichOperator<T> {
         self.increase_nominator_collateral(nominator_id, collateral)
     }
 
-    pub fn withdraw_nominated_collateral(&mut self, nominator_id: T::AccountId, collateral: DOT<T>) -> DispatchResult {
+    pub fn withdraw_nominated_collateral(
+        &mut self,
+        nominator_id: T::AccountId,
+        collateral: Backing<T>,
+    ) -> DispatchResult {
         let nominator = self
             .data
             .nominators
@@ -149,7 +157,7 @@ impl<T: Config> RichOperator<T> {
         ext::vault_registry::withdraw_collateral_to_address::<T>(&self.id(), collateral, &nominator_id)
     }
 
-    fn increase_nominator_collateral(&mut self, nominator_id: T::AccountId, increase_by: DOT<T>) -> DispatchResult {
+    fn increase_nominator_collateral(&mut self, nominator_id: T::AccountId, increase_by: Backing<T>) -> DispatchResult {
         self.update(|v| {
             // Increase the sum of nominated collateral for this operator
             v.total_nominated_collateral = v
@@ -170,7 +178,7 @@ impl<T: Config> RichOperator<T> {
         })
     }
 
-    fn decrease_nominator_collateral(&mut self, nominator_id: T::AccountId, decrease_by: DOT<T>) -> DispatchResult {
+    fn decrease_nominator_collateral(&mut self, nominator_id: T::AccountId, decrease_by: Backing<T>) -> DispatchResult {
         self.update(|v| {
             // Decrease the sum of nominated collateral for this operator
             v.total_nominated_collateral = v
@@ -198,9 +206,9 @@ impl<T: Config> RichOperator<T> {
 
     pub fn scale_amount_by_nominator_proportion(
         &self,
-        amount: DOT<T>,
+        amount: Backing<T>,
         nominator_id: &T::AccountId,
-    ) -> Result<DOT<T>, DispatchError> {
+    ) -> Result<Backing<T>, DispatchError> {
         let amount_u128 = Module::<T>::dot_to_u128(amount)?;
         let nominator = self
             .data
@@ -224,7 +232,7 @@ impl<T: Config> RichOperator<T> {
     pub fn add_pending_operator_withdrawal(
         &mut self,
         request_id: H256,
-        collateral_to_withdraw: DOT<T>,
+        collateral_to_withdraw: Backing<T>,
         maturity: T::BlockNumber,
     ) -> DispatchResult {
         // If `collateral_to_withdraw` is larger than (operator_collateral - collateral_to_be_withdrawn),
@@ -263,10 +271,10 @@ impl<T: Config> RichOperator<T> {
         })
     }
 
-    pub fn execute_operator_withdrawal(&mut self) -> Result<DOT<T>, DispatchError> {
+    pub fn execute_operator_withdrawal(&mut self) -> Result<Backing<T>, DispatchError> {
         let matured_operator_withdrawal_requests =
             Self::get_matured_withdrawal_requests(&self.data.pending_withdrawals);
-        let mut matured_collateral_to_withdraw: DOT<T> = 0u32.into();
+        let mut matured_collateral_to_withdraw: Backing<T> = 0u32.into();
         for (request_id, (_, amount)) in matured_operator_withdrawal_requests.iter() {
             self.remove_pending_operator_withdrawal(*request_id)?;
             matured_collateral_to_withdraw = matured_collateral_to_withdraw
@@ -287,15 +295,15 @@ impl<T: Config> RichOperator<T> {
     }
 
     pub fn get_matured_withdrawal_requests(
-        requests: &BTreeMap<H256, (T::BlockNumber, DOT<T>)>,
-    ) -> Vec<(H256, (T::BlockNumber, DOT<T>))> {
+        requests: &BTreeMap<H256, (T::BlockNumber, Backing<T>)>,
+    ) -> Vec<(H256, (T::BlockNumber, Backing<T>))> {
         let current_height = ext::security::active_block_number::<T>();
         requests
             .clone()
             .iter()
             .filter(|(_, (maturity, _))| current_height >= *maturity)
             .map(|(id, withdrawal_request)| (id.clone(), withdrawal_request.clone()))
-            .collect::<Vec<(H256, (T::BlockNumber, DOT<T>))>>()
+            .collect::<Vec<(H256, (T::BlockNumber, Backing<T>))>>()
     }
 
     pub fn remove_pending_operator_withdrawal(&mut self, request_id: H256) -> DispatchResult {
@@ -320,7 +328,7 @@ impl<T: Config> RichOperator<T> {
         &mut self,
         nominator_id: T::AccountId,
         request_id: H256,
-        collateral_to_withdraw: DOT<T>,
+        collateral_to_withdraw: Backing<T>,
         maturity: T::BlockNumber,
     ) -> DispatchResult {
         // Ensure that the Nominator has enough collateral for the withdrawal
@@ -357,7 +365,7 @@ impl<T: Config> RichOperator<T> {
         })
     }
 
-    pub fn execute_nominator_withdrawal(&mut self, nominator_id: T::AccountId) -> Result<DOT<T>, DispatchError> {
+    pub fn execute_nominator_withdrawal(&mut self, nominator_id: T::AccountId) -> Result<Backing<T>, DispatchError> {
         let nominators = self.data.nominators.clone();
         let nominator = nominators
             .get(&nominator_id)
@@ -365,7 +373,7 @@ impl<T: Config> RichOperator<T> {
             .clone();
         let matured_nominator_withdrawal_requests =
             Self::get_matured_withdrawal_requests(&nominator.pending_withdrawals);
-        let mut matured_collateral_to_withdraw: DOT<T> = 0u32.into();
+        let mut matured_collateral_to_withdraw: Backing<T> = 0u32.into();
         for withdrawal in matured_nominator_withdrawal_requests.iter() {
             self.remove_pending_nominator_withdrawal(nominator_id.clone(), withdrawal.0)?;
             matured_collateral_to_withdraw = matured_collateral_to_withdraw
@@ -414,7 +422,7 @@ impl<T: Config> RichOperator<T> {
         Ok(self.data.nominators.contains_key(&nominator_id))
     }
 
-    pub fn slash_nominators(&mut self, status: VaultStatus, total_slashed_amount: DOT<T>) -> DispatchResult {
+    pub fn slash_nominators(&mut self, status: VaultStatus, total_slashed_amount: Backing<T>) -> DispatchResult {
         let nominated_collateral_to_slash = self.get_nominated_collateral_to_slash(total_slashed_amount, status)?;
         // Slash nominators proportionally
         let vault_clone = self.data.clone();
@@ -435,10 +443,10 @@ impl<T: Config> RichOperator<T> {
 
     pub fn get_nominated_collateral_to_slash(
         &self,
-        total_slashed_amount: DOT<T>,
+        total_slashed_amount: Backing<T>,
         status: VaultStatus,
-    ) -> Result<DOT<T>, DispatchError> {
-        let nominated_collateral_to_slash: DOT<T> = if status.eq(&VaultStatus::CommittedTheft) {
+    ) -> Result<Backing<T>, DispatchError> {
+        let nominated_collateral_to_slash: Backing<T> = if status.eq(&VaultStatus::CommittedTheft) {
             let backing_collateral = ext::vault_registry::get_backing_collateral::<T>(&self.id())?;
             // If, after the liquidation, the vault backing collateral
             // is smaller than the total_nominated_collateral (since it wasn't yet updated),
@@ -462,14 +470,14 @@ impl<T: Config> RichOperator<T> {
         Ok(nominated_collateral_to_slash)
     }
 
-    pub fn get_operator_collateral(&self) -> Result<DOT<T>, DispatchError> {
+    pub fn get_operator_collateral(&self) -> Result<Backing<T>, DispatchError> {
         let backing_collateral = ext::vault_registry::get_backing_collateral::<T>(&self.id())?;
         Ok(backing_collateral
             .checked_sub(&self.data.total_nominated_collateral)
             .ok_or(Error::<T>::ArithmeticUnderflow)?)
     }
 
-    pub fn get_max_nominatable_collateral(&self, operator_collateral: DOT<T>) -> Result<DOT<T>, DispatchError> {
+    pub fn get_max_nominatable_collateral(&self, operator_collateral: Backing<T>) -> Result<Backing<T>, DispatchError> {
         ext::fee::dot_for::<T>(operator_collateral, Module::<T>::get_max_nomination_ratio())
     }
 

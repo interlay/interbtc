@@ -1,4 +1,4 @@
-//! # PolkaBTC Refund Pallet
+//! # Refund Pallet
 
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
@@ -31,7 +31,7 @@ use frame_system::ensure_signed;
 use primitive_types::H256;
 use sp_runtime::traits::CheckedSub;
 use sp_std::{convert::TryInto, vec::Vec};
-use types::PolkaBTC;
+use types::Issuing;
 pub use types::RefundRequest;
 
 /// The pallet's configuration trait.
@@ -56,10 +56,10 @@ decl_storage! {
     trait Store for Module<T: Config> as Refund {
         /// The minimum amount of btc that is accepted for refund requests (NOTE: too low
         /// values could result in the bitcoin client rejecting the payment)
-        RefundBtcDustValue get(fn refund_btc_dust_value) config(): PolkaBTC<T>;
+        RefundBtcDustValue get(fn refund_btc_dust_value) config(): Issuing<T>;
 
         /// This mapping provides access from a unique hash refundId to a Refund struct.
-        RefundRequests: map hasher(blake2_128_concat) H256 => RefundRequest<T::AccountId, PolkaBTC<T>>;
+        RefundRequests: map hasher(blake2_128_concat) H256 => RefundRequest<T::AccountId, Issuing<T>>;
     }
 }
 
@@ -68,12 +68,12 @@ decl_event!(
     pub enum Event<T>
     where
         AccountId = <T as frame_system::Config>::AccountId,
-        PolkaBTC = PolkaBTC<T>,
+        Issuing = Issuing<T>,
     {
         /// refund_id, issuer, amount_without_fee, vault, btc_address, issue_id, fee
-        RequestRefund(H256, AccountId, PolkaBTC, AccountId, BtcAddress, H256, PolkaBTC),
+        RequestRefund(H256, AccountId, Issuing, AccountId, BtcAddress, H256, Issuing),
         /// refund_id, issuer, vault, amount
-        ExecuteRefund(H256, AccountId, AccountId, PolkaBTC),
+        ExecuteRefund(H256, AccountId, AccountId, Issuing),
     }
 );
 
@@ -116,7 +116,7 @@ impl<T: Config> Module<T> {
     /// * `issuer` - id of the user that made the issue request
     /// * `btc_address` - the btc address that should receive the refund
     pub fn request_refund(
-        total_amount_btc: PolkaBTC<T>,
+        total_amount_btc: Issuing<T>,
         vault_id: T::AccountId,
         issuer: T::AccountId,
         btc_address: BtcAddress,
@@ -220,7 +220,7 @@ impl<T: Config> Module<T> {
     /// * `refund_id` - 256-bit identifier of the refund request
     pub fn get_open_refund_request_from_id(
         refund_id: &H256,
-    ) -> Result<RefundRequest<T::AccountId, PolkaBTC<T>>, DispatchError> {
+    ) -> Result<RefundRequest<T::AccountId, Issuing<T>>, DispatchError> {
         ensure!(
             <RefundRequests<T>>::contains_key(*refund_id),
             Error::<T>::RefundIdNotFound
@@ -240,7 +240,7 @@ impl<T: Config> Module<T> {
     /// * `refund_id` - 256-bit identifier of the refund request
     pub fn get_open_or_completed_refund_request_from_id(
         refund_id: &H256,
-    ) -> Result<RefundRequest<T::AccountId, PolkaBTC<T>>, DispatchError> {
+    ) -> Result<RefundRequest<T::AccountId, Issuing<T>>, DispatchError> {
         ensure!(
             <RefundRequests<T>>::contains_key(*refund_id),
             Error::<T>::RefundIdNotFound
@@ -255,7 +255,7 @@ impl<T: Config> Module<T> {
     /// * `account_id` - user account id
     pub fn get_refund_requests_for_account(
         account_id: T::AccountId,
-    ) -> Vec<(H256, RefundRequest<T::AccountId, PolkaBTC<T>>)> {
+    ) -> Vec<(H256, RefundRequest<T::AccountId, Issuing<T>>)> {
         <RefundRequests<T>>::iter()
             .filter(|(_, request)| request.issuer == account_id)
             .collect::<Vec<_>>()
@@ -267,7 +267,7 @@ impl<T: Config> Module<T> {
     /// # Arguments
     ///
     /// * `issue_id` - The ID of an issue request
-    pub fn get_refund_requests_by_issue_id(issue_id: H256) -> Option<(H256, RefundRequest<T::AccountId, PolkaBTC<T>>)> {
+    pub fn get_refund_requests_by_issue_id(issue_id: H256) -> Option<(H256, RefundRequest<T::AccountId, Issuing<T>>)> {
         <RefundRequests<T>>::iter().find(|(_, request)| request.issue_id == issue_id)
     }
 
@@ -278,14 +278,14 @@ impl<T: Config> Module<T> {
     /// * `account_id` - vault account id
     pub fn get_refund_requests_for_vault(
         account_id: T::AccountId,
-    ) -> Vec<(H256, RefundRequest<T::AccountId, PolkaBTC<T>>)> {
+    ) -> Vec<(H256, RefundRequest<T::AccountId, Issuing<T>>)> {
         <RefundRequests<T>>::iter()
             .filter(|(_, request)| request.vault == account_id)
             .collect::<Vec<_>>()
     }
 
-    fn u128_to_btc(x: u128) -> Result<PolkaBTC<T>, DispatchError> {
-        TryInto::<PolkaBTC<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
+    fn u128_to_btc(x: u128) -> Result<Issuing<T>, DispatchError> {
+        TryInto::<Issuing<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 }
 

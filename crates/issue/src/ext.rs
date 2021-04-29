@@ -35,7 +35,7 @@ pub(crate) mod btc_relay {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
-    use crate::types::{PolkaBTC, DOT};
+    use crate::types::{Backing, Issuing};
     use btc_relay::BtcAddress;
     use frame_support::dispatch::{DispatchError, DispatchResult};
     use sp_core::H256;
@@ -44,7 +44,7 @@ pub(crate) mod vault_registry {
     pub fn slash_collateral<T: vault_registry::Config>(
         from: CurrencySource<T>,
         to: CurrencySource<T>,
-        amount: DOT<T>,
+        amount: Backing<T>,
     ) -> DispatchResult {
         <vault_registry::Pallet<T>>::slash_collateral(from, to, amount)
     }
@@ -55,13 +55,13 @@ pub(crate) mod vault_registry {
 
     pub fn get_active_vault_from_id<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-    ) -> Result<vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
+    ) -> Result<vault_registry::types::Vault<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>, DispatchError> {
         <vault_registry::Pallet<T>>::get_active_vault_from_id(vault_id)
     }
 
     pub fn try_increase_to_be_issued_tokens<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-        amount: PolkaBTC<T>,
+        amount: Issuing<T>,
     ) -> Result<(), DispatchError> {
         <vault_registry::Pallet<T>>::try_increase_to_be_issued_tokens(vault_id, amount)
     }
@@ -73,7 +73,7 @@ pub(crate) mod vault_registry {
         <vault_registry::Pallet<T>>::register_deposit_address(vault_id, secure_id)
     }
 
-    pub fn issue_tokens<T: vault_registry::Config>(vault_id: &T::AccountId, amount: PolkaBTC<T>) -> DispatchResult {
+    pub fn issue_tokens<T: vault_registry::Config>(vault_id: &T::AccountId, amount: Issuing<T>) -> DispatchResult {
         <vault_registry::Pallet<T>>::issue_tokens(vault_id, amount)
     }
 
@@ -83,37 +83,37 @@ pub(crate) mod vault_registry {
 
     pub fn decrease_to_be_issued_tokens<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-        tokens: PolkaBTC<T>,
+        tokens: Issuing<T>,
     ) -> DispatchResult {
         <vault_registry::Pallet<T>>::decrease_to_be_issued_tokens(vault_id, tokens)
     }
 
     pub fn calculate_collateral<T: vault_registry::Config>(
-        collateral: DOT<T>,
-        numerator: PolkaBTC<T>,
-        denominator: PolkaBTC<T>,
-    ) -> Result<DOT<T>, DispatchError> {
+        collateral: Backing<T>,
+        numerator: Issuing<T>,
+        denominator: Issuing<T>,
+    ) -> Result<Backing<T>, DispatchError> {
         <vault_registry::Pallet<T>>::calculate_collateral(collateral, numerator, denominator)
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod collateral {
-    use crate::types::DOT;
+    use crate::types::Backing;
     use frame_support::dispatch::DispatchResult;
 
     type CollateralPallet<T> = currency::Pallet<T, currency::Collateral>;
 
     pub fn lock_collateral<T: currency::Config<currency::Collateral>>(
         sender: &T::AccountId,
-        amount: DOT<T>,
+        amount: Backing<T>,
     ) -> DispatchResult {
         CollateralPallet::<T>::lock(sender, amount)
     }
 
     pub fn release_collateral<T: currency::Config<currency::Collateral>>(
         sender: &T::AccountId,
-        amount: DOT<T>,
+        amount: Backing<T>,
     ) -> DispatchResult {
         CollateralPallet::<T>::release(sender, amount)
     }
@@ -121,11 +121,11 @@ pub(crate) mod collateral {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod treasury {
-    use crate::types::PolkaBTC;
+    use crate::types::Issuing;
 
     type TreasuryPallet<T> = currency::Pallet<T, currency::Treasury>;
 
-    pub fn mint<T: currency::Config<currency::Treasury>>(requester: T::AccountId, amount: PolkaBTC<T>) {
+    pub fn mint<T: currency::Config<currency::Treasury>>(requester: T::AccountId, amount: Issuing<T>) {
         TreasuryPallet::<T>::mint(requester, amount)
     }
 }
@@ -157,23 +157,23 @@ pub(crate) mod security {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod oracle {
-    use crate::types::{PolkaBTC, DOT};
+    use crate::types::{Backing, Issuing};
     use frame_support::dispatch::DispatchError;
 
-    pub fn btc_to_dots<T: exchange_rate_oracle::Config>(amount: PolkaBTC<T>) -> Result<DOT<T>, DispatchError> {
+    pub fn btc_to_dots<T: exchange_rate_oracle::Config>(amount: Issuing<T>) -> Result<Backing<T>, DispatchError> {
         <exchange_rate_oracle::Pallet<T>>::btc_to_dots(amount)
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod sla {
-    use crate::types::PolkaBTC;
+    use crate::types::Issuing;
     use frame_support::dispatch::DispatchError;
     pub use sla::types::VaultEvent;
 
     pub fn event_update_vault_sla<T: sla::Config>(
         vault_id: &T::AccountId,
-        event: VaultEvent<PolkaBTC<T>>,
+        event: VaultEvent<Issuing<T>>,
     ) -> Result<(), DispatchError> {
         <sla::Pallet<T>>::event_update_vault_sla(vault_id, event)
     }
@@ -181,10 +181,10 @@ pub(crate) mod sla {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod fee {
-    use crate::types::{PolkaBTC, DOT};
+    use crate::types::{Backing, Issuing};
     use frame_support::dispatch::DispatchError;
 
-    pub fn increase_dot_rewards_for_epoch<T: fee::Config>(amount: DOT<T>) {
+    pub fn increase_dot_rewards_for_epoch<T: fee::Config>(amount: Backing<T>) {
         <fee::Pallet<T>>::increase_dot_rewards_for_epoch(amount)
     }
 
@@ -192,28 +192,28 @@ pub(crate) mod fee {
         <fee::Pallet<T>>::fee_pool_account_id()
     }
 
-    pub fn get_issue_fee<T: fee::Config>(amount: PolkaBTC<T>) -> Result<PolkaBTC<T>, DispatchError> {
+    pub fn get_issue_fee<T: fee::Config>(amount: Issuing<T>) -> Result<Issuing<T>, DispatchError> {
         <fee::Pallet<T>>::get_issue_fee(amount)
     }
 
-    pub fn get_issue_griefing_collateral<T: fee::Config>(amount: DOT<T>) -> Result<DOT<T>, DispatchError> {
+    pub fn get_issue_griefing_collateral<T: fee::Config>(amount: Backing<T>) -> Result<Backing<T>, DispatchError> {
         <fee::Pallet<T>>::get_issue_griefing_collateral(amount)
     }
 
-    pub fn increase_polka_btc_rewards_for_epoch<T: fee::Config>(amount: PolkaBTC<T>) {
+    pub fn increase_polka_btc_rewards_for_epoch<T: fee::Config>(amount: Issuing<T>) {
         <fee::Pallet<T>>::increase_polka_btc_rewards_for_epoch(amount)
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod refund {
-    use crate::types::PolkaBTC;
+    use crate::types::Issuing;
     use btc_relay::BtcAddress;
     use frame_support::dispatch::DispatchError;
     use primitive_types::H256;
 
     pub fn request_refund<T: refund::Config>(
-        total_amount_btc: PolkaBTC<T>,
+        total_amount_btc: Issuing<T>,
         vault_id: T::AccountId,
         issuer: T::AccountId,
         btc_address: BtcAddress,

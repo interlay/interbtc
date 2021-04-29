@@ -66,7 +66,7 @@ The Substrate runtime makes use of various custom pallets that are found in the 
 
 - [bitcoin](crates/bitcoin): [Beta] Library for Bitcoin type, parsing and verification functions.
 - [btc-relay](crates/btc-relay): [Beta] Stateful SPV client for Bitcoin. Stores Bitcoin main chain, tracks forks, verifies Merkle proofs and validates specific transaction formats.
-- [collateral](crates/collateral) [Beta] Handles locking, releasing and slashing of collateral (e.g. DOT).
+- [collateral](crates/collateral) [Beta] Handles locking, releasing and slashing of collateral (e.g. DOT/KSM).
 - [exchange-rate-oracle](crates/exchange-rate-oracle): [Beta] Exchange rate oracle. Integration with external provider pending.
 - [fee](crates/fee): [Beta] Participant reward calculation and distribution.
 - [issue](crates/issue): [Beta] Handles issuing of PolkaBTC.

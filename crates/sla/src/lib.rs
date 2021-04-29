@@ -1,4 +1,4 @@
-//! # PolkaBTC SLA Module
+//! # SLA Module
 //! Based on the [specification](https://interlay.gitlab.io/polkabtc-spec/spec/sla.html).
 
 #![deny(warnings)]
@@ -30,11 +30,11 @@ use frame_system::ensure_root;
 use sp_arithmetic::{traits::*, FixedPointNumber};
 use sp_std::{convert::TryInto, vec::Vec};
 
-pub(crate) type DOT<T> = <<T as currency::Config<currency::Instance1>>::Currency as Currency<
+pub(crate) type Backing<T> = <<T as currency::Config<currency::Instance1>>::Currency as Currency<
     <T as frame_system::Config>::AccountId,
 >>::Balance;
 
-pub(crate) type PolkaBTC<T> = <<T as currency::Config<currency::Instance2>>::Currency as Currency<
+pub(crate) type Issuing<T> = <<T as currency::Config<currency::Instance2>>::Currency as Currency<
     <T as frame_system::Config>::AccountId,
 >>::Balance;
 
@@ -155,10 +155,7 @@ impl<T: Config> Module<T> {
     ///
     /// * `vault_id` - account id of the vault
     /// * `event` - the event that has happened
-    pub fn event_update_vault_sla(
-        vault_id: &T::AccountId,
-        event: VaultEvent<PolkaBTC<T>>,
-    ) -> Result<(), DispatchError> {
+    pub fn event_update_vault_sla(vault_id: &T::AccountId, event: VaultEvent<Issuing<T>>) -> Result<(), DispatchError> {
         let current_sla = <VaultSla<T>>::get(vault_id);
         let delta_sla = match event {
             VaultEvent::RedeemFailure => <VaultRedeemFailure<T>>::get(),
@@ -223,14 +220,14 @@ impl<T: Config> Module<T> {
 
     /// Calculates the rewards for all vaults.
     /// The reward for each vault is the sum of:
-    /// total_reward_for_issued * (Vault issued PolkaBTC / total issued PolkaBTC), and
-    /// total_reward_for_locked * (Vault locked DOT / total locked DOT)
+    /// total_reward_for_issued * (Vault issued Issuing / total issued Issuing), and
+    /// total_reward_for_locked * (Vault locked Backing / total locked Backing)
     pub fn get_vault_rewards(
-        total_reward_for_issued_in_polka_btc: PolkaBTC<T>,
-        total_reward_for_locked_in_polka_btc: PolkaBTC<T>,
-        total_reward_for_issued_in_dot: DOT<T>,
-        total_reward_for_locked_in_dot: DOT<T>,
-    ) -> Result<Vec<(T::AccountId, PolkaBTC<T>, DOT<T>)>, DispatchError> {
+        total_reward_for_issued_in_polka_btc: Issuing<T>,
+        total_reward_for_locked_in_polka_btc: Issuing<T>,
+        total_reward_for_issued_in_dot: Backing<T>,
+        total_reward_for_locked_in_dot: Backing<T>,
+    ) -> Result<Vec<(T::AccountId, Issuing<T>, Backing<T>)>, DispatchError> {
         let total_issued = Self::polkabtc_to_u128(ext::vault_registry::get_total_issued_tokens::<T>(false)?)?;
         let total_locked = Self::dot_to_u128(ext::vault_registry::get_total_backing_collateral::<T>(false)?)?;
 
@@ -307,9 +304,9 @@ impl<T: Config> Module<T> {
     ///
     /// * `total_reward` - the total reward for the entire pool
     pub fn get_relayer_rewards(
-        total_reward_polka_btc: PolkaBTC<T>,
-        total_reward_dot: DOT<T>,
-    ) -> Result<Vec<(T::AccountId, PolkaBTC<T>, DOT<T>)>, DispatchError> {
+        total_reward_polka_btc: Issuing<T>,
+        total_reward_dot: Backing<T>,
+    ) -> Result<Vec<(T::AccountId, Issuing<T>, Backing<T>)>, DispatchError> {
         <RelayerSla<T>>::iter()
             .map(|(account_id, _)| {
                 Ok((
@@ -343,9 +340,9 @@ impl<T: Config> Module<T> {
     /// * `reimburse` - if true, this function returns 110-130%. If false, it returns 10-30%
     pub fn calculate_slashed_amount(
         vault_id: &T::AccountId,
-        stake: DOT<T>,
+        stake: Backing<T>,
         reimburse: bool,
-    ) -> Result<DOT<T>, DispatchError> {
+    ) -> Result<Backing<T>, DispatchError> {
         let current_sla = <VaultSla<T>>::get(vault_id);
 
         let liquidation_threshold = ext::vault_registry::get_liquidation_collateral_threshold::<T>();
@@ -371,7 +368,7 @@ impl<T: Config> Module<T> {
 
     /// initializes the relayer's stake. Not that this module assumes that once set, the stake
     /// remains unchanged forever
-    pub fn initialize_relayer_stake(relayer_id: &T::AccountId, stake: DOT<T>) -> Result<(), DispatchError> {
+    pub fn initialize_relayer_stake(relayer_id: &T::AccountId, stake: Backing<T>) -> Result<(), DispatchError> {
         let stake = Self::dot_to_u128(stake)?;
         let stake = T::SignedFixedPoint::checked_from_rational(stake, 1u128).ok_or(Error::<T>::TryIntoIntError)?;
         <RelayerStake<T>>::insert(relayer_id, stake);
@@ -386,10 +383,10 @@ impl<T: Config> Module<T> {
     /// the thesholds are parameters.
     fn _calculate_slashed_amount(
         current_sla: SignedFixedPoint<T>,
-        stake: DOT<T>,
+        stake: Backing<T>,
         liquidation_threshold: SignedFixedPoint<T>,
         premium_redeem_threshold: SignedFixedPoint<T>,
-    ) -> Result<DOT<T>, DispatchError> {
+    ) -> Result<Backing<T>, DispatchError> {
         let range = premium_redeem_threshold - liquidation_threshold;
         let max_sla = <VaultTargetSla<T>>::get();
         let stake = Self::dot_to_u128(stake)?;
@@ -422,7 +419,7 @@ impl<T: Config> Module<T> {
     ///
     /// * `amount` - the amount of polkabtc that was issued
     /// * `vault_id` - account of the vault
-    fn _executed_issue_sla_change(amount: PolkaBTC<T>) -> Result<T::SignedFixedPoint, DispatchError> {
+    fn _executed_issue_sla_change(amount: Issuing<T>) -> Result<T::SignedFixedPoint, DispatchError> {
         let amount_raw = Self::polkabtc_to_u128(amount)?;
 
         // update the number of issues performed
@@ -520,23 +517,23 @@ impl<T: Config> Module<T> {
         Ok(ret)
     }
 
-    fn dot_to_u128(x: DOT<T>) -> Result<u128, DispatchError> {
+    fn dot_to_u128(x: Backing<T>) -> Result<u128, DispatchError> {
         TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
-    fn u128_to_dot(x: u128) -> Result<DOT<T>, DispatchError> {
-        TryInto::<DOT<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
+    fn u128_to_dot(x: u128) -> Result<Backing<T>, DispatchError> {
+        TryInto::<Backing<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
-    fn polkabtc_to_u128(x: PolkaBTC<T>) -> Result<u128, DispatchError> {
+    fn polkabtc_to_u128(x: Issuing<T>) -> Result<u128, DispatchError> {
         TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
-    fn u128_to_polkabtc(x: u128) -> Result<PolkaBTC<T>, DispatchError> {
-        TryInto::<PolkaBTC<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
+    fn u128_to_polkabtc(x: u128) -> Result<Issuing<T>, DispatchError> {
+        TryInto::<Issuing<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
-    fn polkabtc_to_fixed_point(x: PolkaBTC<T>) -> Result<T::SignedFixedPoint, DispatchError> {
+    fn polkabtc_to_fixed_point(x: Issuing<T>) -> Result<T::SignedFixedPoint, DispatchError> {
         let y = TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError)?;
         let inner = TryInto::<Inner<T>>::try_into(y).map_err(|_| Error::<T>::TryIntoIntError)?;
         Ok(T::SignedFixedPoint::checked_from_integer(inner).ok_or(Error::<T>::TryIntoIntError)?)

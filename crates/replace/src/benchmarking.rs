@@ -26,7 +26,7 @@ fn dummy_public_key() -> BtcPublicKey {
     ])
 }
 
-fn make_free_balance_be<T: currency::Config<currency::Collateral>>(account_id: &T::AccountId, amount: DOT<T>) {
+fn make_free_balance_be<T: currency::Config<currency::Collateral>>(account_id: &T::AccountId, amount: Backing<T>) {
     <<T as currency::Config<currency::Collateral>>::Currency>::make_free_balance_be(account_id, amount);
 }
 

@@ -1,4 +1,4 @@
-//! # PolkaBTC Security Module
+//! # Security Module
 //! Based on the [specification](https://interlay.gitlab.io/polkabtc-spec/spec/security).
 
 #![deny(warnings)]

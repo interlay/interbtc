@@ -24,8 +24,8 @@ frame_support::construct_runtime!(
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 
         // Tokens & Balances
-        DOT: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
-        PolkaBTC: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
+        Backing: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
+        Issuing: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
 
         Collateral: currency::<Instance1>::{Pallet, Call, Storage, Event<T>},
         Treasury: currency::<Instance2>::{Pallet, Call, Storage, Event<T>},
@@ -80,7 +80,7 @@ parameter_types! {
     pub const MaxLocks: u32 = 50;
 }
 
-/// DOT
+/// Backing currency - e.g. DOT/KSM
 impl pallet_balances::Config<pallet_balances::Instance1> for Test {
     type MaxLocks = MaxLocks;
     type Balance = Balance;
@@ -96,7 +96,7 @@ impl pallet_balances::Config<pallet_balances::Instance1> for Test {
     type WeightInfo = ();
 }
 
-/// PolkaBTC
+/// Issuing currency - e.g. PolkaBTC
 impl pallet_balances::Config<pallet_balances::Instance2> for Test {
     type MaxLocks = MaxLocks;
     type Balance = Balance;

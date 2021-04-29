@@ -14,8 +14,8 @@ use frame_support::{
 use frame_system::ensure_signed;
 use sp_runtime::traits::Convert;
 use sp_std::{convert::TryInto, prelude::*};
+use types::{Backing, Issuing};
 pub use types::{CurrencyAdapter, CurrencyId, NativeAsset};
-use types::{PolkaBTC, DOT};
 use xcm::v0::{Error as XcmError, ExecuteXcm, Junction::*, MultiAsset, NetworkId, Order, Xcm};
 use xcm_executor::traits::LocationConversion;
 
@@ -45,15 +45,15 @@ decl_event!(
     pub enum Event<T>
     where
         AccountId = <T as frame_system::Config>::AccountId,
-        DOT = DOT<T>,
-        PolkaBTC = PolkaBTC<T>,
+        Backing = Backing<T>,
+        Issuing = Issuing<T>,
     {
-        /// Transferred DOT to parachain.
+        /// Transferred collateral to parachain.
         /// [origin, para_id, recipient, network, amount]
-        TransferDOT(AccountId, ParaId, AccountId, NetworkId, DOT),
-        /// Transferred PolkaBTC to parachain.
+        TransferDOT(AccountId, ParaId, AccountId, NetworkId, Backing),
+        /// Transferred issued tokens to parachain.
         /// [origin, para_id, recipient, network, amount]
-        TransferPolkaBTC(AccountId, ParaId, AccountId, NetworkId, PolkaBTC),
+        TransferPolkaBTC(AccountId, ParaId, AccountId, NetworkId, Issuing),
     }
 );
 
@@ -64,7 +64,7 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        /// Transfer DOT to parachain.
+        /// Transfer collateral to parachain.
         #[weight = 1000]
         #[transactional]
         pub fn transfer_dot_to_parachain(
@@ -72,7 +72,7 @@ decl_module! {
             para_id: ParaId,
             recipient: T::AccountId,
             network: NetworkId,
-            #[compact] amount: DOT<T>,
+            #[compact] amount: Backing<T>,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
 
@@ -105,7 +105,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Transfer PolkaBTC to parachain.
+        /// Transfer issued tokens to parachain.
         #[weight = 1000]
         #[transactional]
         pub fn transfer_polka_btc_to_parachain(
@@ -113,7 +113,7 @@ decl_module! {
             para_id: ParaId,
             recipient: T::AccountId,
             network: NetworkId,
-            #[compact] amount: PolkaBTC<T>,
+            #[compact] amount: Issuing<T>,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
 

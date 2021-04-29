@@ -283,7 +283,7 @@ parameter_types! {
 }
 
 impl pallet_transaction_payment::Config for Runtime {
-    type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<DOT, ()>;
+    type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<Backing, ()>;
     type TransactionByteFee = TransactionByteFee;
     type WeightToFee = IdentityFee<Balance>;
     type FeeMultiplierUpdate = ();
@@ -331,8 +331,8 @@ type LocationConverter = (
 
 #[cfg(feature = "cumulus-polkadot")]
 type LocalAssetTransactor = CurrencyAdapter<
-    DOT,
-    PolkaBTC,
+    Backing,
+    Issuing,
     // Do a simple punn to convert an AccountId32 MultiLocation into a native chain account ID:
     LocationConverter,
     // Our chain's account ID type (we can't get away without mentioning it explicitly):
@@ -395,7 +395,7 @@ parameter_types! {
     pub const MaxLocks: u32 = 50;
 }
 
-/// DOT
+/// Backing currency - e.g. DOT/KSM
 impl pallet_balances::Config<pallet_balances::Instance1> for Runtime {
     type MaxLocks = MaxLocks;
     /// The type for recording an account's balance.
@@ -413,7 +413,7 @@ impl pallet_balances::Config<pallet_balances::Instance1> for Runtime {
     type WeightInfo = ();
 }
 
-/// PolkaBTC
+/// Issuing currency - e.g. PolkaBTC
 impl pallet_balances::Config<pallet_balances::Instance2> for Runtime {
     type MaxLocks = MaxLocks;
     type Balance = Balance;
@@ -557,8 +557,8 @@ macro_rules! construct_polkabtc_runtime {
                 TransactionPayment: pallet_transaction_payment::{Pallet, Storage},
 
                 // Tokens & Balances
-                DOT: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
-                PolkaBTC: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
+                Backing: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
+                Issuing: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
 
                 Collateral: currency::<Instance1>::{Pallet, Call, Storage, Event<T>},
                 Treasury: currency::<Instance2>::{Pallet, Call, Storage, Event<T>},

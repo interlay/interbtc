@@ -1,4 +1,4 @@
-//! # PolkaBTC BTC-Relay Module
+//! # BTC-Relay Module
 //! Based on the [specification](https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/).
 
 #![deny(warnings)]

@@ -3,19 +3,19 @@ use mocktopus::macros::mockable;
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod collateral {
-    use crate::DOT;
+    use crate::Backing;
     use frame_support::dispatch::DispatchResult;
 
     type CollateralPallet<T> = currency::Pallet<T, currency::Collateral>;
 
-    pub fn get_free_balance<T: currency::Config<currency::Collateral>>(id: &T::AccountId) -> DOT<T> {
+    pub fn get_free_balance<T: currency::Config<currency::Collateral>>(id: &T::AccountId) -> Backing<T> {
         CollateralPallet::<T>::get_free_balance(id)
     }
 
     pub fn transfer<T: currency::Config<currency::Collateral>>(
         sender: T::AccountId,
         receiver: T::AccountId,
-        amount: DOT<T>,
+        amount: Backing<T>,
     ) -> DispatchResult {
         CollateralPallet::<T>::transfer(&sender, &receiver, amount)
     }
@@ -23,19 +23,19 @@ pub(crate) mod collateral {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod treasury {
-    use crate::PolkaBTC;
+    use crate::Issuing;
     use frame_support::dispatch::DispatchResult;
 
     type TreasuryPallet<T> = currency::Pallet<T, currency::Treasury>;
 
-    pub fn get_free_balance<T: currency::Config<currency::Treasury>>(id: T::AccountId) -> PolkaBTC<T> {
+    pub fn get_free_balance<T: currency::Config<currency::Treasury>>(id: T::AccountId) -> Issuing<T> {
         TreasuryPallet::<T>::get_free_balance(&id)
     }
 
     pub fn transfer<T: currency::Config<currency::Treasury>>(
         sender: T::AccountId,
         receiver: T::AccountId,
-        amount: PolkaBTC<T>,
+        amount: Issuing<T>,
     ) -> DispatchResult {
         TreasuryPallet::<T>::transfer(&sender, &receiver, amount)
     }
@@ -43,23 +43,23 @@ pub(crate) mod treasury {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod sla {
-    use crate::{PolkaBTC, DOT};
+    use crate::{Backing, Issuing};
     use frame_support::dispatch::DispatchError;
     use sp_std::vec::Vec;
 
     pub fn get_relayer_rewards<T: sla::Config>(
-        total_reward_polka_btc: PolkaBTC<T>,
-        total_reward_dot: DOT<T>,
-    ) -> Result<Vec<(T::AccountId, PolkaBTC<T>, DOT<T>)>, DispatchError> {
+        total_reward_polka_btc: Issuing<T>,
+        total_reward_dot: Backing<T>,
+    ) -> Result<Vec<(T::AccountId, Issuing<T>, Backing<T>)>, DispatchError> {
         <sla::Pallet<T>>::get_relayer_rewards(total_reward_polka_btc, total_reward_dot)
     }
 
     pub fn get_vault_rewards<T: sla::Config>(
-        total_reward_for_issued_in_polka_btc: PolkaBTC<T>,
-        total_reward_for_locked_in_polka_btc: PolkaBTC<T>,
-        total_reward_for_issued_in_dot: DOT<T>,
-        total_reward_for_locked_in_dot: DOT<T>,
-    ) -> Result<Vec<(T::AccountId, PolkaBTC<T>, DOT<T>)>, DispatchError> {
+        total_reward_for_issued_in_polka_btc: Issuing<T>,
+        total_reward_for_locked_in_polka_btc: Issuing<T>,
+        total_reward_for_issued_in_dot: Backing<T>,
+        total_reward_for_locked_in_dot: Backing<T>,
+    ) -> Result<Vec<(T::AccountId, Issuing<T>, Backing<T>)>, DispatchError> {
         <sla::Pallet<T>>::get_vault_rewards(
             total_reward_for_issued_in_polka_btc,
             total_reward_for_locked_in_polka_btc,

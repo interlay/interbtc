@@ -6,7 +6,7 @@ use crate::{
         RICH_COLLATERAL, RICH_ID,
     },
     sp_api_hidden_includes_decl_storage::hidden_include::traits::OnInitialize,
-    types::{BtcAddress, PolkaBTC, DOT},
+    types::{Backing, BtcAddress, Issuing},
     BtcPublicKey, CurrencySource, DispatchError, Error, UpdatableVault, Vault, VaultStatus, Vaults, Wallet, H256,
 };
 use frame_support::{assert_err, assert_noop, assert_ok, StorageMap};
@@ -75,7 +75,7 @@ fn create_vault_and_issue_tokens(
     // exchange rate 1 Satoshi = 10 Planck (smallest unit of DOT)
     ext::oracle::dots_to_btc::<Test>.mock_safe(move |x| MockResult::Return(Ok(x / 10)));
 
-    // issue PolkaBTC with 200% collateralization of DEFAULT_COLLATERAL
+    // issue tokens with 200% collateralization of DEFAULT_COLLATERAL
     assert_ok!(VaultRegistry::try_increase_to_be_issued_tokens(&id, issue_tokens,));
     let res = VaultRegistry::issue_tokens(&id, issue_tokens);
     assert_ok!(res);
@@ -917,9 +917,9 @@ fn calculate_max_polkabtc_from_collateral_for_threshold_succeeds() {
 fn test_threshold_equivalent_to_legacy_calculation() {
     /// old version
     fn legacy_calculate_max_polkabtc_from_collateral_for_threshold(
-        collateral: DOT<Test>,
+        collateral: Backing<Test>,
         threshold: u128,
-    ) -> Result<PolkaBTC<Test>, DispatchError> {
+    ) -> Result<Issuing<Test>, DispatchError> {
         let granularity = 5;
         // convert the collateral to polkabtc
         let collateral_in_polka_btc = ext::oracle::dots_to_btc::<Test>(collateral)?;
@@ -954,9 +954,9 @@ fn test_threshold_equivalent_to_legacy_calculation() {
 fn test_get_required_collateral_threshold_equivalent_to_legacy_calculation_() {
     // old version
     fn legacy_get_required_collateral_for_polkabtc_with_threshold(
-        btc: PolkaBTC<Test>,
+        btc: Issuing<Test>,
         threshold: u128,
-    ) -> Result<DOT<Test>, DispatchError> {
+    ) -> Result<Backing<Test>, DispatchError> {
         let granularity = 5;
         let btc = VaultRegistry::polkabtc_to_u128(btc)?;
         let btc = U256::from(btc);

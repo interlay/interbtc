@@ -91,7 +91,7 @@ pub mod pallet {
 
 // "Internal" functions, callable by code.
 impl<T: Config<I>, I: 'static> Pallet<T, I> {
-    /// Total supply of DOT
+    /// Total supply
     pub fn get_total_supply() -> BalanceOf<T, I> {
         T::Currency::total_issuance()
     }

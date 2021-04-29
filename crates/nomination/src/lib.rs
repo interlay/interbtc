@@ -1,4 +1,4 @@
-//! # PolkaBTC Nomination Module
+//! # Nomination Module
 
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
@@ -30,7 +30,7 @@ use frame_system::{ensure_root, ensure_signed};
 use primitive_types::H256;
 use sp_arithmetic::FixedPointNumber;
 use sp_runtime::traits::{CheckedAdd, Zero};
-use types::{DefaultOperator, RichOperator, UnsignedFixedPoint, DOT};
+use types::{Backing, DefaultOperator, RichOperator, UnsignedFixedPoint};
 pub use types::{Nominator, Operator};
 use vault_registry::LiquidationTarget;
 
@@ -87,7 +87,7 @@ decl_storage! {
         NominatorUnbondingPeriod get(fn get_nominator_unbonding_period) config(): T::BlockNumber;
 
         /// Map of Vault Operators
-        Operators: map hasher(blake2_128_concat) T::AccountId => Operator<T::AccountId, T::BlockNumber, DOT<T>>;
+        Operators: map hasher(blake2_128_concat) T::AccountId => Operator<T::AccountId, T::BlockNumber, Backing<T>>;
     }
 }
 
@@ -97,30 +97,30 @@ decl_event!(
     where
         AccountId = <T as frame_system::Config>::AccountId,
         BlockNumber = <T as frame_system::Config>::BlockNumber,
-        DOT = DOT<T>,
+        Backing = Backing<T>,
     {
         // [operator_id]
         NominationOptIn(AccountId),
         // [operator_id]
         NominationOptOut(AccountId),
         // [nominator_id, operator_id, collateral]
-        IncreaseNominatedCollateral(AccountId, AccountId, DOT),
+        IncreaseNominatedCollateral(AccountId, AccountId, Backing),
         // [nominator_id, operator_id, collateral]
-        WithdrawNominatedCollateral(AccountId, AccountId, DOT),
+        WithdrawNominatedCollateral(AccountId, AccountId, Backing),
         // [request_id, operator_id, maturity_block, collateral]
-        RequestOperatorCollateralWithdrawal(H256, AccountId, BlockNumber, DOT),
+        RequestOperatorCollateralWithdrawal(H256, AccountId, BlockNumber, Backing),
         // [operator_id, collateral]
-        ExecuteOperatorCollateralWithdrawal(AccountId, DOT),
+        ExecuteOperatorCollateralWithdrawal(AccountId, Backing),
         // [request_id, operator_id, collateral]
-        CancelOperatorCollateralWithdrawal(H256, AccountId, DOT),
+        CancelOperatorCollateralWithdrawal(H256, AccountId, Backing),
         // [request_id, nominator_id, operator_id, maturity_block, collateral]
-        RequestNominatorCollateralWithdrawal(H256, AccountId, AccountId, BlockNumber, DOT),
+        RequestNominatorCollateralWithdrawal(H256, AccountId, AccountId, BlockNumber, Backing),
         // [nominator_id, operator_id, collateral]
-        ExecuteNominatorCollateralWithdrawal(AccountId, AccountId, DOT),
+        ExecuteNominatorCollateralWithdrawal(AccountId, AccountId, Backing),
         // [request_id, nominator_id, operator_id, collateral]
-        CancelNominatorCollateralWithdrawal(H256, AccountId, AccountId, DOT),
+        CancelNominatorCollateralWithdrawal(H256, AccountId, AccountId, Backing),
         // [operator_id, collateral, status]
-        SlashCollateral(AccountId, DOT, VaultStatus),
+        SlashCollateral(AccountId, Backing, VaultStatus),
     }
 );
 
@@ -157,7 +157,7 @@ decl_module! {
 
         #[weight = <T as Config>::WeightInfo::deposit_nominated_collateral()]
         #[transactional]
-        fn deposit_nominated_collateral(origin, operator_id: T::AccountId, amount: DOT<T>) -> DispatchResult {
+        fn deposit_nominated_collateral(origin, operator_id: T::AccountId, amount: Backing<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ext::security::ensure_parachain_status_running::<T>()?;
             Self::_deposit_nominated_collateral(&sender, &operator_id, amount)
@@ -165,7 +165,7 @@ decl_module! {
 
         #[weight = <T as Config>::WeightInfo::request_collateral_withdrawal()]
         #[transactional]
-        fn request_collateral_withdrawal(origin, operator_id: T::AccountId, amount: DOT<T>) -> DispatchResult {
+        fn request_collateral_withdrawal(origin, operator_id: T::AccountId, amount: Backing<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ext::security::ensure_parachain_status_running::<T>()?;
             Self::_request_collateral_withdrawal(&sender, &operator_id, amount)
@@ -226,7 +226,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Liquidates a vault, transferring all of its token balances to the
-    /// `LiquidationVault`, as well as the DOT collateral
+    /// `LiquidationVault`, as well as the collateral
     ///
     /// # Arguments
     /// * `vault_id` - the id of the vault to liquidate
@@ -260,7 +260,7 @@ impl<T: Config> Module<T> {
     fn _request_collateral_withdrawal(
         withdrawer_id: &T::AccountId,
         operator_id: &T::AccountId,
-        amount: DOT<T>,
+        amount: Backing<T>,
     ) -> DispatchResult {
         if withdrawer_id.eq(operator_id) {
             Self::request_operator_withdrawal(operator_id, amount)?
@@ -270,7 +270,10 @@ impl<T: Config> Module<T> {
         ext::vault_registry::decrease_backing_collateral::<T>(operator_id, amount)
     }
 
-    pub fn request_operator_withdrawal(operator_id: &T::AccountId, collateral_to_withdraw: DOT<T>) -> DispatchResult {
+    pub fn request_operator_withdrawal(
+        operator_id: &T::AccountId,
+        collateral_to_withdraw: Backing<T>,
+    ) -> DispatchResult {
         let mut operator = Self::get_rich_operator_from_id(operator_id)?;
         let request_id = ext::security::get_secure_id::<T>(operator_id);
         let height = ext::security::active_block_number::<T>();
@@ -304,7 +307,7 @@ impl<T: Config> Module<T> {
     pub fn request_nominator_withdrawal(
         operator_id: &T::AccountId,
         nominator_id: &T::AccountId,
-        collateral_to_withdraw: DOT<T>,
+        collateral_to_withdraw: Backing<T>,
     ) -> DispatchResult {
         let mut operator = Self::get_rich_operator_from_id(operator_id)?;
         let request_id = ext::security::get_secure_id::<T>(operator_id);
@@ -343,7 +346,7 @@ impl<T: Config> Module<T> {
     pub fn _deposit_nominated_collateral(
         nominator_id: &T::AccountId,
         operator_id: &T::AccountId,
-        collateral: DOT<T>,
+        collateral: Backing<T>,
     ) -> DispatchResult {
         ensure!(Self::is_nomination_enabled(), Error::<T>::VaultNominationDisabled);
         ensure!(
@@ -364,7 +367,7 @@ impl<T: Config> Module<T> {
     pub fn _withdraw_nominated_collateral(
         nominator_id: &T::AccountId,
         operator_id: &T::AccountId,
-        collateral: DOT<T>,
+        collateral: Backing<T>,
     ) -> DispatchResult {
         let mut operator = Self::get_rich_operator_from_id(operator_id)?;
         operator.withdraw_nominated_collateral(nominator_id.clone(), collateral)?;
@@ -379,7 +382,7 @@ impl<T: Config> Module<T> {
     pub fn slash_nominators(
         vault_id: T::AccountId,
         status: VaultStatus,
-        total_slashed_amount: DOT<T>,
+        total_slashed_amount: Backing<T>,
     ) -> DispatchResult {
         let mut operator = Self::get_rich_operator_from_id(&vault_id)?;
         operator.slash_nominators(status, total_slashed_amount)?;
@@ -420,19 +423,19 @@ impl<T: Config> Module<T> {
         Ok(<Operators<T>>::contains_key(&operator_id))
     }
 
-    pub fn get_total_nominated_collateral(operator_id: &T::AccountId) -> Result<DOT<T>, DispatchError> {
+    pub fn get_total_nominated_collateral(operator_id: &T::AccountId) -> Result<Backing<T>, DispatchError> {
         let operator = Self::get_rich_operator_from_id(operator_id)?;
         Ok(operator.data.total_nominated_collateral)
     }
 
-    pub fn get_collateral_to_be_withdrawn(operator_id: &T::AccountId) -> Result<DOT<T>, DispatchError> {
+    pub fn get_collateral_to_be_withdrawn(operator_id: &T::AccountId) -> Result<Backing<T>, DispatchError> {
         let operator = Self::get_rich_operator_from_id(operator_id)?;
         Ok(operator.data.collateral_to_be_withdrawn)
     }
 
     pub fn get_nominators(
         operator_id: &T::AccountId,
-    ) -> Result<Vec<(T::AccountId, Nominator<T::AccountId, T::BlockNumber, DOT<T>>)>, DispatchError> {
+    ) -> Result<Vec<(T::AccountId, Nominator<T::AccountId, T::BlockNumber, Backing<T>>)>, DispatchError> {
         let operator = Self::get_rich_operator_from_id(operator_id)?;
         Ok(operator.get_nominators())
     }
@@ -449,12 +452,12 @@ impl<T: Config> Module<T> {
         Ok(Self::get_operator_from_id(operator_id)?.into())
     }
 
-    fn dot_to_u128(x: DOT<T>) -> Result<u128, DispatchError> {
+    fn dot_to_u128(x: Backing<T>) -> Result<u128, DispatchError> {
         TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
-    fn u128_to_dot(x: u128) -> Result<DOT<T>, DispatchError> {
-        TryInto::<DOT<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
+    fn u128_to_dot(x: u128) -> Result<Backing<T>, DispatchError> {
+        TryInto::<Backing<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 }
 

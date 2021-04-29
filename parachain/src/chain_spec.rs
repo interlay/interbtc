@@ -1,7 +1,7 @@
 use btc_parachain_runtime::{
-    AccountId, BTCRelayConfig, BlockNumber, DOTConfig, ExchangeRateOracleConfig, FeeConfig, GenesisConfig, IssueConfig,
-    NominationConfig, PolkaBTCConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature, SlaConfig, SudoConfig,
-    SystemConfig, VaultRegistryConfig, DAYS, HOURS, MILLISECS_PER_BLOCK, TARGET_SPACING, WASM_BINARY,
+    AccountId, BTCRelayConfig, BackingConfig, BlockNumber, ExchangeRateOracleConfig, FeeConfig, GenesisConfig,
+    IssueConfig, IssuingConfig, NominationConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature, SlaConfig,
+    SudoConfig, SystemConfig, VaultRegistryConfig, DAYS, HOURS, MILLISECS_PER_BLOCK, TARGET_SPACING, WASM_BINARY,
 };
 
 const BITCOIN_SPACING_MS: u32 = TARGET_SPACING * 1000;
@@ -365,10 +365,10 @@ fn testnet_genesis(
             // Assign network admin rights.
             key: root_key.clone(),
         },
-        pallet_balances_Instance1: DOTConfig {
+        pallet_balances_Instance1: BackingConfig {
             balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
         },
-        pallet_balances_Instance2: PolkaBTCConfig { balances: vec![] },
+        pallet_balances_Instance2: IssuingConfig { balances: vec![] },
         exchange_rate_oracle: ExchangeRateOracleConfig {
             authorized_oracles,
             max_delay: 3600000, // one hour

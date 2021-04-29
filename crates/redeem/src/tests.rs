@@ -1,6 +1,6 @@
 use crate::{ext, mock::*};
 
-use crate::types::{PolkaBTC, RedeemRequest, RedeemRequestStatus, DOT};
+use crate::types::{Backing, Issuing, RedeemRequest, RedeemRequestStatus};
 use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
@@ -26,15 +26,15 @@ macro_rules! assert_emitted {
     };
 }
 
-fn btc_to_u128(amount: PolkaBTC<Test>) -> Result<u128, DispatchError> {
+fn btc_to_u128(amount: Issuing<Test>) -> Result<u128, DispatchError> {
     TryInto::<u128>::try_into(amount).map_err(|_e| TestError::TryIntoIntError.into())
 }
 
-fn u128_to_dot(x: u128) -> Result<DOT<Test>, DispatchError> {
-    TryInto::<DOT<Test>>::try_into(x).map_err(|_| TestError::TryIntoIntError.into())
+fn u128_to_dot(x: u128) -> Result<Backing<Test>, DispatchError> {
+    TryInto::<Backing<Test>>::try_into(x).map_err(|_| TestError::TryIntoIntError.into())
 }
 
-fn btcdot_parity(btc: PolkaBTC<Test>) -> Result<DOT<Test>, DispatchError> {
+fn btcdot_parity(btc: Issuing<Test>) -> Result<Backing<Test>, DispatchError> {
     let dot = btc_to_u128(btc)?;
     u128_to_dot(dot)
 }

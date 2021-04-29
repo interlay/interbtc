@@ -28,7 +28,7 @@ pub(crate) mod btc_relay {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
-    use crate::{PolkaBTC, DOT};
+    use crate::{Backing, Issuing};
     use btc_relay::BtcAddress;
     use frame_support::dispatch::{DispatchError, DispatchResult};
     use vault_registry::types::CurrencySource;
@@ -36,29 +36,29 @@ pub(crate) mod vault_registry {
     pub fn slash_collateral<T: vault_registry::Config>(
         from: CurrencySource<T>,
         to: CurrencySource<T>,
-        amount: DOT<T>,
+        amount: Backing<T>,
     ) -> DispatchResult {
         <vault_registry::Pallet<T>>::slash_collateral(from, to, amount)
     }
     pub fn replace_tokens<T: vault_registry::Config>(
         old_vault_id: T::AccountId,
         new_vault_id: T::AccountId,
-        tokens: PolkaBTC<T>,
-        collateral: DOT<T>,
+        tokens: Issuing<T>,
+        collateral: Backing<T>,
     ) -> DispatchResult {
         <vault_registry::Pallet<T>>::replace_tokens(&old_vault_id, &new_vault_id, tokens, collateral)
     }
 
     pub fn get_auctionable_tokens<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-    ) -> Result<PolkaBTC<T>, DispatchError> {
+    ) -> Result<Issuing<T>, DispatchError> {
         <vault_registry::Pallet<T>>::get_auctionable_tokens(vault_id)
     }
 
     pub fn cancel_replace_tokens<T: vault_registry::Config>(
         old_vault_id: &T::AccountId,
         new_vault_id: &T::AccountId,
-        tokens: PolkaBTC<T>,
+        tokens: Issuing<T>,
     ) -> DispatchResult {
         <vault_registry::Pallet<T>>::cancel_replace_tokens(old_vault_id, new_vault_id, tokens)
     }
@@ -69,7 +69,7 @@ pub(crate) mod vault_registry {
 
     pub fn try_increase_to_be_redeemed_tokens<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-        tokens: PolkaBTC<T>,
+        tokens: Issuing<T>,
     ) -> DispatchResult {
         <vault_registry::Pallet<T>>::try_increase_to_be_redeemed_tokens(vault_id, tokens)
     }
@@ -93,79 +93,79 @@ pub(crate) mod vault_registry {
 
     pub fn try_increase_to_be_issued_tokens<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-        amount: PolkaBTC<T>,
+        amount: Issuing<T>,
     ) -> Result<(), DispatchError> {
         <vault_registry::Pallet<T>>::try_increase_to_be_issued_tokens(vault_id, amount)
     }
 
     pub fn requestable_to_be_replaced_tokens<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-    ) -> Result<PolkaBTC<T>, DispatchError> {
+    ) -> Result<Issuing<T>, DispatchError> {
         <vault_registry::Pallet<T>>::requestable_to_be_replaced_tokens(vault_id)
     }
 
     pub fn try_increase_to_be_replaced_tokens<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-        amount: PolkaBTC<T>,
-        griefing_collateral: DOT<T>,
-    ) -> Result<(PolkaBTC<T>, DOT<T>), DispatchError> {
+        amount: Issuing<T>,
+        griefing_collateral: Backing<T>,
+    ) -> Result<(Issuing<T>, Backing<T>), DispatchError> {
         <vault_registry::Pallet<T>>::try_increase_to_be_replaced_tokens(vault_id, amount, griefing_collateral)
     }
 
     pub fn decrease_to_be_replaced_tokens<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-        tokens: PolkaBTC<T>,
-    ) -> Result<(PolkaBTC<T>, DOT<T>), DispatchError> {
+        tokens: Issuing<T>,
+    ) -> Result<(Issuing<T>, Backing<T>), DispatchError> {
         <vault_registry::Pallet<T>>::decrease_to_be_replaced_tokens(vault_id, tokens)
     }
 
     pub fn lock_additional_collateral<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-        amount: DOT<T>,
+        amount: Backing<T>,
     ) -> Result<(), DispatchError> {
         <vault_registry::Pallet<T>>::_lock_additional_collateral(vault_id, amount)
     }
 
     pub fn force_withdraw_collateral<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-        amount: DOT<T>,
+        amount: Backing<T>,
     ) -> Result<(), DispatchError> {
         <vault_registry::Pallet<T>>::force_withdraw_collateral(vault_id, amount)
     }
 
     pub fn is_allowed_to_withdraw_collateral<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-        amount: DOT<T>,
+        amount: Backing<T>,
     ) -> Result<bool, DispatchError> {
         <vault_registry::Pallet<T>>::is_allowed_to_withdraw_collateral(vault_id, amount)
     }
 
     pub fn calculate_collateral<T: vault_registry::Config>(
-        collateral: DOT<T>,
-        numerator: PolkaBTC<T>,
-        denominator: PolkaBTC<T>,
-    ) -> Result<DOT<T>, DispatchError> {
+        collateral: Backing<T>,
+        numerator: Issuing<T>,
+        denominator: Issuing<T>,
+    ) -> Result<Backing<T>, DispatchError> {
         <vault_registry::Pallet<T>>::calculate_collateral(collateral, numerator, denominator)
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod collateral {
-    use crate::DOT;
+    use crate::Backing;
     use frame_support::dispatch::DispatchResult;
 
     type CollateralPallet<T> = currency::Pallet<T, currency::Collateral>;
 
     pub fn release_collateral<T: currency::Config<currency::Collateral>>(
         sender: &T::AccountId,
-        amount: DOT<T>,
+        amount: Backing<T>,
     ) -> DispatchResult {
         CollateralPallet::<T>::release(sender, amount)
     }
 
     pub fn lock_collateral<T: currency::Config<currency::Collateral>>(
         sender: T::AccountId,
-        amount: DOT<T>,
+        amount: Backing<T>,
     ) -> DispatchResult {
         CollateralPallet::<T>::lock(&sender, amount)
     }
@@ -198,24 +198,24 @@ pub(crate) mod security {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod oracle {
-    use crate::types::{PolkaBTC, DOT};
+    use crate::types::{Backing, Issuing};
     use frame_support::dispatch::DispatchError;
 
-    pub fn btc_to_dots<T: exchange_rate_oracle::Config>(amount: PolkaBTC<T>) -> Result<DOT<T>, DispatchError> {
+    pub fn btc_to_dots<T: exchange_rate_oracle::Config>(amount: Issuing<T>) -> Result<Backing<T>, DispatchError> {
         <exchange_rate_oracle::Pallet<T>>::btc_to_dots(amount)
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod fee {
-    use crate::types::DOT;
+    use crate::types::Backing;
     use frame_support::dispatch::DispatchError;
 
-    pub fn get_replace_griefing_collateral<T: fee::Config>(amount: DOT<T>) -> Result<DOT<T>, DispatchError> {
+    pub fn get_replace_griefing_collateral<T: fee::Config>(amount: Backing<T>) -> Result<Backing<T>, DispatchError> {
         <fee::Pallet<T>>::get_replace_griefing_collateral(amount)
     }
 
-    pub fn get_auction_redeem_fee<T: fee::Config>(amount: DOT<T>) -> Result<DOT<T>, DispatchError> {
+    pub fn get_auction_redeem_fee<T: fee::Config>(amount: Backing<T>) -> Result<Backing<T>, DispatchError> {
         <fee::Pallet<T>>::get_auction_redeem_fee(amount)
     }
 }

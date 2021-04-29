@@ -17,24 +17,24 @@ use sp_runtime::{
 use std::sync::Arc;
 
 #[rpc]
-pub trait ExchangeRateOracleApi<BlockHash, PolkaBTC, DOT>
+pub trait ExchangeRateOracleApi<BlockHash, Issuing, Backing>
 where
-    PolkaBTC: Codec + MaybeDisplay + MaybeFromStr,
-    DOT: Codec + MaybeDisplay + MaybeFromStr,
+    Issuing: Codec + MaybeDisplay + MaybeFromStr,
+    Backing: Codec + MaybeDisplay + MaybeFromStr,
 {
     #[rpc(name = "exchangeRateOracle_btcToDots")]
     fn btc_to_dots(
         &self,
-        amount: BalanceWrapper<PolkaBTC>,
+        amount: BalanceWrapper<Issuing>,
         at: Option<BlockHash>,
-    ) -> JsonRpcResult<BalanceWrapper<DOT>>;
+    ) -> JsonRpcResult<BalanceWrapper<Backing>>;
 
     #[rpc(name = "exchangeRateOracle_dotsToBtc")]
     fn dots_to_btc(
         &self,
-        amount: BalanceWrapper<DOT>,
+        amount: BalanceWrapper<Backing>,
         at: Option<BlockHash>,
-    ) -> JsonRpcResult<BalanceWrapper<PolkaBTC>>;
+    ) -> JsonRpcResult<BalanceWrapper<Issuing>>;
 }
 
 /// A struct that implements the [`ExchangeRateOracleApi`].
@@ -87,40 +87,40 @@ fn handle_response<T, E: std::fmt::Debug>(
     )
 }
 
-impl<C, Block, PolkaBTC, DOT> ExchangeRateOracleApi<<Block as BlockT>::Hash, PolkaBTC, DOT>
+impl<C, Block, Issuing, Backing> ExchangeRateOracleApi<<Block as BlockT>::Hash, Issuing, Backing>
     for ExchangeRateOracle<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-    C::Api: ExchangeRateOracleRuntimeApi<Block, PolkaBTC, DOT>,
-    PolkaBTC: Codec + MaybeDisplay + MaybeFromStr,
-    DOT: Codec + MaybeDisplay + MaybeFromStr,
+    C::Api: ExchangeRateOracleRuntimeApi<Block, Issuing, Backing>,
+    Issuing: Codec + MaybeDisplay + MaybeFromStr,
+    Backing: Codec + MaybeDisplay + MaybeFromStr,
 {
     fn btc_to_dots(
         &self,
-        amount: BalanceWrapper<PolkaBTC>,
+        amount: BalanceWrapper<Issuing>,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> JsonRpcResult<BalanceWrapper<DOT>> {
+    ) -> JsonRpcResult<BalanceWrapper<Backing>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         handle_response(
             api.btc_to_dots(&at, amount),
-            "Unable to convert PolkaBTC to DOT.".into(),
+            "Unable to convert Issuing to Backing.".into(),
         )
     }
 
     fn dots_to_btc(
         &self,
-        amount: BalanceWrapper<DOT>,
+        amount: BalanceWrapper<Backing>,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> JsonRpcResult<BalanceWrapper<PolkaBTC>> {
+    ) -> JsonRpcResult<BalanceWrapper<Issuing>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         handle_response(
             api.dots_to_btc(&at, amount),
-            "Unable to convert DOT to PolkaBTC.".into(),
+            "Unable to convert Backing to Issuing.".into(),
         )
     }
 }

@@ -1,4 +1,4 @@
-//! # PolkaBTC Oracle Module
+//! # Exchange Rate Oracle Module
 //! Based on the [specification](https://interlay.gitlab.io/polkabtc-spec/spec/oracle.html).
 
 #![deny(warnings)]
@@ -42,11 +42,11 @@ use sp_arithmetic::{
 };
 use sp_std::{convert::TryInto, vec::Vec};
 
-pub(crate) type DOT<T> = <<T as currency::Config<currency::Instance1>>::Currency as Currency<
+pub(crate) type Backing<T> = <<T as currency::Config<currency::Instance1>>::Currency as Currency<
     <T as frame_system::Config>::AccountId,
 >>::Balance;
 
-pub(crate) type PolkaBTC<T> = <<T as currency::Config<currency::Instance2>>::Currency as Currency<
+pub(crate) type Issuing<T> = <<T as currency::Config<currency::Instance2>>::Currency as Currency<
     <T as frame_system::Config>::AccountId,
 >>::Balance;
 
@@ -270,7 +270,7 @@ impl<T: Config> Module<T> {
         TryInto::<u128>::try_into(x).map_err(|_e| Error::<T>::TryIntoIntError.into())
     }
 
-    pub fn btc_to_dots(amount: PolkaBTC<T>) -> Result<DOT<T>, DispatchError> {
+    pub fn btc_to_dots(amount: Issuing<T>) -> Result<Backing<T>, DispatchError> {
         let rate = Self::get_exchange_rate()?;
         let raw_amount = Self::into_u128(amount)?;
         let converted = rate.checked_mul_int(raw_amount).ok_or(Error::<T>::ArithmeticOverflow)?;
@@ -278,7 +278,7 @@ impl<T: Config> Module<T> {
         Ok(result)
     }
 
-    pub fn dots_to_btc(amount: DOT<T>) -> Result<PolkaBTC<T>, DispatchError> {
+    pub fn dots_to_btc(amount: Backing<T>) -> Result<Issuing<T>, DispatchError> {
         let rate = Self::get_exchange_rate()?;
         let raw_amount = Self::into_u128(amount)?;
         if raw_amount == 0 {

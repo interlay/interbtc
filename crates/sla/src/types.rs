@@ -2,9 +2,9 @@ use crate::Config;
 use codec::{Decode, Encode};
 use sp_arithmetic::FixedPointNumber;
 
-pub enum VaultEvent<PolkaBTC> {
+pub enum VaultEvent<Issuing> {
     RedeemFailure,
-    ExecutedIssue(PolkaBTC),
+    ExecutedIssue(Issuing),
     SubmittedIssueProof,
     Refunded,
 }
