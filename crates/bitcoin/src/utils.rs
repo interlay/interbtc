@@ -4,6 +4,15 @@ use sp_std::{prelude::*, vec};
 
 use crate::types::H256Le;
 
+const P2PKH_IN_WEIGHT: u32 = 148 * 4;
+const P2PKH_OUT_SIZE: u32 = 34;
+const P2SH_OUT_SIZE: u32 = 32;
+const P2WPKH_OUT_SIZE: u32 = 31;
+const PUBKEY_SIZE: u32 = 33;
+const SIGNATURE_SIZE: u32 = 72;
+const OP_RETURN_OUT_SIZE: u32 = 34;
+const P2WPKH_IN_WEIGHT: u32 = 271; // 67.75 * 4;
+
 /// Computes Bitcoin's double SHA256 hash over a LE byte encoded input
 ///
 /// # Arguments
@@ -93,6 +102,106 @@ pub fn sha256d_le(bytes: &[u8]) -> H256Le {
     H256Le::from_bytes_le(&sha256d(bytes))
 }
 
+pub enum InputType {
+    P2PKH,
+    P2SH { num_signatures: u32, num_pubkeys: u32 },
+    P2WPKHv0,
+}
+
+pub struct TransactionInputMetadata {
+    pub script_type: InputType,
+    pub count: u32,
+}
+
+pub struct TransactionOutputMetadata {
+    pub num_p2pkh: u32,
+    pub num_p2sh: u32,
+    pub num_p2wpkh: u32,
+    pub num_op_return: u32,
+}
+
+const fn script_length_size(length: u32) -> u32 {
+    if length < 75 {
+        1
+    } else if length <= 255 {
+        2
+    } else if length <= 65535 {
+        3
+    } else {
+        5
+    }
+}
+
+const fn var_int_size(length: u32) -> u32 {
+    if length < 253 {
+        1
+    } else if length < 65535 {
+        3
+    } else if length < 4294967295 {
+        5
+    } else {
+        9
+    }
+}
+
+const fn transaction_header_weight(input_type: InputType, input_count: u32, output_count: u32) -> u32 {
+    let extra_witness_weight = match input_type {
+        InputType::P2PKH | InputType::P2SH { .. } => 0,
+        InputType::P2WPKHv0 => var_int_size(input_count) + 2, // sigwit marker, flag & witness element count
+    };
+
+    let header_bytes = 4 // nVersion
+        + var_int_size(input_count) // number of inputs
+        + var_int_size(output_count) // number of outputs
+        + 4; // nLockTime
+
+    header_bytes * 4 + extra_witness_weight
+}
+
+/// Bytes in the witnesses cost only 1/4th of the cost to transmit. In order to calculate the cost
+/// in fixed point math, this function calculates the weight instead of the virtual size, which is
+/// equal to the virtual size multiplied by 4.
+/// This code is based on https://github.com/jlopp/bitcoin-transaction-size-calculator
+const fn transaction_weight(input: TransactionInputMetadata, output: TransactionOutputMetadata) -> u32 {
+    let input_weight = input.count
+        * match input.script_type {
+            InputType::P2PKH => P2PKH_IN_WEIGHT,
+            InputType::P2WPKHv0 => P2WPKH_IN_WEIGHT,
+            InputType::P2SH {
+                num_signatures,
+                num_pubkeys,
+            } => {
+                let redeem_script_size = 1              // OP_M
+                    + num_pubkeys * (1 + PUBKEY_SIZE)   // OP_PUSH33 <pubkey>
+                    + 1                                 // OP_N
+                    + 1; // OP_CHECKMULTISIG
+                let script_sig_size = 1                     // size(0)
+                    + num_signatures * (1 + SIGNATURE_SIZE) // size(SIGNATURE_SIZE) + signature
+                    + script_length_size(redeem_script_size)
+                    + redeem_script_size;
+                let input_size = 32 + 4 + var_int_size(script_sig_size) + script_sig_size + 4;
+
+                input_size * 4
+            }
+        };
+
+    let output_weight = 4
+        * (output.num_p2pkh * P2PKH_OUT_SIZE
+            + output.num_p2sh * P2SH_OUT_SIZE
+            + output.num_p2wpkh * P2WPKH_OUT_SIZE
+            + output.num_op_return * OP_RETURN_OUT_SIZE);
+
+    let output_count = output.num_op_return + output.num_p2pkh + output.num_p2sh + output.num_p2wpkh;
+    let header_weight = transaction_header_weight(input.script_type, input.count, output_count);
+
+    input_weight + output_weight + header_weight
+}
+
+pub const fn virtual_transaction_size(input: TransactionInputMetadata, output: TransactionOutputMetadata) -> u32 {
+    let weight = transaction_weight(input, output);
+    (weight + 3) / 4
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -112,6 +221,95 @@ mod tests {
                 106, 164, 85, 164, 71, 176, 212, 225, 112
             ],
             sha256d(b"Hello World!")
+        );
+    }
+
+    #[test]
+    fn test_transaction_weight() {
+        assert_eq!(
+            transaction_weight(
+                TransactionInputMetadata {
+                    count: 2,
+                    script_type: InputType::P2PKH
+                },
+                TransactionOutputMetadata {
+                    num_op_return: 1,
+                    num_p2pkh: 3,
+                    num_p2sh: 4,
+                    num_p2wpkh: 5
+                }
+            ),
+            2764 + 4 * OP_RETURN_OUT_SIZE
+        );
+
+        assert_eq!(
+            transaction_weight(
+                TransactionInputMetadata {
+                    count: 1,
+                    script_type: InputType::P2PKH
+                },
+                TransactionOutputMetadata {
+                    num_op_return: 0,
+                    num_p2pkh: 1,
+                    num_p2sh: 0,
+                    num_p2wpkh: 0
+                }
+            ),
+            768
+        );
+
+        assert_eq!(
+            transaction_weight(
+                TransactionInputMetadata {
+                    count: 3,
+                    script_type: InputType::P2SH {
+                        num_pubkeys: 9,
+                        num_signatures: 7
+                    }
+                },
+                TransactionOutputMetadata {
+                    num_op_return: 1,
+                    num_p2pkh: 5,
+                    num_p2sh: 3,
+                    num_p2wpkh: 4
+                }
+            ),
+            12004 + OP_RETURN_OUT_SIZE * 4
+        );
+
+        assert_eq!(
+            transaction_weight(
+                TransactionInputMetadata {
+                    count: 3,
+                    script_type: InputType::P2WPKHv0
+                },
+                TransactionOutputMetadata {
+                    num_op_return: 1,
+                    num_p2pkh: 5,
+                    num_p2sh: 3,
+                    num_p2wpkh: 4
+                }
+            ),
+            2416 + OP_RETURN_OUT_SIZE * 4
+        );
+    }
+
+    #[test]
+    fn test_virtual_transaction_size() {
+        assert_eq!(
+            virtual_transaction_size(
+                TransactionInputMetadata {
+                    count: 2,
+                    script_type: InputType::P2PKH
+                },
+                TransactionOutputMetadata {
+                    num_op_return: 1,
+                    num_p2pkh: 2,
+                    num_p2sh: 0,
+                    num_p2wpkh: 0,
+                }
+            ),
+            374 + OP_RETURN_OUT_SIZE
         );
     }
 }

@@ -5,6 +5,7 @@ use btc_parachain_runtime::{
     TARGET_SPACING, WASM_BINARY,
 };
 
+use bitcoin::utils::{virtual_transaction_size, InputType, TransactionInputMetadata, TransactionOutputMetadata};
 const BITCOIN_SPACING_MS: u32 = TARGET_SPACING * 1000;
 const BLOCK_SPACING: BlockNumber = BITCOIN_SPACING_MS / MILLISECS_PER_BLOCK as BlockNumber;
 
@@ -390,7 +391,18 @@ fn testnet_genesis(
         },
         issue: IssueConfig { issue_period: DAYS },
         redeem: RedeemConfig {
-            redeem_transaction_size: 600,
+            redeem_transaction_size: virtual_transaction_size(
+                TransactionInputMetadata {
+                    count: 2,
+                    script_type: InputType::P2PKH,
+                },
+                TransactionOutputMetadata {
+                    num_op_return: 1,
+                    num_p2pkh: 2,
+                    num_p2sh: 0,
+                    num_p2wpkh: 0,
+                },
+            ),
             redeem_period: DAYS,
             redeem_btc_dust_value: 1000,
         },

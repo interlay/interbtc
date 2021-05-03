@@ -880,7 +880,7 @@ impl ExtBuilder {
             .unwrap();
 
         redeem::GenesisConfig::<Runtime> {
-            redeem_transaction_size: 600,
+            redeem_transaction_size: 400,
             redeem_period: 10,
             redeem_btc_dust_value: 1,
         }
