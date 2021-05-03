@@ -610,7 +610,9 @@ impl<T: Config> Module<T> {
             let size: u32 = Self::redeem_transaction_size();
             let satoshi_per_bytes: u32 = ext::oracle::satoshi_per_bytes::<T>().fast;
 
-            let fee = (size as u64) * (satoshi_per_bytes as u64);
+            let fee = (size as u64)
+                .checked_mul(satoshi_per_bytes as u64)
+                .ok_or(Error::<T>::ArithmeticOverflow)?;
             fee.try_into().map_err(|_| Error::<T>::TryIntoIntError.into())
         }
     }
