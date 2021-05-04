@@ -73,9 +73,18 @@ impl pallet_balances::Config for Test {
     type WeightInfo = ();
 }
 
+parameter_types! {
+    pub const CurrencyName: &'static [u8] = b"Polkadot";
+    pub const CurrencySymbol: &'static [u8] = b"DOT";
+    pub const CurrencyDecimals: u8 = 10;
+}
+
 impl Config for Test {
     type Event = TestEvent;
     type Currency = Balances;
+    type Name = CurrencyName;
+    type Symbol = CurrencySymbol;
+    type Decimals = CurrencyDecimals;
 }
 
 pub type TestEvent = Event;

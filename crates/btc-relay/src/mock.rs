@@ -114,14 +114,32 @@ impl pallet_balances::Config<pallet_balances::Instance2> for Test {
     type WeightInfo = ();
 }
 
+parameter_types! {
+    pub const BackingName: &'static [u8] = b"Polkadot";
+    pub const BackingSymbol: &'static [u8] = b"DOT";
+    pub const BackingDecimals: u8 = 10;
+}
+
 impl currency::Config<currency::Collateral> for Test {
     type Event = TestEvent;
     type Currency = pallet_balances::Pallet<Test, pallet_balances::Instance1>;
+    type Name = BackingName;
+    type Symbol = BackingSymbol;
+    type Decimals = BackingDecimals;
+}
+
+parameter_types! {
+    pub const IssuingName: &'static [u8] = b"Bitcoin";
+    pub const IssuingSymbol: &'static [u8] = b"BTC";
+    pub const IssuingDecimals: u8 = 8;
 }
 
 impl currency::Config<currency::Treasury> for Test {
     type Event = TestEvent;
     type Currency = pallet_balances::Pallet<Test, pallet_balances::Instance2>;
+    type Name = IssuingName;
+    type Symbol = IssuingSymbol;
+    type Decimals = IssuingDecimals;
 }
 
 impl Config for Test {

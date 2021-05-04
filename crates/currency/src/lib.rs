@@ -17,6 +17,7 @@ use frame_support::{
     ensure,
     traits::{Currency, ExistenceRequirement, ReservableCurrency},
 };
+use sp_std::vec::Vec;
 
 pub type BalanceOf<T, I = ()> =
     <<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -25,9 +26,6 @@ pub use pallet::*;
 
 pub type Collateral = pallet::Instance1;
 pub type Treasury = pallet::Instance2;
-
-pub const BTC_DECIMALS: u8 = 8;
-pub const DOT_DECIMALS: u8 = 10;
 
 #[frame_support::pallet]
 pub mod pallet {
@@ -38,11 +36,23 @@ pub mod pallet {
     /// The pallet's configuration trait.
     #[pallet::config]
     pub trait Config<I: 'static = ()>: frame_system::Config {
-        /// The asset to wrap
-        type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
-
         /// The overarching event type.
         type Event: From<Event<Self, I>> + IsType<<Self as frame_system::Config>::Event>;
+
+        /// The currency to manage.
+        type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
+
+        /// The user-friendly name of the managed currency.
+        #[pallet::constant]
+        type Name: Get<Vec<u8>>;
+
+        /// The identifier of the currency - e.g. ticker symbol.
+        #[pallet::constant]
+        type Symbol: Get<Vec<u8>>;
+
+        /// The number of decimals used to represent one unit.
+        #[pallet::constant]
+        type Decimals: Get<u8>;
     }
 
     // The pallet's events
@@ -75,34 +85,6 @@ pub mod pallet {
     /// Total locked balance
     #[pallet::storage]
     pub type TotalLocked<T: Config<I>, I: 'static = ()> = StorageValue<_, BalanceOf<T, I>, ValueQuery>;
-
-    /// The number of decimals used to represent one unit.
-    #[pallet::storage]
-    #[pallet::getter(fn decimals)]
-    pub type Decimals<T: Config<I>, I: 'static = ()> = StorageValue<_, u8, ValueQuery>;
-
-    #[pallet::genesis_config]
-    pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
-        pub marker: sp_std::marker::PhantomData<(T, I)>,
-        pub decimals: u8,
-    }
-
-    #[cfg(feature = "std")]
-    impl<T: Config<I>, I: 'static> Default for GenesisConfig<T, I> {
-        fn default() -> Self {
-            Self {
-                marker: Default::default(),
-                decimals: Default::default(),
-            }
-        }
-    }
-
-    #[pallet::genesis_build]
-    impl<T: Config<I>, I: 'static> GenesisBuild<T, I> for GenesisConfig<T, I> {
-        fn build(&self) {
-            <Decimals<T, I>>::put(&self.decimals);
-        }
-    }
 
     #[pallet::pallet]
     pub struct Pallet<T, I = ()>(_);

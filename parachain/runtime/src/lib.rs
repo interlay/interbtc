@@ -47,7 +47,6 @@ pub use sp_runtime::{Perbill, Permill};
 
 // PolkaBTC exports
 pub use btc_relay::{bitcoin, Call as RelayCall, TARGET_SPACING};
-pub use currency::{BTC_DECIMALS, DOT_DECIMALS};
 pub use module_exchange_rate_oracle_rpc_runtime_api::BalanceWrapper;
 
 // XCM imports
@@ -435,14 +434,32 @@ impl btc_relay::Config for Runtime {
     type WeightInfo = ();
 }
 
+parameter_types! {
+    pub const BackingName: &'static [u8] = b"Polkadot";
+    pub const BackingSymbol: &'static [u8] = b"DOT";
+    pub const BackingDecimals: u8 = 10;
+}
+
 impl currency::Config<currency::Collateral> for Runtime {
     type Event = Event;
     type Currency = pallet_balances::Pallet<Runtime, pallet_balances::Instance1>;
+    type Name = BackingName;
+    type Symbol = BackingSymbol;
+    type Decimals = BackingDecimals;
+}
+
+parameter_types! {
+    pub const IssuingName: &'static [u8] = b"PolkaBTC";
+    pub const IssuingSymbol: &'static [u8] = b"PolkaBTC";
+    pub const IssuingDecimals: u8 = 8;
 }
 
 impl currency::Config<currency::Treasury> for Runtime {
     type Event = Event;
     type Currency = pallet_balances::Pallet<Runtime, pallet_balances::Instance2>;
+    type Name = IssuingName;
+    type Symbol = IssuingSymbol;
+    type Decimals = IssuingDecimals;
 }
 
 impl security::Config for Runtime {
@@ -561,8 +578,8 @@ macro_rules! construct_polkabtc_runtime {
                 Backing: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
                 Issuing: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
 
-                Collateral: currency::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
-                Treasury: currency::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
+                Collateral: currency::<Instance1>::{Pallet, Call, Storage, Event<T>},
+                Treasury: currency::<Instance2>::{Pallet, Call, Storage, Event<T>},
 
                 // Bitcoin SPV
                 BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},

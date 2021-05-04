@@ -25,14 +25,18 @@ pub(crate) mod security {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod collateral {
+    use frame_support::traits::Get;
+
     pub fn decimals<T: currency::Config<currency::Collateral>>() -> u8 {
-        currency::Pallet::<T, currency::Collateral>::decimals()
+        T::Decimals::get()
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod treasury {
+    use frame_support::traits::Get;
+
     pub fn decimals<T: currency::Config<currency::Treasury>>() -> u8 {
-        currency::Pallet::<T, currency::Treasury>::decimals()
+        T::Decimals::get()
     }
 }

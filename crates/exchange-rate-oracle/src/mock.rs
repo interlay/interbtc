@@ -1,9 +1,6 @@
 use crate as exchange_rate_oracle;
 use crate::{Config, Error};
-use frame_support::{
-    parameter_types,
-    traits::{GenesisBuild, StorageMapShim},
-};
+use frame_support::{parameter_types, traits::StorageMapShim};
 use mocktopus::mocking::clear_mocks;
 use sp_arithmetic::FixedU128;
 use sp_core::H256;
@@ -29,8 +26,8 @@ frame_support::construct_runtime!(
         Backing: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
         Issuing: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
 
-        Collateral: currency::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
-        Treasury: currency::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
+        Collateral: currency::<Instance1>::{Pallet, Call, Storage, Event<T>},
+        Treasury: currency::<Instance2>::{Pallet, Call, Storage, Event<T>},
 
         // Operational
         Security: security::{Pallet, Call, Storage, Event<T>},
@@ -127,14 +124,32 @@ impl pallet_balances::Config<pallet_balances::Instance2> for Test {
     type WeightInfo = ();
 }
 
+parameter_types! {
+    pub const BackingName: &'static [u8] = b"Polkadot";
+    pub const BackingSymbol: &'static [u8] = b"DOT";
+    pub const BackingDecimals: u8 = 10;
+}
+
 impl currency::Config<currency::Collateral> for Test {
     type Event = TestEvent;
     type Currency = pallet_balances::Pallet<Test, pallet_balances::Instance1>;
+    type Name = BackingName;
+    type Symbol = BackingSymbol;
+    type Decimals = BackingDecimals;
+}
+
+parameter_types! {
+    pub const IssuingName: &'static [u8] = b"Bitcoin";
+    pub const IssuingSymbol: &'static [u8] = b"BTC";
+    pub const IssuingDecimals: u8 = 8;
 }
 
 impl currency::Config<currency::Treasury> for Test {
     type Event = TestEvent;
     type Currency = pallet_balances::Pallet<Test, pallet_balances::Instance2>;
+    type Name = IssuingName;
+    type Symbol = IssuingSymbol;
+    type Decimals = IssuingDecimals;
 }
 
 impl security::Config for Test {
@@ -149,20 +164,6 @@ pub struct ExtBuilder;
 impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
         let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
-
-        currency::GenesisConfig::<Test, currency::Collateral> {
-            marker: Default::default(),
-            decimals: currency::DOT_DECIMALS,
-        }
-        .assimilate_storage(&mut storage)
-        .unwrap();
-
-        currency::GenesisConfig::<Test, currency::Treasury> {
-            marker: Default::default(),
-            decimals: currency::BTC_DECIMALS,
-        }
-        .assimilate_storage(&mut storage)
-        .unwrap();
 
         exchange_rate_oracle::GenesisConfig::<Test> {
             authorized_oracles: vec![(0, "test".as_bytes().to_vec())],

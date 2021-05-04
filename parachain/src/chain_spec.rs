@@ -1,8 +1,7 @@
 use btc_parachain_runtime::{
-    AccountId, BTCRelayConfig, BackingConfig, BlockNumber, CollateralConfig, ExchangeRateOracleConfig, FeeConfig,
-    GenesisConfig, IssueConfig, IssuingConfig, NominationConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature,
-    SlaConfig, SudoConfig, SystemConfig, TreasuryConfig, VaultRegistryConfig, BTC_DECIMALS, DAYS, DOT_DECIMALS, HOURS,
-    MILLISECS_PER_BLOCK, TARGET_SPACING, WASM_BINARY,
+    AccountId, BTCRelayConfig, BackingConfig, BlockNumber, ExchangeRateOracleConfig, FeeConfig, GenesisConfig,
+    IssueConfig, IssuingConfig, NominationConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature, SlaConfig,
+    SudoConfig, SystemConfig, VaultRegistryConfig, DAYS, HOURS, MILLISECS_PER_BLOCK, TARGET_SPACING, WASM_BINARY,
 };
 
 use bitcoin::utils::{virtual_transaction_size, InputType, TransactionInputMetadata, TransactionOutputMetadata};
@@ -371,14 +370,6 @@ fn testnet_genesis(
             balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
         },
         pallet_balances_Instance2: IssuingConfig { balances: vec![] },
-        currency_Instance1: CollateralConfig {
-            marker: Default::default(),
-            decimals: DOT_DECIMALS,
-        },
-        currency_Instance2: TreasuryConfig {
-            marker: Default::default(),
-            decimals: BTC_DECIMALS,
-        },
         exchange_rate_oracle: ExchangeRateOracleConfig {
             authorized_oracles,
             max_delay: 3600000, // one hour
