@@ -4,6 +4,11 @@ use sp_std::{prelude::*, vec};
 
 use crate::types::H256Le;
 
+// the _SIZE constants describe the size in number of bytes of various parts of transactions.
+// Since bytes in the witnesses cost only 1/4th of the cost to transmit, the so called virtual
+// size, or vsize, can be fractional. In order to be able to work with integer math, we also
+// use  weight, which is 4 times the virtual size. See https://en.bitcoin.it/wiki/Weight_units
+// for more detail.
 const P2PKH_IN_WEIGHT: u32 = 148 * 4;
 const P2PKH_OUT_SIZE: u32 = 34;
 const P2SH_OUT_SIZE: u32 = 32;

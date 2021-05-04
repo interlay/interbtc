@@ -80,7 +80,7 @@ decl_storage! {
         RedeemBtcDustValue get(fn redeem_btc_dust_value) config(): PolkaBTC<T>;
 
         /// the expected size in bytes of the redeem bitcoin transfer
-        RedeemTransactionSize get(fn redeem_transaction_size) config(): u32 = 600u32;
+        RedeemTransactionSize get(fn redeem_transaction_size) config(): u32;
 
         /// Build storage at V1 (requires default 0).
         StorageVersion get(fn storage_version) build(|_| Version::V2): Version = Version::V0;

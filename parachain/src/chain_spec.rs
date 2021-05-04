@@ -394,7 +394,7 @@ fn testnet_genesis(
             redeem_transaction_size: virtual_transaction_size(
                 TransactionInputMetadata {
                     count: 2,
-                    script_type: InputType::P2PKH,
+                    script_type: InputType::P2WPKHv0,
                 },
                 TransactionOutputMetadata {
                     num_op_return: 1,
