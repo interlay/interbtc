@@ -124,14 +124,14 @@ impl<T: Config> Module<T> {
     ) -> Result<Option<H256>, DispatchError> {
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
-        let fee_polka_btc = ext::fee::get_refund_fee_from_total::<T>(total_amount_btc)?;
-        let net_refund_amount_polka_btc = total_amount_btc
-            .checked_sub(&fee_polka_btc)
+        let fee_issuing = ext::fee::get_refund_fee_from_total::<T>(total_amount_btc)?;
+        let net_refund_amount_issuing = total_amount_btc
+            .checked_sub(&fee_issuing)
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
         // Only refund if the amount is above the dust value
         let dust_amount = <RefundBtcDustValue<T>>::get();
-        if net_refund_amount_polka_btc < dust_amount {
+        if net_refund_amount_issuing < dust_amount {
             return Ok(None);
         }
 
@@ -139,8 +139,8 @@ impl<T: Config> Module<T> {
 
         let request = RefundRequest {
             vault: vault_id,
-            amount_polka_btc: net_refund_amount_polka_btc,
-            fee: fee_polka_btc,
+            amount_issuing: net_refund_amount_issuing,
+            fee: fee_issuing,
             amount_btc: total_amount_btc,
             issuer,
             btc_address,
@@ -152,7 +152,7 @@ impl<T: Config> Module<T> {
         Self::deposit_event(<Event<T>>::RequestRefund(
             refund_id,
             request.issuer,
-            request.amount_polka_btc,
+            request.amount_issuing,
             request.vault,
             request.btc_address,
             request.issue_id,
@@ -177,7 +177,7 @@ impl<T: Config> Module<T> {
 
         // verify the payment
         let amount: usize = request
-            .amount_polka_btc
+            .amount_issuing
             .try_into()
             .map_err(|_e| Error::<T>::TryIntoIntError)?;
         let tx_id = sha256d_le(&raw_tx);
@@ -189,7 +189,7 @@ impl<T: Config> Module<T> {
             Some(refund_id.as_bytes().to_vec()),
         )?;
 
-        // mint polkabtc corresponding to the fee. Note that this can fail
+        // mint issued tokens corresponding to the fee. Note that this can fail
         ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&request.vault, request.fee)?;
         ext::vault_registry::issue_tokens::<T>(&request.vault, request.fee)?;
         ext::treasury::mint::<T>(request.vault.clone(), request.fee);

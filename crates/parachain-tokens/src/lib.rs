@@ -50,10 +50,10 @@ decl_event!(
     {
         /// Transferred collateral to parachain.
         /// [origin, para_id, recipient, network, amount]
-        TransferDOT(AccountId, ParaId, AccountId, NetworkId, Backing),
+        TransferBacking(AccountId, ParaId, AccountId, NetworkId, Backing),
         /// Transferred issued tokens to parachain.
         /// [origin, para_id, recipient, network, amount]
-        TransferPolkaBTC(AccountId, ParaId, AccountId, NetworkId, Issuing),
+        TransferIssuing(AccountId, ParaId, AccountId, NetworkId, Issuing),
     }
 );
 
@@ -67,7 +67,7 @@ decl_module! {
         /// Transfer collateral to parachain.
         #[weight = 1000]
         #[transactional]
-        pub fn transfer_dot_to_parachain(
+        pub fn transfer_backing_to_parachain(
             origin,
             para_id: ParaId,
             recipient: T::AccountId,
@@ -94,7 +94,7 @@ decl_module! {
                 ),
             ).map_err(Error::<T>::from)?;
 
-            Self::deposit_event(Event::<T>::TransferDOT(
+            Self::deposit_event(Event::<T>::TransferBacking(
                 who,
                 para_id,
                 recipient,
@@ -108,7 +108,7 @@ decl_module! {
         /// Transfer issued tokens to parachain.
         #[weight = 1000]
         #[transactional]
-        pub fn transfer_polka_btc_to_parachain(
+        pub fn transfer_issuing_to_parachain(
             origin,
             para_id: ParaId,
             recipient: T::AccountId,
@@ -135,7 +135,7 @@ decl_module! {
                 ),
             ).map_err(Error::<T>::from)?;
 
-            Self::deposit_event(Event::<T>::TransferPolkaBTC(
+            Self::deposit_event(Event::<T>::TransferIssuing(
                 who,
                 para_id,
                 recipient,

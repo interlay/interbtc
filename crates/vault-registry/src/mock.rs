@@ -226,8 +226,8 @@ where
     T: FnOnce(),
 {
     clear_mocks();
-    ext::oracle::dots_to_btc::<Test>.mock_safe(|v| MockResult::Return(Ok(v)));
-    ext::oracle::btc_to_dots::<Test>.mock_safe(|v| MockResult::Return(Ok(v)));
+    ext::oracle::backing_to_issuing::<Test>.mock_safe(|v| MockResult::Return(Ok(v)));
+    ext::oracle::issuing_to_backing::<Test>.mock_safe(|v| MockResult::Return(Ok(v)));
     ExtBuilder::build().execute_with(|| {
         System::set_block_number(1);
         Security::set_active_block_number(1);

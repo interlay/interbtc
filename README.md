@@ -64,20 +64,19 @@ The BTC-Parachain is built with:
 
 The Substrate runtime makes use of various custom pallets that are found in the [crates](./crates) folder.
 
-- [bitcoin](crates/bitcoin): [Beta] Library for Bitcoin type, parsing and verification functions.
-- [btc-relay](crates/btc-relay): [Beta] Stateful SPV client for Bitcoin. Stores Bitcoin main chain, tracks forks, verifies Merkle proofs and validates specific transaction formats.
-- [collateral](crates/collateral) [Beta] Handles locking, releasing and slashing of collateral (e.g. DOT/KSM).
-- [exchange-rate-oracle](crates/exchange-rate-oracle): [Beta] Exchange rate oracle. Integration with external provider pending.
-- [fee](crates/fee): [Beta] Participant reward calculation and distribution.
-- [issue](crates/issue): [Beta] Handles issuing of PolkaBTC.
-- [redeem](crates/redeem) [Beta] Handles redeeming of PolkaBTC for BTC on Bitcoin.
-- [refund](crates/refund) [Beta] Handles refunds for when a vault receives more BTC than it can cover.
-- [replace](crates/replace) [Beta] Handles replacing vaults.
-- [security](crates/security): [Beta] Handles BTC Parachain status and error changes.
-- [sla](crates/sla): [Beta] Participant scoring for reward & slashing calculations.
-- [staked-relayers](crates/staked-relayers): [Beta] Handles registration and stake of Staked Relayers, as well as voting on Parachain status changes.
-- [treasury](crates/treasury): [Beta] Exposes functions related to handling of the PolkaBTC currency (mint, lock, burn)
-- [vault-registry](crates/vault-registry): [Beta] Handles registration, collateral and liquidation of vaults.
+- [bitcoin](crates/bitcoin): Library for Bitcoin type, parsing and verification functions.
+- [btc-relay](crates/btc-relay): Stateful SPV client for Bitcoin. Stores Bitcoin main chain, tracks forks, verifies Merkle proofs and validates specific transaction formats.
+- [currency](crates/currency) Handles currencies used as backing collateral (e.g. DOT/KSM) and issued tokens (e.g. PolkaBTC).
+- [exchange-rate-oracle](crates/exchange-rate-oracle): Exchange rate oracle. Integration with external provider pending.
+- [fee](crates/fee): Participant reward calculation and distribution.
+- [issue](crates/issue): Handles issuing of PolkaBTC.
+- [redeem](crates/redeem) Handles redeeming of PolkaBTC for BTC on Bitcoin.
+- [refund](crates/refund) Handles refunds for when a vault receives more BTC than it can cover.
+- [replace](crates/replace) Handles replacing vaults.
+- [security](crates/security): Handles BTC Parachain status and error changes.
+- [sla](crates/sla): Participant scoring for reward & slashing calculations.
+- [staked-relayers](crates/staked-relayers): Handles registration and stake of Staked Relayers, as well as voting on Parachain status changes.
+- [vault-registry](crates/vault-registry): Handles registration, collateral and liquidation of vaults.
 
 ## Getting started
 

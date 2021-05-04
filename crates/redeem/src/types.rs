@@ -66,7 +66,7 @@ pub struct RedeemRequest<AccountId, BlockNumber, Issuing, Backing> {
     #[cfg_attr(feature = "std", serde(bound(serialize = "Backing: std::fmt::Display")))]
     #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
     /// Premium redeem amount in collateral
-    pub premium_dot: Backing,
+    pub premium: Backing,
     pub redeemer: AccountId,
     pub btc_address: BtcAddress,
     /// The latest Bitcoin height as reported by the BTC-Relay at time of opening.

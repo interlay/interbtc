@@ -144,7 +144,7 @@ impl<T: Config> Module<T> {
     fn _on_runtime_upgrade() {
         if !LifetimeIssued::exists() {
             let amount = ext::vault_registry::get_total_issued_tokens::<T>(false).unwrap();
-            let amount = Self::polkabtc_to_u128(amount).unwrap();
+            let amount = Self::issuing_to_u128(amount).unwrap();
             LifetimeIssued::set(amount);
         }
     }
@@ -223,19 +223,19 @@ impl<T: Config> Module<T> {
     /// total_reward_for_issued * (Vault issued Issuing / total issued Issuing), and
     /// total_reward_for_locked * (Vault locked Backing / total locked Backing)
     pub fn get_vault_rewards(
-        total_reward_for_issued_in_polka_btc: Issuing<T>,
-        total_reward_for_locked_in_polka_btc: Issuing<T>,
-        total_reward_for_issued_in_dot: Backing<T>,
-        total_reward_for_locked_in_dot: Backing<T>,
+        total_reward_for_issued_in_issuing: Issuing<T>,
+        total_reward_for_locked_in_issuing: Issuing<T>,
+        total_reward_for_issued_in_backing: Backing<T>,
+        total_reward_for_locked_in_backing: Backing<T>,
     ) -> Result<Vec<(T::AccountId, Issuing<T>, Backing<T>)>, DispatchError> {
-        let total_issued = Self::polkabtc_to_u128(ext::vault_registry::get_total_issued_tokens::<T>(false)?)?;
-        let total_locked = Self::dot_to_u128(ext::vault_registry::get_total_backing_collateral::<T>(false)?)?;
+        let total_issued = Self::issuing_to_u128(ext::vault_registry::get_total_issued_tokens::<T>(false)?)?;
+        let total_locked = Self::backing_to_u128(ext::vault_registry::get_total_backing_collateral::<T>(false)?)?;
 
-        let total_reward_for_issued_in_polka_btc = Self::polkabtc_to_u128(total_reward_for_issued_in_polka_btc)?;
-        let total_reward_for_locked_in_polka_btc = Self::polkabtc_to_u128(total_reward_for_locked_in_polka_btc)?;
+        let total_reward_for_issued_in_issuing = Self::issuing_to_u128(total_reward_for_issued_in_issuing)?;
+        let total_reward_for_locked_in_issuing = Self::issuing_to_u128(total_reward_for_locked_in_issuing)?;
 
-        let total_reward_for_issued_in_dot = Self::dot_to_u128(total_reward_for_issued_in_dot)?;
-        let total_reward_for_locked_in_dot = Self::dot_to_u128(total_reward_for_locked_in_dot)?;
+        let total_reward_for_issued_in_backing = Self::backing_to_u128(total_reward_for_issued_in_backing)?;
+        let total_reward_for_locked_in_backing = Self::backing_to_u128(total_reward_for_locked_in_backing)?;
 
         let calculate_reward = |account_id: T::AccountId| {
             // each vault gets total_reward * (issued_amount / total_issued).
@@ -245,43 +245,43 @@ impl<T: Config> Module<T> {
             }
             let issued_amount = vault.issued_tokens;
 
-            let issued_amount = Self::polkabtc_to_u128(issued_amount)?;
-            let issued_reward_in_polka_btc = issued_amount
-                .checked_mul(total_reward_for_issued_in_polka_btc)
+            let issued_amount = Self::issuing_to_u128(issued_amount)?;
+            let issued_reward_in_issuing = issued_amount
+                .checked_mul(total_reward_for_issued_in_issuing)
                 .ok_or(Error::<T>::ArithmeticOverflow)?
                 .checked_div(total_issued)
                 .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
-            let issued_reward_in_dot = issued_amount
-                .checked_mul(total_reward_for_issued_in_dot)
+            let issued_reward_in_backing = issued_amount
+                .checked_mul(total_reward_for_issued_in_backing)
                 .ok_or(Error::<T>::ArithmeticOverflow)?
                 .checked_div(total_issued)
                 .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
             let locked_amount = ext::vault_registry::get_backing_collateral::<T>(&account_id)?;
-            let locked_amount = Self::dot_to_u128(locked_amount)?;
-            let locked_reward_in_polka_btc = locked_amount
-                .checked_mul(total_reward_for_locked_in_polka_btc)
+            let locked_amount = Self::backing_to_u128(locked_amount)?;
+            let locked_reward_in_issuing = locked_amount
+                .checked_mul(total_reward_for_locked_in_issuing)
                 .ok_or(Error::<T>::ArithmeticOverflow)?
                 .checked_div(total_locked)
                 .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
-            let locked_reward_in_dot = locked_amount
-                .checked_mul(total_reward_for_locked_in_dot)
+            let locked_reward_in_backing = locked_amount
+                .checked_mul(total_reward_for_locked_in_backing)
                 .ok_or(Error::<T>::ArithmeticOverflow)?
                 .checked_div(total_locked)
                 .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
             Result::<_, DispatchError>::Ok(Some((
                 account_id,
-                Self::u128_to_polkabtc(
-                    issued_reward_in_polka_btc
-                        .checked_add(locked_reward_in_polka_btc)
+                Self::u128_to_issuing(
+                    issued_reward_in_issuing
+                        .checked_add(locked_reward_in_issuing)
                         .ok_or(Error::<T>::ArithmeticOverflow)?,
                 )?,
-                Self::u128_to_dot(
-                    issued_reward_in_dot
-                        .checked_add(locked_reward_in_dot)
+                Self::u128_to_backing(
+                    issued_reward_in_backing
+                        .checked_add(locked_reward_in_backing)
                         .ok_or(Error::<T>::ArithmeticOverflow)?,
                 )?,
             )))
@@ -304,20 +304,20 @@ impl<T: Config> Module<T> {
     ///
     /// * `total_reward` - the total reward for the entire pool
     pub fn get_relayer_rewards(
-        total_reward_polka_btc: Issuing<T>,
-        total_reward_dot: Backing<T>,
+        total_reward_issuing: Issuing<T>,
+        total_reward_backing: Backing<T>,
     ) -> Result<Vec<(T::AccountId, Issuing<T>, Backing<T>)>, DispatchError> {
         <RelayerSla<T>>::iter()
             .map(|(account_id, _)| {
                 Ok((
                     account_id.clone(),
-                    Self::u128_to_polkabtc(Self::_calculate_relayer_reward(
+                    Self::u128_to_issuing(Self::_calculate_relayer_reward(
                         &account_id,
-                        Self::polkabtc_to_u128(total_reward_polka_btc)?,
+                        Self::issuing_to_u128(total_reward_issuing)?,
                     )?)?,
-                    Self::u128_to_dot(Self::_calculate_relayer_reward(
+                    Self::u128_to_backing(Self::_calculate_relayer_reward(
                         &account_id,
-                        Self::dot_to_u128(total_reward_dot)?,
+                        Self::backing_to_u128(total_reward_backing)?,
                     )?)?,
                 ))
             })
@@ -369,7 +369,7 @@ impl<T: Config> Module<T> {
     /// initializes the relayer's stake. Not that this module assumes that once set, the stake
     /// remains unchanged forever
     pub fn initialize_relayer_stake(relayer_id: &T::AccountId, stake: Backing<T>) -> Result<(), DispatchError> {
-        let stake = Self::dot_to_u128(stake)?;
+        let stake = Self::backing_to_u128(stake)?;
         let stake = T::SignedFixedPoint::checked_from_rational(stake, 1u128).ok_or(Error::<T>::TryIntoIntError)?;
         <RelayerStake<T>>::insert(relayer_id, stake);
 
@@ -389,7 +389,7 @@ impl<T: Config> Module<T> {
     ) -> Result<Backing<T>, DispatchError> {
         let range = premium_redeem_threshold - liquidation_threshold;
         let max_sla = <VaultTargetSla<T>>::get();
-        let stake = Self::dot_to_u128(stake)?;
+        let stake = Self::backing_to_u128(stake)?;
 
         // basic formula we use is:
         // result = stake * (premium_redeem_threshold - (current_sla / max_sla) * range);
@@ -407,7 +407,7 @@ impl<T: Config> Module<T> {
             stake_scaling_factor.checked_mul_int(stake)
         };
         let slashed_raw = calculate_slashed_collateral().ok_or(Error::<T>::InvalidSlashedAmount)?;
-        Self::u128_to_dot(slashed_raw)
+        Self::u128_to_backing(slashed_raw)
     }
 
     /// Calculates the potential sla change for when an issue has been completed on the given vault.
@@ -417,10 +417,10 @@ impl<T: Config> Module<T> {
     ///
     /// # Arguments
     ///
-    /// * `amount` - the amount of polkabtc that was issued
+    /// * `amount` - the amount of tokens that were issued
     /// * `vault_id` - account of the vault
     fn _executed_issue_sla_change(amount: Issuing<T>) -> Result<T::SignedFixedPoint, DispatchError> {
-        let amount_raw = Self::polkabtc_to_u128(amount)?;
+        let amount_raw = Self::issuing_to_u128(amount)?;
 
         // update the number of issues performed
         let count = TotalIssueCount::mutate(|x| {
@@ -442,7 +442,7 @@ impl<T: Config> Module<T> {
         let max_sla_change = <VaultExecutedIssueMaxSlaChange<T>>::get();
 
         // increase = (amount / average) * max_sla_change
-        let amount = Self::polkabtc_to_fixed_point(amount)?;
+        let amount = Self::issuing_to_fixed_point(amount)?;
         let potential_sla_increase = amount
             .checked_div(&average)
             .ok_or(Error::<T>::ArithmeticUnderflow)?
@@ -517,23 +517,23 @@ impl<T: Config> Module<T> {
         Ok(ret)
     }
 
-    fn dot_to_u128(x: Backing<T>) -> Result<u128, DispatchError> {
+    fn backing_to_u128(x: Backing<T>) -> Result<u128, DispatchError> {
         TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
-    fn u128_to_dot(x: u128) -> Result<Backing<T>, DispatchError> {
+    fn u128_to_backing(x: u128) -> Result<Backing<T>, DispatchError> {
         TryInto::<Backing<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
-    fn polkabtc_to_u128(x: Issuing<T>) -> Result<u128, DispatchError> {
+    fn issuing_to_u128(x: Issuing<T>) -> Result<u128, DispatchError> {
         TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
-    fn u128_to_polkabtc(x: u128) -> Result<Issuing<T>, DispatchError> {
+    fn u128_to_issuing(x: u128) -> Result<Issuing<T>, DispatchError> {
         TryInto::<Issuing<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
-    fn polkabtc_to_fixed_point(x: Issuing<T>) -> Result<T::SignedFixedPoint, DispatchError> {
+    fn issuing_to_fixed_point(x: Issuing<T>) -> Result<T::SignedFixedPoint, DispatchError> {
         let y = TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError)?;
         let inner = TryInto::<Inner<T>>::try_into(y).map_err(|_| Error::<T>::TryIntoIntError)?;
         Ok(T::SignedFixedPoint::checked_from_integer(inner).ok_or(Error::<T>::TryIntoIntError)?)

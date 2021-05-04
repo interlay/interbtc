@@ -806,13 +806,13 @@ impl_runtime_apis! {
         Balance,
         Balance,
     > for Runtime {
-        fn btc_to_dots(amount: BalanceWrapper<Balance>) -> Result<BalanceWrapper<Balance>, DispatchError> {
-            let result = ExchangeRateOracle::btc_to_dots(amount.amount)?;
+        fn issuing_to_backing(amount: BalanceWrapper<Balance>) -> Result<BalanceWrapper<Balance>, DispatchError> {
+            let result = ExchangeRateOracle::issuing_to_backing(amount.amount)?;
             Ok(BalanceWrapper{amount:result})
         }
 
-        fn dots_to_btc(amount: BalanceWrapper<Balance>) -> Result<BalanceWrapper<Balance>, DispatchError> {
-            let result = ExchangeRateOracle::dots_to_btc(amount.amount)?;
+        fn backing_to_issuing(amount: BalanceWrapper<Balance>) -> Result<BalanceWrapper<Balance>, DispatchError> {
+            let result = ExchangeRateOracle::backing_to_issuing(amount.amount)?;
             Ok(BalanceWrapper{amount:result})
         }
     }
@@ -868,8 +868,8 @@ impl_runtime_apis! {
             VaultRegistry::get_collateralization_from_vault_and_collateral(vault, collateral.amount, only_issued)
         }
 
-        fn get_required_collateral_for_polkabtc(amount_btc: BalanceWrapper<Balance>) -> Result<BalanceWrapper<Balance>, DispatchError> {
-            let result = VaultRegistry::get_required_collateral_for_polkabtc(amount_btc.amount)?;
+        fn get_required_collateral_for_issuing(amount_btc: BalanceWrapper<Balance>) -> Result<BalanceWrapper<Balance>, DispatchError> {
+            let result = VaultRegistry::get_required_collateral_for_issuing(amount_btc.amount)?;
             Ok(BalanceWrapper{amount:result})
         }
 

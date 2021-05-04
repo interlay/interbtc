@@ -22,15 +22,15 @@ where
     Issuing: Codec + MaybeDisplay + MaybeFromStr,
     Backing: Codec + MaybeDisplay + MaybeFromStr,
 {
-    #[rpc(name = "exchangeRateOracle_btcToDots")]
-    fn btc_to_dots(
+    #[rpc(name = "exchangeRateOracle_issuingToBacking")]
+    fn issuing_to_backing(
         &self,
         amount: BalanceWrapper<Issuing>,
         at: Option<BlockHash>,
     ) -> JsonRpcResult<BalanceWrapper<Backing>>;
 
-    #[rpc(name = "exchangeRateOracle_dotsToBtc")]
-    fn dots_to_btc(
+    #[rpc(name = "exchangeRateOracle_backingToIssuing")]
+    fn backing_to_issuing(
         &self,
         amount: BalanceWrapper<Backing>,
         at: Option<BlockHash>,
@@ -96,7 +96,7 @@ where
     Issuing: Codec + MaybeDisplay + MaybeFromStr,
     Backing: Codec + MaybeDisplay + MaybeFromStr,
 {
-    fn btc_to_dots(
+    fn issuing_to_backing(
         &self,
         amount: BalanceWrapper<Issuing>,
         at: Option<<Block as BlockT>::Hash>,
@@ -105,12 +105,12 @@ where
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         handle_response(
-            api.btc_to_dots(&at, amount),
+            api.issuing_to_backing(&at, amount),
             "Unable to convert Issuing to Backing.".into(),
         )
     }
 
-    fn dots_to_btc(
+    fn backing_to_issuing(
         &self,
         amount: BalanceWrapper<Backing>,
         at: Option<<Block as BlockT>::Hash>,
@@ -119,7 +119,7 @@ where
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         handle_response(
-            api.dots_to_btc(&at, amount),
+            api.backing_to_issuing(&at, amount),
             "Unable to convert Backing to Issuing.".into(),
         )
     }

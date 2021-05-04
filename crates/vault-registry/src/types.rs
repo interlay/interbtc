@@ -399,17 +399,17 @@ impl<T: Config> RichVault<T> {
 
     pub fn get_used_collateral(&self) -> Result<Backing<T>, DispatchError> {
         let issued_tokens = self.data.issued_tokens + self.data.to_be_issued_tokens;
-        let issued_tokens_in_dot = ext::oracle::btc_to_dots::<T>(issued_tokens)?;
+        let issued_tokens_in_backing = ext::oracle::issuing_to_backing::<T>(issued_tokens)?;
 
-        let raw_issued_tokens_in_dot = Pallet::<T>::dot_to_u128(issued_tokens_in_dot)?;
+        let raw_issued_tokens_in_backing = Pallet::<T>::backing_to_u128(issued_tokens_in_backing)?;
 
         let secure_threshold = Pallet::<T>::secure_collateral_threshold();
 
         let raw_used_collateral = secure_threshold
-            .checked_mul_int(raw_issued_tokens_in_dot)
+            .checked_mul_int(raw_issued_tokens_in_backing)
             .ok_or(Error::<T>::ArithmeticOverflow)?;
 
-        let used_collateral = Pallet::<T>::u128_to_dot(raw_used_collateral)?;
+        let used_collateral = Pallet::<T>::u128_to_backing(raw_used_collateral)?;
 
         Ok(self.data.backing_collateral.min(used_collateral))
     }
@@ -425,7 +425,7 @@ impl<T: Config> RichVault<T> {
         let secure_threshold = Pallet::<T>::secure_collateral_threshold();
 
         let issuable =
-            Pallet::<T>::calculate_max_polkabtc_from_collateral_for_threshold(free_collateral, secure_threshold)?;
+            Pallet::<T>::calculate_max_issuing_from_collateral_for_threshold(free_collateral, secure_threshold)?;
 
         Ok(issuable)
     }

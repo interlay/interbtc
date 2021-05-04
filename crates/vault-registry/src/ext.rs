@@ -80,12 +80,12 @@ pub(crate) mod oracle {
     {
     }
 
-    pub fn btc_to_dots<T: Exchangeable>(amount: Issuing<T>) -> Result<Backing<T>, DispatchError> {
-        <exchange_rate_oracle::Pallet<T>>::btc_to_dots(amount)
+    pub fn issuing_to_backing<T: Exchangeable>(amount: Issuing<T>) -> Result<Backing<T>, DispatchError> {
+        <exchange_rate_oracle::Pallet<T>>::issuing_to_backing(amount)
     }
 
-    pub fn dots_to_btc<T: Exchangeable>(amount: Backing<T>) -> Result<Issuing<T>, DispatchError> {
-        <exchange_rate_oracle::Pallet<T>>::dots_to_btc(amount)
+    pub fn backing_to_issuing<T: Exchangeable>(amount: Backing<T>) -> Result<Issuing<T>, DispatchError> {
+        <exchange_rate_oracle::Pallet<T>>::backing_to_issuing(amount)
     }
 }
 

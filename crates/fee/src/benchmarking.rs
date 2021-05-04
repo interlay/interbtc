@@ -10,7 +10,7 @@ const SEED: u32 = 0;
 const ED_MULTIPLIER: u32 = 10;
 
 benchmarks! {
-    withdraw_polka_btc {
+    withdraw_issuing {
         let fee_pool: T::AccountId = Fee::<T>::fee_pool_account_id();
 
         let existential_deposit = <<T as currency::Config<currency::Treasury>>::Currency as Currency<_>>::minimum_balance();
@@ -19,11 +19,11 @@ benchmarks! {
 
         let recipient: T::AccountId = account("recipient", 0, SEED);
         let amount = existential_deposit.saturating_mul((ED_MULTIPLIER - 1).into()) + 1u32.into();
-        <TotalRewardsPolkaBTC<T>>::insert(recipient.clone(), amount);
+        <TotalRewardsIssuing<T>>::insert(recipient.clone(), amount);
 
     }: _(RawOrigin::Signed(recipient), amount)
 
-    withdraw_dot {
+    withdraw_backing {
         let fee_pool: T::AccountId = Fee::<T>::fee_pool_account_id();
 
         let existential_deposit = <<T as currency::Config<currency::Collateral>>::Currency as Currency<_>>::minimum_balance();
@@ -32,7 +32,7 @@ benchmarks! {
 
         let recipient: T::AccountId = account("recipient", 0, SEED);
         let amount = existential_deposit.saturating_mul((ED_MULTIPLIER - 1).into()) + 1u32.into();
-        <TotalRewardsDOT<T>>::insert(recipient.clone(), amount);
+        <TotalRewardsBacking<T>>::insert(recipient.clone(), amount);
 
     }: _(RawOrigin::Signed(recipient), amount)
 }
@@ -46,8 +46,8 @@ mod tests {
     #[test]
     fn test_benchmarks() {
         ExtBuilder::build().execute_with(|| {
-            assert_ok!(test_benchmark_withdraw_polka_btc::<Test>());
-            assert_ok!(test_benchmark_withdraw_dot::<Test>());
+            assert_ok!(test_benchmark_withdraw_issuing::<Test>());
+            assert_ok!(test_benchmark_withdraw_backing::<Test>());
         });
     }
 }

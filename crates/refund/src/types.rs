@@ -18,7 +18,7 @@ pub struct RefundRequest<AccountId, Issuing> {
     #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
     #[cfg_attr(feature = "std", serde(bound(serialize = "Issuing: std::fmt::Display")))]
     #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
-    pub amount_polka_btc: Issuing,
+    pub amount_issuing: Issuing,
     #[cfg_attr(feature = "std", serde(bound(deserialize = "Issuing: std::str::FromStr")))]
     #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
     #[cfg_attr(feature = "std", serde(bound(serialize = "Issuing: std::fmt::Display")))]

@@ -246,7 +246,7 @@ impl<T: Config> Module<T> {
     ///
     /// * `withdrawer_id` - AccountId of the withdrawer
     /// * `vault_id` - AccountId of the vault
-    /// * `amount` - DOt amount to withdraw
+    /// * `amount` - amount of collateral to withdraw
     /// * `height` - current block height
     /// * `maturity` - height at request time + unbonding period
     fn _execute_collateral_withdrawal(withdrawer_id: &T::AccountId, operator_id: &T::AccountId) -> DispatchResult {
@@ -452,11 +452,11 @@ impl<T: Config> Module<T> {
         Ok(Self::get_operator_from_id(operator_id)?.into())
     }
 
-    fn dot_to_u128(x: Backing<T>) -> Result<u128, DispatchError> {
+    fn backing_to_u128(x: Backing<T>) -> Result<u128, DispatchError> {
         TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
-    fn u128_to_dot(x: u128) -> Result<Backing<T>, DispatchError> {
+    fn u128_to_backing(x: u128) -> Result<Backing<T>, DispatchError> {
         TryInto::<Backing<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 }

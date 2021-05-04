@@ -156,8 +156,8 @@ decl_module! {
         /// # Arguments
         ///
         /// * `origin` - sender of the transaction
-        /// * `amount` - amount of BTC the user wants to convert to tokens. Note that the amount of
-        /// tokens received will be less, because a fee is subtracted.
+        /// * `amount` - amount of BTC the user wants to convert to issued tokens. Note that the
+        /// amount of issued tokens received will be less, because a fee is subtracted.
         /// * `vault` - address of the vault
         /// * `griefing_collateral` - amount of collateral
         #[weight = <T as Config>::WeightInfo::request_issue()]
@@ -255,8 +255,8 @@ impl<T: Config> Module<T> {
         ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;
 
         // calculate griefing collateral based on the total amount of tokens to be issued
-        let amount_dot = ext::oracle::btc_to_dots::<T>(amount_requested)?;
-        let expected_griefing_collateral = ext::fee::get_issue_griefing_collateral::<T>(amount_dot)?;
+        let amount_backing = ext::oracle::issuing_to_backing::<T>(amount_requested)?;
+        let expected_griefing_collateral = ext::fee::get_issue_griefing_collateral::<T>(amount_backing)?;
 
         ensure!(
             griefing_collateral >= expected_griefing_collateral,
@@ -362,7 +362,7 @@ impl<T: Config> Module<T> {
                 CurrencySource::FreeBalance(ext::fee::fee_pool_account_id::<T>()),
                 slashed_collateral,
             )?;
-            ext::fee::increase_dot_rewards_for_epoch::<T>(slashed_collateral);
+            ext::fee::increase_backing_rewards_for_epoch::<T>(slashed_collateral);
 
             Self::update_issue_amount(&issue_id, &mut issue, amount_transferred, slashed_collateral)?;
         } else {
@@ -402,12 +402,12 @@ impl<T: Config> Module<T> {
             .ok_or(Error::<T>::ArithmeticOverflow)?;
         ext::vault_registry::issue_tokens::<T>(&issue.vault, total)?;
 
-        // mint polkabtc amount
+        // mint issued tokens
         ext::treasury::mint::<T>(requester.clone(), issue.amount);
 
-        // mint polkabtc fees
+        // mint issuing fees
         ext::treasury::mint::<T>(ext::fee::fee_pool_account_id::<T>(), issue.fee);
-        ext::fee::increase_polka_btc_rewards_for_epoch::<T>(issue.fee);
+        ext::fee::increase_issuing_rewards_for_epoch::<T>(issue.fee);
 
         if !ext::vault_registry::is_vault_liquidated::<T>(&issue.vault)? {
             // reward the vault for having issued tokens by increasing its sla
@@ -462,7 +462,7 @@ impl<T: Config> Module<T> {
                 CurrencySource::FreeBalance(ext::fee::fee_pool_account_id::<T>()),
                 issue.griefing_collateral,
             )?;
-            ext::fee::increase_dot_rewards_for_epoch::<T>(issue.griefing_collateral);
+            ext::fee::increase_backing_rewards_for_epoch::<T>(issue.griefing_collateral);
         }
         Self::set_issue_status(issue_id, IssueRequestStatus::Cancelled);
 

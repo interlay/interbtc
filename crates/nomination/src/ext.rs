@@ -90,10 +90,10 @@ pub(crate) mod fee {
     use crate::types::{Backing, UnsignedFixedPoint};
     use frame_support::dispatch::DispatchError;
 
-    pub fn dot_for<T: fee::Config>(
+    pub fn backing_for<T: fee::Config>(
         amount: Backing<T>,
         percentage: UnsignedFixedPoint<T>,
     ) -> Result<Backing<T>, DispatchError> {
-        <fee::Module<T>>::dot_for(amount, percentage)
+        <fee::Module<T>>::backing_for(amount, percentage)
     }
 }

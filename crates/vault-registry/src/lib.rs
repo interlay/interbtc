@@ -122,7 +122,7 @@ decl_storage! {
         LiquidationCollateralThreshold get(fn liquidation_collateral_threshold) config(): UnsignedFixedPoint<T>;
 
         /// Account identifier of an artificial Vault maintained by the VaultRegistry
-        /// to handle polkaBTC balances and collateral of liquidated Vaults.
+        /// to handle issued balances and collateral of liquidated Vaults.
         /// That is, when a Vault is liquidated, its balances are transferred to
         /// LiquidationVault and claims are later handled via the LiquidationVault.
         LiquidationVaultAccountId: T::AccountId;
@@ -135,7 +135,7 @@ decl_storage! {
         /// Mapping of reserved BTC addresses to the registered account
         ReservedAddresses: map hasher(blake2_128_concat) BtcAddress => T::AccountId;
 
-        /// Total collateral used for backing polkabtc by active vaults, excluding the liquidation vault
+        /// Total collateral used for backing tokens issued by active vaults, excluding the liquidation vault
         TotalUserVaultBackingCollateral: Backing<T>;
 
         /// Build storage at V1 (requires default 0).
@@ -194,8 +194,8 @@ decl_module! {
                 let prev_account_id = <LiquidationVaultAccountId<T>>::take();
 
                 // transfer collateral
-                let amount_dot = ext::collateral::get_free_balance::<T>(&prev_account_id);
-                ext::collateral::transfer::<T>(&prev_account_id, &next_account_id, amount_dot).expect("failed to transfer collateral");
+                let amount_backing = ext::collateral::get_free_balance::<T>(&prev_account_id);
+                ext::collateral::transfer::<T>(&prev_account_id, &next_account_id, amount_backing).expect("failed to transfer collateral");
 
                 // tranfer tokens
                 let amount_btc = ext::treasury::get_free_balance::<T>(prev_account_id.clone());
@@ -1189,16 +1189,16 @@ impl<T: Config> Module<T> {
             return Ok(collateral);
         }
 
-        let collateral: U256 = Self::dot_to_u128(collateral)?.into();
-        let numerator: U256 = Self::polkabtc_to_u128(numerator)?.into();
-        let denominator: U256 = Self::polkabtc_to_u128(denominator)?.into();
+        let collateral: U256 = Self::backing_to_u128(collateral)?.into();
+        let numerator: U256 = Self::issuing_to_u128(numerator)?.into();
+        let denominator: U256 = Self::issuing_to_u128(denominator)?.into();
 
         let amount = collateral
             .checked_mul(numerator)
             .ok_or(Error::<T>::ArithmeticOverflow)?
             .checked_div(denominator)
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
-        Self::u128_to_dot(amount.try_into().map_err(|_| Error::<T>::TryIntoIntError)?)
+        Self::u128_to_backing(amount.try_into().map_err(|_| Error::<T>::TryIntoIntError)?)
     }
 
     /// RPC
@@ -1209,14 +1209,14 @@ impl<T: Config> Module<T> {
         let total_collateral = Self::get_total_backing_collateral(true)?;
 
         // convert the issued_tokens to the raw amount
-        let raw_issued_tokens = Self::polkabtc_to_u128(issued_tokens)?;
+        let raw_issued_tokens = Self::issuing_to_u128(issued_tokens)?;
         ensure!(raw_issued_tokens != 0, Error::<T>::NoTokensIssued);
 
-        // convert the collateral to polkabtc
-        let collateral_in_polka_btc = ext::oracle::dots_to_btc::<T>(total_collateral)?;
-        let raw_collateral_in_polka_btc = Self::polkabtc_to_u128(collateral_in_polka_btc)?;
+        // convert the collateral to issuing
+        let collateral_in_issuing = ext::oracle::backing_to_issuing::<T>(total_collateral)?;
+        let raw_collateral_in_issuing = Self::issuing_to_u128(collateral_in_issuing)?;
 
-        Self::get_collateralization(raw_collateral_in_polka_btc, raw_issued_tokens)
+        Self::get_collateralization(raw_collateral_in_issuing, raw_issued_tokens)
     }
 
     /// Get the first available vault with sufficient collateral to fulfil an issue request
@@ -1372,24 +1372,24 @@ impl<T: Config> Module<T> {
         };
 
         // convert the issued_tokens to the raw amount
-        let raw_issued_tokens = Self::polkabtc_to_u128(issued_tokens)?;
+        let raw_issued_tokens = Self::issuing_to_u128(issued_tokens)?;
         ensure!(raw_issued_tokens != 0, Error::<T>::NoTokensIssued);
 
-        // convert the collateral to polkabtc
-        let collateral_in_polka_btc = ext::oracle::dots_to_btc::<T>(collateral)?;
-        let raw_collateral_in_polka_btc = Self::polkabtc_to_u128(collateral_in_polka_btc)?;
+        // convert the collateral to issuing
+        let collateral_in_issuing = ext::oracle::backing_to_issuing::<T>(collateral)?;
+        let raw_collateral_in_issuing = Self::issuing_to_u128(collateral_in_issuing)?;
 
-        Self::get_collateralization(raw_collateral_in_polka_btc, raw_issued_tokens)
+        Self::get_collateralization(raw_collateral_in_issuing, raw_issued_tokens)
     }
 
     /// Gets the minimum amount of collateral required for the given amount of btc
     /// with the current threshold and exchange rate
     ///
     /// # Arguments
-    /// * `amount_btc` - the amount of polkabtc
-    pub fn get_required_collateral_for_polkabtc(amount_btc: Issuing<T>) -> Result<Backing<T>, DispatchError> {
+    /// * `amount_btc` - the amount of issuing
+    pub fn get_required_collateral_for_issuing(amount_btc: Issuing<T>) -> Result<Backing<T>, DispatchError> {
         let threshold = <SecureCollateralThreshold<T>>::get();
-        let collateral = Self::get_required_collateral_for_polkabtc_with_threshold(amount_btc, threshold)?;
+        let collateral = Self::get_required_collateral_for_issuing_with_threshold(amount_btc, threshold)?;
         Ok(collateral)
     }
 
@@ -1399,7 +1399,7 @@ impl<T: Config> Module<T> {
         let vault = Self::get_active_rich_vault_from_id(&vault_id)?;
         let issued_tokens = vault.data.issued_tokens + vault.data.to_be_issued_tokens;
 
-        let required_collateral = Self::get_required_collateral_for_polkabtc(issued_tokens)?;
+        let required_collateral = Self::get_required_collateral_for_issuing(issued_tokens)?;
 
         Ok(required_collateral)
     }
@@ -1437,7 +1437,7 @@ impl<T: Config> Module<T> {
     /// * `subject` - an extra value to feed into the pseudorandom number generator
     /// * `limit` - the limit of the returned value
     fn pseudo_rand_index(subject: Issuing<T>, limit: usize) -> usize {
-        let raw_subject = Self::polkabtc_to_u128(subject).unwrap_or(0 as u128);
+        let raw_subject = Self::issuing_to_u128(subject).unwrap_or(0 as u128);
 
         // convert into a slice. Endianness of the conversion function is arbitrary chosen
         let bytes = &raw_subject.to_be_bytes();
@@ -1451,11 +1451,11 @@ impl<T: Config> Module<T> {
     /// calculate the collateralization as a ratio of the issued tokens to the
     /// amount of provided collateral at the current exchange rate.
     fn get_collateralization(
-        raw_collateral_in_polka_btc: u128,
+        raw_collateral_in_issuing: u128,
         raw_issued_tokens: u128,
     ) -> Result<UnsignedFixedPoint<T>, DispatchError> {
         let collateralization =
-            UnsignedFixedPoint::<T>::checked_from_rational(raw_collateral_in_polka_btc, raw_issued_tokens)
+            UnsignedFixedPoint::<T>::checked_from_rational(raw_collateral_in_issuing, raw_issued_tokens)
                 .ok_or(Error::<T>::TryIntoIntError)?;
         Ok(collateralization)
     }
@@ -1480,45 +1480,45 @@ impl<T: Config> Module<T> {
         btc_amount: Issuing<T>,
         threshold: UnsignedFixedPoint<T>,
     ) -> Result<bool, DispatchError> {
-        let max_tokens = Self::calculate_max_polkabtc_from_collateral_for_threshold(collateral, threshold)?;
+        let max_tokens = Self::calculate_max_issuing_from_collateral_for_threshold(collateral, threshold)?;
         // check if the max_tokens are below the issued tokens
         Ok(max_tokens < btc_amount)
     }
 
     /// Gets the minimum amount of collateral required for the given amount of btc
     /// with the current exchange rate and the given threshold. This function is the
-    /// inverse of calculate_max_polkabtc_from_collateral_for_threshold
+    /// inverse of calculate_max_issuing_from_collateral_for_threshold
     ///
     /// # Arguments
-    /// * `amount_btc` - the amount of polkabtc
+    /// * `amount_btc` - the amount of issuing
     /// * `threshold` - the required secure collateral threshold
-    fn get_required_collateral_for_polkabtc_with_threshold(
+    fn get_required_collateral_for_issuing_with_threshold(
         btc: Issuing<T>,
         threshold: UnsignedFixedPoint<T>,
     ) -> Result<Backing<T>, DispatchError> {
-        // Step 1: inverse of the scaling applied in calculate_max_polkabtc_from_collateral_for_threshold
-        let btc = Self::polkabtc_to_u128(btc)?;
+        // Step 1: inverse of the scaling applied in calculate_max_issuing_from_collateral_for_threshold
+        let btc = Self::issuing_to_u128(btc)?;
         let btc = threshold
             .checked_mul_int_rounded_up(btc)
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
-        let btc = Self::u128_to_polkabtc(btc)?;
+        let btc = Self::u128_to_issuing(btc)?;
 
-        // Step 2: convert the amount to dots
-        let amount_in_dot = ext::oracle::btc_to_dots::<T>(btc)?;
-        Ok(amount_in_dot)
+        // Step 2: convert the amount to collateral
+        let amount_in_backing = ext::oracle::issuing_to_backing::<T>(btc)?;
+        Ok(amount_in_backing)
     }
 
-    fn calculate_max_polkabtc_from_collateral_for_threshold(
+    fn calculate_max_issuing_from_collateral_for_threshold(
         collateral: Backing<T>,
         threshold: UnsignedFixedPoint<T>,
     ) -> Result<Issuing<T>, DispatchError> {
-        // convert the collateral to polkabtc
-        let collateral_in_polka_btc = ext::oracle::dots_to_btc::<T>(collateral)?;
-        let collateral_in_polka_btc = Self::polkabtc_to_u128(collateral_in_polka_btc)?;
+        // convert the collateral to issuing
+        let collateral_in_issuing = ext::oracle::backing_to_issuing::<T>(collateral)?;
+        let collateral_in_issuing = Self::issuing_to_u128(collateral_in_issuing)?;
 
         // calculate how many tokens should be maximally issued given the threshold.
         let collateral_as_inner =
-            TryInto::<Inner<T>>::try_into(collateral_in_polka_btc).map_err(|_| Error::<T>::TryIntoIntError)?;
+            TryInto::<Inner<T>>::try_into(collateral_in_issuing).map_err(|_| Error::<T>::TryIntoIntError)?;
         let max_btc_as_inner = UnsignedFixedPoint::<T>::checked_from_integer(collateral_as_inner)
             .ok_or(Error::<T>::TryIntoIntError)?
             .checked_div(&threshold)
@@ -1528,22 +1528,22 @@ impl<T: Config> Module<T> {
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
         let max_btc_raw = UniqueSaturatedInto::<u128>::unique_saturated_into(max_btc_as_inner);
 
-        Self::u128_to_polkabtc(max_btc_raw)
+        Self::u128_to_issuing(max_btc_raw)
     }
 
-    fn polkabtc_to_u128(x: Issuing<T>) -> Result<u128, DispatchError> {
+    fn issuing_to_u128(x: Issuing<T>) -> Result<u128, DispatchError> {
         TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
-    fn dot_to_u128(x: Backing<T>) -> Result<u128, DispatchError> {
+    fn backing_to_u128(x: Backing<T>) -> Result<u128, DispatchError> {
         TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
-    fn u128_to_dot(x: u128) -> Result<Backing<T>, DispatchError> {
+    fn u128_to_backing(x: u128) -> Result<Backing<T>, DispatchError> {
         TryInto::<Backing<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
-    fn u128_to_polkabtc(x: u128) -> Result<Issuing<T>, DispatchError> {
+    fn u128_to_issuing(x: u128) -> Result<Issuing<T>, DispatchError> {
         TryInto::<Issuing<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 

@@ -204,11 +204,11 @@ pub struct ExtBuilder;
 
 impl ExtBuilder {
     pub fn build_with(
-        dot_balances: pallet_balances::GenesisConfig<Test, pallet_balances::Instance1>,
+        backing_balances: pallet_balances::GenesisConfig<Test, pallet_balances::Instance1>,
     ) -> sp_io::TestExternalities {
         let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
-        dot_balances.assimilate_storage(&mut storage).unwrap();
+        backing_balances.assimilate_storage(&mut storage).unwrap();
 
         fee::GenesisConfig::<Test> {
             issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%

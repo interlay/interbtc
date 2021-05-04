@@ -229,7 +229,7 @@ fn integration_test_operator_withdrawal_can_force_refund_nominators() {
         let operator_amount_to_withdraw = 10000;
         // The Nomination Ratio is currently at the max permitted level
         // So the force-refunded amount will be `max_nomination_ratio * amount_to_withdraw`
-        let expected_nominator_force_refund = FeePallet::dot_for(
+        let expected_nominator_force_refund = FeePallet::backing_for(
             operator_amount_to_withdraw,
             NominationPallet::get_max_nomination_ratio(),
         )

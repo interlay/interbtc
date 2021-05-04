@@ -48,23 +48,23 @@ pub(crate) mod sla {
     use sp_std::vec::Vec;
 
     pub fn get_relayer_rewards<T: sla::Config>(
-        total_reward_polka_btc: Issuing<T>,
-        total_reward_dot: Backing<T>,
+        total_reward_issuing: Issuing<T>,
+        total_reward_backing: Backing<T>,
     ) -> Result<Vec<(T::AccountId, Issuing<T>, Backing<T>)>, DispatchError> {
-        <sla::Pallet<T>>::get_relayer_rewards(total_reward_polka_btc, total_reward_dot)
+        <sla::Pallet<T>>::get_relayer_rewards(total_reward_issuing, total_reward_backing)
     }
 
     pub fn get_vault_rewards<T: sla::Config>(
-        total_reward_for_issued_in_polka_btc: Issuing<T>,
-        total_reward_for_locked_in_polka_btc: Issuing<T>,
-        total_reward_for_issued_in_dot: Backing<T>,
-        total_reward_for_locked_in_dot: Backing<T>,
+        total_reward_for_issued_in_issuing: Issuing<T>,
+        total_reward_for_locked_in_issuing: Issuing<T>,
+        total_reward_for_issued_in_backing: Backing<T>,
+        total_reward_for_locked_in_backing: Backing<T>,
     ) -> Result<Vec<(T::AccountId, Issuing<T>, Backing<T>)>, DispatchError> {
         <sla::Pallet<T>>::get_vault_rewards(
-            total_reward_for_issued_in_polka_btc,
-            total_reward_for_locked_in_polka_btc,
-            total_reward_for_issued_in_dot,
-            total_reward_for_locked_in_dot,
+            total_reward_for_issued_in_issuing,
+            total_reward_for_locked_in_issuing,
+            total_reward_for_issued_in_backing,
+            total_reward_for_locked_in_backing,
         )
     }
 }

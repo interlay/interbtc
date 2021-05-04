@@ -30,7 +30,7 @@ fn set_exchange_rate_succeeds() {
         let rate = FixedU128::checked_from_rational(100, 1).unwrap();
 
         ExchangeRateOracle::is_authorized.mock_safe(|_| MockResult::Return(true));
-        ExchangeRateOracle::dot_per_btc_to_planck_per_satoshi.mock_safe(|amount| MockResult::Return(Ok(amount)));
+        ExchangeRateOracle::backing_per_issuing_to_exchange_rate.mock_safe(|amount| MockResult::Return(Ok(amount)));
         let result = ExchangeRateOracle::set_exchange_rate(Origin::signed(3), rate);
         assert_ok!(result);
 
@@ -69,7 +69,7 @@ fn set_exchange_rate_fails_with_invalid_oracle_source() {
         let failed_rate = FixedU128::checked_from_rational(100, 1).unwrap();
 
         ExchangeRateOracle::is_authorized.mock_safe(|_| MockResult::Return(true));
-        ExchangeRateOracle::dot_per_btc_to_planck_per_satoshi.mock_safe(|amount| MockResult::Return(Ok(amount)));
+        ExchangeRateOracle::backing_per_issuing_to_exchange_rate.mock_safe(|amount| MockResult::Return(Ok(amount)));
         assert_ok!(ExchangeRateOracle::set_exchange_rate(
             Origin::signed(4),
             successful_rate
@@ -94,32 +94,38 @@ fn getting_exchange_rate_fails_with_missing_exchange_rate() {
     run_test(|| {
         ExchangeRateOracle::is_max_delay_passed.mock_safe(|| MockResult::Return(true));
         assert_err!(ExchangeRateOracle::get_exchange_rate(), TestError::MissingExchangeRate);
-        assert_err!(ExchangeRateOracle::btc_to_dots(0), TestError::MissingExchangeRate);
-        assert_err!(ExchangeRateOracle::dots_to_btc(0), TestError::MissingExchangeRate);
+        assert_err!(
+            ExchangeRateOracle::issuing_to_backing(0),
+            TestError::MissingExchangeRate
+        );
+        assert_err!(
+            ExchangeRateOracle::backing_to_issuing(0),
+            TestError::MissingExchangeRate
+        );
     });
 }
 
 #[test]
-fn btc_to_dots() {
+fn issuing_to_backing() {
     run_test(|| {
         ExchangeRateOracle::get_exchange_rate
             .mock_safe(|| MockResult::Return(Ok(FixedU128::checked_from_rational(2, 1).unwrap())));
         let test_cases = [(0, 0), (2, 4), (10, 20)];
         for (input, expected) in test_cases.iter() {
-            let result = ExchangeRateOracle::btc_to_dots(*input);
+            let result = ExchangeRateOracle::issuing_to_backing(*input);
             assert_ok!(result, *expected);
         }
     });
 }
 
 #[test]
-fn dots_to_btc() {
+fn backing_to_issuing() {
     run_test(|| {
         ExchangeRateOracle::get_exchange_rate
             .mock_safe(|| MockResult::Return(Ok(FixedU128::checked_from_rational(2, 1).unwrap())));
         let test_cases = [(0, 0), (4, 2), (20, 10), (21, 10)];
         for (input, expected) in test_cases.iter() {
-            let result = ExchangeRateOracle::dots_to_btc(*input);
+            let result = ExchangeRateOracle::backing_to_issuing(*input);
             assert_ok!(result, *expected);
         }
     });
@@ -157,7 +163,7 @@ fn convert_btc_dot_to_satoshi_planck() {
     run_test(|| {
         let rate = FixedU128::checked_from_rational(3, 1).unwrap();
         assert_eq!(
-            ExchangeRateOracle::dot_per_btc_to_planck_per_satoshi(rate).unwrap(),
+            ExchangeRateOracle::backing_per_issuing_to_exchange_rate(rate).unwrap(),
             FixedU128::checked_from_rational(300, 1).unwrap()
         );
     });

@@ -37,11 +37,11 @@ sp_api::decl_runtime_apis! {
         Issuing: Codec,
         Backing: Codec,
     {
-        fn btc_to_dots(
+        fn issuing_to_backing(
             amount: BalanceWrapper<Issuing>
         ) -> Result<BalanceWrapper<Backing>, DispatchError>;
 
-        fn dots_to_btc(
+        fn backing_to_issuing(
             amount: BalanceWrapper<Backing>
         ) -> Result<BalanceWrapper<Issuing>, DispatchError>;
     }

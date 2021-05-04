@@ -44,22 +44,26 @@ pub fn deregister_operator(vault: [u8; 32]) -> DispatchResultWithPostInfo {
     Call::Nomination(NominationCall::opt_out_of_nomination()).dispatch(origin_of(account_of(vault)))
 }
 
-pub fn nominate_collateral(nominator: [u8; 32], operator: [u8; 32], amount_dot: u128) -> DispatchResultWithPostInfo {
+pub fn nominate_collateral(
+    nominator: [u8; 32],
+    operator: [u8; 32],
+    amount_backing: u128,
+) -> DispatchResultWithPostInfo {
     Call::Nomination(NominationCall::deposit_nominated_collateral(
         account_of(operator),
-        amount_dot,
+        amount_backing,
     ))
     .dispatch(origin_of(account_of(nominator)))
 }
 
-pub fn assert_nominate_collateral(nominator: [u8; 32], operator: [u8; 32], amount_dot: u128) {
-    assert_ok!(nominate_collateral(nominator, operator, amount_dot));
+pub fn assert_nominate_collateral(nominator: [u8; 32], operator: [u8; 32], amount_backing: u128) {
+    assert_ok!(nominate_collateral(nominator, operator, amount_backing));
 }
 
-pub fn request_operator_collateral_withdrawal(operator: [u8; 32], amount_dot: u128) -> DispatchResultWithPostInfo {
+pub fn request_operator_collateral_withdrawal(operator: [u8; 32], amount_backing: u128) -> DispatchResultWithPostInfo {
     Call::Nomination(NominationCall::request_collateral_withdrawal(
         account_of(operator),
-        amount_dot,
+        amount_backing,
     ))
     .dispatch(origin_of(account_of(operator)))
 }
@@ -72,11 +76,11 @@ pub fn execute_operator_collateral_withdrawal(operator: [u8; 32]) -> DispatchRes
 pub fn request_nominator_collateral_withdrawal(
     nominator: [u8; 32],
     operator: [u8; 32],
-    amount_dot: u128,
+    amount_backing: u128,
 ) -> DispatchResultWithPostInfo {
     Call::Nomination(NominationCall::request_collateral_withdrawal(
         account_of(operator),
-        amount_dot,
+        amount_backing,
     ))
     .dispatch(origin_of(account_of(nominator)))
 }
@@ -86,9 +90,9 @@ pub fn execute_nominator_collateral_withdrawal(nominator: [u8; 32], operator: [u
         .dispatch(origin_of(account_of(nominator)))
 }
 
-pub fn assert_total_nominated_collateral_is(operator: [u8; 32], amount_dot: u128) {
+pub fn assert_total_nominated_collateral_is(operator: [u8; 32], amount_backing: u128) {
     let nominated_collateral = NominationPallet::get_total_nominated_collateral(&account_of(operator)).unwrap();
-    assert_eq!(nominated_collateral, amount_dot);
+    assert_eq!(nominated_collateral, amount_backing);
 }
 
 pub fn get_nominator_collateral() -> u128 {

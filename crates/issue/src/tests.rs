@@ -93,7 +93,7 @@ fn test_request_issue_insufficient_collateral_fails() {
         ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
-        ext::oracle::btc_to_dots::<Test>.mock_safe(|_| MockResult::Return(Ok(10000000)));
+        ext::oracle::issuing_to_backing::<Test>.mock_safe(|_| MockResult::Return(Ok(10000000)));
 
         assert_noop!(request_issue(ALICE, 3, BOB, 0), TestError::InsufficientCollateral,);
     })

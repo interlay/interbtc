@@ -26,9 +26,6 @@ pub use pallet::*;
 pub type Collateral = pallet::Instance1;
 pub type Treasury = pallet::Instance2;
 
-// pub type PolkaBTC = pallet_balances::Instance1;
-// pub type DOT = pallet_balances::Instance1;
-
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;

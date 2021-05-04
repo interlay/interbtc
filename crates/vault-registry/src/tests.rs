@@ -73,7 +73,7 @@ fn create_vault_and_issue_tokens(
     let id = create_vault_with_collateral(id, collateral);
 
     // exchange rate 1 Satoshi = 10 Planck (smallest unit of DOT)
-    ext::oracle::dots_to_btc::<Test>.mock_safe(move |x| MockResult::Return(Ok(x / 10)));
+    ext::oracle::backing_to_issuing::<Test>.mock_safe(move |x| MockResult::Return(Ok(x / 10)));
 
     // issue tokens with 200% collateralization of DEFAULT_COLLATERAL
     assert_ok!(VaultRegistry::try_increase_to_be_issued_tokens(&id, issue_tokens,));
@@ -582,7 +582,7 @@ fn liquidate_succeeds() {
 
         let vault_orig = <crate::Vaults<Test>>::get(&vault_id);
 
-        ext::oracle::btc_to_dots::<Test>.mock_safe(|_| MockResult::Return(Ok(1000000000u32.into())));
+        ext::oracle::issuing_to_backing::<Test>.mock_safe(|_| MockResult::Return(Ok(1000000000u32.into())));
 
         assert_ok!(VaultRegistry::liquidate_vault(&vault_id));
 
@@ -670,7 +670,7 @@ fn liquidate_at_most_secure_threshold() {
         let vault_orig = <crate::Vaults<Test>>::get(&vault_id);
 
         // set used for used_collateral
-        ext::oracle::btc_to_dots::<Test>.mock_safe(|_| MockResult::Return(Ok(50)));
+        ext::oracle::issuing_to_backing::<Test>.mock_safe(|_| MockResult::Return(Ok(50)));
         VaultRegistry::set_secure_collateral_threshold(FixedU128::one());
         assert_ok!(VaultRegistry::liquidate_vault(&vault_id));
 
@@ -762,7 +762,7 @@ fn is_collateral_below_threshold_true_succeeds() {
         let btc_amount = 50;
         let threshold = FixedU128::checked_from_rational(201, 100).unwrap(); // 201%
 
-        ext::oracle::dots_to_btc::<Test>.mock_safe(move |_| MockResult::Return(Ok(collateral)));
+        ext::oracle::backing_to_issuing::<Test>.mock_safe(move |_| MockResult::Return(Ok(collateral)));
 
         assert_eq!(
             VaultRegistry::is_collateral_below_threshold(collateral, btc_amount, threshold),
@@ -889,7 +889,7 @@ fn is_collateral_below_threshold_false_succeeds() {
         let btc_amount = 50;
         let threshold = FixedU128::checked_from_rational(200, 100).unwrap(); // 200%
 
-        ext::oracle::dots_to_btc::<Test>.mock_safe(move |_| MockResult::Return(Ok(collateral)));
+        ext::oracle::backing_to_issuing::<Test>.mock_safe(move |_| MockResult::Return(Ok(collateral)));
 
         assert_eq!(
             VaultRegistry::is_collateral_below_threshold(collateral, btc_amount, threshold),
@@ -899,15 +899,15 @@ fn is_collateral_below_threshold_false_succeeds() {
 }
 
 #[test]
-fn calculate_max_polkabtc_from_collateral_for_threshold_succeeds() {
+fn calculate_max_issuing_from_collateral_for_threshold_succeeds() {
     run_test(|| {
         let collateral: u128 = u64::MAX as u128;
         let threshold = FixedU128::checked_from_rational(200, 100).unwrap(); // 200%
 
-        ext::oracle::dots_to_btc::<Test>.mock_safe(move |_| MockResult::Return(Ok(collateral)));
+        ext::oracle::backing_to_issuing::<Test>.mock_safe(move |_| MockResult::Return(Ok(collateral)));
 
         assert_eq!(
-            VaultRegistry::calculate_max_polkabtc_from_collateral_for_threshold(collateral, threshold),
+            VaultRegistry::calculate_max_issuing_from_collateral_for_threshold(collateral, threshold),
             Ok((u64::MAX / 2) as u128)
         );
     })
@@ -916,35 +916,35 @@ fn calculate_max_polkabtc_from_collateral_for_threshold_succeeds() {
 #[test]
 fn test_threshold_equivalent_to_legacy_calculation() {
     /// old version
-    fn legacy_calculate_max_polkabtc_from_collateral_for_threshold(
+    fn legacy_calculate_max_issuing_from_collateral_for_threshold(
         collateral: Backing<Test>,
         threshold: u128,
     ) -> Result<Issuing<Test>, DispatchError> {
         let granularity = 5;
-        // convert the collateral to polkabtc
-        let collateral_in_polka_btc = ext::oracle::dots_to_btc::<Test>(collateral)?;
-        let collateral_in_polka_btc = VaultRegistry::polkabtc_to_u128(collateral_in_polka_btc)?;
-        let collateral_in_polka_btc = U256::from(collateral_in_polka_btc);
+        // convert the collateral to issuing
+        let collateral_in_issuing = ext::oracle::backing_to_issuing::<Test>(collateral)?;
+        let collateral_in_issuing = VaultRegistry::issuing_to_u128(collateral_in_issuing)?;
+        let collateral_in_issuing = U256::from(collateral_in_issuing);
 
         // calculate how many tokens should be maximally issued given the threshold
-        let scaled_collateral_in_polka_btc = collateral_in_polka_btc
+        let scaled_collateral_in_issuing = collateral_in_issuing
             .checked_mul(U256::from(10).pow(granularity.into()))
             .ok_or(Error::<Test>::ArithmeticOverflow)?;
-        let scaled_max_tokens = scaled_collateral_in_polka_btc
+        let scaled_max_tokens = scaled_collateral_in_issuing
             .checked_div(threshold.into())
             .unwrap_or(0.into());
 
-        VaultRegistry::u128_to_polkabtc(scaled_max_tokens.try_into()?)
+        VaultRegistry::u128_to_issuing(scaled_max_tokens.try_into()?)
     }
 
     run_test(|| {
         let threshold = FixedU128::checked_from_rational(199999, 100000).unwrap(); // 199.999%
         let random_start = 987529462328 as u128;
         for btc in random_start..random_start + 199999 {
-            ext::oracle::dots_to_btc::<Test>.mock_safe(move |x| MockResult::Return(Ok(x)));
-            ext::oracle::btc_to_dots::<Test>.mock_safe(move |x| MockResult::Return(Ok(x)));
-            let old = legacy_calculate_max_polkabtc_from_collateral_for_threshold(btc, 199999).unwrap();
-            let new = VaultRegistry::calculate_max_polkabtc_from_collateral_for_threshold(btc, threshold).unwrap();
+            ext::oracle::backing_to_issuing::<Test>.mock_safe(move |x| MockResult::Return(Ok(x)));
+            ext::oracle::issuing_to_backing::<Test>.mock_safe(move |x| MockResult::Return(Ok(x)));
+            let old = legacy_calculate_max_issuing_from_collateral_for_threshold(btc, 199999).unwrap();
+            let new = VaultRegistry::calculate_max_issuing_from_collateral_for_threshold(btc, threshold).unwrap();
             assert_eq!(old, new);
         }
     })
@@ -953,15 +953,15 @@ fn test_threshold_equivalent_to_legacy_calculation() {
 #[test]
 fn test_get_required_collateral_threshold_equivalent_to_legacy_calculation_() {
     // old version
-    fn legacy_get_required_collateral_for_polkabtc_with_threshold(
+    fn legacy_get_required_collateral_for_issuing_with_threshold(
         btc: Issuing<Test>,
         threshold: u128,
     ) -> Result<Backing<Test>, DispatchError> {
         let granularity = 5;
-        let btc = VaultRegistry::polkabtc_to_u128(btc)?;
+        let btc = VaultRegistry::issuing_to_u128(btc)?;
         let btc = U256::from(btc);
 
-        // Step 1: inverse of the scaling applied in calculate_max_polkabtc_from_collateral_for_threshold
+        // Step 1: inverse of the scaling applied in calculate_max_issuing_from_collateral_for_threshold
 
         // inverse of the div
         let btc = btc
@@ -975,42 +975,42 @@ fn test_get_required_collateral_threshold_equivalent_to_legacy_calculation_() {
             .checked_div(U256::from(10).pow(granularity.into()))
             .ok_or(Error::<Test>::ArithmeticUnderflow)?;
 
-        // Step 2: convert the amount to dots
-        let scaled = VaultRegistry::u128_to_polkabtc(btc.try_into()?)?;
-        let amount_in_dot = ext::oracle::btc_to_dots::<Test>(scaled)?;
-        Ok(amount_in_dot)
+        // Step 2: convert the amount to backing
+        let scaled = VaultRegistry::u128_to_issuing(btc.try_into()?)?;
+        let amount_in_backing = ext::oracle::issuing_to_backing::<Test>(scaled)?;
+        Ok(amount_in_backing)
     }
 
     run_test(|| {
         let threshold = FixedU128::checked_from_rational(199999, 100000).unwrap(); // 199.999%
         let random_start = 987529462328 as u128;
         for btc in random_start..random_start + 199999 {
-            ext::oracle::dots_to_btc::<Test>.mock_safe(move |x| MockResult::Return(Ok(x)));
-            ext::oracle::btc_to_dots::<Test>.mock_safe(move |x| MockResult::Return(Ok(x)));
-            let old = legacy_get_required_collateral_for_polkabtc_with_threshold(btc, 199999);
-            let new = VaultRegistry::get_required_collateral_for_polkabtc_with_threshold(btc, threshold);
+            ext::oracle::backing_to_issuing::<Test>.mock_safe(move |x| MockResult::Return(Ok(x)));
+            ext::oracle::issuing_to_backing::<Test>.mock_safe(move |x| MockResult::Return(Ok(x)));
+            let old = legacy_get_required_collateral_for_issuing_with_threshold(btc, 199999);
+            let new = VaultRegistry::get_required_collateral_for_issuing_with_threshold(btc, threshold);
             assert_eq!(old, new);
         }
     })
 }
 
 #[test]
-fn get_required_collateral_for_polkabtc_with_threshold_succeeds() {
+fn get_required_collateral_for_issuing_with_threshold_succeeds() {
     run_test(|| {
         let threshold = FixedU128::checked_from_rational(19999, 10000).unwrap(); // 199.99%
         let random_start = 987529387592 as u128;
         for btc in random_start..random_start + 19999 {
-            ext::oracle::dots_to_btc::<Test>.mock_safe(move |x| MockResult::Return(Ok(x)));
-            ext::oracle::btc_to_dots::<Test>.mock_safe(move |x| MockResult::Return(Ok(x)));
+            ext::oracle::backing_to_issuing::<Test>.mock_safe(move |x| MockResult::Return(Ok(x)));
+            ext::oracle::issuing_to_backing::<Test>.mock_safe(move |x| MockResult::Return(Ok(x)));
 
             let min_collateral =
-                VaultRegistry::get_required_collateral_for_polkabtc_with_threshold(btc, threshold).unwrap();
+                VaultRegistry::get_required_collateral_for_issuing_with_threshold(btc, threshold).unwrap();
 
             let max_btc_for_min_collateral =
-                VaultRegistry::calculate_max_polkabtc_from_collateral_for_threshold(min_collateral, threshold).unwrap();
+                VaultRegistry::calculate_max_issuing_from_collateral_for_threshold(min_collateral, threshold).unwrap();
 
             let max_btc_for_below_min_collateral =
-                VaultRegistry::calculate_max_polkabtc_from_collateral_for_threshold(min_collateral - 1, threshold)
+                VaultRegistry::calculate_max_issuing_from_collateral_for_threshold(min_collateral - 1, threshold)
                     .unwrap();
 
             // Check that the amount we found is indeed the lowest amount that is sufficient for `btc`
@@ -1031,7 +1031,7 @@ fn _is_vault_below_auction_threshold_false_succeeds() {
         assert_ok!(res);
 
         ext::collateral::for_account::<Test>.mock_safe(|_| MockResult::Return(DEFAULT_COLLATERAL));
-        ext::oracle::dots_to_btc::<Test>.mock_safe(|_| MockResult::Return(Ok(DEFAULT_COLLATERAL)));
+        ext::oracle::backing_to_issuing::<Test>.mock_safe(|_| MockResult::Return(Ok(DEFAULT_COLLATERAL)));
 
         assert_eq!(VaultRegistry::is_vault_below_auction_threshold(&id), Ok(false))
     });
@@ -1077,7 +1077,7 @@ fn is_vault_below_liquidation_threshold_true_succeeds() {
         assert_ok!(res);
 
         ext::collateral::for_account::<Test>.mock_safe(|_| MockResult::Return(DEFAULT_COLLATERAL));
-        ext::oracle::dots_to_btc::<Test>.mock_safe(|_| MockResult::Return(Ok(DEFAULT_COLLATERAL / 2)));
+        ext::oracle::backing_to_issuing::<Test>.mock_safe(|_| MockResult::Return(Ok(DEFAULT_COLLATERAL / 2)));
 
         let vault = VaultRegistry::get_vault_from_id(&id).unwrap();
         let threshold = VaultRegistry::get_liquidation_collateral_threshold();
@@ -1351,7 +1351,7 @@ mod get_vaults_with_issuable_tokens_tests {
             assert_eq!(vault.data.to_be_redeemed_tokens, 0);
 
             // update the exchange rate
-            ext::oracle::dots_to_btc::<Test>.mock_safe(move |x| MockResult::Return(Ok(x / 2)));
+            ext::oracle::backing_to_issuing::<Test>.mock_safe(move |x| MockResult::Return(Ok(x / 2)));
 
             assert_err!(
                 VaultRegistry::get_vaults_with_issuable_tokens(),
@@ -1680,9 +1680,9 @@ fn test_try_increase_to_be_replaced_tokens() {
         let vault_id = create_sample_vault_and_issue_tokens(issue_tokens);
         assert_ok!(VaultRegistry::try_increase_to_be_redeemed_tokens(&vault_id, 1));
 
-        let (total_btc, total_dot) = VaultRegistry::try_increase_to_be_replaced_tokens(&vault_id, 2, 10).unwrap();
-        assert!(total_btc == 2);
-        assert!(total_dot == 10);
+        let (total_issuing, total_backing) = VaultRegistry::try_increase_to_be_replaced_tokens(&vault_id, 2, 10).unwrap();
+        assert!(total_issuing == 2);
+        assert!(total_backing == 10);
 
         // check that we can't request more than we have issued tokens
         assert_noop!(
@@ -1696,9 +1696,9 @@ fn test_try_increase_to_be_replaced_tokens() {
             TestError::InsufficientTokensCommitted
         );
 
-        let (total_btc, total_dot) = VaultRegistry::try_increase_to_be_replaced_tokens(&vault_id, 1, 20).unwrap();
-        assert!(total_btc == 3);
-        assert!(total_dot == 30);
+        let (total_issuing, total_backing) = VaultRegistry::try_increase_to_be_replaced_tokens(&vault_id, 1, 20).unwrap();
+        assert!(total_issuing == 3);
+        assert!(total_backing == 30);
 
         // check that is was written to storage
         let vault = VaultRegistry::get_active_vault_from_id(&vault_id).unwrap();

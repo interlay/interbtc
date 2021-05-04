@@ -156,8 +156,8 @@ mod request_issue_tests {
     fn integration_test_request_with_griefing_collateral_at_minimum_succeeds() {
         test_with_initialized_vault(|| {
             let amount = 10_000;
-            let amount_in_dot = ExchangeRateOraclePallet::btc_to_dots(amount).unwrap();
-            let griefing_collateral = FeePallet::get_issue_griefing_collateral(amount_in_dot).unwrap();
+            let amount_in_backing = ExchangeRateOraclePallet::issuing_to_backing(amount).unwrap();
+            let griefing_collateral = FeePallet::get_issue_griefing_collateral(amount_in_backing).unwrap();
             assert_ok!(
                 Call::Issue(IssueCall::request_issue(amount, account_of(VAULT), griefing_collateral))
                     .dispatch(origin_of(account_of(USER)))
@@ -187,8 +187,8 @@ mod request_issue_tests {
     fn integration_test_request_not_accepting_new_issues_fails() {
         test_with_initialized_vault(|| {
             let amount = 10_000;
-            let amount_in_dot = ExchangeRateOraclePallet::btc_to_dots(amount).unwrap();
-            let griefing_collateral = FeePallet::get_issue_griefing_collateral(amount_in_dot).unwrap() - 1;
+            let amount_in_backing = ExchangeRateOraclePallet::issuing_to_backing(amount).unwrap();
+            let griefing_collateral = FeePallet::get_issue_griefing_collateral(amount_in_backing).unwrap() - 1;
             assert_noop!(
                 Call::Issue(IssueCall::request_issue(amount, account_of(VAULT), griefing_collateral))
                     .dispatch(origin_of(account_of(USER))),
@@ -218,7 +218,7 @@ fn integration_test_issue_fails_with_uninitialized_relay() {
 }
 
 #[test]
-fn integration_test_issue_polka_btc_execute_succeeds() {
+fn integration_test_issue_issuing_execute_succeeds() {
     test_with(|| {
         let vault_proof_submitter = CAROL;
 
@@ -235,7 +235,7 @@ fn integration_test_issue_polka_btc_execute_succeeds() {
                 .dispatch(origin_of(account_of(vault_proof_submitter)))
         );
 
-        // alice requests polka_btc by locking btc with bob
+        // alice requests issuing by locking btc with bob
         assert_ok!(Call::Issue(IssueCall::request_issue(
             amount_btc,
             account_of(VAULT),
@@ -261,7 +261,7 @@ fn integration_test_issue_polka_btc_execute_succeeds() {
 }
 
 #[test]
-fn integration_test_issue_polka_btc_execute_bookkeeping() {
+fn integration_test_issue_issuing_execute_bookkeeping() {
     test_with_initialized_vault(|| {
         let requested_btc = 1000;
         let (issue_id, issue) = request_issue(requested_btc);
@@ -300,7 +300,7 @@ fn integration_test_withdraw_after_request_issue() {
                 .dispatch(origin_of(account_of(vault_proof_submitter)))
         );
 
-        // alice requests polka_btc by locking btc with bob
+        // alice requests issuing by locking btc with bob
         assert_ok!(Call::Issue(IssueCall::request_issue(
             amount_btc,
             account_of(vault),
@@ -448,7 +448,7 @@ fn integration_test_issue_underpayment_executed_by_third_party_fails() {
 }
 
 #[test]
-fn integration_test_issue_polka_btc_cancel() {
+fn integration_test_issue_issuing_cancel() {
     test_with_initialized_vault(|| {
         // random non-zero starting state
         let (issue_id, issue) = RequestIssueBuilder::new(10_000).request();
@@ -475,7 +475,7 @@ fn integration_test_issue_polka_btc_cancel() {
 }
 
 #[test]
-fn integration_test_issue_polka_btc_cancel_liquidated() {
+fn integration_test_issue_issuing_cancel_liquidated() {
     test_with_initialized_vault(|| {
         let (issue_id, issue) = RequestIssueBuilder::new(10_000).request();
 
@@ -507,7 +507,7 @@ fn integration_test_issue_polka_btc_cancel_liquidated() {
 }
 
 #[test]
-fn integration_test_issue_polka_btc_execute_liquidated() {
+fn integration_test_issue_issuing_execute_liquidated() {
     test_with_initialized_vault(|| {
         let (issue_id, issue) = RequestIssueBuilder::new(10_000).request();
 

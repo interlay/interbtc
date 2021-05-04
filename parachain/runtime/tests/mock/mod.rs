@@ -227,8 +227,8 @@ pub struct FeePool {
 impl FeePool {
     pub fn get() -> Self {
         Self {
-            balance: FeePallet::epoch_rewards_dot(),
-            tokens: FeePallet::epoch_rewards_polka_btc(),
+            balance: FeePallet::epoch_rewards_backing(),
+            tokens: FeePallet::epoch_rewards_issuing(),
         }
     }
 }
@@ -628,10 +628,10 @@ pub fn force_issue_tokens(user: [u8; 32], vault: [u8; 32], collateral: u128, tok
 }
 
 #[allow(dead_code)]
-pub fn required_collateral_for_issue(issue_btc: u128) -> u128 {
-    let fee_amount_btc = FeePallet::get_issue_fee(issue_btc).unwrap();
-    let total_amount_btc = issue_btc + fee_amount_btc;
-    VaultRegistryPallet::get_required_collateral_for_polkabtc(total_amount_btc).unwrap()
+pub fn required_collateral_for_issue(issued_tokens: u128) -> u128 {
+    let fee_amount_btc = FeePallet::get_issue_fee(issued_tokens).unwrap();
+    let total_amount_btc = issued_tokens + fee_amount_btc;
+    VaultRegistryPallet::get_required_collateral_for_issuing(total_amount_btc).unwrap()
 }
 
 pub fn assert_store_main_chain_header_event(height: u32, hash: H256Le, relayer: AccountId) {

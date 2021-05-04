@@ -98,7 +98,7 @@ decl_event!(
     {
         // [old_vault_id, amount_btc, griefing_collateral]
         RequestReplace(AccountId, Issuing, Backing),
-        // [old_vault_id, withdrawn_polkabtc, withdrawn_griefing_collateral]
+        // [old_vault_id, withdrawn_tokens, withdrawn_griefing_collateral]
         WithdrawReplace(AccountId, Issuing, Backing),
         // [replace_id, old_vault_id, new_vault_id, amount, collateral, btc_address]
         AcceptReplace(H256, AccountId, AccountId, Issuing, Backing, BtcAddress),
@@ -336,8 +336,9 @@ impl<T: Config> Module<T> {
         ensure!(total_to_be_replaced >= dust_value, Error::<T>::AmountBelowDustAmount);
 
         // check that that the total griefing collateral is sufficient to back the total to-be-replaced amount
-        let required_collateral =
-            ext::fee::get_replace_griefing_collateral::<T>(ext::oracle::btc_to_dots::<T>(total_to_be_replaced)?)?;
+        let required_collateral = ext::fee::get_replace_griefing_collateral::<T>(
+            ext::oracle::issuing_to_backing::<T>(total_to_be_replaced)?,
+        )?;
         ensure!(
             total_griefing_collateral >= required_collateral,
             Error::<T>::InsufficientCollateral
@@ -427,8 +428,8 @@ impl<T: Config> Module<T> {
         )?;
 
         // claim auctioning fee that is proportional to replace amount
-        let dot_amount = ext::oracle::btc_to_dots::<T>(replace.amount)?;
-        let reward = ext::fee::get_auction_redeem_fee::<T>(dot_amount)?;
+        let backing_amount = ext::oracle::issuing_to_backing::<T>(replace.amount)?;
+        let reward = ext::fee::get_auction_redeem_fee::<T>(backing_amount)?;
         ext::vault_registry::slash_collateral::<T>(
             CurrencySource::Backing(old_vault_id),
             CurrencySource::Backing(new_vault_id),

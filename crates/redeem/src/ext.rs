@@ -236,8 +236,8 @@ pub(crate) mod oracle {
     use crate::types::{Backing, Issuing};
     use frame_support::dispatch::DispatchError;
 
-    pub fn btc_to_dots<T: exchange_rate_oracle::Config>(amount: Issuing<T>) -> Result<Backing<T>, DispatchError> {
-        <exchange_rate_oracle::Pallet<T>>::btc_to_dots(amount)
+    pub fn issuing_to_backing<T: exchange_rate_oracle::Config>(amount: Issuing<T>) -> Result<Backing<T>, DispatchError> {
+        <exchange_rate_oracle::Pallet<T>>::issuing_to_backing(amount)
     }
 }
 
@@ -254,12 +254,12 @@ pub(crate) mod fee {
         <fee::Pallet<T>>::get_redeem_fee(amount)
     }
 
-    pub fn increase_polka_btc_rewards_for_epoch<T: fee::Config>(amount: Issuing<T>) {
-        <fee::Pallet<T>>::increase_polka_btc_rewards_for_epoch(amount)
+    pub fn increase_issuing_rewards_for_epoch<T: fee::Config>(amount: Issuing<T>) {
+        <fee::Pallet<T>>::increase_issuing_rewards_for_epoch(amount)
     }
 
-    pub fn increase_dot_rewards_for_epoch<T: fee::Config>(amount: Backing<T>) {
-        <fee::Pallet<T>>::increase_dot_rewards_for_epoch(amount)
+    pub fn increase_backing_rewards_for_epoch<T: fee::Config>(amount: Backing<T>) {
+        <fee::Pallet<T>>::increase_backing_rewards_for_epoch(amount)
     }
 
     pub fn get_punishment_fee<T: fee::Config>(amount: Backing<T>) -> Result<Backing<T>, DispatchError> {

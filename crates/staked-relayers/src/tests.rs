@@ -454,7 +454,7 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
                 opentime: 0,
                 fee: 0,
                 amount_btc: 100,
-                premium_dot: 0,
+                premium: 0,
                 redeemer: ALICE,
                 btc_address: recipient_address,
                 btc_height: 0,
