@@ -79,6 +79,9 @@ decl_storage! {
         /// risk the bitcoin client to reject the payment
         RedeemBtcDustValue get(fn redeem_btc_dust_value) config(): Issuing<T>;
 
+        /// the expected size in bytes of the redeem bitcoin transfer
+        RedeemTransactionSize get(fn redeem_transaction_size) config(): u32;
+
         /// Build storage at V1 (requires default 0).
         StorageVersion get(fn storage_version) build(|_| Version::V2): Version = Version::V0;
     }
@@ -100,6 +103,7 @@ decl_event!(
             Backing,    // premium
             AccountId,  // vault_id
             BtcAddress, // user btc_address
+            Issuing,    // transfer_fee_btc
         ),
         // [redeemer, amount_issuing]
         LiquidationRedeem(AccountId, Issuing),
@@ -139,6 +143,7 @@ decl_module! {
                             btc_address: old_request.btc_address,
                             btc_height: 1969929, // extra conservative, testnet height at april 4th
                             status: old_request.status,
+                            transfer_fee_btc: 0u32.into(),
                         };
                         <RedeemRequests<T>>::insert(id, new_request);
                     });
@@ -281,9 +286,16 @@ impl<T: Config> Module<T> {
         ensure!(amount_issuing <= redeemer_balance, Error::<T>::AmountExceedsUserBalance);
 
         let fee_issuing = ext::fee::get_redeem_fee::<T>(amount_issuing)?;
-        let redeem_amount_issuing = amount_issuing
+        let inclusion_fee = Self::get_current_inclusion_fee()?;
+
+        let vault_to_be_burned_tokens = amount_issuing
             .checked_sub(&fee_issuing)
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
+
+        // this can overflow for small requested values. As such return AmountBelowDustAmount when this happens
+        let user_to_be_received_btc = vault_to_be_burned_tokens
+            .checked_sub(&inclusion_fee)
+            .ok_or(Error::<T>::AmountBelowDustAmount)?;
 
         ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;
 
@@ -291,11 +303,12 @@ impl<T: Config> Module<T> {
         let dust_value = <RedeemBtcDustValue<T>>::get();
         ensure!(
             // this is the amount the vault will send (minus fee)
-            redeem_amount_issuing >= dust_value,
+            user_to_be_received_btc >= dust_value,
             Error::<T>::AmountBelowDustAmount
         );
 
-        ext::vault_registry::try_increase_to_be_redeemed_tokens::<T>(&vault_id, redeem_amount_issuing)?;
+        // vault will get rid of the btc + btc_inclusion_fee
+        ext::vault_registry::try_increase_to_be_redeemed_tokens::<T>(&vault_id, vault_to_be_burned_tokens)?;
 
         // lock full amount (inc. fee)
         ext::treasury::lock::<T>(redeemer.clone(), amount_issuing)?;
@@ -303,7 +316,7 @@ impl<T: Config> Module<T> {
 
         let below_premium_redeem = ext::vault_registry::is_vault_below_premium_threshold::<T>(&vault_id)?;
         let premium_backing = if below_premium_redeem {
-            let redeem_amount_issuing_in_backing = ext::oracle::issuing_to_backing::<T>(redeem_amount_issuing)?;
+            let redeem_amount_issuing_in_backing = ext::oracle::issuing_to_backing::<T>(user_to_be_received_btc)?;
             ext::fee::get_premium_redeem_fee::<T>(redeem_amount_issuing_in_backing)?
         } else {
             Self::u128_to_backing(0u128)?
@@ -314,7 +327,7 @@ impl<T: Config> Module<T> {
         // or a replace. As such, we decrease the to-be-replaced tokens here. This call will
         // never fail due to insufficient to-be-replaced tokens
         let (_, griefing_collateral) =
-            ext::vault_registry::decrease_to_be_replaced_tokens::<T>(&vault_id, redeem_amount_issuing)?;
+            ext::vault_registry::decrease_to_be_replaced_tokens::<T>(&vault_id, vault_to_be_burned_tokens)?;
         // release the griefing collateral that is locked for the replace request
         if !griefing_collateral.is_zero() {
             ext::collateral::release_collateral::<T>(&vault_id, griefing_collateral)?;
@@ -326,7 +339,8 @@ impl<T: Config> Module<T> {
                 vault: vault_id.clone(),
                 opentime: ext::security::active_block_number::<T>(),
                 fee: fee_issuing,
-                amount_btc: redeem_amount_issuing,
+                transfer_fee_btc: inclusion_fee,
+                amount_btc: user_to_be_received_btc,
                 premium: premium_backing,
                 period: Self::redeem_period(),
                 redeemer: redeemer.clone(),
@@ -340,11 +354,12 @@ impl<T: Config> Module<T> {
         Self::deposit_event(<Event<T>>::RequestRedeem(
             redeem_id,
             redeemer,
-            redeem_amount_issuing,
+            user_to_be_received_btc,
             fee_issuing,
             premium_backing,
             vault_id,
             btc_address,
+            inclusion_fee,
         ));
 
         Ok(redeem_id)
@@ -389,8 +404,12 @@ impl<T: Config> Module<T> {
             Some(redeem_id.clone().as_bytes().to_vec()),
         )?;
 
-        // burn amount (without fee)
-        ext::treasury::burn::<T>(redeem.redeemer.clone(), redeem.amount_btc)?;
+        // burn amount (without parachain fee, but including transfer fee)
+        let burn_amount = redeem
+            .amount_btc
+            .checked_add(&redeem.transfer_fee_btc)
+            .ok_or(Error::<T>::ArithmeticOverflow)?;
+        ext::treasury::burn::<T>(redeem.redeemer.clone(), burn_amount)?;
 
         // send fees to pool
         ext::treasury::unlock_and_transfer::<T>(
@@ -400,7 +419,7 @@ impl<T: Config> Module<T> {
         )?;
         ext::fee::increase_issuing_rewards_for_epoch::<T>(redeem.fee);
 
-        ext::vault_registry::redeem_tokens::<T>(&redeem.vault, redeem.amount_btc, redeem.premium, &redeem.redeemer)?;
+        ext::vault_registry::redeem_tokens::<T>(&redeem.vault, burn_amount, redeem.premium, &redeem.redeemer)?;
 
         Self::set_redeem_status(redeem_id, RedeemRequestStatus::Completed);
         Self::deposit_event(<Event<T>>::ExecuteRedeem(
@@ -428,14 +447,19 @@ impl<T: Config> Module<T> {
         let vault = ext::vault_registry::get_vault_from_id::<T>(&redeem.vault)?;
         let vault_id = redeem.vault.clone();
 
-        let amount_issuing_in_backing = ext::oracle::issuing_to_backing::<T>(redeem.amount_btc)?;
+        let vault_to_be_burned_tokens = redeem
+            .amount_btc
+            .checked_add(&redeem.transfer_fee_btc)
+            .ok_or(Error::<T>::ArithmeticOverflow)?;
+
+        let amount_issuing_in_backing = ext::oracle::issuing_to_backing::<T>(vault_to_be_burned_tokens)?;
         let punishment_fee_in_backing = ext::fee::get_punishment_fee::<T>(amount_issuing_in_backing)?;
 
         // now update the collateral; the logic is different for liquidated vaults.
         let slashed_amount = if vault.is_liquidated() {
             let confiscated_collateral = ext::vault_registry::calculate_collateral::<T>(
                 ext::vault_registry::get_backing_collateral::<T>(&redeem.vault)?,
-                redeem.amount_btc,
+                vault_to_be_burned_tokens,
                 vault.to_be_redeemed_tokens, // note: this is the value read at start of function
             )?;
 
@@ -493,7 +517,7 @@ impl<T: Config> Module<T> {
             slashing_amount_in_backing
         };
 
-        // first update the polkabtc tokens; this logic is the same regardless of whether or not the vault is liquidated
+        // first update the issued tokens; this logic is the same regardless of whether or not the vault is liquidated
         if reimburse {
             // Transfer the transaction fee to the pool. Even though the redeem was not
             // successful, the user receives a premium in collateral, so it's to take the fee.
@@ -506,17 +530,17 @@ impl<T: Config> Module<T> {
 
             if ext::vault_registry::is_vault_below_secure_threshold::<T>(&redeem.vault)? {
                 // vault can not afford to back the tokens that he would receive, so we burn it
-                ext::treasury::burn::<T>(redeemer.clone(), redeem.amount_btc)?;
-                ext::vault_registry::decrease_tokens::<T>(&redeem.vault, &redeem.redeemer, redeem.amount_btc)?;
+                ext::treasury::burn::<T>(redeemer.clone(), vault_to_be_burned_tokens)?;
+                ext::vault_registry::decrease_tokens::<T>(&redeem.vault, &redeem.redeemer, vault_to_be_burned_tokens)?;
                 Self::set_redeem_status(redeem_id, RedeemRequestStatus::Reimbursed(false));
             } else {
                 // Transfer the rest of the user's issued tokens (i.e. excluding fee) to the vault
                 ext::treasury::unlock_and_transfer::<T>(
                     redeem.redeemer.clone(),
                     redeem.vault.clone(),
-                    redeem.amount_btc,
+                    vault_to_be_burned_tokens,
                 )?;
-                ext::vault_registry::decrease_to_be_redeemed_tokens::<T>(&vault_id, redeem.amount_btc)?;
+                ext::vault_registry::decrease_to_be_redeemed_tokens::<T>(&vault_id, vault_to_be_burned_tokens)?;
                 Self::set_redeem_status(redeem_id, RedeemRequestStatus::Reimbursed(true));
             }
         } else {
@@ -524,9 +548,11 @@ impl<T: Config> Module<T> {
             let total_issuing = redeem
                 .amount_btc
                 .checked_add(&redeem.fee)
+                .ok_or(Error::<T>::ArithmeticOverflow)?
+                .checked_add(&redeem.transfer_fee_btc)
                 .ok_or(Error::<T>::ArithmeticOverflow)?;
             ext::treasury::unlock::<T>(redeemer.clone(), total_issuing)?;
-            ext::vault_registry::decrease_to_be_redeemed_tokens::<T>(&vault_id, redeem.amount_btc)?;
+            ext::vault_registry::decrease_to_be_redeemed_tokens::<T>(&vault_id, vault_to_be_burned_tokens)?;
             Self::set_redeem_status(redeem_id, RedeemRequestStatus::Retried);
         }
 
@@ -556,13 +582,32 @@ impl<T: Config> Module<T> {
 
         ensure!(redeem.vault == vault_id, Error::<T>::UnauthorizedUser);
 
-        ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&vault_id, redeem.amount_btc)?;
-        ext::vault_registry::issue_tokens::<T>(&vault_id, redeem.amount_btc)?;
-        ext::treasury::mint::<T>(vault_id, redeem.amount_btc);
+        let reimbursed_amount = redeem
+            .amount_btc
+            .checked_add(&redeem.transfer_fee_btc)
+            .ok_or(Error::<T>::ArithmeticOverflow)?;
+
+        ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&vault_id, reimbursed_amount)?;
+        ext::vault_registry::issue_tokens::<T>(&vault_id, reimbursed_amount)?;
+        ext::treasury::mint::<T>(vault_id, reimbursed_amount);
 
         Self::set_redeem_status(redeem_id, RedeemRequestStatus::Completed);
 
         Ok(())
+    }
+
+    /// get current inclusion fee based on the expected number of bytes in the transaction, and
+    /// the inclusion fee rate reported by the oracle
+    fn get_current_inclusion_fee() -> Result<Issuing<T>, DispatchError> {
+        {
+            let size: u32 = Self::redeem_transaction_size();
+            let satoshi_per_bytes: u32 = ext::oracle::satoshi_per_bytes::<T>().fast;
+
+            let fee = (size as u64)
+                .checked_mul(satoshi_per_bytes as u64)
+                .ok_or(Error::<T>::ArithmeticOverflow)?;
+            fee.try_into().map_err(|_| Error::<T>::TryIntoIntError.into())
+        }
     }
 
     /// Insert a new redeem request into state.

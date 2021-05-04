@@ -637,6 +637,7 @@ dependencies = [
 name = "btc-parachain"
 version = "0.6.0"
 dependencies = [
+ "bitcoin",
  "btc-parachain-rpc",
  "btc-parachain-runtime",
  "btc-parachain-service",

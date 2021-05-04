@@ -235,6 +235,11 @@ pub(crate) mod security {
 pub(crate) mod oracle {
     use crate::types::{Backing, Issuing};
     use frame_support::dispatch::DispatchError;
+    use exchange_rate_oracle::BtcTxFeesPerByte;
+
+    pub fn satoshi_per_bytes<T: exchange_rate_oracle::Config>() -> BtcTxFeesPerByte {
+        <exchange_rate_oracle::Pallet<T>>::satoshi_per_bytes()
+    }
 
     pub fn issuing_to_backing<T: exchange_rate_oracle::Config>(
         amount: Issuing<T>,

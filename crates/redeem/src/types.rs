@@ -13,7 +13,7 @@ pub enum Version {
     V1,
     /// RedeemRequestStatus, removed amount_dot and amount_polka_btc
     V2,
-    /// ActiveBlockNumber, btc_height
+    /// ActiveBlockNumber, btc_height, transfer_fee_btc
     V3,
 }
 
@@ -59,6 +59,8 @@ pub struct RedeemRequest<AccountId, BlockNumber, Issuing, Backing> {
     #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
     #[cfg_attr(feature = "std", serde(bound(serialize = "Issuing: std::fmt::Display")))]
     #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
+    /// Amount the vault should spend on the bitcoin inclusion fee - taken from request amount
+    pub transfer_fee_btc: Issuing,
     /// Total amount of BTC for the vault to send
     pub amount_btc: Issuing,
     #[cfg_attr(feature = "std", serde(bound(deserialize = "Backing: std::str::FromStr")))]

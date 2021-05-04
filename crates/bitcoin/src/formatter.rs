@@ -148,6 +148,12 @@ impl Formattable for H160 {
     }
 }
 
+impl Formattable for H256 {
+    fn format(&self) -> Vec<u8> {
+        Vec::from(self.as_bytes())
+    }
+}
+
 impl Formattable for OpCode {
     fn format(&self) -> Vec<u8> {
         vec![*self as u8]

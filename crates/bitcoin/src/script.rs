@@ -42,6 +42,11 @@ impl Script {
         self.len() == 22 && self.bytes[0] == OpCode::Op0 as u8 && self.bytes[1] == HASH160_SIZE_HEX
     }
 
+    pub fn is_p2wsh_v0(&self) -> bool {
+        // first byte is version
+        self.len() == 34 && self.bytes[0] == OpCode::Op0 as u8 && self.bytes[1] == HASH256_SIZE_HEX
+    }
+
     pub fn is_p2pkh(&self) -> bool {
         self.len() == 25
             && self.bytes[0] == OpCode::OpDup as u8

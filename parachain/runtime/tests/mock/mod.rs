@@ -881,6 +881,7 @@ impl ExtBuilder {
             .unwrap();
 
         redeem::GenesisConfig::<Runtime> {
+            redeem_transaction_size: 400,
             redeem_period: 10,
             redeem_btc_dust_value: 1,
         }
@@ -940,6 +941,18 @@ impl ExtBuilder {
         self.execute_without_relay_init(|| {
             // initialize btc relay
             let _ = TransactionGenerator::new().with_confirmations(7).mine();
+
+            assert_ok!(
+                Call::ExchangeRateOracle(ExchangeRateOracleCall::insert_authorized_oracle(
+                    account_of(ALICE),
+                    vec![]
+                ))
+                .dispatch(root())
+            );
+            assert_ok!(
+                Call::ExchangeRateOracle(ExchangeRateOracleCall::set_btc_tx_fees_per_byte(3, 2, 1))
+                    .dispatch(origin_of(account_of(ALICE)))
+            );
 
             execute()
         })

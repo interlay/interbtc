@@ -4,6 +4,7 @@ extern crate mocktopus;
 extern crate bitcoin_hashes;
 
 use bitcoin_hashes::{hash160::Hash as Hash160, Hash};
+use sha2::{Digest, Sha256};
 
 #[cfg(test)]
 use mocktopus::macros::mockable;
@@ -13,6 +14,10 @@ use primitive_types::U256;
 use sp_std::prelude::*;
 
 use crate::{address::Address, types::*};
+
+// https://github.com/bitcoin-core/secp256k1/blob/1e5d50fa93d71d751b95eec6a80f6732879a0071/include/secp256k1.h#L180-L181
+const SECP256K1_TAG_PUBKEY_EVEN: u8 = 0x02;
+const SECP256K1_TAG_PUBKEY_ODD: u8 = 0x03;
 
 /// Type to be parsed from a bytes array
 pub(crate) trait Parsable: Sized {
@@ -404,12 +409,36 @@ fn parse_transaction_output(raw_output: &[u8]) -> Result<(TransactionOutput, usi
     ))
 }
 
+pub(crate) fn extract_address_hash_witness<B: AsRef<[u8]>>(witness_script: B) -> Result<Address, Error> {
+    let witness_script = witness_script.as_ref();
+    // first check if the witness is the compressed public key
+    // https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#p2wpkh
+    if witness_script.len() == 33 {
+        let prefix = witness_script[0];
+        // the first byte describes whether the Y-coordinate is even or odd, the remaining
+        // 32-bytes are the X-coordinate of the underlying point on the elliptic curve
+        if prefix == SECP256K1_TAG_PUBKEY_EVEN || prefix == SECP256K1_TAG_PUBKEY_ODD {
+            return Ok(Address::P2WPKHv0(H160::from_slice(
+                &Hash160::hash(witness_script).to_vec(),
+            )));
+        }
+        // NOTE: as defined in BIP143, version 0 witness programs do
+        // not support uncompressed public keys
+    }
+
+    // otherwise assume that the witness is the redeem script
+    // https://github.com/bitcoin/bips/blob/master/bip-0141.mediawiki#p2wsh
+    let mut hasher = Sha256::default();
+    hasher.input(witness_script);
+    Ok(Address::P2WSHv0(H256::from_slice(&hasher.result()[..])))
+}
+
 pub(crate) fn extract_address_hash_scriptsig(input_script: &[u8]) -> Result<Address, Error> {
     let mut parser = BytesParser::new(input_script);
     let mut p2pkh = true;
 
     // Multisig OBOE hack -> p2sh
-    if *input_script.get(0).ok_or(Error::EndOfFile)? == OpCode::Op0 as u8 {
+    if parser.next()? == OpCode::Op0 as u8 {
         parser.parse::<u8>()?;
         p2pkh = false;
     }
@@ -418,8 +447,7 @@ pub(crate) fn extract_address_hash_scriptsig(input_script: &[u8]) -> Result<Addr
 
     // P2WPKH-P2SH (SegWit)
     if parser.next()? == OpCode::Op0 as u8 {
-        // NOTE: we probably will not reach this as `extract_address`
-        // will first check the witness and get the `P2WPKHv0`
+        // NOTE: we probably will not ever reach this as `witness_script` will be defined
         let sig = parser.read(sig_size as usize)?;
         return Ok(Address::P2SH(H160::from_slice(&Hash160::hash(&sig).to_vec())));
     }
@@ -679,26 +707,24 @@ pub(crate) mod tests {
     fn test_extract_address_hash_valid_p2pkh() {
         let p2pkh_script = hex::decode(&sample_valid_p2pkh()).unwrap();
 
-        let p2pkh_address: [u8; 20] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        let p2pkh_hash: [u8; 20] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
         let script = Script::from(p2pkh_script);
         let payload = Address::from_script(&script).unwrap();
-        let extr_p2pkh = payload.hash();
 
-        assert_eq!(extr_p2pkh.as_bytes(), &p2pkh_address);
+        assert!(matches!(payload, Address::P2PKH(hash) if hash.as_bytes() == p2pkh_hash))
     }
 
     #[test]
     fn test_extract_address_hash_valid_p2sh() {
         let p2sh_script = hex::decode(&sample_valid_p2sh()).unwrap();
 
-        let p2sh_address: [u8; 20] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        let p2sh_hash: [u8; 20] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
         let script = Script::from(p2sh_script);
         let payload = Address::from_script(&script).unwrap();
-        let extr_p2sh = payload.hash();
 
-        assert_eq!(&extr_p2sh.as_bytes(), &p2sh_address);
+        assert!(matches!(payload, Address::P2SH(hash) if hash.as_bytes() == p2sh_hash))
     }
 
     #[test]
