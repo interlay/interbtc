@@ -17,6 +17,7 @@ use frame_support::{
     ensure,
     traits::{Currency, ExistenceRequirement, ReservableCurrency},
 };
+use sp_runtime::traits::{CheckedAdd, CheckedSub};
 use sp_std::vec::Vec;
 
 pub type BalanceOf<T, I = ()> =
@@ -74,6 +75,10 @@ pub mod pallet {
         InsufficientFreeBalance,
         /// Account has insufficient reserved balance
         InsufficientReservedBalance,
+        /// Arithmetic overflow
+        ArithmeticOverflow,
+        /// Arithmetic underflow
+        ArithmeticUnderflow,
     }
 
     #[pallet::hooks]
@@ -117,15 +122,21 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
     }
 
     /// Increase the total supply of locked
-    pub fn increase_total_locked(amount: BalanceOf<T, I>) {
-        let new_locked = Self::get_total_locked() + amount;
+    pub fn increase_total_locked(amount: BalanceOf<T, I>) -> DispatchResult {
+        let new_locked = Self::get_total_locked()
+            .checked_add(&amount)
+            .ok_or(Error::<T, I>::ArithmeticOverflow)?;
         <TotalLocked<T, I>>::put(new_locked);
+        Ok(())
     }
 
     /// Decrease the total supply of locked
-    pub fn decrease_total_locked(amount: BalanceOf<T, I>) {
-        let new_locked = Self::get_total_locked() - amount;
+    pub fn decrease_total_locked(amount: BalanceOf<T, I>) -> DispatchResult {
+        let new_locked = Self::get_total_locked()
+            .checked_sub(&amount)
+            .ok_or(Error::<T, I>::ArithmeticUnderflow)?;
         <TotalLocked<T, I>>::put(new_locked);
+        Ok(())
     }
 
     /// Mint an `amount` to the `account`.
@@ -154,7 +165,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         T::Currency::reserve(account, amount).map_err(|_| Error::<T, I>::InsufficientFreeBalance)?;
 
         // update total locked balance
-        Self::increase_total_locked(amount);
+        Self::increase_total_locked(amount)?;
 
         Self::deposit_event(Event::Lock(account.clone(), amount));
         Ok(())
@@ -174,7 +185,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         );
 
         // update total locked balance
-        Self::decrease_total_locked(amount);
+        Self::decrease_total_locked(amount)?;
 
         Self::deposit_event(Event::Unlock(account, amount));
         Ok(())
@@ -193,7 +204,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         );
 
         // burn the tokens from the locked balance
-        Self::decrease_total_locked(amount);
+        Self::decrease_total_locked(amount)?;
 
         // burn the tokens for the account
         // remainder should always be 0 and is checked above
@@ -217,7 +228,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         );
         T::Currency::unreserve(account, amount);
 
-        Self::decrease_total_locked(amount);
+        Self::decrease_total_locked(amount)?;
 
         Self::deposit_event(Event::Release(account.clone(), amount));
 
@@ -301,7 +312,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         T::Currency::deposit_creating(&destination, amount);
 
         // unlock the tokens from the locked balance
-        Self::decrease_total_locked(amount);
+        Self::decrease_total_locked(amount)?;
 
         Ok(())
     }

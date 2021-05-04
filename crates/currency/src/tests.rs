@@ -28,11 +28,11 @@ fn test_total_locked_correct() {
         let total_locked = Currency::get_total_locked();
         assert_eq!(desired_total_locked, total_locked);
 
-        Currency::increase_total_locked(increase_amount);
+        assert_ok!(Currency::increase_total_locked(increase_amount));
         let increased_locked = Currency::get_total_locked();
         assert_eq!(total_locked + increase_amount, increased_locked);
 
-        Currency::decrease_total_locked(decrease_amount);
+        assert_ok!(Currency::decrease_total_locked(decrease_amount));
         let decreased_locked = Currency::get_total_locked();
         assert_eq!(increased_locked - decrease_amount, decreased_locked);
     })
