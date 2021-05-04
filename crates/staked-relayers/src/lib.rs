@@ -519,12 +519,7 @@ impl<T: Config> Module<T> {
             // refund requests
             if let Ok(req) = ext::refund::get_open_or_completed_refund_request_from_id::<T>(&request_id) {
                 ensure!(
-                    !Self::is_valid_request_transaction(
-                        req.amount_issuing,
-                        req.btc_address,
-                        &payments,
-                        &vault.wallet,
-                    ),
+                    !Self::is_valid_request_transaction(req.amount_issuing, req.btc_address, &payments, &vault.wallet,),
                     Error::<T>::ValidRefundTransaction
                 );
             };

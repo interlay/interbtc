@@ -26,6 +26,9 @@ pub use pallet::*;
 pub type Collateral = pallet::Instance1;
 pub type Treasury = pallet::Instance2;
 
+pub const BTC_DECIMALS: u8 = 8;
+pub const DOT_DECIMALS: u8 = 10;
+
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
@@ -77,6 +80,29 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn decimals)]
     pub type Decimals<T: Config<I>, I: 'static = ()> = StorageValue<_, u8, ValueQuery>;
+
+    #[pallet::genesis_config]
+    pub struct GenesisConfig<T: Config<I>, I: 'static = ()> {
+        pub marker: sp_std::marker::PhantomData<(T, I)>,
+        pub decimals: u8,
+    }
+
+    #[cfg(feature = "std")]
+    impl<T: Config<I>, I: 'static> Default for GenesisConfig<T, I> {
+        fn default() -> Self {
+            Self {
+                marker: Default::default(),
+                decimals: Default::default(),
+            }
+        }
+    }
+
+    #[pallet::genesis_build]
+    impl<T: Config<I>, I: 'static> GenesisBuild<T, I> for GenesisConfig<T, I> {
+        fn build(&self) {
+            <Decimals<T, I>>::put(&self.decimals);
+        }
+    }
 
     #[pallet::pallet]
     pub struct Pallet<T, I = ()>(_);

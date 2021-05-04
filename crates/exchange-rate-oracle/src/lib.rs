@@ -63,9 +63,6 @@ pub enum Version {
     V1,
 }
 
-const BTC_DECIMALS: u32 = 8;
-const DOT_DECIMALS: u32 = 10;
-
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
 pub trait Config:
@@ -257,10 +254,11 @@ impl<T: Config> Module<T> {
     fn backing_per_issuing_to_exchange_rate(
         backing_per_issuing: UnsignedFixedPoint<T>,
     ) -> Result<UnsignedFixedPoint<T>, DispatchError> {
-        // safe to unwrap because we only use constants
-        let conversion_factor =
-            UnsignedFixedPoint::<T>::checked_from_rational(10_u128.pow(DOT_DECIMALS), 10_u128.pow(BTC_DECIMALS))
-                .unwrap();
+        let conversion_factor = UnsignedFixedPoint::<T>::checked_from_rational(
+            10_u128.pow(ext::collateral::decimals::<T>().into()),
+            10_u128.pow(ext::treasury::decimals::<T>().into()),
+        )
+        .unwrap();
 
         backing_per_issuing
             .checked_mul(&conversion_factor)

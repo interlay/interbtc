@@ -1680,7 +1680,8 @@ fn test_try_increase_to_be_replaced_tokens() {
         let vault_id = create_sample_vault_and_issue_tokens(issue_tokens);
         assert_ok!(VaultRegistry::try_increase_to_be_redeemed_tokens(&vault_id, 1));
 
-        let (total_issuing, total_backing) = VaultRegistry::try_increase_to_be_replaced_tokens(&vault_id, 2, 10).unwrap();
+        let (total_issuing, total_backing) =
+            VaultRegistry::try_increase_to_be_replaced_tokens(&vault_id, 2, 10).unwrap();
         assert!(total_issuing == 2);
         assert!(total_backing == 10);
 
@@ -1696,7 +1697,8 @@ fn test_try_increase_to_be_replaced_tokens() {
             TestError::InsufficientTokensCommitted
         );
 
-        let (total_issuing, total_backing) = VaultRegistry::try_increase_to_be_replaced_tokens(&vault_id, 1, 20).unwrap();
+        let (total_issuing, total_backing) =
+            VaultRegistry::try_increase_to_be_replaced_tokens(&vault_id, 1, 20).unwrap();
         assert!(total_issuing == 3);
         assert!(total_backing == 30);
 

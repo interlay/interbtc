@@ -47,6 +47,7 @@ pub use sp_runtime::{Perbill, Permill};
 
 // PolkaBTC exports
 pub use btc_relay::{bitcoin, Call as RelayCall, TARGET_SPACING};
+pub use currency::{BTC_DECIMALS, DOT_DECIMALS};
 pub use module_exchange_rate_oracle_rpc_runtime_api::BalanceWrapper;
 
 // XCM imports
@@ -560,8 +561,8 @@ macro_rules! construct_polkabtc_runtime {
                 Backing: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
                 Issuing: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
 
-                Collateral: currency::<Instance1>::{Pallet, Call, Storage, Event<T>},
-                Treasury: currency::<Instance2>::{Pallet, Call, Storage, Event<T>},
+                Collateral: currency::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
+                Treasury: currency::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
 
                 // Bitcoin SPV
                 BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},

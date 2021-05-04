@@ -459,7 +459,8 @@ impl<T: Config> RichOperator<T> {
             let backing_collateral_before_slashing = backing_collateral
                 .checked_add(&total_slashed_amount)
                 .ok_or(Error::<T>::ArithmeticOverflow)?;
-            let backing_collateral_before_slashing_u128 = Module::<T>::backing_to_u128(backing_collateral_before_slashing)?;
+            let backing_collateral_before_slashing_u128 =
+                Module::<T>::backing_to_u128(backing_collateral_before_slashing)?;
             let nominated_collateral_to_slash_u128 = total_slahed_amount_u128
                 .checked_mul(total_nominated_collateral_u128)
                 .ok_or(Error::<T>::ArithmeticOverflow)?

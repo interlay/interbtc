@@ -161,6 +161,9 @@ fn oracle_names_have_genesis_info() {
 #[test]
 fn convert_btc_dot_to_satoshi_planck() {
     run_test(|| {
+        // ext::collateral::decimals::<Test>.mock_safe(|| MockResult::Return(10));
+        // ext::treasury::decimals::<Test>.mock_safe(|| MockResult::Return(8));
+
         let rate = FixedU128::checked_from_rational(3, 1).unwrap();
         assert_eq!(
             ExchangeRateOracle::backing_per_issuing_to_exchange_rate(rate).unwrap(),

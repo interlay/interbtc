@@ -1,6 +1,9 @@
 use crate as exchange_rate_oracle;
 use crate::{Config, Error};
-use frame_support::{parameter_types, traits::StorageMapShim};
+use frame_support::{
+    parameter_types,
+    traits::{GenesisBuild, StorageMapShim},
+};
 use mocktopus::mocking::clear_mocks;
 use sp_arithmetic::FixedU128;
 use sp_core::H256;
@@ -26,8 +29,8 @@ frame_support::construct_runtime!(
         Backing: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
         Issuing: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
 
-        Collateral: currency::<Instance1>::{Pallet, Call, Storage, Event<T>},
-        Treasury: currency::<Instance2>::{Pallet, Call, Storage, Event<T>},
+        Collateral: currency::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
+        Treasury: currency::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
 
         // Operational
         Security: security::{Pallet, Call, Storage, Event<T>},
@@ -146,6 +149,20 @@ pub struct ExtBuilder;
 impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
         let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
+
+        currency::GenesisConfig::<Test, currency::Collateral> {
+            marker: Default::default(),
+            decimals: currency::DOT_DECIMALS,
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
+
+        currency::GenesisConfig::<Test, currency::Treasury> {
+            marker: Default::default(),
+            decimals: currency::BTC_DECIMALS,
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
 
         exchange_rate_oracle::GenesisConfig::<Test> {
             authorized_oracles: vec![(0, "test".as_bytes().to_vec())],
