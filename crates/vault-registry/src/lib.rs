@@ -41,7 +41,10 @@ use primitive_types::U256;
 use sp_arithmetic::{traits::*, FixedPointNumber};
 use sp_core::H256;
 use sp_runtime::{traits::AccountIdConversion, ModuleId};
-use sp_std::{convert::TryInto, vec::Vec};
+use sp_std::{
+    convert::{TryFrom, TryInto},
+    vec::Vec,
+};
 
 use crate::types::{
     Backing, BtcAddress, DefaultSystemVault, DefaultVault, Inner, Issuing, RichSystemVault, RichVault,
@@ -1493,18 +1496,16 @@ impl<T: Config> Module<T> {
     /// * `amount_btc` - the amount of issuing
     /// * `threshold` - the required secure collateral threshold
     fn get_required_collateral_for_issuing_with_threshold(
-        btc: Issuing<T>,
+        issuing: Issuing<T>,
         threshold: UnsignedFixedPoint<T>,
     ) -> Result<Backing<T>, DispatchError> {
         // Step 1: inverse of the scaling applied in calculate_max_issuing_from_collateral_for_threshold
-        let btc = Self::issuing_to_u128(btc)?;
-        let btc = threshold
-            .checked_mul_int_rounded_up(btc)
+        let amount_in_issuing = threshold
+            .checked_mul_int_rounded_up(issuing)
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
-        let btc = Self::u128_to_issuing(btc)?;
 
         // Step 2: convert the amount to collateral
-        let amount_in_backing = ext::oracle::issuing_to_backing::<T>(btc)?;
+        let amount_in_backing = ext::oracle::issuing_to_backing::<T>(amount_in_issuing)?;
         Ok(amount_in_backing)
     }
 
@@ -1628,12 +1629,13 @@ decl_error! {
 
 trait CheckedMulIntRoundedUp {
     /// Like checked_mul_int, but this version rounds the result up instead of down.
-    fn checked_mul_int_rounded_up(self, n: u128) -> Option<u128>;
+    fn checked_mul_int_rounded_up<N: TryFrom<u128> + TryInto<u128>>(self, n: N) -> Option<N>;
 }
+
 impl<T: FixedPointNumber> CheckedMulIntRoundedUp for T {
-    fn checked_mul_int_rounded_up(self, n: u128) -> Option<u128> {
+    fn checked_mul_int_rounded_up<N: TryFrom<u128> + TryInto<u128>>(self, n: N) -> Option<N> {
         // convert n into fixed_point
-        let n_inner = TryInto::<T::Inner>::try_into(n).ok()?;
+        let n_inner = TryInto::<T::Inner>::try_into(n.try_into().ok()?).ok()?;
         let n_fixed_point = T::checked_from_integer(n_inner)?;
 
         // do the multiplication
@@ -1647,6 +1649,8 @@ impl<T: FixedPointNumber> CheckedMulIntRoundedUp for T {
         product_inner
             .checked_add(accuracy)?
             .checked_sub(1)?
-            .checked_div(accuracy)
+            .checked_div(accuracy)?
+            .try_into()
+            .ok()
     }
 }

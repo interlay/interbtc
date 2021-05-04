@@ -206,7 +206,7 @@ impl<T: Config> Module<T> {
             refund_id,
             request.issuer,
             request.vault,
-            Self::u128_to_btc(amount as u128)?,
+            Self::u128_to_issuing(amount as u128)?,
         ));
 
         Ok(())
@@ -284,7 +284,7 @@ impl<T: Config> Module<T> {
             .collect::<Vec<_>>()
     }
 
-    fn u128_to_btc(x: u128) -> Result<Issuing<T>, DispatchError> {
+    fn u128_to_issuing(x: u128) -> Result<Issuing<T>, DispatchError> {
         TryInto::<Issuing<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 }

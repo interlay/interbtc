@@ -15,7 +15,7 @@ mod types;
 
 mod default_weights;
 
-use sp_std::{convert::TryInto, vec::Vec};
+use sp_std::vec::Vec;
 
 use codec::{Decode, Encode, EncodeLike};
 
@@ -450,14 +450,6 @@ impl<T: Config> Module<T> {
 
     fn get_rich_operator_from_id(operator_id: &T::AccountId) -> Result<RichOperator<T>, DispatchError> {
         Ok(Self::get_operator_from_id(operator_id)?.into())
-    }
-
-    fn backing_to_u128(x: Backing<T>) -> Result<u128, DispatchError> {
-        TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
-    }
-
-    fn u128_to_backing(x: u128) -> Result<Backing<T>, DispatchError> {
-        TryInto::<Backing<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 }
 

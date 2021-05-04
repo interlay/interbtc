@@ -319,7 +319,7 @@ impl<T: Config> Module<T> {
             let redeem_amount_issuing_in_backing = ext::oracle::issuing_to_backing::<T>(user_to_be_received_btc)?;
             ext::fee::get_premium_redeem_fee::<T>(redeem_amount_issuing_in_backing)?
         } else {
-            Self::u128_to_backing(0u128)?
+            Backing::<T>::zero()
         };
 
         // decrease to-be-replaced tokens - when the vault requests tokens to be replaced, it
@@ -504,7 +504,7 @@ impl<T: Config> Module<T> {
             let remaining_backing_to_be_slashed = slashing_amount_in_backing
                 .checked_sub(&slashed_backing)
                 .ok_or(Error::<T>::ArithmeticUnderflow)?;
-            if remaining_backing_to_be_slashed > Self::u128_to_backing(0u128)? {
+            if remaining_backing_to_be_slashed > Backing::<T>::zero() {
                 let slashed_to_fee_pool = ext::vault_registry::slash_collateral_saturated::<T>(
                     CurrencySource::Backing(vault_id.clone()),
                     CurrencySource::FreeBalance(ext::fee::fee_pool_account_id::<T>()),
@@ -708,10 +708,6 @@ impl<T: Config> Module<T> {
             Error::<T>::RedeemCancelled
         );
         Ok(request)
-    }
-
-    fn u128_to_backing(x: u128) -> Result<Backing<T>, DispatchError> {
-        TryInto::<Backing<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 }
 

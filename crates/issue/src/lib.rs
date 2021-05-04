@@ -333,7 +333,7 @@ impl<T: Config> Module<T> {
             .amount
             .checked_add(&issue.fee)
             .ok_or(Error::<T>::ArithmeticOverflow)?;
-        let amount_transferred = Self::u128_to_btc(amount_transferred as u128)?;
+        let amount_transferred = Self::u128_to_issuing(amount_transferred as u128)?;
 
         // check for unexpected bitcoin amounts, and update the issue struct
         if amount_transferred < expected_total_amount {
@@ -550,7 +550,7 @@ impl<T: Config> Module<T> {
         });
     }
 
-    fn u128_to_btc(x: u128) -> Result<Issuing<T>, DispatchError> {
+    fn u128_to_issuing(x: u128) -> Result<Issuing<T>, DispatchError> {
         TryInto::<Issuing<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 }

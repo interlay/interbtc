@@ -3,7 +3,7 @@ use codec::{Decode, Encode, HasCompact};
 use frame_support::{dispatch::DispatchResult, ensure, traits::Currency, StorageMap};
 use sp_core::H256;
 use sp_runtime::{
-    traits::{CheckedAdd, CheckedSub, Saturating, Zero},
+    traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Saturating, Zero},
     DispatchError,
 };
 use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
@@ -209,22 +209,20 @@ impl<T: Config> RichOperator<T> {
         amount: Backing<T>,
         nominator_id: &T::AccountId,
     ) -> Result<Backing<T>, DispatchError> {
-        let amount_u128 = Module::<T>::backing_to_u128(amount)?;
         let nominator = self
             .data
             .nominators
             .get(&nominator_id)
             .ok_or(Error::<T>::NominatorNotFound)?;
-        let nominated_collateral_u128 = Module::<T>::backing_to_u128(nominator.collateral)?;
-        let total_nominated_collateral_u128 = Module::<T>::backing_to_u128(self.data.total_nominated_collateral)?;
+        let nominated_collateral = nominator.collateral;
+        let total_nominated_collateral = self.data.total_nominated_collateral;
 
         // Multiply the amount by the Nominator's collateral proportion
-        let scaled_collateral_u128 = amount_u128
-            .checked_mul(nominated_collateral_u128)
+        Ok(amount
+            .checked_mul(&nominated_collateral)
             .ok_or(Error::<T>::ArithmeticOverflow)?
-            .checked_div(total_nominated_collateral_u128)
-            .ok_or(Error::<T>::ArithmeticOverflow)?;
-        Module::<T>::u128_to_backing(scaled_collateral_u128)
+            .checked_div(&total_nominated_collateral)
+            .ok_or(Error::<T>::ArithmeticOverflow)?)
     }
 
     // Operator functionality
@@ -453,20 +451,17 @@ impl<T: Config> RichOperator<T> {
             // it means nominators need to be liquidated too.
             self.data.total_nominated_collateral.saturating_sub(backing_collateral)
         } else {
-            let total_slahed_amount_u128 = Module::<T>::backing_to_u128(total_slashed_amount)?;
-            let total_nominated_collateral_u128 = Module::<T>::backing_to_u128(self.data.total_nominated_collateral)?;
             let backing_collateral = ext::vault_registry::get_backing_collateral::<T>(&self.id())?;
             let backing_collateral_before_slashing = backing_collateral
                 .checked_add(&total_slashed_amount)
                 .ok_or(Error::<T>::ArithmeticOverflow)?;
-            let backing_collateral_before_slashing_u128 =
-                Module::<T>::backing_to_u128(backing_collateral_before_slashing)?;
-            let nominated_collateral_to_slash_u128 = total_slahed_amount_u128
-                .checked_mul(total_nominated_collateral_u128)
+            let total_nominated_collateral = self.data.total_nominated_collateral;
+            let nominated_collateral_to_slash = total_slashed_amount
+                .checked_mul(&total_nominated_collateral)
                 .ok_or(Error::<T>::ArithmeticOverflow)?
-                .checked_div(backing_collateral_before_slashing_u128)
+                .checked_div(&backing_collateral_before_slashing)
                 .ok_or(Error::<T>::ArithmeticUnderflow)?;
-            Module::<T>::u128_to_backing(nominated_collateral_to_slash_u128)?
+            nominated_collateral_to_slash
         };
         Ok(nominated_collateral_to_slash)
     }
@@ -480,15 +475,6 @@ impl<T: Config> RichOperator<T> {
 
     pub fn get_max_nominatable_collateral(&self, operator_collateral: Backing<T>) -> Result<Backing<T>, DispatchError> {
         ext::fee::backing_for::<T>(operator_collateral, Module::<T>::get_max_nomination_ratio())
-    }
-
-    pub fn get_nomination_ratio(&self) -> Result<u128, DispatchError> {
-        let operator_collateral = self.get_operator_collateral()?;
-        let operator_collateral_u128 = Module::<T>::backing_to_u128(operator_collateral)?;
-        let total_nominated_collateral_u128 = Module::<T>::backing_to_u128(self.data.total_nominated_collateral)?;
-        Ok(total_nominated_collateral_u128
-            .checked_div(operator_collateral_u128)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?)
     }
 
     fn update<F>(&mut self, func: F) -> DispatchResult
