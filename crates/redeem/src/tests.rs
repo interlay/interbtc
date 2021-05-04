@@ -190,6 +190,7 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
             0,
             BOB,
             BtcAddress::P2PKH(H160::zero()),
+            Redeem::get_current_inclusion_fee().unwrap()
         ));
         assert_ok!(
             Redeem::get_open_redeem_request_from_id(&H256([0; 32])),
@@ -204,6 +205,7 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
                 btc_address: BtcAddress::P2PKH(H160::zero()),
                 btc_height: 0,
                 status: RedeemRequestStatus::Pending,
+                transfer_fee_btc: Redeem::get_current_inclusion_fee().unwrap(),
             }
         );
     })
@@ -283,6 +285,7 @@ fn test_execute_redeem_succeeds_with_another_account() {
                 btc_address: BtcAddress::random(),
                 btc_height: 0,
                 status: RedeemRequestStatus::Pending,
+                transfer_fee_btc: Redeem::get_current_inclusion_fee().unwrap(),
             },
         );
 
@@ -307,7 +310,7 @@ fn test_execute_redeem_succeeds_with_another_account() {
             Vec::default(),
             Vec::default()
         ));
-        assert_emitted!(Event::ExecuteRedeem(H256([0; 32]), ALICE, 100, 0, BOB));
+        assert_emitted!(Event::ExecuteRedeem(H256([0; 32]), ALICE, 100, 0, BOB,));
         assert_err!(
             Redeem::get_open_redeem_request_from_id(&H256([0u8; 32])),
             TestError::RedeemCompleted,
@@ -332,6 +335,7 @@ fn test_execute_redeem_fails_with_commit_period_expired() {
                 btc_address: BtcAddress::random(),
                 btc_height: 0,
                 status: RedeemRequestStatus::Pending,
+                transfer_fee_btc: Redeem::get_current_inclusion_fee().unwrap(),
             }))
         });
 
@@ -379,6 +383,7 @@ fn test_execute_redeem_succeeds() {
                 btc_address: BtcAddress::random(),
                 btc_height: 0,
                 status: RedeemRequestStatus::Pending,
+                transfer_fee_btc: Redeem::get_current_inclusion_fee().unwrap(),
             },
         );
 
@@ -403,7 +408,7 @@ fn test_execute_redeem_succeeds() {
             Vec::default(),
             Vec::default()
         ));
-        assert_emitted!(Event::ExecuteRedeem(H256([0; 32]), ALICE, 100, 0, BOB));
+        assert_emitted!(Event::ExecuteRedeem(H256([0; 32]), ALICE, 100, 0, BOB,));
         assert_err!(
             Redeem::get_open_redeem_request_from_id(&H256([0u8; 32])),
             TestError::RedeemCompleted,
@@ -438,6 +443,7 @@ fn test_cancel_redeem_fails_with_time_not_expired() {
                 btc_address: BtcAddress::random(),
                 btc_height: 0,
                 status: RedeemRequestStatus::Pending,
+                transfer_fee_btc: Redeem::get_current_inclusion_fee().unwrap(),
             }))
         });
 
@@ -465,6 +471,7 @@ fn test_cancel_redeem_fails_with_unauthorized_caller() {
                 btc_address: BtcAddress::random(),
                 btc_height: 0,
                 status: RedeemRequestStatus::Pending,
+                transfer_fee_btc: Redeem::get_current_inclusion_fee().unwrap(),
             }))
         });
 
@@ -491,6 +498,7 @@ fn test_cancel_redeem_succeeds() {
                 btc_address: BtcAddress::random(),
                 btc_height: 0,
                 status: RedeemRequestStatus::Pending,
+                transfer_fee_btc: Redeem::get_current_inclusion_fee().unwrap(),
             },
         );
 

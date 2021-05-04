@@ -133,7 +133,7 @@ fn test_sla_decrease_for_redeem_failure() {
         UserData::force_to(USER, default_user_state());
         CoreVaultData::force_to(VAULT, default_vault_state());
 
-        let redeem_id = setup_cancelable_redeem(USER, VAULT, 10_000, 1_000);
+        let redeem_id = setup_cancelable_redeem(USER, VAULT, 10_000, 10_000);
 
         cancel_redeem(redeem_id, USER, true);
 

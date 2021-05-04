@@ -28,6 +28,8 @@ funty = "=1.1"
 btc-parachain-runtime = { path = "./runtime" }
 btc-parachain-service = { path = "./service" }
 btc-parachain-rpc = { path = "./rpc" }
+bitcoin = { path = "../crates/bitcoin" }
+
 
 # Substrate dependencies
 sc-cli = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", features = ["wasmtime"] }
