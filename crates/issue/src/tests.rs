@@ -1,4 +1,4 @@
-use crate::{ext, mock::*, Config, PolkaBTC, RawEvent, DOT};
+use crate::{ext, mock::*, Backing, Config, Issuing, RawEvent};
 
 use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
@@ -52,7 +52,7 @@ fn cancel_issue(origin: AccountId, issue_id: &H256) -> Result<(), DispatchError>
     Issue::_cancel_issue(origin, *issue_id)
 }
 
-fn init_zero_vault<T: Config>(id: T::AccountId) -> Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>> {
+fn init_zero_vault<T: Config>(id: T::AccountId) -> Vault<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>> {
     let mut vault = Vault::default();
     vault.id = id;
     vault
@@ -93,7 +93,7 @@ fn test_request_issue_insufficient_collateral_fails() {
         ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
-        ext::oracle::btc_to_dots::<Test>.mock_safe(|_| MockResult::Return(Ok(10000000)));
+        ext::oracle::issuing_to_backing::<Test>.mock_safe(|_| MockResult::Return(Ok(10000000)));
 
         assert_noop!(request_issue(ALICE, 3, BOB, 0), TestError::InsufficientCollateral,);
     })

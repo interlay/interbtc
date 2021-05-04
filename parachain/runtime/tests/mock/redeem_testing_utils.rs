@@ -61,8 +61,8 @@ impl ExecuteRedeemBuilder {
     }
 }
 
-pub fn setup_cancelable_redeem(user: [u8; 32], vault: [u8; 32], collateral: u128, polka_btc: u128) -> H256 {
-    let redeem_id = setup_redeem(polka_btc, user, vault, collateral);
+pub fn setup_cancelable_redeem(user: [u8; 32], vault: [u8; 32], collateral: u128, issued_tokens: u128) -> H256 {
+    let redeem_id = setup_redeem(issued_tokens, user, vault, collateral);
 
     // expire request without transferring btc
     SecurityPallet::set_active_block_number(RedeemPallet::redeem_period() + 1 + 1);
@@ -76,10 +76,10 @@ pub fn setup_cancelable_redeem(user: [u8; 32], vault: [u8; 32], collateral: u128
     redeem_id
 }
 
-pub fn setup_redeem(polka_btc: u128, user: [u8; 32], vault: [u8; 32], _collateral: u128) -> H256 {
-    // alice requests to redeem polka_btc from Bob
+pub fn setup_redeem(issued_tokens: u128, user: [u8; 32], vault: [u8; 32], _collateral: u128) -> H256 {
+    // alice requests to redeem issued_tokens from Bob
     assert_ok!(Call::Redeem(RedeemCall::request_redeem(
-        polka_btc,
+        issued_tokens,
         USER_BTC_ADDRESS,
         account_of(vault)
     ))

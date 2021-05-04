@@ -15,13 +15,13 @@ fn test_with(execute: impl Fn(Currency)) {
     ExtBuilder::build().execute_with(|| {
         SecurityPallet::set_active_block_number(1);
         assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
-        setup_dot_reward();
-        execute(Currency::DOT);
+        setup_backing_reward();
+        execute(Currency::Backing);
     });
     ExtBuilder::build().execute_with(|| {
         SecurityPallet::set_active_block_number(1);
         assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
-        execute(Currency::PolkaBTC);
+        execute(Currency::Issuing);
     });
 }
 
@@ -66,48 +66,48 @@ macro_rules! assert_eq_modulo_rounding {
 
 #[derive(Copy, Clone)]
 enum Currency {
-    DOT,
-    PolkaBTC,
+    Backing,
+    Issuing,
 }
 
 fn get_epoch_rewards(currency: Currency) -> u128 {
     match currency {
-        Currency::DOT => FeePallet::epoch_rewards_dot(),
-        Currency::PolkaBTC => FeePallet::epoch_rewards_polka_btc(),
+        Currency::Backing => FeePallet::epoch_rewards_backing(),
+        Currency::Issuing => FeePallet::epoch_rewards_issuing(),
     }
 }
 
 fn get_rewards(currency: Currency, account: [u8; 32]) -> u128 {
     match currency {
-        Currency::DOT => {
-            let amount = FeePallet::get_dot_rewards(&account_of(account));
+        Currency::Backing => {
+            let amount = FeePallet::get_backing_rewards(&account_of(account));
             assert_noop!(
-                Call::Fee(FeeCall::withdraw_dot(amount + 1)).dispatch(origin_of(account_of(account))),
+                Call::Fee(FeeCall::withdraw_backing(amount + 1)).dispatch(origin_of(account_of(account))),
                 FeeError::InsufficientFunds,
             );
-            assert_ok!(Call::Fee(FeeCall::withdraw_dot(amount)).dispatch(origin_of(account_of(account))));
+            assert_ok!(Call::Fee(FeeCall::withdraw_backing(amount)).dispatch(origin_of(account_of(account))));
             amount
         }
-        Currency::PolkaBTC => {
-            let amount = FeePallet::get_polka_btc_rewards(&account_of(account));
+        Currency::Issuing => {
+            let amount = FeePallet::get_issuing_rewards(&account_of(account));
             assert_noop!(
-                Call::Fee(FeeCall::withdraw_dot(amount + 1)).dispatch(origin_of(account_of(account))),
+                Call::Fee(FeeCall::withdraw_backing(amount + 1)).dispatch(origin_of(account_of(account))),
                 FeeError::InsufficientFunds,
             );
-            assert_ok!(Call::Fee(FeeCall::withdraw_polka_btc(amount)).dispatch(origin_of(account_of(account))));
+            assert_ok!(Call::Fee(FeeCall::withdraw_issuing(amount)).dispatch(origin_of(account_of(account))));
             amount
         }
     }
 }
 
-fn setup_dot_reward() {
+fn setup_backing_reward() {
     VaultRegistryPallet::slash_collateral(
         CurrencySource::FreeBalance(account_of(FAUCET)),
         CurrencySource::FreeBalance(FeePallet::fee_pool_account_id()),
         1000,
     )
     .unwrap();
-    FeePallet::increase_dot_rewards_for_epoch(1000);
+    FeePallet::increase_backing_rewards_for_epoch(1000);
 }
 
 fn set_issued_and_backing(vault: [u8; 32], amount_issued: u128, backing: u128) {
@@ -275,11 +275,11 @@ fn integration_test_fee_with_parachain_shutdown_fails() {
         SecurityPallet::set_status(StatusCode::Shutdown);
 
         assert_noop!(
-            Call::Fee(FeeCall::withdraw_polka_btc(0)).dispatch(origin_of(account_of(ALICE))),
+            Call::Fee(FeeCall::withdraw_issuing(0)).dispatch(origin_of(account_of(ALICE))),
             SecurityError::ParachainShutdown
         );
         assert_noop!(
-            Call::Fee(FeeCall::withdraw_dot(0)).dispatch(origin_of(account_of(ALICE))),
+            Call::Fee(FeeCall::withdraw_backing(0)).dispatch(origin_of(account_of(ALICE))),
             SecurityError::ParachainShutdown
         );
     })

@@ -21,11 +21,11 @@ fn test_calculate_slashed_amount_best_sla() {
         assert_eq!(
             Sla::_calculate_slashed_amount(
                 FixedI128::checked_from_rational(100, 1).unwrap(),
-                Sla::u128_to_dot(1_000_000_000).unwrap(),
+                Sla::u128_to_backing(1_000_000_000).unwrap(),
                 FixedI128::checked_from_rational(110, 100).unwrap(),
                 FixedI128::checked_from_rational(130, 100).unwrap(),
             ),
-            Ok(Sla::u128_to_dot(1_100_000_000).unwrap()),
+            Ok(Sla::u128_to_backing(1_100_000_000).unwrap()),
         );
     })
 }
@@ -36,11 +36,11 @@ fn test_calculate_slashed_amount_worst_sla() {
         assert_eq!(
             Sla::_calculate_slashed_amount(
                 FixedI128::zero(),
-                Sla::u128_to_dot(1_000_000_000).unwrap(),
+                Sla::u128_to_backing(1_000_000_000).unwrap(),
                 FixedI128::checked_from_rational(110, 100).unwrap(),
                 FixedI128::checked_from_rational(130, 100).unwrap(),
             ),
-            Ok(Sla::u128_to_dot(1_300_000_000).unwrap()),
+            Ok(Sla::u128_to_backing(1_300_000_000).unwrap()),
         );
     })
 }
@@ -50,11 +50,11 @@ fn test_calculate_slashed_amount_mediocre_sla() {
         assert_eq!(
             Sla::_calculate_slashed_amount(
                 FixedI128::from(25),
-                Sla::u128_to_dot(1_000_000_000).unwrap(),
+                Sla::u128_to_backing(1_000_000_000).unwrap(),
                 FixedI128::checked_from_rational(110, 100).unwrap(),
                 FixedI128::checked_from_rational(130, 100).unwrap(),
             ),
-            Ok(Sla::u128_to_dot(1_250_000_000).unwrap()),
+            Ok(Sla::u128_to_backing(1_250_000_000).unwrap()),
         );
     })
 }
@@ -65,11 +65,11 @@ fn test_calculate_slashed_amount_big_stake() {
         assert_eq!(
             Sla::_calculate_slashed_amount(
                 FixedI128::from(100),
-                Sla::u128_to_dot(u64::MAX as u128).unwrap(),
+                Sla::u128_to_backing(u64::MAX as u128).unwrap(),
                 FixedI128::checked_from_rational(100, 100).unwrap(),
                 FixedI128::checked_from_rational(200000000000000u128, 100).unwrap(),
             ),
-            Ok(Sla::u128_to_dot(u64::MAX as u128).unwrap()),
+            Ok(Sla::u128_to_backing(u64::MAX as u128).unwrap()),
         );
     })
 }
@@ -235,7 +235,7 @@ fn test_runtime_upgrade() {
         assert!(!crate::LifetimeIssued::exists());
 
         ext::vault_registry::get_total_issued_tokens::<Test>.mock_safe(|_| MockResult::Return(Ok(5u32.into())));
-        Sla::polkabtc_to_u128.mock_safe(|_| MockResult::Return(Ok(10u128)));
+        Sla::issuing_to_u128.mock_safe(|_| MockResult::Return(Ok(10u128)));
 
         Sla::_on_runtime_upgrade();
 

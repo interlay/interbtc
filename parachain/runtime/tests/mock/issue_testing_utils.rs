@@ -39,7 +39,7 @@ impl RequestIssueBuilder {
     pub fn request(&self) -> (H256, IssueRequest<AccountId32, u32, u128, u128>) {
         try_register_vault(DEFAULT_COLLATERAL, self.vault);
 
-        // alice requests polka_btc by locking btc with bob
+        // alice requests issuing by locking btc with bob
         assert_ok!(Call::Issue(IssueCall::request_issue(
             self.amount_btc,
             account_of(self.vault),
@@ -165,7 +165,7 @@ pub fn execute_refund(vault_id: [u8; 32]) -> (H256, RefundRequest<AccountId, u12
     let refund = RefundPallet::get_open_refund_request_from_id(&refund_id).unwrap();
 
     let (_tx_id, _height, proof, raw_tx) =
-        generate_transaction_and_mine(refund_address, refund.amount_polka_btc, Some(refund_id));
+        generate_transaction_and_mine(refund_address, refund.amount_issuing, Some(refund_id));
 
     SecurityPallet::set_active_block_number((1 + CONFIRMATIONS) * 2);
 

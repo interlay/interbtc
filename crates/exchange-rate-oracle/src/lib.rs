@@ -1,4 +1,4 @@
-//! # PolkaBTC Oracle Module
+//! # Exchange Rate Oracle Module
 //! Based on the [specification](https://interlay.gitlab.io/polkabtc-spec/spec/oracle.html).
 
 #![deny(warnings)]
@@ -42,10 +42,13 @@ use sp_arithmetic::{
 };
 use sp_std::{convert::TryInto, vec::Vec};
 
-pub(crate) type DOT<T> = <<T as collateral::Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub(crate) type Backing<T> = <<T as currency::Config<currency::Instance1>>::Currency as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::Balance;
 
-pub(crate) type PolkaBTC<T> =
-    <<T as treasury::Config>::PolkaBTC as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub(crate) type Issuing<T> = <<T as currency::Config<currency::Instance2>>::Currency as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::Balance;
 
 pub(crate) type UnsignedFixedPoint<T> = <T as Config>::UnsignedFixedPoint;
 
@@ -60,13 +63,14 @@ pub enum Version {
     V1,
 }
 
-const BTC_DECIMALS: u32 = 8;
-const DOT_DECIMALS: u32 = 10;
-
 /// ## Configuration and Constants
 /// The pallet's configuration trait.
 pub trait Config:
-    frame_system::Config + pallet_timestamp::Config + treasury::Config + collateral::Config + security::Config
+    frame_system::Config
+    + pallet_timestamp::Config
+    + currency::Config<currency::Collateral>
+    + currency::Config<currency::Treasury>
+    + security::Config
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
@@ -153,12 +157,13 @@ decl_module! {
         ///
         /// # Arguments
         ///
-        /// * `dot_per_btc` - exchange rate in dot per btc. Note that this is _not_ the same unit
-        /// that is stored in the ExchangeRate storage item.
+        /// * `backing_per_issuing` - exchange rate expressed as the amount of backing collateral per whole issued token.
+        /// Note that this is _not_ the same unit that is stored in the ExchangeRate storage item which is multiplied by the
+        /// conversion factor - i.e. planck_per_satoshi = dot_per_btc * (10**10 / 10**8)
         /// The stored unit is planck_per_satoshi
         #[weight = <T as Config>::WeightInfo::set_exchange_rate()]
         #[transactional]
-        pub fn set_exchange_rate(origin, dot_per_btc: UnsignedFixedPoint<T>) -> DispatchResult {
+        pub fn set_exchange_rate(origin, backing_per_issuing: UnsignedFixedPoint<T>) -> DispatchResult {
             // Check that Parachain is not in SHUTDOWN
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
@@ -167,10 +172,10 @@ decl_module! {
             // fail if the signer is not an authorized oracle
             ensure!(Self::is_authorized(&signer), Error::<T>::InvalidOracleSource);
 
-            let planck_per_satoshi = Self::dot_per_btc_to_planck_per_satoshi(dot_per_btc)?;
-            Self::_set_exchange_rate(planck_per_satoshi)?;
+            let exchange_rate = Self::backing_per_issuing_to_exchange_rate(backing_per_issuing)?;
+            Self::_set_exchange_rate(exchange_rate)?;
 
-            Self::deposit_event(Event::<T>::SetExchangeRate(signer, dot_per_btc));
+            Self::deposit_event(Event::<T>::SetExchangeRate(signer, backing_per_issuing));
 
             Ok(())
         }
@@ -245,16 +250,17 @@ impl<T: Config> Module<T> {
         Ok(<ExchangeRate<T>>::get())
     }
 
-    /// Convert the dot per btc to planck per satoshi
-    fn dot_per_btc_to_planck_per_satoshi(
-        dot_per_btc: UnsignedFixedPoint<T>,
+    /// Convert to the base exchange rate representation
+    fn backing_per_issuing_to_exchange_rate(
+        backing_per_issuing: UnsignedFixedPoint<T>,
     ) -> Result<UnsignedFixedPoint<T>, DispatchError> {
-        // safe to unwrap because we only use constants
-        let conversion_factor =
-            UnsignedFixedPoint::<T>::checked_from_rational(10_u128.pow(DOT_DECIMALS), 10_u128.pow(BTC_DECIMALS))
-                .unwrap();
+        let conversion_factor = UnsignedFixedPoint::<T>::checked_from_rational(
+            10_u128.pow(ext::collateral::decimals::<T>().into()),
+            10_u128.pow(ext::treasury::decimals::<T>().into()),
+        )
+        .unwrap();
 
-        dot_per_btc
+        backing_per_issuing
             .checked_mul(&conversion_factor)
             .ok_or(Error::<T>::ArithmeticOverflow.into())
     }
@@ -263,7 +269,7 @@ impl<T: Config> Module<T> {
         TryInto::<u128>::try_into(x).map_err(|_e| Error::<T>::TryIntoIntError.into())
     }
 
-    pub fn btc_to_dots(amount: PolkaBTC<T>) -> Result<DOT<T>, DispatchError> {
+    pub fn issuing_to_backing(amount: Issuing<T>) -> Result<Backing<T>, DispatchError> {
         let rate = Self::get_exchange_rate()?;
         let raw_amount = Self::into_u128(amount)?;
         let converted = rate.checked_mul_int(raw_amount).ok_or(Error::<T>::ArithmeticOverflow)?;
@@ -271,7 +277,7 @@ impl<T: Config> Module<T> {
         Ok(result)
     }
 
-    pub fn dots_to_btc(amount: DOT<T>) -> Result<PolkaBTC<T>, DispatchError> {
+    pub fn backing_to_issuing(amount: Backing<T>) -> Result<Issuing<T>, DispatchError> {
         let rate = Self::get_exchange_rate()?;
         let raw_amount = Self::into_u128(amount)?;
         if raw_amount == 0 {
@@ -279,8 +285,8 @@ impl<T: Config> Module<T> {
         }
 
         // The code below performs `raw_amount/rate`, plus necessary type conversions
-        let dot_as_inner: Inner<T> = raw_amount.try_into().map_err(|_| Error::<T>::TryIntoIntError)?;
-        let btc_raw: u128 = T::UnsignedFixedPoint::checked_from_integer(dot_as_inner)
+        let backing_as_inner: Inner<T> = raw_amount.try_into().map_err(|_| Error::<T>::TryIntoIntError)?;
+        let issuing_raw: u128 = T::UnsignedFixedPoint::checked_from_integer(backing_as_inner)
             .ok_or(Error::<T>::TryIntoIntError)?
             .checked_div(&rate)
             .ok_or(Error::<T>::ArithmeticUnderflow)?
@@ -288,7 +294,7 @@ impl<T: Config> Module<T> {
             .checked_div(&UnsignedFixedPoint::<T>::accuracy())
             .ok_or(Error::<T>::ArithmeticUnderflow)?
             .unique_saturated_into();
-        btc_raw.try_into().map_err(|_e| Error::<T>::TryIntoIntError.into())
+        issuing_raw.try_into().map_err(|_e| Error::<T>::TryIntoIntError.into())
     }
 
     pub fn get_last_exchange_rate_time() -> T::Moment {

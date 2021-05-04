@@ -1,4 +1,4 @@
-//! # PolkaBTC Fee Module
+//! # Fee Module
 //! Based on the [specification](https://interlay.gitlab.io/polkabtc-spec/spec/fee.html).
 
 #![deny(warnings)]
@@ -39,11 +39,15 @@ use frame_system::ensure_signed;
 use sp_arithmetic::{traits::*, FixedPointNumber};
 use sp_runtime::{traits::AccountIdConversion, ModuleId};
 use sp_std::{convert::TryInto, vec::*};
-use types::{Inner, PolkaBTC, UnsignedFixedPoint, Version, DOT};
+use types::{Backing, Inner, Issuing, UnsignedFixedPoint, Version};
 
 /// The pallet's configuration trait.
 pub trait Config:
-    frame_system::Config + collateral::Config + treasury::Config + sla::Config + security::Config
+    frame_system::Config
+    + currency::Config<currency::Collateral>
+    + currency::Config<currency::Treasury>
+    + sla::Config
+    + security::Config
 {
     /// The fee module id, used for deriving its sovereign account ID.
     type ModuleId: Get<ModuleId>;
@@ -62,27 +66,27 @@ decl_storage! {
     trait Store for Module<T: Config> as Fee {
         /// # Issue
 
-        /// Fee share that users need to pay to issue PolkaBTC.
+        /// Fee share that users need to pay to issue tokens.
         IssueFee get(fn issue_fee) config(): UnsignedFixedPoint<T>;
 
-        /// Default griefing collateral (in DOT) as a percentage of the locked
-        /// collateral of a Vault a user has to lock to issue PolkaBTC.
+        /// Default griefing collateral (e.g. DOT/KSM) as a percentage of the locked
+        /// collateral of a Vault a user has to lock to issue tokens.
         IssueGriefingCollateral get(fn issue_griefing_collateral) config(): UnsignedFixedPoint<T>;
 
         /// # Redeem
 
-        /// Fee share that users need to pay to redeem PolkaBTC.
+        /// Fee share that users need to pay to redeem tokens.
         RedeemFee get(fn redeem_fee) config(): UnsignedFixedPoint<T>;
 
         /// # Refund
 
-        /// Fee share that users need to pay to refund overpaid PolkaBTC.
+        /// Fee share that users need to pay to refund overpaid tokens.
         RefundFee get(fn refund_fee) config(): UnsignedFixedPoint<T>;
 
         /// # Vault Registry
 
         /// If users execute a redeem with a Vault flagged for premium redeem,
-        /// they can earn a DOT premium, slashed from the Vault's collateral.
+        /// they can earn a collateral premium, slashed from the Vault.
         PremiumRedeemFee get(fn premium_redeem_fee) config(): UnsignedFixedPoint<T>;
 
         /// Fee paid to Vaults to auction / force-replace undercollateralized Vaults.
@@ -90,13 +94,13 @@ decl_storage! {
         AuctionRedeemFee get(fn auction_redeem_fee) config(): UnsignedFixedPoint<T>;
 
         /// Fee that a Vault has to pay if it fails to execute redeem or replace requests
-        /// (for redeem, on top of the slashed BTC-in-DOT value of the request). The fee is
-        /// paid in DOT based on the PolkaBTC amount at the current exchange rate.
+        /// (for redeem, on top of the slashed value of the request). The fee is
+        /// paid in collateral based on the token amount at the current exchange rate.
         PunishmentFee get(fn punishment_fee) config(): UnsignedFixedPoint<T>;
 
         /// # Replace
 
-        /// Default griefing collateral (in DOT) as a percentage of the to-be-locked DOT collateral
+        /// Default griefing collateral (e.g. DOT/KSM) as a percentage of the to-be-locked collateral
         /// of the new Vault. This collateral will be slashed and allocated to the replacing Vault
         /// if the to-be-replaced Vault does not transfer BTC on time.
         ReplaceGriefingCollateral get(fn replace_griefing_collateral) config(): UnsignedFixedPoint<T>;
@@ -110,26 +114,26 @@ decl_storage! {
         /// Number of blocks for reward accrual.
         EpochPeriod get(fn epoch_period) config(): T::BlockNumber;
 
-        /// Total rewards in `PolkaBTC` for the current epoch.
-        EpochRewardsPolkaBTC get(fn epoch_rewards_polka_btc): PolkaBTC<T>;
+        /// Total rewards in issued tokens for the current epoch.
+        EpochRewardsIssuing get(fn epoch_rewards_issuing): Issuing<T>;
 
-        /// Total rewards in `DOT` for the current epoch.
-        EpochRewardsDOT get(fn epoch_rewards_dot): DOT<T>;
+        /// Total rewards in collateral for the current epoch.
+        EpochRewardsBacking get(fn epoch_rewards_backing): Backing<T>;
 
-        /// Total rewards in `PolkaBTC` locked for accounts.
-        TotalRewardsPolkaBTC: map hasher(blake2_128_concat) T::AccountId => PolkaBTC<T>;
+        /// Total rewards in issued tokens locked for accounts.
+        TotalRewardsIssuing: map hasher(blake2_128_concat) T::AccountId => Issuing<T>;
 
-        /// Total rewards in `DOT` locked for accounts.
-        TotalRewardsDOT: map hasher(blake2_128_concat) T::AccountId => DOT<T>;
+        /// Total rewards in collateral locked for accounts.
+        TotalRewardsBacking: map hasher(blake2_128_concat) T::AccountId => Backing<T>;
 
         /// # Parachain Fee Pool Distribution
 
         /// Percentage of fees allocated to Vaults.
         VaultRewards get(fn vault_rewards) config(): UnsignedFixedPoint<T>;
 
-        /// Vault issued PolkaBTC / total issued PolkaBTC.
+        /// Vault issued Issuing / total issued Issuing.
         VaultRewardsIssued get(fn vault_rewards_issued) config(): UnsignedFixedPoint<T>;
-        /// Vault locked DOT / total locked DOT.
+        /// Vault locked Backing / total locked Backing.
         VaultRewardsLocked get(fn vault_rewards_locked) config(): UnsignedFixedPoint<T>;
 
         /// Percentage of fees allocated to Staked Relayers.
@@ -174,11 +178,11 @@ decl_event!(
     pub enum Event<T>
     where
         AccountId = <T as frame_system::Config>::AccountId,
-        PolkaBTC = PolkaBTC<T>,
-        DOT = DOT<T>,
+        Issuing = Issuing<T>,
+        Backing = Backing<T>,
     {
-        WithdrawPolkaBTC(AccountId, PolkaBTC),
-        WithdrawDOT(AccountId, DOT),
+        WithdrawIssuing(AccountId, Issuing),
+        WithdrawBacking(AccountId, Backing),
     }
 );
 
@@ -202,8 +206,8 @@ decl_module! {
                 let prev_account_id = <FeePoolAccountId<T>>::take();
 
                 // transfer collateral
-                let amount_dot = ext::collateral::get_free_balance::<T>(&prev_account_id);
-                ext::collateral::transfer::<T>(prev_account_id.clone(), next_account_id.clone(), amount_dot).expect("failed to transfer collateral");
+                let amount_backing = ext::collateral::get_free_balance::<T>(&prev_account_id);
+                ext::collateral::transfer::<T>(prev_account_id.clone(), next_account_id.clone(), amount_backing).expect("failed to transfer collateral");
 
                 // tranfer tokens
                 let amount_btc = ext::treasury::get_free_balance::<T>(prev_account_id.clone());
@@ -223,42 +227,42 @@ decl_module! {
             0
         }
 
-        /// Allows PolkaBTC reward withdrawal if balance is sufficient.
+        /// Allows token reward withdrawal if balance is sufficient.
         ///
         /// # Arguments
         ///
         /// * `origin` - signing account
-        /// * `amount` - amount of PolkaBTC
-        #[weight = <T as Config>::WeightInfo::withdraw_polka_btc()]
+        /// * `amount` - amount of Issuing
+        #[weight = <T as Config>::WeightInfo::withdraw_issuing()]
         #[transactional]
-        fn withdraw_polka_btc(origin, #[compact] amount: PolkaBTC<T>) -> DispatchResult
+        fn withdraw_issuing(origin, #[compact] amount: Issuing<T>) -> DispatchResult
         {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let signer = ensure_signed(origin)?;
-            <TotalRewardsPolkaBTC<T>>::insert(signer.clone(), <TotalRewardsPolkaBTC<T>>::get(signer.clone()).checked_sub(&amount).ok_or(Error::<T>::InsufficientFunds)?);
+            <TotalRewardsIssuing<T>>::insert(signer.clone(), <TotalRewardsIssuing<T>>::get(signer.clone()).checked_sub(&amount).ok_or(Error::<T>::InsufficientFunds)?);
             ext::treasury::transfer::<T>(Self::fee_pool_account_id(), signer.clone(), amount)?;
-            Self::deposit_event(<Event<T>>::WithdrawPolkaBTC(
+            Self::deposit_event(<Event<T>>::WithdrawIssuing(
                 signer,
                 amount,
             ));
             Ok(())
         }
 
-        /// Allows DOT reward withdrawal if balance is sufficient.
+        /// Allows collateral reward withdrawal if balance is sufficient.
         ///
         /// # Arguments
         ///
         /// * `origin` - signing account
-        /// * `amount` - amount of DOT
-        #[weight = <T as Config>::WeightInfo::withdraw_dot()]
+        /// * `amount` - amount of collateral
+        #[weight = <T as Config>::WeightInfo::withdraw_backing()]
         #[transactional]
-        fn withdraw_dot(origin, #[compact] amount: DOT<T>) -> DispatchResult
+        fn withdraw_backing(origin, #[compact] amount: Backing<T>) -> DispatchResult
         {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let signer = ensure_signed(origin)?;
-            <TotalRewardsDOT<T>>::insert(signer.clone(), <TotalRewardsDOT<T>>::get(signer.clone()).checked_sub(&amount).ok_or(Error::<T>::InsufficientFunds)?);
+            <TotalRewardsBacking<T>>::insert(signer.clone(), <TotalRewardsBacking<T>>::get(signer.clone()).checked_sub(&amount).ok_or(Error::<T>::InsufficientFunds)?);
             ext::collateral::transfer::<T>(Self::fee_pool_account_id(), signer.clone(), amount)?;
-            Self::deposit_event(<Event<T>>::WithdrawDOT(
+            Self::deposit_event(<Event<T>>::WithdrawBacking(
                 signer,
                 amount,
             ));
@@ -289,19 +293,19 @@ impl<T: Config> Module<T> {
 
     // Public functions exposed to other pallets
 
-    /// Updates total rewards in PolkaBTC and DOT for all participants and
+    /// Updates total rewards in tokens and collateral for all participants and
     /// then clears the current epoch rewards.
     pub fn update_rewards_for_epoch() -> DispatchResult {
         // calculate vault rewards
-        let (total_vault_rewards_for_issued_in_polka_btc, total_vault_rewards_for_locked_in_polka_btc) =
-            Self::vault_rewards_for_epoch_in_polka_btc()?;
-        let (total_vault_rewards_for_issued_in_dot, total_vault_rewards_for_locked_in_dot) =
-            Self::vault_rewards_for_epoch_in_dot()?;
-        for (account, amount_in_polka_btc, amount_in_dot) in ext::sla::get_vault_rewards::<T>(
-            total_vault_rewards_for_issued_in_polka_btc,
-            total_vault_rewards_for_locked_in_polka_btc,
-            total_vault_rewards_for_issued_in_dot,
-            total_vault_rewards_for_locked_in_dot,
+        let (total_vault_rewards_for_issued_in_issuing, total_vault_rewards_for_locked_in_issuing) =
+            Self::vault_rewards_for_epoch_in_issuing()?;
+        let (total_vault_rewards_for_issued_in_backing, total_vault_rewards_for_locked_in_backing) =
+            Self::vault_rewards_for_epoch_in_backing()?;
+        for (account, amount_in_issuing, amount_in_backing) in ext::sla::get_vault_rewards::<T>(
+            total_vault_rewards_for_issued_in_issuing,
+            total_vault_rewards_for_locked_in_issuing,
+            total_vault_rewards_for_issued_in_backing,
+            total_vault_rewards_for_locked_in_backing,
         )? {
             // TODO: implement fee distribution for the nomination feature. Sketch pseudocode below
             // let mut rich_vault: RichVault<T> =
@@ -316,141 +320,141 @@ impl<T: Config> Module<T> {
             // 2. Iterate through nominators, get their proportion and multiply by dot/polkabtc amounts and increase
             // 3. Do the same as 2. for the Vault
 
-            // increase polka_btc rewards
-            <TotalRewardsPolkaBTC<T>>::insert(
+            // increase issuing rewards
+            <TotalRewardsIssuing<T>>::insert(
                 account.clone(),
-                <TotalRewardsPolkaBTC<T>>::get(account.clone())
-                    .checked_add(&amount_in_polka_btc)
+                <TotalRewardsIssuing<T>>::get(account.clone())
+                    .checked_add(&amount_in_issuing)
                     .ok_or(Error::<T>::ArithmeticOverflow)?,
             );
-            // increase dot rewards
-            <TotalRewardsDOT<T>>::insert(
+            // increase backing rewards
+            <TotalRewardsBacking<T>>::insert(
                 account.clone(),
-                <TotalRewardsDOT<T>>::get(account.clone())
-                    .checked_add(&amount_in_dot)
+                <TotalRewardsBacking<T>>::get(account.clone())
+                    .checked_add(&amount_in_backing)
                     .ok_or(Error::<T>::ArithmeticOverflow)?,
             );
         }
 
         // calculate staked relayer rewards
-        let total_relayer_rewards_in_polka_btc = Self::relayer_rewards_for_epoch_in_polka_btc()?;
-        let total_relayer_rewards_in_dot = Self::relayer_rewards_for_epoch_in_dot()?;
-        for (account, amount_in_polka_btc, amount_in_dot) in
-            ext::sla::get_relayer_rewards::<T>(total_relayer_rewards_in_polka_btc, total_relayer_rewards_in_dot)?
+        let total_relayer_rewards_in_issuing = Self::relayer_rewards_for_epoch_in_issuing()?;
+        let total_relayer_rewards_in_backing = Self::relayer_rewards_for_epoch_in_backing()?;
+        for (account, amount_in_issuing, amount_in_backing) in
+            ext::sla::get_relayer_rewards::<T>(total_relayer_rewards_in_issuing, total_relayer_rewards_in_backing)?
         {
-            // increase polka_btc rewards
-            <TotalRewardsPolkaBTC<T>>::insert(
+            // increase issuing rewards
+            <TotalRewardsIssuing<T>>::insert(
                 account.clone(),
-                <TotalRewardsPolkaBTC<T>>::get(account.clone())
-                    .checked_add(&amount_in_polka_btc)
+                <TotalRewardsIssuing<T>>::get(account.clone())
+                    .checked_add(&amount_in_issuing)
                     .ok_or(Error::<T>::ArithmeticOverflow)?,
             );
-            // increase dot rewards
-            <TotalRewardsDOT<T>>::insert(
+            // increase backing rewards
+            <TotalRewardsBacking<T>>::insert(
                 account.clone(),
-                <TotalRewardsDOT<T>>::get(account.clone())
-                    .checked_add(&amount_in_dot)
+                <TotalRewardsBacking<T>>::get(account.clone())
+                    .checked_add(&amount_in_backing)
                     .ok_or(Error::<T>::ArithmeticOverflow)?,
             );
         }
 
         // calculate maintainer rewards
         let maintainer_account_id = Self::maintainer_account_id();
-        // increase polka_DOT rewards
-        let total_maintainer_rewards_in_polka_btc = Self::maintainer_rewards_for_epoch_in_polka_btc()?;
-        <TotalRewardsPolkaBTC<T>>::insert(
+        // increase issued rewards
+        let total_maintainer_rewards_in_issuing = Self::maintainer_rewards_for_epoch_in_issuing()?;
+        <TotalRewardsIssuing<T>>::insert(
             maintainer_account_id.clone(),
-            <TotalRewardsPolkaBTC<T>>::get(maintainer_account_id.clone())
-                .checked_add(&total_maintainer_rewards_in_polka_btc)
+            <TotalRewardsIssuing<T>>::get(maintainer_account_id.clone())
+                .checked_add(&total_maintainer_rewards_in_issuing)
                 .ok_or(Error::<T>::ArithmeticOverflow)?,
         );
-        // increase dot rewards
-        let total_maintainer_rewards_in_dot = Self::maintainer_rewards_for_epoch_in_dot()?;
-        <TotalRewardsDOT<T>>::insert(
+        // increase backing rewards
+        let total_maintainer_rewards_in_backing = Self::maintainer_rewards_for_epoch_in_backing()?;
+        <TotalRewardsBacking<T>>::insert(
             maintainer_account_id.clone(),
-            <TotalRewardsDOT<T>>::get(maintainer_account_id)
-                .checked_add(&total_maintainer_rewards_in_dot)
+            <TotalRewardsBacking<T>>::get(maintainer_account_id)
+                .checked_add(&total_maintainer_rewards_in_backing)
                 .ok_or(Error::<T>::ArithmeticOverflow)?,
         );
 
         // clear total rewards for current epoch
-        <EpochRewardsPolkaBTC<T>>::kill();
-        <EpochRewardsDOT<T>>::kill();
+        <EpochRewardsIssuing<T>>::kill();
+        <EpochRewardsBacking<T>>::kill();
         Ok(())
     }
 
-    /// Increase the total amount of PolkaBTC generated in this epoch.
+    /// Increase the total amount of tokens generated in this epoch.
     ///
     /// # Arguments
     ///
-    /// * `amount` - amount of PolkaBTC
-    pub fn increase_polka_btc_rewards_for_epoch(amount: PolkaBTC<T>) {
-        <EpochRewardsPolkaBTC<T>>::set(Self::epoch_rewards_polka_btc() + amount);
+    /// * `amount` - amount of tokens
+    pub fn increase_issuing_rewards_for_epoch(amount: Issuing<T>) {
+        <EpochRewardsIssuing<T>>::set(Self::epoch_rewards_issuing() + amount);
     }
 
-    /// Increase the total amount of DOT generated in this epoch.
+    /// Increase the total amount of collateral generated in this epoch.
     ///
     /// # Arguments
     ///
-    /// * `amount` - amount of DOT
-    pub fn increase_dot_rewards_for_epoch(amount: DOT<T>) {
-        <EpochRewardsDOT<T>>::set(Self::epoch_rewards_dot() + amount);
+    /// * `amount` - amount of collateral
+    pub fn increase_backing_rewards_for_epoch(amount: Backing<T>) {
+        <EpochRewardsBacking<T>>::set(Self::epoch_rewards_backing() + amount);
     }
 
-    pub fn get_polka_btc_rewards(account_id: &T::AccountId) -> PolkaBTC<T> {
-        <TotalRewardsPolkaBTC<T>>::get(account_id)
+    pub fn get_issuing_rewards(account_id: &T::AccountId) -> Issuing<T> {
+        <TotalRewardsIssuing<T>>::get(account_id)
     }
 
-    pub fn get_dot_rewards(account_id: &T::AccountId) -> DOT<T> {
-        <TotalRewardsDOT<T>>::get(account_id)
+    pub fn get_backing_rewards(account_id: &T::AccountId) -> Backing<T> {
+        <TotalRewardsBacking<T>>::get(account_id)
     }
 
-    /// Calculate the required issue fee in PolkaBTC.
+    /// Calculate the required issue fee in tokens.
     ///
     /// # Arguments
     ///
-    /// * `amount` - issue amount in PolkaBTC
-    pub fn get_issue_fee(amount: PolkaBTC<T>) -> Result<PolkaBTC<T>, DispatchError> {
+    /// * `amount` - issue amount in tokens
+    pub fn get_issue_fee(amount: Issuing<T>) -> Result<Issuing<T>, DispatchError> {
         Self::btc_for(amount, <IssueFee<T>>::get())
     }
 
-    /// Calculate the required issue griefing collateral in DOT.
+    /// Calculate the required issue griefing collateral.
     ///
     /// # Arguments
     ///
-    /// * `amount` - issue amount in DOT (at current exchange rate)
-    pub fn get_issue_griefing_collateral(amount: DOT<T>) -> Result<DOT<T>, DispatchError> {
-        Self::dot_for(amount, <IssueGriefingCollateral<T>>::get())
+    /// * `amount` - issue amount in collateral (at current exchange rate)
+    pub fn get_issue_griefing_collateral(amount: Backing<T>) -> Result<Backing<T>, DispatchError> {
+        Self::backing_for(amount, <IssueGriefingCollateral<T>>::get())
     }
 
-    /// Calculate the required redeem fee in PolkaBTC. Upon execution, the
+    /// Calculate the required redeem fee in tokens. Upon execution, the
     /// rewards should be forwarded to the fee pool instead of being burned.
     ///
     /// # Arguments
     ///
-    /// * `amount` - redeem amount in PolkaBTC
-    pub fn get_redeem_fee(amount: PolkaBTC<T>) -> Result<PolkaBTC<T>, DispatchError> {
+    /// * `amount` - redeem amount in tokens
+    pub fn get_redeem_fee(amount: Issuing<T>) -> Result<Issuing<T>, DispatchError> {
         Self::btc_for(amount, <RedeemFee<T>>::get())
     }
 
-    /// Calculate the premium redeem fee in DOT for a user to get if redeeming
+    /// Calculate the premium redeem fee in collateral for a user to get if redeeming
     /// with a Vault below the premium redeem threshold.
     ///
     /// # Arguments
     ///
-    /// * `amount` - amount in DOT (at current exchange rate)
-    pub fn get_premium_redeem_fee(amount: DOT<T>) -> Result<DOT<T>, DispatchError> {
-        Self::dot_for(amount, <PremiumRedeemFee<T>>::get())
+    /// * `amount` - amount in collateral (at current exchange rate)
+    pub fn get_premium_redeem_fee(amount: Backing<T>) -> Result<Backing<T>, DispatchError> {
+        Self::backing_for(amount, <PremiumRedeemFee<T>>::get())
     }
 
-    /// Calculate the auction redeem fee in DOT for a new Vault to receive for
+    /// Calculate the auction redeem fee in collateral for a new Vault to receive for
     /// successfully auctioning another Vault.
     ///
     /// # Arguments
     ///
-    /// * `amount` - amount in DOT (at current exchange rate)
-    pub fn get_auction_redeem_fee(amount: DOT<T>) -> Result<DOT<T>, DispatchError> {
-        Self::dot_for(amount, <AuctionRedeemFee<T>>::get())
+    /// * `amount` - amount in collateral (at current exchange rate)
+    pub fn get_auction_redeem_fee(amount: Backing<T>) -> Result<Backing<T>, DispatchError> {
+        Self::backing_for(amount, <AuctionRedeemFee<T>>::get())
     }
 
     /// Calculate punishment fee for a Vault that fails to execute a redeem
@@ -458,27 +462,27 @@ impl<T: Config> Module<T> {
     ///
     /// # Arguments
     ///
-    /// * `amount` - amount in DOT (at current exchange rate)
-    pub fn get_punishment_fee(amount: DOT<T>) -> Result<DOT<T>, DispatchError> {
-        Self::dot_for(amount, <PunishmentFee<T>>::get())
+    /// * `amount` - amount in collateral (at current exchange rate)
+    pub fn get_punishment_fee(amount: Backing<T>) -> Result<Backing<T>, DispatchError> {
+        Self::backing_for(amount, <PunishmentFee<T>>::get())
     }
 
-    /// Calculate the required replace griefing collateral in DOT.
+    /// Calculate the required replace griefing collateral.
     ///
     /// # Arguments
     ///
-    /// * `amount` - replace amount in DOT (at current exchange rate)
-    pub fn get_replace_griefing_collateral(amount: DOT<T>) -> Result<DOT<T>, DispatchError> {
-        Self::dot_for(amount, <ReplaceGriefingCollateral<T>>::get())
+    /// * `amount` - replace amount in collateral (at current exchange rate)
+    pub fn get_replace_griefing_collateral(amount: Backing<T>) -> Result<Backing<T>, DispatchError> {
+        Self::backing_for(amount, <ReplaceGriefingCollateral<T>>::get())
     }
 
-    /// Calculate the fee portion of a total amount. For `amount = fee + refund_polkabtc`, this
+    /// Calculate the fee portion of a total amount. For `amount = fee + refund_amount`, this
     /// function returns `fee`.
     ///
     /// # Arguments
     ///
-    /// * `amount` - total amount in PolkaBTC
-    pub fn get_refund_fee_from_total(amount: PolkaBTC<T>) -> Result<PolkaBTC<T>, DispatchError> {
+    /// * `amount` - total amount in tokens
+    pub fn get_refund_fee_from_total(amount: Issuing<T>) -> Result<Issuing<T>, DispatchError> {
         // calculate 'percentage' = x / (1+x)
         let percentage = <RefundFee<T>>::get()
             .checked_div(
@@ -490,38 +494,38 @@ impl<T: Config> Module<T> {
         Self::btc_for(amount, percentage)
     }
 
-    pub fn btc_for(amount: PolkaBTC<T>, percentage: UnsignedFixedPoint<T>) -> Result<PolkaBTC<T>, DispatchError> {
+    pub fn btc_for(amount: Issuing<T>, percentage: UnsignedFixedPoint<T>) -> Result<Issuing<T>, DispatchError> {
         Self::inner_to_btc(Self::calculate_for(Self::btc_to_inner(amount)?, percentage)?)
     }
 
-    pub fn dot_for(amount: DOT<T>, percentage: UnsignedFixedPoint<T>) -> Result<DOT<T>, DispatchError> {
-        Self::inner_to_dot(Self::calculate_for(Self::dot_to_inner(amount)?, percentage)?)
+    pub fn backing_for(amount: Backing<T>, percentage: UnsignedFixedPoint<T>) -> Result<Backing<T>, DispatchError> {
+        Self::inner_to_backing(Self::calculate_for(Self::backing_to_inner(amount)?, percentage)?)
     }
 
     // Private functions internal to this pallet
 
-    fn btc_to_inner(x: PolkaBTC<T>) -> Result<Inner<T>, DispatchError> {
+    fn btc_to_inner(x: Issuing<T>) -> Result<Inner<T>, DispatchError> {
         // TODO: concrete type is the same, circumvent this conversion
         let y = TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError)?;
         TryInto::<Inner<T>>::try_into(y).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
-    fn inner_to_btc(x: Inner<T>) -> Result<PolkaBTC<T>, DispatchError> {
+    fn inner_to_btc(x: Inner<T>) -> Result<Issuing<T>, DispatchError> {
         // TODO: add try_into for `FixedPointOperand` upstream
         let y = UniqueSaturatedInto::<u128>::unique_saturated_into(x);
-        TryInto::<PolkaBTC<T>>::try_into(y).map_err(|_| Error::<T>::TryIntoIntError.into())
+        TryInto::<Issuing<T>>::try_into(y).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
-    fn dot_to_inner(x: DOT<T>) -> Result<Inner<T>, DispatchError> {
+    fn backing_to_inner(x: Backing<T>) -> Result<Inner<T>, DispatchError> {
         // TODO: concrete type is the same, circumvent this conversion
         let y = TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError)?;
         TryInto::<Inner<T>>::try_into(y).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
-    fn inner_to_dot(x: Inner<T>) -> Result<DOT<T>, DispatchError> {
+    fn inner_to_backing(x: Inner<T>) -> Result<Backing<T>, DispatchError> {
         // TODO: add try_into for `FixedPointOperand` upstream
         let y = UniqueSaturatedInto::<u128>::unique_saturated_into(x);
-        TryInto::<DOT<T>>::try_into(y).map_err(|_| Error::<T>::TryIntoIntError.into())
+        TryInto::<Backing<T>>::try_into(y).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
     /// Take the `percentage` of an `amount`
@@ -551,42 +555,42 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Total epoch rewards in PolkaBTC for vaults
-    fn vault_rewards_for_epoch_in_polka_btc() -> Result<(PolkaBTC<T>, PolkaBTC<T>), DispatchError> {
-        let total_vault_rewards = Self::btc_for(Self::epoch_rewards_polka_btc(), Self::vault_rewards())?;
+    /// Total epoch rewards in issued tokens for vaults
+    fn vault_rewards_for_epoch_in_issuing() -> Result<(Issuing<T>, Issuing<T>), DispatchError> {
+        let total_vault_rewards = Self::btc_for(Self::epoch_rewards_issuing(), Self::vault_rewards())?;
         Ok((
             Self::btc_for(total_vault_rewards, Self::vault_rewards_issued())?,
             Self::btc_for(total_vault_rewards, Self::vault_rewards_locked())?,
         ))
     }
 
-    /// Total epoch rewards in DOT for vaults
-    fn vault_rewards_for_epoch_in_dot() -> Result<(DOT<T>, DOT<T>), DispatchError> {
-        let total_vault_rewards = Self::dot_for(Self::epoch_rewards_dot(), Self::vault_rewards())?;
+    /// Total epoch rewards in collateral for vaults
+    fn vault_rewards_for_epoch_in_backing() -> Result<(Backing<T>, Backing<T>), DispatchError> {
+        let total_vault_rewards = Self::backing_for(Self::epoch_rewards_backing(), Self::vault_rewards())?;
         Ok((
-            Self::dot_for(total_vault_rewards, Self::vault_rewards_issued())?,
-            Self::dot_for(total_vault_rewards, Self::vault_rewards_locked())?,
+            Self::backing_for(total_vault_rewards, Self::vault_rewards_issued())?,
+            Self::backing_for(total_vault_rewards, Self::vault_rewards_locked())?,
         ))
     }
 
-    /// Total epoch rewards in PolkaBTC for staked relayers
-    fn relayer_rewards_for_epoch_in_polka_btc() -> Result<PolkaBTC<T>, DispatchError> {
-        Self::btc_for(Self::epoch_rewards_polka_btc(), Self::relayer_rewards())
+    /// Total epoch rewards in issued tokens for staked relayers
+    fn relayer_rewards_for_epoch_in_issuing() -> Result<Issuing<T>, DispatchError> {
+        Self::btc_for(Self::epoch_rewards_issuing(), Self::relayer_rewards())
     }
 
-    /// Total epoch rewards in DOT for staked relayers
-    fn relayer_rewards_for_epoch_in_dot() -> Result<DOT<T>, DispatchError> {
-        Self::dot_for(Self::epoch_rewards_dot(), Self::relayer_rewards())
+    /// Total epoch rewards in collateral for staked relayers
+    fn relayer_rewards_for_epoch_in_backing() -> Result<Backing<T>, DispatchError> {
+        Self::backing_for(Self::epoch_rewards_backing(), Self::relayer_rewards())
     }
 
-    /// Total epoch rewards in PolkaBTC for maintainers
-    fn maintainer_rewards_for_epoch_in_polka_btc() -> Result<PolkaBTC<T>, DispatchError> {
-        Self::btc_for(Self::epoch_rewards_polka_btc(), Self::maintainer_rewards())
+    /// Total epoch rewards in issued tokens for maintainers
+    fn maintainer_rewards_for_epoch_in_issuing() -> Result<Issuing<T>, DispatchError> {
+        Self::btc_for(Self::epoch_rewards_issuing(), Self::maintainer_rewards())
     }
 
-    /// Total epoch rewards in DOT for maintainers
-    fn maintainer_rewards_for_epoch_in_dot() -> Result<DOT<T>, DispatchError> {
-        Self::dot_for(Self::epoch_rewards_dot(), Self::maintainer_rewards())
+    /// Total epoch rewards in collateral for maintainers
+    fn maintainer_rewards_for_epoch_in_backing() -> Result<Backing<T>, DispatchError> {
+        Self::backing_for(Self::epoch_rewards_backing(), Self::maintainer_rewards())
     }
 }
 

@@ -1,6 +1,6 @@
 use crate as exchange_rate_oracle;
 use crate::{Config, Error};
-use frame_support::parameter_types;
+use frame_support::{parameter_types, traits::StorageMapShim};
 use mocktopus::mocking::clear_mocks;
 use sp_arithmetic::FixedU128;
 use sp_core::H256;
@@ -21,11 +21,15 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-        Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+
+        // Tokens & Balances
+        Backing: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
+        Issuing: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
+
+        Collateral: currency::<Instance1>::{Pallet, Call, Storage, Event<T>},
+        Treasury: currency::<Instance2>::{Pallet, Call, Storage, Event<T>},
 
         // Operational
-        Collateral: collateral::{Pallet, Call, Storage, Event<T>},
-        Treasury: treasury::{Pallet, Call, Storage, Event<T>},
         Security: security::{Pallet, Call, Storage, Event<T>},
         ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
     }
@@ -88,24 +92,64 @@ parameter_types! {
     pub const MaxLocks: u32 = 50;
 }
 
-impl pallet_balances::Config for Test {
+/// Backing currency - e.g. DOT/KSM
+impl pallet_balances::Config<pallet_balances::Instance1> for Test {
     type MaxLocks = MaxLocks;
     type Balance = Balance;
     type Event = TestEvent;
     type DustRemoval = ();
     type ExistentialDeposit = ExistentialDeposit;
-    type AccountStore = System;
+    type AccountStore = StorageMapShim<
+        pallet_balances::Account<Test, pallet_balances::Instance1>,
+        frame_system::Provider<Test>,
+        AccountId,
+        pallet_balances::AccountData<Balance>,
+    >;
     type WeightInfo = ();
 }
 
-impl collateral::Config for Test {
-    type DOT = Balances;
+/// Issuing currency - e.g. PolkaBTC
+impl pallet_balances::Config<pallet_balances::Instance2> for Test {
+    type MaxLocks = MaxLocks;
+    type Balance = Balance;
     type Event = TestEvent;
+    type DustRemoval = ();
+    type ExistentialDeposit = ExistentialDeposit;
+    type AccountStore = StorageMapShim<
+        pallet_balances::Account<Test, pallet_balances::Instance2>,
+        frame_system::Provider<Test>,
+        AccountId,
+        pallet_balances::AccountData<Balance>,
+    >;
+    type WeightInfo = ();
 }
 
-impl treasury::Config for Test {
-    type PolkaBTC = Balances;
+parameter_types! {
+    pub const BackingName: &'static [u8] = b"Polkadot";
+    pub const BackingSymbol: &'static [u8] = b"DOT";
+    pub const BackingDecimals: u8 = 10;
+}
+
+impl currency::Config<currency::Collateral> for Test {
     type Event = TestEvent;
+    type Currency = pallet_balances::Pallet<Test, pallet_balances::Instance1>;
+    type Name = BackingName;
+    type Symbol = BackingSymbol;
+    type Decimals = BackingDecimals;
+}
+
+parameter_types! {
+    pub const IssuingName: &'static [u8] = b"Bitcoin";
+    pub const IssuingSymbol: &'static [u8] = b"BTC";
+    pub const IssuingDecimals: u8 = 8;
+}
+
+impl currency::Config<currency::Treasury> for Test {
+    type Event = TestEvent;
+    type Currency = pallet_balances::Pallet<Test, pallet_balances::Instance2>;
+    type Name = IssuingName;
+    type Symbol = IssuingSymbol;
+    type Decimals = IssuingDecimals;
 }
 
 impl security::Config for Test {

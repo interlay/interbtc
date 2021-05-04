@@ -1,4 +1,4 @@
-//! # PolkaBTC Issue Module
+//! # Issue Module
 //! Based on the [specification](https://interlay.gitlab.io/polkabtc-spec/spec/issue.html).
 
 #![deny(warnings)]
@@ -29,7 +29,7 @@ pub mod types;
 #[doc(inline)]
 pub use crate::types::{IssueRequest, IssueRequestStatus};
 
-use crate::types::{IssueRequestV2, PolkaBTC, Version, DOT};
+use crate::types::{Backing, IssueRequestV2, Issuing, Version};
 use bitcoin::utils::sha256d_le;
 use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::{
@@ -51,9 +51,9 @@ const _MODULE_ID: ModuleId = ModuleId(*b"issuemod");
 pub trait Config:
     frame_system::Config
     + vault_registry::Config
-    + collateral::Config
+    + currency::Config<currency::Collateral>
+    + currency::Config<currency::Treasury>
     + btc_relay::Config
-    + treasury::Config
     + exchange_rate_oracle::Config
     + fee::Config
     + sla::Config
@@ -69,9 +69,9 @@ pub trait Config:
 // The pallet's storage items.
 decl_storage! {
     trait Store for Module<T: Config> as Issue {
-        /// Users create issue requests to issue PolkaBTC. This mapping provides access
+        /// Users create issue requests to issue tokens. This mapping provides access
         /// from a unique hash `IssueId` to an `IssueRequest` struct.
-        IssueRequests: map hasher(blake2_128_concat) H256 => IssueRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>;
+        IssueRequests: map hasher(blake2_128_concat) H256 => IssueRequest<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>;
 
         /// The time difference in number of blocks between an issue request is created
         /// and required completion time by a user. The issue period has an upper limit
@@ -88,25 +88,25 @@ decl_event!(
     pub enum Event<T>
     where
         AccountId = <T as frame_system::Config>::AccountId,
-        PolkaBTC = PolkaBTC<T>,
-        DOT = DOT<T>,
+        Issuing = Issuing<T>,
+        Backing = Backing<T>,
     {
         RequestIssue(
             H256,         // issue_id
             AccountId,    // requester
-            PolkaBTC,     // amount
-            PolkaBTC,     // fee
-            DOT,          // griefing_collateral
+            Issuing,      // amount
+            Issuing,      // fee
+            Backing,      // griefing_collateral
             AccountId,    // vault_id
             BtcAddress,   // vault deposit address
             BtcPublicKey, // vault public key
         ),
         // issue_id, amount, fee, confiscated_griefing_collateral
-        IssueAmountChange(H256, PolkaBTC, PolkaBTC, DOT),
+        IssueAmountChange(H256, Issuing, Issuing, Backing),
         // [issue_id, requester, total_amount, vault]
-        ExecuteIssue(H256, AccountId, PolkaBTC, AccountId),
+        ExecuteIssue(H256, AccountId, Issuing, AccountId),
         // [issue_id, requester, griefing_collateral]
-        CancelIssue(H256, AccountId, DOT),
+        CancelIssue(H256, AccountId, Backing),
     }
 );
 
@@ -125,7 +125,7 @@ decl_module! {
             use frame_support::{migration::StorageKeyIterator, Blake2_128Concat};
 
             if matches!(Self::storage_version(), Version::V2) {
-                StorageKeyIterator::<H256, IssueRequestV2<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, Blake2_128Concat>::new(<IssueRequests<T>>::module_prefix(), b"IssueRequests")
+                StorageKeyIterator::<H256, IssueRequestV2<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>, Blake2_128Concat>::new(<IssueRequests<T>>::module_prefix(), b"IssueRequests")
                     .drain()
                     .for_each(|(id, old_request)| {
                         let new_request = IssueRequest {
@@ -151,29 +151,29 @@ decl_module! {
         }
 
 
-        /// Request the issuance of PolkaBTC
+        /// Request the issuance of tokens
         ///
         /// # Arguments
         ///
         /// * `origin` - sender of the transaction
-        /// * `amount` - amount of BTC the user wants to convert to PolkaBTC. Note that the amount of
-        /// PolkaBTC received will be less, because a fee is subtracted.
+        /// * `amount` - amount of BTC the user wants to convert to issued tokens. Note that the
+        /// amount of issued tokens received will be less, because a fee is subtracted.
         /// * `vault` - address of the vault
-        /// * `griefing_collateral` - amount of DOT
+        /// * `griefing_collateral` - amount of collateral
         #[weight = <T as Config>::WeightInfo::request_issue()]
         #[transactional]
         fn request_issue(
             origin,
-            #[compact] amount: PolkaBTC<T>,
+            #[compact] amount: Issuing<T>,
             vault_id: T::AccountId,
-            #[compact] griefing_collateral: DOT<T>
+            #[compact] griefing_collateral: Backing<T>
         ) -> DispatchResult {
             let requester = ensure_signed(origin)?;
             Self::_request_issue(requester, amount, vault_id, griefing_collateral)?;
             Ok(())
         }
 
-        /// Finalize the issuance of PolkaBTC
+        /// Finalize the issuance of tokens
         ///
         /// # Arguments
         ///
@@ -192,7 +192,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Cancel the issuance of PolkaBTC if expired
+        /// Cancel the issuance of tokens if expired
         ///
         /// # Arguments
         ///
@@ -231,9 +231,9 @@ impl<T: Config> Module<T> {
     /// Requests CBA issuance, returns unique tracking ID.
     fn _request_issue(
         requester: T::AccountId,
-        amount_requested: PolkaBTC<T>,
+        amount_requested: Issuing<T>,
         vault_id: T::AccountId,
-        griefing_collateral: DOT<T>,
+        griefing_collateral: Backing<T>,
     ) -> Result<H256, DispatchError> {
         // Check that Parachain is RUNNING
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
@@ -255,8 +255,8 @@ impl<T: Config> Module<T> {
         ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;
 
         // calculate griefing collateral based on the total amount of tokens to be issued
-        let amount_dot = ext::oracle::btc_to_dots::<T>(amount_requested)?;
-        let expected_griefing_collateral = ext::fee::get_issue_griefing_collateral::<T>(amount_dot)?;
+        let amount_backing = ext::oracle::issuing_to_backing::<T>(amount_requested)?;
+        let expected_griefing_collateral = ext::fee::get_issue_griefing_collateral::<T>(amount_backing)?;
 
         ensure!(
             griefing_collateral >= expected_griefing_collateral,
@@ -333,7 +333,7 @@ impl<T: Config> Module<T> {
             .amount
             .checked_add(&issue.fee)
             .ok_or(Error::<T>::ArithmeticOverflow)?;
-        let amount_transferred = Self::u128_to_btc(amount_transferred as u128)?;
+        let amount_transferred = Self::u128_to_issuing(amount_transferred as u128)?;
 
         // check for unexpected bitcoin amounts, and update the issue struct
         if amount_transferred < expected_total_amount {
@@ -362,7 +362,7 @@ impl<T: Config> Module<T> {
                 CurrencySource::FreeBalance(ext::fee::fee_pool_account_id::<T>()),
                 slashed_collateral,
             )?;
-            ext::fee::increase_dot_rewards_for_epoch::<T>(slashed_collateral);
+            ext::fee::increase_backing_rewards_for_epoch::<T>(slashed_collateral);
 
             Self::update_issue_amount(&issue_id, &mut issue, amount_transferred, slashed_collateral)?;
         } else {
@@ -402,15 +402,15 @@ impl<T: Config> Module<T> {
             .ok_or(Error::<T>::ArithmeticOverflow)?;
         ext::vault_registry::issue_tokens::<T>(&issue.vault, total)?;
 
-        // mint polkabtc amount
+        // mint issued tokens
         ext::treasury::mint::<T>(requester.clone(), issue.amount);
 
-        // mint polkabtc fees
+        // mint issuing fees
         ext::treasury::mint::<T>(ext::fee::fee_pool_account_id::<T>(), issue.fee);
-        ext::fee::increase_polka_btc_rewards_for_epoch::<T>(issue.fee);
+        ext::fee::increase_issuing_rewards_for_epoch::<T>(issue.fee);
 
         if !ext::vault_registry::is_vault_liquidated::<T>(&issue.vault)? {
-            // reward the vault for having issued PolkaBTC by increasing its sla
+            // reward the vault for having issued tokens by increasing its sla
             ext::sla::event_update_vault_sla::<T>(&issue.vault, ext::sla::VaultEvent::ExecutedIssue(total))?;
         }
 
@@ -462,7 +462,7 @@ impl<T: Config> Module<T> {
                 CurrencySource::FreeBalance(ext::fee::fee_pool_account_id::<T>()),
                 issue.griefing_collateral,
             )?;
-            ext::fee::increase_dot_rewards_for_epoch::<T>(issue.griefing_collateral);
+            ext::fee::increase_backing_rewards_for_epoch::<T>(issue.griefing_collateral);
         }
         Self::set_issue_status(issue_id, IssueRequestStatus::Cancelled);
 
@@ -477,7 +477,7 @@ impl<T: Config> Module<T> {
     /// * `account_id` - user account id
     pub fn get_issue_requests_for_account(
         account_id: T::AccountId,
-    ) -> Vec<(H256, IssueRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>)> {
+    ) -> Vec<(H256, IssueRequest<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>)> {
         <IssueRequests<T>>::iter()
             .filter(|(_, request)| request.requester == account_id)
             .collect::<Vec<_>>()
@@ -490,7 +490,7 @@ impl<T: Config> Module<T> {
     /// * `account_id` - vault account id
     pub fn get_issue_requests_for_vault(
         account_id: T::AccountId,
-    ) -> Vec<(H256, IssueRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>)> {
+    ) -> Vec<(H256, IssueRequest<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>)> {
         <IssueRequests<T>>::iter()
             .filter(|(_, request)| request.vault == account_id)
             .collect::<Vec<_>>()
@@ -498,7 +498,7 @@ impl<T: Config> Module<T> {
 
     pub fn get_issue_request_from_id(
         issue_id: &H256,
-    ) -> Result<IssueRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
+    ) -> Result<IssueRequest<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>, DispatchError> {
         ensure!(<IssueRequests<T>>::contains_key(*issue_id), Error::<T>::IssueIdNotFound);
 
         let issue_request = <IssueRequests<T>>::get(issue_id);
@@ -513,9 +513,9 @@ impl<T: Config> Module<T> {
     /// update the fee & amount in an issue request based on the actually transferred amount
     fn update_issue_amount(
         issue_id: &H256,
-        issue: &mut IssueRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>,
-        transferred_btc: PolkaBTC<T>,
-        confiscated_griefing_collateral: DOT<T>,
+        issue: &mut IssueRequest<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>,
+        transferred_btc: Issuing<T>,
+        confiscated_griefing_collateral: Backing<T>,
     ) -> Result<(), DispatchError> {
         // Current vault can handle the surplus; update the issue request
         issue.fee = ext::fee::get_issue_fee::<T>(transferred_btc)?;
@@ -539,7 +539,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn insert_issue_request(key: &H256, value: &IssueRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>) {
+    fn insert_issue_request(key: &H256, value: &IssueRequest<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>) {
         <IssueRequests<T>>::insert(key, value)
     }
 
@@ -550,8 +550,8 @@ impl<T: Config> Module<T> {
         });
     }
 
-    fn u128_to_btc(x: u128) -> Result<PolkaBTC<T>, DispatchError> {
-        TryInto::<PolkaBTC<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
+    fn u128_to_issuing(x: u128) -> Result<Issuing<T>, DispatchError> {
+        TryInto::<Issuing<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 }
 

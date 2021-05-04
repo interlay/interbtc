@@ -283,7 +283,7 @@ parameter_types! {
 }
 
 impl pallet_transaction_payment::Config for Runtime {
-    type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<DOT, ()>;
+    type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<Backing, ()>;
     type TransactionByteFee = TransactionByteFee;
     type WeightToFee = IdentityFee<Balance>;
     type FeeMultiplierUpdate = ();
@@ -331,8 +331,8 @@ type LocationConverter = (
 
 #[cfg(feature = "cumulus-polkadot")]
 type LocalAssetTransactor = CurrencyAdapter<
-    DOT,
-    PolkaBTC,
+    Backing,
+    Issuing,
     // Do a simple punn to convert an AccountId32 MultiLocation into a native chain account ID:
     LocationConverter,
     // Our chain's account ID type (we can't get away without mentioning it explicitly):
@@ -395,7 +395,7 @@ parameter_types! {
     pub const MaxLocks: u32 = 50;
 }
 
-/// DOT
+/// Backing currency - e.g. DOT/KSM
 impl pallet_balances::Config<pallet_balances::Instance1> for Runtime {
     type MaxLocks = MaxLocks;
     /// The type for recording an account's balance.
@@ -413,7 +413,7 @@ impl pallet_balances::Config<pallet_balances::Instance1> for Runtime {
     type WeightInfo = ();
 }
 
-/// PolkaBTC
+/// Issuing currency - e.g. PolkaBTC
 impl pallet_balances::Config<pallet_balances::Instance2> for Runtime {
     type MaxLocks = MaxLocks;
     type Balance = Balance;
@@ -434,18 +434,32 @@ impl btc_relay::Config for Runtime {
     type WeightInfo = ();
 }
 
-pub use collateral::Event as CollateralEvent;
-
-impl collateral::Config for Runtime {
-    type Event = Event;
-    type DOT = pallet_balances::Pallet<Runtime, pallet_balances::Instance1>;
+parameter_types! {
+    pub const BackingName: &'static [u8] = b"Polkadot";
+    pub const BackingSymbol: &'static [u8] = b"DOT";
+    pub const BackingDecimals: u8 = 10;
 }
 
-pub use treasury::Event as TreasuryEvent;
-
-impl treasury::Config for Runtime {
+impl currency::Config<currency::Collateral> for Runtime {
     type Event = Event;
-    type PolkaBTC = pallet_balances::Pallet<Runtime, pallet_balances::Instance2>;
+    type Currency = pallet_balances::Pallet<Runtime, pallet_balances::Instance1>;
+    type Name = BackingName;
+    type Symbol = BackingSymbol;
+    type Decimals = BackingDecimals;
+}
+
+parameter_types! {
+    pub const IssuingName: &'static [u8] = b"PolkaBTC";
+    pub const IssuingSymbol: &'static [u8] = b"PolkaBTC";
+    pub const IssuingDecimals: u8 = 8;
+}
+
+impl currency::Config<currency::Treasury> for Runtime {
+    type Event = Event;
+    type Currency = pallet_balances::Pallet<Runtime, pallet_balances::Instance2>;
+    type Name = IssuingName;
+    type Symbol = IssuingSymbol;
+    type Decimals = IssuingDecimals;
 }
 
 impl security::Config for Runtime {
@@ -561,11 +575,11 @@ macro_rules! construct_polkabtc_runtime {
                 TransactionPayment: pallet_transaction_payment::{Pallet, Storage},
 
                 // Tokens & Balances
-                DOT: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
-                PolkaBTC: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
+                Backing: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
+                Issuing: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
 
-                Collateral: collateral::{Pallet, Call, Storage, Event<T>},
-                Treasury: treasury::{Pallet, Call, Storage, Event<T>},
+                Collateral: currency::<Instance1>::{Pallet, Call, Storage, Event<T>},
+                Treasury: currency::<Instance2>::{Pallet, Call, Storage, Event<T>},
 
                 // Bitcoin SPV
                 BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},
@@ -810,13 +824,13 @@ impl_runtime_apis! {
         Balance,
         Balance,
     > for Runtime {
-        fn btc_to_dots(amount: BalanceWrapper<Balance>) -> Result<BalanceWrapper<Balance>, DispatchError> {
-            let result = ExchangeRateOracle::btc_to_dots(amount.amount)?;
+        fn issuing_to_backing(amount: BalanceWrapper<Balance>) -> Result<BalanceWrapper<Balance>, DispatchError> {
+            let result = ExchangeRateOracle::issuing_to_backing(amount.amount)?;
             Ok(BalanceWrapper{amount:result})
         }
 
-        fn dots_to_btc(amount: BalanceWrapper<Balance>) -> Result<BalanceWrapper<Balance>, DispatchError> {
-            let result = ExchangeRateOracle::dots_to_btc(amount.amount)?;
+        fn backing_to_issuing(amount: BalanceWrapper<Balance>) -> Result<BalanceWrapper<Balance>, DispatchError> {
+            let result = ExchangeRateOracle::backing_to_issuing(amount.amount)?;
             Ok(BalanceWrapper{amount:result})
         }
     }
@@ -872,8 +886,8 @@ impl_runtime_apis! {
             VaultRegistry::get_collateralization_from_vault_and_collateral(vault, collateral.amount, only_issued)
         }
 
-        fn get_required_collateral_for_polkabtc(amount_btc: BalanceWrapper<Balance>) -> Result<BalanceWrapper<Balance>, DispatchError> {
-            let result = VaultRegistry::get_required_collateral_for_polkabtc(amount_btc.amount)?;
+        fn get_required_collateral_for_issuing(amount_btc: BalanceWrapper<Balance>) -> Result<BalanceWrapper<Balance>, DispatchError> {
+            let result = VaultRegistry::get_required_collateral_for_issuing(amount_btc.amount)?;
             Ok(BalanceWrapper{amount:result})
         }
 

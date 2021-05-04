@@ -26,10 +26,14 @@ fn dummy_public_key() -> BtcPublicKey {
     ])
 }
 
+fn make_free_balance_be<T: currency::Config<currency::Collateral>>(account_id: &T::AccountId, amount: Backing<T>) {
+    <<T as currency::Config<currency::Collateral>>::Currency>::make_free_balance_be(account_id, amount);
+}
+
 benchmarks! {
     request_replace {
         let vault_id: T::AccountId = account("Vault", 0, 0);
-        let _ = T::DOT::make_free_balance_be(&vault_id, (1u32 << 31).into());
+        make_free_balance_be::<T>(&vault_id, (1u32 << 31).into());
         let amount = Replace::<T>::replace_btc_dust_value() + 1000u32.into();
         // TODO: calculate from exchange rate
         let griefing = 1000u32.into();
@@ -47,7 +51,7 @@ benchmarks! {
 
     withdraw_replace {
         let vault_id: T::AccountId = account("Vault", 0, 0);
-        let _ = T::DOT::make_free_balance_be(&vault_id, (1u32 << 31).into());
+        make_free_balance_be::<T>(&vault_id, (1u32 << 31).into());
         let amount = 5u32;
         VaultRegistry::<T>::_register_vault(&vault_id, 100000000u32.into(), dummy_public_key()).unwrap();
 
@@ -66,8 +70,8 @@ benchmarks! {
     accept_replace {
         let old_vault_id: T::AccountId = account("Origin", 0, 0);
         let new_vault_id: T::AccountId = account("Vault", 0, 0);
-        let _ = T::DOT::make_free_balance_be(&old_vault_id, (1u32 << 31).into());
-        let _ = T::DOT::make_free_balance_be(&new_vault_id, (1u32 << 31).into());
+        make_free_balance_be::<T>(&old_vault_id, (1u32 << 31).into());
+        make_free_balance_be::<T>(&new_vault_id, (1u32 << 31).into());
         let dust_value =  Replace::<T>::replace_btc_dust_value().try_into().unwrap_or(0u32);
         let amount: u32 = dust_value + 100u32;
         let collateral: u32 = 1000;
@@ -95,8 +99,8 @@ benchmarks! {
     auction_replace {
         let old_vault_id: T::AccountId = account("Origin", 0, 0);
         let new_vault_id: T::AccountId = account("Vault", 0, 0);
-        let _ = T::DOT::make_free_balance_be(&old_vault_id, (1u32 << 31).into());
-        let _ = T::DOT::make_free_balance_be(&new_vault_id, (1u32 << 31).into());
+        make_free_balance_be::<T>(&old_vault_id, (1u32 << 31).into());
+        make_free_balance_be::<T>(&new_vault_id, (1u32 << 31).into());
         let dust_value =  Replace::<T>::replace_btc_dust_value().try_into().unwrap_or(0u32);
         let btc_amount: u32 = dust_value + 100;
         let collateral: u32 = btc_amount * 2;
@@ -204,8 +208,8 @@ benchmarks! {
     cancel_replace {
         let new_vault_id: T::AccountId = account("Origin", 0, 0);
         let old_vault_id: T::AccountId = account("Vault", 0, 0);
-        let _ = T::DOT::make_free_balance_be(&new_vault_id, (1u32 << 31).into());
-        let _ = T::DOT::make_free_balance_be(&old_vault_id, (1u32 << 31).into());
+        make_free_balance_be::<T>(&new_vault_id, (1u32 << 31).into());
+        make_free_balance_be::<T>(&old_vault_id, (1u32 << 31).into());
 
         let amount:u32 = 100;
 

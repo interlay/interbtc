@@ -24,11 +24,11 @@ frame_support::construct_runtime!(
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 
         // Tokens & Balances
-        DOT: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
-        PolkaBTC: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
+        Backing: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
+        Issuing: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
 
-        Collateral: collateral::{Pallet, Call, Storage, Event<T>},
-        Treasury: treasury::{Pallet, Call, Storage, Event<T>},
+        Collateral: currency::<Instance1>::{Pallet, Call, Storage, Event<T>},
+        Treasury: currency::<Instance2>::{Pallet, Call, Storage, Event<T>},
 
         // Operational
         Security: security::{Pallet, Call, Storage, Event<T>},
@@ -80,7 +80,7 @@ parameter_types! {
     pub const MaxLocks: u32 = 50;
 }
 
-/// DOT
+/// Backing currency - e.g. DOT/KSM
 impl pallet_balances::Config<pallet_balances::Instance1> for Test {
     type MaxLocks = MaxLocks;
     type Balance = Balance;
@@ -96,7 +96,7 @@ impl pallet_balances::Config<pallet_balances::Instance1> for Test {
     type WeightInfo = ();
 }
 
-/// PolkaBTC
+/// Issuing currency - e.g. PolkaBTC
 impl pallet_balances::Config<pallet_balances::Instance2> for Test {
     type MaxLocks = MaxLocks;
     type Balance = Balance;
@@ -113,6 +113,34 @@ impl pallet_balances::Config<pallet_balances::Instance2> for Test {
 }
 
 parameter_types! {
+    pub const BackingName: &'static [u8] = b"Polkadot";
+    pub const BackingSymbol: &'static [u8] = b"DOT";
+    pub const BackingDecimals: u8 = 10;
+}
+
+impl currency::Config<currency::Collateral> for Test {
+    type Event = TestEvent;
+    type Currency = pallet_balances::Pallet<Test, pallet_balances::Instance1>;
+    type Name = BackingName;
+    type Symbol = BackingSymbol;
+    type Decimals = BackingDecimals;
+}
+
+parameter_types! {
+    pub const IssuingName: &'static [u8] = b"Bitcoin";
+    pub const IssuingSymbol: &'static [u8] = b"BTC";
+    pub const IssuingDecimals: u8 = 8;
+}
+
+impl currency::Config<currency::Treasury> for Test {
+    type Event = TestEvent;
+    type Currency = pallet_balances::Pallet<Test, pallet_balances::Instance2>;
+    type Name = IssuingName;
+    type Symbol = IssuingSymbol;
+    type Decimals = IssuingDecimals;
+}
+
+parameter_types! {
     pub const VaultModuleId: ModuleId = ModuleId(*b"mod/vreg");
 }
 
@@ -124,18 +152,8 @@ impl vault_registry::Config for Test {
     type WeightInfo = ();
 }
 
-impl collateral::Config for Test {
-    type Event = TestEvent;
-    type DOT = pallet_balances::Pallet<Test, pallet_balances::Instance1>;
-}
-
 impl security::Config for Test {
     type Event = TestEvent;
-}
-
-impl treasury::Config for Test {
-    type Event = TestEvent;
-    type PolkaBTC = pallet_balances::Pallet<Test, pallet_balances::Instance2>;
 }
 
 parameter_types! {
@@ -195,13 +213,13 @@ pub struct ExtBuilder;
 
 impl ExtBuilder {
     pub fn build_with(
-        dot_balances: pallet_balances::GenesisConfig<Test, pallet_balances::Instance1>,
-        btc_balances: pallet_balances::GenesisConfig<Test, pallet_balances::Instance2>,
+        backing_balances: pallet_balances::GenesisConfig<Test, pallet_balances::Instance1>,
+        issuing_balances: pallet_balances::GenesisConfig<Test, pallet_balances::Instance2>,
     ) -> sp_io::TestExternalities {
         let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
-        dot_balances.assimilate_storage(&mut storage).unwrap();
-        btc_balances.assimilate_storage(&mut storage).unwrap();
+        backing_balances.assimilate_storage(&mut storage).unwrap();
+        issuing_balances.assimilate_storage(&mut storage).unwrap();
 
         nomination::GenesisConfig::<Test> {
             is_nomination_enabled: true,

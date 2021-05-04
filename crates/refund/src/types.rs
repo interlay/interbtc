@@ -5,29 +5,30 @@ use primitive_types::H256;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-pub(crate) type PolkaBTC<T> =
-    <<T as treasury::Config>::PolkaBTC as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub(crate) type Issuing<T> = <<T as currency::Config<currency::Instance2>>::Currency as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::Balance;
 
 // Due to a known bug in serde we need to specify how u128 is (de)serialized.
 // See https://github.com/paritytech/substrate/issues/4641
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-pub struct RefundRequest<AccountId, PolkaBTC> {
+pub struct RefundRequest<AccountId, Issuing> {
     pub vault: AccountId,
     #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
-    #[cfg_attr(feature = "std", serde(bound(serialize = "PolkaBTC: std::fmt::Display")))]
+    #[cfg_attr(feature = "std", serde(bound(serialize = "Issuing: std::fmt::Display")))]
     #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
-    pub amount_polka_btc: PolkaBTC,
-    #[cfg_attr(feature = "std", serde(bound(deserialize = "PolkaBTC: std::str::FromStr")))]
+    pub amount_issuing: Issuing,
+    #[cfg_attr(feature = "std", serde(bound(deserialize = "Issuing: std::str::FromStr")))]
     #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
-    #[cfg_attr(feature = "std", serde(bound(serialize = "PolkaBTC: std::fmt::Display")))]
+    #[cfg_attr(feature = "std", serde(bound(serialize = "Issuing: std::fmt::Display")))]
     #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
-    pub fee: PolkaBTC,
-    #[cfg_attr(feature = "std", serde(bound(deserialize = "PolkaBTC: std::str::FromStr")))]
+    pub fee: Issuing,
+    #[cfg_attr(feature = "std", serde(bound(deserialize = "Issuing: std::str::FromStr")))]
     #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
-    #[cfg_attr(feature = "std", serde(bound(serialize = "PolkaBTC: std::fmt::Display")))]
+    #[cfg_attr(feature = "std", serde(bound(serialize = "Issuing: std::fmt::Display")))]
     #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
-    pub amount_btc: PolkaBTC,
+    pub amount_btc: Issuing,
     pub issuer: AccountId,
     pub btc_address: BtcAddress,
     pub issue_id: H256,

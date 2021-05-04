@@ -26,10 +26,9 @@ pallet-randomness-collective-flip = { git = "https://github.com/paritytech/subst
 
 # Parachain dependencies
 bitcoin = { path = "../bitcoin", default-features = false }
-collateral = { path = "../collateral", default-features = false }
 exchange-rate-oracle = { path = "../exchange-rate-oracle", default-features = false }
 security = { path = "../security", default-features = false }
-treasury = { path = "../treasury", default-features = false }
+currency = { path = "../currency", default-features = false }
 
 [dev-dependencies]
 mocktopus = "0.7.0"
@@ -54,10 +53,9 @@ std = [
   'pallet-timestamp/std',
   'pallet-randomness-collective-flip/std',
   'bitcoin/std',
-  'collateral/std',
   'exchange-rate-oracle/std',
   'security/std',
-  'treasury/std',
+  'currency/std',
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",

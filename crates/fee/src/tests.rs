@@ -53,20 +53,20 @@ fn test_calculate_for() {
 #[test]
 fn test_begin_block_only_epoch() {
     run_test(|| {
-        <EpochRewardsPolkaBTC<Test>>::set(100);
+        <EpochRewardsIssuing<Test>>::set(100);
         <EpochPeriod<Test>>::set(5);
         assert_ok!(Fee::begin_block(15));
-        assert_eq!(<EpochRewardsPolkaBTC<Test>>::get(), 0);
+        assert_eq!(<EpochRewardsIssuing<Test>>::get(), 0);
     })
 }
 
 #[test]
 fn test_begin_block_not_epoch() {
     run_test(|| {
-        <EpochRewardsPolkaBTC<Test>>::set(100);
+        <EpochRewardsIssuing<Test>>::set(100);
         <EpochPeriod<Test>>::set(5);
         assert_ok!(Fee::begin_block(17));
-        assert_eq!(<EpochRewardsPolkaBTC<Test>>::get(), 100);
+        assert_eq!(<EpochRewardsIssuing<Test>>::get(), 100);
     })
 }
 
@@ -77,31 +77,31 @@ fn test_rewards_accrue_per_epoch() {
         <EpochPeriod<Test>>::set(50);
 
         ext::sla::get_relayer_rewards::<Test>
-            .mock_safe(|total_polka_btc, total_dot| MockResult::Return(Ok(vec![(0, total_polka_btc, total_dot)])));
+            .mock_safe(|total_issuing, total_backing| MockResult::Return(Ok(vec![(0, total_issuing, total_backing)])));
 
-        <EpochRewardsPolkaBTC<Test>>::set(100);
+        <EpochRewardsIssuing<Test>>::set(100);
         assert_ok!(Fee::begin_block(2000));
-        assert_eq!(<EpochRewardsPolkaBTC<Test>>::get(), 0);
-        assert_eq!(<TotalRewardsPolkaBTC<Test>>::get(0), 100);
+        assert_eq!(<EpochRewardsIssuing<Test>>::get(), 0);
+        assert_eq!(<TotalRewardsIssuing<Test>>::get(0), 100);
 
-        <EpochRewardsPolkaBTC<Test>>::set(200);
+        <EpochRewardsIssuing<Test>>::set(200);
         assert_ok!(Fee::begin_block(4000));
-        assert_eq!(<EpochRewardsPolkaBTC<Test>>::get(), 0);
-        assert_eq!(<TotalRewardsPolkaBTC<Test>>::get(0), 300);
+        assert_eq!(<EpochRewardsIssuing<Test>>::get(), 0);
+        assert_eq!(<TotalRewardsIssuing<Test>>::get(0), 300);
     })
 }
 
 #[test]
-fn test_relayer_rewards_for_epoch_in_polka_btc() {
+fn test_relayer_rewards_for_epoch_in_issuing() {
     run_test(|| {
         <RelayerRewards<Test>>::set(FixedU128::checked_from_rational(3, 100).unwrap());
         <VaultRewards<Test>>::set(FixedU128::checked_from_rational(77, 100).unwrap());
 
-        Fee::increase_polka_btc_rewards_for_epoch(50);
-        Fee::increase_polka_btc_rewards_for_epoch(50);
-        assert_eq!(<EpochRewardsPolkaBTC<Test>>::get(), 100);
+        Fee::increase_issuing_rewards_for_epoch(50);
+        Fee::increase_issuing_rewards_for_epoch(50);
+        assert_eq!(<EpochRewardsIssuing<Test>>::get(), 100);
 
-        let total_relayer_rewards = Fee::relayer_rewards_for_epoch_in_polka_btc().unwrap();
+        let total_relayer_rewards = Fee::relayer_rewards_for_epoch_in_issuing().unwrap();
         assert_eq!(total_relayer_rewards, 3);
     })
 }
@@ -134,19 +134,19 @@ fn test_ensure_rationals_sum_to_one_succeeds() {
 }
 
 #[test]
-fn test_withdraw_polka_btc_fails_with_insufficient_balance() {
+fn test_withdraw_issuing_fails_with_insufficient_balance() {
     run_test(|| {
         assert_err!(
-            Fee::withdraw_polka_btc(Origin::signed(0), 1000),
+            Fee::withdraw_issuing(Origin::signed(0), 1000),
             TestError::InsufficientFunds
         );
     })
 }
 
 #[test]
-fn test_withdraw_polka_btc_succeeds() {
+fn test_withdraw_issuing_succeeds() {
     run_test(|| {
-        <TotalRewardsPolkaBTC<Test>>::insert(0, 1000);
+        <TotalRewardsIssuing<Test>>::insert(0, 1000);
         ext::treasury::transfer::<Test>.mock_safe(|fee_pool, signer, amount| {
             assert_eq!(Fee::fee_pool_account_id(), fee_pool);
             assert_eq!(signer, 0);
@@ -154,22 +154,25 @@ fn test_withdraw_polka_btc_succeeds() {
             MockResult::Return(Ok(()))
         });
 
-        assert_ok!(Fee::withdraw_polka_btc(Origin::signed(0), 1000));
-        assert_emitted!(Event::WithdrawPolkaBTC(0, 1000));
+        assert_ok!(Fee::withdraw_issuing(Origin::signed(0), 1000));
+        assert_emitted!(Event::WithdrawIssuing(0, 1000));
     })
 }
 
 #[test]
-fn test_withdraw_dot_fails_with_insufficient_balance() {
+fn test_withdraw_backing_fails_with_insufficient_balance() {
     run_test(|| {
-        assert_err!(Fee::withdraw_dot(Origin::signed(0), 1000), TestError::InsufficientFunds);
+        assert_err!(
+            Fee::withdraw_backing(Origin::signed(0), 1000),
+            TestError::InsufficientFunds
+        );
     })
 }
 
 #[test]
-fn test_withdraw_dot_succeeds() {
+fn test_withdraw_backing_succeeds() {
     run_test(|| {
-        <TotalRewardsDOT<Test>>::insert(0, 1000);
+        <TotalRewardsBacking<Test>>::insert(0, 1000);
         ext::collateral::transfer::<Test>.mock_safe(|fee_pool, signer, amount| {
             assert_eq!(Fee::fee_pool_account_id(), fee_pool);
             assert_eq!(signer, 0);
@@ -177,7 +180,7 @@ fn test_withdraw_dot_succeeds() {
             MockResult::Return(Ok(()))
         });
 
-        assert_ok!(Fee::withdraw_dot(Origin::signed(0), 1000));
-        assert_emitted!(Event::WithdrawDOT(0, 1000));
+        assert_ok!(Fee::withdraw_backing(Origin::signed(0), 1000));
+        assert_emitted!(Event::WithdrawBacking(0, 1000));
     })
 }

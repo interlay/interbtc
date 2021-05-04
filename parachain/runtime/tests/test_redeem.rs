@@ -285,12 +285,12 @@ mod execute_redeem_payment_limits {
 }
 
 #[test]
-fn integration_test_redeem_polka_btc_execute() {
+fn integration_test_redeem_issuing_execute() {
     test_with(|| {
-        let polka_btc = 10_000;
+        let issued_tokens = 10_000;
         let collateral_vault = 1_000_000;
 
-        let redeem_id = setup_redeem(polka_btc, USER, VAULT, collateral_vault);
+        let redeem_id = setup_redeem(issued_tokens, USER, VAULT, collateral_vault);
         let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
         execute_redeem(redeem_id);
@@ -299,7 +299,7 @@ fn integration_test_redeem_polka_btc_execute() {
             ParachainState::get(),
             ParachainState::default().with_changes(|user, vault, _, fee_pool, _| {
                 vault.issued -= redeem.amount_btc + redeem.transfer_fee_btc;
-                user.free_tokens -= polka_btc;
+                user.free_tokens -= issued_tokens;
                 fee_pool.tokens += redeem.fee;
                 consume_to_be_replaced(vault, redeem.amount_btc + redeem.transfer_fee_btc);
             })
@@ -308,9 +308,9 @@ fn integration_test_redeem_polka_btc_execute() {
 }
 
 #[test]
-fn integration_test_premium_redeem_polka_btc_execute() {
+fn integration_test_premium_redeem_issuing_execute() {
     test_with(|| {
-        let polka_btc = 10_000;
+        let issued_tokens = 10_000;
 
         let user_btc_address = BtcAddress::P2PKH(H160([2; 20]));
 
@@ -318,9 +318,9 @@ fn integration_test_premium_redeem_polka_btc_execute() {
         // as well, but as long as we don't call liquidate that's ok
         assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::from(100)));
 
-        // alice requests to redeem polka_btc from Bob
+        // alice requests to redeem issued_tokens from Bob
         assert_ok!(Call::Redeem(RedeemCall::request_redeem(
-            polka_btc,
+            issued_tokens,
             user_btc_address,
             account_of(VAULT)
         ))
@@ -332,7 +332,7 @@ fn integration_test_premium_redeem_polka_btc_execute() {
 
         // send the btc from the vault to the user
         let (_tx_id, _tx_block_height, merkle_proof, raw_tx) =
-            generate_transaction_and_mine(user_btc_address, polka_btc, Some(redeem_id));
+            generate_transaction_and_mine(user_btc_address, issued_tokens, Some(redeem_id));
 
         SecurityPallet::set_active_block_number(1 + CONFIRMATIONS);
 
@@ -347,23 +347,23 @@ fn integration_test_premium_redeem_polka_btc_execute() {
                 // fee moves from user to fee_pool
                 user.free_tokens -= redeem.fee;
                 fee_pool.tokens += redeem.fee;
-                // burned_amount is burned from user and decreased on vault
+                // amount_btc is burned from user and decreased on vault
                 let burned_amount = redeem.amount_btc + redeem.transfer_fee_btc;
                 vault.issued -= burned_amount;
                 user.free_tokens -= burned_amount;
-                // premium dot is moved from vault to user
-                vault.backing_collateral -= redeem.premium_dot;
-                user.free_balance += redeem.premium_dot;
+                // premium is moved from vault to user
+                vault.backing_collateral -= redeem.premium;
+                user.free_balance += redeem.premium;
                 consume_to_be_replaced(vault, burned_amount);
             })
         );
 
-        assert!(redeem.premium_dot > 0); // sanity check that our test is useful
+        assert!(redeem.premium > 0); // sanity check that our test is useful
     });
 }
 
 #[test]
-fn integration_test_redeem_polka_btc_liquidation_redeem() {
+fn integration_test_redeem_issuing_liquidation_redeem() {
     test_with(|| {
         let issued = 400;
         let to_be_issued = 100;
@@ -412,16 +412,16 @@ fn integration_test_redeem_polka_btc_liquidation_redeem() {
 }
 
 #[test]
-fn integration_test_redeem_polka_btc_cancel_reimburse_sufficient_collateral_for_polkabtc() {
+fn integration_test_redeem_issuing_cancel_reimburse_sufficient_collateral_for_issuing() {
     test_with(|| {
         let amount_btc = 10_000;
 
         let redeem_id = setup_cancelable_redeem(USER, VAULT, 100000000, amount_btc);
         let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
-        let amount_without_fee_dot =
-            ExchangeRateOraclePallet::btc_to_dots(redeem.amount_btc + redeem.transfer_fee_btc).unwrap();
+        let amount_without_fee_backing =
+            ExchangeRateOraclePallet::issuing_to_backing(redeem.amount_btc + redeem.transfer_fee_btc).unwrap();
 
-        let punishment_fee = FeePallet::get_punishment_fee(amount_without_fee_dot).unwrap();
+        let punishment_fee = FeePallet::get_punishment_fee(amount_without_fee_backing).unwrap();
         assert!(punishment_fee > 0);
 
         SlaPallet::set_vault_sla(&account_of(VAULT), FixedI128::from(80));
@@ -433,13 +433,14 @@ fn integration_test_redeem_polka_btc_cancel_reimburse_sufficient_collateral_for_
             ParachainState::default().with_changes(|user, vault, _, fee_pool, _| {
                 // with sla of 80, vault gets slashed for 115%: 110 to user, 5 to fee pool
 
-                fee_pool.balance += amount_without_fee_dot / 20;
+                fee_pool.balance += amount_without_fee_backing / 20;
                 fee_pool.tokens += redeem.fee;
 
-                vault.backing_collateral -= amount_without_fee_dot + punishment_fee + amount_without_fee_dot / 20;
+                vault.backing_collateral -=
+                    amount_without_fee_backing + punishment_fee + amount_without_fee_backing / 20;
                 vault.free_tokens += redeem.amount_btc + redeem.transfer_fee_btc;
 
-                user.free_balance += amount_without_fee_dot + punishment_fee;
+                user.free_balance += amount_without_fee_backing + punishment_fee;
                 user.free_tokens -= amount_btc;
 
                 consume_to_be_replaced(vault, redeem.amount_btc + redeem.transfer_fee_btc);
@@ -449,14 +450,14 @@ fn integration_test_redeem_polka_btc_cancel_reimburse_sufficient_collateral_for_
 }
 
 #[test]
-fn integration_test_redeem_polka_btc_cancel_reimburse_insufficient_collateral_for_polkabtc() {
+fn integration_test_redeem_issuing_cancel_reimburse_insufficient_collateral_for_issuing() {
     test_with(|| {
         let amount_btc = 10_000;
 
         // set collateral to the minimum amount required, such that the vault can not afford to both
         // reimburse and keep backing his current tokens
         let required_collateral =
-            VaultRegistryPallet::get_required_collateral_for_polkabtc(DEFAULT_VAULT_ISSUED).unwrap();
+            VaultRegistryPallet::get_required_collateral_for_issuing(DEFAULT_VAULT_ISSUED).unwrap();
         CoreVaultData::force_to(
             VAULT,
             CoreVaultData {
@@ -468,10 +469,10 @@ fn integration_test_redeem_polka_btc_cancel_reimburse_insufficient_collateral_fo
 
         let redeem_id = setup_cancelable_redeem(USER, VAULT, 100000000, amount_btc);
         let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
-        let amount_without_fee_dot =
-            ExchangeRateOraclePallet::btc_to_dots(redeem.amount_btc + redeem.transfer_fee_btc).unwrap();
+        let amount_without_fee_backing =
+            ExchangeRateOraclePallet::issuing_to_backing(redeem.amount_btc + redeem.transfer_fee_btc).unwrap();
 
-        let punishment_fee = FeePallet::get_punishment_fee(amount_without_fee_dot).unwrap();
+        let punishment_fee = FeePallet::get_punishment_fee(amount_without_fee_backing).unwrap();
         assert!(punishment_fee > 0);
 
         SlaPallet::set_vault_sla(&account_of(VAULT), FixedI128::from(80));
@@ -483,14 +484,15 @@ fn integration_test_redeem_polka_btc_cancel_reimburse_insufficient_collateral_fo
             initial_state.with_changes(|user, vault, _, fee_pool, _| {
                 // with sla of 80, vault gets slashed for 115%: 110 to user, 5 to fee pool
 
-                fee_pool.balance += amount_without_fee_dot / 20;
+                fee_pool.balance += amount_without_fee_backing / 20;
                 fee_pool.tokens += redeem.fee;
 
-                vault.backing_collateral -= amount_without_fee_dot + punishment_fee + amount_without_fee_dot / 20;
+                vault.backing_collateral -=
+                    amount_without_fee_backing + punishment_fee + amount_without_fee_backing / 20;
                 // vault free tokens does not change, and issued tokens is reduced
                 vault.issued -= redeem.amount_btc + redeem.transfer_fee_btc;
 
-                user.free_balance += amount_without_fee_dot + punishment_fee;
+                user.free_balance += amount_without_fee_backing + punishment_fee;
                 user.free_tokens -= amount_btc;
 
                 consume_to_be_replaced(vault, redeem.amount_btc + redeem.transfer_fee_btc);
@@ -520,16 +522,16 @@ fn integration_test_redeem_polka_btc_cancel_reimburse_insufficient_collateral_fo
 }
 
 #[test]
-fn integration_test_redeem_polka_btc_cancel_no_reimburse() {
+fn integration_test_redeem_issuing_cancel_no_reimburse() {
     test_with(|| {
         let amount_btc = 10_000;
 
         let redeem_id = setup_cancelable_redeem(USER, VAULT, 100000000, amount_btc);
         let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
-        let amount_without_fee_dot =
-            ExchangeRateOraclePallet::btc_to_dots(redeem.amount_btc + redeem.transfer_fee_btc).unwrap();
+        let amount_without_fee_backing =
+            ExchangeRateOraclePallet::issuing_to_backing(redeem.amount_btc + redeem.transfer_fee_btc).unwrap();
 
-        let punishment_fee = FeePallet::get_punishment_fee(amount_without_fee_dot).unwrap();
+        let punishment_fee = FeePallet::get_punishment_fee(amount_without_fee_backing).unwrap();
         assert!(punishment_fee > 0);
 
         SlaPallet::set_vault_sla(&account_of(VAULT), FixedI128::from(80));
@@ -541,9 +543,9 @@ fn integration_test_redeem_polka_btc_cancel_no_reimburse() {
             ParachainState::default().with_changes(|user, vault, _, fee_pool, _| {
                 // with sla of 80, vault gets slashed for 15%: punishment of 10 to user, 5 to fee pool
 
-                fee_pool.balance += amount_without_fee_dot / 20;
+                fee_pool.balance += amount_without_fee_backing / 20;
 
-                vault.backing_collateral -= punishment_fee + amount_without_fee_dot / 20;
+                vault.backing_collateral -= punishment_fee + amount_without_fee_backing / 20;
 
                 user.free_balance += punishment_fee;
 
@@ -554,11 +556,11 @@ fn integration_test_redeem_polka_btc_cancel_no_reimburse() {
 }
 
 #[test]
-fn integration_test_redeem_polka_btc_cancel_liquidated_no_reimburse() {
+fn integration_test_redeem_issuing_cancel_liquidated_no_reimburse() {
     test_with(|| {
-        let polka_btc = 10_000;
+        let issued_tokens = 10_000;
         let collateral_vault = 1_000_000;
-        let redeem_id = setup_cancelable_redeem(USER, VAULT, collateral_vault, polka_btc);
+        let redeem_id = setup_cancelable_redeem(USER, VAULT, collateral_vault, issued_tokens);
         let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
         // setup vault state such that 1/4th of its collateral is freed after successful redeem
@@ -607,11 +609,11 @@ fn integration_test_redeem_polka_btc_cancel_liquidated_no_reimburse() {
 }
 
 #[test]
-fn integration_test_redeem_polka_btc_cancel_liquidated_reimburse() {
+fn integration_test_redeem_issuing_cancel_liquidated_reimburse() {
     test_with(|| {
-        let polka_btc = 10_000;
+        let issued_tokens = 10_000;
         let collateral_vault = 1_000_000;
-        let redeem_id = setup_cancelable_redeem(USER, VAULT, collateral_vault, polka_btc);
+        let redeem_id = setup_cancelable_redeem(USER, VAULT, collateral_vault, issued_tokens);
         let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
         // setup vault state such that 1/4th of its collateral is freed after successful redeem
@@ -653,7 +655,7 @@ fn integration_test_redeem_polka_btc_cancel_liquidated_reimburse() {
                 user.free_balance += backing_for_this_redeem;
 
                 // user's tokens get burned
-                user.locked_tokens -= polka_btc;
+                user.locked_tokens -= issued_tokens;
 
                 // Note that no punishment is taken from vault, because it's already liquidated
             })
@@ -662,12 +664,12 @@ fn integration_test_redeem_polka_btc_cancel_liquidated_reimburse() {
 }
 
 #[test]
-fn integration_test_redeem_polka_btc_execute_liquidated() {
+fn integration_test_redeem_issuing_execute_liquidated() {
     test_with(|| {
-        let polka_btc = 10_000;
+        let issued_tokens = 10_000;
         let collateral_vault = 1_000_000;
 
-        let redeem_id = setup_redeem(polka_btc, USER, VAULT, collateral_vault);
+        let redeem_id = setup_redeem(issued_tokens, USER, VAULT, collateral_vault);
         let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
         // setup vault state such that 1/4th of its collateral is freed after successful redeem
@@ -698,8 +700,8 @@ fn integration_test_redeem_polka_btc_execute_liquidated() {
                 // fee given to fee pool
                 fee_pool.tokens += redeem.fee;
 
-                // polkabtc burned from user
-                user.locked_tokens -= polka_btc;
+                // issuing burned from user
+                user.locked_tokens -= issued_tokens;
 
                 // to-be-redeemed & issued decreased, forwarding to liquidation vault
                 vault.to_be_redeemed -= redeem.amount_btc + redeem.transfer_fee_btc;

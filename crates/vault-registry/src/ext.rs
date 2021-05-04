@@ -3,70 +3,89 @@ use mocktopus::macros::mockable;
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod collateral {
-    use crate::types::DOT;
+    use crate::types::Backing;
     use frame_support::dispatch::DispatchResult;
 
-    pub fn transfer<T: collateral::Config>(
+    type CollateralPallet<T> = currency::Pallet<T, currency::Collateral>;
+
+    pub fn transfer<T: currency::Config<currency::Collateral>>(
         source: &T::AccountId,
         destination: &T::AccountId,
-        amount: DOT<T>,
+        amount: Backing<T>,
     ) -> DispatchResult {
-        <collateral::Pallet<T>>::transfer(source.clone(), destination.clone(), amount)
+        CollateralPallet::<T>::transfer(source, destination, amount)
     }
 
-    pub fn lock<T: collateral::Config>(sender: &T::AccountId, amount: DOT<T>) -> DispatchResult {
-        <collateral::Pallet<T>>::lock_collateral(sender, amount)
+    pub fn lock<T: currency::Config<currency::Collateral>>(
+        sender: &T::AccountId,
+        amount: Backing<T>,
+    ) -> DispatchResult {
+        CollateralPallet::<T>::lock(sender, amount)
     }
 
-    pub fn release_collateral<T: collateral::Config>(sender: &T::AccountId, amount: DOT<T>) -> DispatchResult {
-        <collateral::Pallet<T>>::release_collateral(sender, amount)
+    pub fn release_collateral<T: currency::Config<currency::Collateral>>(
+        sender: &T::AccountId,
+        amount: Backing<T>,
+    ) -> DispatchResult {
+        CollateralPallet::<T>::release(sender, amount)
     }
 
-    pub fn for_account<T: collateral::Config>(id: &T::AccountId) -> DOT<T> {
-        <collateral::Pallet<T>>::get_collateral_from_account(id)
+    pub fn for_account<T: currency::Config<currency::Collateral>>(id: &T::AccountId) -> Backing<T> {
+        CollateralPallet::<T>::get_reserved_balance(id)
     }
 
-    pub fn get_free_balance<T: collateral::Config>(id: &T::AccountId) -> DOT<T> {
-        <collateral::Pallet<T>>::get_balance_from_account(id)
+    pub fn get_free_balance<T: currency::Config<currency::Collateral>>(id: &T::AccountId) -> Backing<T> {
+        CollateralPallet::<T>::get_free_balance(id)
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod treasury {
-    use crate::types::PolkaBTC;
+    use crate::types::Issuing;
     use frame_support::dispatch::DispatchResult;
 
-    pub fn total_issued<T: treasury::Config>() -> PolkaBTC<T> {
-        <treasury::Pallet<T>>::get_total_supply()
+    type TreasuryPallet<T> = currency::Pallet<T, currency::Treasury>;
+
+    pub fn total_issued<T: currency::Config<currency::Treasury>>() -> Issuing<T> {
+        TreasuryPallet::<T>::get_total_supply()
     }
 
-    pub fn get_free_balance<T: treasury::Config>(id: T::AccountId) -> PolkaBTC<T> {
-        <treasury::Pallet<T>>::get_balance_from_account(id)
+    pub fn get_free_balance<T: currency::Config<currency::Treasury>>(id: T::AccountId) -> Issuing<T> {
+        TreasuryPallet::<T>::get_free_balance(&id)
     }
 
-    pub fn transfer<T: treasury::Config>(
+    pub fn transfer<T: currency::Config<currency::Treasury>>(
         sender: T::AccountId,
         receiver: T::AccountId,
-        amount: PolkaBTC<T>,
+        amount: Issuing<T>,
     ) -> DispatchResult {
-        <treasury::Pallet<T>>::transfer(sender, receiver, amount)
+        TreasuryPallet::<T>::transfer(&sender, &receiver, amount)
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod oracle {
-    use crate::types::{PolkaBTC, DOT};
+    use crate::types::{Backing, Issuing};
     use frame_support::dispatch::DispatchError;
 
-    pub trait Exchangeable: exchange_rate_oracle::Config + ::treasury::Config + ::collateral::Config {}
-    impl<T> Exchangeable for T where T: exchange_rate_oracle::Config + ::treasury::Config + ::collateral::Config {}
+    type Collateral = currency::Instance1;
+    type Treasury = currency::Instance2;
 
-    pub fn btc_to_dots<T: Exchangeable>(amount: PolkaBTC<T>) -> Result<DOT<T>, DispatchError> {
-        <exchange_rate_oracle::Pallet<T>>::btc_to_dots(amount)
+    pub trait Exchangeable:
+        exchange_rate_oracle::Config + currency::Config<Collateral> + currency::Config<Treasury>
+    {
+    }
+    impl<T> Exchangeable for T where
+        T: exchange_rate_oracle::Config + currency::Config<Collateral> + currency::Config<Treasury>
+    {
     }
 
-    pub fn dots_to_btc<T: Exchangeable>(amount: DOT<T>) -> Result<PolkaBTC<T>, DispatchError> {
-        <exchange_rate_oracle::Pallet<T>>::dots_to_btc(amount)
+    pub fn issuing_to_backing<T: Exchangeable>(amount: Issuing<T>) -> Result<Backing<T>, DispatchError> {
+        <exchange_rate_oracle::Pallet<T>>::issuing_to_backing(amount)
+    }
+
+    pub fn backing_to_issuing<T: Exchangeable>(amount: Backing<T>) -> Result<Issuing<T>, DispatchError> {
+        <exchange_rate_oracle::Pallet<T>>::backing_to_issuing(amount)
     }
 }
 

@@ -3,10 +3,13 @@ use codec::{Decode, Encode};
 use frame_support::traits::Currency;
 use sp_arithmetic::FixedPointNumber;
 
-pub(crate) type DOT<T> = <<T as collateral::Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub(crate) type Backing<T> = <<T as currency::Config<currency::Instance1>>::Currency as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::Balance;
 
-pub(crate) type PolkaBTC<T> =
-    <<T as treasury::Config>::PolkaBTC as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub(crate) type Issuing<T> = <<T as currency::Config<currency::Instance2>>::Currency as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::Balance;
 
 pub(crate) type UnsignedFixedPoint<T> = <T as Config>::UnsignedFixedPoint;
 

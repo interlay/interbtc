@@ -21,40 +21,42 @@ pub(crate) mod security {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
-    use crate::DOT;
+    use crate::Backing;
     pub use ::vault_registry::VaultStatus;
     pub use frame_support::dispatch::{DispatchError, DispatchResult};
     use sp_std::vec::Vec;
     use vault_registry::LiquidationTarget;
 
-    pub fn get_backing_collateral<T: vault_registry::Config>(vault_id: &T::AccountId) -> Result<DOT<T>, DispatchError> {
+    pub fn get_backing_collateral<T: vault_registry::Config>(
+        vault_id: &T::AccountId,
+    ) -> Result<Backing<T>, DispatchError> {
         <vault_registry::Module<T>>::get_backing_collateral(vault_id)
     }
 
     pub fn liquidate_vault_with_status<T: vault_registry::Config>(
         vault_id: &T::AccountId,
         status: VaultStatus,
-    ) -> Result<DOT<T>, DispatchError> {
+    ) -> Result<Backing<T>, DispatchError> {
         <vault_registry::Module<T>>::liquidate_vault_with_status(vault_id, status)
     }
 
     pub fn increase_backing_collateral<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-        amount: DOT<T>,
+        amount: Backing<T>,
     ) -> DispatchResult {
         <vault_registry::Module<T>>::try_increase_backing_collateral(vault_id, amount)
     }
 
     pub fn decrease_backing_collateral<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-        amount: DOT<T>,
+        amount: Backing<T>,
     ) -> DispatchResult {
         <vault_registry::Module<T>>::try_decrease_backing_collateral(vault_id, amount)
     }
 
     pub fn lock_additional_collateral_from_address<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-        collateral: DOT<T>,
+        collateral: Backing<T>,
         depositor_id: &T::AccountId,
     ) -> DispatchResult {
         <vault_registry::Module<T>>::_lock_additional_collateral_from_address(vault_id, collateral, depositor_id)
@@ -62,7 +64,7 @@ pub(crate) mod vault_registry {
 
     pub fn withdraw_collateral_to_address<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-        collateral: DOT<T>,
+        collateral: Backing<T>,
         payee_id: &T::AccountId,
     ) -> DispatchResult {
         <vault_registry::Module<T>>::try_withdraw_collateral_to_address(vault_id, collateral, payee_id)
@@ -78,17 +80,20 @@ pub(crate) mod vault_registry {
 
     pub fn liquidate_undercollateralized_vaults<T: vault_registry::Config>(
         liquidation_target: LiquidationTarget,
-    ) -> (u32, Vec<(T::AccountId, DOT<T>)>) {
+    ) -> (u32, Vec<(T::AccountId, Backing<T>)>) {
         <vault_registry::Module<T>>::liquidate_undercollateralized_vaults(liquidation_target)
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod fee {
-    use crate::types::{UnsignedFixedPoint, DOT};
+    use crate::types::{Backing, UnsignedFixedPoint};
     use frame_support::dispatch::DispatchError;
 
-    pub fn dot_for<T: fee::Config>(amount: DOT<T>, percentage: UnsignedFixedPoint<T>) -> Result<DOT<T>, DispatchError> {
-        <fee::Module<T>>::dot_for(amount, percentage)
+    pub fn backing_for<T: fee::Config>(
+        amount: Backing<T>,
+        percentage: UnsignedFixedPoint<T>,
+    ) -> Result<Backing<T>, DispatchError> {
+        <fee::Module<T>>::backing_for(amount, percentage)
     }
 }

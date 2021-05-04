@@ -3,12 +3,12 @@ use mocktopus::macros::mockable;
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
-    use crate::{PolkaBTC, DOT};
+    use crate::{Backing, Issuing};
     use frame_support::dispatch::DispatchError;
 
     pub fn get_vault_from_id<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-    ) -> Result<vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
+    ) -> Result<vault_registry::types::Vault<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>, DispatchError> {
         <vault_registry::Pallet<T>>::get_vault_from_id(vault_id)
     }
 
@@ -24,17 +24,19 @@ pub(crate) mod vault_registry {
 
     pub fn get_total_issued_tokens<T: vault_registry::Config>(
         include_liquidation_vault: bool,
-    ) -> Result<PolkaBTC<T>, DispatchError> {
+    ) -> Result<Issuing<T>, DispatchError> {
         <vault_registry::Pallet<T>>::get_total_issued_tokens(include_liquidation_vault)
     }
 
     pub fn get_total_backing_collateral<T: vault_registry::Config>(
         include_liquidation_vault: bool,
-    ) -> Result<DOT<T>, DispatchError> {
+    ) -> Result<Backing<T>, DispatchError> {
         <vault_registry::Pallet<T>>::get_total_backing_collateral(include_liquidation_vault)
     }
 
-    pub fn get_backing_collateral<T: vault_registry::Config>(vault_id: &T::AccountId) -> Result<DOT<T>, DispatchError> {
+    pub fn get_backing_collateral<T: vault_registry::Config>(
+        vault_id: &T::AccountId,
+    ) -> Result<Backing<T>, DispatchError> {
         <vault_registry::Pallet<T>>::get_backing_collateral(vault_id)
     }
 }

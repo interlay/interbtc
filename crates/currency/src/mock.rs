@@ -1,4 +1,4 @@
-use crate as collateral;
+use crate as currency;
 use crate::{Config, Error};
 use frame_support::parameter_types;
 use sp_core::H256;
@@ -19,7 +19,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-        Collateral: collateral::{Pallet, Call, Storage, Event<T>},
+        Currency: currency::{Pallet, Call, Storage, Event<T>},
     }
 );
 
@@ -73,9 +73,18 @@ impl pallet_balances::Config for Test {
     type WeightInfo = ();
 }
 
+parameter_types! {
+    pub const CurrencyName: &'static [u8] = b"Polkadot";
+    pub const CurrencySymbol: &'static [u8] = b"DOT";
+    pub const CurrencyDecimals: u8 = 10;
+}
+
 impl Config for Test {
     type Event = TestEvent;
-    type DOT = Balances;
+    type Currency = Balances;
+    type Name = CurrencyName;
+    type Symbol = CurrencySymbol;
+    type Decimals = CurrencyDecimals;
 }
 
 pub type TestEvent = Event;

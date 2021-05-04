@@ -5,7 +5,6 @@ use bitcoin::{
     types::{BlockBuilder, H256Le, RawBlockHeader, TransactionBuilder, TransactionInputBuilder, TransactionOutput},
 };
 use btc_relay::{BtcAddress, BtcPublicKey, Pallet as BtcRelay};
-use collateral::Pallet as Collateral;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
 use security::Pallet as Security;
@@ -15,11 +14,16 @@ use vault_registry::{
     types::{Vault, Wallet},
     Module as VaultRegistry,
 };
+
 fn dummy_public_key() -> BtcPublicKey {
     BtcPublicKey([
         2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55, 18, 45, 222, 180,
         119, 54, 243, 97, 173, 150, 161, 169, 230,
     ])
+}
+
+fn make_free_balance_be<T: currency::Config<currency::Collateral>>(account_id: &T::AccountId, amount: Backing<T>) {
+    <<T as currency::Config<currency::Collateral>>::Currency>::make_free_balance_be(account_id, amount);
 }
 
 benchmarks! {
@@ -36,7 +40,7 @@ benchmarks! {
             .with_timestamp(1588813835)
             .mine(U256::from(2).pow(254.into())).unwrap();
         let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
-        <Stakes<T>>::insert(&origin, Into::<DOT<T>>::into(stake));
+        <Stakes<T>>::insert(&origin, Into::<Backing<T>>::into(stake));
     }: _(RawOrigin::Signed(origin), block_header, height)
 
     store_block_header {
@@ -56,7 +60,7 @@ benchmarks! {
         let raw_block_header = RawBlockHeader::from_bytes(&init_block.header.try_format().unwrap())
             .expect("could not serialize block header");
 
-        <Stakes<T>>::insert(&origin, Into::<DOT<T>>::into(stake));
+        <Stakes<T>>::insert(&origin, Into::<Backing<T>>::into(stake));
 
         BtcRelay::<T>::initialize(origin.clone(), raw_block_header, height).unwrap();
 
@@ -74,28 +78,28 @@ benchmarks! {
 
     register_staked_relayer {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let _ = T::DOT::make_free_balance_be(&origin, (1u32 << 31).into());
         let u in 100 .. 1000;
+        make_free_balance_be::<T>(&origin, (1u32 << 31).into());
     }: _(RawOrigin::Signed(origin.clone()), u.into())
     verify {
-        assert_eq!(<Stakes<T>>::get(origin), Into::<DOT<T>>::into(u));
+        assert_eq!(<Stakes<T>>::get(origin), Into::<Backing<T>>::into(u));
     }
 
     deregister_staked_relayer {
         let origin: T::AccountId = account("Origin", 0, 0);
-        let _ = T::DOT::make_free_balance_be(&origin, (1u32 << 31).into());
+        make_free_balance_be::<T>(&origin, (1u32 << 31).into());
         let stake: u32 = 100;
-        <Stakes<T>>::insert(&origin, Into::<DOT<T>>::into(stake));
-        Collateral::<T>::lock_collateral(&origin, stake.into()).unwrap();
+        <Stakes<T>>::insert(&origin, Into::<Backing<T>>::into(stake));
+        ext::collateral::lock_collateral::<T>(&origin, stake.into()).unwrap();
     }: _(RawOrigin::Signed(origin))
 
     slash_staked_relayer {
         let staked_relayer: T::AccountId = account("Vault", 0, 0);
-        let _ = T::DOT::make_free_balance_be(&staked_relayer, (1u32 << 31).into());
+        make_free_balance_be::<T>(&staked_relayer, (1u32 << 31).into());
 
         let stake: u32 = 100;
-        <Stakes<T>>::insert(&staked_relayer, Into::<DOT<T>>::into(stake));
-        Collateral::<T>::lock_collateral(&staked_relayer, stake.into()).unwrap();
+        <Stakes<T>>::insert(&staked_relayer, Into::<Backing<T>>::into(stake));
+        ext::collateral::lock_collateral::<T>(&staked_relayer, stake.into()).unwrap();
 
     }: _(RawOrigin::Root, staked_relayer)
 
@@ -104,7 +108,7 @@ benchmarks! {
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
         let stake: u32 = 100;
-        <Stakes<T>>::insert(&origin, Into::<DOT<T>>::into(stake));
+        <Stakes<T>>::insert(&origin, Into::<Backing<T>>::into(stake));
 
         let vault_address = BtcAddress::P2PKH(H160::from_slice(&[
             126, 125, 148, 208, 221, 194, 29, 131, 191, 188, 252, 119, 152, 228, 84, 126, 223, 8,

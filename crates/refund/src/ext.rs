@@ -3,23 +3,23 @@ use mocktopus::macros::mockable;
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod fee {
-    use crate::types::PolkaBTC;
+    use crate::types::Issuing;
     use frame_support::dispatch::DispatchError;
 
-    pub fn get_refund_fee_from_total<T: fee::Config>(amount: PolkaBTC<T>) -> Result<PolkaBTC<T>, DispatchError> {
+    pub fn get_refund_fee_from_total<T: fee::Config>(amount: Issuing<T>) -> Result<Issuing<T>, DispatchError> {
         <fee::Pallet<T>>::get_refund_fee_from_total(amount)
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod sla {
-    use crate::types::PolkaBTC;
+    use crate::types::Issuing;
     use frame_support::dispatch::DispatchError;
     pub use sla::types::VaultEvent;
 
     pub fn event_update_vault_sla<T: sla::Config>(
         vault_id: &T::AccountId,
-        event: VaultEvent<PolkaBTC<T>>,
+        event: VaultEvent<Issuing<T>>,
     ) -> Result<(), DispatchError> {
         <sla::Pallet<T>>::event_update_vault_sla(vault_id, event)
     }
@@ -61,26 +61,28 @@ pub(crate) mod security {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod treasury {
-    use crate::types::PolkaBTC;
+    use crate::types::Issuing;
 
-    pub fn mint<T: treasury::Config>(requester: T::AccountId, amount: PolkaBTC<T>) {
-        <treasury::Pallet<T>>::mint(requester, amount)
+    type TreasuryPallet<T> = currency::Pallet<T, currency::Treasury>;
+
+    pub fn mint<T: currency::Config<currency::Treasury>>(requester: T::AccountId, amount: Issuing<T>) {
+        TreasuryPallet::<T>::mint(requester, amount)
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
-    use crate::types::PolkaBTC;
+    use crate::types::Issuing;
     use frame_support::dispatch::{DispatchError, DispatchResult};
 
     pub fn try_increase_to_be_issued_tokens<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-        amount: PolkaBTC<T>,
+        amount: Issuing<T>,
     ) -> Result<(), DispatchError> {
         <vault_registry::Pallet<T>>::try_increase_to_be_issued_tokens(vault_id, amount)
     }
 
-    pub fn issue_tokens<T: vault_registry::Config>(vault_id: &T::AccountId, amount: PolkaBTC<T>) -> DispatchResult {
+    pub fn issue_tokens<T: vault_registry::Config>(vault_id: &T::AccountId, amount: Issuing<T>) -> DispatchResult {
         <vault_registry::Pallet<T>>::issue_tokens(vault_id, amount)
     }
 }

@@ -64,7 +64,7 @@ mod lock_additional_collateral_test {
             assert_noop!(
                 Call::VaultRegistry(VaultRegistryCall::lock_additional_collateral(amount))
                     .dispatch(origin_of(account_of(VAULT))),
-                CollateralError::InsufficientFunds
+                CollateralError::InsufficientFreeBalance
             );
         });
     }

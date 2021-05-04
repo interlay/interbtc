@@ -22,10 +22,13 @@ use xcm_executor::traits::FilterAssetLocation;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
-pub(crate) type DOT<T> = <<T as collateral::Config>::DOT as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub(crate) type Backing<T> = <<T as currency::Config<currency::Instance1>>::Currency as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::Balance;
 
-pub(crate) type PolkaBTC<T> =
-    <<T as treasury::Config>::PolkaBTC as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub(crate) type Issuing<T> = <<T as currency::Config<currency::Instance2>>::Currency as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::Balance;
 
 #[cfg(feature = "disable-native-filter")]
 pub struct NativeAsset;
@@ -64,19 +67,19 @@ impl Into<Vec<u8>> for CurrencyId {
     }
 }
 
-pub struct CurrencyAdapter<DOT, PolkaBTC, AccountIdConverter, AccountId>(
-    PhantomData<DOT>,
-    PhantomData<PolkaBTC>,
+pub struct CurrencyAdapter<Backing, Issuing, AccountIdConverter, AccountId>(
+    PhantomData<Backing>,
+    PhantomData<Issuing>,
     PhantomData<AccountIdConverter>,
     PhantomData<AccountId>,
 );
 
 impl<
-        DOT: frame_support::traits::Currency<AccountId>,
-        PolkaBTC: frame_support::traits::Currency<AccountId>,
+        Backing: frame_support::traits::Currency<AccountId>,
+        Issuing: frame_support::traits::Currency<AccountId>,
         AccountIdConverter: LocationConversion<AccountId>,
         AccountId: Debug, // can't get away without it since Currency is generic over it.
-    > TransactAsset for CurrencyAdapter<DOT, PolkaBTC, AccountIdConverter, AccountId>
+    > TransactAsset for CurrencyAdapter<Backing, Issuing, AccountIdConverter, AccountId>
 {
     fn deposit_asset(asset: &MultiAsset, location: &MultiLocation) -> XcmResult {
         runtime_print!("Deposit asset: {:?}, location: {:?}", asset, location);
@@ -88,11 +91,11 @@ impl<
         match currency_id {
             CurrencyId::DOT => {
                 let balance_amount = amount.try_into().map_err(|_| XcmError::FailedToDecode)?;
-                let _imbalance = DOT::deposit_creating(&who, balance_amount);
+                let _imbalance = Backing::deposit_creating(&who, balance_amount);
             }
             CurrencyId::PolkaBTC => {
                 let balance_amount = amount.try_into().map_err(|_| XcmError::FailedToDecode)?;
-                let _imbalance = PolkaBTC::deposit_creating(&who, balance_amount);
+                let _imbalance = Issuing::deposit_creating(&who, balance_amount);
             }
         }
         Ok(())
@@ -108,12 +111,12 @@ impl<
         match currency_id {
             CurrencyId::DOT => {
                 let balance_amount = amount.try_into().map_err(|_| XcmError::FailedToDecode)?;
-                DOT::withdraw(&who, balance_amount, WithdrawReasons::TRANSFER, AllowDeath)
+                Backing::withdraw(&who, balance_amount, WithdrawReasons::TRANSFER, AllowDeath)
                     .map_err(|_| XcmError::CannotReachDestination)?;
             }
             CurrencyId::PolkaBTC => {
                 let balance_amount = amount.try_into().map_err(|_| XcmError::FailedToDecode)?;
-                PolkaBTC::withdraw(&who, balance_amount, WithdrawReasons::TRANSFER, AllowDeath)
+                Issuing::withdraw(&who, balance_amount, WithdrawReasons::TRANSFER, AllowDeath)
                     .map_err(|_| XcmError::CannotReachDestination)?;
             }
         }

@@ -3,41 +3,43 @@ use mocktopus::macros::mockable;
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod collateral {
-    use crate::types::DOT;
+    use crate::types::Backing;
     use frame_support::dispatch::{DispatchError, DispatchResult};
 
-    pub(crate) fn lock_collateral<T: collateral::Config>(
+    type CollateralPallet<T> = currency::Pallet<T, currency::Collateral>;
+
+    pub(crate) fn lock_collateral<T: currency::Config<currency::Collateral>>(
         sender: &T::AccountId,
-        amount: DOT<T>,
+        amount: Backing<T>,
     ) -> Result<(), DispatchError> {
-        <collateral::Pallet<T>>::lock_collateral(sender, amount)
+        CollateralPallet::<T>::lock(sender, amount)
     }
 
-    pub(crate) fn release_collateral<T: collateral::Config>(
+    pub(crate) fn release_collateral<T: currency::Config<currency::Collateral>>(
         sender: &T::AccountId,
-        amount: DOT<T>,
+        amount: Backing<T>,
     ) -> Result<(), DispatchError> {
-        <collateral::Pallet<T>>::release_collateral(sender, amount)
+        CollateralPallet::<T>::release(sender, amount)
     }
 
-    pub fn slash_collateral<T: collateral::Config>(
+    pub fn slash_collateral<T: currency::Config<currency::Collateral>>(
         sender: T::AccountId,
         receiver: T::AccountId,
-        amount: DOT<T>,
+        amount: Backing<T>,
     ) -> DispatchResult {
-        <collateral::Pallet<T>>::slash_collateral(sender, receiver, amount)
+        CollateralPallet::<T>::slash(sender, receiver, amount)
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
-    use crate::{PolkaBTC, DOT};
+    use crate::{Backing, Issuing};
     use ::vault_registry::VaultStatus;
     use frame_support::dispatch::{DispatchError, DispatchResult};
 
     pub fn get_active_vault_from_id<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-    ) -> Result<vault_registry::types::Vault<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
+    ) -> Result<vault_registry::types::Vault<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>, DispatchError> {
         <vault_registry::Pallet<T>>::get_active_vault_from_id(vault_id)
     }
 
@@ -108,49 +110,49 @@ pub(crate) mod btc_relay {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod redeem {
-    use crate::types::{PolkaBTC, DOT};
+    use crate::types::{Backing, Issuing};
     use frame_support::dispatch::DispatchError;
     use primitive_types::H256;
     use redeem::types::RedeemRequest;
 
     pub(crate) fn get_open_or_completed_redeem_request_from_id<T: redeem::Config>(
         id: &H256,
-    ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
+    ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>, DispatchError> {
         <redeem::Pallet<T>>::get_open_or_completed_redeem_request_from_id(id)
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod replace {
-    use crate::types::{PolkaBTC, DOT};
+    use crate::types::{Backing, Issuing};
     use frame_support::dispatch::DispatchError;
     use primitive_types::H256;
     use replace::types::ReplaceRequest;
 
     pub(crate) fn get_open_or_completed_replace_request<T: replace::Config>(
         id: &H256,
-    ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, PolkaBTC<T>, DOT<T>>, DispatchError> {
+    ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>, DispatchError> {
         <replace::Pallet<T>>::get_open_or_completed_replace_request(id)
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod refund {
-    use crate::types::PolkaBTC;
+    use crate::types::Issuing;
     use frame_support::dispatch::DispatchError;
     use primitive_types::H256;
     use refund::types::RefundRequest;
 
     pub(crate) fn get_open_or_completed_refund_request_from_id<T: refund::Config>(
         id: &H256,
-    ) -> Result<RefundRequest<T::AccountId, PolkaBTC<T>>, DispatchError> {
+    ) -> Result<RefundRequest<T::AccountId, Issuing<T>>, DispatchError> {
         <refund::Pallet<T>>::get_open_or_completed_refund_request_from_id(id)
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod sla {
-    use crate::types::DOT;
+    use crate::types::Backing;
     use frame_support::dispatch::DispatchError;
     pub use sla::types::RelayerEvent;
 
@@ -163,7 +165,7 @@ pub(crate) mod sla {
 
     pub fn initialize_relayer_stake<T: sla::Config>(
         relayer_id: &T::AccountId,
-        stake: DOT<T>,
+        stake: Backing<T>,
     ) -> Result<(), DispatchError> {
         <sla::Pallet<T>>::initialize_relayer_stake(relayer_id, stake)
     }

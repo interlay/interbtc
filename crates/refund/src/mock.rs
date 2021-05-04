@@ -26,11 +26,11 @@ frame_support::construct_runtime!(
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 
         // Tokens & Balances
-        DOT: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
-        PolkaBTC: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
+        Backing: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
+        Issuing: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
 
-        Collateral: collateral::{Pallet, Call, Storage, Event<T>},
-        Treasury: treasury::{Pallet, Call, Storage, Event<T>},
+        Collateral: currency::<Instance1>::{Pallet, Call, Storage, Event<T>},
+        Treasury: currency::<Instance2>::{Pallet, Call, Storage, Event<T>},
 
         // Operational
         BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},
@@ -83,7 +83,7 @@ parameter_types! {
     pub const MaxLocks: u32 = 50;
 }
 
-/// DOT
+/// Backing currency - e.g. DOT/KSM
 impl pallet_balances::Config<pallet_balances::Instance1> for Test {
     type MaxLocks = MaxLocks;
     type Balance = Balance;
@@ -99,7 +99,7 @@ impl pallet_balances::Config<pallet_balances::Instance1> for Test {
     type WeightInfo = ();
 }
 
-/// PolkaBTC
+/// Issuing currency - e.g. PolkaBTC
 impl pallet_balances::Config<pallet_balances::Instance2> for Test {
     type MaxLocks = MaxLocks;
     type Balance = Balance;
@@ -115,14 +115,37 @@ impl pallet_balances::Config<pallet_balances::Instance2> for Test {
     type WeightInfo = ();
 }
 
+parameter_types! {
+    pub const BackingName: &'static [u8] = b"Polkadot";
+    pub const BackingSymbol: &'static [u8] = b"DOT";
+    pub const BackingDecimals: u8 = 10;
+}
+
+impl currency::Config<currency::Collateral> for Test {
+    type Event = TestEvent;
+    type Currency = pallet_balances::Pallet<Test, pallet_balances::Instance1>;
+    type Name = BackingName;
+    type Symbol = BackingSymbol;
+    type Decimals = BackingDecimals;
+}
+
+parameter_types! {
+    pub const IssuingName: &'static [u8] = b"Bitcoin";
+    pub const IssuingSymbol: &'static [u8] = b"BTC";
+    pub const IssuingDecimals: u8 = 8;
+}
+
+impl currency::Config<currency::Treasury> for Test {
+    type Event = TestEvent;
+    type Currency = pallet_balances::Pallet<Test, pallet_balances::Instance2>;
+    type Name = IssuingName;
+    type Symbol = IssuingSymbol;
+    type Decimals = IssuingDecimals;
+}
+
 impl Config for Test {
     type Event = TestEvent;
     type WeightInfo = ();
-}
-
-impl treasury::Config for Test {
-    type Event = TestEvent;
-    type PolkaBTC = pallet_balances::Pallet<Test, pallet_balances::Instance2>;
 }
 
 parameter_types! {
@@ -139,11 +162,6 @@ impl fee::Config for Test {
 impl sla::Config for Test {
     type Event = TestEvent;
     type SignedFixedPoint = FixedI128;
-}
-
-impl collateral::Config for Test {
-    type Event = TestEvent;
-    type DOT = pallet_balances::Pallet<Test, pallet_balances::Instance1>;
 }
 
 impl btc_relay::Config for Test {

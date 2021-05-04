@@ -26,7 +26,7 @@ pub enum ErrorCode {
     /// If there is a poisoning attack on the relay, we have no way to verify that a transaction
     /// is correct according to full-node validation logic. An attacker could mine a transaction
     /// on a private fork which double spends BTC, submit the block header to our relay and
-    /// successfully issue PolkaBTC using a valid Merkle proof. `NO_DATA` allows staked relayers
+    /// successfully issue tokens using a valid Merkle proof. `NO_DATA` allows staked relayers
     /// to flag a block if it does not appear in its local full node. This should halt the Parachain
     /// until the relay recovers.
     NoDataBTCRelay = 1,

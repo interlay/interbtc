@@ -16,17 +16,17 @@ use sp_runtime::{
 use std::sync::Arc;
 
 #[rpc]
-pub trait SlaApi<AccountId, DOT, BlockHash>
+pub trait SlaApi<AccountId, Backing, BlockHash>
 where
-    DOT: Codec + MaybeDisplay + MaybeFromStr,
+    Backing: Codec + MaybeDisplay + MaybeFromStr,
 {
     #[rpc(name = "sla_calculateSlashedAmount")]
     fn calculate_slashed_amount(
         &self,
         vault_id: AccountId,
-        stake: BalanceWrapper<DOT>,
+        stake: BalanceWrapper<Backing>,
         at: Option<BlockHash>,
-    ) -> JsonRpcResult<BalanceWrapper<DOT>>;
+    ) -> JsonRpcResult<BalanceWrapper<Backing>>;
 }
 
 /// A struct that implements the [`SlaApi`].
@@ -79,20 +79,20 @@ fn handle_response<T, E: std::fmt::Debug>(
     )
 }
 
-impl<C, Block, AccountId, DOT> SlaApi<AccountId, DOT, <Block as BlockT>::Hash> for Sla<C, Block>
+impl<C, Block, AccountId, Backing> SlaApi<AccountId, Backing, <Block as BlockT>::Hash> for Sla<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-    C::Api: SlaRuntimeApi<Block, AccountId, DOT>,
+    C::Api: SlaRuntimeApi<Block, AccountId, Backing>,
     AccountId: Codec,
-    DOT: Codec + MaybeDisplay + MaybeFromStr,
+    Backing: Codec + MaybeDisplay + MaybeFromStr,
 {
     fn calculate_slashed_amount(
         &self,
         vault_id: AccountId,
-        stake: BalanceWrapper<DOT>,
+        stake: BalanceWrapper<Backing>,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> JsonRpcResult<BalanceWrapper<DOT>> {
+    ) -> JsonRpcResult<BalanceWrapper<Backing>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
