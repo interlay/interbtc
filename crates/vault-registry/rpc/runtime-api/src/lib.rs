@@ -30,6 +30,9 @@ sp_api::decl_runtime_apis! {
         /// Get all vaults with non-zero issuable tokens, ordered in descending order of this amount
         fn get_vaults_with_issuable_tokens() -> Result<Vec<(AccountId, BalanceWrapper<Issuing>)>, DispatchError>;
 
+        /// Get all vaults with non-zero redeemable tokens, ordered in descending order of this amount
+        fn get_vaults_with_redeemable_tokens() -> Result<Vec<(AccountId, BalanceWrapper<Issuing>)>, DispatchError>;
+
         /// Get the amount of tokens a vault can issue
         fn get_issuable_tokens_from_vault(vault: AccountId) -> Result<BalanceWrapper<Issuing>, DispatchError>;
 

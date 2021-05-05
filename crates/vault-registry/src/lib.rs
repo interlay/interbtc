@@ -1335,6 +1335,29 @@ impl<T: Config> Module<T> {
         }
     }
 
+    /// Get all vaults with non-zero issued (thus redeemable) tokens, ordered in descending order of this amount
+    pub fn get_vaults_with_redeemable_tokens() -> Result<Vec<(T::AccountId, Issuing<T>)>, DispatchError> {
+        // find all vault accounts with sufficient collateral
+        let vaults_with_redeemable_tokens = <Vaults<T>>::iter()
+            .filter_map(|(account_id, vault)| {
+                let vault = Into::<RichVault<T>>::into(vault);
+                let redeemable_tokens = vault.redeemable_tokens().ok()?;
+                if !redeemable_tokens.is_zero() {
+                    Some((account_id, redeemable_tokens))
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<(_, _)>>();
+
+        if vaults_with_redeemable_tokens.is_empty() {
+            Err(Error::<T>::NoVaultWithRedeemableTokens.into())
+        } else {
+            vaults_with_redeemable_tokens.sort_by(|a, b| b.1.cmp(&a.1));
+            Ok(vaults_with_redeemable_tokens)
+        }
+    }
+
     /// Get the amount of tokens a vault can issue
     pub fn get_issuable_tokens_from_vault(vault_id: T::AccountId) -> Result<Issuing<T>, DispatchError> {
         let vault = Self::get_active_rich_vault_from_id(&vault_id)?;
@@ -1616,6 +1639,7 @@ decl_error! {
         NoVaultWithSufficientTokens,
         NoVaultUnderThePremiumRedeemThreshold,
         NoVaultWithIssuableTokens,
+        NoVaultWithRedeemableTokens,
         ArithmeticOverflow,
         ArithmeticUnderflow,
         /// Unable to convert value
