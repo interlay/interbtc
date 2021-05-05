@@ -1327,18 +1327,14 @@ impl<T: Config> Module<T> {
             })
             .collect::<Vec<(_, _)>>();
 
-        if vaults_with_issuable_tokens.is_empty() {
-            Err(Error::<T>::NoVaultWithIssuableTokens.into())
-        } else {
-            vaults_with_issuable_tokens.sort_by(|a, b| b.1.cmp(&a.1));
-            Ok(vaults_with_issuable_tokens)
-        }
+        vaults_with_issuable_tokens.sort_by(|a, b| b.1.cmp(&a.1));
+        Ok(vaults_with_issuable_tokens)
     }
 
     /// Get all vaults with non-zero issued (thus redeemable) tokens, ordered in descending order of this amount
     pub fn get_vaults_with_redeemable_tokens() -> Result<Vec<(T::AccountId, Issuing<T>)>, DispatchError> {
         // find all vault accounts with sufficient collateral
-        let vaults_with_redeemable_tokens = <Vaults<T>>::iter()
+        let mut vaults_with_redeemable_tokens = <Vaults<T>>::iter()
             .filter_map(|(account_id, vault)| {
                 let vault = Into::<RichVault<T>>::into(vault);
                 let redeemable_tokens = vault.redeemable_tokens().ok()?;
@@ -1350,12 +1346,8 @@ impl<T: Config> Module<T> {
             })
             .collect::<Vec<(_, _)>>();
 
-        if vaults_with_redeemable_tokens.is_empty() {
-            Err(Error::<T>::NoVaultWithRedeemableTokens.into())
-        } else {
-            vaults_with_redeemable_tokens.sort_by(|a, b| b.1.cmp(&a.1));
-            Ok(vaults_with_redeemable_tokens)
-        }
+        vaults_with_redeemable_tokens.sort_by(|a, b| b.1.cmp(&a.1));
+        Ok(vaults_with_redeemable_tokens)
     }
 
     /// Get the amount of tokens a vault can issue
@@ -1638,8 +1630,6 @@ decl_error! {
         NoVaultWithSufficientCollateral,
         NoVaultWithSufficientTokens,
         NoVaultUnderThePremiumRedeemThreshold,
-        NoVaultWithIssuableTokens,
-        NoVaultWithRedeemableTokens,
         ArithmeticOverflow,
         ArithmeticUnderflow,
         /// Unable to convert value
