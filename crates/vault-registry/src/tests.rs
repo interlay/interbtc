@@ -1338,7 +1338,7 @@ mod get_vaults_with_issuable_tokens_tests {
     }
 
     #[test]
-    fn get_vaults_with_issuable_tokens_fails() {
+    fn get_vaults_with_issuable_tokens_returns_empty() {
         run_test(|| {
             let issue_tokens: u128 = 50;
             let id = create_sample_vault();
@@ -1353,13 +1353,127 @@ mod get_vaults_with_issuable_tokens_tests {
             // update the exchange rate
             ext::oracle::backing_to_issuing::<Test>.mock_safe(move |x| MockResult::Return(Ok(x / 2)));
 
-            assert_err!(
+            assert_eq!(
                 VaultRegistry::get_vaults_with_issuable_tokens(),
-                TestError::NoVaultWithIssuableTokens
+                Ok(vec!())
             );
         })
     }
 }
+
+mod get_vaults_with_redeemable_tokens_test {
+    use super::*;
+
+    #[test]
+    fn get_vaults_with_redeemable_tokens_returns_empty() {
+        run_test(|| {
+            create_sample_vault();
+            // nothing issued, so nothing can be redeemed
+            assert_eq!(
+                VaultRegistry::get_vaults_with_redeemable_tokens(),
+                Ok(vec!())
+            );
+        })
+    }
+
+    #[test]
+    fn get_vaults_with_redeemable_tokens_succeeds() {
+        run_test(|| {
+            let id1 = 3;
+            create_vault(id1);
+            let issued_tokens1: u128 = 10;
+            VaultRegistry::try_increase_to_be_issued_tokens(&id1, issued_tokens1).unwrap();
+            assert_ok!(VaultRegistry::issue_tokens(&id1, issued_tokens1));
+            let vault1 = VaultRegistry::get_active_rich_vault_from_id(&id1).unwrap();
+            assert_eq!(vault1.data.issued_tokens, issued_tokens1);
+            assert_eq!(vault1.data.to_be_redeemed_tokens, 0);
+
+            let id2 = 4;
+            create_vault(id2);
+            let issued_tokens2: u128 = 20;
+            VaultRegistry::try_increase_to_be_issued_tokens(&id2, issued_tokens2).unwrap();
+            assert_ok!(VaultRegistry::issue_tokens(&id2, issued_tokens2));
+            let vault2 = VaultRegistry::get_active_rich_vault_from_id(&id2).unwrap();
+            assert_eq!(vault2.data.issued_tokens, issued_tokens2);
+            assert_eq!(vault2.data.to_be_redeemed_tokens, 0);
+
+            // Check result is ordered in descending order
+            assert_eq!(issued_tokens2.gt(&issued_tokens1), true);
+            assert_eq!(
+                VaultRegistry::get_vaults_with_redeemable_tokens(),
+                Ok(vec!((id2, issued_tokens2), (id1, issued_tokens1)))
+            );
+        })
+    }
+
+    #[test]
+    fn get_vaults_with_redeemable_tokens_filters_out_banned_vaults() {
+        run_test(|| {
+            let id1 = 3;
+            create_vault(id1);
+            let issued_tokens1: u128 = 10;
+            VaultRegistry::try_increase_to_be_issued_tokens(&id1, issued_tokens1).unwrap();
+            assert_ok!(VaultRegistry::issue_tokens(&id1, issued_tokens1));
+            let vault1 = VaultRegistry::get_active_rich_vault_from_id(&id1).unwrap();
+            assert_eq!(vault1.data.issued_tokens, issued_tokens1);
+            assert_eq!(vault1.data.to_be_redeemed_tokens, 0);
+
+            let id2 = 4;
+            create_vault(id2);
+            let issued_tokens2: u128 = 20;
+            VaultRegistry::try_increase_to_be_issued_tokens(&id2, issued_tokens2).unwrap();
+            assert_ok!(VaultRegistry::issue_tokens(&id2, issued_tokens2));
+            let vault2 = VaultRegistry::get_active_rich_vault_from_id(&id2).unwrap();
+            assert_eq!(vault2.data.issued_tokens, issued_tokens2);
+            assert_eq!(vault2.data.to_be_redeemed_tokens, 0);
+
+            // ban the vault
+            let mut vault = VaultRegistry::get_rich_vault_from_id(&id2).unwrap();
+            vault.ban_until(1000);
+
+            // Check that the banned vault is not returned by get_vaults_with_redeemable_tokens
+            assert_eq!(
+                VaultRegistry::get_vaults_with_redeemable_tokens(),
+                Ok(vec!((id1, issued_tokens1)))
+            );
+        })
+    }
+
+    #[test]
+    fn get_vaults_with_issuable_tokens_filters_out_liquidated_vaults() {
+        run_test(|| {
+            let id1 = 3;
+            create_vault(id1);
+            let issued_tokens1: u128 = 10;
+            VaultRegistry::try_increase_to_be_issued_tokens(&id1, issued_tokens1).unwrap();
+            assert_ok!(VaultRegistry::issue_tokens(&id1, issued_tokens1));
+            let vault1 = VaultRegistry::get_active_rich_vault_from_id(&id1).unwrap();
+            assert_eq!(vault1.data.issued_tokens, issued_tokens1);
+            assert_eq!(vault1.data.to_be_redeemed_tokens, 0);
+
+            let id2 = 4;
+            create_vault(id2);
+            let issued_tokens2: u128 = 20;
+            VaultRegistry::try_increase_to_be_issued_tokens(&id2, issued_tokens2).unwrap();
+            assert_ok!(VaultRegistry::issue_tokens(&id2, issued_tokens2));
+            let vault2 = VaultRegistry::get_active_rich_vault_from_id(&id2).unwrap();
+            assert_eq!(vault2.data.issued_tokens, issued_tokens2);
+            assert_eq!(vault2.data.to_be_redeemed_tokens, 0);
+
+            // liquidate vault
+            assert_ok!(VaultRegistry::liquidate_vault_with_status(
+                &id2,
+                VaultStatus::Liquidated
+            ));
+
+            assert_eq!(
+                VaultRegistry::get_vaults_with_redeemable_tokens(),
+                Ok(vec!((id1, issued_tokens1)))
+            );
+        })
+    }
+}
+
 #[test]
 fn get_total_collateralization_with_tokens_issued() {
     run_test(|| {
