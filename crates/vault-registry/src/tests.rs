@@ -1361,9 +1361,19 @@ mod get_vaults_with_issuable_tokens_tests {
 mod get_vaults_with_redeemable_tokens_test {
     use super::*;
 
+    fn create_vault_with_issue(id: u64, to_issue: u128) {
+        create_vault(id);
+        VaultRegistry::try_increase_to_be_issued_tokens(&id, to_issue).unwrap();
+        assert_ok!(VaultRegistry::issue_tokens(&id, to_issue));
+        let vault = VaultRegistry::get_active_rich_vault_from_id(&id).unwrap();
+        assert_eq!(vault.data.issued_tokens, to_issue);
+        assert_eq!(vault.data.to_be_redeemed_tokens, 0);
+    }
+
     #[test]
     fn get_vaults_with_redeemable_tokens_returns_empty() {
         run_test(|| {
+            // create a vault with no redeemable tokens
             create_sample_vault();
             // nothing issued, so nothing can be redeemed
             assert_eq!(VaultRegistry::get_vaults_with_redeemable_tokens(), Ok(vec!()));
@@ -1374,22 +1384,12 @@ mod get_vaults_with_redeemable_tokens_test {
     fn get_vaults_with_redeemable_tokens_succeeds() {
         run_test(|| {
             let id1 = 3;
-            create_vault(id1);
             let issued_tokens1: u128 = 10;
-            VaultRegistry::try_increase_to_be_issued_tokens(&id1, issued_tokens1).unwrap();
-            assert_ok!(VaultRegistry::issue_tokens(&id1, issued_tokens1));
-            let vault1 = VaultRegistry::get_active_rich_vault_from_id(&id1).unwrap();
-            assert_eq!(vault1.data.issued_tokens, issued_tokens1);
-            assert_eq!(vault1.data.to_be_redeemed_tokens, 0);
+            create_vault_with_issue(id1, issued_tokens1);
 
             let id2 = 4;
-            create_vault(id2);
             let issued_tokens2: u128 = 20;
-            VaultRegistry::try_increase_to_be_issued_tokens(&id2, issued_tokens2).unwrap();
-            assert_ok!(VaultRegistry::issue_tokens(&id2, issued_tokens2));
-            let vault2 = VaultRegistry::get_active_rich_vault_from_id(&id2).unwrap();
-            assert_eq!(vault2.data.issued_tokens, issued_tokens2);
-            assert_eq!(vault2.data.to_be_redeemed_tokens, 0);
+            create_vault_with_issue(id2, issued_tokens2);
 
             // Check result is ordered in descending order
             assert_eq!(issued_tokens2.gt(&issued_tokens1), true);
@@ -1404,22 +1404,12 @@ mod get_vaults_with_redeemable_tokens_test {
     fn get_vaults_with_redeemable_tokens_filters_out_banned_vaults() {
         run_test(|| {
             let id1 = 3;
-            create_vault(id1);
             let issued_tokens1: u128 = 10;
-            VaultRegistry::try_increase_to_be_issued_tokens(&id1, issued_tokens1).unwrap();
-            assert_ok!(VaultRegistry::issue_tokens(&id1, issued_tokens1));
-            let vault1 = VaultRegistry::get_active_rich_vault_from_id(&id1).unwrap();
-            assert_eq!(vault1.data.issued_tokens, issued_tokens1);
-            assert_eq!(vault1.data.to_be_redeemed_tokens, 0);
+            create_vault_with_issue(id1, issued_tokens1);
 
             let id2 = 4;
-            create_vault(id2);
             let issued_tokens2: u128 = 20;
-            VaultRegistry::try_increase_to_be_issued_tokens(&id2, issued_tokens2).unwrap();
-            assert_ok!(VaultRegistry::issue_tokens(&id2, issued_tokens2));
-            let vault2 = VaultRegistry::get_active_rich_vault_from_id(&id2).unwrap();
-            assert_eq!(vault2.data.issued_tokens, issued_tokens2);
-            assert_eq!(vault2.data.to_be_redeemed_tokens, 0);
+            create_vault_with_issue(id2, issued_tokens2);
 
             // ban the vault
             let mut vault = VaultRegistry::get_rich_vault_from_id(&id2).unwrap();
@@ -1437,22 +1427,12 @@ mod get_vaults_with_redeemable_tokens_test {
     fn get_vaults_with_issuable_tokens_filters_out_liquidated_vaults() {
         run_test(|| {
             let id1 = 3;
-            create_vault(id1);
             let issued_tokens1: u128 = 10;
-            VaultRegistry::try_increase_to_be_issued_tokens(&id1, issued_tokens1).unwrap();
-            assert_ok!(VaultRegistry::issue_tokens(&id1, issued_tokens1));
-            let vault1 = VaultRegistry::get_active_rich_vault_from_id(&id1).unwrap();
-            assert_eq!(vault1.data.issued_tokens, issued_tokens1);
-            assert_eq!(vault1.data.to_be_redeemed_tokens, 0);
+            create_vault_with_issue(id1, issued_tokens1);
 
             let id2 = 4;
-            create_vault(id2);
             let issued_tokens2: u128 = 20;
-            VaultRegistry::try_increase_to_be_issued_tokens(&id2, issued_tokens2).unwrap();
-            assert_ok!(VaultRegistry::issue_tokens(&id2, issued_tokens2));
-            let vault2 = VaultRegistry::get_active_rich_vault_from_id(&id2).unwrap();
-            assert_eq!(vault2.data.issued_tokens, issued_tokens2);
-            assert_eq!(vault2.data.to_be_redeemed_tokens, 0);
+            create_vault_with_issue(id2, issued_tokens2);
 
             // liquidate vault
             assert_ok!(VaultRegistry::liquidate_vault_with_status(
