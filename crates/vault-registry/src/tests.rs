@@ -1353,10 +1353,7 @@ mod get_vaults_with_issuable_tokens_tests {
             // update the exchange rate
             ext::oracle::backing_to_issuing::<Test>.mock_safe(move |x| MockResult::Return(Ok(x / 2)));
 
-            assert_eq!(
-                VaultRegistry::get_vaults_with_issuable_tokens(),
-                Ok(vec!())
-            );
+            assert_eq!(VaultRegistry::get_vaults_with_issuable_tokens(), Ok(vec!()));
         })
     }
 }
@@ -1369,10 +1366,7 @@ mod get_vaults_with_redeemable_tokens_test {
         run_test(|| {
             create_sample_vault();
             // nothing issued, so nothing can be redeemed
-            assert_eq!(
-                VaultRegistry::get_vaults_with_redeemable_tokens(),
-                Ok(vec!())
-            );
+            assert_eq!(VaultRegistry::get_vaults_with_redeemable_tokens(), Ok(vec!()));
         })
     }
 
