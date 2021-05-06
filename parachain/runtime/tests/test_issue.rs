@@ -137,6 +137,24 @@ mod request_issue_tests {
     }
 
     #[test]
+    fn integration_test_request_issue_at_capacity_of_required_collateral_succeeds() {
+        test_with_initialized_vault(|| {
+            let amount_issuing = 100_000u32;
+            let required_collateral =
+                VaultRegistryPallet::get_required_collateral_for_issuing(amount_issuing.into()).unwrap();
+            CoreVaultData::force_to(
+                VAULT,
+                CoreVaultData {
+                    backing_collateral: required_collateral,
+                    ..Default::default()
+                },
+            );
+            let (issue_id, _) = request_issue(amount_issuing.into());
+            execute_issue(issue_id);
+        });
+    }
+
+    #[test]
     fn integration_test_request_issue_above_capacity_fails() {
         test_with_initialized_vault(|| {
             let amount = 1 + VaultRegistryPallet::get_issuable_tokens_from_vault(account_of(VAULT)).unwrap();

@@ -53,6 +53,11 @@ cumulus-parachain-system = { package = "cumulus-pallet-parachain-system", git = 
 cumulus-primitives = { package = "cumulus-primitives-core", git = "https://github.com/paritytech/cumulus", branch = "rococo-v1", default-features = false, optional = true }
 xcm-handler = { package = "cumulus-pallet-xcm-handler", git = "https://github.com/paritytech/cumulus", branch = "rococo-v1", default-features = false, optional = true }
 
+# instant-seal dependencies
+sc-consensus = {version = '0.9',  optional = true}
+sc-consensus-manual-seal =  {version = '0.9',  optional = true}
+sp-consensus =  {version = '0.9',  optional = true}
+
 # Polkadot dependencies
 polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", default-features = false, optional = true }
 xcm = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", default-features = false, optional = true }
@@ -102,7 +107,7 @@ substrate-wasm-builder = "3.0.0"
 # https://github.com/paritytech/substrate/issues/8161
 
 [features]
-default = ["std"]
+default = ["std", "aura-grandpa"]
 std = [
   "codec/std",
   "serde",
@@ -210,6 +215,11 @@ aura-grandpa = [
   "pallet-aura",
   "pallet-grandpa",
   "sp-consensus-aura",
+]
+instant-seal = [
+  "sc-consensus",
+  "sc-consensus-manual-seal",
+  "sp-consensus",
 ]
 disable-runtime-api = []
 disable-native-filter = [

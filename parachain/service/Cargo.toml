@@ -74,3 +74,7 @@ aura-grandpa = [
     "btc-parachain-runtime/aura-grandpa",
     "btc-parachain-rpc/aura-grandpa",
 ]
+instant-seal = [
+    "btc-parachain-runtime/instant-seal",
+    "btc-parachain-rpc/instant-seal",
+]
