@@ -49,26 +49,35 @@ pub struct RedeemRequest<AccountId, BlockNumber, Issuing, Backing> {
     pub vault: AccountId,
     pub opentime: BlockNumber,
     pub period: BlockNumber,
+
     #[cfg_attr(feature = "std", serde(bound(deserialize = "Issuing: std::str::FromStr")))]
     #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
     #[cfg_attr(feature = "std", serde(bound(serialize = "Issuing: std::fmt::Display")))]
     #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
     /// Total redeem fees in issuance - taken from request amount
     pub fee: Issuing,
+
     #[cfg_attr(feature = "std", serde(bound(deserialize = "Issuing: std::str::FromStr")))]
     #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
     #[cfg_attr(feature = "std", serde(bound(serialize = "Issuing: std::fmt::Display")))]
     #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
     /// Amount the vault should spend on the bitcoin inclusion fee - taken from request amount
     pub transfer_fee_btc: Issuing,
+
+    #[cfg_attr(feature = "std", serde(bound(deserialize = "Issuing: std::str::FromStr")))]
+    #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
+    #[cfg_attr(feature = "std", serde(bound(serialize = "Issuing: std::fmt::Display")))]
+    #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
     /// Total amount of BTC for the vault to send
     pub amount_btc: Issuing,
+
     #[cfg_attr(feature = "std", serde(bound(deserialize = "Backing: std::str::FromStr")))]
     #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
     #[cfg_attr(feature = "std", serde(bound(serialize = "Backing: std::fmt::Display")))]
     #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
     /// Premium redeem amount in collateral
     pub premium: Backing,
+
     pub redeemer: AccountId,
     pub btc_address: BtcAddress,
     /// The latest Bitcoin height as reported by the BTC-Relay at time of opening.
