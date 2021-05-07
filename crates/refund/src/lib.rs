@@ -22,7 +22,6 @@ pub use default_weights::WeightInfo;
 mod ext;
 pub mod types;
 
-use bitcoin::utils::sha256d_le;
 use btc_relay::BtcAddress;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError, ensure, transactional,
@@ -180,13 +179,14 @@ impl<T: Config> Module<T> {
             .amount_issuing
             .try_into()
             .map_err(|_e| Error::<T>::TryIntoIntError)?;
-        let tx_id = sha256d_le(&raw_tx);
-        ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
-        ext::btc_relay::validate_transaction::<T>(
+
+        // check the transaction inclusion and validity
+        ext::btc_relay::verify_and_validate_transaction::<T>(
+            merkle_proof,
             raw_tx,
-            Some(amount as i64),
             request.btc_address,
-            Some(refund_id.as_bytes().to_vec()),
+            Some(amount as i64),
+            Some(refund_id),
         )?;
 
         // mint issued tokens corresponding to the fee. Note that this can fail

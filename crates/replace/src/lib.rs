@@ -27,7 +27,6 @@ use primitive_types::H256;
 use sp_runtime::{traits::Zero, ModuleId};
 use sp_std::{convert::TryInto, vec::Vec};
 
-use bitcoin::utils::sha256d_le;
 use btc_relay::BtcAddress;
 
 #[doc(inline)]
@@ -465,21 +464,16 @@ impl<T: Config> Module<T> {
             Error::<T>::ReplacePeriodExpired
         );
 
-        // Call verifyTransactionInclusion in BTC-Relay, providing txid, txBlockHeight, txIndex, and merkleProof as
-        // parameters
-        let tx_id = sha256d_le(&raw_tx);
-        ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
-
         // Call validateTransaction in BTC-Relay
         let amount = TryInto::<u64>::try_into(replace.amount).map_err(|_e| Error::<T>::TryIntoIntError)? as i64;
 
-        let btc_address = replace.btc_address;
-
-        ext::btc_relay::validate_transaction::<T>(
+        // check the transaction inclusion and validity
+        ext::btc_relay::verify_and_validate_transaction::<T>(
+            merkle_proof,
             raw_tx,
+            replace.btc_address,
             Some(amount),
-            btc_address,
-            Some(replace_id.clone().as_bytes().to_vec()),
+            Some(replace_id),
         )?;
 
         // decrease old-vault's issued & to-be-redeemed tokens, and

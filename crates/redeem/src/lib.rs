@@ -30,7 +30,6 @@ pub mod types;
 pub use crate::types::{RedeemRequest, RedeemRequestStatus};
 
 use crate::types::{Backing, Issuing, RedeemRequestV2, Version};
-use bitcoin::utils::sha256d_le;
 use btc_relay::BtcAddress;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
@@ -393,15 +392,14 @@ impl<T: Config> Module<T> {
         );
 
         let amount: usize = redeem.amount_btc.try_into().map_err(|_e| Error::<T>::TryIntoIntError)?;
-        let tx_id = sha256d_le(&raw_tx);
-        ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
-        // NOTE: vault client must register change addresses before
-        // sending the bitcoin transaction
-        ext::btc_relay::validate_transaction::<T>(
+
+        // check the transaction inclusion and validity
+        ext::btc_relay::verify_and_validate_transaction::<T>(
+            merkle_proof,
             raw_tx,
-            Some(amount as i64),
             redeem.btc_address,
-            Some(redeem_id.clone().as_bytes().to_vec()),
+            Some(amount as i64),
+            Some(redeem_id),
         )?;
 
         // burn amount (without parachain fee, but including transfer fee)

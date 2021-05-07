@@ -11,9 +11,8 @@ fn test_refund_succeeds() {
         ext::fee::get_refund_fee_from_total::<Test>.mock_safe(|_| MockResult::Return(Ok(5)));
         ext::vault_registry::try_increase_to_be_issued_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-        ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-        ext::btc_relay::validate_transaction::<Test>
-            .mock_safe(|_, _, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 995))));
+        ext::btc_relay::verify_and_validate_transaction::<Test>
+            .mock_safe(|_, _, _, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 995))));
 
         let issue_id = H256::zero();
         assert_ok!(Refund::request_refund(
