@@ -870,7 +870,12 @@ impl_runtime_apis! {
 
         fn get_vaults_with_issuable_tokens() -> Result<Vec<(AccountId, BalanceWrapper<Balance>)>, DispatchError> {
             let result = VaultRegistry::get_vaults_with_issuable_tokens()?;
-            Ok(result.iter().map(|v| (v.0.clone(), BalanceWrapper{amount:v.1})).collect())
+            Ok(result.into_iter().map(|v| (v.0, BalanceWrapper{amount:v.1})).collect())
+        }
+
+        fn get_vaults_with_redeemable_tokens() -> Result<Vec<(AccountId, BalanceWrapper<Balance>)>, DispatchError> {
+            let result = VaultRegistry::get_vaults_with_redeemable_tokens()?;
+            Ok(result.into_iter().map(|v| (v.0, BalanceWrapper{amount:v.1})).collect())
         }
 
         fn get_issuable_tokens_from_vault(vault: AccountId) -> Result<BalanceWrapper<Balance>, DispatchError> {
