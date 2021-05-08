@@ -14,6 +14,7 @@ pub(crate) mod btc_relay {
         recipient_btc_address: BtcAddress,
         minimum_btc: Option<i64>,
         op_return_id: Option<H256>,
+        confirmations: Option<u32>,
     ) -> Result<(BtcAddress, i64), DispatchError> {
         <btc_relay::Pallet<T>>::_verify_and_validate_transaction(
             raw_merkle_proof,
@@ -21,6 +22,7 @@ pub(crate) mod btc_relay {
             recipient_btc_address,
             minimum_btc,
             op_return_id,
+            confirmations,
         )
     }
 

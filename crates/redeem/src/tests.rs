@@ -265,7 +265,7 @@ fn test_execute_redeem_succeeds_with_another_account() {
             },
         );
         ext::btc_relay::verify_and_validate_transaction::<Test>
-            .mock_safe(|_, _, _, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 0))));
+            .mock_safe(|_, _, _, _, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 0))));
 
         inject_redeem_request(
             H256([0u8; 32]),
@@ -362,7 +362,7 @@ fn test_execute_redeem_succeeds() {
             },
         );
         ext::btc_relay::verify_and_validate_transaction::<Test>
-            .mock_safe(|_, _, _, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 0))));
+            .mock_safe(|_, _, _, _, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 0))));
 
         inject_redeem_request(
             H256([0u8; 32]),

@@ -323,8 +323,14 @@ impl<T: Config> Module<T> {
             Error::<T>::CommitPeriodExpired
         );
 
-        let (refund_address, amount_transferred) =
-            ext::btc_relay::verify_and_validate_transaction::<T>(merkle_proof, raw_tx, issue.btc_address, None, None)?;
+        let (refund_address, amount_transferred) = ext::btc_relay::verify_and_validate_transaction::<T>(
+            merkle_proof,
+            raw_tx,
+            issue.btc_address,
+            None,
+            None,
+            None,
+        )?;
 
         let expected_total_amount = issue
             .amount

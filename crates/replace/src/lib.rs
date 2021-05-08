@@ -474,6 +474,7 @@ impl<T: Config> Module<T> {
             replace.btc_address,
             Some(amount),
             Some(replace_id),
+            None,
         )?;
 
         // decrease old-vault's issued & to-be-redeemed tokens, and

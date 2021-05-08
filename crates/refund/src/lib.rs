@@ -187,6 +187,7 @@ impl<T: Config> Module<T> {
             request.btc_address,
             Some(amount as i64),
             Some(refund_id),
+            None,
         )?;
 
         // mint issued tokens corresponding to the fee. Note that this can fail

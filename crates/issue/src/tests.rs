@@ -167,7 +167,7 @@ fn test_execute_issue_succeeds() {
 
         ext::security::ensure_parachain_status_not_shutdown::<Test>.mock_safe(|| MockResult::Return(Ok(())));
         ext::btc_relay::verify_and_validate_transaction::<Test>
-            .mock_safe(|_, _, _, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 3))));
+            .mock_safe(|_, _, _, _, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 3))));
 
         assert_ok!(execute_issue(ALICE, &issue_id));
 
@@ -190,7 +190,7 @@ fn test_execute_issue_overpayment_succeeds() {
         ext::security::ensure_parachain_status_not_shutdown::<Test>.mock_safe(|| MockResult::Return(Ok(())));
 
         ext::btc_relay::verify_and_validate_transaction::<Test>
-            .mock_safe(|_, _, _, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 5))));
+            .mock_safe(|_, _, _, _, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 5))));
 
         ext::vault_registry::is_vault_liquidated::<Test>.mock_safe(|_| MockResult::Return(Ok(false)));
 
@@ -230,7 +230,7 @@ fn test_execute_issue_refund_succeeds() {
 
         // pay 103 instead of the expected 3
         ext::btc_relay::verify_and_validate_transaction::<Test>
-            .mock_safe(|_, _, _, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 103))));
+            .mock_safe(|_, _, _, _, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 103))));
 
         // return some arbitrary error
         ext::vault_registry::try_increase_to_be_issued_tokens::<Test>.mock_safe(|_, amount| {

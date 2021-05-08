@@ -727,7 +727,7 @@ fn test_validate_transaction_succeeds_with_payment() {
             raw_tx,
             minimum_btc,
             recipient_btc_address,
-            Some(vec![])
+            None,
         ));
     });
 }
@@ -740,7 +740,7 @@ fn test_validate_transaction_succeeds_with_payment_and_op_return() {
         let recipient_btc_address =
             BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let op_return_id =
-            hex::decode("aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned()).unwrap();
+            hex::decode("e5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned()).unwrap();
 
         let outputs = vec![sample_valid_payment_output(), sample_valid_data_output()];
 
@@ -751,7 +751,7 @@ fn test_validate_transaction_succeeds_with_payment_and_op_return() {
             raw_tx,
             minimum_btc,
             recipient_btc_address,
-            Some(op_return_id)
+            Some(H256::from_slice(&op_return_id))
         ));
     });
 }
@@ -764,7 +764,7 @@ fn test_validate_transaction_succeeds_with_op_return_and_payment() {
         let recipient_btc_address =
             BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let op_return_id =
-            hex::decode("aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned()).unwrap();
+            hex::decode("e5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned()).unwrap();
 
         let outputs = vec![sample_valid_data_output(), sample_valid_payment_output()];
 
@@ -775,7 +775,7 @@ fn test_validate_transaction_succeeds_with_op_return_and_payment() {
             raw_tx,
             minimum_btc,
             recipient_btc_address,
-            Some(op_return_id)
+            Some(H256::from_slice(&op_return_id))
         ));
     });
 }
@@ -788,7 +788,7 @@ fn test_validate_transaction_succeeds_with_payment_and_refund_and_op_return() {
         let recipient_btc_address =
             BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let op_return_id =
-            hex::decode("aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned()).unwrap();
+            hex::decode("e5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned()).unwrap();
 
         let outputs = vec![
             sample_valid_payment_output(),
@@ -803,7 +803,7 @@ fn test_validate_transaction_succeeds_with_payment_and_refund_and_op_return() {
             raw_tx,
             minimum_btc,
             recipient_btc_address,
-            Some(op_return_id)
+            Some(H256::from_slice(&op_return_id))
         ));
     });
 }
@@ -818,7 +818,7 @@ fn test_validate_transaction_invalid_no_outputs_fails() {
         let recipient_btc_address =
             BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let op_return_id =
-            hex::decode("aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned()).unwrap();
+            hex::decode("ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb46".to_owned()).unwrap();
         // missing required data output
         let outputs = vec![sample_valid_payment_output()];
 
@@ -830,7 +830,7 @@ fn test_validate_transaction_invalid_no_outputs_fails() {
                 raw_tx,
                 minimum_btc,
                 recipient_btc_address,
-                Some(op_return_id)
+                Some(H256::from_slice(&op_return_id))
             ),
             TestError::MalformedTransaction
         )
@@ -847,7 +847,7 @@ fn test_validate_transaction_insufficient_payment_value_fails() {
         let recipient_btc_address =
             BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let op_return_id =
-            hex::decode("aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned()).unwrap();
+            hex::decode("e5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned()).unwrap();
 
         let outputs = vec![sample_insufficient_value_payment_output(), sample_valid_data_output()];
 
@@ -859,7 +859,7 @@ fn test_validate_transaction_insufficient_payment_value_fails() {
                 raw_tx,
                 minimum_btc,
                 recipient_btc_address,
-                Some(op_return_id)
+                Some(H256::from_slice(&op_return_id))
             ),
             TestError::InsufficientValue
         )
@@ -876,7 +876,7 @@ fn test_validate_transaction_wrong_recipient_fails() {
         let recipient_btc_address =
             BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let op_return_id =
-            hex::decode("aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned()).unwrap();
+            hex::decode("e5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned()).unwrap();
 
         let outputs = vec![
             sample_wrong_recipient_payment_output(),
@@ -892,7 +892,7 @@ fn test_validate_transaction_wrong_recipient_fails() {
                 raw_tx,
                 minimum_btc,
                 recipient_btc_address,
-                Some(op_return_id)
+                Some(H256::from_slice(&op_return_id))
             ),
             TestError::InvalidPayment
         )
@@ -909,8 +909,7 @@ fn test_validate_transaction_incorrect_opreturn_fails() {
         let recipient_btc_address =
             BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let op_return_id =
-            hex::decode("6a24aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned())
-                .unwrap();
+            hex::decode("0000000000000000000000000000000000000000000000000000000000000000".to_owned()).unwrap();
 
         let outputs = vec![sample_valid_payment_output(), sample_incorrect_data_output()];
 
@@ -922,7 +921,7 @@ fn test_validate_transaction_incorrect_opreturn_fails() {
                 raw_tx,
                 minimum_btc,
                 recipient_btc_address,
-                Some(op_return_id)
+                Some(H256::from_slice(&op_return_id))
             ),
             TestError::InvalidOpReturn
         )
@@ -952,19 +951,18 @@ fn test_verify_and_validate_transaction_succeeds() {
         let recipient_btc_address =
             BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let op_return_id =
-            hex::decode("aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned()).unwrap();
+            hex::decode("e5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned()).unwrap();
         BTCRelay::_validate_transaction.mock_safe(move |_, _, _, _| MockResult::Return(Ok((recipient_btc_address, 0))));
         BTCRelay::_verify_transaction_inclusion.mock_safe(move |_, _, _| MockResult::Return(Ok(())));
 
         assert_ok!(BTCRelay::verify_and_validate_transaction(
             Origin::signed(3),
-            real_txid,
             raw_merkle_proof,
             confirmations,
             raw_tx,
             minimum_btc,
             recipient_btc_address,
-            Some(op_return_id)
+            Some(H256::from_slice(&op_return_id))
         ));
     });
 }
@@ -2024,7 +2022,7 @@ fn sample_wrong_recipient_payment_output() -> TransactionOutput {
 fn sample_valid_data_output() -> TransactionOutput {
     TransactionOutput {
         value: 0,
-        script: "6a24aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675"
+        script: "6a20e5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675"
             .try_into()
             .unwrap(),
     }

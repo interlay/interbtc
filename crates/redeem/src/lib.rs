@@ -400,6 +400,7 @@ impl<T: Config> Module<T> {
             redeem.btc_address,
             Some(amount as i64),
             Some(redeem_id),
+            None,
         )?;
 
         // burn amount (without parachain fee, but including transfer fee)

@@ -91,7 +91,7 @@ benchmarks! {
 
         Security::<T>::set_active_block_number(100u32.into());
 
-    }: _(RawOrigin::Signed(origin), tx_id, proof, Some(0), raw_tx, value.into(), address, Some(op_return))
+    }: _(RawOrigin::Signed(origin), proof, Some(0), raw_tx, value.into(), address, Some(H256::zero()))
 
     verify_transaction_inclusion {
         let origin: T::AccountId = account("Origin", 0, 0);
@@ -125,7 +125,7 @@ benchmarks! {
 
         let raw_tx = transaction.format_with(true);
 
-    }: _(RawOrigin::Signed(origin), raw_tx, value.into(), address, Some(op_return))
+    }: _(RawOrigin::Signed(origin), raw_tx, value.into(), address, Some(H256::from_slice(&op_return)))
 
 }
 
