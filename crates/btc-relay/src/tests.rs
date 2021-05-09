@@ -1710,16 +1710,16 @@ fn test_extract_value_and_op_return_fails_with_return_to_self() {
 
 #[test]
 fn test_check_and_do_reorg() {
-    use crate::{sp_api_hidden_includes_decl_storage::hidden_include::StorageMap, Chains, ChainsIndex};
+    use crate::{Chains, ChainsIndex};
     use bitcoin::types::BlockChain;
     use sp_std::collections::btree_set::BTreeSet;
 
     // data taken from testnet fork
     run_test(|| {
-        Chains::insert(0, 0);
-        Chains::insert(2, 7);
+        Chains::<Test>::insert(0, 0);
+        Chains::<Test>::insert(2, 7);
 
-        ChainsIndex::insert(
+        ChainsIndex::<Test>::insert(
             0,
             BlockChain {
                 chain_id: 0,
@@ -1730,7 +1730,7 @@ fn test_check_and_do_reorg() {
             },
         );
 
-        ChainsIndex::insert(
+        ChainsIndex::<Test>::insert(
             2,
             BlockChain {
                 chain_id: 2,
@@ -1741,7 +1741,7 @@ fn test_check_and_do_reorg() {
             },
         );
 
-        ChainsIndex::insert(
+        ChainsIndex::<Test>::insert(
             4,
             BlockChain {
                 chain_id: 4,
@@ -1752,7 +1752,7 @@ fn test_check_and_do_reorg() {
             },
         );
 
-        ChainsIndex::insert(
+        ChainsIndex::<Test>::insert(
             6,
             BlockChain {
                 chain_id: 6,
@@ -1763,7 +1763,7 @@ fn test_check_and_do_reorg() {
             },
         );
 
-        ChainsIndex::insert(
+        ChainsIndex::<Test>::insert(
             7,
             BlockChain {
                 chain_id: 7,
@@ -1790,19 +1790,16 @@ fn test_check_and_do_reorg() {
 
 #[test]
 fn test_remove_blockchain_from_chain() {
-    use crate::{
-        sp_api_hidden_includes_decl_storage::hidden_include::{IterableStorageMap, StorageMap},
-        Chains,
-    };
+    use crate::Chains;
 
     run_test(|| {
-        Chains::insert(0, 0);
-        Chains::insert(8, 5);
-        Chains::insert(2, 7);
+        Chains::<Test>::insert(0, 0);
+        Chains::<Test>::insert(8, 5);
+        Chains::<Test>::insert(2, 7);
 
         assert_ok!(BTCRelay::remove_blockchain_from_chain(2));
 
-        let mut chains = <Chains>::iter().collect::<Vec<(u32, u32)>>();
+        let mut chains = Chains::<Test>::iter().collect::<Vec<(u32, u32)>>();
         chains.sort_by_key(|k| k.0);
         assert_eq!(chains, vec![(0, 0), (2, 5)]);
     })

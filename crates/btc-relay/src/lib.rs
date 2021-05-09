@@ -28,11 +28,8 @@ extern crate mocktopus;
 use mocktopus::macros::mockable;
 
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure, runtime_print, transactional,
-    weights::Weight,
-    IterableStorageMap,
 };
 use frame_system::{ensure_root, ensure_signed};
 use primitive_types::{H256, U256};
@@ -50,15 +47,403 @@ use bitcoin::{
 use security::types::ErrorCode;
 pub use types::RichBlockHeader;
 
-/// ## Configuration and Constants
-/// The pallet's configuration trait.
-/// For further reference, see the [specification](https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/spec/data-model.html).
-pub trait Config: frame_system::Config + security::Config {
-    /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+pub use pallet::*;
 
-    /// Weight information for the extrinsics in this module.
-    type WeightInfo: WeightInfo;
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use frame_support::pallet_prelude::*;
+    use frame_system::pallet_prelude::*;
+
+    #[pallet::pallet]
+    #[pallet::generate_store(trait Store)]
+    pub struct Pallet<T>(_);
+
+    #[pallet::config]
+    pub trait Config: frame_system::Config + security::Config {
+        /// The overarching event type.
+        type Event: From<Event<Self>>
+            + Into<<Self as frame_system::Config>::Event>
+            + IsType<<Self as frame_system::Config>::Event>;
+
+        /// Weight information for the extrinsics in this module.
+        type WeightInfo: WeightInfo;
+    }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
+        fn on_runtime_upgrade() -> Weight {
+            if !StartBlockHeight::<T>::exists() {
+                StartBlockHeight::<T>::set(0);
+            }
+            0
+        }
+    }
+
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
+        /// Verifies the inclusion of `tx_id` into the relay, and validates the given raw Bitcoin transaction, according
+        /// to the supported transaction format (see <https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/intro/accepted-format.html>)
+        ///
+        /// # Arguments
+        ///
+        /// * `raw_merkle_proof` - The raw merkle proof as returned by bitcoin `gettxoutproof`
+        /// * `confirmations` - The number of confirmations needed to accept the proof. If `none`, the value stored in
+        ///   the StableBitcoinConfirmations storage item is used.
+        /// * `raw_tx` - raw Bitcoin transaction
+        /// * `minimum_btc` - minimum amount of BTC (satoshis) sent to the recipient
+        /// * `recipient_btc_address` - 20 byte Bitcoin address of recipient of the BTC in the 1st  / payment UTXO
+        /// * `op_return_id` - 32 byte hash identifier expected in OP_RETURN (replay protection)
+        #[pallet::weight(<T as Config>::WeightInfo::verify_and_validate_transaction())]
+        #[transactional]
+        pub fn verify_and_validate_transaction(
+            origin: OriginFor<T>,
+            raw_merkle_proof: Vec<u8>,
+            confirmations: Option<u32>,
+            raw_tx: Vec<u8>,
+            minimum_btc: i64,
+            recipient_btc_address: BtcAddress,
+            op_return_id: Option<H256>,
+        ) -> DispatchResultWithPostInfo {
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
+            let _ = ensure_signed(origin)?;
+
+            Self::_verify_and_validate_transaction(
+                raw_merkle_proof,
+                raw_tx,
+                recipient_btc_address,
+                Some(minimum_btc),
+                op_return_id,
+                confirmations,
+            )?;
+            Ok(().into())
+        }
+
+        /// Verifies the inclusion of `tx_id`
+        ///
+        /// # Arguments
+        ///
+        /// * `tx_id` - The hash of the transaction to check for
+        /// * `raw_merkle_proof` - The raw merkle proof as returned by bitcoin `gettxoutproof`
+        /// * `confirmations` - The number of confirmations needed to accept the proof. If `none`, the value stored in
+        ///   the `StableBitcoinConfirmations` storage item is used.
+        ///
+        /// # <weight>
+        /// Key: C (len of chains), P (len of positions)
+        /// - Storage Reads:
+        /// 	- One storage read to check if inclusion check is disabled. O(1)
+        /// 	- One storage read to retrieve best block height. O(1)
+        /// 	- One storage read to check if transaction is in active fork. O(1)
+        /// 	- One storage read to retrieve block header. O(1)
+        /// 	- One storage read to check that parachain is not shutdown. O(1)
+        /// 	- One storage read to check stable bitcoin confirmations. O(1)
+        /// 	- One storage read to check stable parachain confirmations. O(1)
+        /// # </weight>
+        #[pallet::weight(<T as Config>::WeightInfo::verify_transaction_inclusion())]
+        #[transactional]
+        pub fn verify_transaction_inclusion(
+            origin: OriginFor<T>,
+            tx_id: H256Le,
+            raw_merkle_proof: Vec<u8>,
+            confirmations: Option<u32>,
+        ) -> DispatchResultWithPostInfo {
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
+            let _ = ensure_signed(origin)?;
+            Self::_verify_transaction_inclusion(tx_id, raw_merkle_proof, confirmations)?;
+            Ok(().into())
+        }
+
+        /// Validates a given raw Bitcoin transaction, according to the supported transaction
+        /// format (see <https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/intro/accepted-format.html>)
+        /// This DOES NOT check if the transaction is included in a block, nor does it guarantee that the
+        /// transaction is fully valid according to the consensus (needs full node).
+        ///
+        /// # Arguments
+        /// * `raw_tx` - raw Bitcoin transaction
+        /// * `minimum_btc` - minimum amount of BTC (satoshis) sent to the recipient
+        /// * `recipient_btc_address` - expected Bitcoin address of recipient (p2sh, p2pkh, p2wpkh)
+        /// * `op_return_id` - 32 byte hash identifier expected in OP_RETURN (replay protection)
+        #[pallet::weight(<T as Config>::WeightInfo::validate_transaction())]
+        #[transactional]
+        pub fn validate_transaction(
+            origin: OriginFor<T>,
+            raw_tx: Vec<u8>,
+            minimum_btc: i64,
+            recipient_btc_address: BtcAddress,
+            op_return_id: Option<H256>,
+        ) -> DispatchResultWithPostInfo {
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
+            let _ = ensure_signed(origin)?;
+
+            let transaction = Self::parse_transaction(&raw_tx)?;
+            Self::_validate_transaction(
+                transaction,
+                recipient_btc_address,
+                Some(minimum_btc),
+                op_return_id.map(|x| x.as_bytes().to_vec()),
+            )?;
+            Ok(().into())
+        }
+
+        /// Insert an error at the specified block.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - the dispatch origin of this call (must be _Root_)
+        /// * `block_hash` - the hash of the bitcoin block
+        /// * `error` - the error code to insert
+        ///
+        /// # Weight: `O(1)`
+        #[pallet::weight(0)]
+        #[transactional]
+        pub fn insert_block_error(
+            origin: OriginFor<T>,
+            block_hash: H256Le,
+            error: ErrorCode,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            Self::flag_block_error(block_hash, error)?;
+            Ok(().into())
+        }
+
+        /// Remove an error from the specified block.
+        ///
+        /// # Arguments
+        ///
+        /// * `origin` - the dispatch origin of this call (must be _Root_)
+        /// * `block_hash` - the hash of the bitcoin block
+        /// * `error` - the error code to remove
+        ///
+        /// # Weight: `O(1)`
+        #[pallet::weight(0)]
+        #[transactional]
+        pub fn remove_block_error(
+            origin: OriginFor<T>,
+            block_hash: H256Le,
+            error: ErrorCode,
+        ) -> DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            Self::clear_block_error(block_hash, error)?;
+            Ok(().into())
+        }
+    }
+
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    #[pallet::metadata(T::AccountId = "AccountId")]
+    pub enum Event<T: Config> {
+        Initialized(u32, H256Le, T::AccountId),
+        StoreMainChainHeader(u32, H256Le, T::AccountId),
+        StoreForkHeader(u32, u32, H256Le, T::AccountId),
+        ChainReorg(H256Le, u32, u32),
+        ForkAheadOfMainChain(u32, u32, u32),
+        VerifyTransaction(H256Le, u32, u32),
+        ValidateTransaction(H256Le, u32, H160, H256Le),
+        FlagBlockError(H256Le, u32, ErrorCode),
+        ClearBlockError(H256Le, u32, ErrorCode),
+    }
+
+    #[pallet::error]
+    pub enum Error<T> {
+        /// Already initialized
+        AlreadyInitialized,
+        /// Missing the block at this height
+        MissingBlockHeight,
+        /// Invalid block header size
+        InvalidHeaderSize,
+        /// Block already stored
+        DuplicateBlock,
+        /// Block already stored and is not head
+        OutdatedBlock,
+        /// Previous block hash not found
+        PrevBlock,
+        /// Invalid chain ID
+        InvalidChainID,
+        /// PoW hash does not meet difficulty target of header
+        LowDiff,
+        /// Incorrect difficulty target specified in block header
+        DiffTargetHeader,
+        /// Malformed transaction identifier
+        MalformedTxid,
+        /// Transaction has less confirmations of Bitcoin blocks than required
+        BitcoinConfirmations,
+        /// Transaction has less confirmations of Parachain blocks than required
+        ParachainConfirmations,
+        /// Current fork ongoing
+        OngoingFork,
+        /// Merkle proof is malformed
+        MalformedMerkleProof,
+        /// Invalid merkle proof
+        InvalidMerkleProof,
+        /// Feature disabled. Reason: a main chain block with a lower height is flagged with NO_DATA.
+        NoData,
+        /// Feature disabled. Reason: a main chain block is flagged as INVALID.
+        Invalid,
+        /// BTC Parachain has shut down
+        Shutdown,
+        /// Transaction hash does not match given txid
+        InvalidTxid,
+        /// Value of payment below requested amount
+        InsufficientValue,
+        /// Transaction has incorrect format
+        MalformedTransaction,
+        /// Incorrect recipient Bitcoin address
+        InvalidPayment,
+        /// Incorrect transaction output format
+        InvalidOutputFormat,
+        /// Incorrect identifier in OP_RETURN field
+        InvalidOpReturn,
+        /// Invalid transaction version
+        InvalidTxVersion,
+        /// Error code not applicable to blocks
+        UnknownErrorcode,
+        /// Blockchain with requested ID not found
+        ForkIdNotFound,
+        /// Block header not found for given hash
+        BlockNotFound,
+        /// Error code already reported
+        AlreadyReported,
+        /// Unauthorized staked relayer
+        UnauthorizedRelayer,
+        /// Overflow of chain counter
+        ChainCounterOverflow,
+        /// Overflow of block height
+        BlockHeightOverflow,
+        /// Underflow of stored blockchains counter
+        ChainsUnderflow,
+        /// EndOfFile reached while parsing
+        EndOfFile,
+        /// Format of the header is invalid
+        MalformedHeader,
+        /// Format of the BIP141 witness transaction output is invalid
+        MalformedWitnessOutput,
+        // Format of the P2PKH transaction output is invalid
+        MalformedP2PKHOutput,
+        // Format of the P2SH transaction output is invalid
+        MalformedP2SHOutput,
+        /// Format of the OP_RETURN transaction output is invalid
+        MalformedOpReturnOutput,
+        // Output does not match format of supported output types (Witness, P2PKH, P2SH)
+        UnsupportedOutputFormat,
+        // Input does not match format of supported input types (Witness, P2PKH, P2SH)
+        UnsupportedInputFormat,
+        /// There are no NO_DATA blocks in this BlockChain
+        NoDataEmpty,
+        /// User supplied an invalid address
+        InvalidBtcHash,
+        /// User supplied an invalid script
+        InvalidScript,
+        /// Specified invalid Bitcoin address
+        InvalidBtcAddress,
+        /// Arithmetic overflow
+        ArithmeticOverflow,
+        /// Arithmetic underflow
+        ArithmeticUnderflow,
+        /// Relayer is not registered
+        RelayerNotAuthorized,
+    }
+
+    /// Store Bitcoin block headers
+    #[pallet::storage]
+    pub(super) type BlockHeaders<T: Config> =
+        StorageMap<_, Blake2_128Concat, H256Le, RichBlockHeader<T::AccountId, T::BlockNumber>, ValueQuery>;
+
+    /// Priority queue of BlockChain elements, ordered by the maximum height (descending).
+    /// The first index into this mapping (0) is considered to be the longest chain. The value
+    /// of the entry is the index into `ChainsIndex` to retrieve the `BlockChain`.
+    #[pallet::storage]
+    pub(super) type Chains<T: Config> = StorageMap<_, Blake2_128Concat, u32, u32>;
+
+    /// Auxiliary mapping of chains ids to `BlockChain` entries. The first index into this
+    /// mapping (0) is considered to be the Bitcoin main chain.
+    #[pallet::storage]
+    pub(super) type ChainsIndex<T: Config> = StorageMap<_, Blake2_128Concat, u32, BlockChain>;
+
+    /// Stores a mapping from (chain_index, block_height) to block hash
+    #[pallet::storage]
+    pub(super) type ChainsHashes<T: Config> =
+        StorageDoubleMap<_, Blake2_128Concat, u32, Blake2_128Concat, u32, H256Le, ValueQuery>;
+
+    /// Store the current blockchain tip
+    #[pallet::storage]
+    pub(super) type BestBlock<T: Config> = StorageValue<_, H256Le, ValueQuery>;
+
+    /// Store the height of the best block
+    #[pallet::storage]
+    pub(super) type BestBlockHeight<T: Config> = StorageValue<_, u32, ValueQuery>;
+
+    /// BTC height when the relay was initialized
+    #[pallet::storage]
+    pub(super) type StartBlockHeight<T: Config> = StorageValue<_, u32, ValueQuery>;
+
+    /// Increment-only counter used to track new BlockChain entries
+    #[pallet::storage]
+    pub(super) type ChainCounter<T: Config> = StorageValue<_, u32, ValueQuery>;
+
+    /// Global security parameter k for stable Bitcoin transactions
+    #[pallet::storage]
+    #[pallet::getter(fn bitcoin_confirmations)]
+    pub(super) type StableBitcoinConfirmations<T: Config> = StorageValue<_, u32, ValueQuery>;
+
+    /// Global security parameter k for stable Parachain transactions
+    #[pallet::storage]
+    #[pallet::getter(fn parachain_confirmations)]
+    pub(super) type StableParachainConfirmations<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+
+    /// Whether the module should perform difficulty checks.
+    #[pallet::storage]
+    #[pallet::getter(fn disable_difficulty_check)]
+    pub(super) type DisableDifficultyCheck<T: Config> = StorageValue<_, bool, ValueQuery>;
+
+    /// Whether the module should perform inclusion checks.
+    #[pallet::storage]
+    #[pallet::getter(fn disable_inclusion_check)]
+    pub(super) type DisableInclusionCheck<T: Config> = StorageValue<_, bool, ValueQuery>;
+
+    /// Whether the module should perform OP_RETURN checks.
+    #[pallet::storage]
+    #[pallet::getter(fn disable_op_return_check)]
+    pub(super) type DisableOpReturnCheck<T: Config> = StorageValue<_, bool, ValueQuery>;
+
+    #[pallet::genesis_config]
+    pub struct GenesisConfig<T: Config> {
+        #[doc = " Global security parameter k for stable Bitcoin transactions"]
+        pub bitcoin_confirmations: u32,
+        #[doc = " Global security parameter k for stable Parachain transactions"]
+        pub parachain_confirmations: T::BlockNumber,
+        #[doc = " Whether the module should perform difficulty checks."]
+        pub disable_difficulty_check: bool,
+        #[doc = " Whether the module should perform inclusion checks."]
+        pub disable_inclusion_check: bool,
+        #[doc = " Whether the module should perform OP_RETURN checks."]
+        pub disable_op_return_check: bool,
+    }
+
+    #[cfg(feature = "std")]
+    impl<T: Config> Default for GenesisConfig<T>
+    // TODO_MAYBE_WHERE_CLAUSE
+    {
+        fn default() -> Self {
+            Self {
+                bitcoin_confirmations: Default::default(),
+                parachain_confirmations: Default::default(),
+                disable_difficulty_check: Default::default(),
+                disable_inclusion_check: Default::default(),
+                disable_op_return_check: Default::default(),
+            }
+        }
+    }
+
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+        fn build(&self) {
+            StableBitcoinConfirmations::<T>::put(self.bitcoin_confirmations);
+            StableParachainConfirmations::<T>::put(self.parachain_confirmations);
+            DisableDifficultyCheck::<T>::put(self.disable_difficulty_check);
+            DisableInclusionCheck::<T>::put(self.disable_inclusion_check);
+            DisableOpReturnCheck::<T>::put(self.disable_op_return_check);
+        }
+    }
 }
 
 /// Difficulty Adjustment Interval
@@ -100,54 +485,6 @@ pub const MAIN_CHAIN_ID: u32 = 0;
 /// See: <https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/intro/accepted-format.html>
 pub const ACCEPTED_NO_TRANSACTION_OUTPUTS: u32 = 2;
 
-// This pallet's storage items.
-decl_storage! {
-    trait Store for Module<T: Config> as BTCRelay {
-        /// ## Storage
-        /// Store Bitcoin block headers
-        BlockHeaders: map hasher(blake2_128_concat) H256Le => RichBlockHeader<T::AccountId, T::BlockNumber>;
-
-        /// Priority queue of BlockChain elements, ordered by the maximum height (descending).
-        /// The first index into this mapping (0) is considered to be the longest chain. The value
-        /// of the entry is the index into `ChainsIndex` to retrieve the `BlockChain`.
-        Chains: map hasher(blake2_128_concat) u32 => Option<u32>;
-
-        /// Auxiliary mapping of chains ids to `BlockChain` entries. The first index into this
-        /// mapping (0) is considered to be the Bitcoin main chain.
-        ChainsIndex: map hasher(blake2_128_concat) u32 => Option<BlockChain>;
-
-        /// Stores a mapping from (chain_index, block_height) to block hash
-        ChainsHashes: double_map hasher(blake2_128_concat) u32, hasher(blake2_128_concat) u32 => H256Le;
-
-        /// Store the current blockchain tip
-        BestBlock: H256Le;
-
-        /// Store the height of the best block
-        BestBlockHeight: u32;
-
-        /// BTC height when the relay was initialized
-        StartBlockHeight: u32;
-
-        /// Increment-only counter used to track new BlockChain entries
-        ChainCounter: u32;
-
-        /// Global security parameter k for stable Bitcoin transactions
-        StableBitcoinConfirmations get(fn bitcoin_confirmations) config(): u32;
-
-        /// Global security parameter k for stable Parachain transactions
-        StableParachainConfirmations get(fn parachain_confirmations) config(): T::BlockNumber;
-
-        /// Whether the module should perform difficulty checks.
-        DisableDifficultyCheck get(fn disable_difficulty_check) config(): bool;
-
-        /// Whether the module should perform inclusion checks.
-        DisableInclusionCheck get(fn disable_inclusion_check) config(): bool;
-
-        /// Whether the module should perform OP_RETURN checks.
-        DisableOpReturnCheck get(fn disable_op_return_check) config(): bool;
-    }
-}
-
 macro_rules! extract_op_return {
     ($($tx:expr),*) => {
         {
@@ -174,155 +511,8 @@ fn maybe_get_payment_value(output: &TransactionOutput, recipient_btc_address: &B
     }
 }
 
-decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
-        // Initialize errors
-        type Error = Error<T>;
-
-        // Initializing events
-        fn deposit_event() = default;
-
-        /// Verifies the inclusion of `tx_id` into the relay, and validates the given raw Bitcoin transaction, according to the
-        /// supported transaction format (see <https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/intro/accepted-format.html>).
-        ///
-        /// # Arguments
-        ///
-        /// * `raw_merkle_proof` - The raw merkle proof as returned by bitcoin `gettxoutproof`
-        /// * `confirmations` - The number of confirmations needed to accept the proof. If `none`,
-        ///                     the value stored in the StableBitcoinConfirmations storage item is used.
-        /// * `raw_tx` - raw Bitcoin transaction
-        /// * `minimum_btc` - minimum amount of BTC (satoshis) sent to the recipient
-        /// * `recipient_btc_address` - 20 byte Bitcoin address of recipient of the BTC in the 1st  / payment UTXO
-        /// * `op_return_id` - 32 byte hash identifier expected in OP_RETURN (replay protection)
-        #[weight = <T as Config>::WeightInfo::verify_and_validate_transaction()]
-        #[transactional]
-        fn verify_and_validate_transaction(
-            origin,
-            raw_merkle_proof: Vec<u8>,
-            confirmations: Option<u32>,
-            raw_tx: Vec<u8>,
-            minimum_btc: i64,
-            recipient_btc_address: BtcAddress,
-            op_return_id: Option<H256>)
-        -> DispatchResult {
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-            let _ = ensure_signed(origin)?;
-
-            Self::_verify_and_validate_transaction(
-                raw_merkle_proof,
-                raw_tx,
-                recipient_btc_address,
-                Some(minimum_btc),
-                op_return_id,
-                confirmations,
-            )?;
-            Ok(())
-        }
-
-        /// Verifies the inclusion of `tx_id`
-        ///
-        /// # Arguments
-        ///
-        /// * `tx_id` - The hash of the transaction to check for
-        /// * `raw_merkle_proof` - The raw merkle proof as returned by bitcoin `gettxoutproof`
-        /// * `confirmations` - The number of confirmations needed to accept the proof. If `none`,
-        ///                     the value stored in the `StableBitcoinConfirmations` storage item is used.
-        ///
-        /// # <weight>
-        /// Key: C (len of chains), P (len of positions)
-        /// - Storage Reads:
-        /// 	- One storage read to check if inclusion check is disabled. O(1)
-        /// 	- One storage read to retrieve best block height. O(1)
-        /// 	- One storage read to check if transaction is in active fork. O(1)
-        /// 	- One storage read to retrieve block header. O(1)
-        /// 	- One storage read to check that parachain is not shutdown. O(1)
-        /// 	- One storage read to check stable bitcoin confirmations. O(1)
-        /// 	- One storage read to check stable parachain confirmations. O(1)
-        /// # </weight>
-        #[weight = <T as Config>::WeightInfo::verify_transaction_inclusion()]
-        #[transactional]
-        fn verify_transaction_inclusion(
-            origin,
-            tx_id: H256Le,
-            raw_merkle_proof: Vec<u8>,
-            confirmations: Option<u32>)
-        -> DispatchResult {
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-            let _ = ensure_signed(origin)?;
-            Self::_verify_transaction_inclusion(tx_id, raw_merkle_proof, confirmations)?;
-            Ok(())
-        }
-
-        /// Validates a given raw Bitcoin transaction, according to the supported transaction
-        /// format (see <https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/intro/accepted-format.html>)
-        /// This DOES NOT check if the transaction is included in a block, nor does it guarantee that the
-        /// transaction is fully valid according to the consensus (needs full node).
-        ///
-        /// # Arguments
-        /// * `raw_tx` - raw Bitcoin transaction
-        /// * `minimum_btc` - minimum amount of BTC (satoshis) sent to the recipient
-        /// * `recipient_btc_address` - expected Bitcoin address of recipient (p2sh, p2pkh, p2wpkh)
-        /// * `op_return_id` - 32 byte hash identifier expected in OP_RETURN (replay protection)
-        #[weight = <T as Config>::WeightInfo::validate_transaction()]
-        #[transactional]
-        fn validate_transaction(
-            origin,
-            raw_tx: Vec<u8>,
-            minimum_btc: i64,
-            recipient_btc_address: BtcAddress,
-            op_return_id: Option<H256>
-        ) -> DispatchResult {
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-            let _ = ensure_signed(origin)?;
-
-            let transaction = Self::parse_transaction(&raw_tx)?;
-            Self::_validate_transaction(transaction, recipient_btc_address, Some(minimum_btc), op_return_id.map(|x| x.as_bytes().to_vec()))?;
-            Ok(())
-        }
-
-        /// Insert an error at the specified block.
-        ///
-        /// # Arguments
-        ///
-        /// * `origin` - the dispatch origin of this call (must be _Root_)
-        /// * `block_hash` - the hash of the bitcoin block
-        /// * `error` - the error code to insert
-        ///
-        /// # Weight: `O(1)`
-        #[weight = 0]
-        #[transactional]
-        pub fn insert_block_error(origin, block_hash: H256Le, error: ErrorCode) -> DispatchResult {
-            ensure_root(origin)?;
-            Self::flag_block_error(block_hash, error)
-        }
-
-        /// Remove an error from the specified block.
-        ///
-        /// # Arguments
-        ///
-        /// * `origin` - the dispatch origin of this call (must be _Root_)
-        /// * `block_hash` - the hash of the bitcoin block
-        /// * `error` - the error code to remove
-        ///
-        /// # Weight: `O(1)`
-        #[weight = 0]
-        #[transactional]
-        pub fn remove_block_error(origin, block_hash: H256Le, error: ErrorCode) -> DispatchResult {
-            ensure_root(origin)?;
-            Self::clear_block_error(block_hash, error)
-        }
-
-        fn on_runtime_upgrade() -> Weight {
-            if !<StartBlockHeight>::exists() {
-                <StartBlockHeight>::set(0);
-            }
-            0
-        }
-    }
-}
-
 #[cfg_attr(test, mockable)]
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     pub fn initialize(relayer: T::AccountId, raw_block_header: RawBlockHeader, block_height: u32) -> DispatchResult {
         // Check if BTC-Relay was already initialized
         ensure!(!Self::best_block_exists(), Error::<T>::AlreadyInitialized);
@@ -358,7 +548,7 @@ impl<T: Config> Module<T> {
         // Set BestBlock and BestBlockHeight to the submitted block
         Self::set_best_block(block_header_hash);
         Self::set_best_block_height(block_height);
-        <StartBlockHeight>::set(block_height);
+        StartBlockHeight::<T>::set(block_height);
 
         // Emit a Initialized Event
         Self::deposit_event(<Event<T>>::Initialized(block_height, block_header_hash, relayer));
@@ -444,7 +634,7 @@ impl<T: Config> Module<T> {
         } else {
             // extended the chain
             // Update the pointer to BlockChain in ChainsIndex
-            <ChainsIndex>::mutate(blockchain.chain_id, |_b| &blockchain);
+            ChainsIndex::<T>::mutate(blockchain.chain_id, |_b| &blockchain);
 
             // check if ordering of Chains needs updating
             Self::check_and_do_reorg(&blockchain)?;
@@ -721,14 +911,14 @@ impl<T: Config> Module<T> {
     }
 
     pub fn is_fully_initialized() -> Result<bool, DispatchError> {
-        if !<StartBlockHeight>::exists() {
+        if !StartBlockHeight::<T>::exists() {
             return Ok(false);
         }
 
-        let required_height = <StartBlockHeight>::get()
-            .checked_add(<StableBitcoinConfirmations>::get())
+        let required_height = StartBlockHeight::<T>::get()
+            .checked_add(StableBitcoinConfirmations::<T>::get())
             .ok_or(Error::<T>::ArithmeticOverflow)?;
-        let best = <BestBlockHeight>::get();
+        let best = BestBlockHeight::<T>::get();
         Ok(best >= required_height)
     }
 
@@ -738,12 +928,12 @@ impl<T: Config> Module<T> {
 
     /// Get chain id from position (sorted by max block height)
     fn get_chain_id_from_position(position: u32) -> Result<u32, DispatchError> {
-        <Chains>::get(position).ok_or(Error::<T>::InvalidChainID.into())
+        Chains::<T>::get(position).ok_or(Error::<T>::InvalidChainID.into())
     }
 
     /// Get the position of the fork in Chains
     fn get_chain_position_from_chain_id(chain_id: u32) -> Result<u32, DispatchError> {
-        for (k, v) in <Chains>::iter() {
+        for (k, v) in Chains::<T>::iter() {
             if v == chain_id {
                 return Ok(k);
             }
@@ -753,27 +943,27 @@ impl<T: Config> Module<T> {
 
     /// Get a blockchain from the id
     fn get_block_chain_from_id(chain_id: u32) -> Result<BlockChain, DispatchError> {
-        <ChainsIndex>::get(chain_id).ok_or(Error::<T>::InvalidChainID.into())
+        ChainsIndex::<T>::get(chain_id).ok_or(Error::<T>::InvalidChainID.into())
     }
 
     /// Get the current best block hash
     pub fn get_best_block() -> H256Le {
-        <BestBlock>::get()
+        BestBlock::<T>::get()
     }
 
     /// Check if a best block hash is set
     fn best_block_exists() -> bool {
-        <BestBlock>::exists()
+        BestBlock::<T>::exists()
     }
 
     /// get the best block height
     pub fn get_best_block_height() -> u32 {
-        <BestBlockHeight>::get()
+        BestBlockHeight::<T>::get()
     }
 
     /// Get the current chain counter
     fn get_chain_counter() -> u32 {
-        <ChainCounter>::get()
+        ChainCounter::<T>::get()
     }
 
     /// Get a block hash from a blockchain
@@ -786,22 +976,22 @@ impl<T: Config> Module<T> {
         if !Self::block_exists(chain_id, block_height) {
             return Err(Error::<T>::MissingBlockHeight.into());
         }
-        Ok(<ChainsHashes>::get(chain_id, block_height))
+        Ok(ChainsHashes::<T>::get(chain_id, block_height))
     }
 
     /// Get a block header from its hash
     fn get_block_header_from_hash(
         block_hash: H256Le,
     ) -> Result<RichBlockHeader<T::AccountId, T::BlockNumber>, DispatchError> {
-        if <BlockHeaders<T>>::contains_key(block_hash) {
-            return Ok(<BlockHeaders<T>>::get(block_hash));
+        if BlockHeaders::<T>::contains_key(block_hash) {
+            return Ok(BlockHeaders::<T>::get(block_hash));
         }
         Err(Error::<T>::BlockNotFound.into())
     }
 
     /// Check if a block header exists
     pub fn block_header_exists(block_hash: H256Le) -> bool {
-        <BlockHeaders<T>>::contains_key(block_hash)
+        BlockHeaders::<T>::contains_key(block_hash)
     }
 
     /// Get a block header from
@@ -816,20 +1006,20 @@ impl<T: Config> Module<T> {
     /// Storage setter functions
     /// Set a new chain with position and id
     fn set_chain_from_position_and_id(position: u32, id: u32) {
-        <Chains>::insert(position, id);
+        Chains::<T>::insert(position, id);
     }
 
     /// Swap chain elements
     fn swap_chain(pos_1: u32, pos_2: u32) {
         // swaps the values of two keys
-        <Chains>::swap(pos_1, pos_2)
+        Chains::<T>::swap(pos_1, pos_2)
     }
 
     /// Remove a chain id from chains
     fn remove_blockchain_from_chain(position: u32) -> Result<(), DispatchError> {
         // swap the element with the last element in the mapping
         // collect the unsorted chains iterable as a vector and sort it by index
-        let mut chains = <Chains>::iter().collect::<Vec<(u32, u32)>>();
+        let mut chains = Chains::<T>::iter().collect::<Vec<(u32, u32)>>();
         chains.sort_by_key(|k| k.0);
 
         // get the last position as stored in the list
@@ -842,50 +1032,50 @@ impl<T: Config> Module<T> {
         // don't remove main chain id
         if last_pos > 0 {
             // remove the old head (now the value at the initial position)
-            <Chains>::remove(last_pos);
+            Chains::<T>::remove(last_pos);
         }
         Ok(())
     }
 
     /// Set a new blockchain in ChainsIndex
     fn set_block_chain_from_id(id: u32, chain: &BlockChain) {
-        <ChainsIndex>::insert(id, &chain);
+        ChainsIndex::<T>::insert(id, &chain);
     }
 
     /// Update a blockchain in ChainsIndex
     fn mutate_block_chain_from_id(id: u32, chain: BlockChain) {
-        <ChainsIndex>::mutate(id, |b| *b = Some(chain));
+        ChainsIndex::<T>::mutate(id, |b| *b = Some(chain));
     }
 
     /// Remove a blockchain element from ChainsIndex
     fn remove_blockchain_from_chain_index(id: u32) {
-        <ChainsIndex>::remove(id);
+        ChainsIndex::<T>::remove(id);
     }
 
     /// Set a new block header
     fn set_block_header_from_hash(hash: H256Le, header: &RichBlockHeader<T::AccountId, T::BlockNumber>) {
-        <BlockHeaders<T>>::insert(hash, header);
+        BlockHeaders::<T>::insert(hash, header);
     }
 
     /// update the chain_ref of a block header
     fn mutate_block_header_from_chain_id(hash: &H256Le, chain_ref: u32) {
-        <BlockHeaders<T>>::mutate(&hash, |header| header.chain_ref = chain_ref);
+        BlockHeaders::<T>::mutate(&hash, |header| header.chain_ref = chain_ref);
     }
 
     /// Set a new best block
     fn set_best_block(hash: H256Le) {
-        <BestBlock>::put(hash);
+        BestBlock::<T>::put(hash);
     }
 
     /// Set a new best block height
     fn set_best_block_height(height: u32) {
-        <BestBlockHeight>::put(height);
+        BestBlockHeight::<T>::put(height);
     }
 
     /// Set a new chain counter
     fn increment_chain_counter() -> u32 {
         let new_counter = Self::get_chain_counter() + 1;
-        <ChainCounter>::put(new_counter);
+        ChainCounter::<T>::put(new_counter);
 
         new_counter
     }
@@ -923,19 +1113,19 @@ impl<T: Config> Module<T> {
     }
 
     fn insert_block_hash(chain_id: u32, block_height: u32, block_hash: H256Le) {
-        <ChainsHashes>::insert(chain_id, block_height, block_hash);
+        ChainsHashes::<T>::insert(chain_id, block_height, block_hash);
     }
 
     fn remove_block_hash(chain_id: u32, block_height: u32) {
-        <ChainsHashes>::remove(chain_id, block_height);
+        ChainsHashes::<T>::remove(chain_id, block_height);
     }
 
     fn block_exists(chain_id: u32, block_height: u32) -> bool {
-        <ChainsHashes>::contains_key(chain_id, block_height)
+        ChainsHashes::<T>::contains_key(chain_id, block_height)
     }
 
     fn _blocks_count(chain_id: u32) -> usize {
-        <ChainsHashes>::iter_prefix_values(chain_id).count()
+        ChainsHashes::<T>::iter_prefix_values(chain_id).count()
     }
 
     /// Add a new block header to an existing blockchain
@@ -1175,7 +1365,7 @@ impl<T: Config> Module<T> {
             Self::mutate_block_header_from_chain_id(&block, MAIN_CHAIN_ID);
             Self::insert_block_hash(MAIN_CHAIN_ID, height, block);
         }
-        <ChainsHashes>::remove_prefix(fork.chain_id);
+        ChainsHashes::<T>::remove_prefix(fork.chain_id);
         if !fork.is_invalid() && !fork.is_no_data() {
             Self::recover_if_needed()?
         }
@@ -1198,8 +1388,8 @@ impl<T: Config> Module<T> {
         }
 
         // TODO: remove, fix for rm head_index
-        if <Chains>::get(0).is_none() {
-            <Chains>::insert(0, 0);
+        if Chains::<T>::get(0).is_none() {
+            Chains::<T>::insert(0, 0);
         }
 
         // get the position of the fork in Chains
@@ -1235,8 +1425,8 @@ impl<T: Config> Module<T> {
                         Self::swap_main_blockchain(&fork)?;
 
                         // announce the new main chain
-                        let new_chain_tip = <BestBlock>::get();
-                        let block_height = <BestBlockHeight>::get();
+                        let new_chain_tip = BestBlock::<T>::get();
+                        let block_height = BestBlockHeight::<T>::get();
                         let fork_depth = fork.max_height - fork.start_height;
                         Self::deposit_event(<Event<T>>::ChainReorg(new_chain_tip, block_height, fork_depth));
                     } else {
@@ -1272,7 +1462,7 @@ impl<T: Config> Module<T> {
     fn insert_sorted(blockchain: &BlockChain) -> Result<(), DispatchError> {
         // get a sorted vector over the Chains elements
         // NOTE: LinkedStorageMap iterators are not sorted over the keys
-        let mut chains = <Chains>::iter().collect::<Vec<(u32, u32)>>();
+        let mut chains = Chains::<T>::iter().collect::<Vec<(u32, u32)>>();
         chains.sort_by_key(|k| k.0);
 
         let max_chain_element = chains.len() as u32;
@@ -1484,124 +1674,6 @@ impl<T: Config> Module<T> {
         } else {
             Ok(())
         }
-    }
-}
-
-decl_event! {
-    pub enum Event<T>
-    where
-        AccountId = <T as frame_system::Config>::AccountId,
-    {
-        Initialized(u32, H256Le, AccountId),
-        StoreMainChainHeader(u32, H256Le, AccountId),
-        StoreForkHeader(u32, u32, H256Le, AccountId),
-        ChainReorg(H256Le, u32, u32),
-        ForkAheadOfMainChain(u32, u32, u32),
-        VerifyTransaction(H256Le, u32, u32),
-        ValidateTransaction(H256Le, u32, H160, H256Le),
-        FlagBlockError(H256Le, u32, ErrorCode),
-        ClearBlockError(H256Le, u32, ErrorCode),
-    }
-}
-
-decl_error! {
-    pub enum Error for Module<T: Config> {
-        /// Already initialized
-        AlreadyInitialized,
-        /// Missing the block at this height
-        MissingBlockHeight,
-        /// Invalid block header size
-        InvalidHeaderSize,
-        /// Block already stored
-        DuplicateBlock,
-        /// Block already stored and is not head
-        OutdatedBlock,
-        /// Previous block hash not found
-        PrevBlock,
-        /// Invalid chain ID
-        InvalidChainID,
-        /// PoW hash does not meet difficulty target of header
-        LowDiff,
-        /// Incorrect difficulty target specified in block header
-        DiffTargetHeader,
-        /// Malformed transaction identifier
-        MalformedTxid,
-        /// Transaction has less confirmations of Bitcoin blocks than required
-        BitcoinConfirmations,
-        /// Transaction has less confirmations of Parachain blocks than required
-        ParachainConfirmations,
-        /// Current fork ongoing
-        OngoingFork,
-        /// Merkle proof is malformed
-        MalformedMerkleProof,
-        /// Invalid merkle proof
-        InvalidMerkleProof,
-        /// Feature disabled. Reason: a main chain block with a lower height is flagged with NO_DATA.
-        NoData,
-        /// Feature disabled. Reason: a main chain block is flagged as INVALID.
-        Invalid,
-        /// BTC Parachain has shut down
-        Shutdown,
-        /// Transaction hash does not match given txid
-        InvalidTxid,
-        /// Value of payment below requested amount
-        InsufficientValue,
-        /// Transaction has incorrect format
-        MalformedTransaction,
-        /// Incorrect recipient Bitcoin address
-        InvalidPayment,
-        /// Incorrect transaction output format
-        InvalidOutputFormat,
-        /// Incorrect identifier in OP_RETURN field
-        InvalidOpReturn,
-        /// Invalid transaction version
-        InvalidTxVersion,
-        /// Error code not applicable to blocks
-        UnknownErrorcode,
-        /// Blockchain with requested ID not found
-        ForkIdNotFound,
-        /// Block header not found for given hash
-        BlockNotFound,
-        /// Error code already reported
-        AlreadyReported,
-        /// Unauthorized staked relayer
-        UnauthorizedRelayer,
-        /// Overflow of chain counter
-        ChainCounterOverflow,
-        /// Overflow of block height
-        BlockHeightOverflow,
-        /// Underflow of stored blockchains counter
-        ChainsUnderflow,
-        /// EndOfFile reached while parsing
-        EndOfFile,
-        /// Format of the header is invalid
-        MalformedHeader,
-        /// Format of the BIP141 witness transaction output is invalid
-        MalformedWitnessOutput,
-        // Format of the P2PKH transaction output is invalid
-        MalformedP2PKHOutput,
-        // Format of the P2SH transaction output is invalid
-        MalformedP2SHOutput,
-        /// Format of the OP_RETURN transaction output is invalid
-        MalformedOpReturnOutput,
-        // Output does not match format of supported output types (Witness, P2PKH, P2SH)
-        UnsupportedOutputFormat,
-        // Input does not match format of supported input types (Witness, P2PKH, P2SH)
-        UnsupportedInputFormat,
-        /// There are no NO_DATA blocks in this BlockChain
-        NoDataEmpty,
-        /// User supplied an invalid address
-        InvalidBtcHash,
-        /// User supplied an invalid script
-        InvalidScript,
-        /// Specified invalid Bitcoin address
-        InvalidBtcAddress,
-        /// Arithmetic overflow
-        ArithmeticOverflow,
-        /// Arithmetic underflow
-        ArithmeticUnderflow,
-        /// Relayer is not registered
-        RelayerNotAuthorized,
     }
 }
 
