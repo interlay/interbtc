@@ -1,6 +1,9 @@
 use crate as vault_registry;
 use crate::{ext, Config, Error};
-use frame_support::{parameter_types, traits::StorageMapShim};
+use frame_support::{
+    parameter_types,
+    traits::{GenesisBuild, StorageMapShim},
+};
 use mocktopus::mocking::{clear_mocks, MockResult, Mockable};
 use sp_arithmetic::{FixedPointNumber, FixedU128};
 use sp_core::H256;

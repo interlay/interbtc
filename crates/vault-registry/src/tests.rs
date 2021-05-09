@@ -5,11 +5,10 @@ use crate::{
         VaultRegistry, DEFAULT_COLLATERAL, DEFAULT_ID, MULTI_VAULT_TEST_COLLATERAL, MULTI_VAULT_TEST_IDS, OTHER_ID,
         RICH_COLLATERAL, RICH_ID,
     },
-    sp_api_hidden_includes_decl_storage::hidden_include::traits::OnInitialize,
     types::{Backing, BtcAddress, Issuing},
     BtcPublicKey, CurrencySource, DispatchError, Error, UpdatableVault, Vault, VaultStatus, Vaults, Wallet, H256,
 };
-use frame_support::{assert_err, assert_noop, assert_ok, StorageMap};
+use frame_support::{assert_err, assert_noop, assert_ok};
 use mocktopus::mocking::*;
 use primitive_types::U256;
 use security::Pallet as Security;
@@ -18,6 +17,7 @@ use sp_runtime::traits::Header;
 use sp_std::convert::TryInto;
 use std::{collections::HashMap, rc::Rc};
 type Event = crate::Event<Test>;
+use frame_support::traits::OnInitialize;
 
 // use macro to avoid messing up stack trace
 macro_rules! assert_emitted {

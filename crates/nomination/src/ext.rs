@@ -30,28 +30,28 @@ pub(crate) mod vault_registry {
     pub fn get_backing_collateral<T: vault_registry::Config>(
         vault_id: &T::AccountId,
     ) -> Result<Backing<T>, DispatchError> {
-        <vault_registry::Module<T>>::get_backing_collateral(vault_id)
+        <vault_registry::Pallet<T>>::get_backing_collateral(vault_id)
     }
 
     pub fn liquidate_vault_with_status<T: vault_registry::Config>(
         vault_id: &T::AccountId,
         status: VaultStatus,
     ) -> Result<Backing<T>, DispatchError> {
-        <vault_registry::Module<T>>::liquidate_vault_with_status(vault_id, status)
+        <vault_registry::Pallet<T>>::liquidate_vault_with_status(vault_id, status)
     }
 
     pub fn increase_backing_collateral<T: vault_registry::Config>(
         vault_id: &T::AccountId,
         amount: Backing<T>,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::try_increase_backing_collateral(vault_id, amount)
+        <vault_registry::Pallet<T>>::try_increase_backing_collateral(vault_id, amount)
     }
 
     pub fn decrease_backing_collateral<T: vault_registry::Config>(
         vault_id: &T::AccountId,
         amount: Backing<T>,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::try_decrease_backing_collateral(vault_id, amount)
+        <vault_registry::Pallet<T>>::try_decrease_backing_collateral(vault_id, amount)
     }
 
     pub fn lock_additional_collateral_from_address<T: vault_registry::Config>(
@@ -59,7 +59,7 @@ pub(crate) mod vault_registry {
         collateral: Backing<T>,
         depositor_id: &T::AccountId,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::_lock_additional_collateral_from_address(vault_id, collateral, depositor_id)
+        <vault_registry::Pallet<T>>::_lock_additional_collateral_from_address(vault_id, collateral, depositor_id)
     }
 
     pub fn withdraw_collateral_to_address<T: vault_registry::Config>(
@@ -67,21 +67,21 @@ pub(crate) mod vault_registry {
         collateral: Backing<T>,
         payee_id: &T::AccountId,
     ) -> DispatchResult {
-        <vault_registry::Module<T>>::try_withdraw_collateral_to_address(vault_id, collateral, payee_id)
+        <vault_registry::Pallet<T>>::try_withdraw_collateral_to_address(vault_id, collateral, payee_id)
     }
 
     pub fn vault_exists<T: vault_registry::Config>(id: &T::AccountId) -> bool {
-        <vault_registry::Module<T>>::vault_exists(id)
+        <vault_registry::Pallet<T>>::vault_exists(id)
     }
 
     pub fn set_is_nomination_operator<T: vault_registry::Config>(vault_id: &T::AccountId, is_operator: bool) {
-        <vault_registry::Module<T>>::set_is_nomination_operator(vault_id, is_operator)
+        <vault_registry::Pallet<T>>::set_is_nomination_operator(vault_id, is_operator)
     }
 
     pub fn liquidate_undercollateralized_vaults<T: vault_registry::Config>(
         liquidation_target: LiquidationTarget,
     ) -> (u32, Vec<(T::AccountId, Backing<T>)>) {
-        <vault_registry::Module<T>>::liquidate_undercollateralized_vaults(liquidation_target)
+        <vault_registry::Pallet<T>>::liquidate_undercollateralized_vaults(liquidation_target)
     }
 }
 

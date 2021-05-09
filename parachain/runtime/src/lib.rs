@@ -484,8 +484,6 @@ impl staked_relayers::Config for Runtime {
     type MaximumMessageSize = MaximumMessageSize;
 }
 
-pub use vault_registry::RawEvent as VaultRegistryEvent;
-
 parameter_types! {
     pub const VaultModuleId: ModuleId = ModuleId(*b"mod/vreg");
 }

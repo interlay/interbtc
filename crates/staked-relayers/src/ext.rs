@@ -44,7 +44,7 @@ pub(crate) mod vault_registry {
     }
 
     pub fn liquidate_theft_vault<T: vault_registry::Config>(vault_id: &T::AccountId) -> DispatchResult {
-        let _ = <vault_registry::Module<T>>::liquidate_vault_with_status(vault_id, VaultStatus::CommittedTheft)?;
+        let _ = <vault_registry::Pallet<T>>::liquidate_vault_with_status(vault_id, VaultStatus::CommittedTheft)?;
         Ok(())
     }
 }
