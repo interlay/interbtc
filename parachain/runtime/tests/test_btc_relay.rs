@@ -73,7 +73,6 @@ fn integration_test_btc_relay_with_parachain_shutdown_fails() {
                 Default::default(),
                 Default::default(),
                 Default::default(),
-                Default::default(),
                 Default::default()
             ))
             .dispatch(origin_of(account_of(ALICE))),

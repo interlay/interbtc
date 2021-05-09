@@ -35,7 +35,7 @@ use frame_support::{
     IterableStorageMap,
 };
 use frame_system::{ensure_root, ensure_signed};
-use primitive_types::U256;
+use primitive_types::{H256, U256};
 use sp_core::H160;
 use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
@@ -182,12 +182,11 @@ decl_module! {
         // Initializing events
         fn deposit_event() = default;
 
-        /// Verifies the inclusion of `tx_id` and validates the given raw Bitcoin transaction, according to the
-        /// supported transaction format (see <https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/intro/accepted-format.html>)
+        /// Verifies the inclusion of `tx_id` into the relay, and validates the given raw Bitcoin transaction, according to the
+        /// supported transaction format (see <https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/intro/accepted-format.html>).
         ///
         /// # Arguments
         ///
-        /// * `tx_id` - The hash of the transaction to check for
         /// * `raw_merkle_proof` - The raw merkle proof as returned by bitcoin `gettxoutproof`
         /// * `confirmations` - The number of confirmations needed to accept the proof. If `none`,
         ///                     the value stored in the StableBitcoinConfirmations storage item is used.
@@ -199,30 +198,24 @@ decl_module! {
         #[transactional]
         fn verify_and_validate_transaction(
             origin,
-            tx_id: H256Le,
             raw_merkle_proof: Vec<u8>,
             confirmations: Option<u32>,
             raw_tx: Vec<u8>,
             minimum_btc: i64,
             recipient_btc_address: BtcAddress,
-            op_return_id: Option<Vec<u8>>)
+            op_return_id: Option<H256>)
         -> DispatchResult {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let _ = ensure_signed(origin)?;
 
-            let transaction = Self::parse_transaction(&raw_tx)?;
-
-            // Check that the passed raw_tx indeed matches the tx_id used for
-            // transaction inclusion verification
-            ensure!(tx_id == transaction.tx_id(), Error::<T>::InvalidTxid);
-
-            // Verify that the transaction is indeed included in the main chain
-            // Check for Parachain RUNNING state is performed here
-            Self::_verify_transaction_inclusion(tx_id, raw_merkle_proof, confirmations)?;
-
-            // Parse transaction and check that it matches the given parameters
-            Self::_validate_transaction(raw_tx, Some(minimum_btc), recipient_btc_address, op_return_id)?;
-
+            Self::_verify_and_validate_transaction(
+                raw_merkle_proof,
+                raw_tx,
+                recipient_btc_address,
+                Some(minimum_btc),
+                op_return_id,
+                confirmations,
+            )?;
             Ok(())
         }
 
@@ -277,11 +270,13 @@ decl_module! {
             raw_tx: Vec<u8>,
             minimum_btc: i64,
             recipient_btc_address: BtcAddress,
-            op_return_id: Option<Vec<u8>>
+            op_return_id: Option<H256>
         ) -> DispatchResult {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let _ = ensure_signed(origin)?;
-            Self::_validate_transaction(raw_tx, Some(minimum_btc), recipient_btc_address, op_return_id)?;
+
+            let transaction = Self::parse_transaction(&raw_tx)?;
+            Self::_validate_transaction(transaction, recipient_btc_address, Some(minimum_btc), op_return_id.map(|x| x.as_bytes().to_vec()))?;
             Ok(())
         }
 
@@ -483,6 +478,28 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+    pub fn _verify_and_validate_transaction(
+        raw_merkle_proof: Vec<u8>,
+        raw_tx: Vec<u8>,
+        recipient_btc_address: BtcAddress,
+        minimum_btc: Option<i64>,
+        op_return_id: Option<H256>,
+        confirmations: Option<u32>,
+    ) -> Result<(BtcAddress, i64), DispatchError> {
+        let transaction = Self::parse_transaction(&raw_tx)?;
+
+        // Verify that the transaction is indeed included in the main chain
+        Self::_verify_transaction_inclusion(transaction.tx_id(), raw_merkle_proof, confirmations)?;
+
+        // Parse transaction and check that it matches the given parameters
+        Self::_validate_transaction(
+            transaction,
+            recipient_btc_address,
+            minimum_btc,
+            op_return_id.map(|x| x.as_bytes().to_vec()),
+        )
+    }
+
     pub fn _verify_transaction_inclusion(
         tx_id: H256Le,
         raw_merkle_proof: Vec<u8>,
@@ -665,14 +682,12 @@ impl<T: Config> Module<T> {
 
     /// Checks if transaction is valid. If so, it returns the first origin address, which can be
     /// use as the destination address for a potential refund, and the payment value
-    pub fn _validate_transaction(
-        raw_tx: Vec<u8>,
-        minimum_btc: Option<i64>,
+    fn _validate_transaction(
+        transaction: Transaction,
         recipient_btc_address: BtcAddress,
+        minimum_btc: Option<i64>,
         op_return_id: Option<Vec<u8>>,
     ) -> Result<(BtcAddress, i64), DispatchError> {
-        let transaction = Self::parse_transaction(&raw_tx)?;
-
         let input_address = transaction
             .inputs
             .get(0)

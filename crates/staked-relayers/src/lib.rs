@@ -29,7 +29,7 @@ use mocktopus::macros::mockable;
 pub use security;
 
 use crate::types::{Backing, Issuing, StakedRelayer};
-use bitcoin::{parser::parse_transaction, types::*, utils::sha256d_le};
+use bitcoin::{parser::parse_transaction, types::*};
 
 use btc_relay::{BtcAddress, Error as BtcRelayError};
 use frame_support::{
@@ -279,7 +279,8 @@ decl_module! {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let signer = ensure_signed(origin)?;
 
-            let tx_id = sha256d_le(&raw_tx);
+            let transaction = parse_transaction(raw_tx.as_slice()).map_err(|_| Error::<T>::InvalidTransaction)?;
+            let tx_id = transaction.tx_id();
 
             // liquidated vaults are removed, so no need for check here
 
@@ -292,14 +293,13 @@ decl_module! {
             }
 
             ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
-            Self::is_transaction_invalid(&vault_id, raw_tx)?;
+            Self::_is_parsed_transaction_invalid(&vault_id, transaction)?;
 
             if ext::nomination::is_nomination_enabled::<T>() &&
                 ext::nomination::is_operator::<T>(&vault_id)? {
                 ext::nomination::liquidate_theft_operator::<T>(&vault_id)?
             } else {
-            ext::vault_registry::liquidate_theft_vault::<T>(&vault_id)?;
-
+                ext::vault_registry::liquidate_theft_vault::<T>(&vault_id)?;
             }
 
             <TheftReports<T>>::mutate(&tx_id, |reports| {
@@ -449,10 +449,13 @@ impl<T: Config> Module<T> {
     /// `vault_id`: the vault.
     /// `raw_tx`: the BTC transaction by the vault.
     pub fn is_transaction_invalid(vault_id: &T::AccountId, raw_tx: Vec<u8>) -> DispatchResult {
-        let vault = ext::vault_registry::get_active_vault_from_id::<T>(vault_id)?;
-
-        // TODO: ensure this cannot fail on invalid
         let tx = parse_transaction(raw_tx.as_slice()).map_err(|_| Error::<T>::InvalidTransaction)?;
+        Self::_is_parsed_transaction_invalid(vault_id, tx)
+    }
+
+    /// Check if a vault transaction is invalid. Returns `Ok` if invalid or `Err` otherwise.
+    pub fn _is_parsed_transaction_invalid(vault_id: &T::AccountId, tx: Transaction) -> DispatchResult {
+        let vault = ext::vault_registry::get_active_vault_from_id::<T>(vault_id)?;
 
         // collect all addresses that feature in the inputs of the transaction
         let input_addresses: Vec<Result<BtcAddress, _>> = tx

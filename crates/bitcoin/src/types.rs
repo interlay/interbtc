@@ -834,6 +834,42 @@ mod tests {
     }
 
     #[test]
+    fn test_transaction_txid_with_witness() {
+        // the witness data should not be included in the input of the hashfunction that calculates the txid  - check
+        // that we correctly exclude it.
+
+        // real tx with txinwitness. Look for the txid on https://chainquery.com/bitcoin-cli/getrawtransaction for details
+        let raw_tx = "0200000000010140d43a99926d43eb0e619bf0b3d83b4a31f60c176beecfb9d35bf45e54d0f7420100000017160014a4b4ca48de0b3fffc15404a1acdc8dbaae226955ffffffff0100e1f5050000000017a9144a1154d50b03292b3024370901711946cb7cccc387024830450221008604ef8f6d8afa892dee0f31259b6ce02dd70c545cfcfed8148179971876c54a022076d771d6e91bed212783c9b06e0de600fab2d518fad6f15a2b191d7fbd262a3e0121039d25ab79f41f75ceaf882411fd41fa670a4c672c23ffaf0e361a969cde0692e800000000";
+
+        let tx_bytes = hex::decode(&raw_tx).unwrap();
+        let transaction = parse_transaction(&tx_bytes).unwrap();
+        let txid = transaction.tx_id();
+        let expected_txid = H256Le::from_hex_be("c586389e5e4b3acb9d6c8be1c19ae8ab2795397633176f5a6442a261bbdefc3a");
+        assert_eq!(txid, expected_txid);
+
+        // txid of transaction without witness is NOT equal to the hash of all bytes
+        assert_ne!(sha256d_le(&tx_bytes), expected_txid);
+    }
+
+    #[test]
+    fn test_transaction_txid_without_witness() {
+        // the witness data should not be included in the input of the hashfunction that calculates the txid  - check
+        // that without witness, the txid is equal to the hash of the raw bytes
+
+        // real tx with txinwitness. Look for the txid on https://chainquery.com/bitcoin-cli/getrawtransaction for details
+        let raw_tx = "020000000210b8fbfb6e1a5d2d30677c4ce797b0520774a6a250c22192eacd63b2f8025970110000006b483045022100819b0bdc0568a549cb5230c4f5fc0561764dd95b2e191efe9ab154bb8a5a95820220021f3547cefe915a5bb2906a89bc7ec4e858077ec9b023b48f7929898207de91012102279da390217bff00f6dbae65c993c714e5cd6b7ea384ffb9d4a51f09f044fa30ffffffff43ac430a2b980dbd82911eed89ec70526ed33ac614137e310f2ca70fefaa8c29010000006a473044022069e74ad037fe7304f8545230a32eff39e8fc6133640ee4bc8eb1b9108d79cfa702206dee0ba9b9e0e329074d414bb92609a34e1ae3c7ef2d0658c29230f4b5e85a2b012103bb7b040b18c3ab6d6c4ea8f42e47cb8628ccbcad016804c327603d80951a5850ffffffff02b80581000000000017a914dfea03c60b988da73084af5c9c863d988ae99a18874c113b00000000001976a914c8b46a12370c76a1e382773a3d044fa17beea53288ac00000000";
+
+        let tx_bytes = hex::decode(&raw_tx).unwrap();
+        let transaction = parse_transaction(&tx_bytes).unwrap();
+        let txid = transaction.tx_id();
+        let expected_txid = H256Le::from_hex_be("c052ff9439346a70488f308b009501178be6bb8cb1ecb2ceac8e8a3a8143c687");
+        assert_eq!(txid, expected_txid);
+
+        // txid of transaction without witness is just the hash of all bytes
+        assert_eq!(sha256d_le(&tx_bytes), expected_txid);
+    }
+
+    #[test]
     fn test_script_height() {
         assert_eq!(Script::height(100).len(), 4);
     }

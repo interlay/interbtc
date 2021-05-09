@@ -3,22 +3,27 @@ use mocktopus::macros::mockable;
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod btc_relay {
-    use bitcoin::types::H256Le;
     use btc_relay::BtcAddress;
-    use frame_support::dispatch::{DispatchError, DispatchResult};
+    use frame_support::dispatch::DispatchError;
+    use primitive_types::H256;
     use sp_std::vec::Vec;
 
-    pub fn verify_transaction_inclusion<T: btc_relay::Config>(tx_id: H256Le, merkle_proof: Vec<u8>) -> DispatchResult {
-        <btc_relay::Pallet<T>>::_verify_transaction_inclusion(tx_id, merkle_proof, None)
-    }
-
-    pub fn validate_transaction<T: btc_relay::Config>(
+    pub fn verify_and_validate_transaction<T: btc_relay::Config>(
+        raw_merkle_proof: Vec<u8>,
         raw_tx: Vec<u8>,
+        recipient_btc_address: BtcAddress,
         minimum_btc: Option<i64>,
-        btc_address: BtcAddress,
-        redeem_id: Option<Vec<u8>>,
+        op_return_id: Option<H256>,
+        confirmations: Option<u32>,
     ) -> Result<(BtcAddress, i64), DispatchError> {
-        <btc_relay::Pallet<T>>::_validate_transaction(raw_tx, minimum_btc, btc_address, redeem_id)
+        <btc_relay::Pallet<T>>::_verify_and_validate_transaction(
+            raw_merkle_proof,
+            raw_tx,
+            recipient_btc_address,
+            minimum_btc,
+            op_return_id,
+            confirmations,
+        )
     }
 
     pub fn get_best_block_height<T: btc_relay::Config>() -> u32 {
