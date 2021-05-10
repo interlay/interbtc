@@ -464,7 +464,6 @@ impl<T: Config> Module<T> {
             Error::<T>::ReplacePeriodExpired
         );
 
-        // Call validateTransaction in BTC-Relay
         let amount = TryInto::<u64>::try_into(replace.amount).map_err(|_e| Error::<T>::TryIntoIntError)? as i64;
 
         // check the transaction inclusion and validity

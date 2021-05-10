@@ -33,7 +33,6 @@ use frame_support::{
 };
 use frame_system::{ensure_root, ensure_signed};
 use primitive_types::{H256, U256};
-use sp_core::H160;
 use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 
 // Crates
@@ -232,14 +231,19 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     #[pallet::metadata(T::AccountId = "AccountId")]
     pub enum Event<T: Config> {
+        /// block_height, block_header_hash, relayer_id
         Initialized(u32, H256Le, T::AccountId),
+        /// new chain height, block_header_hash, relayer_id
         StoreMainChainHeader(u32, H256Le, T::AccountId),
+        /// chain_id, fork height, block_header_hash, relayer_id
         StoreForkHeader(u32, u32, H256Le, T::AccountId),
+        /// new_chain_tip, chain height, fork_depth
         ChainReorg(H256Le, u32, u32),
+        /// main chain height, fork height, fork id
         ForkAheadOfMainChain(u32, u32, u32),
-        VerifyTransaction(H256Le, u32, u32),
-        ValidateTransaction(H256Le, u32, H160, H256Le),
+        /// block_hash, chain_id, error
         FlagBlockError(H256Le, u32, ErrorCode),
+        /// block_hash, chain_id, error
         ClearBlockError(H256Le, u32, ErrorCode),
     }
 
@@ -407,22 +411,20 @@ pub mod pallet {
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
-        #[doc = " Global security parameter k for stable Bitcoin transactions"]
+        /// Global security parameter k for stable Bitcoin transactions
         pub bitcoin_confirmations: u32,
-        #[doc = " Global security parameter k for stable Parachain transactions"]
+        /// Global security parameter k for stable Parachain transactions
         pub parachain_confirmations: T::BlockNumber,
-        #[doc = " Whether the module should perform difficulty checks."]
+        /// Whether the module should perform difficulty checks.
         pub disable_difficulty_check: bool,
-        #[doc = " Whether the module should perform inclusion checks."]
+        /// Whether the module should perform inclusion checks.
         pub disable_inclusion_check: bool,
-        #[doc = " Whether the module should perform OP_RETURN checks."]
+        /// Whether the module should perform OP_RETURN checks.
         pub disable_op_return_check: bool,
     }
 
     #[cfg(feature = "std")]
-    impl<T: Config> Default for GenesisConfig<T>
-    // TODO_MAYBE_WHERE_CLAUSE
-    {
+    impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
             Self {
                 bitcoin_confirmations: Default::default(),
