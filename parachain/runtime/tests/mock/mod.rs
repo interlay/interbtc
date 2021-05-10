@@ -8,6 +8,7 @@ pub use bitcoin::{
 };
 pub use btc_parachain_runtime::{AccountId, BlockNumber, Call, Event, Runtime};
 pub use btc_relay::{BtcAddress, BtcPublicKey};
+use frame_support::traits::GenesisBuild;
 pub use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchResultWithPostInfo};
 pub use mocktopus::mocking::*;
 pub use primitive_types::{H256, U256};

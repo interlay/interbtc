@@ -12,7 +12,7 @@ use sp_core::{H160, U256};
 use sp_std::prelude::*;
 use vault_registry::{
     types::{Vault, Wallet},
-    Module as VaultRegistry,
+    Pallet as VaultRegistry,
 };
 
 fn dummy_public_key() -> BtcPublicKey {

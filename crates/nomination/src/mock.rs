@@ -1,6 +1,9 @@
 use crate as nomination;
 use crate::{Config, Error};
-use frame_support::{assert_ok, parameter_types, traits::StorageMapShim};
+use frame_support::{
+    assert_ok, parameter_types,
+    traits::{GenesisBuild, StorageMapShim},
+};
 use mocktopus::mocking::clear_mocks;
 use sp_arithmetic::{FixedI128, FixedU128};
 use sp_core::H256;

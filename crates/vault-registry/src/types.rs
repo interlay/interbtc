@@ -1,10 +1,9 @@
-use crate::{ext, sp_api_hidden_includes_decl_storage::hidden_include::StorageValue, Config, Error, Pallet};
+use crate::{ext, Config, Error, Pallet};
 use codec::{Decode, Encode, HasCompact};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::Currency,
-    StorageMap,
 };
 use sp_arithmetic::FixedPointNumber;
 use sp_core::H256;

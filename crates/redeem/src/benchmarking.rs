@@ -12,7 +12,7 @@ use sp_core::{H160, H256, U256};
 use sp_std::prelude::*;
 use vault_registry::{
     types::{Vault, Wallet},
-    Module as VaultRegistry,
+    Pallet as VaultRegistry,
 };
 
 type Treasury<T> = currency::Pallet<T, currency::Treasury>;
