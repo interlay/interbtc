@@ -93,8 +93,10 @@ pub mod pallet {
             + Into<<Self as frame_system::Config>::Event>
             + IsType<<Self as frame_system::Config>::Event>;
 
+        /// The source of (pseudo) randomness. Set to collective flip
         type RandomnessSource: Randomness<H256, Self::BlockNumber>;
 
+        /// the type of unsigned fixedpoint to use for the different thresholds. Set to FixedU128
         type UnsignedFixedPoint: FixedPointNumber + Encode + EncodeLike + Decode + MaybeSerializeDeserialize;
 
         /// Weight information for the extrinsics in this module.
@@ -305,24 +307,40 @@ pub mod pallet {
     #[pallet::metadata(T::AccountId = "AccountId", Backing<T> = "Backing", Issuing<T> = "Issuing")]
     pub enum Event<T: Config> {
         RegisterVault(T::AccountId, Backing<T>),
-        /// id, new collateral, total collateral, free collateral
+        /// vault_id, new collateral, total collateral, free collateral
         LockAdditionalCollateral(T::AccountId, Backing<T>, Backing<T>, Backing<T>),
-        /// id, withdrawn collateral, total collateral
+        /// vault_id, withdrawn collateral, total collateral
         WithdrawCollateral(T::AccountId, Backing<T>, Backing<T>),
+        /// vault_id, new public key
         UpdatePublicKey(T::AccountId, BtcPublicKey),
+        /// vault_id, new address
         RegisterAddress(T::AccountId, BtcAddress),
+        /// vault_id, additional to-be-issued tokens
         IncreaseToBeIssuedTokens(T::AccountId, Issuing<T>),
+        /// vault_id, decrease in to-be-issued tokens
         DecreaseToBeIssuedTokens(T::AccountId, Issuing<T>),
+        /// vault_id, additional number of issued tokens
         IssueTokens(T::AccountId, Issuing<T>),
+        /// vault_id, additional to-be-redeemed tokens
         IncreaseToBeRedeemedTokens(T::AccountId, Issuing<T>),
+        /// vault_id, decrease in to-be-redeemed tokens
         DecreaseToBeRedeemedTokens(T::AccountId, Issuing<T>),
+        /// vault_id, additional to-be-replaced tokens
         IncreaseToBeReplacedTokens(T::AccountId, Issuing<T>),
+        /// vault_id, user_id, amount of tokens reduced in issued & to-be-redeemed
         DecreaseTokens(T::AccountId, T::AccountId, Issuing<T>),
+        /// vault_id, amount of newly redeemed tokens
         RedeemTokens(T::AccountId, Issuing<T>),
+        /// vault_id, amount of newly redeemed tokens, amount of backing transferred, user_id
         RedeemTokensPremium(T::AccountId, Issuing<T>, Backing<T>, T::AccountId),
+        /// vault_id, amount of newly redeemed tokens, slashed collateral
         RedeemTokensLiquidatedVault(T::AccountId, Issuing<T>, Backing<T>),
+        /// vault_id, amount of burned tokens, transferred collateral
         RedeemTokensLiquidation(T::AccountId, Issuing<T>, Backing<T>),
+        /// old_vault_id, new_vault_id, transferred tokens, additional collateral locked by new_vault
         ReplaceTokens(T::AccountId, T::AccountId, Issuing<T>, Backing<T>),
+        /// vault_id, issued_tokens, to_be_issued_tokens, to_be_redeemed_tokens,
+        /// to_be_replaced_tokens, backing_collateral, status, replace_collateral
         LiquidateVault(
             T::AccountId,
             Issuing<T>,
@@ -451,34 +469,32 @@ pub mod pallet {
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
-        #[doc = " The minimum collateral (e.g. DOT/KSM) a Vault needs to provide"]
-        #[doc = " to participate in the issue process."]
+        /// The minimum collateral (e.g. DOT/KSM) a Vault needs to provide
+        /// to participate in the issue process.
         pub minimum_collateral_vault: Backing<T>,
-        #[doc = " If a Vault fails to execute a correct redeem or replace,"]
-        #[doc = " it is temporarily banned from further issue, redeem or replace requests."]
+        /// If a Vault fails to execute a correct redeem or replace,
+        /// it is temporarily banned from further issue, redeem or replace requests.
         pub punishment_delay: T::BlockNumber,
-        #[doc = " Determines the over-collateralization rate for collateral locked"]
-        #[doc = " by Vaults, necessary for issuing tokens. Must to be strictly"]
-        #[doc = " greater than 100000 and LiquidationCollateralThreshold."]
+        /// Determines the over-collateralization rate for collateral locked
+        /// by Vaults, necessary for issuing tokens. Must to be strictly
+        /// greater than 100000 and LiquidationCollateralThreshold.
         pub secure_collateral_threshold: UnsignedFixedPoint<T>,
-        #[doc = " Determines the rate for the collateral rate of Vaults, at which the"]
-        #[doc = " BTC backed by the Vault are opened up for auction to other Vaults"]
+        /// Determines the rate for the collateral rate of Vaults, at which the
+        /// BTC backed by the Vault are opened up for auction to other Vaults
         pub auction_collateral_threshold: UnsignedFixedPoint<T>,
-        #[doc = " Determines the rate for the collateral rate of Vaults,"]
-        #[doc = " at which users receive a premium, allocated from the"]
-        #[doc = " Vault\'s collateral, when performing a redeem with this Vault."]
-        #[doc = " Must to be strictly greater than 100000 and LiquidationCollateralThreshold."]
+        /// Determines the rate for the collateral rate of Vaults,
+        /// at which users receive a premium, allocated from the
+        /// Vault\'s collateral, when performing a redeem with this Vault.
+        /// Must to be strictly greater than 100000 and LiquidationCollateralThreshold.
         pub premium_redeem_threshold: UnsignedFixedPoint<T>,
-        #[doc = " Determines the lower bound for the collateral rate in issued tokens."]
-        #[doc = " Must be strictly greater than 100000. If a Vault’s collateral rate"]
-        #[doc = " drops below this, automatic liquidation (forced Redeem) is triggered."]
+        /// Determines the lower bound for the collateral rate in issued tokens.
+        /// Must be strictly greater than 100000. If a Vault’s collateral rate
+        /// drops below this, automatic liquidation (forced Redeem) is triggered.
         pub liquidation_collateral_threshold: UnsignedFixedPoint<T>,
     }
 
     #[cfg(feature = "std")]
-    impl<T: Config> Default for GenesisConfig<T>
-    // TODO_MAYBE_WHERE_CLAUSE
-    {
+    impl<T: Config> Default for GenesisConfig<T> {
         fn default() -> Self {
             Self {
                 minimum_collateral_vault: Default::default(),
