@@ -9,6 +9,7 @@ use bitcoin::{
 };
 use frame_benchmarking::{account, benchmarks};
 use frame_system::RawOrigin;
+use primitive_types::H160;
 use security::Pallet as Security;
 use sp_core::{H256, U256};
 use sp_std::prelude::*;
