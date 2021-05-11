@@ -115,13 +115,6 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_initialize(_n: T::BlockNumber) -> Weight {
-            match Self::_on_initialize() {
-                Ok(weight) => weight,
-                _ => <T as Config>::WeightInfo::liquidate_undercollateralized_vaults(0),
-            }
-        }
-
         fn offchain_worker(n: T::BlockNumber) {
             log::info!("Off-chain worker started on block {:?}", n);
             Self::_offchain_worker();
@@ -352,7 +345,7 @@ pub mod pallet {
             _origin: OriginFor<T>,
             vault_id: T::AccountId,
         ) -> DispatchResultWithPostInfo {
-            log::info!("Vault {:?} reported", vault_id);
+            log::info!("Vault reported");
             let vault = Self::get_vault_from_id(&vault_id)?;
             let liquidation_threshold = <LiquidationCollateralThreshold<T>>::get();
             if Self::is_vault_below_liquidation_threshold(&vault, liquidation_threshold)? {
@@ -603,14 +596,6 @@ impl<T: Config> Pallet<T> {
             let call = Call::report_undercollateralized_vault(vault);
             let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
         }
-    }
-
-    pub fn _on_initialize() -> Result<frame_support::pallet_prelude::Weight, DispatchError> {
-        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-
-        let (num_vaults, _) = Self::liquidate_undercollateralized_vaults(LiquidationTarget::NonOperatorsOnly);
-        let weight = <T as Config>::WeightInfo::liquidate_undercollateralized_vaults(num_vaults);
-        Ok(weight)
     }
 
     /// The account ID of the liquidation vault.
@@ -1230,32 +1215,6 @@ impl<T: Config> Pallet<T> {
                 None
             }
         })
-    }
-    /// Automatically liquidates all vaults under the secure threshold
-    pub fn liquidate_undercollateralized_vaults(
-        liquidation_target: LiquidationTarget,
-    ) -> (u32, Vec<(T::AccountId, Backing<T>)>) {
-        let mut num_vaults = 0u32;
-        let liquidation_threshold = LiquidationCollateralThreshold::<T>::get();
-        let mut amounts_slashed = Vec::new();
-
-        for (vault_id, vault) in Vaults::<T>::iter() {
-            num_vaults = num_vaults.saturating_add(1);
-            if Self::is_liquidation_target(&vault_id, &liquidation_target) {
-                if Self::is_vault_below_liquidation_threshold(&vault, liquidation_threshold).unwrap_or(false) {
-                    if let Some(to_slash) = Self::liquidate_vault(&vault_id).ok() {
-                        amounts_slashed.push((vault_id.clone(), to_slash));
-                    }
-                }
-            }
-        }
-        (num_vaults, amounts_slashed)
-    }
-
-    fn is_liquidation_target(vault_id: &T::AccountId, liquidation_target: &LiquidationTarget) -> bool {
-        let is_operator = IsNominationOperator::<T>::get(vault_id.clone());
-        return (is_operator && liquidation_target.eq(&LiquidationTarget::OperatorsOnly))
-            || (!is_operator && liquidation_target.eq(&LiquidationTarget::NonOperatorsOnly));
     }
 
     /// Liquidates a vault, transferring all of its token balances to the `LiquidationVault`.

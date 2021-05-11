@@ -13,7 +13,6 @@ pub trait WeightInfo {
     fn register_address() -> Weight;
     fn accept_new_issues() -> Weight;
     fn report_undercollateralized_vault() -> Weight;
-    fn liquidate_undercollateralized_vaults(u: u32) -> Weight;
 }
 
 impl crate::WeightInfo for () {
@@ -51,12 +50,5 @@ impl crate::WeightInfo for () {
         (48_000_000 as Weight)
             .saturating_add(DbWeight::get().reads(1 as Weight))
             .saturating_add(DbWeight::get().writes(1 as Weight))
-    }
-    fn liquidate_undercollateralized_vaults(u: u32) -> Weight {
-        (16_134_000 as Weight)
-            // Standard Error: 94_000
-            .saturating_add((33_877_000 as Weight).saturating_mul(u as Weight))
-            .saturating_add(DbWeight::get().reads(6 as Weight))
-            .saturating_add(DbWeight::get().reads((1 as Weight).saturating_mul(u as Weight)))
     }
 }

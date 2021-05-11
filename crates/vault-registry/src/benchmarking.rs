@@ -78,24 +78,6 @@ benchmarks! {
 
         ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Config>::UnsignedFixedPoint::checked_from_rational(10, 1).unwrap()).unwrap();
     }: _(RawOrigin::Signed(origin), vault_id)
-
-    liquidate_undercollateralized_vaults {
-        let u in 0 .. 100;
-
-        ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()).unwrap();
-
-        for i in 0..u {
-            let origin: T::AccountId = account("Origin", i, 0);
-            make_free_balance_be::<T>(&origin, (1u32 << 31).into());
-            VaultRegistry::<T>::_register_vault(&origin, 1234567u32.into(), dummy_public_key()).unwrap();
-        }
-        // sanity check
-        if u > 0 {
-            assert_eq!(VaultRegistry::<T>::get_vaults_with_issuable_tokens().unwrap().len(), u as usize);
-        }
-    }: {
-        VaultRegistry::<T>::liquidate_undercollateralized_vaults(LiquidationTarget::NonOperatorsOnly)
-    }
 }
 
 impl_benchmark_test_suite!(
