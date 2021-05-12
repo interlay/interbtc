@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://gitlab.com/interlay/btc-parachain">
+  <a href="https://github.com/interlay/btc-parachain">
     <img src="/docs/img/polkaBtc.png">
   </a>
 
@@ -11,9 +11,9 @@
     <a href="https://interlay.gitlab.io/polkabtc-spec/"><strong>Explore the specification »</strong></a>
     <br />
     <br />
-    <a href="https://gitlab.com/interlay/btc-parachain/-/issues">Report Bug</a>
+    <a href="https://github.com/interlay/btc-parachain/issues">Report Bug</a>
     ·
-    <a href="https://gitlab.com/interlay/btc-parachain/-/issues">Request Feature</a>
+    <a href="https://github.com/interlay/btc-parachain/issues">Request Feature</a>
   </p>
 </p>
 
@@ -173,7 +173,7 @@ To connect with a local relay-chain follow [these instructions](docs/rococo.md).
 
 #### Test Coverage
 
-Test coverage reports available under [docs/testcoverage.html](https://gitlab.com/interlay/btc-parachain/-/blob/dev/docs/testcoverage.html)
+Test coverage reports available under [docs/testcoverage.html](https://github.com/interlay/btc-parachain/blob/master/docs/testcoverage.html)
 
 ### Substrate Chain Configuration
 
