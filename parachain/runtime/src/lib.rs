@@ -898,10 +898,6 @@ impl_runtime_apis! {
             let result = VaultRegistry::get_required_collateral_for_vault(vault_id)?;
             Ok(BalanceWrapper{amount:result})
         }
-
-        fn is_vault_below_auction_threshold(vault: AccountId) -> Result<bool, DispatchError> {
-            VaultRegistry::is_vault_below_auction_threshold(&vault)
-        }
     }
 
     impl module_issue_rpc_runtime_api::IssueApi<

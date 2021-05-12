@@ -46,17 +46,6 @@ pub fn assert_accept_event() -> H256 {
         .unwrap()
 }
 
-pub fn assert_auction_event() -> H256 {
-    SystemModule::events()
-        .iter()
-        .rev()
-        .find_map(|record| match record.event {
-            Event::replace(ReplaceEvent::AuctionReplace(id, _, _, _, _, _, _, _)) => Some(id),
-            _ => None,
-        })
-        .unwrap()
-}
-
 fn accept_replace(amount_btc: u128, griefing_collateral: u128) -> (H256, ReplaceRequest<AccountId32, u32, u128, u128>) {
     assert_ok!(Call::Replace(ReplaceCall::accept_replace(
         account_of(OLD_VAULT),
@@ -67,23 +56,6 @@ fn accept_replace(amount_btc: u128, griefing_collateral: u128) -> (H256, Replace
     .dispatch(origin_of(account_of(NEW_VAULT))));
 
     let replace_id = assert_accept_event();
-    let replace = ReplacePallet::get_open_replace_request(&replace_id).unwrap();
-    (replace_id, replace)
-}
-
-fn auction_replace(
-    amount_btc: u128,
-    griefing_collateral: u128,
-) -> (H256, ReplaceRequest<AccountId32, u32, u128, u128>) {
-    assert_ok!(Call::Replace(ReplaceCall::auction_replace(
-        account_of(OLD_VAULT),
-        amount_btc,
-        griefing_collateral,
-        BtcAddress::P2PKH(H160([1; 20]))
-    ))
-    .dispatch(origin_of(account_of(NEW_VAULT))));
-
-    let replace_id = assert_auction_event();
     let replace = ReplacePallet::get_open_replace_request(&replace_id).unwrap();
     (replace_id, replace)
 }
@@ -215,191 +187,6 @@ mod accept_replace_tests {
         test_with(|| {
             assert_noop!(
                 Call::Replace(ReplaceCall::accept_replace(
-                    account_of(OLD_VAULT),
-                    DEFAULT_VAULT_TO_BE_REPLACED,
-                    10_000,
-                    BtcAddress::P2PKH(H160([1; 20]))
-                ))
-                .dispatch(origin_of(account_of(OLD_VAULT))),
-                ReplaceError::ReplaceSelfNotAllowed
-            );
-        });
-    }
-}
-
-#[cfg(test)]
-mod auction_replace_tests {
-    use super::*;
-
-    fn test_with<R>(execute: impl FnOnce() -> R) -> R {
-        super::test_with(|| {
-            VaultRegistryPallet::set_auction_collateral_threshold(FixedU128::from(10_000));
-            execute()
-        })
-    }
-
-    fn assert_state_after_auction_replace_correct(replace: &ReplaceRequest<AccountId32, u32, u128, u128>) {
-        assert_eq!(
-            ParachainTwoVaultState::get(),
-            ParachainTwoVaultState::default().with_changes(|old_vault, new_vault, _| {
-                new_vault.free_balance -= replace.collateral;
-                new_vault.backing_collateral += replace.collateral;
-
-                // new-vault gets the reward
-                let reward = FeePallet::get_auction_redeem_fee(replace.amount).unwrap();
-                new_vault.backing_collateral += reward;
-                old_vault.backing_collateral -= reward;
-
-                // to_be_replaced & replace_collateral decreases
-                let used_to_be_replaced_tokens = replace.amount.min(old_vault.to_be_replaced);
-                let used_collateral =
-                    (old_vault.replace_collateral * used_to_be_replaced_tokens) / old_vault.to_be_replaced;
-                old_vault.to_be_replaced -= used_to_be_replaced_tokens;
-                // since griefing_collateral includes replace_collateral, both decrease
-                old_vault.replace_collateral -= used_collateral;
-                old_vault.griefing_collateral -= used_collateral;
-
-                // the used collateral gets unlocked
-                old_vault.free_balance += used_collateral;
-
-                old_vault.to_be_redeemed += replace.amount;
-                new_vault.to_be_issued += replace.amount;
-            })
-        );
-    }
-
-    #[test]
-    fn integration_test_replace_auction_replace_at_capacity_succeeds() {
-        test_with(|| {
-            // auction 100% of to-be-replaced
-            let auction_amount = DEFAULT_VAULT_TO_BE_REPLACED;
-            let new_vault_additional_collateral = 10_000;
-
-            let (_, replace) = auction_replace(auction_amount, new_vault_additional_collateral);
-
-            assert_eq!(replace.amount, auction_amount);
-            assert_eq!(replace.collateral, new_vault_additional_collateral);
-            assert_eq!(replace.griefing_collateral, 0);
-
-            assert_state_after_auction_replace_correct(&replace);
-        });
-    }
-
-    #[test]
-    fn integration_test_replace_auction_replace_below_capacity_succeeds() {
-        test_with(|| {
-            // auction 25% of to-be-replaced
-
-            let auction_amount = DEFAULT_VAULT_TO_BE_REPLACED / 4;
-            let new_vault_additional_collateral = 10_000;
-
-            let (_, replace) = auction_replace(auction_amount, new_vault_additional_collateral);
-
-            assert_eq!(replace.amount, auction_amount);
-            assert_eq!(replace.collateral, new_vault_additional_collateral);
-            assert_eq!(replace.griefing_collateral, 0);
-
-            assert_state_after_auction_replace_correct(&replace);
-        });
-    }
-
-    #[test]
-    fn integration_test_replace_auction_replace_above_requested_capacity_succeeds() {
-        test_with(|| {
-            // try 200% of to-be-replaced, but still below total issued tokens
-
-            let auction_amount = DEFAULT_VAULT_TO_BE_REPLACED * 2;
-            let new_vault_additional_collateral = 10_000;
-
-            let (_, replace) = auction_replace(auction_amount, new_vault_additional_collateral);
-
-            assert_eq!(replace.amount, auction_amount);
-            assert_eq!(replace.collateral, new_vault_additional_collateral);
-            assert_eq!(replace.griefing_collateral, 0);
-
-            assert_state_after_auction_replace_correct(&replace);
-        });
-    }
-
-    #[test]
-    fn integration_test_replace_auction_replace_above_auctionable_capacity_succeeds() {
-        test_with(|| {
-            // try 200% of auctionable tokens
-
-            let auction_amount = (DEFAULT_VAULT_ISSUED - DEFAULT_VAULT_TO_BE_REDEEMED) * 2;
-            let new_vault_additional_collateral = 10_000;
-
-            let (_, replace) = auction_replace(auction_amount, new_vault_additional_collateral);
-
-            assert_eq!(replace.amount, auction_amount / 2);
-            assert_eq!(replace.collateral, new_vault_additional_collateral / 2);
-            assert_eq!(replace.griefing_collateral, 0);
-
-            assert_state_after_auction_replace_correct(&replace);
-        });
-    }
-
-    #[test]
-    fn integration_test_replace_auction_replace_below_dust_fails() {
-        test_with(|| {
-            // if the new_vault _asks_ for an amount below below DUST, it gets rejected
-
-            assert_noop!(
-                Call::Replace(ReplaceCall::auction_replace(
-                    account_of(OLD_VAULT),
-                    1,
-                    10_000,
-                    BtcAddress::P2PKH(H160([1; 20]))
-                ))
-                .dispatch(origin_of(account_of(NEW_VAULT))),
-                ReplaceError::AmountBelowDustAmount
-            );
-
-            // check that auction fails if the old_vault does not have sufficient issued tokens
-            CoreVaultData::force_to(
-                OLD_VAULT,
-                CoreVaultData {
-                    issued: 1,
-                    backing_collateral: 100,
-                    to_be_redeemed: 0,
-                    to_be_replaced: 0,
-                    ..default_vault_state()
-                },
-            );
-            assert_noop!(
-                Call::Replace(ReplaceCall::auction_replace(
-                    account_of(OLD_VAULT),
-                    1000,
-                    10_000,
-                    BtcAddress::P2PKH(H160([1; 20]))
-                ))
-                .dispatch(origin_of(account_of(NEW_VAULT))),
-                ReplaceError::AmountBelowDustAmount
-            );
-
-            // check that auction _does_ succeed if to_be_replaced is low, but the issued tokens is sufficient
-            CoreVaultData::force_to(
-                OLD_VAULT,
-                CoreVaultData {
-                    to_be_replaced: 1,
-                    ..default_vault_state()
-                },
-            );
-            assert_ok!(Call::Replace(ReplaceCall::auction_replace(
-                account_of(OLD_VAULT),
-                1000,
-                10_000,
-                BtcAddress::P2PKH(H160([1; 20]))
-            ))
-            .dispatch(origin_of(account_of(NEW_VAULT))));
-        });
-    }
-
-    #[test]
-    fn integration_test_replace_auction_replace_self_fails() {
-        test_with(|| {
-            assert_noop!(
-                Call::Replace(ReplaceCall::auction_replace(
                     account_of(OLD_VAULT),
                     DEFAULT_VAULT_TO_BE_REPLACED,
                     10_000,
@@ -668,26 +455,13 @@ mod withdraw_replace_tests {
 mod expiry_test {
     use super::*;
 
-    /// test replace created by accept and auction
+    /// test replace created by accept
     fn test_with(initial_period: u32, execute: impl Fn(H256)) {
         let amount_btc = 5_000;
         let griefing_collateral = 1000;
         super::test_with(|| {
             set_replace_period(initial_period);
             let (replace_id, _replace) = accept_replace(amount_btc, griefing_collateral);
-            execute(replace_id);
-        });
-
-        super::test_with(|| {
-            set_replace_period(initial_period);
-            CoreVaultData::force_to(
-                OLD_VAULT,
-                CoreVaultData {
-                    backing_collateral: 1000,
-                    ..default_vault_state()
-                },
-            );
-            let (replace_id, _replace) = auction_replace(amount_btc, griefing_collateral);
             execute(replace_id);
         });
     }
@@ -746,63 +520,9 @@ mod expiry_test {
 }
 
 #[test]
-fn integration_test_replace_auction_replace() {
-    ExtBuilder::build().execute_with(|| {
-        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
-        set_default_thresholds();
-        SecurityPallet::set_active_block_number(1);
-
-        let user = CAROL;
-        let old_vault = ALICE;
-        let new_vault = BOB;
-        let issued_tokens = 1_000;
-        let collateral = required_collateral_for_issue(issued_tokens);
-        let replace_collateral = collateral * 2;
-
-        // let old_vault_btc_address = BtcAddress::P2PKH(H160([1; 20]));
-        let new_vault_btc_address = BtcAddress::P2PKH(H160([2; 20]));
-
-        // old vault has issued some tokens with the user
-        force_issue_tokens(user, old_vault, collateral, issued_tokens);
-
-        // new vault joins
-        assert_ok!(
-            Call::VaultRegistry(VaultRegistryCall::register_vault(collateral, dummy_public_key()))
-                .dispatch(origin_of(account_of(new_vault)))
-        );
-        // exchange rate drops and vault is not collateralized any more
-        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
-            FixedU128::checked_from_integer(2).unwrap()
-        ));
-
-        let initial_old_vault_collateral =
-            currency::Pallet::<Runtime, currency::Collateral>::get_reserved_balance(&account_of(old_vault));
-
-        // new_vault takes over old_vault's position
-        assert_ok!(Call::Replace(ReplaceCall::auction_replace(
-            account_of(old_vault),
-            issued_tokens,
-            replace_collateral,
-            new_vault_btc_address
-        ))
-        .dispatch(origin_of(account_of(new_vault))));
-
-        let final_old_vault_collateral =
-            currency::Pallet::<Runtime, currency::Collateral>::get_reserved_balance(&account_of(old_vault));
-
-        // auction fee is taken from old vault collateral
-        let replace_amount_backing = ExchangeRateOraclePallet::issuing_to_backing(issued_tokens).unwrap();
-        let auction_fee = FeePallet::get_auction_redeem_fee(replace_amount_backing).unwrap();
-        assert_eq!(final_old_vault_collateral, initial_old_vault_collateral - auction_fee);
-    });
-}
-
-#[test]
 fn integration_test_replace_with_parachain_shutdown_fails() {
     test_with(|| {
         SecurityPallet::set_status(StatusCode::Shutdown);
-        // make vault auctionable
-        VaultRegistryPallet::set_auction_collateral_threshold(FixedU128::from(10_000));
 
         assert_noop!(
             Call::Replace(ReplaceCall::request_replace(0, 0)).dispatch(origin_of(account_of(OLD_VAULT))),
@@ -815,17 +535,6 @@ fn integration_test_replace_with_parachain_shutdown_fails() {
         assert_noop!(
             Call::Replace(ReplaceCall::accept_replace(
                 Default::default(),
-                0,
-                0,
-                Default::default()
-            ))
-            .dispatch(origin_of(account_of(OLD_VAULT))),
-            SecurityError::ParachainShutdown
-        );
-
-        assert_noop!(
-            Call::Replace(ReplaceCall::auction_replace(
-                account_of(OLD_VAULT),
                 0,
                 0,
                 Default::default()
@@ -944,165 +653,6 @@ fn integration_test_replace_cancel_replace() {
         // alice cancels replacement
         SecurityPallet::set_active_block_number(30);
         assert_ok!(Call::Replace(ReplaceCall::cancel_replace(replace_id)).dispatch(origin_of(account_of(ALICE))));
-    });
-}
-
-#[test]
-fn integration_test_replace_cancel_auction_replace() {
-    ExtBuilder::build().execute_with(|| {
-        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
-        set_default_thresholds();
-        SecurityPallet::set_active_block_number(1);
-        let new_vault_btc_address = BtcAddress::P2PKH(H160([2; 20]));
-
-        let user = CAROL;
-        let old_vault = ALICE;
-        let new_vault = BOB;
-        let issued_tokens = 1_000;
-        let collateral = required_collateral_for_issue(issued_tokens);
-        let replace_collateral = collateral * 2;
-
-        // let old_vault_btc_address = BtcAddress::P2PKH(H160([1; 20]));
-
-        // old vault has issued some tokens with the user
-        force_issue_tokens(user, old_vault, collateral, issued_tokens);
-
-        // new vault joins
-        assert_ok!(
-            Call::VaultRegistry(VaultRegistryCall::register_vault(collateral, dummy_public_key()))
-                .dispatch(origin_of(account_of(new_vault)))
-        );
-
-        // exchange rate drops and vault is not collateralized any more
-        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
-            FixedU128::checked_from_integer(2).unwrap()
-        ));
-
-        let initial_new_vault_collateral =
-            currency::Pallet::<Runtime, currency::Collateral>::get_reserved_balance(&account_of(new_vault));
-        let initial_old_vault_collateral =
-            currency::Pallet::<Runtime, currency::Collateral>::get_reserved_balance(&account_of(old_vault));
-
-        // new_vault takes over old_vault's position
-        assert_ok!(Call::Replace(ReplaceCall::auction_replace(
-            account_of(old_vault),
-            issued_tokens,
-            replace_collateral,
-            new_vault_btc_address
-        ))
-        .dispatch(origin_of(account_of(new_vault))));
-
-        // check old vault collateral
-        let replace_amount_backing = ExchangeRateOraclePallet::issuing_to_backing(issued_tokens).unwrap();
-        let auction_fee = FeePallet::get_auction_redeem_fee(replace_amount_backing).unwrap();
-        assert_eq!(
-            currency::Pallet::<Runtime, currency::Collateral>::get_reserved_balance(&account_of(old_vault)),
-            initial_old_vault_collateral - auction_fee
-        );
-        // check new vault collateral
-        assert_eq!(
-            currency::Pallet::<Runtime, currency::Collateral>::get_reserved_balance(&account_of(new_vault)),
-            initial_new_vault_collateral + auction_fee + replace_collateral
-        );
-
-        let replace_id = assert_auction_event();
-
-        SecurityPallet::set_active_block_number(30);
-
-        assert_ok!(Call::Replace(ReplaceCall::cancel_replace(replace_id)).dispatch(origin_of(account_of(BOB))));
-
-        // check old vault collateral
-        assert_eq!(
-            currency::Pallet::<Runtime, currency::Collateral>::get_reserved_balance(&account_of(old_vault)),
-            initial_old_vault_collateral - auction_fee
-        );
-
-        // check new vault collateral. It should have received auction fee, griefing collateral and
-        // the collateral that was reserved for this replace should have been released
-        assert_eq!(
-            currency::Pallet::<Runtime, currency::Collateral>::get_reserved_balance(&account_of(new_vault)),
-            initial_new_vault_collateral + auction_fee
-        );
-    });
-}
-
-#[test]
-fn integration_test_replace_cancel_repeatedly_fails() {
-    ExtBuilder::build().execute_with(|| {
-        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
-        set_default_thresholds();
-        SecurityPallet::set_active_block_number(1);
-
-        let user = CAROL;
-        let old_vault = ALICE;
-        let new_vault = BOB;
-        let issued_tokens = 1_000;
-        let collateral = required_collateral_for_issue(issued_tokens);
-        let replace_collateral = collateral * 2;
-
-        // let old_vault_btc_address = BtcAddress::P2PKH(H160([1; 20]));
-        let new_vault_btc_address1 = BtcAddress::P2PKH(H160([2; 20]));
-        let new_vault_btc_address2 = BtcAddress::P2PKH(H160([3; 20]));
-        let new_vault_btc_address3 = BtcAddress::P2PKH(H160([4; 20]));
-        let new_vault_btc_address4 = BtcAddress::P2PKH(H160([5; 20]));
-
-        // old vault has issued some tokens with the user
-        force_issue_tokens(user, old_vault, collateral, issued_tokens);
-
-        // new vault joins
-        assert_ok!(
-            Call::VaultRegistry(VaultRegistryCall::register_vault(collateral, dummy_public_key()))
-                .dispatch(origin_of(account_of(new_vault)))
-        );
-        // exchange rate drops and vault is not collateralized any more
-        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
-            FixedU128::checked_from_integer(2).unwrap()
-        ));
-
-        // let initial_new_vault_collateral =
-        //     currency::Pallet::<Runtime, currency::Collateral>::get_reserved_balance(&account_of(new_vault));
-        // let initial_old_vault_collateral =
-        //     currency::Pallet::<Runtime, currency::Collateral>::get_reserved_balance(&account_of(old_vault));
-
-        // new_vault takes over old_vault's position
-        assert_ok!(Call::Replace(ReplaceCall::auction_replace(
-            account_of(old_vault),
-            750,
-            replace_collateral,
-            new_vault_btc_address1
-        ))
-        .dispatch(origin_of(account_of(new_vault))));
-
-        assert_ok!(Call::Replace(ReplaceCall::auction_replace(
-            account_of(old_vault),
-            200,
-            replace_collateral,
-            new_vault_btc_address2
-        ))
-        .dispatch(origin_of(account_of(new_vault))));
-
-        // old_vault at this point only has 50 satoshi left, so this should fail
-        // TODO: change back to assert_noop
-        assert_ok!(Call::Replace(ReplaceCall::auction_replace(
-            account_of(old_vault),
-            200,
-            replace_collateral,
-            new_vault_btc_address3
-        ))
-        .dispatch(origin_of(account_of(new_vault))));
-
-        // old_vault at this point only has 50 satoshi left. This should partially succeed
-        // TODO: change back to assert_noop
-        assert_noop!(
-            Call::Replace(ReplaceCall::auction_replace(
-                account_of(old_vault),
-                200,
-                replace_collateral,
-                new_vault_btc_address4
-            ))
-            .dispatch(origin_of(account_of(new_vault))),
-            ReplaceError::AmountBelowDustAmount
-        );
     });
 }
 

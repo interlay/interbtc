@@ -49,8 +49,5 @@ sp_api::decl_runtime_apis! {
         /// Get the amount of collateral required for the given vault to be at the
         /// current SecureCollateralThreshold with the current exchange rate
         fn get_required_collateral_for_vault(vault_id: AccountId) -> Result<BalanceWrapper<Backing>, DispatchError>;
-
-        /// Simple check to validate whether a vault is below the `AuctionThreshold`
-        fn is_vault_below_auction_threshold(vault: AccountId) -> Result<bool, DispatchError>;
     }
 }

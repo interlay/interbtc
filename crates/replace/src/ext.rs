@@ -54,12 +54,6 @@ pub(crate) mod vault_registry {
         <vault_registry::Pallet<T>>::replace_tokens(&old_vault_id, &new_vault_id, tokens, collateral)
     }
 
-    pub fn get_auctionable_tokens<T: vault_registry::Config>(
-        vault_id: &T::AccountId,
-    ) -> Result<Issuing<T>, DispatchError> {
-        <vault_registry::Pallet<T>>::get_auctionable_tokens(vault_id)
-    }
-
     pub fn cancel_replace_tokens<T: vault_registry::Config>(
         old_vault_id: &T::AccountId,
         new_vault_id: &T::AccountId,
@@ -77,12 +71,6 @@ pub(crate) mod vault_registry {
         tokens: Issuing<T>,
     ) -> DispatchResult {
         <vault_registry::Pallet<T>>::try_increase_to_be_redeemed_tokens(vault_id, tokens)
-    }
-
-    pub fn is_vault_below_auction_threshold<T: vault_registry::Config>(
-        vault_id: T::AccountId,
-    ) -> Result<bool, DispatchError> {
-        <vault_registry::Pallet<T>>::is_vault_below_auction_threshold(&vault_id)
     }
 
     pub fn ensure_not_banned<T: vault_registry::Config>(vault: &T::AccountId) -> DispatchResult {
@@ -220,10 +208,6 @@ pub(crate) mod fee {
 
     pub fn get_replace_griefing_collateral<T: fee::Config>(amount: Backing<T>) -> Result<Backing<T>, DispatchError> {
         <fee::Pallet<T>>::get_replace_griefing_collateral(amount)
-    }
-
-    pub fn get_auction_redeem_fee<T: fee::Config>(amount: Backing<T>) -> Result<Backing<T>, DispatchError> {
-        <fee::Pallet<T>>::get_auction_redeem_fee(amount)
     }
 }
 

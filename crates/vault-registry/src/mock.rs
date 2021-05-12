@@ -206,7 +206,6 @@ impl ExtBuilder {
             minimum_collateral_vault: 0,
             punishment_delay: 0,
             secure_collateral_threshold: FixedU128::one(),
-            auction_collateral_threshold: FixedU128::one(),
             premium_redeem_threshold: FixedU128::one(),
             liquidation_collateral_threshold: FixedU128::one(),
         }
@@ -232,12 +231,10 @@ impl ExtBuilder {
 
 fn set_default_thresholds() {
     let secure = FixedU128::checked_from_rational(200, 100).unwrap(); // 200%
-    let auction = FixedU128::checked_from_rational(150, 100).unwrap(); // 150%
     let premium = FixedU128::checked_from_rational(120, 100).unwrap(); // 120%
     let liquidation = FixedU128::checked_from_rational(110, 100).unwrap(); // 110%
 
     VaultRegistry::set_secure_collateral_threshold(secure);
-    VaultRegistry::set_auction_collateral_threshold(auction);
     VaultRegistry::set_premium_redeem_threshold(premium);
     VaultRegistry::set_liquidation_collateral_threshold(liquidation);
 }

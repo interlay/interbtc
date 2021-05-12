@@ -240,7 +240,6 @@ impl ExtBuilder {
             refund_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
             redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
             premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(), // 5%
-            auction_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(), // 5%
             punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
             replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
             maintainer_account_id: 1,
@@ -260,7 +259,6 @@ impl ExtBuilder {
             minimum_collateral_vault: 0,
             punishment_delay: 8,
             secure_collateral_threshold: FixedU128::checked_from_rational(200, 100).unwrap(),
-            auction_collateral_threshold: FixedU128::checked_from_rational(150, 100).unwrap(),
             premium_redeem_threshold: FixedU128::checked_from_rational(120, 100).unwrap(),
             liquidation_collateral_threshold: FixedU128::checked_from_rational(110, 100).unwrap(),
         }

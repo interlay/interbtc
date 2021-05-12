@@ -56,7 +56,6 @@ benchmarks! {
         VaultRegistry::<T>::_register_vault(&vault_id, 100000000u32.into(), dummy_public_key()).unwrap();
 
         let threshold = <T as vault_registry::Config>::UnsignedFixedPoint::one();
-        VaultRegistry::<T>::set_auction_collateral_threshold(threshold);
         VaultRegistry::<T>::set_secure_collateral_threshold(threshold);
         ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()).unwrap();
 
@@ -95,29 +94,6 @@ benchmarks! {
         Replace::<T>::insert_replace_request(&replace_id, &replace_request);
 
     }: _(RawOrigin::Signed(new_vault_id), old_vault_id, amount.into(), collateral.into(), new_vault_btc_address)
-
-    auction_replace {
-        let old_vault_id: T::AccountId = account("Origin", 0, 0);
-        let new_vault_id: T::AccountId = account("Vault", 0, 0);
-        make_free_balance_be::<T>(&old_vault_id, (1u32 << 31).into());
-        make_free_balance_be::<T>(&new_vault_id, (1u32 << 31).into());
-        let dust_value =  Replace::<T>::replace_btc_dust_value().try_into().unwrap_or(0u32);
-        let btc_amount: u32 = dust_value + 100;
-        let collateral: u32 = btc_amount * 2;
-
-        let new_vault_btc_address = BtcAddress::P2SH(H160([0; 20]));
-
-        ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()).unwrap();
-
-        VaultRegistry::<T>::_register_vault(&old_vault_id, collateral.into(), dummy_public_key()).unwrap();
-        VaultRegistry::<T>::_register_vault(&new_vault_id, collateral.into(), dummy_public_key()).unwrap();
-
-        VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap()); // 0.001%
-        VaultRegistry::<T>::set_auction_collateral_threshold(<T as vault_registry::Config>::UnsignedFixedPoint::checked_from_rational(10000, 100).unwrap()); // 10000%
-
-        VaultRegistry::<T>::try_increase_to_be_issued_tokens(&old_vault_id, btc_amount.into()).unwrap();
-        VaultRegistry::<T>::issue_tokens(&old_vault_id, btc_amount.into()).unwrap();
-    }: _(RawOrigin::Signed(new_vault_id), old_vault_id, btc_amount.into(), collateral.into(), new_vault_btc_address)
 
     execute_replace {
         let new_vault_id: T::AccountId = account("Origin", 0, 0);
