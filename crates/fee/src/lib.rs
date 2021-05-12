@@ -89,10 +89,6 @@ decl_storage! {
         /// they can earn a collateral premium, slashed from the Vault.
         PremiumRedeemFee get(fn premium_redeem_fee) config(): UnsignedFixedPoint<T>;
 
-        /// Fee paid to Vaults to auction / force-replace undercollateralized Vaults.
-        /// This is slashed from the replaced Vault's collateral.
-        AuctionRedeemFee get(fn auction_redeem_fee) config(): UnsignedFixedPoint<T>;
-
         /// Fee that a Vault has to pay if it fails to execute redeem or replace requests
         /// (for redeem, on top of the slashed value of the request). The fee is
         /// paid in collateral based on the token amount at the current exchange rate.
@@ -445,16 +441,6 @@ impl<T: Config> Module<T> {
     /// * `amount` - amount in collateral (at current exchange rate)
     pub fn get_premium_redeem_fee(amount: Backing<T>) -> Result<Backing<T>, DispatchError> {
         Self::backing_for(amount, <PremiumRedeemFee<T>>::get())
-    }
-
-    /// Calculate the auction redeem fee in collateral for a new Vault to receive for
-    /// successfully auctioning another Vault.
-    ///
-    /// # Arguments
-    ///
-    /// * `amount` - amount in collateral (at current exchange rate)
-    pub fn get_auction_redeem_fee(amount: Backing<T>) -> Result<Backing<T>, DispatchError> {
-        Self::backing_for(amount, <AuctionRedeemFee<T>>::get())
     }
 
     /// Calculate punishment fee for a Vault that fails to execute a redeem

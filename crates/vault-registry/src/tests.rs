@@ -912,23 +912,6 @@ fn get_required_collateral_for_issuing_with_threshold_succeeds() {
     })
 }
 
-#[test]
-fn _is_vault_below_auction_threshold_false_succeeds() {
-    run_test(|| {
-        // vault has 200% collateral ratio
-        let id = create_sample_vault();
-
-        assert_ok!(VaultRegistry::try_increase_to_be_issued_tokens(&id, 50),);
-        let res = VaultRegistry::issue_tokens(&id, 50);
-        assert_ok!(res);
-
-        ext::collateral::for_account::<Test>.mock_safe(|_| MockResult::Return(DEFAULT_COLLATERAL));
-        ext::oracle::backing_to_issuing::<Test>.mock_safe(|_| MockResult::Return(Ok(DEFAULT_COLLATERAL)));
-
-        assert_eq!(VaultRegistry::is_vault_below_auction_threshold(&id), Ok(false))
-    });
-}
-
 // Security integration tests
 #[test]
 fn register_vault_parachain_not_running_fails() {

@@ -9,7 +9,6 @@ pub trait WeightInfo {
     fn request_replace() -> Weight;
     fn withdraw_replace() -> Weight;
     fn accept_replace() -> Weight;
-    fn auction_replace() -> Weight;
     fn execute_replace() -> Weight;
     fn cancel_replace() -> Weight;
     fn set_replace_period() -> Weight;
@@ -30,11 +29,6 @@ impl crate::WeightInfo for () {
         124_104_000_u64
             .saturating_add(DbWeight::get().reads(10_u64))
             .saturating_add(DbWeight::get().writes(3_u64))
-    }
-    fn auction_replace() -> Weight {
-        188_428_000_u64
-            .saturating_add(DbWeight::get().reads(13_u64))
-            .saturating_add(DbWeight::get().writes(5_u64))
     }
     fn execute_replace() -> Weight {
         218_546_000_u64

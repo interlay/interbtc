@@ -407,7 +407,6 @@ fn testnet_genesis(
             punishment_delay: DAYS,
             secure_collateral_threshold: FixedU128::checked_from_rational(150, 100).unwrap(), // 150%
             premium_redeem_threshold: FixedU128::checked_from_rational(135, 100).unwrap(),    // 135%
-            auction_collateral_threshold: FixedU128::checked_from_rational(120, 100).unwrap(), // 120%
             liquidation_collateral_threshold: FixedU128::checked_from_rational(110, 100).unwrap(), // 110%
         },
         fee: FeeConfig {
@@ -416,7 +415,6 @@ fn testnet_genesis(
             refund_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
             redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
             premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(), // 5%
-            auction_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(), // 5%
             punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
             replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
             maintainer_account_id: maintainer,

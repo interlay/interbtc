@@ -103,16 +103,6 @@ decl_event!(
         AcceptReplace(H256, AccountId, AccountId, Issuing, Backing, BtcAddress),
         // [replace_id, old_vault_id, new_vault_id]
         ExecuteReplace(H256, AccountId, AccountId),
-        AuctionReplace(
-            H256,       // replace_id
-            AccountId,  // old_vault_id
-            AccountId,  // new_vault_id
-            Issuing,    // btc_amount
-            Backing,    // collateral
-            Backing,    // reward
-            Backing,    // griefing_collateral
-            BtcAddress, // btc_address
-        ),
         // [replace_id, new_vault_id, old_vault_id, griefing_collateral]
         CancelReplace(H256, AccountId, AccountId, Backing),
     }
@@ -224,25 +214,6 @@ decl_module! {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let new_vault = ensure_signed(origin)?;
             Self::_accept_replace(old_vault, new_vault, amount_btc, collateral, btc_address)?;
-            Ok(())
-        }
-
-        /// Auction forces vault replacement
-        ///
-        /// # Arguments
-        ///
-        /// * `origin` - sender of the transaction: the new vault
-        /// * `old_vault` - the old vault of the replacement request
-        /// * `btc_amount` - the btc amount to be transferred over from old to new
-        /// * `collateral` - the collateral to be transferred over from old to new
-        #[weight = <T as Config>::WeightInfo::auction_replace()]
-        #[transactional]
-        fn auction_replace(origin, old_vault: T::AccountId, #[compact] btc_amount: Issuing<T>, #[compact] collateral: Backing<T>, btc_address: BtcAddress)
-            -> DispatchResult
-        {
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-            let new_vault = ensure_signed(origin)?;
-            Self::_auction_replace(old_vault, new_vault, btc_amount, collateral, btc_address)?;
             Ok(())
         }
 
@@ -385,8 +356,52 @@ impl<T: Config> Module<T> {
         collateral: Backing<T>,
         btc_address: BtcAddress,
     ) -> Result<(), DispatchError> {
-        let (replace_id, replace) =
-            Self::initiate_replace(new_vault_id, old_vault_id, collateral, amount_btc, btc_address, false)?;
+        // don't allow vaults to replace themselves
+        ensure!(old_vault_id != new_vault_id, Error::<T>::ReplaceSelfNotAllowed);
+
+        // Check that new vault is not currently banned
+        ext::vault_registry::ensure_not_banned::<T>(&new_vault_id)?;
+
+        // Add the new replace address to the vault's wallet,
+        // this should also verify that the vault exists
+        ext::vault_registry::insert_vault_deposit_address::<T>(&new_vault_id, btc_address)?;
+
+        // decrease old-vault's to-be-replaced tokens
+        let (redeemable_tokens, griefing_collateral) =
+            ext::vault_registry::decrease_to_be_replaced_tokens::<T>(&old_vault_id, amount_btc)?;
+
+        // check amount_btc is above the minimum
+        let dust_value = <ReplaceBtcDustValue<T>>::get();
+        ensure!(redeemable_tokens >= dust_value, Error::<T>::AmountBelowDustAmount);
+
+        // Calculate and lock the new-vault's additional collateral
+        let actual_new_vault_collateral =
+            ext::vault_registry::calculate_collateral::<T>(collateral, redeemable_tokens, amount_btc)?;
+
+        ext::vault_registry::lock_additional_collateral::<T>(&new_vault_id, actual_new_vault_collateral)?;
+
+        // increase old-vault's to-be-redeemed tokens - this should never fail
+        ext::vault_registry::try_increase_to_be_redeemed_tokens::<T>(&old_vault_id, redeemable_tokens)?;
+
+        // increase new-vault's to-be-issued tokens - this will fail if there is insufficient collateral
+        ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&new_vault_id, redeemable_tokens)?;
+
+        let replace_id = ext::security::get_secure_id::<T>(&old_vault_id);
+
+        let replace = ReplaceRequest {
+            old_vault: old_vault_id,
+            new_vault: new_vault_id,
+            accept_time: ext::security::active_block_number::<T>(),
+            collateral: actual_new_vault_collateral,
+            btc_address,
+            griefing_collateral,
+            amount: redeemable_tokens,
+            period: Self::replace_period(),
+            btc_height: ext::btc_relay::get_best_block_height::<T>(),
+            status: ReplaceRequestStatus::Pending,
+        };
+
+        Self::insert_replace_request(&replace_id, &replace);
 
         Self::insert_replace_request(&replace_id, &replace);
 
@@ -397,53 +412,6 @@ impl<T: Config> Module<T> {
             replace.new_vault,
             replace.amount,
             replace.collateral,
-            replace.btc_address,
-        ));
-
-        Ok(())
-    }
-
-    fn _auction_replace(
-        old_vault_id: T::AccountId,
-        new_vault_id: T::AccountId,
-        amount_btc: Issuing<T>,
-        collateral: Backing<T>,
-        btc_address: BtcAddress,
-    ) -> Result<(), DispatchError> {
-        // Check that the oldVault is below the AuctionCollateralThreshold by calculating his current
-        // oldVault.issuedTokens and the oldVault.collateral
-        ensure!(
-            ext::vault_registry::is_vault_below_auction_threshold::<T>(old_vault_id.clone())?,
-            Error::<T>::VaultOverAuctionThreshold
-        );
-
-        let (replace_id, replace) = Self::initiate_replace(
-            new_vault_id.clone(),
-            old_vault_id.clone(),
-            collateral,
-            amount_btc,
-            btc_address,
-            true,
-        )?;
-
-        // claim auctioning fee that is proportional to replace amount
-        let backing_amount = ext::oracle::issuing_to_backing::<T>(replace.amount)?;
-        let reward = ext::fee::get_auction_redeem_fee::<T>(backing_amount)?;
-        ext::vault_registry::slash_collateral::<T>(
-            CurrencySource::Backing(old_vault_id),
-            CurrencySource::Backing(new_vault_id),
-            reward,
-        )?;
-
-        // Emit AuctionReplace event.
-        Self::deposit_event(<Event<T>>::AuctionReplace(
-            replace_id,
-            replace.old_vault,
-            replace.new_vault,
-            replace.amount,
-            replace.collateral,
-            reward,
-            replace.griefing_collateral,
             replace.btc_address,
         ));
 
@@ -553,82 +521,6 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn initiate_replace(
-        new_vault_id: T::AccountId,
-        old_vault_id: T::AccountId,
-        collateral: Backing<T>,
-        amount_btc: Issuing<T>,
-        btc_address: BtcAddress,
-        is_auction: bool,
-    ) -> Result<
-        (
-            H256,
-            ReplaceRequest<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>,
-        ),
-        DispatchError,
-    > {
-        // don't allow vaults to replace themselves
-        ensure!(old_vault_id != new_vault_id, Error::<T>::ReplaceSelfNotAllowed);
-
-        // Check that new vault is not currently banned
-        ext::vault_registry::ensure_not_banned::<T>(&new_vault_id)?;
-
-        // Add the new replace address to the vault's wallet,
-        // this should also verify that the vault exists
-        ext::vault_registry::insert_vault_deposit_address::<T>(&new_vault_id, btc_address)?;
-
-        // decrease old-vault's to-be-replaced tokens
-        let (freely_redeemable_tokens, griefing_collateral) =
-            ext::vault_registry::decrease_to_be_replaced_tokens::<T>(&old_vault_id, amount_btc)?;
-
-        if is_auction {
-            // griefing collateral is not used in auction; release it
-            ext::collateral::release_collateral::<T>(&old_vault_id, griefing_collateral)?;
-        }
-
-        // if this is an auction, we are only limited by the amount of tokens the old_vault has issued
-        let actual_btc = if is_auction {
-            amount_btc.min(ext::vault_registry::get_auctionable_tokens::<T>(&old_vault_id)?)
-        } else {
-            freely_redeemable_tokens
-        };
-
-        // check amount_btc is above the minimum
-        let dust_value = <ReplaceBtcDustValue<T>>::get();
-        ensure!(actual_btc >= dust_value, Error::<T>::AmountBelowDustAmount);
-
-        // Calculate and lock the new-vault's additional collateral
-        let actual_new_vault_collateral =
-            ext::vault_registry::calculate_collateral::<T>(collateral, actual_btc, amount_btc)?;
-
-        ext::vault_registry::lock_additional_collateral::<T>(&new_vault_id, actual_new_vault_collateral)?;
-
-        // increase old-vault's to-be-redeemed tokens - this should never fail
-        ext::vault_registry::try_increase_to_be_redeemed_tokens::<T>(&old_vault_id, actual_btc)?;
-
-        // increase new-vault's to-be-issued tokens - this will fail if there is insufficient collateral
-        ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&new_vault_id, actual_btc)?;
-
-        let replace_id = ext::security::get_secure_id::<T>(&old_vault_id);
-
-        let replace = ReplaceRequest {
-            old_vault: old_vault_id,
-            new_vault: new_vault_id,
-            accept_time: ext::security::active_block_number::<T>(),
-            collateral: actual_new_vault_collateral,
-            btc_address,
-            griefing_collateral: if is_auction { 0u32.into() } else { griefing_collateral },
-            amount: actual_btc,
-            period: Self::replace_period(),
-            btc_height: ext::btc_relay::get_best_block_height::<T>(),
-            status: ReplaceRequestStatus::Pending,
-        };
-
-        Self::insert_replace_request(&replace_id, &replace);
-
-        Ok((replace_id, replace))
-    }
-
     /// Fetch all replace requests from the specified vault.
     ///
     /// # Arguments
@@ -713,7 +605,6 @@ decl_error! {
         InsufficientCollateral,
         NoPendingRequest,
         UnauthorizedVault,
-        VaultOverAuctionThreshold,
         ReplaceSelfNotAllowed,
         CancelAcceptedRequest,
         CollateralBelowSecureThreshold,

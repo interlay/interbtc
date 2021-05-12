@@ -94,9 +94,6 @@ where
         vault_id: AccountId,
         at: Option<BlockHash>,
     ) -> JsonRpcResult<BalanceWrapper<Backing>>;
-
-    #[rpc(name = "vaultRegistry_isVaultBelowAuctionThreshold")]
-    fn is_vault_below_auction_threshold(&self, vault: AccountId, at: Option<BlockHash>) -> JsonRpcResult<bool>;
 }
 
 /// A struct that implements the [`VaultRegistryApi`].
@@ -319,20 +316,6 @@ where
                     data: Some(format!("{:?}", e).into()),
                 })
             },
-        )
-    }
-
-    fn is_vault_below_auction_threshold(
-        &self,
-        vault: AccountId,
-        at: Option<<Block as BlockT>::Hash>,
-    ) -> JsonRpcResult<bool> {
-        let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
-
-        handle_response(
-            api.is_vault_below_auction_threshold(&at, vault),
-            "Unable to check if vault is below auction threshold.".into(),
         )
     }
 }

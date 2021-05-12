@@ -743,7 +743,7 @@ fn integration_test_redeem_banning() {
             },
         );
 
-        // setup vault2 to be auctionable
+        // setup vault2 to be replacable
         CoreVaultData::force_to(
             vault2,
             CoreVaultData {
@@ -784,18 +784,6 @@ fn integration_test_redeem_banning() {
         // banned vault can not accept replace
         assert_noop!(
             Call::Replace(ReplaceCall::accept_replace(
-                account_of(vault2),
-                1000,
-                1000,
-                BtcAddress::default()
-            ))
-            .dispatch(origin_of(account_of(VAULT))),
-            VaultRegistryError::VaultBanned,
-        );
-
-        // banned vault can not auction replace
-        assert_noop!(
-            Call::Replace(ReplaceCall::auction_replace(
                 account_of(vault2),
                 1000,
                 1000,

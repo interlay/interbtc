@@ -459,12 +459,6 @@ pub mod pallet {
     #[pallet::getter(fn secure_collateral_threshold)]
     pub(super) type SecureCollateralThreshold<T: Config> = StorageValue<_, UnsignedFixedPoint<T>, ValueQuery>;
 
-    /// Determines the rate for the collateral rate of Vaults, at which the
-    /// BTC backed by the Vault are opened up for auction to other Vaults
-    #[pallet::storage]
-    #[pallet::getter(fn auction_collateral_threshold)]
-    pub(super) type AuctionCollateralThreshold<T: Config> = StorageValue<_, UnsignedFixedPoint<T>, ValueQuery>;
-
     /// Determines the rate for the collateral rate of Vaults,
     /// at which users receive a premium, allocated from the
     /// Vault's collateral, when performing a redeem with this Vault.
@@ -536,9 +530,6 @@ pub mod pallet {
         /// by Vaults, necessary for issuing tokens. Must to be strictly
         /// greater than 100000 and LiquidationCollateralThreshold.
         pub secure_collateral_threshold: UnsignedFixedPoint<T>,
-        /// Determines the rate for the collateral rate of Vaults, at which the
-        /// BTC backed by the Vault are opened up for auction to other Vaults
-        pub auction_collateral_threshold: UnsignedFixedPoint<T>,
         /// Determines the rate for the collateral rate of Vaults,
         /// at which users receive a premium, allocated from the
         /// Vault\'s collateral, when performing a redeem with this Vault.
@@ -557,7 +548,6 @@ pub mod pallet {
                 minimum_collateral_vault: Default::default(),
                 punishment_delay: Default::default(),
                 secure_collateral_threshold: Default::default(),
-                auction_collateral_threshold: Default::default(),
                 premium_redeem_threshold: Default::default(),
                 liquidation_collateral_threshold: Default::default(),
             }
@@ -570,7 +560,6 @@ pub mod pallet {
             MinimumCollateralVault::<T>::put(self.minimum_collateral_vault);
             PunishmentDelay::<T>::put(self.punishment_delay);
             SecureCollateralThreshold::<T>::put(self.secure_collateral_threshold);
-            AuctionCollateralThreshold::<T>::put(self.auction_collateral_threshold);
             PremiumRedeemThreshold::<T>::put(self.premium_redeem_threshold);
             LiquidationCollateralThreshold::<T>::put(self.liquidation_collateral_threshold);
             StorageVersion::<T>::put(Version::V1);
@@ -1325,10 +1314,6 @@ impl<T: Config> Pallet<T> {
         Ok(Self::get_vault_from_id(&vault_id)?.is_liquidated())
     }
 
-    pub fn is_vault_below_auction_threshold(vault_id: &T::AccountId) -> Result<bool, DispatchError> {
-        Self::is_vault_below_threshold(&vault_id, AuctionCollateralThreshold::<T>::get())
-    }
-
     pub fn is_vault_below_premium_threshold(vault_id: &T::AccountId) -> Result<bool, DispatchError> {
         Self::is_vault_below_threshold(&vault_id, PremiumRedeemThreshold::<T>::get())
     }
@@ -1348,15 +1333,6 @@ impl<T: Config> Pallet<T> {
         Self::is_collateral_below_threshold(vault.backing_collateral, tokens, liquidation_threshold)
     }
 
-    pub fn get_auctionable_tokens(vault_id: &T::AccountId) -> Result<Issuing<T>, DispatchError> {
-        let vault = Self::get_rich_vault_from_id(&vault_id)?.data;
-
-        Ok(vault
-            .issued_tokens
-            .checked_sub(&vault.to_be_redeemed_tokens)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?)
-    }
-
     pub fn is_collateral_below_secure_threshold(
         collateral: Backing<T>,
         btc_amount: Issuing<T>,
@@ -1371,10 +1347,6 @@ impl<T: Config> Pallet<T> {
 
     pub fn set_secure_collateral_threshold(threshold: UnsignedFixedPoint<T>) {
         SecureCollateralThreshold::<T>::set(threshold);
-    }
-
-    pub fn set_auction_collateral_threshold(threshold: UnsignedFixedPoint<T>) {
-        AuctionCollateralThreshold::<T>::set(threshold);
     }
 
     pub fn set_premium_redeem_threshold(threshold: UnsignedFixedPoint<T>) {
