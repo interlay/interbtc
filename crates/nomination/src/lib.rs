@@ -32,7 +32,6 @@ use sp_arithmetic::FixedPointNumber;
 use sp_runtime::traits::{CheckedAdd, Zero};
 use types::{Backing, DefaultOperator, RichOperator, UnsignedFixedPoint};
 pub use types::{Nominator, Operator};
-use vault_registry::LiquidationTarget;
 
 pub trait WeightInfo {
     fn set_nomination_enabled() -> Weight;
@@ -178,26 +177,10 @@ decl_module! {
             ext::security::ensure_parachain_status_running::<T>()?;
             Self::_execute_collateral_withdrawal(&account_id, &operator_id)
         }
-
-        fn on_initialize(n: T::BlockNumber) -> Weight {
-            if let Err(e) = Self::begin_block(n) {
-                sp_runtime::print(e);
-            }
-            0
-        }
     }
 }
 
 impl<T: Config> Module<T> {
-    fn begin_block(_height: T::BlockNumber) -> DispatchResult {
-        let (_, liquidated_operator_amounts) =
-            ext::vault_registry::liquidate_undercollateralized_vaults::<T>(LiquidationTarget::OperatorsOnly);
-        for (operator_id, total_slashed_amount) in liquidated_operator_amounts {
-            Self::slash_nominators(operator_id.clone(), VaultStatus::Liquidated, total_slashed_amount)?;
-        }
-        Ok(())
-    }
-
     pub fn set_max_nomination_ratio(limit: UnsignedFixedPoint<T>) -> DispatchResult {
         <MaxNominationRatio<T>>::set(limit);
         Ok(())

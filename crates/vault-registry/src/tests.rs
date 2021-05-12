@@ -1,23 +1,26 @@
 use crate::{
     ext,
     mock::{
-        run_test, CollateralError, LiquidationTarget, Origin, SecurityError, System, Test, TestError, TestEvent,
-        VaultRegistry, DEFAULT_COLLATERAL, DEFAULT_ID, MULTI_VAULT_TEST_COLLATERAL, MULTI_VAULT_TEST_IDS, OTHER_ID,
-        RICH_COLLATERAL, RICH_ID,
+        run_test, set_default_thresholds, CollateralError, Extrinsic, Origin, SecurityError, System, Test, TestError,
+        TestEvent, VaultRegistry, DEFAULT_COLLATERAL, DEFAULT_ID, MULTI_VAULT_TEST_COLLATERAL, MULTI_VAULT_TEST_IDS,
+        OTHER_ID, RICH_COLLATERAL, RICH_ID,
     },
     types::{Backing, BtcAddress, Issuing},
     BtcPublicKey, CurrencySource, DispatchError, Error, UpdatableVault, Vault, VaultStatus, Vaults, Wallet, H256,
 };
-use frame_support::{assert_err, assert_noop, assert_ok};
+use codec::Decode;
+use frame_support::{assert_err, assert_noop, assert_ok, traits::OnInitialize};
 use mocktopus::mocking::*;
 use primitive_types::U256;
 use security::Pallet as Security;
 use sp_arithmetic::{FixedPointNumber, FixedU128};
-use sp_runtime::traits::Header;
+use sp_runtime::{
+    offchain::{testing::TestTransactionPoolExt, TransactionPoolExt},
+    traits::Header,
+};
 use sp_std::convert::TryInto;
-use std::{collections::HashMap, rc::Rc};
+
 type Event = crate::Event<Test>;
-use frame_support::traits::OnInitialize;
 
 // use macro to avoid messing up stack trace
 macro_rules! assert_emitted {
@@ -769,117 +772,6 @@ fn is_collateral_below_threshold_true_succeeds() {
             Ok(true)
         );
     })
-}
-
-#[test]
-fn test_liquidate_undercollateralized_vaults_no_liquidation() {
-    run_test(|| {
-        Vaults::<Test>::insert(
-            0,
-            Vault {
-                id: 0,
-                ..Default::default()
-            },
-        );
-        Vaults::<Test>::insert(
-            1,
-            Vault {
-                id: 1,
-                ..Default::default()
-            },
-        );
-        Vaults::<Test>::insert(
-            2,
-            Vault {
-                id: 2,
-                ..Default::default()
-            },
-        );
-        Vaults::<Test>::insert(
-            3,
-            Vault {
-                id: 3,
-                ..Default::default()
-            },
-        );
-        Vaults::<Test>::insert(
-            4,
-            Vault {
-                id: 4,
-                ..Default::default()
-            },
-        );
-
-        let vaults: HashMap<<Test as frame_system::Config>::AccountId, bool> =
-            vec![(0, false), (1, false), (2, false), (3, false), (4, false)]
-                .into_iter()
-                .collect();
-
-        VaultRegistry::is_vault_below_liquidation_threshold
-            .mock_safe(move |vault, _| MockResult::Return(Ok(*vaults.get(&vault.id).unwrap())));
-        VaultRegistry::liquidate_vault.mock_safe(move |_| {
-            panic!("Should not liquidate any vaults");
-        });
-
-        VaultRegistry::liquidate_undercollateralized_vaults(LiquidationTarget::NonOperatorsOnly);
-    });
-}
-
-#[test]
-fn test_liquidate_undercollateralized_vaults_succeeds() {
-    run_test(|| {
-        Vaults::<Test>::insert(
-            0,
-            Vault {
-                id: 0,
-                ..Default::default()
-            },
-        );
-        Vaults::<Test>::insert(
-            1,
-            Vault {
-                id: 1,
-                ..Default::default()
-            },
-        );
-        Vaults::<Test>::insert(
-            2,
-            Vault {
-                id: 2,
-                ..Default::default()
-            },
-        );
-        Vaults::<Test>::insert(
-            3,
-            Vault {
-                id: 3,
-                ..Default::default()
-            },
-        );
-        Vaults::<Test>::insert(
-            4,
-            Vault {
-                id: 4,
-                ..Default::default()
-            },
-        );
-
-        let vaults: HashMap<<Test as frame_system::Config>::AccountId, bool> =
-            vec![(0, true), (1, false), (2, true), (3, false), (4, false)]
-                .into_iter()
-                .collect();
-        let vaults1 = Rc::new(vaults);
-        let vaults2 = vaults1.clone();
-
-        VaultRegistry::is_vault_below_liquidation_threshold
-            .mock_safe(move |vault, _| MockResult::Return(Ok(*vaults1.get(&vault.id).unwrap())));
-        VaultRegistry::liquidate_vault.mock_safe(move |id| {
-            assert!(vaults2.get(id).unwrap());
-            MockResult::Return(Ok(10u128))
-        });
-
-        VaultRegistry::liquidate_undercollateralized_vaults(LiquidationTarget::NonOperatorsOnly);
-    });
 }
 
 #[test]
@@ -1822,5 +1714,43 @@ fn test_decrease_to_be_replaced_tokens_below_capacity() {
         let (tokens, collateral) = VaultRegistry::decrease_to_be_replaced_tokens(&vault_id, 3).unwrap();
         assert_eq!(tokens, 3);
         assert_eq!(collateral, 7);
+    })
+}
+
+#[test]
+fn test_offchain_worker_unsigned_transaction_submission() {
+    let mut externalities = crate::mock::ExtBuilder::build();
+    let (pool, pool_state) = TestTransactionPoolExt::new();
+    externalities.register_extension(TransactionPoolExt::new(pool));
+
+    externalities.execute_with(|| {
+        // setup state:
+        let id = 7;
+        System::set_block_number(1);
+        Security::<Test>::set_active_block_number(1);
+        set_default_thresholds();
+        VaultRegistry::insert_vault(
+            &id,
+            Vault {
+                id,
+                ..Default::default()
+            },
+        );
+
+        // mock that all vaults need to be liquidated
+        VaultRegistry::is_vault_below_liquidation_threshold.mock_safe(move |_, _| MockResult::Return(Ok(true)));
+
+        // call the actual function we want to test
+        VaultRegistry::_offchain_worker();
+
+        // check that a transaction has been added to liquidate the vault
+        let tx = pool_state.write().transactions.pop().unwrap();
+        assert!(pool_state.read().transactions.is_empty());
+        let tx = Extrinsic::decode(&mut &*tx).unwrap();
+        assert_eq!(tx.signature, None); // unsigned
+        assert_eq!(
+            tx.call,
+            crate::mock::Call::VaultRegistry(crate::Call::report_undercollateralized_vault(id))
+        );
     })
 }

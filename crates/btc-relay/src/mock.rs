@@ -8,7 +8,7 @@ use mocktopus::mocking::clear_mocks;
 use sp_arithmetic::{FixedI128, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
-    testing::Header,
+    testing::{Header, TestXt},
     traits::{BlakeTwo256, IdentityLookup},
     ModuleId,
 };
@@ -16,6 +16,7 @@ use sp_runtime::{
 pub const BITCOIN_CONFIRMATIONS: u32 = 6;
 pub const PARACHAIN_CONFIRMATIONS: u64 = 20;
 
+type TestExtrinsic = TestXt<Call, ()>;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -157,6 +158,14 @@ impl sla::Config for Test {
 
 parameter_types! {
     pub const VaultModuleId: ModuleId = ModuleId(*b"mod/vreg");
+}
+
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
+where
+    Call: From<C>,
+{
+    type OverarchingCall = Call;
+    type Extrinsic = TestExtrinsic;
 }
 
 impl vault_registry::Config for Test {

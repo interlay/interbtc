@@ -8,11 +8,12 @@ use mocktopus::mocking::{clear_mocks, MockResult, Mockable};
 use sp_arithmetic::{FixedPointNumber, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
-    testing::Header,
+    testing::{Header, TestXt},
     traits::{BlakeTwo256, IdentityLookup},
     ModuleId,
 };
 
+pub(crate) type Extrinsic = TestXt<Call, ()>;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -35,7 +36,7 @@ frame_support::construct_runtime!(
 
         // Operational
         Security: security::{Pallet, Call, Storage, Event<T>},
-        VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>},
+        VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned},
         ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
     }
 );
@@ -169,6 +170,14 @@ impl Config for Test {
     type WeightInfo = ();
 }
 
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
+where
+    Call: From<C>,
+{
+    type OverarchingCall = Call;
+    type Extrinsic = Extrinsic;
+}
+
 impl security::Config for Test {
     type Event = TestEvent;
 }
@@ -177,7 +186,6 @@ pub type TestEvent = Event;
 pub type TestError = Error<Test>;
 pub type SecurityError = security::Error<Test>;
 pub type CollateralError = currency::Error<Test, currency::Instance1>;
-pub type LiquidationTarget = vault_registry::LiquidationTarget;
 
 pub struct ExtBuilder;
 
@@ -230,7 +238,7 @@ impl ExtBuilder {
     }
 }
 
-fn set_default_thresholds() {
+pub(crate) fn set_default_thresholds() {
     let secure = FixedU128::checked_from_rational(200, 100).unwrap(); // 200%
     let auction = FixedU128::checked_from_rational(150, 100).unwrap(); // 150%
     let premium = FixedU128::checked_from_rational(120, 100).unwrap(); // 120%

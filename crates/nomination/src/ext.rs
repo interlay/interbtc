@@ -24,8 +24,6 @@ pub(crate) mod vault_registry {
     use crate::Backing;
     pub use ::vault_registry::VaultStatus;
     pub use frame_support::dispatch::{DispatchError, DispatchResult};
-    use sp_std::vec::Vec;
-    use vault_registry::LiquidationTarget;
 
     pub fn get_backing_collateral<T: vault_registry::Config>(
         vault_id: &T::AccountId,
@@ -76,12 +74,6 @@ pub(crate) mod vault_registry {
 
     pub fn set_is_nomination_operator<T: vault_registry::Config>(vault_id: &T::AccountId, is_operator: bool) {
         <vault_registry::Pallet<T>>::set_is_nomination_operator(vault_id, is_operator)
-    }
-
-    pub fn liquidate_undercollateralized_vaults<T: vault_registry::Config>(
-        liquidation_target: LiquidationTarget,
-    ) -> (u32, Vec<(T::AccountId, Backing<T>)>) {
-        <vault_registry::Pallet<T>>::liquidate_undercollateralized_vaults(liquidation_target)
     }
 }
 

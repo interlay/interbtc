@@ -28,7 +28,7 @@ use mocktopus::macros::mockable;
 
 use crate::types::{
     Backing, BtcAddress, DefaultSystemVault, DefaultVault, Inner, Issuing, RichSystemVault, RichVault,
-    UnsignedFixedPoint, UpdatableVault, Version,
+    UnsignedFixedPoint, UpdatableVault, VaultStatusV1, VaultV1, Version,
 };
 #[doc(inline)]
 pub use crate::types::{BtcPublicKey, CurrencySource, SystemVault, Vault, VaultStatus, Wallet};
@@ -39,16 +39,25 @@ use frame_support::{
     traits::{Get, Randomness},
     transactional,
 };
+use frame_system::{
+    ensure_signed,
+    offchain::{SendTransactionTypes, SubmitTransaction},
+};
 use primitive_types::U256;
 use sp_arithmetic::{traits::*, FixedPointNumber};
 use sp_core::H256;
-use sp_runtime::{traits::AccountIdConversion, ModuleId};
+use sp_runtime::{
+    traits::AccountIdConversion,
+    transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction},
+    ModuleId,
+};
 use sp_std::{
     convert::{TryFrom, TryInto},
     vec::Vec,
 };
 
-use crate::types::{VaultStatusV1, VaultV1};
+// value taken from https://github.com/substrate-developer-hub/recipes/blob/master/pallets/ocw-demo/src/lib.rs
+pub const UNSIGNED_TXS_PRIORITY: u64 = 100;
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
@@ -83,6 +92,7 @@ pub mod pallet {
         + currency::Config<currency::Treasury>
         + exchange_rate_oracle::Config
         + security::Config
+        + SendTransactionTypes<Call<Self>>
     {
         /// The vault module id, used for deriving its sovereign account ID.
         #[pallet::constant] // put the constant in metadata
@@ -105,11 +115,9 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_initialize(_n: T::BlockNumber) -> Weight {
-            match Self::_on_initialize() {
-                Ok(weight) => weight,
-                _ => <T as Config>::WeightInfo::liquidate_undercollateralized_vaults(0),
-            }
+        fn offchain_worker(n: T::BlockNumber) {
+            log::info!("Off-chain worker started on block {:?}", n);
+            Self::_offchain_worker();
         }
 
         fn on_runtime_upgrade() -> Weight {
@@ -164,6 +172,36 @@ pub mod pallet {
             }
 
             0
+        }
+    }
+
+    #[pallet::validate_unsigned]
+    impl<T: Config> frame_support::unsigned::ValidateUnsigned for Pallet<T> {
+        type Call = Call<T>;
+
+        fn validate_unsigned(source: TransactionSource, call: &Self::Call) -> TransactionValidity {
+            match source {
+                TransactionSource::External => {
+                    // receiving unsigned transaction from network - disallow
+                    return InvalidTransaction::Call.into();
+                }
+                TransactionSource::Local => {}   // produced by off-chain worker
+                TransactionSource::InBlock => {} // some other node included it in a block
+            };
+
+            let valid_tx = |provide| {
+                ValidTransaction::with_tag_prefix("vault-registry")
+                    .priority(UNSIGNED_TXS_PRIORITY)
+                    .and_provides([&provide])
+                    .longevity(3)
+                    .propagate(false)
+                    .build()
+            };
+
+            match call {
+                Call::report_undercollateralized_vault(_) => valid_tx(b"report_undercollateralized_vault".to_vec()),
+                _ => InvalidTransaction::Call.into(),
+            }
         }
     }
 
@@ -300,6 +338,24 @@ pub mod pallet {
             vault.set_accept_new_issues(accept_new_issues)?;
             Ok(().into())
         }
+
+        #[pallet::weight(<T as Config>::WeightInfo::report_undercollateralized_vault())]
+        #[transactional]
+        fn report_undercollateralized_vault(
+            _origin: OriginFor<T>,
+            vault_id: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
+            log::info!("Vault reported");
+            let vault = Self::get_vault_from_id(&vault_id)?;
+            let liquidation_threshold = <LiquidationCollateralThreshold<T>>::get();
+            if Self::is_vault_below_liquidation_threshold(&vault, liquidation_threshold)? {
+                Self::liquidate_vault(&vault_id)?;
+                Ok(().into())
+            } else {
+                log::info!("Not liquidating; vault not below liquidation threshold");
+                Err(Error::<T>::VaultNotBelowLiquidationThreshold.into())
+            }
+        }
     }
 
     #[pallet::event]
@@ -381,6 +437,7 @@ pub mod pallet {
         InvalidPublicKey,
         NominationOperatorCannotWithdrawDirectly,
         VaultIsNotANominationOperator,
+        VaultNotBelowLiquidationThreshold,
     }
 
     /// The minimum collateral (e.g. DOT/KSM) a Vault needs to provide
@@ -533,12 +590,12 @@ impl<T: Config> Pallet<T> {
         TotalUserVaultBackingCollateral::<T>::set(total);
     }
 
-    pub fn _on_initialize() -> Result<frame_support::pallet_prelude::Weight, DispatchError> {
-        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-
-        let (num_vaults, _) = Self::liquidate_undercollateralized_vaults(LiquidationTarget::NonOperatorsOnly);
-        let weight = <T as Config>::WeightInfo::liquidate_undercollateralized_vaults(num_vaults);
-        Ok(weight)
+    fn _offchain_worker() {
+        for vault in Self::undercollateralized_vaults() {
+            log::info!("Reporting vault {:?}", vault);
+            let call = Call::report_undercollateralized_vault(vault);
+            let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
+        }
     }
 
     /// The account ID of the liquidation vault.
@@ -1149,31 +1206,15 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Automatically liquidates all vaults under the secure threshold
-    pub fn liquidate_undercollateralized_vaults(
-        liquidation_target: LiquidationTarget,
-    ) -> (u32, Vec<(T::AccountId, Backing<T>)>) {
-        let mut num_vaults = 0u32;
-        let liquidation_threshold = LiquidationCollateralThreshold::<T>::get();
-        let mut amounts_slashed = Vec::new();
-
-        for (vault_id, vault) in Vaults::<T>::iter() {
-            num_vaults = num_vaults.saturating_add(1);
-            if Self::is_liquidation_target(&vault_id, &liquidation_target) {
-                if Self::is_vault_below_liquidation_threshold(&vault, liquidation_threshold).unwrap_or(false) {
-                    if let Some(to_slash) = Self::liquidate_vault(&vault_id).ok() {
-                        amounts_slashed.push((vault_id.clone(), to_slash));
-                    }
-                }
+    fn undercollateralized_vaults() -> impl Iterator<Item = T::AccountId> {
+        <Vaults<T>>::iter().filter_map(|(vault_id, vault)| {
+            let liquidation_threshold = <LiquidationCollateralThreshold<T>>::get();
+            if Self::is_vault_below_liquidation_threshold(&vault, liquidation_threshold).unwrap_or(false) {
+                Some(vault_id)
+            } else {
+                None
             }
-        }
-        (num_vaults, amounts_slashed)
-    }
-
-    fn is_liquidation_target(vault_id: &T::AccountId, liquidation_target: &LiquidationTarget) -> bool {
-        let is_operator = IsNominationOperator::<T>::get(vault_id.clone());
-        return (is_operator && liquidation_target.eq(&LiquidationTarget::OperatorsOnly))
-            || (!is_operator && liquidation_target.eq(&LiquidationTarget::NonOperatorsOnly));
+        })
     }
 
     /// Liquidates a vault, transferring all of its token balances to the `LiquidationVault`.
