@@ -666,38 +666,3 @@ fn test_store_block_header_and_update_sla_fails_with_invalid() {
         );
     })
 }
-
-#[test]
-fn test_runtime_upgrade() {
-    use crate::{sp_api_hidden_includes_decl_storage::hidden_include::StorageHasher, types::StakedRelayer};
-    use codec::Encode;
-    use frame_support::{storage::migration, Blake2_128Concat};
-
-    run_test(|| {
-        let active: StakedRelayer<Balance, BlockNumber> = StakedRelayer {
-            height: 51,
-            stake: 12u32.into(),
-        };
-        migration::put_storage_value(
-            b"Staking",
-            b"ActiveStakedRelayers",
-            &Blake2_128Concat::hash(&ALICE.encode()),
-            active,
-        );
-
-        let inactive: StakedRelayer<Balance, BlockNumber> = StakedRelayer {
-            height: 51,
-            stake: 13u32.into(),
-        };
-        migration::put_storage_value(
-            b"Staking",
-            b"ActiveStakedRelayers",
-            &Blake2_128Concat::hash(&BOB.encode()),
-            inactive,
-        );
-
-        StakedRelayers::_on_runtime_upgrade();
-        assert_eq!(crate::Stakes::<Test>::get(ALICE), 12);
-        assert_eq!(crate::Stakes::<Test>::get(BOB), 13);
-    })
-}

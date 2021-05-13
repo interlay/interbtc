@@ -84,18 +84,8 @@ pub mod pallet {
 
     #[pallet::hooks]
     impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
-        /// Upgrade the runtime depending on the current `StorageVersion`.
-        fn on_runtime_upgrade() -> Weight {
-            if !ActiveBlockCount::<T>::exists() {
-                let chain_height = <frame_system::Pallet<T>>::block_number();
-                ActiveBlockCount::<T>::set(chain_height);
-            }
-            0
-        }
-
         fn on_initialize(_chain_height: T::BlockNumber) -> Weight {
             Self::increment_active_block();
-
             0
         }
     }

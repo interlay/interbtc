@@ -228,17 +228,3 @@ fn test_calculate_reward() {
         assert_eq!(Sla::_calculate_relayer_reward(&ALICE, 1_000_000), Ok(500_000));
     })
 }
-
-#[test]
-fn test_runtime_upgrade() {
-    run_test(|| {
-        assert!(!crate::LifetimeIssued::exists());
-
-        ext::vault_registry::get_total_issued_tokens::<Test>.mock_safe(|_| MockResult::Return(Ok(5u32.into())));
-        Sla::issuing_to_u128.mock_safe(|_| MockResult::Return(Ok(10u128)));
-
-        Sla::_on_runtime_upgrade();
-
-        assert_eq!(crate::LifetimeIssued::get(), 10);
-    })
-}

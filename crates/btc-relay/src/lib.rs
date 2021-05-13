@@ -70,14 +70,7 @@ pub mod pallet {
     }
 
     #[pallet::hooks]
-    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
-        fn on_runtime_upgrade() -> Weight {
-            if !StartBlockHeight::<T>::exists() {
-                StartBlockHeight::<T>::set(0);
-            }
-            0
-        }
-    }
+    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {}
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {

@@ -149,50 +149,6 @@ pub struct Vault<AccountId, BlockNumber, Issuing, Backing> {
     pub status: VaultStatus,
 }
 
-#[derive(Encode, Decode, Clone, Copy, PartialEq, Eq, Debug)]
-pub enum VaultStatusV1 {
-    /// Vault is active
-    Active = 0,
-
-    /// Vault has been liquidated
-    Liquidated = 1,
-
-    /// Vault theft has been reported
-    CommittedTheft = 2,
-}
-
-impl Default for VaultStatusV1 {
-    fn default() -> Self {
-        VaultStatusV1::Active
-    }
-}
-
-#[derive(Encode, Decode, Default, Clone, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
-pub struct VaultV1<AccountId, BlockNumber, Issuing, Backing> {
-    /// Account identifier of the Vault
-    pub id: AccountId,
-    /// Number of tokens that have been requested for a replace through
-    /// `request_replace`, but that have not been accepted yet by a new_vault.
-    pub to_be_replaced_tokens: Issuing,
-    /// Number of tokens pending issue
-    pub to_be_issued_tokens: Issuing,
-    /// Number of issued tokens
-    pub issued_tokens: Issuing,
-    /// Number of tokens pending redeem
-    pub to_be_redeemed_tokens: Issuing,
-    /// Bitcoin address of this Vault (P2PKH, P2SH, P2PKH, P2WSH)
-    pub wallet: Wallet,
-    /// Amount of collateral that is locked to back tokens. Note that
-    /// this excludes griefing collateral.
-    pub backing_collateral: Backing,
-    /// Block height until which this Vault is banned from being
-    /// used for Issue, Redeem (except during automatic liquidation) and Replace .
-    pub banned_until: Option<BlockNumber>,
-    /// Current status of the vault
-    pub status: VaultStatusV1,
-}
-
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug, serde::Serialize, serde::Deserialize))]
 pub struct SystemVault<Issuing> {

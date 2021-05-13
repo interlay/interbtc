@@ -28,7 +28,7 @@ use mocktopus::macros::mockable;
 
 use crate::types::{
     Backing, BtcAddress, DefaultSystemVault, DefaultVault, Inner, Issuing, RichSystemVault, RichVault,
-    UnsignedFixedPoint, UpdatableVault, VaultStatusV1, VaultV1, Version,
+    UnsignedFixedPoint, UpdatableVault, Version,
 };
 #[doc(inline)]
 pub use crate::types::{BtcPublicKey, CurrencySource, SystemVault, Vault, VaultStatus, Wallet};
@@ -118,60 +118,6 @@ pub mod pallet {
         fn offchain_worker(n: T::BlockNumber) {
             log::info!("Off-chain worker started on block {:?}", n);
             Self::_offchain_worker();
-        }
-
-        fn on_runtime_upgrade() -> Weight {
-            use frame_support::{migration::StorageKeyIterator, storage::generator::StorageMap, Blake2_128Concat};
-
-            if matches!(Self::storage_version(), Version::V0 | Version::V1) {
-                StorageKeyIterator::<
-                    T::AccountId,
-                    VaultV1<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>,
-                    Blake2_128Concat,
-                >::new(Vaults::<T>::module_prefix(), b"Vaults")
-                .drain()
-                .for_each(|(id, legacy_vault)| {
-                    let new_vault = Vault {
-                        id: legacy_vault.id,
-                        to_be_issued_tokens: legacy_vault.to_be_issued_tokens,
-                        issued_tokens: legacy_vault.issued_tokens,
-                        to_be_redeemed_tokens: legacy_vault.to_be_redeemed_tokens,
-                        wallet: legacy_vault.wallet,
-                        backing_collateral: legacy_vault.backing_collateral,
-                        banned_until: legacy_vault.banned_until,
-
-                        // unaccepted V1 replace requests are closed upon upgrade
-                        replace_collateral: 0u32.into(),
-                        to_be_replaced_tokens: 0u32.into(),
-
-                        status: {
-                            match legacy_vault.status {
-                                VaultStatusV1::Active => VaultStatus::Active(true),
-                                VaultStatusV1::Liquidated => VaultStatus::Liquidated,
-                                VaultStatusV1::CommittedTheft => VaultStatus::CommittedTheft,
-                            }
-                        },
-                    };
-                    Vaults::<T>::insert(id, new_vault);
-                });
-
-                let next_account_id = Self::liquidation_vault_account_id();
-                let prev_account_id = LiquidationVaultAccountId::<T>::take();
-
-                // transfer collateral
-                let amount_backing = ext::collateral::get_free_balance::<T>(&prev_account_id);
-                ext::collateral::transfer::<T>(&prev_account_id, &next_account_id, amount_backing)
-                    .expect("failed to transfer collateral");
-
-                // tranfer tokens
-                let amount_btc = ext::treasury::get_free_balance::<T>(prev_account_id.clone());
-                ext::treasury::transfer::<T>(prev_account_id, next_account_id, amount_btc)
-                    .expect("failed to transfer tokens");
-
-                StorageVersion::<T>::put(Version::V2);
-            }
-
-            0
         }
     }
 
@@ -569,16 +515,6 @@ pub mod pallet {
 
 #[cfg_attr(test, mockable)]
 impl<T: Config> Pallet<T> {
-    fn _on_runtime_upgrade() {
-        // initialize TotalUserVaultBackingCollateral
-        let total = Vaults::<T>::iter()
-            .map(|(_, vault)| vault.backing_collateral)
-            .fold(Some(0u32.into()), |total: Option<Backing<T>>, x| total?.checked_add(&x))
-            .unwrap_or(0u32.into());
-
-        TotalUserVaultBackingCollateral::<T>::set(total);
-    }
-
     fn _offchain_worker() {
         for vault in Self::undercollateralized_vaults() {
             log::info!("Reporting vault {:?}", vault);
