@@ -29,13 +29,12 @@ pub mod types;
 #[doc(inline)]
 pub use crate::types::{RedeemRequest, RedeemRequestStatus};
 
-use crate::types::{Backing, Issuing, RedeemRequestV2, Version};
+use crate::types::{Backing, Issuing, Version};
 use btc_relay::BtcAddress;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure, transactional,
-    weights::Weight,
 };
 use frame_system::{ensure_root, ensure_signed};
 use primitive_types::H256;
@@ -122,36 +121,6 @@ decl_module! {
         // Initializing events
         // this is needed only if you are using events in your pallet
         fn deposit_event() = default;
-
-        /// Upgrade the runtime depending on the current `StorageVersion`.
-        fn on_runtime_upgrade() -> Weight {
-            use frame_support::{migration::StorageKeyIterator, Blake2_128Concat};
-
-            if matches!(Self::storage_version(), Version::V2) {
-                StorageKeyIterator::<H256, RedeemRequestV2<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>, Blake2_128Concat>::new(<RedeemRequests<T>>::module_prefix(), b"RedeemRequests")
-                    .drain()
-                    .for_each(|(id, old_request)| {
-                        let new_request = RedeemRequest {
-                            vault: old_request.vault,
-                            opentime: old_request.opentime,
-                            period: Self::redeem_period(),
-                            fee: old_request.fee,
-                            amount_btc: old_request.amount_btc,
-                            premium: old_request.premium_dot,
-                            redeemer: old_request.redeemer,
-                            btc_address: old_request.btc_address,
-                            btc_height: 1969929, // extra conservative, testnet height at april 4th
-                            status: old_request.status,
-                            transfer_fee_btc: 0u32.into(),
-                        };
-                        <RedeemRequests<T>>::insert(id, new_request);
-                    });
-
-                StorageVersion::put(Version::V3);
-            }
-
-            0
-        }
 
         /// Initializes a request to burn issued tokens against a Vault with sufficient tokens. It will
         /// also ensure that the Parachain status is RUNNING.

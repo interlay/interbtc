@@ -8,10 +8,6 @@ pub(crate) mod collateral {
 
     type CollateralPallet<T> = currency::Pallet<T, currency::Collateral>;
 
-    pub fn get_free_balance<T: currency::Config<currency::Collateral>>(id: &T::AccountId) -> Backing<T> {
-        CollateralPallet::<T>::get_free_balance(id)
-    }
-
     pub fn transfer<T: currency::Config<currency::Collateral>>(
         sender: T::AccountId,
         receiver: T::AccountId,
@@ -27,10 +23,6 @@ pub(crate) mod treasury {
     use frame_support::dispatch::DispatchResult;
 
     type TreasuryPallet<T> = currency::Pallet<T, currency::Treasury>;
-
-    pub fn get_free_balance<T: currency::Config<currency::Treasury>>(id: T::AccountId) -> Issuing<T> {
-        TreasuryPallet::<T>::get_free_balance(&id)
-    }
 
     pub fn transfer<T: currency::Config<currency::Treasury>>(
         sender: T::AccountId,

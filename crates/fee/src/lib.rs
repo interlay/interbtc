@@ -195,26 +195,6 @@ decl_module! {
         // Initialize events
         fn deposit_event() = default;
 
-        /// Upgrade the runtime depending on the current `StorageVersion`.
-        fn on_runtime_upgrade() -> Weight {
-            if Self::storage_version() == Version::V0 {
-                let next_account_id = Self::fee_pool_account_id();
-                let prev_account_id = <FeePoolAccountId<T>>::take();
-
-                // transfer collateral
-                let amount_backing = ext::collateral::get_free_balance::<T>(&prev_account_id);
-                ext::collateral::transfer::<T>(prev_account_id.clone(), next_account_id.clone(), amount_backing).expect("failed to transfer collateral");
-
-                // tranfer tokens
-                let amount_btc = ext::treasury::get_free_balance::<T>(prev_account_id.clone());
-                ext::treasury::transfer::<T>(prev_account_id, next_account_id, amount_btc).expect("failed to transfer tokens");
-
-                StorageVersion::put(Version::V1);
-            }
-
-            0
-        }
-
         fn on_initialize(n: T::BlockNumber) -> Weight {
             if let Err(e) = Self::begin_block(n) {
                 sp_runtime::print(e);

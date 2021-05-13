@@ -85,34 +85,6 @@ pub struct RedeemRequest<AccountId, BlockNumber, Issuing, Backing> {
     pub status: RedeemRequestStatus,
 }
 
-#[derive(Encode, Decode, Default, Clone, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-pub struct RedeemRequestV2<AccountId, BlockNumber, Issuing, Backing> {
-    pub vault: AccountId,
-    pub opentime: BlockNumber,
-    #[cfg_attr(feature = "std", serde(bound(deserialize = "Issuing: std::str::FromStr")))]
-    #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
-    #[cfg_attr(feature = "std", serde(bound(serialize = "Issuing: std::fmt::Display")))]
-    #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
-    /// Total redeem fees in issuance - taken from request amount
-    pub fee: Issuing,
-    #[cfg_attr(feature = "std", serde(bound(deserialize = "Issuing: std::str::FromStr")))]
-    #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
-    #[cfg_attr(feature = "std", serde(bound(serialize = "Issuing: std::fmt::Display")))]
-    #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
-    /// Total amount of BTC for the vault to send
-    pub amount_btc: Issuing,
-    #[cfg_attr(feature = "std", serde(bound(deserialize = "Backing: std::str::FromStr")))]
-    #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
-    #[cfg_attr(feature = "std", serde(bound(serialize = "Backing: std::fmt::Display")))]
-    #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
-    /// Premium redeem amount in collateral
-    pub premium_dot: Backing,
-    pub redeemer: AccountId,
-    pub btc_address: BtcAddress,
-    pub status: RedeemRequestStatus,
-}
-
 #[cfg(feature = "std")]
 fn serialize_as_string<S: Serializer, T: std::fmt::Display>(t: &T, serializer: S) -> Result<S::Ok, S::Error> {
     serializer.serialize_str(&t.to_string())

@@ -18,7 +18,6 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure, transactional,
-    weights::Weight,
 };
 use frame_system::{ensure_root, ensure_signed};
 #[cfg(test)]
@@ -32,7 +31,7 @@ use btc_relay::BtcAddress;
 #[doc(inline)]
 pub use crate::types::{ReplaceRequest, ReplaceRequestStatus};
 
-use crate::types::{Backing, Issuing, ReplaceRequestV1, Version};
+use crate::types::{Backing, Issuing, Version};
 use vault_registry::CurrencySource;
 
 mod ext;
@@ -118,51 +117,6 @@ decl_module! {
         // Initializing events
         // this is needed only if you are using events in your pallet
         fn deposit_event() = default;
-
-        /// Upgrade the runtime depending on the current `StorageVersion`.
-        fn on_runtime_upgrade() -> Weight {
-            use frame_support::{migration::StorageKeyIterator, Blake2_128Concat};
-
-            if matches!(Self::storage_version(), Version::V0 | Version::V1) {
-                StorageKeyIterator::<H256, Option<ReplaceRequestV1<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>>, Blake2_128Concat>::new(<ReplaceRequests<T>>::module_prefix(), b"ReplaceRequests")
-                    .drain()
-                    .filter_map(|(id, request_v1)|
-                        match request_v1 {
-                            Some(x) => Some((id, x)),
-                            None => None
-                        }
-                    ).for_each(|(id, request_v1)| {
-                        let status = match (request_v1.completed,request_v1.cancelled) {
-                            (false, false) => ReplaceRequestStatus::Pending,
-                            (false, true) => ReplaceRequestStatus::Cancelled,
-                            (true, false) => ReplaceRequestStatus::Completed,
-                            (true, true) => ReplaceRequestStatus::Completed, // should never happen
-                        };
-                        let construct_request = || {
-                            Some(ReplaceRequest {
-                                old_vault: request_v1.old_vault,
-                                new_vault: request_v1.new_vault?,
-                                amount: request_v1.amount,
-                                griefing_collateral: request_v1.griefing_collateral,
-                                collateral: request_v1.collateral,
-                                accept_time: request_v1.accept_time?,
-                                period: Self::replace_period(),
-                                btc_address: request_v1.btc_address?,
-                                btc_height: 1969929, // extra conservative, testnet height at april 4th
-                                status
-                            })
-                        };
-                        let new_request = construct_request();
-                        // ignore requests that have `None` fields, they have not been accepted yet
-                        if let Some(request) = new_request {
-                            <ReplaceRequests<T>>::insert(id, request);
-                        }
-                    });
-
-                StorageVersion::put(Version::V3);
-            }
-            0
-        }
 
         /// Request the replacement of a new vault ownership
         ///

@@ -29,13 +29,12 @@ pub mod types;
 #[doc(inline)]
 pub use crate::types::{IssueRequest, IssueRequestStatus};
 
-use crate::types::{Backing, IssueRequestV2, Issuing, Version};
+use crate::types::{Backing, Issuing, Version};
 use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure, transactional,
-    weights::Weight,
 };
 use frame_system::{ensure_root, ensure_signed};
 use primitive_types::H256;
@@ -118,37 +117,6 @@ decl_module! {
         // Initializing events
         // this is needed only if you are using events in your pallet
         fn deposit_event() = default;
-
-        /// Upgrade the runtime depending on the current `StorageVersion`.
-        fn on_runtime_upgrade() -> Weight {
-            use frame_support::{migration::StorageKeyIterator, Blake2_128Concat};
-
-            if matches!(Self::storage_version(), Version::V2) {
-                StorageKeyIterator::<H256, IssueRequestV2<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>, Blake2_128Concat>::new(<IssueRequests<T>>::module_prefix(), b"IssueRequests")
-                    .drain()
-                    .for_each(|(id, old_request)| {
-                        let new_request = IssueRequest {
-                            vault: old_request.vault,
-                            opentime: old_request.opentime,
-                            period: Self::issue_period(),
-                            griefing_collateral: old_request.griefing_collateral,
-                            amount: old_request.amount,
-                            fee: old_request.fee,
-                            requester: old_request.requester,
-                            btc_address: old_request.btc_address,
-                            btc_public_key: old_request.btc_public_key,
-                            btc_height: 1969929, // extra conservative, testnet height at april 4th
-                            status: old_request.status,
-                        };
-                        <IssueRequests<T>>::insert(id, new_request);
-                    });
-
-                StorageVersion::put(Version::V3);
-            }
-
-            0
-        }
-
 
         /// Request the issuance of tokens
         ///

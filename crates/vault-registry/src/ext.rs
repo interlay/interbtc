@@ -42,24 +42,11 @@ pub(crate) mod collateral {
 #[cfg_attr(test, mockable)]
 pub(crate) mod treasury {
     use crate::types::Issuing;
-    use frame_support::dispatch::DispatchResult;
 
     type TreasuryPallet<T> = currency::Pallet<T, currency::Treasury>;
 
     pub fn total_issued<T: currency::Config<currency::Treasury>>() -> Issuing<T> {
         TreasuryPallet::<T>::get_total_supply()
-    }
-
-    pub fn get_free_balance<T: currency::Config<currency::Treasury>>(id: T::AccountId) -> Issuing<T> {
-        TreasuryPallet::<T>::get_free_balance(&id)
-    }
-
-    pub fn transfer<T: currency::Config<currency::Treasury>>(
-        sender: T::AccountId,
-        receiver: T::AccountId,
-        amount: Issuing<T>,
-    ) -> DispatchResult {
-        TreasuryPallet::<T>::transfer(&sender, &receiver, amount)
     }
 }
 

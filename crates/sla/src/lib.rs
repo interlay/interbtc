@@ -24,7 +24,6 @@ use crate::types::{Inner, RelayerEvent, VaultEvent};
 use codec::{Decode, Encode, EncodeLike};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError, traits::Currency, transactional,
-    weights::Weight,
 };
 use frame_system::ensure_root;
 use sp_arithmetic::{traits::*, FixedPointNumber};
@@ -113,11 +112,6 @@ decl_module! {
         // Initialize events
         fn deposit_event() = default;
 
-        fn on_runtime_upgrade() -> Weight {
-            Self::_on_runtime_upgrade();
-            0
-        }
-
         /// Set the sla delta for the given relayer event.
         ///
         /// # Arguments
@@ -140,14 +134,6 @@ decl_module! {
 #[cfg_attr(test, mockable)]
 impl<T: Config> Module<T> {
     // Public functions exposed to other pallets
-
-    fn _on_runtime_upgrade() {
-        if !LifetimeIssued::exists() {
-            let amount = ext::vault_registry::get_total_issued_tokens::<T>(false).unwrap();
-            let amount = Self::issuing_to_u128(amount).unwrap();
-            LifetimeIssued::set(amount);
-        }
-    }
 
     /// Update the SLA score of the vault on given the event.
     ///

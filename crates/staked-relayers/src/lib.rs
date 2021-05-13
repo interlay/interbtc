@@ -28,7 +28,7 @@ use mocktopus::macros::mockable;
 
 pub use security;
 
-use crate::types::{Backing, Issuing, StakedRelayer};
+use crate::types::{Backing, Issuing};
 use bitcoin::{parser::parse_transaction, types::*};
 
 use btc_relay::{BtcAddress, Error as BtcRelayError};
@@ -38,7 +38,6 @@ use frame_support::{
     ensure,
     traits::Get,
     transactional,
-    weights::Weight,
 };
 use frame_system::{ensure_root, ensure_signed};
 use primitive_types::H256;
@@ -97,13 +96,6 @@ decl_module! {
         type Error = Error<T>;
 
         fn deposit_event() = default;
-
-        /// Upgrade the runtime depending on the current `StorageVersion`.
-        fn on_runtime_upgrade() -> Weight {
-            Self::_on_runtime_upgrade();
-
-            0
-        }
 
         /// One time function to initialize the BTC-Relay with the first block
         ///
@@ -324,28 +316,6 @@ decl_module! {
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
 impl<T: Config> Module<T> {
-    fn _on_runtime_upgrade() {
-        use frame_support::{migration::StorageKeyIterator, Blake2_128Concat};
-
-        StorageKeyIterator::<T::AccountId, StakedRelayer<Backing<T>, T::BlockNumber>, Blake2_128Concat>::new(
-            <Stakes<T>>::module_prefix(),
-            b"ActiveStakedRelayers",
-        )
-        .drain()
-        .for_each(|(account_id, relayer)| {
-            <Stakes<T>>::insert(account_id, relayer.stake);
-        });
-
-        StorageKeyIterator::<T::AccountId, StakedRelayer<Backing<T>, T::BlockNumber>, Blake2_128Concat>::new(
-            <Stakes<T>>::module_prefix(),
-            b"InactiveStakedRelayers",
-        )
-        .drain()
-        .for_each(|(account_id, relayer)| {
-            <Stakes<T>>::insert(account_id, relayer.stake);
-        });
-    }
-
     fn store_block_header_and_update_sla(relayer: &T::AccountId, raw_block_header: RawBlockHeader) -> DispatchResult {
         match ext::btc_relay::store_block_header::<T>(relayer, raw_block_header) {
             Ok(_) => {

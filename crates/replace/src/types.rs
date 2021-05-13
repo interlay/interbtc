@@ -68,58 +68,6 @@ pub struct ReplaceRequest<AccountId, BlockNumber, Issuing, Backing> {
     pub status: ReplaceRequestStatus,
 }
 
-#[derive(Encode, Decode, Default, Clone, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-pub struct ReplaceRequestV2<AccountId, BlockNumber, Issuing, Backing> {
-    pub old_vault: AccountId,
-    pub new_vault: AccountId,
-    #[cfg_attr(feature = "std", serde(bound(deserialize = "Issuing: std::str::FromStr")))]
-    #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
-    #[cfg_attr(feature = "std", serde(bound(serialize = "Issuing: std::fmt::Display")))]
-    #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
-    pub amount: Issuing,
-    #[cfg_attr(feature = "std", serde(bound(deserialize = "Backing: std::str::FromStr")))]
-    #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
-    #[cfg_attr(feature = "std", serde(bound(serialize = "Backing: std::fmt::Display")))]
-    #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
-    pub griefing_collateral: Backing,
-    #[cfg_attr(feature = "std", serde(bound(deserialize = "Backing: std::str::FromStr")))]
-    #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
-    #[cfg_attr(feature = "std", serde(bound(serialize = "Backing: std::fmt::Display")))]
-    #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
-    pub collateral: Backing,
-    pub accept_time: BlockNumber,
-    pub btc_address: BtcAddress,
-    pub status: ReplaceRequestStatus,
-}
-
-#[derive(Encode, Decode, Default, Clone, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-pub struct ReplaceRequestV1<AccountId, BlockNumber, Issuing, Backing> {
-    pub old_vault: AccountId,
-    pub open_time: BlockNumber,
-    #[cfg_attr(feature = "std", serde(bound(deserialize = "Issuing: std::str::FromStr")))]
-    #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
-    #[cfg_attr(feature = "std", serde(bound(serialize = "Issuing: std::fmt::Display")))]
-    #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
-    pub amount: Issuing,
-    #[cfg_attr(feature = "std", serde(bound(deserialize = "Backing: std::str::FromStr")))]
-    #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
-    #[cfg_attr(feature = "std", serde(bound(serialize = "Backing: std::fmt::Display")))]
-    #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
-    pub griefing_collateral: Backing,
-    pub new_vault: Option<AccountId>,
-    #[cfg_attr(feature = "std", serde(bound(deserialize = "Backing: std::str::FromStr")))]
-    #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
-    #[cfg_attr(feature = "std", serde(bound(serialize = "Backing: std::fmt::Display")))]
-    #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
-    pub collateral: Backing,
-    pub accept_time: Option<BlockNumber>,
-    pub btc_address: Option<BtcAddress>,
-    pub completed: bool,
-    pub cancelled: bool,
-}
-
 // todo: serialize_as_string deserialize_from_string are defined multiple times
 // throughout the code; Maybe this should be merged.. Although it should only
 // be only a temporary workaround)

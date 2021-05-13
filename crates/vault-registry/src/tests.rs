@@ -6,7 +6,7 @@ use crate::{
         OTHER_ID, RICH_COLLATERAL, RICH_ID,
     },
     types::{Backing, BtcAddress, Issuing},
-    BtcPublicKey, CurrencySource, DispatchError, Error, UpdatableVault, Vault, VaultStatus, Vaults, Wallet, H256,
+    BtcPublicKey, CurrencySource, DispatchError, Error, UpdatableVault, Vault, VaultStatus, Wallet, H256,
 };
 use codec::Decode;
 use frame_support::{assert_err, assert_noop, assert_ok, traits::OnInitialize};
@@ -1425,36 +1425,6 @@ fn setup_blocks(blocks: u64) {
     for i in 1..(blocks + 1) {
         parent_hash = setup_block(i, parent_hash);
     }
-}
-
-#[test]
-fn runtime_upgrade_succeeds() {
-    run_test(|| {
-        Vaults::<Test>::insert(
-            0,
-            Vault {
-                backing_collateral: 10,
-                ..Default::default()
-            },
-        );
-        Vaults::<Test>::insert(
-            1,
-            Vault {
-                backing_collateral: 20,
-                ..Default::default()
-            },
-        );
-        Vaults::<Test>::insert(
-            2,
-            Vault {
-                backing_collateral: 30,
-                ..Default::default()
-            },
-        );
-        assert_eq!(0, VaultRegistry::get_total_backing_collateral(false).unwrap());
-        VaultRegistry::_on_runtime_upgrade();
-        assert_eq!(60, VaultRegistry::get_total_backing_collateral(false).unwrap());
-    })
 }
 
 mod get_first_vault_with_sufficient_tokens_tests {

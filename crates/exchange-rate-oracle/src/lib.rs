@@ -122,31 +122,6 @@ decl_module! {
         // Errors must be initialized if they are used by the pallet.
         type Error = Error<T>;
 
-        /// Upgrade the runtime depending on the current `StorageVersion`.
-        fn on_runtime_upgrade() -> Weight {
-            use frame_support::{Twox128, StorageHasher, migration::take_storage_item};
-            use sp_std::vec;
-
-            if Self::storage_version() == Version::V0 {
-
-                fn take_storage_value<T: Decode + Sized>(module: &[u8], item: &[u8]) -> Option<T> {
-                    let mut key = vec![0u8; 32];
-                    key[0..16].copy_from_slice(&Twox128::hash(module));
-                    key[16..32].copy_from_slice(&Twox128::hash(item));
-                    frame_support::storage::unhashed::take::<T>(&key)
-                }
-
-                if let Some(account_id) = take_storage_value::<T::AccountId>(b"ExchangeRateOracle", b"AuthorizedOracle") {
-                    let name = take_storage_item::<T::AccountId, Vec<u8>, Twox128>(b"ExchangeRateOracle", b"OracleNames", account_id.clone()).unwrap_or_default();
-                    <AuthorizedOracles<T>>::insert(account_id, name);
-                }
-
-                StorageVersion::put(Version::V1);
-            }
-
-            0
-        }
-
         fn on_initialize(n: T::BlockNumber) -> Weight {
             Self::begin_block(n);
             // TODO: calculate weight
