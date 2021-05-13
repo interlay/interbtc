@@ -3,7 +3,7 @@ authors = ["Interlay Ltd"]
 build = "build.rs"
 edition = "2018"
 name = "btc-parachain"
-version = "0.6.0"
+version = "0.7.0"
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
