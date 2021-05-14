@@ -17,9 +17,9 @@
   </p>
 </p>
 
-This repository is hosted on GitHub: [https://github.com/interlay/btc-parachain](https://github.com/interlay/btc-parachain) with a mirror on GitLab.
+This repository is hosted on GitHub: [https://github.com/interlay/btc-parachain](https://github.com/interlay/btc-parachain) with a mirror on [GitLab](https://gitlab.com/interlay/btc-parachain) and [radicle](rad:git:hnrkxrw3axafn8n5fwo8pspjgtbt6jj6qe6mo).
 
-_This project is currently under active development_.
+This project is currently under active development.
 
 ## Table of Contents
 
