@@ -1,8 +1,9 @@
+#![cfg(feature = "nomination")]
+
 mod mock;
 
 use mock::{nomination_testing_utils::*, *};
 use std::collections::BTreeMap;
-use vault_registry::VaultStatus;
 
 fn test_with<R>(execute: impl FnOnce() -> R) -> R {
     ExtBuilder::build().execute_with(|| {
@@ -187,18 +188,6 @@ fn integration_test_nominator_withdrawal_request_reduces_issuable_tokens() {
 }
 
 #[test]
-fn integration_test_operator_cannot_withdraw_directly() {
-    test_with_nomination_enabled_and_operator_registered(|| {
-        assert_nominate_collateral(USER, VAULT, DEFAULT_NOMINATION);
-        assert_noop!(
-            Call::VaultRegistry(VaultRegistryCall::withdraw_collateral(100000000))
-                .dispatch(origin_of(account_of(VAULT))),
-            VaultRegistryError::NominationOperatorCannotWithdrawDirectly
-        );
-    });
-}
-
-#[test]
 fn integration_test_nominator_withdrawal_below_collateralization_threshold_fails() {
     test_with_nomination_enabled(|| {
         assert_ok!(
@@ -261,71 +250,6 @@ fn integration_test_operator_withdrawal_can_force_refund_nominators() {
                 operator.nominators = expected_nominators;
                 operator.total_nominated_collateral = expected_nominator.collateral;
                 operator.collateral_to_be_withdrawn = operator_amount_to_withdraw;
-            })
-        );
-    });
-}
-
-#[test]
-fn integration_test_liquidating_operators_for_low_collateralization_also_liquidates_nominators() {
-    test_with_nomination_enabled_and_operator_registered(|| {
-        assert_nominate_collateral(USER, VAULT, DEFAULT_NOMINATION);
-        let expected_slashed_amount = 900000;
-        let vault_backing_collateral_before_liquidation =
-            VaultRegistryPallet::get_backing_collateral(&account_of(VAULT)).unwrap();
-        let nominator_collateral_before_liquidation = get_nominator_collateral();
-        drop_exchange_rate_and_liquidate_operator(VAULT);
-        let expected_nominator_slashed_amount = nominator_collateral_before_liquidation * expected_slashed_amount
-            / vault_backing_collateral_before_liquidation;
-        assert_eq!(
-            ParachainState::get(),
-            ParachainState::default().with_changes(|user, vault, liquidation_vault, _, operator| {
-                user.free_balance -= DEFAULT_NOMINATION;
-                liquidation_vault.to_be_issued = DEFAULT_VAULT_TO_BE_ISSUED;
-                liquidation_vault.issued = DEFAULT_VAULT_ISSUED;
-                liquidation_vault.to_be_redeemed = DEFAULT_VAULT_TO_BE_REDEEMED;
-                liquidation_vault.backing_collateral = expected_slashed_amount;
-                vault.to_be_issued = 0;
-                vault.issued = 0;
-                vault.backing_collateral = vault.backing_collateral + DEFAULT_NOMINATION - expected_slashed_amount;
-
-                let expected_nominator = CoreNominatorData {
-                    collateral: DEFAULT_NOMINATION - expected_nominator_slashed_amount,
-                    collateral_to_be_withdrawn: 0,
-                };
-                let mut expected_nominators = BTreeMap::<AccountId, CoreNominatorData>::new();
-                expected_nominators.insert(account_of(USER), expected_nominator.clone());
-                operator.nominators = expected_nominators;
-                operator.total_nominated_collateral = expected_nominator.collateral;
-            })
-        );
-    });
-}
-
-#[test]
-fn integration_test_liquidating_operators_for_stealing_minimizes_nominator_slashing() {
-    test_with_nomination_enabled_and_operator_registered(|| {
-        assert_nominate_collateral(USER, VAULT, DEFAULT_NOMINATION);
-        let expected_slashed_amount = 135_000;
-        let expected_nominator_slashed_amount = 70_000;
-
-        // Theft liquidation
-        NominationPallet::liquidate_operator_with_status(&account_of(VAULT), VaultStatus::CommittedTheft).unwrap();
-
-        assert_eq!(
-            ParachainState::get(),
-            ParachainState::default().with_changes(|user, vault, liquidation_vault, _, _| {
-                user.free_balance = user.free_balance - expected_nominator_slashed_amount;
-                liquidation_vault.to_be_issued = DEFAULT_VAULT_TO_BE_ISSUED;
-                liquidation_vault.issued = DEFAULT_VAULT_ISSUED;
-                liquidation_vault.to_be_redeemed = DEFAULT_VAULT_TO_BE_REDEEMED;
-                liquidation_vault.backing_collateral = expected_slashed_amount;
-                vault.to_be_issued = 0;
-                vault.issued = 0;
-                vault.free_balance = vault.free_balance
-                    + (DEFAULT_VAULT_BACKING_COLLATERAL
-                        - (expected_slashed_amount - expected_nominator_slashed_amount));
-                vault.backing_collateral = 0;
             })
         );
     });

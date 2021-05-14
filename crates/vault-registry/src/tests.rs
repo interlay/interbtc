@@ -955,7 +955,7 @@ fn is_vault_below_liquidation_threshold_true_succeeds() {
         ext::oracle::backing_to_issuing::<Test>.mock_safe(|_| MockResult::Return(Ok(DEFAULT_COLLATERAL / 2)));
 
         let vault = VaultRegistry::get_vault_from_id(&id).unwrap();
-        let threshold = VaultRegistry::get_liquidation_collateral_threshold();
+        let threshold = VaultRegistry::liquidation_collateral_threshold();
         assert_eq!(
             VaultRegistry::is_vault_below_liquidation_threshold(&vault, threshold),
             Ok(true)

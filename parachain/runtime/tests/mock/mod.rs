@@ -563,14 +563,6 @@ pub fn drop_exchange_rate_and_liquidate(vault: [u8; 32]) {
 }
 
 #[allow(dead_code)]
-pub fn drop_exchange_rate_and_liquidate_operator(operator: [u8; 32]) {
-    assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
-        FixedU128::checked_from_integer(10_000_000_000).unwrap()
-    ));
-    assert_ok!(NominationPallet::liquidate_operator(&account_of(operator)));
-}
-
-#[allow(dead_code)]
 pub fn set_default_thresholds() {
     let secure = FixedU128::checked_from_rational(150, 100).unwrap();
     let premium = FixedU128::checked_from_rational(135, 100).unwrap();

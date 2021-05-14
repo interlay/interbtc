@@ -12,14 +12,13 @@ pub(crate) mod vault_registry {
         <vault_registry::Pallet<T>>::get_vault_from_id(vault_id)
     }
 
-    pub fn get_premium_redeem_threshold<T: vault_registry::Config>() -> <T as vault_registry::Config>::UnsignedFixedPoint
-    {
-        <vault_registry::Pallet<T>>::get_premium_redeem_threshold()
+    pub fn premium_redeem_threshold<T: vault_registry::Config>() -> <T as vault_registry::Config>::UnsignedFixedPoint {
+        <vault_registry::Pallet<T>>::premium_redeem_threshold()
     }
 
-    pub fn get_liquidation_collateral_threshold<T: vault_registry::Config>(
+    pub fn liquidation_collateral_threshold<T: vault_registry::Config>(
     ) -> <T as vault_registry::Config>::UnsignedFixedPoint {
-        <vault_registry::Pallet<T>>::get_liquidation_collateral_threshold()
+        <vault_registry::Pallet<T>>::liquidation_collateral_threshold()
     }
 
     pub fn get_total_issued_tokens<T: vault_registry::Config>(

@@ -116,7 +116,7 @@ pub(crate) mod vault_registry {
         vault_id: &T::AccountId,
         amount: Backing<T>,
     ) -> Result<(), DispatchError> {
-        <vault_registry::Pallet<T>>::_lock_additional_collateral(vault_id, amount)
+        <vault_registry::Pallet<T>>::try_deposit_collateral(vault_id, amount)
     }
 
     pub fn force_withdraw_collateral<T: vault_registry::Config>(
