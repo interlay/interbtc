@@ -287,12 +287,7 @@ decl_module! {
             ext::btc_relay::verify_transaction_inclusion::<T>(tx_id, merkle_proof)?;
             Self::_is_parsed_transaction_invalid(&vault_id, transaction)?;
 
-            if ext::nomination::is_nomination_enabled::<T>() &&
-                ext::nomination::is_operator::<T>(&vault_id)? {
-                ext::nomination::liquidate_theft_operator::<T>(&vault_id)?
-            } else {
-                ext::vault_registry::liquidate_theft_vault::<T>(&vault_id)?;
-            }
+            ext::vault_registry::liquidate_theft_vault::<T>(&vault_id)?;
 
             <TheftReports<T>>::mutate(&tx_id, |reports| {
                 reports.insert(vault_id.clone());

@@ -331,9 +331,9 @@ impl<T: Config> Module<T> {
     ) -> Result<Backing<T>, DispatchError> {
         let current_sla = <VaultSla<T>>::get(vault_id);
 
-        let liquidation_threshold = ext::vault_registry::get_liquidation_collateral_threshold::<T>();
+        let liquidation_threshold = ext::vault_registry::liquidation_collateral_threshold::<T>();
         let liquidation_threshold = Self::fixed_point_unsigned_to_signed(liquidation_threshold)?;
-        let premium_redeem_threshold = ext::vault_registry::get_premium_redeem_threshold::<T>();
+        let premium_redeem_threshold = ext::vault_registry::premium_redeem_threshold::<T>();
         let premium_redeem_threshold = Self::fixed_point_unsigned_to_signed(premium_redeem_threshold)?;
 
         let total =

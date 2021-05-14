@@ -3,7 +3,7 @@ use codec::{Decode, Encode, HasCompact};
 use frame_support::{dispatch::DispatchResult, ensure, traits::Currency, StorageMap};
 use sp_core::H256;
 use sp_runtime::{
-    traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Saturating, Zero},
+    traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, Saturating},
     DispatchError,
 };
 use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
@@ -96,18 +96,9 @@ impl<T: Config> RichOperator<T> {
             .collect::<Vec<(_, _)>>()
     }
 
-    pub fn force_refund_nominated_collateral(&mut self) -> DispatchResult {
-        self.force_refund_nominators_proportionally(self.data.total_nominated_collateral)?;
-        Ok(())
-    }
-
-    pub fn force_refund_nominators_proportionally(&mut self, amount: Backing<T>) -> DispatchResult {
-        let data_clone = self.data.clone();
-        for nominator_id in data_clone.nominators.keys() {
-            let nominator_collateral_to_refund = self.scale_amount_by_nominator_proportion(amount, nominator_id)?;
-            self.withdraw_nominated_collateral(nominator_id.clone(), nominator_collateral_to_refund)?;
-        }
-        Ok(())
+    pub fn has_nominated_collateral(&self) -> bool {
+        // TODO: implement
+        true
     }
 
     pub fn deposit_nominated_collateral(
@@ -118,7 +109,7 @@ impl<T: Config> RichOperator<T> {
         let new_nominated_collateral = self
             .data
             .total_nominated_collateral
-            .checked_add(&(collateral.clone()))
+            .checked_add(&collateral)
             .ok_or(Error::<T>::ArithmeticOverflow)?;
         ensure!(
             new_nominated_collateral <= self.get_max_nominatable_collateral(self.get_operator_collateral()?)?,
@@ -154,7 +145,8 @@ impl<T: Config> RichOperator<T> {
             Error::<T>::TooLittleNominatedCollateral
         );
         self.decrease_nominator_collateral(nominator_id.clone(), collateral)?;
-        ext::vault_registry::withdraw_collateral_to_address::<T>(&self.id(), collateral, &nominator_id)
+        // ext::vault_registry::withdraw_collateral_to_address::<T>(&self.id(), collateral, &nominator_id)
+        Ok(())
     }
 
     fn increase_nominator_collateral(&mut self, nominator_id: T::AccountId, increase_by: Backing<T>) -> DispatchResult {
@@ -233,29 +225,29 @@ impl<T: Config> RichOperator<T> {
         collateral_to_withdraw: Backing<T>,
         maturity: T::BlockNumber,
     ) -> DispatchResult {
-        // If `collateral_to_withdraw` is larger than (operator_collateral - collateral_to_be_withdrawn),
-        // the following throws an error.
-        let operator_collateral = self.get_operator_collateral()?;
-        let remaining_operator_collateral = operator_collateral
-            .checked_sub(&self.data.collateral_to_be_withdrawn)
-            .ok_or(Error::<T>::InsufficientCollateral)?
-            .checked_sub(&collateral_to_withdraw)
-            .ok_or(Error::<T>::InsufficientCollateral)?;
+        // // If `collateral_to_withdraw` is larger than (operator_collateral - collateral_to_be_withdrawn),
+        // // the following throws an error.
+        // let operator_collateral = self.get_operator_collateral()?;
+        // let remaining_operator_collateral = operator_collateral
+        //     .checked_sub(&self.data.collateral_to_be_withdrawn)
+        //     .ok_or(Error::<T>::InsufficientCollateral)?
+        //     .checked_sub(&collateral_to_withdraw)
+        //     .ok_or(Error::<T>::InsufficientCollateral)?;
 
-        // Trigger forced refunds if remaining nominated collateral would
-        // exceed the Max Nomination Ratio.
-        let max_nominatable_collateral = self.get_max_nominatable_collateral(remaining_operator_collateral)?;
-        let nominated_collateral_to_force_refund = self
-            .data
-            .total_nominated_collateral
-            .saturating_sub(max_nominatable_collateral);
-        if !nominated_collateral_to_force_refund.is_zero() {
-            // The Nominators are not assumed to be trusted by the Operator.
-            // Unless the refund is forced (not subject to unbonding), a Nominator might cancel the
-            // refund request and cause the Max Nomination Ratio to be exceeded.
-            // As such, we need to force refund.
-            self.force_refund_nominators_proportionally(nominated_collateral_to_force_refund)?;
-        }
+        // // Trigger forced refunds if remaining nominated collateral would
+        // // exceed the Max Nomination Ratio.
+        // let max_nominatable_collateral = self.get_max_nominatable_collateral(remaining_operator_collateral)?;
+        // let nominated_collateral_to_force_refund = self
+        //     .data
+        //     .total_nominated_collateral
+        //     .saturating_sub(max_nominatable_collateral);
+        // if !nominated_collateral_to_force_refund.is_zero() {
+        //     // The Nominators are not assumed to be trusted by the Operator.
+        //     // Unless the refund is forced (not subject to unbonding), a Nominator might cancel the
+        //     // refund request and cause the Max Nomination Ratio to be exceeded.
+        //     // As such, we need to force refund.
+        //     self.force_refund_nominators_proportionally(nominated_collateral_to_force_refund)?;
+        // }
 
         // Add withdrawal request and increase collateral to-be-withdrawn
         self.update(|v| {
@@ -283,12 +275,12 @@ impl<T: Config> RichOperator<T> {
         // to prevent issuing with the to-be-withdrawn collateral.
         // Now, increase the backing collateral back, so it can be withdrawn using the
         // standard function from the vault_registry.
-        ext::vault_registry::increase_backing_collateral::<T>(&self.id(), matured_collateral_to_withdraw)?;
-        ext::vault_registry::withdraw_collateral_to_address::<T>(
-            &self.id(),
-            matured_collateral_to_withdraw,
-            &self.id(),
-        )?;
+        // ext::vault_registry::increase_backing_collateral::<T>(&self.id(), matured_collateral_to_withdraw)?;
+        // ext::vault_registry::withdraw_collateral_to_address::<T>(
+        //     &self.id(),
+        //     matured_collateral_to_withdraw,
+        //     &self.id(),
+        // )?;
         Ok(matured_collateral_to_withdraw)
     }
 
@@ -382,12 +374,12 @@ impl<T: Config> RichOperator<T> {
         // to prevent issuing with the to-be-withdrawn collateral.
         // Now, increase the backing collateral back, so it can be withdrawn using the
         // standard function from the vault_registry.
-        ext::vault_registry::increase_backing_collateral::<T>(&self.id(), matured_collateral_to_withdraw)?;
-        ext::vault_registry::withdraw_collateral_to_address::<T>(
-            &self.id(),
-            matured_collateral_to_withdraw,
-            &nominator_id,
-        )?;
+        // ext::vault_registry::increase_backing_collateral::<T>(&self.id(), matured_collateral_to_withdraw)?;
+        // ext::vault_registry::withdraw_collateral_to_address::<T>(
+        //     &self.id(),
+        //     matured_collateral_to_withdraw,
+        //     &nominator_id,
+        // )?;
         Ok(matured_collateral_to_withdraw)
     }
 
@@ -418,25 +410,6 @@ impl<T: Config> RichOperator<T> {
 
     pub fn is_nominator(&self, nominator_id: &T::AccountId) -> Result<bool, DispatchError> {
         Ok(self.data.nominators.contains_key(&nominator_id))
-    }
-
-    pub fn slash_nominators(&mut self, status: VaultStatus, total_slashed_amount: Backing<T>) -> DispatchResult {
-        let nominated_collateral_to_slash = self.get_nominated_collateral_to_slash(total_slashed_amount, status)?;
-        // Slash nominators proportionally
-        let vault_clone = self.data.clone();
-        for (nominator_id, _) in &vault_clone.nominators {
-            let nominated_collateral_to_slash =
-                self.scale_amount_by_nominator_proportion(nominated_collateral_to_slash, nominator_id)?;
-            self.decrease_nominator_collateral(nominator_id.clone(), nominated_collateral_to_slash)?;
-        }
-
-        if status.eq(&VaultStatus::CommittedTheft) {
-            // Refund any leftover nominated collateral.
-            // Otherwise, there is a risk of exceeding the Max Nomination Ratio
-            // after the theft liquidation.
-            self.force_refund_nominators_proportionally(self.data.total_nominated_collateral)?;
-        }
-        Ok(())
     }
 
     pub fn get_nominated_collateral_to_slash(

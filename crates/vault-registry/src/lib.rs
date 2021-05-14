@@ -196,7 +196,7 @@ pub mod pallet {
 
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
-            Self::_lock_additional_collateral(&sender, amount)?;
+            Self::try_deposit_collateral(&sender, amount)?;
 
             let vault = Self::get_active_rich_vault_from_id(&sender)?;
 
@@ -230,8 +230,6 @@ pub mod pallet {
             #[pallet::compact] amount: Backing<T>,
         ) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
-            let is_operator = IsNominationOperator::<T>::get(sender.clone());
-            ensure!(!is_operator, Error::<T>::NominationOperatorCannotWithdrawDirectly);
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
             Self::try_withdraw_collateral(&sender, amount)?;
@@ -381,8 +379,6 @@ pub mod pallet {
         TryIntoIntError,
         InvalidSecretKey,
         InvalidPublicKey,
-        NominationOperatorCannotWithdrawDirectly,
-        VaultIsNotANominationOperator,
         VaultNotBelowLiquidationThreshold,
     }
 
@@ -459,10 +455,6 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn storage_version)]
     pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery, DefaultForStorageVersion>;
-
-    /// Map of Vault Operators
-    #[pallet::storage]
-    pub(super) type IsNominationOperator<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, bool, ValueQuery>;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
@@ -547,7 +539,7 @@ impl<T: Config> Pallet<T> {
         let vault = Vault::new(vault_id.clone(), public_key);
         Self::insert_vault(vault_id, vault);
 
-        Self::_lock_additional_collateral(vault_id, collateral)?;
+        Self::try_deposit_collateral(vault_id, collateral)?;
 
         Self::deposit_event(Event::<T>::RegisterVault(vault_id.clone(), collateral));
 
@@ -579,58 +571,19 @@ impl<T: Config> Pallet<T> {
         LiquidationVault::<T>::get()
     }
 
-    pub fn try_increase_backing_collateral(vault_id: &T::AccountId, amount: Backing<T>) -> DispatchResult {
-        ensure!(
-            Self::is_nomination_operator(vault_id),
-            Error::<T>::VaultIsNotANominationOperator
-        );
-        ensure!(
-            Self::is_allowed_to_withdraw_collateral(vault_id, amount)?,
-            Error::<T>::InsufficientCollateral
-        );
-        let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
-        vault.increase_backing_collateral(amount)
-    }
-
-    pub fn try_decrease_backing_collateral(vault_id: &T::AccountId, amount: Backing<T>) -> DispatchResult {
-        ensure!(
-            Self::is_nomination_operator(vault_id),
-            Error::<T>::VaultIsNotANominationOperator
-        );
-        ensure!(
-            Self::is_allowed_to_withdraw_collateral(vault_id, amount)?,
-            Error::<T>::InsufficientCollateral
-        );
-        let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
-        vault.decrease_backing_collateral(amount)
-    }
-
     /// Locks an `amount` of collateral to be used for backing tokens
     ///
     /// # Arguments
     /// * `vault_id` - the id of the vault from which to increase to-be-issued tokens
     /// * `amount` - the amount of collateral to be locked
-    pub fn _lock_additional_collateral(vault_id: &T::AccountId, amount: Backing<T>) -> DispatchResult {
-        Self::_lock_additional_collateral_from_address(vault_id, amount, vault_id)
-    }
-
-    pub fn _lock_additional_collateral_from_address(
-        vault_id: &T::AccountId,
-        amount: Backing<T>,
-        depositor_id: &T::AccountId,
-    ) -> DispatchResult {
+    pub fn try_deposit_collateral(vault_id: &T::AccountId, amount: Backing<T>) -> DispatchResult {
         let mut vault = Self::get_active_rich_vault_from_id(vault_id)?;
-        if !vault_id.eq(depositor_id) {
-            Self::slash_collateral(
-                CurrencySource::FreeBalance(depositor_id.clone()),
-                CurrencySource::Backing(vault_id.clone()),
-                amount,
-            )?;
-        } else {
-            ext::collateral::lock::<T>(depositor_id, amount)?;
-            vault.increase_backing_collateral(amount)?;
-        }
+
+        // will fail if free_balance is insufficient
+        ext::collateral::lock::<T>(vault_id, amount)?;
         Pallet::<T>::increase_total_backing_collateral(amount)?;
+
+        vault.increase_backing_collateral(amount)?;
 
         Ok(())
     }
@@ -735,7 +688,7 @@ impl<T: Config> Pallet<T> {
         // move receiver funds from free balance to specified currency source
         match to {
             CurrencySource::Backing(ref account) => {
-                Self::_lock_additional_collateral(account, amount)?;
+                Self::try_deposit_collateral(account, amount)?;
             }
             CurrencySource::Griefing(_) | CurrencySource::LiquidationVault => {
                 ext::collateral::lock::<T>(&to.account_id(), amount)?;
@@ -1277,10 +1230,6 @@ impl<T: Config> Pallet<T> {
         Self::is_collateral_below_threshold(collateral, btc_amount, threshold)
     }
 
-    pub fn set_is_nomination_operator(vault_id: &T::AccountId, is_operator: bool) {
-        IsNominationOperator::<T>::insert(vault_id, is_operator);
-    }
-
     pub fn set_secure_collateral_threshold(threshold: UnsignedFixedPoint<T>) {
         SecureCollateralThreshold::<T>::set(threshold);
     }
@@ -1293,20 +1242,8 @@ impl<T: Config> Pallet<T> {
         LiquidationCollateralThreshold::<T>::set(threshold);
     }
 
-    pub fn get_premium_redeem_threshold() -> UnsignedFixedPoint<T> {
-        PremiumRedeemThreshold::<T>::get()
-    }
-
-    pub fn get_liquidation_collateral_threshold() -> UnsignedFixedPoint<T> {
-        LiquidationCollateralThreshold::<T>::get()
-    }
-
     pub fn is_over_minimum_collateral(amount: Backing<T>) -> bool {
         amount > Self::get_minimum_collateral_vault()
-    }
-
-    pub fn is_nomination_operator(vault_id: &T::AccountId) -> bool {
-        IsNominationOperator::<T>::get(vault_id)
     }
 
     /// return (collateral * Numerator) / denominator, used when dealing with liquidated vaults

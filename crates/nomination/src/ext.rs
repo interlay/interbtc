@@ -31,49 +31,8 @@ pub(crate) mod vault_registry {
         <vault_registry::Pallet<T>>::get_backing_collateral(vault_id)
     }
 
-    pub fn liquidate_vault_with_status<T: vault_registry::Config>(
-        vault_id: &T::AccountId,
-        status: VaultStatus,
-    ) -> Result<Backing<T>, DispatchError> {
-        <vault_registry::Pallet<T>>::liquidate_vault_with_status(vault_id, status)
-    }
-
-    pub fn increase_backing_collateral<T: vault_registry::Config>(
-        vault_id: &T::AccountId,
-        amount: Backing<T>,
-    ) -> DispatchResult {
-        <vault_registry::Pallet<T>>::try_increase_backing_collateral(vault_id, amount)
-    }
-
-    pub fn decrease_backing_collateral<T: vault_registry::Config>(
-        vault_id: &T::AccountId,
-        amount: Backing<T>,
-    ) -> DispatchResult {
-        <vault_registry::Pallet<T>>::try_decrease_backing_collateral(vault_id, amount)
-    }
-
-    pub fn lock_additional_collateral_from_address<T: vault_registry::Config>(
-        vault_id: &T::AccountId,
-        collateral: Backing<T>,
-        depositor_id: &T::AccountId,
-    ) -> DispatchResult {
-        <vault_registry::Pallet<T>>::_lock_additional_collateral_from_address(vault_id, collateral, depositor_id)
-    }
-
-    pub fn withdraw_collateral_to_address<T: vault_registry::Config>(
-        vault_id: &T::AccountId,
-        collateral: Backing<T>,
-        payee_id: &T::AccountId,
-    ) -> DispatchResult {
-        <vault_registry::Pallet<T>>::try_withdraw_collateral_to_address(vault_id, collateral, payee_id)
-    }
-
     pub fn vault_exists<T: vault_registry::Config>(id: &T::AccountId) -> bool {
         <vault_registry::Pallet<T>>::vault_exists(id)
-    }
-
-    pub fn set_is_nomination_operator<T: vault_registry::Config>(vault_id: &T::AccountId, is_operator: bool) {
-        <vault_registry::Pallet<T>>::set_is_nomination_operator(vault_id, is_operator)
     }
 }
 

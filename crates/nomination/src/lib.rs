@@ -201,28 +201,6 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Liquidates a vault, transferring all of its token balances to the `LiquidationVault`.
-    /// Delegates to `liquidate_vault_with_status`, using `Liquidated` status
-    pub fn liquidate_operator(vault_id: &T::AccountId) -> DispatchResult {
-        ensure!(Self::is_nomination_enabled(), Error::<T>::VaultNominationDisabled);
-        Self::liquidate_operator_with_status(vault_id, VaultStatus::Liquidated)
-    }
-
-    /// Liquidates a vault, transferring all of its token balances to the
-    /// `LiquidationVault`, as well as the collateral
-    ///
-    /// # Arguments
-    /// * `vault_id` - the id of the vault to liquidate
-    /// * `status` - status with which to liquidate the vault
-    ///
-    /// # Errors
-    /// * `VaultNotFound` - if the vault to liquidate does not exist
-    pub fn liquidate_operator_with_status(operator_id: &T::AccountId, status: VaultStatus) -> DispatchResult {
-        let slashed_amount = ext::vault_registry::liquidate_vault_with_status::<T>(operator_id, status)?;
-        Self::deposit_event(Event::<T>::SlashCollateral(operator_id.clone(), slashed_amount, status));
-        Self::slash_nominators(operator_id.clone(), status, slashed_amount)
-    }
-
     /// Unbond collateral withdrawal if mature.
     ///
     /// # Arguments
@@ -250,7 +228,8 @@ impl<T: Config> Module<T> {
         } else {
             Self::request_nominator_withdrawal(operator_id, withdrawer_id, amount)?
         };
-        ext::vault_registry::decrease_backing_collateral::<T>(operator_id, amount)
+        // ext::vault_registry::decrease_backing_collateral::<T>(operator_id, amount)
+        Ok(())
     }
 
     pub fn request_operator_withdrawal(
@@ -338,7 +317,11 @@ impl<T: Config> Module<T> {
         );
         let mut operator = Self::get_rich_operator_from_id(operator_id)?;
         operator.deposit_nominated_collateral(nominator_id.clone(), collateral)?;
-        ext::vault_registry::lock_additional_collateral_from_address::<T>(&operator_id, collateral, &nominator_id)?;
+
+        // TODO:
+        // ext::collateral::transfer_and_lock(vault_id, amount)?;
+        // nominator.try_deposit_collateral(amount)?;
+
         Self::deposit_event(Event::<T>::IncreaseNominatedCollateral(
             nominator_id.clone(),
             operator_id.clone(),
@@ -362,16 +345,6 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    pub fn slash_nominators(
-        vault_id: T::AccountId,
-        status: VaultStatus,
-        total_slashed_amount: Backing<T>,
-    ) -> DispatchResult {
-        let mut operator = Self::get_rich_operator_from_id(&vault_id)?;
-        operator.slash_nominators(status, total_slashed_amount)?;
-        Ok(())
-    }
-
     /// Mark Vault as an Operator in the Vault Nomination protocol
     ///
     /// # Arguments
@@ -388,16 +361,14 @@ impl<T: Config> Module<T> {
         );
         let operator = Operator::new(operator_id.clone());
         <Operators<T>>::insert(operator_id, operator.clone());
-        ext::vault_registry::set_is_nomination_operator::<T>(operator_id, true);
         Self::deposit_event(Event::<T>::NominationOptIn(operator_id.clone()));
         Ok(())
     }
 
     pub fn _opt_out_of_nomination(operator_id: &T::AccountId) -> DispatchResult {
-        let mut operator = Self::get_rich_operator_from_id(operator_id)?;
-        operator.force_refund_nominated_collateral()?;
+        let operator = Self::get_rich_operator_from_id(operator_id)?;
+        ensure!(!operator.has_nominated_collateral(), Error::<T>::HasNominatedCollateral);
         <Operators<T>>::remove(operator_id);
-        ext::vault_registry::set_is_nomination_operator::<T>(operator_id, false);
         Self::deposit_event(Event::<T>::NominationOptOut(operator_id.clone()));
         Ok(())
     }
@@ -458,6 +429,7 @@ decl_error! {
         VaultNominationDisabled,
         DepositViolatesMaxNominationRatio,
         NoMaturedCollateral,
-        OperatorHasTooManyNominators
+        OperatorHasTooManyNominators,
+        HasNominatedCollateral,
     }
 }
