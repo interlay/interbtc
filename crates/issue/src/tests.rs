@@ -289,7 +289,7 @@ fn test_cancel_issue_succeeds() {
 
         ext::vault_registry::is_vault_liquidated::<Test>.mock_safe(|_| MockResult::Return(Ok(false)));
 
-        ext::vault_registry::slash_collateral::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));
+        ext::vault_registry::transfer_funds::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));
 
         let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
         // issue period is 10, we issued at block 1, so at block 15 the cancel should succeed

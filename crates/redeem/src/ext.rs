@@ -43,20 +43,20 @@ pub(crate) mod vault_registry {
         <vault_registry::Pallet<T>>::get_backing_collateral(vault_id)
     }
 
-    pub fn slash_collateral<T: vault_registry::Config>(
+    pub fn transfer_funds<T: vault_registry::Config>(
         from: CurrencySource<T>,
         to: CurrencySource<T>,
         amount: Backing<T>,
     ) -> DispatchResult {
-        <vault_registry::Pallet<T>>::slash_collateral(from, to, amount)
+        <vault_registry::Pallet<T>>::transfer_funds(from, to, amount)
     }
 
-    pub fn slash_collateral_saturated<T: vault_registry::Config>(
+    pub fn transfer_funds_saturated<T: vault_registry::Config>(
         from: CurrencySource<T>,
         to: CurrencySource<T>,
         amount: Backing<T>,
     ) -> Result<Backing<T>, DispatchError> {
-        <vault_registry::Pallet<T>>::slash_collateral_saturated(from, to, amount)
+        <vault_registry::Pallet<T>>::transfer_funds_saturated(from, to, amount)
     }
 
     pub fn get_vault_from_id<T: vault_registry::Config>(

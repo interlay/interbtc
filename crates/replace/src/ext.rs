@@ -38,12 +38,12 @@ pub(crate) mod vault_registry {
     use frame_support::dispatch::{DispatchError, DispatchResult};
     use vault_registry::types::CurrencySource;
 
-    pub fn slash_collateral<T: vault_registry::Config>(
+    pub fn transfer_funds<T: vault_registry::Config>(
         from: CurrencySource<T>,
         to: CurrencySource<T>,
         amount: Backing<T>,
     ) -> DispatchResult {
-        <vault_registry::Pallet<T>>::slash_collateral(from, to, amount)
+        <vault_registry::Pallet<T>>::transfer_funds(from, to, amount)
     }
     pub fn replace_tokens<T: vault_registry::Config>(
         old_vault_id: T::AccountId,

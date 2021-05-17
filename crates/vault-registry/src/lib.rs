@@ -658,7 +658,7 @@ impl<T: Config> Pallet<T> {
         Ok(!is_below_threshold)
     }
 
-    pub fn slash_collateral_saturated(
+    pub fn transfer_funds_saturated(
         from: CurrencySource<T>,
         to: CurrencySource<T>,
         amount: Backing<T>,
@@ -669,7 +669,7 @@ impl<T: Config> Pallet<T> {
         } else {
             amount
         };
-        Self::slash_collateral(from, to, amount)?;
+        Self::transfer_funds(from, to, amount)?;
         Ok(amount)
     }
 
@@ -681,7 +681,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn slash_collateral(from: CurrencySource<T>, to: CurrencySource<T>, amount: Backing<T>) -> DispatchResult {
+    pub fn transfer_funds(from: CurrencySource<T>, to: CurrencySource<T>, amount: Backing<T>) -> DispatchResult {
         match from {
             CurrencySource::Backing(ref account) => {
                 Self::slash_backing_collateral(account, amount)?;
@@ -940,7 +940,7 @@ impl<T: Config> Pallet<T> {
             if premium.is_zero() {
                 Self::deposit_event(Event::<T>::RedeemTokens(vault.id(), tokens));
             } else {
-                Self::slash_collateral(
+                Self::transfer_funds(
                     CurrencySource::Backing(vault_id.clone()),
                     CurrencySource::FreeBalance(redeemer_id.clone()),
                     premium,
@@ -998,7 +998,7 @@ impl<T: Config> Pallet<T> {
             liquidation_vault.backed_tokens()?,
         )?;
 
-        Self::slash_collateral(
+        Self::transfer_funds(
             CurrencySource::LiquidationVault,
             CurrencySource::FreeBalance(redeemer_id.clone()),
             to_transfer,
@@ -1083,7 +1083,7 @@ impl<T: Config> Pallet<T> {
                 tokens,
                 old_vault.data.to_be_redeemed_tokens,
             )?;
-            Self::slash_collateral(
+            Self::transfer_funds(
                 old_vault_backing,
                 CurrencySource::LiquidationVault,
                 to_be_transfered_collateral,

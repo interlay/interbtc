@@ -295,7 +295,7 @@ impl CoreVaultData {
         try_register_vault(100, vault);
 
         // temporarily give vault a lot of backing collateral so we can set issued & to-be-issued to whatever we want
-        VaultRegistryPallet::slash_collateral(
+        VaultRegistryPallet::transfer_funds(
             CurrencySource::FreeBalance(account_of(FAUCET)),
             CurrencySource::Backing(account_of(vault)),
             CollateralPallet::get_free_balance(&account_of(FAUCET)),
@@ -356,7 +356,7 @@ impl CoreVaultData {
         TreasuryPallet::mint(account_of(vault), state.free_tokens);
 
         // clear all balances
-        VaultRegistryPallet::slash_collateral(
+        VaultRegistryPallet::transfer_funds(
             CurrencySource::Backing(account_of(vault)),
             CurrencySource::FreeBalance(account_of(FAUCET)),
             CurrencySource::<Runtime>::Backing(account_of(vault))
@@ -364,7 +364,7 @@ impl CoreVaultData {
                 .unwrap(),
         )
         .unwrap();
-        VaultRegistryPallet::slash_collateral(
+        VaultRegistryPallet::transfer_funds(
             CurrencySource::Griefing(account_of(vault)),
             CurrencySource::FreeBalance(account_of(FAUCET)),
             CurrencySource::<Runtime>::Griefing(account_of(vault))
@@ -372,7 +372,7 @@ impl CoreVaultData {
                 .unwrap(),
         )
         .unwrap();
-        VaultRegistryPallet::slash_collateral(
+        VaultRegistryPallet::transfer_funds(
             CurrencySource::FreeBalance(account_of(vault)),
             CurrencySource::FreeBalance(account_of(FAUCET)),
             CurrencySource::<Runtime>::FreeBalance(account_of(vault))
@@ -382,19 +382,19 @@ impl CoreVaultData {
         .unwrap();
 
         // now set balances to desired values
-        VaultRegistryPallet::slash_collateral(
+        VaultRegistryPallet::transfer_funds(
             CurrencySource::FreeBalance(account_of(FAUCET)),
             CurrencySource::Backing(account_of(vault)),
             state.backing_collateral,
         )
         .unwrap();
-        VaultRegistryPallet::slash_collateral(
+        VaultRegistryPallet::transfer_funds(
             CurrencySource::FreeBalance(account_of(FAUCET)),
             CurrencySource::Griefing(account_of(vault)),
             state.griefing_collateral,
         )
         .unwrap();
-        VaultRegistryPallet::slash_collateral(
+        VaultRegistryPallet::transfer_funds(
             CurrencySource::FreeBalance(account_of(FAUCET)),
             CurrencySource::FreeBalance(account_of(vault)),
             state.free_balance,

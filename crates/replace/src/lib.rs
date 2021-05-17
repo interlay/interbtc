@@ -440,14 +440,14 @@ impl<T: Config> Module<T> {
         // slash old-vault's griefing collateral
         if !ext::vault_registry::is_vault_liquidated::<T>(&new_vault_id)? {
             // new-vault is not liquidated - give it the griefing collateral
-            ext::vault_registry::slash_collateral::<T>(
+            ext::vault_registry::transfer_funds::<T>(
                 CurrencySource::Griefing(replace.old_vault.clone()),
                 CurrencySource::Backing(new_vault_id.clone()),
                 replace.griefing_collateral,
             )?;
         } else {
             // new-vault is liquidated - slash to its free balance
-            ext::vault_registry::slash_collateral::<T>(
+            ext::vault_registry::transfer_funds::<T>(
                 CurrencySource::Griefing(replace.old_vault.clone()),
                 CurrencySource::FreeBalance(new_vault_id.clone()),
                 replace.griefing_collateral,

@@ -328,7 +328,7 @@ impl<T: Config> Module<T> {
                 .griefing_collateral
                 .checked_sub(&released_collateral)
                 .ok_or(Error::<T>::ArithmeticUnderflow)?;
-            ext::vault_registry::slash_collateral::<T>(
+            ext::vault_registry::transfer_funds::<T>(
                 CurrencySource::Griefing(issue.requester.clone()),
                 CurrencySource::FreeBalance(ext::fee::fee_pool_account_id::<T>()),
                 slashed_collateral,
@@ -428,7 +428,7 @@ impl<T: Config> Module<T> {
         if ext::vault_registry::is_vault_liquidated::<T>(&issue.vault)? {
             ext::collateral::release_collateral::<T>(&issue.requester, issue.griefing_collateral)?;
         } else {
-            ext::vault_registry::slash_collateral::<T>(
+            ext::vault_registry::transfer_funds::<T>(
                 CurrencySource::Griefing(issue.requester.clone()),
                 CurrencySource::FreeBalance(ext::fee::fee_pool_account_id::<T>()),
                 issue.griefing_collateral,

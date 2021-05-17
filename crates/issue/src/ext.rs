@@ -43,12 +43,12 @@ pub(crate) mod vault_registry {
     use sp_core::H256;
     use vault_registry::types::{CurrencySource, Vault};
 
-    pub fn slash_collateral<T: vault_registry::Config>(
+    pub fn transfer_funds<T: vault_registry::Config>(
         from: CurrencySource<T>,
         to: CurrencySource<T>,
         amount: Backing<T>,
     ) -> DispatchResult {
-        <vault_registry::Pallet<T>>::slash_collateral(from, to, amount)
+        <vault_registry::Pallet<T>>::transfer_funds(from, to, amount)
     }
 
     pub fn is_vault_liquidated<T: vault_registry::Config>(vault_id: &T::AccountId) -> Result<bool, DispatchError> {

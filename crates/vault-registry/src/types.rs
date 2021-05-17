@@ -463,7 +463,7 @@ impl<T: Config> RichVault<T> {
             backing_tokens,
         )?;
 
-        Pallet::<T>::slash_collateral(
+        Pallet::<T>::transfer_funds(
             CurrencySource::Backing(self.id()),
             CurrencySource::LiquidationVault,
             to_slash,

@@ -224,7 +224,7 @@ mod cancel_replace_tests {
         ext::security::has_expired::<Test>.mock_safe(|_, _| MockResult::Return(Ok(true)));
         ext::vault_registry::is_vault_liquidated::<Test>.mock_safe(|_| MockResult::Return(Ok(false)));
         ext::vault_registry::cancel_replace_tokens::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));
-        ext::vault_registry::slash_collateral::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));
+        ext::vault_registry::transfer_funds::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));
         ext::vault_registry::is_allowed_to_withdraw_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(false)));
     }
 
