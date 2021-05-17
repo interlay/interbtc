@@ -50,8 +50,8 @@ use vault_registry::Wallet;
 pub trait Config:
     frame_system::Config
     + security::Config
-    + currency::Config<currency::Collateral>
-    + currency::Config<currency::Treasury>
+    + currency::Config<currency::Backing>
+    + currency::Config<currency::Issuing>
     + vault_registry::Config
     + btc_relay::Config
     + redeem::Config

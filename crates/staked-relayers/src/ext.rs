@@ -6,23 +6,23 @@ pub(crate) mod collateral {
     use crate::types::Backing;
     use frame_support::dispatch::{DispatchError, DispatchResult};
 
-    type CollateralPallet<T> = currency::Pallet<T, currency::Collateral>;
+    type CollateralPallet<T> = currency::Pallet<T, currency::Backing>;
 
-    pub(crate) fn lock_collateral<T: currency::Config<currency::Collateral>>(
+    pub(crate) fn lock_collateral<T: currency::Config<currency::Backing>>(
         sender: &T::AccountId,
         amount: Backing<T>,
     ) -> Result<(), DispatchError> {
         CollateralPallet::<T>::lock(sender, amount)
     }
 
-    pub(crate) fn release_collateral<T: currency::Config<currency::Collateral>>(
+    pub(crate) fn release_collateral<T: currency::Config<currency::Backing>>(
         sender: &T::AccountId,
         amount: Backing<T>,
     ) -> Result<(), DispatchError> {
         CollateralPallet::<T>::release(sender, amount)
     }
 
-    pub fn slash_collateral<T: currency::Config<currency::Collateral>>(
+    pub fn slash_collateral<T: currency::Config<currency::Backing>>(
         sender: T::AccountId,
         receiver: T::AccountId,
         amount: Backing<T>,

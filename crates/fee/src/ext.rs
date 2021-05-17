@@ -6,9 +6,9 @@ pub(crate) mod collateral {
     use crate::Backing;
     use frame_support::dispatch::DispatchResult;
 
-    type CollateralPallet<T> = currency::Pallet<T, currency::Collateral>;
+    type CollateralPallet<T> = currency::Pallet<T, currency::Backing>;
 
-    pub fn transfer<T: currency::Config<currency::Collateral>>(
+    pub fn transfer<T: currency::Config<currency::Backing>>(
         sender: T::AccountId,
         receiver: T::AccountId,
         amount: Backing<T>,
@@ -22,9 +22,9 @@ pub(crate) mod treasury {
     use crate::Issuing;
     use frame_support::dispatch::DispatchResult;
 
-    type TreasuryPallet<T> = currency::Pallet<T, currency::Treasury>;
+    type TreasuryPallet<T> = currency::Pallet<T, currency::Issuing>;
 
-    pub fn transfer<T: currency::Config<currency::Treasury>>(
+    pub fn transfer<T: currency::Config<currency::Issuing>>(
         sender: T::AccountId,
         receiver: T::AccountId,
         amount: Issuing<T>,

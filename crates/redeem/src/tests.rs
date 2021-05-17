@@ -49,7 +49,7 @@ fn dummy_public_key() -> BtcPublicKey {
 #[test]
 fn test_request_redeem_fails_with_amount_exceeds_user_balance() {
     run_test(|| {
-        <currency::Pallet<Test, currency::Treasury>>::mint(ALICE, 2);
+        <currency::Pallet<Test, currency::Issuing>>::mint(ALICE, 2);
         let amount = 10_000_000;
         assert_err!(
             Redeem::request_redeem(Origin::signed(ALICE), amount, BtcAddress::default(), BOB),

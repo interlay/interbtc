@@ -22,13 +22,11 @@ use xcm_executor::traits::FilterAssetLocation;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Serialize};
 
-pub(crate) type Backing<T> = <<T as currency::Config<currency::Instance1>>::Currency as Currency<
-    <T as frame_system::Config>::AccountId,
->>::Balance;
+pub(crate) type Backing<T> =
+    <<T as currency::Config<currency::Backing>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-pub(crate) type Issuing<T> = <<T as currency::Config<currency::Instance2>>::Currency as Currency<
-    <T as frame_system::Config>::AccountId,
->>::Balance;
+pub(crate) type Issuing<T> =
+    <<T as currency::Config<currency::Issuing>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 #[cfg(feature = "disable-native-filter")]
 pub struct NativeAsset;

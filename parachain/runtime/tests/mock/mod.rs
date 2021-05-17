@@ -74,8 +74,8 @@ pub type BTCRelayPallet = btc_relay::Pallet<Runtime>;
 pub type BTCRelayError = btc_relay::Error<Runtime>;
 pub type BTCRelayEvent = btc_relay::Event<Runtime>;
 
-pub type CollateralError = currency::Error<Runtime, currency::Collateral>;
-pub type CollateralPallet = currency::Pallet<Runtime, currency::Collateral>;
+pub type CollateralError = currency::Error<Runtime, currency::Backing>;
+pub type CollateralPallet = currency::Pallet<Runtime, currency::Backing>;
 
 pub type ExchangeRateOracleCall = exchange_rate_oracle::Call<Runtime>;
 pub type ExchangeRateOraclePallet = exchange_rate_oracle::Pallet<Runtime>;
@@ -114,7 +114,7 @@ pub type StakedRelayersPallet = staked_relayers::Pallet<Runtime>;
 
 pub type SystemModule = frame_system::Pallet<Runtime>;
 
-pub type TreasuryPallet = currency::Pallet<Runtime, currency::Treasury>;
+pub type TreasuryPallet = currency::Pallet<Runtime, currency::Issuing>;
 
 pub type VaultRegistryCall = vault_registry::Call<Runtime>;
 pub type VaultRegistryError = vault_registry::Error<Runtime>;
@@ -615,7 +615,7 @@ pub fn force_issue_tokens(user: [u8; 32], vault: [u8; 32], collateral: u128, tok
     assert_ok!(VaultRegistryPallet::issue_tokens(&account_of(vault), tokens));
 
     // mint tokens to the user
-    currency::Pallet::<Runtime, currency::Treasury>::mint(user.into(), tokens);
+    currency::Pallet::<Runtime, currency::Issuing>::mint(user.into(), tokens);
 }
 
 #[allow(dead_code)]

@@ -37,8 +37,8 @@ pub use types::RefundRequest;
 pub trait Config:
     frame_system::Config
     + btc_relay::Config
-    + currency::Config<currency::Collateral>
-    + currency::Config<currency::Treasury>
+    + currency::Config<currency::Backing>
+    + currency::Config<currency::Issuing>
     + fee::Config
     + sla::Config
     + vault_registry::Config

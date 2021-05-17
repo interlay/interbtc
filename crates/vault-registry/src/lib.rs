@@ -92,8 +92,8 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config:
         frame_system::Config
-        + currency::Config<currency::Collateral>
-        + currency::Config<currency::Treasury>
+        + currency::Config<currency::Backing>
+        + currency::Config<currency::Issuing>
         + exchange_rate_oracle::Config
         + security::Config
         + SendTransactionTypes<Call<Self>>

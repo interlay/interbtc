@@ -21,7 +21,7 @@ use xcm_executor::traits::LocationConversion;
 
 /// Configuration trait of this pallet.
 pub trait Config:
-    frame_system::Config + currency::Config<currency::Collateral> + currency::Config<currency::Treasury>
+    frame_system::Config + currency::Config<currency::Backing> + currency::Config<currency::Issuing>
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;

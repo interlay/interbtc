@@ -104,16 +104,16 @@ pub(crate) mod collateral {
     use crate::types::Backing;
     use frame_support::dispatch::DispatchResult;
 
-    type CollateralPallet<T> = currency::Pallet<T, currency::Collateral>;
+    type CollateralPallet<T> = currency::Pallet<T, currency::Backing>;
 
-    pub fn lock_collateral<T: currency::Config<currency::Collateral>>(
+    pub fn lock_collateral<T: currency::Config<currency::Backing>>(
         sender: &T::AccountId,
         amount: Backing<T>,
     ) -> DispatchResult {
         CollateralPallet::<T>::lock(sender, amount)
     }
 
-    pub fn release_collateral<T: currency::Config<currency::Collateral>>(
+    pub fn release_collateral<T: currency::Config<currency::Backing>>(
         sender: &T::AccountId,
         amount: Backing<T>,
     ) -> DispatchResult {
@@ -125,9 +125,9 @@ pub(crate) mod collateral {
 pub(crate) mod treasury {
     use crate::types::Issuing;
 
-    type TreasuryPallet<T> = currency::Pallet<T, currency::Treasury>;
+    type TreasuryPallet<T> = currency::Pallet<T, currency::Issuing>;
 
-    pub fn mint<T: currency::Config<currency::Treasury>>(requester: T::AccountId, amount: Issuing<T>) {
+    pub fn mint<T: currency::Config<currency::Issuing>>(requester: T::AccountId, amount: Issuing<T>) {
         TreasuryPallet::<T>::mint(requester, amount)
     }
 }

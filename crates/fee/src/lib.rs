@@ -44,8 +44,8 @@ use types::{Backing, Inner, Issuing, UnsignedFixedPoint, Version};
 /// The pallet's configuration trait.
 pub trait Config:
     frame_system::Config
-    + currency::Config<currency::Collateral>
-    + currency::Config<currency::Treasury>
+    + currency::Config<currency::Backing>
+    + currency::Config<currency::Issuing>
     + sla::Config
     + security::Config
 {
