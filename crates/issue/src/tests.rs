@@ -52,7 +52,9 @@ fn cancel_issue(origin: AccountId, issue_id: &H256) -> Result<(), DispatchError>
     Issue::_cancel_issue(origin, *issue_id)
 }
 
-fn init_zero_vault<T: Config>(id: T::AccountId) -> Vault<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>> {
+fn init_zero_vault<T: Config>(
+    id: T::AccountId,
+) -> Vault<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>, <T as vault_registry::Config>::SignedFixedPoint> {
     let mut vault = Vault::default();
     vault.id = id;
     vault
@@ -81,6 +83,7 @@ fn test_request_issue_banned_fails() {
                 wallet: Wallet::new(BtcPublicKey::default()),
                 banned_until: Some(1),
                 status: VaultStatus::Active(true),
+                ..Default::default()
             },
         );
         assert_noop!(request_issue(ALICE, 3, BOB, 0), VaultRegistryError::VaultBanned);

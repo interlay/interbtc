@@ -41,7 +41,7 @@ pub(crate) mod vault_registry {
     use btc_relay::BtcAddress;
     use frame_support::dispatch::{DispatchError, DispatchResult};
     use sp_core::H256;
-    use vault_registry::types::CurrencySource;
+    use vault_registry::types::{CurrencySource, Vault};
 
     pub fn slash_collateral<T: vault_registry::Config>(
         from: CurrencySource<T>,
@@ -57,7 +57,7 @@ pub(crate) mod vault_registry {
 
     pub fn get_active_vault_from_id<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-    ) -> Result<vault_registry::types::Vault<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>, DispatchError> {
+    ) -> Result<Vault<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>, T::SignedFixedPoint>, DispatchError> {
         <vault_registry::Pallet<T>>::get_active_vault_from_id(vault_id)
     }
 

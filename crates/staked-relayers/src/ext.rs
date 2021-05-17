@@ -36,10 +36,11 @@ pub(crate) mod vault_registry {
     use crate::{Backing, Issuing};
     use ::vault_registry::VaultStatus;
     use frame_support::dispatch::{DispatchError, DispatchResult};
+    use vault_registry::types::Vault;
 
     pub fn get_active_vault_from_id<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-    ) -> Result<vault_registry::types::Vault<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>, DispatchError> {
+    ) -> Result<Vault<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>, T::SignedFixedPoint>, DispatchError> {
         <vault_registry::Pallet<T>>::get_active_vault_from_id(vault_id)
     }
 

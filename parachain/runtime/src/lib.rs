@@ -491,8 +491,9 @@ parameter_types! {
 impl vault_registry::Config for Runtime {
     type ModuleId = VaultModuleId;
     type Event = Event;
-    type UnsignedFixedPoint = FixedU128;
     type RandomnessSource = RandomnessCollectiveFlip;
+    type SignedFixedPoint = FixedI128;
+    type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
 }
 

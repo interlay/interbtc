@@ -44,7 +44,7 @@ pub trait Config:
     frame_system::Config
     + currency::Config<currency::Collateral>
     + currency::Config<currency::Treasury>
-    + vault_registry::Config
+    + vault_registry::Config<SignedFixedPoint = <Self as Config>::SignedFixedPoint>
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
@@ -56,11 +56,11 @@ pub trait Config:
 decl_storage! {
     trait Store for Module<T: Config> as Sla {
         /// Mapping from accounts of vaults/relayers to their sla score
-        VaultSla get(fn vault_sla): map hasher(blake2_128_concat) T::AccountId => T::SignedFixedPoint;
-        RelayerSla get(fn relayer_sla): map hasher(blake2_128_concat) T::AccountId => T::SignedFixedPoint;
+        VaultSla get(fn vault_sla): map hasher(blake2_128_concat) T::AccountId => SignedFixedPoint<T>;
+        RelayerSla get(fn relayer_sla): map hasher(blake2_128_concat) T::AccountId => SignedFixedPoint<T>;
 
         // TODO: deduplicate this with the storage in the staked_relayers pallet
-        RelayerStake get(fn relayer_stake): map hasher(blake2_128_concat) T::AccountId => T::SignedFixedPoint;
+        RelayerStake get(fn relayer_stake): map hasher(blake2_128_concat) T::AccountId => SignedFixedPoint<T>;
 
         // number of issues executed by all vaults together; used for calculating the average issue size,
         // which is used in SLA updates
@@ -69,22 +69,22 @@ decl_storage! {
         LifetimeIssued: u128;
 
         // sum of all relayer scores, used in relayer reward calculation
-        TotalRelayerScore: T::SignedFixedPoint;
+        TotalRelayerScore: SignedFixedPoint<T>;
 
         // target (max) SLA scores
-        VaultTargetSla get(fn vault_target_sla) config(): T::SignedFixedPoint;
-        RelayerTargetSla get(fn relayer_target_sla) config(): T::SignedFixedPoint;
+        VaultTargetSla get(fn vault_target_sla) config(): SignedFixedPoint<T>;
+        RelayerTargetSla get(fn relayer_target_sla) config(): SignedFixedPoint<T>;
 
         // vault & relayer SLA score rewards/punishments for the actions defined in
         // https://interlay.gitlab.io/polkabtc-econ/spec/sla/actions.html#actions
         // Positive and negative values indicate rewards and punishments, respectively
-        VaultRedeemFailure get(fn vault_redeem_failure_sla_change) config(): T::SignedFixedPoint;
-        VaultExecutedIssueMaxSlaChange get(fn vault_executed_issue_max_sla_change) config(): T::SignedFixedPoint;
-        VaultSubmittedIssueProof get(fn vault_submitted_issue_proof) config(): T::SignedFixedPoint;
-        VaultRefunded get(fn vault_refunded) config(): T::SignedFixedPoint;
-        RelayerBlockSubmission get(fn relayer_block_submission) config(): T::SignedFixedPoint;
-        RelayerDuplicateBlockSubmission get(fn relayer_duplicate_block_submission) config(): T::SignedFixedPoint;
-        RelayerCorrectTheftReport get(fn relayer_correct_theft_report) config(): T::SignedFixedPoint;
+        VaultRedeemFailure get(fn vault_redeem_failure_sla_change) config(): SignedFixedPoint<T>;
+        VaultExecutedIssueMaxSlaChange get(fn vault_executed_issue_max_sla_change) config(): SignedFixedPoint<T>;
+        VaultSubmittedIssueProof get(fn vault_submitted_issue_proof) config(): SignedFixedPoint<T>;
+        VaultRefunded get(fn vault_refunded) config(): SignedFixedPoint<T>;
+        RelayerBlockSubmission get(fn relayer_block_submission) config(): SignedFixedPoint<T>;
+        RelayerDuplicateBlockSubmission get(fn relayer_duplicate_block_submission) config(): SignedFixedPoint<T>;
+        RelayerCorrectTheftReport get(fn relayer_correct_theft_report) config(): SignedFixedPoint<T>;
     }
 }
 
@@ -123,7 +123,7 @@ decl_module! {
         /// # Weight: `O(1)`
         #[weight = 0]
         #[transactional]
-        pub fn set_relayer_sla(origin, event: RelayerEvent, value: T::SignedFixedPoint) {
+        pub fn set_relayer_sla(origin, event: RelayerEvent, value: SignedFixedPoint<T>) {
             ensure_root(origin)?;
             Self::_set_relayer_sla(event, value);
         }
@@ -155,7 +155,7 @@ impl<T: Config> Module<T> {
             .ok_or(Error::<T>::ArithmeticOverflow)?;
         let max_sla = <VaultTargetSla<T>>::get(); // todo: check that this is indeed the max
 
-        let bounded_new_sla = Self::_limit(T::SignedFixedPoint::zero(), new_sla, max_sla);
+        let bounded_new_sla = Self::_limit(SignedFixedPoint::<T>::zero(), new_sla, max_sla);
 
         <VaultSla<T>>::insert(vault_id, bounded_new_sla);
         Self::deposit_event(<Event<T>>::UpdateVaultSLA(vault_id.clone(), bounded_new_sla, delta_sla));
@@ -174,7 +174,7 @@ impl<T: Config> Module<T> {
         let delta_sla = Self::_get_relayer_sla(event);
 
         let max = <RelayerTargetSla<T>>::get(); // todo: check that this is indeed the max
-        let min = T::SignedFixedPoint::zero();
+        let min = SignedFixedPoint::<T>::zero();
 
         let potential_new_sla = current_sla
             .checked_add(&delta_sla)
@@ -356,7 +356,7 @@ impl<T: Config> Module<T> {
     /// remains unchanged forever
     pub fn initialize_relayer_stake(relayer_id: &T::AccountId, stake: Backing<T>) -> Result<(), DispatchError> {
         let stake = Self::backing_to_u128(stake)?;
-        let stake = T::SignedFixedPoint::checked_from_rational(stake, 1u128).ok_or(Error::<T>::TryIntoIntError)?;
+        let stake = SignedFixedPoint::<T>::checked_from_rational(stake, 1u128).ok_or(Error::<T>::TryIntoIntError)?;
         <RelayerStake<T>>::insert(relayer_id, stake);
 
         Ok(())
@@ -383,7 +383,7 @@ impl<T: Config> Module<T> {
         // result = stake * ((premium_redeem_threshold * max_sla - current_sla * range) / max_sla)
         let calculate_slashed_collateral = || {
             // let numerator = premium_redeem_threshold * max_sla - current_sla * range;
-            let numerator = T::SignedFixedPoint::checked_sub(
+            let numerator = SignedFixedPoint::<T>::checked_sub(
                 &premium_redeem_threshold.checked_mul(&max_sla)?,
                 &current_sla.checked_mul(&range)?,
             )?;
@@ -405,7 +405,7 @@ impl<T: Config> Module<T> {
     ///
     /// * `amount` - the amount of tokens that were issued
     /// * `vault_id` - account of the vault
-    fn _executed_issue_sla_change(amount: Issuing<T>) -> Result<T::SignedFixedPoint, DispatchError> {
+    fn _executed_issue_sla_change(amount: Issuing<T>) -> Result<SignedFixedPoint<T>, DispatchError> {
         let amount_raw = Self::issuing_to_u128(amount)?;
 
         // update the number of issues performed
@@ -423,7 +423,8 @@ impl<T: Config> Module<T> {
         // but at most one Planck, which is acceptable
         let average_raw = total.checked_div(count).ok_or(Error::<T>::ArithmeticOverflow)?;
 
-        let average = T::SignedFixedPoint::checked_from_rational(average_raw, 1).ok_or(Error::<T>::TryIntoIntError)?;
+        let average =
+            SignedFixedPoint::<T>::checked_from_rational(average_raw, 1).ok_or(Error::<T>::TryIntoIntError)?;
 
         let max_sla_change = <VaultExecutedIssueMaxSlaChange<T>>::get();
 
@@ -435,12 +436,12 @@ impl<T: Config> Module<T> {
             .checked_mul(&max_sla_change)
             .ok_or(Error::<T>::ArithmeticOverflow)?;
 
-        let ret = Self::_limit(T::SignedFixedPoint::zero(), potential_sla_increase, max_sla_change);
+        let ret = Self::_limit(SignedFixedPoint::<T>::zero(), potential_sla_increase, max_sla_change);
         Ok(ret)
     }
 
     /// returns `value` if it is between `min` and `max`; otherwise it returns the bound
-    fn _limit(min: T::SignedFixedPoint, value: T::SignedFixedPoint, max: T::SignedFixedPoint) -> T::SignedFixedPoint {
+    fn _limit(min: SignedFixedPoint<T>, value: SignedFixedPoint<T>, max: SignedFixedPoint<T>) -> SignedFixedPoint<T> {
         if value < min {
             min
         } else if value > max {
@@ -451,7 +452,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Gets the SLA change corresponding to the given event from storage
-    fn _get_relayer_sla(event: RelayerEvent) -> T::SignedFixedPoint {
+    fn _get_relayer_sla(event: RelayerEvent) -> SignedFixedPoint<T> {
         match event {
             RelayerEvent::BlockSubmission => <RelayerBlockSubmission<T>>::get(),
             RelayerEvent::DuplicateBlockSubmission => <RelayerDuplicateBlockSubmission<T>>::get(),
@@ -460,7 +461,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Updates the SLA change corresponding to the given event in storage
-    fn _set_relayer_sla(event: RelayerEvent, value: T::SignedFixedPoint) {
+    fn _set_relayer_sla(event: RelayerEvent, value: SignedFixedPoint<T>) {
         match event {
             RelayerEvent::BlockSubmission => <RelayerBlockSubmission<T>>::set(value),
             RelayerEvent::DuplicateBlockSubmission => <RelayerDuplicateBlockSubmission<T>>::set(value),
@@ -499,7 +500,8 @@ impl<T: Config> Module<T> {
             .try_into()
             .map_err(|_| Error::<T>::TryIntoIntError)?;
 
-        let ret = T::SignedFixedPoint::checked_from_rational(raw, U::accuracy()).ok_or(Error::<T>::TryIntoIntError)?;
+        let ret =
+            SignedFixedPoint::<T>::checked_from_rational(raw, U::accuracy()).ok_or(Error::<T>::TryIntoIntError)?;
         Ok(ret)
     }
 
@@ -519,10 +521,10 @@ impl<T: Config> Module<T> {
         TryInto::<Issuing<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
-    fn issuing_to_fixed_point(x: Issuing<T>) -> Result<T::SignedFixedPoint, DispatchError> {
+    fn issuing_to_fixed_point(x: Issuing<T>) -> Result<SignedFixedPoint<T>, DispatchError> {
         let y = TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError)?;
         let inner = TryInto::<Inner<T>>::try_into(y).map_err(|_| Error::<T>::TryIntoIntError)?;
-        Ok(T::SignedFixedPoint::checked_from_integer(inner).ok_or(Error::<T>::TryIntoIntError)?)
+        Ok(SignedFixedPoint::<T>::checked_from_integer(inner).ok_or(Error::<T>::TryIntoIntError)?)
     }
 }
 

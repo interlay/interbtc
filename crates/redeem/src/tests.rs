@@ -75,6 +75,7 @@ fn test_request_redeem_fails_with_amount_below_minimum() {
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
                 status: VaultStatus::Active(true),
+                ..Default::default()
             },
         );
 
@@ -146,6 +147,7 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
                 status: VaultStatus::Active(true),
+                ..Default::default()
             },
         );
 
@@ -262,6 +264,7 @@ fn test_execute_redeem_succeeds_with_another_account() {
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
                 status: VaultStatus::Active(true),
+                ..Default::default()
             },
         );
         ext::btc_relay::verify_and_validate_transaction::<Test>
@@ -359,6 +362,7 @@ fn test_execute_redeem_succeeds() {
                 wallet: Wallet::new(dummy_public_key()),
                 banned_until: None,
                 status: VaultStatus::Active(true),
+                ..Default::default()
             },
         );
         ext::btc_relay::verify_and_validate_transaction::<Test>

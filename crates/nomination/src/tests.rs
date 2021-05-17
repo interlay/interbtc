@@ -23,6 +23,7 @@ fn register_vault(id: u64) {
             wallet: Wallet::new(dummy_public_key()),
             banned_until: None,
             status: VaultStatus::Active(true),
+            ..Default::default()
         },
     );
 }

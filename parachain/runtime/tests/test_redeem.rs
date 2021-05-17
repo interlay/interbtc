@@ -469,10 +469,10 @@ fn integration_test_redeem_issuing_cancel_reimburse_insufficient_collateral_for_
 
         let redeem_id = setup_cancelable_redeem(USER, VAULT, 100000000, amount_btc);
         let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
-        let amount_without_fee_backing =
+        let amount_without_fee_as_backing =
             ExchangeRateOraclePallet::issuing_to_backing(redeem.amount_btc + redeem.transfer_fee_btc).unwrap();
 
-        let punishment_fee = FeePallet::get_punishment_fee(amount_without_fee_backing).unwrap();
+        let punishment_fee = FeePallet::get_punishment_fee(amount_without_fee_as_backing).unwrap();
         assert!(punishment_fee > 0);
 
         SlaPallet::set_vault_sla(&account_of(VAULT), FixedI128::from(80));
@@ -484,15 +484,15 @@ fn integration_test_redeem_issuing_cancel_reimburse_insufficient_collateral_for_
             initial_state.with_changes(|user, vault, _, fee_pool, _| {
                 // with sla of 80, vault gets slashed for 115%: 110 to user, 5 to fee pool
 
-                fee_pool.balance += amount_without_fee_backing / 20;
+                fee_pool.balance += amount_without_fee_as_backing / 20;
                 fee_pool.tokens += redeem.fee;
 
                 vault.backing_collateral -=
-                    amount_without_fee_backing + punishment_fee + amount_without_fee_backing / 20;
+                    amount_without_fee_as_backing + punishment_fee + amount_without_fee_as_backing / 20;
                 // vault free tokens does not change, and issued tokens is reduced
                 vault.issued -= redeem.amount_btc + redeem.transfer_fee_btc;
 
-                user.free_balance += amount_without_fee_backing + punishment_fee;
+                user.free_balance += amount_without_fee_as_backing + punishment_fee;
                 user.free_tokens -= amount_btc;
 
                 consume_to_be_replaced(vault, redeem.amount_btc + redeem.transfer_fee_btc);

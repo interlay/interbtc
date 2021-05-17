@@ -12,6 +12,7 @@ pub mod types;
 mod benchmarking;
 
 mod default_weights;
+mod slash;
 pub use default_weights::WeightInfo;
 
 #[cfg(test)]
@@ -26,12 +27,15 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use crate::types::{
-    Backing, BtcAddress, DefaultSystemVault, DefaultVault, Inner, Issuing, RichSystemVault, RichVault,
-    UnsignedFixedPoint, UpdatableVault, Version,
-};
 #[doc(inline)]
 pub use crate::types::{BtcPublicKey, CurrencySource, SystemVault, Vault, VaultStatus, Wallet};
+use crate::{
+    slash::{Slashable, SlashingError, TryDepositCollateral, TryWithdrawCollateral},
+    types::{
+        Backing, BtcAddress, DefaultSystemVault, DefaultVault, Inner, Issuing, RichSystemVault, RichVault,
+        SignedFixedPoint, UnsignedFixedPoint, UpdatableVault, Version,
+    },
+};
 use codec::{Decode, Encode, EncodeLike};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
@@ -106,7 +110,10 @@ pub mod pallet {
         /// The source of (pseudo) randomness. Set to collective flip
         type RandomnessSource: Randomness<H256, Self::BlockNumber>;
 
-        /// the type of unsigned fixedpoint to use for the different thresholds. Set to FixedU128
+        /// The type of signed fixed point to use for slashing calculations.
+        type SignedFixedPoint: FixedPointNumber + Encode + EncodeLike + Decode + MaybeSerializeDeserialize;
+
+        /// The type of unsigned fixed point to use for the different thresholds.
         type UnsignedFixedPoint: FixedPointNumber + Encode + EncodeLike + Decode + MaybeSerializeDeserialize;
 
         /// Weight information for the extrinsics in this module.
@@ -382,6 +389,17 @@ pub mod pallet {
         VaultNotBelowLiquidationThreshold,
     }
 
+    impl<T: Config> From<SlashingError> for Error<T> {
+        fn from(err: SlashingError) -> Self {
+            match err {
+                SlashingError::ArithmeticOverflow => Error::ArithmeticOverflow,
+                SlashingError::ArithmeticUnderflow => Error::ArithmeticUnderflow,
+                SlashingError::TryIntoIntError => Error::TryIntoIntError,
+                SlashingError::InsufficientFunds => Error::InsufficientCollateral,
+            }
+        }
+    }
+
     /// The minimum collateral (e.g. DOT/KSM) a Vault needs to provide
     /// to participate in the issue process.
     #[pallet::storage]
@@ -433,7 +451,7 @@ pub mod pallet {
         _,
         Blake2_128Concat,
         T::AccountId,
-        Vault<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>,
+        Vault<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>, SignedFixedPoint<T>>,
         ValueQuery,
     >;
 
@@ -571,68 +589,54 @@ impl<T: Config> Pallet<T> {
         LiquidationVault::<T>::get()
     }
 
-    /// Locks an `amount` of collateral to be used for backing tokens
+    /// Deposit an `amount` of collateral to be used for backing tokens
     ///
     /// # Arguments
-    /// * `vault_id` - the id of the vault from which to increase to-be-issued tokens
-    /// * `amount` - the amount of collateral to be locked
+    /// * `vault_id` - the id of the vault
+    /// * `amount` - the amount of collateral
     pub fn try_deposit_collateral(vault_id: &T::AccountId, amount: Backing<T>) -> DispatchResult {
         let mut vault = Self::get_active_rich_vault_from_id(vault_id)?;
 
         // will fail if free_balance is insufficient
         ext::collateral::lock::<T>(vault_id, amount)?;
-        Pallet::<T>::increase_total_backing_collateral(amount)?;
-
-        vault.increase_backing_collateral(amount)?;
+        Self::increase_total_backing_collateral(amount)?;
+        vault.try_deposit_collateral(amount)?;
 
         Ok(())
     }
 
+    /// Withdraw an `amount` of collateral without checking collateralization
+    ///
+    /// # Arguments
+    /// * `vault_id` - the id of the vault
+    /// * `amount` - the amount of collateral
     pub fn force_withdraw_collateral(vault_id: &T::AccountId, amount: Backing<T>) -> DispatchResult {
-        Self::force_withdraw_collateral_to_address(vault_id, amount, vault_id)
-    }
-
-    pub fn force_withdraw_collateral_to_address(
-        vault_id: &T::AccountId,
-        amount: Backing<T>,
-        payee_id: &T::AccountId,
-    ) -> DispatchResult {
         let mut vault = Self::get_rich_vault_from_id(vault_id)?;
-        if !vault_id.eq(payee_id) {
-            Self::slash_collateral(
-                CurrencySource::Backing(vault_id.clone()),
-                CurrencySource::FreeBalance(payee_id.clone()),
-                amount,
-            )?;
-        } else {
-            ext::collateral::release_collateral::<T>(vault_id, amount)?;
-            vault.decrease_backing_collateral(amount)?;
-        }
-        Pallet::<T>::decrease_total_backing_collateral(amount)?;
+
+        // will fail if reserved_balance is insufficient
+        ext::collateral::release_collateral::<T>(vault_id, amount)?;
+        vault.try_withdraw_collateral(amount)?;
+        Self::decrease_total_backing_collateral(amount)?;
 
         Ok(())
     }
 
+    /// Withdraw an `amount` of collateral, ensuring that the vault is sufficiently
+    /// over-collateralized
+    ///
+    /// # Arguments
+    /// * `vault_id` - the id of the vault
+    /// * `amount` - the amount of collateral
     pub fn try_withdraw_collateral(vault_id: &T::AccountId, amount: Backing<T>) -> DispatchResult {
-        Self::try_withdraw_collateral_to_address(vault_id, amount, vault_id)
-    }
-
-    pub fn try_withdraw_collateral_to_address(
-        vault_id: &T::AccountId,
-        amount: Backing<T>,
-        payee_id: &T::AccountId,
-    ) -> DispatchResult {
         ensure!(
             Self::is_allowed_to_withdraw_collateral(vault_id, amount)?,
             Error::<T>::InsufficientCollateral
         );
 
-        Self::force_withdraw_collateral_to_address(vault_id, amount, payee_id)?;
-
-        Ok(())
+        Self::force_withdraw_collateral(vault_id, amount)
     }
 
-    /// checks if the vault would be above the secure threshold after withdrawing collateral
+    /// Checks if the vault would be above the secure threshold after withdrawing collateral
     pub fn is_allowed_to_withdraw_collateral(
         vault_id: &T::AccountId,
         amount: Backing<T>,
@@ -669,10 +673,18 @@ impl<T: Config> Pallet<T> {
         Ok(amount)
     }
 
+    fn slash_backing_collateral(vault_id: &T::AccountId, amount: Backing<T>) -> DispatchResult {
+        let mut vault = Self::get_rich_vault_from_id(vault_id)?;
+        ext::collateral::release_collateral::<T>(vault_id, amount)?;
+        vault.slash_collateral(amount)?;
+        Self::decrease_total_backing_collateral(amount)?;
+        Ok(())
+    }
+
     pub fn slash_collateral(from: CurrencySource<T>, to: CurrencySource<T>, amount: Backing<T>) -> DispatchResult {
         match from {
             CurrencySource::Backing(ref account) => {
-                Self::force_withdraw_collateral(account, amount)?;
+                Self::slash_backing_collateral(account, amount)?;
             }
             CurrencySource::Griefing(_) | CurrencySource::LiquidationVault => {
                 ext::collateral::release_collateral::<T>(&from.account_id(), amount)?;
@@ -1178,7 +1190,10 @@ impl<T: Config> Pallet<T> {
         Ok(total)
     }
 
-    pub fn insert_vault(id: &T::AccountId, vault: Vault<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>) {
+    pub fn insert_vault(
+        id: &T::AccountId,
+        vault: Vault<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>, SignedFixedPoint<T>>,
+    ) {
         Vaults::<T>::insert(id, vault)
     }
 
@@ -1210,7 +1225,7 @@ impl<T: Config> Pallet<T> {
     /// check if the vault is below the liquidation threshold. In contrast to other thresholds,
     /// this is checked as ratio of `collateral / (issued - to_be_redeemed)`.
     pub fn is_vault_below_liquidation_threshold(
-        vault: &Vault<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>,
+        vault: &Vault<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>, SignedFixedPoint<T>>,
         liquidation_threshold: UnsignedFixedPoint<T>,
     ) -> Result<bool, DispatchError> {
         // the currently issued tokens

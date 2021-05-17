@@ -140,7 +140,7 @@ fn lock_additional_collateral_succeeds() {
         let additional = RICH_COLLATERAL - DEFAULT_COLLATERAL;
         let res = VaultRegistry::lock_additional_collateral(Origin::signed(id), additional);
         assert_ok!(res);
-        let new_collateral = ext::collateral::for_account::<Test>(&id);
+        let new_collateral = ext::collateral::get_reserved_balance::<Test>(&id);
         assert_eq!(new_collateral, DEFAULT_COLLATERAL + additional);
         assert_emitted!(Event::LockAdditionalCollateral(
             id,
@@ -165,7 +165,7 @@ fn withdraw_collateral_succeeds() {
         let id = create_sample_vault();
         let res = VaultRegistry::withdraw_collateral(Origin::signed(id), 50);
         assert_ok!(res);
-        let new_collateral = ext::collateral::for_account::<Test>(&id);
+        let new_collateral = ext::collateral::get_reserved_balance::<Test>(&id);
         assert_eq!(new_collateral, DEFAULT_COLLATERAL - 50);
         assert_emitted!(Event::WithdrawCollateral(id, 50, DEFAULT_COLLATERAL - 50));
     });
@@ -446,7 +446,7 @@ fn redeem_tokens_liquidation_succeeds() {
         });
 
         // liquidation vault collateral
-        ext::collateral::for_account::<Test>.mock_safe(|_| MockResult::Return(1000u32.into()));
+        ext::collateral::get_reserved_balance::<Test>.mock_safe(|_| MockResult::Return(1000u32.into()));
 
         assert_ok!(liquidation_vault.increase_to_be_issued(50));
         assert_ok!(liquidation_vault.increase_issued(50));
@@ -471,7 +471,7 @@ fn redeem_tokens_liquidation_does_not_call_recover_when_unnecessary() {
         });
 
         // liquidation vault collateral
-        ext::collateral::for_account::<Test>.mock_safe(|_| MockResult::Return(1000u32.into()));
+        ext::collateral::get_reserved_balance::<Test>.mock_safe(|_| MockResult::Return(1000u32.into()));
 
         assert_ok!(liquidation_vault.increase_to_be_issued(25));
         assert_ok!(liquidation_vault.increase_issued(25));
@@ -565,7 +565,7 @@ fn liquidate_succeeds() {
             FixedU128::checked_from_rational(1, 100).unwrap(), // 1%
         );
 
-        let collateral_before = ext::collateral::for_account::<Test>(&vault_id);
+        let collateral_before = ext::collateral::get_reserved_balance::<Test>(&vault_id);
         assert_eq!(collateral_before, DEFAULT_COLLATERAL); // sanity check
 
         // required for `issue_tokens` to work
@@ -621,7 +621,7 @@ fn liquidate_succeeds() {
             liquidation_vault_before.data.to_be_redeemed_tokens + to_be_redeemed_tokens
         );
         assert_eq!(
-            ext::collateral::for_account::<Test>(&liquidation_vault_before.id()),
+            ext::collateral::get_reserved_balance::<Test>(&liquidation_vault_before.id()),
             moved_collateral
         );
 
@@ -631,7 +631,7 @@ fn liquidate_succeeds() {
         assert_eq!(user_vault_after.data.to_be_issued_tokens, 0);
         assert_eq!(user_vault_after.data.to_be_redeemed_tokens, to_be_redeemed_tokens);
         assert_eq!(
-            ext::collateral::for_account::<Test>(&vault_id),
+            ext::collateral::get_reserved_balance::<Test>(&vault_id),
             collateral_before - moved_collateral
         );
     });
@@ -652,7 +652,7 @@ fn liquidate_at_most_secure_threshold() {
             FixedU128::checked_from_rational(1, 100).unwrap(), // 1%
         );
 
-        let collateral_before = ext::collateral::for_account::<Test>(&vault_id);
+        let collateral_before = ext::collateral::get_reserved_balance::<Test>(&vault_id);
         assert_eq!(collateral_before, DEFAULT_COLLATERAL); // sanity check
 
         // required for `issue_tokens` to work
@@ -709,7 +709,7 @@ fn liquidate_at_most_secure_threshold() {
             liquidation_vault_before.data.to_be_redeemed_tokens + to_be_redeemed_tokens
         );
         assert_eq!(
-            ext::collateral::for_account::<Test>(&liquidation_vault_before.id()),
+            ext::collateral::get_reserved_balance::<Test>(&liquidation_vault_before.id()),
             moved_collateral
         );
 
@@ -719,7 +719,7 @@ fn liquidate_at_most_secure_threshold() {
         assert_eq!(user_vault_after.data.to_be_issued_tokens, 0);
         assert_eq!(user_vault_after.data.to_be_redeemed_tokens, to_be_redeemed_tokens);
         assert_eq!(
-            ext::collateral::for_account::<Test>(&vault_id),
+            ext::collateral::get_reserved_balance::<Test>(&vault_id),
             used_collateral - moved_collateral
         );
         assert_eq!(
@@ -951,7 +951,7 @@ fn is_vault_below_liquidation_threshold_true_succeeds() {
         let res = VaultRegistry::issue_tokens(&id, 50);
         assert_ok!(res);
 
-        ext::collateral::for_account::<Test>.mock_safe(|_| MockResult::Return(DEFAULT_COLLATERAL));
+        ext::collateral::get_reserved_balance::<Test>.mock_safe(|_| MockResult::Return(DEFAULT_COLLATERAL));
         ext::oracle::backing_to_issuing::<Test>.mock_safe(|_| MockResult::Return(Ok(DEFAULT_COLLATERAL / 2)));
 
         let vault = VaultRegistry::get_vault_from_id(&id).unwrap();

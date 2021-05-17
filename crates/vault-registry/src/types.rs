@@ -53,13 +53,13 @@ impl<T: Config> CurrencySource<T> {
                     Ok(vault) => vault.data.backing_collateral,
                     Err(_) => 0u32.into(),
                 };
-                let current = ext::collateral::for_account::<T>(&x);
+                let current = ext::collateral::get_reserved_balance::<T>(&x);
                 Ok(current
                     .checked_sub(&backing_collateral)
                     .ok_or(Error::<T>::ArithmeticUnderflow)?)
             }
             CurrencySource::FreeBalance(x) => Ok(ext::collateral::get_free_balance::<T>(x)),
-            CurrencySource::LiquidationVault => Ok(ext::collateral::for_account::<T>(&self.account_id())),
+            CurrencySource::LiquidationVault => Ok(ext::collateral::get_reserved_balance::<T>(&self.account_id())),
         }
     }
 }
@@ -71,6 +71,8 @@ pub(crate) type Backing<T> = <<T as currency::Config<currency::Instance1>>::Curr
 pub(crate) type Issuing<T> = <<T as currency::Config<currency::Instance2>>::Currency as Currency<
     <T as frame_system::Config>::AccountId,
 >>::Balance;
+
+pub(crate) type SignedFixedPoint<T> = <T as Config>::SignedFixedPoint;
 
 pub(crate) type UnsignedFixedPoint<T> = <T as Config>::UnsignedFixedPoint;
 
@@ -122,7 +124,7 @@ impl Default for VaultStatus {
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct Vault<AccountId, BlockNumber, Issuing, Backing> {
+pub struct Vault<AccountId, BlockNumber, Issuing, Backing, SignedFixedPoint> {
     /// Account identifier of the Vault
     pub id: AccountId,
     /// Number of tokens pending issue
@@ -133,20 +135,33 @@ pub struct Vault<AccountId, BlockNumber, Issuing, Backing> {
     pub to_be_redeemed_tokens: Issuing,
     /// Bitcoin address of this Vault (P2PKH, P2SH, P2PKH, P2WSH)
     pub wallet: Wallet,
-    /// Amount of collateral that is locked to back tokens. Note that
-    /// this excludes griefing collateral.
-    pub backing_collateral: Backing,
     /// Number of tokens that have been requested for a replace through
     /// `request_replace`, but that have not been accepted yet by a new_vault.
     pub to_be_replaced_tokens: Issuing,
     /// Amount of collateral that is locked as griefing collateral to be payed out if
     /// the old_vault fails to call execute_replace
     pub replace_collateral: Backing,
-    /// Block height until which this Vault is banned from being
-    /// used for Issue, Redeem (except during automatic liquidation) and Replace .
+    /// Block height until which this Vault is banned from being used for
+    /// Issue, Redeem (except during automatic liquidation) and Replace.
     pub banned_until: Option<BlockNumber>,
     /// Current status of the vault
     pub status: VaultStatus,
+    /// Used to calculate the amount we need to slash.
+    pub slash_per_token: SignedFixedPoint,
+    /// Updated upon deposit or withdrawal.
+    pub slash_tally: SignedFixedPoint,
+    /// Amount of collateral that is locked to back tokens. This will be
+    /// reduced if the vault has been slashed. If nomination is enabled
+    /// this will be greater than the `collateral` supplied by the vault.
+    /// Note that this excludes griefing collateral.
+    pub backing_collateral: Backing,
+    /// Total amount of collateral after deposit / withdraw, excluding
+    /// any amount that has been slashed. If nomination is enabled this
+    /// will be greater than the `collateral` supplied by the vault.
+    pub total_collateral: Backing,
+    /// Collateral supplied by the vault itself. If the vault has been
+    /// slashed a proportional amount will be deducted from this.
+    pub collateral: Backing,
 }
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
@@ -160,10 +175,18 @@ pub struct SystemVault<Issuing> {
     pub to_be_redeemed_tokens: Issuing,
 }
 
-impl<AccountId: Ord, BlockNumber, Issuing: HasCompact + Default, Backing: HasCompact + Default>
-    Vault<AccountId, BlockNumber, Issuing, Backing>
+impl<
+        AccountId: Ord,
+        BlockNumber,
+        Issuing: HasCompact + Default,
+        Backing: HasCompact + Default,
+        SignedFixedPoint: Default,
+    > Vault<AccountId, BlockNumber, Issuing, Backing, SignedFixedPoint>
 {
-    pub(crate) fn new(id: AccountId, public_key: BtcPublicKey) -> Vault<AccountId, BlockNumber, Issuing, Backing> {
+    pub(crate) fn new(
+        id: AccountId,
+        public_key: BtcPublicKey,
+    ) -> Vault<AccountId, BlockNumber, Issuing, Backing, SignedFixedPoint> {
         let wallet = Wallet::new(public_key);
         Vault {
             id,
@@ -176,6 +199,10 @@ impl<AccountId: Ord, BlockNumber, Issuing: HasCompact + Default, Backing: HasCom
             backing_collateral: Default::default(),
             banned_until: None,
             status: VaultStatus::Active(true),
+            slash_per_token: Default::default(),
+            slash_tally: Default::default(),
+            total_collateral: Default::default(),
+            collateral: Default::default(),
         }
     }
 
@@ -184,8 +211,13 @@ impl<AccountId: Ord, BlockNumber, Issuing: HasCompact + Default, Backing: HasCom
     }
 }
 
-pub type DefaultVault<T> =
-    Vault<<T as frame_system::Config>::AccountId, <T as frame_system::Config>::BlockNumber, Issuing<T>, Backing<T>>;
+pub type DefaultVault<T> = Vault<
+    <T as frame_system::Config>::AccountId,
+    <T as frame_system::Config>::BlockNumber,
+    Issuing<T>,
+    Backing<T>,
+    SignedFixedPoint<T>,
+>;
 
 pub type DefaultSystemVault<T> = SystemVault<Issuing<T>>;
 
@@ -318,26 +350,6 @@ impl<T: Config> RichVault<T> {
             .issued_tokens
             .checked_add(&self.data.to_be_issued_tokens)
             .ok_or(Error::<T>::ArithmeticOverflow)?)
-    }
-
-    pub(crate) fn increase_backing_collateral(&mut self, collateral: Backing<T>) -> DispatchResult {
-        self.update(|v| {
-            v.backing_collateral = v
-                .backing_collateral
-                .checked_add(&collateral)
-                .ok_or(Error::<T>::ArithmeticOverflow)?;
-            Ok(())
-        })
-    }
-
-    pub fn decrease_backing_collateral(&mut self, amount: Backing<T>) -> DispatchResult {
-        self.update(|v| {
-            v.backing_collateral = v
-                .backing_collateral
-                .checked_sub(&amount)
-                .ok_or(Error::<T>::ArithmeticUnderflow)?;
-            Ok(())
-        })
     }
 
     pub fn get_collateral(&self) -> Backing<T> {

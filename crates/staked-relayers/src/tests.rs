@@ -9,9 +9,11 @@ use frame_support::{assert_err, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
 use redeem::types::{RedeemRequest, RedeemRequestStatus};
 use replace::types::{ReplaceRequest, ReplaceRequestStatus};
+use sp_arithmetic::FixedI128;
 use sp_core::{H160, H256};
 use std::{convert::TryInto, str::FromStr};
 use vault_registry::{Vault, VaultStatus, Wallet};
+
 type Event = crate::Event<Test>;
 
 macro_rules! assert_emitted {
@@ -36,7 +38,10 @@ fn dummy_public_key() -> BtcPublicKey {
 }
 
 /// Mocking functions
-fn init_zero_vault(id: AccountId, btc_address: Option<BtcAddress>) -> Vault<AccountId, BlockNumber, u64, u64> {
+fn init_zero_vault(
+    id: AccountId,
+    btc_address: Option<BtcAddress>,
+) -> Vault<AccountId, BlockNumber, u64, u64, FixedI128> {
     let mut vault = Vault::default();
     vault.id = id;
     vault.wallet = Wallet::new(dummy_public_key());
@@ -384,6 +389,7 @@ fn test_is_transaction_invalid_fails_with_valid_merge_transaction() {
                 wallet: wallet.clone(),
                 banned_until: None,
                 status: VaultStatus::Active(true),
+                ..Default::default()
             }))
         });
 
@@ -442,6 +448,7 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
                 wallet: wallet.clone(),
                 banned_until: None,
                 status: VaultStatus::Active(true),
+                ..Default::default()
             }))
         });
 
@@ -601,6 +608,7 @@ fn test_is_transaction_invalid_fails_with_valid_merge_testnet_transaction() {
                 wallet: wallet.clone(),
                 banned_until: None,
                 status: VaultStatus::Active(true),
+                ..Default::default()
             }))
         });
 
