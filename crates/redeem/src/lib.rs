@@ -49,8 +49,8 @@ const _MODULE_ID: ModuleId = ModuleId(*b"i/redeem");
 pub trait Config:
     frame_system::Config
     + vault_registry::Config
-    + currency::Config<currency::Collateral>
-    + currency::Config<currency::Treasury>
+    + currency::Config<currency::Backing>
+    + currency::Config<currency::Issuing>
     + btc_relay::Config
     + fee::Config
     + sla::Config

@@ -69,9 +69,9 @@ pub(crate) mod security {
 pub(crate) mod treasury {
     use crate::types::Issuing;
 
-    type TreasuryPallet<T> = currency::Pallet<T, currency::Treasury>;
+    type TreasuryPallet<T> = currency::Pallet<T, currency::Issuing>;
 
-    pub fn mint<T: currency::Config<currency::Treasury>>(requester: T::AccountId, amount: Issuing<T>) {
+    pub fn mint<T: currency::Config<currency::Issuing>>(requester: T::AccountId, amount: Issuing<T>) {
         TreasuryPallet::<T>::mint(requester, amount)
     }
 }

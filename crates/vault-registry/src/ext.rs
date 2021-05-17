@@ -6,9 +6,9 @@ pub(crate) mod collateral {
     use crate::types::Backing;
     use frame_support::dispatch::DispatchResult;
 
-    type CollateralPallet<T> = currency::Pallet<T, currency::Collateral>;
+    type CollateralPallet<T> = currency::Pallet<T, currency::Backing>;
 
-    pub fn transfer<T: currency::Config<currency::Collateral>>(
+    pub fn transfer<T: currency::Config<currency::Backing>>(
         source: &T::AccountId,
         destination: &T::AccountId,
         amount: Backing<T>,
@@ -16,25 +16,22 @@ pub(crate) mod collateral {
         CollateralPallet::<T>::transfer(source, destination, amount)
     }
 
-    pub fn lock<T: currency::Config<currency::Collateral>>(
-        sender: &T::AccountId,
-        amount: Backing<T>,
-    ) -> DispatchResult {
+    pub fn lock<T: currency::Config<currency::Backing>>(sender: &T::AccountId, amount: Backing<T>) -> DispatchResult {
         CollateralPallet::<T>::lock(sender, amount)
     }
 
-    pub fn release_collateral<T: currency::Config<currency::Collateral>>(
+    pub fn release_collateral<T: currency::Config<currency::Backing>>(
         sender: &T::AccountId,
         amount: Backing<T>,
     ) -> DispatchResult {
         CollateralPallet::<T>::release(sender, amount)
     }
 
-    pub fn get_reserved_balance<T: currency::Config<currency::Collateral>>(id: &T::AccountId) -> Backing<T> {
+    pub fn get_reserved_balance<T: currency::Config<currency::Backing>>(id: &T::AccountId) -> Backing<T> {
         CollateralPallet::<T>::get_reserved_balance(id)
     }
 
-    pub fn get_free_balance<T: currency::Config<currency::Collateral>>(id: &T::AccountId) -> Backing<T> {
+    pub fn get_free_balance<T: currency::Config<currency::Backing>>(id: &T::AccountId) -> Backing<T> {
         CollateralPallet::<T>::get_free_balance(id)
     }
 }
@@ -43,9 +40,9 @@ pub(crate) mod collateral {
 pub(crate) mod treasury {
     use crate::types::Issuing;
 
-    type TreasuryPallet<T> = currency::Pallet<T, currency::Treasury>;
+    type TreasuryPallet<T> = currency::Pallet<T, currency::Issuing>;
 
-    pub fn total_issued<T: currency::Config<currency::Treasury>>() -> Issuing<T> {
+    pub fn total_issued<T: currency::Config<currency::Issuing>>() -> Issuing<T> {
         TreasuryPallet::<T>::get_total_supply()
     }
 }
@@ -55,8 +52,8 @@ pub(crate) mod oracle {
     use crate::types::{Backing, Issuing};
     use frame_support::dispatch::DispatchError;
 
-    type Collateral = currency::Instance1;
-    type Treasury = currency::Instance2;
+    type Collateral = currency::Backing;
+    type Treasury = currency::Issuing;
 
     pub trait Exchangeable:
         exchange_rate_oracle::Config + currency::Config<Collateral> + currency::Config<Treasury>

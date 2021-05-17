@@ -12,9 +12,8 @@ use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 use mocktopus::macros::mockable;
 use vault_registry::VaultStatus;
 
-pub(crate) type Backing<T> = <<T as currency::Config<currency::Instance1>>::Currency as Currency<
-    <T as frame_system::Config>::AccountId,
->>::Balance;
+pub(crate) type Backing<T> =
+    <<T as currency::Config<currency::Backing>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 pub(crate) type UnsignedFixedPoint<T> = <T as fee::Config>::UnsignedFixedPoint;
 

@@ -47,8 +47,8 @@ pub trait WeightInfo {
 /// The pallet's configuration trait.
 pub trait Config:
     frame_system::Config
-    + currency::Config<currency::Collateral>
-    + currency::Config<currency::Treasury>
+    + currency::Config<currency::Backing>
+    + currency::Config<currency::Issuing>
     + security::Config
     + vault_registry::Config
     + fee::Config

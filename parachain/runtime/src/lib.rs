@@ -440,9 +440,9 @@ parameter_types! {
     pub const BackingDecimals: u8 = 10;
 }
 
-impl currency::Config<currency::Collateral> for Runtime {
+impl currency::Config<currency::Backing> for Runtime {
     type Event = Event;
-    type Currency = pallet_balances::Pallet<Runtime, pallet_balances::Instance1>;
+    type Currency = Backing;
     type Name = BackingName;
     type Symbol = BackingSymbol;
     type Decimals = BackingDecimals;
@@ -454,9 +454,9 @@ parameter_types! {
     pub const IssuingDecimals: u8 = 8;
 }
 
-impl currency::Config<currency::Treasury> for Runtime {
+impl currency::Config<currency::Issuing> for Runtime {
     type Event = Event;
-    type Currency = pallet_balances::Pallet<Runtime, pallet_balances::Instance2>;
+    type Currency = Issuing;
     type Name = IssuingName;
     type Symbol = IssuingSymbol;
     type Decimals = IssuingDecimals;

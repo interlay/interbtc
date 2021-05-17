@@ -42,13 +42,11 @@ use sp_arithmetic::{
 };
 use sp_std::{convert::TryInto, vec::Vec};
 
-pub(crate) type Backing<T> = <<T as currency::Config<currency::Instance1>>::Currency as Currency<
-    <T as frame_system::Config>::AccountId,
->>::Balance;
+pub(crate) type Backing<T> =
+    <<T as currency::Config<currency::Backing>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-pub(crate) type Issuing<T> = <<T as currency::Config<currency::Instance2>>::Currency as Currency<
-    <T as frame_system::Config>::AccountId,
->>::Balance;
+pub(crate) type Issuing<T> =
+    <<T as currency::Config<currency::Issuing>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 pub(crate) type UnsignedFixedPoint<T> = <T as Config>::UnsignedFixedPoint;
 
@@ -68,8 +66,8 @@ pub enum Version {
 pub trait Config:
     frame_system::Config
     + pallet_timestamp::Config
-    + currency::Config<currency::Collateral>
-    + currency::Config<currency::Treasury>
+    + currency::Config<currency::Backing>
+    + currency::Config<currency::Issuing>
     + security::Config
 {
     /// The overarching event type.

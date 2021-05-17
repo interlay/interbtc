@@ -84,7 +84,7 @@ fn create_vault_and_issue_tokens(
     assert_ok!(res);
 
     // mint tokens to the vault
-    currency::Pallet::<Test, currency::Instance2>::mint(id, issue_tokens);
+    currency::Pallet::<Test, currency::Issuing>::mint(id, issue_tokens);
 
     id
 }

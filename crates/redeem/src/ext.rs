@@ -177,28 +177,25 @@ pub(crate) mod treasury {
     use crate::types::Issuing;
     use frame_support::dispatch::DispatchResult;
 
-    type TreasuryPallet<T> = currency::Pallet<T, currency::Treasury>;
+    type TreasuryPallet<T> = currency::Pallet<T, currency::Issuing>;
 
-    pub fn get_balance<T: currency::Config<currency::Treasury>>(account: T::AccountId) -> Issuing<T> {
+    pub fn get_balance<T: currency::Config<currency::Issuing>>(account: T::AccountId) -> Issuing<T> {
         TreasuryPallet::<T>::get_free_balance(&account)
     }
 
-    pub fn lock<T: currency::Config<currency::Treasury>>(redeemer: T::AccountId, amount: Issuing<T>) -> DispatchResult {
+    pub fn lock<T: currency::Config<currency::Issuing>>(redeemer: T::AccountId, amount: Issuing<T>) -> DispatchResult {
         TreasuryPallet::<T>::lock(&redeemer, amount)
     }
 
-    pub fn unlock<T: currency::Config<currency::Treasury>>(
-        account: T::AccountId,
-        amount: Issuing<T>,
-    ) -> DispatchResult {
+    pub fn unlock<T: currency::Config<currency::Issuing>>(account: T::AccountId, amount: Issuing<T>) -> DispatchResult {
         TreasuryPallet::<T>::unlock(account, amount)
     }
 
-    pub fn burn<T: currency::Config<currency::Treasury>>(redeemer: T::AccountId, amount: Issuing<T>) -> DispatchResult {
+    pub fn burn<T: currency::Config<currency::Issuing>>(redeemer: T::AccountId, amount: Issuing<T>) -> DispatchResult {
         TreasuryPallet::<T>::burn(&redeemer, amount)
     }
 
-    pub fn unlock_and_transfer<T: currency::Config<currency::Treasury>>(
+    pub fn unlock_and_transfer<T: currency::Config<currency::Issuing>>(
         source: T::AccountId,
         destination: T::AccountId,
         amount: Issuing<T>,
@@ -206,7 +203,7 @@ pub(crate) mod treasury {
         TreasuryPallet::<T>::unlock_and_transfer(source, destination, amount)
     }
 
-    pub fn mint<T: currency::Config<currency::Treasury>>(requester: T::AccountId, amount: Issuing<T>) {
+    pub fn mint<T: currency::Config<currency::Issuing>>(requester: T::AccountId, amount: Issuing<T>) {
         TreasuryPallet::<T>::mint(requester, amount)
     }
 }
@@ -288,9 +285,9 @@ pub(crate) mod collateral {
     use crate::Backing;
     use frame_support::dispatch::DispatchResult;
 
-    type CollateralPallet<T> = currency::Pallet<T, currency::Collateral>;
+    type CollateralPallet<T> = currency::Pallet<T, currency::Backing>;
 
-    pub fn release_collateral<T: currency::Config<currency::Collateral>>(
+    pub fn release_collateral<T: currency::Config<currency::Backing>>(
         sender: &T::AccountId,
         amount: Backing<T>,
     ) -> DispatchResult {
