@@ -83,7 +83,6 @@ module-vault-registry-rpc-runtime-api = { path = "../../crates/vault-registry/rp
 module-issue-rpc-runtime-api = { path = "../../crates/issue/rpc/runtime-api", default-features = false }
 module-redeem-rpc-runtime-api = { path = "../../crates/redeem/rpc/runtime-api", default-features = false }
 module-replace-rpc-runtime-api = { path = "../../crates/replace/rpc/runtime-api", default-features = false }
-module-sla-rpc-runtime-api = { path = "../../crates/sla/rpc/runtime-api", default-features = false }
 module-refund-rpc-runtime-api = { path = "../../crates/refund/rpc/runtime-api", default-features = false }
 
 [dev-dependencies]
@@ -172,7 +171,6 @@ std = [
   "module-issue-rpc-runtime-api/std",
   "module-redeem-rpc-runtime-api/std",
   "module-replace-rpc-runtime-api/std",
-  "module-sla-rpc-runtime-api/std",
   "module-refund-rpc-runtime-api/std",
 ]
 runtime-benchmarks = [
