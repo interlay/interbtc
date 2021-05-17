@@ -171,8 +171,9 @@ where
 impl vault_registry::Config for Test {
     type ModuleId = VaultModuleId;
     type Event = TestEvent;
-    type UnsignedFixedPoint = FixedU128;
     type RandomnessSource = pallet_randomness_collective_flip::Pallet<Test>;
+    type SignedFixedPoint = FixedI128;
+    type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
 }
 

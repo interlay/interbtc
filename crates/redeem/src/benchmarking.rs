@@ -133,7 +133,6 @@ benchmarks! {
         Redeem::<T>::insert_redeem_request(redeem_id, redeem_request);
         Security::<T>::set_active_block_number(Security::<T>::active_block_number() + Redeem::<T>::redeem_period() + 10u32.into());
 
-
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
         vault.wallet = Wallet::new(dummy_public_key());

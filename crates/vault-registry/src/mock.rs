@@ -5,7 +5,7 @@ use frame_support::{
     traits::{GenesisBuild, StorageMapShim},
 };
 use mocktopus::mocking::{clear_mocks, MockResult, Mockable};
-use sp_arithmetic::{FixedPointNumber, FixedU128};
+use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
     testing::{Header, TestXt},
@@ -166,6 +166,7 @@ impl Config for Test {
     type ModuleId = VaultModuleId;
     type Event = TestEvent;
     type RandomnessSource = pallet_randomness_collective_flip::Pallet<Test>;
+    type SignedFixedPoint = FixedI128;
     type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
 }

@@ -5,10 +5,11 @@ use mocktopus::macros::mockable;
 pub(crate) mod vault_registry {
     use crate::{Backing, Issuing};
     use frame_support::dispatch::DispatchError;
+    use vault_registry::types::Vault;
 
     pub fn get_vault_from_id<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-    ) -> Result<vault_registry::types::Vault<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>, DispatchError> {
+    ) -> Result<Vault<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>, T::SignedFixedPoint>, DispatchError> {
         <vault_registry::Pallet<T>>::get_vault_from_id(vault_id)
     }
 

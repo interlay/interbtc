@@ -30,7 +30,7 @@ pub(crate) mod collateral {
         CollateralPallet::<T>::release(sender, amount)
     }
 
-    pub fn for_account<T: currency::Config<currency::Collateral>>(id: &T::AccountId) -> Backing<T> {
+    pub fn get_reserved_balance<T: currency::Config<currency::Collateral>>(id: &T::AccountId) -> Backing<T> {
         CollateralPallet::<T>::get_reserved_balance(id)
     }
 
