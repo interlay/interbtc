@@ -101,7 +101,7 @@ fn get_rewards(currency: Currency, account: [u8; 32]) -> u128 {
 }
 
 fn setup_backing_reward() {
-    VaultRegistryPallet::slash_collateral(
+    VaultRegistryPallet::transfer_funds(
         CurrencySource::FreeBalance(account_of(FAUCET)),
         CurrencySource::FreeBalance(FeePallet::fee_pool_account_id()),
         1000,
@@ -129,7 +129,7 @@ fn set_issued_and_backing(vault: [u8; 32], amount_issued: u128, backing: u128) {
             ..CoreVaultData::vault(vault)
         },
     );
-    VaultRegistryPallet::slash_collateral(
+    VaultRegistryPallet::transfer_funds(
         CurrencySource::Backing(account_of(PROOF_SUBMITTER)),
         CurrencySource::FreeBalance(account_of(FAUCET)),
         CurrencySource::<Runtime>::Backing(account_of(PROOF_SUBMITTER))

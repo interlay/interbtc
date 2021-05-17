@@ -436,7 +436,7 @@ impl<T: Config> Module<T> {
             } else {
                 CurrencySource::LiquidationVault
             };
-            ext::vault_registry::slash_collateral::<T>(
+            ext::vault_registry::transfer_funds::<T>(
                 CurrencySource::Backing(vault_id.clone()),
                 slashing_destination,
                 confiscated_collateral,
@@ -450,7 +450,7 @@ impl<T: Config> Module<T> {
                 let reimburse_in_backing = amount_issuing_in_backing
                     .checked_add(&punishment_fee_in_backing)
                     .ok_or(Error::<T>::ArithmeticOverflow)?;
-                ext::vault_registry::slash_collateral_saturated::<T>(
+                ext::vault_registry::transfer_funds_saturated::<T>(
                     CurrencySource::Backing(vault_id.clone()),
                     CurrencySource::FreeBalance(redeem.redeemer.clone()),
                     reimburse_in_backing,
@@ -458,7 +458,7 @@ impl<T: Config> Module<T> {
             } else {
                 // user chose to keep their issued tokens - only transfer it the punishment fee
                 // returns the amount actually slashed
-                ext::vault_registry::slash_collateral_saturated::<T>(
+                ext::vault_registry::transfer_funds_saturated::<T>(
                     CurrencySource::Backing(vault_id.clone()),
                     CurrencySource::FreeBalance(redeemer.clone()),
                     punishment_fee_in_backing,
@@ -473,7 +473,7 @@ impl<T: Config> Module<T> {
                 .checked_sub(&slashed_backing)
                 .ok_or(Error::<T>::ArithmeticUnderflow)?;
             if remaining_backing_to_be_slashed > Backing::<T>::zero() {
-                let slashed_to_fee_pool = ext::vault_registry::slash_collateral_saturated::<T>(
+                let slashed_to_fee_pool = ext::vault_registry::transfer_funds_saturated::<T>(
                     CurrencySource::Backing(vault_id.clone()),
                     CurrencySource::FreeBalance(ext::fee::fee_pool_account_id::<T>()),
                     remaining_backing_to_be_slashed,

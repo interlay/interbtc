@@ -401,7 +401,7 @@ fn redeem_tokens_premium_succeeds() {
         let id = create_sample_vault();
         let user_id = 5;
         // TODO: emulate assert_called
-        VaultRegistry::slash_collateral.mock_safe(move |sender, receiver, _amount| {
+        VaultRegistry::transfer_funds.mock_safe(move |sender, receiver, _amount| {
             assert_eq!(sender, CurrencySource::Backing(id));
             assert_eq!(receiver, CurrencySource::FreeBalance(user_id));
             MockResult::Return(Ok(()))
@@ -439,7 +439,7 @@ fn redeem_tokens_liquidation_succeeds() {
         let user_id = 5;
 
         // TODO: emulate assert_called
-        VaultRegistry::slash_collateral.mock_safe(move |sender, receiver, _amount| {
+        VaultRegistry::transfer_funds.mock_safe(move |sender, receiver, _amount| {
             assert_eq!(sender, CurrencySource::LiquidationVault);
             assert_eq!(receiver, CurrencySource::FreeBalance(user_id));
             MockResult::Return(Ok(()))
@@ -464,7 +464,7 @@ fn redeem_tokens_liquidation_does_not_call_recover_when_unnecessary() {
         let mut liquidation_vault = VaultRegistry::get_rich_liquidation_vault();
         let user_id = 5;
 
-        VaultRegistry::slash_collateral.mock_safe(move |sender, receiver, _amount| {
+        VaultRegistry::transfer_funds.mock_safe(move |sender, receiver, _amount| {
             assert_eq!(sender, CurrencySource::LiquidationVault);
             assert_eq!(receiver, CurrencySource::FreeBalance(user_id));
             MockResult::Return(Ok(()))
