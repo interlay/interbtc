@@ -1204,10 +1204,7 @@ impl<T: Config> Pallet<T> {
         let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
         let banned_until = height + Self::punishment_delay();
         vault.ban_until(banned_until);
-        Self::deposit_event(Event::<T>::BanVault(
-            vault.id(),
-            banned_until,
-        ));
+        Self::deposit_event(Event::<T>::BanVault(vault.id(), banned_until));
         Ok(())
     }
 
