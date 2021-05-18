@@ -1,22 +1,16 @@
 use crate as btc_relay;
 use crate::{Config, Error};
-use frame_support::{
-    parameter_types,
-    traits::{GenesisBuild, StorageMapShim},
-};
+use frame_support::{parameter_types, traits::GenesisBuild};
 use mocktopus::mocking::clear_mocks;
-use sp_arithmetic::{FixedI128, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
-    testing::{Header, TestXt},
+    testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
-    ModuleId,
 };
 
 pub const BITCOIN_CONFIRMATIONS: u32 = 6;
 pub const PARACHAIN_CONFIRMATIONS: u64 = 20;
 
-type TestExtrinsic = TestXt<Call, ()>;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -30,23 +24,14 @@ frame_support::construct_runtime!(
         System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 
-        // Tokens & Balances
-        Backing: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
-        Issuing: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
-
-        Collateral: currency::<Instance1>::{Pallet, Call, Storage, Event<T>},
-        Treasury: currency::<Instance2>::{Pallet, Call, Storage, Event<T>},
-
         // Operational
         BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},
         Security: security::{Pallet, Call, Storage, Event<T>},
-        VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>},
-        ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
-        Sla: sla::{Pallet, Call, Config<T>, Storage, Event<T>},
     }
 );
 
 pub type AccountId = u64;
+#[allow(dead_code)]
 pub type Balance = u64;
 pub type BlockNumber = u64;
 
@@ -86,100 +71,8 @@ parameter_types! {
     pub const MaxLocks: u32 = 50;
 }
 
-/// Backing currency - e.g. DOT/KSM
-impl pallet_balances::Config<pallet_balances::Instance1> for Test {
-    type MaxLocks = MaxLocks;
-    type Balance = Balance;
-    type Event = TestEvent;
-    type DustRemoval = ();
-    type ExistentialDeposit = ExistentialDeposit;
-    type AccountStore = StorageMapShim<
-        pallet_balances::Account<Test, pallet_balances::Instance1>,
-        frame_system::Provider<Test>,
-        AccountId,
-        pallet_balances::AccountData<Balance>,
-    >;
-    type WeightInfo = ();
-}
-
-/// Issuing currency - e.g. PolkaBTC
-impl pallet_balances::Config<pallet_balances::Instance2> for Test {
-    type MaxLocks = MaxLocks;
-    type Balance = Balance;
-    type Event = TestEvent;
-    type DustRemoval = ();
-    type ExistentialDeposit = ExistentialDeposit;
-    type AccountStore = StorageMapShim<
-        pallet_balances::Account<Test, pallet_balances::Instance2>,
-        frame_system::Provider<Test>,
-        AccountId,
-        pallet_balances::AccountData<Balance>,
-    >;
-    type WeightInfo = ();
-}
-
-parameter_types! {
-    pub const BackingName: &'static [u8] = b"Polkadot";
-    pub const BackingSymbol: &'static [u8] = b"DOT";
-    pub const BackingDecimals: u8 = 10;
-}
-
-impl currency::Config<currency::Backing> for Test {
-    type Event = TestEvent;
-    type Currency = Backing;
-    type Name = BackingName;
-    type Symbol = BackingSymbol;
-    type Decimals = BackingDecimals;
-}
-
-parameter_types! {
-    pub const IssuingName: &'static [u8] = b"Bitcoin";
-    pub const IssuingSymbol: &'static [u8] = b"BTC";
-    pub const IssuingDecimals: u8 = 8;
-}
-
-impl currency::Config<currency::Issuing> for Test {
-    type Event = TestEvent;
-    type Currency = Issuing;
-    type Name = IssuingName;
-    type Symbol = IssuingSymbol;
-    type Decimals = IssuingDecimals;
-}
-
 impl Config for Test {
     type Event = TestEvent;
-    type WeightInfo = ();
-}
-
-impl sla::Config for Test {
-    type Event = TestEvent;
-    type SignedFixedPoint = FixedI128;
-}
-
-parameter_types! {
-    pub const VaultModuleId: ModuleId = ModuleId(*b"mod/vreg");
-}
-
-impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
-where
-    Call: From<C>,
-{
-    type OverarchingCall = Call;
-    type Extrinsic = TestExtrinsic;
-}
-
-impl vault_registry::Config for Test {
-    type ModuleId = VaultModuleId;
-    type Event = TestEvent;
-    type RandomnessSource = pallet_randomness_collective_flip::Pallet<Test>;
-    type SignedFixedPoint = FixedI128;
-    type UnsignedFixedPoint = FixedU128;
-    type WeightInfo = ();
-}
-
-impl exchange_rate_oracle::Config for Test {
-    type Event = TestEvent;
-    type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
 }
 
