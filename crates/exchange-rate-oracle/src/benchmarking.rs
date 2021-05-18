@@ -20,7 +20,7 @@ benchmarks! {
         <AuthorizedOracles<T>>::insert(origin.clone(), Vec::<u8>::new());
     }: _(RawOrigin::Signed(origin), 1 * u, 2 * u, 3 * u)
     verify {
-        let readback = SatoshiPerBytes::get();
+        let readback = SatoshiPerBytes::<T>::get();
 
         assert_eq!(readback.fast, 1 * u);
         assert_eq!(readback.half, 2 * u);
