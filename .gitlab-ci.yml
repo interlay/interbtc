@@ -19,7 +19,6 @@ image: "registry.gitlab.com/interlay/containers/rust-base:nightly-2021-03-15"
     - rustfmt --version
     - cargo --version
     - SCCACHE_START_SERVER=1 SCCACHE_IDLE_TIMEOUT=0 sccache
-    - sscache -s
 
 .docker-base-job:
   stage: publish
