@@ -820,8 +820,6 @@ name = "btc-relay"
 version = "0.7.0"
 dependencies = [
  "bitcoin",
- "currency",
- "exchange-rate-oracle",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -841,7 +839,6 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
- "vault-registry",
 ]
 
 [[package]]

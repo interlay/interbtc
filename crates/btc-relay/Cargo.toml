@@ -34,10 +34,6 @@ sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "rococo
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 
-vault-registry = { path = "../vault-registry", default-features = false }
-currency = { path = "../currency", default-features = false }
-exchange-rate-oracle = { path = "../exchange-rate-oracle", default-features = false }
-
 [features]
 default = ["std"]
 no-btc = []
