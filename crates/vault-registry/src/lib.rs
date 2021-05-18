@@ -358,6 +358,8 @@ pub mod pallet {
             VaultStatus,
             Backing<T>,
         ),
+        /// vault_id, banned_until
+        BanVault(T::AccountId, T::BlockNumber),
     }
 
     #[pallet::error]
@@ -1200,7 +1202,9 @@ impl<T: Config> Pallet<T> {
     pub fn ban_vault(vault_id: T::AccountId) -> DispatchResult {
         let height = ext::security::active_block_number::<T>();
         let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
-        vault.ban_until(height + Self::punishment_delay());
+        let banned_until = height + Self::punishment_delay();
+        vault.ban_until(banned_until);
+        Self::deposit_event(Event::<T>::BanVault(vault.id(), banned_until));
         Ok(())
     }
 
