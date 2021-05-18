@@ -112,6 +112,7 @@ impl ExecuteIssueBuilder {
         Call::Issue(IssueCall::execute_issue(self.issue_id, proof, raw_tx))
             .dispatch(origin_of(account_of(self.submitter)))
     }
+
     pub fn assert_execute(&self) {
         assert_ok!(self.execute());
     }

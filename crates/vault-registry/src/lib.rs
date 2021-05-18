@@ -97,6 +97,7 @@ pub mod pallet {
         + exchange_rate_oracle::Config
         + security::Config
         + SendTransactionTypes<Call<Self>>
+        + sla::Config
     {
         /// The vault module id, used for deriving its sovereign account ID.
         #[pallet::constant] // put the constant in metadata
@@ -604,6 +605,7 @@ impl<T: Config> Pallet<T> {
         Self::increase_total_backing_collateral(amount)?;
         vault.try_deposit_collateral(amount)?;
 
+        ext::sla::event_update_vault_sla::<T>(&vault.id(), ext::sla::VaultEvent::Deposit(amount))?;
         Ok(())
     }
 
@@ -620,6 +622,7 @@ impl<T: Config> Pallet<T> {
         vault.try_withdraw_collateral(amount)?;
         Self::decrease_total_backing_collateral(amount)?;
 
+        ext::sla::event_update_vault_sla::<T>(&vault.id(), ext::sla::VaultEvent::Withdraw(amount))?;
         Ok(())
     }
 
@@ -1145,6 +1148,27 @@ impl<T: Config> Pallet<T> {
             vault_orig.replace_collateral,
         ));
         Ok(to_slash)
+    }
+
+    /// Calculate the amount that is slashed when the the vault fails to execute.
+    ///
+    /// # Arguments
+    ///
+    /// * `vault_id` - account of the vault in question
+    /// * `stake` - the amount of collateral placed for the redeem/replace
+    /// * `reimburse` - if true, this function returns 110-130%. If false, it returns 10-30%
+    pub fn calculate_slashed_amount(
+        vault_id: &T::AccountId,
+        stake: Backing<T>,
+        reimburse: bool,
+    ) -> Result<Backing<T>, DispatchError> {
+        ext::sla::calculate_slashed_amount::<T>(
+            vault_id,
+            stake,
+            reimburse,
+            Self::liquidation_collateral_threshold(),
+            Self::premium_redeem_threshold(),
+        )
     }
 
     pub(crate) fn increase_total_backing_collateral(amount: Backing<T>) -> DispatchResult {

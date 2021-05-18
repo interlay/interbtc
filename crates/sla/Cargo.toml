@@ -22,10 +22,9 @@ pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "r
 pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 
 # Parachain dependencies
-exchange-rate-oracle = { path = "../exchange-rate-oracle", default-features = false }
-vault-registry = { path = "../vault-registry", default-features = false }
 currency = { path = "../currency", default-features = false }
 security = { path = "../security", default-features = false }
+reward = { path = "../reward", default-features = false }
 
 [dev-dependencies]
 mocktopus = "0.7.0"
@@ -45,8 +44,7 @@ std = [
 	"frame-system/std",
 	"pallet-balances/std",
 	"pallet-timestamp/std",
-	"exchange-rate-oracle/std",
 	"security/std",
 	"currency/std",
-	"vault-registry/std",
+	"reward/std",
 ]

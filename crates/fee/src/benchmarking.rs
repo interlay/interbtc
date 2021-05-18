@@ -1,40 +1,26 @@
 use super::*;
-use crate::Pallet as Fee;
 use frame_benchmarking::{account, benchmarks};
-use frame_support::{traits::Currency, StorageMap};
 use frame_system::RawOrigin;
-use sp_std::prelude::*;
 
 const SEED: u32 = 0;
-// existential deposit multiplier
-const ED_MULTIPLIER: u32 = 10;
 
 benchmarks! {
-    withdraw_issuing {
-        let fee_pool: T::AccountId = Fee::<T>::fee_pool_account_id();
-
-        let existential_deposit = <<T as currency::Config<currency::Issuing>>::Currency as Currency<_>>::minimum_balance();
-        let balance = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
-        let _ = <<T as currency::Config<currency::Issuing>>::Currency as Currency<_>>::make_free_balance_be(&fee_pool, balance);
-
+    withdraw_vault_backing_rewards {
         let recipient: T::AccountId = account("recipient", 0, SEED);
-        let amount = existential_deposit.saturating_mul((ED_MULTIPLIER - 1).into()) + 1u32.into();
-        <TotalRewardsIssuing<T>>::insert(recipient.clone(), amount);
+    }: _(RawOrigin::Signed(recipient))
 
-    }: _(RawOrigin::Signed(recipient), amount)
-
-    withdraw_backing {
-        let fee_pool: T::AccountId = Fee::<T>::fee_pool_account_id();
-
-        let existential_deposit = <<T as currency::Config<currency::Backing>>::Currency as Currency<_>>::minimum_balance();
-        let balance = existential_deposit.saturating_mul(ED_MULTIPLIER.into());
-        let _ = <<T as currency::Config<currency::Backing>>::Currency as Currency<_>>::make_free_balance_be(&fee_pool, balance);
-
+    withdraw_vault_issuing_rewards {
         let recipient: T::AccountId = account("recipient", 0, SEED);
-        let amount = existential_deposit.saturating_mul((ED_MULTIPLIER - 1).into()) + 1u32.into();
-        <TotalRewardsBacking<T>>::insert(recipient.clone(), amount);
+    }: _(RawOrigin::Signed(recipient))
 
-    }: _(RawOrigin::Signed(recipient), amount)
+    withdraw_relayer_backing_rewards {
+        let recipient: T::AccountId = account("recipient", 0, SEED);
+    }: _(RawOrigin::Signed(recipient))
+
+    withdraw_relayer_issuing_rewards {
+        let recipient: T::AccountId = account("recipient", 0, SEED);
+    }: _(RawOrigin::Signed(recipient))
+
 }
 
 #[cfg(test)]
@@ -46,8 +32,10 @@ mod tests {
     #[test]
     fn test_benchmarks() {
         ExtBuilder::build().execute_with(|| {
-            assert_ok!(test_benchmark_withdraw_issuing::<Test>());
-            assert_ok!(test_benchmark_withdraw_backing::<Test>());
+            assert_ok!(test_benchmark_withdraw_vault_backing_rewards::<Test>());
+            assert_ok!(test_benchmark_withdraw_vault_issuing_rewards::<Test>());
+            assert_ok!(test_benchmark_withdraw_relayer_backing_rewards::<Test>());
+            assert_ok!(test_benchmark_withdraw_relayer_issuing_rewards::<Test>());
         });
     }
 }

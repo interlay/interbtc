@@ -85,3 +85,33 @@ pub(crate) mod security {
         <security::Pallet<T>>::active_block_number()
     }
 }
+
+#[cfg_attr(test, mockable)]
+pub(crate) mod sla {
+    use crate::types::{Backing, Issuing, UnsignedFixedPoint};
+    use frame_support::dispatch::DispatchError;
+    pub use sla::types::VaultEvent;
+
+    pub fn calculate_slashed_amount<T: crate::Config>(
+        vault_id: &T::AccountId,
+        stake: Backing<T>,
+        reimburse: bool,
+        liquidation_threshold: UnsignedFixedPoint<T>,
+        premium_redeem_threshold: UnsignedFixedPoint<T>,
+    ) -> Result<Backing<T>, DispatchError> {
+        <sla::Pallet<T>>::calculate_slashed_amount(
+            vault_id,
+            stake,
+            reimburse,
+            liquidation_threshold,
+            premium_redeem_threshold,
+        )
+    }
+
+    pub fn event_update_vault_sla<T: sla::Config>(
+        vault_id: &T::AccountId,
+        event: VaultEvent<Issuing<T>, Backing<T>>,
+    ) -> Result<(), DispatchError> {
+        <sla::Pallet<T>>::event_update_vault_sla(vault_id, event)
+    }
+}

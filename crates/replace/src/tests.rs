@@ -33,7 +33,7 @@ macro_rules! assert_event_matches {
         }));
     }
 }
-fn test_request() -> ReplaceRequest<u64, u64, u64, u64> {
+fn test_request() -> ReplaceRequest<AccountId, BlockNumber, Balance, Balance> {
     ReplaceRequest {
         period: 0,
         new_vault: NEW_VAULT,

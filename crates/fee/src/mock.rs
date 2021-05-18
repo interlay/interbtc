@@ -5,12 +5,11 @@ use mocktopus::mocking::clear_mocks;
 use sp_arithmetic::{FixedI128, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
-    testing::{Header, TestXt},
+    testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
     ModuleId,
 };
 
-type TestExtrinsic = TestXt<Call, ()>;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -28,20 +27,22 @@ frame_support::construct_runtime!(
         Backing: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
         Issuing: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
 
-        Collateral: currency::<Instance1>::{Pallet, Call, Storage, Event<T>},
-        Treasury: currency::<Instance2>::{Pallet, Call, Storage, Event<T>},
+        BackingCurrency: currency::<Instance1>::{Pallet, Call, Storage, Event<T>},
+        IssuingCurrency: currency::<Instance2>::{Pallet, Call, Storage, Event<T>},
+
+        BackingVaultRewards: reward::<Instance1>::{Pallet, Call, Storage, Event<T>},
+        IssuingVaultRewards: reward::<Instance2>::{Pallet, Call, Storage, Event<T>},
+        BackingRelayerRewards: reward::<Instance3>::{Pallet, Call, Storage, Event<T>},
+        IssuingRelayerRewards: reward::<Instance4>::{Pallet, Call, Storage, Event<T>},
 
         // Operational
         Security: security::{Pallet, Call, Storage, Event<T>},
-        VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>},
-        ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
         Fee: fee::{Pallet, Call, Config<T>, Storage, Event<T>},
-        Sla: sla::{Pallet, Call, Config<T>, Storage, Event<T>},
     }
 );
 
 pub type AccountId = u64;
-pub type Balance = u64;
+pub type Balance = u128;
 pub type BlockNumber = u64;
 
 parameter_types! {
@@ -140,31 +141,24 @@ impl currency::Config<currency::Issuing> for Test {
     type Decimals = IssuingDecimals;
 }
 
-impl exchange_rate_oracle::Config for Test {
+impl reward::Config<reward::BackingVault> for Test {
     type Event = TestEvent;
-    type UnsignedFixedPoint = FixedU128;
-    type WeightInfo = ();
-}
-
-parameter_types! {
-    pub const VaultModuleId: ModuleId = ModuleId(*b"mod/vreg");
-}
-
-impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
-where
-    Call: From<C>,
-{
-    type OverarchingCall = Call;
-    type Extrinsic = TestExtrinsic;
-}
-
-impl vault_registry::Config for Test {
-    type ModuleId = VaultModuleId;
-    type Event = TestEvent;
-    type RandomnessSource = pallet_randomness_collective_flip::Pallet<Test>;
     type SignedFixedPoint = FixedI128;
-    type UnsignedFixedPoint = FixedU128;
-    type WeightInfo = ();
+}
+
+impl reward::Config<reward::IssuingVault> for Test {
+    type Event = TestEvent;
+    type SignedFixedPoint = FixedI128;
+}
+
+impl reward::Config<reward::BackingRelayer> for Test {
+    type Event = TestEvent;
+    type SignedFixedPoint = FixedI128;
+}
+
+impl reward::Config<reward::IssuingRelayer> for Test {
+    type Event = TestEvent;
+    type SignedFixedPoint = FixedI128;
 }
 
 parameter_types! {
@@ -182,11 +176,6 @@ impl security::Config for Test {
     type Event = TestEvent;
 }
 
-impl sla::Config for Test {
-    type Event = TestEvent;
-    type SignedFixedPoint = FixedI128;
-}
-
 parameter_types! {
     pub const FeeModuleId: ModuleId = ModuleId(*b"mod/fees");
 }
@@ -194,8 +183,15 @@ parameter_types! {
 impl Config for Test {
     type ModuleId = FeeModuleId;
     type Event = TestEvent;
-    type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
+    type SignedFixedPoint = FixedI128;
+    type SignedInner = i128;
+    type UnsignedFixedPoint = FixedU128;
+    type UnsignedInner = Balance;
+    type BackingVaultRewards = BackingVaultRewards;
+    type IssuingVaultRewards = IssuingVaultRewards;
+    type BackingRelayerRewards = BackingRelayerRewards;
+    type IssuingRelayerRewards = IssuingRelayerRewards;
 }
 
 pub type TestEvent = Event;

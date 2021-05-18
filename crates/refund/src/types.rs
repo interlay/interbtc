@@ -8,6 +8,9 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 pub(crate) type Issuing<T> =
     <<T as currency::Config<currency::Issuing>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
+pub(crate) type Backing<T> =
+    <<T as currency::Config<currency::Backing>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+
 // Due to a known bug in serde we need to specify how u128 is (de)serialized.
 // See https://github.com/paritytech/substrate/issues/4641
 #[derive(Encode, Decode, Default, Clone, PartialEq)]

@@ -1,6 +1,6 @@
 mod mock;
 
-use mock::{redeem_testing_utils::*, *};
+use mock::{redeem_testing_utils::*, reward_testing_utils::vault_rewards, *};
 
 fn test_with<R>(execute: impl FnOnce() -> R) -> R {
     ExtBuilder::build().execute_with(|| {
@@ -300,7 +300,7 @@ fn integration_test_redeem_issuing_execute() {
             ParachainState::default().with_changes(|user, vault, _, fee_pool, _| {
                 vault.issued -= redeem.amount_btc + redeem.transfer_fee_btc;
                 user.free_tokens -= issued_tokens;
-                fee_pool.tokens += redeem.fee;
+                fee_pool.vault_issuing_rewards += vault_rewards(redeem.fee);
                 consume_to_be_replaced(vault, redeem.amount_btc + redeem.transfer_fee_btc);
             })
         );
@@ -341,12 +341,14 @@ fn integration_test_premium_redeem_issuing_execute() {
                 .dispatch(origin_of(account_of(VAULT)))
         );
 
+        println!("{:?}", RewardIssuingVaultPallet::participants());
+
         assert_eq!(
             ParachainState::get(),
             ParachainState::default().with_changes(|user, vault, _, fee_pool, _| {
                 // fee moves from user to fee_pool
                 user.free_tokens -= redeem.fee;
-                fee_pool.tokens += redeem.fee;
+                fee_pool.vault_issuing_rewards += vault_rewards(redeem.fee);
                 // amount_btc is burned from user and decreased on vault
                 let burned_amount = redeem.amount_btc + redeem.transfer_fee_btc;
                 vault.issued -= burned_amount;
@@ -433,8 +435,8 @@ fn integration_test_redeem_issuing_cancel_reimburse_sufficient_collateral_for_is
             ParachainState::default().with_changes(|user, vault, _, fee_pool, _| {
                 // with sla of 80, vault gets slashed for 115%: 110 to user, 5 to fee pool
 
-                fee_pool.balance += amount_without_fee_backing / 20;
-                fee_pool.tokens += redeem.fee;
+                fee_pool.vault_backing_rewards += vault_rewards(amount_without_fee_backing / 20);
+                fee_pool.vault_issuing_rewards += vault_rewards(redeem.fee);
 
                 vault.backing_collateral -=
                     amount_without_fee_backing + punishment_fee + amount_without_fee_backing / 20;
@@ -484,8 +486,8 @@ fn integration_test_redeem_issuing_cancel_reimburse_insufficient_collateral_for_
             initial_state.with_changes(|user, vault, _, fee_pool, _| {
                 // with sla of 80, vault gets slashed for 115%: 110 to user, 5 to fee pool
 
-                fee_pool.balance += amount_without_fee_as_backing / 20;
-                fee_pool.tokens += redeem.fee;
+                fee_pool.vault_backing_rewards += vault_rewards(amount_without_fee_as_backing / 20);
+                fee_pool.vault_issuing_rewards += vault_rewards(redeem.fee);
 
                 vault.backing_collateral -=
                     amount_without_fee_as_backing + punishment_fee + amount_without_fee_as_backing / 20;
@@ -543,7 +545,7 @@ fn integration_test_redeem_issuing_cancel_no_reimburse() {
             ParachainState::default().with_changes(|user, vault, _, fee_pool, _| {
                 // with sla of 80, vault gets slashed for 15%: punishment of 10 to user, 5 to fee pool
 
-                fee_pool.balance += amount_without_fee_backing / 20;
+                fee_pool.vault_backing_rewards += vault_rewards(amount_without_fee_backing / 20);
 
                 vault.backing_collateral -= punishment_fee + amount_without_fee_backing / 20;
 
@@ -647,7 +649,7 @@ fn integration_test_redeem_issuing_cancel_liquidated_reimburse() {
 
                 // tokens are given to the vault, minus a fee that is given to the fee pool
                 vault.free_tokens += redeem.amount_btc + redeem.transfer_fee_btc;
-                fee_pool.tokens += redeem.fee;
+                fee_pool.vault_issuing_rewards += vault_rewards(redeem.fee);
 
                 // the backing that remained with the vault to back this redeem is transferred to the user
                 let backing_for_this_redeem = collateral_vault / 4;
@@ -698,7 +700,7 @@ fn integration_test_redeem_issuing_execute_liquidated() {
             ParachainState::get(),
             post_liquidation_state.with_changes(|user, vault, liquidation_vault, fee_pool, _| {
                 // fee given to fee pool
-                fee_pool.tokens += redeem.fee;
+                fee_pool.vault_issuing_rewards += vault_rewards(redeem.fee);
 
                 // issuing burned from user
                 user.locked_tokens -= issued_tokens;

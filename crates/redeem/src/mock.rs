@@ -31,8 +31,13 @@ frame_support::construct_runtime!(
         Backing: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
         Issuing: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
 
-        Collateral: currency::<Instance1>::{Pallet, Call, Storage, Event<T>},
-        Treasury: currency::<Instance2>::{Pallet, Call, Storage, Event<T>},
+        BackingCurrency: currency::<Instance1>::{Pallet, Call, Storage, Event<T>},
+        IssuingCurrency: currency::<Instance2>::{Pallet, Call, Storage, Event<T>},
+
+        BackingVaultRewards: reward::<Instance1>::{Pallet, Call, Storage, Event<T>},
+        IssuingVaultRewards: reward::<Instance2>::{Pallet, Call, Storage, Event<T>},
+        BackingRelayerRewards: reward::<Instance3>::{Pallet, Call, Storage, Event<T>},
+        IssuingRelayerRewards: reward::<Instance4>::{Pallet, Call, Storage, Event<T>},
 
         // Operational
         BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},
@@ -46,7 +51,7 @@ frame_support::construct_runtime!(
 );
 
 pub type AccountId = u64;
-pub type Balance = u64;
+pub type Balance = u128;
 pub type BlockNumber = u64;
 
 parameter_types! {
@@ -166,6 +171,26 @@ impl currency::Config<currency::Issuing> for Test {
     type Decimals = IssuingDecimals;
 }
 
+impl reward::Config<reward::BackingVault> for Test {
+    type Event = TestEvent;
+    type SignedFixedPoint = FixedI128;
+}
+
+impl reward::Config<reward::IssuingVault> for Test {
+    type Event = TestEvent;
+    type SignedFixedPoint = FixedI128;
+}
+
+impl reward::Config<reward::BackingRelayer> for Test {
+    type Event = TestEvent;
+    type SignedFixedPoint = FixedI128;
+}
+
+impl reward::Config<reward::IssuingRelayer> for Test {
+    type Event = TestEvent;
+    type SignedFixedPoint = FixedI128;
+}
+
 impl btc_relay::Config for Test {
     type Event = TestEvent;
     type WeightInfo = ();
@@ -199,13 +224,26 @@ parameter_types! {
 impl fee::Config for Test {
     type ModuleId = FeeModuleId;
     type Event = TestEvent;
-    type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
+    type SignedFixedPoint = FixedI128;
+    type SignedInner = i128;
+    type UnsignedFixedPoint = FixedU128;
+    type UnsignedInner = Balance;
+    type BackingVaultRewards = BackingVaultRewards;
+    type IssuingVaultRewards = IssuingVaultRewards;
+    type BackingRelayerRewards = BackingRelayerRewards;
+    type IssuingRelayerRewards = IssuingRelayerRewards;
 }
 
 impl sla::Config for Test {
     type Event = TestEvent;
     type SignedFixedPoint = FixedI128;
+    type SignedInner = i128;
+    type Balance = Balance;
+    type BackingVaultRewards = BackingVaultRewards;
+    type IssuingVaultRewards = IssuingVaultRewards;
+    type BackingRelayerRewards = BackingRelayerRewards;
+    type IssuingRelayerRewards = IssuingRelayerRewards;
 }
 
 impl Config for Test {
@@ -221,9 +259,9 @@ pub const ALICE: AccountId = 1;
 pub const BOB: AccountId = 2;
 pub const CAROL: AccountId = 3;
 
-pub const ALICE_BALANCE: u64 = 1_005_000;
-pub const BOB_BALANCE: u64 = 1_005_000;
-pub const CAROL_BALANCE: u64 = 1_005_000;
+pub const ALICE_BALANCE: u128 = 1_005_000;
+pub const BOB_BALANCE: u128 = 1_005_000;
+pub const CAROL_BALANCE: u128 = 1_005_000;
 
 pub struct ExtBuilder;
 
@@ -246,13 +284,9 @@ impl ExtBuilder {
             punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
             replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
             maintainer_account_id: 1,
-            epoch_period: 5,
             vault_rewards: FixedU128::checked_from_rational(77, 100).unwrap(),
-            vault_rewards_issued: FixedU128::checked_from_rational(90, 100).unwrap(),
-            vault_rewards_locked: FixedU128::checked_from_rational(10, 100).unwrap(),
             relayer_rewards: FixedU128::checked_from_rational(3, 100).unwrap(),
             maintainer_rewards: FixedU128::checked_from_rational(20, 100).unwrap(),
-            collator_rewards: FixedU128::checked_from_integer(0).unwrap(),
             nomination_rewards: FixedU128::checked_from_rational(0, 100).unwrap(),
         }
         .assimilate_storage(&mut storage)
@@ -271,9 +305,11 @@ impl ExtBuilder {
         sla::GenesisConfig::<Test> {
             vault_target_sla: FixedI128::from(100),
             vault_redeem_failure_sla_change: FixedI128::from(-10),
-            vault_executed_issue_max_sla_change: FixedI128::from(4),
-            vault_submitted_issue_proof: FixedI128::from(0),
-            vault_refunded: FixedI128::from(1),
+            vault_execute_issue_max_sla_change: FixedI128::from(4),
+            vault_deposit_max_sla_change: FixedI128::from(4),
+            vault_withdraw_max_sla_change: FixedI128::from(-4),
+            vault_submit_issue_proof: FixedI128::from(0),
+            vault_refund: FixedI128::from(1),
             relayer_target_sla: FixedI128::from(100),
             relayer_block_submission: FixedI128::from(1),
             relayer_duplicate_block_submission: FixedI128::from(1),

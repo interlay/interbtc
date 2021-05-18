@@ -156,7 +156,6 @@ decl_module! {
                 Error::<T>::InsufficientStake,
             );
             ext::collateral::lock_collateral::<T>(&signer, stake)?;
-            ext::sla::initialize_relayer_stake::<T>(&signer, stake)?;
 
             <Stakes<T>>::insert(&signer, stake);
 

@@ -38,6 +38,8 @@ bitcoin = { path = "../bitcoin", default-features = false }
 [dev-dependencies]
 mocktopus = "0.7.0"
 
+reward = { path = "../reward", default-features = false }
+
 [features]
 default = ["std"]
 std = [

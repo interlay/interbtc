@@ -26,8 +26,8 @@ frame_support::construct_runtime!(
         Backing: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
         Issuing: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
 
-        Collateral: currency::<Instance1>::{Pallet, Call, Storage, Event<T>},
-        Treasury: currency::<Instance2>::{Pallet, Call, Storage, Event<T>},
+        BackingCurrency: currency::<Instance1>::{Pallet, Call, Storage, Event<T>},
+        IssuingCurrency: currency::<Instance2>::{Pallet, Call, Storage, Event<T>},
 
         // Operational
         Security: security::{Pallet, Call, Storage, Event<T>},

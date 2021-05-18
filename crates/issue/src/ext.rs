@@ -57,7 +57,10 @@ pub(crate) mod vault_registry {
 
     pub fn get_active_vault_from_id<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-    ) -> Result<Vault<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>, T::SignedFixedPoint>, DispatchError> {
+    ) -> Result<
+        Vault<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>, <T as vault_registry::Config>::SignedFixedPoint>,
+        DispatchError,
+    > {
         <vault_registry::Pallet<T>>::get_active_vault_from_id(vault_id)
     }
 
@@ -171,13 +174,13 @@ pub(crate) mod oracle {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod sla {
-    use crate::types::Issuing;
+    use crate::types::{Backing, Issuing};
     use frame_support::dispatch::DispatchError;
     pub use sla::types::VaultEvent;
 
     pub fn event_update_vault_sla<T: sla::Config>(
         vault_id: &T::AccountId,
-        event: VaultEvent<Issuing<T>>,
+        event: VaultEvent<Issuing<T>, Backing<T>>,
     ) -> Result<(), DispatchError> {
         <sla::Pallet<T>>::event_update_vault_sla(vault_id, event)
     }
@@ -186,10 +189,10 @@ pub(crate) mod sla {
 #[cfg_attr(test, mockable)]
 pub(crate) mod fee {
     use crate::types::{Backing, Issuing};
-    use frame_support::dispatch::DispatchError;
+    use frame_support::dispatch::{DispatchError, DispatchResult};
 
-    pub fn increase_backing_rewards_for_epoch<T: fee::Config>(amount: Backing<T>) {
-        <fee::Pallet<T>>::increase_backing_rewards_for_epoch(amount)
+    pub fn distribute_backing_rewards<T: fee::Config>(amount: Backing<T>) -> DispatchResult {
+        <fee::Pallet<T>>::distribute_backing_rewards(amount)
     }
 
     pub fn fee_pool_account_id<T: fee::Config>() -> T::AccountId {
@@ -204,8 +207,8 @@ pub(crate) mod fee {
         <fee::Pallet<T>>::get_issue_griefing_collateral(amount)
     }
 
-    pub fn increase_issuing_rewards_for_epoch<T: fee::Config>(amount: Issuing<T>) {
-        <fee::Pallet<T>>::increase_issuing_rewards_for_epoch(amount)
+    pub fn distribute_issuing_rewards<T: fee::Config>(amount: Issuing<T>) -> DispatchResult {
+        <fee::Pallet<T>>::distribute_issuing_rewards(amount)
     }
 }
 

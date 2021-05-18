@@ -24,6 +24,7 @@ pub use nomination::Nominator;
 pub use redeem::RedeemRequest;
 pub use refund::RefundRequest;
 pub use replace::ReplaceRequest;
+pub use reward::Rewards;
 pub use sp_runtime::AccountId32;
 use std::collections::BTreeMap;
 pub use std::convert::TryFrom;
@@ -32,6 +33,7 @@ pub use vault_registry::{Vault, VaultStatus};
 pub mod issue_testing_utils;
 pub mod nomination_testing_utils;
 pub mod redeem_testing_utils;
+pub mod reward_testing_utils;
 
 pub const ALICE: [u8; 32] = [0u8; 32];
 pub const BOB: [u8; 32] = [1u8; 32];
@@ -83,6 +85,11 @@ pub type ExchangeRateOraclePallet = exchange_rate_oracle::Pallet<Runtime>;
 pub type FeeCall = fee::Call<Runtime>;
 pub type FeeError = fee::Error<Runtime>;
 pub type FeePallet = fee::Pallet<Runtime>;
+
+pub type RewardBackingVaultPallet = reward::Pallet<Runtime, reward::BackingVault>;
+pub type RewardIssuingVaultPallet = reward::Pallet<Runtime, reward::IssuingVault>;
+pub type RewardBackingRelayerPallet = reward::Pallet<Runtime, reward::BackingRelayer>;
+pub type RewardIssuingRelayerPallet = reward::Pallet<Runtime, reward::IssuingRelayer>;
 
 pub type IssueCall = issue::Call<Runtime>;
 pub type IssuePallet = issue::Pallet<Runtime>;
@@ -219,17 +226,38 @@ impl UserData {
     }
 }
 
-#[derive(Debug, PartialEq, Default, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct FeePool {
-    pub balance: u128,
-    pub tokens: u128,
+    pub vault_backing_rewards: u128,
+    pub vault_issuing_rewards: u128,
+    pub relayer_backing_rewards: u128,
+    pub relayer_issuing_rewards: u128,
+}
+
+fn abs_difference<T: std::ops::Sub<Output = T> + Ord>(x: T, y: T) -> T {
+    if x < y {
+        y - x
+    } else {
+        x - y
+    }
+}
+
+impl PartialEq for FeePool {
+    fn eq(&self, rhs: &Self) -> bool {
+        abs_difference(self.vault_backing_rewards, rhs.vault_backing_rewards) <= 1
+            && abs_difference(self.vault_issuing_rewards, rhs.vault_issuing_rewards) <= 1
+            && abs_difference(self.relayer_backing_rewards, rhs.relayer_backing_rewards) <= 1
+            && abs_difference(self.relayer_issuing_rewards, rhs.relayer_issuing_rewards) <= 1
+    }
 }
 
 impl FeePool {
     pub fn get() -> Self {
         Self {
-            balance: FeePallet::epoch_rewards_backing(),
-            tokens: FeePallet::epoch_rewards_issuing(),
+            vault_backing_rewards: RewardBackingVaultPallet::get_total_rewards().unwrap() as u128,
+            vault_issuing_rewards: RewardIssuingVaultPallet::get_total_rewards().unwrap() as u128,
+            relayer_backing_rewards: RewardBackingRelayerPallet::get_total_rewards().unwrap() as u128,
+            relayer_issuing_rewards: RewardIssuingRelayerPallet::get_total_rewards().unwrap() as u128,
         }
     }
 }
@@ -894,14 +922,10 @@ impl ExtBuilder {
             punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
             replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
             maintainer_account_id: account_of(MAINTAINER),
-            epoch_period: 5,
-            vault_rewards_issued: FixedU128::checked_from_rational(90, 100).unwrap(), // 90%
-            vault_rewards_locked: FixedU128::checked_from_rational(10, 100).unwrap(), // 10%
-            vault_rewards: FixedU128::checked_from_rational(70, 100).unwrap(),        // 70%
-            relayer_rewards: FixedU128::checked_from_rational(20, 100).unwrap(),      // 20%
-            maintainer_rewards: FixedU128::checked_from_rational(10, 100).unwrap(),   // 10%
-            collator_rewards: FixedU128::checked_from_rational(0, 100).unwrap(),      // 0%
-            nomination_rewards: FixedU128::checked_from_rational(0, 100).unwrap(),    // 0%
+            vault_rewards: FixedU128::checked_from_rational(70, 100).unwrap(), // 70%
+            relayer_rewards: FixedU128::checked_from_rational(20, 100).unwrap(), // 20%
+            maintainer_rewards: FixedU128::checked_from_rational(10, 100).unwrap(), // 10%
+            nomination_rewards: FixedU128::checked_from_rational(0, 100).unwrap(), // 0%
         }
         .assimilate_storage(&mut storage)
         .unwrap();
@@ -909,9 +933,11 @@ impl ExtBuilder {
         sla::GenesisConfig::<Runtime> {
             vault_target_sla: FixedI128::from(100),
             vault_redeem_failure_sla_change: FixedI128::from(-100),
-            vault_executed_issue_max_sla_change: FixedI128::from(4),
-            vault_submitted_issue_proof: FixedI128::from(1),
-            vault_refunded: FixedI128::from(1),
+            vault_execute_issue_max_sla_change: FixedI128::from(4),
+            vault_deposit_max_sla_change: FixedI128::from(4),
+            vault_withdraw_max_sla_change: FixedI128::from(-4),
+            vault_submit_issue_proof: FixedI128::from(1),
+            vault_refund: FixedI128::from(1),
             relayer_target_sla: FixedI128::from(100),
             relayer_block_submission: FixedI128::from(1),
             relayer_duplicate_block_submission: FixedI128::from(1),

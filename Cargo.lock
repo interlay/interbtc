@@ -742,6 +742,7 @@ dependencies = [
  "redeem",
  "refund",
  "replace",
+ "reward",
  "security",
  "serde",
  "serde_json",
@@ -1971,7 +1972,6 @@ name = "fee"
 version = "0.7.0"
 dependencies = [
  "currency",
- "exchange-rate-oracle",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -1980,6 +1980,7 @@ dependencies = [
  "pallet-randomness-collective-flip",
  "pallet-timestamp",
  "parity-scale-codec",
+ "reward",
  "security",
  "serde",
  "sla",
@@ -1988,7 +1989,6 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
- "vault-registry",
 ]
 
 [[package]]
@@ -3093,6 +3093,7 @@ dependencies = [
  "parity-scale-codec",
  "primitive-types",
  "refund",
+ "reward",
  "security",
  "serde",
  "sha2 0.8.2",
@@ -4619,6 +4620,7 @@ dependencies = [
  "pallet-timestamp",
  "parity-scale-codec",
  "primitive-types",
+ "reward",
  "security",
  "serde",
  "sla",
@@ -7168,6 +7170,7 @@ dependencies = [
  "pallet-timestamp",
  "parity-scale-codec",
  "primitive-types",
+ "reward",
  "security",
  "serde",
  "sha2 0.8.2",
@@ -7267,6 +7270,7 @@ dependencies = [
  "parity-scale-codec",
  "primitive-types",
  "redeem",
+ "reward",
  "security",
  "serde",
  "sha2 0.8.2",
@@ -7374,6 +7378,7 @@ dependencies = [
  "pallet-timestamp",
  "parity-scale-codec",
  "primitive-types",
+ "reward",
  "security",
  "serde",
  "sha2 0.8.2",
@@ -7391,6 +7396,27 @@ name = "retain_mut"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "53552c6c49e1e13f1a203ef0080ab3bbef0beb570a528993e83df057a9d9bba1"
+
+[[package]]
+name = "reward"
+version = "0.6.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "mocktopus",
+ "pallet-balances",
+ "pallet-randomness-collective-flip",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "rand 0.8.3",
+ "serde",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
 
 [[package]]
 name = "ring"
@@ -8954,7 +8980,6 @@ name = "sla"
 version = "0.7.0"
 dependencies = [
  "currency",
- "exchange-rate-oracle",
  "frame-support",
  "frame-system",
  "mocktopus",
@@ -8962,6 +8987,7 @@ dependencies = [
  "pallet-randomness-collective-flip",
  "pallet-timestamp",
  "parity-scale-codec",
+ "reward",
  "security",
  "serde",
  "sp-arithmetic",
@@ -8969,7 +8995,6 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
- "vault-registry",
 ]
 
 [[package]]
@@ -9734,6 +9759,7 @@ dependencies = [
  "redeem",
  "refund",
  "replace",
+ "reward",
  "security",
  "serde",
  "sha2 0.8.2",
@@ -10730,8 +10756,10 @@ dependencies = [
  "pallet-timestamp",
  "parity-scale-codec",
  "primitive-types",
+ "reward",
  "security",
  "serde",
+ "sla",
  "sp-arithmetic",
  "sp-core",
  "sp-io",

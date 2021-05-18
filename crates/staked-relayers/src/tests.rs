@@ -41,7 +41,7 @@ fn dummy_public_key() -> BtcPublicKey {
 fn init_zero_vault(
     id: AccountId,
     btc_address: Option<BtcAddress>,
-) -> Vault<AccountId, BlockNumber, u64, u64, FixedI128> {
+) -> Vault<AccountId, BlockNumber, Balance, Balance, FixedI128> {
     let mut vault = Vault::default();
     vault.id = id;
     vault.wallet = Wallet::new(dummy_public_key());

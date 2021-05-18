@@ -1,7 +1,7 @@
 mod mock;
 
 use frame_support::assert_err;
-use mock::{issue_testing_utils::*, *};
+use mock::{issue_testing_utils::*, reward_testing_utils::vault_rewards, *};
 
 fn test_with<R>(execute: impl FnOnce() -> R) -> R {
     ExtBuilder::build().execute_with(|| {
@@ -17,6 +17,12 @@ fn test_with_initialized_vault<R>(execute: impl FnOnce() -> R) -> R {
         CoreVaultData::force_to(VAULT, default_vault_state());
         execute()
     })
+}
+
+macro_rules! signed_fixed_point {
+    ($amount:expr) => {
+        sp_arithmetic::FixedI128::checked_from_integer($amount).unwrap()
+    };
 }
 
 mod expiry_test {
@@ -274,7 +280,7 @@ fn integration_test_issue_issuing_execute_bookkeeping() {
             ParachainState::get(),
             ParachainState::default().with_changes(|user, vault, _, fee_pool, _| {
                 user.free_tokens += issue.amount;
-                fee_pool.tokens += issue.fee;
+                fee_pool.vault_issuing_rewards += vault_rewards(issue.fee);
                 vault.issued += issue.fee + issue.amount;
             })
         );
@@ -341,7 +347,7 @@ fn integration_test_issue_overpayment() {
             ParachainState::get(),
             ParachainState::default().with_changes(|user, vault, _, fee_pool, _| {
                 user.free_tokens += 2 * issue.amount;
-                fee_pool.tokens += 2 * issue.fee;
+                fee_pool.vault_issuing_rewards += 2 * vault_rewards(issue.fee);
                 vault.issued += sent_btc;
             })
         );
@@ -381,7 +387,7 @@ fn integration_test_issue_refund() {
             post_redeem_state,
             initial_state.with_changes(|user, vault, _, fee_pool, _| {
                 user.free_tokens += issue.amount;
-                fee_pool.tokens += issue.fee;
+                fee_pool.vault_issuing_rewards += vault_rewards(issue.fee);
                 vault.issued += issue.fee + issue.amount;
             })
         );
@@ -406,6 +412,12 @@ fn integration_test_issue_underpayment_succeeds() {
         let (issue_id, issue) = request_issue(requested_btc);
         let sent_btc = (issue.amount + issue.fee) / 4;
 
+        // need stake for rewards to deposit
+        assert_ok!(RewardBackingVaultPallet::deposit_stake(
+            &account_of(VAULT),
+            signed_fixed_point!(1)
+        ));
+
         ExecuteIssueBuilder::new(issue_id)
             .with_amount(sent_btc)
             .with_submitter(USER, false)
@@ -418,11 +430,11 @@ fn integration_test_issue_underpayment_succeeds() {
             ParachainState::default().with_changes(|user, vault, _, fee_pool, _| {
                 // user loses 75% of griefing collateral for having only fulfilled 25%
                 user.free_balance -= slashed_griefing_collateral;
-                fee_pool.balance += slashed_griefing_collateral;
+                fee_pool.vault_backing_rewards += vault_rewards(slashed_griefing_collateral);
 
                 // token updating as if only 25% was requested
                 user.free_tokens += issue.amount / 4;
-                fee_pool.tokens += issue.fee / 4;
+                fee_pool.vault_issuing_rewards += vault_rewards(issue.fee / 4);
                 vault.issued += (issue.fee + issue.amount) / 4;
             })
         );
@@ -461,6 +473,12 @@ fn integration_test_issue_issuing_cancel() {
             IssueError::CommitPeriodExpired
         );
 
+        // need stake for rewards to deposit
+        assert_ok!(RewardBackingVaultPallet::deposit_stake(
+            &account_of(VAULT),
+            signed_fixed_point!(1)
+        ));
+
         // bob cancels issue request
         assert_ok!(Call::Issue(IssueCall::cancel_issue(issue_id)).dispatch(origin_of(account_of(VAULT))));
 
@@ -468,7 +486,7 @@ fn integration_test_issue_issuing_cancel() {
             ParachainState::get(),
             ParachainState::default().with_changes(|user, _vault, _, fee_pool, _| {
                 user.free_balance -= issue.griefing_collateral;
-                fee_pool.balance += issue.griefing_collateral;
+                fee_pool.vault_backing_rewards += vault_rewards(issue.griefing_collateral);
             })
         );
     });
@@ -520,7 +538,7 @@ fn integration_test_issue_issuing_execute_liquidated() {
             ParachainState::get(),
             post_liquidation_status.with_changes(|user, _vault, liquidation_vault, fee_pool, _| {
                 user.free_tokens += issue.amount;
-                fee_pool.tokens += issue.fee;
+                fee_pool.vault_issuing_rewards += vault_rewards(issue.fee);
 
                 user.free_balance += issue.griefing_collateral;
                 user.locked_balance -= issue.griefing_collateral;

@@ -333,7 +333,7 @@ impl<T: Config> Module<T> {
                 CurrencySource::FreeBalance(ext::fee::fee_pool_account_id::<T>()),
                 slashed_collateral,
             )?;
-            ext::fee::increase_backing_rewards_for_epoch::<T>(slashed_collateral);
+            ext::fee::distribute_backing_rewards::<T>(slashed_collateral)?;
 
             Self::update_issue_amount(&issue_id, &mut issue, amount_transferred, slashed_collateral)?;
         } else {
@@ -378,20 +378,22 @@ impl<T: Config> Module<T> {
 
         // mint issuing fees
         ext::treasury::mint::<T>(ext::fee::fee_pool_account_id::<T>(), issue.fee);
-        ext::fee::increase_issuing_rewards_for_epoch::<T>(issue.fee);
 
         if !ext::vault_registry::is_vault_liquidated::<T>(&issue.vault)? {
             // reward the vault for having issued tokens by increasing its sla
-            ext::sla::event_update_vault_sla::<T>(&issue.vault, ext::sla::VaultEvent::ExecutedIssue(total))?;
+            ext::sla::event_update_vault_sla::<T>(&issue.vault, ext::sla::VaultEvent::ExecuteIssue(total))?;
         }
 
         // if it was a vault that did the execution on behalf of someone else, reward it by
         // increasing its SLA score
         if requester != executor {
             if let Ok(vault) = ext::vault_registry::get_active_vault_from_id::<T>(&executor) {
-                ext::sla::event_update_vault_sla::<T>(&vault.id, ext::sla::VaultEvent::SubmittedIssueProof)?;
+                ext::sla::event_update_vault_sla::<T>(&vault.id, ext::sla::VaultEvent::SubmitIssueProof)?;
             }
         }
+
+        // distribute rewards after sla increase
+        ext::fee::distribute_issuing_rewards::<T>(issue.fee)?;
 
         Self::set_issue_status(issue_id, IssueRequestStatus::Completed(maybe_refund_id));
 
@@ -433,7 +435,7 @@ impl<T: Config> Module<T> {
                 CurrencySource::FreeBalance(ext::fee::fee_pool_account_id::<T>()),
                 issue.griefing_collateral,
             )?;
-            ext::fee::increase_backing_rewards_for_epoch::<T>(issue.griefing_collateral);
+            ext::fee::distribute_backing_rewards::<T>(issue.griefing_collateral)?;
         }
         Self::set_issue_status(issue_id, IssueRequestStatus::Cancelled);
 

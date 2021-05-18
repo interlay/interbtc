@@ -36,6 +36,8 @@ exchange-rate-oracle = { path = "../exchange-rate-oracle", default-features = fa
 mocktopus = "0.7.0"
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
 
+reward = { path = "../reward", default-features = false }
+
 [features]
 default = ['std']
 std = [
