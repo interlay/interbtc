@@ -30,8 +30,13 @@ frame_support::construct_runtime!(
         Backing: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
         Issuing: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
 
-        Collateral: currency::<Instance1>::{Pallet, Call, Storage, Event<T>},
-        Treasury: currency::<Instance2>::{Pallet, Call, Storage, Event<T>},
+        BackingCurrency: currency::<Instance1>::{Pallet, Call, Storage, Event<T>},
+        IssuingCurrency: currency::<Instance2>::{Pallet, Call, Storage, Event<T>},
+
+        BackingVaultRewards: reward::<Instance1>::{Pallet, Call, Storage, Event<T>},
+        IssuingVaultRewards: reward::<Instance2>::{Pallet, Call, Storage, Event<T>},
+        BackingRelayerRewards: reward::<Instance3>::{Pallet, Call, Storage, Event<T>},
+        IssuingRelayerRewards: reward::<Instance4>::{Pallet, Call, Storage, Event<T>},
 
         // Operational
         BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},
@@ -45,7 +50,7 @@ frame_support::construct_runtime!(
 );
 
 pub type AccountId = u64;
-pub type Balance = u64;
+pub type Balance = u128;
 pub type BlockNumber = u64;
 
 parameter_types! {
@@ -144,6 +149,26 @@ impl currency::Config<currency::Issuing> for Test {
     type Decimals = IssuingDecimals;
 }
 
+impl reward::Config<reward::BackingVault> for Test {
+    type Event = TestEvent;
+    type SignedFixedPoint = FixedI128;
+}
+
+impl reward::Config<reward::IssuingVault> for Test {
+    type Event = TestEvent;
+    type SignedFixedPoint = FixedI128;
+}
+
+impl reward::Config<reward::BackingRelayer> for Test {
+    type Event = TestEvent;
+    type SignedFixedPoint = FixedI128;
+}
+
+impl reward::Config<reward::IssuingRelayer> for Test {
+    type Event = TestEvent;
+    type SignedFixedPoint = FixedI128;
+}
+
 impl Config for Test {
     type Event = TestEvent;
     type WeightInfo = ();
@@ -156,13 +181,26 @@ parameter_types! {
 impl fee::Config for Test {
     type ModuleId = FeeModuleId;
     type Event = TestEvent;
-    type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
+    type SignedFixedPoint = FixedI128;
+    type SignedInner = i128;
+    type UnsignedFixedPoint = FixedU128;
+    type UnsignedInner = Balance;
+    type BackingVaultRewards = BackingVaultRewards;
+    type IssuingVaultRewards = IssuingVaultRewards;
+    type BackingRelayerRewards = BackingRelayerRewards;
+    type IssuingRelayerRewards = IssuingRelayerRewards;
 }
 
 impl sla::Config for Test {
     type Event = TestEvent;
     type SignedFixedPoint = FixedI128;
+    type SignedInner = i128;
+    type Balance = Balance;
+    type BackingVaultRewards = BackingVaultRewards;
+    type IssuingVaultRewards = IssuingVaultRewards;
+    type BackingRelayerRewards = BackingRelayerRewards;
+    type IssuingRelayerRewards = IssuingRelayerRewards;
 }
 
 impl btc_relay::Config for Test {

@@ -40,7 +40,10 @@ pub(crate) mod vault_registry {
 
     pub fn get_active_vault_from_id<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-    ) -> Result<Vault<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>, T::SignedFixedPoint>, DispatchError> {
+    ) -> Result<
+        Vault<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>, <T as vault_registry::Config>::SignedFixedPoint>,
+        DispatchError,
+    > {
         <vault_registry::Pallet<T>>::get_active_vault_from_id(vault_id)
     }
 
@@ -153,7 +156,6 @@ pub(crate) mod refund {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod sla {
-    use crate::types::Backing;
     use frame_support::dispatch::DispatchError;
     pub use sla::types::RelayerEvent;
 
@@ -162,12 +164,5 @@ pub(crate) mod sla {
         event: RelayerEvent,
     ) -> Result<(), DispatchError> {
         <sla::Pallet<T>>::event_update_relayer_sla(relayer_id, event)
-    }
-
-    pub fn initialize_relayer_stake<T: sla::Config>(
-        relayer_id: &T::AccountId,
-        stake: Backing<T>,
-    ) -> Result<(), DispatchError> {
-        <sla::Pallet<T>>::initialize_relayer_stake(relayer_id, stake)
     }
 }

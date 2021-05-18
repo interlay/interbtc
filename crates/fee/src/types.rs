@@ -9,6 +9,8 @@ pub(crate) type Backing<T> =
 pub(crate) type Issuing<T> =
     <<T as currency::Config<currency::Issuing>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
+pub(crate) type SignedFixedPoint<T> = <T as Config>::SignedFixedPoint;
+
 pub(crate) type UnsignedFixedPoint<T> = <T as Config>::UnsignedFixedPoint;
 
 // TODO: concrete type is the same, circumvent this conversion

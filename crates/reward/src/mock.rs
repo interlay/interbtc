@@ -1,15 +1,12 @@
-use crate as btc_relay;
+use crate as reward;
 use crate::{Config, Error};
-use frame_support::{parameter_types, traits::GenesisBuild};
-use mocktopus::mocking::clear_mocks;
+use frame_support::parameter_types;
+use sp_arithmetic::FixedI128;
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
 };
-
-pub const BITCOIN_CONFIRMATIONS: u32 = 6;
-pub const PARACHAIN_CONFIRMATIONS: u64 = 20;
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -22,17 +19,13 @@ frame_support::construct_runtime!(
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
         System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
-        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-
-        // Operational
-        BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},
-        Security: security::{Pallet, Call, Storage, Event<T>},
+        Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
+        Reward: reward::{Pallet, Call, Storage, Event<T>},
     }
 );
 
 pub type AccountId = u64;
-#[allow(dead_code)]
-pub type Balance = u64;
+pub type Balance = u128;
 pub type BlockNumber = u64;
 
 parameter_types! {
@@ -58,7 +51,7 @@ impl frame_system::Config for Test {
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
-    type AccountData = ();
+    type AccountData = pallet_balances::AccountData<Balance>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
@@ -71,29 +64,34 @@ parameter_types! {
     pub const MaxLocks: u32 = 50;
 }
 
-impl Config for Test {
+impl pallet_balances::Config for Test {
+    type MaxLocks = MaxLocks;
+    type Balance = Balance;
     type Event = TestEvent;
+    type DustRemoval = ();
+    type ExistentialDeposit = ExistentialDeposit;
+    type AccountStore = System;
     type WeightInfo = ();
 }
 
 parameter_types! {
-    pub const MinimumPeriod: u64 = 5;
+    pub const CurrencyName: &'static [u8] = b"Polkadot";
+    pub const CurrencySymbol: &'static [u8] = b"DOT";
+    pub const CurrencyDecimals: u8 = 10;
 }
 
-impl pallet_timestamp::Config for Test {
-    type Moment = u64;
-    type OnTimestampSet = ();
-    type MinimumPeriod = MinimumPeriod;
-    type WeightInfo = ();
-}
-
-impl security::Config for Test {
+impl Config for Test {
     type Event = TestEvent;
+    type SignedFixedPoint = FixedI128;
 }
 
 pub type TestEvent = Event;
 pub type TestError = Error<Test>;
-pub type SecurityError = security::Error<Test>;
+
+pub const ALICE: AccountId = 1;
+pub const BOB: AccountId = 2;
+pub const ALICE_BALANCE: u128 = 1_000_000;
+pub const BOB_BALANCE: u128 = 1_000_000;
 
 pub struct ExtBuilder;
 
@@ -101,17 +99,13 @@ impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
         let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
-        btc_relay::GenesisConfig::<Test> {
-            bitcoin_confirmations: BITCOIN_CONFIRMATIONS,
-            parachain_confirmations: PARACHAIN_CONFIRMATIONS,
-            disable_difficulty_check: false,
-            disable_inclusion_check: false,
-            disable_op_return_check: false,
+        pallet_balances::GenesisConfig::<Test> {
+            balances: vec![(ALICE, ALICE_BALANCE), (BOB, BOB_BALANCE)],
         }
         .assimilate_storage(&mut storage)
         .unwrap();
 
-        sp_io::TestExternalities::from(storage)
+        storage.into()
     }
 }
 
@@ -119,10 +113,8 @@ pub fn run_test<T>(test: T)
 where
     T: FnOnce(),
 {
-    clear_mocks();
     ExtBuilder::build().execute_with(|| {
         System::set_block_number(1);
-        Security::set_active_block_number(1);
         test();
     });
 }

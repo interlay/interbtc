@@ -31,13 +31,19 @@ frame_support::construct_runtime!(
         Backing: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
         Issuing: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
 
-        Collateral: currency::<Instance1>::{Pallet, Call, Storage, Event<T>},
-        Treasury: currency::<Instance2>::{Pallet, Call, Storage, Event<T>},
+        BackingCurrency: currency::<Instance1>::{Pallet, Call, Storage, Event<T>},
+        IssuingCurrency: currency::<Instance2>::{Pallet, Call, Storage, Event<T>},
+
+        BackingVaultRewards: reward::<Instance1>::{Pallet, Call, Storage, Event<T>},
+        IssuingVaultRewards: reward::<Instance2>::{Pallet, Call, Storage, Event<T>},
+        BackingRelayerRewards: reward::<Instance3>::{Pallet, Call, Storage, Event<T>},
+        IssuingRelayerRewards: reward::<Instance4>::{Pallet, Call, Storage, Event<T>},
 
         // Operational
         Security: security::{Pallet, Call, Storage, Event<T>},
         VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned},
         ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
+        Sla: sla::{Pallet, Call, Config<T>, Storage, Event<T>},
     }
 );
 
@@ -141,6 +147,26 @@ impl currency::Config<currency::Issuing> for Test {
     type Decimals = IssuingDecimals;
 }
 
+impl reward::Config<reward::BackingVault> for Test {
+    type Event = TestEvent;
+    type SignedFixedPoint = FixedI128;
+}
+
+impl reward::Config<reward::IssuingVault> for Test {
+    type Event = TestEvent;
+    type SignedFixedPoint = FixedI128;
+}
+
+impl reward::Config<reward::BackingRelayer> for Test {
+    type Event = TestEvent;
+    type SignedFixedPoint = FixedI128;
+}
+
+impl reward::Config<reward::IssuingRelayer> for Test {
+    type Event = TestEvent;
+    type SignedFixedPoint = FixedI128;
+}
+
 parameter_types! {
     pub const MinimumPeriod: u64 = 5;
 }
@@ -181,6 +207,17 @@ where
 
 impl security::Config for Test {
     type Event = TestEvent;
+}
+
+impl sla::Config for Test {
+    type Event = TestEvent;
+    type SignedFixedPoint = FixedI128;
+    type SignedInner = i128;
+    type Balance = Balance;
+    type BackingVaultRewards = BackingVaultRewards;
+    type IssuingVaultRewards = IssuingVaultRewards;
+    type BackingRelayerRewards = BackingRelayerRewards;
+    type IssuingRelayerRewards = IssuingRelayerRewards;
 }
 
 pub type TestEvent = Event;

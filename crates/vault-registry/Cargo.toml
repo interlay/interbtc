@@ -29,12 +29,15 @@ bitcoin = { path = "../bitcoin", default-features = false }
 exchange-rate-oracle = { path = "../exchange-rate-oracle", default-features = false }
 security = { path = "../security", default-features = false }
 currency = { path = "../currency", default-features = false }
+sla = { path = "../sla", default-features = false }
 
 log = { version = "0.4.14", default-features = false }
 
 [dev-dependencies]
 mocktopus = "0.7.0"
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
+
+reward = { path = "../reward", default-features = false }
 
 [features]
 default = ['std']
@@ -58,6 +61,7 @@ std = [
   'exchange-rate-oracle/std',
   'security/std',
   'currency/std',
+  'sla/std',
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",

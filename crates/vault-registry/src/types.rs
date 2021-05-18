@@ -131,7 +131,7 @@ pub struct Vault<AccountId, BlockNumber, Issuing, Backing, SignedFixedPoint> {
     pub issued_tokens: Issuing,
     /// Number of tokens pending redeem
     pub to_be_redeemed_tokens: Issuing,
-    /// Bitcoin address of this Vault (P2PKH, P2SH, P2PKH, P2WSH)
+    /// Bitcoin address of this Vault (P2PKH, P2SH, P2WPKH, P2WSH)
     pub wallet: Wallet,
     /// Number of tokens that have been requested for a replace through
     /// `request_replace`, but that have not been accepted yet by a new_vault.

@@ -61,7 +61,10 @@ pub(crate) mod vault_registry {
 
     pub fn get_vault_from_id<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-    ) -> Result<Vault<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>, T::SignedFixedPoint>, DispatchError> {
+    ) -> Result<
+        Vault<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>, <T as vault_registry::Config>::SignedFixedPoint>,
+        DispatchError,
+    > {
         <vault_registry::Pallet<T>>::get_vault_from_id(vault_id)
     }
 
@@ -148,6 +151,14 @@ pub(crate) mod vault_registry {
     ) -> Result<(Issuing<T>, Backing<T>), DispatchError> {
         <vault_registry::Pallet<T>>::decrease_to_be_replaced_tokens(vault_id, tokens)
     }
+
+    pub fn calculate_slashed_amount<T: vault_registry::Config>(
+        vault_id: &T::AccountId,
+        stake: Backing<T>,
+        reimburse: bool,
+    ) -> Result<Backing<T>, DispatchError> {
+        <vault_registry::Pallet<T>>::calculate_slashed_amount(vault_id, stake, reimburse)
+    }
 }
 
 #[cfg_attr(test, mockable)]
@@ -158,17 +169,9 @@ pub(crate) mod sla {
 
     pub fn event_update_vault_sla<T: sla::Config>(
         vault_id: &T::AccountId,
-        event: VaultEvent<Issuing<T>>,
+        event: VaultEvent<Issuing<T>, Backing<T>>,
     ) -> Result<(), DispatchError> {
         <sla::Pallet<T>>::event_update_vault_sla(vault_id, event)
-    }
-
-    pub fn calculate_slashed_amount<T: sla::Config>(
-        vault_id: &T::AccountId,
-        stake: Backing<T>,
-        reimburse: bool,
-    ) -> Result<Backing<T>, DispatchError> {
-        <sla::Pallet<T>>::calculate_slashed_amount(vault_id, stake, reimburse)
     }
 }
 
@@ -253,7 +256,7 @@ pub(crate) mod oracle {
 #[cfg_attr(test, mockable)]
 pub(crate) mod fee {
     use crate::types::{Backing, Issuing};
-    use frame_support::dispatch::DispatchError;
+    use frame_support::dispatch::{DispatchError, DispatchResult};
 
     pub fn fee_pool_account_id<T: fee::Config>() -> T::AccountId {
         <fee::Pallet<T>>::fee_pool_account_id()
@@ -263,12 +266,12 @@ pub(crate) mod fee {
         <fee::Pallet<T>>::get_redeem_fee(amount)
     }
 
-    pub fn increase_issuing_rewards_for_epoch<T: fee::Config>(amount: Issuing<T>) {
-        <fee::Pallet<T>>::increase_issuing_rewards_for_epoch(amount)
+    pub fn distribute_issuing_rewards<T: fee::Config>(amount: Issuing<T>) -> DispatchResult {
+        <fee::Pallet<T>>::distribute_issuing_rewards(amount)
     }
 
-    pub fn increase_backing_rewards_for_epoch<T: fee::Config>(amount: Backing<T>) {
-        <fee::Pallet<T>>::increase_backing_rewards_for_epoch(amount)
+    pub fn distribute_backing_rewards<T: fee::Config>(amount: Backing<T>) -> DispatchResult {
+        <fee::Pallet<T>>::distribute_backing_rewards(amount)
     }
 
     pub fn get_punishment_fee<T: fee::Config>(amount: Backing<T>) -> Result<Backing<T>, DispatchError> {

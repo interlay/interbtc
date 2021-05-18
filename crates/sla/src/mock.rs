@@ -2,15 +2,13 @@ use crate as sla;
 use crate::{Config, Error};
 use frame_support::{parameter_types, traits::StorageMapShim};
 use mocktopus::mocking::clear_mocks;
-use sp_arithmetic::{FixedI128, FixedU128};
+use sp_arithmetic::FixedI128;
 use sp_core::H256;
 use sp_runtime::{
-    testing::{Header, TestXt},
+    testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
-    ModuleId,
 };
 
-type TestExtrinsic = TestXt<Call, ()>;
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 
@@ -28,19 +26,22 @@ frame_support::construct_runtime!(
         Backing: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
         Issuing: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
 
-        Collateral: currency::<Instance1>::{Pallet, Call, Storage, Event<T>},
-        Treasury: currency::<Instance2>::{Pallet, Call, Storage, Event<T>},
+        BackingCurrency: currency::<Instance1>::{Pallet, Call, Storage, Event<T>},
+        IssuingCurrency: currency::<Instance2>::{Pallet, Call, Storage, Event<T>},
+
+        BackingVaultRewards: reward::<Instance1>::{Pallet, Call, Storage, Event<T>},
+        IssuingVaultRewards: reward::<Instance2>::{Pallet, Call, Storage, Event<T>},
+        BackingRelayerRewards: reward::<Instance3>::{Pallet, Call, Storage, Event<T>},
+        IssuingRelayerRewards: reward::<Instance4>::{Pallet, Call, Storage, Event<T>},
 
         // Operational
         Security: security::{Pallet, Call, Storage, Event<T>},
-        VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>},
-        ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
         Sla: sla::{Pallet, Call, Config<T>, Storage, Event<T>},
     }
 );
 
 pub type AccountId = u64;
-pub type Balance = u64;
+pub type Balance = u128;
 pub type BlockNumber = u64;
 
 parameter_types! {
@@ -139,31 +140,24 @@ impl currency::Config<currency::Issuing> for Test {
     type Decimals = IssuingDecimals;
 }
 
-parameter_types! {
-    pub const VaultModuleId: ModuleId = ModuleId(*b"mod/vreg");
-}
-
-impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
-where
-    Call: From<C>,
-{
-    type OverarchingCall = Call;
-    type Extrinsic = TestExtrinsic;
-}
-
-impl vault_registry::Config for Test {
-    type ModuleId = VaultModuleId;
+impl reward::Config<reward::BackingVault> for Test {
     type Event = TestEvent;
-    type RandomnessSource = pallet_randomness_collective_flip::Pallet<Test>;
     type SignedFixedPoint = FixedI128;
-    type UnsignedFixedPoint = FixedU128;
-    type WeightInfo = ();
 }
 
-impl exchange_rate_oracle::Config for Test {
+impl reward::Config<reward::IssuingVault> for Test {
     type Event = TestEvent;
-    type UnsignedFixedPoint = FixedU128;
-    type WeightInfo = ();
+    type SignedFixedPoint = FixedI128;
+}
+
+impl reward::Config<reward::BackingRelayer> for Test {
+    type Event = TestEvent;
+    type SignedFixedPoint = FixedI128;
+}
+
+impl reward::Config<reward::IssuingRelayer> for Test {
+    type Event = TestEvent;
+    type SignedFixedPoint = FixedI128;
 }
 
 impl security::Config for Test {
@@ -184,6 +178,12 @@ impl pallet_timestamp::Config for Test {
 impl Config for Test {
     type Event = TestEvent;
     type SignedFixedPoint = FixedI128;
+    type SignedInner = i128;
+    type Balance = Balance;
+    type BackingVaultRewards = BackingVaultRewards;
+    type IssuingVaultRewards = IssuingVaultRewards;
+    type BackingRelayerRewards = BackingRelayerRewards;
+    type IssuingRelayerRewards = IssuingRelayerRewards;
 }
 
 pub type TestEvent = Event;
@@ -200,9 +200,11 @@ impl ExtBuilder {
         sla::GenesisConfig::<Test> {
             vault_target_sla: FixedI128::from(100),
             vault_redeem_failure_sla_change: FixedI128::from(0),
-            vault_executed_issue_max_sla_change: FixedI128::from(0),
-            vault_submitted_issue_proof: FixedI128::from(0),
-            vault_refunded: FixedI128::from(1),
+            vault_execute_issue_max_sla_change: FixedI128::from(0),
+            vault_deposit_max_sla_change: FixedI128::from(4),
+            vault_withdraw_max_sla_change: FixedI128::from(-4),
+            vault_submit_issue_proof: FixedI128::from(0),
+            vault_refund: FixedI128::from(1),
             relayer_target_sla: FixedI128::from(100),
             relayer_block_submission: FixedI128::from(1),
             relayer_duplicate_block_submission: FixedI128::from(1),

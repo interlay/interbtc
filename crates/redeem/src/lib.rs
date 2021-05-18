@@ -385,7 +385,7 @@ impl<T: Config> Module<T> {
             ext::fee::fee_pool_account_id::<T>(),
             redeem.fee,
         )?;
-        ext::fee::increase_issuing_rewards_for_epoch::<T>(redeem.fee);
+        ext::fee::distribute_issuing_rewards::<T>(redeem.fee)?;
 
         ext::vault_registry::redeem_tokens::<T>(&redeem.vault, burn_amount, redeem.premium, &redeem.redeemer)?;
 
@@ -466,7 +466,7 @@ impl<T: Config> Module<T> {
             };
             // calculate additional amount to slash, a high SLA means we slash less
             let slashing_amount_in_backing =
-                ext::sla::calculate_slashed_amount::<T>(&vault_id, amount_issuing_in_backing, reimburse)?;
+                ext::vault_registry::calculate_slashed_amount::<T>(&vault_id, amount_issuing_in_backing, reimburse)?;
 
             // slash the remaining amount from the vault to the fee pool
             let remaining_backing_to_be_slashed = slashing_amount_in_backing
@@ -478,7 +478,7 @@ impl<T: Config> Module<T> {
                     CurrencySource::FreeBalance(ext::fee::fee_pool_account_id::<T>()),
                     remaining_backing_to_be_slashed,
                 )?;
-                ext::fee::increase_backing_rewards_for_epoch::<T>(slashed_to_fee_pool);
+                ext::fee::distribute_backing_rewards::<T>(slashed_to_fee_pool)?;
             }
             let _ = ext::vault_registry::ban_vault::<T>(vault_id.clone());
 
@@ -494,7 +494,7 @@ impl<T: Config> Module<T> {
                 ext::fee::fee_pool_account_id::<T>(),
                 redeem.fee,
             )?;
-            ext::fee::increase_issuing_rewards_for_epoch::<T>(redeem.fee);
+            ext::fee::distribute_issuing_rewards::<T>(redeem.fee)?;
 
             if ext::vault_registry::is_vault_below_secure_threshold::<T>(&redeem.vault)? {
                 // vault can not afford to back the tokens that he would receive, so we burn it
