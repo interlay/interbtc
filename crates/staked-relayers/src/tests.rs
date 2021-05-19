@@ -1,11 +1,11 @@
 extern crate hex;
-use crate::{ext, mock::*, sp_api_hidden_includes_decl_storage::hidden_include::StorageMap, Stakes};
+use crate::{ext, mock::*};
 use bitcoin::{
     formatter::Formattable,
     types::{H256Le, RawBlockHeader, TransactionBuilder, TransactionInputBuilder, TransactionOutput},
 };
 use btc_relay::{BtcAddress, BtcPublicKey, Error as BtcRelayError};
-use frame_support::{assert_err, assert_ok, dispatch::DispatchError};
+use frame_support::{assert_err, assert_ok};
 use mocktopus::mocking::*;
 use redeem::types::{RedeemRequest, RedeemRequestStatus};
 use replace::types::{ReplaceRequest, ReplaceRequestStatus};
@@ -15,20 +15,6 @@ use std::{convert::TryInto, str::FromStr};
 use vault_registry::{Vault, VaultStatus, Wallet};
 
 type Event = crate::Event<Test>;
-
-macro_rules! assert_emitted {
-    ($event:expr) => {
-        let test_event = TestEvent::staked_relayers($event);
-        assert!(System::events().iter().any(|a| a.event == test_event));
-    };
-    ($event:expr, $times:expr) => {
-        let test_event = TestEvent::staked_relayers($event);
-        assert_eq!(
-            System::events().iter().filter(|a| a.event == test_event).count(),
-            $times
-        );
-    };
-}
 
 fn dummy_public_key() -> BtcPublicKey {
     BtcPublicKey([
@@ -52,115 +38,10 @@ fn init_zero_vault(
     vault
 }
 
-/// Tests
-#[test]
-fn test_register_staked_relayer_fails_with_insufficient_stake() {
-    run_test(|| {
-        let relayer = Origin::signed(ALICE);
-        let amount: Balance = 0;
-
-        assert_err!(
-            StakedRelayers::register_staked_relayer(relayer, amount),
-            TestError::InsufficientStake,
-        );
-    })
-}
-
-#[test]
-fn test_register_staked_relayer_succeeds() {
-    run_test(|| {
-        let relayer = Origin::signed(ALICE);
-        let amount: Balance = 20;
-
-        ext::collateral::lock_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-
-        assert_ok!(StakedRelayers::register_staked_relayer(relayer.clone(), amount));
-        assert_emitted!(Event::RegisterStakedRelayer(ALICE, amount));
-
-        // re-registration not allowed
-        assert_err!(
-            StakedRelayers::register_staked_relayer(relayer, amount),
-            TestError::AlreadyRegistered,
-        );
-
-        assert_eq!(StakedRelayers::stakes(ALICE), amount);
-    })
-}
-
-#[test]
-fn test_deregister_staked_relayer_fails_with_not_registered() {
-    run_test(|| {
-        let relayer = Origin::signed(ALICE);
-
-        assert_err!(
-            StakedRelayers::deregister_staked_relayer(relayer),
-            TestError::NotRegistered,
-        );
-    })
-}
-
-#[test]
-fn test_deregister_staked_relayer_succeeds() {
-    run_test(|| {
-        let relayer = Origin::signed(ALICE);
-        let amount: Balance = 3;
-        <Stakes<Test>>::insert(&ALICE, amount);
-
-        ext::collateral::release_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-
-        assert_ok!(StakedRelayers::deregister_staked_relayer(relayer));
-
-        assert!(!<Stakes<Test>>::contains_key(&BOB));
-
-        assert_emitted!(Event::DeregisterStakedRelayer(ALICE));
-    })
-}
-
-#[test]
-fn test_slash_staked_relayer_fails_with_non_root() {
-    run_test(|| {
-        assert_err!(
-            StakedRelayers::slash_staked_relayer(Origin::signed(ALICE), BOB),
-            DispatchError::BadOrigin
-        );
-    })
-}
-
-#[test]
-fn test_slash_staked_relayer_fails_with_not_registered() {
-    run_test(|| {
-        assert_err!(
-            StakedRelayers::slash_staked_relayer(Origin::root(), BOB),
-            TestError::NotRegistered,
-        );
-    })
-}
-
-#[test]
-fn test_slash_staked_relayer_succeeds() {
-    run_test(|| {
-        let amount: Balance = 5;
-        <Stakes<Test>>::insert(&BOB, amount);
-
-        ext::collateral::slash_collateral::<Test>.mock_safe(|sender, receiver, _amount| {
-            assert_eq!(sender, BOB);
-            assert_eq!(receiver, ext::fee::fee_pool_account_id::<Test>());
-            MockResult::Return(Ok(()))
-        });
-
-        assert_ok!(StakedRelayers::slash_staked_relayer(Origin::root(), BOB));
-        assert!(!<Stakes<Test>>::contains_key(&BOB));
-        assert_emitted!(Event::SlashStakedRelayer(BOB));
-    })
-}
-
 #[test]
 fn test_report_vault_passes_with_vault_transaction() {
     run_test(|| {
         let raw_tx = "0100000001c15041a06deb6b3818b022fac558da4ce2097f0860c8f642105bbad9d29be02a010000006c493046022100cfd2a2d332b29adce119c55a9fadd3c073332024b7e272513e51623ca15993480221009b482d7f7b4d479aff62bdcdaea54667737d56f8d4d63dd03ec3ef651ed9a25401210325f8b039a11861659c9bf03f43fc4ea055f3a71cd60c7b1fd474ab578f9977faffffffff0290d94000000000001976a9148ed243a7be26080a1a8cf96b53270665f1b8dd2388ac4083086b000000001976a9147e7d94d0ddc21d83bfbcfc7798e4547edf0832aa88ac00000000";
-
-        let amount = 3;
-        <Stakes<Test>>::insert(&ALICE, amount);
 
         let vault = CAROL;
 
@@ -185,9 +66,6 @@ fn test_report_vault_passes_with_vault_transaction() {
 fn test_report_vault_fails_with_non_vault_transaction() {
     run_test(|| {
         let raw_tx = "0100000001c15041a06deb6b3818b022fac558da4ce2097f0860c8f642105bbad9d29be02a010000006c493046022100cfd2a2d332b29adce119c55a9fadd3c073332024b7e272513e51623ca15993480221009b482d7f7b4d479aff62bdcdaea54667737d56f8d4d63dd03ec3ef651ed9a25401210325f8b039a11861659c9bf03f43fc4ea055f3a71cd60c7b1fd474ab578f9977faffffffff0290d94000000000001976a9148ed243a7be26080a1a8cf96b53270665f1b8dd2388ac4083086b000000001976a9147e7d94d0ddc21d83bfbcfc7798e4547edf0832aa88ac00000000";
-
-        let amount = 3;
-        <Stakes<Test>>::insert(&ALICE, amount);
 
         let vault = CAROL;
 
@@ -216,9 +94,6 @@ fn test_report_vault_succeeds_with_segwit_transaction() {
     run_test(|| {
         let raw_tx = "0200000000010140d43a99926d43eb0e619bf0b3d83b4a31f60c176beecfb9d35bf45e54d0f7420100000017160014a4b4ca48de0b3fffc15404a1acdc8dbaae226955ffffffff0100e1f5050000000017a9144a1154d50b03292b3024370901711946cb7cccc387024830450221008604ef8f6d8afa892dee0f31259b6ce02dd70c545cfcfed8148179971876c54a022076d771d6e91bed212783c9b06e0de600fab2d518fad6f15a2b191d7fbd262a3e0121039d25ab79f41f75ceaf882411fd41fa670a4c672c23ffaf0e361a969cde0692e800000000";
 
-        let amount = 3;
-        <Stakes<Test>>::insert(&ALICE, amount);
-
         let vault = CAROL;
 
         let btc_address = BtcAddress::P2WPKHv0(H160::from_slice(&[
@@ -242,8 +117,6 @@ fn test_report_vault_succeeds_with_segwit_transaction() {
 fn test_report_vault_theft_succeeds() {
     run_test(|| {
         let relayer = Origin::signed(ALICE);
-        let amount: Balance = 3;
-        <Stakes<Test>>::insert(&ALICE, amount);
 
         ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(())));
         StakedRelayers::_is_parsed_transaction_invalid.mock_safe(move |_, _| MockResult::Return(Ok(())));
@@ -636,25 +509,6 @@ fn test_is_transaction_invalid_succeeds_with_testnet_transaction() {
             .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(BOB, Some(btc_address)))));
 
         assert_ok!(StakedRelayers::is_transaction_invalid(&BOB, raw_tx));
-    })
-}
-
-#[test]
-fn test_store_block_header_and_update_sla_succeeds_with_duplicate() {
-    run_test(|| {
-        ext::btc_relay::store_block_header::<Test>
-            .mock_safe(|_, _| MockResult::Return(Err(BtcRelayError::<Test>::DuplicateBlock.into())));
-
-        ext::sla::event_update_relayer_sla::<Test>.mock_safe(|&relayer_id, event| {
-            assert_eq!(relayer_id, 0);
-            assert_eq!(event, ext::sla::RelayerEvent::DuplicateBlockSubmission);
-            MockResult::Return(Ok(()))
-        });
-
-        assert_ok!(StakedRelayers::store_block_header_and_update_sla(
-            &0,
-            RawBlockHeader::default()
-        ));
     })
 }
 

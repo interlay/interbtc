@@ -775,10 +775,6 @@ impl TransactionGenerator {
         let bytes_proof = proof.try_format().unwrap();
         let raw_tx = transaction.format_with(true);
 
-        // let _ = Call::StakedRelayers(StakedRelayersCall::register_staked_relayer(
-        //     100,
-        // ))
-        // .dispatch(origin_of(account_of(self.relayer)));
         self.relay(height, &block, raw_block_header);
 
         // Mine six new blocks to get over required confirmations
@@ -807,9 +803,6 @@ impl TransactionGenerator {
 
     fn relay(&self, height: u32, block: &Block, raw_block_header: RawBlockHeader) {
         if let Some(relayer) = self.relayer {
-            let _ = Call::StakedRelayers(StakedRelayersCall::register_staked_relayer(100))
-                .dispatch(origin_of(account_of(relayer)));
-
             assert_ok!(
                 Call::StakedRelayers(StakedRelayersCall::store_block_header(raw_block_header))
                     .dispatch(origin_of(account_of(relayer)))
@@ -938,9 +931,8 @@ impl ExtBuilder {
             vault_submit_issue_proof: FixedI128::from(1),
             vault_refund: FixedI128::from(1),
             relayer_target_sla: FixedI128::from(100),
-            relayer_block_submission: FixedI128::from(1),
-            relayer_duplicate_block_submission: FixedI128::from(1),
-            relayer_correct_theft_report: FixedI128::from(1),
+            relayer_store_block: FixedI128::from(1),
+            relayer_theft_report: FixedI128::from(1),
         }
         .assimilate_storage(&mut storage)
         .unwrap();

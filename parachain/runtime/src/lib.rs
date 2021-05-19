@@ -600,22 +600,11 @@ impl security::Config for Runtime {
     type Event = Event;
 }
 
-parameter_types! {
-    pub const MinimumDeposit: u32 = 10;
-    pub const MinimumStake: u32 = 10;
-    pub const VotingPeriod: BlockNumber = DAYS;
-    pub const MaximumMessageSize: u32 = 256;
-}
-
 pub use staked_relayers::RawEvent as StakedRelayersEvent;
 
 impl staked_relayers::Config for Runtime {
     type Event = Event;
     type WeightInfo = ();
-    type MinimumDeposit = MinimumDeposit;
-    type MinimumStake = MinimumStake;
-    type VotingPeriod = VotingPeriod;
-    type MaximumMessageSize = MaximumMessageSize;
 }
 
 parameter_types! {

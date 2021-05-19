@@ -31,15 +31,11 @@ pub use security;
 use crate::types::{Backing, Issuing};
 use bitcoin::{parser::parse_transaction, types::*};
 
-use btc_relay::{BtcAddress, Error as BtcRelayError};
+use btc_relay::BtcAddress;
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult},
-    ensure,
-    traits::Get,
-    transactional,
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure, transactional,
 };
-use frame_system::{ensure_root, ensure_signed};
+use frame_system::ensure_signed;
 use sp_core::H256;
 
 use sp_std::{collections::btree_set::BTreeSet, convert::TryInto, vec::Vec};
@@ -65,25 +61,11 @@ pub trait Config:
 
     /// Weight information for the extrinsics in this module.
     type WeightInfo: WeightInfo;
-
-    /// The minimum amount of deposit required to propose an update.
-    type MinimumDeposit: Get<Backing<Self>>;
-
-    /// The minimum amount of stake required to participate.
-    type MinimumStake: Get<Backing<Self>>;
-
-    /// How often (in blocks) to check for new votes.
-    type VotingPeriod: Get<Self::BlockNumber>;
-
-    /// Maximum message size in bytes
-    type MaximumMessageSize: Get<u32>;
 }
 
 // This pallet's storage items.
 decl_storage! {
     trait Store for Module<T: Config> as Staking {
-        Stakes get(fn stakes): map hasher(blake2_128_concat) T::AccountId => Backing<T>;
-
         /// Mapping of Bitcoin transaction identifiers (SHA256 hashes) to account
         /// identifiers of Vaults accused of theft.
         TheftReports get(fn theft_report): map hasher(blake2_128_concat) H256Le => BTreeSet<T::AccountId>;
@@ -130,60 +112,9 @@ decl_module! {
         {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let relayer = ensure_signed(origin)?;
-            Self::ensure_relayer_is_registered(&relayer)?;
             ext::btc_relay::initialize::<T>(relayer, raw_block_header, block_height)
         }
 
-        /// Registers a new Staked Relayer, locking the provided collateral, which must exceed `STAKED_RELAYER_STAKE`.
-        ///
-        /// # Arguments
-        ///
-        /// * `origin`: The account of the Staked Relayer to be registered
-        /// * `stake`: to-be-locked collateral/stake in Backing
-        #[weight = <T as Config>::WeightInfo::register_staked_relayer()]
-        #[transactional]
-        fn register_staked_relayer(origin, #[compact] stake: Backing<T>) -> DispatchResult {
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-            let signer = ensure_signed(origin)?;
-
-            ensure!(
-                !<Stakes<T>>::contains_key(&signer),
-                Error::<T>::AlreadyRegistered,
-            );
-
-            ensure!(
-                stake >= T::MinimumStake::get(),
-                Error::<T>::InsufficientStake,
-            );
-            ext::collateral::lock_collateral::<T>(&signer, stake)?;
-
-            <Stakes<T>>::insert(&signer, stake);
-
-            Self::deposit_event(<Event<T>>::RegisterStakedRelayer(signer, stake));
-            Ok(())
-        }
-
-        /// Deregisters a Staked Relayer, releasing the associated stake.
-        ///
-        /// # Arguments
-        ///
-        /// * `origin`: The account of the Staked Relayer to be deregistered
-        #[weight = <T as Config>::WeightInfo::deregister_staked_relayer()]
-        #[transactional]
-        fn deregister_staked_relayer(origin) -> DispatchResult {
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-            let signer = ensure_signed(origin)?;
-
-            ensure!(<Stakes<T>>::contains_key(&signer), Error::<T>::NotRegistered);
-
-            // `take` also removes it from storage
-            let stake = <Stakes<T>>::take(&signer);
-
-            ext::collateral::release_collateral::<T>(&signer, stake)?;
-
-            Self::deposit_event(<Event<T>>::DeregisterStakedRelayer(signer));
-            Ok(())
-        }
 
         /// Stores a single new block header
         ///
@@ -224,34 +155,7 @@ decl_module! {
         ) -> DispatchResult {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let relayer = ensure_signed(origin)?;
-
-            Self::ensure_relayer_is_registered(&relayer)?;
             Self::store_block_header_and_update_sla(&relayer, raw_block_header)
-        }
-
-        /// Slashes the stake/collateral of a Staked Relayer and removes them from the list.
-        ///
-        /// # Arguments
-        ///
-        /// * `origin`: The AccountId of the Governance Mechanism.
-        /// * `staked_relayer_id`: The account of the Staked Relayer to be slashed.
-        #[weight = <T as Config>::WeightInfo::slash_staked_relayer()]
-        #[transactional]
-        fn slash_staked_relayer(origin, staked_relayer_id: T::AccountId) -> DispatchResult {
-            ensure_root(origin)?;
-
-            ensure!(<Stakes<T>>::contains_key(&staked_relayer_id), Error::<T>::NotRegistered);
-
-            // `take` also removes it from storage
-            let stake = <Stakes<T>>::take(&staked_relayer_id);
-
-            ext::collateral::slash_collateral::<T>(staked_relayer_id.clone(), ext::fee::fee_pool_account_id::<T>(), stake)?;
-
-            Self::deposit_event(<Event<T>>::SlashStakedRelayer(
-                staked_relayer_id,
-            ));
-
-            Ok(())
         }
 
         /// A Staked Relayer reports misbehavior by a Vault, providing a fraud proof
@@ -292,10 +196,8 @@ decl_module! {
                 reports.insert(vault_id.clone());
             });
 
-            // if the report is made by a relayer, reward it by increasing its sla
-            if Self::relayer_is_registered(&signer) {
-                ext::sla::event_update_relayer_sla::<T>(&signer, ext::sla::RelayerEvent::CorrectTheftReport)?;
-            }
+            // reward the participant by increasing their SLA
+            ext::sla::event_update_relayer_sla::<T>(&signer, ext::sla::RelayerEvent::TheftReport)?;
 
             Self::deposit_event(<Event<T>>::VaultTheft(
                 vault_id,
@@ -311,34 +213,10 @@ decl_module! {
 #[cfg_attr(test, mockable)]
 impl<T: Config> Module<T> {
     fn store_block_header_and_update_sla(relayer: &T::AccountId, raw_block_header: RawBlockHeader) -> DispatchResult {
-        match ext::btc_relay::store_block_header::<T>(relayer, raw_block_header) {
-            Ok(_) => {
-                ext::sla::event_update_relayer_sla::<T>(relayer, ext::sla::RelayerEvent::BlockSubmission)?;
-                Ok(())
-            }
-            Err(err) if err == DispatchError::from(BtcRelayError::<T>::DuplicateBlock) => {
-                ext::sla::event_update_relayer_sla::<T>(relayer, ext::sla::RelayerEvent::DuplicateBlockSubmission)?;
-                Ok(())
-            }
-            x => x,
-        }
-    }
-
-    fn relayer_is_registered(id: &T::AccountId) -> bool {
-        <Stakes<T>>::contains_key(id)
-    }
-
-    /// Ensure a staked relayer is registered.
-    ///
-    /// # Arguments
-    ///
-    /// * `id` - account id of the relayer
-    pub(crate) fn ensure_relayer_is_registered(id: &T::AccountId) -> DispatchResult {
-        if Self::relayer_is_registered(id) {
-            Ok(())
-        } else {
-            Err(Error::<T>::NotRegistered.into())
-        }
+        ext::btc_relay::store_block_header::<T>(&relayer, raw_block_header)?;
+        // reward the participant by increasing their SLA
+        ext::sla::event_update_relayer_sla::<T>(&relayer, ext::sla::RelayerEvent::StoreBlock)?;
+        Ok(())
     }
 
     /// Checks if the vault is doing a valid merge transaction to move funds between
@@ -500,27 +378,15 @@ decl_event!(
     pub enum Event<T>
     where
         AccountId = <T as frame_system::Config>::AccountId,
-        Backing = Backing<T>,
     {
-        RegisterStakedRelayer(AccountId, Backing),
-        DeregisterStakedRelayer(AccountId),
-        SlashStakedRelayer(AccountId),
         VaultTheft(AccountId, H256Le),
     }
 );
 
 decl_error! {
     pub enum Error for Module<T: Config> {
-        /// Staked relayer is already registered
-        AlreadyRegistered,
-        /// Insufficient collateral staked
-        InsufficientStake,
-        /// Participant is not registered
-        NotRegistered,
         /// Vault already reported
         VaultAlreadyReported,
-        /// Vault already liquidated
-        VaultAlreadyLiquidated,
         /// Vault BTC address not in transaction input
         VaultNoInputToTransaction,
         /// Valid redeem transaction
@@ -531,14 +397,6 @@ decl_error! {
         ValidRefundTransaction,
         /// Valid merge transaction
         ValidMergeTransaction,
-        /// Block not included by the relay
-        BlockNotFound,
-        /// Block already reported
-        BlockAlreadyReported,
-        /// Cannot report vault theft without block hash
-        ExpectedBlockHash,
-        /// Status update should not contain block hash
-        UnexpectedBlockHash,
         /// Failed to parse transaction
         InvalidTransaction,
         /// Unable to convert value

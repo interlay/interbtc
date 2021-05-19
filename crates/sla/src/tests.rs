@@ -102,29 +102,22 @@ fn test_event_update_vault_sla_half_size_increase() {
 fn test_event_update_relayer_sla_succeeds() {
     run_test(|| {
         for i in 0..100 {
-            Sla::event_update_relayer_sla(&ALICE, RelayerEvent::BlockSubmission).unwrap();
+            Sla::event_update_relayer_sla(&ALICE, RelayerEvent::StoreBlock).unwrap();
             assert_eq!(<crate::RelayerSla<Test>>::get(ALICE), FixedI128::from(i + 1));
         }
 
         <crate::RelayerSla<Test>>::insert(ALICE, FixedI128::from(50));
-        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::BlockSubmission).unwrap();
+        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::StoreBlock).unwrap();
         assert_eq!(
             <crate::RelayerSla<Test>>::get(ALICE),
-            FixedI128::from(50) + <crate::RelayerBlockSubmission<Test>>::get(),
+            FixedI128::from(50) + <crate::RelayerStoreBlock<Test>>::get(),
         );
 
         <crate::RelayerSla<Test>>::insert(ALICE, FixedI128::from(50));
-        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::DuplicateBlockSubmission).unwrap();
+        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::TheftReport).unwrap();
         assert_eq!(
             <crate::RelayerSla<Test>>::get(ALICE),
-            FixedI128::from(50) + <crate::RelayerDuplicateBlockSubmission<Test>>::get(),
-        );
-
-        <crate::RelayerSla<Test>>::insert(ALICE, FixedI128::from(50));
-        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::CorrectTheftReport).unwrap();
-        assert_eq!(
-            <crate::RelayerSla<Test>>::get(ALICE),
-            FixedI128::from(50) + <crate::RelayerCorrectTheftReport<Test>>::get(),
+            FixedI128::from(50) + <crate::RelayerTheftReport<Test>>::get(),
         );
     })
 }
@@ -134,7 +127,7 @@ fn test_event_update_relayer_sla_limits() {
     run_test(|| {
         // start at 99.5, add 1, result should be 100
         <RelayerSla<Test>>::insert(ALICE, FixedI128::checked_from_rational(9950, 100).unwrap());
-        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::BlockSubmission).unwrap();
+        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::StoreBlock).unwrap();
         assert_eq!(<RelayerSla<Test>>::get(ALICE), FixedI128::from(100));
     })
 }
