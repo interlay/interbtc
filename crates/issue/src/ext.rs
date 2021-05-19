@@ -5,7 +5,7 @@ use mocktopus::macros::mockable;
 pub(crate) mod btc_relay {
     use btc_relay::BtcAddress;
     use frame_support::dispatch::DispatchError;
-    use primitive_types::H256;
+    use sp_core::H256;
     use sp_std::vec::Vec;
 
     pub fn verify_and_validate_transaction<T: btc_relay::Config>(
@@ -138,7 +138,7 @@ pub(crate) mod treasury {
 #[cfg_attr(test, mockable)]
 pub(crate) mod security {
     use frame_support::dispatch::{DispatchError, DispatchResult};
-    use primitive_types::H256;
+    use sp_core::H256;
 
     pub fn get_secure_id<T: security::Config>(id: &T::AccountId) -> H256 {
         <security::Pallet<T>>::get_secure_id(id)
@@ -217,7 +217,7 @@ pub(crate) mod refund {
     use crate::types::Issuing;
     use btc_relay::BtcAddress;
     use frame_support::dispatch::DispatchError;
-    use primitive_types::H256;
+    use sp_core::H256;
 
     pub fn request_refund<T: refund::Config>(
         total_amount_btc: Issuing<T>,

@@ -1,9 +1,9 @@
 use btc_relay::{BtcAddress, BtcPublicKey};
 use codec::{Decode, Encode};
 use frame_support::traits::Currency;
-use primitive_types::H256;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use sp_core::H256;
 
 /// Storage version.
 #[derive(Encode, Decode, Eq, PartialEq)]

@@ -6,17 +6,18 @@ version = "0.7.0"
 
 [dependencies]
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
-serde = { version = "1.0.101", optional = true, features = ["derive"] }
+serde = { version = "1.0.119", default-features = false, optional = true, features = ["derive"] }
 
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
-sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
-frame-system = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1", default-features = false }
+sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1", default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1", default-features = false }
 
-xcm = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", default-features = false }
-xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "rococo-v1", default-features = false }
-cumulus-primitives = { package = "cumulus-primitives-core", git = "https://github.com/paritytech/cumulus", branch = "rococo-v1", default-features = false }
+xcm = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.1", default-features = false }
+xcm-builder = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.1", default-features = false }
+xcm-executor = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.1", default-features = false }
+cumulus-primitives-core = { git = "https://github.com/paritytech/cumulus", branch = "polkadot-v0.9.1", default-features = false }
 
 # Parachain dependencies
 currency = { path = "../currency", default-features = false }
@@ -26,6 +27,7 @@ default = ["std"]
 std = [
     "codec/std",
     "serde",
+
     "sp-std/std",
     "sp-runtime/std",
     "sp-arithmetic/std",
@@ -33,8 +35,9 @@ std = [
     "frame-system/std",
 
     "xcm/std",
+    "xcm-builder/std",
     "xcm-executor/std",
-    "cumulus-primitives/std",
+    "cumulus-primitives-core/std",
 
     "currency/std",
 ]

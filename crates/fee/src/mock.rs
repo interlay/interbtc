@@ -1,13 +1,12 @@
 use crate as fee;
 use crate::{Config, Error};
-use frame_support::{parameter_types, traits::StorageMapShim};
+use frame_support::{parameter_types, traits::StorageMapShim, PalletId};
 use mocktopus::mocking::clear_mocks;
 use sp_arithmetic::{FixedI128, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
-    ModuleId,
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -177,11 +176,11 @@ impl security::Config for Test {
 }
 
 parameter_types! {
-    pub const FeeModuleId: ModuleId = ModuleId(*b"mod/fees");
+    pub const FeePalletId: PalletId = PalletId(*b"mod/fees");
 }
 
 impl Config for Test {
-    type ModuleId = FeeModuleId;
+    type PalletId = FeePalletId;
     type Event = TestEvent;
     type WeightInfo = ();
     type SignedFixedPoint = FixedI128;

@@ -1,7 +1,7 @@
 mod mock;
 
 use mock::*;
-use primitive_types::H256;
+use sp_core::H256;
 use sp_runtime::traits::CheckedMul;
 
 pub const RELAYER: [u8; 32] = ALICE;

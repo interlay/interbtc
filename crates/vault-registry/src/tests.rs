@@ -11,9 +11,9 @@ use crate::{
 use codec::Decode;
 use frame_support::{assert_err, assert_noop, assert_ok, traits::OnInitialize};
 use mocktopus::mocking::*;
-use primitive_types::U256;
 use security::Pallet as Security;
-use sp_arithmetic::{FixedPointNumber, FixedU128};
+use sp_arithmetic::{traits::One, FixedPointNumber, FixedU128};
+use sp_core::U256;
 use sp_runtime::{
     offchain::{testing::TestTransactionPoolExt, TransactionPoolExt},
     traits::Header,

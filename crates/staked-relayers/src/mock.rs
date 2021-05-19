@@ -1,13 +1,12 @@
 use crate as staked_relayers;
 use crate::{Config, Error};
-use frame_support::{parameter_types, traits::StorageMapShim};
+use frame_support::{parameter_types, traits::StorageMapShim, PalletId};
 use mocktopus::mocking::clear_mocks;
 use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
     testing::{Header, TestXt},
     traits::{BlakeTwo256, IdentityLookup},
-    ModuleId,
 };
 
 type TestExtrinsic = TestXt<Call, ()>;
@@ -187,7 +186,7 @@ impl security::Config for Test {
 }
 
 parameter_types! {
-    pub const VaultModuleId: ModuleId = ModuleId(*b"mod/vreg");
+    pub const VaultPalletId: PalletId = PalletId(*b"mod/vreg");
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
@@ -199,7 +198,7 @@ where
 }
 
 impl vault_registry::Config for Test {
-    type ModuleId = VaultModuleId;
+    type PalletId = VaultPalletId;
     type Event = TestEvent;
     type RandomnessSource = pallet_randomness_collective_flip::Pallet<Test>;
     type SignedFixedPoint = FixedI128;
@@ -214,11 +213,11 @@ impl exchange_rate_oracle::Config for Test {
 }
 
 parameter_types! {
-    pub const FeeModuleId: ModuleId = ModuleId(*b"mod/fees");
+    pub const FeePalletId: PalletId = PalletId(*b"mod/fees");
 }
 
 impl fee::Config for Test {
-    type ModuleId = FeeModuleId;
+    type PalletId = FeePalletId;
     type Event = TestEvent;
     type WeightInfo = ();
     type SignedFixedPoint = FixedI128;

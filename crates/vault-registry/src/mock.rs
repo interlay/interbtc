@@ -3,14 +3,14 @@ use crate::{ext, Config, Error};
 use frame_support::{
     parameter_types,
     traits::{GenesisBuild, StorageMapShim},
+    PalletId,
 };
 use mocktopus::mocking::{clear_mocks, MockResult, Mockable};
 use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
     testing::{Header, TestXt},
-    traits::{BlakeTwo256, IdentityLookup},
-    ModuleId,
+    traits::{BlakeTwo256, IdentityLookup, One},
 };
 
 pub(crate) type Extrinsic = TestXt<Call, ()>;
@@ -185,11 +185,11 @@ impl exchange_rate_oracle::Config for Test {
 }
 
 parameter_types! {
-    pub const VaultModuleId: ModuleId = ModuleId(*b"mod/vreg");
+    pub const VaultPalletId: PalletId = PalletId(*b"mod/vreg");
 }
 
 impl Config for Test {
-    type ModuleId = VaultModuleId;
+    type PalletId = VaultPalletId;
     type Event = TestEvent;
     type RandomnessSource = pallet_randomness_collective_flip::Pallet<Test>;
     type SignedFixedPoint = FixedI128;

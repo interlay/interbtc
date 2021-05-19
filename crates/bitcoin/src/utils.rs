@@ -1,5 +1,5 @@
-use primitive_types::{H256, U256};
 use sha2::{Digest, Sha256};
+use sp_core::{H256, U256};
 use sp_std::{prelude::*, vec};
 
 use crate::types::H256Le;

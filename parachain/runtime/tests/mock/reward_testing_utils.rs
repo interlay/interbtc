@@ -1,5 +1,6 @@
 use crate::SlaPallet;
-use sp_arithmetic::{FixedI128, FixedPointNumber};
+use sp_arithmetic::FixedI128;
+use sp_runtime::traits::{One, Zero};
 use std::collections::HashMap;
 
 pub const VAULT_REWARDS: f64 = 0.7;

@@ -29,7 +29,7 @@ pub(crate) mod sla {
 pub(crate) mod btc_relay {
     use btc_relay::BtcAddress;
     use frame_support::dispatch::DispatchError;
-    use primitive_types::H256;
+    use sp_core::H256;
     use sp_std::vec::Vec;
 
     pub fn verify_and_validate_transaction<T: btc_relay::Config>(
@@ -54,7 +54,7 @@ pub(crate) mod btc_relay {
 #[cfg_attr(test, mockable)]
 pub(crate) mod security {
     use frame_support::dispatch::DispatchResult;
-    use primitive_types::H256;
+    use sp_core::H256;
 
     pub fn get_secure_id<T: security::Config>(id: &T::AccountId) -> H256 {
         <security::Pallet<T>>::get_secure_id(id)
