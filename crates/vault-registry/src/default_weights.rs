@@ -7,7 +7,7 @@ use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 
 pub trait WeightInfo {
     fn register_vault() -> Weight;
-    fn lock_additional_collateral() -> Weight;
+    fn deposit_collateral() -> Weight;
     fn withdraw_collateral() -> Weight;
     fn update_public_key() -> Weight;
     fn register_address() -> Weight;
@@ -21,7 +21,7 @@ impl crate::WeightInfo for () {
             .saturating_add(DbWeight::get().reads(6 as Weight))
             .saturating_add(DbWeight::get().writes(4 as Weight))
     }
-    fn lock_additional_collateral() -> Weight {
+    fn deposit_collateral() -> Weight {
         (109_095_000 as Weight)
             .saturating_add(DbWeight::get().reads(9 as Weight))
             .saturating_add(DbWeight::get().writes(2 as Weight))

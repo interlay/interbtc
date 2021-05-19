@@ -134,15 +134,15 @@ fn register_vault_fails_when_already_registered() {
 }
 
 #[test]
-fn lock_additional_collateral_succeeds() {
+fn deposit_collateral_succeeds() {
     run_test(|| {
         let id = create_vault(RICH_ID);
         let additional = RICH_COLLATERAL - DEFAULT_COLLATERAL;
-        let res = VaultRegistry::lock_additional_collateral(Origin::signed(id), additional);
+        let res = VaultRegistry::deposit_collateral(Origin::signed(id), additional);
         assert_ok!(res);
         let new_collateral = ext::collateral::get_reserved_balance::<Test>(&id);
         assert_eq!(new_collateral, DEFAULT_COLLATERAL + additional);
-        assert_emitted!(Event::LockAdditionalCollateral(
+        assert_emitted!(Event::DepositCollateral(
             id,
             additional,
             RICH_COLLATERAL,
@@ -152,9 +152,9 @@ fn lock_additional_collateral_succeeds() {
 }
 
 #[test]
-fn lock_additional_collateral_fails_when_vault_does_not_exist() {
+fn deposit_collateral_fails_when_vault_does_not_exist() {
     run_test(|| {
-        let res = VaultRegistry::lock_additional_collateral(Origin::signed(3), 50);
+        let res = VaultRegistry::deposit_collateral(Origin::signed(3), 50);
         assert_err!(res, TestError::VaultNotFound);
     })
 }
@@ -927,7 +927,7 @@ fn register_vault_parachain_not_running_fails() {
 }
 
 #[test]
-fn lock_additional_collateral_parachain_not_running_fails() {
+fn deposit_collateral_parachain_not_running_fails() {
     run_test(|| {
         let id = create_vault(RICH_ID);
         let additional = RICH_COLLATERAL - DEFAULT_COLLATERAL;
@@ -935,7 +935,7 @@ fn lock_additional_collateral_parachain_not_running_fails() {
             .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainShutdown.into())));
 
         assert_noop!(
-            VaultRegistry::lock_additional_collateral(Origin::signed(id), additional),
+            VaultRegistry::deposit_collateral(Origin::signed(id), additional),
             SecurityError::ParachainShutdown
         );
     })
