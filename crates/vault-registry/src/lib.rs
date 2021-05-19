@@ -397,45 +397,42 @@ pub mod pallet {
         }
     }
 
-    /// The minimum collateral (e.g. DOT/KSM) a Vault needs to provide
-    /// to participate in the issue process.
+    /// The minimum collateral (e.g. DOT/KSM) a Vault needs to provide to register a vault.
     #[pallet::storage]
     #[pallet::getter(fn minimum_collateral_vault)]
     pub(super) type MinimumCollateralVault<T: Config> = StorageValue<_, Backing<T>, ValueQuery>;
 
-    /// If a Vault fails to execute a correct redeem or replace,
-    /// it is temporarily banned from further issue, redeem or replace requests.
+    /// If a Vault fails to execute a correct redeem or replace, it is temporarily banned
+    /// from further issue, redeem or replace requests. This value configures the duration
+    /// of this ban (in number of blocks) .
     #[pallet::storage]
     #[pallet::getter(fn punishment_delay)]
     pub(super) type PunishmentDelay<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
 
-    /// Determines the over-collateralization rate for collateral locked
-    /// by Vaults, necessary for issuing tokens. Must to be strictly
-    /// greater than 100000 and LiquidationCollateralThreshold.
+    /// Determines the over-collateralization rate for collateral locked by Vaults, necessary for
+    /// issuing tokens. This threshold should be greater than the LiquidationCollateralThreshold.
     #[pallet::storage]
     #[pallet::getter(fn secure_collateral_threshold)]
     pub(super) type SecureCollateralThreshold<T: Config> = StorageValue<_, UnsignedFixedPoint<T>, ValueQuery>;
 
-    /// Determines the rate for the collateral rate of Vaults,
-    /// at which users receive a premium, allocated from the
-    /// Vault's collateral, when performing a redeem with this Vault.
-    /// Must to be strictly greater than 100000 and LiquidationCollateralThreshold.
+    /// Determines the rate for the collateral rate of Vaults, at which users receive a premium,
+    /// allocated from the Vault's collateral, when performing a redeem with this Vault. This
+    /// threshold should be greater than the LiquidationCollateralThreshold.
     #[pallet::storage]
     #[pallet::getter(fn premium_redeem_threshold)]
     pub(super) type PremiumRedeemThreshold<T: Config> = StorageValue<_, UnsignedFixedPoint<T>, ValueQuery>;
 
-    /// Determines the lower bound for the collateral rate in issued tokens.
-    /// Must be strictly greater than 100000. If a Vault’s collateral rate
-    /// drops below this, automatic liquidation (forced Redeem) is triggered.
+    /// Determines the lower bound for the collateral rate in issued tokens. If a Vault’s
+    /// collateral rate drops below this, automatic liquidation (forced Redeem) is triggered.
     #[pallet::storage]
     #[pallet::getter(fn liquidation_collateral_threshold)]
     pub(super) type LiquidationCollateralThreshold<T: Config> = StorageValue<_, UnsignedFixedPoint<T>, ValueQuery>;
 
-    /// Account identifier of an artificial Vault maintained by the VaultRegistry
-    /// to handle issued balances and collateral of liquidated Vaults.
-    /// That is, when a Vault is liquidated, its balances are transferred to
-    /// LiquidationVault and claims are later handled via the LiquidationVault.
+    /// Account identifier of an artificial Vault maintained by the VaultRegistry to handle issued balances
+    /// and collateral of liquidated Vaults. That is, when a Vault is liquidated, its balances are
+    /// transferred to LiquidationVault and claims are later handled via the LiquidationVault.
     #[pallet::storage]
+    #[pallet::getter(fn liquidation_vault_account_id)]
     pub(super) type LiquidationVaultAccountId<T: Config> = StorageValue<_, T::AccountId, ValueQuery>;
 
     #[pallet::storage]
@@ -516,6 +513,7 @@ pub mod pallet {
             PremiumRedeemThreshold::<T>::put(self.premium_redeem_threshold);
             LiquidationCollateralThreshold::<T>::put(self.liquidation_collateral_threshold);
             StorageVersion::<T>::put(Version::V1);
+            LiquidationVaultAccountId::<T>::put::<T::AccountId>(T::PalletId::get().into_account());
         }
     }
 }
@@ -528,14 +526,6 @@ impl<T: Config> Pallet<T> {
             let call = Call::report_undercollateralized_vault(vault);
             let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
         }
-    }
-
-    /// The account ID of the liquidation vault.
-    ///
-    /// This actually does computation. If you need to keep using it, then make sure you cache the
-    /// value and only call this once.
-    pub fn liquidation_vault_account_id() -> T::AccountId {
-        T::PalletId::get().into_account()
     }
 
     /// Public functions
