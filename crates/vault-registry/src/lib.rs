@@ -49,10 +49,9 @@ use frame_system::{
 };
 use sp_arithmetic::{traits::*, FixedPointNumber};
 use sp_core::{H256, U256};
-use sp_runtime::{
-    traits::AccountIdConversion,
-    transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction},
-};
+#[cfg(feature = "std")]
+use sp_runtime::traits::AccountIdConversion;
+use sp_runtime::transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction};
 use sp_std::{
     convert::{TryFrom, TryInto},
     vec::Vec,
@@ -359,31 +358,39 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T> {
+        /// Not enough free collateral available.
         InsufficientCollateral,
         /// The amount of tokens to be issued is higher than the issuable amount by the vault
         ExceedingVaultLimit,
+        /// The requested amount of tokens exceeds the amount available to this vault.
         InsufficientTokensCommitted,
+        /// Action not allowed on banned vault.
         VaultBanned,
-        /// Returned if the collateral amount to register a vault was too low
+        /// The provided collateral was insufficient - it must be above ``MinimumCollateralVault``.
         InsufficientVaultCollateralAmount,
-        // FIXME: ERR_MIN_AMOUNT in spec
         /// Returned if a vault tries to register while already being registered
         VaultAlreadyRegistered,
+        /// The specified vault does not exist.
         VaultNotFound,
         /// The Bitcoin Address has already been registered
         ReservedDepositAddress,
+        /// Attempted to liquidate a vault that is not undercollateralized.
+        VaultNotBelowLiquidationThreshold,
+        /// Deposit address could not be generated with the given public key.
+        InvalidPublicKey,
+
+        // Errors used exclusively in RPC functions
         /// Collateralization is infinite if no tokens are issued
         NoTokensIssued,
         NoVaultWithSufficientCollateral,
         NoVaultWithSufficientTokens,
         NoVaultUnderThePremiumRedeemThreshold,
+
+        // Unexpected errors that should never be thrown in normal operation
         ArithmeticOverflow,
         ArithmeticUnderflow,
         /// Unable to convert value
         TryIntoIntError,
-        InvalidSecretKey,
-        InvalidPublicKey,
-        VaultNotBelowLiquidationThreshold,
     }
 
     impl<T: Config> From<SlashingError> for Error<T> {
@@ -397,7 +404,7 @@ pub mod pallet {
         }
     }
 
-    /// The minimum collateral (e.g. DOT/KSM) a Vault needs to provide to register a vault.
+    /// The minimum collateral (e.g. DOT/KSM) a Vault needs to provide to register.
     #[pallet::storage]
     #[pallet::getter(fn minimum_collateral_vault)]
     pub(super) type MinimumCollateralVault<T: Config> = StorageValue<_, Backing<T>, ValueQuery>;
@@ -470,24 +477,10 @@ pub mod pallet {
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
-        /// The minimum collateral (e.g. DOT/KSM) a Vault needs to provide
-        /// to participate in the issue process.
         pub minimum_collateral_vault: Backing<T>,
-        /// If a Vault fails to execute a correct redeem or replace,
-        /// it is temporarily banned from further issue, redeem or replace requests.
         pub punishment_delay: T::BlockNumber,
-        /// Determines the over-collateralization rate for collateral locked
-        /// by Vaults, necessary for issuing tokens. Must to be strictly
-        /// greater than 100000 and LiquidationCollateralThreshold.
         pub secure_collateral_threshold: UnsignedFixedPoint<T>,
-        /// Determines the rate for the collateral rate of Vaults,
-        /// at which users receive a premium, allocated from the
-        /// Vault\'s collateral, when performing a redeem with this Vault.
-        /// Must to be strictly greater than 100000 and LiquidationCollateralThreshold.
         pub premium_redeem_threshold: UnsignedFixedPoint<T>,
-        /// Determines the lower bound for the collateral rate in issued tokens.
-        /// Must be strictly greater than 100000. If a Vault’s collateral rate
-        /// drops below this, automatic liquidation (forced Redeem) is triggered.
         pub liquidation_collateral_threshold: UnsignedFixedPoint<T>,
     }
 
