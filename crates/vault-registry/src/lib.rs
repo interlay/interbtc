@@ -1248,19 +1248,12 @@ impl<T: Config> Pallet<T> {
         Self::is_vault_below_threshold(&vault_id, PremiumRedeemThreshold::<T>::get())
     }
 
-    /// check if the vault is below the liquidation threshold. In contrast to other thresholds,
-    /// this is checked as ratio of `collateral / (issued - to_be_redeemed)`.
+    /// check if the vault is below the liquidation threshold.
     pub fn is_vault_below_liquidation_threshold(
         vault: &Vault<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>, SignedFixedPoint<T>>,
         liquidation_threshold: UnsignedFixedPoint<T>,
     ) -> Result<bool, DispatchError> {
-        // the currently issued tokens
-        let tokens = vault
-            .issued_tokens
-            .checked_sub(&vault.to_be_redeemed_tokens)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?;
-
-        Self::is_collateral_below_threshold(vault.backing_collateral, tokens, liquidation_threshold)
+        Self::is_collateral_below_threshold(vault.backing_collateral, vault.issued_tokens, liquidation_threshold)
     }
 
     pub fn is_collateral_below_secure_threshold(

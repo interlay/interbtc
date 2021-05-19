@@ -941,26 +941,49 @@ fn lock_additional_collateral_parachain_not_running_fails() {
     })
 }
 
-#[test]
-fn is_vault_below_liquidation_threshold_true_succeeds() {
-    run_test(|| {
-        // vault has 100% collateral ratio
+mod liquidation_threshold_tests {
+    use super::*;
+
+    fn setup() -> Vault<u64, u64, u128, u128, <Test as crate::Config>::SignedFixedPoint> {
         let id = create_sample_vault();
 
         assert_ok!(VaultRegistry::try_increase_to_be_issued_tokens(&id, 50),);
         let res = VaultRegistry::issue_tokens(&id, 50);
         assert_ok!(res);
 
-        ext::collateral::get_reserved_balance::<Test>.mock_safe(|_| MockResult::Return(DEFAULT_COLLATERAL));
-        ext::oracle::backing_to_issuing::<Test>.mock_safe(|_| MockResult::Return(Ok(DEFAULT_COLLATERAL / 2)));
+        ext::oracle::issuing_to_backing::<Test>.mock_safe(move |x| MockResult::Return(Ok(x)));
 
-        let vault = VaultRegistry::get_vault_from_id(&id).unwrap();
-        let threshold = VaultRegistry::liquidation_collateral_threshold();
-        assert_eq!(
-            VaultRegistry::is_vault_below_liquidation_threshold(&vault, threshold),
-            Ok(true)
-        );
-    })
+        let mut vault = VaultRegistry::get_vault_from_id(&id).unwrap();
+        vault.issued_tokens = 50;
+        vault.to_be_issued_tokens = 40;
+        vault.to_be_redeemed_tokens = 20;
+
+        vault
+    }
+
+    #[test]
+    fn is_vault_below_liquidation_threshold_false_succeeds() {
+        run_test(|| {
+            let mut vault = setup();
+            vault.backing_collateral = vault.issued_tokens * 2;
+            assert_eq!(
+                VaultRegistry::is_vault_below_liquidation_threshold(&vault, FixedU128::from(2)),
+                Ok(false)
+            );
+        })
+    }
+
+    #[test]
+    fn is_vault_below_liquidation_threshold_true_succeeds() {
+        run_test(|| {
+            let mut vault = setup();
+            vault.backing_collateral = vault.issued_tokens * 2 - 1;
+            assert_eq!(
+                VaultRegistry::is_vault_below_liquidation_threshold(&vault, FixedU128::from(2)),
+                Ok(true)
+            );
+        })
+    }
 }
 
 #[test]
