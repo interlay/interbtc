@@ -113,7 +113,7 @@ mod accept_replace_tests {
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
         ext::vault_registry::insert_vault_deposit_address::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::decrease_to_be_replaced_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok((5, 10))));
-        ext::vault_registry::lock_additional_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
+        ext::vault_registry::try_deposit_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::try_increase_to_be_redeemed_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::try_increase_to_be_issued_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
     }

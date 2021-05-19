@@ -29,7 +29,7 @@ benchmarks! {
         // assert_eq!(Vaults::<T>::get(origin).wallet.get_btc_address(), btc_address);
     }
 
-    lock_additional_collateral {
+    deposit_collateral {
         let origin: T::AccountId = account("Origin", 0, 0);
         let u in 0 .. 100;
         make_free_balance_be::<T>(&origin, (1u32 << 31).into());

@@ -112,7 +112,7 @@ pub(crate) mod vault_registry {
         <vault_registry::Pallet<T>>::decrease_to_be_replaced_tokens(vault_id, tokens)
     }
 
-    pub fn lock_additional_collateral<T: vault_registry::Config>(
+    pub fn try_deposit_collateral<T: vault_registry::Config>(
         vault_id: &T::AccountId,
         amount: Backing<T>,
     ) -> Result<(), DispatchError> {

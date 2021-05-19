@@ -183,18 +183,14 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Locks additional collateral as a security against stealing the
-        /// Bitcoin locked with it.
+        /// Deposit collateral as a security against stealing the
+        /// Bitcoin locked with the caller.
         ///
         /// # Arguments
         /// * `amount` - the amount of extra collateral to lock
-        ///
-        /// # Errors
-        /// * `VaultNotFound` - if no vault exists for the origin account
-        /// * `InsufficientCollateralAvailable` - if the vault does not own enough collateral
-        #[pallet::weight(<T as Config>::WeightInfo::lock_additional_collateral())]
+        #[pallet::weight(<T as Config>::WeightInfo::deposit_collateral())]
         #[transactional]
-        pub fn lock_additional_collateral(
+        pub fn deposit_collateral(
             origin: OriginFor<T>,
             #[pallet::compact] amount: Backing<T>,
         ) -> DispatchResultWithPostInfo {
@@ -206,7 +202,7 @@ pub mod pallet {
 
             let vault = Self::get_active_rich_vault_from_id(&sender)?;
 
-            Self::deposit_event(Event::<T>::LockAdditionalCollateral(
+            Self::deposit_event(Event::<T>::DepositCollateral(
                 vault.id(),
                 amount,
                 vault.get_collateral(),
@@ -314,7 +310,7 @@ pub mod pallet {
     pub enum Event<T: Config> {
         RegisterVault(T::AccountId, Backing<T>),
         /// vault_id, new collateral, total collateral, free collateral
-        LockAdditionalCollateral(T::AccountId, Backing<T>, Backing<T>, Backing<T>),
+        DepositCollateral(T::AccountId, Backing<T>, Backing<T>, Backing<T>),
         /// vault_id, withdrawn collateral, total collateral
         WithdrawCollateral(T::AccountId, Backing<T>, Backing<T>),
         /// vault_id, new public key
