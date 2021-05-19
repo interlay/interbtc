@@ -288,20 +288,16 @@ async fn start_node(_: Cli, config: Configuration) -> sc_service::error::Result<
         Role::Light => btc_parachain_service::new_light(config),
         _ => btc_parachain_service::new_full(config),
     }
-    .map(|srv| srv.0)
 }
 
 #[cfg(feature = "cumulus-polkadot")]
 async fn start_node(cli: Cli, config: Configuration) -> sc_service::error::Result<TaskManager> {
     let key = sp_core::Pair::generate().0;
 
-    let extension = chain_spec::Extensions::try_get(&*config.chain_spec);
-    let relay_chain_id = extension.map(|e| e.relay_chain.clone());
-    let para_id = extension.map(|e| e.para_id);
+    let para_id = chain_spec::Extensions::try_get(&*config.chain_spec).map(|e| e.para_id);
 
     let polkadot_cli = RelayChainCli::new(
-        config.base_path.as_ref().map(|x| x.path().join("polkadot")),
-        relay_chain_id,
+        &config,
         [RelayChainCli::executable_name().to_string()]
             .iter()
             .chain(cli.relaychain_args.iter()),
@@ -317,14 +313,16 @@ async fn start_node(cli: Cli, config: Configuration) -> sc_service::error::Resul
     let task_executor = config.task_executor.clone();
     let polkadot_config = SubstrateCli::create_configuration(&polkadot_cli, &polkadot_cli, task_executor)
         .map_err(|err| format!("Relay chain argument error: {}", err))?;
-    let collator = cli.run.base.validator || cli.collator;
 
     info!("Parachain id: {:?}", id);
     info!("Parachain Account: {}", parachain_account);
     info!("Parachain genesis state: {}", genesis_state);
-    info!("Is collating: {}", if collator { "yes" } else { "no" });
+    info!(
+        "Is collating: {}",
+        if config.role.is_authority() { "yes" } else { "no" }
+    );
 
-    btc_parachain_service::start_node(config, key, polkadot_config, id, collator)
+    btc_parachain_service::start_node(config, key, polkadot_config, id)
         .await
         .map(|srv| srv.0)
 }

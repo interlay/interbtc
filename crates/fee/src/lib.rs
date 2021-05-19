@@ -33,10 +33,11 @@ use frame_support::{
     traits::Get,
     transactional,
     weights::Weight,
+    PalletId,
 };
 use frame_system::ensure_signed;
 use sp_arithmetic::{traits::*, FixedPointNumber, FixedPointOperand};
-use sp_runtime::{traits::AccountIdConversion, ModuleId};
+use sp_runtime::traits::AccountIdConversion;
 use sp_std::{
     convert::{TryFrom, TryInto},
     fmt::Debug,
@@ -54,7 +55,7 @@ pub trait Config:
     frame_system::Config + currency::Config<currency::Backing> + currency::Config<currency::Issuing> + security::Config
 {
     /// The fee module id, used for deriving its sovereign account ID.
-    type ModuleId: Get<ModuleId>;
+    type PalletId: Get<PalletId>;
 
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
@@ -195,7 +196,7 @@ decl_module! {
     /// The module declaration.
     pub struct Module<T: Config> for enum Call where origin: T::Origin {
         /// The fee module id, used for deriving its sovereign account ID.
-        const ModuleId: ModuleId = <T as Config>::ModuleId::get();
+        const PalletId: PalletId = <T as Config>::PalletId::get();
 
         // Initialize errors
         type Error = Error<T>;
@@ -273,7 +274,7 @@ impl<T: Config> Module<T> {
     /// This actually does computation. If you need to keep using it, then make sure you cache the
     /// value and only call this once.
     pub fn fee_pool_account_id() -> T::AccountId {
-        <T as Config>::ModuleId::get().into_account()
+        <T as Config>::PalletId::get().into_account()
     }
 
     // Public functions exposed to other pallets

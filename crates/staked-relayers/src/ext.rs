@@ -116,8 +116,8 @@ pub(crate) mod btc_relay {
 pub(crate) mod redeem {
     use crate::types::{Backing, Issuing};
     use frame_support::dispatch::DispatchError;
-    use primitive_types::H256;
     use redeem::types::RedeemRequest;
+    use sp_core::H256;
 
     pub(crate) fn get_open_or_completed_redeem_request_from_id<T: redeem::Config>(
         id: &H256,
@@ -130,8 +130,8 @@ pub(crate) mod redeem {
 pub(crate) mod replace {
     use crate::types::{Backing, Issuing};
     use frame_support::dispatch::DispatchError;
-    use primitive_types::H256;
     use replace::types::ReplaceRequest;
+    use sp_core::H256;
 
     pub(crate) fn get_open_or_completed_replace_request<T: replace::Config>(
         id: &H256,
@@ -144,8 +144,8 @@ pub(crate) mod replace {
 pub(crate) mod refund {
     use crate::types::Issuing;
     use frame_support::dispatch::DispatchError;
-    use primitive_types::H256;
     use refund::types::RefundRequest;
+    use sp_core::H256;
 
     pub(crate) fn get_open_or_completed_refund_request_from_id<T: refund::Config>(
         id: &H256,

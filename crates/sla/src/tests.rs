@@ -6,7 +6,7 @@ use crate::{
 };
 
 use frame_support::assert_ok;
-use sp_arithmetic::{FixedI128, FixedPointNumber};
+use sp_arithmetic::{traits::Zero, FixedI128, FixedPointNumber};
 
 pub const ALICE: AccountId = 1;
 // pub const BOB: AccountId = 2;

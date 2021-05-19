@@ -1,4 +1,4 @@
-use primitive_types::U256;
+use sp_core::U256;
 use sp_std::{prelude::*, vec, vec::Vec};
 
 use crate::{merkle::MerkleProof, script::*, types::*, Error};

@@ -11,11 +11,10 @@ pub use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::traits::GenesisBuild;
 pub use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchResultWithPostInfo};
 pub use mocktopus::mocking::*;
-pub use primitive_types::{H256, U256};
 pub use security::{ErrorCode, StatusCode};
 pub use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
-pub use sp_core::H160;
-pub use sp_runtime::traits::Dispatchable;
+pub use sp_core::{H160, H256, U256};
+pub use sp_runtime::traits::{Dispatchable, One, Zero};
 pub use sp_std::convert::TryInto;
 pub use vault_registry::CurrencySource;
 

@@ -4,7 +4,7 @@ use mocktopus::macros::mockable;
 #[cfg_attr(test, mockable)]
 pub(crate) mod security {
     use frame_support::dispatch::DispatchResult;
-    use primitive_types::H256;
+    use sp_core::H256;
 
     pub fn get_secure_id<T: security::Config>(id: &T::AccountId) -> H256 {
         <security::Pallet<T>>::get_secure_id(id)

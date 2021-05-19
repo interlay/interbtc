@@ -22,3 +22,5 @@ members = [
   "crates/parachain-info",
   "crates/parachain-tokens",
 ]
+
+resolver = "2"

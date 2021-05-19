@@ -1,12 +1,12 @@
 use crate as refund;
 use crate::Config;
-use frame_support::{assert_ok, parameter_types, traits::StorageMapShim};
+use frame_support::{assert_ok, parameter_types, traits::StorageMapShim, PalletId};
 use mocktopus::mocking::clear_mocks;
 use sp_core::H256;
 use sp_runtime::{
     testing::{Header, TestXt},
-    traits::{BlakeTwo256, IdentityLookup},
-    FixedI128, FixedPointNumber, FixedU128, ModuleId,
+    traits::{BlakeTwo256, IdentityLookup, One},
+    FixedI128, FixedU128,
 };
 
 pub const VAULT: AccountId = 1;
@@ -175,11 +175,11 @@ impl Config for Test {
 }
 
 parameter_types! {
-    pub const FeeModuleId: ModuleId = ModuleId(*b"mod/fees");
+    pub const FeePalletId: PalletId = PalletId(*b"mod/fees");
 }
 
 impl fee::Config for Test {
-    type ModuleId = FeeModuleId;
+    type PalletId = FeePalletId;
     type Event = TestEvent;
     type WeightInfo = ();
     type SignedFixedPoint = FixedI128;
@@ -213,7 +213,7 @@ impl security::Config for Test {
 }
 
 parameter_types! {
-    pub const VaultModuleId: ModuleId = ModuleId(*b"mod/vreg");
+    pub const VaultPalletId: PalletId = PalletId(*b"mod/vreg");
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
@@ -225,7 +225,7 @@ where
 }
 
 impl vault_registry::Config for Test {
-    type ModuleId = VaultModuleId;
+    type PalletId = VaultPalletId;
     type Event = TestEvent;
     type RandomnessSource = pallet_randomness_collective_flip::Pallet<Test>;
     type SignedFixedPoint = FixedI128;

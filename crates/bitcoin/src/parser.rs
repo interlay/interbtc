@@ -10,7 +10,7 @@ use sha2::{Digest, Sha256};
 use mocktopus::macros::mockable;
 
 use crate::Error;
-use primitive_types::U256;
+use sp_core::U256;
 use sp_std::prelude::*;
 
 use crate::{address::Address, types::*};

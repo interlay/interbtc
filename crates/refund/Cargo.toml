@@ -6,23 +6,20 @@ name = "refund"
 version = "0.7.0"
 
 [dependencies]
-serde = { version = "1.0.101", default-features = false, features = ['derive'], optional = true }
+serde = { version = "1.0.119", default-features = false, features = ['derive'], optional = true }
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
-primitive-types = { version = "0.9.0", default-features = false, features = ["codec"] }
-sha2 = { version = "0.8.0", default-features = false }
 
 # Substrate dependencies
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
-sp-io = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
-sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1", default-features = false }
+sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1", default-features = false }
+sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1", default-features = false }
 
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
-frame-system = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
-pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
-pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
-pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1", default-features = false }
+pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1", default-features = false }
+pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1", default-features = false }
 
 # Parachain dependencies
 currency = { path = "../currency", default-features = false }
@@ -37,6 +34,7 @@ bitcoin = { path = "../bitcoin", default-features = false }
 
 [dev-dependencies]
 mocktopus = "0.7.0"
+pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1", default-features = false }
 
 reward = { path = "../reward", default-features = false }
 
@@ -45,24 +43,25 @@ default = ["std"]
 std = [
 	"serde",
 	"codec/std",
-	"frame-support/std",
+
 	"sp-core/std",
 	"sp-io/std",
 	"sp-runtime/std",
 	"sp-std/std",
 	"sp-arithmetic/std",
+
+	"frame-support/std",
 	"frame-system/std",
 	"pallet-balances/std",
+	"pallet-timestamp/std",
+
 	"currency/std",
 	"redeem/std",
 	"fee/std",
 	"sla/std",
 	"vault-registry/std",
 	"exchange-rate-oracle/std",
-	"pallet-timestamp/std",
-	"sp-arithmetic/std",
 	"btc-relay/std",
-	"primitive-types/std",
 	"security/std",
 	"bitcoin/std",
 ]

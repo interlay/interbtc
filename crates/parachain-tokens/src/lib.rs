@@ -4,10 +4,10 @@
 
 mod types;
 
-use cumulus_primitives::ParaId;
+use cumulus_primitives_core::ParaId;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult},
+    dispatch::{DispatchError, DispatchResultWithPostInfo, Weight},
     traits::Get,
     transactional,
 };
@@ -16,8 +16,8 @@ use sp_runtime::traits::Convert;
 use sp_std::{convert::TryInto, prelude::*};
 use types::{Backing, Issuing};
 pub use types::{CurrencyAdapter, CurrencyId, NativeAsset};
-use xcm::v0::{Error as XcmError, ExecuteXcm, Junction::*, MultiAsset, NetworkId, Order, Xcm};
-use xcm_executor::traits::LocationConversion;
+use xcm::v0::{Error as XcmError, ExecuteXcm, Junction::*, MultiAsset, MultiLocation, NetworkId, Order, Outcome, Xcm};
+use xcm_executor::traits::Convert as TryConvert;
 
 /// Configuration trait of this pallet.
 pub trait Config:
@@ -30,9 +30,9 @@ pub trait Config:
 
     type ParaId: Get<ParaId>;
 
-    type AccountIdConverter: LocationConversion<Self::AccountId>;
+    type AccountIdConverter: TryConvert<MultiLocation, Self::AccountId>;
 
-    type XcmExecutor: ExecuteXcm;
+    type XcmExecutor: ExecuteXcm<Self::Call>;
 }
 
 decl_storage! {
@@ -73,18 +73,21 @@ decl_module! {
             recipient: T::AccountId,
             network: NetworkId,
             #[compact] amount: Backing<T>,
-        ) -> DispatchResult {
+            max_weight: Weight,
+        ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
 
             if para_id == T::ParaId::get() {
-                return Ok(());
+                return Ok(().into());
             }
 
-            let xcm_origin = T::AccountIdConverter::try_into_location(who.clone()).map_err(|_| Error::<T>::BadLocation)?;
-
             let raw_amount = Self::tokens_to_u128(amount)?;
-            T::XcmExecutor::execute_xcm(
-                xcm_origin,
+            Self::execute_xcm(
+                AccountId32 {
+                    network: network.clone(),
+                    id: T::AccountId32Convert::convert(who.clone()),
+                }
+                .into(),
                 Self::transfer_to_parachain(
                     para_id,
                     recipient.clone(),
@@ -92,7 +95,8 @@ decl_module! {
                     CurrencyId::DOT,
                     raw_amount
                 ),
-            ).map_err(Error::<T>::from)?;
+                max_weight,
+            ).map_err(|_| Error::<T>::XcmExecutionFailed)?;
 
             Self::deposit_event(Event::<T>::TransferBacking(
                 who,
@@ -102,7 +106,7 @@ decl_module! {
                 amount,
             ));
 
-            Ok(())
+            Ok(().into())
         }
 
         /// Transfer issued tokens to parachain.
@@ -114,18 +118,22 @@ decl_module! {
             recipient: T::AccountId,
             network: NetworkId,
             #[compact] amount: Issuing<T>,
-        ) -> DispatchResult {
+            max_weight: Weight,
+        ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
 
             if para_id == T::ParaId::get() {
-                return Ok(());
+                return Ok(().into());
             }
 
-            let xcm_origin = T::AccountIdConverter::try_into_location(who.clone()).map_err(|_| Error::<T>::BadLocation)?;
-
             let raw_amount = Self::tokens_to_u128(amount)?;
-            T::XcmExecutor::execute_xcm(
-                xcm_origin,
+
+            Self::execute_xcm(
+                AccountId32 {
+                    network: network.clone(),
+                    id: T::AccountId32Convert::convert(who.clone()),
+                }
+                .into(),
                 Self::transfer_to_parachain(
                     para_id,
                     recipient.clone(),
@@ -133,7 +141,8 @@ decl_module! {
                     CurrencyId::PolkaBTC,
                     raw_amount
                 ),
-            ).map_err(Error::<T>::from)?;
+                max_weight,
+            ).map_err(|_| Error::<T>::XcmExecutionFailed)?;
 
             Self::deposit_event(Event::<T>::TransferIssuing(
                 who,
@@ -143,20 +152,28 @@ decl_module! {
                 amount,
             ));
 
-            Ok(())
+            Ok(().into())
         }
     }
 }
 
 // "Internal" functions, callable by code.
 impl<T: Config> Module<T> {
+    fn execute_xcm(origin: MultiLocation, message: Xcm<T::Call>, weight_limit: Weight) -> Result<(), XcmError> {
+        match T::XcmExecutor::execute_xcm(origin, message, weight_limit) {
+            Outcome::Complete(_) => Ok(()),
+            Outcome::Incomplete(_, err) => Err(err),
+            Outcome::Error(err) => Err(err),
+        }
+    }
+
     fn transfer_to_parachain(
         para_id: ParaId,
         recipient: T::AccountId,
         network: NetworkId,
         currency_id: CurrencyId,
         amount: u128,
-    ) -> Xcm {
+    ) -> Xcm<T::Call> {
         Xcm::WithdrawAsset {
             assets: vec![MultiAsset::ConcreteFungible {
                 id: GeneralKey(currency_id.into()).into(),
@@ -164,7 +181,7 @@ impl<T: Config> Module<T> {
             }],
             effects: vec![Order::DepositReserveAsset {
                 assets: vec![MultiAsset::All],
-                dest: (Parent, Parachain { id: para_id.into() }).into(),
+                dest: (Parent, Parachain(para_id.into())).into(),
                 effects: vec![Order::DepositAsset {
                     assets: vec![MultiAsset::All],
                     dest: AccountId32 {
@@ -184,14 +201,7 @@ impl<T: Config> Module<T> {
 
 decl_error! {
     pub enum Error for Module<T: Config> {
-        BadLocation,
         XcmExecutionFailed,
         TryIntoIntError,
-    }
-}
-
-impl<T: Config> From<XcmError> for Error<T> {
-    fn from(_: XcmError) -> Self {
-        Self::XcmExecutionFailed
     }
 }

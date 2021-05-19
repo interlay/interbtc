@@ -3,8 +3,7 @@ use crate::{ext, mock::*, ReplaceRequest, ReplaceRequestStatus};
 use btc_relay::BtcAddress;
 use frame_support::{assert_err, assert_ok};
 use mocktopus::mocking::*;
-use primitive_types::H256;
-use sp_core::H160;
+use sp_core::{H160, H256};
 
 type Event = crate::Event<Test>;
 

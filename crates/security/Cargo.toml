@@ -5,32 +5,29 @@ authors = ["Interlay Ltd"]
 edition = "2018"
 
 [dependencies]
-serde = { version = "1.0.101", default-features = false, features = ['derive'], optional = true }
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
-primitive-types = { version = "0.9.0", default-features = false, features = ["codec"] }
 sha2 = { version = "0.8.2", default-features = false } 
 
 # Substrate dependencies
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
-sp-std = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
-frame-support = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
-frame-system = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1", default-features = false }
+sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1", default-features = false }
+frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1", default-features = false }
+frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1", default-features = false }
 
 [dev-dependencies]
 mocktopus = "0.7.0"
-sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
-sp-io = { git = "https://github.com/paritytech/substrate", branch = "rococo-v1", default-features = false }
+sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1", default-features = false }
 
 [features]
 default = ["std"]
 std = [
-  "serde",
   "codec/std",
-  "primitive-types/std",
   "sha2/std",
+
   "sp-core/std",
   "sp-std/std",
+  "sp-runtime/std",
   "frame-support/std",
   "frame-system/std",
 ]

@@ -37,13 +37,10 @@ use frame_support::{
     ensure, transactional,
 };
 use frame_system::{ensure_root, ensure_signed};
-use primitive_types::H256;
-use sp_runtime::{traits::*, ModuleId};
+use sp_core::H256;
+use sp_runtime::traits::*;
 use sp_std::{convert::TryInto, vec::Vec};
 use vault_registry::CurrencySource;
-
-/// The redeem module id, used for deriving its sovereign account ID.
-const _MODULE_ID: ModuleId = ModuleId(*b"i/redeem");
 
 /// The pallet's configuration trait.
 pub trait Config:

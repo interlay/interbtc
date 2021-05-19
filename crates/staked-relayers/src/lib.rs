@@ -40,7 +40,7 @@ use frame_support::{
     transactional,
 };
 use frame_system::{ensure_root, ensure_signed};
-use primitive_types::H256;
+use sp_core::H256;
 
 use sp_std::{collections::btree_set::BTreeSet, convert::TryInto, vec::Vec};
 use vault_registry::Wallet;

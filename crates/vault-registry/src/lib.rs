@@ -41,19 +41,17 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::{Get, Randomness},
-    transactional,
+    transactional, PalletId,
 };
 use frame_system::{
     ensure_signed,
     offchain::{SendTransactionTypes, SubmitTransaction},
 };
-use primitive_types::U256;
 use sp_arithmetic::{traits::*, FixedPointNumber};
-use sp_core::H256;
+use sp_core::{H256, U256};
 use sp_runtime::{
     traits::AccountIdConversion,
     transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction},
-    ModuleId,
 };
 use sp_std::{
     convert::{TryFrom, TryInto},
@@ -101,7 +99,7 @@ pub mod pallet {
     {
         /// The vault module id, used for deriving its sovereign account ID.
         #[pallet::constant] // put the constant in metadata
-        type ModuleId: Get<ModuleId>;
+        type PalletId: Get<PalletId>;
 
         /// The overarching event type.
         type Event: From<Event<Self>>
@@ -541,7 +539,7 @@ impl<T: Config> Pallet<T> {
     /// This actually does computation. If you need to keep using it, then make sure you cache the
     /// value and only call this once.
     pub fn liquidation_vault_account_id() -> T::AccountId {
-        T::ModuleId::get().into_account()
+        T::PalletId::get().into_account()
     }
 
     /// Public functions

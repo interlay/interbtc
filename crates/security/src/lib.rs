@@ -31,9 +31,8 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::ensure_root;
-use primitive_types::H256;
 use sha2::{Digest, Sha256};
-use sp_core::U256;
+use sp_core::{H256, U256};
 use sp_std::{collections::btree_set::BTreeSet, prelude::*, vec};
 
 pub use pallet::*;

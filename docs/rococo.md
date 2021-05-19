@@ -13,7 +13,7 @@ Compile and install [polkadot](https://github.com/paritytech/polkadot) with the 
 ```shell
 git clone git@github.com:paritytech/polkadot.git
 cd polkadot
-git checkout rococo-v1
+git checkout polkadot-v0.9.1
 
 cargo build --release --features=real-overseer
 sudo cp ./target/release/polkadot /usr/local/bin/

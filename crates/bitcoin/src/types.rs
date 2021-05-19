@@ -11,7 +11,7 @@ use crate::{
     Address, Error, Script,
 };
 use codec::{Decode, Encode};
-pub use primitive_types::{H160, H256, U256};
+pub use sp_core::{H160, H256, U256};
 use sp_std::{collections::btree_set::BTreeSet, convert::TryFrom, prelude::*};
 
 #[cfg(feature = "std")]
