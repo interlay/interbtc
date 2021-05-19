@@ -6,6 +6,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 mod ext;
+mod types;
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
 mod benchmarking;
@@ -22,16 +23,18 @@ mod mock;
 #[cfg(test)]
 extern crate mocktopus;
 
+#[doc(inline)]
+pub use crate::types::BtcTxFeesPerByte;
+
+use crate::types::{Backing, Inner, Issuing, UnsignedFixedPoint, Version};
+
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
 use codec::{Decode, Encode, EncodeLike};
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
-    ensure,
-    traits::Currency,
-    transactional,
+    ensure, transactional,
     weights::Weight,
 };
 use frame_system::{ensure_root, ensure_signed};
@@ -42,101 +45,147 @@ use sp_arithmetic::{
 };
 use sp_std::{convert::TryInto, vec::Vec};
 
-pub(crate) type Backing<T> =
-    <<T as currency::Config<currency::Backing>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub use pallet::*;
 
-pub(crate) type Issuing<T> =
-    <<T as currency::Config<currency::Issuing>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use frame_support::pallet_prelude::*;
+    use frame_system::pallet_prelude::*;
 
-pub(crate) type UnsignedFixedPoint<T> = <T as Config>::UnsignedFixedPoint;
+    /// ## Configuration
+    /// The pallet's configuration trait.
+    #[pallet::config]
+    pub trait Config:
+        frame_system::Config
+        + pallet_timestamp::Config
+        + currency::Config<currency::Backing>
+        + currency::Config<currency::Issuing>
+        + security::Config
+    {
+        /// The overarching event type.
+        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
-pub(crate) type Inner<T> = <<T as Config>::UnsignedFixedPoint as FixedPointNumber>::Inner;
+        /// The unsigned fixed point type.
+        type UnsignedFixedPoint: FixedPointNumber + Encode + EncodeLike + Decode;
 
-/// Storage version.
-#[derive(Encode, Decode, Eq, PartialEq)]
-pub enum Version {
-    /// Initial version.
-    V0,
-    /// BtcAddress type with script format.
-    V1,
-}
-
-/// ## Configuration and Constants
-/// The pallet's configuration trait.
-pub trait Config:
-    frame_system::Config
-    + pallet_timestamp::Config
-    + currency::Config<currency::Backing>
-    + currency::Config<currency::Issuing>
-    + security::Config
-{
-    /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
-
-    type UnsignedFixedPoint: FixedPointNumber + Encode + EncodeLike + Decode;
-
-    /// Weight information for the extrinsics in this module.
-    type WeightInfo: WeightInfo;
-}
-
-#[derive(Encode, Decode, Default, Eq, PartialEq, Debug)]
-pub struct BtcTxFeesPerByte {
-    /// The estimated Satoshis per bytes to get included in the next block (~10 min)
-    pub fast: u32,
-    /// The estimated Satoshis per bytes to get included in the next 3 blocks (~half hour)
-    pub half: u32,
-    /// The estimated Satoshis per bytes to get included in the next 6 blocks (~hour)
-    pub hour: u32,
-}
-
-// This pallet's storage items.
-decl_storage! {
-    trait Store for Module<T: Config> as ExchangeRateOracle {
-        /// Current planck per satoshi rate
-        ExchangeRate: UnsignedFixedPoint<T>;
-
-        /// Last exchange rate time
-        LastExchangeRateTime: T::Moment;
-
-        /// The estimated inclusion time for a Bitcoin transaction in satoshis per byte
-        SatoshiPerBytes get(fn satoshi_per_bytes): BtcTxFeesPerByte;
-
-        /// Maximum delay (milliseconds) for the exchange rate to be used
-        MaxDelay get(fn max_delay) config(): T::Moment;
-
-        // Oracles allowed to set the exchange rate, maps to the name
-        AuthorizedOracles get(fn authorized_oracles) config(): map hasher(blake2_128_concat) T::AccountId => Vec<u8>;
-
-        /// Build storage at V1 (requires default 0).
-        StorageVersion get(fn storage_version) build(|_| Version::V1): Version = Version::V0;
+        /// Weight information for the extrinsics in this module.
+        type WeightInfo: WeightInfo;
     }
-}
 
-decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
-        // Initializing events
-        fn deposit_event() = default;
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    #[pallet::metadata(T::AccountId = "AccountId", UnsignedFixedPoint<T> = "UnsignedFixedPoint")]
+    pub enum Event<T: Config> {
+        /// Event emitted when exchange rate is set
+        SetExchangeRate(T::AccountId, UnsignedFixedPoint<T>),
+        /// Event emitted when the btc tx fees are set
+        SetBtcTxFeesPerByte(T::AccountId, u32, u32, u32),
+    }
 
-        // Errors must be initialized if they are used by the pallet.
-        type Error = Error<T>;
+    #[pallet::error]
+    pub enum Error<T> {
+        /// Not authorized to set exchange rate
+        InvalidOracleSource,
+        /// Exchange rate not specified or has expired
+        MissingExchangeRate,
+        /// Unable to convert value
+        TryIntoIntError,
+        /// Mathematical operation caused an overflow
+        ArithmeticOverflow,
+        /// Mathematical operation caused an underflow
+        ArithmeticUnderflow,
+    }
 
+    #[pallet::hooks]
+    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
         fn on_initialize(n: T::BlockNumber) -> Weight {
             Self::begin_block(n);
             // TODO: calculate weight
             0
         }
+    }
 
+    /// Current exchange rate (i.e. Planck per Satoshi)
+    #[pallet::storage]
+    pub type ExchangeRate<T: Config> = StorageValue<_, UnsignedFixedPoint<T>, ValueQuery>;
+
+    /// Last exchange rate time
+    #[pallet::storage]
+    pub type LastExchangeRateTime<T: Config> = StorageValue<_, T::Moment, ValueQuery>;
+
+    /// The estimated inclusion time for a Bitcoin transaction in Satoshis per byte
+    #[pallet::storage]
+    #[pallet::getter(fn satoshi_per_bytes)]
+    pub type SatoshiPerBytes<T: Config> = StorageValue<_, BtcTxFeesPerByte, ValueQuery>;
+
+    /// Maximum delay (milliseconds) for the exchange rate to be used
+    #[pallet::storage]
+    #[pallet::getter(fn max_delay)]
+    pub type MaxDelay<T: Config> = StorageValue<_, T::Moment, ValueQuery>;
+
+    // Oracles allowed to set the exchange rate, maps to the name
+    #[pallet::storage]
+    #[pallet::getter(fn authorized_oracles)]
+    pub type AuthorizedOracles<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, Vec<u8>, ValueQuery>;
+
+    #[pallet::type_value]
+    pub(super) fn DefaultForStorageVersion() -> Version {
+        Version::V0
+    }
+
+    /// Build storage at V1 (requires default 0).
+    #[pallet::storage]
+    #[pallet::getter(fn storage_version)]
+    pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery, DefaultForStorageVersion>;
+
+    #[pallet::genesis_config]
+    pub struct GenesisConfig<T: Config> {
+        pub max_delay: u32,
+        pub authorized_oracles: Vec<(T::AccountId, Vec<u8>)>,
+    }
+
+    #[cfg(feature = "std")]
+    impl<T: Config> Default for GenesisConfig<T> {
+        fn default() -> Self {
+            Self {
+                max_delay: Default::default(),
+                authorized_oracles: Default::default(),
+            }
+        }
+    }
+
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+        fn build(&self) {
+            // T::Moment doesn't implement serialize so we use
+            // From<u32> as bound by AtLeast32Bit
+            MaxDelay::<T>::put(T::Moment::from(self.max_delay));
+
+            for (ref who, name) in self.authorized_oracles.iter() {
+                AuthorizedOracles::<T>::insert(who, name);
+            }
+        }
+    }
+
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
+
+    // The pallet's dispatchable functions.
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
         /// Sets the exchange rate.
         ///
         /// # Arguments
         ///
-        /// * `backing_per_issuing` - exchange rate expressed as the amount of backing collateral per whole issued token.
-        /// Note that this is _not_ the same unit that is stored in the ExchangeRate storage item which is multiplied by the
-        /// conversion factor - i.e. planck_per_satoshi = dot_per_btc * (10**10 / 10**8)
+        /// * `backing_per_issuing` - exchange rate expressed as the amount of backing collateral per whole issued
+        ///   token.
+        /// Note that this is _not_ the same unit that is stored in the ExchangeRate storage item which is multiplied by
+        /// the conversion factor - i.e. planck_per_satoshi = dot_per_btc * (10**10 / 10**8)
         /// The stored unit is planck_per_satoshi
-        #[weight = <T as Config>::WeightInfo::set_exchange_rate()]
+        #[pallet::weight(<T as Config>::WeightInfo::set_exchange_rate())]
         #[transactional]
-        pub fn set_exchange_rate(origin, backing_per_issuing: UnsignedFixedPoint<T>) -> DispatchResult {
+        pub fn set_exchange_rate(origin: OriginFor<T>, backing_per_issuing: UnsignedFixedPoint<T>) -> DispatchResult {
             // Check that Parachain is not in SHUTDOWN
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
@@ -159,9 +208,9 @@ decl_module! {
         /// * `fast` - The estimated Satoshis per bytes to get included in the next block (~10 min)
         /// * `half` - The estimated Satoshis per bytes to get included in the next 3 blocks (~half hour)
         /// * `hour` - The estimated Satoshis per bytes to get included in the next 6 blocks (~hour)
-        #[weight = <T as Config>::WeightInfo::set_btc_tx_fees_per_byte()]
+        #[pallet::weight(<T as Config>::WeightInfo::set_btc_tx_fees_per_byte())]
         #[transactional]
-        pub fn set_btc_tx_fees_per_byte(origin, fast: u32, half: u32, hour: u32) -> DispatchResult {
+        pub fn set_btc_tx_fees_per_byte(origin: OriginFor<T>, fast: u32, half: u32, hour: u32) -> DispatchResult {
             // Check that Parachain is not in SHUTDOWN
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
@@ -171,8 +220,8 @@ decl_module! {
             ensure!(Self::is_authorized(&signer), Error::<T>::InvalidOracleSource);
 
             // write the new values to storage
-            let fees = BtcTxFeesPerByte{fast, half, hour};
-            <SatoshiPerBytes>::put(fees);
+            let fees = BtcTxFeesPerByte { fast, half, hour };
+            <SatoshiPerBytes<T>>::put(fees);
 
             Self::deposit_event(Event::<T>::SetBtcTxFeesPerByte(signer, fast, half, hour));
 
@@ -184,9 +233,13 @@ decl_module! {
         /// # Arguments
         /// * `account_id` - the account Id of the oracle
         /// * `name` - a descriptive name for the oracle
-        #[weight = <T as Config>::WeightInfo::insert_authorized_oracle()]
+        #[pallet::weight(<T as Config>::WeightInfo::insert_authorized_oracle())]
         #[transactional]
-        pub fn insert_authorized_oracle(origin, account_id: T::AccountId, name: Vec<u8>) -> DispatchResult {
+        pub fn insert_authorized_oracle(
+            origin: OriginFor<T>,
+            account_id: T::AccountId,
+            name: Vec<u8>,
+        ) -> DispatchResult {
             ensure_root(origin)?;
             Self::insert_oracle(account_id, name);
             Ok(())
@@ -196,9 +249,9 @@ decl_module! {
         ///
         /// # Arguments
         /// * `account_id` - the account Id of the oracle
-        #[weight = <T as Config>::WeightInfo::remove_authorized_oracle()]
+        #[pallet::weight(<T as Config>::WeightInfo::remove_authorized_oracle())]
         #[transactional]
-        pub fn remove_authorized_oracle(origin, account_id: T::AccountId) -> DispatchResult {
+        pub fn remove_authorized_oracle(origin: OriginFor<T>, account_id: T::AccountId) -> DispatchResult {
             ensure_root(origin)?;
             <AuthorizedOracles<T>>::remove(account_id);
             Ok(())
@@ -207,7 +260,7 @@ decl_module! {
 }
 
 #[cfg_attr(test, mockable)]
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     fn begin_block(_height: T::BlockNumber) {
         if Self::is_max_delay_passed() {
             Self::report_oracle_offline();
@@ -275,6 +328,7 @@ impl<T: Config> Module<T> {
     }
 
     /// Private getters and setters
+
     fn get_max_delay() -> T::Moment {
         <MaxDelay<T>>::get()
     }
@@ -330,33 +384,5 @@ impl<T: Config> Module<T> {
     /// True if oracle is authorized
     fn is_authorized(oracle: &T::AccountId) -> bool {
         <AuthorizedOracles<T>>::contains_key(oracle)
-    }
-}
-
-decl_event! {
-    /// ## Events
-    pub enum Event<T> where
-            AccountId = <T as frame_system::Config>::AccountId,
-            UnsignedFixedPoint = UnsignedFixedPoint<T>,
-        {
-        /// Event emitted when exchange rate is set
-        SetExchangeRate(AccountId, UnsignedFixedPoint),
-        /// Event emitted when the btc tx fees are set
-        SetBtcTxFeesPerByte(AccountId, u32, u32, u32),
-    }
-}
-
-decl_error! {
-    pub enum Error for Module<T: Config> {
-        /// Not authorized to set exchange rate
-        InvalidOracleSource,
-        /// Exchange rate not specified or has expired
-        MissingExchangeRate,
-        /// Unable to convert value
-        TryIntoIntError,
-        /// Mathematical operation caused an overflow
-        ArithmeticOverflow,
-        /// Mathematical operation caused an underflow
-        ArithmeticUnderflow,
     }
 }

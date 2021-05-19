@@ -639,8 +639,6 @@ where
     type Extrinsic = UncheckedExtrinsic;
 }
 
-pub use exchange_rate_oracle::RawEvent as RawExchangeRateOracleEvent;
-
 impl exchange_rate_oracle::Config for Runtime {
     type Event = Event;
     type UnsignedFixedPoint = FixedU128;
