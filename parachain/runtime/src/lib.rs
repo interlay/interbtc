@@ -19,7 +19,7 @@ use frame_support::PalletId;
 use sp_api::impl_runtime_apis;
 use sp_core::OpaqueMetadata;
 use sp_runtime::{
-    create_runtime_str, generic, impl_opaque_keys,
+    create_runtime_str, generic,
     traits::{BlakeTwo256, Block as BlockT, IdentifyAccount, IdentityLookup, Verify},
     transaction_validity::{TransactionSource, TransactionValidity},
     ApplyExtrinsicResult, MultiSignature,
@@ -85,7 +85,7 @@ use {
 };
 
 #[cfg(any(feature = "aura-grandpa", feature = "cumulus-polkadot"))]
-pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use {sp_consensus_aura::sr25519::AuthorityId as AuraId, sp_runtime::impl_opaque_keys};
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -254,7 +254,7 @@ impl frame_system::Config for Runtime {
     type BlockWeights = RuntimeBlockWeights;
     type BlockLength = RuntimeBlockLength;
     type SS58Prefix = SS58Prefix;
-    #[cfg(feature = "aura-grandpa")]
+    #[cfg(any(feature = "aura-grandpa", feature = "instant-seal"))]
     type OnSetCode = ();
     #[cfg(feature = "cumulus-polkadot")]
     type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
@@ -871,6 +871,9 @@ construct_polkabtc_runtime! {
     Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event},
 }
 
+#[cfg(feature = "instant-seal")]
+construct_polkabtc_runtime! {}
+
 /// The address format for describing accounts.
 pub type Address = AccountId;
 /// Block header type as expected by this runtime.
@@ -958,14 +961,18 @@ impl_runtime_apis! {
     }
 
     impl sp_session::SessionKeys<Block> for Runtime {
+        #[allow(unused_variables)]
         fn decode_session_keys(
             encoded: Vec<u8>,
         ) -> Option<Vec<(Vec<u8>, sp_core::crypto::KeyTypeId)>> {
-            SessionKeys::decode_into_raw_public_keys(&encoded)
+            #[cfg(not(feature = "instant-seal"))] { SessionKeys::decode_into_raw_public_keys(&encoded) }
+            #[cfg(feature = "instant-seal")] { None }
         }
 
+        #[allow(unused_variables)]
         fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
-            SessionKeys::generate(seed)
+            #[cfg(not(feature = "instant-seal"))] { SessionKeys::generate(seed) }
+            #[cfg(feature = "instant-seal")] { Vec::new() }
         }
     }
 

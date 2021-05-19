@@ -27,3 +27,9 @@ mod grandpa;
 
 #[cfg(feature = "aura-grandpa")]
 pub use grandpa::*;
+
+#[cfg(feature = "instant-seal")]
+mod instant_seal;
+
+#[cfg(feature = "instant-seal")]
+pub use instant_seal::*;

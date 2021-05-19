@@ -22,7 +22,7 @@ use btc_parachain_runtime::Block;
 use sc_cli::{ChainSpec, Result, RuntimeVersion, SubstrateCli};
 use sc_service::{Configuration, PartialComponents, TaskManager};
 
-#[cfg(feature = "aura-grandpa")]
+#[cfg(any(feature = "aura-grandpa", feature = "instant-seal"))]
 use sc_cli::Role;
 
 #[cfg(feature = "cumulus-polkadot")]
@@ -282,7 +282,7 @@ pub fn run() -> Result<()> {
     }
 }
 
-#[cfg(feature = "aura-grandpa")]
+#[cfg(any(feature = "aura-grandpa", feature = "instant-seal"))]
 async fn start_node(_: Cli, config: Configuration) -> sc_service::error::Result<TaskManager> {
     match config.role {
         Role::Light => btc_parachain_service::new_light(config),

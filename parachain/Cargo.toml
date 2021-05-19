@@ -75,6 +75,11 @@ aura-grandpa = [
     "btc-parachain-service/aura-grandpa",
     "btc-parachain-rpc/aura-grandpa",
 ]
+instant-seal = [
+    "btc-parachain-runtime/instant-seal",
+    "btc-parachain-service/instant-seal",
+    "btc-parachain-rpc/instant-seal",
+]
 disable-native-filter = [
     "btc-parachain-runtime/disable-native-filter",
 ]

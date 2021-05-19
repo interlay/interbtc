@@ -231,6 +231,8 @@ aura-grandpa = [
   "pallet-aura",
   "sp-consensus-aura",
 ]
+instant-seal = [
+]
 disable-runtime-api = []
 disable-native-filter = [
   "parachain-tokens/disable-native-filter"

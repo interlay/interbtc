@@ -67,6 +67,9 @@ cumulus-primitives-parachain-inherent = { git = "https://github.com/paritytech/c
 polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.1", optional = true }
 polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.1", optional = true }
 
+# Instant-seal dependencies
+sc-consensus-manual-seal =  { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1", default-features = false, optional = true}
+
 [features]
 cumulus-polkadot = [
     "cumulus-client-cli",
@@ -88,4 +91,10 @@ cumulus-polkadot = [
 aura-grandpa = [
     "btc-parachain-runtime/aura-grandpa",
     "btc-parachain-rpc/aura-grandpa",
+]
+instant-seal = [
+    "sc-consensus-manual-seal",
+
+    "btc-parachain-runtime/instant-seal",
+    "btc-parachain-rpc/instant-seal",
 ]

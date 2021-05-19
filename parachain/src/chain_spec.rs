@@ -22,7 +22,7 @@ use {
 #[cfg(any(feature = "aura-grandpa", feature = "cumulus-polkadot"))]
 use {
     btc_parachain_runtime::AuraConfig, hex_literal::hex, sp_consensus_aura::sr25519::AuthorityId as AuraId,
-    sp_core::crypto::UncheckedInto,
+    sp_core::crypto::UncheckedInto, std::str::FromStr,
 };
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -33,7 +33,6 @@ use sc_service::ChainType;
 use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
-use std::str::FromStr;
 
 // The URL for the telemetry server.
 // const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -42,7 +41,7 @@ use std::str::FromStr;
 #[cfg(feature = "cumulus-polkadot")]
 pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig, Extensions>;
 
-#[cfg(feature = "aura-grandpa")]
+#[cfg(any(feature = "aura-grandpa", feature = "instant-seal"))]
 pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
 
 /// Helper function to generate a crypto pair from seed
@@ -58,6 +57,7 @@ pub fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) {
     (get_from_seed::<AuraId>(s), get_from_seed::<GrandpaId>(s))
 }
 
+#[cfg(any(feature = "aura-grandpa", feature = "cumulus-polkadot"))]
 fn get_account_id_from_string(account_id: &str) -> AccountId {
     AccountId::from_str(account_id).expect("account id is not valid")
 }
@@ -141,7 +141,7 @@ pub fn local_config(#[cfg(feature = "cumulus-polkadot")] id: ParaId) -> ChainSpe
             relay_chain: "local".into(),
             para_id: id.into(),
         },
-        #[cfg(feature = "aura-grandpa")]
+        #[cfg(any(feature = "aura-grandpa", feature = "instant-seal"))]
         None,
     )
 }
@@ -337,7 +337,7 @@ pub fn development_config(#[cfg(feature = "cumulus-polkadot")] id: ParaId) -> Ch
             relay_chain: "dev".into(),
             para_id: id.into(),
         },
-        #[cfg(feature = "aura-grandpa")]
+        #[cfg(any(feature = "aura-grandpa", feature = "instant-seal"))]
         None,
     )
 }

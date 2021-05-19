@@ -37,3 +37,6 @@ cumulus-polkadot = [
 aura-grandpa = [
     "btc-parachain-runtime/aura-grandpa",
 ]
+instant-seal = [
+    "btc-parachain-runtime/instant-seal",
+]
