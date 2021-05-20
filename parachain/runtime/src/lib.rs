@@ -53,13 +53,19 @@ pub use module_exchange_rate_oracle_rpc_runtime_api::BalanceWrapper;
 // XCM imports
 #[cfg(feature = "cumulus-polkadot")]
 use {
+    codec::{Decode, Encode},
+    frame_support::traits::{Currency, ExistenceRequirement::AllowDeath, WithdrawReasons},
     frame_support::{match_type, traits::All},
     pallet_xcm::XcmPassthrough,
     pallet_xcm::{EnsureXcm, IsMajorityOfBody},
     parachain_tokens::{CurrencyAdapter, NativeAsset},
     polkadot_parachain::primitives::Sibling,
     sp_runtime::traits::Convert,
-    xcm::v0::{BodyId, Junction::*, MultiAsset, MultiLocation, MultiLocation::*, NetworkId, Xcm},
+    sp_std::convert::TryFrom,
+    xcm::v0::{
+        BodyId, Error as XcmError, Junction::*, MultiAsset, MultiLocation, MultiLocation::*, NetworkId,
+        Result as XcmResult, Xcm,
+    },
     xcm_builder::{
         AccountId32Aliases, AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom, EnsureXcmOrigin,
         FixedWeightBounds, LocationInverter, ParentAsSuperuser, ParentIsDefault, RelayChainAsNative,
@@ -350,13 +356,12 @@ type LocationToAccountId = (
 
 #[cfg(feature = "cumulus-polkadot")]
 type LocalAssetTransactor = CurrencyAdapter<
-    // Use these currencies
-    Backing,
-    Issuing,
-    // Do a simple punn to convert an AccountId32 MultiLocation into a native chain account ID:
-    LocationToAccountId,
     // Our chain's account ID type (we can't get away without mentioning it explicitly):
     AccountId,
+    // Do a simple punn to convert an AccountId32 MultiLocation into a native chain account ID:
+    LocationToAccountId,
+    MultiCurrency<Backing, Issuing>,
+    MultiAssetToMultiCurrency,
 >;
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
@@ -496,12 +501,106 @@ impl Convert<AccountId, [u8; 32]> for AccountId32Convert {
 }
 
 #[cfg(feature = "cumulus-polkadot")]
+#[derive(Debug, Encode, Decode, Clone, PartialEq)]
+pub enum MultiCurrency<A: Currency<AccountId>, B: Currency<AccountId>> {
+    PolkaDOT(sp_std::marker::PhantomData<A>),
+    PolkaBTC(sp_std::marker::PhantomData<B>),
+}
+
+#[cfg(feature = "cumulus-polkadot")]
+impl Default for MultiCurrency<Backing, Issuing> {
+    fn default() -> Self {
+        Self::PolkaDOT(Default::default())
+    }
+}
+
+#[cfg(feature = "cumulus-polkadot")]
+impl parachain_tokens::MultiCurrency<AccountId> for MultiCurrency<Backing, Issuing> {
+    fn deposit(&self, account_id: &AccountId, amount: u128) -> XcmResult {
+        match self {
+            Self::PolkaDOT(_) => {
+                let _imbalance = Backing::deposit_creating(account_id, amount);
+            }
+            Self::PolkaBTC(_) => {
+                let _imbalance = Issuing::deposit_creating(account_id, amount);
+            }
+        };
+        Ok(())
+    }
+
+    fn withdraw(&self, account_id: &AccountId, amount: u128) -> XcmResult {
+        match self {
+            Self::PolkaDOT(_) => {
+                let _imbalance = Backing::withdraw(account_id, amount, WithdrawReasons::TRANSFER, AllowDeath)
+                    .map_err(|err| XcmError::FailedToTransactAsset(err.into()))?;
+            }
+            Self::PolkaBTC(_) => {
+                let _imbalance = Issuing::withdraw(account_id, amount, WithdrawReasons::TRANSFER, AllowDeath)
+                    .map_err(|err| XcmError::FailedToTransactAsset(err.into()))?;
+            }
+        };
+        Ok(())
+    }
+}
+
+#[cfg(feature = "cumulus-polkadot")]
+impl TryFrom<&[u8]> for MultiCurrency<Backing, Issuing> {
+    type Error = ();
+    fn try_from(from: &[u8]) -> Result<Self, ()> {
+        match from {
+            b"DOT" => Ok(Self::PolkaDOT(Default::default())),
+            b"POLKABTC" => Ok(Self::PolkaBTC(Default::default())),
+            _ => Err(()),
+        }
+    }
+}
+
+#[cfg(feature = "cumulus-polkadot")]
+impl Into<Vec<u8>> for MultiCurrency<Backing, Issuing> {
+    fn into(self) -> Vec<u8> {
+        match self {
+            Self::PolkaDOT(_) => b"DOT".to_vec(),
+            Self::PolkaBTC(_) => b"PolkaBTC".to_vec(),
+        }
+    }
+}
+
+#[cfg(feature = "cumulus-polkadot")]
+pub struct MultiAssetToMultiCurrency;
+
+#[cfg(feature = "cumulus-polkadot")]
+impl sp_runtime::traits::Convert<MultiLocation, Option<MultiCurrency<Backing, Issuing>>> for MultiAssetToMultiCurrency {
+    fn convert(location: MultiLocation) -> Option<MultiCurrency<Backing, Issuing>> {
+        match location {
+            X1(Parent) => Some(MultiCurrency::PolkaDOT(Default::default())),
+            X3(Parent, Parachain(_), GeneralKey(key)) => {
+                // decode the general key
+                MultiCurrency::try_from(&key[..]).ok()
+            }
+            _ => None,
+        }
+    }
+}
+
+#[cfg(feature = "cumulus-polkadot")]
+impl sp_runtime::traits::Convert<MultiAsset, Option<MultiCurrency<Backing, Issuing>>> for MultiAssetToMultiCurrency {
+    fn convert(asset: MultiAsset) -> Option<MultiCurrency<Backing, Issuing>> {
+        if let MultiAsset::ConcreteFungible { id, amount: _ } = asset {
+            Self::convert(id)
+        } else {
+            None
+        }
+    }
+}
+
+#[cfg(feature = "cumulus-polkadot")]
 impl parachain_tokens::Config for Runtime {
     type Event = Event;
     type AccountId32Convert = AccountId32Convert;
-    type AccountIdConverter = LocationToAccountId;
-    type XcmExecutor = XcmExecutor<XcmConfig>;
     type ParaId = ParachainInfo;
+    type XcmExecutor = XcmExecutor<XcmConfig>;
+    type MultiCurrency = MultiCurrency<Backing, Issuing>;
+    type Balance = Balance;
 }
 
 parameter_types! {

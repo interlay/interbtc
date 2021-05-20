@@ -1,18 +1,9 @@
-use codec::{Decode, Encode};
-use frame_support::{
-    runtime_print,
-    traits::{Currency, ExistenceRequirement::AllowDeath, WithdrawReasons},
-};
-use sp_runtime::traits::{CheckedConversion, SaturatedConversion};
-use sp_std::{
-    convert::{TryFrom, TryInto},
-    fmt::Debug,
-    marker::PhantomData,
-    prelude::*,
-};
-use xcm::v0::{Error as XcmError, Junction, MultiAsset, MultiLocation, Result as XcmResult};
+use frame_support::runtime_print;
+use sp_runtime::traits::{CheckedConversion, Convert};
+use sp_std::{convert::TryFrom, fmt::Debug, marker::PhantomData, prelude::*};
+use xcm::v0::{Error as XcmError, MultiAsset, MultiLocation, Result as XcmResult};
 use xcm_executor::{
-    traits::{Convert, TransactAsset},
+    traits::{Convert as TryConvert, TransactAsset},
     Assets,
 };
 
@@ -21,15 +12,6 @@ pub use xcm_builder::NativeAsset;
 
 #[cfg(feature = "disable-native-filter")]
 use xcm_executor::traits::FilterAssetLocation;
-
-#[cfg(feature = "std")]
-use serde::{Deserialize, Serialize};
-
-pub(crate) type Backing<T> =
-    <<T as currency::Config<currency::Backing>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
-
-pub(crate) type Issuing<T> =
-    <<T as currency::Config<currency::Issuing>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 #[cfg(feature = "disable-native-filter")]
 pub struct NativeAsset;
@@ -41,100 +23,51 @@ impl FilterAssetLocation for NativeAsset {
     }
 }
 
-#[derive(Encode, Decode, Eq, PartialEq, Copy, Clone, PartialOrd, Ord)]
-#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
-pub enum CurrencyId {
-    DOT = 0,
-    PolkaBTC = 1,
+pub trait MultiCurrency<AccountId> {
+    fn deposit(&self, account_id: &AccountId, amount: u128) -> XcmResult;
+    fn withdraw(&self, account_id: &AccountId, amount: u128) -> XcmResult;
 }
 
-impl TryFrom<Vec<u8>> for CurrencyId {
-    type Error = ();
-    fn try_from(v: Vec<u8>) -> Result<CurrencyId, ()> {
-        match v.as_slice() {
-            b"DOT" => Ok(CurrencyId::DOT),
-            b"POLKABTC" => Ok(CurrencyId::PolkaBTC),
-            _ => Err(()),
-        }
-    }
-}
-
-impl Into<Vec<u8>> for CurrencyId {
-    fn into(self) -> Vec<u8> {
-        match self {
-            CurrencyId::DOT => b"DOT".to_vec(),
-            CurrencyId::PolkaBTC => b"POLKABTC".to_vec(),
-        }
-    }
-}
-
-pub struct CurrencyAdapter<Backing, Issuing, AccountIdConverter, AccountId>(
-    PhantomData<Backing>,
-    PhantomData<Issuing>,
-    PhantomData<AccountIdConverter>,
+pub struct CurrencyAdapter<AccountId, AccountIdConvert, Currency, CurrencyConverter>(
     PhantomData<AccountId>,
+    PhantomData<AccountIdConvert>,
+    PhantomData<Currency>,
+    PhantomData<CurrencyConverter>,
 );
 
 impl<
-        Backing: frame_support::traits::Currency<AccountId>,
-        Issuing: frame_support::traits::Currency<AccountId>,
-        AccountIdConverter: Convert<MultiLocation, AccountId>,
         AccountId: Clone + Debug, // can't get away without it since Currency is generic over it.
-    > TransactAsset for CurrencyAdapter<Backing, Issuing, AccountIdConverter, AccountId>
+        AccountIdConvert: TryConvert<MultiLocation, AccountId>,
+        Currency: Clone + MultiCurrency<AccountId>,
+        CurrencyConvert: Convert<MultiAsset, Option<Currency>>,
+    > TransactAsset for CurrencyAdapter<AccountId, AccountIdConvert, Currency, CurrencyConvert>
 {
     fn deposit_asset(asset: &MultiAsset, location: &MultiLocation) -> XcmResult {
         runtime_print!("Deposit asset: {:?}, location: {:?}", asset, location);
-        let who = AccountIdConverter::convert_ref(location).map_err(|()| XcmError::BadOrigin)?;
-        let currency_id = currency_id_from_asset(asset).ok_or(XcmError::Unimplemented)?;
-        let amount: u128 = amount_from_asset::<u128>(asset)
-            .ok_or(XcmError::BadOrigin)?
-            .saturated_into();
-        match currency_id {
-            CurrencyId::DOT => {
-                let balance_amount = amount.try_into().map_err(|_| XcmError::FailedToDecode)?;
-                let _imbalance = Backing::deposit_creating(&who, balance_amount);
-            }
-            CurrencyId::PolkaBTC => {
-                let balance_amount = amount.try_into().map_err(|_| XcmError::FailedToDecode)?;
-                let _imbalance = Issuing::deposit_creating(&who, balance_amount);
-            }
+        match (
+            AccountIdConvert::convert_ref(location).ok(),
+            CurrencyConvert::convert(asset.clone()),
+            amount_from_asset::<u128>(asset),
+        ) {
+            (Some(account_id), Some(currency), Some(amount)) => currency.deposit(&account_id, amount),
+            _ => Err(XcmError::BadOrigin),
         }
-        Ok(())
     }
 
     fn withdraw_asset(asset: &MultiAsset, location: &MultiLocation) -> Result<Assets, XcmError> {
         runtime_print!("Withdraw asset: {:?}, location: {:?}", asset, location);
-        let who = AccountIdConverter::convert_ref(location).map_err(|()| XcmError::BadOrigin)?;
-        let currency_id = currency_id_from_asset(asset).ok_or(XcmError::Unimplemented)?;
-        let amount: u128 = amount_from_asset::<u128>(asset)
-            .ok_or(XcmError::BadOrigin)?
-            .saturated_into();
-        match currency_id {
-            CurrencyId::DOT => {
-                let balance_amount = amount.try_into().map_err(|_| XcmError::FailedToDecode)?;
-                Backing::withdraw(&who, balance_amount, WithdrawReasons::TRANSFER, AllowDeath)
-                    .map_err(|err| XcmError::FailedToTransactAsset(err.into()))?;
-            }
-            CurrencyId::PolkaBTC => {
-                let balance_amount = amount.try_into().map_err(|_| XcmError::FailedToDecode)?;
-                Issuing::withdraw(&who, balance_amount, WithdrawReasons::TRANSFER, AllowDeath)
-                    .map_err(|err| XcmError::FailedToTransactAsset(err.into()))?;
-            }
-        }
+
+        match (
+            AccountIdConvert::convert_ref(location).ok(),
+            CurrencyConvert::convert(asset.clone()),
+            amount_from_asset::<u128>(asset),
+        ) {
+            (Some(account_id), Some(currency), Some(amount)) => currency.withdraw(&account_id, amount),
+            _ => Err(XcmError::BadOrigin),
+        }?;
+
         Ok(asset.clone().into())
     }
-}
-
-fn currency_id_from_asset(asset: &MultiAsset) -> Option<CurrencyId> {
-    if let MultiAsset::ConcreteFungible { id: location, .. } = asset {
-        if location == &MultiLocation::X1(Junction::Parent) {
-            return Some(CurrencyId::DOT);
-        }
-        if let Some(Junction::GeneralKey(key)) = location.last() {
-            return CurrencyId::try_from(key.clone()).ok();
-        }
-    }
-    None
 }
 
 fn amount_from_asset<B: TryFrom<u128>>(asset: &MultiAsset) -> Option<B> {
