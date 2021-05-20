@@ -4,75 +4,95 @@
 
 mod types;
 
+use codec::FullCodec;
 use cumulus_primitives_core::ParaId;
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResultWithPostInfo, Weight},
     traits::Get,
     transactional,
 };
-use frame_system::ensure_signed;
-use sp_runtime::traits::Convert;
-use sp_std::{convert::TryInto, prelude::*};
-use types::{Backing, Issuing};
-pub use types::{CurrencyAdapter, CurrencyId, NativeAsset};
+use sp_runtime::traits::{AtLeast32BitUnsigned, Convert};
+use sp_std::{convert::TryInto, fmt::Debug, prelude::*, vec::Vec};
+pub use types::{CurrencyAdapter, MultiCurrency, NativeAsset};
 use xcm::v0::{Error as XcmError, ExecuteXcm, Junction::*, MultiAsset, MultiLocation, NetworkId, Order, Outcome, Xcm};
-use xcm_executor::traits::Convert as TryConvert;
 
-/// Configuration trait of this pallet.
-pub trait Config:
-    frame_system::Config + currency::Config<currency::Backing> + currency::Config<currency::Issuing>
-{
-    /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+pub use pallet::*;
 
-    type AccountId32Convert: Convert<Self::AccountId, [u8; 32]>;
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use frame_support::pallet_prelude::*;
+    use frame_system::pallet_prelude::*;
 
-    type ParaId: Get<ParaId>;
+    /// ## Configuration
+    /// The pallet's configuration trait.
+    #[pallet::config]
+    pub trait Config: frame_system::Config {
+        /// The overarching event type.
+        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
-    type AccountIdConverter: TryConvert<MultiLocation, Self::AccountId>;
+        /// Convert the AccountId type to bytes.
+        type AccountId32Convert: Convert<Self::AccountId, [u8; 32]>;
 
-    type XcmExecutor: ExecuteXcm<Self::Call>;
-}
+        /// This chain's parachain ID.
+        type ParaId: Get<ParaId>;
 
-decl_storage! {
-    trait Store for Module<T: Config> as ParachainTokens {
+        /// The XCM message executor.
+        type XcmExecutor: ExecuteXcm<Self::Call>;
+
+        /// The currencies to manage.
+        type MultiCurrency: Into<Vec<u8>> + FullCodec + Clone + Debug + Default + PartialEq;
+
+        /// The core balance type.
+        type Balance: AtLeast32BitUnsigned + FullCodec + Copy + MaybeSerializeDeserialize + Debug + Default;
     }
-}
 
-// The pallet's events.
-decl_event!(
-    pub enum Event<T>
-    where
-        AccountId = <T as frame_system::Config>::AccountId,
-        Backing = Backing<T>,
-        Issuing = Issuing<T>,
-    {
-        /// Transferred collateral to parachain.
-        /// [origin, para_id, recipient, network, amount]
-        TransferBacking(AccountId, ParaId, AccountId, NetworkId, Backing),
-        /// Transferred issued tokens to parachain.
-        /// [origin, para_id, recipient, network, amount]
-        TransferIssuing(AccountId, ParaId, AccountId, NetworkId, Issuing),
+    // The pallet's events
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(crate) fn deposit_event)]
+    #[pallet::metadata(
+        T::AccountId = "AccountId",
+        T::MultiCurrency = "MultiCurrency",
+        T::Balance = "Balance"
+    )]
+    pub enum Event<T: Config> {
+        /// Transferred currency to parachain.
+        /// [origin, para_id, recipient, network, currency, amount]
+        Transfer(
+            T::AccountId,
+            ParaId,
+            T::AccountId,
+            NetworkId,
+            T::MultiCurrency,
+            T::Balance,
+        ),
     }
-);
 
-// The pallet's dispatchable functions.
-decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
-        type Error = Error<T>;
+    #[pallet::error]
+    pub enum Error<T> {
+        XcmExecutionFailed,
+        TryIntoIntError,
+    }
 
-        fn deposit_event() = default;
+    #[pallet::hooks]
+    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {}
 
-        /// Transfer collateral to parachain.
-        #[weight = 1000]
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
+
+    // The pallet's dispatchable functions.
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
+        /// Transfer to parachain.
+        #[pallet::weight(1000)]
         #[transactional]
-        pub fn transfer_backing_to_parachain(
-            origin,
+        pub fn transfer_to_parachain(
+            origin: OriginFor<T>,
             para_id: ParaId,
             recipient: T::AccountId,
             network: NetworkId,
-            #[compact] amount: Backing<T>,
+            currency: T::MultiCurrency,
+            #[pallet::compact] amount: T::Balance,
             max_weight: Weight,
         ) -> DispatchResultWithPostInfo {
             let who = ensure_signed(origin)?;
@@ -88,69 +108,18 @@ decl_module! {
                     id: T::AccountId32Convert::convert(who.clone()),
                 }
                 .into(),
-                Self::transfer_to_parachain(
+                Self::_transfer_to_parachain(
                     para_id,
                     recipient.clone(),
                     network.clone(),
-                    CurrencyId::DOT,
-                    raw_amount
+                    currency.clone(),
+                    raw_amount,
                 ),
                 max_weight,
-            ).map_err(|_| Error::<T>::XcmExecutionFailed)?;
+            )
+            .map_err(|_| Error::<T>::XcmExecutionFailed)?;
 
-            Self::deposit_event(Event::<T>::TransferBacking(
-                who,
-                para_id,
-                recipient,
-                network,
-                amount,
-            ));
-
-            Ok(().into())
-        }
-
-        /// Transfer issued tokens to parachain.
-        #[weight = 1000]
-        #[transactional]
-        pub fn transfer_issuing_to_parachain(
-            origin,
-            para_id: ParaId,
-            recipient: T::AccountId,
-            network: NetworkId,
-            #[compact] amount: Issuing<T>,
-            max_weight: Weight,
-        ) -> DispatchResultWithPostInfo {
-            let who = ensure_signed(origin)?;
-
-            if para_id == T::ParaId::get() {
-                return Ok(().into());
-            }
-
-            let raw_amount = Self::tokens_to_u128(amount)?;
-
-            Self::execute_xcm(
-                AccountId32 {
-                    network: network.clone(),
-                    id: T::AccountId32Convert::convert(who.clone()),
-                }
-                .into(),
-                Self::transfer_to_parachain(
-                    para_id,
-                    recipient.clone(),
-                    network.clone(),
-                    CurrencyId::PolkaBTC,
-                    raw_amount
-                ),
-                max_weight,
-            ).map_err(|_| Error::<T>::XcmExecutionFailed)?;
-
-            Self::deposit_event(Event::<T>::TransferIssuing(
-                who,
-                para_id,
-                recipient,
-                network,
-                amount,
-            ));
+            Self::deposit_event(Event::<T>::Transfer(who, para_id, recipient, network, currency, amount));
 
             Ok(().into())
         }
@@ -158,7 +127,7 @@ decl_module! {
 }
 
 // "Internal" functions, callable by code.
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     fn execute_xcm(origin: MultiLocation, message: Xcm<T::Call>, weight_limit: Weight) -> Result<(), XcmError> {
         match T::XcmExecutor::execute_xcm(origin, message, weight_limit) {
             Outcome::Complete(_) => Ok(()),
@@ -167,16 +136,16 @@ impl<T: Config> Module<T> {
         }
     }
 
-    fn transfer_to_parachain(
+    fn _transfer_to_parachain(
         para_id: ParaId,
         recipient: T::AccountId,
         network: NetworkId,
-        currency_id: CurrencyId,
+        currency: T::MultiCurrency,
         amount: u128,
     ) -> Xcm<T::Call> {
         Xcm::WithdrawAsset {
             assets: vec![MultiAsset::ConcreteFungible {
-                id: GeneralKey(currency_id.into()).into(),
+                id: GeneralKey(currency.into()).into(),
                 amount,
             }],
             effects: vec![Order::DepositReserveAsset {
@@ -196,12 +165,5 @@ impl<T: Config> Module<T> {
 
     fn tokens_to_u128<R: TryInto<u128>>(x: R) -> Result<u128, DispatchError> {
         TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
-    }
-}
-
-decl_error! {
-    pub enum Error for Module<T: Config> {
-        XcmExecutionFailed,
-        TryIntoIntError,
     }
 }
