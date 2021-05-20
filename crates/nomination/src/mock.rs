@@ -244,6 +244,7 @@ impl Config for Test {
     type Event = TestEvent;
     type WeightInfo = ();
     type UnsignedFixedPoint = FixedU128;
+    type SignedFixedPoint = FixedI128;
 }
 
 pub type TestEvent = Event;
@@ -274,7 +275,6 @@ impl ExtBuilder {
 
         nomination::GenesisConfig::<Test> {
             is_nomination_enabled: true,
-            get_max_nomination_ratio: FixedU128::checked_from_rational(1, 150).unwrap(), // 150%,
             get_max_nominators_per_operator: 1,
             get_operator_unbonding_period: 100,
             get_nominator_unbonding_period: 50,
