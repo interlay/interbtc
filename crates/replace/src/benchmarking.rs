@@ -12,7 +12,7 @@ use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_system::RawOrigin;
 use security::Pallet as Security;
 use sp_core::{H160, H256, U256};
-use sp_runtime::FixedPointNumber;
+use sp_runtime::{traits::One, FixedPointNumber};
 use sp_std::prelude::*;
 use vault_registry::{
     types::{Vault, Wallet},

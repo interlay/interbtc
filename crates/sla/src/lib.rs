@@ -95,7 +95,6 @@ decl_storage! {
         AverageWithdraw: SignedFixedPoint<T>;
         AverageWithdrawCount: SignedFixedPoint<T>;
 
-
         // target (max) SLA scores
         VaultTargetSla get(fn vault_target_sla) config(): SignedFixedPoint<T>;
         RelayerTargetSla get(fn relayer_target_sla) config(): SignedFixedPoint<T>;
@@ -110,9 +109,8 @@ decl_storage! {
         VaultSubmitIssueProof get(fn vault_submit_issue_proof) config(): SignedFixedPoint<T>;
         VaultRefund get(fn vault_refund) config(): SignedFixedPoint<T>;
 
-        RelayerBlockSubmission get(fn relayer_block_submission) config(): SignedFixedPoint<T>;
-        RelayerDuplicateBlockSubmission get(fn relayer_duplicate_block_submission) config(): SignedFixedPoint<T>;
-        RelayerCorrectTheftReport get(fn relayer_correct_theft_report) config(): SignedFixedPoint<T>;
+        RelayerStoreBlock get(fn relayer_store_block) config(): SignedFixedPoint<T>;
+        RelayerTheftReport get(fn relayer_theft_report) config(): SignedFixedPoint<T>;
     }
 }
 
@@ -458,18 +456,16 @@ impl<T: Config> Module<T> {
     /// Gets the SLA change corresponding to the given event from storage
     fn _get_relayer_sla(event: RelayerEvent) -> SignedFixedPoint<T> {
         match event {
-            RelayerEvent::BlockSubmission => <RelayerBlockSubmission<T>>::get(),
-            RelayerEvent::DuplicateBlockSubmission => <RelayerDuplicateBlockSubmission<T>>::get(),
-            RelayerEvent::CorrectTheftReport => <RelayerCorrectTheftReport<T>>::get(),
+            RelayerEvent::StoreBlock => <RelayerStoreBlock<T>>::get(),
+            RelayerEvent::TheftReport => <RelayerTheftReport<T>>::get(),
         }
     }
 
     /// Updates the SLA change corresponding to the given event in storage
     fn _set_relayer_sla(event: RelayerEvent, value: SignedFixedPoint<T>) {
         match event {
-            RelayerEvent::BlockSubmission => <RelayerBlockSubmission<T>>::set(value),
-            RelayerEvent::DuplicateBlockSubmission => <RelayerDuplicateBlockSubmission<T>>::set(value),
-            RelayerEvent::CorrectTheftReport => <RelayerCorrectTheftReport<T>>::set(value),
+            RelayerEvent::StoreBlock => <RelayerStoreBlock<T>>::set(value),
+            RelayerEvent::TheftReport => <RelayerTheftReport<T>>::set(value),
         }
     }
 

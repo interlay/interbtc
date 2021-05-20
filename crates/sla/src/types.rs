@@ -14,9 +14,8 @@ pub enum VaultEvent<Issuing, Backing> {
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 pub enum RelayerEvent {
-    BlockSubmission,
-    DuplicateBlockSubmission,
-    CorrectTheftReport,
+    StoreBlock,
+    TheftReport,
 }
 
 pub(crate) type Backing<T> =

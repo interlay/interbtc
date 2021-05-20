@@ -11,9 +11,9 @@ use crate::{
 use codec::Decode;
 use frame_support::{assert_err, assert_noop, assert_ok, traits::OnInitialize};
 use mocktopus::mocking::*;
-use primitive_types::U256;
 use security::Pallet as Security;
-use sp_arithmetic::{FixedPointNumber, FixedU128};
+use sp_arithmetic::{traits::One, FixedPointNumber, FixedU128};
+use sp_core::U256;
 use sp_runtime::{
     offchain::{testing::TestTransactionPoolExt, TransactionPoolExt},
     traits::Header,
@@ -134,15 +134,15 @@ fn register_vault_fails_when_already_registered() {
 }
 
 #[test]
-fn lock_additional_collateral_succeeds() {
+fn deposit_collateral_succeeds() {
     run_test(|| {
         let id = create_vault(RICH_ID);
         let additional = RICH_COLLATERAL - DEFAULT_COLLATERAL;
-        let res = VaultRegistry::lock_additional_collateral(Origin::signed(id), additional);
+        let res = VaultRegistry::deposit_collateral(Origin::signed(id), additional);
         assert_ok!(res);
         let new_collateral = ext::collateral::get_reserved_balance::<Test>(&id);
         assert_eq!(new_collateral, DEFAULT_COLLATERAL + additional);
-        assert_emitted!(Event::LockAdditionalCollateral(
+        assert_emitted!(Event::DepositCollateral(
             id,
             additional,
             RICH_COLLATERAL,
@@ -152,9 +152,9 @@ fn lock_additional_collateral_succeeds() {
 }
 
 #[test]
-fn lock_additional_collateral_fails_when_vault_does_not_exist() {
+fn deposit_collateral_fails_when_vault_does_not_exist() {
     run_test(|| {
-        let res = VaultRegistry::lock_additional_collateral(Origin::signed(3), 50);
+        let res = VaultRegistry::deposit_collateral(Origin::signed(3), 50);
         assert_err!(res, TestError::VaultNotFound);
     })
 }
@@ -927,7 +927,7 @@ fn register_vault_parachain_not_running_fails() {
 }
 
 #[test]
-fn lock_additional_collateral_parachain_not_running_fails() {
+fn deposit_collateral_parachain_not_running_fails() {
     run_test(|| {
         let id = create_vault(RICH_ID);
         let additional = RICH_COLLATERAL - DEFAULT_COLLATERAL;
@@ -935,32 +935,55 @@ fn lock_additional_collateral_parachain_not_running_fails() {
             .mock_safe(|| MockResult::Return(Err(SecurityError::ParachainShutdown.into())));
 
         assert_noop!(
-            VaultRegistry::lock_additional_collateral(Origin::signed(id), additional),
+            VaultRegistry::deposit_collateral(Origin::signed(id), additional),
             SecurityError::ParachainShutdown
         );
     })
 }
 
-#[test]
-fn is_vault_below_liquidation_threshold_true_succeeds() {
-    run_test(|| {
-        // vault has 100% collateral ratio
+mod liquidation_threshold_tests {
+    use super::*;
+
+    fn setup() -> Vault<u64, u64, u128, u128, <Test as crate::Config>::SignedFixedPoint> {
         let id = create_sample_vault();
 
         assert_ok!(VaultRegistry::try_increase_to_be_issued_tokens(&id, 50),);
         let res = VaultRegistry::issue_tokens(&id, 50);
         assert_ok!(res);
 
-        ext::collateral::get_reserved_balance::<Test>.mock_safe(|_| MockResult::Return(DEFAULT_COLLATERAL));
-        ext::oracle::backing_to_issuing::<Test>.mock_safe(|_| MockResult::Return(Ok(DEFAULT_COLLATERAL / 2)));
+        ext::oracle::issuing_to_backing::<Test>.mock_safe(move |x| MockResult::Return(Ok(x)));
 
-        let vault = VaultRegistry::get_vault_from_id(&id).unwrap();
-        let threshold = VaultRegistry::liquidation_collateral_threshold();
-        assert_eq!(
-            VaultRegistry::is_vault_below_liquidation_threshold(&vault, threshold),
-            Ok(true)
-        );
-    })
+        let mut vault = VaultRegistry::get_vault_from_id(&id).unwrap();
+        vault.issued_tokens = 50;
+        vault.to_be_issued_tokens = 40;
+        vault.to_be_redeemed_tokens = 20;
+
+        vault
+    }
+
+    #[test]
+    fn is_vault_below_liquidation_threshold_false_succeeds() {
+        run_test(|| {
+            let mut vault = setup();
+            vault.backing_collateral = vault.issued_tokens * 2;
+            assert_eq!(
+                VaultRegistry::is_vault_below_liquidation_threshold(&vault, FixedU128::from(2)),
+                Ok(false)
+            );
+        })
+    }
+
+    #[test]
+    fn is_vault_below_liquidation_threshold_true_succeeds() {
+        run_test(|| {
+            let mut vault = setup();
+            vault.backing_collateral = vault.issued_tokens * 2 - 1;
+            assert_eq!(
+                VaultRegistry::is_vault_below_liquidation_threshold(&vault, FixedU128::from(2)),
+                Ok(true)
+            );
+        })
+    }
 }
 
 #[test]

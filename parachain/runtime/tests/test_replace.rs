@@ -2,7 +2,7 @@ mod mock;
 
 use mock::*;
 
-use primitive_types::H256;
+use sp_core::H256;
 
 type IssueCall = issue::Call<Runtime>;
 

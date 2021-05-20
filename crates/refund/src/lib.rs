@@ -27,7 +27,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError, ensure, transactional,
 };
 use frame_system::ensure_signed;
-use primitive_types::H256;
+use sp_core::H256;
 use sp_runtime::traits::CheckedSub;
 use sp_std::{convert::TryInto, vec::Vec};
 use types::Issuing;

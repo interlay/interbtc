@@ -1,5 +1,5 @@
 /// Tests for BTC-Relay
-use primitive_types::U256;
+use sp_core::U256;
 
 use crate::{ext, mock::*, types::*, BtcAddress};
 

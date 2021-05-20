@@ -14,7 +14,7 @@ mod tests;
 use codec::{Decode, Encode, EncodeLike};
 use frame_support::dispatch::DispatchError;
 use sp_arithmetic::FixedPointNumber;
-use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, MaybeSerializeDeserialize};
+use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, MaybeSerializeDeserialize, Zero};
 use sp_std::{fmt::Debug, vec::Vec};
 
 pub(crate) type SignedFixedPoint<T, I = ()> = <T as Config<I>>::SignedFixedPoint;

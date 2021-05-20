@@ -11,10 +11,13 @@ use sp_std::{
     prelude::*,
 };
 use xcm::v0::{Error as XcmError, Junction, MultiAsset, MultiLocation, Result as XcmResult};
-use xcm_executor::traits::{LocationConversion, TransactAsset};
+use xcm_executor::{
+    traits::{Convert, TransactAsset},
+    Assets,
+};
 
 #[cfg(not(feature = "disable-native-filter"))]
-pub use xcm_executor::traits::NativeAsset;
+pub use xcm_builder::NativeAsset;
 
 #[cfg(feature = "disable-native-filter")]
 use xcm_executor::traits::FilterAssetLocation;
@@ -75,13 +78,13 @@ pub struct CurrencyAdapter<Backing, Issuing, AccountIdConverter, AccountId>(
 impl<
         Backing: frame_support::traits::Currency<AccountId>,
         Issuing: frame_support::traits::Currency<AccountId>,
-        AccountIdConverter: LocationConversion<AccountId>,
-        AccountId: Debug, // can't get away without it since Currency is generic over it.
+        AccountIdConverter: Convert<MultiLocation, AccountId>,
+        AccountId: Clone + Debug, // can't get away without it since Currency is generic over it.
     > TransactAsset for CurrencyAdapter<Backing, Issuing, AccountIdConverter, AccountId>
 {
     fn deposit_asset(asset: &MultiAsset, location: &MultiLocation) -> XcmResult {
         runtime_print!("Deposit asset: {:?}, location: {:?}", asset, location);
-        let who = AccountIdConverter::from_location(location).ok_or(XcmError::BadOrigin)?;
+        let who = AccountIdConverter::convert_ref(location).map_err(|()| XcmError::BadOrigin)?;
         let currency_id = currency_id_from_asset(asset).ok_or(XcmError::Unimplemented)?;
         let amount: u128 = amount_from_asset::<u128>(asset)
             .ok_or(XcmError::BadOrigin)?
@@ -99,9 +102,9 @@ impl<
         Ok(())
     }
 
-    fn withdraw_asset(asset: &MultiAsset, location: &MultiLocation) -> Result<MultiAsset, XcmError> {
+    fn withdraw_asset(asset: &MultiAsset, location: &MultiLocation) -> Result<Assets, XcmError> {
         runtime_print!("Withdraw asset: {:?}, location: {:?}", asset, location);
-        let who = AccountIdConverter::from_location(location).ok_or(XcmError::BadOrigin)?;
+        let who = AccountIdConverter::convert_ref(location).map_err(|()| XcmError::BadOrigin)?;
         let currency_id = currency_id_from_asset(asset).ok_or(XcmError::Unimplemented)?;
         let amount: u128 = amount_from_asset::<u128>(asset)
             .ok_or(XcmError::BadOrigin)?
@@ -110,15 +113,15 @@ impl<
             CurrencyId::DOT => {
                 let balance_amount = amount.try_into().map_err(|_| XcmError::FailedToDecode)?;
                 Backing::withdraw(&who, balance_amount, WithdrawReasons::TRANSFER, AllowDeath)
-                    .map_err(|_| XcmError::CannotReachDestination)?;
+                    .map_err(|err| XcmError::FailedToTransactAsset(err.into()))?;
             }
             CurrencyId::PolkaBTC => {
                 let balance_amount = amount.try_into().map_err(|_| XcmError::FailedToDecode)?;
                 Issuing::withdraw(&who, balance_amount, WithdrawReasons::TRANSFER, AllowDeath)
-                    .map_err(|_| XcmError::CannotReachDestination)?;
+                    .map_err(|err| XcmError::FailedToTransactAsset(err.into()))?;
             }
         }
-        Ok(asset.clone())
+        Ok(asset.clone().into())
     }
 }
 

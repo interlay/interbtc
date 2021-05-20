@@ -45,20 +45,17 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::{Get, Randomness},
-    transactional,
+    transactional, PalletId,
 };
 use frame_system::{
     ensure_signed,
     offchain::{SendTransactionTypes, SubmitTransaction},
 };
-use primitive_types::U256;
 use sp_arithmetic::{traits::*, FixedPointNumber};
-use sp_core::H256;
-use sp_runtime::{
-    traits::AccountIdConversion,
-    transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction},
-    ModuleId,
-};
+use sp_core::{H256, U256};
+#[cfg(feature = "std")]
+use sp_runtime::traits::AccountIdConversion;
+use sp_runtime::transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction};
 use sp_std::{
     convert::{TryFrom, TryInto},
     vec::Vec,
@@ -105,7 +102,7 @@ pub mod pallet {
     {
         /// The vault module id, used for deriving its sovereign account ID.
         #[pallet::constant] // put the constant in metadata
-        type ModuleId: Get<ModuleId>;
+        type PalletId: Get<PalletId>;
 
         /// The overarching event type.
         type Event: From<Event<Self>>
@@ -189,18 +186,14 @@ pub mod pallet {
             Ok(().into())
         }
 
-        /// Locks additional collateral as a security against stealing the
-        /// Bitcoin locked with it.
+        /// Deposit collateral as a security against stealing the
+        /// Bitcoin locked with the caller.
         ///
         /// # Arguments
         /// * `amount` - the amount of extra collateral to lock
-        ///
-        /// # Errors
-        /// * `VaultNotFound` - if no vault exists for the origin account
-        /// * `InsufficientCollateralAvailable` - if the vault does not own enough collateral
-        #[pallet::weight(<T as Config>::WeightInfo::lock_additional_collateral())]
+        #[pallet::weight(<T as Config>::WeightInfo::deposit_collateral())]
         #[transactional]
-        pub fn lock_additional_collateral(
+        pub fn deposit_collateral(
             origin: OriginFor<T>,
             #[pallet::compact] amount: Backing<T>,
         ) -> DispatchResultWithPostInfo {
@@ -212,7 +205,7 @@ pub mod pallet {
 
             let vault = Self::get_active_rich_vault_from_id(&sender)?;
 
-            Self::deposit_event(Event::<T>::LockAdditionalCollateral(
+            Self::deposit_event(Event::<T>::DepositCollateral(
                 vault.id(),
                 amount,
                 vault.get_collateral(),
@@ -320,7 +313,7 @@ pub mod pallet {
     pub enum Event<T: Config> {
         RegisterVault(T::AccountId, Backing<T>),
         /// vault_id, new collateral, total collateral, free collateral
-        LockAdditionalCollateral(T::AccountId, Backing<T>, Backing<T>, Backing<T>),
+        DepositCollateral(T::AccountId, Backing<T>, Backing<T>, Backing<T>),
         /// vault_id, withdrawn collateral, total collateral
         WithdrawCollateral(T::AccountId, Backing<T>, Backing<T>),
         /// vault_id, new public key
@@ -369,31 +362,39 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T> {
+        /// Not enough free collateral available.
         InsufficientCollateral,
         /// The amount of tokens to be issued is higher than the issuable amount by the vault
         ExceedingVaultLimit,
+        /// The requested amount of tokens exceeds the amount available to this vault.
         InsufficientTokensCommitted,
+        /// Action not allowed on banned vault.
         VaultBanned,
-        /// Returned if the collateral amount to register a vault was too low
+        /// The provided collateral was insufficient - it must be above ``MinimumCollateralVault``.
         InsufficientVaultCollateralAmount,
-        // FIXME: ERR_MIN_AMOUNT in spec
         /// Returned if a vault tries to register while already being registered
         VaultAlreadyRegistered,
+        /// The specified vault does not exist.
         VaultNotFound,
         /// The Bitcoin Address has already been registered
         ReservedDepositAddress,
+        /// Attempted to liquidate a vault that is not undercollateralized.
+        VaultNotBelowLiquidationThreshold,
+        /// Deposit address could not be generated with the given public key.
+        InvalidPublicKey,
+
+        // Errors used exclusively in RPC functions
         /// Collateralization is infinite if no tokens are issued
         NoTokensIssued,
         NoVaultWithSufficientCollateral,
         NoVaultWithSufficientTokens,
         NoVaultUnderThePremiumRedeemThreshold,
+
+        // Unexpected errors that should never be thrown in normal operation
         ArithmeticOverflow,
         ArithmeticUnderflow,
         /// Unable to convert value
         TryIntoIntError,
-        InvalidSecretKey,
-        InvalidPublicKey,
-        VaultNotBelowLiquidationThreshold,
     }
 
     impl<T: Config> From<SlashingError> for Error<T> {
@@ -408,45 +409,42 @@ pub mod pallet {
         }
     }
 
-    /// The minimum collateral (e.g. DOT/KSM) a Vault needs to provide
-    /// to participate in the issue process.
+    /// The minimum collateral (e.g. DOT/KSM) a Vault needs to provide to register.
     #[pallet::storage]
     #[pallet::getter(fn minimum_collateral_vault)]
     pub(super) type MinimumCollateralVault<T: Config> = StorageValue<_, Backing<T>, ValueQuery>;
 
-    /// If a Vault fails to execute a correct redeem or replace,
-    /// it is temporarily banned from further issue, redeem or replace requests.
+    /// If a Vault fails to execute a correct redeem or replace, it is temporarily banned
+    /// from further issue, redeem or replace requests. This value configures the duration
+    /// of this ban (in number of blocks) .
     #[pallet::storage]
     #[pallet::getter(fn punishment_delay)]
     pub(super) type PunishmentDelay<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
 
-    /// Determines the over-collateralization rate for collateral locked
-    /// by Vaults, necessary for issuing tokens. Must to be strictly
-    /// greater than 100000 and LiquidationCollateralThreshold.
+    /// Determines the over-collateralization rate for collateral locked by Vaults, necessary for
+    /// issuing tokens. This threshold should be greater than the LiquidationCollateralThreshold.
     #[pallet::storage]
     #[pallet::getter(fn secure_collateral_threshold)]
     pub(super) type SecureCollateralThreshold<T: Config> = StorageValue<_, UnsignedFixedPoint<T>, ValueQuery>;
 
-    /// Determines the rate for the collateral rate of Vaults,
-    /// at which users receive a premium, allocated from the
-    /// Vault's collateral, when performing a redeem with this Vault.
-    /// Must to be strictly greater than 100000 and LiquidationCollateralThreshold.
+    /// Determines the rate for the collateral rate of Vaults, at which users receive a premium,
+    /// allocated from the Vault's collateral, when performing a redeem with this Vault. This
+    /// threshold should be greater than the LiquidationCollateralThreshold.
     #[pallet::storage]
     #[pallet::getter(fn premium_redeem_threshold)]
     pub(super) type PremiumRedeemThreshold<T: Config> = StorageValue<_, UnsignedFixedPoint<T>, ValueQuery>;
 
-    /// Determines the lower bound for the collateral rate in issued tokens.
-    /// Must be strictly greater than 100000. If a Vault’s collateral rate
-    /// drops below this, automatic liquidation (forced Redeem) is triggered.
+    /// Determines the lower bound for the collateral rate in issued tokens. If a Vault’s
+    /// collateral rate drops below this, automatic liquidation (forced Redeem) is triggered.
     #[pallet::storage]
     #[pallet::getter(fn liquidation_collateral_threshold)]
     pub(super) type LiquidationCollateralThreshold<T: Config> = StorageValue<_, UnsignedFixedPoint<T>, ValueQuery>;
 
-    /// Account identifier of an artificial Vault maintained by the VaultRegistry
-    /// to handle issued balances and collateral of liquidated Vaults.
-    /// That is, when a Vault is liquidated, its balances are transferred to
-    /// LiquidationVault and claims are later handled via the LiquidationVault.
+    /// Account identifier of an artificial Vault maintained by the VaultRegistry to handle issued balances
+    /// and collateral of liquidated Vaults. That is, when a Vault is liquidated, its balances are
+    /// transferred to LiquidationVault and claims are later handled via the LiquidationVault.
     #[pallet::storage]
+    #[pallet::getter(fn liquidation_vault_account_id)]
     pub(super) type LiquidationVaultAccountId<T: Config> = StorageValue<_, T::AccountId, ValueQuery>;
 
     #[pallet::storage]
@@ -484,24 +482,10 @@ pub mod pallet {
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
-        /// The minimum collateral (e.g. DOT/KSM) a Vault needs to provide
-        /// to participate in the issue process.
         pub minimum_collateral_vault: Backing<T>,
-        /// If a Vault fails to execute a correct redeem or replace,
-        /// it is temporarily banned from further issue, redeem or replace requests.
         pub punishment_delay: T::BlockNumber,
-        /// Determines the over-collateralization rate for collateral locked
-        /// by Vaults, necessary for issuing tokens. Must to be strictly
-        /// greater than 100000 and LiquidationCollateralThreshold.
         pub secure_collateral_threshold: UnsignedFixedPoint<T>,
-        /// Determines the rate for the collateral rate of Vaults,
-        /// at which users receive a premium, allocated from the
-        /// Vault\'s collateral, when performing a redeem with this Vault.
-        /// Must to be strictly greater than 100000 and LiquidationCollateralThreshold.
         pub premium_redeem_threshold: UnsignedFixedPoint<T>,
-        /// Determines the lower bound for the collateral rate in issued tokens.
-        /// Must be strictly greater than 100000. If a Vault’s collateral rate
-        /// drops below this, automatic liquidation (forced Redeem) is triggered.
         pub liquidation_collateral_threshold: UnsignedFixedPoint<T>,
     }
 
@@ -527,6 +511,7 @@ pub mod pallet {
             PremiumRedeemThreshold::<T>::put(self.premium_redeem_threshold);
             LiquidationCollateralThreshold::<T>::put(self.liquidation_collateral_threshold);
             StorageVersion::<T>::put(Version::V1);
+            LiquidationVaultAccountId::<T>::put::<T::AccountId>(T::PalletId::get().into_account());
         }
     }
 }
@@ -539,14 +524,6 @@ impl<T: Config> Pallet<T> {
             let call = Call::report_undercollateralized_vault(vault);
             let _ = SubmitTransaction::<T, Call<T>>::submit_unsigned_transaction(call.into());
         }
-    }
-
-    /// The account ID of the liquidation vault.
-    ///
-    /// This actually does computation. If you need to keep using it, then make sure you cache the
-    /// value and only call this once.
-    pub fn liquidation_vault_account_id() -> T::AccountId {
-        T::ModuleId::get().into_account()
     }
 
     /// Public functions
@@ -1255,19 +1232,12 @@ impl<T: Config> Pallet<T> {
         Self::is_vault_below_threshold(&vault_id, PremiumRedeemThreshold::<T>::get())
     }
 
-    /// check if the vault is below the liquidation threshold. In contrast to other thresholds,
-    /// this is checked as ratio of `collateral / (issued - to_be_redeemed)`.
+    /// check if the vault is below the liquidation threshold.
     pub fn is_vault_below_liquidation_threshold(
         vault: &Vault<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>, SignedFixedPoint<T>>,
         liquidation_threshold: UnsignedFixedPoint<T>,
     ) -> Result<bool, DispatchError> {
-        // the currently issued tokens
-        let tokens = vault
-            .issued_tokens
-            .checked_sub(&vault.to_be_redeemed_tokens)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?;
-
-        Self::is_collateral_below_threshold(vault.backing_collateral, tokens, liquidation_threshold)
+        Self::is_collateral_below_threshold(vault.backing_collateral, vault.issued_tokens, liquidation_threshold)
     }
 
     pub fn is_collateral_below_secure_threshold(

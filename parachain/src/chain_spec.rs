@@ -9,13 +9,7 @@ const BITCOIN_SPACING_MS: u32 = TARGET_SPACING * 1000;
 const BLOCK_SPACING: BlockNumber = BITCOIN_SPACING_MS / MILLISECS_PER_BLOCK as BlockNumber;
 
 #[cfg(feature = "aura-grandpa")]
-use {
-    btc_parachain_runtime::{AuraConfig, GrandpaConfig},
-    hex_literal::hex,
-    sp_consensus_aura::sr25519::AuthorityId as AuraId,
-    sp_core::crypto::UncheckedInto,
-    sp_finality_grandpa::AuthorityId as GrandpaId,
-};
+use {btc_parachain_runtime::GrandpaConfig, sp_finality_grandpa::AuthorityId as GrandpaId};
 
 #[cfg(feature = "cumulus-polkadot")]
 use {
@@ -23,6 +17,12 @@ use {
     cumulus_primitives::ParaId,
     sc_chain_spec::{ChainSpecExtension, ChainSpecGroup},
     serde::{Deserialize, Serialize},
+};
+
+#[cfg(any(feature = "aura-grandpa", feature = "cumulus-polkadot"))]
+use {
+    btc_parachain_runtime::AuraConfig, hex_literal::hex, sp_consensus_aura::sr25519::AuthorityId as AuraId,
+    sp_core::crypto::UncheckedInto,
 };
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -100,7 +100,7 @@ pub fn local_config(#[cfg(feature = "cumulus-polkadot")] id: ParaId) -> ChainSpe
             testnet_genesis(
                 get_account_id_from_seed::<sr25519::Public>("Alice"),
                 get_account_id_from_seed::<sr25519::Public>("Maintainer"),
-                #[cfg(feature = "aura-grandpa")]
+                #[cfg(any(feature = "aura-grandpa", feature = "cumulus-polkadot"))]
                 vec![],
                 vec![
                     get_account_id_from_seed::<sr25519::Public>("Alice"),
@@ -156,6 +156,10 @@ pub fn rococo_testnet_config(id: ParaId) -> ChainSpec {
             testnet_genesis(
                 get_account_id_from_string("5HeVGqvfpabwFqzV1DhiQmjaLQiFcTSmq2sH6f7atsXkgvtt"),
                 get_account_id_from_string("5FqYNDWeJ9bwa3NhEryxscBELAMj54yrKqGaYNR9CjLZFYLB"),
+                vec![
+                    // 5DJ3wbdicFSFFudXndYBuvZKjucTsyxtJX5WPzQM8HysSkFY
+                    hex!["366a092a27b4b28199a588b0155a2c9f3f0513d92481de4ee2138273926fa91c"].unchecked_into(),
+                ],
                 vec![
                     get_account_id_from_string("5HeVGqvfpabwFqzV1DhiQmjaLQiFcTSmq2sH6f7atsXkgvtt"),
                     get_account_id_from_string("5DNzULM1UJXDM7NUgDL4i8Hrhe9e3vZkB3ByM1eEXMGAs4Bv"),
@@ -278,6 +282,8 @@ pub fn development_config(#[cfg(feature = "cumulus-polkadot")] id: ParaId) -> Ch
                 get_account_id_from_seed::<sr25519::Public>("Maintainer"),
                 #[cfg(feature = "aura-grandpa")]
                 vec![authority_keys_from_seed("Alice")],
+                #[cfg(feature = "cumulus-polkadot")]
+                vec![get_from_seed::<AuraId>("Alice")],
                 vec![
                     get_account_id_from_seed::<sr25519::Public>("Alice"),
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
@@ -340,6 +346,7 @@ fn testnet_genesis(
     root_key: AccountId,
     maintainer: AccountId,
     #[cfg(feature = "aura-grandpa")] initial_authorities: Vec<(AuraId, GrandpaId)>,
+    #[cfg(feature = "cumulus-polkadot")] initial_authorities: Vec<AuraId>,
     endowed_accounts: Vec<AccountId>,
     authorized_oracles: Vec<(AccountId, Vec<u8>)>,
     #[cfg(feature = "cumulus-polkadot")] id: ParaId,
@@ -360,6 +367,12 @@ fn testnet_genesis(
         pallet_grandpa: GrandpaConfig {
             authorities: initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect(),
         },
+        #[cfg(feature = "cumulus-polkadot")]
+        pallet_aura: AuraConfig {
+            authorities: initial_authorities,
+        },
+        #[cfg(feature = "cumulus-polkadot")]
+        cumulus_pallet_aura_ext: Default::default(),
         #[cfg(feature = "cumulus-polkadot")]
         parachain_info: ParachainInfoConfig { parachain_id: id },
         pallet_sudo: SudoConfig {
@@ -432,9 +445,8 @@ fn testnet_genesis(
             vault_submit_issue_proof: FixedI128::from(1),
             vault_refund: FixedI128::from(1),
             relayer_target_sla: FixedI128::from(100),
-            relayer_block_submission: FixedI128::from(1),
-            relayer_duplicate_block_submission: FixedI128::from(1),
-            relayer_correct_theft_report: FixedI128::from(1),
+            relayer_store_block: FixedI128::from(1),
+            relayer_theft_report: FixedI128::from(1),
         },
         refund: RefundConfig {
             refund_btc_dust_value: 1000,

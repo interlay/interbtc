@@ -3,10 +3,9 @@ use crate::{ext, mock::*, Backing, Config, Issuing, RawEvent};
 use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
-use primitive_types::H256;
 use sp_arithmetic::FixedU128;
-use sp_core::H160;
-use sp_runtime::FixedPointNumber;
+use sp_core::{H160, H256};
+use sp_runtime::traits::One;
 use vault_registry::{Vault, VaultStatus, Wallet};
 
 fn request_issue(

@@ -22,8 +22,8 @@ use frame_support::{
 use frame_system::{ensure_root, ensure_signed};
 #[cfg(test)]
 use mocktopus::macros::mockable;
-use primitive_types::H256;
-use sp_runtime::{traits::Zero, ModuleId};
+use sp_core::H256;
+use sp_runtime::traits::Zero;
 use sp_std::{convert::TryInto, vec::Vec};
 
 use btc_relay::BtcAddress;
@@ -42,9 +42,6 @@ mod mock;
 
 #[cfg(test)]
 mod tests;
-
-/// The replace module id, used for deriving its sovereign account ID.
-const _MODULE_ID: ModuleId = ModuleId(*b"replacem");
 
 /// The pallet's configuration trait.
 pub trait Config:
@@ -332,7 +329,7 @@ impl<T: Config> Module<T> {
         let actual_new_vault_collateral =
             ext::vault_registry::calculate_collateral::<T>(collateral, redeemable_tokens, amount_btc)?;
 
-        ext::vault_registry::lock_additional_collateral::<T>(&new_vault_id, actual_new_vault_collateral)?;
+        ext::vault_registry::try_deposit_collateral::<T>(&new_vault_id, actual_new_vault_collateral)?;
 
         // increase old-vault's to-be-redeemed tokens - this should never fail
         ext::vault_registry::try_increase_to_be_redeemed_tokens::<T>(&old_vault_id, redeemable_tokens)?;

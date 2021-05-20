@@ -4,9 +4,8 @@ use crate::types::{Backing, Issuing, RedeemRequest, RedeemRequestStatus};
 use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
-use primitive_types::H256;
 use security::Pallet as Security;
-use sp_core::H160;
+use sp_core::{H160, H256};
 use sp_std::convert::TryInto;
 use vault_registry::{VaultStatus, Wallet};
 

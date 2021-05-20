@@ -283,7 +283,7 @@ mod tests {
     use super::*;
 
     use mocktopus::mocking::*;
-    use primitive_types::H256;
+    use sp_core::H256;
     use sp_std::str::FromStr;
 
     // curl -s -H 'content-type: application/json' http://satoshi.doc.ic.ac.uk:8332 -d '{

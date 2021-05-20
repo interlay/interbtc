@@ -2,36 +2,6 @@
 use mocktopus::macros::mockable;
 
 #[cfg_attr(test, mockable)]
-pub(crate) mod collateral {
-    use crate::types::Backing;
-    use frame_support::dispatch::{DispatchError, DispatchResult};
-
-    type CollateralPallet<T> = currency::Pallet<T, currency::Backing>;
-
-    pub(crate) fn lock_collateral<T: currency::Config<currency::Backing>>(
-        sender: &T::AccountId,
-        amount: Backing<T>,
-    ) -> Result<(), DispatchError> {
-        CollateralPallet::<T>::lock(sender, amount)
-    }
-
-    pub(crate) fn release_collateral<T: currency::Config<currency::Backing>>(
-        sender: &T::AccountId,
-        amount: Backing<T>,
-    ) -> Result<(), DispatchError> {
-        CollateralPallet::<T>::release(sender, amount)
-    }
-
-    pub fn slash_collateral<T: currency::Config<currency::Backing>>(
-        sender: T::AccountId,
-        receiver: T::AccountId,
-        amount: Backing<T>,
-    ) -> DispatchResult {
-        CollateralPallet::<T>::slash(sender, receiver, amount)
-    }
-}
-
-#[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
     use crate::{Backing, Issuing};
     use ::vault_registry::VaultStatus;
@@ -66,13 +36,6 @@ pub(crate) mod security {
 
     pub fn ensure_parachain_status_not_shutdown<T: security::Config>() -> DispatchResult {
         <security::Pallet<T>>::ensure_parachain_status_not_shutdown()
-    }
-}
-
-#[cfg_attr(test, mockable)]
-pub(crate) mod fee {
-    pub fn fee_pool_account_id<T: fee::Config>() -> T::AccountId {
-        <fee::Pallet<T>>::fee_pool_account_id()
     }
 }
 
@@ -116,8 +79,8 @@ pub(crate) mod btc_relay {
 pub(crate) mod redeem {
     use crate::types::{Backing, Issuing};
     use frame_support::dispatch::DispatchError;
-    use primitive_types::H256;
     use redeem::types::RedeemRequest;
+    use sp_core::H256;
 
     pub(crate) fn get_open_or_completed_redeem_request_from_id<T: redeem::Config>(
         id: &H256,
@@ -130,8 +93,8 @@ pub(crate) mod redeem {
 pub(crate) mod replace {
     use crate::types::{Backing, Issuing};
     use frame_support::dispatch::DispatchError;
-    use primitive_types::H256;
     use replace::types::ReplaceRequest;
+    use sp_core::H256;
 
     pub(crate) fn get_open_or_completed_replace_request<T: replace::Config>(
         id: &H256,
@@ -144,8 +107,8 @@ pub(crate) mod replace {
 pub(crate) mod refund {
     use crate::types::Issuing;
     use frame_support::dispatch::DispatchError;
-    use primitive_types::H256;
     use refund::types::RefundRequest;
+    use sp_core::H256;
 
     pub(crate) fn get_open_or_completed_refund_request_from_id<T: refund::Config>(
         id: &H256,

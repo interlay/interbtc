@@ -5,7 +5,7 @@ use mocktopus::macros::mockable;
 pub(crate) mod btc_relay {
     use btc_relay::BtcAddress;
     use frame_support::dispatch::DispatchError;
-    use primitive_types::H256;
+    use sp_core::H256;
     use sp_std::vec::Vec;
 
     pub fn verify_and_validate_transaction<T: btc_relay::Config>(
@@ -112,7 +112,7 @@ pub(crate) mod vault_registry {
         <vault_registry::Pallet<T>>::decrease_to_be_replaced_tokens(vault_id, tokens)
     }
 
-    pub fn lock_additional_collateral<T: vault_registry::Config>(
+    pub fn try_deposit_collateral<T: vault_registry::Config>(
         vault_id: &T::AccountId,
         amount: Backing<T>,
     ) -> Result<(), DispatchError> {
@@ -167,7 +167,7 @@ pub(crate) mod collateral {
 #[cfg_attr(test, mockable)]
 pub(crate) mod security {
     use frame_support::dispatch::{DispatchError, DispatchResult};
-    use primitive_types::H256;
+    use sp_core::H256;
 
     pub fn get_secure_id<T: security::Config>(id: &T::AccountId) -> H256 {
         <security::Pallet<T>>::get_secure_id(id)

@@ -18,8 +18,6 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
         // known in the parachain. Any block before will be rejected
         let parachain_genesis_height = test_data[0].height;
         let parachain_genesis_header = test_data[0].get_raw_header();
-        assert_ok!(Call::StakedRelayers(StakedRelayersCall::register_staked_relayer(100))
-            .dispatch(origin_of(account_of(ALICE))));
 
         assert_ok!(Call::StakedRelayers(StakedRelayersCall::initialize(
             parachain_genesis_header,

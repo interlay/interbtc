@@ -2,8 +2,7 @@ use crate::{ext, mock::*, RawEvent};
 use btc_relay::BtcAddress;
 use frame_support::assert_ok;
 use mocktopus::mocking::*;
-use primitive_types::H256;
-use sp_core::H160;
+use sp_core::{H160, H256};
 
 #[test]
 fn test_refund_succeeds() {

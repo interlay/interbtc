@@ -25,9 +25,9 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::{ensure_root, ensure_signed};
-use primitive_types::H256;
 use sp_arithmetic::FixedPointNumber;
-use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedSub, Zero};
+use sp_core::H256;
+use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedSub, One, Zero};
 use types::{
     Backing, DefaultNominator, DefaultOperator, RichNominator, RichOperator, SignedFixedPoint, UnsignedFixedPoint,
 };

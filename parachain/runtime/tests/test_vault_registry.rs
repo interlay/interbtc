@@ -13,18 +13,16 @@ fn test_with<R>(execute: impl FnOnce() -> R) -> R {
     })
 }
 
-mod lock_additional_collateral_test {
+mod deposit_collateral_test {
     use super::*;
 
     #[test]
-    fn integration_test_vault_registry_lock_additional_collateral_below_capacity_succeeds() {
+    fn integration_test_vault_registry_deposit_collateral_below_capacity_succeeds() {
         test_with(|| {
             let amount = 1_000;
 
-            assert_ok!(
-                Call::VaultRegistry(VaultRegistryCall::lock_additional_collateral(amount))
-                    .dispatch(origin_of(account_of(VAULT)))
-            );
+            assert_ok!(Call::VaultRegistry(VaultRegistryCall::deposit_collateral(amount))
+                .dispatch(origin_of(account_of(VAULT))));
 
             assert_eq!(
                 ParachainState::get(),
@@ -41,10 +39,8 @@ mod lock_additional_collateral_test {
         test_with(|| {
             let amount = DEFAULT_VAULT_FREE_BALANCE;
 
-            assert_ok!(
-                Call::VaultRegistry(VaultRegistryCall::lock_additional_collateral(amount))
-                    .dispatch(origin_of(account_of(VAULT)))
-            );
+            assert_ok!(Call::VaultRegistry(VaultRegistryCall::deposit_collateral(amount))
+                .dispatch(origin_of(account_of(VAULT))));
 
             assert_eq!(
                 ParachainState::get(),
@@ -62,7 +58,7 @@ mod lock_additional_collateral_test {
             let amount = DEFAULT_VAULT_FREE_BALANCE + 1;
 
             assert_noop!(
-                Call::VaultRegistry(VaultRegistryCall::lock_additional_collateral(amount))
+                Call::VaultRegistry(VaultRegistryCall::deposit_collateral(amount))
                     .dispatch(origin_of(account_of(VAULT))),
                 CollateralError::InsufficientFreeBalance
             );
@@ -137,8 +133,7 @@ fn integration_test_vault_registry_with_parachain_shutdown_fails() {
             SecurityError::ParachainShutdown
         );
         assert_noop!(
-            Call::VaultRegistry(VaultRegistryCall::lock_additional_collateral(0))
-                .dispatch(origin_of(account_of(VAULT))),
+            Call::VaultRegistry(VaultRegistryCall::deposit_collateral(0)).dispatch(origin_of(account_of(VAULT))),
             SecurityError::ParachainShutdown
         );
         assert_noop!(
