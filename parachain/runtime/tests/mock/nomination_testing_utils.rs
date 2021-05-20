@@ -155,13 +155,3 @@ pub fn assert_total_nominated_collateral_is(operator: [u8; 32], amount_backing: 
     let nominated_collateral = NominationPallet::get_total_nominated_collateral(&account_of(operator)).unwrap();
     assert_eq!(nominated_collateral, amount_backing);
 }
-
-// pub fn get_nominator_collateral() -> u128 {
-//     let nominators = NominationPallet::get_nominators(&account_of(VAULT)).unwrap();
-//     if nominators.len() == 0 {
-//         0
-//     } else {
-//         let (_, nominator) = &nominators[0];
-//         nominator.collateral
-//     }
-// }

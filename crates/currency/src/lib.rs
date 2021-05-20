@@ -325,11 +325,10 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
     /// * `destination` - the account receiving locked tokens
     /// * `amount` - the amount to transfer
     pub fn transfer_and_lock(
-        source: T::AccountId,
-        destination: T::AccountId,
+        source: &T::AccountId,
+        destination: &T::AccountId,
         amount: BalanceOf<T, I>,
     ) -> DispatchResult {
-        // repatriate_reserved but create account
         Self::transfer(&source, &destination, amount)?;
         Self::lock(&destination, amount)?;
         Ok(())

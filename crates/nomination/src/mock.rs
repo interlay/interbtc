@@ -276,7 +276,6 @@ impl ExtBuilder {
 
         nomination::GenesisConfig::<Test> {
             is_nomination_enabled: true,
-            get_max_nominators_per_operator: 1,
             get_operator_unbonding_period: 100,
             get_nominator_unbonding_period: 50,
         }

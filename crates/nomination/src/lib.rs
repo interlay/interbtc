@@ -74,9 +74,6 @@ decl_storage! {
         /// Flag indicating whether this feature is enabled
         NominationEnabled get(fn is_nomination_enabled) config(): bool;
 
-        /// Maximum number of nominators a single operator can have
-        MaxNominatorsPerOperator get(fn get_max_nominators_per_operator) config(): u16;
-
         /// Base unbonding period by which collateral withdrawal requests from Vault Operators
         /// are delayed
         OperatorUnbondingPeriod get(fn get_operator_unbonding_period) config(): T::BlockNumber;
@@ -192,11 +189,6 @@ decl_module! {
 }
 
 impl<T: Config> Module<T> {
-    pub fn set_max_nominators_per_operator(limit: u16) -> DispatchResult {
-        <MaxNominatorsPerOperator>::set(limit);
-        Ok(())
-    }
-
     pub fn set_operator_unbonding_period(period: T::BlockNumber) -> DispatchResult {
         <OperatorUnbondingPeriod<T>>::set(period);
         Ok(())
@@ -206,20 +198,6 @@ impl<T: Config> Module<T> {
         <NominatorUnbondingPeriod<T>>::set(period);
         Ok(())
     }
-
-    // pub fn _request_collateral_withdrawal(
-    //     withdrawer_id: &T::AccountId,
-    //     operator_id: &T::AccountId,
-    //     amount: Backing<T>,
-    // ) -> DispatchResult {
-    //     if withdrawer_id.eq(operator_id) {
-    //         Self::request_operator_withdrawal(operator_id, amount)?
-    //     } else {
-    //         Self::request_nominator_withdrawal(operator_id, withdrawer_id, amount)?
-    //     };
-    //     // ext::vault_registry::decrease_backing_collateral::<T>(operator_id, amount)
-    //     Ok(())
-    // }
 
     /// Unbond collateral withdrawal if mature.
     ///
@@ -297,64 +275,6 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    // pub fn request_nominator_withdrawal(
-    //     operator_id: &T::AccountId,
-    //     nominator_id: &T::AccountId,
-    //     collateral_to_withdraw: Backing<T>,
-    // ) -> DispatchResult {
-    //     let mut operator = Self::get_rich_operator_from_id(operator_id)?;
-    //     let request_id = ext::security::get_secure_id::<T>(operator_id);
-    //     let height = ext::security::active_block_number::<T>();
-    //     let maturity = height
-    //         .checked_add(&Self::get_nominator_unbonding_period())
-    //         .ok_or(Error::<T>::ArithmeticOverflow)?;
-    //     operator.add_pending_nominator_withdrawal(
-    //         nominator_id.clone(),
-    //         request_id,
-    //         collateral_to_withdraw,
-    //         maturity,
-    //     )?;
-    //     Self::deposit_event(Event::<T>::RequestNominatorCollateralWithdrawal(
-    //         request_id,
-    //         nominator_id.clone(),
-    //         operator_id.clone(),
-    //         maturity,
-    //         collateral_to_withdraw,
-    //     ));
-    //     Ok(())
-    // }
-
-    // pub fn execute_nominator_withdrawal(operator_id: &T::AccountId, nominator_id: &T::AccountId) -> DispatchResult {
-    //     let mut operator = Self::get_rich_operator_from_id(operator_id)?;
-    //     let matured_collateral = operator.execute_nominator_withdrawal(nominator_id.clone())?;
-    //     ensure!(!matured_collateral.is_zero(), Error::<T>::NoMaturedCollateral);
-    //     Self::deposit_event(Event::<T>::ExecuteNominatorCollateralWithdrawal(
-    //         nominator_id.clone(),
-    //         operator_id.clone(),
-    //         matured_collateral,
-    //     ));
-    //     Ok(())
-    // }
-
-    // pub fn cancel_nominator_withdrawal(
-    //     operator_id: &T::AccountId,
-    //     nominator_id: &T::AccountId,
-    //     request_id: &H256,
-    // ) -> DispatchResult {
-    //     ensure!(
-    //         Self::is_operator(&operator_id)?,
-    //         Error::<T>::VaultNotOptedInToNomination
-    //     );
-    //     let mut operator = Self::get_rich_operator_from_id(operator_id)?;
-    //     operator.remove_pending_nominator_withdrawal(nominator_id, *request_id)?;
-    //     Self::deposit_event(Event::<T>::CancelNominatorCollateralWithdrawal(
-    //         *request_id,
-    //         nominator_id.clone(),
-    //         operator_id.clone(),
-    //     ));
-    //     Ok(())
-    // }
-
     pub fn _deposit_nominated_collateral(
         nominator_id: &T::AccountId,
         operator_id: &T::AccountId,
@@ -387,22 +307,6 @@ impl<T: Config> Module<T> {
         ));
         Ok(())
     }
-
-    // pub fn _withdraw_nominated_collateral(
-    //     nominator_id: &T::AccountId,
-    //     operator_id: &T::AccountId,
-    //     collateral: Backing<T>,
-    // ) -> DispatchResult {
-    //     let nominator = Self::register_or_get_nominator(nominator_id, operator_id);
-    //     let mut operator = Self::get_rich_operator_from_id(operator_id)?;
-    //     operator.withdraw_nominated_collateral(nominator_id.clone(), collateral)?;
-    //     Self::deposit_event(Event::<T>::WithdrawNominatedCollateral(
-    //         nominator_id.clone(),
-    //         operator_id.clone(),
-    //         collateral,
-    //     ));
-    //     Ok(())
-    // }
 
     /// Mark Vault as an Operator in the Vault Nomination protocol
     ///

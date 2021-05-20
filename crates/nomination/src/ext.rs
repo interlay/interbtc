@@ -31,7 +31,7 @@ pub(crate) mod collateral {
         destination: T::AccountId,
         amount: Backing<T>,
     ) -> DispatchResult {
-        CollateralPallet::<T>::transfer_and_lock(source, destination, amount)
+        CollateralPallet::<T>::transfer_and_lock(&source, &destination, amount)
     }
 }
 
