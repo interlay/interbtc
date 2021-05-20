@@ -267,20 +267,9 @@ impl nomination::Config for Test {
     type WeightInfo = ();
 }
 
-parameter_types! {
-    pub const MinimumDeposit: u64 = 10;
-    pub const MinimumStake: u64 = 10;
-    pub const VotingPeriod: u64 = 100;
-    pub const MaximumMessageSize: u32 = 32;
-}
-
 impl Config for Test {
     type Event = TestEvent;
     type WeightInfo = ();
-    type MinimumDeposit = MinimumDeposit;
-    type MinimumStake = MinimumStake;
-    type VotingPeriod = VotingPeriod;
-    type MaximumMessageSize = MaximumMessageSize;
 }
 
 pub type TestEvent = Event;

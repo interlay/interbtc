@@ -31,10 +31,6 @@ fn test_vault_theft(submit_by_relayer: bool) {
             vault_btc_address
         ));
 
-        // register as staked relayer
-        assert_ok!(Call::StakedRelayers(StakedRelayersCall::register_staked_relayer(100))
-            .dispatch(origin_of(account_of(user))));
-
         let initial_sla = SlaPallet::relayer_sla(account_of(ALICE));
 
         let (_tx_id, _height, proof, raw_tx, _) = TransactionGenerator::new()
@@ -49,7 +45,7 @@ fn test_vault_theft(submit_by_relayer: bool) {
         let mut expected_sla = initial_sla
             + FixedI128::checked_from_integer(7)
                 .unwrap()
-                .checked_mul(&SlaPallet::relayer_block_submission())
+                .checked_mul(&SlaPallet::relayer_store_block())
                 .unwrap();
         assert_eq!(SlaPallet::relayer_sla(account_of(ALICE)), expected_sla);
 
@@ -62,7 +58,7 @@ fn test_vault_theft(submit_by_relayer: bool) {
             );
 
             // check sla increase for the theft report
-            expected_sla = expected_sla + SlaPallet::relayer_correct_theft_report();
+            expected_sla = expected_sla + SlaPallet::relayer_theft_report();
             assert_eq!(SlaPallet::relayer_sla(account_of(ALICE)), expected_sla);
         } else {
             assert_ok!(
@@ -90,15 +86,6 @@ fn test_staked_relayer_parachain_status_check_fails() {
 
         assert_noop!(
             Call::StakedRelayers(StakedRelayersCall::initialize(Default::default(), 0))
-                .dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainShutdown
-        );
-        assert_noop!(
-            Call::StakedRelayers(StakedRelayersCall::register_staked_relayer(0)).dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainShutdown
-        );
-        assert_noop!(
-            Call::StakedRelayers(StakedRelayersCall::deregister_staked_relayer())
                 .dispatch(origin_of(account_of(ALICE))),
             SecurityError::ParachainShutdown
         );

@@ -19,11 +19,9 @@ fn setup_relayer(relayer: [u8; 32], sla: u32, stake: u128) {
             ..Default::default()
         },
     );
-    // register as staked relayer
-    assert_ok!(Call::StakedRelayers(StakedRelayersCall::register_staked_relayer(stake))
-        .dispatch(origin_of(account_of(relayer))));
+    // increase sla for block submission
     for _ in 0..sla {
-        SlaPallet::event_update_relayer_sla(&account_of(relayer), sla::types::RelayerEvent::BlockSubmission).unwrap();
+        SlaPallet::event_update_relayer_sla(&account_of(relayer), sla::types::RelayerEvent::StoreBlock).unwrap();
     }
 }
 

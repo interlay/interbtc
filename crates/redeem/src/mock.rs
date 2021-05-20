@@ -311,9 +311,8 @@ impl ExtBuilder {
             vault_submit_issue_proof: FixedI128::from(0),
             vault_refund: FixedI128::from(1),
             relayer_target_sla: FixedI128::from(100),
-            relayer_block_submission: FixedI128::from(1),
-            relayer_duplicate_block_submission: FixedI128::from(1),
-            relayer_correct_theft_report: FixedI128::from(1),
+            relayer_store_block: FixedI128::from(1),
+            relayer_theft_report: FixedI128::from(1),
         }
         .assimilate_storage(&mut storage)
         .unwrap();
