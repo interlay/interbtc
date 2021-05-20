@@ -104,24 +104,17 @@ where
 ///
 /// This is the actual implementation that is abstract over the executor and the runtime api.
 #[sc_tracing::logging::prefix_logs_with("Parachain")]
-async fn start_node_impl<RB, BIQ, BIC>(
+async fn start_node_impl<RB, BIC>(
     parachain_config: Configuration,
     collator_key: CollatorPair,
     polkadot_config: Configuration,
     id: ParaId,
     rpc_ext_builder: RB,
-    build_import_queue: BIQ,
     build_consensus: BIC,
 ) -> sc_service::error::Result<(TaskManager, Arc<FullClient>)>
 where
     sc_client_api::StateBackendFor<FullBackend, Block>: sp_api::StateBackend<BlakeTwo256>,
     RB: Fn(Arc<FullClient>) -> jsonrpc_core::IoHandler<sc_rpc::Metadata> + Send + 'static,
-    BIQ: FnOnce(
-        Arc<FullClient>,
-        &Configuration,
-        Option<TelemetryHandle>,
-        &TaskManager,
-    ) -> Result<sp_consensus::DefaultImportQueue<Block, FullClient>, sc_service::Error>,
     BIC: FnOnce(
         Arc<FullClient>,
         Option<&Registry>,
@@ -140,7 +133,7 @@ where
 
     let parachain_config = prepare_node_config(parachain_config);
 
-    let params = new_partial::<BIQ>(&parachain_config, build_import_queue)?;
+    let params = new_partial(&parachain_config)?;
     let (mut telemetry, telemetry_worker_handle) = params.other;
 
     let relay_chain_full_node = cumulus_client_service::build_polkadot_full_node(
@@ -293,13 +286,12 @@ pub async fn start_node(
     polkadot_config: Configuration,
     id: ParaId,
 ) -> sc_service::error::Result<(TaskManager, Arc<FullClient>)> {
-    start_node_impl::<_, _, _>(
+    start_node_impl::<_, _>(
         parachain_config,
         collator_key,
         polkadot_config,
         id,
         |_| Default::default(),
-        parachain_build_import_queue,
         |client,
          prometheus_registry,
          telemetry,
