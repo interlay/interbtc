@@ -288,6 +288,7 @@ async fn start_node(_: Cli, config: Configuration) -> sc_service::error::Result<
         Role::Light => btc_parachain_service::new_light(config),
         _ => btc_parachain_service::new_full(config),
     }
+    .map(|(task_manager, _)| task_manager)
 }
 
 #[cfg(feature = "cumulus-polkadot")]

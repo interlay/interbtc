@@ -3,7 +3,7 @@ use sc_client_api::{ExecutorProvider, RemoteBackend};
 use sc_consensus_aura::{ImportQueueParams, SlotProportion, StartAuraParams};
 use sc_finality_grandpa::SharedVoterState;
 use sc_keystore::LocalKeystore;
-use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
+use sc_service::{error::Error as ServiceError, Configuration, RpcHandlers, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sp_consensus::SlotData;
 use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
@@ -124,7 +124,7 @@ fn remote_keystore(_url: &String) -> Result<Arc<LocalKeystore>, &'static str> {
 }
 
 /// Builds a new service for a full client.
-pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> {
+pub fn new_full(mut config: Configuration) -> Result<(TaskManager, RpcHandlers), ServiceError> {
     let sc_service::PartialComponents {
         client,
         backend,
@@ -190,7 +190,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
         })
     };
 
-    let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
+    let rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
         network: network.clone(),
         client: client.clone(),
         keystore: keystore_container.sync_keystore(),
@@ -294,11 +294,11 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
     }
 
     network_starter.start_network();
-    Ok(task_manager)
+    Ok((task_manager, rpc_handlers))
 }
 
 /// Builds a new service for a light client.
-pub fn new_light(mut config: Configuration) -> Result<TaskManager, ServiceError> {
+pub fn new_light(mut config: Configuration) -> Result<(TaskManager, RpcHandlers), ServiceError> {
     let telemetry = config
         .telemetry_endpoints
         .clone()
@@ -384,7 +384,7 @@ pub fn new_light(mut config: Configuration) -> Result<TaskManager, ServiceError>
         sc_service::build_offchain_workers(&config, task_manager.spawn_handle(), client.clone(), network.clone());
     }
 
-    sc_service::spawn_tasks(sc_service::SpawnTasksParams {
+    let rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
         remote_blockchain: Some(backend.remote_blockchain()),
         transaction_pool,
         task_manager: &mut task_manager,
@@ -402,5 +402,5 @@ pub fn new_light(mut config: Configuration) -> Result<TaskManager, ServiceError>
 
     network_starter.start_network();
 
-    Ok(task_manager)
+    Ok((task_manager, rpc_handlers))
 }
