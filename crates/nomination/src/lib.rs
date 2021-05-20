@@ -17,7 +17,7 @@ mod default_weights;
 
 use codec::{Decode, Encode, EncodeLike};
 
-use ext::vault_registry::{DefaultVault, SlashingError, TryDepositCollateral, VaultStatus};
+use ext::vault_registry::{DefaultVault, SlashingError, TryDepositCollateral, TryWithdrawCollateral, VaultStatus};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
@@ -164,10 +164,10 @@ decl_module! {
 
         #[weight = <T as Config>::WeightInfo::request_collateral_withdrawal()]
         #[transactional]
-        fn request_collateral_withdrawal(origin, _operator_id: T::AccountId, _amount: Backing<T>) -> DispatchResult {
-            let _sender = ensure_signed(origin)?;
-            ext::security::ensure_parachain_status_running::<T>()
-            // Self::_request_collateral_withdrawal(&sender, &operator_id, amount)
+        fn request_collateral_withdrawal(origin, operator_id: T::AccountId, amount: Backing<T>) -> DispatchResult {
+            let sender = ensure_signed(origin)?;
+            ext::security::ensure_parachain_status_running::<T>()?;
+            Self::_request_collateral_withdrawal(&sender, &operator_id, amount)
         }
 
         #[weight = <T as Config>::WeightInfo::execute_collateral_withdrawal()]
@@ -196,6 +196,20 @@ impl<T: Config> Module<T> {
 
     pub fn set_nominator_unbonding_period(period: T::BlockNumber) -> DispatchResult {
         <NominatorUnbondingPeriod<T>>::set(period);
+        Ok(())
+    }
+
+    pub fn _request_collateral_withdrawal(
+        withdrawer_id: &T::AccountId,
+        operator_id: &T::AccountId,
+        amount: Backing<T>,
+    ) -> DispatchResult {
+        if withdrawer_id.eq(operator_id) {
+            Self::request_operator_withdrawal(operator_id, amount)?
+        } else {
+            Self::request_nominator_withdrawal(operator_id, withdrawer_id, amount)?
+        };
+        // ext::vault_registry::decrease_backing_collateral::<T>(operator_id, amount)
         Ok(())
     }
 
@@ -275,10 +289,25 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
+    pub fn request_nominator_withdrawal(
+        operator_id: &T::AccountId,
+        nominator_id: &T::AccountId,
+        amount: Backing<T>,
+    ) -> DispatchResult {
+        ensure!(
+            Self::is_operator(&operator_id)?,
+            Error::<T>::VaultNotOptedInToNomination
+        );
+        let mut nominator: RichNominator<T> = Self::get_nominator(&nominator_id, &operator_id)?.into();
+        nominator.try_withdraw_collateral(amount)?;
+        ext::collateral::unlock_and_transfer::<T>(nominator_id, operator_id, amount)?;
+        Ok(())
+    }
+
     pub fn _deposit_nominated_collateral(
         nominator_id: &T::AccountId,
         operator_id: &T::AccountId,
-        collateral: Backing<T>,
+        amount: Backing<T>,
     ) -> DispatchResult {
         ensure!(Self::is_nomination_enabled(), Error::<T>::VaultNominationDisabled);
         ensure!(
@@ -288,7 +317,7 @@ impl<T: Config> Module<T> {
         let vault_backing_collateral = ext::vault_registry::get_backing_collateral::<T>(operator_id)?;
         let total_nominated_collateral: Backing<T> = Self::get_total_nominated_collateral(operator_id)?.into();
         let new_nominated_collateral = total_nominated_collateral
-            .checked_add(&collateral)
+            .checked_add(&amount)
             .ok_or(Error::<T>::ArithmeticOverflow)?;
         ensure!(
             new_nominated_collateral <= Self::get_max_nominatable_collateral(vault_backing_collateral)?,
@@ -296,14 +325,14 @@ impl<T: Config> Module<T> {
         );
         let mut nominator: RichNominator<T> = Self::register_or_get_nominator(nominator_id, operator_id)?.into();
         nominator
-            .try_deposit_collateral(collateral)
+            .try_deposit_collateral(amount)
             .map_err(|e| Error::<T>::from(e))?;
-        ext::collateral::transfer_and_lock::<T>(nominator_id.clone(), operator_id.clone(), collateral)?;
+        ext::collateral::transfer_and_lock::<T>(nominator_id, operator_id, amount)?;
 
         Self::deposit_event(Event::<T>::IncreaseNominatedCollateral(
             nominator_id.clone(),
             operator_id.clone(),
-            collateral,
+            amount,
         ));
         Ok(())
     }

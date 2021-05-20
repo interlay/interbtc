@@ -303,8 +303,8 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
     /// * `destination` - the account receiving tokens
     /// * `amount` - the amount to transfer
     pub fn unlock_and_transfer(
-        source: T::AccountId,
-        destination: T::AccountId,
+        source: &T::AccountId,
+        destination: &T::AccountId,
         amount: BalanceOf<T, I>,
     ) -> DispatchResult {
         // repatriate_reserved but create account

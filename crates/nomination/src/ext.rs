@@ -27,11 +27,19 @@ pub(crate) mod collateral {
     type CollateralPallet<T> = currency::Pallet<T, currency::Backing>;
 
     pub fn transfer_and_lock<T: currency::Config<currency::Backing>>(
-        source: T::AccountId,
-        destination: T::AccountId,
+        source: &T::AccountId,
+        destination: &T::AccountId,
         amount: Backing<T>,
     ) -> DispatchResult {
-        CollateralPallet::<T>::transfer_and_lock(&source, &destination, amount)
+        CollateralPallet::<T>::transfer_and_lock(source, destination, amount)
+    }
+
+    pub fn unlock_and_transfer<T: currency::Config<currency::Backing>>(
+        source: &T::AccountId,
+        destination: &T::AccountId,
+        amount: Backing<T>,
+    ) -> DispatchResult {
+        CollateralPallet::<T>::unlock_and_transfer(source, destination, amount)
     }
 }
 
