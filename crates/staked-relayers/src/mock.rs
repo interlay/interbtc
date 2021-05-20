@@ -265,6 +265,7 @@ impl nomination::Config for Test {
     type Event = TestEvent;
     type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
+    type SignedFixedPoint = FixedI128;
 }
 
 impl Config for Test {

@@ -796,6 +796,7 @@ impl nomination::Config for Runtime {
     type Event = Event;
     type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
+    type SignedFixedPoint = FixedI128;
 }
 
 macro_rules! construct_polkabtc_runtime {

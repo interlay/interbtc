@@ -14,6 +14,7 @@ mod benchmarking;
 mod default_weights;
 mod slash;
 pub use default_weights::WeightInfo;
+pub use slash::{Collateral, SlashingError};
 
 #[cfg(test)]
 mod tests;
@@ -27,14 +28,17 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-#[doc(inline)]
-pub use crate::types::{BtcPublicKey, CurrencySource, SystemVault, Vault, VaultStatus, Wallet};
 use crate::{
-    slash::{Slashable, SlashingError, TryDepositCollateral, TryWithdrawCollateral},
+    slash::Slashable,
     types::{
-        Backing, BtcAddress, DefaultSystemVault, DefaultVault, Inner, Issuing, RichSystemVault, RichVault,
-        SignedFixedPoint, UnsignedFixedPoint, UpdatableVault, Version,
+        Backing, BtcAddress, DefaultSystemVault, Inner, Issuing, RichSystemVault, RichVault, SignedFixedPoint,
+        UnsignedFixedPoint, UpdatableVault, Version,
     },
+};
+#[doc(inline)]
+pub use crate::{
+    slash::{TryDepositCollateral, TryWithdrawCollateral},
+    types::{BtcPublicKey, CurrencySource, DefaultVault, SystemVault, Vault, VaultStatus, Wallet},
 };
 use codec::{Decode, Encode, EncodeLike};
 use frame_support::{
@@ -1501,6 +1505,11 @@ impl<T: Config> Pallet<T> {
 
     pub fn vault_exists(id: &T::AccountId) -> bool {
         Vaults::<T>::contains_key(id)
+    }
+
+    pub fn compute_collateral(id: &T::AccountId) -> Result<Backing<T>, DispatchError> {
+        let rich_vault = Self::get_rich_vault_from_id(id)?;
+        Ok(rich_vault.compute_collateral()?.into())
     }
 
     /// Private getters and setters

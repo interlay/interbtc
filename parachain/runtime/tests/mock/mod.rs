@@ -25,7 +25,6 @@ pub use refund::RefundRequest;
 pub use replace::ReplaceRequest;
 pub use reward::Rewards;
 pub use sp_runtime::AccountId32;
-use std::collections::BTreeMap;
 pub use std::convert::TryFrom;
 pub use vault_registry::{Vault, VaultStatus};
 
@@ -128,6 +127,7 @@ pub type VaultRegistryPallet = vault_registry::Pallet<Runtime>;
 
 pub type NominationCall = nomination::Call<Runtime>;
 pub type NominationError = nomination::Error<Runtime>;
+pub type NominationEvent = nomination::Event<Runtime>;
 pub type NominationPallet = nomination::Pallet<Runtime>;
 
 pub fn default_user_state() -> UserData {
@@ -154,10 +154,7 @@ pub fn default_vault_state() -> CoreVaultData {
 }
 
 pub fn default_operator_state() -> CoreOperatorData {
-    let default_nominators: BTreeMap<AccountId, CoreNominatorData> = BTreeMap::new();
     CoreOperatorData {
-        nominators: default_nominators,
-        total_nominated_collateral: DEFAULT_NOMINATION_TOTAL_NOMINATED_COLLATERAL,
         collateral_to_be_withdrawn: DEFAULT_NOMINATION_COLLATERAL_TO_BE_WITHDRAWN,
     }
 }
@@ -433,43 +430,39 @@ impl CoreVaultData {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
-pub struct CoreNominatorData {
-    pub collateral: u128,
-    pub collateral_to_be_withdrawn: u128,
-}
+// #[derive(Debug, PartialEq, Clone)]
+// pub struct CoreNominatorData {
+//     pub collateral_to_be_withdrawn: u128,
+// }
 
-impl Default for CoreNominatorData {
-    fn default() -> Self {
-        CoreNominatorData {
-            collateral: 0,
-            collateral_to_be_withdrawn: 0,
-        }
-    }
-}
+// impl Default for CoreNominatorData {
+//     fn default() -> Self {
+//         CoreNominatorData {
+//             collateral_to_be_withdrawn: 0,
+//         }
+//     }
+// }
 
-impl CoreNominatorData {
-    pub fn nominators(
-        nominators: Vec<(AccountId, Nominator<AccountId, BlockNumber, u128>)>,
-    ) -> BTreeMap<AccountId, CoreNominatorData> {
-        let mut nominators_map: BTreeMap<AccountId, CoreNominatorData> = BTreeMap::new();
-        for (_, nominator) in nominators {
-            nominators_map.insert(
-                nominator.id.clone(),
-                CoreNominatorData {
-                    collateral: nominator.collateral,
-                    collateral_to_be_withdrawn: nominator.collateral_to_be_withdrawn,
-                },
-            );
-        }
-        nominators_map
-    }
-}
+// impl CoreNominatorData {
+//     pub fn nominators(
+//         nominators: Vec<(AccountId, Nominator<AccountId, BlockNumber, u128, SignedFixedPoint>)>,
+//     ) -> BTreeMap<AccountId, CoreNominatorData> {
+//         let mut nominators_map: BTreeMap<AccountId, CoreNominatorData> = BTreeMap::new();
+//         for (_, nominator) in nominators {
+//             nominators_map.insert(
+//                 nominator.id.clone(),
+//                 CoreNominatorData {
+//                     collateral: nominator.collateral,
+//                     collateral_to_be_withdrawn: nominator.collateral_to_be_withdrawn,
+//                 },
+//             );
+//         }
+//         nominators_map
+//     }
+// }
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct CoreOperatorData {
-    pub nominators: BTreeMap<AccountId, CoreNominatorData>,
-    pub total_nominated_collateral: u128,
     pub collateral_to_be_withdrawn: u128,
 }
 
@@ -484,8 +477,6 @@ impl CoreOperatorData {
         let account_id = account_of(operator);
         match NominationPallet::is_operator(&account_id) {
             Ok(true) => Self {
-                nominators: CoreNominatorData::nominators(NominationPallet::get_nominators(&account_id).unwrap()),
-                total_nominated_collateral: NominationPallet::get_total_nominated_collateral(&account_id).unwrap(),
                 collateral_to_be_withdrawn: NominationPallet::get_collateral_to_be_withdrawn(&account_id).unwrap(),
             },
             Ok(false) => default_operator_state(),

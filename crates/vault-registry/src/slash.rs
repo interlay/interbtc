@@ -52,7 +52,7 @@ fn backing_to_fixed<Backing: TryInto<u128>, SignedFixedPoint: FixedPointNumber>(
 
 pub trait Collateral<Backing, SignedFixedPoint, E: From<SlashingError>> {
     /// Get the amount to slash per unit.
-    fn get_slash_per_token(&self) -> SignedFixedPoint;
+    fn get_slash_per_token(&self) -> Result<SignedFixedPoint, E>;
 
     /// Get the collateral held by a vault, excluding nomination.
     fn get_collateral(&self) -> Backing;
@@ -62,14 +62,14 @@ pub trait Collateral<Backing, SignedFixedPoint, E: From<SlashingError>> {
         F: Fn(&mut Backing) -> Result<(), E>;
 
     /// Get the total collateral held by a vault, including nomination.
-    fn get_total_collateral(&self) -> Backing;
+    fn get_total_collateral(&self) -> Result<Backing, E>;
 
     fn mut_total_collateral<F>(&mut self, func: F) -> Result<(), E>
     where
         F: Fn(&mut Backing) -> Result<(), E>;
 
     /// Get the backing collateral for a vault - after slashing.
-    fn get_backing_collateral(&self) -> Backing;
+    fn get_backing_collateral(&self) -> Result<Backing, E>;
 
     fn mut_backing_collateral<F>(&mut self, func: F) -> Result<(), E>
     where
@@ -116,7 +116,7 @@ pub(crate) trait Slashable<
         checked_sub_mut!(self, mut_backing_collateral, &amount);
 
         let amount_as_fixed = backing_to_fixed::<Backing, SignedFixedPoint>(amount)?;
-        let total_collateral = self.get_total_collateral();
+        let total_collateral = self.get_total_collateral()?;
         let total_collateral_as_fixed = backing_to_fixed::<Backing, SignedFixedPoint>(total_collateral)?;
         let amount_div_total_collateral = amount_as_fixed
             .checked_div(&total_collateral_as_fixed)
@@ -140,7 +140,7 @@ pub trait TryDepositCollateral<
         checked_add_mut!(self, mut_backing_collateral, &amount);
 
         let amount_as_fixed = backing_to_fixed::<Backing, SignedFixedPoint>(amount)?;
-        let slash_per_token = self.get_slash_per_token();
+        let slash_per_token = self.get_slash_per_token()?;
         let slash_per_token_mul_amount = slash_per_token
             .checked_mul(&amount_as_fixed)
             .ok_or(SlashingError::ArithmeticOverflow)?;
@@ -169,7 +169,7 @@ pub trait TryWithdrawCollateral<
     fn compute_collateral(&self) -> Result<Backing, E> {
         let collateral = backing_to_fixed::<Backing, SignedFixedPoint>(self.get_collateral())?;
         let to_slash = collateral
-            .checked_mul(&self.get_slash_per_token())
+            .checked_mul(&self.get_slash_per_token()?)
             .ok_or(SlashingError::ArithmeticOverflow)?
             .checked_sub(&self.get_slash_tally())
             .ok_or(SlashingError::ArithmeticUnderflow)?;
@@ -198,7 +198,7 @@ pub trait TryWithdrawCollateral<
 
         let amount_as_fixed = backing_to_fixed::<Backing, SignedFixedPoint>(amount)?;
         let slash_per_token_mul_amount = self
-            .get_slash_per_token()
+            .get_slash_per_token()?
             .checked_mul(&amount_as_fixed)
             .ok_or(SlashingError::ArithmeticOverflow)?;
         checked_sub_mut!(self, mut_slash_tally, &slash_per_token_mul_amount);
@@ -228,8 +228,8 @@ impl<T: Config> Slashable<Backing<T>, SignedFixedPoint<T>, Error<T>> for RichVau
 }
 
 impl<T: Config> Collateral<Backing<T>, SignedFixedPoint<T>, Error<T>> for RichVault<T> {
-    fn get_slash_per_token(&self) -> SignedFixedPoint<T> {
-        self.data.slash_per_token
+    fn get_slash_per_token(&self) -> Result<SignedFixedPoint<T>, Error<T>> {
+        Ok(self.data.slash_per_token)
     }
 
     fn get_collateral(&self) -> Backing<T> {
@@ -245,8 +245,8 @@ impl<T: Config> Collateral<Backing<T>, SignedFixedPoint<T>, Error<T>> for RichVa
         Ok(())
     }
 
-    fn get_total_collateral(&self) -> Backing<T> {
-        self.data.total_collateral
+    fn get_total_collateral(&self) -> Result<Backing<T>, Error<T>> {
+        Ok(self.data.total_collateral)
     }
 
     fn mut_total_collateral<F>(&mut self, func: F) -> Result<(), Error<T>>
@@ -258,8 +258,8 @@ impl<T: Config> Collateral<Backing<T>, SignedFixedPoint<T>, Error<T>> for RichVa
         Ok(())
     }
 
-    fn get_backing_collateral(&self) -> Backing<T> {
-        self.data.backing_collateral
+    fn get_backing_collateral(&self) -> Result<Backing<T>, Error<T>> {
+        Ok(self.data.backing_collateral)
     }
 
     fn mut_backing_collateral<F>(&mut self, func: F) -> Result<(), Error<T>>
@@ -310,8 +310,8 @@ mod tests {
     }
 
     impl Collateral<u128, FixedI128, SlashingError> for SimpleVault {
-        fn get_slash_per_token(&self) -> FixedI128 {
-            self.slash_per_token
+        fn get_slash_per_token(&self) -> Result<FixedI128, SlashingError> {
+            Ok(self.slash_per_token)
         }
 
         fn get_collateral(&self) -> u128 {
@@ -325,8 +325,8 @@ mod tests {
             func(&mut self.collateral)
         }
 
-        fn get_total_collateral(&self) -> u128 {
-            self.total_collateral
+        fn get_total_collateral(&self) -> Result<u128, SlashingError> {
+            Ok(self.total_collateral)
         }
 
         fn mut_total_collateral<F>(&mut self, func: F) -> Result<(), SlashingError>
@@ -336,8 +336,8 @@ mod tests {
             func(&mut self.total_collateral)
         }
 
-        fn get_backing_collateral(&self) -> u128 {
-            self.backing_collateral
+        fn get_backing_collateral(&self) -> Result<u128, SlashingError> {
+            Ok(self.backing_collateral)
         }
 
         fn mut_backing_collateral<F>(&mut self, func: F) -> Result<(), SlashingError>
