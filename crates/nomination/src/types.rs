@@ -10,7 +10,7 @@ use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 #[cfg(test)]
 use mocktopus::macros::mockable;
-use vault_registry::{Collateral, SlashingError};
+use vault_registry::Collateral;
 
 pub(crate) type Backing<T> =
     <<T as currency::Config<currency::Backing>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -375,10 +375,10 @@ impl<T: Config> RichOperator<T> {
     }
 }
 
-impl<T: Config> Collateral<Backing<T>, SignedFixedPoint<T>, vault_registry::SlashingError> for RichNominator<T> {
-    fn get_slash_per_token(&self) -> Result<SignedFixedPoint<T>, SlashingError> {
+impl<T: Config> Collateral<Backing<T>, SignedFixedPoint<T>, Error<T>> for RichNominator<T> {
+    fn get_slash_per_token(&self) -> Result<SignedFixedPoint<T>, Error<T>> {
         let vault = ext::vault_registry::get_vault_from_id::<T>(&self.data.operator_id)
-            .map_err(|_| SlashingError::VaultNotFound)?;
+            .map_err(|_| Error::<T>::VaultNotFound)?;
         Ok(vault.slash_per_token)
     }
 
@@ -386,44 +386,44 @@ impl<T: Config> Collateral<Backing<T>, SignedFixedPoint<T>, vault_registry::Slas
         self.data.collateral
     }
 
-    fn mut_collateral<F>(&mut self, func: F) -> Result<(), SlashingError>
+    fn mut_collateral<F>(&mut self, func: F) -> Result<(), Error<T>>
     where
-        F: Fn(&mut Backing<T>) -> Result<(), SlashingError>,
+        F: Fn(&mut Backing<T>) -> Result<(), Error<T>>,
     {
         func(&mut self.data.collateral)?;
         <crate::Nominators<T>>::insert((&self.data.id, &self.data.operator_id), self.data.clone());
         Ok(())
     }
 
-    fn get_total_collateral(&self) -> Result<Backing<T>, SlashingError> {
+    fn get_total_collateral(&self) -> Result<Backing<T>, Error<T>> {
         let vault = ext::vault_registry::get_vault_from_id::<T>(&self.data.operator_id)
-            .map_err(|_| SlashingError::VaultNotFound)?;
+            .map_err(|_| Error::<T>::VaultNotFound)?;
         Ok(vault.total_collateral)
     }
 
-    fn mut_total_collateral<F>(&mut self, func: F) -> Result<(), SlashingError>
+    fn mut_total_collateral<F>(&mut self, func: F) -> Result<(), Error<T>>
     where
-        F: Fn(&mut Backing<T>) -> Result<(), SlashingError>,
+        F: Fn(&mut Backing<T>) -> Result<(), Error<T>>,
     {
         let mut vault = ext::vault_registry::get_vault_from_id::<T>(&self.data.operator_id)
-            .map_err(|_| SlashingError::VaultNotFound)?;
+            .map_err(|_| Error::<T>::VaultNotFound)?;
         func(&mut vault.total_collateral)?;
         ext::vault_registry::insert_vault::<T>(&vault.id.clone(), vault);
         Ok(())
     }
 
-    fn get_backing_collateral(&self) -> Result<Backing<T>, SlashingError> {
+    fn get_backing_collateral(&self) -> Result<Backing<T>, Error<T>> {
         let vault = ext::vault_registry::get_vault_from_id::<T>(&self.data.operator_id)
-            .map_err(|_| SlashingError::VaultNotFound)?;
+            .map_err(|_| Error::<T>::VaultNotFound)?;
         Ok(vault.backing_collateral)
     }
 
-    fn mut_backing_collateral<F>(&mut self, func: F) -> Result<(), SlashingError>
+    fn mut_backing_collateral<F>(&mut self, func: F) -> Result<(), Error<T>>
     where
-        F: Fn(&mut Backing<T>) -> Result<(), SlashingError>,
+        F: Fn(&mut Backing<T>) -> Result<(), Error<T>>,
     {
         let mut vault = ext::vault_registry::get_vault_from_id::<T>(&self.data.operator_id)
-            .map_err(|_| SlashingError::VaultNotFound)?;
+            .map_err(|_| Error::<T>::VaultNotFound)?;
         func(&mut vault.backing_collateral)?;
         ext::vault_registry::insert_vault::<T>(&vault.id.clone(), vault);
         Ok(())
@@ -433,9 +433,9 @@ impl<T: Config> Collateral<Backing<T>, SignedFixedPoint<T>, vault_registry::Slas
         self.data.slash_tally
     }
 
-    fn mut_slash_tally<F>(&mut self, func: F) -> Result<(), SlashingError>
+    fn mut_slash_tally<F>(&mut self, func: F) -> Result<(), Error<T>>
     where
-        F: Fn(&mut SignedFixedPoint<T>) -> Result<(), SlashingError>,
+        F: Fn(&mut SignedFixedPoint<T>) -> Result<(), Error<T>>,
     {
         func(&mut self.data.slash_tally)?;
         <crate::Nominators<T>>::insert((&self.data.id, &self.data.operator_id), self.data.clone());

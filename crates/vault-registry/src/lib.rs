@@ -404,7 +404,6 @@ pub mod pallet {
                 SlashingError::ArithmeticUnderflow => Error::ArithmeticUnderflow,
                 SlashingError::TryIntoIntError => Error::TryIntoIntError,
                 SlashingError::InsufficientFunds => Error::InsufficientCollateral,
-                SlashingError::VaultNotFound => Error::VaultNotFound,
             }
         }
     }

@@ -423,7 +423,6 @@ impl<T: Config> From<SlashingError> for Error<T> {
             SlashingError::ArithmeticUnderflow => Error::<T>::ArithmeticUnderflow,
             SlashingError::TryIntoIntError => Error::<T>::TryIntoIntError,
             SlashingError::InsufficientFunds => Error::<T>::InsufficientCollateral,
-            SlashingError::VaultNotFound => Error::<T>::VaultNotFound,
         }
     }
 }

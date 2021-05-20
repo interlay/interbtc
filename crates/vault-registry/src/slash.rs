@@ -29,7 +29,6 @@ pub enum SlashingError {
     ArithmeticUnderflow,
     ArithmeticOverflow,
     InsufficientFunds,
-    VaultNotFound,
 }
 
 fn inner_to_backing<Backing: TryFrom<u128>, Inner: FixedPointOperand>(x: Inner) -> Result<Backing, SlashingError> {
