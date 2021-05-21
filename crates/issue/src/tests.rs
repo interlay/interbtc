@@ -1,4 +1,4 @@
-use crate::{ext, mock::*, Backing, Config, Issuing, RawEvent};
+use crate::{ext, mock::*, Collateral, Config, RawEvent, Wrapped};
 
 use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
@@ -53,7 +53,7 @@ fn cancel_issue(origin: AccountId, issue_id: &H256) -> Result<(), DispatchError>
 
 fn init_zero_vault<T: Config>(
     id: T::AccountId,
-) -> Vault<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>, <T as vault_registry::Config>::SignedFixedPoint> {
+) -> Vault<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>, <T as vault_registry::Config>::SignedFixedPoint> {
     let mut vault = Vault::default();
     vault.id = id;
     vault
@@ -95,7 +95,7 @@ fn test_request_issue_insufficient_collateral_fails() {
         ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
         ext::vault_registry::ensure_not_banned::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
-        ext::oracle::issuing_to_backing::<Test>.mock_safe(|_| MockResult::Return(Ok(10000000)));
+        ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|_| MockResult::Return(Ok(10000000)));
 
         assert_noop!(request_issue(ALICE, 3, BOB, 0), TestError::InsufficientCollateral,);
     })
@@ -290,7 +290,7 @@ fn test_cancel_issue_succeeds() {
 
         ext::vault_registry::transfer_funds::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));
 
-        ext::fee::distribute_backing_rewards::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
+        ext::fee::distribute_collateral_rewards::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
 
         let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
         // issue period is 10, we issued at block 1, so at block 15 the cancel should succeed

@@ -5,32 +5,33 @@ use frame_support::traits::Currency;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sp_core::H256;
 
-pub(crate) type Issuing<T> =
-    <<T as currency::Config<currency::Issuing>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub(crate) type Wrapped<T> =
+    <<T as currency::Config<currency::Wrapped>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-pub(crate) type Backing<T> =
-    <<T as currency::Config<currency::Backing>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub(crate) type Collateral<T> = <<T as currency::Config<currency::Collateral>>::Currency as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::Balance;
 
 // Due to a known bug in serde we need to specify how u128 is (de)serialized.
 // See https://github.com/paritytech/substrate/issues/4641
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-pub struct RefundRequest<AccountId, Issuing> {
+pub struct RefundRequest<AccountId, Wrapped> {
     pub vault: AccountId,
     #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
-    #[cfg_attr(feature = "std", serde(bound(serialize = "Issuing: std::fmt::Display")))]
+    #[cfg_attr(feature = "std", serde(bound(serialize = "Wrapped: std::fmt::Display")))]
     #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
-    pub amount_issuing: Issuing,
-    #[cfg_attr(feature = "std", serde(bound(deserialize = "Issuing: std::str::FromStr")))]
+    pub amount_wrapped: Wrapped,
+    #[cfg_attr(feature = "std", serde(bound(deserialize = "Wrapped: std::str::FromStr")))]
     #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
-    #[cfg_attr(feature = "std", serde(bound(serialize = "Issuing: std::fmt::Display")))]
+    #[cfg_attr(feature = "std", serde(bound(serialize = "Wrapped: std::fmt::Display")))]
     #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
-    pub fee: Issuing,
-    #[cfg_attr(feature = "std", serde(bound(deserialize = "Issuing: std::str::FromStr")))]
+    pub fee: Wrapped,
+    #[cfg_attr(feature = "std", serde(bound(deserialize = "Wrapped: std::str::FromStr")))]
     #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
-    #[cfg_attr(feature = "std", serde(bound(serialize = "Issuing: std::fmt::Display")))]
+    #[cfg_attr(feature = "std", serde(bound(serialize = "Wrapped: std::fmt::Display")))]
     #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
-    pub amount_btc: Issuing,
+    pub amount_btc: Wrapped,
     pub issuer: AccountId,
     pub btc_address: BtcAddress,
     pub issue_id: H256,

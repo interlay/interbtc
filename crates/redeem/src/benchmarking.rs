@@ -15,7 +15,7 @@ use vault_registry::{
     Pallet as VaultRegistry,
 };
 
-type Treasury<T> = currency::Pallet<T, currency::Issuing>;
+type Treasury<T> = currency::Pallet<T, currency::Wrapped>;
 
 fn dummy_public_key() -> BtcPublicKey {
     BtcPublicKey([

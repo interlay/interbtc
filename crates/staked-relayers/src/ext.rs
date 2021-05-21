@@ -3,7 +3,7 @@ use mocktopus::macros::mockable;
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
-    use crate::{Backing, Issuing};
+    use crate::{Collateral, Wrapped};
     use ::vault_registry::VaultStatus;
     use frame_support::dispatch::{DispatchError, DispatchResult};
     use vault_registry::types::Vault;
@@ -11,7 +11,7 @@ pub(crate) mod vault_registry {
     pub fn get_active_vault_from_id<T: vault_registry::Config>(
         vault_id: &T::AccountId,
     ) -> Result<
-        Vault<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>, <T as vault_registry::Config>::SignedFixedPoint>,
+        Vault<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>, <T as vault_registry::Config>::SignedFixedPoint>,
         DispatchError,
     > {
         <vault_registry::Pallet<T>>::get_active_vault_from_id(vault_id)
@@ -77,42 +77,42 @@ pub(crate) mod btc_relay {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod redeem {
-    use crate::types::{Backing, Issuing};
+    use crate::types::{Collateral, Wrapped};
     use frame_support::dispatch::DispatchError;
     use redeem::types::RedeemRequest;
     use sp_core::H256;
 
     pub(crate) fn get_open_or_completed_redeem_request_from_id<T: redeem::Config>(
         id: &H256,
-    ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>, DispatchError> {
+    ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>, DispatchError> {
         <redeem::Pallet<T>>::get_open_or_completed_redeem_request_from_id(id)
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod replace {
-    use crate::types::{Backing, Issuing};
+    use crate::types::{Collateral, Wrapped};
     use frame_support::dispatch::DispatchError;
     use replace::types::ReplaceRequest;
     use sp_core::H256;
 
     pub(crate) fn get_open_or_completed_replace_request<T: replace::Config>(
         id: &H256,
-    ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>, DispatchError> {
+    ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>, DispatchError> {
         <replace::Pallet<T>>::get_open_or_completed_replace_request(id)
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod refund {
-    use crate::types::Issuing;
+    use crate::types::Wrapped;
     use frame_support::dispatch::DispatchError;
     use refund::types::RefundRequest;
     use sp_core::H256;
 
     pub(crate) fn get_open_or_completed_refund_request_from_id<T: refund::Config>(
         id: &H256,
-    ) -> Result<RefundRequest<T::AccountId, Issuing<T>>, DispatchError> {
+    ) -> Result<RefundRequest<T::AccountId, Wrapped<T>>, DispatchError> {
         <refund::Pallet<T>>::get_open_or_completed_refund_request_from_id(id)
     }
 }

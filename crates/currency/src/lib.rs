@@ -25,8 +25,8 @@ pub type BalanceOf<T, I = ()> =
 
 pub use pallet::*;
 
-pub type Backing = pallet::Instance1;
-pub type Issuing = pallet::Instance2;
+pub type Collateral = pallet::Instance1;
+pub type Wrapped = pallet::Instance2;
 
 #[frame_support::pallet]
 pub mod pallet {

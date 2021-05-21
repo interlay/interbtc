@@ -18,11 +18,12 @@ pub enum Version {
     V3,
 }
 
-pub(crate) type Backing<T> =
-    <<T as currency::Config<currency::Backing>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub(crate) type Collateral<T> = <<T as currency::Config<currency::Collateral>>::Currency as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::Balance;
 
-pub(crate) type Issuing<T> =
-    <<T as currency::Config<currency::Issuing>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub(crate) type Wrapped<T> =
+    <<T as currency::Config<currency::Wrapped>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 #[derive(Encode, Decode, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
@@ -41,24 +42,24 @@ impl Default for ReplaceRequestStatus {
 // See https://github.com/paritytech/substrate/issues/4641
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
-pub struct ReplaceRequest<AccountId, BlockNumber, Issuing, Backing> {
+pub struct ReplaceRequest<AccountId, BlockNumber, Wrapped, Collateral> {
     pub old_vault: AccountId,
     pub new_vault: AccountId,
-    #[cfg_attr(feature = "std", serde(bound(deserialize = "Issuing: std::str::FromStr")))]
+    #[cfg_attr(feature = "std", serde(bound(deserialize = "Wrapped: std::str::FromStr")))]
     #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
-    #[cfg_attr(feature = "std", serde(bound(serialize = "Issuing: std::fmt::Display")))]
+    #[cfg_attr(feature = "std", serde(bound(serialize = "Wrapped: std::fmt::Display")))]
     #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
-    pub amount: Issuing,
-    #[cfg_attr(feature = "std", serde(bound(deserialize = "Backing: std::str::FromStr")))]
+    pub amount: Wrapped,
+    #[cfg_attr(feature = "std", serde(bound(deserialize = "Collateral: std::str::FromStr")))]
     #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
-    #[cfg_attr(feature = "std", serde(bound(serialize = "Backing: std::fmt::Display")))]
+    #[cfg_attr(feature = "std", serde(bound(serialize = "Collateral: std::fmt::Display")))]
     #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
-    pub griefing_collateral: Backing,
-    #[cfg_attr(feature = "std", serde(bound(deserialize = "Backing: std::str::FromStr")))]
+    pub griefing_collateral: Collateral,
+    #[cfg_attr(feature = "std", serde(bound(deserialize = "Collateral: std::str::FromStr")))]
     #[cfg_attr(feature = "std", serde(deserialize_with = "deserialize_from_string"))]
-    #[cfg_attr(feature = "std", serde(bound(serialize = "Backing: std::fmt::Display")))]
+    #[cfg_attr(feature = "std", serde(bound(serialize = "Collateral: std::fmt::Display")))]
     #[cfg_attr(feature = "std", serde(serialize_with = "serialize_as_string"))]
-    pub collateral: Backing,
+    pub collateral: Collateral,
     pub accept_time: BlockNumber,
     pub period: BlockNumber,
     pub btc_address: BtcAddress,
@@ -83,13 +84,13 @@ fn deserialize_from_string<'de, D: Deserializer<'de>, T: std::str::FromStr>(dese
 }
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
-pub(crate) struct ReplaceRequestV0<AccountId, BlockNumber, Issuing, Backing> {
+pub(crate) struct ReplaceRequestV0<AccountId, BlockNumber, Wrapped, Collateral> {
     pub old_vault: AccountId,
     pub open_time: BlockNumber,
-    pub amount: Issuing,
-    pub griefing_collateral: Backing,
+    pub amount: Wrapped,
+    pub griefing_collateral: Collateral,
     pub new_vault: Option<AccountId>,
-    pub collateral: Backing,
+    pub collateral: Collateral,
     pub accept_time: Option<BlockNumber>,
     pub btc_address: H160,
     pub completed: bool,

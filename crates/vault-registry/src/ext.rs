@@ -3,73 +3,76 @@ use mocktopus::macros::mockable;
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod collateral {
-    use crate::types::Backing;
+    use crate::types::Collateral;
     use frame_support::dispatch::DispatchResult;
 
-    type CollateralPallet<T> = currency::Pallet<T, currency::Backing>;
+    type CollateralPallet<T> = currency::Pallet<T, currency::Collateral>;
 
-    pub fn transfer<T: currency::Config<currency::Backing>>(
+    pub fn transfer<T: currency::Config<currency::Collateral>>(
         source: &T::AccountId,
         destination: &T::AccountId,
-        amount: Backing<T>,
+        amount: Collateral<T>,
     ) -> DispatchResult {
         CollateralPallet::<T>::transfer(source, destination, amount)
     }
 
-    pub fn lock<T: currency::Config<currency::Backing>>(sender: &T::AccountId, amount: Backing<T>) -> DispatchResult {
+    pub fn lock<T: currency::Config<currency::Collateral>>(
+        sender: &T::AccountId,
+        amount: Collateral<T>,
+    ) -> DispatchResult {
         CollateralPallet::<T>::lock(sender, amount)
     }
 
-    pub fn release_collateral<T: currency::Config<currency::Backing>>(
+    pub fn release_collateral<T: currency::Config<currency::Collateral>>(
         sender: &T::AccountId,
-        amount: Backing<T>,
+        amount: Collateral<T>,
     ) -> DispatchResult {
         CollateralPallet::<T>::release(sender, amount)
     }
 
-    pub fn get_reserved_balance<T: currency::Config<currency::Backing>>(id: &T::AccountId) -> Backing<T> {
+    pub fn get_reserved_balance<T: currency::Config<currency::Collateral>>(id: &T::AccountId) -> Collateral<T> {
         CollateralPallet::<T>::get_reserved_balance(id)
     }
 
-    pub fn get_free_balance<T: currency::Config<currency::Backing>>(id: &T::AccountId) -> Backing<T> {
+    pub fn get_free_balance<T: currency::Config<currency::Collateral>>(id: &T::AccountId) -> Collateral<T> {
         CollateralPallet::<T>::get_free_balance(id)
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod treasury {
-    use crate::types::Issuing;
+    use crate::types::Wrapped;
 
-    type TreasuryPallet<T> = currency::Pallet<T, currency::Issuing>;
+    type TreasuryPallet<T> = currency::Pallet<T, currency::Wrapped>;
 
-    pub fn total_issued<T: currency::Config<currency::Issuing>>() -> Issuing<T> {
+    pub fn total_issued<T: currency::Config<currency::Wrapped>>() -> Wrapped<T> {
         TreasuryPallet::<T>::get_total_supply()
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod oracle {
-    use crate::types::{Backing, Issuing};
+    use crate::types::{Collateral, Wrapped};
     use frame_support::dispatch::DispatchError;
 
-    type Collateral = currency::Backing;
-    type Treasury = currency::Issuing;
+    type CollateralInstance = currency::Collateral;
+    type WrappedInstance = currency::Wrapped;
 
     pub trait Exchangeable:
-        exchange_rate_oracle::Config + currency::Config<Collateral> + currency::Config<Treasury>
+        exchange_rate_oracle::Config + currency::Config<CollateralInstance> + currency::Config<WrappedInstance>
     {
     }
     impl<T> Exchangeable for T where
-        T: exchange_rate_oracle::Config + currency::Config<Collateral> + currency::Config<Treasury>
+        T: exchange_rate_oracle::Config + currency::Config<CollateralInstance> + currency::Config<WrappedInstance>
     {
     }
 
-    pub fn issuing_to_backing<T: Exchangeable>(amount: Issuing<T>) -> Result<Backing<T>, DispatchError> {
-        <exchange_rate_oracle::Pallet<T>>::issuing_to_backing(amount)
+    pub fn wrapped_to_collateral<T: Exchangeable>(amount: Wrapped<T>) -> Result<Collateral<T>, DispatchError> {
+        <exchange_rate_oracle::Pallet<T>>::wrapped_to_collateral(amount)
     }
 
-    pub fn backing_to_issuing<T: Exchangeable>(amount: Backing<T>) -> Result<Issuing<T>, DispatchError> {
-        <exchange_rate_oracle::Pallet<T>>::backing_to_issuing(amount)
+    pub fn collateral_to_wrapped<T: Exchangeable>(amount: Collateral<T>) -> Result<Wrapped<T>, DispatchError> {
+        <exchange_rate_oracle::Pallet<T>>::collateral_to_wrapped(amount)
     }
 }
 
@@ -88,17 +91,17 @@ pub(crate) mod security {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod sla {
-    use crate::types::{Backing, Issuing, UnsignedFixedPoint};
+    use crate::types::{Collateral, UnsignedFixedPoint, Wrapped};
     use frame_support::dispatch::DispatchError;
     pub use sla::types::VaultEvent;
 
     pub fn calculate_slashed_amount<T: crate::Config>(
         vault_id: &T::AccountId,
-        stake: Backing<T>,
+        stake: Collateral<T>,
         reimburse: bool,
         liquidation_threshold: UnsignedFixedPoint<T>,
         premium_redeem_threshold: UnsignedFixedPoint<T>,
-    ) -> Result<Backing<T>, DispatchError> {
+    ) -> Result<Collateral<T>, DispatchError> {
         <sla::Pallet<T>>::calculate_slashed_amount(
             vault_id,
             stake,
@@ -110,7 +113,7 @@ pub(crate) mod sla {
 
     pub fn event_update_vault_sla<T: sla::Config>(
         vault_id: &T::AccountId,
-        event: VaultEvent<Issuing<T>, Backing<T>>,
+        event: VaultEvent<Wrapped<T>, Collateral<T>>,
     ) -> Result<(), DispatchError> {
         <sla::Pallet<T>>::event_update_vault_sla(vault_id, event)
     }
