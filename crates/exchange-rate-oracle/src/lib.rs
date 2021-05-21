@@ -26,7 +26,7 @@ extern crate mocktopus;
 #[doc(inline)]
 pub use crate::types::BtcTxFeesPerByte;
 
-use crate::types::{Backing, Inner, Issuing, UnsignedFixedPoint, Version};
+use crate::types::{Collateral, Inner, UnsignedFixedPoint, Version, Wrapped};
 
 #[cfg(test)]
 use mocktopus::macros::mockable;
@@ -59,8 +59,8 @@ pub mod pallet {
     pub trait Config:
         frame_system::Config
         + pallet_timestamp::Config
-        + currency::Config<currency::Backing>
-        + currency::Config<currency::Issuing>
+        + currency::Config<currency::Collateral>
+        + currency::Config<currency::Wrapped>
         + security::Config
     {
         /// The overarching event type.
@@ -178,14 +178,17 @@ pub mod pallet {
         ///
         /// # Arguments
         ///
-        /// * `backing_per_issuing` - exchange rate expressed as the amount of backing collateral per whole issued
+        /// * `collateral_per_wrapped` - exchange rate expressed as the amount of backing collateral per whole issued
         ///   token.
         /// Note that this is _not_ the same unit that is stored in the ExchangeRate storage item which is multiplied by
         /// the conversion factor - i.e. planck_per_satoshi = dot_per_btc * (10**10 / 10**8)
         /// The stored unit is planck_per_satoshi
         #[pallet::weight(<T as Config>::WeightInfo::set_exchange_rate())]
         #[transactional]
-        pub fn set_exchange_rate(origin: OriginFor<T>, backing_per_issuing: UnsignedFixedPoint<T>) -> DispatchResult {
+        pub fn set_exchange_rate(
+            origin: OriginFor<T>,
+            collateral_per_wrapped: UnsignedFixedPoint<T>,
+        ) -> DispatchResult {
             // Check that Parachain is not in SHUTDOWN
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
@@ -194,10 +197,10 @@ pub mod pallet {
             // fail if the signer is not an authorized oracle
             ensure!(Self::is_authorized(&signer), Error::<T>::InvalidOracleSource);
 
-            let exchange_rate = Self::backing_per_issuing_to_exchange_rate(backing_per_issuing)?;
+            let exchange_rate = Self::collateral_per_wrapped_to_exchange_rate(collateral_per_wrapped)?;
             Self::_set_exchange_rate(exchange_rate)?;
 
-            Self::deposit_event(Event::<T>::SetExchangeRate(signer, backing_per_issuing));
+            Self::deposit_event(Event::<T>::SetExchangeRate(signer, collateral_per_wrapped));
 
             Ok(())
         }
@@ -277,8 +280,8 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Convert to the base exchange rate representation
-    fn backing_per_issuing_to_exchange_rate(
-        backing_per_issuing: UnsignedFixedPoint<T>,
+    fn collateral_per_wrapped_to_exchange_rate(
+        collateral_per_wrapped: UnsignedFixedPoint<T>,
     ) -> Result<UnsignedFixedPoint<T>, DispatchError> {
         let conversion_factor = UnsignedFixedPoint::<T>::checked_from_rational(
             10_u128.pow(ext::collateral::decimals::<T>().into()),
@@ -286,7 +289,7 @@ impl<T: Config> Pallet<T> {
         )
         .unwrap();
 
-        backing_per_issuing
+        collateral_per_wrapped
             .checked_mul(&conversion_factor)
             .ok_or(Error::<T>::ArithmeticOverflow.into())
     }
@@ -295,7 +298,7 @@ impl<T: Config> Pallet<T> {
         TryInto::<u128>::try_into(x).map_err(|_e| Error::<T>::TryIntoIntError.into())
     }
 
-    pub fn issuing_to_backing(amount: Issuing<T>) -> Result<Backing<T>, DispatchError> {
+    pub fn wrapped_to_collateral(amount: Wrapped<T>) -> Result<Collateral<T>, DispatchError> {
         let rate = Self::get_exchange_rate()?;
         let raw_amount = Self::into_u128(amount)?;
         let converted = rate.checked_mul_int(raw_amount).ok_or(Error::<T>::ArithmeticOverflow)?;
@@ -303,7 +306,7 @@ impl<T: Config> Pallet<T> {
         Ok(result)
     }
 
-    pub fn backing_to_issuing(amount: Backing<T>) -> Result<Issuing<T>, DispatchError> {
+    pub fn collateral_to_wrapped(amount: Collateral<T>) -> Result<Wrapped<T>, DispatchError> {
         let rate = Self::get_exchange_rate()?;
         let raw_amount = Self::into_u128(amount)?;
         if raw_amount == 0 {
@@ -311,8 +314,8 @@ impl<T: Config> Pallet<T> {
         }
 
         // The code below performs `raw_amount/rate`, plus necessary type conversions
-        let backing_as_inner: Inner<T> = raw_amount.try_into().map_err(|_| Error::<T>::TryIntoIntError)?;
-        let issuing_raw: u128 = T::UnsignedFixedPoint::checked_from_integer(backing_as_inner)
+        let collateral_as_inner: Inner<T> = raw_amount.try_into().map_err(|_| Error::<T>::TryIntoIntError)?;
+        let wrapped_raw: u128 = T::UnsignedFixedPoint::checked_from_integer(collateral_as_inner)
             .ok_or(Error::<T>::TryIntoIntError)?
             .checked_div(&rate)
             .ok_or(Error::<T>::ArithmeticUnderflow)?
@@ -320,7 +323,7 @@ impl<T: Config> Pallet<T> {
             .checked_div(&UnsignedFixedPoint::<T>::accuracy())
             .ok_or(Error::<T>::ArithmeticUnderflow)?
             .unique_saturated_into();
-        issuing_raw.try_into().map_err(|_e| Error::<T>::TryIntoIntError.into())
+        wrapped_raw.try_into().map_err(|_e| Error::<T>::TryIntoIntError.into())
     }
 
     pub fn get_last_exchange_rate_time() -> T::Moment {

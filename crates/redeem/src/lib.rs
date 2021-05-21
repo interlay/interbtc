@@ -29,7 +29,7 @@ pub mod types;
 #[doc(inline)]
 pub use crate::types::{RedeemRequest, RedeemRequestStatus};
 
-use crate::types::{Backing, Issuing, Version};
+use crate::types::{Collateral, Version, Wrapped};
 use btc_relay::BtcAddress;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
@@ -46,8 +46,8 @@ use vault_registry::CurrencySource;
 pub trait Config:
     frame_system::Config
     + vault_registry::Config
-    + currency::Config<currency::Backing>
-    + currency::Config<currency::Issuing>
+    + currency::Config<currency::Collateral>
+    + currency::Config<currency::Wrapped>
     + btc_relay::Config
     + fee::Config
     + sla::Config
@@ -66,13 +66,13 @@ decl_storage! {
         /// The redeem period has an upper limit to ensure the user gets their BTC in time and to potentially punish a vault for inactivity or stealing BTC.
         RedeemPeriod get(fn redeem_period) config(): T::BlockNumber;
 
-        /// Users create redeem requests to receive BTC in return for Issuing.
+        /// Users create redeem requests to receive BTC in return for their previously issued tokens.
         /// This mapping provides access from a unique hash redeemId to a Redeem struct.
-        RedeemRequests: map hasher(blake2_128_concat) H256 => RedeemRequest<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>;
+        RedeemRequests: map hasher(blake2_128_concat) H256 => RedeemRequest<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>;
 
         /// The minimum amount of btc that is accepted for redeem requests; any lower values would
         /// risk the bitcoin client to reject the payment
-        RedeemBtcDustValue get(fn redeem_btc_dust_value) config(): Issuing<T>;
+        RedeemBtcDustValue get(fn redeem_btc_dust_value) config(): Wrapped<T>;
 
         /// the expected size in bytes of the redeem bitcoin transfer
         RedeemTransactionSize get(fn redeem_transaction_size) config(): u32;
@@ -87,25 +87,25 @@ decl_event!(
     pub enum Event<T>
     where
         AccountId = <T as frame_system::Config>::AccountId,
-        Issuing = Issuing<T>,
-        Backing = Backing<T>,
+        Wrapped = Wrapped<T>,
+        Collateral = Collateral<T>,
     {
         RequestRedeem(
             H256,       // redeem_id
             AccountId,  // redeemer
-            Issuing,    // redeem_amount_issuing
-            Issuing,    // fee_issuing
-            Backing,    // premium
+            Wrapped,    // redeem_amount_wrapped
+            Wrapped,    // fee_wrapped
+            Collateral, // premium
             AccountId,  // vault_id
             BtcAddress, // user btc_address
-            Issuing,    // transfer_fee_btc
+            Wrapped,    // transfer_fee_btc
         ),
-        // [redeemer, amount_issuing]
-        LiquidationRedeem(AccountId, Issuing),
-        // [redeem_id, redeemer, amount_issuing, fee_issuing, vault]
-        ExecuteRedeem(H256, AccountId, Issuing, Issuing, AccountId),
-        // [redeem_id, redeemer, vault_id, slashing_amount_in_backing, reimburse]
-        CancelRedeem(H256, AccountId, AccountId, Backing, bool),
+        // [redeemer, amount_wrapped]
+        LiquidationRedeem(AccountId, Wrapped),
+        // [redeem_id, redeemer, amount_wrapped, fee_wrapped, vault]
+        ExecuteRedeem(H256, AccountId, Wrapped, Wrapped, AccountId),
+        // [redeem_id, redeemer, vault_id, slashing_amount_in_collateral, reimburse]
+        CancelRedeem(H256, AccountId, AccountId, Collateral, bool),
     }
 );
 
@@ -130,11 +130,11 @@ decl_module! {
         /// * `vault_id` - address of the vault
         #[weight = <T as Config>::WeightInfo::request_redeem()]
         #[transactional]
-        fn request_redeem(origin, #[compact] amount_issuing: Issuing<T>, btc_address: BtcAddress, vault_id: T::AccountId)
+        fn request_redeem(origin, #[compact] amount_wrapped: Wrapped<T>, btc_address: BtcAddress, vault_id: T::AccountId)
             -> DispatchResult
         {
             let redeemer = ensure_signed(origin)?;
-            Self::_request_redeem(redeemer, amount_issuing, btc_address, vault_id)?;
+            Self::_request_redeem(redeemer, amount_wrapped, btc_address, vault_id)?;
             Ok(())
         }
 
@@ -145,13 +145,13 @@ decl_module! {
         /// # Arguments
         ///
         /// * `origin` - sender of the transaction
-        /// * `amount_issuing` - amount of issued tokens to burn
+        /// * `amount_wrapped` - amount of issued tokens to burn
         #[weight = <T as Config>::WeightInfo::liquidation_redeem()]
         #[transactional]
-        fn liquidation_redeem(origin, #[compact] amount_issuing: Issuing<T>) -> DispatchResult
+        fn liquidation_redeem(origin, #[compact] amount_wrapped: Wrapped<T>) -> DispatchResult
         {
             let redeemer = ensure_signed(origin)?;
-            Self::_liquidation_redeem(redeemer, amount_issuing)?;
+            Self::_liquidation_redeem(redeemer, amount_wrapped)?;
             Ok(())
         }
 
@@ -164,7 +164,7 @@ decl_module! {
         /// * `origin` - anyone executing this redeem request
         /// * `redeem_id` - identifier of redeem request as output from request_redeem
         /// * `tx_id` - transaction hash
-        /// * `tx_block_height` - block number of backing chain
+        /// * `tx_block_height` - block number of collateral chain
         /// * `merkle_proof` - raw bytes
         /// * `raw_tx` - raw bytes
         #[weight = <T as Config>::WeightInfo::execute_redeem()]
@@ -241,20 +241,20 @@ decl_module! {
 impl<T: Config> Module<T> {
     fn _request_redeem(
         redeemer: T::AccountId,
-        amount_issuing: Issuing<T>,
+        amount_wrapped: Wrapped<T>,
         btc_address: BtcAddress,
         vault_id: T::AccountId,
     ) -> Result<H256, DispatchError> {
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
         let redeemer_balance = ext::treasury::get_balance::<T>(redeemer.clone());
-        ensure!(amount_issuing <= redeemer_balance, Error::<T>::AmountExceedsUserBalance);
+        ensure!(amount_wrapped <= redeemer_balance, Error::<T>::AmountExceedsUserBalance);
 
-        let fee_issuing = ext::fee::get_redeem_fee::<T>(amount_issuing)?;
+        let fee_wrapped = ext::fee::get_redeem_fee::<T>(amount_wrapped)?;
         let inclusion_fee = Self::get_current_inclusion_fee()?;
 
-        let vault_to_be_burned_tokens = amount_issuing
-            .checked_sub(&fee_issuing)
+        let vault_to_be_burned_tokens = amount_wrapped
+            .checked_sub(&fee_wrapped)
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
         // this can overflow for small requested values. As such return AmountBelowDustAmount when this happens
@@ -276,15 +276,15 @@ impl<T: Config> Module<T> {
         ext::vault_registry::try_increase_to_be_redeemed_tokens::<T>(&vault_id, vault_to_be_burned_tokens)?;
 
         // lock full amount (inc. fee)
-        ext::treasury::lock::<T>(redeemer.clone(), amount_issuing)?;
+        ext::treasury::lock::<T>(redeemer.clone(), amount_wrapped)?;
         let redeem_id = ext::security::get_secure_id::<T>(&redeemer);
 
         let below_premium_redeem = ext::vault_registry::is_vault_below_premium_threshold::<T>(&vault_id)?;
-        let premium_backing = if below_premium_redeem {
-            let redeem_amount_issuing_in_backing = ext::oracle::issuing_to_backing::<T>(user_to_be_received_btc)?;
-            ext::fee::get_premium_redeem_fee::<T>(redeem_amount_issuing_in_backing)?
+        let premium_collateral = if below_premium_redeem {
+            let redeem_amount_wrapped_in_collateral = ext::oracle::wrapped_to_collateral::<T>(user_to_be_received_btc)?;
+            ext::fee::get_premium_redeem_fee::<T>(redeem_amount_wrapped_in_collateral)?
         } else {
-            Backing::<T>::zero()
+            Collateral::<T>::zero()
         };
 
         // decrease to-be-replaced tokens - when the vault requests tokens to be replaced, it
@@ -303,10 +303,10 @@ impl<T: Config> Module<T> {
             RedeemRequest {
                 vault: vault_id.clone(),
                 opentime: ext::security::active_block_number::<T>(),
-                fee: fee_issuing,
+                fee: fee_wrapped,
                 transfer_fee_btc: inclusion_fee,
                 amount_btc: user_to_be_received_btc,
-                premium: premium_backing,
+                premium: premium_collateral,
                 period: Self::redeem_period(),
                 redeemer: redeemer.clone(),
                 btc_address,
@@ -320,8 +320,8 @@ impl<T: Config> Module<T> {
             redeem_id,
             redeemer,
             user_to_be_received_btc,
-            fee_issuing,
-            premium_backing,
+            fee_wrapped,
+            premium_collateral,
             vault_id,
             btc_address,
             inclusion_fee,
@@ -330,18 +330,18 @@ impl<T: Config> Module<T> {
         Ok(redeem_id)
     }
 
-    fn _liquidation_redeem(redeemer: T::AccountId, amount_issuing: Issuing<T>) -> Result<(), DispatchError> {
+    fn _liquidation_redeem(redeemer: T::AccountId, amount_wrapped: Wrapped<T>) -> Result<(), DispatchError> {
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
         let redeemer_balance = ext::treasury::get_balance::<T>(redeemer.clone());
-        ensure!(amount_issuing <= redeemer_balance, Error::<T>::AmountExceedsUserBalance);
+        ensure!(amount_wrapped <= redeemer_balance, Error::<T>::AmountExceedsUserBalance);
 
-        ext::treasury::lock::<T>(redeemer.clone(), amount_issuing)?;
-        ext::treasury::burn::<T>(redeemer.clone(), amount_issuing)?;
-        ext::vault_registry::redeem_tokens_liquidation::<T>(&redeemer, amount_issuing)?;
+        ext::treasury::lock::<T>(redeemer.clone(), amount_wrapped)?;
+        ext::treasury::burn::<T>(redeemer.clone(), amount_wrapped)?;
+        ext::vault_registry::redeem_tokens_liquidation::<T>(&redeemer, amount_wrapped)?;
 
-        // vault-registry emits `RedeemTokensLiquidation` with backing amount
-        Self::deposit_event(<Event<T>>::LiquidationRedeem(redeemer, amount_issuing));
+        // vault-registry emits `RedeemTokensLiquidation` with collateral amount
+        Self::deposit_event(<Event<T>>::LiquidationRedeem(redeemer, amount_wrapped));
 
         Ok(())
     }
@@ -382,7 +382,7 @@ impl<T: Config> Module<T> {
             ext::fee::fee_pool_account_id::<T>(),
             redeem.fee,
         )?;
-        ext::fee::distribute_issuing_rewards::<T>(redeem.fee)?;
+        ext::fee::distribute_wrapped_rewards::<T>(redeem.fee)?;
 
         ext::vault_registry::redeem_tokens::<T>(&redeem.vault, burn_amount, redeem.premium, &redeem.redeemer)?;
 
@@ -417,8 +417,8 @@ impl<T: Config> Module<T> {
             .checked_add(&redeem.transfer_fee_btc)
             .ok_or(Error::<T>::ArithmeticOverflow)?;
 
-        let amount_issuing_in_backing = ext::oracle::issuing_to_backing::<T>(vault_to_be_burned_tokens)?;
-        let punishment_fee_in_backing = ext::fee::get_punishment_fee::<T>(amount_issuing_in_backing)?;
+        let amount_wrapped_in_collateral = ext::oracle::wrapped_to_collateral::<T>(vault_to_be_burned_tokens)?;
+        let punishment_fee_in_collateral = ext::fee::get_punishment_fee::<T>(amount_wrapped_in_collateral)?;
 
         // now update the collateral; the logic is different for liquidated vaults.
         let slashed_amount = if vault.is_liquidated() {
@@ -434,7 +434,7 @@ impl<T: Config> Module<T> {
                 CurrencySource::LiquidationVault
             };
             ext::vault_registry::transfer_funds::<T>(
-                CurrencySource::Backing(vault_id.clone()),
+                CurrencySource::Collateral(vault_id.clone()),
                 slashing_destination,
                 confiscated_collateral,
             )?;
@@ -442,44 +442,44 @@ impl<T: Config> Module<T> {
             confiscated_collateral
         } else {
             // not liquidated
-            let slashed_backing = if reimburse {
+            let slashed_collateral = if reimburse {
                 // user requested to be reimbursed in collateral
-                let reimburse_in_backing = amount_issuing_in_backing
-                    .checked_add(&punishment_fee_in_backing)
+                let reimburse_in_collateral = amount_wrapped_in_collateral
+                    .checked_add(&punishment_fee_in_collateral)
                     .ok_or(Error::<T>::ArithmeticOverflow)?;
                 ext::vault_registry::transfer_funds_saturated::<T>(
-                    CurrencySource::Backing(vault_id.clone()),
+                    CurrencySource::Collateral(vault_id.clone()),
                     CurrencySource::FreeBalance(redeem.redeemer.clone()),
-                    reimburse_in_backing,
+                    reimburse_in_collateral,
                 )?
             } else {
                 // user chose to keep their issued tokens - only transfer it the punishment fee
                 // returns the amount actually slashed
                 ext::vault_registry::transfer_funds_saturated::<T>(
-                    CurrencySource::Backing(vault_id.clone()),
+                    CurrencySource::Collateral(vault_id.clone()),
                     CurrencySource::FreeBalance(redeemer.clone()),
-                    punishment_fee_in_backing,
+                    punishment_fee_in_collateral,
                 )?
             };
             // calculate additional amount to slash, a high SLA means we slash less
-            let slashing_amount_in_backing =
-                ext::vault_registry::calculate_slashed_amount::<T>(&vault_id, amount_issuing_in_backing, reimburse)?;
+            let slashing_amount_in_collateral =
+                ext::vault_registry::calculate_slashed_amount::<T>(&vault_id, amount_wrapped_in_collateral, reimburse)?;
 
             // slash the remaining amount from the vault to the fee pool
-            let remaining_backing_to_be_slashed = slashing_amount_in_backing
-                .checked_sub(&slashed_backing)
+            let remaining_collateral_to_be_slashed = slashing_amount_in_collateral
+                .checked_sub(&slashed_collateral)
                 .ok_or(Error::<T>::ArithmeticUnderflow)?;
-            if remaining_backing_to_be_slashed > Backing::<T>::zero() {
+            if remaining_collateral_to_be_slashed > Collateral::<T>::zero() {
                 let slashed_to_fee_pool = ext::vault_registry::transfer_funds_saturated::<T>(
-                    CurrencySource::Backing(vault_id.clone()),
+                    CurrencySource::Collateral(vault_id.clone()),
                     CurrencySource::FreeBalance(ext::fee::fee_pool_account_id::<T>()),
-                    remaining_backing_to_be_slashed,
+                    remaining_collateral_to_be_slashed,
                 )?;
-                ext::fee::distribute_backing_rewards::<T>(slashed_to_fee_pool)?;
+                ext::fee::distribute_collateral_rewards::<T>(slashed_to_fee_pool)?;
             }
             let _ = ext::vault_registry::ban_vault::<T>(vault_id.clone());
 
-            slashing_amount_in_backing
+            slashing_amount_in_collateral
         };
 
         // first update the issued tokens; this logic is the same regardless of whether or not the vault is liquidated
@@ -491,7 +491,7 @@ impl<T: Config> Module<T> {
                 ext::fee::fee_pool_account_id::<T>(),
                 redeem.fee,
             )?;
-            ext::fee::distribute_issuing_rewards::<T>(redeem.fee)?;
+            ext::fee::distribute_wrapped_rewards::<T>(redeem.fee)?;
 
             if ext::vault_registry::is_vault_below_secure_threshold::<T>(&redeem.vault)? {
                 // vault can not afford to back the tokens that he would receive, so we burn it
@@ -510,13 +510,13 @@ impl<T: Config> Module<T> {
             }
         } else {
             // unlock user's issued tokens, including fee
-            let total_issuing = redeem
+            let total_wrapped = redeem
                 .amount_btc
                 .checked_add(&redeem.fee)
                 .ok_or(Error::<T>::ArithmeticOverflow)?
                 .checked_add(&redeem.transfer_fee_btc)
                 .ok_or(Error::<T>::ArithmeticOverflow)?;
-            ext::treasury::unlock::<T>(redeemer.clone(), total_issuing)?;
+            ext::treasury::unlock::<T>(redeemer.clone(), total_wrapped)?;
             ext::vault_registry::decrease_to_be_redeemed_tokens::<T>(&vault_id, vault_to_be_burned_tokens)?;
             Self::set_redeem_status(redeem_id, RedeemRequestStatus::Retried);
         }
@@ -563,7 +563,7 @@ impl<T: Config> Module<T> {
 
     /// get current inclusion fee based on the expected number of bytes in the transaction, and
     /// the inclusion fee rate reported by the oracle
-    fn get_current_inclusion_fee() -> Result<Issuing<T>, DispatchError> {
+    fn get_current_inclusion_fee() -> Result<Wrapped<T>, DispatchError> {
         {
             let size: u32 = Self::redeem_transaction_size();
             let satoshi_per_bytes: u32 = ext::oracle::satoshi_per_bytes::<T>().fast;
@@ -581,7 +581,7 @@ impl<T: Config> Module<T> {
     ///
     /// * `key` - 256-bit identifier of the redeem request
     /// * `value` - the redeem request
-    fn insert_redeem_request(key: H256, value: RedeemRequest<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>) {
+    fn insert_redeem_request(key: H256, value: RedeemRequest<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>) {
         <RedeemRequests<T>>::insert(key, value)
     }
 
@@ -601,7 +601,7 @@ impl<T: Config> Module<T> {
         account_id: T::AccountId,
     ) -> Vec<(
         H256,
-        RedeemRequest<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>,
+        RedeemRequest<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>,
     )> {
         <RedeemRequests<T>>::iter()
             .filter(|(_, request)| request.redeemer == account_id)
@@ -617,7 +617,7 @@ impl<T: Config> Module<T> {
         account_id: T::AccountId,
     ) -> Vec<(
         H256,
-        RedeemRequest<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>,
+        RedeemRequest<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>,
     )> {
         <RedeemRequests<T>>::iter()
             .filter(|(_, request)| request.vault == account_id)
@@ -632,7 +632,7 @@ impl<T: Config> Module<T> {
     /// * `redeem_id` - 256-bit identifier of the redeem request
     pub fn get_open_redeem_request_from_id(
         redeem_id: &H256,
-    ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>, DispatchError> {
+    ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>, DispatchError> {
         ensure!(
             <RedeemRequests<T>>::contains_key(redeem_id),
             Error::<T>::RedeemIdNotFound
@@ -657,7 +657,7 @@ impl<T: Config> Module<T> {
     /// * `redeem_id` - 256-bit identifier of the redeem request
     pub fn get_open_or_completed_redeem_request_from_id(
         redeem_id: &H256,
-    ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>, DispatchError> {
+    ) -> Result<RedeemRequest<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>, DispatchError> {
         ensure!(
             <RedeemRequests<T>>::contains_key(*redeem_id),
             Error::<T>::RedeemIdNotFound

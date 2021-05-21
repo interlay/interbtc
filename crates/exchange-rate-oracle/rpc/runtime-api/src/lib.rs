@@ -33,16 +33,16 @@ fn deserialize_from_string<'de, D: Deserializer<'de>, T: std::str::FromStr>(dese
 }
 
 sp_api::decl_runtime_apis! {
-    pub trait ExchangeRateOracleApi<Issuing, Backing> where
-        Issuing: Codec,
-        Backing: Codec,
+    pub trait ExchangeRateOracleApi<Wrapped, Collateral> where
+        Wrapped: Codec,
+        Collateral: Codec,
     {
-        fn issuing_to_backing(
-            amount: BalanceWrapper<Issuing>
-        ) -> Result<BalanceWrapper<Backing>, DispatchError>;
+        fn wrapped_to_collateral(
+            amount: BalanceWrapper<Wrapped>
+        ) -> Result<BalanceWrapper<Collateral>, DispatchError>;
 
-        fn backing_to_issuing(
-            amount: BalanceWrapper<Backing>
-        ) -> Result<BalanceWrapper<Issuing>, DispatchError>;
+        fn collateral_to_wrapped(
+            amount: BalanceWrapper<Collateral>
+        ) -> Result<BalanceWrapper<Wrapped>, DispatchError>;
     }
 }

@@ -47,23 +47,26 @@ pub fn deregister_operator(vault: [u8; 32]) -> DispatchResultWithPostInfo {
 pub fn nominate_collateral(
     nominator: [u8; 32],
     operator: [u8; 32],
-    amount_backing: u128,
+    amount_collateral: u128,
 ) -> DispatchResultWithPostInfo {
     Call::Nomination(NominationCall::deposit_nominated_collateral(
         account_of(operator),
-        amount_backing,
+        amount_collateral,
     ))
     .dispatch(origin_of(account_of(nominator)))
 }
 
-pub fn assert_nominate_collateral(nominator: [u8; 32], operator: [u8; 32], amount_backing: u128) {
-    assert_ok!(nominate_collateral(nominator, operator, amount_backing));
+pub fn assert_nominate_collateral(nominator: [u8; 32], operator: [u8; 32], amount_collateral: u128) {
+    assert_ok!(nominate_collateral(nominator, operator, amount_collateral));
 }
 
-pub fn request_operator_collateral_withdrawal(operator: [u8; 32], amount_backing: u128) -> DispatchResultWithPostInfo {
+pub fn request_operator_collateral_withdrawal(
+    operator: [u8; 32],
+    amount_collateral: u128,
+) -> DispatchResultWithPostInfo {
     Call::Nomination(NominationCall::request_collateral_withdrawal(
         account_of(operator),
-        amount_backing,
+        amount_collateral,
     ))
     .dispatch(origin_of(account_of(operator)))
 }
@@ -104,11 +107,11 @@ pub fn assert_operator_withdrawal_request_event() -> H256 {
 pub fn request_nominator_collateral_withdrawal(
     nominator: [u8; 32],
     operator: [u8; 32],
-    amount_backing: u128,
+    amount_collateral: u128,
 ) -> DispatchResultWithPostInfo {
     Call::Nomination(NominationCall::request_collateral_withdrawal(
         account_of(operator),
-        amount_backing,
+        amount_collateral,
     ))
     .dispatch(origin_of(account_of(nominator)))
 }
@@ -151,7 +154,7 @@ pub fn assert_nominator_withdrawal_request_event() -> H256 {
     }
 }
 
-pub fn assert_total_nominated_collateral_is(operator: [u8; 32], amount_backing: u128) {
+pub fn assert_total_nominated_collateral_is(operator: [u8; 32], amount_collateral: u128) {
     let nominated_collateral = NominationPallet::get_total_nominated_collateral(&account_of(operator)).unwrap();
-    assert_eq!(nominated_collateral, amount_backing);
+    assert_eq!(nominated_collateral, amount_collateral);
 }

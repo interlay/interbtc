@@ -1,6 +1,6 @@
 use crate::{ext, mock::*};
 
-use crate::types::{Backing, Issuing, RedeemRequest, RedeemRequestStatus};
+use crate::types::{Collateral, RedeemRequest, RedeemRequestStatus, Wrapped};
 use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
@@ -29,9 +29,9 @@ fn convert_currency<I, O: std::convert::TryFrom<I>>(amount: I) -> Result<O, Disp
     TryInto::<O>::try_into(amount).map_err(|_e| TestError::TryIntoIntError.into())
 }
 
-fn btcdot_parity(issuing: Issuing<Test>) -> Result<Backing<Test>, DispatchError> {
-    let backing: u128 = convert_currency(issuing)?;
-    convert_currency(backing)
+fn btcdot_parity(wrapped: Wrapped<Test>) -> Result<Collateral<Test>, DispatchError> {
+    let collateral: u128 = convert_currency(wrapped)?;
+    convert_currency(collateral)
 }
 
 fn inject_redeem_request(key: H256, value: RedeemRequest<AccountId, BlockNumber, Balance, Balance>) {
@@ -48,7 +48,7 @@ fn dummy_public_key() -> BtcPublicKey {
 #[test]
 fn test_request_redeem_fails_with_amount_exceeds_user_balance() {
     run_test(|| {
-        <currency::Pallet<Test, currency::Issuing>>::mint(ALICE, 2);
+        <currency::Pallet<Test, currency::Wrapped>>::mint(ALICE, 2);
         let amount = 10_000_000;
         assert_err!(
             Redeem::request_redeem(Origin::signed(ALICE), amount, BtcAddress::default(), BOB),
@@ -60,7 +60,7 @@ fn test_request_redeem_fails_with_amount_exceeds_user_balance() {
 #[test]
 fn test_request_redeem_fails_with_amount_below_minimum() {
     run_test(|| {
-        ext::oracle::issuing_to_backing::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
+        ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
         <vault_registry::Pallet<Test>>::insert_vault(
             &BOB,
             vault_registry::Vault {
@@ -132,7 +132,7 @@ fn test_request_redeem_fails_with_vault_liquidated() {
 #[test]
 fn test_request_redeem_succeeds_with_normal_redeem() {
     run_test(|| {
-        ext::oracle::issuing_to_backing::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
+        ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
         <vault_registry::Pallet<Test>>::insert_vault(
             &BOB,
             vault_registry::Vault {
@@ -161,9 +161,9 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
             MockResult::Return(Ok(()))
         });
 
-        ext::treasury::lock::<Test>.mock_safe(move |account, amount_issuing| {
+        ext::treasury::lock::<Test>.mock_safe(move |account, amount_wrapped| {
             assert_eq!(account, redeemer);
-            assert_eq!(amount_issuing, amount);
+            assert_eq!(amount_wrapped, amount);
 
             MockResult::Return(Ok(()))
         });
@@ -237,7 +237,7 @@ fn test_liquidation_redeem_succeeds() {
 #[test]
 fn test_execute_redeem_fails_with_redeem_id_not_found() {
     run_test(|| {
-        ext::oracle::issuing_to_backing::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
+        ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
         assert_err!(
             Redeem::execute_redeem(Origin::signed(BOB), H256([0u8; 32]), Vec::default(), Vec::default()),
             TestError::RedeemIdNotFound
@@ -248,7 +248,7 @@ fn test_execute_redeem_fails_with_redeem_id_not_found() {
 #[test]
 fn test_execute_redeem_succeeds_with_another_account() {
     run_test(|| {
-        ext::oracle::issuing_to_backing::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
+        ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
         Security::<Test>::set_active_block_number(40);
         <vault_registry::Pallet<Test>>::insert_vault(
             &BOB,
@@ -286,16 +286,16 @@ fn test_execute_redeem_succeeds_with_another_account() {
             },
         );
 
-        ext::treasury::burn::<Test>.mock_safe(move |redeemer, amount_issuing| {
+        ext::treasury::burn::<Test>.mock_safe(move |redeemer, amount_wrapped| {
             assert_eq!(redeemer, ALICE);
-            assert_eq!(amount_issuing, 100);
+            assert_eq!(amount_wrapped, 100);
 
             MockResult::Return(Ok(()))
         });
 
-        ext::vault_registry::redeem_tokens::<Test>.mock_safe(move |vault, amount_issuing, premium, _| {
+        ext::vault_registry::redeem_tokens::<Test>.mock_safe(move |vault, amount_wrapped, premium, _| {
             assert_eq!(vault, &BOB);
-            assert_eq!(amount_issuing, 100);
+            assert_eq!(amount_wrapped, 100);
             assert_eq!(premium, 0);
 
             MockResult::Return(Ok(()))
@@ -346,7 +346,7 @@ fn test_execute_redeem_fails_with_commit_period_expired() {
 #[test]
 fn test_execute_redeem_succeeds() {
     run_test(|| {
-        ext::oracle::issuing_to_backing::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
+        ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
         Security::<Test>::set_active_block_number(40);
         <vault_registry::Pallet<Test>>::insert_vault(
             &BOB,
@@ -384,16 +384,16 @@ fn test_execute_redeem_succeeds() {
             },
         );
 
-        ext::treasury::burn::<Test>.mock_safe(move |redeemer, amount_issuing| {
+        ext::treasury::burn::<Test>.mock_safe(move |redeemer, amount_wrapped| {
             assert_eq!(redeemer, ALICE);
-            assert_eq!(amount_issuing, 100);
+            assert_eq!(amount_wrapped, 100);
 
             MockResult::Return(Ok(()))
         });
 
-        ext::vault_registry::redeem_tokens::<Test>.mock_safe(move |vault, amount_issuing, premium, _| {
+        ext::vault_registry::redeem_tokens::<Test>.mock_safe(move |vault, amount_wrapped, premium, _| {
             assert_eq!(vault, &BOB);
-            assert_eq!(amount_issuing, 100);
+            assert_eq!(amount_wrapped, 100);
             assert_eq!(premium, 0);
 
             MockResult::Return(Ok(()))

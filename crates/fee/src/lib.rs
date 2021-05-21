@@ -43,7 +43,7 @@ use sp_std::{
     fmt::Debug,
     vec::*,
 };
-use types::{Backing, Inner, Issuing, SignedFixedPoint, UnsignedFixedPoint, Version};
+use types::{Collateral, Inner, SignedFixedPoint, UnsignedFixedPoint, Version, Wrapped};
 
 pub trait WeightInfo {
     fn withdraw_vault_rewards() -> Weight;
@@ -52,7 +52,7 @@ pub trait WeightInfo {
 
 /// The pallet's configuration trait.
 pub trait Config:
-    frame_system::Config + currency::Config<currency::Backing> + currency::Config<currency::Issuing> + security::Config
+    frame_system::Config + currency::Config<currency::Collateral> + currency::Config<currency::Wrapped> + security::Config
 {
     /// The fee module id, used for deriving its sovereign account ID.
     type PalletId: Get<PalletId>;
@@ -69,10 +69,10 @@ pub trait Config:
     /// The `Inner` type of the `SignedFixedPoint`.
     type SignedInner: Debug
         + CheckedDiv
-        + TryFrom<Backing<Self>>
-        + TryFrom<Issuing<Self>>
-        + TryInto<Backing<Self>>
-        + TryInto<Issuing<Self>>;
+        + TryFrom<Collateral<Self>>
+        + TryFrom<Wrapped<Self>>
+        + TryInto<Collateral<Self>>
+        + TryInto<Wrapped<Self>>;
 
     /// Unsigned fixed point type.
     type UnsignedFixedPoint: FixedPointNumber<Inner = Self::UnsignedInner> + Encode + EncodeLike + Decode;
@@ -83,22 +83,22 @@ pub trait Config:
         + CheckedMul
         + CheckedDiv
         + FixedPointOperand
-        + From<Backing<Self>>
-        + From<Issuing<Self>>
-        + Into<Backing<Self>>
-        + Into<Issuing<Self>>;
+        + From<Collateral<Self>>
+        + From<Wrapped<Self>>
+        + Into<Collateral<Self>>
+        + Into<Wrapped<Self>>;
 
-    /// Vault reward pool for the backing currency.
-    type BackingVaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
+    /// Vault reward pool for the collateral currency.
+    type CollateralVaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
 
-    /// Vault reward pool for the issuing currency.
-    type IssuingVaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
+    /// Vault reward pool for the wrapped currency.
+    type WrappedVaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
 
-    /// Relayer reward pool for the backing currency.
-    type BackingRelayerRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
+    /// Relayer reward pool for the collateral currency.
+    type CollateralRelayerRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
 
-    /// Relayer reward pool for the issuing currency.
-    type IssuingRelayerRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
+    /// Relayer reward pool for the wrapped currency.
+    type WrappedRelayerRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
 }
 
 // The pallet's storage items.
@@ -183,11 +183,11 @@ decl_event!(
     pub enum Event<T>
     where
         AccountId = <T as frame_system::Config>::AccountId,
-        Issuing = Issuing<T>,
-        Backing = Backing<T>,
+        Wrapped = Wrapped<T>,
+        Collateral = Collateral<T>,
     {
-        WithdrawIssuing(AccountId, Issuing),
-        WithdrawBacking(AccountId, Backing),
+        WithdrawWrapped(AccountId, Wrapped),
+        WithdrawCollateral(AccountId, Collateral),
     }
 );
 
@@ -204,63 +204,63 @@ decl_module! {
         // Initialize events
         fn deposit_event() = default;
 
-        /// Withdraw all vault backing rewards.
+        /// Withdraw all vault collateral rewards.
         ///
         /// # Arguments
         ///
         /// * `origin` - signing account
         #[weight = <T as Config>::WeightInfo::withdraw_vault_rewards()]
         #[transactional]
-        fn withdraw_vault_backing_rewards(origin) -> DispatchResult
+        fn withdraw_vault_collateral_rewards(origin) -> DispatchResult
         {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let signer = ensure_signed(origin)?;
-            Self::withdraw_backing::<T::BackingVaultRewards>(&signer)?;
+            Self::withdraw_collateral::<T::CollateralVaultRewards>(&signer)?;
             Ok(())
         }
 
-        /// Withdraw all vault issuing rewards.
+        /// Withdraw all vault wrapped rewards.
         ///
         /// # Arguments
         ///
         /// * `origin` - signing account
         #[weight = <T as Config>::WeightInfo::withdraw_vault_rewards()]
         #[transactional]
-        fn withdraw_vault_issuing_rewards(origin) -> DispatchResult
+        fn withdraw_vault_wrapped_rewards(origin) -> DispatchResult
         {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let signer = ensure_signed(origin)?;
-            Self::withdraw_issuing::<T::IssuingVaultRewards>(&signer)?;
+            Self::withdraw_wrapped::<T::WrappedVaultRewards>(&signer)?;
             Ok(())
         }
 
-        /// Withdraw all relayer backing rewards.
+        /// Withdraw all relayer collateral rewards.
         ///
         /// # Arguments
         ///
         /// * `origin` - signing account
         #[weight = <T as Config>::WeightInfo::withdraw_relayer_rewards()]
         #[transactional]
-        fn withdraw_relayer_backing_rewards(origin) -> DispatchResult
+        fn withdraw_relayer_collateral_rewards(origin) -> DispatchResult
         {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let signer = ensure_signed(origin)?;
-            Self::withdraw_backing::<T::BackingRelayerRewards>(&signer)?;
+            Self::withdraw_collateral::<T::CollateralRelayerRewards>(&signer)?;
             Ok(())
         }
 
-        /// Withdraw all relayer issuing rewards.
+        /// Withdraw all relayer wrapped rewards.
         ///
         /// # Arguments
         ///
         /// * `origin` - signing account
         #[weight = <T as Config>::WeightInfo::withdraw_relayer_rewards()]
         #[transactional]
-        fn withdraw_relayer_issuing_rewards(origin) -> DispatchResult
+        fn withdraw_relayer_wrapped_rewards(origin) -> DispatchResult
         {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let signer = ensure_signed(origin)?;
-            Self::withdraw_issuing::<T::IssuingRelayerRewards>(&signer)?;
+            Self::withdraw_wrapped::<T::WrappedRelayerRewards>(&signer)?;
             Ok(())
         }
     }
@@ -279,19 +279,20 @@ impl<T: Config> Module<T> {
 
     // Public functions exposed to other pallets
 
-    /// Distribute backing rewards to participants.
+    /// Distribute collateral rewards to participants.
     ///
     /// # Arguments
     ///
-    /// * `amount` - amount of the backing currency
-    pub fn distribute_backing_rewards(amount: Backing<T>) -> Result<(), DispatchError> {
+    /// * `amount` - amount of the collateral currency
+    pub fn distribute_collateral_rewards(amount: Collateral<T>) -> Result<(), DispatchError> {
         // calculate vault rewards
-        let vault_rewards = Self::backing_for(amount, Self::vault_rewards())?;
-        let vault_rewards = Self::distribute::<_, _, T::SignedFixedPoint, T::BackingVaultRewards>(vault_rewards)?;
+        let vault_rewards = Self::collateral_for(amount, Self::vault_rewards())?;
+        let vault_rewards = Self::distribute::<_, _, T::SignedFixedPoint, T::CollateralVaultRewards>(vault_rewards)?;
 
         // calculate relayer rewards
-        let relayer_rewards = Self::backing_for(amount, Self::relayer_rewards())?;
-        let relayer_rewards = Self::distribute::<_, _, T::SignedFixedPoint, T::BackingRelayerRewards>(relayer_rewards)?;
+        let relayer_rewards = Self::collateral_for(amount, Self::relayer_rewards())?;
+        let relayer_rewards =
+            Self::distribute::<_, _, T::SignedFixedPoint, T::CollateralRelayerRewards>(relayer_rewards)?;
 
         // give remaining rewards to maintainer (dev fund)
         let maintainer_rewards = amount.saturating_sub(
@@ -305,19 +306,19 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Distribute issuing rewards to participants.
+    /// Distribute wrapped rewards to participants.
     ///
     /// # Arguments
     ///
-    /// * `amount` - amount of the issuing currency
-    pub fn distribute_issuing_rewards(amount: Issuing<T>) -> Result<(), DispatchError> {
+    /// * `amount` - amount of the wrapped currency
+    pub fn distribute_wrapped_rewards(amount: Wrapped<T>) -> Result<(), DispatchError> {
         // calculate vault rewards
-        let vault_rewards = Self::issuing_for(amount, Self::vault_rewards())?;
-        let vault_rewards = Self::distribute::<_, _, T::SignedFixedPoint, T::IssuingVaultRewards>(vault_rewards)?;
+        let vault_rewards = Self::wrapped_for(amount, Self::vault_rewards())?;
+        let vault_rewards = Self::distribute::<_, _, T::SignedFixedPoint, T::WrappedVaultRewards>(vault_rewards)?;
 
         // calculate relayer rewards
-        let relayer_rewards = Self::issuing_for(amount, Self::relayer_rewards())?;
-        let relayer_rewards = Self::distribute::<_, _, T::SignedFixedPoint, T::IssuingRelayerRewards>(relayer_rewards)?;
+        let relayer_rewards = Self::wrapped_for(amount, Self::relayer_rewards())?;
+        let relayer_rewards = Self::distribute::<_, _, T::SignedFixedPoint, T::WrappedRelayerRewards>(relayer_rewards)?;
 
         // give remaining rewards to maintainer (dev fund)
         let maintainer_rewards = amount.saturating_sub(
@@ -336,8 +337,8 @@ impl<T: Config> Module<T> {
     /// # Arguments
     ///
     /// * `amount` - issue amount in tokens
-    pub fn get_issue_fee(amount: Issuing<T>) -> Result<Issuing<T>, DispatchError> {
-        Self::issuing_for(amount, <IssueFee<T>>::get())
+    pub fn get_issue_fee(amount: Wrapped<T>) -> Result<Wrapped<T>, DispatchError> {
+        Self::wrapped_for(amount, <IssueFee<T>>::get())
     }
 
     /// Calculate the required issue griefing collateral.
@@ -345,8 +346,8 @@ impl<T: Config> Module<T> {
     /// # Arguments
     ///
     /// * `amount` - issue amount in collateral (at current exchange rate)
-    pub fn get_issue_griefing_collateral(amount: Backing<T>) -> Result<Backing<T>, DispatchError> {
-        Self::backing_for(amount, <IssueGriefingCollateral<T>>::get())
+    pub fn get_issue_griefing_collateral(amount: Collateral<T>) -> Result<Collateral<T>, DispatchError> {
+        Self::collateral_for(amount, <IssueGriefingCollateral<T>>::get())
     }
 
     /// Calculate the required redeem fee in tokens. Upon execution, the
@@ -355,8 +356,8 @@ impl<T: Config> Module<T> {
     /// # Arguments
     ///
     /// * `amount` - redeem amount in tokens
-    pub fn get_redeem_fee(amount: Issuing<T>) -> Result<Issuing<T>, DispatchError> {
-        Self::issuing_for(amount, <RedeemFee<T>>::get())
+    pub fn get_redeem_fee(amount: Wrapped<T>) -> Result<Wrapped<T>, DispatchError> {
+        Self::wrapped_for(amount, <RedeemFee<T>>::get())
     }
 
     /// Calculate the premium redeem fee in collateral for a user to get if redeeming
@@ -365,8 +366,8 @@ impl<T: Config> Module<T> {
     /// # Arguments
     ///
     /// * `amount` - amount in collateral (at current exchange rate)
-    pub fn get_premium_redeem_fee(amount: Backing<T>) -> Result<Backing<T>, DispatchError> {
-        Self::backing_for(amount, <PremiumRedeemFee<T>>::get())
+    pub fn get_premium_redeem_fee(amount: Collateral<T>) -> Result<Collateral<T>, DispatchError> {
+        Self::collateral_for(amount, <PremiumRedeemFee<T>>::get())
     }
 
     /// Calculate punishment fee for a Vault that fails to execute a redeem
@@ -375,8 +376,8 @@ impl<T: Config> Module<T> {
     /// # Arguments
     ///
     /// * `amount` - amount in collateral (at current exchange rate)
-    pub fn get_punishment_fee(amount: Backing<T>) -> Result<Backing<T>, DispatchError> {
-        Self::backing_for(amount, <PunishmentFee<T>>::get())
+    pub fn get_punishment_fee(amount: Collateral<T>) -> Result<Collateral<T>, DispatchError> {
+        Self::collateral_for(amount, <PunishmentFee<T>>::get())
     }
 
     /// Calculate the required replace griefing collateral.
@@ -384,8 +385,8 @@ impl<T: Config> Module<T> {
     /// # Arguments
     ///
     /// * `amount` - replace amount in collateral (at current exchange rate)
-    pub fn get_replace_griefing_collateral(amount: Backing<T>) -> Result<Backing<T>, DispatchError> {
-        Self::backing_for(amount, <ReplaceGriefingCollateral<T>>::get())
+    pub fn get_replace_griefing_collateral(amount: Collateral<T>) -> Result<Collateral<T>, DispatchError> {
+        Self::collateral_for(amount, <ReplaceGriefingCollateral<T>>::get())
     }
 
     /// Calculate the fee portion of a total amount. For `amount = fee + refund_amount`, this
@@ -394,7 +395,7 @@ impl<T: Config> Module<T> {
     /// # Arguments
     ///
     /// * `amount` - total amount in tokens
-    pub fn get_refund_fee_from_total(amount: Issuing<T>) -> Result<Issuing<T>, DispatchError> {
+    pub fn get_refund_fee_from_total(amount: Wrapped<T>) -> Result<Wrapped<T>, DispatchError> {
         // calculate 'percentage' = x / (1+x)
         let percentage = <RefundFee<T>>::get()
             .checked_div(
@@ -403,14 +404,17 @@ impl<T: Config> Module<T> {
                     .ok_or(Error::<T>::ArithmeticOverflow)?,
             )
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
-        Self::issuing_for(amount, percentage)
+        Self::wrapped_for(amount, percentage)
     }
 
-    pub fn issuing_for(amount: Issuing<T>, percentage: UnsignedFixedPoint<T>) -> Result<Issuing<T>, DispatchError> {
+    pub fn wrapped_for(amount: Wrapped<T>, percentage: UnsignedFixedPoint<T>) -> Result<Wrapped<T>, DispatchError> {
         Ok(Self::calculate_for(amount.into(), percentage)?.into())
     }
 
-    pub fn backing_for(amount: Backing<T>, percentage: UnsignedFixedPoint<T>) -> Result<Backing<T>, DispatchError> {
+    pub fn collateral_for(
+        amount: Collateral<T>,
+        percentage: UnsignedFixedPoint<T>,
+    ) -> Result<Collateral<T>, DispatchError> {
         Ok(Self::calculate_for(amount.into(), percentage)?.into())
     }
 
@@ -443,27 +447,27 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    /// Withdraw backing rewards and transfer to `account_id`.
-    fn withdraw_backing<R: reward::Rewards<T::AccountId, SignedFixedPoint = SignedFixedPoint<T>>>(
+    /// Withdraw collateral rewards and transfer to `account_id`.
+    fn withdraw_collateral<R: reward::Rewards<T::AccountId, SignedFixedPoint = SignedFixedPoint<T>>>(
         account_id: &T::AccountId,
     ) -> DispatchResult {
-        let backing_rewards = R::withdraw_reward(account_id)?
+        let collateral_rewards = R::withdraw_reward(account_id)?
             .try_into()
             .map_err(|_| Error::<T>::TryIntoIntError)?;
-        ext::collateral::transfer::<T>(&Self::fee_pool_account_id(), account_id, backing_rewards)?;
-        Self::deposit_event(<Event<T>>::WithdrawBacking(account_id.clone(), backing_rewards));
+        ext::collateral::transfer::<T>(&Self::fee_pool_account_id(), account_id, collateral_rewards)?;
+        Self::deposit_event(<Event<T>>::WithdrawCollateral(account_id.clone(), collateral_rewards));
         Ok(())
     }
 
-    /// Withdraw issuing rewards and transfer to `account_id`.
-    fn withdraw_issuing<R: reward::Rewards<T::AccountId, SignedFixedPoint = SignedFixedPoint<T>>>(
+    /// Withdraw wrapped rewards and transfer to `account_id`.
+    fn withdraw_wrapped<R: reward::Rewards<T::AccountId, SignedFixedPoint = SignedFixedPoint<T>>>(
         account_id: &T::AccountId,
     ) -> DispatchResult {
-        let issuing_rewards = R::withdraw_reward(account_id)?
+        let wrapped_rewards = R::withdraw_reward(account_id)?
             .try_into()
             .map_err(|_| Error::<T>::TryIntoIntError)?;
-        ext::treasury::transfer::<T>(&Self::fee_pool_account_id(), account_id, issuing_rewards)?;
-        Self::deposit_event(<Event<T>>::WithdrawIssuing(account_id.clone(), issuing_rewards));
+        ext::treasury::transfer::<T>(&Self::fee_pool_account_id(), account_id, wrapped_rewards)?;
+        Self::deposit_event(<Event<T>>::WithdrawWrapped(account_id.clone(), wrapped_rewards));
         Ok(())
     }
 

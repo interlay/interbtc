@@ -21,10 +21,10 @@ pub(crate) type SignedFixedPoint<T, I = ()> = <T as Config<I>>::SignedFixedPoint
 
 pub use pallet::*;
 
-pub type BackingVault = pallet::Instance1;
-pub type IssuingVault = pallet::Instance2;
-pub type BackingRelayer = pallet::Instance3;
-pub type IssuingRelayer = pallet::Instance4;
+pub type CollateralVault = pallet::Instance1;
+pub type WrappedVault = pallet::Instance2;
+pub type CollateralRelayer = pallet::Instance3;
+pub type WrappedRelayer = pallet::Instance4;
 
 #[frame_support::pallet]
 pub mod pallet {

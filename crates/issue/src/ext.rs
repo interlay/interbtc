@@ -37,7 +37,7 @@ pub(crate) mod btc_relay {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
-    use crate::types::{Backing, Issuing};
+    use crate::types::{Collateral, Wrapped};
     use btc_relay::BtcAddress;
     use frame_support::dispatch::{DispatchError, DispatchResult};
     use sp_core::H256;
@@ -46,7 +46,7 @@ pub(crate) mod vault_registry {
     pub fn transfer_funds<T: vault_registry::Config>(
         from: CurrencySource<T>,
         to: CurrencySource<T>,
-        amount: Backing<T>,
+        amount: Collateral<T>,
     ) -> DispatchResult {
         <vault_registry::Pallet<T>>::transfer_funds(from, to, amount)
     }
@@ -58,7 +58,7 @@ pub(crate) mod vault_registry {
     pub fn get_active_vault_from_id<T: vault_registry::Config>(
         vault_id: &T::AccountId,
     ) -> Result<
-        Vault<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>, <T as vault_registry::Config>::SignedFixedPoint>,
+        Vault<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>, <T as vault_registry::Config>::SignedFixedPoint>,
         DispatchError,
     > {
         <vault_registry::Pallet<T>>::get_active_vault_from_id(vault_id)
@@ -66,7 +66,7 @@ pub(crate) mod vault_registry {
 
     pub fn try_increase_to_be_issued_tokens<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-        amount: Issuing<T>,
+        amount: Wrapped<T>,
     ) -> Result<(), DispatchError> {
         <vault_registry::Pallet<T>>::try_increase_to_be_issued_tokens(vault_id, amount)
     }
@@ -78,7 +78,7 @@ pub(crate) mod vault_registry {
         <vault_registry::Pallet<T>>::register_deposit_address(vault_id, secure_id)
     }
 
-    pub fn issue_tokens<T: vault_registry::Config>(vault_id: &T::AccountId, amount: Issuing<T>) -> DispatchResult {
+    pub fn issue_tokens<T: vault_registry::Config>(vault_id: &T::AccountId, amount: Wrapped<T>) -> DispatchResult {
         <vault_registry::Pallet<T>>::issue_tokens(vault_id, amount)
     }
 
@@ -88,37 +88,37 @@ pub(crate) mod vault_registry {
 
     pub fn decrease_to_be_issued_tokens<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-        tokens: Issuing<T>,
+        tokens: Wrapped<T>,
     ) -> DispatchResult {
         <vault_registry::Pallet<T>>::decrease_to_be_issued_tokens(vault_id, tokens)
     }
 
     pub fn calculate_collateral<T: vault_registry::Config>(
-        collateral: Backing<T>,
-        numerator: Issuing<T>,
-        denominator: Issuing<T>,
-    ) -> Result<Backing<T>, DispatchError> {
+        collateral: Collateral<T>,
+        numerator: Wrapped<T>,
+        denominator: Wrapped<T>,
+    ) -> Result<Collateral<T>, DispatchError> {
         <vault_registry::Pallet<T>>::calculate_collateral(collateral, numerator, denominator)
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod collateral {
-    use crate::types::Backing;
+    use crate::types::Collateral;
     use frame_support::dispatch::DispatchResult;
 
-    type CollateralPallet<T> = currency::Pallet<T, currency::Backing>;
+    type CollateralPallet<T> = currency::Pallet<T, currency::Collateral>;
 
-    pub fn lock_collateral<T: currency::Config<currency::Backing>>(
+    pub fn lock_collateral<T: currency::Config<currency::Collateral>>(
         sender: &T::AccountId,
-        amount: Backing<T>,
+        amount: Collateral<T>,
     ) -> DispatchResult {
         CollateralPallet::<T>::lock(sender, amount)
     }
 
-    pub fn release_collateral<T: currency::Config<currency::Backing>>(
+    pub fn release_collateral<T: currency::Config<currency::Collateral>>(
         sender: &T::AccountId,
-        amount: Backing<T>,
+        amount: Collateral<T>,
     ) -> DispatchResult {
         CollateralPallet::<T>::release(sender, amount)
     }
@@ -126,11 +126,11 @@ pub(crate) mod collateral {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod treasury {
-    use crate::types::Issuing;
+    use crate::types::Wrapped;
 
-    type TreasuryPallet<T> = currency::Pallet<T, currency::Issuing>;
+    type TreasuryPallet<T> = currency::Pallet<T, currency::Wrapped>;
 
-    pub fn mint<T: currency::Config<currency::Issuing>>(requester: T::AccountId, amount: Issuing<T>) {
+    pub fn mint<T: currency::Config<currency::Wrapped>>(requester: T::AccountId, amount: Wrapped<T>) {
         TreasuryPallet::<T>::mint(requester, amount)
     }
 }
@@ -162,25 +162,25 @@ pub(crate) mod security {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod oracle {
-    use crate::types::{Backing, Issuing};
+    use crate::types::{Collateral, Wrapped};
     use frame_support::dispatch::DispatchError;
 
-    pub fn issuing_to_backing<T: exchange_rate_oracle::Config>(
-        amount: Issuing<T>,
-    ) -> Result<Backing<T>, DispatchError> {
-        <exchange_rate_oracle::Pallet<T>>::issuing_to_backing(amount)
+    pub fn wrapped_to_collateral<T: exchange_rate_oracle::Config>(
+        amount: Wrapped<T>,
+    ) -> Result<Collateral<T>, DispatchError> {
+        <exchange_rate_oracle::Pallet<T>>::wrapped_to_collateral(amount)
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod sla {
-    use crate::types::{Backing, Issuing};
+    use crate::types::{Collateral, Wrapped};
     use frame_support::dispatch::DispatchError;
     pub use sla::types::VaultEvent;
 
     pub fn event_update_vault_sla<T: sla::Config>(
         vault_id: &T::AccountId,
-        event: VaultEvent<Issuing<T>, Backing<T>>,
+        event: VaultEvent<Wrapped<T>, Collateral<T>>,
     ) -> Result<(), DispatchError> {
         <sla::Pallet<T>>::event_update_vault_sla(vault_id, event)
     }
@@ -188,39 +188,41 @@ pub(crate) mod sla {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod fee {
-    use crate::types::{Backing, Issuing};
+    use crate::types::{Collateral, Wrapped};
     use frame_support::dispatch::{DispatchError, DispatchResult};
 
-    pub fn distribute_backing_rewards<T: fee::Config>(amount: Backing<T>) -> DispatchResult {
-        <fee::Pallet<T>>::distribute_backing_rewards(amount)
+    pub fn distribute_collateral_rewards<T: fee::Config>(amount: Collateral<T>) -> DispatchResult {
+        <fee::Pallet<T>>::distribute_collateral_rewards(amount)
     }
 
     pub fn fee_pool_account_id<T: fee::Config>() -> T::AccountId {
         <fee::Pallet<T>>::fee_pool_account_id()
     }
 
-    pub fn get_issue_fee<T: fee::Config>(amount: Issuing<T>) -> Result<Issuing<T>, DispatchError> {
+    pub fn get_issue_fee<T: fee::Config>(amount: Wrapped<T>) -> Result<Wrapped<T>, DispatchError> {
         <fee::Pallet<T>>::get_issue_fee(amount)
     }
 
-    pub fn get_issue_griefing_collateral<T: fee::Config>(amount: Backing<T>) -> Result<Backing<T>, DispatchError> {
+    pub fn get_issue_griefing_collateral<T: fee::Config>(
+        amount: Collateral<T>,
+    ) -> Result<Collateral<T>, DispatchError> {
         <fee::Pallet<T>>::get_issue_griefing_collateral(amount)
     }
 
-    pub fn distribute_issuing_rewards<T: fee::Config>(amount: Issuing<T>) -> DispatchResult {
-        <fee::Pallet<T>>::distribute_issuing_rewards(amount)
+    pub fn distribute_wrapped_rewards<T: fee::Config>(amount: Wrapped<T>) -> DispatchResult {
+        <fee::Pallet<T>>::distribute_wrapped_rewards(amount)
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod refund {
-    use crate::types::Issuing;
+    use crate::types::Wrapped;
     use btc_relay::BtcAddress;
     use frame_support::dispatch::DispatchError;
     use sp_core::H256;
 
     pub fn request_refund<T: refund::Config>(
-        total_amount_btc: Issuing<T>,
+        total_amount_btc: Wrapped<T>,
         vault_id: T::AccountId,
         issuer: T::AccountId,
         btc_address: BtcAddress,

@@ -21,15 +21,15 @@ pub(crate) mod security {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod collateral {
-    use crate::types::Backing;
+    use crate::types::Collateral;
     use frame_support::dispatch::DispatchResult;
 
-    type CollateralPallet<T> = currency::Pallet<T, currency::Backing>;
+    type CollateralPallet<T> = currency::Pallet<T, currency::Collateral>;
 
-    pub fn transfer_and_lock<T: currency::Config<currency::Backing>>(
+    pub fn transfer_and_lock<T: currency::Config<currency::Collateral>>(
         source: T::AccountId,
         destination: T::AccountId,
-        amount: Backing<T>,
+        amount: Collateral<T>,
     ) -> DispatchResult {
         CollateralPallet::<T>::transfer_and_lock(&source, &destination, amount)
     }
@@ -37,13 +37,13 @@ pub(crate) mod collateral {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
-    use crate::Backing;
+    use crate::Collateral;
     pub use ::vault_registry::{DefaultVault, SlashingError, TryDepositCollateral, TryWithdrawCollateral, VaultStatus};
     pub use frame_support::dispatch::{DispatchError, DispatchResult};
 
     pub fn get_backing_collateral<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-    ) -> Result<Backing<T>, DispatchError> {
+    ) -> Result<Collateral<T>, DispatchError> {
         <vault_registry::Pallet<T>>::get_backing_collateral(vault_id)
     }
 
@@ -71,20 +71,20 @@ pub(crate) mod vault_registry {
         <vault_registry::Pallet<T>>::insert_vault(id, vault)
     }
 
-    pub fn compute_collateral<T: vault_registry::Config>(id: &T::AccountId) -> Result<Backing<T>, DispatchError> {
+    pub fn compute_collateral<T: vault_registry::Config>(id: &T::AccountId) -> Result<Collateral<T>, DispatchError> {
         <vault_registry::Pallet<T>>::compute_collateral(id)
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod fee {
-    use crate::types::{Backing, UnsignedFixedPoint};
+    use crate::types::{Collateral, UnsignedFixedPoint};
     use frame_support::dispatch::DispatchError;
 
-    pub fn backing_for<T: fee::Config>(
-        amount: Backing<T>,
+    pub fn collateral_for<T: fee::Config>(
+        amount: Collateral<T>,
         percentage: UnsignedFixedPoint<T>,
-    ) -> Result<Backing<T>, DispatchError> {
-        <fee::Module<T>>::backing_for(amount, percentage)
+    ) -> Result<Collateral<T>, DispatchError> {
+        <fee::Module<T>>::collateral_for(amount, percentage)
     }
 }

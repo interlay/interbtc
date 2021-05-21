@@ -30,15 +30,15 @@ use frame_system::ensure_signed;
 use sp_core::H256;
 use sp_runtime::traits::CheckedSub;
 use sp_std::{convert::TryInto, vec::Vec};
-use types::Issuing;
 pub use types::RefundRequest;
+use types::Wrapped;
 
 /// The pallet's configuration trait.
 pub trait Config:
     frame_system::Config
     + btc_relay::Config
-    + currency::Config<currency::Backing>
-    + currency::Config<currency::Issuing>
+    + currency::Config<currency::Collateral>
+    + currency::Config<currency::Wrapped>
     + fee::Config
     + sla::Config
     + vault_registry::Config
@@ -55,10 +55,10 @@ decl_storage! {
     trait Store for Module<T: Config> as Refund {
         /// The minimum amount of btc that is accepted for refund requests (NOTE: too low
         /// values could result in the bitcoin client rejecting the payment)
-        RefundBtcDustValue get(fn refund_btc_dust_value) config(): Issuing<T>;
+        RefundBtcDustValue get(fn refund_btc_dust_value) config(): Wrapped<T>;
 
         /// This mapping provides access from a unique hash refundId to a Refund struct.
-        RefundRequests: map hasher(blake2_128_concat) H256 => RefundRequest<T::AccountId, Issuing<T>>;
+        RefundRequests: map hasher(blake2_128_concat) H256 => RefundRequest<T::AccountId, Wrapped<T>>;
     }
 }
 
@@ -67,12 +67,12 @@ decl_event!(
     pub enum Event<T>
     where
         AccountId = <T as frame_system::Config>::AccountId,
-        Issuing = Issuing<T>,
+        Wrapped = Wrapped<T>,
     {
         /// refund_id, issuer, amount_without_fee, vault, btc_address, issue_id, fee
-        RequestRefund(H256, AccountId, Issuing, AccountId, BtcAddress, H256, Issuing),
+        RequestRefund(H256, AccountId, Wrapped, AccountId, BtcAddress, H256, Wrapped),
         /// refund_id, issuer, vault, amount
-        ExecuteRefund(H256, AccountId, AccountId, Issuing),
+        ExecuteRefund(H256, AccountId, AccountId, Wrapped),
     }
 );
 
@@ -115,7 +115,7 @@ impl<T: Config> Module<T> {
     /// * `issuer` - id of the user that made the issue request
     /// * `btc_address` - the btc address that should receive the refund
     pub fn request_refund(
-        total_amount_btc: Issuing<T>,
+        total_amount_btc: Wrapped<T>,
         vault_id: T::AccountId,
         issuer: T::AccountId,
         btc_address: BtcAddress,
@@ -123,14 +123,14 @@ impl<T: Config> Module<T> {
     ) -> Result<Option<H256>, DispatchError> {
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
-        let fee_issuing = ext::fee::get_refund_fee_from_total::<T>(total_amount_btc)?;
-        let net_refund_amount_issuing = total_amount_btc
-            .checked_sub(&fee_issuing)
+        let fee_wrapped = ext::fee::get_refund_fee_from_total::<T>(total_amount_btc)?;
+        let net_refund_amount_wrapped = total_amount_btc
+            .checked_sub(&fee_wrapped)
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
         // Only refund if the amount is above the dust value
         let dust_amount = <RefundBtcDustValue<T>>::get();
-        if net_refund_amount_issuing < dust_amount {
+        if net_refund_amount_wrapped < dust_amount {
             return Ok(None);
         }
 
@@ -138,8 +138,8 @@ impl<T: Config> Module<T> {
 
         let request = RefundRequest {
             vault: vault_id,
-            amount_issuing: net_refund_amount_issuing,
-            fee: fee_issuing,
+            amount_wrapped: net_refund_amount_wrapped,
+            fee: fee_wrapped,
             amount_btc: total_amount_btc,
             issuer,
             btc_address,
@@ -151,7 +151,7 @@ impl<T: Config> Module<T> {
         Self::deposit_event(<Event<T>>::RequestRefund(
             refund_id,
             request.issuer,
-            request.amount_issuing,
+            request.amount_wrapped,
             request.vault,
             request.btc_address,
             request.issue_id,
@@ -176,7 +176,7 @@ impl<T: Config> Module<T> {
 
         // verify the payment
         let amount: usize = request
-            .amount_issuing
+            .amount_wrapped
             .try_into()
             .map_err(|_e| Error::<T>::TryIntoIntError)?;
 
@@ -207,7 +207,7 @@ impl<T: Config> Module<T> {
             refund_id,
             request.issuer,
             request.vault,
-            Self::u128_to_issuing(amount as u128)?,
+            Self::u128_to_wrapped(amount as u128)?,
         ));
 
         Ok(())
@@ -221,7 +221,7 @@ impl<T: Config> Module<T> {
     /// * `refund_id` - 256-bit identifier of the refund request
     pub fn get_open_refund_request_from_id(
         refund_id: &H256,
-    ) -> Result<RefundRequest<T::AccountId, Issuing<T>>, DispatchError> {
+    ) -> Result<RefundRequest<T::AccountId, Wrapped<T>>, DispatchError> {
         ensure!(
             <RefundRequests<T>>::contains_key(*refund_id),
             Error::<T>::RefundIdNotFound
@@ -241,7 +241,7 @@ impl<T: Config> Module<T> {
     /// * `refund_id` - 256-bit identifier of the refund request
     pub fn get_open_or_completed_refund_request_from_id(
         refund_id: &H256,
-    ) -> Result<RefundRequest<T::AccountId, Issuing<T>>, DispatchError> {
+    ) -> Result<RefundRequest<T::AccountId, Wrapped<T>>, DispatchError> {
         ensure!(
             <RefundRequests<T>>::contains_key(*refund_id),
             Error::<T>::RefundIdNotFound
@@ -256,7 +256,7 @@ impl<T: Config> Module<T> {
     /// * `account_id` - user account id
     pub fn get_refund_requests_for_account(
         account_id: T::AccountId,
-    ) -> Vec<(H256, RefundRequest<T::AccountId, Issuing<T>>)> {
+    ) -> Vec<(H256, RefundRequest<T::AccountId, Wrapped<T>>)> {
         <RefundRequests<T>>::iter()
             .filter(|(_, request)| request.issuer == account_id)
             .collect::<Vec<_>>()
@@ -268,7 +268,7 @@ impl<T: Config> Module<T> {
     /// # Arguments
     ///
     /// * `issue_id` - The ID of an issue request
-    pub fn get_refund_requests_by_issue_id(issue_id: H256) -> Option<(H256, RefundRequest<T::AccountId, Issuing<T>>)> {
+    pub fn get_refund_requests_by_issue_id(issue_id: H256) -> Option<(H256, RefundRequest<T::AccountId, Wrapped<T>>)> {
         <RefundRequests<T>>::iter().find(|(_, request)| request.issue_id == issue_id)
     }
 
@@ -279,14 +279,14 @@ impl<T: Config> Module<T> {
     /// * `account_id` - vault account id
     pub fn get_refund_requests_for_vault(
         account_id: T::AccountId,
-    ) -> Vec<(H256, RefundRequest<T::AccountId, Issuing<T>>)> {
+    ) -> Vec<(H256, RefundRequest<T::AccountId, Wrapped<T>>)> {
         <RefundRequests<T>>::iter()
             .filter(|(_, request)| request.vault == account_id)
             .collect::<Vec<_>>()
     }
 
-    fn u128_to_issuing(x: u128) -> Result<Issuing<T>, DispatchError> {
-        TryInto::<Issuing<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
+    fn u128_to_wrapped(x: u128) -> Result<Wrapped<T>, DispatchError> {
+        TryInto::<Wrapped<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 }
 

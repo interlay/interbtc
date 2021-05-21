@@ -31,7 +31,7 @@ use btc_relay::BtcAddress;
 #[doc(inline)]
 pub use crate::types::{ReplaceRequest, ReplaceRequestStatus};
 
-use crate::types::{Backing, Issuing, Version};
+use crate::types::{Collateral, Version, Wrapped};
 use vault_registry::CurrencySource;
 
 mod ext;
@@ -47,8 +47,8 @@ mod tests;
 pub trait Config:
     frame_system::Config
     + vault_registry::Config
-    + currency::Config<currency::Backing>
-    + currency::Config<currency::Issuing>
+    + currency::Config<currency::Collateral>
+    + currency::Config<currency::Wrapped>
     + btc_relay::Config
     + exchange_rate_oracle::Config
     + fee::Config
@@ -67,7 +67,7 @@ decl_storage! {
     trait Store for Module<T: Config> as Replace {
         /// Vaults create replace requests to transfer locked collateral.
         /// This mapping provides access from a unique hash to a `ReplaceRequest`.
-        ReplaceRequests: map hasher(blake2_128_concat) H256 => ReplaceRequest<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>;
+        ReplaceRequests: map hasher(blake2_128_concat) H256 => ReplaceRequest<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>;
 
         /// The time difference in number of blocks between when a replace request is created
         /// and required completion time by a vault. The replace period has an upper limit
@@ -76,7 +76,7 @@ decl_storage! {
 
         /// The minimum amount of btc that is accepted for replace requests; any lower values would
         /// risk the bitcoin client to reject the payment
-        ReplaceBtcDustValue get(fn replace_btc_dust_value) config(): Issuing<T>;
+        ReplaceBtcDustValue get(fn replace_btc_dust_value) config(): Wrapped<T>;
 
         /// Build storage at V1 (requires default 0).
         StorageVersion get(fn storage_version) build(|_| Version::V1): Version = Version::V0;
@@ -88,19 +88,19 @@ decl_event!(
     pub enum Event<T>
     where
         AccountId = <T as frame_system::Config>::AccountId,
-        Issuing = Issuing<T>,
-        Backing = Backing<T>,
+        Wrapped = Wrapped<T>,
+        Collateral = Collateral<T>,
     {
         // [old_vault_id, amount_btc, griefing_collateral]
-        RequestReplace(AccountId, Issuing, Backing),
+        RequestReplace(AccountId, Wrapped, Collateral),
         // [old_vault_id, withdrawn_tokens, withdrawn_griefing_collateral]
-        WithdrawReplace(AccountId, Issuing, Backing),
+        WithdrawReplace(AccountId, Wrapped, Collateral),
         // [replace_id, old_vault_id, new_vault_id, amount, collateral, btc_address]
-        AcceptReplace(H256, AccountId, AccountId, Issuing, Backing, BtcAddress),
+        AcceptReplace(H256, AccountId, AccountId, Wrapped, Collateral, BtcAddress),
         // [replace_id, old_vault_id, new_vault_id]
         ExecuteReplace(H256, AccountId, AccountId),
         // [replace_id, new_vault_id, old_vault_id, griefing_collateral]
-        CancelReplace(H256, AccountId, AccountId, Backing),
+        CancelReplace(H256, AccountId, AccountId, Collateral),
     }
 );
 
@@ -124,7 +124,7 @@ decl_module! {
         /// * `griefing_collateral` - amount of collateral
         #[weight = <T as Config>::WeightInfo::request_replace()]
         #[transactional]
-        fn request_replace(origin, #[compact] amount: Issuing<T>, #[compact] griefing_collateral: Backing<T>)
+        fn request_replace(origin, #[compact] amount: Wrapped<T>, #[compact] griefing_collateral: Collateral<T>)
             -> DispatchResult
         {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
@@ -140,7 +140,7 @@ decl_module! {
         /// * `origin` - sender of the transaction: the old vault
         #[weight = <T as Config>::WeightInfo::withdraw_replace()]
         #[transactional]
-        fn withdraw_replace(origin, #[compact] amount: Issuing<T>)
+        fn withdraw_replace(origin, #[compact] amount: Wrapped<T>)
             -> DispatchResult
         {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
@@ -159,7 +159,7 @@ decl_module! {
         /// * `btc_address` - the address that old-vault should transfer the btc to
         #[weight = <T as Config>::WeightInfo::accept_replace()]
         #[transactional]
-        fn accept_replace(origin, old_vault: T::AccountId, #[compact] amount_btc: Issuing<T>, #[compact] collateral: Backing<T>, btc_address: BtcAddress)
+        fn accept_replace(origin, old_vault: T::AccountId, #[compact] amount_btc: Wrapped<T>, #[compact] collateral: Collateral<T>, btc_address: BtcAddress)
             -> DispatchResult
         {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
@@ -174,7 +174,6 @@ decl_module! {
         ///
         /// * `origin` - sender of the transaction: the new vault
         /// * `replace_id` - the ID of the replacement request
-        /// * `tx_block_height` - the blocked height of the backing transaction
         /// * 'merkle_proof' - the merkle root of the block
         /// * `raw_tx` - the transaction id in bytes
         #[weight = <T as Config>::WeightInfo::execute_replace()]
@@ -223,8 +222,8 @@ decl_module! {
 impl<T: Config> Module<T> {
     fn _request_replace(
         vault_id: T::AccountId,
-        amount_btc: Issuing<T>,
-        griefing_collateral: Backing<T>,
+        amount_btc: Wrapped<T>,
+        griefing_collateral: Collateral<T>,
     ) -> DispatchResult {
         // check vault is not banned
         ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;
@@ -258,7 +257,7 @@ impl<T: Config> Module<T> {
 
         // check that that the total griefing collateral is sufficient to back the total to-be-replaced amount
         let required_collateral = ext::fee::get_replace_griefing_collateral::<T>(
-            ext::oracle::issuing_to_backing::<T>(total_to_be_replaced)?,
+            ext::oracle::wrapped_to_collateral::<T>(total_to_be_replaced)?,
         )?;
         ensure!(
             total_griefing_collateral >= required_collateral,
@@ -279,7 +278,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn _withdraw_replace_request(vault_id: T::AccountId, amount: Issuing<T>) -> Result<(), DispatchError> {
+    fn _withdraw_replace_request(vault_id: T::AccountId, amount: Wrapped<T>) -> Result<(), DispatchError> {
         // decrease to-be-replaced tokens, so that the vault is free to use its issued tokens again.
         let (withdrawn_tokens, to_withdraw_collateral) =
             ext::vault_registry::decrease_to_be_replaced_tokens::<T>(&vault_id, amount)?;
@@ -303,8 +302,8 @@ impl<T: Config> Module<T> {
     fn _accept_replace(
         old_vault_id: T::AccountId,
         new_vault_id: T::AccountId,
-        amount_btc: Issuing<T>,
-        collateral: Backing<T>,
+        amount_btc: Wrapped<T>,
+        collateral: Collateral<T>,
         btc_address: BtcAddress,
     ) -> Result<(), DispatchError> {
         // don't allow vaults to replace themselves
@@ -439,7 +438,7 @@ impl<T: Config> Module<T> {
             // new-vault is not liquidated - give it the griefing collateral
             ext::vault_registry::transfer_funds::<T>(
                 CurrencySource::Griefing(replace.old_vault.clone()),
-                CurrencySource::Backing(new_vault_id.clone()),
+                CurrencySource::Collateral(new_vault_id.clone()),
                 replace.griefing_collateral,
             )?;
         } else {
@@ -481,7 +480,7 @@ impl<T: Config> Module<T> {
         account_id: T::AccountId,
     ) -> Vec<(
         H256,
-        ReplaceRequest<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>,
+        ReplaceRequest<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>,
     )> {
         <ReplaceRequests<T>>::iter()
             .filter(|(_, request)| request.old_vault == account_id)
@@ -497,7 +496,7 @@ impl<T: Config> Module<T> {
         account_id: T::AccountId,
     ) -> Vec<(
         H256,
-        ReplaceRequest<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>,
+        ReplaceRequest<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>,
     )> {
         <ReplaceRequests<T>>::iter()
             .filter(|(_, request)| request.new_vault == account_id)
@@ -507,7 +506,7 @@ impl<T: Config> Module<T> {
     /// Get a replace request by id. Completed or cancelled requests are not returned.
     pub fn get_open_replace_request(
         id: &H256,
-    ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>, DispatchError> {
+    ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>, DispatchError> {
         if !<ReplaceRequests<T>>::contains_key(id) {
             return Err(Error::<T>::ReplaceIdNotFound.into());
         }
@@ -523,7 +522,7 @@ impl<T: Config> Module<T> {
     /// Get a open or completed replace request by id. Cancelled requests are not returned.
     pub fn get_open_or_completed_replace_request(
         id: &H256,
-    ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>, DispatchError> {
+    ) -> Result<ReplaceRequest<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>, DispatchError> {
         if !<ReplaceRequests<T>>::contains_key(id) {
             return Err(Error::<T>::ReplaceIdNotFound.into());
         }
@@ -536,7 +535,7 @@ impl<T: Config> Module<T> {
 
     fn insert_replace_request(
         key: &H256,
-        value: &ReplaceRequest<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>,
+        value: &ReplaceRequest<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>,
     ) {
         <ReplaceRequests<T>>::insert(key, value)
     }

@@ -294,7 +294,7 @@ parameter_types! {
 }
 
 impl pallet_transaction_payment::Config for Runtime {
-    type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<Backing, ()>;
+    type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<Collateral, ()>;
     type TransactionByteFee = TransactionByteFee;
     type WeightToFee = IdentityFee<Balance>;
     type FeeMultiplierUpdate = ();
@@ -360,7 +360,7 @@ type LocalAssetTransactor = CurrencyAdapter<
     AccountId,
     // Do a simple punn to convert an AccountId32 MultiLocation into a native chain account ID:
     LocationToAccountId,
-    MultiCurrency<Backing, Issuing>,
+    MultiCurrency<Collateral, Wrapped>,
     MultiAssetToMultiCurrency,
 >;
 
@@ -427,7 +427,7 @@ impl Config for XcmConfig {
     type LocationInverter = LocationInverter<Ancestry>;
     type Barrier = Barrier;
     type Weigher = FixedWeightBounds<UnitWeightCost, Call>;
-    type Trader = UsingComponents<IdentityFee<Balance>, RocLocation, AccountId, Backing, ()>;
+    type Trader = UsingComponents<IdentityFee<Balance>, RocLocation, AccountId, Collateral, ()>;
     type ResponseHandler = (); // Don't handle responses for now.
 }
 
@@ -508,21 +508,21 @@ pub enum MultiCurrency<A: Currency<AccountId>, B: Currency<AccountId>> {
 }
 
 #[cfg(feature = "cumulus-polkadot")]
-impl Default for MultiCurrency<Backing, Issuing> {
+impl Default for MultiCurrency<Collateral, Wrapped> {
     fn default() -> Self {
         Self::PolkaDOT(Default::default())
     }
 }
 
 #[cfg(feature = "cumulus-polkadot")]
-impl parachain_tokens::MultiCurrency<AccountId> for MultiCurrency<Backing, Issuing> {
+impl parachain_tokens::MultiCurrency<AccountId> for MultiCurrency<Collateral, Wrapped> {
     fn deposit(&self, account_id: &AccountId, amount: u128) -> XcmResult {
         match self {
             Self::PolkaDOT(_) => {
-                let _imbalance = Backing::deposit_creating(account_id, amount);
+                let _imbalance = Collateral::deposit_creating(account_id, amount);
             }
             Self::PolkaBTC(_) => {
-                let _imbalance = Issuing::deposit_creating(account_id, amount);
+                let _imbalance = Wrapped::deposit_creating(account_id, amount);
             }
         };
         Ok(())
@@ -531,11 +531,11 @@ impl parachain_tokens::MultiCurrency<AccountId> for MultiCurrency<Backing, Issui
     fn withdraw(&self, account_id: &AccountId, amount: u128) -> XcmResult {
         match self {
             Self::PolkaDOT(_) => {
-                let _imbalance = Backing::withdraw(account_id, amount, WithdrawReasons::TRANSFER, AllowDeath)
+                let _imbalance = Collateral::withdraw(account_id, amount, WithdrawReasons::TRANSFER, AllowDeath)
                     .map_err(|err| XcmError::FailedToTransactAsset(err.into()))?;
             }
             Self::PolkaBTC(_) => {
-                let _imbalance = Issuing::withdraw(account_id, amount, WithdrawReasons::TRANSFER, AllowDeath)
+                let _imbalance = Wrapped::withdraw(account_id, amount, WithdrawReasons::TRANSFER, AllowDeath)
                     .map_err(|err| XcmError::FailedToTransactAsset(err.into()))?;
             }
         };
@@ -544,7 +544,7 @@ impl parachain_tokens::MultiCurrency<AccountId> for MultiCurrency<Backing, Issui
 }
 
 #[cfg(feature = "cumulus-polkadot")]
-impl TryFrom<&[u8]> for MultiCurrency<Backing, Issuing> {
+impl TryFrom<&[u8]> for MultiCurrency<Collateral, Wrapped> {
     type Error = ();
     fn try_from(from: &[u8]) -> Result<Self, ()> {
         match from {
@@ -556,7 +556,7 @@ impl TryFrom<&[u8]> for MultiCurrency<Backing, Issuing> {
 }
 
 #[cfg(feature = "cumulus-polkadot")]
-impl Into<Vec<u8>> for MultiCurrency<Backing, Issuing> {
+impl Into<Vec<u8>> for MultiCurrency<Collateral, Wrapped> {
     fn into(self) -> Vec<u8> {
         match self {
             Self::PolkaDOT(_) => b"DOT".to_vec(),
@@ -569,8 +569,10 @@ impl Into<Vec<u8>> for MultiCurrency<Backing, Issuing> {
 pub struct MultiAssetToMultiCurrency;
 
 #[cfg(feature = "cumulus-polkadot")]
-impl sp_runtime::traits::Convert<MultiLocation, Option<MultiCurrency<Backing, Issuing>>> for MultiAssetToMultiCurrency {
-    fn convert(location: MultiLocation) -> Option<MultiCurrency<Backing, Issuing>> {
+impl sp_runtime::traits::Convert<MultiLocation, Option<MultiCurrency<Collateral, Wrapped>>>
+    for MultiAssetToMultiCurrency
+{
+    fn convert(location: MultiLocation) -> Option<MultiCurrency<Collateral, Wrapped>> {
         match location {
             X1(Parent) => Some(MultiCurrency::PolkaDOT(Default::default())),
             X3(Parent, Parachain(_), GeneralKey(key)) => {
@@ -583,8 +585,8 @@ impl sp_runtime::traits::Convert<MultiLocation, Option<MultiCurrency<Backing, Is
 }
 
 #[cfg(feature = "cumulus-polkadot")]
-impl sp_runtime::traits::Convert<MultiAsset, Option<MultiCurrency<Backing, Issuing>>> for MultiAssetToMultiCurrency {
-    fn convert(asset: MultiAsset) -> Option<MultiCurrency<Backing, Issuing>> {
+impl sp_runtime::traits::Convert<MultiAsset, Option<MultiCurrency<Collateral, Wrapped>>> for MultiAssetToMultiCurrency {
+    fn convert(asset: MultiAsset) -> Option<MultiCurrency<Collateral, Wrapped>> {
         if let MultiAsset::ConcreteFungible { id, amount: _ } = asset {
             Self::convert(id)
         } else {
@@ -599,7 +601,7 @@ impl parachain_tokens::Config for Runtime {
     type AccountId32Convert = AccountId32Convert;
     type ParaId = ParachainInfo;
     type XcmExecutor = XcmExecutor<XcmConfig>;
-    type MultiCurrency = MultiCurrency<Backing, Issuing>;
+    type MultiCurrency = MultiCurrency<Collateral, Wrapped>;
     type Balance = Balance;
 }
 
@@ -608,7 +610,7 @@ parameter_types! {
     pub const MaxLocks: u32 = 50;
 }
 
-/// Backing currency - e.g. DOT/KSM
+/// Collateral currency - e.g. DOT/KSM
 impl pallet_balances::Config<pallet_balances::Instance1> for Runtime {
     type MaxLocks = MaxLocks;
     /// The type for recording an account's balance.
@@ -626,7 +628,7 @@ impl pallet_balances::Config<pallet_balances::Instance1> for Runtime {
     type WeightInfo = ();
 }
 
-/// Issuing currency - e.g. PolkaBTC
+/// Wrapped currency - e.g. PolkaBTC
 impl pallet_balances::Config<pallet_balances::Instance2> for Runtime {
     type MaxLocks = MaxLocks;
     type Balance = Balance;
@@ -648,49 +650,49 @@ impl btc_relay::Config for Runtime {
 }
 
 parameter_types! {
-    pub const BackingName: &'static [u8] = b"Polkadot";
-    pub const BackingSymbol: &'static [u8] = b"DOT";
-    pub const BackingDecimals: u8 = 10;
+    pub const CollateralName: &'static [u8] = b"Polkadot";
+    pub const CollateralSymbol: &'static [u8] = b"DOT";
+    pub const CollateralDecimals: u8 = 10;
 }
 
-impl currency::Config<currency::Backing> for Runtime {
+impl currency::Config<currency::Collateral> for Runtime {
     type Event = Event;
-    type Currency = Backing;
-    type Name = BackingName;
-    type Symbol = BackingSymbol;
-    type Decimals = BackingDecimals;
+    type Currency = Collateral;
+    type Name = CollateralName;
+    type Symbol = CollateralSymbol;
+    type Decimals = CollateralDecimals;
 }
 
 parameter_types! {
-    pub const IssuingName: &'static [u8] = b"PolkaBTC";
-    pub const IssuingSymbol: &'static [u8] = b"PolkaBTC";
-    pub const IssuingDecimals: u8 = 8;
+    pub const WrappedName: &'static [u8] = b"PolkaBTC";
+    pub const WrappedSymbol: &'static [u8] = b"PolkaBTC";
+    pub const WrappedDecimals: u8 = 8;
 }
 
-impl currency::Config<currency::Issuing> for Runtime {
+impl currency::Config<currency::Wrapped> for Runtime {
     type Event = Event;
-    type Currency = Issuing;
-    type Name = IssuingName;
-    type Symbol = IssuingSymbol;
-    type Decimals = IssuingDecimals;
+    type Currency = Wrapped;
+    type Name = WrappedName;
+    type Symbol = WrappedSymbol;
+    type Decimals = WrappedDecimals;
 }
 
-impl reward::Config<reward::BackingVault> for Runtime {
-    type Event = Event;
-    type SignedFixedPoint = FixedI128;
-}
-
-impl reward::Config<reward::IssuingVault> for Runtime {
+impl reward::Config<reward::CollateralVault> for Runtime {
     type Event = Event;
     type SignedFixedPoint = FixedI128;
 }
 
-impl reward::Config<reward::BackingRelayer> for Runtime {
+impl reward::Config<reward::WrappedVault> for Runtime {
     type Event = Event;
     type SignedFixedPoint = FixedI128;
 }
 
-impl reward::Config<reward::IssuingRelayer> for Runtime {
+impl reward::Config<reward::CollateralRelayer> for Runtime {
+    type Event = Event;
+    type SignedFixedPoint = FixedI128;
+}
+
+impl reward::Config<reward::WrappedRelayer> for Runtime {
     type Event = Event;
     type SignedFixedPoint = FixedI128;
 }
@@ -745,10 +747,10 @@ impl fee::Config for Runtime {
     type SignedInner = i128;
     type UnsignedFixedPoint = FixedU128;
     type UnsignedInner = Balance;
-    type BackingVaultRewards = BackingVaultRewards;
-    type IssuingVaultRewards = IssuingVaultRewards;
-    type BackingRelayerRewards = BackingRelayerRewards;
-    type IssuingRelayerRewards = IssuingRelayerRewards;
+    type CollateralVaultRewards = CollateralVaultRewards;
+    type WrappedVaultRewards = WrappedVaultRewards;
+    type CollateralRelayerRewards = CollateralRelayerRewards;
+    type WrappedRelayerRewards = WrappedRelayerRewards;
 }
 
 impl sla::Config for Runtime {
@@ -756,10 +758,10 @@ impl sla::Config for Runtime {
     type SignedFixedPoint = FixedI128;
     type SignedInner = i128;
     type Balance = Balance;
-    type BackingVaultRewards = BackingVaultRewards;
-    type IssuingVaultRewards = IssuingVaultRewards;
-    type BackingRelayerRewards = BackingRelayerRewards;
-    type IssuingRelayerRewards = IssuingRelayerRewards;
+    type CollateralVaultRewards = CollateralVaultRewards;
+    type WrappedVaultRewards = WrappedVaultRewards;
+    type CollateralRelayerRewards = CollateralRelayerRewards;
+    type WrappedRelayerRewards = WrappedRelayerRewards;
 }
 
 pub use refund::{RawEvent as RawRefundEvent, RefundRequest};
@@ -816,16 +818,16 @@ macro_rules! construct_polkabtc_runtime {
                 TransactionPayment: pallet_transaction_payment::{Pallet, Storage},
 
                 // Tokens & Balances
-                Backing: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
-                Issuing: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
+                Collateral: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
+                Wrapped: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
 
-                BackingCurrency: currency::<Instance1>::{Pallet, Call, Storage, Event<T>},
-                IssuingCurrency: currency::<Instance2>::{Pallet, Call, Storage, Event<T>},
+                CollateralCurrency: currency::<Instance1>::{Pallet, Call, Storage, Event<T>},
+                WrappedCurrency: currency::<Instance2>::{Pallet, Call, Storage, Event<T>},
 
-                BackingVaultRewards: reward::<Instance1>::{Pallet, Call, Storage, Event<T>},
-                IssuingVaultRewards: reward::<Instance2>::{Pallet, Call, Storage, Event<T>},
-                BackingRelayerRewards: reward::<Instance3>::{Pallet, Call, Storage, Event<T>},
-                IssuingRelayerRewards: reward::<Instance4>::{Pallet, Call, Storage, Event<T>},
+                CollateralVaultRewards: reward::<Instance1>::{Pallet, Call, Storage, Event<T>},
+                WrappedVaultRewards: reward::<Instance2>::{Pallet, Call, Storage, Event<T>},
+                CollateralRelayerRewards: reward::<Instance3>::{Pallet, Call, Storage, Event<T>},
+                WrappedRelayerRewards: reward::<Instance4>::{Pallet, Call, Storage, Event<T>},
 
                 // Bitcoin SPV
                 BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},
@@ -1081,13 +1083,13 @@ impl_runtime_apis! {
         Balance,
         Balance,
     > for Runtime {
-        fn issuing_to_backing(amount: BalanceWrapper<Balance>) -> Result<BalanceWrapper<Balance>, DispatchError> {
-            let result = ExchangeRateOracle::issuing_to_backing(amount.amount)?;
+        fn wrapped_to_collateral(amount: BalanceWrapper<Balance>) -> Result<BalanceWrapper<Balance>, DispatchError> {
+            let result = ExchangeRateOracle::wrapped_to_collateral(amount.amount)?;
             Ok(BalanceWrapper{amount:result})
         }
 
-        fn backing_to_issuing(amount: BalanceWrapper<Balance>) -> Result<BalanceWrapper<Balance>, DispatchError> {
-            let result = ExchangeRateOracle::backing_to_issuing(amount.amount)?;
+        fn collateral_to_wrapped(amount: BalanceWrapper<Balance>) -> Result<BalanceWrapper<Balance>, DispatchError> {
+            let result = ExchangeRateOracle::collateral_to_wrapped(amount.amount)?;
             Ok(BalanceWrapper{amount:result})
         }
     }
@@ -1148,8 +1150,8 @@ impl_runtime_apis! {
             VaultRegistry::get_collateralization_from_vault_and_collateral(vault, collateral.amount, only_issued)
         }
 
-        fn get_required_collateral_for_issuing(amount_btc: BalanceWrapper<Balance>) -> Result<BalanceWrapper<Balance>, DispatchError> {
-            let result = VaultRegistry::get_required_collateral_for_issuing(amount_btc.amount)?;
+        fn get_required_collateral_for_wrapped(amount_btc: BalanceWrapper<Balance>) -> Result<BalanceWrapper<Balance>, DispatchError> {
+            let result = VaultRegistry::get_required_collateral_for_wrapped(amount_btc.amount)?;
             Ok(BalanceWrapper{amount:result})
         }
 

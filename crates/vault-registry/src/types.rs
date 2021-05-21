@@ -29,7 +29,7 @@ pub enum Version {
 #[derive(Debug, PartialEq)]
 pub enum CurrencySource<T: frame_system::Config> {
     /// used by vault to back issued tokens
-    Backing(<T as frame_system::Config>::AccountId),
+    Collateral(<T as frame_system::Config>::AccountId),
     /// Collateral that is locked, but not used to back issued tokens (e.g. griefing collateral)
     Griefing(<T as frame_system::Config>::AccountId),
     /// Unlocked balance
@@ -41,13 +41,13 @@ pub enum CurrencySource<T: frame_system::Config> {
 impl<T: Config> CurrencySource<T> {
     pub fn account_id(&self) -> <T as frame_system::Config>::AccountId {
         match self {
-            CurrencySource::Backing(x) | CurrencySource::Griefing(x) | CurrencySource::FreeBalance(x) => x.clone(),
+            CurrencySource::Collateral(x) | CurrencySource::Griefing(x) | CurrencySource::FreeBalance(x) => x.clone(),
             CurrencySource::LiquidationVault => Pallet::<T>::liquidation_vault_account_id(),
         }
     }
-    pub fn current_balance(&self) -> Result<Backing<T>, DispatchError> {
+    pub fn current_balance(&self) -> Result<Collateral<T>, DispatchError> {
         match self {
-            CurrencySource::Backing(x) => Ok(Pallet::<T>::get_rich_vault_from_id(&x)?.data.backing_collateral),
+            CurrencySource::Collateral(x) => Ok(Pallet::<T>::get_rich_vault_from_id(&x)?.data.backing_collateral),
             CurrencySource::Griefing(x) => {
                 let backing_collateral = match Pallet::<T>::get_rich_vault_from_id(&x) {
                     Ok(vault) => vault.data.backing_collateral,
@@ -64,11 +64,12 @@ impl<T: Config> CurrencySource<T> {
     }
 }
 
-pub(crate) type Backing<T> =
-    <<T as currency::Config<currency::Backing>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub(crate) type Collateral<T> = <<T as currency::Config<currency::Collateral>>::Currency as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::Balance;
 
-pub(crate) type Issuing<T> =
-    <<T as currency::Config<currency::Issuing>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub(crate) type Wrapped<T> =
+    <<T as currency::Config<currency::Wrapped>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
 pub(crate) type SignedFixedPoint<T> = <T as Config>::SignedFixedPoint;
 
@@ -122,23 +123,23 @@ impl Default for VaultStatus {
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct Vault<AccountId, BlockNumber, Issuing, Backing, SignedFixedPoint> {
+pub struct Vault<AccountId, BlockNumber, Wrapped, Collateral, SignedFixedPoint> {
     /// Account identifier of the Vault
     pub id: AccountId,
     /// Number of tokens pending issue
-    pub to_be_issued_tokens: Issuing,
+    pub to_be_issued_tokens: Wrapped,
     /// Number of issued tokens
-    pub issued_tokens: Issuing,
+    pub issued_tokens: Wrapped,
     /// Number of tokens pending redeem
-    pub to_be_redeemed_tokens: Issuing,
+    pub to_be_redeemed_tokens: Wrapped,
     /// Bitcoin address of this Vault (P2PKH, P2SH, P2WPKH, P2WSH)
     pub wallet: Wallet,
     /// Number of tokens that have been requested for a replace through
     /// `request_replace`, but that have not been accepted yet by a new_vault.
-    pub to_be_replaced_tokens: Issuing,
+    pub to_be_replaced_tokens: Wrapped,
     /// Amount of collateral that is locked as griefing collateral to be payed out if
     /// the old_vault fails to call execute_replace
-    pub replace_collateral: Backing,
+    pub replace_collateral: Collateral,
     /// Block height until which this Vault is banned from being used for
     /// Issue, Redeem (except during automatic liquidation) and Replace.
     pub banned_until: Option<BlockNumber>,
@@ -152,39 +153,39 @@ pub struct Vault<AccountId, BlockNumber, Issuing, Backing, SignedFixedPoint> {
     /// reduced if the vault has been slashed. If nomination is enabled
     /// this will be greater than the `collateral` supplied by the vault.
     /// Note that this excludes griefing collateral.
-    pub backing_collateral: Backing,
+    pub backing_collateral: Collateral,
     /// Total amount of collateral after deposit / withdraw, excluding
     /// any amount that has been slashed. If nomination is enabled this
     /// will be greater than the `collateral` supplied by the vault.
-    pub total_collateral: Backing,
+    pub total_collateral: Collateral,
     /// Collateral supplied by the vault itself. If the vault has been
     /// slashed a proportional amount will be deducted from this.
-    pub collateral: Backing,
+    pub collateral: Collateral,
 }
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug, serde::Serialize, serde::Deserialize))]
-pub struct SystemVault<Issuing> {
+pub struct SystemVault<Wrapped> {
     // Number of tokens pending issue
-    pub to_be_issued_tokens: Issuing,
+    pub to_be_issued_tokens: Wrapped,
     // Number of issued tokens
-    pub issued_tokens: Issuing,
+    pub issued_tokens: Wrapped,
     // Number of tokens pending redeem
-    pub to_be_redeemed_tokens: Issuing,
+    pub to_be_redeemed_tokens: Wrapped,
 }
 
 impl<
         AccountId: Ord,
         BlockNumber,
-        Issuing: HasCompact + Default,
-        Backing: HasCompact + Default,
+        Wrapped: HasCompact + Default,
+        Collateral: HasCompact + Default,
         SignedFixedPoint: Default,
-    > Vault<AccountId, BlockNumber, Issuing, Backing, SignedFixedPoint>
+    > Vault<AccountId, BlockNumber, Wrapped, Collateral, SignedFixedPoint>
 {
     pub(crate) fn new(
         id: AccountId,
         public_key: BtcPublicKey,
-    ) -> Vault<AccountId, BlockNumber, Issuing, Backing, SignedFixedPoint> {
+    ) -> Vault<AccountId, BlockNumber, Wrapped, Collateral, SignedFixedPoint> {
         let wallet = Wallet::new(public_key);
         Vault {
             id,
@@ -212,31 +213,31 @@ impl<
 pub type DefaultVault<T> = Vault<
     <T as frame_system::Config>::AccountId,
     <T as frame_system::Config>::BlockNumber,
-    Issuing<T>,
-    Backing<T>,
+    Wrapped<T>,
+    Collateral<T>,
     SignedFixedPoint<T>,
 >;
 
-pub type DefaultSystemVault<T> = SystemVault<Issuing<T>>;
+pub type DefaultSystemVault<T> = SystemVault<Wrapped<T>>;
 
 pub(crate) trait UpdatableVault<T: Config> {
     fn id(&self) -> T::AccountId;
 
-    fn issued_tokens(&self) -> Issuing<T>;
+    fn issued_tokens(&self) -> Wrapped<T>;
 
-    fn to_be_issued_tokens(&self) -> Issuing<T>;
+    fn to_be_issued_tokens(&self) -> Wrapped<T>;
 
-    fn increase_issued(&mut self, tokens: Issuing<T>) -> DispatchResult;
+    fn increase_issued(&mut self, tokens: Wrapped<T>) -> DispatchResult;
 
-    fn increase_to_be_issued(&mut self, tokens: Issuing<T>) -> DispatchResult;
+    fn increase_to_be_issued(&mut self, tokens: Wrapped<T>) -> DispatchResult;
 
-    fn increase_to_be_redeemed(&mut self, tokens: Issuing<T>) -> DispatchResult;
+    fn increase_to_be_redeemed(&mut self, tokens: Wrapped<T>) -> DispatchResult;
 
-    fn decrease_issued(&mut self, tokens: Issuing<T>) -> DispatchResult;
+    fn decrease_issued(&mut self, tokens: Wrapped<T>) -> DispatchResult;
 
-    fn decrease_to_be_issued(&mut self, tokens: Issuing<T>) -> DispatchResult;
+    fn decrease_to_be_issued(&mut self, tokens: Wrapped<T>) -> DispatchResult;
 
-    fn decrease_to_be_redeemed(&mut self, tokens: Issuing<T>) -> DispatchResult;
+    fn decrease_to_be_redeemed(&mut self, tokens: Wrapped<T>) -> DispatchResult;
 }
 
 pub struct RichVault<T: Config> {
@@ -248,15 +249,15 @@ impl<T: Config> UpdatableVault<T> for RichVault<T> {
         self.data.id.clone()
     }
 
-    fn issued_tokens(&self) -> Issuing<T> {
+    fn issued_tokens(&self) -> Wrapped<T> {
         self.data.issued_tokens
     }
 
-    fn to_be_issued_tokens(&self) -> Issuing<T> {
+    fn to_be_issued_tokens(&self) -> Wrapped<T> {
         self.data.to_be_issued_tokens
     }
 
-    fn increase_issued(&mut self, tokens: Issuing<T>) -> DispatchResult {
+    fn increase_issued(&mut self, tokens: Wrapped<T>) -> DispatchResult {
         if self.data.is_liquidated() {
             Pallet::<T>::get_rich_liquidation_vault().increase_issued(tokens)
         } else {
@@ -270,7 +271,7 @@ impl<T: Config> UpdatableVault<T> for RichVault<T> {
         }
     }
 
-    fn increase_to_be_issued(&mut self, tokens: Issuing<T>) -> DispatchResult {
+    fn increase_to_be_issued(&mut self, tokens: Wrapped<T>) -> DispatchResult {
         // this function should never be called on liquidated vaults
         ensure!(!self.data.is_liquidated(), Error::<T>::VaultNotFound);
 
@@ -283,7 +284,7 @@ impl<T: Config> UpdatableVault<T> for RichVault<T> {
         })
     }
 
-    fn increase_to_be_redeemed(&mut self, tokens: Issuing<T>) -> DispatchResult {
+    fn increase_to_be_redeemed(&mut self, tokens: Wrapped<T>) -> DispatchResult {
         // this function should never be called on liquidated vaults
         ensure!(!self.data.is_liquidated(), Error::<T>::VaultNotFound);
 
@@ -296,7 +297,7 @@ impl<T: Config> UpdatableVault<T> for RichVault<T> {
         })
     }
 
-    fn decrease_issued(&mut self, tokens: Issuing<T>) -> DispatchResult {
+    fn decrease_issued(&mut self, tokens: Wrapped<T>) -> DispatchResult {
         if self.data.is_liquidated() {
             Pallet::<T>::get_rich_liquidation_vault().decrease_issued(tokens)
         } else {
@@ -310,7 +311,7 @@ impl<T: Config> UpdatableVault<T> for RichVault<T> {
         }
     }
 
-    fn decrease_to_be_issued(&mut self, tokens: Issuing<T>) -> DispatchResult {
+    fn decrease_to_be_issued(&mut self, tokens: Wrapped<T>) -> DispatchResult {
         if self.data.is_liquidated() {
             Pallet::<T>::get_rich_liquidation_vault().decrease_to_be_issued(tokens)
         } else {
@@ -324,7 +325,7 @@ impl<T: Config> UpdatableVault<T> for RichVault<T> {
         }
     }
 
-    fn decrease_to_be_redeemed(&mut self, tokens: Issuing<T>) -> DispatchResult {
+    fn decrease_to_be_redeemed(&mut self, tokens: Wrapped<T>) -> DispatchResult {
         // in addition to the change to this vault, _also_ change the liquidation vault
         if self.data.is_liquidated() {
             Pallet::<T>::get_rich_liquidation_vault().decrease_to_be_redeemed(tokens)?;
@@ -342,7 +343,7 @@ impl<T: Config> UpdatableVault<T> for RichVault<T> {
 
 #[cfg_attr(test, mockable)]
 impl<T: Config> RichVault<T> {
-    pub(crate) fn backed_tokens(&self) -> Result<Issuing<T>, DispatchError> {
+    pub(crate) fn backed_tokens(&self) -> Result<Wrapped<T>, DispatchError> {
         Ok(self
             .data
             .issued_tokens
@@ -350,11 +351,11 @@ impl<T: Config> RichVault<T> {
             .ok_or(Error::<T>::ArithmeticOverflow)?)
     }
 
-    pub fn get_collateral(&self) -> Backing<T> {
+    pub fn get_collateral(&self) -> Collateral<T> {
         self.data.backing_collateral
     }
 
-    pub fn get_free_collateral(&self) -> Result<Backing<T>, DispatchError> {
+    pub fn get_free_collateral(&self) -> Result<Collateral<T>, DispatchError> {
         let used_collateral = self.get_used_collateral()?;
         Ok(self
             .get_collateral()
@@ -362,24 +363,24 @@ impl<T: Config> RichVault<T> {
             .ok_or(Error::<T>::ArithmeticUnderflow)?)
     }
 
-    pub fn get_used_collateral(&self) -> Result<Backing<T>, DispatchError> {
+    pub fn get_used_collateral(&self) -> Result<Collateral<T>, DispatchError> {
         let issued_tokens = self.data.issued_tokens + self.data.to_be_issued_tokens;
-        let issued_tokens_in_backing = ext::oracle::issuing_to_backing::<T>(issued_tokens)?;
+        let issued_tokens_in_collateral = ext::oracle::wrapped_to_collateral::<T>(issued_tokens)?;
 
-        let raw_issued_tokens_in_backing = Pallet::<T>::backing_to_u128(issued_tokens_in_backing)?;
+        let raw_issued_tokens_in_collateral = Pallet::<T>::collateral_to_u128(issued_tokens_in_collateral)?;
 
         let secure_threshold = Pallet::<T>::secure_collateral_threshold();
 
         let raw_used_collateral = secure_threshold
-            .checked_mul_int(raw_issued_tokens_in_backing)
+            .checked_mul_int(raw_issued_tokens_in_collateral)
             .ok_or(Error::<T>::ArithmeticOverflow)?;
 
-        let used_collateral = Pallet::<T>::u128_to_backing(raw_used_collateral)?;
+        let used_collateral = Pallet::<T>::u128_to_collateral(raw_used_collateral)?;
 
         Ok(self.data.backing_collateral.min(used_collateral))
     }
 
-    pub fn issuable_tokens(&self) -> Result<Issuing<T>, DispatchError> {
+    pub fn issuable_tokens(&self) -> Result<Wrapped<T>, DispatchError> {
         // unable to issue additional tokens when banned
         if self.is_banned() {
             return Ok(0u32.into());
@@ -390,12 +391,12 @@ impl<T: Config> RichVault<T> {
         let secure_threshold = Pallet::<T>::secure_collateral_threshold();
 
         let issuable =
-            Pallet::<T>::calculate_max_issuing_from_collateral_for_threshold(free_collateral, secure_threshold)?;
+            Pallet::<T>::calculate_max_wrapped_from_collateral_for_threshold(free_collateral, secure_threshold)?;
 
         Ok(issuable)
     }
 
-    pub fn redeemable_tokens(&self) -> Result<Issuing<T>, DispatchError> {
+    pub fn redeemable_tokens(&self) -> Result<Wrapped<T>, DispatchError> {
         // unable to redeem additional tokens when banned
         if self.is_banned() {
             return Ok(0u32.into());
@@ -412,8 +413,8 @@ impl<T: Config> RichVault<T> {
 
     pub(crate) fn set_to_be_replaced_amount(
         &mut self,
-        tokens: Issuing<T>,
-        griefing_collateral: Backing<T>,
+        tokens: Wrapped<T>,
+        griefing_collateral: Collateral<T>,
     ) -> DispatchResult {
         self.update(|v| {
             v.to_be_replaced_tokens = tokens;
@@ -429,12 +430,12 @@ impl<T: Config> RichVault<T> {
         })
     }
 
-    pub(crate) fn issue_tokens(&mut self, tokens: Issuing<T>) -> DispatchResult {
+    pub(crate) fn issue_tokens(&mut self, tokens: Wrapped<T>) -> DispatchResult {
         self.decrease_to_be_issued(tokens)?;
         self.increase_issued(tokens)
     }
 
-    pub(crate) fn decrease_tokens(&mut self, tokens: Issuing<T>) -> DispatchResult {
+    pub(crate) fn decrease_tokens(&mut self, tokens: Wrapped<T>) -> DispatchResult {
         self.decrease_to_be_redeemed(tokens)?;
         self.decrease_issued(tokens)
         // Note: slashing of collateral must be called where this function is called (e.g. in Redeem)
@@ -444,25 +445,25 @@ impl<T: Config> RichVault<T> {
         &mut self,
         liquidation_vault: &mut V,
         status: VaultStatus,
-    ) -> Result<Backing<T>, DispatchError> {
+    ) -> Result<Collateral<T>, DispatchError> {
         let backing_collateral = self.data.backing_collateral;
 
-        // we liquidate at most SECURE_THRESHOLD * backing.
+        // we liquidate at most SECURE_THRESHOLD * collateral.
         let liquidated_collateral = self.get_used_collateral()?;
 
         // amount of tokens being backed
-        let backing_tokens = self.backed_tokens()?;
+        let collateral_tokens = self.backed_tokens()?;
 
         let to_slash = Pallet::<T>::calculate_collateral(
             liquidated_collateral,
-            backing_tokens
+            collateral_tokens
                 .checked_sub(&self.data.to_be_redeemed_tokens)
                 .ok_or(Error::<T>::ArithmeticUnderflow)?,
-            backing_tokens,
+            collateral_tokens,
         )?;
 
         Pallet::<T>::transfer_funds(
-            CurrencySource::Backing(self.id()),
+            CurrencySource::Collateral(self.id()),
             CurrencySource::LiquidationVault,
             to_slash,
         )?;
@@ -571,14 +572,14 @@ pub(crate) struct RichSystemVault<T: Config> {
 
 #[cfg_attr(test, mockable)]
 impl<T: Config> RichSystemVault<T> {
-    pub(crate) fn redeemable_tokens(&self) -> Result<Issuing<T>, DispatchError> {
+    pub(crate) fn redeemable_tokens(&self) -> Result<Wrapped<T>, DispatchError> {
         Ok(self
             .data
             .issued_tokens
             .checked_sub(&self.data.to_be_redeemed_tokens)
             .ok_or(Error::<T>::ArithmeticUnderflow)?)
     }
-    pub(crate) fn backed_tokens(&self) -> Result<Issuing<T>, DispatchError> {
+    pub(crate) fn backed_tokens(&self) -> Result<Wrapped<T>, DispatchError> {
         Ok(self
             .data
             .issued_tokens
@@ -592,15 +593,15 @@ impl<T: Config> UpdatableVault<T> for RichSystemVault<T> {
         Pallet::<T>::liquidation_vault_account_id()
     }
 
-    fn issued_tokens(&self) -> Issuing<T> {
+    fn issued_tokens(&self) -> Wrapped<T> {
         self.data.issued_tokens
     }
 
-    fn to_be_issued_tokens(&self) -> Issuing<T> {
+    fn to_be_issued_tokens(&self) -> Wrapped<T> {
         self.data.to_be_issued_tokens
     }
 
-    fn increase_issued(&mut self, tokens: Issuing<T>) -> DispatchResult {
+    fn increase_issued(&mut self, tokens: Wrapped<T>) -> DispatchResult {
         self.update(|v| {
             v.issued_tokens = v
                 .issued_tokens
@@ -610,7 +611,7 @@ impl<T: Config> UpdatableVault<T> for RichSystemVault<T> {
         })
     }
 
-    fn increase_to_be_issued(&mut self, tokens: Issuing<T>) -> DispatchResult {
+    fn increase_to_be_issued(&mut self, tokens: Wrapped<T>) -> DispatchResult {
         self.update(|v| {
             v.to_be_issued_tokens = v
                 .to_be_issued_tokens
@@ -620,7 +621,7 @@ impl<T: Config> UpdatableVault<T> for RichSystemVault<T> {
         })
     }
 
-    fn increase_to_be_redeemed(&mut self, tokens: Issuing<T>) -> DispatchResult {
+    fn increase_to_be_redeemed(&mut self, tokens: Wrapped<T>) -> DispatchResult {
         self.update(|v| {
             v.to_be_redeemed_tokens = v
                 .to_be_redeemed_tokens
@@ -630,7 +631,7 @@ impl<T: Config> UpdatableVault<T> for RichSystemVault<T> {
         })
     }
 
-    fn decrease_issued(&mut self, tokens: Issuing<T>) -> DispatchResult {
+    fn decrease_issued(&mut self, tokens: Wrapped<T>) -> DispatchResult {
         self.update(|v| {
             v.issued_tokens = v
                 .issued_tokens
@@ -640,7 +641,7 @@ impl<T: Config> UpdatableVault<T> for RichSystemVault<T> {
         })
     }
 
-    fn decrease_to_be_issued(&mut self, tokens: Issuing<T>) -> DispatchResult {
+    fn decrease_to_be_issued(&mut self, tokens: Wrapped<T>) -> DispatchResult {
         self.update(|v| {
             v.to_be_issued_tokens = v
                 .to_be_issued_tokens
@@ -650,7 +651,7 @@ impl<T: Config> UpdatableVault<T> for RichSystemVault<T> {
         })
     }
 
-    fn decrease_to_be_redeemed(&mut self, tokens: Issuing<T>) -> DispatchResult {
+    fn decrease_to_be_redeemed(&mut self, tokens: Wrapped<T>) -> DispatchResult {
         self.update(|v| {
             v.to_be_redeemed_tokens = v
                 .to_be_redeemed_tokens

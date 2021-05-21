@@ -74,8 +74,8 @@ pub type BTCRelayPallet = btc_relay::Pallet<Runtime>;
 pub type BTCRelayError = btc_relay::Error<Runtime>;
 pub type BTCRelayEvent = btc_relay::Event<Runtime>;
 
-pub type CollateralError = currency::Error<Runtime, currency::Backing>;
-pub type CollateralPallet = currency::Pallet<Runtime, currency::Backing>;
+pub type CollateralError = currency::Error<Runtime, currency::Collateral>;
+pub type CollateralPallet = currency::Pallet<Runtime, currency::Collateral>;
 
 pub type ExchangeRateOracleCall = exchange_rate_oracle::Call<Runtime>;
 pub type ExchangeRateOraclePallet = exchange_rate_oracle::Pallet<Runtime>;
@@ -84,10 +84,10 @@ pub type FeeCall = fee::Call<Runtime>;
 pub type FeeError = fee::Error<Runtime>;
 pub type FeePallet = fee::Pallet<Runtime>;
 
-pub type RewardBackingVaultPallet = reward::Pallet<Runtime, reward::BackingVault>;
-pub type RewardIssuingVaultPallet = reward::Pallet<Runtime, reward::IssuingVault>;
-pub type RewardBackingRelayerPallet = reward::Pallet<Runtime, reward::BackingRelayer>;
-pub type RewardIssuingRelayerPallet = reward::Pallet<Runtime, reward::IssuingRelayer>;
+pub type RewardCollateralVaultPallet = reward::Pallet<Runtime, reward::CollateralVault>;
+pub type RewardWrappedVaultPallet = reward::Pallet<Runtime, reward::WrappedVault>;
+pub type RewardCollateralRelayerPallet = reward::Pallet<Runtime, reward::CollateralRelayer>;
+pub type RewardWrappedRelayerPallet = reward::Pallet<Runtime, reward::WrappedRelayer>;
 
 pub type IssueCall = issue::Call<Runtime>;
 pub type IssuePallet = issue::Pallet<Runtime>;
@@ -119,7 +119,7 @@ pub type StakedRelayersPallet = staked_relayers::Pallet<Runtime>;
 
 pub type SystemModule = frame_system::Pallet<Runtime>;
 
-pub type TreasuryPallet = currency::Pallet<Runtime, currency::Issuing>;
+pub type TreasuryPallet = currency::Pallet<Runtime, currency::Wrapped>;
 
 pub type VaultRegistryCall = vault_registry::Call<Runtime>;
 pub type VaultRegistryError = vault_registry::Error<Runtime>;
@@ -224,10 +224,10 @@ impl UserData {
 
 #[derive(Debug, Default, Clone)]
 pub struct FeePool {
-    pub vault_backing_rewards: u128,
-    pub vault_issuing_rewards: u128,
-    pub relayer_backing_rewards: u128,
-    pub relayer_issuing_rewards: u128,
+    pub vault_collateral_rewards: u128,
+    pub vault_wrapped_rewards: u128,
+    pub relayer_collateral_rewards: u128,
+    pub relayer_wrapped_rewards: u128,
 }
 
 fn abs_difference<T: std::ops::Sub<Output = T> + Ord>(x: T, y: T) -> T {
@@ -240,20 +240,20 @@ fn abs_difference<T: std::ops::Sub<Output = T> + Ord>(x: T, y: T) -> T {
 
 impl PartialEq for FeePool {
     fn eq(&self, rhs: &Self) -> bool {
-        abs_difference(self.vault_backing_rewards, rhs.vault_backing_rewards) <= 1
-            && abs_difference(self.vault_issuing_rewards, rhs.vault_issuing_rewards) <= 1
-            && abs_difference(self.relayer_backing_rewards, rhs.relayer_backing_rewards) <= 1
-            && abs_difference(self.relayer_issuing_rewards, rhs.relayer_issuing_rewards) <= 1
+        abs_difference(self.vault_collateral_rewards, rhs.vault_collateral_rewards) <= 1
+            && abs_difference(self.vault_wrapped_rewards, rhs.vault_wrapped_rewards) <= 1
+            && abs_difference(self.relayer_collateral_rewards, rhs.relayer_collateral_rewards) <= 1
+            && abs_difference(self.relayer_wrapped_rewards, rhs.relayer_wrapped_rewards) <= 1
     }
 }
 
 impl FeePool {
     pub fn get() -> Self {
         Self {
-            vault_backing_rewards: RewardBackingVaultPallet::get_total_rewards().unwrap() as u128,
-            vault_issuing_rewards: RewardIssuingVaultPallet::get_total_rewards().unwrap() as u128,
-            relayer_backing_rewards: RewardBackingRelayerPallet::get_total_rewards().unwrap() as u128,
-            relayer_issuing_rewards: RewardIssuingRelayerPallet::get_total_rewards().unwrap() as u128,
+            vault_collateral_rewards: RewardCollateralVaultPallet::get_total_rewards().unwrap() as u128,
+            vault_wrapped_rewards: RewardWrappedVaultPallet::get_total_rewards().unwrap() as u128,
+            relayer_collateral_rewards: RewardCollateralRelayerPallet::get_total_rewards().unwrap() as u128,
+            relayer_wrapped_rewards: RewardWrappedRelayerPallet::get_total_rewards().unwrap() as u128,
         }
     }
 }
@@ -280,7 +280,7 @@ impl CoreVaultData {
             to_be_issued: vault.to_be_issued_tokens,
             issued: vault.issued_tokens,
             to_be_redeemed: vault.to_be_redeemed_tokens,
-            backing_collateral: CurrencySource::<Runtime>::Backing(account_id.clone())
+            backing_collateral: CurrencySource::<Runtime>::Collateral(account_id.clone())
                 .current_balance()
                 .unwrap(),
             griefing_collateral: CurrencySource::<Runtime>::Griefing(account_id.clone())
@@ -321,7 +321,7 @@ impl CoreVaultData {
         // temporarily give vault a lot of backing collateral so we can set issued & to-be-issued to whatever we want
         VaultRegistryPallet::transfer_funds(
             CurrencySource::FreeBalance(account_of(FAUCET)),
-            CurrencySource::Backing(account_of(vault)),
+            CurrencySource::Collateral(account_of(vault)),
             CollateralPallet::get_free_balance(&account_of(FAUCET)),
         )
         .unwrap();
@@ -381,9 +381,9 @@ impl CoreVaultData {
 
         // clear all balances
         VaultRegistryPallet::transfer_funds(
-            CurrencySource::Backing(account_of(vault)),
+            CurrencySource::Collateral(account_of(vault)),
             CurrencySource::FreeBalance(account_of(FAUCET)),
-            CurrencySource::<Runtime>::Backing(account_of(vault))
+            CurrencySource::<Runtime>::Collateral(account_of(vault))
                 .current_balance()
                 .unwrap(),
         )
@@ -408,7 +408,7 @@ impl CoreVaultData {
         // now set balances to desired values
         VaultRegistryPallet::transfer_funds(
             CurrencySource::FreeBalance(account_of(FAUCET)),
-            CurrencySource::Backing(account_of(vault)),
+            CurrencySource::Collateral(account_of(vault)),
             state.backing_collateral,
         )
         .unwrap();
@@ -633,14 +633,14 @@ pub fn force_issue_tokens(user: [u8; 32], vault: [u8; 32], collateral: u128, tok
     assert_ok!(VaultRegistryPallet::issue_tokens(&account_of(vault), tokens));
 
     // mint tokens to the user
-    currency::Pallet::<Runtime, currency::Issuing>::mint(user.into(), tokens);
+    currency::Pallet::<Runtime, currency::Wrapped>::mint(user.into(), tokens);
 }
 
 #[allow(dead_code)]
 pub fn required_collateral_for_issue(issued_tokens: u128) -> u128 {
     let fee_amount_btc = FeePallet::get_issue_fee(issued_tokens).unwrap();
     let total_amount_btc = issued_tokens + fee_amount_btc;
-    VaultRegistryPallet::get_required_collateral_for_issuing(total_amount_btc).unwrap()
+    VaultRegistryPallet::get_required_collateral_for_wrapped(total_amount_btc).unwrap()
 }
 
 pub fn assert_store_main_chain_header_event(height: u32, hash: H256Le, relayer: AccountId) {

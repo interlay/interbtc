@@ -162,8 +162,8 @@ mod request_issue_tests {
     fn integration_test_request_with_griefing_collateral_at_minimum_succeeds() {
         test_with_initialized_vault(|| {
             let amount = 10_000;
-            let amount_in_backing = ExchangeRateOraclePallet::issuing_to_backing(amount).unwrap();
-            let griefing_collateral = FeePallet::get_issue_griefing_collateral(amount_in_backing).unwrap();
+            let amount_in_collateral = ExchangeRateOraclePallet::wrapped_to_collateral(amount).unwrap();
+            let griefing_collateral = FeePallet::get_issue_griefing_collateral(amount_in_collateral).unwrap();
             assert_ok!(
                 Call::Issue(IssueCall::request_issue(amount, account_of(VAULT), griefing_collateral))
                     .dispatch(origin_of(account_of(USER)))
@@ -193,8 +193,8 @@ mod request_issue_tests {
     fn integration_test_request_not_accepting_new_issues_fails() {
         test_with_initialized_vault(|| {
             let amount = 10_000;
-            let amount_in_backing = ExchangeRateOraclePallet::issuing_to_backing(amount).unwrap();
-            let griefing_collateral = FeePallet::get_issue_griefing_collateral(amount_in_backing).unwrap() - 1;
+            let amount_in_collateral = ExchangeRateOraclePallet::wrapped_to_collateral(amount).unwrap();
+            let griefing_collateral = FeePallet::get_issue_griefing_collateral(amount_in_collateral).unwrap() - 1;
             assert_noop!(
                 Call::Issue(IssueCall::request_issue(amount, account_of(VAULT), griefing_collateral))
                     .dispatch(origin_of(account_of(USER))),
@@ -224,7 +224,7 @@ fn integration_test_issue_fails_with_uninitialized_relay() {
 }
 
 #[test]
-fn integration_test_issue_issuing_execute_succeeds() {
+fn integration_test_issue_wrapped_execute_succeeds() {
     test_with(|| {
         let vault_proof_submitter = CAROL;
 
@@ -241,7 +241,7 @@ fn integration_test_issue_issuing_execute_succeeds() {
                 .dispatch(origin_of(account_of(vault_proof_submitter)))
         );
 
-        // alice requests issuing by locking btc with bob
+        // alice requests wrapped by locking btc with bob
         assert_ok!(Call::Issue(IssueCall::request_issue(
             amount_btc,
             account_of(VAULT),
@@ -267,7 +267,7 @@ fn integration_test_issue_issuing_execute_succeeds() {
 }
 
 #[test]
-fn integration_test_issue_issuing_execute_bookkeeping() {
+fn integration_test_issue_wrapped_execute_bookkeeping() {
     test_with_initialized_vault(|| {
         let requested_btc = 1000;
         let (issue_id, issue) = request_issue(requested_btc);
@@ -280,7 +280,7 @@ fn integration_test_issue_issuing_execute_bookkeeping() {
             ParachainState::get(),
             ParachainState::default().with_changes(|user, vault, _, fee_pool, _| {
                 user.free_tokens += issue.amount;
-                fee_pool.vault_issuing_rewards += vault_rewards(issue.fee);
+                fee_pool.vault_wrapped_rewards += vault_rewards(issue.fee);
                 vault.issued += issue.fee + issue.amount;
             })
         );
@@ -306,7 +306,7 @@ fn integration_test_withdraw_after_request_issue() {
                 .dispatch(origin_of(account_of(vault_proof_submitter)))
         );
 
-        // alice requests issuing by locking btc with bob
+        // alice requests wrapped by locking btc with bob
         assert_ok!(Call::Issue(IssueCall::request_issue(
             amount_btc,
             account_of(vault),
@@ -347,7 +347,7 @@ fn integration_test_issue_overpayment() {
             ParachainState::get(),
             ParachainState::default().with_changes(|user, vault, _, fee_pool, _| {
                 user.free_tokens += 2 * issue.amount;
-                fee_pool.vault_issuing_rewards += 2 * vault_rewards(issue.fee);
+                fee_pool.vault_wrapped_rewards += 2 * vault_rewards(issue.fee);
                 vault.issued += sent_btc;
             })
         );
@@ -387,7 +387,7 @@ fn integration_test_issue_refund() {
             post_redeem_state,
             initial_state.with_changes(|user, vault, _, fee_pool, _| {
                 user.free_tokens += issue.amount;
-                fee_pool.vault_issuing_rewards += vault_rewards(issue.fee);
+                fee_pool.vault_wrapped_rewards += vault_rewards(issue.fee);
                 vault.issued += issue.fee + issue.amount;
             })
         );
@@ -413,7 +413,7 @@ fn integration_test_issue_underpayment_succeeds() {
         let sent_btc = (issue.amount + issue.fee) / 4;
 
         // need stake for rewards to deposit
-        assert_ok!(RewardBackingVaultPallet::deposit_stake(
+        assert_ok!(RewardCollateralVaultPallet::deposit_stake(
             &account_of(VAULT),
             signed_fixed_point!(1)
         ));
@@ -430,11 +430,11 @@ fn integration_test_issue_underpayment_succeeds() {
             ParachainState::default().with_changes(|user, vault, _, fee_pool, _| {
                 // user loses 75% of griefing collateral for having only fulfilled 25%
                 user.free_balance -= slashed_griefing_collateral;
-                fee_pool.vault_backing_rewards += vault_rewards(slashed_griefing_collateral);
+                fee_pool.vault_collateral_rewards += vault_rewards(slashed_griefing_collateral);
 
                 // token updating as if only 25% was requested
                 user.free_tokens += issue.amount / 4;
-                fee_pool.vault_issuing_rewards += vault_rewards(issue.fee / 4);
+                fee_pool.vault_wrapped_rewards += vault_rewards(issue.fee / 4);
                 vault.issued += (issue.fee + issue.amount) / 4;
             })
         );
@@ -460,7 +460,7 @@ fn integration_test_issue_underpayment_executed_by_third_party_fails() {
 }
 
 #[test]
-fn integration_test_issue_issuing_cancel() {
+fn integration_test_issue_wrapped_cancel() {
     test_with_initialized_vault(|| {
         // random non-zero starting state
         let (issue_id, issue) = RequestIssueBuilder::new(10_000).request();
@@ -474,7 +474,7 @@ fn integration_test_issue_issuing_cancel() {
         );
 
         // need stake for rewards to deposit
-        assert_ok!(RewardBackingVaultPallet::deposit_stake(
+        assert_ok!(RewardCollateralVaultPallet::deposit_stake(
             &account_of(VAULT),
             signed_fixed_point!(1)
         ));
@@ -486,14 +486,14 @@ fn integration_test_issue_issuing_cancel() {
             ParachainState::get(),
             ParachainState::default().with_changes(|user, _vault, _, fee_pool, _| {
                 user.free_balance -= issue.griefing_collateral;
-                fee_pool.vault_backing_rewards += vault_rewards(issue.griefing_collateral);
+                fee_pool.vault_collateral_rewards += vault_rewards(issue.griefing_collateral);
             })
         );
     });
 }
 
 #[test]
-fn integration_test_issue_issuing_cancel_liquidated() {
+fn integration_test_issue_wrapped_cancel_liquidated() {
     test_with_initialized_vault(|| {
         let (issue_id, issue) = RequestIssueBuilder::new(10_000).request();
 
@@ -525,7 +525,7 @@ fn integration_test_issue_issuing_cancel_liquidated() {
 }
 
 #[test]
-fn integration_test_issue_issuing_execute_liquidated() {
+fn integration_test_issue_wrapped_execute_liquidated() {
     test_with_initialized_vault(|| {
         let (issue_id, issue) = RequestIssueBuilder::new(10_000).request();
 
@@ -538,7 +538,7 @@ fn integration_test_issue_issuing_execute_liquidated() {
             ParachainState::get(),
             post_liquidation_status.with_changes(|user, _vault, liquidation_vault, fee_pool, _| {
                 user.free_tokens += issue.amount;
-                fee_pool.vault_issuing_rewards += vault_rewards(issue.fee);
+                fee_pool.vault_wrapped_rewards += vault_rewards(issue.fee);
 
                 user.free_balance += issue.griefing_collateral;
                 user.locked_balance -= issue.griefing_collateral;

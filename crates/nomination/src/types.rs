@@ -10,10 +10,11 @@ use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 #[cfg(test)]
 use mocktopus::macros::mockable;
-use vault_registry::Collateral;
+use vault_registry::SlashingAccessors;
 
-pub(crate) type Backing<T> =
-    <<T as currency::Config<currency::Backing>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub(crate) type Collateral<T> = <<T as currency::Config<currency::Collateral>>::Currency as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::Balance;
 
 pub(crate) type UnsignedFixedPoint<T> = <T as fee::Config>::UnsignedFixedPoint;
 
@@ -24,7 +25,7 @@ pub struct RichOperator<T: Config> {
 }
 
 pub type DefaultOperator<T> =
-    Operator<<T as frame_system::Config>::AccountId, <T as frame_system::Config>::BlockNumber, Backing<T>>;
+    Operator<<T as frame_system::Config>::AccountId, <T as frame_system::Config>::BlockNumber, Collateral<T>>;
 
 pub struct RichNominator<T: Config> {
     pub(crate) data: DefaultNominator<T>,
@@ -33,7 +34,7 @@ pub struct RichNominator<T: Config> {
 pub type DefaultNominator<T> = Nominator<
     <T as frame_system::Config>::AccountId,
     <T as frame_system::Config>::BlockNumber,
-    Backing<T>,
+    Collateral<T>,
     SignedFixedPoint<T>,
 >;
 
@@ -51,23 +52,23 @@ impl<T: Config> From<DefaultNominator<T>> for RichNominator<T> {
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug, serde::Serialize, serde::Deserialize))]
-pub struct Nominator<AccountId: Ord, BlockNumber, Backing, SignedFixedPoint> {
+pub struct Nominator<AccountId: Ord, BlockNumber, Collateral, SignedFixedPoint> {
     pub id: AccountId,
     pub operator_id: AccountId,
-    pub collateral: Backing,
+    pub collateral: Collateral,
     /// Map of request_id => (Maturity Block, collateral to withdraw)
-    pub pending_withdrawals: BTreeMap<H256, (BlockNumber, Backing)>,
-    pub collateral_to_be_withdrawn: Backing,
+    pub pending_withdrawals: BTreeMap<H256, (BlockNumber, Collateral)>,
+    pub collateral_to_be_withdrawn: Collateral,
     pub slash_tally: SignedFixedPoint,
 }
 
-impl<AccountId: Ord, BlockNumber, Backing: HasCompact + Default, SignedFixedPoint: Default>
-    Nominator<AccountId, BlockNumber, Backing, SignedFixedPoint>
+impl<AccountId: Ord, BlockNumber, Collateral: HasCompact + Default, SignedFixedPoint: Default>
+    Nominator<AccountId, BlockNumber, Collateral, SignedFixedPoint>
 {
     pub(crate) fn new(
         id: AccountId,
         operator_id: AccountId,
-    ) -> Nominator<AccountId, BlockNumber, Backing, SignedFixedPoint> {
+    ) -> Nominator<AccountId, BlockNumber, Collateral, SignedFixedPoint> {
         Nominator {
             id,
             operator_id,
@@ -88,16 +89,16 @@ impl<T: Config> RichNominator<T> {
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug, serde::Serialize, serde::Deserialize))]
-pub struct Operator<AccountId: Ord, BlockNumber, Backing> {
+pub struct Operator<AccountId: Ord, BlockNumber, Collateral> {
     // Account identifier of the Vault
     pub id: AccountId,
     /// Map of request_id => (Maturity Block, collateral to withdraw)
-    pub pending_withdrawals: BTreeMap<H256, (BlockNumber, Backing)>,
-    pub collateral_to_be_withdrawn: Backing,
+    pub pending_withdrawals: BTreeMap<H256, (BlockNumber, Collateral)>,
+    pub collateral_to_be_withdrawn: Collateral,
 }
 
-impl<AccountId: Ord, BlockNumber, Backing: HasCompact + Default> Operator<AccountId, BlockNumber, Backing> {
-    pub(crate) fn new(id: AccountId) -> Operator<AccountId, BlockNumber, Backing> {
+impl<AccountId: Ord, BlockNumber, Collateral: HasCompact + Default> Operator<AccountId, BlockNumber, Collateral> {
+    pub(crate) fn new(id: AccountId) -> Operator<AccountId, BlockNumber, Collateral> {
         Operator {
             id,
             pending_withdrawals: Default::default(),
@@ -132,7 +133,7 @@ impl<T: Config> RichOperator<T> {
     // pub fn withdraw_nominated_collateral(
     //     &mut self,
     //     nominator_id: T::AccountId,
-    //     collateral: Backing<T>,
+    //     collateral: Collateral<T>,
     // ) -> DispatchResult {
     //     let nominator = self
     //         .data
@@ -153,7 +154,7 @@ impl<T: Config> RichOperator<T> {
     pub fn add_pending_operator_withdrawal(
         &mut self,
         request_id: H256,
-        collateral_to_withdraw: Backing<T>,
+        collateral_to_withdraw: Collateral<T>,
         maturity: T::BlockNumber,
     ) -> DispatchResult {
         // // If `collateral_to_withdraw` is larger than (operator_collateral - collateral_to_be_withdrawn),
@@ -196,10 +197,10 @@ impl<T: Config> RichOperator<T> {
         Ok(())
     }
 
-    pub fn execute_operator_withdrawal(&mut self) -> Result<Backing<T>, DispatchError> {
+    pub fn execute_operator_withdrawal(&mut self) -> Result<Collateral<T>, DispatchError> {
         let matured_operator_withdrawal_requests =
             Self::get_matured_withdrawal_requests(&self.data.pending_withdrawals);
-        let mut matured_collateral_to_withdraw: Backing<T> = 0u32.into();
+        let mut matured_collateral_to_withdraw: Collateral<T> = 0u32.into();
         for (request_id, (_, amount)) in matured_operator_withdrawal_requests.iter() {
             self.remove_pending_operator_withdrawal(*request_id)?;
             matured_collateral_to_withdraw = matured_collateral_to_withdraw
@@ -220,15 +221,15 @@ impl<T: Config> RichOperator<T> {
     }
 
     pub fn get_matured_withdrawal_requests(
-        requests: &BTreeMap<H256, (T::BlockNumber, Backing<T>)>,
-    ) -> Vec<(H256, (T::BlockNumber, Backing<T>))> {
+        requests: &BTreeMap<H256, (T::BlockNumber, Collateral<T>)>,
+    ) -> Vec<(H256, (T::BlockNumber, Collateral<T>))> {
         let current_height = ext::security::active_block_number::<T>();
         requests
             .clone()
             .iter()
             .filter(|(_, (maturity, _))| current_height >= *maturity)
             .map(|(id, withdrawal_request)| (id.clone(), withdrawal_request.clone()))
-            .collect::<Vec<(H256, (T::BlockNumber, Backing<T>))>>()
+            .collect::<Vec<(H256, (T::BlockNumber, Collateral<T>))>>()
     }
 
     pub fn remove_pending_operator_withdrawal(&mut self, request_id: H256) -> DispatchResult {
@@ -262,7 +263,7 @@ impl<T: Config> RichOperator<T> {
     //     &mut self,
     //     nominator_id: T::AccountId,
     //     request_id: H256,
-    //     collateral_to_withdraw: Backing<T>,
+    //     collateral_to_withdraw: Collateral<T>,
     //     maturity: T::BlockNumber,
     // ) -> DispatchResult {
     // Ensure that the Nominator has enough collateral for the withdrawal
@@ -303,15 +304,15 @@ impl<T: Config> RichOperator<T> {
     //     Ok(())
     // }
 
-    // pub fn execute_nominator_withdrawal(&mut self, nominator_id: T::AccountId) -> Result<Backing<T>, DispatchError> {
-    // let nominators = self.data.nominators.clone();
+    // pub fn execute_nominator_withdrawal(&mut self, nominator_id: T::AccountId) -> Result<Collateral<T>,
+    // DispatchError> { let nominators = self.data.nominators.clone();
     // let nominator = nominators
     //     .get(&nominator_id)
     //     .ok_or(Error::<T>::NominatorNotFound)?
     //     .clone();
     // let matured_nominator_withdrawal_requests =
     //     Self::get_matured_withdrawal_requests(&nominator.pending_withdrawals);
-    // let mut matured_collateral_to_withdraw: Backing<T> = 0u32.into();
+    // let mut matured_collateral_to_withdraw: Collateral<T> = 0u32.into();
     // for withdrawal in matured_nominator_withdrawal_requests.iter() {
     //     self.remove_pending_nominator_withdrawal(&nominator_id, withdrawal.0)?;
     //     matured_collateral_to_withdraw = matured_collateral_to_withdraw
@@ -375,27 +376,27 @@ impl<T: Config> RichOperator<T> {
     }
 }
 
-impl<T: Config> Collateral<Backing<T>, SignedFixedPoint<T>, Error<T>> for RichNominator<T> {
+impl<T: Config> SlashingAccessors<Collateral<T>, SignedFixedPoint<T>, Error<T>> for RichNominator<T> {
     fn get_slash_per_token(&self) -> Result<SignedFixedPoint<T>, Error<T>> {
         let vault = ext::vault_registry::get_vault_from_id::<T>(&self.data.operator_id)
             .map_err(|_| Error::<T>::VaultNotFound)?;
         Ok(vault.slash_per_token)
     }
 
-    fn get_collateral(&self) -> Backing<T> {
+    fn get_collateral(&self) -> Collateral<T> {
         self.data.collateral
     }
 
     fn mut_collateral<F>(&mut self, func: F) -> Result<(), Error<T>>
     where
-        F: Fn(&mut Backing<T>) -> Result<(), Error<T>>,
+        F: Fn(&mut Collateral<T>) -> Result<(), Error<T>>,
     {
         func(&mut self.data.collateral)?;
         <crate::Nominators<T>>::insert((&self.data.id, &self.data.operator_id), self.data.clone());
         Ok(())
     }
 
-    fn get_total_collateral(&self) -> Result<Backing<T>, Error<T>> {
+    fn get_total_collateral(&self) -> Result<Collateral<T>, Error<T>> {
         let vault = ext::vault_registry::get_vault_from_id::<T>(&self.data.operator_id)
             .map_err(|_| Error::<T>::VaultNotFound)?;
         Ok(vault.total_collateral)
@@ -403,7 +404,7 @@ impl<T: Config> Collateral<Backing<T>, SignedFixedPoint<T>, Error<T>> for RichNo
 
     fn mut_total_collateral<F>(&mut self, func: F) -> Result<(), Error<T>>
     where
-        F: Fn(&mut Backing<T>) -> Result<(), Error<T>>,
+        F: Fn(&mut Collateral<T>) -> Result<(), Error<T>>,
     {
         let mut vault = ext::vault_registry::get_vault_from_id::<T>(&self.data.operator_id)
             .map_err(|_| Error::<T>::VaultNotFound)?;
@@ -412,7 +413,7 @@ impl<T: Config> Collateral<Backing<T>, SignedFixedPoint<T>, Error<T>> for RichNo
         Ok(())
     }
 
-    fn get_backing_collateral(&self) -> Result<Backing<T>, Error<T>> {
+    fn get_backing_collateral(&self) -> Result<Collateral<T>, Error<T>> {
         let vault = ext::vault_registry::get_vault_from_id::<T>(&self.data.operator_id)
             .map_err(|_| Error::<T>::VaultNotFound)?;
         Ok(vault.backing_collateral)
@@ -420,7 +421,7 @@ impl<T: Config> Collateral<Backing<T>, SignedFixedPoint<T>, Error<T>> for RichNo
 
     fn mut_backing_collateral<F>(&mut self, func: F) -> Result<(), Error<T>>
     where
-        F: Fn(&mut Backing<T>) -> Result<(), Error<T>>,
+        F: Fn(&mut Collateral<T>) -> Result<(), Error<T>>,
     {
         let mut vault = ext::vault_registry::get_vault_from_id::<T>(&self.data.operator_id)
             .map_err(|_| Error::<T>::VaultNotFound)?;

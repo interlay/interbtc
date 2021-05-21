@@ -30,7 +30,7 @@ fn set_exchange_rate_succeeds() {
         let rate = FixedU128::checked_from_rational(100, 1).unwrap();
 
         ExchangeRateOracle::is_authorized.mock_safe(|_| MockResult::Return(true));
-        ExchangeRateOracle::backing_per_issuing_to_exchange_rate.mock_safe(|amount| MockResult::Return(Ok(amount)));
+        ExchangeRateOracle::collateral_per_wrapped_to_exchange_rate.mock_safe(|amount| MockResult::Return(Ok(amount)));
         let result = ExchangeRateOracle::set_exchange_rate(Origin::signed(3), rate);
         assert_ok!(result);
 
@@ -69,7 +69,7 @@ fn set_exchange_rate_fails_with_invalid_oracle_source() {
         let failed_rate = FixedU128::checked_from_rational(100, 1).unwrap();
 
         ExchangeRateOracle::is_authorized.mock_safe(|_| MockResult::Return(true));
-        ExchangeRateOracle::backing_per_issuing_to_exchange_rate.mock_safe(|amount| MockResult::Return(Ok(amount)));
+        ExchangeRateOracle::collateral_per_wrapped_to_exchange_rate.mock_safe(|amount| MockResult::Return(Ok(amount)));
         assert_ok!(ExchangeRateOracle::set_exchange_rate(
             Origin::signed(4),
             successful_rate
@@ -95,37 +95,37 @@ fn getting_exchange_rate_fails_with_missing_exchange_rate() {
         ExchangeRateOracle::is_max_delay_passed.mock_safe(|| MockResult::Return(true));
         assert_err!(ExchangeRateOracle::get_exchange_rate(), TestError::MissingExchangeRate);
         assert_err!(
-            ExchangeRateOracle::issuing_to_backing(0),
+            ExchangeRateOracle::wrapped_to_collateral(0),
             TestError::MissingExchangeRate
         );
         assert_err!(
-            ExchangeRateOracle::backing_to_issuing(0),
+            ExchangeRateOracle::collateral_to_wrapped(0),
             TestError::MissingExchangeRate
         );
     });
 }
 
 #[test]
-fn issuing_to_backing() {
+fn wrapped_to_collateral() {
     run_test(|| {
         ExchangeRateOracle::get_exchange_rate
             .mock_safe(|| MockResult::Return(Ok(FixedU128::checked_from_rational(2, 1).unwrap())));
         let test_cases = [(0, 0), (2, 4), (10, 20)];
         for (input, expected) in test_cases.iter() {
-            let result = ExchangeRateOracle::issuing_to_backing(*input);
+            let result = ExchangeRateOracle::wrapped_to_collateral(*input);
             assert_ok!(result, *expected);
         }
     });
 }
 
 #[test]
-fn backing_to_issuing() {
+fn collateral_to_wrapped() {
     run_test(|| {
         ExchangeRateOracle::get_exchange_rate
             .mock_safe(|| MockResult::Return(Ok(FixedU128::checked_from_rational(2, 1).unwrap())));
         let test_cases = [(0, 0), (4, 2), (20, 10), (21, 10)];
         for (input, expected) in test_cases.iter() {
-            let result = ExchangeRateOracle::backing_to_issuing(*input);
+            let result = ExchangeRateOracle::collateral_to_wrapped(*input);
             assert_ok!(result, *expected);
         }
     });
@@ -166,7 +166,7 @@ fn convert_btc_dot_to_satoshi_planck() {
 
         let rate = FixedU128::checked_from_rational(3, 1).unwrap();
         assert_eq!(
-            ExchangeRateOracle::backing_per_issuing_to_exchange_rate(rate).unwrap(),
+            ExchangeRateOracle::collateral_per_wrapped_to_exchange_rate(rate).unwrap(),
             FixedU128::checked_from_rational(300, 1).unwrap()
         );
     });
