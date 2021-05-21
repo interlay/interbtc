@@ -82,6 +82,13 @@ pub(crate) mod vault_registry {
     pub fn compute_collateral<T: vault_registry::Config>(id: &T::AccountId) -> Result<Backing<T>, DispatchError> {
         <vault_registry::Pallet<T>>::compute_collateral(id)
     }
+
+    pub fn is_allowed_to_withdraw_collateral<T: vault_registry::Config>(
+        id: &T::AccountId,
+        amount: Backing<T>,
+    ) -> Result<bool, DispatchError> {
+        <vault_registry::Pallet<T>>::is_allowed_to_withdraw_collateral(id, amount)
+    }
 }
 
 #[cfg_attr(test, mockable)]

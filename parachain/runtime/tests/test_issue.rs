@@ -278,7 +278,7 @@ fn integration_test_issue_issuing_execute_bookkeeping() {
 
         assert_eq!(
             ParachainState::get(),
-            ParachainState::default().with_changes(|user, vault, _, fee_pool, _| {
+            ParachainState::default().with_changes(|user, vault, _, fee_pool| {
                 user.free_tokens += issue.amount;
                 fee_pool.vault_issuing_rewards += vault_rewards(issue.fee);
                 vault.issued += issue.fee + issue.amount;
@@ -345,7 +345,7 @@ fn integration_test_issue_overpayment() {
 
         assert_eq!(
             ParachainState::get(),
-            ParachainState::default().with_changes(|user, vault, _, fee_pool, _| {
+            ParachainState::default().with_changes(|user, vault, _, fee_pool| {
                 user.free_tokens += 2 * issue.amount;
                 fee_pool.vault_issuing_rewards += 2 * vault_rewards(issue.fee);
                 vault.issued += sent_btc;
@@ -385,7 +385,7 @@ fn integration_test_issue_refund() {
         let post_redeem_state = ParachainState::get();
         assert_eq!(
             post_redeem_state,
-            initial_state.with_changes(|user, vault, _, fee_pool, _| {
+            initial_state.with_changes(|user, vault, _, fee_pool| {
                 user.free_tokens += issue.amount;
                 fee_pool.vault_issuing_rewards += vault_rewards(issue.fee);
                 vault.issued += issue.fee + issue.amount;
@@ -397,7 +397,7 @@ fn integration_test_issue_refund() {
 
         assert_eq!(
             ParachainState::get(),
-            post_redeem_state.with_changes(|_user, vault, _, _fee_pool, _| {
+            post_redeem_state.with_changes(|_user, vault, _, _fee_pool| {
                 vault.free_tokens += issue.fee * 3;
                 vault.issued += issue.fee * 3;
             })
@@ -427,7 +427,7 @@ fn integration_test_issue_underpayment_succeeds() {
 
         assert_eq!(
             ParachainState::get(),
-            ParachainState::default().with_changes(|user, vault, _, fee_pool, _| {
+            ParachainState::default().with_changes(|user, vault, _, fee_pool| {
                 // user loses 75% of griefing collateral for having only fulfilled 25%
                 user.free_balance -= slashed_griefing_collateral;
                 fee_pool.vault_backing_rewards += vault_rewards(slashed_griefing_collateral);
@@ -484,7 +484,7 @@ fn integration_test_issue_issuing_cancel() {
 
         assert_eq!(
             ParachainState::get(),
-            ParachainState::default().with_changes(|user, _vault, _, fee_pool, _| {
+            ParachainState::default().with_changes(|user, _vault, _, fee_pool| {
                 user.free_balance -= issue.griefing_collateral;
                 fee_pool.vault_backing_rewards += vault_rewards(issue.griefing_collateral);
             })
@@ -513,7 +513,7 @@ fn integration_test_issue_issuing_cancel_liquidated() {
 
         assert_eq!(
             ParachainState::get(),
-            post_liquidation_status.with_changes(|user, _vault, liquidation_vault, _fee_pool, _| {
+            post_liquidation_status.with_changes(|user, _vault, liquidation_vault, _fee_pool| {
                 // griefing collateral released instead of slashed
                 user.locked_balance -= issue.griefing_collateral;
                 user.free_balance += issue.griefing_collateral;
@@ -536,7 +536,7 @@ fn integration_test_issue_issuing_execute_liquidated() {
 
         assert_eq!(
             ParachainState::get(),
-            post_liquidation_status.with_changes(|user, _vault, liquidation_vault, fee_pool, _| {
+            post_liquidation_status.with_changes(|user, _vault, liquidation_vault, fee_pool| {
                 user.free_tokens += issue.amount;
                 fee_pool.vault_issuing_rewards += vault_rewards(issue.fee);
 

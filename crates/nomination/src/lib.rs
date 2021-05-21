@@ -204,12 +204,15 @@ impl<T: Config> Module<T> {
         operator_id: &T::AccountId,
         amount: Backing<T>,
     ) -> DispatchResult {
+        ensure!(
+            ext::vault_registry::is_allowed_to_withdraw_collateral::<T>(operator_id, amount)?,
+            Error::<T>::InsufficientCollateral
+        );
         if withdrawer_id.eq(operator_id) {
             Self::request_operator_withdrawal(operator_id, amount)?
         } else {
             Self::request_nominator_withdrawal(operator_id, withdrawer_id, amount)?
         };
-        // ext::vault_registry::decrease_backing_collateral::<T>(operator_id, amount)
         Ok(())
     }
 
@@ -358,8 +361,10 @@ impl<T: Config> Module<T> {
     }
 
     pub fn _opt_out_of_nomination(operator_id: &T::AccountId) -> DispatchResult {
-        let operator = Self::get_rich_operator_from_id(operator_id)?;
-        ensure!(!operator.has_nominated_collateral(), Error::<T>::HasNominatedCollateral);
+        ensure!(
+            Self::get_total_nominated_collateral(operator_id)?.is_zero(),
+            Error::<T>::HasNominatedCollateral
+        );
         <Operators<T>>::remove(operator_id);
         Self::deposit_event(Event::<T>::NominationOptOut(operator_id.clone()));
         Ok(())
@@ -427,6 +432,14 @@ impl<T: Config> Module<T> {
         Ok(Self::get_nominator(&nominator_id, &operator_id)?.into())
     }
 
+    pub fn get_nominator_collateral(
+        nominator_id: &T::AccountId,
+        operator_id: &T::AccountId,
+    ) -> Result<Backing<T>, DispatchError> {
+        let nominator = Self::get_rich_nominator(nominator_id, operator_id)?;
+        Ok(nominator.compute_collateral()?)
+    }
+
     pub fn register_or_get_nominator(
         nominator_id: &T::AccountId,
         operator_id: &T::AccountId,
@@ -479,7 +492,6 @@ decl_error! {
         VaultNominationDisabled,
         DepositViolatesMaxNominationRatio,
         NoMaturedCollateral,
-        OperatorHasTooManyNominators,
         HasNominatedCollateral,
     }
 }

@@ -377,11 +377,7 @@ impl<T: Config> Module<T> {
         ext::treasury::burn::<T>(redeem.redeemer.clone(), burn_amount)?;
 
         // send fees to pool
-        ext::treasury::unlock_and_transfer::<T>(
-            &redeem.redeemer,
-            &ext::fee::fee_pool_account_id::<T>(),
-            redeem.fee,
-        )?;
+        ext::treasury::unlock_and_transfer::<T>(&redeem.redeemer, &ext::fee::fee_pool_account_id::<T>(), redeem.fee)?;
         ext::fee::distribute_issuing_rewards::<T>(redeem.fee)?;
 
         ext::vault_registry::redeem_tokens::<T>(&redeem.vault, burn_amount, redeem.premium, &redeem.redeemer)?;
@@ -500,11 +496,7 @@ impl<T: Config> Module<T> {
                 Self::set_redeem_status(redeem_id, RedeemRequestStatus::Reimbursed(false));
             } else {
                 // Transfer the rest of the user's issued tokens (i.e. excluding fee) to the vault
-                ext::treasury::unlock_and_transfer::<T>(
-                    &redeem.redeemer,
-                    &redeem.vault,
-                    vault_to_be_burned_tokens,
-                )?;
+                ext::treasury::unlock_and_transfer::<T>(&redeem.redeemer, &redeem.vault, vault_to_be_burned_tokens)?;
                 ext::vault_registry::decrease_to_be_redeemed_tokens::<T>(&vault_id, vault_to_be_burned_tokens)?;
                 Self::set_redeem_status(redeem_id, RedeemRequestStatus::Reimbursed(true));
             }

@@ -124,11 +124,6 @@ impl<T: Config> RichOperator<T> {
         self.data.id.clone()
     }
 
-    pub fn has_nominated_collateral(&self) -> bool {
-        // TODO: implement
-        true
-    }
-
     // pub fn withdraw_nominated_collateral(
     //     &mut self,
     //     nominator_id: T::AccountId,

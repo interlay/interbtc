@@ -5,7 +5,7 @@ pub const VAULT: [u8; 32] = BOB;
 
 pub const DEFAULT_GRIEFING_COLLATERAL: u128 = 5_000;
 pub const DEFAULT_BACKING_COLLATERAL: u128 = 1_000_000;
-pub const DEFAULT_NOMINATION: u128 = 100_000;
+pub const DEFAULT_NOMINATION: u128 = 20_000;
 
 pub const DEFAULT_OPERATOR_UNBONDING_PERIOD: u32 = 100;
 pub const DEFAULT_NOMINATOR_UNBONDING_PERIOD: u32 = 50;
@@ -154,4 +154,8 @@ pub fn assert_nominator_withdrawal_request_event() -> H256 {
 pub fn assert_total_nominated_collateral_is(operator: [u8; 32], amount_backing: u128) {
     let nominated_collateral = NominationPallet::get_total_nominated_collateral(&account_of(operator)).unwrap();
     assert_eq!(nominated_collateral, amount_backing);
+}
+
+pub fn get_nominator_collateral(nominator: [u8; 32], operator: [u8; 32]) -> u128 {
+    NominationPallet::get_nominator_collateral(&account_of(nominator), &account_of(operator)).unwrap()
 }
