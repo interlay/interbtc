@@ -160,7 +160,7 @@ pub fn assert_refund_request_event() -> H256 {
 
 pub fn execute_refund(vault_id: [u8; 32]) -> (H256, RefundRequest<AccountId, u128>) {
     let refund_address_script = bitcoin::Script::try_from("a914d7ff6d60ebf40a9b1886acce06653ba2224d8fea87").unwrap();
-    let refund_address = BtcAddress::from_script(&refund_address_script).unwrap();
+    let refund_address = BtcAddress::from_script_pub_key(&refund_address_script).unwrap();
 
     let refund_id = assert_refund_request_event();
     let refund = RefundPallet::get_open_refund_request_from_id(&refund_id).unwrap();

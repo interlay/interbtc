@@ -3,6 +3,7 @@ use bitcoin_hashes::{hash160::Hash as Hash160, Hash};
 use codec::{Decode, Encode};
 use sha2::{Digest, Sha256};
 use sp_core::{H160, H256};
+use sp_std::vec::Vec;
 
 use secp256k1::{constants::PUBLIC_KEY_SIZE, Error as Secp256k1Error, PublicKey as Secp256k1PublicKey};
 
@@ -31,7 +32,7 @@ pub enum Address {
 }
 
 impl Address {
-    pub fn from_script(script: &Script) -> Result<Self, Error> {
+    pub fn from_script_pub_key(script: &Script) -> Result<Self, Error> {
         if script.is_p2pkh() {
             // 0x76 (OP_DUP) - 0xa9 (OP_HASH160) - 0x14 (20 bytes len) - <20 bytes pubkey hash> - 0x88 (OP_EQUALVERIFY)
             // - 0xac (OP_CHECKSIG)
@@ -50,7 +51,7 @@ impl Address {
         }
     }
 
-    pub fn to_script(&self) -> Script {
+    pub fn to_script_pub_key(&self) -> Script {
         match self {
             Self::P2PKH(pub_key_hash) => {
                 let mut script = Script::new();
@@ -224,6 +225,40 @@ impl PublicKey {
     /// which can be used to formulate an `Address`.
     pub fn to_hash(&self) -> H160 {
         H160::from(Hash160::hash(&self.0).into_inner())
+    }
+
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.0
+    }
+
+    /// Construct the p2pkh scriptSig for this compressed pubKey
+    /// given the signature. Note: we do not check signatures on
+    /// verification, but this should be non-empty.
+    pub fn to_p2pkh_script_sig(&self, sig: Vec<u8>) -> Script {
+        let mut script = Script::new();
+        script.append(&sig);
+        script.append(self.0.to_vec());
+        script
+    }
+
+    /// Construct the redeemScript for a one-signature-required
+    /// p2sh transaction.
+    pub(crate) fn to_redeem_script(&self) -> Vec<u8> {
+        let mut redeem_script = self.0.to_vec();
+        redeem_script.push(OpCode::OpCheckSig as u8);
+        redeem_script
+    }
+
+    /// Construct the scriptSig for a one-signature-required
+    /// p2sh transaction, given the key's signature. Note: we
+    /// do not verify that the signature is valid but this field
+    /// must be non-empty for parsing to succeed.
+    pub fn to_p2sh_script_sig(&self, sig: Vec<u8>) -> Script {
+        let mut script = Script::new();
+        script.append(OpCode::Op0);
+        script.append(&sig);
+        script.append(self.to_redeem_script());
+        script
     }
 }
 
