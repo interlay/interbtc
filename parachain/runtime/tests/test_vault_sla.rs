@@ -167,21 +167,15 @@ fn test_sla_decrease_for_redeem_failure() {
 }
 
 #[test]
-fn test_sla_remains_unchanged_when_liquidated() {
+fn test_sla_drops_when_liquidated() {
     test_with(|| {
-        let expected_sla_increase_for_deposit = SlaPallet::vault_deposit_max_sla_change();
-
         let (issue_id, _) = request_issue(1000);
 
         drop_exchange_rate_and_liquidate(VAULT);
 
         execute_issue(issue_id);
 
-        // sla remains unchanged if vault has been liquidated
-        assert_eq!(
-            SlaPallet::vault_sla(account_of(VAULT)),
-            initial_sla() + expected_sla_increase_for_deposit
-        );
+        assert_eq!(SlaPallet::vault_sla(account_of(VAULT)), Zero::zero());
     })
 }
 

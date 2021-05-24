@@ -642,14 +642,14 @@ fn integration_test_redeem_wrapped_cancel_liquidated_reimburse() {
         // NOTE: changes are relative the the post liquidation state
         assert_eq!(
             ParachainState::get(),
-            post_liquidation_state.with_changes(|user, vault, liquidation_vault, fee_pool, _| {
+            post_liquidation_state.with_changes(|user, vault, liquidation_vault, _, _| {
                 // to-be-redeemed decreased, forwarding to liquidation vault
                 vault.to_be_redeemed -= redeem.amount_btc + redeem.transfer_fee_btc;
                 liquidation_vault.to_be_redeemed -= redeem.amount_btc + redeem.transfer_fee_btc;
 
                 // tokens are given to the vault, minus a fee that is given to the fee pool
                 vault.free_tokens += redeem.amount_btc + redeem.transfer_fee_btc;
-                fee_pool.vault_wrapped_rewards += vault_rewards(redeem.fee);
+                // NOTE: since the vault is liquidated all funds are sent to the maintenance fund
 
                 // the collateral that remained with the vault to back this redeem is transferred to the user
                 let collateral_for_this_redeem = collateral_vault / 4;
@@ -698,10 +698,7 @@ fn integration_test_redeem_wrapped_execute_liquidated() {
         // NOTE: changes are relative the the post liquidation state
         assert_eq!(
             ParachainState::get(),
-            post_liquidation_state.with_changes(|user, vault, liquidation_vault, fee_pool, _| {
-                // fee given to fee pool
-                fee_pool.vault_wrapped_rewards += vault_rewards(redeem.fee);
-
+            post_liquidation_state.with_changes(|user, vault, liquidation_vault, _, _| {
                 // wrapped burned from user
                 user.locked_tokens -= issued_tokens;
 

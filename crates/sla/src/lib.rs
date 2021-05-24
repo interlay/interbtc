@@ -179,6 +179,7 @@ impl<T: Config> Module<T> {
             VaultEvent::ExecuteIssue(amount) => Self::_execute_issue_sla_change(amount)?,
             VaultEvent::Deposit(amount) => Self::_deposit_sla_change(amount)?,
             VaultEvent::Withdraw(amount) => Self::_withdraw_sla_change(amount)?,
+            VaultEvent::Liquidate => return Self::_liquidate_sla(vault_id),
         };
 
         let new_sla = current_sla
@@ -276,10 +277,20 @@ impl<T: Config> Module<T> {
         if delta_sla.is_positive() {
             R::deposit_stake(account_id, delta_sla)?;
         } else if delta_sla.is_negative() {
-            let remaining_sla = R::get_stake(account_id).min(delta_sla.saturating_abs());
-            if remaining_sla > SignedFixedPoint::<T>::zero() {
-                R::withdraw_stake(account_id, remaining_sla)?;
+            let remaining_stake = R::get_stake(account_id).min(delta_sla.saturating_abs());
+            if remaining_stake > SignedFixedPoint::<T>::zero() {
+                R::withdraw_stake(account_id, remaining_stake)?;
             }
+        }
+        Ok(())
+    }
+
+    fn liquidate_stake<R: reward::Rewards<T::AccountId, SignedFixedPoint = SignedFixedPoint<T>>>(
+        account_id: &T::AccountId,
+    ) -> Result<(), DispatchError> {
+        let remaining_stake = R::get_stake(account_id);
+        if remaining_stake > SignedFixedPoint::<T>::zero() {
+            R::withdraw_stake(account_id, remaining_stake)?;
         }
         Ok(())
     }
@@ -440,6 +451,20 @@ impl<T: Config> Module<T> {
             potential_sla_decrease,
             SignedFixedPoint::<T>::zero(),
         ))
+    }
+
+    fn _liquidate_sla(vault_id: &T::AccountId) -> Result<(), DispatchError> {
+        Self::liquidate_stake::<T::CollateralVaultRewards>(vault_id)?;
+        Self::liquidate_stake::<T::WrappedVaultRewards>(vault_id)?;
+
+        let delta_sla = <VaultSla<T>>::get(vault_id)
+            .checked_mul(&SignedFixedPoint::<T>::saturating_from_integer(-1))
+            .unwrap_or(Zero::zero());
+        let bounded_new_sla = SignedFixedPoint::<T>::zero();
+        <VaultSla<T>>::insert(vault_id, bounded_new_sla);
+        Self::deposit_event(<Event<T>>::UpdateVaultSLA(vault_id.clone(), bounded_new_sla, delta_sla));
+
+        Ok(())
     }
 
     /// returns `value` if it is between `min` and `max`; otherwise it returns the bound

@@ -1117,6 +1117,7 @@ impl<T: Config> Pallet<T> {
         let mut liquidation_vault = Self::get_rich_liquidation_vault();
 
         let to_slash = vault.liquidate(&mut liquidation_vault, status)?;
+        ext::sla::event_update_vault_sla::<T>(&vault.id(), ext::sla::VaultEvent::Liquidate)?;
 
         Self::deposit_event(Event::<T>::LiquidateVault(
             vault_id.clone(),

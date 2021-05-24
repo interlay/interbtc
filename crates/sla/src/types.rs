@@ -10,6 +10,7 @@ pub enum VaultEvent<Wrapped, Collateral> {
     Withdraw(Collateral),
     SubmitIssueProof,
     Refund,
+    Liquidate,
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
