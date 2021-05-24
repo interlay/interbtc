@@ -104,8 +104,10 @@ decl_event!(
         LiquidationRedeem(AccountId, Wrapped),
         // [redeem_id, redeemer, amount_wrapped, fee_wrapped, vault]
         ExecuteRedeem(H256, AccountId, Wrapped, Wrapped, AccountId),
-        // [redeem_id, redeemer, vault_id, slashing_amount_in_collateral, reimburse]
-        CancelRedeem(H256, AccountId, AccountId, Collateral, bool),
+        // [redeem_id, redeemer, vault_id, slashing_amount_in_collateral, status]
+        CancelRedeem(H256, AccountId, AccountId, Collateral, RedeemRequestStatus),
+        // [vault_id, redeem_id, amount_minted]
+        MintTokensForReimbursedRedeem(AccountId, H256, Wrapped),
     }
 );
 
@@ -229,8 +231,8 @@ decl_module! {
         fn mint_tokens_for_reimbursed_redeem(origin, redeem_id: H256)
             -> DispatchResult
         {
-        let redeemer = ensure_signed(origin)?;
-            Self::_mint_tokens_for_reimbursed_redeem(redeemer, redeem_id)?;
+            let vault = ensure_signed(origin)?;
+            Self::_mint_tokens_for_reimbursed_redeem(vault, redeem_id)?;
             Ok(())
         }
     }
@@ -483,9 +485,9 @@ impl<T: Config> Module<T> {
         };
 
         // first update the issued tokens; this logic is the same regardless of whether or not the vault is liquidated
-        if reimburse {
+        let new_status = if reimburse {
             // Transfer the transaction fee to the pool. Even though the redeem was not
-            // successful, the user receives a premium in collateral, so it's to take the fee.
+            // successful, the user receives a premium in collateral, so it's OK to take the fee.
             ext::treasury::unlock_and_transfer::<T>(
                 redeem.redeemer.clone(),
                 ext::fee::fee_pool_account_id::<T>(),
@@ -497,7 +499,7 @@ impl<T: Config> Module<T> {
                 // vault can not afford to back the tokens that he would receive, so we burn it
                 ext::treasury::burn::<T>(redeemer.clone(), vault_to_be_burned_tokens)?;
                 ext::vault_registry::decrease_tokens::<T>(&redeem.vault, &redeem.redeemer, vault_to_be_burned_tokens)?;
-                Self::set_redeem_status(redeem_id, RedeemRequestStatus::Reimbursed(false));
+                Self::set_redeem_status(redeem_id, RedeemRequestStatus::Reimbursed(false))
             } else {
                 // Transfer the rest of the user's issued tokens (i.e. excluding fee) to the vault
                 ext::treasury::unlock_and_transfer::<T>(
@@ -506,7 +508,7 @@ impl<T: Config> Module<T> {
                     vault_to_be_burned_tokens,
                 )?;
                 ext::vault_registry::decrease_to_be_redeemed_tokens::<T>(&vault_id, vault_to_be_burned_tokens)?;
-                Self::set_redeem_status(redeem_id, RedeemRequestStatus::Reimbursed(true));
+                Self::set_redeem_status(redeem_id, RedeemRequestStatus::Reimbursed(true))
             }
         } else {
             // unlock user's issued tokens, including fee
@@ -518,8 +520,8 @@ impl<T: Config> Module<T> {
                 .ok_or(Error::<T>::ArithmeticOverflow)?;
             ext::treasury::unlock::<T>(redeemer.clone(), total_wrapped)?;
             ext::vault_registry::decrease_to_be_redeemed_tokens::<T>(&vault_id, vault_to_be_burned_tokens)?;
-            Self::set_redeem_status(redeem_id, RedeemRequestStatus::Retried);
-        }
+            Self::set_redeem_status(redeem_id, RedeemRequestStatus::Retried)
+        };
 
         ext::sla::event_update_vault_sla::<T>(&vault_id, ext::sla::VaultEvent::RedeemFailure)?;
         Self::deposit_event(<Event<T>>::CancelRedeem(
@@ -527,7 +529,7 @@ impl<T: Config> Module<T> {
             redeemer,
             redeem.vault,
             slashed_amount,
-            reimburse,
+            new_status,
         ));
 
         Ok(())
@@ -556,7 +558,13 @@ impl<T: Config> Module<T> {
         ext::vault_registry::issue_tokens::<T>(&vault_id, reimbursed_amount)?;
         ext::treasury::mint::<T>(vault_id, reimbursed_amount);
 
-        Self::set_redeem_status(redeem_id, RedeemRequestStatus::Completed);
+        Self::set_redeem_status(redeem_id, RedeemRequestStatus::Reimbursed(true));
+
+        Self::deposit_event(<Event<T>>::MintTokensForReimbursedRedeem(
+            redeem.vault,
+            redeem_id,
+            reimbursed_amount,
+        ));
 
         Ok(())
     }
@@ -585,11 +593,12 @@ impl<T: Config> Module<T> {
         <RedeemRequests<T>>::insert(key, value)
     }
 
-    fn set_redeem_status(id: H256, status: RedeemRequestStatus) {
-        // TODO: delete redeem request from storage
+    fn set_redeem_status(id: H256, status: RedeemRequestStatus) -> RedeemRequestStatus {
         <RedeemRequests<T>>::mutate(id, |request| {
-            request.status = status;
+            request.status = status.clone();
         });
+
+        status
     }
 
     /// Fetch all redeem requests for the specified account.
