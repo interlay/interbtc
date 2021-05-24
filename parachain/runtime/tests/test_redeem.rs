@@ -802,3 +802,64 @@ fn integration_test_redeem_banning() {
         );
     })
 }
+
+mod mint_tokens_for_reimbursed_redeem_equivalence_test {
+    use super::*;
+
+    fn setup_cancelable_redeem_with_insufficient_collateral_for_reimburse() -> H256 {
+        let amount_btc = 10_000;
+
+        // set collateral to the minimum amount required, such that the vault can not afford to both
+        // reimburse and keep collateral his current tokens
+        let required_collateral =
+            VaultRegistryPallet::get_required_collateral_for_wrapped(DEFAULT_VAULT_ISSUED).unwrap();
+        CoreVaultData::force_to(
+            VAULT,
+            CoreVaultData {
+                backing_collateral: required_collateral,
+                ..CoreVaultData::vault(VAULT)
+            },
+        );
+        let redeem_id = setup_cancelable_redeem(USER, VAULT, 100000000, amount_btc);
+        let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
+        let amount_without_fee_as_collateral =
+            ExchangeRateOraclePallet::wrapped_to_collateral(redeem.amount_btc + redeem.transfer_fee_btc).unwrap();
+
+        let punishment_fee = FeePallet::get_punishment_fee(amount_without_fee_as_collateral).unwrap();
+        assert!(punishment_fee > 0);
+
+        SlaPallet::set_vault_sla(&account_of(VAULT), FixedI128::from(80));
+        redeem_id
+    }
+
+    fn get_additional_collateral() {
+        assert_ok!(VaultRegistryPallet::transfer_funds(
+            CurrencySource::FreeBalance(account_of(FAUCET)),
+            CurrencySource::Collateral(account_of(VAULT)),
+            100_000_000_000,
+        ));
+    }
+
+    #[test]
+    fn integration_test_mint_tokens_for_reimbursed_redeem_equivalence_to_succesful_cancel() {
+        // scenario 1: sufficient collateral
+        let result1 = test_with(|| {
+            let redeem_id = setup_cancelable_redeem_with_insufficient_collateral_for_reimburse();
+            get_additional_collateral();
+            assert_ok!(Call::Redeem(RedeemCall::cancel_redeem(redeem_id, true)).dispatch(origin_of(account_of(USER))));
+            ParachainState::get()
+        });
+        // scenario 2: insufficient collateral
+        let result2 = test_with(|| {
+            let redeem_id = setup_cancelable_redeem_with_insufficient_collateral_for_reimburse();
+            assert_ok!(Call::Redeem(RedeemCall::cancel_redeem(redeem_id, true)).dispatch(origin_of(account_of(USER))));
+            get_additional_collateral();
+            SecurityPallet::set_active_block_number(100000000);
+            assert_ok!(Call::Redeem(RedeemCall::mint_tokens_for_reimbursed_redeem(redeem_id))
+                .dispatch(origin_of(account_of(VAULT))));
+            ParachainState::get()
+        });
+        // the states should be identical
+        assert_eq!(result1, result2);
+    }
+}
