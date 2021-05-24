@@ -106,6 +106,8 @@ decl_event!(
         ExecuteRedeem(H256, AccountId, Wrapped, Wrapped, AccountId),
         // [redeem_id, redeemer, vault_id, slashing_amount_in_collateral, reimburse]
         CancelRedeem(H256, AccountId, AccountId, Collateral, bool),
+        // [vault_id, redeem_id, amount_minted]
+        MintTokensForReimbursedRedeem(AccountId, H256, Wrapped),
     }
 );
 
@@ -229,8 +231,8 @@ decl_module! {
         fn mint_tokens_for_reimbursed_redeem(origin, redeem_id: H256)
             -> DispatchResult
         {
-        let redeemer = ensure_signed(origin)?;
-            Self::_mint_tokens_for_reimbursed_redeem(redeemer, redeem_id)?;
+            let vault = ensure_signed(origin)?;
+            Self::_mint_tokens_for_reimbursed_redeem(vault, redeem_id)?;
             Ok(())
         }
     }
@@ -485,7 +487,7 @@ impl<T: Config> Module<T> {
         // first update the issued tokens; this logic is the same regardless of whether or not the vault is liquidated
         if reimburse {
             // Transfer the transaction fee to the pool. Even though the redeem was not
-            // successful, the user receives a premium in collateral, so it's to take the fee.
+            // successful, the user receives a premium in collateral, so it's OK to take the fee.
             ext::treasury::unlock_and_transfer::<T>(
                 redeem.redeemer.clone(),
                 ext::fee::fee_pool_account_id::<T>(),
@@ -556,7 +558,13 @@ impl<T: Config> Module<T> {
         ext::vault_registry::issue_tokens::<T>(&vault_id, reimbursed_amount)?;
         ext::treasury::mint::<T>(vault_id, reimbursed_amount);
 
-        Self::set_redeem_status(redeem_id, RedeemRequestStatus::Completed);
+        Self::set_redeem_status(redeem_id, RedeemRequestStatus::Reimbursed(true));
+
+        Self::deposit_event(<Event<T>>::MintTokensForReimbursedRedeem(
+            vault_id,
+            redeem_id,
+            amount_wrapped,
+        ));
 
         Ok(())
     }
