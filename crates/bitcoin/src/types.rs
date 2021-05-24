@@ -8,7 +8,7 @@ use crate::{
     merkle::{MerkleProof, MerkleTree},
     parser::{extract_address_hash_scriptsig, extract_address_hash_witness},
     utils::{log2, reverse_endianness, sha256d_le},
-    Address, Error, Script,
+    Address, Error, PublicKey, Script,
 };
 use codec::{Decode, Encode};
 pub use sp_core::{H160, H256, U256};
@@ -264,7 +264,7 @@ pub struct TransactionInput {
     pub height: Option<u32>,
     pub script: Vec<u8>,
     pub sequence: u32,
-    pub flags: u8, // FIXME: is this the witness version?
+    pub flags: u8,
     pub witness: Vec<Vec<u8>>,
 }
 
@@ -296,7 +296,7 @@ impl TransactionOutput {
     pub fn payment(value: i64, address: &Address) -> TransactionOutput {
         TransactionOutput {
             value,
-            script: address.to_script(),
+            script: address.to_script_pub_key(),
         }
     }
 
@@ -308,7 +308,7 @@ impl TransactionOutput {
     }
 
     pub fn extract_address(&self) -> Result<Address, Error> {
-        Address::from_script(&self.script)
+        Address::from_script_pub_key(&self.script)
     }
 }
 
@@ -747,6 +747,26 @@ impl TransactionInputBuilder {
 
     pub fn with_script(&mut self, script: &[u8]) -> &mut Self {
         self.transaction_input.script = Vec::from(script);
+        self
+    }
+
+    pub fn with_p2pkh(&mut self, public_key: &PublicKey, sig: Vec<u8>) -> &mut Self {
+        self.transaction_input.script = public_key.to_p2pkh_script_sig(sig).as_bytes().to_vec();
+        self
+    }
+
+    pub fn with_p2sh(&mut self, public_key: &PublicKey, sig: Vec<u8>) -> &mut Self {
+        self.transaction_input.script = public_key.to_p2sh_script_sig(sig).as_bytes().to_vec();
+        self
+    }
+
+    pub fn with_p2wpkh(&mut self, public_key: &PublicKey, sig: Vec<u8>) -> &mut Self {
+        self.transaction_input.witness = vec![sig, public_key.as_bytes().to_vec()];
+        self
+    }
+
+    pub fn with_p2wsh(&mut self, public_key: &PublicKey, sig: Vec<u8>) -> &mut Self {
+        self.transaction_input.witness = vec![sig, public_key.to_redeem_script()];
         self
     }
 

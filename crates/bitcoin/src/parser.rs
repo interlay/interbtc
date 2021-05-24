@@ -491,7 +491,7 @@ pub(crate) fn extract_op_return_data(output_script: &[u8]) -> Result<Vec<u8>, Er
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
-    use crate::{Address, Script};
+    use crate::{Address, PublicKey, Script};
 
     // examples from https://bitcoin.org/en/developer-reference#block-headers
 
@@ -710,7 +710,7 @@ pub(crate) mod tests {
         let p2pkh_hash: [u8; 20] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
         let script = Script::from(p2pkh_script);
-        let payload = Address::from_script(&script).unwrap();
+        let payload = Address::from_script_pub_key(&script).unwrap();
 
         assert!(matches!(payload, Address::P2PKH(hash) if hash.as_bytes() == p2pkh_hash))
     }
@@ -722,9 +722,43 @@ pub(crate) mod tests {
         let p2sh_hash: [u8; 20] = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
         let script = Script::from(p2sh_script);
-        let payload = Address::from_script(&script).unwrap();
+        let payload = Address::from_script_pub_key(&script).unwrap();
 
         assert!(matches!(payload, Address::P2SH(hash) if hash.as_bytes() == p2sh_hash))
+    }
+
+    #[test]
+    fn test_extract_address_hash_p2pkh_scriptsig_from_public_key() {
+        let script_sig = PublicKey([
+            2, 168, 49, 109, 0, 14, 227, 106, 112, 84, 59, 37, 153, 238, 121, 44, 66, 8, 181, 64, 248, 19, 137, 27, 47,
+            222, 50, 95, 187, 221, 152, 165, 69,
+        ])
+        .to_p2pkh_script_sig(vec![1; 32]);
+
+        let extr_address = extract_address_hash_scriptsig(script_sig.as_bytes()).unwrap();
+        assert_eq!(
+            extr_address,
+            Address::P2PKH(H160([
+                80, 10, 21, 194, 142, 226, 119, 74, 230, 18, 7, 88, 187, 232, 227, 97, 20, 80, 235, 9
+            ]))
+        );
+    }
+
+    #[test]
+    fn test_extract_address_hash_p2pkh_in_p2sh_scriptsig_from_public_key() {
+        let script_sig = PublicKey([
+            2, 139, 220, 235, 13, 249, 164, 152, 179, 4, 175, 217, 170, 84, 218, 179, 182, 247, 109, 48, 57, 152, 241,
+            165, 225, 26, 242, 187, 160, 225, 248, 195, 250,
+        ])
+        .to_p2sh_script_sig(vec![1; 32]);
+
+        let extr_address = extract_address_hash_scriptsig(script_sig.as_bytes()).unwrap();
+        assert_eq!(
+            extr_address,
+            Address::P2SH(H160([
+                24, 49, 81, 119, 128, 234, 237, 59, 97, 156, 209, 13, 224, 143, 34, 170, 227, 63, 97, 46
+            ]))
+        );
     }
 
     #[test]
