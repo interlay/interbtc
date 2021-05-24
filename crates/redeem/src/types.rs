@@ -24,7 +24,7 @@ pub(crate) type Collateral<T> = <<T as currency::Config<currency::Collateral>>::
 pub(crate) type Wrapped<T> =
     <<T as currency::Config<currency::Wrapped>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 
-#[derive(Encode, Decode, Clone, PartialEq)]
+#[derive(Encode, Decode, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug, Serialize, Deserialize))]
 pub enum RedeemRequestStatus {
     Pending,

@@ -520,7 +520,13 @@ fn test_cancel_redeem_succeeds() {
             Redeem::get_open_redeem_request_from_id(&H256([0u8; 32])),
             TestError::RedeemCancelled,
         );
-        assert_emitted!(Event::CancelRedeem(H256([0; 32]), ALICE, BOB, 0, false));
+        assert_emitted!(Event::CancelRedeem(
+            H256([0; 32]),
+            ALICE,
+            BOB,
+            0,
+            RedeemRequestStatus::Retried
+        ));
     })
 }
 
