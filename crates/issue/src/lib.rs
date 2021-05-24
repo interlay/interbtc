@@ -29,7 +29,7 @@ pub mod types;
 #[doc(inline)]
 pub use crate::types::{IssueRequest, IssueRequestStatus};
 
-use crate::types::{Backing, Issuing, Version};
+use crate::types::{Collateral, Version, Wrapped};
 use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
@@ -46,8 +46,8 @@ use vault_registry::{CurrencySource, VaultStatus};
 pub trait Config:
     frame_system::Config
     + vault_registry::Config
-    + currency::Config<currency::Backing>
-    + currency::Config<currency::Issuing>
+    + currency::Config<currency::Collateral>
+    + currency::Config<currency::Wrapped>
     + btc_relay::Config
     + exchange_rate_oracle::Config
     + fee::Config
@@ -66,7 +66,7 @@ decl_storage! {
     trait Store for Module<T: Config> as Issue {
         /// Users create issue requests to issue tokens. This mapping provides access
         /// from a unique hash `IssueId` to an `IssueRequest` struct.
-        IssueRequests: map hasher(blake2_128_concat) H256 => IssueRequest<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>;
+        IssueRequests: map hasher(blake2_128_concat) H256 => IssueRequest<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>;
 
         /// The time difference in number of blocks between an issue request is created
         /// and required completion time by a user. The issue period has an upper limit
@@ -83,25 +83,25 @@ decl_event!(
     pub enum Event<T>
     where
         AccountId = <T as frame_system::Config>::AccountId,
-        Issuing = Issuing<T>,
-        Backing = Backing<T>,
+        Wrapped = Wrapped<T>,
+        Collateral = Collateral<T>,
     {
         RequestIssue(
             H256,         // issue_id
             AccountId,    // requester
-            Issuing,      // amount
-            Issuing,      // fee
-            Backing,      // griefing_collateral
+            Wrapped,      // amount
+            Wrapped,      // fee
+            Collateral,   // griefing_collateral
             AccountId,    // vault_id
             BtcAddress,   // vault deposit address
             BtcPublicKey, // vault public key
         ),
         // issue_id, amount, fee, confiscated_griefing_collateral
-        IssueAmountChange(H256, Issuing, Issuing, Backing),
+        IssueAmountChange(H256, Wrapped, Wrapped, Collateral),
         // [issue_id, requester, total_amount, vault]
-        ExecuteIssue(H256, AccountId, Issuing, AccountId),
+        ExecuteIssue(H256, AccountId, Wrapped, AccountId),
         // [issue_id, requester, griefing_collateral]
-        CancelIssue(H256, AccountId, Backing),
+        CancelIssue(H256, AccountId, Collateral),
     }
 );
 
@@ -128,9 +128,9 @@ decl_module! {
         #[transactional]
         fn request_issue(
             origin,
-            #[compact] amount: Issuing<T>,
+            #[compact] amount: Wrapped<T>,
             vault_id: T::AccountId,
-            #[compact] griefing_collateral: Backing<T>
+            #[compact] griefing_collateral: Collateral<T>
         ) -> DispatchResult {
             let requester = ensure_signed(origin)?;
             Self::_request_issue(requester, amount, vault_id, griefing_collateral)?;
@@ -143,7 +143,7 @@ decl_module! {
         ///
         /// * `origin` - sender of the transaction
         /// * `issue_id` - identifier of issue request as output from request_issue
-        /// * `tx_block_height` - block number of backing chain
+        /// * `tx_block_height` - block number of collateral chain
         /// * `merkle_proof` - raw bytes
         /// * `raw_tx` - raw bytes
         #[weight = <T as Config>::WeightInfo::execute_issue()]
@@ -195,9 +195,9 @@ impl<T: Config> Module<T> {
     /// Requests CBA issuance, returns unique tracking ID.
     fn _request_issue(
         requester: T::AccountId,
-        amount_requested: Issuing<T>,
+        amount_requested: Wrapped<T>,
         vault_id: T::AccountId,
-        griefing_collateral: Backing<T>,
+        griefing_collateral: Collateral<T>,
     ) -> Result<H256, DispatchError> {
         // Check that Parachain is RUNNING
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
@@ -219,8 +219,8 @@ impl<T: Config> Module<T> {
         ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;
 
         // calculate griefing collateral based on the total amount of tokens to be issued
-        let amount_backing = ext::oracle::issuing_to_backing::<T>(amount_requested)?;
-        let expected_griefing_collateral = ext::fee::get_issue_griefing_collateral::<T>(amount_backing)?;
+        let amount_collateral = ext::oracle::wrapped_to_collateral::<T>(amount_requested)?;
+        let expected_griefing_collateral = ext::fee::get_issue_griefing_collateral::<T>(amount_collateral)?;
 
         ensure!(
             griefing_collateral >= expected_griefing_collateral,
@@ -301,7 +301,7 @@ impl<T: Config> Module<T> {
             .amount
             .checked_add(&issue.fee)
             .ok_or(Error::<T>::ArithmeticOverflow)?;
-        let amount_transferred = Self::u128_to_issuing(amount_transferred as u128)?;
+        let amount_transferred = Self::u128_to_wrapped(amount_transferred as u128)?;
 
         // check for unexpected bitcoin amounts, and update the issue struct
         if amount_transferred < expected_total_amount {
@@ -330,7 +330,7 @@ impl<T: Config> Module<T> {
                 CurrencySource::FreeBalance(ext::fee::fee_pool_account_id::<T>()),
                 slashed_collateral,
             )?;
-            ext::fee::distribute_backing_rewards::<T>(slashed_collateral)?;
+            ext::fee::distribute_collateral_rewards::<T>(slashed_collateral)?;
 
             Self::update_issue_amount(&issue_id, &mut issue, amount_transferred, slashed_collateral)?;
         } else {
@@ -373,7 +373,7 @@ impl<T: Config> Module<T> {
         // mint issued tokens
         ext::treasury::mint::<T>(requester.clone(), issue.amount);
 
-        // mint issuing fees
+        // mint wrapped fees
         ext::treasury::mint::<T>(ext::fee::fee_pool_account_id::<T>(), issue.fee);
 
         if !ext::vault_registry::is_vault_liquidated::<T>(&issue.vault)? {
@@ -390,7 +390,7 @@ impl<T: Config> Module<T> {
         }
 
         // distribute rewards after sla increase
-        ext::fee::distribute_issuing_rewards::<T>(issue.fee)?;
+        ext::fee::distribute_wrapped_rewards::<T>(issue.fee)?;
 
         Self::set_issue_status(issue_id, IssueRequestStatus::Completed(maybe_refund_id));
 
@@ -432,7 +432,7 @@ impl<T: Config> Module<T> {
                 CurrencySource::FreeBalance(ext::fee::fee_pool_account_id::<T>()),
                 issue.griefing_collateral,
             )?;
-            ext::fee::distribute_backing_rewards::<T>(issue.griefing_collateral)?;
+            ext::fee::distribute_collateral_rewards::<T>(issue.griefing_collateral)?;
         }
         Self::set_issue_status(issue_id, IssueRequestStatus::Cancelled);
 
@@ -447,7 +447,10 @@ impl<T: Config> Module<T> {
     /// * `account_id` - user account id
     pub fn get_issue_requests_for_account(
         account_id: T::AccountId,
-    ) -> Vec<(H256, IssueRequest<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>)> {
+    ) -> Vec<(
+        H256,
+        IssueRequest<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>,
+    )> {
         <IssueRequests<T>>::iter()
             .filter(|(_, request)| request.requester == account_id)
             .collect::<Vec<_>>()
@@ -460,7 +463,10 @@ impl<T: Config> Module<T> {
     /// * `account_id` - vault account id
     pub fn get_issue_requests_for_vault(
         account_id: T::AccountId,
-    ) -> Vec<(H256, IssueRequest<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>)> {
+    ) -> Vec<(
+        H256,
+        IssueRequest<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>,
+    )> {
         <IssueRequests<T>>::iter()
             .filter(|(_, request)| request.vault == account_id)
             .collect::<Vec<_>>()
@@ -468,7 +474,7 @@ impl<T: Config> Module<T> {
 
     pub fn get_issue_request_from_id(
         issue_id: &H256,
-    ) -> Result<IssueRequest<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>, DispatchError> {
+    ) -> Result<IssueRequest<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>, DispatchError> {
         ensure!(<IssueRequests<T>>::contains_key(*issue_id), Error::<T>::IssueIdNotFound);
 
         let issue_request = <IssueRequests<T>>::get(issue_id);
@@ -483,9 +489,9 @@ impl<T: Config> Module<T> {
     /// update the fee & amount in an issue request based on the actually transferred amount
     fn update_issue_amount(
         issue_id: &H256,
-        issue: &mut IssueRequest<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>,
-        transferred_btc: Issuing<T>,
-        confiscated_griefing_collateral: Backing<T>,
+        issue: &mut IssueRequest<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>,
+        transferred_btc: Wrapped<T>,
+        confiscated_griefing_collateral: Collateral<T>,
     ) -> Result<(), DispatchError> {
         // Current vault can handle the surplus; update the issue request
         issue.fee = ext::fee::get_issue_fee::<T>(transferred_btc)?;
@@ -509,7 +515,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn insert_issue_request(key: &H256, value: &IssueRequest<T::AccountId, T::BlockNumber, Issuing<T>, Backing<T>>) {
+    fn insert_issue_request(key: &H256, value: &IssueRequest<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>) {
         <IssueRequests<T>>::insert(key, value)
     }
 
@@ -520,8 +526,8 @@ impl<T: Config> Module<T> {
         });
     }
 
-    fn u128_to_issuing(x: u128) -> Result<Issuing<T>, DispatchError> {
-        TryInto::<Issuing<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
+    fn u128_to_wrapped(x: u128) -> Result<Wrapped<T>, DispatchError> {
+        TryInto::<Wrapped<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 }
 

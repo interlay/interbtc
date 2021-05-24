@@ -49,14 +49,14 @@ macro_rules! assert_eq_modulo_rounding {
 }
 
 fn get_vault_rewards(account: [u8; 32]) -> i128 {
-    let amount = RewardIssuingVaultPallet::compute_reward(&account_of(account)).unwrap();
-    assert_ok!(Call::Fee(FeeCall::withdraw_vault_issuing_rewards()).dispatch(origin_of(account_of(account))));
+    let amount = RewardWrappedVaultPallet::compute_reward(&account_of(account)).unwrap();
+    assert_ok!(Call::Fee(FeeCall::withdraw_vault_wrapped_rewards()).dispatch(origin_of(account_of(account))));
     amount
 }
 
 fn get_relayer_rewards(account: [u8; 32]) -> i128 {
-    let amount = RewardIssuingRelayerPallet::compute_reward(&account_of(account)).unwrap();
-    assert_ok!(Call::Fee(FeeCall::withdraw_relayer_issuing_rewards()).dispatch(origin_of(account_of(account))));
+    let amount = RewardWrappedRelayerPallet::compute_reward(&account_of(account)).unwrap();
+    assert_ok!(Call::Fee(FeeCall::withdraw_relayer_wrapped_rewards()).dispatch(origin_of(account_of(account))));
     amount
 }
 
@@ -150,19 +150,19 @@ fn integration_test_fee_with_parachain_shutdown_fails() {
         SecurityPallet::set_status(StatusCode::Shutdown);
 
         assert_noop!(
-            Call::Fee(FeeCall::withdraw_vault_backing_rewards()).dispatch(origin_of(account_of(ALICE))),
+            Call::Fee(FeeCall::withdraw_vault_collateral_rewards()).dispatch(origin_of(account_of(ALICE))),
             SecurityError::ParachainShutdown
         );
         assert_noop!(
-            Call::Fee(FeeCall::withdraw_vault_issuing_rewards()).dispatch(origin_of(account_of(ALICE))),
+            Call::Fee(FeeCall::withdraw_vault_wrapped_rewards()).dispatch(origin_of(account_of(ALICE))),
             SecurityError::ParachainShutdown
         );
         assert_noop!(
-            Call::Fee(FeeCall::withdraw_relayer_backing_rewards()).dispatch(origin_of(account_of(ALICE))),
+            Call::Fee(FeeCall::withdraw_relayer_collateral_rewards()).dispatch(origin_of(account_of(ALICE))),
             SecurityError::ParachainShutdown
         );
         assert_noop!(
-            Call::Fee(FeeCall::withdraw_relayer_issuing_rewards()).dispatch(origin_of(account_of(ALICE))),
+            Call::Fee(FeeCall::withdraw_relayer_wrapped_rewards()).dispatch(origin_of(account_of(ALICE))),
             SecurityError::ParachainShutdown
         );
     })

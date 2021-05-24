@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use crate::mock::*;
 use frame_support::{assert_err, assert_ok};
 use sp_arithmetic::FixedI128;
-use vault_registry::{Collateral, Slashable, SlashingError, TryDepositCollateral, TryWithdrawCollateral};
+use vault_registry::{Slashable, SlashingAccessors, SlashingError, TryDepositCollateral, TryWithdrawCollateral};
 
 #[derive(Default)]
 struct SimpleVault {
@@ -23,7 +23,7 @@ impl Slashable<u128, FixedI128, SlashingError> for SimpleVault {
     }
 }
 
-impl Collateral<u128, FixedI128, SlashingError> for SimpleVault {
+impl SlashingAccessors<u128, FixedI128, SlashingError> for SimpleVault {
     fn get_slash_per_token(&self) -> Result<FixedI128, SlashingError> {
         Ok(self.slash_per_token)
     }
@@ -89,7 +89,7 @@ impl SimpleNominator {
     }
 }
 
-impl Collateral<u128, FixedI128, SlashingError> for SimpleNominator {
+impl SlashingAccessors<u128, FixedI128, SlashingError> for SimpleNominator {
     fn get_slash_per_token(&self) -> Result<FixedI128, SlashingError> {
         self.vault.lock().unwrap().get_slash_per_token()
     }

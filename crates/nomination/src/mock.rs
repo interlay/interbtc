@@ -29,16 +29,16 @@ frame_support::construct_runtime!(
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 
         // Tokens & Balances
-        Backing: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
-        Issuing: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
+        Collateral: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
+        Wrapped: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
 
-        BackingCurrency: currency::<Instance1>::{Pallet, Call, Storage, Event<T>},
-        IssuingCurrency: currency::<Instance2>::{Pallet, Call, Storage, Event<T>},
+        CollateralCurrency: currency::<Instance1>::{Pallet, Call, Storage, Event<T>},
+        WrappedCurrency: currency::<Instance2>::{Pallet, Call, Storage, Event<T>},
 
-        BackingVaultRewards: reward::<Instance1>::{Pallet, Call, Storage, Event<T>},
-        IssuingVaultRewards: reward::<Instance2>::{Pallet, Call, Storage, Event<T>},
-        BackingRelayerRewards: reward::<Instance3>::{Pallet, Call, Storage, Event<T>},
-        IssuingRelayerRewards: reward::<Instance4>::{Pallet, Call, Storage, Event<T>},
+        CollateralVaultRewards: reward::<Instance1>::{Pallet, Call, Storage, Event<T>},
+        WrappedVaultRewards: reward::<Instance2>::{Pallet, Call, Storage, Event<T>},
+        CollateralRelayerRewards: reward::<Instance3>::{Pallet, Call, Storage, Event<T>},
+        WrappedRelayerRewards: reward::<Instance4>::{Pallet, Call, Storage, Event<T>},
 
         // Operational
         Security: security::{Pallet, Call, Storage, Event<T>},
@@ -90,7 +90,7 @@ parameter_types! {
     pub const MaxLocks: u32 = 50;
 }
 
-/// Backing currency - e.g. DOT/KSM
+/// Collateral currency - e.g. DOT/KSM
 impl pallet_balances::Config<pallet_balances::Instance1> for Test {
     type MaxLocks = MaxLocks;
     type Balance = Balance;
@@ -106,7 +106,7 @@ impl pallet_balances::Config<pallet_balances::Instance1> for Test {
     type WeightInfo = ();
 }
 
-/// Issuing currency - e.g. PolkaBTC
+/// Wrapped currency - e.g. PolkaBTC
 impl pallet_balances::Config<pallet_balances::Instance2> for Test {
     type MaxLocks = MaxLocks;
     type Balance = Balance;
@@ -123,49 +123,49 @@ impl pallet_balances::Config<pallet_balances::Instance2> for Test {
 }
 
 parameter_types! {
-    pub const BackingName: &'static [u8] = b"Polkadot";
-    pub const BackingSymbol: &'static [u8] = b"DOT";
-    pub const BackingDecimals: u8 = 10;
+    pub const CollateralName: &'static [u8] = b"Polkadot";
+    pub const CollateralSymbol: &'static [u8] = b"DOT";
+    pub const CollateralDecimals: u8 = 10;
 }
 
-impl currency::Config<currency::Backing> for Test {
+impl currency::Config<currency::Collateral> for Test {
     type Event = TestEvent;
-    type Currency = Backing;
-    type Name = BackingName;
-    type Symbol = BackingSymbol;
-    type Decimals = BackingDecimals;
+    type Currency = Collateral;
+    type Name = CollateralName;
+    type Symbol = CollateralSymbol;
+    type Decimals = CollateralDecimals;
 }
 
 parameter_types! {
-    pub const IssuingName: &'static [u8] = b"Bitcoin";
-    pub const IssuingSymbol: &'static [u8] = b"BTC";
-    pub const IssuingDecimals: u8 = 8;
+    pub const WrappedName: &'static [u8] = b"Bitcoin";
+    pub const WrappedSymbol: &'static [u8] = b"BTC";
+    pub const WrappedDecimals: u8 = 8;
 }
 
-impl currency::Config<currency::Issuing> for Test {
+impl currency::Config<currency::Wrapped> for Test {
     type Event = TestEvent;
-    type Currency = Issuing;
-    type Name = IssuingName;
-    type Symbol = IssuingSymbol;
-    type Decimals = IssuingDecimals;
+    type Currency = Wrapped;
+    type Name = WrappedName;
+    type Symbol = WrappedSymbol;
+    type Decimals = WrappedDecimals;
 }
 
-impl reward::Config<reward::BackingVault> for Test {
-    type Event = TestEvent;
-    type SignedFixedPoint = FixedI128;
-}
-
-impl reward::Config<reward::IssuingVault> for Test {
+impl reward::Config<reward::CollateralVault> for Test {
     type Event = TestEvent;
     type SignedFixedPoint = FixedI128;
 }
 
-impl reward::Config<reward::BackingRelayer> for Test {
+impl reward::Config<reward::WrappedVault> for Test {
     type Event = TestEvent;
     type SignedFixedPoint = FixedI128;
 }
 
-impl reward::Config<reward::IssuingRelayer> for Test {
+impl reward::Config<reward::CollateralRelayer> for Test {
+    type Event = TestEvent;
+    type SignedFixedPoint = FixedI128;
+}
+
+impl reward::Config<reward::WrappedRelayer> for Test {
     type Event = TestEvent;
     type SignedFixedPoint = FixedI128;
 }
@@ -218,10 +218,10 @@ impl fee::Config for Test {
     type SignedInner = i128;
     type UnsignedFixedPoint = FixedU128;
     type UnsignedInner = Balance;
-    type BackingVaultRewards = BackingVaultRewards;
-    type IssuingVaultRewards = IssuingVaultRewards;
-    type BackingRelayerRewards = BackingRelayerRewards;
-    type IssuingRelayerRewards = IssuingRelayerRewards;
+    type CollateralVaultRewards = CollateralVaultRewards;
+    type WrappedVaultRewards = WrappedVaultRewards;
+    type CollateralRelayerRewards = CollateralRelayerRewards;
+    type WrappedRelayerRewards = WrappedRelayerRewards;
 }
 
 impl sla::Config for Test {
@@ -229,10 +229,10 @@ impl sla::Config for Test {
     type SignedFixedPoint = FixedI128;
     type SignedInner = i128;
     type Balance = Balance;
-    type BackingVaultRewards = BackingVaultRewards;
-    type IssuingVaultRewards = IssuingVaultRewards;
-    type BackingRelayerRewards = BackingRelayerRewards;
-    type IssuingRelayerRewards = IssuingRelayerRewards;
+    type CollateralVaultRewards = CollateralVaultRewards;
+    type WrappedVaultRewards = WrappedVaultRewards;
+    type CollateralRelayerRewards = CollateralRelayerRewards;
+    type WrappedRelayerRewards = WrappedRelayerRewards;
 }
 
 impl exchange_rate_oracle::Config for Test {
@@ -266,13 +266,13 @@ pub struct ExtBuilder;
 
 impl ExtBuilder {
     pub fn build_with(
-        backing_balances: pallet_balances::GenesisConfig<Test, pallet_balances::Instance1>,
-        issuing_balances: pallet_balances::GenesisConfig<Test, pallet_balances::Instance2>,
+        collateral_balances: pallet_balances::GenesisConfig<Test, pallet_balances::Instance1>,
+        wrapped_balances: pallet_balances::GenesisConfig<Test, pallet_balances::Instance2>,
     ) -> sp_io::TestExternalities {
         let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
-        backing_balances.assimilate_storage(&mut storage).unwrap();
-        issuing_balances.assimilate_storage(&mut storage).unwrap();
+        collateral_balances.assimilate_storage(&mut storage).unwrap();
+        wrapped_balances.assimilate_storage(&mut storage).unwrap();
 
         nomination::GenesisConfig::<Test> {
             is_nomination_enabled: true,

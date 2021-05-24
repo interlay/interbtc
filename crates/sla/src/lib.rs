@@ -19,7 +19,7 @@ use mocktopus::macros::mockable;
 
 pub mod types;
 
-use crate::types::{Backing, Inner, Issuing, RelayerEvent, SignedFixedPoint, VaultEvent};
+use crate::types::{Collateral, Inner, RelayerEvent, SignedFixedPoint, VaultEvent, Wrapped};
 use codec::{Decode, Encode, EncodeLike, FullCodec};
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError, transactional};
 use frame_system::ensure_root;
@@ -32,7 +32,7 @@ use sp_std::{
 
 /// The pallet's configuration trait.
 pub trait Config:
-    frame_system::Config + currency::Config<currency::Backing> + currency::Config<currency::Issuing>
+    frame_system::Config + currency::Config<currency::Collateral> + currency::Config<currency::Wrapped>
 {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
@@ -46,10 +46,10 @@ pub trait Config:
         + CheckedMul
         + CheckedDiv
         + FixedPointOperand
-        + TryFrom<Backing<Self>>
-        + TryFrom<Issuing<Self>>
-        + TryInto<Backing<Self>>
-        + TryInto<Issuing<Self>>;
+        + TryFrom<Collateral<Self>>
+        + TryFrom<Wrapped<Self>>
+        + TryInto<Collateral<Self>>
+        + TryInto<Wrapped<Self>>;
 
     /// The shared balance type for all currencies.
     type Balance: AtLeast32BitUnsigned
@@ -58,22 +58,22 @@ pub trait Config:
         + MaybeSerializeDeserialize
         + Debug
         + Default
-        + From<Backing<Self>>
-        + From<Issuing<Self>>
-        + Into<Backing<Self>>
-        + Into<Issuing<Self>>;
+        + From<Collateral<Self>>
+        + From<Wrapped<Self>>
+        + Into<Collateral<Self>>
+        + Into<Wrapped<Self>>;
 
-    /// Vault reward pool for the backing currency.
-    type BackingVaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
+    /// Vault reward pool for the collateral currency.
+    type CollateralVaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
 
-    /// Vault reward pool for the issuing currency.
-    type IssuingVaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
+    /// Vault reward pool for the wrapped currency.
+    type WrappedVaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
 
-    /// Relayer reward pool for the backing currency.
-    type BackingRelayerRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
+    /// Relayer reward pool for the collateral currency.
+    type CollateralRelayerRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
 
-    /// Relayer reward pool for the issuing currency.
-    type IssuingRelayerRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
+    /// Relayer reward pool for the wrapped currency.
+    type WrappedRelayerRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
 }
 
 // The pallet's storage items.
@@ -169,7 +169,7 @@ impl<T: Config> Module<T> {
     /// * `event` - the event that has happened
     pub fn event_update_vault_sla(
         vault_id: &T::AccountId,
-        event: VaultEvent<Issuing<T>, Backing<T>>,
+        event: VaultEvent<Wrapped<T>, Collateral<T>>,
     ) -> Result<(), DispatchError> {
         let current_sla = <VaultSla<T>>::get(vault_id);
         let delta_sla = match event {
@@ -188,8 +188,8 @@ impl<T: Config> Module<T> {
 
         let bounded_new_sla = Self::_limit(SignedFixedPoint::<T>::zero(), new_sla, max_sla);
 
-        Self::adjust_stake::<T::BackingVaultRewards>(vault_id, delta_sla)?;
-        Self::adjust_stake::<T::IssuingVaultRewards>(vault_id, delta_sla)?;
+        Self::adjust_stake::<T::CollateralVaultRewards>(vault_id, delta_sla)?;
+        Self::adjust_stake::<T::WrappedVaultRewards>(vault_id, delta_sla)?;
 
         <VaultSla<T>>::insert(vault_id, bounded_new_sla);
         Self::deposit_event(<Event<T>>::UpdateVaultSLA(vault_id.clone(), bounded_new_sla, delta_sla));
@@ -216,8 +216,8 @@ impl<T: Config> Module<T> {
 
         let new_sla = Self::_limit(min, potential_new_sla, max);
 
-        Self::adjust_stake::<T::BackingRelayerRewards>(relayer_id, delta_sla)?;
-        Self::adjust_stake::<T::IssuingRelayerRewards>(relayer_id, delta_sla)?;
+        Self::adjust_stake::<T::CollateralRelayerRewards>(relayer_id, delta_sla)?;
+        Self::adjust_stake::<T::WrappedRelayerRewards>(relayer_id, delta_sla)?;
 
         <RelayerSla<T>>::insert(relayer_id, new_sla);
         Self::deposit_event(<Event<T>>::UpdateRelayerSLA(relayer_id.clone(), new_sla, delta_sla));
@@ -241,11 +241,11 @@ impl<T: Config> Module<T> {
     /// * `reimburse` - if true, this function returns 110-130%. If false, it returns 10-30%
     pub fn calculate_slashed_amount<UnsignedFixedPoint: FixedPointNumber>(
         vault_id: &T::AccountId,
-        stake: Backing<T>,
+        stake: Collateral<T>,
         reimburse: bool,
         liquidation_threshold: UnsignedFixedPoint,
         premium_redeem_threshold: UnsignedFixedPoint,
-    ) -> Result<Backing<T>, DispatchError> {
+    ) -> Result<Collateral<T>, DispatchError> {
         let current_sla = <VaultSla<T>>::get(vault_id);
 
         let liquidation_threshold = Self::fixed_point_unsigned_to_signed(liquidation_threshold)?;
@@ -289,10 +289,10 @@ impl<T: Config> Module<T> {
     /// the thesholds are parameters.
     fn _calculate_slashed_amount(
         current_sla: SignedFixedPoint<T>,
-        stake: Backing<T>,
+        stake: Collateral<T>,
         liquidation_threshold: SignedFixedPoint<T>,
         premium_redeem_threshold: SignedFixedPoint<T>,
-    ) -> Result<Backing<T>, DispatchError> {
+    ) -> Result<Collateral<T>, DispatchError> {
         let range = premium_redeem_threshold - liquidation_threshold;
         let max_sla = <VaultTargetSla<T>>::get();
         let stake = TryInto::<T::SignedInner>::try_into(stake).map_err(|_| Error::<T>::TryIntoIntError)?;
@@ -324,8 +324,8 @@ impl<T: Config> Module<T> {
     /// # Arguments
     ///
     /// * `amount` - the amount of tokens that were issued
-    fn _execute_issue_sla_change(amount: Issuing<T>) -> Result<SignedFixedPoint<T>, DispatchError> {
-        let amount_raw = Self::issuing_to_u128(amount)?;
+    fn _execute_issue_sla_change(amount: Wrapped<T>) -> Result<SignedFixedPoint<T>, DispatchError> {
+        let amount_raw = Self::wrapped_to_u128(amount)?;
 
         // update the number of issues performed
         let count = TotalIssueCount::mutate(|x| {
@@ -369,7 +369,7 @@ impl<T: Config> Module<T> {
     /// # Arguments
     ///
     /// * `amount` - the amount of tokens that were locked
-    pub(crate) fn _deposit_sla_change(amount: Backing<T>) -> Result<SignedFixedPoint<T>, DispatchError> {
+    pub(crate) fn _deposit_sla_change(amount: Collateral<T>) -> Result<SignedFixedPoint<T>, DispatchError> {
         let max_sla_change = <VaultDepositMaxSlaChange<T>>::get();
         let amount = Self::currency_to_fixed_point(amount)?;
 
@@ -409,7 +409,7 @@ impl<T: Config> Module<T> {
     /// # Arguments
     ///
     /// * `amount` - the amount of tokens that were unlocked
-    pub(crate) fn _withdraw_sla_change(amount: Backing<T>) -> Result<SignedFixedPoint<T>, DispatchError> {
+    pub(crate) fn _withdraw_sla_change(amount: Collateral<T>) -> Result<SignedFixedPoint<T>, DispatchError> {
         let max_sla_change = <VaultWithdrawMaxSlaChange<T>>::get();
         let amount = Self::currency_to_fixed_point(amount)?;
 
@@ -484,7 +484,7 @@ impl<T: Config> Module<T> {
         Ok(ret)
     }
 
-    fn issuing_to_u128(x: Issuing<T>) -> Result<u128, DispatchError> {
+    fn wrapped_to_u128(x: Wrapped<T>) -> Result<u128, DispatchError> {
         TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 

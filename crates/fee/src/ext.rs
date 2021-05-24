@@ -3,15 +3,15 @@ use mocktopus::macros::mockable;
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod collateral {
-    use crate::Backing;
+    use crate::Collateral;
     use frame_support::dispatch::DispatchResult;
 
-    type CollateralPallet<T> = currency::Pallet<T, currency::Backing>;
+    type CollateralPallet<T> = currency::Pallet<T, currency::Collateral>;
 
-    pub fn transfer<T: currency::Config<currency::Backing>>(
+    pub fn transfer<T: currency::Config<currency::Collateral>>(
         sender: &T::AccountId,
         receiver: &T::AccountId,
-        amount: Backing<T>,
+        amount: Collateral<T>,
     ) -> DispatchResult {
         CollateralPallet::<T>::transfer(sender, receiver, amount)
     }
@@ -19,15 +19,15 @@ pub(crate) mod collateral {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod treasury {
-    use crate::Issuing;
+    use crate::Wrapped;
     use frame_support::dispatch::DispatchResult;
 
-    type TreasuryPallet<T> = currency::Pallet<T, currency::Issuing>;
+    type TreasuryPallet<T> = currency::Pallet<T, currency::Wrapped>;
 
-    pub fn transfer<T: currency::Config<currency::Issuing>>(
+    pub fn transfer<T: currency::Config<currency::Wrapped>>(
         sender: &T::AccountId,
         receiver: &T::AccountId,
-        amount: Issuing<T>,
+        amount: Wrapped<T>,
     ) -> DispatchResult {
         TreasuryPallet::<T>::transfer(sender, receiver, amount)
     }

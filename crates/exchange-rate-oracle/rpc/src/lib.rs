@@ -17,24 +17,24 @@ use sp_runtime::{
 use std::sync::Arc;
 
 #[rpc]
-pub trait ExchangeRateOracleApi<BlockHash, Issuing, Backing>
+pub trait ExchangeRateOracleApi<BlockHash, Wrapped, Collateral>
 where
-    Issuing: Codec + MaybeDisplay + MaybeFromStr,
-    Backing: Codec + MaybeDisplay + MaybeFromStr,
+    Wrapped: Codec + MaybeDisplay + MaybeFromStr,
+    Collateral: Codec + MaybeDisplay + MaybeFromStr,
 {
-    #[rpc(name = "exchangeRateOracle_issuingToBacking")]
-    fn issuing_to_backing(
+    #[rpc(name = "exchangeRateOracle_wrappedToCollateral")]
+    fn wrapped_to_collateral(
         &self,
-        amount: BalanceWrapper<Issuing>,
+        amount: BalanceWrapper<Wrapped>,
         at: Option<BlockHash>,
-    ) -> JsonRpcResult<BalanceWrapper<Backing>>;
+    ) -> JsonRpcResult<BalanceWrapper<Collateral>>;
 
-    #[rpc(name = "exchangeRateOracle_backingToIssuing")]
-    fn backing_to_issuing(
+    #[rpc(name = "exchangeRateOracle_collateralToWrapped")]
+    fn collateral_to_wrapped(
         &self,
-        amount: BalanceWrapper<Backing>,
+        amount: BalanceWrapper<Collateral>,
         at: Option<BlockHash>,
-    ) -> JsonRpcResult<BalanceWrapper<Issuing>>;
+    ) -> JsonRpcResult<BalanceWrapper<Wrapped>>;
 }
 
 /// A struct that implements the [`ExchangeRateOracleApi`].
@@ -87,40 +87,40 @@ fn handle_response<T, E: std::fmt::Debug>(
     )
 }
 
-impl<C, Block, Issuing, Backing> ExchangeRateOracleApi<<Block as BlockT>::Hash, Issuing, Backing>
+impl<C, Block, Wrapped, Collateral> ExchangeRateOracleApi<<Block as BlockT>::Hash, Wrapped, Collateral>
     for ExchangeRateOracle<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-    C::Api: ExchangeRateOracleRuntimeApi<Block, Issuing, Backing>,
-    Issuing: Codec + MaybeDisplay + MaybeFromStr,
-    Backing: Codec + MaybeDisplay + MaybeFromStr,
+    C::Api: ExchangeRateOracleRuntimeApi<Block, Wrapped, Collateral>,
+    Wrapped: Codec + MaybeDisplay + MaybeFromStr,
+    Collateral: Codec + MaybeDisplay + MaybeFromStr,
 {
-    fn issuing_to_backing(
+    fn wrapped_to_collateral(
         &self,
-        amount: BalanceWrapper<Issuing>,
+        amount: BalanceWrapper<Wrapped>,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> JsonRpcResult<BalanceWrapper<Backing>> {
+    ) -> JsonRpcResult<BalanceWrapper<Collateral>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         handle_response(
-            api.issuing_to_backing(&at, amount),
-            "Unable to convert Issuing to Backing.".into(),
+            api.wrapped_to_collateral(&at, amount),
+            "Unable to convert Wrapped to Collateral.".into(),
         )
     }
 
-    fn backing_to_issuing(
+    fn collateral_to_wrapped(
         &self,
-        amount: BalanceWrapper<Backing>,
+        amount: BalanceWrapper<Collateral>,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> JsonRpcResult<BalanceWrapper<Issuing>> {
+    ) -> JsonRpcResult<BalanceWrapper<Wrapped>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
 
         handle_response(
-            api.backing_to_issuing(&at, amount),
-            "Unable to convert Backing to Issuing.".into(),
+            api.collateral_to_wrapped(&at, amount),
+            "Unable to convert Collateral to Wrapped.".into(),
         )
     }
 }

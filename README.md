@@ -69,7 +69,7 @@ The Substrate runtime makes use of various custom pallets that are found in the 
 - [currency](crates/currency) Handles currencies used as backing collateral (e.g. DOT/KSM) and issued tokens (e.g. PolkaBTC).
 - [exchange-rate-oracle](crates/exchange-rate-oracle): Exchange rate oracle. Integration with external provider pending.
 - [fee](crates/fee): Participant reward calculation and distribution.
-- [issue](crates/issue): Handles issuing of PolkaBTC.
+- [issue](crates/issue): Handles issuing of PolkaBTC for BTC on Bitcoin.
 - [redeem](crates/redeem) Handles redeeming of PolkaBTC for BTC on Bitcoin.
 - [refund](crates/refund) Handles refunds for when a vault receives more BTC than it can cover.
 - [replace](crates/replace) Handles replacing vaults.

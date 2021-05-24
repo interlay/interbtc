@@ -28,7 +28,7 @@ use mocktopus::macros::mockable;
 
 pub use security;
 
-use crate::types::{Backing, Issuing};
+use crate::types::{Collateral, Wrapped};
 use bitcoin::{parser::parse_transaction, types::*};
 
 use btc_relay::BtcAddress;
@@ -46,8 +46,8 @@ use vault_registry::Wallet;
 pub trait Config:
     frame_system::Config
     + security::Config
-    + currency::Config<currency::Backing>
-    + currency::Config<currency::Issuing>
+    + currency::Config<currency::Collateral>
+    + currency::Config<currency::Wrapped>
     + vault_registry::Config
     + btc_relay::Config
     + redeem::Config
@@ -255,7 +255,7 @@ impl<T: Config> Module<T> {
     /// * `payments` - all payment outputs extracted from tx
     /// * `wallet` - vault btc addresses
     pub(crate) fn is_valid_request_transaction(
-        request_value: Issuing<T>,
+        request_value: Wrapped<T>,
         request_address: BtcAddress,
         payments: &[(i64, BtcAddress)],
         wallet: &Wallet,
@@ -364,7 +364,7 @@ impl<T: Config> Module<T> {
             // refund requests
             if let Ok(req) = ext::refund::get_open_or_completed_refund_request_from_id::<T>(&request_id) {
                 ensure!(
-                    !Self::is_valid_request_transaction(req.amount_issuing, req.btc_address, &payments, &vault.wallet,),
+                    !Self::is_valid_request_transaction(req.amount_wrapped, req.btc_address, &payments, &vault.wallet,),
                     Error::<T>::ValidRefundTransaction
                 );
             };

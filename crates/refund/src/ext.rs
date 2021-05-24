@@ -3,23 +3,23 @@ use mocktopus::macros::mockable;
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod fee {
-    use crate::types::Issuing;
+    use crate::types::Wrapped;
     use frame_support::dispatch::DispatchError;
 
-    pub fn get_refund_fee_from_total<T: fee::Config>(amount: Issuing<T>) -> Result<Issuing<T>, DispatchError> {
+    pub fn get_refund_fee_from_total<T: fee::Config>(amount: Wrapped<T>) -> Result<Wrapped<T>, DispatchError> {
         <fee::Pallet<T>>::get_refund_fee_from_total(amount)
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod sla {
-    use crate::types::{Backing, Issuing};
+    use crate::types::{Collateral, Wrapped};
     use frame_support::dispatch::DispatchError;
     pub use sla::types::VaultEvent;
 
     pub fn event_update_vault_sla<T: sla::Config>(
         vault_id: &T::AccountId,
-        event: VaultEvent<Issuing<T>, Backing<T>>,
+        event: VaultEvent<Wrapped<T>, Collateral<T>>,
     ) -> Result<(), DispatchError> {
         <sla::Pallet<T>>::event_update_vault_sla(vault_id, event)
     }
@@ -67,28 +67,28 @@ pub(crate) mod security {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod treasury {
-    use crate::types::Issuing;
+    use crate::types::Wrapped;
 
-    type TreasuryPallet<T> = currency::Pallet<T, currency::Issuing>;
+    type TreasuryPallet<T> = currency::Pallet<T, currency::Wrapped>;
 
-    pub fn mint<T: currency::Config<currency::Issuing>>(requester: T::AccountId, amount: Issuing<T>) {
+    pub fn mint<T: currency::Config<currency::Wrapped>>(requester: T::AccountId, amount: Wrapped<T>) {
         TreasuryPallet::<T>::mint(requester, amount)
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
-    use crate::types::Issuing;
+    use crate::types::Wrapped;
     use frame_support::dispatch::{DispatchError, DispatchResult};
 
     pub fn try_increase_to_be_issued_tokens<T: vault_registry::Config>(
         vault_id: &T::AccountId,
-        amount: Issuing<T>,
+        amount: Wrapped<T>,
     ) -> Result<(), DispatchError> {
         <vault_registry::Pallet<T>>::try_increase_to_be_issued_tokens(vault_id, amount)
     }
 
-    pub fn issue_tokens<T: vault_registry::Config>(vault_id: &T::AccountId, amount: Issuing<T>) -> DispatchResult {
+    pub fn issue_tokens<T: vault_registry::Config>(vault_id: &T::AccountId, amount: Wrapped<T>) -> DispatchResult {
         <vault_registry::Pallet<T>>::issue_tokens(vault_id, amount)
     }
 }
