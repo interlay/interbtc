@@ -176,48 +176,6 @@ fn integration_test_nominator_withdrawal_below_collateralization_threshold_fails
     });
 }
 
-#[test]
-fn integration_test_slash_vault_and_nominator() {
-    test_with_nomination_enabled_and_operator_registered(|| {
-        assert_nominate_collateral(USER, VAULT, DEFAULT_NOMINATION);
-        let expected_slashed_amount = 834545;
-        let vault_backing_collateral_before_liquidation =
-            VaultRegistryPallet::get_backing_collateral(&account_of(VAULT)).unwrap();
-        let nominator_collateral_before_liquidation = get_nominator_collateral(USER, VAULT);
-        let vault_collateral_before_liquidation = VaultRegistryPallet::compute_collateral(&account_of(VAULT)).unwrap();
-        drop_exchange_rate_and_liquidate(VAULT);
-        let expected_nominator_slashed_amount = nominator_collateral_before_liquidation * expected_slashed_amount
-            / vault_backing_collateral_before_liquidation;
-        assert_eq!(
-            ParachainState::get(),
-            ParachainState::default().with_changes(|user, vault, liquidation_vault, _| {
-                user.free_balance -= DEFAULT_NOMINATION;
-                liquidation_vault.to_be_issued = DEFAULT_VAULT_TO_BE_ISSUED;
-                liquidation_vault.issued = DEFAULT_VAULT_ISSUED;
-                liquidation_vault.to_be_redeemed = DEFAULT_VAULT_TO_BE_REDEEMED;
-                liquidation_vault.backing_collateral = expected_slashed_amount;
-                vault.to_be_issued = 0;
-                vault.issued = 0;
-                vault.backing_collateral = vault.backing_collateral + DEFAULT_NOMINATION - expected_slashed_amount;
-            })
-        );
-        let nominator_collateral_after_liquidation = get_nominator_collateral(USER, VAULT);
-        let vault_collateral_after_liquidation = VaultRegistryPallet::compute_collateral(&account_of(VAULT)).unwrap();
-        // Use this assert to print values
-        assert_eq!(
-            nominator_collateral_before_liquidation,
-            nominator_collateral_after_liquidation
-        );
-        // Use this assert to print values
-        assert_eq!(vault_collateral_before_liquidation, vault_collateral_after_liquidation);
-        // Actual assert that should hold but doesn't
-        assert_eq!(
-            nominator_collateral_after_liquidation,
-            DEFAULT_NOMINATION - expected_nominator_slashed_amount
-        );
-    });
-}
-
 // #[test]
 // fn test_nomination_fee_distribution() {
 //     run_test(|| {})

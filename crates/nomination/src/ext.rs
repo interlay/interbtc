@@ -46,7 +46,9 @@ pub(crate) mod collateral {
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
     use crate::Backing;
-    pub use ::vault_registry::{DefaultVault, SlashingError, TryDepositCollateral, TryWithdrawCollateral, VaultStatus};
+    pub use ::vault_registry::{
+        DefaultVault, Slashable, SlashingError, TryDepositCollateral, TryWithdrawCollateral, VaultStatus,
+    };
     pub use frame_support::dispatch::{DispatchError, DispatchResult};
 
     pub fn get_backing_collateral<T: vault_registry::Config>(

@@ -106,7 +106,7 @@ substrate-wasm-builder = { git = "https://github.com/paritytech/substrate", bran
 # https://github.com/paritytech/substrate/issues/8161
 
 [features]
-default = ["std", "aura-grandpa"]
+default = ["std"]
 std = [
   "serde",
   "codec/std",

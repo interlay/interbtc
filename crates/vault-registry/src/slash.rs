@@ -101,7 +101,7 @@ macro_rules! checked_sub_mut {
     };
 }
 
-pub(crate) trait Slashable<
+pub trait Slashable<
     Backing: TryInto<u128> + TryFrom<u128> + CheckedSub,
     SignedFixedPoint: FixedPointNumber,
     E: From<SlashingError>,

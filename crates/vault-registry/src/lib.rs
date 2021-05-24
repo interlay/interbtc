@@ -28,16 +28,13 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use crate::{
-    slash::Slashable,
-    types::{
-        Backing, BtcAddress, DefaultSystemVault, Inner, Issuing, RichSystemVault, RichVault, SignedFixedPoint,
-        UnsignedFixedPoint, UpdatableVault, Version,
-    },
+use crate::types::{
+    Backing, BtcAddress, DefaultSystemVault, Inner, Issuing, RichSystemVault, RichVault, SignedFixedPoint,
+    UnsignedFixedPoint, UpdatableVault, Version,
 };
 #[doc(inline)]
 pub use crate::{
-    slash::{TryDepositCollateral, TryWithdrawCollateral},
+    slash::{Slashable, TryDepositCollateral, TryWithdrawCollateral},
     types::{BtcPublicKey, CurrencySource, DefaultVault, SystemVault, Vault, VaultStatus, Wallet},
 };
 use codec::{Decode, Encode, EncodeLike};
@@ -1514,7 +1511,7 @@ impl<T: Config> Pallet<T> {
 
     /// Private getters and setters
 
-    fn get_rich_vault_from_id(vault_id: &T::AccountId) -> Result<RichVault<T>, DispatchError> {
+    pub fn get_rich_vault_from_id(vault_id: &T::AccountId) -> Result<RichVault<T>, DispatchError> {
         Ok(Self::get_vault_from_id(vault_id)?.into())
     }
 
