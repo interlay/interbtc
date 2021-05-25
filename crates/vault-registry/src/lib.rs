@@ -1512,7 +1512,7 @@ impl<T: Config> Pallet<T> {
 
     /// Private getters and setters
 
-    pub fn get_rich_vault_from_id(vault_id: &T::AccountId) -> Result<RichVault<T>, DispatchError> {
+    fn get_rich_vault_from_id(vault_id: &T::AccountId) -> Result<RichVault<T>, DispatchError> {
         Ok(Self::get_vault_from_id(vault_id)?.into())
     }
 

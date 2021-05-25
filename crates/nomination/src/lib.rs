@@ -38,9 +38,7 @@ pub trait WeightInfo {
     fn opt_in_to_nomination() -> Weight;
     fn opt_out_of_nomination() -> Weight;
     fn deposit_nominated_collateral() -> Weight;
-    fn request_collateral_withdrawal() -> Weight;
-    fn execute_collateral_withdrawal() -> Weight;
-    fn cancel_collateral_withdrawal() -> Weight;
+    fn withdraw_collateral() -> Weight;
 }
 
 /// ## Configuration and Constants
@@ -108,16 +106,8 @@ decl_event!(
         WithdrawNominatedCollateral(AccountId, AccountId, Collateral),
         // [request_id, operator_id, maturity_block, collateral]
         RequestOperatorCollateralWithdrawal(H256, AccountId, BlockNumber, Collateral),
-        // [operator_id, collateral]
-        ExecuteOperatorCollateralWithdrawal(AccountId, Collateral),
-        // [request_id, operator_id]
-        CancelOperatorCollateralWithdrawal(H256, AccountId),
         // [request_id, nominator_id, operator_id, maturity_block, collateral]
         RequestNominatorCollateralWithdrawal(H256, AccountId, AccountId, BlockNumber, Collateral),
-        // [nominator_id, operator_id, collateral]
-        ExecuteNominatorCollateralWithdrawal(AccountId, AccountId, Collateral),
-        // [request_id, nominator_id, operator_id]
-        CancelNominatorCollateralWithdrawal(H256, AccountId, AccountId),
         // [operator_id, collateral, status]
         SlashCollateral(AccountId, Collateral, VaultStatus),
     }
@@ -162,29 +152,14 @@ decl_module! {
             Self::_deposit_nominated_collateral(&sender, &operator_id, amount)
         }
 
-        #[weight = <T as Config>::WeightInfo::request_collateral_withdrawal()]
+        #[weight = <T as Config>::WeightInfo::withdraw_collateral()]
         #[transactional]
-        fn request_collateral_withdrawal(origin, operator_id: T::AccountId, amount: Collateral<T>) -> DispatchResult {
+        fn withdraw_collateral(origin, operator_id: T::AccountId, amount: Collateral<T>) -> DispatchResult {
             let sender = ensure_signed(origin)?;
             ext::security::ensure_parachain_status_running::<T>()?;
-            Self::_request_collateral_withdrawal(&sender, &operator_id, amount)
+            Self::_withdraw_collateral(&sender, &operator_id, amount)
         }
 
-        #[weight = <T as Config>::WeightInfo::execute_collateral_withdrawal()]
-        #[transactional]
-        fn execute_collateral_withdrawal(origin, operator_id: T::AccountId) -> DispatchResult {
-            let account_id = ensure_signed(origin)?;
-            ext::security::ensure_parachain_status_running::<T>()?;
-            Self::_execute_collateral_withdrawal(&account_id, &operator_id)
-        }
-
-        #[weight = <T as Config>::WeightInfo::execute_collateral_withdrawal()]
-        #[transactional]
-        fn cancel_collateral_withdrawal(origin, operator_id: T::AccountId, request_id: H256) -> DispatchResult {
-            let account_id = ensure_signed(origin)?;
-            ext::security::ensure_parachain_status_running::<T>()?;
-            Self::_cancel_collateral_withdrawal(&account_id, &operator_id, &request_id)
-        }
     }
 }
 
@@ -199,7 +174,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    pub fn _request_collateral_withdrawal(
+    pub fn _withdraw_collateral(
         withdrawer_id: &T::AccountId,
         operator_id: &T::AccountId,
         amount: Collateral<T>,
@@ -209,42 +184,14 @@ impl<T: Config> Module<T> {
             Error::<T>::InsufficientCollateral
         );
         if withdrawer_id.eq(operator_id) {
-            Self::request_operator_withdrawal(operator_id, amount)?
+            Self::withdraw_operator_collateral(operator_id, amount)?
         } else {
-            Self::request_nominator_withdrawal(operator_id, withdrawer_id, amount)?
+            Self::withdraw_nominator_collateral(operator_id, withdrawer_id, amount)?
         };
         Ok(())
     }
 
-    /// Unbond collateral withdrawal if mature.
-    ///
-    /// # Arguments
-    ///
-    /// * `withdrawer_id` - AccountId of the withdrawer
-    /// * `vault_id` - AccountId of the vault
-    pub fn _execute_collateral_withdrawal(withdrawer_id: &T::AccountId, operator_id: &T::AccountId) -> DispatchResult {
-        if withdrawer_id.eq(operator_id) {
-            Self::execute_operator_withdrawal(operator_id)
-        } else {
-            // Self::execute_nominator_withdrawal(operator_id, withdrawer_id)
-            Ok(())
-        }
-    }
-
-    pub fn _cancel_collateral_withdrawal(
-        withdrawer_id: &T::AccountId,
-        operator_id: &T::AccountId,
-        request_id: &H256,
-    ) -> DispatchResult {
-        if withdrawer_id.eq(operator_id) {
-            Self::cancel_operator_withdrawal(operator_id, request_id)
-        } else {
-            // Self::cancel_nominator_withdrawal(operator_id, withdrawer_id, request_id)
-            Ok(())
-        }
-    }
-
-    pub fn request_operator_withdrawal(
+    pub fn withdraw_operator_collateral(
         operator_id: &T::AccountId,
         collateral_to_withdraw: Collateral<T>,
     ) -> DispatchResult {
@@ -262,48 +209,15 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    pub fn execute_operator_withdrawal(operator_id: &T::AccountId) -> DispatchResult {
-        ensure!(
-            Self::is_operator(&operator_id)?,
-            Error::<T>::VaultNotOptedInToNomination
-        );
-        let mut operator = Self::get_rich_operator_from_id(operator_id)?;
-        // For every matured request, an event is emitted inside the object method
-        let matured_collateral = operator.execute_operator_withdrawal()?;
-        ensure!(!matured_collateral.is_zero(), Error::<T>::NoMaturedCollateral);
-        Self::deposit_event(Event::<T>::ExecuteOperatorCollateralWithdrawal(
-            operator_id.clone(),
-            matured_collateral,
-        ));
-        Ok(())
-    }
-
-    pub fn cancel_operator_withdrawal(operator_id: &T::AccountId, request_id: &H256) -> DispatchResult {
-        ensure!(
-            Self::is_operator(&operator_id)?,
-            Error::<T>::VaultNotOptedInToNomination
-        );
-        let mut operator = Self::get_rich_operator_from_id(operator_id)?;
-        operator.remove_pending_operator_withdrawal(*request_id)?;
-        Self::deposit_event(Event::<T>::CancelOperatorCollateralWithdrawal(
-            *request_id,
-            operator_id.clone(),
-        ));
-        Ok(())
-    }
-
-    pub fn request_nominator_withdrawal(
-        operator_id: &T::AccountId,
+    pub fn withdraw_nominator_collateral(
+        vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
         amount: Collateral<T>,
     ) -> DispatchResult {
-        ensure!(
-            Self::is_operator(&operator_id)?,
-            Error::<T>::VaultNotOptedInToNomination
-        );
-        let mut nominator: RichNominator<T> = Self::get_nominator(&nominator_id, &operator_id)?.into();
+        ensure!(Self::is_operator(&vault_id)?, Error::<T>::VaultNotOptedInToNomination);
+        let mut nominator: RichNominator<T> = Self::get_nominator(&nominator_id, &vault_id)?.into();
         nominator.try_withdraw_collateral(amount)?;
-        ext::collateral::unlock_and_transfer::<T>(nominator_id, operator_id, amount)?;
+        ext::collateral::unlock_and_transfer::<T>(nominator_id, vault_id, amount)?;
         Ok(())
     }
 

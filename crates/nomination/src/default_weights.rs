@@ -24,19 +24,9 @@ impl crate::WeightInfo for () {
             .saturating_add(DbWeight::get().reads(10 as Weight))
             .saturating_add(DbWeight::get().writes(3 as Weight))
     }
-    fn request_collateral_withdrawal() -> Weight {
+    fn withdraw_collateral() -> Weight {
         (218_546_000 as Weight)
             .saturating_add(DbWeight::get().reads(12 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
-    }
-    fn execute_collateral_withdrawal() -> Weight {
-        (97_129_000 as Weight)
-            .saturating_add(DbWeight::get().reads(5 as Weight))
-            .saturating_add(DbWeight::get().writes(3 as Weight))
-    }
-    fn cancel_collateral_withdrawal() -> Weight {
-        (97_129_000 as Weight)
-            .saturating_add(DbWeight::get().reads(5 as Weight))
             .saturating_add(DbWeight::get().writes(3 as Weight))
     }
 }

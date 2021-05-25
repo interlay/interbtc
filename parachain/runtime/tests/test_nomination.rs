@@ -90,7 +90,7 @@ fn integration_test_operators_cannot_withdraw_nominated_collateral() {
     test_with_nomination_enabled_and_operator_registered(|| {
         assert_nominate_collateral(USER, VAULT, DEFAULT_NOMINATION);
         assert_noop!(
-            request_operator_collateral_withdrawal(VAULT, DEFAULT_BACKING_COLLATERAL + 1),
+            withdraw_operator_collateral(VAULT, DEFAULT_BACKING_COLLATERAL + 1),
             NominationError::InsufficientCollateral
         );
     });
@@ -150,7 +150,7 @@ fn integration_test_nominator_withdrawal_request_reduces_issuable_tokens() {
         assert_nominate_collateral(USER, VAULT, DEFAULT_NOMINATION);
         let issuance_capacity_before_withdrawal_request =
             VaultRegistryPallet::get_issuable_tokens_from_vault(account_of(VAULT)).unwrap();
-        assert_ok!(request_nominator_collateral_withdrawal(USER, VAULT, DEFAULT_NOMINATION));
+        assert_ok!(withdraw_nominator_collateral(USER, VAULT, DEFAULT_NOMINATION));
         let issuance_capacity_after_withdrawal_request =
             VaultRegistryPallet::get_issuable_tokens_from_vault(account_of(VAULT)).unwrap();
         assert_eq!(issuance_capacity_before_withdrawal_request, 570000);
@@ -170,7 +170,7 @@ fn integration_test_nominator_withdrawal_below_collateralization_threshold_fails
             FixedU128::checked_from_integer(3).unwrap()
         ));
         assert_noop!(
-            request_nominator_collateral_withdrawal(USER, VAULT, DEFAULT_NOMINATION),
+            withdraw_nominator_collateral(USER, VAULT, DEFAULT_NOMINATION),
             NominationError::InsufficientCollateral
         );
     });
