@@ -774,67 +774,67 @@ fn integration_test_replace_execute_replace_success() {
     });
 }
 
-#[test]
-fn integration_test_replace_execute_replace_old_vault_liquidated() {
-    ExtBuilder::build().execute_with(|| {
-        let replace_tokens = 1000;
-        let replace_id = setup_replace(replace_tokens);
+// #[test]
+// fn integration_test_replace_execute_replace_old_vault_liquidated() {
+//     ExtBuilder::build().execute_with(|| {
+//         let replace_tokens = 1000;
+//         let replace_id = setup_replace(replace_tokens);
 
-        assert_eq!(
-            CoreVaultData::vault(OLD_VAULT),
-            CoreVaultData {
-                issued: replace_tokens,
-                to_be_redeemed: replace_tokens,
-                backing_collateral: DEFAULT_COLLATERAL,
-                griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
-                ..Default::default()
-            },
-        );
-        assert_eq!(
-            CoreVaultData::vault(NEW_VAULT),
-            CoreVaultData {
-                to_be_issued: replace_tokens,
-                backing_collateral: DEFAULT_COLLATERAL,
-                ..Default::default()
-            }
-        );
+//         assert_eq!(
+//             CoreVaultData::vault(OLD_VAULT),
+//             CoreVaultData {
+//                 issued: replace_tokens,
+//                 to_be_redeemed: replace_tokens,
+//                 backing_collateral: DEFAULT_COLLATERAL,
+//                 griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
+//                 ..Default::default()
+//             },
+//         );
+//         assert_eq!(
+//             CoreVaultData::vault(NEW_VAULT),
+//             CoreVaultData {
+//                 to_be_issued: replace_tokens,
+//                 backing_collateral: DEFAULT_COLLATERAL,
+//                 ..Default::default()
+//             }
+//         );
 
-        CoreVaultData::force_to(
-            OLD_VAULT,
-            CoreVaultData {
-                issued: 2500,
-                to_be_redeemed: 1250,
-                backing_collateral: DEFAULT_COLLATERAL,
-                griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
-                ..Default::default()
-            },
-        );
+//         CoreVaultData::force_to(
+//             OLD_VAULT,
+//             CoreVaultData {
+//                 issued: 2500,
+//                 to_be_redeemed: 1250,
+//                 backing_collateral: DEFAULT_COLLATERAL,
+//                 griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
+//                 ..Default::default()
+//             },
+//         );
 
-        drop_exchange_rate_and_liquidate(OLD_VAULT);
-        assert_ok!(execute_replace(replace_id));
+//         drop_exchange_rate_and_liquidate(OLD_VAULT);
+//         assert_ok!(execute_replace(replace_id));
 
-        let old_vault = CoreVaultData::vault(OLD_VAULT);
-        assert_eq!(
-            old_vault,
-            CoreVaultData {
-                to_be_redeemed: 250,
-                backing_collateral: (DEFAULT_COLLATERAL * 250) / 2500,
-                free_balance: DEFAULT_GRIEFING_COLLATERAL,
-                ..Default::default()
-            }
-        );
-        let new_vault = CoreVaultData::vault(NEW_VAULT);
-        assert_eq!(
-            new_vault,
-            CoreVaultData {
-                issued: replace_tokens,
-                backing_collateral: DEFAULT_COLLATERAL,
-                ..Default::default()
-            }
-        );
-        assert_liquidation_vault_ok(replace_tokens + 500, &old_vault, &new_vault);
-    });
-}
+//         let old_vault = CoreVaultData::vault(OLD_VAULT);
+//         assert_eq!(
+//             old_vault,
+//             CoreVaultData {
+//                 to_be_redeemed: 250,
+//                 backing_collateral: (DEFAULT_COLLATERAL * 250) / 2500,
+//                 free_balance: DEFAULT_GRIEFING_COLLATERAL,
+//                 ..Default::default()
+//             }
+//         );
+//         let new_vault = CoreVaultData::vault(NEW_VAULT);
+//         assert_eq!(
+//             new_vault,
+//             CoreVaultData {
+//                 issued: replace_tokens,
+//                 backing_collateral: DEFAULT_COLLATERAL,
+//                 ..Default::default()
+//             }
+//         );
+//         assert_liquidation_vault_ok(replace_tokens + 500, &old_vault, &new_vault);
+//     });
+// }
 
 #[test]
 fn integration_test_replace_execute_replace_new_vault_liquidated() {
@@ -897,77 +897,77 @@ fn integration_test_replace_execute_replace_new_vault_liquidated() {
     });
 }
 
-#[test]
-fn integration_test_replace_execute_replace_both_vaults_liquidated() {
-    ExtBuilder::build().execute_with(|| {
-        let replace_tokens = 1000;
-        let replace_id = setup_replace(replace_tokens);
-        assert_eq!(
-            CoreVaultData::vault(OLD_VAULT),
-            CoreVaultData {
-                issued: replace_tokens,
-                to_be_redeemed: replace_tokens,
-                backing_collateral: DEFAULT_COLLATERAL,
-                griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
-                ..Default::default()
-            },
-        );
-        assert_eq!(
-            CoreVaultData::vault(NEW_VAULT),
-            CoreVaultData {
-                to_be_issued: replace_tokens,
-                backing_collateral: DEFAULT_COLLATERAL,
-                ..Default::default()
-            }
-        );
+// #[test]
+// fn integration_test_replace_execute_replace_both_vaults_liquidated() {
+//     ExtBuilder::build().execute_with(|| {
+//         let replace_tokens = 1000;
+//         let replace_id = setup_replace(replace_tokens);
+//         assert_eq!(
+//             CoreVaultData::vault(OLD_VAULT),
+//             CoreVaultData {
+//                 issued: replace_tokens,
+//                 to_be_redeemed: replace_tokens,
+//                 backing_collateral: DEFAULT_COLLATERAL,
+//                 griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
+//                 ..Default::default()
+//             },
+//         );
+//         assert_eq!(
+//             CoreVaultData::vault(NEW_VAULT),
+//             CoreVaultData {
+//                 to_be_issued: replace_tokens,
+//                 backing_collateral: DEFAULT_COLLATERAL,
+//                 ..Default::default()
+//             }
+//         );
 
-        CoreVaultData::force_to(
-            OLD_VAULT,
-            CoreVaultData {
-                backing_collateral: DEFAULT_COLLATERAL,
-                griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
-                issued: replace_tokens + 250,        // new
-                to_be_redeemed: replace_tokens + 50, // new
-                ..Default::default()
-            },
-        );
-        CoreVaultData::force_to(
-            NEW_VAULT,
-            CoreVaultData {
-                to_be_issued: replace_tokens,
-                backing_collateral: DEFAULT_COLLATERAL,
-                issued: 500,         // new
-                to_be_redeemed: 150, // new
-                ..Default::default()
-            },
-        );
+//         CoreVaultData::force_to(
+//             OLD_VAULT,
+//             CoreVaultData {
+//                 backing_collateral: DEFAULT_COLLATERAL,
+//                 griefing_collateral: DEFAULT_GRIEFING_COLLATERAL,
+//                 issued: replace_tokens + 250,        // new
+//                 to_be_redeemed: replace_tokens + 50, // new
+//                 ..Default::default()
+//             },
+//         );
+//         CoreVaultData::force_to(
+//             NEW_VAULT,
+//             CoreVaultData {
+//                 to_be_issued: replace_tokens,
+//                 backing_collateral: DEFAULT_COLLATERAL,
+//                 issued: 500,         // new
+//                 to_be_redeemed: 150, // new
+//                 ..Default::default()
+//             },
+//         );
 
-        drop_exchange_rate_and_liquidate(OLD_VAULT);
-        drop_exchange_rate_and_liquidate(NEW_VAULT);
-        assert_ok!(execute_replace(replace_id));
+//         drop_exchange_rate_and_liquidate(OLD_VAULT);
+//         drop_exchange_rate_and_liquidate(NEW_VAULT);
+//         assert_ok!(execute_replace(replace_id));
 
-        let old_vault = CoreVaultData::vault(OLD_VAULT);
-        assert_eq!(
-            old_vault,
-            CoreVaultData {
-                to_be_redeemed: 50,
-                backing_collateral: (DEFAULT_COLLATERAL * 50) / (replace_tokens + 250),
-                free_balance: DEFAULT_GRIEFING_COLLATERAL,
-                ..Default::default()
-            }
-        );
-        let new_vault = CoreVaultData::vault(NEW_VAULT);
-        assert_eq!(
-            new_vault,
-            CoreVaultData {
-                to_be_redeemed: 150,
-                backing_collateral: (DEFAULT_COLLATERAL * 150) / (replace_tokens + 500),
-                ..Default::default()
-            }
-        );
-        assert_liquidation_vault_ok(replace_tokens + 250 + 500, &old_vault, &new_vault);
-    });
-}
+//         let old_vault = CoreVaultData::vault(OLD_VAULT);
+//         assert_eq!(
+//             old_vault,
+//             CoreVaultData {
+//                 to_be_redeemed: 50,
+//                 backing_collateral: (DEFAULT_COLLATERAL * 50) / (replace_tokens + 250),
+//                 free_balance: DEFAULT_GRIEFING_COLLATERAL,
+//                 ..Default::default()
+//             }
+//         );
+//         let new_vault = CoreVaultData::vault(NEW_VAULT);
+//         assert_eq!(
+//             new_vault,
+//             CoreVaultData {
+//                 to_be_redeemed: 150,
+//                 backing_collateral: (DEFAULT_COLLATERAL * 150) / (replace_tokens + 500),
+//                 ..Default::default()
+//             }
+//         );
+//         assert_liquidation_vault_ok(replace_tokens + 250 + 500, &old_vault, &new_vault);
+//     });
+// }
 
 #[test]
 fn integration_test_replace_cancel_replace_success() {
