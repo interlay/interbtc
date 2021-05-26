@@ -713,7 +713,6 @@ fn integration_test_redeem_wrapped_execute_liquidated() {
                 // collateral released
                 let released_collateral = vault.backing_collateral / 4;
                 vault.backing_collateral -= released_collateral;
-                vault.free_balance += released_collateral;
             })
         );
     });

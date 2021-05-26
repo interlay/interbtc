@@ -292,6 +292,7 @@ impl CoreVaultData {
             replace_collateral: vault.replace_collateral,
         }
     }
+
     #[allow(dead_code)]
     pub fn liquidation_vault() -> Self {
         let account_id = VaultRegistryPallet::liquidation_vault_account_id();

@@ -239,7 +239,7 @@ pub mod pallet {
 
             Self::try_withdraw_collateral(&sender, amount)?;
 
-            let vault = Self::get_active_rich_vault_from_id(&sender)?;
+            let vault = Self::get_rich_vault_from_id(&sender)?;
 
             Self::deposit_event(Event::<T>::WithdrawCollateral(sender, amount, vault.get_collateral()));
             Ok(().into())
@@ -559,6 +559,11 @@ impl<T: Config> Pallet<T> {
         Ok(vault.backing_collateral)
     }
 
+    pub fn get_liquidated_collateral(vault_id: &T::AccountId) -> Result<Collateral<T>, DispatchError> {
+        let vault = Self::get_vault_from_id(vault_id)?;
+        Ok(vault.liquidated_collateral)
+    }
+
     /// Like get_vault_from_id, but additionally checks that the vault is active
     pub fn get_active_vault_from_id(vault_id: &T::AccountId) -> Result<DefaultVault<T>, DispatchError> {
         let vault = Self::get_vault_from_id(vault_id)?;
@@ -599,7 +604,7 @@ impl<T: Config> Pallet<T> {
         let mut vault = Self::get_rich_vault_from_id(vault_id)?;
 
         // will fail if reserved_balance is insufficient
-        ext::collateral::release_collateral::<T>(vault_id, amount)?;
+        ext::collateral::release::<T>(vault_id, amount)?;
         vault.try_withdraw_collateral(amount)?;
         Self::decrease_total_backing_collateral(amount)?;
 
@@ -661,9 +666,8 @@ impl<T: Config> Pallet<T> {
 
     fn slash_backing_collateral(vault_id: &T::AccountId, amount: Collateral<T>) -> DispatchResult {
         let mut vault = Self::get_rich_vault_from_id(vault_id)?;
-        ext::collateral::release_collateral::<T>(vault_id, amount)?;
+        ext::collateral::release::<T>(vault_id, amount)?;
         vault.slash_collateral(amount)?;
-        Self::decrease_total_backing_collateral(amount)?;
         Ok(())
     }
 
@@ -672,8 +676,8 @@ impl<T: Config> Pallet<T> {
             CurrencySource::Collateral(ref account) => {
                 Self::slash_backing_collateral(account, amount)?;
             }
-            CurrencySource::Griefing(_) | CurrencySource::LiquidationVault => {
-                ext::collateral::release_collateral::<T>(&from.account_id(), amount)?;
+            CurrencySource::Griefing(_) | CurrencySource::ReservedBalance(_) | CurrencySource::LiquidationVault => {
+                ext::collateral::release::<T>(&from.account_id(), amount)?;
             }
             CurrencySource::FreeBalance(_) => {
                 // do nothing
@@ -688,7 +692,7 @@ impl<T: Config> Pallet<T> {
             CurrencySource::Collateral(ref account) => {
                 Self::try_deposit_collateral(account, amount)?;
             }
-            CurrencySource::Griefing(_) | CurrencySource::LiquidationVault => {
+            CurrencySource::Griefing(_) | CurrencySource::ReservedBalance(_) | CurrencySource::LiquidationVault => {
                 ext::collateral::lock::<T>(&to.account_id(), amount)?;
             }
             CurrencySource::FreeBalance(_) => {
@@ -901,6 +905,17 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Decreases the amount of collateral held after liquidation for any remaining to_be_redeemed tokens.
+    ///
+    /// # Arguments
+    /// * `vault_id` - the id of the vault
+    /// * `amount` - the amount of collateral to decrement
+    pub fn decrease_liquidated_collateral(vault_id: &T::AccountId, amount: Collateral<T>) -> DispatchResult {
+        let mut vault = Self::get_rich_vault_from_id(vault_id)?;
+        vault.decrease_liquidated_collateral(amount)?;
+        Ok(())
+    }
+
     /// Reduces the to-be-redeemed tokens when a redeem request completes
     ///
     /// # Arguments
@@ -940,18 +955,19 @@ impl<T: Config> Pallet<T> {
                 ));
             }
         } else {
-            // withdraw vault collateral
-            let amount = Self::calculate_collateral(
-                CurrencySource::Collateral::<T>(vault_id.clone()).current_balance()?,
-                tokens,
-                to_be_redeemed_tokens,
-            )?;
-            Self::force_withdraw_collateral(vault_id, amount)?;
+            // NOTE: previously we calculated the amount to release based on the Vault's `backing_collateral`
+            // but this may now be wrong in the pull-based approach if the Vault is left with excess collateral
+            let to_be_released =
+                Self::calculate_collateral(vault.data.liquidated_collateral, tokens, to_be_redeemed_tokens)?;
+            vault.decrease_liquidated_collateral(to_be_released)?;
+
+            // release vault's collateral
+            vault.distribute_collateral(to_be_released)?;
 
             Self::deposit_event(Event::<T>::RedeemTokensLiquidatedVault(
                 vault_id.clone(),
                 tokens,
-                amount,
+                to_be_released,
             ));
         }
 
@@ -1024,11 +1040,15 @@ impl<T: Config> Pallet<T> {
         let mut new_vault = Self::get_rich_vault_from_id(&new_vault_id)?;
 
         if old_vault.data.is_liquidated() {
+            let to_be_released = Self::calculate_collateral(
+                old_vault.data.liquidated_collateral,
+                tokens,
+                old_vault.data.to_be_redeemed_tokens,
+            )?;
+            old_vault.decrease_liquidated_collateral(to_be_released)?;
+
             // release old-vault's collateral
-            let current_collateral = CurrencySource::<T>::Collateral(old_vault_id.clone()).current_balance()?;
-            let to_be_released =
-                Self::calculate_collateral(current_collateral, tokens, old_vault.data.to_be_redeemed_tokens)?;
-            Self::force_withdraw_collateral(&old_vault_id, to_be_released)?;
+            old_vault.distribute_collateral(to_be_released)?;
         }
 
         old_vault.decrease_tokens(tokens)?;
@@ -1061,18 +1081,18 @@ impl<T: Config> Pallet<T> {
         let mut new_vault = Self::get_rich_vault_from_id(&new_vault_id)?;
 
         if old_vault.data.is_liquidated() {
-            let old_vault_collateral = CurrencySource::<T>::Collateral(old_vault_id.clone());
-
-            // transfer old-vault's collateral to liquidation_vault
-            let to_be_transfered_collateral = Self::calculate_collateral(
-                old_vault_collateral.current_balance()?,
+            let to_be_transferred = Self::calculate_collateral(
+                old_vault.data.liquidated_collateral,
                 tokens,
                 old_vault.data.to_be_redeemed_tokens,
             )?;
+            old_vault.decrease_liquidated_collateral(to_be_transferred)?;
+
+            // transfer old-vault's collateral to liquidation_vault
             Self::transfer_funds(
-                old_vault_collateral,
+                CurrencySource::ReservedBalance(old_vault_id.clone()),
                 CurrencySource::LiquidationVault,
-                to_be_transfered_collateral,
+                to_be_transferred,
             )?;
         }
 
@@ -1100,14 +1120,12 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Liquidates a vault, transferring all of its token balances to the
-    /// `LiquidationVault`, as well as the collateral
+    /// `LiquidationVault`, as well as the collateral.
     ///
     /// # Arguments
     /// * `vault_id` - the id of the vault to liquidate
     /// * `status` - status with which to liquidate the vault
-    ///
-    /// # Errors
-    /// * `VaultNotFound` - if the vault to liquidate does not exist
+
     pub fn liquidate_vault_with_status(
         vault_id: &T::AccountId,
         status: VaultStatus,

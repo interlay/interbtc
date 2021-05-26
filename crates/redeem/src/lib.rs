@@ -423,7 +423,7 @@ impl<T: Config> Module<T> {
         // now update the collateral; the logic is different for liquidated vaults.
         let slashed_amount = if vault.is_liquidated() {
             let confiscated_collateral = ext::vault_registry::calculate_collateral::<T>(
-                ext::vault_registry::get_backing_collateral::<T>(&redeem.vault)?,
+                ext::vault_registry::get_liquidated_collateral::<T>(&redeem.vault)?,
                 vault_to_be_burned_tokens,
                 vault.to_be_redeemed_tokens, // note: this is the value read at start of function
             )?;
@@ -433,8 +433,9 @@ impl<T: Config> Module<T> {
             } else {
                 CurrencySource::LiquidationVault
             };
+            ext::vault_registry::decrease_liquidated_collateral::<T>(&vault_id, confiscated_collateral)?;
             ext::vault_registry::transfer_funds::<T>(
-                CurrencySource::Collateral(vault_id.clone()),
+                CurrencySource::ReservedBalance(vault_id.clone()),
                 slashing_destination,
                 confiscated_collateral,
             )?;

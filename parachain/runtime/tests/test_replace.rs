@@ -728,6 +728,7 @@ fn cancel_replace(replace_id: H256) {
     SecurityPallet::set_active_block_number(30);
     assert_ok!(Call::Replace(ReplaceCall::cancel_replace(replace_id)).dispatch(origin_of(account_of(NEW_VAULT))));
 }
+
 #[test]
 fn integration_test_replace_execute_replace_success() {
     ExtBuilder::build().execute_with(|| {
@@ -813,16 +814,16 @@ fn integration_test_replace_execute_replace_old_vault_liquidated() {
         assert_ok!(execute_replace(replace_id));
 
         let old_vault = CoreVaultData::vault(OLD_VAULT);
-        let new_vault = CoreVaultData::vault(NEW_VAULT);
         assert_eq!(
             old_vault,
             CoreVaultData {
                 to_be_redeemed: 250,
                 backing_collateral: (DEFAULT_COLLATERAL * 250) / 2500,
-                free_balance: (DEFAULT_COLLATERAL * replace_tokens) / 2500 + DEFAULT_GRIEFING_COLLATERAL,
+                free_balance: DEFAULT_GRIEFING_COLLATERAL,
                 ..Default::default()
             }
         );
+        let new_vault = CoreVaultData::vault(NEW_VAULT);
         assert_eq!(
             new_vault,
             CoreVaultData {
@@ -946,17 +947,16 @@ fn integration_test_replace_execute_replace_both_vaults_liquidated() {
         assert_ok!(execute_replace(replace_id));
 
         let old_vault = CoreVaultData::vault(OLD_VAULT);
-        let new_vault = CoreVaultData::vault(NEW_VAULT);
         assert_eq!(
             old_vault,
             CoreVaultData {
                 to_be_redeemed: 50,
                 backing_collateral: (DEFAULT_COLLATERAL * 50) / (replace_tokens + 250),
-                free_balance: (DEFAULT_COLLATERAL * replace_tokens) / (replace_tokens + 250)
-                    + DEFAULT_GRIEFING_COLLATERAL,
+                free_balance: DEFAULT_GRIEFING_COLLATERAL,
                 ..Default::default()
             }
         );
+        let new_vault = CoreVaultData::vault(NEW_VAULT);
         assert_eq!(
             new_vault,
             CoreVaultData {
@@ -1221,7 +1221,6 @@ fn integration_test_replace_cancel_replace_both_vaults_liquidated() {
         cancel_replace(replace_id);
 
         let old_vault = CoreVaultData::vault(OLD_VAULT);
-        let new_vault = CoreVaultData::vault(NEW_VAULT);
         assert_eq!(
             old_vault,
             CoreVaultData {
@@ -1230,6 +1229,7 @@ fn integration_test_replace_cancel_replace_both_vaults_liquidated() {
                 ..Default::default()
             }
         );
+        let new_vault = CoreVaultData::vault(NEW_VAULT);
         assert_eq!(
             new_vault,
             CoreVaultData {
