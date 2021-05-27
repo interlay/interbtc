@@ -9,6 +9,9 @@ fn test_with<R>(execute: impl FnOnce() -> R) -> R {
         set_default_thresholds();
         UserData::force_to(USER, default_user_state());
         CoreVaultData::force_to(VAULT, default_vault_state());
+        // additional vault in order to prevent the edge case where the fee pool does not
+        // get additional funds because there are no non-liquidated vaults left
+        CoreVaultData::force_to(CAROL, default_vault_state());
         execute()
     })
 }

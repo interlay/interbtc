@@ -81,6 +81,9 @@ fn test_event_update_vault_sla_succeeds() {
             <crate::VaultSla<Test>>::get(ALICE),
             <crate::VaultExecuteIssueMaxSlaChange<Test>>::get()
         );
+
+        Sla::event_update_vault_sla(&ALICE, VaultEvent::Liquidate).unwrap();
+        assert_eq!(<crate::VaultSla<Test>>::get(ALICE), Zero::zero(),);
     })
 }
 
