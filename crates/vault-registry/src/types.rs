@@ -60,7 +60,11 @@ impl<T: Config> CurrencySource<T> {
             CurrencySource::Griefing(x) => {
                 let vault = Pallet::<T>::get_rich_vault_from_id(&x)?;
                 let backing_collateral = if vault.data.is_liquidated() {
-                    vault.data.liquidated_collateral + vault.data.backing_collateral
+                    vault
+                        .data
+                        .liquidated_collateral
+                        .checked_add(&vault.data.backing_collateral)
+                        .ok_or(Error::<T>::ArithmeticOverflow)?
                 } else {
                     vault.data.backing_collateral
                 };
