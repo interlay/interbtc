@@ -143,14 +143,19 @@ impl Default for VaultStatus {
 pub struct Vault<AccountId, BlockNumber, Wrapped, Collateral, SignedFixedPoint> {
     /// Account identifier of the Vault
     pub id: AccountId,
+    /// Bitcoin address of this Vault (P2PKH, P2SH, P2WPKH, P2WSH)
+    pub wallet: Wallet,
+    /// Current status of the vault
+    pub status: VaultStatus,
+    /// Block height until which this Vault is banned from being used for
+    /// Issue, Redeem (except during automatic liquidation) and Replace.
+    pub banned_until: Option<BlockNumber>,
     /// Number of tokens pending issue
     pub to_be_issued_tokens: Wrapped,
     /// Number of issued tokens
     pub issued_tokens: Wrapped,
     /// Number of tokens pending redeem
     pub to_be_redeemed_tokens: Wrapped,
-    /// Bitcoin address of this Vault (P2PKH, P2SH, P2WPKH, P2WSH)
-    pub wallet: Wallet,
     /// Number of tokens that have been requested for a replace through
     /// `request_replace`, but that have not been accepted yet by a new_vault.
     pub to_be_replaced_tokens: Wrapped,
@@ -160,15 +165,6 @@ pub struct Vault<AccountId, BlockNumber, Wrapped, Collateral, SignedFixedPoint> 
     /// Amount of collateral that is locked for remaining to_be_redeemed
     /// tokens upon liquidation.
     pub liquidated_collateral: Collateral,
-    /// Block height until which this Vault is banned from being used for
-    /// Issue, Redeem (except during automatic liquidation) and Replace.
-    pub banned_until: Option<BlockNumber>,
-    /// Current status of the vault
-    pub status: VaultStatus,
-    /// Used to calculate the amount we need to slash.
-    pub slash_per_token: SignedFixedPoint,
-    /// Updated upon deposit or withdrawal.
-    pub slash_tally: SignedFixedPoint,
     /// Amount of collateral that is locked to back tokens. This will be
     /// reduced if the vault has been slashed. If nomination is enabled
     /// this will be greater than the `collateral` supplied by the vault.
@@ -181,6 +177,10 @@ pub struct Vault<AccountId, BlockNumber, Wrapped, Collateral, SignedFixedPoint> 
     /// Collateral supplied by the vault itself. If the vault has been
     /// slashed a proportional amount will be deducted from this.
     pub collateral: Collateral,
+    /// Used to calculate the amount we need to slash.
+    pub slash_per_token: SignedFixedPoint,
+    /// Updated upon deposit or withdrawal.
+    pub slash_tally: SignedFixedPoint,
 }
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
