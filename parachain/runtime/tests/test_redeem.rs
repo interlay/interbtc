@@ -112,7 +112,7 @@ mod request_redeem_tests {
 
             assert_eq!(
                 ParachainState::get(),
-                ParachainState::default().with_changes(|user, vault, _, _, _| {
+                ParachainState::default().with_changes(|user, vault, _, _| {
                     vault.to_be_redeemed += redeem.amount_btc + redeem.transfer_fee_btc;
                     user.free_tokens -= redeem.amount_btc + redeem.transfer_fee_btc + redeem.fee;
                     user.locked_tokens += redeem.amount_btc + redeem.transfer_fee_btc + redeem.fee;
@@ -297,7 +297,7 @@ fn integration_test_redeem_wrapped_execute() {
 
         assert_eq!(
             ParachainState::get(),
-            ParachainState::default().with_changes(|user, vault, _, fee_pool, _| {
+            ParachainState::default().with_changes(|user, vault, _, fee_pool| {
                 vault.issued -= redeem.amount_btc + redeem.transfer_fee_btc;
                 user.free_tokens -= issued_tokens;
                 fee_pool.vault_wrapped_rewards += vault_rewards(redeem.fee);
@@ -345,7 +345,7 @@ fn integration_test_premium_redeem_wrapped_execute() {
 
         assert_eq!(
             ParachainState::get(),
-            ParachainState::default().with_changes(|user, vault, _, fee_pool, _| {
+            ParachainState::default().with_changes(|user, vault, _, fee_pool| {
                 // fee moves from user to fee_pool
                 user.free_tokens -= redeem.fee;
                 fee_pool.vault_wrapped_rewards += vault_rewards(redeem.fee);
@@ -399,7 +399,7 @@ fn integration_test_redeem_wrapped_liquidation_redeem() {
         // NOTE: changes are relative the the post liquidation state
         assert_eq!(
             ParachainState::get(),
-            post_liquidation_state.with_changes(|user, _vault, liquidation_vault, _fee_pool, _| {
+            post_liquidation_state.with_changes(|user, _vault, liquidation_vault, _fee_pool| {
                 let reward = (liquidation_vault.backing_collateral * liquidation_redeem_amount)
                     / (liquidation_vault.issued + liquidation_vault.to_be_issued);
 
@@ -432,7 +432,7 @@ fn integration_test_redeem_wrapped_cancel_reimburse_sufficient_collateral_for_wr
 
         assert_eq!(
             ParachainState::get(),
-            ParachainState::default().with_changes(|user, vault, _, fee_pool, _| {
+            ParachainState::default().with_changes(|user, vault, _, fee_pool| {
                 // with sla of 80, vault gets slashed for 115%: 110 to user, 5 to fee pool
 
                 fee_pool.vault_collateral_rewards += vault_rewards(amount_without_fee_collateral / 20);
@@ -483,7 +483,7 @@ fn integration_test_redeem_wrapped_cancel_reimburse_insufficient_collateral_for_
 
         assert_eq!(
             ParachainState::get(),
-            initial_state.with_changes(|user, vault, _, fee_pool, _| {
+            initial_state.with_changes(|user, vault, _, fee_pool| {
                 // with sla of 80, vault gets slashed for 115%: 110 to user, 5 to fee pool
 
                 fee_pool.vault_collateral_rewards += vault_rewards(amount_without_fee_as_collateral / 20);
@@ -515,7 +515,7 @@ fn integration_test_redeem_wrapped_cancel_reimburse_insufficient_collateral_for_
             .dispatch(origin_of(account_of(VAULT))));
         assert_eq!(
             ParachainState::get(),
-            pre_minting_state.with_changes(|_user, vault, _, _fee_pool, _| {
+            pre_minting_state.with_changes(|_user, vault, _, _fee_pool| {
                 vault.issued += redeem.amount_btc + redeem.transfer_fee_btc;
                 vault.free_tokens += redeem.amount_btc + redeem.transfer_fee_btc;
             })
@@ -542,7 +542,7 @@ fn integration_test_redeem_wrapped_cancel_no_reimburse() {
 
         assert_eq!(
             ParachainState::get(),
-            ParachainState::default().with_changes(|user, vault, _, fee_pool, _| {
+            ParachainState::default().with_changes(|user, vault, _, fee_pool| {
                 // with sla of 80, vault gets slashed for 15%: punishment of 10 to user, 5 to fee pool
 
                 fee_pool.vault_collateral_rewards += vault_rewards(amount_without_fee_collateral / 20);
@@ -589,7 +589,7 @@ fn integration_test_redeem_wrapped_cancel_liquidated_no_reimburse() {
         // NOTE: changes are relative the the post liquidation state
         assert_eq!(
             ParachainState::get(),
-            post_liquidation_state.with_changes(|user, vault, liquidation_vault, _fee_pool, _| {
+            post_liquidation_state.with_changes(|user, vault, liquidation_vault, _fee_pool| {
                 // to-be-redeemed decreased, forwarding to liquidation vault
                 vault.to_be_redeemed -= redeem.amount_btc + redeem.transfer_fee_btc;
                 liquidation_vault.to_be_redeemed -= redeem.amount_btc + redeem.transfer_fee_btc;
@@ -642,7 +642,7 @@ fn integration_test_redeem_wrapped_cancel_liquidated_reimburse() {
         // NOTE: changes are relative the the post liquidation state
         assert_eq!(
             ParachainState::get(),
-            post_liquidation_state.with_changes(|user, vault, liquidation_vault, fee_pool, _| {
+            post_liquidation_state.with_changes(|user, vault, liquidation_vault, fee_pool| {
                 // to-be-redeemed decreased, forwarding to liquidation vault
                 vault.to_be_redeemed -= redeem.amount_btc + redeem.transfer_fee_btc;
                 liquidation_vault.to_be_redeemed -= redeem.amount_btc + redeem.transfer_fee_btc;
@@ -698,7 +698,7 @@ fn integration_test_redeem_wrapped_execute_liquidated() {
         // NOTE: changes are relative the the post liquidation state
         assert_eq!(
             ParachainState::get(),
-            post_liquidation_state.with_changes(|user, vault, liquidation_vault, fee_pool, _| {
+            post_liquidation_state.with_changes(|user, vault, liquidation_vault, fee_pool| {
                 // fee given to fee pool
                 fee_pool.vault_wrapped_rewards += vault_rewards(redeem.fee);
 

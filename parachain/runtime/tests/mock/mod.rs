@@ -435,36 +435,20 @@ impl CoreVaultData {
     }
 }
 
-// #[derive(Debug, PartialEq, Clone)]
-// pub struct CoreNominatorData {
-//     pub collateral_to_be_withdrawn: u128,
-// }
+#[derive(Debug, PartialEq, Clone)]
+pub struct CoreNominatorData {
+    pub collateral_to_be_withdrawn: u128,
+}
 
-// impl Default for CoreNominatorData {
-//     fn default() -> Self {
-//         CoreNominatorData {
-//             collateral_to_be_withdrawn: 0,
-//         }
-//     }
-// }
+impl Default for CoreNominatorData {
+    fn default() -> Self {
+        CoreNominatorData {
+            collateral_to_be_withdrawn: 0,
+        }
+    }
+}
 
-// impl CoreNominatorData {
-//     pub fn nominators(
-//         nominators: Vec<(AccountId, Nominator<AccountId, BlockNumber, u128, SignedFixedPoint>)>,
-//     ) -> BTreeMap<AccountId, CoreNominatorData> {
-//         let mut nominators_map: BTreeMap<AccountId, CoreNominatorData> = BTreeMap::new();
-//         for (_, nominator) in nominators {
-//             nominators_map.insert(
-//                 nominator.id.clone(),
-//                 CoreNominatorData {
-//                     collateral: nominator.collateral,
-//                     collateral_to_be_withdrawn: nominator.collateral_to_be_withdrawn,
-//                 },
-//             );
-//         }
-//         nominators_map
-//     }
-// }
+impl CoreNominatorData {}
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct CoreOperatorData {
@@ -494,7 +478,6 @@ impl CoreOperatorData {
 pub struct ParachainState {
     user: UserData,
     vault: CoreVaultData,
-    operator: CoreOperatorData,
     liquidation_vault: CoreVaultData,
     fee_pool: FeePool,
 }
@@ -504,7 +487,6 @@ impl Default for ParachainState {
         Self {
             user: default_user_state(),
             vault: default_vault_state(),
-            operator: default_operator_state(),
             liquidation_vault: CoreVaultData {
                 free_balance: INITIAL_LIQUIDATION_VAULT_BALANCE,
                 ..Default::default()
@@ -521,13 +503,12 @@ impl ParachainState {
             vault: CoreVaultData::vault(BOB),
             liquidation_vault: CoreVaultData::liquidation_vault(),
             fee_pool: FeePool::get(),
-            operator: CoreOperatorData::operator(BOB),
         }
     }
 
     pub fn with_changes(
         &self,
-        f: impl FnOnce(&mut UserData, &mut CoreVaultData, &mut CoreVaultData, &mut FeePool, &mut CoreOperatorData),
+        f: impl FnOnce(&mut UserData, &mut CoreVaultData, &mut CoreVaultData, &mut FeePool),
     ) -> Self {
         let mut state = self.clone();
         f(
@@ -535,7 +516,6 @@ impl ParachainState {
             &mut state.vault,
             &mut state.liquidation_vault,
             &mut state.fee_pool,
-            &mut state.operator,
         );
         state
     }

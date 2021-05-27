@@ -206,8 +206,8 @@ pub(crate) mod treasury {
     }
 
     pub fn unlock_and_transfer<T: currency::Config<currency::Wrapped>>(
-        source: T::AccountId,
-        destination: T::AccountId,
+        source: &T::AccountId,
+        destination: &T::AccountId,
         amount: Wrapped<T>,
     ) -> DispatchResult {
         TreasuryPallet::<T>::unlock_and_transfer(source, destination, amount)

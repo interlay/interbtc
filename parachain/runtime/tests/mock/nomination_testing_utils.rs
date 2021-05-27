@@ -5,7 +5,7 @@ pub const VAULT: [u8; 32] = BOB;
 
 pub const DEFAULT_GRIEFING_COLLATERAL: u128 = 5_000;
 pub const DEFAULT_BACKING_COLLATERAL: u128 = 1_000_000;
-pub const DEFAULT_NOMINATION: u128 = 100_000;
+pub const DEFAULT_NOMINATION: u128 = 20_000;
 
 pub const DEFAULT_OPERATOR_UNBONDING_PERIOD: u32 = 100;
 pub const DEFAULT_NOMINATOR_UNBONDING_PERIOD: u32 = 50;
@@ -60,32 +60,16 @@ pub fn assert_nominate_collateral(nominator: [u8; 32], operator: [u8; 32], amoun
     assert_ok!(nominate_collateral(nominator, operator, amount_collateral));
 }
 
-pub fn request_operator_collateral_withdrawal(
-    operator: [u8; 32],
-    amount_collateral: u128,
-) -> DispatchResultWithPostInfo {
-    Call::Nomination(NominationCall::request_collateral_withdrawal(
+pub fn withdraw_operator_collateral(operator: [u8; 32], amount_collateral: u128) -> DispatchResultWithPostInfo {
+    Call::Nomination(NominationCall::withdraw_collateral(
         account_of(operator),
         amount_collateral,
     ))
     .dispatch(origin_of(account_of(operator)))
 }
 
-pub fn execute_operator_collateral_withdrawal(operator: [u8; 32]) -> DispatchResultWithPostInfo {
-    Call::Nomination(NominationCall::execute_collateral_withdrawal(account_of(operator)))
-        .dispatch(origin_of(account_of(operator)))
-}
-
-pub fn assert_request_operator_collateral_withdrawal(operator: [u8; 32], amount_dot: u128) {
-    assert_ok!(request_operator_collateral_withdrawal(operator, amount_dot));
-}
-
-pub fn cancel_operator_collateral_withdrawal(operator: [u8; 32], request_id: H256) -> DispatchResultWithPostInfo {
-    Call::Nomination(NominationCall::cancel_collateral_withdrawal(
-        account_of(operator),
-        request_id,
-    ))
-    .dispatch(origin_of(account_of(operator)))
+pub fn assert_withdraw_operator_collateral(operator: [u8; 32], amount_dot: u128) {
+    assert_ok!(withdraw_operator_collateral(operator, amount_dot));
 }
 
 pub fn assert_operator_withdrawal_request_event() -> H256 {
@@ -104,37 +88,20 @@ pub fn assert_operator_withdrawal_request_event() -> H256 {
     }
 }
 
-pub fn request_nominator_collateral_withdrawal(
+pub fn withdraw_nominator_collateral(
     nominator: [u8; 32],
     operator: [u8; 32],
     amount_collateral: u128,
 ) -> DispatchResultWithPostInfo {
-    Call::Nomination(NominationCall::request_collateral_withdrawal(
+    Call::Nomination(NominationCall::withdraw_collateral(
         account_of(operator),
         amount_collateral,
     ))
     .dispatch(origin_of(account_of(nominator)))
 }
 
-pub fn execute_nominator_collateral_withdrawal(nominator: [u8; 32], operator: [u8; 32]) -> DispatchResultWithPostInfo {
-    Call::Nomination(NominationCall::execute_collateral_withdrawal(account_of(operator)))
-        .dispatch(origin_of(account_of(nominator)))
-}
-
-pub fn assert_request_nominator_collateral_withdrawal(nominator: [u8; 32], operator: [u8; 32], amount_dot: u128) {
-    assert_ok!(request_nominator_collateral_withdrawal(nominator, operator, amount_dot));
-}
-
-pub fn cancel_nominator_collateral_withdrawal(
-    nominator: [u8; 32],
-    operator: [u8; 32],
-    request_id: H256,
-) -> DispatchResultWithPostInfo {
-    Call::Nomination(NominationCall::cancel_collateral_withdrawal(
-        account_of(operator),
-        request_id,
-    ))
-    .dispatch(origin_of(account_of(nominator)))
+pub fn assert_withdraw_nominator_collateral(nominator: [u8; 32], operator: [u8; 32], amount_dot: u128) {
+    assert_ok!(withdraw_nominator_collateral(nominator, operator, amount_dot));
 }
 
 pub fn assert_nominator_withdrawal_request_event() -> H256 {
@@ -157,4 +124,8 @@ pub fn assert_nominator_withdrawal_request_event() -> H256 {
 pub fn assert_total_nominated_collateral_is(operator: [u8; 32], amount_collateral: u128) {
     let nominated_collateral = NominationPallet::get_total_nominated_collateral(&account_of(operator)).unwrap();
     assert_eq!(nominated_collateral, amount_collateral);
+}
+
+pub fn get_nominator_collateral(nominator: [u8; 32], operator: [u8; 32]) -> u128 {
+    NominationPallet::get_nominator_collateral(&account_of(nominator), &account_of(operator)).unwrap()
 }

@@ -27,18 +27,28 @@ pub(crate) mod collateral {
     type CollateralPallet<T> = currency::Pallet<T, currency::Collateral>;
 
     pub fn transfer_and_lock<T: currency::Config<currency::Collateral>>(
-        source: T::AccountId,
-        destination: T::AccountId,
+        source: &T::AccountId,
+        destination: &T::AccountId,
         amount: Collateral<T>,
     ) -> DispatchResult {
-        CollateralPallet::<T>::transfer_and_lock(&source, &destination, amount)
+        CollateralPallet::<T>::transfer_and_lock(source, destination, amount)
+    }
+
+    pub fn unlock_and_transfer<T: currency::Config<currency::Collateral>>(
+        source: &T::AccountId,
+        destination: &T::AccountId,
+        amount: Collateral<T>,
+    ) -> DispatchResult {
+        CollateralPallet::<T>::unlock_and_transfer(source, destination, amount)
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
     use crate::Collateral;
-    pub use ::vault_registry::{DefaultVault, SlashingError, TryDepositCollateral, TryWithdrawCollateral, VaultStatus};
+    pub use ::vault_registry::{
+        DefaultVault, Slashable, SlashingError, TryDepositCollateral, TryWithdrawCollateral, VaultStatus,
+    };
     pub use frame_support::dispatch::{DispatchError, DispatchResult};
 
     pub fn get_backing_collateral<T: vault_registry::Config>(
@@ -73,6 +83,13 @@ pub(crate) mod vault_registry {
 
     pub fn compute_collateral<T: vault_registry::Config>(id: &T::AccountId) -> Result<Collateral<T>, DispatchError> {
         <vault_registry::Pallet<T>>::compute_collateral(id)
+    }
+
+    pub fn is_allowed_to_withdraw_collateral<T: vault_registry::Config>(
+        id: &T::AccountId,
+        amount: Collateral<T>,
+    ) -> Result<bool, DispatchError> {
+        <vault_registry::Pallet<T>>::is_allowed_to_withdraw_collateral(id, amount)
     }
 }
 

@@ -105,7 +105,7 @@ macro_rules! checked_sub_mut {
     };
 }
 
-pub(crate) trait Slashable<
+pub trait Slashable<
     Collateral: TryInto<u128> + TryFrom<u128> + CheckedAdd + CheckedSub,
     SignedFixedPoint: FixedPointNumber,
     E: From<SlashingError>,

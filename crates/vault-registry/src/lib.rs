@@ -28,16 +28,14 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use crate::{
-    slash::Slashable,
-    types::{
-        BtcAddress, Collateral, DefaultSystemVault, Inner, RichSystemVault, RichVault, SignedFixedPoint,
-        UnsignedFixedPoint, UpdatableVault, Version, Wrapped,
-    },
+use crate::types::{
+    BtcAddress, Collateral, DefaultSystemVault, Inner, RichSystemVault, RichVault, SignedFixedPoint,
+    UnsignedFixedPoint, UpdatableVault, Version, Wrapped,
 };
+
 #[doc(inline)]
 pub use crate::{
-    slash::{TryDepositCollateral, TryWithdrawCollateral},
+    slash::{Slashable, TryDepositCollateral, TryWithdrawCollateral},
     types::{BtcPublicKey, CurrencySource, DefaultVault, SystemVault, Vault, VaultStatus, Wallet},
 };
 use codec::{Decode, Encode, EncodeLike};
