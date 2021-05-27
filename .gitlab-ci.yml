@@ -33,8 +33,8 @@ image: "registry.gitlab.com/interlay/containers/rust-base:nightly-2021-03-15"
       --build-arg BINARY=btc-parachain \
       --context ${CI_PROJECT_DIR} \
       --dockerfile ${CI_PROJECT_DIR}/Dockerfile_release \
-      --destination ${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_SLUG}-${CI_COMMIT_SHORT_SHA}-$(date +%s) \
-      --destination ${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_SLUG}
+      --destination ${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHORT_SHA}-$(date +%s) \
+      --destination ${CI_REGISTRY_IMAGE}:${CI_COMMIT_REF_NAME}
   <<: *only_refs
 
 stages:
