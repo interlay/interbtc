@@ -106,7 +106,7 @@ macro_rules! checked_sub_mut {
 }
 
 pub trait Slashable<
-    Collateral: TryInto<u128> + TryFrom<u128> + CheckedSub,
+    Collateral: TryInto<u128> + TryFrom<u128> + CheckedAdd + CheckedSub,
     SignedFixedPoint: FixedPointNumber,
     E: From<SlashingError>,
 >: SlashingAccessors<Collateral, SignedFixedPoint, E>
@@ -115,7 +115,7 @@ pub trait Slashable<
     where
         F: Fn(&mut SignedFixedPoint) -> Result<(), E>;
 
-    /// Slash an amount of the total collateral.
+    /// Slash collateral from all participants.
     fn slash_collateral(&mut self, amount: Collateral) -> Result<(), E> {
         checked_sub_mut!(self, mut_backing_collateral, &amount);
 
@@ -126,6 +126,21 @@ pub trait Slashable<
             .checked_div(&total_collateral_as_fixed)
             .unwrap_or(SignedFixedPoint::zero());
         checked_add_mut!(self, mut_slash_per_token, &amount_div_total_collateral);
+
+        Ok(())
+    }
+
+    /// Distribute collateral to all participants.
+    fn distribute_collateral(&mut self, amount: Collateral) -> Result<(), E> {
+        checked_add_mut!(self, mut_backing_collateral, &amount);
+
+        let amount_as_fixed = collateral_to_fixed::<Collateral, SignedFixedPoint>(amount)?;
+        let total_collateral = self.get_total_collateral()?;
+        let total_collateral_as_fixed = collateral_to_fixed::<Collateral, SignedFixedPoint>(total_collateral)?;
+        let amount_div_total_collateral = amount_as_fixed
+            .checked_div(&total_collateral_as_fixed)
+            .unwrap_or(SignedFixedPoint::zero());
+        checked_sub_mut!(self, mut_slash_per_token, &amount_div_total_collateral);
 
         Ok(())
     }
@@ -169,7 +184,7 @@ pub trait TryWithdrawCollateral<
     E: From<SlashingError>,
 >: SlashingAccessors<Collateral, SignedFixedPoint, E>
 {
-    /// Recompute the actual "stake" of a vault or nominator.
+    /// Recompute the actual collateral of a vault or nominator.
     fn compute_collateral(&self) -> Result<Collateral, E> {
         let collateral = collateral_to_fixed::<Collateral, SignedFixedPoint>(self.get_collateral())?;
         let to_slash = collateral
@@ -386,6 +401,18 @@ mod tests {
     }
 
     #[test]
+    fn should_deposit_and_slash_and_distribute() {
+        let mut vault = SimpleVault::default();
+        assert_ok!(vault.try_deposit_collateral(330));
+        assert_ok!(vault.try_deposit_collateral(70));
+        assert_ok!(vault.compute_collateral(), 400);
+        assert_ok!(vault.slash_collateral(50));
+        assert_ok!(vault.compute_collateral(), 400 - 50);
+        assert_ok!(vault.distribute_collateral(50));
+        assert_ok!(vault.compute_collateral(), 400);
+    }
+
+    #[test]
     fn should_deposit_and_slash_and_withdraw() {
         let mut vault = SimpleVault::default();
         assert_ok!(vault.try_deposit_collateral(12312));
@@ -438,6 +465,23 @@ mod tests {
         assert_err!(vault.try_withdraw_collateral(100), SlashingError::InsufficientFunds);
         assert_ok!(vault.try_withdraw_collateral(80));
         assert_ok!(vault.compute_collateral(), 10);
+    }
+
+    #[test]
+    fn should_slash_and_distribute_proportionally_to_total() {
+        let mut vault = SimpleVault::default();
+        assert_ok!(vault.try_deposit_collateral(200));
+        vault.total_collateral += 100;
+        vault.backing_collateral += 100;
+        assert_ok!(vault.slash_collateral(40));
+        assert_eq!(vault.backing_collateral, 260);
+        assert_eq!(vault.collateral, 200);
+        assert_ok!(vault.compute_collateral(), 173);
+
+        assert_ok!(vault.distribute_collateral(40));
+        assert_eq!(vault.backing_collateral, 300);
+        assert_eq!(vault.collateral, 200);
+        assert_ok!(vault.compute_collateral(), 200);
     }
 
     #[test]

@@ -53,8 +53,10 @@ pub mod pallet {
 
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    #[pallet::metadata(T::BlockNumber = "BlockNumber")]
     pub enum Event<T: Config> {
         RecoverFromErrors(StatusCode, Vec<ErrorCode>),
+        UpdateActiveBlock(T::BlockNumber),
     }
 
     #[pallet::error]
@@ -287,9 +289,11 @@ impl<T: Config> Pallet<T> {
 
     fn increment_active_block() {
         if Self::status() == StatusCode::Running {
-            <ActiveBlockCount<T>>::mutate(|n| {
+            let height = <ActiveBlockCount<T>>::mutate(|n| {
                 *n = n.saturating_add(1u32.into());
+                *n
             });
+            Self::deposit_event(Event::UpdateActiveBlock(height));
         }
     }
 

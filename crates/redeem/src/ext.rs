@@ -37,10 +37,10 @@ pub(crate) mod vault_registry {
     use frame_support::dispatch::{DispatchError, DispatchResult};
     use vault_registry::types::{CurrencySource, Vault};
 
-    pub fn get_backing_collateral<T: vault_registry::Config>(
+    pub fn get_liquidated_collateral<T: vault_registry::Config>(
         vault_id: &T::AccountId,
     ) -> Result<Collateral<T>, DispatchError> {
-        <vault_registry::Pallet<T>>::get_backing_collateral(vault_id)
+        <vault_registry::Pallet<T>>::get_liquidated_collateral(vault_id)
     }
 
     pub fn transfer_funds<T: vault_registry::Config>(
@@ -90,6 +90,13 @@ pub(crate) mod vault_registry {
         tokens: Wrapped<T>,
     ) -> DispatchResult {
         <vault_registry::Pallet<T>>::decrease_tokens(vault_id, user_id, tokens)
+    }
+
+    pub fn decrease_liquidated_collateral<T: vault_registry::Config>(
+        vault_id: &T::AccountId,
+        amount: Collateral<T>,
+    ) -> DispatchResult {
+        <vault_registry::Pallet<T>>::decrease_liquidated_collateral(vault_id, amount)
     }
 
     pub fn redeem_tokens_liquidation<T: vault_registry::Config>(

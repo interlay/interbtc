@@ -1,4 +1,4 @@
-use crate::{ext, Config, Error, Pallet};
+use crate::{ext, Config, Error, Pallet, Slashable};
 use codec::{Decode, Encode, HasCompact};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
@@ -7,7 +7,7 @@ use frame_support::{
 };
 use sp_arithmetic::FixedPointNumber;
 use sp_core::H256;
-use sp_runtime::traits::{CheckedAdd, CheckedSub, Zero};
+use sp_runtime::traits::{CheckedAdd, CheckedSub, Saturating, Zero};
 use sp_std::collections::btree_set::BTreeSet;
 
 #[cfg(test)]
@@ -28,37 +28,54 @@ pub enum Version {
 
 #[derive(Debug, PartialEq)]
 pub enum CurrencySource<T: frame_system::Config> {
-    /// used by vault to back issued tokens
+    /// Used by vault to back issued tokens
     Collateral(<T as frame_system::Config>::AccountId),
     /// Collateral that is locked, but not used to back issued tokens (e.g. griefing collateral)
     Griefing(<T as frame_system::Config>::AccountId),
     /// Unlocked balance
     FreeBalance(<T as frame_system::Config>::AccountId),
-    /// funds within the liquidation vault
+    /// Locked balance (like collateral but doesn't slash)
+    ReservedBalance(<T as frame_system::Config>::AccountId),
+    /// Funds within the liquidation vault
     LiquidationVault,
 }
 
 impl<T: Config> CurrencySource<T> {
     pub fn account_id(&self) -> <T as frame_system::Config>::AccountId {
         match self {
-            CurrencySource::Collateral(x) | CurrencySource::Griefing(x) | CurrencySource::FreeBalance(x) => x.clone(),
+            CurrencySource::Collateral(x)
+            | CurrencySource::Griefing(x)
+            | CurrencySource::FreeBalance(x)
+            | CurrencySource::ReservedBalance(x) => x.clone(),
             CurrencySource::LiquidationVault => Pallet::<T>::liquidation_vault_account_id(),
         }
     }
+
     pub fn current_balance(&self) -> Result<Collateral<T>, DispatchError> {
         match self {
-            CurrencySource::Collateral(x) => Ok(Pallet::<T>::get_rich_vault_from_id(&x)?.data.backing_collateral),
+            CurrencySource::Collateral(x) => {
+                let vault = Pallet::<T>::get_rich_vault_from_id(&x)?;
+                Ok(vault.data.backing_collateral)
+            }
             CurrencySource::Griefing(x) => {
-                let backing_collateral = match Pallet::<T>::get_rich_vault_from_id(&x) {
-                    Ok(vault) => vault.data.backing_collateral,
-                    Err(_) => 0u32.into(),
+                let vault = Pallet::<T>::get_rich_vault_from_id(&x)?;
+                let backing_collateral = if vault.data.is_liquidated() {
+                    vault
+                        .data
+                        .liquidated_collateral
+                        .checked_add(&vault.data.backing_collateral)
+                        .ok_or(Error::<T>::ArithmeticOverflow)?
+                } else {
+                    vault.data.backing_collateral
                 };
+
                 let current = ext::collateral::get_reserved_balance::<T>(&x);
                 Ok(current
                     .checked_sub(&backing_collateral)
                     .ok_or(Error::<T>::ArithmeticUnderflow)?)
             }
             CurrencySource::FreeBalance(x) => Ok(ext::collateral::get_free_balance::<T>(x)),
+            CurrencySource::ReservedBalance(x) => Ok(ext::collateral::get_reserved_balance::<T>(x)),
             CurrencySource::LiquidationVault => Ok(ext::collateral::get_reserved_balance::<T>(&self.account_id())),
         }
     }
@@ -140,6 +157,9 @@ pub struct Vault<AccountId, BlockNumber, Wrapped, Collateral, SignedFixedPoint> 
     /// Amount of collateral that is locked as griefing collateral to be payed out if
     /// the old_vault fails to call execute_replace
     pub replace_collateral: Collateral,
+    /// Amount of collateral that is locked for remaining to_be_redeemed
+    /// tokens upon liquidation.
+    pub liquidated_collateral: Collateral,
     /// Block height until which this Vault is banned from being used for
     /// Issue, Redeem (except during automatic liquidation) and Replace.
     pub banned_until: Option<BlockNumber>,
@@ -175,8 +195,8 @@ pub struct SystemVault<Wrapped> {
 }
 
 impl<
-        AccountId: Ord,
-        BlockNumber,
+        AccountId: Default + Ord,
+        BlockNumber: Default,
         Wrapped: HasCompact + Default,
         Collateral: HasCompact + Default,
         SignedFixedPoint: Default,
@@ -190,18 +210,9 @@ impl<
         Vault {
             id,
             wallet,
-            to_be_replaced_tokens: Default::default(),
-            replace_collateral: Default::default(),
-            to_be_issued_tokens: Default::default(),
-            issued_tokens: Default::default(),
-            to_be_redeemed_tokens: Default::default(),
-            backing_collateral: Default::default(),
             banned_until: None,
             status: VaultStatus::Active(true),
-            slash_per_token: Default::default(),
-            slash_tally: Default::default(),
-            total_collateral: Default::default(),
-            collateral: Default::default(),
+            ..Default::default()
         }
     }
 
@@ -364,7 +375,7 @@ impl<T: Config> RichVault<T> {
     }
 
     pub fn get_used_collateral(&self) -> Result<Collateral<T>, DispatchError> {
-        let issued_tokens = self.data.issued_tokens + self.data.to_be_issued_tokens;
+        let issued_tokens = self.backed_tokens()?;
         let issued_tokens_in_collateral = ext::oracle::wrapped_to_collateral::<T>(issued_tokens)?;
 
         let raw_issued_tokens_in_collateral = Pallet::<T>::collateral_to_u128(issued_tokens_in_collateral)?;
@@ -441,20 +452,50 @@ impl<T: Config> RichVault<T> {
         // Note: slashing of collateral must be called where this function is called (e.g. in Redeem)
     }
 
+    pub(crate) fn increase_liquidated_collateral(&mut self, amount: Collateral<T>) -> DispatchResult {
+        self.update(|v| {
+            v.liquidated_collateral = v
+                .liquidated_collateral
+                .checked_add(&amount)
+                .ok_or(Error::<T>::ArithmeticOverflow)?;
+            Ok(())
+        })
+    }
+
+    pub(crate) fn decrease_liquidated_collateral(&mut self, amount: Collateral<T>) -> DispatchResult {
+        self.update(|v| {
+            v.liquidated_collateral = v
+                .liquidated_collateral
+                .checked_sub(&amount)
+                .ok_or(Error::<T>::ArithmeticUnderflow)?;
+            Ok(())
+        })
+    }
+
+    pub(crate) fn slash_to_liquidation_vault(&mut self, amount: Collateral<T>) -> DispatchResult {
+        self.slash_collateral(amount)?;
+        Pallet::<T>::transfer_funds(
+            CurrencySource::ReservedBalance(self.id()),
+            CurrencySource::LiquidationVault,
+            amount,
+        )?;
+        Ok(())
+    }
+
     pub(crate) fn liquidate<V: UpdatableVault<T>>(
         &mut self,
         liquidation_vault: &mut V,
         status: VaultStatus,
     ) -> Result<Collateral<T>, DispatchError> {
-        let backing_collateral = self.data.backing_collateral;
-
-        // we liquidate at most SECURE_THRESHOLD * collateral.
+        // we liquidate at most SECURE_THRESHOLD * collateral
+        // this value is the amount of collateral held for the issued + to_be_issued
         let liquidated_collateral = self.get_used_collateral()?;
 
         // amount of tokens being backed
         let collateral_tokens = self.backed_tokens()?;
 
-        let to_slash = Pallet::<T>::calculate_collateral(
+        // (liquidated_collateral * (collateral_tokens - to_be_redeemed_tokens)) / collateral_tokens
+        let liquidated_collateral_excluding_to_be_redeemed = Pallet::<T>::calculate_collateral(
             liquidated_collateral,
             collateral_tokens
                 .checked_sub(&self.data.to_be_redeemed_tokens)
@@ -462,19 +503,15 @@ impl<T: Config> RichVault<T> {
             collateral_tokens,
         )?;
 
-        Pallet::<T>::transfer_funds(
-            CurrencySource::Collateral(self.id()),
-            CurrencySource::LiquidationVault,
-            to_slash,
-        )?;
+        let collateral_for_to_be_redeemed =
+            liquidated_collateral.saturating_sub(liquidated_collateral_excluding_to_be_redeemed);
 
-        // everything above the secure threshold we release
-        let to_release = backing_collateral
-            .checked_sub(&liquidated_collateral)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?;
-        if !to_release.is_zero() {
-            Pallet::<T>::force_withdraw_collateral(&self.data.id, to_release)?;
-        }
+        // slash backing collateral used for issued + to_be_issued to the liquidation vault
+        self.slash_to_liquidation_vault(liquidated_collateral_excluding_to_be_redeemed)?;
+        // temporarily slash additional collateral for the to_be_redeemed tokens
+        // this is re-distributed once the tokens are burned
+        self.slash_collateral(collateral_for_to_be_redeemed)?;
+        self.increase_liquidated_collateral(collateral_for_to_be_redeemed)?;
 
         // Copy all tokens to the liquidation vault
         liquidation_vault.increase_issued(self.data.issued_tokens)?;
@@ -483,13 +520,13 @@ impl<T: Config> RichVault<T> {
 
         // Update vault: clear to_be_issued & issued_tokens, but don't touch to_be_redeemed
         let _ = self.update(|v| {
-            v.to_be_issued_tokens = 0u32.into();
-            v.issued_tokens = 0u32.into();
+            v.to_be_issued_tokens = Zero::zero();
+            v.issued_tokens = Zero::zero();
             v.status = status;
             Ok(())
         });
 
-        Ok(to_slash)
+        Ok(liquidated_collateral_excluding_to_be_redeemed)
     }
 
     pub fn ensure_not_banned(&self) -> DispatchResult {
@@ -579,6 +616,7 @@ impl<T: Config> RichSystemVault<T> {
             .checked_sub(&self.data.to_be_redeemed_tokens)
             .ok_or(Error::<T>::ArithmeticUnderflow)?)
     }
+
     pub(crate) fn backed_tokens(&self) -> Result<Wrapped<T>, DispatchError> {
         Ok(self
             .data

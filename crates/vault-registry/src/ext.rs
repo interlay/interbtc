@@ -23,7 +23,7 @@ pub(crate) mod collateral {
         CollateralPallet::<T>::lock(sender, amount)
     }
 
-    pub fn release_collateral<T: currency::Config<currency::Collateral>>(
+    pub fn release<T: currency::Config<currency::Collateral>>(
         sender: &T::AccountId,
         amount: Collateral<T>,
     ) -> DispatchResult {
