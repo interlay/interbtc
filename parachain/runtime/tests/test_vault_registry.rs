@@ -164,7 +164,7 @@ fn integration_test_vault_registry_undercollateralization_liquidation() {
 
         assert_eq!(
             ParachainState::get(),
-            ParachainState::default().with_changes(|_, vault, liquidation_vault, _, _| {
+            ParachainState::default().with_changes(|_, vault, liquidation_vault, _| {
                 liquidation_vault.backing_collateral = (DEFAULT_VAULT_BACKING_COLLATERAL
                     * (DEFAULT_VAULT_ISSUED + DEFAULT_VAULT_TO_BE_ISSUED - DEFAULT_VAULT_TO_BE_REDEEMED))
                     / (DEFAULT_VAULT_ISSUED + DEFAULT_VAULT_TO_BE_ISSUED);
