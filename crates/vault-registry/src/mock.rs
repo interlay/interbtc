@@ -230,8 +230,8 @@ pub struct ExtBuilder;
 pub const DEFAULT_ID: u64 = 3;
 pub const OTHER_ID: u64 = 4;
 pub const RICH_ID: u64 = 5;
-pub const DEFAULT_COLLATERAL: u128 = 100;
-pub const RICH_COLLATERAL: u128 = DEFAULT_COLLATERAL + 50;
+pub const DEFAULT_COLLATERAL: u128 = 100000;
+pub const RICH_COLLATERAL: u128 = DEFAULT_COLLATERAL + 100000;
 pub const MULTI_VAULT_TEST_IDS: [u64; 4] = [100, 101, 102, 103];
 pub const MULTI_VAULT_TEST_COLLATERAL: u128 = 100000;
 

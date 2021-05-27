@@ -148,6 +148,7 @@ pub fn default_vault_state() -> CoreVaultData {
         griefing_collateral: DEFAULT_VAULT_GRIEFING_COLLATERAL,
         free_balance: DEFAULT_VAULT_FREE_BALANCE,
         free_tokens: 0,
+        liquidated_collateral: 0,
         replace_collateral: DEFAULT_VAULT_REPLACE_COLLATERAL,
         to_be_replaced: DEFAULT_VAULT_TO_BE_REPLACED,
     }
@@ -265,6 +266,7 @@ pub struct CoreVaultData {
     pub to_be_redeemed: u128,
     pub backing_collateral: u128,
     pub griefing_collateral: u128,
+    pub liquidated_collateral: u128,
     pub free_balance: u128,
     pub free_tokens: u128,
     pub to_be_replaced: u128,
@@ -286,12 +288,14 @@ impl CoreVaultData {
             griefing_collateral: CurrencySource::<Runtime>::Griefing(account_id.clone())
                 .current_balance()
                 .unwrap(),
+            liquidated_collateral: vault.liquidated_collateral,
             free_balance: CollateralPallet::get_free_balance(&account_id),
             free_tokens: TreasuryPallet::get_free_balance(&account_id),
             to_be_replaced: vault.to_be_replaced_tokens,
             replace_collateral: vault.replace_collateral,
         }
     }
+
     #[allow(dead_code)]
     pub fn liquidation_vault() -> Self {
         let account_id = VaultRegistryPallet::liquidation_vault_account_id();
@@ -304,6 +308,7 @@ impl CoreVaultData {
             griefing_collateral: 0,
             free_balance: CollateralPallet::get_free_balance(&account_id),
             free_tokens: TreasuryPallet::get_free_balance(&account_id),
+            liquidated_collateral: 0,
             to_be_replaced: 0,
             replace_collateral: 0,
         }

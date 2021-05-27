@@ -597,7 +597,7 @@ fn integration_test_redeem_wrapped_cancel_liquidated_no_reimburse() {
                 // the collateral that remained with the vault to back this redeem is now transferred to the liquidation
                 // vault
                 let collateral_for_this_redeem = collateral_vault / 4;
-                vault.backing_collateral -= collateral_for_this_redeem;
+                vault.liquidated_collateral -= collateral_for_this_redeem;
                 liquidation_vault.backing_collateral += collateral_for_this_redeem;
 
                 // user's tokens get unlocked
@@ -653,7 +653,7 @@ fn integration_test_redeem_wrapped_cancel_liquidated_reimburse() {
 
                 // the collateral that remained with the vault to back this redeem is transferred to the user
                 let collateral_for_this_redeem = collateral_vault / 4;
-                vault.backing_collateral -= collateral_for_this_redeem;
+                vault.liquidated_collateral -= collateral_for_this_redeem;
                 user.free_balance += collateral_for_this_redeem;
 
                 // user's tokens get burned
@@ -711,9 +711,9 @@ fn integration_test_redeem_wrapped_execute_liquidated() {
                 liquidation_vault.issued -= redeem.amount_btc + redeem.transfer_fee_btc;
 
                 // collateral released
-                let released_collateral = vault.backing_collateral / 4;
-                vault.backing_collateral -= released_collateral;
-                vault.free_balance += released_collateral;
+                let released_collateral = vault.liquidated_collateral / 4;
+                vault.liquidated_collateral -= released_collateral;
+                vault.backing_collateral += released_collateral;
             })
         );
     });
