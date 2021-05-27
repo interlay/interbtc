@@ -55,11 +55,7 @@ impl<T: Config> CurrencySource<T> {
         match self {
             CurrencySource::Collateral(x) => {
                 let vault = Pallet::<T>::get_rich_vault_from_id(&x)?;
-                Ok(if vault.data.is_liquidated() {
-                    vault.data.liquidated_collateral
-                } else {
-                    vault.data.backing_collateral
-                })
+                Ok(vault.data.backing_collateral)
             }
             CurrencySource::Griefing(x) => {
                 let vault = Pallet::<T>::get_rich_vault_from_id(&x)?;

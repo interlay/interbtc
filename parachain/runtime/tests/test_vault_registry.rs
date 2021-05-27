@@ -156,3 +156,27 @@ fn integration_test_vault_registry_with_parachain_shutdown_fails() {
         );
     });
 }
+
+#[test]
+fn integration_test_vault_registry_undercollateralization_liquidation() {
+    test_with(|| {
+        drop_exchange_rate_and_liquidate(VAULT);
+
+        assert_eq!(
+            ParachainState::get(),
+            ParachainState::default().with_changes(|_, vault, liquidation_vault, _, _| {
+                liquidation_vault.backing_collateral = (DEFAULT_VAULT_BACKING_COLLATERAL
+                    * (DEFAULT_VAULT_ISSUED + DEFAULT_VAULT_TO_BE_ISSUED - DEFAULT_VAULT_TO_BE_REDEEMED))
+                    / (DEFAULT_VAULT_ISSUED + DEFAULT_VAULT_TO_BE_ISSUED);
+                liquidation_vault.to_be_issued = DEFAULT_VAULT_TO_BE_ISSUED;
+                liquidation_vault.issued = DEFAULT_VAULT_ISSUED;
+                liquidation_vault.to_be_redeemed = DEFAULT_VAULT_TO_BE_REDEEMED;
+
+                vault.issued = 0;
+                vault.to_be_issued = 0;
+                vault.backing_collateral = 0;
+                vault.liquidated_collateral = DEFAULT_VAULT_BACKING_COLLATERAL - liquidation_vault.backing_collateral;
+            })
+        );
+    });
+}
