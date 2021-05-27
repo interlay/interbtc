@@ -229,8 +229,8 @@ impl<T: Config> Module<T> {
         ext::vault_registry::ensure_not_banned::<T>(&vault_id)?;
 
         ensure!(
-            !ext::nomination::is_operator::<T>(&vault_id)?,
-            Error::<T>::VaultIsNominationOperator
+            !ext::nomination::is_nominatable::<T>(&vault_id)?,
+            Error::<T>::VaultHasEnabledNomination
         );
 
         let requestable_tokens = ext::vault_registry::requestable_to_be_replaced_tokens::<T>(&vault_id)?;
@@ -558,7 +558,7 @@ decl_error! {
         ReplaceSelfNotAllowed,
         CancelAcceptedRequest,
         CollateralBelowSecureThreshold,
-        VaultIsNominationOperator,
+        VaultHasEnabledNomination,
         ReplacePeriodExpired,
         ReplacePeriodNotExpired,
         ReplaceCompleted,

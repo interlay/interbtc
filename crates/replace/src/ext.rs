@@ -217,7 +217,7 @@ pub(crate) mod fee {
 pub(crate) mod nomination {
     use sp_runtime::DispatchError;
 
-    pub fn is_operator<T: nomination::Config>(operator_id: &T::AccountId) -> Result<bool, DispatchError> {
-        <nomination::Module<T>>::is_operator(operator_id)
+    pub fn is_nominatable<T: nomination::Config>(vault_id: &T::AccountId) -> Result<bool, DispatchError> {
+        <nomination::Module<T>>::is_nominatable(vault_id)
     }
 }
