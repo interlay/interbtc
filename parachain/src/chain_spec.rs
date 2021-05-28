@@ -394,7 +394,10 @@ fn testnet_genesis(
             disable_inclusion_check: false,
             disable_op_return_check: false,
         },
-        issue: IssueConfig { issue_period: DAYS },
+        issue: IssueConfig {
+            issue_period: DAYS,
+            issue_btc_dust_value: 1000,
+        },
         redeem: RedeemConfig {
             redeem_transaction_size: virtual_transaction_size(
                 TransactionInputMetadata {

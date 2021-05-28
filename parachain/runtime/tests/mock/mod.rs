@@ -862,9 +862,12 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage)
         .unwrap();
 
-        issue::GenesisConfig::<Runtime> { issue_period: 10 }
-            .assimilate_storage(&mut storage)
-            .unwrap();
+        issue::GenesisConfig::<Runtime> {
+            issue_period: 10,
+            issue_btc_dust_value: 0,
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
 
         redeem::GenesisConfig::<Runtime> {
             redeem_transaction_size: 400,

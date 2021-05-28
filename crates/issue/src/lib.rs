@@ -73,6 +73,10 @@ decl_storage! {
         /// to prevent griefing of vault collateral.
         IssuePeriod get(fn issue_period) config(): T::BlockNumber;
 
+        /// The minimum amount of btc that is required for issue requests; lower values would
+        /// risk the rejection of payment on Bitcoin.
+        IssueBtcDustValue get(fn issue_btc_dust_value) config(): Wrapped<T>;
+
         /// Build storage at V1 (requires default 0).
         StorageVersion get(fn storage_version) build(|_| Version::V2): Version = Version::V0;
     }
@@ -227,6 +231,12 @@ impl<T: Config> Module<T> {
             Error::<T>::InsufficientCollateral
         );
         ext::collateral::lock_collateral::<T>(&requester, griefing_collateral)?;
+
+        // only continue if the payment is above the dust value
+        ensure!(
+            amount_requested >= Self::issue_btc_dust_value(),
+            Error::<T>::AmountBelowDustAmount
+        );
 
         ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&vault_id, amount_requested)?;
 
@@ -546,5 +556,6 @@ decl_error! {
         ArithmeticUnderflow,
         ArithmeticOverflow,
         InvalidExecutor,
+        AmountBelowDustAmount,
     }
 }
