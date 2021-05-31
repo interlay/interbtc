@@ -96,16 +96,13 @@ Please also install the following dependencies:
 
 ### Installation
 
-Building requires `nightly`. Run the following commands to set it up:
+Building requires a specific rust toolchain and nightly compiler version. The
+requirements are specified in the [./rust-toolchain.toml](./rust-toolchain.toml)
+[override file][].
 
-```
-rustup toolchain install nightly-2021-03-15
-rustup default nightly-2021-03-15
-rustup component add rustfmt
-rustup component add rls
-rustup toolchain install nightly
-rustup target add wasm32-unknown-unknown --toolchain nightly-2021-03-15
-```
+Running `rustup show` from the root directory of this repo should be enough to
+set up the toolchain and you can inspect the output to verify that it matches
+the version specified in the override file.
 
 To build, run:
 
@@ -114,6 +111,8 @@ cargo build
 ```
 
 For more detailed development instructions [see here](./parachain/README.md).
+
+[override file]: https://rust-lang.github.io/rustup/overrides.html#the-toolchain-file
 
 ### Testing
 
