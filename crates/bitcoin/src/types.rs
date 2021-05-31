@@ -17,6 +17,9 @@ use sp_std::{collections::btree_set::BTreeSet, convert::TryFrom, prelude::*};
 #[cfg(feature = "std")]
 use codec::alloc::string::String;
 
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
+
 pub(crate) const SERIALIZE_TRANSACTION_NO_WITNESS: i32 = 0x4000_0000;
 
 /// Bitcoin Script OpCodes
@@ -514,6 +517,7 @@ impl BlockChain {
 
 /// Represents a bitcoin 32 bytes hash digest encoded in little-endian
 #[derive(Encode, Decode, Default, PartialEq, Eq, Clone, Copy, Debug)]
+#[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
 pub struct H256Le {
     content: [u8; 32],
 }

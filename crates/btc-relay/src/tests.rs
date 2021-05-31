@@ -1407,6 +1407,8 @@ fn test_verify_transaction_inclusion_fails_with_ongoing_fork() {
     run_test(|| {
         BTCRelay::get_chain_id_from_position.mock_safe(|_| MockResult::Return(Ok(1)));
         BTCRelay::get_block_chain_from_id.mock_safe(|_| MockResult::Return(Ok(BlockChain::default())));
+        BTCRelay::parse_merkle_proof.mock_safe(|_| MockResult::Return(Ok(sample_merkle_proof())));
+        BTCRelay::verify_merkle_proof.mock_safe(|_| MockResult::Return(Ok(sample_valid_proof_result())));
 
         let tx_id = sample_valid_proof_result().transaction_hash;
         let raw_merkle_proof = vec![0u8; 100];

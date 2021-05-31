@@ -781,8 +781,10 @@ dependencies = [
 name = "btc-parachain-rpc"
 version = "0.7.0"
 dependencies = [
+ "bitcoin",
  "btc-parachain-runtime",
  "jsonrpc-core",
+ "module-btc-relay-rpc",
  "module-exchange-rate-oracle-rpc",
  "module-issue-rpc",
  "module-redeem-rpc",
@@ -828,6 +830,7 @@ dependencies = [
  "hex-literal 0.3.1",
  "issue",
  "mocktopus",
+ "module-btc-relay-rpc-runtime-api",
  "module-exchange-rate-oracle-rpc-runtime-api",
  "module-issue-rpc-runtime-api",
  "module-redeem-rpc-runtime-api",
@@ -4659,6 +4662,30 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "module-btc-relay-rpc"
+version = "0.7.0"
+dependencies = [
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "module-btc-relay-rpc-runtime-api",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime",
+]
+
+[[package]]
+name = "module-btc-relay-rpc-runtime-api"
+version = "0.7.0"
+dependencies = [
+ "frame-support",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-std",
 ]
 
 [[package]]
