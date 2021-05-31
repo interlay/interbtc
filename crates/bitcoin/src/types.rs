@@ -231,6 +231,8 @@ impl sp_std::fmt::Debug for RawBlockHeader {
 // Constants
 pub const P2PKH_SCRIPT_SIZE: u32 = 25;
 pub const P2SH_SCRIPT_SIZE: u32 = 23;
+pub const P2WPKH_V0_SCRIPT_SIZE: u32 = 22;
+pub const P2WSH_V0_SCRIPT_SIZE: u32 = 34;
 pub const HASH160_SIZE_HEX: u8 = 0x14;
 pub const HASH256_SIZE_HEX: u8 = 0x20;
 pub const MAX_OPRETURN_SIZE: usize = 83;
