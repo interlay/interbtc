@@ -20,9 +20,9 @@ use sp_api::impl_runtime_apis;
 use sp_core::OpaqueMetadata;
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
-    traits::{BlakeTwo256, Block as BlockT, IdentifyAccount, IdentityLookup, Verify},
+    traits::{BlakeTwo256, Block as BlockT, IdentityLookup},
     transaction_validity::{TransactionSource, TransactionValidity},
-    ApplyExtrinsicResult, MultiSignature,
+    ApplyExtrinsicResult,
 };
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
@@ -49,6 +49,8 @@ pub use sp_runtime::{Perbill, Permill};
 // PolkaBTC exports
 pub use btc_relay::{bitcoin, Call as RelayCall, TARGET_SPACING};
 pub use module_exchange_rate_oracle_rpc_runtime_api::BalanceWrapper;
+
+pub use primitives::{self, AccountId, Balance, BlockNumber, Hash, Moment, Nonce, Signature};
 
 // XCM imports
 #[cfg(feature = "cumulus-polkadot")]
@@ -86,51 +88,6 @@ use {
 
 #[cfg(any(feature = "aura-grandpa", feature = "cumulus-polkadot"))]
 pub use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-
-/// An index to a block.
-pub type BlockNumber = u32;
-
-/// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
-pub type Signature = MultiSignature;
-
-/// Some way of identifying an account on the chain. We intentionally make it equivalent
-/// to the public key of our transaction signing scheme.
-pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
-
-/// The type for looking up accounts. We don't expect more than 4 billion of them, but you
-/// never know...
-pub type AccountIndex = u32;
-
-/// Balance of an account.
-pub type Balance = u128;
-
-/// Index of a transaction in the chain.
-pub type Index = u32;
-
-/// A hash of some data used by the chain.
-pub type Hash = sp_core::H256;
-
-/// Digest item type.
-pub type DigestItem = generic::DigestItem<Hash>;
-
-/// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
-/// the specifics of the runtime. They can then be made to be agnostic over specific formats
-/// of data like extrinsics, allowing for them to continue syncing the network through upgrades
-/// to even the core data structures.
-pub mod opaque {
-    use super::*;
-
-    pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
-
-    /// Opaque block header type.
-    pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
-    /// Opaque block type.
-    pub type Block = generic::Block<Header, UncheckedExtrinsic>;
-    /// Opaque block identifier type.
-    pub type BlockId = generic::BlockId<Block>;
-}
-
-pub type SessionHandlers = ();
 
 #[cfg(feature = "aura-grandpa")]
 impl_opaque_keys! {
@@ -226,7 +183,7 @@ impl frame_system::Config for Runtime {
     /// The lookup mechanism to get account ID from whatever is passed in dispatchers.
     type Lookup = IdentityLookup<AccountId>;
     /// The index type for storing how many extrinsics an account has signed.
-    type Index = Index;
+    type Index = Nonce;
     /// The index type for blocks.
     type BlockNumber = BlockNumber;
     /// The type for hashing blocks and tries.
@@ -283,7 +240,7 @@ parameter_types! {
 
 impl pallet_timestamp::Config for Runtime {
     /// A timestamp: milliseconds since the unix epoch.
-    type Moment = u64;
+    type Moment = Moment;
     type OnTimestampSet = ();
     type MinimumPeriod = MinimumPeriod;
     type WeightInfo = ();
@@ -807,7 +764,7 @@ macro_rules! construct_polkabtc_runtime {
 		construct_runtime! {
 			pub enum Runtime where
                 Block = Block,
-                NodeBlock = opaque::Block,
+                NodeBlock = primitives::Block,
                 UncheckedExtrinsic = UncheckedExtrinsic
             {
                 System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
@@ -1016,8 +973,8 @@ impl_runtime_apis! {
         }
     }
 
-    impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Index> for Runtime {
-        fn account_nonce(account: AccountId) -> Index {
+    impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Nonce> for Runtime {
+        fn account_nonce(account: AccountId) -> Nonce {
             System::account_nonce(account)
         }
     }

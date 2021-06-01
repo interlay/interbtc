@@ -21,6 +21,7 @@ members = [
   "parachain/rpc",
   "crates/parachain-info",
   "crates/parachain-tokens",
+  "primitives",
 ]
 
 resolver = "2"

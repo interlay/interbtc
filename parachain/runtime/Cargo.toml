@@ -80,6 +80,8 @@ refund = { path = "../../crates/refund", default-features = false }
 nomination = { path = "../../crates/nomination", default-features = false }
 reward = { path = "../../crates/reward", default-features = false }
 
+primitives = { package = "btc-parachain-primitives", path = "../../primitives", default-features = false }
+
 parachain-info = { path = "../../crates/parachain-info", default-features = false, optional = true }
 parachain-tokens = { path = "../../crates/parachain-tokens", default-features = false, optional = true }
 
@@ -174,6 +176,8 @@ std = [
   "replace/std",
   "nomination/std",
   "reward/std",
+
+  "primitives/std",
 
   "parachain-info/std",
   "parachain-tokens/std",

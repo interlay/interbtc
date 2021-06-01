@@ -778,6 +778,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "btc-parachain-primitives"
+version = "0.7.0"
+dependencies = [
+ "sp-core",
+ "sp-runtime",
+]
+
+[[package]]
 name = "btc-parachain-rpc"
 version = "0.7.0"
 dependencies = [
@@ -807,6 +815,7 @@ name = "btc-parachain-runtime"
 version = "0.7.0"
 dependencies = [
  "bitcoin",
+ "btc-parachain-primitives",
  "btc-relay",
  "cumulus-pallet-aura-ext",
  "cumulus-pallet-dmp-queue",

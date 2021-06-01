@@ -1,6 +1,6 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
-use btc_parachain_runtime::{opaque::Block, RuntimeApi};
+use btc_parachain_runtime::{primitives::Block, RuntimeApi};
 use sc_executor::native_executor_instance;
 pub use sc_executor::NativeExecutor;
 use sc_service::{TFullBackend, TFullClient};

@@ -6,7 +6,7 @@
 #![warn(missing_docs)]
 
 use btc_parachain_runtime::{
-    opaque::Block, AccountId, Balance, BlockNumber, Index, IssueRequest, RedeemRequest, RefundRequest, ReplaceRequest,
+    AccountId, Balance, BlockNumber, IssueRequest, Nonce, RedeemRequest, RefundRequest, ReplaceRequest, primitives::Block,
 };
 pub use sc_rpc_api::DenyUnsafe;
 use sp_api::ProvideRuntimeApi;
@@ -35,7 +35,7 @@ where
     C: ProvideRuntimeApi<Block>,
     C: HeaderBackend<Block> + HeaderMetadata<Block, Error = BlockChainError> + 'static,
     C: Send + Sync + 'static,
-    C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
+    C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Nonce>,
     C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
     C::Api: module_exchange_rate_oracle_rpc::ExchangeRateOracleRuntimeApi<Block, Balance, Balance>,
     C::Api: module_staked_relayers_rpc::StakedRelayersRuntimeApi<Block, AccountId>,
