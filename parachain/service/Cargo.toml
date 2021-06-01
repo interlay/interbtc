@@ -83,9 +83,7 @@ cumulus-polkadot = [
     "polkadot-service",
 
     "btc-parachain-runtime/cumulus-polkadot",
-    "btc-parachain-rpc/cumulus-polkadot",
 ]
 aura-grandpa = [
     "btc-parachain-runtime/aura-grandpa",
-    "btc-parachain-rpc/aura-grandpa",
 ]

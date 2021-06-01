@@ -781,6 +781,11 @@ dependencies = [
 name = "btc-parachain-primitives"
 version = "0.7.0"
 dependencies = [
+ "bitcoin",
+ "issue",
+ "redeem",
+ "refund",
+ "replace",
  "sp-core",
  "sp-runtime",
 ]
@@ -789,8 +794,7 @@ dependencies = [
 name = "btc-parachain-rpc"
 version = "0.7.0"
 dependencies = [
- "bitcoin",
- "btc-parachain-runtime",
+ "btc-parachain-primitives",
  "jsonrpc-core",
  "module-btc-relay-rpc",
  "module-exchange-rate-oracle-rpc",
