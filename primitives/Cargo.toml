@@ -1,0 +1,16 @@
+[package]
+authors = ["Interlay Ltd"]
+edition = "2018"
+name = "btc-parachain-primitives"
+version = "0.7.0"
+
+[dependencies]
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1", default-features = false }
+sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1", default-features = false }
+
+[features]
+default = ["std"]
+std = [
+    "sp-core/std",
+    "sp-runtime/std",
+]

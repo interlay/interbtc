@@ -1,4 +1,4 @@
-use btc_parachain_runtime::{opaque::Block, RuntimeApi};
+use btc_parachain_runtime::{primitives::Block, RuntimeApi};
 use sc_client_api::{ExecutorProvider, RemoteBackend};
 use sc_consensus_aura::{ImportQueueParams, SlotProportion, StartAuraParams};
 use sc_finality_grandpa::SharedVoterState;

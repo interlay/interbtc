@@ -19,7 +19,7 @@ use substrate_prometheus_endpoint::Registry;
 
 use crate::{Executor, FullBackend, FullClient};
 
-use btc_parachain_runtime::opaque::Block;
+use btc_parachain_runtime::primitives::Block;
 
 // type BlockNumber = u32;
 // type Header = sp_runtime::generic::Header<BlockNumber, sp_runtime::traits::BlakeTwo256>;
