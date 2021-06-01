@@ -293,9 +293,12 @@ impl ExtBuilder {
         .assimilate_storage(&mut storage)
         .unwrap();
 
-        issue::GenesisConfig::<Test> { issue_period: 10 }
-            .assimilate_storage(&mut storage)
-            .unwrap();
+        issue::GenesisConfig::<Test> {
+            issue_period: 10,
+            issue_btc_dust_value: 0,
+        }
+        .assimilate_storage(&mut storage)
+        .unwrap();
 
         storage.into()
     }
