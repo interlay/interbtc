@@ -7,7 +7,8 @@
 
 use bitcoin::types::H256Le;
 use btc_parachain_runtime::{
-    AccountId, Balance, BlockNumber, IssueRequest, Nonce, RedeemRequest, RefundRequest, ReplaceRequest, primitives::Block,
+    primitives::Block, AccountId, Balance, BlockNumber, IssueRequest, Nonce, RedeemRequest, RefundRequest,
+    ReplaceRequest,
 };
 pub use sc_rpc_api::DenyUnsafe;
 use sp_api::ProvideRuntimeApi;
