@@ -693,14 +693,32 @@ impl<T: Config> Pallet<T> {
         if Self::disable_inclusion_check() {
             return Ok(());
         }
+        let merkle_proof = Self::parse_merkle_proof(&raw_merkle_proof)?;
+        let proof_result = Self::verify_merkle_proof(&merkle_proof)?;
 
+        let block_hash = merkle_proof.block_header.hash().map_err(Error::<T>::from)?;
+        let stored_block_header = Self::verify_block_header_inclusion(block_hash, confirmations)?;
+
+        // fail if the transaction hash is invalid
+        ensure!(proof_result.transaction_hash == tx_id, Error::<T>::InvalidTxid);
+
+        // fail if the merkle root is invalid
+        ensure!(
+            proof_result.extracted_root == stored_block_header.merkle_root,
+            Error::<T>::InvalidMerkleProof
+        );
+
+        Ok(())
+    }
+
+    pub fn verify_block_header_inclusion(
+        block_hash: H256Le,
+        confirmations: Option<u32>,
+    ) -> Result<BlockHeader, DispatchError> {
         let best_block_height = Self::get_best_block_height();
         Self::ensure_no_ongoing_fork(best_block_height)?;
 
-        let merkle_proof = Self::parse_merkle_proof(&raw_merkle_proof)?;
-
-        let rich_header =
-            Self::get_block_header_from_hash(merkle_proof.block_header.hash().map_err(Error::<T>::from)?)?;
+        let rich_header = Self::get_block_header_from_hash(block_hash)?;
 
         ensure!(rich_header.chain_ref == MAIN_CHAIN_ID, Error::<T>::InvalidChainID);
 
@@ -714,17 +732,7 @@ impl<T: Config> Pallet<T> {
         // This call fails if the block was stored too recently
         Self::check_parachain_confirmations(rich_header.para_height)?;
 
-        let proof_result = Self::verify_merkle_proof(&merkle_proof)?;
-
-        // fail if the transaction hash is invalid
-        ensure!(proof_result.transaction_hash == tx_id, Error::<T>::InvalidTxid);
-
-        // fail if the merkle root is invalid
-        ensure!(
-            proof_result.extracted_root == rich_header.block_header.merkle_root,
-            Error::<T>::InvalidMerkleProof
-        );
-        Ok(())
+        Ok(rich_header.block_header)
     }
 
     /// Extract all payments and op_return outputs from a transaction.

@@ -8,6 +8,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+use bitcoin::types::H256Le;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     traits::StorageMapShim,
@@ -1075,6 +1076,15 @@ impl_runtime_apis! {
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)
+        }
+    }
+
+    impl module_btc_relay_rpc_runtime_api::BtcRelayApi<
+        Block,
+        H256Le,
+    > for Runtime {
+        fn verify_block_header_inclusion(block_hash: H256Le) -> Result<(), DispatchError> {
+            BTCRelay::verify_block_header_inclusion(block_hash, None).map(|_| ())
         }
     }
 

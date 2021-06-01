@@ -5,6 +5,7 @@
 
 #![warn(missing_docs)]
 
+use bitcoin::types::H256Le;
 use btc_parachain_runtime::{
     opaque::Block, AccountId, Balance, BlockNumber, Index, IssueRequest, RedeemRequest, RefundRequest, ReplaceRequest,
 };
@@ -37,6 +38,7 @@ where
     C: Send + Sync + 'static,
     C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
     C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
+    C::Api: module_btc_relay_rpc::BtcRelayRuntimeApi<Block, H256Le>,
     C::Api: module_exchange_rate_oracle_rpc::ExchangeRateOracleRuntimeApi<Block, Balance, Balance>,
     C::Api: module_staked_relayers_rpc::StakedRelayersRuntimeApi<Block, AccountId>,
     C::Api: module_vault_registry_rpc::VaultRegistryRuntimeApi<Block, AccountId, Balance, Balance, FixedU128>,
@@ -62,6 +64,7 @@ where
     C::Api: BlockBuilder<Block>,
     P: TransactionPool + 'static,
 {
+    use module_btc_relay_rpc::{BtcRelay, BtcRelayApi};
     use module_exchange_rate_oracle_rpc::{ExchangeRateOracle, ExchangeRateOracleApi};
     use module_issue_rpc::{Issue, IssueApi};
     use module_redeem_rpc::{Redeem, RedeemApi};
@@ -88,6 +91,8 @@ where
     io.extend_with(TransactionPaymentApi::to_delegate(TransactionPayment::new(
         client.clone(),
     )));
+
+    io.extend_with(BtcRelayApi::to_delegate(BtcRelay::new(client.clone())));
 
     io.extend_with(ExchangeRateOracleApi::to_delegate(ExchangeRateOracle::new(
         client.clone(),

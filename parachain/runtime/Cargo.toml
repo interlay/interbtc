@@ -83,6 +83,7 @@ reward = { path = "../../crates/reward", default-features = false }
 parachain-info = { path = "../../crates/parachain-info", default-features = false, optional = true }
 parachain-tokens = { path = "../../crates/parachain-tokens", default-features = false, optional = true }
 
+module-btc-relay-rpc-runtime-api = { path = "../../crates/btc-relay/rpc/runtime-api", default-features = false }
 module-exchange-rate-oracle-rpc-runtime-api = { path = "../../crates/exchange-rate-oracle/rpc/runtime-api", default-features = false }
 module-staked-relayers-rpc-runtime-api = { path = "../../crates/staked-relayers/rpc/runtime-api", default-features = false }
 module-vault-registry-rpc-runtime-api = { path = "../../crates/vault-registry/rpc/runtime-api", default-features = false }
