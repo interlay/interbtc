@@ -218,6 +218,6 @@ pub(crate) mod nomination {
     use sp_runtime::DispatchError;
 
     pub fn is_nominatable<T: nomination::Config>(vault_id: &T::AccountId) -> Result<bool, DispatchError> {
-        <nomination::Module<T>>::is_nominatable(vault_id)
+        <nomination::Pallet<T>>::is_nominatable(vault_id)
     }
 }

@@ -750,7 +750,7 @@ impl replace::Config for Runtime {
     type WeightInfo = ();
 }
 
-pub use nomination::RawEvent as RawNominationEvent;
+pub use nomination::Event as NominationEvent;
 
 impl nomination::Config for Runtime {
     type Event = Event;
