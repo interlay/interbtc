@@ -861,7 +861,7 @@ fn test_validate_transaction_insufficient_payment_value_fails() {
                 recipient_btc_address,
                 Some(H256::from_slice(&op_return_id))
             ),
-            TestError::InsufficientValue
+            TestError::InvalidPaymentAmount
         )
     });
 }
