@@ -7,6 +7,14 @@ use codec::{Decode, Encode};
 
 /// Bitcoin Enriched Block Headers
 #[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Eq, Debug)]
+
+pub struct OpReturnPaymentData {
+    pub recipient_amount: i64,
+    pub op_return: Vec<u8>,
+    /// (return_to_self_address, amount)
+    pub return_to_self: Option((Address, i64)), 
+}
+
 pub struct RichBlockHeader<AccountId, BlockNumber> {
     pub block_hash: H256Le,
     pub block_header: BlockHeader,

@@ -25,3 +25,11 @@ members = [
 ]
 
 resolver = "2"
+
+[profile.test]
+incremental = false
+# debug = 0
+
+[profile.dev]
+incremental = false
+# debug = 0

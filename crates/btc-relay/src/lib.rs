@@ -44,7 +44,7 @@ use bitcoin::{
     Error as BitcoinError,
 };
 use security::types::ErrorCode;
-pub use types::RichBlockHeader;
+pub use types::{RichBlockHeader, OpReturnPaymentData};
 
 pub use pallet::*;
 
@@ -459,7 +459,10 @@ pub const TARGET_TIMESPAN_DIVISOR: u32 = 4;
 pub const ACCEPTED_MIN_TRANSACTION_OUTPUTS: u32 = 1;
 
 // Accepted minimum number of transaction outputs for op-return validation
-pub const ACCEPTED_MIN_TRANSACTION_OUTPUTS_WITH_OP_RETURN: u32 = 2;
+pub const ACCEPTED_MIN_TRANSACTION_OUTPUTS_WITH_OP_RETURN: usize = 2;
+
+// Accepted maximum number of transaction outputs for op-return validation
+pub const ACCEPTED_MAX_TRANSACTION_OUTPUTS_WITH_OP_RETURN: usize = 3;
 
 // Accepted maximum number of transaction outputs for validation
 pub const ACCEPTED_MAX_TRANSACTION_OUTPUTS: u32 = 32;
@@ -816,57 +819,28 @@ impl<T: Config> Pallet<T> {
     fn extract_payment_value_and_op_return(
         transaction: Transaction,
         recipient_btc_address: BtcAddress,
-    ) -> Result<(i64, Vec<u8>), DispatchError> {
+    ) -> Result<OpReturnPaymentData, DispatchError> {
+        // this check is redundant with the other checks below, but it ensures we have an upperbound on the iteration
         ensure!(
-            // We would typically expect three outputs (payment, op_return, refund) but
-            // exceptionally the input amount may be exact so we would only require two
-            transaction.outputs.len() >= ACCEPTED_MIN_TRANSACTION_OUTPUTS_WITH_OP_RETURN as usize,
+            transaction.outputs.len() <= ACCEPTED_MAX_TRANSACTION_OUTPUTS_WITH_OP_RETURN,
             Error::<T>::MalformedTransaction
         );
 
-        // Check if payment is first output
-        let output0 = transaction
-            .outputs
-            .get(0)
-            .filter(|output| matches!(output.extract_address(), Ok(address) if address == recipient_btc_address))
-            .and_then(|output| {
-                Some((
-                    output.value,
-                    extract_op_return!(transaction.outputs.get(1), transaction.outputs.get(2)),
-                ))
-            });
+        let op_returns:Vec<_> = transaction.outputs.iter().filter_map(|output| tx.script.extract_op_return_data()).collect();
+        // ensure there is exactly 1 op_return
+        ensure!(op_returns.len() == 1, Error::<T>::MalformedTransaction);
+        
+        let output_addresses = transaction.outputs.iter().filter_map(|output| Some((output.extract_address().ok()?, output.value)));
+        let (recipient_outputs, other_outputs): (Vec<_>, Vec<_>) = output_addresses.partition(|&(address, _)| address == recipient_btc_address);
 
-        // Check if payment is second output
-        let output1 = transaction
-            .outputs
-            .get(1)
-            .filter(|output| matches!(output.extract_address(), Ok(address) if address == recipient_btc_address))
-            .and_then(|output| {
-                Some((
-                    output.value,
-                    extract_op_return!(transaction.outputs.get(0), transaction.outputs.get(2)),
-                ))
-            });
-
-        // Check if payment is third output
-        let output2 = transaction
-            .outputs
-            .get(2)
-            .filter(|output| matches!(output.extract_address(), Ok(address) if address == recipient_btc_address))
-            .and_then(|output| {
-                Some((
-                    output.value,
-                    extract_op_return!(transaction.outputs.get(0), transaction.outputs.get(1)),
-                ))
-            });
-
-        match (output0, output1, output2) {
-            (Some(o), None, None) | (None, Some(o), None) | (None, None, Some(o)) => Ok(o),
-            // Payment UTXO sends to an incorrect address
-            // OR contains a duplicate recipient
-            // OR does not contain an OP_RETURN output
-            _ => Err(Error::<T>::InvalidPayment.into()),
-        }
+        // check we have exactly one output to the recipient, and at most one other
+        ensure!(recipient_outputs.len() == 1 && other_outputs.len() <= 1, Error::<T>::MalformedTransaction);
+        
+        Ok(OpReturnPaymentData{
+            recipient_amount: recipient_outputs[0].value,
+            op_return: op_returns[0],
+            return_to_self: other_outputs.get(0)
+        })
     }
 
     pub fn is_op_return_disabled() -> bool {
@@ -892,13 +866,13 @@ impl<T: Config> Pallet<T> {
             Self::extract_payment_value(transaction, recipient_btc_address)?
         } else if let Some(op_return_id) = op_return_id {
             // NOTE: op_return UTXO should not contain any value
-            let (extr_payment_value, extr_op_return) =
+            let payment =
                 Self::extract_payment_value_and_op_return(transaction, recipient_btc_address)?;
 
             // Check if data UTXO has correct OP_RETURN value
-            ensure!(extr_op_return == op_return_id, Error::<T>::InvalidOpReturn);
+            ensure!(payment.op_return == op_return_id, Error::<T>::InvalidOpReturn);
 
-            extr_payment_value
+            payment.value
         } else {
             // using the on-chain key derivation scheme we only expect a simple
             // payment to the vault's new deposit address
