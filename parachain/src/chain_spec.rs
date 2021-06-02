@@ -1,7 +1,7 @@
 use btc_parachain_runtime::{
     AccountId, BTCRelayConfig, BlockNumber, CollateralConfig, ExchangeRateOracleConfig, FeeConfig, GenesisConfig,
     IssueConfig, NominationConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature, SlaConfig, SudoConfig,
-    SystemConfig, VaultRegistryConfig, WrappedConfig, DAYS, HOURS, MILLISECS_PER_BLOCK, TARGET_SPACING, WASM_BINARY,
+    SystemConfig, VaultRegistryConfig, WrappedConfig, DAYS, MILLISECS_PER_BLOCK, TARGET_SPACING, WASM_BINARY,
 };
 
 use bitcoin::utils::{virtual_transaction_size, InputType, TransactionInputMetadata, TransactionOutputMetadata};
@@ -456,8 +456,6 @@ fn testnet_genesis(
         },
         nomination: NominationConfig {
             is_nomination_enabled: false,
-            get_operator_unbonding_period: 24 * HOURS,
-            get_nominator_unbonding_period: 12 * HOURS,
         },
     }
 }

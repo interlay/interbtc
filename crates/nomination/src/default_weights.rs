@@ -19,7 +19,7 @@ impl crate::WeightInfo for () {
             .saturating_add(DbWeight::get().reads(10 as Weight))
             .saturating_add(DbWeight::get().writes(3 as Weight))
     }
-    fn deposit_nominated_collateral() -> Weight {
+    fn deposit_collateral() -> Weight {
         (124_104_000 as Weight)
             .saturating_add(DbWeight::get().reads(10 as Weight))
             .saturating_add(DbWeight::get().writes(3 as Weight))

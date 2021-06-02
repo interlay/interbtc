@@ -144,7 +144,7 @@ fn test_non_vaults_cannot_become_operators() {
     run_test(|| {
         assert_err!(
             Nomination::opt_in_to_nomination(Origin::signed(BOB)),
-            TestError::NotAVault
+            TestError::VaultNotFound
         );
     })
 }

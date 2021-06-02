@@ -801,7 +801,7 @@ macro_rules! construct_polkabtc_runtime {
                 Fee: fee::{Pallet, Call, Config<T>, Storage, Event<T>},
                 Sla: sla::{Pallet, Call, Config<T>, Storage, Event<T>},
                 Refund: refund::{Pallet, Call, Config<T>, Storage, Event<T>},
-                Nomination: nomination::{Pallet, Call, Config<T>, Storage, Event<T>},
+                Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>},
 
 				$($modules)*
 			}

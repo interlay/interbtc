@@ -46,7 +46,7 @@ frame_support::construct_runtime!(
         Fee: fee::{Pallet, Call, Config<T>, Storage, Event<T>},
         Sla: sla::{Pallet, Call, Config<T>, Storage, Event<T>},
         ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
-        Nomination: nomination::{Pallet, Call, Config<T>, Storage, Event<T>}
+        Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>}
     }
 );
 
@@ -274,10 +274,8 @@ impl ExtBuilder {
         collateral_balances.assimilate_storage(&mut storage).unwrap();
         wrapped_balances.assimilate_storage(&mut storage).unwrap();
 
-        nomination::GenesisConfig::<Test> {
+        nomination::GenesisConfig {
             is_nomination_enabled: true,
-            get_operator_unbonding_period: 100,
-            get_nominator_unbonding_period: 50,
         }
         .assimilate_storage(&mut storage)
         .unwrap();

@@ -154,12 +154,6 @@ pub fn default_vault_state() -> CoreVaultData {
     }
 }
 
-pub fn default_operator_state() -> CoreOperatorData {
-    CoreOperatorData {
-        collateral_to_be_withdrawn: DEFAULT_NOMINATION_COLLATERAL_TO_BE_WITHDRAWN,
-    }
-}
-
 pub fn root() -> <Runtime as frame_system::Config>::Origin {
     <Runtime as frame_system::Config>::Origin::root()
 }
@@ -451,30 +445,6 @@ impl Default for CoreNominatorData {
 impl CoreNominatorData {}
 
 #[derive(Debug, PartialEq, Clone)]
-pub struct CoreOperatorData {
-    pub collateral_to_be_withdrawn: u128,
-}
-
-impl Default for CoreOperatorData {
-    fn default() -> Self {
-        default_operator_state()
-    }
-}
-
-impl CoreOperatorData {
-    pub fn operator(operator: [u8; 32]) -> Self {
-        let account_id = account_of(operator);
-        match NominationPallet::is_operator(&account_id) {
-            Ok(true) => Self {
-                collateral_to_be_withdrawn: NominationPallet::get_collateral_to_be_withdrawn(&account_id).unwrap(),
-            },
-            Ok(false) => default_operator_state(),
-            Err(_) => default_operator_state(),
-        }
-    }
-}
-
-#[derive(Debug, PartialEq, Clone)]
 pub struct ParachainState {
     user: UserData,
     vault: CoreVaultData,
@@ -595,9 +565,7 @@ pub fn try_register_vault(collateral: u128, vault: [u8; 32]) {
 
 #[allow(dead_code)]
 pub fn try_register_operator(operator: [u8; 32]) {
-    if NominationPallet::get_operator_from_id(&account_of(operator)).is_err() {
-        assert_ok!(Call::Nomination(NominationCall::opt_in_to_nomination()).dispatch(origin_of(account_of(operator))));
-    };
+    let _ = Call::Nomination(NominationCall::opt_in_to_nomination()).dispatch(origin_of(account_of(operator)));
 }
 
 #[allow(dead_code)]

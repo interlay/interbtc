@@ -9,9 +9,6 @@ fn test_with<R>(execute: impl FnOnce() -> R) -> R {
         assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
         UserData::force_to(USER, default_user_state());
         CoreVaultData::force_to(VAULT, default_vault_state());
-        NominationPallet::set_operator_unbonding_period(DEFAULT_OPERATOR_UNBONDING_PERIOD).unwrap();
-        NominationPallet::set_nominator_unbonding_period(DEFAULT_NOMINATOR_UNBONDING_PERIOD).unwrap();
-
         execute()
     })
 }
@@ -34,7 +31,7 @@ fn test_with_nomination_enabled_and_operator_registered<R>(execute: impl FnOnce(
 fn integration_test_regular_vaults_are_not_opted_in_to_nomination() {
     test_with_nomination_enabled(|| {
         assert_register_vault(CAROL);
-        assert_eq!(NominationPallet::is_operator(&account_of(CAROL)).unwrap(), false);
+        assert_eq!(NominationPallet::is_nominatable(&account_of(CAROL)).unwrap(), false);
     })
 }
 
@@ -42,7 +39,7 @@ fn integration_test_regular_vaults_are_not_opted_in_to_nomination() {
 fn integration_test_vaults_can_opt_in() {
     test_with_nomination_enabled(|| {
         assert_register_operator(VAULT);
-        assert_eq!(NominationPallet::is_operator(&account_of(VAULT)).unwrap(), true);
+        assert_eq!(NominationPallet::is_nominatable(&account_of(VAULT)).unwrap(), true);
     });
 }
 
@@ -65,7 +62,7 @@ fn integration_test_operators_can_still_opt_out_if_disabled() {
 fn integration_test_non_operators_cannot_have_collateral_nominated() {
     test_with_nomination_enabled(|| {
         assert_noop!(
-            Call::Nomination(NominationCall::deposit_nominated_collateral(
+            Call::Nomination(NominationCall::deposit_collateral(
                 account_of(VAULT),
                 DEFAULT_BACKING_COLLATERAL
             ))
@@ -113,7 +110,7 @@ fn integration_test_nominated_collateral_prevents_replace_requests() {
         assert_noop!(
             Call::Replace(ReplaceCall::request_replace(0, DEFAULT_BACKING_COLLATERAL))
                 .dispatch(origin_of(account_of(VAULT))),
-            ReplaceError::VaultIsNominationOperator
+            ReplaceError::VaultHasEnabledNomination
         );
     });
 }
@@ -126,7 +123,7 @@ fn integration_test_operators_with_zero_nomination_cannot_request_replacement() 
         assert_noop!(
             Call::Replace(ReplaceCall::request_replace(amount, griefing_collateral))
                 .dispatch(origin_of(account_of(VAULT))),
-            ReplaceError::VaultIsNominationOperator
+            ReplaceError::VaultHasEnabledNomination
         );
     });
 }

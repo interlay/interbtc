@@ -43,7 +43,7 @@ frame_support::construct_runtime!(
         Replace: replace::{Pallet, Call, Config<T>, Storage, Event<T>},
         Fee: fee::{Pallet, Call, Config<T>, Storage, Event<T>},
         Sla: sla::{Pallet, Call, Config<T>, Storage, Event<T>},
-        Nomination: nomination::{Pallet, Call, Config<T>, Storage, Event<T>},
+        Nomination: nomination::{Pallet, Call, Config, Storage, Event<T>},
     }
 );
 
