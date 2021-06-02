@@ -450,13 +450,12 @@ impl<T: Config> Pallet<T> {
         let amount = TryInto::<u64>::try_into(replace.amount).map_err(|_e| Error::<T>::TryIntoIntError)? as i64;
 
         // check the transaction inclusion and validity
-        ext::btc_relay::verify_and_validate_transaction::<T>(
+        ext::btc_relay::verify_and_validate_op_return_transaction::<T>(
             merkle_proof,
             raw_tx,
             replace.btc_address,
-            Some(amount),
-            Some(replace_id),
-            None,
+            amount as i64,
+            replace_id,
         )?;
 
         // decrease old-vault's issued & to-be-redeemed tokens, and

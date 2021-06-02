@@ -962,6 +962,7 @@ dependencies = [
  "frame-support",
  "frame-system",
  "hex",
+ "itertools 0.10.0",
  "mocktopus",
  "pallet-balances",
  "pallet-randomness-collective-flip",

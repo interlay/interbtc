@@ -41,8 +41,7 @@ pub(crate) mod security {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod btc_relay {
-    use bitcoin::types::{H256Le, RawBlockHeader, Transaction};
-    use btc_relay::BtcAddress;
+    use bitcoin::types::{H256Le, RawBlockHeader};
     use frame_support::dispatch::DispatchResult;
     use sp_std::prelude::*;
 
@@ -66,12 +65,6 @@ pub(crate) mod btc_relay {
         raw_merkle_proof: Vec<u8>,
     ) -> DispatchResult {
         <btc_relay::Pallet<T>>::_verify_transaction_inclusion(tx_id, raw_merkle_proof, None)
-    }
-
-    pub(crate) fn extract_outputs<T: btc_relay::Config>(
-        tx: Transaction,
-    ) -> Result<(Vec<(i64, BtcAddress)>, Vec<(i64, Vec<u8>)>), btc_relay::Error<T>> {
-        <btc_relay::Pallet<T>>::extract_outputs(tx)
     }
 }
 

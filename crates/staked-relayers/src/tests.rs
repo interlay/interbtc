@@ -2,9 +2,9 @@ extern crate hex;
 use crate::{ext, mock::*};
 use bitcoin::{
     formatter::Formattable,
-    types::{H256Le, RawBlockHeader, TransactionBuilder, TransactionInputBuilder, TransactionOutput},
+    types::{H256Le, RawBlockHeader, Transaction, TransactionBuilder, TransactionInputBuilder, TransactionOutput},
 };
-use btc_relay::{BtcAddress, BtcPublicKey, Error as BtcRelayError};
+use btc_relay::{BtcAddress, BtcPublicKey, Error as BtcRelayError, OpReturnPaymentData};
 use frame_support::{assert_err, assert_ok};
 use mocktopus::mocking::*;
 use redeem::types::{RedeemRequest, RedeemRequestStatus};
@@ -133,6 +133,32 @@ fn test_report_vault_theft_succeeds() {
     })
 }
 
+fn build_dummy_transaction_with(output_addresses: Vec<BtcAddress>) -> Transaction {
+    let mut builder = TransactionBuilder::new();
+    builder.with_version(1).add_input(
+        TransactionInputBuilder::new()
+            .with_coinbase(false)
+            .with_sequence(4294967295)
+            .with_previous_index(1)
+            .with_previous_hash(H256Le::from_bytes_le(&[
+                193, 80, 65, 160, 109, 235, 107, 56, 24, 176, 34, 250, 197, 88, 218, 76, 226, 9, 127, 8, 96, 200, 246,
+                66, 16, 91, 186, 217, 210, 155, 224, 42,
+            ]))
+            .with_script(&[
+                73, 48, 70, 2, 33, 0, 207, 210, 162, 211, 50, 178, 154, 220, 225, 25, 197, 90, 159, 173, 211, 192, 115,
+                51, 32, 36, 183, 226, 114, 81, 62, 81, 98, 60, 161, 89, 147, 72, 2, 33, 0, 155, 72, 45, 127, 123, 77,
+                71, 154, 255, 98, 189, 205, 174, 165, 70, 103, 115, 125, 86, 248, 212, 214, 61, 208, 62, 195, 239, 101,
+                30, 217, 162, 84, 1, 33, 3, 37, 248, 176, 57, 161, 24, 97, 101, 156, 155, 240, 63, 67, 252, 78, 160,
+                85, 243, 167, 28, 214, 12, 123, 31, 212, 116, 171, 87, 143, 153, 119, 250,
+            ])
+            .build(),
+    );
+    for address in output_addresses {
+        builder.add_output(TransactionOutput::payment(100, &address));
+    }
+    builder.build()
+}
+
 #[test]
 fn test_is_valid_merge_transaction_fails() {
     run_test(|| {
@@ -141,21 +167,17 @@ fn test_is_valid_merge_transaction_fails() {
             .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault, None))));
 
         let address1 = BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
-
-        let address2 = BtcAddress::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
-
+        let transaction1 = build_dummy_transaction_with(vec![address1]);
         assert_eq!(
-            StakedRelayers::is_valid_merge_transaction(&[(100, address1)], &[], &Wallet::new(dummy_public_key())),
+            StakedRelayers::is_valid_merge_transaction(&transaction1, &Wallet::new(dummy_public_key())),
             false,
             "payment to unknown recipient"
         );
 
+        let address2 = BtcAddress::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
+        let transaction2 = build_dummy_transaction_with(vec![address2]);
         assert_eq!(
-            StakedRelayers::is_valid_merge_transaction(
-                &[(100, address2)],
-                &[(0, vec![])],
-                &Wallet::new(dummy_public_key())
-            ),
+            StakedRelayers::is_valid_merge_transaction(&transaction2, &Wallet::new(dummy_public_key())),
             false,
             "migration should not have op_returns"
         );
@@ -170,15 +192,40 @@ fn test_is_valid_merge_transaction_succeeds() {
             .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault, None))));
 
         let address = BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
+        let transaction = build_dummy_transaction_with(vec![address]);
 
         let mut wallet = Wallet::new(dummy_public_key());
         wallet.add_btc_address(address);
 
-        assert_eq!(
-            StakedRelayers::is_valid_merge_transaction(&[(100, address)], &[], &wallet),
-            true
-        );
+        assert_eq!(StakedRelayers::is_valid_merge_transaction(&transaction, &wallet), true);
     })
+}
+
+fn build_dummy2_transaction_with(output_addresses: Vec<(i64, BtcAddress)>, op_return: H256) -> Transaction {
+    let mut builder = TransactionBuilder::new();
+    builder.with_version(1).add_input(
+        TransactionInputBuilder::new()
+            .with_coinbase(false)
+            .with_sequence(4294967295)
+            .with_previous_index(1)
+            .with_previous_hash(H256Le::from_bytes_le(&[
+                193, 80, 65, 160, 109, 235, 107, 56, 24, 176, 34, 250, 197, 88, 218, 76, 226, 9, 127, 8, 96, 200, 246,
+                66, 16, 91, 186, 217, 210, 155, 224, 42,
+            ]))
+            .with_script(&[
+                73, 48, 70, 2, 33, 0, 207, 210, 162, 211, 50, 178, 154, 220, 225, 25, 197, 90, 159, 173, 211, 192, 115,
+                51, 32, 36, 183, 226, 114, 81, 62, 81, 98, 60, 161, 89, 147, 72, 2, 33, 0, 155, 72, 45, 127, 123, 77,
+                71, 154, 255, 98, 189, 205, 174, 165, 70, 103, 115, 125, 86, 248, 212, 214, 61, 208, 62, 195, 239, 101,
+                30, 217, 162, 84, 1, 33, 3, 37, 248, 176, 57, 161, 24, 97, 101, 156, 155, 240, 63, 67, 252, 78, 160,
+                85, 243, 167, 28, 214, 12, 123, 31, 212, 116, 171, 87, 143, 153, 119, 250,
+            ])
+            .build(),
+    );
+    for (amount, address) in output_addresses {
+        builder.add_output(TransactionOutput::payment(amount, &address));
+    }
+    builder.add_output(TransactionOutput::op_return(0, op_return.as_bytes()));
+    builder.build()
 }
 
 #[test]
@@ -195,18 +242,16 @@ fn test_is_valid_request_transaction_overpayment_fails() {
         let mut wallet = Wallet::new(dummy_public_key());
         wallet.add_btc_address(address2);
 
-        let actual_value: i32 = 101;
+        let actual_value = 101;
 
         let request_value = 100;
         let request_address = address1;
 
+        let transaction = build_dummy2_transaction_with(vec![(actual_value, address1)], H256::zero());
+        let payment_data = OpReturnPaymentData::try_from_transaction(transaction).unwrap();
+
         assert_eq!(
-            StakedRelayers::is_valid_request_transaction(
-                request_value,
-                request_address,
-                &[(actual_value.try_into().unwrap(), address1)],
-                &wallet
-            ),
+            StakedRelayers::is_valid_request_transaction(request_value, request_address, &payment_data, &wallet),
             false
         );
     })
@@ -225,18 +270,16 @@ fn test_is_valid_request_transaction_underpayment_fails() {
         let mut wallet = Wallet::new(dummy_public_key());
         wallet.add_btc_address(address2);
 
-        let actual_value: i32 = 99;
+        let actual_value = 99;
 
         let request_value = 100;
         let request_address = address1;
 
+        let transaction = build_dummy2_transaction_with(vec![(actual_value, address1)], H256::zero());
+        let payment_data = OpReturnPaymentData::try_from_transaction(transaction).unwrap();
+
         assert_eq!(
-            StakedRelayers::is_valid_request_transaction(
-                request_value,
-                request_address,
-                &[(actual_value.try_into().unwrap(), address1)],
-                &wallet
-            ),
+            StakedRelayers::is_valid_request_transaction(request_value, request_address, &payment_data, &wallet),
             false
         );
     })
@@ -255,14 +298,17 @@ fn test_is_valid_request_transaction_succeeds() {
         let mut wallet = Wallet::new(dummy_public_key());
         wallet.add_btc_address(vault_address);
 
+        let transaction = build_dummy2_transaction_with(
+            vec![(request_value, recipient_address), (change_value, vault_address)],
+            H256::zero(),
+        );
+        let payment_data = OpReturnPaymentData::try_from_transaction(transaction).unwrap();
+
         assert_eq!(
             StakedRelayers::is_valid_request_transaction(
-                request_value,
+                request_value.try_into().unwrap(),
                 recipient_address,
-                &[
-                    (request_value.try_into().unwrap(), recipient_address),
-                    (change_value.try_into().unwrap(), vault_address)
-                ],
+                &payment_data,
                 &wallet
             ),
             true

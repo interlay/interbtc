@@ -3,7 +3,7 @@ use crate::{ext, mock::*, ReplaceRequest, ReplaceRequestStatus};
 use btc_relay::BtcAddress;
 use frame_support::{assert_err, assert_ok};
 use mocktopus::mocking::*;
-use sp_core::{H160, H256};
+use sp_core::H256;
 
 type Event = crate::Event<Test>;
 
@@ -179,8 +179,8 @@ mod execute_replace_test {
 
         Replace::replace_period.mock_safe(|| MockResult::Return(20));
         ext::security::has_expired::<Test>.mock_safe(|_, _| MockResult::Return(Ok(false)));
-        ext::btc_relay::verify_and_validate_transaction::<Test>
-            .mock_safe(|_, _, _, _, _, _| MockResult::Return(Ok((BtcAddress::P2SH(H160::zero()), 0))));
+        ext::btc_relay::verify_and_validate_op_return_transaction::<Test>
+            .mock_safe(|_, _, _, _, _| MockResult::Return(Ok(())));
         ext::vault_registry::replace_tokens::<Test>.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));
         ext::collateral::release_collateral::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
     }
