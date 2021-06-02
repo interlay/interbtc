@@ -305,8 +305,8 @@ impl<T: Config> Pallet<T> {
         // check all outputs, vault cannot pay to unknown recipients
         for (value, address) in payments {
             if *address == request_address {
-                if *value < request_value {
-                    // insufficient payment to recipient
+                if *value != request_value {
+                    // invalid payment to recipient
                     return false;
                 }
             } else if !wallet.has_btc_address(&address) {
