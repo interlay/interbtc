@@ -1,4 +1,4 @@
-//! # Issue Module
+//! # Issue Pallet
 //! Based on the [specification](https://interlay.gitlab.io/polkabtc-spec/spec/issue.html).
 
 #![deny(warnings)]
@@ -31,94 +31,149 @@ pub use crate::types::{IssueRequest, IssueRequestStatus};
 
 use crate::types::{Collateral, Version, Wrapped};
 use btc_relay::{BtcAddress, BtcPublicKey};
-use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult},
-    ensure, transactional,
-};
+use frame_support::{dispatch::DispatchError, ensure, transactional};
 use frame_system::{ensure_root, ensure_signed};
 use sp_core::H256;
 use sp_runtime::traits::*;
 use sp_std::{convert::TryInto, vec::Vec};
 use vault_registry::{CurrencySource, VaultStatus};
 
-/// The pallet's configuration trait.
-pub trait Config:
-    frame_system::Config
-    + vault_registry::Config
-    + currency::Config<currency::Collateral>
-    + currency::Config<currency::Wrapped>
-    + btc_relay::Config
-    + exchange_rate_oracle::Config
-    + fee::Config
-    + sla::Config
-    + refund::Config
-{
-    /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+pub use pallet::*;
 
-    /// Weight information for the extrinsics in this module.
-    type WeightInfo: WeightInfo;
-}
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use frame_support::pallet_prelude::*;
+    use frame_system::pallet_prelude::*;
 
-// The pallet's storage items.
-decl_storage! {
-    trait Store for Module<T: Config> as Issue {
-        /// Users create issue requests to issue tokens. This mapping provides access
-        /// from a unique hash `IssueId` to an `IssueRequest` struct.
-        IssueRequests: map hasher(blake2_128_concat) H256 => IssueRequest<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>;
-
-        /// The time difference in number of blocks between an issue request is created
-        /// and required completion time by a user. The issue period has an upper limit
-        /// to prevent griefing of vault collateral.
-        IssuePeriod get(fn issue_period) config(): T::BlockNumber;
-
-        /// The minimum amount of btc that is required for issue requests; lower values would
-        /// risk the rejection of payment on Bitcoin.
-        IssueBtcDustValue get(fn issue_btc_dust_value) config(): Wrapped<T>;
-
-        /// Build storage at V1 (requires default 0).
-        StorageVersion get(fn storage_version) build(|_| Version::V2): Version = Version::V0;
-    }
-}
-
-// The pallet's events.
-decl_event!(
-    pub enum Event<T>
-    where
-        AccountId = <T as frame_system::Config>::AccountId,
-        Wrapped = Wrapped<T>,
-        Collateral = Collateral<T>,
+    /// ## Configuration
+    /// The pallet's configuration trait.
+    #[pallet::config]
+    pub trait Config:
+        frame_system::Config
+        + vault_registry::Config
+        + currency::Config<currency::Collateral>
+        + currency::Config<currency::Wrapped>
+        + btc_relay::Config
+        + exchange_rate_oracle::Config
+        + fee::Config
+        + sla::Config
+        + refund::Config
     {
+        /// The overarching event type.
+        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+
+        /// Weight information for the extrinsics in this module.
+        type WeightInfo: WeightInfo;
+    }
+
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    #[pallet::metadata(T::AccountId = "AccountId", Wrapped<T> = "Wrapped", Collateral<T> = "Collateral")]
+    pub enum Event<T: Config> {
         RequestIssue(
-            H256,         // issue_id
-            AccountId,    // requester
-            Wrapped,      // amount
-            Wrapped,      // fee
-            Collateral,   // griefing_collateral
-            AccountId,    // vault_id
-            BtcAddress,   // vault deposit address
-            BtcPublicKey, // vault public key
+            H256,          // issue_id
+            T::AccountId,  // requester
+            Wrapped<T>,    // amount
+            Wrapped<T>,    // fee
+            Collateral<T>, // griefing_collateral
+            T::AccountId,  // vault_id
+            BtcAddress,    // vault deposit address
+            BtcPublicKey,  // vault public key
         ),
         // issue_id, amount, fee, confiscated_griefing_collateral
-        IssueAmountChange(H256, Wrapped, Wrapped, Collateral),
+        IssueAmountChange(H256, Wrapped<T>, Wrapped<T>, Collateral<T>),
         // [issue_id, requester, total_amount, vault]
-        ExecuteIssue(H256, AccountId, Wrapped, AccountId),
+        ExecuteIssue(H256, T::AccountId, Wrapped<T>, T::AccountId),
         // [issue_id, requester, griefing_collateral]
-        CancelIssue(H256, AccountId, Collateral),
+        CancelIssue(H256, T::AccountId, Collateral<T>),
     }
-);
 
-// The pallet's dispatchable functions.
-decl_module! {
-    /// The module declaration.
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
-        type Error = Error<T>;
+    #[pallet::error]
+    pub enum Error<T> {
+        InsufficientCollateral,
+        IssueIdNotFound,
+        CommitPeriodExpired,
+        TimeNotExpired,
+        IssueCompleted,
+        IssueCancelled,
+        VaultNotAcceptingNewIssues,
+        WaitingForRelayerInitialization,
+        /// Unable to convert value
+        TryIntoIntError,
+        ArithmeticUnderflow,
+        ArithmeticOverflow,
+        InvalidExecutor,
+        AmountBelowDustAmount,
+    }
 
-        // Initializing events
-        // this is needed only if you are using events in your pallet
-        fn deposit_event() = default;
+    #[pallet::hooks]
+    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {}
 
+    /// Users create issue requests to issue tokens. This mapping provides access
+    /// from a unique hash `IssueId` to an `IssueRequest` struct.
+    #[pallet::storage]
+    pub(super) type IssueRequests<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        H256,
+        IssueRequest<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>,
+        ValueQuery,
+    >;
+
+    /// The time difference in number of blocks between an issue request is created
+    /// and required completion time by a user. The issue period has an upper limit
+    /// to prevent griefing of vault collateral.
+    #[pallet::storage]
+    #[pallet::getter(fn issue_period)]
+    pub(super) type IssuePeriod<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+
+    /// The minimum amount of btc that is required for issue requests; lower values would
+    /// risk the rejection of payment on Bitcoin.
+    #[pallet::storage]
+    #[pallet::getter(fn issue_btc_dust_value)]
+    pub(super) type IssueBtcDustValue<T: Config> = StorageValue<_, Wrapped<T>, ValueQuery>;
+
+    #[pallet::type_value]
+    pub(super) fn DefaultForStorageVersion() -> Version {
+        Version::V0
+    }
+
+    /// Build storage at V1 (requires default 0).
+    #[pallet::storage]
+    #[pallet::getter(fn storage_version)]
+    pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery, DefaultForStorageVersion>;
+
+    #[pallet::genesis_config]
+    pub struct GenesisConfig<T: Config> {
+        pub issue_period: T::BlockNumber,
+        pub issue_btc_dust_value: Wrapped<T>,
+    }
+
+    #[cfg(feature = "std")]
+    impl<T: Config> Default for GenesisConfig<T> {
+        fn default() -> Self {
+            Self {
+                issue_period: Default::default(),
+                issue_btc_dust_value: Default::default(),
+            }
+        }
+    }
+
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+        fn build(&self) {
+            IssuePeriod::<T>::put(self.issue_period);
+            IssueBtcDustValue::<T>::put(self.issue_btc_dust_value);
+        }
+    }
+
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
+
+    // The pallet's dispatchable functions.
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
         /// Request the issuance of tokens
         ///
         /// # Arguments
@@ -128,17 +183,17 @@ decl_module! {
         /// amount of issued tokens received will be less, because a fee is subtracted.
         /// * `vault` - address of the vault
         /// * `griefing_collateral` - amount of collateral
-        #[weight = <T as Config>::WeightInfo::request_issue()]
+        #[pallet::weight(<T as Config>::WeightInfo::request_issue())]
         #[transactional]
         fn request_issue(
-            origin,
-            #[compact] amount: Wrapped<T>,
+            origin: OriginFor<T>,
+            #[pallet::compact] amount: Wrapped<T>,
             vault_id: T::AccountId,
-            #[compact] griefing_collateral: Collateral<T>
-        ) -> DispatchResult {
+            #[pallet::compact] griefing_collateral: Collateral<T>,
+        ) -> DispatchResultWithPostInfo {
             let requester = ensure_signed(origin)?;
             Self::_request_issue(requester, amount, vault_id, griefing_collateral)?;
-            Ok(())
+            Ok(().into())
         }
 
         /// Finalize the issuance of tokens
@@ -150,14 +205,17 @@ decl_module! {
         /// * `tx_block_height` - block number of collateral chain
         /// * `merkle_proof` - raw bytes
         /// * `raw_tx` - raw bytes
-        #[weight = <T as Config>::WeightInfo::execute_issue()]
+        #[pallet::weight(<T as Config>::WeightInfo::execute_issue())]
         #[transactional]
-        fn execute_issue(origin, issue_id: H256, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
-            -> DispatchResult
-        {
+        fn execute_issue(
+            origin: OriginFor<T>,
+            issue_id: H256,
+            merkle_proof: Vec<u8>,
+            raw_tx: Vec<u8>,
+        ) -> DispatchResultWithPostInfo {
             let executor = ensure_signed(origin)?;
             Self::_execute_issue(executor, issue_id, merkle_proof, raw_tx)?;
-            Ok(())
+            Ok(().into())
         }
 
         /// Cancel the issuance of tokens if expired
@@ -166,14 +224,12 @@ decl_module! {
         ///
         /// * `origin` - sender of the transaction
         /// * `issue_id` - identifier of issue request as output from request_issue
-        #[weight = <T as Config>::WeightInfo::cancel_issue()]
+        #[pallet::weight(<T as Config>::WeightInfo::cancel_issue())]
         #[transactional]
-        fn cancel_issue(origin, issue_id: H256)
-            -> DispatchResult
-        {
+        fn cancel_issue(origin: OriginFor<T>, issue_id: H256) -> DispatchResultWithPostInfo {
             let requester = ensure_signed(origin)?;
             Self::_cancel_issue(requester, issue_id)?;
-            Ok(())
+            Ok(().into())
         }
 
         /// Set the default issue period for tx verification.
@@ -184,18 +240,19 @@ decl_module! {
         /// * `period` - default period for new requests
         ///
         /// # Weight: `O(1)`
-        #[weight = <T as Config>::WeightInfo::set_issue_period()]
+        #[pallet::weight(<T as Config>::WeightInfo::set_issue_period())]
         #[transactional]
-        fn set_issue_period(origin, period: T::BlockNumber) {
+        pub(crate) fn set_issue_period(origin: OriginFor<T>, period: T::BlockNumber) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             <IssuePeriod<T>>::set(period);
+            Ok(().into())
         }
     }
 }
 
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     /// Requests CBA issuance, returns unique tracking ID.
     fn _request_issue(
         requester: T::AccountId,
@@ -538,24 +595,5 @@ impl<T: Config> Module<T> {
 
     fn u128_to_wrapped(x: u128) -> Result<Wrapped<T>, DispatchError> {
         TryInto::<Wrapped<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
-    }
-}
-
-decl_error! {
-    pub enum Error for Module<T: Config> {
-        InsufficientCollateral,
-        IssueIdNotFound,
-        CommitPeriodExpired,
-        TimeNotExpired,
-        IssueCompleted,
-        IssueCancelled,
-        VaultNotAcceptingNewIssues,
-        WaitingForRelayerInitialization,
-        /// Unable to convert value
-        TryIntoIntError,
-        ArithmeticUnderflow,
-        ArithmeticOverflow,
-        InvalidExecutor,
-        AmountBelowDustAmount,
     }
 }

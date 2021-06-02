@@ -1,4 +1,4 @@
-use crate::{ext, mock::*, Collateral, Config, RawEvent, Wrapped};
+use crate::{ext, mock::*, Collateral, Config, Event, Wrapped};
 
 use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::{assert_noop, assert_ok, dispatch::DispatchError};
@@ -120,7 +120,7 @@ fn test_request_issue_succeeds() {
 
         let issue_id = request_issue_ok(origin, amount, vault, issue_griefing_collateral);
 
-        let request_issue_event = TestEvent::issue(RawEvent::RequestIssue(
+        let request_issue_event = TestEvent::issue(Event::RequestIssue(
             issue_id,
             origin,
             amount - issue_fee,
@@ -173,7 +173,7 @@ fn test_execute_issue_succeeds() {
 
         assert_ok!(execute_issue(ALICE, &issue_id));
 
-        let execute_issue_event = TestEvent::issue(RawEvent::ExecuteIssue(issue_id, ALICE, 3, BOB));
+        let execute_issue_event = TestEvent::issue(Event::ExecuteIssue(issue_id, ALICE, 3, BOB));
         assert!(System::events().iter().any(|a| a.event == execute_issue_event));
 
         assert_noop!(cancel_issue(ALICE, &issue_id), TestError::IssueCompleted);
