@@ -21,7 +21,7 @@ pub mod types;
 
 use crate::types::{Collateral, Inner, RelayerEvent, SignedFixedPoint, VaultEvent, Wrapped};
 use codec::{Decode, Encode, EncodeLike, FullCodec};
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError, transactional};
+use frame_support::{dispatch::DispatchError, transactional};
 use frame_system::ensure_root;
 use sp_arithmetic::{traits::*, FixedPointNumber, FixedPointOperand};
 use sp_runtime::traits::MaybeSerializeDeserialize;
@@ -30,114 +30,218 @@ use sp_std::{
     fmt::Debug,
 };
 
-/// The pallet's configuration trait.
-pub trait Config:
-    frame_system::Config + currency::Config<currency::Collateral> + currency::Config<currency::Wrapped>
-{
-    /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+pub use pallet::*;
 
-    /// Signed fixed point type.
-    type SignedFixedPoint: FixedPointNumber<Inner = Self::SignedInner> + Encode + EncodeLike + Decode;
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use frame_support::pallet_prelude::*;
+    use frame_system::pallet_prelude::*;
 
-    /// The `Inner` type of the `SignedFixedPoint`.
-    type SignedInner: Debug
-        + One
-        + CheckedMul
-        + CheckedDiv
-        + FixedPointOperand
-        + TryFrom<Collateral<Self>>
-        + TryFrom<Wrapped<Self>>
-        + TryInto<Collateral<Self>>
-        + TryInto<Wrapped<Self>>;
-
-    /// The shared balance type for all currencies.
-    type Balance: AtLeast32BitUnsigned
-        + FullCodec
-        + Copy
-        + MaybeSerializeDeserialize
-        + Debug
-        + Default
-        + From<Collateral<Self>>
-        + From<Wrapped<Self>>
-        + Into<Collateral<Self>>
-        + Into<Wrapped<Self>>;
-
-    /// Vault reward pool for the collateral currency.
-    type CollateralVaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
-
-    /// Vault reward pool for the wrapped currency.
-    type WrappedVaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
-
-    /// Relayer reward pool for the collateral currency.
-    type CollateralRelayerRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
-
-    /// Relayer reward pool for the wrapped currency.
-    type WrappedRelayerRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
-}
-
-// The pallet's storage items.
-decl_storage! {
-    trait Store for Module<T: Config> as Sla {
-        /// Mapping from accounts of vaults/relayers to their sla score
-        VaultSla get(fn vault_sla): map hasher(blake2_128_concat) T::AccountId => SignedFixedPoint<T>;
-        RelayerSla get(fn relayer_sla): map hasher(blake2_128_concat) T::AccountId => SignedFixedPoint<T>;
-
-        // number of issues executed by all vaults together; used for calculating the average issue size,
-        // which is used in SLA updates
-        TotalIssueCount: u32;
-        // sum of all issue amounts
-        LifetimeIssued: u128;
-
-        AverageDeposit: SignedFixedPoint<T>;
-        AverageDepositCount: SignedFixedPoint<T>;
-
-        AverageWithdraw: SignedFixedPoint<T>;
-        AverageWithdrawCount: SignedFixedPoint<T>;
-
-        // target (max) SLA scores
-        VaultTargetSla get(fn vault_target_sla) config(): SignedFixedPoint<T>;
-        RelayerTargetSla get(fn relayer_target_sla) config(): SignedFixedPoint<T>;
-
-        // vault & relayer SLA score rewards/punishments for the actions defined in
-        // https://interlay.gitlab.io/polkabtc-econ/spec/sla/actions.html#actions
-        // Positive and negative values indicate rewards and punishments, respectively
-        VaultRedeemFailure get(fn vault_redeem_failure_sla_change) config(): SignedFixedPoint<T>;
-        VaultExecuteIssueMaxSlaChange get(fn vault_execute_issue_max_sla_change) config(): SignedFixedPoint<T>;
-        VaultDepositMaxSlaChange get(fn vault_deposit_max_sla_change) config(): SignedFixedPoint<T>;
-        VaultWithdrawMaxSlaChange get(fn vault_withdraw_max_sla_change) config(): SignedFixedPoint<T>;
-        VaultSubmitIssueProof get(fn vault_submit_issue_proof) config(): SignedFixedPoint<T>;
-        VaultRefund get(fn vault_refund) config(): SignedFixedPoint<T>;
-
-        RelayerStoreBlock get(fn relayer_store_block) config(): SignedFixedPoint<T>;
-        RelayerTheftReport get(fn relayer_theft_report) config(): SignedFixedPoint<T>;
-    }
-}
-
-// The pallet's events.
-decl_event!(
-    pub enum Event<T>
-    where
-        AccountId = <T as frame_system::Config>::AccountId,
-        SignedFixedPoint = SignedFixedPoint<T>,
+    /// ## Configuration
+    /// The pallet's configuration trait.
+    #[pallet::config]
+    pub trait Config:
+        frame_system::Config + currency::Config<currency::Collateral> + currency::Config<currency::Wrapped>
     {
-        // [vault_id, bounded_new_sla, delta_sla]
-        UpdateVaultSLA(AccountId, SignedFixedPoint, SignedFixedPoint),
-        // [relayer_id, new_sla, delta_sla]
-        UpdateRelayerSLA(AccountId, SignedFixedPoint, SignedFixedPoint),
+        /// The overarching event type.
+        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+
+        /// Signed fixed point type.
+        type SignedFixedPoint: FixedPointNumber<Inner = Self::SignedInner>
+            + Encode
+            + EncodeLike
+            + Decode
+            + MaybeSerializeDeserialize;
+
+        /// The `Inner` type of the `SignedFixedPoint`.
+        type SignedInner: Debug
+            + One
+            + CheckedMul
+            + CheckedDiv
+            + FixedPointOperand
+            + TryFrom<Collateral<Self>>
+            + TryFrom<Wrapped<Self>>
+            + TryInto<Collateral<Self>>
+            + TryInto<Wrapped<Self>>;
+
+        /// The shared balance type for all currencies.
+        type Balance: AtLeast32BitUnsigned
+            + FullCodec
+            + Copy
+            + MaybeSerializeDeserialize
+            + Debug
+            + Default
+            + From<Collateral<Self>>
+            + From<Wrapped<Self>>
+            + Into<Collateral<Self>>
+            + Into<Wrapped<Self>>;
+
+        /// Vault reward pool for the collateral currency.
+        type CollateralVaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
+
+        /// Vault reward pool for the wrapped currency.
+        type WrappedVaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
+
+        /// Relayer reward pool for the collateral currency.
+        type CollateralRelayerRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
+
+        /// Relayer reward pool for the wrapped currency.
+        type WrappedRelayerRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
     }
-);
 
-// The pallet's dispatchable functions.
-decl_module! {
-    /// The module declaration.
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
-        // Initialize errors
-        type Error = Error<T>;
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    #[pallet::metadata(T::AccountId = "AccountId", SignedFixedPoint<T> = "SignedFixedPoint")]
+    pub enum Event<T: Config> {
+        // [vault_id, bounded_new_sla, delta_sla]
+        UpdateVaultSLA(T::AccountId, SignedFixedPoint<T>, SignedFixedPoint<T>),
+        // [relayer_id, new_sla, delta_sla]
+        UpdateRelayerSLA(T::AccountId, SignedFixedPoint<T>, SignedFixedPoint<T>),
+    }
 
-        // Initialize events
-        fn deposit_event() = default;
+    #[pallet::error]
+    pub enum Error<T> {
+        TryIntoIntError,
+        ArithmeticOverflow,
+        ArithmeticUnderflow,
+        InvalidSlashedAmount,
+    }
 
+    #[pallet::hooks]
+    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {}
+
+    /// Mapping from Vaults to their SLA score.
+    #[pallet::storage]
+    #[pallet::getter(fn vault_sla)]
+    pub(super) type VaultSla<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, SignedFixedPoint<T>, ValueQuery>;
+
+    /// Mapping from Relayers to their SLA score.
+    #[pallet::storage]
+    #[pallet::getter(fn relayer_sla)]
+    pub(super) type RelayerSla<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::AccountId, SignedFixedPoint<T>, ValueQuery>;
+
+    /// Total number of issues executed by all vaults; used for calculating the average issue size.
+    #[pallet::storage]
+    pub(super) type TotalIssueCount<T: Config> = StorageValue<_, u32, ValueQuery>;
+
+    #[pallet::storage]
+    pub(super) type LifetimeIssued<T: Config> = StorageValue<_, u128, ValueQuery>;
+
+    #[pallet::storage]
+    pub(super) type AverageDeposit<T: Config> = StorageValue<_, SignedFixedPoint<T>, ValueQuery>;
+
+    #[pallet::storage]
+    pub(super) type AverageDepositCount<T: Config> = StorageValue<_, SignedFixedPoint<T>, ValueQuery>;
+
+    #[pallet::storage]
+    pub(super) type AverageWithdraw<T: Config> = StorageValue<_, SignedFixedPoint<T>, ValueQuery>;
+
+    #[pallet::storage]
+    pub(super) type AverageWithdrawCount<T: Config> = StorageValue<_, SignedFixedPoint<T>, ValueQuery>;
+
+    // Target (max) SLA score for Vaults.
+    #[pallet::storage]
+    #[pallet::getter(fn vault_target_sla)]
+    pub(super) type VaultTargetSla<T: Config> = StorageValue<_, SignedFixedPoint<T>, ValueQuery>;
+
+    // Target (max) SLA score for Relayers.
+    #[pallet::storage]
+    #[pallet::getter(fn relayer_target_sla)]
+    pub(super) type RelayerTargetSla<T: Config> = StorageValue<_, SignedFixedPoint<T>, ValueQuery>;
+
+    // vault & relayer SLA score rewards/punishments for the actions defined in
+    // https://interlay.gitlab.io/polkabtc-econ/spec/sla/actions.html#actions
+    // Positive and negative values indicate rewards and punishments, respectively
+
+    #[pallet::storage]
+    #[pallet::getter(fn vault_redeem_failure_sla_change)]
+    pub(super) type VaultRedeemFailure<T: Config> = StorageValue<_, SignedFixedPoint<T>, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn vault_execute_issue_max_sla_change)]
+    pub(super) type VaultExecuteIssueMaxSlaChange<T: Config> = StorageValue<_, SignedFixedPoint<T>, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn vault_deposit_max_sla_change)]
+    pub(super) type VaultDepositMaxSlaChange<T: Config> = StorageValue<_, SignedFixedPoint<T>, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn vault_withdraw_max_sla_change)]
+    pub(super) type VaultWithdrawMaxSlaChange<T: Config> = StorageValue<_, SignedFixedPoint<T>, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn vault_submit_issue_proof)]
+    pub(super) type VaultSubmitIssueProof<T: Config> = StorageValue<_, SignedFixedPoint<T>, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn vault_refund)]
+    pub(super) type VaultRefund<T: Config> = StorageValue<_, SignedFixedPoint<T>, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn relayer_store_block)]
+    pub(super) type RelayerStoreBlock<T: Config> = StorageValue<_, SignedFixedPoint<T>, ValueQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn relayer_theft_report)]
+    pub(super) type RelayerTheftReport<T: Config> = StorageValue<_, SignedFixedPoint<T>, ValueQuery>;
+
+    #[pallet::genesis_config]
+    pub struct GenesisConfig<T: Config> {
+        pub vault_target_sla: SignedFixedPoint<T>,
+        pub relayer_target_sla: SignedFixedPoint<T>,
+        pub vault_redeem_failure_sla_change: SignedFixedPoint<T>,
+        pub vault_execute_issue_max_sla_change: SignedFixedPoint<T>,
+        pub vault_deposit_max_sla_change: SignedFixedPoint<T>,
+        pub vault_withdraw_max_sla_change: SignedFixedPoint<T>,
+        pub vault_submit_issue_proof: SignedFixedPoint<T>,
+        pub vault_refund: SignedFixedPoint<T>,
+        pub relayer_store_block: SignedFixedPoint<T>,
+        pub relayer_theft_report: SignedFixedPoint<T>,
+    }
+
+    #[cfg(feature = "std")]
+    impl<T: Config> Default for GenesisConfig<T> {
+        fn default() -> Self {
+            Self {
+                vault_target_sla: Default::default(),
+                relayer_target_sla: Default::default(),
+                vault_redeem_failure_sla_change: Default::default(),
+                vault_execute_issue_max_sla_change: Default::default(),
+                vault_deposit_max_sla_change: Default::default(),
+                vault_withdraw_max_sla_change: Default::default(),
+                vault_submit_issue_proof: Default::default(),
+                vault_refund: Default::default(),
+                relayer_store_block: Default::default(),
+                relayer_theft_report: Default::default(),
+            }
+        }
+    }
+
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+        fn build(&self) {
+            VaultTargetSla::<T>::put(self.vault_target_sla);
+            RelayerTargetSla::<T>::put(self.relayer_target_sla);
+            VaultRedeemFailure::<T>::put(self.vault_redeem_failure_sla_change);
+            VaultExecuteIssueMaxSlaChange::<T>::put(self.vault_execute_issue_max_sla_change);
+            VaultDepositMaxSlaChange::<T>::put(self.vault_deposit_max_sla_change);
+            VaultWithdrawMaxSlaChange::<T>::put(self.vault_withdraw_max_sla_change);
+            VaultSubmitIssueProof::<T>::put(self.vault_submit_issue_proof);
+            VaultRefund::<T>::put(self.vault_refund);
+            RelayerStoreBlock::<T>::put(self.relayer_store_block);
+            RelayerTheftReport::<T>::put(self.relayer_theft_report);
+        }
+    }
+
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
+
+    // The pallet's dispatchable functions.
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
         /// Set the sla delta for the given relayer event.
         ///
         /// # Arguments
@@ -147,18 +251,23 @@ decl_module! {
         /// * `value` - sla delta
         ///
         /// # Weight: `O(1)`
-        #[weight = 0]
+        #[pallet::weight(0)]
         #[transactional]
-        pub fn set_relayer_sla(origin, event: RelayerEvent, value: SignedFixedPoint<T>) {
+        pub fn set_relayer_sla(
+            origin: OriginFor<T>,
+            event: RelayerEvent,
+            value: SignedFixedPoint<T>,
+        ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             Self::_set_relayer_sla(event, value);
+            Ok(().into())
         }
     }
 }
 
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     // Public functions exposed to other pallets
 
     /// Update the SLA score of the vault on given the event.
@@ -339,11 +448,11 @@ impl<T: Config> Module<T> {
         let amount_raw = Self::wrapped_to_u128(amount)?;
 
         // update the number of issues performed
-        let count = TotalIssueCount::mutate(|x| {
+        let count = <TotalIssueCount<T>>::mutate(|x| {
             *x = x.saturating_add(1);
             *x as u128
         });
-        let total = LifetimeIssued::mutate(|x| {
+        let total = <LifetimeIssued<T>>::mutate(|x| {
             *x = x.saturating_add(amount_raw);
             *x
         });
@@ -517,14 +626,5 @@ impl<T: Config> Module<T> {
         let y = TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError)?;
         let inner = TryInto::<Inner<T>>::try_into(y).map_err(|_| Error::<T>::TryIntoIntError)?;
         Ok(SignedFixedPoint::<T>::checked_from_integer(inner).ok_or(Error::<T>::TryIntoIntError)?)
-    }
-}
-
-decl_error! {
-    pub enum Error for Module<T: Config> {
-        TryIntoIntError,
-        ArithmeticOverflow,
-        ArithmeticUnderflow,
-        InvalidSlashedAmount,
     }
 }

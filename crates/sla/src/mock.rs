@@ -1,6 +1,9 @@
 use crate as sla;
 use crate::{Config, Error};
-use frame_support::{parameter_types, traits::StorageMapShim};
+use frame_support::{
+    parameter_types,
+    traits::{GenesisBuild, StorageMapShim},
+};
 use mocktopus::mocking::clear_mocks;
 use sp_arithmetic::FixedI128;
 use sp_core::H256;
