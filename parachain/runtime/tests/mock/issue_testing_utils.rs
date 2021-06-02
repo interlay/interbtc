@@ -159,22 +159,23 @@ pub fn assert_refund_request_event() -> H256 {
 }
 
 pub fn execute_refund(vault_id: [u8; 32]) -> (H256, RefundRequest<AccountId, u128>) {
+    let refund_id = assert_refund_request_event();
+    let refund = RefundPallet::get_open_refund_request_from_id(&refund_id).unwrap();
+    assert_ok!(execute_refund_with_amount(vault_id, refund.amount_wrapped));
+    (refund_id, refund)
+}
+
+pub fn execute_refund_with_amount(vault_id: [u8; 32], amount: u128) -> DispatchResultWithPostInfo {
     let refund_address_script = bitcoin::Script::try_from("a914d7ff6d60ebf40a9b1886acce06653ba2224d8fea87").unwrap();
     let refund_address = BtcAddress::from_script_pub_key(&refund_address_script).unwrap();
 
     let refund_id = assert_refund_request_event();
-    let refund = RefundPallet::get_open_refund_request_from_id(&refund_id).unwrap();
 
-    let (_tx_id, _height, proof, raw_tx) =
-        generate_transaction_and_mine(refund_address, refund.amount_wrapped, Some(refund_id));
+    let (_tx_id, _height, proof, raw_tx) = generate_transaction_and_mine(refund_address, amount, Some(refund_id));
 
     SecurityPallet::set_active_block_number((1 + CONFIRMATIONS) * 2);
 
-    assert_ok!(
-        Call::Refund(RefundCall::execute_refund(refund_id, proof, raw_tx)).dispatch(origin_of(account_of(vault_id)))
-    );
-
-    (refund_id, refund)
+    Call::Refund(RefundCall::execute_refund(refund_id, proof, raw_tx)).dispatch(origin_of(account_of(vault_id)))
 }
 
 pub fn cancel_issue(issue_id: H256, vault: [u8; 32]) {

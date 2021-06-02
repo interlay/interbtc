@@ -83,7 +83,7 @@ pub mod pallet {
         /// * `confirmations` - The number of confirmations needed to accept the proof. If `none`, the value stored in
         ///   the StableBitcoinConfirmations storage item is used.
         /// * `raw_tx` - raw Bitcoin transaction
-        /// * `minimum_btc` - minimum amount of BTC (satoshis) sent to the recipient
+        /// * `expected_btc` - expected amount of BTC (satoshis) sent to the recipient
         /// * `recipient_btc_address` - 20 byte Bitcoin address of recipient of the BTC in the 1st  / payment UTXO
         /// * `op_return_id` - 32 byte hash identifier expected in OP_RETURN (replay protection)
         #[pallet::weight(<T as Config>::WeightInfo::verify_and_validate_transaction())]
@@ -93,7 +93,7 @@ pub mod pallet {
             raw_merkle_proof: Vec<u8>,
             confirmations: Option<u32>,
             raw_tx: Vec<u8>,
-            minimum_btc: i64,
+            expected_btc: i64,
             recipient_btc_address: BtcAddress,
             op_return_id: Option<H256>,
         ) -> DispatchResultWithPostInfo {
@@ -104,7 +104,7 @@ pub mod pallet {
                 raw_merkle_proof,
                 raw_tx,
                 recipient_btc_address,
-                Some(minimum_btc),
+                Some(expected_btc),
                 op_return_id,
                 confirmations,
             )?;
@@ -152,7 +152,7 @@ pub mod pallet {
         ///
         /// # Arguments
         /// * `raw_tx` - raw Bitcoin transaction
-        /// * `minimum_btc` - minimum amount of BTC (satoshis) sent to the recipient
+        /// * `expected_btc` - expected amount of BTC (satoshis) sent to the recipient
         /// * `recipient_btc_address` - expected Bitcoin address of recipient (p2sh, p2pkh, p2wpkh)
         /// * `op_return_id` - 32 byte hash identifier expected in OP_RETURN (replay protection)
         #[pallet::weight(<T as Config>::WeightInfo::validate_transaction())]
@@ -160,7 +160,7 @@ pub mod pallet {
         pub fn validate_transaction(
             origin: OriginFor<T>,
             raw_tx: Vec<u8>,
-            minimum_btc: i64,
+            expected_btc: i64,
             recipient_btc_address: BtcAddress,
             op_return_id: Option<H256>,
         ) -> DispatchResultWithPostInfo {
@@ -171,7 +171,7 @@ pub mod pallet {
             Self::_validate_transaction(
                 transaction,
                 recipient_btc_address,
-                Some(minimum_btc),
+                Some(expected_btc),
                 op_return_id.map(|x| x.as_bytes().to_vec()),
             )?;
             Ok(().into())
@@ -280,8 +280,8 @@ pub mod pallet {
         Shutdown,
         /// Transaction hash does not match given txid
         InvalidTxid,
-        /// Value of payment below requested amount
-        InsufficientValue,
+        /// Invalid payment amount
+        InvalidPaymentAmount,
         /// Transaction has incorrect format
         MalformedTransaction,
         /// Incorrect recipient Bitcoin address
@@ -667,7 +667,7 @@ impl<T: Config> Pallet<T> {
         raw_merkle_proof: Vec<u8>,
         raw_tx: Vec<u8>,
         recipient_btc_address: BtcAddress,
-        minimum_btc: Option<i64>,
+        expected_btc: Option<i64>,
         op_return_id: Option<H256>,
         confirmations: Option<u32>,
     ) -> Result<(BtcAddress, i64), DispatchError> {
@@ -680,7 +680,7 @@ impl<T: Config> Pallet<T> {
         Self::_validate_transaction(
             transaction,
             recipient_btc_address,
-            minimum_btc,
+            expected_btc,
             op_return_id.map(|x| x.as_bytes().to_vec()),
         )
     }
@@ -878,7 +878,7 @@ impl<T: Config> Pallet<T> {
     fn _validate_transaction(
         transaction: Transaction,
         recipient_btc_address: BtcAddress,
-        minimum_btc: Option<i64>,
+        expected_btc: Option<i64>,
         op_return_id: Option<Vec<u8>>,
     ) -> Result<(BtcAddress, i64), DispatchError> {
         let input_address = transaction
@@ -905,9 +905,9 @@ impl<T: Config> Pallet<T> {
             Self::extract_payment_value(transaction, recipient_btc_address)?
         };
 
-        // If a minimum was specified, check if the transferred amount is sufficient
-        if let Some(minimum) = minimum_btc {
-            ensure!(extr_payment_value >= minimum, Error::<T>::InsufficientValue);
+        // If an expected amount was specified, check if the transferred amount matches this exactly
+        if let Some(expectation) = expected_btc {
+            ensure!(extr_payment_value == expectation, Error::<T>::InvalidPaymentAmount);
         }
 
         Ok((input_address, extr_payment_value))

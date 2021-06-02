@@ -12,7 +12,7 @@ pub(crate) mod btc_relay {
         raw_merkle_proof: Vec<u8>,
         raw_tx: Vec<u8>,
         recipient_btc_address: BtcAddress,
-        minimum_btc: Option<i64>,
+        expected_btc: Option<i64>,
         op_return_id: Option<H256>,
         confirmations: Option<u32>,
     ) -> Result<(BtcAddress, i64), DispatchError> {
@@ -20,7 +20,7 @@ pub(crate) mod btc_relay {
             raw_merkle_proof,
             raw_tx,
             recipient_btc_address,
-            minimum_btc,
+            expected_btc,
             op_return_id,
             confirmations,
         )

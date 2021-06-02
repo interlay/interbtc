@@ -519,6 +519,38 @@ mod expiry_test {
     }
 }
 
+mod execute_replace_payment_limits {
+    use super::*;
+
+    #[test]
+    fn integration_test_execute_replace_with_exact_amount_succeeds() {
+        test_with(|| {
+            let (replace_id, replace) = accept_replace(1000000, DEFAULT_GRIEFING_COLLATERAL);
+            assert_ok!(execute_replace_with_amount(replace_id, replace.amount));
+        });
+    }
+    #[test]
+    fn integration_test_execute_replace_with_overpayment_fails() {
+        test_with(|| {
+            let (replace_id, replace) = accept_replace(1000000, DEFAULT_GRIEFING_COLLATERAL);
+            assert_err!(
+                execute_replace_with_amount(replace_id, replace.amount + 1),
+                BTCRelayError::InvalidPaymentAmount
+            );
+        });
+    }
+    #[test]
+    fn integration_test_execute_replace_with_underpayment_fails() {
+        test_with(|| {
+            let (replace_id, replace) = accept_replace(1000000, DEFAULT_GRIEFING_COLLATERAL);
+            assert_err!(
+                execute_replace_with_amount(replace_id, replace.amount - 1),
+                BTCRelayError::InvalidPaymentAmount
+            );
+        });
+    }
+}
+
 #[test]
 fn integration_test_replace_with_parachain_shutdown_fails() {
     test_with(|| {
@@ -711,10 +743,15 @@ fn setup_replace(issued_tokens: u128) -> H256 {
 
 fn execute_replace(replace_id: H256) -> DispatchResultWithPostInfo {
     let replace = ReplacePallet::get_open_replace_request(&replace_id).unwrap();
+    execute_replace_with_amount(replace_id, replace.amount)
+}
+
+fn execute_replace_with_amount(replace_id: H256, amount: u128) -> DispatchResultWithPostInfo {
+    let replace = ReplacePallet::get_open_replace_request(&replace_id).unwrap();
 
     // send the btc from the old_vault to the new_vault
     let (_tx_id, _tx_block_height, merkle_proof, raw_tx) =
-        generate_transaction_and_mine(replace.btc_address, replace.amount, Some(replace_id));
+        generate_transaction_and_mine(replace.btc_address, amount, Some(replace_id));
 
     SecurityPallet::set_active_block_number(SecurityPallet::active_block_number() + CONFIRMATIONS);
 
