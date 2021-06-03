@@ -1,4 +1,4 @@
-//! # Redeem Module
+//! # Redeem Pallet
 //! Based on the [specification](https://interlay.gitlab.io/polkabtc-spec/spec/redeem.html).
 
 #![deny(warnings)]
@@ -32,7 +32,6 @@ pub use crate::types::{RedeemRequest, RedeemRequestStatus};
 use crate::types::{Collateral, Version, Wrapped};
 use btc_relay::BtcAddress;
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure, transactional,
 };
@@ -42,85 +41,149 @@ use sp_runtime::traits::*;
 use sp_std::{convert::TryInto, vec::Vec};
 use vault_registry::CurrencySource;
 
-/// The pallet's configuration trait.
-pub trait Config:
-    frame_system::Config
-    + vault_registry::Config
-    + currency::Config<currency::Collateral>
-    + currency::Config<currency::Wrapped>
-    + btc_relay::Config
-    + fee::Config
-    + sla::Config
-{
-    /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+pub use pallet::*;
 
-    /// Weight information for the extrinsics in this module.
-    type WeightInfo: WeightInfo;
-}
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use frame_support::pallet_prelude::*;
+    use frame_system::pallet_prelude::*;
 
-// The pallet's storage items.
-decl_storage! {
-    trait Store for Module<T: Config> as Redeem {
-        /// The time difference in number of blocks between a redeem request is created and required completion time by a vault.
-        /// The redeem period has an upper limit to ensure the user gets their BTC in time and to potentially punish a vault for inactivity or stealing BTC.
-        RedeemPeriod get(fn redeem_period) config(): T::BlockNumber;
-
-        /// Users create redeem requests to receive BTC in return for their previously issued tokens.
-        /// This mapping provides access from a unique hash redeemId to a Redeem struct.
-        RedeemRequests: map hasher(blake2_128_concat) H256 => RedeemRequest<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>;
-
-        /// The minimum amount of btc that is accepted for redeem requests; any lower values would
-        /// risk the bitcoin client to reject the payment
-        RedeemBtcDustValue get(fn redeem_btc_dust_value) config(): Wrapped<T>;
-
-        /// the expected size in bytes of the redeem bitcoin transfer
-        RedeemTransactionSize get(fn redeem_transaction_size) config(): u32;
-
-        /// Build storage at V1 (requires default 0).
-        StorageVersion get(fn storage_version) build(|_| Version::V2): Version = Version::V0;
-    }
-}
-
-// The pallet's events.
-decl_event!(
-    pub enum Event<T>
-    where
-        AccountId = <T as frame_system::Config>::AccountId,
-        Wrapped = Wrapped<T>,
-        Collateral = Collateral<T>,
+    /// ## Configuration
+    /// The pallet's configuration trait.
+    #[pallet::config]
+    pub trait Config:
+        frame_system::Config
+        + vault_registry::Config
+        + currency::Config<currency::Collateral>
+        + currency::Config<currency::Wrapped>
+        + btc_relay::Config
+        + fee::Config
+        + sla::Config
     {
+        /// The overarching event type.
+        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+
+        /// Weight information for the extrinsics in this module.
+        type WeightInfo: WeightInfo;
+    }
+
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    #[pallet::metadata(T::AccountId = "AccountId", Wrapped<T> = "Wrapped", Collateral<T> = "Collateral")]
+    pub enum Event<T: Config> {
         RequestRedeem(
-            H256,       // redeem_id
-            AccountId,  // redeemer
-            Wrapped,    // redeem_amount_wrapped
-            Wrapped,    // fee_wrapped
-            Collateral, // premium
-            AccountId,  // vault_id
-            BtcAddress, // user btc_address
-            Wrapped,    // transfer_fee_btc
+            H256,          // redeem_id
+            T::AccountId,  // redeemer
+            Wrapped<T>,    // redeem_amount_wrapped
+            Wrapped<T>,    // fee_wrapped
+            Collateral<T>, // premium
+            T::AccountId,  // vault_id
+            BtcAddress,    // user btc_address
+            Wrapped<T>,    // transfer_fee_btc
         ),
         // [redeemer, amount_wrapped]
-        LiquidationRedeem(AccountId, Wrapped),
+        LiquidationRedeem(T::AccountId, Wrapped<T>),
         // [redeem_id, redeemer, amount_wrapped, fee_wrapped, vault]
-        ExecuteRedeem(H256, AccountId, Wrapped, Wrapped, AccountId),
+        ExecuteRedeem(H256, T::AccountId, Wrapped<T>, Wrapped<T>, T::AccountId),
         // [redeem_id, redeemer, vault_id, slashing_amount_in_collateral, status]
-        CancelRedeem(H256, AccountId, AccountId, Collateral, RedeemRequestStatus),
+        CancelRedeem(H256, T::AccountId, T::AccountId, Collateral<T>, RedeemRequestStatus),
         // [vault_id, redeem_id, amount_minted]
-        MintTokensForReimbursedRedeem(AccountId, H256, Wrapped),
+        MintTokensForReimbursedRedeem(T::AccountId, H256, Wrapped<T>),
     }
-);
 
-// The pallet's dispatchable functions.
-decl_module! {
-    /// The module declaration.
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
-        type Error = Error<T>;
+    #[pallet::error]
+    pub enum Error<T> {
+        AmountExceedsUserBalance,
+        AmountExceedsVaultBalance,
+        CommitPeriodExpired,
+        UnauthorizedUser,
+        TimeNotExpired,
+        RedeemCancelled,
+        RedeemCompleted,
+        RedeemIdNotFound,
+        /// Unable to convert value
+        TryIntoIntError,
+        ArithmeticOverflow,
+        ArithmeticUnderflow,
+        AmountBelowDustAmount,
+    }
 
-        // Initializing events
-        // this is needed only if you are using events in your pallet
-        fn deposit_event() = default;
+    /// The time difference in number of blocks between a redeem request is created and required completion time by a
+    /// vault. The redeem period has an upper limit to ensure the user gets their BTC in time and to potentially
+    /// punish a vault for inactivity or stealing BTC.
+    #[pallet::storage]
+    #[pallet::getter(fn redeem_period)]
+    pub(super) type RedeemPeriod<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
 
+    /// Users create redeem requests to receive BTC in return for their previously issued tokens.
+    /// This mapping provides access from a unique hash redeemId to a Redeem struct.
+    #[pallet::storage]
+    pub(super) type RedeemRequests<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        H256,
+        RedeemRequest<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>,
+        ValueQuery,
+    >;
+
+    /// The minimum amount of btc that is accepted for redeem requests; any lower values would
+    /// risk the bitcoin client to reject the payment
+    #[pallet::storage]
+    #[pallet::getter(fn redeem_btc_dust_value)]
+    pub(super) type RedeemBtcDustValue<T: Config> = StorageValue<_, Wrapped<T>, ValueQuery>;
+
+    /// the expected size in bytes of the redeem bitcoin transfer
+    #[pallet::storage]
+    #[pallet::getter(fn redeem_transaction_size)]
+    pub(super) type RedeemTransactionSize<T: Config> = StorageValue<_, u32, ValueQuery>;
+
+    #[pallet::type_value]
+    pub(super) fn DefaultForStorageVersion() -> Version {
+        Version::V0
+    }
+
+    /// Build storage at V1 (requires default 0).
+    #[pallet::storage]
+    #[pallet::getter(fn storage_version)]
+    pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery, DefaultForStorageVersion>;
+
+    #[pallet::genesis_config]
+    pub struct GenesisConfig<T: Config> {
+        pub redeem_period: T::BlockNumber,
+        pub redeem_btc_dust_value: Wrapped<T>,
+        pub redeem_transaction_size: u32,
+    }
+
+    #[cfg(feature = "std")]
+    impl<T: Config> Default for GenesisConfig<T> {
+        fn default() -> Self {
+            Self {
+                redeem_period: Default::default(),
+                redeem_btc_dust_value: Default::default(),
+                redeem_transaction_size: Default::default(),
+            }
+        }
+    }
+
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+        fn build(&self) {
+            RedeemPeriod::<T>::put(self.redeem_period);
+            RedeemBtcDustValue::<T>::put(self.redeem_btc_dust_value);
+            RedeemTransactionSize::<T>::put(self.redeem_transaction_size);
+        }
+    }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {}
+
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
+
+    // The pallet's dispatchable functions.
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
         /// Initializes a request to burn issued tokens against a Vault with sufficient tokens. It will
         /// also ensure that the Parachain status is RUNNING.
         ///
@@ -130,14 +193,17 @@ decl_module! {
         /// * `amount` - amount of issued tokens
         /// * `btc_address` - the address to receive BTC
         /// * `vault_id` - address of the vault
-        #[weight = <T as Config>::WeightInfo::request_redeem()]
+        #[pallet::weight(<T as Config>::WeightInfo::request_redeem())]
         #[transactional]
-        fn request_redeem(origin, #[compact] amount_wrapped: Wrapped<T>, btc_address: BtcAddress, vault_id: T::AccountId)
-            -> DispatchResult
-        {
+        pub(crate) fn request_redeem(
+            origin: OriginFor<T>,
+            #[pallet::compact] amount_wrapped: Wrapped<T>,
+            btc_address: BtcAddress,
+            vault_id: T::AccountId,
+        ) -> DispatchResultWithPostInfo {
             let redeemer = ensure_signed(origin)?;
             Self::_request_redeem(redeemer, amount_wrapped, btc_address, vault_id)?;
-            Ok(())
+            Ok(().into())
         }
 
         /// When a Vault is liquidated, its collateral is slashed up to 150% of the liquidated BTC value.
@@ -148,13 +214,15 @@ decl_module! {
         ///
         /// * `origin` - sender of the transaction
         /// * `amount_wrapped` - amount of issued tokens to burn
-        #[weight = <T as Config>::WeightInfo::liquidation_redeem()]
+        #[pallet::weight(<T as Config>::WeightInfo::liquidation_redeem())]
         #[transactional]
-        fn liquidation_redeem(origin, #[compact] amount_wrapped: Wrapped<T>) -> DispatchResult
-        {
+        pub(crate) fn liquidation_redeem(
+            origin: OriginFor<T>,
+            #[pallet::compact] amount_wrapped: Wrapped<T>,
+        ) -> DispatchResultWithPostInfo {
             let redeemer = ensure_signed(origin)?;
             Self::_liquidation_redeem(redeemer, amount_wrapped)?;
-            Ok(())
+            Ok(().into())
         }
 
         /// A Vault calls this function after receiving an RequestRedeem event with their public key.
@@ -169,14 +237,17 @@ decl_module! {
         /// * `tx_block_height` - block number of collateral chain
         /// * `merkle_proof` - raw bytes
         /// * `raw_tx` - raw bytes
-        #[weight = <T as Config>::WeightInfo::execute_redeem()]
+        #[pallet::weight(<T as Config>::WeightInfo::execute_redeem())]
         #[transactional]
-        fn execute_redeem(origin, redeem_id: H256, merkle_proof: Vec<u8>, raw_tx: Vec<u8>)
-            -> DispatchResult
-        {
+        pub(crate) fn execute_redeem(
+            origin: OriginFor<T>,
+            redeem_id: H256,
+            merkle_proof: Vec<u8>,
+            raw_tx: Vec<u8>,
+        ) -> DispatchResultWithPostInfo {
             let _ = ensure_signed(origin)?;
             Self::_execute_redeem(redeem_id, merkle_proof, raw_tx)?;
-            Ok(())
+            Ok(().into())
         }
 
         /// If a redeem request is not completed on time, the redeem request can be cancelled.
@@ -190,14 +261,16 @@ decl_module! {
         /// * `reimburse` - specifying if the user wishes to be reimbursed in collateral
         /// and slash the Vault, or wishes to keep the tokens (and retry
         /// Redeem with another Vault)
-        #[weight = if *reimburse { <T as Config>::WeightInfo::cancel_redeem_reimburse() } else { <T as Config>::WeightInfo::cancel_redeem_retry() }]
+        #[pallet::weight(if *reimburse { <T as Config>::WeightInfo::cancel_redeem_reimburse() } else { <T as Config>::WeightInfo::cancel_redeem_retry() })]
         #[transactional]
-        fn cancel_redeem(origin, redeem_id: H256, reimburse: bool)
-            -> DispatchResult
-        {
+        pub(crate) fn cancel_redeem(
+            origin: OriginFor<T>,
+            redeem_id: H256,
+            reimburse: bool,
+        ) -> DispatchResultWithPostInfo {
             let redeemer = ensure_signed(origin)?;
             Self::_cancel_redeem(redeemer, redeem_id, reimburse)?;
-            Ok(())
+            Ok(().into())
         }
 
         /// Set the default redeem period for tx verification.
@@ -208,11 +281,12 @@ decl_module! {
         /// * `period` - default period for new requests
         ///
         /// # Weight: `O(1)`
-        #[weight = <T as Config>::WeightInfo::set_redeem_period()]
+        #[pallet::weight(<T as Config>::WeightInfo::set_redeem_period())]
         #[transactional]
-        fn set_redeem_period(origin, period: T::BlockNumber) {
+        pub(crate) fn set_redeem_period(origin: OriginFor<T>, period: T::BlockNumber) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             <RedeemPeriod<T>>::set(period);
+            Ok(().into())
         }
 
         /// Mint tokens for a redeem that was cancelled with reimburse=true. This is
@@ -226,21 +300,22 @@ decl_module! {
         /// * `redeem_id` - identifier of redeem request as output from request_redeem
         ///
         /// # Weight: `O(1)`
-        #[weight = <T as Config>::WeightInfo::set_redeem_period()]
+        #[pallet::weight(<T as Config>::WeightInfo::set_redeem_period())]
         #[transactional]
-        fn mint_tokens_for_reimbursed_redeem(origin, redeem_id: H256)
-            -> DispatchResult
-        {
+        pub(crate) fn mint_tokens_for_reimbursed_redeem(
+            origin: OriginFor<T>,
+            redeem_id: H256,
+        ) -> DispatchResultWithPostInfo {
             let vault = ensure_signed(origin)?;
             Self::_mint_tokens_for_reimbursed_redeem(vault, redeem_id)?;
-            Ok(())
+            Ok(().into())
         }
     }
 }
 
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     fn _request_redeem(
         redeemer: T::AccountId,
         amount_wrapped: Wrapped<T>,
@@ -675,23 +750,5 @@ impl<T: Config> Module<T> {
             Error::<T>::RedeemCancelled
         );
         Ok(request)
-    }
-}
-
-decl_error! {
-    pub enum Error for Module<T: Config> {
-        AmountExceedsUserBalance,
-        AmountExceedsVaultBalance,
-        CommitPeriodExpired,
-        UnauthorizedUser,
-        TimeNotExpired,
-        RedeemCancelled,
-        RedeemCompleted,
-        RedeemIdNotFound,
-        /// Unable to convert value
-        TryIntoIntError,
-        ArithmeticOverflow,
-        ArithmeticUnderflow,
-        AmountBelowDustAmount,
     }
 }

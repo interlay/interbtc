@@ -736,7 +736,7 @@ impl issue::Config for Runtime {
     type WeightInfo = ();
 }
 
-pub use redeem::{RawEvent as RawRedeemEvent, RedeemRequest};
+pub use redeem::{Event as RedeemEvent, RedeemRequest};
 
 impl redeem::Config for Runtime {
     type Event = Event;
