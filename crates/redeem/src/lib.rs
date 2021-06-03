@@ -353,12 +353,6 @@ impl<T: Config> Module<T> {
 
         let redeem = Self::get_open_redeem_request_from_id(&redeem_id)?;
 
-        // only executable before the request has expired
-        ensure!(
-            !ext::security::has_expired::<T>(redeem.opentime, Self::redeem_period().max(redeem.period))?,
-            Error::<T>::CommitPeriodExpired
-        );
-
         let amount: usize = redeem.amount_btc.try_into().map_err(|_e| Error::<T>::TryIntoIntError)?;
 
         // check the transaction inclusion and validity

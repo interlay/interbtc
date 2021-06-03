@@ -67,12 +67,6 @@ pub fn setup_cancelable_redeem(user: [u8; 32], vault: [u8; 32], collateral: u128
     // expire request without transferring btc
     SecurityPallet::set_active_block_number(RedeemPallet::redeem_period() + 1 + 1);
 
-    // bob cannot execute past expiry
-    assert_noop!(
-        Call::Redeem(RedeemCall::execute_redeem(redeem_id, vec![], vec![],)).dispatch(origin_of(account_of(vault))),
-        RedeemError::CommitPeriodExpired,
-    );
-
     redeem_id
 }
 
