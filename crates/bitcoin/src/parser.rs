@@ -19,6 +19,9 @@ use crate::{address::Address, types::*};
 const SECP256K1_TAG_PUBKEY_EVEN: u8 = 0x02;
 const SECP256K1_TAG_PUBKEY_ODD: u8 = 0x03;
 
+// https://github.com/bitcoin/bitcoin/blob/7fcf53f7b4524572d1d0c9a5fdc388e87eb02416/src/script/script.h#L39
+const LOCKTIME_THRESHOLD: u32 = 500_000_000;
+
 /// Type to be parsed from a bytes array
 pub(crate) trait Parsable: Sized {
     fn parse(raw_bytes: &[u8], position: usize) -> Result<(Self, usize), Error>;
@@ -318,8 +321,9 @@ pub fn parse_transaction(raw_transaction: &[u8]) -> Result<Transaction, Error> {
         }
     }
 
+    // https://en.bitcoin.it/wiki/NLockTime
     let locktime_or_blockheight: u32 = parser.parse()?;
-    let (locktime, block_height) = if locktime_or_blockheight < 500_000_000 {
+    let (locktime, block_height) = if locktime_or_blockheight < LOCKTIME_THRESHOLD {
         (None, Some(locktime_or_blockheight))
     } else {
         (Some(locktime_or_blockheight), None)
