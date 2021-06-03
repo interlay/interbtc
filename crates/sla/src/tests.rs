@@ -1,6 +1,5 @@
 use crate::{
     mock::*,
-    sp_api_hidden_includes_decl_storage::hidden_include::{StorageMap, StorageValue},
     types::{RelayerEvent, VaultEvent},
     RelayerSla,
 };
@@ -74,7 +73,7 @@ fn test_calculate_slashed_amount_big_stake() {
 fn test_event_update_vault_sla_succeeds() {
     run_test(|| {
         let amount = 100u128;
-        crate::LifetimeIssued::set(amount.into());
+        crate::LifetimeIssued::<Test>::set(amount.into());
 
         Sla::event_update_vault_sla(&ALICE, VaultEvent::ExecuteIssue(amount)).unwrap();
         assert_eq!(
@@ -91,7 +90,7 @@ fn test_event_update_vault_sla_succeeds() {
 fn test_event_update_vault_sla_half_size_increase() {
     run_test(|| {
         let amount = 100u128;
-        crate::LifetimeIssued::set(amount.into());
+        crate::LifetimeIssued::<Test>::set(amount.into());
 
         Sla::event_update_vault_sla(&ALICE, VaultEvent::ExecuteIssue(amount)).unwrap();
         assert_eq!(
