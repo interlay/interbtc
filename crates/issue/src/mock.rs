@@ -1,6 +1,10 @@
 use crate as issue;
 use crate::{ext, Config, Error};
-use frame_support::{assert_ok, parameter_types, traits::StorageMapShim, PalletId};
+use frame_support::{
+    assert_ok, parameter_types,
+    traits::{GenesisBuild, StorageMapShim},
+    PalletId,
+};
 use mocktopus::mocking::*;
 use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 use sp_core::H256;

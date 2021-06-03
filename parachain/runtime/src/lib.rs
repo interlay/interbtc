@@ -729,7 +729,7 @@ impl refund::Config for Runtime {
     type WeightInfo = ();
 }
 
-pub use issue::{IssueRequest, RawEvent as RawIssueEvent};
+pub use issue::{Event as IssueEvent, IssueRequest};
 
 impl issue::Config for Runtime {
     type Event = Event;
