@@ -27,7 +27,6 @@ use mocktopus::macros::mockable;
 
 use codec::{Decode, Encode, EncodeLike};
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::Get,
@@ -50,173 +49,266 @@ pub trait WeightInfo {
     fn withdraw_relayer_rewards() -> Weight;
 }
 
-/// The pallet's configuration trait.
-pub trait Config:
-    frame_system::Config + currency::Config<currency::Collateral> + currency::Config<currency::Wrapped> + security::Config
-{
-    /// The fee module id, used for deriving its sovereign account ID.
-    type PalletId: Get<PalletId>;
+pub use pallet::*;
 
-    /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use frame_support::pallet_prelude::*;
+    use frame_system::pallet_prelude::*;
 
-    /// Weight information for the extrinsics in this module.
-    type WeightInfo: WeightInfo;
-
-    /// Signed fixed point type.
-    type SignedFixedPoint: FixedPointNumber<Inner = Self::SignedInner> + Encode + EncodeLike + Decode;
-
-    /// The `Inner` type of the `SignedFixedPoint`.
-    type SignedInner: Debug
-        + CheckedDiv
-        + TryFrom<Collateral<Self>>
-        + TryFrom<Wrapped<Self>>
-        + TryInto<Collateral<Self>>
-        + TryInto<Wrapped<Self>>;
-
-    /// Unsigned fixed point type.
-    type UnsignedFixedPoint: FixedPointNumber<Inner = Self::UnsignedInner> + Encode + EncodeLike + Decode;
-
-    /// The `Inner` type of the `UnsignedFixedPoint`.
-    type UnsignedInner: Debug
-        + One
-        + CheckedMul
-        + CheckedDiv
-        + FixedPointOperand
-        + From<Collateral<Self>>
-        + From<Wrapped<Self>>
-        + Into<Collateral<Self>>
-        + Into<Wrapped<Self>>;
-
-    /// Vault reward pool for the collateral currency.
-    type CollateralVaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
-
-    /// Vault reward pool for the wrapped currency.
-    type WrappedVaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
-
-    /// Relayer reward pool for the collateral currency.
-    type CollateralRelayerRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
-
-    /// Relayer reward pool for the wrapped currency.
-    type WrappedRelayerRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
-}
-
-// The pallet's storage items.
-decl_storage! {
-    trait Store for Module<T: Config> as Fee {
-        /// # Issue
-
-        /// Fee share that users need to pay to issue tokens.
-        IssueFee get(fn issue_fee) config(): UnsignedFixedPoint<T>;
-
-        /// Default griefing collateral (e.g. DOT/KSM) as a percentage of the locked
-        /// collateral of a Vault a user has to lock to issue tokens.
-        IssueGriefingCollateral get(fn issue_griefing_collateral) config(): UnsignedFixedPoint<T>;
-
-        /// # Redeem
-
-        /// Fee share that users need to pay to redeem tokens.
-        RedeemFee get(fn redeem_fee) config(): UnsignedFixedPoint<T>;
-
-        /// # Refund
-
-        /// Fee share that users need to pay to refund overpaid tokens.
-        RefundFee get(fn refund_fee) config(): UnsignedFixedPoint<T>;
-
-        /// # Vault Registry
-
-        /// If users execute a redeem with a Vault flagged for premium redeem,
-        /// they can earn a collateral premium, slashed from the Vault.
-        PremiumRedeemFee get(fn premium_redeem_fee) config(): UnsignedFixedPoint<T>;
-
-        /// Fee that a Vault has to pay if it fails to execute redeem or replace requests
-        /// (for redeem, on top of the slashed value of the request). The fee is
-        /// paid in collateral based on the token amount at the current exchange rate.
-        PunishmentFee get(fn punishment_fee) config(): UnsignedFixedPoint<T>;
-
-        /// # Replace
-
-        /// Default griefing collateral (e.g. DOT/KSM) as a percentage of the to-be-locked collateral
-        /// of the new Vault. This collateral will be slashed and allocated to the replacing Vault
-        /// if the to-be-replaced Vault does not transfer BTC on time.
-        ReplaceGriefingCollateral get(fn replace_griefing_collateral) config(): UnsignedFixedPoint<T>;
-
-        /// AccountId of the fee pool.
-        FeePoolAccountId: T::AccountId;
-
-        /// AccountId of the parachain maintainer.
-        MaintainerAccountId get(fn maintainer_account_id) config(): T::AccountId;
-
-        /// # Parachain Fee Pool Distribution
-
-        /// Percentage of fees allocated to Vaults.
-        VaultRewards get(fn vault_rewards) config(): UnsignedFixedPoint<T>;
-
-        /// Percentage of fees allocated to Staked Relayers.
-        RelayerRewards get(fn relayer_rewards) config(): UnsignedFixedPoint<T>;
-
-        /// Percentage of fees allocated for development.
-        MaintainerRewards get(fn maintainer_rewards) config(): UnsignedFixedPoint<T>;
-
-        /// Percentage of fees generated by nominated collateral that is given to nominators
-        NominationRewards get(fn nomination_rewards) config(): UnsignedFixedPoint<T>;
-
-        /// Build storage at V1 (requires default 0).
-        StorageVersion get(fn storage_version) build(|_| Version::V1): Version = Version::V0;
-    }
-    add_extra_genesis {
-        // don't allow an invalid reward distribution
-        build(|config| {
-            Pallet::<T>::ensure_rationals_sum_to_one(
-                vec![
-                    config.vault_rewards,
-                    config.relayer_rewards,
-                    config.maintainer_rewards,
-                ]
-            ).unwrap();
-        })
-    }
-}
-
-// The pallet's events.
-decl_event!(
-    pub enum Event<T>
-    where
-        AccountId = <T as frame_system::Config>::AccountId,
-        Wrapped = Wrapped<T>,
-        Collateral = Collateral<T>,
+    /// ## Configuration
+    /// The pallet's configuration trait.
+    #[pallet::config]
+    pub trait Config:
+        frame_system::Config
+        + currency::Config<currency::Collateral>
+        + currency::Config<currency::Wrapped>
+        + security::Config
     {
-        WithdrawWrapped(AccountId, Wrapped),
-        WithdrawCollateral(AccountId, Collateral),
-    }
-);
+        /// The overarching event type.
+        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
-// The pallet's dispatchable functions.
-decl_module! {
-    /// The module declaration.
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         /// The fee module id, used for deriving its sovereign account ID.
-        const PalletId: PalletId = <T as Config>::PalletId::get();
+        #[pallet::constant]
+        type PalletId: Get<PalletId>;
 
-        // Initialize errors
-        type Error = Error<T>;
+        /// Weight information for the extrinsics in this module.
+        type WeightInfo: WeightInfo;
 
-        // Initialize events
-        fn deposit_event() = default;
+        /// Signed fixed point type.
+        type SignedFixedPoint: FixedPointNumber<Inner = Self::SignedInner> + Encode + EncodeLike + Decode;
 
+        /// The `Inner` type of the `SignedFixedPoint`.
+        type SignedInner: Debug
+            + CheckedDiv
+            + TryFrom<Collateral<Self>>
+            + TryFrom<Wrapped<Self>>
+            + TryInto<Collateral<Self>>
+            + TryInto<Wrapped<Self>>
+            + MaybeSerializeDeserialize;
+
+        /// Unsigned fixed point type.
+        type UnsignedFixedPoint: FixedPointNumber<Inner = Self::UnsignedInner>
+            + Encode
+            + EncodeLike
+            + Decode
+            + MaybeSerializeDeserialize;
+
+        /// The `Inner` type of the `UnsignedFixedPoint`.
+        type UnsignedInner: Debug
+            + One
+            + CheckedMul
+            + CheckedDiv
+            + FixedPointOperand
+            + From<Collateral<Self>>
+            + From<Wrapped<Self>>
+            + Into<Collateral<Self>>
+            + Into<Wrapped<Self>>;
+
+        /// Vault reward pool for the collateral currency.
+        type CollateralVaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
+
+        /// Vault reward pool for the wrapped currency.
+        type WrappedVaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
+
+        /// Relayer reward pool for the collateral currency.
+        type CollateralRelayerRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
+
+        /// Relayer reward pool for the wrapped currency.
+        type WrappedRelayerRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
+    }
+
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    #[pallet::metadata(T::AccountId = "AccountId", Wrapped<T> = "Wrapped", Collateral<T> = "Collateral")]
+    pub enum Event<T: Config> {
+        WithdrawWrapped(T::AccountId, Wrapped<T>),
+        WithdrawCollateral(T::AccountId, Collateral<T>),
+    }
+
+    #[pallet::error]
+    pub enum Error<T> {
+        ArithmeticOverflow,
+        ArithmeticUnderflow,
+        InvalidRewardDist,
+        TryIntoIntError,
+    }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {}
+
+    /// # Issue
+
+    /// Fee share that users need to pay to issue tokens.
+    #[pallet::storage]
+    #[pallet::getter(fn issue_fee)]
+    pub type IssueFee<T: Config> = StorageValue<_, UnsignedFixedPoint<T>, ValueQuery>;
+
+    /// Default griefing collateral (e.g. DOT/KSM) as a percentage of the locked
+    /// collateral of a Vault a user has to lock to issue tokens.
+    #[pallet::storage]
+    #[pallet::getter(fn issue_griefing_collateral)]
+    pub type IssueGriefingCollateral<T: Config> = StorageValue<_, UnsignedFixedPoint<T>, ValueQuery>;
+
+    /// # Redeem
+
+    /// Fee share that users need to pay to redeem tokens.
+    #[pallet::storage]
+    #[pallet::getter(fn redeem_fee)]
+    pub type RedeemFee<T: Config> = StorageValue<_, UnsignedFixedPoint<T>, ValueQuery>;
+
+    /// # Refund
+
+    /// Fee share that users need to pay to refund overpaid tokens.
+    #[pallet::storage]
+    #[pallet::getter(fn refund_fee)]
+    pub type RefundFee<T: Config> = StorageValue<_, UnsignedFixedPoint<T>, ValueQuery>;
+
+    /// # Vault Registry
+
+    /// If users execute a redeem with a Vault flagged for premium redeem,
+    /// they can earn a collateral premium, slashed from the Vault.
+    #[pallet::storage]
+    #[pallet::getter(fn premium_redeem_fee)]
+    pub type PremiumRedeemFee<T: Config> = StorageValue<_, UnsignedFixedPoint<T>, ValueQuery>;
+
+    /// Fee that a Vault has to pay if it fails to execute redeem or replace requests
+    /// (for redeem, on top of the slashed value of the request). The fee is
+    /// paid in collateral based on the token amount at the current exchange rate.
+    #[pallet::storage]
+    #[pallet::getter(fn punishment_fee)]
+    pub type PunishmentFee<T: Config> = StorageValue<_, UnsignedFixedPoint<T>, ValueQuery>;
+
+    /// # Replace
+
+    /// Default griefing collateral (e.g. DOT/KSM) as a percentage of the to-be-locked collateral
+    /// of the new Vault. This collateral will be slashed and allocated to the replacing Vault
+    /// if the to-be-replaced Vault does not transfer BTC on time.
+    #[pallet::storage]
+    #[pallet::getter(fn replace_griefing_collateral)]
+    pub type ReplaceGriefingCollateral<T: Config> = StorageValue<_, UnsignedFixedPoint<T>, ValueQuery>;
+
+    /// AccountId of the fee pool.
+    #[pallet::storage]
+    pub type FeePoolAccountId<T: Config> = StorageValue<_, T::AccountId, ValueQuery>;
+
+    /// AccountId of the parachain maintainer.
+    #[pallet::storage]
+    #[pallet::getter(fn maintainer_account_id)]
+    pub type MaintainerAccountId<T: Config> = StorageValue<_, T::AccountId, ValueQuery>;
+
+    /// # Parachain Fee Pool Distribution
+
+    /// Percentage of fees allocated to Vaults.
+    #[pallet::storage]
+    #[pallet::getter(fn vault_rewards)]
+    pub type VaultRewards<T: Config> = StorageValue<_, UnsignedFixedPoint<T>, ValueQuery>;
+
+    /// Percentage of fees allocated to Staked Relayers.
+    #[pallet::storage]
+    #[pallet::getter(fn relayer_rewards)]
+    pub type RelayerRewards<T: Config> = StorageValue<_, UnsignedFixedPoint<T>, ValueQuery>;
+
+    /// Percentage of fees allocated for development.
+    #[pallet::storage]
+    #[pallet::getter(fn maintainer_rewards)]
+    pub type MaintainerRewards<T: Config> = StorageValue<_, UnsignedFixedPoint<T>, ValueQuery>;
+
+    /// Percentage of fees generated by nominated collateral that is given to nominators.
+    #[pallet::storage]
+    #[pallet::getter(fn nomination_rewards)]
+    pub type NominationRewards<T: Config> = StorageValue<_, UnsignedFixedPoint<T>, ValueQuery>;
+
+    #[pallet::type_value]
+    pub(super) fn DefaultForStorageVersion() -> Version {
+        Version::V0
+    }
+
+    /// Build storage at V1 (requires default 0).
+    #[pallet::storage]
+    #[pallet::getter(fn storage_version)]
+    pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery, DefaultForStorageVersion>;
+
+    #[pallet::genesis_config]
+    pub struct GenesisConfig<T: Config> {
+        pub issue_fee: UnsignedFixedPoint<T>,
+        pub issue_griefing_collateral: UnsignedFixedPoint<T>,
+        pub redeem_fee: UnsignedFixedPoint<T>,
+        pub refund_fee: UnsignedFixedPoint<T>,
+        pub premium_redeem_fee: UnsignedFixedPoint<T>,
+        pub punishment_fee: UnsignedFixedPoint<T>,
+        pub replace_griefing_collateral: UnsignedFixedPoint<T>,
+        pub maintainer_account_id: T::AccountId,
+        pub vault_rewards: UnsignedFixedPoint<T>,
+        pub relayer_rewards: UnsignedFixedPoint<T>,
+        pub maintainer_rewards: UnsignedFixedPoint<T>,
+        pub nomination_rewards: UnsignedFixedPoint<T>,
+    }
+
+    #[cfg(feature = "std")]
+    impl<T: Config> Default for GenesisConfig<T> {
+        fn default() -> Self {
+            Self {
+                issue_fee: Default::default(),
+                issue_griefing_collateral: Default::default(),
+                redeem_fee: Default::default(),
+                refund_fee: Default::default(),
+                premium_redeem_fee: Default::default(),
+                punishment_fee: Default::default(),
+                replace_griefing_collateral: Default::default(),
+                maintainer_account_id: Default::default(),
+                vault_rewards: Default::default(),
+                relayer_rewards: Default::default(),
+                maintainer_rewards: Default::default(),
+                nomination_rewards: Default::default(),
+            }
+        }
+    }
+
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+        fn build(&self) {
+            Pallet::<T>::ensure_rationals_sum_to_one(vec![
+                self.vault_rewards,
+                self.relayer_rewards,
+                self.maintainer_rewards,
+            ])
+            .unwrap();
+
+            IssueFee::<T>::put(self.issue_fee);
+            IssueGriefingCollateral::<T>::put(self.issue_griefing_collateral);
+            RedeemFee::<T>::put(self.redeem_fee);
+            RefundFee::<T>::put(self.refund_fee);
+            PremiumRedeemFee::<T>::put(self.premium_redeem_fee);
+            PunishmentFee::<T>::put(self.punishment_fee);
+            ReplaceGriefingCollateral::<T>::put(self.replace_griefing_collateral);
+            MaintainerAccountId::<T>::put(self.maintainer_account_id.clone());
+            VaultRewards::<T>::put(self.vault_rewards);
+            RelayerRewards::<T>::put(self.relayer_rewards);
+            MaintainerRewards::<T>::put(self.maintainer_rewards);
+            NominationRewards::<T>::put(self.nomination_rewards);
+        }
+    }
+
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
+
+    // The pallet's dispatchable functions.
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
         /// Withdraw all vault collateral rewards.
         ///
         /// # Arguments
         ///
         /// * `origin` - signing account
-        #[weight = <T as Config>::WeightInfo::withdraw_vault_rewards()]
+        #[pallet::weight(<T as Config>::WeightInfo::withdraw_vault_rewards())]
         #[transactional]
-        fn withdraw_vault_collateral_rewards(origin) -> DispatchResult
-        {
+        fn withdraw_vault_collateral_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let signer = ensure_signed(origin)?;
             Self::withdraw_collateral::<T::CollateralVaultRewards>(&signer)?;
-            Ok(())
+            Ok(().into())
         }
 
         /// Withdraw all vault wrapped rewards.
@@ -224,14 +316,13 @@ decl_module! {
         /// # Arguments
         ///
         /// * `origin` - signing account
-        #[weight = <T as Config>::WeightInfo::withdraw_vault_rewards()]
+        #[pallet::weight(<T as Config>::WeightInfo::withdraw_vault_rewards())]
         #[transactional]
-        fn withdraw_vault_wrapped_rewards(origin) -> DispatchResult
-        {
+        fn withdraw_vault_wrapped_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let signer = ensure_signed(origin)?;
             Self::withdraw_wrapped::<T::WrappedVaultRewards>(&signer)?;
-            Ok(())
+            Ok(().into())
         }
 
         /// Withdraw all relayer collateral rewards.
@@ -239,14 +330,13 @@ decl_module! {
         /// # Arguments
         ///
         /// * `origin` - signing account
-        #[weight = <T as Config>::WeightInfo::withdraw_relayer_rewards()]
+        #[pallet::weight(<T as Config>::WeightInfo::withdraw_relayer_rewards())]
         #[transactional]
-        fn withdraw_relayer_collateral_rewards(origin) -> DispatchResult
-        {
+        fn withdraw_relayer_collateral_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let signer = ensure_signed(origin)?;
             Self::withdraw_collateral::<T::CollateralRelayerRewards>(&signer)?;
-            Ok(())
+            Ok(().into())
         }
 
         /// Withdraw all relayer wrapped rewards.
@@ -254,21 +344,20 @@ decl_module! {
         /// # Arguments
         ///
         /// * `origin` - signing account
-        #[weight = <T as Config>::WeightInfo::withdraw_relayer_rewards()]
+        #[pallet::weight(<T as Config>::WeightInfo::withdraw_relayer_rewards())]
         #[transactional]
-        fn withdraw_relayer_wrapped_rewards(origin) -> DispatchResult
-        {
+        fn withdraw_relayer_wrapped_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let signer = ensure_signed(origin)?;
             Self::withdraw_wrapped::<T::WrappedRelayerRewards>(&signer)?;
-            Ok(())
+            Ok(().into())
         }
     }
 }
 
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     /// The account ID of the fee pool.
     ///
     /// This actually does computation. If you need to keep using it, then make sure you cache the
@@ -489,14 +578,5 @@ impl<T: Config> Module<T> {
             .try_into()
             .ok()
             .ok_or(Error::<T>::TryIntoIntError)?)
-    }
-}
-
-decl_error! {
-    pub enum Error for Module<T: Config> {
-        ArithmeticOverflow,
-        ArithmeticUnderflow,
-        InvalidRewardDist,
-        TryIntoIntError,
     }
 }
