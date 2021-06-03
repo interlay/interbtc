@@ -1,5 +1,29 @@
-//! # BTC-Relay Module
+//! # BTC-Relay Pallet
+//!
 //! Based on the [specification](https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/).
+//!
+//! This pallet implements a Bitcoin light client to store and verify block headers in accordance
+//! with SPV assumptions - i.e. longest chain.
+//!
+//! Unless otherwise stated, the primary source of truth for code contained herein is the
+//! [Bitcoin Core repository](https://github.com/bitcoin/bitcoin), though implementation
+//! details may vary.
+//!
+//! ## Overview
+//!
+//! The BTC-Relay pallet provides functions for:
+//!
+//! - Initializing and updating the relay.
+//! - Transaction inclusion verification.
+//! - Transaction validation.
+//!
+//! ### Terminology
+//!
+//! - **Bitcoin Confirmations:** The minimum number of Bitcoin confirmations a Bitcoin block header must have to be seen
+//!   as included in the main chain.
+//!
+//! - **Parachain Confirmations:** The minimum number of Parachain confirmations a Bitcoin block header must have to be
+//!   usable in transaction inclusion verification.
 
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
