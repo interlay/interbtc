@@ -1,4 +1,4 @@
-//! # Replace Module
+//! # Replace Pallet
 //! Based on the [specification](https://interlay.gitlab.io/polkabtc-spec/spec/replace.html).
 
 #![deny(warnings)]
@@ -15,7 +15,6 @@ pub use default_weights::WeightInfo;
 extern crate mocktopus;
 
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure, transactional,
 };
@@ -43,78 +42,140 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
-/// The pallet's configuration trait.
-pub trait Config:
-    frame_system::Config
-    + vault_registry::Config
-    + currency::Config<currency::Collateral>
-    + currency::Config<currency::Wrapped>
-    + btc_relay::Config
-    + exchange_rate_oracle::Config
-    + fee::Config
-    + sla::Config
-    + nomination::Config
-{
-    /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+pub use pallet::*;
 
-    /// Weight information for the extrinsics in this module.
-    type WeightInfo: WeightInfo;
-}
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use frame_support::pallet_prelude::*;
+    use frame_system::pallet_prelude::*;
 
-// The pallet's storage items.
-decl_storage! {
-    trait Store for Module<T: Config> as Replace {
-        /// Vaults create replace requests to transfer locked collateral.
-        /// This mapping provides access from a unique hash to a `ReplaceRequest`.
-        ReplaceRequests: map hasher(blake2_128_concat) H256 => ReplaceRequest<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>;
-
-        /// The time difference in number of blocks between when a replace request is created
-        /// and required completion time by a vault. The replace period has an upper limit
-        /// to prevent griefing of vault collateral.
-        ReplacePeriod get(fn replace_period) config(): T::BlockNumber;
-
-        /// The minimum amount of btc that is accepted for replace requests; any lower values would
-        /// risk the bitcoin client to reject the payment
-        ReplaceBtcDustValue get(fn replace_btc_dust_value) config(): Wrapped<T>;
-
-        /// Build storage at V1 (requires default 0).
-        StorageVersion get(fn storage_version) build(|_| Version::V1): Version = Version::V0;
-    }
-}
-
-// The pallet's events.
-decl_event!(
-    pub enum Event<T>
-    where
-        AccountId = <T as frame_system::Config>::AccountId,
-        Wrapped = Wrapped<T>,
-        Collateral = Collateral<T>,
+    /// ## Configuration
+    /// The pallet's configuration trait.
+    #[pallet::config]
+    pub trait Config:
+        frame_system::Config
+        + vault_registry::Config
+        + currency::Config<currency::Collateral>
+        + currency::Config<currency::Wrapped>
+        + btc_relay::Config
+        + exchange_rate_oracle::Config
+        + fee::Config
+        + sla::Config
+        + nomination::Config
     {
-        // [old_vault_id, amount_btc, griefing_collateral]
-        RequestReplace(AccountId, Wrapped, Collateral),
-        // [old_vault_id, withdrawn_tokens, withdrawn_griefing_collateral]
-        WithdrawReplace(AccountId, Wrapped, Collateral),
-        // [replace_id, old_vault_id, new_vault_id, amount, collateral, btc_address]
-        AcceptReplace(H256, AccountId, AccountId, Wrapped, Collateral, BtcAddress),
-        // [replace_id, old_vault_id, new_vault_id]
-        ExecuteReplace(H256, AccountId, AccountId),
-        // [replace_id, new_vault_id, old_vault_id, griefing_collateral]
-        CancelReplace(H256, AccountId, AccountId, Collateral),
+        /// The overarching event type.
+        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+
+        /// Weight information for the extrinsics in this module.
+        type WeightInfo: WeightInfo;
     }
-);
 
-// The pallet's dispatchable functions.
-decl_module! {
-    /// The module declaration.
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
-        // Errors must be initialized if they are used by the pallet.
-        type Error = Error<T>;
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    #[pallet::metadata(T::AccountId = "AccountId", Wrapped<T> = "Wrapped", Collateral<T> = "Collateral")]
+    pub enum Event<T: Config> {
+        // [old_vault_id, amount_btc, griefing_collateral]
+        RequestReplace(T::AccountId, Wrapped<T>, Collateral<T>),
+        // [old_vault_id, withdrawn_tokens, withdrawn_griefing_collateral]
+        WithdrawReplace(T::AccountId, Wrapped<T>, Collateral<T>),
+        // [replace_id, old_vault_id, new_vault_id, amount, collateral, btc_address]
+        AcceptReplace(H256, T::AccountId, T::AccountId, Wrapped<T>, Collateral<T>, BtcAddress),
+        // [replace_id, old_vault_id, new_vault_id]
+        ExecuteReplace(H256, T::AccountId, T::AccountId),
+        // [replace_id, new_vault_id, old_vault_id, griefing_collateral]
+        CancelReplace(H256, T::AccountId, T::AccountId, Collateral<T>),
+    }
 
-        // Initializing events
-        // this is needed only if you are using events in your pallet
-        fn deposit_event() = default;
+    #[pallet::error]
+    pub enum Error<T> {
+        AmountBelowDustAmount,
+        NoReplacement,
+        InsufficientCollateral,
+        NoPendingRequest,
+        UnauthorizedVault,
+        ReplaceSelfNotAllowed,
+        CancelAcceptedRequest,
+        CollateralBelowSecureThreshold,
+        VaultHasEnabledNomination,
+        ReplacePeriodExpired,
+        ReplacePeriodNotExpired,
+        ReplaceCompleted,
+        ReplaceCancelled,
+        ReplaceIdNotFound,
+        /// Unable to convert value
+        TryIntoIntError,
+        ArithmeticUnderflow,
+        ArithmeticOverflow,
+    }
 
+    /// Vaults create replace requests to transfer locked collateral.
+    /// This mapping provides access from a unique hash to a `ReplaceRequest`.
+    #[pallet::storage]
+    pub(super) type ReplaceRequests<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        H256,
+        ReplaceRequest<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>,
+        ValueQuery,
+    >;
+
+    /// The time difference in number of blocks between when a replace request is created
+    /// and required completion time by a vault. The replace period has an upper limit
+    /// to prevent griefing of vault collateral.
+    #[pallet::storage]
+    #[pallet::getter(fn replace_period)]
+    pub(super) type ReplacePeriod<T: Config> = StorageValue<_, T::BlockNumber, ValueQuery>;
+
+    /// The minimum amount of btc that is accepted for replace requests; any lower values would
+    /// risk the bitcoin client to reject the payment
+    #[pallet::storage]
+    #[pallet::getter(fn replace_btc_dust_value)]
+    pub(super) type ReplaceBtcDustValue<T: Config> = StorageValue<_, Wrapped<T>, ValueQuery>;
+
+    #[pallet::type_value]
+    pub(super) fn DefaultForStorageVersion() -> Version {
+        Version::V0
+    }
+
+    /// Build storage at V1 (requires default 0).
+    #[pallet::storage]
+    #[pallet::getter(fn storage_version)]
+    pub(super) type StorageVersion<T: Config> = StorageValue<_, Version, ValueQuery, DefaultForStorageVersion>;
+
+    #[pallet::genesis_config]
+    pub struct GenesisConfig<T: Config> {
+        pub replace_period: T::BlockNumber,
+        pub replace_btc_dust_value: Wrapped<T>,
+    }
+
+    #[cfg(feature = "std")]
+    impl<T: Config> Default for GenesisConfig<T> {
+        fn default() -> Self {
+            Self {
+                replace_period: Default::default(),
+                replace_btc_dust_value: Default::default(),
+            }
+        }
+    }
+
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+        fn build(&self) {
+            ReplacePeriod::<T>::put(self.replace_period);
+            ReplaceBtcDustValue::<T>::put(self.replace_btc_dust_value);
+        }
+    }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {}
+
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
+
+    // The pallet's dispatchable functions.
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
         /// Request the replacement of a new vault ownership
         ///
         /// # Arguments
@@ -122,15 +183,17 @@ decl_module! {
         /// * `origin` - sender of the transaction
         /// * `amount` - amount of issued tokens
         /// * `griefing_collateral` - amount of collateral
-        #[weight = <T as Config>::WeightInfo::request_replace()]
+        #[pallet::weight(<T as Config>::WeightInfo::request_replace())]
         #[transactional]
-        fn request_replace(origin, #[compact] amount: Wrapped<T>, #[compact] griefing_collateral: Collateral<T>)
-            -> DispatchResult
-        {
+        fn request_replace(
+            origin: OriginFor<T>,
+            #[pallet::compact] amount: Wrapped<T>,
+            #[pallet::compact] griefing_collateral: Collateral<T>,
+        ) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let old_vault = ensure_signed(origin)?;
             Self::_request_replace(old_vault, amount, griefing_collateral)?;
-            Ok(())
+            Ok(().into())
         }
 
         /// Withdraw a request of vault replacement
@@ -138,15 +201,13 @@ decl_module! {
         /// # Arguments
         ///
         /// * `origin` - sender of the transaction: the old vault
-        #[weight = <T as Config>::WeightInfo::withdraw_replace()]
+        #[pallet::weight(<T as Config>::WeightInfo::withdraw_replace())]
         #[transactional]
-        fn withdraw_replace(origin, #[compact] amount: Wrapped<T>)
-            -> DispatchResult
-        {
+        fn withdraw_replace(origin: OriginFor<T>, #[pallet::compact] amount: Wrapped<T>) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let old_vault = ensure_signed(origin)?;
             Self::_withdraw_replace_request(old_vault, amount)?;
-            Ok(())
+            Ok(().into())
         }
 
         /// Accept request of vault replacement
@@ -157,15 +218,19 @@ decl_module! {
         /// * `old_vault` - id of the old vault that we are (possibly partially) replacing
         /// * `collateral` - the collateral for replacement
         /// * `btc_address` - the address that old-vault should transfer the btc to
-        #[weight = <T as Config>::WeightInfo::accept_replace()]
+        #[pallet::weight(<T as Config>::WeightInfo::accept_replace())]
         #[transactional]
-        fn accept_replace(origin, old_vault: T::AccountId, #[compact] amount_btc: Wrapped<T>, #[compact] collateral: Collateral<T>, btc_address: BtcAddress)
-            -> DispatchResult
-        {
+        fn accept_replace(
+            origin: OriginFor<T>,
+            old_vault: T::AccountId,
+            #[pallet::compact] amount_btc: Wrapped<T>,
+            #[pallet::compact] collateral: Collateral<T>,
+            btc_address: BtcAddress,
+        ) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let new_vault = ensure_signed(origin)?;
             Self::_accept_replace(old_vault, new_vault, amount_btc, collateral, btc_address)?;
-            Ok(())
+            Ok(().into())
         }
 
         /// Execute vault replacement
@@ -176,13 +241,18 @@ decl_module! {
         /// * `replace_id` - the ID of the replacement request
         /// * 'merkle_proof' - the merkle root of the block
         /// * `raw_tx` - the transaction id in bytes
-        #[weight = <T as Config>::WeightInfo::execute_replace()]
+        #[pallet::weight(<T as Config>::WeightInfo::execute_replace())]
         #[transactional]
-        fn execute_replace(origin, replace_id: H256, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
+        fn execute_replace(
+            origin: OriginFor<T>,
+            replace_id: H256,
+            merkle_proof: Vec<u8>,
+            raw_tx: Vec<u8>,
+        ) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let _ = ensure_signed(origin)?;
             Self::_execute_replace(replace_id, merkle_proof, raw_tx)?;
-            Ok(())
+            Ok(().into())
         }
 
         /// Cancel vault replacement
@@ -191,13 +261,13 @@ decl_module! {
         ///
         /// * `origin` - sender of the transaction: the new vault
         /// * `replace_id` - the ID of the replacement request
-        #[weight = <T as Config>::WeightInfo::cancel_replace()]
+        #[pallet::weight(<T as Config>::WeightInfo::cancel_replace())]
         #[transactional]
-        fn cancel_replace(origin, replace_id: H256) -> DispatchResult {
+        fn cancel_replace(origin: OriginFor<T>, replace_id: H256) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let new_vault = ensure_signed(origin)?;
             Self::_cancel_replace(new_vault, replace_id)?;
-            Ok(())
+            Ok(().into())
         }
 
         /// Set the default replace period for tx verification.
@@ -208,18 +278,19 @@ decl_module! {
         /// * `period` - default period for new requests
         ///
         /// # Weight: `O(1)`
-        #[weight = <T as Config>::WeightInfo::set_replace_period()]
+        #[pallet::weight(<T as Config>::WeightInfo::set_replace_period())]
         #[transactional]
-        fn set_replace_period(origin, period: T::BlockNumber) {
+        fn set_replace_period(origin: OriginFor<T>, period: T::BlockNumber) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             <ReplacePeriod<T>>::set(period);
+            Ok(().into())
         }
     }
 }
 
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     fn _request_replace(
         vault_id: T::AccountId,
         amount_btc: Wrapped<T>,
@@ -545,28 +616,5 @@ impl<T: Config> Module<T> {
         <ReplaceRequests<T>>::mutate(key, |request| {
             request.status = status;
         });
-    }
-}
-
-decl_error! {
-    pub enum Error for Module<T: Config> {
-        AmountBelowDustAmount,
-        NoReplacement,
-        InsufficientCollateral,
-        NoPendingRequest,
-        UnauthorizedVault,
-        ReplaceSelfNotAllowed,
-        CancelAcceptedRequest,
-        CollateralBelowSecureThreshold,
-        VaultHasEnabledNomination,
-        ReplacePeriodExpired,
-        ReplacePeriodNotExpired,
-        ReplaceCompleted,
-        ReplaceCancelled,
-        ReplaceIdNotFound,
-        /// Unable to convert value
-        TryIntoIntError,
-        ArithmeticUnderflow,
-        ArithmeticOverflow,
     }
 }
