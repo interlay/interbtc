@@ -1,7 +1,5 @@
 use super::*;
-use crate::{
-    sp_api_hidden_includes_decl_storage::hidden_include::traits::Currency, types::ReplaceRequest, Pallet as Replace,
-};
+use crate::{types::ReplaceRequest, Pallet as Replace};
 use bitcoin::{
     formatter::{Formattable, TryFormattable},
     types::{BlockBuilder, RawBlockHeader, TransactionBuilder, TransactionInputBuilder, TransactionOutput},
@@ -9,6 +7,7 @@ use bitcoin::{
 use btc_relay::{BtcAddress, BtcPublicKey, Pallet as BtcRelay};
 use exchange_rate_oracle::Pallet as ExchangeRateOracle;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
+use frame_support::traits::Currency;
 use frame_system::RawOrigin;
 use security::Pallet as Security;
 use sp_core::{H160, H256, U256};

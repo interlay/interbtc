@@ -743,7 +743,7 @@ impl redeem::Config for Runtime {
     type WeightInfo = ();
 }
 
-pub use replace::{RawEvent as RawReplaceEvent, ReplaceRequest};
+pub use replace::{Event as ReplaceEvent, ReplaceRequest};
 
 impl replace::Config for Runtime {
     type Event = Event;
