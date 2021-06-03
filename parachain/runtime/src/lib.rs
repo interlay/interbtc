@@ -659,7 +659,7 @@ impl security::Config for Runtime {
     type Event = Event;
 }
 
-pub use staked_relayers::RawEvent as StakedRelayersEvent;
+pub use staked_relayers::Event as StakedRelayersEvent;
 
 impl staked_relayers::Config for Runtime {
     type Event = Event;
