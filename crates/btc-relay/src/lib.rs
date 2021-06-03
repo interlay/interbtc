@@ -7,7 +7,7 @@
 
 mod ext;
 
-mod types;
+pub mod types;
 
 #[cfg(any(feature = "runtime-benchmarks", test))]
 mod benchmarking;
@@ -40,11 +40,11 @@ pub use bitcoin::{self, Address as BtcAddress, PublicKey as BtcPublicKey};
 use bitcoin::{
     merkle::{MerkleProof, ProofResult},
     parser::{parse_block_header, parse_transaction},
-    types::{BlockChain, BlockHeader, H256Le, RawBlockHeader, Transaction, TransactionOutput},
+    types::{BlockChain, BlockHeader, H256Le, RawBlockHeader, Transaction},
     Error as BitcoinError,
 };
 use security::types::ErrorCode;
-pub use types::{RichBlockHeader, OpReturnPaymentData};
+pub use types::{OpReturnPaymentData, RichBlockHeader};
 
 pub use pallet::*;
 
@@ -100,14 +100,9 @@ pub mod pallet {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let _ = ensure_signed(origin)?;
 
-            Self::_verify_and_validate_transaction(
-                raw_merkle_proof,
-                raw_tx,
-                recipient_btc_address,
-                Some(expected_btc),
-                op_return_id,
-                confirmations,
-            )?;
+            let transaction = Self::parse_transaction(&raw_tx)?;
+            Self::_verify_transaction_inclusion(transaction.tx_id(), raw_merkle_proof, confirmations)?;
+            Self::_validate_transaction(raw_tx, expected_btc, recipient_btc_address, op_return_id)?;
             Ok(().into())
         }
 
@@ -141,6 +136,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let _ = ensure_signed(origin)?;
+
             Self::_verify_transaction_inclusion(tx_id, raw_merkle_proof, confirmations)?;
             Ok(().into())
         }
@@ -167,13 +163,7 @@ pub mod pallet {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let _ = ensure_signed(origin)?;
 
-            let transaction = Self::parse_transaction(&raw_tx)?;
-            Self::_validate_transaction(
-                transaction,
-                recipient_btc_address,
-                Some(expected_btc),
-                op_return_id.map(|x| x.as_bytes().to_vec()),
-            )?;
+            Self::_validate_transaction(raw_tx, expected_btc, recipient_btc_address, op_return_id)?;
             Ok(().into())
         }
 
@@ -461,11 +451,8 @@ pub const ACCEPTED_MIN_TRANSACTION_OUTPUTS: u32 = 1;
 // Accepted minimum number of transaction outputs for op-return validation
 pub const ACCEPTED_MIN_TRANSACTION_OUTPUTS_WITH_OP_RETURN: usize = 2;
 
-// Accepted maximum number of transaction outputs for op-return validation
-pub const ACCEPTED_MAX_TRANSACTION_OUTPUTS_WITH_OP_RETURN: usize = 3;
-
 // Accepted maximum number of transaction outputs for validation
-pub const ACCEPTED_MAX_TRANSACTION_OUTPUTS: u32 = 32;
+pub const ACCEPTED_MAX_OPRETURN_TRANSACTION_OUTPUTS: u32 = 3;
 
 /// Unrounded Maximum Target
 /// 0x00000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
@@ -482,32 +469,6 @@ pub const MAIN_CHAIN_ID: u32 = 0;
 /// Number of outputs expected in the accepted transaction format
 /// See: <https://interlay.gitlab.io/polkabtc-spec/btcrelay-spec/intro/accepted-format.html>
 pub const ACCEPTED_NO_TRANSACTION_OUTPUTS: u32 = 2;
-
-macro_rules! extract_op_return {
-    ($($tx:expr),*) => {
-        {
-            $(
-                if let Some(Ok(data)) = $tx.map(|tx| tx.script.extract_op_return_data()) {
-                    data
-                } else
-            )*
-            { return None; }
-        }
-    };
-}
-
-fn maybe_get_payment_value(output: &TransactionOutput, recipient_btc_address: &BtcAddress) -> Option<i64> {
-    match output.extract_address() {
-        Ok(extr_recipient_btc_address) => {
-            if *recipient_btc_address == extr_recipient_btc_address {
-                Some(output.value)
-            } else {
-                None
-            }
-        }
-        _ => None,
-    }
-}
 
 #[cfg_attr(test, mockable)]
 impl<T: Config> Pallet<T> {
@@ -666,26 +627,82 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn _verify_and_validate_transaction(
+    /// helper for the dispatchable
+    fn _validate_transaction(
+        raw_tx: Vec<u8>,
+        expected_btc: i64,
+        recipient_btc_address: BtcAddress,
+        op_return_id: Option<H256>,
+    ) -> Result<(), DispatchError> {
+        let transaction = Self::parse_transaction(&raw_tx)?;
+        match op_return_id {
+            Some(op_return) => {
+                Self::validate_op_return_transaction(transaction, recipient_btc_address, expected_btc, op_return)?;
+            }
+            None => {
+                let payment = Self::get_issue_payment(transaction, recipient_btc_address)?;
+                ensure!(payment.1 == expected_btc, Error::<T>::InvalidPaymentAmount);
+            }
+        };
+        Ok(())
+    }
+
+    /// interface to the issue pallet; verifies inclusion, and returns the first input
+    /// address (for refunds) and the payment amount
+    pub fn get_and_verify_issue_payment(
         raw_merkle_proof: Vec<u8>,
         raw_tx: Vec<u8>,
         recipient_btc_address: BtcAddress,
-        expected_btc: Option<i64>,
-        op_return_id: Option<H256>,
-        confirmations: Option<u32>,
     ) -> Result<(BtcAddress, i64), DispatchError> {
         let transaction = Self::parse_transaction(&raw_tx)?;
 
         // Verify that the transaction is indeed included in the main chain
-        Self::_verify_transaction_inclusion(transaction.tx_id(), raw_merkle_proof, confirmations)?;
+        Self::_verify_transaction_inclusion(transaction.tx_id(), raw_merkle_proof, None)?;
+
+        Self::get_issue_payment(transaction, recipient_btc_address)
+    }
+
+    fn get_issue_payment(
+        transaction: Transaction,
+        recipient_btc_address: BtcAddress,
+    ) -> Result<(BtcAddress, i64), DispatchError> {
+        let input_address = transaction
+            .inputs
+            .get(0)
+            .ok_or(Error::<T>::MalformedTransaction)?
+            .extract_address()
+            .map_err(|_| Error::<T>::MalformedTransaction)?;
+
+        // using the on-chain key derivation scheme we only expect a simple
+        // payment to the vault's new deposit address
+        let extr_payment_value = transaction
+            .outputs
+            .into_iter()
+            .find_map(|x| match x.extract_address() {
+                Ok(address) if address == recipient_btc_address => Some(x.value),
+                _ => None,
+            })
+            .ok_or(Error::<T>::MalformedTransaction)?;
+
+        Ok((input_address, extr_payment_value))
+    }
+
+    /// interface to redeem,replace,refund to check that the payment is included and is valid
+    pub fn verify_and_validate_op_return_transaction(
+        raw_merkle_proof: Vec<u8>,
+        raw_tx: Vec<u8>,
+        recipient_btc_address: BtcAddress,
+        expected_btc: i64,
+        op_return_id: H256,
+    ) -> Result<(), DispatchError> {
+        let transaction = Self::parse_transaction(&raw_tx)?;
+
+        // Verify that the transaction is indeed included in the main chain
+        Self::_verify_transaction_inclusion(transaction.tx_id(), raw_merkle_proof, None)?;
 
         // Parse transaction and check that it matches the given parameters
-        Self::_validate_transaction(
-            transaction,
-            recipient_btc_address,
-            expected_btc,
-            op_return_id.map(|x| x.as_bytes().to_vec()),
-        )
+        Self::validate_op_return_transaction(transaction, recipient_btc_address, expected_btc, op_return_id)?;
+        Ok(())
     }
 
     pub fn _verify_transaction_inclusion(
@@ -738,153 +755,15 @@ impl<T: Config> Pallet<T> {
         Ok(rich_header.block_header)
     }
 
-    /// Extract all payments and op_return outputs from a transaction.
-    /// Rejects transactions with too many outputs.
-    ///
-    /// # Arguments
-    ///
-    /// * `transaction` - Bitcoin transaction
-    pub fn extract_outputs(
-        transaction: Transaction,
-    ) -> Result<(Vec<(i64, BtcAddress)>, Vec<(i64, Vec<u8>)>), Error<T>> {
-        ensure!(
-            transaction.outputs.len() <= ACCEPTED_MAX_TRANSACTION_OUTPUTS as usize,
-            Error::<T>::MalformedTransaction
-        );
-
-        let mut payments = Vec::new();
-        let mut op_returns = Vec::new();
-        for tx in transaction.outputs {
-            if let Ok(address) = tx.extract_address() {
-                payments.push((tx.value, address));
-            } else if let Ok(data) = tx.script.extract_op_return_data() {
-                op_returns.push((tx.value, data));
-            }
-        }
-
-        Ok((payments, op_returns))
-    }
-
-    /// Extract the payment value from the first output with an address
-    /// that matches the `recipient_btc_address`.
-    ///
-    /// # Arguments
-    ///
-    /// * `transaction` - Bitcoin transaction
-    /// * `recipient_btc_address` - expected payment recipient
-    fn extract_payment_value(
+    /// Checks if transaction is valid. Returns the return-to-self address, if any, for theft checking purposes
+    fn validate_op_return_transaction(
         transaction: Transaction,
         recipient_btc_address: BtcAddress,
-    ) -> Result<i64, DispatchError> {
-        ensure!(
-            // We would typically expect two outputs here (payment, refund) but
-            // the input amount may be exact so we would only require one
-            transaction.outputs.len() >= ACCEPTED_MIN_TRANSACTION_OUTPUTS as usize,
-            Error::<T>::MalformedTransaction
-        );
-
-        // Check if payment is first output
-        let output0 = transaction
-            .outputs
-            .get(0)
-            .and_then(|output| maybe_get_payment_value(output, &recipient_btc_address));
-
-        // Check if payment is second output
-        let output1 = transaction
-            .outputs
-            .get(1)
-            .and_then(|output| maybe_get_payment_value(output, &recipient_btc_address));
-
-        // Check if payment is third output
-        let output2 = transaction
-            .outputs
-            .get(2)
-            .and_then(|output| maybe_get_payment_value(output, &recipient_btc_address));
-
-        match (output0, output1, output2) {
-            (Some(o), None, None) | (None, Some(o), None) | (None, None, Some(o)) => Ok(o),
-            // Payment UTXO sends to an incorrect address
-            // OR contains a duplicate recipient
-            _ => Err(Error::<T>::InvalidPayment.into()),
-        }
-    }
-
-    /// Extract the payment value and `OP_RETURN` payload from the first
-    /// output with an address that matches the `recipient_btc_address`.
-    ///
-    /// # Arguments
-    ///
-    /// * `transaction` - Bitcoin transaction
-    /// * `recipient_btc_address` - expected payment recipient
-    fn extract_payment_value_and_op_return(
-        transaction: Transaction,
-        recipient_btc_address: BtcAddress,
-    ) -> Result<OpReturnPaymentData, DispatchError> {
-        // this check is redundant with the other checks below, but it ensures we have an upperbound on the iteration
-        ensure!(
-            transaction.outputs.len() <= ACCEPTED_MAX_TRANSACTION_OUTPUTS_WITH_OP_RETURN,
-            Error::<T>::MalformedTransaction
-        );
-
-        let op_returns:Vec<_> = transaction.outputs.iter().filter_map(|output| tx.script.extract_op_return_data()).collect();
-        // ensure there is exactly 1 op_return
-        ensure!(op_returns.len() == 1, Error::<T>::MalformedTransaction);
-        
-        let output_addresses = transaction.outputs.iter().filter_map(|output| Some((output.extract_address().ok()?, output.value)));
-        let (recipient_outputs, other_outputs): (Vec<_>, Vec<_>) = output_addresses.partition(|&(address, _)| address == recipient_btc_address);
-
-        // check we have exactly one output to the recipient, and at most one other
-        ensure!(recipient_outputs.len() == 1 && other_outputs.len() <= 1, Error::<T>::MalformedTransaction);
-        
-        Ok(OpReturnPaymentData{
-            recipient_amount: recipient_outputs[0].value,
-            op_return: op_returns[0],
-            return_to_self: other_outputs.get(0)
-        })
-    }
-
-    pub fn is_op_return_disabled() -> bool {
-        Self::disable_op_return_check()
-    }
-
-    /// Checks if transaction is valid. If so, it returns the first origin address, which can be
-    /// use as the destination address for a potential refund, and the payment value
-    fn _validate_transaction(
-        transaction: Transaction,
-        recipient_btc_address: BtcAddress,
-        expected_btc: Option<i64>,
-        op_return_id: Option<Vec<u8>>,
-    ) -> Result<(BtcAddress, i64), DispatchError> {
-        let input_address = transaction
-            .inputs
-            .get(0)
-            .ok_or(Error::<T>::MalformedTransaction)?
-            .extract_address()
-            .map_err(|_| Error::<T>::MalformedTransaction)?;
-
-        let extr_payment_value = if Self::is_op_return_disabled() {
-            Self::extract_payment_value(transaction, recipient_btc_address)?
-        } else if let Some(op_return_id) = op_return_id {
-            // NOTE: op_return UTXO should not contain any value
-            let payment =
-                Self::extract_payment_value_and_op_return(transaction, recipient_btc_address)?;
-
-            // Check if data UTXO has correct OP_RETURN value
-            ensure!(payment.op_return == op_return_id, Error::<T>::InvalidOpReturn);
-
-            payment.value
-        } else {
-            // using the on-chain key derivation scheme we only expect a simple
-            // payment to the vault's new deposit address
-            Self::extract_payment_value(transaction, recipient_btc_address)?
-        };
-
-        // If an expected amount was specified, check if the transferred amount matches this exactly
-        if let Some(expectation) = expected_btc {
-            ensure!(extr_payment_value == expectation, Error::<T>::InvalidPaymentAmount);
-        }
-
-        Ok((input_address, extr_payment_value))
+        expected_btc: i64,
+        op_return_id: H256,
+    ) -> Result<Option<BtcAddress>, DispatchError> {
+        let payment_data = OpReturnPaymentData::<T>::try_from_transaction(transaction)?;
+        payment_data.ensure_valid_payment_to(expected_btc, recipient_btc_address, Some(op_return_id))
     }
 
     pub fn is_fully_initialized() -> Result<bool, DispatchError> {

@@ -133,53 +133,53 @@ fn test_report_vault_theft_succeeds() {
     })
 }
 
-#[test]
-fn test_is_valid_merge_transaction_fails() {
-    run_test(|| {
-        let vault = BOB;
-        ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault, None))));
-
-        let address1 = BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
-
-        let address2 = BtcAddress::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
-
-        assert_eq!(
-            StakedRelayers::is_valid_merge_transaction(&[(100, address1)], &[], &Wallet::new(dummy_public_key())),
-            false,
-            "payment to unknown recipient"
-        );
-
-        assert_eq!(
-            StakedRelayers::is_valid_merge_transaction(
-                &[(100, address2)],
-                &[(0, vec![])],
-                &Wallet::new(dummy_public_key())
-            ),
-            false,
-            "migration should not have op_returns"
-        );
-    })
-}
-
-#[test]
-fn test_is_valid_merge_transaction_succeeds() {
-    run_test(|| {
-        let vault = BOB;
-        ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault, None))));
-
-        let address = BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
-
-        let mut wallet = Wallet::new(dummy_public_key());
-        wallet.add_btc_address(address);
-
-        assert_eq!(
-            StakedRelayers::is_valid_merge_transaction(&[(100, address)], &[], &wallet),
-            true
-        );
-    })
-}
+// #[test]
+// fn test_is_valid_merge_transaction_fails() {
+//     run_test(|| {
+//         let vault = BOB;
+//         ext::vault_registry::get_active_vault_from_id::<Test>
+//             .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault, None))));
+//
+//         let address1 = BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
+//
+//         let address2 = BtcAddress::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
+//
+//         assert_eq!(
+//             StakedRelayers::is_valid_merge_transaction(&[(100, address1)], &[], &Wallet::new(dummy_public_key())),
+//             false,
+//             "payment to unknown recipient"
+//         );
+//
+//         assert_eq!(
+//             StakedRelayers::is_valid_merge_transaction(
+//                 &[(100, address2)],
+//                 &[(0, vec![])],
+//                 &Wallet::new(dummy_public_key())
+//             ),
+//             false,
+//             "migration should not have op_returns"
+//         );
+//     })
+// }
+//
+// #[test]
+// fn test_is_valid_merge_transaction_succeeds() {
+//     run_test(|| {
+//         let vault = BOB;
+//         ext::vault_registry::get_active_vault_from_id::<Test>
+//             .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault, None))));
+//
+//         let address = BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
+//
+//         let mut wallet = Wallet::new(dummy_public_key());
+//         wallet.add_btc_address(address);
+//
+//         assert_eq!(
+//             StakedRelayers::is_valid_merge_transaction(&[(100, address)], &[], &wallet),
+//             true
+//         );
+//     })
+// }
 
 #[test]
 fn test_is_valid_request_transaction_overpayment_fails() {

@@ -720,8 +720,6 @@ fn test_validate_transaction_succeeds_with_payment() {
 
         BTCRelay::parse_transaction.mock_safe(move |_| MockResult::Return(Ok(sample_transaction_parsed(&outputs))));
 
-        BTCRelay::is_op_return_disabled.mock_safe(move || MockResult::Return(true));
-
         assert_ok!(BTCRelay::validate_transaction(
             Origin::signed(3),
             raw_tx,
@@ -1681,7 +1679,7 @@ fn test_extract_value_and_op_return_succeeds() {
             BTCRelay::extract_payment_value_and_op_return(transaction, recipient_btc_address).unwrap();
 
         assert_eq!(extr_value, recipient_value);
-        assert_eq!(extr_data, op_return);
+        assert_eq!(extr_data, H256::from_slice(&op_return));
     })
 }
 

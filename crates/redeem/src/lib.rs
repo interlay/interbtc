@@ -362,13 +362,12 @@ impl<T: Config> Module<T> {
         let amount: usize = redeem.amount_btc.try_into().map_err(|_e| Error::<T>::TryIntoIntError)?;
 
         // check the transaction inclusion and validity
-        ext::btc_relay::verify_and_validate_transaction::<T>(
+        ext::btc_relay::verify_and_validate_op_return_transaction::<T>(
             merkle_proof,
             raw_tx,
             redeem.btc_address,
-            Some(amount as i64),
-            Some(redeem_id),
-            None,
+            amount as i64,
+            redeem_id,
         )?;
 
         // burn amount (without parachain fee, but including transfer fee)
