@@ -1,6 +1,6 @@
 use crate::{ext, Config, Error};
 use codec::{Decode, Encode, HasCompact};
-use frame_support::{traits::Currency, StorageMap};
+use frame_support::traits::Currency;
 use vault_registry::SlashingAccessors;
 
 #[cfg(test)]

@@ -274,10 +274,12 @@ impl ExtBuilder {
         collateral_balances.assimilate_storage(&mut storage).unwrap();
         wrapped_balances.assimilate_storage(&mut storage).unwrap();
 
-        nomination::GenesisConfig {
-            is_nomination_enabled: true,
-        }
-        .assimilate_storage(&mut storage)
+        frame_support::traits::GenesisBuild::<Test>::assimilate_storage(
+            &nomination::GenesisConfig {
+                is_nomination_enabled: true,
+            },
+            &mut storage,
+        )
         .unwrap();
 
         fee::GenesisConfig::<Test> {

@@ -16,10 +16,8 @@ mod types;
 mod default_weights;
 
 use codec::{Decode, Encode, EncodeLike};
-
 use ext::vault_registry::{DefaultVault, SlashingError, TryDepositCollateral, TryWithdrawCollateral};
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchError, DispatchResult},
     ensure, transactional,
     weights::Weight,
@@ -38,114 +36,188 @@ pub trait WeightInfo {
     fn withdraw_collateral() -> Weight;
 }
 
-/// ## Configuration and Constants
-/// The pallet's configuration trait.
-pub trait Config:
-    frame_system::Config
-    + currency::Config<currency::Collateral>
-    + currency::Config<currency::Wrapped>
-    + security::Config
-    + vault_registry::Config<
-        UnsignedFixedPoint = <Self as fee::Config>::UnsignedFixedPoint,
-        SignedFixedPoint = <Self as Config>::SignedFixedPoint,
-    > + fee::Config
-{
-    /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+pub use pallet::*;
 
-    type UnsignedFixedPoint: FixedPointNumber + Encode + EncodeLike + Decode;
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use frame_support::pallet_prelude::*;
+    use frame_system::pallet_prelude::*;
 
-    type SignedFixedPoint: FixedPointNumber + Encode + EncodeLike + Decode;
-
-    /// Weight information for the extrinsics in this module.
-    type WeightInfo: WeightInfo;
-}
-
-// This pallet's storage items.
-decl_storage! {
-    trait Store for Module<T: Config> as Nomination {
-        /// ## Storage
-
-        /// Flag indicating whether this feature is enabled
-        NominationEnabled get(fn is_nomination_enabled) config(): bool;
-
-        /// Map of Vaults who have enabled nomination
-        Vaults: map hasher(blake2_128_concat) T::AccountId => bool;
-
-        /// Map of Nominators
-        Nominators: map hasher(blake2_128_concat) (T::AccountId, T::AccountId) => Nominator<T::AccountId, Collateral<T>, SignedFixedPoint<T>>;
-    }
-}
-
-// The pallet's events
-decl_event!(
-    pub enum Event<T>
-    where
-        AccountId = <T as frame_system::Config>::AccountId,
-        Collateral = Collateral<T>,
+    /// ## Configuration
+    /// The pallet's configuration trait.
+    #[pallet::config]
+    pub trait Config:
+        frame_system::Config
+        + currency::Config<currency::Collateral>
+        + currency::Config<currency::Wrapped>
+        + security::Config
+        + vault_registry::Config<
+            UnsignedFixedPoint = <Self as fee::Config>::UnsignedFixedPoint,
+            SignedFixedPoint = <Self as Config>::SignedFixedPoint,
+        > + fee::Config
     {
-        // [vault_id]
-        NominationOptIn(AccountId),
-        // [vault_id]
-        NominationOptOut(AccountId),
-        // [nominator_id, vault_id, collateral]
-        DepositCollateral(AccountId, AccountId, Collateral),
-        // [nominator_id, vault_id, collateral]
-        WithdrawCollateral(AccountId, AccountId, Collateral),
+        /// The overarching event type.
+        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+
+        /// The unsigned fixed point type.
+        type UnsignedFixedPoint: FixedPointNumber + Encode + EncodeLike + Decode;
+
+        /// The signed fixed point type.
+        type SignedFixedPoint: FixedPointNumber + Encode + EncodeLike + Decode;
+
+        /// Weight information for the extrinsics in this module.
+        type WeightInfo: WeightInfo;
     }
-);
 
-// The pallet's dispatchable functions.
-decl_module! {
-    /// The module declaration.
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
-        type Error = Error<T>;
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    #[pallet::metadata(T::AccountId = "AccountId", Collateral<T> = "Collateral")]
+    pub enum Event<T: Config> {
+        // [vault_id]
+        NominationOptIn(T::AccountId),
+        // [vault_id]
+        NominationOptOut(T::AccountId),
+        // [nominator_id, vault_id, collateral]
+        DepositCollateral(T::AccountId, T::AccountId, Collateral<T>),
+        // [nominator_id, vault_id, collateral]
+        WithdrawCollateral(T::AccountId, T::AccountId, Collateral<T>),
+    }
 
-        // Initializing events
-        fn deposit_event() = default;
+    #[pallet::error]
+    pub enum Error<T> {
+        /// Account has insufficient balance
+        InsufficientFunds,
+        ArithmeticOverflow,
+        ArithmeticUnderflow,
+        NominatorNotFound,
+        VaultAlreadyOptedInToNomination,
+        VaultNotOptedInToNomination,
+        VaultNotFound,
+        TryIntoIntError,
+        InsufficientCollateral,
+        VaultNominationDisabled,
+        DepositViolatesMaxNominationRatio,
+        HasNominatedCollateral,
+    }
 
-        #[weight = <T as Config>::WeightInfo::set_nomination_enabled()]
+    impl<T: Config> From<SlashingError> for Error<T> {
+        fn from(err: SlashingError) -> Self {
+            match err {
+                SlashingError::ArithmeticOverflow => Error::<T>::ArithmeticOverflow,
+                SlashingError::ArithmeticUnderflow => Error::<T>::ArithmeticUnderflow,
+                SlashingError::TryIntoIntError => Error::<T>::TryIntoIntError,
+                SlashingError::InsufficientFunds => Error::<T>::InsufficientCollateral,
+            }
+        }
+    }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {}
+
+    /// Flag indicating whether this feature is enabled
+    #[pallet::storage]
+    #[pallet::getter(fn is_nomination_enabled)]
+    pub type NominationEnabled<T: Config> = StorageValue<_, bool, ValueQuery>;
+
+    /// Map of Vaults who have enabled nomination
+    #[pallet::storage]
+    pub(super) type Vaults<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, bool, ValueQuery>;
+
+    /// Map of Nominators
+    #[pallet::storage]
+    pub(super) type Nominators<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        (T::AccountId, T::AccountId),
+        Nominator<T::AccountId, Collateral<T>, SignedFixedPoint<T>>,
+        ValueQuery,
+    >;
+
+    #[pallet::genesis_config]
+    pub struct GenesisConfig {
+        pub is_nomination_enabled: bool,
+    }
+
+    #[cfg(feature = "std")]
+    impl Default for GenesisConfig {
+        fn default() -> Self {
+            Self {
+                is_nomination_enabled: Default::default(),
+            }
+        }
+    }
+
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig {
+        fn build(&self) {
+            {
+                NominationEnabled::<T>::put(self.is_nomination_enabled);
+            }
+        }
+    }
+
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
+
+    // The pallet's dispatchable functions.
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
+        #[pallet::weight(<T as Config>::WeightInfo::set_nomination_enabled())]
         #[transactional]
-        fn set_nomination_enabled(origin, enabled: bool) {
+        fn set_nomination_enabled(origin: OriginFor<T>, enabled: bool) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            <NominationEnabled>::set(enabled);
+            <NominationEnabled<T>>::set(enabled);
+            Ok(().into())
         }
 
         /// Allow nomination for this vault
-        #[weight = <T as Config>::WeightInfo::opt_in_to_nomination()]
+        #[pallet::weight(<T as Config>::WeightInfo::opt_in_to_nomination())]
         #[transactional]
-        fn opt_in_to_nomination(origin) -> DispatchResult {
+        pub(crate) fn opt_in_to_nomination(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_running::<T>()?;
-            Self::_opt_in_to_nomination(&ensure_signed(origin)?)
+            Self::_opt_in_to_nomination(&ensure_signed(origin)?)?;
+            Ok(().into())
         }
 
         /// Disallow nomination for this vault
-        #[weight = <T as Config>::WeightInfo::opt_out_of_nomination()]
+        #[pallet::weight(<T as Config>::WeightInfo::opt_out_of_nomination())]
         #[transactional]
-        fn opt_out_of_nomination(origin) -> DispatchResult {
-            Self::_opt_out_of_nomination(&ensure_signed(origin)?)
+        fn opt_out_of_nomination(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+            Self::_opt_out_of_nomination(&ensure_signed(origin)?)?;
+            Ok(().into())
         }
 
-        #[weight = <T as Config>::WeightInfo::deposit_collateral()]
+        #[pallet::weight(<T as Config>::WeightInfo::deposit_collateral())]
         #[transactional]
-        fn deposit_collateral(origin, vault_id: T::AccountId, amount: Collateral<T>) -> DispatchResult {
+        fn deposit_collateral(
+            origin: OriginFor<T>,
+            vault_id: T::AccountId,
+            amount: Collateral<T>,
+        ) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
             ext::security::ensure_parachain_status_running::<T>()?;
-            Self::_deposit_collateral(sender, vault_id, amount)
+            Self::_deposit_collateral(sender, vault_id, amount)?;
+            Ok(().into())
         }
 
-        #[weight = <T as Config>::WeightInfo::withdraw_collateral()]
+        #[pallet::weight(<T as Config>::WeightInfo::withdraw_collateral())]
         #[transactional]
-        fn withdraw_collateral(origin, vault_id: T::AccountId, amount: Collateral<T>) -> DispatchResult {
+        fn withdraw_collateral(
+            origin: OriginFor<T>,
+            vault_id: T::AccountId,
+            amount: Collateral<T>,
+        ) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
             ext::security::ensure_parachain_status_running::<T>()?;
-            Self::_withdraw_collateral(sender, vault_id, amount)
+            Self::_withdraw_collateral(sender, vault_id, amount)?;
+            Ok(().into())
         }
-
     }
 }
 
-impl<T: Config> Module<T> {
+// "Internal" functions, callable by code.
+impl<T: Config> Pallet<T> {
     pub fn _withdraw_collateral(
         nominator_id: T::AccountId,
         vault_id: T::AccountId,
@@ -300,35 +372,6 @@ impl<T: Config> Module<T> {
     }
 
     pub fn get_max_nominatable_collateral(vault_collateral: Collateral<T>) -> Result<Collateral<T>, DispatchError> {
-        ext::fee::collateral_for::<T>(vault_collateral, Module::<T>::get_max_nomination_ratio()?)
-    }
-}
-
-impl<T: Config> From<SlashingError> for Error<T> {
-    fn from(err: SlashingError) -> Self {
-        match err {
-            SlashingError::ArithmeticOverflow => Error::<T>::ArithmeticOverflow,
-            SlashingError::ArithmeticUnderflow => Error::<T>::ArithmeticUnderflow,
-            SlashingError::TryIntoIntError => Error::<T>::TryIntoIntError,
-            SlashingError::InsufficientFunds => Error::<T>::InsufficientCollateral,
-        }
-    }
-}
-
-decl_error! {
-    pub enum Error for Module<T: Config> {
-        /// Account has insufficient balance
-        InsufficientFunds,
-        ArithmeticOverflow,
-        ArithmeticUnderflow,
-        NominatorNotFound,
-        VaultAlreadyOptedInToNomination,
-        VaultNotOptedInToNomination,
-        VaultNotFound,
-        TryIntoIntError,
-        InsufficientCollateral,
-        VaultNominationDisabled,
-        DepositViolatesMaxNominationRatio,
-        HasNominatedCollateral,
+        ext::fee::collateral_for::<T>(vault_collateral, Self::get_max_nomination_ratio()?)
     }
 }
