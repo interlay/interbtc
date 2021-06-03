@@ -1,4 +1,4 @@
-use crate::{ext, mock::*, RawEvent};
+use crate::{ext, mock::*, Event};
 use btc_relay::BtcAddress;
 use frame_support::assert_ok;
 use mocktopus::mocking::*;
@@ -31,7 +31,7 @@ fn test_refund_succeeds() {
             })
             .unwrap();
         let refund_id = match captured_event {
-            RawEvent::RequestRefund(refund_id, issuer, 995, vault, _btc_address, issue, 5)
+            Event::<Test>::RequestRefund(refund_id, issuer, 995, vault, _btc_address, issue, 5)
                 if issuer == USER && vault == VAULT && issue == issue_id =>
             {
                 Some(refund_id)

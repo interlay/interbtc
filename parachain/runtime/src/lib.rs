@@ -722,7 +722,7 @@ impl sla::Config for Runtime {
     type WrappedRelayerRewards = WrappedRelayerRewards;
 }
 
-pub use refund::{RawEvent as RawRefundEvent, RefundRequest};
+pub use refund::{Event as RefundEvent, RefundRequest};
 
 impl refund::Config for Runtime {
     type Event = Event;

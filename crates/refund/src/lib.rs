@@ -23,9 +23,7 @@ mod ext;
 pub mod types;
 
 use btc_relay::BtcAddress;
-use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError, ensure, transactional,
-};
+use frame_support::{dispatch::DispatchError, ensure, transactional};
 use frame_system::ensure_signed;
 use sp_core::H256;
 use sp_runtime::traits::CheckedSub;
@@ -33,76 +31,120 @@ use sp_std::{convert::TryInto, vec::Vec};
 pub use types::RefundRequest;
 use types::Wrapped;
 
-/// The pallet's configuration trait.
-pub trait Config:
-    frame_system::Config
-    + btc_relay::Config
-    + currency::Config<currency::Collateral>
-    + currency::Config<currency::Wrapped>
-    + fee::Config
-    + sla::Config
-    + vault_registry::Config
-{
-    /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+pub use pallet::*;
 
-    /// Weight information for the extrinsics in this module.
-    type WeightInfo: WeightInfo;
-}
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use frame_support::pallet_prelude::*;
+    use frame_system::pallet_prelude::*;
 
-// The pallet's storage items.
-decl_storage! {
-    trait Store for Module<T: Config> as Refund {
-        /// The minimum amount of btc that is accepted for refund requests (NOTE: too low
-        /// values could result in the bitcoin client rejecting the payment)
-        RefundBtcDustValue get(fn refund_btc_dust_value) config(): Wrapped<T>;
-
-        /// This mapping provides access from a unique hash refundId to a Refund struct.
-        RefundRequests: map hasher(blake2_128_concat) H256 => RefundRequest<T::AccountId, Wrapped<T>>;
-    }
-}
-
-// The pallet's events.
-decl_event!(
-    pub enum Event<T>
-    where
-        AccountId = <T as frame_system::Config>::AccountId,
-        Wrapped = Wrapped<T>,
+    /// ## Configuration
+    /// The pallet's configuration trait.
+    #[pallet::config]
+    pub trait Config:
+        frame_system::Config
+        + btc_relay::Config
+        + currency::Config<currency::Collateral>
+        + currency::Config<currency::Wrapped>
+        + fee::Config
+        + sla::Config
+        + vault_registry::Config
     {
-        /// refund_id, issuer, amount_without_fee, vault, btc_address, issue_id, fee
-        RequestRefund(H256, AccountId, Wrapped, AccountId, BtcAddress, H256, Wrapped),
-        /// refund_id, issuer, vault, amount
-        ExecuteRefund(H256, AccountId, AccountId, Wrapped),
+        /// The overarching event type.
+        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+
+        /// Weight information for the extrinsics in this module.
+        type WeightInfo: WeightInfo;
     }
-);
 
-// The pallet's dispatchable functions.
-decl_module! {
-    /// The module declaration.
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
-        // Initialize errors
-        type Error = Error<T>;
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    #[pallet::metadata(T::AccountId = "AccountId", Wrapped<T> = "Wrapped")]
+    pub enum Event<T: Config> {
+        /// refund_id, issuer, amount_without_fee, vault, btc_address, issue_id, fee
+        RequestRefund(
+            H256,
+            T::AccountId,
+            Wrapped<T>,
+            T::AccountId,
+            BtcAddress,
+            H256,
+            Wrapped<T>,
+        ),
+        /// refund_id, issuer, vault, amount
+        ExecuteRefund(H256, T::AccountId, T::AccountId, Wrapped<T>),
+    }
 
-        // Initialize events
-        fn deposit_event() = default;
+    #[pallet::error]
+    pub enum Error<T> {
+        ArithmeticUnderflow,
+        NoRefundFoundForIssueId,
+        RefundIdNotFound,
+        RefundCompleted,
+        TryIntoIntError,
+        UnauthorizedVault,
+    }
 
-        #[weight = <T as Config>::WeightInfo::execute_refund()]
+    /// The minimum amount of btc that is accepted for refund requests (NOTE: too low
+    /// values could result in the bitcoin client rejecting the payment)
+    #[pallet::storage]
+    #[pallet::getter(fn refund_btc_dust_value)]
+    pub(super) type RefundBtcDustValue<T: Config> = StorageValue<_, Wrapped<T>, ValueQuery>;
+
+    /// This mapping provides access from a unique hash refundId to a Refund struct.
+    #[pallet::storage]
+    pub(super) type RefundRequests<T: Config> =
+        StorageMap<_, Blake2_128Concat, H256, RefundRequest<T::AccountId, Wrapped<T>>, ValueQuery>;
+
+    #[pallet::genesis_config]
+    pub struct GenesisConfig<T: Config> {
+        pub refund_btc_dust_value: Wrapped<T>,
+    }
+
+    #[cfg(feature = "std")]
+    impl<T: Config> Default for GenesisConfig<T> {
+        fn default() -> Self {
+            Self {
+                refund_btc_dust_value: Default::default(),
+            }
+        }
+    }
+
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+        fn build(&self) {
+            RefundBtcDustValue::<T>::put(self.refund_btc_dust_value);
+        }
+    }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {}
+
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
+
+    // The pallet's dispatchable functions.
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
+        #[pallet::weight(<T as Config>::WeightInfo::execute_refund())]
         #[transactional]
         fn execute_refund(
-            origin,
+            origin: OriginFor<T>,
             refund_id: H256,
             merkle_proof: Vec<u8>,
             raw_tx: Vec<u8>,
-        ) -> Result<(), DispatchError> {
+        ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
-            Self::_execute_refund(refund_id, merkle_proof, raw_tx)
+            Self::_execute_refund(refund_id, merkle_proof, raw_tx)?;
+            Ok(().into())
         }
     }
 }
 
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     /// User failsafe: when a user accidentally overpays on an issue, and the vault does not
     /// have enough collateral for the the actual sent amount, then this function is called
     /// to request the vault to refund the surplus amount (minus a fee for the vault to keep).
@@ -287,16 +329,5 @@ impl<T: Config> Module<T> {
 
     fn u128_to_wrapped(x: u128) -> Result<Wrapped<T>, DispatchError> {
         TryInto::<Wrapped<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
-    }
-}
-
-decl_error! {
-    pub enum Error for Module<T: Config> {
-        ArithmeticUnderflow,
-        NoRefundFoundForIssueId,
-        RefundIdNotFound,
-        RefundCompleted,
-        TryIntoIntError,
-        UnauthorizedVault
     }
 }
