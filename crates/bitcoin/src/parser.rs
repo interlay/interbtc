@@ -319,6 +319,12 @@ pub fn parse_transaction(raw_transaction: &[u8]) -> Result<Transaction, Error> {
         for input in &mut inputs {
             input.with_witness(flags, parser.parse()?);
         }
+
+        if inputs.iter().all(|input| input.witness.len() == 0) {
+            // A transaction with a set witness-flag must actually include witnesses in the transaction.
+            // see https://github.com/bitcoin/bitcoin/blob/be4171679b8eab8205e04ff86140329bd67878a0/src/primitives/transaction.h#L214-L217
+            return Err(Error::MalformedTransaction);
+        }
     }
 
     // https://en.bitcoin.it/wiki/NLockTime
