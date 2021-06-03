@@ -1231,11 +1231,12 @@ impl<T: Config> Pallet<T> {
             return Ok(basic_block_header);
         }
 
-        let expected_target = if block_height >= 2016 && block_height % DIFFICULTY_ADJUSTMENT_INTERVAL == 0 {
-            Self::compute_new_target(&prev_block_header, block_height)?
-        } else {
-            prev_block_header.block_header.target
-        };
+        let expected_target =
+            if block_height >= DIFFICULTY_ADJUSTMENT_INTERVAL && block_height % DIFFICULTY_ADJUSTMENT_INTERVAL == 0 {
+                Self::compute_new_target(&prev_block_header, block_height)?
+            } else {
+                prev_block_header.block_header.target
+            };
 
         ensure!(
             basic_block_header.target == expected_target,
