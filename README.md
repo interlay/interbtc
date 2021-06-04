@@ -1,9 +1,9 @@
 <p align="center">
-  <a href="https://github.com/interlay/btc-parachain">
-    <img src="/docs/img/polkaBtc.png">
+  <a href="https://github.com/interlay/interbtc">
+    <img src="/docs/img/interbtc.png">
   </a>
 
-  <h2 align="center">BTC-Parachain</h2>
+  <h2 align="center">InterBTC</h2>
 
   <p align="center">
     A trust-minimized bridge from Bitcoin to Polkadot.
@@ -11,13 +11,13 @@
     <a href="https://interlay.gitlab.io/polkabtc-spec/"><strong>Explore the specification »</strong></a>
     <br />
     <br />
-    <a href="https://github.com/interlay/btc-parachain/issues">Report Bug</a>
+    <a href="https://github.com/interlay/interbtc/issues">Report Bug</a>
     ·
-    <a href="https://github.com/interlay/btc-parachain/issues">Request Feature</a>
+    <a href="https://github.com/interlay/interbtc/issues">Request Feature</a>
   </p>
 </p>
 
-This repository is hosted on GitHub: [https://github.com/interlay/btc-parachain](https://github.com/interlay/btc-parachain) with a mirror on [GitLab](https://gitlab.com/interlay/btc-parachain) and [radicle](rad:git:hnrkxrw3axafn8n5fwo8pspjgtbt6jj6qe6mo).
+This repository is hosted on GitHub: [https://github.com/interlay/interbtc](https://github.com/interlay/interbtc) with a mirror on [GitLab](https://gitlab.com/interlay/btc-parachain) and [radicle](rad:git:hnrkxrw3axafn8n5fwo8pspjgtbt6jj6qe6mo).
 
 This project is currently under active development.
 
@@ -37,15 +37,15 @@ This project is currently under active development.
 ## About the Project
 
 This is a proof of concept implementation of a BTC Parachain to bring Bitcoin into the Polkadot universe.
-It allows the creation of **PolkaBTC**, a fungible token that represents Bitcoin in the Polkadot ecosystem.
-PolkaBTC is backed by Bitcoin 1:1 and allows redeeming of the equivalent amount of Bitcoins by relying on a collateralized third-party.
+It allows the creation of **InterBTC**, a fungible token that represents Bitcoin in the Polkadot ecosystem.
+InterBTC is backed by Bitcoin 1:1 and allows redeeming of the equivalent amount of Bitcoins by relying on a collateralized third-party.
 
 The project uses the concept of [Cryptocurrency-backed Assets](https://xclaim.io) to lock Bitcoin on the Bitcoin blockchain and issue BTC-backed tokens on the BTC Parachain.
 The implementation is based on the [BTC Parachain specification](https://interlay.gitlab.io/polkabtc-spec/).
 
 ### Built with
 
-The BTC-Parachain is built with:
+The InterBTC project is built with:
 
 - [Rust](https://www.rust-lang.org/)
 - [Substrate](https://substrate.dev/)
@@ -66,11 +66,11 @@ The Substrate runtime makes use of various custom pallets that are found in the 
 
 - [bitcoin](crates/bitcoin): Library for Bitcoin type, parsing and verification functions.
 - [btc-relay](crates/btc-relay): Stateful SPV client for Bitcoin. Stores Bitcoin main chain, tracks forks, verifies Merkle proofs and validates specific transaction formats.
-- [currency](crates/currency) Handles currencies used as backing collateral (e.g. DOT/KSM) and issued tokens (e.g. PolkaBTC).
+- [currency](crates/currency) Handles currencies used as backing collateral (e.g. DOT/KSM) and issued tokens (e.g. InterBTC).
 - [exchange-rate-oracle](crates/exchange-rate-oracle): Exchange rate oracle. Integration with external provider pending.
 - [fee](crates/fee): Participant reward calculation and distribution.
-- [issue](crates/issue): Handles issuing of PolkaBTC for BTC on Bitcoin.
-- [redeem](crates/redeem) Handles redeeming of PolkaBTC for BTC on Bitcoin.
+- [issue](crates/issue): Handles issuing of InterBTC for BTC on Bitcoin.
+- [redeem](crates/redeem) Handles redeeming of InterBTC for BTC on Bitcoin.
 - [refund](crates/refund) Handles refunds for when a vault receives more BTC than it can cover.
 - [replace](crates/replace) Handles replacing vaults.
 - [security](crates/security): Handles BTC Parachain status and error changes.
@@ -160,7 +160,7 @@ Additional CLI usage options are available and may be shown by running `cargo ru
 
 ### Rococo
 
-By default, the `btc-parachain` builds in standalone mode with the `aura-grandpa` feature.
+By default, the node will build in standalone mode with the `aura-grandpa` feature.
 
 To build with "parachain" support use the `cumulus-polkadot` feature:
 
@@ -172,7 +172,7 @@ To connect with a local relay-chain follow [these instructions](docs/rococo.md).
 
 #### Test Coverage
 
-Test coverage reports available under [docs/testcoverage.html](https://github.com/interlay/btc-parachain/blob/master/docs/testcoverage.html)
+Test coverage reports available under [docs/testcoverage.html](https://github.com/interlay/interbtc/blob/master/docs/testcoverage.html)
 
 ### Substrate Chain Configuration
 
@@ -196,7 +196,7 @@ We are [hiring](https://www.interlay.io/careers/)!
 
 (C) Copyright 2020 [Interlay](https://www.interlay.io) Ltd
 
-BTC-Parachain is currently licensed under the terms of the Apache License (Version 2.0). See LICENSE
+InterBTC is currently licensed under the terms of the Apache License (Version 2.0). See LICENSE
 
 ## Contact
 

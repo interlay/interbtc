@@ -298,7 +298,7 @@ impl<T: Config> Pallet<T> {
         ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&vault_id, amount_requested)?;
 
         let fee = ext::fee::get_issue_fee::<T>(amount_requested)?;
-        // calculate the amount of polkabtc that will be transferred to the user upon execution
+        // calculate the amount of tokens that will be transferred to the user upon execution
         let amount_user = amount_requested
             .checked_sub(&fee)
             .ok_or(Error::<T>::ArithmeticUnderflow)?;

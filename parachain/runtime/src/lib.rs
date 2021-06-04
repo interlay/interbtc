@@ -47,7 +47,7 @@ pub use pallet_timestamp::Call as TimestampCall;
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
-// PolkaBTC exports
+// InterBTC exports
 pub use btc_relay::{bitcoin, Call as RelayCall, TARGET_SPACING};
 pub use module_exchange_rate_oracle_rpc_runtime_api::BalanceWrapper;
 
@@ -462,7 +462,7 @@ impl Convert<AccountId, [u8; 32]> for AccountId32Convert {
 #[derive(Debug, Encode, Decode, Clone, PartialEq)]
 pub enum MultiCurrency<A: Currency<AccountId>, B: Currency<AccountId>> {
     PolkaDOT(sp_std::marker::PhantomData<A>),
-    PolkaBTC(sp_std::marker::PhantomData<B>),
+    InterBTC(sp_std::marker::PhantomData<B>),
 }
 
 #[cfg(feature = "cumulus-polkadot")]
@@ -479,7 +479,7 @@ impl parachain_tokens::MultiCurrency<AccountId> for MultiCurrency<Collateral, Wr
             Self::PolkaDOT(_) => {
                 let _imbalance = Collateral::deposit_creating(account_id, amount);
             }
-            Self::PolkaBTC(_) => {
+            Self::InterBTC(_) => {
                 let _imbalance = Wrapped::deposit_creating(account_id, amount);
             }
         };
@@ -492,7 +492,7 @@ impl parachain_tokens::MultiCurrency<AccountId> for MultiCurrency<Collateral, Wr
                 let _imbalance = Collateral::withdraw(account_id, amount, WithdrawReasons::TRANSFER, AllowDeath)
                     .map_err(|err| XcmError::FailedToTransactAsset(err.into()))?;
             }
-            Self::PolkaBTC(_) => {
+            Self::InterBTC(_) => {
                 let _imbalance = Wrapped::withdraw(account_id, amount, WithdrawReasons::TRANSFER, AllowDeath)
                     .map_err(|err| XcmError::FailedToTransactAsset(err.into()))?;
             }
@@ -507,7 +507,7 @@ impl TryFrom<&[u8]> for MultiCurrency<Collateral, Wrapped> {
     fn try_from(from: &[u8]) -> Result<Self, ()> {
         match from {
             b"DOT" => Ok(Self::PolkaDOT(Default::default())),
-            b"POLKABTC" => Ok(Self::PolkaBTC(Default::default())),
+            b"INTERBTC" => Ok(Self::InterBTC(Default::default())),
             _ => Err(()),
         }
     }
@@ -518,7 +518,7 @@ impl Into<Vec<u8>> for MultiCurrency<Collateral, Wrapped> {
     fn into(self) -> Vec<u8> {
         match self {
             Self::PolkaDOT(_) => b"DOT".to_vec(),
-            Self::PolkaBTC(_) => b"PolkaBTC".to_vec(),
+            Self::InterBTC(_) => b"InterBTC".to_vec(),
         }
     }
 }
@@ -586,7 +586,7 @@ impl pallet_balances::Config<pallet_balances::Instance1> for Runtime {
     type WeightInfo = ();
 }
 
-/// Wrapped currency - e.g. PolkaBTC
+/// Wrapped currency - e.g. InterBTC
 impl pallet_balances::Config<pallet_balances::Instance2> for Runtime {
     type MaxLocks = MaxLocks;
     type Balance = Balance;
@@ -622,8 +622,8 @@ impl currency::Config<currency::Collateral> for Runtime {
 }
 
 parameter_types! {
-    pub const WrappedName: &'static [u8] = b"PolkaBTC";
-    pub const WrappedSymbol: &'static [u8] = b"PolkaBTC";
+    pub const WrappedName: &'static [u8] = b"InterBTC";
+    pub const WrappedSymbol: &'static [u8] = b"InterBTC";
     pub const WrappedDecimals: u8 = 8;
 }
 
@@ -759,7 +759,7 @@ impl nomination::Config for Runtime {
     type SignedFixedPoint = FixedI128;
 }
 
-macro_rules! construct_polkabtc_runtime {
+macro_rules! construct_interbtc_runtime {
 	($( $modules:tt )*) => {
 		#[allow(clippy::large_enum_variant)]
 		construct_runtime! {
@@ -810,7 +810,7 @@ macro_rules! construct_polkabtc_runtime {
 }
 
 #[cfg(feature = "cumulus-polkadot")]
-construct_polkabtc_runtime! {
+construct_interbtc_runtime! {
     ParachainSystem: cumulus_pallet_parachain_system::{Pallet, Call, Storage, Inherent, Event<T>, ValidateUnsigned},
     ParachainInfo: parachain_info::{Pallet, Storage, Config},
     ParachainTokens: parachain_tokens::{Pallet, Storage, Call, Event<T>},
@@ -826,7 +826,7 @@ construct_polkabtc_runtime! {
 }
 
 #[cfg(feature = "aura-grandpa")]
-construct_polkabtc_runtime! {
+construct_interbtc_runtime! {
     Aura: pallet_aura::{Pallet, Config<T>},
     Grandpa: pallet_grandpa::{Pallet, Call, Storage, Config, Event},
 }

@@ -93,7 +93,7 @@ where
 
 pub fn local_config(#[cfg(feature = "cumulus-polkadot")] id: ParaId) -> ChainSpec {
     ChainSpec::from_genesis(
-        "PolkaBTC",
+        "InterBTC",
         "local_testnet",
         ChainType::Local,
         move || {
@@ -132,7 +132,7 @@ pub fn local_config(#[cfg(feature = "cumulus-polkadot")] id: ParaId) -> ChainSpe
             serde_json::from_value(json!({
                 "ss58Format": 42,
                 "tokenDecimals": [10, 8],
-                "tokenSymbol": ["DOT", "PolkaBTC"]
+                "tokenSymbol": ["DOT", "InterBTC"]
             }))
             .unwrap(),
         ),
@@ -149,7 +149,7 @@ pub fn local_config(#[cfg(feature = "cumulus-polkadot")] id: ParaId) -> ChainSpe
 #[cfg(feature = "cumulus-polkadot")]
 pub fn rococo_testnet_config(id: ParaId) -> ChainSpec {
     ChainSpec::from_genesis(
-        "PolkaBTC",
+        "InterBTC",
         "rococo_testnet",
         ChainType::Live,
         move || {
@@ -188,7 +188,7 @@ pub fn rococo_testnet_config(id: ParaId) -> ChainSpec {
             serde_json::from_value(json!({
                 "ss58Format": 42,
                 "tokenDecimals": [10, 8],
-                "tokenSymbol": ["DOT", "PolkaBTC"]
+                "tokenSymbol": ["DOT", "InterBTC"]
             }))
             .unwrap(),
         ),
@@ -202,7 +202,7 @@ pub fn rococo_testnet_config(id: ParaId) -> ChainSpec {
 #[cfg(feature = "aura-grandpa")]
 pub fn beta_testnet_config() -> ChainSpec {
     ChainSpec::from_genesis(
-        "PolkaBTC",
+        "InterBTC",
         "beta_testnet",
         ChainType::Live,
         move || {
@@ -263,7 +263,7 @@ pub fn beta_testnet_config() -> ChainSpec {
             serde_json::from_value(json!({
                 "ss58Format": 42,
                 "tokenDecimals": [10, 8],
-                "tokenSymbol": ["DOT", "PolkaBTC"]
+                "tokenSymbol": ["DOT", "InterBTC"]
             }))
             .unwrap(),
         ),
@@ -273,7 +273,7 @@ pub fn beta_testnet_config() -> ChainSpec {
 
 pub fn development_config(#[cfg(feature = "cumulus-polkadot")] id: ParaId) -> ChainSpec {
     ChainSpec::from_genesis(
-        "PolkaBTC",
+        "InterBTC",
         "dev_testnet",
         ChainType::Development,
         move || {
@@ -328,7 +328,7 @@ pub fn development_config(#[cfg(feature = "cumulus-polkadot")] id: ParaId) -> Ch
             serde_json::from_value(json!({
                 "ss58Format": 42,
                 "tokenDecimals": [10, 8],
-                "tokenSymbol": ["DOT", "PolkaBTC"]
+                "tokenSymbol": ["DOT", "InterBTC"]
             }))
             .unwrap(),
         ),
