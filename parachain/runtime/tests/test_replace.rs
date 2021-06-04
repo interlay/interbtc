@@ -486,10 +486,17 @@ mod expiry_test {
 
     #[test]
     fn integration_test_replace_expiry_no_period_change_post_expiry() {
+        // can still execute after expiry
         test_with(100, |replace_id| {
             SecurityPallet::set_active_block_number(110);
 
-            assert_err!(execute_replace(replace_id), ReplaceError::ReplacePeriodExpired);
+            assert_ok!(execute_replace(replace_id));
+        });
+
+        // but new-vault can also cancel.. whoever is first wins
+        test_with(100, |replace_id| {
+            SecurityPallet::set_active_block_number(110);
+
             assert_ok!(cancel_replace(replace_id));
         });
     }

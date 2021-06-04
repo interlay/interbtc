@@ -447,12 +447,6 @@ impl<T: Config> Pallet<T> {
         let new_vault_id = replace.new_vault;
         let old_vault_id = replace.old_vault;
 
-        // only executable before the request has expired
-        ensure!(
-            !ext::security::has_expired::<T>(replace.accept_time, Self::replace_period().max(replace.period))?,
-            Error::<T>::ReplacePeriodExpired
-        );
-
         let amount = TryInto::<u64>::try_into(replace.amount).map_err(|_e| Error::<T>::TryIntoIntError)? as i64;
 
         // check the transaction inclusion and validity

@@ -182,12 +182,19 @@ mod expiry_test {
 
     #[test]
     fn integration_test_redeem_expiry_no_period_change_post_expiry() {
+        // can still execute after expiry
         test_with(|| {
             set_redeem_period(100);
             let redeem_id = request_redeem();
             SecurityPallet::set_active_block_number(110);
+            assert_ok!(execute_redeem(redeem_id));
+        });
 
-            assert_noop!(execute_redeem(redeem_id), RedeemError::CommitPeriodExpired);
+        // .. but user can also cancel. Whoever is first wins
+        test_with(|| {
+            set_redeem_period(100);
+            let redeem_id = request_redeem();
+            SecurityPallet::set_active_block_number(110);
             assert_ok!(cancel_redeem(redeem_id));
         });
     }

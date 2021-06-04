@@ -316,34 +316,6 @@ fn test_execute_redeem_succeeds_with_another_account() {
 }
 
 #[test]
-fn test_execute_redeem_fails_with_commit_period_expired() {
-    run_test(|| {
-        Security::<Test>::set_active_block_number(40);
-
-        Redeem::get_open_redeem_request_from_id.mock_safe(|_| {
-            MockResult::Return(Ok(RedeemRequest {
-                period: 0,
-                vault: BOB,
-                opentime: 20,
-                fee: 0,
-                amount_btc: 0,
-                premium: 0,
-                redeemer: ALICE,
-                btc_address: BtcAddress::random(),
-                btc_height: 0,
-                status: RedeemRequestStatus::Pending,
-                transfer_fee_btc: Redeem::get_current_inclusion_fee().unwrap(),
-            }))
-        });
-
-        assert_err!(
-            Redeem::execute_redeem(Origin::signed(BOB), H256([0u8; 32]), Vec::default(), Vec::default()),
-            TestError::CommitPeriodExpired
-        );
-    })
-}
-
-#[test]
 fn test_execute_redeem_succeeds() {
     run_test(|| {
         ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|x| MockResult::Return(btcdot_parity(x)));
