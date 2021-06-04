@@ -1,4 +1,4 @@
-use crate::{Error, ACCEPTED_MAX_OPRETURN_TRANSACTION_OUTPUTS};
+use crate::{Error, ACCEPTED_MAX_TRANSACTION_OUTPUTS};
 pub use bitcoin::Address as BtcAddress;
 use bitcoin::{
     parser::FromLeBytes,
@@ -7,7 +7,7 @@ use bitcoin::{
 use codec::{Decode, Encode};
 use frame_support::{dispatch::DispatchError, ensure};
 use sp_core::H256;
-use sp_std::vec::Vec;
+use sp_std::{convert::TryFrom, vec::Vec};
 
 /// Bitcoin Enriched Block Headers
 #[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Eq, Debug)]
@@ -58,12 +58,14 @@ pub struct OpReturnPaymentData<T: frame_system::Config> {
     _marker: sp_std::marker::PhantomData<T>,
 }
 
-impl<T: crate::Config> OpReturnPaymentData<T> {
-    pub fn try_from_transaction(transaction: Transaction) -> Result<Self, DispatchError> {
+impl<T: crate::Config> TryFrom<Transaction> for OpReturnPaymentData<T> {
+    type Error = DispatchError;
+
+    fn try_from(transaction: Transaction) -> Result<Self, Self::Error> {
         // check the number of outputs - this check is redundant due to the checks below, but
         // this serves to put an upperbound to the number of iterations
         ensure!(
-            transaction.outputs.len() <= ACCEPTED_MAX_OPRETURN_TRANSACTION_OUTPUTS as usize,
+            transaction.outputs.len() <= ACCEPTED_MAX_TRANSACTION_OUTPUTS,
             Error::<T>::InvalidOpReturnTransaction
         );
 
@@ -103,7 +105,9 @@ impl<T: crate::Config> OpReturnPaymentData<T> {
             _marker: Default::default(),
         })
     }
+}
 
+impl<T: crate::Config> OpReturnPaymentData<T> {
     // ensures this is a valid payment. If it is, it returns the return-to-self address
     pub fn ensure_valid_payment_to(
         &self,

@@ -34,7 +34,11 @@ use bitcoin::{parser::parse_transaction, types::*};
 use btc_relay::{types::OpReturnPaymentData, BtcAddress};
 use frame_support::{dispatch::DispatchResult, ensure, transactional};
 use frame_system::ensure_signed;
-use sp_std::{collections::btree_set::BTreeSet, convert::TryInto, vec::Vec};
+use sp_std::{
+    collections::btree_set::BTreeSet,
+    convert::{TryFrom, TryInto},
+    vec::Vec,
+};
 use vault_registry::Wallet;
 
 pub use pallet::*;
@@ -274,7 +278,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `request_value` - amount of btc as specified in the request
     /// * `request_address` - recipient btc address
-    /// * `payments` - all payment outputs extracted from tx
+    /// * `payment_data` - all payment data extracted from tx
     /// * `wallet` - vault btc addresses
     pub(crate) fn is_valid_request_transaction(
         request_value: Wrapped<T>,
@@ -344,11 +348,11 @@ impl<T: Config> Pallet<T> {
             Error::<T>::ValidMergeTransaction
         );
 
-        if let Ok(payment_data) = OpReturnPaymentData::<T>::try_from_transaction(tx) {
+        if let Ok(payment_data) = OpReturnPaymentData::<T>::try_from(tx) {
             // redeem requests
             if let Ok(req) = ext::redeem::get_open_or_completed_redeem_request_from_id::<T>(&payment_data.op_return) {
                 ensure!(
-                    !Self::is_valid_request_transaction(req.amount_btc, req.btc_address, &payment_data, &vault.wallet,),
+                    !Self::is_valid_request_transaction(req.amount_btc, req.btc_address, &payment_data, &vault.wallet),
                     Error::<T>::ValidRedeemTransaction
                 );
             };
@@ -356,7 +360,7 @@ impl<T: Config> Pallet<T> {
             // replace requests
             if let Ok(req) = ext::replace::get_open_or_completed_replace_request::<T>(&payment_data.op_return) {
                 ensure!(
-                    !Self::is_valid_request_transaction(req.amount, req.btc_address, &payment_data, &vault.wallet,),
+                    !Self::is_valid_request_transaction(req.amount, req.btc_address, &payment_data, &vault.wallet),
                     Error::<T>::ValidReplaceTransaction
                 );
             };
@@ -368,7 +372,7 @@ impl<T: Config> Pallet<T> {
                         req.amount_wrapped,
                         req.btc_address,
                         &payment_data,
-                        &vault.wallet,
+                        &vault.wallet
                     ),
                     Error::<T>::ValidRefundTransaction
                 );

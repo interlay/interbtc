@@ -193,19 +193,6 @@ mod execute_replace_test {
             assert_event_matches!(Event::ExecuteReplace(_, OLD_VAULT, NEW_VAULT));
         })
     }
-
-    #[test]
-    fn test_execute_replace_after_expiry_fails() {
-        run_test(|| {
-            setup_mocks();
-            ext::security::has_expired::<Test>.mock_safe(|_, _| MockResult::Return(Ok(true)));
-
-            assert_err!(
-                Replace::_execute_replace(H256::zero(), Vec::new(), Vec::new()),
-                TestError::ReplacePeriodExpired
-            );
-        })
-    }
 }
 
 mod cancel_replace_tests {

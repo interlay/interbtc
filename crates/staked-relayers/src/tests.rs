@@ -11,6 +11,7 @@ use redeem::types::{RedeemRequest, RedeemRequestStatus};
 use replace::types::{ReplaceRequest, ReplaceRequestStatus};
 use sp_arithmetic::FixedI128;
 use sp_core::{H160, H256};
+use sp_std::convert::TryFrom;
 use std::{convert::TryInto, str::FromStr};
 use vault_registry::{Vault, VaultStatus, Wallet};
 
@@ -248,7 +249,7 @@ fn test_is_valid_request_transaction_overpayment_fails() {
         let request_address = address1;
 
         let transaction = build_dummy2_transaction_with(vec![(actual_value, address1)], H256::zero());
-        let payment_data = OpReturnPaymentData::try_from_transaction(transaction).unwrap();
+        let payment_data = OpReturnPaymentData::try_from(transaction).unwrap();
 
         assert_eq!(
             StakedRelayers::is_valid_request_transaction(request_value, request_address, &payment_data, &wallet),
@@ -276,7 +277,7 @@ fn test_is_valid_request_transaction_underpayment_fails() {
         let request_address = address1;
 
         let transaction = build_dummy2_transaction_with(vec![(actual_value, address1)], H256::zero());
-        let payment_data = OpReturnPaymentData::try_from_transaction(transaction).unwrap();
+        let payment_data = OpReturnPaymentData::try_from(transaction).unwrap();
 
         assert_eq!(
             StakedRelayers::is_valid_request_transaction(request_value, request_address, &payment_data, &wallet),
@@ -302,7 +303,7 @@ fn test_is_valid_request_transaction_succeeds() {
             vec![(request_value, recipient_address), (change_value, vault_address)],
             H256::zero(),
         );
-        let payment_data = OpReturnPaymentData::try_from_transaction(transaction).unwrap();
+        let payment_data = OpReturnPaymentData::try_from(transaction).unwrap();
 
         assert_eq!(
             StakedRelayers::is_valid_request_transaction(

@@ -57,7 +57,7 @@ use frame_support::{
 };
 use frame_system::{ensure_root, ensure_signed};
 use sp_core::{H256, U256};
-use sp_std::{collections::btree_set::BTreeSet, prelude::*};
+use sp_std::{collections::btree_set::BTreeSet, convert::TryFrom, prelude::*};
 
 // Crates
 pub use bitcoin::{self, Address as BtcAddress, PublicKey as BtcPublicKey};
@@ -477,8 +477,8 @@ pub const ACCEPTED_MIN_TRANSACTION_OUTPUTS: u32 = 1;
 // Accepted minimum number of transaction outputs for op-return validation
 pub const ACCEPTED_MIN_TRANSACTION_OUTPUTS_WITH_OP_RETURN: usize = 2;
 
-// Accepted maximum number of transaction outputs for validation
-pub const ACCEPTED_MAX_OPRETURN_TRANSACTION_OUTPUTS: u32 = 3;
+// Accepted maximum number of transaction outputs for validation of redeem/replace/refund
+pub const ACCEPTED_MAX_TRANSACTION_OUTPUTS: usize = 3;
 
 /// Unrounded Maximum Target
 /// 0x00000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
@@ -653,7 +653,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// helper for the dispatchable
+    // helper for the dispatchable
     fn _validate_transaction(
         raw_tx: Vec<u8>,
         expected_btc: i64,
@@ -788,7 +788,7 @@ impl<T: Config> Pallet<T> {
         expected_btc: i64,
         op_return_id: H256,
     ) -> Result<Option<BtcAddress>, DispatchError> {
-        let payment_data = OpReturnPaymentData::<T>::try_from_transaction(transaction)?;
+        let payment_data = OpReturnPaymentData::<T>::try_from(transaction)?;
         payment_data.ensure_valid_payment_to(expected_btc, recipient_btc_address, Some(op_return_id))
     }
 

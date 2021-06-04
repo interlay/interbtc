@@ -9,7 +9,11 @@ use bitcoin::{formatter::TryFormattable, merkle::*, parser::*, types::*};
 use frame_support::{assert_err, assert_ok};
 use mocktopus::mocking::*;
 use security::{ErrorCode, StatusCode};
-use sp_std::{collections::btree_set::BTreeSet, convert::TryInto, str::FromStr};
+use sp_std::{
+    collections::btree_set::BTreeSet,
+    convert::{TryFrom, TryInto},
+    str::FromStr,
+};
 
 /// # Getters and setters
 ///
@@ -1604,7 +1608,7 @@ mod op_return_payment_data_tests {
 
             for transaction in permutations(transaction) {
                 assert_err!(
-                    OpReturnPaymentData::<Test>::try_from_transaction(transaction),
+                    OpReturnPaymentData::<Test>::try_from(transaction),
                     Error::<Test>::InvalidOpReturnTransaction
                 );
             }
@@ -1621,7 +1625,7 @@ mod op_return_payment_data_tests {
                 .build();
 
             for transaction in permutations(transaction) {
-                assert_ok!(OpReturnPaymentData::<Test>::try_from_transaction(transaction));
+                assert_ok!(OpReturnPaymentData::<Test>::try_from(transaction));
             }
         })
     }
@@ -1637,7 +1641,7 @@ mod op_return_payment_data_tests {
                 .build();
 
             for transaction in permutations(transaction) {
-                assert_ok!(OpReturnPaymentData::<Test>::try_from_transaction(transaction));
+                assert_ok!(OpReturnPaymentData::<Test>::try_from(transaction));
             }
         })
     }
@@ -1655,7 +1659,7 @@ mod op_return_payment_data_tests {
 
             for transaction in permutations(transaction) {
                 assert_err!(
-                    OpReturnPaymentData::<Test>::try_from_transaction(transaction),
+                    OpReturnPaymentData::<Test>::try_from(transaction),
                     Error::<Test>::InvalidOpReturnTransaction
                 );
             }
@@ -1673,7 +1677,7 @@ mod op_return_payment_data_tests {
 
             for transaction in permutations(transaction) {
                 assert_err!(
-                    OpReturnPaymentData::<Test>::try_from_transaction(transaction),
+                    OpReturnPaymentData::<Test>::try_from(transaction),
                     Error::<Test>::InvalidOpReturnTransaction
                 );
             }
@@ -1690,7 +1694,7 @@ mod op_return_payment_data_tests {
 
             for transaction in permutations(transaction) {
                 assert_err!(
-                    OpReturnPaymentData::<Test>::try_from_transaction(transaction),
+                    OpReturnPaymentData::<Test>::try_from(transaction),
                     Error::<Test>::InvalidOpReturnTransaction
                 );
             }
@@ -1708,7 +1712,7 @@ mod op_return_payment_data_tests {
 
             for transaction in permutations(transaction) {
                 assert_err!(
-                    OpReturnPaymentData::<Test>::try_from_transaction(transaction),
+                    OpReturnPaymentData::<Test>::try_from(transaction),
                     Error::<Test>::InvalidOpReturnTransaction
                 );
             }
@@ -1725,7 +1729,7 @@ mod op_return_payment_data_tests {
 
             for transaction in permutations(transaction) {
                 assert_err!(
-                    OpReturnPaymentData::<Test>::try_from_transaction(transaction),
+                    OpReturnPaymentData::<Test>::try_from(transaction),
                     Error::<Test>::InvalidOpReturnTransaction
                 );
             }
@@ -1745,7 +1749,7 @@ mod op_return_payment_data_tests {
                 .build();
 
             for transaction in permutations(transaction) {
-                let payment_data = OpReturnPaymentData::<Test>::try_from_transaction(transaction).unwrap();
+                let payment_data = OpReturnPaymentData::<Test>::try_from(transaction).unwrap();
                 assert_ok!(
                     payment_data.ensure_valid_payment_to(amount, dummy_address1(), Some(op_return)),
                     Some(dummy_address2())
@@ -1766,7 +1770,7 @@ mod op_return_payment_data_tests {
                 .build();
 
             for transaction in permutations(transaction) {
-                let payment_data = OpReturnPaymentData::<Test>::try_from_transaction(transaction).unwrap();
+                let payment_data = OpReturnPaymentData::<Test>::try_from(transaction).unwrap();
                 assert_ok!(
                     payment_data.ensure_valid_payment_to(amount, dummy_address1(), Some(op_return)),
                     None
@@ -1788,7 +1792,7 @@ mod op_return_payment_data_tests {
                 .build();
 
             for transaction in permutations(transaction) {
-                let payment_data = OpReturnPaymentData::<Test>::try_from_transaction(transaction).unwrap();
+                let payment_data = OpReturnPaymentData::<Test>::try_from(transaction).unwrap();
                 assert_ok!(
                     payment_data.ensure_valid_payment_to(amount, dummy_address1(), None),
                     Some(dummy_address2())
@@ -1809,7 +1813,7 @@ mod op_return_payment_data_tests {
                 .build();
 
             for transaction in permutations(transaction) {
-                let payment_data = OpReturnPaymentData::<Test>::try_from_transaction(transaction).unwrap();
+                let payment_data = OpReturnPaymentData::<Test>::try_from(transaction).unwrap();
                 assert_err!(
                     payment_data.ensure_valid_payment_to(amount, dummy_address1(), Some(op_return)),
                     Error::<Test>::InvalidPayment
@@ -1831,7 +1835,7 @@ mod op_return_payment_data_tests {
                 .build();
 
             for transaction in permutations(transaction) {
-                let payment_data = OpReturnPaymentData::<Test>::try_from_transaction(transaction).unwrap();
+                let payment_data = OpReturnPaymentData::<Test>::try_from(transaction).unwrap();
                 assert_err!(
                     payment_data.ensure_valid_payment_to(amount, dummy_address3(), Some(op_return)),
                     Error::<Test>::InvalidPayment
@@ -1853,7 +1857,7 @@ mod op_return_payment_data_tests {
                 .build();
 
             for transaction in permutations(transaction) {
-                let payment_data = OpReturnPaymentData::<Test>::try_from_transaction(transaction).unwrap();
+                let payment_data = OpReturnPaymentData::<Test>::try_from(transaction).unwrap();
                 assert_err!(
                     payment_data.ensure_valid_payment_to(amount - 1, dummy_address1(), Some(op_return)),
                     Error::<Test>::InvalidPaymentAmount
