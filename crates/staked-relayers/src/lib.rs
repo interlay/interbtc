@@ -32,53 +32,87 @@ use crate::types::{Collateral, Wrapped};
 use bitcoin::{parser::parse_transaction, types::*};
 
 use btc_relay::BtcAddress;
-use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure, transactional,
-};
+use frame_support::{dispatch::DispatchResult, ensure, transactional};
 use frame_system::ensure_signed;
 use sp_core::H256;
 
 use sp_std::{collections::btree_set::BTreeSet, convert::TryInto, vec::Vec};
 use vault_registry::Wallet;
 
-/// ## Configuration
-/// The pallet's configuration trait.
-pub trait Config:
-    frame_system::Config
-    + security::Config
-    + currency::Config<currency::Collateral>
-    + currency::Config<currency::Wrapped>
-    + vault_registry::Config
-    + btc_relay::Config
-    + redeem::Config
-    + replace::Config
-    + refund::Config
-    + sla::Config
-    + fee::Config
-{
-    /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
+pub use pallet::*;
 
-    /// Weight information for the extrinsics in this module.
-    type WeightInfo: WeightInfo;
-}
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use frame_support::pallet_prelude::*;
+    use frame_system::pallet_prelude::*;
 
-// This pallet's storage items.
-decl_storage! {
-    trait Store for Module<T: Config> as Staking {
-        /// Mapping of Bitcoin transaction identifiers (SHA256 hashes) to account
-        /// identifiers of Vaults accused of theft.
-        TheftReports get(fn theft_report): map hasher(blake2_128_concat) H256Le => BTreeSet<T::AccountId>;
+    /// ## Configuration
+    /// The pallet's configuration trait.
+    #[pallet::config]
+    pub trait Config:
+        frame_system::Config
+        + security::Config
+        + currency::Config<currency::Collateral>
+        + currency::Config<currency::Wrapped>
+        + vault_registry::Config
+        + btc_relay::Config
+        + redeem::Config
+        + replace::Config
+        + refund::Config
+        + sla::Config
+        + fee::Config
+    {
+        /// The overarching event type.
+        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
+
+        /// Weight information for the extrinsics in this module.
+        type WeightInfo: WeightInfo;
     }
-}
 
-// The pallet's dispatchable functions.
-decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
-        type Error = Error<T>;
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
+    #[pallet::metadata(T::AccountId = "AccountId")]
+    pub enum Event<T: Config> {
+        VaultTheft(T::AccountId, H256Le),
+    }
 
-        fn deposit_event() = default;
+    #[pallet::error]
+    pub enum Error<T> {
+        /// Vault already reported
+        VaultAlreadyReported,
+        /// Vault BTC address not in transaction input
+        VaultNoInputToTransaction,
+        /// Valid redeem transaction
+        ValidRedeemTransaction,
+        /// Valid replace transaction
+        ValidReplaceTransaction,
+        /// Valid refund transaction
+        ValidRefundTransaction,
+        /// Valid merge transaction
+        ValidMergeTransaction,
+        /// Failed to parse transaction
+        InvalidTransaction,
+        /// Unable to convert value
+        TryIntoIntError,
+    }
 
+    /// Mapping of Bitcoin transaction identifiers (SHA256 hashes) to account
+    /// identifiers of Vaults accused of theft.
+    #[pallet::storage]
+    #[pallet::getter(fn theft_report)]
+    pub(super) type TheftReports<T: Config> =
+        StorageMap<_, Blake2_128Concat, H256Le, BTreeSet<T::AccountId>, ValueQuery>;
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {}
+
+    #[pallet::pallet]
+    pub struct Pallet<T>(_);
+
+    // The pallet's dispatchable functions.
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
         /// One time function to initialize the BTC-Relay with the first block
         ///
         /// # Arguments
@@ -102,19 +136,18 @@ decl_module! {
         ///
         /// Total Complexity: O(1)
         /// # </weight>
-        #[weight = <T as Config>::WeightInfo::initialize()]
+        #[pallet::weight(<T as Config>::WeightInfo::initialize())]
         #[transactional]
-        fn initialize(
-            origin,
+        pub(super) fn initialize(
+            origin: OriginFor<T>,
             raw_block_header: RawBlockHeader,
-            block_height: u32)
-            -> DispatchResult
-        {
+            block_height: u32,
+        ) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let relayer = ensure_signed(origin)?;
-            ext::btc_relay::initialize::<T>(relayer, raw_block_header, block_height)
+            ext::btc_relay::initialize::<T>(relayer, raw_block_header, block_height)?;
+            Ok(().into())
         }
-
 
         /// Stores a single new block header
         ///
@@ -148,14 +181,16 @@ decl_module! {
         ///
         /// Total Complexity: O(C + P)
         /// # </weight>
-        #[weight = <T as Config>::WeightInfo::store_block_header()]
+        #[pallet::weight(<T as Config>::WeightInfo::store_block_header())]
         #[transactional]
-        fn store_block_header(
-            origin, raw_block_header: RawBlockHeader
-        ) -> DispatchResult {
+        pub(super) fn store_block_header(
+            origin: OriginFor<T>,
+            raw_block_header: RawBlockHeader,
+        ) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let relayer = ensure_signed(origin)?;
-            Self::store_block_header_and_update_sla(&relayer, raw_block_header)
+            Self::store_block_header_and_update_sla(&relayer, raw_block_header)?;
+            Ok(().into())
         }
 
         /// A Staked Relayer reports misbehavior by a Vault, providing a fraud proof
@@ -168,9 +203,14 @@ decl_module! {
         /// * `tx_id`: The hash of the transaction
         /// * `merkle_proof`: The proof of tx inclusion.
         /// * `raw_tx`: The raw Bitcoin transaction.
-        #[weight = <T as Config>::WeightInfo::report_vault_theft()]
+        #[pallet::weight(<T as Config>::WeightInfo::report_vault_theft())]
         #[transactional]
-        fn report_vault_theft(origin, vault_id: T::AccountId, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> DispatchResult {
+        pub(super) fn report_vault_theft(
+            origin: OriginFor<T>,
+            vault_id: T::AccountId,
+            merkle_proof: Vec<u8>,
+            raw_tx: Vec<u8>,
+        ) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let signer = ensure_signed(origin)?;
 
@@ -199,19 +239,16 @@ decl_module! {
             // reward the participant by increasing their SLA
             ext::sla::event_update_relayer_sla::<T>(&signer, ext::sla::RelayerEvent::TheftReport)?;
 
-            Self::deposit_event(<Event<T>>::VaultTheft(
-                vault_id,
-                tx_id
-            ));
+            Self::deposit_event(<Event<T>>::VaultTheft(vault_id, tx_id));
 
-            Ok(())
+            Ok(().into())
         }
     }
 }
 
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
-impl<T: Config> Module<T> {
+impl<T: Config> Pallet<T> {
     fn store_block_header_and_update_sla(relayer: &T::AccountId, raw_block_header: RawBlockHeader) -> DispatchResult {
         ext::btc_relay::store_block_header::<T>(&relayer, raw_block_header)?;
         // reward the participant by increasing their SLA
@@ -371,35 +408,5 @@ impl<T: Config> Module<T> {
         }
 
         Ok(())
-    }
-}
-
-decl_event!(
-    pub enum Event<T>
-    where
-        AccountId = <T as frame_system::Config>::AccountId,
-    {
-        VaultTheft(AccountId, H256Le),
-    }
-);
-
-decl_error! {
-    pub enum Error for Module<T: Config> {
-        /// Vault already reported
-        VaultAlreadyReported,
-        /// Vault BTC address not in transaction input
-        VaultNoInputToTransaction,
-        /// Valid redeem transaction
-        ValidRedeemTransaction,
-        /// Valid replace transaction
-        ValidReplaceTransaction,
-        /// Valid refund transaction
-        ValidRefundTransaction,
-        /// Valid merge transaction
-        ValidMergeTransaction,
-        /// Failed to parse transaction
-        InvalidTransaction,
-        /// Unable to convert value
-        TryIntoIntError,
     }
 }
