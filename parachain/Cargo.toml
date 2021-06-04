@@ -68,12 +68,10 @@ cumulus-polkadot = [
 
     "btc-parachain-runtime/cumulus-polkadot",
     "btc-parachain-service/cumulus-polkadot",
-    "btc-parachain-rpc/cumulus-polkadot",
 ]
 aura-grandpa = [
     "btc-parachain-runtime/aura-grandpa",
     "btc-parachain-service/aura-grandpa",
-    "btc-parachain-rpc/aura-grandpa",
 ]
 disable-native-filter = [
     "btc-parachain-runtime/disable-native-filter",

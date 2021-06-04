@@ -8,8 +8,6 @@ version = "0.7.0"
 jsonrpc-core = "15.1.0"
 
 # Parachain dependencies
-btc-parachain-runtime = { path = "../runtime" }
-bitcoin = { path = "../../crates/bitcoin" }
 module-btc-relay-rpc = { path = "../../crates/btc-relay/rpc" }
 module-exchange-rate-oracle-rpc = { path = "../../crates/exchange-rate-oracle/rpc" }
 module-staked-relayers-rpc = { path = "../../crates/staked-relayers/rpc" }
@@ -18,6 +16,8 @@ module-issue-rpc = { path = "../../crates/issue/rpc" }
 module-redeem-rpc = { path = "../../crates/redeem/rpc" }
 module-replace-rpc = { path = "../../crates/replace/rpc" }
 module-refund-rpc = { path = "../../crates/refund/rpc" }
+
+primitives = { package = "btc-parachain-primitives", path = "../../primitives" }
 
 # Substrate dependencies
 sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1" }
@@ -31,11 +31,3 @@ sp-transaction-pool = { git = "https://github.com/paritytech/substrate", branch 
 
 pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1" }
 substrate-frame-rpc-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1" }
-
-[features]
-cumulus-polkadot = [
-    "btc-parachain-runtime/cumulus-polkadot",
-]
-aura-grandpa = [
-    "btc-parachain-runtime/aura-grandpa",
-]

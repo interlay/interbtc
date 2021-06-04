@@ -7,6 +7,12 @@ use sp_runtime::{
     MultiSignature,
 };
 
+pub use bitcoin::types::H256Le;
+pub use issue::IssueRequest;
+pub use redeem::RedeemRequest;
+pub use refund::RefundRequest;
+pub use replace::ReplaceRequest;
+
 /// An index to a block.
 pub type BlockNumber = u32;
 

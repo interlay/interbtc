@@ -5,10 +5,8 @@
 
 #![warn(missing_docs)]
 
-use bitcoin::types::H256Le;
-use btc_parachain_runtime::{
-    primitives::Block, AccountId, Balance, BlockNumber, IssueRequest, Nonce, RedeemRequest, RefundRequest,
-    ReplaceRequest,
+use primitives::{
+    AccountId, Balance, Block, BlockNumber, H256Le, IssueRequest, Nonce, RedeemRequest, RefundRequest, ReplaceRequest,
 };
 pub use sc_rpc_api::DenyUnsafe;
 use sp_api::ProvideRuntimeApi;
