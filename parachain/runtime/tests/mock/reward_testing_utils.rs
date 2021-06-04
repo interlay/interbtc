@@ -18,14 +18,14 @@ type AccountId = [u8; 32];
 type Balance = f64;
 
 #[derive(Debug, Default)]
-pub struct RewardPool {
+pub struct BasicRewardPool {
     stake: HashMap<AccountId, Balance>,
     total_stake: Balance,
     reward_tally: HashMap<AccountId, Balance>,
     reward_per_token: Balance,
 }
 
-impl RewardPool {
+impl BasicRewardPool {
     pub fn deposit_stake(&mut self, account: AccountId, amount: Balance) -> &mut Self {
         let stake = self.stake.remove(&account).unwrap_or(0.0);
         self.stake.insert(account, stake + amount);
