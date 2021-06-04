@@ -1,7 +1,7 @@
 /// Tests for BTC-Relay
 use sp_core::U256;
 
-use crate::{ext, mock::*, types::*, BtcAddress};
+use crate::{ext, mock::*, types::*, BtcAddress, Error};
 
 type Event = crate::Event<Test>;
 
@@ -9,7 +9,11 @@ use bitcoin::{formatter::TryFormattable, merkle::*, parser::*, types::*};
 use frame_support::{assert_err, assert_ok};
 use mocktopus::mocking::*;
 use security::{ErrorCode, StatusCode};
-use sp_std::{collections::btree_set::BTreeSet, convert::TryInto, str::FromStr};
+use sp_std::{
+    collections::btree_set::BTreeSet,
+    convert::{TryFrom, TryInto},
+    str::FromStr,
+};
 
 /// # Getters and setters
 ///
@@ -720,8 +724,6 @@ fn test_validate_transaction_succeeds_with_payment() {
 
         BTCRelay::parse_transaction.mock_safe(move |_| MockResult::Return(Ok(sample_transaction_parsed(&outputs))));
 
-        BTCRelay::is_op_return_disabled.mock_safe(move || MockResult::Return(true));
-
         assert_ok!(BTCRelay::validate_transaction(
             Origin::signed(3),
             raw_tx,
@@ -832,7 +834,7 @@ fn test_validate_transaction_invalid_no_outputs_fails() {
                 recipient_btc_address,
                 Some(H256::from_slice(&op_return_id))
             ),
-            TestError::MalformedTransaction
+            TestError::InvalidOpReturnTransaction
         )
     });
 }
@@ -861,7 +863,7 @@ fn test_validate_transaction_insufficient_payment_value_fails() {
                 recipient_btc_address,
                 Some(H256::from_slice(&op_return_id))
             ),
-            TestError::InsufficientValue
+            TestError::InvalidPaymentAmount
         )
     });
 }
@@ -894,7 +896,7 @@ fn test_validate_transaction_wrong_recipient_fails() {
                 recipient_btc_address,
                 Some(H256::from_slice(&op_return_id))
             ),
-            TestError::InvalidPayment
+            TestError::InvalidOpReturnTransaction
         )
     });
 }
@@ -923,7 +925,7 @@ fn test_validate_transaction_incorrect_opreturn_fails() {
                 recipient_btc_address,
                 Some(H256::from_slice(&op_return_id))
             ),
-            TestError::InvalidOpReturn
+            TestError::InvalidOpReturnTransaction
         )
     });
 }
@@ -952,7 +954,7 @@ fn test_verify_and_validate_transaction_succeeds() {
             BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let op_return_id =
             hex::decode("e5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned()).unwrap();
-        BTCRelay::_validate_transaction.mock_safe(move |_, _, _, _| MockResult::Return(Ok((recipient_btc_address, 0))));
+        BTCRelay::_validate_transaction.mock_safe(move |_, _, _, _| MockResult::Return(Ok(())));
         BTCRelay::_verify_transaction_inclusion.mock_safe(move |_, _, _| MockResult::Return(Ok(())));
 
         assert_ok!(BTCRelay::verify_and_validate_transaction(
@@ -1572,142 +1574,297 @@ fn store_generated_block_headers() {
     })
 }
 
-#[test]
-fn test_extract_value_fails_with_invalid_payment() {
-    run_test(|| {
-        let recipient_btc_address_0 = BtcAddress::P2SH(H160([0; 20]));
-        let recipient_btc_address_1 = BtcAddress::P2SH(H160([1; 20]));
+mod op_return_payment_data_tests {
+    use super::*;
+    use itertools::Itertools;
 
-        let transaction = TransactionBuilder::new()
-            .with_version(2)
-            .add_output(TransactionOutput::payment(32, &recipient_btc_address_0))
-            .build();
+    fn permutations(transaction: Transaction) -> impl Iterator<Item = Transaction> {
+        let n = transaction.outputs.len();
+        let outputs = transaction.outputs.clone();
+        outputs.into_iter().permutations(n).map(move |x| Transaction {
+            outputs: x.clone(),
+            ..transaction.clone()
+        })
+    }
 
-        assert_err!(
-            BTCRelay::extract_payment_value(transaction, recipient_btc_address_1),
-            TestError::InvalidPayment
-        );
-    })
-}
+    fn dummy_address1() -> BtcAddress {
+        BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap())
+    }
 
-#[test]
-fn test_extract_value_succeeds() {
-    run_test(|| {
-        let recipient_btc_address = BtcAddress::P2SH(H160([0; 20]));
-        let recipient_value = 64;
+    fn dummy_address2() -> BtcAddress {
+        BtcAddress::P2SH(H160::from_str(&"0000000000000000000000000000000000000000").unwrap())
+    }
+    fn dummy_address3() -> BtcAddress {
+        BtcAddress::P2SH(H160::from_str(&"1000000000000000000000000000000000000000").unwrap())
+    }
 
-        let transaction = TransactionBuilder::new()
-            .with_version(2)
-            .add_output(TransactionOutput::payment(recipient_value, &recipient_btc_address))
-            .build();
+    #[test]
+    fn test_constructing_op_return_payment_data_with_zero_outputs_fails() {
+        run_test(|| {
+            let transaction = TransactionBuilder::new()
+                .with_version(2)
+                .add_output(TransactionOutput::op_return(0, &[0; 32]))
+                .build();
 
-        assert_eq!(
-            BTCRelay::extract_payment_value(transaction, recipient_btc_address).unwrap(),
-            recipient_value
-        );
-    })
-}
+            for transaction in permutations(transaction) {
+                assert_err!(
+                    OpReturnPaymentData::<Test>::try_from(transaction),
+                    Error::<Test>::InvalidOpReturnTransaction
+                );
+            }
+        })
+    }
 
-#[test]
-fn test_extract_value_and_op_return_fails_with_not_enough_outputs() {
-    run_test(|| {
-        let recipient_btc_address = BtcAddress::P2SH(H160::zero());
+    #[test]
+    fn test_constructing_op_return_payment_data_with_one_output_succeeds() {
+        run_test(|| {
+            let transaction = TransactionBuilder::new()
+                .with_version(2)
+                .add_output(TransactionOutput::payment(252345, &dummy_address1()))
+                .add_output(TransactionOutput::op_return(0, &[0; 32]))
+                .build();
 
-        let transaction = TransactionBuilder::new()
-            .with_version(2)
-            .add_output(TransactionOutput::payment(100, &recipient_btc_address))
-            .build();
+            for transaction in permutations(transaction) {
+                assert_ok!(OpReturnPaymentData::<Test>::try_from(transaction));
+            }
+        })
+    }
 
-        assert_err!(
-            BTCRelay::extract_payment_value_and_op_return(transaction, recipient_btc_address),
-            TestError::MalformedTransaction
-        );
-    })
-}
+    #[test]
+    fn test_constructing_op_return_payment_data_with_two_outputs_succeeds() {
+        run_test(|| {
+            let transaction = TransactionBuilder::new()
+                .with_version(2)
+                .add_output(TransactionOutput::payment(252345, &dummy_address1()))
+                .add_output(TransactionOutput::payment(252345, &dummy_address2()))
+                .add_output(TransactionOutput::op_return(0, &[0; 32]))
+                .build();
 
-#[test]
-fn test_extract_value_and_op_return_fails_with_no_op_return() {
-    run_test(|| {
-        let recipient_btc_address_0 = BtcAddress::P2SH(H160([0; 20]));
-        let recipient_btc_address_1 = BtcAddress::P2SH(H160([1; 20]));
+            for transaction in permutations(transaction) {
+                assert_ok!(OpReturnPaymentData::<Test>::try_from(transaction));
+            }
+        })
+    }
 
-        let transaction = TransactionBuilder::new()
-            .with_version(2)
-            .add_output(TransactionOutput::payment(100, &recipient_btc_address_0))
-            .add_output(TransactionOutput::payment(100, &recipient_btc_address_1))
-            .build();
+    #[test]
+    fn test_constructing_op_return_payment_data_with_too_many_outputs_fails() {
+        run_test(|| {
+            let transaction = TransactionBuilder::new()
+                .with_version(2)
+                .add_output(TransactionOutput::payment(252345, &dummy_address1()))
+                .add_output(TransactionOutput::payment(252345, &dummy_address2()))
+                .add_output(TransactionOutput::payment(252345, &dummy_address3()))
+                .add_output(TransactionOutput::op_return(0, &[0; 32]))
+                .build();
 
-        assert_err!(
-            BTCRelay::extract_payment_value_and_op_return(transaction, recipient_btc_address_0),
-            TestError::InvalidPayment
-        );
-    })
-}
+            for transaction in permutations(transaction) {
+                assert_err!(
+                    OpReturnPaymentData::<Test>::try_from(transaction),
+                    Error::<Test>::InvalidOpReturnTransaction
+                );
+            }
+        })
+    }
+    #[test]
+    fn test_constructing_op_return_payment_data_with_two_identical_outputs_fails() {
+        run_test(|| {
+            let transaction = TransactionBuilder::new()
+                .with_version(2)
+                .add_output(TransactionOutput::payment(252345, &dummy_address1()))
+                .add_output(TransactionOutput::payment(252344145, &dummy_address1()))
+                .add_output(TransactionOutput::op_return(0, &[0; 32]))
+                .build();
 
-#[test]
-fn test_extract_value_and_op_return_fails_with_no_recipient() {
-    run_test(|| {
-        let recipient_btc_address_0 = BtcAddress::P2SH(H160([0; 20]));
-        let recipient_btc_address_1 = BtcAddress::P2SH(H160([1; 20]));
-        let recipient_btc_address_2 = BtcAddress::P2SH(H160([2; 20]));
+            for transaction in permutations(transaction) {
+                assert_err!(
+                    OpReturnPaymentData::<Test>::try_from(transaction),
+                    Error::<Test>::InvalidOpReturnTransaction
+                );
+            }
+        })
+    }
+    #[test]
+    fn test_constructing_op_return_payment_data_with_invalid_op_return_len_fails() {
+        run_test(|| {
+            let transaction = TransactionBuilder::new()
+                .with_version(2)
+                .add_output(TransactionOutput::payment(252345, &dummy_address1()))
+                .add_output(TransactionOutput::op_return(0, &[0; 31]))
+                .build();
 
-        let transaction = TransactionBuilder::new()
-            .with_version(2)
-            .add_output(TransactionOutput::payment(100, &recipient_btc_address_1))
-            .add_output(TransactionOutput::payment(100, &recipient_btc_address_2))
-            .build();
+            for transaction in permutations(transaction) {
+                assert_err!(
+                    OpReturnPaymentData::<Test>::try_from(transaction),
+                    Error::<Test>::InvalidOpReturnTransaction
+                );
+            }
+        })
+    }
+    #[test]
+    fn test_constructing_op_return_payment_data_with_two_op_returns_fails() {
+        run_test(|| {
+            let transaction = TransactionBuilder::new()
+                .with_version(2)
+                .add_output(TransactionOutput::payment(252345, &dummy_address1()))
+                .add_output(TransactionOutput::op_return(0, &[0; 32]))
+                .add_output(TransactionOutput::op_return(0, &[1; 32]))
+                .build();
 
-        assert_err!(
-            BTCRelay::extract_payment_value_and_op_return(transaction, recipient_btc_address_0),
-            TestError::InvalidPayment
-        );
-    })
-}
+            for transaction in permutations(transaction) {
+                assert_err!(
+                    OpReturnPaymentData::<Test>::try_from(transaction),
+                    Error::<Test>::InvalidOpReturnTransaction
+                );
+            }
+        })
+    }
+    #[test]
+    fn test_constructing_op_return_payment_data_with_op_return_value_fails() {
+        run_test(|| {
+            let transaction = TransactionBuilder::new()
+                .with_version(2)
+                .add_output(TransactionOutput::payment(252345, &dummy_address1()))
+                .add_output(TransactionOutput::op_return(1, &[0; 32]))
+                .build();
 
-#[test]
-fn test_extract_value_and_op_return_succeeds() {
-    run_test(|| {
-        let recipient_btc_address = BtcAddress::P2SH(H160::zero());
-        let recipient_value = 1234;
-        let op_return = vec![1; 32];
+            for transaction in permutations(transaction) {
+                assert_err!(
+                    OpReturnPaymentData::<Test>::try_from(transaction),
+                    Error::<Test>::InvalidOpReturnTransaction
+                );
+            }
+        })
+    }
 
-        let transaction = TransactionBuilder::new()
-            .with_version(2)
-            .add_output(TransactionOutput::payment(recipient_value, &recipient_btc_address))
-            .add_output(TransactionOutput::op_return(0, &op_return))
-            .build();
+    #[test]
+    fn test_ensure_valid_payment_to_succeeds() {
+        run_test(|| {
+            let amount = 12345;
+            let op_return = H256::from_slice(&[5; 32]);
+            let transaction = TransactionBuilder::new()
+                .with_version(2)
+                .add_output(TransactionOutput::payment(amount, &dummy_address1()))
+                .add_output(TransactionOutput::payment(123, &dummy_address2()))
+                .add_output(TransactionOutput::op_return(0, op_return.as_bytes()))
+                .build();
 
-        let (extr_value, extr_data) =
-            BTCRelay::extract_payment_value_and_op_return(transaction, recipient_btc_address).unwrap();
+            for transaction in permutations(transaction) {
+                let payment_data = OpReturnPaymentData::<Test>::try_from(transaction).unwrap();
+                assert_ok!(
+                    payment_data.ensure_valid_payment_to(amount, dummy_address1(), Some(op_return)),
+                    Some(dummy_address2())
+                );
+            }
+        })
+    }
 
-        assert_eq!(extr_value, recipient_value);
-        assert_eq!(extr_data, op_return);
-    })
-}
+    #[test]
+    fn test_ensure_valid_payment_to_single_payment_succeeds() {
+        run_test(|| {
+            let amount = 12345;
+            let op_return = H256::from_slice(&[5; 32]);
+            let transaction = TransactionBuilder::new()
+                .with_version(2)
+                .add_output(TransactionOutput::payment(amount, &dummy_address1()))
+                .add_output(TransactionOutput::op_return(0, op_return.as_bytes()))
+                .build();
 
-#[test]
-fn test_extract_value_and_op_return_fails_with_return_to_self() {
-    run_test(|| {
-        let recipient_btc_address = BtcAddress::P2SH(H160::zero());
-        let recipient_value = 1000;
-        let recipient_value_change = 1234;
-        let op_return = vec![1; 32];
+            for transaction in permutations(transaction) {
+                let payment_data = OpReturnPaymentData::<Test>::try_from(transaction).unwrap();
+                assert_ok!(
+                    payment_data.ensure_valid_payment_to(amount, dummy_address1(), Some(op_return)),
+                    None
+                );
+            }
+        })
+    }
 
-        let transaction = TransactionBuilder::new()
-            .with_version(2)
-            .add_output(TransactionOutput::payment(
-                recipient_value_change,
-                &recipient_btc_address,
-            ))
-            .add_output(TransactionOutput::payment(recipient_value, &recipient_btc_address))
-            .add_output(TransactionOutput::op_return(0, &op_return))
-            .build();
+    #[test]
+    fn test_ensure_valid_payment_to_without_opreturn_check_succeeds() {
+        run_test(|| {
+            let amount = 12345;
+            let op_return = H256::from_slice(&[5; 32]);
+            let transaction = TransactionBuilder::new()
+                .with_version(2)
+                .add_output(TransactionOutput::payment(amount, &dummy_address1()))
+                .add_output(TransactionOutput::payment(123, &dummy_address2()))
+                .add_output(TransactionOutput::op_return(0, op_return.as_bytes()))
+                .build();
 
-        assert_err!(
-            BTCRelay::extract_payment_value_and_op_return(transaction, recipient_btc_address),
-            TestError::InvalidPayment
-        );
-    })
+            for transaction in permutations(transaction) {
+                let payment_data = OpReturnPaymentData::<Test>::try_from(transaction).unwrap();
+                assert_ok!(
+                    payment_data.ensure_valid_payment_to(amount, dummy_address1(), None),
+                    Some(dummy_address2())
+                );
+            }
+        })
+    }
+
+    #[test]
+    fn test_ensure_valid_payment_to_wrong_op_return_fails() {
+        run_test(|| {
+            let amount = 12345;
+            let op_return = H256::from_slice(&[5; 32]);
+            let transaction = TransactionBuilder::new()
+                .with_version(2)
+                .add_output(TransactionOutput::payment(amount, &dummy_address1()))
+                .add_output(TransactionOutput::op_return(0, &[0; 32]))
+                .build();
+
+            for transaction in permutations(transaction) {
+                let payment_data = OpReturnPaymentData::<Test>::try_from(transaction).unwrap();
+                assert_err!(
+                    payment_data.ensure_valid_payment_to(amount, dummy_address1(), Some(op_return)),
+                    Error::<Test>::InvalidPayment
+                );
+            }
+        })
+    }
+
+    #[test]
+    fn test_ensure_valid_payment_to_wrong_recipient_fails() {
+        run_test(|| {
+            let amount = 12345;
+            let op_return = H256::from_slice(&[5; 32]);
+            let transaction = TransactionBuilder::new()
+                .with_version(2)
+                .add_output(TransactionOutput::payment(amount, &dummy_address1()))
+                .add_output(TransactionOutput::payment(123, &dummy_address2()))
+                .add_output(TransactionOutput::op_return(0, op_return.as_bytes()))
+                .build();
+
+            for transaction in permutations(transaction) {
+                let payment_data = OpReturnPaymentData::<Test>::try_from(transaction).unwrap();
+                assert_err!(
+                    payment_data.ensure_valid_payment_to(amount, dummy_address3(), Some(op_return)),
+                    Error::<Test>::InvalidPayment
+                );
+            }
+        })
+    }
+
+    #[test]
+    fn test_ensure_valid_payment_to_with_invalid_amount_fails() {
+        run_test(|| {
+            let amount = 12345;
+            let op_return = H256::from_slice(&[5; 32]);
+            let transaction = TransactionBuilder::new()
+                .with_version(2)
+                .add_output(TransactionOutput::payment(amount, &dummy_address1()))
+                .add_output(TransactionOutput::payment(123, &dummy_address2()))
+                .add_output(TransactionOutput::op_return(0, op_return.as_bytes()))
+                .build();
+
+            for transaction in permutations(transaction) {
+                let payment_data = OpReturnPaymentData::<Test>::try_from(transaction).unwrap();
+                assert_err!(
+                    payment_data.ensure_valid_payment_to(amount - 1, dummy_address1(), Some(op_return)),
+                    Error::<Test>::InvalidPaymentAmount
+                );
+            }
+        })
+    }
 }
 
 #[test]

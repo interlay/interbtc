@@ -30,6 +30,7 @@ frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch =
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1", default-features = false }
 pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1", default-features = false }
 pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1", default-features = false }
+itertools = "0.10.0"
 
 [features]
 default = ["std"]

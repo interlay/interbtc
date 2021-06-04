@@ -405,6 +405,65 @@ fn integration_test_issue_refund() {
     });
 }
 
+mod execute_refund_payment_limits {
+    use super::*;
+
+    fn setup_refund() -> (H256, u128) {
+        let requested_btc = 1000;
+
+        // make sure we don't have enough collateral to fulfil the overpayment
+        let current_minimum_collateral =
+            VaultRegistryPallet::get_required_collateral_for_vault(account_of(VAULT)).unwrap();
+        CoreVaultData::force_to(
+            VAULT,
+            CoreVaultData {
+                backing_collateral: current_minimum_collateral + requested_btc * 2,
+                ..CoreVaultData::vault(VAULT)
+            },
+        );
+
+        let (issue_id, issue) = request_issue(requested_btc);
+        let sent_btc = (issue.amount + issue.fee) * 4;
+
+        ExecuteIssueBuilder::new(issue_id)
+            .with_amount(sent_btc)
+            .assert_execute();
+
+        let refund_id = assert_refund_request_event();
+        let refund = RefundPallet::get_open_refund_request_from_id(&refund_id).unwrap();
+
+        (refund_id, refund.amount_wrapped)
+    }
+
+    #[test]
+    fn integration_test_execute_refund_with_exact_amount_succeeds() {
+        test_with_initialized_vault(|| {
+            let (_refund_id, amount) = setup_refund();
+            assert_ok!(execute_refund_with_amount(VAULT, amount));
+        });
+    }
+    #[test]
+    fn integration_test_execute_refund_with_overpayment_fails() {
+        test_with_initialized_vault(|| {
+            let (_refund_id, amount) = setup_refund();
+            assert_err!(
+                execute_refund_with_amount(VAULT, amount + 1),
+                BTCRelayError::InvalidPaymentAmount
+            );
+        });
+    }
+    #[test]
+    fn integration_test_execute_refund_with_underpayment_fails() {
+        test_with_initialized_vault(|| {
+            let (_refund_id, amount) = setup_refund();
+            assert_err!(
+                execute_refund_with_amount(VAULT, amount - 1),
+                BTCRelayError::InvalidPaymentAmount
+            );
+        });
+    }
+}
+
 #[test]
 fn integration_test_issue_underpayment_succeeds() {
     test_with_initialized_vault(|| {

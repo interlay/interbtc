@@ -32,21 +32,19 @@ pub(crate) mod btc_relay {
     use sp_core::H256;
     use sp_std::vec::Vec;
 
-    pub fn verify_and_validate_transaction<T: btc_relay::Config>(
+    pub fn verify_and_validate_op_return_transaction<T: btc_relay::Config>(
         raw_merkle_proof: Vec<u8>,
         raw_tx: Vec<u8>,
         recipient_btc_address: BtcAddress,
-        minimum_btc: Option<i64>,
-        op_return_id: Option<H256>,
-        confirmations: Option<u32>,
-    ) -> Result<(BtcAddress, i64), DispatchError> {
-        <btc_relay::Pallet<T>>::_verify_and_validate_transaction(
+        expected_btc: i64,
+        op_return_id: H256,
+    ) -> Result<(), DispatchError> {
+        <btc_relay::Pallet<T>>::verify_and_validate_op_return_transaction(
             raw_merkle_proof,
             raw_tx,
             recipient_btc_address,
-            minimum_btc,
+            expected_btc,
             op_return_id,
-            confirmations,
         )
     }
 }
