@@ -99,7 +99,7 @@ impl pallet_balances::Config<pallet_balances::Instance1> for Test {
     type WeightInfo = ();
 }
 
-/// Wrapped currency - e.g. PolkaBTC
+/// Wrapped currency - e.g. InterBTC
 impl pallet_balances::Config<pallet_balances::Instance2> for Test {
     type MaxLocks = MaxLocks;
     type Balance = Balance;

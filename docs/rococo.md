@@ -19,11 +19,11 @@ cargo build --release --features=real-overseer
 sudo cp ./target/release/polkadot /usr/local/bin/
 ```
 
-Compile and install the [btc-parachain](https://github.com/interlay/btc-parachain) with the `cumulus-polkadot` feature.
+Compile and install the [parachain](https://github.com/interlay/interbtc) with the `cumulus-polkadot` feature.
 
 ```shell
-git clone git@github.com:interlay/btc-parachain.git
-cd btc-parachain
+git clone git@github.com:interlay/interbtc.git
+cd interbtc
 
 cargo build --manifest-path parachain/Cargo.toml --release --no-default-features --features cumulus-polkadot,disable-native-filter
 sudo cp ./target/release/btc-parachain /usr/local/bin/
@@ -54,7 +54,7 @@ polkadot --chain rococo-local.json --bob --tmp --discover-local --port 30334
 
 ## Parachain
 
-Compile and install the btc-parachain as above.
+Compile and install the parachain as above.
 
 ```shell
 # Export genesis state
