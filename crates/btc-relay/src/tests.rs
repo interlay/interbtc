@@ -2058,8 +2058,7 @@ fn sample_transaction_parsed(outputs: &Vec<TransactionOutput>) -> Transaction {
         version: 2,
         inputs,
         outputs: outputs.to_vec(),
-        block_height: Some(203),
-        locktime: Some(0),
+        lock_at: LockTime::BlockHeight(203),
     }
 }
 
