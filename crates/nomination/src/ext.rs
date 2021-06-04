@@ -93,6 +93,6 @@ pub(crate) mod fee {
         amount: Collateral<T>,
         percentage: UnsignedFixedPoint<T>,
     ) -> Result<Collateral<T>, DispatchError> {
-        <fee::Module<T>>::collateral_for(amount, percentage)
+        <fee::Pallet<T>>::collateral_for(amount, percentage)
     }
 }
