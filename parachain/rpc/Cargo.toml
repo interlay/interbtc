@@ -20,14 +20,14 @@ module-refund-rpc = { path = "../../crates/refund/rpc" }
 primitives = { package = "btc-parachain-primitives", path = "../../primitives" }
 
 # Substrate dependencies
-sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1" }
-sc-rpc-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1" }
-sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1" }
-sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1" }
-sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1" }
-sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1" }
-sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1" }
-sp-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1" }
+sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.3" }
+sc-rpc-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.3" }
+sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.3" }
+sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.3" }
+sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.3" }
+sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.3" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.3" }
+sp-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.3" }
 
-pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1" }
-substrate-frame-rpc-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.1" }
+pallet-transaction-payment-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.3" }
+substrate-frame-rpc-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.3" }
