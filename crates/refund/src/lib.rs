@@ -248,7 +248,7 @@ impl<T: Config> Pallet<T> {
             request.issuer,
             request.vault,
             Self::u128_to_wrapped(amount as u128)?,
-            fee,
+            request.fee,
         ));
 
         Ok(())

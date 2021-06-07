@@ -269,6 +269,8 @@ fn test_execute_redeem_succeeds_with_another_account() {
         ext::btc_relay::verify_and_validate_op_return_transaction::<Test>
             .mock_safe(|_, _, _, _, _| MockResult::Return(Ok(())));
 
+        let btc_fee = Redeem::get_current_inclusion_fee().unwrap();
+
         inject_redeem_request(
             H256([0u8; 32]),
             RedeemRequest {
@@ -282,7 +284,7 @@ fn test_execute_redeem_succeeds_with_another_account() {
                 btc_address: BtcAddress::random(),
                 btc_height: 0,
                 status: RedeemRequestStatus::Pending,
-                transfer_fee_btc: Redeem::get_current_inclusion_fee().unwrap(),
+                transfer_fee_btc: btc_fee,
             },
         );
 
@@ -307,7 +309,7 @@ fn test_execute_redeem_succeeds_with_another_account() {
             Vec::default(),
             Vec::default()
         ));
-        assert_emitted!(Event::ExecuteRedeem(H256([0; 32]), ALICE, 100, 0, BOB,));
+        assert_emitted!(Event::ExecuteRedeem(H256([0; 32]), ALICE, 100, 0, BOB, btc_fee,));
         assert_err!(
             Redeem::get_open_redeem_request_from_id(&H256([0u8; 32])),
             TestError::RedeemCompleted,
@@ -339,6 +341,8 @@ fn test_execute_redeem_succeeds() {
         ext::btc_relay::verify_and_validate_op_return_transaction::<Test>
             .mock_safe(|_, _, _, _, _| MockResult::Return(Ok(())));
 
+        let btc_fee = Redeem::get_current_inclusion_fee().unwrap();
+
         inject_redeem_request(
             H256([0u8; 32]),
             RedeemRequest {
@@ -352,7 +356,7 @@ fn test_execute_redeem_succeeds() {
                 btc_address: BtcAddress::random(),
                 btc_height: 0,
                 status: RedeemRequestStatus::Pending,
-                transfer_fee_btc: Redeem::get_current_inclusion_fee().unwrap(),
+                transfer_fee_btc: btc_fee,
             },
         );
 
@@ -377,7 +381,7 @@ fn test_execute_redeem_succeeds() {
             Vec::default(),
             Vec::default()
         ));
-        assert_emitted!(Event::ExecuteRedeem(H256([0; 32]), ALICE, 100, 0, BOB,));
+        assert_emitted!(Event::ExecuteRedeem(H256([0; 32]), ALICE, 100, 0, BOB, btc_fee,));
         assert_err!(
             Redeem::get_open_redeem_request_from_id(&H256([0u8; 32])),
             TestError::RedeemCompleted,

@@ -460,7 +460,7 @@ impl<T: Config> Pallet<T> {
             requester,
             total,
             issue.vault,
-            fee
+            issue.fee,
         ));
         Ok(())
     }

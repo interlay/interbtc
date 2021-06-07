@@ -164,6 +164,8 @@ fn test_execute_issue_succeeds() {
 
         ext::vault_registry::is_vault_liquidated::<Test>.mock_safe(|_| MockResult::Return(Ok(false)));
 
+        ext::fee::get_issue_fee::<Test>.mock_safe(move |_| MockResult::Return(Ok(1)));
+
         let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
         <security::Pallet<Test>>::set_active_block_number(5);
 
@@ -173,7 +175,7 @@ fn test_execute_issue_succeeds() {
 
         assert_ok!(execute_issue(ALICE, &issue_id));
 
-        let execute_issue_event = TestEvent::issue(Event::ExecuteIssue(issue_id, ALICE, 3, BOB));
+        let execute_issue_event = TestEvent::issue(Event::ExecuteIssue(issue_id, ALICE, 3, BOB, 1));
         assert!(System::events().iter().any(|a| a.event == execute_issue_event));
 
         assert_noop!(cancel_issue(ALICE, &issue_id), TestError::IssueCompleted);
