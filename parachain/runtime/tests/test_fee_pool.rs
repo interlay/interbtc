@@ -1,7 +1,7 @@
 mod mock;
 use mock::{
     issue_testing_utils::{ExecuteIssueBuilder, RequestIssueBuilder},
-    reward_testing_utils::RewardPool,
+    reward_testing_utils::BasicRewardPool,
     *,
 };
 
@@ -49,13 +49,13 @@ macro_rules! assert_eq_modulo_rounding {
 }
 
 fn get_vault_rewards(account: [u8; 32]) -> i128 {
-    let amount = RewardWrappedVaultPallet::compute_reward(&account_of(account)).unwrap();
+    let amount = RewardWrappedVaultPallet::compute_reward(&RewardPool::Global, &account_of(account)).unwrap();
     assert_ok!(Call::Fee(FeeCall::withdraw_vault_wrapped_rewards()).dispatch(origin_of(account_of(account))));
     amount
 }
 
 fn get_relayer_rewards(account: [u8; 32]) -> i128 {
-    let amount = RewardWrappedRelayerPallet::compute_reward(&account_of(account)).unwrap();
+    let amount = RewardWrappedRelayerPallet::compute_reward(&RewardPool::Global, &account_of(account)).unwrap();
     assert_ok!(Call::Fee(FeeCall::withdraw_relayer_wrapped_rewards()).dispatch(origin_of(account_of(account))));
     amount
 }
@@ -85,7 +85,7 @@ fn test_vault_fee_pool_withdrawal() {
         issue_with_relayer_and_vault(ISSUE_RELAYER, VAULT_2, 80000);
 
         // issue fee is 0.5%
-        let mut reward_pool = RewardPool::default();
+        let mut reward_pool = BasicRewardPool::default();
         reward_pool
             .deposit_stake(VAULT_1, get_vault_sla(VAULT_1) as f64)
             .distribute((20000.0 * 0.005) * 0.7) // set at 70% in tests
@@ -109,7 +109,7 @@ fn test_relayer_fee_pool_withdrawal() {
         // RELAYER_2 initializes the relay and submits 6 blocks
         issue_with_relayer_and_vault(RELAYER_2, VAULT_1, 100000);
 
-        let mut reward_pool = RewardPool::default();
+        let mut reward_pool = BasicRewardPool::default();
         reward_pool
             .deposit_stake(RELAYER_1, 20.0)
             .deposit_stake(RELAYER_2, 40.0)

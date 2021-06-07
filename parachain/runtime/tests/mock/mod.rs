@@ -23,7 +23,7 @@ pub use nomination::Nominator;
 pub use redeem::RedeemRequest;
 pub use refund::RefundRequest;
 pub use replace::ReplaceRequest;
-pub use reward::Rewards;
+pub use reward::{RewardPool, Rewards};
 pub use sp_runtime::AccountId32;
 pub use std::convert::TryFrom;
 pub use vault_registry::{Vault, VaultStatus};
@@ -245,10 +245,12 @@ impl PartialEq for FeePool {
 impl FeePool {
     pub fn get() -> Self {
         Self {
-            vault_collateral_rewards: RewardCollateralVaultPallet::get_total_rewards().unwrap() as u128,
-            vault_wrapped_rewards: RewardWrappedVaultPallet::get_total_rewards().unwrap() as u128,
-            relayer_collateral_rewards: RewardCollateralRelayerPallet::get_total_rewards().unwrap() as u128,
-            relayer_wrapped_rewards: RewardWrappedRelayerPallet::get_total_rewards().unwrap() as u128,
+            vault_collateral_rewards: RewardCollateralVaultPallet::get_total_rewards(RewardPool::Global).unwrap()
+                as u128,
+            vault_wrapped_rewards: RewardWrappedVaultPallet::get_total_rewards(RewardPool::Global).unwrap() as u128,
+            relayer_collateral_rewards: RewardCollateralRelayerPallet::get_total_rewards(RewardPool::Global).unwrap()
+                as u128,
+            relayer_wrapped_rewards: RewardWrappedRelayerPallet::get_total_rewards(RewardPool::Global).unwrap() as u128,
         }
     }
 }

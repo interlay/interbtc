@@ -35,6 +35,7 @@ use frame_support::{
     PalletId,
 };
 use frame_system::ensure_signed;
+use reward::RewardPool;
 use sp_arithmetic::{traits::*, FixedPointNumber, FixedPointOperand};
 use sp_runtime::traits::AccountIdConversion;
 use sp_std::{
@@ -540,7 +541,7 @@ impl<T: Config> Pallet<T> {
     fn withdraw_collateral<R: reward::Rewards<T::AccountId, SignedFixedPoint = SignedFixedPoint<T>>>(
         account_id: &T::AccountId,
     ) -> DispatchResult {
-        let collateral_rewards = R::withdraw_reward(account_id)?
+        let collateral_rewards = R::withdraw_reward(RewardPool::Global, account_id)?
             .try_into()
             .map_err(|_| Error::<T>::TryIntoIntError)?;
         ext::collateral::transfer::<T>(&Self::fee_pool_account_id(), account_id, collateral_rewards)?;
@@ -552,7 +553,7 @@ impl<T: Config> Pallet<T> {
     fn withdraw_wrapped<R: reward::Rewards<T::AccountId, SignedFixedPoint = SignedFixedPoint<T>>>(
         account_id: &T::AccountId,
     ) -> DispatchResult {
-        let wrapped_rewards = R::withdraw_reward(account_id)?
+        let wrapped_rewards = R::withdraw_reward(RewardPool::Global, account_id)?
             .try_into()
             .map_err(|_| Error::<T>::TryIntoIntError)?;
         ext::treasury::transfer::<T>(&Self::fee_pool_account_id(), account_id, wrapped_rewards)?;
@@ -571,7 +572,7 @@ impl<T: Config> Pallet<T> {
         let reward_as_inner = reward.try_into().ok().ok_or(Error::<T>::TryIntoIntError)?;
         let reward_as_fixed =
             SignedFixedPoint::checked_from_integer(reward_as_inner).ok_or(Error::<T>::TryIntoIntError)?;
-        Ok(Reward::distribute(reward_as_fixed)?
+        Ok(Reward::distribute(RewardPool::Global, reward_as_fixed)?
             .into_inner()
             .checked_div(&SignedFixedPoint::accuracy())
             .ok_or(Error::<T>::ArithmeticUnderflow)?
