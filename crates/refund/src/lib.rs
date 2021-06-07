@@ -223,15 +223,13 @@ impl<T: Config> Pallet<T> {
             .map_err(|_e| Error::<T>::TryIntoIntError)?;
 
         // check the transaction inclusion and validity
-        ext::btc_relay::verify_and_validate_transaction::<T>(
+        ext::btc_relay::verify_and_validate_op_return_transaction::<T>(
             merkle_proof,
             raw_tx,
             request.btc_address,
-            Some(amount as i64),
-            Some(refund_id),
-            None,
+            amount as i64,
+            refund_id,
         )?;
-
         // mint issued tokens corresponding to the fee. Note that this can fail
         ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&request.vault, request.fee)?;
         ext::vault_registry::issue_tokens::<T>(&request.vault, request.fee)?;

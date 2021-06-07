@@ -23,12 +23,7 @@ pub fn new_partial(
         sp_consensus::DefaultImportQueue<Block, FullClient>,
         sc_transaction_pool::FullPool<Block, FullClient>,
         (
-            sc_consensus_aura::AuraBlockImport<
-                Block,
-                FullClient,
-                sc_finality_grandpa::GrandpaBlockImport<FullBackend, Block, FullClient, FullSelectChain>,
-                AuraPair,
-            >,
+            sc_finality_grandpa::GrandpaBlockImport<FullBackend, Block, FullClient, FullSelectChain>,
             sc_finality_grandpa::LinkHalf<Block, FullClient, FullSelectChain>,
             Option<Telemetry>,
         ),
@@ -78,13 +73,10 @@ pub fn new_partial(
         telemetry.as_ref().map(|x| x.handle()),
     )?;
 
-    let aura_block_import =
-        sc_consensus_aura::AuraBlockImport::<_, _, _, AuraPair>::new(grandpa_block_import.clone(), client.clone());
-
     let slot_duration = sc_consensus_aura::slot_duration(&*client)?.slot_duration();
 
     let import_queue = sc_consensus_aura::import_queue::<AuraPair, _, _, _, _, _, _>(ImportQueueParams {
-        block_import: aura_block_import.clone(),
+        block_import: grandpa_block_import.clone(),
         justification_import: Some(Box::new(grandpa_block_import.clone())),
         client: client.clone(),
         create_inherent_data_providers: move |_, ()| async move {
@@ -112,7 +104,7 @@ pub fn new_partial(
         keystore_container,
         select_chain,
         transaction_pool,
-        other: (aura_block_import, grandpa_link, telemetry),
+        other: (grandpa_block_import, grandpa_link, telemetry),
     })
 }
 
@@ -343,13 +335,10 @@ pub fn new_light(mut config: Configuration) -> Result<(TaskManager, RpcHandlers)
         telemetry.as_ref().map(|x| x.handle()),
     )?;
 
-    let aura_block_import =
-        sc_consensus_aura::AuraBlockImport::<_, _, _, AuraPair>::new(grandpa_block_import.clone(), client.clone());
-
     let slot_duration = sc_consensus_aura::slot_duration(&*client)?.slot_duration();
 
     let import_queue = sc_consensus_aura::import_queue::<AuraPair, _, _, _, _, _, _>(ImportQueueParams {
-        block_import: aura_block_import.clone(),
+        block_import: grandpa_block_import.clone(),
         justification_import: Some(Box::new(grandpa_block_import.clone())),
         client: client.clone(),
         create_inherent_data_providers: move |_, ()| async move {

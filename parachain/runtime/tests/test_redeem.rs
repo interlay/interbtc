@@ -264,7 +264,7 @@ mod execute_redeem_payment_limits {
                 ExecuteRedeemBuilder::new(redeem_id)
                     .with_amount(redeem.amount_btc - 1)
                     .execute(),
-                BTCRelayError::InsufficientValue
+                BTCRelayError::InvalidPaymentAmount
             );
         });
     }
@@ -282,14 +282,17 @@ mod execute_redeem_payment_limits {
     }
 
     #[test]
-    fn integration_test_redeem_polka_btc_execute_overpayment_succeeds() {
+    fn integration_test_redeem_polka_btc_execute_overpayment_fails() {
         test_with(|| {
             let redeem_id = setup_redeem(10_000, USER, VAULT, 1_000_000);
             let redeem = RedeemPallet::get_open_redeem_request_from_id(&redeem_id).unwrap();
 
-            ExecuteRedeemBuilder::new(redeem_id)
-                .with_amount(redeem.amount_btc + 1)
-                .assert_execute();
+            assert_noop!(
+                ExecuteRedeemBuilder::new(redeem_id)
+                    .with_amount(redeem.amount_btc + 1)
+                    .execute(),
+                BTCRelayError::InvalidPaymentAmount
+            );
         });
     }
 }
@@ -342,7 +345,7 @@ fn integration_test_premium_redeem_wrapped_execute() {
 
         // send the btc from the vault to the user
         let (_tx_id, _tx_block_height, merkle_proof, raw_tx) =
-            generate_transaction_and_mine(user_btc_address, issued_tokens, Some(redeem_id));
+            generate_transaction_and_mine(user_btc_address, redeem.amount_btc, Some(redeem_id));
 
         SecurityPallet::set_active_block_number(1 + CONFIRMATIONS);
 

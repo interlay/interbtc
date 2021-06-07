@@ -298,7 +298,7 @@ impl<T: Config> Pallet<T> {
         ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&vault_id, amount_requested)?;
 
         let fee = ext::fee::get_issue_fee::<T>(amount_requested)?;
-        // calculate the amount of polkabtc that will be transferred to the user upon execution
+        // calculate the amount of tokens that will be transferred to the user upon execution
         let amount_user = amount_requested
             .checked_sub(&fee)
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
@@ -355,14 +355,8 @@ impl<T: Config> Pallet<T> {
             Error::<T>::CommitPeriodExpired
         );
 
-        let (refund_address, amount_transferred) = ext::btc_relay::verify_and_validate_transaction::<T>(
-            merkle_proof,
-            raw_tx,
-            issue.btc_address,
-            None,
-            None,
-            None,
-        )?;
+        let (refund_address, amount_transferred) =
+            ext::btc_relay::get_and_verify_issue_payment::<T>(merkle_proof, raw_tx, issue.btc_address)?;
 
         let expected_total_amount = issue
             .amount

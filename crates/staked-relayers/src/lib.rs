@@ -31,12 +31,14 @@ pub use security;
 use crate::types::{Collateral, Wrapped};
 use bitcoin::{parser::parse_transaction, types::*};
 
-use btc_relay::BtcAddress;
+use btc_relay::{types::OpReturnPaymentData, BtcAddress};
 use frame_support::{dispatch::DispatchResult, ensure, transactional};
 use frame_system::ensure_signed;
-use sp_core::H256;
-
-use sp_std::{collections::btree_set::BTreeSet, convert::TryInto, vec::Vec};
+use sp_std::{
+    collections::btree_set::BTreeSet,
+    convert::{TryFrom, TryInto},
+    vec::Vec,
+};
 use vault_registry::Wallet;
 
 pub use pallet::*;
@@ -261,26 +263,13 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Arguments
     ///
-    /// * `payments` - all payment outputs extracted from tx
-    /// * `op_returns` - all op_return outputs extracted from tx
+    /// * `transaction` - the tx
     /// * `wallet` - vault btc addresses
-    pub(crate) fn is_valid_merge_transaction(
-        payments: &[(i64, BtcAddress)],
-        op_returns: &[(i64, Vec<u8>)],
-        wallet: &Wallet,
-    ) -> bool {
-        if !op_returns.is_empty() {
-            // migration should only contain payments
-            return false;
-        }
-
-        for (_value, address) in payments {
-            if !wallet.has_btc_address(&address) {
-                return false;
-            }
-        }
-
-        true
+    pub(crate) fn is_valid_merge_transaction(transaction: &Transaction, wallet: &Wallet) -> bool {
+        return transaction
+            .outputs
+            .iter()
+            .all(|output| matches!(output.extract_address(), Ok(addr) if wallet.has_btc_address(&addr)));
     }
 
     /// Checks if the vault is sending a valid request transaction.
@@ -289,12 +278,12 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `request_value` - amount of btc as specified in the request
     /// * `request_address` - recipient btc address
-    /// * `payments` - all payment outputs extracted from tx
+    /// * `payment_data` - all payment data extracted from tx
     /// * `wallet` - vault btc addresses
     pub(crate) fn is_valid_request_transaction(
         request_value: Wrapped<T>,
         request_address: BtcAddress,
-        payments: &[(i64, BtcAddress)],
+        payment_data: &OpReturnPaymentData<T>,
         wallet: &Wallet,
     ) -> bool {
         let request_value = match TryInto::<u64>::try_into(request_value).map_err(|_e| Error::<T>::TryIntoIntError) {
@@ -302,22 +291,11 @@ impl<T: Config> Pallet<T> {
             Err(_) => return false,
         };
 
-        // check all outputs, vault cannot pay to unknown recipients
-        for (value, address) in payments {
-            if *address == request_address {
-                if *value < request_value {
-                    // insufficient payment to recipient
-                    return false;
-                }
-            } else if !wallet.has_btc_address(&address) {
-                // payment to unknown address
-                return false;
-            }
+        match payment_data.ensure_valid_payment_to(request_value, request_address, None) {
+            Ok(None) => true,
+            Ok(Some(return_to_self)) if wallet.has_btc_address(&return_to_self) => true,
+            _ => false,
         }
-
-        // tx has sufficient payment to recipient and
-        // all refunds are to wallet addresses
-        true
     }
 
     /// Check if a vault transaction is invalid. Returns `Ok` if invalid or `Err` otherwise.
@@ -365,43 +343,37 @@ impl<T: Config> Pallet<T> {
         // * op_return: the associated ID encoded in the OP_RETURN
         // * vault: any "spare change" the vault is transferring
 
-        // should only err if there are too many outputs
-        if let Ok((payments, op_returns)) = ext::btc_relay::extract_outputs::<T>(tx) {
-            // check if the transaction is a "migration"
-            ensure!(
-                !Self::is_valid_merge_transaction(&payments, &op_returns, &vault.wallet),
-                Error::<T>::ValidMergeTransaction
-            );
+        ensure!(
+            !Self::is_valid_merge_transaction(&tx, &vault.wallet),
+            Error::<T>::ValidMergeTransaction
+        );
 
-            // we only expect one op_return output, the op_return output should not burn value, and
-            // the request_id is expected to be 32 bytes
-            if op_returns.len() != 1 || op_returns[0].0 > 0 || op_returns[0].1.len() < 32 {
-                return Ok(());
-            }
-
-            // op_return can be up to 83 bytes so slice first 32
-            let request_id = H256::from_slice(&op_returns[0].1[..32]);
-
+        if let Ok(payment_data) = OpReturnPaymentData::<T>::try_from(tx) {
             // redeem requests
-            if let Ok(req) = ext::redeem::get_open_or_completed_redeem_request_from_id::<T>(&request_id) {
+            if let Ok(req) = ext::redeem::get_open_or_completed_redeem_request_from_id::<T>(&payment_data.op_return) {
                 ensure!(
-                    !Self::is_valid_request_transaction(req.amount_btc, req.btc_address, &payments, &vault.wallet,),
+                    !Self::is_valid_request_transaction(req.amount_btc, req.btc_address, &payment_data, &vault.wallet),
                     Error::<T>::ValidRedeemTransaction
                 );
             };
 
             // replace requests
-            if let Ok(req) = ext::replace::get_open_or_completed_replace_request::<T>(&request_id) {
+            if let Ok(req) = ext::replace::get_open_or_completed_replace_request::<T>(&payment_data.op_return) {
                 ensure!(
-                    !Self::is_valid_request_transaction(req.amount, req.btc_address, &payments, &vault.wallet,),
+                    !Self::is_valid_request_transaction(req.amount, req.btc_address, &payment_data, &vault.wallet),
                     Error::<T>::ValidReplaceTransaction
                 );
             };
 
             // refund requests
-            if let Ok(req) = ext::refund::get_open_or_completed_refund_request_from_id::<T>(&request_id) {
+            if let Ok(req) = ext::refund::get_open_or_completed_refund_request_from_id::<T>(&payment_data.op_return) {
                 ensure!(
-                    !Self::is_valid_request_transaction(req.amount_wrapped, req.btc_address, &payments, &vault.wallet,),
+                    !Self::is_valid_request_transaction(
+                        req.amount_wrapped,
+                        req.btc_address,
+                        &payment_data,
+                        &vault.wallet
+                    ),
                     Error::<T>::ValidRefundTransaction
                 );
             };

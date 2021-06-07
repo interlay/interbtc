@@ -23,6 +23,7 @@ use crate::types::{Collateral, Inner, RelayerEvent, SignedFixedPoint, VaultEvent
 use codec::{Decode, Encode, EncodeLike, FullCodec};
 use frame_support::{dispatch::DispatchError, transactional};
 use frame_system::ensure_root;
+use reward::RewardPool;
 use sp_arithmetic::{traits::*, FixedPointNumber, FixedPointOperand};
 use sp_runtime::traits::MaybeSerializeDeserialize;
 use sp_std::{
@@ -384,11 +385,11 @@ impl<T: Config> Pallet<T> {
         delta_sla: SignedFixedPoint<T>,
     ) -> Result<(), DispatchError> {
         if delta_sla.is_positive() {
-            R::deposit_stake(account_id, delta_sla)?;
+            R::deposit_stake(RewardPool::Global, account_id, delta_sla)?;
         } else if delta_sla.is_negative() {
-            let remaining_stake = R::get_stake(account_id).min(delta_sla.saturating_abs());
+            let remaining_stake = R::get_stake(RewardPool::Global, account_id).min(delta_sla.saturating_abs());
             if remaining_stake > SignedFixedPoint::<T>::zero() {
-                R::withdraw_stake(account_id, remaining_stake)?;
+                R::withdraw_stake(RewardPool::Global, account_id, remaining_stake)?;
             }
         }
         Ok(())
@@ -397,9 +398,9 @@ impl<T: Config> Pallet<T> {
     fn liquidate_stake<R: reward::Rewards<T::AccountId, SignedFixedPoint = SignedFixedPoint<T>>>(
         account_id: &T::AccountId,
     ) -> Result<(), DispatchError> {
-        let remaining_stake = R::get_stake(account_id);
+        let remaining_stake = R::get_stake(RewardPool::Global, account_id);
         if remaining_stake > SignedFixedPoint::<T>::zero() {
-            R::withdraw_stake(account_id, remaining_stake)?;
+            R::withdraw_stake(RewardPool::Global, account_id, remaining_stake)?;
         }
         Ok(())
     }
