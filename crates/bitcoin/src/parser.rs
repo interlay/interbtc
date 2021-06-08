@@ -245,6 +245,7 @@ pub fn parse_block_header(raw_header: &RawBlockHeader) -> Result<BlockHeader, Er
     let timestamp: u32 = parser.parse()?;
     let target: U256 = parser.parse()?;
     let nonce: u32 = parser.parse()?;
+    let hash: H256Le = raw_header.hash();
 
     let block_header = BlockHeader {
         merkle_root,
@@ -253,6 +254,7 @@ pub fn parse_block_header(raw_header: &RawBlockHeader) -> Result<BlockHeader, Er
         version,
         hash_prev_block,
         nonce,
+        hash,
     };
 
     Ok(block_header)

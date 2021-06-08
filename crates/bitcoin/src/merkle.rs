@@ -344,7 +344,7 @@ mod tests {
         let expected_block_header =
             H256Le::from_hex_be("000000000000002e59ed7b899b3f0f83c48d0548309a8fb7693297e3937fe1d3");
 
-        assert_eq!(proof.block_header.hash().unwrap(), expected_block_header);
+        assert_eq!(proof.block_header.hash, expected_block_header);
     }
 
     #[test]

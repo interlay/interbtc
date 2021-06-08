@@ -12,7 +12,6 @@ use sp_std::{convert::TryFrom, vec::Vec};
 /// Bitcoin Enriched Block Headers
 #[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Eq, Debug)]
 pub struct RichBlockHeader<AccountId, BlockNumber> {
-    pub block_hash: H256Le,
     pub block_header: BlockHeader,
     pub block_height: u32,
     pub chain_ref: u32,
@@ -40,13 +39,16 @@ impl<AccountId, BlockNumber> RichBlockHeader<AccountId, BlockNumber> {
         para_height: BlockNumber,
     ) -> Result<Self, bitcoin::Error> {
         Ok(RichBlockHeader {
-            block_hash: raw_block_header.hash(),
             block_header: BlockHeader::from_le_bytes(raw_block_header.as_bytes())?,
             block_height,
             chain_ref,
             account_id,
             para_height,
         })
+    }
+
+    pub fn block_hash(&self) -> H256Le {
+        self.block_header.hash
     }
 }
 

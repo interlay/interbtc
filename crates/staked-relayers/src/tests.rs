@@ -2,7 +2,7 @@ extern crate hex;
 use crate::{ext, mock::*};
 use bitcoin::{
     formatter::Formattable,
-    types::{H256Le, RawBlockHeader, Transaction, TransactionBuilder, TransactionInputBuilder, TransactionOutput},
+    types::{BlockHeader, H256Le, Transaction, TransactionBuilder, TransactionInputBuilder, TransactionOutput},
 };
 use btc_relay::{BtcAddress, BtcPublicKey, Error as BtcRelayError, OpReturnPaymentData};
 use frame_support::{assert_err, assert_ok};
@@ -600,7 +600,7 @@ fn test_store_block_header_and_update_sla_fails_with_invalid() {
         });
 
         assert_err!(
-            StakedRelayers::store_block_header_and_update_sla(&0, RawBlockHeader::default()),
+            StakedRelayers::store_block_header_and_update_sla(&0, BlockHeader::default()),
             BtcRelayError::<Test>::DiffTargetHeader
         );
     })
