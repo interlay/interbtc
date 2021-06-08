@@ -26,12 +26,6 @@ jobs:
         with:
           command: fmt
           args: --all -- --check
-      - run: rustup component add clippy
-      - name: clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
-          args: --release --workspace
       - name: check
         uses: actions-rs/cargo@v1
         with:
