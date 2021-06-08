@@ -8,7 +8,7 @@ pub(crate) mod collateral {
 
     type CollateralPallet<T> = currency::Pallet<T, currency::Collateral>;
 
-    pub fn transfer<T: currency::Config<currency::Collateral>>(
+    pub fn transfer<T: crate::Config>(
         sender: &T::AccountId,
         receiver: &T::AccountId,
         amount: Collateral<T>,
@@ -24,7 +24,7 @@ pub(crate) mod treasury {
 
     type TreasuryPallet<T> = currency::Pallet<T, currency::Wrapped>;
 
-    pub fn transfer<T: currency::Config<currency::Wrapped>>(
+    pub fn transfer<T: crate::Config>(
         sender: &T::AccountId,
         receiver: &T::AccountId,
         amount: Wrapped<T>,
@@ -37,7 +37,7 @@ pub(crate) mod treasury {
 pub(crate) mod security {
     use frame_support::dispatch::DispatchError;
 
-    pub fn ensure_parachain_status_not_shutdown<T: security::Config>() -> Result<(), DispatchError> {
+    pub fn ensure_parachain_status_not_shutdown<T: crate::Config>() -> Result<(), DispatchError> {
         <security::Pallet<T>>::ensure_parachain_status_not_shutdown()
     }
 }

@@ -8,7 +8,7 @@ pub(crate) mod collateral {
 
     type CollateralPallet<T> = currency::Pallet<T, currency::Collateral>;
 
-    pub fn transfer<T: currency::Config<currency::Collateral>>(
+    pub fn transfer<T: crate::Config>(
         source: &T::AccountId,
         destination: &T::AccountId,
         amount: Collateral<T>,
@@ -16,25 +16,19 @@ pub(crate) mod collateral {
         CollateralPallet::<T>::transfer(source, destination, amount)
     }
 
-    pub fn lock<T: currency::Config<currency::Collateral>>(
-        sender: &T::AccountId,
-        amount: Collateral<T>,
-    ) -> DispatchResult {
+    pub fn lock<T: crate::Config>(sender: &T::AccountId, amount: Collateral<T>) -> DispatchResult {
         CollateralPallet::<T>::lock(sender, amount)
     }
 
-    pub fn release<T: currency::Config<currency::Collateral>>(
-        sender: &T::AccountId,
-        amount: Collateral<T>,
-    ) -> DispatchResult {
+    pub fn release<T: crate::Config>(sender: &T::AccountId, amount: Collateral<T>) -> DispatchResult {
         CollateralPallet::<T>::release(sender, amount)
     }
 
-    pub fn get_reserved_balance<T: currency::Config<currency::Collateral>>(id: &T::AccountId) -> Collateral<T> {
+    pub fn get_reserved_balance<T: crate::Config>(id: &T::AccountId) -> Collateral<T> {
         CollateralPallet::<T>::get_reserved_balance(id)
     }
 
-    pub fn get_free_balance<T: currency::Config<currency::Collateral>>(id: &T::AccountId) -> Collateral<T> {
+    pub fn get_free_balance<T: crate::Config>(id: &T::AccountId) -> Collateral<T> {
         CollateralPallet::<T>::get_free_balance(id)
     }
 }
@@ -55,23 +49,11 @@ pub(crate) mod oracle {
     use crate::types::{Collateral, Wrapped};
     use frame_support::dispatch::DispatchError;
 
-    type CollateralInstance = currency::Collateral;
-    type WrappedInstance = currency::Wrapped;
-
-    pub trait Exchangeable:
-        exchange_rate_oracle::Config + currency::Config<CollateralInstance> + currency::Config<WrappedInstance>
-    {
-    }
-    impl<T> Exchangeable for T where
-        T: exchange_rate_oracle::Config + currency::Config<CollateralInstance> + currency::Config<WrappedInstance>
-    {
-    }
-
-    pub fn wrapped_to_collateral<T: Exchangeable>(amount: Wrapped<T>) -> Result<Collateral<T>, DispatchError> {
+    pub fn wrapped_to_collateral<T: crate::Config>(amount: Wrapped<T>) -> Result<Collateral<T>, DispatchError> {
         <exchange_rate_oracle::Pallet<T>>::wrapped_to_collateral(amount)
     }
 
-    pub fn collateral_to_wrapped<T: Exchangeable>(amount: Collateral<T>) -> Result<Wrapped<T>, DispatchError> {
+    pub fn collateral_to_wrapped<T: crate::Config>(amount: Collateral<T>) -> Result<Wrapped<T>, DispatchError> {
         <exchange_rate_oracle::Pallet<T>>::collateral_to_wrapped(amount)
     }
 }
@@ -80,11 +62,11 @@ pub(crate) mod oracle {
 pub(crate) mod security {
     use frame_support::dispatch::DispatchResult;
 
-    pub fn ensure_parachain_status_not_shutdown<T: security::Config>() -> DispatchResult {
+    pub fn ensure_parachain_status_not_shutdown<T: crate::Config>() -> DispatchResult {
         <security::Pallet<T>>::ensure_parachain_status_not_shutdown()
     }
 
-    pub fn active_block_number<T: security::Config>() -> T::BlockNumber {
+    pub fn active_block_number<T: crate::Config>() -> T::BlockNumber {
         <security::Pallet<T>>::active_block_number()
     }
 }
@@ -111,7 +93,7 @@ pub(crate) mod sla {
         )
     }
 
-    pub fn event_update_vault_sla<T: sla::Config>(
+    pub fn event_update_vault_sla<T: crate::Config>(
         vault_id: &T::AccountId,
         event: VaultEvent<Wrapped<T>, Collateral<T>>,
     ) -> Result<(), DispatchError> {

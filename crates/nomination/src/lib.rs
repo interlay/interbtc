@@ -55,7 +55,7 @@ pub mod pallet {
         + vault_registry::Config<
             UnsignedFixedPoint = <Self as fee::Config>::UnsignedFixedPoint,
             SignedFixedPoint = <Self as Config>::SignedFixedPoint,
-        > + fee::Config
+        > + fee::Config<UnsignedFixedPoint = <Self as Config>::UnsignedFixedPoint>
     {
         /// The overarching event type.
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;

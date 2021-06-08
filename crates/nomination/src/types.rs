@@ -10,7 +10,7 @@ pub(crate) type Collateral<T> = <<T as currency::Config<currency::Collateral>>::
     <T as frame_system::Config>::AccountId,
 >>::Balance;
 
-pub(crate) type UnsignedFixedPoint<T> = <T as fee::Config>::UnsignedFixedPoint;
+pub(crate) type UnsignedFixedPoint<T> = <T as Config>::UnsignedFixedPoint;
 
 pub(crate) type SignedFixedPoint<T> = <T as Config>::SignedFixedPoint;
 
