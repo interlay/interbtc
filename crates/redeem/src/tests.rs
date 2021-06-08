@@ -1,6 +1,7 @@
 use crate::{ext, mock::*};
 
 use crate::types::{Collateral, RedeemRequest, RedeemRequestStatus, Wrapped};
+use bitcoin::types::{LockTime, Transaction};
 use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
@@ -23,6 +24,15 @@ macro_rules! assert_emitted {
             $times
         );
     };
+}
+
+fn dummy_transaction() -> Transaction {
+    Transaction {
+        inputs: vec![],
+        outputs: vec![],
+        lock_at: LockTime::BlockHeight(1),
+        version: 0,
+    }
 }
 
 fn convert_currency<I, O: std::convert::TryFrom<I>>(amount: I) -> Result<O, DispatchError> {
@@ -266,6 +276,7 @@ fn test_execute_redeem_succeeds_with_another_account() {
                 ..Default::default()
             },
         );
+        ext::btc_relay::parse_transaction::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_transaction())));
         ext::btc_relay::verify_and_validate_op_return_transaction::<Test, usize>
             .mock_safe(|_, _, _, _, _| MockResult::Return(Ok(())));
 
@@ -338,6 +349,7 @@ fn test_execute_redeem_succeeds() {
                 ..Default::default()
             },
         );
+        ext::btc_relay::parse_transaction::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_transaction())));
         ext::btc_relay::verify_and_validate_op_return_transaction::<Test, usize>
             .mock_safe(|_, _, _, _, _| MockResult::Return(Ok(())));
 

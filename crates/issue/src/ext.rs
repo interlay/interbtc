@@ -3,16 +3,17 @@ use mocktopus::macros::mockable;
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod btc_relay {
+    use bitcoin::types::Transaction;
     use btc_relay::BtcAddress;
     use frame_support::dispatch::DispatchError;
     use sp_std::vec::Vec;
 
     pub fn get_and_verify_issue_payment<T: crate::Config>(
         merkle_proof: Vec<u8>,
-        raw_tx: Vec<u8>,
+        transaction: Transaction,
         recipient_btc_address: BtcAddress,
     ) -> Result<(BtcAddress, u128), DispatchError> {
-        <btc_relay::Pallet<T>>::get_and_verify_issue_payment(merkle_proof, raw_tx, recipient_btc_address)
+        <btc_relay::Pallet<T>>::get_and_verify_issue_payment(merkle_proof, transaction, recipient_btc_address)
     }
 
     pub fn get_best_block_height<T: crate::Config>() -> u32 {
@@ -21,6 +22,10 @@ pub(crate) mod btc_relay {
 
     pub fn is_fully_initialized<T: crate::Config>() -> Result<bool, DispatchError> {
         <btc_relay::Pallet<T>>::is_fully_initialized()
+    }
+
+    pub fn parse_transaction<T: btc_relay::Config>(raw_tx: &[u8]) -> Result<Transaction, DispatchError> {
+        <btc_relay::Pallet<T>>::parse_transaction(raw_tx)
     }
 }
 

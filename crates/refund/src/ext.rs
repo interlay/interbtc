@@ -27,6 +27,7 @@ pub(crate) mod sla {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod btc_relay {
+    use bitcoin::types::Transaction;
     use btc_relay::BtcAddress;
     use frame_support::dispatch::DispatchError;
     use sp_core::H256;
@@ -34,18 +35,22 @@ pub(crate) mod btc_relay {
 
     pub fn verify_and_validate_op_return_transaction<T: crate::Config, V: TryInto<i64>>(
         raw_merkle_proof: Vec<u8>,
-        raw_tx: Vec<u8>,
+        transaction: Transaction,
         recipient_btc_address: BtcAddress,
         expected_btc: V,
         op_return_id: H256,
     ) -> Result<(), DispatchError> {
         <btc_relay::Pallet<T>>::verify_and_validate_op_return_transaction(
             raw_merkle_proof,
-            raw_tx,
+            transaction,
             recipient_btc_address,
             expected_btc,
             op_return_id,
         )
+    }
+
+    pub fn parse_transaction<T: btc_relay::Config>(raw_tx: &[u8]) -> Result<Transaction, DispatchError> {
+        <btc_relay::Pallet<T>>::parse_transaction(raw_tx)
     }
 }
 

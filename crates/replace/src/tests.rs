@@ -1,5 +1,6 @@
 use crate::{ext, mock::*, ReplaceRequest, ReplaceRequestStatus};
 
+use bitcoin::types::{LockTime, Transaction};
 use btc_relay::BtcAddress;
 use frame_support::{assert_err, assert_ok};
 use mocktopus::mocking::*;
@@ -7,20 +8,15 @@ use sp_core::H256;
 
 type Event = crate::Event<Test>;
 
-// // use macro to avoid messing up stack trace
-// macro_rules! assert_emitted {
-//     ($event:expr) => {
-//         let test_event = TestEvent::replace($event);
-//         assert!(System::events().iter().any(|a| a.event == test_event));
-//     };
-//     ($event:expr, $times:expr) => {
-//         let test_event = TestEvent::replace($event);
-//         assert_eq!(
-//             System::events().iter().filter(|a| a.event == test_event).count(),
-//             $times
-//         );
-//     };
-// }
+fn dummy_transaction() -> Transaction {
+    Transaction {
+        inputs: vec![],
+        outputs: vec![],
+        lock_at: LockTime::BlockHeight(1),
+        version: 0,
+    }
+}
+
 macro_rules! assert_event_matches {
     ($( $pattern:pat )|+ $( if $guard: expr )? $(,)?) => {
 
@@ -179,6 +175,7 @@ mod execute_replace_test {
 
         Replace::replace_period.mock_safe(|| MockResult::Return(20));
         ext::security::has_expired::<Test>.mock_safe(|_, _| MockResult::Return(Ok(false)));
+        ext::btc_relay::parse_transaction::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_transaction())));
         ext::btc_relay::verify_and_validate_op_return_transaction::<Test, usize>
             .mock_safe(|_, _, _, _, _| MockResult::Return(Ok(())));
         ext::vault_registry::replace_tokens::<Test>.mock_safe(|_, _, _, _| MockResult::Return(Ok(())));

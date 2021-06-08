@@ -130,7 +130,7 @@ pub mod pallet {
 
             let transaction = Self::parse_transaction(&raw_tx)?;
             Self::_verify_transaction_inclusion(transaction.tx_id(), raw_merkle_proof, confirmations)?;
-            Self::_validate_transaction(raw_tx, expected_btc, recipient_btc_address, op_return_id)?;
+            Self::_validate_transaction(transaction, expected_btc, recipient_btc_address, op_return_id)?;
             Ok(().into())
         }
 
@@ -191,7 +191,9 @@ pub mod pallet {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let _ = ensure_signed(origin)?;
 
-            Self::_validate_transaction(raw_tx, expected_btc, recipient_btc_address, op_return_id)?;
+            let transaction = Self::parse_transaction(&raw_tx)?;
+
+            Self::_validate_transaction(transaction, expected_btc, recipient_btc_address, op_return_id)?;
             Ok(().into())
         }
 
@@ -659,12 +661,11 @@ impl<T: Config> Pallet<T> {
 
     // helper for the dispatchable
     fn _validate_transaction(
-        raw_tx: Vec<u8>,
+        transaction: Transaction,
         expected_btc: Value,
         recipient_btc_address: BtcAddress,
         op_return_id: Option<H256>,
     ) -> Result<(), DispatchError> {
-        let transaction = Self::parse_transaction(&raw_tx)?;
         match op_return_id {
             Some(op_return) => {
                 Self::validate_op_return_transaction(transaction, recipient_btc_address, expected_btc, op_return)?;
@@ -681,11 +682,9 @@ impl<T: Config> Pallet<T> {
     /// address (for refunds) and the payment amount
     pub fn get_and_verify_issue_payment<V: TryFrom<i64>>(
         raw_merkle_proof: Vec<u8>,
-        raw_tx: Vec<u8>,
+        transaction: Transaction,
         recipient_btc_address: BtcAddress,
     ) -> Result<(BtcAddress, V), DispatchError> {
-        let transaction = Self::parse_transaction(&raw_tx)?;
-
         // Verify that the transaction is indeed included in the main chain
         Self::_verify_transaction_inclusion(transaction.tx_id(), raw_merkle_proof, None)?;
 
@@ -722,13 +721,11 @@ impl<T: Config> Pallet<T> {
     /// interface to redeem,replace,refund to check that the payment is included and is valid
     pub fn verify_and_validate_op_return_transaction<V: TryInto<i64>>(
         raw_merkle_proof: Vec<u8>,
-        raw_tx: Vec<u8>,
+        transaction: Transaction,
         recipient_btc_address: BtcAddress,
         expected_btc: V,
         op_return_id: H256,
     ) -> Result<(), DispatchError> {
-        let transaction = Self::parse_transaction(&raw_tx)?;
-
         // Verify that the transaction is indeed included in the main chain
         Self::_verify_transaction_inclusion(transaction.tx_id(), raw_merkle_proof, None)?;
 
@@ -1049,7 +1046,7 @@ impl<T: Config> Pallet<T> {
     // *********************************
 
     // Wrapper functions around bitcoin lib for testing purposes
-    fn parse_transaction(raw_tx: &[u8]) -> Result<Transaction, DispatchError> {
+    pub fn parse_transaction(raw_tx: &[u8]) -> Result<Transaction, DispatchError> {
         Ok(parse_transaction(&raw_tx).map_err(Error::<T>::from)?)
     }
 

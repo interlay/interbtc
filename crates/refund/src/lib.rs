@@ -223,9 +223,10 @@ impl<T: Config> Pallet<T> {
             .map_err(|_e| Error::<T>::TryIntoIntError)?;
 
         // check the transaction inclusion and validity
+        let transaction = ext::btc_relay::parse_transaction::<T>(&raw_tx)?;
         ext::btc_relay::verify_and_validate_op_return_transaction::<T, _>(
             merkle_proof,
-            raw_tx,
+            transaction,
             request.btc_address,
             amount,
             refund_id,

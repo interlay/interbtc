@@ -355,8 +355,9 @@ impl<T: Config> Pallet<T> {
             Error::<T>::CommitPeriodExpired
         );
 
+        let transaction = ext::btc_relay::parse_transaction::<T>(&raw_tx)?;
         let (refund_address, amount_transferred) =
-            ext::btc_relay::get_and_verify_issue_payment::<T>(merkle_proof, raw_tx, issue.btc_address)?;
+            ext::btc_relay::get_and_verify_issue_payment::<T>(merkle_proof, transaction, issue.btc_address)?;
 
         let expected_total_amount = issue
             .amount
