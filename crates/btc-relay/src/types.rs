@@ -2,7 +2,7 @@ use crate::{Error, ACCEPTED_MAX_TRANSACTION_OUTPUTS};
 pub use bitcoin::Address as BtcAddress;
 use bitcoin::{
     parser::FromLeBytes,
-    types::{BlockHeader, H256Le, RawBlockHeader, Transaction},
+    types::{BlockHeader, H256Le, RawBlockHeader, Transaction, Value},
 };
 use codec::{Decode, Encode};
 use frame_support::{dispatch::DispatchError, ensure};
@@ -54,7 +54,7 @@ impl<AccountId, BlockNumber> RichBlockHeader<AccountId, BlockNumber> {
 pub struct OpReturnPaymentData<T: frame_system::Config> {
     pub op_return: H256,
     // vec of (amount, address)
-    payments: Vec<(i64, BtcAddress)>,
+    payments: Vec<(Value, BtcAddress)>,
     _marker: sp_std::marker::PhantomData<T>,
 }
 
@@ -111,7 +111,7 @@ impl<T: crate::Config> OpReturnPaymentData<T> {
     // ensures this is a valid payment. If it is, it returns the return-to-self address
     pub fn ensure_valid_payment_to(
         &self,
-        expected_amount: i64,
+        expected_amount: Value,
         recipient: BtcAddress,
         op_return: Option<H256>,
     ) -> Result<Option<BtcAddress>, DispatchError> {
