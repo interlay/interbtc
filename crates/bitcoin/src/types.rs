@@ -3,9 +3,10 @@ extern crate hex;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
+pub use crate::merkle::MerkleProof;
 use crate::{
     formatter::{Formattable, TryFormattable},
-    merkle::{MerkleProof, MerkleTree},
+    merkle::MerkleTree,
     parser::{extract_address_hash_scriptsig, extract_address_hash_witness},
     utils::{log2, reverse_endianness, sha256d_le},
     Address, Error, PublicKey, Script,

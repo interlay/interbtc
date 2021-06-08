@@ -41,10 +41,9 @@ pub(crate) mod security {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod btc_relay {
-    use bitcoin::types::{BlockHeader, H256Le, RawBlockHeader};
+    use bitcoin::types::{BlockHeader, H256Le, MerkleProof, RawBlockHeader};
     use frame_support::dispatch::DispatchResult;
     use sp_runtime::DispatchError;
-    use sp_std::prelude::*;
 
     pub fn initialize<T: crate::Config>(
         relayer: T::AccountId,
@@ -54,24 +53,25 @@ pub(crate) mod btc_relay {
         <btc_relay::Pallet<T>>::initialize(relayer, block_header, block_height)
     }
 
-    pub fn store_block_header<T: crate::Config>(
-        relayer: &T::AccountId,
-        block_header: BlockHeader,
-    ) -> DispatchResult {
+    pub fn store_block_header<T: crate::Config>(relayer: &T::AccountId, block_header: BlockHeader) -> DispatchResult {
         <btc_relay::Pallet<T>>::store_block_header(relayer, block_header)
     }
 
     pub(crate) fn verify_transaction_inclusion<T: crate::Config>(
         tx_id: H256Le,
-        raw_merkle_proof: Vec<u8>,
+        merkle_proof: MerkleProof,
     ) -> DispatchResult {
-        <btc_relay::Pallet<T>>::_verify_transaction_inclusion(tx_id, raw_merkle_proof, None)
+        <btc_relay::Pallet<T>>::_verify_transaction_inclusion(tx_id, merkle_proof, None)
     }
 
     pub fn parse_raw_block_header<T: btc_relay::Config>(
         raw_block_header: &RawBlockHeader,
     ) -> Result<BlockHeader, DispatchError> {
         <btc_relay::Pallet<T>>::parse_raw_block_header(raw_block_header)
+    }
+
+    pub fn parse_merkle_proof<T: btc_relay::Config>(raw_merkle_proof: &[u8]) -> Result<MerkleProof, DispatchError> {
+        <btc_relay::Pallet<T>>::parse_merkle_proof(raw_merkle_proof)
     }
 }
 

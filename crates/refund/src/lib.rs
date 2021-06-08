@@ -211,7 +211,7 @@ impl<T: Config> Pallet<T> {
     ///   or by querying the open refunds.
     /// * `merkle_proof` - raw bytes of the proof
     /// * `raw_tx` - raw bytes of the transaction
-    fn _execute_refund(refund_id: H256, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> Result<(), DispatchError> {
+    fn _execute_refund(refund_id: H256, raw_merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> Result<(), DispatchError> {
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
         let request = Self::get_open_refund_request_from_id(&refund_id)?;
@@ -224,6 +224,7 @@ impl<T: Config> Pallet<T> {
 
         // check the transaction inclusion and validity
         let transaction = ext::btc_relay::parse_transaction::<T>(&raw_tx)?;
+        let merkle_proof = ext::btc_relay::parse_merkle_proof::<T>(&raw_merkle_proof)?;
         ext::btc_relay::verify_and_validate_op_return_transaction::<T, _>(
             merkle_proof,
             transaction,

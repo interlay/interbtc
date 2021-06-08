@@ -939,6 +939,7 @@ fn test_verify_and_validate_transaction_succeeds() {
             BtcAddress::P2SH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let op_return_id =
             hex::decode("e5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb4675".to_owned()).unwrap();
+        BTCRelay::parse_merkle_proof.mock_safe(|_| MockResult::Return(Ok(sample_merkle_proof())));
         BTCRelay::_validate_transaction.mock_safe(move |_, _, _, _| MockResult::Return(Ok(())));
         BTCRelay::_verify_transaction_inclusion.mock_safe(move |_, _, _| MockResult::Return(Ok(())));
 

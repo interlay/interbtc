@@ -214,12 +214,13 @@ pub mod pallet {
         pub(super) fn report_vault_theft(
             origin: OriginFor<T>,
             vault_id: T::AccountId,
-            merkle_proof: Vec<u8>,
+            raw_merkle_proof: Vec<u8>,
             raw_tx: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let signer = ensure_signed(origin)?;
 
+            let merkle_proof = ext::btc_relay::parse_merkle_proof::<T>(&raw_merkle_proof)?;
             let transaction = parse_transaction(raw_tx.as_slice()).map_err(|_| Error::<T>::InvalidTransaction)?;
             let tx_id = transaction.tx_id();
 

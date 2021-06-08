@@ -338,7 +338,7 @@ impl<T: Config> Pallet<T> {
     fn _execute_issue(
         executor: T::AccountId,
         issue_id: H256,
-        merkle_proof: Vec<u8>,
+        raw_merkle_proof: Vec<u8>,
         raw_tx: Vec<u8>,
     ) -> Result<(), DispatchError> {
         // Check that Parachain is RUNNING
@@ -356,6 +356,7 @@ impl<T: Config> Pallet<T> {
         );
 
         let transaction = ext::btc_relay::parse_transaction::<T>(&raw_tx)?;
+        let merkle_proof = ext::btc_relay::parse_merkle_proof::<T>(&raw_merkle_proof)?;
         let (refund_address, amount_transferred) =
             ext::btc_relay::get_and_verify_issue_payment::<T>(merkle_proof, transaction, issue.btc_address)?;
 

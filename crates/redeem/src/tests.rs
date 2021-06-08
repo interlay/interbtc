@@ -1,7 +1,7 @@
 use crate::{ext, mock::*};
 
 use crate::types::{Collateral, RedeemRequest, RedeemRequestStatus, Wrapped};
-use bitcoin::types::{LockTime, Transaction};
+use bitcoin::types::{LockTime, MerkleProof, Transaction};
 use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
@@ -32,6 +32,15 @@ fn dummy_transaction() -> Transaction {
         outputs: vec![],
         lock_at: LockTime::BlockHeight(1),
         version: 0,
+    }
+}
+
+fn dummy_merkle_proof() -> MerkleProof {
+    MerkleProof {
+        block_header: Default::default(),
+        transactions_count: 0,
+        flag_bits: vec![],
+        hashes: vec![],
     }
 }
 
@@ -276,6 +285,7 @@ fn test_execute_redeem_succeeds_with_another_account() {
                 ..Default::default()
             },
         );
+        ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
         ext::btc_relay::parse_transaction::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_transaction())));
         ext::btc_relay::verify_and_validate_op_return_transaction::<Test, usize>
             .mock_safe(|_, _, _, _, _| MockResult::Return(Ok(())));
@@ -349,6 +359,7 @@ fn test_execute_redeem_succeeds() {
                 ..Default::default()
             },
         );
+        ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
         ext::btc_relay::parse_transaction::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_transaction())));
         ext::btc_relay::verify_and_validate_op_return_transaction::<Test, usize>
             .mock_safe(|_, _, _, _, _| MockResult::Return(Ok(())));
