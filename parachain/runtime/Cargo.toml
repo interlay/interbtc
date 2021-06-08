@@ -83,7 +83,6 @@ reward = { path = "../../crates/reward", default-features = false }
 primitives = { package = "btc-parachain-primitives", path = "../../primitives", default-features = false }
 
 parachain-info = { path = "../../crates/parachain-info", default-features = false, optional = true }
-parachain-tokens = { path = "../../crates/parachain-tokens", default-features = false, optional = true }
 
 module-btc-relay-rpc-runtime-api = { path = "../../crates/btc-relay/rpc/runtime-api", default-features = false }
 module-exchange-rate-oracle-rpc-runtime-api = { path = "../../crates/exchange-rate-oracle/rpc/runtime-api", default-features = false }
@@ -181,7 +180,6 @@ std = [
   "primitives/std",
 
   "parachain-info/std",
-  "parachain-tokens/std",
 
   "module-exchange-rate-oracle-rpc-runtime-api/std",
   "module-staked-relayers-rpc-runtime-api/std",
@@ -229,7 +227,6 @@ cumulus-polkadot = [
   "pallet-xcm",
 
   "parachain-info",
-  "parachain-tokens",
 ]
 aura-grandpa = [
   "pallet-grandpa",
@@ -237,6 +234,3 @@ aura-grandpa = [
   "sp-consensus-aura",
 ]
 disable-runtime-api = []
-disable-native-filter = [
-  "parachain-tokens/disable-native-filter"
-]

@@ -25,7 +25,7 @@ Compile and install the [parachain](https://github.com/interlay/interbtc) with t
 git clone git@github.com:interlay/interbtc.git
 cd interbtc
 
-cargo build --manifest-path parachain/Cargo.toml --release --no-default-features --features cumulus-polkadot,disable-native-filter
+cargo build --manifest-path parachain/Cargo.toml --release --no-default-features --features cumulus-polkadot
 sudo cp ./target/release/btc-parachain /usr/local/bin/
 ```
 
