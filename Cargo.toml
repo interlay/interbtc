@@ -20,7 +20,6 @@ members = [
   "parachain/service",
   "parachain/rpc",
   "crates/parachain-info",
-  "crates/parachain-tokens",
   "primitives",
 ]
 

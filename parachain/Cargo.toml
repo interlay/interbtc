@@ -73,6 +73,3 @@ aura-grandpa = [
     "btc-parachain-runtime/aura-grandpa",
     "btc-parachain-service/aura-grandpa",
 ]
-disable-native-filter = [
-    "btc-parachain-runtime/disable-native-filter",
-]

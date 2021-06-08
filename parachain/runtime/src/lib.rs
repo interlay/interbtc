@@ -61,7 +61,6 @@ use {
     frame_support::{match_type, traits::All},
     pallet_xcm::XcmPassthrough,
     pallet_xcm::{EnsureXcm, IsMajorityOfBody},
-    parachain_tokens::{CurrencyAdapter, NativeAsset},
     polkadot_parachain::primitives::Sibling,
     sp_runtime::traits::Convert,
     sp_std::convert::TryFrom,
@@ -70,10 +69,10 @@ use {
         Result as XcmResult, Xcm,
     },
     xcm_builder::{
-        AccountId32Aliases, AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom, EnsureXcmOrigin,
-        FixedWeightBounds, LocationInverter, ParentAsSuperuser, ParentIsDefault, RelayChainAsNative,
-        SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
-        SovereignSignedViaLocation, TakeWeightCredit, UsingComponents,
+        AccountId32Aliases, AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom, CurrencyAdapter, EnsureXcmOrigin,
+        FixedWeightBounds, IsConcrete, LocationInverter, NativeAsset, ParentAsSuperuser, ParentIsDefault,
+        RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
+        SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, UsingComponents,
     },
     xcm_executor::{Config, XcmExecutor},
 };
@@ -313,13 +312,17 @@ type LocationToAccountId = (
 );
 
 #[cfg(feature = "cumulus-polkadot")]
-type LocalAssetTransactor = CurrencyAdapter<
-    // Our chain's account ID type (we can't get away without mentioning it explicitly):
-    AccountId,
+pub type LocalAssetTransactor = CurrencyAdapter<
+    // Use this currency:
+    Collateral,
+    // Use this currency when it is a fungible asset matching the given location or name:
+    IsConcrete<RocLocation>,
     // Do a simple punn to convert an AccountId32 MultiLocation into a native chain account ID:
     LocationToAccountId,
-    MultiCurrency<Collateral, Wrapped>,
-    MultiAssetToMultiCurrency,
+    // Our chain's account ID type (we can't get away without mentioning it explicitly):
+    AccountId,
+    // We don't track any teleports.
+    (),
 >;
 
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
@@ -457,111 +460,6 @@ impl Convert<AccountId, [u8; 32]> for AccountId32Convert {
     fn convert(account_id: AccountId) -> [u8; 32] {
         account_id.into()
     }
-}
-
-#[cfg(feature = "cumulus-polkadot")]
-#[derive(Debug, Encode, Decode, Clone, PartialEq)]
-pub enum MultiCurrency<A: Currency<AccountId>, B: Currency<AccountId>> {
-    PolkaDOT(sp_std::marker::PhantomData<A>),
-    InterBTC(sp_std::marker::PhantomData<B>),
-}
-
-#[cfg(feature = "cumulus-polkadot")]
-impl Default for MultiCurrency<Collateral, Wrapped> {
-    fn default() -> Self {
-        Self::PolkaDOT(Default::default())
-    }
-}
-
-#[cfg(feature = "cumulus-polkadot")]
-impl parachain_tokens::MultiCurrency<AccountId> for MultiCurrency<Collateral, Wrapped> {
-    fn deposit(&self, account_id: &AccountId, amount: u128) -> XcmResult {
-        match self {
-            Self::PolkaDOT(_) => {
-                let _imbalance = Collateral::deposit_creating(account_id, amount);
-            }
-            Self::InterBTC(_) => {
-                let _imbalance = Wrapped::deposit_creating(account_id, amount);
-            }
-        };
-        Ok(())
-    }
-
-    fn withdraw(&self, account_id: &AccountId, amount: u128) -> XcmResult {
-        match self {
-            Self::PolkaDOT(_) => {
-                let _imbalance = Collateral::withdraw(account_id, amount, WithdrawReasons::TRANSFER, AllowDeath)
-                    .map_err(|err| XcmError::FailedToTransactAsset(err.into()))?;
-            }
-            Self::InterBTC(_) => {
-                let _imbalance = Wrapped::withdraw(account_id, amount, WithdrawReasons::TRANSFER, AllowDeath)
-                    .map_err(|err| XcmError::FailedToTransactAsset(err.into()))?;
-            }
-        };
-        Ok(())
-    }
-}
-
-#[cfg(feature = "cumulus-polkadot")]
-impl TryFrom<&[u8]> for MultiCurrency<Collateral, Wrapped> {
-    type Error = ();
-    fn try_from(from: &[u8]) -> Result<Self, ()> {
-        match from {
-            b"DOT" => Ok(Self::PolkaDOT(Default::default())),
-            b"INTERBTC" => Ok(Self::InterBTC(Default::default())),
-            _ => Err(()),
-        }
-    }
-}
-
-#[cfg(feature = "cumulus-polkadot")]
-impl Into<Vec<u8>> for MultiCurrency<Collateral, Wrapped> {
-    fn into(self) -> Vec<u8> {
-        match self {
-            Self::PolkaDOT(_) => b"DOT".to_vec(),
-            Self::InterBTC(_) => b"InterBTC".to_vec(),
-        }
-    }
-}
-
-#[cfg(feature = "cumulus-polkadot")]
-pub struct MultiAssetToMultiCurrency;
-
-#[cfg(feature = "cumulus-polkadot")]
-impl sp_runtime::traits::Convert<MultiLocation, Option<MultiCurrency<Collateral, Wrapped>>>
-    for MultiAssetToMultiCurrency
-{
-    fn convert(location: MultiLocation) -> Option<MultiCurrency<Collateral, Wrapped>> {
-        match location {
-            X1(Parent) => Some(MultiCurrency::PolkaDOT(Default::default())),
-            X3(Parent, Parachain(_), GeneralKey(key)) => {
-                // decode the general key
-                MultiCurrency::try_from(&key[..]).ok()
-            }
-            _ => None,
-        }
-    }
-}
-
-#[cfg(feature = "cumulus-polkadot")]
-impl sp_runtime::traits::Convert<MultiAsset, Option<MultiCurrency<Collateral, Wrapped>>> for MultiAssetToMultiCurrency {
-    fn convert(asset: MultiAsset) -> Option<MultiCurrency<Collateral, Wrapped>> {
-        if let MultiAsset::ConcreteFungible { id, amount: _ } = asset {
-            Self::convert(id)
-        } else {
-            None
-        }
-    }
-}
-
-#[cfg(feature = "cumulus-polkadot")]
-impl parachain_tokens::Config for Runtime {
-    type Event = Event;
-    type AccountId32Convert = AccountId32Convert;
-    type ParaId = ParachainInfo;
-    type XcmExecutor = XcmExecutor<XcmConfig>;
-    type MultiCurrency = MultiCurrency<Collateral, Wrapped>;
-    type Balance = Balance;
 }
 
 parameter_types! {
@@ -814,7 +712,6 @@ macro_rules! construct_interbtc_runtime {
 construct_interbtc_runtime! {
     ParachainSystem: cumulus_pallet_parachain_system::{Pallet, Call, Storage, Inherent, Event<T>, ValidateUnsigned},
     ParachainInfo: parachain_info::{Pallet, Storage, Config},
-    ParachainTokens: parachain_tokens::{Pallet, Storage, Call, Event<T>},
 
     Aura: pallet_aura::{Pallet, Config<T>},
     AuraExt: cumulus_pallet_aura_ext::{Pallet, Config},
