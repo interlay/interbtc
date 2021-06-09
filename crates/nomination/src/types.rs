@@ -1,5 +1,7 @@
 use crate::{ext, Config, Error};
 use codec::{Decode, Encode, HasCompact};
+use frame_support::traits::Currency;
+use sp_arithmetic::FixedPointNumber;
 use vault_registry::SlashingAccessors;
 
 #[cfg(test)]
@@ -12,6 +14,8 @@ pub(crate) type Collateral<T> = BalanceOf<T>;
 pub(crate) type UnsignedFixedPoint<T> = <T as Config>::UnsignedFixedPoint;
 
 pub(crate) type SignedFixedPoint<T> = <T as Config>::SignedFixedPoint;
+
+pub(crate) type Inner<T> = <<T as Config>::SignedFixedPoint as FixedPointNumber>::Inner;
 
 pub struct RichNominator<T: Config> {
     pub(crate) data: DefaultNominator<T>,

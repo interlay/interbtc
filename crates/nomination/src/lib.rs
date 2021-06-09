@@ -23,10 +23,12 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::{ensure_root, ensure_signed};
+use reward::RewardPool;
 use sp_arithmetic::FixedPointNumber;
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedSub, One, Zero};
+use std::convert::TryInto;
 pub use types::Nominator;
-use types::{BalanceOf, Collateral, DefaultNominator, RichNominator, SignedFixedPoint, UnsignedFixedPoint};
+use types::{BalanceOf, Collateral, DefaultNominator, Inner, RichNominator, SignedFixedPoint, UnsignedFixedPoint};
 
 pub trait WeightInfo {
     fn set_nomination_enabled() -> Weight;
@@ -68,6 +70,12 @@ pub mod pallet {
 
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
+
+        /// Vault reward pool for the collateral currency.
+        type CollateralVaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
+
+        /// Vault reward pool for the wrapped currency.
+        type WrappedVaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
     }
 
     #[pallet::event]
@@ -236,6 +244,11 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InsufficientCollateral
         );
 
+        // Withdraw all vault rewards first, to prevent the nominator from withdrawing rewards from the past.
+        ext::fee::withdraw_all_vault_rewards::<T>(&vault_id)?;
+        // Withdraw `amount` of stake from the vault reward pool
+        Self::withdraw_pool_stake::<<T as pallet::Config>::CollateralVaultRewards>(&nominator_id, &vault_id, amount)?;
+
         let mut nominator: RichNominator<T> = Self::get_nominator(&nominator_id, &vault_id)?.into();
         nominator.try_withdraw_collateral(amount)?;
         ext::collateral::unlock_and_transfer::<T>(&nominator_id, &vault_id, amount)?;
@@ -264,6 +277,11 @@ impl<T: Config> Pallet<T> {
             new_nominated_collateral <= Self::get_max_nominatable_collateral(vault_backing_collateral)?,
             Error::<T>::DepositViolatesMaxNominationRatio
         );
+
+        // Withdraw all vault rewards first, to prevent the nominator from withdrawing rewards from the past.
+        ext::fee::withdraw_all_vault_rewards::<T>(&vault_id)?;
+        // Withdraw `amount` of stake from the vault reward pool
+        Self::deposit_pool_stake::<<T as pallet::Config>::CollateralVaultRewards>(&nominator_id, &vault_id, amount)?;
 
         let mut nominator: RichNominator<T> = Self::register_or_get_nominator(&nominator_id, &vault_id)?.into();
         nominator
@@ -373,5 +391,35 @@ impl<T: Config> Pallet<T> {
 
     pub fn get_max_nominatable_collateral(vault_collateral: Collateral<T>) -> Result<Collateral<T>, DispatchError> {
         ext::fee::collateral_for::<T>(vault_collateral, Self::get_max_nomination_ratio()?)
+    }
+
+    fn currency_to_fixed_point<C: TryInto<u128>>(
+        x: C,
+    ) -> Result<<T as pallet::Config>::SignedFixedPoint, DispatchError> {
+        let y = TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError)?;
+        let inner = TryInto::<Inner<T>>::try_into(y).map_err(|_| Error::<T>::TryIntoIntError)?;
+        Ok(SignedFixedPoint::<T>::checked_from_integer(inner).ok_or(Error::<T>::TryIntoIntError)?)
+    }
+
+    fn withdraw_pool_stake<R: reward::Rewards<T::AccountId, SignedFixedPoint = SignedFixedPoint<T>>>(
+        account_id: &T::AccountId,
+        vault_id: &T::AccountId,
+        amount: Collateral<T>,
+    ) -> Result<(), DispatchError> {
+        let amount_raw = Self::currency_to_fixed_point(amount)?;
+        if amount_raw > SignedFixedPoint::<T>::zero() {
+            R::withdraw_stake(RewardPool::Local(vault_id.clone()), account_id, amount_raw)?;
+        }
+        Ok(())
+    }
+
+    fn deposit_pool_stake<R: reward::Rewards<T::AccountId, SignedFixedPoint = SignedFixedPoint<T>>>(
+        account_id: &T::AccountId,
+        vault_id: &T::AccountId,
+        amount: Collateral<T>,
+    ) -> Result<(), DispatchError> {
+        let amount_raw = Self::currency_to_fixed_point(amount)?;
+        R::deposit_stake(RewardPool::Local(vault_id.clone()), account_id, amount_raw)?;
+        Ok(())
     }
 }

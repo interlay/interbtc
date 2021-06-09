@@ -81,12 +81,16 @@ pub(crate) mod vault_registry {
 #[cfg_attr(test, mockable)]
 pub(crate) mod fee {
     use crate::types::{Collateral, UnsignedFixedPoint};
-    use frame_support::dispatch::DispatchError;
+    use frame_support::dispatch::{DispatchError, DispatchResult};
 
     pub fn collateral_for<T: crate::Config>(
         amount: Collateral<T>,
         percentage: UnsignedFixedPoint<T>,
     ) -> Result<Collateral<T>, DispatchError> {
         <fee::Pallet<T>>::collateral_for(amount, percentage)
+    }
+
+    pub fn withdraw_all_vault_rewards<T: fee::Config>(account_id: &T::AccountId) -> DispatchResult {
+        <fee::Pallet<T>>::withdraw_all_vault_rewards(account_id)
     }
 }

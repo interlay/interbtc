@@ -56,6 +56,7 @@ pub mod pallet {
         DepositStake(RewardPool<T::AccountId>, T::AccountId, T::SignedFixedPoint),
         WithdrawStake(RewardPool<T::AccountId>, T::AccountId, T::SignedFixedPoint),
         WithdrawReward(RewardPool<T::AccountId>, T::AccountId, T::SignedFixedPoint),
+        DistributeFromGlobalPool(RewardPool<T::AccountId>, T::SignedFixedPoint),
     }
 
     #[pallet::error]
@@ -301,7 +302,7 @@ where
             SignedFixedPoint::<T, I>::checked_from_integer(reward).ok_or(Error::<T, I>::TryIntoIntError)?;
         checked_sub_mut!(TotalRewards<T, I>, &reward_pool, &reward_as_fixed);
 
-        let stake = <Stake<T, I>>::get((&reward_pool, account_id));
+        let stake = Self::get_stake(reward_pool.clone(), account_id);
         let reward_per_token = Self::reward_per_token(&reward_pool);
         <RewardTally<T, I>>::insert(
             (&reward_pool, account_id),

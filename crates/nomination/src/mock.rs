@@ -250,6 +250,8 @@ impl Config for Test {
     type WeightInfo = ();
     type UnsignedFixedPoint = FixedU128;
     type SignedFixedPoint = FixedI128;
+    type CollateralVaultRewards = CollateralVaultRewards;
+    type WrappedVaultRewards = WrappedVaultRewards;
 }
 
 pub type TestEvent = Event;

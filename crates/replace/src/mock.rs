@@ -220,6 +220,8 @@ impl nomination::Config for Test {
     type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
     type SignedFixedPoint = FixedI128;
+    type CollateralVaultRewards = CollateralVaultRewards;
+    type WrappedVaultRewards = WrappedVaultRewards;
 }
 
 parameter_types! {
