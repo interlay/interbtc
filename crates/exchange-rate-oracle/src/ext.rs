@@ -6,19 +6,19 @@ pub(crate) mod security {
     use frame_support::dispatch::DispatchResult;
     use security::{ErrorCode, StatusCode};
 
-    pub fn ensure_parachain_status_not_shutdown<T: security::Config>() -> DispatchResult {
+    pub fn ensure_parachain_status_not_shutdown<T: crate::Config>() -> DispatchResult {
         <security::Pallet<T>>::ensure_parachain_status_not_shutdown()
     }
 
-    pub fn recover_from_oracle_offline<T: security::Config>() {
+    pub fn recover_from_oracle_offline<T: crate::Config>() {
         <security::Pallet<T>>::recover_from_oracle_offline()
     }
 
-    pub(crate) fn set_status<T: security::Config>(status_code: StatusCode) {
+    pub(crate) fn set_status<T: crate::Config>(status_code: StatusCode) {
         <security::Pallet<T>>::set_status(status_code)
     }
 
-    pub(crate) fn insert_error<T: security::Config>(error_code: ErrorCode) {
+    pub(crate) fn insert_error<T: crate::Config>(error_code: ErrorCode) {
         <security::Pallet<T>>::insert_error(error_code)
     }
 }
@@ -27,8 +27,8 @@ pub(crate) mod security {
 pub(crate) mod collateral {
     use frame_support::traits::Get;
 
-    pub fn decimals<T: currency::Config<currency::Collateral>>() -> u8 {
-        T::Decimals::get()
+    pub fn decimals<T: crate::Config>() -> u8 {
+        <T as currency::Config<currency::Collateral>>::Decimals::get()
     }
 }
 
@@ -36,7 +36,7 @@ pub(crate) mod collateral {
 pub(crate) mod treasury {
     use frame_support::traits::Get;
 
-    pub fn decimals<T: currency::Config<currency::Wrapped>>() -> u8 {
-        T::Decimals::get()
+    pub fn decimals<T: crate::Config>() -> u8 {
+        <T as currency::Config<currency::Wrapped>>::Decimals::get()
     }
 }

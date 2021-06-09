@@ -6,7 +6,7 @@ pub(crate) mod fee {
     use crate::types::Wrapped;
     use frame_support::dispatch::DispatchError;
 
-    pub fn get_refund_fee_from_total<T: fee::Config>(amount: Wrapped<T>) -> Result<Wrapped<T>, DispatchError> {
+    pub fn get_refund_fee_from_total<T: crate::Config>(amount: Wrapped<T>) -> Result<Wrapped<T>, DispatchError> {
         <fee::Pallet<T>>::get_refund_fee_from_total(amount)
     }
 }
@@ -17,7 +17,7 @@ pub(crate) mod sla {
     use frame_support::dispatch::DispatchError;
     pub use sla::types::VaultEvent;
 
-    pub fn event_update_vault_sla<T: sla::Config>(
+    pub fn event_update_vault_sla<T: crate::Config>(
         vault_id: &T::AccountId,
         event: VaultEvent<Wrapped<T>, Collateral<T>>,
     ) -> Result<(), DispatchError> {
@@ -32,7 +32,7 @@ pub(crate) mod btc_relay {
     use sp_core::H256;
     use sp_std::vec::Vec;
 
-    pub fn verify_and_validate_op_return_transaction<T: btc_relay::Config>(
+    pub fn verify_and_validate_op_return_transaction<T: crate::Config>(
         raw_merkle_proof: Vec<u8>,
         raw_tx: Vec<u8>,
         recipient_btc_address: BtcAddress,
@@ -54,11 +54,11 @@ pub(crate) mod security {
     use frame_support::dispatch::DispatchResult;
     use sp_core::H256;
 
-    pub fn get_secure_id<T: security::Config>(id: &T::AccountId) -> H256 {
+    pub fn get_secure_id<T: crate::Config>(id: &T::AccountId) -> H256 {
         <security::Pallet<T>>::get_secure_id(id)
     }
 
-    pub fn ensure_parachain_status_not_shutdown<T: security::Config>() -> DispatchResult {
+    pub fn ensure_parachain_status_not_shutdown<T: crate::Config>() -> DispatchResult {
         <security::Pallet<T>>::ensure_parachain_status_not_shutdown()
     }
 }
@@ -69,7 +69,7 @@ pub(crate) mod treasury {
 
     type TreasuryPallet<T> = currency::Pallet<T, currency::Wrapped>;
 
-    pub fn mint<T: currency::Config<currency::Wrapped>>(requester: T::AccountId, amount: Wrapped<T>) {
+    pub fn mint<T: crate::Config>(requester: T::AccountId, amount: Wrapped<T>) {
         TreasuryPallet::<T>::mint(requester, amount)
     }
 }
@@ -79,14 +79,14 @@ pub(crate) mod vault_registry {
     use crate::types::Wrapped;
     use frame_support::dispatch::{DispatchError, DispatchResult};
 
-    pub fn try_increase_to_be_issued_tokens<T: vault_registry::Config>(
+    pub fn try_increase_to_be_issued_tokens<T: crate::Config>(
         vault_id: &T::AccountId,
         amount: Wrapped<T>,
     ) -> Result<(), DispatchError> {
         <vault_registry::Pallet<T>>::try_increase_to_be_issued_tokens(vault_id, amount)
     }
 
-    pub fn issue_tokens<T: vault_registry::Config>(vault_id: &T::AccountId, amount: Wrapped<T>) -> DispatchResult {
+    pub fn issue_tokens<T: crate::Config>(vault_id: &T::AccountId, amount: Wrapped<T>) -> DispatchResult {
         <vault_registry::Pallet<T>>::issue_tokens(vault_id, amount)
     }
 }
