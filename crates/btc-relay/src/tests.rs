@@ -187,6 +187,10 @@ fn store_block_header_on_fork_succeeds() {
         BTCRelay::get_block_chain_from_id.mock_safe(move |_: u32| MockResult::Return(Ok(prev_blockchain.clone())));
 
         let block_header_hash = block_header.hash;
+
+        // simulate that initialize has been called
+        BTCRelay::increment_chain_counter().unwrap();
+
         assert_ok!(BTCRelay::store_block_header(&3, block_header));
 
         let store_fork_event =
@@ -435,7 +439,7 @@ fn swap_main_blockchain_succeeds() {
 
         let old_main_ref = fork_chain_ref + 1;
         // mock the chain counter
-        BTCRelay::increment_chain_counter.mock_safe(move || MockResult::Return(old_main_ref));
+        BTCRelay::increment_chain_counter.mock_safe(move || MockResult::Return(Ok(old_main_ref)));
 
         // swap the main and fork
         assert_ok!(BTCRelay::swap_main_blockchain(&fork));

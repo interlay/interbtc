@@ -510,32 +510,14 @@ impl<T: Config> Pallet<T> {
         // Check if BTC-Relay was already initialized
         ensure!(!Self::best_block_exists(), Error::<T>::AlreadyInitialized);
 
-        // register the current height to track stable parachain confirmations
-        let para_height = ext::security::active_block_number::<T>();
-
         // construct the BlockChain struct
-        let blockchain = Self::initialize_blockchain(block_height, basic_block_header.hash);
-        // Create rich block header
-        let block_header = RichBlockHeader::<T::AccountId, T::BlockNumber> {
-            block_header: basic_block_header,
-            block_height,
-            chain_ref: blockchain.chain_id,
-            account_id: relayer.clone(),
-            para_height,
-        };
-
-        // Store a new BlockHeader struct in BlockHeaders
-        Self::set_block_header_from_hash(basic_block_header.hash, &block_header);
-
-        // Store a pointer to BlockChain in ChainsIndex
-        Self::set_block_chain_from_id(MAIN_CHAIN_ID, &blockchain);
-
-        // Store the reference to the new BlockChain in Chains
-        Self::set_chain_from_position_and_id(0, MAIN_CHAIN_ID);
+        let chain_id = Self::create_and_store_blockchain(block_height, basic_block_header.hash)?;
 
         // Set BestBlock and BestBlockHeight to the submitted block
-        Self::set_best_block(basic_block_header.hash);
-        Self::set_best_block_height(block_height);
+        Self::update_chain_head(&basic_block_header, block_height);
+
+        Self::store_rich_header(basic_block_header, block_height, chain_id, relayer.clone());
+
         StartBlockHeight::<T>::set(block_height);
 
         // Emit a Initialized Event
@@ -584,41 +566,16 @@ impl<T: Config> Pallet<T> {
         // check if we create a new blockchain or extend the existing one
         runtime_print!("Prev max height: {:?}", prev_blockchain.max_height);
         runtime_print!("Prev block height: {:?}", prev_block_height);
-        let is_fork = prev_blockchain.max_height != prev_block_height;
-        runtime_print!("Fork detected: {:?}", is_fork);
+        let is_new_fork = prev_blockchain.max_height != prev_block_height;
+        runtime_print!("Fork detected: {:?}", is_new_fork);
 
-        let blockchain = if is_fork {
+        let chain_id = if is_new_fork {
             // create new blockchain element
-            Self::create_blockchain(current_block_height, basic_block_header.hash)
+            Self::create_and_store_blockchain(current_block_height, basic_block_header.hash)?
         } else {
             // extend the current chain
-            Self::extend_blockchain(current_block_height, &basic_block_header.hash, prev_blockchain)?
-        };
+            let blockchain = Self::extend_blockchain(current_block_height, &basic_block_header.hash, prev_blockchain)?;
 
-        // register the current height to track stable parachain confirmations
-        let para_height = ext::security::active_block_number::<T>();
-
-        // Create rich block header
-        let block_header = RichBlockHeader::<T::AccountId, T::BlockNumber> {
-            block_header: basic_block_header,
-            block_height: current_block_height,
-            chain_ref: blockchain.chain_id,
-            account_id: relayer.clone(),
-            para_height,
-        };
-
-        // Store a new BlockHeader struct in BlockHeaders
-        Self::set_block_header_from_hash(basic_block_header.hash, &block_header);
-
-        // Storing the blockchain depends if we extend or create a new chain
-        if is_fork {
-            // create a new chain
-            // Store a pointer to BlockChain in ChainsIndex
-            Self::set_block_chain_from_id(blockchain.chain_id, &blockchain);
-            // Store the reference to the blockchain in Chains
-            Self::insert_sorted(&blockchain)?;
-        } else {
-            // extended the chain
             // Update the pointer to BlockChain in ChainsIndex
             ChainsIndex::<T>::mutate(blockchain.chain_id, |_b| &blockchain);
 
@@ -626,10 +583,12 @@ impl<T: Config> Pallet<T> {
             Self::check_and_do_reorg(&blockchain)?;
 
             if blockchain.chain_id == MAIN_CHAIN_ID {
-                Self::set_best_block(basic_block_header.hash);
-                Self::set_best_block_height(current_block_height)
+                Self::update_chain_head(&basic_block_header, current_block_height);
             }
+            blockchain.chain_id
         };
+
+        Self::store_rich_header(basic_block_header, current_block_height, chain_id, relayer.clone());
 
         // Determine if this block extends the main chain or a fork
         let current_best_block = Self::get_best_block();
@@ -644,7 +603,7 @@ impl<T: Config> Pallet<T> {
         } else {
             // created a new fork or updated an existing one
             Self::deposit_event(<Event<T>>::StoreForkHeader(
-                blockchain.chain_id,
+                chain_id,
                 current_block_height,
                 basic_block_header.hash,
                 relayer.clone(),
@@ -960,28 +919,29 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Set a new chain counter
-    fn increment_chain_counter() -> u32 {
-        let new_counter = Self::get_chain_counter() + 1;
-        ChainCounter::<T>::put(new_counter);
+    fn increment_chain_counter() -> Result<u32, DispatchError> {
+        let ret = Self::get_chain_counter();
+        let next_value = ret.checked_add(1).ok_or(Error::<T>::ArithmeticOverflow)?;
+        ChainCounter::<T>::put(next_value);
 
-        new_counter
-    }
-
-    /// Initialize the new main blockchain with a single block
-    fn initialize_blockchain(block_height: u32, block_hash: H256Le) -> BlockChain {
-        let chain_id = MAIN_CHAIN_ID;
-
-        // generate an empty blockchain
-        Self::generate_blockchain(chain_id, block_height, block_hash)
+        Ok(ret)
     }
 
     /// Create a new blockchain element with a new chain id
-    fn create_blockchain(block_height: u32, block_hash: H256Le) -> BlockChain {
+    fn create_and_store_blockchain(block_height: u32, block_hash: H256Le) -> Result<u32, DispatchError> {
         // get a new chain id
-        let chain_id: u32 = Self::increment_chain_counter();
+        let chain_id = Self::increment_chain_counter()?;
 
         // generate an empty blockchain
-        Self::generate_blockchain(chain_id, block_height, block_hash)
+        let blockchain = Self::generate_blockchain(chain_id, block_height, block_hash);
+
+        // Store a pointer to BlockChain in ChainsIndex
+        Self::set_block_chain_from_id(blockchain.chain_id, &blockchain);
+
+        // Store the reference to the blockchain in Chains
+        Self::insert_sorted(&blockchain)?;
+
+        Ok(blockchain.chain_id)
     }
 
     /// Generate the raw blockchain from a chain Id and with a single block
@@ -1174,7 +1134,7 @@ impl<T: Config> Pallet<T> {
         // create a new blockchain element to store the part of the main chain
         // that is being forked
         // generate a chain id
-        let chain_id = Self::increment_chain_counter();
+        let chain_id = Self::increment_chain_counter()?;
 
         // maybe split off the no data elements
         // check if there is a no_data block element
@@ -1560,6 +1520,23 @@ impl<T: Config> Pallet<T> {
         } else {
             Ok(())
         }
+    }
+
+    fn store_rich_header(basic_block_header: BlockHeader, block_height: u32, chain_id: u32, relayer: T::AccountId) {
+        let para_height = ext::security::active_block_number::<T>();
+        let block_header = RichBlockHeader::<T::AccountId, T::BlockNumber> {
+            block_header: basic_block_header,
+            block_height,
+            chain_ref: chain_id,
+            account_id: relayer,
+            para_height,
+        };
+        Self::set_block_header_from_hash(basic_block_header.hash, &block_header);
+    }
+
+    fn update_chain_head(basic_block_header: &BlockHeader, block_height: u32) {
+        Self::set_best_block(basic_block_header.hash);
+        Self::set_best_block_height(block_height);
     }
 }
 
