@@ -181,6 +181,7 @@ std = [
 
   "parachain-info/std",
 
+  "module-btc-relay-rpc-runtime-api/std",
   "module-exchange-rate-oracle-rpc-runtime-api/std",
   "module-staked-relayers-rpc-runtime-api/std",
   "module-vault-registry-rpc-runtime-api/std",
