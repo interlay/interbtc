@@ -27,9 +27,9 @@ use frame_support::{dispatch::DispatchError, ensure, transactional};
 use frame_system::ensure_signed;
 use sp_core::H256;
 use sp_runtime::traits::CheckedSub;
-use sp_std::{convert::TryInto, vec::Vec};
+use sp_std::vec::Vec;
 pub use types::RefundRequest;
-use types::Wrapped;
+use types::{BalanceOf, Wrapped};
 
 pub use pallet::*;
 
@@ -45,8 +45,8 @@ pub mod pallet {
     pub trait Config:
         frame_system::Config
         + btc_relay::Config
-        + currency::Config<currency::Collateral>
-        + currency::Config<currency::Wrapped>
+        + currency::Config<currency::Collateral, Balance = BalanceOf<Self>>
+        + currency::Config<currency::Wrapped, Balance = BalanceOf<Self>>
         + fee::Config
         + sla::Config
         + vault_registry::Config
@@ -216,12 +216,6 @@ impl<T: Config> Pallet<T> {
 
         let request = Self::get_open_refund_request_from_id(&refund_id)?;
 
-        // verify the payment
-        let amount: usize = request
-            .amount_wrapped
-            .try_into()
-            .map_err(|_e| Error::<T>::TryIntoIntError)?;
-
         // check the transaction inclusion and validity
         let transaction = ext::btc_relay::parse_transaction::<T>(&raw_tx)?;
         let merkle_proof = ext::btc_relay::parse_merkle_proof::<T>(&raw_merkle_proof)?;
@@ -229,7 +223,7 @@ impl<T: Config> Pallet<T> {
             merkle_proof,
             transaction,
             request.btc_address,
-            amount,
+            request.amount_wrapped,
             refund_id,
         )?;
         // mint issued tokens corresponding to the fee. Note that this can fail
@@ -249,7 +243,7 @@ impl<T: Config> Pallet<T> {
             refund_id,
             request.issuer,
             request.vault,
-            Self::u128_to_wrapped(amount as u128)?,
+            request.amount_wrapped,
             request.fee,
         ));
 
@@ -326,9 +320,5 @@ impl<T: Config> Pallet<T> {
         <RefundRequests<T>>::iter()
             .filter(|(_, request)| request.vault == account_id)
             .collect::<Vec<_>>()
-    }
-
-    fn u128_to_wrapped(x: u128) -> Result<Wrapped<T>, DispatchError> {
-        TryInto::<Wrapped<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 }

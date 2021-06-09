@@ -26,12 +26,12 @@ extern crate mocktopus;
 #[doc(inline)]
 pub use crate::types::BtcTxFeesPerByte;
 
-use crate::types::{Collateral, Inner, UnsignedFixedPoint, Version, Wrapped};
+use crate::types::{Collateral, UnsignedFixedPoint, Version, Wrapped};
 
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-use codec::{Decode, Encode, EncodeLike};
+use codec::{Decode, Encode, EncodeLike, FullCodec};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure, transactional,
@@ -39,11 +39,11 @@ use frame_support::{
 };
 use frame_system::{ensure_root, ensure_signed};
 use security::{ErrorCode, StatusCode};
-use sp_arithmetic::{
+use sp_runtime::{
     traits::{UniqueSaturatedInto, *},
-    FixedPointNumber,
+    FixedPointNumber, FixedPointOperand,
 };
-use sp_std::{convert::TryInto, vec::Vec};
+use sp_std::{convert::TryInto, fmt::Debug, vec::Vec};
 
 pub use pallet::*;
 
@@ -59,15 +59,24 @@ pub mod pallet {
     pub trait Config:
         frame_system::Config
         + pallet_timestamp::Config
-        + currency::Config<currency::Collateral>
-        + currency::Config<currency::Wrapped>
+        + currency::Config<currency::Collateral, Balance = <Self as Config>::Balance>
+        + currency::Config<currency::Wrapped, Balance = <Self as Config>::Balance>
         + security::Config
     {
         /// The overarching event type.
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
+        /// The primitive balance type.
+        type Balance: AtLeast32BitUnsigned
+            + FixedPointOperand
+            + MaybeSerializeDeserialize
+            + FullCodec
+            + Copy
+            + Default
+            + Debug;
+
         /// The unsigned fixed point type.
-        type UnsignedFixedPoint: FixedPointNumber + Encode + EncodeLike + Decode;
+        type UnsignedFixedPoint: FixedPointNumber<Inner = <Self as Config>::Balance> + Encode + EncodeLike + Decode;
 
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
@@ -294,36 +303,28 @@ impl<T: Config> Pallet<T> {
             .ok_or(Error::<T>::ArithmeticOverflow.into())
     }
 
-    fn into_u128<I: TryInto<u128>>(x: I) -> Result<u128, DispatchError> {
-        TryInto::<u128>::try_into(x).map_err(|_e| Error::<T>::TryIntoIntError.into())
-    }
-
     pub fn wrapped_to_collateral(amount: Wrapped<T>) -> Result<Collateral<T>, DispatchError> {
         let rate = Self::get_exchange_rate()?;
-        let raw_amount = Self::into_u128(amount)?;
-        let converted = rate.checked_mul_int(raw_amount).ok_or(Error::<T>::ArithmeticOverflow)?;
+        let converted = rate.checked_mul_int(amount).ok_or(Error::<T>::ArithmeticOverflow)?;
         let result = converted.try_into().map_err(|_e| Error::<T>::TryIntoIntError)?;
         Ok(result)
     }
 
     pub fn collateral_to_wrapped(amount: Collateral<T>) -> Result<Wrapped<T>, DispatchError> {
         let rate = Self::get_exchange_rate()?;
-        let raw_amount = Self::into_u128(amount)?;
-        if raw_amount == 0 {
-            return Ok(0u32.into());
+        if amount.is_zero() {
+            return Ok(Zero::zero());
         }
 
-        // The code below performs `raw_amount/rate`, plus necessary type conversions
-        let collateral_as_inner: Inner<T> = raw_amount.try_into().map_err(|_| Error::<T>::TryIntoIntError)?;
-        let wrapped_raw: u128 = T::UnsignedFixedPoint::checked_from_integer(collateral_as_inner)
+        // The code below performs `amount/rate`, plus necessary type conversions
+        Ok(T::UnsignedFixedPoint::checked_from_integer(amount.into())
             .ok_or(Error::<T>::TryIntoIntError)?
             .checked_div(&rate)
             .ok_or(Error::<T>::ArithmeticUnderflow)?
             .into_inner()
             .checked_div(&UnsignedFixedPoint::<T>::accuracy())
             .ok_or(Error::<T>::ArithmeticUnderflow)?
-            .unique_saturated_into();
-        wrapped_raw.try_into().map_err(|_e| Error::<T>::TryIntoIntError.into())
+            .unique_saturated_into())
     }
 
     pub fn get_last_exchange_rate_time() -> T::Moment {

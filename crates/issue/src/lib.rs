@@ -29,13 +29,13 @@ pub mod types;
 #[doc(inline)]
 pub use crate::types::{IssueRequest, IssueRequestStatus};
 
-use crate::types::{Collateral, Version, Wrapped};
+use crate::types::{BalanceOf, Collateral, Version, Wrapped};
 use btc_relay::{BtcAddress, BtcPublicKey};
 use frame_support::{dispatch::DispatchError, ensure, transactional};
 use frame_system::{ensure_root, ensure_signed};
 use sp_core::H256;
 use sp_runtime::traits::*;
-use sp_std::{convert::TryInto, vec::Vec};
+use sp_std::vec::Vec;
 use vault_registry::{CurrencySource, VaultStatus};
 
 pub use pallet::*;
@@ -52,12 +52,12 @@ pub mod pallet {
     pub trait Config:
         frame_system::Config
         + vault_registry::Config
-        + currency::Config<currency::Collateral>
-        + currency::Config<currency::Wrapped>
+        + currency::Config<currency::Collateral, Balance = BalanceOf<Self>>
+        + currency::Config<currency::Wrapped, Balance = BalanceOf<Self>>
         + btc_relay::Config
-        + exchange_rate_oracle::Config
+        + exchange_rate_oracle::Config<Balance = BalanceOf<Self>>
         + fee::Config
-        + sla::Config
+        + sla::Config<Balance = BalanceOf<Self>>
         + refund::Config
     {
         /// The overarching event type.
@@ -357,14 +357,16 @@ impl<T: Config> Pallet<T> {
 
         let transaction = ext::btc_relay::parse_transaction::<T>(&raw_tx)?;
         let merkle_proof = ext::btc_relay::parse_merkle_proof::<T>(&raw_merkle_proof)?;
-        let (refund_address, amount_transferred) =
-            ext::btc_relay::get_and_verify_issue_payment::<T>(merkle_proof, transaction, issue.btc_address)?;
+        let (refund_address, amount_transferred) = ext::btc_relay::get_and_verify_issue_payment::<T, Wrapped<T>>(
+            merkle_proof,
+            transaction,
+            issue.btc_address,
+        )?;
 
         let expected_total_amount = issue
             .amount
             .checked_add(&issue.fee)
             .ok_or(Error::<T>::ArithmeticOverflow)?;
-        let amount_transferred = Self::u128_to_wrapped(amount_transferred)?;
 
         // check for unexpected bitcoin amounts, and update the issue struct
         if amount_transferred < expected_total_amount {
@@ -588,9 +590,5 @@ impl<T: Config> Pallet<T> {
         <IssueRequests<T>>::mutate(id, |request| {
             request.status = status;
         });
-    }
-
-    fn u128_to_wrapped(x: u128) -> Result<Wrapped<T>, DispatchError> {
-        TryInto::<Wrapped<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 }

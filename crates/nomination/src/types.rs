@@ -1,14 +1,13 @@
 use crate::{ext, Config, Error};
 use codec::{Decode, Encode, HasCompact};
-use frame_support::traits::Currency;
 use vault_registry::SlashingAccessors;
 
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-pub(crate) type Collateral<T> = <<T as currency::Config<currency::Collateral>>::Currency as Currency<
-    <T as frame_system::Config>::AccountId,
->>::Balance;
+pub(crate) type BalanceOf<T> = <T as vault_registry::Config>::Balance;
+
+pub(crate) type Collateral<T> = BalanceOf<T>;
 
 pub(crate) type UnsignedFixedPoint<T> = <T as Config>::UnsignedFixedPoint;
 

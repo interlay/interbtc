@@ -39,7 +39,7 @@ pub(crate) mod treasury {
 
     type TreasuryPallet<T> = currency::Pallet<T, currency::Wrapped>;
 
-    pub fn total_issued<T: currency::Config<currency::Wrapped>>() -> Wrapped<T> {
+    pub fn total_issued<T: crate::Config>() -> Wrapped<T> {
         TreasuryPallet::<T>::get_total_supply()
     }
 }

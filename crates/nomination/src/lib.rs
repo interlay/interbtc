@@ -26,7 +26,7 @@ use frame_system::{ensure_root, ensure_signed};
 use sp_arithmetic::FixedPointNumber;
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedSub, One, Zero};
 pub use types::Nominator;
-use types::{Collateral, DefaultNominator, RichNominator, SignedFixedPoint, UnsignedFixedPoint};
+use types::{BalanceOf, Collateral, DefaultNominator, RichNominator, SignedFixedPoint, UnsignedFixedPoint};
 
 pub trait WeightInfo {
     fn set_nomination_enabled() -> Weight;
@@ -49,11 +49,11 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config:
         frame_system::Config
-        + currency::Config<currency::Collateral>
-        + currency::Config<currency::Wrapped>
+        + currency::Config<currency::Collateral, Balance = BalanceOf<Self>>
+        + currency::Config<currency::Wrapped, Balance = BalanceOf<Self>>
         + security::Config
         + vault_registry::Config<
-            UnsignedFixedPoint = <Self as fee::Config>::UnsignedFixedPoint,
+            UnsignedFixedPoint = <Self as Config>::UnsignedFixedPoint,
             SignedFixedPoint = <Self as Config>::SignedFixedPoint,
         > + fee::Config<UnsignedFixedPoint = <Self as Config>::UnsignedFixedPoint>
     {
@@ -256,7 +256,7 @@ impl<T: Config> Pallet<T> {
         );
 
         let vault_backing_collateral = ext::vault_registry::get_backing_collateral::<T>(&vault_id)?;
-        let total_nominated_collateral: Collateral<T> = Self::get_total_nominated_collateral(&vault_id)?.into();
+        let total_nominated_collateral = Self::get_total_nominated_collateral(&vault_id)?;
         let new_nominated_collateral = total_nominated_collateral
             .checked_add(&amount)
             .ok_or(Error::<T>::ArithmeticOverflow)?;
@@ -328,7 +328,7 @@ impl<T: Config> Pallet<T> {
         Ok(secure_collateral_threshold
             .checked_div(&premium_redeem_threshold)
             .ok_or(Error::<T>::ArithmeticUnderflow)?
-            .checked_sub(&<T as fee::Config>::UnsignedFixedPoint::one())
+            .checked_sub(&UnsignedFixedPoint::<T>::one())
             .ok_or(Error::<T>::ArithmeticUnderflow)?)
     }
 

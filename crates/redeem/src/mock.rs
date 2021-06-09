@@ -138,6 +138,7 @@ impl vault_registry::Config for Test {
     type PalletId = VaultPalletId;
     type Event = TestEvent;
     type RandomnessSource = pallet_randomness_collective_flip::Pallet<Test>;
+    type Balance = Balance;
     type SignedFixedPoint = FixedI128;
     type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
@@ -151,6 +152,7 @@ parameter_types! {
 
 impl currency::Config<currency::Collateral> for Test {
     type Event = TestEvent;
+    type Balance = Balance;
     type Currency = Collateral;
     type Name = CollateralName;
     type Symbol = CollateralSymbol;
@@ -165,6 +167,7 @@ parameter_types! {
 
 impl currency::Config<currency::Wrapped> for Test {
     type Event = TestEvent;
+    type Balance = Balance;
     type Currency = Wrapped;
     type Name = WrappedName;
     type Symbol = WrappedSymbol;
@@ -213,6 +216,7 @@ impl pallet_timestamp::Config for Test {
 
 impl exchange_rate_oracle::Config for Test {
     type Event = TestEvent;
+    type Balance = Balance;
     type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
 }

@@ -713,7 +713,6 @@ fn test_threshold_equivalent_to_legacy_calculation() {
         let granularity = 5;
         // convert the collateral to wrapped
         let collateral_in_wrapped = ext::oracle::collateral_to_wrapped::<Test>(collateral)?;
-        let collateral_in_wrapped = VaultRegistry::wrapped_to_u128(collateral_in_wrapped)?;
         let collateral_in_wrapped = U256::from(collateral_in_wrapped);
 
         // calculate how many tokens should be maximally issued given the threshold
@@ -724,7 +723,7 @@ fn test_threshold_equivalent_to_legacy_calculation() {
             .checked_div(threshold.into())
             .unwrap_or(0.into());
 
-        VaultRegistry::u128_to_wrapped(scaled_max_tokens.try_into()?)
+        Ok(scaled_max_tokens.try_into()?)
     }
 
     run_test(|| {
@@ -748,7 +747,6 @@ fn test_get_required_collateral_threshold_equivalent_to_legacy_calculation_() {
         threshold: u128,
     ) -> Result<Collateral<Test>, DispatchError> {
         let granularity = 5;
-        let btc = VaultRegistry::wrapped_to_u128(btc)?;
         let btc = U256::from(btc);
 
         // Step 1: inverse of the scaling applied in calculate_max_wrapped_from_collateral_for_threshold
@@ -766,8 +764,7 @@ fn test_get_required_collateral_threshold_equivalent_to_legacy_calculation_() {
             .ok_or(Error::<Test>::ArithmeticUnderflow)?;
 
         // Step 2: convert the amount to collateral
-        let scaled = VaultRegistry::u128_to_wrapped(btc.try_into()?)?;
-        let amount_in_collateral = ext::oracle::wrapped_to_collateral::<Test>(scaled)?;
+        let amount_in_collateral = ext::oracle::wrapped_to_collateral::<Test>(btc.try_into()?)?;
         Ok(amount_in_collateral)
     }
 

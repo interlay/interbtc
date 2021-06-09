@@ -12,7 +12,7 @@ use frame_system::RawOrigin;
 use security::Pallet as Security;
 use sp_core::{H160, H256, U256};
 use sp_runtime::{traits::One, FixedPointNumber};
-use sp_std::prelude::*;
+use sp_std::{convert::TryInto, prelude::*};
 use vault_registry::{
     types::{Vault, Wallet},
     Pallet as VaultRegistry,
@@ -25,7 +25,7 @@ fn dummy_public_key() -> BtcPublicKey {
     ])
 }
 
-fn make_free_balance_be<T: currency::Config<currency::Collateral>>(account_id: &T::AccountId, amount: Collateral<T>) {
+fn make_free_balance_be<T: crate::Config>(account_id: &T::AccountId, amount: Collateral<T>) {
     <<T as currency::Config<currency::Collateral>>::Currency>::make_free_balance_be(account_id, amount);
 }
 

@@ -81,6 +81,7 @@ parameter_types! {
 
 impl Config for Test {
     type Event = TestEvent;
+    type Balance = Balance;
     type Currency = Balances;
     type Name = CurrencyName;
     type Symbol = CurrencySymbol;

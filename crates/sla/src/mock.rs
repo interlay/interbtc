@@ -123,6 +123,7 @@ parameter_types! {
 
 impl currency::Config<currency::Collateral> for Test {
     type Event = TestEvent;
+    type Balance = Balance;
     type Currency = Collateral;
     type Name = CollateralName;
     type Symbol = CollateralSymbol;
@@ -137,6 +138,7 @@ parameter_types! {
 
 impl currency::Config<currency::Wrapped> for Test {
     type Event = TestEvent;
+    type Balance = Balance;
     type Currency = Wrapped;
     type Name = WrappedName;
     type Symbol = WrappedSymbol;

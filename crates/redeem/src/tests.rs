@@ -278,7 +278,7 @@ fn test_execute_redeem_succeeds_with_another_account() {
         );
         ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
         ext::btc_relay::parse_transaction::<Test>.mock_safe(|_| MockResult::Return(Ok(Transaction::default())));
-        ext::btc_relay::verify_and_validate_op_return_transaction::<Test, usize>
+        ext::btc_relay::verify_and_validate_op_return_transaction::<Test, Balance>
             .mock_safe(|_, _, _, _, _| MockResult::Return(Ok(())));
 
         let btc_fee = Redeem::get_current_inclusion_fee().unwrap();
@@ -352,7 +352,7 @@ fn test_execute_redeem_succeeds() {
         );
         ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
         ext::btc_relay::parse_transaction::<Test>.mock_safe(|_| MockResult::Return(Ok(Transaction::default())));
-        ext::btc_relay::verify_and_validate_op_return_transaction::<Test, usize>
+        ext::btc_relay::verify_and_validate_op_return_transaction::<Test, Balance>
             .mock_safe(|_, _, _, _, _| MockResult::Return(Ok(())));
 
         let btc_fee = Redeem::get_current_inclusion_fee().unwrap();

@@ -29,8 +29,8 @@ extern crate mocktopus;
 use mocktopus::macros::mockable;
 
 use crate::types::{
-    BtcAddress, Collateral, DefaultSystemVault, Inner, RichSystemVault, RichVault, SignedFixedPoint,
-    UnsignedFixedPoint, UpdatableVault, Version, Wrapped,
+    BtcAddress, Collateral, DefaultSystemVault, RichSystemVault, RichVault, SignedFixedPoint, UnsignedFixedPoint,
+    UpdatableVault, Version, Wrapped,
 };
 
 #[doc(inline)]
@@ -38,7 +38,8 @@ pub use crate::{
     slash::{Slashable, TryDepositCollateral, TryWithdrawCollateral},
     types::{BtcPublicKey, CurrencySource, DefaultVault, SystemVault, Vault, VaultStatus, Wallet},
 };
-use codec::{Decode, Encode, EncodeLike};
+use bitcoin::types::Value;
+use codec::{Decode, Encode, EncodeLike, FullCodec};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
@@ -49,13 +50,17 @@ use frame_system::{
     ensure_signed,
     offchain::{SendTransactionTypes, SubmitTransaction},
 };
-use sp_arithmetic::{traits::*, FixedPointNumber};
 use sp_core::{H256, U256};
 #[cfg(feature = "std")]
 use sp_runtime::traits::AccountIdConversion;
-use sp_runtime::transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction};
+use sp_runtime::{
+    traits::*,
+    transaction_validity::{InvalidTransaction, TransactionSource, TransactionValidity, ValidTransaction},
+    FixedPointNumber, FixedPointOperand,
+};
 use sp_std::{
     convert::{TryFrom, TryInto},
+    fmt::Debug,
     vec::Vec,
 };
 
@@ -91,12 +96,12 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config:
         frame_system::Config
-        + currency::Config<currency::Collateral>
-        + currency::Config<currency::Wrapped>
-        + exchange_rate_oracle::Config
-        + security::Config
         + SendTransactionTypes<Call<Self>>
-        + sla::Config
+        + currency::Config<currency::Collateral, Balance = <Self as Config>::Balance>
+        + currency::Config<currency::Wrapped, Balance = <Self as Config>::Balance>
+        + exchange_rate_oracle::Config<Balance = <Self as Config>::Balance>
+        + sla::Config<Balance = <Self as Config>::Balance>
+        + security::Config
     {
         /// The vault module id, used for deriving its sovereign account ID.
         #[pallet::constant] // put the constant in metadata
@@ -110,11 +115,28 @@ pub mod pallet {
         /// The source of (pseudo) randomness. Set to collective flip
         type RandomnessSource: Randomness<H256, Self::BlockNumber>;
 
+        /// The primitive balance type.
+        type Balance: AtLeast32BitUnsigned
+            + FixedPointOperand
+            + Into<U256>
+            + TryFrom<U256>
+            + TryFrom<Value>
+            + TryInto<Value>
+            + MaybeSerializeDeserialize
+            + FullCodec
+            + Copy
+            + Default
+            + Debug;
+
         /// The type of signed fixed point to use for slashing calculations.
         type SignedFixedPoint: FixedPointNumber + Encode + EncodeLike + Decode + MaybeSerializeDeserialize;
 
         /// The type of unsigned fixed point to use for the different thresholds.
-        type UnsignedFixedPoint: FixedPointNumber + Encode + EncodeLike + Decode + MaybeSerializeDeserialize;
+        type UnsignedFixedPoint: FixedPointNumber<Inner = <Self as Config>::Balance>
+            + Encode
+            + EncodeLike
+            + Decode
+            + MaybeSerializeDeserialize;
 
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
@@ -1290,16 +1312,16 @@ impl<T: Config> Pallet<T> {
             return Ok(collateral);
         }
 
-        let collateral: U256 = Self::collateral_to_u128(collateral)?.into();
-        let numerator: U256 = Self::wrapped_to_u128(numerator)?.into();
-        let denominator: U256 = Self::wrapped_to_u128(denominator)?.into();
+        let collateral: U256 = collateral.into();
+        let numerator: U256 = numerator.into();
+        let denominator: U256 = denominator.into();
 
         let amount = collateral
             .checked_mul(numerator)
             .ok_or(Error::<T>::ArithmeticOverflow)?
             .checked_div(denominator)
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
-        Self::u128_to_collateral(amount.try_into().map_err(|_| Error::<T>::TryIntoIntError)?)
+        Ok(amount.try_into().map_err(|_| Error::<T>::TryIntoIntError)?)
     }
 
     /// RPC
@@ -1309,15 +1331,11 @@ impl<T: Config> Pallet<T> {
         let issued_tokens = Self::get_total_issued_tokens(true)?;
         let total_collateral = Self::get_total_backing_collateral(true)?;
 
-        // convert the issued_tokens to the raw amount
-        let raw_issued_tokens = Self::wrapped_to_u128(issued_tokens)?;
-        ensure!(raw_issued_tokens != 0, Error::<T>::NoTokensIssued);
+        ensure!(!issued_tokens.is_zero(), Error::<T>::NoTokensIssued);
 
         // convert the collateral to wrapped
         let collateral_in_wrapped = ext::oracle::collateral_to_wrapped::<T>(total_collateral)?;
-        let raw_collateral_in_wrapped = Self::wrapped_to_u128(collateral_in_wrapped)?;
-
-        Self::get_collateralization(raw_collateral_in_wrapped, raw_issued_tokens)
+        Self::get_collateralization(collateral_in_wrapped, issued_tokens)
     }
 
     /// Get the first available vault with sufficient collateral to fulfil an issue request
@@ -1487,15 +1505,12 @@ impl<T: Config> Pallet<T> {
             vault.data.issued_tokens + vault.data.to_be_issued_tokens
         };
 
-        // convert the issued_tokens to the raw amount
-        let raw_issued_tokens = Self::wrapped_to_u128(issued_tokens)?;
-        ensure!(raw_issued_tokens != 0, Error::<T>::NoTokensIssued);
+        ensure!(!issued_tokens.is_zero(), Error::<T>::NoTokensIssued);
 
         // convert the collateral to wrapped
         let collateral_in_wrapped = ext::oracle::collateral_to_wrapped::<T>(collateral)?;
-        let raw_collateral_in_wrapped = Self::wrapped_to_u128(collateral_in_wrapped)?;
 
-        Self::get_collateralization(raw_collateral_in_wrapped, raw_issued_tokens)
+        Self::get_collateralization(collateral_in_wrapped, issued_tokens)
     }
 
     /// Gets the minimum amount of collateral required for the given amount of btc
@@ -1526,7 +1541,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn compute_collateral(id: &T::AccountId) -> Result<Collateral<T>, DispatchError> {
         let rich_vault = Self::get_rich_vault_from_id(id)?;
-        Ok(rich_vault.compute_collateral()?.into())
+        Ok(rich_vault.compute_collateral()?)
     }
 
     /// Private getters and setters
@@ -1558,7 +1573,7 @@ impl<T: Config> Pallet<T> {
     /// * `subject` - an extra value to feed into the pseudorandom number generator
     /// * `limit` - the limit of the returned value
     fn pseudo_rand_index(subject: Wrapped<T>, limit: usize) -> usize {
-        let raw_subject = Self::wrapped_to_u128(subject).unwrap_or(0 as u128);
+        let raw_subject = TryInto::<u128>::try_into(subject).unwrap_or(0 as u128);
 
         // convert into a slice. Endianness of the conversion function is arbitrary chosen
         let bytes = &raw_subject.to_be_bytes();
@@ -1572,12 +1587,11 @@ impl<T: Config> Pallet<T> {
     /// calculate the collateralization as a ratio of the issued tokens to the
     /// amount of provided collateral at the current exchange rate.
     fn get_collateralization(
-        raw_collateral_in_wrapped: u128,
-        raw_issued_tokens: u128,
+        collateral_in_wrapped: Wrapped<T>,
+        issued_tokens: Wrapped<T>,
     ) -> Result<UnsignedFixedPoint<T>, DispatchError> {
-        let collateralization =
-            UnsignedFixedPoint::<T>::checked_from_rational(raw_collateral_in_wrapped, raw_issued_tokens)
-                .ok_or(Error::<T>::TryIntoIntError)?;
+        let collateralization = UnsignedFixedPoint::<T>::checked_from_rational(collateral_in_wrapped, issued_tokens)
+            .ok_or(Error::<T>::TryIntoIntError)?;
         Ok(collateralization)
     }
 
@@ -1633,37 +1647,17 @@ impl<T: Config> Pallet<T> {
     ) -> Result<Wrapped<T>, DispatchError> {
         // convert the collateral to wrapped
         let collateral_in_wrapped = ext::oracle::collateral_to_wrapped::<T>(collateral)?;
-        let collateral_in_wrapped = Self::wrapped_to_u128(collateral_in_wrapped)?;
 
         // calculate how many tokens should be maximally issued given the threshold.
-        let collateral_as_inner =
-            TryInto::<Inner<T>>::try_into(collateral_in_wrapped).map_err(|_| Error::<T>::TryIntoIntError)?;
-        let max_btc_as_inner = UnsignedFixedPoint::<T>::checked_from_integer(collateral_as_inner)
+        let max_btc_as_inner = UnsignedFixedPoint::<T>::checked_from_integer(collateral_in_wrapped)
             .ok_or(Error::<T>::TryIntoIntError)?
             .checked_div(&threshold)
             .ok_or(Error::<T>::ArithmeticOverflow)?
             .into_inner()
             .checked_div(&UnsignedFixedPoint::<T>::accuracy())
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
-        let max_btc_raw = UniqueSaturatedInto::<u128>::unique_saturated_into(max_btc_as_inner);
 
-        Self::u128_to_wrapped(max_btc_raw)
-    }
-
-    fn wrapped_to_u128(x: Wrapped<T>) -> Result<u128, DispatchError> {
-        TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
-    }
-
-    fn collateral_to_u128(x: Collateral<T>) -> Result<u128, DispatchError> {
-        TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
-    }
-
-    fn u128_to_collateral(x: u128) -> Result<Collateral<T>, DispatchError> {
-        TryInto::<Collateral<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
-    }
-
-    fn u128_to_wrapped(x: u128) -> Result<Wrapped<T>, DispatchError> {
-        TryInto::<Wrapped<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
+        Ok(max_btc_as_inner)
     }
 
     pub fn insert_vault_deposit_address(vault_id: &T::AccountId, btc_address: BtcAddress) -> DispatchResult {

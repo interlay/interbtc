@@ -29,7 +29,7 @@ pub mod types;
 #[doc(inline)]
 pub use crate::types::{RedeemRequest, RedeemRequestStatus};
 
-use crate::types::{Collateral, Version, Wrapped};
+use crate::types::{BalanceOf, Collateral, Version, Wrapped};
 use btc_relay::BtcAddress;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
@@ -55,11 +55,11 @@ pub mod pallet {
     pub trait Config:
         frame_system::Config
         + vault_registry::Config
-        + currency::Config<currency::Collateral>
-        + currency::Config<currency::Wrapped>
+        + currency::Config<currency::Collateral, Balance = BalanceOf<Self>>
+        + currency::Config<currency::Wrapped, Balance = BalanceOf<Self>>
         + btc_relay::Config
         + fee::Config
-        + sla::Config
+        + sla::Config<Balance = BalanceOf<Self>>
     {
         /// The overarching event type.
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
@@ -428,8 +428,6 @@ impl<T: Config> Pallet<T> {
 
         let redeem = Self::get_open_redeem_request_from_id(&redeem_id)?;
 
-        let amount: usize = redeem.amount_btc.try_into().map_err(|_e| Error::<T>::TryIntoIntError)?;
-
         // check the transaction inclusion and validity
         let transaction = ext::btc_relay::parse_transaction::<T>(&raw_tx)?;
         let merkle_proof = ext::btc_relay::parse_merkle_proof::<T>(&raw_merkle_proof)?;
@@ -437,7 +435,7 @@ impl<T: Config> Pallet<T> {
             merkle_proof,
             transaction,
             redeem.btc_address,
-            amount,
+            redeem.amount_btc,
             redeem_id,
         )?;
 

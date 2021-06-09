@@ -1,16 +1,14 @@
 use btc_relay::BtcAddress;
 use codec::{Decode, Encode};
-use frame_support::traits::Currency;
 #[cfg(feature = "std")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sp_core::H256;
 
-pub(crate) type Wrapped<T> =
-    <<T as currency::Config<currency::Wrapped>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub(crate) type BalanceOf<T> = <T as vault_registry::Config>::Balance;
 
-pub(crate) type Collateral<T> = <<T as currency::Config<currency::Collateral>>::Currency as Currency<
-    <T as frame_system::Config>::AccountId,
->>::Balance;
+pub(crate) type Collateral<T> = BalanceOf<T>;
+
+pub(crate) type Wrapped<T> = BalanceOf<T>;
 
 // Due to a known bug in serde we need to specify how u128 is (de)serialized.
 // See https://github.com/paritytech/substrate/issues/4641
