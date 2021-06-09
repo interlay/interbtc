@@ -1,18 +1,9 @@
 use crate::{ext, mock::*, Event};
-use bitcoin::types::{LockTime, MerkleProof, Transaction};
+use bitcoin::types::{MerkleProof, Transaction};
 use btc_relay::BtcAddress;
 use frame_support::assert_ok;
 use mocktopus::mocking::*;
 use sp_core::{H160, H256};
-
-fn dummy_transaction() -> Transaction {
-    Transaction {
-        inputs: vec![],
-        outputs: vec![],
-        lock_at: LockTime::BlockHeight(1),
-        version: 0,
-    }
-}
 
 fn dummy_merkle_proof() -> MerkleProof {
     MerkleProof {
@@ -30,7 +21,7 @@ fn test_refund_succeeds() {
         ext::vault_registry::try_increase_to_be_issued_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
-        ext::btc_relay::parse_transaction::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_transaction())));
+        ext::btc_relay::parse_transaction::<Test>.mock_safe(|_| MockResult::Return(Ok(Transaction::default())));
         ext::btc_relay::verify_and_validate_op_return_transaction::<Test, usize>
             .mock_safe(|_, _, _, _, _| MockResult::Return(Ok(())));
 

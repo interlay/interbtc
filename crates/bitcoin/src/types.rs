@@ -325,7 +325,8 @@ impl TransactionOutput {
 }
 
 /// Bitcoin transaction
-#[derive(PartialEq, Debug, Clone)]
+// Note: the `default` implementation is used only for testing code
+#[derive(PartialEq, Debug, Clone, Default)]
 pub struct Transaction {
     pub version: i32,
     pub inputs: Vec<TransactionInput>,
@@ -351,6 +352,14 @@ pub enum LockTime {
     Time(u32),
     BlockHeight(u32),
 }
+
+// for testing code
+impl Default for LockTime {
+    fn default() -> Self {
+        Self::BlockHeight(0)
+    }
+}
+
 /// Bitcoin block: header and transactions
 #[derive(Default, Clone, PartialEq, Debug)]
 pub struct Block {
