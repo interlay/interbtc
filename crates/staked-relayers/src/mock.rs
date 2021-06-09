@@ -211,6 +211,8 @@ impl vault_registry::Config for Test {
     type SignedFixedPoint = FixedI128;
     type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
+    type CollateralVaultRewards = CollateralVaultRewards;
+    type WrappedVaultRewards = WrappedVaultRewards;
 }
 
 impl exchange_rate_oracle::Config for Test {

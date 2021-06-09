@@ -579,6 +579,8 @@ impl vault_registry::Config for Runtime {
     type SignedFixedPoint = FixedI128;
     type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
+    type CollateralVaultRewards = CollateralVaultRewards;
+    type WrappedVaultRewards = WrappedVaultRewards;
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
@@ -660,6 +662,8 @@ impl nomination::Config for Runtime {
     type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
     type SignedFixedPoint = FixedI128;
+    type CollateralVaultRewards = CollateralVaultRewards;
+    type WrappedVaultRewards = WrappedVaultRewards;
 }
 
 macro_rules! construct_interbtc_runtime {

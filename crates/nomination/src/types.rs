@@ -1,6 +1,5 @@
 use crate::{ext, Config, Error};
 use codec::{Decode, Encode, HasCompact};
-use frame_support::traits::Currency;
 use sp_arithmetic::FixedPointNumber;
 use vault_registry::SlashingAccessors;
 

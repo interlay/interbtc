@@ -199,6 +199,8 @@ impl Config for Test {
     type SignedFixedPoint = FixedI128;
     type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
+    type CollateralVaultRewards = CollateralVaultRewards;
+    type WrappedVaultRewards = WrappedVaultRewards;
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Test

@@ -26,7 +26,7 @@ use frame_system::{ensure_root, ensure_signed};
 use reward::RewardPool;
 use sp_arithmetic::FixedPointNumber;
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedSub, One, Zero};
-use std::convert::TryInto;
+use sp_std::convert::TryInto;
 pub use types::Nominator;
 use types::{BalanceOf, Collateral, DefaultNominator, Inner, RichNominator, SignedFixedPoint, UnsignedFixedPoint};
 

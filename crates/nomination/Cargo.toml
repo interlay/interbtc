@@ -35,8 +35,6 @@ reward = { path = "../reward", default-features = false }
 mocktopus = "0.7.0"
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.3", default-features = false }
 
-reward = { path = "../reward", default-features = false }
-
 [features]
 default = ["std"]
 std = [
@@ -61,6 +59,7 @@ std = [
 	"vault-registry/std",
   "fee/std",
   "sla/std",
+  "reward/std",
   "exchange-rate-oracle/std",
 ]
 runtime-benchmarks = [

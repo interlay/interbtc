@@ -193,6 +193,8 @@ impl vault_registry::Config for Test {
     type SignedFixedPoint = FixedI128;
     type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
+    type CollateralVaultRewards = CollateralVaultRewards;
+    type WrappedVaultRewards = WrappedVaultRewards;
 }
 
 impl btc_relay::Config for Test {

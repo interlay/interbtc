@@ -14,6 +14,7 @@ mod benchmarking;
 mod default_weights;
 mod slash;
 pub use default_weights::WeightInfo;
+use reward::RewardPool;
 pub use slash::{SlashingAccessors, SlashingError};
 
 #[cfg(test)]
@@ -29,8 +30,8 @@ extern crate mocktopus;
 use mocktopus::macros::mockable;
 
 use crate::types::{
-    BtcAddress, Collateral, DefaultSystemVault, RichSystemVault, RichVault, SignedFixedPoint, UnsignedFixedPoint,
-    UpdatableVault, Version, Wrapped,
+    BtcAddress, Collateral, DefaultSystemVault, Inner, RichSystemVault, RichVault, SignedFixedPoint,
+    UnsignedFixedPoint, UpdatableVault, Version, Wrapped,
 };
 
 #[doc(inline)]
@@ -140,6 +141,12 @@ pub mod pallet {
 
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
+
+        /// Vault reward pool for the collateral currency.
+        type CollateralVaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
+
+        /// Vault reward pool for the wrapped currency.
+        type WrappedVaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
     }
 
     #[pallet::hooks]
@@ -610,6 +617,8 @@ impl<T: Config> Pallet<T> {
         ext::collateral::lock::<T>(vault_id, amount)?;
         Self::increase_total_backing_collateral(amount)?;
         vault.try_deposit_collateral(amount)?;
+        // Deposit `amount` of stake in the local reward pool
+        Self::deposit_pool_stake::<<T as pallet::Config>::CollateralVaultRewards>(&vault_id, &vault_id, amount)?;
 
         ext::sla::event_update_vault_sla::<T>(&vault.id(), ext::sla::VaultEvent::Deposit(amount))?;
         Ok(())
@@ -627,6 +636,8 @@ impl<T: Config> Pallet<T> {
         ext::collateral::release::<T>(vault_id, amount)?;
         vault.try_withdraw_collateral(amount)?;
         Self::decrease_total_backing_collateral(amount)?;
+        // Withdraw `amount` of stake from the local reward pool
+        Self::withdraw_pool_stake::<<T as pallet::Config>::CollateralVaultRewards>(&vault_id, &vault_id, amount)?;
 
         ext::sla::event_update_vault_sla::<T>(&vault.id(), ext::sla::VaultEvent::Withdraw(amount))?;
         Ok(())
@@ -1675,6 +1686,36 @@ impl<T: Config> Pallet<T> {
         let mut vault = Self::get_active_rich_vault_from_id(vault_id)?;
         let btc_address = vault.new_deposit_address(secure_id)?;
         Ok(btc_address)
+    }
+
+    fn withdraw_pool_stake<R: reward::Rewards<T::AccountId, SignedFixedPoint = SignedFixedPoint<T>>>(
+        account_id: &T::AccountId,
+        pool_account_id: &T::AccountId,
+        amount: Collateral<T>,
+    ) -> Result<(), DispatchError> {
+        let amount_raw = Self::currency_to_fixed_point(amount)?;
+        if amount_raw > SignedFixedPoint::<T>::zero() {
+            R::withdraw_stake(RewardPool::Local(pool_account_id.clone()), account_id, amount_raw)?;
+        }
+        Ok(())
+    }
+
+    fn deposit_pool_stake<R: reward::Rewards<T::AccountId, SignedFixedPoint = SignedFixedPoint<T>>>(
+        account_id: &T::AccountId,
+        pool_account_id: &T::AccountId,
+        amount: Collateral<T>,
+    ) -> Result<(), DispatchError> {
+        let amount_raw = Self::currency_to_fixed_point(amount)?;
+        R::deposit_stake(RewardPool::Local(pool_account_id.clone()), account_id, amount_raw)?;
+        Ok(())
+    }
+
+    fn currency_to_fixed_point<C: TryInto<u128>>(
+        x: C,
+    ) -> Result<<T as pallet::Config>::SignedFixedPoint, DispatchError> {
+        let y = TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError)?;
+        let inner = TryInto::<Inner<T>>::try_into(y).map_err(|_| Error::<T>::TryIntoIntError)?;
+        Ok(SignedFixedPoint::<T>::checked_from_integer(inner).ok_or(Error::<T>::TryIntoIntError)?)
     }
 }
 
