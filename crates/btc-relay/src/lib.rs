@@ -1233,11 +1233,6 @@ impl<T: Config> Pallet<T> {
             return Ok(());
         }
 
-        // TODO: remove, fix for rm head_index
-        if Chains::<T>::get(0).is_none() {
-            Chains::<T>::insert(0, 0);
-        }
-
         // get the position of the fork in Chains
         let fork_position: u32 = Self::get_chain_position_from_chain_id(fork.chain_id)?;
         // check if the previous element in Chains has a lower block_height
