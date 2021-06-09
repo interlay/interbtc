@@ -675,8 +675,9 @@ impl TransactionGenerator {
 
         let raw_init_block_header = RawBlockHeader::from_bytes(&init_block.header.try_format().unwrap())
             .expect("could not serialize block header");
+        let init_block_header = BTCRelayPallet::parse_raw_block_header(&raw_init_block_header).unwrap();
 
-        match BTCRelayPallet::initialize(account_of(ALICE), raw_init_block_header, height) {
+        match BTCRelayPallet::initialize(account_of(ALICE), init_block_header, height) {
             Ok(_) => {}
             Err(e) if e == BTCRelayError::AlreadyInitialized.into() => {}
             _ => panic!("Failed to initialize btc relay"),
@@ -724,7 +725,7 @@ impl TransactionGenerator {
         self.relay(height, &block, raw_block_header);
 
         // Mine six new blocks to get over required confirmations
-        let mut prev_block_hash = block.header.hash().unwrap();
+        let mut prev_block_hash = block.header.hash;
         let mut timestamp = 1588814835;
         for _ in 0..extra_confirmations {
             height += 1;
@@ -741,7 +742,7 @@ impl TransactionGenerator {
                 .expect("could not serialize block header");
             self.relay(height, &conf_block, raw_conf_block_header);
 
-            prev_block_hash = conf_block.header.hash().unwrap();
+            prev_block_hash = conf_block.header.hash;
         }
 
         (tx_id, tx_block_height, bytes_proof, raw_tx, transaction)
@@ -753,11 +754,12 @@ impl TransactionGenerator {
                 Call::StakedRelayers(StakedRelayersCall::store_block_header(raw_block_header))
                     .dispatch(origin_of(account_of(relayer)))
             );
-            assert_store_main_chain_header_event(height, block.header.hash().unwrap(), account_of(relayer));
+            assert_store_main_chain_header_event(height, raw_block_header.hash(), account_of(relayer));
         } else {
             // bypass staked relayer module
-            assert_ok!(BTCRelayPallet::store_block_header(&account_of(ALICE), raw_block_header));
-            assert_store_main_chain_header_event(height, block.header.hash().unwrap(), account_of(ALICE));
+            let block_header = BTCRelayPallet::parse_raw_block_header(&raw_block_header).unwrap();
+            assert_ok!(BTCRelayPallet::store_block_header(&account_of(ALICE), block_header));
+            assert_store_main_chain_header_event(height, block.header.hash, account_of(ALICE));
         }
     }
 }

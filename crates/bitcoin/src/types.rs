@@ -3,9 +3,10 @@ extern crate hex;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
+pub use crate::merkle::MerkleProof;
 use crate::{
     formatter::{Formattable, TryFormattable},
-    merkle::{MerkleProof, MerkleTree},
+    merkle::MerkleTree,
     parser::{extract_address_hash_scriptsig, extract_address_hash_witness},
     utils::{log2, reverse_endianness, sha256d_le},
     Address, Error, PublicKey, Script,
@@ -250,13 +251,17 @@ pub struct BlockHeader {
     pub target: U256,
     pub timestamp: u32,
     pub version: i32,
+    pub hash: H256Le,
     pub hash_prev_block: H256Le,
     pub nonce: u32,
 }
 
 impl BlockHeader {
-    pub fn hash(&self) -> Result<H256Le, Error> {
-        Ok(sha256d_le(&self.try_format()?))
+    pub fn update_hash(&mut self) -> Result<H256Le, Error> {
+        let new_hash = sha256d_le(&self.try_format()?);
+
+        self.hash = new_hash;
+        Ok(self.hash)
     }
 }
 
@@ -320,7 +325,8 @@ impl TransactionOutput {
 }
 
 /// Bitcoin transaction
-#[derive(PartialEq, Debug, Clone)]
+// Note: the `default` implementation is used only for testing code
+#[derive(PartialEq, Debug, Clone, Default)]
 pub struct Transaction {
     pub version: i32,
     pub inputs: Vec<TransactionInput>,
@@ -346,6 +352,14 @@ pub enum LockTime {
     Time(u32),
     BlockHeight(u32),
 }
+
+// for testing code
+impl Default for LockTime {
+    fn default() -> Self {
+        Self::BlockHeight(0)
+    }
+}
+
 /// Bitcoin block: header and transactions
 #[derive(Default, Clone, PartialEq, Debug)]
 pub struct Block {
@@ -438,7 +452,7 @@ impl BlockBuilder {
         // over and over again but it should not matter because
         // this is meant to be used only for very low difficulty
         // and not for any sort of real-world mining
-        while self.block.header.hash()?.as_u256() >= target {
+        while self.block.header.update_hash()?.as_u256() >= target {
             self.block.header.nonce = nonce;
             nonce += 1;
         }

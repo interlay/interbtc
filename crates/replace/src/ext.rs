@@ -3,21 +3,22 @@ use mocktopus::macros::mockable;
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod btc_relay {
+    use bitcoin::types::{MerkleProof, Transaction};
     use btc_relay::BtcAddress;
     use frame_support::dispatch::DispatchError;
     use sp_core::H256;
-    use sp_std::{convert::TryInto, vec::Vec};
+    use sp_std::convert::TryInto;
 
     pub fn verify_and_validate_op_return_transaction<T: crate::Config, V: TryInto<i64>>(
-        merkle_proof: Vec<u8>,
-        raw_tx: Vec<u8>,
+        merkle_proof: MerkleProof,
+        transaction: Transaction,
         recipient_btc_address: BtcAddress,
         expected_btc: V,
         op_return_id: H256,
     ) -> Result<(), DispatchError> {
         <btc_relay::Pallet<T>>::verify_and_validate_op_return_transaction(
             merkle_proof,
-            raw_tx,
+            transaction,
             recipient_btc_address,
             expected_btc,
             op_return_id,
@@ -26,6 +27,14 @@ pub(crate) mod btc_relay {
 
     pub fn get_best_block_height<T: crate::Config>() -> u32 {
         <btc_relay::Pallet<T>>::get_best_block_height()
+    }
+
+    pub fn parse_transaction<T: btc_relay::Config>(raw_tx: &[u8]) -> Result<Transaction, DispatchError> {
+        <btc_relay::Pallet<T>>::parse_transaction(raw_tx)
+    }
+
+    pub fn parse_merkle_proof<T: btc_relay::Config>(raw_merkle_proof: &[u8]) -> Result<MerkleProof, DispatchError> {
+        <btc_relay::Pallet<T>>::parse_merkle_proof(raw_merkle_proof)
     }
 }
 

@@ -147,7 +147,9 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let relayer = ensure_signed(origin)?;
-            ext::btc_relay::initialize::<T>(relayer, raw_block_header, block_height)?;
+
+            let block_header = ext::btc_relay::parse_raw_block_header::<T>(&raw_block_header)?;
+            ext::btc_relay::initialize::<T>(relayer, block_header, block_height)?;
             Ok(().into())
         }
 
@@ -191,7 +193,9 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let relayer = ensure_signed(origin)?;
-            Self::store_block_header_and_update_sla(&relayer, raw_block_header)?;
+
+            let block_header = ext::btc_relay::parse_raw_block_header::<T>(&raw_block_header)?;
+            Self::store_block_header_and_update_sla(&relayer, block_header)?;
             Ok(().into())
         }
 
@@ -210,12 +214,13 @@ pub mod pallet {
         pub(super) fn report_vault_theft(
             origin: OriginFor<T>,
             vault_id: T::AccountId,
-            merkle_proof: Vec<u8>,
+            raw_merkle_proof: Vec<u8>,
             raw_tx: Vec<u8>,
         ) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let signer = ensure_signed(origin)?;
 
+            let merkle_proof = ext::btc_relay::parse_merkle_proof::<T>(&raw_merkle_proof)?;
             let transaction = parse_transaction(raw_tx.as_slice()).map_err(|_| Error::<T>::InvalidTransaction)?;
             let tx_id = transaction.tx_id();
 
@@ -251,8 +256,8 @@ pub mod pallet {
 // "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
 impl<T: Config> Pallet<T> {
-    fn store_block_header_and_update_sla(relayer: &T::AccountId, raw_block_header: RawBlockHeader) -> DispatchResult {
-        ext::btc_relay::store_block_header::<T>(&relayer, raw_block_header)?;
+    fn store_block_header_and_update_sla(relayer: &T::AccountId, block_header: BlockHeader) -> DispatchResult {
+        ext::btc_relay::store_block_header::<T>(&relayer, block_header)?;
         // reward the participant by increasing their SLA
         ext::sla::event_update_relayer_sla::<T>(&relayer, ext::sla::RelayerEvent::StoreBlock)?;
         Ok(())

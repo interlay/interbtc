@@ -129,8 +129,9 @@ pub mod pallet {
             let _ = ensure_signed(origin)?;
 
             let transaction = Self::parse_transaction(&raw_tx)?;
-            Self::_verify_transaction_inclusion(transaction.tx_id(), raw_merkle_proof, confirmations)?;
-            Self::_validate_transaction(raw_tx, expected_btc, recipient_btc_address, op_return_id)?;
+            let merkle_proof = Self::parse_merkle_proof(&raw_merkle_proof)?;
+            Self::_verify_transaction_inclusion(transaction.tx_id(), merkle_proof, confirmations)?;
+            Self::_validate_transaction(transaction, expected_btc, recipient_btc_address, op_return_id)?;
             Ok(().into())
         }
 
@@ -165,7 +166,8 @@ pub mod pallet {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let _ = ensure_signed(origin)?;
 
-            Self::_verify_transaction_inclusion(tx_id, raw_merkle_proof, confirmations)?;
+            let merkle_proof = Self::parse_merkle_proof(&raw_merkle_proof)?;
+            Self::_verify_transaction_inclusion(tx_id, merkle_proof, confirmations)?;
             Ok(().into())
         }
 
@@ -191,7 +193,9 @@ pub mod pallet {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let _ = ensure_signed(origin)?;
 
-            Self::_validate_transaction(raw_tx, expected_btc, recipient_btc_address, op_return_id)?;
+            let transaction = Self::parse_transaction(&raw_tx)?;
+
+            Self::_validate_transaction(transaction, expected_btc, recipient_btc_address, op_return_id)?;
             Ok(().into())
         }
 
@@ -502,22 +506,17 @@ pub const ACCEPTED_NO_TRANSACTION_OUTPUTS: u32 = 2;
 
 #[cfg_attr(test, mockable)]
 impl<T: Config> Pallet<T> {
-    pub fn initialize(relayer: T::AccountId, raw_block_header: RawBlockHeader, block_height: u32) -> DispatchResult {
+    pub fn initialize(relayer: T::AccountId, basic_block_header: BlockHeader, block_height: u32) -> DispatchResult {
         // Check if BTC-Relay was already initialized
         ensure!(!Self::best_block_exists(), Error::<T>::AlreadyInitialized);
-
-        // Parse the block header bytes to extract the required info
-        let basic_block_header = parse_block_header(&raw_block_header).map_err(Error::<T>::from)?;
-        let block_header_hash = raw_block_header.hash();
 
         // register the current height to track stable parachain confirmations
         let para_height = ext::security::active_block_number::<T>();
 
         // construct the BlockChain struct
-        let blockchain = Self::initialize_blockchain(block_height, block_header_hash);
+        let blockchain = Self::initialize_blockchain(block_height, basic_block_header.hash);
         // Create rich block header
         let block_header = RichBlockHeader::<T::AccountId, T::BlockNumber> {
-            block_hash: block_header_hash,
             block_header: basic_block_header,
             block_height,
             chain_ref: blockchain.chain_id,
@@ -526,7 +525,7 @@ impl<T: Config> Pallet<T> {
         };
 
         // Store a new BlockHeader struct in BlockHeaders
-        Self::set_block_header_from_hash(block_header_hash, &block_header);
+        Self::set_block_header_from_hash(basic_block_header.hash, &block_header);
 
         // Store a pointer to BlockChain in ChainsIndex
         Self::set_block_chain_from_id(MAIN_CHAIN_ID, &blockchain);
@@ -535,24 +534,24 @@ impl<T: Config> Pallet<T> {
         Self::set_chain_from_position_and_id(0, MAIN_CHAIN_ID);
 
         // Set BestBlock and BestBlockHeight to the submitted block
-        Self::set_best_block(block_header_hash);
+        Self::set_best_block(basic_block_header.hash);
         Self::set_best_block_height(block_height);
         StartBlockHeight::<T>::set(block_height);
 
         // Emit a Initialized Event
-        Self::deposit_event(<Event<T>>::Initialized(block_height, block_header_hash, relayer));
+        Self::deposit_event(<Event<T>>::Initialized(block_height, basic_block_header.hash, relayer));
 
         Ok(())
     }
 
     /// wraps _store_block_header, but differentiates between DuplicateError and OutdatedError
     #[transactional]
-    pub fn store_block_header(relayer: &T::AccountId, raw_block_header: RawBlockHeader) -> DispatchResult {
-        let ret = Self::_store_block_header(relayer, raw_block_header);
+    pub fn store_block_header(relayer: &T::AccountId, basic_block_header: BlockHeader) -> DispatchResult {
+        let ret = Self::_store_block_header(relayer, basic_block_header);
         if let Err(err) = ret {
             if err == DispatchError::from(Error::<T>::DuplicateBlock) {
                 // if this is not the chain head, return OutdatedBlock error
-                let this_header_hash = raw_block_header.hash();
+                let this_header_hash = basic_block_header.hash;
                 let best_header_hash = Self::get_best_block();
                 ensure!(this_header_hash == best_header_hash, Error::<T>::OutdatedBlock);
             }
@@ -560,13 +559,12 @@ impl<T: Config> Pallet<T> {
         ret
     }
 
-    fn _store_block_header(relayer: &T::AccountId, raw_block_header: RawBlockHeader) -> DispatchResult {
+    fn _store_block_header(relayer: &T::AccountId, basic_block_header: BlockHeader) -> DispatchResult {
         // Make sure Parachain is not shutdown
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
-        // Parse the block header bytes to extract the required info
-        let basic_block_header = Self::verify_block_header(&raw_block_header)?;
-        let block_header_hash = raw_block_header.hash();
+        // ensure the block header is valid
+        Self::verify_block_header(&basic_block_header)?;
 
         let prev_header = Self::get_block_header_from_hash(basic_block_header.hash_prev_block)?;
 
@@ -591,10 +589,10 @@ impl<T: Config> Pallet<T> {
 
         let blockchain = if is_fork {
             // create new blockchain element
-            Self::create_blockchain(current_block_height, block_header_hash)
+            Self::create_blockchain(current_block_height, basic_block_header.hash)
         } else {
             // extend the current chain
-            Self::extend_blockchain(current_block_height, &block_header_hash, prev_blockchain)?
+            Self::extend_blockchain(current_block_height, &basic_block_header.hash, prev_blockchain)?
         };
 
         // register the current height to track stable parachain confirmations
@@ -602,7 +600,6 @@ impl<T: Config> Pallet<T> {
 
         // Create rich block header
         let block_header = RichBlockHeader::<T::AccountId, T::BlockNumber> {
-            block_hash: block_header_hash,
             block_header: basic_block_header,
             block_height: current_block_height,
             chain_ref: blockchain.chain_id,
@@ -611,7 +608,7 @@ impl<T: Config> Pallet<T> {
         };
 
         // Store a new BlockHeader struct in BlockHeaders
-        Self::set_block_header_from_hash(block_header_hash, &block_header);
+        Self::set_block_header_from_hash(basic_block_header.hash, &block_header);
 
         // Storing the blockchain depends if we extend or create a new chain
         if is_fork {
@@ -629,7 +626,7 @@ impl<T: Config> Pallet<T> {
             Self::check_and_do_reorg(&blockchain)?;
 
             if blockchain.chain_id == MAIN_CHAIN_ID {
-                Self::set_best_block(block_header_hash);
+                Self::set_best_block(basic_block_header.hash);
                 Self::set_best_block_height(current_block_height)
             }
         };
@@ -637,11 +634,11 @@ impl<T: Config> Pallet<T> {
         // Determine if this block extends the main chain or a fork
         let current_best_block = Self::get_best_block();
 
-        if current_best_block == block_header_hash {
+        if current_best_block == basic_block_header.hash {
             // extends the main chain
             Self::deposit_event(<Event<T>>::StoreMainChainHeader(
                 current_block_height,
-                block_header_hash,
+                basic_block_header.hash,
                 relayer.clone(),
             ));
         } else {
@@ -649,7 +646,7 @@ impl<T: Config> Pallet<T> {
             Self::deposit_event(<Event<T>>::StoreForkHeader(
                 blockchain.chain_id,
                 current_block_height,
-                block_header_hash,
+                basic_block_header.hash,
                 relayer.clone(),
             ));
         };
@@ -657,14 +654,17 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    pub fn parse_raw_block_header(raw_block_header: &RawBlockHeader) -> Result<BlockHeader, DispatchError> {
+        Ok(parse_block_header(raw_block_header).map_err(Error::<T>::from)?)
+    }
+
     // helper for the dispatchable
     fn _validate_transaction(
-        raw_tx: Vec<u8>,
+        transaction: Transaction,
         expected_btc: Value,
         recipient_btc_address: BtcAddress,
         op_return_id: Option<H256>,
     ) -> Result<(), DispatchError> {
-        let transaction = Self::parse_transaction(&raw_tx)?;
         match op_return_id {
             Some(op_return) => {
                 Self::validate_op_return_transaction(transaction, recipient_btc_address, expected_btc, op_return)?;
@@ -680,14 +680,12 @@ impl<T: Config> Pallet<T> {
     /// interface to the issue pallet; verifies inclusion, and returns the first input
     /// address (for refunds) and the payment amount
     pub fn get_and_verify_issue_payment<V: TryFrom<i64>>(
-        raw_merkle_proof: Vec<u8>,
-        raw_tx: Vec<u8>,
+        merkle_proof: MerkleProof,
+        transaction: Transaction,
         recipient_btc_address: BtcAddress,
     ) -> Result<(BtcAddress, V), DispatchError> {
-        let transaction = Self::parse_transaction(&raw_tx)?;
-
         // Verify that the transaction is indeed included in the main chain
-        Self::_verify_transaction_inclusion(transaction.tx_id(), raw_merkle_proof, None)?;
+        Self::_verify_transaction_inclusion(transaction.tx_id(), merkle_proof, None)?;
 
         Self::get_issue_payment(transaction, recipient_btc_address)
     }
@@ -721,16 +719,14 @@ impl<T: Config> Pallet<T> {
 
     /// interface to redeem,replace,refund to check that the payment is included and is valid
     pub fn verify_and_validate_op_return_transaction<V: TryInto<i64>>(
-        raw_merkle_proof: Vec<u8>,
-        raw_tx: Vec<u8>,
+        merkle_proof: MerkleProof,
+        transaction: Transaction,
         recipient_btc_address: BtcAddress,
         expected_btc: V,
         op_return_id: H256,
     ) -> Result<(), DispatchError> {
-        let transaction = Self::parse_transaction(&raw_tx)?;
-
         // Verify that the transaction is indeed included in the main chain
-        Self::_verify_transaction_inclusion(transaction.tx_id(), raw_merkle_proof, None)?;
+        Self::_verify_transaction_inclusion(transaction.tx_id(), merkle_proof, None)?;
 
         // Parse transaction and check that it matches the given parameters
         Self::validate_op_return_transaction(transaction, recipient_btc_address, expected_btc, op_return_id)?;
@@ -739,16 +735,15 @@ impl<T: Config> Pallet<T> {
 
     pub fn _verify_transaction_inclusion(
         tx_id: H256Le,
-        raw_merkle_proof: Vec<u8>,
+        merkle_proof: MerkleProof,
         confirmations: Option<u32>,
     ) -> Result<(), DispatchError> {
         if Self::disable_inclusion_check() {
             return Ok(());
         }
-        let merkle_proof = Self::parse_merkle_proof(&raw_merkle_proof)?;
         let proof_result = Self::verify_merkle_proof(&merkle_proof)?;
 
-        let block_hash = merkle_proof.block_header.hash().map_err(Error::<T>::from)?;
+        let block_hash = merkle_proof.block_header.hash;
         let stored_block_header = Self::verify_block_header_inclusion(block_hash, confirmations)?;
 
         // fail if the transaction hash is invalid
@@ -1049,11 +1044,11 @@ impl<T: Config> Pallet<T> {
     // *********************************
 
     // Wrapper functions around bitcoin lib for testing purposes
-    fn parse_transaction(raw_tx: &[u8]) -> Result<Transaction, DispatchError> {
+    pub fn parse_transaction(raw_tx: &[u8]) -> Result<Transaction, DispatchError> {
         Ok(parse_transaction(&raw_tx).map_err(Error::<T>::from)?)
     }
 
-    fn parse_merkle_proof(raw_merkle_proof: &[u8]) -> Result<MerkleProof, DispatchError> {
+    pub fn parse_merkle_proof(raw_merkle_proof: &[u8]) -> Result<MerkleProof, DispatchError> {
         MerkleProof::parse(&raw_merkle_proof).map_err(|err| Error::<T>::from(err).into())
     }
 
@@ -1070,10 +1065,8 @@ impl<T: Config> Pallet<T> {
     /// # Returns
     ///
     /// * `pure_block_header` - PureBlockHeader representation of the 80-byte block header
-    fn verify_block_header(raw_block_header: &RawBlockHeader) -> Result<BlockHeader, DispatchError> {
-        let basic_block_header = parse_block_header(&raw_block_header).map_err(Error::<T>::from)?;
-
-        let block_header_hash = raw_block_header.hash();
+    fn verify_block_header(basic_block_header: &BlockHeader) -> Result<(), DispatchError> {
+        let block_header_hash = basic_block_header.hash;
 
         // Check that the block header is not yet stored in BTC-Relay
         ensure!(
@@ -1093,7 +1086,7 @@ impl<T: Config> Pallet<T> {
         let block_height = prev_block_header.block_height + 1;
 
         if Self::disable_difficulty_check() {
-            return Ok(basic_block_header);
+            return Ok(());
         }
 
         let expected_target =
@@ -1108,7 +1101,7 @@ impl<T: Config> Pallet<T> {
             Error::<T>::DiffTargetHeader
         );
 
-        Ok(basic_block_header)
+        Ok(())
     }
 
     /// Computes Bitcoin's PoW retarget algorithm for a given block height

@@ -437,6 +437,7 @@ mod tests {
                 target: U256::from_dec_str("1260618571951953247774709397757627131971305851995253681160192").unwrap(),
                 timestamp: 1603359907,
                 version: 536870912,
+                hash: raw_header.hash(),
                 hash_prev_block: H256Le::from_hex_be(
                     "000000000000006433d1efec504c53ca332b64963c425395515b01977bd7b3b0"
                 ),

@@ -21,7 +21,9 @@ fn mine_genesis<T: Config>(account_id: T::AccountId, address: &BtcAddress, heigh
         .mine(U256::from(2).pow(254.into()))
         .unwrap();
 
-    let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
+    let raw_block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
+    let block_header = BtcRelay::<T>::parse_raw_block_header(&raw_block_header).unwrap();
+
     BtcRelay::<T>::initialize(account_id, block_header, height).unwrap();
 
     block
@@ -34,7 +36,7 @@ fn mine_block_with_one_tx<T: Config>(
     value: i32,
     op_return: &[u8],
 ) -> (Block, Transaction) {
-    let prev_block_hash = prev.header.hash().unwrap();
+    let prev_block_hash = prev.header.hash;
 
     let transaction = TransactionBuilder::new()
         .with_version(2)
@@ -66,7 +68,9 @@ fn mine_block_with_one_tx<T: Config>(
         .mine(U256::from(2).pow(254.into()))
         .unwrap();
 
-    let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
+    let raw_block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
+    let block_header = BtcRelay::<T>::parse_raw_block_header(&raw_block_header).unwrap();
+
     BtcRelay::<T>::_store_block_header(&account_id, block_header).unwrap();
 
     (block, transaction)

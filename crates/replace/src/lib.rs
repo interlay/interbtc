@@ -439,7 +439,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    fn _execute_replace(replace_id: H256, merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> Result<(), DispatchError> {
+    fn _execute_replace(replace_id: H256, raw_merkle_proof: Vec<u8>, raw_tx: Vec<u8>) -> Result<(), DispatchError> {
         // Retrieve the ReplaceRequest as per the replaceId parameter from Vaults in the VaultRegistry
         let replace = Self::get_open_replace_request(&replace_id)?;
 
@@ -450,9 +450,11 @@ impl<T: Config> Pallet<T> {
         let amount: usize = replace.amount.try_into().map_err(|_e| Error::<T>::TryIntoIntError)?;
 
         // check the transaction inclusion and validity
+        let transaction = ext::btc_relay::parse_transaction::<T>(&raw_tx)?;
+        let merkle_proof = ext::btc_relay::parse_merkle_proof::<T>(&raw_merkle_proof)?;
         ext::btc_relay::verify_and_validate_op_return_transaction::<T, _>(
             merkle_proof,
-            raw_tx,
+            transaction,
             replace.btc_address,
             amount,
             replace_id,

@@ -133,8 +133,10 @@ benchmarks! {
             .with_timestamp(1588813835)
             .mine(U256::from(2).pow(254.into())).unwrap();
 
-        let block_hash = block.header.hash().unwrap();
-        let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
+        let block_hash = block.header.hash;
+        let raw_block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
+        let block_header = BtcRelay::<T>::parse_raw_block_header(&raw_block_header).unwrap();
+
         Security::<T>::set_active_block_number(1u32.into());
         BtcRelay::<T>::initialize(relayer_id.clone(), block_header, height).unwrap();
 
@@ -174,7 +176,9 @@ benchmarks! {
         let proof = block.merkle_proof(&[tx_id]).unwrap().try_format().unwrap();
         let raw_tx = transaction.format_with(true);
 
-        let block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
+        let raw_block_header = RawBlockHeader::from_bytes(&block.header.try_format().unwrap()).unwrap();
+        let block_header = BtcRelay::<T>::parse_raw_block_header(&raw_block_header).unwrap();
+
         BtcRelay::<T>::store_block_header(&relayer_id, block_header).unwrap();
         Security::<T>::set_active_block_number(Security::<T>::active_block_number() + BtcRelay::<T>::parachain_confirmations() + 1u32.into());
 

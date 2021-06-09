@@ -2,7 +2,9 @@ extern crate hex;
 use crate::{ext, mock::*};
 use bitcoin::{
     formatter::Formattable,
-    types::{H256Le, RawBlockHeader, Transaction, TransactionBuilder, TransactionInputBuilder, TransactionOutput},
+    types::{
+        BlockHeader, H256Le, MerkleProof, Transaction, TransactionBuilder, TransactionInputBuilder, TransactionOutput,
+    },
 };
 use btc_relay::{BtcAddress, BtcPublicKey, Error as BtcRelayError, OpReturnPaymentData};
 use frame_support::{assert_err, assert_ok};
@@ -22,6 +24,15 @@ fn dummy_public_key() -> BtcPublicKey {
         2, 205, 114, 218, 156, 16, 235, 172, 106, 37, 18, 153, 202, 140, 176, 91, 207, 51, 187, 55, 18, 45, 222, 180,
         119, 54, 243, 97, 173, 150, 161, 169, 230,
     ])
+}
+
+fn dummy_merkle_proof() -> MerkleProof {
+    MerkleProof {
+        block_header: Default::default(),
+        transactions_count: 0,
+        flag_bits: vec![],
+        hashes: vec![],
+    }
 }
 
 /// Mocking functions
@@ -51,6 +62,7 @@ fn test_report_vault_passes_with_vault_transaction() {
         ]));
         ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault, Some(btc_address)))));
+        ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
         ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(())));
         ext::vault_registry::liquidate_theft_vault::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
 
@@ -76,6 +88,7 @@ fn test_report_vault_fails_with_non_vault_transaction() {
 
         ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault, Some(btc_address)))));
+        ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
         ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(())));
 
         assert_err!(
@@ -102,6 +115,7 @@ fn test_report_vault_succeeds_with_segwit_transaction() {
         ]));
         ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(vault, Some(btc_address)))));
+        ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
         ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(())));
         ext::vault_registry::liquidate_theft_vault::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
 
@@ -600,7 +614,7 @@ fn test_store_block_header_and_update_sla_fails_with_invalid() {
         });
 
         assert_err!(
-            StakedRelayers::store_block_header_and_update_sla(&0, RawBlockHeader::default()),
+            StakedRelayers::store_block_header_and_update_sla(&0, BlockHeader::default()),
             BtcRelayError::<Test>::DiffTargetHeader
         );
     })
