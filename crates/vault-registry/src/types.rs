@@ -80,9 +80,11 @@ impl<T: Config> CurrencySource<T> {
     }
 }
 
-pub(crate) type Collateral<T> = <T as Config>::Balance;
+pub(crate) type BalanceOf<T> = <T as Config>::Balance;
 
-pub(crate) type Wrapped<T> = <T as Config>::Balance;
+pub(crate) type Collateral<T> = BalanceOf<T>;
+
+pub(crate) type Wrapped<T> = BalanceOf<T>;
 
 pub(crate) type SignedFixedPoint<T> = <T as Config>::SignedFixedPoint;
 

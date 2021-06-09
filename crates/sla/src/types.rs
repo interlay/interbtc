@@ -1,13 +1,12 @@
 use crate::Config;
 use codec::{Decode, Encode};
-use frame_support::traits::Currency;
 use sp_arithmetic::FixedPointNumber;
 
-pub enum VaultEvent<Wrapped, Collateral> {
+pub enum VaultEvent<Balance> {
     RedeemFailure,
-    ExecuteIssue(Wrapped),
-    Deposit(Collateral),
-    Withdraw(Collateral),
+    ExecuteIssue(Balance),
+    Deposit(Balance),
+    Withdraw(Balance),
     SubmitIssueProof,
     Refund,
     Liquidate,
@@ -19,12 +18,7 @@ pub enum RelayerEvent {
     TheftReport,
 }
 
-pub(crate) type Collateral<T> = <<T as currency::Config<currency::Collateral>>::Currency as Currency<
-    <T as frame_system::Config>::AccountId,
->>::Balance;
-
-pub(crate) type Wrapped<T> =
-    <<T as currency::Config<currency::Wrapped>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub(crate) type BalanceOf<T> = <T as Config>::Balance;
 
 pub(crate) type SignedFixedPoint<T> = <T as Config>::SignedFixedPoint;
 

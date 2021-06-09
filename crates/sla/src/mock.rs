@@ -1,9 +1,6 @@
 use crate as sla;
 use crate::{Config, Error};
-use frame_support::{
-    parameter_types,
-    traits::{GenesisBuild, StorageMapShim},
-};
+use frame_support::{parameter_types, traits::GenesisBuild};
 use mocktopus::mocking::clear_mocks;
 use sp_arithmetic::FixedI128;
 use sp_core::H256;
@@ -23,14 +20,6 @@ frame_support::construct_runtime!(
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
         System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
-        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-
-        // Tokens & Balances
-        Collateral: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
-        Wrapped: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
-
-        CollateralCurrency: currency::<Instance1>::{Pallet, Call, Storage, Event<T>},
-        WrappedCurrency: currency::<Instance2>::{Pallet, Call, Storage, Event<T>},
 
         CollateralVaultRewards: reward::<Instance1>::{Pallet, Call, Storage, Event<T>},
         WrappedVaultRewards: reward::<Instance2>::{Pallet, Call, Storage, Event<T>},
@@ -78,73 +67,6 @@ impl frame_system::Config for Test {
     type OnSetCode = ();
 }
 
-parameter_types! {
-    pub const ExistentialDeposit: u64 = 1;
-    pub const MaxLocks: u32 = 50;
-}
-
-/// Collateral currency - e.g. DOT/KSM
-impl pallet_balances::Config<pallet_balances::Instance1> for Test {
-    type MaxLocks = MaxLocks;
-    type Balance = Balance;
-    type Event = TestEvent;
-    type DustRemoval = ();
-    type ExistentialDeposit = ExistentialDeposit;
-    type AccountStore = StorageMapShim<
-        pallet_balances::Account<Test, pallet_balances::Instance1>,
-        frame_system::Provider<Test>,
-        AccountId,
-        pallet_balances::AccountData<Balance>,
-    >;
-    type WeightInfo = ();
-}
-
-/// Wrapped currency - e.g. InterBTC
-impl pallet_balances::Config<pallet_balances::Instance2> for Test {
-    type MaxLocks = MaxLocks;
-    type Balance = Balance;
-    type Event = TestEvent;
-    type DustRemoval = ();
-    type ExistentialDeposit = ExistentialDeposit;
-    type AccountStore = StorageMapShim<
-        pallet_balances::Account<Test, pallet_balances::Instance2>,
-        frame_system::Provider<Test>,
-        AccountId,
-        pallet_balances::AccountData<Balance>,
-    >;
-    type WeightInfo = ();
-}
-
-parameter_types! {
-    pub const CollateralName: &'static [u8] = b"Polkadot";
-    pub const CollateralSymbol: &'static [u8] = b"DOT";
-    pub const CollateralDecimals: u8 = 10;
-}
-
-impl currency::Config<currency::Collateral> for Test {
-    type Event = TestEvent;
-    type Balance = Balance;
-    type Currency = Collateral;
-    type Name = CollateralName;
-    type Symbol = CollateralSymbol;
-    type Decimals = CollateralDecimals;
-}
-
-parameter_types! {
-    pub const WrappedName: &'static [u8] = b"Bitcoin";
-    pub const WrappedSymbol: &'static [u8] = b"BTC";
-    pub const WrappedDecimals: u8 = 8;
-}
-
-impl currency::Config<currency::Wrapped> for Test {
-    type Event = TestEvent;
-    type Balance = Balance;
-    type Currency = Wrapped;
-    type Name = WrappedName;
-    type Symbol = WrappedSymbol;
-    type Decimals = WrappedDecimals;
-}
-
 impl reward::Config<reward::CollateralVault> for Test {
     type Event = TestEvent;
     type SignedFixedPoint = FixedI128;
@@ -171,13 +93,6 @@ impl security::Config for Test {
 
 parameter_types! {
     pub const MinimumPeriod: u64 = 5;
-}
-
-impl pallet_timestamp::Config for Test {
-    type Moment = u64;
-    type OnTimestampSet = ();
-    type MinimumPeriod = MinimumPeriod;
-    type WeightInfo = ();
 }
 
 impl Config for Test {

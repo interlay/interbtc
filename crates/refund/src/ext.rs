@@ -13,13 +13,13 @@ pub(crate) mod fee {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod sla {
-    use crate::types::{Collateral, Wrapped};
+    use crate::types::BalanceOf;
     use frame_support::dispatch::DispatchError;
     pub use sla::types::VaultEvent;
 
     pub fn event_update_vault_sla<T: crate::Config>(
         vault_id: &T::AccountId,
-        event: VaultEvent<Wrapped<T>, Collateral<T>>,
+        event: VaultEvent<BalanceOf<T>>,
     ) -> Result<(), DispatchError> {
         <sla::Pallet<T>>::event_update_vault_sla(vault_id, event)
     }
