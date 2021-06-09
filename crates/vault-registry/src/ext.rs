@@ -73,17 +73,17 @@ pub(crate) mod security {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod sla {
-    use crate::types::{Collateral, UnsignedFixedPoint, Wrapped};
+    use crate::types::{BalanceOf, UnsignedFixedPoint};
     use frame_support::dispatch::DispatchError;
     pub use sla::types::VaultEvent;
 
     pub fn calculate_slashed_amount<T: crate::Config>(
         vault_id: &T::AccountId,
-        stake: Collateral<T>,
+        stake: BalanceOf<T>,
         reimburse: bool,
         liquidation_threshold: UnsignedFixedPoint<T>,
         premium_redeem_threshold: UnsignedFixedPoint<T>,
-    ) -> Result<Collateral<T>, DispatchError> {
+    ) -> Result<BalanceOf<T>, DispatchError> {
         <sla::Pallet<T>>::calculate_slashed_amount(
             vault_id,
             stake,
@@ -95,7 +95,7 @@ pub(crate) mod sla {
 
     pub fn event_update_vault_sla<T: crate::Config>(
         vault_id: &T::AccountId,
-        event: VaultEvent<Wrapped<T>, Collateral<T>>,
+        event: VaultEvent<BalanceOf<T>>,
     ) -> Result<(), DispatchError> {
         <sla::Pallet<T>>::event_update_vault_sla(vault_id, event)
     }

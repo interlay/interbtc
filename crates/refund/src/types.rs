@@ -6,8 +6,6 @@ use sp_core::H256;
 
 pub(crate) type BalanceOf<T> = <T as vault_registry::Config>::Balance;
 
-pub(crate) type Collateral<T> = BalanceOf<T>;
-
 pub(crate) type Wrapped<T> = BalanceOf<T>;
 
 // Due to a known bug in serde we need to specify how u128 is (de)serialized.

@@ -19,7 +19,7 @@ use mocktopus::macros::mockable;
 
 pub mod types;
 
-use crate::types::{Collateral, Inner, RelayerEvent, SignedFixedPoint, VaultEvent, Wrapped};
+use crate::types::{BalanceOf, Inner, RelayerEvent, SignedFixedPoint, VaultEvent};
 use codec::{Decode, Encode, EncodeLike, FullCodec};
 use frame_support::{dispatch::DispatchError, transactional};
 use frame_system::ensure_root;
@@ -44,11 +44,7 @@ pub mod pallet {
     /// ## Configuration
     /// The pallet's configuration trait.
     #[pallet::config]
-    pub trait Config:
-        frame_system::Config
-        + currency::Config<currency::Collateral, Balance = <Self as Config>::Balance>
-        + currency::Config<currency::Wrapped, Balance = <Self as Config>::Balance>
-    {
+    pub trait Config: frame_system::Config {
         /// The overarching event type.
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
@@ -278,7 +274,7 @@ impl<T: Config> Pallet<T> {
     /// * `event` - the event that has happened
     pub fn event_update_vault_sla(
         vault_id: &T::AccountId,
-        event: VaultEvent<Wrapped<T>, Collateral<T>>,
+        event: VaultEvent<BalanceOf<T>>,
     ) -> Result<(), DispatchError> {
         let current_sla = <VaultSla<T>>::get(vault_id);
         let delta_sla = match event {
@@ -351,11 +347,11 @@ impl<T: Config> Pallet<T> {
     /// * `reimburse` - if true, this function returns 110-130%. If false, it returns 10-30%
     pub fn calculate_slashed_amount<UnsignedFixedPoint: FixedPointNumber>(
         vault_id: &T::AccountId,
-        stake: Collateral<T>,
+        stake: BalanceOf<T>,
         reimburse: bool,
         liquidation_threshold: UnsignedFixedPoint,
         premium_redeem_threshold: UnsignedFixedPoint,
-    ) -> Result<Collateral<T>, DispatchError> {
+    ) -> Result<BalanceOf<T>, DispatchError> {
         let current_sla = <VaultSla<T>>::get(vault_id);
 
         let liquidation_threshold = Self::fixed_point_unsigned_to_signed(liquidation_threshold)?;
@@ -409,10 +405,10 @@ impl<T: Config> Pallet<T> {
     /// the thesholds are parameters.
     fn _calculate_slashed_amount(
         current_sla: SignedFixedPoint<T>,
-        stake: Collateral<T>,
+        stake: BalanceOf<T>,
         liquidation_threshold: SignedFixedPoint<T>,
         premium_redeem_threshold: SignedFixedPoint<T>,
-    ) -> Result<Collateral<T>, DispatchError> {
+    ) -> Result<BalanceOf<T>, DispatchError> {
         let range = premium_redeem_threshold - liquidation_threshold;
         let max_sla = <VaultTargetSla<T>>::get();
         let stake = TryInto::<T::SignedInner>::try_into(stake).map_err(|_| Error::<T>::TryIntoIntError)?;
@@ -444,7 +440,7 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `amount` - the amount of tokens that were issued
-    fn _execute_issue_sla_change(amount: Wrapped<T>) -> Result<SignedFixedPoint<T>, DispatchError> {
+    fn _execute_issue_sla_change(amount: BalanceOf<T>) -> Result<SignedFixedPoint<T>, DispatchError> {
         let amount_raw = Self::wrapped_to_u128(amount)?;
 
         // update the number of issues performed
@@ -489,7 +485,7 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `amount` - the amount of tokens that were locked
-    pub(crate) fn _deposit_sla_change(amount: Collateral<T>) -> Result<SignedFixedPoint<T>, DispatchError> {
+    pub(crate) fn _deposit_sla_change(amount: BalanceOf<T>) -> Result<SignedFixedPoint<T>, DispatchError> {
         let max_sla_change = <VaultDepositMaxSlaChange<T>>::get();
         let amount = Self::currency_to_fixed_point(amount)?;
 
@@ -529,7 +525,7 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `amount` - the amount of tokens that were unlocked
-    pub(crate) fn _withdraw_sla_change(amount: Collateral<T>) -> Result<SignedFixedPoint<T>, DispatchError> {
+    pub(crate) fn _withdraw_sla_change(amount: BalanceOf<T>) -> Result<SignedFixedPoint<T>, DispatchError> {
         let max_sla_change = <VaultWithdrawMaxSlaChange<T>>::get();
         let amount = Self::currency_to_fixed_point(amount)?;
 
@@ -618,7 +614,7 @@ impl<T: Config> Pallet<T> {
         Ok(ret)
     }
 
-    fn wrapped_to_u128(x: Wrapped<T>) -> Result<u128, DispatchError> {
+    fn wrapped_to_u128(x: BalanceOf<T>) -> Result<u128, DispatchError> {
         TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 

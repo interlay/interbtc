@@ -9631,13 +9631,10 @@ dependencies = [
 name = "sla"
 version = "0.7.0"
 dependencies = [
- "currency",
  "frame-support",
  "frame-system",
  "mocktopus",
- "pallet-balances",
  "pallet-randomness-collective-flip",
- "pallet-timestamp",
  "parity-scale-codec",
  "reward",
  "security",
