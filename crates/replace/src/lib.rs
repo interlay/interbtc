@@ -23,14 +23,14 @@ use frame_system::{ensure_root, ensure_signed};
 use mocktopus::macros::mockable;
 use sp_core::H256;
 use sp_runtime::traits::Zero;
-use sp_std::{convert::TryInto, vec::Vec};
+use sp_std::vec::Vec;
 
 use btc_relay::BtcAddress;
 
 #[doc(inline)]
 pub use crate::types::{ReplaceRequest, ReplaceRequestStatus};
 
-use crate::types::{Collateral, Version, Wrapped};
+use crate::types::{BalanceOf, Collateral, Version, Wrapped};
 use vault_registry::CurrencySource;
 
 mod ext;
@@ -56,12 +56,12 @@ pub mod pallet {
     pub trait Config:
         frame_system::Config
         + vault_registry::Config
-        + currency::Config<currency::Collateral>
-        + currency::Config<currency::Wrapped>
+        + currency::Config<currency::Collateral, Balance = BalanceOf<Self>>
+        + currency::Config<currency::Wrapped, Balance = BalanceOf<Self>>
         + btc_relay::Config
-        + exchange_rate_oracle::Config
+        + exchange_rate_oracle::Config<Balance = BalanceOf<Self>>
         + fee::Config
-        + sla::Config
+        + sla::Config<Balance = BalanceOf<Self>>
         + nomination::Config
     {
         /// The overarching event type.
@@ -447,8 +447,6 @@ impl<T: Config> Pallet<T> {
         let new_vault_id = replace.new_vault;
         let old_vault_id = replace.old_vault;
 
-        let amount: usize = replace.amount.try_into().map_err(|_e| Error::<T>::TryIntoIntError)?;
-
         // check the transaction inclusion and validity
         let transaction = ext::btc_relay::parse_transaction::<T>(&raw_tx)?;
         let merkle_proof = ext::btc_relay::parse_merkle_proof::<T>(&raw_merkle_proof)?;
@@ -456,7 +454,7 @@ impl<T: Config> Pallet<T> {
             merkle_proof,
             transaction,
             replace.btc_address,
-            amount,
+            replace.amount,
             replace_id,
         )?;
 

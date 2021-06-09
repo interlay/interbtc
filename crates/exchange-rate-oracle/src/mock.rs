@@ -39,7 +39,7 @@ frame_support::construct_runtime!(
 );
 
 pub type AccountId = u64;
-pub type Balance = u64;
+pub type Balance = u128;
 pub type BlockNumber = u64;
 
 parameter_types! {
@@ -75,6 +75,7 @@ impl frame_system::Config for Test {
 
 impl Config for Test {
     type Event = TestEvent;
+    type Balance = Balance;
     type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
 }
@@ -135,6 +136,7 @@ parameter_types! {
 
 impl currency::Config<currency::Collateral> for Test {
     type Event = TestEvent;
+    type Balance = Balance;
     type Currency = Collateral;
     type Name = CollateralName;
     type Symbol = CollateralSymbol;
@@ -149,6 +151,7 @@ parameter_types! {
 
 impl currency::Config<currency::Wrapped> for Test {
     type Event = TestEvent;
+    type Balance = Balance;
     type Currency = Wrapped;
     type Name = WrappedName;
     type Symbol = WrappedSymbol;

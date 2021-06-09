@@ -22,7 +22,7 @@ fn test_refund_succeeds() {
         ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
         ext::btc_relay::parse_transaction::<Test>.mock_safe(|_| MockResult::Return(Ok(Transaction::default())));
-        ext::btc_relay::verify_and_validate_op_return_transaction::<Test, usize>
+        ext::btc_relay::verify_and_validate_op_return_transaction::<Test, Balance>
             .mock_safe(|_, _, _, _, _| MockResult::Return(Ok(())));
 
         let issue_id = H256::zero();

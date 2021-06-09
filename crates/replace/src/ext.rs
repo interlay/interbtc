@@ -3,13 +3,13 @@ use mocktopus::macros::mockable;
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod btc_relay {
-    use bitcoin::types::{MerkleProof, Transaction};
+    use bitcoin::types::{MerkleProof, Transaction, Value};
     use btc_relay::BtcAddress;
     use frame_support::dispatch::DispatchError;
     use sp_core::H256;
     use sp_std::convert::TryInto;
 
-    pub fn verify_and_validate_op_return_transaction<T: crate::Config, V: TryInto<i64>>(
+    pub fn verify_and_validate_op_return_transaction<T: crate::Config, V: TryInto<Value>>(
         merkle_proof: MerkleProof,
         transaction: Transaction,
         recipient_btc_address: BtcAddress,

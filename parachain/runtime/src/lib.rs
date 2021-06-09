@@ -514,6 +514,7 @@ parameter_types! {
 
 impl currency::Config<currency::Collateral> for Runtime {
     type Event = Event;
+    type Balance = Balance;
     type Currency = Collateral;
     type Name = CollateralName;
     type Symbol = CollateralSymbol;
@@ -528,6 +529,7 @@ parameter_types! {
 
 impl currency::Config<currency::Wrapped> for Runtime {
     type Event = Event;
+    type Balance = Balance;
     type Currency = Wrapped;
     type Name = WrappedName;
     type Symbol = WrappedSymbol;
@@ -573,6 +575,7 @@ impl vault_registry::Config for Runtime {
     type PalletId = VaultPalletId;
     type Event = Event;
     type RandomnessSource = RandomnessCollectiveFlip;
+    type Balance = Balance;
     type SignedFixedPoint = FixedI128;
     type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
@@ -588,6 +591,7 @@ where
 
 impl exchange_rate_oracle::Config for Runtime {
     type Event = Event;
+    type Balance = Balance;
     type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
 }

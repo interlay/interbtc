@@ -55,8 +55,6 @@ pub mod pallet {
     pub trait Config:
         frame_system::Config
         + security::Config
-        + currency::Config<currency::Collateral>
-        + currency::Config<currency::Wrapped>
         + vault_registry::Config
         + btc_relay::Config
         + redeem::Config

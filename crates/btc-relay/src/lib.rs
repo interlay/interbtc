@@ -679,7 +679,7 @@ impl<T: Config> Pallet<T> {
 
     /// interface to the issue pallet; verifies inclusion, and returns the first input
     /// address (for refunds) and the payment amount
-    pub fn get_and_verify_issue_payment<V: TryFrom<i64>>(
+    pub fn get_and_verify_issue_payment<V: TryFrom<Value>>(
         merkle_proof: MerkleProof,
         transaction: Transaction,
         recipient_btc_address: BtcAddress,
@@ -718,7 +718,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// interface to redeem,replace,refund to check that the payment is included and is valid
-    pub fn verify_and_validate_op_return_transaction<V: TryInto<i64>>(
+    pub fn verify_and_validate_op_return_transaction<V: TryInto<Value>>(
         merkle_proof: MerkleProof,
         transaction: Transaction,
         recipient_btc_address: BtcAddress,

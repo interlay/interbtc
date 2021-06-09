@@ -3,7 +3,6 @@ use codec::{Decode, Encode, HasCompact};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
-    traits::Currency,
 };
 use sp_arithmetic::FixedPointNumber;
 use sp_core::H256;
@@ -81,18 +80,13 @@ impl<T: Config> CurrencySource<T> {
     }
 }
 
-pub(crate) type Collateral<T> = <<T as currency::Config<currency::Collateral>>::Currency as Currency<
-    <T as frame_system::Config>::AccountId,
->>::Balance;
+pub(crate) type Collateral<T> = <T as Config>::Balance;
 
-pub(crate) type Wrapped<T> =
-    <<T as currency::Config<currency::Wrapped>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub(crate) type Wrapped<T> = <T as Config>::Balance;
 
 pub(crate) type SignedFixedPoint<T> = <T as Config>::SignedFixedPoint;
 
 pub(crate) type UnsignedFixedPoint<T> = <T as Config>::UnsignedFixedPoint;
-
-pub(crate) type Inner<T> = <<T as Config>::UnsignedFixedPoint as FixedPointNumber>::Inner;
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
 pub struct Wallet {
@@ -378,15 +372,11 @@ impl<T: Config> RichVault<T> {
         let issued_tokens = self.backed_tokens()?;
         let issued_tokens_in_collateral = ext::oracle::wrapped_to_collateral::<T>(issued_tokens)?;
 
-        let raw_issued_tokens_in_collateral = Pallet::<T>::collateral_to_u128(issued_tokens_in_collateral)?;
-
         let secure_threshold = Pallet::<T>::secure_collateral_threshold();
 
-        let raw_used_collateral = secure_threshold
-            .checked_mul_int(raw_issued_tokens_in_collateral)
+        let used_collateral = secure_threshold
+            .checked_mul_int(issued_tokens_in_collateral)
             .ok_or(Error::<T>::ArithmeticOverflow)?;
-
-        let used_collateral = Pallet::<T>::u128_to_collateral(raw_used_collateral)?;
 
         Ok(self.data.backing_collateral.min(used_collateral))
     }

@@ -24,8 +24,10 @@ use codec::{Decode, Encode, EncodeLike, FullCodec};
 use frame_support::{dispatch::DispatchError, transactional};
 use frame_system::ensure_root;
 use reward::RewardPool;
-use sp_arithmetic::{traits::*, FixedPointNumber, FixedPointOperand};
-use sp_runtime::traits::MaybeSerializeDeserialize;
+use sp_runtime::{
+    traits::{MaybeSerializeDeserialize, *},
+    FixedPointNumber, FixedPointOperand,
+};
 use sp_std::{
     convert::{TryFrom, TryInto},
     fmt::Debug,
@@ -43,7 +45,9 @@ pub mod pallet {
     /// The pallet's configuration trait.
     #[pallet::config]
     pub trait Config:
-        frame_system::Config + currency::Config<currency::Collateral> + currency::Config<currency::Wrapped>
+        frame_system::Config
+        + currency::Config<currency::Collateral, Balance = <Self as Config>::Balance>
+        + currency::Config<currency::Wrapped, Balance = <Self as Config>::Balance>
     {
         /// The overarching event type.
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
@@ -61,22 +65,17 @@ pub mod pallet {
             + CheckedMul
             + CheckedDiv
             + FixedPointOperand
-            + TryFrom<Collateral<Self>>
-            + TryFrom<Wrapped<Self>>
-            + TryInto<Collateral<Self>>
-            + TryInto<Wrapped<Self>>;
+            + TryFrom<<Self as Config>::Balance>
+            + TryInto<<Self as Config>::Balance>;
 
-        /// The shared balance type for all currencies.
+        /// The primitive balance type.
         type Balance: AtLeast32BitUnsigned
+            + FixedPointOperand
+            + MaybeSerializeDeserialize
             + FullCodec
             + Copy
-            + MaybeSerializeDeserialize
-            + Debug
             + Default
-            + From<Collateral<Self>>
-            + From<Wrapped<Self>>
-            + Into<Collateral<Self>>
-            + Into<Wrapped<Self>>;
+            + Debug;
 
         /// Vault reward pool for the collateral currency.
         type CollateralVaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;

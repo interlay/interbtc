@@ -12,13 +12,14 @@ mod mock;
 #[cfg(test)]
 mod tests;
 
+use codec::FullCodec;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::{Currency, ExistenceRequirement, ReservableCurrency},
 };
-use sp_runtime::traits::{CheckedAdd, CheckedSub};
-use sp_std::vec::Vec;
+use sp_runtime::traits::{AtLeast32BitUnsigned, CheckedAdd, CheckedSub};
+use sp_std::{fmt::Debug, vec::Vec};
 
 pub type BalanceOf<T, I = ()> =
     <<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
@@ -40,8 +41,11 @@ pub mod pallet {
         /// The overarching event type.
         type Event: From<Event<Self, I>> + IsType<<Self as frame_system::Config>::Event>;
 
+        /// The primitive balance type.
+        type Balance: AtLeast32BitUnsigned + MaybeSerializeDeserialize + FullCodec + Copy + Default + Debug;
+
         /// The currency to manage.
-        type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
+        type Currency: ReservableCurrency<Self::AccountId, Balance = Self::Balance>;
 
         /// The user-friendly name of the managed currency.
         #[pallet::constant]
