@@ -1,11 +1,20 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use bstringify::bstringify;
+use codec::{Decode, Encode};
 pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
 use sp_runtime::{
     generic,
     traits::{BlakeTwo256, IdentifyAccount, Verify},
-    MultiSignature,
+    MultiSignature, RuntimeDebug,
 };
+use sp_std::{
+    convert::{Into, TryFrom},
+    prelude::*,
+};
+
+#[cfg(feature = "std")]
+use serde::{Deserialize, Serialize};
 
 pub use bitcoin::types::H256Le;
 pub use issue::IssueRequest;
@@ -53,3 +62,38 @@ pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 
 /// Opaque block identifier type.
 pub type BlockId = generic::BlockId<Block>;
+
+macro_rules! create_currency_id {
+    ($(#[$meta:meta])*
+	$vis:vis enum CurrencyId {
+        $($(#[$vmeta:meta])* $symbol:ident($name:expr, $deci:literal),)*
+    }) => {
+		$(#[$meta])*
+		$vis enum CurrencyId {
+			$($(#[$vmeta])* $symbol,)*
+		}
+
+        $(pub const $symbol: CurrencyId = CurrencyId::$symbol;)*
+
+		impl TryFrom<Vec<u8>> for CurrencyId {
+			type Error = ();
+			fn try_from(v: Vec<u8>) -> Result<CurrencyId, ()> {
+				match v.as_slice() {
+					$(bstringify!($symbol) => Ok(CurrencyId::$symbol),)*
+					_ => Err(()),
+				}
+			}
+		}
+
+    }
+}
+
+create_currency_id! {
+    #[derive(Encode, Decode, Eq, PartialEq, Copy, Clone, RuntimeDebug, PartialOrd, Ord)]
+    #[cfg_attr(feature = "std", derive(Serialize, Deserialize))]
+    pub enum CurrencyId {
+        DOT("Polkadot", 10),
+        KSM("Kusama", 12),
+        INTERBTC("InterBTC", 8),
+    }
+}
