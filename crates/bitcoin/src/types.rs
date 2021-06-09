@@ -290,22 +290,24 @@ impl TransactionInput {
     }
 }
 
+pub type Value = i64;
+
 /// Bitcoin transaction output
 #[derive(PartialEq, Debug, Clone)]
 pub struct TransactionOutput {
-    pub value: i64,
+    pub value: Value,
     pub script: Script,
 }
 
 impl TransactionOutput {
-    pub fn payment(value: i64, address: &Address) -> TransactionOutput {
+    pub fn payment(value: Value, address: &Address) -> TransactionOutput {
         TransactionOutput {
             value,
             script: address.to_script_pub_key(),
         }
     }
 
-    pub fn op_return(value: i64, return_content: &[u8]) -> TransactionOutput {
+    pub fn op_return(value: Value, return_content: &[u8]) -> TransactionOutput {
         TransactionOutput {
             value,
             script: Script::op_return(return_content),
@@ -448,7 +450,7 @@ impl BlockBuilder {
         self
     }
 
-    pub fn with_coinbase(&mut self, address: &Address, reward: i64, height: u32) -> &mut Self {
+    pub fn with_coinbase(&mut self, address: &Address, reward: Value, height: u32) -> &mut Self {
         // TODO: compute witness commitment
         self.block
             .transactions
@@ -468,7 +470,7 @@ impl BlockBuilder {
 
 fn generate_coinbase_transaction(
     address: &Address,
-    reward: i64,
+    reward: Value,
     height: u32,
     input_script: Option<Vec<u8>>,
     witness_commitment: Option<Vec<u8>>,

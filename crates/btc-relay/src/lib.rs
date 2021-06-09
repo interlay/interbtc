@@ -64,7 +64,7 @@ pub use bitcoin::{self, Address as BtcAddress, PublicKey as BtcPublicKey};
 use bitcoin::{
     merkle::{MerkleProof, ProofResult},
     parser::{parse_block_header, parse_transaction},
-    types::{BlockChain, BlockHeader, H256Le, RawBlockHeader, Transaction},
+    types::{BlockChain, BlockHeader, H256Le, RawBlockHeader, Transaction, Value},
     Error as BitcoinError,
 };
 use security::types::ErrorCode;
@@ -117,7 +117,7 @@ pub mod pallet {
             raw_merkle_proof: Vec<u8>,
             confirmations: Option<u32>,
             raw_tx: Vec<u8>,
-            expected_btc: i64,
+            expected_btc: Value,
             recipient_btc_address: BtcAddress,
             op_return_id: Option<H256>,
         ) -> DispatchResultWithPostInfo {
@@ -180,7 +180,7 @@ pub mod pallet {
         pub fn validate_transaction(
             origin: OriginFor<T>,
             raw_tx: Vec<u8>,
-            expected_btc: i64,
+            expected_btc: Value,
             recipient_btc_address: BtcAddress,
             op_return_id: Option<H256>,
         ) -> DispatchResultWithPostInfo {
@@ -656,7 +656,7 @@ impl<T: Config> Pallet<T> {
     // helper for the dispatchable
     fn _validate_transaction(
         raw_tx: Vec<u8>,
-        expected_btc: i64,
+        expected_btc: Value,
         recipient_btc_address: BtcAddress,
         op_return_id: Option<H256>,
     ) -> Result<(), DispatchError> {
@@ -679,7 +679,7 @@ impl<T: Config> Pallet<T> {
         raw_merkle_proof: Vec<u8>,
         raw_tx: Vec<u8>,
         recipient_btc_address: BtcAddress,
-    ) -> Result<(BtcAddress, i64), DispatchError> {
+    ) -> Result<(BtcAddress, Value), DispatchError> {
         let transaction = Self::parse_transaction(&raw_tx)?;
 
         // Verify that the transaction is indeed included in the main chain
@@ -691,7 +691,7 @@ impl<T: Config> Pallet<T> {
     fn get_issue_payment(
         transaction: Transaction,
         recipient_btc_address: BtcAddress,
-    ) -> Result<(BtcAddress, i64), DispatchError> {
+    ) -> Result<(BtcAddress, Value), DispatchError> {
         let input_address = transaction
             .inputs
             .get(0)
@@ -718,7 +718,7 @@ impl<T: Config> Pallet<T> {
         raw_merkle_proof: Vec<u8>,
         raw_tx: Vec<u8>,
         recipient_btc_address: BtcAddress,
-        expected_btc: i64,
+        expected_btc: Value,
         op_return_id: H256,
     ) -> Result<(), DispatchError> {
         let transaction = Self::parse_transaction(&raw_tx)?;
@@ -785,7 +785,7 @@ impl<T: Config> Pallet<T> {
     fn validate_op_return_transaction(
         transaction: Transaction,
         recipient_btc_address: BtcAddress,
-        expected_btc: i64,
+        expected_btc: Value,
         op_return_id: H256,
     ) -> Result<Option<BtcAddress>, DispatchError> {
         let payment_data = OpReturnPaymentData::<T>::try_from(transaction)?;
