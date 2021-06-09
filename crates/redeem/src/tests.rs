@@ -266,7 +266,7 @@ fn test_execute_redeem_succeeds_with_another_account() {
                 ..Default::default()
             },
         );
-        ext::btc_relay::verify_and_validate_op_return_transaction::<Test>
+        ext::btc_relay::verify_and_validate_op_return_transaction::<Test, usize>
             .mock_safe(|_, _, _, _, _| MockResult::Return(Ok(())));
 
         let btc_fee = Redeem::get_current_inclusion_fee().unwrap();
@@ -338,7 +338,7 @@ fn test_execute_redeem_succeeds() {
                 ..Default::default()
             },
         );
-        ext::btc_relay::verify_and_validate_op_return_transaction::<Test>
+        ext::btc_relay::verify_and_validate_op_return_transaction::<Test, usize>
             .mock_safe(|_, _, _, _, _| MockResult::Return(Ok(())));
 
         let btc_fee = Redeem::get_current_inclusion_fee().unwrap();

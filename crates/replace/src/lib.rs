@@ -447,14 +447,14 @@ impl<T: Config> Pallet<T> {
         let new_vault_id = replace.new_vault;
         let old_vault_id = replace.old_vault;
 
-        let amount = TryInto::<u64>::try_into(replace.amount).map_err(|_e| Error::<T>::TryIntoIntError)? as i64;
+        let amount: usize = replace.amount.try_into().map_err(|_e| Error::<T>::TryIntoIntError)?;
 
         // check the transaction inclusion and validity
-        ext::btc_relay::verify_and_validate_op_return_transaction::<T>(
+        ext::btc_relay::verify_and_validate_op_return_transaction::<T, _>(
             merkle_proof,
             raw_tx,
             replace.btc_address,
-            amount as i64,
+            amount,
             replace_id,
         )?;
 
