@@ -72,8 +72,8 @@ pub mod pallet {
             H256,
             Wrapped<T>,
         ),
-        /// refund_id, issuer, vault, amount
-        ExecuteRefund(H256, T::AccountId, T::AccountId, Wrapped<T>),
+        /// refund_id, issuer, vault, amount, fee
+        ExecuteRefund(H256, T::AccountId, T::AccountId, Wrapped<T>, Wrapped<T>),
     }
 
     #[pallet::error]
@@ -248,6 +248,7 @@ impl<T: Config> Pallet<T> {
             request.issuer,
             request.vault,
             Self::u128_to_wrapped(amount as u128)?,
+            request.fee,
         ));
 
         Ok(())

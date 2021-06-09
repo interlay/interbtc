@@ -84,8 +84,8 @@ pub mod pallet {
         ),
         // [redeemer, amount_wrapped]
         LiquidationRedeem(T::AccountId, Wrapped<T>),
-        // [redeem_id, redeemer, amount_wrapped, fee_wrapped, vault]
-        ExecuteRedeem(H256, T::AccountId, Wrapped<T>, Wrapped<T>, T::AccountId),
+        // [redeem_id, redeemer, amount_wrapped, fee_wrapped, vault, transfer_fee_btc]
+        ExecuteRedeem(H256, T::AccountId, Wrapped<T>, Wrapped<T>, T::AccountId, Wrapped<T>),
         // [redeem_id, redeemer, vault_id, slashing_amount_in_collateral, status]
         CancelRedeem(H256, T::AccountId, T::AccountId, Collateral<T>, RedeemRequestStatus),
         // [vault_id, redeem_id, amount_minted]
@@ -459,6 +459,7 @@ impl<T: Config> Pallet<T> {
             redeem.amount_btc,
             redeem.fee,
             redeem.vault,
+            redeem.transfer_fee_btc,
         ));
         Ok(())
     }

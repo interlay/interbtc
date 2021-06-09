@@ -83,8 +83,8 @@ pub mod pallet {
         ),
         // issue_id, amount, fee, confiscated_griefing_collateral
         IssueAmountChange(H256, Wrapped<T>, Wrapped<T>, Collateral<T>),
-        // [issue_id, requester, total_amount, vault]
-        ExecuteIssue(H256, T::AccountId, Wrapped<T>, T::AccountId),
+        // [issue_id, requester, executed_amount, vault, fee]
+        ExecuteIssue(H256, T::AccountId, Wrapped<T>, T::AccountId, Wrapped<T>),
         // [issue_id, requester, griefing_collateral]
         CancelIssue(H256, T::AccountId, Collateral<T>),
     }
@@ -458,8 +458,9 @@ impl<T: Config> Pallet<T> {
         Self::deposit_event(<Event<T>>::ExecuteIssue(
             issue_id,
             requester,
-            expected_total_amount,
+            total,
             issue.vault,
+            issue.fee,
         ));
         Ok(())
     }
