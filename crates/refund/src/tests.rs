@@ -10,7 +10,7 @@ fn test_refund_succeeds() {
         ext::fee::get_refund_fee_from_total::<Test>.mock_safe(|_| MockResult::Return(Ok(5)));
         ext::vault_registry::try_increase_to_be_issued_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
         ext::vault_registry::issue_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-        ext::btc_relay::verify_and_validate_op_return_transaction::<Test>
+        ext::btc_relay::verify_and_validate_op_return_transaction::<Test, usize>
             .mock_safe(|_, _, _, _, _| MockResult::Return(Ok(())));
 
         let issue_id = H256::zero();

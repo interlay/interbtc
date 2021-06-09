@@ -57,7 +57,11 @@ use frame_support::{
 };
 use frame_system::{ensure_root, ensure_signed};
 use sp_core::{H256, U256};
-use sp_std::{collections::btree_set::BTreeSet, convert::TryFrom, prelude::*};
+use sp_std::{
+    collections::btree_set::BTreeSet,
+    convert::{TryFrom, TryInto},
+    prelude::*,
+};
 
 // Crates
 pub use bitcoin::{self, Address as BtcAddress, PublicKey as BtcPublicKey};
@@ -666,7 +670,7 @@ impl<T: Config> Pallet<T> {
                 Self::validate_op_return_transaction(transaction, recipient_btc_address, expected_btc, op_return)?;
             }
             None => {
-                let payment = Self::get_issue_payment(transaction, recipient_btc_address)?;
+                let payment = Self::get_issue_payment::<i64>(transaction, recipient_btc_address)?;
                 ensure!(payment.1 == expected_btc, Error::<T>::InvalidPaymentAmount);
             }
         };
@@ -675,11 +679,11 @@ impl<T: Config> Pallet<T> {
 
     /// interface to the issue pallet; verifies inclusion, and returns the first input
     /// address (for refunds) and the payment amount
-    pub fn get_and_verify_issue_payment(
+    pub fn get_and_verify_issue_payment<V: TryFrom<i64>>(
         raw_merkle_proof: Vec<u8>,
         raw_tx: Vec<u8>,
         recipient_btc_address: BtcAddress,
-    ) -> Result<(BtcAddress, Value), DispatchError> {
+    ) -> Result<(BtcAddress, V), DispatchError> {
         let transaction = Self::parse_transaction(&raw_tx)?;
 
         // Verify that the transaction is indeed included in the main chain
@@ -688,10 +692,10 @@ impl<T: Config> Pallet<T> {
         Self::get_issue_payment(transaction, recipient_btc_address)
     }
 
-    fn get_issue_payment(
+    fn get_issue_payment<V: TryFrom<i64>>(
         transaction: Transaction,
         recipient_btc_address: BtcAddress,
-    ) -> Result<(BtcAddress, Value), DispatchError> {
+    ) -> Result<(BtcAddress, V), DispatchError> {
         let input_address = transaction
             .inputs
             .get(0)
@@ -708,17 +712,19 @@ impl<T: Config> Pallet<T> {
                 Ok(address) if address == recipient_btc_address => Some(x.value),
                 _ => None,
             })
-            .ok_or(Error::<T>::MalformedTransaction)?;
+            .ok_or(Error::<T>::MalformedTransaction)?
+            .try_into()
+            .map_err(|_| Error::<T>::InvalidPaymentAmount)?;
 
         Ok((input_address, extr_payment_value))
     }
 
     /// interface to redeem,replace,refund to check that the payment is included and is valid
-    pub fn verify_and_validate_op_return_transaction(
+    pub fn verify_and_validate_op_return_transaction<V: TryInto<i64>>(
         raw_merkle_proof: Vec<u8>,
         raw_tx: Vec<u8>,
         recipient_btc_address: BtcAddress,
-        expected_btc: Value,
+        expected_btc: V,
         op_return_id: H256,
     ) -> Result<(), DispatchError> {
         let transaction = Self::parse_transaction(&raw_tx)?;
@@ -782,14 +788,18 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Checks if transaction is valid. Returns the return-to-self address, if any, for theft checking purposes
-    fn validate_op_return_transaction(
+    fn validate_op_return_transaction<V: TryInto<i64>>(
         transaction: Transaction,
         recipient_btc_address: BtcAddress,
-        expected_btc: Value,
+        expected_btc: V,
         op_return_id: H256,
     ) -> Result<Option<BtcAddress>, DispatchError> {
         let payment_data = OpReturnPaymentData::<T>::try_from(transaction)?;
-        payment_data.ensure_valid_payment_to(expected_btc, recipient_btc_address, Some(op_return_id))
+        payment_data.ensure_valid_payment_to(
+            expected_btc.try_into().map_err(|_| Error::<T>::InvalidPaymentAmount)?,
+            recipient_btc_address,
+            Some(op_return_id),
+        )
     }
 
     pub fn is_fully_initialized() -> Result<bool, DispatchError> {

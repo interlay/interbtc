@@ -6,13 +6,13 @@ pub(crate) mod btc_relay {
     use btc_relay::BtcAddress;
     use frame_support::dispatch::DispatchError;
     use sp_core::H256;
-    use sp_std::vec::Vec;
+    use sp_std::{convert::TryInto, vec::Vec};
 
-    pub fn verify_and_validate_op_return_transaction<T: crate::Config>(
+    pub fn verify_and_validate_op_return_transaction<T: crate::Config, V: TryInto<i64>>(
         merkle_proof: Vec<u8>,
         raw_tx: Vec<u8>,
         recipient_btc_address: BtcAddress,
-        expected_btc: i64,
+        expected_btc: V,
         op_return_id: H256,
     ) -> Result<(), DispatchError> {
         <btc_relay::Pallet<T>>::verify_and_validate_op_return_transaction(

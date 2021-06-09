@@ -362,7 +362,7 @@ impl<T: Config> Pallet<T> {
             .amount
             .checked_add(&issue.fee)
             .ok_or(Error::<T>::ArithmeticOverflow)?;
-        let amount_transferred = Self::u128_to_wrapped(amount_transferred as u128)?;
+        let amount_transferred = Self::u128_to_wrapped(amount_transferred)?;
 
         // check for unexpected bitcoin amounts, and update the issue struct
         if amount_transferred < expected_total_amount {
