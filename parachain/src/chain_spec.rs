@@ -1,7 +1,8 @@
 use btc_parachain_runtime::{
     AccountId, BTCRelayConfig, BlockNumber, CollateralConfig, ExchangeRateOracleConfig, FeeConfig, GenesisConfig,
     IssueConfig, NominationConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature, SlaConfig, SudoConfig,
-    SystemConfig, VaultRegistryConfig, WrappedConfig, DAYS, MILLISECS_PER_BLOCK, TARGET_SPACING, WASM_BINARY,
+    SystemConfig, TokensConfig, VaultRegistryConfig, WrappedConfig, DAYS, DOT, MILLISECS_PER_BLOCK, TARGET_SPACING,
+    WASM_BINARY,
 };
 
 use bitcoin::utils::{virtual_transaction_size, InputType, TransactionInputMetadata, TransactionOutputMetadata};
@@ -383,6 +384,9 @@ fn testnet_genesis(
             balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
         },
         pallet_balances_Instance2: WrappedConfig { balances: vec![] },
+        orml_tokens: TokensConfig {
+            endowed_accounts: endowed_accounts.iter().cloned().map(|k| (k, DOT, 1 << 60)).collect(),
+        },
         exchange_rate_oracle: ExchangeRateOracleConfig {
             authorized_oracles,
             max_delay: 3600000, // one hour

@@ -21,7 +21,7 @@ use sp_api::impl_runtime_apis;
 use sp_core::OpaqueMetadata;
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
-    traits::{BlakeTwo256, Block as BlockT, IdentityLookup},
+    traits::{BlakeTwo256, Block as BlockT, IdentityLookup, Zero},
     transaction_validity::{TransactionSource, TransactionValidity},
     ApplyExtrinsicResult,
 };
@@ -29,6 +29,9 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
+
+// Orml imports
+use orml_traits::parameter_type_with_key;
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -51,7 +54,9 @@ pub use sp_runtime::{Perbill, Permill};
 pub use btc_relay::{bitcoin, Call as RelayCall, TARGET_SPACING};
 pub use module_exchange_rate_oracle_rpc_runtime_api::BalanceWrapper;
 
-pub use primitives::{self, AccountId, Balance, BlockNumber, Hash, Moment, Nonce, Signature};
+pub use primitives::{
+    self, AccountId, Amount, Balance, BlockNumber, CurrencyId, Hash, Moment, Nonce, Signature, DOT, INTERBTC,
+};
 
 // XCM imports
 #[cfg(feature = "cumulus-polkadot")]
@@ -536,6 +541,23 @@ impl currency::Config<currency::Wrapped> for Runtime {
     type Decimals = WrappedDecimals;
 }
 
+parameter_type_with_key! {
+    pub ExistentialDeposits: |_currency_id: CurrencyId| -> Balance {
+        Zero::zero()
+    };
+}
+
+impl orml_tokens::Config for Runtime {
+    type Event = Event;
+    type Balance = Balance;
+    type Amount = Amount;
+    type CurrencyId = CurrencyId;
+    type WeightInfo = ();
+    type ExistentialDeposits = ExistentialDeposits;
+    type OnDust = ();
+    type MaxLocks = MaxLocks;
+}
+
 impl reward::Config<reward::CollateralVault> for Runtime {
     type Event = Event;
     type SignedFixedPoint = FixedI128;
@@ -686,6 +708,7 @@ macro_rules! construct_interbtc_runtime {
                 TransactionPayment: pallet_transaction_payment::{Pallet, Storage},
 
                 // Tokens & Balances
+                Tokens: orml_tokens::{Pallet, Storage, Config<T>, Event<T>},
                 Collateral: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
                 Wrapped: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
 

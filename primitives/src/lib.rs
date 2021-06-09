@@ -42,6 +42,9 @@ pub type Nonce = u32;
 /// Balance of an account.
 pub type Balance = u128;
 
+/// Signed version of Balance
+pub type Amount = i128;
+
 /// Index of a transaction in the chain.
 pub type Index = u32;
 
