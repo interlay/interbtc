@@ -211,19 +211,6 @@ fn store_block_header_parachain_shutdown_fails() {
         );
     })
 }
-/// check_and_do_reorg function
-#[test]
-fn check_and_do_reorg_is_main_chain_succeeds() {
-    run_test(|| {
-        let chain_ref: u32 = 0;
-        let start_height: u32 = 3;
-        let block_height: u32 = 10;
-
-        let blockchain = get_empty_block_chain_from_chain_id_and_height(chain_ref, start_height, block_height);
-
-        assert_ok!(BTCRelay::check_and_do_reorg(&blockchain));
-    })
-}
 
 #[test]
 fn check_and_do_reorg_fork_id_not_found() {
@@ -234,7 +221,7 @@ fn check_and_do_reorg_fork_id_not_found() {
 
         let blockchain = get_empty_block_chain_from_chain_id_and_height(chain_ref, start_height, block_height);
 
-        assert_err!(BTCRelay::check_and_do_reorg(&blockchain), TestError::ForkIdNotFound);
+        assert_err!(BTCRelay::reorganize_chains(&blockchain), TestError::ForkIdNotFound);
     })
 }
 
@@ -273,7 +260,7 @@ fn check_and_do_reorg_swap_fork_position() {
 
         assert_eq!(current_position, fork_position);
 
-        assert_ok!(BTCRelay::check_and_do_reorg(&fork));
+        assert_ok!(BTCRelay::reorganize_chains(&fork));
         // assert that positions have been swapped
         let new_position = BTCRelay::get_chain_position_from_chain_id(fork_chain_ref).unwrap();
         assert_eq!(new_position, swap_position);
@@ -316,7 +303,7 @@ fn check_and_do_reorg_new_fork_is_main_chain() {
 
         BTCRelay::swap_main_blockchain.mock_safe(|_| MockResult::Return(Ok(())));
 
-        assert_ok!(BTCRelay::check_and_do_reorg(&fork));
+        assert_ok!(BTCRelay::reorganize_chains(&fork));
         // assert that the new main chain is set
         let reorg_event = TestEvent::btc_relay(Event::ChainReorg(
             best_block_hash,
@@ -358,7 +345,7 @@ fn check_and_do_reorg_new_fork_below_stable_transaction_confirmations() {
 
         BTCRelay::swap_main_blockchain.mock_safe(|_| MockResult::Return(Ok(())));
 
-        assert_ok!(BTCRelay::check_and_do_reorg(&fork));
+        assert_ok!(BTCRelay::reorganize_chains(&fork));
         // assert that the fork has not overtaken the main chain
         let ahead_event = TestEvent::btc_relay(Event::ForkAheadOfMainChain(
             main_block_height,
@@ -1925,7 +1912,7 @@ fn test_check_and_do_reorg() {
 
         // we should skip empty `Chains`, this can occur if the
         // previous index is accidentally deleted
-        assert_ok!(BTCRelay::check_and_do_reorg(&BlockChain {
+        assert_ok!(BTCRelay::reorganize_chains(&BlockChain {
             chain_id: 7,
             start_height: 1_897_317,
             max_height: 1_897_910,
