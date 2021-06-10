@@ -531,13 +531,12 @@ fn test_verify_block_header_correct_retarget_increase_succeeds() {
         let retarget_headers = sample_retarget_interval_increase();
 
         let prev_block_header_rich = RichBlockHeader::<AccountId, BlockNumber>::new(
-            retarget_headers[1],
+            parse_block_header(&retarget_headers[1]).unwrap(),
             chain_ref,
             block_height,
             Default::default(),
             Default::default(),
-        )
-        .unwrap();
+        );
 
         let curr_block_header = parse_block_header(&retarget_headers[2]).unwrap();
         // Prev block exists
@@ -562,13 +561,12 @@ fn test_verify_block_header_correct_retarget_decrease_succeeds() {
         let retarget_headers = sample_retarget_interval_decrease();
 
         let prev_block_header_rich = RichBlockHeader::<AccountId, BlockNumber>::new(
-            retarget_headers[1],
+            parse_block_header(&retarget_headers[1]).unwrap(),
             chain_ref,
             block_height,
             Default::default(),
             Default::default(),
-        )
-        .unwrap();
+        );
 
         let curr_block_header = parse_block_header(&retarget_headers[2]).unwrap();
         // Prev block exists
@@ -592,13 +590,12 @@ fn test_verify_block_header_missing_retarget_succeeds() {
         let retarget_headers = sample_retarget_interval_increase();
 
         let prev_block_header_rich = RichBlockHeader::<AccountId, BlockNumber>::new(
-            retarget_headers[1],
+            parse_block_header(&retarget_headers[1]).unwrap(),
             chain_ref,
             block_height,
             Default::default(),
             Default::default(),
-        )
-        .unwrap();
+        );
 
         let curr_block_header = parse_block_header(&retarget_headers[2]).unwrap();
         // Prev block exists
@@ -625,13 +622,12 @@ fn test_compute_new_target() {
 
     let last_retarget_time = parse_block_header(&retarget_headers[0]).unwrap().timestamp as u64;
     let prev_block_header = RichBlockHeader::<AccountId, BlockNumber>::new(
-        retarget_headers[1],
+        parse_block_header(&retarget_headers[1]).unwrap(),
         chain_ref,
         block_height,
         Default::default(),
         Default::default(),
-    )
-    .unwrap();
+    );
 
     let curr_block_header = parse_block_header(&retarget_headers[2]).unwrap();
 
