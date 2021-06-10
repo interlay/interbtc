@@ -8,16 +8,17 @@ use sp_std::{convert::TryFrom, vec::Vec};
 
 /// Bitcoin Enriched Block Headers
 #[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Eq, Debug)]
-pub struct RichBlockHeader<AccountId, BlockNumber> {
+pub struct RichBlockHeader<BlockNumber> {
     pub block_header: BlockHeader,
+    /// height of the block in the bitcoin chain
     pub block_height: u32,
+    /// id if the chain that this block belongs to
     pub chain_ref: u32,
-    // required for fault attribution
-    pub account_id: AccountId,
+    /// active_block_number of the parachain at the time this block was submitted
     pub para_height: BlockNumber,
 }
 
-impl<AccountId, BlockNumber> RichBlockHeader<AccountId, BlockNumber> {
+impl<BlockNumber> RichBlockHeader<BlockNumber> {
     /// Creates a new RichBlockHeader
     ///
     /// # Arguments
@@ -27,18 +28,11 @@ impl<AccountId, BlockNumber> RichBlockHeader<AccountId, BlockNumber> {
     /// * `block_height` - chain height
     /// * `account_id` - submitter
     /// * `para_height` - height of the parachain at submission
-    pub fn new(
-        block_header: BlockHeader,
-        chain_ref: u32,
-        block_height: u32,
-        account_id: AccountId,
-        para_height: BlockNumber,
-    ) -> Self {
+    pub fn new(block_header: BlockHeader, chain_ref: u32, block_height: u32, para_height: BlockNumber) -> Self {
         RichBlockHeader {
             block_header,
             block_height,
             chain_ref,
-            account_id,
             para_height,
         }
     }
