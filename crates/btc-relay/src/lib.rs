@@ -1513,13 +1513,7 @@ impl<T: Config> Pallet<T> {
 
     fn store_rich_header(basic_block_header: BlockHeader, block_height: u32, chain_id: u32, relayer: T::AccountId) {
         let para_height = ext::security::active_block_number::<T>();
-        let block_header = RichBlockHeader::<T::AccountId, T::BlockNumber> {
-            block_header: basic_block_header,
-            block_height,
-            chain_ref: chain_id,
-            account_id: relayer,
-            para_height,
-        };
+        let block_header = RichBlockHeader::new(basic_block_header, chain_id, block_height, relayer, para_height);
         Self::set_block_header_from_hash(basic_block_header.hash, &block_header);
     }
 

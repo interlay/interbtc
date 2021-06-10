@@ -1,9 +1,6 @@
 use crate::{Error, ACCEPTED_MAX_TRANSACTION_OUTPUTS};
+use bitcoin::types::{BlockHeader, H256Le, Transaction, Value};
 pub use bitcoin::Address as BtcAddress;
-use bitcoin::{
-    parser::FromLeBytes,
-    types::{BlockHeader, H256Le, RawBlockHeader, Transaction, Value},
-};
 use codec::{Decode, Encode};
 use frame_support::{dispatch::DispatchError, ensure};
 use sp_core::H256;
@@ -25,26 +22,25 @@ impl<AccountId, BlockNumber> RichBlockHeader<AccountId, BlockNumber> {
     ///
     /// # Arguments
     ///
-    /// * `raw_block_header` - 80 byte raw Bitcoin block header
+    /// * `block_header` - Bitcoin block header
     /// * `chain_ref` - chain reference
     /// * `block_height` - chain height
     /// * `account_id` - submitter
     /// * `para_height` - height of the parachain at submission
-    #[allow(dead_code)]
     pub fn new(
-        raw_block_header: RawBlockHeader,
+        block_header: BlockHeader,
         chain_ref: u32,
         block_height: u32,
         account_id: AccountId,
         para_height: BlockNumber,
-    ) -> Result<Self, bitcoin::Error> {
-        Ok(RichBlockHeader {
-            block_header: BlockHeader::from_le_bytes(raw_block_header.as_bytes())?,
+    ) -> Self {
+        RichBlockHeader {
+            block_header,
             block_height,
             chain_ref,
             account_id,
             para_height,
-        })
+        }
     }
 
     pub fn block_hash(&self) -> H256Le {
