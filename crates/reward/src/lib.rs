@@ -56,7 +56,6 @@ pub mod pallet {
         DepositStake(RewardPool<T::AccountId>, T::AccountId, T::SignedFixedPoint),
         WithdrawStake(RewardPool<T::AccountId>, T::AccountId, T::SignedFixedPoint),
         WithdrawReward(RewardPool<T::AccountId>, T::AccountId, T::SignedFixedPoint),
-        DistributeFromGlobalPool(RewardPool<T::AccountId>, T::SignedFixedPoint),
     }
 
     #[pallet::error]
@@ -129,7 +128,7 @@ pub trait Rewards<AccountId> {
     type SignedFixedPoint: FixedPointNumber;
 
     /// Return the stake associated with the `account_id`.
-    fn get_stake(reward_pool: RewardPool<AccountId>, account_id: &AccountId) -> Self::SignedFixedPoint;
+    fn get_stake(reward_pool: &RewardPool<AccountId>, account_id: &AccountId) -> Self::SignedFixedPoint;
 
     /// Deposit an `amount` of stake to the `account_id`.
     fn deposit_stake(
@@ -200,7 +199,7 @@ where
 {
     type SignedFixedPoint = T::SignedFixedPoint;
 
-    fn get_stake(reward_pool: RewardPool<T::AccountId>, account_id: &T::AccountId) -> Self::SignedFixedPoint {
+    fn get_stake(reward_pool: &RewardPool<T::AccountId>, account_id: &T::AccountId) -> Self::SignedFixedPoint {
         Self::stake((reward_pool, account_id))
     }
 
@@ -248,7 +247,7 @@ where
         reward_pool: &RewardPool<T::AccountId>,
         account_id: &T::AccountId,
     ) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError> {
-        let stake = <Stake<T, I>>::get((reward_pool, account_id));
+        let stake = Self::get_stake(reward_pool, account_id);
         let reward_per_token = Self::reward_per_token(reward_pool);
         // FIXME: this can easily overflow with large numbers
         let stake_mul_reward_per_token = stake
@@ -302,7 +301,7 @@ where
             SignedFixedPoint::<T, I>::checked_from_integer(reward).ok_or(Error::<T, I>::TryIntoIntError)?;
         checked_sub_mut!(TotalRewards<T, I>, &reward_pool, &reward_as_fixed);
 
-        let stake = Self::get_stake(reward_pool.clone(), account_id);
+        let stake = Self::get_stake(&reward_pool, account_id);
         let reward_per_token = Self::reward_per_token(&reward_pool);
         <RewardTally<T, I>>::insert(
             (&reward_pool, account_id),

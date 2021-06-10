@@ -546,7 +546,7 @@ impl<T: Config> Pallet<T> {
 
     pub fn withdraw_all_vault_rewards(account_id: &T::AccountId) -> DispatchResult {
         Self::withdraw_collateral_from_pool::<T::CollateralVaultRewards>(RewardPool::Global, account_id)?;
-        Self::withdraw_wrapped_from_pool::<T::CollateralVaultRewards>(RewardPool::Global, account_id)?;
+        Self::withdraw_wrapped_from_pool::<T::WrappedVaultRewards>(RewardPool::Global, account_id)?;
         Ok(())
     }
 
@@ -607,7 +607,7 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         match reward_pool {
             RewardPool::Global => {
-                Self::withdraw_collateral_from_pool::<R>(RewardPool::Local(account_id.clone()), account_id)?;
+                Self::withdraw_wrapped_from_pool::<R>(RewardPool::Local(account_id.clone()), account_id)?;
             }
             RewardPool::Local(pool_account_id) => {
                 Self::distribute_global_pool::<R>(&pool_account_id)?;
@@ -641,7 +641,7 @@ impl<T: Config> Pallet<T> {
             .ok_or(Error::<T>::TryIntoIntError)?)
     }
 
-    fn distribute_global_pool<Reward: reward::Rewards<T::AccountId>>(account_id: &T::AccountId) -> DispatchResult {
+    pub fn distribute_global_pool<Reward: reward::Rewards<T::AccountId>>(account_id: &T::AccountId) -> DispatchResult {
         let reward_as_inner = Reward::withdraw_reward(RewardPool::Global, account_id)?;
         let reward_as_fixed =
             Reward::SignedFixedPoint::checked_from_integer(reward_as_inner).ok_or(Error::<T>::TryIntoIntError)?;

@@ -1,6 +1,7 @@
 mod mock;
 use mock::{
     issue_testing_utils::{ExecuteIssueBuilder, RequestIssueBuilder},
+    nomination_testing_utils::*,
     reward_testing_utils::BasicRewardPool,
     *,
 };
@@ -48,22 +49,51 @@ macro_rules! assert_eq_modulo_rounding {
     }};
 }
 
-fn get_vault_rewards(account: [u8; 32]) -> i128 {
+fn withdraw_vault_global_pool_rewards(account: [u8; 32]) -> i128 {
     let amount = RewardWrappedVaultPallet::compute_reward(&RewardPool::Global, &account_of(account)).unwrap();
     assert_ok!(Call::Fee(FeeCall::withdraw_vault_wrapped_rewards()).dispatch(origin_of(account_of(account))));
     amount
 }
 
-fn get_relayer_rewards(account: [u8; 32]) -> i128 {
+fn get_vault_global_pool_rewards(account: [u8; 32]) -> i128 {
+    RewardWrappedVaultPallet::compute_reward(&RewardPool::Global, &account_of(account)).unwrap()
+}
+
+fn withdraw_relayer_global_pool_rewards(account: [u8; 32]) -> i128 {
     let amount = RewardWrappedRelayerPallet::compute_reward(&RewardPool::Global, &account_of(account)).unwrap();
     assert_ok!(Call::Fee(FeeCall::withdraw_relayer_wrapped_rewards()).dispatch(origin_of(account_of(account))));
     amount
+}
+
+fn withdraw_local_pool_rewards(pool_id: [u8; 32], account: [u8; 32]) -> i128 {
+    let amount =
+        RewardWrappedVaultPallet::compute_reward(&RewardPool::Local(account_of(pool_id)), &account_of(account))
+            .unwrap();
+    assert_ok!(Call::Fee(FeeCall::withdraw_vault_wrapped_rewards()).dispatch(origin_of(account_of(account))));
+    amount
+}
+
+fn get_local_pool_rewards(pool_id: [u8; 32], account: [u8; 32]) -> i128 {
+    RewardWrappedVaultPallet::compute_reward(&RewardPool::Local(account_of(pool_id)), &account_of(account)).unwrap()
+}
+
+fn distribute_global_pool(pool_id: [u8; 32]) {
+    FeePallet::distribute_global_pool::<RewardCollateralVaultPallet>(&account_of(pool_id)).unwrap();
+    FeePallet::distribute_global_pool::<RewardWrappedVaultPallet>(&account_of(pool_id)).unwrap();
 }
 
 fn get_vault_sla(account: [u8; 32]) -> i128 {
     SlaPallet::vault_sla(account_of(account))
         .into_inner()
         .checked_div(FixedI128::accuracy())
+        .unwrap()
+}
+
+fn get_vault_collateral(account: [u8; 32]) -> i128 {
+    VaultRegistryPallet::get_vault_from_id(&account_of(account))
+        .unwrap()
+        .collateral
+        .try_into()
         .unwrap()
 }
 
@@ -92,8 +122,163 @@ fn test_vault_fee_pool_withdrawal() {
             .deposit_stake(VAULT_2, get_vault_sla(VAULT_2) as f64)
             .distribute((80000.0 * 0.005) * 0.7);
 
-        assert_eq_modulo_rounding!(get_vault_rewards(VAULT_1), reward_pool.compute_reward(VAULT_1) as i128);
-        assert_eq_modulo_rounding!(get_vault_rewards(VAULT_2), reward_pool.compute_reward(VAULT_2) as i128);
+        assert_eq_modulo_rounding!(
+            withdraw_vault_global_pool_rewards(VAULT_1),
+            reward_pool.compute_reward(VAULT_1) as i128
+        );
+        assert_eq_modulo_rounding!(
+            withdraw_vault_global_pool_rewards(VAULT_2),
+            reward_pool.compute_reward(VAULT_2) as i128
+        );
+    });
+}
+
+#[test]
+fn test_new_nomination_withdraws_global_reward() {
+    ExtBuilder::build().execute_with(|| {
+        SecurityPallet::set_active_block_number(1);
+        enable_nomination();
+        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
+
+        issue_with_relayer_and_vault(ISSUE_RELAYER, VAULT_1, 10000);
+
+        assert_nomination_opt_in(VAULT_1);
+
+        // issue fee is 0.5%
+        let mut reward_pool = BasicRewardPool::default();
+        reward_pool
+            .deposit_stake(VAULT_1, get_vault_sla(VAULT_1) as f64)
+            .distribute((10000.0 * 0.005) * 0.7); // set at 70% in tests
+
+        assert_eq_modulo_rounding!(
+            get_vault_global_pool_rewards(VAULT_1),
+            reward_pool.compute_reward(VAULT_1) as i128,
+        );
+        assert_nominate_collateral(USER, VAULT_1, DEFAULT_NOMINATION);
+
+        // Vault rewards are withdrawn when a new nominator joins
+        assert_eq_modulo_rounding!(get_vault_global_pool_rewards(VAULT_1), 0 as i128,);
+        assert_eq_modulo_rounding!(get_local_pool_rewards(VAULT_1, VAULT_1), 0 as i128,);
+    });
+}
+
+#[test]
+fn test_fee_nomination() {
+    ExtBuilder::build().execute_with(|| {
+        SecurityPallet::set_active_block_number(1);
+        enable_nomination();
+        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
+
+        issue_with_relayer_and_vault(ISSUE_RELAYER, VAULT_1, 10000);
+
+        assert_nomination_opt_in(VAULT_1);
+        assert_nominate_collateral(USER, VAULT_1, DEFAULT_NOMINATION);
+        issue_with_relayer_and_vault(ISSUE_RELAYER, VAULT_1, 100000);
+
+        // issue fee is 0.5%
+        let mut local_reward_pool = BasicRewardPool::default();
+        local_reward_pool
+            .deposit_stake(VAULT_1, get_vault_collateral(VAULT_1) as f64)
+            .deposit_stake(USER, DEFAULT_NOMINATION as f64)
+            .distribute((100000.0 * 0.005) * 0.7); // set at 70% in tests
+
+        assert_eq_modulo_rounding!(
+            get_vault_global_pool_rewards(VAULT_1),
+            local_reward_pool.compute_reward(VAULT_1) as i128 + local_reward_pool.compute_reward(USER) as i128,
+        );
+
+        distribute_global_pool(VAULT_1);
+
+        assert_eq_modulo_rounding!(get_vault_global_pool_rewards(VAULT_1), 0 as i128,);
+
+        assert_eq_modulo_rounding!(
+            withdraw_local_pool_rewards(VAULT_1, VAULT_1),
+            local_reward_pool.compute_reward(VAULT_1) as i128,
+        );
+
+        assert_eq_modulo_rounding!(
+            withdraw_local_pool_rewards(VAULT_1, USER),
+            local_reward_pool.compute_reward(USER) as i128,
+        );
+    });
+}
+
+#[test]
+fn test_fee_nomination_slashing() {
+    ExtBuilder::build().execute_with(|| {
+        SecurityPallet::set_active_block_number(1);
+        enable_nomination();
+        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
+
+        issue_with_relayer_and_vault(ISSUE_RELAYER, VAULT_1, 10000);
+
+        assert_nomination_opt_in(VAULT_1);
+        assert_nominate_collateral(USER, VAULT_1, DEFAULT_NOMINATION);
+
+        // Slash the vault and its nominator
+        VaultRegistryPallet::transfer_funds(
+            CurrencySource::Collateral(account_of(VAULT_1)),
+            CurrencySource::FreeBalance(account_of(VAULT_2)),
+            DEFAULT_NOMINATION,
+        )
+        .unwrap();
+
+        issue_with_relayer_and_vault(ISSUE_RELAYER, VAULT_1, 100000);
+
+        let vault_collateral = get_vault_collateral(VAULT_1) as f64;
+        let nominator_collateral = DEFAULT_NOMINATION as f64;
+        let slashed_amount = DEFAULT_NOMINATION as f64;
+        // issue fee is 0.5%
+        let mut local_reward_pool = BasicRewardPool::default();
+        local_reward_pool
+            .deposit_stake(VAULT_1, vault_collateral)
+            .deposit_stake(USER, nominator_collateral)
+            .withdraw_stake(
+                VAULT_1,
+                slashed_amount * vault_collateral / (vault_collateral + nominator_collateral),
+            )
+            .withdraw_stake(
+                USER,
+                slashed_amount * nominator_collateral / (vault_collateral + nominator_collateral),
+            )
+            .distribute((100000.0 * 0.005) * 0.7); // set at 70% in tests
+
+        assert_eq_modulo_rounding!(
+            get_vault_global_pool_rewards(VAULT_1),
+            local_reward_pool.compute_reward(VAULT_1) as i128 + local_reward_pool.compute_reward(USER) as i128,
+        );
+    });
+}
+
+#[test]
+fn test_fee_nomination_withdrawal() {
+    ExtBuilder::build().execute_with(|| {
+        SecurityPallet::set_active_block_number(1);
+        enable_nomination();
+        assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(FixedU128::one()));
+
+        issue_with_relayer_and_vault(ISSUE_RELAYER, VAULT_1, 10000);
+
+        assert_nomination_opt_in(VAULT_1);
+        assert_nominate_collateral(USER, VAULT_1, DEFAULT_NOMINATION);
+        issue_with_relayer_and_vault(ISSUE_RELAYER, VAULT_1, 50000);
+        assert_withdraw_nominator_collateral(USER, VAULT_1, DEFAULT_NOMINATION / 2);
+        issue_with_relayer_and_vault(ISSUE_RELAYER, VAULT_1, 50000);
+
+        // issue fee is 0.5%
+        let mut local_reward_pool = BasicRewardPool::default();
+        local_reward_pool
+            .deposit_stake(VAULT_1, get_vault_collateral(VAULT_1) as f64)
+            .deposit_stake(USER, DEFAULT_NOMINATION as f64)
+            .distribute((50000.0 * 0.005) * 0.7) // set at 70% in tests
+            .withdraw_reward(VAULT_1)
+            .withdraw_stake(USER, (DEFAULT_NOMINATION / 2) as f64)
+            .distribute((50000.0 * 0.005) * 0.7); // set at 70% in tests
+
+        assert_eq_modulo_rounding!(
+            get_vault_global_pool_rewards(VAULT_1),
+            local_reward_pool.compute_reward(VAULT_1) as i128 + local_reward_pool.compute_reward(USER) as i128,
+        );
     });
 }
 
@@ -117,12 +302,12 @@ fn test_relayer_fee_pool_withdrawal() {
 
         // first relayer gets 33% of the pool
         assert_eq_modulo_rounding!(
-            get_relayer_rewards(RELAYER_1),
+            withdraw_relayer_global_pool_rewards(RELAYER_1),
             reward_pool.compute_reward(RELAYER_1) as i128
         );
         // second relayer gets the remaining 66%
         assert_eq_modulo_rounding!(
-            get_relayer_rewards(RELAYER_2),
+            withdraw_relayer_global_pool_rewards(RELAYER_2),
             reward_pool.compute_reward(RELAYER_2) as i128
         );
     });

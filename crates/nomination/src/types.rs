@@ -14,7 +14,7 @@ pub(crate) type UnsignedFixedPoint<T> = <T as Config>::UnsignedFixedPoint;
 
 pub(crate) type SignedFixedPoint<T> = <T as Config>::SignedFixedPoint;
 
-pub(crate) type Inner<T> = <<T as Config>::SignedFixedPoint as FixedPointNumber>::Inner;
+pub(crate) type SignedInner<T> = <<T as Config>::SignedFixedPoint as FixedPointNumber>::Inner;
 
 pub struct RichNominator<T: Config> {
     pub(crate) data: DefaultNominator<T>,

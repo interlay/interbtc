@@ -15,7 +15,7 @@ mod types;
 
 mod default_weights;
 
-use codec::{Decode, Encode, EncodeLike};
+use codec::{Decode, Encode, EncodeLike, FullCodec};
 use ext::vault_registry::{DefaultVault, SlashingError, TryDepositCollateral, TryWithdrawCollateral};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
@@ -25,10 +25,15 @@ use frame_support::{
 use frame_system::{ensure_root, ensure_signed};
 use reward::RewardPool;
 use sp_arithmetic::FixedPointNumber;
-use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedSub, One, Zero};
-use sp_std::convert::TryInto;
+use sp_runtime::{
+    traits::{AtLeast32BitUnsigned, CheckedAdd, CheckedDiv, CheckedSub, One, Zero},
+    FixedPointOperand,
+};
+use sp_std::{convert::TryInto, fmt::Debug};
 pub use types::Nominator;
-use types::{BalanceOf, Collateral, DefaultNominator, Inner, RichNominator, SignedFixedPoint, UnsignedFixedPoint};
+use types::{
+    BalanceOf, Collateral, DefaultNominator, RichNominator, SignedFixedPoint, SignedInner, UnsignedFixedPoint,
+};
 
 pub trait WeightInfo {
     fn set_nomination_enabled() -> Weight;
@@ -66,7 +71,16 @@ pub mod pallet {
         type UnsignedFixedPoint: FixedPointNumber + Encode + EncodeLike + Decode;
 
         /// The signed fixed point type.
-        type SignedFixedPoint: FixedPointNumber + Encode + EncodeLike + Decode;
+        type SignedFixedPoint: FixedPointNumber<Inner = <Self as Config>::Balance> + Encode + EncodeLike + Decode;
+
+        /// The primitive balance type.
+        type Balance: AtLeast32BitUnsigned
+            + FixedPointOperand
+            + MaybeSerializeDeserialize
+            + FullCodec
+            + Copy
+            + Default
+            + Debug;
 
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
@@ -246,8 +260,9 @@ impl<T: Config> Pallet<T> {
 
         // Withdraw all vault rewards first, to prevent the nominator from withdrawing rewards from the past.
         ext::fee::withdraw_all_vault_rewards::<T>(&vault_id)?;
-        // Withdraw `amount` of stake from the vault reward pool
+        // Withdraw `amount` of stake from both vault reward pools
         Self::withdraw_pool_stake::<<T as pallet::Config>::CollateralVaultRewards>(&nominator_id, &vault_id, amount)?;
+        Self::withdraw_pool_stake::<<T as pallet::Config>::WrappedVaultRewards>(&nominator_id, &vault_id, amount)?;
 
         let mut nominator: RichNominator<T> = Self::get_nominator(&nominator_id, &vault_id)?.into();
         nominator.try_withdraw_collateral(amount)?;
@@ -280,8 +295,9 @@ impl<T: Config> Pallet<T> {
 
         // Withdraw all vault rewards first, to prevent the nominator from withdrawing rewards from the past.
         ext::fee::withdraw_all_vault_rewards::<T>(&vault_id)?;
-        // Withdraw `amount` of stake from the vault reward pool
+        // Deposit `amount` of stake to both vault reward pools
         Self::deposit_pool_stake::<<T as pallet::Config>::CollateralVaultRewards>(&nominator_id, &vault_id, amount)?;
+        Self::deposit_pool_stake::<<T as pallet::Config>::WrappedVaultRewards>(&nominator_id, &vault_id, amount)?;
 
         let mut nominator: RichNominator<T> = Self::register_or_get_nominator(&nominator_id, &vault_id)?.into();
         nominator
@@ -393,12 +409,11 @@ impl<T: Config> Pallet<T> {
         ext::fee::collateral_for::<T>(vault_collateral, Self::get_max_nomination_ratio()?)
     }
 
-    fn currency_to_fixed_point<C: TryInto<u128>>(
-        x: C,
-    ) -> Result<<T as pallet::Config>::SignedFixedPoint, DispatchError> {
-        let y = TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError)?;
-        let inner = TryInto::<Inner<T>>::try_into(y).map_err(|_| Error::<T>::TryIntoIntError)?;
-        Ok(SignedFixedPoint::<T>::checked_from_integer(inner).ok_or(Error::<T>::TryIntoIntError)?)
+    fn collateral_to_fixed(x: Collateral<T>) -> Result<SignedFixedPoint<T>, DispatchError> {
+        let signed_inner = TryInto::<SignedInner<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError)?;
+        let signed_fixed_point = <T as pallet::Config>::SignedFixedPoint::checked_from_integer(signed_inner)
+            .ok_or(Error::<T>::TryIntoIntError)?;
+        Ok(signed_fixed_point)
     }
 
     fn withdraw_pool_stake<R: reward::Rewards<T::AccountId, SignedFixedPoint = SignedFixedPoint<T>>>(
@@ -406,7 +421,7 @@ impl<T: Config> Pallet<T> {
         vault_id: &T::AccountId,
         amount: Collateral<T>,
     ) -> Result<(), DispatchError> {
-        let amount_raw = Self::currency_to_fixed_point(amount)?;
+        let amount_raw = Self::collateral_to_fixed(amount)?;
         if amount_raw > SignedFixedPoint::<T>::zero() {
             R::withdraw_stake(RewardPool::Local(vault_id.clone()), account_id, amount_raw)?;
         }
@@ -418,7 +433,7 @@ impl<T: Config> Pallet<T> {
         vault_id: &T::AccountId,
         amount: Collateral<T>,
     ) -> Result<(), DispatchError> {
-        let amount_raw = Self::currency_to_fixed_point(amount)?;
+        let amount_raw = Self::collateral_to_fixed(amount)?;
         R::deposit_stake(RewardPool::Local(vault_id.clone()), account_id, amount_raw)?;
         Ok(())
     }

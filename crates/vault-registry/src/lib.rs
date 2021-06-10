@@ -30,7 +30,7 @@ extern crate mocktopus;
 use mocktopus::macros::mockable;
 
 use crate::types::{
-    BtcAddress, Collateral, DefaultSystemVault, Inner, RichSystemVault, RichVault, SignedFixedPoint,
+    BtcAddress, Collateral, DefaultSystemVault, RichSystemVault, RichVault, SignedFixedPoint, SignedInner,
     UnsignedFixedPoint, UpdatableVault, Version, Wrapped,
 };
 
@@ -130,7 +130,11 @@ pub mod pallet {
             + Debug;
 
         /// The type of signed fixed point to use for slashing calculations.
-        type SignedFixedPoint: FixedPointNumber + Encode + EncodeLike + Decode + MaybeSerializeDeserialize;
+        type SignedFixedPoint: FixedPointNumber<Inner = <Self as Config>::Balance>
+            + Encode
+            + EncodeLike
+            + Decode
+            + MaybeSerializeDeserialize;
 
         /// The type of unsigned fixed point to use for the different thresholds.
         type UnsignedFixedPoint: FixedPointNumber<Inner = <Self as Config>::Balance>
@@ -619,6 +623,7 @@ impl<T: Config> Pallet<T> {
         vault.try_deposit_collateral(amount)?;
         // Deposit `amount` of stake in the local reward pool
         Self::deposit_pool_stake::<<T as pallet::Config>::CollateralVaultRewards>(&vault_id, &vault_id, amount)?;
+        Self::deposit_pool_stake::<<T as pallet::Config>::WrappedVaultRewards>(&vault_id, &vault_id, amount)?;
 
         ext::sla::event_update_vault_sla::<T>(&vault.id(), ext::sla::VaultEvent::Deposit(amount))?;
         Ok(())
@@ -638,6 +643,7 @@ impl<T: Config> Pallet<T> {
         Self::decrease_total_backing_collateral(amount)?;
         // Withdraw `amount` of stake from the local reward pool
         Self::withdraw_pool_stake::<<T as pallet::Config>::CollateralVaultRewards>(&vault_id, &vault_id, amount)?;
+        Self::withdraw_pool_stake::<<T as pallet::Config>::WrappedVaultRewards>(&vault_id, &vault_id, amount)?;
 
         ext::sla::event_update_vault_sla::<T>(&vault.id(), ext::sla::VaultEvent::Withdraw(amount))?;
         Ok(())
@@ -1693,7 +1699,7 @@ impl<T: Config> Pallet<T> {
         pool_account_id: &T::AccountId,
         amount: Collateral<T>,
     ) -> Result<(), DispatchError> {
-        let amount_raw = Self::currency_to_fixed_point(amount)?;
+        let amount_raw = Self::collateral_to_fixed(amount)?;
         if amount_raw > SignedFixedPoint::<T>::zero() {
             R::withdraw_stake(RewardPool::Local(pool_account_id.clone()), account_id, amount_raw)?;
         }
@@ -1705,17 +1711,16 @@ impl<T: Config> Pallet<T> {
         pool_account_id: &T::AccountId,
         amount: Collateral<T>,
     ) -> Result<(), DispatchError> {
-        let amount_raw = Self::currency_to_fixed_point(amount)?;
+        let amount_raw = Self::collateral_to_fixed(amount)?;
         R::deposit_stake(RewardPool::Local(pool_account_id.clone()), account_id, amount_raw)?;
         Ok(())
     }
 
-    fn currency_to_fixed_point<C: TryInto<u128>>(
-        x: C,
-    ) -> Result<<T as pallet::Config>::SignedFixedPoint, DispatchError> {
-        let y = TryInto::<u128>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError)?;
-        let inner = TryInto::<Inner<T>>::try_into(y).map_err(|_| Error::<T>::TryIntoIntError)?;
-        Ok(SignedFixedPoint::<T>::checked_from_integer(inner).ok_or(Error::<T>::TryIntoIntError)?)
+    fn collateral_to_fixed(x: Collateral<T>) -> Result<SignedFixedPoint<T>, DispatchError> {
+        let signed_inner = TryInto::<SignedInner<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError)?;
+        let signed_fixed_point = <T as pallet::Config>::SignedFixedPoint::checked_from_integer(signed_inner)
+            .ok_or(Error::<T>::TryIntoIntError)?;
+        Ok(signed_fixed_point)
     }
 }
 
