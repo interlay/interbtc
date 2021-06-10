@@ -67,20 +67,6 @@ use sp_std::{
 // value taken from https://github.com/substrate-developer-hub/recipes/blob/master/pallets/ocw-demo/src/lib.rs
 pub const UNSIGNED_TXS_PRIORITY: u64 = 100;
 
-#[derive(Encode, Decode, Default, Clone, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
-pub struct RegisterRequest<AccountId, DateTime> {
-    registration_id: H256,
-    vault: AccountId,
-    timeout: DateTime,
-}
-
-#[derive(Encode, Decode, Eq, PartialEq)]
-pub enum LiquidationTarget {
-    OperatorsOnly,
-    NonOperatorsOnly,
-}
-
 pub use pallet::*;
 
 #[frame_support::pallet]
