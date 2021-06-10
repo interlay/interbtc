@@ -579,10 +579,10 @@ impl<T: Config> Pallet<T> {
             // Update the pointer to BlockChain in ChainsIndex
             ChainsIndex::<T>::mutate(blockchain.chain_id, |_b| &blockchain);
 
-            // check if ordering of Chains needs updating
-            Self::check_and_do_reorg(&blockchain)?;
-
-            if blockchain.chain_id == MAIN_CHAIN_ID {
+            if blockchain.chain_id != MAIN_CHAIN_ID {
+                // if we added a block to a fork, we may need to reorder the chains
+                Self::reorganize_chains(&blockchain)?;
+            } else {
                 Self::update_chain_head(&basic_block_header, current_block_height);
             }
             blockchain.chain_id
@@ -1226,18 +1226,7 @@ impl<T: Config> Pallet<T> {
     /// # Arguments
     ///
     /// * `fork` - the blockchain element that may cause a reorg
-    fn check_and_do_reorg(fork: &BlockChain) -> Result<(), DispatchError> {
-        // Check if the ordering needs updating
-        // if the fork is the main chain, we don't need to update the ordering
-        if fork.chain_id == MAIN_CHAIN_ID {
-            return Ok(());
-        }
-
-        // TODO: remove, fix for rm head_index
-        if Chains::<T>::get(0).is_none() {
-            Chains::<T>::insert(0, 0);
-        }
-
+    fn reorganize_chains(fork: &BlockChain) -> Result<(), DispatchError> {
         // get the position of the fork in Chains
         let fork_position: u32 = Self::get_chain_position_from_chain_id(fork.chain_id)?;
         // check if the previous element in Chains has a lower block_height
