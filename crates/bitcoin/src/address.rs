@@ -33,21 +33,29 @@ pub enum Address {
 
 impl Address {
     pub fn from_script_pub_key(script: &Script) -> Result<Self, Error> {
-        if script.is_p2pkh() {
-            // 0x76 (OP_DUP) - 0xa9 (OP_HASH160) - 0x14 (20 bytes len) - <20 bytes pubkey hash> - 0x88 (OP_EQUALVERIFY)
-            // - 0xac (OP_CHECKSIG)
-            Ok(Self::P2PKH(H160::from_slice(&script.as_bytes()[3..23])))
-        } else if script.is_p2sh() {
-            // 0xa9 (OP_HASH160) - 0x14 (20 bytes hash) - <20 bytes script hash> - 0x87 (OP_EQUAL)
-            Ok(Self::P2SH(H160::from_slice(&script.as_bytes()[2..22])))
-        } else if script.is_p2wpkh_v0() {
-            // 0x00 0x14 (20 bytes len) - <20 bytes hash>
-            Ok(Self::P2WPKHv0(H160::from_slice(&script.as_bytes()[2..])))
-        } else if script.is_p2wsh_v0() {
-            // 0x00 0x20 (32 bytes len) - <32 bytes hash>
-            Ok(Self::P2WSHv0(H256::from_slice(&script.as_bytes()[2..])))
-        } else {
-            Err(Error::InvalidBtcAddress)
+        const OP_DUP: u8 = OpCode::OpDup as u8;
+        const OP_HASH_160: u8 = OpCode::OpHash160 as u8;
+        const OP_EQUAL_VERIFY: u8 = OpCode::OpEqualVerify as u8;
+        const OP_CHECK_SIG: u8 = OpCode::OpCheckSig as u8;
+        const OP_EQUAL: u8 = OpCode::OpEqual as u8;
+        const OP_0: u8 = OpCode::Op0 as u8;
+
+        match script.as_bytes() {
+            &[OP_DUP, OP_HASH_160, HASH160_SIZE_HEX, ref addr @ .., OP_EQUAL_VERIFY, OP_CHECK_SIG]
+                if addr.len() == HASH160_SIZE_HEX as usize =>
+            {
+                Ok(Self::P2PKH(H160::from_slice(addr)))
+            }
+            &[OP_HASH_160, HASH160_SIZE_HEX, ref addr @ .., OP_EQUAL] if addr.len() == HASH160_SIZE_HEX as usize => {
+                Ok(Self::P2SH(H160::from_slice(addr)))
+            }
+            &[OP_0, HASH256_SIZE_HEX, ref addr @ ..] if addr.len() == HASH256_SIZE_HEX as usize => {
+                Ok(Self::P2WSHv0(H256::from_slice(addr)))
+            }
+            &[OP_0, HASH160_SIZE_HEX, ref addr @ ..] if addr.len() == HASH160_SIZE_HEX as usize => {
+                Ok(Self::P2WPKHv0(H160::from_slice(addr)))
+            }
+            _ => Err(Error::InvalidBtcAddress),
         }
     }
 

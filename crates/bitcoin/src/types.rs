@@ -156,8 +156,6 @@ pub enum OpCode {
     OpNop8 = 0xb7,
     OpNop9 = 0xb8,
     OpNop10 = 0xb9,
-
-    OpInvalidOpcode,
 }
 
 /// Custom Types
