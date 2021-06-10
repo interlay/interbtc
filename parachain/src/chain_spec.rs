@@ -1,8 +1,7 @@
 use btc_parachain_runtime::{
-    AccountId, BTCRelayConfig, BlockNumber, CollateralConfig, ExchangeRateOracleConfig, FeeConfig, GenesisConfig,
-    IssueConfig, NominationConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature, SlaConfig, SudoConfig,
-    SystemConfig, TokensConfig, VaultRegistryConfig, WrappedConfig, DAYS, DOT, MILLISECS_PER_BLOCK, TARGET_SPACING,
-    WASM_BINARY,
+    AccountId, BTCRelayConfig, BlockNumber, ExchangeRateOracleConfig, FeeConfig, GenesisConfig, IssueConfig,
+    NominationConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature, SlaConfig, SudoConfig, SystemConfig,
+    TokensConfig, VaultRegistryConfig, DAYS, DOT, MILLISECS_PER_BLOCK, TARGET_SPACING, WASM_BINARY,
 };
 
 use bitcoin::utils::{virtual_transaction_size, InputType, TransactionInputMetadata, TransactionOutputMetadata};
@@ -380,10 +379,6 @@ fn testnet_genesis(
             // Assign network admin rights.
             key: root_key.clone(),
         },
-        pallet_balances_Instance1: CollateralConfig {
-            balances: endowed_accounts.iter().cloned().map(|k| (k, 1 << 60)).collect(),
-        },
-        pallet_balances_Instance2: WrappedConfig { balances: vec![] },
         orml_tokens: TokensConfig {
             endowed_accounts: endowed_accounts.iter().cloned().map(|k| (k, DOT, 1 << 60)).collect(),
         },

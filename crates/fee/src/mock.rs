@@ -1,12 +1,15 @@
 use crate as fee;
 use crate::{Config, Error};
-use frame_support::{parameter_types, traits::StorageMapShim, PalletId};
+use codec::{Decode, Encode};
+use frame_support::{parameter_types, PalletId};
 use mocktopus::mocking::clear_mocks;
+use orml_tokens::CurrencyAdapter;
+use orml_traits::parameter_type_with_key;
 use sp_arithmetic::{FixedI128, FixedU128};
 use sp_core::H256;
 use sp_runtime::{
     testing::Header,
-    traits::{BlakeTwo256, IdentityLookup},
+    traits::{BlakeTwo256, IdentityLookup, Zero},
 };
 
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -23,11 +26,7 @@ frame_support::construct_runtime!(
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
 
         // Tokens & Balances
-        Collateral: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
-        Wrapped: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
-
-        CollateralCurrency: currency::<Instance1>::{Pallet, Call, Storage, Event<T>},
-        WrappedCurrency: currency::<Instance2>::{Pallet, Call, Storage, Event<T>},
+        Tokens: orml_tokens::{Pallet, Storage, Config<T>, Event<T>},
 
         CollateralVaultRewards: reward::<Instance1>::{Pallet, Call, Storage, Event<T>},
         WrappedVaultRewards: reward::<Instance2>::{Pallet, Call, Storage, Event<T>},
@@ -42,6 +41,7 @@ frame_support::construct_runtime!(
 
 pub type AccountId = u64;
 pub type Balance = u128;
+pub type Amount = i128;
 pub type BlockNumber = u64;
 
 parameter_types! {
@@ -67,7 +67,7 @@ impl frame_system::Config for Test {
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
-    type AccountData = pallet_balances::AccountData<Balance>;
+    type AccountData = ();
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
@@ -75,71 +75,37 @@ impl frame_system::Config for Test {
     type OnSetCode = ();
 }
 
+#[derive(Encode, Decode, Debug, PartialEq, PartialOrd, Ord, Eq, Clone, Copy)]
+#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+pub enum CurrencyId {
+    DOT,
+    INTERBTC,
+}
+
+pub const DOT: CurrencyId = CurrencyId::DOT;
+pub const INTERBTC: CurrencyId = CurrencyId::INTERBTC;
+
 parameter_types! {
-    pub const ExistentialDeposit: u64 = 1;
+    pub const GetCollateralCurrencyId: CurrencyId = DOT;
+    pub const GetWrappedCurrencyId: CurrencyId = INTERBTC;
     pub const MaxLocks: u32 = 50;
 }
 
-/// Collateral currency - e.g. DOT/KSM
-impl pallet_balances::Config<pallet_balances::Instance1> for Test {
-    type MaxLocks = MaxLocks;
+parameter_type_with_key! {
+    pub ExistentialDeposits: |_currency_id: CurrencyId| -> Balance {
+        Zero::zero()
+    };
+}
+
+impl orml_tokens::Config for Test {
+    type Event = Event;
     type Balance = Balance;
-    type Event = TestEvent;
-    type DustRemoval = ();
-    type ExistentialDeposit = ExistentialDeposit;
-    type AccountStore = StorageMapShim<
-        pallet_balances::Account<Test, pallet_balances::Instance1>,
-        frame_system::Provider<Test>,
-        AccountId,
-        pallet_balances::AccountData<Balance>,
-    >;
+    type Amount = Amount;
+    type CurrencyId = CurrencyId;
     type WeightInfo = ();
-}
-
-/// Wrapped currency - e.g. InterBTC
-impl pallet_balances::Config<pallet_balances::Instance2> for Test {
+    type ExistentialDeposits = ExistentialDeposits;
+    type OnDust = ();
     type MaxLocks = MaxLocks;
-    type Balance = Balance;
-    type Event = TestEvent;
-    type DustRemoval = ();
-    type ExistentialDeposit = ExistentialDeposit;
-    type AccountStore = StorageMapShim<
-        pallet_balances::Account<Test, pallet_balances::Instance2>,
-        frame_system::Provider<Test>,
-        AccountId,
-        pallet_balances::AccountData<Balance>,
-    >;
-    type WeightInfo = ();
-}
-
-parameter_types! {
-    pub const CollateralName: &'static [u8] = b"Polkadot";
-    pub const CollateralSymbol: &'static [u8] = b"DOT";
-    pub const CollateralDecimals: u8 = 10;
-}
-
-impl currency::Config<currency::Collateral> for Test {
-    type Event = TestEvent;
-    type Balance = Balance;
-    type Currency = Collateral;
-    type Name = CollateralName;
-    type Symbol = CollateralSymbol;
-    type Decimals = CollateralDecimals;
-}
-
-parameter_types! {
-    pub const WrappedName: &'static [u8] = b"Bitcoin";
-    pub const WrappedSymbol: &'static [u8] = b"BTC";
-    pub const WrappedDecimals: u8 = 8;
-}
-
-impl currency::Config<currency::Wrapped> for Test {
-    type Event = TestEvent;
-    type Balance = Balance;
-    type Currency = Wrapped;
-    type Name = WrappedName;
-    type Symbol = WrappedSymbol;
-    type Decimals = WrappedDecimals;
 }
 
 impl reward::Config<reward::CollateralVault> for Test {
@@ -193,6 +159,8 @@ impl Config for Test {
     type WrappedVaultRewards = WrappedVaultRewards;
     type CollateralRelayerRewards = CollateralRelayerRewards;
     type WrappedRelayerRewards = WrappedRelayerRewards;
+    type Collateral = CurrencyAdapter<Test, GetCollateralCurrencyId>;
+    type Wrapped = CurrencyAdapter<Test, GetWrappedCurrencyId>;
 }
 
 pub type TestEvent = Event;

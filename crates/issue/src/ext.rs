@@ -103,27 +103,26 @@ pub(crate) mod vault_registry {
 #[cfg_attr(test, mockable)]
 pub(crate) mod collateral {
     use crate::types::Collateral;
+    use currency::ParachainCurrency;
     use frame_support::dispatch::DispatchResult;
 
-    type CollateralPallet<T> = currency::Pallet<T, currency::Collateral>;
-
     pub fn lock_collateral<T: crate::Config>(sender: &T::AccountId, amount: Collateral<T>) -> DispatchResult {
-        CollateralPallet::<T>::lock(sender, amount)
+        <T as vault_registry::Config>::Collateral::lock(sender, amount)
     }
 
     pub fn release_collateral<T: crate::Config>(sender: &T::AccountId, amount: Collateral<T>) -> DispatchResult {
-        CollateralPallet::<T>::release(sender, amount)
+        <T as vault_registry::Config>::Collateral::unlock(sender, amount)
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod treasury {
     use crate::types::Wrapped;
+    use currency::ParachainCurrency;
+    use frame_support::dispatch::DispatchResult;
 
-    type TreasuryPallet<T> = currency::Pallet<T, currency::Wrapped>;
-
-    pub fn mint<T: crate::Config>(requester: T::AccountId, amount: Wrapped<T>) {
-        TreasuryPallet::<T>::mint(requester, amount)
+    pub fn mint<T: crate::Config>(requester: &T::AccountId, amount: Wrapped<T>) -> DispatchResult {
+        <T as vault_registry::Config>::Wrapped::mint(requester, amount)
     }
 }
 

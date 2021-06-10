@@ -2,7 +2,6 @@ use super::*;
 use crate::{types::BtcPublicKey, Pallet as VaultRegistry};
 use exchange_rate_oracle::Pallet as ExchangeRateOracle;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
-use frame_support::traits::Currency;
 use frame_system::RawOrigin;
 use sp_std::prelude::*;
 
@@ -14,8 +13,7 @@ fn dummy_public_key() -> BtcPublicKey {
 }
 
 fn make_free_balance_be<T: crate::Config>(account_id: &T::AccountId, amount: Collateral<T>) {
-    // use crate::mock::sp_api_hidden_includes_construct_runtime::hidden_include::traits::Currency;
-    <<T as currency::Config<currency::Collateral>>::Currency>::make_free_balance_be(account_id, amount);
+    T::Collateral::mint(account_id, amount).unwrap();
 }
 
 benchmarks! {

@@ -36,6 +36,10 @@ frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch =
 
 reward = { path = "../reward", default-features = false }
 
+# Orml dependencies
+orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "6862e1ced561c1c970afc8c5d00d2e023fc3b965", default-features = false }
+orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "6862e1ced561c1c970afc8c5d00d2e023fc3b965", default-features = false }
+
 [features]
 default = ["std"]
 std = [

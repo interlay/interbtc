@@ -52,11 +52,9 @@ pub mod pallet {
     pub trait Config:
         frame_system::Config
         + vault_registry::Config
-        + currency::Config<currency::Collateral, Balance = BalanceOf<Self>>
-        + currency::Config<currency::Wrapped, Balance = BalanceOf<Self>>
         + btc_relay::Config
         + exchange_rate_oracle::Config<Balance = BalanceOf<Self>>
-        + fee::Config
+        + fee::Config<UnsignedInner = BalanceOf<Self>>
         + sla::Config<Balance = BalanceOf<Self>>
         + refund::Config
     {
@@ -436,10 +434,10 @@ impl<T: Config> Pallet<T> {
         ext::vault_registry::issue_tokens::<T>(&issue.vault, total)?;
 
         // mint issued tokens
-        ext::treasury::mint::<T>(requester.clone(), issue.amount);
+        ext::treasury::mint::<T>(&requester, issue.amount)?;
 
         // mint wrapped fees
-        ext::treasury::mint::<T>(ext::fee::fee_pool_account_id::<T>(), issue.fee);
+        ext::treasury::mint::<T>(&ext::fee::fee_pool_account_id::<T>(), issue.fee)?;
 
         if !ext::vault_registry::is_vault_liquidated::<T>(&issue.vault)? {
             // reward the vault for having issued tokens by increasing its sla

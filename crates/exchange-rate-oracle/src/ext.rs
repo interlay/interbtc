@@ -22,21 +22,3 @@ pub(crate) mod security {
         <security::Pallet<T>>::insert_error(error_code)
     }
 }
-
-#[cfg_attr(test, mockable)]
-pub(crate) mod collateral {
-    use frame_support::traits::Get;
-
-    pub fn decimals<T: crate::Config>() -> u8 {
-        T::GetCollateralDecimals::get()
-    }
-}
-
-#[cfg_attr(test, mockable)]
-pub(crate) mod treasury {
-    use frame_support::traits::Get;
-
-    pub fn decimals<T: crate::Config>() -> u8 {
-        T::GetWrappedDecimals::get()
-    }
-}

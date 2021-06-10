@@ -9,14 +9,12 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use bitcoin::types::H256Le;
-use frame_support::{
-    dispatch::{DispatchError, DispatchResult},
-    traits::StorageMapShim,
-};
+use frame_support::dispatch::{DispatchError, DispatchResult};
 use sp_arithmetic::{FixedI128, FixedU128};
 use sp_core::H256;
 
 use frame_support::PalletId;
+use orml_traits::parameter_type_with_key;
 use sp_api::impl_runtime_apis;
 use sp_core::OpaqueMetadata;
 use sp_runtime::{
@@ -29,9 +27,6 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-
-// Orml imports
-use orml_traits::parameter_type_with_key;
 
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
@@ -256,7 +251,7 @@ parameter_types! {
 }
 
 impl pallet_transaction_payment::Config for Runtime {
-    type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<Collateral, ()>;
+    type OnChargeTransaction = currency::PaymentCurrencyAdapter<Runtime, GetCollateralCurrencyId, ()>;
     type TransactionByteFee = TransactionByteFee;
     type WeightToFee = IdentityFee<Balance>;
     type FeeMultiplierUpdate = ();
@@ -467,78 +462,15 @@ impl Convert<AccountId, [u8; 32]> for AccountId32Convert {
     }
 }
 
-parameter_types! {
-    pub const ExistentialDeposit: u128 = 1;
-    pub const MaxLocks: u32 = 50;
-}
-
-/// Collateral currency - e.g. DOT/KSM
-impl pallet_balances::Config<pallet_balances::Instance1> for Runtime {
-    type MaxLocks = MaxLocks;
-    /// The type for recording an account's balance.
-    type Balance = Balance;
-    /// The ubiquitous event type.
-    type Event = Event;
-    type DustRemoval = ();
-    type ExistentialDeposit = ExistentialDeposit;
-    type AccountStore = StorageMapShim<
-        pallet_balances::Account<Runtime, pallet_balances::Instance1>,
-        frame_system::Provider<Runtime>,
-        AccountId,
-        pallet_balances::AccountData<Balance>,
-    >;
-    type WeightInfo = ();
-}
-
-/// Wrapped currency - e.g. InterBTC
-impl pallet_balances::Config<pallet_balances::Instance2> for Runtime {
-    type MaxLocks = MaxLocks;
-    type Balance = Balance;
-    type Event = Event;
-    type DustRemoval = ();
-    type ExistentialDeposit = ExistentialDeposit;
-    type AccountStore = StorageMapShim<
-        pallet_balances::Account<Runtime, pallet_balances::Instance2>,
-        frame_system::Provider<Runtime>,
-        AccountId,
-        pallet_balances::AccountData<Balance>,
-    >;
-    type WeightInfo = ();
-}
-
 impl btc_relay::Config for Runtime {
     type Event = Event;
     type WeightInfo = ();
 }
 
 parameter_types! {
-    pub const CollateralName: &'static [u8] = b"Polkadot";
-    pub const CollateralSymbol: &'static [u8] = b"DOT";
-    pub const CollateralDecimals: u8 = 10;
-}
-
-impl currency::Config<currency::Collateral> for Runtime {
-    type Event = Event;
-    type Balance = Balance;
-    type Currency = Collateral;
-    type Name = CollateralName;
-    type Symbol = CollateralSymbol;
-    type Decimals = CollateralDecimals;
-}
-
-parameter_types! {
-    pub const WrappedName: &'static [u8] = b"InterBTC";
-    pub const WrappedSymbol: &'static [u8] = b"InterBTC";
-    pub const WrappedDecimals: u8 = 8;
-}
-
-impl currency::Config<currency::Wrapped> for Runtime {
-    type Event = Event;
-    type Balance = Balance;
-    type Currency = Wrapped;
-    type Name = WrappedName;
-    type Symbol = WrappedSymbol;
-    type Decimals = WrappedDecimals;
+    pub const GetCollateralCurrencyId: CurrencyId = DOT;
+    pub const GetWrappedCurrencyId: CurrencyId = INTERBTC;
+    pub const MaxLocks: u32 = 50;
 }
 
 parameter_type_with_key! {
@@ -601,6 +533,8 @@ impl vault_registry::Config for Runtime {
     type SignedFixedPoint = FixedI128;
     type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
+    type Collateral = orml_tokens::CurrencyAdapter<Runtime, GetCollateralCurrencyId>;
+    type Wrapped = orml_tokens::CurrencyAdapter<Runtime, GetWrappedCurrencyId>;
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
@@ -641,6 +575,8 @@ impl fee::Config for Runtime {
     type WrappedVaultRewards = WrappedVaultRewards;
     type CollateralRelayerRewards = CollateralRelayerRewards;
     type WrappedRelayerRewards = WrappedRelayerRewards;
+    type Collateral = orml_tokens::CurrencyAdapter<Runtime, GetCollateralCurrencyId>;
+    type Wrapped = orml_tokens::CurrencyAdapter<Runtime, GetWrappedCurrencyId>;
 }
 
 impl sla::Config for Runtime {
@@ -709,11 +645,6 @@ macro_rules! construct_interbtc_runtime {
 
                 // Tokens & Balances
                 Tokens: orml_tokens::{Pallet, Storage, Config<T>, Event<T>},
-                Collateral: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
-                Wrapped: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
-
-                CollateralCurrency: currency::<Instance1>::{Pallet, Call, Storage, Event<T>},
-                WrappedCurrency: currency::<Instance2>::{Pallet, Call, Storage, Event<T>},
 
                 CollateralVaultRewards: reward::<Instance1>::{Pallet, Call, Storage, Event<T>},
                 WrappedVaultRewards: reward::<Instance2>::{Pallet, Call, Storage, Event<T>},

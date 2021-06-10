@@ -152,16 +152,15 @@ pub(crate) mod vault_registry {
 #[cfg_attr(test, mockable)]
 pub(crate) mod collateral {
     use crate::Collateral;
+    use currency::ParachainCurrency;
     use frame_support::dispatch::DispatchResult;
 
-    type CollateralPallet<T> = currency::Pallet<T, currency::Collateral>;
-
     pub fn release_collateral<T: crate::Config>(sender: &T::AccountId, amount: Collateral<T>) -> DispatchResult {
-        CollateralPallet::<T>::release(sender, amount)
+        <T as vault_registry::Config>::Collateral::unlock(sender, amount)
     }
 
-    pub fn lock_collateral<T: crate::Config>(sender: T::AccountId, amount: Collateral<T>) -> DispatchResult {
-        CollateralPallet::<T>::lock(&sender, amount)
+    pub fn lock_collateral<T: crate::Config>(sender: &T::AccountId, amount: Collateral<T>) -> DispatchResult {
+        <T as vault_registry::Config>::Collateral::lock(sender, amount)
     }
 }
 

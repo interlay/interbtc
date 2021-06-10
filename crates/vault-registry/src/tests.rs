@@ -1,16 +1,18 @@
 use crate::{
     ext,
     mock::{
-        run_test, set_default_thresholds, CollateralError, Extrinsic, Origin, SecurityError, System, Test, TestError,
-        TestEvent, VaultRegistry, DEFAULT_COLLATERAL, DEFAULT_ID, MULTI_VAULT_TEST_COLLATERAL, MULTI_VAULT_TEST_IDS,
-        OTHER_ID, RICH_COLLATERAL, RICH_ID,
+        run_test, set_default_thresholds, Extrinsic, GetWrappedCurrencyId, Origin, SecurityError, System, Test,
+        TestError, TestEvent, TokensError, VaultRegistry, DEFAULT_COLLATERAL, DEFAULT_ID, MULTI_VAULT_TEST_COLLATERAL,
+        MULTI_VAULT_TEST_IDS, OTHER_ID, RICH_COLLATERAL, RICH_ID,
     },
     types::{BtcAddress, Collateral, Wrapped},
     BtcPublicKey, CurrencySource, DispatchError, Error, UpdatableVault, Vault, VaultStatus, Wallet, H256,
 };
 use codec::Decode;
+use currency::ParachainCurrency;
 use frame_support::{assert_err, assert_noop, assert_ok, traits::OnInitialize};
 use mocktopus::mocking::*;
+use orml_tokens::CurrencyAdapter;
 use security::Pallet as Security;
 use sp_arithmetic::{traits::One, FixedPointNumber, FixedU128};
 use sp_core::U256;
@@ -84,7 +86,7 @@ fn create_vault_and_issue_tokens(
     assert_ok!(res);
 
     // mint tokens to the vault
-    currency::Pallet::<Test, currency::Wrapped>::mint(id, issue_tokens);
+    assert_ok!(<CurrencyAdapter<Test, GetWrappedCurrencyId>>::mint(&id, issue_tokens));
 
     id
 }
@@ -118,7 +120,7 @@ fn register_vault_fails_when_account_funds_too_low() {
     run_test(|| {
         let collateral = DEFAULT_COLLATERAL + 1;
         let result = VaultRegistry::register_vault(Origin::signed(DEFAULT_ID), collateral, dummy_public_key());
-        assert_err!(result, CollateralError::InsufficientFreeBalance);
+        assert_err!(result, TokensError::BalanceTooLow);
         assert_not_emitted!(Event::RegisterVault(DEFAULT_ID, collateral));
     });
 }

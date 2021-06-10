@@ -5,9 +5,9 @@ use bitcoin::{
     types::{BlockBuilder, RawBlockHeader, TransactionBuilder, TransactionInputBuilder, TransactionOutput},
 };
 use btc_relay::{BtcAddress, BtcPublicKey, Pallet as BtcRelay};
+use currency::ParachainCurrency;
 use exchange_rate_oracle::Pallet as ExchangeRateOracle;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
-use frame_support::traits::Currency;
 use frame_system::RawOrigin;
 use security::Pallet as Security;
 use sp_core::{H160, H256, U256};
@@ -26,7 +26,7 @@ fn dummy_public_key() -> BtcPublicKey {
 }
 
 fn make_free_balance_be<T: crate::Config>(account_id: &T::AccountId, amount: Collateral<T>) {
-    <<T as currency::Config<currency::Collateral>>::Currency>::make_free_balance_be(account_id, amount);
+    <T as vault_registry::Config>::Collateral::mint(account_id, amount).unwrap();
 }
 
 benchmarks! {

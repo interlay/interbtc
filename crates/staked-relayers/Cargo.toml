@@ -5,6 +5,7 @@ authors = ["Interlay Ltd"]
 edition = "2018"
 
 [dependencies]
+serde = { version = "1.0.119", default-features = false, features = ["derive"], optional = true }
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
 
 # Substrate dependencies
@@ -42,9 +43,14 @@ pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "p
 
 reward = { path = "../reward", default-features = false }
 
+# Orml dependencies
+orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "6862e1ced561c1c970afc8c5d00d2e023fc3b965", default-features = false }
+orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "6862e1ced561c1c970afc8c5d00d2e023fc3b965", default-features = false }
+
 [features]
 default = ["std"]
 std = [
+  "serde",
   "codec/std",
 
   "sp-io/std",
