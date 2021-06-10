@@ -56,13 +56,7 @@ pub mod pallet {
     /// ## Configuration
     /// The pallet's configuration trait.
     #[pallet::config]
-    pub trait Config:
-        frame_system::Config
-        + pallet_timestamp::Config
-        + currency::Config<currency::Collateral, Balance = <Self as Config>::Balance>
-        + currency::Config<currency::Wrapped, Balance = <Self as Config>::Balance>
-        + security::Config
-    {
+    pub trait Config: frame_system::Config + pallet_timestamp::Config + security::Config {
         /// The overarching event type.
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
@@ -80,6 +74,12 @@ pub mod pallet {
 
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
+
+        #[pallet::constant]
+        type GetCollateralDecimals: Get<u8>;
+
+        #[pallet::constant]
+        type GetWrappedDecimals: Get<u8>;
     }
 
     #[pallet::event]

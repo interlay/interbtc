@@ -28,7 +28,7 @@ pub(crate) mod collateral {
     use frame_support::traits::Get;
 
     pub fn decimals<T: crate::Config>() -> u8 {
-        <T as currency::Config<currency::Collateral>>::Decimals::get()
+        T::GetCollateralDecimals::get()
     }
 }
 
@@ -37,6 +37,6 @@ pub(crate) mod treasury {
     use frame_support::traits::Get;
 
     pub fn decimals<T: crate::Config>() -> u8 {
-        <T as currency::Config<currency::Wrapped>>::Decimals::get()
+        T::GetWrappedDecimals::get()
     }
 }

@@ -2355,12 +2355,10 @@ checksum = "f7531096570974c3a9dcf9e4b8e1cede1ec26cf5046219fb3b9d897503b9be59"
 name = "exchange-rate-oracle"
 version = "0.7.0"
 dependencies = [
- "currency",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "mocktopus",
- "pallet-balances",
  "pallet-timestamp",
  "parity-scale-codec",
  "security",
