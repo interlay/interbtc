@@ -88,11 +88,6 @@ impl pallet_timestamp::Config for Test {
     type WeightInfo = ();
 }
 
-parameter_types! {
-    pub const ExistentialDeposit: u64 = 1;
-    pub const MaxLocks: u32 = 50;
-}
-
 impl security::Config for Test {
     type Event = TestEvent;
 }

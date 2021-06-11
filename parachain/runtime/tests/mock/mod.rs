@@ -6,11 +6,15 @@ pub use bitcoin::{
     formatter::{Formattable, TryFormattable},
     types::*,
 };
-pub use btc_parachain_runtime::{AccountId, BlockNumber, Call, Event, Runtime};
+pub use btc_parachain_runtime::{
+    AccountId, BlockNumber, Call, Event, GetCollateralCurrencyId, GetWrappedCurrencyId, Runtime, DOT, INTERBTC,
+};
 pub use btc_relay::{BtcAddress, BtcPublicKey};
+pub use currency::ParachainCurrency;
 use frame_support::traits::GenesisBuild;
 pub use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchResultWithPostInfo};
 pub use mocktopus::mocking::*;
+pub use orml_tokens::CurrencyAdapter;
 pub use security::{ErrorCode, StatusCode};
 pub use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 pub use sp_core::{H160, H256, U256};
@@ -74,8 +78,10 @@ pub type BTCRelayPallet = btc_relay::Pallet<Runtime>;
 pub type BTCRelayError = btc_relay::Error<Runtime>;
 pub type BTCRelayEvent = btc_relay::Event<Runtime>;
 
-pub type CollateralError = currency::Error<Runtime, currency::Collateral>;
-pub type CollateralPallet = currency::Pallet<Runtime, currency::Collateral>;
+pub type TokensError = orml_tokens::Error<Runtime>;
+
+pub type CollateralPallet = CurrencyAdapter<Runtime, GetCollateralCurrencyId>;
+pub type TreasuryPallet = CurrencyAdapter<Runtime, GetWrappedCurrencyId>;
 
 pub type ExchangeRateOracleCall = exchange_rate_oracle::Call<Runtime>;
 pub type ExchangeRateOraclePallet = exchange_rate_oracle::Pallet<Runtime>;
@@ -84,10 +90,8 @@ pub type FeeCall = fee::Call<Runtime>;
 pub type FeeError = fee::Error<Runtime>;
 pub type FeePallet = fee::Pallet<Runtime>;
 
-pub type RewardCollateralVaultPallet = reward::Pallet<Runtime, reward::CollateralVault>;
-pub type RewardWrappedVaultPallet = reward::Pallet<Runtime, reward::WrappedVault>;
-pub type RewardCollateralRelayerPallet = reward::Pallet<Runtime, reward::CollateralRelayer>;
-pub type RewardWrappedRelayerPallet = reward::Pallet<Runtime, reward::WrappedRelayer>;
+pub type RewardVaultPallet = reward::Pallet<Runtime, reward::Vault>;
+pub type RewardRelayerPallet = reward::Pallet<Runtime, reward::Relayer>;
 
 pub type IssueCall = issue::Call<Runtime>;
 pub type IssuePallet = issue::Pallet<Runtime>;
@@ -118,8 +122,6 @@ pub type StakedRelayersCall = staked_relayers::Call<Runtime>;
 pub type StakedRelayersPallet = staked_relayers::Pallet<Runtime>;
 
 pub type SystemModule = frame_system::Pallet<Runtime>;
-
-pub type TreasuryPallet = currency::Pallet<Runtime, currency::Wrapped>;
 
 pub type VaultRegistryCall = vault_registry::Call<Runtime>;
 pub type VaultRegistryError = vault_registry::Error<Runtime>;
@@ -204,11 +206,11 @@ impl UserData {
         CollateralPallet::lock(&account_id, new.locked_balance).unwrap();
 
         // set free_tokens
-        TreasuryPallet::mint(account_id.clone(), new.free_tokens);
+        assert_ok!(TreasuryPallet::mint(&account_id, new.free_tokens));
 
         // set locked_tokens
-        TreasuryPallet::mint(account_id.clone(), new.locked_tokens);
-        TreasuryPallet::lock(&account_id, new.locked_tokens).unwrap();
+        assert_ok!(TreasuryPallet::mint(&account_id, new.locked_tokens));
+        assert_ok!(TreasuryPallet::lock(&account_id, new.locked_tokens));
 
         // sanity check:
         assert_eq!(Self::get(id), new);
@@ -245,12 +247,12 @@ impl PartialEq for FeePool {
 impl FeePool {
     pub fn get() -> Self {
         Self {
-            vault_collateral_rewards: RewardCollateralVaultPallet::get_total_rewards(RewardPool::Global).unwrap()
+            vault_collateral_rewards: RewardVaultPallet::get_total_rewards(DOT, RewardPool::Global).unwrap() as u128,
+            vault_wrapped_rewards: RewardVaultPallet::get_total_rewards(INTERBTC, RewardPool::Global).unwrap() as u128,
+            relayer_collateral_rewards: RewardRelayerPallet::get_total_rewards(DOT, RewardPool::Global).unwrap()
                 as u128,
-            vault_wrapped_rewards: RewardWrappedVaultPallet::get_total_rewards(RewardPool::Global).unwrap() as u128,
-            relayer_collateral_rewards: RewardCollateralRelayerPallet::get_total_rewards(RewardPool::Global).unwrap()
+            relayer_wrapped_rewards: RewardRelayerPallet::get_total_rewards(INTERBTC, RewardPool::Global).unwrap()
                 as u128,
-            relayer_wrapped_rewards: RewardWrappedRelayerPallet::get_total_rewards(RewardPool::Global).unwrap() as u128,
         }
     }
 }
@@ -378,7 +380,7 @@ impl CoreVaultData {
         ));
 
         // set free tokens:
-        TreasuryPallet::mint(account_of(vault), state.free_tokens);
+        assert_ok!(TreasuryPallet::mint(&account_of(vault), state.free_tokens));
 
         // clear all balances
         VaultRegistryPallet::transfer_funds(
@@ -588,7 +590,7 @@ pub fn force_issue_tokens(user: [u8; 32], vault: [u8; 32], collateral: u128, tok
     assert_ok!(VaultRegistryPallet::issue_tokens(&account_of(vault), tokens));
 
     // mint tokens to the user
-    currency::Pallet::<Runtime, currency::Wrapped>::mint(user.into(), tokens);
+    assert_ok!(TreasuryPallet::mint(&user.into(), tokens));
 }
 
 #[allow(dead_code)]
@@ -788,24 +790,20 @@ impl ExtBuilder {
             .build_storage::<Runtime>()
             .unwrap();
 
-        pallet_balances::GenesisConfig::<Runtime, pallet_balances::Instance1> {
-            balances: vec![
-                (account_of(ALICE), INITIAL_BALANCE),
-                (account_of(BOB), INITIAL_BALANCE),
-                (account_of(CAROL), INITIAL_BALANCE),
-                (account_of(DAVE), INITIAL_BALANCE),
-                (account_of(EVE), INITIAL_BALANCE),
-                (account_of(FRANK), INITIAL_BALANCE),
-                (account_of(GRACE), INITIAL_BALANCE),
-                (account_of(FAUCET), 1 << 60),
+        orml_tokens::GenesisConfig::<Runtime> {
+            endowed_accounts: vec![
+                (account_of(ALICE), DOT, INITIAL_BALANCE),
+                (account_of(BOB), DOT, INITIAL_BALANCE),
+                (account_of(CAROL), DOT, INITIAL_BALANCE),
+                (account_of(DAVE), DOT, INITIAL_BALANCE),
+                (account_of(EVE), DOT, INITIAL_BALANCE),
+                (account_of(FRANK), DOT, INITIAL_BALANCE),
+                (account_of(GRACE), DOT, INITIAL_BALANCE),
+                (account_of(FAUCET), DOT, 1 << 60),
             ],
         }
         .assimilate_storage(&mut storage)
         .unwrap();
-
-        pallet_balances::GenesisConfig::<Runtime, pallet_balances::Instance2> { balances: vec![] }
-            .assimilate_storage(&mut storage)
-            .unwrap();
 
         exchange_rate_oracle::GenesisConfig::<Runtime> {
             authorized_oracles: vec![(account_of(BOB), BOB.to_vec())],

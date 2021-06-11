@@ -60,7 +60,7 @@ mod deposit_collateral_test {
             assert_noop!(
                 Call::VaultRegistry(VaultRegistryCall::deposit_collateral(amount))
                     .dispatch(origin_of(account_of(VAULT))),
-                CollateralError::InsufficientFreeBalance
+                TokensError::BalanceTooLow
             );
         });
     }

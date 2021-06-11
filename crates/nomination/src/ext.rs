@@ -13,16 +13,15 @@ pub(crate) mod security {
 #[cfg_attr(test, mockable)]
 pub(crate) mod collateral {
     use crate::types::Collateral;
+    use currency::ParachainCurrency;
     use frame_support::dispatch::DispatchResult;
-
-    type CollateralPallet<T> = currency::Pallet<T, currency::Collateral>;
 
     pub fn transfer_and_lock<T: crate::Config>(
         source: &T::AccountId,
         destination: &T::AccountId,
         amount: Collateral<T>,
     ) -> DispatchResult {
-        CollateralPallet::<T>::transfer_and_lock(source, destination, amount)
+        <T as vault_registry::Config>::Collateral::transfer_and_lock(source, destination, amount)
     }
 
     pub fn unlock_and_transfer<T: crate::Config>(
@@ -30,7 +29,7 @@ pub(crate) mod collateral {
         destination: &T::AccountId,
         amount: Collateral<T>,
     ) -> DispatchResult {
-        CollateralPallet::<T>::unlock_and_transfer(source, destination, amount)
+        <T as vault_registry::Config>::Collateral::unlock_and_transfer(source, destination, amount)
     }
 }
 

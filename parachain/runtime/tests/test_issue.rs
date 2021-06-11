@@ -472,7 +472,8 @@ fn integration_test_issue_underpayment_succeeds() {
         let sent_btc = (issue.amount + issue.fee) / 4;
 
         // need stake for rewards to deposit
-        assert_ok!(RewardCollateralVaultPallet::deposit_stake(
+        assert_ok!(RewardVaultPallet::deposit_stake(
+            DOT,
             RewardPool::Global,
             &account_of(VAULT),
             signed_fixed_point!(1)
@@ -534,7 +535,8 @@ fn integration_test_issue_wrapped_cancel() {
         );
 
         // need stake for rewards to deposit
-        assert_ok!(RewardCollateralVaultPallet::deposit_stake(
+        assert_ok!(RewardVaultPallet::deposit_stake(
+            DOT,
             RewardPool::Global,
             &account_of(VAULT),
             signed_fixed_point!(1)

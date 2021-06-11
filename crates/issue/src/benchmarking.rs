@@ -5,9 +5,9 @@ use bitcoin::{
     types::{BlockBuilder, RawBlockHeader, TransactionBuilder, TransactionInputBuilder, TransactionOutput},
 };
 use btc_relay::{BtcAddress, BtcPublicKey, Pallet as BtcRelay};
+use currency::ParachainCurrency;
 use exchange_rate_oracle::Pallet as ExchangeRateOracle;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
-use frame_support::traits::Currency;
 use frame_system::RawOrigin;
 use security::Pallet as Security;
 use sp_core::{H160, H256, U256};
@@ -25,8 +25,8 @@ fn dummy_public_key() -> BtcPublicKey {
     ])
 }
 
-fn make_free_balance_be<T: crate::Config>(account_id: &T::AccountId, amount: Collateral<T>) {
-    <<T as currency::Config<currency::Collateral>>::Currency>::make_free_balance_be(account_id, amount);
+fn mint_collateral<T: crate::Config>(account_id: &T::AccountId, amount: Collateral<T>) {
+    <T as vault_registry::Config>::Collateral::mint(account_id, amount).unwrap();
 }
 
 benchmarks! {
@@ -37,9 +37,9 @@ benchmarks! {
         let griefing: u32 = 100;
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
-        make_free_balance_be::<T>(&origin, (1u32 << 31).into());
-        make_free_balance_be::<T>(&vault_id, (1u32 << 31).into());
-        make_free_balance_be::<T>(&relayer_id, (1u32 << 31).into());
+        mint_collateral::<T>(&origin, (1u32 << 31).into());
+        mint_collateral::<T>(&vault_id, (1u32 << 31).into());
+        mint_collateral::<T>(&relayer_id, (1u32 << 31).into());
 
         ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()).unwrap();
         VaultRegistry::<T>::set_secure_collateral_threshold(<T as vault_registry::Config>::UnsignedFixedPoint::checked_from_rational(1, 100000).unwrap());// 0.001%
@@ -104,9 +104,9 @@ benchmarks! {
         let vault_id: T::AccountId = account("Vault", 0, 0);
         let relayer_id: T::AccountId = account("Relayer", 0, 0);
 
-        make_free_balance_be::<T>(&origin, (1u32 << 31).into());
-        make_free_balance_be::<T>(&vault_id, (1u32 << 31).into());
-        make_free_balance_be::<T>(&relayer_id, (1u32 << 31).into());
+        mint_collateral::<T>(&origin, (1u32 << 31).into());
+        mint_collateral::<T>(&vault_id, (1u32 << 31).into());
+        mint_collateral::<T>(&relayer_id, (1u32 << 31).into());
 
         let vault_btc_address = BtcAddress::P2SH(H160::zero());
         let value: u32 = 2;
@@ -187,8 +187,8 @@ benchmarks! {
         let origin: T::AccountId = account("Origin", 0, 0);
         let vault_id: T::AccountId = account("Vault", 0, 0);
 
-        make_free_balance_be::<T>(&origin, (1u32 << 31).into());
-        make_free_balance_be::<T>(&vault_id, (1u32 << 31).into());
+        mint_collateral::<T>(&origin, (1u32 << 31).into());
+        mint_collateral::<T>(&vault_id, (1u32 << 31).into());
 
         let issue_id = H256::zero();
         let mut issue_request = IssueRequest::default();

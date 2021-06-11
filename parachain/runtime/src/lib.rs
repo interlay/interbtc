@@ -9,19 +9,17 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use bitcoin::types::H256Le;
-use frame_support::{
-    dispatch::{DispatchError, DispatchResult},
-    traits::StorageMapShim,
-};
+use frame_support::dispatch::{DispatchError, DispatchResult};
 use sp_arithmetic::{FixedI128, FixedU128};
 use sp_core::H256;
 
 use frame_support::PalletId;
+use orml_traits::parameter_type_with_key;
 use sp_api::impl_runtime_apis;
 use sp_core::OpaqueMetadata;
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
-    traits::{BlakeTwo256, Block as BlockT, IdentityLookup},
+    traits::{BlakeTwo256, Block as BlockT, IdentityLookup, Zero},
     transaction_validity::{TransactionSource, TransactionValidity},
     ApplyExtrinsicResult,
 };
@@ -41,7 +39,6 @@ pub use frame_support::{
     StorageValue,
 };
 use frame_system::limits::{BlockLength, BlockWeights};
-pub use pallet_balances::Call as BalancesCall;
 pub use pallet_timestamp::Call as TimestampCall;
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
@@ -51,7 +48,9 @@ pub use sp_runtime::{Perbill, Permill};
 pub use btc_relay::{bitcoin, Call as RelayCall, TARGET_SPACING};
 pub use module_exchange_rate_oracle_rpc_runtime_api::BalanceWrapper;
 
-pub use primitives::{self, AccountId, Balance, BlockNumber, Hash, Moment, Nonce, Signature};
+pub use primitives::{
+    self, AccountId, Amount, Balance, BlockNumber, CurrencyId, Hash, Moment, Nonce, Signature, DOT, INTERBTC,
+};
 
 // XCM imports
 #[cfg(feature = "cumulus-polkadot")]
@@ -251,7 +250,7 @@ parameter_types! {
 }
 
 impl pallet_transaction_payment::Config for Runtime {
-    type OnChargeTransaction = pallet_transaction_payment::CurrencyAdapter<Collateral, ()>;
+    type OnChargeTransaction = currency::PaymentCurrencyAdapter<Runtime, GetCollateralCurrencyId, ()>;
     type TransactionByteFee = TransactionByteFee;
     type WeightToFee = IdentityFee<Balance>;
     type FeeMultiplierUpdate = ();
@@ -462,98 +461,44 @@ impl Convert<AccountId, [u8; 32]> for AccountId32Convert {
     }
 }
 
-parameter_types! {
-    pub const ExistentialDeposit: u128 = 1;
-    pub const MaxLocks: u32 = 50;
-}
-
-/// Collateral currency - e.g. DOT/KSM
-impl pallet_balances::Config<pallet_balances::Instance1> for Runtime {
-    type MaxLocks = MaxLocks;
-    /// The type for recording an account's balance.
-    type Balance = Balance;
-    /// The ubiquitous event type.
-    type Event = Event;
-    type DustRemoval = ();
-    type ExistentialDeposit = ExistentialDeposit;
-    type AccountStore = StorageMapShim<
-        pallet_balances::Account<Runtime, pallet_balances::Instance1>,
-        frame_system::Provider<Runtime>,
-        AccountId,
-        pallet_balances::AccountData<Balance>,
-    >;
-    type WeightInfo = ();
-}
-
-/// Wrapped currency - e.g. InterBTC
-impl pallet_balances::Config<pallet_balances::Instance2> for Runtime {
-    type MaxLocks = MaxLocks;
-    type Balance = Balance;
-    type Event = Event;
-    type DustRemoval = ();
-    type ExistentialDeposit = ExistentialDeposit;
-    type AccountStore = StorageMapShim<
-        pallet_balances::Account<Runtime, pallet_balances::Instance2>,
-        frame_system::Provider<Runtime>,
-        AccountId,
-        pallet_balances::AccountData<Balance>,
-    >;
-    type WeightInfo = ();
-}
-
 impl btc_relay::Config for Runtime {
     type Event = Event;
     type WeightInfo = ();
 }
 
 parameter_types! {
-    pub const CollateralName: &'static [u8] = b"Polkadot";
-    pub const CollateralSymbol: &'static [u8] = b"DOT";
-    pub const CollateralDecimals: u8 = 10;
+    pub const GetCollateralCurrencyId: CurrencyId = DOT;
+    pub const GetWrappedCurrencyId: CurrencyId = INTERBTC;
+    pub const MaxLocks: u32 = 50;
 }
 
-impl currency::Config<currency::Collateral> for Runtime {
+parameter_type_with_key! {
+    pub ExistentialDeposits: |_currency_id: CurrencyId| -> Balance {
+        Zero::zero()
+    };
+}
+
+impl orml_tokens::Config for Runtime {
     type Event = Event;
     type Balance = Balance;
-    type Currency = Collateral;
-    type Name = CollateralName;
-    type Symbol = CollateralSymbol;
-    type Decimals = CollateralDecimals;
+    type Amount = Amount;
+    type CurrencyId = CurrencyId;
+    type WeightInfo = ();
+    type ExistentialDeposits = ExistentialDeposits;
+    type OnDust = ();
+    type MaxLocks = MaxLocks;
 }
 
-parameter_types! {
-    pub const WrappedName: &'static [u8] = b"InterBTC";
-    pub const WrappedSymbol: &'static [u8] = b"InterBTC";
-    pub const WrappedDecimals: u8 = 8;
-}
-
-impl currency::Config<currency::Wrapped> for Runtime {
-    type Event = Event;
-    type Balance = Balance;
-    type Currency = Wrapped;
-    type Name = WrappedName;
-    type Symbol = WrappedSymbol;
-    type Decimals = WrappedDecimals;
-}
-
-impl reward::Config<reward::CollateralVault> for Runtime {
+impl reward::Config<reward::Vault> for Runtime {
     type Event = Event;
     type SignedFixedPoint = FixedI128;
+    type CurrencyId = CurrencyId;
 }
 
-impl reward::Config<reward::WrappedVault> for Runtime {
+impl reward::Config<reward::Relayer> for Runtime {
     type Event = Event;
     type SignedFixedPoint = FixedI128;
-}
-
-impl reward::Config<reward::CollateralRelayer> for Runtime {
-    type Event = Event;
-    type SignedFixedPoint = FixedI128;
-}
-
-impl reward::Config<reward::WrappedRelayer> for Runtime {
-    type Event = Event;
-    type SignedFixedPoint = FixedI128;
+    type CurrencyId = CurrencyId;
 }
 
 impl security::Config for Runtime {
@@ -579,6 +524,8 @@ impl vault_registry::Config for Runtime {
     type SignedFixedPoint = FixedI128;
     type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
+    type Collateral = orml_tokens::CurrencyAdapter<Runtime, GetCollateralCurrencyId>;
+    type Wrapped = orml_tokens::CurrencyAdapter<Runtime, GetWrappedCurrencyId>;
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
@@ -615,10 +562,12 @@ impl fee::Config for Runtime {
     type SignedInner = i128;
     type UnsignedFixedPoint = FixedU128;
     type UnsignedInner = Balance;
-    type CollateralVaultRewards = CollateralVaultRewards;
-    type WrappedVaultRewards = WrappedVaultRewards;
-    type CollateralRelayerRewards = CollateralRelayerRewards;
-    type WrappedRelayerRewards = WrappedRelayerRewards;
+    type CollateralVaultRewards = reward::RewardsCurrencyAdapter<Runtime, reward::Vault, GetCollateralCurrencyId>;
+    type WrappedVaultRewards = reward::RewardsCurrencyAdapter<Runtime, reward::Vault, GetWrappedCurrencyId>;
+    type CollateralRelayerRewards = reward::RewardsCurrencyAdapter<Runtime, reward::Relayer, GetCollateralCurrencyId>;
+    type WrappedRelayerRewards = reward::RewardsCurrencyAdapter<Runtime, reward::Relayer, GetWrappedCurrencyId>;
+    type Collateral = orml_tokens::CurrencyAdapter<Runtime, GetCollateralCurrencyId>;
+    type Wrapped = orml_tokens::CurrencyAdapter<Runtime, GetWrappedCurrencyId>;
 }
 
 impl sla::Config for Runtime {
@@ -626,10 +575,10 @@ impl sla::Config for Runtime {
     type SignedFixedPoint = FixedI128;
     type SignedInner = i128;
     type Balance = Balance;
-    type CollateralVaultRewards = CollateralVaultRewards;
-    type WrappedVaultRewards = WrappedVaultRewards;
-    type CollateralRelayerRewards = CollateralRelayerRewards;
-    type WrappedRelayerRewards = WrappedRelayerRewards;
+    type CollateralVaultRewards = reward::RewardsCurrencyAdapter<Runtime, reward::Vault, GetCollateralCurrencyId>;
+    type WrappedVaultRewards = reward::RewardsCurrencyAdapter<Runtime, reward::Vault, GetWrappedCurrencyId>;
+    type CollateralRelayerRewards = reward::RewardsCurrencyAdapter<Runtime, reward::Relayer, GetCollateralCurrencyId>;
+    type WrappedRelayerRewards = reward::RewardsCurrencyAdapter<Runtime, reward::Relayer, GetWrappedCurrencyId>;
 }
 
 pub use refund::{Event as RefundEvent, RefundRequest};
@@ -686,16 +635,10 @@ macro_rules! construct_interbtc_runtime {
                 TransactionPayment: pallet_transaction_payment::{Pallet, Storage},
 
                 // Tokens & Balances
-                Collateral: pallet_balances::<Instance1>::{Pallet, Call, Storage, Config<T>, Event<T>},
-                Wrapped: pallet_balances::<Instance2>::{Pallet, Call, Storage, Config<T>, Event<T>},
+                Tokens: orml_tokens::{Pallet, Storage, Config<T>, Event<T>},
 
-                CollateralCurrency: currency::<Instance1>::{Pallet, Call, Storage, Event<T>},
-                WrappedCurrency: currency::<Instance2>::{Pallet, Call, Storage, Event<T>},
-
-                CollateralVaultRewards: reward::<Instance1>::{Pallet, Call, Storage, Event<T>},
-                WrappedVaultRewards: reward::<Instance2>::{Pallet, Call, Storage, Event<T>},
-                CollateralRelayerRewards: reward::<Instance3>::{Pallet, Call, Storage, Event<T>},
-                WrappedRelayerRewards: reward::<Instance4>::{Pallet, Call, Storage, Event<T>},
+                VaultRewards: reward::<Instance1>::{Pallet, Call, Storage, Event<T>},
+                RelayerRewards: reward::<Instance2>::{Pallet, Call, Storage, Event<T>},
 
                 // Bitcoin SPV
                 BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},

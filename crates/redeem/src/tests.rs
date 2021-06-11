@@ -3,6 +3,7 @@ use crate::{ext, mock::*};
 use crate::types::{Collateral, RedeemRequest, RedeemRequestStatus, Wrapped};
 use bitcoin::types::{MerkleProof, Transaction};
 use btc_relay::{BtcAddress, BtcPublicKey};
+use currency::ParachainCurrency;
 use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchError};
 use mocktopus::mocking::*;
 use security::Pallet as Security;
@@ -58,7 +59,7 @@ fn dummy_public_key() -> BtcPublicKey {
 #[test]
 fn test_request_redeem_fails_with_amount_exceeds_user_balance() {
     run_test(|| {
-        <currency::Pallet<Test, currency::Wrapped>>::mint(ALICE, 2);
+        assert_ok!(<Test as vault_registry::Config>::Wrapped::mint(&ALICE, 2));
         let amount = 10_000_000;
         assert_err!(
             Redeem::request_redeem(Origin::signed(ALICE), amount, BtcAddress::default(), BOB),
@@ -172,7 +173,7 @@ fn test_request_redeem_succeeds_with_normal_redeem() {
         });
 
         ext::treasury::lock::<Test>.mock_safe(move |account, amount_wrapped| {
-            assert_eq!(account, redeemer);
+            assert_eq!(account, &redeemer);
             assert_eq!(amount_wrapped, amount);
 
             MockResult::Return(Ok(()))
@@ -227,7 +228,7 @@ fn test_liquidation_redeem_succeeds() {
 
         ext::treasury::lock::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(())));
         ext::treasury::burn::<Test>.mock_safe(move |redeemer_id, amount| {
-            assert_eq!(redeemer_id, ALICE);
+            assert_eq!(redeemer_id, &ALICE);
             assert_eq!(amount, total_amount);
 
             MockResult::Return(Ok(()))
@@ -301,7 +302,7 @@ fn test_execute_redeem_succeeds_with_another_account() {
         );
 
         ext::treasury::burn::<Test>.mock_safe(move |redeemer, amount_wrapped| {
-            assert_eq!(redeemer, ALICE);
+            assert_eq!(redeemer, &ALICE);
             assert_eq!(amount_wrapped, 100);
 
             MockResult::Return(Ok(()))
@@ -375,7 +376,7 @@ fn test_execute_redeem_succeeds() {
         );
 
         ext::treasury::burn::<Test>.mock_safe(move |redeemer, amount_wrapped| {
-            assert_eq!(redeemer, ALICE);
+            assert_eq!(redeemer, &ALICE);
             assert_eq!(amount_wrapped, 100);
 
             MockResult::Return(Ok(()))

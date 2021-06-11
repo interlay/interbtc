@@ -45,9 +45,7 @@ pub mod pallet {
     pub trait Config:
         frame_system::Config
         + btc_relay::Config
-        + currency::Config<currency::Collateral, Balance = BalanceOf<Self>>
-        + currency::Config<currency::Wrapped, Balance = BalanceOf<Self>>
-        + fee::Config
+        + fee::Config<UnsignedInner = BalanceOf<Self>>
         + sla::Config
         + vault_registry::Config
     {
@@ -229,7 +227,7 @@ impl<T: Config> Pallet<T> {
         // mint issued tokens corresponding to the fee. Note that this can fail
         ext::vault_registry::try_increase_to_be_issued_tokens::<T>(&request.vault, request.fee)?;
         ext::vault_registry::issue_tokens::<T>(&request.vault, request.fee)?;
-        ext::treasury::mint::<T>(request.vault.clone(), request.fee);
+        ext::treasury::mint::<T>(&request.vault, request.fee)?;
 
         // reward vault for this refund by increasing its SLA
         ext::sla::event_update_vault_sla::<T>(&request.vault, ext::sla::VaultEvent::Refund)?;

@@ -5,9 +5,9 @@ use bitcoin::{
     types::{BlockBuilder, RawBlockHeader, TransactionBuilder, TransactionInputBuilder, TransactionOutput},
 };
 use btc_relay::{BtcAddress, BtcPublicKey, Pallet as BtcRelay};
+use currency::ParachainCurrency;
 use exchange_rate_oracle::Pallet as ExchangeRateOracle;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
-use frame_support::traits::Currency;
 use frame_system::RawOrigin;
 use security::Pallet as Security;
 use sp_core::{H160, H256, U256};
@@ -25,14 +25,14 @@ fn dummy_public_key() -> BtcPublicKey {
     ])
 }
 
-fn make_free_balance_be<T: crate::Config>(account_id: &T::AccountId, amount: Collateral<T>) {
-    <<T as currency::Config<currency::Collateral>>::Currency>::make_free_balance_be(account_id, amount);
+fn mint_collateral<T: crate::Config>(account_id: &T::AccountId, amount: Collateral<T>) {
+    <T as vault_registry::Config>::Collateral::mint(account_id, amount).unwrap();
 }
 
 benchmarks! {
     request_replace {
         let vault_id: T::AccountId = account("Vault", 0, 0);
-        make_free_balance_be::<T>(&vault_id, (1u32 << 31).into());
+        mint_collateral::<T>(&vault_id, (1u32 << 31).into());
         let amount = Replace::<T>::replace_btc_dust_value() + 1000u32.into();
         // TODO: calculate from exchange rate
         let griefing = 1000u32.into();
@@ -50,7 +50,7 @@ benchmarks! {
 
     withdraw_replace {
         let vault_id: T::AccountId = account("Vault", 0, 0);
-        make_free_balance_be::<T>(&vault_id, (1u32 << 31).into());
+        mint_collateral::<T>(&vault_id, (1u32 << 31).into());
         let amount = 5u32;
         VaultRegistry::<T>::_register_vault(&vault_id, 100000000u32.into(), dummy_public_key()).unwrap();
 
@@ -68,8 +68,8 @@ benchmarks! {
     accept_replace {
         let old_vault_id: T::AccountId = account("Origin", 0, 0);
         let new_vault_id: T::AccountId = account("Vault", 0, 0);
-        make_free_balance_be::<T>(&old_vault_id, (1u32 << 31).into());
-        make_free_balance_be::<T>(&new_vault_id, (1u32 << 31).into());
+        mint_collateral::<T>(&old_vault_id, (1u32 << 31).into());
+        mint_collateral::<T>(&new_vault_id, (1u32 << 31).into());
         let dust_value =  Replace::<T>::replace_btc_dust_value().try_into().unwrap_or(0u32);
         let amount: u32 = dust_value + 100u32;
         let collateral: u32 = 1000;
@@ -187,8 +187,8 @@ benchmarks! {
     cancel_replace {
         let new_vault_id: T::AccountId = account("Origin", 0, 0);
         let old_vault_id: T::AccountId = account("Vault", 0, 0);
-        make_free_balance_be::<T>(&new_vault_id, (1u32 << 31).into());
-        make_free_balance_be::<T>(&old_vault_id, (1u32 << 31).into());
+        mint_collateral::<T>(&new_vault_id, (1u32 << 31).into());
+        mint_collateral::<T>(&old_vault_id, (1u32 << 31).into());
 
         let amount:u32 = 100;
 
