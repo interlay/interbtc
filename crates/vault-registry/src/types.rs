@@ -90,7 +90,7 @@ pub(crate) type SignedFixedPoint<T> = <T as Config>::SignedFixedPoint;
 
 pub(crate) type UnsignedFixedPoint<T> = <T as Config>::UnsignedFixedPoint;
 
-pub(crate) type SignedInner<T> = <<T as Config>::SignedFixedPoint as FixedPointNumber>::Inner;
+pub(crate) type SignedInner<T> = <T as Config>::SignedInner;
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
 pub struct Wallet {

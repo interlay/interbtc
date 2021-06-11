@@ -101,6 +101,9 @@ pub mod pallet {
         /// The source of (pseudo) randomness. Set to collective flip
         type RandomnessSource: Randomness<H256, Self::BlockNumber>;
 
+        /// The `Inner` type of the `SignedFixedPoint`.
+        type SignedInner: Debug + TryFrom<BalanceOf<Self>> + MaybeSerializeDeserialize;
+
         /// The primitive balance type.
         type Balance: AtLeast32BitUnsigned
             + FixedPointOperand
@@ -115,7 +118,7 @@ pub mod pallet {
             + Debug;
 
         /// The type of signed fixed point to use for slashing calculations.
-        type SignedFixedPoint: FixedPointNumber<Inner = <Self as Config>::Balance>
+        type SignedFixedPoint: FixedPointNumber<Inner = SignedInner<Self>>
             + Encode
             + EncodeLike
             + Decode
@@ -1690,9 +1693,9 @@ impl<T: Config> Pallet<T> {
         pool_account_id: &T::AccountId,
         amount: Collateral<T>,
     ) -> Result<(), DispatchError> {
-        let amount_raw = Self::collateral_to_fixed(amount)?;
-        if amount_raw > SignedFixedPoint::<T>::zero() {
-            R::withdraw_stake(RewardPool::Local(pool_account_id.clone()), account_id, amount_raw)?;
+        let amount_fixed = Self::collateral_to_fixed(amount)?;
+        if amount_fixed > SignedFixedPoint::<T>::zero() {
+            R::withdraw_stake(RewardPool::Local(pool_account_id.clone()), account_id, amount_fixed)?;
         }
         Ok(())
     }
@@ -1702,8 +1705,8 @@ impl<T: Config> Pallet<T> {
         pool_account_id: &T::AccountId,
         amount: Collateral<T>,
     ) -> Result<(), DispatchError> {
-        let amount_raw = Self::collateral_to_fixed(amount)?;
-        R::deposit_stake(RewardPool::Local(pool_account_id.clone()), account_id, amount_raw)?;
+        let amount_fixed = Self::collateral_to_fixed(amount)?;
+        R::deposit_stake(RewardPool::Local(pool_account_id.clone()), account_id, amount_fixed)?;
         Ok(())
     }
 

@@ -31,8 +31,8 @@ macro_rules! assert_eq_modulo_rounding {
     ($left:expr, $right:expr $(,)?) => {{
         match (&$left, &$right) {
             (left_val, right_val) => {
-                if (*left_val > *right_val && *left_val - *right_val > 1)
-                    || (*right_val > *left_val && *right_val - *left_val > 1)
+                if (*left_val > *right_val && *left_val - *right_val > 5)
+                    || (*right_val > *left_val && *right_val - *left_val > 5)
                 {
                     // The reborrows below are intentional. Without them, the stack slot for the
                     // borrow is initialized even before the values are compared, leading to a
@@ -63,19 +63,26 @@ fn withdraw_relayer_global_pool_rewards(account: [u8; 32]) -> i128 {
 
 fn withdraw_local_pool_rewards(pool_id: [u8; 32], account: [u8; 32]) -> i128 {
     let amount =
-        RewardWrappedVaultPallet::compute_reward(&RewardPool::Local(account_of(pool_id)), &account_of(account))
+        RewardVaultPallet::compute_reward(INTERBTC, &RewardPool::Local(account_of(pool_id)), &account_of(account))
             .unwrap();
     assert_ok!(Call::Fee(FeeCall::withdraw_vault_wrapped_rewards()).dispatch(origin_of(account_of(account))));
     amount
 }
 
+fn get_vault_global_pool_rewards(account: [u8; 32]) -> i128 {
+    RewardVaultPallet::compute_reward(INTERBTC, &RewardPool::Global, &account_of(account)).unwrap()
+}
+
 fn get_local_pool_rewards(pool_id: [u8; 32], account: [u8; 32]) -> i128 {
-    RewardWrappedVaultPallet::compute_reward(&RewardPool::Local(account_of(pool_id)), &account_of(account)).unwrap()
+    RewardVaultPallet::compute_reward(INTERBTC, &RewardPool::Local(account_of(pool_id)), &account_of(account)).unwrap()
 }
 
 fn distribute_global_pool(pool_id: [u8; 32]) {
-    FeePallet::distribute_global_pool::<RewardCollateralVaultPallet>(&account_of(pool_id)).unwrap();
-    FeePallet::distribute_global_pool::<RewardWrappedVaultPallet>(&account_of(pool_id)).unwrap();
+    FeePallet::distribute_global_pool::<reward::RewardsCurrencyAdapter<Runtime, reward::Vault, GetCollateralCurrencyId>>(&account_of(pool_id)).unwrap();
+    FeePallet::distribute_global_pool::<reward::RewardsCurrencyAdapter<Runtime, reward::Vault, GetWrappedCurrencyId>>(
+        &account_of(pool_id),
+    )
+    .unwrap();
 }
 
 fn get_vault_sla(account: [u8; 32]) -> i128 {

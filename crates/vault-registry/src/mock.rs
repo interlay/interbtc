@@ -154,6 +154,7 @@ impl Config for Test {
     type PalletId = VaultPalletId;
     type Event = TestEvent;
     type RandomnessSource = pallet_randomness_collective_flip::Pallet<Test>;
+    type SignedInner = i128;
     type Balance = Balance;
     type SignedFixedPoint = FixedI128;
     type UnsignedFixedPoint = FixedU128;

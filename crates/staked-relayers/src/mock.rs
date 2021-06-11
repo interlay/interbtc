@@ -159,6 +159,7 @@ impl vault_registry::Config for Test {
     type PalletId = VaultPalletId;
     type Event = TestEvent;
     type RandomnessSource = pallet_randomness_collective_flip::Pallet<Test>;
+    type SignedInner = i128;
     type Balance = Balance;
     type SignedFixedPoint = FixedI128;
     type UnsignedFixedPoint = FixedU128;
@@ -236,9 +237,7 @@ impl replace::Config for Test {
 
 impl nomination::Config for Test {
     type Event = TestEvent;
-    type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
-    type SignedFixedPoint = FixedI128;
     type CollateralVaultRewards = reward::RewardsCurrencyAdapter<Test, reward::Vault, GetCollateralCurrencyId>;
     type WrappedVaultRewards = reward::RewardsCurrencyAdapter<Test, reward::Vault, GetWrappedCurrencyId>;
 }

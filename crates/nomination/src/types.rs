@@ -10,11 +10,11 @@ pub(crate) type BalanceOf<T> = <T as vault_registry::Config>::Balance;
 
 pub(crate) type Collateral<T> = BalanceOf<T>;
 
-pub(crate) type UnsignedFixedPoint<T> = <T as Config>::UnsignedFixedPoint;
+pub(crate) type UnsignedFixedPoint<T> = <T as vault_registry::Config>::UnsignedFixedPoint;
 
-pub(crate) type SignedFixedPoint<T> = <T as Config>::SignedFixedPoint;
+pub(crate) type SignedFixedPoint<T> = <T as vault_registry::Config>::SignedFixedPoint;
 
-pub(crate) type SignedInner<T> = <<T as Config>::SignedFixedPoint as FixedPointNumber>::Inner;
+pub(crate) type SignedInner<T> = <<T as vault_registry::Config>::SignedFixedPoint as FixedPointNumber>::Inner;
 
 pub struct RichNominator<T: Config> {
     pub(crate) data: DefaultNominator<T>,

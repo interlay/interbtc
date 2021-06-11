@@ -15,7 +15,6 @@ mod types;
 
 mod default_weights;
 
-use codec::{Decode, Encode, EncodeLike, FullCodec};
 use ext::vault_registry::{DefaultVault, SlashingError, TryDepositCollateral, TryWithdrawCollateral};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
@@ -24,12 +23,11 @@ use frame_support::{
 };
 use frame_system::{ensure_root, ensure_signed};
 use reward::RewardPool;
-use sp_arithmetic::FixedPointNumber;
 use sp_runtime::{
-    traits::{AtLeast32BitUnsigned, CheckedAdd, CheckedDiv, CheckedSub, One, Zero},
-    FixedPointOperand,
+    traits::{CheckedAdd, CheckedDiv, CheckedSub, One, Zero},
+    FixedPointNumber,
 };
-use sp_std::{convert::TryInto, fmt::Debug};
+use sp_std::convert::TryInto;
 pub use types::Nominator;
 use types::{
     BalanceOf, Collateral, DefaultNominator, RichNominator, SignedFixedPoint, SignedInner, UnsignedFixedPoint,
@@ -57,28 +55,11 @@ pub mod pallet {
     pub trait Config:
         frame_system::Config
         + security::Config
-        + vault_registry::Config<
-            UnsignedFixedPoint = <Self as Config>::UnsignedFixedPoint,
-            SignedFixedPoint = <Self as Config>::SignedFixedPoint,
-        > + fee::Config<UnsignedFixedPoint = <Self as Config>::UnsignedFixedPoint, UnsignedInner = BalanceOf<Self>>
+        + vault_registry::Config
+        + fee::Config<UnsignedFixedPoint = UnsignedFixedPoint<Self>, UnsignedInner = BalanceOf<Self>>
     {
         /// The overarching event type.
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-
-        /// The unsigned fixed point type.
-        type UnsignedFixedPoint: FixedPointNumber<Inner = BalanceOf<Self>> + Encode + EncodeLike + Decode;
-
-        /// The signed fixed point type.
-        type SignedFixedPoint: FixedPointNumber<Inner = <Self as Config>::Balance> + Encode + EncodeLike + Decode;
-
-        /// The primitive balance type.
-        type Balance: AtLeast32BitUnsigned
-            + FixedPointOperand
-            + MaybeSerializeDeserialize
-            + FullCodec
-            + Copy
-            + Default
-            + Debug;
 
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
@@ -264,7 +245,7 @@ impl<T: Config> Pallet<T> {
 
         let mut nominator: RichNominator<T> = Self::get_nominator(&nominator_id, &vault_id)?.into();
         nominator.try_withdraw_collateral(amount)?;
-        ext::collateral::unlock_and_transfer::<T>(&nominator_id, &vault_id, amount)?;
+        ext::collateral::unlock_and_transfer::<T>(&vault_id, &nominator_id, amount)?;
 
         Self::deposit_event(Event::<T>::WithdrawCollateral(nominator_id, vault_id, amount));
         Ok(())
@@ -409,8 +390,8 @@ impl<T: Config> Pallet<T> {
 
     fn collateral_to_fixed(x: Collateral<T>) -> Result<SignedFixedPoint<T>, DispatchError> {
         let signed_inner = TryInto::<SignedInner<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError)?;
-        let signed_fixed_point = <T as pallet::Config>::SignedFixedPoint::checked_from_integer(signed_inner)
-            .ok_or(Error::<T>::TryIntoIntError)?;
+        let signed_fixed_point =
+            SignedFixedPoint::<T>::checked_from_integer(signed_inner).ok_or(Error::<T>::TryIntoIntError)?;
         Ok(signed_fixed_point)
     }
 
@@ -431,8 +412,8 @@ impl<T: Config> Pallet<T> {
         vault_id: &T::AccountId,
         amount: Collateral<T>,
     ) -> Result<(), DispatchError> {
-        let amount_raw = Self::collateral_to_fixed(amount)?;
-        R::deposit_stake(RewardPool::Local(vault_id.clone()), account_id, amount_raw)?;
+        let amount_fixed = Self::collateral_to_fixed(amount)?;
+        R::deposit_stake(RewardPool::Local(vault_id.clone()), account_id, amount_fixed)?;
         Ok(())
     }
 }
