@@ -12,14 +12,14 @@ fn dummy_public_key() -> BtcPublicKey {
     ])
 }
 
-fn make_free_balance_be<T: crate::Config>(account_id: &T::AccountId, amount: Collateral<T>) {
+fn mint_collateral<T: crate::Config>(account_id: &T::AccountId, amount: Collateral<T>) {
     T::Collateral::mint(account_id, amount).unwrap();
 }
 
 benchmarks! {
     register_vault {
         let origin: T::AccountId = account("Origin", 0, 0);
-        make_free_balance_be::<T>(&origin, (1u32 << 31).into());
+        mint_collateral::<T>(&origin, (1u32 << 31).into());
         let amount: u32 = 100;
         let public_key = BtcPublicKey::default();
     }: _(RawOrigin::Signed(origin.clone()), amount.into(), public_key)
@@ -30,7 +30,7 @@ benchmarks! {
     deposit_collateral {
         let origin: T::AccountId = account("Origin", 0, 0);
         let u in 0 .. 100;
-        make_free_balance_be::<T>(&origin, (1u32 << 31).into());
+        mint_collateral::<T>(&origin, (1u32 << 31).into());
         VaultRegistry::<T>::_register_vault(&origin, 1234u32.into(), dummy_public_key()).unwrap();
     }: _(RawOrigin::Signed(origin), u.into())
     verify {
@@ -39,7 +39,7 @@ benchmarks! {
     withdraw_collateral {
         let origin: T::AccountId = account("Origin", 0, 0);
         let u in 0 .. 100;
-        make_free_balance_be::<T>(&origin, (1u32 << 31).into());
+        mint_collateral::<T>(&origin, (1u32 << 31).into());
         VaultRegistry::<T>::_register_vault(&origin, u.into(), dummy_public_key()).unwrap();
     }: _(RawOrigin::Signed(origin), u.into())
     verify {
@@ -47,26 +47,26 @@ benchmarks! {
 
     update_public_key {
         let origin: T::AccountId = account("Origin", 0, 0);
-        make_free_balance_be::<T>(&origin, (1u32 << 31).into());
+        mint_collateral::<T>(&origin, (1u32 << 31).into());
         VaultRegistry::<T>::_register_vault(&origin, 1234u32.into(), dummy_public_key()).unwrap();
     }: _(RawOrigin::Signed(origin), BtcPublicKey::default())
 
     register_address {
         let origin: T::AccountId = account("Origin", 0, 0);
-        make_free_balance_be::<T>(&origin, (1u32 << 31).into());
+        mint_collateral::<T>(&origin, (1u32 << 31).into());
         VaultRegistry::<T>::_register_vault(&origin, 1234u32.into(), dummy_public_key()).unwrap();
     }: _(RawOrigin::Signed(origin), BtcAddress::default())
 
     accept_new_issues {
         let origin: T::AccountId = account("Origin", 0, 0);
-        make_free_balance_be::<T>(&origin, (1u32 << 31).into());
+        mint_collateral::<T>(&origin, (1u32 << 31).into());
         VaultRegistry::<T>::_register_vault(&origin, 1234u32.into(), dummy_public_key()).unwrap();
     }: _(RawOrigin::Signed(origin), true)
 
     report_undercollateralized_vault {
         let origin: T::AccountId = account("Origin", 0, 0);
         let vault_id: T::AccountId = account("Vault", 0, 0);
-        make_free_balance_be::<T>(&vault_id, (1u32 << 31).into());
+        mint_collateral::<T>(&vault_id, (1u32 << 31).into());
 
         VaultRegistry::<T>::_register_vault(&vault_id, 10_000u32.into(), dummy_public_key()).unwrap();
         ExchangeRateOracle::<T>::_set_exchange_rate(<T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()).unwrap();

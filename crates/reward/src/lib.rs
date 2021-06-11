@@ -182,7 +182,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
             .ok_or(Error::<T, I>::ArithmeticUnderflow)?)
     }
 
-    fn get_stake(
+    pub fn get_stake(
         currency_id: T::CurrencyId,
         reward_pool: RewardPool<T::AccountId>,
         account_id: &T::AccountId,
@@ -190,7 +190,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         Self::stake((currency_id, reward_pool, account_id))
     }
 
-    fn deposit_stake(
+    pub fn deposit_stake(
         currency_id: T::CurrencyId,
         reward_pool: RewardPool<T::AccountId>,
         account_id: &T::AccountId,
@@ -219,7 +219,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         Ok(())
     }
 
-    fn distribute(
+    pub fn distribute(
         currency_id: T::CurrencyId,
         reward_pool: RewardPool<T::AccountId>,
         reward: SignedFixedPoint<T, I>,
@@ -237,7 +237,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         Ok(reward)
     }
 
-    fn compute_reward(
+    pub fn compute_reward(
         currency_id: T::CurrencyId,
         reward_pool: &RewardPool<T::AccountId>,
         account_id: &T::AccountId,
@@ -259,7 +259,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         Ok(reward)
     }
 
-    fn withdraw_stake(
+    pub fn withdraw_stake(
         currency_id: T::CurrencyId,
         reward_pool: RewardPool<T::AccountId>,
         account_id: &T::AccountId,
@@ -293,7 +293,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         Ok(())
     }
 
-    fn withdraw_reward(
+    pub fn withdraw_reward(
         currency_id: T::CurrencyId,
         reward_pool: RewardPool<T::AccountId>,
         account_id: &T::AccountId,

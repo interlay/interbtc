@@ -295,8 +295,8 @@ impl<T: Config> Pallet<T> {
         collateral_per_wrapped: UnsignedFixedPoint<T>,
     ) -> Result<UnsignedFixedPoint<T>, DispatchError> {
         let conversion_factor = UnsignedFixedPoint::<T>::checked_from_rational(
-            10_u128.pow(T::GetCollateralDecimals::get() as u32),
-            10_u128.pow(T::GetWrappedDecimals::get() as u32),
+            10_u128.pow(T::GetCollateralDecimals::get().into()),
+            10_u128.pow(T::GetWrappedDecimals::get().into()),
         )
         .unwrap();
 

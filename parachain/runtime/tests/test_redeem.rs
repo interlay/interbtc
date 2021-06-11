@@ -354,8 +354,6 @@ fn integration_test_premium_redeem_wrapped_execute() {
                 .dispatch(origin_of(account_of(VAULT)))
         );
 
-        println!("{:?}", RewardWrappedVaultPallet::participants());
-
         assert_eq!(
             ParachainState::get(),
             ParachainState::default().with_changes(|user, vault, _, fee_pool| {
