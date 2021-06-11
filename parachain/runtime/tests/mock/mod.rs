@@ -6,11 +6,15 @@ pub use bitcoin::{
     formatter::{Formattable, TryFormattable},
     types::*,
 };
-pub use btc_parachain_runtime::{AccountId, BlockNumber, Call, Event, Runtime};
+pub use btc_parachain_runtime::{
+    AccountId, BlockNumber, Call, Event, GetCollateralCurrencyId, GetWrappedCurrencyId, Runtime,
+};
 pub use btc_relay::{BtcAddress, BtcPublicKey};
+pub use currency::ParachainCurrency;
 use frame_support::traits::GenesisBuild;
 pub use frame_support::{assert_err, assert_noop, assert_ok, dispatch::DispatchResultWithPostInfo};
 pub use mocktopus::mocking::*;
+pub use orml_tokens::CurrencyAdapter;
 pub use security::{ErrorCode, StatusCode};
 pub use sp_arithmetic::{FixedI128, FixedPointNumber, FixedU128};
 pub use sp_core::{H160, H256, U256};
@@ -74,8 +78,10 @@ pub type BTCRelayPallet = btc_relay::Pallet<Runtime>;
 pub type BTCRelayError = btc_relay::Error<Runtime>;
 pub type BTCRelayEvent = btc_relay::Event<Runtime>;
 
-pub type CollateralError = currency::Error<Runtime, currency::Collateral>;
-pub type CollateralPallet = currency::Pallet<Runtime, currency::Collateral>;
+pub type TokensError = orml_tokens::Error<Runtime>;
+
+pub type CollateralPallet = CurrencyAdapter<Runtime, GetCollateralCurrencyId>;
+pub type TreasuryPallet = CurrencyAdapter<Runtime, GetWrappedCurrencyId>;
 
 pub type ExchangeRateOracleCall = exchange_rate_oracle::Call<Runtime>;
 pub type ExchangeRateOraclePallet = exchange_rate_oracle::Pallet<Runtime>;
@@ -84,10 +90,11 @@ pub type FeeCall = fee::Call<Runtime>;
 pub type FeeError = fee::Error<Runtime>;
 pub type FeePallet = fee::Pallet<Runtime>;
 
-pub type RewardCollateralVaultPallet = reward::Pallet<Runtime, reward::CollateralVault>;
-pub type RewardWrappedVaultPallet = reward::Pallet<Runtime, reward::WrappedVault>;
-pub type RewardCollateralRelayerPallet = reward::Pallet<Runtime, reward::CollateralRelayer>;
-pub type RewardWrappedRelayerPallet = reward::Pallet<Runtime, reward::WrappedRelayer>;
+pub type RewardCollateralVaultPallet = reward::RewardsCurrencyAdapter<Runtime, reward::Vault, GetCollateralCurrencyId>;
+pub type RewardWrappedVaultPallet = reward::RewardsCurrencyAdapter<Runtime, reward::Vault, GetWrappedCurrencyId>;
+pub type RewardCollateralRelayerPallet =
+    reward::RewardsCurrencyAdapter<Runtime, reward::Relayer, GetCollateralCurrencyId>;
+pub type RewardWrappedRelayerPallet = reward::RewardsCurrencyAdapter<Runtime, reward::Relayer, GetWrappedCurrencyId>;
 
 pub type IssueCall = issue::Call<Runtime>;
 pub type IssuePallet = issue::Pallet<Runtime>;
@@ -118,8 +125,6 @@ pub type StakedRelayersCall = staked_relayers::Call<Runtime>;
 pub type StakedRelayersPallet = staked_relayers::Pallet<Runtime>;
 
 pub type SystemModule = frame_system::Pallet<Runtime>;
-
-pub type TreasuryPallet = currency::Pallet<Runtime, currency::Wrapped>;
 
 pub type VaultRegistryCall = vault_registry::Call<Runtime>;
 pub type VaultRegistryError = vault_registry::Error<Runtime>;
@@ -588,7 +593,7 @@ pub fn force_issue_tokens(user: [u8; 32], vault: [u8; 32], collateral: u128, tok
     assert_ok!(VaultRegistryPallet::issue_tokens(&account_of(vault), tokens));
 
     // mint tokens to the user
-    currency::Pallet::<Runtime, currency::Wrapped>::mint(user.into(), tokens);
+    assert_ok!(TreasuryPallet::mint(&id, issue_tokens));
 }
 
 #[allow(dead_code)]

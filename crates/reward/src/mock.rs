@@ -1,5 +1,6 @@
 use crate as reward;
 use crate::{Config, Error};
+use codec::{Decode, Encode};
 use frame_support::parameter_types;
 use sp_arithmetic::FixedI128;
 use sp_core::H256;
@@ -74,15 +75,20 @@ impl pallet_balances::Config for Test {
     type WeightInfo = ();
 }
 
-parameter_types! {
-    pub const CurrencyName: &'static [u8] = b"Polkadot";
-    pub const CurrencySymbol: &'static [u8] = b"DOT";
-    pub const CurrencyDecimals: u8 = 10;
+#[derive(Encode, Decode, Debug, PartialEq, PartialOrd, Ord, Eq, Clone, Copy)]
+#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+pub enum CurrencyId {
+    DOT,
+    INTERBTC,
 }
+
+pub const DOT: CurrencyId = CurrencyId::DOT;
+// pub const INTERBTC: CurrencyId = CurrencyId::INTERBTC;
 
 impl Config for Test {
     type Event = TestEvent;
     type SignedFixedPoint = FixedI128;
+    type CurrencyId = CurrencyId;
 }
 
 pub type TestEvent = Event;

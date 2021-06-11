@@ -490,24 +490,16 @@ impl orml_tokens::Config for Runtime {
     type MaxLocks = MaxLocks;
 }
 
-impl reward::Config<reward::CollateralVault> for Runtime {
+impl reward::Config<reward::Vault> for Runtime {
     type Event = Event;
     type SignedFixedPoint = FixedI128;
+    type CurrencyId = CurrencyId;
 }
 
-impl reward::Config<reward::WrappedVault> for Runtime {
+impl reward::Config<reward::Relayer> for Runtime {
     type Event = Event;
     type SignedFixedPoint = FixedI128;
-}
-
-impl reward::Config<reward::CollateralRelayer> for Runtime {
-    type Event = Event;
-    type SignedFixedPoint = FixedI128;
-}
-
-impl reward::Config<reward::WrappedRelayer> for Runtime {
-    type Event = Event;
-    type SignedFixedPoint = FixedI128;
+    type CurrencyId = CurrencyId;
 }
 
 impl security::Config for Runtime {
@@ -571,10 +563,10 @@ impl fee::Config for Runtime {
     type SignedInner = i128;
     type UnsignedFixedPoint = FixedU128;
     type UnsignedInner = Balance;
-    type CollateralVaultRewards = CollateralVaultRewards;
-    type WrappedVaultRewards = WrappedVaultRewards;
-    type CollateralRelayerRewards = CollateralRelayerRewards;
-    type WrappedRelayerRewards = WrappedRelayerRewards;
+    type CollateralVaultRewards = reward::RewardsCurrencyAdapter<Runtime, reward::Vault, GetCollateralCurrencyId>;
+    type WrappedVaultRewards = reward::RewardsCurrencyAdapter<Runtime, reward::Vault, GetWrappedCurrencyId>;
+    type CollateralRelayerRewards = reward::RewardsCurrencyAdapter<Runtime, reward::Relayer, GetCollateralCurrencyId>;
+    type WrappedRelayerRewards = reward::RewardsCurrencyAdapter<Runtime, reward::Relayer, GetWrappedCurrencyId>;
     type Collateral = orml_tokens::CurrencyAdapter<Runtime, GetCollateralCurrencyId>;
     type Wrapped = orml_tokens::CurrencyAdapter<Runtime, GetWrappedCurrencyId>;
 }
@@ -584,10 +576,10 @@ impl sla::Config for Runtime {
     type SignedFixedPoint = FixedI128;
     type SignedInner = i128;
     type Balance = Balance;
-    type CollateralVaultRewards = CollateralVaultRewards;
-    type WrappedVaultRewards = WrappedVaultRewards;
-    type CollateralRelayerRewards = CollateralRelayerRewards;
-    type WrappedRelayerRewards = WrappedRelayerRewards;
+    type CollateralVaultRewards = reward::RewardsCurrencyAdapter<Runtime, reward::Vault, GetCollateralCurrencyId>;
+    type WrappedVaultRewards = reward::RewardsCurrencyAdapter<Runtime, reward::Vault, GetWrappedCurrencyId>;
+    type CollateralRelayerRewards = reward::RewardsCurrencyAdapter<Runtime, reward::Relayer, GetCollateralCurrencyId>;
+    type WrappedRelayerRewards = reward::RewardsCurrencyAdapter<Runtime, reward::Relayer, GetWrappedCurrencyId>;
 }
 
 pub use refund::{Event as RefundEvent, RefundRequest};
@@ -646,10 +638,8 @@ macro_rules! construct_interbtc_runtime {
                 // Tokens & Balances
                 Tokens: orml_tokens::{Pallet, Storage, Config<T>, Event<T>},
 
-                CollateralVaultRewards: reward::<Instance1>::{Pallet, Call, Storage, Event<T>},
-                WrappedVaultRewards: reward::<Instance2>::{Pallet, Call, Storage, Event<T>},
-                CollateralRelayerRewards: reward::<Instance3>::{Pallet, Call, Storage, Event<T>},
-                WrappedRelayerRewards: reward::<Instance4>::{Pallet, Call, Storage, Event<T>},
+                VaultRewards: reward::<Instance1>::{Pallet, Call, Storage, Event<T>},
+                RelayerRewards: reward::<Instance2>::{Pallet, Call, Storage, Event<T>},
 
                 // Bitcoin SPV
                 BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},

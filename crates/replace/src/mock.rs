@@ -29,10 +29,8 @@ frame_support::construct_runtime!(
         // Tokens & Balances
         Tokens: orml_tokens::{Pallet, Storage, Config<T>, Event<T>},
 
-        CollateralVaultRewards: reward::<Instance1>::{Pallet, Call, Storage, Event<T>},
-        WrappedVaultRewards: reward::<Instance2>::{Pallet, Call, Storage, Event<T>},
-        CollateralRelayerRewards: reward::<Instance3>::{Pallet, Call, Storage, Event<T>},
-        WrappedRelayerRewards: reward::<Instance4>::{Pallet, Call, Storage, Event<T>},
+        VaultRewards: reward::<Instance1>::{Pallet, Call, Storage, Event<T>},
+        RelayerRewards: reward::<Instance2>::{Pallet, Call, Storage, Event<T>},
 
         // Operational
         BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},
@@ -115,24 +113,16 @@ impl orml_tokens::Config for Test {
     type MaxLocks = MaxLocks;
 }
 
-impl reward::Config<reward::CollateralVault> for Test {
+impl reward::Config<reward::Vault> for Test {
     type Event = TestEvent;
     type SignedFixedPoint = FixedI128;
+    type CurrencyId = CurrencyId;
 }
 
-impl reward::Config<reward::WrappedVault> for Test {
+impl reward::Config<reward::Relayer> for Test {
     type Event = TestEvent;
     type SignedFixedPoint = FixedI128;
-}
-
-impl reward::Config<reward::CollateralRelayer> for Test {
-    type Event = TestEvent;
-    type SignedFixedPoint = FixedI128;
-}
-
-impl reward::Config<reward::WrappedRelayer> for Test {
-    type Event = TestEvent;
-    type SignedFixedPoint = FixedI128;
+    type CurrencyId = CurrencyId;
 }
 
 parameter_types! {
@@ -173,10 +163,10 @@ impl sla::Config for Test {
     type SignedFixedPoint = FixedI128;
     type SignedInner = i128;
     type Balance = Balance;
-    type CollateralVaultRewards = CollateralVaultRewards;
-    type WrappedVaultRewards = WrappedVaultRewards;
-    type CollateralRelayerRewards = CollateralRelayerRewards;
-    type WrappedRelayerRewards = WrappedRelayerRewards;
+    type CollateralVaultRewards = reward::RewardsCurrencyAdapter<Test, reward::Vault, GetCollateralCurrencyId>;
+    type WrappedVaultRewards = reward::RewardsCurrencyAdapter<Test, reward::Vault, GetWrappedCurrencyId>;
+    type CollateralRelayerRewards = reward::RewardsCurrencyAdapter<Test, reward::Relayer, GetCollateralCurrencyId>;
+    type WrappedRelayerRewards = reward::RewardsCurrencyAdapter<Test, reward::Relayer, GetWrappedCurrencyId>;
 }
 
 impl nomination::Config for Test {
@@ -223,10 +213,10 @@ impl fee::Config for Test {
     type SignedInner = i128;
     type UnsignedFixedPoint = FixedU128;
     type UnsignedInner = Balance;
-    type CollateralVaultRewards = CollateralVaultRewards;
-    type WrappedVaultRewards = WrappedVaultRewards;
-    type CollateralRelayerRewards = CollateralRelayerRewards;
-    type WrappedRelayerRewards = WrappedRelayerRewards;
+    type CollateralVaultRewards = reward::RewardsCurrencyAdapter<Test, reward::Vault, GetCollateralCurrencyId>;
+    type WrappedVaultRewards = reward::RewardsCurrencyAdapter<Test, reward::Vault, GetWrappedCurrencyId>;
+    type CollateralRelayerRewards = reward::RewardsCurrencyAdapter<Test, reward::Relayer, GetCollateralCurrencyId>;
+    type WrappedRelayerRewards = reward::RewardsCurrencyAdapter<Test, reward::Relayer, GetWrappedCurrencyId>;
     type Collateral = CurrencyAdapter<Test, GetCollateralCurrencyId>;
     type Wrapped = CurrencyAdapter<Test, GetWrappedCurrencyId>;
 }
