@@ -382,7 +382,7 @@ impl<T: Config> Pallet<T> {
         if delta_sla.is_positive() {
             R::deposit_stake(RewardPool::Global, account_id, delta_sla)?;
         } else if delta_sla.is_negative() {
-            let remaining_stake = R::get_stake(RewardPool::Global, account_id).min(delta_sla.saturating_abs());
+            let remaining_stake = R::get_stake(&RewardPool::Global, account_id).min(delta_sla.saturating_abs());
             if remaining_stake > SignedFixedPoint::<T>::zero() {
                 R::withdraw_stake(RewardPool::Global, account_id, remaining_stake)?;
             }
@@ -393,7 +393,7 @@ impl<T: Config> Pallet<T> {
     fn liquidate_stake<R: reward::Rewards<T::AccountId, SignedFixedPoint = SignedFixedPoint<T>>>(
         account_id: &T::AccountId,
     ) -> Result<(), DispatchError> {
-        let remaining_stake = R::get_stake(RewardPool::Global, account_id);
+        let remaining_stake = R::get_stake(&RewardPool::Global, account_id);
         if remaining_stake > SignedFixedPoint::<T>::zero() {
             R::withdraw_stake(RewardPool::Global, account_id, remaining_stake)?;
         }

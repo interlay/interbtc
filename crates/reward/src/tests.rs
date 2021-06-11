@@ -88,7 +88,7 @@ fn should_deposit_stake() {
     run_test(|| {
         assert_ok!(Reward::deposit_stake(DOT, RewardPool::Global, &ALICE, fixed!(25)));
         assert_ok!(Reward::deposit_stake(DOT, RewardPool::Global, &ALICE, fixed!(25)));
-        assert_eq!(Reward::get_stake(DOT, RewardPool::Global, &ALICE), fixed!(50));
+        assert_eq!(Reward::get_stake(DOT, &RewardPool::Global, &ALICE), fixed!(50));
         assert_ok!(Reward::deposit_stake(DOT, RewardPool::Global, &BOB, fixed!(50)));
         assert_ok!(Reward::distribute(DOT, RewardPool::Global, fixed!(1000)));
         assert_ok!(Reward::compute_reward(DOT, &RewardPool::Global, &ALICE), 500);

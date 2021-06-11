@@ -520,10 +520,13 @@ impl vault_registry::Config for Runtime {
     type PalletId = VaultPalletId;
     type Event = Event;
     type RandomnessSource = RandomnessCollectiveFlip;
+    type SignedInner = i128;
     type Balance = Balance;
     type SignedFixedPoint = FixedI128;
     type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
+    type CollateralVaultRewards = reward::RewardsCurrencyAdapter<Runtime, reward::Vault, GetCollateralCurrencyId>;
+    type WrappedVaultRewards = reward::RewardsCurrencyAdapter<Runtime, reward::Vault, GetWrappedCurrencyId>;
     type Collateral = orml_tokens::CurrencyAdapter<Runtime, GetCollateralCurrencyId>;
     type Wrapped = orml_tokens::CurrencyAdapter<Runtime, GetWrappedCurrencyId>;
 }
@@ -613,9 +616,9 @@ pub use nomination::Event as NominationEvent;
 
 impl nomination::Config for Runtime {
     type Event = Event;
-    type UnsignedFixedPoint = FixedU128;
     type WeightInfo = ();
-    type SignedFixedPoint = FixedI128;
+    type CollateralVaultRewards = reward::RewardsCurrencyAdapter<Runtime, reward::Vault, GetCollateralCurrencyId>;
+    type WrappedVaultRewards = reward::RewardsCurrencyAdapter<Runtime, reward::Vault, GetWrappedCurrencyId>;
 }
 
 macro_rules! construct_interbtc_runtime {

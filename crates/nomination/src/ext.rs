@@ -35,11 +35,11 @@ pub(crate) mod collateral {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod vault_registry {
-    use crate::Collateral;
-    pub use ::vault_registry::{
+    use crate::{types::UnsignedFixedPoint, Collateral};
+    pub use frame_support::dispatch::{DispatchError, DispatchResult};
+    pub use vault_registry::{
         DefaultVault, Slashable, SlashingError, TryDepositCollateral, TryWithdrawCollateral, VaultStatus,
     };
-    pub use frame_support::dispatch::{DispatchError, DispatchResult};
 
     pub fn get_backing_collateral<T: crate::Config>(vault_id: &T::AccountId) -> Result<Collateral<T>, DispatchError> {
         <vault_registry::Pallet<T>>::get_backing_collateral(vault_id)
@@ -53,11 +53,11 @@ pub(crate) mod vault_registry {
         <vault_registry::Pallet<T>>::vault_exists(id)
     }
 
-    pub fn get_secure_collateral_threshold<T: crate::Config>() -> <T as crate::Config>::UnsignedFixedPoint {
+    pub fn get_secure_collateral_threshold<T: crate::Config>() -> UnsignedFixedPoint<T> {
         <vault_registry::Pallet<T>>::secure_collateral_threshold()
     }
 
-    pub fn get_premium_redeem_threshold<T: crate::Config>() -> <T as crate::Config>::UnsignedFixedPoint {
+    pub fn get_premium_redeem_threshold<T: crate::Config>() -> UnsignedFixedPoint<T> {
         <vault_registry::Pallet<T>>::premium_redeem_threshold()
     }
 
@@ -80,12 +80,16 @@ pub(crate) mod vault_registry {
 #[cfg_attr(test, mockable)]
 pub(crate) mod fee {
     use crate::types::{Collateral, UnsignedFixedPoint};
-    use frame_support::dispatch::DispatchError;
+    use frame_support::dispatch::{DispatchError, DispatchResult};
 
     pub fn collateral_for<T: crate::Config>(
         amount: Collateral<T>,
         percentage: UnsignedFixedPoint<T>,
     ) -> Result<Collateral<T>, DispatchError> {
         <fee::Pallet<T>>::collateral_for(amount, percentage)
+    }
+
+    pub fn withdraw_all_vault_rewards<T: fee::Config>(account_id: &T::AccountId) -> DispatchResult {
+        <fee::Pallet<T>>::withdraw_all_vault_rewards(account_id)
     }
 }

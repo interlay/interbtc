@@ -184,7 +184,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
 
     pub fn get_stake(
         currency_id: T::CurrencyId,
-        reward_pool: RewardPool<T::AccountId>,
+        reward_pool: &RewardPool<T::AccountId>,
         account_id: &T::AccountId,
     ) -> SignedFixedPoint<T, I> {
         Self::stake((currency_id, reward_pool, account_id))
@@ -242,7 +242,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
         reward_pool: &RewardPool<T::AccountId>,
         account_id: &T::AccountId,
     ) -> Result<<SignedFixedPoint<T, I> as FixedPointNumber>::Inner, DispatchError> {
-        let stake = <Stake<T, I>>::get((currency_id, reward_pool, account_id));
+        let stake = Self::get_stake(currency_id, reward_pool, account_id);
         let reward_per_token = Self::reward_per_token((currency_id, reward_pool));
         // FIXME: this can easily overflow with large numbers
         let stake_mul_reward_per_token = stake
@@ -303,7 +303,7 @@ impl<T: Config<I>, I: 'static> Pallet<T, I> {
             SignedFixedPoint::<T, I>::checked_from_integer(reward).ok_or(Error::<T, I>::TryIntoIntError)?;
         checked_sub_mut!(TotalRewards<T, I>, (currency_id, &reward_pool), &reward_as_fixed);
 
-        let stake = <Stake<T, I>>::get((currency_id, &reward_pool, account_id));
+        let stake = Self::get_stake(currency_id, &reward_pool, account_id);
         let reward_per_token = Self::reward_per_token((currency_id, &reward_pool));
         <RewardTally<T, I>>::insert(
             (currency_id, &reward_pool, account_id),
@@ -327,7 +327,7 @@ pub trait Rewards<AccountId> {
     type SignedFixedPoint: FixedPointNumber;
 
     /// Return the stake associated with the `account_id`.
-    fn get_stake(reward_pool: RewardPool<AccountId>, account_id: &AccountId) -> Self::SignedFixedPoint;
+    fn get_stake(reward_pool: &RewardPool<AccountId>, account_id: &AccountId) -> Self::SignedFixedPoint;
 
     /// Deposit an `amount` of stake to the `account_id`.
     fn deposit_stake(
@@ -372,7 +372,7 @@ where
 {
     type SignedFixedPoint = SignedFixedPoint<T, I>;
 
-    fn get_stake(reward_pool: RewardPool<T::AccountId>, account_id: &T::AccountId) -> Self::SignedFixedPoint {
+    fn get_stake(reward_pool: &RewardPool<T::AccountId>, account_id: &T::AccountId) -> Self::SignedFixedPoint {
         Pallet::<T, I>::get_stake(GetCurrencyId::get(), reward_pool, account_id)
     }
 
