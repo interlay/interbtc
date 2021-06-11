@@ -134,7 +134,7 @@ fn initialize_best_block_already_set_fails() {
 #[test]
 fn store_block_header_on_mainchain_succeeds() {
     run_test(|| {
-        BTCRelay::verify_block_header.mock_safe(|_| MockResult::Return(Ok(())));
+        BTCRelay::verify_block_header.mock_safe(|_, _, _| MockResult::Return(Ok(())));
         BTCRelay::block_header_exists.mock_safe(|_| MockResult::Return(true));
 
         let chain_ref: u32 = 0;
@@ -166,7 +166,7 @@ fn store_block_header_on_mainchain_succeeds() {
 #[test]
 fn store_block_header_on_fork_succeeds() {
     run_test(|| {
-        BTCRelay::verify_block_header.mock_safe(|_| MockResult::Return(Ok(())));
+        BTCRelay::verify_block_header.mock_safe(|_, _, _| MockResult::Return(Ok(())));
         BTCRelay::block_header_exists.mock_safe(|_| MockResult::Return(true));
 
         let chain_ref: u32 = 1;
@@ -208,6 +208,18 @@ fn store_block_header_parachain_shutdown_fails() {
         assert_err!(
             BTCRelay::store_block_header(&3, sample_block_header()),
             SecurityError::ParachainShutdown,
+        );
+    })
+}
+
+#[test]
+fn store_block_header_no_prev_block_fails() {
+    run_test(|| {
+        ext::security::ensure_parachain_status_not_shutdown::<Test>.mock_safe(|| MockResult::Return(Ok(())));
+
+        assert_err!(
+            BTCRelay::store_block_header(&3, sample_block_header()),
+            TestError::BlockNotFound,
         );
     })
 }
@@ -497,14 +509,16 @@ fn test_verify_block_header_no_retarget_succeeds() {
 
         let raw_first_header = RawBlockHeader::from_hex(sample_raw_first_header()).unwrap();
 
-        // Prev block is genesis
-        BTCRelay::get_block_header_from_hash.mock_safe(move |_| MockResult::Return(Ok(genesis_header)));
         // Not duplicate block
         BTCRelay::block_header_exists.mock_safe(move |_| MockResult::Return(false));
 
         let block_header = BTCRelay::parse_raw_block_header(&raw_first_header).unwrap();
 
-        assert_ok!(BTCRelay::verify_block_header(&block_header));
+        assert_ok!(BTCRelay::verify_block_header(
+            &block_header,
+            genesis_header.block_height + 1,
+            genesis_header
+        ));
     })
 }
 
@@ -534,7 +548,11 @@ fn test_verify_block_header_correct_retarget_increase_succeeds() {
         BTCRelay::compute_new_target.mock_safe(move |_, _| MockResult::Return(Ok(curr_block_header.target)));
 
         let block_header = BTCRelay::parse_raw_block_header(&retarget_headers[2]).unwrap();
-        assert_ok!(BTCRelay::verify_block_header(&block_header));
+        assert_ok!(BTCRelay::verify_block_header(
+            &block_header,
+            prev_block_header_rich.block_height + 1,
+            prev_block_header_rich
+        ));
     })
 }
 
@@ -556,15 +574,17 @@ fn test_verify_block_header_correct_retarget_decrease_succeeds() {
         );
 
         let curr_block_header = parse_block_header(&retarget_headers[2]).unwrap();
-        // Prev block exists
-        BTCRelay::get_block_header_from_hash.mock_safe(move |_| MockResult::Return(Ok(prev_block_header_rich)));
         // Not duplicate block
         BTCRelay::block_header_exists.mock_safe(move |_| MockResult::Return(false));
         // Compute new target returns target of submitted header (i.e., correct)
         BTCRelay::compute_new_target.mock_safe(move |_, _| MockResult::Return(Ok(curr_block_header.target)));
 
         let block_header = BTCRelay::parse_raw_block_header(&retarget_headers[2]).unwrap();
-        assert_ok!(BTCRelay::verify_block_header(&block_header));
+        assert_ok!(BTCRelay::verify_block_header(
+            &block_header,
+            prev_block_header_rich.block_height + 1,
+            prev_block_header_rich
+        ));
     })
 }
 
@@ -585,8 +605,6 @@ fn test_verify_block_header_missing_retarget_succeeds() {
         );
 
         let curr_block_header = parse_block_header(&retarget_headers[2]).unwrap();
-        // Prev block exists
-        BTCRelay::get_block_header_from_hash.mock_safe(move |_| MockResult::Return(Ok(prev_block_header_rich)));
         // Not duplicate block
         BTCRelay::block_header_exists.mock_safe(move |_| MockResult::Return(false));
         // Compute new target returns HIGHER target
@@ -594,7 +612,11 @@ fn test_verify_block_header_missing_retarget_succeeds() {
 
         let block_header = BTCRelay::parse_raw_block_header(&retarget_headers[2]).unwrap();
         assert_err!(
-            BTCRelay::verify_block_header(&block_header),
+            BTCRelay::verify_block_header(
+                &block_header,
+                prev_block_header_rich.block_height + 1,
+                prev_block_header_rich
+            ),
             TestError::DiffTargetHeader
         );
     })
@@ -645,21 +667,10 @@ fn test_verify_block_header_duplicate_fails() {
 
         let raw_first_header = RawBlockHeader::from_hex(sample_raw_first_header()).unwrap();
         let first_header = BTCRelay::parse_raw_block_header(&raw_first_header).unwrap();
-        assert_err!(BTCRelay::verify_block_header(&first_header), TestError::DuplicateBlock);
-    })
-}
-
-#[test]
-fn test_verify_block_header_no_prev_block_fails() {
-    run_test(|| {
-        // Prev block is MISSING
-        BTCRelay::get_block_header_from_hash.mock_safe(move |_| MockResult::Return(Err(TestError::PrevBlock.into())));
-        // submitted block does not yet exist
-        BTCRelay::block_header_exists.mock_safe(move |_| MockResult::Return(false));
-
-        let raw_first_header = RawBlockHeader::from_hex(sample_raw_first_header()).unwrap();
-        let first_header = BTCRelay::parse_raw_block_header(&raw_first_header).unwrap();
-        assert_err!(BTCRelay::verify_block_header(&first_header), TestError::PrevBlock);
+        assert_err!(
+            BTCRelay::verify_block_header(&first_header, genesis_header.block_height + 1, genesis_header),
+            TestError::DuplicateBlock
+        );
     })
 }
 
@@ -674,13 +685,14 @@ fn test_verify_block_header_low_diff_fails() {
         // block header with high target but weak hash
         let raw_first_header_weak = RawBlockHeader::from_hex(sample_raw_first_header_low_diff()).unwrap();
 
-        // Prev block is genesis
-        BTCRelay::get_block_header_from_hash.mock_safe(move |_| MockResult::Return(Ok(genesis_header)));
         // submitted block does not yet exist
         BTCRelay::block_header_exists.mock_safe(move |_| MockResult::Return(false));
 
         let first_header_weak = BTCRelay::parse_raw_block_header(&raw_first_header_weak).unwrap();
-        assert_err!(BTCRelay::verify_block_header(&first_header_weak), TestError::LowDiff);
+        assert_err!(
+            BTCRelay::verify_block_header(&first_header_weak, genesis_header.block_height + 1, genesis_header),
+            TestError::LowDiff
+        );
     });
 }
 

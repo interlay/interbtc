@@ -545,22 +545,21 @@ impl<T: Config> Pallet<T> {
         // Make sure Parachain is not shutdown
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
-        // ensure the block header is valid
-        Self::verify_block_header(&basic_block_header)?;
-
         let prev_header = Self::get_block_header_from_hash(basic_block_header.hash_prev_block)?;
 
-        // get the block chain of the previous header
-        let prev_blockchain = Self::get_block_chain_from_id(prev_header.chain_ref)?;
-
-        // Update the current block header
         // check if the prev block is the highest block in the chain
         // load the previous block header block height
         let prev_block_height = prev_header.block_height;
 
         // update the current block header with height and chain ref
         // Set the height of the block header
-        let current_block_height = prev_block_height + 1;
+        let current_block_height = prev_block_height.checked_add(1).ok_or(Error::<T>::ArithmeticOverflow)?;
+
+        // get the block chain of the previous header
+        let prev_blockchain = Self::get_block_chain_from_id(prev_header.chain_ref)?;
+
+        // ensure the block header is valid
+        Self::verify_block_header(&basic_block_header, current_block_height, prev_header)?;
 
         // Update the blockchain
         // check if we create a new blockchain or extend the existing one
@@ -1020,30 +1019,26 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Arguments
     ///
-    /// * block_header` - 80-byte block header
+    /// * `block_header` - block header
+    /// * `block_height` - Height of the new block
+    /// * `prev_block_header` - the previous block header in the chain
     ///
     /// # Returns
     ///
-    /// * `pure_block_header` - PureBlockHeader representation of the 80-byte block header
-    fn verify_block_header(basic_block_header: &BlockHeader) -> Result<(), DispatchError> {
-        let block_header_hash = basic_block_header.hash;
-
+    /// * `Ok(())` iff header is valid
+    fn verify_block_header(
+        block_header: &BlockHeader,
+        block_height: u32,
+        prev_block_header: RichBlockHeader<T::AccountId, T::BlockNumber>,
+    ) -> Result<(), DispatchError> {
         // Check that the block header is not yet stored in BTC-Relay
         ensure!(
-            !Self::block_header_exists(block_header_hash),
+            !Self::block_header_exists(block_header.hash),
             Error::<T>::DuplicateBlock
         );
 
-        // Check that the referenced previous block header exists in BTC-Relay
-        let prev_block_header = Self::get_block_header_from_hash(basic_block_header.hash_prev_block)?;
         // Check that the PoW hash satisfies the target set in the block header
-        ensure!(
-            block_header_hash.as_u256() < basic_block_header.target,
-            Error::<T>::LowDiff
-        );
-
-        // Check that the diff. target is indeed correctly set in the block header, i.e., check for re-target.
-        let block_height = prev_block_header.block_height + 1;
+        ensure!(block_header.hash.as_u256() < block_header.target, Error::<T>::LowDiff);
 
         if Self::disable_difficulty_check() {
             return Ok(());
@@ -1056,10 +1051,7 @@ impl<T: Config> Pallet<T> {
                 prev_block_header.block_header.target
             };
 
-        ensure!(
-            basic_block_header.target == expected_target,
-            Error::<T>::DiffTargetHeader
-        );
+        ensure!(block_header.target == expected_target, Error::<T>::DiffTargetHeader);
 
         Ok(())
     }
