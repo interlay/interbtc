@@ -1,5 +1,6 @@
 use crate as reward;
 use crate::{Config, Error};
+use codec::{Decode, Encode};
 use frame_support::parameter_types;
 use sp_arithmetic::FixedI128;
 use sp_core::H256;
@@ -19,13 +20,12 @@ frame_support::construct_runtime!(
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
         System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
-        Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
         Reward: reward::{Pallet, Call, Storage, Event<T>},
     }
 );
 
 pub type AccountId = u64;
-pub type Balance = u128;
+// pub type Balance = u128;
 pub type BlockNumber = u64;
 
 parameter_types! {
@@ -51,7 +51,7 @@ impl frame_system::Config for Test {
     type BlockHashCount = BlockHashCount;
     type Version = ();
     type PalletInfo = PalletInfo;
-    type AccountData = pallet_balances::AccountData<Balance>;
+    type AccountData = ();
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
@@ -59,30 +59,20 @@ impl frame_system::Config for Test {
     type OnSetCode = ();
 }
 
-parameter_types! {
-    pub const ExistentialDeposit: u64 = 1;
-    pub const MaxLocks: u32 = 50;
+#[derive(Encode, Decode, Debug, PartialEq, PartialOrd, Ord, Eq, Clone, Copy)]
+#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+pub enum CurrencyId {
+    DOT,
+    INTERBTC,
 }
 
-impl pallet_balances::Config for Test {
-    type MaxLocks = MaxLocks;
-    type Balance = Balance;
-    type Event = TestEvent;
-    type DustRemoval = ();
-    type ExistentialDeposit = ExistentialDeposit;
-    type AccountStore = System;
-    type WeightInfo = ();
-}
-
-parameter_types! {
-    pub const CurrencyName: &'static [u8] = b"Polkadot";
-    pub const CurrencySymbol: &'static [u8] = b"DOT";
-    pub const CurrencyDecimals: u8 = 10;
-}
+pub const DOT: CurrencyId = CurrencyId::DOT;
+// pub const INTERBTC: CurrencyId = CurrencyId::INTERBTC;
 
 impl Config for Test {
     type Event = TestEvent;
     type SignedFixedPoint = FixedI128;
+    type CurrencyId = CurrencyId;
 }
 
 pub type TestEvent = Event;
@@ -90,20 +80,12 @@ pub type TestError = Error<Test>;
 
 pub const ALICE: AccountId = 1;
 pub const BOB: AccountId = 2;
-pub const ALICE_BALANCE: u128 = 1_000_000;
-pub const BOB_BALANCE: u128 = 1_000_000;
 
 pub struct ExtBuilder;
 
 impl ExtBuilder {
     pub fn build() -> sp_io::TestExternalities {
-        let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
-
-        pallet_balances::GenesisConfig::<Test> {
-            balances: vec![(ALICE, ALICE_BALANCE), (BOB, BOB_BALANCE)],
-        }
-        .assimilate_storage(&mut storage)
-        .unwrap();
+        let storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
         storage.into()
     }

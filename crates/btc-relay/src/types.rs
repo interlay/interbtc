@@ -1,9 +1,6 @@
 use crate::{Error, ACCEPTED_MAX_TRANSACTION_OUTPUTS};
+use bitcoin::types::{BlockHeader, H256Le, Transaction, Value};
 pub use bitcoin::Address as BtcAddress;
-use bitcoin::{
-    parser::FromLeBytes,
-    types::{BlockHeader, H256Le, RawBlockHeader, Transaction, Value},
-};
 use codec::{Decode, Encode};
 use frame_support::{dispatch::DispatchError, ensure};
 use sp_core::H256;
@@ -11,40 +8,33 @@ use sp_std::{convert::TryFrom, vec::Vec};
 
 /// Bitcoin Enriched Block Headers
 #[derive(Encode, Decode, Default, Clone, Copy, PartialEq, Eq, Debug)]
-pub struct RichBlockHeader<AccountId, BlockNumber> {
+pub struct RichBlockHeader<BlockNumber> {
     pub block_header: BlockHeader,
+    /// height of the block in the bitcoin chain
     pub block_height: u32,
+    /// id if the chain that this block belongs to
     pub chain_ref: u32,
-    // required for fault attribution
-    pub account_id: AccountId,
+    /// active_block_number of the parachain at the time this block was submitted
     pub para_height: BlockNumber,
 }
 
-impl<AccountId, BlockNumber> RichBlockHeader<AccountId, BlockNumber> {
+impl<BlockNumber> RichBlockHeader<BlockNumber> {
     /// Creates a new RichBlockHeader
     ///
     /// # Arguments
     ///
-    /// * `raw_block_header` - 80 byte raw Bitcoin block header
+    /// * `block_header` - Bitcoin block header
     /// * `chain_ref` - chain reference
     /// * `block_height` - chain height
     /// * `account_id` - submitter
     /// * `para_height` - height of the parachain at submission
-    #[allow(dead_code)]
-    pub fn new(
-        raw_block_header: RawBlockHeader,
-        chain_ref: u32,
-        block_height: u32,
-        account_id: AccountId,
-        para_height: BlockNumber,
-    ) -> Result<Self, bitcoin::Error> {
-        Ok(RichBlockHeader {
-            block_header: BlockHeader::from_le_bytes(raw_block_header.as_bytes())?,
+    pub fn new(block_header: BlockHeader, chain_ref: u32, block_height: u32, para_height: BlockNumber) -> Self {
+        RichBlockHeader {
+            block_header,
             block_height,
             chain_ref,
-            account_id,
             para_height,
-        })
+        }
     }
 
     pub fn block_hash(&self) -> H256Le {

@@ -6,6 +6,7 @@ name = "reward"
 version = "0.6.0"
 
 [dependencies]
+serde = { version = "1.0.119", default-features = false, features = ["derive"], optional = true }
 codec = { package = "parity-scale-codec", version = "2.0.0", default-features = false, features = ["derive"] }
 
 # Substrate dependencies
@@ -18,7 +19,6 @@ sp-std = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v
 frame-support = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.3", default-features = false }
 frame-system = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.3", default-features = false }
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.3", default-features = false, optional = true }
-pallet-balances = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.3", default-features = false }
 
 [dev-dependencies]
 mocktopus = "0.7.0"
@@ -30,6 +30,7 @@ pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "
 [features]
 default = ["std"]
 std = [
+	"serde",
 	"codec/std",
 
 	"sp-arithmetic/std",
@@ -41,7 +42,6 @@ std = [
 	"frame-support/std",
 	"frame-system/std",
 	"frame-benchmarking/std",
-	"pallet-balances/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",

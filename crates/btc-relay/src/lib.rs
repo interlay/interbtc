@@ -367,7 +367,7 @@ pub mod pallet {
     /// Store Bitcoin block headers
     #[pallet::storage]
     pub(super) type BlockHeaders<T: Config> =
-        StorageMap<_, Blake2_128Concat, H256Le, RichBlockHeader<T::AccountId, T::BlockNumber>, ValueQuery>;
+        StorageMap<_, Blake2_128Concat, H256Le, RichBlockHeader<T::BlockNumber>, ValueQuery>;
 
     /// Priority queue of BlockChain elements, ordered by the maximum height (descending).
     /// The first index into this mapping (0) is considered to be the longest chain. The value
@@ -516,7 +516,7 @@ impl<T: Config> Pallet<T> {
         // Set BestBlock and BestBlockHeight to the submitted block
         Self::update_chain_head(&basic_block_header, block_height);
 
-        Self::store_rich_header(basic_block_header, block_height, chain_id, relayer.clone());
+        Self::store_rich_header(basic_block_header, block_height, chain_id);
 
         StartBlockHeight::<T>::set(block_height);
 
@@ -545,22 +545,21 @@ impl<T: Config> Pallet<T> {
         // Make sure Parachain is not shutdown
         ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
-        // ensure the block header is valid
-        Self::verify_block_header(&basic_block_header)?;
-
         let prev_header = Self::get_block_header_from_hash(basic_block_header.hash_prev_block)?;
 
-        // get the block chain of the previous header
-        let prev_blockchain = Self::get_block_chain_from_id(prev_header.chain_ref)?;
-
-        // Update the current block header
         // check if the prev block is the highest block in the chain
         // load the previous block header block height
         let prev_block_height = prev_header.block_height;
 
         // update the current block header with height and chain ref
         // Set the height of the block header
-        let current_block_height = prev_block_height + 1;
+        let current_block_height = prev_block_height.checked_add(1).ok_or(Error::<T>::ArithmeticOverflow)?;
+
+        // get the block chain of the previous header
+        let prev_blockchain = Self::get_block_chain_from_id(prev_header.chain_ref)?;
+
+        // ensure the block header is valid
+        Self::verify_block_header(&basic_block_header, current_block_height, prev_header)?;
 
         // Update the blockchain
         // check if we create a new blockchain or extend the existing one
@@ -588,7 +587,7 @@ impl<T: Config> Pallet<T> {
             blockchain.chain_id
         };
 
-        Self::store_rich_header(basic_block_header, current_block_height, chain_id, relayer.clone());
+        Self::store_rich_header(basic_block_header, current_block_height, chain_id);
 
         // Determine if this block extends the main chain or a fork
         let current_best_block = Self::get_best_block();
@@ -826,9 +825,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Get a block header from its hash
-    fn get_block_header_from_hash(
-        block_hash: H256Le,
-    ) -> Result<RichBlockHeader<T::AccountId, T::BlockNumber>, DispatchError> {
+    fn get_block_header_from_hash(block_hash: H256Le) -> Result<RichBlockHeader<T::BlockNumber>, DispatchError> {
         if BlockHeaders::<T>::contains_key(block_hash) {
             return Ok(BlockHeaders::<T>::get(block_hash));
         }
@@ -844,7 +841,7 @@ impl<T: Config> Pallet<T> {
     fn get_block_header_from_height(
         blockchain: &BlockChain,
         block_height: u32,
-    ) -> Result<RichBlockHeader<T::AccountId, T::BlockNumber>, DispatchError> {
+    ) -> Result<RichBlockHeader<T::BlockNumber>, DispatchError> {
         let block_hash = Self::get_block_hash(blockchain.chain_id, block_height)?;
         Self::get_block_header_from_hash(block_hash)
     }
@@ -899,7 +896,7 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Set a new block header
-    fn set_block_header_from_hash(hash: H256Le, header: &RichBlockHeader<T::AccountId, T::BlockNumber>) {
+    fn set_block_header_from_hash(hash: H256Le, header: &RichBlockHeader<T::BlockNumber>) {
         BlockHeaders::<T>::insert(hash, header);
     }
 
@@ -1020,30 +1017,26 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Arguments
     ///
-    /// * block_header` - 80-byte block header
+    /// * `block_header` - block header
+    /// * `block_height` - Height of the new block
+    /// * `prev_block_header` - the previous block header in the chain
     ///
     /// # Returns
     ///
-    /// * `pure_block_header` - PureBlockHeader representation of the 80-byte block header
-    fn verify_block_header(basic_block_header: &BlockHeader) -> Result<(), DispatchError> {
-        let block_header_hash = basic_block_header.hash;
-
+    /// * `Ok(())` iff header is valid
+    fn verify_block_header(
+        block_header: &BlockHeader,
+        block_height: u32,
+        prev_block_header: RichBlockHeader<T::BlockNumber>,
+    ) -> Result<(), DispatchError> {
         // Check that the block header is not yet stored in BTC-Relay
         ensure!(
-            !Self::block_header_exists(block_header_hash),
+            !Self::block_header_exists(block_header.hash),
             Error::<T>::DuplicateBlock
         );
 
-        // Check that the referenced previous block header exists in BTC-Relay
-        let prev_block_header = Self::get_block_header_from_hash(basic_block_header.hash_prev_block)?;
         // Check that the PoW hash satisfies the target set in the block header
-        ensure!(
-            block_header_hash.as_u256() < basic_block_header.target,
-            Error::<T>::LowDiff
-        );
-
-        // Check that the diff. target is indeed correctly set in the block header, i.e., check for re-target.
-        let block_height = prev_block_header.block_height + 1;
+        ensure!(block_header.hash.as_u256() < block_header.target, Error::<T>::LowDiff);
 
         if Self::disable_difficulty_check() {
             return Ok(());
@@ -1056,10 +1049,7 @@ impl<T: Config> Pallet<T> {
                 prev_block_header.block_header.target
             };
 
-        ensure!(
-            basic_block_header.target == expected_target,
-            Error::<T>::DiffTargetHeader
-        );
+        ensure!(block_header.target == expected_target, Error::<T>::DiffTargetHeader);
 
         Ok(())
     }
@@ -1071,7 +1061,7 @@ impl<T: Config> Pallet<T> {
     /// * `prev_block_header`: previous block header
     /// * `block_height` : block height of new target
     fn compute_new_target(
-        prev_block_header: &RichBlockHeader<T::AccountId, T::BlockNumber>,
+        prev_block_header: &RichBlockHeader<T::BlockNumber>,
         block_height: u32,
     ) -> Result<U256, DispatchError> {
         // get time of last retarget
@@ -1511,15 +1501,9 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    fn store_rich_header(basic_block_header: BlockHeader, block_height: u32, chain_id: u32, relayer: T::AccountId) {
+    fn store_rich_header(basic_block_header: BlockHeader, block_height: u32, chain_id: u32) {
         let para_height = ext::security::active_block_number::<T>();
-        let block_header = RichBlockHeader::<T::AccountId, T::BlockNumber> {
-            block_header: basic_block_header,
-            block_height,
-            chain_ref: chain_id,
-            account_id: relayer,
-            para_height,
-        };
+        let block_header = RichBlockHeader::new(basic_block_header, chain_id, block_height, para_height);
         Self::set_block_header_from_hash(basic_block_header.hash, &block_header);
     }
 

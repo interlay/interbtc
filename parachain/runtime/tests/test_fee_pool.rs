@@ -50,17 +50,13 @@ macro_rules! assert_eq_modulo_rounding {
 }
 
 fn withdraw_vault_global_pool_rewards(account: [u8; 32]) -> i128 {
-    let amount = RewardWrappedVaultPallet::compute_reward(&RewardPool::Global, &account_of(account)).unwrap();
+    let amount = RewardVaultPallet::compute_reward(INTERBTC, &RewardPool::Global, &account_of(account)).unwrap();
     assert_ok!(Call::Fee(FeeCall::withdraw_vault_wrapped_rewards()).dispatch(origin_of(account_of(account))));
     amount
 }
 
-fn get_vault_global_pool_rewards(account: [u8; 32]) -> i128 {
-    RewardWrappedVaultPallet::compute_reward(&RewardPool::Global, &account_of(account)).unwrap()
-}
-
 fn withdraw_relayer_global_pool_rewards(account: [u8; 32]) -> i128 {
-    let amount = RewardWrappedRelayerPallet::compute_reward(&RewardPool::Global, &account_of(account)).unwrap();
+    let amount = RewardRelayerPallet::compute_reward(INTERBTC, &RewardPool::Global, &account_of(account)).unwrap();
     assert_ok!(Call::Fee(FeeCall::withdraw_relayer_wrapped_rewards()).dispatch(origin_of(account_of(account))));
     amount
 }

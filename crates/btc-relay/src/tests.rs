@@ -45,11 +45,10 @@ fn get_block_header_from_hash_succeeds() {
         let chain_ref: u32 = 2;
         let block_height: u32 = 100;
 
-        let rich_header = RichBlockHeader::<AccountId, BlockNumber> {
+        let rich_header = RichBlockHeader::<BlockNumber> {
             block_header: sample_block_header(),
             block_height,
             chain_ref,
-            account_id: Default::default(),
             para_height: Default::default(),
         };
 
@@ -134,7 +133,7 @@ fn initialize_best_block_already_set_fails() {
 #[test]
 fn store_block_header_on_mainchain_succeeds() {
     run_test(|| {
-        BTCRelay::verify_block_header.mock_safe(|_| MockResult::Return(Ok(())));
+        BTCRelay::verify_block_header.mock_safe(|_, _, _| MockResult::Return(Ok(())));
         BTCRelay::block_header_exists.mock_safe(|_| MockResult::Return(true));
 
         let chain_ref: u32 = 0;
@@ -142,11 +141,10 @@ fn store_block_header_on_mainchain_succeeds() {
         let block_height: u32 = 100;
         let block_header = sample_block_header();
 
-        let rich_header = RichBlockHeader::<AccountId, BlockNumber> {
+        let rich_header = RichBlockHeader::<BlockNumber> {
             block_header,
             block_height,
             chain_ref,
-            account_id: Default::default(),
             para_height: Default::default(),
         };
         BTCRelay::get_block_header_from_hash.mock_safe(move |_| MockResult::Return(Ok(rich_header)));
@@ -166,7 +164,7 @@ fn store_block_header_on_mainchain_succeeds() {
 #[test]
 fn store_block_header_on_fork_succeeds() {
     run_test(|| {
-        BTCRelay::verify_block_header.mock_safe(|_| MockResult::Return(Ok(())));
+        BTCRelay::verify_block_header.mock_safe(|_, _, _| MockResult::Return(Ok(())));
         BTCRelay::block_header_exists.mock_safe(|_| MockResult::Return(true));
 
         let chain_ref: u32 = 1;
@@ -174,11 +172,10 @@ fn store_block_header_on_fork_succeeds() {
         let block_height: u32 = 100;
         let block_header = sample_block_header();
 
-        let rich_header = RichBlockHeader::<AccountId, BlockNumber> {
+        let rich_header = RichBlockHeader::<BlockNumber> {
             block_header,
             block_height: block_height - 1,
             chain_ref,
-            account_id: Default::default(),
             para_height: Default::default(),
         };
         BTCRelay::get_block_header_from_hash.mock_safe(move |_| MockResult::Return(Ok(rich_header)));
@@ -208,6 +205,18 @@ fn store_block_header_parachain_shutdown_fails() {
         assert_err!(
             BTCRelay::store_block_header(&3, sample_block_header()),
             SecurityError::ParachainShutdown,
+        );
+    })
+}
+
+#[test]
+fn store_block_header_no_prev_block_fails() {
+    run_test(|| {
+        ext::security::ensure_parachain_status_not_shutdown::<Test>.mock_safe(|| MockResult::Return(Ok(())));
+
+        assert_err!(
+            BTCRelay::store_block_header(&3, sample_block_header()),
+            TestError::BlockNotFound,
         );
     })
 }
@@ -497,14 +506,16 @@ fn test_verify_block_header_no_retarget_succeeds() {
 
         let raw_first_header = RawBlockHeader::from_hex(sample_raw_first_header()).unwrap();
 
-        // Prev block is genesis
-        BTCRelay::get_block_header_from_hash.mock_safe(move |_| MockResult::Return(Ok(genesis_header)));
         // Not duplicate block
         BTCRelay::block_header_exists.mock_safe(move |_| MockResult::Return(false));
 
         let block_header = BTCRelay::parse_raw_block_header(&raw_first_header).unwrap();
 
-        assert_ok!(BTCRelay::verify_block_header(&block_header));
+        assert_ok!(BTCRelay::verify_block_header(
+            &block_header,
+            genesis_header.block_height + 1,
+            genesis_header
+        ));
     })
 }
 
@@ -517,14 +528,12 @@ fn test_verify_block_header_correct_retarget_increase_succeeds() {
         // Sample interval with INCREASING target
         let retarget_headers = sample_retarget_interval_increase();
 
-        let prev_block_header_rich = RichBlockHeader::<AccountId, BlockNumber>::new(
-            retarget_headers[1],
+        let prev_block_header_rich = RichBlockHeader::<BlockNumber>::new(
+            parse_block_header(&retarget_headers[1]).unwrap(),
             chain_ref,
             block_height,
             Default::default(),
-            Default::default(),
-        )
-        .unwrap();
+        );
 
         let curr_block_header = parse_block_header(&retarget_headers[2]).unwrap();
         // Prev block exists
@@ -535,7 +544,11 @@ fn test_verify_block_header_correct_retarget_increase_succeeds() {
         BTCRelay::compute_new_target.mock_safe(move |_, _| MockResult::Return(Ok(curr_block_header.target)));
 
         let block_header = BTCRelay::parse_raw_block_header(&retarget_headers[2]).unwrap();
-        assert_ok!(BTCRelay::verify_block_header(&block_header));
+        assert_ok!(BTCRelay::verify_block_header(
+            &block_header,
+            prev_block_header_rich.block_height + 1,
+            prev_block_header_rich
+        ));
     })
 }
 
@@ -548,25 +561,25 @@ fn test_verify_block_header_correct_retarget_decrease_succeeds() {
         // Sample interval with DECREASING target
         let retarget_headers = sample_retarget_interval_decrease();
 
-        let prev_block_header_rich = RichBlockHeader::<AccountId, BlockNumber>::new(
-            retarget_headers[1],
+        let prev_block_header_rich = RichBlockHeader::<BlockNumber>::new(
+            parse_block_header(&retarget_headers[1]).unwrap(),
             chain_ref,
             block_height,
             Default::default(),
-            Default::default(),
-        )
-        .unwrap();
+        );
 
         let curr_block_header = parse_block_header(&retarget_headers[2]).unwrap();
-        // Prev block exists
-        BTCRelay::get_block_header_from_hash.mock_safe(move |_| MockResult::Return(Ok(prev_block_header_rich)));
         // Not duplicate block
         BTCRelay::block_header_exists.mock_safe(move |_| MockResult::Return(false));
         // Compute new target returns target of submitted header (i.e., correct)
         BTCRelay::compute_new_target.mock_safe(move |_, _| MockResult::Return(Ok(curr_block_header.target)));
 
         let block_header = BTCRelay::parse_raw_block_header(&retarget_headers[2]).unwrap();
-        assert_ok!(BTCRelay::verify_block_header(&block_header));
+        assert_ok!(BTCRelay::verify_block_header(
+            &block_header,
+            prev_block_header_rich.block_height + 1,
+            prev_block_header_rich
+        ));
     })
 }
 
@@ -578,18 +591,14 @@ fn test_verify_block_header_missing_retarget_succeeds() {
         let block_height: u32 = 2015;
         let retarget_headers = sample_retarget_interval_increase();
 
-        let prev_block_header_rich = RichBlockHeader::<AccountId, BlockNumber>::new(
-            retarget_headers[1],
+        let prev_block_header_rich = RichBlockHeader::<BlockNumber>::new(
+            parse_block_header(&retarget_headers[1]).unwrap(),
             chain_ref,
             block_height,
             Default::default(),
-            Default::default(),
-        )
-        .unwrap();
+        );
 
         let curr_block_header = parse_block_header(&retarget_headers[2]).unwrap();
-        // Prev block exists
-        BTCRelay::get_block_header_from_hash.mock_safe(move |_| MockResult::Return(Ok(prev_block_header_rich)));
         // Not duplicate block
         BTCRelay::block_header_exists.mock_safe(move |_| MockResult::Return(false));
         // Compute new target returns HIGHER target
@@ -597,7 +606,11 @@ fn test_verify_block_header_missing_retarget_succeeds() {
 
         let block_header = BTCRelay::parse_raw_block_header(&retarget_headers[2]).unwrap();
         assert_err!(
-            BTCRelay::verify_block_header(&block_header),
+            BTCRelay::verify_block_header(
+                &block_header,
+                prev_block_header_rich.block_height + 1,
+                prev_block_header_rich
+            ),
             TestError::DiffTargetHeader
         );
     })
@@ -611,14 +624,12 @@ fn test_compute_new_target() {
     let retarget_headers = sample_retarget_interval_increase();
 
     let last_retarget_time = parse_block_header(&retarget_headers[0]).unwrap().timestamp as u64;
-    let prev_block_header = RichBlockHeader::<AccountId, BlockNumber>::new(
-        retarget_headers[1],
+    let prev_block_header = RichBlockHeader::<BlockNumber>::new(
+        parse_block_header(&retarget_headers[1]).unwrap(),
         chain_ref,
         block_height,
         Default::default(),
-        Default::default(),
-    )
-    .unwrap();
+    );
 
     let curr_block_header = parse_block_header(&retarget_headers[2]).unwrap();
 
@@ -649,21 +660,10 @@ fn test_verify_block_header_duplicate_fails() {
 
         let raw_first_header = RawBlockHeader::from_hex(sample_raw_first_header()).unwrap();
         let first_header = BTCRelay::parse_raw_block_header(&raw_first_header).unwrap();
-        assert_err!(BTCRelay::verify_block_header(&first_header), TestError::DuplicateBlock);
-    })
-}
-
-#[test]
-fn test_verify_block_header_no_prev_block_fails() {
-    run_test(|| {
-        // Prev block is MISSING
-        BTCRelay::get_block_header_from_hash.mock_safe(move |_| MockResult::Return(Err(TestError::PrevBlock.into())));
-        // submitted block does not yet exist
-        BTCRelay::block_header_exists.mock_safe(move |_| MockResult::Return(false));
-
-        let raw_first_header = RawBlockHeader::from_hex(sample_raw_first_header()).unwrap();
-        let first_header = BTCRelay::parse_raw_block_header(&raw_first_header).unwrap();
-        assert_err!(BTCRelay::verify_block_header(&first_header), TestError::PrevBlock);
+        assert_err!(
+            BTCRelay::verify_block_header(&first_header, genesis_header.block_height + 1, genesis_header),
+            TestError::DuplicateBlock
+        );
     })
 }
 
@@ -678,13 +678,14 @@ fn test_verify_block_header_low_diff_fails() {
         // block header with high target but weak hash
         let raw_first_header_weak = RawBlockHeader::from_hex(sample_raw_first_header_low_diff()).unwrap();
 
-        // Prev block is genesis
-        BTCRelay::get_block_header_from_hash.mock_safe(move |_| MockResult::Return(Ok(genesis_header)));
         // submitted block does not yet exist
         BTCRelay::block_header_exists.mock_safe(move |_| MockResult::Return(false));
 
         let first_header_weak = BTCRelay::parse_raw_block_header(&raw_first_header_weak).unwrap();
-        assert_err!(BTCRelay::verify_block_header(&first_header_weak), TestError::LowDiff);
+        assert_err!(
+            BTCRelay::verify_block_header(&first_header_weak, genesis_header.block_height + 1, genesis_header),
+            TestError::LowDiff
+        );
     });
 }
 
@@ -954,11 +955,10 @@ fn test_flag_block_error_succeeds() {
         let start_height: u32 = 10;
         let block_height: u32 = 100;
 
-        let rich_header = RichBlockHeader::<AccountId, BlockNumber> {
+        let rich_header = RichBlockHeader::<BlockNumber> {
             block_header: sample_block_header(),
             block_height,
             chain_ref,
-            account_id: Default::default(),
             para_height: Default::default(),
         };
 
@@ -995,11 +995,10 @@ fn test_flag_block_error_fails() {
         let start_height: u32 = 20;
         let block_height: u32 = 100;
 
-        let rich_header = RichBlockHeader::<AccountId, BlockNumber> {
+        let rich_header = RichBlockHeader::<BlockNumber> {
             block_header: sample_block_header(),
             block_height,
             chain_ref,
-            account_id: Default::default(),
             para_height: Default::default(),
         };
 
@@ -1026,11 +1025,10 @@ fn test_clear_block_error_succeeds() {
         let start_height: u32 = 15;
         let block_height: u32 = 100;
 
-        let rich_header = RichBlockHeader::<AccountId, BlockNumber> {
+        let rich_header = RichBlockHeader::<BlockNumber> {
             block_header: sample_block_header(),
             block_height,
             chain_ref,
-            account_id: Default::default(),
             para_height: Default::default(),
         };
 
@@ -1079,11 +1077,10 @@ fn test_clear_block_error_fails() {
         let start_height: u32 = 20;
         let block_height: u32 = 100;
 
-        let rich_header = RichBlockHeader::<AccountId, BlockNumber> {
+        let rich_header = RichBlockHeader::<BlockNumber> {
             block_header: sample_block_header(),
             block_height,
             chain_ref,
-            account_id: Default::default(),
             para_height: Default::default(),
         };
 
@@ -2025,11 +2022,10 @@ fn store_blockchain_and_random_headers(id: u32, start_height: u32, max_height: u
         };
         block_header.update_hash().unwrap();
 
-        let rich_header = RichBlockHeader::<AccountId, BlockNumber> {
+        let rich_header = RichBlockHeader::<BlockNumber> {
             block_header,
             block_height: height,
             chain_ref: id,
-            account_id: Default::default(),
             para_height: Default::default(),
         };
 
@@ -2047,13 +2043,12 @@ fn sample_raw_genesis_header() -> String {
     "01000000".to_owned() + "a7c3299ed2475e1d6ea5ed18d5bfe243224add249cce99c5c67cc9fb00000000601c73862a0a7238e376f497783c8ecca2cf61a4f002ec8898024230787f399cb575d949ffff001d3a5de07f"
 }
 
-fn sample_parsed_genesis_header(chain_ref: u32, block_height: u32) -> RichBlockHeader<AccountId, BlockNumber> {
+fn sample_parsed_genesis_header(chain_ref: u32, block_height: u32) -> RichBlockHeader<BlockNumber> {
     let genesis_header = RawBlockHeader::from_hex(sample_raw_genesis_header()).unwrap();
-    RichBlockHeader::<AccountId, BlockNumber> {
+    RichBlockHeader::<BlockNumber> {
         block_header: parse_block_header(&genesis_header).unwrap(),
         block_height,
         chain_ref,
-        account_id: Default::default(),
         para_height: Default::default(),
     }
 }
@@ -2071,13 +2066,12 @@ fn sample_raw_first_header() -> String {
     "01000000".to_owned() + "cb60e68ead74025dcfd4bf4673f3f71b1e678be9c6e6585f4544c79900000000c7f42be7f83eddf2005272412b01204352a5fddbca81942c115468c3c4ec2fff827ad949ffff001d21e05e45"
 }
 
-fn sample_parsed_first_block(chain_ref: u32, block_height: u32) -> RichBlockHeader<AccountId, BlockNumber> {
+fn sample_parsed_first_block(chain_ref: u32, block_height: u32) -> RichBlockHeader<BlockNumber> {
     let block_header = RawBlockHeader::from_hex(sample_raw_first_header()).unwrap();
-    RichBlockHeader::<AccountId, BlockNumber> {
+    RichBlockHeader::<BlockNumber> {
         block_header: parse_block_header(&block_header).unwrap(),
         block_height,
         chain_ref,
-        account_id: Default::default(),
         para_height: Default::default(),
     }
 }
@@ -2108,13 +2102,12 @@ fn sample_accepted_transaction() -> String {
     "020000000001010000000000000000000000000000000000000000000000000000000000000000ffffffff0502cb000101ffffffff02400606950000000017a91466c7060feb882664ae62ffad0051fe843e318e85870000000000000000266a24aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb46750120000000000000000000000000000000000000000000000000000000000000000000000000".to_owned()
 }
 
-fn sample_rich_tx_block_header(chain_ref: u32, block_height: u32) -> RichBlockHeader<AccountId, BlockNumber> {
+fn sample_rich_tx_block_header(chain_ref: u32, block_height: u32) -> RichBlockHeader<BlockNumber> {
     let raw_header = RawBlockHeader::from_hex("0000003096cb3d93696c4f56c10da153963d35abf4692c07b2b3bf0702fb4cb32a8682211ee1fb90996ca1d5dcd12866ba9066458bf768641215933d7d8b3a10ef79d090e8a13a5effff7f2005000000".to_owned()).unwrap();
-    RichBlockHeader::<AccountId, BlockNumber> {
+    RichBlockHeader::<BlockNumber> {
         block_header: parse_block_header(&raw_header).unwrap(),
         block_height,
         chain_ref,
-        account_id: Default::default(),
         para_height: Default::default(),
     }
 }

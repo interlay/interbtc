@@ -970,6 +970,8 @@ dependencies = [
  "module-staked-relayers-rpc-runtime-api",
  "module-vault-registry-rpc-runtime-api",
  "nomination",
+ "orml-tokens",
+ "orml-traits",
  "pallet-aura",
  "pallet-balances",
  "pallet-collective",
@@ -1081,7 +1083,6 @@ dependencies = [
  "hex",
  "itertools 0.10.0",
  "mocktopus",
- "pallet-balances",
  "pallet-randomness-collective-flip",
  "pallet-timestamp",
  "parity-scale-codec",
@@ -2005,8 +2006,11 @@ version = "0.7.0"
 dependencies = [
  "frame-support",
  "frame-system",
- "pallet-balances",
+ "orml-tokens",
+ "orml-traits",
+ "pallet-transaction-payment",
  "parity-scale-codec",
+ "serde",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -2355,12 +2359,10 @@ checksum = "f7531096570974c3a9dcf9e4b8e1cede1ec26cf5046219fb3b9d897503b9be59"
 name = "exchange-rate-oracle"
 version = "0.7.0"
 dependencies = [
- "currency",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "mocktopus",
- "pallet-balances",
  "pallet-timestamp",
  "parity-scale-codec",
  "security",
@@ -2441,12 +2443,14 @@ dependencies = [
  "frame-support",
  "frame-system",
  "mocktopus",
- "pallet-balances",
+ "orml-tokens",
+ "orml-traits",
  "pallet-randomness-collective-flip",
  "pallet-timestamp",
  "parity-scale-codec",
  "reward",
  "security",
+ "serde",
  "sla",
  "sp-arithmetic",
  "sp-core",
@@ -3569,7 +3573,8 @@ dependencies = [
  "frame-support",
  "frame-system",
  "mocktopus",
- "pallet-balances",
+ "orml-tokens",
+ "orml-traits",
  "pallet-randomness-collective-flip",
  "pallet-timestamp",
  "parity-scale-codec",
@@ -5174,7 +5179,8 @@ dependencies = [
  "frame-support",
  "frame-system",
  "mocktopus",
- "pallet-balances",
+ "orml-tokens",
+ "orml-traits",
  "pallet-randomness-collective-flip",
  "pallet-timestamp",
  "parity-scale-codec",
@@ -5323,6 +5329,49 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3305af35278dd29f46fcdd139e0b1fbfae2153f0e5928b39b035542dd31e37b7"
 dependencies = [
  "num-traits",
+]
+
+[[package]]
+name = "orml-tokens"
+version = "0.4.1-dev"
+source = "git+https://github.com/open-web3-stack/open-runtime-module-library?rev=6862e1ced561c1c970afc8c5d00d2e023fc3b965#6862e1ced561c1c970afc8c5d00d2e023fc3b965"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "orml-traits",
+ "parity-scale-codec",
+ "serde",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "orml-traits"
+version = "0.4.1-dev"
+source = "git+https://github.com/open-web3-stack/open-runtime-module-library?rev=6862e1ced561c1c970afc8c5d00d2e023fc3b965#6862e1ced561c1c970afc8c5d00d2e023fc3b965"
+dependencies = [
+ "frame-support",
+ "impl-trait-for-tuples",
+ "num-traits",
+ "orml-utilities",
+ "parity-scale-codec",
+ "serde",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "orml-utilities"
+version = "0.4.1-dev"
+source = "git+https://github.com/open-web3-stack/open-runtime-module-library?rev=6862e1ced561c1c970afc8c5d00d2e023fc3b965#6862e1ced561c1c970afc8c5d00d2e023fc3b965"
+dependencies = [
+ "frame-support",
+ "parity-scale-codec",
+ "serde",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -7827,7 +7876,8 @@ dependencies = [
  "frame-support",
  "frame-system",
  "mocktopus",
- "pallet-balances",
+ "orml-tokens",
+ "orml-traits",
  "pallet-randomness-collective-flip",
  "pallet-timestamp",
  "parity-scale-codec",
@@ -7913,11 +7963,11 @@ dependencies = [
  "frame-support",
  "frame-system",
  "mocktopus",
- "pallet-balances",
+ "orml-tokens",
+ "orml-traits",
  "pallet-randomness-collective-flip",
  "pallet-timestamp",
  "parity-scale-codec",
- "redeem",
  "reward",
  "security",
  "serde",
@@ -8020,7 +8070,8 @@ dependencies = [
  "frame-system",
  "mocktopus",
  "nomination",
- "pallet-balances",
+ "orml-tokens",
+ "orml-traits",
  "pallet-randomness-collective-flip",
  "pallet-timestamp",
  "parity-scale-codec",
@@ -8060,11 +8111,11 @@ dependencies = [
  "frame-support",
  "frame-system",
  "mocktopus",
- "pallet-balances",
  "pallet-randomness-collective-flip",
  "pallet-timestamp",
  "parity-scale-codec",
  "rand 0.8.3",
+ "serde",
  "sp-arithmetic",
  "sp-core",
  "sp-io",
@@ -9638,6 +9689,7 @@ dependencies = [
  "parity-scale-codec",
  "reward",
  "security",
+ "serde",
  "sp-arithmetic",
  "sp-core",
  "sp-io",
@@ -10471,7 +10523,8 @@ dependencies = [
  "hex",
  "mocktopus",
  "nomination",
- "pallet-balances",
+ "orml-tokens",
+ "orml-traits",
  "pallet-randomness-collective-flip",
  "pallet-timestamp",
  "parity-scale-codec",
@@ -10480,6 +10533,7 @@ dependencies = [
  "replace",
  "reward",
  "security",
+ "serde",
  "sla",
  "sp-arithmetic",
  "sp-core",
@@ -11520,7 +11574,8 @@ dependencies = [
  "frame-system",
  "log",
  "mocktopus",
- "pallet-balances",
+ "orml-tokens",
+ "orml-traits",
  "pallet-randomness-collective-flip",
  "pallet-timestamp",
  "parity-scale-codec",

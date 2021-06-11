@@ -30,7 +30,7 @@ extern crate mocktopus;
 use mocktopus::macros::mockable;
 
 use crate::types::{
-    BtcAddress, Collateral, DefaultSystemVault, RichSystemVault, RichVault, SignedFixedPoint, SignedInner,
+    BalanceOf, BtcAddress, Collateral, DefaultSystemVault, RichSystemVault, RichVault, SignedFixedPoint, SignedInner,
     UnsignedFixedPoint, UpdatableVault, Version, Wrapped,
 };
 
@@ -41,6 +41,7 @@ pub use crate::{
 };
 use bitcoin::types::Value;
 use codec::{Decode, Encode, EncodeLike, FullCodec};
+use currency::ParachainCurrency;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
@@ -68,20 +69,6 @@ use sp_std::{
 // value taken from https://github.com/substrate-developer-hub/recipes/blob/master/pallets/ocw-demo/src/lib.rs
 pub const UNSIGNED_TXS_PRIORITY: u64 = 100;
 
-#[derive(Encode, Decode, Default, Clone, PartialEq)]
-#[cfg_attr(feature = "std", derive(Debug))]
-pub struct RegisterRequest<AccountId, DateTime> {
-    registration_id: H256,
-    vault: AccountId,
-    timeout: DateTime,
-}
-
-#[derive(Encode, Decode, Eq, PartialEq)]
-pub enum LiquidationTarget {
-    OperatorsOnly,
-    NonOperatorsOnly,
-}
-
 pub use pallet::*;
 
 #[frame_support::pallet]
@@ -98,10 +85,8 @@ pub mod pallet {
     pub trait Config:
         frame_system::Config
         + SendTransactionTypes<Call<Self>>
-        + currency::Config<currency::Collateral, Balance = <Self as Config>::Balance>
-        + currency::Config<currency::Wrapped, Balance = <Self as Config>::Balance>
-        + exchange_rate_oracle::Config<Balance = <Self as Config>::Balance>
-        + sla::Config<Balance = <Self as Config>::Balance>
+        + exchange_rate_oracle::Config<Balance = BalanceOf<Self>>
+        + sla::Config<Balance = BalanceOf<Self>>
         + security::Config
     {
         /// The vault module id, used for deriving its sovereign account ID.
@@ -137,7 +122,7 @@ pub mod pallet {
             + MaybeSerializeDeserialize;
 
         /// The type of unsigned fixed point to use for the different thresholds.
-        type UnsignedFixedPoint: FixedPointNumber<Inner = <Self as Config>::Balance>
+        type UnsignedFixedPoint: FixedPointNumber<Inner = BalanceOf<Self>>
             + Encode
             + EncodeLike
             + Decode
@@ -151,6 +136,12 @@ pub mod pallet {
 
         /// Vault reward pool for the wrapped currency.
         type WrappedVaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
+
+        /// Collateral currency, e.g. DOT/KSM.
+        type Collateral: ParachainCurrency<Self::AccountId, Balance = BalanceOf<Self>>;
+
+        /// Wrapped currency, e.g. InterBTC.
+        type Wrapped: ParachainCurrency<Self::AccountId, Balance = BalanceOf<Self>>;
     }
 
     #[pallet::hooks]
@@ -638,7 +629,7 @@ impl<T: Config> Pallet<T> {
         let mut vault = Self::get_rich_vault_from_id(vault_id)?;
 
         // will fail if reserved_balance is insufficient
-        ext::collateral::release::<T>(vault_id, amount)?;
+        ext::collateral::unlock::<T>(vault_id, amount)?;
         vault.try_withdraw_collateral(amount)?;
         Self::decrease_total_backing_collateral(amount)?;
         // Withdraw `amount` of stake from the local reward pool
@@ -703,7 +694,7 @@ impl<T: Config> Pallet<T> {
 
     fn slash_backing_collateral(vault_id: &T::AccountId, amount: Collateral<T>) -> DispatchResult {
         let mut vault = Self::get_rich_vault_from_id(vault_id)?;
-        ext::collateral::release::<T>(vault_id, amount)?;
+        ext::collateral::unlock::<T>(vault_id, amount)?;
         vault.slash_collateral(amount)?;
         Ok(())
     }
@@ -714,7 +705,7 @@ impl<T: Config> Pallet<T> {
                 Self::slash_backing_collateral(account, amount)?;
             }
             CurrencySource::Griefing(_) | CurrencySource::ReservedBalance(_) | CurrencySource::LiquidationVault => {
-                ext::collateral::release::<T>(&from.account_id(), amount)?;
+                ext::collateral::unlock::<T>(&from.account_id(), amount)?;
             }
             CurrencySource::FreeBalance(_) => {
                 // do nothing

@@ -5,7 +5,9 @@ use bitcoin::{
     types::{BlockBuilder, RawBlockHeader, TransactionBuilder, TransactionInputBuilder, TransactionOutput},
 };
 use btc_relay::{BtcAddress, BtcPublicKey, Pallet as BtcRelay};
+use currency::ParachainCurrency;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
+use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use security::Pallet as Security;
 use sp_core::{H160, H256, U256};
@@ -15,7 +17,7 @@ use vault_registry::{
     Pallet as VaultRegistry,
 };
 
-type Treasury<T> = currency::Pallet<T, currency::Wrapped>;
+type Treasury<T> = <T as vault_registry::Config>::Wrapped;
 
 fn dummy_public_key() -> BtcPublicKey {
     BtcPublicKey([
@@ -40,7 +42,7 @@ benchmarks! {
             vault
         );
 
-        Treasury::<T>::mint(origin.clone(), amount);
+        assert_ok!(Treasury::<T>::mint(&origin, amount));
 
     }: _(RawOrigin::Signed(origin), amount, btc_address, vault_id.clone())
 
@@ -173,6 +175,6 @@ benchmarks! {
 
 impl_benchmark_test_suite!(
     Redeem,
-    crate::mock::ExtBuilder::build_with(Default::default(), Default::default()),
+    crate::mock::ExtBuilder::build_with(Default::default()),
     crate::mock::Test
 );

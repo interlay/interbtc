@@ -1,340 +1,214 @@
-//! # Currency Module
-//! Based on the [Collateral specification](https://interlay.gitlab.io/polkabtc-spec/spec/collateral.html).
-//! Based on the [Treasury specification](https://interlay.gitlab.io/polkabtc-spec/spec/treasury.html).
+//! # Currency Wrappers
 
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(test)]
-mod mock;
-
-#[cfg(test)]
-mod tests;
-
 use codec::FullCodec;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
-    traits::{Currency, ExistenceRequirement, ReservableCurrency},
+    traits::{Currency, ExistenceRequirement, Get, Imbalance, OnUnbalanced, WithdrawReasons},
+    unsigned::TransactionValidityError,
 };
-use sp_runtime::traits::{AtLeast32BitUnsigned, CheckedAdd, CheckedSub};
-use sp_std::{fmt::Debug, vec::Vec};
+use orml_traits::{MultiCurrency, MultiReservableCurrency};
+use pallet_transaction_payment::OnChargeTransaction;
+use sp_runtime::{
+    traits::{AtLeast32BitUnsigned, DispatchInfoOf, MaybeSerializeDeserialize, PostDispatchInfoOf, Saturating, Zero},
+    transaction_validity::InvalidTransaction,
+};
+use sp_std::{fmt::Debug, marker::PhantomData};
 
-pub type BalanceOf<T, I = ()> =
-    <<T as Config<I>>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
+pub trait ParachainCurrency<AccountId> {
+    /// The balance of an account.
+    type Balance: AtLeast32BitUnsigned + FullCodec + Copy + MaybeSerializeDeserialize + Debug + Default;
 
-pub use pallet::*;
+    fn get_total_supply() -> Self::Balance;
 
-pub type Collateral = pallet::Instance1;
-pub type Wrapped = pallet::Instance2;
+    fn get_free_balance(account: &AccountId) -> Self::Balance;
 
-#[frame_support::pallet]
-pub mod pallet {
-    use super::*;
-    use frame_support::pallet_prelude::*;
+    fn get_reserved_balance(account: &AccountId) -> Self::Balance;
 
-    /// ## Configuration
-    /// The pallet's configuration trait.
-    #[pallet::config]
-    pub trait Config<I: 'static = ()>: frame_system::Config {
-        /// The overarching event type.
-        type Event: From<Event<Self, I>> + IsType<<Self as frame_system::Config>::Event>;
+    fn mint(account: &AccountId, amount: Self::Balance) -> DispatchResult;
 
-        /// The primitive balance type.
-        type Balance: AtLeast32BitUnsigned + MaybeSerializeDeserialize + FullCodec + Copy + Default + Debug;
+    fn lock(account: &AccountId, amount: Self::Balance) -> DispatchResult;
 
-        /// The currency to manage.
-        type Currency: ReservableCurrency<Self::AccountId, Balance = Self::Balance>;
+    fn unlock(account: &AccountId, amount: Self::Balance) -> DispatchResult;
 
-        /// The user-friendly name of the managed currency.
-        #[pallet::constant]
-        type Name: Get<Vec<u8>>;
+    fn burn(account: &AccountId, amount: Self::Balance) -> DispatchResult;
 
-        /// The identifier of the currency - e.g. ticker symbol.
-        #[pallet::constant]
-        type Symbol: Get<Vec<u8>>;
+    fn slash(from: AccountId, to: AccountId, amount: Self::Balance) -> DispatchResult;
 
-        /// The number of decimals used to represent one unit.
-        #[pallet::constant]
-        type Decimals: Get<u8>;
+    fn slash_saturated(from: AccountId, to: AccountId, amount: Self::Balance) -> Result<Self::Balance, DispatchError>;
+
+    fn transfer(from: &AccountId, to: &AccountId, amount: Self::Balance) -> DispatchResult;
+
+    fn unlock_and_transfer(from: &AccountId, to: &AccountId, amount: Self::Balance) -> DispatchResult {
+        Self::unlock(from, amount)?;
+        Self::transfer(from, to, amount)
     }
 
-    // The pallet's events
-    #[pallet::event]
-    #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    #[pallet::metadata(T::AccountId = "AccountId", BalanceOf<T, I> = "Balance")]
-    pub enum Event<T: Config<I>, I: 'static = ()> {
-        Mint(T::AccountId, BalanceOf<T, I>),
-        Lock(T::AccountId, BalanceOf<T, I>),
-        Unlock(T::AccountId, BalanceOf<T, I>),
-        Burn(T::AccountId, BalanceOf<T, I>),
-        Release(T::AccountId, BalanceOf<T, I>),
-        Slash(T::AccountId, T::AccountId, BalanceOf<T, I>),
+    fn transfer_and_lock(from: &AccountId, to: &AccountId, amount: Self::Balance) -> DispatchResult {
+        Self::transfer(from, to, amount)?;
+        Self::lock(to, amount)
     }
-
-    #[pallet::error]
-    pub enum Error<T, I = ()> {
-        /// Account has insufficient free balance
-        InsufficientFreeBalance,
-        /// Account has insufficient reserved balance
-        InsufficientReservedBalance,
-        /// Arithmetic overflow
-        ArithmeticOverflow,
-        /// Arithmetic underflow
-        ArithmeticUnderflow,
-    }
-
-    #[pallet::hooks]
-    impl<T: Config<I>, I: 'static> Hooks<T::BlockNumber> for Pallet<T, I> {}
-
-    /// Note that an account's free and reserved balances are handled
-    /// through the Balances module.
-    ///
-    /// Total locked balance
-    #[pallet::storage]
-    pub type TotalLocked<T: Config<I>, I: 'static = ()> = StorageValue<_, BalanceOf<T, I>, ValueQuery>;
-
-    #[pallet::pallet]
-    pub struct Pallet<T, I = ()>(_);
-
-    // The pallet's dispatchable functions.
-    #[pallet::call]
-    impl<T: Config<I>, I: 'static> Pallet<T, I> {}
 }
 
-// "Internal" functions, callable by code.
-impl<T: Config<I>, I: 'static> Pallet<T, I> {
-    /// Total supply
-    pub fn get_total_supply() -> BalanceOf<T, I> {
-        T::Currency::total_issuance()
+impl<T, GetCurrencyId> ParachainCurrency<T::AccountId> for orml_tokens::CurrencyAdapter<T, GetCurrencyId>
+where
+    T: orml_tokens::Config,
+    GetCurrencyId: Get<T::CurrencyId>,
+{
+    type Balance = T::Balance;
+
+    fn get_total_supply() -> Self::Balance {
+        <orml_tokens::Pallet<T>>::total_issuance(GetCurrencyId::get())
     }
 
-    /// Total locked
-    pub fn get_total_locked() -> BalanceOf<T, I> {
-        <TotalLocked<T, I>>::get()
+    fn get_free_balance(account: &T::AccountId) -> Self::Balance {
+        <orml_tokens::Pallet<T>>::free_balance(GetCurrencyId::get(), account)
     }
 
-    /// Balance of an account (wrapper)
-    pub fn get_free_balance(account: &T::AccountId) -> BalanceOf<T, I> {
-        T::Currency::free_balance(account)
+    fn get_reserved_balance(account: &T::AccountId) -> Self::Balance {
+        <orml_tokens::Pallet<T>>::reserved_balance(GetCurrencyId::get(), account)
     }
 
-    /// Locked balance of an account (wrapper)
-    pub fn get_reserved_balance(account: &T::AccountId) -> BalanceOf<T, I> {
-        T::Currency::reserved_balance(account)
+    fn mint(account: &T::AccountId, amount: Self::Balance) -> DispatchResult {
+        <orml_tokens::Pallet<T>>::deposit(GetCurrencyId::get(), account, amount)
     }
 
-    /// Increase the total supply of locked
-    pub fn increase_total_locked(amount: BalanceOf<T, I>) -> DispatchResult {
-        let new_locked = Self::get_total_locked()
-            .checked_add(&amount)
-            .ok_or(Error::<T, I>::ArithmeticOverflow)?;
-        <TotalLocked<T, I>>::put(new_locked);
-        Ok(())
+    fn lock(account: &T::AccountId, amount: Self::Balance) -> DispatchResult {
+        <orml_tokens::Pallet<T>>::reserve(GetCurrencyId::get(), account, amount)
     }
 
-    /// Decrease the total supply of locked
-    pub fn decrease_total_locked(amount: BalanceOf<T, I>) -> DispatchResult {
-        let new_locked = Self::get_total_locked()
-            .checked_sub(&amount)
-            .ok_or(Error::<T, I>::ArithmeticUnderflow)?;
-        <TotalLocked<T, I>>::put(new_locked);
-        Ok(())
-    }
-
-    /// Mint an `amount` to the `account`.
-    ///
-    /// # Arguments
-    ///
-    /// * `account` - recipient account
-    /// * `amount` - amount to credit
-    pub fn mint(account: T::AccountId, amount: BalanceOf<T, I>) {
-        // adds the amount to the total balance of tokens
-        let minted = T::Currency::issue(amount);
-        // adds the minted amount to the account's balance
-        T::Currency::resolve_creating(&account, minted);
-
-        Self::deposit_event(Event::Mint(account, amount));
-    }
-
-    /// Lock an `amount` of currency. Note: this removes it from the
-    /// free balance and adds it to the locked supply.
-    ///
-    /// # Arguments
-    ///
-    /// * `account` - the account to operate on
-    /// * `amount` - the amount to lock
-    pub fn lock(account: &T::AccountId, amount: BalanceOf<T, I>) -> DispatchResult {
-        T::Currency::reserve(account, amount).map_err(|_| Error::<T, I>::InsufficientFreeBalance)?;
-
-        // update total locked balance
-        Self::increase_total_locked(amount)?;
-
-        Self::deposit_event(Event::Lock(account.clone(), amount));
-        Ok(())
-    }
-
-    /// Unlock an `amount` of currency. Note: this removes it from the
-    /// locked supply and adds it to the free balance.
-    ///
-    /// # Arguments
-    ///
-    /// * `account` - the account to operate on
-    /// * `amount` - the amount to unlock
-    pub fn unlock(account: T::AccountId, amount: BalanceOf<T, I>) -> DispatchResult {
+    fn unlock(account: &T::AccountId, amount: Self::Balance) -> DispatchResult {
         ensure!(
-            T::Currency::unreserve(&account, amount) == 0u32.into(),
-            Error::<T, I>::InsufficientReservedBalance
+            <orml_tokens::Pallet<T>>::unreserve(GetCurrencyId::get(), account, amount).is_zero(),
+            orml_tokens::Error::<T>::BalanceTooLow
         );
-
-        // update total locked balance
-        Self::decrease_total_locked(amount)?;
-
-        Self::deposit_event(Event::Unlock(account, amount));
         Ok(())
     }
 
-    /// Burn an `amount` of previously locked currency.
-    ///
-    /// # Arguments
-    ///
-    /// * `account` - the account to operate on
-    /// * `amount` - the amount to burn
-    pub fn burn(account: &T::AccountId, amount: BalanceOf<T, I>) -> DispatchResult {
+    fn burn(account: &T::AccountId, amount: Self::Balance) -> DispatchResult {
         ensure!(
-            T::Currency::reserved_balance(account) >= amount,
-            Error::<T, I>::InsufficientReservedBalance
+            <orml_tokens::Pallet<T>>::slash_reserved(GetCurrencyId::get(), account, amount).is_zero(),
+            orml_tokens::Error::<T>::BalanceTooLow
         );
-
-        // burn the tokens from the locked balance
-        Self::decrease_total_locked(amount)?;
-
-        // burn the tokens for the account
-        // remainder should always be 0 and is checked above
-        let (_burned_tokens, _remainder) = T::Currency::slash_reserved(&account, amount);
-
-        Self::deposit_event(Event::Burn(account.clone(), amount));
-
         Ok(())
     }
 
-    /// Release an `amount` of previously locked currency.
-    ///
-    /// # Arguments
-    ///
-    /// * `account` - the account to operate on
-    /// * `amount` - the amount to burn
-    pub fn release(account: &T::AccountId, amount: BalanceOf<T, I>) -> DispatchResult {
+    fn slash(from: T::AccountId, to: T::AccountId, amount: Self::Balance) -> DispatchResult {
         ensure!(
-            T::Currency::reserved_balance(&account) >= amount,
-            Error::<T, I>::InsufficientReservedBalance
+            <orml_tokens::Pallet<T>>::reserved_balance(GetCurrencyId::get(), &from) >= amount,
+            orml_tokens::Error::<T>::BalanceTooLow
         );
-        T::Currency::unreserve(account, amount);
-
-        Self::decrease_total_locked(amount)?;
-
-        Self::deposit_event(Event::Release(account.clone(), amount));
-
+        Self::slash_saturated(from, to, amount)?;
         Ok(())
     }
 
-    /// Slash the currency and assign it to a receiver. Can only fail if
-    /// the sender account's balance is too low. The balance on the
-    /// receiver is not locked.
-    ///
-    /// # Arguments
-    ///
-    /// * `sender` - the account being slashed
-    /// * `receiver` - the receiver of the amount
-    /// * `amount` - the to be slashed amount
-    pub fn slash(sender: T::AccountId, receiver: T::AccountId, amount: BalanceOf<T, I>) -> DispatchResult {
-        ensure!(
-            T::Currency::reserved_balance(&sender) >= amount,
-            Error::<T, I>::InsufficientReservedBalance
-        );
-        Self::slash_saturated(sender, receiver, amount)?;
-        Ok(())
-    }
-
-    /// Like slash, but with additional options to tweak the behavior
-    ///
-    /// # Arguments
-    ///
-    /// * `sender` - the account being slashed
-    /// * `receiver` - the receiver of the amount
-    /// * `amount` - the to be slashed amount
-    pub fn slash_saturated(
-        sender: T::AccountId,
-        receiver: T::AccountId,
-        amount: BalanceOf<T, I>,
-    ) -> Result<BalanceOf<T, I>, DispatchError> {
+    fn slash_saturated(
+        from: T::AccountId,
+        to: T::AccountId,
+        amount: Self::Balance,
+    ) -> Result<Self::Balance, DispatchError> {
         // slash the sender's currency
-        let (slashed, remainder) = T::Currency::slash_reserved(&sender, amount);
-
-        // add slashed amount to receiver and create account if it does not exists
-        T::Currency::resolve_creating(&receiver, slashed);
+        let remainder = <orml_tokens::Pallet<T>>::slash_reserved(GetCurrencyId::get(), &from, amount);
 
         // subtraction should not be able to fail since remainder <= amount
         let slashed_amount = amount - remainder;
 
-        Self::deposit_event(Event::Slash(sender, receiver.clone(), slashed_amount));
+        // add slashed amount to receiver and create account if it does not exist
+        <orml_tokens::Pallet<T>>::deposit(GetCurrencyId::get(), &to, slashed_amount)?;
 
         // reserve the created amount for the receiver. This should not be able to fail, since the
         // call above will have created enough free balance to lock.
-        T::Currency::reserve(&receiver, slashed_amount).map_err(|_| Error::<T, I>::InsufficientFreeBalance)?;
+        <orml_tokens::Pallet<T>>::reserve(GetCurrencyId::get(), &to, slashed_amount)?;
 
         Ok(slashed_amount)
     }
 
-    /// Transfer an `amount` to the `destination`, may kill the `source` account if the balance
-    /// falls below the `ExistentialDeposit` const.
-    ///
-    /// # Arguments
-    ///
-    /// * `source` - the account transferring tokens
-    /// * `destination` - the account receiving tokens
-    /// * `amount` - amount to transfer
-    pub fn transfer(source: &T::AccountId, destination: &T::AccountId, amount: BalanceOf<T, I>) -> DispatchResult {
-        T::Currency::transfer(source, destination, amount, ExistenceRequirement::AllowDeath)
+    fn transfer(from: &T::AccountId, to: &T::AccountId, amount: Self::Balance) -> DispatchResult {
+        <orml_tokens::Pallet<T> as MultiCurrency<T::AccountId>>::transfer(GetCurrencyId::get(), from, to, amount)
+    }
+}
+
+type NegativeImbalanceOf<T, GetCurrencyId> = <orml_tokens::CurrencyAdapter<T, GetCurrencyId> as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::NegativeImbalance;
+
+type PositiveImbalanceOf<T, GetCurrencyId> = <orml_tokens::CurrencyAdapter<T, GetCurrencyId> as Currency<
+    <T as frame_system::Config>::AccountId,
+>>::PositiveImbalance;
+
+pub struct PaymentCurrencyAdapter<T, GetCurrencyId, OU>(PhantomData<(T, GetCurrencyId, OU)>);
+
+// https://github.com/paritytech/substrate/blob/0bda86540d44b09da6f1ea6656f3f52d5447db81/frame/transaction-payment/src/payment.rs#L62
+impl<T, GetCurrencyId, OU> OnChargeTransaction<T> for PaymentCurrencyAdapter<T, GetCurrencyId, OU>
+where
+    T: pallet_transaction_payment::Config + orml_tokens::Config,
+    GetCurrencyId: Get<T::CurrencyId>,
+    OU: OnUnbalanced<NegativeImbalanceOf<T, GetCurrencyId>>,
+{
+    type LiquidityInfo = Option<NegativeImbalanceOf<T, GetCurrencyId>>;
+    type Balance = T::Balance;
+
+    fn withdraw_fee(
+        who: &T::AccountId,
+        _call: &T::Call,
+        _dispatch_info: &DispatchInfoOf<T::Call>,
+        fee: Self::Balance,
+        tip: Self::Balance,
+    ) -> Result<Self::LiquidityInfo, TransactionValidityError> {
+        if fee.is_zero() {
+            return Ok(None);
+        }
+
+        let withdraw_reason = if tip.is_zero() {
+            WithdrawReasons::TRANSACTION_PAYMENT
+        } else {
+            WithdrawReasons::TRANSACTION_PAYMENT | WithdrawReasons::TIP
+        };
+
+        match <orml_tokens::CurrencyAdapter<T, GetCurrencyId> as Currency<T::AccountId>>::withdraw(
+            who,
+            fee,
+            withdraw_reason,
+            ExistenceRequirement::KeepAlive,
+        ) {
+            Ok(imbalance) => Ok(Some(imbalance)),
+            Err(_) => Err(InvalidTransaction::Payment.into()),
+        }
     }
 
-    /// Transfer locked to the free balance of another account
-    ///
-    /// # Arguments
-    ///
-    /// * `source` - the account with locked tokens
-    /// * `destination` - the account receiving tokens
-    /// * `amount` - the amount to transfer
-    pub fn unlock_and_transfer(
-        source: &T::AccountId,
-        destination: &T::AccountId,
-        amount: BalanceOf<T, I>,
-    ) -> DispatchResult {
-        // repatriate_reserved but create account
-        T::Currency::slash_reserved(&source, amount);
-        T::Currency::deposit_creating(&destination, amount);
-
-        // unlock the tokens from the locked balance
-        Self::decrease_total_locked(amount)?;
-
-        Ok(())
-    }
-
-    /// Transfer free to the locked balance of another account
-    ///
-    /// # Arguments
-    ///
-    /// * `source` - the account with free tokens
-    /// * `destination` - the account receiving locked tokens
-    /// * `amount` - the amount to transfer
-    pub fn transfer_and_lock(
-        source: &T::AccountId,
-        destination: &T::AccountId,
-        amount: BalanceOf<T, I>,
-    ) -> DispatchResult {
-        Self::transfer(&source, &destination, amount)?;
-        Self::lock(&destination, amount)?;
+    fn correct_and_deposit_fee(
+        who: &T::AccountId,
+        _dispatch_info: &DispatchInfoOf<T::Call>,
+        _post_info: &PostDispatchInfoOf<T::Call>,
+        corrected_fee: Self::Balance,
+        tip: Self::Balance,
+        already_withdrawn: Self::LiquidityInfo,
+    ) -> Result<(), TransactionValidityError> {
+        if let Some(paid) = already_withdrawn {
+            // Calculate how much refund we should return
+            let refund_amount = paid.peek().saturating_sub(corrected_fee);
+            // refund to the the account that paid the fees. If this fails, the
+            // account might have dropped below the existential balance. In
+            // that case we don't refund anything.
+            let refund_imbalance =
+                <orml_tokens::CurrencyAdapter<T, GetCurrencyId> as Currency<T::AccountId>>::deposit_into_existing(
+                    who,
+                    refund_amount,
+                )
+                .unwrap_or_else(|_| PositiveImbalanceOf::<T, GetCurrencyId>::zero());
+            // merge the imbalance caused by paying the fees and refunding parts of it again.
+            let adjusted_paid = paid
+                .offset(refund_imbalance)
+                .same()
+                .map_err(|_| TransactionValidityError::Invalid(InvalidTransaction::Payment))?;
+            // Call someone else to handle the imbalance (fee and tip separately)
+            let (tip, fee) = adjusted_paid.split(tip);
+            OU::on_unbalanceds(Some(fee).into_iter().chain(Some(tip)));
+        }
         Ok(())
     }
 }

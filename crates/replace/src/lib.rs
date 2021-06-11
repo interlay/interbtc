@@ -56,8 +56,6 @@ pub mod pallet {
     pub trait Config:
         frame_system::Config
         + vault_registry::Config
-        + currency::Config<currency::Collateral, Balance = BalanceOf<Self>>
-        + currency::Config<currency::Wrapped, Balance = BalanceOf<Self>>
         + btc_relay::Config
         + exchange_rate_oracle::Config<Balance = BalanceOf<Self>>
         + fee::Config
@@ -338,7 +336,7 @@ impl<T: Config> Pallet<T> {
         // Lock the oldVault’s griefing collateral. Note that this directly locks the amount
         // without going through the vault registry, so that this amount can not be used to
         // back issued tokens
-        ext::collateral::lock_collateral::<T>(vault_id.clone(), replace_collateral_increase)?;
+        ext::collateral::lock_collateral::<T>(&vault_id, replace_collateral_increase)?;
 
         // Emit RequestReplace event
         Self::deposit_event(<Event<T>>::RequestReplace(

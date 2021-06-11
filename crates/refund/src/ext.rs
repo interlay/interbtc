@@ -75,11 +75,11 @@ pub(crate) mod security {
 #[cfg_attr(test, mockable)]
 pub(crate) mod treasury {
     use crate::types::Wrapped;
+    use currency::ParachainCurrency;
+    use frame_support::dispatch::DispatchResult;
 
-    type TreasuryPallet<T> = currency::Pallet<T, currency::Wrapped>;
-
-    pub fn mint<T: crate::Config>(requester: T::AccountId, amount: Wrapped<T>) {
-        TreasuryPallet::<T>::mint(requester, amount)
+    pub fn mint<T: crate::Config>(requester: &T::AccountId, amount: Wrapped<T>) -> DispatchResult {
+        <T as vault_registry::Config>::Wrapped::mint(requester, amount)
     }
 }
 

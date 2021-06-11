@@ -26,6 +26,7 @@ extern crate mocktopus;
 use mocktopus::macros::mockable;
 
 use codec::{Decode, Encode, EncodeLike};
+use currency::ParachainCurrency;
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure,
@@ -37,13 +38,13 @@ use frame_support::{
 use frame_system::ensure_signed;
 use reward::RewardPool;
 use sp_arithmetic::{traits::*, FixedPointNumber, FixedPointOperand};
-use sp_runtime::traits::AccountIdConversion;
+use sp_runtime::traits::{AccountIdConversion, AtLeast32BitUnsigned};
 use sp_std::{
     convert::{TryFrom, TryInto},
     fmt::Debug,
     vec::*,
 };
-use types::{Collateral, Inner, SignedFixedPoint, UnsignedFixedPoint, Version, Wrapped};
+use types::{Collateral, SignedFixedPoint, UnsignedFixedPoint, UnsignedInner, Version, Wrapped};
 
 pub trait WeightInfo {
     fn withdraw_vault_rewards() -> Weight;
@@ -61,12 +62,7 @@ pub mod pallet {
     /// ## Configuration
     /// The pallet's configuration trait.
     #[pallet::config]
-    pub trait Config:
-        frame_system::Config
-        + currency::Config<currency::Collateral>
-        + currency::Config<currency::Wrapped>
-        + security::Config
-    {
+    pub trait Config: frame_system::Config + security::Config {
         /// The overarching event type.
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
@@ -97,15 +93,7 @@ pub mod pallet {
             + MaybeSerializeDeserialize;
 
         /// The `Inner` type of the `UnsignedFixedPoint`.
-        type UnsignedInner: Debug
-            + One
-            + CheckedMul
-            + CheckedDiv
-            + FixedPointOperand
-            + From<Collateral<Self>>
-            + From<Wrapped<Self>>
-            + Into<Collateral<Self>>
-            + Into<Wrapped<Self>>;
+        type UnsignedInner: Debug + One + CheckedMul + CheckedDiv + FixedPointOperand + AtLeast32BitUnsigned;
 
         /// Vault reward pool for the collateral currency.
         type CollateralVaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
@@ -118,6 +106,12 @@ pub mod pallet {
 
         /// Relayer reward pool for the wrapped currency.
         type WrappedRelayerRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
+
+        /// Collateral currency, e.g. DOT/KSM.
+        type Collateral: ParachainCurrency<Self::AccountId, Balance = Self::UnsignedInner>;
+
+        /// Wrapped currency, e.g. InterBTC.
+        type Wrapped: ParachainCurrency<Self::AccountId, Balance = Self::UnsignedInner>;
     }
 
     #[pallet::event]
@@ -553,7 +547,10 @@ impl<T: Config> Pallet<T> {
     // Private functions internal to this pallet
 
     /// Take the `percentage` of an `amount`
-    fn calculate_for(amount: Inner<T>, percentage: UnsignedFixedPoint<T>) -> Result<Inner<T>, DispatchError> {
+    fn calculate_for(
+        amount: UnsignedInner<T>,
+        percentage: UnsignedFixedPoint<T>,
+    ) -> Result<UnsignedInner<T>, DispatchError> {
         // we add 0.5 before we do the final integer division to round the result we return.
         // note that unwrapping is safe because we use a constant
         let rounding_addition = UnsignedFixedPoint::<T>::checked_from_rational(1, 2).unwrap();
@@ -573,8 +570,8 @@ impl<T: Config> Pallet<T> {
     /// Helper for validating the `chain_spec` parameters
     fn ensure_rationals_sum_to_one(dist: Vec<UnsignedFixedPoint<T>>) -> DispatchResult {
         let sum = dist.iter().fold(UnsignedFixedPoint::<T>::default(), |a, &b| a + b);
-        let one =
-            UnsignedFixedPoint::<T>::checked_from_integer(Inner::<T>::one()).ok_or(Error::<T>::ArithmeticOverflow)?;
+        let one = UnsignedFixedPoint::<T>::checked_from_integer(UnsignedInner::<T>::one())
+            .ok_or(Error::<T>::ArithmeticOverflow)?;
         ensure!(sum == one, Error::<T>::InvalidRewardDist);
         Ok(())
     }

@@ -1,5 +1,6 @@
 use crate as sla;
 use crate::{Config, Error};
+use codec::{Decode, Encode};
 use frame_support::{parameter_types, traits::GenesisBuild};
 use mocktopus::mocking::clear_mocks;
 use sp_arithmetic::FixedI128;
@@ -21,10 +22,8 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
 
-        CollateralVaultRewards: reward::<Instance1>::{Pallet, Call, Storage, Event<T>},
-        WrappedVaultRewards: reward::<Instance2>::{Pallet, Call, Storage, Event<T>},
-        CollateralRelayerRewards: reward::<Instance3>::{Pallet, Call, Storage, Event<T>},
-        WrappedRelayerRewards: reward::<Instance4>::{Pallet, Call, Storage, Event<T>},
+        VaultRewards: reward::<Instance1>::{Pallet, Call, Storage, Event<T>},
+        RelayerRewards: reward::<Instance2>::{Pallet, Call, Storage, Event<T>},
 
         // Operational
         Security: security::{Pallet, Call, Storage, Event<T>},
@@ -67,24 +66,31 @@ impl frame_system::Config for Test {
     type OnSetCode = ();
 }
 
-impl reward::Config<reward::CollateralVault> for Test {
-    type Event = TestEvent;
-    type SignedFixedPoint = FixedI128;
+#[derive(Encode, Decode, Debug, PartialEq, PartialOrd, Ord, Eq, Clone, Copy)]
+#[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
+pub enum CurrencyId {
+    DOT,
+    INTERBTC,
 }
 
-impl reward::Config<reward::WrappedVault> for Test {
-    type Event = TestEvent;
-    type SignedFixedPoint = FixedI128;
+pub const DOT: CurrencyId = CurrencyId::DOT;
+pub const INTERBTC: CurrencyId = CurrencyId::INTERBTC;
+
+parameter_types! {
+    pub const GetCollateralCurrencyId: CurrencyId = DOT;
+    pub const GetWrappedCurrencyId: CurrencyId = INTERBTC;
 }
 
-impl reward::Config<reward::CollateralRelayer> for Test {
+impl reward::Config<reward::Vault> for Test {
     type Event = TestEvent;
     type SignedFixedPoint = FixedI128;
+    type CurrencyId = CurrencyId;
 }
 
-impl reward::Config<reward::WrappedRelayer> for Test {
+impl reward::Config<reward::Relayer> for Test {
     type Event = TestEvent;
     type SignedFixedPoint = FixedI128;
+    type CurrencyId = CurrencyId;
 }
 
 impl security::Config for Test {
@@ -100,10 +106,10 @@ impl Config for Test {
     type SignedFixedPoint = FixedI128;
     type SignedInner = i128;
     type Balance = Balance;
-    type CollateralVaultRewards = CollateralVaultRewards;
-    type WrappedVaultRewards = WrappedVaultRewards;
-    type CollateralRelayerRewards = CollateralRelayerRewards;
-    type WrappedRelayerRewards = WrappedRelayerRewards;
+    type CollateralVaultRewards = reward::RewardsCurrencyAdapter<Test, reward::Vault, GetCollateralCurrencyId>;
+    type WrappedVaultRewards = reward::RewardsCurrencyAdapter<Test, reward::Vault, GetWrappedCurrencyId>;
+    type CollateralRelayerRewards = reward::RewardsCurrencyAdapter<Test, reward::Relayer, GetCollateralCurrencyId>;
+    type WrappedRelayerRewards = reward::RewardsCurrencyAdapter<Test, reward::Relayer, GetWrappedCurrencyId>;
 }
 
 pub type TestEvent = Event;

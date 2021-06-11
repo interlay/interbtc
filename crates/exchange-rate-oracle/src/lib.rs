@@ -34,7 +34,9 @@ use mocktopus::macros::mockable;
 use codec::{Decode, Encode, EncodeLike, FullCodec};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
-    ensure, transactional,
+    ensure,
+    traits::Get,
+    transactional,
     weights::Weight,
 };
 use frame_system::{ensure_root, ensure_signed};
@@ -56,13 +58,7 @@ pub mod pallet {
     /// ## Configuration
     /// The pallet's configuration trait.
     #[pallet::config]
-    pub trait Config:
-        frame_system::Config
-        + pallet_timestamp::Config
-        + currency::Config<currency::Collateral, Balance = <Self as Config>::Balance>
-        + currency::Config<currency::Wrapped, Balance = <Self as Config>::Balance>
-        + security::Config
-    {
+    pub trait Config: frame_system::Config + pallet_timestamp::Config + security::Config {
         /// The overarching event type.
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
@@ -80,6 +76,12 @@ pub mod pallet {
 
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
+
+        #[pallet::constant]
+        type GetCollateralDecimals: Get<u8>;
+
+        #[pallet::constant]
+        type GetWrappedDecimals: Get<u8>;
     }
 
     #[pallet::event]
@@ -293,8 +295,8 @@ impl<T: Config> Pallet<T> {
         collateral_per_wrapped: UnsignedFixedPoint<T>,
     ) -> Result<UnsignedFixedPoint<T>, DispatchError> {
         let conversion_factor = UnsignedFixedPoint::<T>::checked_from_rational(
-            10_u128.pow(ext::collateral::decimals::<T>().into()),
-            10_u128.pow(ext::treasury::decimals::<T>().into()),
+            10_u128.pow(T::GetCollateralDecimals::get().into()),
+            10_u128.pow(T::GetWrappedDecimals::get().into()),
         )
         .unwrap();
 

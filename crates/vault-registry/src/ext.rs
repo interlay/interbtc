@@ -4,43 +4,41 @@ use mocktopus::macros::mockable;
 #[cfg_attr(test, mockable)]
 pub(crate) mod collateral {
     use crate::types::Collateral;
+    use currency::ParachainCurrency;
     use frame_support::dispatch::DispatchResult;
-
-    type CollateralPallet<T> = currency::Pallet<T, currency::Collateral>;
 
     pub fn transfer<T: crate::Config>(
         source: &T::AccountId,
         destination: &T::AccountId,
         amount: Collateral<T>,
     ) -> DispatchResult {
-        CollateralPallet::<T>::transfer(source, destination, amount)
+        T::Collateral::transfer(source, destination, amount)
     }
 
     pub fn lock<T: crate::Config>(sender: &T::AccountId, amount: Collateral<T>) -> DispatchResult {
-        CollateralPallet::<T>::lock(sender, amount)
+        T::Collateral::lock(sender, amount)
     }
 
-    pub fn release<T: crate::Config>(sender: &T::AccountId, amount: Collateral<T>) -> DispatchResult {
-        CollateralPallet::<T>::release(sender, amount)
+    pub fn unlock<T: crate::Config>(sender: &T::AccountId, amount: Collateral<T>) -> DispatchResult {
+        T::Collateral::unlock(sender, amount)
     }
 
     pub fn get_reserved_balance<T: crate::Config>(id: &T::AccountId) -> Collateral<T> {
-        CollateralPallet::<T>::get_reserved_balance(id)
+        T::Collateral::get_reserved_balance(id)
     }
 
     pub fn get_free_balance<T: crate::Config>(id: &T::AccountId) -> Collateral<T> {
-        CollateralPallet::<T>::get_free_balance(id)
+        T::Collateral::get_free_balance(id)
     }
 }
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod treasury {
     use crate::types::Wrapped;
-
-    type TreasuryPallet<T> = currency::Pallet<T, currency::Wrapped>;
+    use currency::ParachainCurrency;
 
     pub fn total_issued<T: crate::Config>() -> Wrapped<T> {
-        TreasuryPallet::<T>::get_total_supply()
+        T::Wrapped::get_total_supply()
     }
 }
 

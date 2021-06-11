@@ -188,24 +188,23 @@ pub(crate) mod sla {
 #[cfg_attr(test, mockable)]
 pub(crate) mod treasury {
     use crate::types::Wrapped;
+    use currency::ParachainCurrency;
     use frame_support::dispatch::DispatchResult;
 
-    type TreasuryPallet<T> = currency::Pallet<T, currency::Wrapped>;
-
-    pub fn get_balance<T: crate::Config>(account: T::AccountId) -> Wrapped<T> {
-        TreasuryPallet::<T>::get_free_balance(&account)
+    pub fn get_balance<T: crate::Config>(account: &T::AccountId) -> Wrapped<T> {
+        <T as vault_registry::Config>::Wrapped::get_free_balance(account)
     }
 
-    pub fn lock<T: crate::Config>(redeemer: T::AccountId, amount: Wrapped<T>) -> DispatchResult {
-        TreasuryPallet::<T>::lock(&redeemer, amount)
+    pub fn lock<T: crate::Config>(redeemer: &T::AccountId, amount: Wrapped<T>) -> DispatchResult {
+        <T as vault_registry::Config>::Wrapped::lock(redeemer, amount)
     }
 
-    pub fn unlock<T: crate::Config>(account: T::AccountId, amount: Wrapped<T>) -> DispatchResult {
-        TreasuryPallet::<T>::unlock(account, amount)
+    pub fn unlock<T: crate::Config>(account: &T::AccountId, amount: Wrapped<T>) -> DispatchResult {
+        <T as vault_registry::Config>::Wrapped::unlock(account, amount)
     }
 
-    pub fn burn<T: crate::Config>(redeemer: T::AccountId, amount: Wrapped<T>) -> DispatchResult {
-        TreasuryPallet::<T>::burn(&redeemer, amount)
+    pub fn burn<T: crate::Config>(redeemer: &T::AccountId, amount: Wrapped<T>) -> DispatchResult {
+        <T as vault_registry::Config>::Wrapped::burn(redeemer, amount)
     }
 
     pub fn unlock_and_transfer<T: crate::Config>(
@@ -213,11 +212,11 @@ pub(crate) mod treasury {
         destination: &T::AccountId,
         amount: Wrapped<T>,
     ) -> DispatchResult {
-        TreasuryPallet::<T>::unlock_and_transfer(source, destination, amount)
+        <T as vault_registry::Config>::Wrapped::unlock_and_transfer(source, destination, amount)
     }
 
-    pub fn mint<T: crate::Config>(requester: T::AccountId, amount: Wrapped<T>) {
-        TreasuryPallet::<T>::mint(requester, amount)
+    pub fn mint<T: crate::Config>(requester: &T::AccountId, amount: Wrapped<T>) -> DispatchResult {
+        <T as vault_registry::Config>::Wrapped::mint(requester, amount)
     }
 }
 
@@ -294,11 +293,10 @@ pub(crate) mod fee {
 #[cfg_attr(test, mockable)]
 pub(crate) mod collateral {
     use crate::Collateral;
+    use currency::ParachainCurrency;
     use frame_support::dispatch::DispatchResult;
 
-    type CollateralPallet<T> = currency::Pallet<T, currency::Collateral>;
-
     pub fn release_collateral<T: crate::Config>(sender: &T::AccountId, amount: Collateral<T>) -> DispatchResult {
-        CollateralPallet::<T>::release(sender, amount)
+        <T as vault_registry::Config>::Collateral::unlock(sender, amount)
     }
 }

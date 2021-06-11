@@ -56,19 +56,17 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config:
         frame_system::Config
-        + currency::Config<currency::Collateral, Balance = BalanceOf<Self>>
-        + currency::Config<currency::Wrapped, Balance = BalanceOf<Self>>
         + security::Config
         + vault_registry::Config<
             UnsignedFixedPoint = <Self as Config>::UnsignedFixedPoint,
             SignedFixedPoint = <Self as Config>::SignedFixedPoint,
-        > + fee::Config<UnsignedFixedPoint = <Self as Config>::UnsignedFixedPoint>
+        > + fee::Config<UnsignedFixedPoint = <Self as Config>::UnsignedFixedPoint, UnsignedInner = BalanceOf<Self>>
     {
         /// The overarching event type.
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
         /// The unsigned fixed point type.
-        type UnsignedFixedPoint: FixedPointNumber + Encode + EncodeLike + Decode;
+        type UnsignedFixedPoint: FixedPointNumber<Inner = BalanceOf<Self>> + Encode + EncodeLike + Decode;
 
         /// The signed fixed point type.
         type SignedFixedPoint: FixedPointNumber<Inner = <Self as Config>::Balance> + Encode + EncodeLike + Decode;
@@ -421,9 +419,9 @@ impl<T: Config> Pallet<T> {
         vault_id: &T::AccountId,
         amount: Collateral<T>,
     ) -> Result<(), DispatchError> {
-        let amount_raw = Self::collateral_to_fixed(amount)?;
-        if amount_raw > SignedFixedPoint::<T>::zero() {
-            R::withdraw_stake(RewardPool::Local(vault_id.clone()), account_id, amount_raw)?;
+        let amount_fixed = Self::collateral_to_fixed(amount)?;
+        if amount_fixed > SignedFixedPoint::<T>::zero() {
+            R::withdraw_stake(RewardPool::Local(vault_id.clone()), account_id, amount_fixed)?;
         }
         Ok(())
     }
