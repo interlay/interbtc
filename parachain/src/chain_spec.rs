@@ -353,34 +353,34 @@ fn testnet_genesis(
     bitcoin_confirmations: u32,
 ) -> GenesisConfig {
     GenesisConfig {
-        frame_system: SystemConfig {
+        system: SystemConfig {
             code: WASM_BINARY
                 .expect("WASM binary was not build, please build it!")
                 .to_vec(),
             changes_trie_config: Default::default(),
         },
         #[cfg(feature = "aura-grandpa")]
-        pallet_aura: AuraConfig {
+        aura: AuraConfig {
             authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect(),
         },
         #[cfg(feature = "aura-grandpa")]
-        pallet_grandpa: GrandpaConfig {
+        grandpa: GrandpaConfig {
             authorities: initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect(),
         },
         #[cfg(feature = "cumulus-polkadot")]
-        pallet_aura: AuraConfig {
+        aura: AuraConfig {
             authorities: initial_authorities,
         },
         #[cfg(feature = "cumulus-polkadot")]
-        cumulus_pallet_aura_ext: Default::default(),
+        aura_ext: Default::default(),
         #[cfg(feature = "cumulus-polkadot")]
         parachain_info: ParachainInfoConfig { parachain_id: id },
-        pallet_sudo: SudoConfig {
+        sudo: SudoConfig {
             // Assign network admin rights.
             key: root_key.clone(),
         },
-        orml_tokens: TokensConfig {
-            endowed_accounts: endowed_accounts.iter().cloned().map(|k| (k, DOT, 1 << 60)).collect(),
+        tokens: TokensConfig {
+            balances: endowed_accounts.iter().cloned().map(|k| (k, DOT, 1 << 60)).collect(),
         },
         exchange_rate_oracle: ExchangeRateOracleConfig {
             authorized_oracles,

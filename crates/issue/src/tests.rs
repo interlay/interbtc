@@ -130,7 +130,7 @@ fn test_request_issue_succeeds() {
 
         let issue_id = request_issue_ok(origin, amount, vault, issue_griefing_collateral);
 
-        let request_issue_event = TestEvent::issue(Event::RequestIssue(
+        let request_issue_event = TestEvent::Issue(Event::RequestIssue(
             issue_id,
             origin,
             amount - issue_fee,
@@ -187,7 +187,7 @@ fn test_execute_issue_succeeds() {
 
         assert_ok!(execute_issue(ALICE, &issue_id));
 
-        let execute_issue_event = TestEvent::issue(Event::ExecuteIssue(issue_id, ALICE, 3, BOB, 1));
+        let execute_issue_event = TestEvent::Issue(Event::ExecuteIssue(issue_id, ALICE, 3, BOB, 1));
         assert!(System::events().iter().any(|a| a.event == execute_issue_event));
 
         assert_noop!(cancel_issue(ALICE, &issue_id), TestError::IssueCompleted);

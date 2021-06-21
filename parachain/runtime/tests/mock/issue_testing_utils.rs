@@ -128,7 +128,7 @@ pub fn assert_issue_amount_change_event(issue_id: H256, amount: u128, fee: u128,
     let records: Vec<_> = events
         .iter()
         .rev()
-        .filter(|record| matches!(&record.event, Event::issue(x) if x == &expected_event))
+        .filter(|record| matches!(&record.event, Event::Issue(x) if x == &expected_event))
         .collect();
     assert_eq!(records.len(), 1);
 }
@@ -138,10 +138,10 @@ pub fn assert_issue_request_event() -> H256 {
     let record = events.iter().rev().find(|record| {
         matches!(
             record.event,
-            Event::issue(IssueEvent::RequestIssue(_, _, _, _, _, _, _, _))
+            Event::Issue(IssueEvent::RequestIssue(_, _, _, _, _, _, _, _))
         )
     });
-    if let Event::issue(IssueEvent::RequestIssue(id, _, _, _, _, _, _, _)) = record.unwrap().event {
+    if let Event::Issue(IssueEvent::RequestIssue(id, _, _, _, _, _, _, _)) = record.unwrap().event {
         id
     } else {
         panic!("request issue event not found")
@@ -152,7 +152,7 @@ pub fn assert_refund_request_event() -> H256 {
     SystemModule::events()
         .iter()
         .find_map(|record| match record.event {
-            Event::refund(RefundEvent::RequestRefund(id, _, _, _, _, _, _)) => Some(id),
+            Event::Refund(RefundEvent::RequestRefund(id, _, _, _, _, _, _)) => Some(id),
             _ => None,
         })
         .expect("request refund event not found")

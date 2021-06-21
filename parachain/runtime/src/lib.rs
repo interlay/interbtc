@@ -55,18 +55,12 @@ pub use primitives::{
 // XCM imports
 #[cfg(feature = "cumulus-polkadot")]
 use {
-    codec::{Decode, Encode},
-    frame_support::traits::{Currency, ExistenceRequirement::AllowDeath, WithdrawReasons},
     frame_support::{match_type, traits::All},
     pallet_xcm::XcmPassthrough,
     pallet_xcm::{EnsureXcm, IsMajorityOfBody},
     polkadot_parachain::primitives::Sibling,
     sp_runtime::traits::Convert,
-    sp_std::convert::TryFrom,
-    xcm::v0::{
-        BodyId, Error as XcmError, Junction::*, MultiAsset, MultiLocation, MultiLocation::*, NetworkId,
-        Result as XcmResult, Xcm,
-    },
+    xcm::v0::{BodyId, Junction::*, MultiAsset, MultiLocation, MultiLocation::*, NetworkId, Xcm},
     xcm_builder::{
         AccountId32Aliases, AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom, CurrencyAdapter, EnsureXcmOrigin,
         FixedWeightBounds, IsConcrete, LocationInverter, NativeAsset, ParentAsSuperuser, ParentIsDefault,
@@ -216,6 +210,8 @@ impl frame_system::Config for Runtime {
     type OnSetCode = cumulus_pallet_parachain_system::ParachainSetCode<Self>;
 }
 
+impl pallet_randomness_collective_flip::Config for Runtime {}
+
 #[cfg(any(feature = "aura-grandpa", feature = "cumulus-polkadot"))]
 impl pallet_aura::Config for Runtime {
     type AuthorityId = AuraId;
@@ -313,7 +309,7 @@ type LocationToAccountId = (
 #[cfg(feature = "cumulus-polkadot")]
 pub type LocalAssetTransactor = CurrencyAdapter<
     // Use this currency:
-    Collateral,
+    orml_tokens::CurrencyAdapter<Runtime, GetCollateralCurrencyId>,
     // Use this currency when it is a fungible asset matching the given location or name:
     IsConcrete<RocLocation>,
     // Do a simple punn to convert an AccountId32 MultiLocation into a native chain account ID:
@@ -387,7 +383,13 @@ impl Config for XcmConfig {
     type LocationInverter = LocationInverter<Ancestry>;
     type Barrier = Barrier;
     type Weigher = FixedWeightBounds<UnitWeightCost, Call>;
-    type Trader = UsingComponents<IdentityFee<Balance>, RocLocation, AccountId, Collateral, ()>;
+    type Trader = UsingComponents<
+        IdentityFee<Balance>,
+        RocLocation,
+        AccountId,
+        orml_tokens::CurrencyAdapter<Runtime, GetCollateralCurrencyId>,
+        (),
+    >;
     type ResponseHandler = (); // Don't handle responses for now.
 }
 
@@ -1049,7 +1051,32 @@ impl_runtime_apis! {
 }
 
 #[cfg(feature = "cumulus-polkadot")]
-cumulus_pallet_parachain_system::register_validate_block!(
-    Runtime,
-    cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
-);
+struct CheckInherents;
+
+#[cfg(feature = "cumulus-polkadot")]
+impl cumulus_pallet_parachain_system::CheckInherents<Block> for CheckInherents {
+    fn check_inherents(
+        block: &Block,
+        relay_state_proof: &cumulus_pallet_parachain_system::RelayChainStateProof,
+    ) -> sp_inherents::CheckInherentsResult {
+        let relay_chain_slot = relay_state_proof
+            .read_slot()
+            .expect("Could not read the relay chain slot from the proof");
+
+        let inherent_data = cumulus_primitives_timestamp::InherentDataProvider::from_relay_chain_slot_and_duration(
+            relay_chain_slot,
+            sp_std::time::Duration::from_secs(6),
+        )
+        .create_inherent_data()
+        .expect("Could not create the timestamp inherent data");
+
+        inherent_data.check_extrinsics(&block)
+    }
+}
+
+#[cfg(feature = "cumulus-polkadot")]
+cumulus_pallet_parachain_system::register_validate_block! {
+    Runtime = Runtime,
+    BlockExecutor = cumulus_pallet_aura_ext::BlockExecutor::<Runtime, Executive>,
+    CheckInherents = CheckInherents,
+}

@@ -183,7 +183,7 @@ pub mod pallet {
         /// * `griefing_collateral` - amount of collateral
         #[pallet::weight(<T as Config>::WeightInfo::request_replace())]
         #[transactional]
-        fn request_replace(
+        pub fn request_replace(
             origin: OriginFor<T>,
             #[pallet::compact] amount: Wrapped<T>,
             #[pallet::compact] griefing_collateral: Collateral<T>,
@@ -201,7 +201,10 @@ pub mod pallet {
         /// * `origin` - sender of the transaction: the old vault
         #[pallet::weight(<T as Config>::WeightInfo::withdraw_replace())]
         #[transactional]
-        fn withdraw_replace(origin: OriginFor<T>, #[pallet::compact] amount: Wrapped<T>) -> DispatchResultWithPostInfo {
+        pub fn withdraw_replace(
+            origin: OriginFor<T>,
+            #[pallet::compact] amount: Wrapped<T>,
+        ) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let old_vault = ensure_signed(origin)?;
             Self::_withdraw_replace_request(old_vault, amount)?;
@@ -218,7 +221,7 @@ pub mod pallet {
         /// * `btc_address` - the address that old-vault should transfer the btc to
         #[pallet::weight(<T as Config>::WeightInfo::accept_replace())]
         #[transactional]
-        fn accept_replace(
+        pub fn accept_replace(
             origin: OriginFor<T>,
             old_vault: T::AccountId,
             #[pallet::compact] amount_btc: Wrapped<T>,
@@ -241,7 +244,7 @@ pub mod pallet {
         /// * `raw_tx` - the transaction id in bytes
         #[pallet::weight(<T as Config>::WeightInfo::execute_replace())]
         #[transactional]
-        fn execute_replace(
+        pub fn execute_replace(
             origin: OriginFor<T>,
             replace_id: H256,
             merkle_proof: Vec<u8>,
@@ -261,7 +264,7 @@ pub mod pallet {
         /// * `replace_id` - the ID of the replacement request
         #[pallet::weight(<T as Config>::WeightInfo::cancel_replace())]
         #[transactional]
-        fn cancel_replace(origin: OriginFor<T>, replace_id: H256) -> DispatchResultWithPostInfo {
+        pub fn cancel_replace(origin: OriginFor<T>, replace_id: H256) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let new_vault = ensure_signed(origin)?;
             Self::_cancel_replace(new_vault, replace_id)?;
@@ -278,7 +281,7 @@ pub mod pallet {
         /// # Weight: `O(1)`
         #[pallet::weight(<T as Config>::WeightInfo::set_replace_period())]
         #[transactional]
-        fn set_replace_period(origin: OriginFor<T>, period: T::BlockNumber) -> DispatchResultWithPostInfo {
+        pub fn set_replace_period(origin: OriginFor<T>, period: T::BlockNumber) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             <ReplacePeriod<T>>::set(period);
             Ok(().into())

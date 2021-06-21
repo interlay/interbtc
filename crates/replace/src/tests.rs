@@ -22,7 +22,7 @@ macro_rules! assert_event_matches {
 
         assert!(System::events().iter().any(|a| {
             match a.event {
-                TestEvent::replace( $( $pattern )|+ ) $( if $guard )? => true,
+                TestEvent::Replace( $( $pattern )|+ ) $( if $guard )? => true,
                 _ => false
             }
         }));

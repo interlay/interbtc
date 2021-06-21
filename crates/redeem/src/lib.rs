@@ -193,7 +193,7 @@ pub mod pallet {
         /// * `vault_id` - address of the vault
         #[pallet::weight(<T as Config>::WeightInfo::request_redeem())]
         #[transactional]
-        pub(crate) fn request_redeem(
+        pub fn request_redeem(
             origin: OriginFor<T>,
             #[pallet::compact] amount_wrapped: Wrapped<T>,
             btc_address: BtcAddress,
@@ -214,7 +214,7 @@ pub mod pallet {
         /// * `amount_wrapped` - amount of issued tokens to burn
         #[pallet::weight(<T as Config>::WeightInfo::liquidation_redeem())]
         #[transactional]
-        pub(crate) fn liquidation_redeem(
+        pub fn liquidation_redeem(
             origin: OriginFor<T>,
             #[pallet::compact] amount_wrapped: Wrapped<T>,
         ) -> DispatchResultWithPostInfo {
@@ -237,7 +237,7 @@ pub mod pallet {
         /// * `raw_tx` - raw bytes
         #[pallet::weight(<T as Config>::WeightInfo::execute_redeem())]
         #[transactional]
-        pub(crate) fn execute_redeem(
+        pub fn execute_redeem(
             origin: OriginFor<T>,
             redeem_id: H256,
             merkle_proof: Vec<u8>,
@@ -261,11 +261,7 @@ pub mod pallet {
         /// Redeem with another Vault)
         #[pallet::weight(if *reimburse { <T as Config>::WeightInfo::cancel_redeem_reimburse() } else { <T as Config>::WeightInfo::cancel_redeem_retry() })]
         #[transactional]
-        pub(crate) fn cancel_redeem(
-            origin: OriginFor<T>,
-            redeem_id: H256,
-            reimburse: bool,
-        ) -> DispatchResultWithPostInfo {
+        pub fn cancel_redeem(origin: OriginFor<T>, redeem_id: H256, reimburse: bool) -> DispatchResultWithPostInfo {
             let redeemer = ensure_signed(origin)?;
             Self::_cancel_redeem(redeemer, redeem_id, reimburse)?;
             Ok(().into())
@@ -281,7 +277,7 @@ pub mod pallet {
         /// # Weight: `O(1)`
         #[pallet::weight(<T as Config>::WeightInfo::set_redeem_period())]
         #[transactional]
-        pub(crate) fn set_redeem_period(origin: OriginFor<T>, period: T::BlockNumber) -> DispatchResultWithPostInfo {
+        pub fn set_redeem_period(origin: OriginFor<T>, period: T::BlockNumber) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             <RedeemPeriod<T>>::set(period);
             Ok(().into())
@@ -300,10 +296,7 @@ pub mod pallet {
         /// # Weight: `O(1)`
         #[pallet::weight(<T as Config>::WeightInfo::set_redeem_period())]
         #[transactional]
-        pub(crate) fn mint_tokens_for_reimbursed_redeem(
-            origin: OriginFor<T>,
-            redeem_id: H256,
-        ) -> DispatchResultWithPostInfo {
+        pub fn mint_tokens_for_reimbursed_redeem(origin: OriginFor<T>, redeem_id: H256) -> DispatchResultWithPostInfo {
             let vault = ensure_signed(origin)?;
             Self::_mint_tokens_for_reimbursed_redeem(vault, redeem_id)?;
             Ok(().into())

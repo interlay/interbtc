@@ -29,7 +29,7 @@ fn test_with<R>(execute: impl FnOnce() -> R) -> R {
 fn assert_request_event() {
     let events = SystemModule::events();
     let ids = events.iter().filter_map(|r| match r.event {
-        Event::replace(ReplaceEvent::RequestReplace(_, _, _)) => Some(()),
+        Event::Replace(ReplaceEvent::RequestReplace(_, _, _)) => Some(()),
         _ => None,
     });
     assert_eq!(ids.count(), 1);
@@ -40,7 +40,7 @@ pub fn assert_accept_event() -> H256 {
         .iter()
         .rev()
         .find_map(|record| match record.event {
-            Event::replace(ReplaceEvent::AcceptReplace(id, _, _, _, _, _)) => Some(id),
+            Event::Replace(ReplaceEvent::AcceptReplace(id, _, _, _, _, _)) => Some(id),
             _ => None,
         })
         .unwrap()

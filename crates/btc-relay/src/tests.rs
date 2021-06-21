@@ -110,7 +110,7 @@ fn initialize_once_succeeds() {
 
         assert_ok!(BTCRelay::initialize(3, block_header, block_height));
 
-        let init_event = TestEvent::btc_relay(Event::Initialized(block_height, block_header_hash, 3));
+        let init_event = TestEvent::BTCRelay(Event::Initialized(block_height, block_header_hash, 3));
         assert!(System::events().iter().any(|a| a.event == init_event));
     })
 }
@@ -155,8 +155,7 @@ fn store_block_header_on_mainchain_succeeds() {
         let block_header_hash = block_header.hash;
         assert_ok!(BTCRelay::store_block_header(&3, rich_header.block_header));
 
-        let store_main_event =
-            TestEvent::btc_relay(Event::StoreMainChainHeader(block_height + 1, block_header_hash, 3));
+        let store_main_event = TestEvent::BTCRelay(Event::StoreMainChainHeader(block_height + 1, block_header_hash, 3));
         assert!(System::events().iter().any(|a| a.event == store_main_event));
     })
 }
@@ -191,7 +190,7 @@ fn store_block_header_on_fork_succeeds() {
         assert_ok!(BTCRelay::store_block_header(&3, block_header));
 
         let store_fork_event =
-            TestEvent::btc_relay(Event::StoreForkHeader(chain_ref, block_height, block_header_hash, 3));
+            TestEvent::BTCRelay(Event::StoreForkHeader(chain_ref, block_height, block_header_hash, 3));
         assert!(System::events().iter().any(|a| a.event == store_fork_event));
     })
 }
@@ -368,7 +367,7 @@ fn check_and_do_reorg_new_fork_is_main_chain() {
 
         assert_ok!(BTCRelay::reorganize_chains(&fork));
         // assert that the new main chain is set
-        let reorg_event = TestEvent::btc_relay(Event::ChainReorg(
+        let reorg_event = TestEvent::BTCRelay(Event::ChainReorg(
             best_block_hash,
             fork_block_height,
             fork.max_height - fork.start_height,
@@ -410,7 +409,7 @@ fn check_and_do_reorg_new_fork_below_stable_transaction_confirmations() {
 
         assert_ok!(BTCRelay::reorganize_chains(&fork));
         // assert that the fork has not overtaken the main chain
-        let ahead_event = TestEvent::btc_relay(Event::ForkAheadOfMainChain(
+        let ahead_event = TestEvent::BTCRelay(Event::ForkAheadOfMainChain(
             main_block_height,
             fork_block_height,
             fork_chain_ref,
@@ -1032,7 +1031,7 @@ fn test_flag_block_error_succeeds() {
             } else if *error == ErrorCode::InvalidBTCRelay {
                 assert!(curr_chain.invalid.contains(&block_height));
             };
-            let error_event = TestEvent::btc_relay(Event::FlagBlockError(
+            let error_event = TestEvent::BTCRelay(Event::FlagBlockError(
                 rich_header.block_hash(),
                 chain_ref,
                 error.clone(),
@@ -1105,7 +1104,7 @@ fn test_clear_block_error_succeeds() {
             } else if error == ErrorCode::InvalidBTCRelay {
                 assert!(!curr_chain.invalid.contains(&block_height));
             };
-            let error_event = TestEvent::btc_relay(Event::ClearBlockError(rich_header.block_hash(), chain_ref, error));
+            let error_event = TestEvent::BTCRelay(Event::ClearBlockError(rich_header.block_hash(), chain_ref, error));
             assert!(System::events().iter().any(|a| a.event == error_event));
         };
 

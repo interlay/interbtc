@@ -27,11 +27,11 @@ type Event = crate::Event<Test>;
 // use macro to avoid messing up stack trace
 macro_rules! assert_emitted {
     ($event:expr) => {
-        let test_event = TestEvent::vault_registry($event);
+        let test_event = TestEvent::VaultRegistry($event);
         assert!(System::events().iter().any(|a| a.event == test_event));
     };
     ($event:expr, $times:expr) => {
-        let test_event = TestEvent::vault_registry($event);
+        let test_event = TestEvent::VaultRegistry($event);
         assert_eq!(
             System::events().iter().filter(|a| a.event == test_event).count(),
             $times
@@ -41,7 +41,7 @@ macro_rules! assert_emitted {
 
 macro_rules! assert_not_emitted {
     ($event:expr) => {
-        let test_event = TestEvent::vault_registry($event);
+        let test_event = TestEvent::VaultRegistry($event);
         assert!(!System::events().iter().any(|a| a.event == test_event));
     };
 }

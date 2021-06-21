@@ -601,7 +601,7 @@ pub fn required_collateral_for_issue(issued_tokens: u128) -> u128 {
 }
 
 pub fn assert_store_main_chain_header_event(height: u32, hash: H256Le, relayer: AccountId) {
-    let store_event = Event::btc_relay(BTCRelayEvent::StoreMainChainHeader(height, hash, relayer));
+    let store_event = Event::BTCRelay(BTCRelayEvent::StoreMainChainHeader(height, hash, relayer));
     let events = SystemModule::events();
 
     // store only main chain header
@@ -791,7 +791,7 @@ impl ExtBuilder {
             .unwrap();
 
         orml_tokens::GenesisConfig::<Runtime> {
-            endowed_accounts: vec![
+            balances: vec![
                 (account_of(ALICE), DOT, INITIAL_BALANCE),
                 (account_of(BOB), DOT, INITIAL_BALANCE),
                 (account_of(CAROL), DOT, INITIAL_BALANCE),

@@ -138,7 +138,7 @@ pub mod pallet {
         /// # </weight>
         #[pallet::weight(<T as Config>::WeightInfo::initialize())]
         #[transactional]
-        pub(super) fn initialize(
+        pub fn initialize(
             origin: OriginFor<T>,
             raw_block_header: RawBlockHeader,
             block_height: u32,
@@ -185,7 +185,7 @@ pub mod pallet {
         /// # </weight>
         #[pallet::weight(<T as Config>::WeightInfo::store_block_header())]
         #[transactional]
-        pub(super) fn store_block_header(
+        pub fn store_block_header(
             origin: OriginFor<T>,
             raw_block_header: RawBlockHeader,
         ) -> DispatchResultWithPostInfo {
@@ -209,7 +209,7 @@ pub mod pallet {
         /// * `raw_tx`: The raw Bitcoin transaction.
         #[pallet::weight(<T as Config>::WeightInfo::report_vault_theft())]
         #[transactional]
-        pub(super) fn report_vault_theft(
+        pub fn report_vault_theft(
             origin: OriginFor<T>,
             vault_id: T::AccountId,
             raw_merkle_proof: Vec<u8>,

@@ -12,14 +12,14 @@ type Event = crate::Event<Test>;
 // use macro to avoid messing up stack trace
 macro_rules! assert_emitted {
     ($event:expr) => {
-        let test_event = TestEvent::exchange_rate_oracle($event);
+        let test_event = TestEvent::ExchangeRateOracle($event);
         assert!(System::events().iter().any(|a| a.event == test_event));
     };
 }
 
 macro_rules! assert_not_emitted {
     ($event:expr) => {
-        let test_event = TestEvent::exchange_rate_oracle($event);
+        let test_event = TestEvent::ExchangeRateOracle($event);
         assert!(!System::events().iter().any(|a| a.event == test_event));
     };
 }
