@@ -2,7 +2,7 @@
 authors = ["Interlay Ltd"]
 edition = "2018"
 name = "btc-parachain-primitives"
-version = "0.7.0"
+version = "0.8.0"
 
 [dependencies]
 bstringify = "0.1.2"

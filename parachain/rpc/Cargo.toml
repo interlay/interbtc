@@ -2,7 +2,7 @@
 authors = ["Interlay Ltd"]
 edition = "2018"
 name = "btc-parachain-rpc"
-version = "0.7.0"
+version = "0.8.0"
 
 [dependencies]
 jsonrpc-core = "15.1.0"
