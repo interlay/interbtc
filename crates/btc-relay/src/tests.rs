@@ -196,6 +196,60 @@ fn store_block_header_on_fork_succeeds() {
     })
 }
 
+mod store_block_header_tests {
+    use super::*;
+    fn from_prev(nonce: u32, prev: H256Le) -> BlockHeader {
+        let mut ret = BlockHeader {
+            nonce,
+            hash_prev_block: prev,
+            ..sample_block_header()
+        };
+        ret.update_hash().unwrap();
+        ret
+    }
+
+    #[test]
+    fn store_block_header_simple_fork_succeeds() {
+        run_test(|| {
+            BTCRelay::verify_block_header.mock_safe(|_, _, _| MockResult::Return(Ok(())));
+
+            let mut genesis = sample_block_header();
+            genesis.nonce = 11;
+            genesis.update_hash().unwrap();
+
+            assert_ok!(BTCRelay::initialize(3, genesis, 10));
+
+            // second block to the mainchain - otherwise we can't create a fork
+            let a2 = from_prev(12, genesis.hash);
+
+            let mut blocks = vec![a2];
+
+            // create a new fork, and make it overtake the main chain
+            let mut prev = genesis.hash;
+            for i in 0..10 {
+                blocks.push(from_prev(31 + i, prev));
+                prev = blocks[blocks.len() - 1].hash;
+            }
+
+            for x in blocks.iter() {
+                assert_ok!(BTCRelay::store_block_header(&3, x.clone()));
+            }
+
+            ext::security::active_block_number::<Test>.mock_safe(|| MockResult::Return(1000));
+
+            assert_ok!(BTCRelay::verify_block_header_inclusion(genesis.hash, Some(0)));
+            for block in blocks.iter().skip(1) {
+                assert_ok!(BTCRelay::verify_block_header_inclusion(block.hash, Some(0)));
+            }
+            // block a2 used to be in the mainchain, but is not anymore
+            assert_err!(
+                BTCRelay::verify_block_header_inclusion(a2.hash, Some(0)),
+                TestError::InvalidChainID
+            );
+        })
+    }
+}
+
 #[test]
 fn store_block_header_parachain_shutdown_fails() {
     run_test(|| {
@@ -2030,7 +2084,7 @@ fn store_blockchain_and_random_headers(id: u32, start_height: u32, max_height: u
         };
 
         BTCRelay::set_block_header_from_hash(block_header.hash, &rich_header);
-        chain = BTCRelay::extend_blockchain(height, &block_header.hash, chain).unwrap();
+        chain = BTCRelay::extend_blockchain(height, &block_header, chain).unwrap();
     }
     // insert the main chain in Chains and ChainsIndex
     BTCRelay::set_chain_from_position_and_id(position, id);

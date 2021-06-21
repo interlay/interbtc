@@ -511,7 +511,7 @@ impl<T: Config> Pallet<T> {
         ensure!(!Self::best_block_exists(), Error::<T>::AlreadyInitialized);
 
         // construct the BlockChain struct
-        let chain_id = Self::create_and_store_blockchain(block_height, basic_block_header.hash)?;
+        let chain_id = Self::create_and_store_blockchain(block_height, &basic_block_header)?;
 
         // Set BestBlock and BestBlockHeight to the submitted block
         Self::update_chain_head(&basic_block_header, block_height);
@@ -570,12 +570,13 @@ impl<T: Config> Pallet<T> {
 
         let chain_id = if is_new_fork {
             // create new blockchain element
-            Self::create_and_store_blockchain(current_block_height, basic_block_header.hash)?
+            Self::create_and_store_blockchain(current_block_height, &basic_block_header)?
         } else {
             // extend the current chain
-            let blockchain = Self::extend_blockchain(current_block_height, &basic_block_header.hash, prev_blockchain)?;
+            let blockchain = Self::extend_blockchain(current_block_height, &basic_block_header, prev_blockchain)?;
 
             // Update the pointer to BlockChain in ChainsIndex
+            // todo: remove - this is already done in extend_blockchain
             ChainsIndex::<T>::mutate(blockchain.chain_id, |_b| &blockchain);
 
             if blockchain.chain_id != MAIN_CHAIN_ID {
@@ -586,8 +587,6 @@ impl<T: Config> Pallet<T> {
             }
             blockchain.chain_id
         };
-
-        Self::store_rich_header(basic_block_header, current_block_height, chain_id);
 
         // Determine if this block extends the main chain or a fork
         let current_best_block = Self::get_best_block();
@@ -925,18 +924,20 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Create a new blockchain element with a new chain id
-    fn create_and_store_blockchain(block_height: u32, block_hash: H256Le) -> Result<u32, DispatchError> {
+    fn create_and_store_blockchain(block_height: u32, basic_block_header: &BlockHeader) -> Result<u32, DispatchError> {
         // get a new chain id
         let chain_id = Self::increment_chain_counter()?;
 
         // generate an empty blockchain
-        let blockchain = Self::generate_blockchain(chain_id, block_height, block_hash);
+        let blockchain = Self::generate_blockchain(chain_id, block_height, basic_block_header.hash);
 
         // Store a pointer to BlockChain in ChainsIndex
         Self::set_block_chain_from_id(blockchain.chain_id, &blockchain);
 
         // Store the reference to the blockchain in Chains
         Self::insert_sorted(&blockchain)?;
+
+        Self::store_rich_header(basic_block_header.clone(), block_height, blockchain.chain_id);
 
         Ok(blockchain.chain_id)
     }
@@ -975,7 +976,7 @@ impl<T: Config> Pallet<T> {
     /// Add a new block header to an existing blockchain
     fn extend_blockchain(
         block_height: u32,
-        block_hash: &H256Le,
+        basic_block_header: &BlockHeader,
         prev_blockchain: BlockChain,
     ) -> Result<BlockChain, DispatchError> {
         let mut blockchain = prev_blockchain;
@@ -983,10 +984,12 @@ impl<T: Config> Pallet<T> {
         if Self::block_exists(blockchain.chain_id, block_height) {
             return Err(Error::<T>::DuplicateBlock.into());
         }
-        Self::insert_block_hash(blockchain.chain_id, block_height, *block_hash);
+        Self::insert_block_hash(blockchain.chain_id, block_height, basic_block_header.hash);
 
         blockchain.max_height = block_height;
         Self::set_block_chain_from_id(blockchain.chain_id, &blockchain);
+
+        Self::store_rich_header(basic_block_header.clone(), block_height, blockchain.chain_id);
 
         Ok(blockchain)
     }
@@ -1316,6 +1319,7 @@ impl<T: Config> Pallet<T> {
         // starting from the last element swap the positions until
         // the new blockchain is at the position_blockchain
         for curr_position in (position_blockchain + 1..max_chain_element + 1).rev() {
+            // TODO: this is a useless check
             // stop when the blockchain element is at it's
             // designated position
             if curr_position < position_blockchain {
