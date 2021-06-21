@@ -299,7 +299,7 @@ pub mod pallet {
         /// * `origin` - signing account
         #[pallet::weight(<T as Config>::WeightInfo::withdraw_vault_rewards())]
         #[transactional]
-        fn withdraw_vault_collateral_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+        pub fn withdraw_vault_collateral_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let signer = ensure_signed(origin)?;
             Self::withdraw_collateral_from_pool::<T::CollateralVaultRewards>(RewardPool::Global, &signer)?;
@@ -313,7 +313,7 @@ pub mod pallet {
         /// * `origin` - signing account
         #[pallet::weight(<T as Config>::WeightInfo::withdraw_vault_rewards())]
         #[transactional]
-        fn withdraw_vault_wrapped_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+        pub fn withdraw_vault_wrapped_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let signer = ensure_signed(origin)?;
             Self::withdraw_wrapped_from_pool::<T::WrappedVaultRewards>(RewardPool::Global, &signer)?;
@@ -328,7 +328,7 @@ pub mod pallet {
         /// * `vault_id` - vault whose reward pool to reward from
         #[pallet::weight(<T as Config>::WeightInfo::withdraw_vault_rewards())]
         #[transactional]
-        fn withdraw_nominator_collateral_rewards(
+        pub fn withdraw_nominator_collateral_rewards(
             origin: OriginFor<T>,
             vault_id: T::AccountId,
         ) -> DispatchResultWithPostInfo {
@@ -346,7 +346,7 @@ pub mod pallet {
         /// * `vault_id` - vault whose reward pool to reward from
         #[pallet::weight(<T as Config>::WeightInfo::withdraw_vault_rewards())]
         #[transactional]
-        fn withdraw_nominator_wrapped_rewards(
+        pub fn withdraw_nominator_wrapped_rewards(
             origin: OriginFor<T>,
             vault_id: T::AccountId,
         ) -> DispatchResultWithPostInfo {
@@ -363,7 +363,7 @@ pub mod pallet {
         /// * `origin` - signing account
         #[pallet::weight(<T as Config>::WeightInfo::withdraw_relayer_rewards())]
         #[transactional]
-        fn withdraw_relayer_collateral_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+        pub fn withdraw_relayer_collateral_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let signer = ensure_signed(origin)?;
             Self::withdraw_collateral_from_pool::<T::CollateralRelayerRewards>(RewardPool::Global, &signer)?;
@@ -377,7 +377,7 @@ pub mod pallet {
         /// * `origin` - signing account
         #[pallet::weight(<T as Config>::WeightInfo::withdraw_relayer_rewards())]
         #[transactional]
-        fn withdraw_relayer_wrapped_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+        pub fn withdraw_relayer_wrapped_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let signer = ensure_signed(origin)?;
             Self::withdraw_wrapped_from_pool::<T::WrappedRelayerRewards>(RewardPool::Global, &signer)?;

@@ -40,6 +40,9 @@ use {
     std::{io::Write, net::SocketAddr},
 };
 
+#[cfg(feature = "cumulus-polkadot")]
+const DEFAULT_PARA_ID: u32 = 21;
+
 fn load_spec(
     id: &str,
     #[cfg(feature = "cumulus-polkadot")] para_id: ParaId,
@@ -90,7 +93,7 @@ impl SubstrateCli for Cli {
         load_spec(
             id,
             #[cfg(feature = "cumulus-polkadot")]
-            self.run.parachain_id.unwrap_or(100).into(),
+            self.run.parachain_id.unwrap_or(DEFAULT_PARA_ID).into(),
         )
     }
 
@@ -293,8 +296,6 @@ async fn start_node(_: Cli, config: Configuration) -> sc_service::error::Result<
 
 #[cfg(feature = "cumulus-polkadot")]
 async fn start_node(cli: Cli, config: Configuration) -> sc_service::error::Result<TaskManager> {
-    let key = sp_core::Pair::generate().0;
-
     let para_id = chain_spec::Extensions::try_get(&*config.chain_spec).map(|e| e.para_id);
 
     let polkadot_cli = RelayChainCli::new(
@@ -304,7 +305,7 @@ async fn start_node(cli: Cli, config: Configuration) -> sc_service::error::Resul
             .chain(cli.relaychain_args.iter()),
     );
 
-    let id = ParaId::from(cli.run.parachain_id.or(para_id).unwrap_or(100));
+    let id = ParaId::from(cli.run.parachain_id.or(para_id).unwrap_or(DEFAULT_PARA_ID));
 
     let parachain_account = AccountIdConversion::<polkadot_primitives::v0::AccountId>::into_account(&id);
 
@@ -323,7 +324,7 @@ async fn start_node(cli: Cli, config: Configuration) -> sc_service::error::Resul
         if config.role.is_authority() { "yes" } else { "no" }
     );
 
-    btc_parachain_service::start_node(config, key, polkadot_config, id)
+    btc_parachain_service::start_node(config, polkadot_config, id)
         .await
         .map(|srv| srv.0)
 }

@@ -144,7 +144,7 @@ fn test_report_vault_theft_succeeds() {
         // check that the event has been emitted
         assert!(System::events()
             .iter()
-            .any(|a| matches!(a.event, TestEvent::staked_relayers(Event::VaultTheft(id, _)) if id == BOB)));
+            .any(|a| matches!(a.event, TestEvent::StakedRelayers(Event::VaultTheft(id, _)) if id == BOB)));
     })
 }
 

@@ -25,6 +25,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
+        RandomnessCollectiveFlip: pallet_randomness_collective_flip::{Pallet, Call, Storage},
 
         // Tokens & Balances
         Tokens: orml_tokens::{Pallet, Storage, Config<T>, Event<T>},
@@ -79,6 +80,8 @@ impl frame_system::Config for Test {
     type SS58Prefix = SS58Prefix;
     type OnSetCode = ();
 }
+
+impl pallet_randomness_collective_flip::Config for Test {}
 
 #[derive(Encode, Decode, Debug, PartialEq, PartialOrd, Ord, Eq, Clone, Copy)]
 #[cfg_attr(feature = "std", derive(serde::Serialize, serde::Deserialize))]
@@ -277,7 +280,7 @@ impl ExtBuilder {
 
     pub fn build() -> sp_io::TestExternalities {
         ExtBuilder::build_with(orml_tokens::GenesisConfig::<Test> {
-            endowed_accounts: vec![
+            balances: vec![
                 (ALICE, DOT, ALICE_BALANCE),
                 (BOB, DOT, BOB_BALANCE),
                 (CAROL, DOT, CAROL_BALANCE),

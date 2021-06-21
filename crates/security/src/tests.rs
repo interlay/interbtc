@@ -6,11 +6,11 @@ type Event = crate::Event<Test>;
 
 macro_rules! assert_emitted {
     ($event:expr) => {
-        let test_event = TestEvent::security($event);
+        let test_event = TestEvent::Security($event);
         assert!(System::events().iter().any(|a| a.event == test_event));
     };
     ($event:expr, $times:expr) => {
-        let test_event = TestEvent::security($event);
+        let test_event = TestEvent::Security($event);
         assert_eq!(
             System::events().iter().filter(|a| a.event == test_event).count(),
             $times

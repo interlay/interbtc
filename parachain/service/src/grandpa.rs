@@ -62,7 +62,7 @@ pub fn new_partial(
         config.transaction_pool.clone(),
         config.role.is_authority().into(),
         config.prometheus_registry(),
-        task_manager.spawn_handle(),
+        task_manager.spawn_essential_handle(),
         client.clone(),
     );
 
@@ -145,16 +145,15 @@ pub fn new_full(mut config: Configuration) -> Result<(TaskManager, RpcHandlers),
         .extra_sets
         .push(sc_finality_grandpa::grandpa_peers_set_config());
 
-    let (network, network_status_sinks, system_rpc_tx, network_starter) =
-        sc_service::build_network(sc_service::BuildNetworkParams {
-            config: &config,
-            client: client.clone(),
-            transaction_pool: transaction_pool.clone(),
-            spawn_handle: task_manager.spawn_handle(),
-            import_queue,
-            on_demand: None,
-            block_announce_validator_builder: None,
-        })?;
+    let (network, system_rpc_tx, network_starter) = sc_service::build_network(sc_service::BuildNetworkParams {
+        config: &config,
+        client: client.clone(),
+        transaction_pool: transaction_pool.clone(),
+        spawn_handle: task_manager.spawn_handle(),
+        import_queue,
+        on_demand: None,
+        block_announce_validator_builder: None,
+    })?;
 
     if config.offchain_worker.enabled {
         sc_service::build_offchain_workers(&config, task_manager.spawn_handle(), client.clone(), network.clone());
@@ -192,7 +191,6 @@ pub fn new_full(mut config: Configuration) -> Result<(TaskManager, RpcHandlers),
         on_demand: None,
         remote_blockchain: None,
         backend,
-        network_status_sinks,
         system_rpc_tx,
         config,
         telemetry: telemetry.as_mut(),
@@ -212,7 +210,7 @@ pub fn new_full(mut config: Configuration) -> Result<(TaskManager, RpcHandlers),
         let slot_duration = sc_consensus_aura::slot_duration(&*client)?;
         let raw_slot_duration = slot_duration.slot_duration();
 
-        let aura = sc_consensus_aura::start_aura::<AuraPair, _, _, _, _, _, _, _, _, _, _>(StartAuraParams {
+        let aura = sc_consensus_aura::start_aura::<AuraPair, _, _, _, _, _, _, _, _, _, _, _>(StartAuraParams {
             slot_duration,
             client: client.clone(),
             select_chain,
@@ -233,6 +231,7 @@ pub fn new_full(mut config: Configuration) -> Result<(TaskManager, RpcHandlers),
             keystore: keystore_container.sync_keystore(),
             can_author_with,
             sync_oracle: network.clone(),
+            justification_sync_link: network.clone(),
             block_proposal_slot_portion: SlotProportion::new(2f32 / 3f32),
             telemetry: telemetry.as_ref().map(|x| x.handle()),
         })?;
@@ -257,7 +256,7 @@ pub fn new_full(mut config: Configuration) -> Result<(TaskManager, RpcHandlers),
         name: Some(name),
         observer_enabled: false,
         keystore,
-        is_authority: role.is_authority(),
+        local_role: role,
         telemetry: telemetry.as_ref().map(|x| x.handle()),
     };
 
@@ -323,7 +322,7 @@ pub fn new_light(mut config: Configuration) -> Result<(TaskManager, RpcHandlers)
     let transaction_pool = Arc::new(sc_transaction_pool::BasicPool::new_light(
         config.transaction_pool.clone(),
         config.prometheus_registry(),
-        task_manager.spawn_handle(),
+        task_manager.spawn_essential_handle(),
         client.clone(),
         on_demand.clone(),
     ));
@@ -358,16 +357,15 @@ pub fn new_light(mut config: Configuration) -> Result<(TaskManager, RpcHandlers)
         telemetry: telemetry.as_ref().map(|x| x.handle()),
     })?;
 
-    let (network, network_status_sinks, system_rpc_tx, network_starter) =
-        sc_service::build_network(sc_service::BuildNetworkParams {
-            config: &config,
-            client: client.clone(),
-            transaction_pool: transaction_pool.clone(),
-            spawn_handle: task_manager.spawn_handle(),
-            import_queue,
-            on_demand: Some(on_demand.clone()),
-            block_announce_validator_builder: None,
-        })?;
+    let (network, system_rpc_tx, network_starter) = sc_service::build_network(sc_service::BuildNetworkParams {
+        config: &config,
+        client: client.clone(),
+        transaction_pool: transaction_pool.clone(),
+        spawn_handle: task_manager.spawn_handle(),
+        import_queue,
+        on_demand: Some(on_demand.clone()),
+        block_announce_validator_builder: None,
+    })?;
 
     if config.offchain_worker.enabled {
         sc_service::build_offchain_workers(&config, task_manager.spawn_handle(), client.clone(), network.clone());
@@ -384,7 +382,6 @@ pub fn new_light(mut config: Configuration) -> Result<(TaskManager, RpcHandlers)
         keystore: keystore_container.sync_keystore(),
         backend,
         network,
-        network_status_sinks,
         system_rpc_tx,
         telemetry: telemetry.as_mut(),
     })?;

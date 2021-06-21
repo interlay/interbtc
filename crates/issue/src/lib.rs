@@ -183,7 +183,7 @@ pub mod pallet {
         /// * `griefing_collateral` - amount of collateral
         #[pallet::weight(<T as Config>::WeightInfo::request_issue())]
         #[transactional]
-        fn request_issue(
+        pub fn request_issue(
             origin: OriginFor<T>,
             #[pallet::compact] amount: Wrapped<T>,
             vault_id: T::AccountId,
@@ -205,7 +205,7 @@ pub mod pallet {
         /// * `raw_tx` - raw bytes
         #[pallet::weight(<T as Config>::WeightInfo::execute_issue())]
         #[transactional]
-        fn execute_issue(
+        pub fn execute_issue(
             origin: OriginFor<T>,
             issue_id: H256,
             merkle_proof: Vec<u8>,
@@ -224,7 +224,7 @@ pub mod pallet {
         /// * `issue_id` - identifier of issue request as output from request_issue
         #[pallet::weight(<T as Config>::WeightInfo::cancel_issue())]
         #[transactional]
-        fn cancel_issue(origin: OriginFor<T>, issue_id: H256) -> DispatchResultWithPostInfo {
+        pub fn cancel_issue(origin: OriginFor<T>, issue_id: H256) -> DispatchResultWithPostInfo {
             let requester = ensure_signed(origin)?;
             Self::_cancel_issue(requester, issue_id)?;
             Ok(().into())
@@ -240,7 +240,7 @@ pub mod pallet {
         /// # Weight: `O(1)`
         #[pallet::weight(<T as Config>::WeightInfo::set_issue_period())]
         #[transactional]
-        pub(crate) fn set_issue_period(origin: OriginFor<T>, period: T::BlockNumber) -> DispatchResultWithPostInfo {
+        pub fn set_issue_period(origin: OriginFor<T>, period: T::BlockNumber) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             <IssuePeriod<T>>::set(period);
             Ok(().into())

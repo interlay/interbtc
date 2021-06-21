@@ -166,7 +166,7 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         #[pallet::weight(<T as Config>::WeightInfo::set_nomination_enabled())]
         #[transactional]
-        fn set_nomination_enabled(origin: OriginFor<T>, enabled: bool) -> DispatchResultWithPostInfo {
+        pub fn set_nomination_enabled(origin: OriginFor<T>, enabled: bool) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
             <NominationEnabled<T>>::set(enabled);
             Ok(().into())
@@ -175,7 +175,7 @@ pub mod pallet {
         /// Allow nomination for this vault
         #[pallet::weight(<T as Config>::WeightInfo::opt_in_to_nomination())]
         #[transactional]
-        pub(crate) fn opt_in_to_nomination(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+        pub fn opt_in_to_nomination(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_running::<T>()?;
             Self::_opt_in_to_nomination(&ensure_signed(origin)?)?;
             Ok(().into())
@@ -184,14 +184,14 @@ pub mod pallet {
         /// Disallow nomination for this vault
         #[pallet::weight(<T as Config>::WeightInfo::opt_out_of_nomination())]
         #[transactional]
-        fn opt_out_of_nomination(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+        pub fn opt_out_of_nomination(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             Self::_opt_out_of_nomination(&ensure_signed(origin)?)?;
             Ok(().into())
         }
 
         #[pallet::weight(<T as Config>::WeightInfo::deposit_collateral())]
         #[transactional]
-        fn deposit_collateral(
+        pub fn deposit_collateral(
             origin: OriginFor<T>,
             vault_id: T::AccountId,
             amount: Collateral<T>,
@@ -204,7 +204,7 @@ pub mod pallet {
 
         #[pallet::weight(<T as Config>::WeightInfo::withdraw_collateral())]
         #[transactional]
-        fn withdraw_collateral(
+        pub fn withdraw_collateral(
             origin: OriginFor<T>,
             vault_id: T::AccountId,
             amount: Collateral<T>,

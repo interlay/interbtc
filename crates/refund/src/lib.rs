@@ -127,7 +127,7 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         #[pallet::weight(<T as Config>::WeightInfo::execute_refund())]
         #[transactional]
-        fn execute_refund(
+        pub fn execute_refund(
             origin: OriginFor<T>,
             refund_id: H256,
             merkle_proof: Vec<u8>,

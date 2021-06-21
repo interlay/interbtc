@@ -315,7 +315,7 @@ pub mod pallet {
 
         #[pallet::weight(<T as Config>::WeightInfo::report_undercollateralized_vault())]
         #[transactional]
-        fn report_undercollateralized_vault(
+        pub fn report_undercollateralized_vault(
             _origin: OriginFor<T>,
             vault_id: T::AccountId,
         ) -> DispatchResultWithPostInfo {
