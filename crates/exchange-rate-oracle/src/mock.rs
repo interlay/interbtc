@@ -31,6 +31,9 @@ frame_support::construct_runtime!(
 pub type AccountId = u64;
 pub type Balance = u128;
 pub type BlockNumber = u64;
+pub type UnsignedFixedPoint = FixedU128;
+pub type Moment = u64;
+pub type Index = u64;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -44,7 +47,7 @@ impl frame_system::Config for Test {
     type DbWeight = ();
     type Origin = Origin;
     type Call = Call;
-    type Index = u64;
+    type Index = Index;
     type BlockNumber = BlockNumber;
     type Hash = H256;
     type Hashing = BlakeTwo256;
@@ -71,18 +74,18 @@ parameter_types! {
 impl Config for Test {
     type Event = TestEvent;
     type Balance = Balance;
-    type UnsignedFixedPoint = FixedU128;
+    type UnsignedFixedPoint = UnsignedFixedPoint;
     type WeightInfo = ();
     type GetCollateralDecimals = GetCollateralDecimals;
     type GetWrappedDecimals = GetWrappedDecimals;
 }
 
 parameter_types! {
-    pub const MinimumPeriod: u64 = 5;
+    pub const MinimumPeriod: Moment = 5;
 }
 
 impl pallet_timestamp::Config for Test {
-    type Moment = u64;
+    type Moment = Moment;
     type OnTimestampSet = ();
     type MinimumPeriod = MinimumPeriod;
     type WeightInfo = ();

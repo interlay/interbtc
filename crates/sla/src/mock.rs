@@ -34,6 +34,9 @@ frame_support::construct_runtime!(
 pub type AccountId = u64;
 pub type Balance = u128;
 pub type BlockNumber = u64;
+pub type Index = u64;
+pub type SignedFixedPoint = FixedI128;
+pub type SignedInner = i128;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -47,7 +50,7 @@ impl frame_system::Config for Test {
     type DbWeight = ();
     type Origin = Origin;
     type Call = Call;
-    type Index = u64;
+    type Index = Index;
     type BlockNumber = BlockNumber;
     type Hash = H256;
     type Hashing = BlakeTwo256;
@@ -83,13 +86,13 @@ parameter_types! {
 
 impl reward::Config<reward::Vault> for Test {
     type Event = TestEvent;
-    type SignedFixedPoint = FixedI128;
+    type SignedFixedPoint = SignedFixedPoint;
     type CurrencyId = CurrencyId;
 }
 
 impl reward::Config<reward::Relayer> for Test {
     type Event = TestEvent;
-    type SignedFixedPoint = FixedI128;
+    type SignedFixedPoint = SignedFixedPoint;
     type CurrencyId = CurrencyId;
 }
 
@@ -103,8 +106,8 @@ parameter_types! {
 
 impl Config for Test {
     type Event = TestEvent;
-    type SignedFixedPoint = FixedI128;
-    type SignedInner = i128;
+    type SignedFixedPoint = SignedFixedPoint;
+    type SignedInner = SignedInner;
     type Balance = Balance;
     type CollateralVaultRewards = reward::RewardsCurrencyAdapter<Test, reward::Vault, GetCollateralCurrencyId>;
     type WrappedVaultRewards = reward::RewardsCurrencyAdapter<Test, reward::Vault, GetWrappedCurrencyId>;
@@ -124,16 +127,16 @@ impl ExtBuilder {
         let mut storage = frame_system::GenesisConfig::default().build_storage::<Test>().unwrap();
 
         sla::GenesisConfig::<Test> {
-            vault_target_sla: FixedI128::from(100),
-            vault_redeem_failure_sla_change: FixedI128::from(0),
-            vault_execute_issue_max_sla_change: FixedI128::from(0),
-            vault_deposit_max_sla_change: FixedI128::from(4),
-            vault_withdraw_max_sla_change: FixedI128::from(-4),
-            vault_submit_issue_proof: FixedI128::from(0),
-            vault_refund: FixedI128::from(1),
-            relayer_target_sla: FixedI128::from(100),
-            relayer_store_block: FixedI128::from(1),
-            relayer_theft_report: FixedI128::from(1),
+            vault_target_sla: SignedFixedPoint::from(100),
+            vault_redeem_failure_sla_change: SignedFixedPoint::from(0),
+            vault_execute_issue_max_sla_change: SignedFixedPoint::from(0),
+            vault_deposit_max_sla_change: SignedFixedPoint::from(4),
+            vault_withdraw_max_sla_change: SignedFixedPoint::from(-4),
+            vault_submit_issue_proof: SignedFixedPoint::from(0),
+            vault_refund: SignedFixedPoint::from(1),
+            relayer_target_sla: SignedFixedPoint::from(100),
+            relayer_store_block: SignedFixedPoint::from(1),
+            relayer_theft_report: SignedFixedPoint::from(1),
         }
         .assimilate_storage(&mut storage)
         .unwrap();

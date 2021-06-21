@@ -10,7 +10,6 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use bitcoin::types::H256Le;
 use frame_support::dispatch::{DispatchError, DispatchResult};
-use sp_arithmetic::{FixedI128, FixedU128};
 use sp_core::H256;
 
 use frame_support::PalletId;
@@ -49,7 +48,8 @@ pub use btc_relay::{bitcoin, Call as RelayCall, TARGET_SPACING};
 pub use module_exchange_rate_oracle_rpc_runtime_api::BalanceWrapper;
 
 pub use primitives::{
-    self, AccountId, Amount, Balance, BlockNumber, CurrencyId, Hash, Moment, Nonce, Signature, DOT, INTERBTC,
+    self, AccountId, Amount, Balance, BlockNumber, CurrencyId, Hash, Moment, Nonce, Signature, SignedFixedPoint,
+    SignedInner, UnsignedFixedPoint, UnsignedInner, DOT, INTERBTC,
 };
 
 // XCM imports
@@ -493,13 +493,13 @@ impl orml_tokens::Config for Runtime {
 
 impl reward::Config<reward::Vault> for Runtime {
     type Event = Event;
-    type SignedFixedPoint = FixedI128;
+    type SignedFixedPoint = SignedFixedPoint;
     type CurrencyId = CurrencyId;
 }
 
 impl reward::Config<reward::Relayer> for Runtime {
     type Event = Event;
-    type SignedFixedPoint = FixedI128;
+    type SignedFixedPoint = SignedFixedPoint;
     type CurrencyId = CurrencyId;
 }
 
@@ -522,10 +522,10 @@ impl vault_registry::Config for Runtime {
     type PalletId = VaultPalletId;
     type Event = Event;
     type RandomnessSource = RandomnessCollectiveFlip;
-    type SignedInner = i128;
+    type SignedInner = SignedInner;
     type Balance = Balance;
-    type SignedFixedPoint = FixedI128;
-    type UnsignedFixedPoint = FixedU128;
+    type SignedFixedPoint = SignedFixedPoint;
+    type UnsignedFixedPoint = UnsignedFixedPoint;
     type WeightInfo = ();
     type CollateralVaultRewards = reward::RewardsCurrencyAdapter<Runtime, reward::Vault, GetCollateralCurrencyId>;
     type WrappedVaultRewards = reward::RewardsCurrencyAdapter<Runtime, reward::Vault, GetWrappedCurrencyId>;
@@ -549,7 +549,7 @@ parameter_types! {
 impl exchange_rate_oracle::Config for Runtime {
     type Event = Event;
     type Balance = Balance;
-    type UnsignedFixedPoint = FixedU128;
+    type UnsignedFixedPoint = UnsignedFixedPoint;
     type WeightInfo = ();
     type GetCollateralDecimals = GetCollateralDecimals;
     type GetWrappedDecimals = GetWrappedDecimals;
@@ -563,10 +563,10 @@ impl fee::Config for Runtime {
     type PalletId = FeePalletId;
     type Event = Event;
     type WeightInfo = ();
-    type SignedFixedPoint = FixedI128;
-    type SignedInner = i128;
-    type UnsignedFixedPoint = FixedU128;
-    type UnsignedInner = Balance;
+    type SignedFixedPoint = SignedFixedPoint;
+    type SignedInner = SignedInner;
+    type UnsignedFixedPoint = UnsignedFixedPoint;
+    type UnsignedInner = UnsignedInner;
     type CollateralVaultRewards = reward::RewardsCurrencyAdapter<Runtime, reward::Vault, GetCollateralCurrencyId>;
     type WrappedVaultRewards = reward::RewardsCurrencyAdapter<Runtime, reward::Vault, GetWrappedCurrencyId>;
     type CollateralRelayerRewards = reward::RewardsCurrencyAdapter<Runtime, reward::Relayer, GetCollateralCurrencyId>;
@@ -577,8 +577,8 @@ impl fee::Config for Runtime {
 
 impl sla::Config for Runtime {
     type Event = Event;
-    type SignedFixedPoint = FixedI128;
-    type SignedInner = i128;
+    type SignedFixedPoint = SignedFixedPoint;
+    type SignedInner = SignedInner;
     type Balance = Balance;
     type CollateralVaultRewards = reward::RewardsCurrencyAdapter<Runtime, reward::Vault, GetCollateralCurrencyId>;
     type WrappedVaultRewards = reward::RewardsCurrencyAdapter<Runtime, reward::Vault, GetWrappedCurrencyId>;
@@ -932,9 +932,9 @@ impl_runtime_apis! {
         AccountId,
         Balance,
         Balance,
-        FixedU128
+        UnsignedFixedPoint
     > for Runtime {
-        fn get_total_collateralization() -> Result<FixedU128, DispatchError> {
+        fn get_total_collateralization() -> Result<UnsignedFixedPoint, DispatchError> {
             VaultRegistry::get_total_collateralization()
         }
 
@@ -966,11 +966,11 @@ impl_runtime_apis! {
             Ok(BalanceWrapper{amount:result})
         }
 
-        fn get_collateralization_from_vault(vault: AccountId, only_issued: bool) -> Result<FixedU128, DispatchError> {
+        fn get_collateralization_from_vault(vault: AccountId, only_issued: bool) -> Result<UnsignedFixedPoint, DispatchError> {
             VaultRegistry::get_collateralization_from_vault(vault, only_issued)
         }
 
-        fn get_collateralization_from_vault_and_collateral(vault: AccountId, collateral: BalanceWrapper<Balance>, only_issued: bool) -> Result<FixedU128, DispatchError> {
+        fn get_collateralization_from_vault_and_collateral(vault: AccountId, collateral: BalanceWrapper<Balance>, only_issued: bool) -> Result<UnsignedFixedPoint, DispatchError> {
             VaultRegistry::get_collateralization_from_vault_and_collateral(vault, collateral.amount, only_issued)
         }
 

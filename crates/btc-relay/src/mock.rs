@@ -31,9 +31,9 @@ frame_support::construct_runtime!(
 );
 
 pub type AccountId = u64;
-#[allow(dead_code)]
-pub type Balance = u64;
 pub type BlockNumber = u64;
+pub type Moment = u64;
+pub type Index = u64;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -47,7 +47,7 @@ impl frame_system::Config for Test {
     type DbWeight = ();
     type Origin = Origin;
     type Call = Call;
-    type Index = u64;
+    type Index = Index;
     type BlockNumber = BlockNumber;
     type Hash = H256;
     type Hashing = BlakeTwo256;
@@ -66,22 +66,17 @@ impl frame_system::Config for Test {
     type OnSetCode = ();
 }
 
-parameter_types! {
-    pub const ExistentialDeposit: u64 = 1;
-    pub const MaxLocks: u32 = 50;
-}
-
 impl Config for Test {
     type Event = TestEvent;
     type WeightInfo = ();
 }
 
 parameter_types! {
-    pub const MinimumPeriod: u64 = 5;
+    pub const MinimumPeriod: Moment = 5;
 }
 
 impl pallet_timestamp::Config for Test {
-    type Moment = u64;
+    type Moment = Moment;
     type OnTimestampSet = ();
     type MinimumPeriod = MinimumPeriod;
     type WeightInfo = ();

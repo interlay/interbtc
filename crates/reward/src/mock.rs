@@ -25,8 +25,9 @@ frame_support::construct_runtime!(
 );
 
 pub type AccountId = u64;
-// pub type Balance = u128;
 pub type BlockNumber = u64;
+pub type Index = u64;
+pub type SignedFixedPoint = FixedI128;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -40,7 +41,7 @@ impl frame_system::Config for Test {
     type DbWeight = ();
     type Origin = Origin;
     type Call = Call;
-    type Index = u64;
+    type Index = Index;
     type BlockNumber = BlockNumber;
     type Hash = H256;
     type Hashing = BlakeTwo256;
@@ -71,7 +72,7 @@ pub const DOT: CurrencyId = CurrencyId::DOT;
 
 impl Config for Test {
     type Event = TestEvent;
-    type SignedFixedPoint = FixedI128;
+    type SignedFixedPoint = SignedFixedPoint;
     type CurrencyId = CurrencyId;
 }
 

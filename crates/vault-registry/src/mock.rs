@@ -45,6 +45,11 @@ pub type AccountId = u64;
 pub type Balance = u128;
 pub type Amount = i128;
 pub type BlockNumber = u64;
+pub type Moment = u64;
+pub type Index = u64;
+pub type SignedFixedPoint = FixedI128;
+pub type SignedInner = i128;
+pub type UnsignedFixedPoint = FixedU128;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -58,7 +63,7 @@ impl frame_system::Config for Test {
     type DbWeight = ();
     type Origin = Origin;
     type Call = Call;
-    type Index = u64;
+    type Index = Index;
     type BlockNumber = BlockNumber;
     type Hash = H256;
     type Hashing = BlakeTwo256;
@@ -114,22 +119,22 @@ impl orml_tokens::Config for Test {
 
 impl reward::Config<reward::Vault> for Test {
     type Event = TestEvent;
-    type SignedFixedPoint = FixedI128;
+    type SignedFixedPoint = SignedFixedPoint;
     type CurrencyId = CurrencyId;
 }
 
 impl reward::Config<reward::Relayer> for Test {
     type Event = TestEvent;
-    type SignedFixedPoint = FixedI128;
+    type SignedFixedPoint = SignedFixedPoint;
     type CurrencyId = CurrencyId;
 }
 
 parameter_types! {
-    pub const MinimumPeriod: u64 = 5;
+    pub const MinimumPeriod: Moment = 5;
 }
 
 impl pallet_timestamp::Config for Test {
-    type Moment = u64;
+    type Moment = Moment;
     type OnTimestampSet = ();
     type MinimumPeriod = MinimumPeriod;
     type WeightInfo = ();
@@ -143,7 +148,7 @@ parameter_types! {
 impl exchange_rate_oracle::Config for Test {
     type Event = TestEvent;
     type Balance = Balance;
-    type UnsignedFixedPoint = FixedU128;
+    type UnsignedFixedPoint = UnsignedFixedPoint;
     type WeightInfo = ();
     type GetCollateralDecimals = GetCollateralDecimals;
     type GetWrappedDecimals = GetWrappedDecimals;
@@ -157,10 +162,10 @@ impl Config for Test {
     type PalletId = VaultPalletId;
     type Event = TestEvent;
     type RandomnessSource = pallet_randomness_collective_flip::Pallet<Test>;
-    type SignedInner = i128;
+    type SignedInner = SignedInner;
     type Balance = Balance;
-    type SignedFixedPoint = FixedI128;
-    type UnsignedFixedPoint = FixedU128;
+    type SignedFixedPoint = SignedFixedPoint;
+    type UnsignedFixedPoint = UnsignedFixedPoint;
     type WeightInfo = ();
     type CollateralVaultRewards = reward::RewardsCurrencyAdapter<Test, reward::Vault, GetCollateralCurrencyId>;
     type WrappedVaultRewards = reward::RewardsCurrencyAdapter<Test, reward::Vault, GetWrappedCurrencyId>;
@@ -182,8 +187,8 @@ impl security::Config for Test {
 
 impl sla::Config for Test {
     type Event = TestEvent;
-    type SignedFixedPoint = FixedI128;
-    type SignedInner = i128;
+    type SignedFixedPoint = SignedFixedPoint;
+    type SignedInner = SignedInner;
     type Balance = Balance;
     type CollateralVaultRewards = reward::RewardsCurrencyAdapter<Test, reward::Vault, GetCollateralCurrencyId>;
     type WrappedVaultRewards = reward::RewardsCurrencyAdapter<Test, reward::Vault, GetWrappedCurrencyId>;
@@ -216,9 +221,9 @@ impl ExtBuilder {
         vault_registry::GenesisConfig::<Test> {
             minimum_collateral_vault: 0,
             punishment_delay: 0,
-            secure_collateral_threshold: FixedU128::one(),
-            premium_redeem_threshold: FixedU128::one(),
-            liquidation_collateral_threshold: FixedU128::one(),
+            secure_collateral_threshold: UnsignedFixedPoint::one(),
+            premium_redeem_threshold: UnsignedFixedPoint::one(),
+            liquidation_collateral_threshold: UnsignedFixedPoint::one(),
         }
         .assimilate_storage(&mut storage)
         .unwrap();
@@ -241,9 +246,9 @@ impl ExtBuilder {
 }
 
 pub(crate) fn set_default_thresholds() {
-    let secure = FixedU128::checked_from_rational(200, 100).unwrap(); // 200%
-    let premium = FixedU128::checked_from_rational(120, 100).unwrap(); // 120%
-    let liquidation = FixedU128::checked_from_rational(110, 100).unwrap(); // 110%
+    let secure = UnsignedFixedPoint::checked_from_rational(200, 100).unwrap(); // 200%
+    let premium = UnsignedFixedPoint::checked_from_rational(120, 100).unwrap(); // 120%
+    let liquidation = UnsignedFixedPoint::checked_from_rational(110, 100).unwrap(); // 110%
 
     VaultRegistry::set_secure_collateral_threshold(secure);
     VaultRegistry::set_premium_redeem_threshold(premium);

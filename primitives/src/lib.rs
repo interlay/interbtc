@@ -6,7 +6,7 @@ pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
 use sp_runtime::{
     generic,
     traits::{BlakeTwo256, IdentifyAccount, Verify},
-    MultiSignature, RuntimeDebug,
+    FixedI128, FixedU128, MultiSignature, RuntimeDebug,
 };
 use sp_std::{
     convert::{Into, TryFrom},
@@ -65,6 +65,18 @@ pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 
 /// Opaque block identifier type.
 pub type BlockId = generic::BlockId<Block>;
+
+/// The signed fixed point type.
+pub type SignedFixedPoint = FixedI128;
+
+/// The `Inner` type of the `SignedFixedPoint`.
+pub type SignedInner = i128;
+
+/// The unsigned fixed point type.
+pub type UnsignedFixedPoint = FixedU128;
+
+/// The `Inner` type of the `UnsignedFixedPoint`.
+pub type UnsignedInner = u128;
 
 macro_rules! create_currency_id {
     ($(#[$meta:meta])*
