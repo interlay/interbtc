@@ -99,7 +99,7 @@ fn should_deposit_stake() {
 fn should_not_distribute_rewards_without_stake() {
     run_test(|| {
         assert_ok!(Reward::distribute(DOT, RewardPool::Global, fixed!(1000)), fixed!(0));
-        assert_eq!(Reward::total_rewards((DOT, RewardPool::Global)), fixed!(0));
+        assert_eq!(Reward::total_rewards(DOT, RewardPool::Global), fixed!(0));
     })
 }
 
