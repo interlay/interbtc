@@ -55,10 +55,9 @@ use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure, runtime_print, transactional,
 };
-use frame_system::{ensure_root, ensure_signed};
+use frame_system::ensure_signed;
 use sp_core::{H256, U256};
 use sp_std::{
-    collections::btree_set::BTreeSet,
     convert::{TryFrom, TryInto},
     prelude::*,
 };
@@ -198,48 +197,6 @@ pub mod pallet {
             Self::_validate_transaction(transaction, expected_btc, recipient_btc_address, op_return_id)?;
             Ok(().into())
         }
-
-        /// Insert an error at the specified block.
-        ///
-        /// # Arguments
-        ///
-        /// * `origin` - the dispatch origin of this call (must be _Root_)
-        /// * `block_hash` - the hash of the bitcoin block
-        /// * `error` - the error code to insert
-        ///
-        /// # Weight: `O(1)`
-        #[pallet::weight(0)]
-        #[transactional]
-        pub fn insert_block_error(
-            origin: OriginFor<T>,
-            block_hash: H256Le,
-            error: ErrorCode,
-        ) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            Self::flag_block_error(block_hash, error)?;
-            Ok(().into())
-        }
-
-        /// Remove an error from the specified block.
-        ///
-        /// # Arguments
-        ///
-        /// * `origin` - the dispatch origin of this call (must be _Root_)
-        /// * `block_hash` - the hash of the bitcoin block
-        /// * `error` - the error code to remove
-        ///
-        /// # Weight: `O(1)`
-        #[pallet::weight(0)]
-        #[transactional]
-        pub fn remove_block_error(
-            origin: OriginFor<T>,
-            block_hash: H256Le,
-            error: ErrorCode,
-        ) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            Self::clear_block_error(block_hash, error)?;
-            Ok(().into())
-        }
     }
 
     #[pallet::event]
@@ -294,10 +251,6 @@ pub mod pallet {
         MalformedMerkleProof,
         /// Invalid merkle proof
         InvalidMerkleProof,
-        /// Feature disabled. Reason: a main chain block with a lower height is flagged with NO_DATA.
-        NoData,
-        /// Feature disabled. Reason: a main chain block is flagged as INVALID.
-        Invalid,
         /// BTC Parachain has shut down
         Shutdown,
         /// Transaction hash does not match given txid
@@ -346,8 +299,6 @@ pub mod pallet {
         UnsupportedOutputFormat,
         // Input does not match format of supported input types (Witness, P2PKH, P2SH)
         UnsupportedInputFormat,
-        /// There are no NO_DATA blocks in this BlockChain
-        NoDataEmpty,
         /// User supplied an invalid address
         InvalidBtcHash,
         /// User supplied an invalid script
@@ -719,6 +670,8 @@ impl<T: Config> Pallet<T> {
         block_hash: H256Le,
         confirmations: Option<u32>,
     ) -> Result<BlockHeader, DispatchError> {
+        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
+
         let best_block_height = Self::get_best_block_height();
         Self::ensure_no_ongoing_fork(best_block_height)?;
 
@@ -727,8 +680,6 @@ impl<T: Config> Pallet<T> {
         ensure!(rich_header.chain_ref == MAIN_CHAIN_ID, Error::<T>::InvalidChainID);
 
         let block_height = rich_header.block_height;
-
-        Self::transaction_verification_allowed(block_height)?;
 
         // This call fails if not enough confirmations
         Self::check_bitcoin_confirmations(best_block_height, confirmations, block_height)?;
@@ -920,8 +871,6 @@ impl<T: Config> Pallet<T> {
             chain_id,
             start_height: block_height,
             max_height: block_height,
-            no_data: BTreeSet::new(),
-            invalid: BTreeSet::new(),
         }
     }
 
@@ -1326,75 +1275,6 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Flag an error in a block header. This function is called by the
-    /// security pallet.
-    ///
-    /// # Arguments
-    ///
-    /// * `block_hash` - the hash of the block header with the error
-    /// * `error` - the error code for the block header
-    pub fn flag_block_error(block_hash: H256Le, error: ErrorCode) -> Result<(), DispatchError> {
-        // Get the chain id of the block header
-        let block_header = Self::get_block_header_from_hash(block_hash)?;
-        let chain_id = block_header.chain_ref;
-
-        // Get the blockchain element for the chain id
-        let mut blockchain = Self::get_block_chain_from_id(chain_id)?;
-
-        // Flag errors in the blockchain entry
-        // Check which error we are dealing with
-        let newly_flagged = match error {
-            ErrorCode::NoDataBTCRelay => blockchain.no_data.insert(block_header.block_height),
-            ErrorCode::InvalidBTCRelay => blockchain.invalid.insert(block_header.block_height),
-            _ => return Err(Error::<T>::UnknownErrorcode.into()),
-        };
-
-        // If the block was not already flagged, store the updated blockchain entry
-        if newly_flagged {
-            Self::mutate_block_chain_from_id(chain_id, blockchain);
-            Self::deposit_event(<Event<T>>::FlagBlockError(block_hash, chain_id, error));
-        }
-
-        Ok(())
-    }
-
-    /// Clear an error from a block header. This function is called by the
-    /// security pallet.
-    ///
-    /// # Arguments
-    ///
-    /// * `block_hash` - the hash of the block header being cleared
-    /// * `error` - the error code for the block header
-    pub fn clear_block_error(block_hash: H256Le, error: ErrorCode) -> Result<(), DispatchError> {
-        // Get the chain id of the block header
-        let block_header = Self::get_block_header_from_hash(block_hash)?;
-        let chain_id = block_header.chain_ref;
-
-        // Get the blockchain element for the chain id
-        let mut blockchain = Self::get_block_chain_from_id(chain_id)?;
-
-        // Clear errors in the blockchain entry
-        // Check which error we are dealing with
-        let block_exists = match error {
-            ErrorCode::NoDataBTCRelay => blockchain.no_data.remove(&block_header.block_height),
-            ErrorCode::InvalidBTCRelay => blockchain.invalid.remove(&block_header.block_height),
-            _ => return Err(Error::<T>::UnknownErrorcode.into()),
-        };
-
-        if block_exists {
-            if !blockchain.is_invalid() && !blockchain.is_no_data() {
-                Self::recover_if_needed()?
-            }
-
-            // Store the updated blockchain entry
-            Self::mutate_block_chain_from_id(chain_id, blockchain);
-
-            Self::deposit_event(<Event<T>>::ClearBlockError(block_hash, chain_id, error));
-        }
-
-        Ok(())
-    }
-
     /// Checks if the given transaction confirmations are greater/equal to the
     /// requested confirmations (and/or the global k security parameter)
     ///
@@ -1441,32 +1321,6 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Checks if transaction verification is enabled for this block height
-    /// Returs an error if:
-    ///   * Parachain is shutdown
-    ///   * the main chain contains an invalid block
-    ///   * the main chain contains a "NO_DATA" block at a lower height than `block_height`
-    /// # Arguments
-    ///
-    /// * `block_height` - block height of the to-be-verified transaction
-    fn transaction_verification_allowed(block_height: u32) -> Result<(), DispatchError> {
-        // Make sure Parachain is not shutdown
-        ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-
-        // Ensure main chain has no invalid block
-        let main_chain = Self::get_block_chain_from_id(MAIN_CHAIN_ID)?;
-        ensure!(!main_chain.is_invalid(), Error::<T>::Invalid);
-
-        // Check if a NO_DATA block exists at a lower height than block_height
-        if main_chain.is_no_data() {
-            match main_chain.no_data.iter().next_back() {
-                Some(no_data_height) => ensure!(block_height < *no_data_height, Error::<T>::NoData),
-                None => (),
-            }
-        }
-        Ok(())
-    }
-
     fn ensure_no_ongoing_fork(best_block_height: u32) -> Result<(), DispatchError> {
         // check if there is a next best fork
         match Self::get_chain_id_from_position(1) {
@@ -1486,17 +1340,6 @@ impl<T: Config> Pallet<T> {
             Err(_) => {}
         }
         Ok(())
-    }
-
-    fn recover_if_needed() -> Result<(), DispatchError> {
-        if ext::security::is_parachain_error_invalid_btcrelay::<T>()
-            || ext::security::is_parachain_error_no_data_btcrelay::<T>()
-        {
-            ext::security::recover_from_btc_relay_failure::<T>();
-            Ok(())
-        } else {
-            Ok(())
-        }
     }
 
     fn store_rich_header(basic_block_header: BlockHeader, block_height: u32, chain_id: u32) {

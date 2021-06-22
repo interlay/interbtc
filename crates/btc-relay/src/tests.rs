@@ -9,9 +9,7 @@ use crate::{Chains, ChainsIndex};
 use bitcoin::{formatter::TryFormattable, merkle::*, parser::*, types::*};
 use frame_support::{assert_err, assert_ok};
 use mocktopus::mocking::*;
-use security::{ErrorCode, StatusCode};
 use sp_std::{
-    collections::btree_set::BTreeSet,
     convert::{TryFrom, TryInto},
     str::FromStr,
 };
@@ -1081,230 +1079,6 @@ fn test_verify_and_validate_transaction_succeeds() {
     });
 }
 
-/// flag_block_error
-#[test]
-fn test_flag_block_error_succeeds() {
-    run_test(|| {
-        let chain_ref: u32 = 1;
-        let start_height: u32 = 10;
-        let block_height: u32 = 100;
-
-        let rich_header = RichBlockHeader::<BlockNumber> {
-            block_header: sample_block_header(),
-            block_height,
-            chain_ref,
-            para_height: Default::default(),
-        };
-
-        BTCRelay::set_block_header_from_hash(rich_header.block_hash(), &rich_header);
-
-        let blockchain = get_empty_block_chain_from_chain_id_and_height(chain_ref, start_height, block_height);
-        BTCRelay::set_block_chain_from_id(chain_ref, &blockchain);
-
-        let error_codes = vec![ErrorCode::NoDataBTCRelay, ErrorCode::InvalidBTCRelay];
-
-        for error in error_codes.iter() {
-            assert_ok!(BTCRelay::flag_block_error(rich_header.block_hash(), error.clone()));
-            let curr_chain = BTCRelay::get_block_chain_from_id(chain_ref).unwrap();
-
-            if *error == ErrorCode::NoDataBTCRelay {
-                assert!(curr_chain.no_data.contains(&block_height));
-            } else if *error == ErrorCode::InvalidBTCRelay {
-                assert!(curr_chain.invalid.contains(&block_height));
-            };
-            let error_event = TestEvent::BTCRelay(Event::FlagBlockError(
-                rich_header.block_hash(),
-                chain_ref,
-                error.clone(),
-            ));
-            assert!(System::events().iter().any(|a| a.event == error_event));
-        }
-    })
-}
-
-#[test]
-fn test_flag_block_error_fails() {
-    run_test(|| {
-        let chain_ref: u32 = 1;
-        let start_height: u32 = 20;
-        let block_height: u32 = 100;
-
-        let rich_header = RichBlockHeader::<BlockNumber> {
-            block_header: sample_block_header(),
-            block_height,
-            chain_ref,
-            para_height: Default::default(),
-        };
-
-        BTCRelay::set_block_header_from_hash(rich_header.block_hash(), &rich_header);
-
-        let blockchain = get_empty_block_chain_from_chain_id_and_height(chain_ref, start_height, block_height);
-        BTCRelay::set_block_chain_from_id(chain_ref, &blockchain);
-
-        // not a valid error code for a block
-        let error = ErrorCode::OracleOffline;
-
-        assert_err!(
-            BTCRelay::flag_block_error(rich_header.block_hash(), error),
-            TestError::UnknownErrorcode
-        );
-    })
-}
-
-/// clear_block_error
-#[test]
-fn test_clear_block_error_succeeds() {
-    run_test(|| {
-        let chain_ref: u32 = 1;
-        let start_height: u32 = 15;
-        let block_height: u32 = 100;
-
-        let rich_header = RichBlockHeader::<BlockNumber> {
-            block_header: sample_block_header(),
-            block_height,
-            chain_ref,
-            para_height: Default::default(),
-        };
-
-        BTCRelay::set_block_header_from_hash(rich_header.block_hash(), &rich_header);
-
-        let mut blockchain = get_empty_block_chain_from_chain_id_and_height(chain_ref, start_height, block_height);
-        blockchain.no_data.insert(block_height);
-        blockchain.invalid.insert(block_height);
-        set_parachain_nodata_error();
-        ext::security::insert_error::<Test>(ErrorCode::InvalidBTCRelay);
-
-        BTCRelay::set_block_chain_from_id(chain_ref, &blockchain);
-
-        let clear_error = move |error: ErrorCode| {
-            assert_ok!(BTCRelay::clear_block_error(rich_header.block_hash(), error.clone()));
-            let curr_chain = BTCRelay::get_block_chain_from_id(chain_ref).unwrap();
-
-            if error == ErrorCode::NoDataBTCRelay {
-                assert!(!curr_chain.no_data.contains(&block_height));
-            } else if error == ErrorCode::InvalidBTCRelay {
-                assert!(!curr_chain.invalid.contains(&block_height));
-            };
-            let error_event = TestEvent::BTCRelay(Event::ClearBlockError(rich_header.block_hash(), chain_ref, error));
-            assert!(System::events().iter().any(|a| a.event == error_event));
-        };
-
-        clear_error(ErrorCode::NoDataBTCRelay);
-        // ensure not recovered while there are still invalid blocks
-        assert_err!(
-            ext::security::ensure_parachain_status_running::<Test>(),
-            SecurityError::ParachainNotRunning
-        );
-        assert!(ext::security::is_parachain_error_invalid_btcrelay::<Test>());
-        clear_error(ErrorCode::InvalidBTCRelay);
-
-        assert_ok!(ext::security::ensure_parachain_status_running::<Test>());
-        assert!(!ext::security::is_parachain_error_invalid_btcrelay::<Test>());
-        assert!(!ext::security::is_parachain_error_no_data_btcrelay::<Test>());
-    })
-}
-
-#[test]
-fn test_clear_block_error_fails() {
-    run_test(|| {
-        let chain_ref: u32 = 1;
-        let start_height: u32 = 20;
-        let block_height: u32 = 100;
-
-        let rich_header = RichBlockHeader::<BlockNumber> {
-            block_header: sample_block_header(),
-            block_height,
-            chain_ref,
-            para_height: Default::default(),
-        };
-
-        BTCRelay::set_block_header_from_hash(rich_header.block_hash(), &rich_header);
-
-        let blockchain = get_empty_block_chain_from_chain_id_and_height(chain_ref, start_height, block_height);
-        BTCRelay::set_block_chain_from_id(chain_ref, &blockchain);
-
-        // not a valid error code for a block
-        let error = ErrorCode::OracleOffline;
-
-        assert_err!(
-            BTCRelay::clear_block_error(rich_header.block_hash(), error),
-            TestError::UnknownErrorcode
-        );
-    })
-}
-
-#[test]
-fn test_transaction_verification_allowed_succeeds() {
-    run_test(|| {
-        let main_start: u32 = 0;
-        let main_height: u32 = 10;
-        BTCRelay::get_block_chain_from_id.mock_safe(move |_| {
-            MockResult::Return(Ok(get_empty_block_chain_from_chain_id_and_height(
-                1,
-                main_start,
-                main_height,
-            )))
-        });
-        assert_ok!(BTCRelay::transaction_verification_allowed(main_start + 1));
-    })
-}
-
-#[test]
-fn test_transaction_verification_allowed_invalid_fails() {
-    run_test(|| {
-        let main_start: u32 = 0;
-        let main_height: u32 = 10;
-        BTCRelay::get_block_chain_from_id.mock_safe(move |_| {
-            MockResult::Return(Ok(get_invalid_empty_block_chain_from_chain_id_and_height(
-                1,
-                main_start,
-                main_height,
-            )))
-        });
-        assert_err!(
-            BTCRelay::transaction_verification_allowed(main_start + 1),
-            TestError::Invalid
-        );
-    })
-}
-
-#[test]
-fn test_transaction_verification_allowed_no_data_fails() {
-    run_test(|| {
-        let main_start: u32 = 0;
-        let main_height: u32 = 10;
-        BTCRelay::get_block_chain_from_id.mock_safe(move |_| {
-            MockResult::Return(Ok(get_nodata_empty_block_chain_from_chain_id_and_height(
-                1,
-                main_start,
-                main_height,
-            )))
-        });
-        // NO_DATA height is main_height - 1
-        assert_err!(
-            BTCRelay::transaction_verification_allowed(main_height),
-            TestError::NoData
-        );
-    })
-}
-
-#[test]
-fn test_transaction_verification_allowed_no_data_succeeds() {
-    run_test(|| {
-        let main_start: u32 = 0;
-        let main_height: u32 = 10;
-        BTCRelay::get_block_chain_from_id.mock_safe(move |_| {
-            MockResult::Return(Ok(get_nodata_empty_block_chain_from_chain_id_and_height(
-                1,
-                main_start,
-                main_height,
-            )))
-        });
-        // NO_DATA height is main_height - 1
-        assert_ok!(BTCRelay::transaction_verification_allowed(main_start + 1));
-    })
-}
-
 #[test]
 fn test_verify_transaction_inclusion_succeeds() {
     run_test(|| {
@@ -1977,7 +1751,6 @@ mod op_return_payment_data_tests {
 fn test_check_and_do_reorg() {
     use crate::{Chains, ChainsIndex};
     use bitcoin::types::BlockChain;
-    use sp_std::collections::btree_set::BTreeSet;
 
     // data taken from testnet fork
     run_test(|| {
@@ -1990,8 +1763,6 @@ fn test_check_and_do_reorg() {
                 chain_id: 0,
                 start_height: 1_892_642,
                 max_height: 1_897_317,
-                no_data: BTreeSet::new(),
-                invalid: BTreeSet::new(),
             },
         );
 
@@ -2001,8 +1772,6 @@ fn test_check_and_do_reorg() {
                 chain_id: 2,
                 start_height: 1_893_831,
                 max_height: 1_893_831,
-                no_data: BTreeSet::new(),
-                invalid: BTreeSet::new(),
             },
         );
 
@@ -2012,8 +1781,6 @@ fn test_check_and_do_reorg() {
                 chain_id: 4,
                 start_height: 1_895_256,
                 max_height: 1_895_256,
-                no_data: BTreeSet::new(),
-                invalid: BTreeSet::new(),
             },
         );
 
@@ -2023,8 +1790,6 @@ fn test_check_and_do_reorg() {
                 chain_id: 6,
                 start_height: 1_896_846,
                 max_height: 1_896_846,
-                no_data: BTreeSet::new(),
-                invalid: BTreeSet::new(),
             },
         );
 
@@ -2034,8 +1799,6 @@ fn test_check_and_do_reorg() {
                 chain_id: 7,
                 start_height: 1_897_317,
                 max_height: 1_897_910,
-                no_data: BTreeSet::new(),
-                invalid: BTreeSet::new(),
             },
         );
 
@@ -2047,8 +1810,6 @@ fn test_check_and_do_reorg() {
             chain_id: 7,
             start_height: 1_897_317,
             max_height: 1_897_910,
-            no_data: BTreeSet::new(),
-            invalid: BTreeSet::new(),
         }));
     })
 }
@@ -2098,31 +1859,7 @@ fn get_empty_block_chain_from_chain_id_and_height(chain_id: u32, start_height: u
         chain_id,
         start_height,
         max_height: block_height,
-        no_data: BTreeSet::new(),
-        invalid: BTreeSet::new(),
     };
-
-    blockchain
-}
-
-fn get_invalid_empty_block_chain_from_chain_id_and_height(
-    chain_id: u32,
-    start_height: u32,
-    block_height: u32,
-) -> BlockChain {
-    let mut blockchain = get_empty_block_chain_from_chain_id_and_height(chain_id, start_height, block_height);
-    blockchain.invalid.insert(block_height - 1);
-
-    blockchain
-}
-
-fn get_nodata_empty_block_chain_from_chain_id_and_height(
-    chain_id: u32,
-    start_height: u32,
-    block_height: u32,
-) -> BlockChain {
-    let mut blockchain = get_empty_block_chain_from_chain_id_and_height(chain_id, start_height, block_height);
-    blockchain.no_data.insert(block_height - 1);
 
     blockchain
 }
@@ -2275,10 +2012,4 @@ fn sample_example_real_txid() -> String {
 
 fn sample_example_real_transaction_hash() -> String {
     "b759d39a8596b70b3a46700b83e1edb247e17ba58df305421864fe7a9ac142ea".to_owned()
-}
-
-fn set_parachain_nodata_error() {
-    ext::security::insert_error::<Test>(ErrorCode::NoDataBTCRelay);
-    ext::security::set_status::<Test>(StatusCode::Error);
-    assert!(ext::security::is_parachain_error_no_data_btcrelay::<Test>());
 }

@@ -77,24 +77,6 @@ fn test_is_ensure_parachain_not_shutdown_fails() {
 }
 
 #[test]
-fn test_is_parachain_error_no_data_btcrelay() {
-    run_test(|| {
-        Security::set_status(StatusCode::Error);
-        Security::insert_error(ErrorCode::NoDataBTCRelay);
-        assert_eq!(Security::is_parachain_error_no_data_btcrelay(), true);
-    })
-}
-
-#[test]
-fn test_is_parachain_error_invalid_btcrelay() {
-    run_test(|| {
-        Security::set_status(StatusCode::Error);
-        Security::insert_error(ErrorCode::InvalidBTCRelay);
-        assert_eq!(Security::is_parachain_error_invalid_btcrelay(), true);
-    })
-}
-
-#[test]
 fn test_is_parachain_error_oracle_offline() {
     run_test(|| {
         Security::set_status(StatusCode::Error);
@@ -122,16 +104,6 @@ where
 fn test_recover_from_oracle_offline_succeeds() {
     run_test(|| {
         test_recover_from_(Security::recover_from_oracle_offline, vec![ErrorCode::OracleOffline]);
-    })
-}
-
-#[test]
-fn test_recover_from_btc_relay_failure_succeeds() {
-    run_test(|| {
-        test_recover_from_(
-            Security::recover_from_btc_relay_failure,
-            vec![ErrorCode::InvalidBTCRelay, ErrorCode::NoDataBTCRelay],
-        );
     })
 }
 

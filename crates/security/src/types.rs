@@ -23,17 +23,7 @@ impl Default for StatusCode {
 pub enum ErrorCode {
     /// No error. Used as default value
     None = 0,
-    /// If there is a poisoning attack on the relay, we have no way to verify that a transaction
-    /// is correct according to full-node validation logic. An attacker could mine a transaction
-    /// on a private fork which double spends BTC, submit the block header to our relay and
-    /// successfully issue tokens using a valid Merkle proof. `NO_DATA` allows staked relayers
-    /// to flag a block if it does not appear in its local full node. This should halt the Parachain
-    /// until the relay recovers.
-    NoDataBTCRelay = 1,
-    /// Invalid transaction was detected in a block header submitted to BTC-Relay
-    InvalidBTCRelay = 2,
-    /// The exchangeRateOracle experienced a liveness failure (no up-to-date exchange rate available)
-    OracleOffline = 3,
+    OracleOffline = 1,
 }
 
 impl Default for ErrorCode {

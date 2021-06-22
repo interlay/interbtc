@@ -75,8 +75,6 @@ pub mod pallet {
     impl<T: Config> From<ErrorCode> for Error<T> {
         fn from(error_code: ErrorCode) -> Self {
             match error_code {
-                ErrorCode::NoDataBTCRelay => Error::NoDataBTCRelay,
-                ErrorCode::InvalidBTCRelay => Error::InvalidBTCRelay,
                 ErrorCode::OracleOffline => Error::ParachainOracleOfflineError,
                 _ => Error::InvalidErrorCode,
             }
@@ -192,16 +190,6 @@ impl<T: Config> Pallet<T> {
         }
     }
 
-    /// Checks if the Parachain has a NoDataBTCRelay Error state
-    pub fn is_parachain_error_no_data_btcrelay() -> bool {
-        <ParachainStatus<T>>::get() == StatusCode::Error && <Errors<T>>::get().contains(&ErrorCode::NoDataBTCRelay)
-    }
-
-    /// Checks if the Parachain has a InvalidBTCRelay Error state
-    pub fn is_parachain_error_invalid_btcrelay() -> bool {
-        <ParachainStatus<T>>::get() == StatusCode::Error && <Errors<T>>::get().contains(&ErrorCode::InvalidBTCRelay)
-    }
-
     /// Checks if the Parachain has a OracleOffline Error state
     pub fn is_parachain_error_oracle_offline() -> bool {
         <ParachainStatus<T>>::get() == StatusCode::Error && <Errors<T>>::get().contains(&ErrorCode::OracleOffline)
@@ -269,13 +257,6 @@ impl<T: Config> Pallet<T> {
     /// and sets ParachainStatus to `RUNNING` if there are no other errors.
     pub fn recover_from_oracle_offline() {
         Self::recover_from_(vec![ErrorCode::OracleOffline])
-    }
-
-    /// Recovers the BTC Parachain state from a `NO_DATA_BTC_RELAY` or `INVALID_BTC_RELAY` error
-    /// (when a chain reorganization occurs and the new main chain has no errors)
-    /// and sets ParachainStatus to `RUNNING` if there are no other errors.
-    pub fn recover_from_btc_relay_failure() {
-        Self::recover_from_(vec![ErrorCode::InvalidBTCRelay, ErrorCode::NoDataBTCRelay])
     }
 
     /// Increment and return the `Nonce`.
