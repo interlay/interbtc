@@ -127,10 +127,13 @@ pub mod pallet {
 
     /// Map of Nominators
     #[pallet::storage]
-    pub(super) type Nominators<T: Config> = StorageMap<
+    pub(super) type Nominators<T: Config> = StorageDoubleMap<
         _,
+        // TODO: reverse storage order?
         Blake2_128Concat,
-        (T::AccountId, T::AccountId),
+        T::AccountId, // nominator_id
+        Blake2_128Concat,
+        T::AccountId, // vault_id
         Nominator<T::AccountId, Collateral<T>, SignedFixedPoint<T>>,
         ValueQuery,
     >;
@@ -323,7 +326,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn is_nominator(nominator_id: &T::AccountId, vault_id: &T::AccountId) -> Result<bool, DispatchError> {
-        Ok(<Nominators<T>>::contains_key((&nominator_id, &vault_id)))
+        Ok(<Nominators<T>>::contains_key(&nominator_id, &vault_id))
     }
 
     pub fn get_total_nominated_collateral(vault_id: &T::AccountId) -> Result<Collateral<T>, DispatchError> {
@@ -353,7 +356,7 @@ impl<T: Config> Pallet<T> {
             Self::is_nominator(&nominator_id, &vault_id)?,
             Error::<T>::NominatorNotFound
         );
-        Ok(<Nominators<T>>::get((nominator_id, vault_id)))
+        Ok(<Nominators<T>>::get(nominator_id, vault_id))
     }
 
     pub fn get_rich_nominator(
@@ -377,10 +380,10 @@ impl<T: Config> Pallet<T> {
     ) -> Result<DefaultNominator<T>, DispatchError> {
         if !Self::is_nominator(&nominator_id, &vault_id)? {
             let nominator = Nominator::new(nominator_id.clone(), vault_id.clone());
-            <Nominators<T>>::insert((nominator_id, vault_id), nominator.clone());
+            <Nominators<T>>::insert(nominator_id, vault_id, nominator.clone());
             Ok(nominator)
         } else {
-            Ok(<Nominators<T>>::get((&nominator_id, &vault_id)))
+            Ok(<Nominators<T>>::get(&nominator_id, &vault_id))
         }
     }
 

@@ -79,7 +79,7 @@ impl<T: Config> SlashingAccessors<Collateral<T>, SignedFixedPoint<T>, Error<T>> 
         F: Fn(&mut Collateral<T>) -> Result<(), Error<T>>,
     {
         func(&mut self.data.collateral)?;
-        <crate::Nominators<T>>::insert((&self.data.id, &self.data.vault_id), self.data.clone());
+        <crate::Nominators<T>>::insert(&self.data.id, &self.data.vault_id, self.data.clone());
         Ok(())
     }
 
@@ -126,7 +126,7 @@ impl<T: Config> SlashingAccessors<Collateral<T>, SignedFixedPoint<T>, Error<T>> 
         F: Fn(&mut SignedFixedPoint<T>) -> Result<(), Error<T>>,
     {
         func(&mut self.data.slash_tally)?;
-        <crate::Nominators<T>>::insert((&self.data.id, &self.data.vault_id), self.data.clone());
+        <crate::Nominators<T>>::insert(&self.data.id, &self.data.vault_id, self.data.clone());
         Ok(())
     }
 }
