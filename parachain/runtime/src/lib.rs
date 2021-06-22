@@ -640,7 +640,7 @@ macro_rules! construct_interbtc_runtime {
                 TransactionPayment: pallet_transaction_payment::{Pallet, Storage},
 
                 // Tokens & Balances
-                Tokens: orml_tokens::{Pallet, Storage, Config<T>, Event<T>},
+                Tokens: orml_tokens::{Pallet, Call, Storage, Config<T>, Event<T>},
 
                 VaultRewards: reward::<Instance1>::{Pallet, Call, Storage, Event<T>},
                 RelayerRewards: reward::<Instance2>::{Pallet, Call, Storage, Event<T>},
