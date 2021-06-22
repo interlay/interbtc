@@ -48,6 +48,12 @@ pub type AccountId = u64;
 pub type Balance = u128;
 pub type Amount = i128;
 pub type BlockNumber = u64;
+pub type Moment = u64;
+pub type Index = u64;
+pub type SignedFixedPoint = FixedI128;
+pub type SignedInner = i128;
+pub type UnsignedFixedPoint = FixedU128;
+pub type UnsignedInner = u128;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -61,7 +67,7 @@ impl frame_system::Config for Test {
     type DbWeight = ();
     type Origin = Origin;
     type Call = Call;
-    type Index = u64;
+    type Index = Index;
     type BlockNumber = BlockNumber;
     type Hash = H256;
     type Hashing = BlakeTwo256;
@@ -131,10 +137,10 @@ impl vault_registry::Config for Test {
     type PalletId = VaultPalletId;
     type Event = TestEvent;
     type RandomnessSource = pallet_randomness_collective_flip::Pallet<Test>;
-    type SignedInner = i128;
+    type SignedInner = SignedInner;
     type Balance = Balance;
-    type SignedFixedPoint = FixedI128;
-    type UnsignedFixedPoint = FixedU128;
+    type SignedFixedPoint = SignedFixedPoint;
+    type UnsignedFixedPoint = UnsignedFixedPoint;
     type WeightInfo = ();
     type CollateralVaultRewards = reward::RewardsCurrencyAdapter<Test, reward::Vault, GetCollateralCurrencyId>;
     type WrappedVaultRewards = reward::RewardsCurrencyAdapter<Test, reward::Vault, GetWrappedCurrencyId>;
@@ -144,13 +150,13 @@ impl vault_registry::Config for Test {
 
 impl reward::Config<reward::Vault> for Test {
     type Event = TestEvent;
-    type SignedFixedPoint = FixedI128;
+    type SignedFixedPoint = SignedFixedPoint;
     type CurrencyId = CurrencyId;
 }
 
 impl reward::Config<reward::Relayer> for Test {
     type Event = TestEvent;
-    type SignedFixedPoint = FixedI128;
+    type SignedFixedPoint = SignedFixedPoint;
     type CurrencyId = CurrencyId;
 }
 
@@ -164,11 +170,11 @@ impl security::Config for Test {
 }
 
 parameter_types! {
-    pub const MinimumPeriod: u64 = 5;
+    pub const MinimumPeriod: Moment = 5;
 }
 
 impl pallet_timestamp::Config for Test {
-    type Moment = u64;
+    type Moment = Moment;
     type OnTimestampSet = ();
     type MinimumPeriod = MinimumPeriod;
     type WeightInfo = ();
@@ -182,7 +188,7 @@ parameter_types! {
 impl exchange_rate_oracle::Config for Test {
     type Event = TestEvent;
     type Balance = Balance;
-    type UnsignedFixedPoint = FixedU128;
+    type UnsignedFixedPoint = UnsignedFixedPoint;
     type WeightInfo = ();
     type GetCollateralDecimals = GetCollateralDecimals;
     type GetWrappedDecimals = GetWrappedDecimals;
@@ -196,10 +202,10 @@ impl fee::Config for Test {
     type PalletId = FeePalletId;
     type Event = TestEvent;
     type WeightInfo = ();
-    type SignedFixedPoint = FixedI128;
-    type SignedInner = i128;
-    type UnsignedFixedPoint = FixedU128;
-    type UnsignedInner = Balance;
+    type SignedFixedPoint = SignedFixedPoint;
+    type SignedInner = SignedInner;
+    type UnsignedFixedPoint = UnsignedFixedPoint;
+    type UnsignedInner = UnsignedInner;
     type CollateralVaultRewards = reward::RewardsCurrencyAdapter<Test, reward::Vault, GetCollateralCurrencyId>;
     type WrappedVaultRewards = reward::RewardsCurrencyAdapter<Test, reward::Vault, GetWrappedCurrencyId>;
     type CollateralRelayerRewards = reward::RewardsCurrencyAdapter<Test, reward::Relayer, GetCollateralCurrencyId>;
@@ -210,8 +216,8 @@ impl fee::Config for Test {
 
 impl sla::Config for Test {
     type Event = TestEvent;
-    type SignedFixedPoint = FixedI128;
-    type SignedInner = i128;
+    type SignedFixedPoint = SignedFixedPoint;
+    type SignedInner = SignedInner;
     type Balance = Balance;
     type CollateralVaultRewards = reward::RewardsCurrencyAdapter<Test, reward::Vault, GetCollateralCurrencyId>;
     type WrappedVaultRewards = reward::RewardsCurrencyAdapter<Test, reward::Vault, GetWrappedCurrencyId>;
@@ -245,18 +251,18 @@ impl ExtBuilder {
         balances.assimilate_storage(&mut storage).unwrap();
 
         fee::GenesisConfig::<Test> {
-            issue_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
-            issue_griefing_collateral: FixedU128::checked_from_rational(5, 100000).unwrap(), // 0.005%
-            refund_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
-            redeem_fee: FixedU128::checked_from_rational(5, 1000).unwrap(), // 0.5%
-            premium_redeem_fee: FixedU128::checked_from_rational(5, 100).unwrap(), // 5%
-            punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
-            replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
+            issue_fee: UnsignedFixedPoint::checked_from_rational(5, 1000).unwrap(), // 0.5%
+            issue_griefing_collateral: UnsignedFixedPoint::checked_from_rational(5, 100000).unwrap(), // 0.005%
+            refund_fee: UnsignedFixedPoint::checked_from_rational(5, 1000).unwrap(), // 0.5%
+            redeem_fee: UnsignedFixedPoint::checked_from_rational(5, 1000).unwrap(), // 0.5%
+            premium_redeem_fee: UnsignedFixedPoint::checked_from_rational(5, 100).unwrap(), // 5%
+            punishment_fee: UnsignedFixedPoint::checked_from_rational(1, 10).unwrap(), // 10%
+            replace_griefing_collateral: UnsignedFixedPoint::checked_from_rational(1, 10).unwrap(), // 10%
             maintainer_account_id: 1,
-            vault_rewards: FixedU128::checked_from_rational(77, 100).unwrap(),
-            relayer_rewards: FixedU128::checked_from_rational(3, 100).unwrap(),
-            maintainer_rewards: FixedU128::checked_from_rational(20, 100).unwrap(),
-            nomination_rewards: FixedU128::checked_from_rational(0, 100).unwrap(),
+            vault_rewards: UnsignedFixedPoint::checked_from_rational(77, 100).unwrap(),
+            relayer_rewards: UnsignedFixedPoint::checked_from_rational(3, 100).unwrap(),
+            maintainer_rewards: UnsignedFixedPoint::checked_from_rational(20, 100).unwrap(),
+            nomination_rewards: UnsignedFixedPoint::checked_from_rational(0, 100).unwrap(),
         }
         .assimilate_storage(&mut storage)
         .unwrap();
@@ -264,24 +270,24 @@ impl ExtBuilder {
         vault_registry::GenesisConfig::<Test> {
             minimum_collateral_vault: 0,
             punishment_delay: 8,
-            secure_collateral_threshold: FixedU128::checked_from_rational(200, 100).unwrap(),
-            premium_redeem_threshold: FixedU128::checked_from_rational(120, 100).unwrap(),
-            liquidation_collateral_threshold: FixedU128::checked_from_rational(110, 100).unwrap(),
+            secure_collateral_threshold: UnsignedFixedPoint::checked_from_rational(200, 100).unwrap(),
+            premium_redeem_threshold: UnsignedFixedPoint::checked_from_rational(120, 100).unwrap(),
+            liquidation_collateral_threshold: UnsignedFixedPoint::checked_from_rational(110, 100).unwrap(),
         }
         .assimilate_storage(&mut storage)
         .unwrap();
 
         sla::GenesisConfig::<Test> {
-            vault_target_sla: FixedI128::from(100),
-            vault_redeem_failure_sla_change: FixedI128::from(-10),
-            vault_execute_issue_max_sla_change: FixedI128::from(4),
-            vault_deposit_max_sla_change: FixedI128::from(4),
-            vault_withdraw_max_sla_change: FixedI128::from(-4),
-            vault_submit_issue_proof: FixedI128::from(0),
-            vault_refund: FixedI128::from(1),
-            relayer_target_sla: FixedI128::from(100),
-            relayer_store_block: FixedI128::from(1),
-            relayer_theft_report: FixedI128::from(1),
+            vault_target_sla: SignedFixedPoint::from(100),
+            vault_redeem_failure_sla_change: SignedFixedPoint::from(-10),
+            vault_execute_issue_max_sla_change: SignedFixedPoint::from(4),
+            vault_deposit_max_sla_change: SignedFixedPoint::from(4),
+            vault_withdraw_max_sla_change: SignedFixedPoint::from(-4),
+            vault_submit_issue_proof: SignedFixedPoint::from(0),
+            vault_refund: SignedFixedPoint::from(1),
+            relayer_target_sla: SignedFixedPoint::from(100),
+            relayer_store_block: SignedFixedPoint::from(1),
+            relayer_theft_report: SignedFixedPoint::from(1),
         }
         .assimilate_storage(&mut storage)
         .unwrap();
@@ -318,7 +324,7 @@ where
     clear_mocks();
     ExtBuilder::build().execute_with(|| {
         assert_ok!(<exchange_rate_oracle::Pallet<Test>>::_set_exchange_rate(
-            FixedU128::one()
+            UnsignedFixedPoint::one()
         ));
         Security::set_active_block_number(1);
         System::set_block_number(1);
