@@ -43,8 +43,8 @@ pallet-timestamp = { git = "https://github.com/paritytech/substrate", branch = "
 reward = { path = "../reward", default-features = false }
 
 # Orml dependencies
-orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "55053241229a8e842dbb717c2bb281daa9fbdf04", default-features = false }
-orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "55053241229a8e842dbb717c2bb281daa9fbdf04", default-features = false }
+orml-tokens = { git = "https://github.com/interlay/open-runtime-module-library", rev = "189dfe2", default-features = false }
+orml-traits = { git = "https://github.com/interlay/open-runtime-module-library", rev = "189dfe2", default-features = false }
 
 [features]
 default = ["std"]
