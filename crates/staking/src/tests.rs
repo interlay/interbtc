@@ -1,6 +1,6 @@
 /// Tests for Staking
 use crate::mock::*;
-use frame_support::assert_ok;
+use frame_support::{assert_err, assert_ok};
 
 // type Event = crate::Event<Test>;
 
@@ -61,5 +61,42 @@ fn should_stake_and_distribute_and_withdraw() {
 
         assert_ok!(Staking::compute_reward(DOT, &VAULT, &ALICE), 1023);
         assert_ok!(Staking::compute_reward(DOT, &VAULT, &BOB), 1976);
+    })
+}
+
+#[test]
+fn should_stake_and_withdraw_rewards() {
+    run_test(|| {
+        assert_ok!(Staking::deposit_stake(DOT, &VAULT, &ALICE, fixed!(100)));
+        assert_ok!(Staking::distribute_reward(DOT, &VAULT, fixed!(100)));
+        assert_ok!(Staking::compute_reward(DOT, &VAULT, &ALICE), 100);
+        assert_ok!(Staking::withdraw_reward(DOT, &VAULT, &ALICE), 100);
+        assert_ok!(Staking::compute_reward(DOT, &VAULT, &ALICE), 0);
+    })
+}
+
+#[test]
+fn should_not_withdraw_stake_if_balance_insufficient() {
+    run_test(|| {
+        assert_ok!(Staking::deposit_stake(DOT, &VAULT, &ALICE, fixed!(100)));
+        assert_ok!(Staking::compute_stake(DOT, &VAULT, &ALICE), 100);
+        assert_err!(
+            Staking::withdraw_stake(DOT, &VAULT, &ALICE, fixed!(200)),
+            TestError::InsufficientFunds
+        );
+    })
+}
+
+#[test]
+fn should_not_withdraw_stake_if_balance_insufficient_after_slashing() {
+    run_test(|| {
+        assert_ok!(Staking::deposit_stake(DOT, &VAULT, &ALICE, fixed!(100)));
+        assert_ok!(Staking::compute_stake(DOT, &VAULT, &ALICE), 100);
+        assert_ok!(Staking::slash_stake(DOT, &VAULT, fixed!(100)));
+        assert_ok!(Staking::compute_stake(DOT, &VAULT, &ALICE), 0);
+        assert_err!(
+            Staking::withdraw_stake(DOT, &VAULT, &ALICE, fixed!(100)),
+            TestError::InsufficientFunds
+        );
     })
 }

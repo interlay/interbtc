@@ -66,7 +66,7 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {}
 
-    /// The total stake deposited.
+    /// The total stake - this will increase on deposit and decrease on withdrawal.
     #[pallet::storage]
     #[pallet::getter(fn total_stake)]
     pub type TotalStake<T: Config> = StorageDoubleMap<
@@ -79,10 +79,10 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    /// The total stake deposited and slashed
+    /// The total stake - this will increase on deposit and decrease on withdrawal or slashing.
     #[pallet::storage]
     #[pallet::getter(fn total_slashed_stake)]
-    pub type TotalSlashedStake<T: Config> = StorageDoubleMap<
+    pub type TotalCurrentStake<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
         T::CurrencyId,
@@ -119,7 +119,7 @@ pub mod pallet {
         ValueQuery,
     >;
 
-    /// Used to compute a participant's stake.
+    /// Used to compute the amount to slash from a participant's stake.
     #[pallet::storage]
     #[pallet::getter(fn slash_per_token)]
     pub type SlashPerToken<T: Config> = StorageDoubleMap<
@@ -240,7 +240,7 @@ impl<T: Config> Pallet<T> {
     ) -> Result<(), DispatchError> {
         checked_add_mut!(Stake<T>, currency_id, (vault_id, nominator_id), &amount);
         checked_add_mut!(TotalStake<T>, currency_id, vault_id, &amount);
-        checked_add_mut!(TotalSlashedStake<T>, currency_id, vault_id, &amount);
+        checked_add_mut!(TotalCurrentStake<T>, currency_id, vault_id, &amount);
 
         <RewardTally<T>>::mutate(currency_id, (vault_id, nominator_id), |reward_tally| {
             let reward_per_token = Self::reward_per_token(currency_id, vault_id);
@@ -288,7 +288,7 @@ impl<T: Config> Pallet<T> {
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
         checked_add_mut!(SlashPerToken<T>, currency_id, vault_id, &amount_div_total_stake);
 
-        checked_sub_mut!(TotalSlashedStake<T>, currency_id, vault_id, &amount);
+        checked_sub_mut!(TotalCurrentStake<T>, currency_id, vault_id, &amount);
         // A slash means reward per token is no longer representative of the rewards
         // since `amount * reward_per_token` will be lost from the system. As such,
         // replenish rewards by the amount of reward lost with this slash
@@ -428,7 +428,7 @@ impl<T: Config> Pallet<T> {
 
         checked_sub_mut!(Stake<T>, currency_id, (vault_id, nominator_id), &amount);
         checked_sub_mut!(TotalStake<T>, currency_id, vault_id, &amount);
-        checked_sub_mut!(TotalSlashedStake<T>, currency_id, vault_id, &amount);
+        checked_sub_mut!(TotalCurrentStake<T>, currency_id, vault_id, &amount);
 
         <RewardTally<T>>::mutate(currency_id, (vault_id, nominator_id), |reward_tally| {
             let reward_per_token = Self::reward_per_token(currency_id, vault_id);

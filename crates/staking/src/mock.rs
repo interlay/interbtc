@@ -1,5 +1,5 @@
 use crate as staking;
-use crate::Config;
+use crate::{Config, Error};
 use codec::{Decode, Encode};
 use frame_support::parameter_types;
 use sp_arithmetic::FixedI128;
@@ -77,7 +77,7 @@ impl Config for Test {
 }
 
 pub type TestEvent = Event;
-// pub type TestError = Error<Test>;
+pub type TestError = Error<Test>;
 
 pub const VAULT: AccountId = 1;
 pub const ALICE: AccountId = 2;
