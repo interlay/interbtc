@@ -5207,7 +5207,7 @@ dependencies = [
 [[package]]
 name = "orml-tokens"
 version = "0.4.1-dev"
-source = "git+https://github.com/interlay/open-runtime-module-library?rev=189dfe2#189dfe2d53917fdbd418cd4cb92ef6f2ad5a6494"
+source = "git+https://github.com/open-web3-stack/open-runtime-module-library?rev=bb6ad7a#bb6ad7a629ac53ed138d30583d36971b3030322d"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -5222,7 +5222,7 @@ dependencies = [
 [[package]]
 name = "orml-traits"
 version = "0.4.1-dev"
-source = "git+https://github.com/interlay/open-runtime-module-library?rev=189dfe2#189dfe2d53917fdbd418cd4cb92ef6f2ad5a6494"
+source = "git+https://github.com/open-web3-stack/open-runtime-module-library?rev=bb6ad7a#bb6ad7a629ac53ed138d30583d36971b3030322d"
 dependencies = [
  "frame-support",
  "impl-trait-for-tuples",
@@ -5239,7 +5239,7 @@ dependencies = [
 [[package]]
 name = "orml-utilities"
 version = "0.4.1-dev"
-source = "git+https://github.com/interlay/open-runtime-module-library?rev=189dfe2#189dfe2d53917fdbd418cd4cb92ef6f2ad5a6494"
+source = "git+https://github.com/open-web3-stack/open-runtime-module-library?rev=bb6ad7a#bb6ad7a629ac53ed138d30583d36971b3030322d"
 dependencies = [
  "frame-support",
  "parity-scale-codec",
