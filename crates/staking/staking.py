@@ -23,7 +23,7 @@ class StakingDistribution:
     def slash_stake(self, amount):
         self.total_slashed_stake = self.total_slashed_stake - amount
         self.slash_per_token = self.slash_per_token + amount / self.total_stake
-        self.reward_per_token = self.reward_per_token + self.reward_per_token * amount / self.total_slashed_stake
+        self.distribute_reward(self.reward_per_token * amount)
 
     def compute_stake(self, address):
         to_slash = self.stake[address] * self.slash_per_token - self.slash_tally[address]
@@ -38,11 +38,15 @@ class StakingDistribution:
     def compute_reward(self, address):
         return self.compute_stake(address) * self.reward_per_token - self.reward_tally[address]
 
-    def withdraw_stake(self, address, amount):
+    def apply_slash(self, address):
         to_slash = self.stake[address] * self.slash_per_token - self.slash_tally[address]
         self.stake[address] = self.stake[address] - to_slash
         self.total_stake = self.total_stake - to_slash
         self.slash_tally[address] = self.stake[address] * self.slash_per_token
+        return to_slash
+
+    def withdraw_stake(self, address, amount):
+        self.apply_slash(address)
         
         if amount > self.stake[address]:
             raise Exception("Requested amount greater than staked amount")
@@ -53,6 +57,10 @@ class StakingDistribution:
         self.total_stake = self.total_stake - amount
         self.total_slashed_stake = self.total_slashed_stake - amount
 
+    def withdraw_reward(self, address):
+        reward = self.compute_reward(address)
+        self.reward_tally[address] = self.stake[address] * self.reward_per_token
+        return reward
 
 addr1 = 0x1
 addr2 = 0x2

@@ -288,19 +288,17 @@ impl<T: Config> Pallet<T> {
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
         checked_add_mut!(SlashPerToken<T>, currency_id, vault_id, &amount_div_total_stake);
 
-        let total_slashed_stake = checked_sub_mut!(TotalSlashedStake<T>, currency_id, vault_id, &amount);
-        let amount_div_total_slashed_stake = amount
-            .checked_div(&total_slashed_stake)
-            .ok_or(Error::<T>::ArithmeticUnderflow)?;
-        let reward_per_token_mul_amount_div_total_slashed_stake = Self::reward_per_token(currency_id, vault_id)
-            .checked_mul(&amount_div_total_slashed_stake)
-            .ok_or(Error::<T>::ArithmeticOverflow)?;
-        checked_add_mut!(
-            RewardPerToken<T>,
+        checked_sub_mut!(TotalSlashedStake<T>, currency_id, vault_id, &amount);
+        // A slash means reward per token is no longer representative of the rewards
+        // since `amount * reward_per_token` will be lost from the system. As such,
+        // replenish rewards by the amount of reward lost with this slash
+        Self::distribute_reward(
             currency_id,
             vault_id,
-            &reward_per_token_mul_amount_div_total_slashed_stake
-        );
+            Self::reward_per_token(currency_id, vault_id)
+                .checked_mul(&amount)
+                .ok_or(Error::<T>::ArithmeticOverflow)?,
+        )?;
         Ok(())
     }
 
@@ -393,12 +391,11 @@ impl<T: Config> Pallet<T> {
         Ok(reward)
     }
 
-    pub fn withdraw_stake(
+    fn apply_slash(
         currency_id: T::CurrencyId,
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
-        amount: SignedFixedPoint<T>,
-    ) -> Result<(), DispatchError> {
+    ) -> Result<SignedFixedPoint<T>, DispatchError> {
         let stake = Self::stake(currency_id, vault_id, nominator_id);
         let slash_per_token = Self::slash_per_token(currency_id, vault_id);
         let slash_tally = Self::slash_tally(currency_id, vault_id, nominator_id);
@@ -415,6 +412,16 @@ impl<T: Config> Pallet<T> {
                 .ok_or(Error::<T>::ArithmeticOverflow)?,
         );
 
+        return Ok(stake);
+    }
+
+    pub fn withdraw_stake(
+        currency_id: T::CurrencyId,
+        vault_id: &T::AccountId,
+        nominator_id: &T::AccountId,
+        amount: SignedFixedPoint<T>,
+    ) -> Result<(), DispatchError> {
+        let stake = Self::apply_slash(currency_id, vault_id, nominator_id)?;
         if amount > stake {
             return Err(Error::<T>::InsufficientFunds.into());
         }
