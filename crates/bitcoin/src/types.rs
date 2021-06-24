@@ -13,7 +13,7 @@ use crate::{
 };
 use codec::{Decode, Encode};
 pub use sp_core::{H160, H256, U256};
-use sp_std::{collections::btree_set::BTreeSet, convert::TryFrom, prelude::*};
+use sp_std::{convert::TryFrom, prelude::*};
 
 #[cfg(feature = "std")]
 use codec::alloc::string::String;
@@ -519,20 +519,6 @@ pub struct BlockChain {
     pub chain_id: u32,
     pub start_height: u32,
     pub max_height: u32,
-    pub no_data: BTreeSet<u32>,
-    pub invalid: BTreeSet<u32>,
-}
-
-impl BlockChain {
-    // Checks if there is a NO_DATA block in the BlockChain
-    pub fn is_no_data(&self) -> bool {
-        !self.no_data.is_empty()
-    }
-
-    // Checks if there is an INVALID block in the BlockChain
-    pub fn is_invalid(&self) -> bool {
-        !self.invalid.is_empty()
-    }
 }
 
 /// Represents a bitcoin 32 bytes hash digest encoded in little-endian
