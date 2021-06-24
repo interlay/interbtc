@@ -95,8 +95,8 @@ module-replace-rpc-runtime-api = { path = "../../crates/replace/rpc/runtime-api"
 module-refund-rpc-runtime-api = { path = "../../crates/refund/rpc/runtime-api", default-features = false }
 
 # Orml dependencies
-orml-tokens = { git = "https://github.com/interlay/open-runtime-module-library", rev = "189dfe2", default-features = false }
-orml-traits = { git = "https://github.com/interlay/open-runtime-module-library", rev = "189dfe2", default-features = false }
+orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "bb6ad7a", default-features = false }
+orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "bb6ad7a", default-features = false }
 
 [dev-dependencies]
 hex = '0.4.2'

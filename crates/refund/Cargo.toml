@@ -37,8 +37,8 @@ pallet-randomness-collective-flip = { git = "https://github.com/paritytech/subst
 reward = { path = "../reward", default-features = false }
 
 # Orml dependencies
-orml-tokens = { git = "https://github.com/interlay/open-runtime-module-library", rev = "189dfe2", default-features = false }
-orml-traits = { git = "https://github.com/interlay/open-runtime-module-library", rev = "189dfe2", default-features = false }
+orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "bb6ad7a", default-features = false }
+orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "bb6ad7a", default-features = false }
 
 [features]
 default = ["std"]
