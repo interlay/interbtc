@@ -857,28 +857,6 @@ impl<T: Config> Pallet<T> {
         Chains::<T>::swap(pos_1, pos_2)
     }
 
-    /// Remove a chain id from chains
-    fn remove_blockchain_from_chain(position: u32) -> Result<(), DispatchError> {
-        // swap the element with the last element in the mapping
-        // collect the unsorted chains iterable as a vector and sort it by index
-        let mut chains = Chains::<T>::iter().collect::<Vec<(u32, u32)>>();
-        chains.sort_by_key(|k| k.0);
-
-        // get the last position as stored in the list
-        let last_pos = match chains.len() {
-            0 => return Err(Error::<T>::ForkIdNotFound.into()),
-            // chains stores (position, index)
-            n => chains[n - 1].0,
-        };
-        Self::swap_chain(position, last_pos);
-        // don't remove main chain id
-        if last_pos > 0 {
-            // remove the old head (now the value at the initial position)
-            Chains::<T>::remove(last_pos);
-        }
-        Ok(())
-    }
-
     /// Set a new blockchain in ChainsIndex
     fn set_block_chain_from_id(id: u32, chain: &BlockChain) {
         ChainsIndex::<T>::insert(id, &chain);
@@ -889,19 +867,9 @@ impl<T: Config> Pallet<T> {
         ChainsIndex::<T>::mutate(id, |b| *b = Some(chain));
     }
 
-    /// Remove a blockchain element from ChainsIndex
-    fn remove_blockchain_from_chain_index(id: u32) {
-        ChainsIndex::<T>::remove(id);
-    }
-
     /// Set a new block header
     fn set_block_header_from_hash(hash: H256Le, header: &RichBlockHeader<T::BlockNumber>) {
         BlockHeaders::<T>::insert(hash, header);
-    }
-
-    /// update the chain_ref of a block header
-    fn mutate_block_header_from_chain_id(hash: &H256Le, chain_ref: u32) {
-        BlockHeaders::<T>::mutate(&hash, |header| header.chain_ref = chain_ref);
     }
 
     /// Set a new best block
@@ -961,16 +929,8 @@ impl<T: Config> Pallet<T> {
         ChainsHashes::<T>::insert(chain_id, block_height, block_hash);
     }
 
-    fn remove_block_hash(chain_id: u32, block_height: u32) {
-        ChainsHashes::<T>::remove(chain_id, block_height);
-    }
-
     fn block_exists(chain_id: u32, block_height: u32) -> bool {
         ChainsHashes::<T>::contains_key(chain_id, block_height)
-    }
-
-    fn _blocks_count(chain_id: u32) -> usize {
-        ChainsHashes::<T>::iter_prefix_values(chain_id).count()
     }
 
     /// Add a new block header to an existing blockchain
@@ -1106,112 +1066,146 @@ impl<T: Config> Pallet<T> {
         Ok(last_retarget_header.block_header.timestamp as u64)
     }
 
-    /// Swap the main chain with a fork. This method takes the starting height
-    /// of the fork and replaces each block in the main chain with the blocks
-    /// in the fork. It moves the replaced blocks in the main chain to a new
-    /// fork.
-    /// Last, it replaces the chain_ref of each block header in the new main
-    /// chain to the MAIN_CHAIN_ID and each block header in the new fork to the
-    /// new chain id.
+    /// Swap the main chain with a fork. The fork is not necessarily a direct fork of the main
+    /// chain - it can be a fork of another fork. As such, this function iterates over (child-parent)
+    /// pairs, starting at the latest block, until the main chain is reached. All intermediate forks
+    /// that the iteration passes through are updated: their start_height is increased appropriately.
+    /// Each block header that is iterated over is moved to the main chain. Then, any blocks that used
+    /// to be in the main-chain, but that are being replaced by the fork, are moved into the fork that
+    /// overtook the mainchain.The start_height and max_height of the mainchain and the fork are updated
+    /// appropriately. Finally, the best_block and best_block_height are updated.
     ///
     /// # Arguments
     ///
     /// * `fork` - the fork that is going to become the main chain
-    fn swap_main_blockchain(fork: &BlockChain) -> Result<(), DispatchError> {
-        // load the main chain
-        let mut main_chain = Self::get_block_chain_from_id(MAIN_CHAIN_ID)?;
-
-        // the start height of the fork
-        let start_height = fork.start_height;
-
-        // create a new blockchain element to store the part of the main chain
-        // that is being forked
-        // generate a chain id
-        let chain_id = Self::increment_chain_counter()?;
-
-        // maybe split off the no data elements
-        // check if there is a no_data block element
-        // that is greater than start_height
-        let index_no_data = main_chain
-            .no_data
-            .iter()
-            .position(|&h| h >= start_height)
-            .map(|v| v as u32);
-        let no_data = match index_no_data {
-            Some(index) => main_chain.no_data.split_off(&index),
-            None => BTreeSet::new(),
-        };
-
-        // maybe split off the invalid elements
-        let index_invalid = main_chain
-            .invalid
-            .iter()
-            .position(|&h| h >= start_height)
-            .map(|v| v as u32);
-        let invalid = match index_invalid {
-            Some(index) => main_chain.invalid.split_off(&index),
-            None => BTreeSet::new(),
-        };
-
-        // store the main chain part that is going to be replaced by the new fork
-        // into the forked_main_chain element
-        let forked_main_chain: BlockChain = BlockChain {
-            chain_id,
-            start_height,
-            max_height: main_chain.max_height,
-            no_data,
-            invalid,
-        };
-
-        main_chain.max_height = fork.max_height;
-        main_chain.no_data.append(&mut fork.no_data.clone());
-        main_chain.invalid.append(&mut fork.invalid.clone());
-
-        // get the best block hash
-        let best_block = Self::get_block_hash(fork.chain_id, fork.max_height)?;
-
-        // get the position of the fork in Chains
-        let position: u32 = Self::get_chain_position_from_chain_id(fork.chain_id)?;
-
-        // Update the stored main chain
-        Self::set_block_chain_from_id(MAIN_CHAIN_ID, &main_chain);
+    ///
+    /// # Returns
+    ///
+    /// Ok((best_block_hash, best_block_height)) if successful, Err otherwise
+    fn swap_main_blockchain(fork: &BlockChain) -> Result<(H256Le, u32), DispatchError> {
+        let new_best_block = Self::get_block_hash(fork.chain_id, fork.max_height)?;
 
         // Set BestBlock and BestBlockHeight to the submitted block
-        Self::set_best_block(best_block);
-        Self::set_best_block_height(main_chain.max_height);
+        Self::set_best_block(new_best_block);
+        Self::set_best_block_height(fork.max_height);
 
-        // remove the fork from storage
-        Self::remove_blockchain_from_chain_index(fork.chain_id);
-        Self::remove_blockchain_from_chain(position)?;
+        // traverse (child-parent) links until the mainchain is reached
+        for pair in Self::enumerate_chain_links(new_best_block) {
+            let (child, parent) = pair?;
 
-        // store the forked main chain
-        Self::set_block_chain_from_id(forked_main_chain.chain_id, &forked_main_chain);
+            // if we reached a different fork, we need to update it
+            if parent.chain_ref != child.chain_ref {
+                let mut new_fork = Self::get_block_chain_from_id(parent.chain_ref)?;
+                // update the start height of the parent's chain. There is guaranteed to be at least
+                // one block in this chain that is not becoming part of the new main chain, because
+                // if there were not, then the child would have been added directly to this chain,
+                // rather than creating a new fork.
+                new_fork.start_height = parent
+                    .block_height
+                    .checked_add(1)
+                    .ok_or(Error::<T>::ArithmeticOverflow)?;
+                // If we reached the main chain, we store the remaining forked old main chain where
+                // the longest chain used to be.
+                if parent.chain_ref == MAIN_CHAIN_ID {
+                    new_fork.chain_id = fork.chain_id;
+                }
 
-        // insert the reference to the forked main chain in Chains
-        Self::insert_sorted(&forked_main_chain)?;
+                // update the storage
+                Self::mutate_block_chain_from_id(new_fork.chain_id, new_fork.clone());
 
-        // update all the forked block headers
-        for height in fork.start_height..=forked_main_chain.max_height {
-            let block_hash = Self::get_block_hash(main_chain.chain_id, height)?;
-            Self::insert_block_hash(forked_main_chain.chain_id, height, block_hash);
-            Self::mutate_block_header_from_chain_id(&block_hash, forked_main_chain.chain_id);
-            Self::remove_block_hash(MAIN_CHAIN_ID, height);
+                // if we reached main chain, we need to move all blocks that are no longer to be
+                // in the mainchain to a normal fork
+                if parent.chain_ref == MAIN_CHAIN_ID {
+                    for height in new_fork.start_height..=new_fork.max_height {
+                        let block_hash = Self::get_block_hash(MAIN_CHAIN_ID, height)?;
+                        let block = Self::get_block_header_from_hash(block_hash)?;
+
+                        Self::transfer_block_to_chain(block, MAIN_CHAIN_ID, fork.chain_id)?;
+                    }
+                }
+            }
+
+            // transfer the child block to the main chain
+            Self::transfer_block_to_chain(child, child.chain_ref, MAIN_CHAIN_ID)?;
+
+            // main chain reached, stop iterating
+            if parent.chain_ref == MAIN_CHAIN_ID {
+                break;
+            }
         }
 
-        // update all new main chain block headers
-        for height in fork.start_height..=fork.max_height {
-            let block = Self::get_block_hash(fork.chain_id, height)?;
-            Self::mutate_block_header_from_chain_id(&block, MAIN_CHAIN_ID);
-            Self::insert_block_hash(MAIN_CHAIN_ID, height, block);
+        // update the max_height of main chain
+        Self::mutate_block_chain_from_id(
+            MAIN_CHAIN_ID,
+            BlockChain {
+                max_height: fork.max_height,
+                ..Self::get_block_chain_from_id(MAIN_CHAIN_ID)?
+            },
+        );
+
+        // we swapped main chain and `fork`, so it will need to be resorted. The new max_height of this fork
+        // is strictly smaller than before, so do a single bubble sort pass to the right
+        let start = Self::get_chain_position_from_chain_id(fork.chain_id)?;
+        // ideally we'd iterate over start..Chains::<T>::len(), but unfortunately Chains does not implement
+        // len, so we resort to making the outer loop infinite, and break when the next key does not exist.
+        // This works because we maintain an invariant that states that keys in `Chains` are consecutive.
+        for i in start..u32::MAX - 1 {
+            // this is the last fork - we can stop iterating now
+            if !Chains::<T>::contains_key(i + 1) {
+                break;
+            }
+
+            let height1 = Self::get_block_chain_from_id(Self::get_chain_id_from_position(i)?)?.max_height;
+            let height2 = Self::get_block_chain_from_id(Self::get_chain_id_from_position(i + 1)?)?.max_height;
+            if height1 < height2 {
+                Self::swap_chain(i, i + 1);
+            } else {
+                break;
+            }
         }
-        ChainsHashes::<T>::remove_prefix(fork.chain_id);
-        if !fork.is_invalid() && !fork.is_no_data() {
-            Self::recover_if_needed()?
-        }
+
+        Ok((new_best_block, fork.max_height))
+    }
+
+    fn transfer_block_to_chain(
+        block: RichBlockHeader<T::BlockNumber>,
+        old_chain_id: u32,
+        new_fork_id: u32,
+    ) -> Result<(), DispatchError> {
+        let block_height = block.block_height;
+        // remove from old chain and insert into the new one
+        ChainsHashes::<T>::remove(old_chain_id, block_height);
+        ChainsHashes::<T>::insert(new_fork_id, block_height, block.block_header.hash);
+
+        // update the chainref of the block
+        BlockHeaders::<T>::mutate(&block.block_header.hash, |header| header.chain_ref = new_fork_id);
 
         Ok(())
     }
 
+    // returns (child, parent)
+    fn enumerate_chain_links(
+        start: H256Le,
+    ) -> impl Iterator<Item = Result<(RichBlockHeader<T::BlockNumber>, RichBlockHeader<T::BlockNumber>), DispatchError>>
+    {
+        let child = Self::get_block_header_from_hash(start);
+
+        let first = match child {
+            Ok(child_block) => match Self::get_block_header_from_hash(child_block.block_header.hash_prev_block) {
+                Ok(parent) => Some(Ok((child_block, parent))),
+                Err(e) => Some(Err(e)),
+            },
+            Err(e) => Some(Err(e)),
+        };
+
+        sp_std::iter::successors(first, |prev| match prev {
+            Ok((_, child)) => match Self::get_block_header_from_hash(child.block_header.hash_prev_block) {
+                Err(e) => Some(Err(e)),
+                Ok(parent) => Some(Ok((child.clone(), parent.clone()))),
+            },
+            Err(_) => None,
+        })
+    }
     /// Checks if a newly inserted fork results in an update to the sorted
     /// Chains mapping. This happens when the max height of the fork is greater
     /// than the max height of the previous element in the Chains mapping.
@@ -1249,12 +1243,12 @@ impl<T: Config> Pallet<T> {
                     // and the current height is more than the
                     // STABLE_TRANSACTION_CONFIRMATIONS ahead
                     // we are swapping the main chain
-                    if prev_height + Self::get_stable_transaction_confirmations() < current_height {
-                        Self::swap_main_blockchain(&fork)?;
+                    if prev_height + Self::get_stable_transaction_confirmations() <= current_height {
+                        // Swap the mainchain. As an optimization, this function returns the
+                        // new best block hash and its height
+                        let (new_chain_tip, block_height) = Self::swap_main_blockchain(&fork)?;
 
                         // announce the new main chain
-                        let new_chain_tip = BestBlock::<T>::get();
-                        let block_height = BestBlockHeight::<T>::get();
                         let fork_depth = fork.max_height - fork.start_height;
                         Self::deposit_event(<Event<T>>::ChainReorg(new_chain_tip, block_height, fork_depth));
                     } else {

@@ -5,6 +5,7 @@ use crate::{ext, mock::*, types::*, BtcAddress, Error};
 
 type Event = crate::Event<Test>;
 
+use crate::{Chains, ChainsIndex};
 use bitcoin::{formatter::TryFormattable, merkle::*, parser::*, types::*};
 use frame_support::{assert_err, assert_ok};
 use mocktopus::mocking::*;
@@ -14,7 +15,6 @@ use sp_std::{
     convert::{TryFrom, TryInto},
     str::FromStr,
 };
-
 /// # Getters and setters
 ///
 /// get_chain_position_from_chain_id
@@ -196,6 +196,8 @@ fn store_block_header_on_fork_succeeds() {
 }
 
 mod store_block_header_tests {
+    use crate::MAIN_CHAIN_ID;
+
     use super::*;
     fn from_prev(nonce: u32, prev: H256Le) -> BlockHeader {
         let mut ret = BlockHeader {
@@ -205,6 +207,78 @@ mod store_block_header_tests {
         };
         ret.update_hash().unwrap();
         ret
+    }
+
+    fn check_store_block_header_invariants() {
+        let mainchain = ChainsIndex::<Test>::get(0).unwrap();
+
+        // cache chains and chains_index for readability
+        let mut chains = Chains::<Test>::iter().collect::<Vec<_>>();
+        chains.sort_by_key(|k| k.0);
+        let mut chains_index = ChainsIndex::<Test>::iter().collect::<Vec<_>>();
+        chains_index.sort_by_key(|k| k.0);
+
+        // The keys in ``Chains`` MUST be consecutive, i.e. for each ``i``, if ``Chains[i]`` does not exist,
+        // ``Chains[i+1]`` MUST NOT exist either.
+        for (arr_idx, (key, _value)) in chains.iter().enumerate() {
+            assert_eq!(arr_idx as u32, *key);
+        }
+        let chains = chains.into_iter().map(|(_, value)| value).collect::<Vec<_>>();
+
+        // The keys in ``ChainsIndex`` MUST be consecutive, i.e. for each ``i``, if ``ChainsIndex[i]`` does not exist,
+        // ``ChainsIndex[i+1]`` MUST NOT exist either.
+        for (arr_idx, (key, _value)) in chains_index.iter().enumerate() {
+            assert_eq!(arr_idx as u32, *key);
+        }
+        let chains_index = chains_index.into_iter().map(|(_, value)| value).collect::<Vec<_>>();
+
+        // for all i > 0, `ChainsIndex[i].maxHeight < ChainsIndex[0].maxHeight + STABLE_BITCOIN_CONFIRMATIONS`
+        for chain in chains_index.iter().skip(1) {
+            assert!(chain.max_height < mainchain.max_height + BTCRelay::get_stable_transaction_confirmations());
+        }
+
+        // The values in ``Chains`` MUST be such that for each ``0 < i < j``, ``ChainsIndex[Chains[i]].maxHeight >=
+        // ChainsIndex[Chains[j]].maxHeight``.
+        for i in 1..chains.len() - 1 {
+            if chains_index[chains[i] as usize].max_height < chains_index[chains[i + 1] as usize].max_height {
+                assert!(chains_index[chains[i] as usize].max_height >= chains_index[chains[i + 1] as usize].max_height);
+            }
+        }
+
+        // ChainsIndex[i].chainRef = i
+        for (idx, chain) in chains_index.iter().enumerate() {
+            assert_eq!(idx as u32, chain.chain_id);
+        }
+
+        // BestBlock MUST refer the latest block from the main chain
+        assert_eq!(
+            BTCRelay::get_block_hash(MAIN_CHAIN_ID, mainchain.max_height).unwrap(),
+            BTCRelay::get_best_block()
+        );
+
+        // BestBlockHeight MUST be equal to ``ChainsIndex[0].maxHeight``
+        assert_eq!(BTCRelay::get_best_block_height(), mainchain.max_height);
+
+        // the ``chainRef`` stored inside blocks MUST agree with the actual chain they are stored on
+        for (chain_idx, _, hash) in crate::ChainsHashes::<Test>::iter() {
+            assert_eq!(crate::BlockHeaders::<Test>::get(hash).chain_ref, chain_idx);
+        }
+    }
+
+    fn assert_is_block(height: u32, block_header: &BlockHeader) {
+        Security::set_active_block_number(ext::security::active_block_number::<Test>() + 1000);
+
+        BTCRelay::ensure_no_ongoing_fork.mock_safe(|_| MockResult::Return(Ok(())));
+        assert_ok!(BTCRelay::verify_block_header_inclusion(block_header.hash, Some(0)));
+        BTCRelay::ensure_no_ongoing_fork.clear_mock();
+
+        let chain = BTCRelay::get_block_chain_from_id(0).unwrap();
+        assert_eq!(
+            BTCRelay::get_block_header_from_height(&chain, height)
+                .unwrap()
+                .block_header,
+            block_header.clone()
+        );
     }
 
     #[test]
@@ -231,18 +305,111 @@ mod store_block_header_tests {
             }
 
             for x in blocks.iter() {
-                assert_ok!(BTCRelay::store_block_header(&3, x.clone()));
+                store_header_and_check_invariants(x);
             }
 
-            ext::security::active_block_number::<Test>.mock_safe(|| MockResult::Return(1000));
-
-            assert_ok!(BTCRelay::verify_block_header_inclusion(genesis.hash, Some(0)));
-            for block in blocks.iter().skip(1) {
-                assert_ok!(BTCRelay::verify_block_header_inclusion(block.hash, Some(0)));
+            assert_is_block(10, &genesis);
+            for (idx, block) in blocks.iter().skip(1).enumerate() {
+                assert_is_block(11 + idx as u32, block);
             }
             // block a2 used to be in the mainchain, but is not anymore
             assert_err!(
                 BTCRelay::verify_block_header_inclusion(a2.hash, Some(0)),
+                TestError::InvalidChainID
+            );
+        })
+    }
+
+    fn assert_best_block(block_header: &BlockHeader, height: u32) {
+        assert_eq!(BTCRelay::get_best_block_height(), height);
+        assert_is_block(height, &block_header);
+    }
+
+    fn assert_ongoing_fork() {
+        assert_err!(
+            BTCRelay::ensure_no_ongoing_fork(BTCRelay::get_best_block_height()),
+            TestError::OngoingFork
+        );
+    }
+
+    fn store_header_and_check_invariants(block: &BlockHeader) {
+        check_store_block_header_invariants();
+        assert_ok!(BTCRelay::store_block_header(&3, block.clone()));
+        check_store_block_header_invariants();
+    }
+
+    #[test]
+    fn store_block_header_fork_of_fork_succeeds() {
+        run_test(|| {
+            BTCRelay::verify_block_header.mock_safe(|_, _, _| MockResult::Return(Ok(())));
+
+            let mut genesis = sample_block_header();
+            genesis.update_hash().unwrap();
+
+            // create the following tree shape:
+            // f1 --> temp_fork_1
+            //    \-> f2 --> temp_fork_2
+            //           \-> f3 --> ... --> f10
+
+            // corresponds to f1..f10
+            let final_chain =
+                sp_std::iter::successors(Some(genesis), |prev| Some(from_prev(prev.nonce + 1, prev.hash)))
+                    .take(10)
+                    .collect::<Vec<_>>();
+
+            assert_ok!(BTCRelay::initialize(3, final_chain[0].clone(), 10));
+            assert_best_block(&final_chain[0], 10);
+
+            // submit a temporary block such that final_chain[1] will be considered a fork
+            let temp_fork_1 = from_prev(100, final_chain[0].hash);
+            store_header_and_check_invariants(&temp_fork_1);
+
+            store_header_and_check_invariants(&final_chain[1]);
+            assert_ongoing_fork();
+
+            // submit a temporary block such that final_chain[2] will be considered a fork
+            let temp_fork_2 = from_prev(101, final_chain[1].hash);
+            store_header_and_check_invariants(&temp_fork_2);
+            assert_ongoing_fork();
+
+            // main chain and fork currently have same height - we can submit CONFIRMATION-1 block without reorg
+            for block in final_chain
+                .iter()
+                .skip(2) // 2 already submitted
+                .take(BTCRelay::get_stable_transaction_confirmations() as usize - 1)
+            {
+                store_header_and_check_invariants(&block);
+                assert_is_block(11, &temp_fork_1);
+            }
+
+            // we did reorg, but temp_fork_2 has height of 12, so it is still considered an ongoing fork
+            store_header_and_check_invariants(
+                &final_chain[BTCRelay::get_stable_transaction_confirmations() as usize + 1],
+            );
+
+            assert_ongoing_fork();
+
+            for (idx, block) in final_chain
+                .iter()
+                .enumerate()
+                .skip(BTCRelay::get_stable_transaction_confirmations() as usize + 2)
+            {
+                // all blocks in final chain that have been submitted so far must now be usable
+                for (idx, block) in final_chain.iter().enumerate().take(idx - 1) {
+                    assert_is_block(10 + idx as u32, block);
+                }
+
+                store_header_and_check_invariants(block);
+            }
+
+            // temp_fork_1 used to be in the mainchain, but is not anymore
+            assert_err!(
+                BTCRelay::verify_block_header_inclusion(temp_fork_1.hash, Some(0)),
+                TestError::InvalidChainID
+            );
+            // temp_fork_2 is not included
+            assert_err!(
+                BTCRelay::verify_block_header_inclusion(temp_fork_2.hash, Some(0)),
                 TestError::InvalidChainID
             );
         })
@@ -363,7 +530,7 @@ fn check_and_do_reorg_new_fork_is_main_chain() {
 
         assert_eq!(current_position, fork_position);
 
-        BTCRelay::swap_main_blockchain.mock_safe(|_| MockResult::Return(Ok(())));
+        BTCRelay::swap_main_blockchain.mock_safe(move |_| MockResult::Return(Ok((best_block_hash, fork_block_height))));
 
         assert_ok!(BTCRelay::reorganize_chains(&fork));
         // assert that the new main chain is set
@@ -405,7 +572,7 @@ fn check_and_do_reorg_new_fork_below_stable_transaction_confirmations() {
 
         assert_eq!(current_position, fork_position);
 
-        BTCRelay::swap_main_blockchain.mock_safe(|_| MockResult::Return(Ok(())));
+        BTCRelay::swap_main_blockchain.mock_safe(move |_| MockResult::Return(Ok((best_block_hash, fork_block_height))));
 
         assert_ok!(BTCRelay::reorganize_chains(&fork));
         // assert that the fork has not overtaken the main chain
@@ -459,92 +626,6 @@ fn insert_sorted_succeeds() {
         assert_eq!(curr_fork_pos, fork_position);
         let curr_swap_pos = BTCRelay::get_chain_position_from_chain_id(swap_chain_ref).unwrap();
         assert_eq!(curr_swap_pos, new_swap_pos);
-    })
-}
-
-/// swap_main_blockchain
-#[test]
-fn swap_main_blockchain_succeeds() {
-    run_test(|| {
-        // insert main chain and headers
-        let main_chain_ref: u32 = 0;
-        let main_start: u32 = 0;
-        let main_height: u32 = 10;
-        let main_position: u32 = 0;
-        let main = store_blockchain_and_random_headers(main_chain_ref, main_start, main_height, main_position);
-
-        // simulate error
-        let header = BTCRelay::get_block_header_from_height(&main, 2).unwrap();
-        BTCRelay::flag_block_error(header.block_header.hash, ErrorCode::NoDataBTCRelay).unwrap();
-        set_parachain_nodata_error();
-
-        // insert the fork chain and headers
-        let fork_chain_ref: u32 = 4;
-        let fork_start: u32 = 5;
-        let fork_height: u32 = 17;
-        let fork_position: u32 = 1;
-
-        let fork = store_blockchain_and_random_headers(fork_chain_ref, fork_start, fork_height, fork_position);
-
-        let old_main_ref = fork_chain_ref + 1;
-        // mock the chain counter
-        BTCRelay::increment_chain_counter.mock_safe(move || MockResult::Return(Ok(old_main_ref)));
-
-        // swap the main and fork
-        assert_ok!(BTCRelay::swap_main_blockchain(&fork));
-
-        // check that the new main chain is correct
-        let new_main = BTCRelay::get_block_chain_from_id(main_chain_ref).unwrap();
-        assert_eq!(fork_height, new_main.max_height);
-        assert_eq!(main_start, new_main.start_height);
-        assert_eq!(main_chain_ref, new_main.chain_id);
-        assert_eq!(fork_height + 1, BTCRelay::_blocks_count(main_chain_ref) as u32);
-
-        assert_eq!(main.no_data, BTreeSet::new());
-        assert_eq!(main.invalid, new_main.invalid);
-
-        // check that the fork is deleted
-        assert_err!(
-            BTCRelay::get_block_chain_from_id(fork_chain_ref),
-            TestError::InvalidChainID,
-        );
-
-        // check that the parachain has recovered
-        assert_ok!(ext::security::ensure_parachain_status_running::<Test>());
-        assert!(!ext::security::is_parachain_error_no_data_btcrelay::<Test>());
-
-        // check that the old main chain is stored in a old fork
-        let old_main = BTCRelay::get_block_chain_from_id(old_main_ref).unwrap();
-        assert_eq!(main_height, old_main.max_height);
-        assert_eq!(fork_start, old_main.start_height);
-        assert_eq!(old_main_ref, old_main.chain_id);
-        let old_main_length = BTCRelay::_blocks_count(old_main.chain_id);
-        assert_eq!(main_height - fork_start + 1, old_main_length as u32);
-
-        assert_eq!(main.no_data, old_main.no_data);
-        assert_eq!(main.invalid, old_main.invalid);
-
-        // check that the best block is set
-        assert_eq!(
-            BTCRelay::get_block_hash(new_main.chain_id, fork_height).unwrap(),
-            BTCRelay::get_best_block()
-        );
-
-        // check that the best block height is correct
-        assert_eq!(fork_height, BTCRelay::get_best_block_height());
-        // check that all fork headers are updated
-        for height in fork_start..=fork_height {
-            let block_hash = BTCRelay::get_block_hash(main_chain_ref, height).unwrap();
-            let header = BTCRelay::get_block_header_from_hash(block_hash).unwrap();
-            assert_eq!(header.chain_ref, main_chain_ref);
-        }
-
-        // check that all main headers are updated
-        for height in fork_start..=main_height {
-            let block_hash = BTCRelay::get_block_hash(old_main_ref, height).unwrap();
-            let header = BTCRelay::get_block_header_from_hash(block_hash).unwrap();
-            assert_eq!(header.chain_ref, old_main_ref);
-        }
     })
 }
 
@@ -1958,7 +2039,7 @@ fn test_check_and_do_reorg() {
             },
         );
 
-        BTCRelay::swap_main_blockchain.mock_safe(|_| MockResult::Return(Ok(())));
+        BTCRelay::swap_main_blockchain.mock_safe(|_| MockResult::Return(Ok((Default::default(), Default::default()))));
 
         // we should skip empty `Chains`, this can occur if the
         // previous index is accidentally deleted
@@ -1969,23 +2050,6 @@ fn test_check_and_do_reorg() {
             no_data: BTreeSet::new(),
             invalid: BTreeSet::new(),
         }));
-    })
-}
-
-#[test]
-fn test_remove_blockchain_from_chain() {
-    use crate::Chains;
-
-    run_test(|| {
-        Chains::<Test>::insert(0, 0);
-        Chains::<Test>::insert(8, 5);
-        Chains::<Test>::insert(2, 7);
-
-        assert_ok!(BTCRelay::remove_blockchain_from_chain(2));
-
-        let mut chains = Chains::<Test>::iter().collect::<Vec<(u32, u32)>>();
-        chains.sort_by_key(|k| k.0);
-        assert_eq!(chains, vec![(0, 0), (2, 5)]);
     })
 }
 
@@ -2061,35 +2125,6 @@ fn get_nodata_empty_block_chain_from_chain_id_and_height(
     blockchain.no_data.insert(block_height - 1);
 
     blockchain
-}
-
-fn store_blockchain_and_random_headers(id: u32, start_height: u32, max_height: u32, position: u32) -> BlockChain {
-    let mut chain = get_empty_block_chain_from_chain_id_and_height(id, start_height, max_height);
-
-    // create and insert main chain headers
-    for height in chain.start_height..chain.max_height + 1 {
-        let mut block_header = BlockHeader {
-            timestamp: height,
-            nonce: id,
-            ..sample_block_header()
-        };
-        block_header.update_hash().unwrap();
-
-        let rich_header = RichBlockHeader::<BlockNumber> {
-            block_header,
-            block_height: height,
-            chain_ref: id,
-            para_height: Default::default(),
-        };
-
-        BTCRelay::set_block_header_from_hash(block_header.hash, &rich_header);
-        chain = BTCRelay::extend_blockchain(height, &block_header, chain).unwrap();
-    }
-    // insert the main chain in Chains and ChainsIndex
-    BTCRelay::set_chain_from_position_and_id(position, id);
-    BTCRelay::set_block_chain_from_id(id, &chain);
-
-    chain
 }
 
 fn sample_raw_genesis_header() -> String {
