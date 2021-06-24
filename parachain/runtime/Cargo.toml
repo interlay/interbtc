@@ -98,6 +98,10 @@ module-refund-rpc-runtime-api = { path = "../../crates/refund/rpc/runtime-api", 
 orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "bb6ad7a", default-features = false }
 orml-traits = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "bb6ad7a", default-features = false }
 
+orml-xtokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "bb6ad7a", default-features = false, optional = true }
+orml-xcm-support = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "bb6ad7a", default-features = false, optional = true }
+orml-unknown-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "bb6ad7a", default-features = false, optional = true }
+
 [dev-dependencies]
 hex = '0.4.2'
 mocktopus = '0.7.0'
@@ -198,6 +202,10 @@ std = [
 
   "orml-tokens/std",
   "orml-traits/std",
+
+  "orml-xtokens/std",
+  "orml-xcm-support/std",
+  "orml-unknown-tokens/std",
 ]
 runtime-benchmarks = [
   "hex-literal",
@@ -238,6 +246,10 @@ cumulus-polkadot = [
   "pallet-xcm",
 
   "parachain-info",
+
+  "orml-xtokens",
+  "orml-xcm-support",
+  "orml-unknown-tokens",
 ]
 aura-grandpa = [
   "pallet-grandpa",

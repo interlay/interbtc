@@ -30,7 +30,7 @@ use sp_version::RuntimeVersion;
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
     construct_runtime, parameter_types,
-    traits::{KeyOwnerProofSystem, Randomness},
+    traits::{Get, KeyOwnerProofSystem, Randomness},
     weights::{
         constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
         DispatchClass, IdentityFee, Weight,
@@ -55,17 +55,18 @@ pub use primitives::{
 // XCM imports
 #[cfg(feature = "cumulus-polkadot")]
 use {
+    cumulus_primitives_core::ParaId,
     frame_support::{match_type, traits::All},
+    orml_xcm_support::{IsNativeConcrete, MultiCurrencyAdapter, MultiNativeAsset},
     pallet_xcm::XcmPassthrough,
-    pallet_xcm::{EnsureXcm, IsMajorityOfBody},
     polkadot_parachain::primitives::Sibling,
     sp_runtime::traits::Convert,
     xcm::v0::{BodyId, Junction::*, MultiAsset, MultiLocation, MultiLocation::*, NetworkId, Xcm},
     xcm_builder::{
-        AccountId32Aliases, AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom, CurrencyAdapter, EnsureXcmOrigin,
-        FixedWeightBounds, IsConcrete, LocationInverter, NativeAsset, ParentAsSuperuser, ParentIsDefault,
-        RelayChainAsNative, SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative,
-        SignedToAccountId32, SovereignSignedViaLocation, TakeWeightCredit, UsingComponents,
+        AccountId32Aliases, AllowTopLevelPaidExecutionFrom, AllowUnpaidExecutionFrom, EnsureXcmOrigin,
+        FixedWeightBounds, LocationInverter, NativeAsset, ParentAsSuperuser, ParentIsDefault, RelayChainAsNative,
+        SiblingParachainAsNative, SiblingParachainConvertsVia, SignedAccountId32AsNative, SignedToAccountId32,
+        SovereignSignedViaLocation, TakeWeightCredit, UsingComponents,
     },
     xcm_executor::{Config, XcmExecutor},
 };
@@ -306,20 +307,6 @@ type LocationToAccountId = (
     AccountId32Aliases<RococoNetwork, AccountId>,
 );
 
-#[cfg(feature = "cumulus-polkadot")]
-pub type LocalAssetTransactor = CurrencyAdapter<
-    // Use this currency:
-    orml_tokens::CurrencyAdapter<Runtime, GetCollateralCurrencyId>,
-    // Use this currency when it is a fungible asset matching the given location or name:
-    IsConcrete<RocLocation>,
-    // Do a simple punn to convert an AccountId32 MultiLocation into a native chain account ID:
-    LocationToAccountId,
-    // Our chain's account ID type (we can't get away without mentioning it explicitly):
-    AccountId,
-    // We don't track any teleports.
-    (),
->;
-
 /// This is the type we use to convert an (incoming) XCM origin into a local `Origin` instance,
 /// ready for dispatching a transaction with Xcm's `Transact`. There is an `OriginKind` which can
 /// biases the kind of local `Origin` it will become.
@@ -378,7 +365,7 @@ impl Config for XcmConfig {
     // How to withdraw and deposit an asset.
     type AssetTransactor = LocalAssetTransactor;
     type OriginConverter = XcmOriginToTransactDispatchOrigin;
-    type IsReserve = NativeAsset;
+    type IsReserve = MultiNativeAsset;
     type IsTeleporter = NativeAsset; // <- should be enough to allow teleportation of ROC
     type LocationInverter = LocationInverter<Ancestry>;
     type Barrier = Barrier;
@@ -415,8 +402,8 @@ impl pallet_xcm::Config for Runtime {
     type ExecuteXcmOrigin = EnsureXcmOrigin<Origin, LocalOriginToLocation>;
     type XcmExecuteFilter = All<(MultiLocation, Xcm<Call>)>;
     type XcmExecutor = XcmExecutor<XcmConfig>;
-    type XcmTeleportFilter = All<(MultiLocation, Vec<MultiAsset>)>;
-    type XcmReserveTransferFilter = ();
+    type XcmTeleportFilter = ();
+    type XcmReserveTransferFilter = All<(MultiLocation, Vec<MultiAsset>)>;
     type Weigher = FixedWeightBounds<UnitWeightCost, Call>;
 }
 
@@ -441,26 +428,107 @@ impl cumulus_pallet_dmp_queue::Config for Runtime {
 }
 
 #[cfg(feature = "cumulus-polkadot")]
-parameter_types! {
-    pub const AssetDeposit: Balance = 1 * ROC;
-    pub const ApprovalDeposit: Balance = 100 * MILLIROC;
-    pub const StringLimit: u32 = 50;
-    pub const MetadataDepositBase: Balance = 1 * ROC;
-    pub const MetadataDepositPerByte: Balance = 10 * MILLIROC;
-    pub const UnitBody: BodyId = BodyId::Unit;
+pub type LocalAssetTransactor = MultiCurrencyAdapter<
+    Tokens,
+    UnknownTokens,
+    IsNativeConcrete<CurrencyId, CurrencyIdConvert>,
+    AccountId,
+    LocationToAccountId,
+    CurrencyId,
+    CurrencyIdConvert,
+>;
+
+#[cfg(feature = "cumulus-polkadot")]
+pub use currency_id_convert::CurrencyIdConvert;
+
+#[cfg(feature = "cumulus-polkadot")]
+mod currency_id_convert {
+    use super::*;
+    use codec::{Decode, Encode};
+
+    fn native_currency_location(id: CurrencyId) -> MultiLocation {
+        X3(Parent, Parachain(ParachainInfo::get().into()), GeneralKey(id.encode()))
+    }
+
+    pub struct CurrencyIdConvert;
+
+    const RELAY_CHAIN_CURRENCY_ID: CurrencyId = CurrencyId::DOT;
+
+    impl Convert<CurrencyId, Option<MultiLocation>> for CurrencyIdConvert {
+        fn convert(id: CurrencyId) -> Option<MultiLocation> {
+            match id {
+                RELAY_CHAIN_CURRENCY_ID => Some(X1(Parent)),
+                CurrencyId::INTERBTC => Some(native_currency_location(id)),
+                _ => None,
+            }
+        }
+    }
+
+    impl Convert<MultiLocation, Option<CurrencyId>> for CurrencyIdConvert {
+        fn convert(location: MultiLocation) -> Option<CurrencyId> {
+            match location {
+                X1(Parent) => Some(RELAY_CHAIN_CURRENCY_ID),
+                X3(Parent, Parachain(id), GeneralKey(key)) if ParaId::from(id) == ParachainInfo::get() => {
+                    // decode the general key
+                    if let Ok(currency_id) = CurrencyId::decode(&mut &key[..]) {
+                        // check `currency_id` is cross-chain asset
+                        match currency_id {
+                            CurrencyId::INTERBTC => Some(currency_id),
+                            _ => None,
+                        }
+                    } else {
+                        None
+                    }
+                }
+                _ => None,
+            }
+        }
+    }
+
+    impl Convert<MultiAsset, Option<CurrencyId>> for CurrencyIdConvert {
+        fn convert(asset: MultiAsset) -> Option<CurrencyId> {
+            if let MultiAsset::ConcreteFungible { id, amount: _ } = asset {
+                Self::convert(id)
+            } else {
+                None
+            }
+        }
+    }
 }
 
-/// A majority of the Unit body from Rococo over XCM is our required administration origin.
 #[cfg(feature = "cumulus-polkadot")]
-pub type AdminOrigin = EnsureXcm<IsMajorityOfBody<RocLocation, UnitBody>>;
+parameter_types! {
+    pub SelfLocation: MultiLocation = X2(Parent, Parachain(ParachainInfo::get().into()));
+}
 
 #[cfg(feature = "cumulus-polkadot")]
-pub struct AccountId32Convert;
+pub struct AccountIdToMultiLocation;
+
 #[cfg(feature = "cumulus-polkadot")]
-impl Convert<AccountId, [u8; 32]> for AccountId32Convert {
-    fn convert(account_id: AccountId) -> [u8; 32] {
-        account_id.into()
+impl Convert<AccountId, MultiLocation> for AccountIdToMultiLocation {
+    fn convert(account: AccountId) -> MultiLocation {
+        X1(AccountId32 {
+            network: NetworkId::Any,
+            id: account.into(),
+        })
     }
+}
+
+#[cfg(feature = "cumulus-polkadot")]
+impl orml_xtokens::Config for Runtime {
+    type Event = Event;
+    type Balance = Balance;
+    type CurrencyId = CurrencyId;
+    type CurrencyIdConvert = CurrencyIdConvert;
+    type AccountIdToMultiLocation = AccountIdToMultiLocation;
+    type SelfLocation = SelfLocation;
+    type XcmExecutor = XcmExecutor<XcmConfig>;
+    type Weigher = FixedWeightBounds<UnitWeightCost, Call>;
+}
+
+#[cfg(feature = "cumulus-polkadot")]
+impl orml_unknown_tokens::Config for Runtime {
+    type Event = Event;
 }
 
 impl btc_relay::Config for Runtime {
@@ -680,6 +748,9 @@ construct_interbtc_runtime! {
     PolkadotXcm: pallet_xcm::{Pallet, Call, Event<T>, Origin},
     CumulusXcm: cumulus_pallet_xcm::{Pallet, Call, Event<T>, Origin},
     DmpQueue: cumulus_pallet_dmp_queue::{Pallet, Call, Storage, Event<T>},
+
+    XTokens: orml_xtokens::{Pallet, Storage, Call, Event<T>},
+    UnknownTokens: orml_unknown_tokens::{Pallet, Storage, Event},
 }
 
 #[cfg(feature = "aura-grandpa")]
