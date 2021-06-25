@@ -137,7 +137,7 @@ pub mod pallet {
     pub type Stake<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        T::CurrencyId,
+        T::CurrencyId, // TODO: should be currency agnostic
         Blake2_128Concat,
         (T::AccountId, T::AccountId),
         SignedFixedPoint<T>,
@@ -208,6 +208,7 @@ macro_rules! checked_sub_mut {
 
 // "Internal" functions, callable by code.
 impl<T: Config> Pallet<T> {
+    /// Get the stake associated with a vault / nominator.
     pub(crate) fn stake(
         currency_id: T::CurrencyId,
         vault_id: &T::AccountId,
@@ -232,6 +233,7 @@ impl<T: Config> Pallet<T> {
         <SlashTally<T>>::get(currency_id, (vault_id, nominator_id))
     }
 
+    /// Deposit an `amount` of stake to the `vault_id` for the `nominator_id`.
     pub fn deposit_stake(
         currency_id: T::CurrencyId,
         vault_id: &T::AccountId,
@@ -273,6 +275,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Slash an `amount` of stake from the `vault_id`.
     pub fn slash_stake(
         currency_id: T::CurrencyId,
         vault_id: &T::AccountId,
@@ -318,6 +321,7 @@ impl<T: Config> Pallet<T> {
         Ok(to_slash)
     }
 
+    /// Compute the stake in `vault_id` owned by `nominator_id`.
     pub fn compute_stake(
         currency_id: T::CurrencyId,
         vault_id: &T::AccountId,
@@ -342,6 +346,7 @@ impl<T: Config> Pallet<T> {
         }
     }
 
+    /// Distribute the `reward` to all participants.
     pub fn distribute_reward(
         currency_id: T::CurrencyId,
         vault_id: &T::AccountId,
@@ -367,6 +372,7 @@ impl<T: Config> Pallet<T> {
         Ok(reward)
     }
 
+    /// Compute the expected reward for `nominator_id` who is nominating `vault_id`.
     pub fn compute_reward(
         currency_id: T::CurrencyId,
         vault_id: &T::AccountId,
@@ -415,6 +421,7 @@ impl<T: Config> Pallet<T> {
         return Ok(stake);
     }
 
+    /// Withdraw an `amount` of stake from the `vault_id` for the `nominator_id`.
     pub fn withdraw_stake(
         currency_id: T::CurrencyId,
         vault_id: &T::AccountId,
@@ -463,6 +470,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    /// Withdraw all rewards earned by `vault_id` for the `nominator_id`.
     pub fn withdraw_reward(
         currency_id: T::CurrencyId,
         vault_id: &T::AccountId,
@@ -496,7 +504,7 @@ pub trait Staking<AccountId> {
     /// Signed fixed point type.
     type SignedFixedPoint: FixedPointNumber;
 
-    /// Deposit an `amount` of stake to the `vault_id`.
+    /// Deposit an `amount` of stake to the `vault_id` for the `nominator_id`.
     fn deposit_stake(
         vault_id: &AccountId,
         nominator_id: &AccountId,
