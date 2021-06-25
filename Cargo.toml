@@ -1,25 +1,10 @@
 [workspace]
 members = [
-  "crates/bitcoin",
-  "crates/btc-relay",
-  "crates/security",
-  "crates/staked-relayers",
-  "crates/exchange-rate-oracle",
-  "crates/vault-registry",
-  "crates/nomination",
-  "crates/currency",
-  "crates/issue",
-  "crates/replace",
-  "crates/redeem",
-  "crates/sla",
-  "crates/fee",
-  "crates/refund",
-  "crates/reward",
+  "crates/*",
   "parachain",
   "parachain/runtime",
   "parachain/service",
   "parachain/rpc",
-  "crates/parachain-info",
   "primitives",
 ]
 
