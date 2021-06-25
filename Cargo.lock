@@ -7993,7 +7993,7 @@ checksum = "e9c17925a9027d298a4603d286befe3f9dc0e8ed02523141914eb628798d6e5b"
 
 [[package]]
 name = "reward"
-version = "0.6.0"
+version = "0.8.0"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
