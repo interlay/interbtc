@@ -13,9 +13,9 @@ mod tests;
 
 use codec::{Decode, Encode, EncodeLike};
 use frame_support::{dispatch::DispatchError, traits::Get};
-use sp_arithmetic::FixedPointNumber;
+use sp_arithmetic::{FixedPointNumber, FixedPointOperand};
 use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, MaybeSerializeDeserialize, Zero};
-use sp_std::marker::PhantomData;
+use sp_std::{cmp, marker::PhantomData};
 
 pub(crate) type SignedFixedPoint<T> = <T as Config>::SignedFixedPoint;
 
@@ -33,8 +33,11 @@ pub mod pallet {
         /// The overarching event type.
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
 
+        /// The `Inner` type of the `SignedFixedPoint`.
+        type SignedInner: CheckedDiv + Ord + FixedPointOperand;
+
         /// Signed fixed point type.
-        type SignedFixedPoint: FixedPointNumber + Encode + EncodeLike + Decode;
+        type SignedFixedPoint: FixedPointNumber<Inner = Self::SignedInner> + Encode + EncodeLike + Decode;
 
         /// The currency ID type.
         type CurrencyId: Parameter + Member + Copy + MaybeSerializeDeserialize + Ord;
@@ -338,12 +341,7 @@ impl<T: Config> Pallet<T> {
             .into_inner()
             .checked_div(&SignedFixedPoint::<T>::accuracy())
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
-
-        if stake_sub_to_slash < Zero::zero() {
-            Ok(Zero::zero())
-        } else {
-            Ok(stake_sub_to_slash)
-        }
+        Ok(cmp::max(Zero::zero(), stake_sub_to_slash))
     }
 
     /// Distribute the `reward` to all participants.
@@ -394,7 +392,7 @@ impl<T: Config> Pallet<T> {
             .into_inner()
             .checked_div(&SignedFixedPoint::<T>::accuracy())
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
-        Ok(reward)
+        Ok(cmp::max(Zero::zero(), reward))
     }
 
     fn apply_slash(

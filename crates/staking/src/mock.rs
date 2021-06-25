@@ -28,6 +28,7 @@ pub type AccountId = u64;
 pub type BlockNumber = u64;
 pub type Index = u64;
 pub type SignedFixedPoint = FixedI128;
+pub type SignedInner = i128;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -72,6 +73,7 @@ pub const DOT: CurrencyId = CurrencyId::DOT;
 
 impl Config for Test {
     type Event = TestEvent;
+    type SignedInner = SignedInner;
     type SignedFixedPoint = SignedFixedPoint;
     type CurrencyId = CurrencyId;
 }
