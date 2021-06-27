@@ -476,11 +476,7 @@ impl<T: Config> RichVault<T> {
         Ok(())
     }
 
-    pub(crate) fn liquidate<V: UpdatableVault<T>>(
-        &mut self,
-        liquidation_vault: &mut V,
-        status: VaultStatus,
-    ) -> Result<Collateral<T>, DispatchError> {
+    pub(crate) fn liquidate(&mut self, status: VaultStatus) -> Result<Collateral<T>, DispatchError> {
         // we liquidate at most SECURE_THRESHOLD * collateral
         // this value is the amount of collateral held for the issued + to_be_issued
         let liquidated_collateral = self.get_used_collateral()?;
@@ -508,6 +504,7 @@ impl<T: Config> RichVault<T> {
         self.increase_liquidated_collateral(collateral_for_to_be_redeemed)?;
 
         // Copy all tokens to the liquidation vault
+        let mut liquidation_vault = Pallet::<T>::get_rich_liquidation_vault();
         liquidation_vault.increase_issued(self.data.issued_tokens)?;
         liquidation_vault.increase_to_be_issued(self.data.to_be_issued_tokens)?;
         liquidation_vault.increase_to_be_redeemed(self.data.to_be_redeemed_tokens)?;
