@@ -492,7 +492,7 @@ pub mod pallet {
 
     /// Total collateral used for collateral tokens issued by active vaults, excluding the liquidation vault
     #[pallet::storage]
-    pub(super) type TotalUserVaultCollateralCollateral<T: Config> = StorageValue<_, Collateral<T>, ValueQuery>;
+    pub(super) type TotalUserVaultCollateral<T: Config> = StorageValue<_, Collateral<T>, ValueQuery>;
 
     #[pallet::type_value]
     pub(super) fn DefaultForStorageVersion() -> Version {
@@ -1203,21 +1203,21 @@ impl<T: Config> Pallet<T> {
     }
 
     pub(crate) fn increase_total_backing_collateral(amount: Collateral<T>) -> DispatchResult {
-        let new = TotalUserVaultCollateralCollateral::<T>::get()
+        let new = TotalUserVaultCollateral::<T>::get()
             .checked_add(&amount)
             .ok_or(Error::<T>::ArithmeticOverflow)?;
 
-        TotalUserVaultCollateralCollateral::<T>::set(new);
+        TotalUserVaultCollateral::<T>::set(new);
 
         Ok(())
     }
 
     pub(crate) fn decrease_total_backing_collateral(amount: Collateral<T>) -> DispatchResult {
-        let new = TotalUserVaultCollateralCollateral::<T>::get()
+        let new = TotalUserVaultCollateral::<T>::get()
             .checked_sub(&amount)
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
 
-        TotalUserVaultCollateralCollateral::<T>::set(new);
+        TotalUserVaultCollateral::<T>::set(new);
 
         Ok(())
     }
@@ -1237,11 +1237,11 @@ impl<T: Config> Pallet<T> {
     pub fn get_total_backing_collateral(include_liquidation_vault: bool) -> Result<Collateral<T>, DispatchError> {
         let liquidated_collateral = CurrencySource::<T>::LiquidationVault.current_balance()?;
         let total = if include_liquidation_vault {
-            TotalUserVaultCollateralCollateral::<T>::get()
+            TotalUserVaultCollateral::<T>::get()
                 .checked_add(&liquidated_collateral)
                 .ok_or(Error::<T>::ArithmeticOverflow)?
         } else {
-            TotalUserVaultCollateralCollateral::<T>::get()
+            TotalUserVaultCollateral::<T>::get()
         };
 
         Ok(total)
