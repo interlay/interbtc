@@ -1,0 +1,42 @@
+name: Publish Rust doc
+
+permissions:
+  contents: read
+
+on: push
+# on:
+#   push:
+#     branches:
+#       - master
+
+jobs:
+  publish:
+    runs-on: [self-hosted, linux]
+    steps:
+      - uses: actions/checkout@v2
+      - run: git fetch --prune --unshallow
+      - name: Install System Dependencies
+        run: |
+            sudo apt-get update && sudo apt-get install -y \
+            cmake pkg-config libssl-dev git clang curl libc6-dev
+      - uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly-2021-03-15
+
+      - name: build docs
+        uses: actions-rs/cargo@v1
+        with:
+          command: doc
+          args: --no-deps
+
+      - name: copy index.html
+        run: cp .github/docs-index.html target/doc/index.htlm
+
+      - name: Deploy to GitHub Pages
+        if: success()
+        uses: crazy-max/ghaction-github-pages@v2
+        with:
+          target_branch: gh-pages
+          build_dir: target/doc/
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
