@@ -13,7 +13,7 @@ macro_rules! fixed {
 #[test]
 fn should_stake_and_earn_rewards() {
     run_test(|| {
-        let nonce = Staking::nonce();
+        let nonce = Staking::nonce(DOT, &VAULT);
         assert_ok!(Staking::deposit_stake(DOT, &VAULT, &ALICE, fixed!(50)));
         assert_ok!(Staking::deposit_stake(DOT, &VAULT, &BOB, fixed!(50)));
         assert_ok!(Staking::distribute_reward(DOT, &VAULT, fixed!(100)));
@@ -30,7 +30,7 @@ fn should_stake_and_earn_rewards() {
 #[test]
 fn should_stake_and_distribute_and_withdraw() {
     run_test(|| {
-        let nonce = Staking::nonce();
+        let nonce = Staking::nonce(DOT, &VAULT);
         assert_ok!(Staking::deposit_stake(DOT, &VAULT, &ALICE, fixed!(10000)));
         assert_ok!(Staking::deposit_stake(DOT, &VAULT, &BOB, fixed!(10000)));
 
@@ -69,7 +69,7 @@ fn should_stake_and_distribute_and_withdraw() {
 #[test]
 fn should_stake_and_withdraw_rewards() {
     run_test(|| {
-        let nonce = Staking::nonce();
+        let nonce = Staking::nonce(DOT, &VAULT);
         assert_ok!(Staking::deposit_stake(DOT, &VAULT, &ALICE, fixed!(100)));
         assert_ok!(Staking::distribute_reward(DOT, &VAULT, fixed!(100)));
         assert_ok!(Staking::compute_reward(nonce, DOT, &VAULT, &ALICE), 100);
@@ -81,7 +81,7 @@ fn should_stake_and_withdraw_rewards() {
 #[test]
 fn should_not_withdraw_stake_if_balance_insufficient() {
     run_test(|| {
-        let nonce = Staking::nonce();
+        let nonce = Staking::nonce(DOT, &VAULT);
         assert_ok!(Staking::deposit_stake(DOT, &VAULT, &ALICE, fixed!(100)));
         assert_ok!(Staking::compute_stake(nonce, DOT, &VAULT, &ALICE), 100);
         assert_err!(
@@ -94,7 +94,7 @@ fn should_not_withdraw_stake_if_balance_insufficient() {
 #[test]
 fn should_not_withdraw_stake_if_balance_insufficient_after_slashing() {
     run_test(|| {
-        let nonce = Staking::nonce();
+        let nonce = Staking::nonce(DOT, &VAULT);
         assert_ok!(Staking::deposit_stake(DOT, &VAULT, &ALICE, fixed!(100)));
         assert_ok!(Staking::compute_stake(nonce, DOT, &VAULT, &ALICE), 100);
         assert_ok!(Staking::slash_stake(DOT, &VAULT, fixed!(100)));
@@ -109,7 +109,7 @@ fn should_not_withdraw_stake_if_balance_insufficient_after_slashing() {
 #[test]
 fn should_force_refund() {
     run_test(|| {
-        let mut nonce = Staking::nonce();
+        let mut nonce = Staking::nonce(DOT, &VAULT);
         assert_ok!(Staking::deposit_stake(DOT, &VAULT, &VAULT, fixed!(100)));
         assert_ok!(Staking::deposit_stake(DOT, &VAULT, &ALICE, fixed!(100)));
         assert_ok!(Staking::slash_stake(DOT, &VAULT, fixed!(100)));
@@ -124,7 +124,7 @@ fn should_force_refund() {
 
         assert_ok!(Staking::force_refund(DOT, &VAULT));
 
-        nonce = Staking::nonce();
+        nonce = Staking::nonce(DOT, &VAULT);
         let vault_stake_post_refund = Staking::compute_stake(nonce, DOT, &VAULT, &VAULT).unwrap();
         let vault_reward_post_refund = Staking::compute_reward(nonce - 1, DOT, &VAULT, &VAULT).unwrap();
         let alice_stake_post_refund = Staking::compute_stake(nonce - 1, DOT, &VAULT, &ALICE).unwrap();

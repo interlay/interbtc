@@ -12,9 +12,12 @@ mod mock;
 mod tests;
 
 use codec::{Decode, Encode, EncodeLike};
-use frame_support::{dispatch::DispatchError, traits::Get};
+use frame_support::{
+    dispatch::{DispatchError, DispatchResult},
+    traits::Get,
+};
 use sp_arithmetic::{FixedPointNumber, FixedPointOperand};
-use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, MaybeSerializeDeserialize, Zero};
+use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedMul, CheckedSub, MaybeSerializeDeserialize, One, Zero};
 use sp_std::{cmp, marker::PhantomData};
 
 pub(crate) type SignedFixedPoint<T> = <T as Config>::SignedFixedPoint;
@@ -55,8 +58,9 @@ pub mod pallet {
         DepositStake(T::CurrencyId, T::AccountId, T::AccountId, T::SignedFixedPoint),
         DistributeReward(T::CurrencyId, T::AccountId, T::SignedFixedPoint),
         WithdrawStake(T::CurrencyId, T::AccountId, T::AccountId, T::SignedFixedPoint),
-        WithdrawReward(u128, T::CurrencyId, T::AccountId, T::AccountId, T::SignedFixedPoint),
+        WithdrawReward(T::Index, T::CurrencyId, T::AccountId, T::AccountId, T::SignedFixedPoint),
         ForceRefund(T::CurrencyId, T::AccountId),
+        IncreaseNonce(T::CurrencyId, T::AccountId, T::Index),
     }
 
     #[pallet::error]
@@ -76,9 +80,9 @@ pub mod pallet {
     pub type TotalStake<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        u128,
+        T::CurrencyId,
         Blake2_128Concat,
-        (T::CurrencyId, T::AccountId),
+        (T::Index, T::AccountId),
         SignedFixedPoint<T>,
         ValueQuery,
     >;
@@ -89,9 +93,9 @@ pub mod pallet {
     pub type TotalCurrentStake<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        u128,
+        T::CurrencyId,
         Blake2_128Concat,
-        (T::CurrencyId, T::AccountId),
+        (T::Index, T::AccountId),
         SignedFixedPoint<T>,
         ValueQuery,
     >;
@@ -103,9 +107,9 @@ pub mod pallet {
     pub type TotalRewards<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        u128,
+        T::CurrencyId,
         Blake2_128Concat,
-        (T::CurrencyId, T::AccountId),
+        (T::Index, T::AccountId),
         SignedFixedPoint<T>,
         ValueQuery,
     >;
@@ -116,9 +120,9 @@ pub mod pallet {
     pub type RewardPerToken<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        u128,
+        T::CurrencyId,
         Blake2_128Concat,
-        (T::CurrencyId, T::AccountId),
+        (T::Index, T::AccountId),
         SignedFixedPoint<T>,
         ValueQuery,
     >;
@@ -129,9 +133,9 @@ pub mod pallet {
     pub type SlashPerToken<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        u128,
+        T::CurrencyId,
         Blake2_128Concat,
-        (T::CurrencyId, T::AccountId),
+        (T::Index, T::AccountId),
         SignedFixedPoint<T>,
         ValueQuery,
     >;
@@ -141,9 +145,9 @@ pub mod pallet {
     pub type Stake<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        u128,
+        T::CurrencyId,
         Blake2_128Concat,
-        (T::CurrencyId, T::AccountId, T::AccountId),
+        (T::Index, T::AccountId, T::AccountId),
         SignedFixedPoint<T>,
         ValueQuery,
     >;
@@ -153,9 +157,9 @@ pub mod pallet {
     pub type RewardTally<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        u128,
+        T::CurrencyId,
         Blake2_128Concat,
-        (T::CurrencyId, T::AccountId, T::AccountId),
+        (T::Index, T::AccountId, T::AccountId),
         SignedFixedPoint<T>,
         ValueQuery,
     >;
@@ -165,9 +169,9 @@ pub mod pallet {
     pub type SlashTally<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
-        u128,
+        T::CurrencyId,
         Blake2_128Concat,
-        (T::CurrencyId, T::AccountId, T::AccountId),
+        (T::Index, T::AccountId, T::AccountId),
         SignedFixedPoint<T>,
         ValueQuery,
     >;
@@ -175,8 +179,8 @@ pub mod pallet {
     /// The nonce of the current staking pool, used in force refunds.
     /// This is a strictly increasing value.
     #[pallet::storage]
-    #[pallet::getter(fn nonce)]
-    pub type Nonce<T: Config> = StorageValue<_, u128, ValueQuery>;
+    pub type Nonce<T: Config> =
+        StorageDoubleMap<_, Blake2_128Concat, T::CurrencyId, Blake2_128Concat, T::AccountId, T::Index, ValueQuery>;
 
     #[pallet::pallet]
     pub struct Pallet<T>(_);
@@ -220,30 +224,34 @@ macro_rules! checked_sub_mut {
 impl<T: Config> Pallet<T> {
     /// Get the stake associated with a vault / nominator.
     pub(crate) fn stake(
-        nonce: u128,
+        nonce: T::Index,
         currency_id: T::CurrencyId,
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
     ) -> SignedFixedPoint<T> {
-        <Stake<T>>::get(nonce, (currency_id, vault_id, nominator_id))
+        <Stake<T>>::get(currency_id, (nonce, vault_id, nominator_id))
     }
 
     pub(crate) fn reward_tally(
-        nonce: u128,
+        nonce: T::Index,
         currency_id: T::CurrencyId,
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
     ) -> SignedFixedPoint<T> {
-        <RewardTally<T>>::get(nonce, (currency_id, vault_id, nominator_id))
+        <RewardTally<T>>::get(currency_id, (nonce, vault_id, nominator_id))
     }
 
     pub(crate) fn slash_tally(
-        nonce: u128,
+        nonce: T::Index,
         currency_id: T::CurrencyId,
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
     ) -> SignedFixedPoint<T> {
-        <SlashTally<T>>::get(nonce, (currency_id, vault_id, nominator_id))
+        <SlashTally<T>>::get(currency_id, (nonce, vault_id, nominator_id))
+    }
+
+    pub(crate) fn nonce(currency_id: T::CurrencyId, vault_id: &T::AccountId) -> T::Index {
+        <Nonce<T>>::get(currency_id, vault_id)
     }
 
     /// Deposit an `amount` of stake to the `vault_id` for the `nominator_id`.
@@ -253,13 +261,13 @@ impl<T: Config> Pallet<T> {
         nominator_id: &T::AccountId,
         amount: SignedFixedPoint<T>,
     ) -> Result<(), DispatchError> {
-        let nonce = Self::nonce();
-        checked_add_mut!(Stake<T>, nonce, (currency_id, vault_id, nominator_id), &amount);
-        checked_add_mut!(TotalStake<T>, nonce, (currency_id, vault_id), &amount);
-        checked_add_mut!(TotalCurrentStake<T>, nonce, (currency_id, vault_id), &amount);
+        let nonce = Self::nonce(currency_id, vault_id);
+        checked_add_mut!(Stake<T>, currency_id, (nonce, vault_id, nominator_id), &amount);
+        checked_add_mut!(TotalStake<T>, currency_id, (nonce, vault_id), &amount);
+        checked_add_mut!(TotalCurrentStake<T>, currency_id, (nonce, vault_id), &amount);
 
-        <RewardTally<T>>::mutate(nonce, (currency_id, vault_id, nominator_id), |reward_tally| {
-            let reward_per_token = Self::reward_per_token(nonce, (currency_id, vault_id));
+        <RewardTally<T>>::mutate(currency_id, (nonce, vault_id, nominator_id), |reward_tally| {
+            let reward_per_token = Self::reward_per_token(currency_id, (nonce, vault_id));
             let reward_per_token_mul_amount = reward_per_token
                 .checked_mul(&amount)
                 .ok_or(Error::<T>::ArithmeticOverflow)?;
@@ -269,8 +277,8 @@ impl<T: Config> Pallet<T> {
             Ok::<_, Error<T>>(())
         })?;
 
-        <SlashTally<T>>::mutate(nonce, (currency_id, vault_id, nominator_id), |slash_tally| {
-            let slash_per_token = Self::slash_per_token(nonce, (currency_id, vault_id));
+        <SlashTally<T>>::mutate(currency_id, (nonce, vault_id, nominator_id), |slash_tally| {
+            let slash_per_token = Self::slash_per_token(currency_id, (nonce, vault_id));
             let slash_per_token_mul_amount = slash_per_token
                 .checked_mul(&amount)
                 .ok_or(Error::<T>::ArithmeticOverflow)?;
@@ -295,8 +303,8 @@ impl<T: Config> Pallet<T> {
         vault_id: &T::AccountId,
         amount: SignedFixedPoint<T>,
     ) -> Result<(), DispatchError> {
-        let nonce = Self::nonce();
-        let total_stake = Self::total_stake(nonce, (currency_id, vault_id));
+        let nonce = Self::nonce(currency_id, vault_id);
+        let total_stake = Self::total_stake(currency_id, (nonce, vault_id));
         if total_stake.is_zero() {
             return Err(Error::<T>::InsufficientFunds.into());
         }
@@ -306,19 +314,19 @@ impl<T: Config> Pallet<T> {
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
         checked_add_mut!(
             SlashPerToken<T>,
-            nonce,
-            (currency_id, vault_id),
+            currency_id,
+            (nonce, vault_id),
             &amount_div_total_stake
         );
 
-        checked_sub_mut!(TotalCurrentStake<T>, nonce, (currency_id, vault_id), &amount);
+        checked_sub_mut!(TotalCurrentStake<T>, currency_id, (nonce, vault_id), &amount);
         // A slash means reward per token is no longer representative of the rewards
         // since `amount * reward_per_token` will be lost from the system. As such,
         // replenish rewards by the amount of reward lost with this slash
         Self::distribute_reward(
             currency_id,
             vault_id,
-            Self::reward_per_token(nonce, (currency_id, vault_id))
+            Self::reward_per_token(currency_id, (nonce, vault_id))
                 .checked_mul(&amount)
                 .ok_or(Error::<T>::ArithmeticOverflow)?,
         )?;
@@ -343,13 +351,13 @@ impl<T: Config> Pallet<T> {
 
     /// Compute the stake in `vault_id` owned by `nominator_id`.
     pub fn compute_stake(
-        nonce: u128,
+        nonce: T::Index,
         currency_id: T::CurrencyId,
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
     ) -> Result<<SignedFixedPoint<T> as FixedPointNumber>::Inner, DispatchError> {
         let stake = Self::stake(nonce, currency_id, vault_id, nominator_id);
-        let slash_per_token = Self::slash_per_token(nonce, (currency_id, vault_id));
+        let slash_per_token = Self::slash_per_token(currency_id, (nonce, vault_id));
         let slash_tally = Self::slash_tally(nonce, currency_id, vault_id, nominator_id);
         let to_slash = Self::compute_amount_to_slash(stake, slash_per_token, slash_tally)?;
 
@@ -368,8 +376,8 @@ impl<T: Config> Pallet<T> {
         vault_id: &T::AccountId,
         reward: SignedFixedPoint<T>,
     ) -> Result<SignedFixedPoint<T>, DispatchError> {
-        let nonce = Self::nonce();
-        let total_current_stake = Self::total_current_stake(nonce, (currency_id, vault_id));
+        let nonce = Self::nonce(currency_id, vault_id);
+        let total_current_stake = Self::total_current_stake(currency_id, (nonce, vault_id));
         if total_current_stake.is_zero() {
             return Ok(SignedFixedPoint::<T>::zero());
         }
@@ -379,11 +387,11 @@ impl<T: Config> Pallet<T> {
             .ok_or(Error::<T>::ArithmeticUnderflow)?;
         checked_add_mut!(
             RewardPerToken<T>,
-            nonce,
-            (currency_id, vault_id),
+            currency_id,
+            (nonce, vault_id),
             &reward_div_total_current_stake
         );
-        checked_add_mut!(TotalRewards<T>, nonce, (currency_id, vault_id), &reward);
+        checked_add_mut!(TotalRewards<T>, currency_id, (nonce, vault_id), &reward);
 
         Self::deposit_event(Event::<T>::DistributeReward(currency_id, vault_id.clone(), reward));
         Ok(reward)
@@ -391,7 +399,7 @@ impl<T: Config> Pallet<T> {
 
     /// Compute the expected reward for `nominator_id` who is nominating `vault_id`.
     pub fn compute_reward(
-        nonce: u128,
+        nonce: T::Index,
         currency_id: T::CurrencyId,
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
@@ -403,7 +411,7 @@ impl<T: Config> Pallet<T> {
             nominator_id,
         )?)
         .ok_or(Error::<T>::TryIntoIntError)?;
-        let reward_per_token = Self::reward_per_token(nonce, (currency_id, vault_id));
+        let reward_per_token = Self::reward_per_token(currency_id, (nonce, vault_id));
         // FIXME: this can easily overflow with large numbers
         let stake_mul_reward_per_token = stake
             .checked_mul(&reward_per_token)
@@ -424,18 +432,18 @@ impl<T: Config> Pallet<T> {
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
     ) -> Result<SignedFixedPoint<T>, DispatchError> {
-        let nonce = Self::nonce();
+        let nonce = Self::nonce(currency_id, vault_id);
         let stake = Self::stake(nonce, currency_id, vault_id, nominator_id);
-        let slash_per_token = Self::slash_per_token(nonce, (currency_id, vault_id));
+        let slash_per_token = Self::slash_per_token(currency_id, (nonce, vault_id));
         let slash_tally = Self::slash_tally(nonce, currency_id, vault_id, nominator_id);
         let to_slash = Self::compute_amount_to_slash(stake, slash_per_token, slash_tally)?;
 
-        checked_sub_mut!(TotalStake<T>, nonce, (currency_id, vault_id), &to_slash);
+        checked_sub_mut!(TotalStake<T>, currency_id, (nonce, vault_id), &to_slash);
 
-        let stake = checked_sub_mut!(Stake<T>, nonce, (currency_id, vault_id, nominator_id), &to_slash);
+        let stake = checked_sub_mut!(Stake<T>, currency_id, (nonce, vault_id, nominator_id), &to_slash);
         <SlashTally<T>>::insert(
-            nonce,
-            (currency_id, vault_id, nominator_id),
+            currency_id,
+            (nonce, vault_id, nominator_id),
             stake
                 .checked_mul(&slash_per_token)
                 .ok_or(Error::<T>::ArithmeticOverflow)?,
@@ -451,18 +459,18 @@ impl<T: Config> Pallet<T> {
         nominator_id: &T::AccountId,
         amount: SignedFixedPoint<T>,
     ) -> Result<(), DispatchError> {
-        let nonce = Self::nonce();
+        let nonce = Self::nonce(currency_id, vault_id);
         let stake = Self::apply_slash(currency_id, vault_id, nominator_id)?;
         if amount > stake {
             return Err(Error::<T>::InsufficientFunds.into());
         }
 
-        checked_sub_mut!(Stake<T>, nonce, (currency_id, vault_id, nominator_id), &amount);
-        checked_sub_mut!(TotalStake<T>, nonce, (currency_id, vault_id), &amount);
-        checked_sub_mut!(TotalCurrentStake<T>, nonce, (currency_id, vault_id), &amount);
+        checked_sub_mut!(Stake<T>, currency_id, (nonce, vault_id, nominator_id), &amount);
+        checked_sub_mut!(TotalStake<T>, currency_id, (nonce, vault_id), &amount);
+        checked_sub_mut!(TotalCurrentStake<T>, currency_id, (nonce, vault_id), &amount);
 
-        <RewardTally<T>>::mutate(nonce, (currency_id, vault_id, nominator_id), |reward_tally| {
-            let reward_per_token = Self::reward_per_token(nonce, (currency_id, vault_id));
+        <RewardTally<T>>::mutate(currency_id, (nonce, vault_id, nominator_id), |reward_tally| {
+            let reward_per_token = Self::reward_per_token(currency_id, (nonce, vault_id));
             let reward_per_token_mul_amount = reward_per_token
                 .checked_mul(&amount)
                 .ok_or(Error::<T>::ArithmeticOverflow)?;
@@ -473,8 +481,8 @@ impl<T: Config> Pallet<T> {
             Ok::<_, Error<T>>(())
         })?;
 
-        <SlashTally<T>>::mutate(nonce, (currency_id, vault_id, nominator_id), |slash_tally| {
-            let slash_per_token = Self::slash_per_token(nonce, (currency_id, vault_id));
+        <SlashTally<T>>::mutate(currency_id, (nonce, vault_id, nominator_id), |slash_tally| {
+            let slash_per_token = Self::slash_per_token(currency_id, (nonce, vault_id));
             let slash_per_token_mul_amount = slash_per_token
                 .checked_mul(&amount)
                 .ok_or(Error::<T>::ArithmeticOverflow)?;
@@ -496,20 +504,20 @@ impl<T: Config> Pallet<T> {
 
     /// Withdraw all rewards earned by `vault_id` for the `nominator_id`.
     pub fn withdraw_reward(
-        nonce: u128,
+        nonce: T::Index,
         currency_id: T::CurrencyId,
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
     ) -> Result<<SignedFixedPoint<T> as FixedPointNumber>::Inner, DispatchError> {
         let reward = Self::compute_reward(nonce, currency_id, vault_id, nominator_id)?;
         let reward_as_fixed = SignedFixedPoint::<T>::checked_from_integer(reward).ok_or(Error::<T>::TryIntoIntError)?;
-        checked_sub_mut!(TotalRewards<T>, nonce, (currency_id, vault_id), &reward_as_fixed);
+        checked_sub_mut!(TotalRewards<T>, currency_id, (nonce, vault_id), &reward_as_fixed);
 
         let stake = Self::stake(nonce, currency_id, vault_id, nominator_id);
-        let reward_per_token = Self::reward_per_token(nonce, (currency_id, vault_id));
+        let reward_per_token = Self::reward_per_token(currency_id, (nonce, vault_id));
         <RewardTally<T>>::insert(
-            nonce,
-            (currency_id, vault_id, nominator_id),
+            currency_id,
+            (nonce, vault_id, nominator_id),
             stake
                 .checked_mul(&reward_per_token)
                 .ok_or(Error::<T>::ArithmeticOverflow)?,
@@ -527,23 +535,37 @@ impl<T: Config> Pallet<T> {
 
     /// Force refund the entire nomination to `vault_id` by depositing it as reward.
     pub fn force_refund(currency_id: T::CurrencyId, vault_id: &T::AccountId) -> Result<(), DispatchError> {
-        let nonce = Self::nonce();
-        let total_current_stake = Self::total_current_stake(nonce, (currency_id, vault_id));
+        let nonce = Self::nonce(currency_id, vault_id);
+        let total_current_stake = Self::total_current_stake(currency_id, (nonce, vault_id));
         // TODO: transfer `total_current_stake` from vault_id to `staking_pool(nonce)`
         Self::distribute_reward(currency_id, vault_id, total_current_stake)?;
         let reward = Self::withdraw_reward(nonce, currency_id, vault_id, vault_id)?;
         let reward_as_fixed = SignedFixedPoint::<T>::checked_from_integer(reward).ok_or(Error::<T>::TryIntoIntError)?;
-        <Nonce<T>>::mutate(|nonce| {
-            *nonce = nonce.checked_add(1u128).ok_or(Error::<T>::ArithmeticOverflow)?;
-            Ok::<_, Error<T>>(())
-        })?;
+        Self::increment_nonce(currency_id, vault_id)?;
+        // Only re-deposit vault stake after increasing the nonce, so that it goes
+        // in the new nonce's "pool".
         Self::deposit_stake(currency_id, vault_id, vault_id, reward_as_fixed)?;
         Self::deposit_event(Event::<T>::ForceRefund(currency_id, vault_id.clone()));
         Ok(())
     }
+
+    pub fn increment_nonce(currency_id: T::CurrencyId, vault_id: &T::AccountId) -> DispatchResult {
+        <Nonce<T>>::mutate(currency_id, vault_id, |nonce| {
+            *nonce = nonce
+                .checked_add(&T::Index::one())
+                .ok_or(Error::<T>::ArithmeticOverflow)?;
+            Ok::<_, Error<T>>(())
+        })?;
+        Self::deposit_event(Event::<T>::IncreaseNonce(
+            currency_id,
+            vault_id.clone(),
+            Self::nonce(currency_id, vault_id),
+        ));
+        Ok(())
+    }
 }
 
-pub trait Staking<AccountId> {
+pub trait Staking<AccountId, Index> {
     /// Signed fixed point type.
     type SignedFixedPoint: FixedPointNumber;
 
@@ -559,7 +581,7 @@ pub trait Staking<AccountId> {
 
     /// Compute the stake in `vault_id` owned by `nominator_id`.
     fn compute_stake(
-        nonce: u128,
+        nonce: Index,
         vault_id: &AccountId,
         nominator_id: &AccountId,
     ) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError>;
@@ -572,7 +594,7 @@ pub trait Staking<AccountId> {
 
     /// Compute the expected reward for `nominator_id` who is nominating `vault_id`.
     fn compute_reward(
-        nonce: u128,
+        nonce: Index,
         vault_id: &AccountId,
         nominator_id: &AccountId,
     ) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError>;
@@ -586,7 +608,7 @@ pub trait Staking<AccountId> {
 
     /// Withdraw all rewards earned by `vault_id` for the `nominator_id`.
     fn withdraw_reward(
-        nonce: u128,
+        nonce: Index,
         vault_id: &AccountId,
         nominator_id: &AccountId,
     ) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError>;
@@ -594,7 +616,7 @@ pub trait Staking<AccountId> {
 
 pub struct StakingCurrencyAdapter<T, GetCurrencyId>(PhantomData<(T, GetCurrencyId)>);
 
-impl<T, GetCurrencyId> Staking<T::AccountId> for StakingCurrencyAdapter<T, GetCurrencyId>
+impl<T, GetCurrencyId> Staking<T::AccountId, T::Index> for StakingCurrencyAdapter<T, GetCurrencyId>
 where
     T: Config,
     GetCurrencyId: Get<T::CurrencyId>,
@@ -614,7 +636,7 @@ where
     }
 
     fn compute_stake(
-        nonce: u128,
+        nonce: T::Index,
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
     ) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError> {
@@ -629,7 +651,7 @@ where
     }
 
     fn compute_reward(
-        nonce: u128,
+        nonce: T::Index,
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
     ) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError> {
@@ -645,7 +667,7 @@ where
     }
 
     fn withdraw_reward(
-        nonce: u128,
+        nonce: T::Index,
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
     ) -> Result<<Self::SignedFixedPoint as FixedPointNumber>::Inner, DispatchError> {
