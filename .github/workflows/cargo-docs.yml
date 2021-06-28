@@ -27,7 +27,7 @@ jobs:
           args: --no-deps
 
       - name: copy index.html
-        run: cp .github/docs-index.html target/doc/index.htlm
+        run: cp .github/docs-index.html target/doc/index.html
 
       - name: Deploy to GitHub Pages
         if: success()
