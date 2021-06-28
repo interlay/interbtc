@@ -199,18 +199,11 @@ impl pallet_timestamp::Config for Test {
     type WeightInfo = ();
 }
 
-parameter_types! {
-    pub const GetCollateralDecimals: u8 = 10;
-    pub const GetWrappedDecimals: u8 = 8;
-}
-
 impl exchange_rate_oracle::Config for Test {
     type Event = TestEvent;
     type Balance = Balance;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type WeightInfo = ();
-    type GetCollateralDecimals = GetCollateralDecimals;
-    type GetWrappedDecimals = GetWrappedDecimals;
 }
 
 parameter_types! {
