@@ -1,8 +1,5 @@
 name: Publish Rust doc
 
-permissions:
-  contents: read
-
 on: push
 # on:
 #   push:
