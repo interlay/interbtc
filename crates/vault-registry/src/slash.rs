@@ -6,7 +6,7 @@
 //! ## Overview
 //!
 //! The algorithm is based on the following work:
-//! https://solmaz.io/2019/02/24/scalable-reward-changing/
+//! <https://solmaz.io/2019/02/24/scalable-reward-changing/>
 //!
 //! Whenever a vault is slashed we update the so-called `slash_per_token` variable
 //! which allows us to compute the actual collateral proportional to a participant.
