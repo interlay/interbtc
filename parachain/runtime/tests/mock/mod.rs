@@ -90,8 +90,7 @@ pub type FeeCall = fee::Call<Runtime>;
 pub type FeeError = fee::Error<Runtime>;
 pub type FeePallet = fee::Pallet<Runtime>;
 
-pub type RewardVaultPallet = reward::Pallet<Runtime, reward::Vault>;
-pub type RewardRelayerPallet = reward::Pallet<Runtime, reward::Relayer>;
+pub type RewardVaultPallet = reward::Pallet<Runtime>;
 
 pub type IssueCall = issue::Call<Runtime>;
 pub type IssuePallet = issue::Pallet<Runtime>;
@@ -223,8 +222,6 @@ impl UserData {
 pub struct FeePool {
     pub vault_collateral_rewards: u128,
     pub vault_wrapped_rewards: u128,
-    pub relayer_collateral_rewards: u128,
-    pub relayer_wrapped_rewards: u128,
 }
 
 fn abs_difference<T: std::ops::Sub<Output = T> + Ord>(x: T, y: T) -> T {
@@ -239,8 +236,6 @@ impl PartialEq for FeePool {
     fn eq(&self, rhs: &Self) -> bool {
         abs_difference(self.vault_collateral_rewards, rhs.vault_collateral_rewards) <= 1
             && abs_difference(self.vault_wrapped_rewards, rhs.vault_wrapped_rewards) <= 1
-            && abs_difference(self.relayer_collateral_rewards, rhs.relayer_collateral_rewards) <= 1
-            && abs_difference(self.relayer_wrapped_rewards, rhs.relayer_wrapped_rewards) <= 1
     }
 }
 
@@ -249,10 +244,6 @@ impl FeePool {
         Self {
             vault_collateral_rewards: RewardVaultPallet::get_total_rewards(DOT, RewardPool::Global).unwrap() as u128,
             vault_wrapped_rewards: RewardVaultPallet::get_total_rewards(INTERBTC, RewardPool::Global).unwrap() as u128,
-            relayer_collateral_rewards: RewardRelayerPallet::get_total_rewards(DOT, RewardPool::Global).unwrap()
-                as u128,
-            relayer_wrapped_rewards: RewardRelayerPallet::get_total_rewards(INTERBTC, RewardPool::Global).unwrap()
-                as u128,
         }
     }
 }
@@ -863,8 +854,7 @@ impl ExtBuilder {
             punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
             replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
             maintainer_account_id: account_of(MAINTAINER),
-            vault_rewards: FixedU128::checked_from_rational(70, 100).unwrap(), // 70%
-            relayer_rewards: FixedU128::checked_from_rational(20, 100).unwrap(), // 20%
+            vault_rewards: FixedU128::checked_from_rational(90, 100).unwrap(), // 70%
             maintainer_rewards: FixedU128::checked_from_rational(10, 100).unwrap(), // 10%
             nomination_rewards: FixedU128::checked_from_rational(0, 100).unwrap(), // 0%
         }
@@ -879,7 +869,6 @@ impl ExtBuilder {
             vault_withdraw_max_sla_change: FixedI128::from(-4),
             vault_submit_issue_proof: FixedI128::from(1),
             vault_refund: FixedI128::from(1),
-            relayer_target_sla: FixedI128::from(100),
             relayer_store_block: FixedI128::from(1),
             relayer_theft_report: FixedI128::from(1),
         }

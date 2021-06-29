@@ -441,14 +441,14 @@ impl<T: Config> Pallet<T> {
 
         if !ext::vault_registry::is_vault_liquidated::<T>(&issue.vault)? {
             // reward the vault for having issued tokens by increasing its sla
-            ext::sla::event_update_vault_sla::<T>(&issue.vault, ext::sla::VaultEvent::ExecuteIssue(total))?;
+            ext::sla::event_update_vault_sla::<T>(&issue.vault, ext::sla::Action::ExecuteIssue(total))?;
         }
 
         // if it was a vault that did the execution on behalf of someone else, reward it by
         // increasing its SLA score
         if requester != executor {
             if let Ok(vault) = ext::vault_registry::get_active_vault_from_id::<T>(&executor) {
-                ext::sla::event_update_vault_sla::<T>(&vault.id, ext::sla::VaultEvent::SubmitIssueProof)?;
+                ext::sla::event_update_vault_sla::<T>(&vault.id, ext::sla::Action::SubmitIssueProof)?;
             }
         }
 

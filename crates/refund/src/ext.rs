@@ -15,13 +15,13 @@ pub(crate) mod fee {
 pub(crate) mod sla {
     use crate::types::BalanceOf;
     use frame_support::dispatch::DispatchError;
-    pub use sla::types::VaultEvent;
+    pub use sla::Action;
 
     pub fn event_update_vault_sla<T: crate::Config>(
         vault_id: &T::AccountId,
-        event: VaultEvent<BalanceOf<T>>,
+        action: Action<BalanceOf<T>>,
     ) -> Result<(), DispatchError> {
-        <sla::Pallet<T>>::event_update_vault_sla(vault_id, event)
+        <sla::Pallet<T>>::event_update_vault_sla(vault_id, action)
     }
 }
 

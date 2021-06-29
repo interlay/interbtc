@@ -242,7 +242,7 @@ pub mod pallet {
             });
 
             // reward the participant by increasing their SLA
-            ext::sla::event_update_relayer_sla::<T>(&signer, ext::sla::RelayerEvent::TheftReport)?;
+            ext::sla::event_update_vault_sla::<T>(&signer, ext::sla::Action::TheftReport)?;
 
             Self::deposit_event(<Event<T>>::VaultTheft(vault_id, tx_id));
 
@@ -257,7 +257,7 @@ impl<T: Config> Pallet<T> {
     fn store_block_header_and_update_sla(relayer: &T::AccountId, block_header: BlockHeader) -> DispatchResult {
         ext::btc_relay::store_block_header::<T>(&relayer, block_header)?;
         // reward the participant by increasing their SLA
-        ext::sla::event_update_relayer_sla::<T>(&relayer, ext::sla::RelayerEvent::StoreBlock)?;
+        ext::sla::event_update_vault_sla::<T>(&relayer, ext::sla::Action::StoreBlock)?;
         Ok(())
     }
 

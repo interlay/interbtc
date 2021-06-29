@@ -3,15 +3,11 @@ use sp_arithmetic::FixedI128;
 use sp_runtime::traits::{One, Zero};
 use std::collections::HashMap;
 
-pub const VAULT_REWARDS: f64 = 0.7;
-pub const RELAYER_REWARDS: f64 = 0.2;
+pub const VAULT_REWARDS: f64 = 0.9;
+pub const MAINTAINER_REWARDS: f64 = 0.1;
 
 pub fn vault_rewards(amount: u128) -> u128 {
     (amount as f64 * VAULT_REWARDS) as u128
-}
-
-pub fn relayer_rewards(amount: u128) -> u128 {
-    (amount as f64 * RELAYER_REWARDS) as u128
 }
 
 type AccountId = [u8; 32];

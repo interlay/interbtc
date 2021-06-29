@@ -619,7 +619,7 @@ impl<T: Config> Pallet<T> {
         Self::deposit_pool_stake::<<T as pallet::Config>::CollateralVaultRewards>(&vault_id, &vault_id, amount)?;
         Self::deposit_pool_stake::<<T as pallet::Config>::WrappedVaultRewards>(&vault_id, &vault_id, amount)?;
 
-        ext::sla::event_update_vault_sla::<T>(&vault.id(), ext::sla::VaultEvent::Deposit(amount))?;
+        ext::sla::event_update_vault_sla::<T>(&vault.id(), ext::sla::Action::Deposit(amount))?;
         Ok(())
     }
 
@@ -639,7 +639,7 @@ impl<T: Config> Pallet<T> {
         Self::withdraw_pool_stake::<<T as pallet::Config>::CollateralVaultRewards>(&vault_id, &vault_id, amount)?;
         Self::withdraw_pool_stake::<<T as pallet::Config>::WrappedVaultRewards>(&vault_id, &vault_id, amount)?;
 
-        ext::sla::event_update_vault_sla::<T>(&vault.id(), ext::sla::VaultEvent::Withdraw(amount))?;
+        ext::sla::event_update_vault_sla::<T>(&vault.id(), ext::sla::Action::Withdraw(amount))?;
         Ok(())
     }
 
@@ -1165,7 +1165,7 @@ impl<T: Config> Pallet<T> {
         let vault_orig = vault.data.clone();
 
         let to_slash = vault.liquidate(status)?;
-        ext::sla::event_update_vault_sla::<T>(&vault.id(), ext::sla::VaultEvent::Liquidate)?;
+        ext::sla::event_update_vault_sla::<T>(&vault.id(), ext::sla::Action::Liquidate)?;
 
         Self::deposit_event(Event::<T>::LiquidateVault(
             vault_id.clone(),

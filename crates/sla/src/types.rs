@@ -2,7 +2,8 @@ use crate::Config;
 use codec::{Decode, Encode};
 use sp_arithmetic::FixedPointNumber;
 
-pub enum VaultEvent<Balance> {
+#[derive(Encode, Decode, Clone, PartialEq, Debug)]
+pub enum Action<Balance> {
     RedeemFailure,
     ExecuteIssue(Balance),
     Deposit(Balance),
@@ -10,10 +11,6 @@ pub enum VaultEvent<Balance> {
     SubmitIssueProof,
     Refund,
     Liquidate,
-}
-
-#[derive(Encode, Decode, Clone, PartialEq, Debug)]
-pub enum RelayerEvent {
     StoreBlock,
     TheftReport,
 }
