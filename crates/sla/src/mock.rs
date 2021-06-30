@@ -22,8 +22,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Storage, Config, Event<T>},
 
-        VaultRewards: reward::<Instance1>::{Pallet, Call, Storage, Event<T>},
-        RelayerRewards: reward::<Instance2>::{Pallet, Call, Storage, Event<T>},
+        Rewards: reward::{Pallet, Call, Storage, Event<T>},
 
         // Operational
         Security: security::{Pallet, Call, Storage, Event<T>},
@@ -84,13 +83,7 @@ parameter_types! {
     pub const GetWrappedCurrencyId: CurrencyId = INTERBTC;
 }
 
-impl reward::Config<reward::Vault> for Test {
-    type Event = TestEvent;
-    type SignedFixedPoint = SignedFixedPoint;
-    type CurrencyId = CurrencyId;
-}
-
-impl reward::Config<reward::Relayer> for Test {
+impl reward::Config for Test {
     type Event = TestEvent;
     type SignedFixedPoint = SignedFixedPoint;
     type CurrencyId = CurrencyId;
@@ -109,10 +102,8 @@ impl Config for Test {
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;
     type Balance = Balance;
-    type CollateralVaultRewards = reward::RewardsCurrencyAdapter<Test, reward::Vault, GetCollateralCurrencyId>;
-    type WrappedVaultRewards = reward::RewardsCurrencyAdapter<Test, reward::Vault, GetWrappedCurrencyId>;
-    type CollateralRelayerRewards = reward::RewardsCurrencyAdapter<Test, reward::Relayer, GetCollateralCurrencyId>;
-    type WrappedRelayerRewards = reward::RewardsCurrencyAdapter<Test, reward::Relayer, GetWrappedCurrencyId>;
+    type CollateralVaultRewards = reward::RewardsCurrencyAdapter<Test, (), GetCollateralCurrencyId>;
+    type WrappedVaultRewards = reward::RewardsCurrencyAdapter<Test, (), GetWrappedCurrencyId>;
 }
 
 pub type TestEvent = Event;
@@ -134,7 +125,6 @@ impl ExtBuilder {
             vault_withdraw_max_sla_change: SignedFixedPoint::from(-4),
             vault_submit_issue_proof: SignedFixedPoint::from(0),
             vault_refund: SignedFixedPoint::from(1),
-            relayer_target_sla: SignedFixedPoint::from(100),
             relayer_store_block: SignedFixedPoint::from(1),
             relayer_theft_report: SignedFixedPoint::from(1),
         }

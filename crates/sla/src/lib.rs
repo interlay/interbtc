@@ -17,12 +17,14 @@ extern crate mocktopus;
 #[cfg(test)]
 use mocktopus::macros::mockable;
 
-pub mod types;
+mod types;
 
-use crate::types::{BalanceOf, Inner, RelayerEvent, SignedFixedPoint, VaultEvent};
+#[doc(inline)]
+pub use crate::types::Action;
+
+use crate::types::{BalanceOf, Inner, SignedFixedPoint};
 use codec::{Decode, Encode, EncodeLike, FullCodec};
-use frame_support::{dispatch::DispatchError, transactional};
-use frame_system::ensure_root;
+use frame_support::dispatch::DispatchError;
 use reward::RewardPool;
 use sp_runtime::{
     traits::{MaybeSerializeDeserialize, *},
@@ -39,7 +41,6 @@ pub use pallet::*;
 pub mod pallet {
     use super::*;
     use frame_support::pallet_prelude::*;
-    use frame_system::pallet_prelude::*;
 
     /// ## Configuration
     /// The pallet's configuration trait.
@@ -78,12 +79,6 @@ pub mod pallet {
 
         /// Vault reward pool for the wrapped currency.
         type WrappedVaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
-
-        /// Relayer reward pool for the collateral currency.
-        type CollateralRelayerRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
-
-        /// Relayer reward pool for the wrapped currency.
-        type WrappedRelayerRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
     }
 
     #[pallet::event]
@@ -92,8 +87,6 @@ pub mod pallet {
     pub enum Event<T: Config> {
         // [vault_id, bounded_new_sla, delta_sla]
         UpdateVaultSLA(T::AccountId, SignedFixedPoint<T>, SignedFixedPoint<T>),
-        // [relayer_id, new_sla, delta_sla]
-        UpdateRelayerSLA(T::AccountId, SignedFixedPoint<T>, SignedFixedPoint<T>),
     }
 
     #[pallet::error]
@@ -111,12 +104,6 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn vault_sla)]
     pub(super) type VaultSla<T: Config> =
-        StorageMap<_, Blake2_128Concat, T::AccountId, SignedFixedPoint<T>, ValueQuery>;
-
-    /// Mapping from Relayers to their SLA score.
-    #[pallet::storage]
-    #[pallet::getter(fn relayer_sla)]
-    pub(super) type RelayerSla<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, SignedFixedPoint<T>, ValueQuery>;
 
     /// Total number of issues executed by all vaults; used for calculating the average issue size.
@@ -142,11 +129,6 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn vault_target_sla)]
     pub(super) type VaultTargetSla<T: Config> = StorageValue<_, SignedFixedPoint<T>, ValueQuery>;
-
-    // Target (max) SLA score for Relayers.
-    #[pallet::storage]
-    #[pallet::getter(fn relayer_target_sla)]
-    pub(super) type RelayerTargetSla<T: Config> = StorageValue<_, SignedFixedPoint<T>, ValueQuery>;
 
     // vault & relayer SLA score rewards/punishments for the actions defined in
     // https://interlay.gitlab.io/polkabtc-econ/spec/sla/actions.html#actions
@@ -187,7 +169,6 @@ pub mod pallet {
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
         pub vault_target_sla: SignedFixedPoint<T>,
-        pub relayer_target_sla: SignedFixedPoint<T>,
         pub vault_redeem_failure_sla_change: SignedFixedPoint<T>,
         pub vault_execute_issue_max_sla_change: SignedFixedPoint<T>,
         pub vault_deposit_max_sla_change: SignedFixedPoint<T>,
@@ -203,7 +184,6 @@ pub mod pallet {
         fn default() -> Self {
             Self {
                 vault_target_sla: Default::default(),
-                relayer_target_sla: Default::default(),
                 vault_redeem_failure_sla_change: Default::default(),
                 vault_execute_issue_max_sla_change: Default::default(),
                 vault_deposit_max_sla_change: Default::default(),
@@ -220,7 +200,6 @@ pub mod pallet {
     impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
         fn build(&self) {
             VaultTargetSla::<T>::put(self.vault_target_sla);
-            RelayerTargetSla::<T>::put(self.relayer_target_sla);
             VaultRedeemFailure::<T>::put(self.vault_redeem_failure_sla_change);
             VaultExecuteIssueMaxSlaChange::<T>::put(self.vault_execute_issue_max_sla_change);
             VaultDepositMaxSlaChange::<T>::put(self.vault_deposit_max_sla_change);
@@ -237,28 +216,7 @@ pub mod pallet {
 
     // The pallet's dispatchable functions.
     #[pallet::call]
-    impl<T: Config> Pallet<T> {
-        /// Set the sla delta for the given relayer event.
-        ///
-        /// # Arguments
-        ///
-        /// * `origin` - the dispatch origin of this call (must be _Root_)
-        /// * `event` - relayer event to update
-        /// * `value` - sla delta
-        ///
-        /// # Weight: `O(1)`
-        #[pallet::weight(0)]
-        #[transactional]
-        pub fn set_relayer_sla(
-            origin: OriginFor<T>,
-            event: RelayerEvent,
-            value: SignedFixedPoint<T>,
-        ) -> DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            Self::_set_relayer_sla(event, value);
-            Ok(().into())
-        }
-    }
+    impl<T: Config> Pallet<T> {}
 }
 
 // "Internal" functions, callable by code.
@@ -272,19 +230,18 @@ impl<T: Config> Pallet<T> {
     ///
     /// * `vault_id` - account id of the vault
     /// * `event` - the event that has happened
-    pub fn event_update_vault_sla(
-        vault_id: &T::AccountId,
-        event: VaultEvent<BalanceOf<T>>,
-    ) -> Result<(), DispatchError> {
+    pub fn event_update_vault_sla(vault_id: &T::AccountId, action: Action<BalanceOf<T>>) -> Result<(), DispatchError> {
         let current_sla = <VaultSla<T>>::get(vault_id);
-        let delta_sla = match event {
-            VaultEvent::RedeemFailure => <VaultRedeemFailure<T>>::get(),
-            VaultEvent::SubmitIssueProof => <VaultSubmitIssueProof<T>>::get(),
-            VaultEvent::Refund => <VaultRefund<T>>::get(),
-            VaultEvent::ExecuteIssue(amount) => Self::_execute_issue_sla_change(amount)?,
-            VaultEvent::Deposit(amount) => Self::_deposit_sla_change(amount)?,
-            VaultEvent::Withdraw(amount) => Self::_withdraw_sla_change(amount)?,
-            VaultEvent::Liquidate => return Self::_liquidate_sla(vault_id),
+        let delta_sla = match action {
+            Action::RedeemFailure => <VaultRedeemFailure<T>>::get(),
+            Action::SubmitIssueProof => <VaultSubmitIssueProof<T>>::get(),
+            Action::Refund => <VaultRefund<T>>::get(),
+            Action::ExecuteIssue(amount) => Self::_execute_issue_sla_change(amount)?,
+            Action::Deposit(amount) => Self::_deposit_sla_change(amount)?,
+            Action::Withdraw(amount) => Self::_withdraw_sla_change(amount)?,
+            Action::Liquidate => return Self::_liquidate_sla(vault_id),
+            Action::StoreBlock => <RelayerStoreBlock<T>>::get(),
+            Action::TheftReport => <RelayerTheftReport<T>>::get(),
         };
 
         let new_sla = current_sla
@@ -299,34 +256,6 @@ impl<T: Config> Pallet<T> {
 
         <VaultSla<T>>::insert(vault_id, bounded_new_sla);
         Self::deposit_event(<Event<T>>::UpdateVaultSLA(vault_id.clone(), bounded_new_sla, delta_sla));
-
-        Ok(())
-    }
-
-    /// Update the SLA score of the relayer on the given event.
-    ///
-    /// # Arguments
-    ///
-    /// * `relayer_id` - account id of the relayer
-    /// * `event` - the event that has happened
-    pub fn event_update_relayer_sla(relayer_id: &T::AccountId, event: RelayerEvent) -> Result<(), DispatchError> {
-        let current_sla = <RelayerSla<T>>::get(relayer_id);
-        let delta_sla = Self::_get_relayer_sla(event);
-
-        let max = <RelayerTargetSla<T>>::get(); // TODO: check that this is indeed the max
-        let min = SignedFixedPoint::<T>::zero();
-
-        let potential_new_sla = current_sla
-            .checked_add(&delta_sla)
-            .ok_or(Error::<T>::ArithmeticOverflow)?;
-
-        let new_sla = Self::_limit(min, potential_new_sla, max);
-
-        Self::adjust_stake::<T::CollateralRelayerRewards>(relayer_id, delta_sla)?;
-        Self::adjust_stake::<T::WrappedRelayerRewards>(relayer_id, delta_sla)?;
-
-        <RelayerSla<T>>::insert(relayer_id, new_sla);
-        Self::deposit_event(<Event<T>>::UpdateRelayerSLA(relayer_id.clone(), new_sla, delta_sla));
 
         Ok(())
     }
@@ -580,22 +509,6 @@ impl<T: Config> Pallet<T> {
             max
         } else {
             value
-        }
-    }
-
-    /// Gets the SLA change corresponding to the given event from storage
-    fn _get_relayer_sla(event: RelayerEvent) -> SignedFixedPoint<T> {
-        match event {
-            RelayerEvent::StoreBlock => <RelayerStoreBlock<T>>::get(),
-            RelayerEvent::TheftReport => <RelayerTheftReport<T>>::get(),
-        }
-    }
-
-    /// Updates the SLA change corresponding to the given event in storage
-    fn _set_relayer_sla(event: RelayerEvent, value: SignedFixedPoint<T>) {
-        match event {
-            RelayerEvent::StoreBlock => <RelayerStoreBlock<T>>::set(value),
-            RelayerEvent::TheftReport => <RelayerTheftReport<T>>::set(value),
         }
     }
 

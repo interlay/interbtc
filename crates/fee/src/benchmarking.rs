@@ -12,15 +12,6 @@ benchmarks! {
     withdraw_vault_wrapped_rewards {
         let recipient: T::AccountId = account("recipient", 0, SEED);
     }: _(RawOrigin::Signed(recipient))
-
-    withdraw_relayer_collateral_rewards {
-        let recipient: T::AccountId = account("recipient", 0, SEED);
-    }: _(RawOrigin::Signed(recipient))
-
-    withdraw_relayer_wrapped_rewards {
-        let recipient: T::AccountId = account("recipient", 0, SEED);
-    }: _(RawOrigin::Signed(recipient))
-
 }
 
 #[cfg(test)]
@@ -34,8 +25,6 @@ mod tests {
         ExtBuilder::build().execute_with(|| {
             assert_ok!(test_benchmark_withdraw_vault_collateral_rewards::<Test>());
             assert_ok!(test_benchmark_withdraw_vault_wrapped_rewards::<Test>());
-            assert_ok!(test_benchmark_withdraw_relayer_collateral_rewards::<Test>());
-            assert_ok!(test_benchmark_withdraw_relayer_wrapped_rewards::<Test>());
         });
     }
 }

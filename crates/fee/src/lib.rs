@@ -101,12 +101,6 @@ pub mod pallet {
         /// Vault reward pool for the wrapped currency.
         type WrappedVaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
 
-        /// Relayer reward pool for the collateral currency.
-        type CollateralRelayerRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
-
-        /// Relayer reward pool for the wrapped currency.
-        type WrappedRelayerRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
-
         /// Collateral currency, e.g. DOT/KSM.
         type Collateral: ParachainCurrency<Self::AccountId, Balance = Self::UnsignedInner>;
 
@@ -200,11 +194,6 @@ pub mod pallet {
     #[pallet::getter(fn vault_rewards)]
     pub type VaultRewards<T: Config> = StorageValue<_, UnsignedFixedPoint<T>, ValueQuery>;
 
-    /// Percentage of fees allocated to Staked Relayers.
-    #[pallet::storage]
-    #[pallet::getter(fn relayer_rewards)]
-    pub type RelayerRewards<T: Config> = StorageValue<_, UnsignedFixedPoint<T>, ValueQuery>;
-
     /// Percentage of fees allocated for development.
     #[pallet::storage]
     #[pallet::getter(fn maintainer_rewards)]
@@ -236,7 +225,6 @@ pub mod pallet {
         pub replace_griefing_collateral: UnsignedFixedPoint<T>,
         pub maintainer_account_id: T::AccountId,
         pub vault_rewards: UnsignedFixedPoint<T>,
-        pub relayer_rewards: UnsignedFixedPoint<T>,
         pub maintainer_rewards: UnsignedFixedPoint<T>,
         pub nomination_rewards: UnsignedFixedPoint<T>,
     }
@@ -254,7 +242,6 @@ pub mod pallet {
                 replace_griefing_collateral: Default::default(),
                 maintainer_account_id: Default::default(),
                 vault_rewards: Default::default(),
-                relayer_rewards: Default::default(),
                 maintainer_rewards: Default::default(),
                 nomination_rewards: Default::default(),
             }
@@ -264,12 +251,7 @@ pub mod pallet {
     #[pallet::genesis_build]
     impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
         fn build(&self) {
-            Pallet::<T>::ensure_rationals_sum_to_one(vec![
-                self.vault_rewards,
-                self.relayer_rewards,
-                self.maintainer_rewards,
-            ])
-            .unwrap();
+            Pallet::<T>::ensure_rationals_sum_to_one(vec![self.vault_rewards, self.maintainer_rewards]).unwrap();
 
             IssueFee::<T>::put(self.issue_fee);
             IssueGriefingCollateral::<T>::put(self.issue_griefing_collateral);
@@ -280,7 +262,6 @@ pub mod pallet {
             ReplaceGriefingCollateral::<T>::put(self.replace_griefing_collateral);
             MaintainerAccountId::<T>::put(self.maintainer_account_id.clone());
             VaultRewards::<T>::put(self.vault_rewards);
-            RelayerRewards::<T>::put(self.relayer_rewards);
             MaintainerRewards::<T>::put(self.maintainer_rewards);
             NominationRewards::<T>::put(self.nomination_rewards);
         }
@@ -355,34 +336,6 @@ pub mod pallet {
             Self::withdraw_wrapped_from_pool::<T::WrappedVaultRewards>(RewardPool::Local(vault_id), &signer)?;
             Ok(().into())
         }
-
-        /// Withdraw relayer collateral rewards.
-        ///
-        /// # Arguments
-        ///
-        /// * `origin` - signing account
-        #[pallet::weight(<T as Config>::WeightInfo::withdraw_relayer_rewards())]
-        #[transactional]
-        pub fn withdraw_relayer_collateral_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-            let signer = ensure_signed(origin)?;
-            Self::withdraw_collateral_from_pool::<T::CollateralRelayerRewards>(RewardPool::Global, &signer)?;
-            Ok(().into())
-        }
-
-        /// Withdraw relayer wrapped rewards.
-        ///
-        /// # Arguments
-        ///
-        /// * `origin` - signing account
-        #[pallet::weight(<T as Config>::WeightInfo::withdraw_relayer_rewards())]
-        #[transactional]
-        pub fn withdraw_relayer_wrapped_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-            let signer = ensure_signed(origin)?;
-            Self::withdraw_wrapped_from_pool::<T::WrappedRelayerRewards>(RewardPool::Global, &signer)?;
-            Ok(().into())
-        }
     }
 }
 
@@ -409,17 +362,8 @@ impl<T: Config> Pallet<T> {
         let vault_rewards = Self::collateral_for(amount, Self::vault_rewards())?;
         let vault_rewards = Self::distribute::<_, _, T::SignedFixedPoint, T::CollateralVaultRewards>(vault_rewards)?;
 
-        // calculate relayer rewards
-        let relayer_rewards = Self::collateral_for(amount, Self::relayer_rewards())?;
-        let relayer_rewards =
-            Self::distribute::<_, _, T::SignedFixedPoint, T::CollateralRelayerRewards>(relayer_rewards)?;
-
         // give remaining rewards to maintainer (dev fund)
-        let maintainer_rewards = amount.saturating_sub(
-            vault_rewards
-                .checked_add(&relayer_rewards)
-                .ok_or(Error::<T>::ArithmeticOverflow)?,
-        );
+        let maintainer_rewards = amount.saturating_sub(vault_rewards);
         let maintainer_account_id = Self::maintainer_account_id();
         ext::collateral::transfer::<T>(&Self::fee_pool_account_id(), &maintainer_account_id, maintainer_rewards)?;
 
@@ -436,16 +380,8 @@ impl<T: Config> Pallet<T> {
         let vault_rewards = Self::wrapped_for(amount, Self::vault_rewards())?;
         let vault_rewards = Self::distribute::<_, _, T::SignedFixedPoint, T::WrappedVaultRewards>(vault_rewards)?;
 
-        // calculate relayer rewards
-        let relayer_rewards = Self::wrapped_for(amount, Self::relayer_rewards())?;
-        let relayer_rewards = Self::distribute::<_, _, T::SignedFixedPoint, T::WrappedRelayerRewards>(relayer_rewards)?;
-
         // give remaining rewards to maintainer (dev fund)
-        let maintainer_rewards = amount.saturating_sub(
-            vault_rewards
-                .checked_add(&relayer_rewards)
-                .ok_or(Error::<T>::ArithmeticOverflow)?,
-        );
+        let maintainer_rewards = amount.saturating_sub(vault_rewards);
         let maintainer_account_id = Self::maintainer_account_id();
         ext::treasury::transfer::<T>(&Self::fee_pool_account_id(), &maintainer_account_id, maintainer_rewards)?;
 

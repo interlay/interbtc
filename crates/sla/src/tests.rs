@@ -1,8 +1,4 @@
-use crate::{
-    mock::*,
-    types::{RelayerEvent, VaultEvent},
-    RelayerSla,
-};
+use crate::{mock::*, types::Action, VaultSla};
 
 use frame_support::assert_ok;
 use sp_arithmetic::{traits::Zero, FixedI128, FixedPointNumber};
@@ -75,13 +71,13 @@ fn test_event_update_vault_sla_succeeds() {
         let amount = 100u128;
         crate::LifetimeIssued::<Test>::set(amount.into());
 
-        Sla::event_update_vault_sla(&ALICE, VaultEvent::ExecuteIssue(amount)).unwrap();
+        Sla::event_update_vault_sla(&ALICE, Action::ExecuteIssue(amount)).unwrap();
         assert_eq!(
             <crate::VaultSla<Test>>::get(ALICE),
             <crate::VaultExecuteIssueMaxSlaChange<Test>>::get()
         );
 
-        Sla::event_update_vault_sla(&ALICE, VaultEvent::Liquidate).unwrap();
+        Sla::event_update_vault_sla(&ALICE, Action::Liquidate).unwrap();
         assert_eq!(<crate::VaultSla<Test>>::get(ALICE), Zero::zero(),);
     })
 }
@@ -92,7 +88,7 @@ fn test_event_update_vault_sla_half_size_increase() {
         let amount = 100u128;
         crate::LifetimeIssued::<Test>::set(amount.into());
 
-        Sla::event_update_vault_sla(&ALICE, VaultEvent::ExecuteIssue(amount)).unwrap();
+        Sla::event_update_vault_sla(&ALICE, Action::ExecuteIssue(amount)).unwrap();
         assert_eq!(
             <crate::VaultSla<Test>>::get(ALICE),
             <crate::VaultExecuteIssueMaxSlaChange<Test>>::get() / FixedI128::from(2)
@@ -104,21 +100,21 @@ fn test_event_update_vault_sla_half_size_increase() {
 fn test_event_update_relayer_sla_succeeds() {
     run_test(|| {
         for i in 0..100 {
-            Sla::event_update_relayer_sla(&ALICE, RelayerEvent::StoreBlock).unwrap();
-            assert_eq!(<crate::RelayerSla<Test>>::get(ALICE), FixedI128::from(i + 1));
+            Sla::event_update_vault_sla(&ALICE, Action::StoreBlock).unwrap();
+            assert_eq!(<crate::VaultSla<Test>>::get(ALICE), FixedI128::from(i + 1));
         }
 
-        <crate::RelayerSla<Test>>::insert(ALICE, FixedI128::from(50));
-        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::StoreBlock).unwrap();
+        <crate::VaultSla<Test>>::insert(ALICE, FixedI128::from(50));
+        Sla::event_update_vault_sla(&ALICE, Action::StoreBlock).unwrap();
         assert_eq!(
-            <crate::RelayerSla<Test>>::get(ALICE),
+            <crate::VaultSla<Test>>::get(ALICE),
             FixedI128::from(50) + <crate::RelayerStoreBlock<Test>>::get(),
         );
 
-        <crate::RelayerSla<Test>>::insert(ALICE, FixedI128::from(50));
-        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::TheftReport).unwrap();
+        <crate::VaultSla<Test>>::insert(ALICE, FixedI128::from(50));
+        Sla::event_update_vault_sla(&ALICE, Action::TheftReport).unwrap();
         assert_eq!(
-            <crate::RelayerSla<Test>>::get(ALICE),
+            <crate::VaultSla<Test>>::get(ALICE),
             FixedI128::from(50) + <crate::RelayerTheftReport<Test>>::get(),
         );
     })
@@ -128,9 +124,9 @@ fn test_event_update_relayer_sla_succeeds() {
 fn test_event_update_relayer_sla_limits() {
     run_test(|| {
         // start at 99.5, add 1, result should be 100
-        <RelayerSla<Test>>::insert(ALICE, FixedI128::checked_from_rational(9950, 100).unwrap());
-        Sla::event_update_relayer_sla(&ALICE, RelayerEvent::StoreBlock).unwrap();
-        assert_eq!(<RelayerSla<Test>>::get(ALICE), FixedI128::from(100));
+        <VaultSla<Test>>::insert(ALICE, FixedI128::checked_from_rational(9950, 100).unwrap());
+        Sla::event_update_vault_sla(&ALICE, Action::StoreBlock).unwrap();
+        assert_eq!(<VaultSla<Test>>::get(ALICE), FixedI128::from(100));
     })
 }
 

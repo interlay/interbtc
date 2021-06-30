@@ -119,13 +119,14 @@ pub(crate) mod refund {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod sla {
+    use crate::types::BalanceOf;
     use frame_support::dispatch::DispatchError;
-    pub use sla::types::RelayerEvent;
+    pub use sla::Action;
 
-    pub fn event_update_relayer_sla<T: crate::Config>(
+    pub fn event_update_vault_sla<T: crate::Config>(
         relayer_id: &T::AccountId,
-        event: RelayerEvent,
+        action: Action<BalanceOf<T>>,
     ) -> Result<(), DispatchError> {
-        <sla::Pallet<T>>::event_update_relayer_sla(relayer_id, event)
+        <sla::Pallet<T>>::event_update_vault_sla(relayer_id, action)
     }
 }

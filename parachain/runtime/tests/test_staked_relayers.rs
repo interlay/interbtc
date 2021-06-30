@@ -31,7 +31,7 @@ fn test_vault_theft(submit_by_relayer: bool) {
             vault_btc_address
         ));
 
-        let initial_sla = SlaPallet::relayer_sla(account_of(ALICE));
+        let initial_sla = SlaPallet::vault_sla(account_of(ALICE));
 
         let (_tx_id, _height, proof, raw_tx, _) = TransactionGenerator::new()
             .with_address(other_btc_address)
@@ -47,7 +47,7 @@ fn test_vault_theft(submit_by_relayer: bool) {
                 .unwrap()
                 .checked_mul(&SlaPallet::relayer_store_block())
                 .unwrap();
-        assert_eq!(SlaPallet::relayer_sla(account_of(ALICE)), expected_sla);
+        assert_eq!(SlaPallet::vault_sla(account_of(ALICE)), expected_sla);
 
         SecurityPallet::set_active_block_number(1000);
 
@@ -59,7 +59,7 @@ fn test_vault_theft(submit_by_relayer: bool) {
 
             // check sla increase for the theft report
             expected_sla = expected_sla + SlaPallet::relayer_theft_report();
-            assert_eq!(SlaPallet::relayer_sla(account_of(ALICE)), expected_sla);
+            assert_eq!(SlaPallet::vault_sla(account_of(ALICE)), expected_sla);
         } else {
             assert_ok!(
                 Call::StakedRelayers(StakedRelayersCall::report_vault_theft(account_of(vault), proof, raw_tx))

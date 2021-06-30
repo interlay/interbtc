@@ -433,8 +433,7 @@ fn testnet_genesis(
             punishment_fee: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
             replace_griefing_collateral: FixedU128::checked_from_rational(1, 10).unwrap(), // 10%
             maintainer_account_id: maintainer,
-            vault_rewards: FixedU128::checked_from_rational(77, 100).unwrap(),
-            relayer_rewards: FixedU128::checked_from_rational(3, 100).unwrap(),
+            vault_rewards: FixedU128::checked_from_rational(80, 100).unwrap(),
             maintainer_rewards: FixedU128::checked_from_rational(20, 100).unwrap(),
             nomination_rewards: FixedU128::checked_from_rational(0, 100).unwrap(),
         },
@@ -446,7 +445,6 @@ fn testnet_genesis(
             vault_withdraw_max_sla_change: FixedI128::from(-4),
             vault_submit_issue_proof: FixedI128::from(1),
             vault_refund: FixedI128::from(1),
-            relayer_target_sla: FixedI128::from(100),
             relayer_store_block: FixedI128::from(1),
             relayer_theft_report: FixedI128::from(1),
         },

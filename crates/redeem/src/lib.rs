@@ -576,7 +576,7 @@ impl<T: Config> Pallet<T> {
             Self::set_redeem_status(redeem_id, RedeemRequestStatus::Retried)
         };
 
-        ext::sla::event_update_vault_sla::<T>(&vault_id, ext::sla::VaultEvent::RedeemFailure)?;
+        ext::sla::event_update_vault_sla::<T>(&vault_id, ext::sla::Action::RedeemFailure)?;
         Self::deposit_event(<Event<T>>::CancelRedeem(
             redeem_id,
             redeemer,

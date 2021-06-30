@@ -230,7 +230,7 @@ impl<T: Config> Pallet<T> {
         ext::treasury::mint::<T>(&request.vault, request.fee)?;
 
         // reward vault for this refund by increasing its SLA
-        ext::sla::event_update_vault_sla::<T>(&request.vault, ext::sla::VaultEvent::Refund)?;
+        ext::sla::event_update_vault_sla::<T>(&request.vault, ext::sla::Action::Refund)?;
 
         // mark the request as completed
         <RefundRequests<T>>::mutate(refund_id, |request| {

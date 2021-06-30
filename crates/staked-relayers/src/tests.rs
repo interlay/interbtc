@@ -609,7 +609,7 @@ fn test_store_block_header_and_update_sla_fails_with_invalid() {
         ext::btc_relay::store_block_header::<Test>
             .mock_safe(|_, _| MockResult::Return(Err(BtcRelayError::<Test>::DiffTargetHeader.into())));
 
-        ext::sla::event_update_relayer_sla::<Test>.mock_safe(|_, _| {
+        ext::sla::event_update_vault_sla::<Test>.mock_safe(|_, _| {
             panic!("Should not call sla update for invalid block");
         });
 
