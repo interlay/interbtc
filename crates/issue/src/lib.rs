@@ -390,10 +390,9 @@ impl<T: Config> Pallet<T> {
                 .ok_or(Error::<T>::ArithmeticUnderflow)?;
             ext::vault_registry::transfer_funds::<T>(
                 CurrencySource::Griefing(issue.requester.clone()),
-                CurrencySource::FreeBalance(ext::fee::fee_pool_account_id::<T>()),
+                CurrencySource::FreeBalance(issue.vault.clone()),
                 slashed_collateral,
             )?;
-            ext::fee::distribute_collateral_rewards::<T>(slashed_collateral)?;
 
             Self::update_issue_amount(&issue_id, &mut issue, amount_transferred, slashed_collateral)?;
         } else {
@@ -453,7 +452,7 @@ impl<T: Config> Pallet<T> {
         }
 
         // distribute rewards after sla increase
-        ext::fee::distribute_wrapped_rewards::<T>(issue.fee)?;
+        ext::fee::distribute_rewards::<T>(issue.fee)?;
 
         Self::set_issue_status(issue_id, IssueRequestStatus::Completed(maybe_refund_id));
 
@@ -493,10 +492,9 @@ impl<T: Config> Pallet<T> {
         } else {
             ext::vault_registry::transfer_funds::<T>(
                 CurrencySource::Griefing(issue.requester.clone()),
-                CurrencySource::FreeBalance(ext::fee::fee_pool_account_id::<T>()),
+                CurrencySource::FreeBalance(issue.vault.clone()),
                 issue.griefing_collateral,
             )?;
-            ext::fee::distribute_collateral_rewards::<T>(issue.griefing_collateral)?;
         }
         Self::set_issue_status(issue_id, IssueRequestStatus::Cancelled);
 

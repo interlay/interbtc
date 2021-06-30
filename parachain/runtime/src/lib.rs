@@ -589,8 +589,7 @@ impl vault_registry::Config for Runtime {
     type SignedFixedPoint = SignedFixedPoint;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type WeightInfo = ();
-    type CollateralVaultRewards = reward::RewardsCurrencyAdapter<Runtime, (), GetCollateralCurrencyId>;
-    type WrappedVaultRewards = reward::RewardsCurrencyAdapter<Runtime, (), GetWrappedCurrencyId>;
+    type VaultRewards = reward::RewardsCurrencyAdapter<Runtime, (), GetWrappedCurrencyId>;
     type Collateral = orml_tokens::CurrencyAdapter<Runtime, GetCollateralCurrencyId>;
     type Wrapped = orml_tokens::CurrencyAdapter<Runtime, GetWrappedCurrencyId>;
 }
@@ -629,8 +628,7 @@ impl fee::Config for Runtime {
     type SignedInner = SignedInner;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type UnsignedInner = UnsignedInner;
-    type CollateralVaultRewards = reward::RewardsCurrencyAdapter<Runtime, (), GetCollateralCurrencyId>;
-    type WrappedVaultRewards = reward::RewardsCurrencyAdapter<Runtime, (), GetWrappedCurrencyId>;
+    type VaultRewards = reward::RewardsCurrencyAdapter<Runtime, (), GetWrappedCurrencyId>;
     type Collateral = orml_tokens::CurrencyAdapter<Runtime, GetCollateralCurrencyId>;
     type Wrapped = orml_tokens::CurrencyAdapter<Runtime, GetWrappedCurrencyId>;
 }
@@ -640,8 +638,7 @@ impl sla::Config for Runtime {
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;
     type Balance = Balance;
-    type CollateralVaultRewards = reward::RewardsCurrencyAdapter<Runtime, (), GetCollateralCurrencyId>;
-    type WrappedVaultRewards = reward::RewardsCurrencyAdapter<Runtime, (), GetWrappedCurrencyId>;
+    type VaultRewards = reward::RewardsCurrencyAdapter<Runtime, (), GetWrappedCurrencyId>;
 }
 
 pub use refund::{Event as RefundEvent, RefundRequest};
@@ -677,8 +674,7 @@ pub use nomination::Event as NominationEvent;
 impl nomination::Config for Runtime {
     type Event = Event;
     type WeightInfo = ();
-    type CollateralVaultRewards = reward::RewardsCurrencyAdapter<Runtime, (), GetCollateralCurrencyId>;
-    type WrappedVaultRewards = reward::RewardsCurrencyAdapter<Runtime, (), GetWrappedCurrencyId>;
+    type VaultRewards = reward::RewardsCurrencyAdapter<Runtime, (), GetWrappedCurrencyId>;
 }
 
 macro_rules! construct_interbtc_runtime {

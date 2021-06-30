@@ -102,8 +102,7 @@ impl Config for Test {
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;
     type Balance = Balance;
-    type CollateralVaultRewards = reward::RewardsCurrencyAdapter<Test, (), GetCollateralCurrencyId>;
-    type WrappedVaultRewards = reward::RewardsCurrencyAdapter<Test, (), GetWrappedCurrencyId>;
+    type VaultRewards = reward::RewardsCurrencyAdapter<Test, (), GetWrappedCurrencyId>;
 }
 
 pub type TestEvent = Event;

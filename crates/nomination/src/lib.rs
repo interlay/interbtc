@@ -64,11 +64,8 @@ pub mod pallet {
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
 
-        /// Vault reward pool for the collateral currency.
-        type CollateralVaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
-
         /// Vault reward pool for the wrapped currency.
-        type WrappedVaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
+        type VaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
     }
 
     #[pallet::event]
@@ -242,9 +239,8 @@ impl<T: Config> Pallet<T> {
 
         // Withdraw all vault rewards first, to prevent the nominator from withdrawing rewards from the past.
         ext::fee::withdraw_all_vault_rewards::<T>(&vault_id)?;
-        // Withdraw `amount` of stake from both vault reward pools
-        Self::withdraw_pool_stake::<<T as pallet::Config>::CollateralVaultRewards>(&nominator_id, &vault_id, amount)?;
-        Self::withdraw_pool_stake::<<T as pallet::Config>::WrappedVaultRewards>(&nominator_id, &vault_id, amount)?;
+        // Withdraw `amount` of stake from vault reward pool
+        Self::withdraw_pool_stake::<<T as pallet::Config>::VaultRewards>(&nominator_id, &vault_id, amount)?;
 
         let mut nominator: RichNominator<T> = Self::get_nominator(&nominator_id, &vault_id)?.into();
         nominator.try_withdraw_collateral(amount)?;
@@ -277,9 +273,8 @@ impl<T: Config> Pallet<T> {
 
         // Withdraw all vault rewards first, to prevent the nominator from withdrawing rewards from the past.
         ext::fee::withdraw_all_vault_rewards::<T>(&vault_id)?;
-        // Deposit `amount` of stake to both vault reward pools
-        Self::deposit_pool_stake::<<T as pallet::Config>::CollateralVaultRewards>(&nominator_id, &vault_id, amount)?;
-        Self::deposit_pool_stake::<<T as pallet::Config>::WrappedVaultRewards>(&nominator_id, &vault_id, amount)?;
+        // Deposit `amount` of stake to vault reward pool
+        Self::deposit_pool_stake::<<T as pallet::Config>::VaultRewards>(&nominator_id, &vault_id, amount)?;
 
         let mut nominator: RichNominator<T> = Self::register_or_get_nominator(&nominator_id, &vault_id)?.into();
         nominator

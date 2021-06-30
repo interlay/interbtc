@@ -439,7 +439,7 @@ impl<T: Config> Pallet<T> {
 
         // send fees to pool
         ext::treasury::unlock_and_transfer::<T>(&redeem.redeemer, &ext::fee::fee_pool_account_id::<T>(), redeem.fee)?;
-        ext::fee::distribute_wrapped_rewards::<T>(redeem.fee)?;
+        ext::fee::distribute_rewards::<T>(redeem.fee)?;
 
         ext::vault_registry::redeem_tokens::<T>(&redeem.vault, burn_amount, redeem.premium, &redeem.redeemer)?;
 
@@ -529,12 +529,11 @@ impl<T: Config> Pallet<T> {
                 .checked_sub(&slashed_collateral)
                 .ok_or(Error::<T>::ArithmeticUnderflow)?;
             if remaining_collateral_to_be_slashed > Collateral::<T>::zero() {
-                let slashed_to_fee_pool = ext::vault_registry::transfer_funds_saturated::<T>(
+                ext::vault_registry::transfer_funds_saturated::<T>(
                     CurrencySource::Collateral(vault_id.clone()),
-                    CurrencySource::FreeBalance(ext::fee::fee_pool_account_id::<T>()),
+                    CurrencySource::FreeBalance(redeemer.clone()),
                     remaining_collateral_to_be_slashed,
                 )?;
-                ext::fee::distribute_collateral_rewards::<T>(slashed_to_fee_pool)?;
             }
             let _ = ext::vault_registry::ban_vault::<T>(vault_id.clone());
 
@@ -550,7 +549,7 @@ impl<T: Config> Pallet<T> {
                 &ext::fee::fee_pool_account_id::<T>(),
                 redeem.fee,
             )?;
-            ext::fee::distribute_wrapped_rewards::<T>(redeem.fee)?;
+            ext::fee::distribute_rewards::<T>(redeem.fee)?;
 
             if ext::vault_registry::is_vault_below_secure_threshold::<T>(&redeem.vault)? {
                 // vault can not afford to back the tokens that he would receive, so we burn it

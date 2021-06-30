@@ -160,8 +160,7 @@ impl Config for Test {
     type SignedFixedPoint = SignedFixedPoint;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type WeightInfo = ();
-    type CollateralVaultRewards = reward::RewardsCurrencyAdapter<Test, (), GetCollateralCurrencyId>;
-    type WrappedVaultRewards = reward::RewardsCurrencyAdapter<Test, (), GetWrappedCurrencyId>;
+    type VaultRewards = reward::RewardsCurrencyAdapter<Test, (), GetWrappedCurrencyId>;
     type Collateral = CurrencyAdapter<Test, GetCollateralCurrencyId>;
     type Wrapped = CurrencyAdapter<Test, GetWrappedCurrencyId>;
 }
@@ -183,8 +182,7 @@ impl sla::Config for Test {
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;
     type Balance = Balance;
-    type CollateralVaultRewards = reward::RewardsCurrencyAdapter<Test, (), GetCollateralCurrencyId>;
-    type WrappedVaultRewards = reward::RewardsCurrencyAdapter<Test, (), GetWrappedCurrencyId>;
+    type VaultRewards = reward::RewardsCurrencyAdapter<Test, (), GetWrappedCurrencyId>;
 }
 
 pub type TestEvent = Event;

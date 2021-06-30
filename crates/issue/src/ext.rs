@@ -180,10 +180,6 @@ pub(crate) mod fee {
     use crate::types::{Collateral, Wrapped};
     use frame_support::dispatch::{DispatchError, DispatchResult};
 
-    pub fn distribute_collateral_rewards<T: crate::Config>(amount: Collateral<T>) -> DispatchResult {
-        <fee::Pallet<T>>::distribute_collateral_rewards(amount)
-    }
-
     pub fn fee_pool_account_id<T: crate::Config>() -> T::AccountId {
         <fee::Pallet<T>>::fee_pool_account_id()
     }
@@ -198,8 +194,8 @@ pub(crate) mod fee {
         <fee::Pallet<T>>::get_issue_griefing_collateral(amount)
     }
 
-    pub fn distribute_wrapped_rewards<T: crate::Config>(amount: Wrapped<T>) -> DispatchResult {
-        <fee::Pallet<T>>::distribute_wrapped_rewards(amount)
+    pub fn distribute_rewards<T: crate::Config>(amount: Wrapped<T>) -> DispatchResult {
+        <fee::Pallet<T>>::distribute_rewards(amount)
     }
 }
 

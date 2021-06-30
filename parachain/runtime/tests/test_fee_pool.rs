@@ -54,7 +54,7 @@ macro_rules! assert_eq_modulo_rounding {
 
 fn withdraw_vault_global_pool_rewards(account: [u8; 32]) -> i128 {
     let amount = RewardVaultPallet::compute_reward(INTERBTC, &RewardPool::Global, &account_of(account)).unwrap();
-    assert_ok!(Call::Fee(FeeCall::withdraw_vault_wrapped_rewards()).dispatch(origin_of(account_of(account))));
+    assert_ok!(Call::Fee(FeeCall::withdraw_vault_rewards()).dispatch(origin_of(account_of(account))));
     amount
 }
 
@@ -62,7 +62,7 @@ fn withdraw_local_pool_rewards(pool_id: [u8; 32], account: [u8; 32]) -> i128 {
     let amount =
         RewardVaultPallet::compute_reward(INTERBTC, &RewardPool::Local(account_of(pool_id)), &account_of(account))
             .unwrap();
-    assert_ok!(Call::Fee(FeeCall::withdraw_vault_wrapped_rewards()).dispatch(origin_of(account_of(account))));
+    assert_ok!(Call::Fee(FeeCall::withdraw_vault_rewards()).dispatch(origin_of(account_of(account))));
     amount
 }
 
@@ -356,11 +356,7 @@ fn integration_test_fee_with_parachain_shutdown_fails() {
         SecurityPallet::set_status(StatusCode::Shutdown);
 
         assert_noop!(
-            Call::Fee(FeeCall::withdraw_vault_collateral_rewards()).dispatch(origin_of(account_of(ALICE))),
-            SecurityError::ParachainShutdown
-        );
-        assert_noop!(
-            Call::Fee(FeeCall::withdraw_vault_wrapped_rewards()).dispatch(origin_of(account_of(ALICE))),
+            Call::Fee(FeeCall::withdraw_vault_rewards()).dispatch(origin_of(account_of(ALICE))),
             SecurityError::ParachainShutdown
         );
     })
