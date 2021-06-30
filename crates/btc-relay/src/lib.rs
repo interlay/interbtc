@@ -70,7 +70,6 @@ use bitcoin::{
     types::{BlockChain, BlockHeader, H256Le, RawBlockHeader, Transaction, Value},
     Error as BitcoinError,
 };
-use security::types::ErrorCode;
 pub use types::{OpReturnPaymentData, RichBlockHeader};
 
 pub use pallet::*;
@@ -213,10 +212,6 @@ pub mod pallet {
         ChainReorg(H256Le, u32, u32),
         /// main chain height, fork height, fork id
         ForkAheadOfMainChain(u32, u32, u32),
-        /// block_hash, chain_id, error
-        FlagBlockError(H256Le, u32, ErrorCode),
-        /// block_hash, chain_id, error
-        ClearBlockError(H256Le, u32, ErrorCode),
     }
 
     #[pallet::error]
