@@ -65,6 +65,7 @@ pub fn setup_cancelable_redeem(user: [u8; 32], vault: [u8; 32], collateral: u128
     let redeem_id = setup_redeem(issued_tokens, user, vault, collateral);
 
     // expire request without transferring btc
+    mine_blocks((RedeemPallet::redeem_period() + 99) / 100 + 1);
     SecurityPallet::set_active_block_number(RedeemPallet::redeem_period() + 1 + 1);
 
     redeem_id

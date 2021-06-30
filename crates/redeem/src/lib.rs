@@ -463,7 +463,11 @@ impl<T: Config> Pallet<T> {
 
         // only cancellable after the request has expired
         ensure!(
-            ext::security::has_expired::<T>(redeem.opentime, Self::redeem_period().max(redeem.period))?,
+            ext::btc_relay::has_request_expired::<T>(
+                redeem.opentime,
+                redeem.btc_height,
+                Self::redeem_period().max(redeem.period)
+            )?,
             Error::<T>::TimeNotExpired
         );
 

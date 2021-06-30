@@ -1,12 +1,10 @@
 use btc_parachain_runtime::{
-    AccountId, BTCRelayConfig, BlockNumber, ExchangeRateOracleConfig, FeeConfig, GenesisConfig, IssueConfig,
-    NominationConfig, RedeemConfig, RefundConfig, ReplaceConfig, Signature, SlaConfig, SudoConfig, SystemConfig,
-    TokensConfig, VaultRegistryConfig, DAYS, DOT, MILLISECS_PER_BLOCK, TARGET_SPACING, WASM_BINARY,
+    AccountId, BTCRelayConfig, ExchangeRateOracleConfig, FeeConfig, GenesisConfig, IssueConfig, NominationConfig,
+    RedeemConfig, RefundConfig, ReplaceConfig, Signature, SlaConfig, SudoConfig, SystemConfig, TokensConfig,
+    VaultRegistryConfig, BITCOIN_BLOCK_SPACING, DAYS, DOT, WASM_BINARY,
 };
 
 use bitcoin::utils::{virtual_transaction_size, InputType, TransactionInputMetadata, TransactionOutputMetadata};
-const BITCOIN_SPACING_MS: u32 = TARGET_SPACING * 1000;
-const BLOCK_SPACING: BlockNumber = BITCOIN_SPACING_MS / MILLISECS_PER_BLOCK as BlockNumber;
 
 #[cfg(feature = "aura-grandpa")]
 use {btc_parachain_runtime::GrandpaConfig, sp_finality_grandpa::AuthorityId as GrandpaId};
@@ -388,7 +386,7 @@ fn testnet_genesis(
         },
         btc_relay: BTCRelayConfig {
             bitcoin_confirmations,
-            parachain_confirmations: bitcoin_confirmations.saturating_mul(BLOCK_SPACING),
+            parachain_confirmations: bitcoin_confirmations.saturating_mul(BITCOIN_BLOCK_SPACING),
             disable_difficulty_check: true,
             disable_inclusion_check: false,
             disable_op_return_check: false,

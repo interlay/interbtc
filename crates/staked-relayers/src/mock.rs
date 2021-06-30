@@ -215,8 +215,13 @@ impl refund::Config for Test {
     type WeightInfo = ();
 }
 
+parameter_types! {
+    pub const ParachainBlocksPerBitcoinBlock: BlockNumber = 100;
+}
+
 impl btc_relay::Config for Test {
     type Event = TestEvent;
+    type ParachainBlocksPerBitcoinBlock = ParachainBlocksPerBitcoinBlock;
     type WeightInfo = ();
 }
 

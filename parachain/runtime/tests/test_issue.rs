@@ -41,11 +41,38 @@ mod expiry_test {
     }
 
     #[test]
+    fn integration_test_issue_expiry_only_parachain_blocks_expired() {
+        test_with(|| {
+            set_issue_period(1000);
+            let (issue_id, _) = request_issue(4_000);
+            mine_blocks(1);
+
+            // not expired until both parachain block and parachain block expired
+            assert_noop!(cancel_issue(issue_id), IssueError::TimeNotExpired);
+            assert_ok!(execute_issue(issue_id));
+        });
+    }
+
+    #[test]
+    fn integration_test_issue_expiry_only_bitcoin_blocks_expired() {
+        test_with(|| {
+            set_issue_period(1000);
+            let (issue_id, _) = request_issue(4_000);
+            SecurityPallet::set_active_block_number(750);
+            mine_blocks(20);
+
+            assert_noop!(cancel_issue(issue_id), IssueError::TimeNotExpired);
+            assert_ok!(execute_issue(issue_id));
+        });
+    }
+
+    #[test]
     fn integration_test_issue_expiry_no_period_change_pre_expiry() {
         test_with(|| {
-            set_issue_period(100);
+            set_issue_period(1000);
             let (issue_id, _) = request_issue(4_000);
-            SecurityPallet::set_active_block_number(75);
+            SecurityPallet::set_active_block_number(750);
+            mine_blocks(7);
 
             assert_noop!(cancel_issue(issue_id), IssueError::TimeNotExpired);
             assert_ok!(execute_issue(issue_id));
@@ -55,9 +82,10 @@ mod expiry_test {
     #[test]
     fn integration_test_issue_expiry_no_period_change_post_expiry() {
         test_with(|| {
-            set_issue_period(100);
+            set_issue_period(1000);
             let (issue_id, _) = request_issue(4_000);
-            SecurityPallet::set_active_block_number(110);
+            SecurityPallet::set_active_block_number(1100);
+            mine_blocks(11);
 
             assert_noop!(execute_issue(issue_id), IssueError::CommitPeriodExpired);
             assert_ok!(cancel_issue(issue_id));
@@ -67,10 +95,11 @@ mod expiry_test {
     #[test]
     fn integration_test_issue_expiry_with_period_decrease() {
         test_with(|| {
-            set_issue_period(200);
+            set_issue_period(2000);
             let (issue_id, _) = request_issue(4_000);
-            SecurityPallet::set_active_block_number(110);
-            set_issue_period(100);
+            SecurityPallet::set_active_block_number(1100);
+            mine_blocks(11);
+            set_issue_period(1000);
 
             // request still uses period = 200, so cancel fails and execute succeeds
             assert_noop!(cancel_issue(issue_id), IssueError::TimeNotExpired);
@@ -81,10 +110,11 @@ mod expiry_test {
     #[test]
     fn integration_test_issue_expiry_with_period_increase() {
         test_with(|| {
-            set_issue_period(100);
+            set_issue_period(1000);
             let (issue_id, _) = request_issue(4_000);
-            SecurityPallet::set_active_block_number(110);
-            set_issue_period(200);
+            SecurityPallet::set_active_block_number(1100);
+            mine_blocks(11);
+            set_issue_period(2000);
 
             // request uses period = 200, so execute succeeds and cancel fails
             assert_noop!(cancel_issue(issue_id), IssueError::TimeNotExpired);
@@ -527,6 +557,7 @@ fn integration_test_issue_wrapped_cancel() {
         let (issue_id, issue) = RequestIssueBuilder::new(10_000).request();
 
         SecurityPallet::set_active_block_number(IssuePallet::issue_period() + 1 + 1);
+        mine_blocks((IssuePallet::issue_period() + 99) / 100 + 1);
 
         // alice cannot execute past expiry
         assert_noop!(
@@ -561,6 +592,7 @@ fn integration_test_issue_wrapped_cancel_liquidated() {
         let (issue_id, issue) = RequestIssueBuilder::new(10_000).request();
 
         SecurityPallet::set_active_block_number(IssuePallet::issue_period() + 1 + 1);
+        mine_blocks((IssuePallet::issue_period() + 99) / 100 + 1);
 
         // alice cannot execute past expiry
         assert_noop!(

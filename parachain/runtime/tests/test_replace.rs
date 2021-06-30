@@ -475,9 +475,32 @@ mod expiry_test {
     }
 
     #[test]
+    fn integration_test_replace_expiry_only_parachain_blocks_expired() {
+        test_with(1000, |replace_id| {
+            mine_blocks(1);
+            SecurityPallet::set_active_block_number(1500);
+
+            assert_err!(cancel_replace(replace_id), ReplaceError::ReplacePeriodNotExpired);
+            assert_ok!(execute_replace(replace_id));
+        });
+    }
+
+    #[test]
+    fn integration_test_replace_expiry_only_bitcoin_blocks_expired() {
+        test_with(1000, |replace_id| {
+            mine_blocks(15);
+            SecurityPallet::set_active_block_number(500);
+
+            assert_err!(cancel_replace(replace_id), ReplaceError::ReplacePeriodNotExpired);
+            assert_ok!(execute_replace(replace_id));
+        });
+    }
+
+    #[test]
     fn integration_test_replace_expiry_no_period_change_pre_expiry() {
-        test_with(100, |replace_id| {
-            SecurityPallet::set_active_block_number(75);
+        test_with(1000, |replace_id| {
+            mine_blocks(7);
+            SecurityPallet::set_active_block_number(750);
 
             assert_err!(cancel_replace(replace_id), ReplaceError::ReplacePeriodNotExpired);
             assert_ok!(execute_replace(replace_id));
@@ -487,15 +510,17 @@ mod expiry_test {
     #[test]
     fn integration_test_replace_expiry_no_period_change_post_expiry() {
         // can still execute after expiry
-        test_with(100, |replace_id| {
-            SecurityPallet::set_active_block_number(110);
+        test_with(1000, |replace_id| {
+            mine_blocks(15);
+            SecurityPallet::set_active_block_number(1100);
 
             assert_ok!(execute_replace(replace_id));
         });
 
         // but new-vault can also cancel.. whoever is first wins
-        test_with(100, |replace_id| {
-            SecurityPallet::set_active_block_number(110);
+        test_with(1000, |replace_id| {
+            mine_blocks(15);
+            SecurityPallet::set_active_block_number(1100);
 
             assert_ok!(cancel_replace(replace_id));
         });
@@ -503,9 +528,10 @@ mod expiry_test {
 
     #[test]
     fn integration_test_replace_expiry_with_period_decrease() {
-        test_with(200, |replace_id| {
-            SecurityPallet::set_active_block_number(110);
-            set_replace_period(100);
+        test_with(2000, |replace_id| {
+            mine_blocks(15);
+            SecurityPallet::set_active_block_number(1100);
+            set_replace_period(1000);
 
             // request still uses period = 200, so cancel fails and execute succeeds
             assert_err!(cancel_replace(replace_id), ReplaceError::ReplacePeriodNotExpired);
@@ -515,9 +541,10 @@ mod expiry_test {
 
     #[test]
     fn integration_test_replace_expiry_with_period_increase() {
-        test_with(100, |replace_id| {
-            SecurityPallet::set_active_block_number(110);
-            set_replace_period(200);
+        test_with(1000, |replace_id| {
+            mine_blocks(15);
+            SecurityPallet::set_active_block_number(1100);
+            set_replace_period(2000);
 
             // request uses period = 200, so execute succeeds and cancel fails
             assert_err!(cancel_replace(replace_id), ReplaceError::ReplacePeriodNotExpired);
@@ -690,6 +717,7 @@ fn integration_test_replace_cancel_replace() {
 
         // set block height
         // alice cancels replacement
+        mine_blocks(2);
         SecurityPallet::set_active_block_number(30);
         assert_ok!(Call::Replace(ReplaceCall::cancel_replace(replace_id)).dispatch(origin_of(account_of(ALICE))));
     });
@@ -769,6 +797,7 @@ fn execute_replace_with_amount(replace_id: H256, amount: u128) -> DispatchResult
 fn cancel_replace(replace_id: H256) {
     // set block height
     // alice cancels replacement
+    mine_blocks(2);
     SecurityPallet::set_active_block_number(30);
     assert_ok!(Call::Replace(ReplaceCall::cancel_replace(replace_id)).dispatch(origin_of(account_of(NEW_VAULT))));
 }

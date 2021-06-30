@@ -596,6 +596,14 @@ pub fn assert_store_main_chain_header_event(height: u32, hash: H256Le, relayer: 
     assert!(events.iter().any(|a| a.event == store_event));
 }
 
+pub fn mine_blocks(blocks: u32) {
+    let start_height = BTCRelayPallet::get_best_block_height();
+    TransactionGenerator::new().with_confirmations(blocks).mine();
+    let end_height = BTCRelayPallet::get_best_block_height();
+    // sanity check
+    assert_eq!(end_height, start_height + blocks);
+}
+
 #[derive(Default, Clone, Debug)]
 pub struct TransactionGenerator {
     address: BtcAddress,

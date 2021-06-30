@@ -1814,6 +1814,38 @@ fn test_check_and_do_reorg() {
     })
 }
 
+#[test]
+pub fn test_has_request_expired() {
+    run_test(|| {
+        fn has_request_expired_after(period: u64, parachain_blocks: u64, bitcoin_blocks: u32) -> bool {
+            let opentime = 1000;
+            let btc_open_height = 100;
+
+            BTCRelay::set_best_block_height(btc_open_height + bitcoin_blocks);
+            Security::set_active_block_number(opentime + parachain_blocks);
+            BTCRelay::has_request_expired(opentime, btc_open_height, period).unwrap()
+        }
+
+        // NOTE: mocks configure 100 parachain blocks per bitcoin block
+
+        // boundary - just barely expired
+        assert!(has_request_expired_after(600, 601, 7));
+        // blockchain blocks not expired
+        assert!(!has_request_expired_after(600, 600, 7));
+        // bitcoin blocks not expired
+        assert!(!has_request_expired_after(600, 601, 6));
+
+        // test that the number of bitcoin blocks required for expiry is rounded up
+
+        // boundary - just barely expired
+        assert!(has_request_expired_after(601, 602, 8));
+        // blockchain blocks not expired
+        assert!(!has_request_expired_after(601, 601, 8));
+        // bitcoin blocks not expired
+        assert!(!has_request_expired_after(601, 602, 7));
+    })
+}
+
 /// # Util functions
 
 const SAMPLE_TX_ID: &str = "c8589f304d3b9df1d4d8b3d15eb6edaaa2af9d796e9d9ace12b31f293705c5e9";

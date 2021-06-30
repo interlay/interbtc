@@ -485,7 +485,11 @@ impl<T: Config> Pallet<T> {
 
         // only cancellable after the request has expired
         ensure!(
-            ext::security::has_expired::<T>(replace.accept_time, Self::replace_period().max(replace.period))?,
+            ext::btc_relay::has_request_expired::<T>(
+                replace.accept_time,
+                replace.btc_height,
+                Self::replace_period().max(replace.period)
+            )?,
             Error::<T>::ReplacePeriodNotExpired
         );
 

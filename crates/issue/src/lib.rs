@@ -349,7 +349,11 @@ impl<T: Config> Pallet<T> {
 
         // only executable before the request has expired
         ensure!(
-            !ext::security::has_expired::<T>(issue.opentime, Self::issue_period().max(issue.period))?,
+            !ext::btc_relay::has_request_expired::<T>(
+                issue.opentime,
+                issue.btc_height,
+                Self::issue_period().max(issue.period)
+            )?,
             Error::<T>::CommitPeriodExpired
         );
 
@@ -475,7 +479,11 @@ impl<T: Config> Pallet<T> {
 
         // only cancellable after the request has expired
         ensure!(
-            ext::security::has_expired::<T>(issue.opentime, Self::issue_period().max(issue.period))?,
+            ext::btc_relay::has_request_expired::<T>(
+                issue.opentime,
+                issue.btc_height,
+                Self::issue_period().max(issue.period)
+            )?,
             Error::<T>::TimeNotExpired
         );
 
