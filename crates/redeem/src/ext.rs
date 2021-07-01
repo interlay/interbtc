@@ -273,12 +273,8 @@ pub(crate) mod fee {
         <fee::Pallet<T>>::get_redeem_fee(amount)
     }
 
-    pub fn distribute_wrapped_rewards<T: crate::Config>(amount: Wrapped<T>) -> DispatchResult {
-        <fee::Pallet<T>>::distribute_wrapped_rewards(amount)
-    }
-
-    pub fn distribute_collateral_rewards<T: crate::Config>(amount: Collateral<T>) -> DispatchResult {
-        <fee::Pallet<T>>::distribute_collateral_rewards(amount)
+    pub fn distribute_rewards<T: crate::Config>(amount: Wrapped<T>) -> DispatchResult {
+        <fee::Pallet<T>>::distribute_rewards(amount)
     }
 
     pub fn get_punishment_fee<T: crate::Config>(amount: Collateral<T>) -> Result<Collateral<T>, DispatchError> {

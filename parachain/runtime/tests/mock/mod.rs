@@ -220,8 +220,7 @@ impl UserData {
 
 #[derive(Debug, Default, Clone)]
 pub struct FeePool {
-    pub vault_collateral_rewards: u128,
-    pub vault_wrapped_rewards: u128,
+    pub vault_rewards: u128,
 }
 
 fn abs_difference<T: std::ops::Sub<Output = T> + Ord>(x: T, y: T) -> T {
@@ -234,16 +233,14 @@ fn abs_difference<T: std::ops::Sub<Output = T> + Ord>(x: T, y: T) -> T {
 
 impl PartialEq for FeePool {
     fn eq(&self, rhs: &Self) -> bool {
-        abs_difference(self.vault_collateral_rewards, rhs.vault_collateral_rewards) <= 1
-            && abs_difference(self.vault_wrapped_rewards, rhs.vault_wrapped_rewards) <= 1
+        abs_difference(self.vault_rewards, rhs.vault_rewards) <= 1
     }
 }
 
 impl FeePool {
     pub fn get() -> Self {
         Self {
-            vault_collateral_rewards: RewardVaultPallet::get_total_rewards(DOT, RewardPool::Global).unwrap() as u128,
-            vault_wrapped_rewards: RewardVaultPallet::get_total_rewards(INTERBTC, RewardPool::Global).unwrap() as u128,
+            vault_rewards: RewardVaultPallet::get_total_rewards(INTERBTC, RewardPool::Global).unwrap() as u128,
         }
     }
 }

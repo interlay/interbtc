@@ -134,11 +134,8 @@ pub mod pallet {
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
 
-        /// Vault reward pool for the collateral currency.
-        type CollateralVaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
-
         /// Vault reward pool for the wrapped currency.
-        type WrappedVaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
+        type VaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
 
         /// Collateral currency, e.g. DOT/KSM.
         type Collateral: ParachainCurrency<Self::AccountId, Balance = BalanceOf<Self>>;
@@ -616,8 +613,7 @@ impl<T: Config> Pallet<T> {
         Self::increase_total_backing_collateral(amount)?;
         vault.try_deposit_collateral(amount)?;
         // Deposit `amount` of stake in the local reward pool
-        Self::deposit_pool_stake::<<T as pallet::Config>::CollateralVaultRewards>(&vault_id, &vault_id, amount)?;
-        Self::deposit_pool_stake::<<T as pallet::Config>::WrappedVaultRewards>(&vault_id, &vault_id, amount)?;
+        Self::deposit_pool_stake::<<T as pallet::Config>::VaultRewards>(&vault_id, &vault_id, amount)?;
 
         ext::sla::event_update_vault_sla::<T>(&vault.id(), ext::sla::Action::Deposit(amount))?;
         Ok(())
@@ -636,8 +632,7 @@ impl<T: Config> Pallet<T> {
         vault.try_withdraw_collateral(amount)?;
         Self::decrease_total_backing_collateral(amount)?;
         // Withdraw `amount` of stake from the local reward pool
-        Self::withdraw_pool_stake::<<T as pallet::Config>::CollateralVaultRewards>(&vault_id, &vault_id, amount)?;
-        Self::withdraw_pool_stake::<<T as pallet::Config>::WrappedVaultRewards>(&vault_id, &vault_id, amount)?;
+        Self::withdraw_pool_stake::<<T as pallet::Config>::VaultRewards>(&vault_id, &vault_id, amount)?;
 
         ext::sla::event_update_vault_sla::<T>(&vault.id(), ext::sla::Action::Withdraw(amount))?;
         Ok(())

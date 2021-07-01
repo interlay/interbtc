@@ -74,11 +74,8 @@ pub mod pallet {
             + Default
             + Debug;
 
-        /// Vault reward pool for the collateral currency.
-        type CollateralVaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
-
         /// Vault reward pool for the wrapped currency.
-        type WrappedVaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
+        type VaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
     }
 
     #[pallet::event]
@@ -251,8 +248,7 @@ impl<T: Config> Pallet<T> {
 
         let bounded_new_sla = Self::_limit(SignedFixedPoint::<T>::zero(), new_sla, max_sla);
 
-        Self::adjust_stake::<T::CollateralVaultRewards>(vault_id, delta_sla)?;
-        Self::adjust_stake::<T::WrappedVaultRewards>(vault_id, delta_sla)?;
+        Self::adjust_stake::<T::VaultRewards>(vault_id, delta_sla)?;
 
         <VaultSla<T>>::insert(vault_id, bounded_new_sla);
         Self::deposit_event(<Event<T>>::UpdateVaultSLA(vault_id.clone(), bounded_new_sla, delta_sla));
@@ -488,8 +484,7 @@ impl<T: Config> Pallet<T> {
     }
 
     fn _liquidate_sla(vault_id: &T::AccountId) -> Result<(), DispatchError> {
-        Self::liquidate_stake::<T::CollateralVaultRewards>(vault_id)?;
-        Self::liquidate_stake::<T::WrappedVaultRewards>(vault_id)?;
+        Self::liquidate_stake::<T::VaultRewards>(vault_id)?;
 
         let delta_sla = <VaultSla<T>>::get(vault_id)
             .checked_mul(&SignedFixedPoint::<T>::saturating_from_integer(-1))

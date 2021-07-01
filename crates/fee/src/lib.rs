@@ -48,7 +48,6 @@ use types::{Collateral, SignedFixedPoint, UnsignedFixedPoint, UnsignedInner, Ver
 
 pub trait WeightInfo {
     fn withdraw_vault_rewards() -> Weight;
-    fn withdraw_relayer_rewards() -> Weight;
 }
 
 pub use pallet::*;
@@ -95,11 +94,8 @@ pub mod pallet {
         /// The `Inner` type of the `UnsignedFixedPoint`.
         type UnsignedInner: Debug + One + CheckedMul + CheckedDiv + FixedPointOperand + AtLeast32BitUnsigned;
 
-        /// Vault reward pool for the collateral currency.
-        type CollateralVaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
-
         /// Vault reward pool for the wrapped currency.
-        type WrappedVaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
+        type VaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
 
         /// Collateral currency, e.g. DOT/KSM.
         type Collateral: ParachainCurrency<Self::AccountId, Balance = Self::UnsignedInner>;
@@ -113,7 +109,6 @@ pub mod pallet {
     #[pallet::metadata(T::AccountId = "AccountId", Wrapped<T> = "Wrapped", Collateral<T> = "Collateral")]
     pub enum Event<T: Config> {
         WithdrawWrapped(T::AccountId, Wrapped<T>),
-        WithdrawCollateral(T::AccountId, Collateral<T>),
     }
 
     #[pallet::error]
@@ -273,35 +268,21 @@ pub mod pallet {
     // The pallet's dispatchable functions.
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        /// Withdraw vault collateral rewards.
+        /// Withdraw vault rewards.
         ///
         /// # Arguments
         ///
         /// * `origin` - signing account
         #[pallet::weight(<T as Config>::WeightInfo::withdraw_vault_rewards())]
         #[transactional]
-        pub fn withdraw_vault_collateral_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+        pub fn withdraw_vault_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let signer = ensure_signed(origin)?;
-            Self::withdraw_collateral_from_pool::<T::CollateralVaultRewards>(RewardPool::Global, &signer)?;
+            Self::withdraw_from_pool::<T::VaultRewards>(RewardPool::Global, &signer)?;
             Ok(().into())
         }
 
-        /// Withdraw vault wrapped rewards.
-        ///
-        /// # Arguments
-        ///
-        /// * `origin` - signing account
-        #[pallet::weight(<T as Config>::WeightInfo::withdraw_vault_rewards())]
-        #[transactional]
-        pub fn withdraw_vault_wrapped_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-            let signer = ensure_signed(origin)?;
-            Self::withdraw_wrapped_from_pool::<T::WrappedVaultRewards>(RewardPool::Global, &signer)?;
-            Ok(().into())
-        }
-
-        /// Withdraw nominator collateral rewards.
+        /// Withdraw nominator rewards.
         ///
         /// # Arguments
         ///
@@ -309,31 +290,10 @@ pub mod pallet {
         /// * `vault_id` - vault whose reward pool to reward from
         #[pallet::weight(<T as Config>::WeightInfo::withdraw_vault_rewards())]
         #[transactional]
-        pub fn withdraw_nominator_collateral_rewards(
-            origin: OriginFor<T>,
-            vault_id: T::AccountId,
-        ) -> DispatchResultWithPostInfo {
+        pub fn withdraw_nominator_rewards(origin: OriginFor<T>, vault_id: T::AccountId) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
             let signer = ensure_signed(origin)?;
-            Self::withdraw_collateral_from_pool::<T::CollateralVaultRewards>(RewardPool::Local(vault_id), &signer)?;
-            Ok(().into())
-        }
-
-        /// Withdraw nominator wrapped rewards.
-        ///
-        /// # Arguments
-        ///
-        /// * `origin` - signing account
-        /// * `vault_id` - vault whose reward pool to reward from
-        #[pallet::weight(<T as Config>::WeightInfo::withdraw_vault_rewards())]
-        #[transactional]
-        pub fn withdraw_nominator_wrapped_rewards(
-            origin: OriginFor<T>,
-            vault_id: T::AccountId,
-        ) -> DispatchResultWithPostInfo {
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-            let signer = ensure_signed(origin)?;
-            Self::withdraw_wrapped_from_pool::<T::WrappedVaultRewards>(RewardPool::Local(vault_id), &signer)?;
+            Self::withdraw_from_pool::<T::VaultRewards>(RewardPool::Local(vault_id), &signer)?;
             Ok(().into())
         }
     }
@@ -352,33 +312,15 @@ impl<T: Config> Pallet<T> {
 
     // Public functions exposed to other pallets
 
-    /// Distribute collateral rewards to participants.
+    /// Distribute rewards to participants.
     ///
     /// # Arguments
     ///
-    /// * `amount` - amount of the collateral currency
-    pub fn distribute_collateral_rewards(amount: Collateral<T>) -> Result<(), DispatchError> {
-        // calculate vault rewards
-        let vault_rewards = Self::collateral_for(amount, Self::vault_rewards())?;
-        let vault_rewards = Self::distribute::<_, _, T::SignedFixedPoint, T::CollateralVaultRewards>(vault_rewards)?;
-
-        // give remaining rewards to maintainer (dev fund)
-        let maintainer_rewards = amount.saturating_sub(vault_rewards);
-        let maintainer_account_id = Self::maintainer_account_id();
-        ext::collateral::transfer::<T>(&Self::fee_pool_account_id(), &maintainer_account_id, maintainer_rewards)?;
-
-        Ok(())
-    }
-
-    /// Distribute wrapped rewards to participants.
-    ///
-    /// # Arguments
-    ///
-    /// * `amount` - amount of the wrapped currency
-    pub fn distribute_wrapped_rewards(amount: Wrapped<T>) -> Result<(), DispatchError> {
+    /// * `amount` - amount of rewards
+    pub fn distribute_rewards(amount: Wrapped<T>) -> Result<(), DispatchError> {
         // calculate vault rewards
         let vault_rewards = Self::wrapped_for(amount, Self::vault_rewards())?;
-        let vault_rewards = Self::distribute::<_, _, T::SignedFixedPoint, T::WrappedVaultRewards>(vault_rewards)?;
+        let vault_rewards = Self::distribute::<_, _, T::SignedFixedPoint, T::VaultRewards>(vault_rewards)?;
 
         // give remaining rewards to maintainer (dev fund)
         let maintainer_rewards = amount.saturating_sub(vault_rewards);
@@ -475,8 +417,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn withdraw_all_vault_rewards(account_id: &T::AccountId) -> DispatchResult {
-        Self::withdraw_collateral_from_pool::<T::CollateralVaultRewards>(RewardPool::Global, account_id)?;
-        Self::withdraw_wrapped_from_pool::<T::WrappedVaultRewards>(RewardPool::Global, account_id)?;
+        Self::withdraw_from_pool::<T::VaultRewards>(RewardPool::Global, account_id)?;
         Ok(())
     }
 
@@ -513,34 +454,13 @@ impl<T: Config> Pallet<T> {
     }
 
     /// Withdraw collateral rewards from a pool and transfer to `account_id`.
-    fn withdraw_collateral_from_pool<R: reward::Rewards<T::AccountId, SignedFixedPoint = SignedFixedPoint<T>>>(
+    fn withdraw_from_pool<R: reward::Rewards<T::AccountId, SignedFixedPoint = SignedFixedPoint<T>>>(
         reward_pool: RewardPool<T::AccountId>,
         account_id: &T::AccountId,
     ) -> DispatchResult {
         match reward_pool {
             RewardPool::Global => {
-                Self::withdraw_collateral_from_pool::<R>(RewardPool::Local(account_id.clone()), account_id)?;
-            }
-            RewardPool::Local(pool_account_id) => {
-                Self::distribute_global_pool::<R>(&pool_account_id)?;
-                let collateral_rewards = R::withdraw_reward(RewardPool::Local(pool_account_id), account_id)?
-                    .try_into()
-                    .map_err(|_| Error::<T>::TryIntoIntError)?;
-                ext::collateral::transfer::<T>(&Self::fee_pool_account_id(), account_id, collateral_rewards)?;
-                Self::deposit_event(<Event<T>>::WithdrawCollateral(account_id.clone(), collateral_rewards));
-            }
-        }
-        Ok(())
-    }
-
-    /// Withdraw collateral rewards from a pool and transfer to `account_id`.
-    fn withdraw_wrapped_from_pool<R: reward::Rewards<T::AccountId, SignedFixedPoint = SignedFixedPoint<T>>>(
-        reward_pool: RewardPool<T::AccountId>,
-        account_id: &T::AccountId,
-    ) -> DispatchResult {
-        match reward_pool {
-            RewardPool::Global => {
-                Self::withdraw_wrapped_from_pool::<R>(RewardPool::Local(account_id.clone()), account_id)?;
+                Self::withdraw_from_pool::<R>(RewardPool::Local(account_id.clone()), account_id)?;
             }
             RewardPool::Local(pool_account_id) => {
                 Self::distribute_global_pool::<R>(&pool_account_id)?;

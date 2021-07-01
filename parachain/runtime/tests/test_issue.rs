@@ -280,7 +280,7 @@ fn integration_test_issue_wrapped_execute_bookkeeping() {
             ParachainState::get(),
             ParachainState::default().with_changes(|user, vault, _, fee_pool| {
                 user.free_tokens += issue.amount;
-                fee_pool.vault_wrapped_rewards += vault_rewards(issue.fee);
+                fee_pool.vault_rewards += vault_rewards(issue.fee);
                 vault.issued += issue.fee + issue.amount;
             })
         );
@@ -347,7 +347,7 @@ fn integration_test_issue_overpayment() {
             ParachainState::get(),
             ParachainState::default().with_changes(|user, vault, _, fee_pool| {
                 user.free_tokens += 2 * issue.amount;
-                fee_pool.vault_wrapped_rewards += 2 * vault_rewards(issue.fee);
+                fee_pool.vault_rewards += 2 * vault_rewards(issue.fee);
                 vault.issued += sent_btc;
             })
         );
@@ -387,7 +387,7 @@ fn integration_test_issue_refund() {
             post_redeem_state,
             initial_state.with_changes(|user, vault, _, fee_pool| {
                 user.free_tokens += issue.amount;
-                fee_pool.vault_wrapped_rewards += vault_rewards(issue.fee);
+                fee_pool.vault_rewards += vault_rewards(issue.fee);
                 vault.issued += issue.fee + issue.amount;
             })
         );
@@ -491,11 +491,11 @@ fn integration_test_issue_underpayment_succeeds() {
             ParachainState::default().with_changes(|user, vault, _, fee_pool| {
                 // user loses 75% of griefing collateral for having only fulfilled 25%
                 user.free_balance -= slashed_griefing_collateral;
-                fee_pool.vault_collateral_rewards += vault_rewards(slashed_griefing_collateral);
+                vault.free_balance += slashed_griefing_collateral;
 
                 // token updating as if only 25% was requested
                 user.free_tokens += issue.amount / 4;
-                fee_pool.vault_wrapped_rewards += vault_rewards(issue.fee / 4);
+                fee_pool.vault_rewards += vault_rewards(issue.fee / 4);
                 vault.issued += (issue.fee + issue.amount) / 4;
             })
         );
@@ -547,9 +547,9 @@ fn integration_test_issue_wrapped_cancel() {
 
         assert_eq!(
             ParachainState::get(),
-            ParachainState::default().with_changes(|user, _vault, _, fee_pool| {
+            ParachainState::default().with_changes(|user, vault, _, _| {
                 user.free_balance -= issue.griefing_collateral;
-                fee_pool.vault_collateral_rewards += vault_rewards(issue.griefing_collateral);
+                vault.free_balance += issue.griefing_collateral;
             })
         );
     });
@@ -601,7 +601,7 @@ fn integration_test_issue_wrapped_execute_liquidated() {
             ParachainState::get(),
             post_liquidation_status.with_changes(|user, _vault, liquidation_vault, fee_pool| {
                 user.free_tokens += issue.amount;
-                fee_pool.vault_wrapped_rewards += vault_rewards(issue.fee);
+                fee_pool.vault_rewards += vault_rewards(issue.fee);
 
                 user.free_balance += issue.griefing_collateral;
                 user.locked_balance -= issue.griefing_collateral;
