@@ -53,10 +53,13 @@ use mocktopus::macros::mockable;
 
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
-    ensure, runtime_print, transactional,
+    ensure, runtime_print,
+    traits::Get,
+    transactional,
 };
 use frame_system::ensure_signed;
 use sp_core::{H256, U256};
+use sp_runtime::traits::{CheckedAdd, CheckedDiv, CheckedSub, One};
 use sp_std::{
     convert::{TryFrom, TryInto},
     prelude::*,
@@ -93,6 +96,9 @@ pub mod pallet {
 
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
+
+        #[pallet::constant]
+        type ParachainBlocksPerBitcoinBlock: Get<<Self as frame_system::Config>::BlockNumber>;
     }
 
     #[pallet::hooks]
@@ -304,6 +310,8 @@ pub mod pallet {
         ArithmeticOverflow,
         /// Arithmetic underflow
         ArithmeticUnderflow,
+        /// TryInto failed on integer
+        TryIntoIntError,
         /// Relayer is not registered
         RelayerNotAuthorized,
         /// Transaction does meet the requirements to be a valid op-return payment
@@ -710,6 +718,36 @@ impl<T: Config> Pallet<T> {
             .ok_or(Error::<T>::ArithmeticOverflow)?;
         let best = BestBlockHeight::<T>::get();
         Ok(best >= required_height)
+    }
+
+    pub fn has_request_expired(
+        opentime: T::BlockNumber,
+        btc_open_height: u32,
+        period: T::BlockNumber,
+    ) -> Result<bool, DispatchError> {
+        Ok(ext::security::parachain_block_expired::<T>(opentime, period)?
+            && Self::bitcoin_block_expired(btc_open_height, period)?)
+    }
+
+    pub fn bitcoin_block_expired(btc_open_height: u32, period: T::BlockNumber) -> Result<bool, DispatchError> {
+        // calculate num_bitcoin_blocks as ceil(period / ParachainBlocksPerBitcoinBlock)
+        let num_bitcoin_blocks: u32 = period
+            .checked_add(&T::ParachainBlocksPerBitcoinBlock::get())
+            .ok_or(Error::<T>::ArithmeticOverflow)?
+            .checked_sub(&T::BlockNumber::one())
+            .ok_or(Error::<T>::ArithmeticUnderflow)?
+            .checked_div(&T::ParachainBlocksPerBitcoinBlock::get())
+            .ok_or(Error::<T>::ArithmeticUnderflow)?
+            .try_into()
+            .map_err(|_| Error::<T>::TryIntoIntError)?;
+
+        let expiration_height = btc_open_height
+            .checked_add(num_bitcoin_blocks)
+            .ok_or(Error::<T>::ArithmeticOverflow)?;
+
+        // Note that we check stictly greater than. This ensures that at least
+        // `num_bitcoin_blocks` FULL periods have expired.
+        Ok(Self::get_best_block_height() > expiration_height)
     }
 
     // ********************************

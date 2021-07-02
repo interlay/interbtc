@@ -169,11 +169,40 @@ mod expiry_test {
     }
 
     #[test]
+    fn integration_test_redeem_expiry_only_parachain_blocks_expired() {
+        test_with(|| {
+            set_redeem_period(1000);
+            let redeem_id = request_redeem();
+            mine_blocks(1);
+            SecurityPallet::set_active_block_number(10000);
+
+            // request still uses period = 200, so cancel fails and execute succeeds
+            assert_noop!(cancel_redeem(redeem_id), RedeemError::TimeNotExpired);
+            assert_ok!(execute_redeem(redeem_id));
+        });
+    }
+
+    #[test]
+    fn integration_test_redeem_expiry_only_bitcoin_blocks_expired() {
+        test_with(|| {
+            set_redeem_period(1000);
+            let redeem_id = request_redeem();
+            SecurityPallet::set_active_block_number(100);
+            mine_blocks(20);
+
+            // request still uses period = 200, so cancel fails and execute succeeds
+            assert_noop!(cancel_redeem(redeem_id), RedeemError::TimeNotExpired);
+            assert_ok!(execute_redeem(redeem_id));
+        });
+    }
+
+    #[test]
     fn integration_test_redeem_expiry_no_period_change_pre_expiry() {
         test_with(|| {
-            set_redeem_period(100);
+            set_redeem_period(1000);
             let redeem_id = request_redeem();
-            SecurityPallet::set_active_block_number(75);
+            SecurityPallet::set_active_block_number(750);
+            mine_blocks(1);
 
             assert_noop!(cancel_redeem(redeem_id), RedeemError::TimeNotExpired);
             assert_ok!(execute_redeem(redeem_id));
@@ -184,17 +213,19 @@ mod expiry_test {
     fn integration_test_redeem_expiry_no_period_change_post_expiry() {
         // can still execute after expiry
         test_with(|| {
-            set_redeem_period(100);
+            set_redeem_period(1000);
             let redeem_id = request_redeem();
-            SecurityPallet::set_active_block_number(110);
+            mine_blocks(12);
+            SecurityPallet::set_active_block_number(1100);
             assert_ok!(execute_redeem(redeem_id));
         });
 
         // .. but user can also cancel. Whoever is first wins
         test_with(|| {
-            set_redeem_period(100);
+            set_redeem_period(1000);
             let redeem_id = request_redeem();
-            SecurityPallet::set_active_block_number(110);
+            mine_blocks(12);
+            SecurityPallet::set_active_block_number(1100);
             assert_ok!(cancel_redeem(redeem_id));
         });
     }
@@ -202,10 +233,11 @@ mod expiry_test {
     #[test]
     fn integration_test_redeem_expiry_with_period_decrease() {
         test_with(|| {
-            set_redeem_period(200);
+            set_redeem_period(2000);
             let redeem_id = request_redeem();
-            SecurityPallet::set_active_block_number(110);
-            set_redeem_period(100);
+            SecurityPallet::set_active_block_number(1100);
+            mine_blocks(12);
+            set_redeem_period(1000);
 
             // request still uses period = 200, so cancel fails and execute succeeds
             assert_noop!(cancel_redeem(redeem_id), RedeemError::TimeNotExpired);
@@ -219,6 +251,7 @@ mod expiry_test {
             set_redeem_period(100);
             let redeem_id = request_redeem();
             SecurityPallet::set_active_block_number(110);
+            mine_blocks(12);
             set_redeem_period(200);
 
             // request uses period = 200, so execute succeeds and cancel fails

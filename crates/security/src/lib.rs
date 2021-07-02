@@ -236,7 +236,7 @@ impl<T: Config> Pallet<T> {
         })
     }
 
-    pub fn has_expired(opentime: T::BlockNumber, period: T::BlockNumber) -> Result<bool, DispatchError> {
+    pub fn parachain_block_expired(opentime: T::BlockNumber, period: T::BlockNumber) -> Result<bool, DispatchError> {
         let expiration_block = opentime.checked_add(&period).ok_or(Error::<T>::ArithmeticOverflow)?;
         Ok(Self::active_block_number() > expiration_block)
     }

@@ -31,6 +31,14 @@ pub(crate) mod btc_relay {
     pub fn parse_merkle_proof<T: btc_relay::Config>(raw_merkle_proof: &[u8]) -> Result<MerkleProof, DispatchError> {
         <btc_relay::Pallet<T>>::parse_merkle_proof(raw_merkle_proof)
     }
+
+    pub fn has_request_expired<T: crate::Config>(
+        opentime: T::BlockNumber,
+        btc_open_height: u32,
+        period: T::BlockNumber,
+    ) -> Result<bool, DispatchError> {
+        <btc_relay::Pallet<T>>::has_request_expired(opentime, btc_open_height, period)
+    }
 }
 
 #[cfg_attr(test, mockable)]
@@ -128,7 +136,7 @@ pub(crate) mod treasury {
 
 #[cfg_attr(test, mockable)]
 pub(crate) mod security {
-    use frame_support::dispatch::{DispatchError, DispatchResult};
+    use frame_support::dispatch::DispatchResult;
     use sp_core::H256;
 
     pub fn get_secure_id<T: crate::Config>(id: &T::AccountId) -> H256 {
@@ -141,13 +149,6 @@ pub(crate) mod security {
 
     pub fn active_block_number<T: crate::Config>() -> T::BlockNumber {
         <security::Pallet<T>>::active_block_number()
-    }
-
-    pub fn has_expired<T: crate::Config>(
-        opentime: T::BlockNumber,
-        period: T::BlockNumber,
-    ) -> Result<bool, DispatchError> {
-        <security::Pallet<T>>::has_expired(opentime, period)
     }
 }
 

@@ -66,8 +66,13 @@ impl frame_system::Config for Test {
     type OnSetCode = ();
 }
 
+parameter_types! {
+    pub const ParachainBlocksPerBitcoinBlock: BlockNumber = 100;
+}
+
 impl Config for Test {
     type Event = TestEvent;
+    type ParachainBlocksPerBitcoinBlock = ParachainBlocksPerBitcoinBlock;
     type WeightInfo = ();
 }
 

@@ -174,7 +174,7 @@ mod execute_replace_test {
         });
 
         Replace::replace_period.mock_safe(|| MockResult::Return(20));
-        ext::security::has_expired::<Test>.mock_safe(|_, _| MockResult::Return(Ok(false)));
+        ext::btc_relay::has_request_expired::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(false)));
         ext::btc_relay::parse_merkle_proof::<Test>.mock_safe(|_| MockResult::Return(Ok(dummy_merkle_proof())));
         ext::btc_relay::parse_transaction::<Test>.mock_safe(|_| MockResult::Return(Ok(Transaction::default())));
         ext::btc_relay::verify_and_validate_op_return_transaction::<Test, Balance>
@@ -205,7 +205,7 @@ mod cancel_replace_tests {
         });
 
         Replace::replace_period.mock_safe(|| MockResult::Return(20));
-        ext::security::has_expired::<Test>.mock_safe(|_, _| MockResult::Return(Ok(true)));
+        ext::btc_relay::has_request_expired::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(true)));
         ext::vault_registry::is_vault_liquidated::<Test>.mock_safe(|_| MockResult::Return(Ok(false)));
         ext::vault_registry::cancel_replace_tokens::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));
         ext::vault_registry::transfer_funds::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));

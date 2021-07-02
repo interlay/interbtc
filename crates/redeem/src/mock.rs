@@ -152,8 +152,13 @@ impl reward::Config for Test {
     type CurrencyId = CurrencyId;
 }
 
+parameter_types! {
+    pub const ParachainBlocksPerBitcoinBlock: BlockNumber = 100;
+}
+
 impl btc_relay::Config for Test {
     type Event = TestEvent;
+    type ParachainBlocksPerBitcoinBlock = ParachainBlocksPerBitcoinBlock;
     type WeightInfo = ();
 }
 

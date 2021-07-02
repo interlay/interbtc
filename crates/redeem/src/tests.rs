@@ -490,8 +490,7 @@ fn test_cancel_redeem_succeeds() {
             },
         );
 
-        let current_block_number = ext::security::active_block_number::<Test>();
-        Security::<Test>::set_active_block_number(current_block_number + Redeem::redeem_period() + 10);
+        ext::btc_relay::has_request_expired::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(true)));
 
         ext::vault_registry::ban_vault::<Test>.mock_safe(move |vault| {
             assert_eq!(vault, BOB);

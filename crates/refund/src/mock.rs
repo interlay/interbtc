@@ -159,8 +159,13 @@ impl sla::Config for Test {
     type VaultRewards = reward::RewardsCurrencyAdapter<Test, (), GetWrappedCurrencyId>;
 }
 
+parameter_types! {
+    pub const ParachainBlocksPerBitcoinBlock: BlockNumber = 100;
+}
+
 impl btc_relay::Config for Test {
     type Event = TestEvent;
+    type ParachainBlocksPerBitcoinBlock = ParachainBlocksPerBitcoinBlock;
     type WeightInfo = ();
 }
 

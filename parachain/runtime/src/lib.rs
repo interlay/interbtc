@@ -125,6 +125,9 @@ pub const MICROROC: Balance = 1_000_000;
 // 1 in 4 blocks (on average, not counting collisions) will be primary babe blocks.
 pub const PRIMARY_PROBABILITY: (u64, u64) = (1, 4);
 
+pub const BITCOIN_SPACING_MS: u32 = TARGET_SPACING * 1000;
+pub const BITCOIN_BLOCK_SPACING: BlockNumber = BITCOIN_SPACING_MS / MILLISECS_PER_BLOCK as BlockNumber;
+
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
 pub fn native_version() -> NativeVersion {
@@ -531,9 +534,14 @@ impl orml_unknown_tokens::Config for Runtime {
     type Event = Event;
 }
 
+parameter_types! {
+    pub const ParachainBlocksPerBitcoinBlock: BlockNumber = BITCOIN_BLOCK_SPACING;
+}
+
 impl btc_relay::Config for Runtime {
     type Event = Event;
     type WeightInfo = ();
+    type ParachainBlocksPerBitcoinBlock = ParachainBlocksPerBitcoinBlock;
 }
 
 parameter_types! {

@@ -154,18 +154,6 @@ fn test_execute_issue_not_found_fails() {
 }
 
 #[test]
-fn test_execute_issue_commit_period_expired_fails() {
-    run_test(|| {
-        ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
-
-        let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
-        <security::Pallet<Test>>::set_active_block_number(20);
-        assert_noop!(execute_issue(ALICE, &issue_id), TestError::CommitPeriodExpired);
-    })
-}
-
-#[test]
 fn test_execute_issue_succeeds() {
     run_test(|| {
         ext::vault_registry::get_active_vault_from_id::<Test>
@@ -293,27 +281,6 @@ fn test_cancel_issue_not_expired_fails() {
         // issue period is 10, we issued at block 1, so at block 5 the cancel should fail
         <security::Pallet<Test>>::set_active_block_number(5);
         assert_noop!(cancel_issue(ALICE, &issue_id), TestError::TimeNotExpired,);
-    })
-}
-
-#[test]
-fn test_cancel_issue_succeeds() {
-    run_test(|| {
-        ext::vault_registry::get_active_vault_from_id::<Test>
-            .mock_safe(|_| MockResult::Return(Ok(init_zero_vault::<Test>(BOB))));
-
-        ext::vault_registry::decrease_to_be_issued_tokens::<Test>.mock_safe(|_, _| MockResult::Return(Ok(())));
-
-        ext::vault_registry::is_vault_liquidated::<Test>.mock_safe(|_| MockResult::Return(Ok(false)));
-
-        ext::vault_registry::transfer_funds::<Test>.mock_safe(|_, _, _| MockResult::Return(Ok(())));
-
-        ext::fee::distribute_rewards::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
-
-        let issue_id = request_issue_ok(ALICE, 3, BOB, 20);
-        // issue period is 10, we issued at block 1, so at block 15 the cancel should succeed
-        <security::Pallet<Test>>::set_active_block_number(15);
-        assert_ok!(cancel_issue(ALICE, &issue_id));
     })
 }
 

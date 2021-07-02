@@ -153,8 +153,13 @@ impl vault_registry::Config for Test {
     type Wrapped = CurrencyAdapter<Test, GetWrappedCurrencyId>;
 }
 
+parameter_types! {
+    pub const ParachainBlocksPerBitcoinBlock: BlockNumber = 100;
+}
+
 impl btc_relay::Config for Test {
     type Event = TestEvent;
+    type ParachainBlocksPerBitcoinBlock = ParachainBlocksPerBitcoinBlock;
     type WeightInfo = ();
 }
 
