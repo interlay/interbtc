@@ -30,7 +30,6 @@ fn set_exchange_rate_succeeds() {
         let rate = FixedU128::checked_from_rational(100, 1).unwrap();
 
         ExchangeRateOracle::is_authorized.mock_safe(|_| MockResult::Return(true));
-        ExchangeRateOracle::collateral_per_wrapped_to_exchange_rate.mock_safe(|amount| MockResult::Return(Ok(amount)));
         let result = ExchangeRateOracle::set_exchange_rate(Origin::signed(3), rate);
         assert_ok!(result);
 
@@ -69,7 +68,6 @@ fn set_exchange_rate_fails_with_invalid_oracle_source() {
         let failed_rate = FixedU128::checked_from_rational(100, 1).unwrap();
 
         ExchangeRateOracle::is_authorized.mock_safe(|_| MockResult::Return(true));
-        ExchangeRateOracle::collateral_per_wrapped_to_exchange_rate.mock_safe(|amount| MockResult::Return(Ok(amount)));
         assert_ok!(ExchangeRateOracle::set_exchange_rate(
             Origin::signed(4),
             successful_rate
@@ -155,20 +153,6 @@ fn oracle_names_have_genesis_info() {
         let actual = String::from_utf8(ExchangeRateOracle::authorized_oracles(0)).unwrap();
         let expected = "test".to_owned();
         assert_eq!(actual, expected);
-    });
-}
-
-#[test]
-fn convert_btc_dot_to_satoshi_planck() {
-    run_test(|| {
-        // ext::collateral::decimals::<Test>.mock_safe(|| MockResult::Return(10));
-        // ext::treasury::decimals::<Test>.mock_safe(|| MockResult::Return(8));
-
-        let rate = FixedU128::checked_from_rational(3, 1).unwrap();
-        assert_eq!(
-            ExchangeRateOracle::collateral_per_wrapped_to_exchange_rate(rate).unwrap(),
-            FixedU128::checked_from_rational(300, 1).unwrap()
-        );
     });
 }
 

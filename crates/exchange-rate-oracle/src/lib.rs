@@ -34,9 +34,7 @@ use mocktopus::macros::mockable;
 use codec::{Decode, Encode, EncodeLike, FullCodec};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
-    ensure,
-    traits::Get,
-    transactional,
+    ensure, transactional,
     weights::Weight,
 };
 use frame_system::{ensure_root, ensure_signed};
@@ -76,12 +74,6 @@ pub mod pallet {
 
         /// Weight information for the extrinsics in this module.
         type WeightInfo: WeightInfo;
-
-        #[pallet::constant]
-        type GetCollateralDecimals: Get<u8>;
-
-        #[pallet::constant]
-        type GetWrappedDecimals: Get<u8>;
     }
 
     #[pallet::event]
@@ -189,17 +181,11 @@ pub mod pallet {
         ///
         /// # Arguments
         ///
-        /// * `collateral_per_wrapped` - exchange rate expressed as the amount of backing collateral per whole issued
-        ///   token.
-        /// Note that this is _not_ the same unit that is stored in the ExchangeRate storage item which is multiplied by
-        /// the conversion factor - i.e. planck_per_satoshi = dot_per_btc * (10**10 / 10**8)
-        /// The stored unit is planck_per_satoshi
+        /// * `exchange_rate` - i.e. planck_per_satoshi = dot_per_btc * (10**10 / 10**8)
+        /// This is the same unit that is stored in the ExchangeRate storage item.
         #[pallet::weight(<T as Config>::WeightInfo::set_exchange_rate())]
         #[transactional]
-        pub fn set_exchange_rate(
-            origin: OriginFor<T>,
-            collateral_per_wrapped: UnsignedFixedPoint<T>,
-        ) -> DispatchResult {
+        pub fn set_exchange_rate(origin: OriginFor<T>, exchange_rate: UnsignedFixedPoint<T>) -> DispatchResult {
             // Check that Parachain is not in SHUTDOWN
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
 
@@ -208,10 +194,8 @@ pub mod pallet {
             // fail if the signer is not an authorized oracle
             ensure!(Self::is_authorized(&signer), Error::<T>::InvalidOracleSource);
 
-            let exchange_rate = Self::collateral_per_wrapped_to_exchange_rate(collateral_per_wrapped)?;
             Self::_set_exchange_rate(exchange_rate)?;
-
-            Self::deposit_event(Event::<T>::SetExchangeRate(signer, collateral_per_wrapped));
+            Self::deposit_event(Event::<T>::SetExchangeRate(signer, exchange_rate));
 
             Ok(())
         }
@@ -290,21 +274,6 @@ impl<T: Config> Pallet<T> {
         Ok(<ExchangeRate<T>>::get())
     }
 
-    /// Convert to the base exchange rate representation
-    fn collateral_per_wrapped_to_exchange_rate(
-        collateral_per_wrapped: UnsignedFixedPoint<T>,
-    ) -> Result<UnsignedFixedPoint<T>, DispatchError> {
-        let conversion_factor = UnsignedFixedPoint::<T>::checked_from_rational(
-            10_u128.pow(T::GetCollateralDecimals::get().into()),
-            10_u128.pow(T::GetWrappedDecimals::get().into()),
-        )
-        .unwrap();
-
-        collateral_per_wrapped
-            .checked_mul(&conversion_factor)
-            .ok_or(Error::<T>::ArithmeticOverflow.into())
-    }
-
     pub fn wrapped_to_collateral(amount: Wrapped<T>) -> Result<Collateral<T>, DispatchError> {
         let rate = Self::get_exchange_rate()?;
         let converted = rate.checked_mul_int(amount).ok_or(Error::<T>::ArithmeticOverflow)?;
@@ -343,9 +312,9 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Arguments
     ///
-    /// * `planck_per_satoshi` - exchange rate in planck per satoshi
-    pub fn _set_exchange_rate(planck_per_satoshi: UnsignedFixedPoint<T>) -> DispatchResult {
-        <ExchangeRate<T>>::put(planck_per_satoshi);
+    /// * `exchange_rate` - i.e. planck per satoshi
+    pub fn _set_exchange_rate(exchange_rate: UnsignedFixedPoint<T>) -> DispatchResult {
+        <ExchangeRate<T>>::put(exchange_rate);
         // recover if the max delay was already passed
         if Self::is_max_delay_passed() {
             Self::recover_from_oracle_offline();

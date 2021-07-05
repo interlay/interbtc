@@ -66,18 +66,11 @@ impl frame_system::Config for Test {
     type OnSetCode = ();
 }
 
-parameter_types! {
-    pub const GetCollateralDecimals: u8 = 10;
-    pub const GetWrappedDecimals: u8 = 8;
-}
-
 impl Config for Test {
     type Event = TestEvent;
     type Balance = Balance;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type WeightInfo = ();
-    type GetCollateralDecimals = GetCollateralDecimals;
-    type GetWrappedDecimals = GetWrappedDecimals;
 }
 
 parameter_types! {
