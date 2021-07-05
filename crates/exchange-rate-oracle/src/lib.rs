@@ -181,7 +181,8 @@ pub mod pallet {
         ///
         /// # Arguments
         ///
-        /// * `exchange_rate` - i.e. planck per satoshi
+        /// * `exchange_rate` - i.e. planck_per_satoshi = dot_per_btc * (10**10 / 10**8)
+        /// This is the same unit that is stored in the ExchangeRate storage item.
         #[pallet::weight(<T as Config>::WeightInfo::set_exchange_rate())]
         #[transactional]
         pub fn set_exchange_rate(origin: OriginFor<T>, exchange_rate: UnsignedFixedPoint<T>) -> DispatchResult {
