@@ -439,6 +439,82 @@ mod store_block_header_tests {
             );
         })
     }
+
+    fn parse_from_hex(hex_string: &str) -> BlockHeader {
+        let raw = RawBlockHeader::from_hex(hex_string).unwrap();
+        parse_block_header(&raw).unwrap()
+    }
+
+    #[test]
+    pub fn test_real_world_fork() {
+        run_test(|| {
+            // data from the july 2015 fork: https://github.com/ethereum/btcrelay/tree/develop/test/headers/fork/20150704
+            let relayer_id = 3;
+
+            let genesis = parse_from_hex("03000000e6a65096db85d2ed2dfab33dea50b338341e1aeb5d0ce411000000000000000098420532fa55a0bca5f043f8f8f16a2b73761e822178692cb99ced039e2a32a0ea3f97558e4116183a9cc34a");
+            assert_ok!(BTCRelay::initialize(relayer_id, genesis, 363730));
+
+            let fork_blocks: Vec<BlockHeader> = vec![
+                "020000009e576e5a71f5af67e4dac515f8f3c02e536bb452d720a3060000000000000000699ff8e92806063b23a2e70009ec8d10cfc97a9a8a9a508f1b6b189b06845c7d644097558e411618b943d647",
+                "03000000999d430cd9260dad128c49dd83ebd42c0bb425aa29c89c00000000000000000077e5e98057f2461764ddc0595b2b3521d803e923ae76498403154757ab06473d7c4397558e4116189f56edaa",
+                "03000000b4905331a06377b2943509c5bc009986d2d55cd319255f150000000000000000334590846af20915ea38e90a4f4c5cd3cd42273ac2be57c59eb132f2be40cde08c4997558e411618d91e0fa5",
+                "0300000061ec31a5ef18153ae5ba6a936973ad47e399e1e40ea2b70c00000000000000003b068951f10a9bdedcb70591dfab1a603830c5adee7301154d9266eb719f4d31164a97558e411618fd16e98a",
+                "0300000018aa81e306208ec21658952c4a158f5a1d7dd80f5ed6660900000000000000009e932c2f6dd01e59b22d4603bae975f0c860433839a338418ebccb0b01e0db32504b97558e4116183f7dd1b1",
+                "03000000e75d18cb65a02c0312b3093d10baeec721a466f5d6bf01130000000000000000844b3dd9043c983c02129b130bc651eb460a6d78df909bcd4ce50c602d8801c68a4d97558e41161822dd0c89",
+            ].into_iter().map(parse_from_hex).collect();
+
+            for block in fork_blocks.iter() {
+                store_header_and_check_invariants(block);
+            }
+
+            let reorg_blocks:Vec<BlockHeader> = vec![
+                "030000009e576e5a71f5af67e4dac515f8f3c02e536bb452d720a306000000000000000022862bfc426ccbe5868e8ee0d0abb9e89aa86a6031fa597323a081dcb29b15cff54897558e4116184b082d3b",
+                "0300000053ef2a88b2b244409f03fee87f819ef14690c23033e2280c00000000000000009e90b9ad092c3f37393f163f70fcc054cbc7dc38210f213840fa9cf9791493b3954997558e4116186d536b51",
+                "03000000d691c32ec84e22c0b9c8fbec184c0ec5f113b16e21e04212000000000000000092ccf4a5399e2436948a6917471135340a51967704bff3c55e57f5f0af6ca7d4275397558e411618d0abe918",
+                "03000000eea345978c6b095148670d6128e1cc9069ac6bb3075c35060000000000000000b00ecf72f6d247a60eca5fc70d760939139cc0bc008d483c90b43e22596e0ed1dc5497558e41161884e655a3",
+                "0300000036191cd0a5e5b1f04dec4cbb97170883fa621013e18a35150000000000000000d8f418aa2714981e26938ccd1620649a5c6fbe839eabc133ac0fac49deafe7dcb75597558e41161810d85d32",
+                "03000000deab448a286a2873fcb3eac032aa1fbb13b7c96a3f24950600000000000000005df3fffaf0b0d3db741bf96cbf35830e3497f0634c819779281b4a2e5d301d65cd5697558e411618983a2772",
+
+                "0300000033c784021ffbbdfff3bea3b4b9a7caa7f4f8c60713f7bc0300000000000000006e28294eb3195a9fe49845bd090bd69afe1e2b9301a8da1c27fd14a819d86da9a25797558e4116181625905a",
+                "0300000015adb823bc91b2b706c0b259132723d10de12541857c4e010000000000000000658af03884b873d1e024f18425c32202ae54f6a2824ea05c81277b34fb325d77035997558e4116188ca36a47",
+                "03000000948fad4ea4d24d9103ffaa1555fdd75a461e8e1a1f1fb61000000000000000009b13f566d729a53a70b0a5adc85211ba3cebe3cc098dcabd5502f5e462560c16af5a97558e411618c73c2f92",
+                "03000000aca153703e2d0b0e73416d79a7e33abb7fea7bd19b5e600e00000000000000005c9ae978db9578eaf13deec63a9d83aa2e5b5c7b116ffd86ac517433a780bc4e4c5c97558e4116188c4a6f0e",
+                "03000000d04ed892f51d8b4d51b66819b5c9689236977417f3a0f40800000000000000007cb5f9a5c9a065fcf4d21be7cc80d505ae1ef2a401ba481477f94aff07a91db3585c97558e41161826e96c22",
+                "03000000b01d7251bb00e0798ef7fac2cbbe022e3093a8b006709d0b0000000000000000e58c392166f00accd7f773b4ca12fa1b2c1ccba33b8daca3274eb0f36394dd89456097558e41161839fc9a66",
+                // "030000005fbd386a5032a0aa1c428416d2d0a9e62b3f31021bb695000000000000000000c46349cf6bddc4451f5df490ad53a83a58018e519579755800845fd4b0e39e79f46197558e41161884eabd86",
+            ].into_iter().map(parse_from_hex).collect();
+
+            for (idx, block) in reorg_blocks.iter().take(11).enumerate() {
+                store_header_and_check_invariants(block);
+
+                for previous_block in reorg_blocks.iter().take(idx + 1) {
+                    assert_err!(
+                        BTCRelay::verify_block_header_inclusion(previous_block.hash, None),
+                        TestError::OngoingFork
+                    );
+                }
+            }
+
+            store_header_and_check_invariants(&reorg_blocks[reorg_blocks.len() - 1]);
+
+            // now everything in main should verify, while nothing in the fork does.
+            for block in reorg_blocks.iter().take(7) {
+                assert_ok!(BTCRelay::verify_block_header_inclusion(block.hash, None));
+            }
+            for block in reorg_blocks.iter().skip(7) {
+                assert_err!(
+                    BTCRelay::verify_block_header_inclusion(block.hash, None),
+                    TestError::BitcoinConfirmations
+                );
+            }
+            for block in fork_blocks.iter() {
+                assert_err!(
+                    BTCRelay::verify_block_header_inclusion(block.hash, None),
+                    TestError::InvalidChainID
+                );
+            }
+        })
+    }
 }
 
 #[test]
