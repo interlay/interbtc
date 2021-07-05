@@ -1094,21 +1094,11 @@ impl<T: Config> Pallet<T> {
 
                 // update the storage
                 Self::mutate_block_chain_from_id(new_fork.chain_id, new_fork.clone());
-
-                // if we reached main chain, we need to move all blocks that are no longer to be
-                // in the mainchain to a normal fork
-                if parent.chain_ref == MAIN_CHAIN_ID {
-                    for height in new_fork.start_height..=new_fork.max_height {
-                        let block_hash = Self::get_block_hash(MAIN_CHAIN_ID, height)?;
-                        let block = Self::get_block_header_from_hash(block_hash)?;
-
-                        Self::transfer_block_to_chain(block, MAIN_CHAIN_ID, fork.chain_id)?;
-                    }
-                }
             }
 
-            // transfer the child block to the main chain
-            Self::transfer_block_to_chain(child, child.chain_ref, MAIN_CHAIN_ID)?;
+            // transfer the child block to the main chain, and if main already has a block at this
+            // height, transfer it to `fork`
+            Self::swap_block_to_mainchain(child, fork.chain_id)?;
 
             // main chain reached, stop iterating
             if parent.chain_ref == MAIN_CHAIN_ID {
@@ -1149,18 +1139,31 @@ impl<T: Config> Pallet<T> {
         Ok((new_best_block, fork.max_height))
     }
 
-    fn transfer_block_to_chain(
+    /// Transfers the given block to the main chain. If this would overwrite a block already in the
+    /// main chain, then the overwritten block is moved to to `chain_id_for_old_main_blocks`.
+    fn swap_block_to_mainchain(
         block: RichBlockHeader<T::BlockNumber>,
-        old_chain_id: u32,
-        new_fork_id: u32,
+        chain_id_for_old_main_blocks: u32,
     ) -> Result<(), DispatchError> {
         let block_height = block.block_height;
+
+        // store the hash we will overwrite, if it exists
+        let replaced_block_hash = ChainsHashes::<T>::try_get(MAIN_CHAIN_ID, block_height);
+
         // remove from old chain and insert into the new one
-        ChainsHashes::<T>::remove(old_chain_id, block_height);
-        ChainsHashes::<T>::insert(new_fork_id, block_height, block.block_header.hash);
+        ChainsHashes::<T>::remove(block.chain_ref, block_height);
+        ChainsHashes::<T>::insert(MAIN_CHAIN_ID, block_height, block.block_header.hash);
 
         // update the chainref of the block
-        BlockHeaders::<T>::mutate(&block.block_header.hash, |header| header.chain_ref = new_fork_id);
+        BlockHeaders::<T>::mutate(&block.block_header.hash, |header| header.chain_ref = MAIN_CHAIN_ID);
+
+        // if there was a block at block_height in the mainchain, we need to move it
+        if let Ok(replaced_block_hash) = replaced_block_hash {
+            ChainsHashes::<T>::insert(chain_id_for_old_main_blocks, block_height, replaced_block_hash);
+            BlockHeaders::<T>::mutate(&replaced_block_hash, |header| {
+                header.chain_ref = chain_id_for_old_main_blocks
+            });
+        }
 
         Ok(())
     }

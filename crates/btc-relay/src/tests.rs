@@ -261,6 +261,30 @@ mod store_block_header_tests {
         for (chain_idx, _, hash) in crate::ChainsHashes::<Test>::iter() {
             assert_eq!(crate::BlockHeaders::<Test>::get(hash).chain_ref, chain_idx);
         }
+
+        // sanity check: BlockHeaders is indexed by richblock.block_header.hash
+        for (hash, rich_block) in crate::BlockHeaders::<Test>::iter() {
+            assert_eq!(rich_block.block_header.hash, hash);
+        }
+
+        // ChainsHashes MUST ONLY contain items for heights that are in the corresponding chain
+        for (chain_idx, height, _hash) in crate::ChainsHashes::<Test>::iter() {
+            let chain = &chains_index[chain_idx as usize];
+            assert!(height >= chain.start_height && height <= chain.max_height);
+        }
+        // For each chain, ChainsHashes MUST contain exactly `chain_length` hashes
+        for chain in chains_index {
+            let num_blocks = crate::ChainsHashes::<Test>::iter()
+                .map(|(chain_idx, _, _)| chain_idx)
+                .filter(|&chain_idx| chain_idx == chain.chain_id)
+                .count();
+            assert_eq!(num_blocks as u32, chain.max_height - chain.start_height + 1);
+        }
+        // the number of ChainsHashes must match the number of submitted blockheaders
+        assert_eq!(
+            crate::ChainsHashes::<Test>::iter().count(),
+            crate::BlockHeaders::<Test>::iter().count()
+        );
     }
 
     fn assert_is_block(height: u32, block_header: &BlockHeader) {
@@ -333,6 +357,9 @@ mod store_block_header_tests {
     fn store_header_and_check_invariants(block: &BlockHeader) {
         check_store_block_header_invariants();
         assert_ok!(BTCRelay::store_block_header(&3, block.clone()));
+        Security::set_active_block_number(
+            ext::security::active_block_number::<Test>() + BTCRelay::parachain_confirmations(),
+        );
         check_store_block_header_invariants();
     }
 
