@@ -577,9 +577,9 @@ impl security::Config for Runtime {
     type Event = Event;
 }
 
-pub use staked_relayers::Event as StakedRelayersEvent;
+pub use relay::Event as RelayEvent;
 
-impl staked_relayers::Config for Runtime {
+impl relay::Config for Runtime {
     type Event = Event;
     type WeightInfo = ();
 }
@@ -704,7 +704,7 @@ macro_rules! construct_interbtc_runtime {
 
                 // Operational
                 Security: security::{Pallet, Call, Storage, Event<T>},
-                StakedRelayers: staked_relayers::{Pallet, Call, Storage, Event<T>},
+                Relay: relay::{Pallet, Call, Storage, Event<T>},
                 VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned},
                 ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
                 Issue: issue::{Pallet, Call, Config<T>, Storage, Event<T>},
@@ -940,7 +940,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, issue, Issue);
             add_benchmark!(params, batches, redeem, Redeem);
             add_benchmark!(params, batches, replace, Replace);
-            add_benchmark!(params, batches, staked_relayers, StakedRelayers);
+            add_benchmark!(params, batches, relay, Relay);
             add_benchmark!(params, batches, vault_registry, VaultRegistry);
             add_benchmark!(params, batches, fee, Fee);
             add_benchmark!(params, batches, nomination, Nomination);
@@ -975,12 +975,12 @@ impl_runtime_apis! {
         }
     }
 
-    impl module_staked_relayers_rpc_runtime_api::StakedRelayersApi<
+    impl module_relay_rpc_runtime_api::RelayApi<
         Block,
         AccountId,
     > for Runtime {
         fn is_transaction_invalid(vault_id: AccountId, raw_tx: Vec<u8>) -> DispatchResult {
-            StakedRelayers::is_transaction_invalid(&vault_id, raw_tx)
+            Relay::is_transaction_invalid(&vault_id, raw_tx)
         }
     }
 

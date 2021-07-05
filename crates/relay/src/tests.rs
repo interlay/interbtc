@@ -66,7 +66,7 @@ fn test_report_vault_passes_with_vault_transaction() {
         ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(())));
         ext::vault_registry::liquidate_theft_vault::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
 
-        assert_ok!(StakedRelayers::report_vault_theft(
+        assert_ok!(Relay::report_vault_theft(
             Origin::signed(ALICE),
             CAROL,
             vec![0u8; 32],
@@ -92,7 +92,7 @@ fn test_report_vault_fails_with_non_vault_transaction() {
         ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(())));
 
         assert_err!(
-            StakedRelayers::report_vault_theft(
+            Relay::report_vault_theft(
                 Origin::signed(ALICE),
                 CAROL,
                 vec![0u8; 32],
@@ -119,7 +119,7 @@ fn test_report_vault_succeeds_with_segwit_transaction() {
         ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(())));
         ext::vault_registry::liquidate_theft_vault::<Test>.mock_safe(|_| MockResult::Return(Ok(())));
 
-        assert_ok!(StakedRelayers::report_vault_theft(
+        assert_ok!(Relay::report_vault_theft(
             Origin::signed(ALICE),
             CAROL,
             vec![0u8; 32],
@@ -134,17 +134,17 @@ fn test_report_vault_theft_succeeds() {
         let relayer = Origin::signed(ALICE);
 
         ext::btc_relay::verify_transaction_inclusion::<Test>.mock_safe(move |_, _| MockResult::Return(Ok(())));
-        StakedRelayers::_is_parsed_transaction_invalid.mock_safe(move |_, _| MockResult::Return(Ok(())));
+        Relay::_is_parsed_transaction_invalid.mock_safe(move |_, _| MockResult::Return(Ok(())));
         ext::vault_registry::liquidate_theft_vault::<Test>.mock_safe(move |_| MockResult::Return(Ok(())));
 
         let raw_proof = hex::decode("00000020ecf348128755dbeea5deb8eddf64566d9d4e59bc65d485000000000000000000901f0d92a66ee7dcefd02fa282ca63ce85288bab628253da31ef259b24abe8a0470a385a45960018e8d672f8a90a00000d0bdabada1fb6e3cef7f5c6e234621e3230a2f54efc1cba0b16375d9980ecbc023cbef3ba8d8632ea220927ec8f95190b30769eb35d87618f210382c9445f192504074f56951b772efa43b89320d9c430b0d156b93b7a1ff316471e715151a0619a39392657f25289eb713168818bd5b37476f1bc59b166deaa736d8a58756f9d7ce2aef46d8004c5fe3293d883838f87b5f1da03839878895b71530e9ff89338bb6d4578b3c3135ff3e8671f9a64d43b22e14c2893e8271cecd420f11d2359307403bb1f3128885b3912336045269ef909d64576b93e816fa522c8c027fe408700dd4bdee0254c069ccb728d3516fe1e27578b31d70695e3e35483da448f3a951273e018de7f2a8f657064b013c6ede75c74bbd7f98fdae1c2ac6789ee7b21a791aa29d60e89fff2d1d2b1ada50aa9f59f403823c8c58bb092dc58dc09b28158ca15447da9c3bedb0b160f3fe1668d5a27716e27661bcb75ddbf3468f5c76b7bed1004c6b4df4da2ce80b831a7c260b515e6355e1c306373d2233e8de6fda3674ed95d17a01a1f64b27ba88c3676024fbf8d5dd962ffc4d5e9f3b1700763ab88047f7d0000").unwrap();
         let tx_bytes = hex::decode("0100000001c8cc2b56525e734ff63a13bc6ad06a9e5664df8c67632253a8e36017aee3ee40000000009000483045022100ad0851c69dd756b45190b5a8e97cb4ac3c2b0fa2f2aae23aed6ca97ab33bf88302200b248593abc1259512793e7dea61036c601775ebb23640a0120b0dba2c34b79001455141042f90074d7a5bf30c72cf3a8dfd1381bdbd30407010e878f3a11269d5f74a58788505cdca22ea6eab7cfb40dc0e07aba200424ab0d79122a653ad0c7ec9896bdf51aefeffffff0120f40e00000000001976a9141d30342095961d951d306845ef98ac08474b36a088aca7270400").unwrap();
 
-        assert_ok!(StakedRelayers::report_vault_theft(relayer, BOB, raw_proof, tx_bytes,));
+        assert_ok!(Relay::report_vault_theft(relayer, BOB, raw_proof, tx_bytes,));
         // check that the event has been emitted
         assert!(System::events()
             .iter()
-            .any(|a| matches!(a.event, TestEvent::StakedRelayers(Event::VaultTheft(id, _)) if id == BOB)));
+            .any(|a| matches!(a.event, TestEvent::Relay(Event::VaultTheft(id, _)) if id == BOB)));
     })
 }
 
@@ -184,7 +184,7 @@ fn test_is_valid_merge_transaction_fails() {
         let address1 = BtcAddress::P2PKH(H160::from_str(&"66c7060feb882664ae62ffad0051fe843e318e85").unwrap());
         let transaction1 = build_dummy_transaction_with(vec![address1]);
         assert_eq!(
-            StakedRelayers::is_valid_merge_transaction(&transaction1, &Wallet::new(dummy_public_key())),
+            Relay::is_valid_merge_transaction(&transaction1, &Wallet::new(dummy_public_key())),
             false,
             "payment to unknown recipient"
         );
@@ -192,7 +192,7 @@ fn test_is_valid_merge_transaction_fails() {
         let address2 = BtcAddress::P2PKH(H160::from_str(&"5f69790b72c98041330644bbd50f2ebb5d073c36").unwrap());
         let transaction2 = build_dummy_transaction_with(vec![address2]);
         assert_eq!(
-            StakedRelayers::is_valid_merge_transaction(&transaction2, &Wallet::new(dummy_public_key())),
+            Relay::is_valid_merge_transaction(&transaction2, &Wallet::new(dummy_public_key())),
             false,
             "migration should not have op_returns"
         );
@@ -212,7 +212,7 @@ fn test_is_valid_merge_transaction_succeeds() {
         let mut wallet = Wallet::new(dummy_public_key());
         wallet.add_btc_address(address);
 
-        assert_eq!(StakedRelayers::is_valid_merge_transaction(&transaction, &wallet), true);
+        assert_eq!(Relay::is_valid_merge_transaction(&transaction, &wallet), true);
     })
 }
 
@@ -266,7 +266,7 @@ fn test_is_valid_request_transaction_overpayment_fails() {
         let payment_data = OpReturnPaymentData::try_from(transaction).unwrap();
 
         assert_eq!(
-            StakedRelayers::is_valid_request_transaction(request_value, request_address, &payment_data, &wallet),
+            Relay::is_valid_request_transaction(request_value, request_address, &payment_data, &wallet),
             false
         );
     })
@@ -294,7 +294,7 @@ fn test_is_valid_request_transaction_underpayment_fails() {
         let payment_data = OpReturnPaymentData::try_from(transaction).unwrap();
 
         assert_eq!(
-            StakedRelayers::is_valid_request_transaction(request_value, request_address, &payment_data, &wallet),
+            Relay::is_valid_request_transaction(request_value, request_address, &payment_data, &wallet),
             false
         );
     })
@@ -320,7 +320,7 @@ fn test_is_valid_request_transaction_succeeds() {
         let payment_data = OpReturnPaymentData::try_from(transaction).unwrap();
 
         assert_eq!(
-            StakedRelayers::is_valid_request_transaction(
+            Relay::is_valid_request_transaction(
                 request_value.try_into().unwrap(),
                 recipient_address,
                 &payment_data,
@@ -382,7 +382,7 @@ fn test_is_transaction_invalid_fails_with_valid_merge_transaction() {
             .build();
 
         assert_err!(
-            StakedRelayers::is_transaction_invalid(&BOB, transaction.format()),
+            Relay::is_transaction_invalid(&BOB, transaction.format()),
             TestError::ValidMergeTransaction
         );
     })
@@ -463,7 +463,7 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
             .build();
 
         assert_err!(
-            StakedRelayers::is_transaction_invalid(&BOB, transaction.format()),
+            Relay::is_transaction_invalid(&BOB, transaction.format()),
             TestError::ValidRedeemTransaction
         );
 
@@ -486,7 +486,7 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
         });
 
         assert_err!(
-            StakedRelayers::is_transaction_invalid(&BOB, transaction.format()),
+            Relay::is_transaction_invalid(&BOB, transaction.format()),
             TestError::ValidReplaceTransaction
         );
     })
@@ -528,7 +528,7 @@ fn test_is_transaction_invalid_succeeds() {
             .add_output(TransactionOutput::payment(100, &recipient_address))
             .build();
 
-        assert_ok!(StakedRelayers::is_transaction_invalid(&BOB, transaction.format()));
+        assert_ok!(Relay::is_transaction_invalid(&BOB, transaction.format()));
     })
 }
 
@@ -577,7 +577,7 @@ fn test_is_transaction_invalid_fails_with_valid_merge_testnet_transaction() {
         });
 
         assert_err!(
-            StakedRelayers::is_transaction_invalid(&BOB, raw_tx),
+            Relay::is_transaction_invalid(&BOB, raw_tx),
             TestError::ValidMergeTransaction
         );
     })
@@ -599,7 +599,7 @@ fn test_is_transaction_invalid_succeeds_with_testnet_transaction() {
         ext::vault_registry::get_active_vault_from_id::<Test>
             .mock_safe(move |_| MockResult::Return(Ok(init_zero_vault(BOB, Some(btc_address)))));
 
-        assert_ok!(StakedRelayers::is_transaction_invalid(&BOB, raw_tx));
+        assert_ok!(Relay::is_transaction_invalid(&BOB, raw_tx));
     })
 }
 
@@ -614,7 +614,7 @@ fn test_store_block_header_and_update_sla_fails_with_invalid() {
         });
 
         assert_err!(
-            StakedRelayers::store_block_header_and_update_sla(&0, BlockHeader::default()),
+            Relay::store_block_header_and_update_sla(&0, BlockHeader::default()),
             BtcRelayError::<Test>::DiffTargetHeader
         );
     })

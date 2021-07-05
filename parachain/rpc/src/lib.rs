@@ -39,7 +39,7 @@ where
     C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
     C::Api: module_btc_relay_rpc::BtcRelayRuntimeApi<Block, H256Le>,
     C::Api: module_exchange_rate_oracle_rpc::ExchangeRateOracleRuntimeApi<Block, Balance, Balance>,
-    C::Api: module_staked_relayers_rpc::StakedRelayersRuntimeApi<Block, AccountId>,
+    C::Api: module_relay_rpc::RelayRuntimeApi<Block, AccountId>,
     C::Api: module_vault_registry_rpc::VaultRegistryRuntimeApi<Block, AccountId, Balance, Balance, FixedU128>,
     C::Api: module_issue_rpc::IssueRuntimeApi<
         Block,
@@ -68,8 +68,8 @@ where
     use module_issue_rpc::{Issue, IssueApi};
     use module_redeem_rpc::{Redeem, RedeemApi};
     use module_refund_rpc::{Refund, RefundApi};
+    use module_relay_rpc::{Relay, RelayApi};
     use module_replace_rpc::{Replace, ReplaceApi};
-    use module_staked_relayers_rpc::{StakedRelayers, StakedRelayersApi};
     use module_vault_registry_rpc::{VaultRegistry, VaultRegistryApi};
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
     use substrate_frame_rpc_system::{FullSystem, SystemApi};
@@ -97,7 +97,7 @@ where
         client.clone(),
     )));
 
-    io.extend_with(StakedRelayersApi::to_delegate(StakedRelayers::new(client.clone())));
+    io.extend_with(RelayApi::to_delegate(Relay::new(client.clone())));
 
     io.extend_with(VaultRegistryApi::to_delegate(VaultRegistry::new(client.clone())));
 

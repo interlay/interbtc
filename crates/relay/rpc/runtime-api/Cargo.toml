@@ -1,5 +1,5 @@
 [package]
-name = "module-staked-relayers-rpc-runtime-api"
+name = "module-relay-rpc-runtime-api"
 version = "0.8.0"
 authors = ["Interlay Ltd"]
 edition = "2018"

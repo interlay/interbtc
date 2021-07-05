@@ -75,7 +75,7 @@ The Substrate runtime makes use of various custom pallets that are found in the 
 - [replace](crates/replace) Handles replacing vaults.
 - [security](crates/security): Handles BTC Parachain status and error changes.
 - [sla](crates/sla): Participant scoring for reward & slashing calculations.
-- [staked-relayers](crates/staked-relayers): Handles registration and stake of Staked Relayers, as well as voting on Parachain status changes.
+- [relay](crates/relay): Handles block submission and theft reporting.
 - [vault-registry](crates/vault-registry): Handles registration, collateral and liquidation of vaults.
 
 ## Getting started

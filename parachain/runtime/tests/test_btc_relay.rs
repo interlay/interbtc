@@ -19,16 +19,14 @@ fn integration_test_submit_block_headers_and_verify_transaction_inclusion() {
         let parachain_genesis_height = test_data[0].height;
         let parachain_genesis_header = test_data[0].get_raw_header();
 
-        assert_ok!(Call::StakedRelayers(StakedRelayersCall::initialize(
+        assert_ok!(Call::Relay(RelayCall::initialize(
             parachain_genesis_header,
             parachain_genesis_height
         ))
         .dispatch(origin_of(account_of(ALICE))));
         for block in test_data.iter().skip(1) {
-            assert_ok!(
-                Call::StakedRelayers(StakedRelayersCall::store_block_header(block.get_raw_header()))
-                    .dispatch(origin_of(account_of(ALICE)))
-            );
+            assert_ok!(Call::Relay(RelayCall::store_block_header(block.get_raw_header()))
+                .dispatch(origin_of(account_of(ALICE))));
 
             assert_store_main_chain_header_event(block.height, block.get_block_hash(), account_of(ALICE));
         }

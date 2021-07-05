@@ -117,8 +117,8 @@ pub type SecurityPallet = security::Pallet<Runtime>;
 pub type SlaPallet = sla::Pallet<Runtime>;
 pub type SlaCall = sla::Call<Runtime>;
 
-pub type StakedRelayersCall = staked_relayers::Call<Runtime>;
-pub type StakedRelayersPallet = staked_relayers::Pallet<Runtime>;
+pub type RelayCall = relay::Call<Runtime>;
+pub type RelayPallet = relay::Pallet<Runtime>;
 
 pub type SystemModule = frame_system::Pallet<Runtime>;
 
@@ -749,8 +749,7 @@ impl TransactionGenerator {
     fn relay(&self, height: u32, block: &Block, raw_block_header: RawBlockHeader) {
         if let Some(relayer) = self.relayer {
             assert_ok!(
-                Call::StakedRelayers(StakedRelayersCall::store_block_header(raw_block_header))
-                    .dispatch(origin_of(account_of(relayer)))
+                Call::Relay(RelayCall::store_block_header(raw_block_header)).dispatch(origin_of(account_of(relayer)))
             );
             assert_store_main_chain_header_event(height, raw_block_header.hash(), account_of(relayer));
         } else {
