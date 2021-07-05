@@ -1,8 +1,4 @@
 <p align="center">
-  <a href="https://github.com/interlay/interbtc">
-    <img src="/docs/img/interbtc.png">
-  </a>
-
   <h2 align="center">InterBTC</h2>
 
   <p align="center">
