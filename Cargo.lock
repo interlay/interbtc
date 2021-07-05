@@ -794,8 +794,8 @@ dependencies = [
  "module-issue-rpc",
  "module-redeem-rpc",
  "module-refund-rpc",
+ "module-relay-rpc",
  "module-replace-rpc",
- "module-staked-relayers-rpc",
  "module-vault-registry-rpc",
  "pallet-transaction-payment-rpc",
  "sc-rpc",
@@ -842,8 +842,8 @@ dependencies = [
  "module-issue-rpc-runtime-api",
  "module-redeem-rpc-runtime-api",
  "module-refund-rpc-runtime-api",
+ "module-relay-rpc-runtime-api",
  "module-replace-rpc-runtime-api",
- "module-staked-relayers-rpc-runtime-api",
  "module-vault-registry-rpc-runtime-api",
  "nomination",
  "orml-tokens",
@@ -868,6 +868,7 @@ dependencies = [
  "polkadot-parachain",
  "redeem",
  "refund",
+ "relay",
  "replace",
  "reward",
  "security",
@@ -887,7 +888,6 @@ dependencies = [
  "sp-std",
  "sp-transaction-pool",
  "sp-version",
- "staked-relayers",
  "substrate-wasm-builder 4.0.0",
  "vault-registry",
  "xcm",
@@ -4804,6 +4804,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "module-relay-rpc"
+version = "0.8.0"
+dependencies = [
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "module-relay-rpc-runtime-api",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-blockchain",
+ "sp-runtime",
+]
+
+[[package]]
+name = "module-relay-rpc-runtime-api"
+version = "0.8.0"
+dependencies = [
+ "frame-support",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-std",
+]
+
+[[package]]
 name = "module-replace-rpc"
 version = "0.8.0"
 dependencies = [
@@ -4819,30 +4843,6 @@ dependencies = [
 
 [[package]]
 name = "module-replace-rpc-runtime-api"
-version = "0.8.0"
-dependencies = [
- "frame-support",
- "parity-scale-codec",
- "sp-api",
- "sp-std",
-]
-
-[[package]]
-name = "module-staked-relayers-rpc"
-version = "0.8.0"
-dependencies = [
- "jsonrpc-core",
- "jsonrpc-core-client",
- "jsonrpc-derive",
- "module-staked-relayers-rpc-runtime-api",
- "parity-scale-codec",
- "sp-api",
- "sp-blockchain",
- "sp-runtime",
-]
-
-[[package]]
-name = "module-staked-relayers-rpc-runtime-api"
 version = "0.8.0"
 dependencies = [
  "frame-support",
@@ -7918,6 +7918,41 @@ dependencies = [
 ]
 
 [[package]]
+name = "relay"
+version = "0.8.0"
+dependencies = [
+ "bitcoin",
+ "btc-relay",
+ "currency",
+ "exchange-rate-oracle",
+ "fee",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "hex",
+ "mocktopus",
+ "nomination",
+ "orml-tokens",
+ "orml-traits",
+ "pallet-randomness-collective-flip",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "redeem",
+ "refund",
+ "replace",
+ "reward",
+ "security",
+ "serde",
+ "sla",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "vault-registry",
+]
+
+[[package]]
 name = "remote-externalities"
 version = "0.9.0"
 source = "git+https://github.com/paritytech/substrate?branch=polkadot-v0.9.5#9c572625f6557dfdb19f47474369a0327d51dfbc"
@@ -10407,41 +10442,6 @@ name = "stable_deref_trait"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
-
-[[package]]
-name = "staked-relayers"
-version = "0.8.0"
-dependencies = [
- "bitcoin",
- "btc-relay",
- "currency",
- "exchange-rate-oracle",
- "fee",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "hex",
- "mocktopus",
- "nomination",
- "orml-tokens",
- "orml-traits",
- "pallet-randomness-collective-flip",
- "pallet-timestamp",
- "parity-scale-codec",
- "redeem",
- "refund",
- "replace",
- "reward",
- "security",
- "serde",
- "sla",
- "sp-arithmetic",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
- "vault-registry",
-]
 
 [[package]]
 name = "staking"

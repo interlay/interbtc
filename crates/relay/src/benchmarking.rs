@@ -1,5 +1,5 @@
 use super::*;
-use crate::Pallet as StakedRelayers;
+use crate::Pallet as Relay;
 use bitcoin::{
     formatter::{Formattable, TryFormattable},
     types::{BlockBuilder, H256Le, RawBlockHeader, TransactionBuilder, TransactionInputBuilder, TransactionOutput},
@@ -152,8 +152,4 @@ benchmarks! {
     }: _(RawOrigin::Signed(origin), vault_id, proof, raw_tx)
 }
 
-impl_benchmark_test_suite!(
-    StakedRelayers,
-    crate::mock::ExtBuilder::build_with(|_| {}),
-    crate::mock::Test
-);
+impl_benchmark_test_suite!(Relay, crate::mock::ExtBuilder::build_with(|_| {}), crate::mock::Test);

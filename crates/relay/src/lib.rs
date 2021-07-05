@@ -1,4 +1,4 @@
-//! # Staked Relayers Module
+//! # Relay Pallet
 //! Based on the [specification](https://interlay.gitlab.io/polkabtc-spec/spec/staked-relayers.html).
 
 #![deny(warnings)]

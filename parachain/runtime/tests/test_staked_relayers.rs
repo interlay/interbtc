@@ -53,7 +53,7 @@ fn test_vault_theft(submit_by_relayer: bool) {
 
         if submit_by_relayer {
             assert_ok!(
-                Call::StakedRelayers(StakedRelayersCall::report_vault_theft(account_of(vault), proof, raw_tx))
+                Call::Relay(RelayCall::report_vault_theft(account_of(vault), proof, raw_tx))
                     .dispatch(origin_of(account_of(user)))
             );
 
@@ -62,7 +62,7 @@ fn test_vault_theft(submit_by_relayer: bool) {
             assert_eq!(SlaPallet::vault_sla(account_of(ALICE)), expected_sla);
         } else {
             assert_ok!(
-                Call::StakedRelayers(StakedRelayersCall::report_vault_theft(account_of(vault), proof, raw_tx))
+                Call::Relay(RelayCall::report_vault_theft(account_of(vault), proof, raw_tx))
                     .dispatch(origin_of(account_of(CAROL)))
             );
         }
@@ -85,17 +85,15 @@ fn test_staked_relayer_parachain_status_check_fails() {
         SecurityPallet::set_status(StatusCode::Shutdown);
 
         assert_noop!(
-            Call::StakedRelayers(StakedRelayersCall::initialize(Default::default(), 0))
-                .dispatch(origin_of(account_of(ALICE))),
+            Call::Relay(RelayCall::initialize(Default::default(), 0)).dispatch(origin_of(account_of(ALICE))),
             SecurityError::ParachainShutdown
         );
         assert_noop!(
-            Call::StakedRelayers(StakedRelayersCall::store_block_header(Default::default()))
-                .dispatch(origin_of(account_of(ALICE))),
+            Call::Relay(RelayCall::store_block_header(Default::default())).dispatch(origin_of(account_of(ALICE))),
             SecurityError::ParachainShutdown
         );
         assert_noop!(
-            Call::StakedRelayers(StakedRelayersCall::report_vault_theft(
+            Call::Relay(RelayCall::report_vault_theft(
                 Default::default(),
                 Default::default(),
                 Default::default()

@@ -1,4 +1,4 @@
-use crate as staked_relayers;
+use crate as relay;
 use crate::{Config, Error};
 use codec::{Decode, Encode};
 use frame_support::{parameter_types, traits::GenesisBuild, PalletId};
@@ -35,7 +35,7 @@ frame_support::construct_runtime!(
         // Operational
         BTCRelay: btc_relay::{Pallet, Call, Config<T>, Storage, Event<T>},
         Security: security::{Pallet, Call, Storage, Event<T>},
-        StakedRelayers: staked_relayers::{Pallet, Call, Storage, Event<T>},
+        Relay: relay::{Pallet, Call, Storage, Event<T>},
         VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>},
         ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
         Redeem: redeem::{Pallet, Call, Config<T>, Storage, Event<T>},
