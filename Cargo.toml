@@ -9,3 +9,16 @@ members = [
 ]
 
 resolver = "2"
+
+
+# disable incremental compilation to work around a compiler bug.
+# See https://blog.rust-lang.org/2021/05/10/Rust-1.52.1.html
+# When we upgrade compiler versions, we may be able to reenable incremental.
+[profile.test]
+incremental = false
+
+[profile.dev]
+incremental = false
+
+[profile.release]
+incremental = false
