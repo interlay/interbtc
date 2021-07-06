@@ -510,7 +510,7 @@ impl<T: Config> Pallet<T> {
         let current_block_height = prev_block_height.checked_add(1).ok_or(Error::<T>::ArithmeticOverflow)?;
 
         // get the block chain of the previous header
-        let prev_blockchain = Self::get_block_chain_from_id(prev_header.chain_ref)?;
+        let prev_blockchain = Self::get_block_chain_from_id(prev_header.chain_id)?;
 
         // ensure the block header is valid
         Self::verify_block_header(&basic_block_header, current_block_height, prev_header)?;
@@ -680,7 +680,7 @@ impl<T: Config> Pallet<T> {
 
         let rich_header = Self::get_block_header_from_hash(block_hash)?;
 
-        ensure!(rich_header.chain_ref == MAIN_CHAIN_ID, Error::<T>::InvalidChainID);
+        ensure!(rich_header.chain_id == MAIN_CHAIN_ID, Error::<T>::InvalidChainID);
 
         let block_height = rich_header.block_height;
 
@@ -1010,7 +1010,7 @@ impl<T: Config> Pallet<T> {
         block_height: u32,
     ) -> Result<U256, DispatchError> {
         // get time of last retarget
-        let last_retarget_time = Self::get_last_retarget_time(prev_block_header.chain_ref, block_height)?;
+        let last_retarget_time = Self::get_last_retarget_time(prev_block_header.chain_id, block_height)?;
         // Compute new target
         let actual_timespan = if ((prev_block_header.block_header.timestamp as u64 - last_retarget_time) as u32)
             < (TARGET_TIMESPAN / TARGET_TIMESPAN_DIVISOR)
@@ -1039,10 +1039,10 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Arguments
     ///
-    /// * `chain_ref` - BlockChain identifier
+    /// * `chain_id` - BlockChain identifier
     /// * `block_height` - current block height
-    fn get_last_retarget_time(chain_ref: u32, block_height: u32) -> Result<u64, DispatchError> {
-        let block_chain = Self::get_block_chain_from_id(chain_ref)?;
+    fn get_last_retarget_time(chain_id: u32, block_height: u32) -> Result<u64, DispatchError> {
+        let block_chain = Self::get_block_chain_from_id(chain_id)?;
         let last_retarget_header =
             Self::get_block_header_from_height(&block_chain, block_height - DIFFICULTY_ADJUSTMENT_INTERVAL)?;
         Ok(last_retarget_header.block_header.timestamp as u64)
@@ -1076,8 +1076,8 @@ impl<T: Config> Pallet<T> {
             let (child, parent) = pair?;
 
             // if we reached a different fork, we need to update it
-            if parent.chain_ref != child.chain_ref {
-                let mut new_fork = Self::get_block_chain_from_id(parent.chain_ref)?;
+            if parent.chain_id != child.chain_id {
+                let mut new_fork = Self::get_block_chain_from_id(parent.chain_id)?;
                 // update the start height of the parent's chain. There is guaranteed to be at least
                 // one block in this chain that is not becoming part of the new main chain, because
                 // if there were not, then the child would have been added directly to this chain,
@@ -1088,30 +1088,20 @@ impl<T: Config> Pallet<T> {
                     .ok_or(Error::<T>::ArithmeticOverflow)?;
                 // If we reached the main chain, we store the remaining forked old main chain where
                 // the longest chain used to be.
-                if parent.chain_ref == MAIN_CHAIN_ID {
+                if parent.chain_id == MAIN_CHAIN_ID {
                     new_fork.chain_id = fork.chain_id;
                 }
 
                 // update the storage
                 Self::mutate_block_chain_from_id(new_fork.chain_id, new_fork.clone());
-
-                // if we reached main chain, we need to move all blocks that are no longer to be
-                // in the mainchain to a normal fork
-                if parent.chain_ref == MAIN_CHAIN_ID {
-                    for height in new_fork.start_height..=new_fork.max_height {
-                        let block_hash = Self::get_block_hash(MAIN_CHAIN_ID, height)?;
-                        let block = Self::get_block_header_from_hash(block_hash)?;
-
-                        Self::transfer_block_to_chain(block, MAIN_CHAIN_ID, fork.chain_id)?;
-                    }
-                }
             }
 
-            // transfer the child block to the main chain
-            Self::transfer_block_to_chain(child, child.chain_ref, MAIN_CHAIN_ID)?;
+            // transfer the child block to the main chain, and if main already has a block at this
+            // height, transfer it to `fork`
+            Self::swap_block_to_mainchain(child, fork.chain_id)?;
 
             // main chain reached, stop iterating
-            if parent.chain_ref == MAIN_CHAIN_ID {
+            if parent.chain_id == MAIN_CHAIN_ID {
                 break;
             }
         }
@@ -1149,18 +1139,31 @@ impl<T: Config> Pallet<T> {
         Ok((new_best_block, fork.max_height))
     }
 
-    fn transfer_block_to_chain(
+    /// Transfers the given block to the main chain. If this would overwrite a block already in the
+    /// main chain, then the overwritten block is moved to to `chain_id_for_old_main_blocks`.
+    fn swap_block_to_mainchain(
         block: RichBlockHeader<T::BlockNumber>,
-        old_chain_id: u32,
-        new_fork_id: u32,
+        chain_id_for_old_main_blocks: u32,
     ) -> Result<(), DispatchError> {
         let block_height = block.block_height;
+
+        // store the hash we will overwrite, if it exists
+        let replaced_block_hash = ChainsHashes::<T>::try_get(MAIN_CHAIN_ID, block_height);
+
         // remove from old chain and insert into the new one
-        ChainsHashes::<T>::remove(old_chain_id, block_height);
-        ChainsHashes::<T>::insert(new_fork_id, block_height, block.block_header.hash);
+        ChainsHashes::<T>::remove(block.chain_id, block_height);
+        ChainsHashes::<T>::insert(MAIN_CHAIN_ID, block_height, block.block_header.hash);
 
         // update the chainref of the block
-        BlockHeaders::<T>::mutate(&block.block_header.hash, |header| header.chain_ref = new_fork_id);
+        BlockHeaders::<T>::mutate(&block.block_header.hash, |header| header.chain_id = MAIN_CHAIN_ID);
+
+        // if there was a block at block_height in the mainchain, we need to move it
+        if let Ok(replaced_block_hash) = replaced_block_hash {
+            ChainsHashes::<T>::insert(chain_id_for_old_main_blocks, block_height, replaced_block_hash);
+            BlockHeaders::<T>::mutate(&replaced_block_hash, |header| {
+                header.chain_id = chain_id_for_old_main_blocks
+            });
+        }
 
         Ok(())
     }
