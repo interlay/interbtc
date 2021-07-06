@@ -8,6 +8,12 @@
 mod mock;
 
 #[cfg(test)]
+extern crate mocktopus;
+
+#[cfg(test)]
+use mocktopus::macros::mockable;
+
+#[cfg(test)]
 mod tests;
 
 mod ext;
@@ -15,23 +21,18 @@ mod types;
 
 mod default_weights;
 
-use ext::vault_registry::{DefaultVault, SlashingError, TryDepositCollateral, TryWithdrawCollateral};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
     ensure, transactional,
     weights::Weight,
 };
 use frame_system::{ensure_root, ensure_signed};
-use reward::RewardPool;
 use sp_runtime::{
     traits::{CheckedAdd, CheckedDiv, CheckedSub, One, Zero},
     FixedPointNumber,
 };
 use sp_std::convert::TryInto;
-pub use types::Nominator;
-use types::{
-    BalanceOf, Collateral, DefaultNominator, RichNominator, SignedFixedPoint, SignedInner, UnsignedFixedPoint,
-};
+use types::{BalanceOf, Collateral, SignedFixedPoint, SignedInner, UnsignedFixedPoint};
 
 pub trait WeightInfo {
     fn set_nomination_enabled() -> Weight;
@@ -57,6 +58,7 @@ pub mod pallet {
         + security::Config
         + vault_registry::Config
         + fee::Config<UnsignedFixedPoint = UnsignedFixedPoint<Self>, UnsignedInner = BalanceOf<Self>>
+        + staking::Config<SignedFixedPoint = SignedFixedPoint<Self>, SignedInner = SignedInner<Self>>
     {
         /// The overarching event type.
         type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
@@ -76,9 +78,9 @@ pub mod pallet {
         NominationOptIn(T::AccountId),
         // [vault_id]
         NominationOptOut(T::AccountId),
-        // [nominator_id, vault_id, collateral]
+        // [vault_id, nominator_id, collateral]
         DepositCollateral(T::AccountId, T::AccountId, Collateral<T>),
-        // [nominator_id, vault_id, collateral]
+        // [vault_id, nominator_id, collateral]
         WithdrawCollateral(T::AccountId, T::AccountId, Collateral<T>),
     }
 
@@ -88,7 +90,6 @@ pub mod pallet {
         InsufficientFunds,
         ArithmeticOverflow,
         ArithmeticUnderflow,
-        NominatorNotFound,
         VaultAlreadyOptedInToNomination,
         VaultNotOptedInToNomination,
         VaultNotFound,
@@ -97,17 +98,6 @@ pub mod pallet {
         VaultNominationDisabled,
         DepositViolatesMaxNominationRatio,
         HasNominatedCollateral,
-    }
-
-    impl<T: Config> From<SlashingError> for Error<T> {
-        fn from(err: SlashingError) -> Self {
-            match err {
-                SlashingError::ArithmeticOverflow => Error::<T>::ArithmeticOverflow,
-                SlashingError::ArithmeticUnderflow => Error::<T>::ArithmeticUnderflow,
-                SlashingError::TryIntoIntError => Error::<T>::TryIntoIntError,
-                SlashingError::InsufficientFunds => Error::<T>::InsufficientCollateral,
-            }
-        }
     }
 
     #[pallet::hooks]
@@ -121,19 +111,6 @@ pub mod pallet {
     /// Map of Vaults who have enabled nomination
     #[pallet::storage]
     pub(super) type Vaults<T: Config> = StorageMap<_, Blake2_128Concat, T::AccountId, bool, ValueQuery>;
-
-    /// Map of Nominators
-    #[pallet::storage]
-    pub(super) type Nominators<T: Config> = StorageDoubleMap<
-        _,
-        // TODO: reverse storage order?
-        Blake2_128Concat,
-        T::AccountId, // nominator_id
-        Blake2_128Concat,
-        T::AccountId, // vault_id
-        Nominator<T::AccountId, Collateral<T>, SignedFixedPoint<T>>,
-        ValueQuery,
-    >;
 
     #[pallet::genesis_config]
     pub struct GenesisConfig {
@@ -196,9 +173,9 @@ pub mod pallet {
             vault_id: T::AccountId,
             amount: Collateral<T>,
         ) -> DispatchResultWithPostInfo {
-            let sender = ensure_signed(origin)?;
+            let nominator_id = ensure_signed(origin)?;
             ext::security::ensure_parachain_status_running::<T>()?;
-            Self::_deposit_collateral(sender, vault_id, amount)?;
+            Self::_deposit_collateral(vault_id, nominator_id, amount)?;
             Ok(().into())
         }
 
@@ -209,19 +186,20 @@ pub mod pallet {
             vault_id: T::AccountId,
             amount: Collateral<T>,
         ) -> DispatchResultWithPostInfo {
-            let sender = ensure_signed(origin)?;
+            let nominator_id = ensure_signed(origin)?;
             ext::security::ensure_parachain_status_running::<T>()?;
-            Self::_withdraw_collateral(sender, vault_id, amount)?;
+            Self::_withdraw_collateral(vault_id, nominator_id, amount)?;
             Ok(().into())
         }
     }
 }
 
 // "Internal" functions, callable by code.
+#[cfg_attr(test, mockable)]
 impl<T: Config> Pallet<T> {
     pub fn _withdraw_collateral(
-        nominator_id: T::AccountId,
         vault_id: T::AccountId,
+        nominator_id: T::AccountId,
         amount: Collateral<T>,
     ) -> DispatchResult {
         ensure!(Self::is_nomination_enabled(), Error::<T>::VaultNominationDisabled);
@@ -237,22 +215,19 @@ impl<T: Config> Pallet<T> {
             Error::<T>::InsufficientCollateral
         );
 
-        // Withdraw all vault rewards first, to prevent the nominator from withdrawing rewards from the past.
+        // Withdraw all vault rewards first, to prevent the nominator from withdrawing past rewards
         ext::fee::withdraw_all_vault_rewards::<T>(&vault_id)?;
-        // Withdraw `amount` of stake from vault reward pool
-        Self::withdraw_pool_stake::<<T as pallet::Config>::VaultRewards>(&nominator_id, &vault_id, amount)?;
-
-        let mut nominator: RichNominator<T> = Self::get_nominator(&nominator_id, &vault_id)?.into();
-        nominator.try_withdraw_collateral(amount)?;
+        // Withdraw `amount` of stake from the vault staking pool
+        ext::staking::withdraw_stake::<T>(&vault_id, &nominator_id, Self::collateral_to_fixed(amount)?)?;
         ext::collateral::unlock_and_transfer::<T>(&vault_id, &nominator_id, amount)?;
 
-        Self::deposit_event(Event::<T>::WithdrawCollateral(nominator_id, vault_id, amount));
+        Self::deposit_event(Event::<T>::WithdrawCollateral(vault_id, nominator_id, amount));
         Ok(())
     }
 
     pub fn _deposit_collateral(
-        nominator_id: T::AccountId,
         vault_id: T::AccountId,
+        nominator_id: T::AccountId,
         amount: Collateral<T>,
     ) -> DispatchResult {
         ensure!(Self::is_nomination_enabled(), Error::<T>::VaultNominationDisabled);
@@ -271,18 +246,13 @@ impl<T: Config> Pallet<T> {
             Error::<T>::DepositViolatesMaxNominationRatio
         );
 
-        // Withdraw all vault rewards first, to prevent the nominator from withdrawing rewards from the past.
+        // Withdraw all vault rewards first, to prevent the nominator from withdrawing past rewards
         ext::fee::withdraw_all_vault_rewards::<T>(&vault_id)?;
-        // Deposit `amount` of stake to vault reward pool
-        Self::deposit_pool_stake::<<T as pallet::Config>::VaultRewards>(&nominator_id, &vault_id, amount)?;
-
-        let mut nominator: RichNominator<T> = Self::register_or_get_nominator(&nominator_id, &vault_id)?.into();
-        nominator
-            .try_deposit_collateral(amount)
-            .map_err(|e| Error::<T>::from(e))?;
+        // Deposit `amount` of stake into the vault staking pool
+        ext::staking::deposit_stake::<T>(&vault_id, &nominator_id, Self::collateral_to_fixed(amount)?)?;
         ext::collateral::transfer_and_lock::<T>(&nominator_id, &vault_id, amount)?;
 
-        Self::deposit_event(Event::<T>::DepositCollateral(nominator_id, vault_id, amount));
+        Self::deposit_event(Event::<T>::DepositCollateral(vault_id, nominator_id, amount));
         Ok(())
     }
 
@@ -290,7 +260,7 @@ impl<T: Config> Pallet<T> {
     ///
     /// # Arguments
     /// * `vault_id` - the id of the vault to allow nomination for
-    pub fn _opt_in_to_nomination(vault_id: &T::AccountId) -> DispatchResult {
+    fn _opt_in_to_nomination(vault_id: &T::AccountId) -> DispatchResult {
         ensure!(Self::is_nomination_enabled(), Error::<T>::VaultNominationDisabled);
         ensure!(
             ext::vault_registry::vault_exists::<T>(&vault_id),
@@ -305,7 +275,7 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub fn _opt_out_of_nomination(vault_id: &T::AccountId) -> DispatchResult {
+    fn _opt_out_of_nomination(vault_id: &T::AccountId) -> DispatchResult {
         // TODO: force refund
         ensure!(
             Self::get_total_nominated_collateral(vault_id)?.is_zero(),
@@ -320,15 +290,10 @@ impl<T: Config> Pallet<T> {
         Ok(<Vaults<T>>::contains_key(&vault_id))
     }
 
-    pub fn is_nominator(nominator_id: &T::AccountId, vault_id: &T::AccountId) -> Result<bool, DispatchError> {
-        Ok(<Nominators<T>>::contains_key(&nominator_id, &vault_id))
-    }
-
     pub fn get_total_nominated_collateral(vault_id: &T::AccountId) -> Result<Collateral<T>, DispatchError> {
-        let vault: DefaultVault<T> = ext::vault_registry::get_vault_from_id::<T>(vault_id)?;
+        let vault_backing_collateral = ext::vault_registry::get_backing_collateral::<T>(vault_id)?;
         let vault_actual_collateral = ext::vault_registry::compute_collateral::<T>(vault_id)?;
-        Ok(vault
-            .backing_collateral
+        Ok(vault_backing_collateral
             .checked_sub(&vault_actual_collateral)
             .ok_or(Error::<T>::ArithmeticUnderflow)?)
     }
@@ -343,46 +308,15 @@ impl<T: Config> Pallet<T> {
             .ok_or(Error::<T>::ArithmeticUnderflow)?)
     }
 
-    pub fn get_nominator(
-        nominator_id: &T::AccountId,
-        vault_id: &T::AccountId,
-    ) -> Result<DefaultNominator<T>, DispatchError> {
-        ensure!(
-            Self::is_nominator(&nominator_id, &vault_id)?,
-            Error::<T>::NominatorNotFound
-        );
-        Ok(<Nominators<T>>::get(nominator_id, vault_id))
-    }
-
-    pub fn get_rich_nominator(
-        nominator_id: &T::AccountId,
-        vault_id: &T::AccountId,
-    ) -> Result<RichNominator<T>, DispatchError> {
-        Ok(Self::get_nominator(&nominator_id, &vault_id)?.into())
-    }
-
     pub fn get_nominator_collateral(
-        nominator_id: &T::AccountId,
         vault_id: &T::AccountId,
+        nominator_id: &T::AccountId,
     ) -> Result<Collateral<T>, DispatchError> {
-        let nominator = Self::get_rich_nominator(nominator_id, vault_id)?;
-        Ok(nominator.compute_collateral()?)
+        let collateral = ext::staking::compute_current_stake::<T>(vault_id, nominator_id)?;
+        collateral.try_into().map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
-    pub fn register_or_get_nominator(
-        nominator_id: &T::AccountId,
-        vault_id: &T::AccountId,
-    ) -> Result<DefaultNominator<T>, DispatchError> {
-        if !Self::is_nominator(&nominator_id, &vault_id)? {
-            let nominator = Nominator::new(nominator_id.clone(), vault_id.clone());
-            <Nominators<T>>::insert(nominator_id, vault_id, nominator.clone());
-            Ok(nominator)
-        } else {
-            Ok(<Nominators<T>>::get(&nominator_id, &vault_id))
-        }
-    }
-
-    pub fn get_max_nominatable_collateral(vault_collateral: Collateral<T>) -> Result<Collateral<T>, DispatchError> {
+    fn get_max_nominatable_collateral(vault_collateral: Collateral<T>) -> Result<Collateral<T>, DispatchError> {
         ext::fee::collateral_for::<T>(vault_collateral, Self::get_max_nomination_ratio()?)
     }
 
@@ -391,27 +325,5 @@ impl<T: Config> Pallet<T> {
         let signed_fixed_point =
             SignedFixedPoint::<T>::checked_from_integer(signed_inner).ok_or(Error::<T>::TryIntoIntError)?;
         Ok(signed_fixed_point)
-    }
-
-    fn withdraw_pool_stake<R: reward::Rewards<T::AccountId, SignedFixedPoint = SignedFixedPoint<T>>>(
-        account_id: &T::AccountId,
-        vault_id: &T::AccountId,
-        amount: Collateral<T>,
-    ) -> Result<(), DispatchError> {
-        let amount_fixed = Self::collateral_to_fixed(amount)?;
-        if amount_fixed > SignedFixedPoint::<T>::zero() {
-            R::withdraw_stake(RewardPool::Local(vault_id.clone()), account_id, amount_fixed)?;
-        }
-        Ok(())
-    }
-
-    fn deposit_pool_stake<R: reward::Rewards<T::AccountId, SignedFixedPoint = SignedFixedPoint<T>>>(
-        account_id: &T::AccountId,
-        vault_id: &T::AccountId,
-        amount: Collateral<T>,
-    ) -> Result<(), DispatchError> {
-        let amount_fixed = Self::collateral_to_fixed(amount)?;
-        R::deposit_stake(RewardPool::Local(vault_id.clone()), account_id, amount_fixed)?;
-        Ok(())
     }
 }

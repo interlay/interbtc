@@ -31,6 +31,7 @@ security = { path = "../security", default-features = false }
 currency = { path = "../currency", default-features = false }
 sla = { path = "../sla", default-features = false }
 reward = { path = "../reward", default-features = false }
+staking = { path = "../staking", default-features = false }
 
 [dev-dependencies]
 mocktopus = "0.7.0"
@@ -64,6 +65,7 @@ std = [
   "currency/std",
   "reward/std",
   "sla/std",
+  "staking/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",

@@ -29,6 +29,7 @@ fee = { path = "../fee", default-features = false }
 sla = { path = "../sla", default-features = false }
 exchange-rate-oracle = { path = "../exchange-rate-oracle", default-features = false }
 reward = { path = "../reward", default-features = false }
+staking = { path = "../staking", default-features = false }
 
 [dev-dependencies]
 mocktopus = "0.7.0"
@@ -63,6 +64,7 @@ std = [
   "sla/std",
   "reward/std",
   "exchange-rate-oracle/std",
+  "staking/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking",

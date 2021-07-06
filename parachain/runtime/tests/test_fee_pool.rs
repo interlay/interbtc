@@ -5,6 +5,7 @@ use mock::{
     reward_testing_utils::{BasicRewardPool, MAINTAINER_REWARDS, VAULT_REWARDS},
     *,
 };
+use staking::Staking;
 
 const VAULT_1: [u8; 32] = CAROL;
 const VAULT_2: [u8; 32] = DAVE;
@@ -53,35 +54,38 @@ macro_rules! assert_eq_modulo_rounding {
 }
 
 fn withdraw_vault_global_pool_rewards(account: [u8; 32]) -> i128 {
-    let amount = RewardVaultPallet::compute_reward(INTERBTC, &RewardPool::Global, &account_of(account)).unwrap();
-    assert_ok!(Call::Fee(FeeCall::withdraw_vault_rewards()).dispatch(origin_of(account_of(account))));
+    let amount = VaultRewardsPallet::compute_reward(INTERBTC, &account_of(account)).unwrap();
+    assert_ok!(Call::Fee(FeeCall::withdraw_rewards(account_of(account))).dispatch(origin_of(account_of(account))));
     amount
 }
 
 fn withdraw_local_pool_rewards(pool_id: [u8; 32], account: [u8; 32]) -> i128 {
-    let amount =
-        RewardVaultPallet::compute_reward(INTERBTC, &RewardPool::Local(account_of(pool_id)), &account_of(account))
-            .unwrap();
-    assert_ok!(Call::Fee(FeeCall::withdraw_vault_rewards()).dispatch(origin_of(account_of(account))));
+    let amount = staking::StakingCurrencyAdapter::<Runtime, GetWrappedCurrencyId>::compute_reward(
+        &account_of(pool_id),
+        &account_of(account),
+    )
+    .unwrap();
+    assert_ok!(Call::Fee(FeeCall::withdraw_rewards(account_of(pool_id))).dispatch(origin_of(account_of(account))));
     amount
 }
 
 fn get_vault_global_pool_rewards(account: [u8; 32]) -> i128 {
-    RewardVaultPallet::compute_reward(INTERBTC, &RewardPool::Global, &account_of(account)).unwrap()
+    VaultRewardsPallet::compute_reward(INTERBTC, &account_of(account)).unwrap()
 }
 
 fn get_local_pool_rewards(pool_id: [u8; 32], account: [u8; 32]) -> i128 {
-    RewardVaultPallet::compute_reward(INTERBTC, &RewardPool::Local(account_of(pool_id)), &account_of(account)).unwrap()
+    staking::StakingCurrencyAdapter::<Runtime, GetWrappedCurrencyId>::compute_reward(
+        &account_of(pool_id),
+        &account_of(account),
+    )
+    .unwrap()
 }
 
 fn distribute_global_pool(pool_id: [u8; 32]) {
-    FeePallet::distribute_global_pool::<reward::RewardsCurrencyAdapter<Runtime, (), GetCollateralCurrencyId>>(
-        &account_of(pool_id),
-    )
-    .unwrap();
-    FeePallet::distribute_global_pool::<reward::RewardsCurrencyAdapter<Runtime, (), GetWrappedCurrencyId>>(
-        &account_of(pool_id),
-    )
+    FeePallet::distribute_from_reward_pool::<
+        reward::RewardsCurrencyAdapter<Runtime, (), GetWrappedCurrencyId>,
+        staking::StakingCurrencyAdapter<Runtime, GetWrappedCurrencyId>,
+    >(&account_of(pool_id))
     .unwrap();
 }
 
@@ -93,9 +97,8 @@ fn get_vault_sla(account: [u8; 32]) -> i128 {
 }
 
 fn get_vault_collateral(account: [u8; 32]) -> i128 {
-    VaultRegistryPallet::get_vault_from_id(&account_of(account))
+    VaultRegistryPallet::compute_collateral(&account_of(account))
         .unwrap()
-        .collateral
         .try_into()
         .unwrap()
 }
@@ -158,11 +161,14 @@ fn test_new_nomination_withdraws_global_reward() {
             get_vault_global_pool_rewards(VAULT_1),
             reward_pool.compute_reward(VAULT_1) as i128,
         );
-        assert_nominate_collateral(USER, VAULT_1, DEFAULT_NOMINATION);
+        assert_nominate_collateral(VAULT_1, USER, DEFAULT_NOMINATION);
 
         // Vault rewards are withdrawn when a new nominator joins
-        assert_eq_modulo_rounding!(get_vault_global_pool_rewards(VAULT_1), 0 as i128,);
-        assert_eq_modulo_rounding!(get_local_pool_rewards(VAULT_1, VAULT_1), 0 as i128,);
+        assert_eq_modulo_rounding!(get_vault_global_pool_rewards(VAULT_1), 0 as i128);
+        assert_eq_modulo_rounding!(
+            get_local_pool_rewards(VAULT_1, VAULT_1),
+            reward_pool.compute_reward(VAULT_1) as i128
+        );
     });
 }
 
@@ -175,14 +181,20 @@ fn test_fee_nomination() {
 
         issue_with_relayer_and_vault(ISSUE_RELAYER, VAULT_1, 10000);
 
+        let vault_sla_1 = get_vault_sla(VAULT_1);
+        let relayer_sla_1 = get_vault_sla(ISSUE_RELAYER);
+
         assert_nomination_opt_in(VAULT_1);
-        assert_nominate_collateral(USER, VAULT_1, DEFAULT_NOMINATION);
+        assert_nominate_collateral(VAULT_1, USER, DEFAULT_NOMINATION);
         issue_with_relayer_and_vault(ISSUE_RELAYER, VAULT_1, 100000);
+
+        let vault_sla_2 = get_vault_sla(VAULT_1);
+        let relayer_sla_2 = get_vault_sla(ISSUE_RELAYER);
 
         let mut global_reward_pool = BasicRewardPool::default();
         global_reward_pool
-            .deposit_stake(VAULT_1, get_vault_sla(VAULT_1) as f64)
-            .deposit_stake(ISSUE_RELAYER, get_vault_sla(ISSUE_RELAYER) as f64)
+            .deposit_stake(VAULT_1, vault_sla_1 as f64)
+            .deposit_stake(ISSUE_RELAYER, relayer_sla_1 as f64)
             .distribute((100000.0 * ISSUE_FEE) * VAULT_REWARDS);
 
         let mut local_reward_pool = BasicRewardPool::default();
@@ -191,14 +203,20 @@ fn test_fee_nomination() {
             .deposit_stake(USER, DEFAULT_NOMINATION as f64)
             .distribute(global_reward_pool.compute_reward(VAULT_1));
 
+        global_reward_pool
+            .withdraw_reward(VAULT_1)
+            .deposit_stake(VAULT_1, (vault_sla_2 - vault_sla_1) as f64)
+            .deposit_stake(ISSUE_RELAYER, (relayer_sla_2 - relayer_sla_1) as f64)
+            .distribute((100000.0 * ISSUE_FEE) * VAULT_REWARDS);
+
         assert_eq_modulo_rounding!(
             get_vault_global_pool_rewards(VAULT_1),
-            local_reward_pool.compute_reward(VAULT_1) as i128 + local_reward_pool.compute_reward(USER) as i128,
+            global_reward_pool.compute_reward(VAULT_1) as i128,
         );
 
         distribute_global_pool(VAULT_1);
 
-        assert_eq_modulo_rounding!(get_vault_global_pool_rewards(VAULT_1), 0 as i128,);
+        assert_eq_modulo_rounding!(get_vault_global_pool_rewards(VAULT_1), 0 as i128);
 
         assert_eq_modulo_rounding!(
             withdraw_local_pool_rewards(VAULT_1, VAULT_1),
@@ -222,7 +240,7 @@ fn test_fee_nomination_slashing() {
         issue_with_relayer_and_vault(ISSUE_RELAYER, VAULT_1, 10000);
 
         assert_nomination_opt_in(VAULT_1);
-        assert_nominate_collateral(USER, VAULT_1, DEFAULT_NOMINATION);
+        assert_nominate_collateral(VAULT_1, USER, DEFAULT_NOMINATION);
 
         // Slash the vault and its nominator
         VaultRegistryPallet::transfer_funds(
@@ -275,7 +293,7 @@ fn test_fee_nomination_withdrawal() {
         issue_with_relayer_and_vault(ISSUE_RELAYER, VAULT_1, 10000);
 
         assert_nomination_opt_in(VAULT_1);
-        assert_nominate_collateral(USER, VAULT_1, DEFAULT_NOMINATION);
+        assert_nominate_collateral(VAULT_1, USER, DEFAULT_NOMINATION);
         issue_with_relayer_and_vault(ISSUE_RELAYER, VAULT_1, 50000);
         assert_withdraw_nominator_collateral(USER, VAULT_1, DEFAULT_NOMINATION / 2);
         issue_with_relayer_and_vault(ISSUE_RELAYER, VAULT_1, 50000);
@@ -356,7 +374,7 @@ fn integration_test_fee_with_parachain_shutdown_fails() {
         SecurityPallet::set_status(StatusCode::Shutdown);
 
         assert_noop!(
-            Call::Fee(FeeCall::withdraw_vault_rewards()).dispatch(origin_of(account_of(ALICE))),
+            Call::Fee(FeeCall::withdraw_rewards(account_of(ALICE))).dispatch(origin_of(account_of(ALICE))),
             SecurityError::ParachainShutdown
         );
     })

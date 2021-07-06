@@ -595,6 +595,7 @@ fn liquidate_at_most_secure_threshold() {
         ));
 
         let vault_orig = <crate::Vaults<Test>>::get(&vault_id);
+        let backing_collateral_orig = VaultRegistry::get_backing_collateral(&vault_id).unwrap();
 
         // set exchange rate
         ext::oracle::wrapped_to_collateral::<Test>.mock_safe(|v| MockResult::Return(Ok(v * 10)));
@@ -619,7 +620,7 @@ fn liquidate_at_most_secure_threshold() {
             vault_orig.to_be_issued_tokens,
             vault_orig.to_be_redeemed_tokens,
             vault_orig.to_be_replaced_tokens,
-            vault_orig.backing_collateral,
+            backing_collateral_orig,
             VaultStatus::Liquidated,
             vault_orig.replace_collateral,
         ));
@@ -839,9 +840,11 @@ fn deposit_collateral_parachain_not_running_fails() {
 }
 
 mod liquidation_threshold_tests {
+    use crate::mock::{AccountId, Balance, BlockNumber};
+
     use super::*;
 
-    fn setup() -> Vault<u64, u64, u128, u128, <Test as crate::Config>::SignedFixedPoint> {
+    fn setup() -> Vault<AccountId, BlockNumber, Balance, Balance> {
         let id = create_sample_vault();
 
         assert_ok!(VaultRegistry::try_increase_to_be_issued_tokens(&id, 50),);
@@ -861,8 +864,9 @@ mod liquidation_threshold_tests {
     #[test]
     fn is_vault_below_liquidation_threshold_false_succeeds() {
         run_test(|| {
-            let mut vault = setup();
-            vault.backing_collateral = vault.issued_tokens * 2;
+            let vault = setup();
+            let backing_collateral = vault.issued_tokens * 2;
+            VaultRegistry::get_backing_collateral.mock_safe(move |_| MockResult::Return(Ok(backing_collateral)));
             assert_eq!(
                 VaultRegistry::is_vault_below_liquidation_threshold(&vault, FixedU128::from(2)),
                 Ok(false)
@@ -873,8 +877,9 @@ mod liquidation_threshold_tests {
     #[test]
     fn is_vault_below_liquidation_threshold_true_succeeds() {
         run_test(|| {
-            let mut vault = setup();
-            vault.backing_collateral = vault.issued_tokens * 2 - 1;
+            let vault = setup();
+            let backing_collateral = vault.issued_tokens * 2 - 1;
+            VaultRegistry::get_backing_collateral.mock_safe(move |_| MockResult::Return(Ok(backing_collateral)));
             assert_eq!(
                 VaultRegistry::is_vault_below_liquidation_threshold(&vault, FixedU128::from(2)),
                 Ok(true)

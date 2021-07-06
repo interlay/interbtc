@@ -37,16 +37,10 @@ pub(crate) mod collateral {
 pub(crate) mod vault_registry {
     use crate::{types::UnsignedFixedPoint, Collateral};
     pub use frame_support::dispatch::{DispatchError, DispatchResult};
-    pub use vault_registry::{
-        DefaultVault, Slashable, SlashingError, TryDepositCollateral, TryWithdrawCollateral, VaultStatus,
-    };
+    pub use vault_registry::{DefaultVault, VaultStatus};
 
     pub fn get_backing_collateral<T: crate::Config>(vault_id: &T::AccountId) -> Result<Collateral<T>, DispatchError> {
         <vault_registry::Pallet<T>>::get_backing_collateral(vault_id)
-    }
-
-    pub fn get_vault_from_id<T: crate::Config>(vault_id: &T::AccountId) -> Result<DefaultVault<T>, DispatchError> {
-        <vault_registry::Pallet<T>>::get_vault_from_id(vault_id)
     }
 
     pub fn vault_exists<T: crate::Config>(id: &T::AccountId) -> bool {
@@ -61,19 +55,15 @@ pub(crate) mod vault_registry {
         <vault_registry::Pallet<T>>::premium_redeem_threshold()
     }
 
-    pub fn insert_vault<T: crate::Config>(id: &T::AccountId, vault: DefaultVault<T>) {
-        <vault_registry::Pallet<T>>::insert_vault(id, vault)
-    }
-
-    pub fn compute_collateral<T: crate::Config>(id: &T::AccountId) -> Result<Collateral<T>, DispatchError> {
-        <vault_registry::Pallet<T>>::compute_collateral(id)
+    pub fn compute_collateral<T: crate::Config>(vault_id: &T::AccountId) -> Result<Collateral<T>, DispatchError> {
+        <vault_registry::Pallet<T>>::compute_collateral(vault_id)
     }
 
     pub fn is_allowed_to_withdraw_collateral<T: crate::Config>(
-        id: &T::AccountId,
+        vault_id: &T::AccountId,
         amount: Collateral<T>,
     ) -> Result<bool, DispatchError> {
-        <vault_registry::Pallet<T>>::is_allowed_to_withdraw_collateral(id, amount)
+        <vault_registry::Pallet<T>>::is_allowed_to_withdraw_collateral(vault_id, amount)
     }
 }
 
@@ -91,5 +81,34 @@ pub(crate) mod fee {
 
     pub fn withdraw_all_vault_rewards<T: fee::Config>(account_id: &T::AccountId) -> DispatchResult {
         <fee::Pallet<T>>::withdraw_all_vault_rewards(account_id)
+    }
+}
+
+#[cfg_attr(test, mockable)]
+pub(crate) mod staking {
+    use crate::types::{SignedFixedPoint, SignedInner};
+    use frame_support::{dispatch::DispatchError, traits::Get};
+
+    pub fn deposit_stake<T: crate::Config>(
+        vault_id: &T::AccountId,
+        nominator_id: &T::AccountId,
+        amount: SignedFixedPoint<T>,
+    ) -> Result<(), DispatchError> {
+        <staking::Pallet<T>>::deposit_stake(T::GetRewardsCurrencyId::get(), vault_id, nominator_id, amount)
+    }
+
+    pub fn withdraw_stake<T: crate::Config>(
+        vault_id: &T::AccountId,
+        nominator_id: &T::AccountId,
+        amount: SignedFixedPoint<T>,
+    ) -> Result<(), DispatchError> {
+        <staking::Pallet<T>>::withdraw_stake(T::GetRewardsCurrencyId::get(), vault_id, nominator_id, amount)
+    }
+
+    pub fn compute_current_stake<T: crate::Config>(
+        vault_id: &T::AccountId,
+        nominator_id: &T::AccountId,
+    ) -> Result<SignedInner<T>, DispatchError> {
+        <staking::Pallet<T>>::compute_current_stake(T::GetRewardsCurrencyId::get(), vault_id, nominator_id)
     }
 }

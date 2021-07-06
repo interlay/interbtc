@@ -37,6 +37,7 @@ frame_support::construct_runtime!(
         VaultRegistry: vault_registry::{Pallet, Call, Config<T>, Storage, Event<T>, ValidateUnsigned},
         ExchangeRateOracle: exchange_rate_oracle::{Pallet, Call, Config<T>, Storage, Event<T>},
         Sla: sla::{Pallet, Call, Config<T>, Storage, Event<T>},
+        Staking: staking::{Pallet, Storage, Event<T>},
     }
 );
 
@@ -156,6 +157,7 @@ impl Config for Test {
     type VaultRewards = reward::RewardsCurrencyAdapter<Test, (), GetWrappedCurrencyId>;
     type Collateral = CurrencyAdapter<Test, GetCollateralCurrencyId>;
     type Wrapped = CurrencyAdapter<Test, GetWrappedCurrencyId>;
+    type GetRewardsCurrencyId = GetWrappedCurrencyId;
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Test
@@ -176,6 +178,13 @@ impl sla::Config for Test {
     type SignedInner = SignedInner;
     type Balance = Balance;
     type VaultRewards = reward::RewardsCurrencyAdapter<Test, (), GetWrappedCurrencyId>;
+}
+
+impl staking::Config for Test {
+    type Event = TestEvent;
+    type SignedFixedPoint = SignedFixedPoint;
+    type SignedInner = SignedInner;
+    type CurrencyId = CurrencyId;
 }
 
 pub type TestEvent = Event;

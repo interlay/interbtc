@@ -142,3 +142,17 @@ fn should_force_refund() {
         );
     })
 }
+
+#[test]
+fn should_slash_and_unslash_stake() {
+    run_test(|| {
+        assert_ok!(Staking::deposit_stake(DOT, &VAULT, &ALICE, fixed!(100)));
+        assert_ok!(Staking::deposit_stake(DOT, &VAULT, &BOB, fixed!(100)));
+        assert_ok!(Staking::slash_stake(DOT, &VAULT, fixed!(50)));
+        assert_ok!(Staking::compute_current_stake(DOT, &VAULT, &ALICE), 75);
+        assert_ok!(Staking::compute_current_stake(DOT, &VAULT, &BOB), 75);
+        assert_ok!(Staking::unslash_stake(DOT, &VAULT, fixed!(50)));
+        assert_ok!(Staking::compute_current_stake(DOT, &VAULT, &ALICE), 100);
+        assert_ok!(Staking::compute_current_stake(DOT, &VAULT, &BOB), 100);
+    })
+}

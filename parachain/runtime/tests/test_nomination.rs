@@ -75,8 +75,8 @@ fn integration_test_cannot_nominate_if_not_opted_in() {
 #[test]
 fn integration_test_can_nominate_if_opted_in() {
     test_with_nomination_enabled_and_vault_opted_in(|| {
-        assert_nominate_collateral(USER, VAULT, DEFAULT_NOMINATION);
-        let nominator_collateral = get_nominator_collateral(USER, VAULT);
+        assert_nominate_collateral(VAULT, USER, DEFAULT_NOMINATION);
+        let nominator_collateral = get_nominator_collateral(VAULT, USER);
         assert_eq!(nominator_collateral, DEFAULT_NOMINATION);
         assert_total_nominated_collateral_is(VAULT, DEFAULT_NOMINATION);
     });
@@ -85,7 +85,7 @@ fn integration_test_can_nominate_if_opted_in() {
 #[test]
 fn integration_test_vaults_cannot_withdraw_nominated_collateral() {
     test_with_nomination_enabled_and_vault_opted_in(|| {
-        assert_nominate_collateral(USER, VAULT, DEFAULT_NOMINATION);
+        assert_nominate_collateral(VAULT, USER, DEFAULT_NOMINATION);
         assert_noop!(
             withdraw_vault_collateral(VAULT, DEFAULT_BACKING_COLLATERAL + 1),
             NominationError::InsufficientCollateral
@@ -97,7 +97,7 @@ fn integration_test_vaults_cannot_withdraw_nominated_collateral() {
 fn integration_test_nominated_collateral_cannot_exceed_max_nomination_ratio() {
     test_with_nomination_enabled_and_vault_opted_in(|| {
         assert_noop!(
-            nominate_collateral(USER, VAULT, DEFAULT_BACKING_COLLATERAL),
+            nominate_collateral(VAULT, USER, DEFAULT_BACKING_COLLATERAL),
             NominationError::DepositViolatesMaxNominationRatio
         );
     });
@@ -106,7 +106,7 @@ fn integration_test_nominated_collateral_cannot_exceed_max_nomination_ratio() {
 #[test]
 fn integration_test_nominated_collateral_prevents_replace_requests() {
     test_with_nomination_enabled_and_vault_opted_in(|| {
-        assert_nominate_collateral(USER, VAULT, DEFAULT_NOMINATION);
+        assert_nominate_collateral(VAULT, USER, DEFAULT_NOMINATION);
         assert_noop!(
             Call::Replace(ReplaceCall::request_replace(0, DEFAULT_BACKING_COLLATERAL))
                 .dispatch(origin_of(account_of(VAULT))),
@@ -134,7 +134,7 @@ fn integration_test_nomination_increases_issuable_tokens() {
         let issuance_capacity_before_nomination =
             VaultRegistryPallet::get_issuable_tokens_from_vault(account_of(VAULT)).unwrap();
         assert_eq!(issuance_capacity_before_nomination, 556666);
-        assert_nominate_collateral(USER, VAULT, DEFAULT_NOMINATION);
+        assert_nominate_collateral(VAULT, USER, DEFAULT_NOMINATION);
         let issuance_capacity_after_nomination =
             VaultRegistryPallet::get_issuable_tokens_from_vault(account_of(VAULT)).unwrap();
         assert_eq!(issuance_capacity_after_nomination, 570000);
@@ -144,7 +144,7 @@ fn integration_test_nomination_increases_issuable_tokens() {
 #[test]
 fn integration_test_nominator_withdrawal_request_reduces_issuable_tokens() {
     test_with_nomination_enabled_and_vault_opted_in(|| {
-        assert_nominate_collateral(USER, VAULT, DEFAULT_NOMINATION);
+        assert_nominate_collateral(VAULT, USER, DEFAULT_NOMINATION);
         let issuance_capacity_before_withdrawal_request =
             VaultRegistryPallet::get_issuable_tokens_from_vault(account_of(VAULT)).unwrap();
         assert_ok!(withdraw_nominator_collateral(USER, VAULT, DEFAULT_NOMINATION));
@@ -162,7 +162,7 @@ fn integration_test_nominator_withdrawal_below_collateralization_threshold_fails
             Call::VaultRegistry(VaultRegistryCall::withdraw_collateral(750000)).dispatch(origin_of(account_of(VAULT)))
         );
         assert_nomination_opt_in(VAULT);
-        assert_nominate_collateral(USER, VAULT, DEFAULT_NOMINATION);
+        assert_nominate_collateral(VAULT, USER, DEFAULT_NOMINATION);
         assert_ok!(ExchangeRateOraclePallet::_set_exchange_rate(
             FixedU128::checked_from_integer(3).unwrap()
         ));

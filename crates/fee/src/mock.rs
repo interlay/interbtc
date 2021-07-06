@@ -29,10 +29,11 @@ frame_support::construct_runtime!(
         Tokens: orml_tokens::{Pallet, Storage, Config<T>, Event<T>},
 
         Rewards: reward::{Pallet, Call, Storage, Event<T>},
+        Staking: staking::{Pallet, Storage, Event<T>},
 
         // Operational
         Security: security::{Pallet, Call, Storage, Event<T>},
-        Fee: fee::{Pallet, Call, Config<T>, Storage, Event<T>},
+        Fee: fee::{Pallet, Call, Config<T>, Storage},
     }
 );
 
@@ -117,6 +118,13 @@ impl reward::Config for Test {
     type CurrencyId = CurrencyId;
 }
 
+impl staking::Config for Test {
+    type Event = TestEvent;
+    type SignedFixedPoint = SignedFixedPoint;
+    type SignedInner = SignedInner;
+    type CurrencyId = CurrencyId;
+}
+
 parameter_types! {
     pub const MinimumPeriod: Moment = 5;
 }
@@ -138,13 +146,13 @@ parameter_types! {
 
 impl Config for Test {
     type PalletId = FeePalletId;
-    type Event = TestEvent;
     type WeightInfo = ();
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type UnsignedInner = UnsignedInner;
     type VaultRewards = reward::RewardsCurrencyAdapter<Test, (), GetWrappedCurrencyId>;
+    type VaultStaking = staking::StakingCurrencyAdapter<Test, GetWrappedCurrencyId>;
     type Collateral = CurrencyAdapter<Test, GetCollateralCurrencyId>;
     type Wrapped = CurrencyAdapter<Test, GetWrappedCurrencyId>;
 }

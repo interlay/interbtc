@@ -38,6 +38,7 @@ frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch =
 pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.5", default-features = false }
 
 reward = { path = "../reward", default-features = false }
+staking = { path = "../staking", default-features = false }
 
 # Orml dependencies
 orml-tokens = { git = "https://github.com/open-web3-stack/open-runtime-module-library", rev = "bb6ad7a", default-features = false }
