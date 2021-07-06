@@ -40,13 +40,13 @@ fn get_chain_position_from_chain_id_succeeds() {
 #[test]
 fn get_block_header_from_hash_succeeds() {
     run_test(|| {
-        let chain_ref: u32 = 2;
+        let chain_id: u32 = 2;
         let block_height: u32 = 100;
 
         let rich_header = RichBlockHeader::<BlockNumber> {
             block_header: sample_block_header(),
             block_height,
-            chain_ref,
+            chain_id,
             para_height: Default::default(),
         };
 
@@ -74,15 +74,15 @@ fn get_block_header_from_hash_fails() {
 #[test]
 fn next_best_fork_chain_succeeds() {
     run_test(|| {
-        let chain_ref: u32 = 1;
+        let chain_id: u32 = 1;
         let start_height: u32 = 10;
         let block_height: u32 = 100;
 
-        let blockchain = get_empty_block_chain_from_chain_id_and_height(chain_ref, start_height, block_height);
+        let blockchain = get_empty_block_chain_from_chain_id_and_height(chain_id, start_height, block_height);
 
-        BTCRelay::set_block_chain_from_id(chain_ref, &blockchain);
+        BTCRelay::set_block_chain_from_id(chain_id, &blockchain);
 
-        let curr_blockchain = BTCRelay::get_block_chain_from_id(chain_ref).unwrap();
+        let curr_blockchain = BTCRelay::get_block_chain_from_id(chain_id).unwrap();
 
         assert_eq!(curr_blockchain, blockchain);
     })
@@ -134,7 +134,7 @@ fn store_block_header_on_mainchain_succeeds() {
         BTCRelay::verify_block_header.mock_safe(|_, _, _| MockResult::Return(Ok(())));
         BTCRelay::block_header_exists.mock_safe(|_| MockResult::Return(true));
 
-        let chain_ref: u32 = 0;
+        let chain_id: u32 = 0;
         let start_height: u32 = 0;
         let block_height: u32 = 100;
         let block_header = sample_block_header();
@@ -142,12 +142,12 @@ fn store_block_header_on_mainchain_succeeds() {
         let rich_header = RichBlockHeader::<BlockNumber> {
             block_header,
             block_height,
-            chain_ref,
+            chain_id,
             para_height: Default::default(),
         };
         BTCRelay::get_block_header_from_hash.mock_safe(move |_| MockResult::Return(Ok(rich_header)));
 
-        let prev_blockchain = get_empty_block_chain_from_chain_id_and_height(chain_ref, start_height, block_height);
+        let prev_blockchain = get_empty_block_chain_from_chain_id_and_height(chain_id, start_height, block_height);
         BTCRelay::get_block_chain_from_id.mock_safe(move |_: u32| MockResult::Return(Ok(prev_blockchain.clone())));
 
         let block_header_hash = block_header.hash;
@@ -164,7 +164,7 @@ fn store_block_header_on_fork_succeeds() {
         BTCRelay::verify_block_header.mock_safe(|_, _, _| MockResult::Return(Ok(())));
         BTCRelay::block_header_exists.mock_safe(|_| MockResult::Return(true));
 
-        let chain_ref: u32 = 1;
+        let chain_id: u32 = 1;
         let start_height: u32 = 20;
         let block_height: u32 = 100;
         let block_header = sample_block_header();
@@ -172,12 +172,12 @@ fn store_block_header_on_fork_succeeds() {
         let rich_header = RichBlockHeader::<BlockNumber> {
             block_header,
             block_height: block_height - 1,
-            chain_ref,
+            chain_id,
             para_height: Default::default(),
         };
         BTCRelay::get_block_header_from_hash.mock_safe(move |_| MockResult::Return(Ok(rich_header)));
 
-        let prev_blockchain = get_empty_block_chain_from_chain_id_and_height(chain_ref, start_height, block_height);
+        let prev_blockchain = get_empty_block_chain_from_chain_id_and_height(chain_id, start_height, block_height);
         BTCRelay::get_block_chain_from_id.mock_safe(move |_: u32| MockResult::Return(Ok(prev_blockchain.clone())));
 
         let block_header_hash = block_header.hash;
@@ -188,7 +188,7 @@ fn store_block_header_on_fork_succeeds() {
         assert_ok!(BTCRelay::store_block_header(&3, block_header));
 
         let store_fork_event =
-            TestEvent::BTCRelay(Event::StoreForkHeader(chain_ref, block_height, block_header_hash, 3));
+            TestEvent::BTCRelay(Event::StoreForkHeader(chain_id, block_height, block_header_hash, 3));
         assert!(System::events().iter().any(|a| a.event == store_fork_event));
     })
 }
@@ -259,7 +259,7 @@ mod store_block_header_tests {
 
         // the ``chainRef`` stored inside blocks MUST agree with the actual chain they are stored on
         for (chain_idx, _, hash) in crate::ChainsHashes::<Test>::iter() {
-            assert_eq!(crate::BlockHeaders::<Test>::get(hash).chain_ref, chain_idx);
+            assert_eq!(crate::BlockHeaders::<Test>::get(hash).chain_id, chain_idx);
         }
 
         // sanity check: BlockHeaders is indexed by richblock.block_header.hash
@@ -545,11 +545,11 @@ fn store_block_header_no_prev_block_fails() {
 #[test]
 fn check_and_do_reorg_fork_id_not_found() {
     run_test(|| {
-        let chain_ref: u32 = 99;
+        let chain_id: u32 = 99;
         let start_height: u32 = 3;
         let block_height: u32 = 10;
 
-        let blockchain = get_empty_block_chain_from_chain_id_and_height(chain_ref, start_height, block_height);
+        let blockchain = get_empty_block_chain_from_chain_id_and_height(chain_id, start_height, block_height);
 
         assert_err!(BTCRelay::reorganize_chains(&blockchain), TestError::ForkIdNotFound);
     })
@@ -559,44 +559,44 @@ fn check_and_do_reorg_fork_id_not_found() {
 fn check_and_do_reorg_swap_fork_position() {
     run_test(|| {
         // insert the main chain in Chains and ChainsIndex
-        let main_chain_ref: u32 = 0;
+        let main_chain_id: u32 = 0;
         let main_start_height: u32 = 3;
         let main_block_height: u32 = 110;
         let main_position: u32 = 0;
-        let main = get_empty_block_chain_from_chain_id_and_height(main_chain_ref, main_start_height, main_block_height);
-        BTCRelay::set_chain_from_position_and_id(main_position, main_chain_ref);
-        BTCRelay::set_block_chain_from_id(main_chain_ref, &main);
+        let main = get_empty_block_chain_from_chain_id_and_height(main_chain_id, main_start_height, main_block_height);
+        BTCRelay::set_chain_from_position_and_id(main_position, main_chain_id);
+        BTCRelay::set_block_chain_from_id(main_chain_id, &main);
 
         // insert the fork chain in Chains and ChainsIndex
-        let fork_chain_ref: u32 = 4;
+        let fork_chain_id: u32 = 4;
         let fork_start_height: u32 = 20;
         let fork_block_height: u32 = 100;
         let fork_position: u32 = 2;
-        let fork = get_empty_block_chain_from_chain_id_and_height(fork_chain_ref, fork_start_height, fork_block_height);
-        BTCRelay::set_chain_from_position_and_id(fork_position, fork_chain_ref);
-        BTCRelay::set_block_chain_from_id(fork_chain_ref, &fork);
+        let fork = get_empty_block_chain_from_chain_id_and_height(fork_chain_id, fork_start_height, fork_block_height);
+        BTCRelay::set_chain_from_position_and_id(fork_position, fork_chain_id);
+        BTCRelay::set_block_chain_from_id(fork_chain_id, &fork);
 
         // insert the swap chain in Chains and ChainsIndex
-        let swap_chain_ref: u32 = 3;
+        let swap_chain_id: u32 = 3;
         let swap_start_height: u32 = 43;
         let swap_block_height: u32 = 99;
         let swap_position: u32 = 1;
-        let swap = get_empty_block_chain_from_chain_id_and_height(swap_chain_ref, swap_start_height, swap_block_height);
-        BTCRelay::set_chain_from_position_and_id(swap_position, swap_chain_ref);
-        BTCRelay::set_block_chain_from_id(swap_chain_ref, &swap);
+        let swap = get_empty_block_chain_from_chain_id_and_height(swap_chain_id, swap_start_height, swap_block_height);
+        BTCRelay::set_chain_from_position_and_id(swap_position, swap_chain_id);
+        BTCRelay::set_block_chain_from_id(swap_chain_id, &swap);
 
         // check that fork is at its initial position
-        let current_position = BTCRelay::get_chain_position_from_chain_id(fork_chain_ref).unwrap();
+        let current_position = BTCRelay::get_chain_position_from_chain_id(fork_chain_id).unwrap();
 
         assert_eq!(current_position, fork_position);
 
         assert_ok!(BTCRelay::reorganize_chains(&fork));
         // assert that positions have been swapped
-        let new_position = BTCRelay::get_chain_position_from_chain_id(fork_chain_ref).unwrap();
+        let new_position = BTCRelay::get_chain_position_from_chain_id(fork_chain_id).unwrap();
         assert_eq!(new_position, swap_position);
 
         // assert the main chain has not changed
-        let curr_main_chain = BTCRelay::get_block_chain_from_id(main_chain_ref);
+        let curr_main_chain = BTCRelay::get_block_chain_from_id(main_chain_id);
         assert_eq!(curr_main_chain, Ok(main));
     })
 }
@@ -605,21 +605,21 @@ fn check_and_do_reorg_swap_fork_position() {
 fn check_and_do_reorg_new_fork_is_main_chain() {
     run_test(|| {
         // insert the main chain in Chains and ChainsIndex
-        let main_chain_ref: u32 = 0;
+        let main_chain_id: u32 = 0;
         let main_start_height: u32 = 4;
         let main_block_height: u32 = 110;
         let main_position: u32 = 0;
-        let main = get_empty_block_chain_from_chain_id_and_height(main_chain_ref, main_start_height, main_block_height);
-        BTCRelay::set_chain_from_position_and_id(main_position, main_chain_ref);
-        BTCRelay::set_block_chain_from_id(main_chain_ref, &main);
+        let main = get_empty_block_chain_from_chain_id_and_height(main_chain_id, main_start_height, main_block_height);
+        BTCRelay::set_chain_from_position_and_id(main_position, main_chain_id);
+        BTCRelay::set_block_chain_from_id(main_chain_id, &main);
 
         // insert the fork chain in Chains and ChainsIndex
-        let fork_chain_ref: u32 = 4;
+        let fork_chain_id: u32 = 4;
         let fork_block_height: u32 = 117;
         let fork_position: u32 = 1;
-        let fork = get_empty_block_chain_from_chain_id_and_height(fork_chain_ref, main_start_height, fork_block_height);
-        BTCRelay::set_chain_from_position_and_id(fork_position, fork_chain_ref);
-        BTCRelay::set_block_chain_from_id(fork_chain_ref, &fork);
+        let fork = get_empty_block_chain_from_chain_id_and_height(fork_chain_id, main_start_height, fork_block_height);
+        BTCRelay::set_chain_from_position_and_id(fork_position, fork_chain_id);
+        BTCRelay::set_block_chain_from_id(fork_chain_id, &fork);
 
         // set the best block
         let best_block_hash = H256Le::zero();
@@ -627,7 +627,7 @@ fn check_and_do_reorg_new_fork_is_main_chain() {
         BTCRelay::set_best_block_height(fork_block_height);
 
         // check that fork is at its initial position
-        let current_position = BTCRelay::get_chain_position_from_chain_id(fork_chain_ref).unwrap();
+        let current_position = BTCRelay::get_chain_position_from_chain_id(fork_chain_id).unwrap();
 
         assert_eq!(current_position, fork_position);
 
@@ -647,21 +647,21 @@ fn check_and_do_reorg_new_fork_is_main_chain() {
 fn check_and_do_reorg_new_fork_below_stable_transaction_confirmations() {
     run_test(|| {
         // insert the main chain in Chains and ChainsIndex
-        let main_chain_ref: u32 = 0;
+        let main_chain_id: u32 = 0;
         let main_start_height: u32 = 4;
         let main_block_height: u32 = 110;
         let main_position: u32 = 0;
-        let main = get_empty_block_chain_from_chain_id_and_height(main_chain_ref, main_start_height, main_block_height);
-        BTCRelay::set_chain_from_position_and_id(main_position, main_chain_ref);
-        BTCRelay::set_block_chain_from_id(main_chain_ref, &main);
+        let main = get_empty_block_chain_from_chain_id_and_height(main_chain_id, main_start_height, main_block_height);
+        BTCRelay::set_chain_from_position_and_id(main_position, main_chain_id);
+        BTCRelay::set_block_chain_from_id(main_chain_id, &main);
 
         // insert the fork chain in Chains and ChainsIndex
-        let fork_chain_ref: u32 = 4;
+        let fork_chain_id: u32 = 4;
         let fork_block_height: u32 = 113;
         let fork_position: u32 = 1;
-        let fork = get_empty_block_chain_from_chain_id_and_height(fork_chain_ref, main_start_height, fork_block_height);
-        BTCRelay::set_chain_from_position_and_id(fork_position, fork_chain_ref);
-        BTCRelay::set_block_chain_from_id(fork_chain_ref, &fork);
+        let fork = get_empty_block_chain_from_chain_id_and_height(fork_chain_id, main_start_height, fork_block_height);
+        BTCRelay::set_chain_from_position_and_id(fork_position, fork_chain_id);
+        BTCRelay::set_block_chain_from_id(fork_chain_id, &fork);
 
         // set the best block
         let best_block_hash = H256Le::zero();
@@ -669,7 +669,7 @@ fn check_and_do_reorg_new_fork_below_stable_transaction_confirmations() {
         BTCRelay::set_best_block_height(fork_block_height);
 
         // check that fork is at its initial position
-        let current_position = BTCRelay::get_chain_position_from_chain_id(fork_chain_ref).unwrap();
+        let current_position = BTCRelay::get_chain_position_from_chain_id(fork_chain_id).unwrap();
 
         assert_eq!(current_position, fork_position);
 
@@ -680,7 +680,7 @@ fn check_and_do_reorg_new_fork_below_stable_transaction_confirmations() {
         let ahead_event = TestEvent::BTCRelay(Event::ForkAheadOfMainChain(
             main_block_height,
             fork_block_height,
-            fork_chain_ref,
+            fork_chain_id,
         ));
         assert!(System::events().iter().any(|a| a.event == ahead_event));
     })
@@ -691,41 +691,41 @@ fn check_and_do_reorg_new_fork_below_stable_transaction_confirmations() {
 fn insert_sorted_succeeds() {
     run_test(|| {
         // insert the main chain in Chains and ChainsIndex
-        let main_chain_ref: u32 = 0;
+        let main_chain_id: u32 = 0;
         let main_start_height: u32 = 60;
         let main_block_height: u32 = 110;
         let main_position: u32 = 0;
-        let main = get_empty_block_chain_from_chain_id_and_height(main_chain_ref, main_start_height, main_block_height);
-        BTCRelay::set_block_chain_from_id(main_chain_ref, &main);
+        let main = get_empty_block_chain_from_chain_id_and_height(main_chain_id, main_start_height, main_block_height);
+        BTCRelay::set_block_chain_from_id(main_chain_id, &main);
         assert_eq!(Ok(()), BTCRelay::insert_sorted(&main));
 
-        let curr_main_pos = BTCRelay::get_chain_position_from_chain_id(main_chain_ref).unwrap();
+        let curr_main_pos = BTCRelay::get_chain_position_from_chain_id(main_chain_id).unwrap();
         assert_eq!(curr_main_pos, main_position);
         // insert the swap chain in Chains and ChainsIndex
-        let swap_chain_ref: u32 = 3;
+        let swap_chain_id: u32 = 3;
         let swap_start_height: u32 = 70;
         let swap_block_height: u32 = 99;
         let swap_position: u32 = 1;
-        let swap = get_empty_block_chain_from_chain_id_and_height(swap_chain_ref, swap_start_height, swap_block_height);
-        BTCRelay::set_block_chain_from_id(swap_chain_ref, &swap);
+        let swap = get_empty_block_chain_from_chain_id_and_height(swap_chain_id, swap_start_height, swap_block_height);
+        BTCRelay::set_block_chain_from_id(swap_chain_id, &swap);
         assert_eq!(Ok(()), BTCRelay::insert_sorted(&swap));
 
-        let curr_swap_pos = BTCRelay::get_chain_position_from_chain_id(swap_chain_ref).unwrap();
+        let curr_swap_pos = BTCRelay::get_chain_position_from_chain_id(swap_chain_id).unwrap();
         assert_eq!(curr_swap_pos, swap_position);
 
         // insert the fork chain in Chains and ChainsIndex
-        let fork_chain_ref: u32 = 4;
+        let fork_chain_id: u32 = 4;
         let fork_start_height: u32 = 77;
         let fork_block_height: u32 = 100;
         let fork_position: u32 = 1;
         let new_swap_pos: u32 = 2;
-        let fork = get_empty_block_chain_from_chain_id_and_height(fork_chain_ref, fork_start_height, fork_block_height);
-        BTCRelay::set_block_chain_from_id(fork_chain_ref, &fork);
+        let fork = get_empty_block_chain_from_chain_id_and_height(fork_chain_id, fork_start_height, fork_block_height);
+        BTCRelay::set_block_chain_from_id(fork_chain_id, &fork);
         assert_eq!(Ok(()), BTCRelay::insert_sorted(&fork));
 
-        let curr_fork_pos = BTCRelay::get_chain_position_from_chain_id(fork_chain_ref).unwrap();
+        let curr_fork_pos = BTCRelay::get_chain_position_from_chain_id(fork_chain_id).unwrap();
         assert_eq!(curr_fork_pos, fork_position);
-        let curr_swap_pos = BTCRelay::get_chain_position_from_chain_id(swap_chain_ref).unwrap();
+        let curr_swap_pos = BTCRelay::get_chain_position_from_chain_id(swap_chain_id).unwrap();
         assert_eq!(curr_swap_pos, new_swap_pos);
     })
 }
@@ -734,10 +734,10 @@ fn insert_sorted_succeeds() {
 #[test]
 fn test_verify_block_header_no_retarget_succeeds() {
     run_test(|| {
-        let chain_ref: u32 = 0;
+        let chain_id: u32 = 0;
         // no retarget at block 100
         let block_height: u32 = 100;
-        let genesis_header = sample_parsed_genesis_header(chain_ref, block_height);
+        let genesis_header = sample_parsed_genesis_header(chain_id, block_height);
 
         let raw_first_header = RawBlockHeader::from_hex(sample_raw_first_header()).unwrap();
 
@@ -757,7 +757,7 @@ fn test_verify_block_header_no_retarget_succeeds() {
 #[test]
 fn test_verify_block_header_correct_retarget_increase_succeeds() {
     run_test(|| {
-        let chain_ref: u32 = 0;
+        let chain_id: u32 = 0;
         // Next block requires retarget
         let block_height: u32 = 2015;
         // Sample interval with INCREASING target
@@ -765,7 +765,7 @@ fn test_verify_block_header_correct_retarget_increase_succeeds() {
 
         let prev_block_header_rich = RichBlockHeader::<BlockNumber>::new(
             parse_block_header(&retarget_headers[1]).unwrap(),
-            chain_ref,
+            chain_id,
             block_height,
             Default::default(),
         );
@@ -790,7 +790,7 @@ fn test_verify_block_header_correct_retarget_increase_succeeds() {
 #[test]
 fn test_verify_block_header_correct_retarget_decrease_succeeds() {
     run_test(|| {
-        let chain_ref: u32 = 0;
+        let chain_id: u32 = 0;
         // Next block requires retarget
         let block_height: u32 = 2015;
         // Sample interval with DECREASING target
@@ -798,7 +798,7 @@ fn test_verify_block_header_correct_retarget_decrease_succeeds() {
 
         let prev_block_header_rich = RichBlockHeader::<BlockNumber>::new(
             parse_block_header(&retarget_headers[1]).unwrap(),
-            chain_ref,
+            chain_id,
             block_height,
             Default::default(),
         );
@@ -821,14 +821,14 @@ fn test_verify_block_header_correct_retarget_decrease_succeeds() {
 #[test]
 fn test_verify_block_header_missing_retarget_succeeds() {
     run_test(|| {
-        let chain_ref: u32 = 0;
+        let chain_id: u32 = 0;
         // Next block requires retarget
         let block_height: u32 = 2015;
         let retarget_headers = sample_retarget_interval_increase();
 
         let prev_block_header_rich = RichBlockHeader::<BlockNumber>::new(
             parse_block_header(&retarget_headers[1]).unwrap(),
-            chain_ref,
+            chain_id,
             block_height,
             Default::default(),
         );
@@ -853,7 +853,7 @@ fn test_verify_block_header_missing_retarget_succeeds() {
 
 #[test]
 fn test_compute_new_target() {
-    let chain_ref: u32 = 0;
+    let chain_id: u32 = 0;
     // no retarget at block 100
     let block_height: u32 = 2016;
     let retarget_headers = sample_retarget_interval_increase();
@@ -861,7 +861,7 @@ fn test_compute_new_target() {
     let last_retarget_time = parse_block_header(&retarget_headers[0]).unwrap().timestamp as u64;
     let prev_block_header = RichBlockHeader::<BlockNumber>::new(
         parse_block_header(&retarget_headers[1]).unwrap(),
-        chain_ref,
+        chain_id,
         block_height,
         Default::default(),
     );
@@ -878,12 +878,12 @@ fn test_compute_new_target() {
 #[test]
 fn test_verify_block_header_duplicate_fails() {
     run_test(|| {
-        let chain_ref: u32 = 0;
+        let chain_id: u32 = 0;
         // no retarget at block 100
         let block_height: u32 = 100;
-        let genesis_header = sample_parsed_genesis_header(chain_ref, block_height);
+        let genesis_header = sample_parsed_genesis_header(chain_id, block_height);
 
-        let rich_first_header = sample_parsed_first_block(chain_ref, 101);
+        let rich_first_header = sample_parsed_first_block(chain_id, 101);
 
         // Prev block is genesis
         BTCRelay::get_block_header_from_hash.mock_safe(move |_| MockResult::Return(Ok(genesis_header)));
@@ -905,10 +905,10 @@ fn test_verify_block_header_duplicate_fails() {
 #[test]
 fn test_verify_block_header_low_diff_fails() {
     run_test(|| {
-        let chain_ref: u32 = 0;
+        let chain_id: u32 = 0;
         // no retarget at block 100
         let block_height: u32 = 100;
-        let genesis_header = sample_parsed_genesis_header(chain_ref, block_height);
+        let genesis_header = sample_parsed_genesis_header(chain_id, block_height);
 
         // block header with high target but weak hash
         let raw_first_header_weak = RawBlockHeader::from_hex(sample_raw_first_header_low_diff()).unwrap();
@@ -1185,7 +1185,7 @@ fn test_verify_and_validate_transaction_succeeds() {
 #[test]
 fn test_verify_transaction_inclusion_succeeds() {
     run_test(|| {
-        let chain_ref = 0;
+        let chain_id = 0;
         let fork_ref = 1;
         let start = 10;
         let main_chain_height = 300;
@@ -1193,18 +1193,18 @@ fn test_verify_transaction_inclusion_succeeds() {
         // Random init since we mock this
         let raw_merkle_proof = vec![0u8; 100];
         let confirmations = None;
-        let rich_block_header = sample_rich_tx_block_header(chain_ref, main_chain_height);
+        let rich_block_header = sample_rich_tx_block_header(chain_id, main_chain_height);
 
         let proof = sample_merkle_proof();
         let proof_result = sample_valid_proof_result();
 
-        let main = get_empty_block_chain_from_chain_id_and_height(chain_ref, start, main_chain_height);
+        let main = get_empty_block_chain_from_chain_id_and_height(chain_id, start, main_chain_height);
 
         let fork = get_empty_block_chain_from_chain_id_and_height(fork_ref, start, fork_chain_height);
 
         BTCRelay::get_chain_id_from_position.mock_safe(move |_| MockResult::Return(Ok(fork_ref)));
         BTCRelay::get_block_chain_from_id.mock_safe(move |id| {
-            if id == chain_ref {
+            if id == chain_id {
                 MockResult::Return(Ok(main.clone()))
             } else {
                 MockResult::Return(Ok(fork.clone()))
@@ -1234,21 +1234,21 @@ fn test_verify_transaction_inclusion_succeeds() {
 #[test]
 fn test_verify_transaction_inclusion_empty_fork_succeeds() {
     run_test(|| {
-        let chain_ref = 0;
+        let chain_id = 0;
         let start = 10;
         let main_chain_height = 300;
         // Random init since we mock this
         let raw_merkle_proof = vec![0u8; 100];
         let confirmations = None;
-        let rich_block_header = sample_rich_tx_block_header(chain_ref, main_chain_height);
+        let rich_block_header = sample_rich_tx_block_header(chain_id, main_chain_height);
 
         let proof = sample_merkle_proof();
         let proof_result = sample_valid_proof_result();
 
-        let main = get_empty_block_chain_from_chain_id_and_height(chain_ref, start, main_chain_height);
+        let main = get_empty_block_chain_from_chain_id_and_height(chain_id, start, main_chain_height);
 
         BTCRelay::get_block_chain_from_id.mock_safe(move |id| {
-            if id == chain_ref {
+            if id == chain_id {
                 MockResult::Return(Ok(main.clone()))
             } else {
                 MockResult::Return(Err(TestError::InvalidChainID.into()))
@@ -1278,7 +1278,7 @@ fn test_verify_transaction_inclusion_empty_fork_succeeds() {
 #[test]
 fn test_verify_transaction_inclusion_invalid_tx_id_fails() {
     run_test(|| {
-        let chain_ref = 0;
+        let chain_id = 0;
         let fork_ref = 1;
         let start = 10;
         let main_chain_height = 300;
@@ -1286,7 +1286,7 @@ fn test_verify_transaction_inclusion_invalid_tx_id_fails() {
         // Random init since we mock this
         let raw_merkle_proof = vec![0u8; 100];
         let confirmations = None;
-        let rich_block_header = sample_rich_tx_block_header(chain_ref, main_chain_height);
+        let rich_block_header = sample_rich_tx_block_header(chain_id, main_chain_height);
 
         // Mismatching TXID
         let invalid_tx_id = H256Le::from_bytes_le(
@@ -1296,13 +1296,13 @@ fn test_verify_transaction_inclusion_invalid_tx_id_fails() {
         let proof = sample_merkle_proof();
         let proof_result = sample_valid_proof_result();
 
-        let main = get_empty_block_chain_from_chain_id_and_height(chain_ref, start, main_chain_height);
+        let main = get_empty_block_chain_from_chain_id_and_height(chain_id, start, main_chain_height);
 
         let fork = get_empty_block_chain_from_chain_id_and_height(fork_ref, start, fork_chain_height);
 
         BTCRelay::get_chain_id_from_position.mock_safe(move |_| MockResult::Return(Ok(fork_ref)));
         BTCRelay::get_block_chain_from_id.mock_safe(move |id| {
-            if id == chain_ref {
+            if id == chain_id {
                 MockResult::Return(Ok(main.clone()))
             } else {
                 MockResult::Return(Ok(fork.clone()))
@@ -1330,7 +1330,7 @@ fn test_verify_transaction_inclusion_invalid_tx_id_fails() {
 #[test]
 fn test_verify_transaction_inclusion_invalid_merkle_root_fails() {
     run_test(|| {
-        let chain_ref = 0;
+        let chain_id = 0;
         let fork_ref = 1;
         let start = 10;
         let main_chain_height = 300;
@@ -1338,7 +1338,7 @@ fn test_verify_transaction_inclusion_invalid_merkle_root_fails() {
         // Random init since we mock this
         let raw_merkle_proof = vec![0u8; 100];
         let confirmations = None;
-        let mut rich_block_header = sample_rich_tx_block_header(chain_ref, main_chain_height);
+        let mut rich_block_header = sample_rich_tx_block_header(chain_id, main_chain_height);
 
         // Mismatching merkle root
         let invalid_merkle_root = H256Le::from_bytes_le(
@@ -1349,13 +1349,13 @@ fn test_verify_transaction_inclusion_invalid_merkle_root_fails() {
         let proof = sample_merkle_proof();
         let proof_result = sample_valid_proof_result();
 
-        let main = get_empty_block_chain_from_chain_id_and_height(chain_ref, start, main_chain_height);
+        let main = get_empty_block_chain_from_chain_id_and_height(chain_id, start, main_chain_height);
 
         let fork = get_empty_block_chain_from_chain_id_and_height(fork_ref, start, fork_chain_height);
 
         BTCRelay::get_chain_id_from_position.mock_safe(move |_| MockResult::Return(Ok(fork_ref)));
         BTCRelay::get_block_chain_from_id.mock_safe(move |id| {
-            if id == chain_ref {
+            if id == chain_id {
                 MockResult::Return(Ok(main.clone()))
             } else {
                 MockResult::Return(Ok(fork.clone()))
@@ -1519,15 +1519,15 @@ fn get_chain_from_id_err() {
 fn get_chain_from_id_ok() {
     run_test(|| {
         // insert the main chain in Chains and ChainsIndex
-        let main_chain_ref: u32 = 0;
+        let main_chain_id: u32 = 0;
         let main_start_height: u32 = 3;
         let main_block_height: u32 = 110;
         let main_position: u32 = 0;
-        let main = get_empty_block_chain_from_chain_id_and_height(main_chain_ref, main_start_height, main_block_height);
-        BTCRelay::set_chain_from_position_and_id(main_position, main_chain_ref);
-        BTCRelay::set_block_chain_from_id(main_chain_ref, &main);
+        let main = get_empty_block_chain_from_chain_id_and_height(main_chain_id, main_start_height, main_block_height);
+        BTCRelay::set_chain_from_position_and_id(main_position, main_chain_id);
+        BTCRelay::set_block_chain_from_id(main_chain_id, &main);
 
-        assert_eq!(Ok(main), BTCRelay::get_block_chain_from_id(main_chain_ref));
+        assert_eq!(Ok(main), BTCRelay::get_block_chain_from_id(main_chain_id));
     });
 }
 
@@ -2003,12 +2003,12 @@ fn sample_raw_genesis_header() -> String {
     "01000000".to_owned() + "a7c3299ed2475e1d6ea5ed18d5bfe243224add249cce99c5c67cc9fb00000000601c73862a0a7238e376f497783c8ecca2cf61a4f002ec8898024230787f399cb575d949ffff001d3a5de07f"
 }
 
-fn sample_parsed_genesis_header(chain_ref: u32, block_height: u32) -> RichBlockHeader<BlockNumber> {
+fn sample_parsed_genesis_header(chain_id: u32, block_height: u32) -> RichBlockHeader<BlockNumber> {
     let genesis_header = RawBlockHeader::from_hex(sample_raw_genesis_header()).unwrap();
     RichBlockHeader::<BlockNumber> {
         block_header: parse_block_header(&genesis_header).unwrap(),
         block_height,
-        chain_ref,
+        chain_id,
         para_height: Default::default(),
     }
 }
@@ -2026,12 +2026,12 @@ fn sample_raw_first_header() -> String {
     "01000000".to_owned() + "cb60e68ead74025dcfd4bf4673f3f71b1e678be9c6e6585f4544c79900000000c7f42be7f83eddf2005272412b01204352a5fddbca81942c115468c3c4ec2fff827ad949ffff001d21e05e45"
 }
 
-fn sample_parsed_first_block(chain_ref: u32, block_height: u32) -> RichBlockHeader<BlockNumber> {
+fn sample_parsed_first_block(chain_id: u32, block_height: u32) -> RichBlockHeader<BlockNumber> {
     let block_header = RawBlockHeader::from_hex(sample_raw_first_header()).unwrap();
     RichBlockHeader::<BlockNumber> {
         block_header: parse_block_header(&block_header).unwrap(),
         block_height,
-        chain_ref,
+        chain_id,
         para_height: Default::default(),
     }
 }
@@ -2062,12 +2062,12 @@ fn sample_accepted_transaction() -> String {
     "020000000001010000000000000000000000000000000000000000000000000000000000000000ffffffff0502cb000101ffffffff02400606950000000017a91466c7060feb882664ae62ffad0051fe843e318e85870000000000000000266a24aa21a9ede5c17d15b8b1fa2811b7e6da66ffa5e1aaa05922c69068bf90cd585b95bb46750120000000000000000000000000000000000000000000000000000000000000000000000000".to_owned()
 }
 
-fn sample_rich_tx_block_header(chain_ref: u32, block_height: u32) -> RichBlockHeader<BlockNumber> {
+fn sample_rich_tx_block_header(chain_id: u32, block_height: u32) -> RichBlockHeader<BlockNumber> {
     let raw_header = RawBlockHeader::from_hex("0000003096cb3d93696c4f56c10da153963d35abf4692c07b2b3bf0702fb4cb32a8682211ee1fb90996ca1d5dcd12866ba9066458bf768641215933d7d8b3a10ef79d090e8a13a5effff7f2005000000".to_owned()).unwrap();
     RichBlockHeader::<BlockNumber> {
         block_header: parse_block_header(&raw_header).unwrap(),
         block_height,
-        chain_ref,
+        chain_id,
         para_height: Default::default(),
     }
 }

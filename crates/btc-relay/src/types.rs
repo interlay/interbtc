@@ -13,7 +13,7 @@ pub struct RichBlockHeader<BlockNumber> {
     /// height of the block in the bitcoin chain
     pub block_height: u32,
     /// id if the chain that this block belongs to
-    pub chain_ref: u32,
+    pub chain_id: u32,
     /// active_block_number of the parachain at the time this block was submitted
     pub para_height: BlockNumber,
 }
@@ -24,15 +24,15 @@ impl<BlockNumber> RichBlockHeader<BlockNumber> {
     /// # Arguments
     ///
     /// * `block_header` - Bitcoin block header
-    /// * `chain_ref` - chain reference
+    /// * `chain_id` - chain reference
     /// * `block_height` - chain height
     /// * `account_id` - submitter
     /// * `para_height` - height of the parachain at submission
-    pub fn new(block_header: BlockHeader, chain_ref: u32, block_height: u32, para_height: BlockNumber) -> Self {
+    pub fn new(block_header: BlockHeader, chain_id: u32, block_height: u32, para_height: BlockNumber) -> Self {
         RichBlockHeader {
             block_header,
             block_height,
-            chain_ref,
+            chain_id,
             para_height,
         }
     }
