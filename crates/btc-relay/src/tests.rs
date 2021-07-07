@@ -194,6 +194,8 @@ fn store_block_header_on_fork_succeeds() {
 }
 
 mod store_block_header_tests {
+    use std::iter::successors;
+
     use crate::MAIN_CHAIN_ID;
 
     use super::*;
@@ -443,6 +445,25 @@ mod store_block_header_tests {
     fn parse_from_hex(hex_string: &str) -> BlockHeader {
         let raw = RawBlockHeader::from_hex(hex_string).unwrap();
         parse_block_header(&raw).unwrap()
+    }
+
+    #[test]
+    fn store_block_header_genesis_block_is_stored() {
+        run_test(|| {
+            BTCRelay::verify_block_header.mock_safe(|_, _, _| MockResult::Return(Ok(())));
+
+            let genesis = sample_block_header();
+            assert_ok!(BTCRelay::initialize(3, genesis, 10));
+
+            // store some blocks so that we don't get confirmation errors
+            let blocks = successors(Some(genesis.clone()), |prev| Some(from_prev(0, prev.hash))).skip(1);
+            for block in blocks.take(10) {
+                store_header_and_check_invariants(&block);
+            }
+
+            // check that genesis block has been stored and is usable
+            assert_ok!(BTCRelay::verify_block_header_inclusion(genesis.hash, None));
+        })
     }
 
     #[test]

@@ -465,12 +465,10 @@ impl<T: Config> Pallet<T> {
         ensure!(!Self::best_block_exists(), Error::<T>::AlreadyInitialized);
 
         // construct the BlockChain struct
-        let chain_id = Self::create_and_store_blockchain(block_height, &basic_block_header)?;
+        Self::create_and_store_blockchain(block_height, &basic_block_header)?;
 
         // Set BestBlock and BestBlockHeight to the submitted block
         Self::update_chain_head(&basic_block_header, block_height);
-
-        Self::store_rich_header(basic_block_header, block_height, chain_id);
 
         StartBlockHeight::<T>::set(block_height);
 
