@@ -312,7 +312,7 @@ impl<T: Config> Pallet<T> {
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
     ) -> Result<Collateral<T>, DispatchError> {
-        let collateral = ext::staking::compute_current_stake::<T>(vault_id, nominator_id)?;
+        let collateral = ext::staking::compute_stake::<T>(vault_id, nominator_id)?;
         collateral.try_into().map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 

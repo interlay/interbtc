@@ -260,7 +260,7 @@ pub mod pallet {
     // The pallet's dispatchable functions.
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        /// Withdraw rewards.
+        /// Withdraw all rewards from the `origin` account in the `vault_id` staking pool.
         ///
         /// # Arguments
         ///

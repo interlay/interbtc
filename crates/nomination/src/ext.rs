@@ -105,10 +105,10 @@ pub(crate) mod staking {
         <staking::Pallet<T>>::withdraw_stake(T::GetRewardsCurrencyId::get(), vault_id, nominator_id, amount)
     }
 
-    pub fn compute_current_stake<T: crate::Config>(
+    pub fn compute_stake<T: crate::Config>(
         vault_id: &T::AccountId,
         nominator_id: &T::AccountId,
     ) -> Result<SignedInner<T>, DispatchError> {
-        <staking::Pallet<T>>::compute_current_stake(T::GetRewardsCurrencyId::get(), vault_id, nominator_id)
+        <staking::Pallet<T>>::compute_stake(T::GetRewardsCurrencyId::get(), vault_id, nominator_id)
     }
 }
