@@ -620,11 +620,8 @@ pub(crate) mod tests {
         let input_bytes = hex::decode(&raw_input).unwrap();
         let mut parser = BytesParser::new(&input_bytes);
         let input: TransactionInput = parser.parse_with(2).unwrap();
-        assert_eq!(input.coinbase, true);
+        assert!(matches!(input.source, TransactionInputSource::Coinbase(Some(328014))));
         assert_eq!(input.sequence, 0);
-        assert_eq!(input.previous_index, u32::max_value());
-        let height = input.height.unwrap();
-        assert_eq!(height, 328014);
         assert_eq!(input.script.len(), 37); // 0x29 - 4
     }
 
@@ -634,14 +631,12 @@ pub(crate) mod tests {
         let input_bytes = hex::decode(&raw_input).unwrap();
         let mut parser = BytesParser::new(&input_bytes);
         let input: TransactionInput = parser.parse_with(2).unwrap();
-        assert_eq!(input.coinbase, false);
-        assert_eq!(input.sequence, u32::max_value());
-        assert_eq!(input.previous_index, 0);
-        assert_eq!(input.height, None);
-        assert_eq!(input.script.len(), 73);
 
         let previous_hash = H256Le::from_hex_le("7b1eabe0209b1fe794124575ef807057c77ada2138ae4fa8d6c4de0398a14f3f");
-        assert_eq!(input.previous_hash, previous_hash);
+
+        assert!(matches!(input.source, TransactionInputSource::FromOutput(hash, 0) if hash == previous_hash));
+        assert_eq!(input.sequence, u32::max_value());
+        assert_eq!(input.script.len(), 73);
     }
 
     #[test]
@@ -663,8 +658,8 @@ pub(crate) mod tests {
         let outputs = transaction.outputs;
         assert_eq!(transaction.version, 1);
         assert_eq!(inputs.len(), 2);
-        assert_eq!(inputs[0].coinbase, true);
-        assert_eq!(inputs[1].coinbase, false);
+        assert!(matches!(inputs[0].source, TransactionInputSource::Coinbase(_)));
+        assert!(matches!(inputs[1].source, TransactionInputSource::FromOutput(_, _)));
         assert_eq!(outputs.len(), 1);
         assert_eq!(transaction.lock_at, LockTime::BlockHeight(0));
     }
@@ -678,7 +673,7 @@ pub(crate) mod tests {
         let outputs = transaction.outputs;
         assert_eq!(transaction.version, 2);
         assert_eq!(inputs.len(), 1);
-        assert_eq!(inputs[0].coinbase, false);
+        assert!(matches!(inputs[0].source, TransactionInputSource::FromOutput(_, _)));
         assert_eq!(inputs[0].witness.len(), 2);
         assert_eq!(inputs[0].witness[0].len(), 72);
         assert_eq!(inputs[0].witness[1].len(), 33);

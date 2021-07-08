@@ -885,14 +885,15 @@ mod tests {
 
     #[test]
     fn test_transaction_input_builder() {
+        let source = TransactionInputSource::FromOutput(H256Le::from_bytes_le(&[5; 32]), 123);
         let input = TransactionInputBuilder::new()
             .with_sequence(10)
-            .with_previous_hash(100.into())
+            .with_source(source.clone())
             .build();
         assert_eq!(input.sequence, 10);
         let mut bytes: [u8; 32] = Default::default();
         bytes[0] = 100;
-        assert_eq!(input.previous_hash, H256Le::from_bytes_le(&bytes));
+        assert_eq!(input.source, source);
     }
 
     #[test]
@@ -901,7 +902,7 @@ mod tests {
         let return_data = hex::decode("01a0").unwrap();
         let transaction = TransactionBuilder::new()
             .with_version(2)
-            .add_input(TransactionInputBuilder::new().with_coinbase(false).build())
+            .add_input(TransactionInputBuilder::new().build())
             .add_output(TransactionOutput::payment(100, &address))
             .add_output(TransactionOutput::op_return(0, &return_data))
             .build();
@@ -999,7 +1000,7 @@ mod tests {
 
         let transaction = TransactionBuilder::new()
             .with_version(2)
-            .add_input(TransactionInputBuilder::new().with_coinbase(false).build())
+            .add_input(TransactionInputBuilder::new().build())
             .add_output(TransactionOutput::payment(100, &address))
             .build();
 

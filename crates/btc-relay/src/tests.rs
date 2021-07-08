@@ -2117,13 +2117,9 @@ fn sample_transaction_parsed(outputs: &Vec<TransactionOutput>) -> Transaction {
     let spent_output_txid =
         hex::decode("b28f1e58af1d4db02d1b9f0cf8d51ece3dd5f5013fd108647821ea255ae5daff".to_owned()).unwrap();
     let input = TransactionInput {
-        previous_hash: H256Le::from_bytes_le(&spent_output_txid),
-        previous_index: 0,
-        coinbase: false,
-        height: None,
+        source: TransactionInputSource::FromOutput(H256Le::from_bytes_le(&spent_output_txid), 0),
         script: hex::decode("16001443feac9ca9d20883126e30e962ca11fda07f808b".to_owned()).unwrap(),
         sequence: 4294967295,
-        flags: 0,
         witness: vec![],
     };
 
