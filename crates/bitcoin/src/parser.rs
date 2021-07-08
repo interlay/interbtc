@@ -319,7 +319,7 @@ pub fn parse_transaction(raw_transaction: &[u8]) -> Result<Transaction, Error> {
     if (flags & 1) != 0 && allow_witness {
         flags ^= 1;
         for input in &mut inputs {
-            input.with_witness(flags, parser.parse()?);
+            input.with_witness(parser.parse()?);
         }
 
         if inputs.iter().all(|input| input.witness.is_empty()) {
@@ -365,18 +365,25 @@ fn parse_transaction_input(raw_input: &[u8], version: i32) -> Result<(Transactio
     }
 
     let mut script_size: u64 = parser.parse::<CompactUint>()?.value;
-    let height = if is_coinbase && version == 2 {
-        // https://github.com/bitcoin/bips/blob/master/bip-0034.mediawiki
-        let height_size: u64 = parser.parse::<CompactUint>()?.value;
-        script_size = script_size.checked_sub(height_size + 1).ok_or(Error::EndOfFile)?;
+    let source = if is_coinbase {
+        let height = if version != 2 {
+            // version 1 does not include have height
+            None
+        } else {
+            // version 2 transactions include a height as the first 4 bytes, see
+            // https://github.com/bitcoin/bips/blob/master/bip-0034.mediawiki
+            let height_size: u64 = parser.parse::<CompactUint>()?.value;
+            script_size = script_size.checked_sub(height_size + 1).ok_or(Error::EndOfFile)?;
 
-        let mut buffer = [0u8; 4];
-        let bytes = parser.read(height_size as usize)?;
-        buffer[..3].copy_from_slice(bytes.get(0..3).ok_or(Error::EndOfFile)?);
+            let mut buffer = [0u8; 4];
+            let bytes = parser.read(height_size as usize)?;
+            buffer[..3].copy_from_slice(bytes.get(0..3).ok_or(Error::EndOfFile)?);
+            Some(u32::from_le_bytes(buffer))
+        };
 
-        Some(u32::from_le_bytes(buffer))
+        TransactionInputSource::Coinbase(height)
     } else {
-        None
+        TransactionInputSource::FromOutput(previous_hash, previous_index)
     };
 
     let script = parser.read(script_size as usize)?;
@@ -390,13 +397,9 @@ fn parse_transaction_input(raw_input: &[u8], version: i32) -> Result<(Transactio
 
     Ok((
         TransactionInput {
-            previous_hash,
-            previous_index,
-            coinbase: is_coinbase,
-            height,
+            source,
             script,
             sequence,
-            flags: 0,
             witness: vec![],
         },
         consumed_bytes,

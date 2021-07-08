@@ -118,10 +118,14 @@ where
 impl Formattable<bool> for TransactionInput {
     fn format(&self) -> Vec<u8> {
         let mut formatter = Formatter::new();
-        formatter.format(&self.previous_hash);
-        formatter.format(self.previous_index);
+        let (previous_hash, previous_index) = match self.source {
+            TransactionInputSource::Coinbase(_) => (H256Le::zero(), u32::max_value()),
+            TransactionInputSource::FromOutput(hash, index) => (hash, index),
+        };
+        formatter.format(&previous_hash);
+        formatter.format(previous_index);
         formatter.format(CompactUint::from_usize(self.script.len()));
-        if let Some(height) = self.height {
+        if let TransactionInputSource::Coinbase(Some(height)) = self.source {
             formatter.format(Script::height(height).as_bytes());
         }
         formatter.output(&self.script); // we already formatted the length

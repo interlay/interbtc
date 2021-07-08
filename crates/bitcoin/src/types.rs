@@ -263,22 +263,25 @@ impl BlockHeader {
     }
 }
 
+#[derive(PartialEq, Clone, Debug)]
+pub enum TransactionInputSource {
+    /// Spending from transaction with the given hash, from output with the given index
+    FromOutput(H256Le, u32),
+    /// coinbase transaction with given height
+    Coinbase(Option<u32>),
+}
+
 /// Bitcoin transaction input
 #[derive(PartialEq, Clone, Debug)]
 pub struct TransactionInput {
-    pub previous_hash: H256Le,
-    pub previous_index: u32,
-    pub coinbase: bool,
-    pub height: Option<u32>,
+    pub source: TransactionInputSource,
     pub script: Vec<u8>,
     pub sequence: u32,
-    pub flags: u8,
     pub witness: Vec<Vec<u8>>,
 }
 
 impl TransactionInput {
-    pub fn with_witness(&mut self, flags: u8, witness: Vec<Vec<u8>>) {
-        self.flags = flags;
+    pub fn with_witness(&mut self, witness: Vec<Vec<u8>>) {
         self.witness = witness;
     }
 
@@ -491,10 +494,7 @@ fn generate_coinbase_transaction(
 
     let mut input_builder = TransactionInputBuilder::new();
     input_builder
-        .with_coinbase(true)
-        .with_previous_index(u32::max_value())
-        .with_previous_hash(H256Le::zero())
-        .with_height(height)
+        .with_source(TransactionInputSource::Coinbase(Some(height)))
         .add_witness(&[0; 32])
         .with_sequence(u32::max_value());
     if let Some(script) = input_script {
@@ -721,13 +721,9 @@ impl Default for TransactionInputBuilder {
     fn default() -> Self {
         TransactionInputBuilder {
             transaction_input: TransactionInput {
-                previous_hash: H256Le::zero(),
-                previous_index: 0,
-                coinbase: true,
-                height: None,
+                source: TransactionInputSource::FromOutput(H256Le::zero(), 0),
                 script: vec![],
                 sequence: 0,
-                flags: 0,
                 witness: vec![],
             },
         }
@@ -738,19 +734,8 @@ impl TransactionInputBuilder {
     pub fn new() -> TransactionInputBuilder {
         Self::default()
     }
-
-    pub fn with_previous_hash(&mut self, previous_hash: H256Le) -> &mut Self {
-        self.transaction_input.previous_hash = previous_hash;
-        self
-    }
-
-    pub fn with_previous_index(&mut self, previous_index: u32) -> &mut Self {
-        self.transaction_input.previous_index = previous_index;
-        self
-    }
-
-    pub fn with_coinbase(&mut self, coinbase: bool) -> &mut Self {
-        self.transaction_input.coinbase = coinbase;
+    pub fn with_source(&mut self, source: TransactionInputSource) -> &mut Self {
+        self.transaction_input.source = source;
         self
     }
 
@@ -776,11 +761,6 @@ impl TransactionInputBuilder {
 
     pub fn with_p2wsh(&mut self, public_key: &PublicKey, sig: Vec<u8>) -> &mut Self {
         self.transaction_input.witness = vec![sig, public_key.to_redeem_script()];
-        self
-    }
-
-    pub fn with_height(&mut self, height: u32) -> &mut Self {
-        self.transaction_input.height = Some(height);
         self
     }
 
