@@ -27,7 +27,7 @@
     },
     "parachains": [
         {
-            "bin": "/usr/local/bin/btc-parachain",
+            "bin": "/usr/local/bin/interbtc-parachain",
             "id": "21",
             "wsPort": 8844,
             "port": 30666,
@@ -38,7 +38,7 @@
             ]
         },
         {
-            "bin": "/usr/local/bin/btc-parachain",
+            "bin": "/usr/local/bin/interbtc-parachain",
             "id": "22",
             "wsPort": 8855,
             "port": 30777,

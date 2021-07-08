@@ -76,8 +76,8 @@ impl_opaque_keys! {
 
 /// This runtime version.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-    spec_name: create_runtime_str!("btc-parachain"),
-    impl_name: create_runtime_str!("btc-parachain"),
+    spec_name: create_runtime_str!("interbtc-parachain"),
+    impl_name: create_runtime_str!("interbtc-parachain"),
     authoring_version: 1,
     spec_version: 9,
     impl_version: 1,

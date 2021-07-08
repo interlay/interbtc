@@ -92,13 +92,13 @@ cargo run -- \
 1. Implement storage migration logic using the module's `on_runtime_upgrade` hook.
 2. Bump the module's default storage `Version`.
 3. Increment the runtime `spec_version`.
-4. Compile the WASM runtime: `cargo build --release -p btc-parachain-runtime`.
+4. Compile the WASM runtime: `cargo build --release -p interbtc-runtime-parachain`.
 5. Use the sudo module to wrap a call to system `setCode(code)`.
 
 The WASM file can be found here:
 
 ```
-/btc-parachain/target/release/wbuild/btc-parachain-runtime/btc_parachain_runtime.compact.wasm
+./target/release/wbuild/interbtc-runtime-parachain/interbtc-runtime-parachain.compact.wasm
 ```
 
 Additional instructions can be found here:
