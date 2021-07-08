@@ -28,25 +28,18 @@ bitcoin = { path = "../crates/bitcoin" }
 primitives = { package = "interbtc-primitives", path = "../primitives" }
 
 # Substrate dependencies
-sc-consensus = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7" }
-sc-consensus-aura = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7" }
 sc-cli = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7", features = ["wasmtime"] }
 sc-client-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7" }
 sc-executor = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7", features = ["wasmtime"] }
 sc-rpc = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7" }
-sc-rpc-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7" }
 sc-service = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7" }
 sc-telemetry = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7" }
 sc-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7" }
 sc-network = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7" }
 sc-basic-authorship = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7" }
-sc-finality-grandpa = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7" }
-sc-informant = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7" }
 sc-chain-spec = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7" }
 sc-tracing = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7" }
-sc-keystore = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7" }
 sp-runtime = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7" }
-sp-io = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7" }
 sp-api = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7" }
 sp-core = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7" }
 sp-inherents = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7" }
@@ -54,14 +47,10 @@ sp-consensus = { git = "https://github.com/paritytech/substrate", branch = "polk
 sp-consensus-aura = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7" }
 sp-session = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7" }
 sp-offchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7" }
-sp-blockchain = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7" }
 sp-block-builder = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7" }
 sp-keystore = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7" }
 sp-timestamp = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7" }
-sp-trie = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7" }
-sp-transaction-pool = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7" }
 sp-arithmetic = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7" }
-sp-finality-grandpa = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7" }
 substrate-prometheus-endpoint = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7" }
 
 frame-benchmarking = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.7" }
@@ -86,7 +75,6 @@ polkadot-primitives = { git = "https://github.com/paritytech/polkadot", branch =
 polkadot-cli = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.7" }
 polkadot-service = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.7" }
 polkadot-parachain = { git = "https://github.com/paritytech/polkadot", branch = "release-v0.9.7" }
-
 
 [features]
 default = []
