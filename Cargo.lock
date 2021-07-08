@@ -888,6 +888,7 @@ dependencies = [
  "sp-std",
  "sp-transaction-pool",
  "sp-version",
+ "staking",
  "substrate-wasm-builder 4.0.0",
  "vault-registry",
  "xcm",
@@ -2372,6 +2373,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+ "staking",
 ]
 
 [[package]]
@@ -3512,6 +3514,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+ "staking",
  "vault-registry",
 ]
 
@@ -5056,6 +5059,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+ "staking",
  "vault-registry",
 ]
 
@@ -7777,6 +7781,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+ "staking",
  "vault-registry",
 ]
 
@@ -7864,6 +7869,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+ "staking",
  "vault-registry",
 ]
 
@@ -7949,6 +7955,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+ "staking",
  "vault-registry",
 ]
 
@@ -8007,6 +8014,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+ "staking",
  "vault-registry",
 ]
 
@@ -11537,6 +11545,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+ "staking",
 ]
 
 [[package]]

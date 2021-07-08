@@ -1,4 +1,4 @@
-use crate::{ext, Config, Error, Pallet, Slashable};
+use crate::{ext, Config, Error, Pallet};
 use codec::{Decode, Encode, HasCompact};
 use frame_support::{
     dispatch::{DispatchError, DispatchResult},
@@ -52,20 +52,18 @@ impl<T: Config> CurrencySource<T> {
 
     pub fn current_balance(&self) -> Result<Collateral<T>, DispatchError> {
         match self {
-            CurrencySource::Collateral(x) => {
-                let vault = Pallet::<T>::get_rich_vault_from_id(&x)?;
-                Ok(vault.data.backing_collateral)
-            }
+            CurrencySource::Collateral(x) => Pallet::<T>::get_backing_collateral(x),
             CurrencySource::Griefing(x) => {
-                let vault = Pallet::<T>::get_rich_vault_from_id(&x)?;
+                let vault = Pallet::<T>::get_rich_vault_from_id(x)?;
+                let backing_collateral = Pallet::<T>::get_backing_collateral(x)?;
                 let backing_collateral = if vault.data.is_liquidated() {
                     vault
                         .data
                         .liquidated_collateral
-                        .checked_add(&vault.data.backing_collateral)
+                        .checked_add(&backing_collateral)
                         .ok_or(Error::<T>::ArithmeticOverflow)?
                 } else {
-                    vault.data.backing_collateral
+                    backing_collateral
                 };
 
                 let current = ext::collateral::get_reserved_balance::<T>(&x);
@@ -138,17 +136,22 @@ impl Default for VaultStatus {
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
-pub struct Vault<AccountId, BlockNumber, Wrapped, Collateral, SignedFixedPoint> {
+pub struct Vault<AccountId, BlockNumber, Wrapped, Collateral> {
     /// Account identifier of the Vault
     pub id: AccountId,
+    /// Bitcoin address of this Vault (P2PKH, P2SH, P2WPKH, P2WSH)
+    pub wallet: Wallet,
+    /// Current status of the vault
+    pub status: VaultStatus,
+    /// Block height until which this Vault is banned from being used for
+    /// Issue, Redeem (except during automatic liquidation) and Replace.
+    pub banned_until: Option<BlockNumber>,
     /// Number of tokens pending issue
     pub to_be_issued_tokens: Wrapped,
     /// Number of issued tokens
     pub issued_tokens: Wrapped,
     /// Number of tokens pending redeem
     pub to_be_redeemed_tokens: Wrapped,
-    /// Bitcoin address of this Vault (P2PKH, P2SH, P2WPKH, P2WSH)
-    pub wallet: Wallet,
     /// Number of tokens that have been requested for a replace through
     /// `request_replace`, but that have not been accepted yet by a new_vault.
     pub to_be_replaced_tokens: Wrapped,
@@ -158,27 +161,6 @@ pub struct Vault<AccountId, BlockNumber, Wrapped, Collateral, SignedFixedPoint> 
     /// Amount of collateral that is locked for remaining to_be_redeemed
     /// tokens upon liquidation.
     pub liquidated_collateral: Collateral,
-    /// Block height until which this Vault is banned from being used for
-    /// Issue, Redeem (except during automatic liquidation) and Replace.
-    pub banned_until: Option<BlockNumber>,
-    /// Current status of the vault
-    pub status: VaultStatus,
-    /// Used to calculate the amount we need to slash.
-    pub slash_per_token: SignedFixedPoint,
-    /// Updated upon deposit or withdrawal.
-    pub slash_tally: SignedFixedPoint,
-    /// Amount of collateral that is locked to back tokens. This will be
-    /// reduced if the vault has been slashed. If nomination is enabled
-    /// this will be greater than the `collateral` supplied by the vault.
-    /// Note that this excludes griefing collateral.
-    pub backing_collateral: Collateral,
-    /// Total amount of collateral after deposit / withdraw, excluding
-    /// any amount that has been slashed. If nomination is enabled this
-    /// will be greater than the `collateral` supplied by the vault.
-    pub total_collateral: Collateral,
-    /// Collateral supplied by the vault itself. If the vault has been
-    /// slashed a proportional amount will be deducted from this.
-    pub collateral: Collateral,
 }
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
@@ -197,13 +179,9 @@ impl<
         BlockNumber: Default,
         Wrapped: HasCompact + Default,
         Collateral: HasCompact + Default,
-        SignedFixedPoint: Default,
-    > Vault<AccountId, BlockNumber, Wrapped, Collateral, SignedFixedPoint>
+    > Vault<AccountId, BlockNumber, Wrapped, Collateral>
 {
-    pub(crate) fn new(
-        id: AccountId,
-        public_key: BtcPublicKey,
-    ) -> Vault<AccountId, BlockNumber, Wrapped, Collateral, SignedFixedPoint> {
+    pub(crate) fn new(id: AccountId, public_key: BtcPublicKey) -> Vault<AccountId, BlockNumber, Wrapped, Collateral> {
         let wallet = Wallet::new(public_key);
         Vault {
             id,
@@ -219,13 +197,8 @@ impl<
     }
 }
 
-pub type DefaultVault<T> = Vault<
-    <T as frame_system::Config>::AccountId,
-    <T as frame_system::Config>::BlockNumber,
-    Wrapped<T>,
-    Collateral<T>,
-    SignedFixedPoint<T>,
->;
+pub type DefaultVault<T> =
+    Vault<<T as frame_system::Config>::AccountId, <T as frame_system::Config>::BlockNumber, Wrapped<T>, Collateral<T>>;
 
 pub type DefaultSystemVault<T> = SystemVault<Wrapped<T>>;
 
@@ -360,14 +333,14 @@ impl<T: Config> RichVault<T> {
             .ok_or(Error::<T>::ArithmeticOverflow)?)
     }
 
-    pub fn get_collateral(&self) -> Collateral<T> {
-        self.data.backing_collateral
+    pub fn get_collateral(&self) -> Result<Collateral<T>, DispatchError> {
+        Pallet::<T>::get_backing_collateral(&self.id())
     }
 
     pub fn get_free_collateral(&self) -> Result<Collateral<T>, DispatchError> {
         let used_collateral = self.get_used_collateral()?;
         Ok(self
-            .get_collateral()
+            .get_collateral()?
             .checked_sub(&used_collateral)
             .ok_or(Error::<T>::ArithmeticUnderflow)?)
     }
@@ -382,7 +355,7 @@ impl<T: Config> RichVault<T> {
             .checked_mul_int(issued_tokens_in_collateral)
             .ok_or(Error::<T>::ArithmeticOverflow)?;
 
-        Ok(self.data.backing_collateral.min(used_collateral))
+        Ok(self.get_collateral()?.min(used_collateral))
     }
 
     pub fn issuable_tokens(&self) -> Result<Wrapped<T>, DispatchError> {
@@ -467,7 +440,7 @@ impl<T: Config> RichVault<T> {
     }
 
     pub(crate) fn slash_to_liquidation_vault(&mut self, amount: Collateral<T>) -> DispatchResult {
-        self.slash_collateral(amount)?;
+        ext::staking::slash_stake::<T>(&self.id(), Pallet::<T>::collateral_to_fixed(amount)?)?;
         Pallet::<T>::transfer_funds(
             CurrencySource::ReservedBalance(self.id()),
             CurrencySource::LiquidationVault,
@@ -500,7 +473,10 @@ impl<T: Config> RichVault<T> {
         self.slash_to_liquidation_vault(liquidated_collateral_excluding_to_be_redeemed)?;
         // temporarily slash additional collateral for the to_be_redeemed tokens
         // this is re-distributed once the tokens are burned
-        self.slash_collateral(collateral_for_to_be_redeemed)?;
+        ext::staking::slash_stake::<T>(
+            &self.id(),
+            Pallet::<T>::collateral_to_fixed(collateral_for_to_be_redeemed)?,
+        )?;
         self.increase_liquidated_collateral(collateral_for_to_be_redeemed)?;
 
         // Copy all tokens to the liquidation vault

@@ -11,7 +11,6 @@ use frame_support::{assert_err, assert_ok};
 use mocktopus::mocking::*;
 use redeem::types::{RedeemRequest, RedeemRequestStatus};
 use replace::types::{ReplaceRequest, ReplaceRequestStatus};
-use sp_arithmetic::FixedI128;
 use sp_core::{H160, H256};
 use sp_std::convert::TryFrom;
 use std::{convert::TryInto, str::FromStr};
@@ -36,10 +35,7 @@ fn dummy_merkle_proof() -> MerkleProof {
 }
 
 /// Mocking functions
-fn init_zero_vault(
-    id: AccountId,
-    btc_address: Option<BtcAddress>,
-) -> Vault<AccountId, BlockNumber, Balance, Balance, FixedI128> {
+fn init_zero_vault(id: AccountId, btc_address: Option<BtcAddress>) -> Vault<AccountId, BlockNumber, Balance, Balance> {
     let mut vault = Vault::default();
     vault.id = id;
     vault.wallet = Wallet::new(dummy_public_key());
@@ -349,7 +345,6 @@ fn test_is_transaction_invalid_fails_with_valid_merge_transaction() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
-                backing_collateral: 0,
                 wallet: wallet.clone(),
                 banned_until: None,
                 status: VaultStatus::Active(true),
@@ -408,7 +403,6 @@ fn test_is_transaction_invalid_fails_with_valid_request_or_redeem() {
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
                 replace_collateral: 0,
-                backing_collateral: 0,
                 wallet: wallet.clone(),
                 banned_until: None,
                 status: VaultStatus::Active(true),
@@ -568,7 +562,6 @@ fn test_is_transaction_invalid_fails_with_valid_merge_testnet_transaction() {
                 to_be_issued_tokens: 0,
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
-                backing_collateral: 0,
                 wallet: wallet.clone(),
                 banned_until: None,
                 status: VaultStatus::Active(true),

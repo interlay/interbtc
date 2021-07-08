@@ -63,10 +63,7 @@ pub(crate) mod vault_registry {
 
     pub fn get_active_vault_from_id<T: crate::Config>(
         vault_id: &T::AccountId,
-    ) -> Result<
-        Vault<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>, <T as vault_registry::Config>::SignedFixedPoint>,
-        DispatchError,
-    > {
+    ) -> Result<Vault<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>, DispatchError> {
         <vault_registry::Pallet<T>>::get_active_vault_from_id(vault_id)
     }
 

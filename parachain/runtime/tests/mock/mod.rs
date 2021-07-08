@@ -23,11 +23,10 @@ pub use sp_std::convert::TryInto;
 pub use vault_registry::CurrencySource;
 
 pub use issue::IssueRequest;
-pub use nomination::Nominator;
 pub use redeem::RedeemRequest;
 pub use refund::RefundRequest;
 pub use replace::ReplaceRequest;
-pub use reward::{RewardPool, Rewards};
+pub use reward::Rewards;
 pub use sp_runtime::AccountId32;
 pub use std::convert::TryFrom;
 pub use vault_registry::{Vault, VaultStatus};
@@ -90,7 +89,8 @@ pub type FeeCall = fee::Call<Runtime>;
 pub type FeeError = fee::Error<Runtime>;
 pub type FeePallet = fee::Pallet<Runtime>;
 
-pub type RewardVaultPallet = reward::Pallet<Runtime>;
+pub type VaultRewardsPallet = reward::Pallet<Runtime>;
+pub type VaultStakingPallet = staking::Pallet<Runtime>;
 
 pub type IssueCall = issue::Call<Runtime>;
 pub type IssuePallet = issue::Pallet<Runtime>;
@@ -240,7 +240,7 @@ impl PartialEq for FeePool {
 impl FeePool {
     pub fn get() -> Self {
         Self {
-            vault_rewards: RewardVaultPallet::get_total_rewards(INTERBTC, RewardPool::Global).unwrap() as u128,
+            vault_rewards: VaultRewardsPallet::get_total_rewards(INTERBTC).unwrap() as u128,
         }
     }
 }

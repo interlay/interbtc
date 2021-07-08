@@ -45,16 +45,16 @@ pub fn nomination_opt_out(vault: [u8; 32]) -> DispatchResultWithPostInfo {
 }
 
 pub fn nominate_collateral(
-    nominator: [u8; 32],
     vault: [u8; 32],
+    nominator: [u8; 32],
     amount_collateral: u128,
 ) -> DispatchResultWithPostInfo {
     Call::Nomination(NominationCall::deposit_collateral(account_of(vault), amount_collateral))
         .dispatch(origin_of(account_of(nominator)))
 }
 
-pub fn assert_nominate_collateral(nominator: [u8; 32], vault: [u8; 32], amount_collateral: u128) {
-    assert_ok!(nominate_collateral(nominator, vault, amount_collateral));
+pub fn assert_nominate_collateral(vault: [u8; 32], nominator: [u8; 32], amount_collateral: u128) {
+    assert_ok!(nominate_collateral(vault, nominator, amount_collateral));
 }
 
 pub fn withdraw_vault_collateral(vault: [u8; 32], amount_collateral: u128) -> DispatchResultWithPostInfo {
@@ -90,6 +90,6 @@ pub fn assert_total_nominated_collateral_is(vault: [u8; 32], amount_collateral: 
     assert_eq!(nominated_collateral, amount_collateral);
 }
 
-pub fn get_nominator_collateral(nominator: [u8; 32], vault: [u8; 32]) -> u128 {
-    NominationPallet::get_nominator_collateral(&account_of(nominator), &account_of(vault)).unwrap()
+pub fn get_nominator_collateral(vault: [u8; 32], nominator: [u8; 32]) -> u128 {
+    NominationPallet::get_nominator_collateral(&account_of(vault), &account_of(nominator)).unwrap()
 }

@@ -36,7 +36,6 @@ use frame_support::{
     PalletId,
 };
 use frame_system::ensure_signed;
-use reward::RewardPool;
 use sp_arithmetic::{traits::*, FixedPointNumber, FixedPointOperand};
 use sp_runtime::traits::{AccountIdConversion, AtLeast32BitUnsigned};
 use sp_std::{
@@ -47,7 +46,7 @@ use sp_std::{
 use types::{Collateral, SignedFixedPoint, UnsignedFixedPoint, UnsignedInner, Version, Wrapped};
 
 pub trait WeightInfo {
-    fn withdraw_vault_rewards() -> Weight;
+    fn withdraw_rewards() -> Weight;
 }
 
 pub use pallet::*;
@@ -62,9 +61,6 @@ pub mod pallet {
     /// The pallet's configuration trait.
     #[pallet::config]
     pub trait Config: frame_system::Config + security::Config {
-        /// The overarching event type.
-        type Event: From<Event<Self>> + IsType<<Self as frame_system::Config>::Event>;
-
         /// The fee module id, used for deriving its sovereign account ID.
         #[pallet::constant]
         type PalletId: Get<PalletId>;
@@ -97,18 +93,14 @@ pub mod pallet {
         /// Vault reward pool for the wrapped currency.
         type VaultRewards: reward::Rewards<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
 
+        /// Vault staking pool for the wrapped currency.
+        type VaultStaking: staking::Staking<Self::AccountId, SignedFixedPoint = SignedFixedPoint<Self>>;
+
         /// Collateral currency, e.g. DOT/KSM.
         type Collateral: ParachainCurrency<Self::AccountId, Balance = Self::UnsignedInner>;
 
         /// Wrapped currency, e.g. InterBTC.
         type Wrapped: ParachainCurrency<Self::AccountId, Balance = Self::UnsignedInner>;
-    }
-
-    #[pallet::event]
-    #[pallet::generate_deposit(pub(super) fn deposit_event)]
-    #[pallet::metadata(T::AccountId = "AccountId", Wrapped<T> = "Wrapped", Collateral<T> = "Collateral")]
-    pub enum Event<T: Config> {
-        WithdrawWrapped(T::AccountId, Wrapped<T>),
     }
 
     #[pallet::error]
@@ -268,32 +260,17 @@ pub mod pallet {
     // The pallet's dispatchable functions.
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        /// Withdraw vault rewards.
+        /// Withdraw all rewards from the `origin` account in the `vault_id` staking pool.
         ///
         /// # Arguments
         ///
         /// * `origin` - signing account
-        #[pallet::weight(<T as Config>::WeightInfo::withdraw_vault_rewards())]
+        #[pallet::weight(<T as Config>::WeightInfo::withdraw_rewards())]
         #[transactional]
-        pub fn withdraw_vault_rewards(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
+        pub fn withdraw_rewards(origin: OriginFor<T>, vault_id: T::AccountId) -> DispatchResultWithPostInfo {
             ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-            let signer = ensure_signed(origin)?;
-            Self::withdraw_from_pool::<T::VaultRewards>(RewardPool::Global, &signer)?;
-            Ok(().into())
-        }
-
-        /// Withdraw nominator rewards.
-        ///
-        /// # Arguments
-        ///
-        /// * `origin` - signing account
-        /// * `vault_id` - vault whose reward pool to reward from
-        #[pallet::weight(<T as Config>::WeightInfo::withdraw_vault_rewards())]
-        #[transactional]
-        pub fn withdraw_nominator_rewards(origin: OriginFor<T>, vault_id: T::AccountId) -> DispatchResultWithPostInfo {
-            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
-            let signer = ensure_signed(origin)?;
-            Self::withdraw_from_pool::<T::VaultRewards>(RewardPool::Local(vault_id), &signer)?;
+            let nominator_id = ensure_signed(origin)?;
+            Self::withdraw_from_reward_pool::<T::VaultRewards, T::VaultStaking>(&vault_id, &nominator_id)?;
             Ok(().into())
         }
     }
@@ -417,7 +394,7 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn withdraw_all_vault_rewards(account_id: &T::AccountId) -> DispatchResult {
-        Self::withdraw_from_pool::<T::VaultRewards>(RewardPool::Global, account_id)?;
+        Self::distribute_from_reward_pool::<T::VaultRewards, T::VaultStaking>(account_id)?;
         Ok(())
     }
 
@@ -453,24 +430,19 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    /// Withdraw collateral rewards from a pool and transfer to `account_id`.
-    fn withdraw_from_pool<R: reward::Rewards<T::AccountId, SignedFixedPoint = SignedFixedPoint<T>>>(
-        reward_pool: RewardPool<T::AccountId>,
-        account_id: &T::AccountId,
+    /// Withdraw rewards from a pool and transfer to `account_id`.
+    fn withdraw_from_reward_pool<
+        Rewards: reward::Rewards<T::AccountId, SignedFixedPoint = SignedFixedPoint<T>>,
+        Staking: staking::Staking<T::AccountId, SignedFixedPoint = SignedFixedPoint<T>>,
+    >(
+        vault_id: &T::AccountId,
+        nominator_id: &T::AccountId,
     ) -> DispatchResult {
-        match reward_pool {
-            RewardPool::Global => {
-                Self::withdraw_from_pool::<R>(RewardPool::Local(account_id.clone()), account_id)?;
-            }
-            RewardPool::Local(pool_account_id) => {
-                Self::distribute_global_pool::<R>(&pool_account_id)?;
-                let wrapped_rewards = R::withdraw_reward(RewardPool::Local(pool_account_id), account_id)?
-                    .try_into()
-                    .map_err(|_| Error::<T>::TryIntoIntError)?;
-                ext::treasury::transfer::<T>(&Self::fee_pool_account_id(), account_id, wrapped_rewards)?;
-                Self::deposit_event(<Event<T>>::WithdrawWrapped(account_id.clone(), wrapped_rewards));
-            }
-        }
+        Self::distribute_from_reward_pool::<Rewards, Staking>(&vault_id)?;
+        let rewards = Staking::withdraw_reward(vault_id, nominator_id)?
+            .try_into()
+            .map_err(|_| Error::<T>::TryIntoIntError)?;
+        ext::treasury::transfer::<T>(&Self::fee_pool_account_id(), nominator_id, rewards)?;
         Ok(())
     }
 
@@ -478,14 +450,14 @@ impl<T: Config> Pallet<T> {
         Currency: TryInto<SignedInner>,
         SignedInner: TryInto<Currency> + CheckedDiv,
         SignedFixedPoint: FixedPointNumber<Inner = SignedInner>,
-        Reward: reward::Rewards<T::AccountId, SignedFixedPoint = SignedFixedPoint>,
+        Rewards: reward::Rewards<T::AccountId, SignedFixedPoint = SignedFixedPoint>,
     >(
         reward: Currency,
     ) -> Result<Currency, DispatchError> {
         let reward_as_inner = reward.try_into().ok().ok_or(Error::<T>::TryIntoIntError)?;
         let reward_as_fixed =
             SignedFixedPoint::checked_from_integer(reward_as_inner).ok_or(Error::<T>::TryIntoIntError)?;
-        Ok(Reward::distribute(RewardPool::Global, reward_as_fixed)?
+        Ok(Rewards::distribute(reward_as_fixed)?
             .into_inner()
             .checked_div(&SignedFixedPoint::accuracy())
             .ok_or(Error::<T>::ArithmeticUnderflow)?
@@ -494,11 +466,16 @@ impl<T: Config> Pallet<T> {
             .ok_or(Error::<T>::TryIntoIntError)?)
     }
 
-    pub fn distribute_global_pool<Reward: reward::Rewards<T::AccountId>>(account_id: &T::AccountId) -> DispatchResult {
-        let reward_as_inner = Reward::withdraw_reward(RewardPool::Global, account_id)?;
+    pub fn distribute_from_reward_pool<
+        Rewards: reward::Rewards<T::AccountId, SignedFixedPoint = SignedFixedPoint<T>>,
+        Staking: staking::Staking<T::AccountId, SignedFixedPoint = SignedFixedPoint<T>>,
+    >(
+        account_id: &T::AccountId,
+    ) -> DispatchResult {
+        let reward_as_inner = Rewards::withdraw_reward(account_id)?;
         let reward_as_fixed =
-            Reward::SignedFixedPoint::checked_from_integer(reward_as_inner).ok_or(Error::<T>::TryIntoIntError)?;
-        Reward::distribute(RewardPool::Local(account_id.clone()), reward_as_fixed)?;
+            Rewards::SignedFixedPoint::checked_from_integer(reward_as_inner).ok_or(Error::<T>::TryIntoIntError)?;
+        Staking::distribute_reward(account_id, reward_as_fixed)?;
         Ok(())
     }
 }

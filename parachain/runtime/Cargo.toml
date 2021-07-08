@@ -80,6 +80,7 @@ replace = { path = "../../crates/replace", default-features = false }
 refund = { path = "../../crates/refund", default-features = false }
 nomination = { path = "../../crates/nomination", default-features = false }
 reward = { path = "../../crates/reward", default-features = false }
+staking = { path = "../../crates/staking", default-features = false }
 
 primitives = { package = "btc-parachain-primitives", path = "../../primitives", default-features = false }
 
@@ -186,6 +187,7 @@ std = [
   "replace/std",
   "nomination/std",
   "reward/std",
+  "staking/std",
 
   "primitives/std",
 

@@ -61,9 +61,7 @@ fn cancel_issue(origin: AccountId, issue_id: &H256) -> Result<(), DispatchError>
     Issue::_cancel_issue(origin, *issue_id)
 }
 
-fn init_zero_vault<T: Config>(
-    id: T::AccountId,
-) -> Vault<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>, <T as vault_registry::Config>::SignedFixedPoint> {
+fn init_zero_vault<T: Config>(id: T::AccountId) -> Vault<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>> {
     let mut vault = Vault::default();
     vault.id = id;
     vault
@@ -88,7 +86,6 @@ fn test_request_issue_banned_fails() {
                 issued_tokens: 0,
                 to_be_redeemed_tokens: 0,
                 replace_collateral: 0,
-                backing_collateral: 0,
                 wallet: Wallet::new(BtcPublicKey::default()),
                 banned_until: Some(1),
                 status: VaultStatus::Active(true),

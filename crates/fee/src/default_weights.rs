@@ -6,7 +6,7 @@
 use frame_support::weights::{constants::RocksDbWeight as DbWeight, Weight};
 
 impl crate::WeightInfo for () {
-    fn withdraw_vault_rewards() -> Weight {
+    fn withdraw_rewards() -> Weight {
         (124_557_000 as Weight)
             .saturating_add(DbWeight::get().reads(5 as Weight))
             .saturating_add(DbWeight::get().writes(4 as Weight))

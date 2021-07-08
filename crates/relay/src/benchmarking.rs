@@ -5,7 +5,9 @@ use bitcoin::{
     types::{BlockBuilder, H256Le, RawBlockHeader, TransactionBuilder, TransactionInputBuilder, TransactionOutput},
 };
 use btc_relay::{BtcAddress, BtcPublicKey, Pallet as BtcRelay};
+use currency::ParachainCurrency;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
+use frame_support::assert_ok;
 use frame_system::RawOrigin;
 use security::Pallet as Security;
 use sp_core::{H160, U256};
@@ -90,6 +92,9 @@ benchmarks! {
             &vault_id,
             vault
         );
+
+        assert_ok!(<T as vault_registry::Config>::Collateral::mint(&vault_id, 1000u32.into()));
+        assert_ok!(VaultRegistry::<T>::try_deposit_collateral(&vault_id, 1000u32.into()));
 
         let height = 0;
         let block = BlockBuilder::new()

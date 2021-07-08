@@ -12,10 +12,7 @@ pub mod types;
 mod benchmarking;
 
 mod default_weights;
-mod slash;
 pub use default_weights::WeightInfo;
-use reward::RewardPool;
-pub use slash::{SlashingAccessors, SlashingError};
 
 #[cfg(test)]
 mod tests;
@@ -35,10 +32,7 @@ use crate::types::{
 };
 
 #[doc(inline)]
-pub use crate::{
-    slash::{Slashable, TryDepositCollateral, TryWithdrawCollateral},
-    types::{BtcPublicKey, CurrencySource, DefaultVault, SystemVault, Vault, VaultStatus, Wallet},
-};
+pub use crate::types::{BtcPublicKey, CurrencySource, DefaultVault, SystemVault, Vault, VaultStatus, Wallet};
 use bitcoin::types::Value;
 use codec::{Decode, Encode, EncodeLike, FullCodec};
 use currency::ParachainCurrency;
@@ -88,6 +82,7 @@ pub mod pallet {
         + exchange_rate_oracle::Config<Balance = BalanceOf<Self>>
         + sla::Config<Balance = BalanceOf<Self>>
         + security::Config
+        + staking::Config<SignedInner = SignedInner<Self>, SignedFixedPoint = SignedFixedPoint<Self>>
     {
         /// The vault module id, used for deriving its sovereign account ID.
         #[pallet::constant] // put the constant in metadata
@@ -102,7 +97,7 @@ pub mod pallet {
         type RandomnessSource: Randomness<H256, Self::BlockNumber>;
 
         /// The `Inner` type of the `SignedFixedPoint`.
-        type SignedInner: Debug + TryFrom<BalanceOf<Self>> + MaybeSerializeDeserialize;
+        type SignedInner: Debug + TryFrom<BalanceOf<Self>> + TryInto<BalanceOf<Self>> + MaybeSerializeDeserialize;
 
         /// The primitive balance type.
         type Balance: AtLeast32BitUnsigned
@@ -142,6 +137,10 @@ pub mod pallet {
 
         /// Wrapped currency, e.g. InterBTC.
         type Wrapped: ParachainCurrency<Self::AccountId, Balance = BalanceOf<Self>>;
+
+        /// Rewards currency, e.g. INTERBTC.
+        #[pallet::constant]
+        type GetRewardsCurrencyId: Get<Self::CurrencyId>;
     }
 
     #[pallet::hooks]
@@ -230,7 +229,7 @@ pub mod pallet {
             Self::deposit_event(Event::<T>::DepositCollateral(
                 vault.id(),
                 amount,
-                vault.get_collateral(),
+                vault.get_collateral()?,
                 vault.get_free_collateral()?,
             ));
             Ok(().into())
@@ -263,7 +262,7 @@ pub mod pallet {
 
             let vault = Self::get_rich_vault_from_id(&sender)?;
 
-            Self::deposit_event(Event::<T>::WithdrawCollateral(sender, amount, vault.get_collateral()));
+            Self::deposit_event(Event::<T>::WithdrawCollateral(sender, amount, vault.get_collateral()?));
             Ok(().into())
         }
 
@@ -419,17 +418,6 @@ pub mod pallet {
         TryIntoIntError,
     }
 
-    impl<T: Config> From<SlashingError> for Error<T> {
-        fn from(err: SlashingError) -> Self {
-            match err {
-                SlashingError::ArithmeticOverflow => Error::ArithmeticOverflow,
-                SlashingError::ArithmeticUnderflow => Error::ArithmeticUnderflow,
-                SlashingError::TryIntoIntError => Error::TryIntoIntError,
-                SlashingError::InsufficientFunds => Error::InsufficientCollateral,
-            }
-        }
-    }
-
     /// The minimum collateral (e.g. DOT/KSM) a Vault needs to provide to register.
     #[pallet::storage]
     #[pallet::getter(fn minimum_collateral_vault)]
@@ -478,7 +466,7 @@ pub mod pallet {
         _,
         Blake2_128Concat,
         T::AccountId,
-        Vault<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>, SignedFixedPoint<T>>,
+        Vault<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>,
         ValueQuery,
     >;
 
@@ -537,6 +525,7 @@ pub mod pallet {
     }
 }
 
+// "Internal" functions, callable by code.
 #[cfg_attr(test, mockable)]
 impl<T: Config> Pallet<T> {
     fn _offchain_worker() {
@@ -577,8 +566,9 @@ impl<T: Config> Pallet<T> {
     }
 
     pub fn get_backing_collateral(vault_id: &T::AccountId) -> Result<Collateral<T>, DispatchError> {
-        let vault = Self::get_vault_from_id(vault_id)?;
-        Ok(vault.backing_collateral)
+        Ok(ext::staking::total_current_stake::<T>(vault_id)?
+            .try_into()
+            .map_err(|_| Error::<T>::TryIntoIntError)?)
     }
 
     pub fn get_liquidated_collateral(vault_id: &T::AccountId) -> Result<Collateral<T>, DispatchError> {
@@ -606,14 +596,14 @@ impl<T: Config> Pallet<T> {
     /// * `vault_id` - the id of the vault
     /// * `amount` - the amount of collateral
     pub fn try_deposit_collateral(vault_id: &T::AccountId, amount: Collateral<T>) -> DispatchResult {
-        let mut vault = Self::get_active_rich_vault_from_id(vault_id)?;
+        let vault = Self::get_active_rich_vault_from_id(vault_id)?;
 
         // will fail if free_balance is insufficient
         ext::collateral::lock::<T>(vault_id, amount)?;
         Self::increase_total_backing_collateral(amount)?;
-        vault.try_deposit_collateral(amount)?;
-        // Deposit `amount` of stake in the local reward pool
-        Self::deposit_pool_stake::<<T as pallet::Config>::VaultRewards>(&vault_id, &vault_id, amount)?;
+
+        // Deposit `amount` of stake in the pool
+        ext::staking::deposit_stake::<T>(vault_id, vault_id, Self::collateral_to_fixed(amount)?)?;
 
         ext::sla::event_update_vault_sla::<T>(&vault.id(), ext::sla::Action::Deposit(amount))?;
         Ok(())
@@ -625,14 +615,14 @@ impl<T: Config> Pallet<T> {
     /// * `vault_id` - the id of the vault
     /// * `amount` - the amount of collateral
     pub fn force_withdraw_collateral(vault_id: &T::AccountId, amount: Collateral<T>) -> DispatchResult {
-        let mut vault = Self::get_rich_vault_from_id(vault_id)?;
+        let vault = Self::get_rich_vault_from_id(vault_id)?;
 
         // will fail if reserved_balance is insufficient
         ext::collateral::unlock::<T>(vault_id, amount)?;
-        vault.try_withdraw_collateral(amount)?;
         Self::decrease_total_backing_collateral(amount)?;
-        // Withdraw `amount` of stake from the local reward pool
-        Self::withdraw_pool_stake::<<T as pallet::Config>::VaultRewards>(&vault_id, &vault_id, amount)?;
+
+        // Withdraw `amount` of stake from the pool
+        ext::staking::withdraw_stake::<T>(vault_id, vault_id, Self::collateral_to_fixed(amount)?)?;
 
         ext::sla::event_update_vault_sla::<T>(&vault.id(), ext::sla::Action::Withdraw(amount))?;
         Ok(())
@@ -660,7 +650,7 @@ impl<T: Config> Pallet<T> {
     ) -> Result<bool, DispatchError> {
         let vault = Self::get_vault_from_id(vault_id)?;
 
-        let new_collateral = match vault.backing_collateral.checked_sub(&amount) {
+        let new_collateral = match Self::get_backing_collateral(vault_id)?.checked_sub(&amount) {
             Some(x) => x,
             None => return Ok(false),
         };
@@ -691,9 +681,8 @@ impl<T: Config> Pallet<T> {
     }
 
     fn slash_backing_collateral(vault_id: &T::AccountId, amount: Collateral<T>) -> DispatchResult {
-        let mut vault = Self::get_rich_vault_from_id(vault_id)?;
         ext::collateral::unlock::<T>(vault_id, amount)?;
-        vault.slash_collateral(amount)?;
+        ext::staking::slash_stake::<T>(vault_id, Self::collateral_to_fixed(amount)?)?;
         Ok(())
     }
 
@@ -988,7 +977,7 @@ impl<T: Config> Pallet<T> {
             vault.decrease_liquidated_collateral(to_be_released)?;
 
             // release vault's collateral
-            vault.distribute_collateral(to_be_released)?;
+            ext::staking::unslash_stake::<T>(vault_id, Self::collateral_to_fixed(to_be_released)?)?;
 
             Self::deposit_event(Event::<T>::RedeemTokensLiquidatedVault(
                 vault_id.clone(),
@@ -1074,7 +1063,7 @@ impl<T: Config> Pallet<T> {
             old_vault.decrease_liquidated_collateral(to_be_released)?;
 
             // release old-vault's collateral
-            old_vault.distribute_collateral(to_be_released)?;
+            ext::staking::unslash_stake::<T>(old_vault_id, Self::collateral_to_fixed(to_be_released)?)?;
         }
 
         old_vault.decrease_tokens(tokens)?;
@@ -1157,6 +1146,7 @@ impl<T: Config> Pallet<T> {
         status: VaultStatus,
     ) -> Result<Collateral<T>, DispatchError> {
         let mut vault = Self::get_active_rich_vault_from_id(&vault_id)?;
+        let backing_collateral = vault.get_collateral()?;
         let vault_orig = vault.data.clone();
 
         let to_slash = vault.liquidate(status)?;
@@ -1168,7 +1158,7 @@ impl<T: Config> Pallet<T> {
             vault_orig.to_be_issued_tokens,
             vault_orig.to_be_redeemed_tokens,
             vault_orig.to_be_replaced_tokens,
-            vault_orig.backing_collateral,
+            backing_collateral,
             status,
             vault_orig.replace_collateral,
         ));
@@ -1241,10 +1231,7 @@ impl<T: Config> Pallet<T> {
         Ok(total)
     }
 
-    pub fn insert_vault(
-        id: &T::AccountId,
-        vault: Vault<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>, SignedFixedPoint<T>>,
-    ) {
+    pub fn insert_vault(id: &T::AccountId, vault: Vault<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>) {
         Vaults::<T>::insert(id, vault)
     }
 
@@ -1277,10 +1264,14 @@ impl<T: Config> Pallet<T> {
 
     /// check if the vault is below the liquidation threshold.
     pub fn is_vault_below_liquidation_threshold(
-        vault: &Vault<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>, SignedFixedPoint<T>>,
+        vault: &Vault<T::AccountId, T::BlockNumber, Wrapped<T>, Collateral<T>>,
         liquidation_threshold: UnsignedFixedPoint<T>,
     ) -> Result<bool, DispatchError> {
-        Self::is_collateral_below_threshold(vault.backing_collateral, vault.issued_tokens, liquidation_threshold)
+        Self::is_collateral_below_threshold(
+            Self::get_backing_collateral(&vault.id)?,
+            vault.issued_tokens,
+            liquidation_threshold,
+        )
     }
 
     pub fn is_collateral_below_secure_threshold(
@@ -1494,7 +1485,7 @@ impl<T: Config> Pallet<T> {
         only_issued: bool,
     ) -> Result<UnsignedFixedPoint<T>, DispatchError> {
         let vault = Self::get_active_rich_vault_from_id(&vault_id)?;
-        let collateral = vault.get_collateral();
+        let collateral = vault.get_collateral()?;
         Self::get_collateralization_from_vault_and_collateral(vault_id, collateral, only_issued)
     }
 
@@ -1544,9 +1535,9 @@ impl<T: Config> Pallet<T> {
         Vaults::<T>::contains_key(id)
     }
 
-    pub fn compute_collateral(id: &T::AccountId) -> Result<Collateral<T>, DispatchError> {
-        let rich_vault = Self::get_rich_vault_from_id(id)?;
-        Ok(rich_vault.compute_collateral()?)
+    pub fn compute_collateral(vault_id: &T::AccountId) -> Result<Collateral<T>, DispatchError> {
+        let collateral = ext::staking::compute_stake::<T>(vault_id, vault_id)?;
+        collateral.try_into().map_err(|_| Error::<T>::TryIntoIntError.into())
     }
 
     /// Private getters and setters
@@ -1682,29 +1673,7 @@ impl<T: Config> Pallet<T> {
         Ok(btc_address)
     }
 
-    fn withdraw_pool_stake<R: reward::Rewards<T::AccountId, SignedFixedPoint = SignedFixedPoint<T>>>(
-        account_id: &T::AccountId,
-        pool_account_id: &T::AccountId,
-        amount: Collateral<T>,
-    ) -> Result<(), DispatchError> {
-        let amount_fixed = Self::collateral_to_fixed(amount)?;
-        if amount_fixed > SignedFixedPoint::<T>::zero() {
-            R::withdraw_stake(RewardPool::Local(pool_account_id.clone()), account_id, amount_fixed)?;
-        }
-        Ok(())
-    }
-
-    fn deposit_pool_stake<R: reward::Rewards<T::AccountId, SignedFixedPoint = SignedFixedPoint<T>>>(
-        account_id: &T::AccountId,
-        pool_account_id: &T::AccountId,
-        amount: Collateral<T>,
-    ) -> Result<(), DispatchError> {
-        let amount_fixed = Self::collateral_to_fixed(amount)?;
-        R::deposit_stake(RewardPool::Local(pool_account_id.clone()), account_id, amount_fixed)?;
-        Ok(())
-    }
-
-    fn collateral_to_fixed(x: Collateral<T>) -> Result<SignedFixedPoint<T>, DispatchError> {
+    pub(crate) fn collateral_to_fixed(x: Collateral<T>) -> Result<SignedFixedPoint<T>, DispatchError> {
         let signed_inner = TryInto::<SignedInner<T>>::try_into(x).map_err(|_| Error::<T>::TryIntoIntError)?;
         let signed_fixed_point = <T as pallet::Config>::SignedFixedPoint::checked_from_integer(signed_inner)
             .ok_or(Error::<T>::TryIntoIntError)?;

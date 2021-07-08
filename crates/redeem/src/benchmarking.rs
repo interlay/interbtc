@@ -6,6 +6,7 @@ use bitcoin::{
 };
 use btc_relay::{BtcAddress, BtcPublicKey, Pallet as BtcRelay};
 use currency::ParachainCurrency;
+use exchange_rate_oracle::Pallet as ExchangeRateOracle;
 use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
 use frame_support::assert_ok;
 use frame_system::RawOrigin;
@@ -27,7 +28,7 @@ fn dummy_public_key() -> BtcPublicKey {
 }
 
 fn mint_collateral<T: crate::Config>(account_id: &T::AccountId, amount: Collateral<T>) {
-    <T as vault_registry::Config>::Collateral::mint(account_id, amount).unwrap();
+    assert_ok!(<T as vault_registry::Config>::Collateral::mint(account_id, amount));
 }
 
 fn mine_blocks<T: crate::Config>() {
@@ -196,6 +197,9 @@ benchmarks! {
         Redeem::<T>::insert_redeem_request(redeem_id, redeem_request);
         mine_blocks::<T>();
         Security::<T>::set_active_block_number(Security::<T>::active_block_number() + Redeem::<T>::redeem_period() + 10u32.into());
+        assert_ok!(ExchangeRateOracle::<T>::_set_exchange_rate(
+            <T as exchange_rate_oracle::Config>::UnsignedFixedPoint::one()
+        ));
 
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
@@ -204,6 +208,8 @@ benchmarks! {
             &vault_id,
             vault
         );
+        mint_collateral::<T>(&vault_id, 1000u32.into());
+        assert_ok!(VaultRegistry::<T>::try_deposit_collateral(&vault_id, 1000u32.into()));
     }: cancel_redeem(RawOrigin::Signed(origin), redeem_id, true)
 
     cancel_redeem_retry {
@@ -219,7 +225,6 @@ benchmarks! {
         mine_blocks::<T>();
         Security::<T>::set_active_block_number(Security::<T>::active_block_number() + Redeem::<T>::redeem_period() + 10u32.into());
 
-
         let mut vault = Vault::default();
         vault.id = vault_id.clone();
         vault.wallet = Wallet::new(dummy_public_key());
@@ -227,6 +232,8 @@ benchmarks! {
             &vault_id,
             vault
         );
+        mint_collateral::<T>(&vault_id, 1000u32.into());
+        assert_ok!(VaultRegistry::<T>::try_deposit_collateral(&vault_id, 1000u32.into()));
     }: cancel_redeem(RawOrigin::Signed(origin), redeem_id, false)
 
     set_redeem_period {
