@@ -1,5 +1,5 @@
 //! # Relay Pallet
-//! Based on the [specification](https://interlay.gitlab.io/polkabtc-spec/spec/staked-relayers.html).
+//! Based on the [specification](https://spec.interlay.io/spec/relay.html).
 
 #![deny(warnings)]
 #![cfg_attr(test, feature(proc_macro_hygiene))]
@@ -75,6 +75,7 @@ pub mod pallet {
     #[pallet::metadata(T::AccountId = "AccountId")]
     pub enum Event<T: Config> {
         VaultTheft(T::AccountId, H256Le),
+        VaultDoublePayment(T::AccountId, H256Le, H256Le),
     }
 
     #[pallet::error]
@@ -95,6 +96,12 @@ pub mod pallet {
         InvalidTransaction,
         /// Unable to convert value
         TryIntoIntError,
+        /// Expected two unique merkle proofs
+        DuplicateMerkleProof,
+        /// Expected two unique transactions
+        DuplicateTransaction,
+        /// Expected duplicate OP_RETURN ids
+        ExpectedDuplicate,
     }
 
     /// Mapping of Bitcoin transaction identifiers (SHA256 hashes) to account
@@ -201,15 +208,14 @@ pub mod pallet {
             Ok(Pays::No.into())
         }
 
-        /// A Staked Relayer reports misbehavior by a Vault, providing a fraud proof
-        /// (malicious Bitcoin transaction and the corresponding transaction inclusion proof).
+        /// Report misbehavior by a Vault, providing a fraud proof (malicious Bitcoin transaction
+        /// and the corresponding transaction inclusion proof).
         ///
         /// # Arguments
         ///
         /// * `origin`: Any signed user.
         /// * `vault_id`: The account of the vault to check.
-        /// * `tx_id`: The hash of the transaction
-        /// * `merkle_proof`: The proof of tx inclusion.
+        /// * `raw_merkle_proof`: The proof of tx inclusion.
         /// * `raw_tx`: The raw Bitcoin transaction.
         #[pallet::weight(<T as Config>::WeightInfo::report_vault_theft())]
         #[transactional]
@@ -225,8 +231,6 @@ pub mod pallet {
             let merkle_proof = ext::btc_relay::parse_merkle_proof::<T>(&raw_merkle_proof)?;
             let transaction = parse_transaction(raw_tx.as_slice()).map_err(|_| Error::<T>::InvalidTransaction)?;
             let tx_id = transaction.tx_id();
-
-            // liquidated vaults are removed, so no need for check here
 
             // throw if already reported
             if <TheftReports<T>>::contains_key(&tx_id) {
@@ -245,13 +249,92 @@ pub mod pallet {
                 reports.insert(vault_id.clone());
             });
 
-            // reward the participant by increasing their SLA
+            // reward the reporter by increasing their SLA
             ext::sla::event_update_vault_sla::<T>(&signer, ext::sla::Action::TheftReport)?;
-
             Self::deposit_event(<Event<T>>::VaultTheft(vault_id, tx_id));
 
             // don't take tx fees on success
             Ok(Pays::No.into())
+        }
+
+        /// Report Vault double payment, providing two fraud proofs (malicious Bitcoin transactions
+        /// and the corresponding transaction inclusion proofs).
+        ///
+        /// # Arguments
+        ///
+        /// * `origin`: Any signed user.
+        /// * `vault_id`: The account of the vault to check.
+        /// * `raw_merkle_proofs`: The proofs of tx inclusion.
+        /// * `raw_txs`: The raw Bitcoin transactions.
+        #[pallet::weight(<T as Config>::WeightInfo::report_vault_theft())]
+        #[transactional]
+        pub fn report_vault_double_payment(
+            origin: OriginFor<T>,
+            vault_id: T::AccountId,
+            raw_merkle_proofs: (Vec<u8>, Vec<u8>),
+            raw_txs: (Vec<u8>, Vec<u8>),
+        ) -> DispatchResultWithPostInfo {
+            ext::security::ensure_parachain_status_not_shutdown::<T>()?;
+            let signer = ensure_signed(origin)?;
+
+            ensure!(
+                raw_merkle_proofs.0 != raw_merkle_proofs.1,
+                Error::<T>::DuplicateMerkleProof,
+            );
+            ensure!(raw_txs.0 != raw_txs.1, Error::<T>::DuplicateTransaction);
+
+            let (left_proof, right_proof) = match raw_merkle_proofs {
+                (left, right) => (
+                    ext::btc_relay::parse_merkle_proof::<T>(&left)?,
+                    ext::btc_relay::parse_merkle_proof::<T>(&right)?,
+                ),
+            };
+
+            let (left_tx, right_tx) = match raw_txs {
+                (left, right) => (
+                    parse_transaction(left.as_slice()).map_err(|_| Error::<T>::InvalidTransaction)?,
+                    parse_transaction(right.as_slice()).map_err(|_| Error::<T>::InvalidTransaction)?,
+                ),
+            };
+
+            let left_tx_id = left_tx.tx_id();
+            let right_tx_id = right_tx.tx_id();
+
+            // ensure both transactions are included
+            ext::btc_relay::verify_transaction_inclusion::<T>(left_tx_id, left_proof)?;
+            ext::btc_relay::verify_transaction_inclusion::<T>(right_tx_id, right_proof)?;
+
+            let vault = ext::vault_registry::get_active_vault_from_id::<T>(&vault_id)?;
+            ensure!(
+                Self::has_input_from_wallet(&left_tx, &vault.wallet)
+                    && Self::has_input_from_wallet(&right_tx, &vault.wallet),
+                Error::<T>::VaultNoInputToTransaction
+            );
+
+            match (
+                OpReturnPaymentData::<T>::try_from(left_tx),
+                OpReturnPaymentData::<T>::try_from(right_tx),
+            ) {
+                (Ok(left), Ok(right)) => {
+                    ensure!(left.op_return == right.op_return, Error::<T>::ExpectedDuplicate);
+
+                    ext::vault_registry::liquidate_theft_vault::<T>(&vault_id)?;
+
+                    <TheftReports<T>>::mutate(&left_tx_id, |reports| {
+                        reports.insert(vault_id.clone());
+                    });
+                    <TheftReports<T>>::mutate(&right_tx_id, |reports| {
+                        reports.insert(vault_id.clone());
+                    });
+
+                    // reward the reporter by increasing their SLA
+                    ext::sla::event_update_vault_sla::<T>(&signer, ext::sla::Action::TheftReport)?;
+                    Self::deposit_event(<Event<T>>::VaultDoublePayment(vault_id, left_tx_id, right_tx_id));
+
+                    Ok(().into())
+                }
+                _ => Err(Error::<T>::InvalidTransaction.into()),
+            }
         }
     }
 }
@@ -264,6 +347,23 @@ impl<T: Config> Pallet<T> {
         // reward the participant by increasing their SLA
         ext::sla::event_update_vault_sla::<T>(&relayer, ext::sla::Action::StoreBlock)?;
         Ok(())
+    }
+
+    pub(crate) fn has_input_from_wallet(transaction: &Transaction, wallet: &Wallet) -> bool {
+        // collect all addresses that feature in the inputs of the transaction
+        let input_addresses: Vec<Result<BtcAddress, _>> = transaction
+            .clone()
+            .inputs
+            .into_iter()
+            .map(|input| input.extract_address())
+            .collect();
+
+        // TODO: can a vault steal funds if it registers a P2WPKH-P2SH since we
+        // would extract the `P2WPKHv0`?
+        input_addresses.into_iter().any(|address_result| match address_result {
+            Ok(address) => wallet.has_btc_address(&address),
+            _ => false,
+        })
     }
 
     /// Checks if the vault is doing a valid merge transaction to move funds between
@@ -322,24 +422,9 @@ impl<T: Config> Pallet<T> {
     pub fn _is_parsed_transaction_invalid(vault_id: &T::AccountId, tx: Transaction) -> DispatchResult {
         let vault = ext::vault_registry::get_active_vault_from_id::<T>(vault_id)?;
 
-        // collect all addresses that feature in the inputs of the transaction
-        let input_addresses: Vec<Result<BtcAddress, _>> = tx
-            .clone()
-            .inputs
-            .into_iter()
-            .map(|input| input.extract_address())
-            .collect();
-
         // check if vault's btc address features in an input of the transaction
         ensure!(
-            // TODO: can a vault steal funds if it registers a P2WPKH-P2SH since we
-            // would extract the `P2WPKHv0`?
-            input_addresses.into_iter().any(|address_result| {
-                match address_result {
-                    Ok(address) => vault.wallet.has_btc_address(&address),
-                    _ => false,
-                }
-            }),
+            Self::has_input_from_wallet(&tx, &vault.wallet),
             // since the transaction does not have any inputs that correspond
             // to any of the vault's registered BTC addresses, return Err
             Error::<T>::VaultNoInputToTransaction
