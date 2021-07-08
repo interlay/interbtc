@@ -281,6 +281,13 @@ impl relay::Config for Runtime {
     type WeightInfo = ();
 }
 
+impl staking::Config for Runtime {
+    type Event = Event;
+    type SignedFixedPoint = SignedFixedPoint;
+    type SignedInner = SignedInner;
+    type CurrencyId = CurrencyId;
+}
+
 parameter_types! {
     pub const VaultPalletId: PalletId = PalletId(*b"mod/vreg");
 }
@@ -297,6 +304,7 @@ impl vault_registry::Config for Runtime {
     type VaultRewards = reward::RewardsCurrencyAdapter<Runtime, (), GetWrappedCurrencyId>;
     type Collateral = orml_tokens::CurrencyAdapter<Runtime, GetCollateralCurrencyId>;
     type Wrapped = orml_tokens::CurrencyAdapter<Runtime, GetWrappedCurrencyId>;
+    type GetRewardsCurrencyId = GetWrappedCurrencyId;
 }
 
 impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
@@ -320,13 +328,13 @@ parameter_types! {
 
 impl fee::Config for Runtime {
     type PalletId = FeePalletId;
-    type Event = Event;
     type WeightInfo = ();
     type SignedFixedPoint = SignedFixedPoint;
     type SignedInner = SignedInner;
     type UnsignedFixedPoint = UnsignedFixedPoint;
     type UnsignedInner = UnsignedInner;
     type VaultRewards = reward::RewardsCurrencyAdapter<Runtime, (), GetWrappedCurrencyId>;
+    type VaultStaking = staking::StakingCurrencyAdapter<Runtime, GetWrappedCurrencyId>;
     type Collateral = orml_tokens::CurrencyAdapter<Runtime, GetCollateralCurrencyId>;
     type Wrapped = orml_tokens::CurrencyAdapter<Runtime, GetWrappedCurrencyId>;
 }
