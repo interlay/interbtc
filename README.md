@@ -1,4 +1,7 @@
 <p align="center">
+  <a href="https://github.com/interlay/interbtc">
+    <img alt="InterBTC" src="/docs/img/banner.jpg">
+  </a>
   <h2 align="center">InterBTC</h2>
 
   <p align="center">
@@ -45,7 +48,7 @@ The InterBTC project is built with:
 - [Rust](https://www.rust-lang.org/)
 - [Substrate](https://substrate.dev/)
 
-    <img src="https://interlay.gitlab.io/polkabtc-spec/_images/overview.png" alt="Logo" width="500">
+    <img src="https://spec.interlay.io/_images/overview.png" alt="Logo" width="500">
 
 ## Roadmap
 
