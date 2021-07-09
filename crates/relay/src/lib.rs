@@ -32,7 +32,7 @@ use crate::types::{Collateral, Wrapped};
 use bitcoin::{parser::parse_transaction, types::*};
 
 use btc_relay::{types::OpReturnPaymentData, BtcAddress};
-use frame_support::{dispatch::DispatchResult, ensure, transactional};
+use frame_support::{dispatch::DispatchResult, ensure, transactional, weights::Pays};
 use frame_system::ensure_signed;
 use sp_std::{
     collections::btree_set::BTreeSet,
@@ -148,7 +148,9 @@ pub mod pallet {
 
             let block_header = ext::btc_relay::parse_raw_block_header::<T>(&raw_block_header)?;
             ext::btc_relay::initialize::<T>(relayer, block_header, block_height)?;
-            Ok(().into())
+
+            // don't take tx fees on success
+            Ok(Pays::No.into())
         }
 
         /// Stores a single new block header
@@ -194,7 +196,9 @@ pub mod pallet {
 
             let block_header = ext::btc_relay::parse_raw_block_header::<T>(&raw_block_header)?;
             Self::store_block_header_and_update_sla(&relayer, block_header)?;
-            Ok(().into())
+
+            // don't take tx fees on success
+            Ok(Pays::No.into())
         }
 
         /// A Staked Relayer reports misbehavior by a Vault, providing a fraud proof
@@ -246,7 +250,8 @@ pub mod pallet {
 
             Self::deposit_event(<Event<T>>::VaultTheft(vault_id, tx_id));
 
-            Ok(().into())
+            // don't take tx fees on success
+            Ok(Pays::No.into())
         }
     }
 }
