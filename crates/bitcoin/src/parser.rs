@@ -367,7 +367,7 @@ fn parse_transaction_input(raw_input: &[u8], version: i32) -> Result<(Transactio
     let mut script_size: u64 = parser.parse::<CompactUint>()?.value;
     let source = if is_coinbase {
         let height = if version != 2 {
-            // version 1 does not include have height
+            // version 1 does not include height
             None
         } else {
             // version 2 transactions include a height as the first 4 bytes, see
