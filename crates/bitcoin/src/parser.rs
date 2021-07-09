@@ -232,12 +232,9 @@ impl FromLeBytes for BlockHeader {
     }
 }
 
-/// Parses the raw bitcoin header into a Rust struct
-///
-/// # Arguments
-///
-/// * `header` - An 80-byte Bitcoin header
-pub fn parse_block_header(raw_header: &RawBlockHeader) -> Result<BlockHeader, Error> {
+// like parse_block_header, but without the version check. This is needed in testing, to test
+// with historical data
+pub fn parse_block_header_lenient(raw_header: &RawBlockHeader) -> Result<BlockHeader, Error> {
     let mut parser = BytesParser::new(raw_header.as_bytes());
     let version: i32 = parser.parse()?;
     let hash_prev_block: H256Le = parser.parse()?;
@@ -256,6 +253,26 @@ pub fn parse_block_header(raw_header: &RawBlockHeader) -> Result<BlockHeader, Er
         nonce,
         hash,
     };
+
+    Ok(block_header)
+}
+
+/// Parses the raw bitcoin header into a Rust struct
+///
+/// # Arguments
+///
+/// * `header` - An 80-byte Bitcoin header
+pub fn parse_block_header(raw_header: &RawBlockHeader) -> Result<BlockHeader, Error> {
+    let block_header = parse_block_header_lenient(raw_header)?;
+
+    if block_header.version < 4 {
+        // as per bip65, we reject block versions less than 4. Note that the reason
+        // we can hardcode this, is that bitcoin switched to version 4 in december
+        // 2015, and the genesis of the bridge will never be set to a genesis from
+        // before that date.
+        // see https://github.com/bitcoin/bips/blob/master/bip-0065.mediawiki#spv-clients
+        return Err(Error::MalformedHeader);
+    }
 
     Ok(block_header)
 }
@@ -506,6 +523,7 @@ pub(crate) fn extract_op_return_data(output_script: &[u8]) -> Result<Vec<u8>, Er
 pub(crate) mod tests {
     use super::*;
     use crate::{Address, PublicKey, Script};
+    use frame_support::{assert_err, assert_ok};
 
     // examples from https://bitcoin.org/en/developer-reference#block-headers
 
@@ -514,7 +532,7 @@ pub(crate) mod tests {
         let hex_header = sample_block_header();
         let raw_header = RawBlockHeader::from_hex(&hex_header).unwrap();
         let parsed_header = parse_block_header(&raw_header).unwrap();
-        assert_eq!(parsed_header.version, 2);
+        assert_eq!(parsed_header.version, 4);
         assert_eq!(parsed_header.timestamp, 1415239972);
         assert_eq!(
             format!("{:x}", parsed_header.merkle_root),
@@ -526,6 +544,21 @@ pub(crate) mod tests {
         );
         let expected_target = String::from("680733321990486529407107157001552378184394215934016880640");
         assert_eq!(parsed_header.target.to_string(), expected_target);
+    }
+
+    #[test]
+    fn test_parse_block_header_with_too_low_version_fails() {
+        let hex_header_without_version = "000000b6ff0b1b1680a2862a30ca44d346d9e8910d334beb48ca0c00000000000000009d10aa52ee949386ca9385695f04ede270dda20810decd12bc9b048aaab3147124d95a5430c31b18fe9f0864";
+        let valid_header_hex = "04".to_string() + hex_header_without_version;
+        let invalid_header_hex = "03".to_string() + hex_header_without_version;
+
+        assert_ok!(parse_block_header(
+            &RawBlockHeader::from_hex(&valid_header_hex).unwrap()
+        ));
+        assert_err!(
+            parse_block_header(&RawBlockHeader::from_hex(&invalid_header_hex).unwrap()),
+            Error::MalformedHeader
+        );
     }
 
     #[test]
@@ -604,7 +637,7 @@ pub(crate) mod tests {
     }
 
     pub fn sample_block_header() -> String {
-        "02000000".to_owned() + // ............... Block version: 2
+        "04000000".to_owned() + // ............... Block version: 4
             "b6ff0b1b1680a2862a30ca44d346d9e8" + //
             "910d334beb48ca0c0000000000000000" + // ... Hash of previous block's header
             "9d10aa52ee949386ca9385695f04ede2" + //
